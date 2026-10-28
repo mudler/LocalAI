@@ -226,7 +226,7 @@
 .ad-tile__add { display: inline-flex; align-items: center; gap: 4px; }
 .ad-tile[data-state='stopped'] .ad-icon { opacity: 0.5; }
 .ad-tile__side { position: absolute; top: var(--dk-space-2, 8px); right: var(--dk-space-2, 8px); }
-.ad-tile__foot { display: flex; padding: 0 var(--dk-space-3, 12px) var(--dk-space-3, 12px); }
+.ad-tile__foot { display: flex; flex-wrap: wrap; gap: var(--dk-space-2, 8px); padding: 0 var(--dk-space-3, 12px) var(--dk-space-3, 12px); }
 .ad-tile__open:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
 .nav-item--muted { opacity: 0.55; }
 .nav-item--sub { padding-inline-start: 2.25rem; }

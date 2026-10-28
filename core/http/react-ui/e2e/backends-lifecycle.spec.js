@@ -172,16 +172,17 @@ test.describe('Backends lifecycle page', () => {
     await expect(detail.getByRole('alert')).toContainText('registry unavailable')
   })
 
-  test('shows Upgrade All failures in the rendered global inline error', async ({ page }) => {
+  test('shows an Upgrade All failure on its row in the review sheet', async ({ page }) => {
     await page.route('**/api/backends/upgrade/llama-cpp', route => route.fulfill({
       status: 500,
       json: { error: 'upgrade registry unavailable' },
     }))
     await page.goto('/app/backends?view=installed')
 
-    await page.getByRole('button', { name: /update all/i }).click()
+    await page.getByRole('button', { name: /^updates \(1\)/i }).click()
+    await page.getByTestId('update-review-all').click()
 
-    await expect(page.getByRole('alert')).toContainText('upgrade registry unavailable')
+    await expect(page.getByTestId('update-review').getByRole('alert')).toContainText('upgrade registry unavailable')
   })
 
   test('continues Upgrade All after an earlier backend fails', async ({ page }) => {
@@ -206,9 +207,10 @@ test.describe('Backends lifecycle page', () => {
     })
     await page.goto('/app/backends?view=installed')
 
-    await page.getByRole('button', { name: /update all/i }).click()
+    await page.getByRole('button', { name: /^updates \(2\)/i }).click()
+    await page.getByTestId('update-review-all').click()
 
-    await expect(page.getByRole('alert')).toContainText('first registry unavailable')
+    await expect(page.getByTestId('update-review').getByRole('alert')).toContainText('first registry unavailable')
     await expect.poll(() => laterUpgradeRequests).toBe(1)
   })
 

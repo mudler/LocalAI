@@ -78,8 +78,12 @@ Each row shows the backend, its version and its state: **Current**, **Update
 1.2.0**, **Not installed**, **Queued**, **Removing**, or a progress bar while it
 installs, with **Cancel** in the row. A failed install says why, with **Retry**.
 The one action that matters sits in the row (**Install**, **Update**), and the
-chevron opens the row for the rest. **Update all** starts every pending update,
-and **Check for updates** asks the server to check now instead of waiting for
+chevron opens the row for the rest. **Updates (N)** opens a review sheet that
+lists each pending update as installed version to new version; **Update** on a
+row opens the same sheet with that backend checked. Nothing starts until you press
+**Upgrade selected** or **Upgrade all** in the sheet. A backend whose request fails
+does not stop the others, and the sheet reports each one. The upgrades run as
+operations in Activity. **Check for updates** asks the server to check now instead of waiting for
 its next scheduled check. **From URL** installs a backend from an OCI image, a
 URL or a path.
 

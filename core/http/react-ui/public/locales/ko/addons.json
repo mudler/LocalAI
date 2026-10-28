@@ -592,7 +592,17 @@
       "denied": "관리자만 자신의 브라우저 세션에서 할 수 있습니다.",
       "network": "네트워크에 연결할 수 없습니다.",
       "unavailable": "애드온 소유자를 사용할 수 없습니다. 다시 시도하세요."
-    }
+    },
+    "reviewButton": "업데이트 ({{count}})",
+    "reviewTitle": "애드온 업데이트 검토",
+    "reviewDescription": "여기서 선택하기 전에는 아무것도 업데이트되지 않습니다. 각 업데이트는 먼저 애드온 데이터를 백업합니다.",
+    "checkAll": "업데이트 확인",
+    "checkingAll": "확인 중...",
+    "checkAllDone": "애드온 {{count}}개를 확인했습니다.",
+    "checkAllFailed": "{{count}}개는 확인할 수 없었습니다.",
+    "upgradeNamed": "{{name}} 업데이트",
+    "toastDone": "{{name}}을(를) {{version}}(으)로 업데이트했습니다.",
+    "toastFailed": "{{name}}을(를) 업데이트하지 못했습니다: {{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

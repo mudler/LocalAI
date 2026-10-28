@@ -1,0 +1,21 @@
+/* The review step shared by the add-on and backend upgrade lists. */
+.ur-empty { color: var(--color-text-secondary); margin: 0; }
+.ur-all { display: flex; align-items: center; gap: var(--spacing-sm); padding-bottom: var(--spacing-sm); font-size: 0.875rem; color: var(--color-text-secondary); }
+.ur-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--color-border-subtle); }
+.ur-row { display: flex; align-items: flex-start; gap: var(--spacing-sm); padding: var(--spacing-sm) 0; border-bottom: 1px solid var(--color-border-subtle); }
+.ur-row[data-blocked="true"] .ur-row__name { color: var(--color-text-secondary); }
+.ur-row__check { margin-top: 3px; flex: none; }
+.ur-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ur-row__name { font-weight: 600; overflow-wrap: anywhere; }
+.ur-row__versions { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.ur-ver { font-family: var(--font-mono, monospace); }
+.ur-ver--to { color: var(--color-text-primary); }
+.ur-row__blocked { font-size: 0.8125rem; color: var(--color-warning, var(--color-text-secondary)); }
+.ur-row__error { font-size: 0.8125rem; color: var(--color-error); }
+.ur-row__state { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 0.8125rem; color: var(--color-text-secondary); }
+.ur-row__state[data-state="done"] { color: var(--color-success, var(--color-text-primary)); }
+.ur-row__state[data-state="failed"] { color: var(--color-error); }
+.ur-summary { margin: var(--spacing-md) 0 0; font-size: 0.875rem; }
+.ur-summary[data-failed="true"] { color: var(--color-error); }
+.ur-badge { white-space: nowrap; }
+.ur-row__detail { font-size: 0.75rem; color: var(--color-text-muted, var(--color-text-secondary)); overflow-wrap: anywhere; }

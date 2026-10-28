@@ -592,7 +592,17 @@
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
       "network": "无法连接到网络。",
       "unavailable": "附加组件所有者不可用。请重试。"
-    }
+    },
+    "reviewButton": "更新 ({{count}})",
+    "reviewTitle": "查看插件更新",
+    "reviewDescription": "在此处确认之前，不会升级任何内容。每次升级都会先备份插件的数据。",
+    "checkAll": "检查更新",
+    "checkingAll": "正在检查...",
+    "checkAllDone": "已检查 {{count}} 个插件。",
+    "checkAllFailed": "{{count}} 个无法检查。",
+    "upgradeNamed": "升级 {{name}}",
+    "toastDone": "{{name}} 已升级到 {{version}}。",
+    "toastFailed": "{{name}} 未升级：{{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

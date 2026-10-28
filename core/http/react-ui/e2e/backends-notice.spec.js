@@ -12,7 +12,7 @@ test('an update is a row state and a header button, not a banner or a rail', asy
 
   const row = page.locator('[data-entity="llama-cpp"]')
   await expect(row).toContainText('Update 0.9.7')
-  await expect(page.getByRole('button', { name: 'Update all (1)' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Updates (1)' })).toBeVisible()
   await expect(page.locator('.dk-hubtabs [data-hub-tab="runtime"] .dk-hubtab-attn')).toContainText('1')
 
   // Nothing here is a filled card with an edge.

@@ -592,7 +592,17 @@
       "denied": "Das kann nur ein Administrator in der eigenen Browsersitzung tun.",
       "network": "Das Netzwerk ist nicht erreichbar.",
       "unavailable": "Der Add-on-Eigentümer ist nicht verfügbar. Bitte erneut versuchen."
-    }
+    },
+    "reviewButton": "Updates ({{count}})",
+    "reviewTitle": "Add-on-Updates prüfen",
+    "reviewDescription": "Nichts wird aktualisiert, bevor Sie hier auswählen. Jedes Update sichert zuerst die Daten des Add-ons.",
+    "checkAll": "Nach Updates suchen",
+    "checkingAll": "Prüfe...",
+    "checkAllDone": "{{count}} Add-ons geprüft.",
+    "checkAllFailed": "{{count}} konnten nicht geprüft werden.",
+    "upgradeNamed": "{{name}} aktualisieren",
+    "toastDone": "{{name}} auf {{version}} aktualisiert.",
+    "toastFailed": "{{name}} wurde nicht aktualisiert: {{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

@@ -459,13 +459,13 @@ test.describe('Add-ons: installed', () => {
     await expect(page.locator('[data-testid="addon-tile"][data-app="plain"]').getByTestId('update-chip')).toHaveCount(0)
     await page.goto('/app/addons?manage=notes')
     await page.getByTestId('addon-manage').getByRole('button', { name: 'Upgrade' }).click()
-    // The confirmation names the version and digest the owner resolved and
-    // nothing is sent until it is confirmed.
-    const dialog = page.getByTestId('upgrade-confirm')
+    // The review sheet names the version and digest the owner resolved and
+    // nothing is sent until it is confirmed there.
+    const dialog = page.getByTestId('update-review')
     await expect(dialog).toContainText('1.3.0')
-    await expect(dialog).toContainText('sha256:bbbbbbbbbbbb')
+    await expect(dialog.getByTestId('update-review-detail')).toContainText('sha256:bbbbbbbbbbbb')
     expect(state.log.upgrade).toHaveLength(0)
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
+    await dialog.getByTestId('update-review-selected').click()
     await expect.poll(() => state.log.upgrade.length).toBe(1)
     const sent = state.log.upgrade[0]
     expect(sent.id).toBe('notes')

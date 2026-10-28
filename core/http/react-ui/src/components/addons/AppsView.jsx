@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
@@ -19,10 +19,14 @@ import ConfirmDialog from '../ConfirmDialog'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { UnknownNotice } from './AddonBits'
-import { OperatorFacts, UpgradeSummary } from './OperatorFacts'
-import { AddonsError } from '../../utils/addonsApi'
+import { OperatorFacts } from './OperatorFacts'
+import UpdateReviewSheet from '../UpdateReviewSheet'
 import { newOperationId } from '../catalog/catalogState'
-import { updateView, upgradeBody } from './updateState'
+import { updateView } from './updateState'
+import { reviewItems, upgradeFailureWords, upgradeVersionOf } from './updateReview'
+import { runBatch } from '../../utils/updateReview'
+import { addonUpgrades } from '../../utils/addonUpgrades'
+import { useAddonUpgrades } from '../../hooks/useAddonUpgrades'
 import FirstRun from './FirstRun'
 import { listState } from './addonState'
 import { describeError, describeOutcome } from './errors'
@@ -92,19 +96,24 @@ export default function AppsView({ api, adapter }) {
   const [installedInfo, setInstalledInfo] = useState({})
   const [installedReload, setInstalledReload] = useState(0)
   const [checks, setChecks] = useState({})
-  const [upgraded, setUpgraded] = useState({})
   const actions = useAddonActions(api, {
-    onSettled: (key, result) => {
+    onSettled: () => {
       reloadRef.current()
       setInstalledReload(n => n + 1)
-      // The key names the generation the click saw, which the list moves past
-      // on success, so the outcome of an upgrade is kept by add-on.
-      const [verb, id] = String(key).split(':')
-      if (verb === 'upgrade' && result && result.outcome === 'completed') setUpgraded(u => ({ ...u, [id]: true }))
-      if (verb === 'upgrade' && result && result.outcome !== 'completed') setUpgraded(u => { const n = { ...u }; delete n[id]; return n })
     },
     adapter,
   })
+  // The upgrades this browser started live in a store of their own, so one
+  // goes on when this page is left. The lists are read again whenever one ends.
+  const upgrades = useAddonUpgrades()
+  const upgradeOf = useCallback((id) => upgrades.live.find(op => op.addonId === id) || null, [upgrades.live])
+  const upgradedIds = useMemo(() => new Set(upgrades.records.filter(r => r.outcome === 'completed').map(r => r.addonId)), [upgrades.records])
+  const endedCount = upgrades.records.length
+  useEffect(() => {
+    if (endedCount === 0) return
+    reloadRef.current()
+    setInstalledReload(n => n + 1)
+  }, [endedCount])
 
   const startStop = useCallback((app, verb) => {
     actions.run(`${verb}:${app.id}:${app.generation}`, {
@@ -130,24 +139,6 @@ export default function AppsView({ api, adapter }) {
     })
   }, [actions, adapter, api])
 
-  // The explicit upgrade: the digest of the installed package this page showed
-  // and the digest of the candidate the owner's check resolved. The owner
-  // checks both again and refuses before it changes anything.
-  const [confirmUpgrade, setConfirmUpgrade] = useState(null)
-  const upgrade = useCallback((addon) => {
-    actions.run(`upgrade:${addon.id}:${addon.generation}`, {
-      addonId: addon.id,
-      submit: (operationId, signal) => {
-        const body = upgradeBody(addon, operationId)
-        if (!body) return Promise.reject(new AddonsError({ kind: 'invalid' }))
-        return api.updates.upgrade(addon.id, body, signal)
-      },
-      verify: async (signal) => {
-        const now = (await api.installed(signal)).find(a => a.id === addon.id)
-        return Boolean(now) && now.generation > addon.generation
-      },
-    })
-  }, [actions, api])
   // Asks the owner to read the library again. It never applies anything.
   const aborter = useRef(null)
   useEffect(() => {
@@ -166,6 +157,53 @@ export default function AppsView({ api, adapter }) {
       setChecks(c => ({ ...c, [addon.id]: { phase: 'error', error } }))
     }
   }, [api])
+
+  const outlet = useOutletContext()
+  const addToast = outlet?.addToast
+  const installedList = useMemo(() => Object.values(installedInfo), [installedInfo])
+  const pending = useMemo(() => reviewItems(installedList, t), [installedList, t])
+
+  // Reads the library of every installed add-on again. Only reads: it never
+  // applies anything, and one add-on that cannot be checked does not stop the
+  // rest.
+  const [checkingAll, setCheckingAll] = useState(false)
+  const checkAll = useCallback(async () => {
+    const signal = aborter.current.signal
+    setCheckingAll(true)
+    let failed = 0
+    for (const addon of installedList) {
+      try {
+        await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
+      } catch (error) {
+        if (error && error.name === 'AbortError') return
+        failed += 1
+      }
+    }
+    setCheckingAll(false)
+    setInstalledReload(n => n + 1)
+    addToast?.(failed > 0 ? t('updates.checkAllFailed', { count: failed }) : t('updates.checkAllDone', { count: installedList.length }), failed > 0 ? 'error' : 'info')
+  }, [api, installedList, addToast, t])
+
+  // The review sheet: one place where upgrades are chosen and started.
+  const [review, setReview] = useState(null)
+  const installedRef = useRef(installedInfo)
+  installedRef.current = installedInfo
+  const runReview = useCallback((chosen, onProgress) => runBatch(chosen, async (item) => {
+    const addon = installedRef.current[item.key]
+    if (!addon) return { ok: false, message: upgradeFailureWords('stale_installed', t) }
+    const out = await addonUpgrades.start(api, addon)
+    return { ok: out.ok, message: out.ok ? '' : upgradeFailureWords(out.message, t) }
+  }, { onProgress }), [api, t])
+  const reviewSettled = useCallback((results, chosen) => {
+    for (const r of results) {
+      const item = chosen.find(i => i.key === r.key)
+      const name = item ? item.name : r.key
+      if (r.ok) addToast?.(t('updates.toastDone', { name, version: item ? item.to : '' }), 'success')
+      else addToast?.(t('updates.toastFailed', { name, message: r.message }), 'error')
+    }
+    setInstalledReload(n => n + 1)
+    reloadRef.current()
+  }, [addToast, t])
 
   const nav = useNavigation()
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
@@ -193,14 +231,18 @@ export default function AppsView({ api, adapter }) {
   const detailApp = detail ? detail.app : null
   const detailAppId = detailApp ? detailApp.id : ''
   const detailAppGeneration = detailApp ? detailApp.generation : 0
+  // The installed records carry the owner's update answer with the versions
+  // and digests, which the apps list does not. An administrator reads them
+  // for the whole page (the update badge, the cards, the review sheet).
+  const listSignature = state.apps.map(a => `${a.id}:${a.generation}:${a.update || ''}`).join(',')
   useEffect(() => {
-    if (!isAdmin || !detailAppId) return undefined
+    if (!isAdmin || !canList) return undefined
     const ctl = new AbortController()
     api.installed(ctl.signal)
       .then(list => setInstalledInfo(Object.fromEntries(list.map(a => [a.id, a]))))
       .catch(() => { /* the pane says the source is not known */ })
     return () => ctl.abort()
-  }, [api, isAdmin, detailAppId, detailAppGeneration, installedReload])
+  }, [api, isAdmin, canList, listSignature, detailAppId, detailAppGeneration, installedReload])
 
   const onPin = async (id) => {
     if (pinnedIds.has(id)) { await nav.unpin(id); return }
@@ -255,6 +297,16 @@ export default function AppsView({ api, adapter }) {
           />
           {/* One way into Browse per screen: the first-run card carries it while
               nothing is installed, and the bar carries it afterwards. */}
+          {isAdmin && !firstRun && pending.length > 0 && (
+            <button type="button" className="dk-btn dk-btn--sm dk-btn--primary ur-badge" onClick={() => setReview({ preselect: [] })} data-testid="addons-updates">
+              <Icon name="arrow-up" /> {t('updates.reviewButton', { count: pending.length })}
+            </button>
+          )}
+          {isAdmin && !firstRun && installedList.length > 0 && (
+            <button type="button" className="dk-btn dk-btn--sm dk-btn--ghost" disabled={checkingAll} onClick={checkAll} data-testid="addons-check-all">
+              <Icon name={checkingAll ? 'spinner' : 'refresh'} spin={checkingAll} /> {checkingAll ? t('updates.checkingAll') : t('updates.checkAll')}
+            </button>
+          )}
           {isAdmin && !firstRun && (
             <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
           )}
@@ -273,7 +325,7 @@ export default function AppsView({ api, adapter }) {
           ) : (
           <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
             {shown.map(tile => (
-              <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined} />
+              <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined} upgradeTo={isAdmin ? upgradeVersionOf(installedInfo[tile.id]) : ''} onUpgrade={isAdmin ? (id) => setReview({ preselect: [id] }) : undefined} />
             ))}
           </ul>
         )}
@@ -303,9 +355,10 @@ export default function AppsView({ api, adapter }) {
                   language={i18n.language}
                   actions={actions}
                   check={checks[detail.id]}
-                  upgraded={Boolean(upgraded[detail.id])}
+                  upgraded={upgradedIds.has(detail.id)}
+                  upgradeOp={upgradeOf(detail.id)}
                   onCheck={() => check(installedInfo[detail.id])}
-                  onUpgrade={() => setConfirmUpgrade(installedInfo[detail.id])}
+                  onUpgrade={() => setReview({ preselect: [detail.id] })}
                 />
               </details>
             )}
@@ -325,14 +378,17 @@ export default function AppsView({ api, adapter }) {
       {manageId && state.status === 'ready' && !detail && (
         <div className="op-notice" role="status"><Icon name="info" /><span>{t('installed.missing', { id: manageId })}</span></div>
       )}
-      <ConfirmDialog
-        open={Boolean(confirmUpgrade)}
-        title={confirmUpgrade ? t('updates.confirm.title', { name: confirmUpgrade.title, version: updateView(confirmUpgrade.update).version }) : ''}
-        message={confirmUpgrade ? <UpgradeSummary addon={confirmUpgrade} t={t} /> : null}
-        confirmLabel={t('updates.confirm.action')}
-        onConfirm={() => { const a = confirmUpgrade; setConfirmUpgrade(null); upgrade(a) }}
-        onCancel={() => setConfirmUpgrade(null)}
-      />
+      {review && (
+        <UpdateReviewSheet
+          title={t('updates.reviewTitle')}
+          description={t('updates.reviewDescription')}
+          items={pending}
+          preselect={review.preselect}
+          run={runReview}
+          onSettled={reviewSettled}
+          onClose={() => setReview(null)}
+        />
+      )}
       {limit && (
         <SideSheet title={t('drawer.limitTitle')} onClose={() => setLimit(false)} closeLabel={t('drawer.close')} testId="pin-limit">
           <p>{t('drawer.limitBody')}</p>
