@@ -79,8 +79,9 @@ test('an enabled connector is in the tools panel, its app shows live under the t
   expect(watch.problems().filter(p => !/403/.test(p))).toEqual([])
 })
 
+// A tool name that two connectors share is offered under each connector's name
+// ("<connector>__<tool>"), so neither hides the other and the model can call both.
 test('two connectors that offer a tool of the same name still let the model call it', async ({ page, request }) => {
-  test.skip(true, 'known gap: UI-04 a tool name two connectors share is offered by neither, and the turn ends with a generic error')
   await setAllowPrivate(request, true)
   const ids = []
   for (const n of ['one', 'two']) {
@@ -88,8 +89,11 @@ test('two connectors that offer a tool of the same name still let the model call
     ids.push((await r.json()).id)
   }
   try {
-    await startChat(page, `what time ADDON_TOOL_CALL:get-time:${b64({})}`)
+    const id = await startChat(page, `what time ADDON_TOOL_CALL:dup-two__get-time:${b64({})}`)
     await expect(page.getByTestId('chat-app').locator('iframe').first()).toBeVisible({ timeout: 20_000 })
+    const lines = (await (await request.get(`/api/chats/${id}/messages`)).json()).messages
+    const call = lines.find(m => m.role === 'tool' && m.text.startsWith('dup-two__get-time'))
+    expect(call?.app?.server).toBe(`connector:${ids[1]}`)
   } finally {
     for (const id of ids) await request.delete(`/api/chats/mcp-connectors/${id}`)
   }

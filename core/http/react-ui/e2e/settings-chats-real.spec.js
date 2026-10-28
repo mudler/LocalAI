@@ -60,9 +60,12 @@ test.describe('Chat settings against the real server', () => {
   })
 
   test('the group captions of the chats settings do not name the removed agent pool', async ({ page }) => {
-    test.skip(true, 'known gap: UI-05 the captions still read AGENT POOL and AGENT JOBS')
     await page.goto('/app/settings')
     await page.getByRole('button', { name: /Chats and collections/ }).click()
     await expect(page.locator('main')).not.toContainText(/AGENT POOL|AGENT JOBS/i)
+    // Each caption heads one run of fields: the collections, then the chats.
+    const heads = await page.locator('main .st-h3').allTextContents()
+    expect(heads.slice(0, 2)).toEqual(['Collections', 'Chats'])
+    expect(new Set(heads).size).toBe(heads.length)
   })
 })
