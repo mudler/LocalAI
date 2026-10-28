@@ -489,7 +489,10 @@ func TestSessionsAreCachedPerConnectorAndClosedOnEditDisableAndDelete(t *testing
 		tools, _ := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
 		return len(tools)
 	}
-	if resolve() == 0 || resolve() == 0 {
+	// Call twice: with || the second call ran only when the first found none,
+	// so the cache was never asked.
+	first, second := resolve(), resolve()
+	if first == 0 || second == 0 {
 		t.Fatal("no tools")
 	}
 	if n := f.inits.Load(); n != 1 {
