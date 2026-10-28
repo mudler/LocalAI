@@ -21,6 +21,11 @@ import (
 // suspended.
 const DefaultIdleSuspend = 10 * time.Minute
 
+// DefaultIdleClose is how long a chat may sit unused before the manager closes
+// it. A closed chat holds no event goroutine, channel or harness; Open starts
+// it again from the stored transcript.
+const DefaultIdleClose = time.Hour
+
 // Options configures a Manager.
 type Options struct {
 	Workspace workspace.Store
@@ -31,7 +36,10 @@ type Options struct {
 	// Image is an OCI reference with digest; empty means the backend default.
 	Image       string
 	IdleSuspend time.Duration // default DefaultIdleSuspend
-	MaxLiveVMs  int           // default 0: no cap
+	// IdleClose closes a chat with no turn and no use for this long. Default
+	// DefaultIdleClose; a negative value never closes an idle chat.
+	IdleClose  time.Duration
+	MaxLiveVMs int // default 0: no cap
 	// SystemPrompt is product text. The session appends the workspace layout.
 	SystemPrompt string
 	// StateDir is a folder for the harness's private files, one sub-folder
@@ -64,6 +72,9 @@ type Manager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup // turn goroutines
+	quit   chan struct{}  // ends the janitor; Close closes it once
+	quitMu sync.Once
+	jwg    sync.WaitGroup // the janitor
 
 	openMu   sync.Mutex // serializes Open and Delete
 	layoutMu sync.Mutex // chat folder names
@@ -94,6 +105,9 @@ func New(o Options) (*Manager, error) {
 	if o.IdleSuspend <= 0 {
 		o.IdleSuspend = DefaultIdleSuspend
 	}
+	if o.IdleClose == 0 {
+		o.IdleClose = DefaultIdleClose
+	}
 	if err := os.MkdirAll(o.StateDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -102,7 +116,57 @@ func New(o Options) (*Manager, error) {
 		log = slog.Default()
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Manager{o: o, log: log, ctx: ctx, cancel: cancel, chats: map[string]*Chat{}, live: map[*Chat]struct{}{}, gone: map[string]bool{}}, nil
+	m := &Manager{o: o, log: log, ctx: ctx, cancel: cancel, quit: make(chan struct{}), chats: map[string]*Chat{}, live: map[*Chat]struct{}{}, gone: map[string]bool{}}
+	if o.IdleClose > 0 {
+		m.jwg.Add(1)
+		go m.janitor()
+	}
+	return m, nil
+}
+
+// janitor closes the chats that nobody has used for IdleClose. Without it a
+// chat that was opened once keeps its event goroutine and its channel for the
+// life of the process.
+func (m *Manager) janitor() {
+	defer m.jwg.Done()
+	tick := min(m.o.IdleClose/4, time.Minute)
+	t := time.NewTicker(max(tick, time.Millisecond))
+	defer t.Stop()
+	for {
+		select {
+		case <-m.quit:
+			return
+		case <-t.C:
+			m.closeIdleChats()
+		}
+	}
+}
+
+// closeIdleChats closes each open chat that has no turn and was last used
+// more than IdleClose ago. It holds openMu while it decides and closes, so an
+// Open that is about to hand the chat to a caller either finishes first, and
+// refreshes the use time, or waits.
+func (m *Manager) closeIdleChats() {
+	m.openMu.Lock()
+	defer m.openMu.Unlock()
+	if m.isClosed() {
+		return
+	}
+	m.mu.Lock()
+	var idle []*Chat
+	for _, c := range m.chats {
+		if c.idleForClose(m.o.IdleClose) {
+			idle = append(idle, c)
+		}
+	}
+	m.mu.Unlock()
+	for _, c := range idle {
+		ctx, cancel := context.WithTimeout(m.ctx, checkpointLimit+time.Minute)
+		if err := c.close(ctx); err != nil {
+			m.log.Warn("session: could not close an idle chat", "chat", c.id, "error", err)
+		}
+		cancel()
+	}
 }
 
 func (m *Manager) isClosed() bool {
@@ -159,6 +223,7 @@ func (m *Manager) Open(ctx context.Context, a workspace.Actor, chatID string) (*
 		if err := c.reopen(ctx); err != nil {
 			return nil, err
 		}
+		c.lastUse.Store(time.Now().UnixNano()) // not idle: a caller has the chat now
 		return c, nil
 	}
 
@@ -274,6 +339,8 @@ func (m *Manager) Close(ctx context.Context) error {
 	}
 	m.mu.Unlock()
 	m.openMu.Unlock()
+	m.quitMu.Do(func() { close(m.quit) })
+	m.jwg.Wait()
 	var errs []error
 	for _, c := range chats {
 		if err := c.close(ctx); err != nil {

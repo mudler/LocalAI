@@ -129,10 +129,21 @@ type vmState struct {
 
 func newChat(m *Manager, a workspace.Actor, rec ChatRecord, view workspace.View) *Chat {
 	a = copyActor(a)
-	return &Chat{
+	c := &Chat{
 		m: m, id: rec.ID, actor: a, user: userActor(a), view: view, rec: rec,
 		dir: m.chatDir(rec.ID), turn: rec.Turns, bus: newEventBus(),
 	}
+	c.lastUse.Store(time.Now().UnixNano())
+	return c
+}
+
+// idleForClose reports whether the chat is open, has no turn and was last used
+// more than d ago.
+func (c *Chat) idleForClose(d time.Duration) bool {
+	c.mu.Lock()
+	busy := c.closed || c.running || c.swapping || len(c.pending) > 0
+	c.mu.Unlock()
+	return !busy && time.Since(time.Unix(0, c.lastUse.Load())) > d
 }
 
 // access returns the actor, the user actor and the view of the chat.
