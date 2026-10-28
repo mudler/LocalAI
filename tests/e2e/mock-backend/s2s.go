@@ -32,6 +32,20 @@ import (
 //   - response.cancel: stops the reply at once and sends response.done with
 //     status cancelled.
 //
+// Where it matters, it keeps the limits of the llama-cpp session:
+//
+//   - output_modalities from the config is a fixed session mode. Without one,
+//     each response picks its mode from the tools it has then: the model
+//     chooses with tools, text plus audio without. A forced text plus audio
+//     mode with tools makes the model read the tool call out loud.
+//   - after the first commit or message, session.update of instructions, voice
+//     or tools is refused with an error that does not belong to a response, and
+//     a running reply goes on.
+//   - committing an empty input buffer is an error that does not end a reply.
+//   - response.create while a reply runs is refused.
+//   - an error that ends the request of a response.create carries
+//     "response_scoped": true in its meta; others do not.
+//
 // Everything is driven from one receive loop. Each response runs on its own
 // goroutine and shares no state with the loop beyond its plan, so only the
 // gRPC send is locked.
@@ -65,6 +79,7 @@ type s2sStream struct {
 	configured       bool
 	tools            []string
 	outputModalities []string
+	started          bool
 	turnPCM          []byte
 	lastRMS          float64
 	toolOutputSeen   bool
@@ -86,6 +101,8 @@ type s2sPlan struct {
 	rms      int
 	textOnly bool
 	frames   int
+	// spoken is the text and audio of a model that reads a tool call out loud.
+	spoken string
 }
 
 // AudioToAudioStream implements the bidirectional S2S RPC.
@@ -130,7 +147,10 @@ func (s *s2sStream) configure(c *pb.AudioToAudioConfig) bool {
 		return false
 	}
 	s.stopResponse()
-	if !s.configured || c.GetReset_() {
+	first := !s.configured || c.GetReset_()
+	if first {
+		s.started = false
+		s.outputModalities = nil
 		s.turnPCM = nil
 		s.lastRMS = 0
 		s.toolOutputSeen = false
@@ -143,7 +163,9 @@ func (s *s2sStream) configure(c *pb.AudioToAudioConfig) bool {
 		})
 	}
 	s.tools = tools
-	s.outputModalities = parseS2SModalities(c.GetParams()["output_modalities"])
+	if mods := parseS2SModalities(c.GetParams()["output_modalities"]); mods != nil {
+		s.outputModalities = mods
+	}
 	return true
 }
 
@@ -155,6 +177,11 @@ func (s *s2sStream) frame(f *pb.AudioToAudioFrame) {
 }
 
 func (s *s2sStream) commit() {
+	if len(s.turnPCM) == 0 {
+		s.sendError("input_audio_buffer_commit_empty", "input_audio_buffer.commit: the buffer is empty")
+		return
+	}
+	s.started = true
 	s.lastRMS = rmsS16LE(s.turnPCM)
 	s.turnPCM = nil
 	s.send("input_audio_buffer.committed", nil, 0, nil)
@@ -192,8 +219,10 @@ func (s *s2sStream) itemCreate(payload []byte) {
 	}
 	switch item.Type {
 	case "function_call_output":
+		s.started = true
 		s.toolOutputSeen = true
 	case "message":
+		s.started = true
 	default:
 		s.sendError("invalid_request_error", "unsupported item type "+item.Type)
 	}
@@ -202,11 +231,28 @@ func (s *s2sStream) itemCreate(payload []byte) {
 func (s *s2sStream) sessionUpdate(payload []byte) {
 	var upd struct {
 		Tools            json.RawMessage `json:"tools"`
+		Instructions     string          `json:"instructions"`
+		Voice            string          `json:"voice"`
 		OutputModalities []string        `json:"output_modalities"`
 	}
 	if err := json.Unmarshal(payload, &upd); err != nil {
 		s.sendError("invalid_request_error", "session.update: "+err.Error())
 		return
+	}
+	if s.started {
+		for _, f := range []struct {
+			name string
+			set  bool
+		}{
+			{"instructions", upd.Instructions != ""},
+			{"tools", len(upd.Tools) > 0 && string(upd.Tools) != "null"},
+			{"voice", upd.Voice != ""},
+		} {
+			if f.set {
+				s.sendError("invalid_request_error", "session.update: "+f.name+" cannot change after the first audio or message")
+				return
+			}
+		}
 	}
 	if len(upd.Tools) > 0 && string(upd.Tools) != "null" {
 		tools, err := parseS2STools(string(upd.Tools))
@@ -228,7 +274,11 @@ func (s *s2sStream) sessionUpdate(payload []byte) {
 
 func (s *s2sStream) responseCreate(payload []byte) {
 	if !s.configured {
-		s.sendError("invalid_request_error", "response.create before config")
+		s.sendScopedError("invalid_request_error", "response.create before config")
+		return
+	}
+	if s.resp != nil && !s.responseFinished() {
+		s.sendScopedError("conversation_already_has_active_response", "response.create: a response is already running")
 		return
 	}
 	var req struct {
@@ -237,16 +287,21 @@ func (s *s2sStream) responseCreate(payload []byte) {
 	}
 	if len(payload) > 0 {
 		if err := json.Unmarshal(payload, &req); err != nil {
-			s.sendError("invalid_request_error", "response.create: "+err.Error())
+			s.sendScopedError("invalid_request_error", "response.create: "+err.Error())
 			return
 		}
 	}
-	// A new response replaces one still running, as upstream does.
 	s.stopResponse()
 
+	// The mode is picked when the response starts: a response option, else the
+	// fixed session mode, else the default for the tools set now.
 	modalities := s.outputModalities
 	if len(req.OutputModalities) > 0 {
 		modalities = req.OutputModalities
+	}
+	forced := len(modalities) > 0
+	if !forced && len(s.tools) == 0 {
+		modalities = []string{"text", "audio"}
 	}
 	textOnly := len(modalities) == 1 && modalities[0] == "text"
 
@@ -254,6 +309,10 @@ func (s *s2sStream) responseCreate(payload []byte) {
 	if len(s.tools) > 0 && !s.toolOutputSeen {
 		s.calls++
 		plan = s2sPlan{toolName: s.tools[0], callID: fmt.Sprintf("call_mock_%d", s.calls)}
+		if forced && !textOnly {
+			// Forced text plus audio: the model reads the call out loud.
+			plan.spoken = "calling " + s.tools[0]
+		}
 	} else {
 		frames := mockS2SFrames()
 		if req.MaxOutputTokens > 0 && req.MaxOutputTokens < frames {
@@ -304,6 +363,10 @@ func (s *s2sStream) runResponse(r *s2sResponse, p s2sPlan) {
 			s.finish("cancelled", 0, "")
 			return
 		default:
+		}
+		if p.spoken != "" {
+			s.send("response.audio_transcript.delta", nil, 0, map[string]any{"delta": p.spoken})
+			s.send("response.audio.delta", s2sToneFrame(0), mockS2SOutputRate, nil)
 		}
 		s.send("response.function_call_arguments.done", nil, 0, map[string]any{
 			"call_id":   p.callID,
@@ -358,6 +421,11 @@ func (s *s2sStream) finish(status string, frames int, text string) {
 
 func (s *s2sStream) sendError(typ, msg string) {
 	s.send("error", nil, 0, map[string]any{"type": typ, "message": msg})
+}
+
+// sendScopedError reports that a response.create did not start a response.
+func (s *s2sStream) sendScopedError(typ, msg string) {
+	s.send("error", nil, 0, map[string]any{"type": typ, "message": msg, "response_scoped": true})
 }
 
 // send writes one event. meta is JSON-encoded; nil means "{}". Errors are

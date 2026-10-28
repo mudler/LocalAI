@@ -311,3 +311,90 @@ func eventNames(events []*pb.AudioToAudioResponse) []string {
 	}
 	return names
 }
+
+func configWithModalities(tools, modalities string) *pb.AudioToAudioRequest {
+	return &pb.AudioToAudioRequest{Payload: &pb.AudioToAudioRequest_Config{
+		Config: &pb.AudioToAudioConfig{Tools: tools, Params: map[string]string{"output_modalities": modalities}},
+	}}
+}
+
+func TestMockS2SToolCallModeFollowsTheTools(t *testing.T) {
+	spoken := func(stream pb.Backend_AudioToAudioStreamClient) int {
+		sendS2S(t, stream, controlReq("response.create", ""))
+		n := 0
+		for _, evt := range untilDone(t, stream) {
+			if evt.GetEvent() == "response.audio.delta" {
+				n++
+			}
+		}
+		return n
+	}
+
+	// No modalities in the config: the model chooses, so a tool call is silent.
+	auto := openS2S(t, startMockS2S(t))
+	sendS2S(t, auto, configReq(weatherTool))
+	recvS2S(t, auto)
+	if n := spoken(auto); n != 0 {
+		t.Fatalf("a tool call in the default mode sent %d audio frames", n)
+	}
+
+	// Text plus audio fixed at open: the model reads the call out loud.
+	forced := openS2S(t, startMockS2S(t))
+	sendS2S(t, forced, configWithModalities(weatherTool, `["text","audio"]`))
+	recvS2S(t, forced)
+	if n := spoken(forced); n == 0 {
+		t.Fatal("a tool call in the fixed text plus audio mode was silent")
+	}
+}
+
+func TestMockS2SRefusesLateSessionChanges(t *testing.T) {
+	stream := openS2S(t, startMockS2S(t))
+	sendS2S(t, stream, configReq(""))
+	recvS2S(t, stream)
+
+	sendS2S(t, stream, controlReq("session.update", `{"voice":"male"}`))
+	if evt := recvS2S(t, stream); evt.GetEvent() != "session.updated" {
+		t.Fatalf("a voice change before the first turn got %q", evt.GetEvent())
+	}
+	sendS2S(t, stream, controlReq("conversation.item.create", `{"type":"message"}`))
+	sendS2S(t, stream, controlReq("session.update", `{"voice":"female"}`))
+	evt := recvS2S(t, stream)
+	if evt.GetEvent() != "error" || metaOf(t, evt)["response_scoped"] != nil {
+		t.Fatalf("a late voice change got %q %v, want an error outside a response", evt.GetEvent(), metaOf(t, evt))
+	}
+}
+
+func TestMockS2SUnrelatedErrorsKeepTheReplyRunning(t *testing.T) {
+	t.Setenv("MOCK_S2S_FRAMES", "10")
+	stream := openS2S(t, startMockS2S(t))
+	sendS2S(t, stream, configReq(""))
+	recvS2S(t, stream)
+
+	sendS2S(t, stream, controlReq("response.create", ""))
+	sendS2S(t, stream, controlReq("input_audio_buffer.commit", ""))
+	sendS2S(t, stream, controlReq("response.create", ""))
+
+	var errTypes []string
+	var done bool
+	for !done {
+		evt := recvS2S(t, stream)
+		switch evt.GetEvent() {
+		case "error":
+			m := metaOf(t, evt)
+			typ, _ := m["type"].(string)
+			errTypes = append(errTypes, typ)
+			scoped := m["response_scoped"] == true
+			if scoped != (typ == "conversation_already_has_active_response") {
+				t.Fatalf("error %s response_scoped = %v", typ, scoped)
+			}
+		case "response.done":
+			done = true
+			if metaOf(t, evt)["status"] != "completed" {
+				t.Fatalf("the reply was cut short: %v", metaOf(t, evt))
+			}
+		}
+	}
+	if len(errTypes) != 2 || errTypes[0] != "input_audio_buffer_commit_empty" || errTypes[1] != "conversation_already_has_active_response" {
+		t.Fatalf("errors = %v", errTypes)
+	}
+}
