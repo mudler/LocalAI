@@ -177,6 +177,10 @@ func (c *Chat) restartHarness(ctx context.Context) error {
 	c.mu.Lock()
 	c.closed = true
 	c.mu.Unlock()
+	// Say why before the stream ends: a consumer that only sees the channel
+	// close cannot tell a failure from a normal end, and a message that was
+	// accepted would never get an answer.
+	c.emit(Event{Kind: KindError, Text: reasonAgent, Fatal: true})
 	c.evMu.RLock()
 	b := c.bus
 	c.evMu.RUnlock()
