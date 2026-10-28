@@ -287,8 +287,8 @@ var _ = Describe("MCP connectors", Label("platform", "mcp"), Ordered, func() {
 			Expect(res["tools"]).To(ContainElement("whoami_env"))
 
 			chat := admin.newChat(nil)
-			// Two connectors offer whoami_env now, so each name carries its connector's name.
-			msgs := admin.turn(chat, callMarker("localcmd_whoami_env", obj{"text": ""})+" go")
+			// Two connectors offer whoami_env now, so each name carries its connector's lower-case name and two underscores.
+			msgs := admin.turn(chat, callMarker("localcmd__whoami_env", obj{"text": ""})+" go")
 			results := strings.Join(toolResults(msgs), "\n")
 			Expect(results).To(ContainSubstring("E2E_SECRET_SHA="+fmt.Sprintf("%x", sha256.Sum256([]byte("stdio-ENV-SECRET")))[:12]), fmt.Sprintf("%+v", msgs))
 			Expect(results).NotTo(ContainSubstring("LOCALAI_E2E_LEAK"), "the process environment reached the local command")
@@ -298,7 +298,7 @@ var _ = Describe("MCP connectors", Label("platform", "mcp"), Ordered, func() {
 
 		It("puts the connector's name before a tool that two connectors offer, so neither shadows the other", func() {
 			chat := admin.newChat(nil)
-			msgs := admin.turn(chat, callMarker("Fixture_echo", obj{"text": "prefixed"})+" go")
+			msgs := admin.turn(chat, callMarker("fixture__echo", obj{"text": "prefixed"})+" go")
 			Expect(anyContains(toolResults(msgs), "echo:prefixed")).To(BeTrue(), fmt.Sprint(toolResults(msgs)))
 			msgs = admin.turn(chat, callMarker("echo", obj{"text": "bare"})+" go")
 			Expect(anyContains(toolResults(msgs), "echo:bare")).To(BeFalse(), "the bare name still works although two connectors offer it")

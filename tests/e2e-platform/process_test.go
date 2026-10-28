@@ -52,8 +52,8 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 			for _, args := range [][]string{{"run", "--help"}, {"--help"}, {"agent-worker", "--help"}} {
 				out, err := run(60*time.Second, nil, args...)
 				Expect(err).ToNot(HaveOccurred(), out)
-				for _, gone := range []string{"AGENT_POOL", "agent-pool", "AGENT_JOB", "AGENT_HUB", "LOCALAI_DISABLE_AGENTS",
-					"LOCALAI_API_TOKEN", "LOCALAI_AGENT_SUBJECT", "LOCALAI_AGENT_QUEUE", "MCP_CI_JOB", "localagi", "LocalAGI"} {
+				for _, gone := range []string{"AGENT_POOL", "agent-pool", "AGENT_HUB", "LOCALAI_DISABLE_AGENTS",
+					"LOCALAI_API_TOKEN", "LOCALAI_AGENT_SUBJECT", "LOCALAI_AGENT_QUEUE", "localagi", "LocalAGI"} {
 					Expect(out).NotTo(ContainSubstring(gone), strings.Join(args, " ")+" shows a removed option")
 				}
 			}
@@ -94,9 +94,14 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 		})
 
 		It("answers the removed APIs with 404 and keeps the new ones", func() {
-			for _, p := range []string{"/api/agents", "/api/agents/skills", "/api/agent/tasks", "/api/agent/jobs", "/api/conversations"} {
+			for _, p := range []string{"/api/agents", "/api/agents/skills", "/api/conversations"} {
 				code, out := in.api.do(http.MethodGet, p, nil)
 				Expect(code).To(Equal(http.StatusNotFound), p+": "+string(out))
+			}
+			// The agent jobs stayed: the tasks and jobs routes answer.
+			for _, p := range []string{"/api/agent/tasks", "/api/agent/jobs"} {
+				code, out := in.api.do(http.MethodGet, p, nil)
+				Expect(code).To(Equal(http.StatusOK), p+": "+string(out))
 			}
 		})
 
@@ -114,7 +119,6 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 				"LOCALAI_AGENT_POOL_TIMEOUT":       "5m",
 				"LOCALAI_AGENT_POOL_ENABLE_SKILLS": "true",
 				"LOCALAI_AGENT_HUB_URL":            "https://example.invalid/hub",
-				"LOCALAI_AGENT_JOB_RETENTION_DAYS": "3",
 			}})
 			in.api.mustJSON(http.MethodGet, "/api/chats", nil, http.StatusOK)
 			var warns []string
@@ -124,7 +128,7 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 				}
 			}
 			Expect(warns).To(HaveLen(1), in.logs())
-			for _, name := range []string{"LOCALAI_AGENT_POOL_TIMEOUT", "LOCALAI_AGENT_POOL_ENABLE_SKILLS", "LOCALAI_AGENT_HUB_URL", "LOCALAI_AGENT_JOB_RETENTION_DAYS"} {
+			for _, name := range []string{"LOCALAI_AGENT_POOL_TIMEOUT", "LOCALAI_AGENT_POOL_ENABLE_SKILLS", "LOCALAI_AGENT_HUB_URL"} {
 				Expect(warns[0]).To(ContainSubstring(name))
 			}
 			Expect(warns[0]).NotTo(ContainSubstring("example.invalid"), "the warning must name the options, not their values")

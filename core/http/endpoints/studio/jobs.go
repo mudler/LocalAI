@@ -133,7 +133,7 @@ func (h *Handlers) refuseTaskModel(c echo.Context, model string) bool {
 
 // CreateTask creates an agent task.
 // @Summary Create an agent task.
-// @Description A task is a prompt template (Go template syntax, parameters as {{.name}}) run by a model, or by a saved agent (agent_id), as a background chat. webhooks are called when a job of the task ends; header values are never returned. cron, cron_parameters and multimedia_sources are refused: schedule a saved agent with a trigger. Needs the mcp_jobs feature.
+// @Description A task is a prompt template (Go template syntax, each parameter written as .name between double curly braces) run by a model, or by a saved agent (agent_id), as a background chat. webhooks are called when a job of the task ends; header values are never returned. cron, cron_parameters and multimedia_sources are refused: schedule a saved agent with a trigger. Needs the mcp_jobs feature.
 // @Tags agent-jobs
 // @Accept json
 // @Produce json
