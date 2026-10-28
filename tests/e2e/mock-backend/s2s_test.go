@@ -262,8 +262,13 @@ func TestMockS2SCancelStopsReply(t *testing.T) {
 		t.Fatalf("done = %v, want status cancelled", metaOf(t, last))
 	}
 
-	// Nothing follows the cancelled response.done: the stream closes cleanly.
-	sendS2S(t, stream, controlReq("response.cancel", `{}`)) // no active reply: a no-op
+	// Nothing follows the cancelled response.done except the answer to a
+	// cancel with no reply running, which the llama.cpp backend refuses with
+	// response_cancel_not_active. Then the stream closes cleanly.
+	sendS2S(t, stream, controlReq("response.cancel", `{}`))
+	if evt := recvS2S(t, stream); evt.GetEvent() != "error" || metaOf(t, evt)["type"] != "response_cancel_not_active" {
+		t.Fatalf("idle cancel = %s %v, want error response_cancel_not_active", evt.GetEvent(), metaOf(t, evt))
+	}
 	if err := stream.CloseSend(); err != nil {
 		t.Fatal(err)
 	}
