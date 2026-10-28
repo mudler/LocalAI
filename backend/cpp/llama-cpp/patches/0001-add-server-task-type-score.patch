@@ -1,8 +1,8 @@
 diff --git a/common/common.cpp b/common/common.cpp
-index 6ef3b78..037a00b 100644
+index 221f089..ff525a3 100644
 --- a/common/common.cpp
 +++ b/common/common.cpp
-@@ -1716,8 +1716,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
+@@ -1740,8 +1740,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
      auto cparams = llama_context_default_params();
  
      cparams.n_ctx             = params.n_ctx;
@@ -16,10 +16,10 @@ index 6ef3b78..037a00b 100644
      cparams.n_outputs_max_per_seq = std::max(params.n_outputs_max_per_seq, 0);
      cparams.n_batch           = params.n_batch;
 diff --git a/common/common.h b/common/common.h
-index 70d6a67..93e2269 100644
+index cd89a27..e51e99a 100644
 --- a/common/common.h
 +++ b/common/common.h
-@@ -460,6 +460,9 @@ struct common_params {
+@@ -462,6 +462,9 @@ struct common_params {
      int32_t n_keep                =     0; // number of tokens to keep from initial prompt
      int32_t n_chunks              =    -1; // max number of chunks to process (-1 = unlimited)
      int32_t n_parallel            =     1; // number of parallel sequences to decode
@@ -30,10 +30,10 @@ index 70d6a67..93e2269 100644
      int32_t n_outputs_max         =     0; // max outputs in a batch (0 = n_batch)
      int32_t n_outputs_max_per_seq =     1; // max outputs per sequence
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 296893f..ef38f90 100644
+index 2bd1ab9..d179675 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
-@@ -60,6 +60,13 @@ static common_speculative_output_limits server_output_limits(const common_params
+@@ -62,6 +62,13 @@ static common_speculative_output_limits server_output_limits(const common_params
      auto result = common_speculative_get_output_limits(
              params.n_batch, params.n_parallel, common_speculative_n_max(&params.speculative));
  
@@ -47,7 +47,7 @@ index 296893f..ef38f90 100644
      result.total   = std::max<int32_t>(1, result.total);
      result.per_seq = std::max<int32_t>(1, result.per_seq);
      return result;
-@@ -325,6 +332,26 @@ struct server_slot {
+@@ -327,6 +334,26 @@ struct server_slot {
  
      std::vector<completion_token_output> generated_token_probs;
  
@@ -74,7 +74,7 @@ index 296893f..ef38f90 100644
      bool has_next_token = true;
      bool has_new_line   = false;
      bool truncated      = false;
-@@ -433,6 +460,10 @@ struct server_slot {
+@@ -439,6 +466,10 @@ struct server_slot {
          }
          generated_tokens.clear();
          generated_token_probs.clear();
@@ -85,7 +85,7 @@ index 296893f..ef38f90 100644
          json_schema = json();
  
          task_prev = std::move(task);
-@@ -2571,6 +2602,227 @@ private:
+@@ -2627,6 +2658,227 @@ private:
          queue_results.send(std::move(res));
      }
  
@@ -313,15 +313,15 @@ index 296893f..ef38f90 100644
      //
      // Functions to process the task
      //
-@@ -2957,6 +3209,7 @@ private:
+@@ -3014,6 +3266,7 @@ private:
              case SERVER_TASK_TYPE_RERANK:
              case SERVER_TASK_TYPE_TTS:
              case SERVER_TASK_TYPE_DECISION:
 +            case SERVER_TASK_TYPE_SCORE:
                  {
-                     // special case: if input is provided via CLI, tokenize it first
-                     // otherwise, no need to tokenize as it's already done inside the HTTP thread
-@@ -3549,6 +3802,13 @@ private:
+                     if (task.need_sampling() && !decision.can_generate()) {
+                         send_error(task, "This model is a decision model without text generation, use /v1/systemone", ERROR_TYPE_NOT_SUPPORTED);
+@@ -3666,6 +3919,13 @@ private:
                  break; // stop any further processing
              }
          }
@@ -334,8 +334,8 @@ index 296893f..ef38f90 100644
 +        }
      }
  
-     void process_tts_slots() {
-@@ -3987,6 +4247,16 @@ private:
+     // realtime conversations (SERVER_TASK_TYPE_REALTIME) drive their own decode loop, see server_realtime_slot
+@@ -4120,6 +4380,16 @@ private:
                                      n_past = std::min(n_past, slot.alora_invocation_start - 1);
                                  }
  
@@ -352,7 +352,7 @@ index 296893f..ef38f90 100644
                                  const auto n_cache_reuse = slot.task->params.n_cache_reuse;
  
                                  const bool can_cache_reuse =
-@@ -4257,8 +4527,12 @@ private:
+@@ -4390,8 +4660,12 @@ private:
  
                      bool do_checkpoint = params_base.n_ctx_checkpoints > 0;
  
@@ -367,7 +367,7 @@ index 296893f..ef38f90 100644
  
                      // make a checkpoint of the parts of the memory that cannot be rolled back.
                      // checkpoints are created only if:
-@@ -4356,16 +4630,49 @@ private:
+@@ -4489,16 +4763,49 @@ private:
                          // embedding requires all tokens in the batch to be output;
                          // MTP also wants logits at every prompt position so the
                          // streaming hook can mirror t_h_nextn into ctx_dft.
@@ -418,7 +418,7 @@ index 296893f..ef38f90 100644
                          // break at the last user message, or at user messages at least min step past the last checkpoint
                          if (do_checkpoint && spans.is_user_start(slot.prompt.n_tokens())) {
                              const auto pos = slot.prompt.n_tokens();
-@@ -4408,6 +4715,15 @@ private:
+@@ -4541,6 +4848,15 @@ private:
                      const bool is_user_start = spans.is_user_start(n_tokens_start);
                      const bool is_last_user_message = n_tokens_start == last_user_pos;
  
@@ -434,7 +434,7 @@ index 296893f..ef38f90 100644
                      // entire prompt has been processed
                      if (slot.prompt.n_tokens() == slot.task->n_tokens()) {
                          slot.state = SLOT_STATE_DONE_PROMPT;
-@@ -4423,8 +4739,8 @@ private:
+@@ -4556,8 +4872,8 @@ private:
                          slot.init_sampler();
                      } else {
                          // skip ordinary mid-prompt checkpoints, unless the batch starts a user
@@ -445,7 +445,7 @@ index 296893f..ef38f90 100644
                              do_checkpoint = false;
                          }
                      }
-@@ -4441,10 +4757,10 @@ private:
+@@ -4574,10 +4890,10 @@ private:
                      // do not checkpoint after mtmd chunks
                      do_checkpoint = do_checkpoint && !has_mtmd;
  
@@ -458,7 +458,7 @@ index 296893f..ef38f90 100644
                              n_tokens_start > slot.prompt.checkpoints.back().n_tokens + params_base.checkpoint_min_step);
                      SLT_DBG(slot, "main/do_checkpoint = %s, pos_min = %d, pos_max = %d\n", do_checkpoint ? "yes" : "no", pos_min, pos_max);
  
-@@ -4690,6 +5006,13 @@ private:
+@@ -4823,6 +5139,13 @@ private:
                  }
              }
  
@@ -472,7 +472,7 @@ index 296893f..ef38f90 100644
              if (!is_inside_view(slot.i_batch)) {
                  // the required token not in this sub-batch, skip
                  return;
-@@ -4718,6 +5041,25 @@ private:
+@@ -4851,6 +5174,25 @@ private:
                      return;
                  }
  
@@ -499,7 +499,7 @@ index 296893f..ef38f90 100644
  
                  // prompt evaluated for next-token prediction
 diff --git a/tools/server/server-task.h b/tools/server/server-task.h
-index 810cefb..3e1ab8d 100644
+index 4c934db..61c1fbb 100644
 --- a/tools/server/server-task.h
 +++ b/tools/server/server-task.h
 @@ -13,11 +13,26 @@
@@ -528,8 +528,8 @@ index 810cefb..3e1ab8d 100644
 +    SERVER_TASK_TYPE_SCORE,
      SERVER_TASK_TYPE_INFILL,
      SERVER_TASK_TYPE_TRANSCRIBE_RT,
-     SERVER_TASK_TYPE_CANCEL,
-@@ -168,6 +183,18 @@ struct server_task {
+     SERVER_TASK_TYPE_REALTIME, // a conversation over /v1/realtime, see server-realtime.cpp
+@@ -182,6 +197,18 @@ struct server_task {
      task_params   params;
      server_tokens tokens;
  
@@ -548,7 +548,7 @@ index 810cefb..3e1ab8d 100644
      // only used by CLI, this allow tokenizing CLI inputs on server side
      // we need this because mtmd_context and vocab are not accessible outside of server_context
      bool                    cli = false;
-@@ -249,6 +276,7 @@ struct server_task {
+@@ -268,6 +295,7 @@ struct server_task {
              case SERVER_TASK_TYPE_COMPLETION:
              case SERVER_TASK_TYPE_INFILL:
              case SERVER_TASK_TYPE_TRANSCRIBE_RT:
@@ -556,7 +556,7 @@ index 810cefb..3e1ab8d 100644
                  return true;
              case SERVER_TASK_TYPE_DECISION:
                  return !decision.labels.empty();
-@@ -558,6 +586,25 @@ struct server_task_result_decision : server_task_result {
+@@ -593,6 +621,25 @@ struct server_task_result_decision : server_task_result {
      virtual json to_json() override;
  };
  
