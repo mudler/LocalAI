@@ -80,6 +80,12 @@ All backends listed here can be installed on demand from the [Backend Gallery]({
 | [audio.cpp](https://github.com/0xShug0/audio.cpp) | Multi-family GGML audio engine: TTS, voice cloning and voice design (`supertonic`, `vibevoice`, `qwen3_tts`, `chatterbox` and more). See [audio.cpp backend](/features/audio-cpp/) | CPU, CUDA 12/13, Metal |
 | [NeMo-Speech.cpp](https://github.com/NVIDIA/NeMo-Speech.cpp) | NVIDIA MagpieTTS over NanoCodec, served by the same backend as Nemotron ASR. See [NeMo-Speech.cpp backend](/features/nemo-speech-cpp/) | CPU, CUDA 12/13, Vulkan, Metal, Jetson L4T |
 
+## Speech-to-Speech
+
+| Backend | Description | Acceleration |
+|---------|-------------|-------------|
+| [llama.cpp](https://github.com/ggml-org/llama.cpp) | Any-to-any audio models (for example [LFM3-Audio]({{%relref "features/openai-realtime" %}}), experimental) served through the Realtime API, with tool calls and transcripts. See [Speech-to-speech models]({{%relref "features/openai-realtime#speech-to-speech-models-experimental" %}}) | CPU, CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, Jetson L4T |
+
 ## Music & Sound Generation
 
 | Backend | Description | Acceleration |

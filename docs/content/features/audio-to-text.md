@@ -176,6 +176,10 @@ curl http://localhost:8080/v1/audio/transcriptions \
   -F model="qwen3-asr"
 ```
 
+### LFM3-Audio (experimental)
+
+The gallery entries `lfm3-audio-2b` and `lfm3-audio-2b-q8` also transcribe through the `llama-cpp` backend, using the same model as speech-to-speech and TTS. When a `language` is given, the request asks for transcription in that language with the system prompt `Perform ASR in <Language>.`. Without one, the model is asked to infer the language. Transcription uses the second slot (`parallel:2`), so it can run during a realtime session. This needs a llama.cpp build with LFM3-Audio support.
+
 ## Using the parakeet-cpp backend
 
 [parakeet.cpp](https://github.com/mudler/parakeet.cpp) is a C++/ggml port of NVIDIA NeMo Parakeet that matches the upstream PyTorch models on CPU. GGUF weights for every model and quant are published in a single repo, [`mudler/parakeet-cpp-gguf`](https://huggingface.co/mudler/parakeet-cpp-gguf). F16 is the recommended default, and Q4_K stays near-lossless on the small models. The easiest path is to import directly (the GGUFs auto-detect to this backend):
