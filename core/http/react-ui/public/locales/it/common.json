@@ -110,5 +110,27 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "updateReview": {
+    "title": "Rivedi gli aggiornamenti",
+    "description": "Niente viene aggiornato finché non scegli qui.",
+    "close": "Chiudi",
+    "done": "Fatto",
+    "selectAll": "Seleziona tutto",
+    "select": "Seleziona {{name}}",
+    "unknownVersion": "sconosciuta",
+    "latest": "ultima",
+    "blocked": "Non aggiornabile qui:",
+    "upgradeSelected": "Aggiorna selezionati ({{count}})",
+    "upgradeAll": "Aggiorna tutti ({{count}})",
+    "running": "Aggiornamento...",
+    "queued": "In attesa",
+    "statusRunning": "Aggiornamento",
+    "statusDone": "Aggiornato",
+    "statusFailed": "Non riuscito",
+    "summary": "{{succeeded}} aggiornati, {{failed}} non riusciti.",
+    "empty": "Niente da aggiornare.",
+    "statusStarted": "Avviato",
+    "summaryStarted": "{{succeeded}} avviati, {{failed}} non riusciti."
   }
 }

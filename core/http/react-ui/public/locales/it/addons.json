@@ -592,7 +592,17 @@
       "denied": "Solo un amministratore può farlo dalla propria sessione del browser.",
       "network": "La rete non è raggiungibile.",
       "unavailable": "Il proprietario del componente non è disponibile. Riprova."
-    }
+    },
+    "reviewButton": "Aggiornamenti ({{count}})",
+    "reviewTitle": "Rivedi gli aggiornamenti dei componenti",
+    "reviewDescription": "Niente viene aggiornato finché non scegli qui. Ogni aggiornamento fa prima un backup dei dati del componente.",
+    "checkAll": "Cerca aggiornamenti",
+    "checkingAll": "Controllo...",
+    "checkAllDone": "Controllati {{count}} componenti.",
+    "checkAllFailed": "{{count}} non controllabili.",
+    "upgradeNamed": "Aggiorna {{name}}",
+    "toastDone": "{{name}} aggiornato alla {{version}}.",
+    "toastFailed": "{{name}} non aggiornato: {{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

@@ -218,7 +218,8 @@
     },
     "kind": {
       "model": "model",
-      "backend": "backend"
+      "backend": "backend",
+      "addon": "add-on"
     },
     "verb": {
       "installing": "Installing {{kind}}",
@@ -227,7 +228,9 @@
       "staging": "Staging model",
       "removing": "Removing {{kind}}",
       "failedRemoval": "Couldn't remove {{kind}}",
-      "failedStaging": "Couldn't stage model"
+      "failedStaging": "Couldn't stage model",
+      "upgrading": "Upgrading {{kind}}",
+      "failedUpgrade": "Couldn't upgrade {{kind}}"
     },
     "phase": {
       "resolving": "Resolving files",
@@ -260,7 +263,8 @@
       "all": "All",
       "models": "Models",
       "backends": "Backends",
-      "cluster": "Cluster"
+      "cluster": "Cluster",
+      "addons": "Add-ons"
     },
     "summaryRunning_one": "{{count}} operation running.",
     "summaryRunning_other": "{{count}} operations running.",
@@ -270,7 +274,11 @@
     "summaryQuiet_other": "Nothing running. {{count}} operations since startup.",
     "summaryIdle": "Nothing running.",
     "emptyFiltered": "No operations match this filter.",
-    "showAll": "Show all"
+    "showAll": "Show all",
+    "upgradeVersions": "{{from}} to {{to}}",
+    "rowUpgraded": "Upgraded in {{duration}}",
+    "rowUpgradedPlain": "Upgraded",
+    "viewInAddons": "View in Add-ons"
   },
   "backends": {
     "title": "Backend Management",
@@ -449,7 +457,12 @@
       "pinned": "Pinned to {{digest}}",
       "updated": "{{name}} updated from its library.",
       "updateFailed": "The update failed. {{message}}"
-    }
+    },
+    "reviewButton": "Updates ({{count}})",
+    "reviewTitle": "Review backend updates",
+    "reviewDescription": "Nothing is upgraded until you choose here. Models that use an upgraded backend restart.",
+    "reviewDone": "Update started for {{name}}.",
+    "reviewFailed": "Update failed for {{name}}: {{message}}"
   },
   "logs": {
     "title": "Backend logs",

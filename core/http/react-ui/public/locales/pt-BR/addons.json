@@ -592,7 +592,17 @@
       "denied": "Somente um administrador pode fazer isso na própria sessão do navegador.",
       "network": "A rede não está acessível.",
       "unavailable": "O proprietário do complemento não está disponível. Tente novamente."
-    }
+    },
+    "reviewButton": "Atualizações ({{count}})",
+    "reviewTitle": "Revisar atualizações de complementos",
+    "reviewDescription": "Nada é atualizado até você escolher aqui. Cada atualização faz antes um backup dos dados do complemento.",
+    "checkAll": "Verificar atualizações",
+    "checkingAll": "Verificando...",
+    "checkAllDone": "{{count}} complementos verificados.",
+    "checkAllFailed": "{{count}} não puderam ser verificados.",
+    "upgradeNamed": "Atualizar {{name}}",
+    "toastDone": "{{name}} atualizado para {{version}}.",
+    "toastFailed": "{{name}} não foi atualizado: {{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

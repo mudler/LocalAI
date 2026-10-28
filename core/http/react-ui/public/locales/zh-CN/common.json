@@ -110,5 +110,27 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "updateReview": {
+    "title": "查看更新",
+    "description": "在此处确认之前，不会更新任何内容。",
+    "close": "关闭",
+    "done": "完成",
+    "selectAll": "全选",
+    "select": "选择 {{name}}",
+    "unknownVersion": "未知",
+    "latest": "最新",
+    "blocked": "无法在此升级：",
+    "upgradeSelected": "升级所选 ({{count}})",
+    "upgradeAll": "全部升级 ({{count}})",
+    "running": "正在升级...",
+    "queued": "等待中",
+    "statusRunning": "正在升级",
+    "statusDone": "已升级",
+    "statusFailed": "失败",
+    "summary": "已升级 {{succeeded}} 项，失败 {{failed}} 项。",
+    "empty": "没有可升级的内容。",
+    "statusStarted": "已开始",
+    "summaryStarted": "已开始 {{succeeded}} 项，失败 {{failed}} 项。"
   }
 }

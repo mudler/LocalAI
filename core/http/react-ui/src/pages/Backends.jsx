@@ -25,6 +25,8 @@ import { InstallSteps } from '../components/addons/AddonBits'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Icon from '../components/Icon'
+import UpdateReviewSheet from '../components/UpdateReviewSheet'
+import { runBatch } from '../utils/updateReview'
 import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
 import CatalogEmpty from '../components/catalog/CatalogEmpty'
@@ -114,7 +116,9 @@ export default function Backends() {
   const [libUpdates, setLibUpdates] = useState({})
   const [libWork, setLibWork] = useState({})
   const [libReload, setLibReload] = useState(0)
-  const [upgradingAll, setUpgradingAll] = useState(false)
+  // The review sheet for pending updates: { preselect } while open. Nothing is
+  // upgraded until the administrator confirms in it.
+  const [review, setReview] = useState(null)
   const [checking, setChecking] = useState(false)
   const [preferDevLoaded, setPreferDevLoaded] = useState(false)
   const [preferDev, setPreferDev] = useState(false)
@@ -362,7 +366,7 @@ export default function Backends() {
   }
   const rowConflict = (name) => {
     const state = backendState({ installed: true, op: opForBackend(operations, name) })
-    return pending.has(name) || upgradingAll || ['installing', 'queued', 'removing'].includes(state.kind)
+    return pending.has(name) || ['installing', 'queued', 'removing'].includes(state.kind)
   }
   // Async confirmation must use current operation state, not the dialog's closure.
   const currentRowConflict = useRef(rowConflict)
@@ -465,16 +469,36 @@ export default function Backends() {
       .map(n => n.id)
   }
 
-  const handleUpgrade = async (name) => {
-    setError(name, '')
-    markPending(name, true)
+  // An Upgrade button opens the review sheet with its backend checked; it
+  // starts nothing by itself.
+  const handleUpgrade = (name) => setReview({ preselect: [name] })
+
+  const reviewItems = useMemo(() => Object.keys(upgrades).sort().map(name => ({
+    key: name,
+    name,
+    from: versionLabel(upgrades[name].installed_version),
+    to: versionLabel(upgrades[name].available_version),
+    blocked: [],
+  })), [upgrades])
+
+  // One backend upgrade is a request that queues the job; the job itself runs
+  // as an operation (see Activity). A request that fails does not stop the
+  // others in the batch.
+  const runReview = (chosen, onProgress) => runBatch(chosen, async (item) => {
+    markPending(item.key, true)
     try {
-      await backendsApi.upgrade(name)
-      addToast(t('backends.updateStarted', { name }), 'info')
+      await backendsApi.upgrade(item.key)
+      return { ok: true }
     } catch (err) {
-      setError(name, t('backends.updateFailed', { message: err.message }))
+      return { ok: false, message: err.message }
     } finally {
-      markPending(name, false)
+      markPending(item.key, false)
+    }
+  }, { onProgress })
+  const reviewSettled = (results) => {
+    for (const r of results) {
+      if (r.ok) addToast(t('backends.reviewDone', { name: r.key }), 'info')
+      else addToast(t('backends.reviewFailed', { name: r.key, message: r.message }), 'error')
     }
   }
 
@@ -513,29 +537,6 @@ export default function Backends() {
       setError(name, t('backends.reinstallFailed', { message: err.message }))
     } finally {
       markPending(name, false)
-    }
-  }
-
-  const handleUpgradeAll = async () => {
-    if (updateNames.length === 0) return
-    setUpgradingAll(true)
-    setGlobalError('')
-    try {
-      const failures = []
-      for (const name of updateNames) {
-        try {
-          await backendsApi.upgrade(name)
-        } catch (err) {
-          failures.push(t('backends.updateAllFailed', { name, message: err.message }))
-        }
-      }
-      if (failures.length > 0) {
-        setGlobalError(failures.join(' '))
-        return
-      }
-      addToast(t('backends.updateAllStarted', { count: updateNames.length }), 'info')
-    } finally {
-      setUpgradingAll(false)
     }
   }
 
@@ -1012,9 +1013,8 @@ export default function Backends() {
 
         <div className="bk-bar__acts">
           {installEnabled && updateNames.length > 0 && (
-            <button type="button" className="dk-btn dk-btn--primary" onClick={handleUpgradeAll} disabled={upgradingAll}>
-              <Icon name={upgradingAll ? 'spinner' : 'arrow-up'} spin={Boolean(upgradingAll)} />
-              {upgradingAll ? t('backends.updating') : t('backends.updateAll', { count: updateNames.length })}
+            <button type="button" className="dk-btn dk-btn--primary" onClick={() => setReview({ preselect: [] })} data-testid="backends-updates">
+              <Icon name="arrow-up" /> {t('backends.reviewButton', { count: updateNames.length })}
             </button>
           )}
           {installEnabled && (
@@ -1205,6 +1205,19 @@ export default function Backends() {
         onConfirm={confirmDialog?.onConfirm}
         onCancel={() => { if (!removalLock.current) setConfirmDialog(null) }}
       />
+
+      {review && (
+        <UpdateReviewSheet
+          title={t('backends.reviewTitle')}
+          description={t('backends.reviewDescription')}
+          items={reviewItems}
+          preselect={review.preselect}
+          run={runReview}
+          onSettled={reviewSettled}
+          onClose={() => setReview(null)}
+          started
+        />
+      )}
 
       <NodeInstallPicker
         open={!!pickerBackend}

@@ -6,6 +6,9 @@ import { useOperations } from '../hooks/useOperations'
 import { useOperationActions, isRetryable } from '../hooks/useOperationActions'
 import { CANCEL_UNDO_MS, useUndoableCancel } from '../hooks/useUndoableCancel'
 import { backendsApi, modelsApi } from '../utils/api'
+import { addonUpgrades } from '../utils/addonUpgrades'
+import { useAddonUpgrades } from '../hooks/useAddonUpgrades'
+import { upgradeFailureWords } from '../components/addons/updateReview'
 import PageHeader from '../components/PageHeader'
 import OperationCard from '../components/OperationCard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
@@ -16,13 +19,15 @@ const FILTERS = [
   { id: 'all', labelKey: 'activity.filter.all' },
   { id: 'models', labelKey: 'activity.filter.models' },
   { id: 'backends', labelKey: 'activity.filter.backends' },
+  { id: 'addons', labelKey: 'activity.filter.addons' },
   { id: 'cluster', labelKey: 'activity.filter.cluster' },
 ]
 
 function matchesFilter(entry, filter) {
   if (filter === 'all') return true
-  if (filter === 'models') return !entry.isBackend && entry.taskType !== 'staging'
+  if (filter === 'models') return !entry.isBackend && !entry.isAddon && entry.taskType !== 'staging'
   if (filter === 'backends') return Boolean(entry.isBackend)
+  if (filter === 'addons') return Boolean(entry.isAddon)
   // Cluster covers anything scoped to a node: staged files and node-scoped
   // backend installs.
   return entry.taskType === 'staging' || Boolean(entry.nodeID) || (Array.isArray(entry.nodes) && entry.nodes.length > 0)
@@ -69,6 +74,7 @@ function recordSummary(record, t) {
   if (record.outcome === 'cancelled') return t('activity.rowCancelled')
   if (record.taskType === 'deletion') return t('activity.rowRemoved')
   const duration = durationLabel(record)
+  if (record.taskType === 'upgrade') return duration ? t('activity.rowUpgraded', { duration }) : t('activity.rowUpgradedPlain')
   return duration ? t('activity.rowInstalled', { duration }) : t('activity.rowInstalledPlain')
 }
 
@@ -76,8 +82,31 @@ export default function Activity() {
   const { t } = useTranslation('operate')
   const outlet = useOutletContext()
   const addToast = outlet?.addToast
-  const { operations, history, fetchHistory, clearHistory, cancelOperation, pauseOperation } = useOperations()
+  const { t: ta } = useTranslation('addons')
+  const { operations: serverOperations, history: serverHistory, fetchHistory, clearHistory: clearServerHistory, cancelOperation: cancelServerOperation, pauseOperation } = useOperations()
   const { retry, dismiss } = useOperationActions(addToast)
+
+  // Add-on upgrades are started and followed from this browser (see
+  // addonUpgrades), so they join the operations the server lists here and
+  // behave like them: progress, cancel, retry and dismiss.
+  const upgrades = useAddonUpgrades()
+  const operations = useMemo(() => [
+    ...serverOperations,
+    ...upgrades.live.map((op) => ({
+      ...op,
+      message: t('activity.upgradeVersions', { from: op.fromVersion || '?', to: op.toVersion || '?' }),
+      error: op.state === 'failed' ? upgradeFailureWords(op.errorKey, ta) : undefined,
+      isQueued: false,
+    })),
+  ], [serverOperations, upgrades.live, t, ta])
+  const history = useMemo(() => [
+    ...serverHistory,
+    ...upgrades.records.map((r) => ({ ...r, error: r.errorKey ? upgradeFailureWords(r.errorKey, ta) : '' })),
+  ].sort((a, b) => new Date(b.finishedAt).getTime() - new Date(a.finishedAt).getTime()), [serverHistory, upgrades.records, ta])
+  const cancelOperation = useCallback((jobID) => (
+    addonUpgrades.cancel(jobID) || cancelServerOperation(jobID)
+  ), [cancelServerOperation])
+  const clearHistory = useCallback(() => { addonUpgrades.clearRecords(); return clearServerHistory() }, [clearServerHistory])
   const [filter, setFilter] = useState('all')
 
   useEffect(() => { fetchHistory() }, [fetchHistory])
@@ -208,7 +237,7 @@ export default function Activity() {
                 </span>
                 <span className="activity-row__when">{timeOfDay(record.finishedAt)}</span>
                 <span className="activity-row__acts">
-                  {record.outcome === 'cancelled' && record.taskType !== 'deletion' && record.taskType !== 'staging' && (
+                  {record.outcome === 'cancelled' && record.taskType !== 'deletion' && record.taskType !== 'staging' && !record.isAddon && (
                     <button
                       type="button"
                       className="dk-btn dk-btn--ghost dk-btn--sm activity-row__resume"
@@ -218,8 +247,8 @@ export default function Activity() {
                       {t('activity.startAgain')}
                     </button>
                   )}
-                  <Link className="dk-link activity-row__action" to={record.isBackend ? '/app/backends' : '/app/models'}>
-                    {record.isBackend ? t('activity.viewInBackends') : t('activity.viewInModels')}
+                  <Link className="dk-link activity-row__action" to={record.isAddon ? '/app/addons' : record.isBackend ? '/app/backends' : '/app/models'}>
+                    {record.isAddon ? t('activity.viewInAddons') : record.isBackend ? t('activity.viewInBackends') : t('activity.viewInModels')}
                   </Link>
                 </span>
               </div>

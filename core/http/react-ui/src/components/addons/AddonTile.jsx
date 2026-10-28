@@ -10,8 +10,10 @@ import { addedByAddon } from './addonState'
 // One add-on card: icon, name, state, what it does and what it adds. The card
 // body selects the add-on (its preview opens); a running add-on with a page
 // also has an Open link. Pinning, reordering, details and removal sit in the
-// overflow menu, so nothing on the card is a bare icon.
-export default function AddonTile({ tile, pinned, selected = false, onPin, onMove, onOpenDetail, onRemove }) {
+// overflow menu, so nothing on the card is a bare icon. An administrator also
+// gets an Upgrade action when the owner reported a candidate; it opens the
+// review sheet and applies nothing by itself.
+export default function AddonTile({ tile, pinned, selected = false, onPin, onMove, onOpenDetail, onRemove, upgradeTo = '', onUpgrade }) {
   const { t } = useTranslation('addons')
   const { t: tn } = useTranslation('nav')
   const title = tile.titleKey ? tn(tile.titleKey) : tile.title
@@ -53,11 +55,18 @@ export default function AddonTile({ tile, pinned, selected = false, onPin, onMov
           onRemove={onRemove && tile.app ? () => onRemove(tile) : undefined}
         />
       </div>
-      {tile.target && (
+      {(tile.target || (upgradeTo && onUpgrade)) && (
         <div className="ad-tile__foot">
-          <Link className="dk-btn dk-btn--sm" to={tile.target} aria-label={t('card.openNamed', { name: title })}>
-            <Icon name="external-link" /> {t('apps.open')}
-          </Link>
+          {tile.target && (
+            <Link className="dk-btn dk-btn--sm" to={tile.target} aria-label={t('card.openNamed', { name: title })}>
+              <Icon name="external-link" /> {t('apps.open')}
+            </Link>
+          )}
+          {upgradeTo && onUpgrade && (
+            <button type="button" className="dk-btn dk-btn--sm dk-btn--primary" onClick={() => onUpgrade(tile.id)} aria-label={t('updates.upgradeNamed', { name: title })} data-testid="tile-upgrade">
+              <Icon name="arrow-up" /> {t('updates.upgrade')} {upgradeTo}
+            </button>
+          )}
         </div>
       )}
     </li>
