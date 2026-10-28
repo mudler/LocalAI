@@ -109,14 +109,14 @@ type s2sConfig struct {
 // s2sWireModalities maps the OpenAI output modalities to what the backend
 // takes. "audio" is sent as text plus audio, so a spoken reply has a
 // transcript (the OpenAI audio modality includes one). With no explicit choice
-// and tools set, nil lets the model switch between text and audio itself, so
-// it can write a tool call instead of speaking it.
-func s2sWireModalities(explicit []types.Modality, hasTools bool) []string {
+// it returns nil and the backend picks the mode of each response from the tools
+// it has when the response starts: text plus audio without tools, and with
+// tools the model switches between text and audio itself, so it can write a
+// tool call instead of speaking it. A mode sent at open would be fixed for the
+// whole session and stay in force when tools are added later.
+func s2sWireModalities(explicit []types.Modality) []string {
 	if len(explicit) == 0 {
-		if hasTools {
-			return nil
-		}
-		return []string{"text", "audio"}
+		return nil
 	}
 	if modalitiesContainAudio(explicit) {
 		return []string{"text", "audio"}
@@ -579,7 +579,7 @@ func openS2SForSession(session *Session, opener s2sOpener, t Transport) error {
 		Instructions:     session.Instructions,
 		Voice:            session.Voice,
 		ToolsJSON:        toolsJSON,
-		OutputModalities: s2sWireModalities(session.OutputModalities, len(session.Tools) > 0),
+		OutputModalities: s2sWireModalities(session.OutputModalities),
 	}); err != nil {
 		st.close()
 		return err
@@ -611,7 +611,7 @@ func (s *Session) s2sSyncConfig() {
 		return
 	}
 	sessionLock.Lock()
-	wireMods := s2sWireModalities(s.OutputModalities, len(s.Tools) > 0)
+	wireMods := s2sWireModalities(s.OutputModalities)
 	cur := s2sSentConfig{
 		instructions: s.Instructions,
 		voice:        s.Voice,
@@ -1040,9 +1040,8 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 	if len(explicit) == 0 {
 		explicit = session.OutputModalities
 	}
-	hasTools := len(session.Tools) > 0 || (overrides != nil && len(overrides.Tools) > 0)
 	payload := map[string]any{}
-	if wire := s2sWireModalities(explicit, hasTools); wire != nil {
+	if wire := s2sWireModalities(explicit); wire != nil {
 		payload["output_modalities"] = wire
 	}
 	if maxOutputTokens != 0 && !maxOutputTokens.IsInf() {

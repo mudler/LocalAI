@@ -499,6 +499,45 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Eventually(got).Should(Receive(Equal("invalid_request_error: instructions cannot change")))
 	})
 
+	Describe("the output mode on the wire", func() {
+		openSession := func(tools []types.ToolUnion, mods []types.Modality) (*Session, *fakeS2SStream) {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if req.GetConfig() != nil {
+					f.push("session.created", nil, map[string]any{"input_sample_rate": rate, "output_sample_rate": 24000})
+				}
+			}
+			session := &Session{Tools: tools, OutputModalities: mods}
+			Expect(openS2SForSession(session, openerFunc(func(context.Context) (S2SStream, error) { return stream, nil }), &fakeTransport{})).To(Succeed())
+			stream.owner = session.s2s
+			DeferCleanup(session.closeS2S)
+			return session, stream
+		}
+
+		It("leaves the mode to the backend when the client chose none", func() {
+			session, stream := openSession(nil, nil)
+			cfg := stream.requests()[0].GetConfig()
+			Expect(cfg.GetParams()).ToNot(HaveKey("output_modalities"))
+
+			// Tools added before the first turn must not meet a mode fixed at open.
+			session.Tools = []types.ToolUnion{{Function: &types.ToolFunction{Name: "get_time"}}}
+			session.s2sSyncConfig()
+			var update map[string]any
+			for _, r := range stream.requests() {
+				if isControl(r, "session.update") {
+					Expect(json.Unmarshal(r.GetControl().GetPayload(), &update)).To(Succeed())
+				}
+			}
+			Expect(update).To(HaveKey("tools"))
+			Expect(update).ToNot(HaveKey("output_modalities"))
+		})
+
+		It("sends the modalities the client chose", func() {
+			_, stream := openSession(nil, []types.Modality{types.ModalityText})
+			Expect(stream.requests()[0].GetConfig().GetParams()).To(HaveKeyWithValue("output_modalities", `["text"]`))
+		})
+	})
+
 	Describe("prepareRealtimeConfig for any-to-any models", func() {
 		yes := true
 		newCfg := func() *config.ModelConfig {
@@ -550,6 +589,10 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(err).To(HaveOccurred(), "no VAD model configured")
 	})
 })
+
+type openerFunc func(ctx context.Context) (S2SStream, error)
+
+func (f openerFunc) OpenS2S(ctx context.Context) (S2SStream, error) { return f(ctx) }
 
 func countCancels(f *fakeS2SStream) int {
 	n := 0
