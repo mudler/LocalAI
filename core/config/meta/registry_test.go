@@ -97,3 +97,9 @@ var _ = Describe("backend-only upscale options", func() {
 		}
 	})
 })
+
+var _ = Describe("Proxy credential metadata", func() {
+	It("masks the direct key with a password input", func() {
+		Expect(meta.DefaultRegistry()["proxy.api_key"].Component).To(Equal("password"))
+	})
+})

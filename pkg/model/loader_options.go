@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"maps"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
@@ -116,8 +117,9 @@ func WithModelSizeBytes(bytes int64) Option {
 }
 
 func WithEnvVars(envVars map[string]string) Option {
+	snapshot := maps.Clone(envVars)
 	return func(o *Options) {
-		o.envVars = envVars
+		o.envVars = maps.Clone(snapshot)
 	}
 }
 

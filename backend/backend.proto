@@ -544,9 +544,8 @@ message ModelOptions {
 
 // ProxyOptions configures the cloud-proxy backend. UpstreamURL and
 // Mode are always meaningful; Provider only matters in translate mode.
-// The two api_key_* fields are mutually exclusive and resolved by the
-// backend at LoadModel — core forwards the references rather than the
-// plaintext key.
+// The api_key, api_key_env and api_key_file fields are mutually exclusive
+// and resolved by the backend at LoadModel. api_key is plaintext admin config.
 message ProxyOptions {
   string upstream_url = 1;
   string mode = 2;
@@ -561,6 +560,7 @@ message ProxyOptions {
   // Cuts input cost on repeated/agentic calls (cache read = 0.1x). Only
   // meaningful for mode=translate + provider=anthropic; ignored otherwise.
   bool cache_prompt = 8;
+  string api_key = 9;
 }
 
 message Result {

@@ -498,7 +498,8 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
   // Default: text input
   return (
     <SettingRow label={<FieldLabel field={field} />} description={description}>
-      <input className="input cfr-select" value={value ?? ''}
+      <input className="input cfr-select" type={component === 'password' ? 'password' : 'text'}
+        autoComplete={component === 'password' ? 'new-password' : undefined} value={value ?? ''}
         onChange={e => handleChange(e.target.value)}
         placeholder={field.placeholder}
       />
