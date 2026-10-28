@@ -80,8 +80,10 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 		{Name: "list_files", Description: "List a folder of the user's files.",
 			Schema: obj(pathProp),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct{ Path string }
-				_ = json.Unmarshal(raw, &in)
+				in, err := session.DecodeArgs[struct{ Path string }](raw)
+				if err != nil {
+					return "", err
+				}
 				abs, err := s.readPath(a.Principal, in.Path)
 				if err != nil {
 					return "", err
@@ -106,11 +108,13 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 		{Name: "read_file", Description: "Read a text file of the user's. Long files are read in parts with offset (first line, 1-based) and limit (number of lines).",
 			Schema: obj(pathProp+`,"offset":{"type":"integer"},"limit":{"type":"integer"}`, "path"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct {
+				in, err := session.DecodeArgs[struct {
 					Path          string
 					Offset, Limit int
+				}](raw)
+				if err != nil {
+					return "", err
 				}
-				_ = json.Unmarshal(raw, &in)
 				abs, err := s.readPath(a.Principal, in.Path)
 				if err != nil {
 					return "", err
@@ -153,9 +157,9 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 		{Name: "write_file", Description: "Write a text file in the user's files, creating folders as needed. An existing file is replaced; the user can undo it.",
 			Schema: obj(pathProp+`,"content":{"type":"string"}`, "path", "content"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct{ Path, Content string }
-				if err := json.Unmarshal(raw, &in); err != nil {
-					return "", workspace.ErrInvalid
+				in, err := session.DecodeArgs[struct{ Path, Content string }](raw)
+				if err != nil {
+					return "", err
 				}
 				abs, err := s.writePath(a.Principal, in.Path)
 				if err != nil {
@@ -177,8 +181,10 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 		{Name: "move_file", Description: "Move or rename a file or folder of the user's.",
 			Schema: obj(`"from":{"type":"string"},"to":{"type":"string"}`, "from", "to"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct{ From, To string }
-				_ = json.Unmarshal(raw, &in)
+				in, err := session.DecodeArgs[struct{ From, To string }](raw)
+				if err != nil {
+					return "", err
+				}
 				from, err := s.writePath(a.Principal, in.From)
 				if err != nil {
 					return "", err
@@ -198,8 +204,10 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 		{Name: "delete_file", Description: "Delete a file or folder of the user's. It goes to the Trash, so the user can restore it.",
 			Schema: obj(pathProp, "path"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct{ Path string }
-				_ = json.Unmarshal(raw, &in)
+				in, err := session.DecodeArgs[struct{ Path string }](raw)
+				if err != nil {
+					return "", err
+				}
 				abs, err := s.writePath(a.Principal, in.Path)
 				if err != nil {
 					return "", err
@@ -215,8 +223,10 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 		{Name: "search_files", Description: "Search the user's files by name and by the text inside them. Case does not matter.",
 			Schema: obj(`"query":{"type":"string"},"path":{"type":"string","description":"Search only below this folder."}`, "query"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct{ Query, Path string }
-				_ = json.Unmarshal(raw, &in)
+				in, err := session.DecodeArgs[struct{ Query, Path string }](raw)
+				if err != nil {
+					return "", err
+				}
 				hits, err := s.Search(ctx, a.Principal, in.Query, toolPath(in.Path), 30)
 				if err != nil {
 					return "", err

@@ -269,8 +269,10 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
 		{Name: "describe_image", Description: "Describe an image in the user's files, or answer a question about it. Use it for pictures and screenshots, including to read text in them.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `,"question":{"type":"string"}},"required":["path"]}`),
 			Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct{ Path, Question string }
-				_ = json.Unmarshal(raw, &in)
+				in, err := session.DecodeArgs[struct{ Path, Question string }](raw)
+				if err != nil {
+					return "", err
+				}
 				if s.resolve(Vision) == "" {
 					return "", noModel(Vision)
 				}
@@ -283,11 +285,13 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
 		{Name: "read_document", Description: "Read the text of a PDF, Word, Excel, PowerPoint or EPUB file in the user's files. Long documents come in parts: pass offset to read on.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `,"offset":{"type":"integer","description":"Character to start at. 0 is the start."},"limit":{"type":"integer","description":"Most characters to return (default 20000)."}},"required":["path"]}`),
 			Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct {
+				in, err := session.DecodeArgs[struct {
 					Path          string
 					Offset, Limit int
+				}](raw)
+				if err != nil {
+					return "", err
 				}
-				_ = json.Unmarshal(raw, &in)
 				name, data, err := read(ctx, in.Path, maxDocumentBytes)
 				if err != nil {
 					return "", err
@@ -316,8 +320,10 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
 		{Name: "transcribe_audio", Description: "Turn a recording in the user's files into text.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `},"required":["path"]}`),
 			Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
-				var in struct{ Path string }
-				_ = json.Unmarshal(raw, &in)
+				in, err := session.DecodeArgs[struct{ Path string }](raw)
+				if err != nil {
+					return "", err
+				}
 				if s.resolve(Transcription) == "" {
 					return "", noModel(Transcription)
 				}

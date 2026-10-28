@@ -40,6 +40,26 @@ const maxLineArg = 1 << 29
 // that the tests can shorten it.
 var fileToolTimeout = 2 * time.Minute
 
+// ErrBadArguments is what a tool answers when the model's arguments are not
+// JSON of the shape the tool takes.
+var ErrBadArguments = errors.New("the arguments of the tool are not valid")
+
+// DecodeArgs reads the arguments of a tool call into T. No arguments at all
+// give the zero value, so a tool whose fields are all optional still runs.
+// Anything else that does not decode is ErrBadArguments, and the tool must not
+// go on with an empty field.
+func DecodeArgs[T any](raw json.RawMessage) (T, error) {
+	var in T
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return in, nil
+	}
+	if err := json.Unmarshal(raw, &in); err != nil {
+		var zero T
+		return zero, ErrBadArguments
+	}
+	return in, nil
+}
+
 // NoSandboxText is the result of a tool on a host without sandboxes.
 const NoSandboxText = "This host cannot run commands."
 

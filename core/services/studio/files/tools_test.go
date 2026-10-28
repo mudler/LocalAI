@@ -225,3 +225,29 @@ func wstestRead(t *testing.T, f *files.Service, abs string) string {
 	}
 	return b.String()
 }
+
+// Arguments that are not JSON must not turn into an empty path, which would
+// list, read or search the whole home folder.
+func TestMalformedToolArgumentsAreRefusedNotReadAsTheHomeFolder(t *testing.T) {
+	f := newFiles(t)
+	b := newToolBox(t, f, "alice", "chat1")
+	if _, err := b.run("write_file", map[string]any{"path": "/secret.txt", "content": "needle"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"list_files", "read_file", "delete_file", "search_files"} {
+		for _, raw := range []string{`{"path": `, `"a string"`, `{"path": 7}`} {
+			out, err := b.tools[name].Run(context.Background(), json.RawMessage(raw))
+			if err == nil {
+				t.Fatalf("%s(%s) = %q, want an error", name, raw, out)
+			}
+			if !strings.Contains(err.Error(), "arguments") {
+				t.Fatalf("%s(%s) error = %v, want a message about the arguments", name, raw, err)
+			}
+		}
+	}
+	// No arguments at all still lists the home folder.
+	out, err := b.tools["list_files"].Run(context.Background(), nil)
+	if err != nil || !strings.Contains(out, "secret.txt") {
+		t.Fatalf("list_files with no arguments = %q, %v", out, err)
+	}
+}
