@@ -46,7 +46,10 @@ export default function SessionSheet({
     }
   }, [])
 
-  const slots = pipeline && !pipeline.self_contained
+  // A speech-to-speech model answers every role itself. Its only optional
+  // part is the VAD; the four-slot view would show names that do not run.
+  const anyToAny = Boolean(pipeline && (pipeline.any_to_any || pipeline.self_contained))
+  const slots = pipeline && !anyToAny
     ? [
         ['vad', pipeline.vad],
         ['transcription', pipeline.transcription],
@@ -82,7 +85,13 @@ export default function SessionSheet({
             <h3>{t('settings.voiceLanguage')}</h3>
             <div className="talk-field">
               <label htmlFor="talk-voice">{t('settings.voice')}</label>
-              <input id="talk-voice" className="talk-in" value={voice} onChange={(e) => onVoice(e.target.value)} placeholder={t('settings.voicePlaceholder')} />
+              <input id="talk-voice" className="talk-in" value={voice} onChange={(e) => onVoice(e.target.value)} placeholder={t('settings.voicePlaceholder')} list={anyToAny ? 'talk-voice-options' : undefined} />
+              {anyToAny && (
+                <datalist id="talk-voice-options">
+                  <option value="female" />
+                  <option value="male" />
+                </datalist>
+              )}
             </div>
             <div className="talk-field">
               <label htmlFor="talk-language">{t('settings.language')}</label>
@@ -135,8 +144,17 @@ export default function SessionSheet({
           {pipeline && (
             <section className="talk-sec" data-testid="talk-pipeline">
               <h3>{t('settings.pipeline', { name: pipeline.name })}</h3>
-              {pipeline.self_contained ? (
-                <p className="talk-help">{t('settings.selfContained')}</p>
+              {anyToAny ? (
+                <>
+                  <p className="talk-help">{t('settings.anyToAny')}</p>
+                  {pipeline.vad ? (
+                    <dl className="talk-slots">
+                      <div><dt>{t('settings.slot.vad')}</dt><dd>{pipeline.vad}</dd></div>
+                    </dl>
+                  ) : (
+                    <p className="talk-help">{t('settings.noVad')}</p>
+                  )}
+                </>
               ) : (
                 <dl className="talk-slots">
                   {slots.map(([key, value]) => (
@@ -146,7 +164,7 @@ export default function SessionSheet({
               )}
               {!connected && (
                 <button type="button" className="talk-btn" onClick={onEditPipeline}>
-                  <Icon name="edit" /> {pipeline.self_contained ? t('settings.editConfig') : t('settings.editPipeline')}
+                  <Icon name="edit" /> {anyToAny ? t('settings.editConfig') : t('settings.editPipeline')}
                 </button>
               )}
             </section>

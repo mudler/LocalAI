@@ -214,6 +214,9 @@ export default function Talk() {
   }, [mcpDisconnect])
 
   const selectedModelInfo = pipelineModels.find(m => m.name === selectedModel)
+  // A speech-to-speech model without a VAD model gets no turn boundaries from
+  // the server, so the user ends each turn with Done speaking.
+  const manualTurns = Boolean(selectedModelInfo && (selectedModelInfo.any_to_any || selectedModelInfo.self_contained) && !selectedModelInfo.vad)
 
   // ── Status helper ──
   const updateStatus = useCallback((state, line) => {
@@ -338,6 +341,19 @@ export default function Talk() {
           inProgressIdRef.current = event.item_id
           setTranscript(prev => upsertAssistant(prev, event.item_id, event.delta, 'append'))
         }
+        break
+      case 'response.output_text.delta':
+        // A text-only reply (no audio) streams as text.
+        if (event.delta) {
+          inProgressIdRef.current = event.item_id
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.delta, 'append'))
+        }
+        break
+      case 'response.output_text.done':
+        if (event.text) {
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.text, 'replace'))
+        }
+        inProgressIdRef.current = null
         break
       case 'response.output_audio_transcript.done':
         if (event.transcript) {
@@ -519,6 +535,15 @@ export default function Talk() {
     }
   }, [])
 
+  // ── End of a turn for a model without VAD ──
+  // The commit does not answer by itself: the reply is asked for next.
+  const endTurn = useCallback(() => {
+    const dc = dcRef.current
+    if (!dc || dc.readyState !== 'open') return
+    dc.send(JSON.stringify({ type: 'input_audio_buffer.commit' }))
+    dc.send(JSON.stringify({ type: 'response.create' }))
+  }, [])
+
   // ── Test tone ──
   const sendTestTone = useCallback(() => {
     const dc = dcRef.current
@@ -695,6 +720,7 @@ export default function Talk() {
   const headline = showInterrupted ? t('view.interrupted.title') : t(`view.${view}.title`)
   let sentence = showInterrupted ? t('view.interrupted.body') : t(`view.${view}.body`)
   if (view === 'listening' && hearing && !showInterrupted) sentence = t('view.listening.hearing')
+  else if (view === 'listening' && manualTurns && !showInterrupted) sentence = t('view.listening.manual')
   if (detail) sentence = t(`detail.${detail.key}`, detail.params)
 
   const failed = view === 'blocked' || view === 'lost' || view === 'error'
@@ -839,6 +865,11 @@ export default function Talk() {
                     <button type="button" className="talk-btn talk-btn--end" onClick={disconnect} data-testid="talk-end">
                       <Icon name="plug-off" /> {t('controls.end')}
                     </button>
+                    {manualTurns && !busy && (
+                      <button type="button" className="talk-btn" onClick={endTurn} data-testid="talk-end-turn">
+                        <Icon name="mic" /> {t('controls.endTurn')}
+                      </button>
+                    )}
                     {view !== 'connecting' && (
                       <button type="button" className="talk-btn" onClick={sendTestTone} data-testid="talk-test-tone">
                         <Icon name="waveform" /> {t('controls.testTone')}

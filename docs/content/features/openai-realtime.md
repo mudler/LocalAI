@@ -817,7 +817,7 @@ This event is a LocalAI extension to the OpenAI Realtime API and is server-emitt
 
 ## Talk in the web UI
 
-The **Talk** page of the web UI is a client for this API over WebRTC. Pick a pipeline model with the chip at the top, then press **Start session**. The microphone streams while the session runs. The server detects when you stop talking and answers on its own, and you can speak over a reply to interrupt it. The page has no push-to-talk or hands-free switch.
+The **Talk** page of the web UI is a client for this API over WebRTC. Pick a pipeline model with the chip at the top, then press **Start session**. The microphone streams while the session runs. The server detects when you stop talking and answers on its own, and you can speak over a reply to interrupt it. The page has no push-to-talk or hands-free switch. A speech-to-speech model with no VAD model set has no turn detection: the page shows **Done speaking**, which ends the turn and asks for the reply.
 
 The heading under the orb says what is happening: connecting, listening, thinking (also while a tool runs), speaking, or interrupted after you cut a reply off. The orb follows the real microphone level while it listens and the reply's audio while it speaks. These states have their own screen:
 

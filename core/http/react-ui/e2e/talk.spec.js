@@ -304,6 +304,63 @@ test.describe('Talk session settings', () => {
   })
 })
 
+test.describe('Talk with a speech-to-speech model', () => {
+  // The model list the server returns for an any-to-any model: no slots of
+  // its own, and a VAD only when the model config names one.
+  async function s2sModel(page, { vad = '' } = {}) {
+    await page.route('**/api/pipeline-models', route => route.fulfill({
+      json: [{ name: 'lfm3-audio', voice: 'female', vad, transcription: 'lfm3-audio', llm: 'lfm3-audio', tts: 'lfm3-audio', any_to_any: true, self_contained: true }],
+    }))
+  }
+
+  test('the sheet names one speech-to-speech model, with no slots and no voice detection', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await page.goto('/app/talk')
+    await page.getByTestId('talk-settings-button').click()
+    const pipeline = page.getByTestId('talk-pipeline')
+    await expect(pipeline).toContainText('Speech-to-speech model')
+    await expect(pipeline).not.toContainText('Transcription')
+    await expect(pipeline).not.toContainText('Language model')
+    await expect(pipeline).toContainText('No voice detection model is set.')
+    await expect(pipeline.getByRole('button', { name: 'Edit model config' })).toBeVisible()
+    await expect(page.getByTestId('talk-settings').getByLabel('Voice', { exact: true })).toHaveAttribute('list', 'talk-voice-options')
+  })
+
+  test('without voice detection, Done speaking ends the turn: commit, then response.create', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await startSession(page)
+    await expect(status(page)).toHaveAttribute('data-state', 'listening')
+    await expect(status(page)).toContainText('Say what you need, then press Done speaking.')
+    await page.getByTestId('talk-end-turn').click()
+    const types = await page.evaluate(() => window.__talk.sent.map(m => m.type))
+    expect(types.slice(-2)).toEqual(['input_audio_buffer.commit', 'response.create'])
+  })
+
+  test('with a voice detection model, the turns are detected and Done speaking is not offered', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page, { vad: 'silero-vad' })
+    await startSession(page)
+    await expect(status(page)).toHaveAttribute('data-state', 'listening')
+    await expect(page.getByTestId('talk-end-turn')).toHaveCount(0)
+    await expect(page.getByTestId('talk-settings-button')).toBeVisible()
+  })
+
+  test('text-only replies stream into the transcript', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await startSession(page)
+    await emit(page, { type: 'response.output_text.delta', item_id: 'a1', delta: 'Hello ' })
+    await emit(page, { type: 'response.output_text.delta', item_id: 'a1', delta: 'there' })
+    await emit(page, { type: 'response.output_text.done', item_id: 'a1', text: 'Hello there.' })
+    await emit(page, { type: 'response.done', response: { status: 'completed' } })
+    const lines = page.getByTestId('talk-transcript').locator('.talk-turn')
+    await expect(lines).toHaveCount(1)
+    await expect(lines.nth(0)).toContainText('Hello there.')
+  })
+})
+
 test.describe('Talk on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 

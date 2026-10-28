@@ -23,7 +23,8 @@
     "listening": {
       "title": "Listening",
       "body": "Say what you need. I answer when you stop.",
-      "hearing": "Hearing you speak."
+      "hearing": "Hearing you speak.",
+      "manual": "Say what you need, then press Done speaking."
     },
     "interrupted": {
       "title": "Interrupted",
@@ -74,6 +75,7 @@
     "start": "Start session",
     "end": "End session",
     "testTone": "Test tone",
+    "endTurn": "Done speaking",
     "diagnostics": "Diagnostics",
     "viewTraces": "View traces",
     "retry": {
@@ -111,7 +113,8 @@
     "manageDesc": "Let the model query LocalAI: models, backends and system info.",
     "manageLocked": "Fixed while a session is open. End the session to change it.",
     "pipeline": "{{name}} in detail",
-    "selfContained": "Self-contained any-to-any model: it handles voice detection, transcription, the language model and speech by itself.",
+    "anyToAny": "Speech-to-speech model: one model hears you, answers and speaks. It needs no separate transcription, language or speech model.",
+    "noVad": "No voice detection model is set. Press Done speaking after each turn.",
     "editConfig": "Edit model config",
     "editPipeline": "Edit pipeline",
     "slot": {

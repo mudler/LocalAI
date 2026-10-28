@@ -27,9 +27,10 @@ func RegisterUIRoutes(app *echo.Echo,
 
 	// Pipeline models API (for the Talk page WebRTC interface).
 	// A model qualifies when it either declares an explicit VAD+STT+LLM+TTS
-	// pipeline (legacy/composed) or carries the realtime_audio usecase (a
-	// self-contained any-to-any audio model that owns the
-	// full loop in a single AudioToAudioStream RPC).
+	// pipeline (legacy/composed) or is an any-to-any speech-to-speech model
+	// (realtime_audio plus pipeline.any_to_any). The second one runs the whole
+	// loop in a single AudioToAudioStream RPC, so it needs no slots: its VAD
+	// is optional and the other slots carry its own name.
 	app.GET("/api/pipeline-models", func(c echo.Context) error {
 		type pipelineModelInfo struct {
 			Name          string `json:"name"`
@@ -38,15 +39,16 @@ func RegisterUIRoutes(app *echo.Echo,
 			LLM           string `json:"llm"`
 			TTS           string `json:"tts"`
 			Voice         string `json:"voice"`
-			// SelfContained is true for any-to-any audio models — the four
-			// pipeline slots are populated with the model's own name so the
-			// UI can render them, but the Realtime API routes the session
-			// directly to the backend's AudioToAudioStream RPC.
+			// AnyToAny is true for a speech-to-speech model. The Talk page shows
+			// it as one model, with no four-slot view.
+			AnyToAny bool `json:"any_to_any,omitempty"`
+			// SelfContained is the older name of AnyToAny, kept for clients
+			// built before the field existed.
 			SelfContained bool `json:"self_contained,omitempty"`
 		}
 
 		pipelineModels := cl.GetModelConfigsByFilter(func(_ string, cfg *config.ModelConfig) bool {
-			if cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+			if cfg.Pipeline.IsAnyToAny() && cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
 				return true
 			}
 			p := cfg.Pipeline
@@ -59,14 +61,15 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		models := make([]pipelineModelInfo, 0, len(pipelineModels))
 		for _, cfg := range pipelineModels {
-			if cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+			if cfg.Pipeline.IsAnyToAny() && cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
 				models = append(models, pipelineModelInfo{
 					Name:          cfg.Name,
-					VAD:           cfg.Name,
+					VAD:           cfg.Pipeline.VAD,
 					Transcription: cfg.Name,
 					LLM:           cfg.Name,
 					TTS:           cfg.Name,
 					Voice:         cfg.TTSConfig.Voice,
+					AnyToAny:      true,
 					SelfContained: true,
 				})
 				continue
