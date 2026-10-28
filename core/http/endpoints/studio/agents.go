@@ -25,23 +25,25 @@ func agentOut(a agents.Agent) schema.ChatsAgent {
 
 // agentIn reads the body. A model the user may not use is refused here, so a
 // saved agent never names one the service would refuse at the first turn.
-func (h *Handlers) agentIn(c echo.Context) (agents.Agent, error) {
+// When ok is false the refusal is already written and err is the write result,
+// so the caller returns err without writing a second body.
+func (h *Handlers) agentIn(c echo.Context) (a agents.Agent, ok bool, err error) {
 	var req schema.ChatsAgentWrite
 	if err := c.Bind(&req); err != nil {
-		return agents.Agent{}, fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+		return a, false, fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
 	}
 	if req.Model != "" && h.models != nil {
 		switch err := h.models.Check(c.Request().Context(), auth.GetUser(c), req.Model); {
 		case errors.Is(err, ErrUnknownModel):
-			return agents.Agent{}, fail(c, http.StatusBadRequest, "invalid_request_error", "unknown model")
+			return a, false, fail(c, http.StatusBadRequest, "invalid_request_error", "unknown model")
 		case errors.Is(err, ErrModelNotAllowed):
-			return agents.Agent{}, fail(c, http.StatusForbidden, "authorization_error", "you may not use this model")
+			return a, false, fail(c, http.StatusForbidden, "authorization_error", "you may not use this model")
 		case err != nil:
-			return agents.Agent{}, failFor(c, err)
+			return a, false, failFor(c, err)
 		}
 	}
 	return agents.Agent{Name: req.Name, Description: req.Description, Instructions: req.Instructions, Model: req.Model,
-		MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills}, nil
+		MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills}, true, nil
 }
 
 // ListAgents lists the saved agents.
@@ -69,8 +71,8 @@ func (h *Handlers) ListAgents(c echo.Context) error {
 // @Success 201 {object} schema.ChatsAgent "The saved agent"
 // @Router /api/chats/agents [post]
 func (h *Handlers) CreateAgent(c echo.Context) error {
-	a, err := h.agentIn(c)
-	if err != nil {
+	a, ok, err := h.agentIn(c)
+	if !ok {
 		return err
 	}
 	saved, err := h.svc.SaveAgent(c.Request().Context(), userID(c), a)
@@ -105,8 +107,8 @@ func (h *Handlers) GetAgent(c echo.Context) error {
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/agents/{id} [put]
 func (h *Handlers) UpdateAgent(c echo.Context) error {
-	a, err := h.agentIn(c)
-	if err != nil {
+	a, ok, err := h.agentIn(c)
+	if !ok {
 		return err
 	}
 	a.ID = c.Param("id")

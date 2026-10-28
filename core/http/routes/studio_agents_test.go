@@ -4,6 +4,9 @@
 package routes_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -81,6 +84,19 @@ var _ = Describe("Chats agents endpoints", func() {
 		}
 		save("alice", "Dup")
 		Expect(s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "dup"}).Code).To(Equal(http.StatusConflict))
+	})
+
+	It("writes exactly one JSON document when it refuses a body or a model", func() {
+		for _, body := range []string{`{"name":"a","model":"no-such-model"}`, `{"name":`} {
+			rec := s.do("alice", http.MethodPost, "/api/chats/agents", body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			dec := json.NewDecoder(bytes.NewReader(rec.Body.Bytes()))
+			var first map[string]any
+			Expect(dec.Decode(&first)).To(Succeed(), rec.Body.String())
+			Expect(first).To(HaveKey("error"))
+			var extra any
+			Expect(dec.Decode(&extra)).To(Equal(io.EOF), "a second document follows: "+rec.Body.String())
+		}
 	})
 
 	It("starts a chat with an agent, and only the user's own", func() {
