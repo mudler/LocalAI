@@ -84,6 +84,12 @@ cp -r parent_watch_test.cpp llama.cpp/tools/grpc-server/
 # test (run via backend/cpp/run-unit-tests.sh; also buildable under ctest).
 cp -r stream_peer.h llama.cpp/tools/grpc-server/
 cp -r stream_peer_test.cpp llama.cpp/tools/grpc-server/
+# Conversation logic of AudioToAudioStream (included by grpc-server.cpp), its
+# standalone unit test, and the check against the real LFM3 chat template
+# (ctest only, see CMakeLists.txt).
+cp -r realtime_session.h llama.cpp/tools/grpc-server/
+cp -r realtime_session_test.cpp llama.cpp/tools/grpc-server/
+cp -r realtime_chat_check.cpp llama.cpp/tools/grpc-server/
 # Slot cache save/restore helpers (included by grpc-server.cpp) and their
 # unit test (compiled only when -DLLAMA_GRPC_BUILD_TESTS=ON).
 cp -r slot_cache.h llama.cpp/tools/grpc-server/

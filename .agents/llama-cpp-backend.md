@@ -81,3 +81,13 @@ The `spec_type` option in `grpc-server.cpp` delegates to upstream's `common_spec
 - `llama.cpp/common/chat-parser.cpp` - Format presets and model-specific handlers
 - `llama.cpp/common/chat.h` - Format enums and parameter structures
 - `llama.cpp/tools/server/server-context.cpp` - Server configuration options
+
+## Speech-to-speech (AudioToAudioStream)
+
+`grpc-server.cpp` implements `AudioToAudioStream` on upstream's realtime slot (`server_realtime_slot`, task type `SERVER_TASK_TYPE_REALTIME`, `server-realtime.cpp`). It is compiled only when `prepare.sh` finds the realtime task type (`LOCALAI_HAS_REALTIME`); forks without it answer `UNIMPLEMENTED`.
+
+- `RealtimeStreamSession` (in `grpc-server.cpp`) feeds the slot with `SERVER_TASK_TYPE_CONTROL` tasks and writes the events. A reader thread handles client messages, the RPC thread consumes slot results.
+- `realtime_session.h` holds everything that needs no model: the turn text derived from the chat template, the conversation state machine, the tool-call text filter and the translation of slot results into events. `realtime_session_test.cpp` tests it (picked up by `backend/cpp/run-unit-tests.sh`). `realtime_chat_check.cpp` checks it against the LFM3 template of the llama.cpp tree and runs under ctest (`-DLLAMA_GRPC_BUILD_TESTS=ON`).
+- No proto change: tools travel in `AudioToAudioConfig.tools`, tool calls leave as `response.function_call_arguments.done`, tool results arrive as a `conversation.item.create` control with a `function_call_output` item. The event names are listed in the comments of `backend.proto`.
+- Upstream's slot has no tools, no voice selection and no VAD. A requested voice is reported in `session.created` with `voice_applied: false`.
+- Upstream renames controls and moves the slot often. After a llama.cpp bump, build the backend and run the `realtime_*` tests first.

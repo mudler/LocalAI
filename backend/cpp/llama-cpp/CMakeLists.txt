@@ -164,4 +164,20 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_include_directories(stream_peer_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(stream_peer_test PRIVATE cxx_std_17)
     add_test(NAME stream_peer_test COMMAND stream_peer_test)
+
+    # Conversation logic of AudioToAudioStream (nlohmann/json only).
+    add_executable(realtime_session_test realtime_session_test.cpp realtime_session.h)
+    target_include_directories(realtime_session_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(realtime_session_test PRIVATE ${_LLAMA_COMMON_TARGET}) # vendored nlohmann/json
+    target_compile_features(realtime_session_test PRIVATE cxx_std_17)
+    add_test(NAME realtime_session_test COMMAND realtime_session_test)
+
+    # The same logic against the real LFM3 chat template from the llama.cpp tree.
+    if(EXISTS "${CMAKE_SOURCE_DIR}/models/templates/LFM3.jinja")
+        add_executable(realtime_chat_check realtime_chat_check.cpp realtime_session.h)
+        target_include_directories(realtime_chat_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+        target_link_libraries(realtime_chat_check PRIVATE ${_LLAMA_COMMON_TARGET})
+        target_compile_features(realtime_chat_check PRIVATE cxx_std_17)
+        add_test(NAME realtime_chat_check COMMAND realtime_chat_check "${CMAKE_SOURCE_DIR}/models/templates/LFM3.jinja")
+    endif()
 endif()

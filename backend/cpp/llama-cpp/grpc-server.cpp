@@ -76,6 +76,7 @@
 #include "moe_cache_option.h"
 #include "passthrough_options.h"
 #include "stream_peer.h"
+#include "realtime_session.h"
 #include "tts_request_options.h"
 #include "transcription_prompt.h"
 #include <getopt.h>
@@ -1587,6 +1588,667 @@ static std::string tts_pcm_f32_to_s16(const std::string & samples) {
     }
     return out;
 }
+#endif
+
+#if LOCALAI_HAS_REALTIME && defined(LOCALAI_HAS_SERVER_REALTIME) && !defined(LOCALAI_LLAMA_CPP_NO_TTS_TASK)
+#define LOCALAI_HAS_AUDIO_TO_AUDIO 1
+
+namespace rts = llama_grpc::realtime;
+
+// One AudioToAudioStream call: a speech-to-speech conversation on a realtime
+// slot (server_realtime_slot). The slot holds the audio and text of the whole
+// conversation. This class feeds it through SERVER_TASK_TYPE_CONTROL tasks and
+// turns what it produces into AudioToAudioResponse events. The conversation
+// logic that needs no model lives in realtime_session.h.
+//
+// Two threads, as upstream: a reader thread handles the client messages, the RPC
+// thread consumes the results of the slot and writes the events.
+class RealtimeStreamSession {
+    static std::string str_field(const rts::json & j, const char * key) {
+        return j.is_object() && j.contains(key) && j[key].is_string() ? j[key].get<std::string>() : std::string();
+    }
+
+    using Stream = grpc::ServerReaderWriter<backend::AudioToAudioResponse, backend::AudioToAudioRequest>;
+
+public:
+    RealtimeStreamSession(server_context & ctx_server, const common_params & params, grpc::ServerContext * gctx, Stream * stream)
+        : ctx_server(ctx_server), params(params), gctx(gctx), stream(stream) {}
+
+    grpc::Status run() {
+        const auto & cap = ctx_server.impl->mtmd_cap;
+        // the same test as the websocket endpoint of upstream
+        if (!(cap.audio_stream && cap.chat)) {
+            const std::string msg = "the loaded model does not support speech-to-speech (needs an audio-stream projector and a chat template)";
+            send_error("not_supported", msg);
+            return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, msg);
+        }
+
+        input_rate = mtmd_get_audio_sample_rate(ctx_server.impl->mctx);
+        if (cap.audio_gen) {
+            output_rate = mtmd_gen_audio_get_info(ctx_server.impl->mctx).sample_rate;
+        }
+
+        // the first message is the config
+        backend::AudioToAudioRequest first;
+        if (!stream->Read(&first)) {
+            return grpc::Status::OK;
+        }
+        if (first.payload_case() != backend::AudioToAudioRequest::kConfig) {
+            send_error("invalid_request_error", "the first message must be a config");
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "the first message must be a config");
+        }
+        std::string err;
+        if (!apply_config(first.config(), err)) {
+            send_error("invalid_request_error", err);
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, err);
+        }
+
+        // the slot answers once it holds the session
+        auto rd = ctx_server.get_response_reader();
+        {
+            server_task task(SERVER_TASK_TYPE_REALTIME);
+            task.id                       = rd.get_new_id();
+            task.params.sampling          = sampling();
+            task.params.stream            = true;
+            task.params.oaicompat_cmpl_id = id;
+            task.params.oaicompat_model   = ctx_server.get_meta().model_name;
+            rd.post_task(std::move(task));
+        }
+        {
+            auto result = rd.next([this]() { return gctx->IsCancelled(); });
+            if (!result) {
+                return grpc::Status(grpc::StatusCode::CANCELLED, "client closed the stream");
+            }
+            if (result->is_error()) {
+                const std::string msg = json_value(result->to_json(), "message", std::string("server error"));
+                send_error("server_error", msg);
+                return grpc::Status(grpc::StatusCode::INTERNAL, msg);
+            }
+        }
+        send_event("session.created", rts::session_meta(input_rate, output_rate, rts::default_voices(), voice));
+        configured = true;
+
+        std::thread reader([this]() {
+            backend::AudioToAudioRequest req;
+            while (!fatal.load() && stream->Read(&req)) {
+                handle(req);
+            }
+            client_done = true;
+        });
+
+        // a response that is still running is allowed to finish after the client half-closed
+        auto should_stop = [this]() {
+            return fatal.load() || gctx->IsCancelled() || (client_done.load() && !response_active.load());
+        };
+        while (true) {
+            auto result = rd.next(should_stop);
+            if (!result) {
+                break;
+            }
+            if (result->is_error()) {
+                const json j = result->to_json();
+                send_error("server_error", json_value(j, "message", std::string("server error")));
+                fatal_message = json_value(j, "message", std::string("server error"));
+                fatal         = true;
+                break;
+            }
+            if (auto * res = dynamic_cast<server_task_result_realtime *>(result.get())) {
+                on_slot_result(*res);
+            }
+        }
+
+        // a reader blocked in Read() only returns once the call is cancelled
+        if (!client_done.load()) {
+            gctx->TryCancel();
+        }
+        reader.join();
+
+        if (!fatal_message.empty()) {
+            return grpc::Status(grpc::StatusCode::INTERNAL, fatal_message);
+        }
+        if (peer.gone()) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "client closed the stream");
+        }
+        return grpc::Status::OK;
+    }
+
+private:
+    server_context &       ctx_server;
+    const common_params &  params;
+    grpc::ServerContext *  gctx;
+    Stream *               stream;
+
+    const std::string id = "sess_" + random_string();
+    int input_rate  = 16000;
+    int output_rate = 24000;
+
+    // session config, owned by the reader thread once it runs
+    bool                          configured = false;
+    std::string                   instructions;
+    std::string                   voice;
+    std::string                   tools_text;
+    std::vector<common_chat_tool> tools;
+    rts::SessionParams             session_params;
+    rts::TurnText                  turn;
+    rts::ConversationState         state;
+
+    // output
+    std::mutex                    out_mutex;
+    llama_grpc::StreamPeer        peer;
+    int64_t                       seq = 0;
+    std::atomic<bool>             fatal{false};
+    std::string                   fatal_message;
+    std::atomic<bool>             client_done{false};
+
+    // the response being produced, shared by the reader and the result loop
+    std::mutex                              resp_mutex;
+    std::unique_ptr<rts::ResponseTranslator> translator;
+    std::atomic<bool>                       response_active{false};
+
+    //
+    // events
+    //
+
+    void write(backend::AudioToAudioResponse & r) {
+        std::lock_guard<std::mutex> lock(out_mutex);
+        if (peer.gone()) {
+            return;
+        }
+        r.set_sequence(seq++);
+        peer.observe_write(stream->Write(r));
+        if (peer.gone()) {
+            fatal = true;
+        }
+    }
+
+    void send_event(const std::string & event, const rts::json & meta) {
+        backend::AudioToAudioResponse r;
+        r.set_event(event);
+        r.set_meta(rts::dump_json(meta));
+        write(r);
+    }
+
+    void send_out(const rts::OutEvent & ev) {
+        backend::AudioToAudioResponse r;
+        r.set_event(ev.event);
+        if (!ev.pcm.empty()) {
+            r.set_pcm(ev.pcm);
+            r.set_sample_rate(ev.sample_rate);
+        } else {
+            r.set_meta(rts::dump_json(ev.meta));
+        }
+        write(r);
+    }
+
+    void send_error(const std::string & type, const std::string & message) {
+        send_event("error", rts::error_meta(type, message));
+    }
+
+    //
+    // slot controls, run on the slot in the order they are posted
+    //
+
+    bool control(server_control_action action, std::string text = {}, std::vector<float> audio = {}, server_control_response response = {}) {
+        auto ctl = ctx_server.get_response_reader();
+        server_task task(SERVER_TASK_TYPE_CONTROL);
+        task.id                      = ctl.get_new_id();
+        task.params.control_action   = action;
+        task.params.control_cmpl_id  = id;
+        task.params.control_text     = std::move(text);
+        task.params.control_audio    = std::move(audio);
+        task.params.control_response = response;
+        ctl.post_task(std::move(task));
+        auto result = ctl.next([this]() { return fatal.load() || gctx->IsCancelled(); });
+        auto * res  = result ? dynamic_cast<server_task_result_control *>(result.get()) : nullptr;
+        return res && res->success;
+    }
+
+    //
+    // chat template
+    //
+
+    common_chat_templates_inputs base_inputs() const {
+        const auto & chat = ctx_server.impl->chat_params;
+        common_chat_templates_inputs in;
+        in.use_jinja            = chat.use_jinja;
+        in.enable_thinking      = false;
+        in.chat_template_kwargs = chat.chat_template_kwargs;
+        in.tools                = tools;
+        return in;
+    }
+
+    static std::vector<common_chat_msg> to_common(const std::vector<rts::Msg> & msgs) {
+        std::vector<common_chat_msg> out;
+        for (const auto & m : msgs) {
+            common_chat_msg c;
+            c.role    = m.role;
+            c.content = m.content;
+            for (const auto & tc : m.tool_calls) {
+                c.tool_calls.push_back({tc.name, tc.arguments, tc.id});
+            }
+            out.push_back(std::move(c));
+        }
+        return out;
+    }
+
+    rts::RenderFn renderer() const {
+        return [this](const std::vector<rts::Msg> & msgs, bool add_generation_prompt) {
+            auto in                  = base_inputs();
+            in.messages              = to_common(msgs);
+            in.add_generation_prompt = add_generation_prompt;
+            return common_chat_templates_apply(ctx_server.impl->chat_params.tmpls.get(), in).prompt.str();
+        };
+    }
+
+    // the tool calls in the text of a response, parsed with the parser the chat template selects for the tools
+    std::vector<rts::ToolCallMsg> parse_tool_calls(const std::string & text) const {
+        std::vector<rts::ToolCallMsg> calls;
+        try {
+            auto in                  = base_inputs();
+            in.add_generation_prompt = true;
+            in.parallel_tool_calls   = true;
+            // as the server does: the empty think block of the generation prompt is reasoning, not content
+            in.reasoning_format      = ctx_server.impl->chat_params.reasoning_format;
+            common_chat_msg user;
+            user.role    = "user";
+            user.content = "x";
+            in.messages.push_back(user);
+            common_chat_session session(ctx_server.impl->chat_params.tmpls.get(), ctx_server.impl->vocab, in);
+            const auto & msg = session.finish(common_chat_input_tokenize(ctx_server.impl->vocab, text));
+            for (const auto & tc : msg.tool_calls) {
+                calls.push_back({tc.name, tc.arguments, tc.id});
+            }
+        } catch (const std::exception & e) {
+            LOG_WRN("%s: could not parse the tool calls of a response: %s\n", __func__, e.what());
+        }
+        return calls;
+    }
+
+    //
+    // session config
+    //
+
+    common_params_sampling sampling() const {
+        auto s = params.sampling;
+        if (session_params.temperature) {
+            s.temp = *session_params.temperature;
+        }
+        if (session_params.top_p) {
+            s.top_p = *session_params.top_p;
+        }
+        if (session_params.top_k) {
+            s.top_k = *session_params.top_k;
+        }
+        if (session_params.seed) {
+            s.seed = *session_params.seed;
+        }
+        return s;
+    }
+
+    rts::OutMode session_out_mode() const {
+        return session_params.out_mode ? *session_params.out_mode : rts::default_out_mode(!tools.empty());
+    }
+
+    // tools: a JSON array in OpenAI format. Empty means none.
+    static bool parse_tools(const std::string & text, std::vector<common_chat_tool> & out, std::string & err) {
+        out.clear();
+        if (text.empty()) {
+            return true;
+        }
+        try {
+            const json parsed = json::parse(text);
+            if (!parsed.is_array()) {
+                err = "tools must be a JSON array";
+                return false;
+            }
+            out = common_chat_tools_parse_oaicompat(parsed);
+        } catch (const std::exception & e) {
+            err = std::string("invalid tools: ") + e.what();
+            return false;
+        }
+        return true;
+    }
+
+    // Applies a config before the first turn: derives the text around the turns.
+    // Nothing changes if it fails.
+    bool apply_config(const backend::AudioToAudioConfig & c, std::string & err) {
+        if (c.input_sample_rate() != 0 && c.input_sample_rate() != input_rate) {
+            err = "the input audio must be PCM16 at " + std::to_string(input_rate) + " Hz";
+            return false;
+        }
+        rts::SessionParams p;
+        if (!rts::parse_session_params(std::map<std::string, std::string>(c.params().begin(), c.params().end()), p, err)) {
+            return false;
+        }
+        std::vector<common_chat_tool> new_tools;
+        if (!parse_tools(c.tools(), new_tools, err)) {
+            return false;
+        }
+        const std::string new_instructions = c.system_prompt().empty() ? rts::default_instructions() : c.system_prompt();
+
+        // render with the new tools, keep the old state until it works
+        const auto old_tools = tools;
+        tools                = new_tools;
+        rts::TurnText t;
+        if (!rts::derive_turn_text(renderer(), new_instructions, t, err)) {
+            tools = old_tools;
+            return false;
+        }
+        instructions   = new_instructions;
+        tools_text     = c.tools();
+        voice          = c.voice();
+        session_params = p;
+        turn           = t;
+        return true;
+    }
+
+    // session.update, or a later config: before the first turn everything changes, afterwards only the response options
+    void update_session(const std::string & new_instructions, const std::string & new_tools, const std::string & new_voice,
+                        const rts::json & modalities, const rts::json & max_tokens) {
+        const bool instr_changed = !new_instructions.empty() && new_instructions != instructions;
+        const bool tools_changed = !new_tools.empty() && new_tools != tools_text;
+        const bool voice_changed = !new_voice.empty() && new_voice != voice;
+        const std::string denied = state.session_update_error(instr_changed, tools_changed, voice_changed);
+        if (!denied.empty()) {
+            send_error("invalid_request_error", "session.update: " + denied);
+            return;
+        }
+        rts::SessionParams p = session_params;
+        std::string       err;
+        if (!modalities.is_null()) {
+            rts::OutMode m;
+            if (!rts::parse_output_modalities(modalities, m, err)) {
+                send_error("invalid_request_error", "session.update: " + err);
+                return;
+            }
+            p.out_mode = m;
+        }
+        if (!max_tokens.is_null() && !rts::parse_max_output_tokens(max_tokens, p.max_output_tokens)) {
+            send_error("invalid_request_error", "session.update: max_output_tokens must be an integer or \"inf\"");
+            return;
+        }
+        if (!state.started() && (instr_changed || tools_changed)) {
+            std::vector<common_chat_tool> t;
+            if (tools_changed && !parse_tools(new_tools, t, err)) {
+                send_error("invalid_request_error", "session.update: " + err);
+                return;
+            }
+            const auto old_tools = tools;
+            if (tools_changed) {
+                tools = t;
+            }
+            rts::TurnText tt;
+            if (!rts::derive_turn_text(renderer(), instr_changed ? new_instructions : instructions, tt, err)) {
+                tools = old_tools;
+                send_error("server_error", err);
+                return;
+            }
+            turn = tt;
+            if (instr_changed) {
+                instructions = new_instructions;
+            }
+            if (tools_changed) {
+                tools_text = new_tools;
+            }
+        }
+        if (voice_changed) {
+            voice = new_voice;
+        }
+        session_params = p;
+        send_event("session.updated", rts::session_meta(input_rate, output_rate, rts::default_voices(), voice));
+    }
+
+    //
+    // client messages
+    //
+
+    void handle(const backend::AudioToAudioRequest & req) {
+        switch (req.payload_case()) {
+            case backend::AudioToAudioRequest::kConfig:  on_config(req.config()); break;
+            case backend::AudioToAudioRequest::kFrame:   on_frame(req.frame()); break;
+            case backend::AudioToAudioRequest::kControl: on_control(req.control()); break;
+            default: send_error("invalid_request_error", "empty message"); break;
+        }
+    }
+
+    void on_config(const backend::AudioToAudioConfig & c) {
+        if (c.reset()) {
+            if (response_active.load()) {
+                send_error("invalid_request_error", "reset: a response is running, cancel it first");
+                return;
+            }
+            if (!control(SERVER_CONTROL_ACTION_CLEAR)) {
+                send_error("server_error", "reset: the slot did not accept the control");
+                return;
+            }
+            state.reset();
+            std::string err;
+            if (!apply_config(c, err)) {
+                send_error("invalid_request_error", err);
+                return;
+            }
+            send_event("session.updated", rts::session_meta(input_rate, output_rate, rts::default_voices(), voice));
+            return;
+        }
+        // the options of a later config are applied like a session.update
+        const auto & p = c.params();
+        rts::json modalities = nullptr;
+        rts::json max_tokens = nullptr;
+        auto it = p.find("output_modalities");
+        if (it != p.end()) {
+            rts::OutMode m;
+            std::string err;
+            if (!rts::parse_modalities_string(it->second, m, err)) {
+                send_error("invalid_request_error", "config: " + err);
+                return;
+            }
+            modalities = rts::out_mode_json(m);
+        }
+        update_session(c.system_prompt(), c.tools(), c.voice(), modalities, max_tokens);
+    }
+
+    // the header of a user turn goes in before its first audio or text
+    bool ensure_user_turn() {
+        if (state.user_turn_is_open()) {
+            return true;
+        }
+        if (!control(SERVER_CONTROL_ACTION_TEXT_APPEND, state.user_turn_header(turn))) {
+            send_error("server_error", "the slot did not accept the turn");
+            return false;
+        }
+        state.user_turn_opened();
+        return true;
+    }
+
+    bool commit() {
+        if (!state.has_audio()) {
+            send_error("input_audio_buffer_commit_empty", "input_audio_buffer.commit: the buffer is empty");
+            return false;
+        }
+        if (!control(SERVER_CONTROL_ACTION_AUDIO_END)) {
+            send_error("server_error", "the slot did not accept the end of the audio");
+            return false;
+        }
+        state.audio_committed();
+        send_event("input_audio_buffer.committed", rts::json::object());
+        return true;
+    }
+
+    void on_frame(const backend::AudioToAudioFrame & f) {
+        if (!f.pcm().empty()) {
+            auto samples = rts::pcm_s16le_to_f32(f.pcm());
+            if (samples.empty() || !ensure_user_turn()) {
+                return;
+            }
+            if (!control(SERVER_CONTROL_ACTION_AUDIO_APPEND, {}, std::move(samples))) {
+                send_error("server_error", "the slot did not accept the audio");
+                return;
+            }
+            state.audio_appended();
+        }
+        if (f.end_of_input()) {
+            commit();
+        }
+    }
+
+    void on_control(const backend::AudioToAudioControl & c) {
+        rts::json payload = rts::json::object();
+        if (!c.payload().empty()) {
+            payload = rts::json::parse(c.payload(), nullptr, false);
+            if (payload.is_discarded()) {
+                send_error("invalid_request_error", c.event() + ": the payload is not valid JSON");
+                return;
+            }
+        }
+        const std::string & ev = c.event();
+        if (ev == "input_audio_buffer.commit") {
+            commit();
+        } else if (ev == "input_audio_buffer.clear") {
+            // the audio already went into the conversation
+            send_event("input_audio_buffer.cleared", rts::json::object());
+        } else if (ev == "response.create") {
+            create_response(payload);
+        } else if (ev == "response.cancel") {
+            if (!response_active.load()) {
+                send_error("response_cancel_not_active", "response.cancel: there is no response to cancel");
+            } else if (!control(SERVER_CONTROL_ACTION_RESPONSE_CANCEL)) {
+                send_error("server_error", "the slot did not accept the cancel");
+            }
+        } else if (ev == "conversation.item.create") {
+            create_item(payload);
+        } else if (ev == "session.update") {
+            const rts::json s = payload.contains("session") && payload["session"].is_object() ? payload["session"] : payload;
+            update_session(str_field(s, "instructions"),
+                           s.contains("tools") ? (s["tools"].is_string() ? s["tools"].get<std::string>() : s["tools"].dump()) : std::string(),
+                           str_field(s, "voice"),
+                           s.contains("output_modalities") ? s["output_modalities"] : rts::json(nullptr),
+                           s.contains("max_output_tokens") ? s["max_output_tokens"] : rts::json(nullptr));
+        } else {
+            send_error("invalid_request_error", "unknown event type: " + ev);
+        }
+    }
+
+    void create_item(const rts::json & payload) {
+        const rts::json item = payload.contains("item") && payload["item"].is_object() ? payload["item"] : payload;
+        const std::string type = str_field(item, "type");
+        if (type == "function_call_output") {
+            const rts::json out = item.value("output", rts::json(""));
+            std::string err;
+            const std::string text = state.tool_turn_text(turn, out.is_string() ? out.get<std::string>() : out.dump(), err);
+            if (text.empty()) {
+                send_error("invalid_request_error", err.empty() ? "function_call_output: empty tool turn" : err);
+                return;
+            }
+            if (!control(SERVER_CONTROL_ACTION_TEXT_APPEND, text)) {
+                send_error("server_error", "the slot did not accept the tool result");
+                return;
+            }
+            state.tool_turn_opened();
+            return;
+        }
+        if (type != "message" || str_field(item, "role") != "user") {
+            send_error("invalid_request_error", "conversation.item.create: only user messages and function_call_output are supported");
+            return;
+        }
+        std::string text;
+        for (const auto & part : item.value("content", rts::json::array())) {
+            const std::string t = str_field(part, "type");
+            if (t != "input_text") {
+                send_error("invalid_request_error", "conversation.item.create: unsupported content type: " + t);
+                return;
+            }
+            text += str_field(part, "text");
+        }
+        if (!ensure_user_turn()) {
+            return;
+        }
+        if (!control(SERVER_CONTROL_ACTION_TEXT_APPEND, text)) {
+            send_error("server_error", "the slot did not accept the message");
+        }
+    }
+
+    static mtmd_helper_gen_audio_out_mode to_mtmd(rts::OutMode m) {
+        switch (m) {
+            case rts::OutMode::Text:  return MTMD_HELPER_GEN_AUDIO_OUT_TEXT;
+            case rts::OutMode::Audio: return MTMD_HELPER_GEN_AUDIO_OUT_AUDIO;
+            case rts::OutMode::Mixed: return MTMD_HELPER_GEN_AUDIO_OUT_MIXED;
+            default:                 return MTMD_HELPER_GEN_AUDIO_OUT_AUTO;
+        }
+    }
+
+    void create_response(const rts::json & payload) {
+        if (response_active.load()) {
+            send_error("conversation_already_has_active_response", "response.create: a response is already running");
+            return;
+        }
+        const std::string not_ready = state.response_create_error();
+        if (!not_ready.empty()) {
+            send_error("conversation_empty", not_ready);
+            return;
+        }
+        rts::ResponseOptions opts{};
+        std::string         err;
+        if (!rts::parse_response_options(payload, session_out_mode(), session_params.max_output_tokens, opts, err)) {
+            send_error("invalid_request_error", "response.create: " + err);
+            return;
+        }
+        const auto & cap = ctx_server.impl->mtmd_cap;
+        if (!cap.audio_gen && opts.out_mode != rts::OutMode::Text && opts.out_mode != rts::OutMode::Auto) {
+            send_error("invalid_request_error", "response.create: the model cannot generate audio");
+            return;
+        }
+        if (!cap.text_gen && opts.out_mode != rts::OutMode::Audio && opts.out_mode != rts::OutMode::Auto) {
+            send_error("invalid_request_error", "response.create: the model cannot generate text");
+            return;
+        }
+        // audio not committed yet belongs to this turn
+        if (state.has_audio() && !commit()) {
+            return;
+        }
+
+        server_control_response response;
+        response.n_predict = opts.max_output_tokens;
+        response.out_mode  = to_mtmd(opts.out_mode);
+        {
+            std::lock_guard<std::mutex> lock(resp_mutex);
+            translator = std::make_unique<rts::ResponseTranslator>(
+                opts.out_mode, output_rate,
+                tools.empty() ? rts::ResponseTranslator::ToolParser() : [this](const std::string & text) { return parse_tool_calls(text); });
+        }
+        response_active = true;
+        if (!control(SERVER_CONTROL_ACTION_RESPONSE_CREATE, state.response_prompt(turn), {}, response)) {
+            response_active = false;
+            send_error("server_error", "the slot did not accept the response");
+            return;
+        }
+        state.response_created(turn);
+    }
+
+    //
+    // results of the slot
+    //
+
+    void on_slot_result(const server_task_result_realtime & res) {
+        std::vector<rts::OutEvent> events;
+        {
+            std::lock_guard<std::mutex> lock(resp_mutex);
+            if (!translator) {
+                return;
+            }
+            events = translator->on_result(res.text, res.audio, res.response_done, res.cancelled, res.n_decoded);
+            if (translator->done()) {
+                if (translator->dropped_audio_frames() > 0) {
+                    LOG_DBG("realtime: dropped %zu audio frames inside a tool call\n", translator->dropped_audio_frames());
+                }
+                translator.reset();
+                response_active = false;
+            }
+        }
+        for (const auto & ev : events) {
+            send_out(ev);
+        }
+    }
+};
 #endif
 
 // GRPC Server start
@@ -3438,6 +4100,23 @@ public:
         (void) writer;
         return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
             "TTSStream is unavailable in this llama.cpp fork backend");
+    }
+#endif
+
+#ifdef LOCALAI_HAS_AUDIO_TO_AUDIO
+    // Speech-to-speech on llama.cpp's realtime slot. The wire contract (events,
+    // controls, tool calls) is described in RealtimeStreamSession and in the
+    // comments of AudioToAudioRequest/Response in backend.proto. Forks without
+    // the realtime slot keep the base class answer, UNIMPLEMENTED.
+    grpc::Status AudioToAudioStream(ServerContext* context,
+                                    grpc::ServerReaderWriter<backend::AudioToAudioResponse, backend::AudioToAudioRequest>* stream) override {
+        auto auth = checkAuth(context);
+        if (!auth.ok()) return auth;
+        if (params_base.model.path.empty()) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        RealtimeStreamSession session(ctx_server, params_base, context, stream);
+        return session.run();
     }
 #endif
 

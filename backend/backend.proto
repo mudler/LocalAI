@@ -1479,6 +1479,11 @@ message AudioToAudioControl {
   //                                     function_call_output as JSON in
   //                                     `payload`)
   //   "session.update"                — re-configure mid-stream
+  //   "response.create"               — start a response; payload
+  //                                     {"output_modalities":[...],
+  //                                      "max_output_tokens":N}
+  // A function_call_output item is {"type":"function_call_output",
+  // "call_id":...,"output":...} in the payload of "conversation.item.create".
   string event = 1;
   // Event-specific JSON payload.
   bytes payload = 2;
@@ -1487,12 +1492,18 @@ message AudioToAudioControl {
 message AudioToAudioResponse {
   // Event identifies what this frame carries. Mirrors the OpenAI Realtime
   // API server-event names where applicable. Initial set:
+  //   "session.created"                — meta: input_sample_rate,
+  //                                      output_sample_rate, voices
+  //   "session.updated"                — meta: same as session.created
+  //   "input_audio_buffer.committed"
   //   "response.audio.delta"
-  //   "response.audio_transcript.delta"
+  //   "response.audio_transcript.delta"  — meta: {"delta": text}
+  //   "response.text.delta"              — text-only responses
   //   "response.function_call_arguments.delta"
-  //   "response.function_call_arguments.done"
-  //   "response.done"
-  //   "error"
+  //   "response.function_call_arguments.done" — meta: call_id, name,
+  //                                      arguments (a JSON string)
+  //   "response.done"                  — meta: status, usage, text
+  //   "error"                          — meta: type, message
   string event = 1;
   // Populated when event = response.audio.delta.
   bytes pcm = 2;
