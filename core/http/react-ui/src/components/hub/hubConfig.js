@@ -4,7 +4,7 @@
 //
 // A hub is a page-level tab bar. Each tab owns one or more existing routes
 // (`items`). A tab with several routes shows a second, quieter row of links
-// under the bar. Routes stay flat (`/app/chats/agents`, `/app/nodes/:id`); a tab is
+// under the bar. Routes stay flat (`/app/nodes/:id`); a tab is
 // highlighted when the current path is one of its item paths or sits under
 // one, so sub-pages such as `nodes/:id` keep the right tab lit.
 //
@@ -30,89 +30,28 @@
 
 import { FEATURE_ADDONS } from '../../utils/capabilities.js'
 
-// Fine-tuning and quantization are add-on pages now and have no tab in the Build
-// bar. The Build overview still lists them as cards: their old routes open the
-// add-on while it is usable and the core page otherwise, so a user without the
-// add-on keeps a way in. The saved agents, triggers and skills live on pages of
-// the chats; they are cards too, so the Chats entry of the sidebar stays the one
-// that lights up there.
-export const buildOverviewTools = [
-  {
-    id: 'agents',
-    labelKey: 'items.agents',
-    descriptionKey: 'hub.descriptions.agents',
-    icon: 'robot',
-    items: [{ path: '/app/chats/agents', labelKey: 'items.agents', feature: 'chats' }],
-  },
-  {
-    id: 'triggers',
-    labelKey: 'items.triggers',
-    descriptionKey: 'hub.descriptions.triggers',
-    icon: 'checklist',
-    items: [{ path: '/app/chats/triggers', labelKey: 'items.triggers', feature: 'chats' }],
-  },
-  {
-    id: 'skills',
-    labelKey: 'items.skills',
-    descriptionKey: 'hub.descriptions.skills',
-    icon: 'sparkles',
-    items: [{ path: '/app/chats/skills', labelKey: 'items.skills', feature: 'chats' }],
-  },
-  {
-    id: 'fine-tune',
-    labelKey: 'items.fineTune',
-    descriptionKey: 'hub.descriptions.fineTune',
-    icon: 'graduation-cap',
-    items: [{ path: '/app/fine-tune', labelKey: 'items.fineTune', feature: 'fine_tuning' }],
-  },
-  {
-    id: 'quantize',
-    labelKey: 'items.quantize',
-    descriptionKey: 'hub.descriptions.quantize',
-    icon: 'minimize',
-    items: [{ path: '/app/quantize', labelKey: 'items.quantize', feature: 'quantization' }],
-  },
-]
-
-export const buildHub = {
-  id: 'build',
-  titleKey: 'sections.build',
-  icon: 'wrench',
-  overviewPath: '/app/build',
+// The Add-ons drawer of the legacy layout (LOCALAI_LEGACY_NAVIGATION). It is
+// what is left of the Build hub: memory and the agents have sidebar items of
+// their own, Import is part of adding a model and the other tools are add-ons.
+// With the new layout the drawer is a page of its own and this hub has no
+// visible tab, so the sidebar does not list it.
+export const legacyAddonsHub = {
+  id: 'addons',
+  titleKey: 'items.addons',
+  icon: 'puzzle',
+  overviewPath: '/app/addons',
   tabs: [
-    {
-      id: 'overview',
-      labelKey: 'items.overview',
-      icon: 'home',
-      items: [{ path: '/app/build', labelKey: 'items.overview' }],
-    },
-    {
-      id: 'memory',
-      labelKey: 'items.memory',
-      descriptionKey: 'hub.descriptions.memory',
-      icon: 'database',
-      items: [{ path: '/app/collections', labelKey: 'items.memory', feature: 'collections', requiresCollections: true }],
-    },
     {
       id: 'addons',
       labelKey: 'items.addons',
       descriptionKey: 'hub.descriptions.addons',
       icon: 'puzzle',
-      // The previous navigation only: with the four-item sidebar the Add-ons
-      // drawer is a page of its own (LOCALAI_LEGACY_NAVIGATION brings this back).
       showWhenOff: 'addon_navigation',
       // The page serves everyone with the feature; the management tabs are
       // administrator-only and checked by the server on every call.
       items: [{ path: '/app/addons', labelKey: 'items.addons', feature: FEATURE_ADDONS, exact: true }],
       // Add-on pages that declare navigation are listed in the second row.
       addonNavigation: true,
-    },
-    {
-      id: 'import',
-      labelKey: 'hub.import',
-      descriptionKey: 'hub.descriptions.import',
-      icon: 'download',
-      items: [{ path: '/app/import-model', labelKey: 'hub.import', adminOnly: true }],
     },
   ],
 }
@@ -206,7 +145,7 @@ export const operateHub = {
   ],
 }
 
-export const hubs = [buildHub, operateHub]
+export const hubs = [legacyAddonsHub, operateHub]
 
 // Single source of truth for item visibility.
 export function isHubItemVisible(item, { isAdmin, authEnabled, hasFeature, features }) {

@@ -1,8 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 
-// The chats page on a phone: the list of chats is a panel the header opens, so
-// the thread and the composer get the whole width.
+// The chats page on a phone: the conversations are a menu the header opens
+// (Ctrl K on a keyboard), so the thread and the composer get the whole width.
 
 const chats = ['c1', 'c2'].map((id, i) => ({
   id, title: i ? 'Release notes' : 'Quotes', model: 'qwen3-8b', kind: 'chat',
@@ -25,51 +25,48 @@ test.describe('Chats on a phone', () => {
 
   test('the thread fits: no sideways scroll and a composer across the width', async ({ page }) => {
     await page.goto('/app/chats/c1')
-    await expect(page.getByRole('textbox', { name: 'Message' })).toBeVisible()
+    await expect(page.getByTestId('chat-input')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-    const box = await page.getByRole('textbox', { name: 'Message' }).boundingBox()
+    const box = await page.getByTestId('chat-input').boundingBox()
     expect(box.width).toBeGreaterThanOrEqual(390 * 0.7)
     expect(box.x + box.width).toBeLessThanOrEqual(390)
   })
 
-  test('the list of chats is closed at first, opens from the header and closes again', async ({ page }) => {
+  test('the conversations menu opens from the header and lists the chats without sideways scroll', async ({ page }) => {
     await page.goto('/app/chats/c1')
-    const toggle = page.getByRole('button', { name: 'Chats', exact: true })
-    const list = page.getByRole('complementary', { name: 'Your chats' })
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(list).toBeHidden()
-
-    await toggle.focus()
-    await page.keyboard.press('Enter')
-    await expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    await expect(list).toBeVisible()
-    await expect(list.getByRole('button', { name: 'Release notes', exact: true })).toBeVisible()
+    const trigger = page.getByTestId('chats-trigger')
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await trigger.click()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    const menu = page.getByTestId('chats-menu')
+    await expect(menu.getByTestId('chats-row')).toHaveCount(2)
+    await expect(menu.getByText('Release notes')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-
-    await page.keyboard.press('Enter')
-    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    await expect(list).toBeHidden()
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
   })
 
-  test('choosing a chat closes the list', async ({ page }) => {
+  test('choosing a chat opens it and closes the menu', async ({ page }) => {
     await page.route('**/api/chats/c2/events', route => route.abort())
     await page.route(/\/api\/chats\/c2\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [] } }))
     await page.route('**/api/chats/c2', route => route.fulfill({ json: { ...chats[1], pending: [] } }))
     await page.goto('/app/chats/c1')
-    await page.getByRole('button', { name: 'Chats', exact: true }).click()
-    await page.getByRole('complementary', { name: 'Your chats' }).getByRole('button', { name: 'Release notes', exact: true }).click()
+    await page.getByTestId('chats-trigger').click()
+    await page.getByTestId('chats-menu').getByText('Release notes').click()
     await expect(page).toHaveURL(/\/app\/chats\/c2$/)
-    await expect(page.getByRole('complementary', { name: 'Your chats' })).toBeHidden()
+    await expect(page.getByTestId('chats-menu')).toBeHidden()
   })
 })
 
 test.describe('Chats on a desktop', () => {
-  test('the list sits beside the thread and the header button is hidden', async ({ page }) => {
+  test('Ctrl K opens the conversations menu from anywhere on the page', async ({ page }) => {
     await stub(page)
     await page.goto('/app/chats/c1')
-    await expect(page.getByRole('complementary', { name: 'Your chats' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Chats', exact: true })).toBeHidden()
+    await expect(page.getByTestId('chat-title')).toHaveText('Quotes')
+    await page.keyboard.press('Control+k')
+    await expect(page.getByTestId('chats-menu')).toBeVisible()
+    await expect(page.getByTestId('chats-row').first()).toContainText('Release notes')
   })
 })

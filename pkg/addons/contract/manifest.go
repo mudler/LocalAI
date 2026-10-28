@@ -106,7 +106,10 @@ type Capabilities struct {
 	// makes at once and answers the host's undo calls (see undo.go). It is a
 	// promise about storage only: the add-on's tools stay as declared.
 	Undo bool `json:"undo,omitempty"`
-	UI   *UI  `json:"ui,omitempty"`
+	// Connector says that the add-on carries the messages of a messaging
+	// platform (see connector.go). It needs no tool.
+	Connector *ConnectorCapability `json:"connector,omitempty"`
+	UI        *UI                  `json:"ui,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -337,7 +340,7 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return fmt.Errorf("incompatible host, API, protocol or data format")
 	}
 	c := m.Capabilities
-	if (!c.Service && len(c.Tools) == 0 && c.UI == nil) || !uniqueIDs(c.Tools) {
+	if (!c.Service && len(c.Tools) == 0 && c.UI == nil && c.Connector == nil) || !uniqueIDs(c.Tools) {
 		return fmt.Errorf("invalid capabilities")
 	}
 	for _, d := range c.ToolDefinitions {
@@ -349,6 +352,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {
+		return e
+	}
+	if e := validateConnector(c.Connector, c.UI); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {

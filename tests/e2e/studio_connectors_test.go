@@ -13,11 +13,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/addons/telegram/transport"
 	localaiapp "github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/tests/studiobot"
 )
 
 // fakeTelegram is a Bot API server for the connector. The application is built
-// with its address (see BeforeSuite), so a message queued here reaches a real
+// with the Telegram add-on transport on its address (see BeforeSuite), so a message queued here reaches a real
 // chat on the mock model and the answer comes back here. Updates are kept per
 // bot token, as Telegram does, so each binding reads only its own.
 type fakeTelegram struct {
@@ -97,7 +99,7 @@ func startFakeTelegram() {
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		}
 	}))
-	f.restore = localaiapp.UseTelegramBaseURLForTests(f.srv.URL)
+	f.restore = localaiapp.UseConnectorTransportForTests(studiobot.NewBotTransport(&transport.API{BaseURL: f.srv.URL}))
 	telegram = f
 }
 
@@ -167,7 +169,7 @@ var _ = Describe("Chats connectors", Label("Chats"), func() {
 		DeferCleanup(func() { chatsDo(http.MethodDelete, chatsBase()+"/agents/"+agentID, nil) })
 
 		code, out = chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{
-			"name": "Bot e2e", "token": "42:E2E-token", "agent_id": agentID, "enabled": true, "allow": []string{"11"},
+			"name": "Bot e2e", "kind": "telegram", "token": "42:E2E-token", "agent_id": agentID, "enabled": true, "allow": []string{"11"},
 		})
 		Expect(code).To(Equal(http.StatusCreated), string(out))
 		Expect(string(out)).NotTo(ContainSubstring("E2E-token"))

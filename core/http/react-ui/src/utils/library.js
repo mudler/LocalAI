@@ -32,7 +32,26 @@ export function kbResults() {
 export function collectionUsers(agents, collection) {
   return agents
     .filter(agent => (agent.config?.collections || []).includes(collection))
-    .map(agent => ({ name: agent.name, all: false }))
+    .map(agent => ({ name: agent.name, id: agent.id, all: false }))
+}
+
+// Agents that may read a skill, by the skill's name.
+export function skillUsers(agents, skill) {
+  return agents
+    .filter(agent => (agent.config?.skills || []).includes(skill))
+    .map(agent => ({ name: agent.name, id: agent.id, all: false }))
+}
+
+// Config after granting a skill. Returns null when it is granted already.
+export function withSkill(config, skill) {
+  const have = config?.skills || []
+  return have.includes(skill) ? null : { ...config, skills: [...have, skill] }
+}
+
+// Config after taking a skill away. Returns null when it was not granted.
+export function withoutSkill(config, skill) {
+  const have = config?.skills || []
+  return have.includes(skill) ? { ...config, skills: have.filter(c => c !== skill) } : null
 }
 
 // Config after granting a collection. Returns null when it is granted already.

@@ -232,6 +232,21 @@ func (c *Client) Act(ctx context.Context, v contract.Envelope) (contract.Result,
 	}
 	return r, e
 }
+
+var _ contract.ConnectorRuntime = (*Client)(nil)
+
+// Connector calls the connector route of an add-on that declared the
+// connector capability. The call carries no envelope: it is the host's own,
+// made for a binding, and the add-on authenticates the host by the credential
+// of the incarnation. A call that may have run (a send) is not retried here.
+func (c *Client) Connector(ctx context.Context, v contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	var r contract.ConnectorResponse
+	if c.registration.Capabilities.Connector == nil {
+		return r, ErrNotSent
+	}
+	e := c.call(ctx, "/connector", nil, v, &r, contract.ConnectorTimeout)
+	return r, e
+}
 func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {
 	var r contract.Preview
 	if e := c.valid(v, "preview"); e != nil {

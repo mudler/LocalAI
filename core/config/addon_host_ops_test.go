@@ -10,7 +10,7 @@ var _ = Describe("ParseAddonHostOps", func() {
 	It("parses the default setting", func() {
 		got, err := ParseAddonHostOps(DefaultAddonHostOps)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(got).To(Equal(map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}, "sandbox": {"workspace."}, "office": {"workspace."}}))
+		Expect(got).To(Equal(map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}, "sandbox": {"workspace."}, "office": {"workspace."}, "telegram": {"connector."}}))
 	})
 
 	It("trims blanks and merges repeated names", func() {

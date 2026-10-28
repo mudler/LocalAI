@@ -69,7 +69,8 @@
     "prometheus": "Prometheus",
     "chats": "聊天会话",
     "files": "文件",
-    "triggers": "触发器"
+    "triggers": "触发器",
+    "mcpConnectors": "MCP 连接器"
   },
   "footer": {
     "github": "GitHub",

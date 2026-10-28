@@ -220,6 +220,18 @@
     "docs": {
       "label": "Documentation",
       "desc": "Open localai.io in a new tab"
+    },
+    "agents": {
+      "label": "Agents",
+      "desc": "Your saved agents, triggers and skills"
+    },
+    "mcp": {
+      "label": "MCP connectors",
+      "desc": "MCP servers your chats can use"
+    },
+    "memory": {
+      "label": "Memory",
+      "desc": "Collections your chats can search"
     }
   },
   "strip": {

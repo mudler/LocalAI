@@ -74,7 +74,8 @@ var _ = Describe("declared tools of the installed generation", Label("tools"), f
 // field is a host decision input and must be copied, or the gateway denies the
 // call without saying why.
 var capabilitiesNotDeclared = map[string]string{
-	"UI": "the page entry and assets are served from the package receipt, not through the gateway",
+	"UI":        "the page entry and assets are served from the package receipt, not through the gateway",
+	"Connector": "the connector kinds are read from the manifest by ConnectorKinds, and no gateway call depends on them",
 }
 
 // fillNonZero sets every field of v, recursively, to a value that differs from

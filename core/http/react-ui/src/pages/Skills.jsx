@@ -1,0 +1,413 @@
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { chatSkillsApi } from '../utils/api'
+import { useLibraryFacts } from '../hooks/useLibraryFacts'
+import { useWideLayout } from '../hooks/useWideLayout'
+// eslint-disable-next-line no-unused-vars
+import PageHeader from '../components/PageHeader'
+// eslint-disable-next-line no-unused-vars
+import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
+// eslint-disable-next-line no-unused-vars
+import HomeUndoToast from '../components/home/HomeUndoToast'
+import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import { AddToMenu, UsedByStrip } from '../components/library/LibraryBits'
+import { usedByLine } from '../utils/libraryText'
+import { estimateTokens, skillUsers, withSkill, withoutSkill } from '../utils/library'
+import './library.css'
+
+const PREVIEW_LINES = 8
+// The layers, nearest first: a skill of a nearer layer hides one of the same name.
+const LAYERS = ['personal', 'folder', 'shared', 'builtin']
+
+const keyOf = (s) => `${s.layer}/${s.name}`
+
+export default function Skills() {
+  const { addToast } = useOutletContext()
+  const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
+  const { t } = useTranslation(['skills', 'library'])
+  const facts = useLibraryFacts()
+  const wide = useWideLayout()
+
+  const [skills, setSkills] = useState([])
+  const [notes, setNotes] = useState([])
+  const [search, setSearch] = useState('')
+  const [usage, setUsage] = useState('all')
+  const [layer, setLayer] = useState('all')
+  const [loading, setLoading] = useState(true)
+  const [off, setOff] = useState('')
+  const [toDelete, setToDelete] = useState(null)
+  const [undo, setUndo] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const select = useCallback((key) => setParams(key ? { skill: key } : {}), [setParams])
+
+  const fetchSkills = useCallback(async () => {
+    try {
+      const data = await chatSkillsApi.list()
+      setSkills(data.skills || [])
+      setNotes(data.notes || [])
+      setOff('')
+    } catch (err) {
+      if (err?.status === 409 && err.body?.error?.type === 'files_off') setOff(err.body.error.message)
+      else addToast(err.message || t('toasts.loadFailed'), 'error')
+      setSkills([])
+    } finally {
+      setLoading(false)
+    }
+  }, [addToast, t])
+
+  useEffect(() => { fetchSkills() }, [fetchSkills])
+
+  // Who uses a skill is read by its name: that is how an agent lists it.
+  const usersOf = useMemo(() => {
+    const map = new Map()
+    for (const s of skills) map.set(s.name, skillUsers(facts.agents, s.name))
+    return map
+  }, [skills, facts.agents])
+  const known = facts.status === 'ready'
+
+  const layersPresent = LAYERS.filter(l => skills.some(s => s.layer === l))
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return skills.filter(s => {
+      if (layer !== 'all' && s.layer !== layer) return false
+      if (q && !s.name.toLowerCase().includes(q) && !(s.description || '').toLowerCase().includes(q)) return false
+      if (known && usage === 'used' && usersOf.get(s.name).length === 0) return false
+      if (known && usage === 'unused' && usersOf.get(s.name).length > 0) return false
+      return true
+    })
+  }, [skills, search, layer, usage, known, usersOf])
+
+  // Side by side, the first skill is open until another is picked. On a phone
+  // nothing opens until the person taps one.
+  const asked = params.get('skill') || ''
+  const selected = skills.find(s => keyOf(s) === asked) || (wide && !asked ? visible[0] : null) || null
+  const open = Boolean(selected)
+
+  const deleteSkill = async (skill) => {
+    setToDelete(null)
+    try {
+      await chatSkillsApi.remove(skill.layer, skill.name)
+      addToast(t('toasts.deleted', { name: skill.name }), 'success')
+      select('')
+      fetchSkills()
+    } catch (err) {
+      addToast(err.message || t('toasts.deleteFailed'), 'error')
+    }
+  }
+
+  // ---- Attach and detach -------------------------------------------------
+  const configOf = (agent) => facts.agents.find(a => a.name === agent)?.config || null
+
+  const saveFor = async (agent, next) => {
+    setBusy(true)
+    try {
+      await facts.saveConfig(agent, next)
+      return true
+    } catch (err) {
+      addToast(t('library:toasts.updateFailed', { agent, message: err.message }), 'error')
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const addToAgent = async (skill, agent) => {
+    const config = configOf(agent)
+    if (!config) { addToast(t('library:toasts.updateFailed', { agent, message: t('library:usedBy.unread') }), 'error'); return }
+    const next = withSkill(config, skill.name)
+    if (!next) return
+    if (await saveFor(agent, next)) addToast(t('library:toasts.skillAdded', { name: skill.name, agent }), 'success')
+  }
+
+  const removeFromAgent = async (skill, agent) => {
+    const config = configOf(agent)
+    const next = config && withoutSkill(config, skill.name)
+    if (!next) return
+    if (!(await saveFor(agent, next))) return
+    setUndo({
+      id: Date.now(),
+      message: t('library:toasts.skillRemoved', { name: skill.name, agent }),
+      restore: async () => {
+        if (await saveFor(agent, config)) addToast(t('library:toasts.undone'), 'success')
+      },
+    })
+  }
+
+  if (off) {
+    return (
+      <div className="page page--wide lib-page" data-testid="skills-page">
+        <PageHeader title={t('title')} supporting={t('unavailable.subtitle')} />
+        <div className="lib-note lib-note--warn" role="note" data-testid="files-off">{off}</div>
+      </div>
+    )
+  }
+
+  const empty = !loading && skills.length === 0
+
+  return (
+    <div className="page page--wide lib-page" data-testid="skills-page">
+      <PageHeader
+        title={t('title')}
+        supporting={t('subtitle')}
+        actions={(
+          <div className="lib-head-actions">
+            <button type="button" className="dk-btn dk-btn--primary" onClick={() => navigate('/app/skills/new')}>
+              <Icon name="plus" /> {t('actions.newSkill')}
+            </button>
+          </div>
+        )}
+      />
+
+      {notes.map(n => <p key={n} className="lib-note lib-note--warn" role="note">{n}</p>)}
+
+      {loading ? (
+        <div className="dk-empty" aria-busy="true"><Icon name="spinner" spin /></div>
+      ) : empty ? (
+        <div className="lib-empty" data-testid="skills-empty">
+          <div className="dk-empty-icon"><Icon name="book" /></div>
+          <h2>{t('empty.title')}</h2>
+          <p>{t('empty.text')}</p>
+          <ol className="lib-empty__steps">
+            <li><span className="lib-step-n">1</span><span>{t('empty.stepWrite')}</span></li>
+            <li><span className="lib-step-n">2</span><span>{t('empty.stepTry')}</span></li>
+            <li><span className="lib-step-n">3</span><span>{t('empty.stepAdd')}</span></li>
+          </ol>
+          <div className="lib-empty__acts">
+            <button className="dk-btn dk-btn--primary" onClick={() => navigate('/app/skills/new')}>
+              <Icon name="plus" /> {t('actions.createSkill')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="dk-split lib-split" data-view={open ? 'pane' : 'list'}>
+          <div className="dk-split-rail lib-rail">
+            <span className="dk-input-icon lib-find">
+              <Icon name="search" className="dk-icon" />
+              <input
+                type="search"
+                className="dk-input"
+                placeholder={t('search.placeholder')}
+                aria-label={t('search.label')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                data-testid="skills-search"
+              />
+            </span>
+            <div className="lib-filters" role="group" aria-label={t('filters.label')}>
+              {['all', 'used', 'unused'].map(f => (
+                <button
+                  key={f}
+                  type="button"
+                  className="dk-chip dk-chip--sm"
+                  aria-pressed={usage === f}
+                  disabled={f !== 'all' && !known}
+                  onClick={() => setUsage(f)}
+                  data-testid={`skills-filter-${f}`}
+                >
+                  {t(`filters.${f}`)}
+                </button>
+              ))}
+            </div>
+            {layersPresent.length > 1 && (
+              <div className="lib-filters" role="group" aria-label={t('layers.label')}>
+                {['all', ...layersPresent].map(l => (
+                  <button
+                    key={l}
+                    type="button"
+                    className="dk-chip dk-chip--sm"
+                    aria-pressed={layer === l}
+                    onClick={() => setLayer(l)}
+                    data-testid={`skills-layer-${l}`}
+                  >
+                    {l === 'all' ? t('filters.all') : t(`layers.${l}`)}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {visible.length === 0 ? (
+              <p className="lib-rail__none" data-testid="skills-none">{t('list.none')}</p>
+            ) : (
+              <div className="dk-list lib-rows" role="list" aria-label={t('list.label')}>
+                {visible.map(s => (
+                  <button
+                    key={keyOf(s)}
+                    type="button"
+                    role="listitem"
+                    className="dk-row"
+                    aria-selected={selected && keyOf(selected) === keyOf(s)}
+                    onClick={() => select(keyOf(s))}
+                    data-testid={`skill-row-${s.name}`}
+                  >
+                    <span className="dk-row-lead"><Icon name="sparkles" /></span>
+                    <span className="dk-row-main">
+                      <span className="dk-row-title dk-mono">{s.name}</span>
+                      <span className="dk-row-meta" data-testid={`skill-used-${s.name}`}>
+                        {s.invalid ? t('card.invalid') : s.shadowed ? t('card.shadowed', { layer: t(`layers.${s.shadowed}`) }) : usedByLine(t, usersOf.get(s.name), facts.status)}
+                      </span>
+                    </span>
+                    <span className="dk-row-end"><span className="dk-badge">{t(`layers.${s.layer}`)}</span></span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <section className="dk-card lib-pane" aria-live="polite" data-testid="skill-pane">
+            {selected ? (
+              <SkillPane
+                key={keyOf(selected)}
+                t={t}
+                skill={selected}
+                users={usersOf.get(selected.name) || []}
+                status={facts.status}
+                agents={facts.agents}
+                busy={busy}
+                onBack={() => select('')}
+                onEdit={(s) => navigate(`/app/skills/edit/${encodeURIComponent(s.layer)}/${encodeURIComponent(s.name)}`)}
+                onDelete={setToDelete}
+                onAdd={(agent) => addToAgent(selected, agent)}
+                onRemove={(agent) => removeFromAgent(selected, agent)}
+              />
+            ) : (
+              <div className="lib-pane__empty" data-testid="skill-pane-empty">
+                <p>{t('pane.pick')}</p>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {undo && (
+        <HomeUndoToast
+          key={undo.id}
+          message={undo.message}
+          testId="library-undo-toast"
+          undoLabel={t('library:toasts.undo')}
+          dismissLabel={t('library:toasts.dismiss')}
+          onUndo={() => { const { restore } = undo; setUndo(null); restore() }}
+          onExpire={() => setUndo(null)}
+        />
+      )}
+
+      <ChatDeleteConfirm item={toDelete} kind="skill" onConfirm={deleteSkill} onCancel={() => setToDelete(null)} />
+    </div>
+  )
+}
+
+// eslint-disable-next-line no-unused-vars
+function SkillPane({ t, skill, users, status, agents, busy, onBack, onEdit, onDelete, onAdd, onRemove }) {
+  const [tab, setTab] = useState('overview')
+  const [detail, setDetail] = useState({ phase: 'loading', data: null })
+  const unused = status === 'ready' && users.length === 0
+  const grantable = !skill.invalid
+
+  useEffect(() => {
+    if (skill.invalid) { setDetail({ phase: 'failed', data: null }); return undefined }
+    let live = true
+    chatSkillsApi.get(skill.layer, skill.name)
+      .then(data => { if (live) setDetail({ phase: 'ready', data }) })
+      .catch(() => { if (live) setDetail({ phase: 'failed', data: null }) })
+    return () => { live = false }
+  }, [skill.layer, skill.name, skill.invalid])
+
+  const body = detail.data?.body || ''
+  const tokens = estimateTokens(body)
+  const tabs = ['overview', 'instructions']
+
+  return (
+    <>
+      <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm lib-back" onClick={onBack}>
+        <Icon name="arrow-left" /> {t('pane.back')}
+      </button>
+
+      <div className="lib-pane__head">
+        <div className="lib-pane__title">
+          <h2 className="lib-mono" data-testid="skill-title">{skill.name}</h2>
+          <p className="lib-pane__sub">{skill.description || t('card.noDescription')}</p>
+        </div>
+        <div className="lib-pane__acts">
+          {skill.editable && (
+            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => onEdit(skill)} title={t('card.editTitle')}>
+              <Icon name="edit" /> {t('actions.edit')}
+            </button>
+          )}
+          {skill.editable && (
+            <button type="button" className="dk-btn dk-btn--danger dk-btn--sm" onClick={() => onDelete(skill)} title={t('card.deleteTitle')}>
+              <Icon name="trash" /> {t('actions.delete')}
+            </button>
+          )}
+        </div>
+      </div>
+
+      <ul className="lib-facts">
+        <li className="lib-fact" data-testid="skill-layer">{t(`layers.${skill.layer}`)}</li>
+        {!skill.editable && <li className="lib-fact">{t('card.readOnly')}</li>}
+        {skill.shadowed && <li className="lib-fact">{t('card.shadowedLong', { layer: t(`layers.${skill.shadowed}`) })}</li>}
+        {detail.phase === 'ready' && <li className="lib-fact" data-testid="skill-tokens" title={t('pane.tokensTitle')}>{t('pane.tokens', { count: tokens })}</li>}
+      </ul>
+
+      {skill.invalid && <p className="lib-note lib-note--error" role="alert" data-testid="skill-invalid">{t('card.invalidWhy', { reason: skill.invalid })}</p>}
+
+      {grantable && (
+        <>
+          <UsedByStrip users={users} status={status} onRemove={onRemove} busy={busy}>
+            <AddToMenu kind="skill" name={skill.name} agents={agents.filter(a => a.config)} status={status} onAdd={onAdd} busy={busy} />
+          </UsedByStrip>
+          {unused && (
+            <div className="lib-notused" data-testid="skill-not-used">
+              <p>{t('library:notUsed.skillShort')}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="dk-tabs lib-tabs" role="tablist" aria-label={t('pane.tabs')}>
+        {tabs.map(id => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`skill-tab-${id}`}
+            aria-controls={`skill-panel-${id}`}
+            aria-selected={tab === id}
+            tabIndex={tab === id ? 0 : -1}
+            className="dk-tab"
+            onClick={() => setTab(id)}
+            onKeyDown={(e) => {
+              const i = tabs.indexOf(id)
+              const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length] : e.key === 'ArrowLeft' ? tabs[(i + tabs.length - 1) % tabs.length] : null
+              if (next) { e.preventDefault(); setTab(next); document.getElementById(`skill-tab-${next}`)?.focus() }
+            }}
+          >
+            {t(`pane.tab.${id}`)}
+          </button>
+        ))}
+      </div>
+
+      <div className="dk-tabpanel lib-section" role="tabpanel" id={`skill-panel-${tab}`} aria-labelledby={`skill-tab-${tab}`} tabIndex={0}>
+        {detail.phase === 'loading' ? (
+          <p className="lib-muted" aria-busy="true">{t('pane.loading')}</p>
+        ) : detail.phase === 'failed' ? (
+          !skill.invalid && <p className="lib-note lib-note--error" role="alert">{t('pane.loadFailed')}</p>
+        ) : tab === 'overview' ? (
+          body ? (
+            <div className="lib-section">
+              <h3 className="lib-eyebrow">{t('pane.startsWith')}</h3>
+              <pre className="lib-pre lib-pre--preview" data-testid="skill-preview">{body.split('\n').slice(0, PREVIEW_LINES).join('\n')}</pre>
+              <button type="button" className="dk-link lib-more" onClick={() => setTab('instructions')}>{t('pane.showAll')}</button>
+            </div>
+          ) : <p className="lib-muted">{t('pane.noContent')}</p>
+        ) : (
+          body
+            ? <pre className="lib-pre" data-testid="skill-content">{body}</pre>
+            : <p className="lib-muted">{t('pane.noContent')}</p>
+        )}
+      </div>
+    </>
+  )
+}

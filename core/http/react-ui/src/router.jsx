@@ -77,11 +77,15 @@ export function preloadRoute(path) {
 }
 
 const Home = page('', () => import('./pages/Home'))
-const Chats = page('chats', () => import('./pages/Chats'))
+const Chats = page('chats', () => import('./pages/Chat'))
 const Workspace = page('workspace', () => import('./pages/Workspace'))
-const ChatSkills = page('chats', () => import('./pages/ChatSkills'))
-const ChatAgents = page('chats', () => import('./pages/ChatAgents'))
-const ChatTriggers = page('chats', () => import('./pages/ChatTriggers'))
+const Agents = page('agents', () => import('./pages/Agents'))
+const AgentCreate = page(null, () => import('./pages/AgentCreate'))
+const AgentPage = page(null, () => import('./pages/AgentPage'))
+const Skills = page('skills', () => import('./pages/Skills'))
+const SkillEdit = page(null, () => import('./pages/SkillEdit'))
+const AgentJobs = page('triggers', () => import('./pages/AgentJobs'))
+const AgentTaskDetails = page(null, () => import('./pages/AgentTaskDetails'))
 const ChatConnectors = page('chats', () => import('./pages/ChatConnectors'))
 const ChatConversion = page('chats', () => import('./pages/ChatConversion'))
 const Models = page('models', () => import('./pages/Models'))
@@ -138,7 +142,7 @@ const Addons = page('addons', () => import('./pages/Addons'))
 const AddonRoute = page(null, () => import('./addons/AddonRoute'))
 // Only referenced from JSX below, which eslint cannot see.
 // eslint-disable-next-line no-unused-vars
-const BuildOverview = page('build', () => import('./pages/BuildOverview'))
+const MCPConnectors = page('mcp-connectors', () => import('./pages/MCPConnectors'))
 
 import HubLayout from './components/hub/HubLayout'
 // Only referenced from JSX below, which eslint cannot see.
@@ -147,14 +151,21 @@ import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
 import { addonPageAddress, chatsRedirect, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
-import { buildHub, operateHub } from './components/hub/hubConfig'
+import { legacyAddonsHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
-// The old chat, agents, jobs and skills pages became pages of the chats. An old
-// address opens the matching one and keeps the query string and the hash.
+// The old chat page became the chats and the old agent-jobs pages became the
+// triggers; the agents, skills and triggers pages left /app/chats/. An old
+// address opens the matching page and keeps the query string and the hash.
 function ChatsRedirect() {
   const { pathname, search, hash } = useLocation()
   return <Navigate to={chatsRedirect(pathname, search, hash)} replace />
+}
+
+// The old status, run and chat pages of an agent are its page now.
+function AgentRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/app/agents/${encodeURIComponent(id)}`} replace />
 }
 
 // An old generator link opens the same generator inside the Studio add-on. The
@@ -217,7 +228,7 @@ function AddonsShell() {
   const outletContext = useOutletContext()
   if (!featuresLoaded) return null
   if (features.addons === false) return <Navigate to="/app" replace />
-  if (features.addon_navigation === false) return <HubLayout config={buildHub} />
+  if (features.addon_navigation === false) return <HubLayout config={legacyAddonsHub} />
   return <Outlet context={outletContext} />
 }
 
@@ -240,14 +251,27 @@ const appChildren = [
   { index: true, element: <Home /> },
   { path: 'chat', element: <ChatsRedirect /> },
   { path: 'chat/:model', element: <ChatsRedirect /> },
-  { path: 'chats', element: <Feature feature="chats"><Chats /></Feature> },
-  { path: 'chats/skills', element: <Feature feature="chats"><ChatSkills /></Feature> },
-  { path: 'chats/agents', element: <Feature feature="chats"><ChatAgents /></Feature> },
-  { path: 'chats/triggers', element: <Feature feature="chats"><ChatTriggers /></Feature> },
-  { path: 'chats/connectors', element: <Feature feature="chats"><ChatConnectors /></Feature> },
+  { path: 'chats/agents', element: <ChatsRedirect /> },
+  { path: 'chats/skills', element: <ChatsRedirect /> },
+  { path: 'chats/triggers', element: <ChatsRedirect /> },
+  { path: 'chats/connectors', element: <Feature feature="connectors"><ChatConnectors /></Feature> },
   { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
-  { path: 'chats/:id', element: <Feature feature="chats"><Chats /></Feature> },
+  // One route for a new chat and an open one, so the page stays mounted when a
+  // chat starts or is left (a delete waiting for its Undo survives the move).
+  { path: 'chats/:id?', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
+  { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
+  { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:id/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },
+  { path: 'agents/:id', element: <Feature feature="agents"><AgentPage /></Feature> },
+  { path: 'agents/:id/*', element: <AgentRedirect /> },
+  { path: 'skills', element: <Feature feature="chats"><Skills /></Feature> },
+  { path: 'skills/new', element: <Feature feature="chats"><SkillEdit /></Feature> },
+  { path: 'skills/edit/:layer/:name', element: <Feature feature="chats"><SkillEdit /></Feature> },
+  { path: 'triggers', element: <Feature feature="triggers"><AgentJobs /></Feature> },
+  { path: 'triggers/new', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
+  { path: 'triggers/:id/edit', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
+  { path: 'triggers/:id', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },
   { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
   { path: 'video', element: <StudioTabRedirect legacy="video" /> },
@@ -272,8 +296,8 @@ const appChildren = [
   { path: 'account', element: <Account /> },
   // The Add-ons drawer. A viewer without the addons feature still reaches it
   // when a built-in tile is theirs to open (the built-in list is empty today).
-  // With the legacy switch on, both routes sit in the Build hub again, under
-  // its Add-ons tab, and need the addons feature as they did before.
+  // With the legacy switch on, both routes sit under the legacy Add-ons hub,
+  // and need the addons feature as they did before.
   {
     element: <AddonsShell />,
     children: [
@@ -282,29 +306,25 @@ const appChildren = [
     ],
   },
 
-  // Build hub: one tab bar over the tool landing pages. Deep create/edit/chat
-  // flows below render full-width, without the bar.
-  {
-    element: <HubLayout config={buildHub} />,
-    children: [
-      { path: 'build', element: <BuildOverview /> },
-      { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
-      { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
-      { path: 'fine-tune', element: <AddonsOffRedirect><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
-      { path: 'quantize', element: <AddonsOffRedirect><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
-      { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
-      { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
-      { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },
-      { path: 'voice/:model', element: <AddonRedirect addon="voice" page="voice/recognition" withModel /> },
-      { path: 'voice-library', element: <AddonRedirect addon="voice" page="voice/library" /> },
-      { path: 'import-model', element: <Admin><ImportModel /></Admin> },
-    ],
-  },
-  // The old agent, skill and job pages: they redirect to the chats pages.
-  { path: 'agents/*', element: <ChatsRedirect /> },
-  { path: 'agents', element: <ChatsRedirect /> },
-  { path: 'skills/*', element: <ChatsRedirect /> },
-  { path: 'skills', element: <ChatsRedirect /> },
+  // The Build hub is gone: its pages are top-level now. Memory (collections)
+  // and the agents have their own sidebar items, Import is part of adding a
+  // model, and fine-tuning, quantization, faces and voices are add-ons. The old
+  // landing address opens the models.
+  { path: 'build', element: <Navigate to="/app/models" replace /> },
+  { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
+  { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
+  { path: 'fine-tune', element: <AddonsOffRedirect><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
+  { path: 'quantize', element: <AddonsOffRedirect><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
+  { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
+  { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
+  { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },
+  { path: 'voice/:model', element: <AddonRedirect addon="voice" page="voice/recognition" withModel /> },
+  { path: 'voice-library', element: <AddonRedirect addon="voice" page="voice/library" /> },
+  { path: 'import-model', element: <Admin><ImportModel /></Admin> },
+  // The user's MCP connectors have a page of their own; the old address was a
+  // tab of the messaging connectors.
+  { path: 'mcp-connectors', element: <Feature feature="chats"><MCPConnectors /></Feature> },
+  // The old agent-jobs pages are the triggers now.
   { path: 'agent-jobs/*', element: <ChatsRedirect /> },
   { path: 'agent-jobs', element: <ChatsRedirect /> },
 

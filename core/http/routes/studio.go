@@ -116,6 +116,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/push/subscribe", h.PushSubscribe)
 	e.DELETE(base+"/push/subscribe", h.PushUnsubscribe)
 	e.GET(base+"/connectors", h.ListConnectors)
+	e.GET(base+"/connectors/kinds", h.ConnectorKinds)
 	e.POST(base+"/connectors", h.CreateConnector)
 	e.GET(base+"/connectors/:id", h.GetConnector)
 	e.PUT(base+"/connectors/:id", h.UpdateConnector)

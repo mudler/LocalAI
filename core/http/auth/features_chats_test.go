@@ -107,6 +107,7 @@ var _ = Describe("Chats feature registration", func() {
 		}
 		Expect(routes).To(ConsistOf(
 			"GET /api/chats/connectors",
+			"GET /api/chats/connectors/kinds",
 			"POST /api/chats/connectors",
 			"GET /api/chats/connectors/:id",
 			"PUT /api/chats/connectors/:id",

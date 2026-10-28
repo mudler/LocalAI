@@ -1,0 +1,97 @@
+{
+  "title": "Skills",
+  "subtitle": "Folders with a SKILL.md that a chat can read when a task matches. Add one to an agent to use it there.",
+  "unavailable": {
+    "subtitle": "Skills need the file workspace, and it is off on this server."
+  },
+  "actions": {
+    "newSkill": "New skill",
+    "createSkill": "Create skill",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "search": {
+    "placeholder": "Search skills",
+    "label": "Search skills"
+  },
+  "card": {
+    "noDescription": "No description",
+    "readOnly": "Read-only",
+    "editTitle": "Edit skill",
+    "deleteTitle": "Delete skill",
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+  },
+  "empty": {
+    "title": "Skills are instructions an agent can follow",
+    "text": "Write one once, then add it to the agents that should follow it. A skill that nobody uses stays in the library.",
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
+  },
+  "toasts": {
+    "loadFailed": "Failed to load skills",
+    "deleted": "Skill \"{{name}}\" deleted",
+    "deleteFailed": "Failed to delete skill"
+  },
+  "filters": {
+    "label": "Show",
+    "all": "All",
+    "used": "Used",
+    "unused": "Not used yet"
+  },
+  "list": {
+    "label": "Skills",
+    "none": "No skill matches."
+  },
+  "pane": {
+    "back": "All skills",
+    "pick": "Pick a skill to see what it says and who uses it.",
+    "tabs": "Skill sections",
+    "tab": {
+      "overview": "Overview",
+      "instructions": "Instructions"
+    },
+    "tokens": "About {{count}} tokens",
+    "tokensTitle": "Estimate: characters divided by four",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate).",
+    "noContent": "This skill has no instructions.",
+    "startsWith": "Starts with",
+    "showAll": "Show all instructions",
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read."
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace"
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+  }
+}

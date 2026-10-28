@@ -91,8 +91,8 @@ function HubLayoutInner({ config }) {
   const hubAuth = useHubAuth()
   // Add-on navigation is read only on the hub that lists it, so the registry
   // does not poll on pages that never show it.
-  const addonNavigation = useAddonNavigation(config.id === 'build')
-  const auth = config.id === 'build' ? { ...hubAuth, addonNavigation } : hubAuth
+  const addonNavigation = useAddonNavigation(config.id === 'addons')
+  const auth = config.id === 'addons' ? { ...hubAuth, addonNavigation } : hubAuth
   const location = useLocation()
   const summary = useOperateSummary()
   // Forward the App-level outlet context (e.g. addToast): a nested bare

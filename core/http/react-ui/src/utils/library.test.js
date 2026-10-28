@@ -4,7 +4,7 @@ import test from 'node:test'
 import {
   agentSkills, collectionUsers, estimateTokens, kbResults,
   normaliseSource, passageScore, passageSource, skillLoadTokens, skillsMode,
-  withCollection, withoutCollection,
+  skillUsers, withCollection, withoutCollection, withSkill, withoutSkill,
 } from './library.js'
 
 test('the skills of an agent are its exact list, and an empty list grants none', () => {
@@ -30,6 +30,15 @@ test('a collection is granted and taken away by editing the list', () => {
   assert.equal(withCollection({ collections: ['papers'] }, 'papers'), null)
   assert.deepEqual(withoutCollection({ collections: ['faq', 'papers'] }, 'papers').collections, ['faq'])
   assert.equal(withoutCollection({}, 'papers'), null)
+})
+
+test('a skill is granted and taken away by editing the list, and users are found by the skill name', () => {
+  assert.deepEqual(withSkill({ name: 'a' }, 'review'), { name: 'a', skills: ['review'] })
+  assert.equal(withSkill({ skills: ['review'] }, 'review'), null)
+  assert.deepEqual(withoutSkill({ skills: ['x', 'review'] }, 'review').skills, ['x'])
+  assert.equal(withoutSkill({}, 'review'), null)
+  const agents = [{ name: 'a', id: '1', config: { skills: ['review'] } }, { name: 'b', id: '2', config: {} }]
+  assert.deepEqual(skillUsers(agents, 'review'), [{ name: 'a', id: '1', all: false }])
 })
 
 test('the token estimate is characters divided by four, and a skill adds nothing up front', () => {

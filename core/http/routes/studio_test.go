@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
@@ -28,6 +29,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
+	"github.com/mudler/LocalAI/tests/studiobot"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -51,8 +53,9 @@ var studioTriggerOptions func(*studio.TriggerOptions)
 // studioWebhooks sends the webhooks of the agent jobs; a spec sets a fake.
 var studioWebhooks studio.WebhookSender
 
-// studioTelegram is the Bot API client of the connector manager; a spec sets a fake.
-var studioTelegram *connectors.Telegram
+// studioTelegram is the Telegram add-on transport of the connector manager; a spec
+// points it at a fake Bot API.
+var studioTelegram *studiobot.BotTransport
 
 // studioModels are the models the test server's checker accepts besides test-model.
 var studioModels []string
@@ -104,7 +107,11 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	DeferCleanup(jobHost.Close)
 	cs, err := connectors.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
-	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Telegram: studioTelegram})
+	var ctr studio.ConnectorTransport = studioTelegram
+	if studioTelegram == nil {
+		ctr = studiobot.NewBotTransport(&transport.API{})
+	}
+	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Transport: ctr})
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetConnectors(conns)
 	DeferCleanup(conns.Close)

@@ -6,7 +6,7 @@ import { mockChat } from './chat-fixtures.js'
 // editing and cancelling them, a Stop, and what happens to the waiting messages
 // afterwards.
 
-const composer = (page) => page.getByRole('textbox', { name: 'Message' })
+const composer = (page) => page.getByTestId('chat-input')
 
 function newChatsApi(page, initial) {
   const state = {
@@ -180,7 +180,14 @@ test.describe('Chats page with a stubbed API', () => {
     await expect(composer(page)).toHaveValue('keep this text')
   })
 
-  test('deleting a chat asks first, then leaves the address of the deleted chat', async ({ page }) => {
+  // Deleting is a request: the row goes, an Undo shows, and the chat is deleted
+  // on the server when the undo time ends (or the toast is dismissed).
+  const deleteFromMenu = async (page) => {
+    await page.getByRole('button', { name: 'More' }).click()
+    await page.getByRole('menuitem', { name: 'Delete chat' }).click()
+  }
+
+  test('deleting a chat leaves its address, offers Undo, then deletes it on the server', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()
     let deletes = 0
@@ -190,32 +197,31 @@ test.describe('Chats page with a stubbed API', () => {
       return route.fulfill({ status: 204, body: '' })
     })
     await page.goto('/app/chats/c1')
-    const del = page.getByRole('button', { name: 'Delete chat Quotes' })
-    await del.click()
-    const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toContainText('Delete Quotes?')
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    expect(deletes).toBe(0)
-    await expect(page).toHaveURL(/\/app\/chats\/c1$/)
-
-    await del.click()
-    await dialog.getByRole('button', { name: 'Delete' }).click()
-    await expect.poll(() => deletes).toBe(1)
+    await deleteFromMenu(page)
     await expect(page).toHaveURL(/\/app\/chats$/)
+    const toast = page.getByTestId('chat-undo-toast')
+    await expect(toast).toContainText('Quotes')
+    await toast.getByRole('button', { name: 'Undo' }).click()
+    await expect(page).toHaveURL(/\/app\/chats\/c1$/)
+    expect(deletes).toBe(0)
+
+    await deleteFromMenu(page)
+    await page.getByTestId('chat-undo-toast').getByRole('button', { name: 'Dismiss' }).click()
+    await expect.poll(() => deletes).toBe(1)
   })
 
-  test('a chat the server will not delete stays, and the reason shows', async ({ page }) => {
+  test('a chat the server will not delete comes back, and the reason shows', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()
     await page.route('**/api/chats/c1', route => (route.request().method() === 'DELETE'
       ? route.fulfill({ status: 500, json: { error: { message: 'the store is read-only' } } })
       : route.fallback()))
     await page.goto('/app/chats/c1')
-    await page.getByRole('button', { name: 'Delete chat Quotes' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+    await deleteFromMenu(page)
+    await page.getByTestId('chat-undo-toast').getByRole('button', { name: 'Dismiss' }).click()
     await expect(page.getByRole('alert')).toContainText('the store is read-only')
-    await expect(page).toHaveURL(/\/app\/chats\/c1$/)
-    await expect(page.getByRole('button', { name: 'Delete chat Quotes' })).toBeVisible()
+    await page.keyboard.press('Control+k')
+    await expect(page.getByTestId('chats-row')).toContainText(['Quotes'])
   })
 
   test.describe('attachments', () => {
@@ -246,7 +252,7 @@ test.describe('Chats page with a stubbed API', () => {
       await api.install()
       await page.goto('/app/chats/c1')
       await attach(page, 'photo.png', 'png')
-      await page.getByRole('button', { name: 'Send' }).click()
+      await page.getByTestId('chat-send').click()
       await expect.poll(() => api.state.calls.filter(c => c.body?.multipart).length).toBe(1)
     })
 
@@ -254,7 +260,7 @@ test.describe('Chats page with a stubbed API', () => {
       const api = newChatsApi(page, { running: true })
       await api.install()
       await page.goto('/app/chats/c1')
-      await expect(page.getByRole('button', { name: 'Attach a file' })).toBeDisabled()
+      await expect(page.getByRole('button', { name: 'Attach file' })).toBeDisabled()
     })
 
     test('with files off there is no attach control, and the reason is shown', async ({ page }) => {
@@ -279,7 +285,7 @@ test.describe('Chats page with a stubbed API', () => {
   })
 })
 
-test.describe('Chat skills panel', () => {
+test.describe('Chat skills menu', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
   test('lists what the chat can use and sends the switches that change', async ({ page }) => {
@@ -296,7 +302,7 @@ test.describe('Chat skills panel', () => {
       return route.fulfill({ json: { off: route.request().postDataJSON().off } })
     })
     await page.goto('/app/chats/c1')
-    await page.getByText(/^Skills \(/).click()
+    await page.getByTestId('chat-skills-button').click()
     await expect(page.getByRole('checkbox', { name: 'review' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'notes' })).not.toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'old' })).toHaveCount(0)
@@ -403,7 +409,7 @@ test.describe('Chat add-on changes', () => {
   })
 })
 
-test.describe('Chat add-ons panel', () => {
+test.describe('Chat tools menu: add-ons', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
   test('lists the add-ons of the user and sends the switches that change', async ({ page }) => {
@@ -425,19 +431,19 @@ test.describe('Chat add-ons panel', () => {
       ] } })
     })
     await page.goto('/app/chats/c1')
-    await page.getByText(/^Add-ons \(/).click()
+    await page.getByTestId('chat-tools-button').click()
     await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'sandbox' })).not.toBeChecked()
     await page.getByRole('checkbox', { name: 'office' }).uncheck()
     await expect.poll(() => calls.at(-1)).toEqual(['office', 'sandbox'])
   })
 
-  test('shows no panel when the user has no add-on tools', async ({ page }) => {
+  test('shows no menu when the user has no add-on tools', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()
     await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
     await page.goto('/app/chats/c1')
-    await expect(page.getByText(/^Add-ons \(/)).toHaveCount(0)
+    await expect(page.getByTestId('chat-tools')).toHaveCount(0)
   })
 
   test('puts the switch back when the server refuses it', async ({ page }) => {
@@ -448,14 +454,15 @@ test.describe('Chat add-ons panel', () => {
       return route.fulfill({ json: { addons: [{ id: 'office', tools: 4, off: false }] } })
     })
     await page.goto('/app/chats/c1')
-    await page.getByText(/^Add-ons \(/).click()
-    await page.getByRole('checkbox', { name: 'office' }).uncheck()
+    await page.getByTestId('chat-tools-button').click()
+    // A click, not uncheck(): the switch goes back as soon as the server refuses.
+    await page.getByRole('checkbox', { name: 'office' }).click()
     await expect(page.getByRole('alert')).toBeVisible()
     await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
   })
 })
 
-test.describe('Chat tools panel (MCP)', () => {
+test.describe('Chat tools menu: MCP', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
   const PANEL = {
@@ -479,8 +486,8 @@ test.describe('Chat tools panel (MCP)', () => {
       return route.fulfill({ json: { addons: [], servers: PANEL.servers.map(s => ({ ...s, off: off.includes(s.name) })), connectors: PANEL.connectors.map(c => ({ ...c, off: off.includes(`connector:${c.id}`) })), off } })
     })
     await page.goto('/app/chats/c1')
-    await expect(page.getByTestId('tools-panel').locator('summary')).toHaveText('Tools (3 of 5 on)')
-    await page.getByText(/^Tools \(/).click()
+    await expect(page.getByTestId('chat-tools-count')).toHaveText('3')
+    await page.getByTestId('chat-tools-button').click()
     await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'crm' })).toBeChecked()
     await expect(page.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
@@ -491,7 +498,7 @@ test.describe('Chat tools panel (MCP)', () => {
     await expect.poll(() => calls.at(-1)).toEqual(['connector:c1'])
     await page.getByRole('checkbox', { name: 'crm' }).uncheck()
     await expect.poll(() => calls.at(-1)).toEqual(['connector:c1', 'crm'])
-    await expect(page.getByTestId('tools-panel').locator('summary')).toHaveText('Tools (1 of 5 on)')
+    await expect(page.getByTestId('chat-tools-count')).toHaveText('1')
   })
 
   test('puts an MCP switch back when the server refuses it', async ({ page }) => {
@@ -501,18 +508,18 @@ test.describe('Chat tools panel (MCP)', () => {
     await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], ...PANEL } }))
     await page.route('**/api/chats/c1/mcp', route => route.fulfill({ status: 400, json: { error: { message: 'no' } } }))
     await page.goto('/app/chats/c1')
-    await page.getByText(/^Tools \(/).click()
-    await page.getByRole('checkbox', { name: 'Docs' }).uncheck()
+    await page.getByTestId('chat-tools-button').click()
+    await page.getByRole('checkbox', { name: 'Docs' }).click()
     await expect(page.getByRole('alert')).toBeVisible()
     await expect(page.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
   })
 
-  test('shows no panel when there is nothing to switch', async ({ page }) => {
+  test('shows no menu when there is nothing to switch', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()
     await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
     await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [] } }))
     await page.goto('/app/chats/c1')
-    await expect(page.getByTestId('tools-panel')).toHaveCount(0)
+    await expect(page.getByTestId('chat-tools')).toHaveCount(0)
   })
 })

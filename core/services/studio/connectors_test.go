@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -22,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/tests/studiobot"
 )
 
 const botToken = "777:TOKEN-must-never-leak"
@@ -135,6 +137,7 @@ func (b *scriptedBot) pollCount() int { b.mu.Lock(); defer b.mu.Unlock(); return
 type connRig struct {
 	*trigRig
 	bot   *scriptedBot
+	tr    *studiobot.BotTransport
 	conns *studio.Connectors
 	logs  *bytes.Buffer
 	agent agents.Agent
@@ -145,8 +148,9 @@ func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedB
 	t.Helper()
 	r := sh.rig(t, script, studio.TriggerOptions{})
 	logs := &bytes.Buffer{}
+	tr := studiobot.NewBotTransport(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()})
 	c, err := studio.NewConnectors(r.svc, studio.ConnectorOptions{
-		Store: store, Telegram: &connectors.Telegram{BaseURL: bot.srv.URL, Client: bot.srv.Client()},
+		Store: store, Transport: tr,
 		Clock: sh.clock.Now, Tick: 20 * time.Millisecond, Poll: 0, Backoff: 10 * time.Millisecond, ConflictWait: 10 * time.Millisecond, RatePerMinute: 5, Lead: lead,
 		Logger: slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
@@ -157,7 +161,7 @@ func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedB
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	go c.Run(ctx)
-	return &connRig{trigRig: r, bot: bot, conns: c, logs: logs}
+	return &connRig{trigRig: r, bot: bot, tr: tr, conns: c, logs: logs}
 }
 
 func connStore(t *testing.T) connectors.Store {

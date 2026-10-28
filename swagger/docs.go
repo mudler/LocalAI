@@ -4248,7 +4248,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors": {
             "get": {
-                "description": "A binding connects a Telegram bot to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.",
+                "description": "A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.",
                 "tags": [
                     "chats"
                 ],
@@ -4263,7 +4263,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Needs the bot token (kept sealed, never returned) and an agent of yours that names a model. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 10 bindings.",
+                "description": "Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to \"accept any message\", or it is a 400). At most 10 bindings.",
                 "tags": [
                     "chats"
                 ],
@@ -4290,6 +4290,23 @@ const docTemplate = `{
                         "description": "The request is not valid",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/kinds": {
+            "get": {
+                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the connector kinds you can bind.",
+                "responses": {
+                    "200": {
+                        "description": "The kinds",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorKindList"
                         }
                     }
                 }
@@ -4491,7 +4508,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors/{id}/test": {
             "post": {
-                "description": "Asks Telegram for the bot of the stored token. 502 when Telegram refuses the token or cannot be reached.",
+                "description": "Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached.",
                 "tags": [
                     "chats"
                 ],
@@ -15033,6 +15050,13 @@ const docTemplate = `{
                 "accept_any": {
                     "type": "boolean"
                 },
+                "active": {
+                    "description": "Active is false when the add-on that serves the binding is not running. The\nbinding is kept and works once the add-on is installed.",
+                    "type": "boolean"
+                },
+                "addon": {
+                    "type": "string"
+                },
                 "agent_id": {
                     "type": "string"
                 },
@@ -15064,6 +15088,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "owner": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says in plain words why the binding is not active.",
                     "type": "string"
                 }
             }
@@ -15430,6 +15458,13 @@ const docTemplate = `{
                 "accept_any": {
                     "type": "boolean"
                 },
+                "active": {
+                    "description": "Active is false when the add-on that serves the binding is not running. The\nbinding is kept and works once the add-on is installed.",
+                    "type": "boolean"
+                },
+                "addon": {
+                    "type": "string"
+                },
                 "agent_id": {
                     "type": "string"
                 },
@@ -15459,6 +15494,45 @@ const docTemplate = `{
                 },
                 "notify_chat": {
                     "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says in plain words why the binding is not active.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorKind": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "page": {
+                    "description": "Page is the add-on page that adds and edits bindings of this kind.",
+                    "type": "string"
+                },
+                "sender_hint": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorKindList": {
+            "type": "object",
+            "properties": {
+                "kinds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorKind"
+                    }
                 }
             }
         },
@@ -15511,7 +15585,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bot_id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "bot_username": {
                     "type": "string"
@@ -15539,6 +15613,10 @@ const docTemplate = `{
                 },
                 "enabled": {
                     "type": "boolean"
+                },
+                "kind": {
+                    "description": "Kind is the platform, such as telegram. It is used to create a binding and\nignored by an update. Empty means telegram.",
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"

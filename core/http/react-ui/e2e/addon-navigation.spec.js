@@ -402,11 +402,9 @@ test.describe('Add-on navigation', () => {
   })
 })
 
-test.describe('Add-on navigation: the Add-ons hub tab and the route in both layouts', () => {
+test.describe('Add-on navigation: the legacy Add-ons hub tab and the route in both layouts', () => {
   test('the new layout has no Add-ons hub tab and serves the drawer at /app/addons', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveCount(0)
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile')).toHaveCount(2)
     await expect(page.locator('.dk-hubtabs')).toHaveCount(0)
@@ -415,7 +413,9 @@ test.describe('Add-on navigation: the Add-ons hub tab and the route in both layo
   test('the legacy flag brings the Add-ons hub tab back and /app/addons opens under it', async ({ page }) => {
     await setup(page, { apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
     await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
-    await page.goto('/app/build')
+    await page.goto('/app')
+    // The legacy sidebar lists the Add-ons hub, which opens the drawer.
+    await page.locator('.sidebar-nav a.nav-item[href="/app/addons"]').click()
     const hubTab = page.locator('.dk-hubtabs [data-hub-tab="addons"]')
     await expect(hubTab).toHaveAttribute('href', '/app/addons')
     await hubTab.click()
@@ -680,13 +680,12 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     }
   })
 
-  test('the Build hub has no Voices tab', async ({ page }) => {
+  test('there is no Build hub to hold a Voices tab: its address opens the models', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
     await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs')).toBeVisible()
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"]')).toHaveCount(0)
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/app\/models/)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"], .dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
   })
 
   test('the add-on page identifies, enrols from a side panel and holds a removal behind Undo', async ({ page }) => {
@@ -899,21 +898,21 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/quantization\/jobs$/)
   })
 
-  test('the Build hub has no fine-tuning or quantization tab', async ({ page }) => {
+  test('there is no Build hub with a fine-tuning or quantization tab', async ({ page }) => {
     await setup(page)
     await asFaceAdmin(page)
     await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/models/)
     await expect(page.getByRole('tab', { name: /Fine-tun/ })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: /Quantiz/ })).toHaveCount(0)
     await expect(page.locator('.dk-hubtabs [data-hub-tab="fine-tune"], .dk-hubtabs [data-hub-tab="quantize"]')).toHaveCount(0)
   })
 
-  test('the Build hub shows no Faces tab', async ({ page }) => {
+  test('there is no Build hub to hold a Faces tab', async ({ page }) => {
     await setup(page, { apps: [] })
     await asFaceAdmin(page)
     await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/models/)
     await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
   })
 
@@ -996,11 +995,12 @@ test.describe('Add-on navigation: the addons feature gate', () => {
     expect(calls).toEqual([])
   })
 
-  test('with add-ons off the Build hub has no Add-ons, fine-tuning or quantization tab, in either layout', async ({ page }) => {
+  test('with add-ons off there is no Add-ons, fine-tuning or quantization entry, in either layout', async ({ page }) => {
     for (const addon_navigation of [true, false]) {
       await setup(page, { features: { ...OFF, addon_navigation }, user: ADMIN })
-      await page.goto('/app/build')
-      await expect(page.getByRole('tab', { name: 'Agents' }).or(page.getByRole('link', { name: 'Agents' })).first()).toBeVisible()
+      await page.goto('/app')
+      await expect(page.locator('.sidebar-nav a.nav-item[href="/app/agents"]')).toBeVisible()
+      await expect(page.locator('.sidebar-nav a.nav-item[href="/app/addons"]')).toHaveCount(0)
       for (const name of [/^Add-ons$/, /Fine-?tun/i, /Quantiz/i]) {
         await expect(page.getByRole('tab', { name })).toHaveCount(0)
         await expect(page.locator('.hub-tabs, [role="tablist"]').getByRole('link', { name })).toHaveCount(0)

@@ -47,7 +47,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t, i18n } = useTranslation('home')
-  const { isAdmin } = useAuth()
+  const { isAdmin, hasFeature } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
   const { operations } = useOperations()
@@ -62,6 +62,7 @@ export default function Home() {
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
   const [assistantOn, setAssistantOn] = useState(false)
+  const [collectionsOn, setCollectionsOn] = useState(false)
   const [clusterData, setClusterData] = useState(null)
   const [stripOpen, setStripOpen] = useState(false)
   const [conversations, setConversations] = useState([])
@@ -76,6 +77,7 @@ export default function Home() {
       .then(data => {
         setDistributedMode(!!data.distributed)
         setAssistantOn(!!data.localai_assistant)
+        setCollectionsOn(data.collections !== false)
       })
       .catch(() => {})
   }, [])
@@ -249,8 +251,11 @@ export default function Home() {
   // Studio is an add-on: its command is offered only while it is installed.
   const studioPage = useAddonPage('studio', 'studio')
   const slashContext = useMemo(
-    () => ({ isAdmin, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage), assistantAvailable: assistantOn }),
-    [isAdmin, hasModels, firstRun, loadedCount, studioPage, assistantOn],
+    () => ({
+      isAdmin, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage), assistantAvailable: assistantOn,
+      hasChats: hasFeature('chats'), hasCollections: hasFeature('collections') && collectionsOn,
+    }),
+    [isAdmin, hasModels, firstRun, loadedCount, studioPage, assistantOn, hasFeature, collectionsOn],
   )
 
   const runAction = useCallback((id) => {
@@ -266,6 +271,9 @@ export default function Home() {
         setStripOpen(true)
         stripRef.current?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' })
         break
+      case 'agents': navigate('/app/agents'); break
+      case 'mcp': navigate('/app/mcp-connectors'); break
+      case 'memory': navigate('/app/collections'); break
       case 'studio': if (studioPage) navigate(studioPage); break
       case 'settings': navigate('/app/settings'); break
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break

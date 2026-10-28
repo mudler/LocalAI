@@ -140,6 +140,8 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				_ = json.NewEncoder(w).Encode(v)
 			case errors.Is(err, ErrBadRequest):
 				http.Error(w, badRequestText(err), http.StatusBadRequest)
+			case errors.Is(err, contract.ErrRefused):
+				http.Error(w, ErrBadRequest.Error(), http.StatusBadRequest)
 			case errors.Is(err, ErrNotFound):
 				http.Error(w, "not found", http.StatusNotFound)
 			case errors.Is(err, ErrForbidden):
@@ -170,6 +172,21 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 			var v contract.Envelope
 			if read(&v) && valid(v, "act") {
 				out, err := ar.Act(ctx, v)
+				reply(out, err)
+			}
+		case "/connector":
+			// Only a runtime that declared a connector has the route. The
+			// host calls it with no user behind the call, so it takes no
+			// envelope: the bearer credential and the incarnation header
+			// above are its authority.
+			cr, ok := rt.(contract.ConnectorRuntime)
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			var v contract.ConnectorRequest
+			if read(&v) {
+				out, err := cr.Connector(ctx, v)
 				reply(out, err)
 			}
 		case "/preview":

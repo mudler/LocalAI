@@ -69,7 +69,8 @@
     "prometheus": "Prometheus",
     "chats": "Chats",
     "files": "Archivos",
-    "triggers": "Disparadores"
+    "triggers": "Disparadores",
+    "mcpConnectors": "Conectores MCP"
   },
   "footer": {
     "github": "GitHub",

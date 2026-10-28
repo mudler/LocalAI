@@ -11,9 +11,11 @@ test.describe('404', () => {
     await expect(nf).toContainText('/app/no-such-page')
     await expect(nf.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/app')
     const places = nf.getByRole('navigation', { name: 'Where to go' })
-    for (const name of ['Home', 'Models', 'Chat', 'Add-ons', 'Build', 'Operate']) {
+    for (const name of ['Home', 'Models', 'Chat', 'Agents', 'MCP connectors', 'Memory', 'Add-ons', 'Operate']) {
       await expect(places.getByRole('link', { name })).toBeVisible()
     }
+    // The Build hub is gone.
+    await expect(places.getByRole('link', { name: 'Build' })).toHaveCount(0)
     // Settings is a tab of the Operate hub, so the places do not list it.
     await expect(places.getByRole('link', { name: 'Settings' })).toHaveCount(0)
   })

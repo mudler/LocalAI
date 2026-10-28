@@ -8,8 +8,10 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/schema"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 func (h *Handlers) connectorHost(c echo.Context) (*studiosvc.Connectors, bool) {
@@ -26,7 +28,7 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	if allow == nil {
 		allow = []string{}
 	}
-	return schema.ChatsConnector{ID: i.ID, Name: i.Name, Kind: i.Kind, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
+	return schema.ChatsConnector{ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created}
 }
 
@@ -39,7 +41,7 @@ func failAcceptAny(c echo.Context) error {
 }
 
 func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
-	return studiosvc.ConnectorInput{Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
+	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat}
 }
 
@@ -49,21 +51,22 @@ func failConnector(c echo.Context, err error) error {
 		return fail(c, http.StatusNotFound, "not_found", "connector not found")
 	case errors.Is(err, connectors.ErrInvalid):
 		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), connectors.ErrInvalid.Error()+": "))
-	case errors.Is(err, connectors.ErrUnauthorized):
-		return fail(c, http.StatusBadGateway, "upstream_error", "Telegram refused the bot token")
 	case errors.Is(err, studiosvc.ErrConnectorsOff):
 		return fail(c, http.StatusConflict, "connectors_off", err.Error())
 	}
-	var ra *connectors.RetryAfter
-	if errors.As(err, &ra) || strings.Contains(err.Error(), "Telegram") {
-		return fail(c, http.StatusBadGateway, "upstream_error", "Telegram could not be reached or refused the request")
+	var ce *contract.ConnectorError
+	if errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized {
+		return fail(c, http.StatusBadGateway, "upstream_error", "the platform refused the bot token")
+	}
+	if errors.As(err, &ce) || errors.Is(err, studiosvc.ErrConnectorAddon) || errors.Is(err, addonruntime.ErrRuntime) || errors.Is(err, addonruntime.ErrNotSent) {
+		return fail(c, http.StatusBadGateway, "upstream_error", "the platform could not be reached or refused the request")
 	}
 	return failFor(c, err)
 }
 
 // ListConnectors lists the bindings.
 // @Summary List your connector bindings.
-// @Description A binding connects a Telegram bot to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.
+// @Description A binding connects a bot of a messaging platform (served by a connector add-on, such as Telegram) to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own, as you: your quota, your model allowlist and only the agent's grants apply.
 // @Tags chats
 // @Success 200 {object} schema.ChatsConnectorList "Your bindings, sorted by name"
 // @Router /api/chats/connectors [get]
@@ -83,9 +86,31 @@ func (h *Handlers) ListConnectors(c echo.Context) error {
 	return c.JSON(http.StatusOK, out)
 }
 
+// ConnectorKinds lists the kinds of binding that installed add-ons serve.
+// @Summary List the connector kinds you can bind.
+// @Description The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed.
+// @Tags chats
+// @Success 200 {object} schema.ChatsConnectorKindList "The kinds"
+// @Router /api/chats/connectors/kinds [get]
+func (h *Handlers) ConnectorKinds(c echo.Context) error {
+	host, ok := h.connectorHost(c)
+	if !ok {
+		return nil
+	}
+	kinds, err := host.ConnectorKinds(c.Request().Context())
+	if err != nil {
+		return failConnector(c, err)
+	}
+	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
+	for _, k := range kinds {
+		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page})
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
 // CreateConnector creates a binding.
 // @Summary Create a connector binding.
-// @Description Needs the bot token (kept sealed, never returned) and an agent of yours that names a model. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 10 bindings.
+// @Description Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 10 bindings.
 // @Tags chats
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 201 {object} schema.ChatsConnector "The binding"
@@ -209,9 +234,9 @@ func (h *Handlers) EnableConnector(c echo.Context) error { return h.setConnector
 // @Router /api/chats/connectors/{id}/disable [post]
 func (h *Handlers) DisableConnector(c echo.Context) error { return h.setConnectorEnabled(c, false) }
 
-// TestConnector asks Telegram who the bot is.
+// TestConnector asks the platform who the bot is.
 // @Summary Test a connector binding.
-// @Description Asks Telegram for the bot of the stored token. 502 when Telegram refuses the token or cannot be reached.
+// @Description Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached.
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Success 200 {object} schema.ChatsConnectorTest "The bot"

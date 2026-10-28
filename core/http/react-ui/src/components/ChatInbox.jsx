@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { disablePush, enablePush, pushState } from '../utils/chatPush'
 import { formatNext } from '../utils/chatTrigger'
+import Icon from './Icon'
 import '../pages/chatauto.css'
 
 // Browser notifications: a button that asks for permission and subscribes the
@@ -36,12 +37,25 @@ function PushSwitch({ t }) {
   )
 }
 
-// The inbox button of the chats rail and its panel.
+// The inbox button of the chat header and its panel.
 export default function ChatInbox({ inbox }) {
   const { t } = useTranslation('chats')
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
+  const ref = useRef(null)
+  // The panel floats over the page: a click outside or Esc closes it.
+  useEffect(() => {
+    if (!open) return undefined
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
   if (inbox.off) return null
 
   // A failed mark or delete shows under the inbox; the list is as the server has it.
@@ -56,18 +70,25 @@ export default function ChatInbox({ inbox }) {
   }
 
   return (
-    <div className="ca-inbox" data-testid="chat-inbox">
+    <div className="ca-inbox" data-testid="chat-inbox" ref={ref}>
       <div className="ca-inbox__head">
-        <button type="button" className="btn btn-secondary btn-sm" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {t('list.inbox')}
+        <button
+          type="button"
+          className="cx-icobtn cx-icobtn--lg ca-inbox__btn"
+          aria-expanded={open}
+          aria-label={t('list.inbox')}
+          title={t('list.inbox')}
+          onClick={() => setOpen(!open)}
+        >
+          <Icon name="inbox" />
           {inbox.unread > 0 && <span className="ca-count" data-testid="inbox-count" aria-label={t('inbox.unread', { count: inbox.unread })}>{inbox.unread}</span>}
         </button>
-        {open && inbox.unread > 0 && (
-          <button type="button" className="ch-link" onClick={() => attempt(() => inbox.markAllRead())}>{t('inbox.markAll')}</button>
-        )}
       </div>
       {open && (
-        <>
+        <div className="ca-inbox__panel" role="dialog" aria-label={t('list.inbox')}>
+          {inbox.unread > 0 && (
+            <button type="button" className="ch-link" onClick={() => attempt(() => inbox.markAllRead())}>{t('inbox.markAll')}</button>
+          )}
           {error && <p className="ch-error" role="alert">{error}</p>}
           {inbox.items.length === 0 && <p className="cs-muted">{t('inbox.empty')}</p>}
           <ul className="cs-list">
@@ -83,7 +104,7 @@ export default function ChatInbox({ inbox }) {
             ))}
           </ul>
           <PushSwitch t={t} />
-        </>
+        </div>
       )}
     </div>
   )

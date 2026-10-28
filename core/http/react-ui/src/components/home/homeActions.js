@@ -16,12 +16,16 @@ export const SLASH_ACTIONS = [
   { id: 'installed', cmd: '/installed', icon: 'boxes', group: 'models', needs: 'admin' },
   { id: 'import', cmd: '/import', icon: 'upload', group: 'models', needs: 'admin' },
   { id: 'stop', cmd: '/stop', icon: 'stop', group: 'models', needs: 'loaded' },
+  { id: 'agents', cmd: '/agents', icon: 'robot', group: 'go', needs: 'chats' },
+  { id: 'mcp', cmd: '/mcp', icon: 'plug', group: 'go', needs: 'chats' },
+  { id: 'memory', cmd: '/memory', icon: 'database', group: 'go', needs: 'collections' },
   { id: 'studio', cmd: '/studio', icon: 'palette', group: 'go', needs: 'studio' },
   { id: 'settings', cmd: '/settings', icon: 'settings', group: 'go', needs: 'admin' },
   { id: 'docs', cmd: '/docs', icon: 'book', group: 'go' },
 ]
 
-// `ctx`: { isAdmin, hasModels, loadedCount, studioInstalled, assistantAvailable }
+// `ctx`: { isAdmin, hasModels, loadedCount, studioInstalled, assistantAvailable,
+// hasChats, hasCollections }
 export function availableActions(ctx) {
   return SLASH_ACTIONS.filter(a => {
     if (a.needs === 'admin') return ctx.isAdmin
@@ -30,6 +34,8 @@ export function availableActions(ctx) {
     // The server says whether the LocalAI assistant is on; only an admin may use it.
     if (a.needs === 'assistant') return ctx.isAdmin && ctx.assistantAvailable === true
     if (a.needs === 'studio') return ctx.studioInstalled === true
+    if (a.needs === 'chats') return ctx.hasChats === true
+    if (a.needs === 'collections') return ctx.hasCollections === true
     return true
   })
 }

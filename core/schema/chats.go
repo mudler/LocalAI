@@ -562,6 +562,7 @@ type ChatsConnector struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`
 	Kind       string    `json:"kind"`
+	Addon      string    `json:"addon"`
 	AgentID    string    `json:"agent_id"`
 	Enabled    bool      `json:"enabled"`
 	AcceptAny  bool      `json:"accept_any"`
@@ -569,11 +570,35 @@ type ChatsConnector struct {
 	NotifyChat string    `json:"notify_chat,omitempty"`
 	HasToken   bool      `json:"has_token"`
 	Created    time.Time `json:"created"`
+	// Active is false when the add-on that serves the binding is not running. The
+	// binding is kept and works once the add-on is installed.
+	Active bool `json:"active"`
+	// Reason says in plain words why the binding is not active.
+	Reason string `json:"reason,omitempty"`
+}
+
+// ChatsConnectorKind is a kind of binding that an installed connector add-on serves.
+type ChatsConnectorKind struct {
+	Addon       string `json:"addon"`
+	Kind        string `json:"kind"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	SenderHint  string `json:"sender_hint,omitempty"`
+	// Page is the add-on page that adds and edits bindings of this kind.
+	Page string `json:"page,omitempty"`
+}
+
+// ChatsConnectorKindList lists the connector kinds of the add-ons that run now.
+type ChatsConnectorKindList struct {
+	Kinds []ChatsConnectorKind `json:"kinds"`
 }
 
 // ChatsConnectorWrite creates or replaces a connector binding. token is needed to
 // create one; an update without it keeps the stored token.
 type ChatsConnectorWrite struct {
+	// Kind is the platform, such as telegram. It is used to create a binding and
+	// ignored by an update. Empty means telegram.
+	Kind      string `json:"kind,omitempty"`
 	Name      string `json:"name"`
 	Token     string `json:"token,omitempty"`
 	AgentID   string `json:"agent_id"`
@@ -595,7 +620,7 @@ type ChatsConnectorList struct {
 
 // ChatsConnectorTest is the bot that a token belongs to.
 type ChatsConnectorTest struct {
-	BotID       int64  `json:"bot_id"`
+	BotID       string `json:"bot_id"`
 	BotUsername string `json:"bot_username"`
 }
 

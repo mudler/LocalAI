@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  appendLog, blocked, detectSource, fineTuneChecks, fitFor, importChecks, importRequest, jobToSurface,
+  appendLog, blocked, detectSource, fineTuneChecks, fitFor, importChecks, importRequest,
   joinCommands, logLines, logLevel, LOG_LIMIT, looksLikeMemoryFailure, machineFacts, quantizeChecks,
-  requestText, shortToken, sortNetworks, toolStatus, warned, workerCount,
+  requestText, shortToken, sortNetworks, warned, workerCount,
 } from './tools.js'
 
 const GB = 1024 ** 3
@@ -36,34 +36,6 @@ test('machineFacts names several GPUs and reads the cluster block', () => {
   assert.equal(f.gpuName, 'RTX 4070 x2')
   assert.equal(f.vramTotal, 24 * GB)
   assert.deepEqual(f.cluster, { node: 'w1', total: 80 * GB, isGpu: true, nodes: 3 })
-})
-
-test('toolStatus: quantize and fine-tune say what is missing and why', () => {
-  const facts = machineFacts(cpuHost)
-  assert.equal(toolStatus('quantize', { facts, backends: { quantize: [] } }).state, 'needs-backend')
-  const q = toolStatus('quantize', { facts, backends: { quantize: [{ name: 'llama-cpp-quantization' }] } })
-  assert.equal(q.state, 'ready')
-  assert.equal(q.needs[0].vals.name, 'llama-cpp-quantization')
-  const none = toolStatus('fine-tune', { facts, backends: { fineTune: [{ name: 'trl' }] } })
-  assert.equal(none.state, 'ready')
-  assert.ok(none.needs.some(n => n.key === 'fineTune.noGpu' && n.tone === 'warn'))
-  const gpu = toolStatus('fine-tune', { facts: machineFacts(gpuHost), backends: { fineTune: [{ name: 'trl' }] } })
-  assert.ok(gpu.needs.some(n => n.key === 'fineTune.gpu' && n.vals.free === 9 * GB))
-  assert.equal(toolStatus('fine-tune', { facts: null, backends: { fineTune: null } }).needs[0].key, 'fineTune.backendUnknown')
-  assert.ok(toolStatus('import', { facts, backends: {} }).needs.some(n => n.key === 'import.disk'))
-})
-
-test('jobToSurface prefers a running job, then a newest failure', () => {
-  const stages = ['queued', 'training']
-  const jobs = [
-    { id: 'a', status: 'completed', created_at: '2026-10-01T10:00:00Z' },
-    { id: 'b', status: 'training', created_at: '2026-10-02T10:00:00Z' },
-    { id: 'c', status: 'failed', created_at: '2026-10-03T10:00:00Z' },
-  ]
-  assert.deepEqual(jobToSurface(jobs, stages), { job: jobs[1], kind: 'running' })
-  assert.deepEqual(jobToSurface([jobs[0], jobs[2]], stages), { job: jobs[2], kind: 'failed' })
-  assert.equal(jobToSurface([jobs[2], { id: 'd', status: 'completed', created_at: '2026-10-04T10:00:00Z' }], stages), null)
-  assert.equal(jobToSurface(null, stages), null)
 })
 
 test('log lines come from what the event holds and nothing else', () => {

@@ -69,7 +69,8 @@
     "prometheus": "Prometheus",
     "chats": "채팅 세션",
     "files": "파일",
-    "triggers": "트리거"
+    "triggers": "트리거",
+    "mcpConnectors": "MCP 커넥터"
   },
   "footer": {
     "github": "GitHub",

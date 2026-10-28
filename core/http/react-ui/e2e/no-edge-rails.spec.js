@@ -10,8 +10,8 @@ import { installStudioAddons } from './studio-addon.js'
 // Selection and status use a surface step, a check or a dot instead.
 const ROUTES = [
   '/app', '/app/chats', '/app/models', '/app/models?view=installed', '/app/studio',
-  '/app/talk', '/app/chats/agents', '/app/chats/skills', '/app/collections', '/app/chats/triggers',
-  '/app/backends', '/app/activity', '/app/operate', '/app/build', '/app/settings',
+  '/app/talk', '/app/agents', '/app/skills', '/app/collections', '/app/triggers',
+  '/app/backends', '/app/activity', '/app/operate', '/app/mcp-connectors', '/app/settings',
   '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/account',
 ]

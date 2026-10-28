@@ -10,7 +10,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/tests/studiobot"
 )
 
 var _ = Describe("Chats connectors: accepting any sender needs a server-checked confirmation", func() {
@@ -21,7 +22,7 @@ var _ = Describe("Chats connectors: accepting any sender needs a server-checked 
 			_, _ = w.Write([]byte(`{"ok":true,"result":{"id":555,"username":"spec_bot"}}`))
 		}))
 		DeferCleanup(bot.Close)
-		studioTelegram = &connectors.Telegram{BaseURL: bot.URL, Client: bot.Client()}
+		studioTelegram = studiobot.NewBotTransport(&transport.API{BaseURL: bot.URL, Client: bot.Client()})
 		DeferCleanup(func() { studioTelegram = nil })
 		s = newStudioServer()
 	})

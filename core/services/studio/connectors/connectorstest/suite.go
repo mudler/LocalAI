@@ -52,6 +52,29 @@ func Run(t *testing.T, newStore NewStore) {
 			t.Fatalf("after replace: %+v", got)
 		}
 	})
+	t.Run("AnOldBindingBelongsToTheAddonOfItsKind", func(t *testing.T) {
+		// A binding stored before connectors became add-ons has no add-on ID.
+		s := newStore(t)
+		_ = s.PutBinding(ctx, binding("old", "u1", "Old"))
+		other := binding("new", "u1", "New")
+		other.Kind, other.AddonID = "slack", "slack-addon"
+		_ = s.PutBinding(ctx, other)
+		got, _ := s.GetBinding(ctx, "old")
+		if got.AddonID != "telegram" {
+			t.Fatalf("old binding add-on = %q", got.AddonID)
+		}
+		list, _ := s.ListBindings(ctx, "u1")
+		enabled, _ := s.EnabledBindings(ctx)
+		for _, l := range [][]connectors.Binding{list, enabled} {
+			byID := map[string]string{}
+			for _, b := range l {
+				byID[b.ID] = b.AddonID
+			}
+			if byID["old"] != "telegram" || byID["new"] != "slack-addon" {
+				t.Fatalf("add-ons = %v", byID)
+			}
+		}
+	})
 	t.Run("EnabledBindings", func(t *testing.T) {
 		s := newStore(t)
 		a, b := binding("a", "u1", "A"), binding("b", "u2", "B")

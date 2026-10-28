@@ -58,21 +58,21 @@ const rowOf = { id: 'm1', name: 'Docs', transport: 'http', url: 'https://mcp.exa
 test.describe('Chat MCP connectors', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
-  test('the page has a kind switch, and Telegram stays the first kind', async ({ page }) => {
+  test('the MCP servers have a page of their own, with no kind switch, and the old link opens it', async ({ page }) => {
     await api(page).install()
-    await page.goto('/app/chats/connectors')
-    await expect(page.getByRole('tab', { name: 'Telegram' })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('button', { name: 'New connector' })).toBeVisible()
-    await page.getByRole('tab', { name: 'MCP server' }).click()
-    await expect(page.getByRole('tab', { name: 'MCP server' })).toHaveAttribute('aria-selected', 'true')
+    await page.goto('/app/mcp-connectors')
+    await expect(page.getByRole('heading', { name: 'MCP connectors' })).toBeVisible()
     await expect(page.getByText('No MCP servers yet.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'New connector' })).toHaveCount(0)
+    await expect(page.getByRole('tablist')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Connectors', exact: true })).toHaveAttribute('href', '/app/chats/connectors')
+    await page.goto('/app/chats/connectors?kind=mcp')
+    await expect(page).toHaveURL(/\/app\/mcp-connectors$/)
   })
 
   test('creates a server with a token and a header that only go in, and never shows them', async ({ page }) => {
     const a = api(page)
     await a.install()
-    await page.goto('/app/chats/connectors?kind=mcp')
+    await page.goto('/app/mcp-connectors')
     await page.getByRole('button', { name: 'New MCP server' }).click()
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
     await page.getByLabel('Name', { exact: true }).fill('Docs')
@@ -96,7 +96,7 @@ test.describe('Chat MCP connectors', () => {
   test('the secret fields are empty on edit, and an update without new ones sends none', async ({ page }) => {
     const a = api(page, [rowOf])
     await a.install()
-    await page.goto('/app/chats/connectors?kind=mcp')
+    await page.goto('/app/mcp-connectors')
     await page.getByRole('button', { name: 'Edit' }).click()
     await expect(page.getByLabel('Bearer token')).toHaveValue('')
     await expect(page.getByLabel('Bearer token')).toHaveAttribute('placeholder', /Saved/)
@@ -113,7 +113,7 @@ test.describe('Chat MCP connectors', () => {
   test('removing a saved token sends the empty value on purpose', async ({ page }) => {
     const a = api(page, [rowOf])
     await a.install()
-    await page.goto('/app/chats/connectors?kind=mcp')
+    await page.goto('/app/mcp-connectors')
     await page.getByRole('button', { name: 'Edit' }).click()
     await page.getByRole('checkbox', { name: 'Remove the saved token' }).check()
     await expect(page.getByLabel('Bearer token')).toBeDisabled()
@@ -124,7 +124,7 @@ test.describe('Chat MCP connectors', () => {
   test('test connection shows the tools, or the reason it failed', async ({ page }) => {
     const a = api(page, [rowOf])
     await a.install()
-    await page.goto('/app/chats/connectors?kind=mcp')
+    await page.goto('/app/mcp-connectors')
     await page.getByRole('button', { name: 'Test connection' }).click()
     await expect(page.getByTestId('mcp-test-result')).toContainText('Connected. Tools: search, fetch.')
     a.s.test = { ok: false, tools: [], error: 'the address is on a private network' }
@@ -135,7 +135,7 @@ test.describe('Chat MCP connectors', () => {
   test('switches on and off, and asks before it deletes', async ({ page }) => {
     const a = api(page, [rowOf])
     await a.install()
-    await page.goto('/app/chats/connectors?kind=mcp')
+    await page.goto('/app/mcp-connectors')
     await page.getByRole('checkbox', { name: 'Docs on' }).check()
     await expect.poll(() => a.s.calls.some(c => c.url.endsWith('/enable'))).toBe(true)
     await page.getByTestId('mcp-row').getByRole('button', { name: 'Delete' }).click()
@@ -157,7 +157,7 @@ test.describe('Chat MCP connectors', () => {
     }, KEY)
     const a = api(page, [], { refuse: ['Refused'] })
     await a.install()
-    await page.goto('/app/chats/connectors?kind=mcp')
+    await page.goto('/app/mcp-connectors')
     const banner = page.getByTestId('mcp-import')
     await expect(banner).toContainText('Servers kept in this browser')
     await expect(banner).toContainText('Docs')
@@ -177,66 +177,10 @@ test.describe('Chat MCP connectors', () => {
   test('fits a phone: no sideways scroll, and the actions stay reachable', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await api(page, [rowOf]).install()
-    await page.goto('/app/chats/connectors?kind=mcp')
+    await page.goto('/app/mcp-connectors')
     await page.getByRole('button', { name: 'New MCP server' }).click()
     await expect(page.getByRole('button', { name: 'Test connection' })).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
-  })
-})
-
-test.describe('Saved agent form: MCP', () => {
-  test.beforeEach(async ({ page }) => { await mockChat(page) })
-
-  test('lists the servers of the model and the connectors of the user, and saves connector:<id>', async ({ page }) => {
-    const calls = []
-    await page.route('**/api/chats/skills*', r => r.fulfill({ json: { skills: [], notes: [] } }))
-    await page.route('**/api/collections*', r => r.fulfill({ json: { collections: [] } }))
-    await page.route('**/v1/mcp/servers/qwen3-8b', r => r.fulfill({ json: { model: 'qwen3-8b', servers: [{ name: 'crm' }, { name: 'mail' }] } }))
-    await page.route('**/api/chats/mcp-connectors*', r => r.fulfill({ json: { connectors: [
-      { id: 'm1', name: 'Docs', transport: 'http', enabled: true },
-      { id: 'm2', name: 'Parked', transport: 'http', enabled: false },
-    ] } }))
-    await page.route(/\/api\/chats\/agents\/[^/?]+$/, r => {
-      calls.push({ method: r.request().method(), body: r.request().postDataJSON() })
-      return r.fulfill({ json: {} })
-    })
-    await page.route(/\/api\/chats\/agents(\?.*)?$/, r => {
-      const req = r.request()
-      if (req.method() === 'POST') {
-        calls.push({ method: 'POST', body: req.postDataJSON() })
-        return r.fulfill({ status: 201, json: { id: 'a1', ...req.postDataJSON() } })
-      }
-      return r.fulfill({ json: { agents: [{ id: 'a0', name: 'Old', model: 'qwen3-8b', instructions: '', description: '', mcp_servers: ['crm', 'connector:m1', 'connector:gone'], addons: [], collections: [], skills: [] }] } })
-    })
-    await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-    await page.goto('/app/chats/agents')
-    await page.getByRole('button', { name: 'Edit' }).click()
-
-    const picker = page.getByTestId('agent-connectors')
-    await expect(picker.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
-    await expect(picker.getByRole('checkbox', { name: 'Parked (switched off)' })).not.toBeChecked()
-    await expect(picker.getByRole('checkbox', { name: 'gone (deleted)' })).toBeChecked()
-    await expect(page.getByTestId('agent-mcp').getByRole('listitem')).toHaveText(['crm'])
-    await expect(page.locator('datalist option[value="mail"]')).toHaveCount(1)
-
-    await picker.getByRole('checkbox', { name: 'Parked (switched off)' }).check()
-    await picker.getByRole('checkbox', { name: 'gone (deleted)' }).click() // the row goes with its grant
-    await page.getByRole('combobox', { name: 'MCP servers of the model +' }).fill('mail')
-    await page.getByRole('combobox', { name: 'MCP servers of the model +' }).press('Enter')
-    await page.getByRole('button', { name: 'Save' }).click()
-    await expect.poll(() => calls.find(c => c.method === 'PUT')?.body.mcp_servers).toEqual(['crm', 'mail', 'connector:m1', 'connector:m2'])
-  })
-
-  test('keeps the add-on picker', async ({ page }) => {
-    await page.route('**/api/chats/skills*', r => r.fulfill({ json: { skills: [], notes: [] } }))
-    await page.route('**/api/collections*', r => r.fulfill({ json: { collections: [] } }))
-    await page.route('**/api/chats/mcp-connectors*', r => r.fulfill({ json: { connectors: [] } }))
-    await page.route(/\/api\/chats\/agents(\?.*)?$/, r => r.fulfill({ json: { agents: [] } }))
-    await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
-    await page.goto('/app/chats/agents')
-    await page.getByRole('button', { name: 'New agent' }).click()
-    await expect(page.getByTestId('agent-addons')).toBeVisible()
-    await expect(page.getByTestId('agent-connectors')).toContainText('You have no MCP connectors yet.')
   })
 })

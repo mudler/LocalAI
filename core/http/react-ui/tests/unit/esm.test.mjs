@@ -7,7 +7,7 @@ import { scopeCss } from '../../src/addons/cssScope.js'
 import { assertAssetUrl, loadAddonUI, validateChatActions, chatActionContext, LoadError } from '../../src/addons/loader.js'
 import { createRuntimeManager } from '../../src/addons/runtime.js'
 import { invalidReason, navigationItems, availableChatActions, appStatus, usable, contributesUI, shouldPoll } from '../../src/addons/registryState.js'
-import { visibleItems, isTabVisible, buildHub } from '../../src/components/hub/hubConfig.js'
+import { visibleItems, isTabVisible, legacyAddonsHub } from '../../src/components/hub/hubConfig.js'
 
 const ORIGIN = 'https://host.example'
 const DIGEST = 'ab'.repeat(32)
@@ -645,7 +645,7 @@ test('registry: navigation and chat actions come only from usable add-ons of the
 })
 
 test('registry: the legacy Add-ons tab lists page links only when the registry has usable add-ons', () => {
-  const tab = buildHub.tabs.find(t => t.id === 'addons')
+  const tab = legacyAddonsHub.tabs.find(t => t.id === 'addons')
   const auth = { isAdmin: false, authEnabled: true, hasFeature: () => true, features: { addon_navigation: false } }
   // The tab exists only under the legacy switch: hidden in the new layout and until /api/features answers.
   assert.equal(isTabVisible(tab, auth), true)
@@ -659,8 +659,8 @@ test('registry: the legacy Add-ons tab lists page links only when the registry h
   // A viewer who may not use add-ons has no tab and so no links.
   assert.deepEqual(visibleItems(tab, { ...auth, hasFeature: () => false, addonNavigation: nav }), [])
   // Other tabs never pick up add-on links.
-  const memory = buildHub.tabs.find(t => t.id === 'memory')
-  assert.deepEqual(visibleItems(memory, { ...auth, addonNavigation: nav }).map(i => i.path), ['/app/collections'])
+  const runtime = { items: [{ path: '/app/backends' }] }
+  assert.deepEqual(visibleItems(runtime, { ...auth, addonNavigation: nav }).map(i => i.path), ['/app/backends'])
 })
 
 test('registry: the list is read off the Add-ons page only for a viewer with the feature and a UI contribution', () => {

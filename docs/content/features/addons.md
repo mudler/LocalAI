@@ -1395,7 +1395,7 @@ The rules:
 - The host setting `--addon-host-ops` (`LOCALAI_ADDON_HOST_OPS`) names the
   add-ons that get the channel and the operation prefixes each may call, as a
   comma list of `addon-id=op-prefix`. The default is
-  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,office=workspace.`. An empty value names nobody.
+  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,office=workspace.,telegram=connector.`. An empty value names nobody.
   This is a host setting, not a manifest field and not a model argument.
 - An add-on that the setting names finds two optional fields in its startup
   object: `hostEndpoint`, a loopback address of the form
@@ -1428,6 +1428,97 @@ codes are `no_live_operation`, `scope`, `feature`, `unknown_op`, `bad_request`,
 
 The channel itself ships with no operation. Each operation is added by its own
 change and documented with it.
+
+### Inbound operations
+
+One class of operation has no user behind it: a message that comes from outside,
+such as a Telegram message pushed by an add-on. Its scope is `inbound`. The rules
+above change in these ways, and only for operations the host registers with that
+scope (today `connector.inbound`):
+
+- No live request is needed. The authority is the credential of the add-on's live
+  incarnation, which only that process holds and which ends with it. A missing,
+  wrong or old credential is refused with `no_live_operation` (401), and so is the
+  credential of another add-on, because each add-on has its own listener.
+- The call has no actor and no feature check. The operation must find its
+  authority in the host's own records. For `connector.inbound` that is the stored
+  binding: it must name the calling add-on and be switched on, or the call is
+  refused with `scope` (403), also when the binding does not exist. The owner and
+  the agent come from the binding. An argument that names a user, an actor or an
+  owner is refused with `bad_request` before the operation runs.
+- The add-on ID is the one the host built the listener for, never a value of the
+  call. The host setting must still name the operation prefix for the add-on
+  (`telegram=connector.` by default).
+
+Every other operation keeps all its checks. An operation cannot become inbound by
+a field of the request: the scope is part of its registration.
+
+## Connector add-ons
+
+A connector add-on carries the messages of a messaging platform between the platform
+and the [chats](/features/chats-connectors/). The Telegram add-on is the first. The
+host keeps what is the same for every platform (the bindings, the sealed bot token,
+the allowlist, the sender log, one chat for each sender, the turn and its
+notifications), so an add-on holds only the transport and no token.
+
+The manifest declares the capability. It needs no tool and no `service` flag:
+
+```json
+"capabilities": {
+  "connector": {
+    "kinds": [{
+      "id": "telegram",
+      "title": "Telegram",
+      "description": "Talk to one of your saved agents from a Telegram bot.",
+      "senderHint": "A chat ID, a user ID or an @username",
+      "delivery": "pull",
+      "page": "bots"
+    }]
+  },
+  "ui": { "...": "the page that adds and edits the bindings" }
+}
+```
+
+| Field | Meaning and bounds |
+|---|---|
+| `kinds` | 1 to 4 kinds. A kind is what a binding stores in `kind`, so it names the platform. |
+| `kinds[].id` | A lower-case identifier, unique in the manifest. A binding names the add-on too, so another add-on cannot take over the bindings of a kind. |
+| `kinds[].title`, `description`, `senderHint` | Plain text for people, with the bounds of the UI texts. |
+| `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
+| `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
+
+**Outbound: the connector route.** The host calls `POST /connector` on the add-on
+with the same bearer credential and incarnation header as every other route and a body
+`{"op", "kind", "token", ...}`. The ops are `poll` (`offset`, `timeoutSeconds` up to
+25), `send` (`chat`, `thread`, `text`), `edit` (`chat`, `messageId`, `text`), `typing`
+(`chat`) and `me` (who the bot is, for the Test button). The token is the unsealed bot
+token of one binding. It is passed on each call and the add-on must not store it. The
+answer is `{"updates", "nextOffset", "messageId", "botId", "botUsername"}` or
+`{"error": {"code", "retryAfter"}}` with a code of `unauthorized`, `conflict`,
+`rate_limited` or `failed`. The host maps `unauthorized` to switching the binding off,
+repeated `conflict` to the same, and `rate_limited` to a wait. A runtime that
+implements `contract.ConnectorRuntime` has the route; others get a 404. The add-on
+cuts a long `text` to the limit of its platform.
+
+**Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
+`thread`, `direct`, `senderId`, `senderName`, `senderUsername`, `text`, `unsupported`,
+`media`, `skip`) and the next offset. Core keeps the offset with the binding, passes it
+to the next `poll` and stores the offset the answer names, so a new leader continues
+where the old one stopped. A push add-on calls the host operation `connector.inbound`
+with `{"bindingId", ...message}`; it is an [inbound operation](#inbound-operations).
+Both paths end in one function of the host, so the allowlist, the sender log and the
+rate limit are the same.
+
+A private chat only is answered: a message with `direct` false is logged and ignored.
+The turn runs as the owner of the binding, with the tools of the binding's saved agent.
+
+**Where it runs.** Core calls the route and registers the host operation on the process
+that owns the add-ons. The binding loops run there, under the leader lock in a cluster.
+A frontend that does not own the add-ons runs no loop.
+
+**Existing bindings.** A binding of kind `telegram` that names no add-on (made before
+connectors became add-ons) belongs to the add-on `telegram`. While that add-on does not
+run, the binding is listed as not running with the reason "install the Telegram add-on".
 
 ## Owner forwarding and HTTP relays
 
@@ -1463,6 +1554,7 @@ Two more optional capability fields describe the UI-only resource management (se
 |---|---|
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
+| `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
 | `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. |
 
 A tool definition names the resource it works on with a required `resourceId`
@@ -2483,7 +2575,7 @@ changes the order with **Move earlier** and **Move later** in the same menu. Pin
 capped at eight. A pin whose add-on is stopped opens the detail view; a pin whose add-on
 was removed or is hidden is not drawn. Operators who
 need the previous sidebar can set `LOCALAI_LEGACY_NAVIGATION=true` (flag
-`--legacy-navigation`); it also brings back the Add-ons tab of the Build hub, which then opens `/app/addons`. The switch is a rollback aid and is removed one release after the
+`--legacy-navigation`); it also brings back the Add-ons hub, a one-tab bar over `/app/addons` that the legacy sidebar lists. The switch is a rollback aid and is removed one release after the
 new navigation ships; the UI reads it from the `addon_navigation` key of `/api/features`.
 
 A tab is addressed as `/app/addons?tab=browse|libraries`; My add-ons has no `tab`. What the
@@ -2528,8 +2620,8 @@ A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/imag
 `audio_diarization` or `audio_transform` feature still lands on the app home, as before.
 
 The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
-tab of the Build hub only. These redirects do not depend on it: with the switch on, the
-old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, Chat and
+hub only. These redirects do not depend on it: with the switch on, the
+old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, Chats, Agents, MCP connectors, Memory and
 the hubs; Studio and Talk are in My add-ons, as add-ons.
 
 ### The Studio add-on
@@ -2573,7 +2665,7 @@ file of the web UI; other languages read the English text.
 
 The Voice add-on (`voice`) is a packaged add-on. It is not shipped with LocalAI: install it
 from **Find add-ons** with **Install and turn on**. Once it is usable, it appears in
-My add-ons and can be shown in the sidebar. The Build hub has no Voices tab.
+My add-ons and can be shown in the sidebar.
 
 The add-on has one page, `/app/addons/voice/voice`, and one entry in My add-ons. Its
 sections are tabs of that page, and the tab is the next segment of the address:
@@ -2607,7 +2699,7 @@ views, built from one source directory into each add-on.
 
 The Face add-on (`face`) is a packaged add-on, separate from the Voice add-on. It is not
 shipped with LocalAI: install it from **Find add-ons** with **Install and turn on**. Once it
-is usable, it appears in My add-ons and can be shown in the sidebar. The Build hub has no Faces tab.
+is usable, it appears in My add-ons and can be shown in the sidebar.
 
 | Page | Path | Who sees it |
 |---|---|---|
@@ -2629,7 +2721,6 @@ same views, built from one source directory into each add-on.
 The Fine-tuning add-on (`fine-tuning`) and the Quantization add-on (`quantization`) are
 packaged add-ons. They are not shipped with LocalAI: install them from **Find add-ons**
 with **Install and turn on**. Once usable, they appear in My add-ons and can be shown in the sidebar.
-The Build hub has no Fine-Tune or Quantize tab.
 
 | Add-on | Page | Path | Who sees it |
 |---|---|---|---|
@@ -3270,7 +3361,7 @@ text, history, the model or any host state.
 |---|---|---|
 | `chat.composer.actions` | In an overflow menu next to the attach buttons of the composer. Actions of placement `composer` are menu items. Components are drawn in the menu. | `conversationId`, `disabled` |
 | `chat.message.actions` | In the action row of each message. Actions of placement `message` are icon buttons. | `conversationId`, `messageId`, `role` |
-| `app.nav` | On the Add-ons page, below the tile grid. Under the legacy switch: at the end of the second navigation row of the Build hub's Add-ons tab, after the links of `ui.navigation`. | none |
+| `app.nav` | On the Add-ons page, below the tile grid. Under the legacy switch: at the end of the second navigation row of the Add-ons hub, after the links of `ui.navigation`. | none |
 | `settings.sections` | At the end of the Settings page, one section for each component, under a heading with the title and icon of the add-on. | none |
 | `files.preview` | On the Files page, in the preview of the selected file, between its size and its download link. The first component that handles the file's extension is drawn; the host's own view stays. | `path`, `name`, `extension` |
 

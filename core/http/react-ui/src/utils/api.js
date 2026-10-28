@@ -143,6 +143,7 @@ export const chatsApi = {
   }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
+  rename: (id, title) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'PATCH', body: JSON.stringify({ title }) }),
   // The server returns at most 1000 entries a call, oldest first, so a long
   // chat is read page by page: the newest messages are on the last page.
   messages: async (id, after = 0) => {
@@ -261,22 +262,19 @@ export const chatToolsApi = {
 // Saved agents: instructions and exact lists of what a chat may use.
 export const chatAgentsApi = {
   list: () => fetchJSON('/api/chats/agents'),
+  get: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`),
   create: (body) => postJSON('/api/chats/agents', body),
   update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),
 }
 
-// Connectors: a Telegram bot bound to a saved agent. The token only goes in.
+// The messaging connectors. The add-on of a platform adds and edits bindings
+// through the same routes; this page only lists them and switches them on or off.
 export const chatConnectorsApi = {
   list: () => fetchJSON('/api/chats/connectors'),
-  create: (body) => postJSON('/api/chats/connectors', body),
-  update: (id, body) => fetchJSON(`/api/chats/connectors/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
-  remove: (id) => fetchJSON(`/api/chats/connectors/${enc2(id)}`, { method: 'DELETE' }),
+  kinds: () => fetchJSON('/api/chats/connectors/kinds'),
   enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
-  test: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/test`, {}),
-  senders: (id) => fetchJSON(`/api/chats/connectors/${enc2(id)}/senders`),
-  allow: (id, sender) => postJSON(`/api/chats/connectors/${enc2(id)}/senders/${enc2(sender)}/allow`, {}),
 }
 
 // Triggers: work that starts by itself, as the user, in a new chat.

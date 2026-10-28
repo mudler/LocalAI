@@ -23,7 +23,14 @@ const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 // A model's own page (/app/models/<id>) is a child of the Models list, which
 // stays mounted behind it so Back finds the list as it was. It shares the
 // list's key for the same reason.
+// The chat page fills the window and scrolls its own thread. Its sibling
+// pages under /app/chats/ (connectors, conversion) are ordinary pages.
+const CHAT_PAGE = /\/chats(\/(?!(skills|agents|triggers|connectors|conversion)\/?$)[^/]+)?\/?$/
+
 function pageTransitionKey(pathname) {
+  // A new chat and an open one are one page: starting or leaving a chat must
+  // not mount it again.
+  if (CHAT_PAGE.test(pathname)) return '/app/chats'
   for (const h of hubs) {
     if (hubOwnsPath(h, pathname)) return `hub:${h.id}`
   }
@@ -45,7 +52,7 @@ export default function App() {
   const branding = useBranding()
   const { t } = useTranslation('nav')
   const hamburgerRef = useRef(null)
-  const isChatRoute = location.pathname.match(/\/chat(\/|$)/) || location.pathname.match(/\/agents\/[^/]+\/(chat|runs\/[^/]+)\/?$/)
+  const isChatRoute = CHAT_PAGE.test(location.pathname)
 
   useEffect(() => {
     systemApi.version()

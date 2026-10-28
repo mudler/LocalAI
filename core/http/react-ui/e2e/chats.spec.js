@@ -8,7 +8,7 @@ import { test, expect } from './coverage-fixtures.js'
 // MOCK_SLOW_STREAM waits half a second first, which leaves a window to type
 // while the turn runs.
 
-const composer = (page) => page.getByRole('textbox', { name: 'Message' })
+const composer = (page) => page.getByTestId('chat-input')
 const log = (page) => page.getByRole('region', { name: 'Conversation' })
 
 // The test server's mock model is not tagged as chat-capable, so the model list
@@ -31,11 +31,13 @@ test.describe('Chats against the real server', () => {
     await startChat(page, 'hello there')
 
     await expect(page).toHaveURL(/\/app\/chats\/[0-9a-f]+$/)
-    await expect(log(page).locator('.ch-msg--user')).toHaveText('hello there')
+    await expect(log(page).locator('.cx-msg--user')).toHaveText('hello there')
     // The model's answer arrives as a second, non-user message.
-    await expect(log(page).locator('.ch-msg:not(.ch-msg--user)').first()).not.toBeEmpty({ timeout: 20_000 })
+    await expect(log(page).locator('.cx-msg--model').first()).not.toBeEmpty({ timeout: 20_000 })
     await expect(page.getByText('Working…')).toBeHidden({ timeout: 20_000 })
-    await expect(page.getByRole('complementary', { name: 'Your chats' }).getByRole('button', { name: /hello there|New chat/ }).first()).toBeVisible()
+    // The conversations menu (Ctrl K) lists the chat.
+    await page.keyboard.press('Control+k')
+    await expect(page.getByTestId('chats-row').first()).toBeVisible()
   })
 
   test('a message typed while the model works is not lost', async ({ page }) => {
@@ -49,8 +51,8 @@ test.describe('Chats against the real server', () => {
 
     // Both reach the model, together and in order: as one waiting batch, or, if
     // the turn ended first, as the message of the next turn.
-    await expect(log(page).locator('.ch-msg--user').filter({ hasText: 'second' })).toBeVisible({ timeout: 30_000 })
-    await expect(log(page).locator('.ch-msg--user').filter({ hasText: 'third' })).toBeVisible({ timeout: 30_000 })
+    await expect(log(page).locator('.cx-msg--user').filter({ hasText: 'second' })).toBeVisible({ timeout: 30_000 })
+    await expect(log(page).locator('.cx-msg--user').filter({ hasText: 'third' })).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText('Working…')).toBeHidden({ timeout: 30_000 })
     await expect(page.getByTestId('pending-list')).toBeHidden()
   })
@@ -59,12 +61,12 @@ test.describe('Chats against the real server', () => {
     await startChat(page, 'shared chat')
     await expect(page).toHaveURL(/\/app\/chats\/[0-9a-f]+$/)
     const url = page.url()
-    await expect(log(page).locator('.ch-msg--user')).toHaveText('shared chat')
+    await expect(log(page).locator('.cx-msg--user')).toHaveText('shared chat')
 
     const second = await browser.newPage()
     await offerMockModel(second)
     await second.goto(url)
-    await expect(log(second).locator('.ch-msg--user')).toHaveText('shared chat')
+    await expect(log(second).locator('.cx-msg--user')).toHaveText('shared chat')
     await second.close()
   })
 
@@ -76,7 +78,7 @@ test.describe('Chats against the real server', () => {
     await page.getByTestId('chat-file-input').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from('orbital mechanics notes') })
     await composer(page).fill('summarize the attachment')
     await page.getByRole('button', { name: 'Send' }).click()
-    await expect(log(page).locator('.ch-msg--user').first()).toContainText('summarize the attachment', { timeout: 20_000 })
+    await expect(log(page).locator('.cx-msg--user').first()).toContainText('summarize the attachment', { timeout: 20_000 })
     await expect(page.getByText('Working…')).toBeHidden({ timeout: 30_000 })
 
     await page.goto('/app/files')

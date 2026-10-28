@@ -1,0 +1,152 @@
+{
+  "activity": {
+    "thought": "Penalaran",
+    "tool": "Alat",
+    "result": "Hasil",
+    "toolResult": "Hasil {{name}}",
+    "thinking": "Berpikir..."
+  },
+  "header": {
+    "manageModeTooltip": "Obrolan ini dapat menginstal model, mengedit konfigurasi, dan mengelola backend dengan berbicara melalui LocalAI.",
+    "modelInfo": "Info model",
+    "chatSettings": "Pengaturan Obrolan",
+    "modelInfoTitle": "Info model: {{model}}",
+    "editConfig": "Edit konfigurasi",
+    "close": "Tutup"
+  },
+  "modelInfo": {
+    "backend": "Backend",
+    "modelFile": "File model",
+    "contextSize": "Ukuran konteks",
+    "threads": "Thread",
+    "mcp": "MCP",
+    "configured": "Dikonfigurasi",
+    "chatTemplate": "Templat Obrolan",
+    "yes": "Ya",
+    "gpuLayers": "Layer GPU"
+  },
+  "settings": {
+    "title": "Pengaturan Obrolan",
+    "manageMode": "Mode Manajemen",
+    "serverKept": "Server menyimpan obrolan ini. Model dan agennya ditetapkan saat dimulai.",
+    "manageModeOn": "Obrolan ini memiliki alat pengelolaan LocalAI. Gunakan /assistant untuk memulai yang lain.",
+    "agent": "Agen",
+    "agentHelp": "Obrolan ini memakai agen {{name}}: instruksinya dan hanya alat yang diizinkannya.",
+    "editAgent": "Ubah agen",
+    "deleteHelp": "Hapus obrolan ini dan pesannya secara permanen."
+  },
+  "empty": {
+    "manageTitle": "Kelola LocalAI dengan obrolan",
+    "manageText": "Izinkan untuk menginstal model, mengganti backend, mengedit konfigurasi, atau memeriksa status. Asisten akan merangkum tindakan dan menunggu konfirmasi Anda sebelum mengubah apa pun.",
+    "startTitle": "Mulai percakapan",
+    "readyText": "Siap untuk mengobrol dengan {{model}}",
+    "selectModelText": "Pilih model di atas untuk memulai",
+    "suggestionsManage": [
+      "Apa saja yang terinstal?",
+      "Instal model obrolan",
+      "Tampilkan status sistem",
+      "Perbarui backend"
+    ],
+    "suggestionsChat": [
+      "Jelaskan cara kerjanya",
+      "Bantu saya menulis kode",
+      "Rangkum dokumen",
+      "Gali ide"
+    ],
+    "recent": "Terbaru",
+    "hintEnter": "Enter untuk mengirim",
+    "hintShiftEnter": "Shift+Enter untuk baris baru",
+    "hintAttach": "Lampirkan file"
+  },
+  "errors": {
+    "viewTraces": "Lihat trace untuk detailnya"
+  },
+  "actions": {
+    "copy": "Salin",
+    "regenerate": "Hasilkan ulang",
+    "jumpToLatest": "Lompat ke terbaru",
+    "reuse": "Ubah dan kirim lagi"
+  },
+  "streaming": {
+    "transferring": "Mentransfer model...",
+    "transferringTo": "Mentransfer model ke {{node}}..."
+  },
+  "input": {
+    "stopGenerating": "Hentikan pembuatan",
+    "canvasTitle": "Canvas — ekstrak blok kode dan media ke panel samping untuk pratinjau, salin, dan unduh",
+    "canvasLabel": "Canvas",
+    "openCanvas": "Buka panel canvas",
+    "placeholderQueue": "Model sedang bekerja. Pesan yang dikirim sekarang menunggu langkah berikutnya."
+  },
+  "deleteAllDialog": {
+    "title": "Hapus Semua Obrolan",
+    "message": "Hapus semua obrolan? Tindakan ini tidak dapat dibatalkan.",
+    "confirm": "Hapus semua"
+  },
+  "toasts": {
+    "selectModel": "Silahkan pilih model",
+    "copied": "Berhasil disalin ke papan klip",
+    "copyFailed": "Gagal menyalin ke papan klip",
+    "newChatForModel": "Obrolan mempertahankan modelnya. Obrolan baru dimulai dengan {{model}}."
+  },
+  "menu": {
+    "trigger": "Obrolan",
+    "triggerTitle": "Percakapan (Ctrl/Cmd+K)",
+    "search": "Cari percakapan...",
+    "clearSearch": "Hapus pencarian",
+    "noMatch": "Tidak ada percakapan yang cocok dengan pencarian Anda",
+    "noConversations": "Belum ada percakapan",
+    "rename": "Ubah nama",
+    "exportMarkdown": "Ekspor sebagai Markdown",
+    "deleteChat": "Hapus obrolan",
+    "newChat": "Obrolan baru",
+    "clearAll": "Hapus semua",
+    "deleteAllTitle": "Hapus semua percakapan",
+    "untitled": "Obrolan baru",
+    "origin": {
+      "trigger": "Dimulai oleh pemicu",
+      "connector": "Dari konektor"
+    }
+  },
+  "message": {
+    "you": "You"
+  },
+  "tools": {
+    "label": "Alat",
+    "title": "Alat yang bisa dipakai obrolan ini",
+    "heading": "Alat untuk obrolan ini",
+    "note": "Alat yang dimatikan di sini tidak ditawarkan ke model di obrolan ini."
+  },
+  "skills": {
+    "label": "Keahlian",
+    "title": "Keahlian yang bisa dipakai obrolan ini",
+    "heading": "Keahlian untuk obrolan ini"
+  },
+  "agent": {
+    "label": "Agen",
+    "title": "Agen tersimpan untuk obrolan ini",
+    "heading": "Mulai dengan agen",
+    "note": "Agen memberi obrolan instruksinya dan tepat alat yang diizinkannya.",
+    "none": "Tanpa agen",
+    "fixed": "Agen obrolan ini"
+  },
+  "assistant": {
+    "chatTitle": "Asisten LocalAI"
+  },
+  "slash": {
+    "delete": {
+      "label": "Hapus obrolan",
+      "desc": "Hapus percakapan ini"
+    },
+    "assistant": {
+      "desc": "Mulai obrolan yang bisa mengelola LocalAI"
+    },
+    "settings": {
+      "desc": "Mode fokus, agen, dan info model"
+    }
+  },
+  "shortcuts": {
+    "onMessage": "Pada pesan: salin, ubah, buat ulang",
+    "editLast": "Ubah pesan terakhir Anda"
+  }
+}

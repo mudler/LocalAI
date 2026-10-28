@@ -3,8 +3,8 @@ package studio
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Sentences the bot says. They name no internal error.
@@ -28,18 +29,33 @@ const (
 	sentInterrupted = "The agent was interrupted. Please send your message again."
 	sentFailed      = "The agent stopped because of an error."
 
-	conflictTries    = 6
-	maxMessageRunes  = 8000
-	telegramMaxRunes = 4096
+	conflictTries   = 6
+	maxMessageRunes = 8000
 )
+
+// ConnectorKind is a kind of binding that a running connector add-on serves.
+type ConnectorKind struct {
+	AddonID string
+	contract.ConnectorKind
+}
+
+// ConnectorTransport reaches the connector add-ons. The application implements
+// it over the add-on manager; a test implements it with a script.
+type ConnectorTransport interface {
+	// Kinds lists the kinds that running add-ons serve now. It is empty when the
+	// process does not run add-ons.
+	Kinds(ctx context.Context) ([]ConnectorKind, error)
+	// Call sends one request to the connector route of an add-on.
+	Call(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error)
+}
 
 // ConnectorOptions configures the connector manager.
 type ConnectorOptions struct {
 	// Store holds bindings and the state of their loops. Required.
 	Store connectors.Store
-	// Telegram speaks the Bot API; nil means the real one.
-	Telegram *connectors.Telegram
-	Clock    func() time.Time
+	// Transport reaches the connector add-ons. Required.
+	Transport ConnectorTransport
+	Clock     func() time.Time
 	// Tick is how often the manager looks for bindings to start or stop; zero
 	// means 2 seconds.
 	Tick time.Duration
@@ -49,10 +65,10 @@ type ConnectorOptions struct {
 	// Backoff is the first wait after an error; it doubles up to a minute. Zero
 	// means one second.
 	Backoff time.Duration
-	// ConflictWait is how long to wait after Telegram says another process reads
-	// the updates of the bot; zero means 10 seconds. A new leader meets this answer
-	// while the long poll of the old one is still open at Telegram, so the binding
-	// is only switched off after several answers in a row.
+	// ConflictWait is how long to wait after the platform says another process
+	// reads the updates of the bot; zero means 10 seconds. A new leader meets
+	// this answer while the long poll of the old one is still open, so the
+	// binding is only switched off after several answers in a row.
 	ConflictWait time.Duration
 	// RatePerMinute is how many messages one sender may send; zero means 20.
 	RatePerMinute int
@@ -65,9 +81,18 @@ type ConnectorOptions struct {
 // binding's owner with the binding's agent, through the same service as any
 // chat, so the model route, the quota and the agent's grants apply.
 //
+// The platform's API is spoken by a connector add-on. A message reaches the
+// manager by one function, Ingest: the polling loop of a pull platform feeds it
+// with what the add-on's poll route answers, and a push platform's add-on calls
+// it through the host operation connector.inbound. Authorization, the
+// allowlist and the sender log are therefore one code path. Nothing here
+// depends on the HTTP frontend, so a worker node can run the same code.
+//
 // State mode: shared. Bindings, offsets, the sender log and the chat of each
 // sender are in the store; the polling loops run on one frontend at a time, the
-// leader, and a new leader continues from the stored offset.
+// leader, and a new leader continues from the stored offset. The add-on runs on
+// the process that owns the add-ons, so the loops run only where the add-on
+// answers.
 type Connectors struct {
 	svc *Service
 	o   ConnectorOptions
@@ -97,11 +122,8 @@ type senderState struct {
 
 // NewConnectors returns the manager. It does nothing until Run or Sync is called.
 func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
-	if svc == nil || o.Store == nil {
-		return nil, errors.New("studio: the connector manager needs a service and a store")
-	}
-	if o.Telegram == nil {
-		o.Telegram = &connectors.Telegram{}
+	if svc == nil || o.Store == nil || o.Transport == nil {
+		return nil, errors.New("studio: the connector manager needs a service, a store and a transport")
 	}
 	if o.Clock == nil {
 		o.Clock = time.Now
@@ -191,9 +213,17 @@ func (c *Connectors) Sync(ctx context.Context) {
 		c.log.Warn("studio: could not list the connector bindings", "error", err)
 		return
 	}
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		c.log.Warn("studio: could not list the connector kinds", "error", err)
+		return
+	}
+	// A loop runs only for a binding whose add-on is running and pulls.
 	want := map[string]connectors.Binding{}
 	for _, b := range enabled {
-		want[b.ID] = b
+		if k, ok := kindFor(kinds, b); ok && k.Delivery == contract.DeliveryPull {
+			want[b.ID] = b
+		}
 	}
 	c.mu.Lock()
 	for id, cancel := range c.loops {
@@ -225,10 +255,22 @@ func (c *Connectors) Sync(ctx context.Context) {
 	c.mu.Unlock()
 }
 
-// poll is the loop of one binding.
+// kindFor finds the running kind that serves a binding. A binding is served only
+// by the add-on it names, so another add-on cannot take over its kind.
+func kindFor(kinds []ConnectorKind, b connectors.Binding) (ConnectorKind, bool) {
+	for _, k := range kinds {
+		if k.ID == b.Kind && k.AddonID == b.AddonID {
+			return k, true
+		}
+	}
+	return ConnectorKind{}, false
+}
+
+// poll is the loop of one binding of a pull platform.
 func (c *Connectors) poll(ctx context.Context, id string) {
 	backoff := c.o.Backoff
 	conflicts := 0
+poll:
 	for ctx.Err() == nil && !c.closed() {
 		b, err := c.o.Store.GetBinding(ctx, id)
 		if err != nil || !b.Enabled {
@@ -245,14 +287,18 @@ func (c *Connectors) poll(ctx context.Context, id string) {
 			c.sleep(ctx, backoff)
 			continue
 		}
-		ups, err := c.o.Telegram.Updates(ctx, token, offset, c.o.Poll)
+		resp, err := c.o.Transport.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpPoll, Kind: b.Kind, Token: token, Offset: offset, TimeoutSeconds: c.o.Poll})
+		if err == nil && resp.Error != nil {
+			err = resp.Error
+		}
+		var ce *contract.ConnectorError
 		switch {
 		case ctx.Err() != nil:
 			return
-		case errors.Is(err, connectors.ErrUnauthorized):
-			c.disable(b, "Telegram refused its bot token")
+		case errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized:
+			c.disable(b, "the platform refused its bot token")
 			return
-		case errors.Is(err, connectors.ErrConflict):
+		case errors.As(err, &ce) && ce.Code == contract.ConnectorConflict:
 			if conflicts++; conflicts >= conflictTries {
 				c.disable(b, "another process reads the updates of this bot")
 				return
@@ -260,42 +306,53 @@ func (c *Connectors) poll(ctx context.Context, id string) {
 			c.sleep(ctx, c.o.ConflictWait)
 			continue
 		case err != nil:
-			var ra *connectors.RetryAfter
 			wait := backoff
-			if errors.As(err, &ra) {
-				wait = time.Duration(ra.Seconds) * time.Second
-				if ra.Seconds == 0 {
+			if errors.As(err, &ce) && ce.Code == contract.ConnectorRateLimited {
+				wait = time.Duration(ce.RetryAfter) * time.Second
+				if ce.RetryAfter == 0 {
 					wait = c.o.Backoff
 				}
 			} else {
 				backoff = min(backoff*2, time.Minute)
-				c.log.Warn("studio: a Telegram poll failed", "binding", id, "error", err)
+				c.log.Warn("studio: a connector poll failed", "binding", id, "kind", b.Kind, "error", err)
 			}
 			c.sleep(ctx, wait)
 			continue
 		}
 		backoff, conflicts = c.o.Backoff, 0
-		for _, u := range ups {
+		for _, u := range resp.Updates {
 			if ctx.Err() != nil {
 				return
 			}
-			// Read the binding again: its allowlist, agent or token may have changed.
-			if cur, err := c.o.Store.GetBinding(ctx, id); err != nil || !cur.Enabled {
-				return
-			} else {
-				b = cur
-			}
-			if t, err := c.openToken(ctx, b); err == nil {
-				token = t
-			}
+			// The same function as the host operation: it reads the binding
+			// again, so a changed allowlist, agent or token applies, and a
+			// binding that was switched off ends the loop.
 			if !u.Skip {
-				c.handle(ctx, b, token, u)
+				err := c.Ingest(ctx, b.AddonID, contract.ConnectorInbound{BindingID: id, ConnectorMessage: u})
+				switch {
+				case errors.Is(err, connectors.ErrForbidden):
+					return
+				case errors.Is(err, connectors.ErrInvalid):
+					// A malformed update can never succeed: log it and move past it.
+					c.log.Warn("studio: a connector update was refused", "binding", id, "kind", b.Kind, "error", err)
+				case err != nil:
+					// The store failed: keep the offset, so the update is read again.
+					c.log.Warn("studio: could not hand over a connector update", "binding", id, "error", err)
+					c.sleep(ctx, backoff)
+					continue poll
+				}
 			}
-			if err := c.o.Store.SetOffset(ctx, id, u.ID+1); err != nil {
+			if err := c.o.Store.SetOffset(ctx, id, u.Cursor+1); err != nil {
 				c.log.Warn("studio: could not save a connector offset", "binding", id, "error", err)
 			}
 		}
-		if len(ups) == 0 && c.o.Poll == 0 {
+		// The answer names where to go on, also when it held nothing.
+		if resp.NextOffset > offset && (len(resp.Updates) == 0 || resp.NextOffset > resp.Updates[len(resp.Updates)-1].Cursor+1) {
+			if err := c.o.Store.SetOffset(ctx, id, resp.NextOffset); err != nil {
+				c.log.Warn("studio: could not save a connector offset", "binding", id, "error", err)
+			}
+		}
+		if len(resp.Updates) == 0 && c.o.Poll == 0 {
 			c.sleep(ctx, 5*time.Millisecond)
 		}
 	}
@@ -326,7 +383,7 @@ func (c *Connectors) disable(b connectors.Binding, why string) {
 	}
 	if c.svc.d.Notify != nil {
 		_, _ = c.svc.d.Notify.Add(context.Background(), notify.Notification{Principal: b.Owner, Kind: notify.KindNeedsAttention, Status: notify.StatusFailed,
-			Title: b.Name + " was switched off", Body: "The Telegram connector was switched off because " + why + "."})
+			Title: b.Name + " was switched off", Body: "The connector was switched off because " + why + "."})
 	}
 }
 
@@ -366,30 +423,71 @@ func (c *Connectors) allow(s *senderState) (ok, notice bool) {
 	return true, false
 }
 
-func (c *Connectors) say(token string, chatID int64, text string) {
+// say sends text to the chat of a platform through the add-on. The add-on cuts
+// it to the limit of the platform.
+func (c *Connectors) say(b connectors.Binding, token, chat, thread, text string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	for _, part := range connectors.Split(text, telegramMaxRunes) {
-		err := c.o.Telegram.Send(ctx, token, chatID, part)
-		var ra *connectors.RetryAfter
-		if errors.As(err, &ra) {
-			c.sleep(ctx, time.Duration(ra.Seconds)*time.Second)
-			err = c.o.Telegram.Send(ctx, token, chatID, part)
-		}
-		if err != nil {
-			c.log.Warn("studio: could not send a Telegram message", "error", err)
-			return
-		}
+	if err := c.send(ctx, b, contract.ConnectorRequest{Op: contract.ConnectorOpSend, Token: token, Chat: chat, Thread: thread, Text: text}); err != nil {
+		c.log.Warn("studio: could not send a connector message", "binding", b.ID, "kind", b.Kind, "error", err)
 	}
 }
 
+// send makes one outbound call and turns an error of the platform into a Go error.
+func (c *Connectors) send(ctx context.Context, b connectors.Binding, req contract.ConnectorRequest) error {
+	req.Kind = b.Kind
+	resp, err := c.o.Transport.Call(ctx, b.AddonID, req)
+	if err == nil && resp.Error != nil {
+		err = resp.Error
+	}
+	return err
+}
+
+// Ingest takes one message that a connector add-on brings for a binding. It is
+// the one door of inbound messages, for the polling loop and for the host
+// operation connector.inbound.
+//
+// The authority is the stored binding: the add-on must be the one the binding
+// names and the binding must be on. The message cannot choose who runs the turn,
+// because it is run as the owner of the binding, and it cannot skip the
+// allowlist or the sender log.
+func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.ConnectorInbound) error {
+	b, err := c.o.Store.GetBinding(ctx, in.BindingID)
+	if err != nil && !errors.Is(err, connectors.ErrNotFound) {
+		// A store that fails is an outage, not a refusal: the caller may retry.
+		return fmt.Errorf("studio: read a connector binding: %w", err)
+	}
+	// A missing binding and another add-on's binding look the same to the caller.
+	if err != nil || b.AddonID != addonID || addonID == "" || !b.Enabled {
+		return connectors.ErrForbidden
+	}
+	m := in.ConnectorMessage
+	if m.Skip {
+		return nil
+	}
+	if m.Chat == "" || m.SenderID == "" || len(m.SenderID) > contract.MaxConnectorSender || len(m.Chat) > contract.MaxConnectorSender || len(m.Media) > contract.MaxConnectorMedia {
+		return connectors.ErrInvalid
+	}
+	// The sender log keeps the name in a column of 255 characters.
+	if r := []rune(m.SenderName); len(r) > 200 {
+		m.SenderName = string(r[:200])
+	}
+	token, err := c.openToken(ctx, b)
+	if err != nil {
+		c.disable(b, "its bot token cannot be read")
+		return connectors.ErrForbidden
+	}
+	c.handle(ctx, b, token, m)
+	return nil
+}
+
 // handle takes one message of a sender.
-func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token string, u connectors.Update) {
-	senderID := strconv.FormatInt(u.FromID, 10)
-	allowed := u.ChatType == "private" && (b.AcceptAny || b.Allows(senderID, u.FromUsername))
-	name := u.FromName
+func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage) {
+	senderID := m.SenderID
+	allowed := m.Direct && (b.AcceptAny || b.Allows(senderID, m.SenderUsername))
+	name := m.SenderName
 	if name == "" {
-		name = u.FromUsername
+		name = m.SenderUsername
 	}
 	if err := c.o.Store.RecordSender(ctx, b.ID, senderID, name, allowed, c.o.Clock()); err != nil {
 		c.log.Warn("studio: could not record a sender", "binding", b.ID, "error", err)
@@ -397,20 +495,21 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	if !allowed {
 		return // ignored: not answered, and in the sender log for the owner
 	}
+	say := func(text string) { c.say(b, token, m.Chat, m.Thread, text) }
 	st := c.sender(b.ID, senderID)
 	switch ok, notice := c.allow(st); {
 	case !ok && notice:
-		c.say(token, u.ChatID, sentRate)
+		say(sentRate)
 		return
 	case !ok:
 		return
 	}
 	switch {
-	case u.Unsupported:
-		c.say(token, u.ChatID, sentUnsupported)
+	case m.Unsupported:
+		say(sentUnsupported)
 		return
-	case utf8.RuneCountInString(u.Text) > maxMessageRunes:
-		c.say(token, u.ChatID, sentTooLong)
+	case utf8.RuneCountInString(m.Text) > maxMessageRunes:
+		say(sentTooLong)
 		return
 	}
 	if c.svc.d.Users != nil {
@@ -419,11 +518,11 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			if errors.Is(err, ErrNoUser) {
 				c.disable(b, "its owner no longer exists")
 			}
-			c.say(token, u.ChatID, sentUnavailable)
+			say(sentUnavailable)
 			return
 		}
 		if c.svc.d.Allowed != nil && !c.svc.d.Allowed(owner, auth.FeatureConnectors) {
-			c.say(token, u.ChatID, sentUnavailable)
+			say(sentUnavailable)
 			return
 		}
 	}
@@ -437,10 +536,10 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		default:
 			c.log.Warn("studio: could not make the chat of a sender", "binding", b.ID, "error", err)
 		}
-		c.say(token, u.ChatID, sentUnavailable)
+		say(sentUnavailable)
 		return
 	}
-	c.deliver(ctx, b, token, u.ChatID, st, chatID, u.Text)
+	c.deliver(ctx, b, token, m, st, chatID)
 }
 
 var errAgentGone = errors.New("the agent was deleted")
@@ -453,7 +552,7 @@ func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, senderID
 			return id, nil
 		}
 	}
-	title := "Telegram · " + name
+	title := c.kindTitle(ctx, b) + " · " + name
 	rec, err := c.svc.CreateAs(ctx, b.Owner, CreateInput{Title: title, AgentID: b.AgentID}, Origin{Kind: session.OriginConnector, ID: b.ID})
 	if err != nil {
 		if isAgentMissing(err) {
@@ -470,7 +569,7 @@ func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, senderID
 // deliver hands the message to the chat and makes sure that the answer goes
 // back. One reply goroutine serves a sender at a time: it sends the answer of
 // each turn until the chat is idle.
-func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token string, tgChat int64, st *senderState, chatID, text string) {
+func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string) {
 	c.smu.Lock()
 	was := st.active
 	st.active = true
@@ -483,18 +582,18 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			c.smu.Lock()
 			st.active = false
 			c.smu.Unlock()
-			c.say(token, tgChat, sentUnavailable)
+			c.say(b, token, m.Chat, m.Thread, sentUnavailable)
 			return
 		}
 	}
-	if _, err := c.svc.Send(ctx, b.Owner, chatID, text); err != nil {
+	if _, err := c.svc.Send(ctx, b.Owner, chatID, m.Text); err != nil {
 		if !was {
 			cancel()
 			c.smu.Lock()
 			st.active = false
 			c.smu.Unlock()
 		}
-		c.say(token, tgChat, sentFailed)
+		c.say(b, token, m.Chat, m.Thread, sentFailed)
 		return
 	}
 	if was {
@@ -504,12 +603,12 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 	go func() {
 		defer c.wg.Done()
 		defer cancel()
-		c.reply(b, token, tgChat, st, chatID, events)
+		c.reply(b, token, m, st, chatID, events)
 	}()
 }
 
 // reply waits for the end of each turn of the chat and sends its answer.
-func (c *Connectors) reply(b connectors.Binding, token string, tgChat int64, st *senderState, chatID string, events <-chan session.Event) {
+func (c *Connectors) reply(b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string, events <-chan session.Event) {
 	typing := time.NewTicker(4 * time.Second)
 	defer typing.Stop()
 	var poll <-chan time.Time
@@ -537,7 +636,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, tgChat int64, st 
 			}
 		case <-typing.C:
 			tctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			_ = c.o.Telegram.Typing(tctx, token, tgChat)
+			_ = c.send(tctx, b, contract.ConnectorRequest{Op: contract.ConnectorOpTyping, Token: token, Chat: m.Chat, Thread: m.Thread})
 			cancel()
 		case <-c.done:
 			return
@@ -545,7 +644,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, tgChat int64, st 
 		if !ended {
 			continue
 		}
-		c.say(token, tgChat, c.answerOf(b, chatID, errText))
+		c.say(b, token, m.Chat, m.Thread, c.answerOf(b, chatID, errText))
 		errText = ""
 		c.smu.Lock()
 		info, err := c.svc.Turn(context.Background(), b.Owner, chatID)
@@ -591,10 +690,10 @@ func isAgentMissing(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "agents: not found")
 }
 
-// Forward sends a notification of a user to the Telegram chat of each enabled
-// binding of that user that has one. The title and the text go, never the link.
-// The inbox calls it on the frontend that stored the notification, so a
-// notification is sent once. It does not wait, and a failure is only logged.
+// Forward sends a notification of a user to the chat of each enabled binding of
+// that user that has one. The title and the text go, never the link. The inbox
+// calls it on the frontend that stored the notification, so a notification is
+// sent once. It does not wait, and a failure is only logged.
 func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 	if c.closed() {
 		return
@@ -606,8 +705,7 @@ func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 	}
 	text := strings.TrimSpace(n.Title + "\n" + n.Body)
 	for _, b := range bindings {
-		chat, perr := strconv.ParseInt(b.NotifyChat, 10, 64)
-		if !b.Enabled || b.NotifyChat == "" || perr != nil {
+		if !b.Enabled || b.NotifyChat == "" {
 			continue
 		}
 		token, err := c.openToken(ctx, b)
@@ -618,7 +716,7 @@ func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 		c.wg.Add(1)
 		go func() {
 			defer c.wg.Done()
-			c.say(token, chat, text)
+			c.say(b, token, b.NotifyChat, "", text)
 		}()
 	}
 }

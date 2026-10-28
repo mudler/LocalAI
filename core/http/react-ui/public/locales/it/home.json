@@ -110,5 +110,19 @@
     "createSummary": "Open a chat, image or voice session",
     "operate": "Operate",
     "operateSummary": "{{models}} models configured · nodes, activity and traces"
+  },
+  "slash": {
+    "agents": {
+      "label": "Agenti",
+      "desc": "I tuoi agenti salvati, trigger e skill"
+    },
+    "mcp": {
+      "label": "Connettori MCP",
+      "desc": "Server MCP che le tue chat possono usare"
+    },
+    "memory": {
+      "label": "Memoria",
+      "desc": "Raccolte in cui le tue chat possono cercare"
+    }
   }
 }

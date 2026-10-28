@@ -57,6 +57,17 @@ If you delete an agent, the chats that ran with it keep their history. Their
 next turn runs without the agent's tools, and the model is told that the agent
 was deleted.
 
+### Pages
+
+The Agents page (**Agents** in the sidebar, `/app/agents`) lists your agents with the chats that ran with
+each one, and a page for one agent (`/app/agents/{id}`) shows its definition, the
+triggers that start it and its chats. Create and edit an agent in a form of
+folds with a preview of the definition and of what changed. An agent exports to a
+JSON file (name, description, instructions, model and the four lists, with no id,
+dates or secrets) and the same file imports on another instance. The import also
+reads the JSON export of an older agent, and names what it could not take over.
+Chat with an agent from its row: the chats page opens with the agent chosen.
+
 ### API
 
 ```
@@ -157,7 +168,7 @@ downtime, a missed schedule runs once, not once for each missed time.
 
 In a chat, the model can propose a trigger with `propose_trigger` and list yours
 with `list_triggers`. A proposal is not active and runs nothing. It waits for you
-in the chat and on the Triggers page (`GET /api/chats/triggers/proposals`, with
+in the chat and on the Triggers page (`/app/triggers`, `GET /api/chats/triggers/proposals`, with
 `?chat={id}` for the ones made in one chat). Change it first if you want
 (`PUT .../proposals/{id}` with the same body as a trigger; it stays a proposal),
 then confirm it (`POST .../proposals/{id}/confirm`, with your `time_zone` when it

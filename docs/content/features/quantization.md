@@ -149,7 +149,7 @@ The UI also supports entering a custom quantization type string for any format s
 
 ## Web UI
 
-**Build → Quantize** uses the same page pattern as fine-tuning: set up, check, run, result.
+The Quantize page uses the same page pattern as fine-tuning: set up, check, run, result.
 
 1. **Set up** - Choose the model and the quantization type (a preset, or a custom type). The backend and the Hugging Face token are under **More options**.
 2. **Check before you start** - Whether a model and type are set, whether a quantization backend is installed, the free RAM and the free space on the models disk. The server reports no model size before the job starts, so the page does not estimate one.
@@ -162,7 +162,7 @@ A user needs the quantization permission. Without it, the page says the account 
 
 ### Quantization is an add-on
 
-The Quantize page is the `quantization` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/quantization/jobs` and can be shown in the sidebar. The Build hub no longer has a Quantize tab.
+The Quantize page is the `quantization` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/quantization/jobs` and can be shown in the sidebar. 
 
 The old link `/app/quantize` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
 

@@ -14,6 +14,7 @@
 }
 
 .cs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
+.cs-head > .btn { flex: none; white-space: nowrap; }
 .cs-title { margin: 0; font-size: 1.25rem; font-weight: 600; }
 .cs-sub { margin: 0 0 var(--dk-space-2); font-size: 1rem; font-weight: 600; }
 .cs-muted { margin: 0; color: var(--color-text-muted); }
@@ -82,3 +83,5 @@
 @media (max-width: 900px) {
   .cs-page { padding: var(--dk-space-4); }
 }
+
+.cs-group > .btn { align-self: flex-start; }

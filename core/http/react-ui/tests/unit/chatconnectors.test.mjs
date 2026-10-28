@@ -1,41 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { canSave, connectorPayload, emptyConnector, modeText, senderLine } from '../../src/utils/chatConnectors.js'
+import { acceptsOf, groupConnectors } from '../../src/utils/chatConnectors.js'
 
-test('chat connectors: the token goes only when it was typed', () => {
-  const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] })
-  assert.equal(create.token, '1:abc')
-  assert.deepEqual(create.allow, ['11', '@ada_l'])
-  assert.equal(create.name, 'Bot')
-  const update = connectorPayload({ ...emptyConnector(), id: 'b1', name: 'Bot', agent_id: 'a1' })
-  assert.equal('token' in update, false)
+const kinds = [{ addon: 'telegram', kind: 'telegram', title: 'Telegram', page: 'bot' }]
+
+test('chat connectors: a binding goes under the add-on that serves it, with the address of its page', () => {
+  const { groups, waiting } = groupConnectors(kinds, [{ id: 'b1', kind: 'telegram', addon: 'telegram' }])
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].href, '/app/addons/telegram/bot')
+  assert.deepEqual(groups[0].items.map((c) => c.id), ['b1'])
+  assert.deepEqual(waiting, [])
 })
 
-test('chat connectors: accept any drops the allowlist from the request', () => {
-  const body = connectorPayload({ ...emptyConnector(), name: 'B', agent_id: 'a', accept_any: true, allow: ['11'] })
-  assert.equal(body.accept_any, true)
-  assert.deepEqual(body.allow, [])
+test('chat connectors: a binding without a running add-on waits, and is not dropped', () => {
+  const { groups, waiting } = groupConnectors([], [{ id: 'b1', kind: 'telegram', addon: 'telegram', active: false }])
+  assert.deepEqual(groups, [])
+  assert.deepEqual(waiting.map((c) => c.id), ['b1'])
 })
 
-test('chat connectors: who a binding accepts, in words', () => {
-  assert.equal(modeText({ accept_any: true }), 'anyone')
-  assert.equal(modeText({ allow: [] }), 'nobody yet')
-  assert.equal(modeText({ allow: ['1'] }), '1 listed sender')
-  assert.equal(modeText({ allow: ['1', '2'] }), '2 listed senders')
+test('chat connectors: another add-on does not take the bindings of a kind', () => {
+  const { groups, waiting } = groupConnectors(kinds, [{ id: 'b1', kind: 'telegram', addon: 'other' }])
+  assert.deepEqual(groups[0].items, [])
+  assert.equal(waiting.length, 1)
 })
 
-test('chat connectors: a sender line names the person, the count and the id', () => {
-  assert.equal(senderLine({ name: 'Ada', count: 1, id: '11' }), 'Ada · 1 message · 11')
-  assert.equal(senderLine({ name: '', count: 3, id: '12' }), '12 · 3 messages · 12')
+test('chat connectors: a kind without a page links to the add-on in the gallery', () => {
+  const { groups } = groupConnectors([{ addon: 'slack', kind: 'slack', title: 'Slack' }], [])
+  assert.equal(groups[0].href, '/app/addons?detail=slack')
 })
 
-test('chat connectors: saving needs a name, an agent, a token for a new binding, and the warning confirmed for accept any', () => {
-  const ok = { ...emptyConnector(), name: 'B', agent_id: 'a', token: '1:x' }
-  assert.equal(canSave(ok, false), true)
-  assert.equal(canSave({ ...ok, name: ' ' }, false), false)
-  assert.equal(canSave({ ...ok, agent_id: '' }, false), false)
-  assert.equal(canSave({ ...ok, token: '' }, false), false)
-  assert.equal(canSave({ ...ok, token: '', id: 'b1' }, false), true)
-  assert.equal(canSave({ ...ok, accept_any: true }, false), false)
-  assert.equal(canSave({ ...ok, accept_any: true }, true), true)
+test('chat connectors: who a binding accepts', () => {
+  assert.deepEqual(acceptsOf({ accept_any: true }), { key: 'anyone' })
+  assert.deepEqual(acceptsOf({ allow: [] }), { key: 'nobody' })
+  assert.deepEqual(acceptsOf({ allow: ['1', '2'] }), { key: 'listed', count: 2 })
 })

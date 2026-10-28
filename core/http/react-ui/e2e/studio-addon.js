@@ -26,7 +26,7 @@ export async function buildAddonBundles(ids) {
 
 // The add-ons the specs serve from their build output: Studio, Talk and Voice
 // through installStudioAddons, Face and Fine-tuning through their own routes.
-export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning']) {
+export async function buildStudioAddons(ids = ['studio', 'talk', 'voice', 'face', 'fine-tuning', 'telegram']) {
   await buildAddonBundles(ids)
   process.env[BUILT] = '1'
 }
@@ -56,7 +56,7 @@ export function packagedApp(id, over = {}) {
 export async function installStudioAddons(page, { ids = ['studio', 'talk'], ...options } = {}) {
   const dirs = await Promise.all(ids.map(build))
   await stubAddonRoutes(page)
-  await page.route(/\/api\/addons\/(studio|talk|voice)\/assets\//, route => {
+  await page.route(/\/api\/addons\/(studio|talk|voice|telegram)\/assets\//, route => {
     const parts = new URL(route.request().url()).pathname.split('/')
     const id = parts[3]
     const file = parts.slice(6).join('/')
