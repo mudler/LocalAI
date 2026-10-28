@@ -605,6 +605,51 @@ var _ = Describe("realtime speech-to-speech", func() {
 		})
 	})
 
+	It("ends the reader when nobody reads the events and the session closes", func() {
+		stream := newFakeS2SStream()
+		st := newS2SSession(stream, nil, nil)
+		st.active.Store(true)
+		for range 100 {
+			stream.push("response.audio.delta", []byte{1, 2}, nil)
+		}
+		Eventually(func() int { return len(st.events) }).Should(Equal(cap(st.events)))
+
+		st.close()
+		Eventually(st.dead, 2*time.Second).Should(BeClosed())
+	})
+
+	It("gives up on a cancel the backend never takes, even when the write queue is stuck", func() {
+		old := s2sCancelGrace
+		s2sCancelGrace = 100 * time.Millisecond
+		DeferCleanup(func() { s2sCancelGrace = old })
+
+		stream := newFakeS2SStream()
+		release := make(chan struct{})
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			switch {
+			case isControl(req, "response.create"):
+				f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "hi"})
+			case isControl(req, "response.cancel"):
+				<-release // backpressure: the write never completes
+			}
+		}
+		DeferCleanup(func() { close(release) })
+		session, tr, conv := newHarness(stream, baseModel())
+
+		ctx, cancel := context.WithCancel(context.Background())
+		r := &liveResponse{id: "resp_1"}
+		finished := make(chan struct{})
+		go func() {
+			defer close(finished)
+			s2sResponseTurn(ctx, session, conv, tr, nil, 0, r)
+		}()
+		Eventually(func() string { return tr.transcriptDeltaText() }).Should(Equal("hi"))
+
+		cancel()
+		Eventually(finished, 3*time.Second).Should(BeClosed())
+		Expect(r.outcome).To(Equal(outcomeFailed))
+	})
+
 	Describe("the output mode on the wire", func() {
 		openSession := func(tools []types.ToolUnion, mods []types.Modality) (*Session, *fakeS2SStream) {
 			stream := newFakeS2SStream()

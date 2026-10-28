@@ -73,9 +73,6 @@ const (
 	s2sDefaultPrerollMs = 300
 
 	s2sOpenTimeout = 60 * time.Second
-	// s2sCancelGrace bounds the wait for the backend to acknowledge a cancel
-	// with response.done. Past it the stream is considered stuck.
-	s2sCancelGrace = 15 * time.Second
 	// s2sFrameChunkMs splits a long forward (the pre-roll plus the buffered
 	// speech at onset) into messages of this size.
 	s2sFrameChunkMs = 500
@@ -189,6 +186,11 @@ type s2sOutbound struct {
 	done chan error
 }
 
+// s2sCancelGrace bounds the wait for the backend to acknowledge a cancel with
+// response.done. Past it the stream is considered stuck. A variable so a spec
+// can shorten it.
+var s2sCancelGrace = 15 * time.Second
+
 // s2sEOFGrace bounds the wait for the real status when a Send fails with a
 // bare EOF.
 const s2sEOFGrace = 2 * time.Second
@@ -251,7 +253,7 @@ func (s *s2sSession) writer() {
 			if o.done != nil {
 				o.done <- err
 			} else if err != nil {
-				xlog.Warn("s2s: sending input audio failed", "error", err)
+				xlog.Warn("s2s: sending to the backend failed", "error", err)
 			}
 		}
 	}
@@ -326,7 +328,9 @@ func (s *s2sSession) pump() {
 			if s.active.Load() {
 				select {
 				case s.events <- resp:
-				case <-s.dead:
+				case <-s.quit:
+					// Nobody reads the events any more (the turn ended on an
+					// error or gave up): do not outlive the session.
 					return
 				}
 				continue
@@ -446,14 +450,16 @@ func (s *s2sSession) control(event string, payload any) error {
 }
 
 // sendCancel asks the backend to stop the response in flight. It acts at once
-// on the backend and is sent at most once per response.
+// on the backend and is sent at most once per response. It only queues the
+// message: with backpressure on the stream the write can take long, and the
+// caller has to go on reading events and watching its grace timer.
 func (s *s2sSession) sendCancel() {
 	if !s.cancelSent.CompareAndSwap(false, true) {
 		return
 	}
-	if err := s.control("response.cancel", nil); err != nil {
-		xlog.Warn("s2s: sending response.cancel failed", "error", err)
-	}
+	s.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+		Control: &proto.AudioToAudioControl{Event: "response.cancel"},
+	}})
 }
 
 // forwardPCM resamples session-rate PCM to the backend input rate and queues it
@@ -1095,8 +1101,9 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 	stop := func() {
 		tn.stopped = true
 		done = nil
-		st.sendCancel()
+		// The timer starts first: queuing the cancel must not delay it.
 		grace = time.After(s2sCancelGrace)
+		st.sendCancel()
 	}
 	for {
 		select {
