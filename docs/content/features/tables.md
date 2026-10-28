@@ -249,6 +249,7 @@ filtered there.
 | `legacy-mcp-chat` | reject | `POST /v1/mcp/chat/completions` passes no broker, so `addon_tools` gets the same typed answer. |
 | `mcp-discovery-endpoints` | reject | Listing of servers, prompts and resources. They execute no tool. |
 | `studio-chats-mcp` | reject | The MCP tools of a chat on the server-side chat loop, from the shared sessions of the chat's model. The executor and the chat's bridge both drop the namespace, and the MCP Apps proxy of a chat refuses it. |
+| `studio-chats-mcp-content` | reject | The prompts and resources of the MCP servers of a chat's model. They execute no tool and their sessions are shared by every user of the model, so they carry no actor. The user needs the MCP feature and the model must have MCP servers. |
 | `studio-chats-mcp-connectors` | reject | The tools of the MCP servers a user added as connectors. They are not add-on tools: they run on the user's own server with the connector's credential. The chat drops a tool in the add-on namespace or with the name of a built-in; the MCP Apps proxy applies the same rule and checks the owner on every call. |
 | `studio-chats-assistant` | reject | The LocalAI Assistant tools of an assistant chat, for an administrator while the setting is on. They are the instance management tools, not add-on tools. |
 | `studio-chats-addons` | route | The add-on tools of a chat, action tools included. The chat's user is the actor, with the credential of a chat turn; the account and the add-ons feature are checked again on every call. |

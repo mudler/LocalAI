@@ -244,6 +244,10 @@ var _ = Describe("Route auth modes", func() {
 			}
 			// carol had the default-on chats feature revoked by an administrator.
 			Expect(auth.UpdateUserPermissions(db, "carol", auth.PermissionMap{auth.FeatureChats: false})).To(Succeed())
+			// agents, triggers and connectors are off by default for a user; alice has them.
+			Expect(auth.UpdateUserPermissions(db, "alice", auth.PermissionMap{
+				auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true,
+			})).To(Succeed())
 			server = s
 		})
 
@@ -266,7 +270,17 @@ var _ = Describe("Route auth modes", func() {
 				}
 				count++
 				name := r.Method + " " + r.Path
-				for _, user := range []string{"alice", "root"} {
+				users := []string{"alice", "root"}
+				if strings.HasPrefix(r.Path, "/api/chats/admin/") {
+					// The administrator routes are closed to a user who is not one.
+					for _, cred := range []string{"alice", "alice-key"} {
+						if code := server.status(r, cred); code != http.StatusForbidden {
+							problems = append(problems, fmt.Sprintf("%s: %s got %d, not 403", name, cred, code))
+						}
+					}
+					users = []string{"root"}
+				}
+				for _, user := range users {
 					session, key := server.status(r, user), server.status(r, user+"-key")
 					if isDenied(session) || isDenied(key) {
 						problems = append(problems, fmt.Sprintf("%s: %s got %d with a session and %d with a key", name, user, session, key))

@@ -139,6 +139,14 @@ var Consumers = []Consumer{
 		Enforcement: "the chat drops a connector tool in the add-on namespace or with the name of a built-in; the sessions belong to one user and the owner is checked on every use, also for the MCP Apps proxy, which refuses the namespace and the names of the built-ins too",
 	},
 	{
+		ID:          "studio-chats-mcp-content",
+		Surface:     "the prompts and resources of the MCP servers of a chat's model, which the chat page lists and reads for the user",
+		Files:       []string{"core/application/studio_mcpcontent.go"},
+		Decision:    Reject,
+		Reason:      "they list prompts and read resources of the model's configured servers and execute no tool; the sessions are the ones shared by every user of the model, so they carry no actor",
+		Enforcement: "the user needs the MCP feature and the model must have MCP servers; the add-on namespace is not part of these servers",
+	},
+	{
 		ID:          "studio-chats-assistant",
 		Surface:     "the LocalAI Assistant tools of an assistant chat on the server-side chat loop, offered to an administrator while the assistant setting is on",
 		Files:       []string{"core/application/studio_assistant.go"},
