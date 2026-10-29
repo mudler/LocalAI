@@ -14,6 +14,8 @@ connections to a worker. Only the carrier files import `nats.go`
 | Control verbs, worker half | unexported `controlServer` (`handle`, `handleWithProgress`) | `core/services/worker` | `natsControlServer` |
 | Agent RPC, frontend half | `AgentControl` (package `mcp`) | `core/http/endpoints/mcp` | `nodes.NATSAgentControl` |
 | Agent RPC, worker half | unexported `agentRPCServer` | `core/cli/agent_worker.go` | `nodes.NATSAgentRPCServer` |
+| Chat start, frontend half | `studio.ChatWorkers` | `core/services/studio` | `nodes.NATSChatStarter` |
+| Chat start, worker half | `studio.Service.ServeStart`, served by `nodes.ChatStartHandler` | `core/application/studio_chatworker.go` | `nodes.NATSChatStartServer` |
 | Dial to a worker | `nodes.BackendClientFactory`, `nodes.ModelProber`, `nodes.WorkerNetDialerFor` | `core/services/nodes` | direct dial |
 
 Request and reply payloads of the control verbs live in
@@ -27,6 +29,29 @@ agents and jobs; chat runs and triggers use the database and advisory locks
 (`.agents/distributed-state.md`). A new queue is a new interface in
 `core/services/messaging`, with its own subject root added to
 `broadcastRoots` in `subject_rules.go`.
+
+The chat start is not a queue: it is a request/reply in a queue group, like the
+agent RPC. Nothing is buffered, and the reply says whether the turn started.
+
+## Chat start
+
+`studio.ChatWorkers.StartChat` hands the start of an unattended run (trigger,
+job, connector message) to one chat worker on `chats.start`, queue group
+`chat-workers`. The payloads are `workerctl.ChatStartRequest` and
+`ChatStartReply`. Only the deadline of ctx bounds the wait
+(`nodes.DefaultChatStartTimeout` without one), as for the agent RPC.
+
+- `ErrNoRoute` (wrapped): no worker listens. `Service.SendBackground` runs the
+  turn on the frontend.
+- A timeout or a transport error: the worker may have started the turn. The
+  start fails and nothing runs on the frontend, so a message cannot run twice.
+- A reply with `Error` set: the worker's refusal. The start fails with
+  `studio.ErrWorkerRefused`.
+
+The worker half runs the handler inline on the delivery goroutine. A start
+only claims the turn and hands the message to the loop, so it is short; the
+turn runs in the background. Events and stop of the turn use the existing
+`chats.events.*` and `chats.control.*` subjects.
 
 ## Control verbs
 
@@ -138,6 +163,15 @@ other seams against a real server, also through Docker.
 - `clientFor` returns no error; a carrier with no dialer for a node needs that
   path.
 - The agent worker still uses NATS directly for its connection.
+- A chat worker (`local-ai run` with `LOCALAI_CHAT_WORKER`) connects as a
+  frontend does, with the frontend's NATS credentials. It does not register as
+  a node, so the node list does not show it and the admin cannot approve or
+  drain it. A minted per-node JWT for it needs `chats.start` (sub, queue) and
+  the `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
+- A chat worker takes every start it is offered. There is no per-worker cap on
+  running turns, and a busy worker cannot pass a start on to another one.
+- A start that carries files runs on the frontend: the uploads are not sent
+  over the bus.
 - `ReplicaReconcilerOptions` has no `ClientFactory` field. Without a
   `Prober`, `NewReplicaReconciler` builds its own `tokenClientFactory`, so a
   carrier that dials through another factory must add the field.
