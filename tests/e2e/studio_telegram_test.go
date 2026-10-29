@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -37,7 +38,9 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 		return id
 	}
 	bind := func(token string, agent string, extra obj) string {
-		body := obj{"name": fmt.Sprintf("Bot %d", time.Now().UnixNano()), "token": token, "agent_id": agent, "enabled": true}
+		// The specs written before the reply modes count the answers as the
+		// messages the bot sends; the live modes have their own specs.
+		body := obj{"name": fmt.Sprintf("Bot %d", time.Now().UnixNano()), "token": token, "agent_id": agent, "enabled": true, "reply_mode": "off"}
 		for k, v := range extra {
 			body[k] = v
 		}
@@ -219,8 +222,7 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 		bind(token, newAgent(), obj{"allow": []string{"71"}})
 		telegram.say(token, nextID(), 71, "hello")
 		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(1))
-		Skip("known gap: PLAT-6: typing is first shown 4 seconds after the message; a turn shorter than that never shows it")
-		Expect(telegram.typingCount(token)).To(BeNumerically(">=", 1))
+		Expect(telegram.typingCount(token)).To(BeNumerically(">=", 1), "a turn shorter than the typing period shows typing")
 	})
 
 	It("switches a binding off, with a notification, when Telegram refuses its token", func() {
@@ -264,8 +266,69 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 		Expect(code).To(Equal(http.StatusBadRequest), "a binding without an agent: "+string(out))
 	})
 
-	It("leaves a conversation mode, a live preview and a thread reply unbuilt", func() {
-		Skip("known gap: PLAT-5: the spec asks for a per-connector conversation mode (long-lived, window, thread) and a live preview message edited in place; the connector keeps one chat per sender, sends the final answer and shows typing")
+	It("shows the answer in one working message as it is written, and the answer replaces it", func() {
+		token := "7011:stream"
+		bind(token, newAgent(), obj{"allow": []string{"111"}, "reply_mode": "stream"})
+		telegram.say(token, nextID(), 111, "MOCK_LONG_STREAM_SHORT please")
+		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(1))
+		working := telegram.sentBy(token)[0]
+		Expect(working.Text).To(Equal("Working…"))
+		Eventually(func() string { return telegram.lastEdit(token, working.ID) }, 60*time.Second, 100*time.Millisecond).
+			Should(And(ContainSubstring("tick"), HaveSuffix("▍")), "a preview of the answer while it is written")
+		Eventually(func() string { return telegram.lastEdit(token, working.ID) }, 90*time.Second, 200*time.Millisecond).
+			Should(And(ContainSubstring("tick"), Not(ContainSubstring("▍"))), "the answer in place of the preview")
+		Consistently(sent(token), 2*time.Second, 200*time.Millisecond).Should(Equal(1), "the answer replaced the working message")
+		// The previews go at most once a second; the answer, the last edit,
+		// is not held back.
+		edits := telegram.editsOf(token, working.ID)
+		Expect(len(edits)).To(BeNumerically(">=", 2))
+		for i := 1; i < len(edits)-1; i++ {
+			Expect(edits[i].At.Sub(edits[i-1].At)).To(BeNumerically(">=", 900*time.Millisecond), "at most one preview a second")
+		}
+	})
+
+	It("follows a reply to an answer into its chat in the thread mode, and starts a chat for any other message", func() {
+		token := "7012:thread"
+		id := bind(token, newAgent(), obj{"allow": []string{"121"}, "conversation": "thread"})
+		first := nextID()
+		telegram.queue(token, obj{"update_id": first, "message": obj{"message_id": first, "chat": obj{"id": 121, "type": "private"}, "from": obj{"id": 121, "first_name": "E2E"}, "text": "question one"}})
+		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(1))
+		answer := telegram.sentBy(token)[0].ID
+		second := nextID()
+		telegram.queue(token, obj{"update_id": second, "message": obj{"message_id": second, "chat": obj{"id": 121, "type": "private"}, "from": obj{"id": 121, "first_name": "E2E"}, "text": "question two"}})
+		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(2))
+		third := nextID()
+		telegram.queue(token, obj{"update_id": third, "message": obj{"message_id": third, "chat": obj{"id": 121, "type": "private"}, "from": obj{"id": 121, "first_name": "E2E"},
+			"text": "more on one", "reply_to_message": obj{"message_id": answer, "from": obj{"id": 7012, "is_bot": true}}}})
+		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(3))
+		chats := senderChats(id)
+		Expect(chats).To(HaveLen(2))
+		texts := map[string]bool{}
+		for _, c := range chats {
+			Eventually(func() bool { return chatsIdle(c["id"].(string)) }, 90*time.Second, 200*time.Millisecond).Should(BeTrue())
+			texts[strings.Join(userTexts(fullTranscript(c["id"].(string))), "|")] = true
+		}
+		Expect(texts).To(HaveKey("question one|more on one"))
+	})
+
+	It("sends the file a turn writes after the answer", func() {
+		token := "7013:files"
+		bind(token, newAgent(), obj{"allow": []string{"131"}})
+		args := base64.URLEncoding.EncodeToString([]byte(`{"path":"/out/e2e-report.csv","content":"a,b\n1,2\n"}`))
+		telegram.say(token, nextID(), 131, "ADDON_TOOL_CALL:write_file:"+args)
+		Eventually(func() int { return len(telegram.filesBy(token)) }, 90*time.Second, 200*time.Millisecond).Should(Equal(1))
+		f := telegram.filesBy(token)[0]
+		Expect([]string{f.Method, f.Name, string(f.Data)}).To(Equal([]string{"sendDocument", "e2e-report.csv", "a,b\n1,2\n"}))
+		Expect(sent(token)()).To(BeNumerically(">=", 1), "the answer came first")
+	})
+
+	It("refuses to save a token that Telegram refuses", func() {
+		token := "7014:typo"
+		telegram.refuseToken(token, 401)
+		DeferCleanup(func() { telegram.refuseToken(token, 0) })
+		code, out := chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{"name": "Typo", "token": token, "agent_id": newAgent()})
+		Expect(code).To(Equal(http.StatusBadRequest), string(out))
+		Expect(string(out)).To(ContainSubstring("refused the bot token"))
 	})
 })
 

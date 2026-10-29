@@ -29,6 +29,9 @@ type fakeTelegram struct {
 	mu      sync.Mutex
 	pending map[string][]map[string]any
 	sent    []tgSent
+	edits   []tgEdit
+	files   []tgFile
+	nextID  int64
 	typing  map[string]int
 	refuse  map[string]int // token -> error code answered to getMe and getUpdates
 }
@@ -38,6 +41,21 @@ type tgSent struct {
 	Token  string
 	ChatID int64
 	Text   string
+	ID     int64
+}
+
+// tgEdit is one editMessageText the fake received.
+type tgEdit struct {
+	Token string
+	ID    int64
+	Text  string
+	At    time.Time
+}
+
+// tgFile is one file the fake received with sendDocument or sendPhoto.
+type tgFile struct {
+	Token, Method, Name string
+	Data                []byte
 }
 
 var telegram *fakeTelegram
@@ -45,9 +63,21 @@ var telegram *fakeTelegram
 func startFakeTelegram() {
 	f := &fakeTelegram{pending: map[string][]map[string]any{}, typing: map[string]int{}, refuse: map[string]int{}}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(r.Body)
-		var body map[string]any
-		_ = json.Unmarshal(raw, &body)
+		body := map[string]any{}
+		var upload *tgFile
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			if r.ParseMultipartForm(4<<20) == nil {
+				for _, fhs := range r.MultipartForm.File {
+					file, _ := fhs[0].Open()
+					data, _ := io.ReadAll(file)
+					_ = file.Close()
+					upload = &tgFile{Name: fhs[0].Filename, Data: data}
+				}
+			}
+		} else {
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+		}
 		path := strings.TrimPrefix(r.URL.Path, "/bot")
 		cut := strings.LastIndex(path, "/")
 		token, method := path[:cut], path[cut+1:]
@@ -87,9 +117,27 @@ func startFakeTelegram() {
 		case "sendMessage":
 			f.mu.Lock()
 			chat, _ := body["chat_id"].(float64)
-			f.sent = append(f.sent, tgSent{Token: token, ChatID: int64(chat), Text: body["text"].(string)})
+			f.nextID++
+			id := f.nextID
+			f.sent = append(f.sent, tgSent{Token: token, ChatID: int64(chat), Text: body["text"].(string), ID: id})
+			f.mu.Unlock()
+			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, id)
+		case "editMessageText":
+			f.mu.Lock()
+			id, _ := body["message_id"].(float64)
+			f.edits = append(f.edits, tgEdit{Token: token, ID: int64(id), Text: body["text"].(string), At: time.Now()})
 			f.mu.Unlock()
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
+		case "sendDocument", "sendPhoto":
+			f.mu.Lock()
+			f.nextID++
+			id := f.nextID
+			if upload != nil {
+				upload.Token, upload.Method = token, method
+				f.files = append(f.files, *upload)
+			}
+			f.mu.Unlock()
+			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, id)
 		case "sendChatAction":
 			f.mu.Lock()
 			f.typing[token]++
@@ -137,6 +185,41 @@ func (f *fakeTelegram) sentBy(token string) []tgSent {
 	return out
 }
 
+// editsOf lists the edits of one message of a bot.
+func (f *fakeTelegram) editsOf(token string, id int64) []tgEdit {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []tgEdit
+	for _, e := range f.edits {
+		if e.Token == token && e.ID == id {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// lastEdit is the text a message of a bot shows after its edits, or "".
+func (f *fakeTelegram) lastEdit(token string, id int64) string {
+	e := f.editsOf(token, id)
+	if len(e) == 0 {
+		return ""
+	}
+	return e[len(e)-1].Text
+}
+
+// filesBy lists the files a bot sent.
+func (f *fakeTelegram) filesBy(token string) []tgFile {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []tgFile
+	for _, x := range f.files {
+		if x.Token == token {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
 func (f *fakeTelegram) typingCount(token string) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -170,7 +253,7 @@ var _ = Describe("Chats connectors", Label("Chats"), func() {
 		DeferCleanup(func() { chatsDo(http.MethodDelete, chatsBase()+"/agents/"+agentID, nil) })
 
 		code, out = chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{
-			"name": "Bot e2e", "kind": "telegram", "token": "42:E2E-token", "agent_id": agentID, "enabled": true, "allow": []string{"11"},
+			"name": "Bot e2e", "kind": "telegram", "token": "42:E2E-token", "agent_id": agentID, "enabled": true, "allow": []string{"11"}, "reply_mode": "off",
 		})
 		Expect(code).To(Equal(http.StatusCreated), string(out))
 		Expect(string(out)).NotTo(ContainSubstring("E2E-token"))

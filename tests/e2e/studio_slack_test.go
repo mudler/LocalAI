@@ -60,7 +60,9 @@ var _ = Describe("Chats Slack connector", Label("Chats", "Slack"), func() {
 		n := time.Now().UnixNano()
 		bot, appToken = fmt.Sprintf("xoxb-e2e-%d", n), fmt.Sprintf("xapp-e2e-%d", n)
 		f().AddApp(slacktest.App{Bot: bot, AppToken: appToken, UserID: "UBOT", User: "localai"})
-		body := obj{"kind": "slack", "name": fmt.Sprintf("App %d", n), "token": bot + " " + appToken, "agent_id": newAgent(), "enabled": true}
+		// The specs written before the reply modes read each answer as one
+		// post; the live modes have their own specs.
+		body := obj{"kind": "slack", "name": fmt.Sprintf("App %d", n), "token": bot + " " + appToken, "agent_id": newAgent(), "enabled": true, "reply_mode": "off"}
 		for k, v := range extra {
 			body[k] = v
 		}
