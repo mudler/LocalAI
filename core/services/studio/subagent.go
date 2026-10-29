@@ -53,7 +53,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	sc := s.scopeOf(ctx, rec)
 	// The file tools belong to the chat itself: a sub-agent never gets them,
 	// because its tools come from hostTools, which does not include them.
-	tools = append(tools, s.d.Files.Tools(a)...)
+	tools = append(tools, s.announceFileChanges(a, s.d.Files.Tools(a))...)
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
 	}
@@ -86,6 +86,11 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
+	}
+	// The files go last: the prompt is cut at its end, and a block that
+	// changes between turns leaves the start of the prompt as it was.
+	if fp := s.filesPrompt(ctx, a); fp != "" {
+		prompt = strings.TrimSpace(prompt + "\n\n" + fp)
 	}
 	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt}, nil
 }

@@ -128,6 +128,10 @@ func (s *Service) rename(ctx context.Context, p, conv, title string) error {
 	if cerr := chat.Close(); cerr != nil {
 		s.log.Warn("studio: could not close the chat after a rename", "chat", conv, "error", cerr)
 	}
+	if serr == nil {
+		// The folder may have moved: the paths of the chat's files changed.
+		s.bus.Publish(key(p, conv), session.Event{Kind: session.KindFiles})
+	}
 	return serr
 }
 
