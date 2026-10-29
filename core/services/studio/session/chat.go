@@ -715,6 +715,9 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		c.mu.Unlock()
 		return err
 	}
+	if len(paths) > 0 {
+		c.emit(Event{Kind: KindFiles})
+	}
 	full := composeMessage(text, paths)
 	if !logged {
 		c.appendEntry(ctx, Entry{Turn: c.turnNow() + 1, Role: RoleUser, Text: full})
@@ -749,6 +752,9 @@ func (c *Chat) Attach(ctx context.Context, text string, files []Upload) (string,
 	paths, err := c.saveUploads(ctx, files)
 	if err != nil {
 		return "", err
+	}
+	if len(paths) > 0 {
+		c.emit(Event{Kind: KindFiles})
 	}
 	return composeMessage(strings.TrimSpace(text), paths), nil
 }
@@ -886,6 +892,9 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		c.emit(Event{Kind: KindError, Turn: n, Text: reasonSave})
 	}
 	c.emit(Event{Kind: KindCheckpoint, Turn: n, Change: &ch})
+	if ch.Rev != 0 {
+		c.emit(Event{Kind: KindFiles, Turn: n})
+	}
 	return n
 }
 
@@ -1079,6 +1088,7 @@ func (c *Chat) SetTitle(ctx context.Context, title string) error {
 		if err := c.renameFolder(ctx, old, base); err != nil {
 			return err
 		}
+		c.emit(Event{Kind: KindFiles})
 	}
 	c.mu.Lock()
 	c.rec.Title = title

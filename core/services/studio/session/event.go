@@ -44,6 +44,10 @@ const (
 	// for the person to confirm, edit or dismiss it. Event.IDs holds the
 	// proposal id and Text the trigger's name.
 	KindTriggerProposed EventKind = "trigger_proposed"
+	// KindFiles says that the files of the chat may have changed: files were
+	// attached, a turn or a tool changed files, or the chat folder was renamed.
+	// It carries nothing; read the file index again.
+	KindFiles EventKind = "files"
 )
 
 // Event is one thing that happened in a chat.
