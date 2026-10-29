@@ -333,12 +333,15 @@ func defineS2SSpecs(v s2sVariant) {
 
 		if v.vad && (!v.pipeline || isReal) {
 			// The mock chained pipeline answers at once, so there is nothing to
-			// talk over; the real one and any-to-any streams last long enough.
+			// talk over; the real one and any-to-any have a reply to interrupt.
 			It("cancels the first response on barge-in and completes the second", func() {
 				conn := v.session(nil)
 				defer conn.Close()
 
 				first := padPCMBase64(s2sUtterance("Count slowly from one to forty."), s2sInputRate, 300, 1200)
+				// Rendered up front: a text-to-speech call between the first reply
+				// and the interruption would eat the window to cancel it in.
+				interruption := padPCMBase64(s2sUtterance("Stop. What is two plus two?"), s2sInputRate, 300, 1200)
 				firstSent := make(chan struct{})
 				go func() {
 					defer GinkgoRecover()
@@ -346,17 +349,27 @@ func defineS2SSpecs(v s2sVariant) {
 					close(firstSent)
 				}()
 
-				// Wait for the first audio, then talk over it.
+				// Wait for the reply to start, then talk over it. An any-to-any model
+				// streams its audio while it generates, so the first audio delta is
+				// early in the reply. A chained pipeline with unary stages (the
+				// gallery default) synthesizes the whole reply and sends it as one
+				// audio delta right before response.done: nothing is left to cancel
+				// by then, and on a GPU the reply is ready within a second. Its
+				// reply is in flight between response.created and that delta.
 				var firstID string
 				for firstID == "" {
 					evt := readServerEvent(conn, s2sResponseTimeout())
-					if evt["type"] == "response.output_audio.delta" {
+					switch {
+					case v.pipeline && evt["type"] == "response.created":
+						resp, _ := evt["response"].(map[string]any)
+						firstID, _ = resp["id"].(string)
+					case !v.pipeline && evt["type"] == "response.output_audio.delta":
 						firstID, _ = evt["response_id"].(string)
 					}
 				}
 				Eventually(firstSent, 60*time.Second).Should(BeClosed())
 
-				streamUtterance(conn, padPCMBase64(s2sUtterance("Stop. What is two plus two?"), s2sInputRate, 300, 1200))
+				streamUtterance(conn, interruption)
 
 				// The first response ends as cancelled, and no audio for it follows.
 				var firstDone map[string]any
