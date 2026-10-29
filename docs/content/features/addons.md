@@ -1501,10 +1501,26 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 **Outbound: the connector route.** The host calls `POST /connector` on the add-on
 with the same bearer credential and incarnation header as every other route and a body
 `{"op", "kind", "token", ...}`. The ops are `poll` (`offset`, `timeoutSeconds` up to
-25), `send` (`chat`, `thread`, `text`), `edit` (`chat`, `messageId`, `text`), `typing`
-(`chat`, `thread`), `me` (who the bot is, for the Test button and the check after a
-save) and `media` (`media`: one reference of a message's `media`; the answer is
-`{"file": {"name", "mime", "data"}}` with at most 1 MiB of data). The token is the
+25), `send` (`chat`, `thread`, `text`, and optionally `messageId`), `edit` (`chat`,
+`messageId`, `text`), `typing` (`chat`, `thread`, and optionally `messageId`),
+`send_file` (`chat`, `thread`, `file`: `{"name", "mime", "data"}`), `me` (who the bot
+is, for the token check on save and the Test button) and `media` (`media`: one
+reference of a message's `media`; the answer is `{"file": {"name", "mime", "data"}}`
+with at most 1 MiB of data).
+
+- A `send` with a `messageId` replaces that message of the bot (the host's working
+  message) with the first part of the text and sends the rest as new messages. When
+  the message cannot be edited (it was deleted, or is too old), the first part goes
+  as a new message too. The shared route (`addons/internal/connector`) does this for
+  every platform.
+- An `edit` is not retried after a wait: a `rate_limited` answer comes back at once,
+  and the host skips that edit. A `send` and a `send_file` wait once, as before.
+- A `typing` with a `messageId` says that the host already shows a working message
+  with that ID. A platform without a typing indicator (Slack) then posts nothing.
+- `send_file` carries one file of 1 byte to 1 MiB whose `name` is
+  `contract.SafeFileName` of itself (no path, no control characters, at most 128
+  bytes). The route refuses any other file, and a platform that cannot send files.
+  The answer names the message (Telegram) or the file (Slack) in `messageId`. The token is the
 unsealed bot token of one binding. It is passed on each call and the add-on must not
 write it anywhere. The answer is `{"updates", "nextOffset", "messageId", "botId", "botUsername", "file"}` or
 `{"error": {"code", "retryAfter"}}` with a code of `unauthorized`, `conflict`,
@@ -1514,8 +1530,10 @@ implements `contract.ConnectorRuntime` has the route; others get a 404. The add-
 cuts a long `text` to the limit of its platform.
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
-`thread`, `direct`, `mention`, `senderId`, `senderName`, `senderUsername`, `text`,
-`unsupported`, `media`, `skip`) and the next offset. Core keeps the offset with the binding, passes it
+`thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
+`senderUsername`, `text`, `unsupported`, `media`, `skip`) and the next offset.
+`messageId` is the platform's ID of the message and `replyTo` the message it answers;
+the thread conversation mode uses them. Core keeps the offset with the binding, passes it
 to the next `poll` and stores the offset the answer names, so a new leader continues
 where the old one stopped. A push add-on calls the host operation `connector.inbound`
 with `{"bindingId", ...message}`; it is an [inbound operation](#inbound-operations).
@@ -1524,9 +1542,11 @@ rate limit are the same.
 
 A message is answered when it is `direct` (a private chat) or a `mention` (it
 addresses the bot in a group, such as a Slack mention or a reply in a thread the bot
-follows); any other message is logged and ignored. A message with a `thread` belongs
-to a chat of that thread, shared by the people who write in it; any other message
-belongs to a chat of its sender. When a message has `media`, the host reads each file
+follows); any other message is logged and ignored. Which chat a message belongs to
+depends on the conversation mode of the binding (see
+[How the bot answers](/features/chats-connectors/#how-the-bot-answers)); by default a
+message with a `thread` belongs to a chat of that thread, shared by the people who
+write in it, and any other message belongs to a chat of its sender. When a message has `media`, the host reads each file
 with the op `media` and attaches it to the chat, as an upload of the chat page would.
 The turn runs as the owner of the binding, with the tools of the binding's saved agent.
 

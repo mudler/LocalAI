@@ -46,11 +46,13 @@ and you can open it in LocalAI.
    an agent without a model cannot be bound.
 4. On the Connectors page open **Telegram**, and make a binding: a name, the token,
    the agent, and who may use it.
-5. Use **Test**. LocalAI asks Telegram which bot the token belongs to.
+5. Save. LocalAI asks Telegram, through the add-on, which bot the token belongs to.
+   A token that Telegram refuses is not saved: the request is a `400` and the page
+   shows the reason. **Test** asks again at any time.
 6. Write to the bot from an account on the allowlist.
 
 ```
-curl -X POST .../api/chats/connectors -d '{"kind": "telegram", "name": "Support bot", "token": "123:abc", "agent_id": "<id>", "enabled": true, "allow": ["12345678"]}'
+curl -X POST .../api/chats/connectors -d '{"kind": "telegram", "name": "Support bot", "token": "123:abc", "agent_id": "<id>", "enabled": true, "allow": ["12345678"], "reply_mode": "progress", "conversation": "sender", "send_files": true}'
 curl -X POST .../api/chats/connectors/<id>/test
 curl .../api/chats/connectors/<id>/senders
 ```
@@ -72,7 +74,9 @@ a channel. The add-on uses Socket Mode, so LocalAI needs no public address.
    the manifest to paste under **How to make the Slack app**: it turns on Socket Mode,
    subscribes to `app_mention` and the `message.*` events, and asks for the bot scopes
    `app_mentions:read`, `channels:history`, `groups:history`, `im:history`,
-   `mpim:history`, `chat:write`, `files:read` and `users:read`.
+   `mpim:history`, `chat:write`, `files:read`, `files:write` and `users:read`. An app
+   made before `files:write` was in the manifest cannot send files: add the scope and
+   reinstall the app.
 3. Install the app to your workspace and copy the **bot token** (`xoxb-`).
 4. Under **Basic Information**, **App-Level Tokens**, make a token with the scope
    `connections:write` and copy it (`xapp-`).
@@ -136,7 +140,10 @@ polled for two minutes (the binding was switched off or deleted) is closed.
 A binding is switched off, with a notification, when Slack refuses a token
 (`invalid_auth`, `token_revoked` and similar) or turns Socket Mode off for the app.
 Socket Mode spreads the events of an app over all its open links, so bind one app to
-one LocalAI instance only.
+one LocalAI instance only. A cluster of LocalAI frontends counts as one instance: only
+the leader opens links. Two separate installations that bind the same app each get
+part of the events, and LocalAI cannot detect it (Telegram's `conflict` answer has no
+Slack counterpart).
 
 The Events API over HTTP is not supported: it needs a public address, and Socket Mode
 gives the same events without one.
@@ -150,11 +157,12 @@ gives the same events without one.
 - **Your account.** The chat acts as you, so the feature gate, the model
   allowlist and your quota apply. If the model refuses the request, the sender
   gets one fixed sentence, for example that your quota is used up.
-- **One chat for each sender.** Each person who writes to the bot has a chat of
-  their own with the agent. A Slack thread is one chat for everyone in it (see
-  [Slack](#slack)). They cannot see another person's chat. If you change
-  the agent of the binding, the next message of each sender starts a new chat
-  with the new agent.
+- **One chat for each sender, by default.** Each person who writes to the bot has a
+  chat of their own with the agent. A Slack thread is one chat for everyone in it (see
+  [Slack](#slack)). They cannot see another person's chat. The conversation mode of
+  the binding can change this (see [How the bot answers](#how-the-bot-answers)). If
+  you change the agent of the binding, the next message of each sender starts a new
+  chat with the new agent.
 - **Text, and files where the add-on reads them.** On Telegram a photo, voice note or
   file gets a sentence that says only text is read for now. The Slack add-on hands
   files to the chat (see [Slack](#slack)); with the files of the chats turned off, a
@@ -162,12 +170,72 @@ gives the same events without one.
   the agent. A message longer than 8,000 characters is refused. A sender may
   send 20 messages a minute; more are dropped, with one notice a minute.
 - **Private chats, and mentions.** A message in a group that the bot was added to is
-  ignored, unless the add-on marks it as addressed to the bot (a Slack mention, or a
-  reply in a thread the app follows).
-- **Answers.** The bot sends the final answer of each turn, split at 4,096
-  characters (the limit of Telegram), and shows "typing" while it works. A message
-  that arrives while the agent works waits and is read at the agent's next request,
-  as in any chat; the answer of that turn covers it.
+  ignored, unless the add-on marks it as addressed to the bot: a Slack mention or a
+  reply in a thread the app follows, or on Telegram a message that names the bot
+  (`@your_bot`, taken out of the text) or answers one of its messages. To read every
+  message of a Telegram group, a bot needs its privacy mode off in `@BotFather`; a
+  mention and a reply reach it either way.
+- **Answers.** See [How the bot answers](#how-the-bot-answers). A message that
+  arrives while the agent works waits and is read at the agent's next request, as in
+  any chat; the answer of that turn covers it.
+
+## How the bot answers
+
+Each binding has three settings, under **How it answers** on the add-on page and in
+the API as `reply_mode`, `conversation` (with `window_minutes`) and `send_files`.
+
+### While the agent works (`reply_mode`)
+
+The bot shows "typing" as soon as it takes a message, and again every 4 seconds
+until the turn ends. Slack has no typing for a bot: there a working message plays
+that part.
+
+| Mode | What the sender sees |
+|---|---|
+| `progress` (default) | One message, "Working…", that lists the tools as the agent starts them. The answer replaces it. |
+| `stream` | One message that shows the end of the answer as the model writes it, with a cursor. Before the answer starts it shows the reasoning, or the tool the agent uses. The answer replaces it. |
+| `off` | Typing only, then the answer as a new message. On Slack the add-on posts its own "_Working…_" message, which the answer replaces. |
+
+- The answer goes as the platform's formatting allows: plain text on Telegram, Slack's
+  markup on Slack. When it is longer than one message (4,096 characters on Telegram,
+  4,000 on Slack), the working message holds the first part and the rest follows as
+  new messages, without breaking a code block on Slack.
+- The edits of one binding go at most once a second, across all its conversations;
+  what changed in between is shown in the next edit. The answer itself is not held
+  back.
+- When the platform asks to wait, the next edits wait that long. When an edit fails
+  (the message was deleted, for example), the working message is left as it is and
+  the answer goes as a new message.
+
+### Conversations (`conversation`)
+
+| Mode | Which chat a message belongs to |
+|---|---|
+| `sender` (default) | One long-lived chat for each person. A thread of the platform (a Slack thread, a Telegram forum topic) is one chat for everyone in it. |
+| `chat` | One chat for each group, channel or private chat, shared by everyone who writes in it. A thread still has its own chat. |
+| `window` | As `sender`, but a message that comes `window_minutes` (1 to 10,080) or more after the same person's previous message starts a new chat. A thread keeps its chat. |
+| `thread` | Each message starts a new chat. A reply to an answer of the bot, or to the message that started a chat, goes on in that chat; on Slack, so does a thread under either one. |
+
+### Files the agent makes (`send_files`)
+
+On by default. After the answer, the files that the turn wrote or changed go to the
+sender: the files listed in the chat's **Files** with the turn's number, not the files
+the sender attached.
+
+- At most 5 files a turn, each of at most 1 MB. A larger file stays in the chat's
+  files, and the sender gets a sentence that names it.
+- Only documents, data, pictures, sound, video and `.zip` archives go: `.txt`, `.md`,
+  `.log`, `.csv`, `.tsv`, `.json`, `.yaml`, `.yml`, `.xml`, `.pdf`, `.docx`, `.xlsx`,
+  `.pptx`, `.odt`, `.ods`, `.odp`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.mp3`,
+  `.wav`, `.ogg`, `.m4a`, `.mp4` and `.webm`. Programs, scripts and web pages do not;
+  the sender gets a sentence that names the file.
+- The name loses any folder, control characters and quotes, and is cut to 128 bytes.
+- On Telegram a PNG, JPEG or WebP picture goes as a photo and anything else as a
+  document. On Slack the file is uploaded into the conversation (the app needs
+  `files:write`).
+- When the files of the chats are off (see [Files](/features/chats/)), nothing is sent.
+
+An update without `send_files` keeps the stored value.
 
 ## Who may use the bot
 
@@ -229,7 +297,9 @@ restart). The JSON store is for one process.
 | Bindings, offsets, sender log, sender chats, the key | Shared | Rows in the database. |
 | Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
 | Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
-| The reply being sent for a turn | Per instance | The frontend that took the message sends the answer. If it dies, the answer is lost; the message is not repeated. |
+| The reply being sent for a turn | Per instance | The frontend that took the message sends the answer, edits its working message and sends its files. If it dies, the answer is lost; the message is not repeated. |
+| The edit budget of a binding | Per instance | The time of the next edit is kept in memory by the frontend that sends the replies. Replies of one binding run on the leader, so one budget covers them. |
+| The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
 
 ### Other connectors
