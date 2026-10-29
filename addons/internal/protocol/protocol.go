@@ -15,9 +15,14 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
+
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -97,7 +102,54 @@ func ReadStartup(parent io.Reader) (Startup, io.Reader, error) {
 
 // ExitWithParent ends the process when the owner closes the startup channel.
 func ExitWithParent(rest io.Reader) {
-	go func() { _, _ = io.Copy(io.Discard, rest); os.Exit(0) }()
+	exitOnParentLoss(rest, func() { os.Exit(0) })
+}
+
+// exitOnParentLoss calls stop when the owner closes the startup channel, which
+// also happens when the owner dies.
+func exitOnParentLoss(rest io.Reader, stop func()) {
+	go func() { _, _ = io.Copy(io.Discard, rest); stop() }()
+}
+
+// Closer is implemented by a runtime that owns resources outside its process,
+// such as sandboxes that a helper started, and must release them before the
+// add-on exits. Run calls it when the owner closes the startup channel or the
+// process gets SIGTERM or SIGINT. The context carries the shutdown budget.
+// The owner kills a process that outlives it, and SIGKILL cannot be caught, so
+// a Closer must not be the only protection against a leak.
+type Closer interface {
+	Close(ctx context.Context) error
+}
+
+// shutdownBudget bounds Closer.Close. The owner waits longer for the exit.
+var shutdownBudget = 8 * time.Second
+
+// newShutdown returns a function that closes rt (when it is a Closer) within
+// shutdownBudget and then calls exit(0). It runs the close once; a second call
+// waits for nothing and does not exit twice. Close runs in its own goroutine,
+// so a runtime that ignores its context cannot keep the process alive.
+func newShutdown(rt contract.Runtime, exit func(int)) func() {
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			if c, ok := rt.(Closer); ok {
+				ctx, cancel := context.WithTimeout(context.Background(), shutdownBudget)
+				defer cancel()
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					if err := c.Close(ctx); err != nil {
+						xlog.Warn("add-on shutdown", "error", err)
+					}
+				}()
+				select {
+				case <-done:
+				case <-ctx.Done():
+				}
+			}
+			exit(0)
+		})
+	}
 }
 
 // Handler authenticates every request with the incarnation credential and
@@ -249,12 +301,31 @@ func Run(args []string, factory func(Startup) contract.Runtime) int {
 	if err != nil || !filepath.IsAbs(startup.DataDir) {
 		return 3
 	}
-	ExitWithParent(rest)
+	// The watch starts before the factory, which may be slow. A stop that
+	// arrives meanwhile waits for the runtime, but not longer than the budget.
+	var rt contract.Runtime
+	built := make(chan struct{})
+	var once sync.Once
+	stop := func() {
+		once.Do(func() {
+			select {
+			case <-built:
+			case <-time.After(shutdownBudget):
+			}
+			newShutdown(rt, os.Exit)()
+		})
+	}
+	exitOnParentLoss(rest, stop)
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
+	go func() { <-sig; stop() }()
 	listener, err := net.FileListener(os.NewFile(3, "listener"))
 	if err != nil {
 		return 6
 	}
-	if err := Serve(context.Background(), listener, startup, factory(startup)); err != nil {
+	rt = factory(startup)
+	close(built)
+	if err := Serve(context.Background(), listener, startup, rt); err != nil {
 		return 8
 	}
 	return 0
