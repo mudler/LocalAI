@@ -212,14 +212,13 @@ func (h *WorkspaceHost) materialize(ctx context.Context, c Call) (json.RawMessag
 	if err != nil {
 		return nil, err
 	}
-	// Materialize takes a path, so it gets one that names the folder that was
-	// opened, not one the add-on could point somewhere else.
-	target, release, err := anchoredPath(dir)
-	if err != nil {
-		return nil, err
+	// The store builds the tree through the opened folder, so a link that the
+	// add-on plants inside it cannot send a file outside.
+	rs, ok := h.Store.(workspace.RootStore)
+	if !ok {
+		return nil, errors.New("workspace: the store cannot build a tree in an open folder")
 	}
-	defer release()
-	rev, err := h.Store.Materialize(ctx, v, target)
+	rev, err := rs.MaterializeRoot(ctx, v, dir)
 	if err != nil {
 		return nil, workspaceErr(err)
 	}

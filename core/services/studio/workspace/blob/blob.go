@@ -29,10 +29,12 @@ type Store interface {
 	Open(ctx context.Context, sha string) (io.ReadSeekCloser, error)
 	// Exists reports whether the blob is stored.
 	Exists(ctx context.Context, sha string) (bool, error)
-	// LinkTo makes dst a read-only file with the blob's bytes: a hard link when
-	// the blob is on the same file system, a copy otherwise. dst must not
-	// exist; its folder must. An unknown hash is workspace.ErrNotFound.
-	LinkTo(ctx context.Context, sha, dst string) error
+	// LinkTo makes name, a relative path in dir, a read-only file with the
+	// blob's bytes: a hard link when the blob is on the same file system (on
+	// Linux), a copy otherwise. name must not exist; its folder must. Every
+	// step below dir goes through the root, so a link planted inside dir
+	// cannot send the file elsewhere. An unknown hash is workspace.ErrNotFound.
+	LinkTo(ctx context.Context, sha string, dir *os.Root, name string) error
 }
 
 var shaRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -102,10 +104,24 @@ func place(tmp, final string) error {
 	return nil
 }
 
-// linkOrCopy makes dst a hard link to src, or a read-only copy when a link is
-// not possible, for example across file systems.
-func linkOrCopy(src, dst string) error {
-	if err := os.Link(src, dst); err == nil {
+// linkOrCopy makes name in dir a hard link to src, or a read-only copy when a
+// link is not possible, for example across file systems. The folder of name is
+// opened through dir, which refuses a link that leaves it.
+func linkOrCopy(src string, dir *os.Root, name string) error {
+	if !filepath.IsLocal(name) {
+		return fmt.Errorf("%w: %q is not inside the folder", workspace.ErrInvalid, name)
+	}
+	parent, base := filepath.Split(name)
+	target := dir
+	if parent != "" {
+		sub, err := dir.OpenRoot(filepath.Clean(parent))
+		if err != nil {
+			return err
+		}
+		defer func() { _ = sub.Close() }()
+		target = sub
+	}
+	if err := linkInto(src, target, base); err == nil {
 		return nil
 	} else if errors.Is(err, os.ErrExist) {
 		return err
@@ -115,13 +131,13 @@ func linkOrCopy(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o444) // #nosec G302 G304 -- blobs are content addressed and read only on purpose; the destination is a path of the blob store
+	out, err := target.OpenFile(base, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o444) // #nosec G302 -- blobs are content addressed and read only on purpose
 	if err != nil {
 		return err
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		_ = out.Close()
-		_ = os.Remove(dst)
+		_ = target.Remove(base)
 		return err
 	}
 	return out.Close()

@@ -28,6 +28,7 @@ type wsFixture struct {
 	*fixture
 	files *files.Service
 	data  string
+	host  *WorkspaceHost
 }
 
 func newWSFixture() *wsFixture {
@@ -50,11 +51,12 @@ func newWSFixture() *wsFixture {
 	Expect(os.MkdirAll(filepath.Join(data, "sandbox"), 0o700)).To(Succeed())
 	f := &wsFixture{fixture: &fixture{inflight: NewInFlight(), seen: &Call{}}, files: fs, data: data}
 	f.b = New(f.inflight, always, contract.DefaultLimits())
-	Expect(RegisterWorkspace(f.b, &WorkspaceHost{
+	f.host = &WorkspaceHost{
 		Store: ws, Files: fs,
 		Principal: func(a contract.Actor) string { return a.UserID }, // empty means no files
 		DataDir:   func(id string) string { return filepath.Join(data, id) },
-	})).To(Succeed())
+	}
+	Expect(RegisterWorkspace(f.b, f.host)).To(Succeed())
 	f.h = f.b.Handler("sandbox", "secret", []string{"workspace."})
 	return f
 }
@@ -131,28 +133,25 @@ var _ = Describe("Workspace host operations", func() {
 		}
 	})
 
-	It("keeps writing in the folder it opened when a folder above it is swapped for a link", func() {
+	It("builds the tree in the folder it opened when a folder above it is swapped for a link", func() {
 		f := newWSFixture()
-		host := &WorkspaceHost{DataDir: func(id string) string { return filepath.Join(f.data, id) }}
+		f.put("alice", "/proj/a.txt", "hello")
 		outside := GinkgoT().TempDir()
-		dir, err := host.dataDir("sandbox", "a/b", true)
+		dir, err := f.host.dataDir("sandbox", "a/b", true)
 		Expect(err).ToNot(HaveOccurred())
 		defer dir.Close()
 		// The add-on owns its data directory: after the check it replaces "a"
 		// with a link to a folder of the host.
 		Expect(os.Rename(filepath.Join(f.data, "sandbox", "a"), filepath.Join(f.data, "sandbox", "a.old"))).To(Succeed())
 		Expect(os.Symlink(outside, filepath.Join(f.data, "sandbox", "a"))).To(Succeed())
-		out, err := dir.OpenFile("x.txt", os.O_WRONLY|os.O_CREATE, 0o600)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(out.Close()).To(Succeed())
-		Expect(filepath.Join(outside, "b", "x.txt")).ToNot(BeAnExistingFile())
-		Expect(filepath.Join(f.data, "sandbox", "a.old", "b", "x.txt")).To(BeAnExistingFile())
 
-		target, release, err := anchoredPath(dir)
+		abs, err := f.files.Abs("alice", "/proj")
 		Expect(err).ToNot(HaveOccurred())
-		defer release()
-		Expect(os.WriteFile(filepath.Join(target, "y.txt"), []byte("y"), 0o600)).To(Succeed())
-		Expect(filepath.Join(f.data, "sandbox", "a.old", "b", "y.txt")).To(BeAnExistingFile())
+		v, err := f.files.Store().View(context.Background(), f.files.Actor("alice"), []workspace.MountRequest{{Path: abs, At: "proj", Mode: workspace.ModeRead}})
+		Expect(err).ToNot(HaveOccurred())
+		_, err = f.host.Store.(workspace.RootStore).MaterializeRoot(context.Background(), v, dir)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(filepath.Join(f.data, "sandbox", "a.old", "b", "proj", "a.txt")).To(BeAnExistingFile())
 		Expect(filepath.Join(outside, "b")).ToNot(BeADirectory())
 	})
 

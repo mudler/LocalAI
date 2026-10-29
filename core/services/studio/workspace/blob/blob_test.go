@@ -89,8 +89,10 @@ func TestStores(t *testing.T) {
 			})
 			t.Run("a blob can be linked to a file in a folder, read-only", func(t *testing.T) {
 				h, _, _ := s.Put(ctx, strings.NewReader("linked bytes"), 0)
-				dst := filepath.Join(t.TempDir(), "out.txt")
-				if err := s.LinkTo(ctx, h, dst); err != nil {
+				folder := t.TempDir()
+				dst := filepath.Join(folder, "out.txt")
+				root := openTestRoot(t, folder)
+				if err := s.LinkTo(ctx, h, root, "out.txt"); err != nil {
 					t.Fatal(err)
 				}
 				got, err := os.ReadFile(dst)
@@ -100,11 +102,36 @@ func TestStores(t *testing.T) {
 				if st, _ := os.Stat(dst); st.Mode().Perm()&0o222 != 0 {
 					t.Fatalf("the linked file is writable (%v): it would let a guest change the blob", st.Mode())
 				}
-				if err := s.LinkTo(ctx, h, dst); err == nil {
+				if err := s.LinkTo(ctx, h, root, "out.txt"); err == nil {
 					t.Fatal("LinkTo replaced a file that exists")
 				}
-				if err := s.LinkTo(ctx, sum("never stored"), filepath.Join(t.TempDir(), "x")); !errors.Is(err, workspace.ErrNotFound) {
+				if err := s.LinkTo(ctx, sum("never stored"), root, "x"); !errors.Is(err, workspace.ErrNotFound) {
 					t.Fatalf("LinkTo of an unknown blob = %v, want ErrNotFound", err)
+				}
+			})
+			t.Run("a link inside the folder cannot send the file outside", func(t *testing.T) {
+				h, _, _ := s.Put(ctx, strings.NewReader("kept inside"), 0)
+				folder, outside := t.TempDir(), t.TempDir()
+				if err := os.Symlink(outside, filepath.Join(folder, "sub")); err != nil {
+					t.Fatal(err)
+				}
+				root := openTestRoot(t, folder)
+				if err := s.LinkTo(ctx, h, root, "sub/x"); err == nil {
+					t.Fatal("LinkTo followed a link out of the folder")
+				}
+				for _, bad := range []string{"../x", "/abs", "a/../../x", ""} {
+					if err := s.LinkTo(ctx, h, root, bad); err == nil {
+						t.Errorf("LinkTo(%q) was accepted", bad)
+					}
+				}
+				if ents, _ := os.ReadDir(outside); len(ents) != 0 {
+					t.Fatalf("a file reached the folder outside: %v", ents)
+				}
+				if err := os.Mkdir(filepath.Join(folder, "real"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := s.LinkTo(ctx, h, root, "real/x"); err != nil {
+					t.Fatalf("LinkTo into a real sub folder: %v", err)
 				}
 			})
 			t.Run("an unknown or malformed hash is not found", func(t *testing.T) {
@@ -119,4 +146,15 @@ func TestStores(t *testing.T) {
 			})
 		})
 	}
+}
+
+// openTestRoot opens dir as a root for the length of the test.
+func openTestRoot(t *testing.T, dir string) *os.Root {
+	t.Helper()
+	r, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = r.Close() })
+	return r
 }

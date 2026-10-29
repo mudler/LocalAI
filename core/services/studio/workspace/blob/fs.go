@@ -58,11 +58,11 @@ func (s *fsStore) Exists(_ context.Context, sha string) (bool, error) {
 	return err == nil, err
 }
 
-func (s *fsStore) LinkTo(_ context.Context, sha, dst string) error {
+func (s *fsStore) LinkTo(_ context.Context, sha string, dir *os.Root, name string) error {
 	if !validSHA(sha) {
 		return workspace.ErrNotFound
 	}
-	err := linkOrCopy(shaPath(s.root, sha), dst)
+	err := linkOrCopy(shaPath(s.root, sha), dir, name)
 	if errors.Is(err, os.ErrNotExist) {
 		if _, serr := os.Stat(shaPath(s.root, sha)); serr != nil {
 			return workspace.ErrNotFound

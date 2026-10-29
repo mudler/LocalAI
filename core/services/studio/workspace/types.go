@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/fs"
+	"os"
 	"time"
 )
 
@@ -252,6 +253,18 @@ type Store interface {
 	// or more, without a path that is under another one in the list. The admin
 	// gets ["/"]. An actor with no grant gets an empty list.
 	ReadablePrefixes(ctx context.Context, a Actor) ([]string, error)
+}
+
+// RootStore is a Store that also builds a view through an open folder. The host
+// uses it for a folder that an add-on owns: every step goes through the root, so
+// a link that the add-on plants inside the folder cannot send a file outside
+// it, which a path would allow. The stores of this package implement it, and
+// their Materialize opens the folder and calls it.
+type RootStore interface {
+	Store
+	// MaterializeRoot builds the view in dir, which must be empty (ErrExists
+	// otherwise), and returns the revision it used.
+	MaterializeRoot(ctx context.Context, v View, dir *os.Root) (int64, error)
 }
 
 // Tx is an open change set. Use only its methods until Commit or Rollback.

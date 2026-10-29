@@ -14,23 +14,16 @@ func (s *Workspace) currentRev(ctx context.Context, q querier) (int64, error) {
 	return rev, err
 }
 
-// Materialize builds the view in dir: one folder per mount, named by its At,
+// MaterializeRoot builds the view in dir: one folder per mount, named by its At,
 // with folders as real folders and files as hard links to their blobs. dir
-// must be missing or empty. It returns the revision it used.
-func (s *Workspace) Materialize(ctx context.Context, v View, dir string) (int64, error) {
+// must be empty. It returns the revision it used.
+func (s *Workspace) MaterializeRoot(ctx context.Context, v View, dir *os.Root) (int64, error) {
 	pts, err := CheckMountPoints(v)
 	if err != nil {
 		return 0, err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil { // #nosec G301 -- the materialized tree is read by the sandbox process
+	if err := CheckEmptyRoot(dir); err != nil {
 		return 0, err
-	}
-	ents, err := os.ReadDir(dir)
-	if err != nil {
-		return 0, err
-	}
-	if len(ents) > 0 {
-		return 0, ErrExists
 	}
 	// One transaction reads the whole tree, so the revision is consistent. The
 	// files are linked after it ends: linking can copy from an object store, and
@@ -70,8 +63,8 @@ func (s *Workspace) Materialize(ctx context.Context, v View, dir string) (int64,
 			if err != nil {
 				return 0, err
 			}
-			mp := filepath.Join(dir, filepath.FromSlash(pts[i]))
-			if rel, err := filepath.Rel(dir, mp); err != nil || !filepath.IsLocal(rel) {
+			mp := filepath.FromSlash(pts[i])
+			if !filepath.IsLocal(mp) {
 				return 0, ErrInvalid
 			}
 			hostPath := map[int64]string{top.id: mp}
@@ -92,14 +85,19 @@ func (s *Workspace) Materialize(ctx context.Context, v View, dir string) (int64,
 	}
 	for _, it := range items {
 		if it.dir {
-			if err := os.MkdirAll(it.path, 0o755); err != nil { // #nosec G301 -- the materialized tree is read by the sandbox process
+			if err := dir.MkdirAll(it.path, 0o755); err != nil { // #nosec G301 -- the materialized tree is read by the sandbox process
 				return 0, err
 			}
 			continue
 		}
-		if err := s.blobs.LinkTo(ctx, it.blob, it.path); err != nil {
+		if err := s.blobs.LinkTo(ctx, it.blob, dir, it.path); err != nil {
 			return 0, err
 		}
 	}
 	return base, nil
+}
+
+// Materialize builds the view in the folder dir, which is made when missing.
+func (s *Workspace) Materialize(ctx context.Context, v View, dir string) (int64, error) {
+	return MaterializeAt(ctx, s, v, dir)
 }
