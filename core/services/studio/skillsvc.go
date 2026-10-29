@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 )
 
 // ErrBadSkillName means a switch names something that is not a skill name, or
@@ -156,3 +157,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		Logger: s.log,
 	})
 }
+
+// WellKnown returns the well-known files of the users' homes: persona.json,
+// user.json and the others. It works on the same files service as the chats.
+func (s *Service) WellKnown() *wellknown.Service { return wellknown.New(s.d.Files) }

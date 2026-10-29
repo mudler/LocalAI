@@ -58,6 +58,14 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
 	}
 	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff, sc)
+	// The persona and the facts about the user come after the chat's prompt
+	// and the agent's instructions, which take precedence, and before the
+	// index of skills. A change to either file restarts the harness at the
+	// next turn, because the prompt changes.
+	persona, personaKey := s.WellKnown().TurnPrompt(ctx, a.Principal)
+	if persona != "" {
+		prompt = strings.TrimSpace(persona + "\n\n" + prompt)
+	}
 	if sc != nil {
 		// Granted skills the user lacks come back from skillTurn as a note of
 		// their own; fold all the missing grants into one line.
@@ -92,7 +100,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if fp := s.filesPrompt(ctx, a); fp != "" {
 		prompt = strings.TrimSpace(prompt + "\n\n" + fp)
 	}
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt}, nil
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
 }
 
 func (s *Service) spawnTool(a workspace.Actor) session.Tool {
