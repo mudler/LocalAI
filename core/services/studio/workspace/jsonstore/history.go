@@ -104,6 +104,11 @@ func (s *Store) History(ctx context.Context, a workspace.Actor, hq workspace.His
 			if rev >= before {
 				continue
 			}
+			if hq.ChatID != "" {
+				if c, ok := d.sets[rev]; !ok || c.ChatID != hq.ChatID {
+					continue
+				}
+			}
 			for _, ji := range d.byRev[rev] {
 				if touches(d.journal[ji], np) {
 					revs = append(revs, rev)

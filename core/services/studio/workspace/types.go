@@ -149,6 +149,9 @@ type HistoryQuery struct {
 	Path      string // "/" or empty for everything the actor can read
 	Limit     int    // 0 means 50; at most 1000
 	BeforeRev int64  // only change sets with a lower revision; 0 means no bound
+	// ChatID keeps only the change sets that one chat made (ChangeSet.ChatID).
+	// Empty means change sets of every chat and of no chat.
+	ChatID string
 }
 
 // PutOptions controls Put.

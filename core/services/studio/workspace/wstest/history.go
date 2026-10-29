@@ -223,6 +223,28 @@ func testHistory(t *testing.T, newStore NewStore) {
 		if !reflect.DeepEqual(revsOf(c), []int64{3}) {
 			t.Fatalf("feed after 2 = %v", revsOf(c))
 		}
+		// Only the change sets of one chat.
+		chatA := workspace.Actor{Principal: Admin, ChatID: "chat-a"}
+		chatB := workspace.Actor{Principal: Admin, ChatID: "chat-b"}
+		MustPut(t, s, chatA, "/shared/c.txt", "c")  // rev 4
+		MustPut(t, s, chatB, "/shared/d.txt", "d")  // rev 5
+		MustPut(t, s, chatA, "/private/e.txt", "e") // rev 6
+		h, err = s.History(Ctx(), AdminActor, workspace.HistoryQuery{ChatID: "chat-a"})
+		if err != nil || !reflect.DeepEqual(revsOf(h), []int64{6, 4}) || h[0].ChatID != "chat-a" {
+			t.Fatalf("chat-a history = %v, %v", revsOf(h), err)
+		}
+		h, _ = s.History(Ctx(), AdminActor, workspace.HistoryQuery{Path: "/shared", ChatID: "chat-a"})
+		if !reflect.DeepEqual(revsOf(h), []int64{4}) {
+			t.Fatalf("chat-a history of /shared = %v", revsOf(h))
+		}
+		h, _ = s.History(Ctx(), AdminActor, workspace.HistoryQuery{ChatID: "chat-none"})
+		if len(h) != 0 {
+			t.Fatalf("history of a chat with no change = %v", revsOf(h))
+		}
+		h, _ = s.History(Ctx(), AdminActor, workspace.HistoryQuery{BeforeRev: 4})
+		if !reflect.DeepEqual(revsOf(h), []int64{3, 2, 1}) {
+			t.Fatalf("before after the chat writes = %v", revsOf(h))
+		}
 	})
 	t.Run("a folder with later children is a conflict", func(t *testing.T) {
 		s := newStore(t)

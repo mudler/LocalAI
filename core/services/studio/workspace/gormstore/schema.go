@@ -56,6 +56,8 @@ func ddl(d dialect) []string {
 			new_deleted INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE INDEX IF NOT EXISTS studio_ws_journal_rev ON studio_ws_journal (rev)`,
+		// The files of a chat are read from the change sets that chat made.
+		`CREATE INDEX IF NOT EXISTS studio_ws_changesets_chat ON studio_ws_changesets (chat_id)`,
 		`CREATE INDEX IF NOT EXISTS studio_ws_journal_node ON studio_ws_journal (node_id)`,
 		`CREATE INDEX IF NOT EXISTS studio_ws_journal_old_path ON studio_ws_journal (old_path)`,
 		`CREATE INDEX IF NOT EXISTS studio_ws_journal_new_path ON studio_ws_journal (new_path)`,

@@ -150,9 +150,14 @@ func (s *Workspace) History(ctx context.Context, a Actor, hq HistoryQuery) ([]Ch
 	if np != "/" {
 		like = escapeLike(np) + "/%"
 	}
-	revs, err := s.revs(ctx, `SELECT DISTINCT rev FROM studio_ws_journal
-		WHERE rev < ? AND (old_path = ? OR new_path = ? OR old_path LIKE ? ESCAPE '\' OR new_path LIKE ? ESCAPE '\')
-		ORDER BY rev DESC LIMIT ?`, before, np, np, like, like, limit)
+	query := `SELECT DISTINCT rev FROM studio_ws_journal
+		WHERE rev < ? AND (old_path = ? OR new_path = ? OR old_path LIKE ? ESCAPE '\' OR new_path LIKE ? ESCAPE '\')`
+	args := []any{before, np, np, like, like}
+	if hq.ChatID != "" {
+		query += ` AND rev IN (SELECT rev FROM studio_ws_changesets WHERE chat_id = ?)`
+		args = append(args, hq.ChatID)
+	}
+	revs, err := s.revs(ctx, query+` ORDER BY rev DESC LIMIT ?`, append(args, limit)...)
 	if err != nil {
 		return nil, err
 	}
