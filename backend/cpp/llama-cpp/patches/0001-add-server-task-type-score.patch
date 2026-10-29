@@ -1,8 +1,8 @@
 diff --git a/common/common.cpp b/common/common.cpp
-index 221f089..ff525a3 100644
+index de140a2..d39eaa8 100644
 --- a/common/common.cpp
 +++ b/common/common.cpp
-@@ -1740,8 +1740,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
+@@ -1757,8 +1757,10 @@ struct llama_context_params common_context_params_to_llama(const common_params &
      auto cparams = llama_context_default_params();
  
      cparams.n_ctx             = params.n_ctx;
@@ -16,7 +16,7 @@ index 221f089..ff525a3 100644
      cparams.n_outputs_max_per_seq = std::max(params.n_outputs_max_per_seq, 0);
      cparams.n_batch           = params.n_batch;
 diff --git a/common/common.h b/common/common.h
-index cd89a27..e51e99a 100644
+index ab08d15..414a76a 100644
 --- a/common/common.h
 +++ b/common/common.h
 @@ -462,6 +462,9 @@ struct common_params {
@@ -30,7 +30,7 @@ index cd89a27..e51e99a 100644
      int32_t n_outputs_max         =     0; // max outputs in a batch (0 = n_batch)
      int32_t n_outputs_max_per_seq =     1; // max outputs per sequence
 diff --git a/tools/server/server-context.cpp b/tools/server/server-context.cpp
-index 2bd1ab9..d179675 100644
+index 9377e3c..b0a0bf9 100644
 --- a/tools/server/server-context.cpp
 +++ b/tools/server/server-context.cpp
 @@ -62,6 +62,13 @@ static common_speculative_output_limits server_output_limits(const common_params
@@ -499,7 +499,7 @@ index 2bd1ab9..d179675 100644
  
                  // prompt evaluated for next-token prediction
 diff --git a/tools/server/server-task.h b/tools/server/server-task.h
-index 4c934db..61c1fbb 100644
+index 21b649a..eb857c9 100644
 --- a/tools/server/server-task.h
 +++ b/tools/server/server-task.h
 @@ -13,11 +13,26 @@
@@ -529,7 +529,7 @@ index 4c934db..61c1fbb 100644
      SERVER_TASK_TYPE_INFILL,
      SERVER_TASK_TYPE_TRANSCRIBE_RT,
      SERVER_TASK_TYPE_REALTIME, // a conversation over /v1/realtime, see server-realtime.cpp
-@@ -182,6 +197,18 @@ struct server_task {
+@@ -183,6 +198,18 @@ struct server_task {
      task_params   params;
      server_tokens tokens;
  
@@ -548,7 +548,7 @@ index 4c934db..61c1fbb 100644
      // only used by CLI, this allow tokenizing CLI inputs on server side
      // we need this because mtmd_context and vocab are not accessible outside of server_context
      bool                    cli = false;
-@@ -268,6 +295,7 @@ struct server_task {
+@@ -269,6 +296,7 @@ struct server_task {
              case SERVER_TASK_TYPE_COMPLETION:
              case SERVER_TASK_TYPE_INFILL:
              case SERVER_TASK_TYPE_TRANSCRIBE_RT:
@@ -556,7 +556,7 @@ index 4c934db..61c1fbb 100644
                  return true;
              case SERVER_TASK_TYPE_DECISION:
                  return !decision.labels.empty();
-@@ -593,6 +621,25 @@ struct server_task_result_decision : server_task_result {
+@@ -594,6 +622,25 @@ struct server_task_result_decision : server_task_result {
      virtual json to_json() override;
  };
  
