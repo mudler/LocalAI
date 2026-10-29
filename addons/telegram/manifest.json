@@ -18,7 +18,9 @@
           "description": "Talk to one of your saved agents from a Telegram bot.",
           "senderHint": "A chat ID, a user ID or an @username",
           "delivery": "pull",
-          "page": "bots"
+          "page": "bots",
+          "drafts": true,
+          "previewMs": 400
         }
       ]
     },

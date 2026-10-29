@@ -79,15 +79,55 @@ type apiError struct {
 	} `json:"parameters"`
 }
 
+// callError is a refusal of the Bot API that has no typed error. Its
+// description never holds the token.
+type callError struct {
+	Method      string
+	Code        int
+	Description string
+}
+
+func (e *callError) Error() string {
+	return fmt.Sprintf("telegram: Telegram %s: %d %s", e.Method, e.Code, e.Description)
+}
+
+// redactedError is an error whose text named the token. It does not wrap the
+// original, so no caller can print the token from the chain.
+type redactedError struct{ msg string }
+
+func (e *redactedError) Error() string { return e.msg }
+
+// redact takes the token, raw and as it goes in the URL, out of the text of
+// an error. The Bot API puts the token in the path, and an error of the
+// network or a description of Telegram can echo it.
+func redact(err error, token string) error {
+	if err == nil || token == "" {
+		return err
+	}
+	msg := err.Error()
+	clean := strings.NewReplacer(token, "<token>", url.PathEscape(token), "<token>").Replace(msg)
+	if clean == msg {
+		return err
+	}
+	return &redactedError{msg: clean}
+}
+
 // call posts a method and decodes the result into out.
 func (t *API) call(ctx context.Context, token, method string, params map[string]any, wait time.Duration, out any) error {
-	body, _ := json.Marshal(params)
+	body, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("telegram: could not encode a Telegram %s request", method)
+	}
 	return t.post(ctx, token, method, "application/json", body, wait, out)
 }
 
 // post sends a body of the given type to a method and decodes the result
-// into out.
+// into out. No error it returns holds the token.
 func (t *API) post(ctx context.Context, token, method, contentType string, body []byte, wait time.Duration, out any) error {
+	return redact(t.do(ctx, token, method, contentType, body, wait, out), token)
+}
+
+func (t *API) do(ctx context.Context, token, method, contentType string, body []byte, wait time.Duration, out any) error {
 	base := t.BaseURL
 	if base == "" {
 		base = DefaultBase
@@ -132,12 +172,22 @@ func (t *API) post(ctx context.Context, token, method, contentType string, body 
 		case code == http.StatusTooManyRequests:
 			return &RetryAfter{Seconds: max(env.Parameters.RetryAfter, 1)}
 		}
-		return fmt.Errorf("telegram: Telegram %s: %d %s", method, code, strings.ReplaceAll(env.Description, token, "<token>"))
+		desc := strings.NewReplacer(token, "<token>", url.PathEscape(token), "<token>").Replace(env.Description)
+		return &callError{Method: method, Code: code, Description: desc}
 	}
 	if out != nil {
-		return json.Unmarshal(env.Result, out)
+		if err := json.Unmarshal(env.Result, out); err != nil {
+			return fmt.Errorf("telegram: could not read the result of Telegram %s", method)
+		}
 	}
 	return nil
+}
+
+// refusedBecause tells whether Telegram refused a request as a bad one, for
+// a reason whose description holds what.
+func refusedBecause(err error, what string) bool {
+	var ce *callError
+	return errors.As(err, &ce) && ce.Code == http.StatusBadRequest && strings.Contains(ce.Description, what)
 }
 
 // Me returns the bot of a token.
@@ -284,12 +334,41 @@ func (t *API) botName(ctx context.Context, token string, id int64) string {
 	return bot.Username
 }
 
+// ParseMode of an answer: Telegram's dialect of Markdown.
+const markdownV2 = "MarkdownV2"
+
+// textParams is the body of sendMessage and editMessageText. The preview of
+// a link is off: an answer that cites sources would otherwise show a card
+// for the first one, and a preview would change as the text grows.
+func textParams(chatID int64, text, parseMode string) map[string]any {
+	p := map[string]any{"chat_id": chatID, "text": text, "link_preview_options": map[string]any{"is_disabled": true}}
+	if parseMode != "" {
+		p["parse_mode"] = parseMode
+	}
+	return p
+}
+
 // Send sends plain text and returns the ID of the message. The caller splits
-// the text to the limit of Telegram. A model writes the text, so no parse mode
-// is set: a stray character must not make Telegram refuse the message.
-// A thread other than 0 is the topic of a forum.
+// the text to the limit of Telegram. A thread other than 0 is the topic of a
+// forum.
 func (t *API) Send(ctx context.Context, token string, chatID, thread int64, text string) (int64, error) {
-	params := map[string]any{"chat_id": chatID, "text": text}
+	return t.send(ctx, token, chatID, thread, text, "")
+}
+
+// SendMarkdown sends Markdown as MarkdownV2 and returns the ID of the
+// message. A model writes the Markdown, so Telegram may still refuse what it
+// becomes; the message then goes as plain text. The caller splits the text
+// to the limit of Telegram.
+func (t *API) SendMarkdown(ctx context.Context, token string, chatID, thread int64, md string) (int64, error) {
+	id, err := t.send(ctx, token, chatID, thread, MarkdownV2(md), markdownV2)
+	if refusedBecause(err, "can't parse entities") {
+		return t.send(ctx, token, chatID, thread, PlainText(md), "")
+	}
+	return id, err
+}
+
+func (t *API) send(ctx context.Context, token string, chatID, thread int64, text, parseMode string) (int64, error) {
+	params := textParams(chatID, text, parseMode)
 	if thread != 0 {
 		params["message_thread_id"] = thread
 	}
@@ -298,6 +377,20 @@ func (t *API) Send(ctx context.Context, token string, chatID, thread int64, text
 		return 0, err
 	}
 	return messageID(raw), nil
+}
+
+// Draft shows text as a draft in a private chat: a message that the bot is
+// still writing, which the next message of the bot replaces. The same draftID
+// across calls animates the change. A thread other than 0 is the topic.
+func (t *API) Draft(ctx context.Context, token string, chatID, thread, draftID int64, text string) error {
+	if draftID == 0 {
+		return errors.New("telegram: a draft needs a draft ID other than 0")
+	}
+	params := map[string]any{"chat_id": chatID, "draft_id": draftID, "text": text}
+	if thread != 0 {
+		params["message_thread_id"] = thread
+	}
+	return t.call(ctx, token, "sendMessageDraft", params, 0, nil)
 }
 
 // messageID reads the ID of a sent message. The ID only serves a later edit,
@@ -349,9 +442,31 @@ func (t *API) SendFile(ctx context.Context, token string, chatID, thread int64, 
 	return messageID(raw), nil
 }
 
-// Edit replaces the text of a message the bot sent.
+// Edit replaces the text of a message the bot sent with plain text.
 func (t *API) Edit(ctx context.Context, token string, chatID, messageID int64, text string) error {
-	return t.call(ctx, token, "editMessageText", map[string]any{"chat_id": chatID, "message_id": messageID, "text": text}, 0, nil)
+	return t.edit(ctx, token, chatID, messageID, text, "")
+}
+
+// EditMarkdown replaces the text of a message the bot sent with Markdown, as
+// MarkdownV2, and with plain text when Telegram refuses that.
+func (t *API) EditMarkdown(ctx context.Context, token string, chatID, messageID int64, md string) error {
+	err := t.edit(ctx, token, chatID, messageID, MarkdownV2(md), markdownV2)
+	if refusedBecause(err, "can't parse entities") {
+		return t.edit(ctx, token, chatID, messageID, PlainText(md), "")
+	}
+	return err
+}
+
+func (t *API) edit(ctx context.Context, token string, chatID, messageID int64, text, parseMode string) error {
+	params := textParams(chatID, text, parseMode)
+	params["message_id"] = messageID
+	err := t.call(ctx, token, "editMessageText", params, 0, nil)
+	if refusedBecause(err, "message is not modified") {
+		// The message shows this text already: an answer that equals its
+		// preview must not go again as a new message.
+		return nil
+	}
+	return err
 }
 
 // Typing shows "typing" in a chat, or in a topic of it, for a few seconds.

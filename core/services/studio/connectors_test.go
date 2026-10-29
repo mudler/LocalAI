@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -37,9 +38,11 @@ type scriptedBot struct {
 	updates  []map[string]any // pending, by update_id
 	sent     []string         // sendMessage texts
 	sentTo   []int64
-	sentIDs  []int64   // the message ID of each sendMessage
-	edits    []botEdit // editMessageText calls
-	files    []botFile // sendDocument and sendPhoto calls
+	sentIDs  []int64    // the message ID of each sendMessage
+	edits    []botEdit  // editMessageText calls
+	drafts   []botDraft // sendMessageDraft calls
+	modes    []string   // the parse_mode of each sendMessage
+	files    []botFile  // sendDocument and sendPhoto calls
 	nextID   int64
 	typing   int
 	typedAt  []time.Time
@@ -113,12 +116,18 @@ func newScriptedBot() *scriptedBot {
 			_, _ = w.Write(raw)
 		case "sendMessage":
 			b.nextID++
-			b.sent = append(b.sent, body["text"].(string))
+			b.sent = append(b.sent, shown(body))
+			mode, _ := body["parse_mode"].(string)
+			b.modes = append(b.modes, mode)
 			b.sentTo = append(b.sentTo, int64(body["chat_id"].(float64)))
 			b.sentIDs = append(b.sentIDs, b.nextID)
 			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, b.nextID)
 		case "editMessageText":
-			b.edits = append(b.edits, botEdit{ID: int64(body["message_id"].(float64)), Text: body["text"].(string), At: time.Now()})
+			mode, _ := body["parse_mode"].(string)
+			b.edits = append(b.edits, botEdit{ID: int64(body["message_id"].(float64)), Text: shown(body), Mode: mode, At: time.Now()})
+			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
+		case "sendMessageDraft":
+			b.drafts = append(b.drafts, botDraft{Chat: int64(body["chat_id"].(float64)), ID: int64(body["draft_id"].(float64)), Text: body["text"].(string), At: time.Now()})
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		case "sendDocument", "sendPhoto":
 			b.nextID++
@@ -143,7 +152,28 @@ func newScriptedBot() *scriptedBot {
 type botEdit struct {
 	ID   int64
 	Text string
+	Mode string
 	At   time.Time
+}
+
+// botDraft is one sendMessageDraft call.
+type botDraft struct {
+	Chat, ID int64
+	Text     string
+	At       time.Time
+}
+
+// escapedV2 is a character that MarkdownV2 escapes.
+var escapedV2 = regexp.MustCompile("\\\\([_*\\[\\]()~`>#+\\-=|{}.!\\\\])")
+
+// shown is the text of a message as a person reads it: MarkdownV2 without
+// its escapes, so the specs compare the words the agent wrote.
+func shown(body map[string]any) string {
+	t := body["text"].(string)
+	if body["parse_mode"] == "MarkdownV2" {
+		t = escapedV2.ReplaceAllString(t, "$1")
+	}
+	return t
 }
 
 // botFile is one file the bot sent.

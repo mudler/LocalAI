@@ -46,7 +46,17 @@ func (p platform) Poll(ctx context.Context, token string, offset int64, wait int
 	return p.api.Updates(ctx, token, offset, wait)
 }
 
-var _ connector.FileSender = platform{}
+var (
+	_ connector.FileSender = platform{}
+	_ connector.RichSender = platform{}
+	_ connector.Drafter    = platform{}
+	_ connector.Splitter   = platform{}
+)
+
+// Split cuts an answer, which is Markdown, without breaking a code block. A
+// part is at most MaxMessageRunes long as Markdown, and Telegram counts the
+// text after it parsed the markup, which is never longer.
+func (platform) Split(text string) []string { return connector.SplitFenced(text, MaxMessageRunes) }
 
 // where reads the chat and the topic of a request. Telegram names them with
 // numbers; a request without a topic has thread 0.
@@ -89,16 +99,55 @@ func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (
 	return messageRef(id), err
 }
 
-func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error {
-	chat, err := strconv.ParseInt(req.Chat, 10, 64)
+// SendRich sends one part of an answer as MarkdownV2, or as plain text when
+// Telegram refuses the markup.
+func (p platform) SendRich(ctx context.Context, req contract.ConnectorRequest) (string, error) {
+	chat, thread, err := where(req)
 	if err != nil {
-		return err
+		return "", err
 	}
-	msg, err := strconv.ParseInt(req.MessageID, 10, 64)
+	id, err := p.api.SendMarkdown(ctx, req.Token, chat, thread, req.Text)
+	return messageRef(id), err
+}
+
+// edited reads the chat and the message of an edit.
+func edited(req contract.ConnectorRequest) (chat, msg int64, err error) {
+	if chat, err = strconv.ParseInt(req.Chat, 10, 64); err != nil {
+		return 0, 0, err
+	}
+	if msg, err = strconv.ParseInt(req.MessageID, 10, 64); err != nil {
+		return 0, 0, err
+	}
+	return chat, msg, nil
+}
+
+// Edit shows a preview: plain text, since the answer is not whole yet and
+// its markup may be open.
+func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error {
+	chat, msg, err := edited(req)
 	if err != nil {
 		return err
 	}
 	return p.api.Edit(ctx, req.Token, chat, msg, req.Text)
+}
+
+// EditRich replaces the working message with the first part of an answer.
+func (p platform) EditRich(ctx context.Context, req contract.ConnectorRequest) error {
+	chat, msg, err := edited(req)
+	if err != nil {
+		return err
+	}
+	return p.api.EditMarkdown(ctx, req.Token, chat, msg, req.Text)
+}
+
+// Draft shows a preview as a draft, which only a private chat has; Telegram
+// refuses it elsewhere, and the host then edits a working message instead.
+func (p platform) Draft(ctx context.Context, req contract.ConnectorRequest) error {
+	chat, thread, err := where(req)
+	if err != nil {
+		return err
+	}
+	return p.api.Draft(ctx, req.Token, chat, thread, req.DraftID, req.Text)
 }
 
 func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) error {
