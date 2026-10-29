@@ -5,16 +5,18 @@ package chv
 import (
 	"path/filepath"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestNewRefusesBadDirs(t *testing.T) {
-	long := filepath.Join(t.TempDir(), strings.Repeat("x", 100))
-	if _, err := New(Options{StateDir: long, CacheDir: t.TempDir()}); err == nil || !strings.Contains(err.Error(), "too long") {
-		t.Fatalf("long state dir: %v", err)
-	}
-	comma := filepath.Join(t.TempDir(), "a,b")
-	if _, err := New(Options{StateDir: t.TempDir(), CacheDir: comma}); err == nil || !strings.Contains(err.Error(), "comma") {
-		t.Fatalf("comma: %v", err)
-	}
-}
+var _ = Describe("New", func() {
+	It("refuses bad directories", func() {
+		long := filepath.Join(GinkgoT().TempDir(), strings.Repeat("x", 100))
+		_, err := New(Options{StateDir: long, CacheDir: GinkgoT().TempDir()})
+		Expect(err).To(MatchError(ContainSubstring("too long")), "long state dir")
+		comma := filepath.Join(GinkgoT().TempDir(), "a,b")
+		_, err = New(Options{StateDir: GinkgoT().TempDir(), CacheDir: comma})
+		Expect(err).To(MatchError(ContainSubstring("comma")), "comma")
+	})
+})

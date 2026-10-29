@@ -10,30 +10,28 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // attrLayer is a layer with every file kind the conversion must keep: a
 // setuid file, a symlink, a hard link, a fifo, a character device and a file
 // with an xattr. It also holds a kernel when withKernel is true.
-func attrLayer(t *testing.T, withKernel bool) v1.Layer {
-	t.Helper()
+func attrLayer(withKernel bool) v1.Layer {
+	GinkgoHelper()
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 	add := func(h *tar.Header, body string) {
 		h.Size = int64(len(body))
-		if err := tw.WriteHeader(h); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := io.WriteString(tw, body); err != nil {
-			t.Fatal(err)
-		}
+		Expect(tw.WriteHeader(h)).To(Succeed())
+		_, err := io.WriteString(tw, body)
+		Expect(err).To(Succeed())
 	}
 	add(&tar.Header{Name: "opt/", Typeflag: tar.TypeDir, Mode: 0o755}, "")
 	add(&tar.Header{Name: "opt/attrs/", Typeflag: tar.TypeDir, Mode: 0o755}, "")
@@ -47,166 +45,53 @@ func attrLayer(t *testing.T, withKernel bool) v1.Layer {
 		add(&tar.Header{Name: "boot/", Typeflag: tar.TypeDir, Mode: 0o755}, "")
 		add(&tar.Header{Name: "boot/vmlinux", Typeflag: tar.TypeReg, Mode: 0o644}, "not a real kernel")
 	}
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
+	Expect(tw.Close()).To(Succeed())
 	b := buf.Bytes()
 	l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(b)), nil })
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
 	return l
 }
 
 // writeLayout stores img in an OCI layout folder and returns its reference.
-func writeLayout(t *testing.T, img v1.Image) string {
-	t.Helper()
-	dir := t.TempDir()
+func writeLayout(img v1.Image) string {
+	GinkgoHelper()
+	dir := GinkgoT().TempDir()
 	p, err := layout.Write(dir, empty.Index)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := p.AppendImage(img); err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
+	Expect(p.AppendImage(img)).To(Succeed())
 	d, err := img.Digest()
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
 	return layoutPrefix + dir + "@" + d.String()
 }
 
-func testImage(t *testing.T, withKernel bool) v1.Image {
-	t.Helper()
-	img, err := mutate.AppendLayers(empty.Image, attrLayer(t, withKernel))
-	if err != nil {
-		t.Fatal(err)
-	}
+func testImage(withKernel bool) v1.Image {
+	GinkgoHelper()
+	img, err := mutate.AppendLayers(empty.Image, attrLayer(withKernel))
+	Expect(err).To(Succeed())
 	img, err = mutate.Config(img, v1.Config{Env: []string{"PATH=/usr/bin:/bin", "FROM_IMAGE=1"}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
 	return img
 }
 
-func debugfsOut(t *testing.T, img, cmd string) string {
-	t.Helper()
+func debugfsOut(img, cmd string) string {
+	GinkgoHelper()
 	out, err := exec.Command("debugfs", "-c", "-R", cmd, img).Output()
-	if err != nil {
-		t.Fatalf("debugfs %s: %v", cmd, err)
-	}
+	Expect(err).To(Succeed(), "debugfs %s", cmd)
 	return string(out)
 }
 
-func TestConvertKeepsFileKinds(t *testing.T) {
-	needTools(t, "debugfs")
-	b := &Backend{opts: Options{CacheDir: t.TempDir()}}
-	ref := writeLayout(t, testImage(t, true))
-	gi, err := b.image(context.Background(), ref)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Join(gi.Env, " ") != "PATH=/usr/bin:/bin FROM_IMAGE=1" {
-		t.Fatalf("env = %v", gi.Env)
-	}
-	if k, _ := os.ReadFile(gi.Kernel); string(k) != "not a real kernel" {
-		t.Fatalf("kernel = %q", k)
-	}
-	ls := debugfsOut(t, gi.Root, "ls -p /opt/attrs")
-	ents, _, err := parseLS([]byte(ls))
-	if err != nil {
-		t.Fatalf("%v\n%s", err, ls)
-	}
-	byName := map[string]lsEntry{}
-	for _, e := range ents {
-		byName[e.Name] = e
-	}
-	for name, mode := range map[string]uint32{"suid": 0o104755, "hard": 0o104755, "link": 0o120777, "fifo": 0o010600, "null": 0o020666, "xattr": 0o100644} {
-		if byName[name].Mode != mode {
-			t.Errorf("%s mode = %o, want %o", name, byName[name].Mode, mode)
-		}
-	}
-	if byName["suid"].Ino != byName["hard"].Ino {
-		t.Error("the hard link is a copy")
-	}
-	if !strings.Contains(ls, "/1000/1000/fifo/") || !strings.Contains(ls, "/0/0/suid/") {
-		t.Errorf("owners lost:\n%s", ls)
-	}
-	if st := debugfsOut(t, gi.Root, "stat /opt/attrs/null"); !strings.Contains(st, "Device major/minor number: 01:03") {
-		t.Errorf("device:\n%s", st)
-	}
-	ea := debugfsOut(t, gi.Root, "ea_get -x /opt/attrs/xattr user.demo")
-	if v, _, err := parseEAGet("user.demo")([]byte(ea)); err != nil || string(v) != "hello" {
-		t.Errorf("xattr = %q, %v", ea, err)
-	}
-	// A second call uses the cache.
-	before, _ := os.Stat(gi.Root)
-	gi2, err := b.image(context.Background(), ref)
-	if err != nil {
-		t.Fatal(err)
-	}
-	after, _ := os.Stat(gi2.Root)
-	if !before.ModTime().Equal(after.ModTime()) {
-		t.Fatal("the image was converted again")
-	}
-}
-
-func TestConvertRefusals(t *testing.T) {
-	b := &Backend{opts: Options{CacheDir: t.TempDir()}}
-	if _, err := b.image(context.Background(), writeLayout(t, testImage(t, false))); err == nil || !strings.Contains(err.Error(), "/boot/vmlinux") {
-		t.Fatalf("no kernel: %v", err)
-	}
-	for _, ref := range []string{"debian:trixie-slim", "example.com/guest:latest", layoutPrefix + "/some/dir", ""} {
-		if _, err := b.image(context.Background(), ref); err == nil {
-			t.Fatalf("%q was accepted", ref)
-		}
-	}
-	entries, _ := os.ReadDir(b.opts.CacheDir)
-	for _, e := range entries {
-		if e.IsDir() {
-			if _, err := os.Stat(filepath.Join(b.opts.CacheDir, e.Name(), "env.json")); err == nil {
-				t.Fatalf("a failed conversion left a complete cache entry: %s", e.Name())
-			}
-		}
-	}
-}
-
-// A hostile layer must not make the host write an unbounded kernel.
-func TestConvertRefusesHugeKernel(t *testing.T) {
-	old := maxKernelBytes
-	maxKernelBytes = 8
-	t.Cleanup(func() { maxKernelBytes = old })
-	b := &Backend{opts: Options{CacheDir: t.TempDir()}}
-	_, err := b.image(context.Background(), writeLayout(t, testImage(t, true)))
-	if err == nil || !strings.Contains(err.Error(), "larger than 8 bytes") {
-		t.Fatalf("a kernel over the limit: %v", err)
-	}
-	entries, _ := os.ReadDir(b.opts.CacheDir)
-	for _, e := range entries {
-		if _, err := os.Stat(filepath.Join(b.opts.CacheDir, e.Name(), "env.json")); err == nil {
-			t.Fatalf("a refused kernel left a complete cache entry: %s", e.Name())
-		}
-	}
-}
-
 // tarImage is an image with one layer made of the entries fill writes.
-func tarImage(t *testing.T, fill func(tw *tar.Writer)) v1.Image {
-	t.Helper()
+func tarImage(fill func(tw *tar.Writer)) v1.Image {
+	GinkgoHelper()
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 	fill(tw)
-	if err := tw.Close(); err != nil {
-		t.Fatal(err)
-	}
+	Expect(tw.Close()).To(Succeed())
 	b := buf.Bytes()
 	l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(b)), nil })
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
 	img, err := mutate.AppendLayers(empty.Image, l)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
 	return img
 }
 
@@ -222,145 +107,177 @@ func tarEntry(tw *tar.Writer, h *tar.Header, body string) {
 }
 
 // writeLayoutDir is writeLayout that also returns the folder and the digest.
-func writeLayoutDir(t *testing.T, img v1.Image) (string, v1.Hash) {
-	t.Helper()
-	dir := t.TempDir()
+func writeLayoutDir(img v1.Image) (string, v1.Hash) {
+	GinkgoHelper()
+	dir := GinkgoT().TempDir()
 	p, err := layout.Write(dir, empty.Index)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := p.AppendImage(img); err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
+	Expect(p.AppendImage(img)).To(Succeed())
 	d, err := img.Digest()
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
 	return dir, d
-}
-
-func TestLayoutRefusesSwappedManifest(t *testing.T) {
-	dir, d := writeLayoutDir(t, testImage(t, true))
-	other := testImage(t, false)
-	p, err := layout.FromPath(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := p.WriteImage(other); err != nil { // the other image's blobs, so only the digest is wrong
-		t.Fatal(err)
-	}
-	raw, err := other.RawManifest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(blobPath(dir, d), raw, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	b := &Backend{opts: Options{CacheDir: t.TempDir()}}
-	_, err = b.image(context.Background(), layoutPrefix+dir+"@"+d.String())
-	if err == nil || !strings.Contains(err.Error(), "digest mismatch") {
-		t.Fatalf("a swapped manifest: %v", err)
-	}
-	assertNoCacheEntry(t, b.opts.CacheDir)
-}
-
-func TestLayoutRefusesSwappedLayer(t *testing.T) {
-	img := testImage(t, true)
-	m, err := img.Manifest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dir, d := writeLayoutDir(t, img)
-	if err := os.WriteFile(blobPath(dir, m.Layers[0].Digest), []byte("swapped layer"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	b := &Backend{opts: Options{CacheDir: t.TempDir()}}
-	_, err = b.image(context.Background(), layoutPrefix+dir+"@"+d.String())
-	if err == nil || !strings.Contains(err.Error(), "digest mismatch") {
-		t.Fatalf("a swapped layer: %v", err)
-	}
-	assertNoCacheEntry(t, b.opts.CacheDir)
 }
 
 // assertNoCacheEntry checks that no folder in cache is complete: env.json is
 // written last, so its absence is the mark of a refused conversion.
-func assertNoCacheEntry(t *testing.T, cache string) {
-	t.Helper()
+func assertNoCacheEntry(cache string) {
+	GinkgoHelper()
 	entries, _ := os.ReadDir(cache)
 	for _, e := range entries {
 		if e.IsDir() {
-			if _, err := os.Stat(filepath.Join(cache, e.Name(), "env.json")); err == nil {
-				t.Fatalf("a refused image left a complete cache entry: %s", e.Name())
-			}
+			_, err := os.Stat(filepath.Join(cache, e.Name(), "env.json"))
+			Expect(err).To(HaveOccurred(), "a refused image left a complete cache entry: %s", e.Name())
 		}
 	}
 }
 
-// Hostile tar entries must not be converted or written outside the image.
-func TestConvertRefusesHostileTarPaths(t *testing.T) {
-	cases := map[string]func(tw *tar.Writer){
-		"dot-dot-escape": func(tw *tar.Writer) {
+var _ = Describe("image conversion", func() {
+	It("keeps file kinds", func() {
+		needTools("debugfs")
+		b := &Backend{opts: Options{CacheDir: GinkgoT().TempDir()}}
+		ref := writeLayout(testImage(true))
+		gi, err := b.image(context.Background(), ref)
+		Expect(err).To(Succeed())
+		Expect(strings.Join(gi.Env, " ")).To(Equal("PATH=/usr/bin:/bin FROM_IMAGE=1"))
+		k, _ := os.ReadFile(gi.Kernel)
+		Expect(string(k)).To(Equal("not a real kernel"))
+		ls := debugfsOut(gi.Root, "ls -p /opt/attrs")
+		ents, _, err := parseLS([]byte(ls))
+		Expect(err).To(Succeed(), ls)
+		byName := map[string]lsEntry{}
+		for _, e := range ents {
+			byName[e.Name] = e
+		}
+		for name, mode := range map[string]uint32{"suid": 0o104755, "hard": 0o104755, "link": 0o120777, "fifo": 0o010600, "null": 0o020666, "xattr": 0o100644} {
+			Expect(byName[name].Mode).To(Equal(mode), "%s mode = %o, want %o", name, byName[name].Mode, mode)
+		}
+		Expect(byName["suid"].Ino).To(Equal(byName["hard"].Ino), "the hard link is a copy")
+		Expect(ls).To(ContainSubstring("/1000/1000/fifo/"), "owners lost")
+		Expect(ls).To(ContainSubstring("/0/0/suid/"), "owners lost")
+		Expect(debugfsOut(gi.Root, "stat /opt/attrs/null")).To(ContainSubstring("Device major/minor number: 01:03"), "device")
+		ea := debugfsOut(gi.Root, "ea_get -x /opt/attrs/xattr user.demo")
+		v, _, err := parseEAGet("user.demo")([]byte(ea))
+		Expect(err).To(Succeed(), "xattr = %q", ea)
+		Expect(string(v)).To(Equal("hello"), "xattr = %q", ea)
+		// A second call uses the cache.
+		before, _ := os.Stat(gi.Root)
+		gi2, err := b.image(context.Background(), ref)
+		Expect(err).To(Succeed())
+		after, _ := os.Stat(gi2.Root)
+		Expect(before.ModTime().Equal(after.ModTime())).To(BeTrue(), "the image was converted again")
+	})
+
+	It("refuses an image without a kernel and bad references", func() {
+		b := &Backend{opts: Options{CacheDir: GinkgoT().TempDir()}}
+		_, err := b.image(context.Background(), writeLayout(testImage(false)))
+		Expect(err).To(MatchError(ContainSubstring("/boot/vmlinux")), "no kernel")
+		for _, ref := range []string{"debian:trixie-slim", "example.com/guest:latest", layoutPrefix + "/some/dir", ""} {
+			_, err := b.image(context.Background(), ref)
+			Expect(err).To(HaveOccurred(), "%q was accepted", ref)
+		}
+		entries, _ := os.ReadDir(b.opts.CacheDir)
+		for _, e := range entries {
+			if e.IsDir() {
+				_, err := os.Stat(filepath.Join(b.opts.CacheDir, e.Name(), "env.json"))
+				Expect(err).To(HaveOccurred(), "a failed conversion left a complete cache entry: %s", e.Name())
+			}
+		}
+	})
+
+	// A hostile layer must not make the host write an unbounded kernel.
+	It("refuses a huge kernel", func() {
+		old := maxKernelBytes
+		maxKernelBytes = 8
+		DeferCleanup(func() { maxKernelBytes = old })
+		b := &Backend{opts: Options{CacheDir: GinkgoT().TempDir()}}
+		_, err := b.image(context.Background(), writeLayout(testImage(true)))
+		Expect(err).To(MatchError(ContainSubstring("larger than 8 bytes")), "a kernel over the limit")
+		entries, _ := os.ReadDir(b.opts.CacheDir)
+		for _, e := range entries {
+			_, err := os.Stat(filepath.Join(b.opts.CacheDir, e.Name(), "env.json"))
+			Expect(err).To(HaveOccurred(), "a refused kernel left a complete cache entry: %s", e.Name())
+		}
+	})
+
+	It("refuses a layout with a swapped manifest", func() {
+		dir, d := writeLayoutDir(testImage(true))
+		other := testImage(false)
+		p, err := layout.FromPath(dir)
+		Expect(err).To(Succeed())
+		Expect(p.WriteImage(other)).To(Succeed()) // the other image's blobs, so only the digest is wrong
+		raw, err := other.RawManifest()
+		Expect(err).To(Succeed())
+		Expect(os.WriteFile(blobPath(dir, d), raw, 0o600)).To(Succeed())
+		b := &Backend{opts: Options{CacheDir: GinkgoT().TempDir()}}
+		_, err = b.image(context.Background(), layoutPrefix+dir+"@"+d.String())
+		Expect(err).To(MatchError(ContainSubstring("digest mismatch")), "a swapped manifest")
+		assertNoCacheEntry(b.opts.CacheDir)
+	})
+
+	It("refuses a layout with a swapped layer", func() {
+		img := testImage(true)
+		m, err := img.Manifest()
+		Expect(err).To(Succeed())
+		dir, d := writeLayoutDir(img)
+		Expect(os.WriteFile(blobPath(dir, m.Layers[0].Digest), []byte("swapped layer"), 0o600)).To(Succeed())
+		b := &Backend{opts: Options{CacheDir: GinkgoT().TempDir()}}
+		_, err = b.image(context.Background(), layoutPrefix+dir+"@"+d.String())
+		Expect(err).To(MatchError(ContainSubstring("digest mismatch")), "a swapped layer")
+		assertNoCacheEntry(b.opts.CacheDir)
+	})
+
+	// Hostile tar entries must not be converted or written outside the image.
+	DescribeTable("refuses hostile tar paths",
+		func(fill func(tw *tar.Writer)) {
+			b := &Backend{opts: Options{CacheDir: GinkgoT().TempDir()}}
+			_, err := b.image(context.Background(), writeLayout(tarImage(fill)))
+			Expect(err).To(HaveOccurred(), "the hostile image was converted")
+			assertNoCacheEntry(b.opts.CacheDir)
+		},
+		Entry("dot-dot-escape", func(tw *tar.Writer) {
 			tarEntry(tw, &tar.Header{Name: "../evil", Typeflag: tar.TypeReg}, "x")
 			tarEntry(tw, &tar.Header{Name: "boot/vmlinux", Typeflag: tar.TypeReg}, "K")
-		},
-		"absolute-escape": func(tw *tar.Writer) {
+		}),
+		Entry("absolute-escape", func(tw *tar.Writer) {
 			tarEntry(tw, &tar.Header{Name: "/abs/evil", Typeflag: tar.TypeReg}, "x")
 			tarEntry(tw, &tar.Header{Name: "boot/vmlinux", Typeflag: tar.TypeReg}, "K")
-		},
-		"kernel-symlink": func(tw *tar.Writer) {
+		}),
+		Entry("kernel-symlink", func(tw *tar.Writer) {
 			tarEntry(tw, &tar.Header{Name: "boot/vmlinux", Typeflag: tar.TypeSymlink, Linkname: "/etc/passwd"}, "")
-		},
-	}
-	for name, fill := range cases {
-		t.Run(name, func(t *testing.T) {
-			b := &Backend{opts: Options{CacheDir: t.TempDir()}}
-			_, err := b.image(context.Background(), writeLayout(t, tarImage(t, fill)))
-			if err == nil {
-				t.Fatal("the hostile image was converted")
-			}
-			assertNoCacheEntry(t, b.opts.CacheDir)
-		})
-	}
-}
+		}),
+	)
 
-// Two converters of one digest share one conversion and one cache folder.
-func TestConvertConcurrentSameDigest(t *testing.T) {
-	b := &Backend{opts: Options{CacheDir: t.TempDir()}}
-	ref := writeLayout(t, testImage(t, true))
-	var wg sync.WaitGroup
-	roots := make([]string, 2)
-	errs := make([]error, 2)
-	for i := range roots {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			gi, err := b.image(context.Background(), ref)
-			roots[i], errs[i] = gi.Root, err
-		}()
-	}
-	wg.Wait()
-	for i := range roots {
-		if errs[i] != nil {
-			t.Fatalf("converter %d: %v", i, errs[i])
+	// Two converters of one digest share one conversion and one cache folder.
+	It("shares one conversion between concurrent converters of one digest", func() {
+		b := &Backend{opts: Options{CacheDir: GinkgoT().TempDir()}}
+		ref := writeLayout(testImage(true))
+		var wg sync.WaitGroup
+		roots := make([]string, 2)
+		errs := make([]error, 2)
+		for i := range roots {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				gi, err := b.image(context.Background(), ref)
+				roots[i], errs[i] = gi.Root, err
+			}()
 		}
-	}
-	if roots[0] != roots[1] {
-		t.Fatalf("two folders: %v", roots)
-	}
-	entries, _ := os.ReadDir(b.opts.CacheDir)
-	var dirs []string
-	for _, e := range entries {
-		if e.IsDir() {
-			dirs = append(dirs, e.Name())
+		wg.Wait()
+		for i := range roots {
+			Expect(errs[i]).To(Succeed(), "converter %d", i)
 		}
-	}
-	if len(dirs) != 1 {
-		t.Fatalf("cache folders: %v", dirs)
-	}
-	folder, _ := os.ReadDir(filepath.Join(b.opts.CacheDir, dirs[0]))
-	for _, e := range folder {
-		if strings.HasSuffix(e.Name(), ".tmp") {
-			t.Fatalf("a temporary file was left: %s", e.Name())
+		Expect(roots[0]).To(Equal(roots[1]), "two folders: %v", roots)
+		entries, _ := os.ReadDir(b.opts.CacheDir)
+		var dirs []string
+		for _, e := range entries {
+			if e.IsDir() {
+				dirs = append(dirs, e.Name())
+			}
 		}
-	}
-}
+		Expect(dirs).To(HaveLen(1), "cache folders: %v", dirs)
+		folder, _ := os.ReadDir(filepath.Join(b.opts.CacheDir, dirs[0]))
+		for _, e := range folder {
+			Expect(strings.HasSuffix(e.Name(), ".tmp")).To(BeFalse(), "a temporary file was left: %s", e.Name())
+		}
+	})
+})

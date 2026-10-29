@@ -3,13 +3,13 @@
 package chv
 
 import (
-	"strings"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestNewRefusesNegativeStageLimit(t *testing.T) {
-	_, err := New(Options{StateDir: t.TempDir(), CacheDir: t.TempDir(), StageLimit: -1})
-	if err == nil || !strings.Contains(err.Error(), "StageLimit") {
-		t.Fatalf("a negative StageLimit: %v", err)
-	}
-}
+var _ = Describe("New", func() {
+	It("refuses a negative stage limit", func() {
+		_, err := New(Options{StateDir: GinkgoT().TempDir(), CacheDir: GinkgoT().TempDir(), StageLimit: -1})
+		Expect(err).To(MatchError(ContainSubstring("StageLimit")))
+	})
+})

@@ -6,18 +6,17 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // fakeAPI serves the Cloud Hypervisor API answers this client relies on.
-func fakeAPI(t *testing.T) string {
-	t.Helper()
-	sock := filepath.Join(shortDir(t), "api.sock")
+func fakeAPI() string {
+	GinkgoHelper()
+	sock := filepath.Join(shortDir(), "api.sock")
 	l, err := net.Listen("unix", sock)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).To(Succeed())
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/vmm.ping", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, `{"build_version":"v54.0","version":"54.0.0","pid":1,"features":["kvm"]}`)
@@ -37,23 +36,20 @@ func fakeAPI(t *testing.T) string {
 	mux.HandleFunc("PUT /api/v1/vmm.shutdown", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	srv := &http.Server{Handler: mux}
 	go srv.Serve(l)
-	t.Cleanup(func() { srv.Close() })
+	DeferCleanup(func() { srv.Close() })
 	return sock
 }
 
-func TestAPI(t *testing.T) {
-	a := newAPI(fakeAPI(t))
-	ctx := context.Background()
-	if v, err := a.ping(ctx); err != nil || v != "54.0.0" {
-		t.Fatalf("ping = %q, %v", v, err)
-	}
-	if _, err := a.state(ctx); err == nil || !strings.Contains(err.Error(), "VM is not created") {
-		t.Fatalf("state: %v", err)
-	}
-	if err := a.put(ctx, "vm.snapshot", snapshotConfig{DestinationURL: "file:///snap"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := a.put(ctx, "vmm.shutdown", nil); err != nil {
-		t.Fatal(err)
-	}
-}
+var _ = Describe("Cloud Hypervisor API client", func() {
+	It("pings, reads the VM state and sends snapshot and shutdown requests", func() {
+		a := newAPI(fakeAPI())
+		ctx := context.Background()
+		v, err := a.ping(ctx)
+		Expect(err).To(Succeed())
+		Expect(v).To(Equal("54.0.0"))
+		_, err = a.state(ctx)
+		Expect(err).To(MatchError(ContainSubstring("VM is not created")))
+		Expect(a.put(ctx, "vm.snapshot", snapshotConfig{DestinationURL: "file:///snap"})).To(Succeed())
+		Expect(a.put(ctx, "vmm.shutdown", nil)).To(Succeed())
+	})
+})
