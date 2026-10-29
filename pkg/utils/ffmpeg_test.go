@@ -1,22 +1,22 @@
-package utils
+package utils_test
 
 import (
 	"encoding/binary"
 	"os"
 	"path/filepath"
-	"testing"
 
 	laudio "github.com/mudler/LocalAI/pkg/audio"
+	. "github.com/mudler/LocalAI/pkg/utils"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // generateTestWav creates a WAV file with a sine-ish tone at the given sample rate,
 // channels, and bit depth (only 16-bit supported for simplicity).
-func generateTestWav(t *testing.T, path string, sampleRate uint32, numChannels uint16, numSamples int) {
-	t.Helper()
+func generateTestWav(path string, sampleRate uint32, numChannels uint16, numSamples int) {
+	GinkgoHelper()
 	f, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	defer f.Close()
 
 	bitsPerSample := uint16(16)
@@ -40,111 +40,73 @@ func generateTestWav(t *testing.T, path string, sampleRate uint32, numChannels u
 		Subchunk2ID:   [4]byte{'d', 'a', 't', 'a'},
 		Subchunk2Size: dataSize,
 	}
-	if err := binary.Write(f, binary.LittleEndian, &hdr); err != nil {
-		t.Fatal(err)
-	}
+	Expect(binary.Write(f, binary.LittleEndian, &hdr)).To(Succeed())
 
 	for i := 0; i < totalSamples; i++ {
 		sample := int16(1000 * (i % 100))
-		if err := binary.Write(f, binary.LittleEndian, sample); err != nil {
-			t.Fatal(err)
-		}
+		Expect(binary.Write(f, binary.LittleEndian, sample)).To(Succeed())
 	}
 }
 
-func TestAudioToWav_AlreadyCorrectFormat(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "input.wav")
-	dst := filepath.Join(dir, "output.wav")
+var _ = Describe("utils/ffmpeg AudioToWav", func() {
+	var src, dst string
 
-	generateTestWav(t, src, 16000, 1, 1600)
+	BeforeEach(func() {
+		dir := GinkgoT().TempDir()
+		src = filepath.Join(dir, "input.wav")
+		dst = filepath.Join(dir, "output.wav")
+	})
 
-	if err := AudioToWav(src, dst); err != nil {
-		t.Fatalf("AudioToWav failed: %v", err)
-	}
+	It("keeps a WAV that already has the right format", func() {
+		generateTestWav(src, 16000, 1, 1600)
 
-	info, err := os.Stat(dst)
-	if err != nil {
-		t.Fatalf("output not found: %v", err)
-	}
-	if info.Size() == 0 {
-		t.Fatal("output file is empty")
-	}
-}
+		Expect(AudioToWav(src, dst)).To(Succeed())
 
-func TestAudioToWav_ResampleFrom22050(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "input.wav")
-	dst := filepath.Join(dir, "output.wav")
+		info, err := os.Stat(dst)
+		Expect(err).NotTo(HaveOccurred(), "output not found")
+		Expect(info.Size()).NotTo(BeZero(), "output file is empty")
+	})
 
-	generateTestWav(t, src, 22050, 1, 22050)
+	It("resamples a 22050 Hz WAV to 16000 Hz", func() {
+		generateTestWav(src, 22050, 1, 22050)
 
-	if err := AudioToWav(src, dst); err != nil {
-		t.Fatalf("AudioToWav failed: %v", err)
-	}
+		Expect(AudioToWav(src, dst)).To(Succeed())
 
-	info, err := os.Stat(dst)
-	if err != nil {
-		t.Fatalf("output not found: %v", err)
-	}
-	if info.Size() == 0 {
-		t.Fatal("output file is empty")
-	}
+		info, err := os.Stat(dst)
+		Expect(err).NotTo(HaveOccurred(), "output not found")
+		Expect(info.Size()).NotTo(BeZero(), "output file is empty")
 
-	verifyWavFormat(t, dst, 16000, 1)
-}
+		verifyWavFormat(dst, 16000, 1)
+	})
 
-func TestAudioToWav_StereoDownmix(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "input.wav")
-	dst := filepath.Join(dir, "output.wav")
+	It("downmixes a stereo WAV to mono", func() {
+		generateTestWav(src, 16000, 2, 1600)
 
-	generateTestWav(t, src, 16000, 2, 1600)
+		Expect(AudioToWav(src, dst)).To(Succeed())
 
-	if err := AudioToWav(src, dst); err != nil {
-		t.Fatalf("AudioToWav failed: %v", err)
-	}
+		verifyWavFormat(dst, 16000, 1)
+	})
 
-	verifyWavFormat(t, dst, 16000, 1)
-}
+	It("downmixes and resamples a stereo 44100 Hz WAV", func() {
+		generateTestWav(src, 44100, 2, 44100)
 
-func TestAudioToWav_StereoAndResample(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "input.wav")
-	dst := filepath.Join(dir, "output.wav")
+		Expect(AudioToWav(src, dst)).To(Succeed())
 
-	generateTestWav(t, src, 44100, 2, 44100)
+		verifyWavFormat(dst, 16000, 1)
+	})
+})
 
-	if err := AudioToWav(src, dst); err != nil {
-		t.Fatalf("AudioToWav failed: %v", err)
-	}
-
-	verifyWavFormat(t, dst, 16000, 1)
-}
-
-func verifyWavFormat(t *testing.T, path string, expectedRate uint32, expectedChannels uint16) {
-	t.Helper()
+func verifyWavFormat(path string, expectedRate uint32, expectedChannels uint16) {
+	GinkgoHelper()
 	f, err := os.Open(path)
-	if err != nil {
-		t.Fatalf("open: %v", err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	defer f.Close()
 
 	var hdr laudio.WAVHeader
-	if err := binary.Read(f, binary.LittleEndian, &hdr); err != nil {
-		t.Fatalf("read header: %v", err)
-	}
+	Expect(binary.Read(f, binary.LittleEndian, &hdr)).To(Succeed(), "read header")
 
-	if hdr.SampleRate != expectedRate {
-		t.Errorf("sample rate = %d, want %d", hdr.SampleRate, expectedRate)
-	}
-	if hdr.NumChannels != expectedChannels {
-		t.Errorf("channels = %d, want %d", hdr.NumChannels, expectedChannels)
-	}
-	if hdr.BitsPerSample != 16 {
-		t.Errorf("bit depth = %d, want 16", hdr.BitsPerSample)
-	}
-	if hdr.AudioFormat != 1 {
-		t.Errorf("audio format = %d, want 1 (PCM)", hdr.AudioFormat)
-	}
+	Expect(hdr.SampleRate).To(Equal(expectedRate), "sample rate")
+	Expect(hdr.NumChannels).To(Equal(expectedChannels), "channels")
+	Expect(hdr.BitsPerSample).To(Equal(uint16(16)), "bit depth")
+	Expect(hdr.AudioFormat).To(Equal(uint16(1)), "audio format (PCM)")
 }
