@@ -297,14 +297,27 @@ func (h *hsession) send(ctx context.Context, text string, parts []chat.ContentPa
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	// The watcher turns a cancelled context into an interrupt of this turn. It
+	// is joined before send returns: a watcher that outlived the call could see
+	// the caller cancel its context after the turn and interrupt the next turn
+	// of the same session.
 	done := make(chan struct{})
-	defer close(done)
+	watcher := make(chan struct{})
 	go func() {
+		defer close(watcher)
 		select {
 		case <-ctx.Done():
-			h.sess.Interrupt()
+			select {
+			case <-done: // the turn already ended; nothing to interrupt
+			default:
+				h.sess.Interrupt()
+			}
 		case <-done:
 		}
+	}()
+	defer func() {
+		close(done)
+		<-watcher
 	}()
 	_, err := h.sess.SendMessage(text, parts...)
 	h.flushAnswer()

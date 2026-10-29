@@ -206,6 +206,19 @@ var _ = Describe("the nib harness", func() {
 		}
 	})
 
+	// The caller cancels its context as soon as Send returns. The watcher that
+	// turns a cancelled context into an interrupt must not outlive the call, or
+	// it interrupts the next turn of the same session.
+	It("a context cancelled after Send returns does not interrupt the next turn", func() {
+		hs := start(&recordingLLM{}, session.HarnessEnv{})
+		for i := 0; i < 300; i++ {
+			ctx, cancel := context.WithCancel(context.Background())
+			Expect(hs.Send(ctx, "first")).To(Succeed(), "send %d", i)
+			cancel()
+			send(hs, "second")
+		}
+	})
+
 	// nib compacts when a prompt fills most of the model's context. The context size
 	// is the model's, not nib's default, so a small model compacts early; the host
 	// hears about it.
