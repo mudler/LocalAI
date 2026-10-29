@@ -32,10 +32,16 @@ type fakeS2SStream struct {
 	script func(f *fakeS2SStream, req *proto.AudioToAudioRequest)
 	once   sync.Once
 	owner  *s2sSession // flushed before the sent requests are read
+
+	// A script may push from its own goroutine, so a push can run while the
+	// session closes the stream. closing releases a push that waits for room;
+	// recvMu keeps recv open while a push sends on it.
+	closing chan struct{}
+	recvMu  sync.RWMutex
 }
 
 func newFakeS2SStream() *fakeS2SStream {
-	return &fakeS2SStream{recv: make(chan *proto.AudioToAudioResponse, 256)}
+	return &fakeS2SStream{recv: make(chan *proto.AudioToAudioResponse, 256), closing: make(chan struct{})}
 }
 
 func (f *fakeS2SStream) Send(req *proto.AudioToAudioRequest) error {
@@ -57,13 +63,29 @@ func (f *fakeS2SStream) Recv() (*proto.AudioToAudioResponse, error) {
 }
 
 func (f *fakeS2SStream) Close() error {
-	f.once.Do(func() { close(f.recv) })
+	f.once.Do(func() {
+		close(f.closing)
+		f.recvMu.Lock()
+		close(f.recv)
+		f.recvMu.Unlock()
+	})
 	return nil
 }
 
 func (f *fakeS2SStream) push(event string, pcm []byte, meta any) {
 	b, _ := json.Marshal(meta)
-	f.recv <- &proto.AudioToAudioResponse{Event: event, Pcm: pcm, SampleRate: 24000, Meta: b}
+	// Nothing is sent once the stream is closed: the backend has hung up.
+	f.recvMu.RLock()
+	defer f.recvMu.RUnlock()
+	select {
+	case <-f.closing:
+		return
+	default:
+	}
+	select {
+	case f.recv <- &proto.AudioToAudioResponse{Event: event, Pcm: pcm, SampleRate: 24000, Meta: b}:
+	case <-f.closing:
+	}
 }
 
 func (f *fakeS2SStream) requests() []*proto.AudioToAudioRequest {
@@ -768,7 +790,7 @@ var _ = Describe("realtime speech-to-speech", func() {
 	})
 
 	It("closes the stream only when no write is in progress", func() {
-		stream := &overlapStream{fakeS2SStream: fakeS2SStream{recv: make(chan *proto.AudioToAudioResponse, 8)}}
+		stream := &overlapStream{fakeS2SStream: fakeS2SStream{recv: make(chan *proto.AudioToAudioResponse, 8), closing: make(chan struct{})}}
 		st := newS2SSession(stream, nil, nil)
 		for range 5 {
 			st.sendAsync(&proto.AudioToAudioRequest{})
