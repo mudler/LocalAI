@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -215,6 +216,9 @@ func TestMockS2SToolCallThenContinuation(t *testing.T) {
 	if metaOf(t, events[1])["status"] != "completed" {
 		t.Fatalf("tool turn done = %v", metaOf(t, events[1]))
 	}
+	if raw, _ := metaOf(t, events[1])["raw_text"].(string); !strings.Contains(raw, "<function=get_time>") {
+		t.Fatalf("tool turn raw_text = %q, want the call markup", raw)
+	}
 
 	sendS2S(t, stream, controlReq("conversation.item.create",
 		`{"type":"function_call_output","call_id":"call_mock_1","output":"{\"time\":\"12:00\"}"}`))
@@ -226,6 +230,11 @@ func TestMockS2SToolCallThenContinuation(t *testing.T) {
 			t.Fatal("second tool call after the output was already sent")
 		case "response.audio.delta":
 			audio++
+		case "response.done":
+			meta := metaOf(t, evt)
+			if meta["raw_text"] != meta["text"] {
+				t.Fatalf("a plain reply with tools: raw_text = %v, text = %v", meta["raw_text"], meta["text"])
+			}
 		}
 	}
 	if audio != 2 {

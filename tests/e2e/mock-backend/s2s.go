@@ -29,6 +29,8 @@ import (
 //     reply is "mock reply rms=<n>" as transcript pieces, followed by
 //     MOCK_S2S_FRAMES 20 ms tone frames (default 50 = 1 s) at 24 kHz, one every
 //     20 ms of wall time, so a barge-in can land mid-response.
+//     With tools, response.done also carries raw_text: the call markup of the
+//     LFM3 template for a tool call, the transcript otherwise.
 //   - response.cancel: stops the reply at once and sends response.done with
 //     status cancelled.
 //
@@ -103,6 +105,10 @@ type s2sPlan struct {
 	frames   int
 	// spoken is the text and audio of a model that reads a tool call out loud.
 	spoken string
+	// hasTools is true if the session has tools. Then response.done carries
+	// raw_text, what the model wrote with the call markup, like the llama-cpp
+	// session does.
+	hasTools bool
 }
 
 // AudioToAudioStream implements the bidirectional S2S RPC.
@@ -308,7 +314,7 @@ func (s *s2sStream) responseCreate(payload []byte) {
 	var plan s2sPlan
 	if len(s.tools) > 0 && !s.toolOutputSeen {
 		s.calls++
-		plan = s2sPlan{toolName: s.tools[0], callID: fmt.Sprintf("call_mock_%d", s.calls)}
+		plan = s2sPlan{toolName: s.tools[0], callID: fmt.Sprintf("call_mock_%d", s.calls), hasTools: true}
 		if forced && !textOnly {
 			// Forced text plus audio: the model reads the call out loud.
 			plan.spoken = "calling " + s.tools[0]
@@ -322,6 +328,7 @@ func (s *s2sStream) responseCreate(payload []byte) {
 			rms:      int(math.Round(s.lastRMS)),
 			textOnly: textOnly,
 			frames:   frames,
+			hasTools: len(s.tools) > 0,
 		}
 		if textOnly {
 			plan.frames = 0
@@ -360,7 +367,7 @@ func (s *s2sStream) runResponse(r *s2sResponse, p s2sPlan) {
 	if p.toolName != "" {
 		select {
 		case <-r.cancel:
-			s.finish("cancelled", 0, "")
+			s.finish("cancelled", 0, "", "", p.hasTools)
 			return
 		default:
 		}
@@ -373,7 +380,8 @@ func (s *s2sStream) runResponse(r *s2sResponse, p s2sPlan) {
 			"name":      p.toolName,
 			"arguments": `{"city":"Paris"}`,
 		})
-		s.finish("completed", 0, "")
+		call := "<tool_call>\n<function=" + p.toolName + ">\n<parameter=city>\nParis\n</parameter>\n</function>\n</tool_call>"
+		s.finish("completed", 0, "", call, true)
 		return
 	}
 
@@ -387,7 +395,7 @@ func (s *s2sStream) runResponse(r *s2sResponse, p s2sPlan) {
 	for _, piece := range pieces {
 		select {
 		case <-r.cancel:
-			s.finish("cancelled", 0, text.String())
+			s.finish("cancelled", 0, text.String(), text.String(), p.hasTools)
 			return
 		default:
 		}
@@ -401,22 +409,26 @@ func (s *s2sStream) runResponse(r *s2sResponse, p s2sPlan) {
 	for i := range p.frames {
 		select {
 		case <-r.cancel:
-			s.finish("cancelled", sent, text.String())
+			s.finish("cancelled", sent, text.String(), text.String(), p.hasTools)
 			return
 		case <-ticker.C:
 		}
 		s.send("response.audio.delta", s2sToneFrame(i), mockS2SOutputRate, nil)
 		sent++
 	}
-	s.finish("completed", sent, text.String())
+	s.finish("completed", sent, text.String(), text.String(), p.hasTools)
 }
 
-func (s *s2sStream) finish(status string, frames int, text string) {
-	s.send("response.done", nil, 0, map[string]any{
+func (s *s2sStream) finish(status string, frames int, text, raw string, withRaw bool) {
+	meta := map[string]any{
 		"status": status,
 		"usage":  map[string]any{"output_tokens": frames},
 		"text":   text,
-	})
+	}
+	if withRaw {
+		meta["raw_text"] = raw
+	}
+	s.send("response.done", nil, 0, meta)
 }
 
 func (s *s2sStream) sendError(typ, msg string) {
