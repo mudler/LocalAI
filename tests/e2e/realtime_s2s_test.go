@@ -230,7 +230,7 @@ func defineS2SSpecs(v s2sVariant) {
 
 		It("reports the audio format and echoes session.update", func() {
 			conn := connectWS(v.model)
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			created := readServerEvent(conn, 30*time.Second)
 			Expect(created["type"]).To(Equal("session.created"))
@@ -252,7 +252,7 @@ func defineS2SSpecs(v s2sVariant) {
 
 		It("starts with the turn detection its VAD slot allows", func() {
 			conn := connectWS(v.model)
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			created := readServerEvent(conn, 30*time.Second)
 			Expect(created["type"]).To(Equal("session.created"))
 			session, _ := created["session"].(map[string]any)
@@ -277,7 +277,7 @@ func defineS2SSpecs(v s2sVariant) {
 		if v.vad {
 			It("runs a server VAD turn in order", func() {
 				conn := v.session(nil)
-				defer conn.Close()
+				defer func() { _ = conn.Close() }()
 
 				v.speak(conn, capitalQuestion)
 				events := readResponse(conn, s2sResponseTimeout())
@@ -293,7 +293,7 @@ func defineS2SSpecs(v s2sVariant) {
 
 		It("runs a manual-commit turn without VAD events", func() {
 			conn := v.manualCommitSession(nil)
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			streamUtterance(conn, s2sUtterance(capitalQuestion))
 			sendClientEvent(conn, map[string]any{"type": "input_audio_buffer.commit"})
@@ -311,7 +311,7 @@ func defineS2SSpecs(v s2sVariant) {
 
 		It("emits input and output transcripts", func() {
 			conn := v.session(nil)
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			v.speak(conn, capitalQuestion)
 			events := readResponse(conn, s2sResponseTimeout())
@@ -348,7 +348,7 @@ func defineS2SSpecs(v s2sVariant) {
 			// talk over; the real one and any-to-any have a reply to interrupt.
 			It("cancels the first response on barge-in and completes the second", func() {
 				conn := v.session(nil)
-				defer conn.Close()
+				defer func() { _ = conn.Close() }()
 
 				first := padPCMBase64(s2sUtterance("Count slowly from one to forty."), s2sInputRate, 300, 1200)
 				// Rendered up front: a text-to-speech call between the first reply
@@ -412,7 +412,7 @@ func defineS2SSpecs(v s2sVariant) {
 			update := map[string]any{"tools": []map[string]any{weatherTool}}
 			chainedMock := v.pipeline && !isReal
 			conn := v.session(update)
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 
 			v.speak(conn, "What is the weather in Paris right now? Use the get_weather tool.")
 			events := readResponse(conn, s2sResponseTimeout())
@@ -528,7 +528,7 @@ func asrOfOutput(pcm []byte) string {
 
 	resp, err := http.Post(apiURL+"/audio/transcriptions", mw.FormDataContentType(), &body)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, resp.StatusCode).To(Equal(http.StatusOK), "asr returned: %s", raw)

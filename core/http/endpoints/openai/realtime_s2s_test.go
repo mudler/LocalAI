@@ -990,7 +990,7 @@ var _ = Describe("realtime speech-to-speech", func() {
 		st := newS2SSession(stream, nil, nil)
 		got := make(chan error, 1)
 		st.setOnDead(func(err error) { got <- err })
-		stream.Close()
+		_ = stream.Close()
 		Eventually(got).Should(Receive())
 		st.close()
 	})
