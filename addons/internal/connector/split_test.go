@@ -3,6 +3,7 @@ package connector_test
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
 	. "github.com/onsi/ginkgo/v2"
@@ -36,6 +37,27 @@ var _ = Describe("SplitFenced", func() {
 			Expect(strings.Count(p, "```")%2).To(Equal(0), "part %d has an open block: %q", i, p)
 		}
 		Expect(parts[len(parts)-1]).To(HaveSuffix("after"))
+	})
+	It("opens a block again with its language and keeps the indentation of the code", func() {
+		code := "before\n```go\n" + strings.Repeat("\tx := 1\n", 30) + "```\nafter"
+		parts := connector.SplitFenced(code, 60)
+		Expect(len(parts)).To(BeNumerically(">", 2))
+		for i, p := range parts[1 : len(parts)-1] {
+			Expect(p).To(HavePrefix("```go\n\tx := 1"), "part %d", i+1)
+		}
+		// Taking out the fences each cut added gives back the text.
+		joined := strings.Join(parts, "\n")
+		joined = strings.ReplaceAll(joined, "\n```\n```go\n", "\n")
+		Expect(joined).To(Equal(code))
+	})
+	It("never cuts a character in two", func() {
+		code := "```\n" + strings.Repeat("🙂", 70) + "\n```"
+		parts := connector.SplitFenced(code, 20)
+		for _, p := range parts {
+			Expect(utf8.ValidString(p)).To(BeTrue())
+			Expect(utf8.RuneCountInString(p)).To(BeNumerically("<=", 20))
+		}
+		Expect(strings.Count(strings.Join(parts, ""), "🙂")).To(Equal(70))
 	})
 	It("leaves text without code as Split does, and a tiny limit to Split", func() {
 		text := strings.Repeat("word ", 60)

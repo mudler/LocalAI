@@ -22,9 +22,9 @@ import (
 //     route "/connector" with the op "poll". A push platform tells the host:
 //     the add-on calls the host operation ConnectorInboundOp.
 //   - Outbound. The host calls "/connector" with the ops "send", "edit",
-//     "typing", "send_file" and "me", and "media" to read a file a message
-//     carries. The host passes the token on every call; the add-on never
-//     stores it.
+//     "typing", "send_file" and "me", "media" to read a file a message
+//     carries, and "draft" for a kind that declares drafts. The host passes
+//     the token on every call; the add-on never stores it.
 
 // Delivery says how messages reach the host.
 const (
@@ -51,6 +51,10 @@ const (
 	ConnectorOpMedia = "media"
 	// ConnectorOpSendFile sends ConnectorRequest.File to Chat and Thread.
 	ConnectorOpSendFile = "send_file"
+	// ConnectorOpDraft shows Text as a draft in Chat: a preview of an answer
+	// that is not a message yet. The platform replaces it when the answer
+	// is sent. Only a kind with Drafts serves it.
+	ConnectorOpDraft = "draft"
 )
 
 // Codes of a ConnectorError.
@@ -78,6 +82,9 @@ const (
 	// MaxConnectorFileName is the longest file name, in bytes, that the op
 	// send_file takes.
 	MaxConnectorFileName = 128
+	// MinPreviewMs and MaxPreviewMs bound ConnectorKind.PreviewMs.
+	MinPreviewMs = 250
+	MaxPreviewMs = 10000
 )
 
 // ConnectorKind is one kind of binding an add-on serves, such as telegram.
@@ -95,6 +102,14 @@ type ConnectorKind struct {
 	// Page is the add-on page that adds and edits bindings of this kind. It
 	// must be one of the pages of the add-on's UI.
 	Page string `json:"page,omitempty"`
+	// Drafts tells that the add-on serves the op draft. The host then shows
+	// a live answer in a direct conversation as a draft, not as a working
+	// message that it edits.
+	Drafts bool `json:"drafts,omitempty"`
+	// PreviewMs is the shortest time, in milliseconds, between two previews
+	// of an answer (an edit or a draft) of one binding. Zero: the host's
+	// default, one second. Else MinPreviewMs to MaxPreviewMs.
+	PreviewMs int `json:"previewMs,omitempty"`
 }
 
 // ConnectorCapability is the manifest field capabilities.connector.
@@ -120,6 +135,9 @@ func validateConnector(c *ConnectorCapability, ui *UI) error {
 		}
 		if k.Delivery != DeliveryPull && k.Delivery != DeliveryPush {
 			return fmt.Errorf("connector delivery must be %s or %s", DeliveryPull, DeliveryPush)
+		}
+		if k.PreviewMs != 0 && (k.PreviewMs < MinPreviewMs || k.PreviewMs > MaxPreviewMs) {
+			return fmt.Errorf("connector previewMs must be 0 or %d to %d", MinPreviewMs, MaxPreviewMs)
 		}
 		if k.Page != "" {
 			ok := false
@@ -190,7 +208,7 @@ type ConnectorRequest struct {
 	// poll
 	Offset         int64 `json:"offset,omitempty"`
 	TimeoutSeconds int   `json:"timeoutSeconds,omitempty"`
-	// send, edit, typing, send_file
+	// send, edit, typing, send_file, draft
 	Chat   string `json:"chat,omitempty"`
 	Thread string `json:"thread,omitempty"`
 	// MessageID is the message that edit replaces. On send it is a message
@@ -200,6 +218,10 @@ type ConnectorRequest struct {
 	// ID, so a platform without a typing indicator need not post one.
 	MessageID string `json:"messageId,omitempty"`
 	Text      string `json:"text,omitempty"`
+	// DraftID names the draft that the op draft shows; it is not zero. The
+	// host keeps one ID for the drafts of one answer, so the platform
+	// animates each new text of the same draft.
+	DraftID int64 `json:"draftId,omitempty"`
 	// media: one reference of ConnectorMessage.Media.
 	Media string `json:"media,omitempty"`
 	// send_file: the file. Its name is SafeFileName of itself and its data

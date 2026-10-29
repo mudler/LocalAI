@@ -32,6 +32,11 @@ var _ = Describe("the connector capability", func() {
 	It("accepts a pull kind with a declared page", func() {
 		Expect(ValidateManifest(m, host())).To(Succeed())
 	})
+	It("accepts drafts and a preview interval within the bounds", func() {
+		m.Capabilities.Connector.Kinds[0].Drafts = true
+		m.Capabilities.Connector.Kinds[0].PreviewMs = MinPreviewMs
+		Expect(ValidateManifest(m, host())).To(Succeed())
+	})
 	It("lets an add-on declare nothing but the connector", func() {
 		m.Capabilities.UI = nil
 		m.Capabilities.Connector.Kinds[0].Page = ""
@@ -48,6 +53,8 @@ var _ = Describe("the connector capability", func() {
 		Entry("markup in the title", func(c *ConnectorCapability) { c.Kinds[0].Title = "<b>x</b>" }),
 		Entry("an unknown delivery", func(c *ConnectorCapability) { c.Kinds[0].Delivery = "webhook" }),
 		Entry("a page the UI does not declare", func(c *ConnectorCapability) { c.Kinds[0].Page = "other" }),
+		Entry("a preview interval too short", func(c *ConnectorCapability) { c.Kinds[0].PreviewMs = MinPreviewMs - 1 }),
+		Entry("a preview interval too long", func(c *ConnectorCapability) { c.Kinds[0].PreviewMs = MaxPreviewMs + 1 }),
 	)
 })
 

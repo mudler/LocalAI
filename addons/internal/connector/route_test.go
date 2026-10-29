@@ -74,6 +74,25 @@ func (*shouting) Media(_ context.Context, _, ref string) (contract.ConnectorFile
 	return contract.ConnectorFile{Name: ref, Data: []byte("x")}, nil
 }
 
+// rich sends answers in its markup and shows drafts.
+type rich struct {
+	script
+	richSent, richEdited, drafts []contract.ConnectorRequest
+}
+
+func (r *rich) SendRich(_ context.Context, req contract.ConnectorRequest) (string, error) {
+	r.richSent = append(r.richSent, req)
+	return "r" + req.Text[:1], nil
+}
+func (r *rich) EditRich(_ context.Context, req contract.ConnectorRequest) error {
+	r.richEdited = append(r.richEdited, req)
+	return nil
+}
+func (r *rich) Draft(_ context.Context, req contract.ConnectorRequest) error {
+	r.drafts = append(r.drafts, req)
+	return r.err
+}
+
 var _ = Describe("Serve", func() {
 	ctx := context.Background()
 	req := func(op string) contract.ConnectorRequest {
@@ -201,6 +220,45 @@ var _ = Describe("Serve", func() {
 		out, err := connector.Serve(ctx, s, req("edit"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Error.Code).To(Equal(contract.ConnectorRateLimited))
+		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+	})
+
+	It("sends an answer through the markup of a rich platform, and a preview edit as plain text", func() {
+		p := &rich{}
+		r := req("send")
+		r.MessageID = "9"
+		out, err := connector.Serve(ctx, p, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.MessageID).To(Equal("rb"))
+		Expect(p.richEdited).To(HaveLen(1))
+		Expect(p.richEdited[0].MessageID).To(Equal("9"))
+		Expect(p.richSent).To(HaveLen(1))
+		Expect(p.sent).To(BeEmpty(), "no part of an answer goes as plain text")
+		_, err = connector.Serve(ctx, p, req("edit"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.edited).To(HaveLen(1), "an edit is a preview")
+		Expect(p.richEdited).To(HaveLen(1))
+	})
+
+	It("shows a draft only on a platform that can, with a draft ID and what fits", func() {
+		p := &rich{}
+		r := req("draft")
+		r.DraftID = 7
+		_, err := connector.Serve(ctx, p, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.drafts).To(HaveLen(1))
+		Expect(p.drafts[0].Text).To(Equal("alpha"))
+		Expect(p.drafts[0].DraftID).To(Equal(int64(7)))
+		_, err = connector.Serve(ctx, &script{}, r)
+		Expect(err).To(MatchError(contract.ErrRefused), "a platform without drafts")
+		r.DraftID = 0
+		_, err = connector.Serve(ctx, p, r)
+		Expect(err).To(MatchError(contract.ErrRefused), "a draft without an ID")
+		r.DraftID, p.err = 7, &connector.RetryAfter{Seconds: 5}
+		start := time.Now()
+		out, err := connector.Serve(ctx, p, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error.Code).To(Equal(contract.ConnectorRateLimited), "a draft is not retried after a wait")
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 	})
 

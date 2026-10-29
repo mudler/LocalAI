@@ -74,6 +74,21 @@ type FileSender interface {
 	SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error)
 }
 
+// RichSender is a Platform that sends an answer in its own markup and falls
+// back to plain text itself when the platform refuses the markup. The op send
+// uses SendRich and EditRich for each part of req.Text, which is Markdown; the
+// op edit, which shows a preview, still uses Edit.
+type RichSender interface {
+	SendRich(ctx context.Context, req contract.ConnectorRequest) (string, error)
+	EditRich(ctx context.Context, req contract.ConnectorRequest) error
+}
+
+// Drafter is a Platform that shows a draft for the op draft: a preview of an
+// answer that is not a message yet. req.DraftID is not zero.
+type Drafter interface {
+	Draft(ctx context.Context, req contract.ConnectorRequest) error
+}
+
 // Splitter is a Platform that cuts its texts itself; others use Split.
 type Splitter interface {
 	Split(text string) []string
@@ -105,6 +120,15 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 		req.Text = parts[0]
 		err = p.Edit(ctx, req)
 		out.MessageID = req.MessageID
+	case contract.ConnectorOpDraft:
+		d, ok := p.(Drafter)
+		parts := parts(p, req.Text)
+		if !ok || req.DraftID == 0 || len(parts) == 0 {
+			return contract.ConnectorResponse{}, fmt.Errorf("%w: no draft, no draft ID or no text", contract.ErrRefused)
+		}
+		// Like an edit, a draft is a preview: it is not retried after a wait.
+		req.Text = parts[0]
+		err = d.Draft(ctx, req)
 	case contract.ConnectorOpTyping:
 		err = p.Typing(ctx, req)
 	case contract.ConnectorOpMe:
@@ -173,6 +197,10 @@ func validFile(f *contract.ConnectorFile) bool {
 // When the request names a message, the first part replaces it; a message
 // that cannot be edited (deleted, too old) gets the part as a new message.
 func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (string, error) {
+	sendPart, editPart := p.Send, p.Edit
+	if r, ok := p.(RichSender); ok {
+		sendPart, editPart = r.SendRich, r.EditRich
+	}
 	last := ""
 	replace := req.MessageID
 	req.MessageID = ""
@@ -183,7 +211,7 @@ func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (strin
 			e := r
 			e.MessageID = replace
 			replace = ""
-			if err := Retry(ctx, func() error { return p.Edit(ctx, e) }); err == nil {
+			if err := Retry(ctx, func() error { return editPart(ctx, e) }); err == nil {
 				last = e.MessageID
 				continue
 			} else if ctx.Err() != nil {
@@ -191,7 +219,7 @@ func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (strin
 			}
 		}
 		err := Retry(ctx, func() error {
-			id, err := p.Send(ctx, r)
+			id, err := sendPart(ctx, r)
 			if err == nil {
 				last = id
 			}
