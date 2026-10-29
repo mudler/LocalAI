@@ -105,6 +105,25 @@ func supervisor() *Supervisor {
 
 var service = contract.Capabilities{Service: true}
 
+var _ = Describe("Stopping an add-on", func() {
+	It("gives it time to release what it owns before it kills the process", func() {
+		s := supervisor()
+		p := fixture("graceful", service)
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(filepath.Join(p.Directory, "fixture.closed")).To(BeARegularFile(), "the process was killed while it was closing")
+	})
+	It("kills an add-on that ignores the closing of its startup channel, within the grace period", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("orphan", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		start := time.Now()
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(time.Since(start)).To(BeNumerically("<", 3*s.config.Limits.ShutdownTimeout))
+	})
+})
+
 var _ = Describe("Add-on output", func() {
 	It("goes to the log line by line with the add-on ID and a cap per line", func() {
 		var mu sync.Mutex

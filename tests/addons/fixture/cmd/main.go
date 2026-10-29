@@ -42,7 +42,16 @@ func main() {
 	// The "orphan" mode ignores the closing of the startup channel, as a
 	// misbehaving add-on would: only the owner's ledger can then stop it.
 	if config.Mode != "orphan" {
-		go func() { _, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent)); os.Exit(0) }()
+		go func() {
+			_, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent))
+			// The "graceful" mode needs a moment to release what it owns, as a
+			// sandbox add-on does; it records that it got to finish.
+			if config.Mode == "graceful" {
+				time.Sleep(40 * time.Millisecond)
+				_ = os.WriteFile("fixture.closed", []byte("ok"), 0600)
+			}
+			os.Exit(0)
+		}()
 	}
 	_ = os.WriteFile("fixture.pid", []byte(strconv.Itoa(os.Getpid())), 0600)
 	// The data directory the owner passed is recorded as received, so a test

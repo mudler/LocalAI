@@ -502,7 +502,17 @@ func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential str
 
 func (s *Supervisor) terminate(p *process) {
 	p.client.withdraw()
+	// Closing the startup channel is the add-on's signal to release what it
+	// owns outside its process (a sandbox add-on stops its sandboxes) and
+	// exit. Give it the shutdown period; SIGKILL cannot be caught, so a kill
+	// first would leak those resources.
 	_ = p.parent.Close()
+	grace := time.NewTimer(s.config.Limits.ShutdownTimeout)
+	select {
+	case <-p.done:
+	case <-grace.C:
+	}
+	grace.Stop()
 	// os.Process owns the OS process handle (pidfd on supported Linux). Never
 	// reconstruct a Process from a recorded numeric PID, which may be reused.
 	_ = p.cmd.Process.Kill()
