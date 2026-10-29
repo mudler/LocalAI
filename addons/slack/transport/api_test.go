@@ -103,4 +103,15 @@ var _ = Describe("the Web API client", func() {
 		_, err = api.OpenConnection(ctx, appToken)
 		Expect(err).To(MatchError(ContainSubstring("no Socket Mode address")))
 	})
+
+	It("sends the bytes of an upload only to the files host of Slack", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ok":true,"upload_url":"https://elsewhere.example/upload/F1","file_id":"F1"}`))
+		}))
+		DeferCleanup(srv.Close)
+		api := &transport.API{BaseURL: srv.URL + "/api"}
+		_, err := api.Upload(context.Background(), "xoxb-SECRET", "C1", "", "a.txt", []byte("x"))
+		Expect(err).To(MatchError(ContainSubstring("files host")))
+	})
 })

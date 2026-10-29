@@ -227,4 +227,36 @@ var _ = Describe("the connector route", func() {
 			Expect(err).To(MatchError(contract.ErrRefused))
 		}
 	})
+
+	It("posts no working message of its own while the host shows one", func() {
+		f := fake()
+		r := runtimeOf(f)
+		Expect(call(r, contract.ConnectorRequest{Op: "typing", Chat: "D1", MessageID: "5.5"}).Error).To(BeNil())
+		Expect(f.Posts(botToken)).To(BeEmpty())
+	})
+
+	It("uploads a file into the thread of the conversation", func() {
+		f := fake()
+		r := runtimeOf(f)
+		out := call(r, contract.ConnectorRequest{Op: "send_file", Chat: "C1", Thread: "7.7",
+			File: &contract.ConnectorFile{Name: "report.csv", MIME: "text/csv", Data: []byte("a,b\n1,2\n")}})
+		Expect(out.Error).To(BeNil())
+		ups := f.Uploads(botToken)
+		Expect(ups).To(HaveLen(1))
+		Expect(ups[0].Name).To(Equal("report.csv"))
+		Expect(ups[0].Title).To(Equal("report.csv"))
+		Expect(string(ups[0].Data)).To(Equal("a,b\n1,2\n"))
+		Expect([]string{ups[0].Channel, ups[0].Thread}).To(Equal([]string{"C1", "7.7"}))
+		Expect(out.MessageID).To(Equal(ups[0].ID))
+	})
+
+	It("types a refused upload and keeps the token out of it", func() {
+		f := fake()
+		r := runtimeOf(f)
+		f.Refuse(botToken, "invalid_auth")
+		out := call(r, contract.ConnectorRequest{Op: "send_file", Chat: "C1",
+			File: &contract.ConnectorFile{Name: "a.txt", Data: []byte("x")}})
+		Expect(out.Error.Code).To(Equal(contract.ConnectorUnauthorized))
+		Expect(out.Error.Message).NotTo(ContainSubstring("SECRET"))
+	})
 })

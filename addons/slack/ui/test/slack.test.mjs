@@ -39,7 +39,7 @@ test('slack: people and channels are two lists of one allowlist', () => {
 })
 
 test('slack: the app manifest turns on Socket Mode and asks for the scopes the add-on uses', () => {
-  for (const want of ['socket_mode_enabled: true', 'app_mentions:read', 'im:history', 'chat:write', 'files:read', 'users:read', 'message.im', 'app_mention']) {
+  for (const want of ['socket_mode_enabled: true', 'app_mentions:read', 'im:history', 'chat:write', 'files:read', 'files:write', 'users:read', 'message.im', 'app_mention']) {
     assert.ok(APP_MANIFEST.includes(want), want)
   }
 })

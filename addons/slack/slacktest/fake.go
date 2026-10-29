@@ -9,9 +9,11 @@ package slacktest
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -52,12 +54,24 @@ type Server struct {
 	acks     []string
 	users    map[string]map[string]any
 	files    map[string]file
+	uploads  map[string]*Upload // by file ID, from getUploadURLExternal on
 	refuse   map[string]string
 	limit    map[string]int
 	calls    map[string]int
 	seq      int
 	links    int
 	upgrader websocket.Upgrader
+}
+
+// Upload is a file that a bot uploaded with files.getUploadURLExternal and
+// shared with files.completeUploadExternal.
+type Upload struct {
+	Token, ID, Name, Title string
+	Length                 int
+	Data                   []byte
+	// Channel and Thread are set once the upload is complete.
+	Channel, Thread string
+	Complete        bool
 }
 
 type file struct {
@@ -79,11 +93,12 @@ func (c *conn) send(v any) error {
 // New starts a fake Slack. Close it when the test ends.
 func New() *Server {
 	s := &Server{apps: map[string]*App{}, tickets: map[string]string{}, conns: map[string][]*conn{}, pending: map[string][]any{},
-		users: map[string]map[string]any{}, files: map[string]file{}, refuse: map[string]string{}, limit: map[string]int{}, calls: map[string]int{}}
+		users: map[string]map[string]any{}, files: map[string]file{}, uploads: map[string]*Upload{}, refuse: map[string]string{}, limit: map[string]int{}, calls: map[string]int{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/", s.api)
 	mux.HandleFunc("/link", s.link)
 	mux.HandleFunc("/files/", s.download)
+	mux.HandleFunc("/upload/", s.upload)
 	s.srv = httptest.NewServer(mux)
 	s.URL = s.srv.URL + "/api"
 	u, _ := url.Parse(s.srv.URL)
@@ -237,6 +252,44 @@ func (s *Server) Posts(token string) []Post {
 	return out
 }
 
+// Uploads are the complete uploads of a bot token, in order.
+func (s *Server) Uploads(token string) []Upload {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Upload
+	for _, u := range s.uploadOrder() {
+		if u.Token == token && u.Complete {
+			out = append(out, *u)
+		}
+	}
+	return out
+}
+
+func (s *Server) uploadOrder() []*Upload {
+	out := make([]*Upload, 0, len(s.uploads))
+	for _, u := range s.uploads {
+		out = append(out, u)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
+
+// upload takes the bytes of a file at the address that
+// files.getUploadURLExternal gave. The address is the authority: it carries
+// no token.
+func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
+	data, _ := io.ReadAll(io.LimitReader(r.Body, 16<<20))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.uploads[strings.TrimPrefix(r.URL.Path, "/upload/")]
+	if !ok || r.Method != http.MethodPost || r.Header.Get("Authorization") != "" {
+		http.Error(w, "bad upload", http.StatusBadRequest)
+		return
+	}
+	u.Data = data
+	_, _ = w.Write([]byte("OK - " + strconv.Itoa(len(data))))
+}
+
 func (s *Server) reply(w http.ResponseWriter, v map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
@@ -332,6 +385,36 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		}
 		s.reply(w, map[string]any{"ok": true, "file": map[string]any{"id": id, "name": f.name, "mimetype": f.mime, "size": len(f.data),
 			"url_private_download": s.srv.URL + "/files/" + id}})
+	case "files.getUploadURLExternal":
+		name := r.Form.Get("filename")
+		length, err := strconv.Atoi(r.Form.Get("length"))
+		if name == "" || err != nil || length < 1 {
+			s.reply(w, map[string]any{"ok": false, "error": "invalid_arguments"})
+			return
+		}
+		s.mu.Lock()
+		s.seq++
+		id := fmt.Sprintf("FUP%06d", s.seq)
+		s.uploads[id] = &Upload{Token: token, ID: id, Name: name, Length: length}
+		s.mu.Unlock()
+		s.reply(w, map[string]any{"ok": true, "upload_url": s.srv.URL + "/upload/" + id, "file_id": id})
+	case "files.completeUploadExternal":
+		var files []struct{ ID, Title string }
+		if json.Unmarshal([]byte(r.Form.Get("files")), &files) != nil || len(files) == 0 {
+			s.reply(w, map[string]any{"ok": false, "error": "invalid_arguments"})
+			return
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		for _, f := range files {
+			u, ok := s.uploads[f.ID]
+			if !ok || u.Token != token || len(u.Data) != u.Length {
+				s.reply(w, map[string]any{"ok": false, "error": "file_not_found"})
+				return
+			}
+			u.Title, u.Channel, u.Thread, u.Complete = f.Title, r.Form.Get("channel_id"), r.Form.Get("thread_ts"), true
+		}
+		s.reply(w, map[string]any{"ok": true, "files": files})
 	default:
 		s.reply(w, map[string]any{"ok": false, "error": "unknown_method"})
 	}

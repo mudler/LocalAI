@@ -53,6 +53,7 @@ oauth_config:
       - mpim:history
       - chat:write
       - files:read
+      - files:write
       - users:read
 settings:
   event_subscriptions:

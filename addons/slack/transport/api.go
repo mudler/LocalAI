@@ -226,10 +226,10 @@ func (a *API) FileInfo(ctx context.Context, bot, id string) (File, error) {
 // ErrTooLarge means a file is larger than the add-on hands over.
 var ErrTooLarge = errors.New("slack: the file is too large")
 
-// Download reads a file of Slack, at most limit bytes. The bot token goes
-// with the request, so the address must be on the files host, over https, or
-// over the scheme of the base URL that a test sets.
-func (a *API) Download(ctx context.Context, bot, address string, limit int64) ([]byte, error) {
+// onFilesHost parses an address of a file and checks that it is on the files
+// host of Slack, over https or over the scheme of the base URL that a test
+// sets.
+func (a *API) onFilesHost(address string) (*url.URL, error) {
 	u, err := url.Parse(address)
 	host := a.FilesHost
 	if host == "" {
@@ -241,6 +241,66 @@ func (a *API) Download(ctx context.Context, bot, address string, limit int64) ([
 	}
 	if err != nil || u.Host != host || (u.Scheme != "https" && u.Scheme != scheme) || u.User != nil {
 		return nil, errors.New("slack: the file is not on the files host of Slack")
+	}
+	return u, nil
+}
+
+// Upload shares a file in a channel, in a thread when thread is set, and
+// returns the ID of the file. It takes the three steps of Slack's external
+// upload: an upload address, the bytes, and the completion that posts the
+// file. It needs the scope files:write.
+func (a *API) Upload(ctx context.Context, bot, channel, thread, name string, data []byte) (string, error) {
+	var r struct {
+		URL string `json:"upload_url"`
+		ID  string `json:"file_id"`
+	}
+	if err := a.call(ctx, bot, "files.getUploadURLExternal", url.Values{"filename": {name}, "length": {strconv.Itoa(len(data))}}, &r); err != nil {
+		return "", err
+	}
+	// The address is signed for this one upload, so the bot token does not
+	// go with the bytes.
+	u, err := a.onFilesHost(r.URL)
+	if err != nil || r.ID == "" {
+		return "", errors.New("slack: the upload address is not on the files host of Slack")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(data))
+	if err != nil {
+		return "", errors.New("slack: could not build an upload request")
+	}
+	req.Header.Set("Content-Type", "application/octet-stream")
+	resp, err := a.client().Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		return "", errors.New("slack: the file could not be uploaded")
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+	_ = resp.Body.Close()
+	switch {
+	case resp.StatusCode == http.StatusTooManyRequests:
+		return "", &connector.RetryAfter{Seconds: retryAfter(resp.Header.Get("Retry-After"))}
+	case resp.StatusCode != http.StatusOK:
+		return "", fmt.Errorf("slack: the upload answered %d", resp.StatusCode)
+	}
+	files, _ := json.Marshal([]map[string]string{{"id": r.ID, "title": name}})
+	form := url.Values{"files": {string(files)}, "channel_id": {channel}}
+	if thread != "" {
+		form.Set("thread_ts", thread)
+	}
+	if err := a.call(ctx, bot, "files.completeUploadExternal", form, nil); err != nil {
+		return "", err
+	}
+	return r.ID, nil
+}
+
+// Download reads a file of Slack, at most limit bytes. The bot token goes
+// with the request, so the address must be on the files host (see
+// onFilesHost).
+func (a *API) Download(ctx context.Context, bot, address string, limit int64) ([]byte, error) {
+	u, err := a.onFilesHost(address)
+	if err != nil {
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {

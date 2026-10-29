@@ -71,6 +71,7 @@ var (
 	_ connector.Formatter   = platform{}
 	_ connector.Splitter    = platform{}
 	_ connector.MediaReader = platform{}
+	_ connector.FileSender  = platform{}
 )
 
 func (platform) Kind() string                  { return Kind }
@@ -115,11 +116,15 @@ func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error
 }
 
 // Typing posts the "working" message of a conversation once. Slack has no
-// typing indicator for a bot; the answer replaces this message.
+// typing indicator for a bot; the answer replaces this message. When the
+// host shows its own working message (req.MessageID), there is nothing to do.
 func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) error {
 	b, err := bot(req.Token)
 	if err != nil {
 		return err
+	}
+	if req.MessageID != "" {
+		return nil
 	}
 	key := p.r.mark(req)
 	p.r.mu.Lock()
@@ -141,6 +146,15 @@ func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) err
 	}
 	p.r.working[key] = placeholder{ts: ts, at: time.Now()}
 	return nil
+}
+
+// SendFile uploads a file into the conversation and returns the file's ID.
+func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error) {
+	b, err := bot(req.Token)
+	if err != nil {
+		return "", err
+	}
+	return p.r.API.Upload(ctx, b, req.Chat, req.Thread, req.File.Name, req.File.Data)
 }
 
 // Me checks both tokens: the bot token names the bot, and the app-level token
