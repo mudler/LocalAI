@@ -5,13 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
-	"strings"
-	"testing"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 func sum(s string) string {
@@ -19,130 +18,92 @@ func sum(s string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func writeProgram(t *testing.T, dir, name, content string) {
-	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+func writeProgram(dir, name, content string) {
+	Expect(os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644)).To(Succeed())
 }
 
-func TestPackagedKVMProgramsAreCopiedAsExecutableAndUsed(t *testing.T) {
-	src, dst := t.TempDir(), filepath.Join(t.TempDir(), "kvm-bin")
-	writeProgram(t, src, "cloud-hypervisor", "chv")
-	writeProgram(t, src, "virtiofsd", "vfs")
-	pins := map[string]map[string]string{"amd64": {"cloud-hypervisor": sum("chv"), "virtiofsd": sum("vfs")}}
-	bins, err := installKVMTools(src, dst, "amd64", pins)
-	if err != nil {
-		t.Fatalf("installKVMTools: %v", err)
-	}
-	if bins.CloudHypervisor != filepath.Join(dst, "cloud-hypervisor") || bins.Virtiofsd != filepath.Join(dst, "virtiofsd") {
-		t.Fatalf("bins = %+v", bins)
-	}
-	for _, p := range []string{bins.CloudHypervisor, bins.Virtiofsd} {
-		fi, err := os.Stat(p)
-		if err != nil || fi.Mode().Perm() != 0o755 {
-			t.Errorf("%s: %v %v", p, fi, err)
+var _ = Describe("Packaged KVM programs", func() {
+	It("copies the packaged programs as executable and uses them", func() {
+		src, dst := GinkgoT().TempDir(), filepath.Join(GinkgoT().TempDir(), "kvm-bin")
+		writeProgram(src, "cloud-hypervisor", "chv")
+		writeProgram(src, "virtiofsd", "vfs")
+		pins := map[string]map[string]string{"amd64": {"cloud-hypervisor": sum("chv"), "virtiofsd": sum("vfs")}}
+		bins, err := installKVMTools(src, dst, "amd64", pins)
+		Expect(err).NotTo(HaveOccurred(), "installKVMTools")
+		Expect(bins.CloudHypervisor).To(Equal(filepath.Join(dst, "cloud-hypervisor")))
+		Expect(bins.Virtiofsd).To(Equal(filepath.Join(dst, "virtiofsd")))
+		for _, p := range []string{bins.CloudHypervisor, bins.Virtiofsd} {
+			fi, err := os.Stat(p)
+			Expect(err).NotTo(HaveOccurred(), p)
+			Expect(fi.Mode().Perm()).To(Equal(os.FileMode(0o755)), p)
 		}
-	}
-}
+	})
 
-func TestAKVMProgramThatDoesNotMatchItsPinIsNeverUsed(t *testing.T) {
-	src, dst := t.TempDir(), filepath.Join(t.TempDir(), "kvm-bin")
-	writeProgram(t, src, "cloud-hypervisor", "replaced")
-	pins := map[string]map[string]string{"amd64": {"cloud-hypervisor": sum("chv")}}
-	_, err := installKVMTools(src, dst, "amd64", pins)
-	if !errors.Is(err, sandbox.ErrUnsupported) || !strings.Contains(err.Error(), "checksum") {
-		t.Fatalf("err = %v, want ErrUnsupported naming the checksum", err)
-	}
-	if _, statErr := os.Stat(filepath.Join(dst, "cloud-hypervisor")); statErr == nil {
-		t.Error("a program that failed the check was copied")
-	}
-}
+	It("never uses a program that does not match its pin", func() {
+		src, dst := GinkgoT().TempDir(), filepath.Join(GinkgoT().TempDir(), "kvm-bin")
+		writeProgram(src, "cloud-hypervisor", "replaced")
+		pins := map[string]map[string]string{"amd64": {"cloud-hypervisor": sum("chv")}}
+		_, err := installKVMTools(src, dst, "amd64", pins)
+		Expect(err).To(MatchError(sandbox.ErrUnsupported), "want ErrUnsupported naming the checksum")
+		Expect(err).To(MatchError(ContainSubstring("checksum")))
+		_, statErr := os.Stat(filepath.Join(dst, "cloud-hypervisor"))
+		Expect(statErr).To(HaveOccurred(), "a program that failed the check was copied")
+	})
 
-func TestAMissingProgramIsLeftToTheSystemLookup(t *testing.T) {
-	src, dst := t.TempDir(), filepath.Join(t.TempDir(), "kvm-bin")
-	writeProgram(t, src, "cloud-hypervisor", "chv")
-	pins := map[string]map[string]string{"arm64": {"cloud-hypervisor": sum("chv")}}
-	bins, err := installKVMTools(src, dst, "arm64", pins)
-	if err != nil {
-		t.Fatalf("installKVMTools: %v", err)
-	}
-	if bins.Virtiofsd != "" || bins.CloudHypervisor == "" {
-		t.Fatalf("bins = %+v, want only cloud-hypervisor", bins)
-	}
-}
+	It("leaves a missing program to the system lookup", func() {
+		src, dst := GinkgoT().TempDir(), filepath.Join(GinkgoT().TempDir(), "kvm-bin")
+		writeProgram(src, "cloud-hypervisor", "chv")
+		pins := map[string]map[string]string{"arm64": {"cloud-hypervisor": sum("chv")}}
+		bins, err := installKVMTools(src, dst, "arm64", pins)
+		Expect(err).NotTo(HaveOccurred(), "installKVMTools")
+		Expect(bins.Virtiofsd).To(BeEmpty(), "want only cloud-hypervisor: %+v", bins)
+		Expect(bins.CloudHypervisor).NotTo(BeEmpty(), "want only cloud-hypervisor: %+v", bins)
+	})
 
-func TestAnArchitectureWithoutAPinRefusesAPackagedProgram(t *testing.T) {
-	src := t.TempDir()
-	writeProgram(t, src, "virtiofsd", "vfs")
-	_, err := installKVMTools(src, filepath.Join(t.TempDir(), "kvm-bin"), "riscv64", map[string]map[string]string{})
-	if !errors.Is(err, sandbox.ErrUnsupported) {
-		t.Fatalf("err = %v, want ErrUnsupported", err)
-	}
-}
+	It("refuses a packaged program for an architecture without a pin", func() {
+		src := GinkgoT().TempDir()
+		writeProgram(src, "virtiofsd", "vfs")
+		_, err := installKVMTools(src, filepath.Join(GinkgoT().TempDir(), "kvm-bin"), "riscv64", map[string]map[string]string{})
+		Expect(err).To(MatchError(sandbox.ErrUnsupported))
+	})
 
-// The values the code pins are the ones in the packaging description.
-func TestTheKVMPinsInTheCodeAreTheOnesThePackageDescribes(t *testing.T) {
-	raw, err := os.ReadFile("../../package/kvm.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var d map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &d); err != nil {
-		t.Fatal(err)
-	}
-	for _, program := range []string{"cloud-hypervisor", "virtiofsd"} {
-		var p struct {
-			Platforms map[string]struct {
-				Sha256 string `json:"sha256"`
-			} `json:"platforms"`
-		}
-		if err := json.Unmarshal(d[program], &p); err != nil {
-			t.Fatal(err)
-		}
-		for arch, want := range map[string]string{"amd64": p.Platforms["linux/amd64"].Sha256, "arm64": p.Platforms["linux/arm64"].Sha256} {
-			if kvmPins[arch][program] != want {
-				t.Errorf("%s %s: code %q, description %q", program, arch, kvmPins[arch][program], want)
+	// The values the code pins are the ones in the packaging description.
+	It("pins in the code the values that the package describes", func() {
+		raw, err := os.ReadFile("../../package/kvm.json")
+		Expect(err).NotTo(HaveOccurred())
+		var d map[string]json.RawMessage
+		Expect(json.Unmarshal(raw, &d)).To(Succeed())
+		for _, program := range []string{"cloud-hypervisor", "virtiofsd"} {
+			var p struct {
+				Platforms map[string]struct {
+					Sha256 string `json:"sha256"`
+				} `json:"platforms"`
+			}
+			Expect(json.Unmarshal(d[program], &p)).To(Succeed())
+			for arch, want := range map[string]string{"amd64": p.Platforms["linux/amd64"].Sha256, "arm64": p.Platforms["linux/arm64"].Sha256} {
+				Expect(kvmPins[arch][program]).To(Equal(want), "%s %s: code vs description", program, arch)
 			}
 		}
-	}
-}
+	})
 
-func TestNoBwrapFollowsTheVariableThenTheContainer(t *testing.T) {
-	tests := []struct {
-		name        string
-		env         string
-		set         bool
-		inContainer bool
-		want        bool
-	}{
-		{name: "variable on", env: "1", set: true, want: true},
-		{name: "variable true", env: "true", set: true, want: true},
-		{name: "variable off in a container", env: "0", set: true, inContainer: true, want: false},
-		{name: "unset in a container", inContainer: true, want: true},
-		{name: "unset on a host", want: false},
-		{name: "empty on a host", env: "", set: true, want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			lookup := func(string) (string, bool) { return tt.env, tt.set }
-			if got := noBwrap(lookup, tt.inContainer); got != tt.want {
-				t.Errorf("noBwrap = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+	DescribeTable("decides whether to skip bwrap from the variable, then the container",
+		func(env string, set, inCont, want bool) {
+			lookup := func(string) (string, bool) { return env, set }
+			Expect(noBwrap(lookup, inCont)).To(Equal(want))
+		},
+		Entry("variable on", "1", true, false, true),
+		Entry("variable true", "true", true, false, true),
+		Entry("variable off in a container", "0", true, true, false),
+		Entry("unset in a container", "", false, true, true),
+		Entry("unset on a host", "", false, false, false),
+		Entry("empty on a host", "", true, false, false),
+	)
 
-func TestAContainerIsRecognisedByItsMarkerFiles(t *testing.T) {
-	dir := t.TempDir()
-	if inContainer(filepath.Join(dir, "a"), filepath.Join(dir, "b")) {
-		t.Fatal("no marker file, yet a container")
-	}
-	marker := filepath.Join(dir, "marker")
-	if err := os.WriteFile(marker, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if !inContainer(filepath.Join(dir, "a"), marker) {
-		t.Fatal("a marker file was not recognised")
-	}
-}
+	It("recognises a container by its marker files", func() {
+		dir := GinkgoT().TempDir()
+		Expect(inContainer(filepath.Join(dir, "a"), filepath.Join(dir, "b"))).To(BeFalse(), "no marker file, yet a container")
+		marker := filepath.Join(dir, "marker")
+		Expect(os.WriteFile(marker, nil, 0o600)).To(Succeed())
+		Expect(inContainer(filepath.Join(dir, "a"), marker)).To(BeTrue(), "a marker file was not recognised")
+	})
+})
