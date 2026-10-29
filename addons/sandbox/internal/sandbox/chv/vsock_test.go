@@ -6,19 +6,19 @@ import (
 	"io"
 	"net"
 	"path/filepath"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // fakeMuxer answers the hybrid vsock handshake like Cloud Hypervisor: OK for
 // port 1024, then echo; a closed connection for any other port.
-func fakeMuxer(t *testing.T) string {
-	t.Helper()
-	sock := filepath.Join(shortDir(t), "vsock.sock")
+func fakeMuxer() string {
+	GinkgoHelper()
+	sock := filepath.Join(shortDir(), "vsock.sock")
 	l, err := net.Listen("unix", sock)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { l.Close() })
+	Expect(err).To(Succeed())
+	DeferCleanup(func() { l.Close() })
 	go func() {
 		for {
 			c, err := l.Accept()
@@ -40,20 +40,17 @@ func fakeMuxer(t *testing.T) string {
 	return sock
 }
 
-func TestDialGuest(t *testing.T) {
-	sock := fakeMuxer(t)
-	c, err := dialGuest(context.Background(), sock, 1024)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := io.WriteString(c, "ping\n"); err != nil {
-		t.Fatal(err)
-	}
-	if line, _ := bufio.NewReader(c).ReadString('\n'); line != "ping\n" {
-		t.Fatalf("echo = %q", line)
-	}
-	c.Close()
-	if _, err := dialGuest(context.Background(), sock, 2000); err == nil {
-		t.Fatal("a port without a listener connected")
-	}
-}
+var _ = Describe("dialGuest", func() {
+	It("connects to the guest port and refuses a port without a listener", func() {
+		sock := fakeMuxer()
+		c, err := dialGuest(context.Background(), sock, 1024)
+		Expect(err).To(Succeed())
+		_, err = io.WriteString(c, "ping\n")
+		Expect(err).To(Succeed())
+		line, _ := bufio.NewReader(c).ReadString('\n')
+		Expect(line).To(Equal("ping\n"), "echo")
+		c.Close()
+		_, err = dialGuest(context.Background(), sock, 2000)
+		Expect(err).To(HaveOccurred(), "a port without a listener connected")
+	})
+})

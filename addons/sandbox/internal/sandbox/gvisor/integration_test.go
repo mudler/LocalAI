@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/sbtest"
@@ -32,8 +34,7 @@ import (
 
 var cacheOnce sync.Once
 
-func testCache(t *testing.T) string {
-	t.Helper()
+func testCache() string {
 	dir := os.Getenv("SANDBOX_TEST_CACHE")
 	if dir == "" {
 		dir = filepath.Join(os.TempDir(), "sandbox-gvisor-test-cache")
@@ -42,35 +43,28 @@ func testCache(t *testing.T) string {
 	return dir
 }
 
-func testBackend(t *testing.T) *Backend {
-	t.Helper()
+func testBackend() *Backend {
 	runsc, img := os.Getenv("SANDBOX_TEST_RUNSC"), os.Getenv("SANDBOX_TEST_IMAGE")
 	if runsc == "" || img == "" {
-		t.Skip("set SANDBOX_TEST_RUNSC (runsc with gvisor-bin next to it) and SANDBOX_TEST_IMAGE (name@sha256:... or oci-layout:<dir>@sha256:...)")
+		Skip("set SANDBOX_TEST_RUNSC (runsc with gvisor-bin next to it) and SANDBOX_TEST_IMAGE (name@sha256:... or oci-layout:<dir>@sha256:...)")
 	}
-	b, err := New(Options{StateDir: shortDir(t), CacheDir: testCache(t), Runsc: runsc, DefaultImage: img})
-	if err != nil {
-		t.Fatalf("this host cannot run the backend: %v", err)
-	}
+	b, err := New(Options{StateDir: shortDir(), CacheDir: testCache(), Runsc: runsc, DefaultImage: img})
+	Expect(err).ToNot(HaveOccurred(), "this host cannot run the backend")
 	return b
 }
 
-func TestBackendSuite(t *testing.T) {
-	sbtest.RunBackendSuite(t, func(t *testing.T) sandbox.Backend { return testBackend(t) })
-}
+var _ = Describe("backend conformance suite", func() {
+	sbtest.RunBackendSuite(func() sandbox.Backend { return testBackend() })
+})
 
 // fixture creates a sandbox on a store with /proj.
-func fixture(t *testing.T, b *Backend, spec sandbox.Spec) (sandbox.Sandbox, workspace.Store) {
-	t.Helper()
+func fixture(b *Backend, spec sandbox.Spec) (sandbox.Sandbox, workspace.Store) {
 	ctx := context.Background()
-	st := sbtest.OpenStore(t)
-	if _, err := st.Mkdir(ctx, sbtest.Admin, "/proj"); err != nil {
-		t.Fatal(err)
-	}
+	st := sbtest.OpenStore()
+	_, err := st.Mkdir(ctx, sbtest.Admin, "/proj")
+	Expect(err).ToNot(HaveOccurred())
 	v, err := st.View(ctx, sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	spec.Env.Store, spec.Env.Actor, spec.View = st, sbtest.Admin, v
 	if spec.Memory == 0 {
 		spec.Memory = 1 << 30
@@ -79,80 +73,26 @@ func fixture(t *testing.T, b *Backend, spec sandbox.Spec) (sandbox.Sandbox, work
 		spec.Disk = 1 << 30
 	}
 	sb, err := b.Create(ctx, spec)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { sb.Destroy(context.Background()) })
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { sb.Destroy(context.Background()) })
 	return sb, st
 }
 
-func sh(t *testing.T, sb sandbox.Sandbox, script string) string {
-	t.Helper()
+func sh(sb sandbox.Sandbox, script string) string {
 	var out, errb bytes.Buffer
 	p, err := sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", script}, Stdout: &out, Stderr: &errb})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if code, err := p.Wait(); err != nil || code != 0 {
-		t.Fatalf("%q: %d %v\n%s%s", script, code, err, out.String(), errb.String())
-	}
+	Expect(err).ToNot(HaveOccurred())
+	code, err := p.Wait()
+	Expect(err).ToNot(HaveOccurred(), "%q: %s%s", script, out.String(), errb.String())
+	Expect(code).To(BeZero(), "%q: %s%s", script, out.String(), errb.String())
 	return out.String()
-}
-
-// TestFailedSuspendSaveKeepsTheSandboxRunning fails the save of the suspended
-// state: Suspend returns an error, the restored sandbox answers Exec, and a
-// later Suspend and Resume work.
-func TestFailedSuspendSaveKeepsTheSandboxRunning(t *testing.T) {
-	b := testBackend(t)
-	b.aliveEvery = 10 * time.Millisecond // the old instance's watcher ticks many times while the restore runs
-	sb, _ := fixture(t, b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{8080: sbtest.EchoHandler}}})
-	s := sb.(*sbx)
-	sh(t, sb, "echo before > /tmp/marker")
-	oldPid := s.in.pid
-	s.hooks.suspendSave = func() error {
-		// The save runs after "runsc checkpoint": the old runsc process is
-		// gone, or goes within moments. Wait until it is, so that a watcher of
-		// the old instance that still ran would see a dead process and mark the
-		// sandbox gone while the restore runs (the restore takes far longer than
-		// one tick).
-		deadline := time.Now().Add(30 * time.Second)
-		for pidAlive(oldPid) && time.Now().Before(deadline) {
-			time.Sleep(2 * time.Millisecond)
-		}
-		if pidAlive(oldPid) {
-			return errors.New("the old runsc process did not end")
-		}
-		return errors.New("injected save failure")
-	}
-	if _, err := sb.Suspend(context.Background()); err == nil || errors.Is(err, sandbox.ErrGone) {
-		t.Fatalf("Suspend = %v, want the injected error and no ErrGone", err)
-	}
-	if got := sh(t, sb, "cat /tmp/marker"); got != "before\n" {
-		t.Fatalf("marker after the failed suspend: %q", got)
-	}
-	s.hooks.suspendSave = nil
-	ref, err := sb.Suspend(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	rb, err := b.Resume(context.Background(), ref, s.env)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { rb.Destroy(context.Background()) })
-	if got := sh(t, rb, "cat /tmp/marker"); got != "before\n" {
-		t.Fatalf("marker after resume: %q", got)
-	}
 }
 
 // runscProcs lists the command lines of the processes that mention needle and
 // look like runsc (the sandbox, the gofer, or the runsc command itself).
-func runscProcs(t *testing.T, needle string) []string {
-	t.Helper()
+func runscProcs(needle string) []string {
 	ents, err := os.ReadDir("/proc")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	var out []string
 	for _, e := range ents {
 		if _, err := strconv.Atoi(e.Name()); err != nil {
@@ -171,89 +111,102 @@ func runscProcs(t *testing.T, needle string) []string {
 }
 
 // waitNoProcs waits until no runsc process mentions needle.
-func waitNoProcs(t *testing.T, needle string) {
-	t.Helper()
-	deadline := time.Now().Add(15 * time.Second)
-	for {
-		left := runscProcs(t, needle)
-		if len(left) == 0 {
-			return
-		}
-		if time.Now().After(deadline) {
-			t.Fatalf("processes of %s are left:\n%s", needle, strings.Join(left, "\n"))
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+func waitNoProcs(needle string) {
+	Eventually(func() []string { return runscProcs(needle) }, 15*time.Second, 100*time.Millisecond).Should(BeEmpty(), "processes of %s are left", needle)
 }
 
-// A sandbox outlives the process that started it. The next New on the same
-// StateDir stops it and removes its folder.
-func TestNewStopsASandboxThatTheBackendLeftRunning(t *testing.T) {
-	b := testBackend(t)
-	sb, _ := fixture(t, b, sandbox.Spec{})
-	id := sb.ID()
-	if len(runscProcs(t, id)) == 0 {
-		t.Fatal("the helper finds no process of the running sandbox")
-	}
-	// Drop the backend without Destroy, as a killed process would.
-	if err := b.Close(); err != nil {
-		t.Fatal(err)
-	}
-	b2, err := New(b.opts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { b2.Close() })
-	waitNoProcs(t, id)
-	if _, err := os.Stat(filepath.Join(b.opts.StateDir, id)); !os.IsNotExist(err) {
-		t.Fatalf("the folder of the old sandbox is still there: %v", err)
-	}
-}
-
-// A Create that the caller cancels while runsc starts the sandbox must not
-// leave a running sandbox behind.
-func TestACancelledCreateLeavesNoRunscProcess(t *testing.T) {
-	b := testBackend(t)
-	st := sbtest.OpenStore(t)
-	if _, err := st.Mkdir(bg(), sbtest.Admin, "/proj"); err != nil {
-		t.Fatal(err)
-	}
-	v, err := st.View(bg(), sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, d := range []time.Duration{100 * time.Millisecond, 400 * time.Millisecond, 800 * time.Millisecond, 1200 * time.Millisecond, 2 * time.Second} {
-		ctx, cancel := context.WithTimeout(bg(), d)
-		sb, err := b.Create(ctx, sandbox.Spec{View: v, Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, Memory: 1 << 30, Disk: 1 << 30})
-		cancel()
-		if err == nil {
-			sb.Destroy(bg())
+var _ = Describe("gVisor backend integration", func() {
+	// Fails the save of the suspended state: Suspend returns an error, the
+	// restored sandbox answers Exec, and a later Suspend and Resume work.
+	It("keeps the sandbox running after a failed suspend save", func() {
+		b := testBackend()
+		b.aliveEvery = 10 * time.Millisecond // the old instance's watcher ticks many times while the restore runs
+		sb, _ := fixture(b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{8080: sbtest.EchoHandler}}})
+		s := sb.(*sbx)
+		sh(sb, "echo before > /tmp/marker")
+		oldPid := s.in.pid
+		s.hooks.suspendSave = func() error {
+			// The save runs after "runsc checkpoint": the old runsc process is
+			// gone, or goes within moments. Wait until it is, so that a watcher of
+			// the old instance that still ran would see a dead process and mark the
+			// sandbox gone while the restore runs (the restore takes far longer than
+			// one tick).
+			deadline := time.Now().Add(30 * time.Second)
+			for pidAlive(oldPid) && time.Now().Before(deadline) {
+				time.Sleep(2 * time.Millisecond)
+			}
+			if pidAlive(oldPid) {
+				return errors.New("the old runsc process did not end")
+			}
+			return errors.New("injected save failure")
 		}
-		waitNoProcs(t, b.opts.StateDir)
-		if ents := sessionFolders(b.opts.StateDir); len(ents) != 0 {
-			t.Fatalf("timeout %s: folders are left in StateDir: %v", d, ents)
-		}
-	}
-}
+		_, err := sb.Suspend(context.Background())
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, sandbox.ErrGone)).To(BeFalse(), "Suspend = %v, want the injected error and no ErrGone", err)
+		Expect(sh(sb, "cat /tmp/marker")).To(Equal("before\n"), "marker after the failed suspend")
+		s.hooks.suspendSave = nil
+		ref, err := sb.Suspend(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		rb, err := b.Resume(context.Background(), ref, s.env)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { rb.Destroy(context.Background()) })
+		Expect(sh(rb, "cat /tmp/marker")).To(Equal("before\n"), "marker after resume")
+	})
 
-// A checkpoint that would stage more file bytes than the stage limit fails
-// with nothing committed and a message that names the limit. The sandbox runs
-// again, and a later checkpoint with room commits the files.
-func TestCheckpointOverTheStageLimitCommitsNothing(t *testing.T) {
-	b := testBackend(t)
-	b.opts.StageLimit = 1 << 20
-	sb, _ := fixture(t, b, sandbox.Spec{})
-	sh(t, sb, "head -c 2000000 /dev/zero > proj/big.bin")
-	cs, _, err := sb.Checkpoint(bg(), "too big")
-	if err == nil || !strings.Contains(err.Error(), "stage limit of 1048576 bytes") || cs.Rev != 0 {
-		t.Fatalf("Checkpoint = rev %d, %v", cs.Rev, err)
-	}
-	if got := sh(t, sb, "echo alive"); got != "alive\n" {
-		t.Fatalf("the sandbox does not run after the failed checkpoint: %q", got)
-	}
-	b.opts.StageLimit = 0
-	cs, _, err = sb.Checkpoint(bg(), "now it fits")
-	if err != nil || cs.Rev == 0 {
-		t.Fatalf("Checkpoint = rev %d, %v", cs.Rev, err)
-	}
-}
+	// A sandbox outlives the process that started it. The next New on the same
+	// StateDir stops it and removes its folder.
+	It("stops a sandbox that the backend left running on the next New", func() {
+		b := testBackend()
+		sb, _ := fixture(b, sandbox.Spec{})
+		id := sb.ID()
+		Expect(runscProcs(id)).ToNot(BeEmpty(), "the helper finds no process of the running sandbox")
+		// Drop the backend without Destroy, as a killed process would.
+		Expect(b.Close()).To(Succeed())
+		b2, err := New(b.opts)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { b2.Close() })
+		waitNoProcs(id)
+		_, err = os.Stat(filepath.Join(b.opts.StateDir, id))
+		Expect(os.IsNotExist(err)).To(BeTrue(), "the folder of the old sandbox is still there: %v", err)
+	})
+
+	// A Create that the caller cancels while runsc starts the sandbox must not
+	// leave a running sandbox behind.
+	It("leaves no runsc process after a cancelled Create", func() {
+		b := testBackend()
+		st := sbtest.OpenStore()
+		_, err := st.Mkdir(bg(), sbtest.Admin, "/proj")
+		Expect(err).ToNot(HaveOccurred())
+		v, err := st.View(bg(), sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
+		Expect(err).ToNot(HaveOccurred())
+		for _, d := range []time.Duration{100 * time.Millisecond, 400 * time.Millisecond, 800 * time.Millisecond, 1200 * time.Millisecond, 2 * time.Second} {
+			ctx, cancel := context.WithTimeout(bg(), d)
+			sb, err := b.Create(ctx, sandbox.Spec{View: v, Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, Memory: 1 << 30, Disk: 1 << 30})
+			cancel()
+			if err == nil {
+				sb.Destroy(bg())
+			}
+			waitNoProcs(b.opts.StateDir)
+			Expect(sessionFolders(b.opts.StateDir)).To(BeEmpty(), "timeout %s: folders are left in StateDir", d)
+		}
+	})
+
+	// A checkpoint that would stage more file bytes than the stage limit fails
+	// with nothing committed and a message that names the limit. The sandbox runs
+	// again, and a later checkpoint with room commits the files.
+	It("commits nothing for a checkpoint over the stage limit", func() {
+		b := testBackend()
+		b.opts.StageLimit = 1 << 20
+		sb, _ := fixture(b, sandbox.Spec{})
+		sh(sb, "head -c 2000000 /dev/zero > proj/big.bin")
+		cs, _, err := sb.Checkpoint(bg(), "too big")
+		Expect(err).To(HaveOccurred(), "Checkpoint = rev %d", cs.Rev)
+		Expect(err.Error()).To(ContainSubstring("stage limit of 1048576 bytes"))
+		Expect(cs.Rev).To(BeZero())
+		Expect(sh(sb, "echo alive")).To(Equal("alive\n"), "the sandbox does not run after the failed checkpoint")
+		b.opts.StageLimit = 0
+		cs, _, err = sb.Checkpoint(bg(), "now it fits")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(cs.Rev).ToNot(BeZero())
+	})
+})

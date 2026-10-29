@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"os/exec"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // allowed lists the imports outside the standard library that the non-test
@@ -19,38 +21,32 @@ var allowed = []string{
 	"github.com/Microsoft/hcsshim/ext4/tar2ext4",
 }
 
-func TestModuleImports(t *testing.T) {
-	if _, err := exec.LookPath("go"); err != nil {
-		t.Skip("go command not found") //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
-	}
-	out, err := exec.Command("go", "list", "-json", "./...").Output()
-	if err != nil {
-		t.Fatalf("go list: %v", err)
-	}
-	dec := json.NewDecoder(strings.NewReader(string(out)))
-	n := 0
-	for dec.More() {
-		var p struct {
-			ImportPath string
-			Imports    []string
+var _ = Describe("module imports", func() {
+	It("uses only the allowed imports outside the standard library", func() {
+		if _, err := exec.LookPath("go"); err != nil {
+			Skip("go command not found")
 		}
-		if err := dec.Decode(&p); err != nil {
-			t.Fatal(err)
-		}
-		n++
-		for _, imp := range p.Imports {
-			if first, _, _ := strings.Cut(imp, "/"); !strings.Contains(first, ".") {
-				continue // standard library
+		out, err := exec.Command("go", "list", "-json", "./...").Output()
+		Expect(err).To(Succeed(), "go list")
+		dec := json.NewDecoder(strings.NewReader(string(out)))
+		n := 0
+		for dec.More() {
+			var p struct {
+				ImportPath string
+				Imports    []string
 			}
-			if !allowedImport(imp) {
-				t.Errorf("%s imports %s, which is not allowed", p.ImportPath, imp)
+			Expect(dec.Decode(&p)).To(Succeed())
+			n++
+			for _, imp := range p.Imports {
+				if first, _, _ := strings.Cut(imp, "/"); !strings.Contains(first, ".") {
+					continue // standard library
+				}
+				Expect(allowedImport(imp)).To(BeTrue(), "%s imports %s, which is not allowed", p.ImportPath, imp)
 			}
 		}
-	}
-	if n == 0 {
-		t.Fatal("no packages found")
-	}
-}
+		Expect(n).NotTo(BeZero(), "no packages found")
+	})
+})
 
 func allowedImport(p string) bool {
 	for _, a := range allowed {

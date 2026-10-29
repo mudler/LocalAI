@@ -3,25 +3,25 @@ package chv
 import (
 	"os"
 	"os/exec"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func needTools(t *testing.T, tools ...string) {
-	t.Helper()
+func needTools(tools ...string) {
+	GinkgoHelper()
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool); err != nil {
-			t.Skipf("%s not found", tool) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
+			Skip(tool + " not found")
 		}
 	}
 }
 
 // shortDir is a temporary folder with a short path, for Unix sockets.
-func shortDir(t *testing.T) string {
-	t.Helper()
+func shortDir() string {
+	GinkgoHelper()
 	d, err := os.MkdirTemp("", "chv")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(d) })
+	Expect(err).To(Succeed())
+	DeferCleanup(func() { os.RemoveAll(d) })
 	return d
 }

@@ -4,18 +4,21 @@ package sbtest
 
 import (
 	"os/exec"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 )
 
-func TestSuiteWithFakeBackend(t *testing.T) {
-	for _, tool := range []string{"sh", "git"} {
-		if _, err := exec.LookPath(tool); err != nil {
-			t.Skipf("%s not found", tool)
+var _ = Describe("the conformance suite with the fake backend", func() {
+	BeforeEach(func() {
+		for _, tool := range []string{"sh", "git"} {
+			if _, err := exec.LookPath(tool); err != nil {
+				Skip(tool + " not found")
+			}
 		}
-	}
-	RunBackendSuite(t, func(t *testing.T) sandbox.Backend {
-		return NewFakeBackend(t.TempDir())
 	})
-}
+	RunBackendSuite(func() sandbox.Backend {
+		return NewFakeBackend(GinkgoT().TempDir())
+	})
+})

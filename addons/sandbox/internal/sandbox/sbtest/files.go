@@ -1,9 +1,10 @@
 package sbtest
 
 import (
-	"errors"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -16,143 +17,121 @@ func opKinds(cs workspace.ChangeSet) map[workspace.OpKind]int {
 	return out
 }
 
-func testFiles(t *testing.T, newBackend NewBackend) {
-	t.Run("a new file is in the workspace after a checkpoint", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+func testFiles(newBackend NewBackend) {
+	It("a new file is in the workspace after a checkpoint", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("echo hi > proj/new.txt")
 		cs, conflicts := f.checkpoint("turn 1")
-		if cs.Rev == 0 || cs.Title != "turn 1" || cs.Kind != workspace.ChangeAgent || cs.Actor != Agent.Principal || len(conflicts) != 0 {
-			t.Fatalf("change set = %+v, conflicts = %+v", cs, conflicts)
-		}
-		if got, _ := f.read("/proj/new.txt"); got != "hi\n" {
-			t.Fatalf("new.txt = %q", got)
-		}
+		Expect(cs.Rev).NotTo(BeZero())
+		Expect(cs.Title).To(Equal("turn 1"))
+		Expect(cs.Kind).To(Equal(workspace.ChangeAgent))
+		Expect(cs.Actor).To(Equal(Agent.Principal))
+		Expect(conflicts).To(BeEmpty())
+		got, _ := f.read("/proj/new.txt")
+		Expect(got).To(Equal("hi\n"))
 	})
-	t.Run("an existing file can be edited", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+	It("an existing file can be edited", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("echo more >> proj/notes.txt && echo b > proj/sub/a.txt")
-		if _, c := f.checkpoint("edit"); len(c) != 0 {
-			t.Fatalf("conflicts = %+v", c)
-		}
+		_, c := f.checkpoint("edit")
+		Expect(c).To(BeEmpty())
 		notes, _ := f.read("/proj/notes.txt")
 		a, _ := f.read("/proj/sub/a.txt")
-		if notes != "notes\nmore\n" || a != "b\n" {
-			t.Fatalf("notes = %q, a = %q", notes, a)
-		}
+		Expect(notes).To(Equal("notes\nmore\n"))
+		Expect(a).To(Equal("b\n"))
 	})
-	t.Run("a second edit after a checkpoint is not a conflict", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+	It("a second edit after a checkpoint is not a conflict", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("echo one >> proj/notes.txt; echo 1 > proj/n.txt")
 		f.checkpoint("one")
 		f.mustRun("echo two >> proj/notes.txt; echo 2 > proj/n.txt")
-		if _, c := f.checkpoint("two"); len(c) != 0 {
-			t.Fatalf("conflicts = %+v", c)
-		}
+		_, c := f.checkpoint("two")
+		Expect(c).To(BeEmpty())
 		notes, _ := f.read("/proj/notes.txt")
 		n, _ := f.read("/proj/n.txt")
-		if notes != "notes\none\ntwo\n" || n != "2\n" {
-			t.Fatalf("notes = %q, n = %q", notes, n)
-		}
+		Expect(notes).To(Equal("notes\none\ntwo\n"))
+		Expect(n).To(Equal("2\n"))
 	})
-	t.Run("an edit of a file another writer changed is a conflict copy", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
-		if _, err := f.store.Put(ctx(t), Admin, "/proj/old.txt", strings.NewReader("theirs\n"), workspace.PutOptions{Overwrite: true}); err != nil {
-			t.Fatal(err)
-		}
+	It("an edit of a file another writer changed is a conflict copy", func() {
+		f := setup(newBackend, nil)
+		_, err := f.store.Put(ctx(), Admin, "/proj/old.txt", strings.NewReader("theirs\n"), workspace.PutOptions{Overwrite: true})
+		Expect(err).NotTo(HaveOccurred())
 		f.mustRun("echo mine > proj/old.txt")
 		_, c := f.checkpoint("edit")
-		if len(c) != 1 || c[0].Reason != workspace.ReasonChanged || c[0].Kept == "" {
-			t.Fatalf("conflicts = %+v", c)
-		}
+		Expect(c).To(HaveLen(1))
+		Expect(c[0].Reason).To(Equal(workspace.ReasonChanged))
+		Expect(c[0].Kept).NotTo(BeEmpty())
 		theirs, _ := f.read("/proj/old.txt")
 		mine, _ := f.read(c[0].Kept)
-		if theirs != "theirs\n" || mine != "mine\n" {
-			t.Fatalf("old = %q, kept = %q", theirs, mine)
-		}
-		if _, c := f.checkpoint("again"); len(c) != 0 {
-			t.Fatalf("an unchanged file made another conflict: %+v", c)
-		}
+		Expect(theirs).To(Equal("theirs\n"))
+		Expect(mine).To(Equal("mine\n"))
+		_, c = f.checkpoint("again")
+		Expect(c).To(BeEmpty(), "an unchanged file made another conflict")
 	})
-	t.Run("a delete is a delete and a rename is one move", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+	It("a delete is a delete and a rename is one move", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("rm proj/old.txt && mv proj/sub/a.txt proj/b.txt")
 		cs, c := f.checkpoint("tidy")
-		if len(c) != 0 {
-			t.Fatalf("conflicts = %+v", c)
-		}
-		if k := opKinds(cs); k[workspace.OpDelete] != 1 || k[workspace.OpMove] != 1 || len(cs.Ops) != 2 {
-			t.Fatalf("ops = %+v", cs.Ops)
-		}
-		if _, ok := f.read("/proj/old.txt"); ok {
-			t.Fatal("old.txt survived")
-		}
-		if got, _ := f.read("/proj/b.txt"); got != "a\n" {
-			t.Fatalf("b.txt = %q", got)
-		}
+		Expect(c).To(BeEmpty())
+		k := opKinds(cs)
+		Expect(k[workspace.OpDelete]).To(Equal(1), "ops = %+v", cs.Ops)
+		Expect(k[workspace.OpMove]).To(Equal(1), "ops = %+v", cs.Ops)
+		Expect(cs.Ops).To(HaveLen(2))
+		_, ok := f.read("/proj/old.txt")
+		Expect(ok).To(BeFalse(), "old.txt survived")
+		got, _ := f.read("/proj/b.txt")
+		Expect(got).To(Equal("a\n"))
 	})
-	t.Run("a file from an earlier checkpoint can be deleted and renamed", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+	It("a file from an earlier checkpoint can be deleted and renamed", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("echo n > proj/n.txt; echo m > proj/m.txt; mkdir -p proj/new/deep; echo x > proj/new/deep/x.txt")
 		f.checkpoint("create")
 		f.mustRun("rm proj/n.txt && mv proj/m.txt proj/m2.txt && rm -r proj/new")
-		if _, c := f.checkpoint("tidy"); len(c) != 0 {
-			t.Fatalf("conflicts = %+v", c)
-		}
+		_, c := f.checkpoint("tidy")
+		Expect(c).To(BeEmpty())
 		for _, p := range []string{"/proj/n.txt", "/proj/m.txt", "/proj/new/deep/x.txt", "/proj/new"} {
-			if _, err := f.store.Stat(ctx(t), Admin, p); !errors.Is(err, workspace.ErrNotFound) {
-				t.Fatalf("%s survived: %v", p, err)
-			}
+			_, err := f.store.Stat(ctx(), Admin, p)
+			Expect(err).To(MatchError(workspace.ErrNotFound), "%s survived", p)
 		}
-		if got, _ := f.read("/proj/m2.txt"); got != "m\n" {
-			t.Fatalf("m2.txt = %q", got)
-		}
+		got, _ := f.read("/proj/m2.txt")
+		Expect(got).To(Equal("m\n"))
 	})
-	t.Run("unchanged files in a replaced folder survive the next checkpoint", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+	It("unchanged files in a replaced folder survive the next checkpoint", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("rm -r proj/sub && mkdir proj/sub && echo x > proj/sub/x.txt")
 		f.checkpoint("replace")
 		f.mustRun("echo y > proj/sub/y.txt")
-		if _, c := f.checkpoint("add"); len(c) != 0 {
-			t.Fatalf("conflicts = %+v", c)
-		}
+		_, c := f.checkpoint("add")
+		Expect(c).To(BeEmpty())
 		x, okx := f.read("/proj/sub/x.txt")
 		y, _ := f.read("/proj/sub/y.txt")
 		_, oka := f.read("/proj/sub/a.txt")
-		if !okx || x != "x\n" || y != "y\n" || oka {
-			t.Fatalf("x = %q (%v), y = %q, a.txt present = %v", x, okx, y, oka)
-		}
+		Expect(okx).To(BeTrue())
+		Expect(x).To(Equal("x\n"))
+		Expect(y).To(Equal("y\n"))
+		Expect(oka).To(BeFalse(), "a.txt present")
 	})
-	t.Run("a checkpoint without changes commits nothing", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+	It("a checkpoint without changes commits nothing", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("echo hi > proj/new.txt")
-		if cs, c := f.checkpoint("one"); cs.Rev == 0 || len(c) != 0 {
-			t.Fatalf("first checkpoint = %+v, %+v", cs, c)
-		}
-		if cs, c := f.checkpoint("two"); cs.Rev != 0 || len(c) != 0 {
-			t.Fatalf("second checkpoint = %+v, %+v", cs, c)
-		}
+		cs, c := f.checkpoint("one")
+		Expect(cs.Rev).NotTo(BeZero(), "first checkpoint = %+v", cs)
+		Expect(c).To(BeEmpty())
+		cs, c = f.checkpoint("two")
+		Expect(cs.Rev).To(BeZero(), "second checkpoint = %+v", cs)
+		Expect(c).To(BeEmpty())
 	})
-	t.Run("a failed commit keeps the changes", func(t *testing.T) {
-		f := setup(t, newBackend, nil)
+	It("a failed commit keeps the changes", func() {
+		f := setup(newBackend, nil)
 		f.mustRun("echo keep > proj/keep.txt")
-		if err := f.store.Revoke(ctx(t), Admin, Agent.Principal, "/proj"); err != nil {
-			t.Fatal(err)
-		}
-		if _, _, err := f.sb.Checkpoint(ctx(t), "denied"); err == nil {
-			t.Fatal("checkpoint without access worked")
-		}
-		if err := f.sb.Refresh(ctx(t)); err == nil {
-			t.Fatal("refresh without access worked")
-		}
-		if got := f.mustRun("cat proj/keep.txt"); got != "keep\n" {
-			t.Fatalf("keep.txt in the guest = %q", got)
-		}
-		if err := f.store.Grant(ctx(t), Admin, Agent.Principal, "/proj", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
+		Expect(f.store.Revoke(ctx(), Admin, Agent.Principal, "/proj")).To(Succeed())
+		_, _, err := f.sb.Checkpoint(ctx(), "denied")
+		Expect(err).To(HaveOccurred(), "checkpoint without access worked")
+		Expect(f.sb.Refresh(ctx())).NotTo(Succeed(), "refresh without access worked")
+		Expect(f.mustRun("cat proj/keep.txt")).To(Equal("keep\n"))
+		Expect(f.store.Grant(ctx(), Admin, Agent.Principal, "/proj", workspace.ModeWrite)).To(Succeed())
 		f.checkpoint("retry")
-		if got, _ := f.read("/proj/keep.txt"); got != "keep\n" {
-			t.Fatalf("keep.txt = %q", got)
-		}
+		got, _ := f.read("/proj/keep.txt")
+		Expect(got).To(Equal("keep\n"))
 	})
 }

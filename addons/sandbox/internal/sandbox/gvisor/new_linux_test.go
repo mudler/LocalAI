@@ -11,19 +11,18 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 )
 
 // fakeRunsc writes a shell script that answers like runsc. "--version" prints
 // version; "run" prints runOut and exits with runRC; any other command exits 0.
-func fakeRunsc(t *testing.T, dir, version, runOut string, runRC int, withBin bool) string {
-	t.Helper()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
+func fakeRunsc(dir, version, runOut string, runRC int, withBin bool) string {
+	Expect(os.MkdirAll(dir, 0o755)).To(Succeed())
 	script := "#!/bin/sh\n" +
 		"for a in \"$@\"; do\n" +
 		"  case \"$a\" in\n" +
@@ -33,275 +32,30 @@ func fakeRunsc(t *testing.T, dir, version, runOut string, runRC int, withBin boo
 		"done\n" +
 		"exit 0\n"
 	p := filepath.Join(dir, "runsc")
-	if err := os.WriteFile(p, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	Expect(os.WriteFile(p, []byte(script), 0o755)).To(Succeed())
 	if withBin {
-		if err := os.MkdirAll(filepath.Join(dir, "gvisor-bin"), 0o755); err != nil {
-			t.Fatal(err)
-		}
+		Expect(os.MkdirAll(filepath.Join(dir, "gvisor-bin"), 0o755)).To(Succeed())
 	}
 	return p
 }
 
-func opts(t *testing.T, runsc string) Options {
-	t.Helper()
-	return Options{StateDir: shortDir(t), CacheDir: t.TempDir(), Runsc: runsc}
-}
-
-func TestNewReturnsErrUnsupportedForEachFailure(t *testing.T) {
-	good := "runsc version release-20261012.0"
-	cases := []struct {
-		name  string
-		setup func(t *testing.T) Options
-		want  string // a part of the reason
-	}{
-		{"root", func(t *testing.T) Options {
-			old := geteuid
-			geteuid = func() int { return 0 }
-			t.Cleanup(func() { geteuid = old })
-			return opts(t, fakeRunsc(t, t.TempDir(), good, "", 0, true))
-		}, "must not run as root"},
-		{"runsc missing", func(t *testing.T) Options {
-			return opts(t, filepath.Join(t.TempDir(), "no-runsc"))
-		}, "runsc not found"},
-		{"old release", func(t *testing.T) Options {
-			return opts(t, fakeRunsc(t, t.TempDir(), "runsc version release-20260101.0", "", 0, true))
-		}, "older than " + MinRelease},
-		{"no release in the output", func(t *testing.T) Options {
-			return opts(t, fakeRunsc(t, t.TempDir(), "something else", "", 0, true))
-		}, "no release"},
-		{"gvisor-bin missing", func(t *testing.T) Options {
-			return opts(t, fakeRunsc(t, t.TempDir(), good, "", 0, false))
-		}, "gvisor-bin"},
-		{"AppArmor denies the user namespace", func(t *testing.T) Options {
-			return opts(t, fakeRunsc(t, t.TempDir(), good, "creating container: cannot create gofer process: gofer: fork/exec /proc/self/exe: permission denied", 128, true))
-		}, "gvisor.Profile"},
-		{"runsc cannot start a sandbox", func(t *testing.T) Options {
-			return opts(t, fakeRunsc(t, t.TempDir(), good, "boom", 1, true))
-		}, "cannot start a sandbox"},
-		{"state folder too long", func(t *testing.T) Options {
-			o := opts(t, fakeRunsc(t, t.TempDir(), good, "", 0, true))
-			o.StateDir = filepath.Join(o.StateDir, strings.Repeat("d", 80))
-			return o
-		}, "too long for socket paths"},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			_, err := New(c.setup(t))
-			if !errors.Is(err, sandbox.ErrUnsupported) {
-				t.Fatalf("err = %v, want ErrUnsupported", err)
-			}
-			if !strings.Contains(err.Error(), c.want) {
-				t.Fatalf("err = %q, want a part %q", err, c.want)
-			}
-		})
-	}
-}
-
-func TestNewAcceptsAGoodHost(t *testing.T) {
-	o := opts(t, fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true))
-	b, err := New(o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if b.runsc != o.Runsc || b.opts.ReadyTimeout == 0 {
-		t.Fatalf("backend = %+v", b)
-	}
-	// The check sandbox leaves nothing in the state folder.
-	if ents := sessionFolders(b.opts.StateDir); len(ents) != 0 {
-		t.Fatalf("New left %d session folders in StateDir", len(ents))
-	}
-	// A later release is fine too.
-	o2 := opts(t, fakeRunsc(t, t.TempDir(), "runsc version release-20270105.2", "", 0, true))
-	if _, err := New(o2); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// The supervisor starts the add-on with no PATH at all.
-func TestNewFindsTasksetWithoutAPath(t *testing.T) {
-	r := fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true)
-	t.Setenv("PATH", "")
-	if _, err := New(opts(t, r)); err != nil {
-		t.Fatalf("with no PATH: %v", err)
-	}
-}
-
-func TestNewNeedsFoldersAndTaskset(t *testing.T) {
-	if _, err := New(Options{}); err == nil || errors.Is(err, sandbox.ErrUnsupported) {
-		t.Fatalf("empty options: %v", err)
-	}
-	r := fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true)
-	old := sandbox.SystemPath
-	sandbox.SystemPath = t.TempDir() // no taskset
-	t.Cleanup(func() { sandbox.SystemPath = old })
-	if _, err := New(opts(t, r)); !errors.Is(err, sandbox.ErrUnsupported) || !strings.Contains(err.Error(), "taskset") {
-		t.Fatalf("without taskset: %v", err)
-	}
-}
-
-func TestParseReleaseAndCPUList(t *testing.T) {
-	d, m, ok := parseRelease([]byte("runsc version release-20261012.0\nspec: 1.2.1"))
-	if !ok || d != 20261012 || m != 0 {
-		t.Fatalf("release = %d.%d %v", d, m, ok)
-	}
-	if !releaseAtLeast(20261012, 0) || !releaseAtLeast(20261012, 3) || !releaseAtLeast(20270101, 0) || releaseAtLeast(20261011, 9) {
-		t.Fatal("releaseAtLeast")
-	}
-	if got := parseCPUList("0-2,5,7-8,x,9-3"); len(got) != 6 || got[0] != 0 || got[2] != 2 || got[3] != 5 || got[5] != 8 {
-		t.Fatalf("cpus = %v", got)
-	}
-}
-
-func TestPickCPUsSpreads(t *testing.T) {
-	b := &Backend{cpus: []int{4, 5, 6, 7}}
-	if a, c := b.pickCPUs(2), b.pickCPUs(2); a != "4,5" || c != "6,7" {
-		t.Fatalf("picks = %q %q", a, c)
-	}
-	if got := b.pickCPUs(2); got != "4,5" { // wraps
-		t.Fatalf("wrap = %q", got)
-	}
-	if got := b.pickCPUs(9); strings.Count(got, ",") != 3 { // never more than the host has
-		t.Fatalf("pick of 9 = %q", got)
-	}
-}
-
-func TestNewCreatesNoFolderWhenACheckFails(t *testing.T) {
-	good := "runsc version release-20261012.0"
-	root := shortDir(t)
-	for name, r := range map[string]string{
-		"missing":      filepath.Join(root, "no-runsc"),
-		"old-release":  fakeRunsc(t, filepath.Join(root, "old"), "runsc version release-20260101.0", "", 0, true),
-		"no-helpers":   fakeRunsc(t, filepath.Join(root, "nohelp"), good, "", 0, false),
-		"cannot-start": fakeRunsc(t, filepath.Join(root, "bad"), good, "boom", 1, true),
-		"denied":       fakeRunsc(t, filepath.Join(root, "denied"), good, "permission denied", 128, true),
-	} {
-		t.Run(name, func(t *testing.T) {
-			o := Options{StateDir: filepath.Join(root, "state-"+name), CacheDir: filepath.Join(root, "cache-"+name), Runsc: r}
-			if _, err := New(o); !errors.Is(err, sandbox.ErrUnsupported) {
-				t.Fatalf("err = %v, want ErrUnsupported", err)
-			}
-			for _, d := range []string{o.StateDir, o.CacheDir} {
-				if _, err := os.Stat(d); !os.IsNotExist(err) {
-					t.Errorf("%s exists after a failed check: %v", d, err)
-				}
-			}
-		})
-	}
-}
-
-func TestNewRefusesARunscPathAProfileCannotName(t *testing.T) {
-	r := fakeRunsc(t, filepath.Join(t.TempDir(), "a{b"), "runsc version release-20261012.0", "", 0, true)
-	_, err := New(opts(t, r))
-	if !errors.Is(err, sandbox.ErrUnsupported) || !strings.Contains(err.Error(), "cannot name safely") {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-func TestNewFollowsASymlinkToRunsc(t *testing.T) {
-	real := fakeRunsc(t, filepath.Join(t.TempDir(), "real"), "runsc version release-20261012.0", "", 0, true)
-	link := filepath.Join(t.TempDir(), "runsc")
-	if err := os.Symlink(real, link); err != nil {
-		t.Fatal(err)
-	}
-	b, err := New(opts(t, link))
-	if err != nil {
-		t.Fatal(err)
-	}
-	want, _ := filepath.EvalSymlinks(real)
-	if b.runsc != want {
-		t.Fatalf("runsc = %q, want %q", b.runsc, want)
-	}
-}
-
-func TestNewNeedsACPUList(t *testing.T) {
-	old := allowedCPUs
-	allowedCPUs = func() []int { return nil }
-	t.Cleanup(func() { allowedCPUs = old })
-	r := fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true)
-	_, err := New(opts(t, r))
-	if !errors.Is(err, sandbox.ErrUnsupported) || !strings.Contains(err.Error(), "CPU list") {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-func TestValidIDAndEmptyCall(t *testing.T) {
-	for _, bad := range []string{"", "-h", "--version", "check", "0123456789AB", "0123456789abc"} {
-		if validID(bad) == nil {
-			t.Errorf("%q accepted", bad)
-		}
-	}
-	if err := validID("0123456789ab"); err != nil {
-		t.Fatal(err)
-	}
-	b := &Backend{runsc: "/bin/true"}
-	ctx := context.Background()
-	if _, err := b.start(ctx, t.TempDir(), "--x", 1, "run"); err == nil {
-		t.Error("start accepted a flag as id")
-	}
-	if _, err := b.usage(ctx, "/r", "--x"); err == nil {
-		t.Error("usage accepted a flag as id")
-	}
-	if err := b.deleteForce(ctx, "/r", "--x"); err == nil {
-		t.Error("deleteForce accepted a flag as id")
-	}
-	if _, err := b.call(ctx, "/r"); err == nil {
-		t.Error("call accepted no command")
-	}
-}
-
-func TestFailedProbeDeletesTheProbeSandbox(t *testing.T) {
-	dir := t.TempDir()
-	logf := filepath.Join(dir, "calls.log")
-	script := "#!/bin/sh\nfor a in \"$@\"; do\n case \"$a\" in\n --version) echo 'runsc version release-20261012.0'; exit 0;;\n run) echo boom; echo run >> " + logf + "; exit 1;;\n delete) echo delete >> " + logf + "; exit 0;;\n esac\ndone\nexit 0\n"
-	if err := os.WriteFile(filepath.Join(dir, "runsc"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(dir, "gvisor-bin"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := New(opts(t, filepath.Join(dir, "runsc"))); !errors.Is(err, sandbox.ErrUnsupported) {
-		t.Fatalf("err = %v", err)
-	}
-	got, _ := os.ReadFile(logf)
-	if string(got) != "run\ndelete\n" {
-		t.Fatalf("calls = %q", got)
-	}
-}
-
-func TestGlobalFlags(t *testing.T) {
-	got := globalFlags("/r")
-	want := []string{"--directfs=false", "--host-uds=all", "--overlay2=root:memory", "--root=/r", "--ignore-cgroups", "--network=none"}
-	if strings.Join(got, " ") != strings.Join(want, " ") {
-		t.Fatalf("flags = %v, want %v", got, want)
-	}
-	for _, f := range got {
-		if f == "--rootless" || strings.HasPrefix(f, "--overlay2=all") {
-			t.Errorf("forbidden flag %s", f)
-		}
-	}
+func opts(runsc string) Options {
+	return Options{StateDir: shortDir(), CacheDir: GinkgoT().TempDir(), Runsc: runsc}
 }
 
 // loggingRunsc is a fake runsc that answers like a healthy one and appends
 // every "delete" call to calls.log as "delete <root flag> <last argument>".
-func loggingRunsc(t *testing.T, dir string) (runsc, logPath string) {
-	t.Helper()
+func loggingRunsc(dir string) (runsc, logPath string) {
 	logPath = filepath.Join(dir, "calls.log")
 	script := "#!/bin/sh\nroot=\nverb=\nfor a in \"$@\"; do\n case \"$a\" in\n --version) echo 'runsc version release-20261012.0'; exit 0;;\n --root=*) root=\"$a\";;\n run|delete|restore) [ -z \"$verb\" ] && verb=\"$a\";;\n esac\n last=\"$a\"\ndone\n" +
 		"echo \"$verb $root $last\" >> " + logPath + "\nexit ${FAKE_RUNSC_RC:-0}\n"
-	if err := os.MkdirAll(filepath.Join(dir, "gvisor-bin"), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	Expect(os.MkdirAll(filepath.Join(dir, "gvisor-bin"), 0o755)).To(Succeed())
 	runsc = filepath.Join(dir, "runsc")
-	if err := os.WriteFile(runsc, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	Expect(os.WriteFile(runsc, []byte(script), 0o755)).To(Succeed())
 	return runsc, logPath
 }
 
-func readLog(t *testing.T, p string) []string {
-	t.Helper()
+func readLog(p string) []string {
 	b, err := os.ReadFile(p)
 	if err != nil {
 		return nil
@@ -309,285 +63,412 @@ func readLog(t *testing.T, p string) []string {
 	return strings.Split(strings.TrimSpace(string(b)), "\n")
 }
 
-func TestNewTakesAnExclusiveLockOnStateDir(t *testing.T) {
-	r := fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true)
-	o := opts(t, r)
-	b, err := New(o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// A second backend on the same folder, in this process, is refused with a
-	// plain error that says why.
-	o2 := o
-	o2.CacheDir = t.TempDir()
-	_, err = New(o2)
-	if err == nil || errors.Is(err, sandbox.ErrUnsupported) || !strings.Contains(err.Error(), "in use by another backend") {
-		t.Fatalf("second New: %v", err)
-	}
-	if err := b.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := b.Close(); err != nil {
-		t.Fatalf("second Close: %v", err)
-	}
-	b2, err := New(o2)
-	if err != nil {
-		t.Fatalf("New after Close: %v", err)
-	}
-	b2.Close()
-}
-
-func TestNewRefusesANegativeStageLimit(t *testing.T) {
-	o := opts(t, fakeRunsc(t, t.TempDir(), "runsc version release-20261012.0", "", 0, true))
-	o.StageLimit = -1
-	if _, err := New(o); err == nil || !strings.Contains(err.Error(), "StageLimit") {
-		t.Fatalf("err = %v", err)
-	}
-}
-
-// Nobody owns a suspended sandbox of an earlier process: the manager that
-// held its reference is gone, so its checkpoint would stay for ever.
-func TestNewRemovesTheSuspendedSandboxesOfAnEarlierProcess(t *testing.T) {
-	r, _ := loggingRunsc(t, t.TempDir())
-	o := opts(t, r)
-	d := filepath.Join(o.StateDir, "bbbbbbbbbbbb")
-	if err := os.MkdirAll(filepath.Join(d, "runsc"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := (&state{Suspended: true}).save(d); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Mkdir(filepath.Join(d, "checkpoint"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	b, err := New(o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { b.Close() })
-	if _, err := os.Stat(d); !os.IsNotExist(err) {
-		t.Errorf("the suspended folder is still there: %v", err)
-	}
-}
-
-func TestNewStopsTheSandboxesOfAnEarlierProcess(t *testing.T) {
-	r, calls := loggingRunsc(t, t.TempDir())
-	o := opts(t, r)
-	o.KeepSuspended = true
-	mk := func(id string, st *state) string {
-		d := filepath.Join(o.StateDir, id)
-		if err := os.MkdirAll(filepath.Join(d, "runsc"), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if st != nil {
-			if err := st.save(d); err != nil {
-				t.Fatal(err)
-			}
-		}
-		return d
-	}
-	running := mk("aaaaaaaaaaaa", &state{})
-	noState := mk("cccccccccccc", nil)
-	corrupt := mk("dddddddddddd", nil)
-	if err := os.WriteFile(filepath.Join(corrupt, "state.json"), []byte("{not json"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	suspended := mk("bbbbbbbbbbbb", &state{Suspended: true})
-	if err := os.Mkdir(filepath.Join(suspended, "checkpoint"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	other := filepath.Join(o.StateDir, "not-a-session")
-	if err := os.Mkdir(other, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	b, err := New(o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { b.Close() })
-	for _, d := range []string{running, noState, corrupt} {
-		if _, err := os.Stat(d); !os.IsNotExist(err) {
-			t.Errorf("%s is still there: %v", filepath.Base(d), err)
-		}
-	}
-	for _, d := range []string{suspended, filepath.Join(suspended, "checkpoint"), other} {
-		if _, err := os.Stat(d); err != nil {
-			t.Errorf("%s was removed: %v", filepath.Base(d), err)
-		}
-	}
-	got := strings.Join(readLog(t, calls), "\n")
-	for _, d := range []string{running, noState, corrupt} {
-		want := "delete --root=" + filepath.Join(d, "runsc") + " " + filepath.Base(d)
-		if !strings.Contains(got, want) {
-			t.Errorf("no %q in the calls:\n%s", want, got)
-		}
-	}
-	if strings.Contains(got, "bbbbbbbbbbbb") {
-		t.Errorf("the suspended sandbox was deleted:\n%s", got)
-	}
-}
-
-func TestNewKeepsAFolderWhoseSandboxCannotBeStopped(t *testing.T) {
-	r, _ := loggingRunsc(t, t.TempDir())
-	o := opts(t, r)
-	d := filepath.Join(o.StateDir, "aaaaaaaaaaaa")
-	if err := os.MkdirAll(filepath.Join(d, "runsc"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	// The probe of New runs "run", and the delete after it: both succeed, so
-	// make the delete of the old folder fail only.
-	script := "#!/bin/sh\ncase \"$*\" in\n *--version*) echo 'runsc version release-20261012.0'; exit 0;;\n *aaaaaaaaaaaa*) echo cannot; exit 1;;\nesac\nexit 0\n"
-	if err := os.WriteFile(r, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	b, err := New(o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer b.Close()
-	if _, err := os.Stat(d); err != nil {
-		t.Fatalf("the folder was removed although its sandbox may still run: %v", err)
-	}
-}
-
 // bootFixture is a sandbox handle that has never been created by Create, on a
 // fake runsc, for the paths that need no image.
-func bootFixture(t *testing.T, r string) *sbx {
-	t.Helper()
+func bootFixture(r string) *sbx {
 	cpus := allowedCPUs()
 	taskset, err := exec.LookPath("taskset")
 	if err != nil || len(cpus) == 0 {
-		t.Skip("needs taskset")
+		Skip("needs taskset")
 	}
-	b := &Backend{opts: Options{StateDir: shortDir(t)}, runsc: r, taskset: taskset, cpus: cpus, aliveEvery: time.Hour, memEvery: time.Hour, diskEvery: time.Hour}
+	b := &Backend{opts: Options{StateDir: shortDir()}, runsc: r, taskset: taskset, cpus: cpus, aliveEvery: time.Hour, memEvery: time.Hour, diskEvery: time.Hour}
 	dir := filepath.Join(b.opts.StateDir, "eeeeeeeeeeee")
 	for _, d := range []string{"upper", "ctl", "runsc"} {
-		if err := os.MkdirAll(filepath.Join(dir, d), 0o700); err != nil {
-			t.Fatal(err)
-		}
+		Expect(os.MkdirAll(filepath.Join(dir, d), 0o700)).To(Succeed())
 	}
 	return &sbx{b: b, id: "eeeeeeeeeeee", dir: dir, st: state{CPUs: 1, Memory: 1 << 30, Disk: 1 << 30}}
 }
 
-func TestAFailedStartDeletesTheRunscSandboxEvenWithACancelledContext(t *testing.T) {
-	r, calls := loggingRunsc(t, t.TempDir())
-	s := bootFixture(t, r)
-	t.Setenv("FAKE_RUNSC_RC", "1") // "run" fails after runsc forked the sandbox
-	if err := s.boot(context.Background()); err == nil {
-		t.Fatal("boot succeeded")
-	}
-	// delete (stale state), run, delete (cleanup after the failure).
-	got := readLog(t, calls)
-	if len(got) != 3 || !strings.HasPrefix(got[0], "delete ") || !strings.HasPrefix(got[1], "run ") || !strings.HasPrefix(got[2], "delete ") {
-		t.Fatalf("calls = %q", got)
-	}
-	// A cancelled context never starts runsc, but the cleanup still runs.
-	if err := os.Remove(calls); err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if err := s.boot(ctx); err == nil {
-		t.Fatal("boot with a cancelled context succeeded")
-	}
-	got = readLog(t, calls)
-	if len(got) != 1 || !strings.HasPrefix(got[0], "delete --root="+s.runscRoot()+" "+s.id) {
-		t.Fatalf("calls after a cancelled boot = %q", got)
-	}
-}
+const goodRelease = "runsc version release-20261012.0"
 
-func TestDestroyOfAHandleWithoutAnInstanceDeletesTheRunscSandbox(t *testing.T) {
-	r, calls := loggingRunsc(t, t.TempDir())
-	s := bootFixture(t, r)
-	if err := s.Destroy(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	got := readLog(t, calls)
-	if len(got) != 1 || !strings.HasPrefix(got[0], "delete --root="+s.runscRoot()+" "+s.id) {
-		t.Fatalf("calls = %q", got)
-	}
-	if _, err := os.Stat(s.dir); !os.IsNotExist(err) {
-		t.Fatalf("the folder is still there: %v", err)
-	}
-}
+var _ = Describe("New", func() {
+	DescribeTable("returns ErrUnsupported for each failure",
+		func(setup func() Options, want string) {
+			_, err := New(setup())
+			Expect(err).To(MatchError(sandbox.ErrUnsupported))
+			Expect(err.Error()).To(ContainSubstring(want), "want a part of the reason")
+		},
+		Entry("root", func() Options {
+			old := geteuid
+			geteuid = func() int { return 0 }
+			DeferCleanup(func() { geteuid = old })
+			return opts(fakeRunsc(GinkgoT().TempDir(), goodRelease, "", 0, true))
+		}, "must not run as root"),
+		Entry("runsc missing", func() Options {
+			return opts(filepath.Join(GinkgoT().TempDir(), "no-runsc"))
+		}, "runsc not found"),
+		Entry("old release", func() Options {
+			return opts(fakeRunsc(GinkgoT().TempDir(), "runsc version release-20260101.0", "", 0, true))
+		}, "older than "+MinRelease),
+		Entry("no release in the output", func() Options {
+			return opts(fakeRunsc(GinkgoT().TempDir(), "something else", "", 0, true))
+		}, "no release"),
+		Entry("gvisor-bin missing", func() Options {
+			return opts(fakeRunsc(GinkgoT().TempDir(), goodRelease, "", 0, false))
+		}, "gvisor-bin"),
+		Entry("AppArmor denies the user namespace", func() Options {
+			return opts(fakeRunsc(GinkgoT().TempDir(), goodRelease, "creating container: cannot create gofer process: gofer: fork/exec /proc/self/exe: permission denied", 128, true))
+		}, "gvisor.Profile"),
+		Entry("runsc cannot start a sandbox", func() Options {
+			return opts(fakeRunsc(GinkgoT().TempDir(), goodRelease, "boom", 1, true))
+		}, "cannot start a sandbox"),
+		Entry("state folder too long", func() Options {
+			o := opts(fakeRunsc(GinkgoT().TempDir(), goodRelease, "", 0, true))
+			o.StateDir = filepath.Join(o.StateDir, strings.Repeat("d", 80))
+			return o
+		}, "too long for socket paths"),
+	)
 
-func TestTheProbeLiesBesideStateDirAndNamesItInTheError(t *testing.T) {
-	root := shortDir(t)
-	r := fakeRunsc(t, filepath.Join(root, "bin"), "runsc version release-20261012.0", "boom", 1, true)
-	o := Options{StateDir: filepath.Join(root, "state"), CacheDir: filepath.Join(root, "cache"), Runsc: r}
-	_, err := New(o)
-	if err == nil || !strings.Contains(err.Error(), "check folder "+root+"/.gvcheck-") {
-		t.Fatalf("err = %v", err)
-	}
-	ents, _ := os.ReadDir(root)
-	for _, e := range ents {
-		if strings.HasPrefix(e.Name(), ".gvcheck-") {
-			t.Errorf("the probe folder %s was left", e.Name())
-		}
-	}
-}
+	It("accepts a good host", func() {
+		o := opts(fakeRunsc(GinkgoT().TempDir(), "runsc version release-20261012.0", "", 0, true))
+		b, err := New(o)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(b.runsc).To(Equal(o.Runsc))
+		Expect(b.opts.ReadyTimeout).ToNot(BeZero())
+		// The check sandbox leaves nothing in the state folder.
+		Expect(sessionFolders(b.opts.StateDir)).To(BeEmpty(), "New left session folders in StateDir")
+		// A later release is fine too.
+		o2 := opts(fakeRunsc(GinkgoT().TempDir(), "runsc version release-20270105.2", "", 0, true))
+		_, err = New(o2)
+		Expect(err).ToNot(HaveOccurred())
+	})
 
-// Destroy waits for the folder lock without mu, so a call on the handle
-// returns ErrGone at once and does not queue behind a slow lock holder.
-func TestDestroyWaitsForTheFolderLockWithoutHoldingMu(t *testing.T) {
-	r, _ := loggingRunsc(t, t.TempDir())
-	s := bootFixture(t, r)
-	hold, err := lockFile(context.Background(), filepath.Join(s.dir, "lock"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer hold()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- s.Destroy(ctx) }()
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		if s.mu.TryRLock() {
-			gone := s.gone
-			s.mu.RUnlock()
-			if gone {
-				break
+	// The supervisor starts the add-on with no PATH at all.
+	It("finds taskset without a PATH", func() {
+		r := fakeRunsc(GinkgoT().TempDir(), "runsc version release-20261012.0", "", 0, true)
+		GinkgoT().Setenv("PATH", "")
+		_, err := New(opts(r))
+		Expect(err).ToNot(HaveOccurred(), "with no PATH")
+	})
+
+	It("needs folders and taskset", func() {
+		_, err := New(Options{})
+		Expect(err).To(HaveOccurred(), "empty options")
+		Expect(errors.Is(err, sandbox.ErrUnsupported)).To(BeFalse(), "empty options: %v", err)
+		r := fakeRunsc(GinkgoT().TempDir(), "runsc version release-20261012.0", "", 0, true)
+		old := sandbox.SystemPath
+		sandbox.SystemPath = GinkgoT().TempDir() // no taskset
+		DeferCleanup(func() { sandbox.SystemPath = old })
+		_, err = New(opts(r))
+		Expect(err).To(MatchError(sandbox.ErrUnsupported), "without taskset")
+		Expect(err.Error()).To(ContainSubstring("taskset"))
+	})
+
+	DescribeTable("creates no folder when a check fails",
+		func(mk func(root string) string, name string) {
+			root := shortDir()
+			r := mk(root)
+			o := Options{StateDir: filepath.Join(root, "state-"+name), CacheDir: filepath.Join(root, "cache-"+name), Runsc: r}
+			_, err := New(o)
+			Expect(err).To(MatchError(sandbox.ErrUnsupported))
+			for _, d := range []string{o.StateDir, o.CacheDir} {
+				_, err := os.Stat(d)
+				Expect(os.IsNotExist(err)).To(BeTrue(), "%s exists after a failed check: %v", d, err)
 			}
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("Destroy holds mu while it waits for the folder lock")
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	if _, err := s.Exec(context.Background(), sandbox.Cmd{Args: []string{"true"}}); !errors.Is(err, sandbox.ErrGone) {
-		t.Fatalf("Exec during Destroy: %v", err)
-	}
-	if err := <-done; !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("Destroy = %v, want the deadline of its context", err)
-	}
-}
+		},
+		Entry("missing", func(root string) string { return filepath.Join(root, "no-runsc") }, "missing"),
+		Entry("old-release", func(root string) string {
+			return fakeRunsc(filepath.Join(root, "old"), "runsc version release-20260101.0", "", 0, true)
+		}, "old-release"),
+		Entry("no-helpers", func(root string) string {
+			return fakeRunsc(filepath.Join(root, "nohelp"), goodRelease, "", 0, false)
+		}, "no-helpers"),
+		Entry("cannot-start", func(root string) string {
+			return fakeRunsc(filepath.Join(root, "bad"), goodRelease, "boom", 1, true)
+		}, "cannot-start"),
+		Entry("denied", func(root string) string {
+			return fakeRunsc(filepath.Join(root, "denied"), goodRelease, "permission denied", 128, true)
+		}, "denied"),
+	)
 
-// A guest agent that does not answer must not hold Suspend (and with it mu)
-// until the deadline of the caller.
-func TestAgentCallIsBounded(t *testing.T) {
-	r, _ := loggingRunsc(t, t.TempDir())
-	s := bootFixture(t, r)
-	l, err := net.Listen("unix", s.agentSock())
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
-	go func() {
-		for {
-			c, err := l.Accept()
-			if err != nil {
-				return
+	It("refuses a runsc path a profile cannot name", func() {
+		r := fakeRunsc(filepath.Join(GinkgoT().TempDir(), "a{b"), "runsc version release-20261012.0", "", 0, true)
+		_, err := New(opts(r))
+		Expect(err).To(MatchError(sandbox.ErrUnsupported))
+		Expect(err.Error()).To(ContainSubstring("cannot name safely"))
+	})
+
+	It("follows a symlink to runsc", func() {
+		real := fakeRunsc(filepath.Join(GinkgoT().TempDir(), "real"), "runsc version release-20261012.0", "", 0, true)
+		link := filepath.Join(GinkgoT().TempDir(), "runsc")
+		Expect(os.Symlink(real, link)).To(Succeed())
+		b, err := New(opts(link))
+		Expect(err).ToNot(HaveOccurred())
+		want, _ := filepath.EvalSymlinks(real)
+		Expect(b.runsc).To(Equal(want))
+	})
+
+	It("needs a CPU list", func() {
+		old := allowedCPUs
+		allowedCPUs = func() []int { return nil }
+		DeferCleanup(func() { allowedCPUs = old })
+		r := fakeRunsc(GinkgoT().TempDir(), "runsc version release-20261012.0", "", 0, true)
+		_, err := New(opts(r))
+		Expect(err).To(MatchError(sandbox.ErrUnsupported))
+		Expect(err.Error()).To(ContainSubstring("CPU list"))
+	})
+
+	It("deletes the probe sandbox when the probe fails", func() {
+		dir := GinkgoT().TempDir()
+		logf := filepath.Join(dir, "calls.log")
+		script := "#!/bin/sh\nfor a in \"$@\"; do\n case \"$a\" in\n --version) echo 'runsc version release-20261012.0'; exit 0;;\n run) echo boom; echo run >> " + logf + "; exit 1;;\n delete) echo delete >> " + logf + "; exit 0;;\n esac\ndone\nexit 0\n"
+		Expect(os.WriteFile(filepath.Join(dir, "runsc"), []byte(script), 0o755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Join(dir, "gvisor-bin"), 0o755)).To(Succeed())
+		_, err := New(opts(filepath.Join(dir, "runsc")))
+		Expect(err).To(MatchError(sandbox.ErrUnsupported))
+		got, _ := os.ReadFile(logf)
+		Expect(string(got)).To(Equal("run\ndelete\n"), "calls")
+	})
+
+	It("takes an exclusive lock on StateDir", func() {
+		r := fakeRunsc(GinkgoT().TempDir(), "runsc version release-20261012.0", "", 0, true)
+		o := opts(r)
+		b, err := New(o)
+		Expect(err).ToNot(HaveOccurred())
+		// A second backend on the same folder, in this process, is refused with a
+		// plain error that says why.
+		o2 := o
+		o2.CacheDir = GinkgoT().TempDir()
+		_, err = New(o2)
+		Expect(err).To(HaveOccurred(), "second New")
+		Expect(errors.Is(err, sandbox.ErrUnsupported)).To(BeFalse(), "second New: %v", err)
+		Expect(err.Error()).To(ContainSubstring("in use by another backend"))
+		Expect(b.Close()).To(Succeed())
+		Expect(b.Close()).To(Succeed(), "second Close")
+		b2, err := New(o2)
+		Expect(err).ToNot(HaveOccurred(), "New after Close")
+		b2.Close()
+	})
+
+	It("refuses a negative stage limit", func() {
+		o := opts(fakeRunsc(GinkgoT().TempDir(), "runsc version release-20261012.0", "", 0, true))
+		o.StageLimit = -1
+		_, err := New(o)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("StageLimit"))
+	})
+
+	// Nobody owns a suspended sandbox of an earlier process: the manager that
+	// held its reference is gone, so its checkpoint would stay for ever.
+	It("removes the suspended sandboxes of an earlier process", func() {
+		r, _ := loggingRunsc(GinkgoT().TempDir())
+		o := opts(r)
+		d := filepath.Join(o.StateDir, "bbbbbbbbbbbb")
+		Expect(os.MkdirAll(filepath.Join(d, "runsc"), 0o700)).To(Succeed())
+		Expect((&state{Suspended: true}).save(d)).To(Succeed())
+		Expect(os.Mkdir(filepath.Join(d, "checkpoint"), 0o700)).To(Succeed())
+		b, err := New(o)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { b.Close() })
+		_, err = os.Stat(d)
+		Expect(os.IsNotExist(err)).To(BeTrue(), "the suspended folder is still there: %v", err)
+	})
+
+	It("stops the sandboxes of an earlier process", func() {
+		r, calls := loggingRunsc(GinkgoT().TempDir())
+		o := opts(r)
+		o.KeepSuspended = true
+		mk := func(id string, st *state) string {
+			d := filepath.Join(o.StateDir, id)
+			Expect(os.MkdirAll(filepath.Join(d, "runsc"), 0o700)).To(Succeed())
+			if st != nil {
+				Expect(st.save(d)).To(Succeed())
 			}
-			defer c.Close() // never answers
+			return d
 		}
-	}()
-	old := agentCallBudget
-	agentCallBudget = 100 * time.Millisecond
-	defer func() { agentCallBudget = old }()
-	start := time.Now()
-	err = s.call(context.Background(), "detach")
-	if !errors.Is(err, context.DeadlineExceeded) || time.Since(start) > 5*time.Second {
-		t.Fatalf("call = %v after %s", err, time.Since(start))
-	}
-}
+		running := mk("aaaaaaaaaaaa", &state{})
+		noState := mk("cccccccccccc", nil)
+		corrupt := mk("dddddddddddd", nil)
+		Expect(os.WriteFile(filepath.Join(corrupt, "state.json"), []byte("{not json"), 0o600)).To(Succeed())
+		suspended := mk("bbbbbbbbbbbb", &state{Suspended: true})
+		Expect(os.Mkdir(filepath.Join(suspended, "checkpoint"), 0o700)).To(Succeed())
+		other := filepath.Join(o.StateDir, "not-a-session")
+		Expect(os.Mkdir(other, 0o700)).To(Succeed())
+		b, err := New(o)
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { b.Close() })
+		for _, d := range []string{running, noState, corrupt} {
+			_, err := os.Stat(d)
+			Expect(os.IsNotExist(err)).To(BeTrue(), "%s is still there: %v", filepath.Base(d), err)
+		}
+		for _, d := range []string{suspended, filepath.Join(suspended, "checkpoint"), other} {
+			_, err := os.Stat(d)
+			Expect(err).ToNot(HaveOccurred(), "%s was removed", filepath.Base(d))
+		}
+		got := strings.Join(readLog(calls), "\n")
+		for _, d := range []string{running, noState, corrupt} {
+			want := "delete --root=" + filepath.Join(d, "runsc") + " " + filepath.Base(d)
+			Expect(got).To(ContainSubstring(want), "no %q in the calls", want)
+		}
+		Expect(got).ToNot(ContainSubstring("bbbbbbbbbbbb"), "the suspended sandbox was deleted")
+	})
+
+	It("keeps a folder whose sandbox cannot be stopped", func() {
+		r, _ := loggingRunsc(GinkgoT().TempDir())
+		o := opts(r)
+		d := filepath.Join(o.StateDir, "aaaaaaaaaaaa")
+		Expect(os.MkdirAll(filepath.Join(d, "runsc"), 0o700)).To(Succeed())
+		// The probe of New runs "run", and the delete after it: both succeed, so
+		// make the delete of the old folder fail only.
+		script := "#!/bin/sh\ncase \"$*\" in\n *--version*) echo 'runsc version release-20261012.0'; exit 0;;\n *aaaaaaaaaaaa*) echo cannot; exit 1;;\nesac\nexit 0\n"
+		Expect(os.WriteFile(r, []byte(script), 0o755)).To(Succeed())
+		b, err := New(o)
+		Expect(err).ToNot(HaveOccurred())
+		defer b.Close()
+		_, err = os.Stat(d)
+		Expect(err).ToNot(HaveOccurred(), "the folder was removed although its sandbox may still run")
+	})
+
+	It("puts the probe beside StateDir and names it in the error", func() {
+		root := shortDir()
+		r := fakeRunsc(filepath.Join(root, "bin"), "runsc version release-20261012.0", "boom", 1, true)
+		o := Options{StateDir: filepath.Join(root, "state"), CacheDir: filepath.Join(root, "cache"), Runsc: r}
+		_, err := New(o)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("check folder " + root + "/.gvcheck-"))
+		ents, _ := os.ReadDir(root)
+		for _, e := range ents {
+			Expect(e.Name()).ToNot(HavePrefix(".gvcheck-"), "the probe folder was left")
+		}
+	})
+})
+
+var _ = Describe("parsing and picking", func() {
+	It("parses the release and the CPU list", func() {
+		d, m, ok := parseRelease([]byte("runsc version release-20261012.0\nspec: 1.2.1"))
+		Expect(ok).To(BeTrue())
+		Expect(d).To(Equal(20261012))
+		Expect(m).To(Equal(0))
+		Expect(releaseAtLeast(20261012, 0)).To(BeTrue())
+		Expect(releaseAtLeast(20261012, 3)).To(BeTrue())
+		Expect(releaseAtLeast(20270101, 0)).To(BeTrue())
+		Expect(releaseAtLeast(20261011, 9)).To(BeFalse())
+		got := parseCPUList("0-2,5,7-8,x,9-3")
+		Expect(got).To(HaveLen(6), "cpus = %v", got)
+		Expect(got[0]).To(Equal(0))
+		Expect(got[2]).To(Equal(2))
+		Expect(got[3]).To(Equal(5))
+		Expect(got[5]).To(Equal(8))
+	})
+
+	It("spreads the CPU picks", func() {
+		b := &Backend{cpus: []int{4, 5, 6, 7}}
+		a, c := b.pickCPUs(2), b.pickCPUs(2)
+		Expect(a).To(Equal("4,5"))
+		Expect(c).To(Equal("6,7"))
+		Expect(b.pickCPUs(2)).To(Equal("4,5"), "wrap")
+		Expect(strings.Count(b.pickCPUs(9), ",")).To(Equal(3), "never more than the host has")
+	})
+
+	It("validates ids and rejects empty calls", func() {
+		for _, bad := range []string{"", "-h", "--version", "check", "0123456789AB", "0123456789abc"} {
+			Expect(validID(bad)).ToNot(BeNil(), "%q accepted", bad)
+		}
+		Expect(validID("0123456789ab")).To(Succeed())
+		b := &Backend{runsc: "/bin/true"}
+		ctx := context.Background()
+		_, err := b.start(ctx, GinkgoT().TempDir(), "--x", 1, "run")
+		Expect(err).To(HaveOccurred(), "start accepted a flag as id")
+		_, err = b.usage(ctx, "/r", "--x")
+		Expect(err).To(HaveOccurred(), "usage accepted a flag as id")
+		Expect(b.deleteForce(ctx, "/r", "--x")).ToNot(Succeed(), "deleteForce accepted a flag as id")
+		_, err = b.call(ctx, "/r")
+		Expect(err).To(HaveOccurred(), "call accepted no command")
+	})
+
+	It("builds the global flags", func() {
+		got := globalFlags("/r")
+		want := []string{"--directfs=false", "--host-uds=all", "--overlay2=root:memory", "--root=/r", "--ignore-cgroups", "--network=none"}
+		Expect(strings.Join(got, " ")).To(Equal(strings.Join(want, " ")))
+		for _, f := range got {
+			Expect(f).ToNot(Equal("--rootless"), "forbidden flag")
+			Expect(f).ToNot(HavePrefix("--overlay2=all"), "forbidden flag")
+		}
+	})
+})
+
+var _ = Describe("sandbox handle without an instance", func() {
+	It("deletes the runsc sandbox after a failed start, even with a cancelled context", func() {
+		r, calls := loggingRunsc(GinkgoT().TempDir())
+		s := bootFixture(r)
+		GinkgoT().Setenv("FAKE_RUNSC_RC", "1") // "run" fails after runsc forked the sandbox
+		Expect(s.boot(context.Background())).ToNot(Succeed(), "boot succeeded")
+		// delete (stale state), run, delete (cleanup after the failure).
+		got := readLog(calls)
+		Expect(got).To(HaveLen(3), "calls = %q", got)
+		Expect(got[0]).To(HavePrefix("delete "))
+		Expect(got[1]).To(HavePrefix("run "))
+		Expect(got[2]).To(HavePrefix("delete "))
+		// A cancelled context never starts runsc, but the cleanup still runs.
+		Expect(os.Remove(calls)).To(Succeed())
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		Expect(s.boot(ctx)).ToNot(Succeed(), "boot with a cancelled context succeeded")
+		got = readLog(calls)
+		Expect(got).To(HaveLen(1), "calls after a cancelled boot = %q", got)
+		Expect(got[0]).To(HavePrefix("delete --root=" + s.runscRoot() + " " + s.id))
+	})
+
+	It("deletes the runsc sandbox on Destroy", func() {
+		r, calls := loggingRunsc(GinkgoT().TempDir())
+		s := bootFixture(r)
+		Expect(s.Destroy(context.Background())).To(Succeed())
+		got := readLog(calls)
+		Expect(got).To(HaveLen(1), "calls = %q", got)
+		Expect(got[0]).To(HavePrefix("delete --root=" + s.runscRoot() + " " + s.id))
+		_, err := os.Stat(s.dir)
+		Expect(os.IsNotExist(err)).To(BeTrue(), "the folder is still there: %v", err)
+	})
+
+	// Destroy waits for the folder lock without mu, so a call on the handle
+	// returns ErrGone at once and does not queue behind a slow lock holder.
+	It("waits for the folder lock in Destroy without holding mu", func() {
+		r, _ := loggingRunsc(GinkgoT().TempDir())
+		s := bootFixture(r)
+		hold, err := lockFile(context.Background(), filepath.Join(s.dir, "lock"))
+		Expect(err).ToNot(HaveOccurred())
+		defer hold()
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		done := make(chan error, 1)
+		go func() { done <- s.Destroy(ctx) }()
+		Eventually(func() bool {
+			if s.mu.TryRLock() {
+				gone := s.gone
+				s.mu.RUnlock()
+				return gone
+			}
+			return false
+		}, 2*time.Second, 5*time.Millisecond).Should(BeTrue(), "Destroy holds mu while it waits for the folder lock")
+		_, err = s.Exec(context.Background(), sandbox.Cmd{Args: []string{"true"}})
+		Expect(err).To(MatchError(sandbox.ErrGone), "Exec during Destroy")
+		Expect(<-done).To(MatchError(context.DeadlineExceeded), "Destroy, want the deadline of its context")
+	})
+
+	// A guest agent that does not answer must not hold Suspend (and with it mu)
+	// until the deadline of the caller.
+	It("bounds the agent call", func() {
+		r, _ := loggingRunsc(GinkgoT().TempDir())
+		s := bootFixture(r)
+		l, err := net.Listen("unix", s.agentSock())
+		Expect(err).ToNot(HaveOccurred())
+		defer l.Close()
+		go func() {
+			defer GinkgoRecover()
+			for {
+				c, err := l.Accept()
+				if err != nil {
+					return
+				}
+				defer c.Close() // never answers
+			}
+		}()
+		old := agentCallBudget
+		agentCallBudget = 100 * time.Millisecond
+		defer func() { agentCallBudget = old }()
+		start := time.Now()
+		err = s.call(context.Background(), "detach")
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		Expect(time.Since(start)).To(BeNumerically("<=", 5*time.Second))
+	})
+})
