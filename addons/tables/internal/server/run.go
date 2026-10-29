@@ -33,7 +33,10 @@ func Run(args []string, hooks Hooks) int {
 	if err != nil || !filepath.IsAbs(startup.DataDir) {
 		return 3
 	}
-	protocol.ExitWithParent(rest)
+	// The owner closing the startup channel, or a signal, ends the serve below
+	// and Run returns, so the store is closed by its defer.
+	ctx, stop := protocol.StopWithParent(context.Background(), rest)
+	defer stop()
 	listener, err := net.FileListener(os.NewFile(3, "listener"))
 	if err != nil {
 		return 6
@@ -63,7 +66,7 @@ func Run(args []string, hooks Hooks) int {
 	if hooks.Runtime != nil {
 		rt = hooks.Runtime(rt, startup.DataDir)
 	}
-	if err := protocol.Serve(context.Background(), listener, startup, rt); err != nil {
+	if err := protocol.Serve(ctx, listener, startup, rt); err != nil {
 		return 8
 	}
 	return 0

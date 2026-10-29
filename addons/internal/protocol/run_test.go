@@ -80,3 +80,14 @@ var _ = Describe("the shutdown of an add-on", func() {
 		Eventually(done).Should(BeClosed())
 	})
 })
+
+var _ = Describe("StopWithParent", func() {
+	It("ends the context when the owner closes the startup channel, so Run can return", func() {
+		r, w := io.Pipe()
+		ctx, stop := StopWithParent(context.Background(), r)
+		DeferCleanup(stop)
+		Consistently(ctx.Done(), 50*time.Millisecond).ShouldNot(BeClosed())
+		Expect(w.Close()).To(Succeed())
+		Eventually(ctx.Done()).Should(BeClosed())
+	})
+})

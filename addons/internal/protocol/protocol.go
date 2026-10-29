@@ -100,9 +100,15 @@ func ReadStartup(parent io.Reader) (Startup, io.Reader, error) {
 	return s, io.MultiReader(d.Buffered(), parent), nil
 }
 
-// ExitWithParent ends the process when the owner closes the startup channel.
-func ExitWithParent(rest io.Reader) {
-	exitOnParentLoss(rest, func() { os.Exit(0) })
+// StopWithParent returns a context that ends when the owner closes the startup
+// channel (which also happens when the owner dies) or the process gets SIGTERM
+// or SIGINT. An executable that holds resources serves with it and returns from
+// Run when it ends, so its deferred cleanup runs; os.Exit would skip it. The
+// caller calls the cancel function when it is done.
+func StopWithParent(parent context.Context, rest io.Reader) (context.Context, context.CancelFunc) {
+	ctx, stop := signal.NotifyContext(parent, syscall.SIGTERM, syscall.SIGINT)
+	exitOnParentLoss(rest, stop)
+	return ctx, stop
 }
 
 // exitOnParentLoss calls stop when the owner closes the startup channel, which
