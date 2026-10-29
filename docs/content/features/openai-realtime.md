@@ -546,6 +546,11 @@ Speech-to-speech models do not have a VAD of their own. Turn detection depends o
 
 Define tools in `session.update` as usual. When the model calls one, the session sends `response.output_item.added` with a `function_call` item, then `response.function_call_arguments.delta` and `response.function_call_arguments.done`, and then `response.done`. To return the result, send a `conversation.item.create` with `type: function_call_output`, the same `call_id` and the `output` string, and then `response.create`. The model answers with the result in the next reply. A reply that is only a tool call has no audio.
 
+How a call is read depends on the model:
+
+- The backend reads the text of the reply with the parser and grammar of the model's chat template, as the llama.cpp server does for `/v1/realtime`. The call is cut out of the transcript and the audio that follows it is dropped. `tool_choice` (`auto`, `none` or `required`) works in `session.update` and in `response.create`, and the response value wins. A named function cannot be forced.
+- If the backend found no call and the request had tools, LocalAI parses the raw text of the reply with the `function` settings of the model, the way the chained pipeline does. Set `function.xml_format_preset` (the LFM3-Audio gallery entries set it to `lfm3`) or the other `function` options for a format the backend parser does not know. In this case the call text can already be in the streamed transcript, and the transcript is replaced only if `function.capture_llm_results` captures the content.
+
 ### Transcripts
 
 - **Reply transcript.** `response.output_audio_transcript.delta` and `response.output_audio_transcript.done` carry the text of the spoken reply. In a text-only response, `response.output_text.delta` is used instead.

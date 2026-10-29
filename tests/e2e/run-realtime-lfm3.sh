@@ -166,6 +166,8 @@ options:
   - parallel:2
 template:
   use_tokenizer_template: true
+function:
+  xml_format_preset: lfm3
 tts:
   voice: female
 known_usecases:

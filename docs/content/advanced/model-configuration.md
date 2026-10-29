@@ -915,6 +915,7 @@ Configure how the model handles function/tool calls:
 | `function.replace_function_results` | array | | Replace function call results with patterns |
 | `function.replace_llm_results` | array | | Replace LLM results with patterns |
 | `function.capture_llm_results` | array | | Capture LLM results as text (e.g., for "thinking" blocks) |
+| `function.xml_format_preset` | string | | Force an XML tool-call format: `qwen3-coder`, `qwen3.5`, `lfm3`, `glm-4.5`, `minimax-m2`, `kimi-k2` and others. Empty tries all of them |
 
 ### Grammar Configuration
 
