@@ -60,12 +60,13 @@ func (h *Handlers) GetMCPAppResource(c echo.Context) error {
 // @Param request body schema.ChatsMCPAppCall true "the call"
 // @Success 200 {object} schema.ChatsMCPAppCallResult "The MCP result"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 413 {object} schema.ErrorResponse "The body is over 32 KiB"
 // @Router /api/chats/{id}/mcp-apps/call [post]
 func (h *Handlers) CallMCPAppTool(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxAppCallBody)
-	var req schema.ChatsMCPAppCall
-	if err := c.Bind(&req); err != nil {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON or is too large")
+	req, ok := bind[schema.ChatsMCPAppCall](c, "the body is not valid JSON")
+	if !ok {
+		return nil
 	}
 	if req.Server == "" || req.Tool == "" {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "server and tool are required")

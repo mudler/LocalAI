@@ -55,9 +55,9 @@ func (h *Handlers) checkModel(c echo.Context, model string) error {
 // @Success 200 {object} schema.ChatsConversation "The chat after the change"
 // @Router /api/chats/{id} [patch]
 func (h *Handlers) Update(c echo.Context) error {
-	var req schema.ChatsUpdateRequest
-	if err := c.Bind(&req); err != nil {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	req, ok := bind[schema.ChatsUpdateRequest](c, msgNotJSON)
+	if !ok {
+		return nil
 	}
 	if req.Title == nil && req.Model == nil && req.Settings == nil {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "name at least one of title, model and settings")
@@ -237,12 +237,14 @@ func (h *Handlers) Export(c echo.Context) error {
 // @Tags chats
 // @Param request body schema.ChatsImportRequest true "the export and an optional model"
 // @Success 201 {object} schema.ChatsConversation "The new chat"
+// @Failure 400 {object} schema.ErrorResponse "The body is not a valid export"
+// @Failure 413 {object} schema.ErrorResponse "The export is too large"
 // @Router /api/chats/import [post]
 func (h *Handlers) Import(c echo.Context) error {
 	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxImportBody)
-	var req schema.ChatsImportRequest
-	if err := c.Bind(&req); err != nil {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not a valid chat export")
+	req, ok := bind[schema.ChatsImportRequest](c, "the body is not a valid chat export")
+	if !ok {
+		return nil
 	}
 	model := strings.TrimSpace(req.Model)
 	if model == "" {

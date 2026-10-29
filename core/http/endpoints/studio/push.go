@@ -51,9 +51,9 @@ func (h *Handlers) PushSubscribe(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	var req schema.ChatsPushSubscription
-	if err := c.Bind(&req); err != nil {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	req, ok := bind[schema.ChatsPushSubscription](c, msgNotJSON)
+	if !ok {
+		return nil
 	}
 	if err := p.Subscribe(c.Request().Context(), h.svc.Principal(userID(c)), req.Endpoint, req.Keys.P256dh, req.Keys.Auth); err != nil {
 		if errors.Is(err, notify.ErrPushEndpoint) {

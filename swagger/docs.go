@@ -4912,6 +4912,18 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversation"
                         }
+                    },
+                    "400": {
+                        "description": "The body is not a valid export",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The export is too large",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -6477,6 +6489,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The body is over 32 KiB",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }

@@ -41,9 +41,9 @@ func (h *Handlers) ListChatAddons(c echo.Context) error { return addonList(c, h)
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/addons [put]
 func (h *Handlers) SetChatAddons(c echo.Context) error {
-	var req schema.ChatsAddonSwitches
-	if err := c.Bind(&req); err != nil {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "off is required")
+	req, ok := bind[schema.ChatsAddonSwitches](c, "off is required")
+	if !ok {
+		return nil
 	}
 	if err := h.svc.SetAddonsOff(c.Request().Context(), userID(c), c.Param("id"), req.Off); err != nil {
 		return failFor(c, err)

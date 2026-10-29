@@ -161,7 +161,7 @@ var _ = Describe("Chats MCP apps endpoints", func() {
 		Expect(s.do("alice", http.MethodPost, callPath(chat), "{not json").Code).To(Equal(http.StatusBadRequest))
 		Expect(s.do("alice", http.MethodPost, callPath(chat), map[string]any{"server": conn}).Code).To(Equal(http.StatusBadRequest))
 		huge := strings.Repeat("a", 200<<10)
-		Expect(s.do("alice", http.MethodPost, callPath(chat), map[string]any{"server": conn, "tool": "get-time", "arguments": map[string]any{"zone": huge}}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodPost, callPath(chat), map[string]any{"server": conn, "tool": "get-time", "arguments": map[string]any{"zone": huge}}).Code).To(Equal(http.StatusRequestEntityTooLarge))
 	})
 
 	It("gives the transcript the app of a tool call", func() {

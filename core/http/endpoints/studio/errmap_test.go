@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -70,4 +71,38 @@ func TestErrorTablesGiveTheStatusTypeAndTextOfEachRow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBindAnswers400ForBadJSONAnd413ForABodyOverTheLimit(t *testing.T) {
+	type body struct {
+		Name string `json:"name"`
+	}
+	run := func(raw string, limit int64) (body, bool, int, schema.APIError) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(raw))
+		req.Header.Set("Content-Type", "application/json")
+		c := echo.New().NewContext(req, rec)
+		if limit > 0 {
+			c.Request().Body = http.MaxBytesReader(rec, c.Request().Body, limit)
+		}
+		got, ok := bind[body](c, "the body is not valid JSON")
+		var out schema.ErrorResponse
+		if !ok {
+			_ = json.NewDecoder(rec.Body).Decode(&out)
+			return got, ok, rec.Code, *out.Error
+		}
+		return got, ok, rec.Code, schema.APIError{}
+	}
+	g := gomega.NewWithT(t)
+	got, ok, _, _ := run(`{"name":"a"}`, 0)
+	g.Expect(ok).To(gomega.BeTrue())
+	g.Expect(got.Name).To(gomega.Equal("a"))
+	_, ok, status, apiErr := run(`{"name":`, 0)
+	g.Expect(ok).To(gomega.BeFalse())
+	g.Expect(status).To(gomega.Equal(http.StatusBadRequest))
+	g.Expect(apiErr.Message).To(gomega.Equal("the body is not valid JSON"))
+	_, ok, status, apiErr = run(`{"name":"`+strings.Repeat("x", 100)+`"}`, 16)
+	g.Expect(ok).To(gomega.BeFalse())
+	g.Expect(status).To(gomega.Equal(http.StatusRequestEntityTooLarge))
+	g.Expect(apiErr.Type).To(gomega.Equal("invalid_request_error"))
 }

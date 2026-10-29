@@ -10526,6 +10526,10 @@ paths:
           description: The request is not valid
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: The body is over 32 KiB
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Call a tool for an MCP App.
       tags:
       - chats
@@ -11774,6 +11778,14 @@ paths:
           description: The new chat
           schema:
             $ref: '#/definitions/schema.ChatsConversation'
+        "400":
+          description: The body is not a valid export
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "413":
+          description: The export is too large
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Import an exported chat.
       tags:
       - chats

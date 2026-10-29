@@ -120,9 +120,9 @@ func (h *Handlers) CreateConnector(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	var req schema.ChatsConnectorWrite
-	if err := c.Bind(&req); err != nil {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	req, ok := bind[schema.ChatsConnectorWrite](c, msgNotJSON)
+	if !ok {
+		return nil
 	}
 	if req.AcceptAny && req.ConfirmAcceptAny != acceptAnyConfirmation {
 		return failAcceptAny(c)
@@ -166,9 +166,9 @@ func (h *Handlers) UpdateConnector(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	var req schema.ChatsConnectorWrite
-	if err := c.Bind(&req); err != nil {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "the body is not valid JSON")
+	req, ok := bind[schema.ChatsConnectorWrite](c, msgNotJSON)
+	if !ok {
+		return nil
 	}
 	if req.AcceptAny && req.ConfirmAcceptAny != acceptAnyConfirmation {
 		// Only turning it on is a new decision; a binding that has it keeps it.

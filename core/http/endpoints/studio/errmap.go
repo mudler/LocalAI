@@ -2,10 +2,14 @@ package studio
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 )
+
+// msgNotJSON is the answer to a body that does not parse.
+const msgNotJSON = "the body is not valid JSON"
 
 // Error types of the chats API. The UI and clients match on them.
 const (
@@ -80,4 +84,23 @@ func mapErr(c echo.Context, err error, rules []errRule, next func(echo.Context, 
 		}
 	}
 	return next(c, err)
+}
+
+// bind reads the JSON body of the request into a T. When it cannot, it writes
+// the answer and returns false: 413 for a body over the limit that the handler
+// set with http.MaxBytesReader, else 400 with msg.
+func bind[T any](c echo.Context, msg string) (T, bool) {
+	var req T
+	err := c.Bind(&req)
+	if err == nil {
+		return req, true
+	}
+	var tooBig *http.MaxBytesError
+	var httpErr *echo.HTTPError
+	if errors.As(err, &tooBig) || (errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge) {
+		_ = fail(c, http.StatusRequestEntityTooLarge, typeInvalid, "the body is too large")
+	} else {
+		_ = fail(c, http.StatusBadRequest, typeInvalid, msg)
+	}
+	return req, false
 }
