@@ -51,9 +51,7 @@ func agSSEBody(text string) string {
 // agUpstreamRequest sends one message through a chat of the cloud-proxy model
 // and returns the system text and the tool names the upstream was sent.
 func agUpstreamRequest(chatBody agObj, text string) (system string, tools []string) {
-	if cpOpenAIUpstream == nil {
-		Skip("cloud-proxy backend binary not built (make build-cloud-proxy-backend)")
-	}
+	agNeedUpstream()
 	cpOpenAIUpstream.SetScript(func([]byte) (int, string, string) {
 		return 200, agSSEBody("ok from the fake upstream"), "text/event-stream"
 	})
@@ -81,6 +79,15 @@ func agUpstreamRequest(chatBody agObj, text string) (system string, tools []stri
 		tools = append(tools, fmt.Sprint(fn["name"]))
 	}
 	return system, tools
+}
+
+// agNeedUpstream skips a spec that reads what the model was sent when the
+// cloud-proxy backend is not built. The suite then writes no cloud-proxy model,
+// so the spec must skip before it names that model anywhere.
+func agNeedUpstream() {
+	if cpOpenAIUpstream == nil {
+		Skip("cloud-proxy backend binary not built (make build-cloud-proxy-backend)")
+	}
 }
 
 // agGap skips a spec whose gap is still open, with the gap ID from the e2e
@@ -148,6 +155,7 @@ var _ = Describe("Chats saved agents", Label("Chats"), func() {
 	})
 
 	It("sends the agent's instructions and only its skills to the model, and a plain chat gets all of them", func() {
+		agNeedUpstream()
 		id := agCreateAgent(agObj{"name": fmt.Sprintf("Prompt e2e %d", time.Now().UnixNano()), "model": "cp-passthrough-openai",
 			"instructions": "AGENT-INSTRUCTION-MARK", "skills": []string{"docx"}})
 		system, _ := agUpstreamRequest(agObj{"agent_id": id}, "hello")
@@ -162,6 +170,7 @@ var _ = Describe("Chats saved agents", Label("Chats"), func() {
 	})
 
 	It("tells the model what is unavailable, and that the agent was deleted", func() {
+		agNeedUpstream()
 		id := agCreateAgent(agObj{"name": fmt.Sprintf("Missing e2e %d", time.Now().UnixNano()), "model": "cp-passthrough-openai",
 			"collections": []string{"no-such-collection"}, "skills": []string{"no-such-skill"}, "mcp_servers": []string{"no-such-server"}})
 		code, out := chatsDo(http.MethodPost, chatsBase(), agObj{"agent_id": id})
@@ -169,9 +178,6 @@ var _ = Describe("Chats saved agents", Label("Chats"), func() {
 		chat := agDecode(out)["id"].(string)
 		DeferCleanup(func() { chatsDo(http.MethodDelete, chatsBase()+"/"+chat, nil) })
 
-		if cpOpenAIUpstream == nil {
-			Skip("cloud-proxy backend binary not built (make build-cloud-proxy-backend)")
-		}
 		cpOpenAIUpstream.SetScript(func([]byte) (int, string, string) { return 200, agSSEBody("ok"), "text/event-stream" })
 		DeferCleanup(func() { cpOpenAIUpstream.SetScript(defaultOpenAIScript) })
 		lastUser := func() string {
