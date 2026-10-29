@@ -68,7 +68,16 @@ func (p platform) Send(ctx context.Context, req contract.ConnectorRequest) (stri
 		return "", err
 	}
 	id, err := p.api.Send(ctx, req.Token, chat, thread, req.Text)
-	return strconv.FormatInt(id, 10), err
+	return messageRef(id), err
+}
+
+// messageRef is the ID of a message as the contract carries it: "" when
+// Telegram named none, so the host never edits a message that is not there.
+func messageRef(id int64) string {
+	if id == 0 {
+		return ""
+	}
+	return strconv.FormatInt(id, 10)
 }
 
 func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error) {
@@ -77,7 +86,7 @@ func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (
 		return "", err
 	}
 	id, err := p.api.SendFile(ctx, req.Token, chat, thread, req.File.Name, req.File.MIME, req.File.Data)
-	return strconv.FormatInt(id, 10), err
+	return messageRef(id), err
 }
 
 func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error {

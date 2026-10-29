@@ -107,4 +107,11 @@ var _ = Describe("the connector route", func() {
 		Expect(out.MessageID).To(Equal("8"))
 		Expect(f.called("sendDocument")[0].Body).To(HaveKeyWithValue("message_thread_id", "77"))
 	})
+
+	It("names no message when Telegram answers without its ID", func() {
+		f := newFakeBot()
+		out, err := run(f).Connector(ctx, contract.ConnectorRequest{Op: "send", Kind: "telegram", Token: secretToken, Chat: "5", Text: "x"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.MessageID).To(BeEmpty())
+	})
 })
