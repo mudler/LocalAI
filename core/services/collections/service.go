@@ -98,7 +98,7 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster, opts ..
 func (s *Service) config(collectionDBPath, fileAssets string) *lagi.Config {
 	cfg := s.appConfig.Collections
 	return &lagi.Config{
-		LLMAPIURL: s.apiURL, LLMAPIKey: s.apiKey, LLMModel: cfg.DefaultModel, HTTPClient: s.httpClient,
+		LLMAPIURL: s.apiURL, LLMAPIKey: s.apiKey, HTTPClient: s.httpClient,
 		CollectionDBPath: collectionDBPath, FileAssets: fileAssets,
 		VectorEngine: cfg.VectorEngine, EmbeddingModel: cfg.EmbeddingModel,
 		MaxChunkingSize: cfg.MaxChunkingSize, ChunkOverlap: cfg.ChunkOverlap, DatabaseURL: cfg.DatabaseURL,

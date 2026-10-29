@@ -62,7 +62,6 @@ type Config struct {
 	// HTTPClient, when set, carries the embedding and rerank calls. The host
 	// uses it to serve them inside its own process.
 	HTTPClient       *http.Client
-	LLMModel         string
 	CollectionDBPath string
 	FileAssets       string
 	VectorEngine     string
