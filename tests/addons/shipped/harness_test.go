@@ -85,6 +85,10 @@ func setupWorld() {
 	w.work = os.Getenv("LOCALAI_E2E_WORK")
 	if w.work == "" {
 		w.work = GinkgoT().TempDir()
+		// An installed package is read-only, so the removal of the temporary
+		// directory cannot unlink it. Cleanups run in reverse order: this one
+		// makes the tree writable and removes it first.
+		DeferCleanup(func() { forceRemove(w.work) })
 	}
 	Expect(os.MkdirAll(w.work, 0o755)).To(Succeed())
 	w.bin = os.Getenv("LOCALAI_E2E_BINARY")
