@@ -7,6 +7,8 @@ import (
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+
+	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 )
 
 // state is state.json of a session folder.
@@ -32,23 +34,7 @@ func (s state) save(dir string) error {
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(dir, "state.json.tmp")
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(b); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Sync(); err != nil {
-		f.Close()
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp, filepath.Join(dir, "state.json"))
+	return atomicfile.Write(filepath.Join(dir, "state.json"), b, 0o600)
 }
 
 func loadState(dir string) (state, error) {

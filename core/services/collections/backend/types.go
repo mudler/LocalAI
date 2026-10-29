@@ -70,22 +70,3 @@ type Config struct {
 	ChunkOverlap     int
 	DatabaseURL      string
 }
-
-// RAGDB is the minimal retrieval interface exposed by the in-process and
-// backend-served collection adapters.
-type RAGDB interface {
-	Store(s string) error
-	Reset() error
-	Search(s string, similarEntries int) ([]string, error)
-	Count() int
-}
-
-// KBCompactionClient is the interface the compaction logic needs from a
-// collection: list, read, add and delete entries.
-type KBCompactionClient interface {
-	Collection() string
-	ListEntries() ([]string, error)
-	GetEntryContent(entry string) (content string, chunkCount int, err error)
-	Store(filePath string) error
-	DeleteEntry(entry string) error
-}

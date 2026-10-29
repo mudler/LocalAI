@@ -71,23 +71,28 @@ type workerRig struct {
 	bus             *requestBus
 }
 
-// newWorkerRig builds the rig. With serve false no worker listens.
-func newWorkerRig(serve bool) *workerRig {
+// newWorkerRig builds the rig. With serve false no worker listens. The
+// options change the worker's Deps.
+func newWorkerRig(serve bool, workerOpts ...func(*studio.Deps)) *workerRig {
 	st, err := store.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	r := &workerRig{hFront: studiotest.NewGateHarness(), hWorker: studiotest.NewGateHarness(), st: st,
 		workerStore: &dyingStore{Store: st}, bus: &requestBus{FakeBus: testutil.NewFakeBus()}}
-	mk := func(h *studiotest.GateHarness, s store.Store, workers studio.ChatWorkers) *studio.Service {
-		svc, err := studio.New(studio.Deps{
+	mk := func(h *studiotest.GateHarness, s store.Store, workers studio.ChatWorkers, opts ...func(*studio.Deps)) *studio.Service {
+		d := studio.Deps{
 			Store: s, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h,
 			Bus: studio.NewBroadcastBus(r.bus, nil), HeartbeatEvery: 10 * time.Millisecond, Workers: workers,
-		})
+		}
+		for _, o := range opts {
+			o(&d)
+		}
+		svc, err := studio.New(d)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = svc.Close(context.Background()) })
 		return svc
 	}
 	r.front = mk(r.hFront, st, nodes.NewNATSChatStarter(r.bus))
-	r.worker = mk(r.hWorker, r.workerStore, nil)
+	r.worker = mk(r.hWorker, r.workerStore, nil, workerOpts...)
 	if serve {
 		_, err := nodes.NewNATSChatStartServer(r.bus).Serve(r.worker.ServeStart)
 		Expect(err).NotTo(HaveOccurred())
@@ -181,6 +186,29 @@ var _ = Describe("chatworker", func() {
 		Expect(err).To(HaveOccurred(), "SendBackground of a missing chat succeeded")
 		Expect(err).To(MatchError(studio.ErrWorkerRefused), "SendBackground = %v, want ErrWorkerRefused", err)
 		Expect(r.hFront.Sent()).To(BeEmpty())
+	})
+
+	It("a full chat worker refuses a start that would begin a turn", func() {
+		r := newWorkerRig(true, func(d *studio.Deps) { d.MaxWorkerTurns = 1 })
+		first, second := create(r.front, alice), create(r.front, alice)
+		background(r.front, alice, first, "go")
+		until("the worker to run the turn", func() bool { return len(r.hWorker.Sent()) == 1 })
+		_, err := r.front.SendBackground(context.Background(), alice, second, "go", nil)
+		Expect(err).To(MatchError(studio.ErrWorkerRefused), "SendBackground to a full worker = %v", err)
+		Expect(err).To(MatchError(ContainSubstring("runs as many turns as it may")))
+		Expect(r.hFront.Sent()).To(BeEmpty(), "a refused start ran on the frontend")
+		Expect(r.hWorker.Sent()).To(HaveLen(1))
+		Expect(turn(r.front, alice, second).Running).To(BeFalse())
+
+		// A message for the chat that runs only waits, so the full worker takes it.
+		res := background(r.front, alice, first, "more")
+		Expect(res.Started).To(BeFalse(), "SendBackground to the running chat = %+v, want pending", res)
+		Expect(res.PendingID).NotTo(BeEmpty())
+
+		r.hWorker.Gate <- struct{}{}
+		until("the first turn to end", func() bool { return !turn(r.front, alice, first).Running })
+		res = background(r.front, alice, second, "go")
+		Expect(res.Started).To(BeTrue(), "SendBackground once the worker has room = %+v", res)
 	})
 
 	It("a start with files runs on the frontend", func() {
@@ -345,5 +373,47 @@ var _ = Describe("chatworker", func() {
 		time.Sleep(100 * time.Millisecond)
 		info := turn(front, alice, plain)
 		Expect(info.Running).To(BeTrue(), "a turn with no limit ended: %+v", info)
+	})
+
+	// A message that arrives after the last model request of a worker's turn
+	// starts the next turn on the worker. That turn has the same bound: the
+	// frontend that watched the run may be gone.
+	It("a chat worker bounds the next turn that waiting messages start", func() {
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		bus := &requestBus{FakeBus: testutil.NewFakeBus()}
+		h := studiotest.NewGateHarness()
+		h.End = make(chan struct{}, 4)
+		worker, err := studio.New(studio.Deps{
+			Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Bus: studio.NewBroadcastBus(bus, nil),
+			RunLimit: func(origin string) time.Duration {
+				if origin == session.OriginJob {
+					return time.Second
+				}
+				return 0
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = worker.Close(context.Background()) })
+		_, err = nodes.NewNATSChatStartServer(bus).Serve(worker.ServeStart)
+		Expect(err).NotTo(HaveOccurred())
+		front, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: studiotest.NewGateHarness(),
+			Bus: studio.NewBroadcastBus(bus, nil), Workers: nodes.NewNATSChatStarter(bus)})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = front.Close(context.Background()) })
+		job, err := front.CreateAs(context.Background(), alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginJob, ID: "task"})
+		Expect(err).NotTo(HaveOccurred())
+		background(front, alice, job.ID, "go")
+		until("the worker to run the turn", func() bool { return len(h.Sent()) == 1 })
+		h.Gate <- struct{}{}
+		until("the turn to make its last request", func() bool { return h.Boundaries() == 1 })
+		res := sent(front, alice, job.ID, "late")
+		Expect(res.Started).To(BeFalse(), "Send after the last request = %+v, want pending", res)
+		h.End <- struct{}{}
+		until("the worker to start the next turn", func() bool { return len(h.Sent()) == 2 })
+		Expect(h.Sent()[1]).To(Equal("late"))
+		// The next turn waits for a model request that never comes; only the
+		// bound ends it.
+		until("the next turn to stop at the limit", func() bool { return turn(front, alice, job.ID).Last == store.TurnStopped })
 	})
 })

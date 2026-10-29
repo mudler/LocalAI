@@ -21,6 +21,8 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/chv"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/gvisor"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/host"
+
+	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 )
 
 // The release sets this with -ldflags "-X main.guestImage=...". A build that
@@ -155,23 +157,7 @@ func copyExecutable(src, dst string) error {
 		return err
 	}
 	defer func() { _ = in.Close() }()
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".install-*")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
-	if _, err := io.Copy(tmp, in); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Chmod(0o755); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), dst)
+	return atomicfile.WriteFrom(dst, in, 0o755)
 }
 
 func fileSHA256(p string) (string, error) {

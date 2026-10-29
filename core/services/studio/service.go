@@ -122,6 +122,11 @@ type Deps struct {
 	// run, by the chat's origin (session.OriginJob, ...). Zero or nil: no bound
 	// on the worker; the frontend that watches the run bounds it.
 	RunLimit func(origin string) time.Duration
+	// MaxWorkerTurns is, on a chat worker, the most turns this process runs at
+	// once when it takes a start (ServeStart). A start that would begin one
+	// more is refused with ErrWorkerFull; a start for a chat whose turn runs
+	// is taken, because its message only waits. Zero: no cap.
+	MaxWorkerTurns int
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
@@ -181,6 +186,10 @@ type Service struct {
 	runs  map[string]*run                 // the turn this process runs, by conversation
 	pumps map[string]<-chan session.Event // the event channel read for each conversation
 	locks map[string]*keyLock
+
+	// admit makes the check of MaxWorkerTurns and the start it admits one step,
+	// so two starts cannot both take the last place.
+	admit sync.Mutex
 
 	// Sub-agents; see subagent.go.
 	triggers   *Triggers        // set once by SetTriggers
@@ -880,8 +889,16 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		go func() {
 			unlock := s.lock(k)
 			defer unlock()
-			if _, err := s.startFromPending(ctx, p, conv); err != nil {
+			started, err := s.startFromPending(ctx, p, conv)
+			if err != nil {
 				s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)
+				return
+			}
+			if started {
+				// On a chat worker the next turn gets the same bound as the
+				// turn that a frontend started: nothing else watches it when
+				// that frontend is gone.
+				s.limitWorkerRun(ctx, p, conv)
 			}
 		}()
 	}

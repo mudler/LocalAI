@@ -12,12 +12,9 @@ import (
 )
 
 func (h *Handlers) pusher(c echo.Context) (*notify.Pusher, bool) {
-	p := h.svc.Pusher()
-	if p == nil {
-		_ = fail(c, http.StatusConflict, "push_off", studiosvc.ErrPushOff.Error()+": the server needs a database or a data path to keep subscriptions")
-		return nil, false
-	}
-	return p, true
+	return feature(c, h.svc.Pusher(), func(c echo.Context) error {
+		return fail(c, http.StatusConflict, "push_off", studiosvc.ErrPushOff.Error()+": the server needs a database or a data path to keep subscriptions")
+	})
 }
 
 // PushKey returns the public key for browser push.

@@ -13,6 +13,7 @@ import (
 // files of this module may use. An entry ending in "/..." allows that path
 // and every path below it. The packages of this module are allowed.
 var allowed = []string{
+	"github.com/mudler/LocalAI/addons/internal/atomicfile",
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox",
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/gvisor/...",
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/guestagent",

@@ -8483,7 +8483,14 @@ paths:
           description: 'Feature, administration or owner policy denied the request,
             or type sdk_incompatible when an install is refused because the add-on
             needs another SDK version: the message names the range the add-on needs
-            and the SDK version the host provides'
+            and the SDK version the host provides. An install or upgrade that failed
+            before anything was installed has the type of its cause: library_unavailable
+            (the library could not be read), library_conflict (two enabled libraries
+            list the add-on), release_not_found (the library does not list the release
+            for this platform), package_fetch_failed (the package could not be downloaded)
+            or install_storage_failed (the verified package could not be written to
+            the add-on storage). Repeat it with a new operationId after you correct
+            the cause'
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":

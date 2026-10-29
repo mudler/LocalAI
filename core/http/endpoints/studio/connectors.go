@@ -14,12 +14,7 @@ import (
 )
 
 func (h *Handlers) connectorHost(c echo.Context) (*studiosvc.Connectors, bool) {
-	host := h.svc.Connectors()
-	if host == nil {
-		_ = failFor(c, studiosvc.ErrConnectorsOff)
-		return nil, false
-	}
-	return host, true
+	return feature(c, h.svc.Connectors(), func(c echo.Context) error { return failFor(c, studiosvc.ErrConnectorsOff) })
 }
 
 func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {

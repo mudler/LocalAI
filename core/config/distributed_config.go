@@ -50,6 +50,12 @@ type DistributedConfig struct {
 	// ChatWorker makes this instance a chat worker: it runs the turns that
 	// frontends send it and starts no triggers, connectors or jobs.
 	ChatWorker bool // --chat-worker / LOCALAI_CHAT_WORKER
+	// ChatStartTimeout is the budget of a chat start that a frontend sends to a
+	// chat worker. Zero means the default (30s, nodes.DefaultChatStartTimeout).
+	ChatStartTimeout time.Duration // --chat-start-timeout / LOCALAI_CHAT_START_TIMEOUT
+	// ChatWorkerMaxTurns is, on a chat worker, the most turns it runs at once.
+	// A start beyond it is refused and its run fails. Zero: no cap.
+	ChatWorkerMaxTurns int // --chat-worker-max-turns / LOCALAI_CHAT_WORKER_MAX_TURNS
 
 	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
 	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
@@ -186,10 +192,14 @@ func (c DistributedConfig) Validate() error {
 		FlagBackendInstallTimeout:   c.BackendInstallTimeout,
 		FlagBackendUpgradeTimeout:   c.BackendUpgradeTimeout,
 		FlagModelLoadTimeout:        c.ModelLoadTimeout,
+		FlagChatStartTimeout:        c.ChatStartTimeout,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
 		}
+	}
+	if c.ChatWorkerMaxTurns < 0 {
+		return fmt.Errorf("%s must not be negative", FlagChatWorkerMaxTurns)
 	}
 	if c.ModelConfigResyncInterval < 0 {
 		return fmt.Errorf("%s must not be negative", FlagModelConfigResyncInterval)
@@ -397,6 +407,25 @@ var EnableDistributedChatWorkers = func(o *ApplicationConfig) {
 	o.Distributed.ChatWorkers = true
 }
 
+// WithChatStartTimeout sets the budget of a chat start sent to a chat worker
+// (see DistributedConfig.ChatStartTimeout). Zero keeps the default.
+func WithChatStartTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ChatStartTimeout = d
+	}
+}
+
+// DefaultChatWorkerMaxTurns is the default of --chat-worker-max-turns.
+const DefaultChatWorkerMaxTurns = 32
+
+// WithChatWorkerMaxTurns sets the most turns a chat worker runs at once (see
+// DistributedConfig.ChatWorkerMaxTurns). Zero means no cap.
+func WithChatWorkerMaxTurns(n int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ChatWorkerMaxTurns = n
+	}
+}
+
 // EnableChatWorker makes this instance a chat worker (see
 // DistributedConfig.ChatWorker).
 var EnableChatWorker = func(o *ApplicationConfig) {
@@ -457,6 +486,8 @@ const (
 	FlagBackendUpgradeTimeout   = "backend-upgrade-timeout"
 	FlagModelLoadTimeout        = "model-load-timeout"
 	FlagModelLoadWait           = "model-load-wait"
+	FlagChatStartTimeout        = "chat-start-timeout"
+	FlagChatWorkerMaxTurns      = "chat-worker-max-turns"
 	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
 	// the warning the check emits while disabled, so the operator reading a
 	// log line knows exactly which knob produced it.

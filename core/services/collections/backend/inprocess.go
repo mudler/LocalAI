@@ -382,7 +382,7 @@ func (b *backendInProcess) EntryExists(collection, entry string) bool {
 }
 
 // NewInProcessBackend creates in-process state (load from disk, start sourceManager) and returns
-// a Backend and the State. The caller can use RAGProviderFromState to create a RAG provider.
+// a Backend and the State.
 func NewInProcessBackend(cfg *Config) (Backend, *State) {
 	st := &State{
 		Collections:   CollectionList{},

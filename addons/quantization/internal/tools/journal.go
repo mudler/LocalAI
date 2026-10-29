@@ -3,12 +3,13 @@ package tools
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+
+	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 )
 
 // maxReceipts bounds the receipts the journal keeps. A repeat of an older
@@ -116,29 +117,5 @@ func writeAtomic(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), "journal-*.tmp")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	fail := func(e error) error { _ = tmp.Close(); _ = os.Remove(name); return e }
-	if _, err := tmp.Write(b); err != nil {
-		return fail(err)
-	}
-	if err := tmp.Sync(); err != nil {
-		return fail(err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(name)
-		return err
-	}
-	if err := os.Chmod(name, 0o600); err != nil {
-		_ = os.Remove(name)
-		return errors.Join(err)
-	}
-	if err := os.Rename(name, path); err != nil {
-		_ = os.Remove(name)
-		return err
-	}
-	return nil
+	return atomicfile.Write(path, b, 0o600)
 }

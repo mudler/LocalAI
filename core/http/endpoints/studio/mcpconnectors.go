@@ -10,12 +10,9 @@ import (
 )
 
 func (h *Handlers) mcpHost(c echo.Context) (*mcpconns.Service, bool) {
-	host := h.svc.MCPConnectors()
-	if host == nil {
-		_ = fail(c, http.StatusConflict, "mcp_connectors_off", "MCP connectors are not available")
-		return nil, false
-	}
-	return host, true
+	return feature(c, h.svc.MCPConnectors(), func(c echo.Context) error {
+		return fail(c, http.StatusConflict, "mcp_connectors_off", "MCP connectors are not available")
+	})
 }
 
 var mcpRules = []errRule{

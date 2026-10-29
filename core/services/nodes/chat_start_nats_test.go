@@ -81,6 +81,30 @@ var _ = Describe("NATS chat starter", func() {
 		Expect(mc.calls[0].Timeout).To(Equal(DefaultChatStartTimeout))
 		Expect(mc.calls[1].Timeout).To(BeNumerically("<=", 5*time.Second))
 	})
+
+	It("waits for the configured budget when the context has no deadline", func() {
+		mc.scriptReply(messaging.SubjectChatStart, workerctl.ChatStartReply{Started: true})
+		cs = NewNATSChatStarter(mc, WithChatStartTimeout(90*time.Second))
+		_, err := start(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		mc.mu.Lock()
+		defer mc.mu.Unlock()
+		Expect(mc.calls[0].Timeout).To(Equal(90 * time.Second))
+	})
+
+	It("keeps the default budget for a zero or negative timeout", func() {
+		mc.scriptReply(messaging.SubjectChatStart, workerctl.ChatStartReply{Started: true})
+		for _, d := range []time.Duration{0, -time.Second} {
+			cs = NewNATSChatStarter(mc, WithChatStartTimeout(d))
+			_, err := start(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+		}
+		mc.mu.Lock()
+		defer mc.mu.Unlock()
+		Expect(mc.calls).To(HaveLen(2))
+		Expect(mc.calls[0].Timeout).To(Equal(DefaultChatStartTimeout))
+		Expect(mc.calls[1].Timeout).To(Equal(DefaultChatStartTimeout))
+	})
 })
 
 var _ = Describe("NATS chat start server", func() {
@@ -119,6 +143,21 @@ var _ = Describe("NATS chat start server", func() {
 		Expect(reply).To(Equal(workerctl.ChatStartReply{PendingID: "p1"}))
 		Expect(seen).To(Equal(workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1", Text: "go"}))
 		Expect(deadline).To(BeTrue(), "a start must not run without a bound")
+	})
+
+	It("gives the handler the configured budget", func() {
+		var left time.Duration
+		_, err := NewNATSChatStartServer(bus, WithChatStartTimeout(2*time.Minute)).Serve(func(ctx context.Context, _ workerctl.ChatStartRequest) workerctl.ChatStartReply {
+			d, _ := ctx.Deadline()
+			left = time.Until(d)
+			return workerctl.ChatStartReply{}
+		})
+		Expect(err).ToNot(HaveOccurred())
+		data, _ := json.Marshal(workerctl.ChatStartRequest{Principal: "alice", ChatID: "c1"})
+		_, ok := bus.DeliverReply(messaging.SubjectChatStart, data)
+		Expect(ok).To(BeTrue())
+		Expect(left).To(BeNumerically(">", DefaultChatStartTimeout))
+		Expect(left).To(BeNumerically("<=", 2*time.Minute))
 	})
 
 	It("answers undecodable bytes with a refusal and does not call the handler", func() {

@@ -284,7 +284,7 @@ func resultError(c echo.Context, e error) error {
 // @Success 200 {object} contract.Result "Operation accepted or read result"
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
-// @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request, or type sdk_incompatible when an install is refused because the add-on needs another SDK version: the message names the range the add-on needs and the SDK version the host provides"
+// @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request, or type sdk_incompatible when an install is refused because the add-on needs another SDK version: the message names the range the add-on needs and the SDK version the host provides. An install or upgrade that failed before anything was installed has the type of its cause: library_unavailable (the library could not be read), library_conflict (two enabled libraries list the add-on), release_not_found (the library does not list the release for this platform), package_fetch_failed (the package could not be downloaded) or install_storage_failed (the verified package could not be written to the add-on storage). Repeat it with a new operationId after you correct the cause"
 // @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
 // @Router /api/addons/dispatch [post]
 func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {

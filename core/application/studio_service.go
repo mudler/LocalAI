@@ -102,10 +102,11 @@ func (a *Application) initStudioService() {
 		deps.MCPConnectors = a.studioMCPConns
 	}
 	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
-		deps.Workers = nodes.NewNATSChatStarter(d.Nats)
+		deps.Workers = nodes.NewNATSChatStarter(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout))
 	}
 	if a.applicationConfig.Distributed.ChatWorker {
 		deps.RunLimit = a.studioWorkerRunLimit
+		deps.MaxWorkerTurns = a.applicationConfig.Distributed.ChatWorkerMaxTurns
 	}
 	svc, err := studio.New(deps)
 	if err != nil {

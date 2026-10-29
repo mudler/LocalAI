@@ -15,7 +15,6 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/distributed"
 	"github.com/mudler/LocalAI/core/services/galleryop"
-	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/LocalAI/pkg/system"
 )
 
@@ -105,7 +104,7 @@ var _ = Describe("/api/operations/history", func() {
 	// the page and come straight back on the next fetch, with nothing said
 	// about why.
 	It("reports a failed clear as a 500 rather than claiming success", func() {
-		db := testutil.SetupTestDB()
+		db := operationsDB()
 		store, err := distributed.NewGalleryStore(db)
 		Expect(err).ToNot(HaveOccurred())
 		opcache.SetGalleryStore(store)

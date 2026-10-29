@@ -100,3 +100,29 @@ var _ = Describe("the studio endpoint helpers", func() {
 		Expect(apiErr.Type).To(Equal("invalid_request_error"))
 	})
 })
+
+var _ = Describe("the feature guard", func() {
+	off := func(c echo.Context) error { return fail(c, http.StatusConflict, "thing_off", "the thing is off") }
+
+	It("returns the host of a feature that is on and writes nothing", func() {
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(httptest.NewRequest(http.MethodGet, "/api/chats/x", nil), rec)
+		host := &struct{ name string }{"on"}
+		got, ok := feature(c, host, off)
+		Expect(ok).To(BeTrue())
+		Expect(got).To(BeIdenticalTo(host))
+		Expect(rec.Body.Len()).To(BeZero())
+	})
+
+	It("writes the answer of a feature that is off", func() {
+		code, body := answer(func(c echo.Context, _ error) error {
+			got, ok := feature[struct{}](c, nil, off)
+			Expect(ok).To(BeFalse())
+			Expect(got).To(BeNil())
+			return nil
+		}, nil)
+		Expect(code).To(Equal(http.StatusConflict))
+		Expect(body.Type).To(Equal("thing_off"))
+		Expect(body.Message).To(Equal("the thing is off"))
+	})
+})

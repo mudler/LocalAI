@@ -38,8 +38,10 @@ agent RPC. Nothing is buffered, and the reply says whether the turn started.
 `studio.ChatWorkers.StartChat` hands the start of an unattended run (trigger,
 job, connector message) to one chat worker on `chats.start`, queue group
 `chat-workers`. The payloads are `workerctl.ChatStartRequest` and
-`ChatStartReply`. Only the deadline of ctx bounds the wait
-(`nodes.DefaultChatStartTimeout` without one), as for the agent RPC.
+`ChatStartReply`. Only the deadline of ctx bounds the wait, as for the agent
+RPC. Without one the start's budget does: `LOCALAI_CHAT_START_TIMEOUT`
+(`nodes.WithChatStartTimeout`, default `nodes.DefaultChatStartTimeout`). The
+worker gives the handler the same budget.
 
 - `ErrNoRoute` (wrapped): no worker listens. `Service.SendBackground` runs the
   turn on the frontend.
@@ -164,12 +166,16 @@ other seams against a real server, also through Docker.
   path.
 - The agent worker still uses NATS directly for its connection.
 - A chat worker (`local-ai run` with `LOCALAI_CHAT_WORKER`) connects as a
-  frontend does, with the frontend's NATS credentials. It does not register as
-  a node, so the node list does not show it and the admin cannot approve or
-  drain it. A minted per-node JWT for it needs `chats.start` (sub, queue) and
-  the `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
-- A chat worker takes every start it is offered. There is no per-worker cap on
-  running turns, and a busy worker cannot pass a start on to another one.
+  frontend does, with the frontend's NATS credentials. It registers itself in
+  the node registry through the database (an approved `agent` node with
+  `node.role=chat-worker`, see `registerChatWorkerNode`), so the node list
+  shows it and the scheduler skips it. A drain does not reach it, and it gets
+  no minted JWT: that needs `chats.start` (sub, queue) and the
+  `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
+- A chat worker refuses a start that would take it past
+  `LOCALAI_CHAT_WORKER_MAX_TURNS` running turns (`studio.ErrWorkerFull`), and
+  the run fails. A full worker cannot pass a start on to another one: NATS
+  picks the worker of the queue group, not the frontend.
 - A start that carries files runs on the frontend: the uploads are not sent
   over the bus.
 - `ReplicaReconcilerOptions` has no `ClientFactory` field. Without a
