@@ -1,173 +1,122 @@
 package wstest
 
 import (
-	"errors"
-	"reflect"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-func testMoves(t *testing.T, newStore NewStore) {
-	t.Run("move a file", func(t *testing.T) {
-		s := newStore(t)
-		n1 := MustPut(t, s, AdminActor, "/a.txt", "a")
-		n2, err := s.Move(Ctx(), AdminActor, "/a.txt", "/b.txt")
-		if err != nil || n2.Path != "/b.txt" || n2.ID != n1.ID || n2.Version != 2 {
-			t.Fatalf("move = %+v, %v", n2, err)
-		}
-		if got := Tree(t, s); !reflect.DeepEqual(got, map[string]string{"/b.txt": "a"}) {
-			t.Fatalf("tree = %v", got)
-		}
-	})
-	t.Run("case-only rename is allowed", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/a.txt", "a")
-		if n, err := s.Move(Ctx(), AdminActor, "/a.txt", "/A.txt"); err != nil || n.Path != "/A.txt" {
-			t.Fatalf("move = %+v, %v", n, err)
-		}
-	})
-	t.Run("move creates missing folders", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/a.txt", "a")
-		if _, err := s.Move(Ctx(), AdminActor, "/a.txt", "/x/y/a.txt"); err != nil {
-			t.Fatal(err)
-		}
-		want := map[string]string{"/x": "/", "/x/y": "/", "/x/y/a.txt": "a"}
-		if got := Tree(t, s); !reflect.DeepEqual(got, want) {
-			t.Fatalf("tree = %v", got)
-		}
-	})
-	t.Run("move onto a taken name is refused", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/a.txt", "a")
-		MustPut(t, s, AdminActor, "/B.txt", "b")
-		if _, err := s.Move(Ctx(), AdminActor, "/a.txt", "/b.txt"); !errors.Is(err, workspace.ErrExists) {
-			t.Fatalf("err = %v, want ErrExists", err)
-		}
-	})
-	t.Run("a folder cannot move into itself", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/d/f.txt", "f")
-		before := Tree(t, s)
-		if _, err := s.Move(Ctx(), AdminActor, "/d", "/d/e/d"); !errors.Is(err, workspace.ErrInvalid) {
-			t.Fatalf("err = %v, want ErrInvalid", err)
-		}
-		if got := Tree(t, s); !reflect.DeepEqual(got, before) {
-			t.Fatalf("a refused move changed the tree: %v", got)
-		}
-		if _, err := s.Move(Ctx(), AdminActor, "/", "/x"); !errors.Is(err, workspace.ErrInvalid) {
-			t.Fatalf("move root: %v", err)
-		}
-	})
-	t.Run("a moved folder keeps its children", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/d/c.txt", "c")
-		if _, err := s.Move(Ctx(), AdminActor, "/d", "/e"); err != nil {
-			t.Fatal(err)
-		}
-		if MustRead(t, s, AdminActor, "/e/c.txt") != "c" {
-			t.Fatal("child not moved")
-		}
-	})
-	t.Run("delete sets tombstones on the subtree", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/d/a.txt", "a")
-		MustPut(t, s, AdminActor, "/d/b.txt", "b")
-		MustPut(t, s, AdminActor, "/keep.txt", "k")
-		tx, err := s.Begin(Ctx(), AdminActor, "Clean")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := tx.Delete(Ctx(), "/d"); err != nil {
-			t.Fatal(err)
-		}
-		cs, err := tx.Commit()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(cs.Ops) != 3 || cs.Ops[2].NewPath != "/d" {
-			t.Fatalf("ops = %+v; want the two files first, then the folder", cs.Ops)
-		}
-		for _, op := range cs.Ops {
-			if op.Kind != workspace.OpDelete {
-				t.Fatalf("op = %+v", op)
+func describeMoves(newStore NewStore) {
+	Describe("Moves", func() {
+		It("move a file", func() {
+			s := newStore()
+			n1 := MustPut(s, AdminActor, "/a.txt", "a")
+			n2, err := s.Move(Ctx(), AdminActor, "/a.txt", "/b.txt")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n2.Path).To(Equal("/b.txt"))
+			Expect(n2.ID).To(Equal(n1.ID))
+			Expect(n2.Version).To(BeEquivalentTo(2))
+			Expect(Tree(s)).To(Equal(map[string]string{"/b.txt": "a"}))
+		})
+		It("case-only rename is allowed", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "a")
+			n, err := s.Move(Ctx(), AdminActor, "/a.txt", "/A.txt")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n.Path).To(Equal("/A.txt"))
+		})
+		It("move creates missing folders", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "a")
+			_, err := s.Move(Ctx(), AdminActor, "/a.txt", "/x/y/a.txt")
+			Expect(err).ToNot(HaveOccurred())
+			want := map[string]string{"/x": "/", "/x/y": "/", "/x/y/a.txt": "a"}
+			Expect(Tree(s)).To(Equal(want))
+		})
+		It("move onto a taken name is refused", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a.txt", "a")
+			MustPut(s, AdminActor, "/B.txt", "b")
+			_, err := s.Move(Ctx(), AdminActor, "/a.txt", "/b.txt")
+			Expect(err).To(MatchError(workspace.ErrExists))
+		})
+		It("a folder cannot move into itself", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/d/f.txt", "f")
+			before := Tree(s)
+			_, err := s.Move(Ctx(), AdminActor, "/d", "/d/e/d")
+			Expect(err).To(MatchError(workspace.ErrInvalid))
+			Expect(Tree(s)).To(Equal(before), "a refused move changed the tree")
+			_, err = s.Move(Ctx(), AdminActor, "/", "/x")
+			Expect(err).To(MatchError(workspace.ErrInvalid), "move root")
+		})
+		It("a moved folder keeps its children", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/d/c.txt", "c")
+			_, err := s.Move(Ctx(), AdminActor, "/d", "/e")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(MustRead(s, AdminActor, "/e/c.txt")).To(Equal("c"), "child not moved")
+		})
+		It("delete sets tombstones on the subtree", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/d/a.txt", "a")
+			MustPut(s, AdminActor, "/d/b.txt", "b")
+			MustPut(s, AdminActor, "/keep.txt", "k")
+			tx, err := s.Begin(Ctx(), AdminActor, "Clean")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx.Delete(Ctx(), "/d")).To(Succeed())
+			cs, err := tx.Commit()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cs.Ops).To(HaveLen(3), "want the two files first, then the folder")
+			Expect(cs.Ops[2].NewPath).To(Equal("/d"), "want the two files first, then the folder")
+			for _, op := range cs.Ops {
+				Expect(op.Kind).To(Equal(workspace.OpDelete), "op = %+v", op)
+				// Op has no deleted flags. A tombstone keeps the node, so both
+				// paths name it; a hard delete leaves no new path.
+				Expect(op.NodeID).ToNot(BeZero(), "a delete must keep the node and its path: %+v", op)
+				Expect(op.OldPath).ToNot(BeEmpty(), "a delete must keep the node and its path: %+v", op)
+				Expect(op.NewPath).To(Equal(op.OldPath), "a delete must keep the node and its path: %+v", op)
 			}
-			// Op has no deleted flags. A tombstone keeps the node, so both
-			// paths name it; a hard delete leaves no new path.
-			if op.NodeID == 0 || op.OldPath == "" || op.OldPath != op.NewPath {
-				t.Fatalf("a delete must keep the node and its path: %+v", op)
-			}
-		}
-		if got := Tree(t, s); !reflect.DeepEqual(got, map[string]string{"/keep.txt": "k"}) {
-			t.Fatalf("tree = %v", got)
-		}
-		if _, err := s.Stat(Ctx(), AdminActor, "/d/a.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Fatalf("stat deleted: %v", err)
-		}
-		MustPut(t, s, AdminActor, "/d/a.txt", "again")
-		if err := s.Delete(Ctx(), AdminActor, "/"); !errors.Is(err, workspace.ErrInvalid) {
-			t.Fatalf("delete root: %v", err)
-		}
-	})
-	t.Run("moves and deletes need write access", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/w/a.txt", "a")
-		MustPut(t, s, AdminActor, "/r/b.txt", "b")
-		MustPut(t, s, AdminActor, "/hidden/c.txt", "c")
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/r", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.Move(Ctx(), Alice, "/w/a.txt", "/r/a.txt"); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Errorf("move into a read-only folder: %v", err)
-		}
-		if err := s.Delete(Ctx(), Alice, "/r/b.txt"); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Errorf("delete read-only: %v", err)
-		}
-		if err := s.Delete(Ctx(), Alice, "/hidden/c.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("delete hidden: %v", err)
-		}
-		if _, err := s.Move(Ctx(), Alice, "/w/a.txt", "/w/z.txt"); err != nil {
-			t.Errorf("move inside the write grant: %v", err)
-		}
-		if _, err := s.Move(Ctx(), Alice, "/w/z.txt", "/hidden/z.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("move into a hidden folder: %v", err)
-		}
-		if _, err := s.Move(Ctx(), Alice, "/w/z.txt", "/hidden/new/z.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("move below a missing path in a hidden folder: %v", err)
-		}
-		if got := Tree(t, s); got["/hidden/new"] != "" {
-			t.Errorf("a refused move created a folder: %v", got)
-		}
-	})
-	t.Run("a write grant under a read-only parent protects the folder itself", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/shared/mine/f.txt", "f")
-		MustPut(t, s, AdminActor, "/w/x.txt", "x")
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared/mine", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.Move(Ctx(), Alice, "/shared/mine", "/w/mine"); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Errorf("move the folder out: %v", err)
-		}
-		if err := s.Delete(Ctx(), Alice, "/shared/mine"); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Errorf("delete the folder: %v", err)
-		}
-		if _, err := s.Move(Ctx(), Alice, "/shared/mine/f.txt", "/shared/mine/g.txt"); err != nil {
-			t.Errorf("rename inside the folder: %v", err)
-		}
-		MustPut(t, s, Alice, "/shared/mine/f2.txt", "2")
-		if got := Tree(t, s); got["/shared/mine/g.txt"] != "f" {
-			t.Errorf("tree = %v", got)
-		}
+			Expect(Tree(s)).To(Equal(map[string]string{"/keep.txt": "k"}))
+			_, err = s.Stat(Ctx(), AdminActor, "/d/a.txt")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "stat deleted")
+			MustPut(s, AdminActor, "/d/a.txt", "again")
+			Expect(s.Delete(Ctx(), AdminActor, "/")).To(MatchError(workspace.ErrInvalid), "delete root")
+		})
+		It("moves and deletes need write access", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/w/a.txt", "a")
+			MustPut(s, AdminActor, "/r/b.txt", "b")
+			MustPut(s, AdminActor, "/hidden/c.txt", "c")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeWrite)).To(Succeed())
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/r", workspace.ModeRead)).To(Succeed())
+			_, err := s.Move(Ctx(), Alice, "/w/a.txt", "/r/a.txt")
+			Expect(err).To(MatchError(workspace.ErrReadOnly), "move into a read-only folder")
+			Expect(s.Delete(Ctx(), Alice, "/r/b.txt")).To(MatchError(workspace.ErrReadOnly), "delete read-only")
+			Expect(s.Delete(Ctx(), Alice, "/hidden/c.txt")).To(MatchError(workspace.ErrNotFound), "delete hidden")
+			_, err = s.Move(Ctx(), Alice, "/w/a.txt", "/w/z.txt")
+			Expect(err).ToNot(HaveOccurred(), "move inside the write grant")
+			_, err = s.Move(Ctx(), Alice, "/w/z.txt", "/hidden/z.txt")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "move into a hidden folder")
+			_, err = s.Move(Ctx(), Alice, "/w/z.txt", "/hidden/new/z.txt")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "move below a missing path in a hidden folder")
+			Expect(Tree(s)["/hidden/new"]).To(BeEmpty(), "a refused move created a folder")
+		})
+		It("a write grant under a read-only parent protects the folder itself", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/shared/mine/f.txt", "f")
+			MustPut(s, AdminActor, "/w/x.txt", "x")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared/mine", workspace.ModeWrite)).To(Succeed())
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeWrite)).To(Succeed())
+			_, err := s.Move(Ctx(), Alice, "/shared/mine", "/w/mine")
+			Expect(err).To(MatchError(workspace.ErrReadOnly), "move the folder out")
+			Expect(s.Delete(Ctx(), Alice, "/shared/mine")).To(MatchError(workspace.ErrReadOnly), "delete the folder")
+			_, err = s.Move(Ctx(), Alice, "/shared/mine/f.txt", "/shared/mine/g.txt")
+			Expect(err).ToNot(HaveOccurred(), "rename inside the folder")
+			MustPut(s, Alice, "/shared/mine/f2.txt", "2")
+			Expect(Tree(s)["/shared/mine/g.txt"]).To(Equal("f"))
+		})
 	})
 }

@@ -1,124 +1,95 @@
 package wstest
 
 import (
-	"errors"
 	"strings"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-func testTx(t *testing.T, newStore NewStore) {
-	t.Run("commit groups calls into one change set", func(t *testing.T) {
-		s := newStore(t)
-		tx, err := s.Begin(Ctx(), AliceAdmin(), "Sort upload")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Put(Ctx(), "/in/a.txt", strings.NewReader("a"), workspace.PutOptions{}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Mkdir(Ctx(), "/out"); err != nil {
-			t.Fatal(err)
-		}
-		cs, err := tx.Commit()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if cs.Rev != 1 || cs.Title != "Sort upload" || cs.Kind != workspace.ChangeAgent || cs.ChatID != "7" || cs.Actor != Admin {
-			t.Fatalf("change set = %+v", cs)
-		}
-		if len(cs.Ops) != 3 { // create /in, create /in/a.txt, create /out
-			t.Fatalf("ops = %+v", cs.Ops)
-		}
-		for _, op := range cs.Ops {
-			if op.Kind != workspace.OpCreate {
-				t.Fatalf("op = %+v", op)
+func describeTx(newStore NewStore) {
+	Describe("Tx", func() {
+		It("commit groups calls into one change set", func() {
+			s := newStore()
+			tx, err := s.Begin(Ctx(), AliceAdmin(), "Sort upload")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = tx.Put(Ctx(), "/in/a.txt", strings.NewReader("a"), workspace.PutOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = tx.Mkdir(Ctx(), "/out")
+			Expect(err).ToNot(HaveOccurred())
+			cs, err := tx.Commit()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cs.Rev).To(BeEquivalentTo(1))
+			Expect(cs.Title).To(Equal("Sort upload"))
+			Expect(cs.Kind).To(Equal(workspace.ChangeAgent))
+			Expect(cs.ChatID).To(Equal("7"))
+			Expect(cs.Actor).To(Equal(Admin))
+			Expect(cs.Ops).To(HaveLen(3)) // create /in, create /in/a.txt, create /out
+			for _, op := range cs.Ops {
+				Expect(op.Kind).To(Equal(workspace.OpCreate), "op = %+v", op)
 			}
-		}
-	})
-	t.Run("rollback changes nothing", func(t *testing.T) {
-		s := newStore(t)
-		tx, err := s.Begin(Ctx(), AdminActor, "x")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Mkdir(Ctx(), "/gone"); err != nil {
-			t.Fatal(err)
-		}
-		if err := tx.Rollback(); err != nil {
-			t.Fatal(err)
-		}
-		if got := Tree(t, s); len(got) != 0 {
-			t.Fatalf("tree = %v", got)
-		}
-		if _, err := tx.Mkdir(Ctx(), "/late"); !errors.Is(err, workspace.ErrInvalid) {
-			t.Fatalf("call after rollback: %v", err)
-		}
-	})
-	t.Run("a failed call keeps the earlier calls", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/f", "x")
-		tx, err := s.Begin(Ctx(), AdminActor, "x")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Mkdir(Ctx(), "/ok"); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Put(Ctx(), "/new/f/g", strings.NewReader("y"), workspace.PutOptions{}); err != nil {
-			t.Fatal(err) // creates /new and /new/f as folders
-		}
-		if _, err := tx.Put(Ctx(), "/f/g", strings.NewReader("y"), workspace.PutOptions{}); !errors.Is(err, workspace.ErrExists) {
-			t.Fatalf("put under a file: %v", err)
-		}
-		cs, err := tx.Commit()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(cs.Ops) != 4 {
-			t.Fatalf("ops = %+v", cs.Ops)
-		}
-	})
-	t.Run("empty commit returns a zero change set", func(t *testing.T) {
-		s := newStore(t)
-		tx, err := s.Begin(Ctx(), AdminActor, "nothing")
-		if err != nil {
-			t.Fatal(err)
-		}
-		cs, err := tx.Commit()
-		if err != nil || cs.Rev != 0 {
-			t.Fatalf("cs = %+v, %v", cs, err)
-		}
-	})
-	t.Run("a read during an open Tx does not hang or fail", func(t *testing.T) {
-		s := newStore(t)
-		tx, err := s.Begin(Ctx(), AdminActor, "x")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := tx.Mkdir(Ctx(), "/d"); err != nil {
-			t.Fatal(err)
-		}
-		done := make(chan error, 1)
-		go func() {
-			_, err := s.Stat(Ctx(), AdminActor, "/d")
-			done <- err
-		}()
-		time.Sleep(50 * time.Millisecond)
-		if _, err := tx.Commit(); err != nil {
-			t.Fatal(err)
-		}
-		select {
-		case err := <-done:
-			// A store with snapshot reads may answer before the commit and not
-			// see the folder yet. Both outcomes are fine.
-			if err != nil && !errors.Is(err, workspace.ErrNotFound) {
-				t.Fatalf("stat during a Tx: %v", err)
+		})
+		It("rollback changes nothing", func() {
+			s := newStore()
+			tx, err := s.Begin(Ctx(), AdminActor, "x")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = tx.Mkdir(Ctx(), "/gone")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tx.Rollback()).To(Succeed())
+			Expect(Tree(s)).To(BeEmpty())
+			_, err = tx.Mkdir(Ctx(), "/late")
+			Expect(err).To(MatchError(workspace.ErrInvalid), "call after rollback")
+		})
+		It("a failed call keeps the earlier calls", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/f", "x")
+			tx, err := s.Begin(Ctx(), AdminActor, "x")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = tx.Mkdir(Ctx(), "/ok")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = tx.Put(Ctx(), "/new/f/g", strings.NewReader("y"), workspace.PutOptions{})
+			Expect(err).ToNot(HaveOccurred()) // creates /new and /new/f as folders
+			_, err = tx.Put(Ctx(), "/f/g", strings.NewReader("y"), workspace.PutOptions{})
+			Expect(err).To(MatchError(workspace.ErrExists), "put under a file")
+			cs, err := tx.Commit()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cs.Ops).To(HaveLen(4))
+		})
+		It("empty commit returns a zero change set", func() {
+			s := newStore()
+			tx, err := s.Begin(Ctx(), AdminActor, "nothing")
+			Expect(err).ToNot(HaveOccurred())
+			cs, err := tx.Commit()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cs.Rev).To(BeZero())
+		})
+		It("a read during an open Tx does not hang or fail", func() {
+			s := newStore()
+			tx, err := s.Begin(Ctx(), AdminActor, "x")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = tx.Mkdir(Ctx(), "/d")
+			Expect(err).ToNot(HaveOccurred())
+			done := make(chan error, 1)
+			go func() {
+				_, err := s.Stat(Ctx(), AdminActor, "/d")
+				done <- err
+			}()
+			time.Sleep(50 * time.Millisecond)
+			_, err = tx.Commit()
+			Expect(err).ToNot(HaveOccurred())
+			select {
+			case statErr := <-done:
+				// A store with snapshot reads may answer before the commit and not
+				// see the folder yet. Both outcomes are fine.
+				if statErr != nil {
+					Expect(statErr).To(MatchError(workspace.ErrNotFound), "stat during a Tx")
+				}
+			case <-time.After(5 * time.Second):
+				Fail("Stat did not finish after the Tx committed")
 			}
-		case <-time.After(5 * time.Second):
-			t.Fatal("Stat did not finish after the Tx committed")
-		}
+		})
 	})
 }

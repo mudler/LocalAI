@@ -9,9 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/convert"
@@ -155,29 +156,20 @@ func (f *fakeTargets) CreateBinding(_ context.Context, u string, in convert.Bind
 	return nil
 }
 
-func memMarks(t *testing.T) convert.Marks {
-	t.Helper()
+func memMarks() convert.Marks {
 	m, err := convert.NewJSONMarks("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return m
 }
 
-func write(t *testing.T, path, content string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
+func write(path, content string) {
+	Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
+	Expect(os.WriteFile(path, []byte(content), 0o644)).To(Succeed())
 }
 
 func mustJSON(v any) string { b, _ := json.Marshal(v); return string(b) }
 
-func poolFixture(t *testing.T, dir string) {
-	t.Helper()
+func poolFixture(dir string) {
 	pool := map[string]any{
 		alice + ":Support": map[string]any{
 			"name": alice + ":Support", "description": "Answers customers", "model": "llama", "system_prompt": "Be kind.",
@@ -192,15 +184,12 @@ func poolFixture(t *testing.T, dir string) {
 		bob + ":Plain": map[string]any{"name": bob + ":Plain", "model": "", "system_prompt": ""},
 		"Legacy":       map[string]any{"name": "Legacy", "model": "llama", "system_prompt": "root agent"},
 	}
-	write(t, filepath.Join(dir, "pool.json"), mustJSON(pool))
+	write(filepath.Join(dir, "pool.json"), mustJSON(pool))
 }
 
-func run(t *testing.T, src convert.Sources, tg convert.Targets, marks convert.Marks) convert.Report {
-	t.Helper()
+func run(src convert.Sources, tg convert.Targets, marks convert.Marks) convert.Report {
 	r, err := convert.Run(context.Background(), src, tg, marks)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return r
 }
 
@@ -213,163 +202,10 @@ func find(r convert.Report, kind, name string) (convert.Item, bool) {
 	return convert.Item{}, false
 }
 
-func TestAnAgentOfThePoolBecomesASavedAgentWithItsGrantsAndTheRestIsCountedAsDropped(t *testing.T) {
-	dir := t.TempDir()
-	poolFixture(t, dir)
-	tg := newTargets()
-	tg.cols[alice] = []string{"Support", "docs"}
-	r := run(t, convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks(t))
-
-	got := tg.agents[alice]
-	if len(got) != 1 {
-		t.Fatalf("alice's agents = %+v", got)
-	}
-	a := got[0]
-	if a.Name != "Support" || a.Description != "Answers customers" || a.Model != "llama" {
-		t.Fatalf("agent = %+v", a)
-	}
-	if !strings.Contains(a.Instructions, "Be kind.") || !strings.Contains(a.Instructions, "Keep the queue empty.") {
-		t.Fatalf("instructions = %q", a.Instructions)
-	}
-	if len(a.Collections) != 1 || a.Collections[0] != "Support" || len(a.Skills) != 1 || a.Skills[0] != "triage" {
-		t.Fatalf("grants = %+v %+v", a.Collections, a.Skills)
-	}
-	it, ok := find(r, convert.KindAgent, "Support")
-	if !ok || it.Status != convert.StatusConverted {
-		t.Fatalf("item = %+v", it)
-	}
-	for _, d := range []string{"actions", "enable_planning"} {
-		if !strings.Contains(it.Reason, d) {
-			t.Errorf("the reason does not name the dropped field %s: %q", d, it.Reason)
-		}
-	}
-	if strings.Contains(it.Reason, "mcp.example") || strings.Contains(it.Reason, "SECRET") {
-		t.Fatalf("the reason has a value: %q", it.Reason)
-	}
-}
-
-func TestAPeriodicAgentBecomesASwitchedOffTriggerAndAnAgentWithNoModelStillConverts(t *testing.T) {
-	dir := t.TempDir()
-	poolFixture(t, dir)
-	tg := newTargets()
-	run(t, convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks(t))
-	trs := tg.triggers[alice]
-	if len(trs) != 1 || trs[0].Schedule != "*/30 * * * *" || trs[0].Model != "llama" || trs[0].AgentID != "agent-1" || !strings.Contains(trs[0].Name, "Support") || !strings.Contains(trs[0].Prompt, "Keep the queue empty.") {
-		t.Fatalf("triggers = %+v", trs)
-	}
-	if got := tg.agents[bob]; len(got) != 1 || got[0].Name != "Plain" || got[0].Model != "" {
-		t.Fatalf("bob's agents = %+v", got)
-	}
-	if len(tg.triggers[bob]) != 0 {
-		t.Fatal("an agent that is not autonomous got a trigger")
-	}
-}
-
-func TestARootAgentBelongsToTheAnonymousUserOnlyWhenThereAreNoAccounts(t *testing.T) {
-	dir := t.TempDir()
-	poolFixture(t, dir)
-	with := newTargets()
-	r := run(t, convert.Sources{StateDir: dir, AuthEnabled: true}, with, memMarks(t))
-	if it, _ := find(r, convert.KindAgent, "Legacy"); it.Status != convert.StatusSkipped || !strings.Contains(it.Reason, "no owner") {
-		t.Fatalf("with accounts: %+v", it)
-	}
-	if len(with.agents[""]) != 0 {
-		t.Fatal("a root agent was given to someone")
-	}
-	without := newTargets()
-	run(t, convert.Sources{StateDir: dir, AuthEnabled: false}, without, memMarks(t))
-	if len(without.agents[""]) != 1 || without.agents[""][0].Name != "Legacy" {
-		t.Fatalf("without accounts: %+v", without.agents)
-	}
-}
-
-func TestOnlyTheTelegramConnectorConvertsAndItsTokenStaysOutOfTheReport(t *testing.T) {
-	dir := t.TempDir()
-	poolFixture(t, dir)
-	tg := newTargets()
-	r := run(t, convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks(t))
-	bs := tg.bindings[alice]
-	if len(bs) != 1 || bs[0].Token != token || bs[0].AgentID != "agent-1" {
-		t.Fatalf("bindings = %+v", bs)
-	}
-	if len(bs[0].Allow) != 2 || bs[0].Allow[0] != "@ada_l" || bs[0].Allow[1] != "@bo_b" {
-		t.Fatalf("allowlist = %v, want the admins that are valid usernames", bs[0].Allow)
-	}
-	if it, ok := find(r, convert.KindConnector, "Support: slack"); !ok || it.Status != convert.StatusDropped {
-		t.Fatalf("slack = %+v %v", it, ok)
-	}
-	raw, _ := json.Marshal(r)
-	for _, secret := range []string{token, "xoxb-SLACK-SECRET", "SECRET", "mcp.example", "Keep the queue empty", "Be kind"} {
-		if strings.Contains(string(raw), secret) {
-			t.Fatalf("the report has %q:\n%s", secret, raw)
-		}
-	}
-}
-
-func TestACronTaskBecomesASwitchedOffTriggerAndOtherTasksAreDropped(t *testing.T) {
-	dir := t.TempDir()
-	write(t, filepath.Join(dir, "users", alice, "agent_tasks.json"), mustJSON(map[string]any{"tasks": []any{
-		map[string]any{"id": "t1", "name": "Nightly", "model": "llama", "prompt": "Summarise {{.topic}} for me", "cron": "0 3 * * *", "cron_parameters": map[string]string{"topic": "sales"}, "enabled": true,
-			"webhooks": []any{map[string]any{"url": "https://hook.example/x"}}},
-		map[string]any{"id": "t2", "name": "Manual only", "model": "llama", "prompt": "x"},
-		map[string]any{"id": "t3", "name": "With seconds", "model": "llama", "prompt": "x", "cron": "0 0 3 * * *"},
-	}}))
-	tg := newTargets()
-	r := run(t, convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks(t))
-	trs := tg.triggers[alice]
-	if len(trs) != 1 || trs[0].Schedule != "0 3 * * *" || trs[0].Prompt != "Summarise sales for me" || trs[0].Model != "llama" || trs[0].Name != "Nightly" {
-		t.Fatalf("triggers = %+v", trs)
-	}
-	if it, _ := find(r, convert.KindTrigger, "Nightly"); it.Status != convert.StatusConverted || !strings.Contains(it.Reason, "webhooks") {
-		t.Fatalf("nightly = %+v", it)
-	}
-	for _, n := range []string{"Manual only", "With seconds"} {
-		if it, ok := find(r, convert.KindTrigger, n); !ok || it.Status != convert.StatusDropped {
-			t.Errorf("%s = %+v %v", n, it, ok)
-		}
-	}
-}
-
-func TestSkillsOfTheFoldersAndOfTheTableAreCopiedToTheRightLayer(t *testing.T) {
-	dir := t.TempDir()
-	skill := "---\nname: triage\ndescription: Sort the queue\n---\nRead each item.\n"
-	write(t, filepath.Join(dir, "skills", "house", "SKILL.md"), "---\nname: house\ndescription: House style\n---\nWrite plainly.\n")
-	write(t, filepath.Join(dir, "users", alice, "skills", "skills", "triage", "SKILL.md"), skill)
-	write(t, filepath.Join(dir, "users", alice, "skills", "skills", "triage", "notes.txt"), "a resource")
-	write(t, filepath.Join(dir, "users", alice, "skills", "skills", "broken", "SKILL.md"), "no frontmatter at all")
-	db := newDB(t)
-	exec(t, db, `CREATE TABLE skills_metadata (id text, user_id text, name text, definition text, source_type text, source_url text, enabled bool)`)
-	exec(t, db, `INSERT INTO skills_metadata (id, user_id, name, definition, source_type, enabled) VALUES ('1', ?, 'from-db', ?, 'inline', 1)`, bob, "---\nname: from-db\ndescription: From the database\n---\nBody.\n")
-	exec(t, db, `INSERT INTO skills_metadata (id, user_id, name, definition, source_type, source_url, enabled) VALUES ('2', ?, 'from-git', 'x', 'git', 'https://git.example/repo', 1)`, bob)
-	tg := newTargets()
-	r := run(t, convert.Sources{StateDir: dir, DB: db, AuthEnabled: true}, tg, memMarks(t))
-	if s := tg.skills["shared/house"]; s.Description != "House style" || strings.TrimSpace(s.Body) != "Write plainly." {
-		t.Fatalf("shared skill = %+v", s)
-	}
-	if s := tg.skills[alice+"/triage"]; s.Description != "Sort the queue" || strings.TrimSpace(s.Body) != "Read each item." {
-		t.Fatalf("personal skill = %+v", s)
-	}
-	if s := tg.skills[bob+"/from-db"]; s.Description != "From the database" {
-		t.Fatalf("table skill = %+v", s)
-	}
-	if it, _ := find(r, convert.KindSkill, "triage"); !strings.Contains(it.Reason, "resource") {
-		t.Fatalf("the resource file was not mentioned: %+v", it)
-	}
-	if it, _ := find(r, convert.KindSkill, "broken"); it.Status != convert.StatusFailed && it.Status != convert.StatusDropped {
-		t.Fatalf("broken = %+v", it)
-	}
-	if it, _ := find(r, convert.KindSkill, "from-git"); it.Status != convert.StatusDropped || !strings.Contains(it.Reason, "git") {
-		t.Fatalf("git skill = %+v", it)
-	}
-}
-
-func newDB(t *testing.T) *gorm.DB {
-	t.Helper()
-	db, err := sqlitedb.Open("file:"+filepath.Join(t.TempDir(), "c.db")+"?_busy_timeout=5000", &gorm.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
+func newDB() *gorm.DB {
+	db, err := sqlitedb.Open("file:"+filepath.Join(GinkgoT().TempDir(), "c.db")+"?_busy_timeout=5000", &gorm.Config{})
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
 		if s, err := db.DB(); err == nil {
 			_ = s.Close()
 		}
@@ -377,173 +213,290 @@ func newDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func exec(t *testing.T, db *gorm.DB, q string, args ...any) {
-	t.Helper()
-	if err := db.Exec(q, args...).Error; err != nil {
-		t.Fatal(err)
-	}
+func exec(db *gorm.DB, q string, args ...any) {
+	Expect(db.Exec(q, args...).Error).To(Succeed())
 }
 
-func TestAgentsTasksAndHistoryOfADistributedDatabaseAreConverted(t *testing.T) {
-	db := newDB(t)
-	exec(t, db, `CREATE TABLE agent_configs (id text, user_id text, name text, config text, status text)`)
-	exec(t, db, `CREATE TABLE tasks (id text, user_id text, name text, prompt text, model text, enabled bool, cron text, cron_parameters text, webhooks text)`)
-	exec(t, db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, created_at datetime, updated_at datetime, deleted_at datetime)`)
-	exec(t, db, `INSERT INTO agent_configs (id, user_id, name, config, status) VALUES ('1', ?, 'Research', ?, 'active')`, alice, mustJSON(map[string]any{"name": "Research", "model": "m1", "system_prompt": "Find things."}))
-	exec(t, db, `INSERT INTO tasks (id, user_id, name, prompt, model, enabled, cron, cron_parameters) VALUES ('t', ?, 'Weekly', 'Report', 'm1', 1, '0 9 * * 1', '{}')`, bob)
-	hist := mustJSON([]any{
-		map[string]any{"role": "user", "content": "hello"},
-		map[string]any{"role": "assistant", "content": []any{map[string]any{"type": "text", "text": "hi there"}}},
-		map[string]any{"role": "thinking", "content": "hmm"},
-		map[string]any{"role": "tool_call", "name": "search", "content": "{}"},
-		map[string]any{"role": "tool_result", "name": "search", "content": "found"},
+var _ = Describe("converting the old agents", func() {
+	It("turns an agent of the pool into a saved agent with its grants and counts the rest as dropped", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		tg.cols[alice] = []string{"Support", "docs"}
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
+
+		got := tg.agents[alice]
+		Expect(got).To(HaveLen(1), "alice's agents = %+v", got)
+		a := got[0]
+		Expect(a.Name).To(Equal("Support"))
+		Expect(a.Description).To(Equal("Answers customers"))
+		Expect(a.Model).To(Equal("llama"))
+		Expect(a.Instructions).To(ContainSubstring("Be kind."))
+		Expect(a.Instructions).To(ContainSubstring("Keep the queue empty."))
+		Expect(a.Collections).To(Equal([]string{"Support"}))
+		Expect(a.Skills).To(Equal([]string{"triage"}))
+		it, ok := find(r, convert.KindAgent, "Support")
+		Expect(ok).To(BeTrue())
+		Expect(it.Status).To(Equal(convert.StatusConverted))
+		for _, d := range []string{"actions", "enable_planning"} {
+			Expect(it.Reason).To(ContainSubstring(d), "the reason does not name the dropped field %s", d)
+		}
+		Expect(it.Reason).NotTo(ContainSubstring("mcp.example"), "the reason has a value")
+		Expect(it.Reason).NotTo(ContainSubstring("SECRET"), "the reason has a value")
 	})
-	conv := mustJSON(map[string]any{"id": "c1", "name": "A chat", "model": "m1", "history": json.RawMessage(hist), "createdAt": 1700000000000, "updatedAt": 1700000100000})
-	exec(t, db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, 'c1', ?, 1)`, alice, conv)
-	exec(t, db, `INSERT INTO chat_conversations (user_id, conv_id, content, version, deleted_at) VALUES (?, 'c2', '{}', 2, '2026-01-01')`, alice)
-	tg := newTargets()
-	r := run(t, convert.Sources{DB: db, AuthEnabled: true}, tg, memMarks(t))
-	if got := tg.agents[alice]; len(got) != 1 || got[0].Name != "Research" || got[0].Instructions != "Find things." {
-		t.Fatalf("agents = %+v", got)
-	}
-	if got := tg.triggers[bob]; len(got) != 1 || got[0].Schedule != "0 9 * * 1" {
-		t.Fatalf("triggers = %+v", got)
-	}
-	cs := tg.chats[alice]
-	if len(cs) != 1 {
-		t.Fatalf("chats = %+v (the deleted one must not convert)", cs)
-	}
-	c := cs[0]
-	if c.Title != "A chat" || c.Model != "m1" || !c.Created.Equal(time.UnixMilli(1700000000000)) || !c.Updated.Equal(time.UnixMilli(1700000100000)) {
-		t.Fatalf("chat = %+v", c)
-	}
-	roles := []string{}
-	for _, e := range c.Entries {
-		roles = append(roles, e.Role)
-	}
-	if strings.Join(roles, ",") != "user,assistant,reasoning,tool" || c.Entries[0].Text != "hello" || c.Entries[1].Text != "hi there" {
-		t.Fatalf("entries = %+v", c.Entries)
-	}
-	if it, ok := find(r, convert.KindChat, "A chat"); !ok || it.Status != convert.StatusConverted {
-		t.Fatalf("chat item = %+v", it)
-	}
-}
 
-func TestAHugeHistoryKeepsTheNewestMessages(t *testing.T) {
-	db := newDB(t)
-	exec(t, db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, deleted_at datetime)`)
-	var h []any
-	for i := 0; i < convert.MaxMessages+50; i++ {
-		h = append(h, map[string]any{"role": "user", "content": fmt.Sprintf("m%d", i)})
-	}
-	conv := mustJSON(map[string]any{"id": "big", "name": "Big", "model": "m", "history": h})
-	exec(t, db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, 'big', ?, 1)`, alice, conv)
-	tg := newTargets()
-	run(t, convert.Sources{DB: db, AuthEnabled: true}, tg, memMarks(t))
-	es := tg.chats[alice][0].Entries
-	if len(es) != convert.MaxMessages || es[len(es)-1].Text != fmt.Sprintf("m%d", convert.MaxMessages+49) || es[0].Text != "m50" {
-		t.Fatalf("%d entries, first %q, last %q", len(es), es[0].Text, es[len(es)-1].Text)
-	}
-}
+	It("turns a periodic agent into a switched-off trigger and still converts an agent with no model", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
+		trs := tg.triggers[alice]
+		Expect(trs).To(HaveLen(1))
+		Expect(trs[0].Schedule).To(Equal("*/30 * * * *"))
+		Expect(trs[0].Model).To(Equal("llama"))
+		Expect(trs[0].AgentID).To(Equal("agent-1"))
+		Expect(trs[0].Name).To(ContainSubstring("Support"))
+		Expect(trs[0].Prompt).To(ContainSubstring("Keep the queue empty."))
+		got := tg.agents[bob]
+		Expect(got).To(HaveLen(1), "bob's agents = %+v", got)
+		Expect(got[0].Name).To(Equal("Plain"))
+		Expect(got[0].Model).To(BeEmpty())
+		Expect(tg.triggers[bob]).To(BeEmpty(), "an agent that is not autonomous got a trigger")
+	})
 
-func TestARepeatedRunConvertsNothingTwiceAndAFailedItemIsTriedAgain(t *testing.T) {
-	dir := t.TempDir()
-	poolFixture(t, dir)
-	tg := newTargets()
-	tg.failSave["Plain"] = true
-	marks := memMarks(t)
-	src := convert.Sources{StateDir: dir, AuthEnabled: true}
-	first := run(t, src, tg, marks)
-	if it, _ := find(first, convert.KindAgent, "Plain"); it.Status != convert.StatusFailed || !strings.Contains(it.Reason, "disk full") {
-		t.Fatalf("failed item = %+v", it)
-	}
-	nAgents, nTriggers, nBindings := len(tg.agents[alice]), len(tg.triggers[alice]), len(tg.bindings[alice])
-	delete(tg.failSave, "Plain")
-	second := run(t, src, tg, marks)
-	if len(tg.agents[alice]) != nAgents || len(tg.triggers[alice]) != nTriggers || len(tg.bindings[alice]) != nBindings {
-		t.Fatal("a second run converted an item again")
-	}
-	if len(tg.agents[bob]) != 1 {
-		t.Fatalf("the failed agent was not tried again: %+v", tg.agents[bob])
-	}
-	if it, _ := find(second, convert.KindAgent, "Support"); it.Status != convert.StatusSkipped {
-		t.Fatalf("an item already converted is %+v", it)
-	}
-	third := run(t, src, tg, marks)
-	for _, it := range third.Items {
-		if it.Status == convert.StatusConverted || it.Status == convert.StatusFailed {
-			t.Fatalf("a third run did work: %+v", it)
+	It("gives a root agent to the anonymous user only when there are no accounts", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		with := newTargets()
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, with, memMarks())
+		it, _ := find(r, convert.KindAgent, "Legacy")
+		Expect(it.Status).To(Equal(convert.StatusSkipped), "with accounts: %+v", it)
+		Expect(it.Reason).To(ContainSubstring("no owner"), "with accounts: %+v", it)
+		Expect(with.agents[""]).To(BeEmpty(), "a root agent was given to someone")
+		without := newTargets()
+		run(convert.Sources{StateDir: dir, AuthEnabled: false}, without, memMarks())
+		Expect(without.agents[""]).To(HaveLen(1), "without accounts: %+v", without.agents)
+		Expect(without.agents[""][0].Name).To(Equal("Legacy"))
+	})
+
+	It("converts only the Telegram connector and keeps its token out of the report", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
+		bs := tg.bindings[alice]
+		Expect(bs).To(HaveLen(1), "bindings = %+v", bs)
+		Expect(bs[0].Token).To(Equal(token))
+		Expect(bs[0].AgentID).To(Equal("agent-1"))
+		Expect(bs[0].Allow).To(Equal([]string{"@ada_l", "@bo_b"}), "want the admins that are valid usernames")
+		it, ok := find(r, convert.KindConnector, "Support: slack")
+		Expect(ok).To(BeTrue(), "slack = %+v", it)
+		Expect(it.Status).To(Equal(convert.StatusDropped))
+		raw, _ := json.Marshal(r)
+		for _, secret := range []string{token, "xoxb-SLACK-SECRET", "SECRET", "mcp.example", "Keep the queue empty", "Be kind"} {
+			Expect(string(raw)).NotTo(ContainSubstring(secret), "the report has %q", secret)
 		}
-	}
-}
+	})
 
-func TestANameThatIsTakenGetsANumberAndAnUnknownUserIsSkipped(t *testing.T) {
-	dir := t.TempDir()
-	poolFixture(t, dir)
-	tg := newTargets()
-	tg.agents[alice] = []convert.AgentIn{{Name: "Support"}}
-	tg.users[bob] = false
-	r := run(t, convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks(t))
-	names := []string{}
-	for _, a := range tg.agents[alice] {
-		names = append(names, a.Name)
-	}
-	if strings.Join(names, ",") != "Support,Support (2)" {
-		t.Fatalf("names = %v", names)
-	}
-	if it, _ := find(r, convert.KindAgent, "Plain"); it.Status != convert.StatusSkipped || !strings.Contains(it.Reason, "no account") {
-		t.Fatalf("unknown user = %+v", it)
-	}
-	if len(tg.agents[bob]) != 0 {
-		t.Fatal("an agent was made for a user that does not exist")
-	}
-}
-
-func TestTheReportIsKeptPerUserAndOneUserNeverSeesAnotherUsersItems(t *testing.T) {
-	dir := t.TempDir()
-	poolFixture(t, dir)
-	marks := memMarks(t)
-	run(t, convert.Sources{StateDir: dir, AuthEnabled: true}, newTargets(), marks)
-	stored, ok, err := marks.Report(context.Background())
-	if err != nil || !ok || len(stored.Items) == 0 {
-		t.Fatalf("stored = %+v %v %v", stored, ok, err)
-	}
-	for _, i := range stored.ForUser(bob).Items {
-		if i.User != bob {
-			t.Fatalf("bob's report has %+v", i)
+	It("turns a cron task into a switched-off trigger and drops the other tasks", func() {
+		dir := GinkgoT().TempDir()
+		write(filepath.Join(dir, "users", alice, "agent_tasks.json"), mustJSON(map[string]any{"tasks": []any{
+			map[string]any{"id": "t1", "name": "Nightly", "model": "llama", "prompt": "Summarise {{.topic}} for me", "cron": "0 3 * * *", "cron_parameters": map[string]string{"topic": "sales"}, "enabled": true,
+				"webhooks": []any{map[string]any{"url": "https://hook.example/x"}}},
+			map[string]any{"id": "t2", "name": "Manual only", "model": "llama", "prompt": "x"},
+			map[string]any{"id": "t3", "name": "With seconds", "model": "llama", "prompt": "x", "cron": "0 0 3 * * *"},
+		}}))
+		tg := newTargets()
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
+		trs := tg.triggers[alice]
+		Expect(trs).To(HaveLen(1), "triggers = %+v", trs)
+		Expect(trs[0].Schedule).To(Equal("0 3 * * *"))
+		Expect(trs[0].Prompt).To(Equal("Summarise sales for me"))
+		Expect(trs[0].Model).To(Equal("llama"))
+		Expect(trs[0].Name).To(Equal("Nightly"))
+		it, _ := find(r, convert.KindTrigger, "Nightly")
+		Expect(it.Status).To(Equal(convert.StatusConverted), "nightly = %+v", it)
+		Expect(it.Reason).To(ContainSubstring("webhooks"), "nightly = %+v", it)
+		for _, n := range []string{"Manual only", "With seconds"} {
+			it, ok := find(r, convert.KindTrigger, n)
+			Expect(ok).To(BeTrue(), "%s = %+v", n, it)
+			Expect(it.Status).To(Equal(convert.StatusDropped), "%s = %+v", n, it)
 		}
-	}
-	if len(stored.ForUser("nobody").Items) != 0 {
-		t.Fatal("a stranger has items")
-	}
-}
+	})
 
-func TestMissingSourcesAreNotAnError(t *testing.T) {
-	r := run(t, convert.Sources{StateDir: t.TempDir(), DB: newDB(t), AuthEnabled: true}, newTargets(), memMarks(t))
-	if len(r.Items) != 0 {
-		t.Fatalf("items = %+v", r.Items)
-	}
-	if _, err := convert.Run(context.Background(), convert.Sources{}, newTargets(), memMarks(t)); err != nil {
-		t.Fatalf("no sources at all: %v", err)
-	}
-}
+	It("copies the skills of the folders and of the table to the right layer", func() {
+		dir := GinkgoT().TempDir()
+		skill := "---\nname: triage\ndescription: Sort the queue\n---\nRead each item.\n"
+		write(filepath.Join(dir, "skills", "house", "SKILL.md"), "---\nname: house\ndescription: House style\n---\nWrite plainly.\n")
+		write(filepath.Join(dir, "users", alice, "skills", "skills", "triage", "SKILL.md"), skill)
+		write(filepath.Join(dir, "users", alice, "skills", "skills", "triage", "notes.txt"), "a resource")
+		write(filepath.Join(dir, "users", alice, "skills", "skills", "broken", "SKILL.md"), "no frontmatter at all")
+		db := newDB()
+		exec(db, `CREATE TABLE skills_metadata (id text, user_id text, name text, definition text, source_type text, source_url text, enabled bool)`)
+		exec(db, `INSERT INTO skills_metadata (id, user_id, name, definition, source_type, enabled) VALUES ('1', ?, 'from-db', ?, 'inline', 1)`, bob, "---\nname: from-db\ndescription: From the database\n---\nBody.\n")
+		exec(db, `INSERT INTO skills_metadata (id, user_id, name, definition, source_type, source_url, enabled) VALUES ('2', ?, 'from-git', 'x', 'git', 'https://git.example/repo', 1)`, bob)
+		tg := newTargets()
+		r := run(convert.Sources{StateDir: dir, DB: db, AuthEnabled: true}, tg, memMarks())
+		s := tg.skills["shared/house"]
+		Expect(s.Description).To(Equal("House style"), "shared skill = %+v", s)
+		Expect(strings.TrimSpace(s.Body)).To(Equal("Write plainly."), "shared skill = %+v", s)
+		s = tg.skills[alice+"/triage"]
+		Expect(s.Description).To(Equal("Sort the queue"), "personal skill = %+v", s)
+		Expect(strings.TrimSpace(s.Body)).To(Equal("Read each item."), "personal skill = %+v", s)
+		s = tg.skills[bob+"/from-db"]
+		Expect(s.Description).To(Equal("From the database"), "table skill = %+v", s)
+		it, _ := find(r, convert.KindSkill, "triage")
+		Expect(it.Reason).To(ContainSubstring("resource"), "the resource file was not mentioned: %+v", it)
+		it, _ = find(r, convert.KindSkill, "broken")
+		Expect(it.Status).To(BeElementOf(convert.StatusFailed, convert.StatusDropped), "broken = %+v", it)
+		it, _ = find(r, convert.KindSkill, "from-git")
+		Expect(it.Status).To(Equal(convert.StatusDropped), "git skill = %+v", it)
+		Expect(it.Reason).To(ContainSubstring("git"), "git skill = %+v", it)
+	})
 
-func TestIntervalsAndCronTexts(t *testing.T) {
+	It("converts the agents, tasks and history of a distributed database", func() {
+		db := newDB()
+		exec(db, `CREATE TABLE agent_configs (id text, user_id text, name text, config text, status text)`)
+		exec(db, `CREATE TABLE tasks (id text, user_id text, name text, prompt text, model text, enabled bool, cron text, cron_parameters text, webhooks text)`)
+		exec(db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, created_at datetime, updated_at datetime, deleted_at datetime)`)
+		exec(db, `INSERT INTO agent_configs (id, user_id, name, config, status) VALUES ('1', ?, 'Research', ?, 'active')`, alice, mustJSON(map[string]any{"name": "Research", "model": "m1", "system_prompt": "Find things."}))
+		exec(db, `INSERT INTO tasks (id, user_id, name, prompt, model, enabled, cron, cron_parameters) VALUES ('t', ?, 'Weekly', 'Report', 'm1', 1, '0 9 * * 1', '{}')`, bob)
+		hist := mustJSON([]any{
+			map[string]any{"role": "user", "content": "hello"},
+			map[string]any{"role": "assistant", "content": []any{map[string]any{"type": "text", "text": "hi there"}}},
+			map[string]any{"role": "thinking", "content": "hmm"},
+			map[string]any{"role": "tool_call", "name": "search", "content": "{}"},
+			map[string]any{"role": "tool_result", "name": "search", "content": "found"},
+		})
+		conv := mustJSON(map[string]any{"id": "c1", "name": "A chat", "model": "m1", "history": json.RawMessage(hist), "createdAt": 1700000000000, "updatedAt": 1700000100000})
+		exec(db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, 'c1', ?, 1)`, alice, conv)
+		exec(db, `INSERT INTO chat_conversations (user_id, conv_id, content, version, deleted_at) VALUES (?, 'c2', '{}', 2, '2026-01-01')`, alice)
+		tg := newTargets()
+		r := run(convert.Sources{DB: db, AuthEnabled: true}, tg, memMarks())
+		got := tg.agents[alice]
+		Expect(got).To(HaveLen(1), "agents = %+v", got)
+		Expect(got[0].Name).To(Equal("Research"))
+		Expect(got[0].Instructions).To(Equal("Find things."))
+		trs := tg.triggers[bob]
+		Expect(trs).To(HaveLen(1), "triggers = %+v", trs)
+		Expect(trs[0].Schedule).To(Equal("0 9 * * 1"))
+		cs := tg.chats[alice]
+		Expect(cs).To(HaveLen(1), "chats = %+v (the deleted one must not convert)", cs)
+		c := cs[0]
+		Expect(c.Title).To(Equal("A chat"))
+		Expect(c.Model).To(Equal("m1"))
+		Expect(c.Created.Equal(time.UnixMilli(1700000000000))).To(BeTrue(), "chat = %+v", c)
+		Expect(c.Updated.Equal(time.UnixMilli(1700000100000))).To(BeTrue(), "chat = %+v", c)
+		roles := []string{}
+		for _, e := range c.Entries {
+			roles = append(roles, e.Role)
+		}
+		Expect(strings.Join(roles, ",")).To(Equal("user,assistant,reasoning,tool"), "entries = %+v", c.Entries)
+		Expect(c.Entries[0].Text).To(Equal("hello"))
+		Expect(c.Entries[1].Text).To(Equal("hi there"))
+		it, ok := find(r, convert.KindChat, "A chat")
+		Expect(ok).To(BeTrue(), "chat item = %+v", it)
+		Expect(it.Status).To(Equal(convert.StatusConverted))
+	})
+
+	It("keeps the newest messages of a huge history", func() {
+		db := newDB()
+		exec(db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, deleted_at datetime)`)
+		var h []any
+		for i := 0; i < convert.MaxMessages+50; i++ {
+			h = append(h, map[string]any{"role": "user", "content": fmt.Sprintf("m%d", i)})
+		}
+		conv := mustJSON(map[string]any{"id": "big", "name": "Big", "model": "m", "history": h})
+		exec(db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, 'big', ?, 1)`, alice, conv)
+		tg := newTargets()
+		run(convert.Sources{DB: db, AuthEnabled: true}, tg, memMarks())
+		es := tg.chats[alice][0].Entries
+		Expect(es).To(HaveLen(convert.MaxMessages))
+		Expect(es[len(es)-1].Text).To(Equal(fmt.Sprintf("m%d", convert.MaxMessages+49)))
+		Expect(es[0].Text).To(Equal("m50"))
+	})
+
+	It("converts nothing twice on a repeated run and tries a failed item again", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		tg.failSave["Plain"] = true
+		marks := memMarks()
+		src := convert.Sources{StateDir: dir, AuthEnabled: true}
+		first := run(src, tg, marks)
+		it, _ := find(first, convert.KindAgent, "Plain")
+		Expect(it.Status).To(Equal(convert.StatusFailed), "failed item = %+v", it)
+		Expect(it.Reason).To(ContainSubstring("disk full"), "failed item = %+v", it)
+		nAgents, nTriggers, nBindings := len(tg.agents[alice]), len(tg.triggers[alice]), len(tg.bindings[alice])
+		delete(tg.failSave, "Plain")
+		second := run(src, tg, marks)
+		Expect(tg.agents[alice]).To(HaveLen(nAgents), "a second run converted an item again")
+		Expect(tg.triggers[alice]).To(HaveLen(nTriggers), "a second run converted an item again")
+		Expect(tg.bindings[alice]).To(HaveLen(nBindings), "a second run converted an item again")
+		Expect(tg.agents[bob]).To(HaveLen(1), "the failed agent was not tried again: %+v", tg.agents[bob])
+		it, _ = find(second, convert.KindAgent, "Support")
+		Expect(it.Status).To(Equal(convert.StatusSkipped), "an item already converted is %+v", it)
+		third := run(src, tg, marks)
+		for _, it := range third.Items {
+			Expect(it.Status).NotTo(BeElementOf(convert.StatusConverted, convert.StatusFailed), "a third run did work: %+v", it)
+		}
+	})
+
+	It("numbers a name that is taken and skips an unknown user", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		tg := newTargets()
+		tg.agents[alice] = []convert.AgentIn{{Name: "Support"}}
+		tg.users[bob] = false
+		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
+		names := []string{}
+		for _, a := range tg.agents[alice] {
+			names = append(names, a.Name)
+		}
+		Expect(strings.Join(names, ",")).To(Equal("Support,Support (2)"))
+		it, _ := find(r, convert.KindAgent, "Plain")
+		Expect(it.Status).To(Equal(convert.StatusSkipped), "unknown user = %+v", it)
+		Expect(it.Reason).To(ContainSubstring("no account"), "unknown user = %+v", it)
+		Expect(tg.agents[bob]).To(BeEmpty(), "an agent was made for a user that does not exist")
+	})
+
+	It("keeps the report per user so one user never sees another user's items", func() {
+		dir := GinkgoT().TempDir()
+		poolFixture(dir)
+		marks := memMarks()
+		run(convert.Sources{StateDir: dir, AuthEnabled: true}, newTargets(), marks)
+		stored, ok, err := marks.Report(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(stored.Items).NotTo(BeEmpty())
+		for _, i := range stored.ForUser(bob).Items {
+			Expect(i.User).To(Equal(bob), "bob's report has %+v", i)
+		}
+		Expect(stored.ForUser("nobody").Items).To(BeEmpty(), "a stranger has items")
+	})
+
+	It("does not treat missing sources as an error", func() {
+		r := run(convert.Sources{StateDir: GinkgoT().TempDir(), DB: newDB(), AuthEnabled: true}, newTargets(), memMarks())
+		Expect(r.Items).To(BeEmpty())
+		_, err := convert.Run(context.Background(), convert.Sources{}, newTargets(), memMarks())
+		Expect(err).NotTo(HaveOccurred(), "no sources at all")
+	})
+
 	// Covered through the agent and task tests; this pins the table.
-	for in, want := range map[string]string{"10m": "*/10 * * * *", "1h": "0 */1 * * *", "6h": "0 */6 * * *", "24h": "0 0 */1 * *", "48h": "0 0 */2 * *"} {
-		if got, ok := convert.ScheduleFromInterval(in); !ok || got != want {
-			t.Errorf("%s = %q %v, want %q", in, got, ok, want)
+	It("pins the intervals and cron texts", func() {
+		for in, want := range map[string]string{"10m": "*/10 * * * *", "1h": "0 */1 * * *", "6h": "0 */6 * * *", "24h": "0 0 */1 * *", "48h": "0 0 */2 * *"} {
+			got, ok := convert.ScheduleFromInterval(in)
+			Expect(ok).To(BeTrue(), "%s = %q", in, got)
+			Expect(got).To(Equal(want), in)
 		}
-	}
-	for _, in := range []string{"", "5s", "90m", "abc", "36h"} {
-		if got, ok := convert.ScheduleFromInterval(in); ok {
-			t.Errorf("%q gave %q", in, got)
+		for _, in := range []string{"", "5s", "90m", "abc", "36h"} {
+			got, ok := convert.ScheduleFromInterval(in)
+			Expect(ok).To(BeFalse(), "%q gave %q", in, got)
 		}
-	}
-	if _, ok := convert.ScheduleFromCron("0 0 3 * * *"); ok {
-		t.Error("a six-field cron was accepted")
-	}
-	if got, ok := convert.ScheduleFromCron("  0 3  * * * "); !ok || got != "0 3 * * *" {
-		t.Errorf("cron = %q %v", got, ok)
-	}
-}
+		_, ok := convert.ScheduleFromCron("0 0 3 * * *")
+		Expect(ok).To(BeFalse(), "a six-field cron was accepted")
+		got, ok := convert.ScheduleFromCron("  0 3  * * * ")
+		Expect(ok).To(BeTrue())
+		Expect(got).To(Equal("0 3 * * *"))
+	})
+})

@@ -1,6 +1,4 @@
 // Package connectorstest is the contract suite every connectors.Store passes.
-//
-//nolint:forbidigo // reusable contract suite driven by the caller's *testing.T
 package connectorstest
 
 import (
@@ -9,16 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 )
 
-// NewStore returns an empty store.
-type NewStore func(t *testing.T) connectors.Store
+// NewStore returns an empty store. It runs inside a spec, so it may use
+// GinkgoT().TempDir() and DeferCleanup.
+type NewStore func() connectors.Store
 
 var t0 = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 
@@ -27,61 +26,60 @@ func binding(id, owner, name string) connectors.Binding {
 		Allow: []string{"123", "@alice"}, NotifyChat: "456", Token: []byte("sealed-bytes-" + id), Created: t0, Updated: t0}
 }
 
-// Run checks the store.
-func Run(t *testing.T, newStore NewStore) {
+// Run registers the contract specs for the stores newStore returns. Call it
+// at the top level of a Describe in the test package of an implementation.
+func Run(newStore NewStore) {
 	ctx := context.Background()
-	t.Run("RoundTripAndOwnerScope", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.PutBinding(ctx, binding("b1", "u1", "Bot")); err != nil {
-			t.Fatal(err)
-		}
+	It("round trips a binding and scopes it to its owner", func() {
+		s := newStore()
+		Expect(s.PutBinding(ctx, binding("b1", "u1", "Bot"))).To(Succeed())
 		_ = s.PutBinding(ctx, binding("b2", "u2", "Other"))
 		got, err := s.GetBinding(ctx, "b1")
-		if err != nil || got.Name != "Bot" || got.AgentID != "ag1" || !got.Enabled || len(got.Allow) != 2 || got.NotifyChat != "456" || !bytes.Equal(got.Token, []byte("sealed-bytes-b1")) {
-			t.Fatalf("got %+v, %v", got, err)
-		}
-		if l, _ := s.ListBindings(ctx, "u1"); len(l) != 1 || l[0].ID != "b1" {
-			t.Fatalf("u1 sees %+v", l)
-		}
-		if _, err := s.GetBinding(ctx, "nope"); !errors.Is(err, connectors.ErrNotFound) {
-			t.Fatalf("missing: %v", err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Name).To(Equal("Bot"))
+		Expect(got.AgentID).To(Equal("ag1"))
+		Expect(got.Enabled).To(BeTrue())
+		Expect(got.Allow).To(HaveLen(2))
+		Expect(got.NotifyChat).To(Equal("456"))
+		Expect(got.Token).To(Equal([]byte("sealed-bytes-b1")))
+		l, _ := s.ListBindings(ctx, "u1")
+		Expect(l).To(HaveLen(1), "u1 sees %+v", l)
+		Expect(l[0].ID).To(Equal("b1"))
+		_, err = s.GetBinding(ctx, "nope")
+		Expect(errors.Is(err, connectors.ErrNotFound)).To(BeTrue(), "missing: %v", err)
 		b := binding("b1", "u1", "Bot 2")
 		b.Enabled, b.Allow = false, nil
 		_ = s.PutBinding(ctx, b)
 		got, _ = s.GetBinding(ctx, "b1")
-		if got.Name != "Bot 2" || got.Enabled || len(got.Allow) != 0 {
-			t.Fatalf("after replace: %+v", got)
-		}
+		Expect(got.Name).To(Equal("Bot 2"))
+		Expect(got.Enabled).To(BeFalse())
+		Expect(got.Allow).To(BeEmpty())
 	})
-	t.Run("KeepsTheReplyConversationAndFileSettings", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		s := newStore(t)
+	It("keeps the reply, conversation and file settings", func() {
+		s := newStore()
 		b := binding("modes", "u1", "Modes")
 		b.Reply, b.Conversation, b.WindowMinutes, b.FilesOff = connectors.ReplyStream, connectors.ConversationWindow, 45, true
-		g.Expect(s.PutBinding(ctx, b)).To(gomega.Succeed())
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
 		got, err := s.GetBinding(ctx, "modes")
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect([]any{got.Reply, got.Conversation, got.WindowMinutes, got.FilesOff}).To(gomega.Equal([]any{connectors.ReplyStream, connectors.ConversationWindow, 45, true}))
+		Expect(err).NotTo(HaveOccurred())
+		Expect([]any{got.Reply, got.Conversation, got.WindowMinutes, got.FilesOff}).To(Equal([]any{connectors.ReplyStream, connectors.ConversationWindow, 45, true}))
 		plain, err := s.GetBinding(ctx, "modes")
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 		plain.Reply, plain.Conversation, plain.WindowMinutes, plain.FilesOff = "", "", 0, false
-		g.Expect(s.PutBinding(ctx, plain)).To(gomega.Succeed())
+		Expect(s.PutBinding(ctx, plain)).To(Succeed())
 		got, _ = s.GetBinding(ctx, "modes")
-		g.Expect(got.ReplyMode()).To(gomega.Equal(connectors.ReplyProgress))
-		g.Expect(got.SendsFiles()).To(gomega.BeTrue())
+		Expect(got.ReplyMode()).To(Equal(connectors.ReplyProgress))
+		Expect(got.SendsFiles()).To(BeTrue())
 	})
-	t.Run("AnOldBindingBelongsToTheAddonOfItsKind", func(t *testing.T) {
+	It("gives an old binding the add-on of its kind", func() {
 		// A binding stored before connectors became add-ons has no add-on ID.
-		s := newStore(t)
+		s := newStore()
 		_ = s.PutBinding(ctx, binding("old", "u1", "Old"))
 		other := binding("new", "u1", "New")
 		other.Kind, other.AddonID = "slack", "slack-addon"
 		_ = s.PutBinding(ctx, other)
 		got, _ := s.GetBinding(ctx, "old")
-		if got.AddonID != "telegram" {
-			t.Fatalf("old binding add-on = %q", got.AddonID)
-		}
+		Expect(got.AddonID).To(Equal("telegram"), "old binding add-on")
 		list, _ := s.ListBindings(ctx, "u1")
 		enabled, _ := s.EnabledBindings(ctx)
 		for _, l := range [][]connectors.Binding{list, enabled} {
@@ -89,109 +87,104 @@ func Run(t *testing.T, newStore NewStore) {
 			for _, b := range l {
 				byID[b.ID] = b.AddonID
 			}
-			if byID["old"] != "telegram" || byID["new"] != "slack-addon" {
-				t.Fatalf("add-ons = %v", byID)
-			}
+			Expect(byID).To(HaveKeyWithValue("old", "telegram"))
+			Expect(byID).To(HaveKeyWithValue("new", "slack-addon"))
 		}
 	})
-	t.Run("EnabledBindings", func(t *testing.T) {
-		s := newStore(t)
+	It("lists the enabled bindings", func() {
+		s := newStore()
 		a, b := binding("a", "u1", "A"), binding("b", "u2", "B")
 		b.Enabled = false
 		_ = s.PutBinding(ctx, a)
 		_ = s.PutBinding(ctx, b)
 		l, err := s.EnabledBindings(ctx)
-		if err != nil || len(l) != 1 || l[0].ID != "a" {
-			t.Fatalf("enabled = %+v, %v", l, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(l).To(HaveLen(1))
+		Expect(l[0].ID).To(Equal("a"))
 	})
-	t.Run("AllBindings", func(t *testing.T) {
-		s := newStore(t)
+	It("lists all bindings", func() {
+		s := newStore()
 		a, b := binding("a", "u1", "A"), binding("b", "u2", "B")
 		b.Enabled = false
 		_ = s.PutBinding(ctx, a)
 		_ = s.PutBinding(ctx, b)
 		l, err := s.AllBindings(ctx)
-		if err != nil || len(l) != 2 || l[0].ID != "a" || l[1].ID != "b" {
-			t.Fatalf("all = %+v, %v", l, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(l).To(HaveLen(2))
+		Expect(l[0].ID).To(Equal("a"))
+		Expect(l[1].ID).To(Equal("b"))
 	})
-	t.Run("ReturnedValuesAreCopies", func(t *testing.T) {
-		s := newStore(t)
+	It("returns values that are copies", func() {
+		s := newStore()
 		_ = s.PutBinding(ctx, binding("b1", "u1", "Bot"))
 		got, _ := s.GetBinding(ctx, "b1")
 		got.Allow[0], got.Token[0] = "999", 'X'
 		again, _ := s.GetBinding(ctx, "b1")
-		if again.Allow[0] != "123" || again.Token[0] != 's' {
-			t.Fatalf("a caller changed the stored binding: %+v", again)
-		}
+		Expect(again.Allow[0]).To(Equal("123"), "a caller changed the stored binding: %+v", again)
+		Expect(again.Token[0]).To(Equal(byte('s')), "a caller changed the stored binding: %+v", again)
 	})
-	t.Run("OffsetAndDelete", func(t *testing.T) {
-		s := newStore(t)
+	It("saves an offset and deletes everything of a binding", func() {
+		s := newStore()
 		_ = s.PutBinding(ctx, binding("b1", "u1", "Bot"))
-		if _, ok, _ := s.Offset(ctx, "b1"); ok {
-			t.Fatal("an offset before any was saved")
-		}
+		_, ok, _ := s.Offset(ctx, "b1")
+		Expect(ok).To(BeFalse(), "an offset before any was saved")
 		_ = s.SetOffset(ctx, "b1", 42)
-		if off, ok, err := s.Offset(ctx, "b1"); err != nil || !ok || off != 42 {
-			t.Fatalf("offset = %d %v %v", off, ok, err)
-		}
+		off, ok, err := s.Offset(ctx, "b1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(off).To(BeEquivalentTo(42))
 		_ = s.RecordSender(ctx, "b1", "123", "Alice", true, t0)
 		_ = s.SetChat(ctx, "b1", "123", "chat9")
-		if err := s.DeleteBinding(ctx, "b1"); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.DeleteBinding(ctx, "b1"); err != nil {
-			t.Fatalf("second delete: %v", err)
-		}
-		if _, ok, _ := s.Offset(ctx, "b1"); ok {
-			t.Fatal("the offset outlived its binding")
-		}
-		if l, _ := s.Senders(ctx, "b1", 0); len(l) != 0 {
-			t.Fatalf("senders outlived: %+v", l)
-		}
-		if _, ok, _ := s.ChatOf(ctx, "b1", "123"); ok {
-			t.Fatal("the chat map outlived its binding")
-		}
+		Expect(s.DeleteBinding(ctx, "b1")).To(Succeed())
+		Expect(s.DeleteBinding(ctx, "b1")).To(Succeed(), "second delete")
+		_, ok, _ = s.Offset(ctx, "b1")
+		Expect(ok).To(BeFalse(), "the offset outlived its binding")
+		l, _ := s.Senders(ctx, "b1", 0)
+		Expect(l).To(BeEmpty(), "senders outlived")
+		_, ok, _ = s.ChatOf(ctx, "b1", "123")
+		Expect(ok).To(BeFalse(), "the chat map outlived its binding")
 	})
-	t.Run("SenderLog", func(t *testing.T) {
-		s := newStore(t)
+	It("logs the senders", func() {
+		s := newStore()
 		_ = s.RecordSender(ctx, "b1", "1", "One", false, t0)
 		_ = s.RecordSender(ctx, "b1", "1", "One renamed", false, t0.Add(time.Minute))
 		_ = s.RecordSender(ctx, "b1", "2", "Two", true, t0.Add(2*time.Minute))
 		_ = s.RecordSender(ctx, "b2", "9", "Other bot", false, t0)
 		l, err := s.Senders(ctx, "b1", 0)
-		if err != nil || len(l) != 2 || l[0].ID != "2" || !l[0].Allowed || l[1].ID != "1" || l[1].Count != 2 || l[1].Name != "One renamed" || !l[1].First.Equal(t0) || !l[1].Last.Equal(t0.Add(time.Minute)) {
-			t.Fatalf("senders = %+v, %v", l, err)
-		}
-		if one, _ := s.Senders(ctx, "b1", 1); len(one) != 1 || one[0].ID != "2" {
-			t.Fatalf("limit 1 = %+v", one)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(l).To(HaveLen(2))
+		Expect(l[0].ID).To(Equal("2"))
+		Expect(l[0].Allowed).To(BeTrue())
+		Expect(l[1].ID).To(Equal("1"))
+		Expect(l[1].Count).To(BeEquivalentTo(2))
+		Expect(l[1].Name).To(Equal("One renamed"))
+		Expect(l[1].First.Equal(t0)).To(BeTrue())
+		Expect(l[1].Last.Equal(t0.Add(time.Minute))).To(BeTrue())
+		one, _ := s.Senders(ctx, "b1", 1)
+		Expect(one).To(HaveLen(1), "limit 1")
+		Expect(one[0].ID).To(Equal("2"))
 		for i := 0; i < connectors.MaxSendersKept+5; i++ {
 			_ = s.RecordSender(ctx, "b3", fmt.Sprint(i), "x", false, t0.Add(time.Duration(i)*time.Second))
 		}
 		all, _ := s.Senders(ctx, "b3", 0)
-		if len(all) != connectors.MaxSendersKept || all[0].ID != fmt.Sprint(connectors.MaxSendersKept+4) {
-			t.Fatalf("kept %d, newest %q", len(all), all[0].ID)
-		}
+		Expect(all).To(HaveLen(connectors.MaxSendersKept))
+		Expect(all[0].ID).To(Equal(fmt.Sprint(connectors.MaxSendersKept + 4)))
 	})
-	t.Run("ChatMap", func(t *testing.T) {
-		s := newStore(t)
-		if _, ok, _ := s.ChatOf(ctx, "b1", "1"); ok {
-			t.Fatal("a chat before any was set")
-		}
+	It("maps a sender to a chat", func() {
+		s := newStore()
+		_, ok, _ := s.ChatOf(ctx, "b1", "1")
+		Expect(ok).To(BeFalse(), "a chat before any was set")
 		_ = s.SetChat(ctx, "b1", "1", "c1")
 		_ = s.SetChat(ctx, "b1", "2", "c2")
 		_ = s.SetChat(ctx, "b1", "1", "c3")
-		if id, ok, _ := s.ChatOf(ctx, "b1", "1"); !ok || id != "c3" {
-			t.Fatalf("chat of 1 = %q %v", id, ok)
-		}
-		if id, _, _ := s.ChatOf(ctx, "b1", "2"); id != "c2" {
-			t.Fatalf("chat of 2 = %q", id)
-		}
+		id, ok, _ := s.ChatOf(ctx, "b1", "1")
+		Expect(ok).To(BeTrue())
+		Expect(id).To(Equal("c3"))
+		id, _, _ = s.ChatOf(ctx, "b1", "2")
+		Expect(id).To(Equal("c2"))
 	})
-	t.Run("KeyIsMadeOnceEvenWhenCallsRace", func(t *testing.T) {
-		s := newStore(t)
+	It("makes the key once even when calls race", func() {
+		s := newStore()
 		var mu sync.Mutex
 		n := 0
 		gen := func() ([]byte, error) {
@@ -207,11 +200,10 @@ func Run(t *testing.T, newStore NewStore) {
 		for i := 0; i < 8; i++ {
 			wg.Add(1)
 			go func() {
+				defer GinkgoRecover()
 				defer wg.Done()
 				k, err := s.EnsureKey(ctx, gen)
-				if err != nil {
-					t.Error(err)
-				}
+				Expect(err).NotTo(HaveOccurred())
 				res <- k
 			}()
 		}
@@ -222,49 +214,39 @@ func Run(t *testing.T, newStore NewStore) {
 			if first == nil {
 				first = k
 			}
-			if !bytes.Equal(k, first) {
-				t.Fatal("two callers got different keys")
-			}
+			Expect(k).To(Equal(first), "two callers got different keys")
 		}
 		again, _ := s.EnsureKey(ctx, func() ([]byte, error) { return nil, errors.New("must not generate again") })
-		if !bytes.Equal(again, first) {
-			t.Fatal("a later call got another key")
-		}
+		Expect(again).To(Equal(first), "a later call got another key")
 	})
 }
 
 // Seed stores a binding and a key; CheckSeed finds them in another store on the same data.
-func Seed(t *testing.T, s connectors.Store) {
-	t.Helper()
+func Seed(s connectors.Store) {
 	ctx := context.Background()
 	_ = s.PutBinding(ctx, binding("seed", "u1", "Seeded"))
 	_ = s.SetOffset(ctx, "seed", 7)
 	_ = s.RecordSender(ctx, "seed", "1", "One", true, t0)
 	_ = s.SetChat(ctx, "seed", "1", "chat1")
-	if _, err := s.EnsureKey(ctx, func() ([]byte, error) { return bytes.Repeat([]byte{9}, connectors.KeySize), nil }); err != nil {
-		t.Fatal(err)
-	}
+	_, err := s.EnsureKey(ctx, func() ([]byte, error) { return bytes.Repeat([]byte{9}, connectors.KeySize), nil })
+	Expect(err).NotTo(HaveOccurred())
 }
 
 // CheckSeed checks what Seed wrote.
-func CheckSeed(t *testing.T, s connectors.Store) {
-	t.Helper()
+func CheckSeed(s connectors.Store) {
 	ctx := context.Background()
 	b, err := s.GetBinding(ctx, "seed")
-	if err != nil || b.Name != "Seeded" {
-		t.Fatalf("binding: %+v %v", b, err)
-	}
-	if off, ok, _ := s.Offset(ctx, "seed"); !ok || off != 7 {
-		t.Fatalf("offset = %d %v", off, ok)
-	}
-	if l, _ := s.Senders(ctx, "seed", 0); len(l) != 1 {
-		t.Fatalf("senders = %+v", l)
-	}
-	if id, ok, _ := s.ChatOf(ctx, "seed", "1"); !ok || id != "chat1" {
-		t.Fatalf("chat = %q %v", id, ok)
-	}
+	Expect(err).NotTo(HaveOccurred())
+	Expect(b.Name).To(Equal("Seeded"))
+	off, ok, _ := s.Offset(ctx, "seed")
+	Expect(ok).To(BeTrue())
+	Expect(off).To(BeEquivalentTo(7))
+	l, _ := s.Senders(ctx, "seed", 0)
+	Expect(l).To(HaveLen(1))
+	id, ok, _ := s.ChatOf(ctx, "seed", "1")
+	Expect(ok).To(BeTrue())
+	Expect(id).To(Equal("chat1"))
 	k, err := s.EnsureKey(ctx, func() ([]byte, error) { return bytes.Repeat([]byte{1}, connectors.KeySize), nil })
-	if err != nil || !bytes.Equal(k, bytes.Repeat([]byte{9}, connectors.KeySize)) {
-		t.Fatalf("key: %v %v", k, err)
-	}
+	Expect(err).NotTo(HaveOccurred())
+	Expect(k).To(Equal(bytes.Repeat([]byte{9}, connectors.KeySize)))
 }

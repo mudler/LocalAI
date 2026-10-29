@@ -2,8 +2,9 @@ package connectors_test
 
 import (
 	"path/filepath"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -11,13 +12,10 @@ import (
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
-func openSQLite(t *testing.T, path string) *gorm.DB {
-	t.Helper()
+func openSQLite(path string) *gorm.DB {
 	db, err := sqlitedb.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
 		if sqlDB, err := db.DB(); err == nil {
 			_ = sqlDB.Close()
 		}
@@ -25,23 +23,21 @@ func openSQLite(t *testing.T, path string) *gorm.DB {
 	return db
 }
 
-func TestGORMOnSQLite(t *testing.T) {
-	connectorstest.Run(t, func(t *testing.T) connectors.Store {
-		s, err := connectors.NewGORM(openSQLite(t, filepath.Join(t.TempDir(), "c.db")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
+var _ = Describe("GORM on SQLite", func() {
+	Describe("the store contract", func() {
+		connectorstest.Run(func() connectors.Store {
+			s, err := connectors.NewGORM(openSQLite(filepath.Join(GinkgoT().TempDir(), "c.db")))
+			Expect(err).NotTo(HaveOccurred())
+			return s
+		})
 	})
-}
 
-func TestGORMSurvivesReopen(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "c.db")
-	first, _ := connectors.NewGORM(openSQLite(t, path))
-	connectorstest.Seed(t, first)
-	second, err := connectors.NewGORM(openSQLite(t, path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	connectorstest.CheckSeed(t, second)
-}
+	It("survives a reopen", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "c.db")
+		first, _ := connectors.NewGORM(openSQLite(path))
+		connectorstest.Seed(first)
+		second, err := connectors.NewGORM(openSQLite(path))
+		Expect(err).NotTo(HaveOccurred())
+		connectorstest.CheckSeed(second)
+	})
+})

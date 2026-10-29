@@ -7,19 +7,19 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-func tarOf(t *testing.T, build func(w *tar.Writer)) io.Reader {
-	t.Helper()
+func tarOf(build func(w *tar.Writer)) io.Reader {
+	GinkgoHelper()
 	var buf bytes.Buffer
 	w := tar.NewWriter(&buf)
 	build(w)
-	if err := w.Close(); err != nil {
-		t.Fatal(err)
-	}
+	Expect(w.Close()).To(Succeed())
 	return &buf
 }
 
@@ -33,8 +33,8 @@ type got struct {
 	body string
 }
 
-func walk(t *testing.T, r io.Reader) ([]got, error) {
-	t.Helper()
+func walk(r io.Reader) ([]got, error) {
+	GinkgoHelper()
 	var out []got
 	err := workspace.ArchiveSource(r).Walk(context.Background(), func(e workspace.UpperEntry) error {
 		g := got{e: e}
@@ -53,82 +53,67 @@ func walk(t *testing.T, r io.Reader) ([]got, error) {
 	return out, err
 }
 
-func TestAnArchiveIsAnUpperLayerWithAllItsEntryKinds(t *testing.T) {
-	r := tarOf(t, func(w *tar.Writer) {
-		_ = w.WriteHeader(&tar.Header{Name: "home/", Typeflag: tar.TypeDir, Mode: 0o755})
-		file(w, "home/a.txt", "alpha")
-		_ = w.WriteHeader(&tar.Header{Name: "home/opaque/", Typeflag: tar.TypeDir, Mode: 0o755,
-			Format: tar.FormatPAX, PAXRecords: map[string]string{"SCHILY.xattr.trusted.overlay.opaque": "y", "SCHILY.xattr.security.selinux": "x"}})
-		_ = w.WriteHeader(&tar.Header{Name: "home/gone.txt", Typeflag: tar.TypeChar, Devmajor: 0, Devminor: 0})
-		_ = w.WriteHeader(&tar.Header{Name: "home/link", Typeflag: tar.TypeSymlink, Linkname: "a.txt"})
-		_ = w.WriteHeader(&tar.Header{Name: "home/null", Typeflag: tar.TypeChar, Devmajor: 1, Devminor: 3})
+var _ = Describe("ArchiveSource", func() {
+	It("an archive is an upper layer with all its entry kinds", func() {
+		r := tarOf(func(w *tar.Writer) {
+			_ = w.WriteHeader(&tar.Header{Name: "home/", Typeflag: tar.TypeDir, Mode: 0o755})
+			file(w, "home/a.txt", "alpha")
+			_ = w.WriteHeader(&tar.Header{Name: "home/opaque/", Typeflag: tar.TypeDir, Mode: 0o755,
+				Format: tar.FormatPAX, PAXRecords: map[string]string{"SCHILY.xattr.trusted.overlay.opaque": "y", "SCHILY.xattr.security.selinux": "x"}})
+			_ = w.WriteHeader(&tar.Header{Name: "home/gone.txt", Typeflag: tar.TypeChar, Devmajor: 0, Devminor: 0})
+			_ = w.WriteHeader(&tar.Header{Name: "home/link", Typeflag: tar.TypeSymlink, Linkname: "a.txt"})
+			_ = w.WriteHeader(&tar.Header{Name: "home/null", Typeflag: tar.TypeChar, Devmajor: 1, Devminor: 3})
+		})
+		es, err := walk(r)
+		Expect(err).ToNot(HaveOccurred())
+		kinds := map[string]workspace.EntryKind{}
+		for _, g := range es {
+			kinds[g.e.Path] = g.e.Kind
+		}
+		want := map[string]workspace.EntryKind{
+			"home": workspace.EntryDir, "home/a.txt": workspace.EntryFile, "home/opaque": workspace.EntryDir,
+			"home/gone.txt": workspace.EntryWhiteout, "home/link": workspace.EntrySymlink, "home/null": workspace.EntryOther,
+		}
+		for p, k := range want {
+			Expect(kinds[p]).To(Equal(k), "entry %s", p)
+		}
+		for _, g := range es {
+			switch g.e.Path {
+			case "home/a.txt":
+				Expect(g.body).To(Equal("alpha"))
+			case "home/opaque":
+				Expect(string(g.e.Xattrs["trusted.overlay.opaque"])).To(Equal("y"), "the opaque attribute was lost: %v", g.e.Xattrs)
+				Expect(g.e.Xattrs).ToNot(HaveKey("security.selinux"), "a non-overlay attribute was passed on")
+			}
+		}
 	})
-	es, err := walk(t, r)
-	if err != nil {
-		t.Fatal(err)
-	}
-	kinds := map[string]workspace.EntryKind{}
-	for _, g := range es {
-		kinds[g.e.Path] = g.e.Kind
-	}
-	want := map[string]workspace.EntryKind{
-		"home": workspace.EntryDir, "home/a.txt": workspace.EntryFile, "home/opaque": workspace.EntryDir,
-		"home/gone.txt": workspace.EntryWhiteout, "home/link": workspace.EntrySymlink, "home/null": workspace.EntryOther,
-	}
-	for p, k := range want {
-		if kinds[p] != k {
-			t.Errorf("entry %s has kind %v, want %v", p, kinds[p], k)
-		}
-	}
-	for _, g := range es {
-		switch g.e.Path {
-		case "home/a.txt":
-			if g.body != "alpha" {
-				t.Errorf("a.txt = %q", g.body)
-			}
-		case "home/opaque":
-			if string(g.e.Xattrs["trusted.overlay.opaque"]) != "y" {
-				t.Errorf("the opaque attribute was lost: %v", g.e.Xattrs)
-			}
-			if _, ok := g.e.Xattrs["security.selinux"]; ok {
-				t.Errorf("a non-overlay attribute was passed on: %v", g.e.Xattrs)
-			}
-		}
-	}
-}
 
-func TestAnArchiveCannotNameAPathOutsideTheLayer(t *testing.T) {
-	for _, name := range []string{"../escape.txt", "/abs.txt", "a/../../b", "a//b/../../../c"} {
-		r := tarOf(t, func(w *tar.Writer) { file(w, name, "x") })
-		if _, err := walk(t, r); err == nil {
-			t.Errorf("an entry named %q was accepted", name)
+	It("an archive cannot name a path outside the layer", func() {
+		for _, name := range []string{"../escape.txt", "/abs.txt", "a/../../b", "a//b/../../../c"} {
+			r := tarOf(func(w *tar.Writer) { file(w, name, "x") })
+			_, err := walk(r)
+			Expect(err).To(HaveOccurred(), "an entry named %q was accepted", name)
 		}
-	}
-}
+	})
 
-func TestAnArchiveOverTheLimitsFailsWholesale(t *testing.T) {
-	deep := strings.Repeat("d/", 513) + "f.txt"
-	if _, err := walk(t, tarOf(t, func(w *tar.Writer) { file(w, deep, "x") })); err == nil || !strings.Contains(err.Error(), "512") {
-		t.Errorf("a path 513 levels deep = %v, want an error naming 512", err)
-	}
-	defer workspace.SetArchiveMaxEntries(1000)()
-	var many bytes.Buffer
-	w := tar.NewWriter(&many)
-	for i := 0; i < 1001; i++ {
-		_ = w.WriteHeader(&tar.Header{Name: fmt.Sprintf("f%d", i), Typeflag: tar.TypeReg, Mode: 0o644})
-	}
-	_ = w.Close()
-	if _, err := walk(t, &many); err == nil || !strings.Contains(err.Error(), "1000 entries") {
-		t.Errorf("an archive over the entry limit = %v, want an error naming the limit", err)
-	}
-}
+	It("an archive over the limits fails wholesale", func() {
+		deep := strings.Repeat("d/", 513) + "f.txt"
+		_, err := walk(tarOf(func(w *tar.Writer) { file(w, deep, "x") }))
+		Expect(err).To(MatchError(ContainSubstring("512")), "a path 513 levels deep")
+		DeferCleanup(workspace.SetArchiveMaxEntries(1000))
+		var many bytes.Buffer
+		w := tar.NewWriter(&many)
+		for i := 0; i < 1001; i++ {
+			_ = w.WriteHeader(&tar.Header{Name: fmt.Sprintf("f%d", i), Typeflag: tar.TypeReg, Mode: 0o644})
+		}
+		_ = w.Close()
+		_, err = walk(&many)
+		Expect(err).To(MatchError(ContainSubstring("1000 entries")), "an archive over the entry limit")
+	})
 
-func TestAnArchiveIsReadOnce(t *testing.T) {
-	src := workspace.ArchiveSource(tarOf(t, func(w *tar.Writer) { file(w, "a", "x") }))
-	if err := src.Walk(context.Background(), func(workspace.UpperEntry) error { return nil }); err != nil {
-		t.Fatal(err)
-	}
-	if err := src.Walk(context.Background(), func(workspace.UpperEntry) error { return nil }); err == nil {
-		t.Fatal("a second walk of a stream succeeded")
-	}
-}
+	It("an archive is read once", func() {
+		src := workspace.ArchiveSource(tarOf(func(w *tar.Writer) { file(w, "a", "x") }))
+		Expect(src.Walk(context.Background(), func(workspace.UpperEntry) error { return nil })).To(Succeed())
+		Expect(src.Walk(context.Background(), func(workspace.UpperEntry) error { return nil })).ToNot(Succeed(), "a second walk of a stream succeeded")
+	})
+})

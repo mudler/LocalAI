@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +12,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -50,8 +52,7 @@ type fakeServer struct {
 	headers []string
 }
 
-func newFakeServer(t *testing.T, slow time.Duration) *fakeServer {
-	t.Helper()
+func newFakeServer(slow time.Duration) *fakeServer {
 	f := &fakeServer{}
 	srv := mcp.NewServer(&mcp.Implementation{Name: "fake", Version: "1"}, nil)
 	addEcho(srv, "echo")
@@ -81,7 +82,7 @@ func newFakeServer(t *testing.T, slow time.Duration) *fakeServer {
 		}
 		h.ServeHTTP(w, r)
 	}))
-	t.Cleanup(func() { f.CloseClientConnections(); f.Close() })
+	DeferCleanup(func() { f.CloseClientConnections(); f.Close() })
 	return f
 }
 
@@ -110,15 +111,12 @@ type env struct {
 	mu      sync.Mutex
 }
 
-func newEnv(t *testing.T, mutate ...func(*mcpconns.Options)) *env {
-	t.Helper()
+func newEnv(mutate ...func(*mcpconns.Options)) *env {
 	e := &env{now: time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)}
 	e.permit.Store(true)
 	e.private.Store(true) // the test servers listen on loopback
 	store, err := mcpconns.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	e.store = store
 	key, _ := connectors.NewKey()
 	o := mcpconns.Options{
@@ -136,15 +134,20 @@ func newEnv(t *testing.T, mutate ...func(*mcpconns.Options)) *env {
 		m(&o)
 	}
 	svc, err := mcpconns.New(o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(svc.Close)
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(svc.Close)
 	e.svc = svc
 	return e
 }
 
 func (e *env) advance(d time.Duration) { e.mu.Lock(); e.now = e.now.Add(d); e.mu.Unlock() }
+
+// specCtx returns a context that ends with the spec.
+func specCtx() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	DeferCleanup(cancel)
+	return ctx
+}
 
 func str(s string) *string { return &s }
 
@@ -152,518 +155,423 @@ func httpInput(name, url string) mcpconns.Input {
 	return mcpconns.Input{Name: name, Transport: mcpconns.TransportHTTP, URL: url, Enabled: true}
 }
 
-func TestCreateSealsSecretsAndNeverReturnsThem(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	hdr := map[string]string{"X-Team": "blue-team-secret"}
-	in := httpInput("Docs", "https://mcp.example/mcp")
-	in.Token, in.Headers = str("tok-123456"), &hdr
-	c, err := e.svc.Create(ctx, "u1", in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !c.HasToken || !c.HasHeaders || c.HasEnv || c.Secrets != nil {
-		t.Fatalf("the record leaks or misses a flag: %+v", c)
-	}
-	raw, _ := e.store.Get(ctx, c.ID)
-	if bytes.Contains(raw.Secrets, []byte("tok-123456")) || bytes.Contains(raw.Secrets, []byte("blue-team-secret")) || len(raw.Secrets) == 0 {
-		t.Fatal("the secrets are not sealed in the store")
-	}
-	if j, _ := json.Marshal(c); bytes.Contains(j, []byte("tok-123456")) {
-		t.Fatal("the token is in the JSON of a connector")
-	}
-	// A sealed value cannot be moved to another connector or owner.
-	other := raw
-	other.ID, other.Name = "stolen", "Stolen"
-	_ = e.store.Put(ctx, other)
-	if p, err := e.svc.Test(ctx, "u1", "stolen"); err != nil || p.Error == "" {
-		t.Fatalf("a sealed value that was moved must not open: %+v %v", p, err)
-	}
-}
+var _ = Describe("Service", func() {
+	It("seals secrets on create and never returns them", func() {
+		e := newEnv()
+		ctx := specCtx()
+		hdr := map[string]string{"X-Team": "blue-team-secret"}
+		in := httpInput("Docs", "https://mcp.example/mcp")
+		in.Token, in.Headers = str("tok-123456"), &hdr
+		c, err := e.svc.Create(ctx, "u1", in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.HasToken).To(BeTrue(), "the record misses a flag")
+		Expect(c.HasHeaders).To(BeTrue(), "the record misses a flag")
+		Expect(c.HasEnv).To(BeFalse())
+		Expect(c.Secrets).To(BeNil(), "the record leaks the secrets")
+		raw, _ := e.store.Get(ctx, c.ID)
+		Expect(raw.Secrets).NotTo(BeEmpty(), "the secrets are not sealed in the store")
+		Expect(raw.Secrets).NotTo(ContainSubstring("tok-123456"), "the secrets are not sealed in the store")
+		Expect(raw.Secrets).NotTo(ContainSubstring("blue-team-secret"), "the secrets are not sealed in the store")
+		j, _ := json.Marshal(c)
+		Expect(string(j)).NotTo(ContainSubstring("tok-123456"), "the token is in the JSON of a connector")
+		// A sealed value cannot be moved to another connector or owner.
+		other := raw
+		other.ID, other.Name = "stolen", "Stolen"
+		_ = e.store.Put(ctx, other)
+		p, err := e.svc.Test(ctx, "u1", "stolen")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Error).NotTo(BeEmpty(), "a sealed value that was moved must not open")
+	})
 
-func TestUpdateKeepsSecretsUnlessGivenAndCanClearThem(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	in := httpInput("Docs", "https://mcp.example/mcp")
-	in.Token = str("tok")
-	c, _ := e.svc.Create(ctx, "u1", in)
-	up := httpInput("Docs renamed", "https://mcp.example/mcp")
-	got, err := e.svc.Update(ctx, "u1", c.ID, up)
-	if err != nil || !got.HasToken || got.Name != "Docs renamed" {
-		t.Fatalf("an update without a token must keep it: %+v %v", got, err)
-	}
-	up.Token = str("")
-	got, _ = e.svc.Update(ctx, "u1", c.ID, up)
-	if got.HasToken {
-		t.Fatal("an empty token must clear it")
-	}
-}
+	It("keeps secrets on update unless given and can clear them", func() {
+		e := newEnv()
+		ctx := specCtx()
+		in := httpInput("Docs", "https://mcp.example/mcp")
+		in.Token = str("tok")
+		c, _ := e.svc.Create(ctx, "u1", in)
+		up := httpInput("Docs renamed", "https://mcp.example/mcp")
+		got, err := e.svc.Update(ctx, "u1", c.ID, up)
+		Expect(err).NotTo(HaveOccurred(), "an update without a token must keep it")
+		Expect(got.HasToken).To(BeTrue(), "an update without a token must keep it")
+		Expect(got.Name).To(Equal("Docs renamed"))
+		up.Token = str("")
+		got, _ = e.svc.Update(ctx, "u1", c.ID, up)
+		Expect(got.HasToken).To(BeFalse(), "an empty token must clear it")
+	})
 
-func TestAnotherUserNeverSeesEditsTestsOrUsesAConnector(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	c, err := e.svc.Create(ctx, "u1", httpInput("Mine", f.URL))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if l, _ := e.svc.List(ctx, "u2"); len(l) != 0 {
-		t.Fatalf("u2 lists %+v", l)
-	}
-	if _, err := e.svc.Get(ctx, "u2", c.ID); !errors.Is(err, mcpconns.ErrNotFound) {
-		t.Fatalf("get: %v", err)
-	}
-	if _, err := e.svc.Update(ctx, "u2", c.ID, httpInput("Hijack", f.URL)); !errors.Is(err, mcpconns.ErrNotFound) {
-		t.Fatalf("update: %v", err)
-	}
-	if _, err := e.svc.SetEnabled(ctx, "u2", c.ID, false); !errors.Is(err, mcpconns.ErrNotFound) {
-		t.Fatalf("enable: %v", err)
-	}
-	if _, err := e.svc.Test(ctx, "u2", c.ID); !errors.Is(err, mcpconns.ErrNotFound) {
-		t.Fatalf("test: %v", err)
-	}
-	if err := e.svc.Delete(ctx, "u2", c.ID); !errors.Is(err, mcpconns.ErrNotFound) {
-		t.Fatalf("delete: %v", err)
-	}
-	tools, missing := e.svc.Resolve(ctx, "u2", []string{c.ID}, false)
-	if len(tools) != 0 || len(missing) != 1 {
-		t.Fatalf("u2 used the connector of u1: %v %v", tools, missing)
-	}
-	if tools, _ := e.svc.Resolve(ctx, "u2", nil, true); len(tools) != 0 {
-		t.Fatal("u2 got the connectors of u1 in all-mode")
-	}
-	if got, _ := e.svc.Get(ctx, "u1", c.ID); got.Name != "Mine" {
-		t.Fatal("the owner's connector was changed")
-	}
-	if !strings.Contains(strings.Join(missing, " "), "could not be used") && missing[0] == "" {
-		t.Fatalf("missing = %v", missing)
-	}
-}
+	It("never lets another user see, edit, test or use a connector", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		c, err := e.svc.Create(ctx, "u1", httpInput("Mine", f.URL))
+		Expect(err).NotTo(HaveOccurred())
+		l, _ := e.svc.List(ctx, "u2")
+		Expect(l).To(BeEmpty())
+		_, err = e.svc.Get(ctx, "u2", c.ID)
+		Expect(err).To(MatchError(mcpconns.ErrNotFound), "get")
+		_, err = e.svc.Update(ctx, "u2", c.ID, httpInput("Hijack", f.URL))
+		Expect(err).To(MatchError(mcpconns.ErrNotFound), "update")
+		_, err = e.svc.SetEnabled(ctx, "u2", c.ID, false)
+		Expect(err).To(MatchError(mcpconns.ErrNotFound), "enable")
+		_, err = e.svc.Test(ctx, "u2", c.ID)
+		Expect(err).To(MatchError(mcpconns.ErrNotFound), "test")
+		Expect(e.svc.Delete(ctx, "u2", c.ID)).To(MatchError(mcpconns.ErrNotFound), "delete")
+		tools, missing := e.svc.Resolve(ctx, "u2", []string{c.ID}, false)
+		Expect(tools).To(BeEmpty(), "u2 used the connector of u1")
+		Expect(missing).To(HaveLen(1), "u2 used the connector of u1")
+		allTools, _ := e.svc.Resolve(ctx, "u2", nil, true)
+		Expect(allTools).To(BeEmpty(), "u2 got the connectors of u1 in all-mode")
+		got, _ := e.svc.Get(ctx, "u1", c.ID)
+		Expect(got.Name).To(Equal("Mine"), "the owner's connector was changed")
+		Expect(strings.Contains(strings.Join(missing, " "), "could not be used") || missing[0] != "").To(BeTrue(), "missing = %v", missing)
+	})
 
-func TestPermissionIsCheckedOnEveryUse(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	c, _ := e.svc.Create(ctx, "u1", httpInput("Mine", f.URL))
-	if tools, _ := e.svc.Resolve(ctx, "u1", []string{c.ID}, false); len(tools) == 0 {
-		t.Fatal("no tools with the permission")
-	}
-	e.permit.Store(false)
-	if _, err := e.svc.Create(ctx, "u1", httpInput("Other", f.URL)); !errors.Is(err, mcpconns.ErrForbidden) {
-		t.Fatalf("create without the feature: %v", err)
-	}
-	if _, err := e.svc.Test(ctx, "u1", c.ID); !errors.Is(err, mcpconns.ErrForbidden) {
-		t.Fatalf("test without the feature: %v", err)
-	}
-	tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-	if len(tools) != 0 || len(missing) != 1 {
-		t.Fatalf("a revoked feature still gave tools: %v %v", tools, missing)
-	}
-	if tools, _ := e.svc.Resolve(ctx, "u1", nil, true); len(tools) != 0 {
-		t.Fatal("all-mode gave tools without the feature")
-	}
-}
+	It("checks the permission on every use", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		c, _ := e.svc.Create(ctx, "u1", httpInput("Mine", f.URL))
+		withPermission, _ := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(withPermission).NotTo(BeEmpty(), "no tools with the permission")
+		e.permit.Store(false)
+		_, err := e.svc.Create(ctx, "u1", httpInput("Other", f.URL))
+		Expect(err).To(MatchError(mcpconns.ErrForbidden), "create without the feature")
+		_, err = e.svc.Test(ctx, "u1", c.ID)
+		Expect(err).To(MatchError(mcpconns.ErrForbidden), "test without the feature")
+		tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(tools).To(BeEmpty(), "a revoked feature still gave tools")
+		Expect(missing).To(HaveLen(1), "a revoked feature still gave tools")
+		allTools, _ := e.svc.Resolve(ctx, "u1", nil, true)
+		Expect(allTools).To(BeEmpty(), "all-mode gave tools without the feature")
+	})
 
-func TestValidationRefusals(t *testing.T) {
-	e := newEnv(t)
-	e.private.Store(false)
-	ctx := t.Context()
-	hdr := func(k, v string) *map[string]string { m := map[string]string{k: v}; return &m }
-	cases := map[string]mcpconns.Input{
-		"ftp":            httpInput("a", "ftp://mcp.example"),
-		"no host":        httpInput("a", "https://"),
-		"userinfo":       httpInput("a", "https://user:pw@mcp.example"),
-		"loopback":       httpInput("a", "http://127.0.0.1:9000/mcp"),
-		"private net":    httpInput("a", "http://10.1.2.3/mcp"),
-		"metadata":       httpInput("a", "http://169.254.169.254/latest"),
-		"localhost":      httpInput("a", "http://localhost:9000"),
-		"unspecified":    httpInput("a", "http://0.0.0.0/"),
-		"ipv6 loopback":  httpInput("a", "http://[::1]:9000/"),
-		"empty name":     httpInput("  ", "https://mcp.example"),
-		"bad transport":  {Name: "a", Transport: "ws", URL: "https://mcp.example"},
-		"header newline": {Name: "a", Transport: "http", URL: "https://mcp.example", Headers: hdr("X-A", "v\r\nX-B: 1")},
-		"header name":    {Name: "a", Transport: "http", URL: "https://mcp.example", Headers: hdr("Bad Name", "v")},
-		"host header":    {Name: "a", Transport: "http", URL: "https://mcp.example", Headers: hdr("Host", "evil")},
-		"http with cmd":  {Name: "a", Transport: "http", URL: "https://mcp.example", Command: "ls"},
-	}
-	for name, in := range cases {
-		in.Enabled = true
-		if _, err := e.svc.Create(ctx, "u1", in); !errors.Is(err, mcpconns.ErrInvalid) {
-			t.Errorf("%s: %v", name, err)
+	It("refuses invalid input", func() {
+		e := newEnv()
+		e.private.Store(false)
+		ctx := specCtx()
+		hdr := func(k, v string) *map[string]string { m := map[string]string{k: v}; return &m }
+		cases := map[string]mcpconns.Input{
+			"ftp":            httpInput("a", "ftp://mcp.example"),
+			"no host":        httpInput("a", "https://"),
+			"userinfo":       httpInput("a", "https://user:pw@mcp.example"),
+			"loopback":       httpInput("a", "http://127.0.0.1:9000/mcp"),
+			"private net":    httpInput("a", "http://10.1.2.3/mcp"),
+			"metadata":       httpInput("a", "http://169.254.169.254/latest"),
+			"localhost":      httpInput("a", "http://localhost:9000"),
+			"unspecified":    httpInput("a", "http://0.0.0.0/"),
+			"ipv6 loopback":  httpInput("a", "http://[::1]:9000/"),
+			"empty name":     httpInput("  ", "https://mcp.example"),
+			"bad transport":  {Name: "a", Transport: "ws", URL: "https://mcp.example"},
+			"header newline": {Name: "a", Transport: "http", URL: "https://mcp.example", Headers: hdr("X-A", "v\r\nX-B: 1")},
+			"header name":    {Name: "a", Transport: "http", URL: "https://mcp.example", Headers: hdr("Bad Name", "v")},
+			"host header":    {Name: "a", Transport: "http", URL: "https://mcp.example", Headers: hdr("Host", "evil")},
+			"http with cmd":  {Name: "a", Transport: "http", URL: "https://mcp.example", Command: "ls"},
 		}
-	}
-	// A disabled connector with a private address may be saved (an import or a
-	// conversion makes them), but cannot be switched on.
-	off := httpInput("Internal", "http://10.1.2.3/mcp")
-	off.Enabled = false
-	c, err := e.svc.Create(ctx, "u1", off)
-	if err != nil {
-		t.Fatalf("a disabled connector with a private address: %v", err)
-	}
-	if _, err := e.svc.SetEnabled(ctx, "u1", c.ID, true); !errors.Is(err, mcpconns.ErrInvalid) {
-		t.Fatalf("enabling a private address: %v", err)
-	}
-	e.private.Store(true)
-	if _, err := e.svc.SetEnabled(ctx, "u1", c.ID, true); err != nil {
-		t.Fatalf("enabling once the administrator allows it: %v", err)
-	}
-	// Names are unique per user.
-	if _, err := e.svc.Create(ctx, "u1", httpInput("Internal", "https://mcp.example")); !errors.Is(err, mcpconns.ErrInvalid) {
-		t.Fatalf("duplicate name: %v", err)
-	}
-	if _, err := e.svc.Create(ctx, "u2", httpInput("Internal", "https://mcp.example")); err != nil {
-		t.Fatalf("the same name for another user: %v", err)
-	}
-}
-
-func TestAtMostPerUser(t *testing.T) {
-	e := newEnv(t)
-	for i := 0; i < mcpconns.MaxPerUser; i++ {
-		in := httpInput("c"+string(rune('a'+i)), "https://mcp.example")
-		if _, err := e.svc.Create(t.Context(), "u1", in); err != nil {
-			t.Fatal(err)
+		for name, in := range cases {
+			in.Enabled = true
+			_, err := e.svc.Create(ctx, "u1", in)
+			Expect(err).To(MatchError(mcpconns.ErrInvalid), name)
 		}
-	}
-	if _, err := e.svc.Create(t.Context(), "u1", httpInput("one more", "https://mcp.example")); !errors.Is(err, mcpconns.ErrInvalid) {
-		t.Fatalf("over the limit: %v", err)
-	}
-}
+		// A disabled connector with a private address may be saved (an import or a
+		// conversion makes them), but cannot be switched on.
+		off := httpInput("Internal", "http://10.1.2.3/mcp")
+		off.Enabled = false
+		c, err := e.svc.Create(ctx, "u1", off)
+		Expect(err).NotTo(HaveOccurred(), "a disabled connector with a private address")
+		_, err = e.svc.SetEnabled(ctx, "u1", c.ID, true)
+		Expect(err).To(MatchError(mcpconns.ErrInvalid), "enabling a private address")
+		e.private.Store(true)
+		_, err = e.svc.SetEnabled(ctx, "u1", c.ID, true)
+		Expect(err).NotTo(HaveOccurred(), "enabling once the administrator allows it")
+		// Names are unique per user.
+		_, err = e.svc.Create(ctx, "u1", httpInput("Internal", "https://mcp.example"))
+		Expect(err).To(MatchError(mcpconns.ErrInvalid), "duplicate name")
+		_, err = e.svc.Create(ctx, "u2", httpInput("Internal", "https://mcp.example"))
+		Expect(err).NotTo(HaveOccurred(), "the same name for another user")
+	})
 
-func TestTestConnectionListsToolsAndSendsTheSecretsOnlyToTheServer(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	hdr := map[string]string{"X-Team": "blue"}
-	in := httpInput("Docs", f.URL)
-	in.Token, in.Headers = str("tok-abcdef"), &hdr
-	in.Enabled = false
-	c, _ := e.svc.Create(ctx, "u1", in)
-	p, err := e.svc.Test(ctx, "u1", c.ID)
-	if err != nil || p.Error != "" {
-		t.Fatalf("probe: %+v %v", p, err)
-	}
-	if strings.Join(p.Tools, ",") != "echo,slow,spawn_agent" {
-		t.Fatalf("tools = %v", p.Tools)
-	}
-	if !f.sawAuth("Bearer tok-abcdef") {
-		t.Fatal("the server did not get the bearer token")
-	}
-	f.mu.Lock()
-	seen := strings.Join(f.headers, ",")
-	f.mu.Unlock()
-	if !strings.Contains(seen, "blue") {
-		t.Fatal("the server did not get the custom header")
-	}
-}
-
-func TestAnUnreachableServerGivesAnErrorThatHoldsNoSecret(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	dead := httptest.NewServer(http.NotFoundHandler())
-	url := dead.URL
-	dead.Close()
-	in := httpInput("Dead", url)
-	in.Token = str("tok-supersecret")
-	c, _ := e.svc.Create(ctx, "u1", in)
-	p, err := e.svc.Test(ctx, "u1", c.ID)
-	if err != nil || p.Error == "" || len(p.Tools) != 0 {
-		t.Fatalf("probe of a dead server: %+v %v", p, err)
-	}
-	if strings.Contains(p.Error, "tok-supersecret") {
-		t.Fatal("the error echoes the token")
-	}
-	tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-	if len(tools) != 0 || len(missing) != 1 || !strings.Contains(missing[0], "Dead") {
-		t.Fatalf("an unreachable connector must be a note: %v %v", tools, missing)
-	}
-}
-
-func TestPrivateAddressesAreRefusedWhenTheConnectionIsMade(t *testing.T) {
-	e := newEnv(t)
-	e.private.Store(false)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	// The record was saved when private addresses were allowed (or by another
-	// route); the name resolves to loopback when the dial happens.
-	port := f.URL[strings.LastIndex(f.URL, ":"):]
-	for name, url := range map[string]string{"by name": "http://localhost" + port, "by address": f.URL, "ipv6": "http://[::1]" + port} {
-		_ = e.store.Put(ctx, mcpconns.Connector{ID: "x-" + name, Owner: "u1", Name: name, Transport: mcpconns.TransportHTTP, URL: url, Enabled: true})
-		p, err := e.svc.Test(ctx, "u1", "x-"+name)
-		if err != nil || p.Error == "" || len(p.Tools) != 0 {
-			t.Errorf("%s: probe = %+v %v", name, p, err)
+	It("allows at most the per-user limit", func() {
+		e := newEnv()
+		ctx := specCtx()
+		for i := 0; i < mcpconns.MaxPerUser; i++ {
+			in := httpInput("c"+string(rune('a'+i)), "https://mcp.example")
+			_, err := e.svc.Create(ctx, "u1", in)
+			Expect(err).NotTo(HaveOccurred())
 		}
-		if strings.Contains(p.Error, "mcpconns:") {
-			t.Errorf("%s: the reason shows the package prefix: %q", name, p.Error)
-		}
-		if tools, missing := e.svc.Resolve(ctx, "u1", []string{"x-" + name}, false); len(tools) != 0 || len(missing) != 1 {
-			t.Errorf("%s: resolve = %v %v", name, tools, missing)
-		}
-	}
-	if f.inits.Load() != 0 {
-		t.Fatal("the server on loopback was reached")
-	}
-	e.private.Store(true)
-	if p, _ := e.svc.Test(ctx, "u1", "x-by address"); p.Error != "" {
-		t.Fatalf("with the administrator's switch on: %+v", p)
-	}
-}
+		_, err := e.svc.Create(ctx, "u1", httpInput("one more", "https://mcp.example"))
+		Expect(err).To(MatchError(mcpconns.ErrInvalid), "over the limit")
+	})
 
-func TestARedirectToAnInternalAddressIsRefused(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	target := newFakeServer(t, 0)
-	redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
-	}))
-	t.Cleanup(redirect.Close)
-	e.private.Store(true)
-	c, _ := e.svc.Create(ctx, "u1", httpInput("Redirecting", redirect.URL))
-	if p, _ := e.svc.Test(ctx, "u1", c.ID); p.Error == "" {
-		t.Fatal("a redirect was followed")
-	}
-	if target.inits.Load() != 0 {
-		t.Fatal("the redirect target was reached")
-	}
-}
+	It("lists tools on a connection test and sends the secrets only to the server", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		hdr := map[string]string{"X-Team": "blue"}
+		in := httpInput("Docs", f.URL)
+		in.Token, in.Headers = str("tok-abcdef"), &hdr
+		in.Enabled = false
+		c, _ := e.svc.Create(ctx, "u1", in)
+		p, err := e.svc.Test(ctx, "u1", c.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Error).To(BeEmpty())
+		Expect(strings.Join(p.Tools, ",")).To(Equal("echo,slow,spawn_agent"))
+		Expect(f.sawAuth("Bearer tok-abcdef")).To(BeTrue(), "the server did not get the bearer token")
+		f.mu.Lock()
+		seen := strings.Join(f.headers, ",")
+		f.mu.Unlock()
+		Expect(seen).To(ContainSubstring("blue"), "the server did not get the custom header")
+	})
 
-func TestResolveGivesToolsThatRunAndCapsNothingItDoesNotOwn(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
-	off := httpInput("Off", f.URL)
-	off.Enabled = false
-	d, _ := e.svc.Create(ctx, "u1", off)
+	It("gives an error that holds no secret when the server is unreachable", func() {
+		e := newEnv()
+		ctx := specCtx()
+		dead := httptest.NewServer(http.NotFoundHandler())
+		url := dead.URL
+		dead.Close()
+		in := httpInput("Dead", url)
+		in.Token = str("tok-supersecret")
+		c, _ := e.svc.Create(ctx, "u1", in)
+		p, err := e.svc.Test(ctx, "u1", c.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Error).NotTo(BeEmpty(), "probe of a dead server")
+		Expect(p.Tools).To(BeEmpty(), "probe of a dead server")
+		Expect(p.Error).NotTo(ContainSubstring("tok-supersecret"), "the error echoes the token")
+		tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(tools).To(BeEmpty(), "an unreachable connector must be a note")
+		Expect(missing).To(HaveLen(1), "an unreachable connector must be a note")
+		Expect(missing[0]).To(ContainSubstring("Dead"))
+	})
 
-	tools, missing := e.svc.Resolve(ctx, "u1", nil, true)
-	if len(missing) != 0 {
-		t.Fatalf("missing = %v", missing)
-	}
-	var echo *mcpconns.Tool
-	for i := range tools {
-		if tools[i].Name == "echo" {
-			echo = &tools[i]
+	It("refuses private addresses when the connection is made", func() {
+		e := newEnv()
+		e.private.Store(false)
+		ctx := specCtx()
+		f := newFakeServer(0)
+		// The record was saved when private addresses were allowed (or by another
+		// route); the name resolves to loopback when the dial happens.
+		port := f.URL[strings.LastIndex(f.URL, ":"):]
+		for name, url := range map[string]string{"by name": "http://localhost" + port, "by address": f.URL, "ipv6": "http://[::1]" + port} {
+			_ = e.store.Put(ctx, mcpconns.Connector{ID: "x-" + name, Owner: "u1", Name: name, Transport: mcpconns.TransportHTTP, URL: url, Enabled: true})
+			p, err := e.svc.Test(ctx, "u1", "x-"+name)
+			Expect(err).NotTo(HaveOccurred(), name)
+			Expect(p.Error).NotTo(BeEmpty(), name)
+			Expect(p.Tools).To(BeEmpty(), name)
+			Expect(p.Error).NotTo(ContainSubstring("mcpconns:"), "%s: the reason shows the package prefix", name)
+			tools, missing := e.svc.Resolve(ctx, "u1", []string{"x-" + name}, false)
+			Expect(tools).To(BeEmpty(), name)
+			Expect(missing).To(HaveLen(1), name)
 		}
-		if tools[i].ConnectorID != c.ID || tools[i].Connector != "Docs" {
-			t.Fatalf("tool of the wrong connector: %+v", tools[i])
-		}
-	}
-	if echo == nil {
-		t.Fatalf("no echo tool in %+v", tools)
-	}
-	out, err := echo.Run(ctx, json.RawMessage(`{"text":"hi"}`))
-	if err != nil || out != "echo: hi" {
-		t.Fatalf("run = %q %v", out, err)
-	}
-	// A disabled connector named by id is a note, never a failure.
-	tools, missing = e.svc.Resolve(ctx, "u1", []string{d.ID, "gone"}, false)
-	if len(tools) != 0 || len(missing) != 2 {
-		t.Fatalf("disabled or deleted: %v %v", tools, missing)
-	}
-}
+		Expect(f.inits.Load()).To(BeZero(), "the server on loopback was reached")
+		e.private.Store(true)
+		p, _ := e.svc.Test(ctx, "u1", "x-by address")
+		Expect(p.Error).To(BeEmpty(), "with the administrator's switch on")
+	})
 
-func TestACallThatTakesTooLongTimesOut(t *testing.T) {
-	e := newEnv(t, func(o *mcpconns.Options) { o.CallTimeout = 150 * time.Millisecond })
-	ctx := t.Context()
-	f := newFakeServer(t, 5*time.Second)
-	_, _ = e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
-	tools, _ := e.svc.Resolve(ctx, "u1", nil, true)
-	for _, tl := range tools {
-		if tl.Name == "slow" {
-			start := time.Now()
-			if _, err := tl.Run(ctx, json.RawMessage(`{"text":"x"}`)); err == nil || time.Since(start) > 3*time.Second {
-				t.Fatalf("slow call: %v after %v", err, time.Since(start))
+	It("refuses a redirect to an internal address", func() {
+		e := newEnv()
+		ctx := specCtx()
+		target := newFakeServer(0)
+		redirect := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, target.URL, http.StatusTemporaryRedirect)
+		}))
+		DeferCleanup(redirect.Close)
+		e.private.Store(true)
+		c, _ := e.svc.Create(ctx, "u1", httpInput("Redirecting", redirect.URL))
+		p, _ := e.svc.Test(ctx, "u1", c.ID)
+		Expect(p.Error).NotTo(BeEmpty(), "a redirect was followed")
+		Expect(target.inits.Load()).To(BeZero(), "the redirect target was reached")
+	})
+
+	It("resolves tools that run and caps nothing it does not own", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+		off := httpInput("Off", f.URL)
+		off.Enabled = false
+		d, _ := e.svc.Create(ctx, "u1", off)
+
+		tools, missing := e.svc.Resolve(ctx, "u1", nil, true)
+		Expect(missing).To(BeEmpty())
+		var echo *mcpconns.Tool
+		for i := range tools {
+			if tools[i].Name == "echo" {
+				echo = &tools[i]
 			}
-			return
+			Expect(tools[i].ConnectorID).To(Equal(c.ID), "tool of the wrong connector")
+			Expect(tools[i].Connector).To(Equal("Docs"), "tool of the wrong connector")
 		}
-	}
-	t.Fatal("no slow tool")
-}
+		Expect(echo).NotTo(BeNil(), "no echo tool")
+		out, err := echo.Run(ctx, json.RawMessage(`{"text":"hi"}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal("echo: hi"))
+		// A disabled connector named by id is a note, never a failure.
+		tools, missing = e.svc.Resolve(ctx, "u1", []string{d.ID, "gone"}, false)
+		Expect(tools).To(BeEmpty(), "disabled or deleted")
+		Expect(missing).To(HaveLen(2), "disabled or deleted")
+	})
 
-func TestSessionsAreCachedPerConnectorAndClosedOnEditDisableAndDelete(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
-	resolve := func() int {
+	It("times out a call that takes too long", func() {
+		e := newEnv(func(o *mcpconns.Options) { o.CallTimeout = 150 * time.Millisecond })
+		ctx := specCtx()
+		f := newFakeServer(5 * time.Second)
+		_, _ = e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+		tools, _ := e.svc.Resolve(ctx, "u1", nil, true)
+		for _, tl := range tools {
+			if tl.Name == "slow" {
+				start := time.Now()
+				_, err := tl.Run(ctx, json.RawMessage(`{"text":"x"}`))
+				Expect(err).To(HaveOccurred(), "slow call")
+				Expect(time.Since(start)).To(BeNumerically("<=", 3*time.Second), "slow call")
+				return
+			}
+		}
+		Fail("no slow tool")
+	})
+
+	It("caches sessions per connector and closes them on edit, disable and delete", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+		resolve := func() int {
+			tools, _ := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+			return len(tools)
+		}
+		// Call twice: with || the second call ran only when the first found none,
+		// so the cache was never asked.
+		first, second := resolve(), resolve()
+		Expect(first).NotTo(BeZero(), "no tools")
+		Expect(second).NotTo(BeZero(), "no tools")
+		Expect(f.inits.Load()).To(Equal(int32(1)), "two resolves must open one session")
+		Expect(e.svc.Sessions()).To(Equal(1))
+		_, err := e.svc.Update(ctx, "u1", c.ID, httpInput("Docs", f.URL))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(e.svc.Sessions()).To(BeZero(), "an edit left the session open")
+		resolve()
+		Expect(f.inits.Load()).To(Equal(int32(2)), "after an edit the next use must reconnect")
+		_, _ = e.svc.SetEnabled(ctx, "u1", c.ID, false)
+		Expect(e.svc.Sessions()).To(BeZero(), "disabling left the session open")
+		_, _ = e.svc.SetEnabled(ctx, "u1", c.ID, true)
+		resolve()
+		Expect(e.svc.Delete(ctx, "u1", c.ID)).To(Succeed())
+		Expect(e.svc.Sessions()).To(BeZero(), "a delete left the session open")
+	})
+
+	It("notices an edit on another frontend by the version", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+		e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		// Another frontend writes the shared record without telling this one.
+		raw, _ := e.store.Get(ctx, c.ID)
+		raw.Updated = raw.Updated.Add(time.Minute)
+		_ = e.store.Put(ctx, raw)
+		e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(f.inits.Load()).To(Equal(int32(2)), "a changed record must reconnect")
+	})
+
+	It("closes idle sessions", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+		e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		e.advance(30 * time.Second)
+		e.svc.ReapIdle()
+		Expect(e.svc.Sessions()).To(Equal(1), "a session in use was reaped")
+		e.advance(2 * time.Minute)
+		e.svc.ReapIdle()
+		Expect(e.svc.Sessions()).To(BeZero(), "an idle session stayed")
+	})
+
+	It("needs an administrator for stdio, refuses it in a cluster and runs it without the server environment", func() {
+		ctx := specCtx()
+		self, err := os.Executable()
+		Expect(err).NotTo(HaveOccurred())
+		GinkgoT().Setenv("LOCALAI_TEST_SERVER_SECRET", "do-not-leak")
+		env := map[string]string{"MCPCONNS_HELPER": "1"}
+		in := mcpconns.Input{Name: "Local", Transport: mcpconns.TransportStdio, Command: self, Env: &env, Enabled: true}
+
+		e := newEnv()
+		_, err = e.svc.Create(ctx, "u1", in)
+		Expect(err).To(MatchError(mcpconns.ErrForbidden), "a user who is not an administrator")
+		e.admin.Store(true)
+		c, err := e.svc.Create(ctx, "u1", in)
+		Expect(err).NotTo(HaveOccurred())
+		p, err := e.svc.Test(ctx, "u1", c.ID)
+		Expect(err).NotTo(HaveOccurred(), "stdio probe")
+		Expect(p.Error).To(BeEmpty(), "stdio probe")
+		Expect(strings.Join(p.Tools, ",")).To(Equal("local_echo"))
+		// Demoted: the connector stays but cannot be used.
+		e.admin.Store(false)
+		tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(tools).To(BeEmpty(), "a demoted owner still ran a command")
+		Expect(missing).To(HaveLen(1), "a demoted owner still ran a command")
+
+		cluster := newEnv(func(o *mcpconns.Options) { o.Distributed = true })
+		cluster.admin.Store(true)
+		_, err = cluster.svc.Create(ctx, "u1", in)
+		Expect(err).To(MatchError(mcpconns.ErrInvalid), "stdio in a cluster")
+		Expect(err.Error()).To(ContainSubstring("distributed"))
+	})
+
+	It("builds a stdio environment that is minimal plus the sealed one", func() {
+		got := mcpconns.StdioEnv(map[string]string{"A": "1"}, []string{"PATH=/bin", "HOME=/h", "LOCALAI_API_KEY=secret", "AWS_SECRET_ACCESS_KEY=x"})
+		joined := strings.Join(got, "\n")
+		Expect(joined).NotTo(ContainSubstring("secret"))
+		Expect(joined).NotTo(ContainSubstring("AWS"))
+		Expect(joined).To(ContainSubstring("PATH=/bin"))
+		Expect(joined).To(ContainSubstring("A=1"))
+	})
+
+	// A session opened while the administrator allowed private addresses must not
+	// outlive that permission.
+	It("closes the open sessions to private addresses when they are turned off", func() {
+		e := newEnv()
+		ctx := specCtx()
+		f := newFakeServer(0)
+		c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
+		tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(missing).To(BeEmpty())
+		Expect(tools).NotTo(BeEmpty())
+		var echo mcpconns.Tool
+		for _, tl := range tools {
+			if tl.Name == "echo" {
+				echo = tl
+			}
+		}
+		_, err := echo.Run(ctx, json.RawMessage(`{"text":"hi"}`))
+		Expect(err).NotTo(HaveOccurred(), "a call while private addresses are allowed")
+		before := f.inits.Load()
+
+		e.private.Store(false)
+		// A tool resolved earlier is refused at once.
+		_, err = echo.Run(ctx, json.RawMessage(`{"text":"again"}`))
+		Expect(err).To(HaveOccurred(), "a tool of a session to a private address still ran after the switch was turned off")
+		// The next resolve neither reuses the session nor connects.
+		tools, missing = e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(tools).To(BeEmpty(), "resolve after the switch must leave the connector missing")
+		Expect(missing).To(HaveLen(1), "resolve after the switch must leave the connector missing")
+		Expect(e.svc.Sessions()).To(BeZero(), "sessions are still open")
+		Expect(f.inits.Load()).To(Equal(before), "the server on a private address was contacted again")
+	})
+
+	It("closes the local command sessions of a demoted administrator", func() {
+		ctx := specCtx()
+		self, err := os.Executable()
+		Expect(err).NotTo(HaveOccurred())
+		env := map[string]string{"MCPCONNS_HELPER": "1"}
+		e := newEnv()
+		e.admin.Store(true)
+		c, err := e.svc.Create(ctx, "u1", mcpconns.Input{Name: "Local", Transport: mcpconns.TransportStdio, Command: self, Env: &env, Enabled: true})
+		Expect(err).NotTo(HaveOccurred())
 		tools, _ := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-		return len(tools)
-	}
-	// Call twice: with || the second call ran only when the first found none,
-	// so the cache was never asked.
-	first, second := resolve(), resolve()
-	if first == 0 || second == 0 {
-		t.Fatal("no tools")
-	}
-	if n := f.inits.Load(); n != 1 {
-		t.Fatalf("two resolves opened %d sessions", n)
-	}
-	if e.svc.Sessions() != 1 {
-		t.Fatalf("sessions = %d", e.svc.Sessions())
-	}
-	if _, err := e.svc.Update(ctx, "u1", c.ID, httpInput("Docs", f.URL)); err != nil {
-		t.Fatal(err)
-	}
-	if e.svc.Sessions() != 0 {
-		t.Fatal("an edit left the session open")
-	}
-	resolve()
-	if f.inits.Load() != 2 {
-		t.Fatalf("after an edit the next use must reconnect: %d", f.inits.Load())
-	}
-	_, _ = e.svc.SetEnabled(ctx, "u1", c.ID, false)
-	if e.svc.Sessions() != 0 {
-		t.Fatal("disabling left the session open")
-	}
-	_, _ = e.svc.SetEnabled(ctx, "u1", c.ID, true)
-	resolve()
-	if err := e.svc.Delete(ctx, "u1", c.ID); err != nil {
-		t.Fatal(err)
-	}
-	if e.svc.Sessions() != 0 {
-		t.Fatal("a delete left the session open")
-	}
-}
-
-func TestAnEditOnAnotherFrontendIsNoticedByTheVersion(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
-	e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-	// Another frontend writes the shared record without telling this one.
-	raw, _ := e.store.Get(ctx, c.ID)
-	raw.Updated = raw.Updated.Add(time.Minute)
-	_ = e.store.Put(ctx, raw)
-	e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-	if f.inits.Load() != 2 {
-		t.Fatalf("a changed record must reconnect: %d", f.inits.Load())
-	}
-}
-
-func TestIdleSessionsAreClosed(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
-	e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-	e.advance(30 * time.Second)
-	e.svc.ReapIdle()
-	if e.svc.Sessions() != 1 {
-		t.Fatal("a session in use was reaped")
-	}
-	e.advance(2 * time.Minute)
-	e.svc.ReapIdle()
-	if e.svc.Sessions() != 0 {
-		t.Fatal("an idle session stayed")
-	}
-}
-
-func TestStdioNeedsAnAdministratorAndIsRefusedInAClusterAndRunsWithoutTheServerEnvironment(t *testing.T) {
-	ctx := t.Context()
-	self, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("LOCALAI_TEST_SERVER_SECRET", "do-not-leak")
-	env := map[string]string{"MCPCONNS_HELPER": "1"}
-	in := mcpconns.Input{Name: "Local", Transport: mcpconns.TransportStdio, Command: self, Env: &env, Enabled: true}
-
-	e := newEnv(t)
-	if _, err := e.svc.Create(ctx, "u1", in); !errors.Is(err, mcpconns.ErrForbidden) {
-		t.Fatalf("a user who is not an administrator: %v", err)
-	}
-	e.admin.Store(true)
-	c, err := e.svc.Create(ctx, "u1", in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := e.svc.Test(ctx, "u1", c.ID)
-	if err != nil || p.Error != "" || strings.Join(p.Tools, ",") != "local_echo" {
-		t.Fatalf("stdio probe: %+v %v", p, err)
-	}
-	// Demoted: the connector stays but cannot be used.
-	e.admin.Store(false)
-	if tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false); len(tools) != 0 || len(missing) != 1 {
-		t.Fatalf("a demoted owner still ran a command: %v %v", tools, missing)
-	}
-
-	cluster := newEnv(t, func(o *mcpconns.Options) { o.Distributed = true })
-	cluster.admin.Store(true)
-	if _, err := cluster.svc.Create(ctx, "u1", in); !errors.Is(err, mcpconns.ErrInvalid) || !strings.Contains(err.Error(), "distributed") {
-		t.Fatalf("stdio in a cluster: %v", err)
-	}
-}
-
-func TestStdioEnvironmentIsMinimalPlusTheSealedOne(t *testing.T) {
-	got := mcpconns.StdioEnv(map[string]string{"A": "1"}, []string{"PATH=/bin", "HOME=/h", "LOCALAI_API_KEY=secret", "AWS_SECRET_ACCESS_KEY=x"})
-	joined := strings.Join(got, "\n")
-	if strings.Contains(joined, "secret") || strings.Contains(joined, "AWS") || !strings.Contains(joined, "PATH=/bin") || !strings.Contains(joined, "A=1") {
-		t.Fatalf("env = %v", got)
-	}
-}
-
-// A session opened while the administrator allowed private addresses must not
-// outlive that permission.
-func TestTurningOffPrivateAddressesClosesTheOpenSessionsToThem(t *testing.T) {
-	e := newEnv(t)
-	ctx := t.Context()
-	f := newFakeServer(t, 0)
-	c, _ := e.svc.Create(ctx, "u1", httpInput("Docs", f.URL))
-	tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-	if len(missing) != 0 || len(tools) == 0 {
-		t.Fatalf("resolve = %v %v", tools, missing)
-	}
-	var echo mcpconns.Tool
-	for _, tl := range tools {
-		if tl.Name == "echo" {
-			echo = tl
-		}
-	}
-	if _, err := echo.Run(ctx, json.RawMessage(`{"text":"hi"}`)); err != nil {
-		t.Fatalf("a call while private addresses are allowed: %v", err)
-	}
-	before := f.inits.Load()
-
-	e.private.Store(false)
-	// A tool resolved earlier is refused at once.
-	if _, err := echo.Run(ctx, json.RawMessage(`{"text":"again"}`)); err == nil {
-		t.Fatal("a tool of a session to a private address still ran after the switch was turned off")
-	}
-	// The next resolve neither reuses the session nor connects.
-	if tools, missing := e.svc.Resolve(ctx, "u1", []string{c.ID}, false); len(tools) != 0 || len(missing) != 1 {
-		t.Fatalf("resolve after the switch = %v %v, want the connector missing", tools, missing)
-	}
-	if e.svc.Sessions() != 0 {
-		t.Fatalf("%d sessions are still open", e.svc.Sessions())
-	}
-	if f.inits.Load() != before {
-		t.Fatal("the server on a private address was contacted again")
-	}
-}
-
-func TestDemotingTheAdministratorClosesTheirLocalCommandSessions(t *testing.T) {
-	ctx := t.Context()
-	self, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	env := map[string]string{"MCPCONNS_HELPER": "1"}
-	e := newEnv(t)
-	e.admin.Store(true)
-	c, err := e.svc.Create(ctx, "u1", mcpconns.Input{Name: "Local", Transport: mcpconns.TransportStdio, Command: self, Env: &env, Enabled: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if tools, _ := e.svc.Resolve(ctx, "u1", []string{c.ID}, false); len(tools) == 0 {
-		t.Fatal("the administrator's command gave no tools")
-	}
-	if e.svc.Sessions() != 1 {
-		t.Fatalf("sessions = %d, want 1", e.svc.Sessions())
-	}
-	e.admin.Store(false)
-	e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
-	if e.svc.Sessions() != 0 {
-		t.Fatalf("the demoted user's command is still running: %d sessions", e.svc.Sessions())
-	}
-}
+		Expect(tools).NotTo(BeEmpty(), "the administrator's command gave no tools")
+		Expect(e.svc.Sessions()).To(Equal(1))
+		e.admin.Store(false)
+		e.svc.Resolve(ctx, "u1", []string{c.ID}, false)
+		Expect(e.svc.Sessions()).To(BeZero(), "the demoted user's command is still running")
+	})
+})

@@ -1,7 +1,7 @@
 // Package storetest is the conformance suite for store.Store. Every
-// implementation passes it, so the JSON and GORM stores behave the same.
-//
-//nolint:forbidigo // reusable contract suite driven by the caller's *testing.T
+// implementation passes it, so the JSON and GORM stores behave the same. Run
+// registers Ginkgo specs, so call it inside a Describe of the implementation's
+// test package.
 package storetest
 
 import (
@@ -9,30 +9,30 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/session/sessiontest"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
 
-// New returns an empty store for one test.
-type New func(t *testing.T) store.Store
+// New returns an empty store for one spec. Clean up with DeferCleanup.
+type New func() store.Store
 
 var t0 = time.Date(2026, 10, 25, 9, 0, 0, 0, time.UTC)
 
-func ctx(t *testing.T) context.Context {
+// ctx returns a context that is cancelled when the spec ends.
+func ctx() context.Context {
 	c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	DeferCleanup(cancel)
 	return c
 }
 
-func chat(t *testing.T, s store.Store, id, principal string) {
-	t.Helper()
-	if err := s.CreateChat(ctx(t), session.ChatRecord{ID: id, Principal: principal, Title: "New chat", Created: t0, Updated: t0}); err != nil {
-		t.Fatal(err)
-	}
+func chat(s store.Store, id, principal string) {
+	Expect(s.CreateChat(ctx(), session.ChatRecord{ID: id, Principal: principal, Title: "New chat", Created: t0, Updated: t0})).To(Succeed())
 }
 
 func texts(ps []store.Pending) []string {
@@ -43,566 +43,419 @@ func texts(ps []store.Pending) []string {
 	return out
 }
 
-func same(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// Run runs the suite against stores from newStore.
-func Run(t *testing.T, newStore New) {
-	t.Helper()
-
+// Run registers the specs that check stores from newStore.
+func Run(newStore New) {
 	// The loop's own transcript contract.
-	sessiontest.RunStoreSuite(t, func(t *testing.T) session.Store { return newStore(t) })
+	sessiontest.RunStoreSuite(func() session.Store { return newStore() })
 
-	t.Run("skill switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		if err := s.SetSkillsOff(ctx(t), "alice", "c1", []string{"review", "notes"}); err != nil {
-			t.Fatal(err)
-		}
-		rec, err := s.GetChat(ctx(t), "alice", "c1")
-		if err != nil || len(rec.SkillsOff) != 2 || rec.SkillsOff[0] != "review" || rec.SkillsOff[1] != "notes" {
-			t.Fatalf("SkillsOff = %v, %v, want review and notes", rec.SkillsOff, err)
-		}
+	It("skill switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetSkillsOff(ctx(), "alice", "c1", []string{"review", "notes"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.SkillsOff).To(Equal([]string{"review", "notes"}))
 		// The loop saves its own copy of the record at the end of a turn. That
 		// copy has no switches in it and must not wipe them.
 		stale := rec
 		stale.SkillsOff = nil
 		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
-		if err := s.UpdateChat(ctx(t), stale); err != nil {
-			t.Fatal(err)
-		}
-		rec, _ = s.GetChat(ctx(t), "alice", "c1")
-		if rec.Title != "Renamed" || len(rec.SkillsOff) != 2 {
-			t.Fatalf("after UpdateChat: title %q, SkillsOff %v, want the switches kept", rec.Title, rec.SkillsOff)
-		}
-		if err := s.SetSkillsOff(ctx(t), "bob", "c1", []string{"x"}); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("another principal's SetSkillsOff = %v, want ErrNotFound", err)
-		}
-		if err := s.SetSkillsOff(ctx(t), "alice", "c1", nil); err != nil {
-			t.Fatal(err)
-		}
-		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); len(rec.SkillsOff) != 0 {
-			t.Fatalf("after clearing: %v", rec.SkillsOff)
-		}
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"))
+		Expect(rec.SkillsOff).To(HaveLen(2), "want the switches kept")
+		Expect(s.SetSkillsOff(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound), "another principal's SetSkillsOff")
+		Expect(s.SetSkillsOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.SkillsOff).To(BeEmpty(), "after clearing")
 	})
 
-	t.Run("children of a chat belong to the owner and the parent", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "p1", "alice")
-		chat(t, s, "p2", "alice")
+	It("children of a chat belong to the owner and the parent", func() {
+		s := newStore()
+		chat(s, "p1", "alice")
+		chat(s, "p2", "alice")
 		for i, spec := range []struct{ id, owner, parent string }{{"k1", "alice", "p1"}, {"k2", "alice", "p1"}, {"k3", "alice", "p2"}, {"k4", "bob", "p1"}} {
 			rec := session.ChatRecord{ID: spec.id, Principal: spec.owner, Title: "child", Kind: session.KindSubAgent, ParentID: spec.parent,
 				Created: t0.Add(time.Duration(i) * time.Second), Updated: t0}
-			if err := s.CreateChat(ctx(t), rec); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.CreateChat(ctx(), rec)).To(Succeed())
 		}
-		kids, err := s.ListChildren(ctx(t), "alice", "p1")
-		if err != nil || len(kids) != 2 || kids[0].ID != "k1" || kids[1].ID != "k2" {
-			t.Fatalf("ListChildren = %+v, %v, want k1 and k2", kids, err)
-		}
-		if kids, _ = s.ListChildren(ctx(t), "alice", "nothing"); len(kids) != 0 {
-			t.Fatalf("children of an unknown parent = %+v", kids)
-		}
+		kids, err := s.ListChildren(ctx(), "alice", "p1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kids).To(HaveLen(2), "want k1 and k2: %+v", kids)
+		Expect(kids[0].ID).To(Equal("k1"))
+		Expect(kids[1].ID).To(Equal("k2"))
+		kids, _ = s.ListChildren(ctx(), "alice", "nothing")
+		Expect(kids).To(BeEmpty(), "children of an unknown parent")
 	})
 
-	t.Run("chat meta and truncation", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
+	It("chat meta and truncation", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
 		for _, txt := range []string{"a", "b", "c"} {
-			if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: txt}); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: txt})).Error().NotTo(HaveOccurred())
 		}
 		title, model := "Renamed", "m2"
 		set := session.ChatSettings{SystemPrompt: "be brief", ReasoningEffort: "low", ContextSize: 4096}
 		temp := 0.3
 		set.Temperature = &temp
-		if err := s.SetChatMeta(ctx(t), "alice", "c1", session.ChatMeta{Title: &title, Model: &model, Settings: &set}); err != nil {
-			t.Fatal(err)
-		}
-		rec, _ := s.GetChat(ctx(t), "alice", "c1")
-		if rec.Title != "Renamed" || rec.Model != "m2" || rec.Settings.SystemPrompt != "be brief" || rec.Settings.Temperature == nil || *rec.Settings.Temperature != 0.3 || rec.Settings.ContextSize != 4096 {
-			t.Fatalf("after SetChatMeta: %+v", rec)
-		}
+		Expect(s.SetChatMeta(ctx(), "alice", "c1", session.ChatMeta{Title: &title, Model: &model, Settings: &set})).To(Succeed())
+		rec, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"), "after SetChatMeta: %+v", rec)
+		Expect(rec.Model).To(Equal("m2"))
+		Expect(rec.Settings.SystemPrompt).To(Equal("be brief"))
+		Expect(rec.Settings.Temperature).NotTo(BeNil())
+		Expect(*rec.Settings.Temperature).To(Equal(0.3))
+		Expect(rec.Settings.ContextSize).To(BeEquivalentTo(4096))
 		// The loop's stale copy must not wipe the settings.
 		stale := rec
 		stale.Settings = session.ChatSettings{}
 		stale.Updated = t0.Add(time.Hour)
-		if err := s.UpdateChat(ctx(t), stale); err != nil {
-			t.Fatal(err)
-		}
-		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Settings.SystemPrompt != "be brief" || rec.Model != "m2" {
-			t.Fatalf("UpdateChat wiped the settings or the model: %+v", rec)
-		}
-		if err := s.SetChatMeta(ctx(t), "bob", "c1", session.ChatMeta{Title: &title}); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("another principal's SetChatMeta = %v, want ErrNotFound", err)
-		}
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Settings.SystemPrompt).To(Equal("be brief"), "UpdateChat wiped the settings or the model: %+v", rec)
+		Expect(rec.Model).To(Equal("m2"), "UpdateChat wiped the settings or the model: %+v", rec)
+		Expect(s.SetChatMeta(ctx(), "bob", "c1", session.ChatMeta{Title: &title})).To(MatchError(session.ErrNotFound), "another principal's SetChatMeta")
 		empty := session.ChatSettings{}
-		if err := s.SetChatMeta(ctx(t), "alice", "c1", session.ChatMeta{Settings: &empty}); err != nil {
-			t.Fatal(err)
-		}
-		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Settings != (session.ChatSettings{}) {
-			t.Fatalf("settings not cleared: %+v", rec.Settings)
-		}
-		if err := s.TruncateEntries(ctx(t), "bob", "c1", 1); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("another principal's TruncateEntries = %v, want ErrNotFound", err)
-		}
-		if err := s.TruncateEntries(ctx(t), "alice", "c1", 1); err != nil {
-			t.Fatal(err)
-		}
-		es, _ := s.Entries(ctx(t), "c1", 0, 0)
-		if len(es) != 1 || es[0].Text != "a" {
-			t.Fatalf("entries after truncate = %+v", es)
-		}
-		seq, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "d"})
-		if err != nil || seq != 2 {
-			t.Fatalf("next seq after truncate = %d, %v, want 2", seq, err)
-		}
+		Expect(s.SetChatMeta(ctx(), "alice", "c1", session.ChatMeta{Settings: &empty})).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Settings == (session.ChatSettings{})).To(BeTrue(), "settings not cleared: %+v", rec.Settings)
+		Expect(s.TruncateEntries(ctx(), "bob", "c1", 1)).To(MatchError(session.ErrNotFound), "another principal's TruncateEntries")
+		Expect(s.TruncateEntries(ctx(), "alice", "c1", 1)).To(Succeed())
+		es, _ := s.Entries(ctx(), "c1", 0, 0)
+		Expect(es).To(HaveLen(1), "entries after truncate = %+v", es)
+		Expect(es[0].Text).To(Equal("a"))
+		seq, err := s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "d"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(seq).To(BeEquivalentTo(2), "next seq after truncate")
 	})
 
-	t.Run("MCP switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		if err := s.SetMcpOff(ctx(t), "alice", "c1", []string{"search", "connector:abc"}); err != nil {
-			t.Fatal(err)
-		}
-		rec, err := s.GetChat(ctx(t), "alice", "c1")
-		if err != nil || len(rec.McpOff) != 2 || rec.McpOff[0] != "search" || rec.McpOff[1] != "connector:abc" {
-			t.Fatalf("McpOff = %v, %v", rec.McpOff, err)
-		}
+	It("MCP switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetMcpOff(ctx(), "alice", "c1", []string{"search", "connector:abc"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.McpOff).To(Equal([]string{"search", "connector:abc"}))
 		stale := rec
 		stale.McpOff = nil
 		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
-		if err := s.UpdateChat(ctx(t), stale); err != nil {
-			t.Fatal(err)
-		}
-		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Title != "Renamed" || len(rec.McpOff) != 2 {
-			t.Fatalf("after UpdateChat: title %q, McpOff %v, want the switches kept", rec.Title, rec.McpOff)
-		}
-		if err := s.SetMcpOff(ctx(t), "bob", "c1", []string{"x"}); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("another principal's SetMcpOff = %v, want ErrNotFound", err)
-		}
-		if err := s.SetMcpOff(ctx(t), "alice", "c1", nil); err != nil {
-			t.Fatal(err)
-		}
-		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); len(rec.McpOff) != 0 {
-			t.Fatalf("after clearing: %v", rec.McpOff)
-		}
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"))
+		Expect(rec.McpOff).To(HaveLen(2), "want the switches kept")
+		Expect(s.SetMcpOff(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound), "another principal's SetMcpOff")
+		Expect(s.SetMcpOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.McpOff).To(BeEmpty(), "after clearing")
 	})
 
-	t.Run("add-on switches round-trip, survive a chat update and belong to the owner", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		if err := s.SetAddonsOff(ctx(t), "alice", "c1", []string{"office", "sandbox"}); err != nil {
-			t.Fatal(err)
-		}
-		rec, err := s.GetChat(ctx(t), "alice", "c1")
-		if err != nil || len(rec.AddonsOff) != 2 || rec.AddonsOff[0] != "office" || rec.AddonsOff[1] != "sandbox" {
-			t.Fatalf("AddonsOff = %v, %v, want office and sandbox", rec.AddonsOff, err)
-		}
+	It("add-on switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetAddonsOff(ctx(), "alice", "c1", []string{"office", "sandbox"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.AddonsOff).To(Equal([]string{"office", "sandbox"}))
 		stale := rec
 		stale.AddonsOff = nil
 		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
-		if err := s.UpdateChat(ctx(t), stale); err != nil {
-			t.Fatal(err)
-		}
-		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); rec.Title != "Renamed" || len(rec.AddonsOff) != 2 {
-			t.Fatalf("after UpdateChat: title %q, AddonsOff %v, want the switches kept", rec.Title, rec.AddonsOff)
-		}
-		if err := s.SetAddonsOff(ctx(t), "bob", "c1", []string{"x"}); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("another principal's SetAddonsOff = %v, want ErrNotFound", err)
-		}
-		if err := s.SetAddonsOff(ctx(t), "alice", "c1", nil); err != nil {
-			t.Fatal(err)
-		}
-		if rec, _ = s.GetChat(ctx(t), "alice", "c1"); len(rec.AddonsOff) != 0 {
-			t.Fatalf("after clearing: %v", rec.AddonsOff)
-		}
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Title).To(Equal("Renamed"))
+		Expect(rec.AddonsOff).To(HaveLen(2), "want the switches kept")
+		Expect(s.SetAddonsOff(ctx(), "bob", "c1", []string{"x"})).To(MatchError(session.ErrNotFound), "another principal's SetAddonsOff")
+		Expect(s.SetAddonsOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.AddonsOff).To(BeEmpty(), "after clearing")
 	})
 
-	t.Run("kind, parent, model, status and summary round-trip", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "parent", "alice")
+	It("kind, parent, model, status and summary round-trip", func() {
+		s := newStore()
+		chat(s, "parent", "alice")
 		rec := session.ChatRecord{ID: "child", Principal: "alice", Title: "Sub", Created: t0, Updated: t0, Kind: session.KindSubAgent, ParentID: "parent", Model: "qwen3"}
-		if err := s.CreateChat(ctx(t), rec); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
 		rec.Status, rec.Updated = "done", t0.Add(time.Minute)
-		if err := s.UpdateChat(ctx(t), rec); err != nil {
-			t.Fatal(err)
-		}
-		got, err := s.GetChat(ctx(t), "alice", "child")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Kind != session.KindSubAgent || got.ParentID != "parent" || got.Model != "qwen3" || got.Status != "done" {
-			t.Fatalf("got %+v", got)
-		}
+		Expect(s.UpdateChat(ctx(), rec)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "child")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Kind).To(Equal(session.KindSubAgent), "got %+v", got)
+		Expect(got.ParentID).To(Equal("parent"))
+		Expect(got.Model).To(Equal("qwen3"))
+		Expect(got.Status).To(Equal("done"))
 	})
 
-	t.Run("agent and origin round-trip and survive UpdateChat", func(t *testing.T) {
-		s := newStore(t)
+	It("agent and origin round-trip and survive UpdateChat", func() {
+		s := newStore()
 		rec := session.ChatRecord{ID: "run1", Principal: "alice", Title: "Run", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",
 			AgentID: "ag1", Origin: session.OriginTrigger, OriginID: "trg1"}
-		if err := s.CreateChat(ctx(t), rec); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
 		stale := rec
 		stale.AgentID, stale.Origin, stale.OriginID, stale.Title, stale.Updated = "other", "", "", "Renamed", t0.Add(time.Minute)
-		if err := s.UpdateChat(ctx(t), stale); err != nil {
-			t.Fatal(err)
-		}
-		got, err := s.GetChat(ctx(t), "alice", "run1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.AgentID != "ag1" || got.Origin != session.OriginTrigger || got.OriginID != "trg1" || got.Title != "Renamed" {
-			t.Fatalf("got %+v", got)
-		}
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "run1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AgentID).To(Equal("ag1"), "got %+v", got)
+		Expect(got.Origin).To(Equal(session.OriginTrigger))
+		Expect(got.OriginID).To(Equal("trg1"))
+		Expect(got.Title).To(Equal("Renamed"))
 	})
 
-	t.Run("the assistant flag round-trips and survives UpdateChat", func(t *testing.T) {
-		s := newStore(t)
+	It("the assistant flag round-trips and survives UpdateChat", func() {
+		s := newStore()
 		rec := session.ChatRecord{ID: "as1", Principal: "alice", Title: "Assistant", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3", Assistant: true}
-		if err := s.CreateChat(ctx(t), rec); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
 		stale := rec
 		stale.Assistant, stale.Title, stale.Updated = false, "Renamed", t0.Add(time.Minute)
-		if err := s.UpdateChat(ctx(t), stale); err != nil {
-			t.Fatal(err)
-		}
-		got, err := s.GetChat(ctx(t), "alice", "as1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !got.Assistant || got.Title != "Renamed" {
-			t.Fatalf("got %+v", got)
-		}
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "as1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Assistant).To(BeTrue(), "got %+v", got)
+		Expect(got.Title).To(Equal("Renamed"))
 	})
 
-	t.Run("pending messages are taken once, in send order", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
+	It("pending messages are taken once, in send order", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
 		for _, x := range []string{"one", "two", "three"} {
-			if _, err := s.AddPending(ctx(t), "alice", "c1", x); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.AddPending(ctx(), "alice", "c1", x)).Error().NotTo(HaveOccurred())
 		}
-		got, err := s.TakePending(ctx(t), "alice", "c1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !same(texts(got), []string{"one", "two", "three"}) {
-			t.Fatalf("first take = %v", texts(got))
-		}
-		again, err := s.TakePending(ctx(t), "alice", "c1")
-		if err != nil || len(again) != 0 {
-			t.Fatalf("second take = %v, %v; want nothing", texts(again), err)
-		}
-		left, err := s.Pending(ctx(t), "alice", "c1")
-		if err != nil || len(left) != 0 {
-			t.Fatalf("Pending after take = %v, %v; want nothing", texts(left), err)
-		}
+		got, err := s.TakePending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(texts(got)).To(Equal([]string{"one", "two", "three"}), "first take")
+		again, err := s.TakePending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred(), "second take")
+		Expect(again).To(BeEmpty(), "second take = %v; want nothing", texts(again))
+		left, err := s.Pending(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred(), "Pending after take")
+		Expect(left).To(BeEmpty(), "Pending after take = %v; want nothing", texts(left))
 	})
 
-	t.Run("edit and cancel work until the message is taken", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		a, _ := s.AddPending(ctx(t), "alice", "c1", "keep")
-		b, _ := s.AddPending(ctx(t), "alice", "c1", "drop")
-		c, _ := s.AddPending(ctx(t), "alice", "c1", "typo")
-		if err := s.EditPending(ctx(t), "alice", "c1", c.ID, "fixed"); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.CancelPending(ctx(t), "alice", "c1", b.ID); err != nil {
-			t.Fatal(err)
-		}
-		got, _ := s.TakePending(ctx(t), "alice", "c1")
-		if !same(texts(got), []string{"keep", "fixed"}) {
-			t.Fatalf("taken = %v", texts(got))
-		}
-		if err := s.EditPending(ctx(t), "alice", "c1", a.ID, "late"); !errors.Is(err, store.ErrDelivered) {
-			t.Fatalf("edit after take = %v, want ErrDelivered", err)
-		}
-		if err := s.CancelPending(ctx(t), "alice", "c1", a.ID); !errors.Is(err, store.ErrDelivered) {
-			t.Fatalf("cancel after take = %v, want ErrDelivered", err)
-		}
+	It("edit and cancel work until the message is taken", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		a, _ := s.AddPending(ctx(), "alice", "c1", "keep")
+		b, _ := s.AddPending(ctx(), "alice", "c1", "drop")
+		c, _ := s.AddPending(ctx(), "alice", "c1", "typo")
+		Expect(s.EditPending(ctx(), "alice", "c1", c.ID, "fixed")).To(Succeed())
+		Expect(s.CancelPending(ctx(), "alice", "c1", b.ID)).To(Succeed())
+		got, _ := s.TakePending(ctx(), "alice", "c1")
+		Expect(texts(got)).To(Equal([]string{"keep", "fixed"}), "taken")
+		Expect(s.EditPending(ctx(), "alice", "c1", a.ID, "late")).To(MatchError(store.ErrDelivered), "edit after take")
+		Expect(s.CancelPending(ctx(), "alice", "c1", a.ID)).To(MatchError(store.ErrDelivered), "cancel after take")
 	})
 
-	t.Run("restore puts taken messages back in their original order", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		_, _ = s.AddPending(ctx(t), "alice", "c1", "one")
-		_, _ = s.AddPending(ctx(t), "alice", "c1", "two")
-		taken, _ := s.TakePending(ctx(t), "alice", "c1")
-		_, _ = s.AddPending(ctx(t), "alice", "c1", "three")
+	It("restore puts taken messages back in their original order", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "one")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "two")
+		taken, _ := s.TakePending(ctx(), "alice", "c1")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "three")
 		var ids []string
 		for _, p := range taken {
 			ids = append(ids, p.ID)
 		}
-		if err := s.RestorePending(ctx(t), "alice", "c1", ids); err != nil {
-			t.Fatal(err)
-		}
-		got, _ := s.TakePending(ctx(t), "alice", "c1")
-		if !same(texts(got), []string{"one", "two", "three"}) {
-			t.Fatalf("after restore = %v", texts(got))
-		}
+		Expect(s.RestorePending(ctx(), "alice", "c1", ids)).To(Succeed())
+		got, _ := s.TakePending(ctx(), "alice", "c1")
+		Expect(texts(got)).To(Equal([]string{"one", "two", "three"}), "after restore")
 	})
 
-	t.Run("another principal sees ErrNotFound for every call", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		p, _ := s.AddPending(ctx(t), "alice", "c1", "secret")
+	It("another principal sees ErrNotFound for every call", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		p, _ := s.AddPending(ctx(), "alice", "c1", "secret")
 		calls := map[string]error{}
-		_, calls["AddPending"] = s.AddPending(ctx(t), "bob", "c1", "x")
-		_, calls["Pending"] = s.Pending(ctx(t), "bob", "c1")
-		calls["EditPending"] = s.EditPending(ctx(t), "bob", "c1", p.ID, "x")
-		calls["CancelPending"] = s.CancelPending(ctx(t), "bob", "c1", p.ID)
-		_, calls["TakePending"] = s.TakePending(ctx(t), "bob", "c1")
-		calls["RestorePending"] = s.RestorePending(ctx(t), "bob", "c1", []string{p.ID})
-		calls["ClaimTurn"] = s.ClaimTurn(ctx(t), "bob", "c1", "r1")
-		calls["ReleaseTurn"] = s.ReleaseTurn(ctx(t), "bob", "c1", "r1", store.TurnDone)
-		_, calls["Turn"] = s.Turn(ctx(t), "bob", "c1")
+		_, calls["AddPending"] = s.AddPending(ctx(), "bob", "c1", "x")
+		_, calls["Pending"] = s.Pending(ctx(), "bob", "c1")
+		calls["EditPending"] = s.EditPending(ctx(), "bob", "c1", p.ID, "x")
+		calls["CancelPending"] = s.CancelPending(ctx(), "bob", "c1", p.ID)
+		_, calls["TakePending"] = s.TakePending(ctx(), "bob", "c1")
+		calls["RestorePending"] = s.RestorePending(ctx(), "bob", "c1", []string{p.ID})
+		calls["ClaimTurn"] = s.ClaimTurn(ctx(), "bob", "c1", "r1")
+		calls["ReleaseTurn"] = s.ReleaseTurn(ctx(), "bob", "c1", "r1", store.TurnDone)
+		_, calls["Turn"] = s.Turn(ctx(), "bob", "c1")
 		for name, err := range calls {
-			if !errors.Is(err, session.ErrNotFound) {
-				t.Errorf("%s as another principal = %v, want ErrNotFound", name, err)
-			}
+			Expect(err).To(MatchError(session.ErrNotFound), "%s as another principal", name)
 		}
 	})
 
-	t.Run("exactly one claim wins", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
+	It("exactly one claim wins", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		c := ctx()
 		var wins, busy int32
+		var other []error
+		var mu sync.Mutex
 		var wg sync.WaitGroup
 		for i := 0; i < 8; i++ {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				switch err := s.ClaimTurn(ctx(t), "alice", "c1", string(rune('a'+i))); {
+				defer GinkgoRecover()
+				err := s.ClaimTurn(c, "alice", "c1", string(rune('a'+i)))
+				switch {
 				case err == nil:
 					atomic.AddInt32(&wins, 1)
-				case errors.Is(err, store.ErrTurnRunning):
+				case isTurnRunning(err):
 					atomic.AddInt32(&busy, 1)
 				default:
-					t.Errorf("ClaimTurn: %v", err)
+					mu.Lock()
+					other = append(other, err)
+					mu.Unlock()
 				}
 			}(i)
 		}
 		wg.Wait()
-		if wins != 1 || busy != 7 {
-			t.Fatalf("wins=%d busy=%d, want 1 and 7", wins, busy)
-		}
+		Expect(other).To(BeEmpty(), "ClaimTurn failed unexpectedly")
+		Expect(wins).To(BeEquivalentTo(1))
+		Expect(busy).To(BeEquivalentTo(7))
 	})
 
-	t.Run("release frees the chat and records the outcome", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		if err := s.ClaimTurn(ctx(t), "alice", "c1", "r1"); err != nil {
-			t.Fatal(err)
-		}
-		info, _ := s.Turn(ctx(t), "alice", "c1")
-		if !info.Running || info.RunID != "r1" {
-			t.Fatalf("running turn = %+v", info)
-		}
-		if err := s.ReleaseTurn(ctx(t), "alice", "c1", "other", store.TurnDone); !errors.Is(err, store.ErrNotClaimed) {
-			t.Fatalf("release by another run = %v, want ErrNotClaimed", err)
-		}
-		if err := s.ReleaseTurn(ctx(t), "alice", "c1", "r1", store.TurnStopped); err != nil {
-			t.Fatal(err)
-		}
-		info, _ = s.Turn(ctx(t), "alice", "c1")
-		if info.Running || info.Last != store.TurnStopped {
-			t.Fatalf("after release = %+v", info)
-		}
-		if err := s.ClaimTurn(ctx(t), "alice", "c1", "r2"); err != nil {
-			t.Fatalf("claim after release: %v", err)
-		}
+	It("release frees the chat and records the outcome", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+		info, _ := s.Turn(ctx(), "alice", "c1")
+		Expect(info.Running).To(BeTrue(), "running turn = %+v", info)
+		Expect(info.RunID).To(Equal("r1"))
+		Expect(s.ReleaseTurn(ctx(), "alice", "c1", "other", store.TurnDone)).To(MatchError(store.ErrNotClaimed), "release by another run")
+		Expect(s.ReleaseTurn(ctx(), "alice", "c1", "r1", store.TurnStopped)).To(Succeed())
+		info, _ = s.Turn(ctx(), "alice", "c1")
+		Expect(info.Running).To(BeFalse(), "after release = %+v", info)
+		Expect(info.Last).To(Equal(store.TurnStopped))
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed(), "claim after release")
 	})
 
-	t.Run("a turn that stops beating is reaped, one that keeps beating is not", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "stale", "alice")
-		chat(t, s, "alive", "alice")
-		if err := s.ClaimTurn(ctx(t), "alice", "stale", "r-stale"); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.ClaimTurn(ctx(t), "alice", "alive", "r-alive"); err != nil {
-			t.Fatal(err)
-		}
+	It("a turn that stops beating is reaped, one that keeps beating is not", func() {
+		s := newStore()
+		chat(s, "stale", "alice")
+		chat(s, "alive", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-stale")).To(Succeed())
+		Expect(s.ClaimTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
 		time.Sleep(40 * time.Millisecond)
 		cutoff := time.Now()
 		time.Sleep(40 * time.Millisecond)
-		if err := s.TouchTurn(ctx(t), "alice", "alive", "r-alive"); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
 
-		got, err := s.ReapTurns(ctx(t), cutoff)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != 1 || got[0].ChatID != "stale" || got[0].Principal != "alice" || got[0].RunID != "r-stale" {
-			t.Fatalf("reaped = %+v, want only the chat that stopped beating", got)
-		}
-		if info, _ := s.Turn(ctx(t), "alice", "stale"); info.Running || info.Last != store.TurnInterrupted {
-			t.Fatalf("reaped turn = %+v, want not running and interrupted", info)
-		}
-		if info, _ := s.Turn(ctx(t), "alice", "alive"); !info.Running {
-			t.Fatalf("a turn that kept beating was reaped: %+v", info)
-		}
+		got, err := s.ReapTurns(ctx(), cutoff)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(1), "reaped = %+v, want only the chat that stopped beating", got)
+		Expect(got[0].ChatID).To(Equal("stale"))
+		Expect(got[0].Principal).To(Equal("alice"))
+		Expect(got[0].RunID).To(Equal("r-stale"))
+		info, _ := s.Turn(ctx(), "alice", "stale")
+		Expect(info.Running).To(BeFalse(), "reaped turn = %+v, want not running and interrupted", info)
+		Expect(info.Last).To(Equal(store.TurnInterrupted))
+		info, _ = s.Turn(ctx(), "alice", "alive")
+		Expect(info.Running).To(BeTrue(), "a turn that kept beating was reaped: %+v", info)
 		// The run that was reaped can no longer beat or release, and the chat is free.
-		if err := s.TouchTurn(ctx(t), "alice", "stale", "r-stale"); !errors.Is(err, store.ErrNotClaimed) {
-			t.Fatalf("TouchTurn on a reaped run = %v, want ErrNotClaimed", err)
-		}
-		if err := s.ClaimTurn(ctx(t), "alice", "stale", "r-next"); err != nil {
-			t.Fatalf("claim after reap: %v", err)
-		}
-		if again, _ := s.ReapTurns(ctx(t), cutoff); len(again) != 0 {
-			t.Fatalf("a second reap found %+v", again)
-		}
+		Expect(s.TouchTurn(ctx(), "alice", "stale", "r-stale")).To(MatchError(store.ErrNotClaimed), "TouchTurn on a reaped run")
+		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-next")).To(Succeed(), "claim after reap")
+		again, _ := s.ReapTurns(ctx(), cutoff)
+		Expect(again).To(BeEmpty(), "a second reap found %+v", again)
 	})
 
-	t.Run("a reaped turn gives back the messages its model request took but never confirmed", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		if err := s.ClaimTurn(ctx(t), "alice", "c1", "r1"); err != nil {
-			t.Fatal(err)
-		}
-		lost, _ := s.AddPending(ctx(t), "alice", "c1", "taken, then the frontend died")
-		kept, _ := s.AddPending(ctx(t), "alice", "c1", "taken and recorded")
-		if _, err := s.TakePending(ctx(t), "alice", "c1"); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.ConfirmPending(ctx(t), "alice", "c1", []string{kept.ID}); err != nil {
-			t.Fatal(err)
-		}
-		if got, _ := s.ReapTurns(ctx(t), time.Now().Add(time.Hour)); len(got) != 1 {
-			t.Fatalf("reaped = %+v, want the one turn", got)
-		}
-		pend, _ := s.Pending(ctx(t), "alice", "c1")
-		if len(pend) != 1 || pend[0].ID != lost.ID || pend[0].Delivered {
-			t.Fatalf("pending after the reap = %+v, want only the unconfirmed message, undelivered", pend)
-		}
+	It("a reaped turn gives back the messages its model request took but never confirmed", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r1")).To(Succeed())
+		lost, _ := s.AddPending(ctx(), "alice", "c1", "taken, then the frontend died")
+		kept, _ := s.AddPending(ctx(), "alice", "c1", "taken and recorded")
+		Expect(s.TakePending(ctx(), "alice", "c1")).Error().NotTo(HaveOccurred())
+		Expect(s.ConfirmPending(ctx(), "alice", "c1", []string{kept.ID})).To(Succeed())
+		got, _ := s.ReapTurns(ctx(), time.Now().Add(time.Hour))
+		Expect(got).To(HaveLen(1), "reaped = %+v, want the one turn", got)
+		pend, _ := s.Pending(ctx(), "alice", "c1")
+		Expect(pend).To(HaveLen(1), "pending after the reap = %+v, want only the unconfirmed message, undelivered", pend)
+		Expect(pend[0].ID).To(Equal(lost.ID))
+		Expect(pend[0].Delivered).To(BeFalse())
 	})
 
-	t.Run("touch is refused for another principal and for a run that does not hold the chat", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		_ = s.ClaimTurn(ctx(t), "alice", "c1", "r1")
-		if err := s.TouchTurn(ctx(t), "bob", "c1", "r1"); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("TouchTurn as bob = %v, want ErrNotFound", err)
-		}
-		if err := s.TouchTurn(ctx(t), "alice", "c1", "other"); !errors.Is(err, store.ErrNotClaimed) {
-			t.Fatalf("TouchTurn by another run = %v, want ErrNotClaimed", err)
-		}
+	It("touch is refused for another principal and for a run that does not hold the chat", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		_ = s.ClaimTurn(ctx(), "alice", "c1", "r1")
+		Expect(s.TouchTurn(ctx(), "bob", "c1", "r1")).To(MatchError(session.ErrNotFound), "TouchTurn as bob")
+		Expect(s.TouchTurn(ctx(), "alice", "c1", "other")).To(MatchError(store.ErrNotClaimed), "TouchTurn by another run")
 	})
 
-	t.Run("racing takes never deliver a message twice", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
+	It("racing takes never deliver a message twice", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
 		for i := 0; i < 20; i++ {
-			_, _ = s.AddPending(ctx(t), "alice", "c1", string(rune('a'+i)))
+			_, _ = s.AddPending(ctx(), "alice", "c1", string(rune('a'+i)))
 		}
+		c := ctx()
 		var mu sync.Mutex
 		seen := map[string]int{}
+		var errs []error
 		var wg sync.WaitGroup
 		for i := 0; i < 6; i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				got, err := s.TakePending(ctx(t), "alice", "c1")
+				defer GinkgoRecover()
+				got, err := s.TakePending(c, "alice", "c1")
+				mu.Lock()
+				defer mu.Unlock()
 				if err != nil {
-					t.Errorf("TakePending: %v", err)
+					errs = append(errs, err)
 					return
 				}
-				mu.Lock()
 				for _, p := range got {
 					seen[p.ID]++
 				}
-				mu.Unlock()
 			}()
 		}
 		wg.Wait()
-		if len(seen) != 20 {
-			t.Fatalf("delivered %d distinct messages, want 20", len(seen))
-		}
+		Expect(errs).To(BeEmpty(), "TakePending failed")
+		Expect(seen).To(HaveLen(20), "delivered %d distinct messages, want 20", len(seen))
 		for id, n := range seen {
-			if n != 1 {
-				t.Errorf("message %s delivered %d times", id, n)
-			}
+			Expect(n).To(Equal(1), "message %s delivered %d times", id, n)
 		}
 	})
 
-	t.Run("deleting a chat removes its pending messages and claim", func(t *testing.T) {
-		s := newStore(t)
-		chat(t, s, "c1", "alice")
-		_, _ = s.AddPending(ctx(t), "alice", "c1", "x")
-		_ = s.ClaimTurn(ctx(t), "alice", "c1", "r1")
-		if err := s.DeleteChat(ctx(t), "alice", "c1"); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.Pending(ctx(t), "alice", "c1"); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("Pending after delete = %v, want ErrNotFound", err)
-		}
-		chat(t, s, "c1", "alice") // the id can be reused, with a clean slate
-		if got, _ := s.Pending(ctx(t), "alice", "c1"); len(got) != 0 {
-			t.Fatalf("a recreated chat inherited %v", texts(got))
-		}
-		if err := s.ClaimTurn(ctx(t), "alice", "c1", "r2"); err != nil {
-			t.Fatalf("a recreated chat inherited a claim: %v", err)
-		}
+	It("deleting a chat removes its pending messages and claim", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		_, _ = s.AddPending(ctx(), "alice", "c1", "x")
+		_ = s.ClaimTurn(ctx(), "alice", "c1", "r1")
+		Expect(s.DeleteChat(ctx(), "alice", "c1")).To(Succeed())
+		_, err := s.Pending(ctx(), "alice", "c1")
+		Expect(err).To(MatchError(session.ErrNotFound), "Pending after delete")
+		chat(s, "c1", "alice") // the id can be reused, with a clean slate
+		got, _ := s.Pending(ctx(), "alice", "c1")
+		Expect(got).To(BeEmpty(), "a recreated chat inherited %v", texts(got))
+		Expect(s.ClaimTurn(ctx(), "alice", "c1", "r2")).To(Succeed(), "a recreated chat inherited a claim")
 	})
 }
 
 // Seed writes a small, known state. CheckSeed reads it back from another
 // handle on the same storage (a reopened store), which proves persistence.
-func Seed(t *testing.T, s store.Store) {
-	t.Helper()
-	if err := s.CreateChat(ctx(t), session.ChatRecord{ID: "seed", Principal: "alice", Title: "Kept", Created: t0, Updated: t0}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.AppendEntry(ctx(t), "seed", session.Entry{Role: "user", Text: "hello"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.AddPending(ctx(t), "alice", "seed", "waiting"); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.ClaimTurn(ctx(t), "alice", "seed", "r1"); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.ReleaseTurn(ctx(t), "alice", "seed", "r1", store.TurnStopped); err != nil {
-		t.Fatal(err)
-	}
+func Seed(s store.Store) {
+	Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "seed", Principal: "alice", Title: "Kept", Created: t0, Updated: t0})).To(Succeed())
+	Expect(s.AppendEntry(ctx(), "seed", session.Entry{Role: "user", Text: "hello"})).Error().NotTo(HaveOccurred())
+	Expect(s.AddPending(ctx(), "alice", "seed", "waiting")).Error().NotTo(HaveOccurred())
+	Expect(s.ClaimTurn(ctx(), "alice", "seed", "r1")).To(Succeed())
+	Expect(s.ReleaseTurn(ctx(), "alice", "seed", "r1", store.TurnStopped)).To(Succeed())
 }
 
-// CheckSeed fails the test unless s holds the state Seed wrote.
-func CheckSeed(t *testing.T, s store.Store) {
-	t.Helper()
-	rec, err := s.GetChat(ctx(t), "alice", "seed")
-	if err != nil || rec.Title != "Kept" {
-		t.Fatalf("GetChat = %+v, %v", rec, err)
-	}
-	es, err := s.Entries(ctx(t), "seed", 0, 10)
-	if err != nil || len(es) != 1 || es[0].Text != "hello" {
-		t.Fatalf("Entries = %+v, %v", es, err)
-	}
-	ps, err := s.Pending(ctx(t), "alice", "seed")
-	if err != nil || !same(texts(ps), []string{"waiting"}) {
-		t.Fatalf("Pending = %v, %v", texts(ps), err)
-	}
-	info, err := s.Turn(ctx(t), "alice", "seed")
-	if err != nil || info.Running || info.Last != store.TurnStopped {
-		t.Fatalf("Turn = %+v, %v", info, err)
-	}
+// CheckSeed fails the spec unless s holds the state Seed wrote.
+func CheckSeed(s store.Store) {
+	rec, err := s.GetChat(ctx(), "alice", "seed")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(rec.Title).To(Equal("Kept"))
+	es, err := s.Entries(ctx(), "seed", 0, 10)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(es).To(HaveLen(1), "Entries = %+v", es)
+	Expect(es[0].Text).To(Equal("hello"))
+	ps, err := s.Pending(ctx(), "alice", "seed")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(texts(ps)).To(Equal([]string{"waiting"}), "Pending")
+	info, err := s.Turn(ctx(), "alice", "seed")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(info.Running).To(BeFalse(), "Turn = %+v", info)
+	Expect(info.Last).To(Equal(store.TurnStopped))
 }
+
+func isTurnRunning(err error) bool { return errors.Is(err, store.ErrTurnRunning) }

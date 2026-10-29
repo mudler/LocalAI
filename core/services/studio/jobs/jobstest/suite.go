@@ -1,19 +1,21 @@
-// Package jobstest is the contract suite every jobs.Store passes.
-//
-//nolint:forbidigo // reusable contract suite driven by the caller's *testing.T
+// Package jobstest is the contract suite every jobs.Store passes. Run
+// registers Ginkgo specs, so call it inside a Describe of the implementation's
+// test package.
 package jobstest
 
 import (
 	"context"
-	"errors"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
 )
 
-// NewStore returns an empty store. Run calls it once per subtest.
-type NewStore func(t *testing.T) jobs.Store
+// NewStore returns an empty store. Each spec calls it once; clean up with
+// DeferCleanup.
+type NewStore func() jobs.Store
 
 var base = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 
@@ -28,117 +30,95 @@ func job(id, owner, taskID string, age time.Duration) jobs.Job {
 		Attachments: 2, Created: base.Add(age)}
 }
 
-// Run checks the store.
-func Run(t *testing.T, newStore NewStore) {
+// Run registers the specs that check the store.
+func Run(newStore NewStore) {
 	ctx := context.Background()
 
-	t.Run("TaskRoundTripAndReplace", func(t *testing.T) {
-		s := newStore(t)
+	It("TaskRoundTripAndReplace", func() {
+		s := newStore()
 		a := task("t1", "u1", "Nightly")
-		if err := s.PutTask(ctx, a); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.PutTask(ctx, a)).To(Succeed())
 		got, err := s.GetTask(ctx, "u1", "t1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Name != "Nightly" || got.Prompt != "Say {{.word}}" || !got.Enabled || len(got.Webhooks) != 1 ||
-			got.Webhooks[0].Headers["Authorization"] != "Bearer x" || !got.Created.Equal(base) {
-			t.Fatalf("got %+v", got)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Name).To(Equal("Nightly"))
+		Expect(got.Prompt).To(Equal("Say {{.word}}"))
+		Expect(got.Enabled).To(BeTrue())
+		Expect(got.Webhooks).To(HaveLen(1))
+		Expect(got.Webhooks[0].Headers["Authorization"]).To(Equal("Bearer x"))
+		Expect(got.Created.Equal(base)).To(BeTrue(), "got %+v", got)
 		a.Name, a.Webhooks, a.Created = "Nightly 2", nil, time.Time{}
 		a.Updated = base.Add(time.Hour)
-		if err := s.PutTask(ctx, a); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.PutTask(ctx, a)).To(Succeed())
 		got, _ = s.GetTask(ctx, "u1", "t1")
-		if got.Name != "Nightly 2" || len(got.Webhooks) != 0 || !got.Created.Equal(base) {
-			t.Fatalf("after replace: %+v", got)
-		}
+		Expect(got.Name).To(Equal("Nightly 2"))
+		Expect(got.Webhooks).To(BeEmpty())
+		Expect(got.Created.Equal(base)).To(BeTrue(), "after replace: %+v", got)
 	})
 
-	t.Run("TasksBelongToTheirOwner", func(t *testing.T) {
-		s := newStore(t)
+	It("TasksBelongToTheirOwner", func() {
+		s := newStore()
 		_ = s.PutTask(ctx, task("t1", "u1", "A"))
-		if _, err := s.GetTask(ctx, "u2", "t1"); !errors.Is(err, jobs.ErrNotFound) {
-			t.Fatalf("another owner read it: %v", err)
-		}
-		if err := s.PutTask(ctx, task("t1", "u2", "B")); !errors.Is(err, jobs.ErrNotFound) {
-			t.Fatalf("another owner replaced it: %v", err)
-		}
-		if err := s.DeleteTask(ctx, "u2", "t1"); !errors.Is(err, jobs.ErrNotFound) {
-			t.Fatalf("another owner deleted it: %v", err)
-		}
-		if err := s.DeleteTask(ctx, "u1", "t1"); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.DeleteTask(ctx, "u1", "t1"); !errors.Is(err, jobs.ErrNotFound) {
-			t.Fatalf("delete twice: %v", err)
-		}
+		_, err := s.GetTask(ctx, "u2", "t1")
+		Expect(err).To(MatchError(jobs.ErrNotFound), "another owner read it")
+		Expect(s.PutTask(ctx, task("t1", "u2", "B"))).To(MatchError(jobs.ErrNotFound), "another owner replaced it")
+		Expect(s.DeleteTask(ctx, "u2", "t1")).To(MatchError(jobs.ErrNotFound), "another owner deleted it")
+		Expect(s.DeleteTask(ctx, "u1", "t1")).To(Succeed())
+		Expect(s.DeleteTask(ctx, "u1", "t1")).To(MatchError(jobs.ErrNotFound), "delete twice")
 	})
 
-	t.Run("NamesAreUniquePerOwner", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.PutTask(ctx, task("t1", "u1", "Nightly")); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.PutTask(ctx, task("t2", "u1", " nightly ")); !errors.Is(err, jobs.ErrNameTaken) {
-			t.Fatalf("same name, same owner: %v", err)
-		}
-		if err := s.PutTask(ctx, task("t3", "u2", "Nightly")); err != nil {
-			t.Fatalf("same name, other owner: %v", err)
-		}
+	It("NamesAreUniquePerOwner", func() {
+		s := newStore()
+		Expect(s.PutTask(ctx, task("t1", "u1", "Nightly"))).To(Succeed())
+		Expect(s.PutTask(ctx, task("t2", "u1", " nightly "))).To(MatchError(jobs.ErrNameTaken), "same name, same owner")
+		Expect(s.PutTask(ctx, task("t3", "u2", "Nightly"))).To(Succeed(), "same name, other owner")
 	})
 
-	t.Run("ListTasksSortedByName", func(t *testing.T) {
-		s := newStore(t)
+	It("ListTasksSortedByName", func() {
+		s := newStore()
 		for i, n := range []string{"beta", "Alpha", "gamma"} {
 			_ = s.PutTask(ctx, task(string(rune('a'+i)), "u1", n))
 		}
 		_ = s.PutTask(ctx, task("z", "u2", "Other"))
 		l, err := s.ListTasks(ctx, "u1")
-		if err != nil || len(l) != 3 || l[0].Name != "Alpha" || l[1].Name != "beta" || l[2].Name != "gamma" {
-			t.Fatalf("list = %+v, %v", l, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(l).To(HaveLen(3))
+		Expect(l[0].Name).To(Equal("Alpha"))
+		Expect(l[1].Name).To(Equal("beta"))
+		Expect(l[2].Name).To(Equal("gamma"))
 		all, err := s.AllTasks(ctx)
-		if err != nil || len(all) != 4 || all[3].Owner != "u2" {
-			t.Fatalf("all = %+v, %v", all, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(all).To(HaveLen(4))
+		Expect(all[3].Owner).To(Equal("u2"))
 	})
 
-	t.Run("JobsRoundTripAndUpdate", func(t *testing.T) {
-		s := newStore(t)
+	It("JobsRoundTripAndUpdate", func() {
+		s := newStore()
 		j := job("j1", "u1", "t1", 0)
-		if err := s.PutJob(ctx, j); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.PutJob(ctx, j)).To(Succeed())
 		got, err := s.GetJob(ctx, "u1", "j1")
-		if err != nil || got.Parameters["word"] != "hi" || got.TaskID != "t1" || got.Attachments != 2 || got.WebhooksDone {
-			t.Fatalf("got %+v, %v", got, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Parameters["word"]).To(Equal("hi"))
+		Expect(got.TaskID).To(Equal("t1"))
+		Expect(got.Attachments).To(Equal(2))
+		Expect(got.WebhooksDone).To(BeFalse())
 		j.Ended, j.Error = base.Add(30*time.Second), "model failed"
 		j.WebhooksDone, j.WebhookSent, j.WebhookSentAt, j.WebhookError = true, true, base.Add(time.Minute), "one failed"
-		if err := s.PutJob(ctx, j); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.PutJob(ctx, j)).To(Succeed())
 		got, _ = s.GetJob(ctx, "u1", "j1")
-		if !got.WebhooksDone || !got.WebhookSent || !got.WebhookSentAt.Equal(base.Add(time.Minute)) || got.WebhookError != "one failed" ||
-			!got.Ended.Equal(base.Add(30*time.Second)) || got.Error != "model failed" {
-			t.Fatalf("after update: %+v", got)
-		}
-		if _, err := s.GetJob(ctx, "u2", "j1"); !errors.Is(err, jobs.ErrNotFound) {
-			t.Fatalf("another owner read the job: %v", err)
-		}
-		if err := s.DeleteJob(ctx, "u2", "j1"); !errors.Is(err, jobs.ErrNotFound) {
-			t.Fatalf("another owner deleted the job: %v", err)
-		}
-		if err := s.DeleteJob(ctx, "u1", "j1"); err != nil {
-			t.Fatal(err)
-		}
+		Expect(got.WebhooksDone).To(BeTrue(), "after update: %+v", got)
+		Expect(got.WebhookSent).To(BeTrue())
+		Expect(got.WebhookSentAt.Equal(base.Add(time.Minute))).To(BeTrue())
+		Expect(got.WebhookError).To(Equal("one failed"))
+		Expect(got.Ended.Equal(base.Add(30 * time.Second))).To(BeTrue())
+		Expect(got.Error).To(Equal("model failed"))
+		_, err = s.GetJob(ctx, "u2", "j1")
+		Expect(err).To(MatchError(jobs.ErrNotFound), "another owner read the job")
+		Expect(s.DeleteJob(ctx, "u2", "j1")).To(MatchError(jobs.ErrNotFound), "another owner deleted the job")
+		Expect(s.DeleteJob(ctx, "u1", "j1")).To(Succeed())
 	})
 
-	t.Run("ListJobsNewestFirstFilteredAndLimited", func(t *testing.T) {
-		s := newStore(t)
+	It("ListJobsNewestFirstFilteredAndLimited", func() {
+		s := newStore()
 		_ = s.PutJob(ctx, job("old", "u1", "t1", 0))
 		_ = s.PutJob(ctx, job("mid", "u1", "t2", time.Hour))
 		_ = s.PutJob(ctx, job("new", "u1", "t1", 2*time.Hour))
@@ -151,32 +131,21 @@ func Run(t *testing.T, newStore NewStore) {
 			return out
 		}
 		l, _ := s.ListJobs(ctx, "u1", jobs.Filter{})
-		if got := ids(l); got != "new mid old " {
-			t.Fatalf("list = %q", got)
-		}
+		Expect(ids(l)).To(Equal("new mid old "), "list")
 		l, _ = s.ListJobs(ctx, "u1", jobs.Filter{TaskID: "t1"})
-		if got := ids(l); got != "new old " {
-			t.Fatalf("by task = %q", got)
-		}
+		Expect(ids(l)).To(Equal("new old "), "by task")
 		l, _ = s.ListJobs(ctx, "u1", jobs.Filter{Limit: 1})
-		if got := ids(l); got != "new " {
-			t.Fatalf("limit = %q", got)
-		}
+		Expect(ids(l)).To(Equal("new "), "limit")
 		all, _ := s.AllJobs(ctx)
-		if got := ids(all); got != "other new mid old " {
-			t.Fatalf("all = %q", got)
-		}
+		Expect(ids(all)).To(Equal("other new mid old "), "all")
 	})
 
-	t.Run("DeletingATaskKeepsItsJobs", func(t *testing.T) {
-		s := newStore(t)
+	It("DeletingATaskKeepsItsJobs", func() {
+		s := newStore()
 		_ = s.PutTask(ctx, task("t1", "u1", "A"))
 		_ = s.PutJob(ctx, job("j1", "u1", "t1", 0))
-		if err := s.DeleteTask(ctx, "u1", "t1"); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.GetJob(ctx, "u1", "j1"); err != nil {
-			t.Fatalf("the job went with its task: %v", err)
-		}
+		Expect(s.DeleteTask(ctx, "u1", "t1")).To(Succeed())
+		_, err := s.GetJob(ctx, "u1", "j1")
+		Expect(err).NotTo(HaveOccurred(), "the job went with its task")
 	})
 }

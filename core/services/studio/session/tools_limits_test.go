@@ -6,10 +6,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"strings"
 	"syscall"
-	"testing"
 	"time"
+
+	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 )
@@ -43,50 +44,47 @@ func toolsOver(sb sandbox.Sandbox) map[string]Tool {
 	return out
 }
 
-func callTool(t *testing.T, tl Tool, args string) (string, error) {
-	t.Helper()
+func callTool(tl Tool, args string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	return tl.Run(ctx, json.RawMessage(args))
 }
 
-// TestFileToolsTimeOut checks that read, glob and grep stop at their timeout
-// and say so in their result.
-func TestFileToolsTimeOut(t *testing.T) {
-	old := fileToolTimeout
-	fileToolTimeout = 50 * time.Millisecond
-	t.Cleanup(func() { fileToolTimeout = old })
-	tools := toolsOver(limitSandbox{})
-	for name, args := range map[string]string{
-		"read": `{"path":"home/a"}`,
-		"glob": `{"pattern":"*"}`,
-		"grep": `{"pattern":"x"}`,
-	} {
-		got, err := callTool(t, tools[name], args)
-		if err != nil || got != "timed out after 50ms" {
-			t.Errorf("%s: %q, %v", name, got, err)
+var _ = ginkgo.Describe("the limits of the sandbox tools", func() {
+	// Read, glob and grep stop at their timeout and say so in their result.
+	ginkgo.It("file tools time out", func() {
+		old := fileToolTimeout
+		fileToolTimeout = 50 * time.Millisecond
+		ginkgo.DeferCleanup(func() { fileToolTimeout = old })
+		tools := toolsOver(limitSandbox{})
+		for name, args := range map[string]string{
+			"read": `{"path":"home/a"}`,
+			"glob": `{"pattern":"*"}`,
+			"grep": `{"pattern":"x"}`,
+		} {
+			got, err := callTool(tools[name], args)
+			Expect(err).NotTo(HaveOccurred(), name)
+			Expect(got).To(Equal("timed out after 50ms"), name)
 		}
-	}
-}
+	})
 
-// TestOutputCapStopsTheProcess checks that a process that writes more than the
-// cap is stopped at the cap, and does not run until its timeout.
-func TestOutputCapStopsTheProcess(t *testing.T) {
-	old := fileToolTimeout
-	fileToolTimeout = 20 * time.Second
-	t.Cleanup(func() { fileToolTimeout = old })
-	tools := toolsOver(limitSandbox{out: bytes.Repeat([]byte("x"), 100000)})
-	for _, c := range []struct{ name, args string }{
-		{"read", `{"path":"home/a"}`},
-		{"bash", `{"command":"x","timeout_seconds":20}`},
-	} {
-		start := time.Now()
-		got, err := callTool(t, tools[c.name], c.args)
-		if err != nil || !strings.Contains(got, "[output cut: ") || len(got) > MaxOutput+64 {
-			t.Errorf("%s: len %d, %v", c.name, len(got), err)
+	// A process that writes more than the cap is stopped at the cap, and does not
+	// run until its timeout.
+	ginkgo.It("the output cap stops the process", func() {
+		old := fileToolTimeout
+		fileToolTimeout = 20 * time.Second
+		ginkgo.DeferCleanup(func() { fileToolTimeout = old })
+		tools := toolsOver(limitSandbox{out: bytes.Repeat([]byte("x"), 100000)})
+		for _, c := range []struct{ name, args string }{
+			{"read", `{"path":"home/a"}`},
+			{"bash", `{"command":"x","timeout_seconds":20}`},
+		} {
+			start := time.Now()
+			got, err := callTool(tools[c.name], c.args)
+			Expect(err).NotTo(HaveOccurred(), c.name)
+			Expect(got).To(ContainSubstring("[output cut: "), "%s: len %d", c.name, len(got))
+			Expect(len(got)).To(BeNumerically("<=", MaxOutput+64), "%s: len %d", c.name, len(got))
+			Expect(time.Since(start)).To(BeNumerically("<=", 5*time.Second), "%s: the process was not stopped at the cap", c.name)
 		}
-		if el := time.Since(start); el > 5*time.Second {
-			t.Errorf("%s took %v; the process was not stopped at the cap", c.name, el)
-		}
-	}
-}
+	})
+})

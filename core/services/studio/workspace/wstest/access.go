@@ -1,274 +1,207 @@
 package wstest
 
 import (
-	"errors"
-	"reflect"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-func setupAccess(t *testing.T, s workspace.Store) {
-	t.Helper()
-	MustPut(t, s, AdminActor, "/shared/a.txt", "a")
-	MustPut(t, s, AdminActor, "/private/p.txt", "p")
-	MustPut(t, s, AdminActor, "/office/o.txt", "o")
+func setupAccess(s workspace.Store) {
+	GinkgoHelper()
+	MustPut(s, AdminActor, "/shared/a.txt", "a")
+	MustPut(s, AdminActor, "/private/p.txt", "p")
+	MustPut(s, AdminActor, "/office/o.txt", "o")
 }
 
-func testAccess(t *testing.T, newStore NewStore) {
-	t.Run("no grant reads as not found", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		for _, p := range []string{"/", "/shared", "/shared/a.txt", "/nope"} {
-			if _, err := s.Stat(Ctx(), Alice, p); !errors.Is(err, workspace.ErrNotFound) {
-				t.Errorf("stat %s: %v, want ErrNotFound", p, err)
+func describeAccess(newStore NewStore) {
+	Describe("Access", func() {
+		It("no grant reads as not found", func() {
+			s := newStore()
+			setupAccess(s)
+			for _, p := range []string{"/", "/shared", "/shared/a.txt", "/nope"} {
+				_, err := s.Stat(Ctx(), Alice, p)
+				Expect(err).To(MatchError(workspace.ErrNotFound), "stat %s", p)
 			}
-		}
-		if _, err := s.Put(Ctx(), Alice, "/shared/b.txt", strings.NewReader("b"), workspace.PutOptions{}); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("put: %v", err)
-		}
-		if _, err := s.List(Ctx(), Alice, "/"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("list: %v", err)
-		}
-	})
-	t.Run("read grant allows reads only", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		if MustRead(t, s, Alice, "/shared/a.txt") != "a" {
-			t.Fatal("read through a read grant")
-		}
-		if _, err := s.Put(Ctx(), Alice, "/shared/b.txt", strings.NewReader("b"), workspace.PutOptions{}); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Errorf("put: %v, want ErrReadOnly", err)
-		}
-		if _, err := s.Mkdir(Ctx(), Alice, "/shared/sub"); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Errorf("mkdir: %v, want ErrReadOnly", err)
-		}
-		if _, err := s.Stat(Ctx(), Alice, "/private/p.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("stat private: %v", err)
-		}
-	})
-	t.Run("write grant allows writes below the folder", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
-		MustPut(t, s, Alice, "/shared/deep/b.txt", "b")
-		if _, err := s.Put(Ctx(), Alice, "/elsewhere.txt", strings.NewReader("x"), workspace.PutOptions{}); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("put outside the grant: %v", err)
-		}
-	})
-	t.Run("group grant applies to members", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, "group:office", "/office", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
-		MustPut(t, s, Bob, "/office/new.txt", "n")
-		if _, err := s.Stat(Ctx(), Alice, "/office/new.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("non-member: %v", err)
-		}
-	})
-	t.Run("revoke removes access", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Revoke(Ctx(), AdminActor, Alice.Principal, "/shared"); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.Stat(Ctx(), Alice, "/shared"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("after revoke: %v", err)
-		}
-		if err := s.Revoke(Ctx(), AdminActor, Alice.Principal, "/shared"); err != nil {
-			t.Errorf("second revoke: %v", err)
-		}
-	})
-	t.Run("only the admin manages grants", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), Alice, Alice.Principal, "/shared", workspace.ModeWrite); !errors.Is(err, workspace.ErrNotAdmin) {
-			t.Errorf("grant by a user: %v", err)
-		}
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared/a.txt", workspace.ModeRead); !errors.Is(err, workspace.ErrInvalid) {
-			t.Errorf("grant on a file: %v", err)
-		}
-		if err := s.Grant(Ctx(), AdminActor, "", "/shared", workspace.ModeRead); !errors.Is(err, workspace.ErrInvalid) {
-			t.Errorf("grant to nobody: %v", err)
-		}
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeNone); !errors.Is(err, workspace.ErrInvalid) {
-			t.Errorf("grant of no mode: %v", err)
-		}
-	})
-	t.Run("a view never grows a grant", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/shared", At: "shared", Mode: workspace.ModeWrite}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(v.Mounts) != 1 || v.Mounts[0].Mode != workspace.ModeRead || v.Mounts[0].Path != "/shared" || v.Mounts[0].At != "shared" {
-			t.Fatalf("view = %+v", v)
-		}
-		if _, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/private", At: "p", Mode: workspace.ModeRead}}); !errors.Is(err, workspace.ErrNotFound) {
-			t.Errorf("view of a hidden folder: %v", err)
-		}
-	})
-	t.Run("view requests are checked", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		cases := []struct {
-			reqs []workspace.MountRequest
-			want error
-		}{
-			{[]workspace.MountRequest{{Path: "/shared/a.txt", At: "a", Mode: workspace.ModeRead}}, workspace.ErrInvalid},
-			{[]workspace.MountRequest{{Path: "/shared", At: "x", Mode: workspace.ModeRead}, {Path: "/office", At: "X", Mode: workspace.ModeRead}}, workspace.ErrInvalid},
-			{[]workspace.MountRequest{{Path: "/shared", At: "a/b", Mode: workspace.ModeRead}}, workspace.ErrBadName},
-			{[]workspace.MountRequest{{Path: "/shared", At: "s", Mode: workspace.ModeNone}}, workspace.ErrInvalid},
-		}
-		for i, c := range cases {
-			if _, err := s.View(Ctx(), AdminActor, c.reqs); !errors.Is(err, c.want) {
-				t.Errorf("case %d: %v, want %v", i, err, c.want)
+			_, err := s.Put(Ctx(), Alice, "/shared/b.txt", strings.NewReader("b"), workspace.PutOptions{})
+			Expect(err).To(MatchError(workspace.ErrNotFound), "put")
+			_, err = s.List(Ctx(), Alice, "/")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "list")
+		})
+		It("read grant allows reads only", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			Expect(MustRead(s, Alice, "/shared/a.txt")).To(Equal("a"), "read through a read grant")
+			_, err := s.Put(Ctx(), Alice, "/shared/b.txt", strings.NewReader("b"), workspace.PutOptions{})
+			Expect(err).To(MatchError(workspace.ErrReadOnly), "put")
+			_, err = s.Mkdir(Ctx(), Alice, "/shared/sub")
+			Expect(err).To(MatchError(workspace.ErrReadOnly), "mkdir")
+			_, err = s.Stat(Ctx(), Alice, "/private/p.txt")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "stat private")
+		})
+		It("write grant allows writes below the folder", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeWrite)).To(Succeed())
+			MustPut(s, Alice, "/shared/deep/b.txt", "b")
+			_, err := s.Put(Ctx(), Alice, "/elsewhere.txt", strings.NewReader("x"), workspace.PutOptions{})
+			Expect(err).To(MatchError(workspace.ErrNotFound), "put outside the grant")
+		})
+		It("group grant applies to members", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, "group:office", "/office", workspace.ModeWrite)).To(Succeed())
+			MustPut(s, Bob, "/office/new.txt", "n")
+			_, err := s.Stat(Ctx(), Alice, "/office/new.txt")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "non-member")
+		})
+		It("revoke removes access", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeWrite)).To(Succeed())
+			Expect(s.Revoke(Ctx(), AdminActor, Alice.Principal, "/shared")).To(Succeed())
+			_, err := s.Stat(Ctx(), Alice, "/shared")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "after revoke")
+			Expect(s.Revoke(Ctx(), AdminActor, Alice.Principal, "/shared")).To(Succeed(), "second revoke")
+		})
+		It("only the admin manages grants", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), Alice, Alice.Principal, "/shared", workspace.ModeWrite)).To(MatchError(workspace.ErrNotAdmin), "grant by a user")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared/a.txt", workspace.ModeRead)).To(MatchError(workspace.ErrInvalid), "grant on a file")
+			Expect(s.Grant(Ctx(), AdminActor, "", "/shared", workspace.ModeRead)).To(MatchError(workspace.ErrInvalid), "grant to nobody")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeNone)).To(MatchError(workspace.ErrInvalid), "grant of no mode")
+		})
+		It("a view never grows a grant", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/shared", At: "shared", Mode: workspace.ModeWrite}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(v.Mounts).To(HaveLen(1), "view = %+v", v)
+			Expect(v.Mounts[0].Mode).To(Equal(workspace.ModeRead))
+			Expect(v.Mounts[0].Path).To(Equal("/shared"))
+			Expect(v.Mounts[0].At).To(Equal("shared"))
+			_, err = s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/private", At: "p", Mode: workspace.ModeRead}})
+			Expect(err).To(MatchError(workspace.ErrNotFound), "view of a hidden folder")
+		})
+		It("view requests are checked", func() {
+			s := newStore()
+			setupAccess(s)
+			cases := []struct {
+				reqs []workspace.MountRequest
+				want error
+			}{
+				{[]workspace.MountRequest{{Path: "/shared/a.txt", At: "a", Mode: workspace.ModeRead}}, workspace.ErrInvalid},
+				{[]workspace.MountRequest{{Path: "/shared", At: "x", Mode: workspace.ModeRead}, {Path: "/office", At: "X", Mode: workspace.ModeRead}}, workspace.ErrInvalid},
+				{[]workspace.MountRequest{{Path: "/shared", At: "a/b", Mode: workspace.ModeRead}}, workspace.ErrBadName},
+				{[]workspace.MountRequest{{Path: "/shared", At: "s", Mode: workspace.ModeNone}}, workspace.ErrInvalid},
 			}
-		}
+			for i, c := range cases {
+				_, err := s.View(Ctx(), AdminActor, c.reqs)
+				Expect(err).To(MatchError(c.want), "case %d", i)
+			}
+		})
 	})
 }
 
-func testReadablePrefixes(t *testing.T, newStore NewStore) {
-	prefixes := func(t *testing.T, s workspace.Store, a workspace.Actor) []string {
-		t.Helper()
-		got, err := s.ReadablePrefixes(Ctx(), a)
-		if err != nil {
-			t.Fatalf("ReadablePrefixes: %v", err)
+func describeReadablePrefixes(newStore NewStore) {
+	Describe("ReadablePrefixes", func() {
+		prefixes := func(s workspace.Store, a workspace.Actor) []string {
+			GinkgoHelper()
+			got, err := s.ReadablePrefixes(Ctx(), a)
+			Expect(err).ToNot(HaveOccurred(), "ReadablePrefixes")
+			Expect(got).ToNot(BeNil(), "ReadablePrefixes returned nil, want a list")
+			return got
 		}
-		if got == nil {
-			t.Fatal("ReadablePrefixes returned nil, want a list")
-		}
-		return got
-	}
-	want := func(t *testing.T, what string, got []string, w ...string) {
-		t.Helper()
-		if w == nil {
-			w = []string{}
-		}
-		if !reflect.DeepEqual(got, w) {
-			t.Errorf("%s: %q, want %q", what, got, w)
-		}
-	}
-	t.Run("the admin gets the root and an actor with no grant gets nothing", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		want(t, "admin", prefixes(t, s, AdminActor), "/")
-		want(t, "no grant", prefixes(t, s, Alice))
-		want(t, "no principal", prefixes(t, s, workspace.Actor{}))
-	})
-	t.Run("a grant on a folder and one below it give the outer folder", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/a/b/f.txt", "f")
-		MustPut(t, s, AdminActor, "/ab/g.txt", "g")
-		for _, p := range []string{"/a/b", "/a", "/ab"} {
-			if err := s.Grant(Ctx(), AdminActor, Alice.Principal, p, workspace.ModeRead); err != nil {
-				t.Fatal(err)
+		want := func(what string, got []string, w ...string) {
+			GinkgoHelper()
+			if w == nil {
+				w = []string{}
 			}
+			Expect(got).To(Equal(w), what)
 		}
-		want(t, "nested", prefixes(t, s, Alice), "/a", "/ab")
-	})
-	t.Run("a write grant counts and a grant on the root gives the root", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/x/f.txt", "f")
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/x", workspace.ModeWrite); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "write", prefixes(t, s, Alice), "/x")
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "root", prefixes(t, s, Alice), "/")
-	})
-	t.Run("group grants count", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, "group:office", "/office", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Grant(Ctx(), AdminActor, Bob.Principal, "/shared", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "member", prefixes(t, s, Bob), "/office", "/shared")
-		want(t, "non-member", prefixes(t, s, Alice))
-	})
-	t.Run("a revoked grant drops out", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		for _, p := range []string{"/shared", "/office"} {
-			if err := s.Grant(Ctx(), AdminActor, Alice.Principal, p, workspace.ModeRead); err != nil {
-				t.Fatal(err)
+		It("the admin gets the root and an actor with no grant gets nothing", func() {
+			s := newStore()
+			setupAccess(s)
+			want("admin", prefixes(s, AdminActor), "/")
+			want("no grant", prefixes(s, Alice))
+			want("no principal", prefixes(s, workspace.Actor{}))
+		})
+		It("a grant on a folder and one below it give the outer folder", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a/b/f.txt", "f")
+			MustPut(s, AdminActor, "/ab/g.txt", "g")
+			for _, p := range []string{"/a/b", "/a", "/ab"} {
+				Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, p, workspace.ModeRead)).To(Succeed())
 			}
-		}
-		if err := s.Revoke(Ctx(), AdminActor, Alice.Principal, "/shared"); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "after revoke", prefixes(t, s, Alice), "/office")
-	})
-	t.Run("a grant on a deleted folder drops out and comes back with an undo", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Delete(Ctx(), AdminActor, "/shared"); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "deleted", prefixes(t, s, Alice))
-		sets, err := s.History(Ctx(), AdminActor, workspace.HistoryQuery{Path: "/", Limit: 1})
-		if err != nil || len(sets) == 0 {
-			t.Fatalf("history: %v %v", sets, err)
-		}
-		if _, _, err := s.Undo(Ctx(), AdminActor, sets[0].Rev, workspace.UndoOptions{}); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "restored", prefixes(t, s, Alice), "/shared")
-	})
-	t.Run("a sibling whose name sorts inside the path is not dropped", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/a/b/f.txt", "f")
-		MustPut(t, s, AdminActor, "/a-b/g.txt", "g")
-		for _, p := range []string{"/a", "/a-b", "/a/b"} {
-			if err := s.Grant(Ctx(), AdminActor, Alice.Principal, p, workspace.ModeRead); err != nil {
-				t.Fatal(err)
+			want("nested", prefixes(s, Alice), "/a", "/ab")
+		})
+		It("a write grant counts and a grant on the root gives the root", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/x/f.txt", "f")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/x", workspace.ModeWrite)).To(Succeed())
+			want("write", prefixes(s, Alice), "/x")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/", workspace.ModeRead)).To(Succeed())
+			want("root", prefixes(s, Alice), "/")
+		})
+		It("group grants count", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, "group:office", "/office", workspace.ModeRead)).To(Succeed())
+			Expect(s.Grant(Ctx(), AdminActor, Bob.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			want("member", prefixes(s, Bob), "/office", "/shared")
+			want("non-member", prefixes(s, Alice))
+		})
+		It("a revoked grant drops out", func() {
+			s := newStore()
+			setupAccess(s)
+			for _, p := range []string{"/shared", "/office"} {
+				Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, p, workspace.ModeRead)).To(Succeed())
 			}
-		}
-		want(t, "dash sibling", prefixes(t, s, Alice), "/a", "/a-b")
-	})
-	t.Run("a grant on a subfolder of a deleted folder gives no prefix", func(t *testing.T) {
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/dir/sub/f.txt", "f")
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/dir/sub", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "before delete", prefixes(t, s, Alice), "/dir/sub")
-		if err := s.Delete(Ctx(), AdminActor, "/dir"); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "after delete", prefixes(t, s, Alice))
-	})
-	t.Run("a moved folder keeps its grant at the new path", func(t *testing.T) {
-		s := newStore(t)
-		setupAccess(t, s)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.Move(Ctx(), AdminActor, "/shared", "/moved"); err != nil {
-			t.Fatal(err)
-		}
-		want(t, "moved", prefixes(t, s, Alice), "/moved")
+			Expect(s.Revoke(Ctx(), AdminActor, Alice.Principal, "/shared")).To(Succeed())
+			want("after revoke", prefixes(s, Alice), "/office")
+		})
+		It("a grant on a deleted folder drops out and comes back with an undo", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			Expect(s.Delete(Ctx(), AdminActor, "/shared")).To(Succeed())
+			want("deleted", prefixes(s, Alice))
+			sets, err := s.History(Ctx(), AdminActor, workspace.HistoryQuery{Path: "/", Limit: 1})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sets).ToNot(BeEmpty(), "history")
+			_, _, err = s.Undo(Ctx(), AdminActor, sets[0].Rev, workspace.UndoOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			want("restored", prefixes(s, Alice), "/shared")
+		})
+		It("a sibling whose name sorts inside the path is not dropped", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/a/b/f.txt", "f")
+			MustPut(s, AdminActor, "/a-b/g.txt", "g")
+			for _, p := range []string{"/a", "/a-b", "/a/b"} {
+				Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, p, workspace.ModeRead)).To(Succeed())
+			}
+			want("dash sibling", prefixes(s, Alice), "/a", "/a-b")
+		})
+		It("a grant on a subfolder of a deleted folder gives no prefix", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/dir/sub/f.txt", "f")
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/dir/sub", workspace.ModeRead)).To(Succeed())
+			want("before delete", prefixes(s, Alice), "/dir/sub")
+			Expect(s.Delete(Ctx(), AdminActor, "/dir")).To(Succeed())
+			want("after delete", prefixes(s, Alice))
+		})
+		It("a moved folder keeps its grant at the new path", func() {
+			s := newStore()
+			setupAccess(s)
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			_, err := s.Move(Ctx(), AdminActor, "/shared", "/moved")
+			Expect(err).ToNot(HaveOccurred())
+			want("moved", prefixes(s, Alice), "/moved")
+		})
 	})
 }

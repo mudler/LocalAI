@@ -3,9 +3,10 @@ package store_test
 import (
 	"context"
 	"path/filepath"
-	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -16,76 +17,52 @@ import (
 
 // openSQLite opens a file database the way LocalAI does in production: the
 // pure-Go driver, a busy timeout, and the write lock taken at BEGIN.
-func openSQLite(t *testing.T, path string) *gorm.DB {
-	t.Helper()
+func openSQLite(path string) *gorm.DB {
 	db, err := auth.OpenSQLiteFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	sqlDB, err := db.DB()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = sqlDB.Close() })
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = sqlDB.Close() })
 	return db
 }
 
-func TestGORMOnSQLite(t *testing.T) {
-	storetest.Run(t, func(t *testing.T) store.Store {
-		s, err := store.NewGORM(openSQLite(t, filepath.Join(t.TempDir(), "studio.db")))
-		if err != nil {
-			t.Fatal(err)
-		}
+var _ = Describe("the GORM store on SQLite", func() {
+	storetest.Run(func() store.Store {
+		s, err := store.NewGORM(openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db")))
+		Expect(err).NotTo(HaveOccurred())
 		return s
 	})
-}
 
-// A second handle on the same database sees what the first wrote.
-func TestGORMSurvivesReopenOnSQLite(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "studio.db")
-	open := func() store.Store {
-		s, err := store.NewGORM(openSQLite(t, path))
-		if err != nil {
-			t.Fatal(err)
+	// A second handle on the same database sees what the first wrote.
+	It("survives a reopen", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		open := func() store.Store {
+			s, err := store.NewGORM(openSQLite(path))
+			Expect(err).NotTo(HaveOccurred())
+			return s
 		}
-		return s
-	}
-	storetest.Seed(t, open())
-	storetest.CheckSeed(t, open())
-}
+		storetest.Seed(open())
+		storetest.CheckSeed(open())
+	})
 
-// ReapTurns frees the chat and restores its messages in one transaction: when
-// the restore fails the chat must stay claimed, or the lost messages could
-// never be given back.
-func TestGORMReapTurnsIsAtomic(t *testing.T) {
-	ctx := context.Background()
-	db := openSQLite(t, filepath.Join(t.TempDir(), "studio.db"))
-	s, err := store.NewGORM(db)
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now().UTC()
-	if err := s.CreateChat(ctx, session.ChatRecord{ID: "a", Principal: "alice", Created: now, Updated: now}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.AddPending(ctx, "alice", "a", "m"); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.ClaimTurn(ctx, "alice", "a", "r1"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.TakePending(ctx, "alice", "a"); err != nil {
-		t.Fatal(err)
-	}
-	if err := db.Exec(`CREATE TRIGGER no_restore BEFORE UPDATE ON studio_pending
-		BEGIN SELECT RAISE(ABORT, 'forced'); END`).Error; err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.ReapTurns(ctx, time.Now().Add(time.Hour)); err == nil {
-		t.Fatal("ReapTurns should fail when the restore fails")
-	}
-	info, err := s.Turn(ctx, "alice", "a")
-	if err != nil || !info.Running {
-		t.Fatalf("turn after failed reap = %+v, %v; want still running", info, err)
-	}
-}
+	// ReapTurns frees the chat and restores its messages in one transaction: when
+	// the restore fails the chat must stay claimed, or the lost messages could
+	// never be given back.
+	It("reaps turns atomically", func() {
+		ctx := context.Background()
+		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
+		s, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		now := time.Now().UTC()
+		Expect(s.CreateChat(ctx, session.ChatRecord{ID: "a", Principal: "alice", Created: now, Updated: now})).To(Succeed())
+		Expect(s.AddPending(ctx, "alice", "a", "m")).Error().NotTo(HaveOccurred())
+		Expect(s.ClaimTurn(ctx, "alice", "a", "r1")).To(Succeed())
+		Expect(s.TakePending(ctx, "alice", "a")).Error().NotTo(HaveOccurred())
+		Expect(db.Exec(`CREATE TRIGGER no_restore BEFORE UPDATE ON studio_pending
+		BEGIN SELECT RAISE(ABORT, 'forced'); END`).Error).NotTo(HaveOccurred())
+		Expect(s.ReapTurns(ctx, time.Now().Add(time.Hour))).Error().To(HaveOccurred(), "ReapTurns should fail when the restore fails")
+		info, err := s.Turn(ctx, "alice", "a")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Running).To(BeTrue(), "turn after failed reap = %+v; want still running", info)
+	})
+})

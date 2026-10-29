@@ -10,27 +10,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"testing/iotest"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
 
-func stores(t *testing.T) map[string]blob.Store {
-	t.Helper()
-	fs, err := blob.NewFS(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	objects, err := storage.NewFilesystemStore(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return map[string]blob.Store{"fs": fs, "objectstore": blob.NewObjectStore(objects, t.TempDir())}
+func newStores() map[string]blob.Store {
+	GinkgoHelper()
+	fs, err := blob.NewFS(GinkgoT().TempDir())
+	Expect(err).ToNot(HaveOccurred())
+	objects, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+	Expect(err).ToNot(HaveOccurred())
+	return map[string]blob.Store{"fs": fs, "objectstore": blob.NewObjectStore(objects, GinkgoT().TempDir())}
 }
 
 func sum(s string) string {
@@ -38,98 +34,85 @@ func sum(s string) string {
 	return hex.EncodeToString(h[:])
 }
 
-func TestStores(t *testing.T) {
+var _ = Describe("Blob stores", func() {
 	ctx := context.Background()
-	for name, s := range stores(t) {
-		t.Run(name, func(t *testing.T) {
-			t.Run("the same bytes are one blob named by their hash", func(t *testing.T) {
-				a, size, err := s.Put(ctx, strings.NewReader("hello"), 0)
-				if err != nil || a != sum("hello") || size != 5 {
-					t.Fatalf("Put = %q, %d, %v", a, size, err)
-				}
-				b, _, err := s.Put(ctx, strings.NewReader("hello"), 0)
-				if err != nil || b != a {
-					t.Fatalf("second Put = %q, %v, want the same hash", b, err)
-				}
-				if ok, err := s.Exists(ctx, a); err != nil || !ok {
-					t.Fatalf("Exists = %v, %v", ok, err)
-				}
+
+	for _, name := range []string{"fs", "objectstore"} {
+		Describe(name, func() {
+			var s blob.Store
+
+			BeforeEach(func() {
+				s = newStores()[name]
 			})
-			t.Run("a stored blob reads back and seeks", func(t *testing.T) {
+
+			It("the same bytes are one blob named by their hash", func() {
+				a, size, err := s.Put(ctx, strings.NewReader("hello"), 0)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(a).To(Equal(sum("hello")))
+				Expect(size).To(BeEquivalentTo(5))
+				b, _, err := s.Put(ctx, strings.NewReader("hello"), 0)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(b).To(Equal(a), "second Put: want the same hash")
+				ok, err := s.Exists(ctx, a)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ok).To(BeTrue())
+			})
+			It("a stored blob reads back and seeks", func() {
 				h, _, _ := s.Put(ctx, strings.NewReader("0123456789"), 0)
 				r, err := s.Open(ctx, h)
-				if err != nil {
-					t.Fatal(err)
-				}
+				Expect(err).ToNot(HaveOccurred())
 				defer r.Close()
-				if _, err := r.Seek(4, io.SeekStart); err != nil {
-					t.Fatal(err)
-				}
+				_, err = r.Seek(4, io.SeekStart)
+				Expect(err).ToNot(HaveOccurred())
 				got, _ := io.ReadAll(r)
-				if string(got) != "456789" {
-					t.Fatalf("after Seek(4) read %q", got)
-				}
+				Expect(string(got)).To(Equal("456789"), "after Seek(4)")
 			})
-			t.Run("a reader that fails mid-stream leaves no blob", func(t *testing.T) {
+			It("a reader that fails mid-stream leaves no blob", func() {
 				r := io.MultiReader(strings.NewReader("partial"), iotest.ErrReader(errors.New("cut off")))
-				if _, _, err := s.Put(ctx, r, 0); err == nil {
-					t.Fatal("Put accepted a cut-off upload")
-				}
-				if ok, _ := s.Exists(ctx, sum("partial")); ok {
-					t.Fatal("a cut-off upload left a blob")
-				}
+				_, _, err := s.Put(ctx, r, 0)
+				Expect(err).To(HaveOccurred(), "Put accepted a cut-off upload")
+				ok, _ := s.Exists(ctx, sum("partial"))
+				Expect(ok).To(BeFalse(), "a cut-off upload left a blob")
 			})
-			t.Run("a stream over the limit is refused and leaves nothing", func(t *testing.T) {
+			It("a stream over the limit is refused and leaves nothing", func() {
 				big := bytes.Repeat([]byte("x"), 100)
 				_, _, err := s.Put(ctx, bytes.NewReader(big), 10)
-				if !errors.Is(err, workspace.ErrTooLarge) {
-					t.Fatalf("Put over the limit = %v, want ErrTooLarge", err)
-				}
-				if ok, _ := s.Exists(ctx, sum(string(big))); ok {
-					t.Fatal("an over-limit upload left a blob")
-				}
+				Expect(err).To(MatchError(workspace.ErrTooLarge), "Put over the limit")
+				ok, _ := s.Exists(ctx, sum(string(big)))
+				Expect(ok).To(BeFalse(), "an over-limit upload left a blob")
 			})
-			t.Run("a blob can be linked to a file in a folder, read-only", func(t *testing.T) {
+			It("a blob can be linked to a file in a folder, read-only", func() {
 				h, _, _ := s.Put(ctx, strings.NewReader("linked bytes"), 0)
-				folder := t.TempDir()
+				folder := GinkgoT().TempDir()
 				dst := filepath.Join(folder, "out.txt")
-				root := openTestRoot(t, folder)
-				if err := s.LinkTo(ctx, h, root, "out.txt"); err != nil {
-					t.Fatal(err)
-				}
+				root := openTestRoot(folder)
+				Expect(s.LinkTo(ctx, h, root, "out.txt")).To(Succeed())
 				got, err := os.ReadFile(dst)
-				if err != nil || string(got) != "linked bytes" {
-					t.Fatalf("linked file = %q, %v", got, err)
-				}
-				if st, _ := os.Stat(dst); st.Mode().Perm()&0o222 != 0 {
-					t.Fatalf("the linked file is writable (%v): it would let a guest change the blob", st.Mode())
-				}
-				if err := s.LinkTo(ctx, h, root, "out.txt"); err == nil {
-					t.Fatal("LinkTo replaced a file that exists")
-				}
-				if err := s.LinkTo(ctx, sum("never stored"), root, "x"); !errors.Is(err, workspace.ErrNotFound) {
-					t.Fatalf("LinkTo of an unknown blob = %v, want ErrNotFound", err)
-				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(string(got)).To(Equal("linked bytes"))
+				st, _ := os.Stat(dst)
+				Expect(st.Mode().Perm()&0o222).To(BeZero(), "the linked file is writable (%v): it would let a guest change the blob", st.Mode())
+				Expect(s.LinkTo(ctx, h, root, "out.txt")).ToNot(Succeed(), "LinkTo replaced a file that exists")
+				Expect(s.LinkTo(ctx, sum("never stored"), root, "x")).To(MatchError(workspace.ErrNotFound), "LinkTo of an unknown blob")
 			})
-			t.Run("an unknown or malformed hash is not found", func(t *testing.T) {
+			It("an unknown or malformed hash is not found", func() {
 				for _, h := range []string{sum("never stored"), "../../etc/passwd", "", "zz"} {
-					if _, err := s.Open(ctx, h); !errors.Is(err, workspace.ErrNotFound) {
-						t.Errorf("Open(%q) = %v, want ErrNotFound", h, err)
-					}
-					if ok, err := s.Exists(ctx, h); err != nil || ok {
-						t.Errorf("Exists(%q) = %v, %v, want false", h, ok, err)
-					}
+					_, err := s.Open(ctx, h)
+					Expect(err).To(MatchError(workspace.ErrNotFound), "Open(%q)", h)
+					ok, err := s.Exists(ctx, h)
+					Expect(err).ToNot(HaveOccurred(), "Exists(%q)", h)
+					Expect(ok).To(BeFalse(), "Exists(%q)", h)
 				}
 			})
 		})
 	}
-}
+})
 
-// openTestRoot opens dir as a root for the length of the test.
-func openTestRoot(t *testing.T, dir string) *os.Root {
-	t.Helper()
+// openTestRoot opens dir as a root for the length of the spec.
+func openTestRoot(dir string) *os.Root {
+	GinkgoHelper()
 	r, err := os.OpenRoot(dir)
-	gomega.NewWithT(t).Expect(err).NotTo(gomega.HaveOccurred())
-	t.Cleanup(func() { _ = r.Close() })
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { _ = r.Close() })
 	return r
 }

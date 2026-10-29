@@ -2,8 +2,9 @@ package agents_test
 
 import (
 	"path/filepath"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -11,40 +12,29 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents/agentstest"
 )
 
-func openSQLite(t *testing.T, path string) *gorm.DB {
-	t.Helper()
+func openSQLite(path string) *gorm.DB {
 	db, err := auth.OpenSQLiteFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	sqlDB, err := db.DB()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = sqlDB.Close() })
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = sqlDB.Close() })
 	return db
 }
 
-func TestGORMOnSQLite(t *testing.T) {
-	agentstest.Run(t, func(t *testing.T) agents.Store {
-		s, err := agents.NewGORM(openSQLite(t, filepath.Join(t.TempDir(), "studio.db")))
-		if err != nil {
-			t.Fatal(err)
-		}
+var _ = Describe("the GORM agent store on SQLite", func() {
+	agentstest.Run(func() agents.Store {
+		s, err := agents.NewGORM(openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db")))
+		Expect(err).NotTo(HaveOccurred())
 		return s
 	})
-}
 
-func TestGORMSurvivesReopen(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "studio.db")
-	first, err := agents.NewGORM(openSQLite(t, path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	agentstest.Seed(t, first)
-	second, err := agents.NewGORM(openSQLite(t, path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	agentstest.CheckSeed(t, second)
-}
+	It("survives a reopen", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		first, err := agents.NewGORM(openSQLite(path))
+		Expect(err).NotTo(HaveOccurred())
+		agentstest.Seed(first)
+		second, err := agents.NewGORM(openSQLite(path))
+		Expect(err).NotTo(HaveOccurred())
+		agentstest.CheckSeed(second)
+	})
+})

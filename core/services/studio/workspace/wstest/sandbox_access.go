@@ -1,111 +1,84 @@
 package wstest
 
 import (
-	"errors"
 	"path/filepath"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-func testSandboxAccess(t *testing.T, newStore NewStore) {
-	setup := func(t *testing.T) workspace.Store {
-		t.Helper()
-		s := newStore(t)
-		MustPut(t, s, AdminActor, "/w/a.txt", "a")
-		MustPut(t, s, AdminActor, "/shared/proj/p.txt", "p")
-		MustPut(t, s, AdminActor, "/private/p.txt", "p")
-		return s
-	}
-	adminView := func(t *testing.T, s workspace.Store, p string, m workspace.Mode) workspace.View {
-		t.Helper()
-		v, err := s.View(Ctx(), AdminActor, []workspace.MountRequest{{Path: p, At: "w", Mode: m}})
-		if err != nil {
-			t.Fatal(err)
+func describeSandboxAccess(newStore NewStore) {
+	Describe("SandboxAccess", func() {
+		setup := func() workspace.Store {
+			GinkgoHelper()
+			s := newStore()
+			MustPut(s, AdminActor, "/w/a.txt", "a")
+			MustPut(s, AdminActor, "/shared/proj/p.txt", "p")
+			MustPut(s, AdminActor, "/private/p.txt", "p")
+			return s
 		}
-		return v
-	}
-	src := workspace.FixtureSource{workspace.FixtureDir("w"), workspace.FixtureFile("w/new.txt", "n")}
-	t.Run("CommitUpper without a grant is not found", func(t *testing.T) {
-		s := setup(t)
-		v := adminView(t, s, "/w", workspace.ModeWrite)
-		base := latestRev(t, s)
-		if _, _, err := s.CommitUpper(Ctx(), v, Alice, base, src, workspace.UpperOptions{Title: "x"}); !errors.Is(err, workspace.ErrNotFound) {
-			t.Fatalf("err = %v, want ErrNotFound", err)
+		adminView := func(s workspace.Store, p string, m workspace.Mode) workspace.View {
+			GinkgoHelper()
+			v, err := s.View(Ctx(), AdminActor, []workspace.MountRequest{{Path: p, At: "w", Mode: m}})
+			Expect(err).ToNot(HaveOccurred())
+			return v
 		}
-		if _, err := s.Stat(Ctx(), AdminActor, "/w/new.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Fatalf("a file was written: %v", err)
-		}
-	})
-	t.Run("CommitUpper with a read grant is read-only", func(t *testing.T) {
-		s := setup(t)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		v := adminView(t, s, "/w", workspace.ModeWrite)
-		if _, _, err := s.CommitUpper(Ctx(), v, Alice, latestRev(t, s), src, workspace.UpperOptions{Title: "x"}); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Fatalf("err = %v, want ErrReadOnly", err)
-		}
-	})
-	t.Run("CommitUpper refuses a view whose mode was raised by hand", func(t *testing.T) {
-		s := setup(t)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/w", At: "w", Mode: workspace.ModeWrite}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if v.Mounts[0].Mode != workspace.ModeRead {
-			t.Fatalf("mode = %v, want read", v.Mounts[0].Mode)
-		}
-		v.Mounts[0].Mode = workspace.ModeWrite
-		if _, _, err := s.CommitUpper(Ctx(), v, Alice, latestRev(t, s), src, workspace.UpperOptions{Title: "x"}); !errors.Is(err, workspace.ErrReadOnly) {
-			t.Fatalf("err = %v, want ErrReadOnly", err)
-		}
-		if _, err := s.Stat(Ctx(), AdminActor, "/w/new.txt"); !errors.Is(err, workspace.ErrNotFound) {
-			t.Fatalf("a file was written: %v", err)
-		}
-	})
-	t.Run("Materialize after the grant is revoked is not found", func(t *testing.T) {
-		s := setup(t)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/w", At: "w", Mode: workspace.ModeRead}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := s.Revoke(Ctx(), AdminActor, Alice.Principal, "/w"); err != nil {
-			t.Fatal(err)
-		}
-		dir := filepath.Join(t.TempDir(), "view")
-		if _, err := s.Materialize(Ctx(), v, dir); !errors.Is(err, workspace.ErrNotFound) {
-			t.Fatalf("err = %v, want ErrNotFound", err)
-		}
-	})
-	t.Run("Materialize of a mount moved out of the readable tree is not found", func(t *testing.T) {
-		s := setup(t)
-		if err := s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead); err != nil {
-			t.Fatal(err)
-		}
-		v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/shared/proj", At: "w", Mode: workspace.ModeRead}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.Move(Ctx(), AdminActor, "/shared/proj", "/private/proj"); err != nil {
-			t.Fatal(err)
-		}
-		dir := filepath.Join(t.TempDir(), "view")
-		if _, err := s.Materialize(Ctx(), v, dir); !errors.Is(err, workspace.ErrNotFound) {
-			t.Fatalf("err = %v, want ErrNotFound", err)
-		}
-	})
-	t.Run("View of a file in a hidden folder is not found", func(t *testing.T) {
-		s := setup(t)
-		_, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/private/p.txt", At: "w", Mode: workspace.ModeRead}})
-		if !errors.Is(err, workspace.ErrNotFound) {
-			t.Fatalf("err = %v, want ErrNotFound", err)
-		}
+		src := workspace.FixtureSource{workspace.FixtureDir("w"), workspace.FixtureFile("w/new.txt", "n")}
+		It("CommitUpper without a grant is not found", func() {
+			s := setup()
+			v := adminView(s, "/w", workspace.ModeWrite)
+			base := latestRev(s)
+			_, _, err := s.CommitUpper(Ctx(), v, Alice, base, src, workspace.UpperOptions{Title: "x"})
+			Expect(err).To(MatchError(workspace.ErrNotFound))
+			_, err = s.Stat(Ctx(), AdminActor, "/w/new.txt")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "a file was written")
+		})
+		It("CommitUpper with a read grant is read-only", func() {
+			s := setup()
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeRead)).To(Succeed())
+			v := adminView(s, "/w", workspace.ModeWrite)
+			_, _, err := s.CommitUpper(Ctx(), v, Alice, latestRev(s), src, workspace.UpperOptions{Title: "x"})
+			Expect(err).To(MatchError(workspace.ErrReadOnly))
+		})
+		It("CommitUpper refuses a view whose mode was raised by hand", func() {
+			s := setup()
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeRead)).To(Succeed())
+			v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/w", At: "w", Mode: workspace.ModeWrite}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(v.Mounts[0].Mode).To(Equal(workspace.ModeRead), "mode, want read")
+			v.Mounts[0].Mode = workspace.ModeWrite
+			_, _, err = s.CommitUpper(Ctx(), v, Alice, latestRev(s), src, workspace.UpperOptions{Title: "x"})
+			Expect(err).To(MatchError(workspace.ErrReadOnly))
+			_, err = s.Stat(Ctx(), AdminActor, "/w/new.txt")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "a file was written")
+		})
+		It("Materialize after the grant is revoked is not found", func() {
+			s := setup()
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/w", workspace.ModeRead)).To(Succeed())
+			v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/w", At: "w", Mode: workspace.ModeRead}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(s.Revoke(Ctx(), AdminActor, Alice.Principal, "/w")).To(Succeed())
+			dir := filepath.Join(GinkgoT().TempDir(), "view")
+			_, err = s.Materialize(Ctx(), v, dir)
+			Expect(err).To(MatchError(workspace.ErrNotFound))
+		})
+		It("Materialize of a mount moved out of the readable tree is not found", func() {
+			s := setup()
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			v, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/shared/proj", At: "w", Mode: workspace.ModeRead}})
+			Expect(err).ToNot(HaveOccurred())
+			_, err = s.Move(Ctx(), AdminActor, "/shared/proj", "/private/proj")
+			Expect(err).ToNot(HaveOccurred())
+			dir := filepath.Join(GinkgoT().TempDir(), "view")
+			_, err = s.Materialize(Ctx(), v, dir)
+			Expect(err).To(MatchError(workspace.ErrNotFound))
+		})
+		It("View of a file in a hidden folder is not found", func() {
+			s := setup()
+			_, err := s.View(Ctx(), Alice, []workspace.MountRequest{{Path: "/private/p.txt", At: "w", Mode: workspace.ModeRead}})
+			Expect(err).To(MatchError(workspace.ErrNotFound))
+		})
 	})
 }

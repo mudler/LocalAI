@@ -2,9 +2,10 @@ package nibharness
 
 import (
 	"context"
-	"testing"
 
 	"github.com/mudler/cogito"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -26,48 +27,37 @@ func (f *streamingFake) CreateChatCompletionStream(_ context.Context, req openai
 	return ch, nil
 }
 
-func TestTheStreamingFormRenamesBothWays(t *testing.T) {
-	fake := &streamingFake{}
-	llm := withAliases(fake, []string{"spawn_agent", "plain"})
-	sl, ok := llm.(cogito.StreamingLLM)
-	if !ok {
-		t.Fatal("a client that streams must still stream once wrapped")
-	}
-	req := openai.ChatCompletionRequest{Tools: []openai.Tool{
-		{Type: "function", Function: &openai.FunctionDefinition{Name: "studio_spawn_agent"}},
-		{Type: "function", Function: &openai.FunctionDefinition{Name: "plain"}},
-	}}
-	ch, err := sl.CreateChatCompletionStream(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var names []string
-	for ev := range ch {
-		if ev.ToolName != "" {
-			names = append(names, ev.ToolName)
+var _ = Describe("tool aliases", func() {
+	It("the streaming form renames both ways", func() {
+		fake := &streamingFake{}
+		llm := withAliases(fake, []string{"spawn_agent", "plain"})
+		sl, ok := llm.(cogito.StreamingLLM)
+		Expect(ok).To(BeTrue(), "a client that streams must still stream once wrapped")
+		req := openai.ChatCompletionRequest{Tools: []openai.Tool{
+			{Type: "function", Function: &openai.FunctionDefinition{Name: "studio_spawn_agent"}},
+			{Type: "function", Function: &openai.FunctionDefinition{Name: "plain"}},
+		}}
+		ch, err := sl.CreateChatCompletionStream(context.Background(), req)
+		Expect(err).ToNot(HaveOccurred())
+		var names []string
+		for ev := range ch {
+			if ev.ToolName != "" {
+				names = append(names, ev.ToolName)
+			}
 		}
-	}
-	if len(names) != 1 || names[0] != "studio_spawn_agent" {
-		t.Fatalf("the loop saw the call as %v, want the alias", names)
-	}
-	if got := fake.got[0].Tools[0].Function.Name; got != "spawn_agent" {
-		t.Fatalf("the model was offered %q, want the host name", got)
-	}
-	if req.Tools[0].Function.Name != "studio_spawn_agent" {
-		t.Fatal("the caller's request was changed")
-	}
-}
+		Expect(names).To(Equal([]string{"studio_spawn_agent"}), "the loop must see the call as the alias")
+		Expect(fake.got[0].Tools[0].Function.Name).To(Equal("spawn_agent"), "the model must be offered the host name")
+		Expect(req.Tools[0].Function.Name).To(Equal("studio_spawn_agent"), "the caller's request was changed")
+	})
 
-func TestAClientThatDoesNotStreamDoesNotStartToLookLikeOne(t *testing.T) {
-	llm := withAliases(&plainFake{}, []string{"spawn_agent"})
-	if _, ok := llm.(cogito.StreamingLLM); ok {
-		t.Fatal("the wrapper claims to stream")
-	}
-}
+	It("a client that does not stream does not start to look like one", func() {
+		llm := withAliases(&plainFake{}, []string{"spawn_agent"})
+		_, ok := llm.(cogito.StreamingLLM)
+		Expect(ok).To(BeFalse(), "the wrapper claims to stream")
+	})
 
-func TestNothingIsWrappedWithoutAnAlias(t *testing.T) {
-	inner := &plainFake{}
-	if got := withAliases(inner, []string{"plain", "other"}); got != cogito.LLM(inner) {
-		t.Fatal("a model with no colliding tool must be used as it is")
-	}
-}
+	It("nothing is wrapped without an alias", func() {
+		inner := &plainFake{}
+		Expect(withAliases(inner, []string{"plain", "other"})).To(BeIdenticalTo(cogito.LLM(inner)), "a model with no colliding tool must be used as it is")
+	})
+})

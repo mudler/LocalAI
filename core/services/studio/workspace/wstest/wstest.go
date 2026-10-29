@@ -6,7 +6,9 @@ import (
 	"context"
 	"io"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -24,72 +26,65 @@ var (
 )
 
 // NewStore returns a new, empty store whose admin is Admin. It closes the
-// store with t.Cleanup.
-type NewStore func(t *testing.T) workspace.Store
+// store with DeferCleanup, so it must be called from inside a spec.
+type NewStore func() workspace.Store
 
-// RunStoreSuite runs the conformance suite against stores from newStore.
-func RunStoreSuite(t *testing.T, newStore NewStore) {
-	t.Helper()
-	t.Run("Files", func(t *testing.T) { testFiles(t, newStore) })
-	t.Run("Tx", func(t *testing.T) { testTx(t, newStore) })
-	t.Run("Access", func(t *testing.T) { testAccess(t, newStore) })
-	t.Run("ReadablePrefixes", func(t *testing.T) { testReadablePrefixes(t, newStore) })
-	t.Run("Moves", func(t *testing.T) { testMoves(t, newStore) })
-	t.Run("History", func(t *testing.T) { testHistory(t, newStore) })
-	t.Run("Property", func(t *testing.T) { testProperty(t, newStore) })
-	t.Run("Concurrency", func(t *testing.T) { testConcurrency(t, newStore) })
-	t.Run("Materialize", func(t *testing.T) { testMaterialize(t, newStore) })
-	t.Run("Upper", func(t *testing.T) { testUpper(t, newStore) })
-	t.Run("UpperOwn", func(t *testing.T) { testUpperOwn(t, newStore) })
-	t.Run("SandboxAccess", func(t *testing.T) { testSandboxAccess(t, newStore) })
+// RunStoreSuite registers the conformance suite against stores from newStore.
+// Call it at the top level of a Describe in the test package of the store; the
+// package needs one Ginkgo suite bootstrap.
+func RunStoreSuite(newStore NewStore) {
+	describeFiles(newStore)
+	describeTx(newStore)
+	describeAccess(newStore)
+	describeReadablePrefixes(newStore)
+	describeMoves(newStore)
+	describeHistory(newStore)
+	describeProperty(newStore)
+	describeConcurrency(newStore)
+	describeMaterialize(newStore)
+	describeUpper(newStore)
+	describeUpperOwn(newStore)
+	describeSandboxAccess(newStore)
 }
 
 // Ctx returns the context the suite uses.
 func Ctx() context.Context { return context.Background() }
 
 // MustPut stores content at p, overwriting any file there.
-func MustPut(t *testing.T, s workspace.Store, a workspace.Actor, p, content string) workspace.Node {
-	t.Helper()
+func MustPut(s workspace.Store, a workspace.Actor, p, content string) workspace.Node {
+	GinkgoHelper()
 	n, err := s.Put(Ctx(), a, p, strings.NewReader(content), workspace.PutOptions{Overwrite: true})
-	if err != nil {
-		t.Fatalf("put %s: %v", p, err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "put %s", p)
 	return n
 }
 
 // MustRead returns the content of the file at p.
-func MustRead(t *testing.T, s workspace.Store, a workspace.Actor, p string) string {
-	t.Helper()
+func MustRead(s workspace.Store, a workspace.Actor, p string) string {
+	GinkgoHelper()
 	r, _, err := s.Open(Ctx(), a, p)
-	if err != nil {
-		t.Fatalf("open %s: %v", p, err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "open %s", p)
 	defer r.Close()
 	b, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatalf("read %s: %v", p, err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "read %s", p)
 	return string(b)
 }
 
 // Tree returns every live node as seen by the admin: a folder maps to "/",
 // a file to its content.
-func Tree(t *testing.T, s workspace.Store) map[string]string {
-	t.Helper()
+func Tree(s workspace.Store) map[string]string {
+	GinkgoHelper()
 	out := map[string]string{}
 	var walk func(p string)
 	walk = func(p string) {
 		kids, err := s.List(Ctx(), AdminActor, p)
-		if err != nil {
-			t.Fatalf("list %s: %v", p, err)
-		}
+		Expect(err).ToNot(HaveOccurred(), "list %s", p)
 		for _, k := range kids {
 			if k.Kind == workspace.KindDir {
 				out[k.Path] = "/"
 				walk(k.Path)
 				continue
 			}
-			out[k.Path] = MustRead(t, s, AdminActor, k.Path)
+			out[k.Path] = MustRead(s, AdminActor, k.Path)
 		}
 	}
 	walk("/")

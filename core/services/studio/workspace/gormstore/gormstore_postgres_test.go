@@ -3,8 +3,9 @@ package gormstore_test
 import (
 	"os"
 	"path/filepath"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -16,29 +17,26 @@ import (
 
 // The PostgreSQL run needs a database that tests may wipe. Set
 // LOCALAI_TEST_POSTGRES_URL to enable it.
-func TestPostgresStoreMeetsTheContract(t *testing.T) {
+var _ = Describe("The PostgreSQL store", func() {
 	url := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
 	if url == "" {
-		t.Skip("LOCALAI_TEST_POSTGRES_URL is not set")
+		It("meets the contract", func() {
+			Skip("LOCALAI_TEST_POSTGRES_URL is not set")
+		})
+		return
 	}
-	wstest.RunStoreSuite(t, func(t *testing.T) workspace.Store {
-		db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		raw, _ := db.DB()
-		t.Cleanup(func() { _ = raw.Close() })
-		if err := db.Exec(`DROP TABLE IF EXISTS studio_ws_grants, studio_ws_journal, studio_ws_changesets, studio_ws_nodes, studio_ws_meta CASCADE`).Error; err != nil {
-			t.Fatal(err)
-		}
-		blobs, err := blob.NewFS(filepath.Join(t.TempDir(), "blobs"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
+	Describe("meets the contract", func() {
+		wstest.RunStoreSuite(func() workspace.Store {
+			db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
+			Expect(err).ToNot(HaveOccurred())
+			raw, _ := db.DB()
+			DeferCleanup(func() { _ = raw.Close() })
+			Expect(db.Exec(`DROP TABLE IF EXISTS studio_ws_grants, studio_ws_journal, studio_ws_changesets, studio_ws_nodes, studio_ws_meta CASCADE`).Error).To(Succeed())
+			blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
+			Expect(err).ToNot(HaveOccurred())
+			s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
+			Expect(err).ToNot(HaveOccurred())
+			return s
+		})
 	})
-}
+})
