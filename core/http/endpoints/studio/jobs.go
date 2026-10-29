@@ -29,12 +29,7 @@ func jobFail(c echo.Context, status int, msg string) error {
 }
 
 func (h *Handlers) jobHost(c echo.Context) (*studiosvc.Jobs, bool) {
-	host := h.svc.Jobs()
-	if host == nil {
-		_ = jobFail(c, http.StatusConflict, studiosvc.ErrJobsOff.Error())
-		return nil, false
-	}
-	return host, true
+	return feature(c, h.svc.Jobs(), func(c echo.Context) error { return jobFail(c, http.StatusConflict, studiosvc.ErrJobsOff.Error()) })
 }
 
 // failJob maps the errors of the job host.

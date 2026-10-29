@@ -73,6 +73,18 @@ func userID(c echo.Context) string {
 	return ""
 }
 
+// feature is the guard of the endpoints of a feature that can be off: it
+// returns host when the feature is on. When host is nil the feature is off: it
+// writes the answer of off and returns false, and the handler returns nil, as
+// after a failed bind.
+func feature[T any](c echo.Context, host *T, off func(echo.Context) error) (*T, bool) {
+	if host == nil {
+		_ = off(c)
+		return nil, false
+	}
+	return host, true
+}
+
 func fail(c echo.Context, status int, typ, msg string) error {
 	return c.JSON(status, schema.ErrorResponse{Error: &schema.APIError{Message: msg, Code: status, Type: typ}})
 }

@@ -13,12 +13,7 @@ import (
 )
 
 func (h *Handlers) triggerHost(c echo.Context) (*studiosvc.Triggers, bool) {
-	host := h.svc.Triggers()
-	if host == nil {
-		_ = failTrigger(c, studiosvc.ErrTriggersOff)
-		return nil, false
-	}
-	return host, true
+	return feature(c, h.svc.Triggers(), func(c echo.Context) error { return failTrigger(c, studiosvc.ErrTriggersOff) })
 }
 
 func utcPtr(t time.Time) *time.Time {
