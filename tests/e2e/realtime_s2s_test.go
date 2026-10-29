@@ -527,16 +527,56 @@ func asrOfOutput(pcm []byte) string {
 	return out.Text
 }
 
-// sharesContentWord reports whether a and b have a word of 4+ letters in common.
-func sharesContentWord(a, b string) bool {
-	words := map[string]bool{}
-	for _, w := range strings.FieldsFunc(strings.ToLower(a), func(r rune) bool { return r < 'a' || r > 'z' }) {
-		if len(w) >= 4 {
-			words[w] = true
+// numberWords are the digits and number words a recogniser writes for a spoken
+// number, with the canonical word they stand for.
+var numberWords = map[string]string{
+	"0": "zero", "1": "one", "2": "two", "3": "three", "4": "four", "5": "five",
+	"6": "six", "7": "seven", "8": "eight", "9": "nine", "10": "ten",
+	"zero": "zero", "one": "one", "two": "two", "three": "three", "four": "four", "five": "five",
+	"six": "six", "seven": "seven", "eight": "eight", "nine": "nine", "ten": "ten",
+}
+
+// numberHomophones are the words an ASR may write for a spoken number. They are
+// ordinary words in most sentences, so they only count as a number when the
+// other text has the number itself.
+var numberHomophones = map[string]string{
+	"won": "one", "to": "two", "too": "two", "for": "four", "ate": "eight",
+}
+
+// spokenContent returns the content of a text: strong words (4+ letters, or a
+// number in canonical form) and weak words (the number a homophone may stand for).
+func spokenContent(text string) (strong, weak map[string]bool) {
+	strong, weak = map[string]bool{}, map[string]bool{}
+	for _, w := range strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < '0' || r > '9')
+	}) {
+		switch n, isNumber := numberWords[w]; {
+		case isNumber:
+			strong[n] = true
+		case numberHomophones[w] != "":
+			weak[numberHomophones[w]] = true
+		case len(w) >= 4:
+			strong[w] = true
 		}
 	}
-	for _, w := range strings.FieldsFunc(strings.ToLower(b), func(r rune) bool { return r < 'a' || r > 'z' }) {
-		if words[w] {
+	return strong, weak
+}
+
+// sharesContentWord reports whether a and b have a word of content in common.
+// The model writes "Four" and the ASR hears "for" or "4", so numbers are
+// compared in their canonical spoken form and a homophone matches the number
+// it sounds like. Two homophones alone ("for" and "for") share nothing, so the
+// check does not pass on a stop word.
+func sharesContentWord(a, b string) bool {
+	sa, wa := spokenContent(a)
+	sb, wb := spokenContent(b)
+	for w := range sa {
+		if sb[w] || wb[w] {
+			return true
+		}
+	}
+	for w := range wa {
+		if sb[w] {
 			return true
 		}
 	}
@@ -575,6 +615,22 @@ func transcriptOf(events []map[string]any) string {
 	}
 	return b.String()
 }
+
+var _ = Describe("sharesContentWord", Label("Realtime"), func() {
+	DescribeTable("compares the transcript with the ASR of the audio",
+		func(transcript, asr string, want bool) {
+			Expect(sharesContentWord(transcript, asr)).To(Equal(want))
+		},
+		Entry("same content word", "The capital of France is Paris.", "the capital is paris", true),
+		Entry("number word against its homophone", "Four", "for", true),
+		Entry("number word against a digit", "Two plus two is four.", "2 plus 2 is 4", true),
+		Entry("homophone of two", "Two", "too", true),
+		Entry("different number", "Four", "five", false),
+		Entry("homophone against a different number", "Five", "for", false),
+		Entry("a stop word is no content", "for the", "for a", false),
+		Entry("unrelated sentences", "The weather is sunny.", "I do not know.", false),
+	)
+})
 
 var _ = func() bool {
 	if isRealS2S() {
