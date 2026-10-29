@@ -24,6 +24,8 @@ import (
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+
+	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 )
 
 // Setting is a choice of backend.
@@ -124,23 +126,7 @@ func (s *Selector) save() error {
 		return err
 	}
 	raw, _ := json.Marshal(s.set)
-	tmp, err := os.CreateTemp(s.o.DataDir, ".settings-*")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if _, err := tmp.Write(raw); err != nil {
-		_ = tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), s.path)
+	return atomicfile.Write(s.path, raw, 0o600)
 }
 
 func (s *Selector) ctor(b Setting) func() (sandbox.Backend, error) {
