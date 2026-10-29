@@ -58,10 +58,12 @@ import (
 // response.
 //
 // The user's own words are transcribed on the side: the committed audio goes to
-// pipeline.transcription (default: the same model, on a second slot) in
-// parallel with the response and is reported as
-// conversation.item.input_audio_transcription.* on the user item. A failure
-// there emits ...failed and never affects the response.
+// pipeline.transcription and is reported as
+// conversation.item.input_audio_transcription.* on the user item. A transcription
+// model other than the stream's runs in parallel with the response. The default,
+// the same model on a second slot, runs between responses: both share one
+// llama.cpp context, and together they make it rebuild its compute buffers on
+// every step. A failure there emits ...failed and never affects the response.
 
 const (
 	// s2sDefaultInstructions is what the model card prescribes for interleaved
@@ -958,7 +960,16 @@ func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Sess
 	// It runs detached under the session context, so the commit slot is
 	// released at once. Waiting for it would put the ASR latency in front of
 	// every reply, and on a backend with few slots a busy ASR could block it.
-	if session.InputAudioTranscription != nil && !session.TranscriptionOnly {
+	//
+	// On the model that holds the stream the transcript must not run while a
+	// response does: llama.cpp keeps one context for both, and a normal slot and
+	// the realtime slot ask for different output modes of it, so each loop
+	// iteration re-reserves the compute buffers (about 175 ms twice per step on
+	// a GB10) and the reply slows to a few tokens per second. Such a transcript
+	// waits for the response, see s2sTranscribeInput.
+	transcribe := session.InputAudioTranscription != nil && !session.TranscriptionOnly
+	sharesModel := s2sTranscribesOnStreamModel(session)
+	if transcribe && !sharesModel {
 		go s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
 	}
 	// A turn whose response context is already cancelled (a newer turn, or a
@@ -966,6 +977,32 @@ func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Sess
 	if slot.source == respcoord.SourceVAD && ctx.Err() == nil {
 		triggerResponse(ctx, session, conv, t, nil)
 	}
+	if transcribe && sharesModel {
+		go s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
+	}
+}
+
+// s2sTranscribesOnStreamModel tells if the input transcription of the session
+// runs on the same model as the speech-to-speech stream, so on the same
+// llama.cpp context.
+func s2sTranscribesOnStreamModel(session *Session) bool {
+	cfg := session.ModelConfig
+	return session.s2s != nil && cfg != nil && cfg.Pipeline.Transcription != "" && cfg.Pipeline.Transcription == cfg.Name
+}
+
+// exclusive runs fn while no response runs on the stream and none starts, and
+// reports false when ctx ended first.
+func (s *s2sSession) exclusive(ctx context.Context, fn func()) bool {
+	select {
+	case s.sem <- struct{}{}:
+	case <-ctx.Done():
+		return false
+	case <-s.dead:
+		return false
+	}
+	defer func() { <-s.sem }()
+	fn()
+	return true
 }
 
 // s2sTranscribeInput transcribes the committed audio of a user turn on the
@@ -973,6 +1010,15 @@ func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Sess
 // barge-in does not lose it. A failure is reported on the item and never
 // reaches the response.
 func s2sTranscribeInput(ctx context.Context, session *Session, conv *Conversation, t Transport, itemID string, utt []byte, rate int) {
+	if s2sTranscribesOnStreamModel(session) {
+		// One response at a time on the stream, and none while this runs.
+		session.s2s.exclusive(ctx, func() { s2sTranscribeInputNow(ctx, session, conv, t, itemID, utt, rate) })
+		return
+	}
+	s2sTranscribeInputNow(ctx, session, conv, t, itemID, utt, rate)
+}
+
+func s2sTranscribeInputNow(ctx context.Context, session *Session, conv *Conversation, t Transport, itemID string, utt []byte, rate int) {
 	path, err := writeWindowWAV(utt, rate)
 	if err == nil {
 		defer func() { _ = os.Remove(path) }()

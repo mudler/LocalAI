@@ -554,7 +554,7 @@ How a call is read depends on the model:
 ### Transcripts
 
 - **Reply transcript.** `response.output_audio_transcript.delta` and `response.output_audio_transcript.done` carry the text of the spoken reply. In a text-only response, `response.output_text.delta` is used instead.
-- **User transcript.** When input transcription is on, `conversation.item.input_audio_transcription.delta` and `.completed` are sent for the user item. The transcript comes from `pipeline.transcription` if it is set, or else from the same model through its speech recognition path, which uses a second slot. If transcription fails, `conversation.item.input_audio_transcription.failed` is sent and the reply continues.
+- **User transcript.** When input transcription is on, `conversation.item.input_audio_transcription.delta` and `.completed` are sent for the user item. The transcript comes from `pipeline.transcription` if it is set, or else from the same model through its speech recognition path, which uses a second slot. On the same model the transcript is made between responses, not during one, because both share one llama.cpp context. If transcription fails, `conversation.item.input_audio_transcription.failed` is sent and the reply continues.
 
 ### Barge-in
 

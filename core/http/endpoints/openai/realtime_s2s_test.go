@@ -1076,6 +1076,55 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(r.outcome).To(Equal(outcomeFailed))
 	})
 
+	Describe("the input transcription on the model of the stream", func() {
+		sessionOn := func(name, transcription string) *Session {
+			st := newS2SSession(newFakeS2SStream(), nil, nil)
+			DeferCleanup(st.close)
+			return &Session{s2s: st, ModelConfig: &config.ModelConfig{Name: name, Pipeline: config.Pipeline{Transcription: transcription}}}
+		}
+
+		It("is told apart from a transcription model of its own", func() {
+			Expect(s2sTranscribesOnStreamModel(sessionOn("s2s", "s2s"))).To(BeTrue())
+			Expect(s2sTranscribesOnStreamModel(sessionOn("s2s", "asr"))).To(BeFalse())
+			Expect(s2sTranscribesOnStreamModel(&Session{ModelConfig: &config.ModelConfig{Name: "s2s"}})).To(BeFalse())
+		})
+
+		It("runs only while no response holds the stream, and keeps responses out meanwhile", func() {
+			st := sessionOn("s2s", "s2s").s2s
+			st.sem <- struct{}{} // a response is running
+
+			ran := make(chan struct{})
+			release := make(chan struct{})
+			done := make(chan bool, 1)
+			go func() {
+				done <- st.exclusive(context.Background(), func() {
+					close(ran)
+					<-release
+				})
+			}()
+			Consistently(ran, 100*time.Millisecond).ShouldNot(BeClosed())
+
+			<-st.sem // the response ends
+			Eventually(ran).Should(BeClosed())
+			select {
+			case st.sem <- struct{}{}:
+				Fail("a response took the stream while the transcription ran")
+			case <-time.After(50 * time.Millisecond):
+			}
+			close(release)
+			Eventually(done).Should(Receive(BeTrue()))
+			Expect(st.sem).To(BeEmpty())
+		})
+
+		It("gives up when its context ends before the stream is free", func() {
+			st := sessionOn("s2s", "s2s").s2s
+			st.sem <- struct{}{}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			Expect(st.exclusive(ctx, func() { Fail("ran") })).To(BeFalse())
+		})
+	})
+
 	Describe("the output mode on the wire", func() {
 		openSession := func(tools []types.ToolUnion, mods []types.Modality) (*Session, *fakeS2SStream) {
 			stream := newFakeS2SStream()
