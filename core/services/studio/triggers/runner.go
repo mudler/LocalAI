@@ -17,11 +17,50 @@ import (
 const (
 	DefaultTick       = 5 * time.Second
 	DefaultMaxRunning = 2
+	// DefaultKeepRuns is the number of finished runs kept for each trigger.
+	DefaultKeepRuns = 200
+	// DefaultRunMaxAge is the age after which a finished run is removed.
+	DefaultRunMaxAge = 30 * 24 * time.Hour
+	// protectedWindow is how far back finished runs always stay. The daily
+	// limit counts the runs of the current day of the trigger's zone, which
+	// began less than 24 hours ago; the rest is margin for a late clock.
+	protectedWindow = 48 * time.Hour
 	// maxCatchUp bounds the due times that one pass counts for one trigger.
 	maxCatchUp = 100000
 	// feedPage is the number of change sets read from the feed at once.
 	feedPage = 200
 )
+
+// RunRetention says how many finished runs a Runner keeps for each trigger. It
+// removes the others when a run reaches its final state.
+type RunRetention struct {
+	// Keep is the number of newest finished runs kept for a trigger, beyond
+	// the runs of the last two days. Zero means DefaultKeepRuns, a negative
+	// value sets no limit.
+	Keep int
+	// MaxAge is the age, by due time, after which a finished run is removed
+	// whatever Keep says. Zero means DefaultRunMaxAge, a negative value sets no
+	// limit.
+	MaxAge time.Duration
+}
+
+// retention turns the options into what Store.PruneRuns takes at time now.
+func (o RunRetention) retention(now time.Time) Retention {
+	p := Retention{Keep: o.Keep, Protect: now.Add(-protectedWindow)}
+	switch {
+	case o.Keep == 0:
+		p.Keep = DefaultKeepRuns
+	case o.Keep < 0:
+		p.Keep = 0
+	}
+	switch {
+	case o.MaxAge == 0:
+		p.Expire = now.Add(-DefaultRunMaxAge)
+	case o.MaxAge > 0:
+		p.Expire = now.Add(-o.MaxAge)
+	}
+	return p
+}
 
 // Options configures a Runner.
 type Options struct {
@@ -58,7 +97,10 @@ type Options struct {
 	Tick time.Duration
 	// MaxRunning is the number of runs at once; zero means DefaultMaxRunning.
 	MaxRunning int
-	Logf       func(format string, args ...any)
+	// Retention bounds the finished runs kept for each trigger. The zero value
+	// keeps DefaultKeepRuns runs and DefaultRunMaxAge.
+	Retention RunRetention
+	Logf      func(format string, args ...any)
 }
 
 // Runner starts the runs of the triggers in a Store.
@@ -216,6 +258,7 @@ func (r *Runner) recover(ctx context.Context, now time.Time) error {
 		if err := r.o.Store.SetRunStatus(ctx, run); err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
+		r.prune(ctx, run.TriggerID, now)
 		if r.o.Interrupted != nil {
 			r.o.Interrupted(run)
 		}
@@ -277,7 +320,7 @@ func (r *Runner) scheduleOne(ctx context.Context, t Trigger, now time.Time) erro
 	if err := r.admit(ctx, t, &run, now, true, false); err != nil {
 		return err
 	}
-	if _, err := r.o.Store.Claim(ctx, run); err != nil {
+	if err := r.claim(ctx, run); err != nil {
 		return err
 	}
 	// Claim first: a crash between the two calls finds the same due time
@@ -414,10 +457,38 @@ const ReasonSwitchedOff = "trigger switched off"
 func (r *Runner) end(ctx context.Context, run Run, st Status, reason string, now time.Time) error {
 	run.Status, run.Reason, run.Ended = st, CutReason(reason), now.UTC()
 	r.endChat(ctx, run.ID)
-	if err := r.o.Store.SetRunStatus(ctx, run); err != nil && !errors.Is(err, ErrNotFound) {
+	if err := r.o.Store.SetRunStatus(ctx, run); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
 		return err
 	}
+	r.prune(ctx, run.TriggerID, now)
 	return nil
+}
+
+// prune removes the runs of the trigger that the retention no longer keeps. A
+// failure is logged and ignored: the next run that ends tries again, and a
+// store with a few more rows than the limit is not an error for the caller.
+func (r *Runner) prune(ctx context.Context, triggerID string, now time.Time) {
+	n, err := r.o.Store.PruneRuns(ctx, triggerID, r.o.Retention.retention(now))
+	if err != nil {
+		r.logf("triggers: pruning the runs of trigger %s: %v", triggerID, err)
+		return
+	}
+	if n > 0 {
+		r.logf("triggers: pruned %d old runs of trigger %s", n, triggerID)
+	}
+}
+
+// claim stores a new run. A run that is final at once, for example one that
+// is skipped, is a new finished run, so it prunes like end does.
+func (r *Runner) claim(ctx context.Context, run Run) error {
+	claimed, err := r.o.Store.Claim(ctx, run)
+	if err == nil && claimed && run.Status.Final() {
+		r.prune(ctx, run.TriggerID, r.o.Clock())
+	}
+	return err
 }
 
 // startContext is the context that Start gets: the one of Run while it goes,
@@ -506,7 +577,9 @@ func (r *Runner) Finish(ctx context.Context, runID string, status Status, reason
 		if reason != "" {
 			run.Reason = CutReason(reason)
 		}
-		err = r.o.Store.SetRunStatus(ctx, run)
+		if err = r.o.Store.SetRunStatus(ctx, run); err == nil {
+			r.prune(ctx, run.TriggerID, run.Ended)
+		}
 	}
 	r.mu.Unlock()
 	if errors.Is(err, ErrNotFound) {
@@ -538,7 +611,7 @@ func (r *Runner) RunNow(ctx context.Context, triggerID string) (Run, error) {
 	if err := r.admit(ctx, t, &run, now, true, true); err != nil {
 		return Run{}, err
 	}
-	if _, err := r.o.Store.Claim(ctx, run); err != nil {
+	if err := r.claim(ctx, run); err != nil {
 		return Run{}, err
 	}
 	if err := r.startQueued(ctx, now); err != nil {

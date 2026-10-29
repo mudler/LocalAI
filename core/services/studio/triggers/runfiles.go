@@ -274,7 +274,7 @@ func (r *Runner) settle(ctx context.Context, files map[string]Trigger, now time.
 		if err := r.admit(ctx, t, &run, now, false, false); err != nil {
 			return err
 		}
-		if _, err := r.o.Store.Claim(ctx, run); err != nil {
+		if err := r.claim(ctx, run); err != nil {
 			return err
 		}
 		delete(f.pend, k)
