@@ -38,8 +38,10 @@ agent RPC. Nothing is buffered, and the reply says whether the turn started.
 `studio.ChatWorkers.StartChat` hands the start of an unattended run (trigger,
 job, connector message) to one chat worker on `chats.start`, queue group
 `chat-workers`. The payloads are `workerctl.ChatStartRequest` and
-`ChatStartReply`. Only the deadline of ctx bounds the wait
-(`nodes.DefaultChatStartTimeout` without one), as for the agent RPC.
+`ChatStartReply`. Only the deadline of ctx bounds the wait, as for the agent
+RPC. Without one the start's budget does: `LOCALAI_CHAT_START_TIMEOUT`
+(`nodes.WithChatStartTimeout`, default `nodes.DefaultChatStartTimeout`). The
+worker gives the handler the same budget.
 
 - `ErrNoRoute` (wrapped): no worker listens. `Service.SendBackground` runs the
   turn on the frontend.

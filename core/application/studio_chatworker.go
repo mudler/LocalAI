@@ -33,7 +33,7 @@ func (a *Application) StartChatWorker() error {
 	if a.studioService == nil {
 		return errors.New("chat worker: the chats did not start (see the earlier log, or LOCALAI_DISABLE_CHATS)")
 	}
-	sub, err := nodes.NewNATSChatStartServer(d.Nats).Serve(a.studioService.ServeStart)
+	sub, err := nodes.NewNATSChatStartServer(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout)).Serve(a.studioService.ServeStart)
 	if err != nil {
 		return fmt.Errorf("chat worker: %w", err)
 	}
