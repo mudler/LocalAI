@@ -2,22 +2,21 @@ package triggerstest
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
 
-// NewStore returns an empty Store for one test. The test closes nothing: the
-// function registers its own cleanup with t.Cleanup.
-type NewStore func(t *testing.T) triggers.Store
+// NewStore returns an empty Store for one spec. The spec closes nothing: the
+// function registers its own cleanup with DeferCleanup.
+type NewStore func() triggers.Store
 
 var base = time.Date(2026, 10, 22, 8, 0, 0, 0, time.UTC)
 
@@ -53,248 +52,207 @@ func sameRun(a, b triggers.Run) bool {
 		a.Started.Equal(b.Started) && a.Ended.Equal(b.Ended)
 }
 
-// RunStoreSuite checks a triggers.Store: triggers, claims, run states,
-// listings in their order, counts, the cursor, the last due times, and claims
-// from concurrent goroutines.
-func RunStoreSuite(t *testing.T, newStore NewStore) {
+// RunStoreSuite registers the specs that check a triggers.Store: triggers,
+// claims, run states, listings in their order, counts, the cursor, the last due
+// times, and claims from concurrent goroutines. Call it inside a Describe.
+func RunStoreSuite(newStore NewStore) {
 	ctx := context.Background()
-	t.Run("a trigger is stored with every field", func(t *testing.T) {
-		s := newStore(t)
+	It("stores a trigger with every field", func() {
+		s := newStore()
 		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1")} {
-			if err := s.PutTrigger(ctx, tr); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.PutTrigger(ctx, tr)).To(Succeed())
 			got, err := s.GetTrigger(ctx, tr.ID)
-			if err != nil || !same(got, tr) {
-				t.Fatalf("GetTrigger(%s) = %+v, %v; want %+v", tr.ID, got, err, tr)
-			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(same(got, tr)).To(BeTrue(), "GetTrigger(%s) = %+v; want %+v", tr.ID, got, tr)
 		}
 	})
-	t.Run("an unknown trigger is not found", func(t *testing.T) {
-		s := newStore(t)
-		if _, err := s.GetTrigger(ctx, "nope"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("GetTrigger: %v, want ErrNotFound", err)
-		}
-		if _, err := s.GetRun(ctx, "nope"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("GetRun: %v, want ErrNotFound", err)
-		}
-		if _, err := s.RunByChat(ctx, "nope"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("RunByChat: %v, want ErrNotFound", err)
-		}
-		if err := s.SetRunStatus(ctx, run("nope", "t1", "k", triggers.StatusDone)); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("SetRunStatus: %v, want ErrNotFound", err)
-		}
-		if err := s.DeleteTrigger(ctx, "nope"); err != nil {
-			t.Fatalf("DeleteTrigger of an unknown trigger: %v", err)
-		}
+	It("does not find an unknown trigger", func() {
+		s := newStore()
+		_, err := s.GetTrigger(ctx, "nope")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "GetTrigger")
+		_, err = s.GetRun(ctx, "nope")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "GetRun")
+		_, err = s.RunByChat(ctx, "nope")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByChat")
+		err = s.SetRunStatus(ctx, run("nope", "t1", "k", triggers.StatusDone))
+		Expect(err).To(MatchError(triggers.ErrNotFound), "SetRunStatus")
+		Expect(s.DeleteTrigger(ctx, "nope")).To(Succeed(), "DeleteTrigger of an unknown trigger")
 	})
-	t.Run("putting a trigger again replaces it", func(t *testing.T) {
-		s := newStore(t)
+	It("replaces a trigger that is put again", func() {
+		s := newStore()
 		tr := sample("t1", "1", "Morning")
 		_ = s.PutTrigger(ctx, tr)
 		tr.Name, tr.Enabled, tr.Schedule = "Evening", false, "weekdays 18:00"
-		if err := s.PutTrigger(ctx, tr); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.PutTrigger(ctx, tr)).To(Succeed())
 		got, _ := s.GetTrigger(ctx, "t1")
-		if !same(got, tr) {
-			t.Fatalf("got %+v, want %+v", got, tr)
-		}
-		if l, _ := s.ListTriggers(ctx, "1"); len(l) != 1 {
-			t.Fatalf("%d triggers after a replace", len(l))
-		}
+		Expect(same(got, tr)).To(BeTrue(), "got %+v, want %+v", got, tr)
+		l, _ := s.ListTriggers(ctx, "1")
+		Expect(l).To(HaveLen(1), "triggers after a replace")
 	})
-	t.Run("triggers are listed by owner, sorted by name and ID", func(t *testing.T) {
-		s := newStore(t)
+	It("lists triggers by owner, sorted by name and ID", func() {
+		s := newStore()
 		for _, tr := range []triggers.Trigger{
 			sample("c", "1", "Beta"), sample("a", "1", "Beta"), sample("b", "1", "Alpha"), sample("d", "2", "Alpha"),
 		} {
 			_ = s.PutTrigger(ctx, tr)
 		}
 		got, err := s.ListTriggers(ctx, "1")
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
 		var ids string
 		for _, tr := range got {
 			ids += tr.ID
 		}
-		if ids != "bac" {
-			t.Fatalf("order %q, want bac", ids)
-		}
-		if l, _ := s.ListTriggers(ctx, "nobody"); len(l) != 0 {
-			t.Fatalf("%d triggers for nobody", len(l))
-		}
+		Expect(ids).To(Equal("bac"))
+		l, _ := s.ListTriggers(ctx, "nobody")
+		Expect(l).To(BeEmpty(), "triggers for nobody")
 	})
-	t.Run("enabled triggers of every owner, sorted by ID", func(t *testing.T) {
-		s := newStore(t)
+	It("lists the enabled triggers of every owner, sorted by ID", func() {
+		s := newStore()
 		off := sample("b", "1", "Off")
 		off.Enabled = false
 		for _, tr := range []triggers.Trigger{sample("z", "2", "Z"), off, sample("a", "1", "A")} {
 			_ = s.PutTrigger(ctx, tr)
 		}
 		got, err := s.EnabledTriggers(ctx)
-		if err != nil || len(got) != 2 || got[0].ID != "a" || got[1].ID != "z" {
-			t.Fatalf("EnabledTriggers = %+v, %v", got, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].ID).To(Equal("a"))
+		Expect(got[1].ID).To(Equal("z"))
 	})
-	t.Run("all triggers of every owner, disabled ones too, sorted by owner and name", func(t *testing.T) {
-		s := newStore(t)
+	It("lists all triggers of every owner, disabled ones too, sorted by owner and name", func() {
+		s := newStore()
 		off := sample("b", "1", "Off")
 		off.Enabled = false
 		for _, tr := range []triggers.Trigger{sample("z", "2", "Z"), off, sample("a", "1", "A")} {
 			_ = s.PutTrigger(ctx, tr)
 		}
 		got, err := s.AllTriggers(ctx)
-		if err != nil || len(got) != 3 || got[0].ID != "a" || got[1].ID != "b" || got[2].ID != "z" {
-			t.Fatalf("AllTriggers = %+v, %v", got, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(3))
+		Expect(got[0].ID).To(Equal("a"))
+		Expect(got[1].ID).To(Equal("b"))
+		Expect(got[2].ID).To(Equal("z"))
 	})
-	t.Run("deleting a trigger removes its runs and last due time", func(t *testing.T) {
-		s := newStore(t)
+	It("removes the runs and last due time of a deleted trigger", func() {
+		s := newStore()
 		_ = s.PutTrigger(ctx, sample("t1", "1", "A"))
 		_ = s.PutTrigger(ctx, sample("t2", "1", "B"))
 		_, _ = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusDone))
 		_, _ = s.Claim(ctx, run("r2", "t2", "k1", triggers.StatusDone))
 		_ = s.SetLastDue(ctx, "t1", base)
-		if err := s.DeleteTrigger(ctx, "t1"); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.GetTrigger(ctx, "t1"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("trigger still there: %v", err)
-		}
-		if l, _ := s.ListRuns(ctx, "t1", 10); len(l) != 0 {
-			t.Fatalf("%d runs of a deleted trigger", len(l))
-		}
-		if _, err := s.GetRun(ctx, "r1"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("run still there: %v", err)
-		}
-		if d, _ := s.LastDue(ctx, "t1"); !d.IsZero() {
-			t.Fatalf("last due %v after a delete", d)
-		}
-		if l, _ := s.ListRuns(ctx, "t2", 10); len(l) != 1 {
-			t.Fatalf("the runs of another trigger changed: %d", len(l))
-		}
+		Expect(s.DeleteTrigger(ctx, "t1")).To(Succeed())
+		_, err := s.GetTrigger(ctx, "t1")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "trigger still there")
+		l, _ := s.ListRuns(ctx, "t1", 10)
+		Expect(l).To(BeEmpty(), "runs of a deleted trigger")
+		_, err = s.GetRun(ctx, "r1")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "run still there")
+		d, _ := s.LastDue(ctx, "t1")
+		Expect(d.IsZero()).To(BeTrue(), "last due %v after a delete", d)
+		l, _ = s.ListRuns(ctx, "t2", 10)
+		Expect(l).To(HaveLen(1), "the runs of another trigger changed")
 		// The same key can be claimed again once the old run is gone.
-		if ok, _ := s.Claim(ctx, run("r3", "t1", "k1", triggers.StatusQueued)); !ok {
-			t.Fatal("the key of a deleted run is still taken")
-		}
+		ok, _ := s.Claim(ctx, run("r3", "t1", "k1", triggers.StatusQueued))
+		Expect(ok).To(BeTrue(), "the key of a deleted run is still taken")
 	})
-	t.Run("a claim is stored once per trigger and key", func(t *testing.T) {
-		s := newStore(t)
+	It("stores a claim once per trigger and key", func() {
+		s := newStore()
 		r := run("r1", "t1", "2026-10-22T08:00:00Z", triggers.StatusQueued)
 		r.File = "/users/1/Contracts/a.pdf"
 		ok, err := s.Claim(ctx, r)
-		if err != nil || !ok {
-			t.Fatalf("first claim = %v, %v", ok, err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue(), "first claim")
 		again := run("r2", "t1", "2026-10-22T08:00:00Z", triggers.StatusQueued)
-		if ok, err := s.Claim(ctx, again); err != nil || ok {
-			t.Fatalf("second claim = %v, %v; want false", ok, err)
-		}
-		if _, err := s.GetRun(ctx, "r2"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("the refused run was stored: %v", err)
-		}
-		if ok, _ := s.Claim(ctx, run("r3", "t2", "2026-10-22T08:00:00Z", triggers.StatusQueued)); !ok {
-			t.Fatal("the same key of another trigger was refused")
-		}
+		ok, err = s.Claim(ctx, again)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse(), "second claim")
+		_, err = s.GetRun(ctx, "r2")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "the refused run was stored")
+		ok, _ = s.Claim(ctx, run("r3", "t2", "2026-10-22T08:00:00Z", triggers.StatusQueued))
+		Expect(ok).To(BeTrue(), "the same key of another trigger was refused")
 		got, err := s.GetRun(ctx, "r1")
-		if err != nil || !sameRun(got, r) {
-			t.Fatalf("GetRun = %+v, %v; want %+v", got, err, r)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(sameRun(got, r)).To(BeTrue(), "GetRun = %+v; want %+v", got, r)
 	})
-	t.Run("a run state is replaced", func(t *testing.T) {
-		s := newStore(t)
+	It("replaces a run state", func() {
+		s := newStore()
 		_, _ = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusQueued))
 		r := run("r1", "t1", "k1", triggers.StatusFailed)
 		r.Reason, r.ChatID = "took longer than 15m", "chat-1"
 		r.Started, r.Ended = base.Add(time.Minute), base.Add(16*time.Minute)
-		if err := s.SetRunStatus(ctx, r); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.SetRunStatus(ctx, r)).To(Succeed())
 		got, _ := s.GetRun(ctx, "r1")
-		if !sameRun(got, r) {
-			t.Fatalf("got %+v, want %+v", got, r)
-		}
+		Expect(sameRun(got, r)).To(BeTrue(), "got %+v, want %+v", got, r)
 		byChat, err := s.RunByChat(ctx, "chat-1")
-		if err != nil || byChat.ID != "r1" {
-			t.Fatalf("RunByChat = %+v, %v", byChat, err)
-		}
-		if _, err := s.RunByChat(ctx, ""); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("RunByChat of an empty ID: %v", err)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(byChat.ID).To(Equal("r1"))
+		_, err = s.RunByChat(ctx, "")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByChat of an empty ID")
 	})
-	t.Run("runs are listed newest claim first, with a limit", func(t *testing.T) {
-		s := newStore(t)
+	It("lists runs newest claim first, with a limit", func() {
+		s := newStore()
 		for i := 1; i <= 5; i++ {
 			_, _ = s.Claim(ctx, run(fmt.Sprintf("r%d", i), "t1", fmt.Sprintf("k%d", 6-i), triggers.StatusDone))
 		}
 		_, _ = s.Claim(ctx, run("other", "t2", "k", triggers.StatusDone))
 		got, err := s.ListRuns(ctx, "t1", 3)
-		if err != nil || len(got) != 3 || got[0].ID != "r5" || got[1].ID != "r4" || got[2].ID != "r3" {
-			t.Fatalf("ListRuns = %+v, %v", got, err)
-		}
-		if all, _ := s.ListRuns(ctx, "t1", 100); len(all) != 5 {
-			t.Fatalf("%d runs, want 5", len(all))
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(idsOf(got)).To(Equal("r5r4r3"))
+		all, _ := s.ListRuns(ctx, "t1", 100)
+		Expect(all).To(HaveLen(5))
 	})
-	t.Run("a limit of zero or less lists every run", func(t *testing.T) {
-		s := newStore(t)
+	It("lists every run for a limit of zero or less", func() {
+		s := newStore()
 		for i := 1; i <= 3; i++ {
 			_, _ = s.Claim(ctx, run(fmt.Sprintf("r%d", i), "t1", fmt.Sprintf("k%d", i), triggers.StatusDone))
 		}
 		for _, limit := range []int{0, -1} {
 			all, err := s.ListRuns(ctx, "t1", limit)
-			must(t, err)
-			if got := idsOf(all); got != "r3r2r1" {
-				t.Fatalf("ListRuns with limit %d = %q, want r3r2r1", limit, got)
-			}
+			must(err)
+			Expect(idsOf(all)).To(Equal("r3r2r1"), "ListRuns with limit %d", limit)
 		}
 	})
-	t.Run("a claim with the ID of another run is an error and stores nothing", func(t *testing.T) {
-		s := newStore(t)
+	It("refuses a claim with the ID of another run and stores nothing", func() {
+		s := newStore()
 		_, _ = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusQueued))
-		if ok, err := s.Claim(ctx, run("r1", "t1", "k2", triggers.StatusDone)); err == nil || ok {
-			t.Fatalf("a reused run ID = %v, %v; want false and an error", ok, err)
-		}
-		if ok, err := s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusDone)); err != nil || ok {
-			t.Fatalf("the same run again = %v, %v; want false and no error", ok, err)
-		}
+		ok, err := s.Claim(ctx, run("r1", "t1", "k2", triggers.StatusDone))
+		Expect(err).To(HaveOccurred(), "a reused run ID must be an error")
+		Expect(ok).To(BeFalse())
+		ok, err = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusDone))
+		Expect(err).NotTo(HaveOccurred(), "the same run again")
+		Expect(ok).To(BeFalse())
 		_, _ = s.Claim(ctx, run("r5", "t1", "k5", triggers.StatusQueued))
-		if ok, err := s.Claim(ctx, run("r1", "t1", "k5", triggers.StatusDone)); err != nil || ok {
-			t.Fatalf("an ID of one run with the key of another = %v, %v; want false and no error", ok, err)
-		}
-		if g, _ := s.GetRun(ctx, "r1"); g.DueKey != "k1" {
-			t.Fatalf("the run with the ID of a claim refused for its key changed: %+v", g)
-		}
-		g, err := s.GetRun(ctx, "r1")
-		must(t, err)
-		if g.DueKey != "k1" || g.Status != triggers.StatusQueued {
-			t.Fatalf("the run with the reused ID changed: %+v", g)
-		}
-		if l, _ := s.ListRuns(ctx, "t1", 10); len(l) != 2 {
-			t.Fatalf("%d runs after the refused claims, want 2 (r1 and r5)", len(l))
-		}
-		if ok, err := s.Claim(ctx, run("r2", "t1", "k2", triggers.StatusQueued)); err != nil || !ok {
-			t.Fatalf("the key of the refused claim is taken: %v, %v", ok, err)
-		}
+		ok, err = s.Claim(ctx, run("r1", "t1", "k5", triggers.StatusDone))
+		Expect(err).NotTo(HaveOccurred(), "an ID of one run with the key of another")
+		Expect(ok).To(BeFalse())
+		g, _ := s.GetRun(ctx, "r1")
+		Expect(g.DueKey).To(Equal("k1"), "the run with the ID of a claim refused for its key changed: %+v", g)
+		g, err = s.GetRun(ctx, "r1")
+		must(err)
+		Expect(g.DueKey).To(Equal("k1"), "the run with the reused ID changed: %+v", g)
+		Expect(g.Status).To(Equal(triggers.StatusQueued), "the run with the reused ID changed: %+v", g)
+		l, _ := s.ListRuns(ctx, "t1", 10)
+		Expect(l).To(HaveLen(2), "runs after the refused claims, want 2 (r1 and r5)")
+		ok, err = s.Claim(ctx, run("r2", "t1", "k2", triggers.StatusQueued))
+		Expect(err).NotTo(HaveOccurred(), "the key of the refused claim is taken")
+		Expect(ok).To(BeTrue(), "the key of the refused claim is taken")
 	})
-	t.Run("running and queued runs are listed oldest claim first", func(t *testing.T) {
-		s := newStore(t)
+	It("lists running and queued runs oldest claim first", func() {
+		s := newStore()
 		for i, st := range []triggers.Status{triggers.StatusQueued, triggers.StatusRunning, triggers.StatusDone, triggers.StatusQueued, triggers.StatusRunning, triggers.StatusSkipped} {
 			_, _ = s.Claim(ctx, run(fmt.Sprintf("r%d", i), fmt.Sprintf("t%d", i%2), fmt.Sprintf("k%d", i), st))
 		}
 		q, _ := s.QueuedRuns(ctx)
-		if len(q) != 2 || q[0].ID != "r0" || q[1].ID != "r3" {
-			t.Fatalf("QueuedRuns = %+v", q)
-		}
+		Expect(q).To(HaveLen(2))
+		Expect(q[0].ID).To(Equal("r0"))
+		Expect(q[1].ID).To(Equal("r3"))
 		r, _ := s.RunningRuns(ctx)
-		if len(r) != 2 || r[0].ID != "r1" || r[1].ID != "r4" {
-			t.Fatalf("RunningRuns = %+v", r)
-		}
+		Expect(r).To(HaveLen(2))
+		Expect(r[0].ID).To(Equal("r1"))
+		Expect(r[1].ID).To(Equal("r4"))
 	})
-	t.Run("runs are counted by due time and skipped runs do not count", func(t *testing.T) {
-		s := newStore(t)
+	It("counts runs by due time and does not count skipped runs", func() {
+		s := newStore()
 		mk := func(id, key string, due time.Time, st triggers.Status) {
 			r := run(id, "t1", key, st)
 			r.Due = due
@@ -307,46 +265,42 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		mk("e", "5", base.Add(3*time.Hour), triggers.StatusSkipped)
 		_, _ = s.Claim(ctx, run("f", "t2", "6", triggers.StatusDone))
 		n, err := s.CountRunsSince(ctx, "t1", base)
-		if err != nil || n != 3 {
-			t.Fatalf("CountRunsSince = %d, %v; want 3", n, err)
-		}
-		if n, _ := s.CountRunsSince(ctx, "t1", base.Add(time.Hour+time.Nanosecond)); n != 1 {
-			t.Fatalf("CountRunsSince after the failed run = %d, want 1", n)
-		}
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(3))
+		n, _ = s.CountRunsSince(ctx, "t1", base.Add(time.Hour+time.Nanosecond))
+		Expect(n).To(Equal(1), "CountRunsSince after the failed run")
 	})
-	t.Run("the cursor starts unset", func(t *testing.T) {
-		s := newStore(t)
-		if rev, ok, err := s.Cursor(ctx); err != nil || ok || rev != 0 {
-			t.Fatalf("Cursor = %d, %v, %v; want unset", rev, ok, err)
-		}
+	It("starts with an unset cursor", func() {
+		s := newStore()
+		rev, ok, err := s.Cursor(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse(), "Cursor must start unset")
+		Expect(rev).To(BeZero())
 		_ = s.SetCursor(ctx, 0)
-		if _, ok, _ := s.Cursor(ctx); !ok {
-			t.Fatal("a cursor of 0 reads as unset")
-		}
+		_, ok, _ = s.Cursor(ctx)
+		Expect(ok).To(BeTrue(), "a cursor of 0 reads as unset")
 		_ = s.SetCursor(ctx, 41)
 		_ = s.SetCursor(ctx, 42)
-		if rev, ok, _ := s.Cursor(ctx); !ok || rev != 42 {
-			t.Fatalf("Cursor = %d, %v; want 42", rev, ok)
-		}
+		rev, ok, _ = s.Cursor(ctx)
+		Expect(ok).To(BeTrue())
+		Expect(rev).To(BeEquivalentTo(42))
 	})
-	t.Run("the last due time is kept per trigger", func(t *testing.T) {
-		s := newStore(t)
-		if d, err := s.LastDue(ctx, "t1"); err != nil || !d.IsZero() {
-			t.Fatalf("LastDue = %v, %v; want zero", d, err)
-		}
+	It("keeps the last due time per trigger", func() {
+		s := newStore()
+		d, err := s.LastDue(ctx, "t1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(d.IsZero()).To(BeTrue(), "LastDue = %v; want zero", d)
 		due := time.Date(2026, 10, 22, 6, 0, 0, 123456789, time.UTC)
 		_ = s.SetLastDue(ctx, "t1", due)
 		_ = s.SetLastDue(ctx, "t2", due.Add(time.Hour))
-		if d, _ := s.LastDue(ctx, "t1"); !d.Equal(due) {
-			t.Fatalf("LastDue = %v, want %v", d, due)
-		}
+		d, _ = s.LastDue(ctx, "t1")
+		Expect(d.Equal(due)).To(BeTrue(), "LastDue = %v, want %v", d, due)
 		_ = s.SetLastDue(ctx, "t1", due.Add(24*time.Hour))
-		if d, _ := s.LastDue(ctx, "t1"); !d.Equal(due.Add(24 * time.Hour)) {
-			t.Fatalf("LastDue after a replace = %v", d)
-		}
+		d, _ = s.LastDue(ctx, "t1")
+		Expect(d.Equal(due.Add(24*time.Hour))).To(BeTrue(), "LastDue after a replace = %v", d)
 	})
-	t.Run("concurrent claims of one key win once", func(t *testing.T) {
-		s := newStore(t)
+	It("lets concurrent claims of one key win once", func() {
+		s := newStore()
 		const workers = 16
 		var wins atomic.Int32
 		var wg sync.WaitGroup
@@ -354,12 +308,11 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		for i := 0; i < workers; i++ {
 			wg.Add(1)
 			go func(i int) {
+				defer GinkgoRecover()
 				defer wg.Done()
 				<-start
 				ok, err := s.Claim(ctx, run(fmt.Sprintf("r%d", i), "t1", "same", triggers.StatusQueued))
-				if err != nil {
-					t.Errorf("Claim: %v", err)
-				}
+				Expect(err).NotTo(HaveOccurred(), "Claim")
 				if ok {
 					wins.Add(1)
 				}
@@ -367,114 +320,94 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		}
 		close(start)
 		wg.Wait()
-		if wins.Load() != 1 {
-			t.Fatalf("%d claims won, want 1", wins.Load())
-		}
-		if l, _ := s.ListRuns(ctx, "t1", 100); len(l) != 1 {
-			t.Fatalf("%d runs stored, want 1", len(l))
-		}
+		Expect(wins.Load()).To(Equal(int32(1)), "claims won")
+		l, _ := s.ListRuns(ctx, "t1", 100)
+		Expect(l).To(HaveLen(1), "runs stored")
 	})
-	t.Run("concurrent claims of different keys all win", func(t *testing.T) {
-		s := newStore(t)
+	It("lets concurrent claims of different keys all win", func() {
+		s := newStore()
 		const workers = 16
 		var wins atomic.Int32
 		var wg sync.WaitGroup
 		for i := 0; i < workers; i++ {
 			wg.Add(1)
 			go func(i int) {
+				defer GinkgoRecover()
 				defer wg.Done()
 				ok, err := s.Claim(ctx, run(fmt.Sprintf("r%d", i), "t1", fmt.Sprintf("k%d", i), triggers.StatusQueued))
-				if err != nil {
-					t.Errorf("Claim: %v", err)
-				}
+				Expect(err).NotTo(HaveOccurred(), "Claim")
 				if ok {
 					wins.Add(1)
 				}
 			}(i)
 		}
 		wg.Wait()
-		if wins.Load() != workers {
-			t.Fatalf("%d claims won, want %d", wins.Load(), workers)
-		}
+		Expect(wins.Load()).To(Equal(int32(workers)), "claims won")
 	})
-	t.Run("RunByChat ignores runs without a chat", func(t *testing.T) {
-		s := newStore(t)
+	It("ignores runs without a chat in RunByChat", func() {
+		s := newStore()
 		_, _ = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusDone))
 		_, _ = s.Claim(ctx, run("r2", "t1", "k2", triggers.StatusQueued))
-		if _, err := s.RunByChat(ctx, ""); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("RunByChat of an empty ID with chatless runs: %v, want ErrNotFound", err)
-		}
+		_, err := s.RunByChat(ctx, "")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByChat of an empty ID with chatless runs")
 		r3 := run("r3", "t1", "k3", triggers.StatusRunning)
 		_, _ = s.Claim(ctx, r3)
 		r3.ChatID = "chat-3"
-		must(t, s.SetRunStatus(ctx, r3))
-		if got, err := s.RunByChat(ctx, "chat-3"); err != nil || got.ID != "r3" {
-			t.Fatalf("RunByChat = %+v, %v; want r3", got, err)
-		}
+		must(s.SetRunStatus(ctx, r3))
+		got, err := s.RunByChat(ctx, "chat-3")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ID).To(Equal("r3"))
 		r3.ChatID = ""
-		must(t, s.SetRunStatus(ctx, r3))
-		if _, err := s.RunByChat(ctx, "chat-3"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("RunByChat after the chat was cleared: %v, want ErrNotFound", err)
-		}
+		must(s.SetRunStatus(ctx, r3))
+		_, err = s.RunByChat(ctx, "chat-3")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByChat after the chat was cleared")
 	})
-	t.Run("a status change replaces only the status, reason, chat and times", func(t *testing.T) {
-		s := newStore(t)
+	It("replaces only the status, reason, chat and times on a status change", func() {
+		s := newStore()
 		orig := run("r1", "t1", "k1", triggers.StatusQueued)
 		orig.File = "/users/1/Contracts/a.pdf"
-		if ok, err := s.Claim(ctx, orig); err != nil || !ok {
-			t.Fatalf("Claim = %v, %v", ok, err)
-		}
+		ok, err := s.Claim(ctx, orig)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
 		r := orig
 		r.TriggerID, r.DueKey, r.Due, r.File = "t9", "other", base.Add(5*time.Hour), "/users/1/Contracts/b.pdf"
 		r.Status, r.Reason, r.ChatID = triggers.StatusFailed, "took longer than 15m", "chat-1"
 		r.Started, r.Ended = base.Add(time.Minute), base.Add(16*time.Minute)
-		must(t, s.SetRunStatus(ctx, r))
+		must(s.SetRunStatus(ctx, r))
 		got, err := s.GetRun(ctx, "r1")
-		must(t, err)
+		must(err)
 		want := orig
 		want.Status, want.Reason, want.ChatID = r.Status, r.Reason, r.ChatID
 		want.Started, want.Ended = r.Started, r.Ended
-		if !sameRun(got, want) {
-			t.Fatalf("got %+v, want %+v", got, want)
-		}
-		if ok, _ := s.Claim(ctx, run("r2", "t1", "k1", triggers.StatusQueued)); ok {
-			t.Fatal("the claimed key was freed by a status change")
-		}
-		if ok, _ := s.Claim(ctx, run("r3", "t9", "other", triggers.StatusQueued)); !ok {
-			t.Fatal("the key written into the run by a status change was taken")
-		}
+		Expect(sameRun(got, want)).To(BeTrue(), "got %+v, want %+v", got, want)
+		ok, _ = s.Claim(ctx, run("r2", "t1", "k1", triggers.StatusQueued))
+		Expect(ok).To(BeFalse(), "the claimed key was freed by a status change")
+		ok, _ = s.Claim(ctx, run("r3", "t9", "other", triggers.StatusQueued))
+		Expect(ok).To(BeTrue(), "the key written into the run by a status change was taken")
 	})
-	t.Run("a status change keeps the claim position", func(t *testing.T) {
-		s := newStore(t)
+	It("keeps the claim position on a status change", func() {
+		s := newStore()
 		for _, id := range []string{"a", "b", "c"} {
 			_, _ = s.Claim(ctx, run(id, "t1", "k-"+id, triggers.StatusQueued))
 		}
-		must(t, s.SetRunStatus(ctx, run("b", "t1", "k-b", triggers.StatusRunning)))
+		must(s.SetRunStatus(ctx, run("b", "t1", "k-b", triggers.StatusRunning)))
 		q, err := s.QueuedRuns(ctx)
-		must(t, err)
-		if got := idsOf(q); got != "ac" {
-			t.Fatalf("queued = %q after b started, want ac", got)
-		}
+		must(err)
+		Expect(idsOf(q)).To(Equal("ac"), "queued after b started")
 		rn, err := s.RunningRuns(ctx)
-		must(t, err)
-		if got := idsOf(rn); got != "b" {
-			t.Fatalf("running = %q, want b", got)
-		}
-		must(t, s.SetRunStatus(ctx, run("b", "t1", "k-b", triggers.StatusQueued)))
+		must(err)
+		Expect(idsOf(rn)).To(Equal("b"), "running")
+		must(s.SetRunStatus(ctx, run("b", "t1", "k-b", triggers.StatusQueued)))
 		q, err = s.QueuedRuns(ctx)
-		must(t, err)
-		if got := idsOf(q); got != "abc" {
-			t.Fatalf("queued = %q after b was queued again, want abc", got)
-		}
-		must(t, s.SetRunStatus(ctx, run("b", "t1", "k-b", triggers.StatusDone)))
+		must(err)
+		Expect(idsOf(q)).To(Equal("abc"), "queued after b was queued again")
+		must(s.SetRunStatus(ctx, run("b", "t1", "k-b", triggers.StatusDone)))
 		all, err := s.ListRuns(ctx, "t1", 10)
-		must(t, err)
-		if got := idsOf(all); got != "cba" {
-			t.Fatalf("ListRuns = %q after b is done, want cba", got)
-		}
+		must(err)
+		Expect(idsOf(all)).To(Equal("cba"), "ListRuns after b is done")
 	})
-	t.Run("lists follow the claim order, not the ID, key or due order", func(t *testing.T) {
-		s := newStore(t)
+	It("lists by claim order, not by ID, key or due order", func() {
+		s := newStore()
 		mk := func(id, key string, due time.Duration, st triggers.Status) {
 			r := run(id, "t1", key, st)
 			r.Due = base.Add(due)
@@ -486,69 +419,55 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		mk("a", "k3", 3*time.Hour, triggers.StatusQueued)
 		mk("q", "k1", time.Hour, triggers.StatusRunning)
 		all, err := s.ListRuns(ctx, "t1", 10)
-		must(t, err)
-		if got := idsOf(all); got != "qamz" {
-			t.Fatalf("ListRuns = %q, want qamz (newest claim first)", got)
-		}
+		must(err)
+		Expect(idsOf(all)).To(Equal("qamz"), "ListRuns (newest claim first)")
 		q, err := s.QueuedRuns(ctx)
-		must(t, err)
-		if got := idsOf(q); got != "za" {
-			t.Fatalf("QueuedRuns = %q, want za (claim order)", got)
-		}
+		must(err)
+		Expect(idsOf(q)).To(Equal("za"), "QueuedRuns (claim order)")
 		rn, err := s.RunningRuns(ctx)
-		must(t, err)
-		if got := idsOf(rn); got != "mq" {
-			t.Fatalf("RunningRuns = %q, want mq (claim order)", got)
-		}
+		must(err)
+		Expect(idsOf(rn)).To(Equal("mq"), "RunningRuns (claim order)")
 	})
-	t.Run("putting a trigger again keeps its runs and last due time", func(t *testing.T) {
-		s := newStore(t)
+	It("keeps the runs and last due time when a trigger is put again", func() {
+		s := newStore()
 		tr := sample("t1", "1", "Morning")
-		must(t, s.PutTrigger(ctx, tr))
+		must(s.PutTrigger(ctx, tr))
 		_, _ = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusDone))
 		_, _ = s.Claim(ctx, run("r2", "t1", "k2", triggers.StatusQueued))
-		must(t, s.SetLastDue(ctx, "t1", base.Add(time.Hour)))
+		must(s.SetLastDue(ctx, "t1", base.Add(time.Hour)))
 		tr.Name = "Evening"
-		must(t, s.PutTrigger(ctx, tr))
+		must(s.PutTrigger(ctx, tr))
 		l, err := s.ListRuns(ctx, "t1", 10)
-		must(t, err)
-		if len(l) != 2 {
-			t.Fatalf("%d runs after a replace, want 2", len(l))
-		}
-		if d, _ := s.LastDue(ctx, "t1"); !d.Equal(base.Add(time.Hour)) {
-			t.Fatalf("LastDue after a replace = %v", d)
-		}
+		must(err)
+		Expect(l).To(HaveLen(2), "runs after a replace")
+		d, _ := s.LastDue(ctx, "t1")
+		Expect(d.Equal(base.Add(time.Hour))).To(BeTrue(), "LastDue after a replace = %v", d)
 	})
-	t.Run("times keep their instant, zone and nanoseconds", func(t *testing.T) {
-		s := newStore(t)
+	It("keeps the instant, zone and nanoseconds of times", func() {
+		s := newStore()
 		zone := time.FixedZone("x", 5*3600+1800)
 		due := time.Date(2026, 10, 22, 13, 45, 30, 123456789, zone)
 		started := due.Add(987654321)
 		ended := started.Add(time.Second + 1)
 		tr := sample("t1", "1", "Morning")
 		tr.Since = time.Date(2026, 10, 22, 8, 0, 0, 500000001, zone)
-		must(t, s.PutTrigger(ctx, tr))
+		must(s.PutTrigger(ctx, tr))
 		got, err := s.GetTrigger(ctx, "t1")
-		must(t, err)
-		if !got.Since.Equal(tr.Since) {
-			t.Fatalf("Since = %v, want %v", got.Since, tr.Since)
-		}
+		must(err)
+		Expect(got.Since.Equal(tr.Since)).To(BeTrue(), "Since = %v, want %v", got.Since, tr.Since)
 		r := run("r1", "t1", "k1", triggers.StatusQueued)
 		r.Due = due
-		if ok, err := s.Claim(ctx, r); err != nil || !ok {
-			t.Fatalf("Claim = %v, %v", ok, err)
-		}
+		ok, err := s.Claim(ctx, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
 		r.Status, r.Started, r.Ended = triggers.StatusDone, started, ended
-		must(t, s.SetRunStatus(ctx, r))
+		must(s.SetRunStatus(ctx, r))
 		g, err := s.GetRun(ctx, "r1")
-		must(t, err)
-		if !sameRun(g, r) {
-			t.Fatalf("GetRun = %+v, want %+v", g, r)
-		}
-		must(t, s.SetLastDue(ctx, "t1", started))
-		if d, _ := s.LastDue(ctx, "t1"); !d.Equal(started) {
-			t.Fatalf("LastDue = %v, want %v", d, started)
-		}
+		must(err)
+		Expect(sameRun(g, r)).To(BeTrue(), "GetRun = %+v, want %+v", g, r)
+		must(s.SetLastDue(ctx, "t1", started))
+		d, _ := s.LastDue(ctx, "t1")
+		Expect(d.Equal(started)).To(BeTrue(), "LastDue = %v, want %v", d, started)
 		for _, c := range []struct {
 			name  string
 			since time.Time
@@ -559,13 +478,13 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			{"one nanosecond before", due.Add(-time.Nanosecond), 1},
 			{"one nanosecond after", due.Add(time.Nanosecond), 0},
 		} {
-			if n, err := s.CountRunsSince(ctx, "t1", c.since); err != nil || n != c.want {
-				t.Fatalf("CountRunsSince from %s = %d, %v; want %d", c.name, n, err, c.want)
-			}
+			n, err := s.CountRunsSince(ctx, "t1", c.since)
+			Expect(err).NotTo(HaveOccurred(), "CountRunsSince from %s", c.name)
+			Expect(n).To(Equal(c.want), "CountRunsSince from %s", c.name)
 		}
 	})
-	t.Run("a running run counts, and a deleted trigger leaves no runs behind", func(t *testing.T) {
-		s := newStore(t)
+	It("counts a running run and leaves no runs behind for a deleted trigger", func() {
+		s := newStore()
 		_ = s.PutTrigger(ctx, sample("t1", "1", "A"))
 		_ = s.PutTrigger(ctx, sample("t2", "1", "B"))
 		_, _ = s.Claim(ctx, run("r1", "t1", "k1", triggers.StatusRunning))
@@ -578,43 +497,36 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 		other := run("r6", "t2", "k6", triggers.StatusRunning)
 		other.ChatID = "chat-t2"
 		_, _ = s.Claim(ctx, other)
-		must(t, s.SetCursor(ctx, 7))
-		if n, err := s.CountRunsSince(ctx, "t1", base); err != nil || n != 4 {
-			t.Fatalf("CountRunsSince before the delete = %d, %v; want 4", n, err)
-		}
-		must(t, s.DeleteTrigger(ctx, "t1"))
+		must(s.SetCursor(ctx, 7))
+		n, err := s.CountRunsSince(ctx, "t1", base)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(4), "CountRunsSince before the delete")
+		must(s.DeleteTrigger(ctx, "t1"))
 		q, err := s.QueuedRuns(ctx)
-		must(t, err)
-		if got := idsOf(q); got != "r5" {
-			t.Fatalf("QueuedRuns after the delete = %q, want r5", got)
-		}
+		must(err)
+		Expect(idsOf(q)).To(Equal("r5"), "QueuedRuns after the delete")
 		rn, err := s.RunningRuns(ctx)
-		must(t, err)
-		if got := idsOf(rn); got != "r6" {
-			t.Fatalf("RunningRuns after the delete = %q, want r6", got)
-		}
-		if _, err := s.RunByChat(ctx, "chat-del"); !errors.Is(err, triggers.ErrNotFound) {
-			t.Fatalf("RunByChat of a deleted run: %v, want ErrNotFound", err)
-		}
-		if got, err := s.RunByChat(ctx, "chat-t2"); err != nil || got.ID != "r6" {
-			t.Fatalf("RunByChat of another trigger = %+v, %v; want r6", got, err)
-		}
-		if n, err := s.CountRunsSince(ctx, "t1", base); err != nil || n != 0 {
-			t.Fatalf("CountRunsSince after the delete = %d, %v; want 0", n, err)
-		}
-		if rev, ok, _ := s.Cursor(ctx); !ok || rev != 7 {
-			t.Fatalf("Cursor after the delete = %d, %v; want 7", rev, ok)
-		}
+		must(err)
+		Expect(idsOf(rn)).To(Equal("r6"), "RunningRuns after the delete")
+		_, err = s.RunByChat(ctx, "chat-del")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByChat of a deleted run")
+		got, err := s.RunByChat(ctx, "chat-t2")
+		Expect(err).NotTo(HaveOccurred(), "RunByChat of another trigger")
+		Expect(got.ID).To(Equal("r6"))
+		n, err = s.CountRunsSince(ctx, "t1", base)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(BeZero(), "CountRunsSince after the delete")
+		rev, ok, _ := s.Cursor(ctx)
+		Expect(ok).To(BeTrue())
+		Expect(rev).To(BeEquivalentTo(7), "Cursor after the delete")
 	})
-	pruneContract(t, newStore)
+	pruneContract(newStore)
 }
 
-// must fails the test on an error.
-func must(t *testing.T, err error) {
-	t.Helper()
-	if err != nil {
-		t.Fatal(err)
-	}
+// must fails the spec on an error.
+func must(err error) {
+	GinkgoHelper()
+	Expect(err).NotTo(HaveOccurred())
 }
 
 // idsOf joins the IDs of runs in their order.
@@ -629,10 +541,10 @@ func idsOf(rs []triggers.Run) string {
 // seedRuns stores one running run, one queued run and ten finished runs for
 // trigger t1 in claim order, due one hour apart from base+1h to base+10h, and
 // two finished runs for t2.
-func seedRuns(g *gomega.WithT, s triggers.Store) {
+func seedRuns(s triggers.Store) {
 	ctx := context.Background()
 	for _, tr := range []string{"t1", "t2"} {
-		g.Expect(s.PutTrigger(ctx, sample(tr, "1", tr))).To(gomega.Succeed())
+		Expect(s.PutTrigger(ctx, sample(tr, "1", tr))).To(Succeed())
 	}
 	old := run("running", "t1", "running", triggers.StatusRunning)
 	old.Due = base.Add(-1000 * time.Hour)
@@ -640,29 +552,29 @@ func seedRuns(g *gomega.WithT, s triggers.Store) {
 	queued.Due = base.Add(-999 * time.Hour)
 	for _, r := range []triggers.Run{old, queued} {
 		ok, err := s.Claim(ctx, r)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(ok).To(gomega.BeTrue())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
 	}
 	for i := 1; i <= 10; i++ {
 		r := run(fmt.Sprintf("r%d", i), "t1", fmt.Sprintf("k%d", i), triggers.StatusDone)
 		r.Due = base.Add(time.Duration(i) * time.Hour)
 		ok, err := s.Claim(ctx, r)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(ok).To(gomega.BeTrue())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
 	}
 	for i := 1; i <= 2; i++ {
 		r := run(fmt.Sprintf("o%d", i), "t2", fmt.Sprintf("k%d", i), triggers.StatusFailed)
 		r.Due = base.Add(-time.Duration(i) * time.Hour)
 		ok, err := s.Claim(ctx, r)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(ok).To(gomega.BeTrue())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
 	}
 }
 
 // runIDs lists the IDs of the runs of a trigger, oldest claim first.
-func runIDs(g *gomega.WithT, s triggers.Store, trigger string) []string {
+func runIDs(s triggers.Store, trigger string) []string {
 	runs, err := s.ListRuns(context.Background(), trigger, 0)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	Expect(err).NotTo(HaveOccurred())
 	ids := make([]string, 0, len(runs))
 	for i := len(runs) - 1; i >= 0; i-- {
 		ids = append(ids, runs[i].ID)
@@ -670,10 +582,10 @@ func runIDs(g *gomega.WithT, s triggers.Store, trigger string) []string {
 	return ids
 }
 
-// pruneContract checks Store.PruneRuns: the count limit, the protected window,
-// the age limit, that open runs and other triggers stay, and that a removed
-// claim can be made again.
-func pruneContract(t *testing.T, newStore NewStore) {
+// pruneContract registers the specs for Store.PruneRuns: the count limit, the
+// protected window, the age limit, that open runs and other triggers stay, and
+// that a removed claim can be made again.
+func pruneContract(newStore NewStore) {
 	ctx := context.Background()
 	open := []string{"running", "queued"}
 	ids := func(from, to int) []string {
@@ -683,46 +595,41 @@ func pruneContract(t *testing.T, newStore NewStore) {
 		}
 		return out
 	}
-	cases := []struct {
-		name    string
-		p       triggers.Retention
-		removed int
-		kept    []string // finished runs of t1 that stay
-	}{
-		{"the newest Keep finished runs stay", triggers.Retention{Keep: 3}, 7, ids(8, 10)},
-		{"runs due in the protected window stay beyond Keep", triggers.Retention{Keep: 3, Protect: base.Add(5 * time.Hour)}, 4, ids(5, 10)},
-		{"runs older than Expire go whatever Keep says", triggers.Retention{Keep: 10, Protect: base, Expire: base.Add(4 * time.Hour)}, 3, ids(4, 10)},
-		{"Expire goes over the protected window", triggers.Retention{Keep: 3, Protect: base, Expire: base.Add(6 * time.Hour)}, 5, ids(6, 10)},
-		{"no limit removes nothing", triggers.Retention{}, 0, ids(1, 10)},
-		{"Keep above the number of runs removes nothing", triggers.Retention{Keep: 50}, 0, ids(1, 10)},
-	}
-	for _, c := range cases {
-		g := gomega.NewWithT(t)
-		s := newStore(t)
-		seedRuns(g, s)
-		n, err := s.PruneRuns(ctx, "t1", c.p)
-		g.Expect(err).NotTo(gomega.HaveOccurred(), c.name)
-		g.Expect(n).To(gomega.Equal(c.removed), c.name)
-		g.Expect(runIDs(g, s, "t1")).To(gomega.Equal(append(append([]string{}, open...), c.kept...)), c.name)
-		g.Expect(runIDs(g, s, "t2")).To(gomega.Equal([]string{"o1", "o2"}), c.name+": another trigger is not touched")
-		queued, err := s.QueuedRuns(ctx)
-		g.Expect(err).NotTo(gomega.HaveOccurred())
-		g.Expect(queued).To(gomega.HaveLen(1), c.name+": a queued run stays")
-	}
+	DescribeTable("pruning runs",
+		func(p triggers.Retention, removed int, kept []string) {
+			s := newStore()
+			seedRuns(s)
+			n, err := s.PruneRuns(ctx, "t1", p)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(removed))
+			Expect(runIDs(s, "t1")).To(Equal(append(append([]string{}, open...), kept...)))
+			Expect(runIDs(s, "t2")).To(Equal([]string{"o1", "o2"}), "another trigger is not touched")
+			queued, err := s.QueuedRuns(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(queued).To(HaveLen(1), "a queued run stays")
+		},
+		Entry("the newest Keep finished runs stay", triggers.Retention{Keep: 3}, 7, ids(8, 10)),
+		Entry("runs due in the protected window stay beyond Keep", triggers.Retention{Keep: 3, Protect: base.Add(5 * time.Hour)}, 4, ids(5, 10)),
+		Entry("runs older than Expire go whatever Keep says", triggers.Retention{Keep: 10, Protect: base, Expire: base.Add(4 * time.Hour)}, 3, ids(4, 10)),
+		Entry("Expire goes over the protected window", triggers.Retention{Keep: 3, Protect: base, Expire: base.Add(6 * time.Hour)}, 5, ids(6, 10)),
+		Entry("no limit removes nothing", triggers.Retention{}, 0, ids(1, 10)),
+		Entry("Keep above the number of runs removes nothing", triggers.Retention{Keep: 50}, 0, ids(1, 10)),
+	)
 
-	g := gomega.NewWithT(t)
-	s := newStore(t)
-	seedRuns(g, s)
-	_, err := s.PruneRuns(ctx, "t1", triggers.Retention{Keep: 3})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	again := run("again", "t1", "k1", triggers.StatusQueued)
-	ok, err := s.Claim(ctx, again)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(ok).To(gomega.BeTrue(), "the claim of a removed run is free again")
-	ok, err = s.Claim(ctx, run("kept", "t1", "k10", triggers.StatusQueued))
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(ok).To(gomega.BeFalse(), "the claim of a kept run is still taken")
-	n, err := s.PruneRuns(ctx, "nope", triggers.Retention{Keep: 1})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(n).To(gomega.BeZero(), "an unknown trigger has nothing to prune")
+	It("frees the claim of a pruned run and keeps the claim of a kept run", func() {
+		s := newStore()
+		seedRuns(s)
+		_, err := s.PruneRuns(ctx, "t1", triggers.Retention{Keep: 3})
+		Expect(err).NotTo(HaveOccurred())
+		again := run("again", "t1", "k1", triggers.StatusQueued)
+		ok, err := s.Claim(ctx, again)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue(), "the claim of a removed run is free again")
+		ok, err = s.Claim(ctx, run("kept", "t1", "k10", triggers.StatusQueued))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse(), "the claim of a kept run is still taken")
+		n, err := s.PruneRuns(ctx, "nope", triggers.Retention{Keep: 1})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(BeZero(), "an unknown trigger has nothing to prune")
+	})
 }

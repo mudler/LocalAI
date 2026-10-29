@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -82,7 +82,6 @@ func (h *host) startCount() int {
 }
 
 type rig struct {
-	t      *testing.T
 	clock  *fakeClock
 	store  triggers.Store
 	ws     workspace.Store
@@ -91,18 +90,17 @@ type rig struct {
 	opts   triggers.Options
 }
 
-func newRig(t *testing.T, mutate ...func(*triggers.Options)) *rig {
-	t.Helper()
+func newRig(mutate ...func(*triggers.Options)) *rig {
 	clock := &fakeClock{t: t0}
-	ws := openWorkspace(t, clock.Now)
+	ws := openWorkspace(clock.Now)
 	h := &host{byRun: map[string]triggers.Trigger{}, live: map[string]bool{}}
 	store, err := triggers.NewJSON("")
-	gomega.NewWithT(t).Expect(err).NotTo(gomega.HaveOccurred())
-	r := &rig{t: t, clock: clock, store: store, ws: ws, host: h}
+	Expect(err).NotTo(HaveOccurred())
+	r := &rig{clock: clock, store: store, ws: ws, host: h}
 	r.opts = triggers.Options{
 		Store: r.store, Workspace: ws, Admin: wstest.AdminActor,
 		Start: h.start, Stop: h.stop, Live: h.isLive, Clock: clock.Now,
-		Tick: 10 * time.Millisecond, Logf: t.Logf,
+		Tick: 10 * time.Millisecond, Logf: func(format string, args ...any) { fmt.Fprintf(GinkgoWriter, format+"\n", args...) },
 	}
 	for _, m := range mutate {
 		m(&r.opts)
@@ -112,37 +110,28 @@ func newRig(t *testing.T, mutate ...func(*triggers.Options)) *rig {
 }
 
 func (r *rig) newRunner() *triggers.Runner {
-	r.t.Helper()
 	run, err := triggers.NewRunner(r.opts)
-	if err != nil {
-		r.t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return run
 }
 
 func (r *rig) sync() {
-	r.t.Helper()
-	if err := r.runner.Sync(ctx); err != nil {
-		r.t.Fatalf("Sync: %v", err)
-	}
+	Expect(r.runner.Sync(ctx)).To(Succeed(), "Sync")
 }
 
 // at moves the clock to the time and makes a pass.
 func (r *rig) at(t time.Time) {
-	r.t.Helper()
 	r.clock.Set(t)
 	r.sync()
 }
 
 // after moves the clock forward and makes a pass.
 func (r *rig) after(d time.Duration) {
-	r.t.Helper()
 	r.clock.Advance(d)
 	r.sync()
 }
 
 func (r *rig) put(t triggers.Trigger) triggers.Trigger {
-	r.t.Helper()
 	if t.Owner == "" {
 		t.Owner = "1"
 	}
@@ -155,9 +144,7 @@ func (r *rig) put(t triggers.Trigger) triggers.Trigger {
 	if t.Since.IsZero() {
 		t.Since = t0.Add(-time.Hour)
 	}
-	if err := r.store.PutTrigger(ctx, t); err != nil {
-		r.t.Fatal(err)
-	}
+	Expect(r.store.PutTrigger(ctx, t)).To(Succeed())
 	return t
 }
 
@@ -170,52 +157,36 @@ func fileTrigger(id, folder string) triggers.Trigger {
 }
 
 func (r *rig) runs(id string) []triggers.Run {
-	r.t.Helper()
 	l, err := r.store.ListRuns(ctx, id, 1000)
-	if err != nil {
-		r.t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return l
 }
 
 // oneRun returns the only run of the trigger, newest first.
 func (r *rig) latest(id string) triggers.Run {
-	r.t.Helper()
 	l := r.runs(id)
-	if len(l) == 0 {
-		r.t.Fatalf("trigger %s has no run", id)
-	}
+	Expect(l).NotTo(BeEmpty(), "trigger %s has no run", id)
 	return l[0]
 }
 
 func (r *rig) finish(run triggers.Run, st triggers.Status, reason string) {
-	r.t.Helper()
-	if err := r.runner.Finish(ctx, run.ID, st, reason); err != nil {
-		r.t.Fatal(err)
-	}
+	Expect(r.runner.Finish(ctx, run.ID, st, reason)).To(Succeed())
 }
 
 func (r *rig) writeAs(a workspace.Actor, p, content string) {
-	r.t.Helper()
-	if _, err := r.ws.Put(ctx, a, p, strings.NewReader(content), workspace.PutOptions{Overwrite: true}); err != nil {
-		r.t.Fatal(err)
-	}
+	_, err := r.ws.Put(ctx, a, p, strings.NewReader(content), workspace.PutOptions{Overwrite: true})
+	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *rig) write(p, content string) { r.t.Helper(); r.writeAs(wstest.AdminActor, p, content) }
+func (r *rig) write(p, content string) { r.writeAs(wstest.AdminActor, p, content) }
 
 func (r *rig) move(from, to string) {
-	r.t.Helper()
-	if _, err := r.ws.Move(ctx, wstest.AdminActor, from, to); err != nil {
-		r.t.Fatal(err)
-	}
+	_, err := r.ws.Move(ctx, wstest.AdminActor, from, to)
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func (r *rig) remove(p string) {
-	r.t.Helper()
-	if err := r.ws.Delete(ctx, wstest.AdminActor, p); err != nil {
-		r.t.Fatal(err)
-	}
+	Expect(r.ws.Delete(ctx, wstest.AdminActor, p)).To(Succeed())
 }
 
 func statuses(runs []triggers.Run) string {
