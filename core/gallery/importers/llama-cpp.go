@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -480,7 +479,7 @@ func maybeApplyTTSUsecase(modelConfig *config.ModelConfig, cfg *gallery.ModelCon
 			config.UsecaseRealtimeAudio, config.UsecaseChat, config.UsecaseTranscript, config.UsecaseTTS,
 		}
 		modelConfig.Pipeline.AnyToAny = &anyToAny
-		if !slices.Contains(modelConfig.Options, "parallel:2") {
+		if !config.HasParallelOption(modelConfig.Options) {
 			modelConfig.Options = append(modelConfig.Options, "parallel:2")
 		}
 		modelConfig.TemplateConfig.UseTokenizerTemplate = true

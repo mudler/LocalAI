@@ -95,6 +95,22 @@ var _ = Describe("maybeApplyTTSUsecase on an mmproj probe", func() {
 		Expect(modelConfig.TemplateConfig.UseTokenizerTemplate).To(BeTrue())
 	})
 
+	It("keeps a parallel option the model already carries", func() {
+		url := serveMMProj(map[string]any{
+			"general.architecture":       "clip",
+			"clip.has_audio_encoder":     true,
+			"clip.has_gen_audio_encoder": true,
+			"clip.audio.projector_type":  "lfm3a",
+		})
+		modelConfig, cfg := importedConfig(url)
+		modelConfig.Options = append(modelConfig.Options, "parallel:4")
+
+		maybeApplyTTSUsecase(modelConfig, cfg)
+
+		Expect(modelConfig.Options).To(ContainElement("parallel:4"))
+		Expect(modelConfig.Options).NotTo(ContainElement("parallel:2"))
+	})
+
 	It("keeps a Qwen3-TTS projector, which also sets both encoder flags, as TTS", func() {
 		url := serveMMProj(map[string]any{
 			"general.architecture":       "clip",
