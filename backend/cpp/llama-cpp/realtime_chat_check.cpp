@@ -16,6 +16,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <memory>
 #include <sstream>
 
 namespace rts = llama_grpc::realtime;
@@ -45,8 +46,12 @@ std::vector<common_chat_msg> to_common(const std::vector<rts::Msg> & msgs) {
     std::vector<common_chat_msg> out;
     for (const auto & m : msgs) {
         common_chat_msg c;
-        c.role    = m.role;
-        c.content = m.content;
+        c.role         = m.role;
+        c.content      = m.content;
+        c.tool_call_id = m.tool_call_id;
+        for (const auto & tc : m.tool_calls) {
+            c.tool_calls.push_back({tc.name, tc.arguments, tc.id});
+        }
         out.push_back(c);
     }
     return out;
@@ -89,32 +94,38 @@ int main(int argc, char ** argv) {
 
         rts::TurnText t;
         std::string   err;
-        check(rts::derive_turn_text(render, rts::default_instructions(), t, err), "LFM3 template fits the turn format");
+        check(rts::derive_turn_text(render, rts::default_instructions(), with_tools ? "get_time" : "", t, err), "LFM3 template fits the turn format");
         if (!err.empty()) {
             std::fprintf(stderr, "  %s\n", err.c_str());
         }
-        check(t.has_tool_turn, "LFM3 renders a tool turn");
+        check(t.has_tool_turn == with_tools, "LFM3 renders a tool turn when the session has tools");
         if (with_tools) {
             check(t.first_header.find("<tools>") != std::string::npos || t.first_header.find("get_time") != std::string::npos,
                   "the first header lists the tools");
         }
 
         // what the slot sees must equal what the template renders for the whole conversation
-        const auto sys = rts::Msg{"system", rts::default_instructions(), {}};
-        auto       m   = [](const char * role, const char * content) { return rts::Msg{role, content, {}}; };
+        const auto sys = rts::Msg{"system", rts::default_instructions(), {}, ""};
+        auto       m   = [](const char * role, const char * content) { return rts::Msg{role, content, {}, ""}; };
         const std::string slot_two_turns = t.first_header + "hi" + t.user_footer + t.assistant_header + "hello" + t.assistant_footer +
                                            t.user_header + "bye" + t.user_footer + t.assistant_header;
         check_eq(slot_two_turns, render({sys, m("user", "hi"), m("assistant", "hello"), m("user", "bye")}, true), "two user turns");
 
-        const std::string slot_tool = t.first_header + "hi" + t.user_footer + t.assistant_header + "calling" + t.assistant_footer +
-                                      t.tool_header + "12:00" + t.tool_footer + t.assistant_header_after_tool;
-        check_eq(slot_tool, render({sys, m("user", "hi"), m("assistant", "calling"), m("tool", "12:00")}, true), "tool turn");
+        if (with_tools) {
+            // the response is the call the model wrote, the result of the tool follows
+            const std::string call = "<tool_call>\n<function=get_time>\n</function>\n</tool_call>";
+            const std::string slot_tool = t.first_header + "hi" + t.user_footer + t.assistant_header + call + t.assistant_footer +
+                                          t.tool_header + "12:00" + t.tool_footer + t.assistant_header_after_tool;
+            rts::Msg assistant{"assistant", "", {{"get_time", "{}", "call_0"}}, ""};
+            rts::Msg result{"tool", "12:00", {}, "call_0"};
+            check_eq(slot_tool, render({sys, m("user", "hi"), assistant, result}, true), "tool turn");
+        }
         std::printf("tools=%d\n  first_header=%s\n  tool_header=%s\n  tool_footer=%s\n  assistant_footer=%s\n", with_tools,
                     rts::json(t.first_header).dump().c_str(), rts::json(t.tool_header).dump().c_str(),
                     rts::json(t.tool_footer).dump().c_str(), rts::json(t.assistant_footer).dump().c_str());
     }
 
-    // the tool-call block the model writes parses with the parser the template selects
+    // the tool-call block the model writes goes through the grammar and the incremental parser of the template
     {
         common_chat_templates_inputs in;
         in.use_jinja             = true;
@@ -127,41 +138,83 @@ int main(int argc, char ** argv) {
         user.role    = "user";
         user.content = "x";
         in.messages.push_back(user);
-        common_chat_session session(tmpls.get(), nullptr, in);
-        const std::string   text = "<tool_call>\n<function=get_time>\n<parameter=tz>\nUTC\n</parameter>\n</function>\n</tool_call>";
-        const auto &         msg  = session.finish(common_chat_input(text));
-        check(msg.tool_calls.size() == 1, "one tool call is parsed");
-        if (msg.tool_calls.size() == 1) {
-            check_eq(msg.tool_calls[0].name, "get_time", "tool name");
-            const auto args = rts::json::parse(msg.tool_calls[0].arguments, nullptr, false);
-            check(args.is_object() && args.value("tz", "") == "UTC", "tool arguments are a JSON object");
-        }
-        check(msg.content.empty(), ("no content around a bare call, got: " + rts::json(msg.content).dump()).c_str());
 
-        // the same through the translator, with the text split into pieces and audio inside the block
-        rts::ResponseTranslator tr(rts::OutMode::Auto, 24000, [&](const std::string & t) {
-            common_chat_session s(tmpls.get(), nullptr, in);
-            std::vector<rts::ToolCallMsg> calls;
-            for (const auto & tc : s.finish(common_chat_input(t)).tool_calls) {
-                calls.push_back({tc.name, tc.arguments, tc.id});
+        {
+            common_chat_session session(tmpls.get(), nullptr, in);
+            common_params_sampling sampling;
+            session.apply_sampling(sampling);
+            check(!sampling.grammar.grammar.empty(), "the template gives a grammar for the tools");
+            check(!sampling.preserved_tokens.empty() || !sampling.grammar_triggers.empty(), "the template names the tokens of a call");
+        }
+
+        const std::string call = "<tool_call>\n<function=get_time>\n<parameter=tz>\nUTC\n</parameter>\n</function>\n</tool_call>";
+        const std::string text = "One moment.\n" + call;
+
+        // the splitter of grpc-server.cpp, on the session API only: the same diffs, fed piece by piece
+        auto make_splitter = [&]() -> rts::ResponseTranslator::Splitter {
+            auto session = std::make_shared<common_chat_session>(tmpls.get(), nullptr, in);
+            auto prev    = std::make_shared<common_chat_msg>();
+            return [session, prev](const std::string & piece, bool final) {
+                rts::SplitResult out;
+                const auto & msg = final ? session->finish(common_chat_input(piece)) : session->feed(common_chat_input(piece));
+                for (const auto & d : common_chat_msg_diff::compute_diffs(*prev, msg)) {
+                    out.content += d.content_delta;
+                    if (d.tool_call_index != std::string::npos) {
+                        out.calls.push_back({d.tool_call_index, d.tool_call_delta.id, d.tool_call_delta.name, d.tool_call_delta.arguments});
+                    }
+                }
+                *prev = msg;
+                return out;
+            };
+        };
+
+        for (const size_t step : {size_t(7), size_t(1), text.size()}) {
+            rts::ResponseTranslator tr(rts::OutMode::Auto, 24000, make_splitter());
+            std::vector<rts::OutEvent> all;
+            for (size_t i = 0; i < text.size(); i += step) {
+                auto ev = tr.on_result(text.substr(i, step), {0.1f}, false, false, 1);
+                all.insert(all.end(), ev.begin(), ev.end());
             }
-            return calls;
-        });
-        std::vector<rts::OutEvent> all;
-        for (size_t i = 0; i < text.size(); i += 7) {
-            auto ev = tr.on_result(text.substr(i, 7), {0.1f}, false, false, 1);
+            auto ev = tr.on_result("", {}, true, false, 9);
             all.insert(all.end(), ev.begin(), ev.end());
+
+            std::string transcript, name, args;
+            size_t      calls = 0;
+            for (const auto & e : all) {
+                if (e.event == "response.audio_transcript.delta") {
+                    transcript += e.meta["delta"].get<std::string>();
+                } else if (e.event == "response.function_call_arguments.done") {
+                    calls++;
+                    name = e.meta["name"].get<std::string>();
+                    args = e.meta["arguments"].get<std::string>();
+                }
+            }
+            const std::string label = "step " + std::to_string(step) + ": ";
+            check(calls == 1, (label + "one tool call").c_str());
+            check_eq(name, "get_time", (label + "tool name").c_str());
+            const auto parsed = rts::json::parse(args, nullptr, false);
+            check(parsed.is_object() && parsed.value("tz", "") == "UTC", (label + "tool arguments are a JSON object").c_str());
+            check_eq(transcript, "One moment.", (label + "the call is not in the transcript").c_str());
+            check(tr.dropped_audio_frames() > 0, (label + "audio after the call starts is dropped").c_str());
+            check(all.back().event == "response.done", (label + "response.done is last").c_str());
+            check(all.back().meta["raw_text"].get<std::string>() == text, (label + "response.done carries the raw text").c_str());
         }
-        auto ev = tr.on_result("", {}, true, false, 9);
-        all.insert(all.end(), ev.begin(), ev.end());
-        size_t calls = 0, transcript = 0;
-        for (const auto & e : all) {
-            calls += e.event == "response.function_call_arguments.done";
-            transcript += e.event == "response.audio_transcript.delta";
+
+        // a reply without a call is only content
+        {
+            rts::ResponseTranslator tr(rts::OutMode::Auto, 24000, make_splitter());
+            auto ev = tr.on_result("It is noon.", {}, false, false, 1);
+            auto fin = tr.on_result("", {}, true, false, 2);
+            ev.insert(ev.end(), fin.begin(), fin.end());
+            std::string transcript;
+            for (const auto & e : ev) {
+                check(e.event != "response.function_call_arguments.done", "no call in a plain reply");
+                if (e.event == "response.audio_transcript.delta") {
+                    transcript += e.meta["delta"].get<std::string>();
+                }
+            }
+            check_eq(transcript, "It is noon.", "a plain reply is the transcript");
         }
-        check(calls == 1, "translator emits the parsed call");
-        check(transcript == 0, "the call is not in the transcript");
-        check(all.back().event == "response.done", "response.done is last");
     }
 
     if (failures) {

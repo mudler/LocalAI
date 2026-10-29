@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <memory>
 #include <stdexcept>
 
 namespace rt = llama_grpc::realtime;
@@ -41,6 +42,12 @@ rt::RenderFn fake_renderer(const std::string & tools) {
                     out += "\n<tools>" + tools + "</tools>";
                 }
                 out += "<|im_end|>\n";
+            } else if (m.role == "assistant" && !m.tool_calls.empty()) {
+                out += "<|im_start|>assistant\n";
+                for (const auto & tc : m.tool_calls) {
+                    out += "<tool_call>" + tc.name + "</tool_call>";
+                }
+                out += "<|im_end|>\n";
             } else if (m.role == "tool") {
                 out += "<|im_start|>tool\n<tool_response>\n" + m.content + "\n</tool_response><|im_end|>\n";
             } else {
@@ -54,10 +61,10 @@ rt::RenderFn fake_renderer(const std::string & tools) {
     };
 }
 
-rt::TurnText derive(const std::string & instructions, const std::string & tools) {
+rt::TurnText derive(const std::string & instructions, const std::string & tools, const std::string & tool_name = "get_time") {
     rt::TurnText t;
     std::string  err;
-    check(rt::derive_turn_text(fake_renderer(tools), instructions, t, err), "derive_turn_text succeeds");
+    check(rt::derive_turn_text(fake_renderer(tools), instructions, tool_name, t, err), "derive_turn_text succeeds");
     return t;
 }
 
@@ -72,6 +79,11 @@ void test_turn_text() {
     check_eq(t.tool_header, std::string("<|im_start|>tool\n<tool_response>\n"), "tool header");
     check_eq(t.tool_footer, std::string("\n</tool_response><|im_end|>\n"), "tool footer");
     check_eq(t.assistant_header_after_tool, std::string("<|im_start|>assistant\n"), "assistant header after a tool turn");
+}
+
+void test_tool_turn_needs_a_tool() {
+    // the tool turn follows an assistant turn that called a tool, so a session without tools has none
+    check(!derive("Be brief.", "", "").has_tool_turn, "no tool, no tool turn");
 }
 
 void test_turn_text_with_tools() {
@@ -92,12 +104,12 @@ void test_turn_text_rejects_bad_template() {
     rt::RenderFn broken = [](const std::vector<rt::Msg> &, bool) { return std::string("no placeholders"); };
     rt::TurnText t;
     std::string  err;
-    check(!rt::derive_turn_text(broken, "x", t, err), "a template that drops the content is rejected");
+    check(!rt::derive_turn_text(broken, "x", "f", t, err), "a template that drops the content is rejected");
     check(!err.empty(), "the reason is reported");
 
     rt::RenderFn throwing = [](const std::vector<rt::Msg> &, bool) -> std::string { throw std::runtime_error("boom"); };
     err.clear();
-    check(!rt::derive_turn_text(throwing, "x", t, err), "a throwing template is rejected");
+    check(!rt::derive_turn_text(throwing, "x", "f", t, err), "a throwing template is rejected");
     check(err.find("boom") != std::string::npos, "the exception text is reported");
 }
 
@@ -115,7 +127,7 @@ void test_no_tool_turn() {
     };
     rt::TurnText t;
     std::string  err;
-    check(rt::derive_turn_text(no_tool, "x", t, err), "derivation still works");
+    check(rt::derive_turn_text(no_tool, "x", "f", t, err), "derivation still works");
     check(!t.has_tool_turn, "no tool turn is reported");
 }
 
@@ -155,19 +167,30 @@ void test_session_params() {
     check(rt::parse_session_params({{"output_modalities", "[\"audio\"]"}}, p, err) && *p.out_mode == rt::OutMode::Audio, "JSON array of modalities");
     check(!rt::parse_session_params({{"output_modalities", "video"}}, p, err), "bad modality");
     check(!rt::parse_session_params({{"temperature", "hot"}}, p, err), "bad number");
+    check(rt::parse_session_params({{"tool_choice", "required"}}, p, err) && p.tool_choice == rt::ToolChoice::Required, "tool_choice");
+    check(rt::parse_session_params({}, p, err) && p.tool_choice == rt::ToolChoice::Auto, "tool_choice defaults to auto");
+    check(!rt::parse_session_params({{"tool_choice", "x"}}, p, err), "bad tool_choice");
     check(!rt::parse_session_params({{"max_output_tokens", "-3"}}, p, err), "bad token cap");
 }
 
 void test_response_options() {
     rt::ResponseOptions o{};
     std::string         err;
-    check(rt::parse_response_options(nlohmann::json::parse(R"({"output_modalities":["text"],"max_output_tokens":200})"), rt::OutMode::Mixed, -1, o, err), "flat payload");
+    check(rt::parse_response_options(nlohmann::json::parse(R"({"output_modalities":["text"],"max_output_tokens":200})"), rt::OutMode::Mixed, -1, rt::ToolChoice::Auto, o, err), "flat payload");
     check(o.out_mode == rt::OutMode::Text && o.max_output_tokens == 200, "flat payload values");
-    check(rt::parse_response_options(nlohmann::json::parse(R"({"response":{"max_output_tokens":9}})"), rt::OutMode::Mixed, -1, o, err), "nested payload");
+    check(rt::parse_response_options(nlohmann::json::parse(R"({"response":{"max_output_tokens":9}})"), rt::OutMode::Mixed, -1, rt::ToolChoice::Auto, o, err), "nested payload");
     check(o.out_mode == rt::OutMode::Mixed && o.max_output_tokens == 9, "nested payload keeps the session mode");
-    check(rt::parse_response_options(nlohmann::json(), rt::OutMode::Auto, 5, o, err) && o.max_output_tokens == 5, "empty payload keeps the defaults");
-    check(!rt::parse_response_options(nlohmann::json::parse(R"({"output_modalities":["x"]})"), rt::OutMode::Mixed, -1, o, err), "bad modality");
-    check(!rt::parse_response_options(nlohmann::json::parse(R"({"max_output_tokens":0})"), rt::OutMode::Mixed, -1, o, err), "bad cap");
+    check(rt::parse_response_options(nlohmann::json(), rt::OutMode::Auto, 5, rt::ToolChoice::Auto, o, err) && o.max_output_tokens == 5, "empty payload keeps the defaults");
+    check(!rt::parse_response_options(nlohmann::json::parse(R"({"output_modalities":["x"]})"), rt::OutMode::Mixed, -1, rt::ToolChoice::Auto, o, err), "bad modality");
+    check(!rt::parse_response_options(nlohmann::json::parse(R"({"max_output_tokens":0})"), rt::OutMode::Mixed, -1, rt::ToolChoice::Auto, o, err), "bad cap");
+
+    check(rt::parse_response_options(nlohmann::json::parse(R"({"response":{"tool_choice":"required"}})"), rt::OutMode::Mixed, -1, rt::ToolChoice::None, o, err) &&
+              o.tool_choice == rt::ToolChoice::Required, "a response overrides the tool choice of the session");
+    check(rt::parse_response_options(nlohmann::json::parse("{}"), rt::OutMode::Mixed, -1, rt::ToolChoice::None, o, err) && o.tool_choice == rt::ToolChoice::None,
+          "the tool choice of the session is the default");
+    check(!rt::parse_response_options(nlohmann::json::parse(R"({"tool_choice":"sometimes"})"), rt::OutMode::Mixed, -1, rt::ToolChoice::Auto, o, err), "bad tool choice");
+    check(!rt::parse_response_options(nlohmann::json::parse(R"({"tool_choice":{"type":"function"}})"), rt::OutMode::Mixed, -1, rt::ToolChoice::Auto, o, err),
+          "a named function is not a tool choice mode");
 }
 
 void test_state_machine() {
@@ -393,11 +416,61 @@ void test_translator_text_only() {
     check_eq(ev[0].event, std::string("response.text.delta"), "text-only responses use text deltas");
 }
 
+// A fake parser for text of the form "<c>name|args</c>": it reports the content
+// before a call and the arguments of a call as they grow.
+rt::ResponseTranslator::Splitter fake_splitter(std::vector<std::string> * seen = nullptr) {
+    struct State {
+        std::string buf;
+        size_t      emitted_content = 0;
+        size_t      emitted_args    = 0;
+        bool        named           = false;
+    };
+    auto st = std::make_shared<State>();
+    return [st, seen](const std::string & text, bool final) {
+        if (seen) {
+            seen->push_back(text + (final ? "|final" : ""));
+        }
+        st->buf += text;
+        rt::SplitResult r;
+        const size_t open = st->buf.find("<c>");
+        if (open == std::string::npos) {
+            // hold back a possible start of the tag
+            size_t keep = 0;
+            for (size_t n = std::min<size_t>(2, st->buf.size()); n > 0; n--) {
+                if (std::string("<c>").compare(0, n, st->buf, st->buf.size() - n, n) == 0) {
+                    keep = n;
+                    break;
+                }
+            }
+            r.content = st->buf.substr(st->emitted_content, st->buf.size() - keep - st->emitted_content);
+            st->emitted_content += r.content.size();
+            return r;
+        }
+        r.content = st->buf.substr(st->emitted_content, open - st->emitted_content);
+        st->emitted_content = open;
+        const size_t bar = st->buf.find('|', open);
+        if (bar == std::string::npos) {
+            return r;
+        }
+        rt::CallDelta d;
+        d.index = 0;
+        if (!st->named) {
+            d.name  = st->buf.substr(open + 3, bar - open - 3);
+            d.id    = "call_x";
+            st->named = true;
+        }
+        size_t end = st->buf.find("</c>", bar);
+        end = end == std::string::npos ? st->buf.size() : end;
+        d.arguments = st->buf.substr(bar + 1 + st->emitted_args, end - bar - 1 - st->emitted_args);
+        st->emitted_args += d.arguments.size();
+        r.calls.push_back(d);
+        return r;
+    };
+}
+
 void test_translator_cancel() {
-    rt::ResponseTranslator tr(rt::OutMode::Mixed, 24000, [](const std::string &) {
-        return std::vector<rt::ToolCallMsg>{{"f", "{}", ""}};
-    });
-    const auto ev = run(tr, {{"Hel", {0.1f}}}, /*cancelled=*/true, 3);
+    rt::ResponseTranslator tr(rt::OutMode::Mixed, 24000, fake_splitter());
+    const auto ev = run(tr, {{"Hel", {0.1f}}, {"<c>f|{}</c>", {}}}, /*cancelled=*/true, 3);
     check_eq(ev.back().event, std::string("response.done"), "a cancelled response ends with response.done");
     check_eq(ev.back().meta["status"].get<std::string>(), std::string("cancelled"), "status cancelled");
     check_eq(ev.back().meta["text"].get<std::string>(), std::string("Hel"), "the decoded part is reported");
@@ -408,38 +481,83 @@ void test_translator_cancel() {
 }
 
 void test_translator_tool_call() {
-    std::string seen;
-    rt::ResponseTranslator tr(rt::OutMode::Auto, 24000, [&seen](const std::string & text) {
-        seen = text;
-        return std::vector<rt::ToolCallMsg>{{"get_time", R"({"tz":"UTC"})", ""}, {"get_date", "", "call_fixed"}};
-    }, [] { return std::string("call_gen"); });
-    const std::string call = "<tool_call>\n<function=get_time>\n<parameter=tz>\nUTC\n</parameter>\n</function>\n</tool_call>";
-    const auto        ev   = run(tr, {{"One moment.", {0.1f}}, {"<tool", {}}, {"_call>\n<function=get_time>", {0.2f}}, {"\n</function>\n</tool_call>", {0.3f}}, {"", {0.4f}}});
-    // the transcript never shows the tag, the audio inside the block is dropped
+    std::vector<std::string> seen;
+    rt::ResponseTranslator   tr(rt::OutMode::Auto, 24000, fake_splitter(&seen), [] { return std::string("call_gen"); });
+    const auto ev = run(tr, {{"One moment.", {0.1f}}, {"<", {}}, {"c>get_time|{\"tz\"", {0.2f}}, {":\"UTC\"}</c>", {0.3f}}, {"", {0.4f}}});
+    // the transcript never shows the call, the audio after it is dropped
+    std::string transcript;
     for (const auto & e : ev) {
         if (e.event == "response.audio_transcript.delta") {
-            check(e.meta["delta"].get<std::string>().find('<') == std::string::npos, "no tag in the transcript");
+            transcript += e.meta["delta"].get<std::string>();
         }
     }
-    check(tr.dropped_audio_frames() >= 1, "audio inside the block was dropped");
-    check(seen.find("<tool_call>") != std::string::npos, "the parser sees the full text, tags included");
+    check_eq(transcript, std::string("One moment."), "the call is not in the transcript");
+    check(tr.dropped_audio_frames() >= 1, "audio after the start of a call was dropped");
+    check_eq(seen.back(), std::string("|final"), "the parser is told when the response ends");
 
-    const auto n = names(ev);
+    const auto n        = names(ev);
     const auto done_pos = std::find(n.begin(), n.end(), "response.done") - n.begin();
     const auto call_pos = std::find(n.begin(), n.end(), "response.function_call_arguments.done") - n.begin();
     check(call_pos < done_pos, "tool calls come before response.done");
-    check_eq((size_t) std::count(n.begin(), n.end(), "response.function_call_arguments.done"), (size_t) 2, "one event per call");
-    {
-        const auto & a = ev[call_pos].meta;
-        check_eq(a["name"].get<std::string>(), std::string("get_time"), "call name");
-        check_eq(a["arguments"].get<std::string>(), std::string(R"({"tz":"UTC"})"), "arguments are a JSON string");
-        check_eq(a["call_id"].get<std::string>(), std::string("call_gen"), "generated call id");
-        const auto & b = ev[call_pos + 1].meta;
-        check_eq(b["call_id"].get<std::string>(), std::string("call_fixed"), "a call id from the parser is kept");
-        check_eq(b["arguments"].get<std::string>(), std::string("{}"), "empty arguments become an empty object");
+    check_eq((size_t) std::count(n.begin(), n.end(), "response.function_call_arguments.done"), (size_t) 1, "one event per call");
+    const auto & a = ev[call_pos].meta;
+    check_eq(a["name"].get<std::string>(), std::string("get_time"), "call name");
+    check_eq(a["arguments"].get<std::string>(), std::string(R"({"tz":"UTC"})"), "the arguments of the deltas are joined into a JSON string");
+    check_eq(a["call_id"].get<std::string>(), std::string("call_x"), "a call id from the parser is kept");
+    const auto & d = ev.back().meta;
+    check_eq(d["text"].get<std::string>(), std::string("One moment."), "response.done text has no tool call");
+    check_eq(d["raw_text"].get<std::string>(), std::string("One moment.<c>get_time|{\"tz\":\"UTC\"}</c>"), "response.done carries what the model wrote");
+}
+
+void test_translator_call_ids_and_empty_arguments() {
+    rt::ResponseTranslator tr(rt::OutMode::Auto, 24000, [](const std::string &, bool final) {
+        rt::SplitResult r;
+        if (final) {
+            r.calls.push_back({0, "", "get_time", ""});
+            r.calls.push_back({1, "call_fixed", "get_date", "{}"});
+        }
+        return r;
+    }, [] { return std::string("call_gen"); });
+    const auto ev = run(tr, {{"x", {}}});
+    std::vector<nlohmann::json> calls;
+    for (const auto & e : ev) {
+        if (e.event == "response.function_call_arguments.done") {
+            calls.push_back(e.meta);
+        }
     }
-    check_eq(ev.back().meta["text"].get<std::string>(), std::string("One moment."), "response.done text has no tool call");
-    (void) call;
+    check_eq(calls.size(), (size_t) 2, "two calls");
+    check_eq(calls[0]["call_id"].get<std::string>(), std::string("call_gen"), "a missing call id is generated");
+    check_eq(calls[0]["arguments"].get<std::string>(), std::string("{}"), "empty arguments become an empty object");
+    check_eq(calls[1]["call_id"].get<std::string>(), std::string("call_fixed"), "a call id from the parser is kept");
+}
+
+void test_translator_without_splitter() {
+    rt::ResponseTranslator tr(rt::OutMode::Mixed, 24000);
+    const auto ev = run(tr, {{"a <c>b|c</c>", {0.1f}}});
+    check_eq(ev.back().meta["text"].get<std::string>(), std::string("a <c>b|c</c>"), "without tools nothing is a call");
+    check(!ev.back().meta.contains("raw_text"), "without tools the raw text is not repeated");
+    check_eq(tr.n_calls(), 0, "no calls");
+    check_eq(tr.dropped_audio_frames(), (size_t) 0, "no audio dropped");
+}
+
+void test_translator_final_without_text() {
+    // the last result of a response has no text, the parser still has to see the end
+    std::vector<std::string> seen;
+    rt::ResponseTranslator   tr(rt::OutMode::Mixed, 24000, fake_splitter(&seen));
+    (void) run(tr, {{"hi", {}}});
+    check_eq(seen.size(), (size_t) 2, "one piece and the end");
+    check_eq(seen.back(), std::string("|final"), "the end is marked");
+}
+
+void test_translator_parts_split_in_a_character() {
+    // the parser gets whole characters only
+    std::vector<std::string> seen;
+    rt::ResponseTranslator   tr(rt::OutMode::Mixed, 24000, fake_splitter(&seen));
+    (void) run(tr, {{"5 \xE2\x82", {}}, {"\xAC", {}}});
+    for (const auto & s : seen) {
+        std::string text = s.substr(0, s.find("|final"));
+        check_eq(rt::utf8_complete_prefix(text), text.size(), "the parser gets whole characters");
+    }
 }
 
 void test_translator_utf8_split() {
@@ -489,6 +607,7 @@ void test_meta() {
 
 int main() {
     test_turn_text();
+    test_tool_turn_needs_a_tool();
     test_turn_text_with_tools();
     test_turn_text_without_instructions();
     test_turn_text_rejects_bad_template();
@@ -514,6 +633,10 @@ int main() {
     test_translator_text_only();
     test_translator_cancel();
     test_translator_tool_call();
+    test_translator_call_ids_and_empty_arguments();
+    test_translator_without_splitter();
+    test_translator_final_without_text();
+    test_translator_parts_split_in_a_character();
     test_translator_utf8_split();
     test_translator_utf8_dangling();
     test_meta();

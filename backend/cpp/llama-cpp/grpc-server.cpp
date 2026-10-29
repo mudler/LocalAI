@@ -1823,8 +1823,9 @@ private:
         std::vector<common_chat_msg> out;
         for (const auto & m : msgs) {
             common_chat_msg c;
-            c.role    = m.role;
-            c.content = m.content;
+            c.role         = m.role;
+            c.content      = m.content;
+            c.tool_call_id = m.tool_call_id;
             for (const auto & tc : m.tool_calls) {
                 c.tool_calls.push_back({tc.name, tc.arguments, tc.id});
             }
@@ -1842,28 +1843,58 @@ private:
         };
     }
 
-    // the tool calls in the text of a response, parsed with the parser the chat template selects for the tools
-    std::vector<rts::ToolCallMsg> parse_tool_calls(const std::string & text) const {
-        std::vector<rts::ToolCallMsg> calls;
-        try {
-            auto in                  = base_inputs();
-            in.add_generation_prompt = true;
-            in.parallel_tool_calls   = true;
-            // as the server does: the empty think block of the generation prompt is reasoning, not content
-            in.reasoning_format      = ctx_server.impl->chat_params.reasoning_format;
-            common_chat_msg user;
-            user.role    = "user";
-            user.content = "x";
-            in.messages.push_back(user);
-            common_chat_session session(ctx_server.impl->chat_params.tmpls.get(), ctx_server.impl->vocab, in);
-            const auto & msg = session.finish(common_chat_input_tokenize(ctx_server.impl->vocab, text));
-            for (const auto & tc : msg.tool_calls) {
-                calls.push_back({tc.name, tc.arguments, tc.id});
-            }
-        } catch (const std::exception & e) {
-            LOG_WRN("%s: could not parse the tool calls of a response: %s\n", __func__, e.what());
+    static common_chat_tool_choice to_common_choice(rts::ToolChoice c) {
+        switch (c) {
+            case rts::ToolChoice::None:     return COMMON_CHAT_TOOL_CHOICE_NONE;
+            case rts::ToolChoice::Required: return COMMON_CHAT_TOOL_CHOICE_REQUIRED;
+            default:                        return COMMON_CHAT_TOOL_CHOICE_AUTO;
         }
-        return calls;
+    }
+
+    // The chat session of one response, as upstream builds it for /v1/realtime:
+    // the template selects the grammar and the parser for the tools of the session.
+    common_chat_session make_chat_session(rts::ToolChoice choice) const {
+        auto in                  = base_inputs();
+        in.add_generation_prompt = true;
+        in.parallel_tool_calls   = true;
+        in.tool_choice           = to_common_choice(choice);
+        // as the server does: the empty think block of the generation prompt is reasoning, not content
+        in.reasoning_format      = ctx_server.impl->chat_params.reasoning_format;
+        common_chat_msg user;
+        user.role    = "user";
+        user.content = "x";
+        in.messages.push_back(user);
+        return common_chat_session(ctx_server.impl->chat_params.tmpls.get(), ctx_server.impl->vocab, in);
+    }
+
+    // Splits the text of a response into content and tool calls while it grows.
+    // If the parser fails, the rest of the response is content and the full text
+    // still goes out in response.done, so the caller can parse it another way.
+    static rts::ResponseTranslator::Splitter make_splitter(common_chat_session session) {
+        auto state  = std::make_shared<task_result_state>(std::move(session));
+        auto broken = std::make_shared<bool>(false);
+        return [state, broken](const std::string & text, bool final) {
+            rts::SplitResult out;
+            if (*broken) {
+                out.content = text;
+                return out;
+            }
+            try {
+                std::vector<common_chat_msg_diff> diffs;
+                state->update_chat_msg(common_chat_input(text), !final, diffs, true);
+                for (const auto & d : diffs) {
+                    out.content += d.content_delta;
+                    if (d.tool_call_index != std::string::npos) {
+                        out.calls.push_back({d.tool_call_index, d.tool_call_delta.id, d.tool_call_delta.name, d.tool_call_delta.arguments});
+                    }
+                }
+            } catch (const std::exception & e) {
+                LOG_WRN("realtime: could not parse the tool calls of a response: %s\n", e.what());
+                *broken     = true;
+                out.content = text;
+            }
+            return out;
+        };
     }
 
     //
@@ -1885,6 +1916,11 @@ private:
             s.seed = *session_params.seed;
         }
         return s;
+    }
+
+    // any tool of the session, to derive the tool turn from the chat template
+    std::string tool_name() const {
+        return tools.empty() ? std::string() : tools.front().name;
     }
 
     rts::OutMode session_out_mode() const {
@@ -1932,7 +1968,7 @@ private:
         const auto old_tools = tools;
         tools                = new_tools;
         rts::TurnText t;
-        if (!rts::derive_turn_text(renderer(), new_instructions, t, err)) {
+        if (!rts::derive_turn_text(renderer(), new_instructions, tool_name(), t, err)) {
             tools = old_tools;
             return false;
         }
@@ -1946,7 +1982,7 @@ private:
 
     // session.update, or a later config: before the first turn everything changes, afterwards only the response options
     void update_session(const std::string & new_instructions, const std::string & new_tools, const std::string & new_voice,
-                        const rts::json & modalities, const rts::json & max_tokens) {
+                        const rts::json & modalities, const rts::json & max_tokens, const rts::json & choice) {
         const bool instr_changed = !new_instructions.empty() && new_instructions != instructions;
         const bool tools_changed = !new_tools.empty() && new_tools != tools_text;
         const bool voice_changed = !new_voice.empty() && new_voice != voice;
@@ -1969,6 +2005,10 @@ private:
             send_error("invalid_request_error", "session.update: max_output_tokens must be an integer or \"inf\"");
             return;
         }
+        if (!choice.is_null() && !rts::parse_tool_choice(choice, p.tool_choice, err)) {
+            send_error("invalid_request_error", "session.update: " + err);
+            return;
+        }
         if (!state.started() && (instr_changed || tools_changed)) {
             std::vector<common_chat_tool> t;
             if (tools_changed && !parse_tools(new_tools, t, err)) {
@@ -1980,7 +2020,7 @@ private:
                 tools = t;
             }
             rts::TurnText tt;
-            if (!rts::derive_turn_text(renderer(), instr_changed ? new_instructions : instructions, tt, err)) {
+            if (!rts::derive_turn_text(renderer(), instr_changed ? new_instructions : instructions, tool_name(), tt, err)) {
                 tools = old_tools;
                 send_error("server_error", err);
                 return;
@@ -2046,7 +2086,12 @@ private:
             }
             modalities = rts::out_mode_json(m);
         }
-        update_session(c.system_prompt(), c.tools(), c.voice(), modalities, max_tokens);
+        rts::json choice = nullptr;
+        auto ct = p.find("tool_choice");
+        if (ct != p.end()) {
+            choice = ct->second;
+        }
+        update_session(c.system_prompt(), c.tools(), c.voice(), modalities, max_tokens, choice);
     }
 
     // the header of a user turn goes in before its first audio or text
@@ -2125,7 +2170,8 @@ private:
                            s.contains("tools") ? (s["tools"].is_string() ? s["tools"].get<std::string>() : s["tools"].dump()) : std::string(),
                            str_field(s, "voice"),
                            s.contains("output_modalities") ? s["output_modalities"] : rts::json(nullptr),
-                           s.contains("max_output_tokens") ? s["max_output_tokens"] : rts::json(nullptr));
+                           s.contains("max_output_tokens") ? s["max_output_tokens"] : rts::json(nullptr),
+                           s.contains("tool_choice") ? s["tool_choice"] : rts::json(nullptr));
         } else {
             send_error("invalid_request_error", "unknown event type: " + ev);
         }
@@ -2191,7 +2237,7 @@ private:
         }
         rts::ResponseOptions opts{};
         std::string         err;
-        if (!rts::parse_response_options(payload, session_out_mode(), session_params.max_output_tokens, opts, err)) {
+        if (!rts::parse_response_options(payload, session_out_mode(), session_params.max_output_tokens, session_params.tool_choice, opts, err)) {
             send_error("invalid_request_error", "response.create: " + err, true);
             return;
         }
@@ -2212,11 +2258,23 @@ private:
         server_control_response response;
         response.n_predict = opts.max_output_tokens;
         response.out_mode  = to_mtmd(opts.out_mode);
+        response.sampling  = sampling();
+
+        // with tools, the grammar and the parser of the chat template take part in the response
+        rts::ResponseTranslator::Splitter splitter;
+        if (!tools.empty()) {
+            try {
+                common_chat_session chat = make_chat_session(opts.tool_choice);
+                chat.apply_sampling(response.sampling);
+                splitter = make_splitter(std::move(chat));
+            } catch (const std::exception & e) {
+                send_error("server_error", std::string("response.create: ") + e.what(), true);
+                return;
+            }
+        }
         {
             std::lock_guard<std::mutex> lock(resp_mutex);
-            translator = std::make_unique<rts::ResponseTranslator>(
-                opts.out_mode, output_rate,
-                tools.empty() ? rts::ResponseTranslator::ToolParser() : [this](const std::string & text) { return parse_tool_calls(text); });
+            translator = std::make_unique<rts::ResponseTranslator>(opts.out_mode, output_rate, std::move(splitter));
         }
         response_active = true;
         if (!control(SERVER_CONTROL_ACTION_RESPONSE_CREATE, state.response_prompt(turn), {}, response)) {

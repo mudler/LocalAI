@@ -6,13 +6,14 @@
 //
 // Everything here is header-only and free of llama.cpp and gRPC types, so it can
 // be tested on its own (see realtime_session_test.cpp). grpc-server.cpp supplies
-// the pieces that need the model: a chat-template renderer (RenderFn) and a
-// tool-call parser (ResponseTranslator::ToolParser).
+// the pieces that need the model: a chat-template renderer (RenderFn) and the
+// parser that splits the text of a response into content and tool calls
+// (ResponseTranslator::Splitter).
 //
 // The functions mirror the websocket conversation upstream keeps in
 // tools/server/server-realtime.cpp (derive_turn_text, ensure_turn, commit,
-// on_item_create, on_response_create, on_result). Upstream has no tools, so the
-// tool turn, the tool-call text filter and the tool-call events are LocalAI's.
+// on_item_create, on_response_create, on_result), including the tool turn that
+// is derived from the chat template and the incremental tool-call parsing.
 
 #include <nlohmann/json.hpp>
 
@@ -64,6 +65,7 @@ struct Msg {
     std::string              role; // system, user, assistant, tool
     std::string              content;
     std::vector<ToolCallMsg> tool_calls;
+    std::string              tool_call_id; // of a tool message: the call it answers
 };
 
 // Renders messages with the chat template of the model. The tools of the session
@@ -86,11 +88,14 @@ struct TurnText {
 // Derives the text around the turns from placeholder messages, the same method
 // as upstream derive_turn_text(): render a few conversations and cut the
 // placeholders out. Returns false, with err set, if the template does not have
-// the shape of a turn-based chat.
-inline bool derive_turn_text(const RenderFn & render, const std::string & instructions, TurnText & out, std::string & err) {
+// the shape of a turn-based chat. tool_name is any tool of the session: the tool
+// turn is cut out of a conversation where the assistant called it. Empty means
+// the session has no tools and so no tool turn.
+inline bool derive_turn_text(const RenderFn & render, const std::string & instructions, const std::string & tool_name, TurnText & out,
+                             std::string & err) {
     const std::string user  = "@@USER@@";
     const std::string reply = "@@REPLY@@";
-    const std::string tool  = "@@TOOL@@";
+    const std::string tool  = "@@RESULT@@";
     auto msg = [](const char * role, const std::string & content) {
         Msg m;
         m.role    = role;
@@ -128,15 +133,22 @@ inline bool derive_turn_text(const RenderFn & render, const std::string & instru
         t.assistant_footer = c.substr(pc + reply.size());
         t.user_header      = d.substr(c.size(), pd - c.size());
 
-        // tool turn: a tool message after a finished response
-        const std::string e  = with({msg("user", user), msg("assistant", reply), msg("tool", tool)});
-        const std::string eg = with({msg("user", user), msg("assistant", reply), msg("tool", tool)}, true);
-        const size_t      pt = e.find(tool, c.size());
-        if (pt != std::string::npos && e.compare(0, c.size(), c) == 0 && eg.compare(0, e.size(), e) == 0) {
-            t.tool_header                 = e.substr(c.size(), pt - c.size());
-            t.tool_footer                 = e.substr(pt + tool.size());
-            t.assistant_header_after_tool = eg.substr(e.size());
-            t.has_tool_turn               = true;
+        // tool turn: a tool message after a response that called a tool
+        if (!tool_name.empty()) {
+            Msg call = msg("assistant", "");
+            call.tool_calls.push_back({tool_name, "{}", "call_0"});
+            Msg res       = msg("tool", tool);
+            res.tool_call_id = "call_0";
+            const std::string e  = with({msg("user", user), call});
+            const std::string f  = with({msg("user", user), call, res});
+            const std::string fg = with({msg("user", user), call, res}, true);
+            const size_t      pt = f.find(tool, e.size());
+            if (pt != std::string::npos && f.compare(0, e.size(), e) == 0 && fg.compare(0, f.size(), f) == 0) {
+                t.tool_header                 = f.substr(e.size(), pt - e.size());
+                t.tool_footer                 = f.substr(pt + tool.size());
+                t.assistant_header_after_tool = fg.substr(f.size());
+                t.has_tool_turn               = true;
+            }
         }
         out = std::move(t);
         return true;
@@ -205,6 +217,25 @@ inline bool parse_max_output_tokens(const json & j, int32_t & n) {
     return true;
 }
 
+// tool_choice of a session or a response: the model may call a tool (auto),
+// must not (none) or must (required).
+enum class ToolChoice { Auto, None, Required };
+
+inline bool parse_tool_choice(const json & j, ToolChoice & choice, std::string & err) {
+    const std::string v = j.is_string() ? j.get<std::string>() : std::string();
+    if (v == "auto") {
+        choice = ToolChoice::Auto;
+    } else if (v == "none") {
+        choice = ToolChoice::None;
+    } else if (v == "required") {
+        choice = ToolChoice::Required;
+    } else {
+        err = "tool_choice must be \"auto\", \"none\" or \"required\"";
+        return false;
+    }
+    return true;
+}
+
 // Mixed so that a transcript exists. With tools the model chooses when to speak:
 // forcing interleaved audio makes it read out the tool call.
 inline OutMode default_out_mode(bool has_tools) {
@@ -214,6 +245,7 @@ inline OutMode default_out_mode(bool has_tools) {
 // AudioToAudioConfig.params: free-form strings.
 struct SessionParams {
     std::optional<OutMode>   out_mode;
+    ToolChoice               tool_choice       = ToolChoice::Auto;
     int32_t                  max_output_tokens = -1;
     std::optional<float>     temperature;
     std::optional<float>     top_p;
@@ -260,6 +292,10 @@ inline bool parse_session_params(const std::map<std::string, std::string> & para
                     return false;
                 }
                 p.out_mode = m;
+            } else if (k == "tool_choice") {
+                if (!parse_tool_choice(json(v), p.tool_choice, err)) {
+                    return false;
+                }
             } else if (k == "max_output_tokens" || k == "max_new_tokens") {
                 json j = v == "inf" ? json(v) : json::parse(v, nullptr, false);
                 if (j.is_discarded() || !parse_max_output_tokens(j, p.max_output_tokens)) {
@@ -288,12 +324,14 @@ inline bool parse_session_params(const std::map<std::string, std::string> & para
 // Options of one response.create. They may sit at the top of the payload or under
 // "response", the way the OpenAI event nests them.
 struct ResponseOptions {
-    OutMode out_mode;
-    int32_t max_output_tokens;
+    OutMode    out_mode;
+    int32_t    max_output_tokens;
+    ToolChoice tool_choice = ToolChoice::Auto;
 };
 
-inline bool parse_response_options(const json & payload, OutMode default_mode, int32_t default_max, ResponseOptions & out, std::string & err) {
-    ResponseOptions o{default_mode, default_max};
+inline bool parse_response_options(const json & payload, OutMode default_mode, int32_t default_max, ToolChoice default_choice,
+                                   ResponseOptions & out, std::string & err) {
+    ResponseOptions o{default_mode, default_max, default_choice};
     json src = payload.is_object() ? payload : json::object();
     if (src.contains("response") && src["response"].is_object()) {
         src = src["response"];
@@ -303,6 +341,9 @@ inline bool parse_response_options(const json & payload, OutMode default_mode, i
     }
     if (src.contains("max_output_tokens") && !parse_max_output_tokens(src["max_output_tokens"], o.max_output_tokens)) {
         err = "max_output_tokens must be an integer or \"inf\"";
+        return false;
+    }
+    if (src.contains("tool_choice") && !parse_tool_choice(src["tool_choice"], o.tool_choice, err)) {
         return false;
     }
     out = o;
@@ -443,7 +484,7 @@ inline std::string f32_to_pcm_s16le(const std::vector<float> & samples) {
 }
 
 //
-// text: tool-call filter and UTF-8
+// text: UTF-8
 //
 
 // Number of leading bytes of s that end on a character boundary. A token piece
@@ -614,29 +655,61 @@ inline std::string make_call_id() {
     return id;
 }
 
+// A change in one tool call, as the incremental parser reports it. The name and
+// the id come with the first delta of a call, arguments is the text that was
+// added to the JSON arguments.
+struct CallDelta {
+    size_t      index = 0;
+    std::string id;
+    std::string name;
+    std::string arguments;
+};
+
+// What the parser made of a piece of the response: text for the transcript and
+// changes in the tool calls. The text of a call is in neither.
+struct SplitResult {
+    std::string            content;
+    std::vector<CallDelta> calls;
+};
+
 // Turns the results of the slot into the events of the stream, in order:
 // text deltas and audio frames as they come, then one function_call_arguments.done
 // per call, then response.done.
 class ResponseTranslator {
 public:
-    // the tool calls in the full text of a response
-    using ToolParser = std::function<std::vector<ToolCallMsg>(const std::string & text)>;
+    // Parses the text of a response as it grows. final is set with the last piece
+    // of an uncancelled response. Without a splitter every piece is content.
+    using Splitter = std::function<SplitResult(const std::string & text, bool final)>;
 
-    ResponseTranslator(OutMode mode, int sample_rate, ToolParser parser = nullptr, std::function<std::string()> id_gen = make_call_id)
-        : mode_(mode), sample_rate_(sample_rate), parser_(std::move(parser)), id_gen_(std::move(id_gen)) {}
+    ResponseTranslator(OutMode mode, int sample_rate, Splitter splitter = nullptr, std::function<std::string()> id_gen = make_call_id)
+        : mode_(mode), sample_rate_(sample_rate), splitter_(std::move(splitter)), id_gen_(std::move(id_gen)) {}
 
     std::vector<OutEvent> on_result(const std::string & text, const std::vector<float> & audio, bool response_done, bool cancelled, int n_decoded) {
         std::vector<OutEvent> events;
         if (done_) {
             return events;
         }
-        if (!text.empty()) {
-            raw_ += text;
-            // without tools nothing is a call
-            emit_text(parser_ ? filter_.feed(text) : text, events);
+        raw_ += text;
+        pending_ += text;
+        // a token piece can stop inside a character: the rest comes with the next piece
+        const size_t n = response_done ? pending_.size() : utf8_complete_prefix(pending_);
+        std::string chunk = pending_.substr(0, n);
+        pending_.erase(0, n);
+
+        const bool final = response_done && !cancelled;
+        if (!chunk.empty() || (final && splitter_)) {
+            SplitResult r = splitter_ ? splitter_(chunk, final) : SplitResult{chunk, {}};
+            if (!r.content.empty()) {
+                shown_ += r.content;
+                events.push_back(delta_event(r.content));
+            }
+            for (const auto & d : r.calls) {
+                merge_call(d);
+            }
         }
         if (!audio.empty()) {
-            if (filter_.in_call()) {
+            if (!calls_.empty()) {
+                // the model reads the call out; the audio that follows a call is not for the user
                 dropped_audio_++;
             } else {
                 OutEvent ev;
@@ -650,17 +723,12 @@ public:
             return events;
         }
         done_ = true;
-        if (parser_) {
-            emit_text(filter_.flush(), events);
-        }
-        // a lone lead byte left over cannot become a character any more
-        if (!utf8_tail_.empty()) {
-            shown_ += utf8_tail_;
-            events.push_back(delta_event(utf8_tail_));
-            utf8_tail_.clear();
-        }
-        if (!cancelled && parser_) {
-            for (const auto & call : parser_(raw_)) {
+        if (!cancelled) {
+            for (const auto & kv : calls_) {
+                const ToolCallMsg & call = kv.second;
+                if (call.name.empty()) {
+                    continue;
+                }
                 OutEvent ev;
                 ev.event = "response.function_call_arguments.done";
                 ev.meta  = {{"call_id", call.id.empty() ? id_gen_() : call.id},
@@ -673,6 +741,10 @@ public:
         OutEvent ev;
         ev.event = "response.done";
         ev.meta  = {{"status", cancelled ? "cancelled" : "completed"}, {"usage", {{"output_tokens", n_decoded}}}, {"text", shown_}};
+        if (splitter_) {
+            // what the model wrote, tool-call markup included, for a caller that parses it again
+            ev.meta["raw_text"] = raw_;
+        }
         events.push_back(std::move(ev));
         return events;
     }
@@ -685,12 +757,12 @@ public:
 private:
     OutMode                       mode_;
     int                           sample_rate_;
-    ToolParser                    parser_;
+    Splitter                      splitter_;
     std::function<std::string()>  id_gen_;
-    ToolCallFilter                filter_;
-    std::string                   raw_;       // everything the model wrote, tags included
-    std::string                   shown_;     // what went to the transcript
-    std::string                   utf8_tail_; // bytes of a character that is not complete yet
+    std::map<size_t, ToolCallMsg> calls_;
+    std::string                   raw_;     // everything the model wrote, tool-call markup included
+    std::string                   shown_;   // what went to the transcript
+    std::string                   pending_; // bytes of a character that is not complete yet
     bool                          done_          = false;
     int                           n_calls_       = 0;
     size_t                        dropped_audio_ = 0;
@@ -703,19 +775,15 @@ private:
         return ev;
     }
 
-    void emit_text(const std::string & visible, std::vector<OutEvent> & events) {
-        if (visible.empty()) {
-            return;
+    void merge_call(const CallDelta & d) {
+        ToolCallMsg & call = calls_[d.index];
+        if (!d.id.empty()) {
+            call.id = d.id;
         }
-        utf8_tail_ += visible;
-        const size_t n = utf8_complete_prefix(utf8_tail_);
-        if (n == 0) {
-            return;
+        if (!d.name.empty()) {
+            call.name = d.name;
         }
-        const std::string piece = utf8_tail_.substr(0, n);
-        utf8_tail_.erase(0, n);
-        shown_ += piece;
-        events.push_back(delta_event(piece));
+        call.arguments += d.arguments;
     }
 };
 
