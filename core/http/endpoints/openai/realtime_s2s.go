@@ -171,11 +171,21 @@ type s2sSession struct {
 	// session was not closed on purpose (guarded by mu).
 	onDead    func(err error)
 	closeOnce sync.Once
+	// onFatal closes the client transport (guarded by mu); fatalOnce runs it
+	// once.
+	onFatal   func()
+	fatalOnce sync.Once
 }
 
 func (s *s2sSession) setOnDead(f func(err error)) {
 	s.mu.Lock()
 	s.onDead = f
+	s.mu.Unlock()
+}
+
+func (s *s2sSession) setOnFatal(f func()) {
+	s.mu.Lock()
+	s.onFatal = f
 	s.mu.Unlock()
 }
 
@@ -222,8 +232,12 @@ func newS2SSession(stream S2SStream, cancel context.CancelFunc, onError func(err
 	return s
 }
 
-// writer is the only caller of stream.Send.
+// writer is the only caller of stream.Send and of stream.Close (CloseSend):
+// gRPC does not allow them to run at the same time. close() cancels the
+// stream context, which unblocks a Send that waits on flow control, and the
+// writer closes the stream when it exits.
 func (s *s2sSession) writer() {
+	defer func() { _ = s.stream.Close() }()
 	for {
 		s.outMu.Lock()
 		batch := s.outQ
@@ -280,6 +294,14 @@ func (s *s2sSession) sendErr(err error) error {
 
 func (s *s2sSession) enqueue(o s2sOutbound) {
 	s.outMu.Lock()
+	if s.closed.Load() {
+		// Nobody writes any more: do not let the queue grow.
+		s.outMu.Unlock()
+		if o.done != nil {
+			o.done <- errS2SClosed
+		}
+		return
+	}
 	s.outQ = append(s.outQ, o)
 	s.outMu.Unlock()
 	select {
@@ -309,6 +331,7 @@ func (s *s2sSession) pump() {
 			if onDead != nil && !s.closed.Load() && !s.active.Load() {
 				go onDead(err)
 			}
+			// A response in flight sees s.dead itself and ends the session.
 			return
 		}
 		switch resp.GetEvent() {
@@ -412,8 +435,31 @@ func (s *s2sSession) close() {
 		if s.cancel != nil {
 			s.cancel()
 		}
-		_ = s.stream.Close()
+		// Drop what is still queued. The writer closes the stream once it has
+		// stopped sending.
+		s.outMu.Lock()
+		rest := s.outQ
+		s.outQ = nil
+		s.outMu.Unlock()
+		for _, o := range rest {
+			if o.done != nil {
+				o.done <- errS2SClosed
+			}
+		}
 	})
+}
+
+// fatal ends the session after the stream failed during a response: it closes
+// the stream and, once, the client transport, so later requests are not
+// accepted and no more audio is forwarded to a dead stream.
+func (s *s2sSession) fatal() {
+	s.close()
+	s.mu.Lock()
+	f := s.onFatal
+	s.mu.Unlock()
+	if f != nil {
+		s.fatalOnce.Do(f)
+	}
 }
 
 // send queues req behind everything already queued and waits for the write. A
@@ -466,7 +512,7 @@ func (s *s2sSession) sendCancel() {
 // as frames of at most s2sFrameChunkMs. It never blocks on the stream. It
 // returns the number of bytes queued.
 func (s *s2sSession) forwardPCM(pcm []byte, rate int) int {
-	if len(pcm) < 2 {
+	if len(pcm) < 2 || s.closed.Load() {
 		return 0
 	}
 	pcm = pcm[:len(pcm)&^1]
@@ -606,6 +652,7 @@ func openS2SForSession(session *Session, opener s2sOpener, t Transport) error {
 		sendError(t, "server_error", fmt.Sprintf("the speech-to-speech stream ended: %v", err), "", "")
 		_ = t.Close()
 	})
+	st.setOnFatal(func() { _ = t.Close() })
 	session.s2s = st
 	return nil
 }
@@ -1125,11 +1172,12 @@ func s2sRunTurn(ctx context.Context, session *Session, conv *Conversation, t Tra
 		case <-grace:
 			sendError(t, "server_error", "the speech-to-speech backend did not acknowledge the cancel", "", "")
 			r.outcome = outcomeFailed
-			st.close()
+			st.fatal()
 			return nil
 		case <-st.dead:
 			sendError(t, "server_error", fmt.Sprintf("the speech-to-speech stream ended: %v", st.deadErr), "", "")
 			r.outcome = outcomeFailed
+			st.fatal()
 			return nil
 		case ev := <-st.events:
 			// A cancel may land between the select above and this event:

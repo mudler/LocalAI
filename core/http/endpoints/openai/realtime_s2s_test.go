@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -119,6 +120,28 @@ func (f *fakeToolExecutor) ExecuteTool(context.Context, string, string) (string,
 	return f.output, nil
 }
 func (f *fakeToolExecutor) HasTools() bool { return len(f.names) > 0 }
+
+// overlapStream reports a Close that runs while a Send is in progress, which
+// gRPC forbids for CloseSend and SendMsg.
+type overlapStream struct {
+	fakeS2SStream
+	inSend  atomic.Bool
+	overlap atomic.Bool
+}
+
+func (o *overlapStream) Send(req *proto.AudioToAudioRequest) error {
+	o.inSend.Store(true)
+	time.Sleep(20 * time.Millisecond)
+	o.inSend.Store(false)
+	return o.fakeS2SStream.Send(req)
+}
+
+func (o *overlapStream) Close() error {
+	if o.inSend.Load() {
+		o.overlap.Store(true)
+	}
+	return o.fakeS2SStream.Close()
+}
 
 func isControl(r *proto.AudioToAudioRequest, event string) bool {
 	return r.GetControl() != nil && r.GetControl().GetEvent() == event
@@ -540,6 +563,63 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(session.s2sUserTurnOpen()).To(BeTrue())
 		session.s2sEndTurn()
 		Expect(session.s2sUserTurnOpen()).To(BeFalse())
+	})
+
+	It("ends the session when the stream dies during a response", func() {
+		stream := newFakeS2SStream()
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			if isControl(req, "response.create") {
+				_ = f.Close() // the backend goes away mid-response
+			}
+		}
+		session, tr, conv := newHarness(stream, baseModel())
+		var fatal atomic.Int32
+		session.s2s.setOnFatal(func() { fatal.Add(1) })
+
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		Eventually(fatal.Load, 2*time.Second).Should(Equal(int32(1)))
+		Expect(tr.countEvents(types.ServerEventTypeError)).To(Equal(1))
+		// Nothing more is accepted or queued for the dead stream.
+		Expect(session.s2s.forwardPCM(make([]byte, 640), rate)).To(BeZero())
+		Expect(session.s2s.control("input_audio_buffer.commit", nil)).To(MatchError(errS2SClosed))
+		session.s2s.outMu.Lock()
+		queued := len(session.s2s.outQ)
+		session.s2s.outMu.Unlock()
+		Expect(queued).To(BeZero())
+	})
+
+	It("drops what is queued after the session is closed", func() {
+		stream := newFakeS2SStream()
+		session, _, _ := newHarness(stream, baseModel())
+		session.s2s.close()
+		for range 50 {
+			session.s2s.sendAsync(&proto.AudioToAudioRequest{})
+		}
+		session.s2s.outMu.Lock()
+		queued := len(session.s2s.outQ)
+		session.s2s.outMu.Unlock()
+		Expect(queued).To(BeZero())
+	})
+
+	It("closes the stream only when no write is in progress", func() {
+		stream := &overlapStream{fakeS2SStream: fakeS2SStream{recv: make(chan *proto.AudioToAudioResponse, 8)}}
+		st := newS2SSession(stream, nil, nil)
+		for range 5 {
+			st.sendAsync(&proto.AudioToAudioRequest{})
+		}
+		time.Sleep(30 * time.Millisecond) // a Send is under way
+		st.close()
+		Eventually(func() bool {
+			select {
+			case _, ok := <-stream.recv:
+				return !ok
+			default:
+				return false
+			}
+		}, 2*time.Second).Should(BeTrue())
+		Expect(stream.overlap.Load()).To(BeFalse())
 	})
 
 	It("calls onDead when the stream ends outside a response", func() {
