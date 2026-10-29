@@ -150,6 +150,7 @@ type Application struct {
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
 	studioWorkerSub      messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
+	studioWorkerNode     *chatWorkerNode        // the chat worker's row in the node list; nil otherwise
 	studioTempDir        string                 // removed at shutdown; set only in memory-only mode
 	studioFiles          *files.Service
 	studioFilesIndex     io.Closer // the JSON index of the workspace; nil when it uses the database

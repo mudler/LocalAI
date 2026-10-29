@@ -166,10 +166,12 @@ other seams against a real server, also through Docker.
   path.
 - The agent worker still uses NATS directly for its connection.
 - A chat worker (`local-ai run` with `LOCALAI_CHAT_WORKER`) connects as a
-  frontend does, with the frontend's NATS credentials. It does not register as
-  a node, so the node list does not show it and the admin cannot approve or
-  drain it. A minted per-node JWT for it needs `chats.start` (sub, queue) and
-  the `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
+  frontend does, with the frontend's NATS credentials. It registers itself in
+  the node registry through the database (an approved `agent` node with
+  `node.role=chat-worker`, see `registerChatWorkerNode`), so the node list
+  shows it and the scheduler skips it. A drain does not reach it, and it gets
+  no minted JWT: that needs `chats.start` (sub, queue) and the
+  `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
 - A chat worker refuses a start that would take it past
   `LOCALAI_CHAT_WORKER_MAX_TURNS` running turns (`studio.ErrWorkerFull`), and
   the run fails. A full worker cannot pass a start on to another one: NATS
