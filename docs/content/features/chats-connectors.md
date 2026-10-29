@@ -102,8 +102,8 @@ curl -X POST .../api/chats/connectors -d '{"kind": "slack", "name": "Team app", 
 - **Other channel messages** are not read.
 - **Answers** are converted from Markdown to Slack's `mrkdwn` (bold, italics, links,
   lists, code blocks) and split at 4,000 characters, the limit Slack asks for. A turn
-  that takes more than a few seconds shows a "Working…" message, and the answer
-  replaces it in place.
+  shows a "Working…" message at once, and the answer replaces it in place (see
+  [How the bot answers](#how-the-bot-answers)).
 - **Files.** A file attached to a message (up to 1 MiB, at most 8) is downloaded with
   the bot token and attached to the chat, as an upload on the chat page would be: a
   document is read, an image goes to a model that can see. A larger file gets a
