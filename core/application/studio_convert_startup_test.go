@@ -3,8 +3,10 @@
 package application
 
 import (
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -13,46 +15,40 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 )
 
-// The conversion of the old data can take long, and in a cluster it waits for
-// a lock another frontend holds. It must never delay the start of the server,
-// also when the collections service is off.
-func TestConversionWithCollectionsOffDoesNotBlockStartup(t *testing.T) {
-	release := make(chan struct{})
-	started := make(chan struct{})
-	old := runStudioConversion
-	runStudioConversion = func(*Application) {
-		close(started)
-		<-release
-	}
-	t.Cleanup(func() { runStudioConversion = old })
+var _ = Describe("the conversion of the old studio data", func() {
+	// The conversion of the old data can take long, and in a cluster it waits for
+	// a lock another frontend holds. It must never delay the start of the server,
+	// also when the collections service is off.
+	It("with collections off does not block startup", func() {
+		release := make(chan struct{})
+		started := make(chan struct{})
+		old := runStudioConversion
+		runStudioConversion = func(*Application) {
+			close(started)
+			<-release
+		}
+		DeferCleanup(func() { runStudioConversion = old })
 
-	a := &Application{applicationConfig: &config.ApplicationConfig{DataPath: t.TempDir()}}
-	a.applicationConfig.Collections.Enabled = false
+		a := &Application{applicationConfig: &config.ApplicationConfig{DataPath: GinkgoT().TempDir()}}
+		a.applicationConfig.Collections.Enabled = false
 
-	st, err := store.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: studiotest.NewGateHarness()})
-	if err != nil {
-		t.Fatal(err)
-	}
+		st, err := store.NewJSON("")
+		Expect(err).ToNot(HaveOccurred())
+		svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: studiotest.NewGateHarness()})
+		Expect(err).ToNot(HaveOccurred())
 
-	returned := make(chan struct{})
-	go func() {
-		a.prepareStudioConversion(svc)
-		close(returned)
-	}()
-	select {
-	case <-returned:
-	case <-time.After(5 * time.Second):
+		returned := make(chan struct{})
+		go func() {
+			a.prepareStudioConversion(svc)
+			close(returned)
+		}()
+		select {
+		case <-returned:
+		case <-time.After(5 * time.Second):
+			close(release)
+			Fail("prepareStudioConversion waited for the conversion")
+		}
+		Eventually(started, 5*time.Second).Should(BeClosed(), "the conversion never started")
 		close(release)
-		t.Fatal("prepareStudioConversion waited for the conversion")
-	}
-	select {
-	case <-started:
-	case <-time.After(5 * time.Second):
-		t.Fatal("the conversion never started")
-	}
-	close(release)
-}
+	})
+})
