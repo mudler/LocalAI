@@ -5,69 +5,64 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // ctlProcChildEnv marks the re-executed test process that changes its own
 // process state (dumpable flag, ambient set), so the test binary keeps its own.
 const ctlProcChildEnv = "SANDBOX_GUESTAGENT_CTLPROC_CHILD"
 
-func runCtlProcChild(t *testing.T, name string) {
-	t.Helper()
-	cmd := exec.Command(os.Args[0], "-test.run=^"+name+"$", "-test.v")
+// runCtlProcChild re-runs the spec called name in a child process. The child
+// prints "[SKIPPED]" in its verbose report when the spec skips itself.
+func runCtlProcChild(name string) {
+	cmd := exec.Command(os.Args[0], "-ginkgo.focus="+name, "-ginkgo.v", "-ginkgo.no-color")
 	cmd.Env = append(os.Environ(), ctlProcChildEnv+"=1")
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("child: %v\n%s", err, out)
-	}
-	if strings.Contains(string(out), "--- SKIP: "+name) {
+	Expect(err).ToNot(HaveOccurred(), "child: %s", out)
+	if strings.Contains(string(out), "[SKIPPED]") {
 		// The child says why: ClearAmbient needs a binary without cgo.
-		t.Skipf("the child skipped (run with CGO_ENABLED=0 to run it):\n%s", out) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
+		Skip("the child skipped (run with CGO_ENABLED=0 to run it):\n" + string(out))
 	}
-	if !strings.Contains(string(out), "--- PASS: "+name) {
-		t.Fatalf("child did not run its checks:\n%s", out)
-	}
+	Expect(string(out)).To(ContainSubstring("1 Passed"), "child did not run its checks")
 }
 
-func TestSetNotDumpable(t *testing.T) { runCtlProcChild(t, "TestSetNotDumpableChild") }
+var _ = Describe("process state", func() {
+	It("SetNotDumpable", func() { runCtlProcChild("SetNotDumpable child") })
 
-func TestSetNotDumpableChild(t *testing.T) {
-	if os.Getenv(ctlProcChildEnv) == "" {
-		t.Skip("runs only as the child of TestSetNotDumpable")
-	}
-	const prGetDumpable = 3
-	if err := SetNotDumpable(); err != nil {
-		t.Fatal(err)
-	}
-	got, _, e := syscall.RawSyscall(syscall.SYS_PRCTL, prGetDumpable, 0, 0)
-	if e != 0 || got != 0 {
-		t.Fatalf("PR_GET_DUMPABLE = %d, errno %v", got, e)
-	}
-}
-
-func TestClearAmbient(t *testing.T) { runCtlProcChild(t, "TestClearAmbientChild") }
-
-// The test user holds no capability, so the ambient set is empty before and
-// after; the check proves the call works on every thread of a binary without
-// cgo and leaves CapAmb at zero.
-func TestClearAmbientChild(t *testing.T) {
-	if os.Getenv(ctlProcChildEnv) == "" {
-		t.Skip("runs only as the child of TestClearAmbient")
-	}
-	if err := ClearAmbient(); err != nil {
-		t.Skipf("ClearAmbient needs a binary without cgo (run with CGO_ENABLED=0): %v", err)
-	}
-	status, err := os.ReadFile("/proc/self/status")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, l := range strings.Split(string(status), "\n") {
-		if strings.HasPrefix(l, "CapAmb:") {
-			if v := strings.TrimSpace(strings.TrimPrefix(l, "CapAmb:")); strings.Trim(v, "0") != "" {
-				t.Fatalf("ambient set = %s", v)
-			}
-			return
+	It("SetNotDumpable child", func() {
+		if os.Getenv(ctlProcChildEnv) == "" {
+			Skip("runs only as the child of the SetNotDumpable spec")
 		}
-	}
-	t.Fatal("no CapAmb line in /proc/self/status")
-}
+		const prGetDumpable = 3
+		Expect(SetNotDumpable()).To(Succeed())
+		got, _, e := syscall.RawSyscall(syscall.SYS_PRCTL, prGetDumpable, 0, 0)
+		Expect(e).To(BeZero())
+		Expect(got).To(BeZero(), "PR_GET_DUMPABLE")
+	})
+
+	It("ClearAmbient", func() { runCtlProcChild("ClearAmbient child") })
+
+	// The test user holds no capability, so the ambient set is empty before and
+	// after; the check proves the call works on every thread of a binary without
+	// cgo and leaves CapAmb at zero.
+	It("ClearAmbient child", func() {
+		if os.Getenv(ctlProcChildEnv) == "" {
+			Skip("runs only as the child of the ClearAmbient spec")
+		}
+		if err := ClearAmbient(); err != nil {
+			Skip("ClearAmbient needs a binary without cgo (run with CGO_ENABLED=0): " + err.Error())
+		}
+		status, err := os.ReadFile("/proc/self/status")
+		Expect(err).ToNot(HaveOccurred())
+		for _, l := range strings.Split(string(status), "\n") {
+			if strings.HasPrefix(l, "CapAmb:") {
+				v := strings.TrimSpace(strings.TrimPrefix(l, "CapAmb:"))
+				Expect(strings.Trim(v, "0")).To(BeEmpty(), "ambient set = %s", v)
+				return
+			}
+		}
+		Fail("no CapAmb line in /proc/self/status")
+	})
+})

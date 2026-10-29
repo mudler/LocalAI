@@ -5,8 +5,10 @@ import (
 	"os"
 	"strings"
 	"syscall"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type recSys struct {
@@ -43,129 +45,109 @@ func (r *recSys) Glob(pattern string) ([]string, error) {
 	return nil, nil
 }
 
-func TestBootLayout(t *testing.T) {
-	r := &recSys{}
-	if err := Boot(r, BootConfig{Uid: 1000, Gid: 1000}); err != nil {
-		t.Fatal(err)
-	}
-	want := []string{
-		"mount proc /proc proc 0xe ",
-		"mount /proc/sys /proc/sys  0x1000 ",
-		"mount /proc/sys /proc/sys  0x1021 ",
-		"mount sysfs /sys sysfs 0xf ",
-		"mount devtmpfs /dev devtmpfs 0x2 mode=0755",
-		"mkdir /dev/pts",
-		"mount devpts /dev/pts devpts 0xa ptmxmode=0666,mode=0620,gid=5",
-		"ln -s /proc/self/fd /dev/fd",
-		"ln -s /proc/self/fd/0 /dev/stdin",
-		"ln -s /proc/self/fd/1 /dev/stdout",
-		"ln -s /proc/self/fd/2 /dev/stderr",
-		"mount tmpfs /tmp tmpfs 0x6 mode=1777",
-		"mount tmpfs /run tmpfs 0x6 mode=0755",
-		"mkdir /run/upper",
-		"mount /dev/vdb /run/upper ext4 0x2 ",
-		"mkdir /run/upper/data",
-		"mkdir /run/upper/work",
-		"mkdir /run/upper/home/data",
-		"mkdir /run/upper/home/work",
-		"chown /run/upper/data 1000:1000",
-		"chown /run/upper/home/data 1000:1000",
-		"mkdir /run/lower",
-		"mount lower /run/lower virtiofs 0x7 ",
-		"mount overlay /workspace overlay 0x6 lowerdir=/run/lower,upperdir=/run/upper/data,workdir=/run/upper/work,redirect_dir=off,metacopy=off,index=off",
-		"mount overlay /home/agent overlay 0x6 lowerdir=/home/agent,upperdir=/run/upper/home/data,workdir=/run/upper/home/work,redirect_dir=off,metacopy=off,index=off",
-		"rm /dev/vda",
-		"rm /dev/vdb",
-		"rm /dev/console",
-		"rm /dev/kmsg",
-		"glob /dev/hvc*",
-		"rm /dev/hvc0",
-		"rm /dev/hvc1",
-		"glob /dev/tty?*",
-		"rm /dev/tty0",
-		"rm /dev/ttyS0",
-		"lo up",
-	}
-	if strings.Join(r.calls, "\n") != strings.Join(want, "\n") {
-		t.Fatalf("calls:\n%s", strings.Join(r.calls, "\n"))
-	}
-}
-
-func TestBootWithBindsAndPlainOverlay(t *testing.T) {
-	r := &recSys{}
-	cfg := BootConfig{Uid: 1000, Gid: 1000, UpperBind: "/mnt/upper", LowerBind: "/mnt/lower", PlainOverlay: true}
-	if err := Boot(r, cfg); err != nil {
-		t.Fatal(err)
-	}
-	got := strings.Join(r.calls, "\n")
-	for _, want := range []string{
-		"mount /mnt/upper /run/upper  0x5000 ",
-		"mount /mnt/lower /run/lower  0x5000 ",
-		"mount  /run/lower  0x5021 ",
-		"mount overlay /workspace overlay 0x6 lowerdir=/run/lower,upperdir=/run/upper/data,workdir=/run/upper/work\n",
-		"mount overlay /home/agent overlay 0x6 lowerdir=/home/agent,upperdir=/run/upper/home/data,workdir=/run/upper/home/work\n",
-	} {
-		if !strings.Contains(got+"\n", want) {
-			t.Errorf("missing %q in:\n%s", want, got)
+var _ = Describe("Boot", func() {
+	It("lays out the guest", func() {
+		r := &recSys{}
+		Expect(Boot(r, BootConfig{Uid: 1000, Gid: 1000})).To(Succeed())
+		want := []string{
+			"mount proc /proc proc 0xe ",
+			"mount /proc/sys /proc/sys  0x1000 ",
+			"mount /proc/sys /proc/sys  0x1021 ",
+			"mount sysfs /sys sysfs 0xf ",
+			"mount devtmpfs /dev devtmpfs 0x2 mode=0755",
+			"mkdir /dev/pts",
+			"mount devpts /dev/pts devpts 0xa ptmxmode=0666,mode=0620,gid=5",
+			"ln -s /proc/self/fd /dev/fd",
+			"ln -s /proc/self/fd/0 /dev/stdin",
+			"ln -s /proc/self/fd/1 /dev/stdout",
+			"ln -s /proc/self/fd/2 /dev/stderr",
+			"mount tmpfs /tmp tmpfs 0x6 mode=1777",
+			"mount tmpfs /run tmpfs 0x6 mode=0755",
+			"mkdir /run/upper",
+			"mount /dev/vdb /run/upper ext4 0x2 ",
+			"mkdir /run/upper/data",
+			"mkdir /run/upper/work",
+			"mkdir /run/upper/home/data",
+			"mkdir /run/upper/home/work",
+			"chown /run/upper/data 1000:1000",
+			"chown /run/upper/home/data 1000:1000",
+			"mkdir /run/lower",
+			"mount lower /run/lower virtiofs 0x7 ",
+			"mount overlay /workspace overlay 0x6 lowerdir=/run/lower,upperdir=/run/upper/data,workdir=/run/upper/work,redirect_dir=off,metacopy=off,index=off",
+			"mount overlay /home/agent overlay 0x6 lowerdir=/home/agent,upperdir=/run/upper/home/data,workdir=/run/upper/home/work,redirect_dir=off,metacopy=off,index=off",
+			"rm /dev/vda",
+			"rm /dev/vdb",
+			"rm /dev/console",
+			"rm /dev/kmsg",
+			"glob /dev/hvc*",
+			"rm /dev/hvc0",
+			"rm /dev/hvc1",
+			"glob /dev/tty?*",
+			"rm /dev/tty0",
+			"rm /dev/ttyS0",
+			"lo up",
 		}
-	}
-	for _, not := range []string{"ext4", "virtiofs", "redirect_dir", "metacopy", "index="} {
-		if strings.Contains(got, not) {
-			t.Errorf("%q must not appear in:\n%s", not, got)
+		Expect(strings.Join(r.calls, "\n")).To(Equal(strings.Join(want, "\n")))
+	})
+
+	It("supports binds and a plain overlay", func() {
+		r := &recSys{}
+		cfg := BootConfig{Uid: 1000, Gid: 1000, UpperBind: "/mnt/upper", LowerBind: "/mnt/lower", PlainOverlay: true}
+		Expect(Boot(r, cfg)).To(Succeed())
+		got := strings.Join(r.calls, "\n")
+		for _, want := range []string{
+			"mount /mnt/upper /run/upper  0x5000 ",
+			"mount /mnt/lower /run/lower  0x5000 ",
+			"mount  /run/lower  0x5021 ",
+			"mount overlay /workspace overlay 0x6 lowerdir=/run/lower,upperdir=/run/upper/data,workdir=/run/upper/work\n",
+			"mount overlay /home/agent overlay 0x6 lowerdir=/home/agent,upperdir=/run/upper/home/data,workdir=/run/upper/home/work\n",
+		} {
+			Expect(got + "\n").To(ContainSubstring(want))
 		}
-	}
-}
+		for _, not := range []string{"ext4", "virtiofs", "redirect_dir", "metacopy", "index="} {
+			Expect(got).ToNot(ContainSubstring(not))
+		}
+	})
 
-func TestBootStopsAtTheFirstError(t *testing.T) {
-	r := &recSys{fail: "mount lower"}
-	if err := Boot(r, BootConfig{Uid: 1000, Gid: 1000}); err == nil {
-		t.Fatal("boot ignored a failed mount")
-	}
-	if last := r.calls[len(r.calls)-1]; !strings.HasPrefix(last, "mount lower") {
-		t.Fatalf("boot went on after the failure: %s", last)
-	}
-}
+	It("stops at the first error", func() {
+		r := &recSys{fail: "mount lower"}
+		Expect(Boot(r, BootConfig{Uid: 1000, Gid: 1000})).ToNot(Succeed(), "boot ignored a failed mount")
+		Expect(r.calls[len(r.calls)-1]).To(HavePrefix("mount lower"), "boot went on after the failure")
+	})
+})
 
-func TestParsePorts(t *testing.T) {
-	got := ParsePorts("console=hvc0 root=/dev/vda sandbox.ports=3128,7000,x,0,1024,70000 quiet")
-	if fmt.Sprint(got) != "[3128 7000]" {
-		t.Fatalf("ports = %v", got)
-	}
-	if ParsePorts("console=hvc0") != nil {
-		t.Fatal("ports without the option")
-	}
-}
+var _ = Describe("ParsePorts", func() {
+	It("reads the ports option of the command line", func() {
+		got := ParsePorts("console=hvc0 root=/dev/vda sandbox.ports=3128,7000,x,0,1024,70000 quiet")
+		Expect(fmt.Sprint(got)).To(Equal("[3128 7000]"))
+		Expect(ParsePorts("console=hvc0")).To(BeNil(), "ports without the option")
+	})
+})
 
-func TestParsePortList(t *testing.T) {
-	if got := ParsePortList("3128,7000,x,0,1024,70000"); fmt.Sprint(got) != "[3128 7000]" {
-		t.Fatalf("ports = %v", got)
-	}
-	if got := ParsePortList(""); got != nil {
-		t.Fatalf("ports = %v", got)
-	}
-}
+var _ = Describe("ParsePortList", func() {
+	It("keeps the valid ports", func() {
+		Expect(fmt.Sprint(ParsePortList("3128,7000,x,0,1024,70000"))).To(Equal("[3128 7000]"))
+		Expect(ParsePortList("")).To(BeNil())
+	})
+})
 
-func TestFreezerAutoThaw(t *testing.T) {
-	var reqs []uintptr
-	z := &Freezer{Path: t.TempDir(), AutoThaw: 100 * time.Millisecond, Ioctl: func(f *os.File, req uintptr) error {
-		reqs = append(reqs, req)
-		return nil
-	}}
-	if err := z.Freeze(); err != nil {
-		t.Fatal(err)
-	}
-	if err := z.Freeze(); err != ErrFrozen || !z.Frozen() {
-		t.Fatalf("second freeze: %v", err)
-	}
-	time.Sleep(300 * time.Millisecond)
-	z.mu.Lock()
-	frozen := z.frozen
-	got := fmt.Sprintf("%#x", reqs)
-	z.mu.Unlock()
-	if frozen || got != "[0xc0045877 0xc0045878]" {
-		t.Fatalf("frozen = %v, ioctls = %s", frozen, got)
-	}
-	if err := z.Thaw(); err != nil {
-		t.Fatalf("thaw when thawed: %v", err)
-	}
-}
+var _ = Describe("Freezer", func() {
+	It("thaws on its own", func() {
+		var reqs []uintptr
+		z := &Freezer{Path: GinkgoT().TempDir(), AutoThaw: 100 * time.Millisecond, Ioctl: func(f *os.File, req uintptr) error {
+			reqs = append(reqs, req)
+			return nil
+		}}
+		Expect(z.Freeze()).To(Succeed())
+		Expect(z.Freeze()).To(MatchError(ErrFrozen))
+		Expect(z.Frozen()).To(BeTrue())
+		time.Sleep(300 * time.Millisecond)
+		z.mu.Lock()
+		frozen := z.frozen
+		got := fmt.Sprintf("%#x", reqs)
+		z.mu.Unlock()
+		Expect(frozen).To(BeFalse())
+		Expect(got).To(Equal("[0xc0045877 0xc0045878]"))
+		Expect(z.Thaw()).To(Succeed(), "thaw when thawed")
+	})
+})

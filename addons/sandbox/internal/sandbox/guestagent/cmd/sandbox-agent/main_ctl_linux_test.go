@@ -4,8 +4,10 @@ import (
 	"errors"
 	"net"
 	"strings"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type fakeCtl struct {
@@ -23,43 +25,39 @@ func (f *fakeCtl) Dial(name string) (net.Conn, error) {
 	return nil, errors.New("no dial in this test")
 }
 
-// The agent socket must exist only after the control folder is hidden.
-func TestServeCtlHidesBeforeItListens(t *testing.T) {
-	f := &fakeCtl{}
-	sl, _, err := serveCtl(f, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = sl.Stop() }()
-	if got := strings.Join(f.events, "|"); got != "hide|listen agent.sock" {
-		t.Fatalf("events = %s", got)
-	}
-}
-
-func TestServeCtlDoesNotServeWhenHideFails(t *testing.T) {
-	f := &fakeCtl{hideErr: errors.New("EPERM")}
-	if _, _, err := serveCtl(f, nil); err == nil || !strings.Contains(err.Error(), "EPERM") {
-		t.Fatalf("err = %v", err)
-	}
-	if got := strings.Join(f.events, "|"); got != "hide" {
-		t.Fatalf("events = %s: the agent listened after a failed Hide", got)
-	}
-}
-
-func TestRetryTriesAgainUntilItWorks(t *testing.T) {
-	calls := 0
-	err := retry(5, time.Millisecond, func() error {
-		if calls++; calls < 3 {
-			return errors.New("busy")
-		}
-		return nil
+var _ = Describe("serveCtl", func() {
+	// The agent socket must exist only after the control folder is hidden.
+	It("hides the control folder before it listens", func() {
+		f := &fakeCtl{}
+		sl, _, err := serveCtl(f, nil)
+		Expect(err).ToNot(HaveOccurred())
+		defer func() { _ = sl.Stop() }()
+		Expect(strings.Join(f.events, "|")).To(Equal("hide|listen agent.sock"))
 	})
-	if err != nil || calls != 3 {
-		t.Fatalf("err = %v after %d calls", err, calls)
-	}
-	calls = 0
-	err = retry(4, time.Millisecond, func() error { calls++; return errors.New("still busy") })
-	if err == nil || err.Error() != "still busy" || calls != 4 {
-		t.Fatalf("err = %v after %d calls", err, calls)
-	}
-}
+
+	It("does not serve when hide fails", func() {
+		f := &fakeCtl{hideErr: errors.New("EPERM")}
+		_, _, err := serveCtl(f, nil)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("EPERM"))
+		Expect(strings.Join(f.events, "|")).To(Equal("hide"), "the agent listened after a failed Hide")
+	})
+})
+
+var _ = Describe("retry", func() {
+	It("tries again until it works", func() {
+		calls := 0
+		err := retry(5, time.Millisecond, func() error {
+			if calls++; calls < 3 {
+				return errors.New("busy")
+			}
+			return nil
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(calls).To(Equal(3))
+		calls = 0
+		err = retry(4, time.Millisecond, func() error { calls++; return errors.New("still busy") })
+		Expect(err).To(MatchError("still busy"))
+		Expect(calls).To(Equal(4))
+	})
+})
