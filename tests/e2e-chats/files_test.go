@@ -243,6 +243,110 @@ var _ = Describe("Chats files and workspace", Ordered, func() {
 		})
 	})
 
+	It("lists the chat's files, tells the model their current paths, and follows a rename", func() {
+		type chatFile struct {
+			Name      string `json:"name"`
+			Path      string `json:"path"`
+			GuestPath string `json:"guest_path"`
+			Size      int64  `json:"size"`
+			Mime      string `json:"mime"`
+			Origin    string `json:"origin"`
+			Turn      int    `json:"turn"`
+		}
+		type fileIndex struct {
+			Files      []chatFile `json:"files"`
+			Folder     string     `json:"folder"`
+			FolderPath string     `json:"folder_path"`
+			Stale      []string   `json:"stale"`
+		}
+		index := func(id string) (fileIndex, map[string]chatFile) {
+			var out fileIndex
+			Expect(c.get("/api/chats/"+id+"/files", &out)).To(Equal(http.StatusOK))
+			byName := map[string]chatFile{}
+			for _, f := range out.Files {
+				byName[f.Name] = f
+			}
+			return out, byName
+		}
+		llm.Handle(func(r fakeReq) fakeStep {
+			if strings.Contains(r.LastUser(), "IDX-WRITE") && len(r.ToolResults()) == 0 {
+				return fakeStep{Calls: []fakeCall{{Name: "write_file", Args: `{"path":"/idx/summary.md","content":"# summary"}`}}}
+			}
+			return fakeStep{Text: "ok"}
+		})
+		ch := c.create("fake")
+		empty, _ := index(ch.ID)
+		Expect(empty.Files).To(BeEmpty())
+
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		_ = mw.WriteField("text", "IDX-1 read the table")
+		fw, err := mw.CreateFormFile("files", "table.csv")
+		Expect(err).ToNot(HaveOccurred())
+		_, _ = fw.Write([]byte("a,b\n1,2\n"))
+		Expect(mw.Close()).To(Succeed())
+		resp, err := http.DefaultClient.Do(c.req(http.MethodPost, "/api/chats/"+ch.ID+"/messages", &buf, mw.FormDataContentType()))
+		Expect(err).ToNot(HaveOccurred())
+		_ = resp.Body.Close()
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		Expect(c.settled(ch.ID)).To(Equal("done"))
+
+		_, files := index(ch.ID)
+		Expect(files).To(HaveKey("table.csv"))
+		table := files["table.csv"]
+		Expect(table.Origin).To(Equal("user"))
+		Expect(table.Turn).To(Equal(1))
+		Expect(table.Mime).To(Equal("text/csv"))
+		Expect(table.GuestPath).To(Equal("/workspace/home" + table.Path))
+		var first string
+		for _, r := range llm.Requests() {
+			if strings.Contains(r.Prompt(), "IDX-1") {
+				first = r.Prompt()
+			}
+		}
+		Expect(first).To(ContainSubstring("Files in this conversation"))
+		Expect(first).To(ContainSubstring(strings.TrimSuffix(table.GuestPath, "table.csv") + "\n- table.csv (8 B, text/csv) uploaded by the user, turn 1"))
+
+		Expect(c.say(ch.ID, "IDX-WRITE make a summary")).To(Equal("done"))
+		_, files = index(ch.ID)
+		Expect(files).To(HaveKey("summary.md"))
+		Expect(files["summary.md"].Origin).To(Equal("tool"))
+		Expect(files["summary.md"].Path).To(Equal("/idx/summary.md"))
+
+		code, raw := c.do(http.MethodPatch, "/api/chats/"+ch.ID, map[string]string{"title": "Index renamed"})
+		Expect(code).To(Equal(http.StatusOK), string(raw))
+		after, files := index(ch.ID)
+		moved := files["table.csv"]
+		Expect(moved.Path).To(HaveSuffix("Index renamed/table.csv"))
+		Expect(moved.Path).ToNot(Equal(table.Path))
+		Expect(after.FolderPath).To(HaveSuffix("Index renamed"))
+		Expect(after.Stale).To(ConsistOf(strings.TrimSuffix(table.GuestPath, "table.csv")))
+		// The stored file is at the new path, and nothing is at the old one.
+		code, raw = c.do(http.MethodGet, "/api/chats/files/content?path="+url.QueryEscape(moved.Path), nil)
+		Expect(code).To(Equal(http.StatusOK))
+		Expect(string(raw)).To(Equal("a,b\n1,2\n"))
+		code, _ = c.do(http.MethodGet, "/api/chats/files/content?path="+url.QueryEscape(table.Path), nil)
+		Expect(code).To(Equal(http.StatusNotFound))
+
+		Expect(c.say(ch.ID, "IDX-2 where is the table now")).To(Equal("done"))
+		var next string
+		for _, r := range llm.Requests() {
+			if strings.Contains(r.LastUser(), "IDX-2") {
+				next = r.Prompt()
+			}
+		}
+		Expect(next).To(ContainSubstring(strings.TrimSuffix(moved.GuestPath, "table.csv") + "\n- table.csv (8 B, text/csv)"))
+		Expect(next).To(ContainSubstring("/workspace/home/idx/\n- summary.md (9 B, text/markdown) created by you, turn 2"))
+		Expect(next).To(ContainSubstring("this chat's folder was renamed to " + after.Folder))
+		block := next[strings.Index(next, "Files in this conversation"):]
+		if i := strings.Index(block, "Use the paths above."); i > 0 {
+			block = block[:i+len("Use the paths above.")]
+		} else if i := strings.Index(block, "\n\n"); i > 0 {
+			block = block[:i]
+		}
+		GinkgoWriter.Printf("files block, %d bytes:\n%s\n", len(block), block)
+	})
+
 	It("lets the model write a file and the user undo that agent change", func() {
 		llm.Handle(func(r fakeReq) fakeStep {
 			if !strings.Contains(r.Prompt(), "UNDO-1") {
