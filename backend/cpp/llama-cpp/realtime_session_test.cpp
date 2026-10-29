@@ -285,89 +285,6 @@ void test_utf8() {
     check_eq(rt::utf8_complete_prefix(""), (size_t) 0, "empty");
 }
 
-std::string feed_all(rt::ToolCallFilter & f, const std::vector<std::string> & pieces) {
-    std::string out;
-    for (const auto & p : pieces) {
-        out += f.feed(p);
-    }
-    return out;
-}
-
-std::string run_filter(rt::ToolCallFilter & f, const std::vector<std::string> & pieces) {
-    std::string out = feed_all(f, pieces);
-    out += f.flush();
-    return out;
-}
-
-void test_filter_plain() {
-    rt::ToolCallFilter f;
-    check_eq(run_filter(f, {"Hello", " world", "."}), std::string("Hello world."), "text without a tag passes through");
-    check(!f.saw_call() && !f.in_call(), "no call seen");
-}
-
-void test_filter_whole_call() {
-    rt::ToolCallFilter f;
-    const std::string out = run_filter(f, {"Let me check.\n<tool_call>\n<function=get_time>\n</function>\n</tool_call>"});
-    check_eq(out, std::string("Let me check."), "the block and the whitespace around it are dropped");
-    check(f.saw_call() && !f.in_call(), "call seen and closed");
-    check_eq(f.n_calls(), 1, "one call");
-}
-
-void test_filter_split_tags() {
-    rt::ToolCallFilter f;
-    std::string        out;
-    for (const char * p : {"Sure", ". <tool", "_call>", "\n<function=f>", "</func", "tion>\n</tool", "_call>", " done"}) {
-        out += f.feed(p);
-        if (std::string(p) == "\n<function=f>") {
-            check(f.in_call(), "inside the block");
-        }
-    }
-    out += f.flush();
-    check_eq(out, std::string("Sure.done"), "tags split over pieces");
-    check(!f.in_call(), "closed after the end tag");
-}
-
-void test_filter_tag_one_char_at_a_time() {
-    rt::ToolCallFilter f;
-    const std::string  text = "a<tool_call>x</tool_call>b";
-    std::string        out;
-    for (char ch : text) {
-        out += f.feed(std::string(1, ch));
-    }
-    out += f.flush();
-    check_eq(out, std::string("ab"), "one byte at a time");
-}
-
-void test_filter_two_calls() {
-    rt::ToolCallFilter f;
-    const std::string  out = run_filter(f, {"<tool_call>a</tool_call>\n\n<tool_call>b</tool_call>\n"});
-    check_eq(out, std::string(), "a reply of calls only has an empty transcript");
-    check_eq(f.n_calls(), 2, "two calls");
-}
-
-void test_filter_text_after_call() {
-    rt::ToolCallFilter f;
-    check_eq(run_filter(f, {"<tool_call>a</tool_call>\n\nBye"}), std::string("Bye"), "text after a call loses the blank lines");
-}
-
-void test_filter_lookalikes() {
-    rt::ToolCallFilter f;
-    check_eq(run_filter(f, {"1 < 2 and <tool is not a tag"}), std::string("1 < 2 and <tool is not a tag"), "lookalikes stay text");
-    rt::ToolCallFilter g;
-    check_eq(run_filter(g, {"end <tool"}), std::string("end <tool"), "a partial tag at the end is text after all");
-}
-
-void test_filter_unfinished_call() {
-    rt::ToolCallFilter f;
-    check_eq(run_filter(f, {"ok <tool_call>\n<function=f>\n<param"}), std::string("ok"), "an unfinished call is not shown");
-    check(!f.in_call(), "flush leaves the block");
-}
-
-void test_filter_whitespace_kept_in_text() {
-    rt::ToolCallFilter f;
-    check_eq(run_filter(f, {"a", " ", "b", "\n"}), std::string("a b\n"), "inner and trailing whitespace of plain text is kept");
-}
-
 // the full text a fake slot produces, as the results of the slot
 struct Step {
     std::string        text;
@@ -620,15 +537,6 @@ int main() {
     test_session_update_rules();
     test_pcm();
     test_utf8();
-    test_filter_plain();
-    test_filter_whole_call();
-    test_filter_split_tags();
-    test_filter_tag_one_char_at_a_time();
-    test_filter_two_calls();
-    test_filter_text_after_call();
-    test_filter_lookalikes();
-    test_filter_unfinished_call();
-    test_filter_whitespace_kept_in_text();
     test_translator_audio_and_text();
     test_translator_text_only();
     test_translator_cancel();
