@@ -154,3 +154,27 @@ func TestChatFilesAreEmptyAndThePromptHasNoBlockWithoutFiles(t *testing.T) {
 		t.Fatalf("a chat without files has a files block:\n%s", p)
 	}
 }
+
+func TestAForkListsTheFilesItsMessagesAttached(t *testing.T) {
+	svc, _ := newFilesChat(t)
+	ctx := context.Background()
+	id := create(t, svc, alice)
+	if _, err := svc.SendWithFiles(ctx, alice, id, "first", []session.Upload{{Name: "src.txt", Body: strings.NewReader("s")}}); err != nil {
+		t.Fatal(err)
+	}
+	idle(t, svc, alice, id)
+	fork, err := svc.Fork(ctx, alice, id, 0, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cf, err := svc.ChatFiles(ctx, alice, fork.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cf.Files) != 1 || cf.Files[0].Name != "src.txt" || cf.Files[0].Origin != session.FileFromUser || cf.Folder != "" {
+		t.Fatalf("fork files = %+v, want the source chat's attachment and no folder", cf)
+	}
+	if cf.Files[0].GuestPath != chatFiles(t, svc, alice, id)["src.txt"].GuestPath {
+		t.Errorf("the fork names another path than the source: %q", cf.Files[0].GuestPath)
+	}
+}
