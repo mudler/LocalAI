@@ -224,6 +224,8 @@ type RunCMD struct {
 	NatsTLSCA                    string `env:"LOCALAI_NATS_TLS_CA" type:"existingfile" help:"PEM file for NATS server CA (private PKI); use with tls:// in --nats-url" group:"distributed"`
 	NatsTLSCert                  string `env:"LOCALAI_NATS_TLS_CERT" type:"existingfile" help:"Client certificate for NATS mTLS" group:"distributed"`
 	NatsTLSKey                   string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
+	DistributedChatWorkers       bool   `env:"LOCALAI_DISTRIBUTED_CHAT_WORKERS" default:"false" help:"Send the turns of triggers, agent jobs and connector messages to chat workers (instances started with --chat-worker). When no chat worker listens, the turn runs on this frontend. Chats that a person starts stay on the frontend. Distributed mode only." group:"distributed"`
+	ChatWorker                   bool   `env:"LOCALAI_CHAT_WORKER" default:"false" help:"Run this instance as a chat worker: it runs the chat turns that frontends send it over NATS and starts no triggers, connectors or agent jobs. Distributed mode only." group:"distributed"`
 	ExposeNodeHeader             bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
 	ModelScheduling              string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
 	ModelSchedulingConfig        string `env:"LOCALAI_MODEL_SCHEDULING_CONFIG" help:"Path to a YAML file with the same per-model scheduling list as LOCALAI_MODEL_SCHEDULING. Distributed mode only." group:"distributed"`
@@ -513,6 +515,19 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.DistributedSharedModels {
 		opts = append(opts, config.EnableDistributedSharedModels)
+	}
+	if r.ChatWorker {
+		if !r.Distributed {
+			return fmt.Errorf("LOCALAI_CHAT_WORKER needs distributed mode (LOCALAI_DISTRIBUTED=true)")
+		}
+		opts = append(opts, config.EnableChatWorker)
+	}
+	if r.DistributedChatWorkers {
+		if r.Distributed {
+			opts = append(opts, config.EnableDistributedChatWorkers)
+		} else {
+			xlog.Warn("LOCALAI_DISTRIBUTED_CHAT_WORKERS is set but distributed mode is disabled (LOCALAI_DISTRIBUTED=false) - ignoring")
+		}
 	}
 	if r.NatsAccountSeed != "" {
 		opts = append(opts, config.WithNatsAccountSeed(r.NatsAccountSeed))
@@ -953,6 +968,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	appHTTP, err := http.API(app)
 	if err != nil {
 		xlog.Error("error during HTTP App construction", "error", err)
+		return err
+	}
+	// A chat worker serves starts only now: its turns reach the models through
+	// the router that http.API has just built.
+	if err := app.StartChatWorker(); err != nil {
 		return err
 	}
 

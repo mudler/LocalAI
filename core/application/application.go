@@ -149,7 +149,8 @@ type Application struct {
 	studioConnectorsStop context.CancelFunc
 	studioProvider       *provider.Provider
 	studioService        *studio.Service
-	studioTempDir        string // removed at shutdown; set only in memory-only mode
+	studioWorkerSub      messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
+	studioTempDir        string                 // removed at shutdown; set only in memory-only mode
 	studioFiles          *files.Service
 	studioFilesIndex     io.Closer // the JSON index of the workspace; nil when it uses the database
 	studioFilesTemp      string    // blob cache folder of a cluster with no data path; removed at shutdown
@@ -631,6 +632,9 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		// A chat worker stops taking starts first: a start that arrived now
+		// would meet a closing service. Its running turns end as interrupted.
+		a.stopChatWorker()
 		if a.studioMCPConns != nil {
 			a.studioMCPConns.Close()
 		}

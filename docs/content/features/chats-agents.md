@@ -192,6 +192,9 @@ takes over, ends the runs whose chat is over as failed ("interrupted by a
 restart") and tells the owner, and goes on. Triggers need the database; the
 JSON store is for a single process.
 
+With [chat workers](/features/distributed-mode/#chat-workers), the frontend that
+leads still starts and watches each run, and a chat worker runs its turns.
+
 The same holds for one server. A run that a stop or a restart cuts short is
 recorded as interrupted, its chat shows the turn as interrupted (not done, even
 if some text was written), and its owner gets a "failed" notification. The
@@ -276,3 +279,4 @@ behaves with several frontends:
 | Quiet periods of waiting files, the memory of a run's own writes | Per leader | Kept by the Runner of the current leader. A new leader reads the change feed again from its saved position, which stays below the oldest waiting file, so a file that was waiting is found again. |
 | Live notifications | Shared, live only | Sent over the message bus to every frontend. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |
+| Where the turn of a run runs | Stateless | On the frontend that started it, or on a chat worker when the frontends send unattended turns there. The turn claim, its heartbeat and the waiting messages are in the database, so either one can run it and only one does. |

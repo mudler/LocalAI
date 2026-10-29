@@ -227,8 +227,10 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 | `--agent-job-retention-days` | `30` | Days to keep ended agent jobs | `$LOCALAI_AGENT_JOB_RETENTION_DAYS`, `$AGENT_JOB_RETENTION_DAYS` |
 | `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
 | `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |
+| `--distributed-chat-workers` | `false` | Distributed mode: send the turns of triggers, agent jobs and connector messages to chat workers. With no chat worker listening, the turn runs on the frontend | `$LOCALAI_DISTRIBUTED_CHAT_WORKERS` |
+| `--chat-worker` | `false` | Distributed mode: run this instance as a chat worker, which runs the turns that frontends send it and starts no triggers, connectors or jobs | `$LOCALAI_CHAT_WORKER` |
 
-See [Chats]({{% relref "features/chats#switch-the-chats-off" %}}) and [Agent tasks and jobs]({{% relref "features/agent-jobs" %}}).
+See [Chats]({{% relref "features/chats#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "features/agent-jobs" %}}) and [Chat workers]({{% relref "features/distributed-mode#chat-workers" %}}).
 
 ## Collections Flags
 

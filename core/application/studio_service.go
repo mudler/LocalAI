@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
+	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
@@ -100,6 +101,12 @@ func (a *Application) initStudioService() {
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns
 	}
+	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
+		deps.Workers = nodes.NewNATSChatStarter(d.Nats)
+	}
+	if a.applicationConfig.Distributed.ChatWorker {
+		deps.RunLimit = a.studioWorkerRunLimit
+	}
 	svc, err := studio.New(deps)
 	if err != nil {
 		xlog.Warn("Chats disabled: failed to start the service", "error", err)
@@ -107,6 +114,12 @@ func (a *Application) initStudioService() {
 	}
 	a.studioService = svc
 	a.startStudioReaper(svc)
+	if a.applicationConfig.Distributed.ChatWorker {
+		// The hosts that start unattended runs keep their leader locks on the
+		// frontends; this process runs the turns they send (StartChatWorker).
+		xlog.Info("Chats: this is a chat worker; triggers, connectors and agent jobs start on the frontends")
+		return
+	}
 	a.startStudioConnectors(svc)
 	a.startStudioTriggers(svc)
 	a.startStudioJobs(svc)

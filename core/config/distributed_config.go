@@ -43,6 +43,14 @@ type DistributedConfig struct {
 	// false preserves the historical per-node staging behavior.
 	SharedModels bool // --distributed-shared-models / LOCALAI_DISTRIBUTED_SHARED_MODELS
 
+	// ChatWorkers sends the turns of the unattended chat runs (triggers, jobs,
+	// connector messages) to chat workers. With none listening a turn runs on
+	// this frontend.
+	ChatWorkers bool // --distributed-chat-workers / LOCALAI_DISTRIBUTED_CHAT_WORKERS
+	// ChatWorker makes this instance a chat worker: it runs the turns that
+	// frontends send it and starts no triggers, connectors or jobs.
+	ChatWorker bool // --chat-worker / LOCALAI_CHAT_WORKER
+
 	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
 	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
 	NatsServiceJWT   string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
@@ -381,6 +389,18 @@ var EnableAutoApproveNodes = func(o *ApplicationConfig) {
 // workers (see DistributedConfig.SharedModels).
 var EnableDistributedSharedModels = func(o *ApplicationConfig) {
 	o.Distributed.SharedModels = true
+}
+
+// EnableDistributedChatWorkers sends unattended chat turns to chat workers
+// (see DistributedConfig.ChatWorkers).
+var EnableDistributedChatWorkers = func(o *ApplicationConfig) {
+	o.Distributed.ChatWorkers = true
+}
+
+// EnableChatWorker makes this instance a chat worker (see
+// DistributedConfig.ChatWorker).
+var EnableChatWorker = func(o *ApplicationConfig) {
+	o.Distributed.ChatWorker = true
 }
 
 // DisableDiskHeadroomCheck turns off the scheduler's free-disk admission

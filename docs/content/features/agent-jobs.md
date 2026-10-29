@@ -131,8 +131,11 @@ connectors under `/api/chats/admin`.
 
 ## Clusters
 
-Tasks and job records are in the database, shared by every frontend. A job runs
-on the frontend that received the request and ends there. If that frontend dies
-the chat is ended by the usual reaper, and the leader's sweep (an advisory lock)
-records the end and delivers the webhooks of a job whose frontend is gone. The
-same sweep removes jobs past their retention. Agent workers do not run jobs yet.
+Tasks and job records are in the database, shared by every frontend. A job is
+watched by the frontend that received the request. Its turn runs there too,
+unless the frontends send unattended turns to
+[chat workers](/features/distributed-mode/#chat-workers): then a chat worker runs
+it, and the frontend still watches it and stops it at the run limit. If the
+process that runs the turn dies, the chat is ended by the usual reaper, and the
+leader's sweep (an advisory lock) records the end and delivers the webhooks of a
+job whose frontend is gone. The same sweep removes jobs past their retention.

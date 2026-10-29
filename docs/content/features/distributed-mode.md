@@ -70,6 +70,8 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
 | `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
+| `--distributed-chat-workers` | `LOCALAI_DISTRIBUTED_CHAT_WORKERS` | `false` | Send the turns of triggers, agent jobs and connector messages to [chat workers](#chat-workers). When no chat worker listens, the turn runs on this frontend. |
+| `--chat-worker` | `LOCALAI_CHAT_WORKER` | `false` | Run this instance as a [chat worker](#chat-workers) instead of a frontend for the unattended chat runs. |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
@@ -969,7 +971,7 @@ Agent workers:
 - Handle MCP tool discovery and execution requests from the frontend
 - Close their MCP sessions when a backend stops
 
-The agent worker does not run agents or [agent jobs](/features/agent-jobs/): a chat, a trigger run, a connector turn and a job all run on the frontend that received the request. The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by the worker and ignored. The frontend itself reads `LOCALAI_MCP_CI_JOB_TIMEOUT` and `LOCALAI_AGENT_JOB_RETENTION_DAYS`.
+The agent worker does not run chat turns. To run the turns of triggers, connectors and [agent jobs](/features/agent-jobs/) away from the frontends, use [chat workers](#chat-workers). The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by `local-ai agent-worker` and ignored. The frontends and the chat workers read `LOCALAI_MCP_CI_JOB_TIMEOUT` and `LOCALAI_AGENT_JOB_RETENTION_DAYS`.
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
 
@@ -979,6 +981,36 @@ agent-worker-1:
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
 ```
+
+## Chat Workers
+
+A chat worker runs the turns of the chats that no person starts at the keyboard: [trigger](/features/chats-agents/#triggers) runs, [agent jobs](/features/agent-jobs/) and connector messages. Use one to keep this work off the frontends that serve your users.
+
+A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. It needs the same NATS credentials as a frontend. Turn on the routing on the frontends with `--distributed-chat-workers`:
+
+```bash
+# frontends
+LOCALAI_DISTRIBUTED=true LOCALAI_DISTRIBUTED_CHAT_WORKERS=true local-ai run ...
+
+# chat workers: the frontend configuration, plus
+LOCALAI_DISTRIBUTED=true LOCALAI_CHAT_WORKER=true local-ai run ...
+```
+
+How it works:
+
+- The frontends keep the trigger runner, the connectors and the job host, each on the frontend that holds its leader lock. When one of them starts a turn, the frontend sends the start over NATS (`chats.start`, queue group `chat-workers`). One chat worker takes it, claims the turn in the database and runs it. It replies whether the turn started or whether the message waits behind a running turn.
+- The turn's live events and a stop travel on the same subjects as between two frontends, so a user who watches the chat sees it through any frontend, and a stop or a run limit reaches the worker.
+- A message that a person sends to the chat while the worker runs it waits in the database, and the worker gives it to the model at its next request.
+- When no chat worker listens, the frontend runs the turn itself. When a chat worker does not answer in time, or refuses the start, the run fails: the worker may have started the turn, and running it again could send the message twice.
+- The frontend that watches a job or a trigger run stops it at its limit (`LOCALAI_MCP_CI_JOB_TIMEOUT` for a job). If that frontend is gone, the chat worker stops the turn one minute after the same limit, so it cannot run on without a bound. Set `LOCALAI_MCP_CI_JOB_TIMEOUT` to the same value on the frontends and the chat workers.
+- A chat worker that dies leaves its turn claimed. The frontends' reaper ends it as interrupted, as for a frontend that dies, and nothing retries it.
+- A chat worker starts no triggers, connectors or jobs and runs no conversion of old data. It still serves the HTTP API: its turns reach the models through it, and the health probes use it. Do not put it behind the load balancer of your users.
+
+What stays on the frontends:
+
+- The chats that a person starts, and their sub-agents.
+- A start that carries files, such as a connector message with a photo or a job with attachments. The files are saved before the turn starts.
+- Sub-agents follow their parent: the sub-agents of a turn that runs on a chat worker run on that worker.
 
 ## MCP in Distributed Mode
 

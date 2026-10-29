@@ -6,10 +6,12 @@ package application
 import (
 	"context"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
@@ -112,6 +114,36 @@ var _ = Describe("studio service at startup", func() {
 			u, err := app.loadStudioUser(context.Background(), "legacy-api-key")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(u.Role).To(Equal(auth.RoleAdmin))
+		})
+	})
+	Describe("chat worker", func() {
+		It("starts the hosts of unattended runs on a frontend and none on a chat worker", func() {
+			front := newApp()
+			Expect(front.StudioTriggers()).NotTo(BeNil())
+			Expect(front.StudioJobs()).NotTo(BeNil())
+			Expect(front.StudioConnectors()).NotTo(BeNil())
+
+			worker := newApp(config.EnableChatWorker)
+			Expect(worker.StudioService()).NotTo(BeNil(), "a chat worker runs turns")
+			Expect(worker.StudioTriggers()).To(BeNil())
+			Expect(worker.StudioJobs()).To(BeNil())
+			Expect(worker.StudioConnectors()).To(BeNil())
+		})
+
+		It("serves no starts on a frontend", func() {
+			Expect(newApp().StartChatWorker()).To(Succeed())
+		})
+
+		It("bounds a job and a trigger run past their own limits, and nothing else", func() {
+			app := newApp(config.WithMCPCIJobTimeout(3 * time.Minute))
+			Expect(app.studioWorkerRunLimit(session.OriginJob)).To(Equal(3*time.Minute + chatWorkerGrace))
+			Expect(app.studioWorkerRunLimit(session.OriginTrigger)).To(Equal(studio.DefaultRunLimit + chatWorkerGrace))
+			Expect(app.studioWorkerRunLimit(session.OriginConnector)).To(BeZero())
+			Expect(app.studioWorkerRunLimit("")).To(BeZero())
+		})
+
+		It("refuses to serve starts without distributed mode", func() {
+			Expect(newApp(config.EnableChatWorker).StartChatWorker()).To(MatchError(ContainSubstring("distributed mode")))
 		})
 	})
 })
