@@ -124,7 +124,7 @@ var _ = Describe("the chats switched off", func() {
 
 		e := echo.New()
 		routes.RegisterStudioRoutes(e, app.StudioService(), nil, auth.NoopMiddleware())
-		for _, path := range []string{"/api/chats", "/api/chats/agents", "/api/chats/triggers", "/api/chats/connectors/x/test"} {
+		for _, path := range []string{"/api/chats", "/api/chats/agents", "/api/chats/triggers", "/api/chats/connectors/x/test", "/api/workspace/events"} {
 			w := httptest.NewRecorder()
 			e.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 			Expect(w.Code).To(Equal(http.StatusNotFound), path)

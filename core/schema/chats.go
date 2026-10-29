@@ -265,6 +265,18 @@ type ChatsFile struct {
 	ConflictOf string `json:"conflict_of,omitempty"`
 }
 
+// WorkspaceChange is one event of the change feed of the user's files. Paths
+// are inside the user's home folder, without a leading slash. A "resync" event
+// has the revision only: changes were left out, so read again what you show.
+type WorkspaceChange struct {
+	// Revision is the newest revision of the changes; it is also the event id,
+	// which a client sends back (Last-Event-ID or ?after=) to resume.
+	Revision int64    `json:"revision"`
+	Paths    []string `json:"paths,omitempty"`
+	// Kinds are the kinds of the change sets: user, agent, upload or undo.
+	Kinds []string `json:"kinds,omitempty"`
+}
+
 // ChatsFileList is a folder with its entries, sorted by name.
 type ChatsFileList struct {
 	Path    string      `json:"path"`

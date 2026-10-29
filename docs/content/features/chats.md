@@ -263,6 +263,10 @@ every turn, so it knows which files exist and where they are now.
   that the copied messages attached stay in the original chat's folder; the
   fork lists them while they are there.
 
+To follow the changes to your files as they happen (from any tab, chat,
+trigger or frontend), open the [change feed](/features/workspace-feed/)
+(`GET /api/workspace/events`).
+
 ```bash
 curl .../api/chats/3f1c.../files
 # {"files":[{"name":"q1.csv","path":"/Chats/2026-10-29 Budget/q1.csv",
