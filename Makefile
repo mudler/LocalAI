@@ -1703,13 +1703,18 @@ test-i18n:
 ## The PostgreSQL stores of the chats, agents, connectors, notifications,
 ## workspace and triggers. They skip without a database, which would let a
 ## cluster-only regression pass, so this target fails when the URL is unset or
-## when any of them skipped.
+## when any of them skipped. The stores are Ginkgo specs whose names contain
+## "PostgreSQL"; the focus selects them. The packages are listed one by one
+## because -ginkgo.focus is an error for a test binary that has no Ginkgo.
+POSTGRES_STORE_PKGS = ./core/services/studio/agents ./core/services/studio/connectors \
+	./core/services/studio/notify ./core/services/studio/store ./core/services/studio/triggers \
+	./core/services/studio/workspace/gormstore
 test-postgres:
 	@test -n "$$LOCALAI_TEST_POSTGRES_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL is not set; point it at a database the tests may wipe' >&2; exit 1; }
-	@out=$$($(GOCMD) test -count=1 -v -tags "$(COVERAGE_TAGS)" -run 'OnPostgres|PushOnPostgres|PostgresStoreMeetsTheContract' ./core/services/studio/... 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
-	printf '%s\n' "$$out" | grep -E '^(--- (PASS|FAIL|SKIP)|ok |FAIL)' ; \
-	if printf '%s\n' "$$out" | grep -q -- '--- SKIP'; then echo 'a PostgreSQL test skipped' >&2; exit 1; fi; \
-	test "$$(printf '%s\n' "$$out" | grep -c -- '--- PASS')" -ge 7 || { echo 'fewer PostgreSQL tests ran than expected' >&2; exit 1; }
+	@out=$$($(GOCMD) test -count=1 -v -tags "$(COVERAGE_TAGS)" $(POSTGRES_STORE_PKGS) -ginkgo.focus 'PostgreSQL' -ginkgo.v -ginkgo.no-color 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
+	printf '%s\n' "$$out" | grep -E '^(Ran [0-9]+ of|ok |FAIL|\s*\[SKIPPED\])' ; \
+	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'a PostgreSQL test skipped' >&2; exit 1; fi; \
+	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 6 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
 
 ## The multi-frontend paths run against the in-process bus (testutil.FakeBus)
 ## under the race detector: two frontends, a worker and the cluster state, with
