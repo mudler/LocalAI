@@ -299,3 +299,12 @@ var _ = Describe("PEG Integration", func() {
 		})
 	})
 })
+
+var _ = Describe("PEG argument values", func() {
+	It("keeps a null parameter null instead of an empty string", func() {
+		input := "<tool_call>\n<function=set_note>\n<parameter=note>\nnull\n</parameter>\n</function>\n</tool_call>"
+		results := ParseFunctionCallPEG(input, FunctionsConfig{XMLFormatPreset: "qwen3-coder"})
+		Expect(results).To(HaveLen(1))
+		Expect(results[0].Arguments).To(MatchJSON(`{"note": null}`))
+	})
+})
