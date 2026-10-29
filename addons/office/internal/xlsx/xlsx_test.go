@@ -6,7 +6,9 @@ import (
 	"encoding/xml"
 	"io"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type xCell struct {
@@ -54,41 +56,29 @@ type xStyles struct {
 	} `xml:"cellXfs>xf"`
 }
 
-func writeBook(t *testing.T, wb Workbook) map[string][]byte {
-	t.Helper()
+func writeBook(wb Workbook) map[string][]byte {
+	GinkgoHelper()
 	var buf bytes.Buffer
-	if err := Write(&buf, wb); err != nil {
-		t.Fatalf("Write: %v", err)
-	}
+	Expect(Write(&buf, wb)).To(Succeed())
 	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-	if err != nil {
-		t.Fatalf("not a zip: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "not a zip")
 	files := map[string][]byte{}
 	for _, f := range zr.File {
 		rc, err := f.Open()
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).ToNot(HaveOccurred())
 		data, err := io.ReadAll(rc)
 		_ = rc.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).ToNot(HaveOccurred())
 		files[f.Name] = data
 	}
 	return files
 }
 
-func unmarshal(t *testing.T, files map[string][]byte, name string, v any) {
-	t.Helper()
+func unmarshal(files map[string][]byte, name string, v any) {
+	GinkgoHelper()
 	data, ok := files[name]
-	if !ok {
-		t.Fatalf("part %s missing", name)
-	}
-	if err := xml.Unmarshal(data, v); err != nil {
-		t.Fatalf("%s: %v", name, err)
-	}
+	Expect(ok).To(BeTrue(), "part %s missing", name)
+	Expect(xml.Unmarshal(data, v)).To(Succeed(), name)
 }
 
 func sampleBook() Workbook {
@@ -117,257 +107,220 @@ func sampleBook() Workbook {
 	}
 }
 
-func TestPackageParts(t *testing.T) {
-	files := writeBook(t, sampleBook())
-	if _, ok := files["[Content_Types].xml"]; !ok {
-		t.Fatal("[Content_Types].xml missing")
-	}
-	ct := string(files["[Content_Types].xml"])
-	for _, name := range []string{
-		"_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
-		"xl/worksheets/sheet1.xml", "xl/styles.xml", "xl/sharedStrings.xml",
-		"docProps/core.xml", "docProps/app.xml",
-	} {
-		if _, ok := files[name]; !ok {
-			t.Errorf("part %s missing", name)
-		}
-		if !strings.HasSuffix(name, ".rels") && !strings.Contains(ct, `PartName="/`+name+`"`) {
-			t.Errorf("content types do not list %s", name)
-		}
-	}
-	for name, data := range files {
-		if err := xml.Unmarshal(data, new(struct{ XMLName xml.Name })); err != nil {
-			t.Errorf("%s is not well formed: %v", name, err)
-		}
-	}
-}
-
-func TestApplicationOptional(t *testing.T) {
-	files := writeBook(t, sampleBook())
-	if strings.Contains(string(files["docProps/app.xml"]), "Application") {
-		t.Error("app.xml names an application without a caller option")
-	}
-	wb := sampleBook()
-	wb.Application = "Some <App>"
-	files = writeBook(t, wb)
-	if !strings.Contains(string(files["docProps/app.xml"]), "<Application>Some &lt;App&gt;</Application>") {
-		t.Errorf("app.xml: %s", files["docProps/app.xml"])
-	}
-}
-
-func TestCellsAndFreeze(t *testing.T) {
-	files := writeBook(t, sampleBook())
-	var sh xSheet
-	unmarshal(t, files, "xl/worksheets/sheet1.xml", &sh)
-	if sh.Pane.State != "frozen" || sh.Pane.YSplit != "1" || sh.Pane.TopLeft != "A2" {
-		t.Errorf("pane = %+v", sh.Pane)
-	}
-	var sst struct {
-		Items []string `xml:"si>t"`
-	}
-	unmarshal(t, files, "xl/sharedStrings.xml", &sst)
-	// "Widget" is shared by two cells.
-	if len(sst.Items) != 4 {
-		t.Errorf("shared strings = %v", sst.Items)
-	}
-	cells := map[string]xCell{}
-	for _, c := range sh.Cells {
-		cells[c.Ref] = c
-	}
-	str := func(c xCell) string { return sst.Items[atoi(t, c.Value)] }
-	if c := cells["A2"]; c.Type != "s" || str(c) != "Widget" {
-		t.Errorf("A2 = %+v", c)
-	}
-	if cells["A2"].Value != cells["A3"].Value {
-		t.Error("equal strings are not shared")
-	}
-	if c := cells["B2"]; c.Type != "" || c.Value != "1234.5" {
-		t.Errorf("B2 = %+v", c)
-	}
-	if c := cells["C2"]; c.Type != "b" || c.Value != "1" {
-		t.Errorf("C2 = %+v", c)
-	}
-	if c := cells["B4"]; c.Formula != "SUM(B2:B3)" || c.Value != "1244.5" {
-		t.Errorf("B4 = %+v", c)
-	}
-	if c := cells["C3"]; c.Type != "str" || c.Formula != `IF(B3>5,"big","small")` || c.Value != "big" {
-		t.Errorf("C3 = %+v", c)
-	}
-	if c := cells["C4"]; c.Formula != "NOW()" || c.Value != "" {
-		t.Errorf("C4 = %+v", c)
-	}
-}
-
-func atoi(t *testing.T, s string) int {
-	t.Helper()
+func atoi(s string) int {
+	GinkgoHelper()
 	n := 0
 	for _, r := range s {
-		if r < '0' || r > '9' {
-			t.Fatalf("not an index: %q", s)
-		}
+		Expect(r >= '0' && r <= '9').To(BeTrue(), "not an index: %q", s)
 		n = n*10 + int(r-'0')
 	}
 	return n
 }
 
-func TestStylesReferenced(t *testing.T) {
-	files := writeBook(t, sampleBook())
-	var st xStyles
-	unmarshal(t, files, "xl/styles.xml", &st)
-	var sh xSheet
-	unmarshal(t, files, "xl/worksheets/sheet1.xml", &sh)
-	cells := map[string]xCell{}
-	for _, c := range sh.Cells {
-		cells[c.Ref] = c
-	}
-
-	// Header cells use the header font and fill.
-	for _, ref := range []string{"A1", "B1"} {
-		xf := st.Xfs[cells[ref].Style]
-		if xf.FontID == 0 || xf.FillID < 2 {
-			t.Fatalf("%s is not styled as header: %+v", ref, xf)
-		}
-		f := st.Fonts[xf.FontID]
-		if f.Bold == nil || f.Color.RGB != "FFFFFFFF" {
-			t.Errorf("header font = %+v", f)
-		}
-		if st.Fills[xf.FillID].FG.RGB != "FF1F2937" {
-			t.Errorf("header fill = %+v", st.Fills[xf.FillID])
-		}
-	}
-	// Number cells and formulas in column B use the column format.
-	for _, ref := range []string{"B2", "B3", "B4"} {
-		xf := st.Xfs[cells[ref].Style]
-		code := ""
-		for _, nf := range st.NumFmts {
-			if nf.ID == xf.NumFmtID {
-				code = nf.Code
+var _ = Describe("xlsx writer", func() {
+	It("writes every package part, lists it in the content types and keeps each part well formed", func() {
+		files := writeBook(sampleBook())
+		Expect(files).To(HaveKey("[Content_Types].xml"))
+		ct := string(files["[Content_Types].xml"])
+		for _, name := range []string{
+			"_rels/.rels", "xl/workbook.xml", "xl/_rels/workbook.xml.rels",
+			"xl/worksheets/sheet1.xml", "xl/styles.xml", "xl/sharedStrings.xml",
+			"docProps/core.xml", "docProps/app.xml",
+		} {
+			Expect(files).To(HaveKey(name), "part %s missing", name)
+			if !strings.HasSuffix(name, ".rels") {
+				Expect(ct).To(ContainSubstring(`PartName="/`+name+`"`), "content types do not list %s", name)
 			}
 		}
-		if code != "#,##0.00" {
-			t.Errorf("%s format = %q", ref, code)
+		for name, data := range files {
+			Expect(xml.Unmarshal(data, new(struct{ XMLName xml.Name }))).To(Succeed(), "%s is not well formed", name)
 		}
-	}
-	// Text cells and cells outside column B keep the default format.
-	for _, ref := range []string{"A2", "C2", "C3"} {
-		if cells[ref].Style != 0 {
-			t.Errorf("%s has style %d", ref, cells[ref].Style)
+	})
+
+	It("names an application only when the caller sets one", func() {
+		files := writeBook(sampleBook())
+		Expect(string(files["docProps/app.xml"])).ToNot(ContainSubstring("Application"))
+		wb := sampleBook()
+		wb.Application = "Some <App>"
+		files = writeBook(wb)
+		Expect(string(files["docProps/app.xml"])).To(ContainSubstring("<Application>Some &lt;App&gt;</Application>"))
+	})
+
+	It("writes cells with the right types, shares equal strings and freezes the top row", func() {
+		files := writeBook(sampleBook())
+		var sh xSheet
+		unmarshal(files, "xl/worksheets/sheet1.xml", &sh)
+		Expect(sh.Pane.State).To(Equal("frozen"))
+		Expect(sh.Pane.YSplit).To(Equal("1"))
+		Expect(sh.Pane.TopLeft).To(Equal("A2"))
+		var sst struct {
+			Items []string `xml:"si>t"`
 		}
-	}
-	if len(sh.Cols) != 2 || sh.Cols[0].Width != "20" || sh.Cols[1].Style != cells["B2"].Style {
-		t.Errorf("cols = %+v", sh.Cols)
-	}
-}
-
-func TestValidation(t *testing.T) {
-	one := func(s Sheet) Workbook { return Workbook{Sheets: []Sheet{s}} }
-	cases := map[string]Workbook{
-		"no sheets":      {},
-		"empty name":     one(Sheet{}),
-		"duplicate name": {Sheets: []Sheet{{Name: "A"}, {Name: "a"}}},
-		"too long":       one(Sheet{Name: strings.Repeat("x", 32)}),
-		"bracket":        one(Sheet{Name: "a[b"}),
-		"colon":          one(Sheet{Name: "a:b"}),
-		"star":           one(Sheet{Name: "a*b"}),
-		"question":       one(Sheet{Name: "a?b"}),
-		"slash":          one(Sheet{Name: "a/b"}),
-		"backslash":      one(Sheet{Name: `a\b`}),
-		"lower ref":      one(Sheet{Name: "S", Cells: []Cell{{Ref: "a1"}}}),
-		"no row":         one(Sheet{Name: "S", Cells: []Cell{{Ref: "A"}}}),
-		"row zero":       one(Sheet{Name: "S", Cells: []Cell{{Ref: "A0"}}}),
-		"row too big":    one(Sheet{Name: "S", Cells: []Cell{{Ref: "A1048577"}}}),
-		"col too big":    one(Sheet{Name: "S", Cells: []Cell{{Ref: "XFE1"}}}),
-		"junk ref":       one(Sheet{Name: "S", Cells: []Cell{{Ref: "A1B"}}}),
-		"duplicate cell": one(Sheet{Name: "S", Cells: []Cell{{Ref: "A1"}, {Ref: "A1"}}}),
-	}
-	for name, wb := range cases {
-		var buf bytes.Buffer
-		if err := Write(&buf, wb); err == nil {
-			t.Errorf("%s: expected an error", name)
+		unmarshal(files, "xl/sharedStrings.xml", &sst)
+		// "Widget" is shared by two cells.
+		Expect(sst.Items).To(HaveLen(4))
+		cells := map[string]xCell{}
+		for _, c := range sh.Cells {
+			cells[c.Ref] = c
 		}
-	}
-	if err := Write(io.Discard, Workbook{Sheets: []Sheet{{Name: strings.Repeat("x", 31), Cells: []Cell{{Ref: "XFD1048576", Value: Num(1)}}}}}); err != nil {
-		t.Errorf("limits should be valid: %v", err)
-	}
-}
+		str := func(c xCell) string { return sst.Items[atoi(c.Value)] }
+		c := cells["A2"]
+		Expect(c.Type).To(Equal("s"))
+		Expect(str(c)).To(Equal("Widget"))
+		Expect(cells["A3"].Value).To(Equal(cells["A2"].Value), "equal strings are not shared")
+		c = cells["B2"]
+		Expect(c.Type).To(BeEmpty())
+		Expect(c.Value).To(Equal("1234.5"))
+		c = cells["C2"]
+		Expect(c.Type).To(Equal("b"))
+		Expect(c.Value).To(Equal("1"))
+		c = cells["B4"]
+		Expect(c.Formula).To(Equal("SUM(B2:B3)"))
+		Expect(c.Value).To(Equal("1244.5"))
+		c = cells["C3"]
+		Expect(c.Type).To(Equal("str"))
+		Expect(c.Formula).To(Equal(`IF(B3>5,"big","small")`))
+		Expect(c.Value).To(Equal("big"))
+		c = cells["C4"]
+		Expect(c.Formula).To(Equal("NOW()"))
+		Expect(c.Value).To(BeEmpty())
+	})
 
-func TestEscaping(t *testing.T) {
-	nasty := `a < b & "c" 'd' > e`
-	wb := Workbook{
-		Title: nasty,
-		Sheets: []Sheet{{
-			Name: "Q&A 'x' y",
-			Columns: []Column{
-				{NumberFormat: `0.00" <u> & "`},
-			},
-			Cells: []Cell{
-				{Ref: "A1", Value: Str(nasty)},
-				{Ref: "A2", Formula: `"<" & "&"`, Value: Str(nasty)},
-				{Ref: "A3", Value: Num(1)},
-			},
-		}},
-	}
-	files := writeBook(t, wb)
+	It("references the header, column and default styles from the cells", func() {
+		files := writeBook(sampleBook())
+		var st xStyles
+		unmarshal(files, "xl/styles.xml", &st)
+		var sh xSheet
+		unmarshal(files, "xl/worksheets/sheet1.xml", &sh)
+		cells := map[string]xCell{}
+		for _, c := range sh.Cells {
+			cells[c.Ref] = c
+		}
 
-	var sst struct {
-		Items []string `xml:"si>t"`
-	}
-	unmarshal(t, files, "xl/sharedStrings.xml", &sst)
-	if len(sst.Items) != 1 || sst.Items[0] != nasty {
-		t.Errorf("shared string = %q", sst.Items)
-	}
-	var sh xSheet
-	unmarshal(t, files, "xl/worksheets/sheet1.xml", &sh)
-	if c := sh.Cells[1]; c.Formula != `"<" & "&"` || c.Value != nasty {
-		t.Errorf("formula cell = %+v", c)
-	}
-	var book struct {
-		Sheets []struct {
-			Name string `xml:"name,attr"`
-		} `xml:"sheets>sheet"`
-	}
-	unmarshal(t, files, "xl/workbook.xml", &book)
-	if book.Sheets[0].Name != "Q&A 'x' y" {
-		t.Errorf("sheet name = %q", book.Sheets[0].Name)
-	}
-	var st xStyles
-	unmarshal(t, files, "xl/styles.xml", &st)
-	if len(st.NumFmts) != 1 || st.NumFmts[0].Code != `0.00" <u> & "` {
-		t.Errorf("numFmts = %+v", st.NumFmts)
-	}
-	var core struct {
-		Title string `xml:"title"`
-	}
-	unmarshal(t, files, "docProps/core.xml", &core)
-	if core.Title != nasty {
-		t.Errorf("title = %q", core.Title)
-	}
-}
+		// Header cells use the header font and fill.
+		for _, ref := range []string{"A1", "B1"} {
+			xf := st.Xfs[cells[ref].Style]
+			Expect(xf.FontID).ToNot(BeZero(), "%s is not styled as header: %+v", ref, xf)
+			Expect(xf.FillID).To(BeNumerically(">=", 2), "%s is not styled as header: %+v", ref, xf)
+			f := st.Fonts[xf.FontID]
+			Expect(f.Bold).ToNot(BeNil())
+			Expect(f.Color.RGB).To(Equal("FFFFFFFF"))
+			Expect(st.Fills[xf.FillID].FG.RGB).To(Equal("FF1F2937"))
+		}
+		// Number cells and formulas in column B use the column format.
+		for _, ref := range []string{"B2", "B3", "B4"} {
+			xf := st.Xfs[cells[ref].Style]
+			code := ""
+			for _, nf := range st.NumFmts {
+				if nf.ID == xf.NumFmtID {
+					code = nf.Code
+				}
+			}
+			Expect(code).To(Equal("#,##0.00"), ref)
+		}
+		// Text cells and cells outside column B keep the default format.
+		for _, ref := range []string{"A2", "C2", "C3"} {
+			Expect(cells[ref].Style).To(BeZero(), ref)
+		}
+		Expect(sh.Cols).To(HaveLen(2))
+		Expect(sh.Cols[0].Width).To(Equal("20"))
+		Expect(sh.Cols[1].Style).To(Equal(cells["B2"].Style))
+	})
 
-func TestCellsSortedByPosition(t *testing.T) {
-	wb := Workbook{Sheets: []Sheet{{Name: "S", Cells: []Cell{
-		{Ref: "B2", Value: Num(4)}, {Ref: "A2", Value: Num(3)},
-		{Ref: "B1", Value: Num(2)}, {Ref: "A1", Value: Num(1)},
-	}}}}
-	files := writeBook(t, wb)
-	var sh xSheet
-	unmarshal(t, files, "xl/worksheets/sheet1.xml", &sh)
-	var got []string
-	for _, c := range sh.Cells {
-		got = append(got, c.Ref)
-	}
-	if strings.Join(got, ",") != "A1,B1,A2,B2" {
-		t.Errorf("order = %v", got)
-	}
-}
+	It("rejects invalid workbooks and accepts the documented limits", func() {
+		one := func(s Sheet) Workbook { return Workbook{Sheets: []Sheet{s}} }
+		cases := map[string]Workbook{
+			"no sheets":      {},
+			"empty name":     one(Sheet{}),
+			"duplicate name": {Sheets: []Sheet{{Name: "A"}, {Name: "a"}}},
+			"too long":       one(Sheet{Name: strings.Repeat("x", 32)}),
+			"bracket":        one(Sheet{Name: "a[b"}),
+			"colon":          one(Sheet{Name: "a:b"}),
+			"star":           one(Sheet{Name: "a*b"}),
+			"question":       one(Sheet{Name: "a?b"}),
+			"slash":          one(Sheet{Name: "a/b"}),
+			"backslash":      one(Sheet{Name: `a\b`}),
+			"lower ref":      one(Sheet{Name: "S", Cells: []Cell{{Ref: "a1"}}}),
+			"no row":         one(Sheet{Name: "S", Cells: []Cell{{Ref: "A"}}}),
+			"row zero":       one(Sheet{Name: "S", Cells: []Cell{{Ref: "A0"}}}),
+			"row too big":    one(Sheet{Name: "S", Cells: []Cell{{Ref: "A1048577"}}}),
+			"col too big":    one(Sheet{Name: "S", Cells: []Cell{{Ref: "XFE1"}}}),
+			"junk ref":       one(Sheet{Name: "S", Cells: []Cell{{Ref: "A1B"}}}),
+			"duplicate cell": one(Sheet{Name: "S", Cells: []Cell{{Ref: "A1"}, {Ref: "A1"}}}),
+		}
+		for name, wb := range cases {
+			var buf bytes.Buffer
+			Expect(Write(&buf, wb)).ToNot(Succeed(), "%s: expected an error", name)
+		}
+		Expect(Write(io.Discard, Workbook{Sheets: []Sheet{{Name: strings.Repeat("x", 31), Cells: []Cell{{Ref: "XFD1048576", Value: Num(1)}}}}})).To(Succeed(), "limits should be valid")
+	})
 
-func TestNotFinite(t *testing.T) {
-	inf := 1.0
-	for i := 0; i < 2000; i++ {
-		inf *= 10
-	}
-	wb := Workbook{Sheets: []Sheet{{Name: "S", Cells: []Cell{{Ref: "A1", Value: Num(inf)}}}}}
-	if err := Write(io.Discard, wb); err == nil {
-		t.Error("expected an error for +Inf")
-	}
-}
+	It("escapes special characters in strings, formulas, names, formats and the title", func() {
+		nasty := `a < b & "c" 'd' > e`
+		wb := Workbook{
+			Title: nasty,
+			Sheets: []Sheet{{
+				Name: "Q&A 'x' y",
+				Columns: []Column{
+					{NumberFormat: `0.00" <u> & "`},
+				},
+				Cells: []Cell{
+					{Ref: "A1", Value: Str(nasty)},
+					{Ref: "A2", Formula: `"<" & "&"`, Value: Str(nasty)},
+					{Ref: "A3", Value: Num(1)},
+				},
+			}},
+		}
+		files := writeBook(wb)
+
+		var sst struct {
+			Items []string `xml:"si>t"`
+		}
+		unmarshal(files, "xl/sharedStrings.xml", &sst)
+		Expect(sst.Items).To(Equal([]string{nasty}))
+		var sh xSheet
+		unmarshal(files, "xl/worksheets/sheet1.xml", &sh)
+		Expect(sh.Cells[1].Formula).To(Equal(`"<" & "&"`))
+		Expect(sh.Cells[1].Value).To(Equal(nasty))
+		var book struct {
+			Sheets []struct {
+				Name string `xml:"name,attr"`
+			} `xml:"sheets>sheet"`
+		}
+		unmarshal(files, "xl/workbook.xml", &book)
+		Expect(book.Sheets[0].Name).To(Equal("Q&A 'x' y"))
+		var st xStyles
+		unmarshal(files, "xl/styles.xml", &st)
+		Expect(st.NumFmts).To(HaveLen(1))
+		Expect(st.NumFmts[0].Code).To(Equal(`0.00" <u> & "`))
+		var core struct {
+			Title string `xml:"title"`
+		}
+		unmarshal(files, "docProps/core.xml", &core)
+		Expect(core.Title).To(Equal(nasty))
+	})
+
+	It("sorts cells by row and column position", func() {
+		wb := Workbook{Sheets: []Sheet{{Name: "S", Cells: []Cell{
+			{Ref: "B2", Value: Num(4)}, {Ref: "A2", Value: Num(3)},
+			{Ref: "B1", Value: Num(2)}, {Ref: "A1", Value: Num(1)},
+		}}}}
+		files := writeBook(wb)
+		var sh xSheet
+		unmarshal(files, "xl/worksheets/sheet1.xml", &sh)
+		var got []string
+		for _, c := range sh.Cells {
+			got = append(got, c.Ref)
+		}
+		Expect(got).To(Equal([]string{"A1", "B1", "A2", "B2"}))
+	})
+
+	It("rejects a non-finite number", func() {
+		inf := 1.0
+		for i := 0; i < 2000; i++ {
+			inf *= 10
+		}
+		wb := Workbook{Sheets: []Sheet{{Name: "S", Cells: []Cell{{Ref: "A1", Value: Num(inf)}}}}}
+		Expect(Write(io.Discard, wb)).ToNot(Succeed(), "expected an error for +Inf")
+	})
+})

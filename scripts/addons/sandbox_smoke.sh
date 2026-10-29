@@ -3,7 +3,7 @@
 # Release smoke test of the Sandbox add-on package. It takes the package that
 # the release process builds, starts the add-on from the extracted files under
 # the real supervisor with the default settings, and runs a command through
-# the same tool path a chat uses (tests/addons/actione2e, TestSmoke...).
+# the same tool path a chat uses (tests/addons/actione2e, the "Packaged Sandbox smoke" spec).
 #
 #   sh scripts/addons/sandbox_smoke.sh [--layout <dir>] [--version <semver>]
 #       [--runtime-dir <dir>] [--require isolated] [--local-check]
@@ -61,4 +61,4 @@ if [ -z "$local_check" ]; then
     }
 fi
 SANDBOX_SMOKE_PACKAGE=$dest SANDBOX_SMOKE_REQUIRE=$require \
-    go test -tags auth -count=1 -v -run TestSmokeThePackagedSandboxRunsACommandOrSaysItCannot ./tests/addons/actione2e/
+    go test -tags auth -count=1 -v -run TestActionE2E ./tests/addons/actione2e/ -ginkgo.focus 'Packaged Sandbox smoke' -ginkgo.fail-on-empty
