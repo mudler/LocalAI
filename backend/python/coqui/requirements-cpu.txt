@@ -2,5 +2,5 @@
 transformers==4.48.3
 accelerate
 torch==2.4.1
-torchaudio==2.4.1
+torchaudio==2.11.1+xpu
 coqui-tts
