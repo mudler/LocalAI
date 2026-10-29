@@ -30,7 +30,7 @@ test.describe('Navigation', () => {
     }
     // Settings lives under the Operate hub, not in the sidebar.
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/settings"]')).toHaveCount(0)
-    await page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' }).click()
+    await page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' }).click()
     await expect(page).toHaveURL(/\/app\/operate$/)
     const settingsTab = page.locator('.dk-hubtabs [data-hub-tab="settings"]')
     await expect(settingsTab).toBeVisible()
@@ -46,7 +46,7 @@ test.describe('Navigation', () => {
   test('Operate sits under a Workspace label and there is no Build entry', async ({ page }) => {
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Workspace' })).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toBeVisible()
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveCount(0)
   })
 
@@ -90,7 +90,7 @@ test.describe('Navigation', () => {
 
   test('Operate is a single entry that opens the Operate hub', async ({ page }) => {
     await page.goto('/app')
-    const operate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })
+    const operate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })
     await expect(operate).toBeVisible()
     await operate.click()
     await expect(page).toHaveURL(/\/app\/operate$/)

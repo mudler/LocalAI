@@ -15,7 +15,7 @@
   "sections": {
     "recognition": "Recognition",
     "build": "Build",
-    "operate": "Operate",
+    "operate": "Administration",
     "workspace": "Workspace"
   },
   "operate": {

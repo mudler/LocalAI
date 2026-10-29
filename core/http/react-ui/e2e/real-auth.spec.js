@@ -69,7 +69,7 @@ test('an anonymous visitor is sent to the login page and the API refuses them', 
 test('the first account is the administrator and signs in through the form', async ({ page }) => {
   await signIn(page, ADMIN)
   await expect(page).toHaveURL(/\/app/)
-  await expect(page.getByRole('link', { name: 'Operate' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Administration' })).toBeVisible()
   await page.goto(`${server.url}/app/chats`)
   await expect(page.getByTestId('chats-page')).toBeVisible()
 })

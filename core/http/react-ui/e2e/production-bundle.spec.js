@@ -15,7 +15,7 @@ const PAGES = [
   { name: 'Home', path: '/app', ready: page => page.locator('.home-page') },
   { name: 'Chats', path: '/app/chats', ready: page => page.getByTestId('chats-page') },
   { name: 'Agents', path: '/app/agents', ready: page => page.getByRole('heading', { name: 'Agents', level: 1 }) },
-  { name: 'Operate', path: '/app/operate', ready: page => page.getByTestId('operate-overview') },
+  { name: 'Administration', path: '/app/operate', ready: page => page.getByTestId('operate-overview') },
   { name: 'Models', path: '/app/models', ready: page => page.locator('.sidebar-nav a.nav-item[href="/app/models"][aria-current="page"], .sidebar-nav a.nav-item.active[href="/app/models"]').first() },
 ]
 

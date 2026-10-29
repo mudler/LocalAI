@@ -15,7 +15,7 @@
   "sections": {
     "recognition": "识别",
     "build": "构建",
-    "operate": "运维",
+    "operate": "管理",
     "workspace": "工作区"
   },
   "operate": {

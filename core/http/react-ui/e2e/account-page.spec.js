@@ -94,7 +94,7 @@ test.describe('Account: other people and states', () => {
     await page.goto('/app/account?tab=usage')
     await expect(page.getByTestId('account-usage')).toBeVisible()
     await expect(page.getByTestId('account-page')).toContainText('bob · user')
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toHaveCount(0)
   })
 
   test('without authentication there is no account', async ({ page }) => {

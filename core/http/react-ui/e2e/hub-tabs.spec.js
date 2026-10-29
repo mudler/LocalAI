@@ -127,7 +127,7 @@ test.describe('Hub tabs: gating', () => {
   test('a non-admin user gets no Operate entry in the sidebar', async ({ page }) => {
     await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { collections: true } })
     await page.goto('/app')
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toHaveCount(0)
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveCount(0)
   })
 

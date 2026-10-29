@@ -71,7 +71,7 @@ test.describe('Add Model', () => {
 
 test.describe('Hub pages', () => {
   for (const [name, path, setup] of [
-    ['Operate', '/app/settings', async () => {}],
+    ['Administration', '/app/settings', async () => {}],
   ]) {
     test(`${name}: the page title starts at the same edge as the first tab`, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 })

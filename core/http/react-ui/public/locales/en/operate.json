@@ -16,7 +16,7 @@
       "looking_other": "Running, with {{count}} things to look at.",
       "firstRun": "Nothing is running yet."
     },
-    "firstRunBody": "Operate shows health once a model is loaded. Start with a backend: it is the program that runs models.",
+    "firstRunBody": "Administration shows health once a model is loaded. Start with a backend: it is the program that runs models.",
     "firstRunBackend": "Install a backend",
     "firstRunModels": "Browse models",
     "rows": {
@@ -95,7 +95,7 @@
     "titleRam": "System memory in use",
     "titleClusterGpu": "GPU memory in use, all nodes",
     "titleClusterRam": "System memory in use, all nodes",
-    "scope": "Since you opened Operate. LocalAI keeps no memory history.",
+    "scope": "Since you opened Administration. LocalAI keeps no memory history.",
     "meterLabel": "{{used}} of {{total}} in use, {{percent}} percent",
     "of": "of {{total}}",
     "hint": "Readings over {{span}}. Hover the chart or use the arrow keys.",
@@ -105,7 +105,7 @@
     "capacity": "capacity {{value}}",
     "gbTick": "{{value}} GB",
     "now": "{{value}} now",
-    "waiting": "The chart starts with the second reading, about 15 seconds after you open this page. It shows only readings taken while Operate is open.",
+    "waiting": "The chart starts with the second reading, about 15 seconds after you open this page. It shows only readings taken while Administration is open.",
     "unavailable": "No memory reading is available, so no chart is drawn.",
     "dataTable": "Data table",
     "time": "Time",

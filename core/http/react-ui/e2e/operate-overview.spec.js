@@ -30,11 +30,11 @@ async function mockQuiet(page, { upgrades = NO_UPGRADES, operations = [] } = {})
     route.fulfill({ json: [{ id: 'node-a', status: 'healthy', healthy: true }] }))
 }
 
-test.describe('Operate overview', () => {
-  test('Operate opens the overview, not whichever page happens to be first', async ({ page }) => {
+test.describe('Administration overview', () => {
+  test('Administration opens the overview, not whichever page happens to be first', async ({ page }) => {
     await mockQuiet(page)
     await page.goto('/app')
-    await page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' }).click()
+    await page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' }).click()
     // Today this lands on /app/backends purely because Backends is the first
     // entry in operateConsole.groups — an ordering accident, not a decision.
     await expect(page).toHaveURL(/\/app\/operate$/)

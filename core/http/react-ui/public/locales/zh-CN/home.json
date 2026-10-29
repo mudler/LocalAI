@@ -108,7 +108,7 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
+    "operate": "管理",
     "operateSummary": "{{models}} models configured · nodes, activity and traces"
   },
   "slash": {

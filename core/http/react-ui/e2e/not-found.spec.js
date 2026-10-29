@@ -11,7 +11,7 @@ test.describe('404', () => {
     await expect(nf).toContainText('/app/no-such-page')
     await expect(nf.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/app')
     const places = nf.getByRole('navigation', { name: 'Where to go' })
-    for (const name of ['Home', 'Models', 'Chat', 'Agents', 'MCP connectors', 'Memory', 'Add-ons', 'Operate']) {
+    for (const name of ['Home', 'Models', 'Chat', 'Agents', 'MCP connectors', 'Memory', 'Add-ons', 'Administration']) {
       await expect(places.getByRole('link', { name })).toBeVisible()
     }
     // The Build hub is gone.
@@ -41,7 +41,7 @@ test.describe('404', () => {
     const places = page.getByTestId('not-found').getByRole('navigation', { name: 'Where to go' })
     await expect(places.getByRole('link', { name: 'Home' })).toBeVisible()
     await expect(places.getByRole('link', { name: 'Models' })).toHaveCount(0)
-    await expect(places.getByRole('link', { name: 'Operate' })).toHaveCount(0)
+    await expect(places.getByRole('link', { name: 'Administration' })).toHaveCount(0)
   })
 
   test('an address outside the app gets the same page', async ({ page }) => {
