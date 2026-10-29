@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +15,8 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type fakeRunner struct {
@@ -38,143 +39,19 @@ func env(tool, user, conv string, args map[string]any) contract.Envelope {
 	}
 }
 
-func act(t *testing.T, r tools.Runner, e contract.Envelope) (map[string]any, error) {
-	t.Helper()
+func TestTools(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Sandbox Tools Suite")
+}
+
+func act(r tools.Runner, e contract.Envelope) (map[string]any, error) {
 	res, err := tools.New(r, nil, nil).(contract.ActRuntime).Act(context.Background(), e)
 	if err != nil {
 		return nil, err
 	}
 	var out map[string]any
-	if err := json.Unmarshal(res.Payload, &out); err != nil {
-		t.Fatal(err)
-	}
+	Expect(json.Unmarshal(res.Payload, &out)).To(Succeed())
 	return out, nil
-}
-
-func TestACallRunsAsTheUserOfTheRequestInTheConversationOfTheChat(t *testing.T) {
-	f := &fakeRunner{out: "hello\n"}
-	out, err := act(t, f, env("bash", "alice", "conv1", map[string]any{"command": "echo hello"}))
-	if err != nil || out["ok"] != true || out["output"] != "hello\n" {
-		t.Fatalf("answer = %v, %v", out, err)
-	}
-	r := f.got[0]
-	if r.User != "alice" || r.Conversation != "conv1" || r.Tool != "bash" || r.Operation != "t0123456789abcdef" {
-		t.Fatalf("request = %+v", r)
-	}
-	var args map[string]any
-	_ = json.Unmarshal(r.Args, &args)
-	if _, has := args["tool"]; has || args["command"] != "echo hello" {
-		t.Errorf("args = %v, want the model's arguments without the tool name", args)
-	}
-}
-
-func TestACallWithoutAConversationIsRefusedAndRunsNothing(t *testing.T) {
-	f := &fakeRunner{}
-	if _, err := act(t, f, env("bash", "alice", "", map[string]any{"command": "x"})); err == nil {
-		t.Error("a call without a conversation was served")
-	}
-	if len(f.got) != 0 {
-		t.Error("the runner was called")
-	}
-}
-
-func TestWhatTheModelCanFixIsAnAnswerAndAnOutageIsAnError(t *testing.T) {
-	for name, err := range map[string]error{
-		"invalid":   codetools.ErrInvalid,
-		"busy":      manager.ErrBusy,
-		"tool said": errors.New("not a file: nope.txt"),
-	} {
-		out, e := act(t, &fakeRunner{err: err}, env("read", "alice", "conv1", map[string]any{"path": "nope.txt"}))
-		if e != nil || out["ok"] != false || out["error"] == "" {
-			t.Errorf("%s: answer = %v, %v, want an ok:false answer with the reason", name, out, e)
-		}
-	}
-	for name, err := range map[string]error{"canceled": context.Canceled, "deadline": context.DeadlineExceeded} {
-		if _, e := act(t, &fakeRunner{err: err}, env("bash", "alice", "conv1", map[string]any{"command": "x"})); e == nil {
-			t.Errorf("%s: a stopped turn was reported as an answer", name)
-		}
-	}
-}
-
-func TestOnlyTheActPathServesTheTools(t *testing.T) {
-	rt := tools.New(&fakeRunner{}, nil, nil)
-	e := env("bash", "alice", "conv1", map[string]any{"command": "x"})
-	if _, err := rt.Read(context.Background(), e); err == nil {
-		t.Error("Read served a sandbox tool")
-	}
-	if _, err := act(t, &fakeRunner{}, env("rm-rf", "alice", "conv1", map[string]any{})); err == nil {
-		t.Error("an unknown tool was served")
-	}
-}
-
-func TestAnAnswerIsBounded(t *testing.T) {
-	big := strings.Repeat("x", 200<<10)
-	out, err := act(t, &fakeRunner{out: big}, env("bash", "alice", "conv1", map[string]any{"command": "x"}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if s, _ := out["output"].(string); len(s) > 70<<10 {
-		t.Errorf("output is %d bytes", len(s))
-	}
-}
-
-func TestTheManifestDeclaresTheToolsOfTheRuntime(t *testing.T) {
-	const path = "../../manifest.json"
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var doc map[string]any
-	_ = json.Unmarshal(raw, &doc)
-	caps := doc["capabilities"].(map[string]any)
-	if os.Getenv("UPDATE_MANIFEST") == "1" {
-		caps["tools"] = tools.Declared()
-		caps["toolDefinitions"] = tools.Definitions()
-		caps["actions"] = true
-		out, _ := json.MarshalIndent(doc, "", "  ")
-		raw = append(out, '\n')
-		if err := os.WriteFile(path, raw, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	m, err := contract.ParseManifest(raw)
-	if err != nil {
-		t.Fatalf("the manifest does not parse: %v", err)
-	}
-	if !reflect.DeepEqual(m.Capabilities.Tools, tools.Declared()) || !m.Capabilities.Actions {
-		t.Errorf("tools = %v, actions = %v", m.Capabilities.Tools, m.Capabilities.Actions)
-	}
-	want := tools.Definitions()
-	if len(m.Capabilities.ToolDefinitions) != len(want) {
-		t.Fatalf("%d definitions, want %d", len(m.Capabilities.ToolDefinitions), len(want))
-	}
-	for i, d := range m.Capabilities.ToolDefinitions {
-		var a, b any
-		_ = json.Unmarshal(d.InputSchema, &a)
-		_ = json.Unmarshal(want[i].InputSchema, &b)
-		if d.Name != want[i].Name || d.Kind != want[i].Kind || d.Description != want[i].Description || d.UIOnly != want[i].UIOnly || !reflect.DeepEqual(a, b) {
-			t.Errorf("definition %s differs from the runtime", d.Name)
-		}
-		if err := contract.ValidateToolSchema(d.InputSchema, d.Kind); err != nil {
-			t.Errorf("schema of %s: %v", d.Name, err)
-		}
-	}
-	for _, d := range want {
-		switch d.Name {
-		case "status":
-			if d.Kind != contract.ToolKindRead {
-				t.Errorf("status must be a read tool")
-			}
-		case "set-backend", "confirm-host":
-			if d.Kind != contract.ToolKindRead || !d.UIOnly {
-				t.Errorf("%s must be a read tool for the settings page only", d.Name)
-			}
-		default:
-			if d.Kind != contract.ToolKindAction {
-				t.Errorf("%s is not an action tool: code runs at once, as the user", d.Name)
-			}
-		}
-	}
 }
 
 // fakeSettings records what the admin tools did.
@@ -198,109 +75,16 @@ type fakeAdmin map[string]bool
 
 func (a fakeAdmin) IsAdmin(_ context.Context, opID string) bool { return a[opID] }
 
-func read(t *testing.T, rt contract.Runtime, tool, user string, args map[string]any, op string) map[string]any {
-	t.Helper()
+func read(rt contract.Runtime, tool, user string, args map[string]any, op string) map[string]any {
 	e := env(tool, user, "", args)
 	e.Request.Action = "read"
 	e.Authority.Scope = "read"
 	e.Request.OperationID = op
 	res, err := rt.Read(context.Background(), e)
-	if err != nil {
-		t.Fatalf("%s: %v", tool, err)
-	}
+	Expect(err).NotTo(HaveOccurred(), tool)
 	var out map[string]any
 	_ = json.Unmarshal(res.Payload, &out)
 	return out
-}
-
-func TestAnyoneSeesWhetherCodeCanRunButOnlyAnAdminSeesWhy(t *testing.T) {
-	set := &fakeSettings{st: backends.Status{Setting: backends.Auto, Active: "gvisor", Backends: []backends.BackendState{{Name: "kvm", Reason: "/dev/kvm: permission denied"}}}}
-	rt := tools.New(&fakeRunner{}, set, fakeAdmin{"opadmin": true})
-	user := read(t, rt, "status", "alice", map[string]any{}, "opuser")
-	if user["ok"] != true || user["canRun"] != true || user["active"] != "gvisor" {
-		t.Fatalf("status for a user = %v", user)
-	}
-	if _, has := user["backends"]; has {
-		t.Errorf("a user sees the details of the host: %v", user)
-	}
-	admin := read(t, rt, "status", "root", map[string]any{}, "opadmin")
-	if _, has := admin["backends"]; !has || admin["admin"] != true {
-		t.Fatalf("status for an admin = %v", admin)
-	}
-	none := tools.New(&fakeRunner{}, &fakeSettings{st: backends.Status{Setting: backends.Auto}}, fakeAdmin{})
-	if got := read(t, none, "status", "alice", map[string]any{}, "x1"); got["canRun"] != false {
-		t.Errorf("no backend, but canRun = %v", got["canRun"])
-	}
-}
-
-func TestOnlyAnAdminChangesTheBackendAndTheChangeResetsTheSandboxes(t *testing.T) {
-	set := &fakeSettings{}
-	rt := tools.New(&fakeRunner{}, set, fakeAdmin{"opadmin": true})
-	denied := read(t, rt, "set-backend", "alice", map[string]any{"backend": "host"}, "opuser")
-	if denied["ok"] != false || len(set.set) != 0 {
-		t.Fatalf("a user changed the backend: %v %v", denied, set.set)
-	}
-	if got := read(t, rt, "confirm-host", "alice", map[string]any{"phrase": backends.HostPhrase}, "opuser"); got["ok"] != false || len(set.phrases) != 0 {
-		t.Fatalf("a user confirmed the host: %v", got)
-	}
-	ok := read(t, rt, "set-backend", "root", map[string]any{"backend": "gvisor"}, "opadmin")
-	if ok["ok"] != true || len(set.set) != 1 || set.set[0] != backends.GVisor || set.reset != 1 {
-		t.Fatalf("admin set-backend = %v %v reset %d", ok, set.set, set.reset)
-	}
-	set.err = backends.ErrNotConfirmed
-	bad := read(t, rt, "set-backend", "root", map[string]any{"backend": "host"}, "opadmin")
-	if bad["ok"] != false || set.reset != 1 {
-		t.Fatalf("a refused change = %v, reset %d", bad, set.reset)
-	}
-	set.err = nil
-	read(t, rt, "confirm-host", "root", map[string]any{"phrase": backends.HostPhrase}, "opadmin")
-	if len(set.phrases) != 1 || set.phrases[0] != backends.HostPhrase {
-		t.Fatalf("phrases = %v", set.phrases)
-	}
-}
-
-func TestWithoutTheHostTellingWhoIsAnAdminNobodyIs(t *testing.T) {
-	set := &fakeSettings{}
-	rt := tools.New(&fakeRunner{}, set, nil)
-	if got := read(t, rt, "set-backend", "root", map[string]any{"backend": "off"}, "op1"); got["ok"] != false || len(set.set) != 0 {
-		t.Fatalf("set-backend with no admin check = %v", got)
-	}
-}
-
-func TestTheStatusToolAnswersWhenTheModelCallsItWithNoArguments(t *testing.T) {
-	set := &fakeSettings{st: backends.Status{Setting: backends.Auto, Active: "gvisor"}}
-	rt := tools.New(&fakeRunner{}, set, fakeAdmin{})
-	e := env("status", "alice", "", map[string]any{})
-	e.Request.Action = "read"
-	e.Authority.Scope = "read"
-	e.Request.OperationID = "opmodel0123456789"
-	e.Request.Arguments = json.RawMessage(`{}`)
-	res, err := rt.Read(context.Background(), e)
-	if err != nil {
-		t.Fatalf("Read: %v", err)
-	}
-	var out map[string]any
-	if err := json.Unmarshal(res.Payload, &out); err != nil {
-		t.Fatal(err)
-	}
-	if out["ok"] != true || out["canRun"] != true || out["active"] != "gvisor" {
-		t.Fatalf("status = %v", out)
-	}
-}
-
-func TestTheSettingsToolsAreForThePageOnly(t *testing.T) {
-	ui := map[string]bool{}
-	for _, d := range tools.Definitions() {
-		if d.UIOnly {
-			ui[d.Name] = true
-			if !contract.IsResourceless(d) {
-				t.Errorf("%s names a resource", d.Name)
-			}
-		}
-	}
-	if !ui[tools.ToolSetBackend] || !ui[tools.ToolConfirmHost] || ui[tools.ToolStatus] {
-		t.Errorf("page-only tools = %v, want set-backend and confirm-host, not status", ui)
-	}
 }
 
 type closingRunner struct {
@@ -311,23 +95,196 @@ type closingRunner struct {
 
 func (c *closingRunner) Close(context.Context) error { c.closed++; return c.err }
 
-func TestRuntimeCloseDestroysTheSandboxes(t *testing.T) {
-	c := &closingRunner{}
-	rt, ok := tools.New(c, nil, nil).(interface{ Close(context.Context) error })
-	if !ok {
-		t.Fatal("the runtime has no Close: the add-on cannot stop its sandboxes when the host goes away")
-	}
-	if err := rt.Close(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	if c.closed != 1 {
-		t.Fatalf("the runner was closed %d times, want 1", c.closed)
-	}
-}
+var _ = Describe("Sandbox tools", func() {
+	It("runs a call as the user of the request in the conversation of the chat", func() {
+		f := &fakeRunner{out: "hello\n"}
+		out, err := act(f, env("bash", "alice", "conv1", map[string]any{"command": "echo hello"}))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out["ok"]).To(Equal(true))
+		Expect(out["output"]).To(Equal("hello\n"))
+		Expect(f.got).NotTo(BeEmpty())
+		r := f.got[0]
+		Expect(r.User).To(Equal("alice"))
+		Expect(r.Conversation).To(Equal("conv1"))
+		Expect(r.Tool).To(Equal("bash"))
+		Expect(r.Operation).To(Equal("t0123456789abcdef"))
+		var args map[string]any
+		_ = json.Unmarshal(r.Args, &args)
+		Expect(args).NotTo(HaveKey("tool"), "want the model's arguments without the tool name")
+		Expect(args["command"]).To(Equal("echo hello"))
+	})
 
-func TestRuntimeCloseWithARunnerThatHasNoClose(t *testing.T) {
-	rt := tools.New(&fakeRunner{}, nil, nil).(interface{ Close(context.Context) error })
-	if err := rt.Close(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-}
+	It("refuses a call without a conversation and runs nothing", func() {
+		f := &fakeRunner{}
+		_, err := act(f, env("bash", "alice", "", map[string]any{"command": "x"}))
+		Expect(err).To(HaveOccurred(), "a call without a conversation was served")
+		Expect(f.got).To(BeEmpty(), "the runner was called")
+	})
+
+	It("answers what the model can fix and reports an outage as an error", func() {
+		for name, err := range map[string]error{
+			"invalid":   codetools.ErrInvalid,
+			"busy":      manager.ErrBusy,
+			"tool said": errors.New("not a file: nope.txt"),
+		} {
+			out, e := act(&fakeRunner{err: err}, env("read", "alice", "conv1", map[string]any{"path": "nope.txt"}))
+			Expect(e).NotTo(HaveOccurred(), name)
+			Expect(out["ok"]).To(Equal(false), "%s: want an ok:false answer with the reason: %v", name, out)
+			Expect(out["error"]).NotTo(BeEmpty(), name)
+		}
+		for name, err := range map[string]error{"canceled": context.Canceled, "deadline": context.DeadlineExceeded} {
+			_, e := act(&fakeRunner{err: err}, env("bash", "alice", "conv1", map[string]any{"command": "x"}))
+			Expect(e).To(HaveOccurred(), "%s: a stopped turn was reported as an answer", name)
+		}
+	})
+
+	It("serves the tools on the act path only", func() {
+		rt := tools.New(&fakeRunner{}, nil, nil)
+		e := env("bash", "alice", "conv1", map[string]any{"command": "x"})
+		_, err := rt.Read(context.Background(), e)
+		Expect(err).To(HaveOccurred(), "Read served a sandbox tool")
+		_, err = act(&fakeRunner{}, env("rm-rf", "alice", "conv1", map[string]any{}))
+		Expect(err).To(HaveOccurred(), "an unknown tool was served")
+	})
+
+	It("bounds an answer", func() {
+		big := strings.Repeat("x", 200<<10)
+		out, err := act(&fakeRunner{out: big}, env("bash", "alice", "conv1", map[string]any{"command": "x"}))
+		Expect(err).NotTo(HaveOccurred())
+		s, _ := out["output"].(string)
+		Expect(len(s)).To(BeNumerically("<=", 70<<10))
+	})
+
+	It("declares the tools of the runtime in the manifest", func() {
+		const path = "../../manifest.json"
+		raw, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		var doc map[string]any
+		_ = json.Unmarshal(raw, &doc)
+		caps := doc["capabilities"].(map[string]any)
+		if os.Getenv("UPDATE_MANIFEST") == "1" {
+			caps["tools"] = tools.Declared()
+			caps["toolDefinitions"] = tools.Definitions()
+			caps["actions"] = true
+			out, _ := json.MarshalIndent(doc, "", "  ")
+			raw = append(out, '\n')
+			Expect(os.WriteFile(path, raw, 0o644)).To(Succeed())
+		}
+		m, err := contract.ParseManifest(raw)
+		Expect(err).NotTo(HaveOccurred(), "the manifest does not parse")
+		Expect(m.Capabilities.Tools).To(Equal(tools.Declared()))
+		Expect(m.Capabilities.Actions).To(BeTrue())
+		want := tools.Definitions()
+		Expect(m.Capabilities.ToolDefinitions).To(HaveLen(len(want)))
+		for i, d := range m.Capabilities.ToolDefinitions {
+			var a, b any
+			_ = json.Unmarshal(d.InputSchema, &a)
+			_ = json.Unmarshal(want[i].InputSchema, &b)
+			Expect(d.Name).To(Equal(want[i].Name), "definition %s differs from the runtime", d.Name)
+			Expect(d.Kind).To(Equal(want[i].Kind), "definition %s differs from the runtime", d.Name)
+			Expect(d.Description).To(Equal(want[i].Description), "definition %s differs from the runtime", d.Name)
+			Expect(d.UIOnly).To(Equal(want[i].UIOnly), "definition %s differs from the runtime", d.Name)
+			Expect(a).To(Equal(b), "definition %s differs from the runtime", d.Name)
+			Expect(contract.ValidateToolSchema(d.InputSchema, d.Kind)).To(Succeed(), "schema of %s", d.Name)
+		}
+		for _, d := range want {
+			switch d.Name {
+			case "status":
+				Expect(d.Kind).To(Equal(contract.ToolKindRead), "status must be a read tool")
+			case "set-backend", "confirm-host":
+				Expect(d.Kind).To(Equal(contract.ToolKindRead), "%s must be a read tool for the settings page only", d.Name)
+				Expect(d.UIOnly).To(BeTrue(), "%s must be a read tool for the settings page only", d.Name)
+			default:
+				Expect(d.Kind).To(Equal(contract.ToolKindAction), "%s is not an action tool: code runs at once, as the user", d.Name)
+			}
+		}
+	})
+
+	It("lets anyone see whether code can run but only an admin see why", func() {
+		set := &fakeSettings{st: backends.Status{Setting: backends.Auto, Active: "gvisor", Backends: []backends.BackendState{{Name: "kvm", Reason: "/dev/kvm: permission denied"}}}}
+		rt := tools.New(&fakeRunner{}, set, fakeAdmin{"opadmin": true})
+		user := read(rt, "status", "alice", map[string]any{}, "opuser")
+		Expect(user["ok"]).To(Equal(true), "status for a user = %v", user)
+		Expect(user["canRun"]).To(Equal(true), "status for a user = %v", user)
+		Expect(user["active"]).To(Equal("gvisor"), "status for a user = %v", user)
+		Expect(user).NotTo(HaveKey("backends"), "a user sees the details of the host")
+		admin := read(rt, "status", "root", map[string]any{}, "opadmin")
+		Expect(admin).To(HaveKey("backends"))
+		Expect(admin["admin"]).To(Equal(true))
+		none := tools.New(&fakeRunner{}, &fakeSettings{st: backends.Status{Setting: backends.Auto}}, fakeAdmin{})
+		Expect(read(none, "status", "alice", map[string]any{}, "x1")["canRun"]).To(Equal(false), "no backend")
+	})
+
+	It("lets only an admin change the backend, and the change resets the sandboxes", func() {
+		set := &fakeSettings{}
+		rt := tools.New(&fakeRunner{}, set, fakeAdmin{"opadmin": true})
+		denied := read(rt, "set-backend", "alice", map[string]any{"backend": "host"}, "opuser")
+		Expect(denied["ok"]).To(Equal(false), "a user changed the backend: %v", denied)
+		Expect(set.set).To(BeEmpty(), "a user changed the backend")
+		got := read(rt, "confirm-host", "alice", map[string]any{"phrase": backends.HostPhrase}, "opuser")
+		Expect(got["ok"]).To(Equal(false), "a user confirmed the host: %v", got)
+		Expect(set.phrases).To(BeEmpty(), "a user confirmed the host")
+		ok := read(rt, "set-backend", "root", map[string]any{"backend": "gvisor"}, "opadmin")
+		Expect(ok["ok"]).To(Equal(true), "admin set-backend = %v", ok)
+		Expect(set.set).To(Equal([]backends.Setting{backends.GVisor}))
+		Expect(set.reset).To(Equal(1))
+		set.err = backends.ErrNotConfirmed
+		bad := read(rt, "set-backend", "root", map[string]any{"backend": "host"}, "opadmin")
+		Expect(bad["ok"]).To(Equal(false), "a refused change = %v", bad)
+		Expect(set.reset).To(Equal(1), "a refused change must not reset")
+		set.err = nil
+		read(rt, "confirm-host", "root", map[string]any{"phrase": backends.HostPhrase}, "opadmin")
+		Expect(set.phrases).To(Equal([]string{backends.HostPhrase}))
+	})
+
+	It("makes nobody an admin when the host does not tell who is", func() {
+		set := &fakeSettings{}
+		rt := tools.New(&fakeRunner{}, set, nil)
+		got := read(rt, "set-backend", "root", map[string]any{"backend": "off"}, "op1")
+		Expect(got["ok"]).To(Equal(false), "set-backend with no admin check = %v", got)
+		Expect(set.set).To(BeEmpty())
+	})
+
+	It("answers the status tool when the model calls it with no arguments", func() {
+		set := &fakeSettings{st: backends.Status{Setting: backends.Auto, Active: "gvisor"}}
+		rt := tools.New(&fakeRunner{}, set, fakeAdmin{})
+		e := env("status", "alice", "", map[string]any{})
+		e.Request.Action = "read"
+		e.Authority.Scope = "read"
+		e.Request.OperationID = "opmodel0123456789"
+		e.Request.Arguments = json.RawMessage(`{}`)
+		res, err := rt.Read(context.Background(), e)
+		Expect(err).NotTo(HaveOccurred(), "Read")
+		var out map[string]any
+		Expect(json.Unmarshal(res.Payload, &out)).To(Succeed())
+		Expect(out["ok"]).To(Equal(true), "status = %v", out)
+		Expect(out["canRun"]).To(Equal(true), "status = %v", out)
+		Expect(out["active"]).To(Equal("gvisor"), "status = %v", out)
+	})
+
+	It("keeps the settings tools for the page only", func() {
+		ui := map[string]bool{}
+		for _, d := range tools.Definitions() {
+			if d.UIOnly {
+				ui[d.Name] = true
+				Expect(contract.IsResourceless(d)).To(BeTrue(), "%s names a resource", d.Name)
+			}
+		}
+		Expect(ui[tools.ToolSetBackend]).To(BeTrue(), "page-only tools = %v", ui)
+		Expect(ui[tools.ToolConfirmHost]).To(BeTrue(), "page-only tools = %v", ui)
+		Expect(ui[tools.ToolStatus]).To(BeFalse(), "page-only tools = %v", ui)
+	})
+
+	It("destroys the sandboxes when the runtime closes", func() {
+		c := &closingRunner{}
+		rt, ok := tools.New(c, nil, nil).(interface{ Close(context.Context) error })
+		Expect(ok).To(BeTrue(), "the runtime has no Close: the add-on cannot stop its sandboxes when the host goes away")
+		Expect(rt.Close(context.Background())).To(Succeed())
+		Expect(c.closed).To(Equal(1))
+	})
+
+	It("closes a runtime whose runner has no Close", func() {
+		rt := tools.New(&fakeRunner{}, nil, nil).(interface{ Close(context.Context) error })
+		Expect(rt.Close(context.Background())).To(Succeed())
+	})
+})

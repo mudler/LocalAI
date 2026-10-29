@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
@@ -16,6 +15,8 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // engine answers the workspace operations for one user whose home is empty,
@@ -75,8 +76,7 @@ type admin bool
 
 func (a admin) IsAdmin(context.Context, string) bool { return bool(a) }
 
-func call(t *testing.T, rt contract.Runtime, tool, user, conv string, args map[string]any) map[string]any {
-	t.Helper()
+func call(rt contract.Runtime, tool, user, conv string, args map[string]any) map[string]any {
 	args["tool"] = tool
 	raw, _ := json.Marshal(args)
 	scope, action := "read", "read"
@@ -94,52 +94,40 @@ func call(t *testing.T, rt contract.Runtime, tool, user, conv string, args map[s
 	} else {
 		res, err = rt.Read(context.Background(), env)
 	}
-	if err != nil {
-		t.Fatalf("%s: %v", tool, err)
-	}
+	Expect(err).NotTo(HaveOccurred(), tool)
 	var out map[string]any
 	_ = json.Unmarshal(res.Payload, &out)
 	return out
 }
 
-// With the host backend chosen and confirmed, a command really runs on this
-// machine and what it writes is committed to the user's files.
-func TestTheHostBackendRunsACommandForReal(t *testing.T) {
-	data := t.TempDir()
-	sel, err := newSelector(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	eng := &engine{data: data, committed: map[string]string{}}
-	m, err := manager.New(manager.Options{Backend: sel.Backend, Store: remote.New(eng, data)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = m.Close(context.Background()) }()
-	rt := tools.New(m, settingsAdapter{Selector: sel, m: m}, admin(true))
+var _ = Describe("Host backend end to end", func() {
+	// With the host backend chosen and confirmed, a command really runs on this
+	// machine and what it writes is committed to the user's files.
+	It("runs a command for real", func() {
+		data := GinkgoT().TempDir()
+		sel, err := newSelector(data)
+		Expect(err).NotTo(HaveOccurred())
+		eng := &engine{data: data, committed: map[string]string{}}
+		m, err := manager.New(manager.Options{Backend: sel.Backend, Store: remote.New(eng, data)})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = m.Close(context.Background()) })
+		rt := tools.New(m, settingsAdapter{Selector: sel, m: m}, admin(true))
 
-	// No isolated backend works here (the build has no guest image), so nothing runs.
-	if got := call(t, rt, "bash", "alice", "conv1", map[string]any{"command": "echo no"}); got["output"] != "This host cannot run commands." {
-		t.Fatalf("before the host is chosen: %v", got)
-	}
-	if got := call(t, rt, "set-backend", "root", "", map[string]any{"backend": "host"}); got["ok"] != false {
-		t.Fatalf("the host was chosen without the phrase: %v", got)
-	}
-	if got := call(t, rt, "confirm-host", "root", "", map[string]any{"phrase": backends.HostPhrase}); got["ok"] != true {
-		t.Fatalf("confirm-host: %v", got)
-	}
-	if got := call(t, rt, "set-backend", "root", "", map[string]any{"backend": "host"}); got["ok"] != true {
-		t.Fatalf("set-backend: %v", got)
-	}
-	st := call(t, rt, "status", "alice", "", map[string]any{})
-	if st["canRun"] != true || st["hostNotice"] != true {
-		t.Fatalf("status = %v", st)
-	}
-	got := call(t, rt, "bash", "alice", "conv1", map[string]any{"command": "echo from the host > home/made.txt && echo done"})
-	if got["ok"] != true || !strings.Contains(got["output"].(string), "done") {
-		t.Fatalf("bash = %v", got)
-	}
-	if eng.committed["home/made.txt"] != "from the host\n" {
-		t.Fatalf("committed = %v", eng.committed)
-	}
-}
+		// No isolated backend works here (the build has no guest image), so nothing runs.
+		got := call(rt, "bash", "alice", "conv1", map[string]any{"command": "echo no"})
+		Expect(got["output"]).To(Equal("This host cannot run commands."), "before the host is chosen: %v", got)
+		got = call(rt, "set-backend", "root", "", map[string]any{"backend": "host"})
+		Expect(got["ok"]).To(Equal(false), "the host was chosen without the phrase: %v", got)
+		got = call(rt, "confirm-host", "root", "", map[string]any{"phrase": backends.HostPhrase})
+		Expect(got["ok"]).To(Equal(true), "confirm-host: %v", got)
+		got = call(rt, "set-backend", "root", "", map[string]any{"backend": "host"})
+		Expect(got["ok"]).To(Equal(true), "set-backend: %v", got)
+		st := call(rt, "status", "alice", "", map[string]any{})
+		Expect(st["canRun"]).To(Equal(true), "status = %v", st)
+		Expect(st["hostNotice"]).To(Equal(true), "status = %v", st)
+		got = call(rt, "bash", "alice", "conv1", map[string]any{"command": "echo from the host > home/made.txt && echo done"})
+		Expect(got["ok"]).To(Equal(true), "bash = %v", got)
+		Expect(got["output"]).To(ContainSubstring("done"))
+		Expect(eng.committed).To(HaveKeyWithValue("home/made.txt", "from the host\n"))
+	})
+})

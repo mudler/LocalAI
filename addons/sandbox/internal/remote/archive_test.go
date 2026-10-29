@@ -1,17 +1,16 @@
 package remote_test
 
 import (
-	"archive/tar"
 	"context"
-	"errors"
 	"io"
 	"io/fs"
 	"runtime"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // zeros is a file of n zero bytes that reports its size like an *os.File.
@@ -47,40 +46,9 @@ func (o oneFile) Walk(_ context.Context, fn func(workspace.UpperEntry) error) er
 		Open: func() (io.ReadCloser, error) { return &zeros{left: o.size}, nil }})
 }
 
-// A large file of the guest must not be held in memory to learn its size.
-func TestTheArchiveStreamsAFileInsteadOfBufferingIt(t *testing.T) {
-	const size = 96 << 20
-	var before, after runtime.MemStats
-	runtime.ReadMemStats(&before)
-	var written int64
-	_, _, err := remote.WriteArchive(context.Background(), oneFile{size}, countWriter{&written})
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtime.ReadMemStats(&after)
-	if written < size {
-		t.Fatalf("archive holds %d bytes, want at least %d", written, size)
-	}
-	if got := after.TotalAlloc - before.TotalAlloc; got > size/2 {
-		t.Fatalf("writing the archive allocated %d bytes for a %d byte file", got, size)
-	}
-}
-
 type countWriter struct{ n *int64 }
 
 func (c countWriter) Write(p []byte) (int, error) { *c.n += int64(len(p)); return len(p), nil }
-
-// A file that changes size while it is read must fail the archive, not write a
-// header that disagrees with the body.
-func TestTheArchiveFailsWhenAFileChangesSizeWhileItIsRead(t *testing.T) {
-	_, _, err := remote.WriteArchive(context.Background(), shrinking{}, io.Discard)
-	if err == nil {
-		t.Fatal("a short file was accepted")
-	}
-	if !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, tar.ErrWriteTooLong) && err.Error() == "" {
-		t.Fatalf("unexpected error %v", err)
-	}
-}
 
 type shrinking struct{}
 
@@ -93,3 +61,25 @@ func (shrinking) Walk(_ context.Context, fn func(workspace.UpperEntry) error) er
 type lying struct{ zeros }
 
 func (*lying) Stat() (fs.FileInfo, error) { return fakeInfo(100), nil }
+
+var _ = Describe("Archive", func() {
+	// A large file of the guest must not be held in memory to learn its size.
+	It("streams a file instead of buffering it", func() {
+		const size = 96 << 20
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		var written int64
+		_, _, err := remote.WriteArchive(context.Background(), oneFile{size}, countWriter{&written})
+		Expect(err).NotTo(HaveOccurred())
+		runtime.ReadMemStats(&after)
+		Expect(written).To(BeNumerically(">=", size), "archive size")
+		Expect(after.TotalAlloc-before.TotalAlloc).To(BeNumerically("<=", size/2), "writing the archive allocated too much for a %d byte file", size)
+	})
+
+	// A file that changes size while it is read must fail the archive, not write a
+	// header that disagrees with the body.
+	It("fails when a file changes size while it is read", func() {
+		_, _, err := remote.WriteArchive(context.Background(), shrinking{}, io.Discard)
+		Expect(err).To(HaveOccurred(), "a short file was accepted")
+	})
+})

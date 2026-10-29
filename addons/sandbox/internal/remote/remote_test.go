@@ -13,12 +13,13 @@ import (
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // fakeHost records the host operations and answers them. onCommit sees the
 // archive while it still exists.
 type fakeHost struct {
-	t        *testing.T
 	dataDir  string
 	calls    []call
 	onCommit func(dir string)
@@ -46,10 +47,14 @@ func (h *fakeHost) Do(_ context.Context, opID, op string, args, out any) error {
 	return json.Unmarshal(b, out)
 }
 
-func newStore(t *testing.T) (*remote.Store, *fakeHost, string) {
-	t.Helper()
-	dir := t.TempDir()
-	h := &fakeHost{t: t, dataDir: dir, answers: map[string]any{}}
+func TestRemote(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Sandbox Remote Store Suite")
+}
+
+func newStore() (*remote.Store, *fakeHost, string) {
+	dir := GinkgoT().TempDir()
+	h := &fakeHost{dataDir: dir, answers: map[string]any{}}
 	return remote.New(h, dir), h, dir
 }
 
@@ -57,198 +62,167 @@ func ctxOf(id string) context.Context { return remote.WithOperation(context.Back
 
 var actor = workspace.Actor{Principal: "ignored", ChatID: "c1"}
 
-func view(t *testing.T, s *remote.Store) workspace.View {
-	t.Helper()
+func view(s *remote.Store) workspace.View {
 	v, err := s.View(context.Background(), actor, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}, {Path: "/docs", At: "docs", Mode: workspace.ModeRead}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return v
 }
 
-func TestMaterializeAsksTheHostForTheMountsInsideTheDataDirectory(t *testing.T) {
-	s, h, dir := newStore(t)
-	h.answers["workspace.materialize"] = map[string]int64{"revision": 7}
-	rev, err := s.Materialize(ctxOf("op1"), view(t, s), filepath.Join(dir, "sessions", "s1", "lower"))
-	if err != nil || rev != 7 {
-		t.Fatalf("Materialize = %d, %v", rev, err)
-	}
-	c := h.calls[0]
-	if c.op != "workspace.materialize" || c.opID != "op1" || c.args["dir"] != "sessions/s1/lower" {
-		t.Fatalf("call = %+v", c)
-	}
-	mounts := c.args["mounts"].([]any)
-	first := mounts[0].(map[string]any)
-	second := mounts[1].(map[string]any)
-	if first["path"] != "/proj" || first["at"] != "proj" || first["write"] != true || second["write"] == true {
-		t.Fatalf("mounts = %v", mounts)
-	}
-}
+var _ = Describe("Remote workspace store", func() {
+	It("asks the host to materialize the mounts inside the data directory", func() {
+		s, h, dir := newStore()
+		h.answers["workspace.materialize"] = map[string]int64{"revision": 7}
+		rev, err := s.Materialize(ctxOf("op1"), view(s), filepath.Join(dir, "sessions", "s1", "lower"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rev).To(BeEquivalentTo(7))
+		c := h.calls[0]
+		Expect(c.op).To(Equal("workspace.materialize"))
+		Expect(c.opID).To(Equal("op1"))
+		Expect(c.args["dir"]).To(Equal("sessions/s1/lower"))
+		mounts := c.args["mounts"].([]any)
+		first := mounts[0].(map[string]any)
+		second := mounts[1].(map[string]any)
+		Expect(first["path"]).To(Equal("/proj"), "mounts = %v", mounts)
+		Expect(first["at"]).To(Equal("proj"), "mounts = %v", mounts)
+		Expect(first["write"]).To(Equal(true), "mounts = %v", mounts)
+		Expect(second["write"]).NotTo(Equal(true), "mounts = %v", mounts)
+	})
 
-func TestADirectoryOutsideTheDataDirectoryIsRefusedBeforeTheHostIsAsked(t *testing.T) {
-	s, h, dir := newStore(t)
-	for _, bad := range []string{"/etc/lower", filepath.Join(dir, "..", "x"), "relative/lower", dir} {
-		if _, err := s.Materialize(ctxOf("op1"), view(t, s), bad); err == nil {
-			t.Errorf("Materialize into %q was accepted", bad)
+	It("refuses a directory outside the data directory before the host is asked", func() {
+		s, h, dir := newStore()
+		for _, bad := range []string{"/etc/lower", filepath.Join(dir, "..", "x"), "relative/lower", dir} {
+			_, err := s.Materialize(ctxOf("op1"), view(s), bad)
+			Expect(err).To(HaveOccurred(), "Materialize into %q was accepted", bad)
 		}
-	}
-	if len(h.calls) != 0 {
-		t.Errorf("the host was asked %d times", len(h.calls))
-	}
-}
+		Expect(h.calls).To(BeEmpty(), "the host was asked")
+	})
 
-func TestACallWithoutAnOperationIsRefused(t *testing.T) {
-	s, h, dir := newStore(t)
-	if _, err := s.Materialize(context.Background(), view(t, s), filepath.Join(dir, "a", "lower")); err == nil {
-		t.Error("Materialize without an operation was accepted")
-	}
-	if _, _, err := s.CommitUpper(context.Background(), view(t, s), actor, 0, workspace.FixtureSource{workspace.FixtureFile("a", "x")}, workspace.UpperOptions{}); err == nil {
-		t.Error("CommitUpper of a change without an operation was accepted")
-	}
-	if len(h.calls) != 0 {
-		t.Errorf("the host was asked")
-	}
-}
+	It("refuses a call without an operation", func() {
+		s, h, dir := newStore()
+		_, err := s.Materialize(context.Background(), view(s), filepath.Join(dir, "a", "lower"))
+		Expect(err).To(HaveOccurred(), "Materialize without an operation was accepted")
+		_, _, err = s.CommitUpper(context.Background(), view(s), actor, 0, workspace.FixtureSource{workspace.FixtureFile("a", "x")}, workspace.UpperOptions{})
+		Expect(err).To(HaveOccurred(), "CommitUpper of a change without an operation was accepted")
+		Expect(h.calls).To(BeEmpty(), "the host was asked")
+	})
 
-func TestAnEmptyLayerNeedsNoRequestAndAsksNobody(t *testing.T) {
-	s, h, dir := newStore(t)
-	// A sandbox that sleeps or stops after a quiet time has nothing to commit,
-	// and no user is waiting on it, so this must work without an operation.
-	cs, conflicts, err := s.CommitUpper(context.Background(), view(t, s), actor, 5, workspace.FixtureSource{}, workspace.UpperOptions{Title: "idle"})
-	if err != nil || cs.Rev != 0 || len(conflicts) != 0 {
-		t.Fatalf("CommitUpper = %+v %+v %v", cs, conflicts, err)
-	}
-	if len(h.calls) != 0 {
-		t.Errorf("the host was asked for nothing to commit")
-	}
-	if left, _ := os.ReadDir(dir); len(left) != 0 {
-		t.Errorf("files left behind: %v", left)
-	}
-	// Folders alone are what a checkpoint after a quiet time sends again; they
-	// need no request either, and with one they are sent.
-	dirs := workspace.FixtureSource{workspace.FixtureDir("proj")}
-	if _, _, err := s.CommitUpper(context.Background(), view(t, s), actor, 5, dirs, workspace.UpperOptions{}); err != nil || len(h.calls) != 0 {
-		t.Errorf("a layer of folders without a request: err %v, calls %d", err, len(h.calls))
-	}
-	// A layer with content still needs a request.
-	if _, _, err := s.CommitUpper(context.Background(), view(t, s), actor, 5, workspace.FixtureSource{workspace.FixtureFile("proj/a", "x")}, workspace.UpperOptions{}); err == nil {
-		t.Error("a layer with content was committed without a request")
-	}
-}
+	It("needs no request for an empty layer and asks nobody", func() {
+		s, h, dir := newStore()
+		// A sandbox that sleeps or stops after a quiet time has nothing to commit,
+		// and no user is waiting on it, so this must work without an operation.
+		cs, conflicts, err := s.CommitUpper(context.Background(), view(s), actor, 5, workspace.FixtureSource{}, workspace.UpperOptions{Title: "idle"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cs.Rev).To(BeZero(), "CommitUpper = %+v", cs)
+		Expect(conflicts).To(BeEmpty())
+		Expect(h.calls).To(BeEmpty(), "the host was asked for nothing to commit")
+		left, _ := os.ReadDir(dir)
+		Expect(left).To(BeEmpty(), "files left behind")
+		// Folders alone are what a checkpoint after a quiet time sends again; they
+		// need no request either, and with one they are sent.
+		dirs := workspace.FixtureSource{workspace.FixtureDir("proj")}
+		_, _, err = s.CommitUpper(context.Background(), view(s), actor, 5, dirs, workspace.UpperOptions{})
+		Expect(err).NotTo(HaveOccurred(), "a layer of folders without a request")
+		Expect(h.calls).To(BeEmpty(), "a layer of folders without a request")
+		// A layer with content still needs a request.
+		_, _, err = s.CommitUpper(context.Background(), view(s), actor, 5, workspace.FixtureSource{workspace.FixtureFile("proj/a", "x")}, workspace.UpperOptions{})
+		Expect(err).To(HaveOccurred(), "a layer with content was committed without a request")
+	})
 
-func TestAnUpperLayerIsSentAsAnArchiveTheHostReadsBack(t *testing.T) {
-	s, h, dir := newStore(t)
-	h.answers["workspace.commit"] = map[string]any{"revision": 9, "conflicts": []map[string]string{{"path": "proj/a.txt", "reason": "changed"}}}
-	layer := workspace.FixtureSource{
-		workspace.FixtureDir("proj"),
-		workspace.FixtureFile("proj/new.txt", "made in the sandbox\n"),
-		workspace.FixtureOpaqueDir("proj/fresh", "trusted."),
-		workspace.FixtureWhiteout("proj/old.txt"),
-		workspace.FixtureSymlink("proj/link"),
-	}
-	var got []workspace.UpperEntry
-	var contents = map[string]string{}
-	h.onCommit = func(rel string) {
-		f, err := os.Open(filepath.Join(dir, filepath.FromSlash(rel), "upper.tar"))
-		if err != nil {
-			t.Errorf("the archive is not in the directory the host was told: %v", err)
-			return
+	It("sends an upper layer as an archive the host reads back", func() {
+		s, h, dir := newStore()
+		h.answers["workspace.commit"] = map[string]any{"revision": 9, "conflicts": []map[string]string{{"path": "proj/a.txt", "reason": "changed"}}}
+		layer := workspace.FixtureSource{
+			workspace.FixtureDir("proj"),
+			workspace.FixtureFile("proj/new.txt", "made in the sandbox\n"),
+			workspace.FixtureOpaqueDir("proj/fresh", "trusted."),
+			workspace.FixtureWhiteout("proj/old.txt"),
+			workspace.FixtureSymlink("proj/link"),
 		}
-		defer func() { _ = f.Close() }()
-		err = workspace.ArchiveSource(f).Walk(context.Background(), func(e workspace.UpperEntry) error {
-			if e.Open != nil {
-				rc, _ := e.Open()
-				b, _ := io.ReadAll(rc)
-				contents[e.Path] = string(b)
+		var got []workspace.UpperEntry
+		var contents = map[string]string{}
+		h.onCommit = func(rel string) {
+			f, err := os.Open(filepath.Join(dir, filepath.FromSlash(rel), "upper.tar"))
+			Expect(err).NotTo(HaveOccurred(), "the archive is not in the directory the host was told")
+			defer func() { _ = f.Close() }()
+			err = workspace.ArchiveSource(f).Walk(context.Background(), func(e workspace.UpperEntry) error {
+				if e.Open != nil {
+					rc, _ := e.Open()
+					b, _ := io.ReadAll(rc)
+					contents[e.Path] = string(b)
+				}
+				e.Open = nil
+				got = append(got, e)
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred(), "the host cannot read the archive")
+		}
+		cs, conflicts, err := s.CommitUpper(ctxOf("op2"), view(s), actor, 5, layer, workspace.UpperOptions{Title: "run", Own: []int64{3, 4}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cs.Rev).To(BeEquivalentTo(9))
+		Expect(conflicts).To(HaveLen(1))
+		Expect(conflicts[0].Path).To(Equal("proj/a.txt"))
+		Expect(conflicts[0].Reason).To(Equal("changed"))
+		kinds := map[string]workspace.EntryKind{}
+		for _, e := range got {
+			kinds[e.Path] = e.Kind
+		}
+		want := map[string]workspace.EntryKind{"proj": workspace.EntryDir, "proj/new.txt": workspace.EntryFile, "proj/fresh": workspace.EntryDir, "proj/old.txt": workspace.EntryWhiteout, "proj/link": workspace.EntrySymlink}
+		Expect(kinds).To(Equal(want))
+		Expect(contents["proj/new.txt"]).To(Equal("made in the sandbox\n"))
+		for _, e := range got {
+			if e.Path == "proj/fresh" {
+				Expect(string(e.Xattrs["trusted.overlay.opaque"])).To(Equal("y"), "the opaque mark was lost: %v", e.Xattrs)
 			}
-			e.Open = nil
-			got = append(got, e)
-			return nil
-		})
-		if err != nil {
-			t.Errorf("the host cannot read the archive: %v", err)
 		}
-	}
-	cs, conflicts, err := s.CommitUpper(ctxOf("op2"), view(t, s), actor, 5, layer, workspace.UpperOptions{Title: "run", Own: []int64{3, 4}})
-	if err != nil || cs.Rev != 9 || len(conflicts) != 1 || conflicts[0].Path != "proj/a.txt" || conflicts[0].Reason != "changed" {
-		t.Fatalf("CommitUpper = %+v %+v %v", cs, conflicts, err)
-	}
-	kinds := map[string]workspace.EntryKind{}
-	for _, e := range got {
-		kinds[e.Path] = e.Kind
-	}
-	want := map[string]workspace.EntryKind{"proj": workspace.EntryDir, "proj/new.txt": workspace.EntryFile, "proj/fresh": workspace.EntryDir, "proj/old.txt": workspace.EntryWhiteout, "proj/link": workspace.EntrySymlink}
-	if len(kinds) != len(want) {
-		t.Fatalf("entries = %v", kinds)
-	}
-	for p, k := range want {
-		if kinds[p] != k {
-			t.Errorf("%s is kind %v, want %v", p, kinds[p], k)
-		}
-	}
-	if contents["proj/new.txt"] != "made in the sandbox\n" {
-		t.Errorf("content = %q", contents["proj/new.txt"])
-	}
-	for _, e := range got {
-		if e.Path == "proj/fresh" && string(e.Xattrs["trusted.overlay.opaque"]) != "y" {
-			t.Errorf("the opaque mark was lost: %v", e.Xattrs)
-		}
-	}
-	c := h.calls[0]
-	if c.op != "workspace.commit" || c.args["base"].(float64) != 5 || c.args["title"] != "run" {
-		t.Fatalf("call = %+v", c)
-	}
-	if own := c.args["own"].([]any); len(own) != 2 || own[0].(float64) != 3 {
-		t.Errorf("own = %v", own)
-	}
-	if left, _ := os.ReadDir(dir); len(left) != 0 {
-		t.Errorf("the add-on left files behind: %v", left)
-	}
-}
+		c := h.calls[0]
+		Expect(c.op).To(Equal("workspace.commit"))
+		Expect(c.args["base"]).To(BeEquivalentTo(5))
+		Expect(c.args["title"]).To(Equal("run"))
+		own := c.args["own"].([]any)
+		Expect(own).To(HaveLen(2))
+		Expect(own[0]).To(BeEquivalentTo(3))
+		left, _ := os.ReadDir(dir)
+		Expect(left).To(BeEmpty(), "the add-on left files behind")
+	})
 
-func TestAHostRefusalComesBackAsTheError(t *testing.T) {
-	s, h, dir := newStore(t)
-	h.err = errors.New("host said no")
-	if _, err := s.Materialize(ctxOf("op1"), view(t, s), filepath.Join(dir, "s", "lower")); err == nil || !strings.Contains(err.Error(), "host said no") {
-		t.Errorf("error = %v", err)
-	}
-}
+	It("returns a host refusal as the error", func() {
+		s, h, dir := newStore()
+		h.err = errors.New("host said no")
+		_, err := s.Materialize(ctxOf("op1"), view(s), filepath.Join(dir, "s", "lower"))
+		Expect(err).To(MatchError(ContainSubstring("host said no")))
+	})
 
-func TestChangesSinceListsTheRevisionsTheHostReports(t *testing.T) {
-	s, h, _ := newStore(t)
-	h.answers["workspace.changes"] = map[string]any{"changes": []map[string]any{{"revision": 11, "title": "a"}, {"revision": 12, "title": "b"}}}
-	got, err := s.ChangesSince(ctxOf("op3"), actor, 10, 50)
-	if err != nil || len(got) != 2 || got[0].Rev != 11 || got[1].Title != "b" {
-		t.Fatalf("ChangesSince = %+v, %v", got, err)
-	}
-	if h.calls[0].args["since"].(float64) != 10 {
-		t.Errorf("args = %v", h.calls[0].args)
-	}
-}
+	It("lists the revisions the host reports in ChangesSince", func() {
+		s, h, _ := newStore()
+		h.answers["workspace.changes"] = map[string]any{"changes": []map[string]any{{"revision": 11, "title": "a"}, {"revision": 12, "title": "b"}}}
+		got, err := s.ChangesSince(ctxOf("op3"), actor, 10, 50)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(2))
+		Expect(got[0].Rev).To(BeEquivalentTo(11))
+		Expect(got[1].Title).To(Equal("b"))
+		Expect(h.calls[0].args["since"]).To(BeEquivalentTo(10), "args = %v", h.calls[0].args)
+	})
 
-func TestEveryOtherMethodRefusesAndAsksNobody(t *testing.T) {
-	s, h, _ := newStore(t)
-	ctx := ctxOf("op1")
-	checks := map[string]error{}
-	_, checks["Put"] = s.Put(ctx, actor, "/a", strings.NewReader("x"), workspace.PutOptions{})
-	_, checks["Mkdir"] = s.Mkdir(ctx, actor, "/a")
-	_, checks["Move"] = s.Move(ctx, actor, "/a", "/b")
-	checks["Delete"] = s.Delete(ctx, actor, "/a")
-	_, _, checks["Open"] = s.Open(ctx, actor, "/a")
-	_, checks["Stat"] = s.Stat(ctx, actor, "/a")
-	_, checks["List"] = s.List(ctx, actor, "/")
-	_, checks["Begin"] = s.Begin(ctx, actor, "t")
-	_, checks["History"] = s.History(ctx, actor, workspace.HistoryQuery{})
-	_, _, checks["Undo"] = s.Undo(ctx, actor, 1, workspace.UndoOptions{})
-	checks["Grant"] = s.Grant(ctx, actor, "p", "/a", workspace.ModeRead)
-	checks["Revoke"] = s.Revoke(ctx, actor, "p", "/a")
-	_, checks["ReadablePrefixes"] = s.ReadablePrefixes(ctx, actor)
-	for name, err := range checks {
-		if !errors.Is(err, workspace.ErrInvalid) {
-			t.Errorf("%s = %v, want ErrInvalid", name, err)
+	It("refuses every other method and asks nobody", func() {
+		s, h, _ := newStore()
+		ctx := ctxOf("op1")
+		checks := map[string]error{}
+		_, checks["Put"] = s.Put(ctx, actor, "/a", strings.NewReader("x"), workspace.PutOptions{})
+		_, checks["Mkdir"] = s.Mkdir(ctx, actor, "/a")
+		_, checks["Move"] = s.Move(ctx, actor, "/a", "/b")
+		checks["Delete"] = s.Delete(ctx, actor, "/a")
+		_, _, checks["Open"] = s.Open(ctx, actor, "/a")
+		_, checks["Stat"] = s.Stat(ctx, actor, "/a")
+		_, checks["List"] = s.List(ctx, actor, "/")
+		_, checks["Begin"] = s.Begin(ctx, actor, "t")
+		_, checks["History"] = s.History(ctx, actor, workspace.HistoryQuery{})
+		_, _, checks["Undo"] = s.Undo(ctx, actor, 1, workspace.UndoOptions{})
+		checks["Grant"] = s.Grant(ctx, actor, "p", "/a", workspace.ModeRead)
+		checks["Revoke"] = s.Revoke(ctx, actor, "p", "/a")
+		_, checks["ReadablePrefixes"] = s.ReadablePrefixes(ctx, actor)
+		for name, err := range checks {
+			Expect(err).To(MatchError(workspace.ErrInvalid), name)
 		}
-	}
-	if len(h.calls) != 0 {
-		t.Errorf("the host was asked %d times", len(h.calls))
-	}
-}
+		Expect(h.calls).To(BeEmpty(), "the host was asked")
+	})
+})

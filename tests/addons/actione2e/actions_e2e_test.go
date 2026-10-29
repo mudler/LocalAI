@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
@@ -36,7 +38,6 @@ import (
 const hostPhrase = "I understand that commands run on this host without isolation"
 
 type world struct {
-	t     *testing.T
 	f     *files.Service
 	inst  addonruntime.Instance
 	gen   uint64
@@ -44,65 +45,54 @@ type world struct {
 	id    string
 }
 
-func start(t *testing.T) *world { return startAddon(t, "sandbox") }
+func TestActionE2E(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Add-on Actions End-to-End Suite")
+}
+
+func start() *world { return startAddon("sandbox") }
 
 // startAddon runs the add-on of that name: its executable is built, its
 // manifest is the one in the source tree and its host operations are the
 // workspace ones.
-func startAddon(t *testing.T, id string) *world { return startAddonFrom(t, id, "") }
+func startAddon(id string) *world { return startAddonFrom(id, "") }
 
 // startAddonFrom is startAddon for a package that was built and extracted by
 // the release process (package.sh and addonpkg extract), when packageDir is
 // set: its executable, runtime files and manifest are used as they are.
-func startAddonFrom(t *testing.T, id, packageDir string) *world {
-	t.Helper()
+func startAddonFrom(id, packageDir string) *world {
 	if goruntime.GOOS != "linux" {
-		t.Skip("the sandbox add-on is Linux only")
+		Skip("the sandbox add-on is Linux only")
 	}
-	root := t.TempDir()
+	root := GinkgoT().TempDir()
 	bin := filepath.Join(root, "pkg", id)
-	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	manifestPath := filepath.Join(repoRoot(t), "addons", id, "manifest.json")
+	Expect(os.MkdirAll(filepath.Dir(bin), 0o755)).To(Succeed())
+	manifestPath := filepath.Join(repoRoot(), "addons", id, "manifest.json")
 	if packageDir != "" {
-		if err := os.CopyFS(filepath.Dir(bin), os.DirFS(packageDir)); err != nil {
-			t.Fatalf("copy the package: %v", err)
-		}
+		Expect(os.CopyFS(filepath.Dir(bin), os.DirFS(packageDir))).To(Succeed(), "copy the package")
 		manifestPath = filepath.Join(packageDir, "manifest.json")
 	} else {
 		build := exec.Command("go", "build", "-o", bin, "./addons/"+id+"/cmd/"+id)
-		build.Dir = repoRoot(t)
+		build.Dir = repoRoot()
 		build.Env = append(os.Environ(), "CGO_ENABLED=0")
-		if out, err := build.CombinedOutput(); err != nil {
-			t.Fatalf("build: %v\n%s", err, out)
-		}
+		out, err := build.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), "build: %s", out)
 	}
 	raw, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	m, err := contract.ParseManifest(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	m.OS, m.Arch = goruntime.GOOS, goruntime.GOARCH
 
 	dsn := "file:" + filepath.Join(root, "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
 	db, err := sqlitedb.Open(dsn, &gorm.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	blobs, err := blob.NewFS(filepath.Join(root, "blobs"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	ws, err := gormstore.New(db, blobs, gormstore.Options{Admin: files.AdminPrincipal})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	f := files.New(ws)
-	t.Cleanup(func() {
+	DeferCleanup(func() {
 		if raw, err := db.DB(); err == nil {
 			_ = raw.Close()
 		}
@@ -114,50 +104,37 @@ func startAddonFrom(t *testing.T, id, packageDir string) *world {
 	broker := hostops.New(inflight, func(string, string) bool { return true }, limits)
 	broker.SetAdminCheck(func(a contract.Actor) bool { return a.UserID == "root" })
 	dataRoot := filepath.Join(root, "data")
-	if err := hostops.RegisterWorkspace(broker, &hostops.WorkspaceHost{
+	Expect(hostops.RegisterWorkspace(broker, &hostops.WorkspaceHost{
 		Store: ws, Files: f,
 		Principal: func(a contract.Actor) string { return a.UserID },
 		DataDir:   func(id string) string { return filepath.Join(dataRoot, id) },
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})).To(Succeed())
 	sup, err := addonruntime.NewSupervisor(addonruntime.Config{
 		StateRoot: filepath.Join(root, "state"), DataRoot: dataRoot, Limits: limits,
 		ReadyTimeout: 20 * time.Second, StableHealth: time.Second,
 		HostOps: &addonruntime.HostOps{Broker: broker, InFlight: inflight, Allowed: map[string][]string{id: {"workspace."}}},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = sup.Close(context.Background()) })
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = sup.Close(context.Background()) })
 	// The supervisor starts only a package whose files nobody else can change.
-	if err := os.Chmod(bin, 0o500); err != nil {
-		t.Fatal(err)
-	}
+	Expect(os.Chmod(bin, 0o500)).To(Succeed())
 	receipt := packages.PackageReceipt{Manifest: m, Directory: filepath.Dir(bin), Digest: "sha256:sandbox-e2e"}
 	rb, _ := json.Marshal(receipt)
-	if err := os.WriteFile(filepath.Join(filepath.Dir(bin), "receipt.json"), rb, 0o400); err != nil {
-		t.Fatal(err)
-	}
+	Expect(os.WriteFile(filepath.Join(filepath.Dir(bin), "receipt.json"), rb, 0o400)).To(Succeed())
 	inst, err := sup.Start(context.Background(), receipt, 1)
-	if err != nil {
-		t.Fatalf("start the add-on: %v", err)
-	}
-	return &world{t: t, f: f, inst: inst, gen: 1, id: id}
+	Expect(err).NotTo(HaveOccurred(), "start the add-on")
+	return &world{f: f, inst: inst, gen: 1, id: id}
 }
 
-func repoRoot(t *testing.T) string {
-	t.Helper()
+func repoRoot() string {
 	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	for d := dir; d != filepath.Dir(d); d = filepath.Dir(d) {
 		if _, err := os.Stat(filepath.Join(d, "go.mod")); err == nil {
 			return d
 		}
 	}
-	t.Fatal("no go.mod above the test")
+	Fail("no go.mod above the test")
 	return ""
 }
 
@@ -179,14 +156,9 @@ func (w *world) envelope(tool, user, conv string, args map[string]any, act bool)
 }
 
 func (w *world) result(res contract.Result, err error) map[string]any {
-	w.t.Helper()
-	if err != nil {
-		w.t.Fatalf("call: %v", err)
-	}
+	Expect(err).NotTo(HaveOccurred(), "call")
 	var out map[string]any
-	if err := json.Unmarshal(res.Payload, &out); err != nil {
-		w.t.Fatalf("payload %s: %v", res.Payload, err)
-	}
+	Expect(json.Unmarshal(res.Payload, &out)).To(Succeed(), "payload %s", res.Payload)
 	return out
 }
 
@@ -203,15 +175,11 @@ func (w *world) act(tool, user, conv string, args map[string]any) map[string]any
 }
 
 func (w *world) put(user, rel, content string) {
-	w.t.Helper()
 	ctx := context.Background()
-	if err := w.f.EnsureHome(ctx, user); err != nil {
-		w.t.Fatal(err)
-	}
+	Expect(w.f.EnsureHome(ctx, user)).To(Succeed())
 	abs, _ := w.f.Abs(user, rel)
-	if _, err := w.f.Store().Put(ctx, w.f.Actor(user), abs, strings.NewReader(content), workspace.PutOptions{Overwrite: true}); err != nil {
-		w.t.Fatal(err)
-	}
+	_, err := w.f.Store().Put(ctx, w.f.Actor(user), abs, strings.NewReader(content), workspace.PutOptions{Overwrite: true})
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func (w *world) text(user, rel string) (string, bool) {
@@ -234,135 +202,112 @@ func (w *world) text(user, rel string) (string, bool) {
 	return b.String(), true
 }
 
-func TestFromAChatToAFileInTheUsersFilesAndBackToAnUndo(t *testing.T) {
-	w := start(t)
-	ctx := context.Background()
-	w.put("alice", "/notes.txt", "alice's notes\n")
-	w.put("bob", "/notes.txt", "bob's notes\n")
+var _ = Describe("Add-on actions end to end", func() {
+	It("goes from a chat to a file in the user's files and back to an undo", func() {
+		w := start()
+		ctx := context.Background()
+		w.put("alice", "/notes.txt", "alice's notes\n")
+		w.put("bob", "/notes.txt", "bob's notes\n")
 
-	// Nothing isolated works here and the host backend is not chosen: no code runs.
-	if got := w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo no > home/never.txt"}); got["output"] != "This host cannot run commands." {
-		t.Fatalf("before the host is chosen: %v", got)
-	}
-	if _, ok := w.text("alice", "/never.txt"); ok {
-		t.Fatal("a command ran with no backend")
-	}
+		// Nothing isolated works here and the host backend is not chosen: no code runs.
+		got := w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo no > home/never.txt"})
+		Expect(got["output"]).To(Equal("This host cannot run commands."), "before the host is chosen: %v", got)
+		_, ok := w.text("alice", "/never.txt")
+		Expect(ok).To(BeFalse(), "a command ran with no backend")
 
-	// Only an administrator can change the backend, and the host needs its phrase.
-	if got := w.read("set-backend", "alice", map[string]any{"backend": "host"}); got["ok"] != false {
-		t.Fatalf("a user changed the backend: %v", got)
-	}
-	if got := w.read("set-backend", "root", map[string]any{"backend": "host"}); got["ok"] != false {
-		t.Fatalf("the host was chosen without its phrase: %v", got)
-	}
-	if got := w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase}); got["ok"] != true {
-		t.Fatalf("confirm-host: %v", got)
-	}
-	if got := w.read("set-backend", "root", map[string]any{"backend": "host"}); got["ok"] != true {
-		t.Fatalf("set-backend: %v", got)
-	}
-	st := w.read("status", "alice", nil)
-	if st["canRun"] != true || st["hostNotice"] != true {
-		t.Fatalf("status = %v", st)
-	}
-	if _, has := st["backends"]; has {
-		t.Fatalf("a user sees the details of the host: %v", st)
-	}
+		// Only an administrator can change the backend, and the host needs its phrase.
+		got = w.read("set-backend", "alice", map[string]any{"backend": "host"})
+		Expect(got["ok"]).To(Equal(false), "a user changed the backend: %v", got)
+		got = w.read("set-backend", "root", map[string]any{"backend": "host"})
+		Expect(got["ok"]).To(Equal(false), "the host was chosen without its phrase: %v", got)
+		got = w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase})
+		Expect(got["ok"]).To(Equal(true), "confirm-host: %v", got)
+		got = w.read("set-backend", "root", map[string]any{"backend": "host"})
+		Expect(got["ok"]).To(Equal(true), "set-backend: %v", got)
+		st := w.read("status", "alice", nil)
+		Expect(st["canRun"]).To(Equal(true), "status = %v", st)
+		Expect(st["hostNotice"]).To(Equal(true), "status = %v", st)
+		Expect(st).NotTo(HaveKey("backends"), "a user sees the details of the host")
 
-	// A chat runs bash: it sees the user's files and writes one.
-	got := w.act("bash", "alice", "convaaaa", map[string]any{"command": "cat home/notes.txt; echo made by bash > home/made.txt"})
-	if got["ok"] != true || !strings.Contains(got["output"].(string), "alice's notes") {
-		t.Fatalf("bash = %v", got)
-	}
-	if text, ok := w.text("alice", "/made.txt"); !ok || text != "made by bash\n" {
-		t.Fatalf("the file in alice's files = %q, %v", text, ok)
-	}
+		// A chat runs bash: it sees the user's files and writes one.
+		got = w.act("bash", "alice", "convaaaa", map[string]any{"command": "cat home/notes.txt; echo made by bash > home/made.txt"})
+		Expect(got["ok"]).To(Equal(true), "bash = %v", got)
+		Expect(got["output"]).To(ContainSubstring("alice's notes"))
+		text, ok := w.text("alice", "/made.txt")
+		Expect(ok).To(BeTrue())
+		Expect(text).To(Equal("made by bash\n"), "the file in alice's files")
 
-	// It is one change set by the chat, and the user can undo it.
-	abs, _ := w.f.Abs("alice", "/made.txt")
-	hist, err := w.f.Store().History(ctx, w.f.Actor("alice"), workspace.HistoryQuery{Path: abs})
-	if err != nil || len(hist) != 1 || hist[0].Kind != workspace.ChangeAgent {
-		t.Fatalf("history = %+v, %v", hist, err)
-	}
-	if _, _, err := w.f.Store().Undo(ctx, w.f.Actor("alice"), hist[0].Rev, workspace.UndoOptions{}); err != nil {
-		t.Fatalf("undo: %v", err)
-	}
-	if _, ok := w.text("alice", "/made.txt"); ok {
-		t.Fatal("the file is still there after the undo")
-	}
+		// It is one change set by the chat, and the user can undo it.
+		abs, _ := w.f.Abs("alice", "/made.txt")
+		hist, err := w.f.Store().History(ctx, w.f.Actor("alice"), workspace.HistoryQuery{Path: abs})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hist).To(HaveLen(1))
+		Expect(hist[0].Kind).To(Equal(workspace.ChangeAgent))
+		_, _, err = w.f.Store().Undo(ctx, w.f.Actor("alice"), hist[0].Rev, workspace.UndoOptions{})
+		Expect(err).NotTo(HaveOccurred(), "undo")
+		_, ok = w.text("alice", "/made.txt")
+		Expect(ok).To(BeFalse(), "the file is still there after the undo")
 
-	// Another user in a chat with the same ID has a sandbox of their own and
-	// sees only their own files.
-	other := w.act("bash", "bob", "convaaaa", map[string]any{"command": "ls home; cat home/notes.txt"})
-	text := other["output"].(string)
-	if strings.Contains(text, "alice") || !strings.Contains(text, "bob's notes") {
-		t.Fatalf("bob's sandbox = %q", text)
-	}
-	if _, ok := w.text("bob", "/made.txt"); ok {
-		t.Fatal("alice's file reached bob")
-	}
+		// Another user in a chat with the same ID has a sandbox of their own and
+		// sees only their own files.
+		other := w.act("bash", "bob", "convaaaa", map[string]any{"command": "ls home; cat home/notes.txt"})
+		text = other["output"].(string)
+		Expect(text).NotTo(ContainSubstring("alice"), "bob's sandbox")
+		Expect(text).To(ContainSubstring("bob's notes"), "bob's sandbox")
+		_, ok = w.text("bob", "/made.txt")
+		Expect(ok).To(BeFalse(), "alice's file reached bob")
 
-	// With the backend off, the tool says so and nothing runs.
-	if got := w.read("set-backend", "root", map[string]any{"backend": "off"}); got["ok"] != true {
-		t.Fatalf("set-backend off: %v", got)
-	}
-	if got := w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo late > home/late.txt"}); got["output"] != "This host cannot run commands." {
-		t.Fatalf("with the backend off: %v", got)
-	}
-	if _, ok := w.text("alice", "/late.txt"); ok {
-		t.Fatal("a command ran with the backend off")
-	}
-}
+		// With the backend off, the tool says so and nothing runs.
+		got = w.read("set-backend", "root", map[string]any{"backend": "off"})
+		Expect(got["ok"]).To(Equal(true), "set-backend off: %v", got)
+		got = w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo late > home/late.txt"})
+		Expect(got["output"]).To(Equal("This host cannot run commands."), "with the backend off: %v", got)
+		_, ok = w.text("alice", "/late.txt")
+		Expect(ok).To(BeFalse(), "a command ran with the backend off")
+	})
 
-func TestACallCannotBeMadeAsAnotherUserOrWithoutALiveRequest(t *testing.T) {
-	w := start(t)
-	w.put("alice", "/a.txt", "x")
-	// The host operation channel works only while a request is live: a call from
-	// the add-on with no envelope is refused. The add-on has no way to start one,
-	// so the check is that an envelope of one user never reads another's files.
-	w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase})
-	w.read("set-backend", "root", map[string]any{"backend": "host"})
-	got := w.act("read", "bob", "convbbbb", map[string]any{"path": "home/a.txt"})
-	if got["ok"] == true && strings.Contains(got["output"].(string), "x") {
-		t.Fatalf("bob read alice's file: %v", got)
-	}
-}
+	It("cannot be called as another user or without a live request", func() {
+		w := start()
+		w.put("alice", "/a.txt", "x")
+		// The host operation channel works only while a request is live: a call from
+		// the add-on with no envelope is refused. The add-on has no way to start one,
+		// so the check is that an envelope of one user never reads another's files.
+		w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase})
+		w.read("set-backend", "root", map[string]any{"backend": "host"})
+		got := w.act("read", "bob", "convbbbb", map[string]any{"path": "home/a.txt"})
+		if got["ok"] == true {
+			Expect(got["output"]).NotTo(ContainSubstring("x"), "bob read alice's file: %v", got)
+		}
+	})
 
-func TestTheOfficeAddonCreatesReadsAndEditsADocumentInTheUsersFiles(t *testing.T) {
-	w := startAddon(t, "office")
-	w.put("alice", "/seed.txt", "x")
-	created := w.act("create-docx", "alice", "convaaaa", map[string]any{"path": "/report.docx", "blocks": []map[string]any{
-		{"kind": "heading", "level": 1, "text": "Summary"},
-		{"kind": "paragraph", "text": "All good."},
-	}})
-	if created["ok"] != true || created["path"] != "/report.docx" {
-		t.Fatalf("create-docx = %v", created)
-	}
-	read := w.read("read-docx", "alice", map[string]any{"path": "/report.docx"})
-	if read["ok"] != true || !strings.Contains(string(mustJSON(read)), "All good.") {
-		t.Fatalf("read-docx = %v", read)
-	}
-	edited := w.act("edit-docx", "alice", "convaaaa", map[string]any{"path": "/report.docx", "edits": []map[string]any{{"op": "replace", "find": "All good.", "text": "Mostly good."}}})
-	if edited["ok"] != true || edited["conflict"] == true {
-		t.Fatalf("edit-docx = %v", edited)
-	}
-	again := w.read("read-docx", "alice", map[string]any{"path": "/report.docx"})
-	if !strings.Contains(string(mustJSON(again)), "Mostly good.") {
-		t.Fatalf("after the edit: %v", again)
-	}
-	// The edit is a change of the user's files and can be undone like any.
-	abs, _ := w.f.Abs("alice", "/report.docx")
-	hist, err := w.f.Store().History(context.Background(), w.f.Actor("alice"), workspace.HistoryQuery{Path: abs})
-	if err != nil || len(hist) < 2 {
-		t.Fatalf("history = %+v, %v", hist, err)
-	}
-	// Another user cannot read it, and a path outside the files is refused.
-	if got := w.read("read-docx", "bob", map[string]any{"path": "/report.docx"}); got["ok"] != false {
-		t.Fatalf("bob read alice's document: %v", got)
-	}
-	if got := w.read("read-docx", "alice", map[string]any{"path": "../bob/x.docx"}); got["ok"] != false {
-		t.Fatalf("a path outside the files was served: %v", got)
-	}
-}
+	It("lets the Office add-on create, read and edit a document in the user's files", func() {
+		w := startAddon("office")
+		w.put("alice", "/seed.txt", "x")
+		created := w.act("create-docx", "alice", "convaaaa", map[string]any{"path": "/report.docx", "blocks": []map[string]any{
+			{"kind": "heading", "level": 1, "text": "Summary"},
+			{"kind": "paragraph", "text": "All good."},
+		}})
+		Expect(created["ok"]).To(Equal(true), "create-docx = %v", created)
+		Expect(created["path"]).To(Equal("/report.docx"), "create-docx = %v", created)
+		read := w.read("read-docx", "alice", map[string]any{"path": "/report.docx"})
+		Expect(read["ok"]).To(Equal(true), "read-docx = %v", read)
+		Expect(string(mustJSON(read))).To(ContainSubstring("All good."), "read-docx = %v", read)
+		edited := w.act("edit-docx", "alice", "convaaaa", map[string]any{"path": "/report.docx", "edits": []map[string]any{{"op": "replace", "find": "All good.", "text": "Mostly good."}}})
+		Expect(edited["ok"]).To(Equal(true), "edit-docx = %v", edited)
+		Expect(edited["conflict"]).NotTo(Equal(true), "edit-docx = %v", edited)
+		again := w.read("read-docx", "alice", map[string]any{"path": "/report.docx"})
+		Expect(string(mustJSON(again))).To(ContainSubstring("Mostly good."), "after the edit: %v", again)
+		// The edit is a change of the user's files and can be undone like any.
+		abs, _ := w.f.Abs("alice", "/report.docx")
+		hist, err := w.f.Store().History(context.Background(), w.f.Actor("alice"), workspace.HistoryQuery{Path: abs})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(hist)).To(BeNumerically(">=", 2), "history = %+v", hist)
+		// Another user cannot read it, and a path outside the files is refused.
+		got := w.read("read-docx", "bob", map[string]any{"path": "/report.docx"})
+		Expect(got["ok"]).To(Equal(false), "bob read alice's document: %v", got)
+		got = w.read("read-docx", "alice", map[string]any{"path": "../bob/x.docx"})
+		Expect(got["ok"]).To(Equal(false), "a path outside the files was served: %v", got)
+	})
+})
 
 func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }

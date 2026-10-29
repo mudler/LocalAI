@@ -4,27 +4,25 @@ package ociimage
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestLockFileReturnsTheContextErrorWhileTheLockIsHeld(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "x.lock")
-	unlock, err := LockFile(context.Background(), p)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	defer cancel()
-	if _, err := LockFile(ctx, p); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("err = %v, want DeadlineExceeded", err)
-	}
-	unlock()
-	again, err := LockFile(context.Background(), p)
-	if err != nil {
-		t.Fatalf("after the release: %v", err)
-	}
-	again()
-}
+var _ = Describe("LockFile", func() {
+	It("returns the context error while the lock is held", func() {
+		p := filepath.Join(GinkgoT().TempDir(), "x.lock")
+		unlock, err := LockFile(context.Background(), p)
+		Expect(err).NotTo(HaveOccurred())
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		_, err = LockFile(ctx, p)
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+		unlock()
+		again, err := LockFile(context.Background(), p)
+		Expect(err).NotTo(HaveOccurred(), "after the release")
+		again()
+	})
+})

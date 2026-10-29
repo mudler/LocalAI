@@ -6,13 +6,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
-	"strings"
 	"syscall"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // limitSandbox is a guest whose every process writes out to stdout, then
@@ -44,58 +44,53 @@ func toolsOver(sb sandbox.Sandbox) map[string]Tool {
 	return out
 }
 
-func callTool(t *testing.T, tl Tool, args string) (string, error) {
-	t.Helper()
+func callTool(tl Tool, args string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	return tl.Run(ctx, json.RawMessage(args))
 }
 
-// TestFileToolsTimeOut checks that read, glob and grep stop at their timeout
-// and say so in their result.
-func TestFileToolsTimeOut(t *testing.T) {
-	old := fileToolTimeout
-	fileToolTimeout = 50 * time.Millisecond
-	t.Cleanup(func() { fileToolTimeout = old })
-	tools := toolsOver(limitSandbox{})
-	for name, args := range map[string]string{
-		"read": `{"path":"home/a"}`,
-		"glob": `{"pattern":"*"}`,
-		"grep": `{"pattern":"x"}`,
-	} {
-		got, err := callTool(t, tools[name], args)
-		if err != nil || got != "timed out after 50ms" {
-			t.Errorf("%s: %q, %v", name, got, err)
+var _ = Describe("Sandbox code tool limits", func() {
+	// read, glob and grep stop at their timeout and say so in their result.
+	It("stops the file tools at their timeout", func() {
+		old := fileToolTimeout
+		fileToolTimeout = 50 * time.Millisecond
+		DeferCleanup(func() { fileToolTimeout = old })
+		tools := toolsOver(limitSandbox{})
+		for name, args := range map[string]string{
+			"read": `{"path":"home/a"}`,
+			"glob": `{"pattern":"*"}`,
+			"grep": `{"pattern":"x"}`,
+		} {
+			got, err := callTool(tools[name], args)
+			Expect(err).NotTo(HaveOccurred(), name)
+			Expect(got).To(Equal("timed out after 50ms"), name)
 		}
-	}
-}
+	})
 
-// TestOutputCapStopsTheProcess checks that a process that writes more than the
-// cap is stopped at the cap, and does not run until its timeout.
-func TestOutputCapStopsTheProcess(t *testing.T) {
-	old := fileToolTimeout
-	fileToolTimeout = 20 * time.Second
-	t.Cleanup(func() { fileToolTimeout = old })
-	tools := toolsOver(limitSandbox{out: bytes.Repeat([]byte("x"), 100000)})
-	for _, c := range []struct{ name, args string }{
-		{"read", `{"path":"home/a"}`},
-		{"bash", `{"command":"x","timeoutSeconds":20}`},
-	} {
-		start := time.Now()
-		got, err := callTool(t, tools[c.name], c.args)
-		if err != nil || !strings.Contains(got, "[output cut: ") || len(got) > MaxOutput+64 {
-			t.Errorf("%s: len %d, %v", c.name, len(got), err)
+	// A process that writes more than the cap is stopped at the cap, and does
+	// not run until its timeout.
+	It("stops a process at the output cap", func() {
+		old := fileToolTimeout
+		fileToolTimeout = 20 * time.Second
+		DeferCleanup(func() { fileToolTimeout = old })
+		tools := toolsOver(limitSandbox{out: bytes.Repeat([]byte("x"), 100000)})
+		for _, c := range []struct{ name, args string }{
+			{"read", `{"path":"home/a"}`},
+			{"bash", `{"command":"x","timeoutSeconds":20}`},
+		} {
+			start := time.Now()
+			got, err := callTool(tools[c.name], c.args)
+			Expect(err).NotTo(HaveOccurred(), c.name)
+			Expect(got).To(ContainSubstring("[output cut: "), c.name)
+			Expect(len(got)).To(BeNumerically("<=", MaxOutput+64), c.name)
+			Expect(time.Since(start)).To(BeNumerically("<=", 5*time.Second), "%s: the process was not stopped at the cap", c.name)
 		}
-		if el := time.Since(start); el > 5*time.Second {
-			t.Errorf("%s took %v; the process was not stopped at the cap", c.name, el)
-		}
-	}
-}
+	})
 
-// The host stops an action call at ActTimeout. A bash call that may run as
-// long must still leave time to commit its files and to answer.
-func TestABashCallEndsBeforeTheActionCallDoes(t *testing.T) {
-	if MaxTimeout+time.Minute > contract.ActTimeout {
-		t.Fatalf("MaxTimeout %v leaves no margin below the action timeout %v", MaxTimeout, contract.ActTimeout)
-	}
-}
+	// The host stops an action call at ActTimeout. A bash call that may run as
+	// long must still leave time to commit its files and to answer.
+	It("ends a bash call before the action call does", func() {
+		Expect(MaxTimeout + time.Minute).To(BeNumerically("<=", contract.ActTimeout))
+	})
+})
