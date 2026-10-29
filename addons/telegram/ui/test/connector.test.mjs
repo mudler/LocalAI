@@ -40,3 +40,29 @@ test('chat connectors: saving needs a name, an agent, a token for a new binding,
   assert.equal(canSave({ ...ok, accept_any: true }, false), false)
   assert.equal(canSave({ ...ok, accept_any: true }, true), true)
 })
+
+test('chat connectors: a new binding shows progress, one chat per person and sends files', () => {
+  const c = emptyConnector()
+  assert.equal(c.reply_mode, 'progress')
+  assert.equal(c.conversation, 'sender')
+  assert.equal(c.send_files, true)
+})
+
+test('chat connectors: the request carries the reply mode, the conversation mode and the file switch', () => {
+  const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
+  const off = connectorPayload({ ...base, reply_mode: 'stream', conversation: 'thread', send_files: false, window_minutes: 30 }, 'telegram')
+  assert.equal(off.reply_mode, 'stream')
+  assert.equal(off.conversation, 'thread')
+  assert.equal(off.send_files, false)
+  assert.equal('window_minutes' in off, false, 'the window goes only with the window mode')
+  const win = connectorPayload({ ...base, conversation: 'window', window_minutes: '45' }, 'telegram')
+  assert.equal(win.window_minutes, 45)
+  assert.equal(win.send_files, true)
+})
+
+test('chat connectors: a window needs 1 to 10080 minutes', () => {
+  const ok = { ...emptyConnector(), name: 'B', agent_id: 'a', token: '1:x', conversation: 'window', window_minutes: 30 }
+  assert.equal(canSave(ok, false), true)
+  assert.equal(canSave({ ...ok, window_minutes: 0 }, false), false)
+  assert.equal(canSave({ ...ok, window_minutes: 20000 }, false), false)
+})

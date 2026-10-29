@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
+import AnswerFields, { answerSummary } from './AnswerFields'
 import NameList from './NameList'
 import { agentsApi, connectorsApi } from './api'
 import { canSave, connectorPayload, emptyConnector, listEntries, replaceList, senderLine } from './connector'
@@ -99,8 +100,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
   const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote('') }
 
-  // Saving with a new token checks it at once: the platform says which bot
-  // it belongs to, or why it refuses it. The binding is saved either way.
+  // The server refuses a token that the platform refuses. After a save with
+  // a new token, the page names the bot the token belongs to.
   const save = async (e) => {
     e.preventDefault()
     setBusy(true)
@@ -199,6 +200,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             <input className="input" inputMode={notifyMode} value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />
             <span className="cn-muted">{t('notifyHelp')}</span>
           </label>
+          <AnswerFields form={form} setForm={setForm} t={t} />
           <div className="cn-actions">
             <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()))}>{t('save')}</button>
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => setForm(null)}>{t('cancel')}</button>
@@ -216,6 +218,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
                 {' · '}
                 {t('accepts', { who: c.accept_any ? t('modes.anyone') : (c.allow || []).length === 0 ? t('modes.nobody') : t('modes.listed', { count: c.allow.length }) })}
               </span>
+              <span className="cn-muted" data-testid="connector-answer-summary">{answerSummary(c, t)}</span>
               {c.active === false && <span className="cn-muted" data-testid="connector-inactive">{t('inactive', { reason: c.reason })}</span>}
               {openSenders === c.id && <Senders id={c.id} onAllowed={load} t={t} />}
             </div>
