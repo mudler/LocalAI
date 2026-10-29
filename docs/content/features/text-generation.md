@@ -224,6 +224,8 @@ Streaming responses use Server-Sent Events (SSE) format with event types: `messa
 }
 ```
 
+`stop_reason` is `end_turn`, `tool_use`, or `max_tokens` when the reply used up `max_tokens`.
+
 ### Open Responses API
 
 LocalAI supports the Open Responses API specification, which provides a standardized interface for AI model interactions with support for background processing, streaming, tool calling, and advanced features like reasoning.

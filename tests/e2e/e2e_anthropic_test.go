@@ -134,6 +134,56 @@ var _ = Describe("Anthropic API E2E test", func() {
 			})
 		})
 
+		Context("max_tokens stop reason", func() {
+			// The mock backend reports 10 completion tokens for a plain
+			// non-streaming reply and one per character when streaming, so a
+			// max_tokens of 5 is always exhausted.
+			It("reports max_tokens when the non-streaming reply hits the limit", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model",
+					MaxTokens: 5,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Hello")),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(message.Usage.OutputTokens).To(BeNumerically(">=", 5))
+				Expect(string(message.StopReason)).To(Equal("max_tokens"))
+			})
+
+			It("reports max_tokens when the streamed reply hits the limit", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model",
+					MaxTokens: 5,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Hello")),
+					},
+				})
+				message := anthropic.Message{}
+				for stream.Next() {
+					Expect(message.Accumulate(stream.Current())).To(Succeed())
+				}
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(string(message.StopReason)).To(Equal("max_tokens"))
+			})
+
+			It("keeps end_turn when the streamed reply stays under the limit", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Hello")),
+					},
+				})
+				message := anthropic.Message{}
+				for stream.Next() {
+					Expect(message.Accumulate(stream.Current())).To(Succeed())
+				}
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(string(message.StopReason)).To(Equal("end_turn"))
+			})
+		})
+
 		Context("Tool calling", func() {
 			It("handles tool calls in non-streaming mode", func() {
 				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
