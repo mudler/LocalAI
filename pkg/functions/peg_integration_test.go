@@ -403,6 +403,35 @@ var _ = Describe("LFM3 tool calls", func() {
 		Expect(results[0].Arguments).To(MatchJSON(`{"text": "line one\nline two"}`))
 	})
 
+	Context("when text after a valid call is not another call", func() {
+		inputs := map[string]string{
+			"a mention of the opening tag": call("a") + "\nI used the <tool_call> tag to call a.",
+			"a markdown example":           call("a") + "\nThe format is:\n```\n<tool_call>\n<function=NAME>\n```\nDone.",
+			"a malformed second block":     call("a") + "\nThen\n<tool_call>\n<function=b>\n<parameter=x>\n1\n",
+			"a second block without name":  call("a") + "\n<tool_call>\nnothing here",
+		}
+		for name, input := range inputs {
+			It("keeps the first call after "+name, func() {
+				for _, cfg := range []FunctionsConfig{lfm3, {}, {XMLFormatPreset: "qwen3-coder"}} {
+					results := ParseFunctionCall(input, cfg)
+					Expect(results).To(HaveLen(1), name)
+					Expect(results[0].Name).To(Equal("a"), name)
+				}
+			})
+		}
+
+		It("keeps that text in the content", func() {
+			input := call("a") + "\nI used the <tool_call> tag to call a."
+			Expect(StripToolCallMarkup(input)).To(ContainSubstring("I used the"))
+			Expect(StripToolCallMarkup(input)).To(ContainSubstring("to call a."))
+		})
+	})
+
+	It("keeps the text between two blocks when the markup is stripped", func() {
+		input := "Checking.\n" + call("a") + "\nNow the second one.\n" + call("b") + "\nDone."
+		Expect(StripToolCallMarkup(input)).To(Equal("Checking. Now the second one. Done."))
+	})
+
 	It("finds a call between text", func() {
 		input := "Let me check.\n" + call("get_time", "tz", "UTC") + "\nDone."
 		results := ParseFunctionCall(input, lfm3)

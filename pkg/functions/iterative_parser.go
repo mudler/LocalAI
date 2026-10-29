@@ -44,6 +44,17 @@ type ChatMsgParser struct {
 	content       strings.Builder
 	reasoning     strings.Builder
 	toolCalls     []FuncCallResults
+
+	// checkpoint is the state after the last complete scope block, set once
+	// at least one call was parsed. A later block that does not parse is
+	// dropped back to it: the model may mention the tag in prose.
+	checkpoint *parseCheckpoint
+}
+
+type parseCheckpoint struct {
+	pos     int
+	calls   int
+	content string
 }
 
 // NewChatMsgParser creates a new iterative parser
@@ -628,7 +639,36 @@ func removeHealingMarkerFromJSONAny(value any, marker string) any {
 // TryConsumeXMLToolCalls attempts to parse XML tool calls using the iterative parser
 // Returns true if tool calls were found and parsed, false otherwise
 // Similar to llama.cpp's parse_xml_tool_calls
+//
+// Once a call was parsed, text that follows it and looks like a further block
+// but is not one (a prose mention of the opening tag, a malformed block) does
+// not discard the calls already found. They are kept, the parser stops before
+// that text and the text stays in the content.
 func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool, error) {
+	p.checkpoint = nil
+	ok, err := p.tryConsumeXMLToolCalls(format)
+	cp := p.checkpoint
+	p.checkpoint = nil
+	if cp == nil || len(p.toolCalls) == 0 {
+		return ok, err
+	}
+	if err != nil {
+		// A partial exception while streaming is a block still being
+		// written: keep it so the caller sees the call grow.
+		if _, partial := err.(*ChatMsgPartialException); partial && p.isPartial {
+			return ok, err
+		}
+	} else if ok {
+		return ok, err
+	}
+	p.toolCalls = p.toolCalls[:cp.calls]
+	p.content.Reset()
+	p.content.WriteString(cp.content)
+	p.pos = cp.pos
+	return len(p.toolCalls) > 0, nil
+}
+
+func (p *ChatMsgParser) tryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool, error) {
 	if format == nil {
 		return false, errors.New("format is required")
 	}
@@ -753,6 +793,9 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 	// Parse multiple scopes (for formats like qwen3-coder that can have multiple <tool_call> blocks)
 	// Continue parsing until no more scopes are found
 	for {
+		if format.ScopeStart != "" && len(p.toolCalls) > 0 {
+			p.checkpoint = &parseCheckpoint{pos: p.pos, calls: len(p.toolCalls), content: p.content.String()}
+		}
 		// Parse scope_start if present
 		if format.ScopeStart != "" && !AllSpace(format.ScopeStart) {
 			tc := p.TryFindLiteral(format.ScopeStart)
@@ -766,6 +809,13 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 				// its calls, and each block is a call of its own.
 				p.MoveTo(tc.Groups[0].Begin - len(tc.Prelude))
 				break
+			}
+			if text := strings.TrimSpace(tc.Prelude); text != "" && !allSpaceOrEscapedNewlines(tc.Prelude) {
+				// Keep the skipped text in the content, in order.
+				if p.content.Len() > 0 {
+					p.content.WriteString(" ")
+				}
+				p.content.WriteString(text)
 			}
 			// Validate size match (partial detection)
 			if len(tc.Groups) > 0 {
