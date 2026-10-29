@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -60,5 +61,46 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if err != nil {
 		return workerctl.ChatStartReply{Error: err.Error()}
 	}
+	if res.Started {
+		s.limitWorkerRun(ctx, req.Principal, req.ChatID)
+	}
 	return workerctl.ChatStartReply{Started: res.Started, PendingID: res.PendingID}
+}
+
+// limitWorkerRun stops the turn that ServeStart just started once
+// Deps.RunLimit has passed for its origin. The frontend that watches the run
+// stops it at its own limit through the bus; this bound is for the case where
+// that frontend died, and the turn would otherwise run on here without one.
+func (s *Service) limitWorkerRun(ctx context.Context, p, conv string) {
+	if s.d.RunLimit == nil {
+		return
+	}
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return
+	}
+	limit := s.d.RunLimit(rec.Origin)
+	if limit <= 0 {
+		return
+	}
+	k := key(p, conv)
+	s.mu.Lock()
+	r := s.runs[k]
+	s.mu.Unlock()
+	if r == nil {
+		return // the turn has ended already
+	}
+	runID := r.id
+	time.AfterFunc(limit, func() {
+		s.mu.Lock()
+		cur := s.runs[k]
+		s.mu.Unlock()
+		if cur == nil || cur.id != runID {
+			return // that turn ended; a later one is not this start's
+		}
+		s.log.Warn("studio: a turn on this chat worker ran past its limit and is stopping", "chat", conv, "limit", limit)
+		if err := s.stopLocal(context.Background(), p, conv); err != nil {
+			s.log.Warn("studio: could not stop a turn past its limit", "chat", conv, "error", err)
+		}
+	})
 }

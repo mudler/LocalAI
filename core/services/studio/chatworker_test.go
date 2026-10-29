@@ -375,3 +375,48 @@ func TestAScheduledTriggerRunsOnAChatWorker(t *testing.T) {
 		t.Fatalf("notifications = %+v, want the worker's answer", ns)
 	}
 }
+
+// The frontend that watches a job stops it at its limit. When that frontend
+// is gone, the worker's own bound stops the turn, so it cannot run on forever.
+func TestAChatWorkerStopsAnUnattendedTurnPastItsLimit(t *testing.T) {
+	st, err := store.NewJSON("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bus := &requestBus{FakeBus: testutil.NewFakeBus()}
+	h := studiotest.NewGateHarness()
+	worker, err := studio.New(studio.Deps{
+		Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: h, Bus: studio.NewBroadcastBus(bus, nil),
+		RunLimit: func(origin string) time.Duration {
+			if origin == session.OriginJob {
+				return 50 * time.Millisecond
+			}
+			return 0
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = worker.Close(context.Background()) })
+	if _, err := nodes.NewNATSChatStartServer(bus).Serve(worker.ServeStart); err != nil {
+		t.Fatal(err)
+	}
+	front, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: studiotest.NewGateHarness(),
+		Bus: studio.NewBroadcastBus(bus, nil), Workers: nodes.NewNATSChatStarter(bus)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = front.Close(context.Background()) })
+	job, err := front.CreateAs(context.Background(), alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginJob, ID: "task"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	plain := create(t, front, alice)
+	background(t, front, alice, job.ID, "go")
+	background(t, front, alice, plain, "go")
+	until(t, "the job's turn to stop", func() bool { return turn(t, front, alice, job.ID).Last == store.TurnStopped })
+	time.Sleep(100 * time.Millisecond)
+	if info := turn(t, front, alice, plain); !info.Running {
+		t.Fatalf("a turn with no limit ended: %+v", info)
+	}
+}

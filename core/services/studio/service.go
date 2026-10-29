@@ -118,6 +118,10 @@ type Deps struct {
 	// Workers runs the turns of unattended runs (triggers, jobs, connector
 	// messages) on chat workers; see SendBackground. Nil: they run here.
 	Workers ChatWorkers
+	// RunLimit is, on a chat worker, the longest a turn that a frontend sent may
+	// run, by the chat's origin (session.OriginJob, ...). Zero or nil: no bound
+	// on the worker; the frontend that watches the run bounds it.
+	RunLimit func(origin string) time.Duration
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration
