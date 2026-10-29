@@ -47,6 +47,17 @@ var (
 	ErrQuotaReached = fmt.Errorf("addon resource quota reached: %w", ErrForbidden)
 )
 
+// unreachableOrDenied keeps the one typed answer a failure to resolve a
+// resource can give: the policy's "no such resource or no access", the same
+// error a write is denied with. Any other cause, whatever it says, is the plain
+// ErrForbidden, so the caller learns nothing more than a write learns.
+func unreachableOrDenied(err error) error {
+	if errors.Is(err, ErrResourceUnreachable) {
+		return err
+	}
+	return ErrForbidden
+}
+
 // Refused types the add-on's own denial of the person as ErrNotPermitted and its
 // invalid-request refusal as ErrInvalidRequest,
 // so every path that reaches the runtime answers it the same way: a
