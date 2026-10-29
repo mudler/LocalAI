@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -100,19 +99,21 @@ func newModelBackend(selected *CollectionModelSettings) (*backendInProcess, *Sta
 	return backend.(*backendInProcess), st, fake
 }
 
-func writeTempFile(content string) string {
-	path := filepath.Join(GinkgoT().TempDir(), "summary.txt")
-	Expect(os.WriteFile(path, []byte(content), 0600)).To(Succeed())
-	return path
+// storeText creates the collection when needed and uploads text to it, as a
+// REST client that adds a document does.
+func storeText(b *backendInProcess, collection, text string) error {
+	if err := b.CreateCollection(collection); err != nil {
+		return err
+	}
+	_, err := b.Upload(context.Background(), collection, strings.ReplaceAll(text, " ", "-")+".txt", strings.NewReader(text))
+	return err
 }
 
 var _ = Describe("Per-collection model settings", func() {
 	It("embeds with the override, reranks, and requires a reset to switch models", func() {
 		selected := CollectionModelSettings{EmbeddingModel: "custom", RerankerModel: "ranker"}
-		b, st, fake := newModelBackend(&selected)
-		ragDB, _, ok := RAGProviderFromState(st)("agent")
-		Expect(ok).To(BeTrue())
-		Expect(ragDB.Store("a source document")).To(Succeed())
+		b, _, fake := newModelBackend(&selected)
+		Expect(storeText(b, "agent", "a source document")).To(Succeed())
 
 		result, err := b.Search(context.Background(), "agent", "query", 1)
 		Expect(err).ToNot(HaveOccurred())
@@ -121,20 +122,15 @@ var _ = Describe("Per-collection model settings", func() {
 		Expect(result[0].Metadata["source"]).ToNot(BeEmpty())
 		Expect(fake.rerankModel).To(Equal("ranker"))
 		Expect(fake.rerankAuth).To(Equal("Bearer secret"))
-
-		embedded, err := ragDB.Search("query", 1)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(embedded).To(HaveLen(1))
-		Expect(embedded[0]).To(ContainSubstring("source"))
 		Expect(fake.embeddingModels()).To(HaveEach("custom"))
 
 		selected.EmbeddingModel = "changed"
 		_, err = b.Search(context.Background(), "agent", "query", 1)
 		Expect(err).To(MatchError(ContainSubstring("reset")))
-		Expect(ragDB.Store("must not be indexed")).ToNot(Succeed(), "mixed embeddings accepted")
+		Expect(storeText(b, "agent", "must not be indexed")).ToNot(Succeed(), "mixed embeddings accepted")
 
 		Expect(b.Reset("agent")).To(Succeed())
-		Expect(ragDB.Store("fresh document")).To(Succeed())
+		Expect(storeText(b, "agent", "fresh document")).To(Succeed())
 		Expect(fake.lastModel()).To(Equal("changed"))
 	})
 
@@ -147,8 +143,7 @@ var _ = Describe("Per-collection model settings", func() {
 		func(legacy bool) {
 			selected := CollectionModelSettings{}
 			b, st, fake := newModelBackend(&selected)
-			db, _, _ := RAGProviderFromState(st)("agent")
-			Expect(db.Store("persisted document")).To(Succeed())
+			Expect(storeText(b, "agent", "persisted document")).To(Succeed())
 			st.SourceManager.Stop()
 			if legacy {
 				Expect(os.Remove(b.identityPath("agent"))).To(Succeed())
@@ -173,28 +168,6 @@ var _ = Describe("Per-collection model settings", func() {
 		Entry("with an identity sidecar", false),
 		Entry("legacy store without a sidecar", true),
 	)
-
-	It("does not resolve models while constructing the provider", func() {
-		selected := CollectionModelSettings{}
-		b, st, _ := newModelBackend(&selected)
-		calls := 0
-		b.cfg.ModelSettings = func(string) (CollectionModelSettings, error) { calls++; return selected, nil }
-		db, _, ok := RAGProviderFromState(st)("agent")
-		Expect(ok).To(BeTrue())
-		Expect(db).ToNot(BeNil())
-		Expect(calls).To(BeZero())
-	})
-
-	It("keeps the compaction date prefix on embedded stores", func() {
-		selected := CollectionModelSettings{}
-		b, st, _ := newModelBackend(&selected)
-		db, _, _ := RAGProviderFromState(st)("agent")
-		Expect(db.Store("document")).To(Succeed())
-		entries, err := b.ListEntries("agent")
-		Expect(err).ToNot(HaveOccurred())
-		Expect(entries).To(HaveLen(1))
-		Expect(filepath.Base(entries[0])).To(HavePrefix(time.Now().Format("2006-01-02-")))
-	})
 
 	It("requires a restart before recreating a reset collection that had sources", func() {
 		selected := CollectionModelSettings{}
@@ -237,7 +210,7 @@ var _ = Describe("Per-collection model settings", func() {
 
 	It("does not reuse the old engine after a failed model switch", func() {
 		selected := CollectionModelSettings{}
-		b, st, fake := newModelBackend(&selected)
+		b, _, fake := newModelBackend(&selected)
 		Expect(b.CreateCollection("agent")).To(Succeed())
 		selected.EmbeddingModel = "changed"
 		// Force the real constructor to fail after the new identity is saved.
@@ -245,63 +218,27 @@ var _ = Describe("Per-collection model settings", func() {
 		Expect(b.CreateCollection("agent")).ToNot(Succeed())
 		b.cfg.VectorEngine = "chromem"
 
-		db, _, _ := RAGProviderFromState(st)("agent")
-		Expect(db.Store("retry after engine recovery")).To(Succeed())
+		Expect(storeText(b, "agent", "retry after engine recovery")).To(Succeed())
 		Expect(fake.lastModel()).To(Equal("changed"))
-	})
-
-	It("resolves mixed-case agent names to their original model settings", func() {
-		selected := CollectionModelSettings{EmbeddingModel: "custom", RerankerModel: "ranker"}
-		b, st, fake := newModelBackend(&selected)
-		calls := 0
-		var names []string
-		b.cfg.ModelSettings = func(name string) (CollectionModelSettings, error) {
-			calls++
-			names = append(names, name)
-			return selected, nil
-		}
-		db, compact, ok := RAGProviderFromState(st)("Research")
-		Expect(ok).To(BeTrue())
-		Expect(calls).To(BeZero(), "provider must resolve lazily")
-
-		Expect(db.Store("research document")).To(Succeed())
-		Expect(compact.Collection()).To(Equal("research"))
-		results, err := db.Search("query", 1)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(results).To(HaveLen(1))
-		Expect(fake.wasReranked()).To(BeTrue())
-		Expect(fake.embeddingModels()).To(HaveEach("custom"))
-
-		selected.EmbeddingModel = "updated"
-		Expect(db.Store("must require reset")).ToNot(Succeed(), "updated setting not resolved dynamically")
-		Expect(db.Reset()).To(Succeed())
-		Expect(compact.Store(writeTempFile("compacted research"))).To(Succeed())
-		Expect(fake.lastModel()).To(Equal("updated"))
-		Expect(names).To(HaveEach("Research"))
 	})
 
 	It("blocks inference when the model resolver fails but keeps inspection and reset", func() {
 		selected := CollectionModelSettings{RerankerModel: "ranker"}
 		b, st, fake := newModelBackend(&selected)
-		db, compact, _ := RAGProviderFromState(st)("agent")
 		// Store does not rerank, so nothing has been reranked yet.
-		Expect(db.Store("existing document")).To(Succeed())
+		Expect(storeText(b, "agent", "existing document")).To(Succeed())
 		before := len(fake.embeddingModels())
 
 		denied := fmt.Errorf("model access denied")
 		b.cfg.ModelSettings = func(string) (CollectionModelSettings, error) { return selected, denied }
-		path := writeTempFile("summary")
 		checks := map[string]func() error{
 			"create": func() error { return b.CreateCollection("agent") },
 			"upload": func() error {
 				_, err := b.Upload(context.Background(), "agent", "file.txt", strings.NewReader("text"))
 				return err
 			},
-			"search":          func() error { _, err := b.Search(context.Background(), "agent", "query", 1); return err },
-			"source":          func() error { return b.AddSource("agent", "invalid://source", 60) },
-			"embedded store":  func() error { return db.Store("new text") },
-			"embedded search": func() error { _, err := db.Search("query", 1); return err },
-			"compaction":      func() error { return compact.Store(path) },
+			"search": func() error { _, err := b.Search(context.Background(), "agent", "query", 1); return err },
+			"source": func() error { return b.AddSource("agent", "invalid://source", 60) },
 		}
 		for name, run := range checks {
 			Expect(run()).To(BeIdenticalTo(denied), name)

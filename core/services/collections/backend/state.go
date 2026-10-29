@@ -15,5 +15,5 @@ type State struct {
 	Mu               sync.RWMutex
 	Collections      CollectionList
 	SourceManager    *rag.SourceManager
-	EnsureCollection func(name string) (*rag.PersistentKB, bool) // get-or-create for internal RAG
+	EnsureCollection func(name string) (*rag.PersistentKB, bool) // get-or-create; the shared collections use it
 }
