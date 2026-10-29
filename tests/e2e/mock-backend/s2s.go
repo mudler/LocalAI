@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -27,7 +26,7 @@ import (
 //   - response.create: when tools are set and no function_call_output has
 //     arrived yet, the first tool is called with {"city":"Paris"}. Otherwise the
 //     reply is "mock reply rms=<n>" as transcript pieces, followed by
-//     MOCK_S2S_FRAMES 20 ms tone frames (default 50 = 1 s) at 24 kHz, one every
+//     s2sReplyFrames 20 ms tone frames (default 50 = 1 s) at 24 kHz, one every
 //     20 ms of wall time, so a barge-in can land mid-response.
 //     With tools, response.done also carries raw_text: the call markup of the
 //     LFM3 template for a tool call, the transcript otherwise.
@@ -61,16 +60,14 @@ const (
 	mockS2SDefaultFrames = 50
 )
 
-// mockS2SFrames returns how many tone frames a reply has, from
-// MOCK_S2S_FRAMES. Read per stream so a spec can change it with t.Setenv.
-func mockS2SFrames() int {
-	if s := os.Getenv("MOCK_S2S_FRAMES"); s != "" {
-		if v, err := strconv.Atoi(s); err == nil && v >= 0 {
-			return v
-		}
-	}
-	return mockS2SDefaultFrames
-}
+// s2sReplyFrames is how many tone frames a reply has. The specs of this package
+// change it to get a short or a long reply; the mock reads it once per reply.
+var s2sReplyFrames atomic.Int32
+
+func init() { s2sReplyFrames.Store(mockS2SDefaultFrames) }
+
+// mockS2SFrames returns how many tone frames a reply has.
+func mockS2SFrames() int { return int(s2sReplyFrames.Load()) }
 
 type s2sStream struct {
 	stream pb.Backend_AudioToAudioStreamServer

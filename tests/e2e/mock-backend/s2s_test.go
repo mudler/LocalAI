@@ -9,70 +9,65 @@ import (
 	"io"
 	"math"
 	"net"
-	"strings"
 	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+func TestMockBackend(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Mock backend")
+}
+
 // startMockS2S serves MockBackend on a loopback port and returns a client.
 // The mock is driven over real gRPC so the tests cover the wire contract too.
-func startMockS2S(t *testing.T) pb.BackendClient {
-	t.Helper()
+func startMockS2S() pb.BackendClient {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	srv := grpc.NewServer()
 	pb.RegisterBackendServer(srv, &MockBackend{})
 	go func() { _ = srv.Serve(lis) }()
-	t.Cleanup(srv.Stop)
+	DeferCleanup(srv.Stop)
 
 	conn, err := grpc.NewClient("passthrough:///"+lis.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = conn.Close() })
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { _ = conn.Close() })
 	return pb.NewBackendClient(conn)
 }
 
-func openS2S(t *testing.T, client pb.BackendClient) pb.Backend_AudioToAudioStreamClient {
-	t.Helper()
+func openS2S(client pb.BackendClient) pb.Backend_AudioToAudioStreamClient {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	DeferCleanup(cancel)
 	stream, err := client.AudioToAudioStream(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	return stream
 }
 
-func sendS2S(t *testing.T, stream pb.Backend_AudioToAudioStreamClient, req *pb.AudioToAudioRequest) {
-	t.Helper()
-	if err := stream.Send(req); err != nil {
-		t.Fatalf("send: %v", err)
-	}
+func sendS2S(stream pb.Backend_AudioToAudioStreamClient, req *pb.AudioToAudioRequest) {
+	GinkgoHelper()
+	Expect(stream.Send(req)).To(Succeed(), "send")
 }
 
-func recvS2S(t *testing.T, stream pb.Backend_AudioToAudioStreamClient) *pb.AudioToAudioResponse {
-	t.Helper()
+func recvS2S(stream pb.Backend_AudioToAudioStreamClient) *pb.AudioToAudioResponse {
+	GinkgoHelper()
 	evt, err := stream.Recv()
-	if err != nil {
-		t.Fatalf("recv: %v", err)
-	}
+	Expect(err).ToNot(HaveOccurred(), "recv")
 	return evt
 }
 
 // untilDone reads events up to and including response.done and returns them.
-func untilDone(t *testing.T, stream pb.Backend_AudioToAudioStreamClient) []*pb.AudioToAudioResponse {
-	t.Helper()
+func untilDone(stream pb.Backend_AudioToAudioStreamClient) []*pb.AudioToAudioResponse {
+	GinkgoHelper()
 	var out []*pb.AudioToAudioResponse
 	for {
-		evt := recvS2S(t, stream)
+		evt := recvS2S(stream)
 		out = append(out, evt)
 		if evt.GetEvent() == "response.done" || evt.GetEvent() == "error" {
 			return out
@@ -80,13 +75,17 @@ func untilDone(t *testing.T, stream pb.Backend_AudioToAudioStreamClient) []*pb.A
 	}
 }
 
-func metaOf(t *testing.T, evt *pb.AudioToAudioResponse) map[string]any {
-	t.Helper()
+func metaOf(evt *pb.AudioToAudioResponse) map[string]any {
+	GinkgoHelper()
 	var m map[string]any
-	if err := json.Unmarshal(evt.GetMeta(), &m); err != nil {
-		t.Fatalf("%s meta is not JSON: %v", evt.GetEvent(), err)
-	}
+	Expect(json.Unmarshal(evt.GetMeta(), &m)).To(Succeed(), "%s meta is not JSON", evt.GetEvent())
 	return m
+}
+
+// withReplyFrames sets the length of the replies for the current spec.
+func withReplyFrames(n int) {
+	s2sReplyFrames.Store(int32(n))
+	DeferCleanup(func() { s2sReplyFrames.Store(mockS2SDefaultFrames) })
 }
 
 func configReq(tools string) *pb.AudioToAudioRequest {
@@ -119,200 +118,6 @@ func tonePCM(n int, a float64) []byte {
 
 const weatherTool = `[{"type":"function","function":{"name":"get_time","parameters":{"type":"object"}}}]`
 
-func TestMockS2SSessionCreated(t *testing.T) {
-	stream := openS2S(t, startMockS2S(t))
-	sendS2S(t, stream, configReq(""))
-
-	evt := recvS2S(t, stream)
-	if evt.GetEvent() != "session.created" {
-		t.Fatalf("first event = %q, want session.created", evt.GetEvent())
-	}
-	m := metaOf(t, evt)
-	if m["input_sample_rate"] != float64(16000) || m["output_sample_rate"] != float64(24000) {
-		t.Fatalf("rates = %v", m)
-	}
-	voices, _ := m["voices"].([]any)
-	if len(voices) != 2 || voices[0] != "female" || voices[1] != "male" {
-		t.Fatalf("voices = %v", m["voices"])
-	}
-}
-
-func TestMockS2SAudioTurn(t *testing.T) {
-	t.Setenv("MOCK_S2S_FRAMES", "4")
-	stream := openS2S(t, startMockS2S(t))
-	sendS2S(t, stream, configReq(""))
-	recvS2S(t, stream) // session.created
-
-	// One second of a 300 Hz tone at amplitude 10000: RMS is about 7071.
-	sendS2S(t, stream, frameReq(tonePCM(8000, 10000), false))
-	sendS2S(t, stream, frameReq(nil, true))
-	if evt := recvS2S(t, stream); evt.GetEvent() != "input_audio_buffer.committed" {
-		t.Fatalf("after end_of_input got %q, want input_audio_buffer.committed", evt.GetEvent())
-	}
-
-	sendS2S(t, stream, controlReq("response.create", `{"max_output_tokens":200}`))
-	events := untilDone(t, stream)
-
-	var text string
-	var audio int
-	for _, evt := range events {
-		switch evt.GetEvent() {
-		case "response.audio_transcript.delta":
-			text += metaOf(t, evt)["delta"].(string)
-		case "response.audio.delta":
-			audio++
-			if evt.GetSampleRate() != 24000 || len(evt.GetPcm()) != 960 {
-				t.Fatalf("audio frame rate=%d bytes=%d, want 24000 and 960", evt.GetSampleRate(), len(evt.GetPcm()))
-			}
-			if rmsS16LE(evt.GetPcm()) < 1000 {
-				t.Fatalf("audio frame is silent")
-			}
-		}
-	}
-	if text != "mock reply rms=7071" {
-		t.Fatalf("transcript = %q, want %q", text, "mock reply rms=7071")
-	}
-	if audio != 4 {
-		t.Fatalf("audio frames = %d, want 4 (MOCK_S2S_FRAMES)", audio)
-	}
-	done := events[len(events)-1]
-	m := metaOf(t, done)
-	if m["status"] != "completed" || m["text"] != text {
-		t.Fatalf("response.done meta = %v", m)
-	}
-}
-
-func TestMockS2STextOnly(t *testing.T) {
-	t.Setenv("MOCK_S2S_FRAMES", "4")
-	stream := openS2S(t, startMockS2S(t))
-	sendS2S(t, stream, configReq(""))
-	recvS2S(t, stream)
-
-	sendS2S(t, stream, controlReq("response.create", `{"output_modalities":["text"]}`))
-	for _, evt := range untilDone(t, stream) {
-		if evt.GetEvent() == "response.audio.delta" {
-			t.Fatal("text-only response sent audio")
-		}
-	}
-}
-
-func TestMockS2SToolCallThenContinuation(t *testing.T) {
-	t.Setenv("MOCK_S2S_FRAMES", "2")
-	stream := openS2S(t, startMockS2S(t))
-	sendS2S(t, stream, configReq(weatherTool))
-	recvS2S(t, stream)
-
-	sendS2S(t, stream, controlReq("conversation.item.create",
-		`{"type":"message","role":"user","content":[{"type":"input_text","text":"Call the get_time tool."}]}`))
-	sendS2S(t, stream, controlReq("response.create", `{}`))
-	events := untilDone(t, stream)
-	if len(events) != 2 || events[0].GetEvent() != "response.function_call_arguments.done" {
-		t.Fatalf("tool turn events = %v", eventNames(events))
-	}
-	call := metaOf(t, events[0])
-	if call["name"] != "get_time" || call["call_id"] != "call_mock_1" || call["arguments"] != `{"city":"Paris"}` {
-		t.Fatalf("call = %v", call)
-	}
-	if metaOf(t, events[1])["status"] != "completed" {
-		t.Fatalf("tool turn done = %v", metaOf(t, events[1]))
-	}
-	if raw, _ := metaOf(t, events[1])["raw_text"].(string); !strings.Contains(raw, "<function=get_time>") {
-		t.Fatalf("tool turn raw_text = %q, want the call markup", raw)
-	}
-
-	sendS2S(t, stream, controlReq("conversation.item.create",
-		`{"type":"function_call_output","call_id":"call_mock_1","output":"{\"time\":\"12:00\"}"}`))
-	sendS2S(t, stream, controlReq("response.create", `{}`))
-	audio := 0
-	for _, evt := range untilDone(t, stream) {
-		switch evt.GetEvent() {
-		case "response.function_call_arguments.done":
-			t.Fatal("second tool call after the output was already sent")
-		case "response.audio.delta":
-			audio++
-		case "response.done":
-			meta := metaOf(t, evt)
-			if meta["raw_text"] != meta["text"] {
-				t.Fatalf("a plain reply with tools: raw_text = %v, text = %v", meta["raw_text"], meta["text"])
-			}
-		}
-	}
-	if audio != 2 {
-		t.Fatalf("continuation audio frames = %d, want 2", audio)
-	}
-}
-
-func TestMockS2SCancelStopsReply(t *testing.T) {
-	t.Setenv("MOCK_S2S_FRAMES", "500")
-	stream := openS2S(t, startMockS2S(t))
-	sendS2S(t, stream, configReq(""))
-	recvS2S(t, stream)
-
-	sendS2S(t, stream, controlReq("response.create", `{}`))
-	for {
-		if recvS2S(t, stream).GetEvent() == "response.audio.delta" {
-			break
-		}
-	}
-	sendS2S(t, stream, controlReq("response.cancel", `{}`))
-
-	var last *pb.AudioToAudioResponse
-	for {
-		evt := recvS2S(t, stream)
-		if evt.GetEvent() == "response.done" {
-			last = evt
-			break
-		}
-		if evt.GetEvent() != "response.audio.delta" && evt.GetEvent() != "response.audio_transcript.delta" {
-			t.Fatalf("unexpected event while cancelling: %s", evt.GetEvent())
-		}
-	}
-	if metaOf(t, last)["status"] != "cancelled" {
-		t.Fatalf("done = %v, want status cancelled", metaOf(t, last))
-	}
-
-	// Nothing follows the cancelled response.done except the answer to a
-	// cancel with no reply running, which the llama.cpp backend refuses with
-	// response_cancel_not_active. Then the stream closes cleanly.
-	sendS2S(t, stream, controlReq("response.cancel", `{}`))
-	if evt := recvS2S(t, stream); evt.GetEvent() != "error" || metaOf(t, evt)["type"] != "response_cancel_not_active" {
-		t.Fatalf("idle cancel = %s %v, want error response_cancel_not_active", evt.GetEvent(), metaOf(t, evt))
-	}
-	if err := stream.CloseSend(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := stream.Recv(); !errors.Is(err, io.EOF) {
-		t.Fatalf("after cancel the stream sent more data: err=%v", err)
-	}
-}
-
-func TestMockS2SProtocolErrors(t *testing.T) {
-	t.Run("first message must be config", func(t *testing.T) {
-		stream := openS2S(t, startMockS2S(t))
-		sendS2S(t, stream, controlReq("response.create", `{}`))
-		evt := recvS2S(t, stream)
-		if evt.GetEvent() != "error" {
-			t.Fatalf("got %q, want error", evt.GetEvent())
-		}
-	})
-	t.Run("invalid tools end the stream with an error", func(t *testing.T) {
-		stream := openS2S(t, startMockS2S(t))
-		sendS2S(t, stream, configReq(`{not json`))
-		if evt := recvS2S(t, stream); evt.GetEvent() != "error" {
-			t.Fatalf("got %q, want error", evt.GetEvent())
-		}
-	})
-	t.Run("unknown control event is an error", func(t *testing.T) {
-		stream := openS2S(t, startMockS2S(t))
-		sendS2S(t, stream, configReq(""))
-		recvS2S(t, stream)
-		sendS2S(t, stream, controlReq("response.bogus", `{}`))
-		if evt := recvS2S(t, stream); evt.GetEvent() != "error" {
-			t.Fatalf("got %q, want error", evt.GetEvent())
-		}
-	})
-}
-
 func eventNames(events []*pb.AudioToAudioResponse) []string {
 	names := make([]string, 0, len(events))
 	for _, e := range events {
@@ -327,83 +132,222 @@ func configWithModalities(tools, modalities string) *pb.AudioToAudioRequest {
 	}}
 }
 
-func TestMockS2SToolCallModeFollowsTheTools(t *testing.T) {
-	spoken := func(stream pb.Backend_AudioToAudioStreamClient) int {
-		sendS2S(t, stream, controlReq("response.create", ""))
-		n := 0
-		for _, evt := range untilDone(t, stream) {
-			if evt.GetEvent() == "response.audio.delta" {
-				n++
+var _ = Describe("mock speech-to-speech stream", func() {
+	It("opens with session.created, the fixed rates and the voices", func() {
+		stream := openS2S(startMockS2S())
+		sendS2S(stream, configReq(""))
+
+		evt := recvS2S(stream)
+		Expect(evt.GetEvent()).To(Equal("session.created"))
+		m := metaOf(evt)
+		Expect(m["input_sample_rate"]).To(Equal(float64(16000)))
+		Expect(m["output_sample_rate"]).To(Equal(float64(24000)))
+		Expect(m["voices"]).To(Equal([]any{"female", "male"}))
+	})
+
+	It("answers an audio turn with the transcript and tone frames", func() {
+		withReplyFrames(4)
+		stream := openS2S(startMockS2S())
+		sendS2S(stream, configReq(""))
+		recvS2S(stream) // session.created
+
+		// One second of a 300 Hz tone at amplitude 10000: RMS is about 7071.
+		sendS2S(stream, frameReq(tonePCM(8000, 10000), false))
+		sendS2S(stream, frameReq(nil, true))
+		Expect(recvS2S(stream).GetEvent()).To(Equal("input_audio_buffer.committed"))
+
+		sendS2S(stream, controlReq("response.create", `{"max_output_tokens":200}`))
+		events := untilDone(stream)
+
+		var text string
+		var audio int
+		for _, evt := range events {
+			switch evt.GetEvent() {
+			case "response.audio_transcript.delta":
+				text += metaOf(evt)["delta"].(string)
+			case "response.audio.delta":
+				audio++
+				Expect(evt.GetSampleRate()).To(Equal(int32(24000)))
+				Expect(evt.GetPcm()).To(HaveLen(960))
+				Expect(rmsS16LE(evt.GetPcm())).To(BeNumerically(">=", 1000), "audio frame is silent")
 			}
 		}
-		return n
-	}
+		Expect(text).To(Equal("mock reply rms=7071"))
+		Expect(audio).To(Equal(4))
+		m := metaOf(events[len(events)-1])
+		Expect(m["status"]).To(Equal("completed"))
+		Expect(m["text"]).To(Equal(text))
+	})
 
-	// No modalities in the config: the model chooses, so a tool call is silent.
-	auto := openS2S(t, startMockS2S(t))
-	sendS2S(t, auto, configReq(weatherTool))
-	recvS2S(t, auto)
-	if n := spoken(auto); n != 0 {
-		t.Fatalf("a tool call in the default mode sent %d audio frames", n)
-	}
+	It("sends no audio for a text-only response", func() {
+		withReplyFrames(4)
+		stream := openS2S(startMockS2S())
+		sendS2S(stream, configReq(""))
+		recvS2S(stream)
 
-	// Text plus audio fixed at open: the model reads the call out loud.
-	forced := openS2S(t, startMockS2S(t))
-	sendS2S(t, forced, configWithModalities(weatherTool, `["text","audio"]`))
-	recvS2S(t, forced)
-	if n := spoken(forced); n == 0 {
-		t.Fatal("a tool call in the fixed text plus audio mode was silent")
-	}
-}
+		sendS2S(stream, controlReq("response.create", `{"output_modalities":["text"]}`))
+		for _, evt := range untilDone(stream) {
+			Expect(evt.GetEvent()).ToNot(Equal("response.audio.delta"), "text-only response sent audio")
+		}
+	})
 
-func TestMockS2SRefusesLateSessionChanges(t *testing.T) {
-	stream := openS2S(t, startMockS2S(t))
-	sendS2S(t, stream, configReq(""))
-	recvS2S(t, stream)
+	It("calls a tool once, then continues after its output", func() {
+		withReplyFrames(2)
+		stream := openS2S(startMockS2S())
+		sendS2S(stream, configReq(weatherTool))
+		recvS2S(stream)
 
-	sendS2S(t, stream, controlReq("session.update", `{"voice":"male"}`))
-	if evt := recvS2S(t, stream); evt.GetEvent() != "session.updated" {
-		t.Fatalf("a voice change before the first turn got %q", evt.GetEvent())
-	}
-	sendS2S(t, stream, controlReq("conversation.item.create", `{"type":"message"}`))
-	sendS2S(t, stream, controlReq("session.update", `{"voice":"female"}`))
-	evt := recvS2S(t, stream)
-	if evt.GetEvent() != "error" || metaOf(t, evt)["response_scoped"] != nil {
-		t.Fatalf("a late voice change got %q %v, want an error outside a response", evt.GetEvent(), metaOf(t, evt))
-	}
-}
+		sendS2S(stream, controlReq("conversation.item.create",
+			`{"type":"message","role":"user","content":[{"type":"input_text","text":"Call the get_time tool."}]}`))
+		sendS2S(stream, controlReq("response.create", `{}`))
+		events := untilDone(stream)
+		Expect(eventNames(events)).To(Equal([]string{"response.function_call_arguments.done", "response.done"}))
+		call := metaOf(events[0])
+		Expect(call["name"]).To(Equal("get_time"))
+		Expect(call["call_id"]).To(Equal("call_mock_1"))
+		Expect(call["arguments"]).To(Equal(`{"city":"Paris"}`))
+		Expect(metaOf(events[1])["status"]).To(Equal("completed"))
+		raw, _ := metaOf(events[1])["raw_text"].(string)
+		Expect(raw).To(ContainSubstring("<function=get_time>"), "raw_text keeps the call markup")
 
-func TestMockS2SUnrelatedErrorsKeepTheReplyRunning(t *testing.T) {
-	t.Setenv("MOCK_S2S_FRAMES", "10")
-	stream := openS2S(t, startMockS2S(t))
-	sendS2S(t, stream, configReq(""))
-	recvS2S(t, stream)
-
-	sendS2S(t, stream, controlReq("response.create", ""))
-	sendS2S(t, stream, controlReq("input_audio_buffer.commit", ""))
-	sendS2S(t, stream, controlReq("response.create", ""))
-
-	var errTypes []string
-	var done bool
-	for !done {
-		evt := recvS2S(t, stream)
-		switch evt.GetEvent() {
-		case "error":
-			m := metaOf(t, evt)
-			typ, _ := m["type"].(string)
-			errTypes = append(errTypes, typ)
-			scoped := m["response_scoped"] == true
-			if scoped != (typ == "conversation_already_has_active_response") {
-				t.Fatalf("error %s response_scoped = %v", typ, scoped)
-			}
-		case "response.done":
-			done = true
-			if metaOf(t, evt)["status"] != "completed" {
-				t.Fatalf("the reply was cut short: %v", metaOf(t, evt))
+		sendS2S(stream, controlReq("conversation.item.create",
+			`{"type":"function_call_output","call_id":"call_mock_1","output":"{\"time\":\"12:00\"}"}`))
+		sendS2S(stream, controlReq("response.create", `{}`))
+		audio := 0
+		for _, evt := range untilDone(stream) {
+			switch evt.GetEvent() {
+			case "response.function_call_arguments.done":
+				Fail("second tool call after the output was already sent")
+			case "response.audio.delta":
+				audio++
+			case "response.done":
+				meta := metaOf(evt)
+				Expect(meta["raw_text"]).To(Equal(meta["text"]), "a plain reply with tools")
 			}
 		}
-	}
-	if len(errTypes) != 2 || errTypes[0] != "input_audio_buffer_commit_empty" || errTypes[1] != "conversation_already_has_active_response" {
-		t.Fatalf("errors = %v", errTypes)
-	}
-}
+		Expect(audio).To(Equal(2))
+	})
+
+	It("stops the reply at a cancel and closes cleanly", func() {
+		withReplyFrames(500)
+		stream := openS2S(startMockS2S())
+		sendS2S(stream, configReq(""))
+		recvS2S(stream)
+
+		sendS2S(stream, controlReq("response.create", `{}`))
+		for recvS2S(stream).GetEvent() != "response.audio.delta" {
+		}
+		sendS2S(stream, controlReq("response.cancel", `{}`))
+
+		var last *pb.AudioToAudioResponse
+		for last == nil {
+			evt := recvS2S(stream)
+			if evt.GetEvent() == "response.done" {
+				last = evt
+				break
+			}
+			Expect(evt.GetEvent()).To(BeElementOf("response.audio.delta", "response.audio_transcript.delta"), "unexpected event while cancelling")
+		}
+		Expect(metaOf(last)["status"]).To(Equal("cancelled"))
+
+		// Nothing follows the cancelled response.done except the answer to a
+		// cancel with no reply running, which the llama.cpp backend refuses with
+		// response_cancel_not_active. Then the stream closes cleanly.
+		sendS2S(stream, controlReq("response.cancel", `{}`))
+		evt := recvS2S(stream)
+		Expect(evt.GetEvent()).To(Equal("error"))
+		Expect(metaOf(evt)["type"]).To(Equal("response_cancel_not_active"))
+		Expect(stream.CloseSend()).To(Succeed())
+		_, err := stream.Recv()
+		Expect(errors.Is(err, io.EOF)).To(BeTrue(), "after cancel the stream sent more data: err=%v", err)
+	})
+
+	Describe("protocol errors", func() {
+		It("needs a config as the first message", func() {
+			stream := openS2S(startMockS2S())
+			sendS2S(stream, controlReq("response.create", `{}`))
+			Expect(recvS2S(stream).GetEvent()).To(Equal("error"))
+		})
+
+		It("ends the stream with an error on invalid tools", func() {
+			stream := openS2S(startMockS2S())
+			sendS2S(stream, configReq(`{not json`))
+			Expect(recvS2S(stream).GetEvent()).To(Equal("error"))
+		})
+
+		It("answers an unknown control event with an error", func() {
+			stream := openS2S(startMockS2S())
+			sendS2S(stream, configReq(""))
+			recvS2S(stream)
+			sendS2S(stream, controlReq("response.bogus", `{}`))
+			Expect(recvS2S(stream).GetEvent()).To(Equal("error"))
+		})
+	})
+
+	It("keeps a tool call silent unless the modes are fixed to text plus audio", func() {
+		spoken := func(stream pb.Backend_AudioToAudioStreamClient) int {
+			sendS2S(stream, controlReq("response.create", ""))
+			n := 0
+			for _, evt := range untilDone(stream) {
+				if evt.GetEvent() == "response.audio.delta" {
+					n++
+				}
+			}
+			return n
+		}
+
+		// No modalities in the config: the model chooses, so a tool call is silent.
+		auto := openS2S(startMockS2S())
+		sendS2S(auto, configReq(weatherTool))
+		recvS2S(auto)
+		Expect(spoken(auto)).To(BeZero(), "a tool call in the default mode sent audio frames")
+
+		// Text plus audio fixed at open: the model reads the call out loud.
+		forced := openS2S(startMockS2S())
+		sendS2S(forced, configWithModalities(weatherTool, `["text","audio"]`))
+		recvS2S(forced)
+		Expect(spoken(forced)).ToNot(BeZero(), "a tool call in the fixed text plus audio mode was silent")
+	})
+
+	It("refuses session changes after the first turn", func() {
+		stream := openS2S(startMockS2S())
+		sendS2S(stream, configReq(""))
+		recvS2S(stream)
+
+		sendS2S(stream, controlReq("session.update", `{"voice":"male"}`))
+		Expect(recvS2S(stream).GetEvent()).To(Equal("session.updated"), "a voice change before the first turn")
+		sendS2S(stream, controlReq("conversation.item.create", `{"type":"message"}`))
+		sendS2S(stream, controlReq("session.update", `{"voice":"female"}`))
+		evt := recvS2S(stream)
+		Expect(evt.GetEvent()).To(Equal("error"), "a late voice change")
+		Expect(metaOf(evt)["response_scoped"]).To(BeNil(), "an error outside a response")
+	})
+
+	It("keeps the reply running through errors that are not about it", func() {
+		withReplyFrames(10)
+		stream := openS2S(startMockS2S())
+		sendS2S(stream, configReq(""))
+		recvS2S(stream)
+
+		sendS2S(stream, controlReq("response.create", ""))
+		sendS2S(stream, controlReq("input_audio_buffer.commit", ""))
+		sendS2S(stream, controlReq("response.create", ""))
+
+		var errTypes []string
+		for done := false; !done; {
+			evt := recvS2S(stream)
+			switch evt.GetEvent() {
+			case "error":
+				m := metaOf(evt)
+				typ, _ := m["type"].(string)
+				errTypes = append(errTypes, typ)
+				scoped := m["response_scoped"] == true
+				Expect(scoped).To(Equal(typ == "conversation_already_has_active_response"), "response_scoped of %s", typ)
+			case "response.done":
+				done = true
+				Expect(metaOf(evt)["status"]).To(Equal("completed"), "the reply was cut short")
+			}
+		}
+		Expect(errTypes).To(Equal([]string{"input_audio_buffer_commit_empty", "conversation_already_has_active_response"}))
+	})
+})
