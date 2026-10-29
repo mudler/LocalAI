@@ -825,3 +825,43 @@ type ChatsAdminConnector struct {
 type ChatsAdminConnectorList struct {
 	Connectors []ChatsAdminConnector `json:"connectors"`
 }
+
+// ChatsWellKnownFile is a well-known file of the home (persona.json,
+// user.json, shortcuts.json, home.json, ui.json, or the data file of a Home
+// widget), validated against its JSON Schema.
+type ChatsWellKnownFile struct {
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+	Exists bool   `json:"exists"`
+	// Version is what a write sends back in If-Match. It is 0 when the file
+	// does not exist.
+	Version int64 `json:"version"`
+	Rev     int64 `json:"rev"`
+	// Data is the file when it is valid, its last valid version when it is
+	// not (fallback is then true), or an empty object.
+	Data map[string]any `json:"data"`
+	// Valid is false when the file breaks its schema; errors says why.
+	Valid       bool     `json:"valid"`
+	Errors      []string `json:"errors,omitempty"`
+	Fallback    bool     `json:"fallback,omitempty"`
+	FallbackRev int64    `json:"fallback_rev,omitempty"`
+	// Prefilled names the keys of data that do not come from the file, and
+	// where they come from ("account").
+	Prefilled map[string]string `json:"prefilled,omitempty"`
+}
+
+// ChatsWellKnownWrite changes a well-known file. The keys of values replace
+// the keys of the file and a null removes one; the other keys of the file
+// stay. With replace, values is the whole new file.
+type ChatsWellKnownWrite struct {
+	Values  map[string]any `json:"values"`
+	Replace bool           `json:"replace,omitempty"`
+}
+
+// ChatsWellKnownError is the answer to a write that was refused: the errors
+// of a content that breaks the schema, or, on a conflict, what the file holds now.
+type ChatsWellKnownError struct {
+	Error   *APIError           `json:"error"`
+	Errors  []string            `json:"errors,omitempty"`
+	Current *ChatsWellKnownFile `json:"current,omitempty"`
+}

@@ -36,7 +36,7 @@ func newTestFiles() *files.Service {
 			_ = raw.Close()
 		}
 	})
-	return files.New(ws)
+	return files.New(ws, files.WithBlobs(blobs))
 }
 
 // raw sends a request with a body of any type.

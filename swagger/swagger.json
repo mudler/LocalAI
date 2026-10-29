@@ -5989,6 +5989,187 @@
                 }
             }
         },
+        "/api/chats/wellknown/{name}": {
+            "get": {
+                "description": "name is persona, user, shortcuts, home, ui or widget-data. The file is validated against its JSON Schema. When it is not valid, data holds its last valid version from the history and errors says what is wrong. A missing file is an empty object with exists false. widget-data needs path, the data file of a Home widget.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a well-known file of your home.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the data file, for widget-data",
+                        "name": "path",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file; the ETag header holds its version",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownFile"
+                        }
+                    },
+                    "404": {
+                        "description": "Not a well-known file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The keys of values replace the keys of the file and a null removes one; keys the request does not name stay as they are. With replace, values is the whole file. The result must match the JSON Schema of the file and be at most 64 KiB. Send the version you read in If-Match (0 when the file did not exist): when the file changed since, the answer is 409 with what it holds now. Without If-Match the write is not checked.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Change a well-known file of your home.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the data file, for widget-data",
+                        "name": "path",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the version you read",
+                        "name": "If-Match",
+                        "in": "header"
+                    },
+                    {
+                        "description": "the keys to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file as written",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownFile"
+                        }
+                    },
+                    "400": {
+                        "description": "The result does not match the schema; errors lists why",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownError"
+                        }
+                    },
+                    "409": {
+                        "description": "The file changed since you read it; current holds it",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownError"
+                        }
+                    },
+                    "413": {
+                        "description": "The file would be larger than 64 KiB",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/wellknown/{name}/revert": {
+            "post": {
+                "description": "Writes the newest earlier version that differs from the file and matches its schema, as a new change: the revert itself can be undone.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Revert a well-known file to its previous valid version.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the data file, for widget-data",
+                        "name": "path",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file as written",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownFile"
+                        }
+                    },
+                    "409": {
+                        "description": "There is no earlier valid version",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/wellknown/{name}/schema": {
+            "get": {
+                "description": "The same schema is in the built-in skill localai-workspace, which the assistant reads. Properties may carry x-ui hints for the settings pages (widget, hidden).",
+                "produces": [
+                    "application/schema+json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get the JSON Schema of a well-known file.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A JSON Schema, draft 2020-12",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not a well-known file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}": {
             "get": {
                 "tags": [
@@ -17407,6 +17588,84 @@
                 "used": {
                     "description": "Used is the number of tokens in the context the request sent.",
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsWellKnownError": {
+            "type": "object",
+            "properties": {
+                "current": {
+                    "$ref": "#/definitions/schema.ChatsWellKnownFile"
+                },
+                "error": {
+                    "$ref": "#/definitions/schema.APIError"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsWellKnownFile": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data is the file when it is valid, its last valid version when it is\nnot (fallback is then true), or an empty object.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "exists": {
+                    "type": "boolean"
+                },
+                "fallback": {
+                    "type": "boolean"
+                },
+                "fallback_rev": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "prefilled": {
+                    "description": "Prefilled names the keys of data that do not come from the file, and\nwhere they come from (\"account\").",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "valid": {
+                    "description": "Valid is false when the file breaks its schema; errors says why.",
+                    "type": "boolean"
+                },
+                "version": {
+                    "description": "Version is what a write sends back in If-Match. It is 0 when the file\ndoes not exist.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsWellKnownWrite": {
+            "type": "object",
+            "properties": {
+                "replace": {
+                    "type": "boolean"
+                },
+                "values": {
+                    "type": "object",
+                    "additionalProperties": {}
                 }
             }
         },
