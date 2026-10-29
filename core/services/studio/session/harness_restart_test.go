@@ -37,6 +37,10 @@ func TestATurnWithNoHarnessAfterARestartFailureTellsTheUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Take the channel once, before the turn. After the restart fails the chat
+	// closes and drops its bus, so Events() then returns a new, closed channel
+	// and the events that were not read yet are only in the old one.
+	events := chat.Events()
 	h.FailNextStarts = 8 // every start fails: the swap, its fresh retry and the plain restart
 	if err := chat.Send(context.Background(), session.Message{Text: "hello"}); err != nil {
 		t.Fatal(err)
@@ -45,7 +49,7 @@ func TestATurnWithNoHarnessAfterARestartFailureTellsTheUser(t *testing.T) {
 	timeout := time.After(10 * time.Second)
 	for done := false; !done; {
 		select {
-		case e, open := <-chat.Events():
+		case e, open := <-events:
 			sawError = sawError || e.Kind == session.KindError
 			done = !open || e.Kind == session.KindTurnEnd
 		case <-timeout:
