@@ -1,6 +1,6 @@
-// Package triggerstest checks a triggers.Store and gives tests a Store in
-// memory.
+// Package triggerstest checks a triggers.Store.
 //
-// RunStoreSuite is the contract: every Store passes it. MemStore is a Store
-// that keeps everything in memory, for the tests of a Runner and of a host.
+// RunStoreSuite is the contract: every Store passes it. For the tests of a
+// Runner or of a host that need no database, triggers.NewJSON("") is a Store
+// in memory.
 package triggerstest

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
-	"github.com/mudler/LocalAI/core/services/studio/triggers/triggerstest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/wstest"
 )
@@ -83,7 +82,7 @@ func (h *host) startCount() int {
 type rig struct {
 	t      *testing.T
 	clock  *fakeClock
-	store  *triggerstest.MemStore
+	store  triggers.Store
 	ws     workspace.Store
 	host   *host
 	runner *triggers.Runner
@@ -95,7 +94,11 @@ func newRig(t *testing.T, mutate ...func(*triggers.Options)) *rig {
 	clock := &fakeClock{t: t0}
 	ws := openWorkspace(t, clock.Now)
 	h := &host{byRun: map[string]triggers.Trigger{}, live: map[string]bool{}}
-	r := &rig{t: t, clock: clock, store: triggerstest.NewMemStore(), ws: ws, host: h}
+	store, err := triggers.NewJSON("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := &rig{t: t, clock: clock, store: store, ws: ws, host: h}
 	r.opts = triggers.Options{
 		Store: r.store, Workspace: ws, Admin: wstest.AdminActor,
 		Start: h.start, Stop: h.stop, Live: h.isLive, Clock: clock.Now,
