@@ -1483,7 +1483,9 @@ The manifest declares the capability. It needs no tool and no `service` flag:
       "description": "Talk to one of your saved agents from a Telegram bot.",
       "senderHint": "A chat ID, a user ID or an @username",
       "delivery": "pull",
-      "page": "bots"
+      "page": "bots",
+      "drafts": true,
+      "previewMs": 400
     }]
   },
   "ui": { "...": "the page that adds and edits the bindings" }
@@ -1497,6 +1499,8 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].title`, `description`, `senderHint` | Plain text for people, with the bounds of the UI texts. |
 | `kinds[].delivery` | `pull`: the host asks for updates (long polling). `push`: the add-on calls the host operation `connector.inbound`. |
 | `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
+| `kinds[].drafts` | Optional. `true` when the add-on serves the op `draft`. The host then shows the live answer of a direct conversation as a draft instead of a working message. |
+| `kinds[].previewMs` | Optional. The shortest time between two previews (edits or drafts) of one binding, 250 to 10000 ms. Without it the host waits one second. |
 
 **Outbound: the connector route.** The host calls `POST /connector` on the add-on
 with the same bearer credential and incarnation header as every other route and a body
@@ -1504,17 +1508,27 @@ with the same bearer credential and incarnation header as every other route and 
 25), `send` (`chat`, `thread`, `text`, and optionally `messageId`), `edit` (`chat`,
 `messageId`, `text`), `typing` (`chat`, `thread`, and optionally `messageId`),
 `send_file` (`chat`, `thread`, `file`: `{"name", "mime", "data"}`), `me` (who the bot
-is, for the token check on save and the Test button) and `media` (`media`: one
+is, for the token check on save and the Test button), `media` (`media`: one
 reference of a message's `media`; the answer is `{"file": {"name", "mime", "data"}}`
-with at most 1 MiB of data).
+with at most 1 MiB of data) and, for a kind that declares `drafts`, `draft`
+(`chat`, `thread`, `draftId`, `text`).
 
 - A `send` with a `messageId` replaces that message of the bot (the host's working
   message) with the first part of the text and sends the rest as new messages. When
   the message cannot be edited (it was deleted, or is too old), the first part goes
   as a new message too. The shared route (`addons/internal/connector`) does this for
   every platform.
-- An `edit` is not retried after a wait: a `rate_limited` answer comes back at once,
-  and the host skips that edit. A `send` and a `send_file` wait once, as before.
+- The `text` of a `send` is the answer, in Markdown. The add-on converts it to the
+  markup of its platform and cuts it; the shared route lets a platform send each part
+  in its markup and fall back to plain text by itself (Telegram does). The `text` of
+  an `edit` or a `draft` is a preview: it goes as plain text.
+- A `draft` shows `text` as a draft: a message that the bot is still writing, which
+  the platform replaces when the answer is sent. `draftId` is not zero, and the host
+  keeps one for the drafts of one answer. When the platform refuses it, the host
+  sends a working message instead.
+- An `edit` and a `draft` are not retried after a wait: a `rate_limited` answer comes
+  back at once, and the host skips that preview. A `send` and a `send_file` wait
+  once, as before.
 - A `typing` with a `messageId` says that the host already shows a working message
   with that ID. A platform without a typing indicator (Slack) then posts nothing.
 - `send_file` carries one file of 1 byte to 1 MiB whose `name` is

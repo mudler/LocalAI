@@ -11,7 +11,7 @@ export const ANSWER_TEXT = {
   'answer.reply.off': 'Typing, then the answer',
   'answer.reply.progress': 'Progress: the tools it uses',
   'answer.reply.stream': 'Live: the answer as it is written',
-  'answer.replyHelp': 'Progress and Live show one working message, and the answer replaces it. A long answer goes on in new messages.',
+  'answer.replyHelp': 'Progress and Live show one working message, and the answer replaces it. On a platform with drafts, Live shows a private chat a draft instead, and the answer follows it. A long answer goes on in new messages.',
   'answer.conversationLabel': 'Conversations',
   'answer.conversation.sender': 'One chat per person',
   'answer.conversation.chat': 'One chat per group or channel',

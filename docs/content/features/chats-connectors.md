@@ -193,17 +193,25 @@ that part.
 | Mode | What the sender sees |
 |---|---|
 | `progress` (default) | One message, "Working…", that lists the tools as the agent starts them. The answer replaces it. |
-| `stream` | One message that shows the end of the answer as the model writes it, with a cursor. Before the answer starts it shows the reasoning, or the tool the agent uses. The answer replaces it. |
+| `stream` | A preview that shows the end of the answer as the model writes it, with a cursor (`▉`). Before the answer starts it shows the reasoning as it grows, or the tool the agent uses. In a private Telegram chat the preview is a draft, and the answer follows it as a new message. Anywhere else it is one working message that the answer replaces. |
 | `off` | Typing only, then the answer as a new message. On Slack the add-on posts its own "_Working…_" message, which the answer replaces. |
 
-- The answer goes as the platform's formatting allows: plain text on Telegram, Slack's
-  markup on Slack. When it is longer than one message (4,096 characters on Telegram,
+- The answer is converted from Markdown to the platform's markup: MarkdownV2 on
+  Telegram (bold, italics, links, inline code and code blocks), Slack's markup on
+  Slack. When Telegram cannot parse the markup of a message, that message goes as
+  plain text, with each link's address after its label. Links show no preview card on
+  Telegram. When the answer is longer than one message (4,096 characters on Telegram,
   4,000 on Slack), the working message holds the first part and the rest follows as
-  new messages, without breaking a code block on Slack.
-- The edits of one binding go at most once a second, across all its conversations;
-  what changed in between is shown in the next edit. The answer itself is not held
-  back.
-- When the platform asks to wait, the next edits wait that long. When an edit fails
+  new messages, without breaking a code block: a block cut in two opens again, with
+  its language, in the next message.
+- A preview (an edit or a draft) is plain text, since the answer is not whole yet.
+- The previews of one binding are spaced out across all its conversations: at most
+  one each 400 ms on Telegram, and one a second on Slack and on a platform whose
+  add-on declares no interval. What changed in between is shown in the next preview.
+  The answer itself is not held back.
+- A Telegram draft that shows nothing new is sent again every 25 seconds, so Telegram
+  keeps it. When Telegram refuses a draft, the turn goes on with a working message.
+- When the platform asks to wait, the next previews wait that long. When an edit fails
   (the message was deleted, for example), the working message is left as it is and
   the answer goes as a new message.
 
@@ -297,8 +305,9 @@ restart). The JSON store is for one process.
 | Bindings, offsets, sender log, sender chats, the key | Shared | Rows in the database. |
 | Which frontend reads the bot | Single runner | The frontend that holds the advisory lock (`KeyChatsConnectors`). When it stops, another takes the lock and continues from the stored offset. Add-ons run on the process that owns the add-ons, and the loops run only where the add-on answers. |
 | Where the next message is read from | Shared | The offset is stored with the binding. Core passes it to the add-on's poll call and stores the offset that the answer names. |
-| The reply being sent for a turn | Per instance | The frontend that took the message sends the answer, edits its working message and sends its files. If it dies, the answer is lost; the message is not repeated. |
-| The edit budget of a binding | Per instance | The time of the next edit is kept in memory by the frontend that sends the replies. Replies of one binding run on the leader, so one budget covers them. |
+| The reply being sent for a turn | Per instance | The frontend that took the message sends the answer, edits its working message or sends its draft, and sends its files. If it dies, the answer is lost; the message is not repeated. |
+| The preview budget of a binding | Per instance | The time of the next edit or draft is kept in memory by the frontend that sends the replies. Replies of one binding run on the leader, so one budget covers them. |
+| Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
 
