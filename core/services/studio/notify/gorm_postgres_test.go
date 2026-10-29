@@ -2,8 +2,9 @@ package notify_test
 
 import (
 	"os"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -13,50 +14,44 @@ import (
 
 // The PostgreSQL run needs a database that tests may wipe. Set
 // LOCALAI_TEST_POSTGRES_URL to enable it.
-func TestGORMOnPostgres(t *testing.T) {
-	url := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
-	if url == "" {
-		t.Skip("LOCALAI_TEST_POSTGRES_URL is not set")
-	}
-	notifytest.Run(t, func(t *testing.T) notify.Store {
-		db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
-		if err != nil {
-			t.Fatal(err)
-		}
-		sqlDB, _ := db.DB()
-		t.Cleanup(func() { _ = sqlDB.Close() })
-		s, err := notify.NewGORM(db)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := db.Exec("DELETE FROM studio_notifications").Error; err != nil {
-			t.Fatal(err)
-		}
-		return s
-	})
+var postgresURL = os.Getenv("LOCALAI_TEST_POSTGRES_URL")
+
+func openPostgres() *gorm.DB {
+	db, err := gorm.Open(postgres.Open(postgresURL), &gorm.Config{})
+	Expect(err).NotTo(HaveOccurred())
+	sqlDB, _ := db.DB()
+	DeferCleanup(func() { _ = sqlDB.Close() })
+	return db
 }
 
-func TestGORMPushOnPostgres(t *testing.T) {
-	url := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
-	if url == "" {
-		t.Skip("LOCALAI_TEST_POSTGRES_URL is not set")
-	}
-	notifytest.RunPush(t, func(t *testing.T) notify.PushStore {
-		db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
-		if err != nil {
-			t.Fatal(err)
+var _ = Describe("GORM on PostgreSQL", func() {
+	Describe("the notification store contract", func() {
+		if postgresURL == "" {
+			It("runs the contract", func() { Skip("LOCALAI_TEST_POSTGRES_URL is not set") })
+			return
 		}
-		sqlDB, _ := db.DB()
-		t.Cleanup(func() { _ = sqlDB.Close() })
-		s, err := notify.NewGORMPush(db)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, tbl := range []string{"studio_push_subscriptions", "studio_push_keys"} {
-			if err := db.Exec("DELETE FROM " + tbl).Error; err != nil {
-				t.Fatal(err)
-			}
-		}
-		return s
+		notifytest.Run(func() notify.Store {
+			db := openPostgres()
+			s, err := notify.NewGORM(db)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(db.Exec("DELETE FROM studio_notifications").Error).To(Succeed())
+			return s
+		})
 	})
-}
+
+	Describe("the push store contract", func() {
+		if postgresURL == "" {
+			It("runs the contract", func() { Skip("LOCALAI_TEST_POSTGRES_URL is not set") })
+			return
+		}
+		notifytest.RunPush(func() notify.PushStore {
+			db := openPostgres()
+			s, err := notify.NewGORMPush(db)
+			Expect(err).NotTo(HaveOccurred())
+			for _, tbl := range []string{"studio_push_subscriptions", "studio_push_keys"} {
+				Expect(db.Exec("DELETE FROM " + tbl).Error).To(Succeed())
+			}
+			return s
+		})
+	})
+})
