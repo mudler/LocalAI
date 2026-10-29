@@ -317,12 +317,24 @@ func defineS2SSpecs(v s2sVariant) {
 			events := readResponse(conn, s2sResponseTimeout())
 
 			var inputText, outputText string
+			inputDone := false
 			for _, e := range events {
 				switch e["type"] {
 				case "conversation.item.input_audio_transcription.completed":
 					inputText, _ = e["transcript"].(string)
+					inputDone = true
 				case "response.output_audio_transcript.done":
 					outputText, _ = e["transcript"].(string)
+				}
+			}
+			// The transcript of the input comes from a model of its own and runs next
+			// to the reply, so it may arrive after response.done: an any-to-any reply
+			// can be over before the ASR is. The contract is that it comes, not when.
+			for deadline := time.Now().Add(30 * time.Second); !inputDone && time.Now().Before(deadline); {
+				evt := readServerEvent(conn, time.Until(deadline))
+				if evt["type"] == "conversation.item.input_audio_transcription.completed" {
+					inputText, _ = evt["transcript"].(string)
+					inputDone = true
 				}
 			}
 			Expect(strings.TrimSpace(outputText)).ToNot(BeEmpty())

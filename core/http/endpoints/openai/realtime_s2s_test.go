@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
@@ -324,6 +325,41 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(completed).To(BeNumerically("<", slices.Index(names, "response.output_audio.delta")))
 		Expect(completed).To(BeNumerically("<", slices.Index(names, "response.done")))
 	})
+
+	// The WAV the transcription gets must hold the whole turn and say the rate it
+	// was recorded at: a client commit is at the session rate, a VAD turn at 16 kHz.
+	DescribeTable("hands the whole turn to the input transcription with its own rate",
+		func(vad bool, sessionRate, wantRate int) {
+			stream := newFakeS2SStream()
+			stream.script = replyScript
+			m := baseModel()
+			session, tr, conv := newHarness(stream, m)
+			session.InputSampleRate = sessionRate
+			utt := make([]byte, 2*sessionRate) // one second
+			for i := range utt {
+				utt[i] = byte(i)
+			}
+
+			session.s2sEndTurn()
+			if vad {
+				slot := &commitSlot{done: make(chan struct{}), source: respcoord.SourceVAD}
+				s2sCommitTurn(context.Background(), utt, "", session, conv, tr, slot)
+			} else {
+				session.issueClientCommit(utt, conv, tr)
+			}
+			session.respSink.wait()
+			Eventually(func() int { m.transcribedMu.Lock(); defer m.transcribedMu.Unlock(); return len(m.transcribedWAV) }, 2*time.Second).Should(Equal(1))
+
+			m.transcribedMu.Lock()
+			wav := m.transcribedWAV[0]
+			m.transcribedMu.Unlock()
+			Expect(len(wav)).To(BeNumerically(">", 44))
+			Expect(binary.LittleEndian.Uint32(wav[24:28])).To(Equal(uint32(wantRate)), "sample rate in the WAV header")
+			Expect(wav[44:]).To(Equal(utt), "the transcription sees the whole turn")
+		},
+		Entry("a client commit, at the session rate", false, 24000, 24000),
+		Entry("a VAD turn, at 16 kHz", true, 24000, 16000),
+	)
 
 	It("reports a failed input transcription without breaking the response", func() {
 		stream := newFakeS2SStream()
