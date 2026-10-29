@@ -329,6 +329,13 @@ type ApplicationConfig struct {
 	// MCPCIJobTimeout is the longest an agent job may run. Zero means
 	// DefaultMCPCIJobTimeout.
 	MCPCIJobTimeout time.Duration
+	// TriggerRunKeep is the number of finished runs kept for each trigger
+	// (beyond the last two days). Zero means triggers.DefaultKeepRuns, a negative
+	// value keeps every run.
+	TriggerRunKeep int
+	// TriggerRunRetentionDays is how long finished trigger runs are kept. Zero
+	// means 30 days (triggers.DefaultRunMaxAge), a negative value keeps them forever.
+	TriggerRunRetentionDays int
 
 	// MCPConnectorsAllowPrivate lets the MCP connectors that users define reach
 	// addresses on private networks (loopback, link-local, RFC 1918, metadata).
@@ -1257,6 +1264,12 @@ func WithAgentJobRetentionDays(days int) AppOption {
 // WithMCPCIJobTimeout sets the longest an agent job may run.
 func WithMCPCIJobTimeout(d time.Duration) AppOption {
 	return func(o *ApplicationConfig) { o.MCPCIJobTimeout = d }
+}
+
+// WithTriggerRunRetention sets how many finished runs are kept for each
+// trigger, and for how many days.
+func WithTriggerRunRetention(keep, days int) AppOption {
+	return func(o *ApplicationConfig) { o.TriggerRunKeep, o.TriggerRunRetentionDays = keep, days }
 }
 
 // Defaults of the agent jobs.

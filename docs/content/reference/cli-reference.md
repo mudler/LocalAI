@@ -225,6 +225,8 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 | `--disable-triggers` | `false` | Turn off the trigger runner and the triggers API; the rest of the chats stays on | `$LOCALAI_DISABLE_TRIGGERS` |
 | `--disable-connectors` | `false` | Turn off the connector bots (Telegram, Slack) and the connectors API; the rest of the chats stays on | `$LOCALAI_DISABLE_CONNECTORS` |
 | `--agent-job-retention-days` | `30` | Days to keep ended agent jobs | `$LOCALAI_AGENT_JOB_RETENTION_DAYS`, `$AGENT_JOB_RETENTION_DAYS` |
+| `--trigger-run-keep` | `200` | Finished runs kept for each trigger, beyond the runs of the last two days. `-1` keeps all | `$LOCALAI_TRIGGER_RUN_KEEP` |
+| `--trigger-run-retention-days` | `30` | Days to keep finished trigger runs. `-1` keeps them forever | `$LOCALAI_TRIGGER_RUN_RETENTION_DAYS` |
 | `--mcp-ci-job-timeout` | `10m` | Longest an agent job may run | `$LOCALAI_MCP_CI_JOB_TIMEOUT` |
 | `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |
 | `--distributed-chat-workers` | `false` | Distributed mode: send the turns of triggers, agent jobs and connector messages to chat workers. With no chat worker listening, the turn runs on the frontend | `$LOCALAI_DISTRIBUTED_CHAT_WORKERS` |

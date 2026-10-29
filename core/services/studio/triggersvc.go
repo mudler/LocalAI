@@ -51,6 +51,9 @@ type TriggerOptions struct {
 	Tick time.Duration
 	// RunLimit is how long a run may take; zero means DefaultRunLimit.
 	RunLimit time.Duration
+	// Retention bounds the finished runs kept for each trigger; the zero value
+	// uses the defaults of the Runner.
+	Retention triggers.RunRetention
 	// Lead says whether this frontend runs the triggers now. With a database,
 	// one frontend leads at a time (the host gives it an advisory lock). Nil:
 	// always.
@@ -193,7 +196,8 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 	opts := triggers.Options{
 		Store: h.o.Store, Admin: workspace.Actor{Principal: files.AdminPrincipal},
 		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted,
-		Logf: func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
+		Retention: h.o.Retention,
+		Logf:      func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
 	}
 	if h.svc.d.Files.Available() {
 		opts.Workspace = h.svc.d.Files.Store()

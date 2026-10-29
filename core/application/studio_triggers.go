@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/xlog"
 
@@ -51,7 +52,7 @@ func (a *Application) startStudioTriggers(svc *studio.Service) {
 	if st == nil {
 		return
 	}
-	opts := studio.TriggerOptions{Store: st}
+	opts := studio.TriggerOptions{Store: st, Retention: a.triggerRunRetention()}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsTriggers, "Triggers")
 	}
@@ -68,4 +69,15 @@ func (a *Application) startStudioTriggers(svc *studio.Service) {
 	ctx, cancel := context.WithCancel(ctx)
 	a.studioTriggers, a.studioTriggersStop = host, cancel
 	go host.Run(ctx)
+}
+
+// triggerRunRetention turns the operator's settings into what the Runner
+// takes. A negative number of days keeps the runs forever.
+func (a *Application) triggerRunRetention() triggers.RunRetention {
+	cfg := a.applicationConfig
+	ret := triggers.RunRetention{Keep: cfg.TriggerRunKeep}
+	if cfg.TriggerRunRetentionDays != 0 {
+		ret.MaxAge = time.Duration(cfg.TriggerRunRetentionDays) * 24 * time.Hour
+	}
+	return ret
 }

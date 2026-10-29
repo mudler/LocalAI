@@ -159,6 +159,12 @@ message as rules for the run. Treat it as text from whoever can write there.
 - **Limits.** A run has 15 minutes. At most 2 runs go at once, one per trigger,
   and a trigger has a daily limit (`daily_cap`, default 24). A run that is skipped
   or fails shows its reason on the trigger.
+- **History.** A trigger keeps its last 200 finished runs, and every run of
+  the last two days. A finished run older than 30 days is removed, whatever the
+  count. A run that is queued or running is never removed. Set
+  `--trigger-run-keep` and `--trigger-run-retention-days` (`-1` keeps all) to
+  change this. A file version that ran can run again once its old run
+  is removed.
 - **When it cannot run.** A deleted agent fails the run with "the agent was
   deleted" and switches the trigger off. A disabled owner skips the run. An owner
   who no longer exists, or a folder that is gone, skips the run and switches the

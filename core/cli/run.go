@@ -159,6 +159,8 @@ type RunCMD struct {
 	DisableTriggers       bool          `env:"LOCALAI_DISABLE_TRIGGERS" default:"false" help:"Turn off the trigger runner and the triggers API (the rest of the chats stays on)" group:"chats"`
 	DisableConnectors     bool          `env:"LOCALAI_DISABLE_CONNECTORS" default:"false" help:"Turn off the connector bots (Telegram, Slack) and the connectors API (the rest of the chats stays on)" group:"chats"`
 	AgentJobRetentionDays int           `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Days to keep finished agent jobs" group:"chats"`
+	TriggerRunKeep        int           `env:"LOCALAI_TRIGGER_RUN_KEEP" default:"200" help:"Finished runs kept for each trigger, beyond those of the last two days (-1 keeps all)" group:"chats"`
+	TriggerRunRetention   int           `name:"trigger-run-retention-days" env:"LOCALAI_TRIGGER_RUN_RETENTION_DAYS" default:"30" help:"Days to keep finished trigger runs (-1 keeps them forever)" group:"chats"`
 	MCPCIJobTimeout       time.Duration `name:"mcp-ci-job-timeout" env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Longest an agent job may run" group:"chats"`
 
 	// Collections (the knowledge base)
@@ -653,6 +655,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		opts = append(opts, config.DisableConnectors)
 	}
 	opts = append(opts, config.WithAgentJobRetentionDays(r.AgentJobRetentionDays), config.WithMCPCIJobTimeout(r.MCPCIJobTimeout))
+	opts = append(opts, config.WithTriggerRunRetention(r.TriggerRunKeep, r.TriggerRunRetention))
 
 	// Collections
 	if r.DisableCollections {
