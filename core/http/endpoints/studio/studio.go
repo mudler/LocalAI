@@ -78,53 +78,36 @@ func fail(c echo.Context, status int, typ, msg string) error {
 	return c.JSON(status, schema.ErrorResponse{Error: &schema.APIError{Message: msg, Code: status, Type: typ}})
 }
 
-// failFor maps a service error to a response. Another user's conversation is
-// the same answer as a missing one.
+// chatRules maps the errors of the chat service. Another user's conversation
+// is the same answer as a missing one.
+var chatRules = []errRule{
+	fixed(http.StatusNotFound, typeNotFound, "conversation not found", session.ErrNotFound),
+	fixed(http.StatusConflict, typeConflict, "the message was already delivered to the model", store.ErrDelivered),
+	fixed(http.StatusNotFound, typeNotFound, "agent template not found", studiosvc.ErrNoTemplate),
+	fixed(http.StatusConflict, typeConflict, "a turn is running; stop it first", studiosvc.ErrChatBusy),
+	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
+		studiosvc.ErrInvalidSettings, studiosvc.ErrBadImport, session.ErrInvalid),
+	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadMCPSwitch),
+	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
+	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "an attachment is too large", workspace.ErrTooLarge),
+	fixed(http.StatusConflict, typeConflict, "a sub-agent conversation takes no messages from you", studiosvc.ErrSubAgentReadOnly),
+	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrNoModel),
+	fixed(http.StatusNotFound, typeNotFound, "agent not found", agents.ErrNotFound),
+	fixed(http.StatusConflict, typeConflict, "you already have an agent with this name", agents.ErrNameTaken),
+	verbatim(http.StatusBadRequest, typeInvalid, agents.ErrInvalid.Error()+": ", agents.ErrInvalid),
+	verbatim(http.StatusConflict, typeNotifyOff, "", studiosvc.ErrNotificationsOff),
+	fixed(http.StatusForbidden, typeAuthz, "the LocalAI assistant needs an administrator", studiosvc.ErrAssistantForbidden),
+	fixed(http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server", studiosvc.ErrAssistantOff),
+	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
+	verbatim(http.StatusConflict, typeAgentsOff, "", studiosvc.ErrAgentsOff),
+}
+
+// failFor maps a service error to a response.
 func failFor(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, session.ErrNotFound):
-		return fail(c, http.StatusNotFound, "not_found", "conversation not found")
-	case errors.Is(err, store.ErrDelivered):
-		return fail(c, http.StatusConflict, "conflict", "the message was already delivered to the model")
-	case errors.Is(err, studiosvc.ErrNoTemplate):
-		return fail(c, http.StatusNotFound, "not_found", "agent template not found")
-	case errors.Is(err, studiosvc.ErrChatBusy):
-		return fail(c, http.StatusConflict, "conflict", "a turn is running; stop it first")
-	case errors.Is(err, studiosvc.ErrNothingToRegenerate), errors.Is(err, studiosvc.ErrNotUserMessage),
-		errors.Is(err, studiosvc.ErrInvalidSettings), errors.Is(err, studiosvc.ErrBadImport), errors.Is(err, session.ErrInvalid):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), "studio: "))
-	case errors.Is(err, studiosvc.ErrBadSkillName), errors.Is(err, studiosvc.ErrBadAddonID), errors.Is(err, studiosvc.ErrBadMCPSwitch):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
-	case errors.Is(err, files.ErrUnavailable):
-		return fail(c, http.StatusConflict, "files_off", err.Error())
-	case errors.Is(err, workspace.ErrTooLarge):
-		return fail(c, http.StatusRequestEntityTooLarge, "invalid_request_error", "an attachment is too large")
-	case errors.Is(err, studiosvc.ErrSubAgentReadOnly):
-		return fail(c, http.StatusConflict, "conflict", "a sub-agent conversation takes no messages from you")
-	case errors.Is(err, studiosvc.ErrNoModel):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
-	case errors.Is(err, studiosvc.ErrChatBusy):
-		return fail(c, http.StatusConflict, "conflict", err.Error())
-	case errors.Is(err, agents.ErrNotFound):
-		return fail(c, http.StatusNotFound, "not_found", "agent not found")
-	case errors.Is(err, agents.ErrNameTaken):
-		return fail(c, http.StatusConflict, "conflict", "you already have an agent with this name")
-	case errors.Is(err, agents.ErrInvalid):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), agents.ErrInvalid.Error()+": "))
-	case errors.Is(err, studiosvc.ErrNotificationsOff):
-		return fail(c, http.StatusConflict, "notifications_off", err.Error())
-	case errors.Is(err, studiosvc.ErrAssistantForbidden):
-		return fail(c, http.StatusForbidden, "authorization_error", "the LocalAI assistant needs an administrator")
-	case errors.Is(err, studiosvc.ErrAssistantOff):
-		return fail(c, http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server")
-	case errors.Is(err, studiosvc.ErrAssistantAgent):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "an assistant chat cannot name a saved agent")
-	case errors.Is(err, studiosvc.ErrAgentsOff):
-		return fail(c, http.StatusConflict, "agents_off", err.Error())
-	default:
+	return mapErr(c, err, chatRules, func(c echo.Context, err error) error {
 		xlog.Error("studio: request failed", "path", c.Request().URL.Path, "error", err)
-		return fail(c, http.StatusInternalServerError, "server_error", "the request failed")
-	}
+		return fail(c, http.StatusInternalServerError, typeServerError, "the request failed")
+	})
 }
 
 func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConversation {

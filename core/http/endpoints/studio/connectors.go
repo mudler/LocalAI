@@ -3,7 +3,6 @@ package studio
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -45,23 +44,23 @@ func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat}
 }
 
+var connectorRules = []errRule{
+	fixed(http.StatusNotFound, typeNotFound, "connector not found", connectors.ErrNotFound),
+	verbatim(http.StatusBadRequest, typeInvalid, connectors.ErrInvalid.Error()+": ", connectors.ErrInvalid),
+	verbatim(http.StatusConflict, typeConnectorOff, "", studiosvc.ErrConnectorsOff),
+}
+
 func failConnector(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, connectors.ErrNotFound):
-		return fail(c, http.StatusNotFound, "not_found", "connector not found")
-	case errors.Is(err, connectors.ErrInvalid):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), connectors.ErrInvalid.Error()+": "))
-	case errors.Is(err, studiosvc.ErrConnectorsOff):
-		return fail(c, http.StatusConflict, "connectors_off", err.Error())
-	}
-	var ce *contract.ConnectorError
-	if errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized {
-		return fail(c, http.StatusBadGateway, "upstream_error", "the platform refused the bot token")
-	}
-	if errors.As(err, &ce) || errors.Is(err, studiosvc.ErrConnectorAddon) || errors.Is(err, addonruntime.ErrRuntime) || errors.Is(err, addonruntime.ErrNotSent) {
-		return fail(c, http.StatusBadGateway, "upstream_error", "the platform could not be reached or refused the request")
-	}
-	return failFor(c, err)
+	return mapErr(c, err, connectorRules, func(c echo.Context, err error) error {
+		var ce *contract.ConnectorError
+		if errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized {
+			return fail(c, http.StatusBadGateway, typeUpstream, "the platform refused the bot token")
+		}
+		if errors.As(err, &ce) || errors.Is(err, studiosvc.ErrConnectorAddon) || errors.Is(err, addonruntime.ErrRuntime) || errors.Is(err, addonruntime.ErrNotSent) {
+			return fail(c, http.StatusBadGateway, typeUpstream, "the platform could not be reached or refused the request")
+		}
+		return failFor(c, err)
+	})
 }
 
 // ListConnectors lists the bindings.

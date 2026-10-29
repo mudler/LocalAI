@@ -2,7 +2,6 @@ package studio
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -11,16 +10,13 @@ import (
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 )
 
-// failMCPContent maps the errors of MCP prompts and resources.
-func failMCPContent(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, studiosvc.ErrMCPServerNotUsable):
-		return fail(c, http.StatusForbidden, "mcp_refused", "the chat cannot use this MCP server")
-	case errors.Is(err, studiosvc.ErrMCPContent):
-		return fail(c, http.StatusBadGateway, "mcp_error", err.Error())
-	}
-	return failMCP(c, err)
+var mcpContentRules = []errRule{
+	fixed(http.StatusForbidden, "mcp_refused", "the chat cannot use this MCP server", studiosvc.ErrMCPServerNotUsable),
+	verbatim(http.StatusBadGateway, "mcp_error", "", studiosvc.ErrMCPContent),
 }
+
+// failMCPContent maps the errors of MCP prompts and resources.
+func failMCPContent(c echo.Context, err error) error { return mapErr(c, err, mcpContentRules, failMCP) }
 
 func mcpRefs(in []schema.ChatsMCPRef) []studiosvc.MCPRef {
 	out := make([]studiosvc.MCPRef, len(in))

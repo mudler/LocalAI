@@ -2,9 +2,7 @@ package studio
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -62,22 +60,16 @@ func triggerIn(req schema.ChatsTriggerWrite) studiosvc.TriggerInput {
 		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled}
 }
 
-// failTrigger maps the errors of the trigger service.
-func failTrigger(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, triggers.ErrNotFound):
-		return fail(c, http.StatusNotFound, "not_found", "trigger not found")
-	case errors.Is(err, studiosvc.ErrBadTrigger):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), studiosvc.ErrBadTrigger.Error()+": "))
-	case errors.Is(err, studiosvc.ErrTooManyTriggers), errors.Is(err, studiosvc.ErrTooManyProposals):
-		return fail(c, http.StatusConflict, "conflict", err.Error())
-	case errors.Is(err, studiosvc.ErrTriggersOff):
-		return fail(c, http.StatusConflict, "triggers_off", err.Error())
-	case errors.Is(err, studiosvc.ErrTriggersClosed):
-		return fail(c, http.StatusServiceUnavailable, "server_error", "the server is shutting down")
-	}
-	return failFor(c, err)
+var triggerRules = []errRule{
+	fixed(http.StatusNotFound, typeNotFound, "trigger not found", triggers.ErrNotFound),
+	verbatim(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadTrigger.Error()+": ", studiosvc.ErrBadTrigger),
+	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrTooManyTriggers, studiosvc.ErrTooManyProposals),
+	verbatim(http.StatusConflict, typeTriggersOff, "", studiosvc.ErrTriggersOff),
+	fixed(http.StatusServiceUnavailable, typeServerError, "the server is shutting down", studiosvc.ErrTriggersClosed),
 }
+
+// failTrigger maps the errors of the trigger service.
+func failTrigger(c echo.Context, err error) error { return mapErr(c, err, triggerRules, failFor) }
 
 // ListTriggers lists the triggers.
 // @Summary List your triggers.

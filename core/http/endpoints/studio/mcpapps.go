@@ -2,9 +2,7 @@ package studio
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -17,25 +15,16 @@ import (
 // capped at 16 KiB, the rest is the names.
 const maxAppCallBody = 32 << 10
 
-// failApp maps the error of an app request. A refusal and a failure of the
+// appRules map the error of an app request. A refusal and a failure of the
 // server carry text that holds no secret.
-func failApp(c echo.Context, err error) error {
-	msg := func(sentinel error) string {
-		m := strings.TrimPrefix(err.Error(), sentinel.Error())
-		return strings.TrimPrefix(m, ": ")
-	}
-	switch {
-	case errors.Is(err, studiosvc.ErrMCPAppRefused):
-		return fail(c, http.StatusForbidden, "mcp_app_refused", msg(studiosvc.ErrMCPAppRefused))
-	case errors.Is(err, studiosvc.ErrMCPAppUnsupported):
-		return fail(c, http.StatusConflict, "mcp_app_unsupported", "MCP apps are not available for this server")
-	case errors.Is(err, studiosvc.ErrBadMCPAppRequest):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", msg(studiosvc.ErrBadMCPAppRequest))
-	case errors.Is(err, studiosvc.ErrMCPAppFailed):
-		return fail(c, http.StatusBadGateway, "mcp_app_failed", msg(studiosvc.ErrMCPAppFailed))
-	}
-	return failFor(c, err)
+var appRules = []errRule{
+	sentinelText(http.StatusForbidden, "mcp_app_refused", studiosvc.ErrMCPAppRefused),
+	fixed(http.StatusConflict, "mcp_app_unsupported", "MCP apps are not available for this server", studiosvc.ErrMCPAppUnsupported),
+	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadMCPAppRequest),
+	sentinelText(http.StatusBadGateway, "mcp_app_failed", studiosvc.ErrMCPAppFailed),
 }
+
+func failApp(c echo.Context, err error) error { return mapErr(c, err, appRules, failFor) }
 
 // GetMCPAppResource reads the page of an MCP App.
 // @Summary Read the page of an MCP App.

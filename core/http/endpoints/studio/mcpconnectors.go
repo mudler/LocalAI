@@ -1,9 +1,7 @@
 package studio
 
 import (
-	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -20,17 +18,13 @@ func (h *Handlers) mcpHost(c echo.Context) (*mcpconns.Service, bool) {
 	return host, true
 }
 
-func failMCP(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, mcpconns.ErrNotFound):
-		return fail(c, http.StatusNotFound, "not_found", "connector not found")
-	case errors.Is(err, mcpconns.ErrForbidden):
-		return fail(c, http.StatusForbidden, "authorization_error", strings.TrimPrefix(err.Error(), mcpconns.ErrForbidden.Error()+": "))
-	case errors.Is(err, mcpconns.ErrInvalid):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", strings.TrimPrefix(err.Error(), mcpconns.ErrInvalid.Error()+": "))
-	}
-	return failFor(c, err)
+var mcpRules = []errRule{
+	fixed(http.StatusNotFound, typeNotFound, "connector not found", mcpconns.ErrNotFound),
+	verbatim(http.StatusForbidden, typeAuthz, mcpconns.ErrForbidden.Error()+": ", mcpconns.ErrForbidden),
+	verbatim(http.StatusBadRequest, typeInvalid, mcpconns.ErrInvalid.Error()+": ", mcpconns.ErrInvalid),
 }
+
+func failMCP(c echo.Context, err error) error { return mapErr(c, err, mcpRules, failFor) }
 
 func mcpOut(m mcpconns.Connector) schema.ChatsMCPConnector {
 	args := m.Args

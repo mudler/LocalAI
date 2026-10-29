@@ -45,37 +45,31 @@ func (h *Handlers) files(c echo.Context) (fileCall, bool) {
 	return fileCall{f: f, p: p, a: f.Actor(p)}, true
 }
 
-// failFile maps a workspace error to a response. A path the user cannot reach
-// is the same answer as one that does not exist.
+// fileRules maps the errors of the workspace. A path the user cannot reach is
+// the same answer as one that does not exist.
+var fileRules = []errRule{
+	fixed(http.StatusNotFound, typeNotFound, "not found", workspace.ErrNotFound, workspace.ErrReadOnly, workspace.ErrNotAdmin),
+	fixed(http.StatusForbidden, "forbidden", "only an administrator may change the shared skills", files.ErrNotAdmin),
+	verbatim(http.StatusBadRequest, typeInvalid, "", files.ErrBadSkill),
+	fixed(http.StatusBadRequest, typeInvalid, "the path has a name that is not allowed", workspace.ErrBadName),
+	fixed(http.StatusConflict, typeConflict, "something with that name exists already", workspace.ErrExists),
+	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "the file is too large", workspace.ErrTooLarge),
+	fixed(http.StatusBadRequest, typeInvalid, "that cannot be done to this path", workspace.ErrInvalid),
+	fixed(http.StatusConflict, typeConflict, "later changes conflict with this undo", workspace.ErrConflict),
+	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
+}
+
+// failFile maps a workspace error to a response.
 func failFile(c echo.Context, err error) error {
 	// The server's body limit fails the read of an upload with a 413 of its own.
 	var httpErr *echo.HTTPError
 	if errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge {
 		err = workspace.ErrTooLarge
 	}
-	switch {
-	case errors.Is(err, workspace.ErrNotFound), errors.Is(err, workspace.ErrReadOnly), errors.Is(err, workspace.ErrNotAdmin):
-		return fail(c, http.StatusNotFound, "not_found", "not found")
-	case errors.Is(err, files.ErrNotAdmin):
-		return fail(c, http.StatusForbidden, "forbidden", "only an administrator may change the shared skills")
-	case errors.Is(err, files.ErrBadSkill):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", err.Error())
-	case errors.Is(err, workspace.ErrBadName):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "the path has a name that is not allowed")
-	case errors.Is(err, workspace.ErrExists):
-		return fail(c, http.StatusConflict, "conflict", "something with that name exists already")
-	case errors.Is(err, workspace.ErrTooLarge):
-		return fail(c, http.StatusRequestEntityTooLarge, "invalid_request_error", "the file is too large")
-	case errors.Is(err, workspace.ErrInvalid):
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "that cannot be done to this path")
-	case errors.Is(err, workspace.ErrConflict):
-		return fail(c, http.StatusConflict, "conflict", "later changes conflict with this undo")
-	case errors.Is(err, files.ErrUnavailable):
-		return fail(c, http.StatusConflict, "files_off", err.Error())
-	default:
+	return mapErr(c, err, fileRules, func(c echo.Context, err error) error {
 		xlog.Error("studio: files request failed", "path", c.Request().URL.Path, "error", err)
-		return fail(c, http.StatusInternalServerError, "server_error", "the request failed")
-	}
+		return fail(c, http.StatusInternalServerError, typeServerError, "the request failed")
+	})
 }
 
 func (fc fileCall) node(n workspace.Node) schema.ChatsFile {
