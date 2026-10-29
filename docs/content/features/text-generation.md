@@ -115,7 +115,7 @@ curl http://localhost:8080/v1/messages \
 | `stop_sequences` | array | No | Array of strings that will stop generation |
 | `stream` | boolean | No | Enable streaming responses |
 | `tools` | array | No | Array of tool definitions for function calling |
-| `tool_choice` | string/object | No | Tool choice strategy: "auto", "any", "none", or specific tool |
+| `tool_choice` | object | No | Tool choice strategy: `{"type": "auto"}`, `{"type": "any"}`, `{"type": "none"}`, or `{"type": "tool", "name": "..."}`. The bare strings "auto", "any" and "none" are accepted too |
 | `metadata` | object | No | Per-request metadata passed to the backend (e.g., `{"enable_thinking": "true"}`) |
 
 #### Message Format
@@ -176,7 +176,7 @@ curl http://localhost:8080/v1/messages \
         }
       }
     ],
-    "tool_choice": "auto",
+    "tool_choice": {"type": "auto"},
     "messages": [
       {"role": "user", "content": "What is the weather in San Francisco?"}
     ]
