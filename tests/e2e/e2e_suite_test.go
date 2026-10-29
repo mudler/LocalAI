@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -576,6 +577,14 @@ var _ = BeforeSuite(func() {
 		}
 	}
 
+	// The real S2S run converts the input audio with ffmpeg; fail early with a
+	// clear message instead of a decode error in the middle of a response.
+	if os.Getenv("REALTIME_S2S_MODEL") != "" {
+		_, err := exec.LookPath("ffmpeg")
+		Expect(err).ToNot(HaveOccurred(), "the real S2S run needs ffmpeg on PATH (the input audio converter runs it)")
+		Expect(os.Getenv("REALTIME_BACKENDS_PATH")).ToNot(BeEmpty(), "the real S2S run needs REALTIME_BACKENDS_PATH to point at the extracted llama-cpp and sherpa-onnx backends")
+	}
+
 	// Set up system state. When REALTIME_BACKENDS_PATH is set, use it so the
 	// application can discover real backend binaries for real-model tests.
 	systemOpts := []system.SystemStateOptions{
@@ -776,7 +785,12 @@ var _ = BeforeSuite(func() {
 	// Register mock backend (always available for non-realtime tests).
 	localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
 	localAIApp.ModelLoader().SetExternalBackend("opus", mockBackendPath)
-	localAIApp.ModelLoader().SetExternalBackend("llama-cpp", mockBackendPath)
+	// The real S2S run (REALTIME_S2S_MODEL) must reach the real llama-cpp
+	// backend found under REALTIME_BACKENDS_PATH, so the mock only stands in
+	// for it when that run is off.
+	if os.Getenv("REALTIME_S2S_MODEL") == "" {
+		localAIApp.ModelLoader().SetExternalBackend("llama-cpp", mockBackendPath)
+	}
 	if cloudProxyPath != "" {
 		localAIApp.ModelLoader().SetExternalBackend("cloud-proxy", cloudProxyPath)
 	}

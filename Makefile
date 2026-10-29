@@ -845,7 +845,8 @@ test-extra-backend-llama-cpp-lfm3: docker-build-llama-cpp
 ## VITS) and a separate sherpa ASR checks the reply audio. MANUAL: not run in CI
 ## (the CI variant is `make test-realtime`, which uses the mock backend and the
 ## `!real-models` label filter). A GPU is recommended. Build the llama-cpp image
-## for your hardware first. LFM3_VARIANT=q8 selects lfm3-audio-2b-q8.
+## for your hardware first. The host needs ffmpeg on PATH (input audio
+## conversion). LFM3_VARIANT=q8 selects lfm3-audio-2b-q8.
 test-realtime-s2s-real: build-mock-backend docker-build-llama-cpp docker-build-sherpa-onnx protogen-go
 	bash tests/e2e/run-realtime-lfm3.sh
 

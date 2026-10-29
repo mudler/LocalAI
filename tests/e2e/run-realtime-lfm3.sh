@@ -13,6 +13,8 @@
 #   - `make build-mock-backend` and `make protogen-go` (the suite needs them)
 #   - `make docker-build-llama-cpp` -> local-ai-backend:llama-cpp
 #   - `make docker-build-sherpa-onnx` -> local-ai-backend:sherpa-onnx
+#   - `ffmpeg` on PATH of the machine that runs this script: LocalAI converts
+#     the input audio with it, so the run fails without it.
 #   Build the llama-cpp image for your hardware first (for example
 #   BUILD_TYPE=cublas CUDA_MAJOR_VERSION=13 make docker-build-llama-cpp); a CPU
 #   image works too, but a real turn then takes minutes.
@@ -28,6 +30,11 @@
 #                    "any-to-any:vad any-to-any:novad pipeline:vad pipeline:novad").
 #   GINKGO_FOCUS     Ginkgo focus regexp (default: "Realtime S2S \(real").
 set -euo pipefail
+
+if ! command -v ffmpeg >/dev/null 2>&1; then
+    echo "ffmpeg not found on PATH: the real realtime run converts the input audio with it. Install ffmpeg and retry." >&2
+    exit 2
+fi
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 LLAMA_IMAGE=${LLAMA_IMAGE:-local-ai-backend:llama-cpp}
