@@ -78,8 +78,16 @@ type ConnectorOptions struct {
 	// RatePerMinute is how many messages one sender may send; zero means 20.
 	RatePerMinute int
 	// Lead says whether this frontend runs the bindings now. Nil: always.
-	Lead   func(ctx context.Context) bool
-	Logger *slog.Logger
+	Lead func(ctx context.Context) bool
+	// EditEvery is the shortest time between two edits of the working
+	// messages of one binding; zero means one second. Platforms limit how
+	// often a bot may write, and an edit counts.
+	EditEvery time.Duration
+	// VerifyToken checks a bot token that a binding is saved with, before it
+	// is stored. Nil: tokens are not checked. The application sets
+	// VerifyTokenWithMe; a test that fakes no platform leaves it nil.
+	VerifyToken func(ctx context.Context, b connectors.Binding, token string) error
+	Logger      *slog.Logger
 }
 
 // Connectors runs the bindings of the chats. A message becomes a chat of the
@@ -114,6 +122,9 @@ type Connectors struct {
 	smu     sync.Mutex
 	senders map[string]*senderState
 
+	emu      sync.Mutex
+	nextEdit map[string]time.Time // by binding: when its next edit may go
+
 	wake chan struct{}
 	done chan struct{}
 	once sync.Once
@@ -146,10 +157,13 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	if o.RatePerMinute <= 0 {
 		o.RatePerMinute = 20
 	}
+	if o.EditEvery <= 0 {
+		o.EditEvery = time.Second
+	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Connectors{svc: svc, o: o, log: o.Logger, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{},
+	return &Connectors{svc: svc, o: o, log: o.Logger, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
 		wake: make(chan struct{}, 1), done: make(chan struct{})}, nil
 }
 
@@ -525,8 +539,76 @@ func conversation(m contract.ConnectorMessage) string {
 	if m.Thread == "" {
 		return m.SenderID
 	}
-	sum := sha256.Sum256([]byte(m.Chat + "\x00" + m.Thread))
-	return "thread:" + hex.EncodeToString(sum[:16])
+	return threadKey(m.Chat, m.Thread)
+}
+
+// hashKey is a key of the chat map that fits the sender column and never
+// equals the ID of a sender.
+func hashKey(prefix string, parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	return prefix + hex.EncodeToString(sum[:16])
+}
+
+func threadKey(chat, thread string) string { return hashKey("thread:", chat, thread) }
+
+// replyKey keeps the chat of an answer message of the bot, so that a reply
+// to it goes on in that chat (ConversationThread).
+func replyKey(chat, msg string) string { return hashKey("reply:", chat, msg) }
+
+// conversationOf is the key of the chat that a message belongs to, by the
+// conversation mode of the binding.
+func (c *Connectors) conversationOf(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage) string {
+	switch b.ConversationMode() {
+	case connectors.ConversationChat:
+		if m.Thread != "" {
+			return threadKey(m.Chat, m.Thread)
+		}
+		return hashKey("chat:", m.Chat)
+	case connectors.ConversationThread:
+		known := func(k string) bool {
+			_, ok, err := c.o.Store.ChatOf(ctx, b.ID, k)
+			return err == nil && ok
+		}
+		// A reply to an answer of the bot, or a thread that one starts, goes
+		// on in the chat of that answer.
+		for _, ref := range []string{m.ReplyTo, m.Thread} {
+			if k := replyKey(m.Chat, ref); ref != "" && known(k) {
+				return k
+			}
+		}
+		// A reply to a message that started a chat goes on in it.
+		if k := threadKey(m.Chat, m.ReplyTo); m.ReplyTo != "" && known(k) {
+			return k
+		}
+		if m.Thread != "" {
+			return threadKey(m.Chat, m.Thread)
+		}
+		if m.MessageID != "" {
+			return threadKey(m.Chat, m.MessageID)
+		}
+		// A platform that names no message: every message is a new chat.
+		return hashKey("msg:", m.Chat, m.SenderID, time.Now().String())
+	}
+	return conversation(m)
+}
+
+// windowEnded tells whether a message of a sender starts a new chat in the
+// time window mode: the sender's previous message is WindowMinutes old or
+// older. A thread of the platform keeps its chat.
+func (c *Connectors) windowEnded(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage) bool {
+	if b.ConversationMode() != connectors.ConversationWindow || m.Thread != "" {
+		return false
+	}
+	senders, err := c.o.Store.Senders(ctx, b.ID, 0)
+	if err != nil {
+		return false
+	}
+	for _, s := range senders {
+		if s.ID == m.SenderID {
+			return c.o.Clock().Sub(s.Last) >= time.Duration(b.WindowMinutes)*time.Minute
+		}
+	}
+	return false
 }
 
 // handle takes one message of a sender.
@@ -540,6 +622,9 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 	if name == "" {
 		name = m.SenderUsername
 	}
+	// Read before the message is recorded: the window counts from the
+	// previous one.
+	fresh := allowed && c.windowEnded(ctx, b, m)
 	if err := c.o.Store.RecordSender(ctx, b.ID, senderID, name, allowed, c.o.Clock()); err != nil {
 		c.log.Warn("studio: could not record a sender", "binding", b.ID, "error", err)
 	}
@@ -577,8 +662,8 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			return
 		}
 	}
-	key := conversation(m)
-	chatID, err := c.chatFor(ctx, b, key, name)
+	key := c.conversationOf(ctx, b, m)
+	chatID, err := c.chatFor(ctx, b, key, name, fresh)
 	if err != nil {
 		switch {
 		case errors.Is(err, errAgentGone):
@@ -632,11 +717,11 @@ func (c *Connectors) media(ctx context.Context, b connectors.Binding, token stri
 
 var errAgentGone = errors.New("the agent was deleted")
 
-// chatFor returns the chat of a conversation (a sender or a thread, see
-// conversation), making it when there is none or when it ran with another
-// agent than the binding has now.
-func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, name string) (string, error) {
-	if id, ok, err := c.o.Store.ChatOf(ctx, b.ID, key); err == nil && ok {
+// chatFor returns the chat of a conversation (see conversationOf), making it
+// when there is none, when it ran with another agent than the binding has
+// now, or when fresh asks for a new one.
+func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, name string, fresh bool) (string, error) {
+	if id, ok, err := c.o.Store.ChatOf(ctx, b.ID, key); err == nil && ok && !fresh {
 		if rec, err := c.svc.Get(ctx, b.Owner, id); err == nil && rec.AgentID == b.AgentID {
 			return id, nil
 		}
@@ -700,12 +785,18 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 	}
 }
 
-// reply waits for the end of each turn of the chat and sends its answer.
+// reply follows each turn of the chat and sends its answer. While a turn runs
+// it shows typing and, unless the binding's reply mode is off, a working
+// message that it edits with the progress of the turn; the answer replaces
+// that message. The files the turn made follow the answer.
 func (c *Connectors) reply(b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string, events <-chan session.Event) {
-	typing := time.NewTicker(4 * time.Second)
+	typing := time.NewTicker(typingEvery)
 	defer typing.Stop()
+	flush := time.NewTicker(c.o.EditEvery)
+	defer flush.Stop()
 	var poll <-chan time.Time
 	errText := ""
+	l, since, turn := c.startLive(b, token, m), time.Now(), 0
 	for {
 		ended := false
 		select {
@@ -717,27 +808,30 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 				poll = p.C
 				continue
 			}
+			l.observe(ev)
 			switch ev.Kind {
 			case session.KindError:
 				errText = ev.Text
 			case session.KindTurnEnd:
-				ended = true
+				ended, turn = true, ev.Turn
 			}
 		case <-poll:
 			if info, err := c.svc.Turn(context.Background(), b.Owner, chatID); err == nil && !info.Running && info.Last != "" {
 				ended = true
 			}
+		case <-flush.C:
+			c.flush(b, token, m, l)
 		case <-typing.C:
-			tctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			_ = c.send(tctx, b, contract.ConnectorRequest{Op: contract.ConnectorOpTyping, Token: token, Chat: m.Chat, Thread: m.Thread})
-			cancel()
+			c.typing(b, token, m, l.id)
 		case <-c.done:
 			return
 		}
 		if !ended {
 			continue
 		}
-		c.say(b, token, m.Chat, m.Thread, c.answerOf(b, chatID, errText))
+		ids := c.finish(b, token, m, l, c.answerOf(b, chatID, errText))
+		c.remember(b, m, chatID, ids)
+		c.sendFiles(b, token, m, chatID, turn, since)
 		errText = ""
 		c.smu.Lock()
 		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -745,11 +839,26 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		tcancel()
 		if err == nil && info.Running {
 			c.smu.Unlock()
-			continue // a waiting message started the next turn
+			// A waiting message started the next turn.
+			l, since, turn = c.startLive(b, token, m), time.Now(), 0
+			continue
 		}
 		st.active = false
 		c.smu.Unlock()
 		return
+	}
+}
+
+// remember keeps the chat of the messages that hold an answer, in the thread
+// mode, so that a reply to one of them goes on in this chat.
+func (c *Connectors) remember(b connectors.Binding, m contract.ConnectorMessage, chatID string, ids []string) {
+	if b.ConversationMode() != connectors.ConversationThread {
+		return
+	}
+	for _, id := range ids {
+		if err := c.o.Store.SetChat(context.Background(), b.ID, replyKey(m.Chat, id), chatID); err != nil {
+			c.log.Warn("studio: could not keep the chat of a connector answer", "binding", b.ID, "error", err)
+		}
 	}
 }
 

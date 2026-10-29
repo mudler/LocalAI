@@ -6,10 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/addons/slack/slacktest"
 	slack "github.com/mudler/LocalAI/addons/slack/transport"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/tests/studiobot"
 )
 
@@ -29,6 +33,12 @@ type slackRig struct {
 
 func newSlackRig(t *testing.T, answer string, allow []string) (*slackRig, connectors.Binding) {
 	t.Helper()
+	return newSlackRigWith(t, connSay(answer), studio.ConnectorInput{Allow: allow})
+}
+
+// newSlackRigWith binds the Slack app with in, over a script.
+func newSlackRigWith(t *testing.T, script func(workspace.Actor, string) []studiotest.ToolStep, in studio.ConnectorInput) (*slackRig, connectors.Binding) {
+	t.Helper()
 	f := slacktest.New()
 	t.Cleanup(f.Close)
 	f.AddApp(slacktest.App{Bot: slackBot, AppToken: slackApp, UserID: "UBOT"})
@@ -36,13 +46,34 @@ func newSlackRig(t *testing.T, answer string, allow []string) (*slackRig, connec
 	f.AddUser("U2", "bo", "Bo")
 	rt := slack.New(&slack.API{BaseURL: f.URL, FilesHost: f.FilesHost})
 	t.Cleanup(rt.Close)
-	r := newConnRigWith(t, newShared(t), connStore(t), studiobot.NewTransport(studiobot.Slack(rt)), connSay(answer), nil)
-	b := r.bind(t, studio.ConnectorInput{Kind: "slack", Token: slackBot + " " + slackApp, Allow: allow})
+	r := newConnRigWith(t, newShared(t), connStore(t), studiobot.NewTransport(studiobot.Slack(rt)), script, nil)
+	in.Kind, in.Token = "slack", slackBot+" "+slackApp
+	b := r.bind(t, in)
 	waitFor(t, "the Socket Mode link", func() bool { return f.Connected(slackApp) })
 	return &slackRig{connRig: r, slack: f}, b
 }
 
-func (r *slackRig) answers() []slacktest.Post { return r.slack.Posts(slackBot) }
+// answers are the messages the bot shows now: an edit replaces the text of its
+// message, and a working message that nothing replaced yet is not an answer.
+func (r *slackRig) answers() []slacktest.Post {
+	var out []slacktest.Post
+	at := map[string]int{}
+	for _, p := range r.slack.Posts(slackBot) {
+		if i, ok := at[p.Channel+" "+p.TS]; ok {
+			out[i].Text = p.Text
+			continue
+		}
+		at[p.Channel+" "+p.TS] = len(out)
+		out = append(out, p)
+	}
+	shown := out[:0]
+	for _, p := range out {
+		if p.Text != slack.Working && p.Text != "Working…" {
+			shown = append(shown, p)
+		}
+	}
+	return shown
+}
 
 func TestSlackThreadIsOneChatForEveryoneInIt(t *testing.T) {
 	r, b := newSlackRig(t, "Thread answer.", []string{"C1"})
@@ -136,4 +167,30 @@ func TestSlackRefusedTokenSwitchesTheBindingOff(t *testing.T) {
 		got, err := r.conns.GetConnector(context.Background(), alice, b.ID)
 		return err == nil && !got.Enabled
 	})
+}
+
+func TestSlackProgressEditsOneWorkingMessageAndUploadsTheTurnsFiles(t *testing.T) {
+	g := gomega.NewWithT(t)
+	release := make(chan struct{})
+	script := func(workspace.Actor, string) []studiotest.ToolStep {
+		return []studiotest.ToolStep{{Tool: "write_file", Args: `{"path":"/out/notes.md","content":"# notes"}`}, {Block: release}, {Say: "Notes are ready."}}
+	}
+	r, _ := newSlackRigWith(t, script, studio.ConnectorInput{Allow: []string{"U1"}, Reply: connectors.ReplyProgress})
+	r.slack.Push(slackApp, slacktest.DM("D1", "U1", "write notes"))
+	waitFor(t, "the tool in the working message", func() bool {
+		posts := r.slack.Posts(slackBot)
+		return len(posts) >= 2 && strings.Contains(posts[len(posts)-1].Text, "write_file")
+	})
+	close(release)
+	waitFor(t, "the answer", func() bool { return len(r.answers()) == 1 })
+	waitFor(t, "the file", func() bool { return len(r.slack.Uploads(slackBot)) == 1 })
+	posts := r.slack.Posts(slackBot)
+	g.Expect(posts[0].Text).To(gomega.Equal("Working…"), "the host's working message comes first")
+	for _, p := range posts[1:] {
+		g.Expect(p.Edited).To(gomega.BeTrue(), "everything after it is an edit of it: %+v", p)
+		g.Expect(p.TS).To(gomega.Equal(posts[0].TS))
+	}
+	g.Expect(r.answers()[0].Text).To(gomega.Equal("Notes are ready."))
+	up := r.slack.Uploads(slackBot)[0]
+	g.Expect([]string{up.Name, up.Channel, string(up.Data)}).To(gomega.Equal([]string{"notes.md", "D1", "# notes"}))
 }

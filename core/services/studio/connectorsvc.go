@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -28,6 +29,61 @@ type ConnectorInput struct {
 	Allow      []string
 	NotifyChat string
 	Enabled    bool
+	// Reply, Conversation and WindowMinutes are the modes of the binding
+	// (see connectors.Binding); empty means the default.
+	Reply         string
+	Conversation  string
+	WindowMinutes int
+	// SendFiles sends the files a turn makes to the sender. Nil means on for
+	// a new binding and unchanged for an update.
+	SendFiles *bool
+}
+
+// apply sets the fields of the input that an owner writes on a binding.
+func (in ConnectorInput) apply(b *connectors.Binding) {
+	b.Name, b.AgentID, b.AcceptAny, b.Allow, b.NotifyChat, b.Enabled = strings.TrimSpace(in.Name), in.AgentID, in.AcceptAny, in.Allow, in.NotifyChat, in.Enabled
+	b.Reply, b.Conversation, b.WindowMinutes = in.Reply, in.Conversation, in.WindowMinutes
+	if b.Conversation != connectors.ConversationWindow {
+		b.WindowMinutes = 0
+	}
+	if in.SendFiles != nil {
+		b.FilesOff = !*in.SendFiles
+	}
+}
+
+// ErrTokenRefused means the platform refused the bot token of a binding.
+var ErrTokenRefused = fmt.Errorf("%w: the platform refused the bot token", connectors.ErrInvalid)
+
+// VerifyTokenWithMe returns a token check for ConnectorOptions.VerifyToken
+// that asks the platform, through the binding's add-on, who the bot of the
+// token is. Only a refusal of the token fails the check: a binding whose
+// add-on does not run, or a platform that cannot be reached, is saved, and
+// the binding reports the problem when it runs.
+func VerifyTokenWithMe(tr ConnectorTransport) func(ctx context.Context, b connectors.Binding, token string) error {
+	return func(ctx context.Context, b connectors.Binding, token string) error {
+		kinds, err := tr.Kinds(ctx)
+		if err != nil {
+			return nil
+		}
+		if _, ok := kindFor(kinds, b); !ok {
+			return nil
+		}
+		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		defer cancel()
+		resp, err := tr.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+		if err == nil && resp.Error != nil && resp.Error.Code == contract.ConnectorUnauthorized {
+			return ErrTokenRefused
+		}
+		return nil
+	}
+}
+
+// verifyToken runs the token check of the options, when there is one.
+func (c *Connectors) verifyToken(ctx context.Context, b connectors.Binding, token string) error {
+	if c.o.VerifyToken == nil || token == "" {
+		return nil
+	}
+	return c.o.VerifyToken(ctx, b, token)
 }
 
 // legacyTitles name the platforms core served before connectors became
@@ -179,8 +235,8 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon, Name: strings.TrimSpace(in.Name), AgentID: in.AgentID,
-		Enabled: in.Enabled, AcceptAny: in.AcceptAny, Allow: in.Allow, NotifyChat: in.NotifyChat}
+	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon}
+	in.apply(&b)
 	if err := connectors.Validate(b); err != nil {
 		return ConnectorInfo{}, err
 	}
@@ -188,6 +244,10 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
 	if err := c.checkAgent(ctx, owner, in.AgentID); err != nil {
+		return ConnectorInfo{}, err
+	}
+	// Before the write lock: the check asks the platform.
+	if err := c.verifyToken(ctx, b, strings.TrimSpace(in.Token)); err != nil {
 		return ConnectorInfo{}, err
 	}
 	c.wmu.Lock()
@@ -217,6 +277,17 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 
 // UpdateConnector replaces the definition of a binding of the user.
 func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in ConnectorInput) (ConnectorInfo, error) {
+	// A new token is checked before the write lock: the check asks the
+	// platform. The kind and the add-on of a binding never change.
+	if t := strings.TrimSpace(in.Token); t != "" {
+		cur, err := c.owned(ctx, user, id)
+		if err != nil {
+			return ConnectorInfo{}, err
+		}
+		if err := c.verifyToken(ctx, cur, t); err != nil {
+			return ConnectorInfo{}, err
+		}
+	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	old, err := c.owned(ctx, user, id)
@@ -224,7 +295,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	b := old
-	b.Name, b.AgentID, b.AcceptAny, b.Allow, b.NotifyChat, b.Enabled = strings.TrimSpace(in.Name), in.AgentID, in.AcceptAny, in.Allow, in.NotifyChat, in.Enabled
+	in.apply(&b)
 	if err := connectors.Validate(b); err != nil {
 		return ConnectorInfo{}, err
 	}

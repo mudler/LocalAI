@@ -36,7 +36,12 @@ type scriptedBot struct {
 	updates  []map[string]any // pending, by update_id
 	sent     []string         // sendMessage texts
 	sentTo   []int64
+	sentIDs  []int64   // the message ID of each sendMessage
+	edits    []botEdit // editMessageText calls
+	files    []botFile // sendDocument and sendPhoto calls
+	nextID   int64
 	typing   int
+	typedAt  []time.Time
 	fail     map[string]func() (int, string) // method -> forced answer
 	offsets  []int64
 	polls    int
@@ -47,9 +52,25 @@ func newScriptedBot(t *testing.T) *scriptedBot {
 	t.Helper()
 	b := &scriptedBot{fail: map[string]func() (int, string){}}
 	b.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(r.Body)
-		var body map[string]any
-		_ = json.Unmarshal(raw, &body)
+		body := map[string]any{}
+		var upload *botFile
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			if r.ParseMultipartForm(4<<20) == nil {
+				for k, v := range r.MultipartForm.Value {
+					body[k] = v[0]
+				}
+				for k, fhs := range r.MultipartForm.File {
+					fh := fhs[0]
+					f, _ := fh.Open()
+					data, _ := io.ReadAll(f)
+					_ = f.Close()
+					upload = &botFile{Field: k, Name: fh.Filename, Data: data}
+				}
+			}
+		} else {
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+		}
 		path := r.URL.EscapedPath()
 		method := path[strings.LastIndex(path, "/")+1:]
 		b.mu.Lock()
@@ -91,11 +112,24 @@ func newScriptedBot(t *testing.T) *scriptedBot {
 			raw, _ := json.Marshal(map[string]any{"ok": true, "result": out})
 			_, _ = w.Write(raw)
 		case "sendMessage":
+			b.nextID++
 			b.sent = append(b.sent, body["text"].(string))
 			b.sentTo = append(b.sentTo, int64(body["chat_id"].(float64)))
+			b.sentIDs = append(b.sentIDs, b.nextID)
+			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, b.nextID)
+		case "editMessageText":
+			b.edits = append(b.edits, botEdit{ID: int64(body["message_id"].(float64)), Text: body["text"].(string), At: time.Now()})
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
+		case "sendDocument", "sendPhoto":
+			b.nextID++
+			if upload != nil {
+				upload.Method = method
+				b.files = append(b.files, *upload)
+			}
+			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, b.nextID)
 		case "sendChatAction":
 			b.typing++
+			b.typedAt = append(b.typedAt, time.Now())
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		default:
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
@@ -103,6 +137,19 @@ func newScriptedBot(t *testing.T) *scriptedBot {
 	}))
 	t.Cleanup(b.srv.Close)
 	return b
+}
+
+// botEdit is one editMessageText call.
+type botEdit struct {
+	ID   int64
+	Text string
+	At   time.Time
+}
+
+// botFile is one file the bot sent.
+type botFile struct {
+	Method, Field, Name string
+	Data                []byte
 }
 
 func (b *scriptedBot) say(id int, from int64, name, user, text string) {
@@ -151,16 +198,31 @@ func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedB
 	return r
 }
 
+// connEditEvery is the edit budget of a binding in the rig: short, so the
+// specs of the live reply do not wait.
+const connEditEvery = 20 * time.Millisecond
+
 // newConnRigWith builds the rig over any connector transport.
 func newConnRigWith(t *testing.T, sh *shared, store connectors.Store, tr *studiobot.BotTransport, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool) *connRig {
 	t.Helper()
+	return newConnRigOpts(t, sh, store, tr, script, lead, nil)
+}
+
+// newConnRigOpts is newConnRigWith with options that a spec changes last.
+func newConnRigOpts(t *testing.T, sh *shared, store connectors.Store, tr *studiobot.BotTransport, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool, opt func(*studio.ConnectorOptions)) *connRig {
+	t.Helper()
 	r := sh.rig(t, script, studio.TriggerOptions{})
 	logs := &bytes.Buffer{}
-	c, err := studio.NewConnectors(r.svc, studio.ConnectorOptions{
+	o := studio.ConnectorOptions{
 		Store: store, Transport: tr,
 		Clock: sh.clock.Now, Tick: 20 * time.Millisecond, Poll: 0, Backoff: 10 * time.Millisecond, ConflictWait: 10 * time.Millisecond, RatePerMinute: 5, Lead: lead,
-		Logger: slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
-	})
+		EditEvery: connEditEvery,
+		Logger:    slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	}
+	if opt != nil {
+		opt(&o)
+	}
+	c, err := studio.NewConnectors(r.svc, o)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,6 +261,11 @@ func (c *connRig) bind(t *testing.T, in studio.ConnectorInput) connectors.Bindin
 		in.AgentID = c.agent.ID
 	}
 	in.Enabled = true
+	if in.Reply == "" {
+		// The specs written before the reply modes read the answer as the
+		// one message the bot sends; the live modes have their own specs.
+		in.Reply = connectors.ReplyOff
+	}
 	b, err := c.conns.CreateConnector(context.Background(), alice, in)
 	if err != nil {
 		t.Fatal(err)

@@ -47,7 +47,8 @@ const (
 	// a direct chat) one chat that everyone in it shares.
 	ConversationChat = "chat"
 	// ConversationWindow is ConversationSender, but a message that comes
-	// WindowMinutes or more after the last turn starts a new chat.
+	// WindowMinutes or more after the sender's previous message starts a
+	// new chat. A thread of the platform keeps its chat.
 	ConversationWindow = "window"
 	// ConversationThread starts a new chat for each message that is not an
 	// answer: a reply to an answer of the bot, or a message in a thread of
