@@ -106,11 +106,12 @@ func newSharedCollections(inner lagi.Backend, state *lagi.State, registry collec
 	return s
 }
 
-// Close stops listening for collection events.
+// Close stops listening for collection events and closes the inner backend.
 func (s *sharedCollections) Close() {
 	if s.sub != nil {
 		_ = s.sub.Unsubscribe()
 	}
+	closeBackend(s.inner)
 }
 
 // onEvent handles an event from any frontend, including this one. It never
@@ -262,11 +263,11 @@ func (s *sharedCollections) Reset(collection string) error {
 	return nil
 }
 
-func (s *sharedCollections) Upload(collection, filename string, fileBody io.Reader) (string, error) {
+func (s *sharedCollections) Upload(ctx context.Context, collection, filename string, fileBody io.Reader) (string, error) {
 	if err := s.ensure(collection); err != nil {
 		return "", err
 	}
-	return s.inner.Upload(collection, filename, fileBody)
+	return s.inner.Upload(ctx, collection, filename, fileBody)
 }
 
 func (s *sharedCollections) ListEntries(collection string) ([]string, error) {
@@ -283,11 +284,11 @@ func (s *sharedCollections) GetEntryContent(collection, entry string) (string, i
 	return s.inner.GetEntryContent(collection, entry)
 }
 
-func (s *sharedCollections) Search(collection, query string, maxResults int) ([]lagi.SearchResult, error) {
+func (s *sharedCollections) Search(ctx context.Context, collection, query string, maxResults int) ([]lagi.SearchResult, error) {
 	if err := s.ensure(collection); err != nil {
 		return nil, err
 	}
-	return s.inner.Search(collection, query, maxResults)
+	return s.inner.Search(ctx, collection, query, maxResults)
 }
 
 func (s *sharedCollections) DeleteEntry(collection, entry string) ([]string, error) {

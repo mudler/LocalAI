@@ -114,7 +114,7 @@ func (f *fakeInner) CreateCollection(name string) error {
 	return nil
 }
 
-func (f *fakeInner) Upload(c, name string, _ io.Reader) (string, error) {
+func (f *fakeInner) Upload(_ context.Context, c, name string, _ io.Reader) (string, error) {
 	if err := f.known(c); err != nil {
 		return "", err
 	}
@@ -133,7 +133,7 @@ func (f *fakeInner) GetEntryContent(c, _ string) (string, int, error) {
 	return "", 0, f.known(c)
 }
 
-func (f *fakeInner) Search(c, _ string, _ int) ([]lagi.SearchResult, error) {
+func (f *fakeInner) Search(_ context.Context, c, _ string, _ int) ([]lagi.SearchResult, error) {
 	return nil, f.known(c)
 }
 
@@ -182,16 +182,16 @@ var _ = Describe("sharedCollections across two frontends", func() {
 
 	It("fails without the shared layer: the bug", func() {
 		Expect(innerA.CreateCollection("col-1")).To(Succeed())
-		_, err := innerB.Upload("col-1", "f.txt", nil)
+		_, err := innerB.Upload(context.Background(), "col-1", "f.txt", nil)
 		Expect(err).To(MatchError(ContainSubstring("collection not found")))
 	})
 
 	It("serves a collection created on A through B", func() {
 		Expect(a.CreateCollection("col-1")).To(Succeed())
 
-		_, err := b.Upload("col-1", "f.txt", nil)
+		_, err := b.Upload(context.Background(), "col-1", "f.txt", nil)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = b.Search("col-1", "q", 3)
+		_, err = b.Search(context.Background(), "col-1", "q", 3)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = b.ListEntries("col-1")
 		Expect(err).NotTo(HaveOccurred())
@@ -212,21 +212,21 @@ var _ = Describe("sharedCollections across two frontends", func() {
 	})
 
 	It("answers not found for a collection that does not exist anywhere", func() {
-		_, err := b.Upload("nope", "f.txt", nil)
+		_, err := b.Upload(context.Background(), "nope", "f.txt", nil)
 		Expect(err).To(MatchError(ContainSubstring("collection not found: nope")))
 		Expect(innerB.opens.Load()).To(BeZero(), "a miss must never create the collection")
 	})
 
 	It("answers not found on B after the collection is gone, without waiting for the re-check", func() {
 		Expect(a.CreateCollection("col-1")).To(Succeed())
-		_, err := b.Search("col-1", "q", 1)
+		_, err := b.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).NotTo(HaveOccurred())
 
 		// The collection leaves the shared registry; A tells the other frontends.
 		innerA.resetDeletes = true
 		Expect(a.Reset("col-1")).To(Succeed())
 
-		_, err = b.Search("col-1", "q", 1)
+		_, err = b.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).To(MatchError(ContainSubstring("collection not found")))
 		Expect(innerB.known("col-1")).To(HaveOccurred(), "the stale cache entry is dropped")
 	})
@@ -235,22 +235,22 @@ var _ = Describe("sharedCollections across two frontends", func() {
 		quiet := newSharedCollections(innerB, innerB.state, reg, nil)
 		quiet.recheck = 0
 		Expect(a.CreateCollection("col-1")).To(Succeed())
-		_, err := quiet.Search("col-1", "q", 1)
+		_, err := quiet.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).NotTo(HaveOccurred())
 
 		reg.remove("col-1")
-		_, err = quiet.Search("col-1", "q", 1)
+		_, err = quiet.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).To(MatchError(ContainSubstring("collection not found")))
 	})
 
 	It("keeps serving the cached collection when the registry is unreachable", func() {
 		Expect(a.CreateCollection("col-1")).To(Succeed())
-		_, err := b.Search("col-1", "q", 1)
+		_, err := b.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).NotTo(HaveOccurred())
 
 		b.forget("col-1")
 		reg.setErr(errors.New("connection refused"))
-		_, err = b.Search("col-1", "q", 1)
+		_, err = b.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).NotTo(HaveOccurred())
 
 		_, err = b.ListCollections()
@@ -259,7 +259,7 @@ var _ = Describe("sharedCollections across two frontends", func() {
 
 	It("re-checks at once when an event arrives", func() {
 		Expect(a.CreateCollection("col-1")).To(Succeed())
-		_, err := b.Search("col-1", "q", 1)
+		_, err := b.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(b.fresh("col-1")).To(BeTrue())
 
@@ -277,7 +277,7 @@ var _ = Describe("sharedCollections across two frontends", func() {
 			go func() {
 				defer wg.Done()
 				defer GinkgoRecover()
-				_, err := b.Search("col-1", "q", 1)
+				_, err := b.Search(context.Background(), "col-1", "q", 1)
 				Expect(err).NotTo(HaveOccurred())
 			}()
 		}
@@ -288,7 +288,7 @@ var _ = Describe("sharedCollections across two frontends", func() {
 	It("works without a bus", func() {
 		c := newSharedCollections(innerB, innerB.state, reg, nil)
 		Expect(a.CreateCollection("col-1")).To(Succeed())
-		_, err := c.Upload("col-1", "f.txt", nil)
+		_, err := c.Upload(context.Background(), "col-1", "f.txt", nil)
 		Expect(err).NotTo(HaveOccurred())
 		c.Close()
 	})

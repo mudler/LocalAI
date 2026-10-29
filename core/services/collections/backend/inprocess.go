@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/mudler/localrecall/rag/sources"
 	"github.com/mudler/xlog"
 	"github.com/sashabaranov/go-openai"
+	"golang.org/x/sync/singleflight"
 )
 
 // newVectorEngine creates the underlying RAG store for a collection.
@@ -75,6 +77,10 @@ type backendInProcess struct {
 	state            *State
 	cfg              *Config
 	openAIClient     *openai.Client
+	// loading makes one caller open an unloaded collection while the others
+	// wait for its answer. The engine opens outside state.Mu, because it may
+	// call the embeddings API or the database.
+	loading singleflight.Group
 }
 
 var _ Backend = (*backendInProcess)(nil)
@@ -97,20 +103,43 @@ func (b *backendInProcess) lookup(name string) (*rag.PersistentKB, bool) {
 		return kb, true
 	}
 	// Placeholder: collection is known on disk but its engine wrapper failed
-	// to construct earlier. Retry under the write lock.
-	b.state.Mu.Lock()
-	defer b.state.Mu.Unlock()
-	if kb, ok := b.state.Collections[name]; ok && kb != nil {
-		return kb, true
-	}
-	kb, _ = b.construct(name, b.cfg.EmbeddingModel)
-	if kb == nil {
+	// to construct earlier. Open it again.
+	kb, err := b.load(name, b.cfg.EmbeddingModel)
+	if err != nil {
+		xlog.Warn("Could not open the collection", "collection", name, "error", err)
 		return nil, false
 	}
-	b.state.Collections[name] = kb
-	b.state.SourceManager.RegisterCollection(name, kb)
 	return kb, true
 }
+
+// load opens the engine of a collection that has none in the cache and
+// installs it, unless another caller installed one first. It does not hold
+// state.Mu while the engine opens, and concurrent calls for one name share one
+// attempt.
+func (b *backendInProcess) load(name, desired string) (*rag.PersistentKB, error) {
+	v, err, _ := b.loading.Do(name, func() (any, error) {
+		kb, err := b.construct(name, desired)
+		if err != nil {
+			return nil, err
+		}
+		b.state.Mu.Lock()
+		defer b.state.Mu.Unlock()
+		if cur := b.state.Collections[name]; cur != nil {
+			return cur, nil
+		}
+		b.state.Collections[name] = kb
+		b.state.SourceManager.RegisterCollection(name, kb)
+		return kb, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return v.(*rag.PersistentKB), nil
+}
+
+// Close stops the loop that refreshes the external sources. The collections
+// stay readable. It is safe to call twice.
+func (b *backendInProcess) Close() { b.state.SourceManager.Stop() }
 
 func (b *backendInProcess) ListCollections() ([]string, error) {
 	return rag.ListAllCollections(b.cfg.CollectionDBPath), nil
@@ -130,15 +159,18 @@ func (b *backendInProcess) createCollection(name string, settings CollectionMode
 	return err
 }
 
-func (b *backendInProcess) Upload(collection, filename string, fileBody io.Reader) (string, error) {
+func (b *backendInProcess) Upload(ctx context.Context, collection, filename string, fileBody io.Reader) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	settings, err := b.settings(collection)
 	if err != nil {
 		return "", err
 	}
-	return b.upload(collection, filename, fileBody, settings)
+	return b.upload(ctx, collection, filename, fileBody, settings)
 }
 
-func (b *backendInProcess) upload(collection, filename string, fileBody io.Reader, settings CollectionModelSettings) (string, error) {
+func (b *backendInProcess) upload(ctx context.Context, collection, filename string, fileBody io.Reader, settings CollectionModelSettings) (string, error) {
 	defer b.lockCollection(collection)()
 	kb, err := b.writable(collection, settings, false)
 	if err != nil {
@@ -181,22 +213,25 @@ func (b *backendInProcess) GetEntryContent(collection, entry string) (string, in
 	return kb.GetEntryFileContent(entry)
 }
 
-func (b *backendInProcess) Search(collection, query string, maxResults int) ([]SearchResult, error) {
+func (b *backendInProcess) Search(ctx context.Context, collection, query string, maxResults int) ([]SearchResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	settings, err := b.settings(collection)
 	if err != nil {
 		return nil, err
 	}
-	return b.search(collection, query, maxResults, settings)
+	return b.search(ctx, collection, query, maxResults, settings)
 }
 
-func (b *backendInProcess) search(collection, query string, maxResults int, settings CollectionModelSettings) ([]SearchResult, error) {
+func (b *backendInProcess) search(ctx context.Context, collection, query string, maxResults int, settings CollectionModelSettings) ([]SearchResult, error) {
 	out, maxResults, err := b.vectorSearch(collection, query, maxResults, settings)
 	if err != nil {
 		return nil, err
 	}
 	// The rerank call can take up to its HTTP timeout, and it only needs the
 	// candidates, so it runs without the collection lock.
-	return b.rerank(settings.RerankerModel, query, out, maxResults)
+	return b.rerank(ctx, settings.RerankerModel, query, out, maxResults)
 }
 
 // rerankCandidateFactor widens the vector search when a reranker is set, so

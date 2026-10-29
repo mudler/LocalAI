@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"time"
@@ -23,13 +24,16 @@ type SourceInfo struct {
 
 // Backend is the interface used by REST handlers for collection operations.
 // It is implemented by in-process state (embedded) or by an HTTP client.
+// Upload and Search stop waiting on the reranker, and refuse to start, when ctx
+// has ended; the vector engine itself takes no context, so a call that is
+// already inside it runs to its end.
 type Backend interface {
 	ListCollections() ([]string, error)
 	CreateCollection(name string) error
-	Upload(collection, filename string, fileBody io.Reader) (string, error)
+	Upload(ctx context.Context, collection, filename string, fileBody io.Reader) (string, error)
 	ListEntries(collection string) ([]string, error)
 	GetEntryContent(collection, entry string) (content string, chunkCount int, err error)
-	Search(collection, query string, maxResults int) ([]SearchResult, error)
+	Search(ctx context.Context, collection, query string, maxResults int) ([]SearchResult, error)
 	Reset(collection string) error
 	DeleteEntry(collection, entry string) (remainingEntries []string, err error)
 	AddSource(collection, url string, intervalMin int) error

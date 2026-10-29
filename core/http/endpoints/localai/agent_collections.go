@@ -102,7 +102,7 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 		defer src.Close()
-		key, err := svc.UploadForUser(userID, name, file.Filename, src)
+		key, err := svc.UploadForUser(c.Request().Context(), userID, name, file.Filename, src)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -210,7 +210,7 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		results, err := svc.SearchForUser(userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
+		results, err := svc.SearchForUser(c.Request().Context(), userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})

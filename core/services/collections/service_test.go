@@ -1,6 +1,7 @@
 package collections
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"os"
@@ -119,7 +120,7 @@ func TestEmbeddingsGoThroughTheClientTheHostGives(t *testing.T) {
 	if err := s.CreateForUser(userA, "notes"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.UploadForUser(userA, "notes", "a.txt", strings.NewReader("hello there")); err != nil {
+	if _, err := s.UploadForUser(context.Background(), userA, "notes", "a.txt", strings.NewReader("hello there")); err != nil {
 		t.Fatalf("upload: %v", err)
 	}
 	if calls.Load() == 0 {
@@ -157,7 +158,7 @@ func TestResetEmptiesACollectionAndKeepsIt(t *testing.T) {
 	if err := s.CreateForUser(userA, "notes"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.UploadForUser(userA, "notes", "a.txt", strings.NewReader("hello there")); err != nil {
+	if _, err := s.UploadForUser(context.Background(), userA, "notes", "a.txt", strings.NewReader("hello there")); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.ResetForUser(userA, "notes"); err != nil {
@@ -172,7 +173,7 @@ func TestResetEmptiesACollectionAndKeepsIt(t *testing.T) {
 		t.Fatalf("entries after the reset = %v, %v; want none", entries, err)
 	}
 	// It takes uploads again.
-	if _, err := s.UploadForUser(userA, "notes", "b.txt", strings.NewReader("again")); err != nil {
+	if _, err := s.UploadForUser(context.Background(), userA, "notes", "b.txt", strings.NewReader("again")); err != nil {
 		t.Fatalf("upload after the reset: %v", err)
 	}
 }
@@ -205,7 +206,7 @@ func TestResetKeepsACollectionThatHadASource(t *testing.T) {
 	// The fetch fails, but the collection has a source history from now on.
 	_ = s.AddSourceForUser(userA, "notes", "https://example.invalid/feed", 60)
 	_ = s.RemoveSourceForUser(userA, "notes", "https://example.invalid/feed")
-	if _, err := s.UploadForUser(userA, "notes", "a.txt", strings.NewReader("hello there")); err != nil {
+	if _, err := s.UploadForUser(context.Background(), userA, "notes", "a.txt", strings.NewReader("hello there")); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.ResetForUser(userA, "notes"); err != nil {

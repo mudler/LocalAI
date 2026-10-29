@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"os"
@@ -29,7 +30,7 @@ func (a *backendRAGAdapter) Store(content string) error {
 		return err
 	}
 	name := fmt.Sprintf("%s-%x.txt", time.Now().Format("2006-01-02-15-04-05"), sha256.Sum256([]byte(content)))
-	_, err = a.backend.upload(a.collection, name, strings.NewReader(content), settings)
+	_, err = a.backend.upload(context.Background(), a.collection, name, strings.NewReader(content), settings)
 	return err
 }
 func (a *backendRAGAdapter) Reset() error { return a.backend.Reset(a.collection) }
@@ -41,7 +42,7 @@ func (a *backendRAGAdapter) Search(query string, n int) ([]string, error) {
 	if err := a.backend.createCollection(a.collection, settings); err != nil {
 		return nil, err
 	}
-	results, err := a.backend.search(a.collection, query, n, settings)
+	results, err := a.backend.search(context.Background(), a.collection, query, n, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (a *backendCompactionAdapter) Store(path string) error {
 		return err
 	}
 	defer file.Close()
-	_, err = a.backend.upload(a.collection, filepath.Base(path), file, settings)
+	_, err = a.backend.upload(context.Background(), a.collection, filepath.Base(path), file, settings)
 	return err
 }
 func (a *backendCompactionAdapter) DeleteEntry(entry string) error {

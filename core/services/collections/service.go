@@ -5,6 +5,7 @@ package collections
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -115,6 +116,25 @@ func (s *Service) share(backend lagi.Backend, state *lagi.State, cfg *lagi.Confi
 	return newSharedCollections(backend, state, postgresCollectionRegistry{databaseURL: cfg.DatabaseURL}, s.bus)
 }
 
+// Close stops the background work of the backends: the loops that refresh the
+// external sources, and the listener for the events of other frontends. The
+// collections stay readable. It is safe to call twice.
+func (s *Service) Close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	closeBackend(s.root)
+	for _, b := range s.cache {
+		closeBackend(b)
+	}
+}
+
+// closeBackend closes b when it has background work to stop.
+func closeBackend(b lagi.Backend) {
+	if c, ok := b.(interface{ Close() }); ok {
+		c.Close()
+	}
+}
+
 // StateDir returns the directory the collections of the server live under.
 func (s *Service) StateDir() string { return s.stateDir }
 
@@ -172,12 +192,12 @@ func (s *Service) CreateForUser(userID, name string) error {
 }
 
 // UploadForUser adds a file to a collection and returns its key.
-func (s *Service) UploadForUser(userID, collection, filename string, body io.Reader) (string, error) {
+func (s *Service) UploadForUser(ctx context.Context, userID, collection, filename string, body io.Reader) (string, error) {
 	b, err := s.Backend(userID)
 	if err != nil {
 		return "", err
 	}
-	return b.Upload(collection, filename, body)
+	return b.Upload(ctx, collection, filename, body)
 }
 
 // EntryExistsForUser tells whether a collection has an entry.
@@ -209,12 +229,12 @@ func (s *Service) EntryContentForUser(userID, collection, entry string) (string,
 }
 
 // SearchForUser searches a collection.
-func (s *Service) SearchForUser(userID, collection, query string, maxResults int) ([]lagi.SearchResult, error) {
+func (s *Service) SearchForUser(ctx context.Context, userID, collection, query string, maxResults int) ([]lagi.SearchResult, error) {
 	b, err := s.Backend(userID)
 	if err != nil {
 		return nil, err
 	}
-	return b.Search(collection, query, maxResults)
+	return b.Search(ctx, collection, query, maxResults)
 }
 
 // ResetForUser removes every entry of a collection and keeps the collection and

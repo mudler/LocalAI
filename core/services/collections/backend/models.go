@@ -2,6 +2,7 @@ package backend
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -163,14 +164,9 @@ func (b *backendInProcess) writable(name string, settings CollectionModelSetting
 			return nil, fmt.Errorf("collection not found: %s", name)
 		}
 		var err error
-		kb, err = b.construct(name, settings.EmbeddingModel)
-		if err != nil {
+		if kb, err = b.load(name, settings.EmbeddingModel); err != nil {
 			return nil, err
 		}
-		b.state.Mu.Lock()
-		b.state.Collections[name] = kb
-		b.state.SourceManager.RegisterCollection(name, kb)
-		b.state.Mu.Unlock()
 	}
 	b.rememberSources(name, kb)
 	model, err := b.storedModel(name, settings.EmbeddingModel)
@@ -192,22 +188,34 @@ func (b *backendInProcess) writable(name string, settings CollectionModelSetting
 	// Invalidate before changing identity. Holding the cache lock prevents
 	// readers from rehydrating between invalidation and the identity write.
 	// Failures leave a placeholder that lookup retries with the saved model.
-	b.state.Mu.Lock()
-	defer b.state.Mu.Unlock()
-	b.state.Collections[name] = nil
-	if err := b.saveModel(name, settings.EmbeddingModel); err != nil {
+	if err := b.invalidate(name, settings.EmbeddingModel); err != nil {
 		return nil, err
 	}
+	// The new engine opens outside the cache lock: it may embed again. A
+	// reader that found the placeholder meanwhile may install an engine first;
+	// this one replaces it, as it has the new identity.
 	replacement, err := b.construct(name, settings.EmbeddingModel)
 	if err != nil {
 		return nil, err
 	}
+	b.state.Mu.Lock()
+	defer b.state.Mu.Unlock()
 	b.state.Collections[name] = replacement
 	b.state.SourceManager.RegisterCollection(name, replacement)
 	return replacement, nil
 }
 
-func (b *backendInProcess) rerank(model, query string, results []SearchResult, maxResults int) ([]SearchResult, error) {
+// invalidate empties the cache entry of a collection and saves its new
+// embedding model under one hold of the cache lock, so a reader cannot open the
+// old engine in between.
+func (b *backendInProcess) invalidate(name, model string) error {
+	b.state.Mu.Lock()
+	defer b.state.Mu.Unlock()
+	b.state.Collections[name] = nil
+	return b.saveModel(name, model)
+}
+
+func (b *backendInProcess) rerank(ctx context.Context, model, query string, results []SearchResult, maxResults int) ([]SearchResult, error) {
 	if model == "" || len(results) == 0 {
 		return results, nil
 	}
@@ -223,7 +231,7 @@ func (b *backendInProcess) rerank(model, query string, results []SearchResult, m
 	if !strings.HasSuffix(base, "/v1") {
 		base += "/v1"
 	}
-	req, err := http.NewRequest(http.MethodPost, base+"/rerank", bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base+"/rerank", bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}

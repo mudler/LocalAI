@@ -47,7 +47,7 @@ func (c studioCollections) Search(ctx context.Context, user, collection, query s
 	if svc == nil || !c.Allowed(ctx, user) {
 		return nil, studio.ErrNoCollection
 	}
-	res, err := svc.SearchForUser(c.owner(user), collection, query, limit)
+	res, err := svc.SearchForUser(ctx, c.owner(user), collection, query, limit)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, studio.ErrNoCollection

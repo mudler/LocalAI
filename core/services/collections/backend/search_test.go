@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,17 +19,17 @@ var _ = Describe("Searching a small collection", func() {
 
 	It("answers an empty collection with no passages, whatever number is asked for", func() {
 		for _, n := range []int{0, 1, 5, 20} {
-			res, err := b.Search("small", "anything", n)
+			res, err := b.Search(context.Background(), "small", "anything", n)
 			Expect(err).ToNot(HaveOccurred(), "max results %d", n)
 			Expect(res).To(BeEmpty())
 		}
 	})
 
 	It("answers with every passage when more are asked for than the collection holds", func() {
-		_, err := b.Upload("small", "one.txt", strings.NewReader("one short passage"))
+		_, err := b.Upload(context.Background(), "small", "one.txt", strings.NewReader("one short passage"))
 		Expect(err).ToNot(HaveOccurred())
 		for _, n := range []int{0, 1, 5, 20} {
-			res, err := b.Search("small", "passage", n)
+			res, err := b.Search(context.Background(), "small", "passage", n)
 			Expect(err).ToNot(HaveOccurred(), "max results %d", n)
 			Expect(res).To(HaveLen(1))
 		}

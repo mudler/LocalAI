@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -113,7 +114,7 @@ var _ = Describe("Per-collection model settings", func() {
 		Expect(ok).To(BeTrue())
 		Expect(ragDB.Store("a source document")).To(Succeed())
 
-		result, err := b.Search("agent", "query", 1)
+		result, err := b.Search(context.Background(), "agent", "query", 1)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(result).To(HaveLen(1))
 		Expect(result[0].Similarity).To(Equal(float32(0.8)))
@@ -128,7 +129,7 @@ var _ = Describe("Per-collection model settings", func() {
 		Expect(fake.embeddingModels()).To(HaveEach("custom"))
 
 		selected.EmbeddingModel = "changed"
-		_, err = b.Search("agent", "query", 1)
+		_, err = b.Search(context.Background(), "agent", "query", 1)
 		Expect(err).To(MatchError(ContainSubstring("reset")))
 		Expect(ragDB.Store("must not be indexed")).ToNot(Succeed(), "mixed embeddings accepted")
 
@@ -156,7 +157,7 @@ var _ = Describe("Per-collection model settings", func() {
 			selected.EmbeddingModel = "changed"
 			restarted, nextState := NewInProcessBackend(b.cfg)
 			defer nextState.SourceManager.Stop()
-			_, err := restarted.Search("agent", "query", 1)
+			_, err := restarted.Search(context.Background(), "agent", "query", 1)
 			Expect(err).To(HaveOccurred(), "restart accepted changed embedding model")
 
 			entries, err := restarted.ListEntries("agent")
@@ -291,9 +292,12 @@ var _ = Describe("Per-collection model settings", func() {
 		b.cfg.ModelSettings = func(string) (CollectionModelSettings, error) { return selected, denied }
 		path := writeTempFile("summary")
 		checks := map[string]func() error{
-			"create":          func() error { return b.CreateCollection("agent") },
-			"upload":          func() error { _, err := b.Upload("agent", "file.txt", strings.NewReader("text")); return err },
-			"search":          func() error { _, err := b.Search("agent", "query", 1); return err },
+			"create": func() error { return b.CreateCollection("agent") },
+			"upload": func() error {
+				_, err := b.Upload(context.Background(), "agent", "file.txt", strings.NewReader("text"))
+				return err
+			},
+			"search":          func() error { _, err := b.Search(context.Background(), "agent", "query", 1); return err },
 			"source":          func() error { return b.AddSource("agent", "invalid://source", 60) },
 			"embedded store":  func() error { return db.Store("new text") },
 			"embedded search": func() error { _, err := db.Search("query", 1); return err },
@@ -367,7 +371,7 @@ var _ = Describe("Collection operation locking", func() {
 		})
 		Expect(b.CreateCollection("alpha")).To(Succeed())
 		Expect(b.CreateCollection("beta")).To(Succeed())
-		_, err := b.Upload("beta", "beta.txt", strings.NewReader("beta document"))
+		_, err := b.Upload(context.Background(), "beta", "beta.txt", strings.NewReader("beta document"))
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -379,7 +383,7 @@ var _ = Describe("Collection operation locking", func() {
 		uploadDone := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := b.Upload("alpha", "alpha.txt", strings.NewReader(marker))
+			_, err := b.Upload(context.Background(), "alpha", "alpha.txt", strings.NewReader(marker))
 			uploadDone <- err
 		}()
 		Eventually(entered).Should(BeClosed())
@@ -387,7 +391,7 @@ var _ = Describe("Collection operation locking", func() {
 		searchDone := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := b.Search("beta", "query", 1)
+			_, err := b.Search(context.Background(), "beta", "query", 1)
 			searchDone <- err
 		}()
 		Eventually(searchDone, 5*time.Second).Should(Receive(BeNil()), "search in beta waited for the upload in alpha")
@@ -406,7 +410,7 @@ var _ = Describe("Collection operation locking", func() {
 		searchDone := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := b.Search("beta", marker, 1)
+			_, err := b.Search(context.Background(), "beta", marker, 1)
 			searchDone <- err
 		}()
 		Eventually(entered).Should(BeClosed())
@@ -431,7 +435,7 @@ var _ = Describe("Collection operation locking", func() {
 		uploadDone := make(chan error, 1)
 		go func() {
 			defer GinkgoRecover()
-			_, err := b.Upload("alpha", "alpha.txt", &heldReader{data: strings.NewReader("alpha document"), entered: entered, release: release})
+			_, err := b.Upload(context.Background(), "alpha", "alpha.txt", &heldReader{data: strings.NewReader("alpha document"), entered: entered, release: release})
 			uploadDone <- err
 		}()
 		Eventually(entered).Should(BeClosed())
@@ -466,7 +470,7 @@ var _ = Describe("Reranking", func() {
 	DescribeTable("rejects invalid rerank responses",
 		func(response string) {
 			b := serve(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(response)) })
-			_, err := b.rerank("ranker", "query", []SearchResult{{Content: "one"}}, 1)
+			_, err := b.rerank(context.Background(), "ranker", "query", []SearchResult{{Content: "one"}}, 1)
 			Expect(err).To(HaveOccurred())
 		},
 		Entry("index out of range", `{"results":[{"index":2,"relevance_score":1}]}`),
@@ -480,7 +484,7 @@ var _ = Describe("Reranking", func() {
 		b := serve(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.1},{"index":1,"relevance_score":0.9}]}`))
 		})
-		out, err := b.rerank("ranker", "query", []SearchResult{{ID: "first", Content: "one"}, {ID: "second", Content: "two", Metadata: map[string]string{"source": "citation"}}}, 2)
+		out, err := b.rerank(context.Background(), "ranker", "query", []SearchResult{{ID: "first", Content: "one"}, {ID: "second", Content: "two", Metadata: map[string]string{"source": "citation"}}}, 2)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(out[0].ID).To(Equal("second"))
 		Expect(out[0].Metadata).To(HaveKeyWithValue("source", "citation"))
@@ -500,7 +504,7 @@ var _ = Describe("Reranking", func() {
 				w.Header().Set("Location", target.URL)
 				w.WriteHeader(status)
 			})
-			_, err := b.rerank("ranker", "query", []SearchResult{{Content: "one"}}, 1)
+			_, err := b.rerank(context.Background(), "ranker", "query", []SearchResult{{Content: "one"}}, 1)
 			Expect(err).To(HaveOccurred(), "rerank failure ignored for HTTP %d", status)
 		}
 		mu.Lock()
@@ -513,7 +517,7 @@ var _ = Describe("Reranking", func() {
 		b, _, fake := newModelBackend(&selected)
 		Expect(b.CreateCollection("wide")).To(Succeed())
 		for i := range 6 {
-			_, err := b.Upload("wide", fmt.Sprintf("doc-%d.txt", i), strings.NewReader(fmt.Sprintf("document %d", i)))
+			_, err := b.Upload(context.Background(), "wide", fmt.Sprintf("doc-%d.txt", i), strings.NewReader(fmt.Sprintf("document %d", i)))
 			Expect(err).ToNot(HaveOccurred())
 		}
 		documents := make(chan int, 1)
@@ -525,7 +529,7 @@ var _ = Describe("Reranking", func() {
 		}
 		fake.mu.Unlock()
 
-		out, err := b.Search("wide", "query", 1)
+		out, err := b.Search(context.Background(), "wide", "query", 1)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(out).To(HaveLen(1))
 		Expect(documents).To(Receive(Equal(rerankCandidateFactor)))
