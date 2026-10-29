@@ -80,7 +80,7 @@ var _ = Describe("Trigger stores", func() {
 				Expect(db.Exec("DELETE FROM " + tbl).Error).To(Succeed())
 			}
 			return s
-		})
+		}, triggerstest.WithResolution(time.Microsecond))
 	})
 
 	It("JSON survives a reopen", func() {

@@ -14,6 +14,14 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
 
+// Option tunes RunStoreSuite.
+type Option func(res *time.Duration)
+
+// WithResolution says that the backend keeps times to d only. PostgreSQL
+// timestamps are exact to a microsecond, so the nanosecond specs use d as the
+// smallest step and cut their times to it.
+func WithResolution(d time.Duration) Option { return func(res *time.Duration) { *res = d } }
+
 // NewStore returns an empty Store for one spec. The spec closes nothing: the
 // function registers its own cleanup with DeferCleanup.
 type NewStore func() triggers.Store
@@ -55,8 +63,14 @@ func sameRun(a, b triggers.Run) bool {
 // RunStoreSuite registers the specs that check a triggers.Store: triggers,
 // claims, run states, listings in their order, counts, the cursor, the last due
 // times, and claims from concurrent goroutines. Call it inside a Describe.
-func RunStoreSuite(newStore NewStore) {
+// Times are checked to the nanosecond unless an option names a coarser
+// resolution of the backend.
+func RunStoreSuite(newStore NewStore, opts ...Option) {
 	ctx := context.Background()
+	res := time.Nanosecond
+	for _, o := range opts {
+		o(&res)
+	}
 	It("stores a trigger with every field", func() {
 		s := newStore()
 		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1")} {
@@ -267,7 +281,7 @@ func RunStoreSuite(newStore NewStore) {
 		n, err := s.CountRunsSince(ctx, "t1", base)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(Equal(3))
-		n, _ = s.CountRunsSince(ctx, "t1", base.Add(time.Hour+time.Nanosecond))
+		n, _ = s.CountRunsSince(ctx, "t1", base.Add(time.Hour+res))
 		Expect(n).To(Equal(1), "CountRunsSince after the failed run")
 	})
 	It("starts with an unset cursor", func() {
@@ -446,11 +460,11 @@ func RunStoreSuite(newStore NewStore) {
 	It("keeps the instant, zone and nanoseconds of times", func() {
 		s := newStore()
 		zone := time.FixedZone("x", 5*3600+1800)
-		due := time.Date(2026, 10, 22, 13, 45, 30, 123456789, zone)
-		started := due.Add(987654321)
-		ended := started.Add(time.Second + 1)
+		due := time.Date(2026, 10, 22, 13, 45, 30, 123456789, zone).Truncate(res)
+		started := due.Add(987654321).Truncate(res)
+		ended := started.Add(time.Second + res)
 		tr := sample("t1", "1", "Morning")
-		tr.Since = time.Date(2026, 10, 22, 8, 0, 0, 500000001, zone)
+		tr.Since = time.Date(2026, 10, 22, 8, 0, 0, 500000001, zone).Truncate(res).Add(res)
 		must(s.PutTrigger(ctx, tr))
 		got, err := s.GetTrigger(ctx, "t1")
 		must(err)
@@ -475,8 +489,8 @@ func RunStoreSuite(newStore NewStore) {
 		}{
 			{"the same instant", due, 1},
 			{"the same instant in UTC", due.UTC(), 1},
-			{"one nanosecond before", due.Add(-time.Nanosecond), 1},
-			{"one nanosecond after", due.Add(time.Nanosecond), 0},
+			{"one step before", due.Add(-res), 1},
+			{"one step after", due.Add(res), 0},
 		} {
 			n, err := s.CountRunsSince(ctx, "t1", c.since)
 			Expect(err).NotTo(HaveOccurred(), "CountRunsSince from %s", c.name)
