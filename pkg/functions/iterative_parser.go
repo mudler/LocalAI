@@ -760,8 +760,10 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 				// No more scopes found, break
 				break
 			}
-			if !allSpaceOrEscapedNewlines(tc.Prelude) {
-				// Non-whitespace before scope_start, stop parsing
+			if !allSpaceOrEscapedNewlines(tc.Prelude) && len(p.ToolCalls()) == 0 {
+				// Non-whitespace before the first scope_start, stop parsing.
+				// Text between two blocks is skipped: a model may comment on
+				// its calls, and each block is a call of its own.
 				p.MoveTo(tc.Groups[0].Begin - len(tc.Prelude))
 				break
 			}

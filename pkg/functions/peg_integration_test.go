@@ -344,6 +344,31 @@ var _ = Describe("LFM3 tool calls", func() {
 		Expect(results[1].Arguments).To(MatchJSON(`{"tz":"CET"}`))
 	})
 
+	It("keeps the order of consecutive blocks and of blocks with text between them, with the preset and without", func() {
+		inputs := map[string]string{
+			"back to back": call("first", "n", "1") + call("second", "n", "2") + call("third", "n", "3"),
+			"with text":    call("first", "n", "1") + "\nThen the next one.\n" + call("second", "n", "2") + "\nAnd the last.\n" + call("third", "n", "3"),
+		}
+		for name, input := range inputs {
+			for _, cfg := range []FunctionsConfig{lfm3, {}} {
+				results := ParseFunctionCall(input, cfg)
+				Expect(results).To(HaveLen(3), name)
+				for i, want := range []string{"first", "second", "third"} {
+					Expect(results[i].Name).To(Equal(want), name)
+				}
+				Expect(results[2].Arguments).To(MatchJSON(`{"n": 3}`), name)
+			}
+		}
+	})
+
+	// The parser has no tool schema, so a value that reads as JSON is taken as
+	// JSON. llama.cpp keeps a parameter the schema types as a string raw.
+	It("takes a value that reads as JSON for JSON, whatever the schema types it as", func() {
+		results := ParseFunctionCall(call("f", "code", "42", "flag", "true", "name", "Bob"), lfm3)
+		Expect(results).To(HaveLen(1))
+		Expect(results[0].Arguments).To(MatchJSON(`{"code": 42, "flag": true, "name": "Bob"}`))
+	})
+
 	It("keeps a string as text and reads the other values as JSON", func() {
 		results := ParseFunctionCall(call("book",
 			"title", "The Hobbit",
