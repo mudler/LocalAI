@@ -1330,6 +1330,62 @@ func (c *ModelConfig) ApplyReasoningEffort(requestEffort string) {
 	}
 }
 
+// ReasoningDisabled reports whether the effective chat-template toggle asks the
+// model not to think.
+//
+// The backend resolves enable_thinking with a fixed precedence: the client's
+// request metadata overrides the operator's reasoning config (also set by
+// reasoning_effort=none through ApplyReasoningEffort), which overrides the model
+// YAML chat_template_kwargs. Callers that inspect the extracted reasoning have
+// to apply the same precedence and value coercion, or they disagree with the
+// template: a request can re-enable thinking over reasoning.disable=true, and a
+// model can disable it through chat_template_kwargs alone.
+func (c *ModelConfig) ReasoningDisabled() bool {
+	if c == nil {
+		return false
+	}
+	// Build the metadata the backend forwards, then let the same resolver that
+	// gRPCPredictOpts uses apply the layering and the string-to-bool coercion.
+	meta := map[string]string{}
+	if c.ReasoningConfig.DisableReasoning != nil {
+		if *c.ReasoningConfig.DisableReasoning {
+			meta["enable_thinking"] = "false"
+		} else {
+			meta["enable_thinking"] = "true"
+		}
+	}
+	if raw, ok := c.RequestMetadata["enable_thinking"]; ok {
+		meta["enable_thinking"] = raw
+	}
+	value, ok := c.ResolveChatTemplateKwargs(meta)["enable_thinking"]
+	if !ok {
+		return false
+	}
+	return !chatTemplateTruthy(value)
+}
+
+// chatTemplateTruthy reports how a jinja template reads a chat_template_kwargs
+// value: bools and numbers follow Go truthiness, and any non-empty string is
+// true. That last rule is why coerceChatTemplateKwarg turns metadata
+// "true"/"false" into real booleans before they reach the template.
+func chatTemplateTruthy(value any) bool {
+	switch v := value.(type) {
+	case nil:
+		return false
+	case bool:
+		return v
+	case string:
+		return v != ""
+	case int:
+		return v != 0
+	case int64:
+		return v != 0
+	case float64:
+		return v != 0
+	}
+	return true
+}
+
 // coerceChatTemplateKwarg coerces a request-metadata string value for use as a
 // jinja chat_template_kwarg. "true"/"false" become real booleans (so a jinja
 // `{% if preserve_thinking %}` reads false correctly, since any non-empty string
