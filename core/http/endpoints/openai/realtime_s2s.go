@@ -903,6 +903,8 @@ type s2sTurn struct {
 	// stopped is true once the response is cancelled: nothing more reaches the
 	// client except the closing events.
 	stopped bool
+	// after runs once the response has released the stream (tool calls).
+	after func()
 }
 
 // ensureItem opens the assistant item on the first audio or text event, so a
@@ -1033,6 +1035,17 @@ func (tn *s2sTurn) closeItem(fallbackText string, incomplete bool) {
 // records the outcome on r. triggerResponse emits response.created and the
 // single response.done.
 func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int, r *liveResponse) {
+	// The tool calls run after the stream is released: a server-side tool
+	// triggers a follow-up response on this same stream, which would wait on
+	// the slot this response still held.
+	if after := s2sRunTurn(ctx, session, conv, t, overrides, toolTurn, r); after != nil {
+		after()
+	}
+}
+
+// s2sRunTurn runs the response while it holds the stream. It returns what is
+// left to do once the stream is free again, or nil.
+func s2sRunTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int, r *liveResponse) (after func()) {
 	st := session.s2s
 
 	// One response at a time on the stream. A superseded response holds it
@@ -1041,12 +1054,12 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 	case st.sem <- struct{}{}:
 	case <-ctx.Done():
 		r.outcome = outcomeCancelled
-		return
+		return nil
 	}
 	defer func() { <-st.sem }()
 	if ctx.Err() != nil {
 		r.outcome = outcomeCancelled
-		return
+		return nil
 	}
 
 	st.forwardPendingItems(conv)
@@ -1093,7 +1106,7 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 	if err := st.control("response.create", payload); err != nil {
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "")
 		r.outcome = outcomeFailed
-		return
+		return nil
 	}
 
 	done := ctx.Done()
@@ -1113,11 +1126,11 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 			sendError(t, "server_error", "the speech-to-speech backend did not acknowledge the cancel", "", "")
 			r.outcome = outcomeFailed
 			st.close()
-			return
+			return nil
 		case <-st.dead:
 			sendError(t, "server_error", fmt.Sprintf("the speech-to-speech stream ended: %v", st.deadErr), "", "")
 			r.outcome = outcomeFailed
-			return
+			return nil
 		case ev := <-st.events:
 			// A cancel may land between the select above and this event:
 			// check it before anything is forwarded.
@@ -1125,7 +1138,7 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 				stop()
 			}
 			if finished := tn.handle(ev, toolTurn); finished {
-				return
+				return tn.after
 			}
 		}
 	}
@@ -1188,7 +1201,12 @@ func (tn *s2sTurn) handle(ev *proto.AudioToAudioResponse, toolTurn int) bool {
 			tn.r.outcome = outcomeCancelled
 			return true
 		}
-		emitToolCallItems(tn.ctx, tn.session, tn.conv, tn.t, tn.r, tn.toolCalls, tn.item != nil, toolTurn)
+		if len(tn.toolCalls) > 0 {
+			hasContent := tn.item != nil
+			tn.after = func() {
+				emitToolCallItems(tn.ctx, tn.session, tn.conv, tn.t, tn.r, tn.toolCalls, hasContent, toolTurn)
+			}
+		}
 		return true
 	}
 	return false

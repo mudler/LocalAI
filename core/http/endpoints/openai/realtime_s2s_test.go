@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/respcoord"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
@@ -103,6 +104,21 @@ func (e *eofStream) Recv() (*proto.AudioToAudioResponse, error) {
 }
 
 func (e *eofStream) Close() error { return nil }
+
+// fakeToolExecutor treats every name in names as a server-side tool.
+type fakeToolExecutor struct {
+	names  map[string]bool
+	output string
+}
+
+func (f *fakeToolExecutor) DiscoverTools(context.Context) ([]functions.Function, error) {
+	return nil, nil
+}
+func (f *fakeToolExecutor) IsTool(name string) bool { return f.names[name] }
+func (f *fakeToolExecutor) ExecuteTool(context.Context, string, string) (string, error) {
+	return f.output, nil
+}
+func (f *fakeToolExecutor) HasTools() bool { return len(f.names) > 0 }
 
 func isControl(r *proto.AudioToAudioRequest, event string) bool {
 	return r.GetControl() != nil && r.GetControl().GetEvent() == event
@@ -317,6 +333,37 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(payload).To(HaveKeyWithValue("call_id", callID))
 		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(2))
 		Expect(tr.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(2))
+	})
+
+	It("finishes a response whose tool call runs on the server", func() {
+		stream := newFakeS2SStream()
+		creates := 0
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			if !isControl(req, "response.create") {
+				return
+			}
+			creates++
+			if creates == 1 {
+				f.push("response.function_call_arguments.done", nil, map[string]any{"name": "list_models", "arguments": `{}`})
+				f.push("response.done", nil, map[string]any{"status": "completed"})
+				return
+			}
+			replyScript(f, req)
+		}
+		session, tr, conv := newHarness(stream, baseModel())
+		session.AssistantExecutor = &fakeToolExecutor{names: map[string]bool{"list_models": true}, output: "[]"}
+
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		// The follow-up response needs the stream the first one used. A hang
+		// here means the first response still held it.
+		Eventually(func() int { return tr.countEvents(types.ServerEventTypeResponseDone) }, 3*time.Second).Should(Equal(1))
+		session.respSink.wait()
+
+		Expect(creates).To(Equal(2))
+		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
+		Expect(tr.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDone)).To(Equal(1))
+		names := eventTypeNames(tr.events())
+		Expect(names[len(names)-1]).To(Equal("response.done"))
 	})
 
 	It("cancels on barge-in before the new speech and forwards no audio after it", func() {
