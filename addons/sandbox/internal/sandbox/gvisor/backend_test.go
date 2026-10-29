@@ -14,8 +14,10 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/sbtest"
@@ -24,17 +26,29 @@ import (
 
 func bg() context.Context { return context.Background() }
 
-// A command in the sandbox must not reach the agent socket or a port socket
-// by the path, and not through the root and working folder links of the agent
-// or of the shell itself (/proc/<pid>/root, /proc/<pid>/cwd). The port itself
-// still works for the guest through 127.0.0.1. Every route is attempted and
-// must fail to connect. (Paths of the form /proc/<pid>/fd/<n>/name fail with
-// ENOTDIR whatever the agent does, so they are not listed: they would prove
-// nothing.)
-func TestACommandCannotReachTheControlSockets(t *testing.T) {
-	b := testBackend(t)
-	sb, _ := fixture(t, b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
-	got := sh(t, sb, `python3 - <<'EOF'
+const tickScript = `exec 3<proj/notes.txt 4>>proj/tick.txt; echo $$ > /tmp/tick.pid; while :; do cat /dev/fd/3 >/dev/null && echo tick >&4; sleep 0.1; done`
+
+func resume(b *Backend, sb sandbox.Sandbox, st workspace.Store) sandbox.Sandbox {
+	ref, err := sb.Suspend(bg())
+	Expect(err).ToNot(HaveOccurred(), "suspend")
+	next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
+	Expect(err).ToNot(HaveOccurred(), "resume")
+	DeferCleanup(func() { next.Destroy(bg()) })
+	return next
+}
+
+var _ = Describe("gVisor backend", func() {
+	// A command in the sandbox must not reach the agent socket or a port socket
+	// by the path, and not through the root and working folder links of the agent
+	// or of the shell itself (/proc/<pid>/root, /proc/<pid>/cwd). The port itself
+	// still works for the guest through 127.0.0.1. Every route is attempted and
+	// must fail to connect. (Paths of the form /proc/<pid>/fd/<n>/name fail with
+	// ENOTDIR whatever the agent does, so they are not listed: they would prove
+	// nothing.)
+	It("does not let a command reach the control sockets", func() {
+		b := testBackend()
+		sb, _ := fixture(b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
+		got := sh(sb, `python3 - <<'EOF'
 import os, socket
 pids, found = ['1', 'self'], False
 for pid in os.listdir('/proc'):
@@ -69,25 +83,23 @@ c = socket.create_connection(('127.0.0.1', 7000), 5)
 c.sendall(b'ping')
 print('echo', c.recv(4).decode())
 EOF`)
-	for _, want := range []string{"reached []\n", "tried 15\n", "agent found True\n", "listing []\n", "echo ping\n"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("missing %q in:\n%s", want, got)
+		for _, want := range []string{"reached []\n", "tried 15\n", "agent found True\n", "listing []\n", "echo ping\n"} {
+			Expect(got).To(ContainSubstring(want), "missing %q in:\n%s", want, got)
 		}
-	}
-}
+	})
 
-// A command can make its own user and mount namespace (unshare -Urm). The
-// copied mounts of that namespace must still not give it the control sockets,
-// by umount of the cover on /mnt/ctl, by a bind of /mnt (which is no mount
-// point), or by a recursive bind of /mnt. The control route shows that a
-// socket outside /mnt/ctl is reachable through a recursive bind in such a
-// namespace, so the other routes fail for the right reason. Every route must
-// enter its namespace: a guest that cannot make one, or an image without
-// unshare, fails the test instead of passing it vacuously.
-func TestACommandCannotReachTheControlSocketsFromAUserNamespace(t *testing.T) {
-	b := testBackend(t)
-	sb, _ := fixture(t, b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
-	got := sh(t, sb, `command -v unshare >/dev/null || { echo no unshare binary in the image; exit 1; }
+	// A command can make its own user and mount namespace (unshare -Urm). The
+	// copied mounts of that namespace must still not give it the control sockets,
+	// by umount of the cover on /mnt/ctl, by a bind of /mnt (which is no mount
+	// point), or by a recursive bind of /mnt. The control route shows that a
+	// socket outside /mnt/ctl is reachable through a recursive bind in such a
+	// namespace, so the other routes fail for the right reason. Every route must
+	// enter its namespace: a guest that cannot make one, or an image without
+	// unshare, fails the test instead of passing it vacuously.
+	It("does not let a command reach the control sockets from a user namespace", func() {
+		b := testBackend()
+		sb, _ := fixture(b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
+		got := sh(sb, `command -v unshare >/dev/null || { echo no unshare binary in the image; exit 1; }
 cat > /tmp/connect.py <<'EOF2'
 import socket, sys
 for p in sys.argv[1:]:
@@ -123,606 +135,456 @@ echo ROUTE control
 unshare -Urm sh -c 'echo entered; mkdir -p /tmp/m3 && mount --rbind /tmp /tmp/m3 2>&1; python3 /tmp/connect.py /tmp/m3/control.sock' 2>&1
 echo ROUTE end
 true`)
-	routes := map[string][]string{}
-	var cur string
-	for _, line := range strings.Split(got, "\n") {
-		if name, ok := strings.CutPrefix(line, "ROUTE "); ok {
-			cur = name
-			continue
+		routes := map[string][]string{}
+		var cur string
+		for _, line := range strings.Split(got, "\n") {
+			if name, ok := strings.CutPrefix(line, "ROUTE "); ok {
+				cur = name
+				continue
+			}
+			if cur != "" {
+				routes[cur] = append(routes[cur], line)
+			}
 		}
-		if cur != "" {
-			routes[cur] = append(routes[cur], line)
+		var problems []string
+		for _, name := range []string{"umount", "bind", "rbind", "control"} {
+			lines := strings.Join(routes[name], "\n")
+			if !strings.Contains(lines, "entered") {
+				problems = append(problems, fmt.Sprintf("route %s did not enter its namespace:\n%s", name, lines))
+			}
+			reached := strings.Contains(lines, "reached ")
+			if name == "control" && !reached {
+				problems = append(problems, fmt.Sprintf("the control route reached nothing, so the others prove nothing:\n%s", lines))
+			}
+			if name != "control" && reached {
+				problems = append(problems, fmt.Sprintf("route %s reached a control socket:\n%s", name, lines))
+			}
 		}
-	}
-	for _, name := range []string{"umount", "bind", "rbind", "control"} {
-		lines := strings.Join(routes[name], "\n")
-		if !strings.Contains(lines, "entered") {
-			t.Errorf("route %s did not enter its namespace:\n%s", name, lines)
-		}
-		reached := strings.Contains(lines, "reached ")
-		if name == "control" && !reached {
-			t.Errorf("the control route reached nothing, so the others prove nothing:\n%s", lines)
-		}
-		if name != "control" && reached {
-			t.Errorf("route %s reached a control socket:\n%s", name, lines)
-		}
-	}
-	if t.Failed() {
-		t.Logf("full output:\n%s", got) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
-	}
-}
+		Expect(problems).To(BeEmpty(), "full output:\n%s", got)
+	})
 
-// The commands get only CAP_DAC_OVERRIDE and CAP_FOWNER, as under chv. The
-// ambient capabilities of the agent itself must not leak to them.
-func TestCommandsKeepOnlyTwoCapabilities(t *testing.T) {
-	b := testBackend(t)
-	sb, _ := fixture(t, b, sandbox.Spec{})
-	got := sh(t, sb, `grep -E '^(CapInh|CapPrm|CapEff|CapAmb|NoNewPrivs)' /proc/self/status; id -u`)
-	for _, want := range []string{"CapPrm:\t000000000000000a", "CapEff:\t000000000000000a", "CapAmb:\t000000000000000a", "NoNewPrivs:\t1", "\n1000\n"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("missing %q in:\n%s", want, got)
+	// The commands get only CAP_DAC_OVERRIDE and CAP_FOWNER, as under chv. The
+	// ambient capabilities of the agent itself must not leak to them.
+	It("keeps only two capabilities for commands", func() {
+		b := testBackend()
+		sb, _ := fixture(b, sandbox.Spec{})
+		got := sh(sb, `grep -E '^(CapInh|CapPrm|CapEff|CapAmb|NoNewPrivs)' /proc/self/status; id -u`)
+		for _, want := range []string{"CapPrm:\t000000000000000a", "CapEff:\t000000000000000a", "CapAmb:\t000000000000000a", "NoNewPrivs:\t1", "\n1000\n"} {
+			Expect(got).To(ContainSubstring(want), "missing %q in:\n%s", want, got)
 		}
-	}
-}
+	})
 
-func TestMemoryWatcherStopsASandboxOverItsLimit(t *testing.T) {
-	b := testBackend(t)
-	b.memEvery = 200 * time.Millisecond
-	sb, _ := fixture(t, b, sandbox.Spec{Memory: 256 << 20})
-	s := sb.(*sbx)
-	p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"python3", "-c", "b = b'x' * (700 << 20); import time; time.sleep(120)"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	deadline := time.Now().Add(90 * time.Second)
-	for {
-		if _, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}}); errors.Is(err, sandbox.ErrGone) {
-			break
+	It("stops a sandbox over its memory limit with the memory watcher", func() {
+		b := testBackend()
+		b.memEvery = 200 * time.Millisecond
+		sb, _ := fixture(b, sandbox.Spec{Memory: 256 << 20})
+		s := sb.(*sbx)
+		p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"python3", "-c", "b = b'x' * (700 << 20); import time; time.sleep(120)"}})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			_, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}})
+			return err
+		}, 90*time.Second, 200*time.Millisecond).Should(MatchError(sandbox.ErrGone), "the sandbox was not stopped")
+		_, err = p.Wait()
+		Expect(err).To(MatchError(sandbox.ErrGone), "wait after the stop")
+		log, _ := os.ReadFile(filepath.Join(s.dir, "console.log"))
+		Expect(string(log)).To(ContainSubstring("memory limit"), "the reason is not in the log")
+		// What the guest wrote before is still there to checkpoint.
+		_, _, err = sb.Checkpoint(bg(), "after the stop")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("refuses commands until a refresh when the disk watcher sees a full disk", func() {
+		b := testBackend()
+		b.diskEvery = 200 * time.Millisecond
+		sb, st := fixture(b, sandbox.Spec{Disk: 64 << 20})
+		sh(sb, "head -c 40000000 /dev/zero > proj/a.bin && head -c 40000000 /dev/zero > proj/b.bin")
+		var err error
+		Eventually(func() error {
+			_, err = sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}})
+			return err
+		}, 60*time.Second, 100*time.Millisecond).Should(HaveOccurred(), "Exec was not refused")
+		Expect(err).To(MatchError(ErrDiskFull))
+		Expect(err.Error()).To(Equal("The sandbox disk is full."))
+		// A checkpoint works, and measures the disk again. The upper layer keeps
+		// the files, so the disk stays full until a refresh gives a new upper.
+		_, _, err = sb.Checkpoint(bg(), "full")
+		Expect(err).ToNot(HaveOccurred())
+		_, err = sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}})
+		Expect(err).To(MatchError(ErrDiskFull), "after a checkpoint")
+		Expect(sb.Refresh(bg())).To(Succeed())
+		Expect(sh(sb, "ls proj | tr '\\n' ' '")).To(Equal("a.bin b.bin "), "after the refresh")
+		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/b.bin")
+		Expect(err).ToNot(HaveOccurred())
+		r.Close()
+	})
+
+	// A single file over the disk size stops at the size limit of the process.
+	It("does not let one file pass the disk size", func() {
+		b := testBackend()
+		sb, _ := fixture(b, sandbox.Spec{Disk: 64 << 20})
+		var errb bytes.Buffer
+		p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"sh", "-c", "head -c 100000000 /dev/zero > proj/big.bin; echo rc=$?; ls -l proj/big.bin | cut -d' ' -f5"}, Stderr: &errb, Stdout: &errb})
+		Expect(err).ToNot(HaveOccurred())
+		_, err = p.Wait()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(errb.String()).To(ContainSubstring("67108864"), "the file is not cut at 64 MiB")
+	})
+
+	It("keeps the process and its files over five suspends in a row", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{})
+		sh(sb, "echo notes > proj/notes.txt")
+		_, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"sh", "-c", tickScript}})
+		Expect(err).ToNot(HaveOccurred())
+		sh(sb, `i=0; while [ ! -s proj/tick.txt ]; do i=$((i+1)); [ $i -gt 300 ] && { echo "proj/tick.txt never appeared" >&2; exit 1; }; sleep 0.1; done`)
+		for i := range 5 {
+			sb = resume(b, sb, st)
+			Expect(sh(sb, `a=$(wc -l < proj/tick.txt); sleep 1; b=$(wc -l < proj/tick.txt); [ "$b" -gt "$a" ] && echo alive`)).To(Equal("alive\n"), "cycle %d", i)
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("the sandbox was not stopped")
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	if _, err := p.Wait(); !errors.Is(err, sandbox.ErrGone) {
-		t.Fatalf("wait after the stop: %v", err)
-	}
-	if log, _ := os.ReadFile(filepath.Join(s.dir, "console.log")); !strings.Contains(string(log), "memory limit") {
-		t.Fatalf("the reason is not in the log:\n%s", log)
-	}
-	// What the guest wrote before is still there to checkpoint.
-	if _, _, err := sb.Checkpoint(bg(), "after the stop"); err != nil {
-		t.Fatal(err)
-	}
-}
+		got := sh(sb, `ls -l /proc/$(cat /tmp/tick.pid)/fd | grep -c -E 'notes.txt|tick.txt'`)
+		Expect(strings.TrimSpace(got)).To(Equal("2"), "open files of the process after 5 cycles")
+		_, c, err := sb.Checkpoint(bg(), "after the cycles")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(c).To(BeEmpty())
+	})
 
-func TestDiskWatcherRefusesCommandsUntilARefresh(t *testing.T) {
-	b := testBackend(t)
-	b.diskEvery = 200 * time.Millisecond
-	sb, st := fixture(t, b, sandbox.Spec{Disk: 64 << 20})
-	sh(t, sb, "head -c 40000000 /dev/zero > proj/a.bin && head -c 40000000 /dev/zero > proj/b.bin")
-	deadline := time.Now().Add(60 * time.Second)
-	var err error
-	for {
-		if _, err = sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}}); err != nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			t.Fatal("Exec was not refused")
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	if !errors.Is(err, ErrDiskFull) || err.Error() != "The sandbox disk is full." {
-		t.Fatalf("err = %v", err)
-	}
-	// A checkpoint works, and measures the disk again. The upper layer keeps
-	// the files, so the disk stays full until a refresh gives a new upper.
-	if _, _, err := sb.Checkpoint(bg(), "full"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}}); !errors.Is(err, ErrDiskFull) {
-		t.Fatalf("after a checkpoint: %v", err)
-	}
-	if err := sb.Refresh(bg()); err != nil {
-		t.Fatal(err)
-	}
-	if got := sh(t, sb, "ls proj | tr '\\n' ' '"); got != "a.bin b.bin " {
-		t.Fatalf("after the refresh: %q", got)
-	}
-	r, _, err := st.Open(bg(), sbtest.Admin, "/proj/b.bin")
-	if err != nil {
-		t.Fatal(err)
-	}
-	r.Close()
-}
-
-// A single file over the disk size stops at the size limit of the process.
-func TestOneFileCannotPassTheDiskSize(t *testing.T) {
-	b := testBackend(t)
-	sb, _ := fixture(t, b, sandbox.Spec{Disk: 64 << 20})
-	var errb bytes.Buffer
-	p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"sh", "-c", "head -c 100000000 /dev/zero > proj/big.bin; echo rc=$?; ls -l proj/big.bin | cut -d' ' -f5"}, Stderr: &errb, Stdout: &errb})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := p.Wait(); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(errb.String(), "67108864") {
-		t.Fatalf("the file is not cut at 64 MiB: %q", errb.String())
-	}
-}
-
-const tickScript = `exec 3<proj/notes.txt 4>>proj/tick.txt; echo $$ > /tmp/tick.pid; while :; do cat /dev/fd/3 >/dev/null && echo tick >&4; sleep 0.1; done`
-
-func resume(t *testing.T, b *Backend, sb sandbox.Sandbox, st workspace.Store) sandbox.Sandbox {
-	t.Helper()
-	ref, err := sb.Suspend(bg())
-	if err != nil {
-		t.Fatalf("suspend: %v", err)
-	}
-	next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
-	if err != nil {
-		t.Fatalf("resume: %v", err)
-	}
-	t.Cleanup(func() { next.Destroy(bg()) })
-	return next
-}
-
-func TestFiveSuspendsInARowKeepTheProcessAndItsFiles(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{})
-	sh(t, sb, "echo notes > proj/notes.txt")
-	if _, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"sh", "-c", tickScript}}); err != nil {
-		t.Fatal(err)
-	}
-	sh(t, sb, `i=0; while [ ! -s proj/tick.txt ]; do i=$((i+1)); [ $i -gt 300 ] && { echo "proj/tick.txt never appeared" >&2; exit 1; }; sleep 0.1; done`)
-	for i := range 5 {
-		sb = resume(t, b, sb, st)
-		if got := sh(t, sb, `a=$(wc -l < proj/tick.txt); sleep 1; b=$(wc -l < proj/tick.txt); [ "$b" -gt "$a" ] && echo alive`); got != "alive\n" {
-			t.Fatalf("cycle %d: %q", i, got)
-		}
-	}
-	got := sh(t, sb, `ls -l /proc/$(cat /tmp/tick.pid)/fd | grep -c -E 'notes.txt|tick.txt'`)
-	if strings.TrimSpace(got) != "2" {
-		t.Fatalf("open files of the process after 5 cycles: %q", got)
-	}
-	if _, c, err := sb.Checkpoint(bg(), "after the cycles"); err != nil || len(c) != 0 {
-		t.Fatalf("checkpoint: %v %+v", err, c)
-	}
-}
-
-func TestATerminalProcessSurvivesSuspendAndResume(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{})
-	script := `import os, time
+	It("keeps a terminal process over suspend and resume", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{})
+		script := `import os, time
 f = open('proj/tty.log', 'a', buffering=1)
 while True:
     f.write('tick tty=%s\n' % (os.isatty(0) and os.isatty(1)))
     time.sleep(0.1)`
-	p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"python3", "-c", script}, TTY: &sandbox.TTY{Rows: 24, Cols: 80}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sh(t, sb, `i=0; while [ ! -s proj/tty.log ]; do i=$((i+1)); [ $i -gt 300 ] && { echo "proj/tty.log never appeared" >&2; exit 1; }; sleep 0.1; done`)
-	sb = resume(t, b, sb, st)
-	if _, err := p.Wait(); !errors.Is(err, sandbox.ErrGone) {
-		t.Fatalf("the old handle: %v", err)
-	}
-	got := sh(t, sb, `a=$(wc -l < proj/tty.log); sleep 1; b=$(wc -l < proj/tty.log); [ "$b" -gt "$a" ] && echo alive; tail -n 1 proj/tty.log`)
-	if got != "alive\ntick tty=True\n" {
-		t.Fatalf("after resume: %q", got)
-	}
-}
+		p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"python3", "-c", script}, TTY: &sandbox.TTY{Rows: 24, Cols: 80}})
+		Expect(err).ToNot(HaveOccurred())
+		sh(sb, `i=0; while [ ! -s proj/tty.log ]; do i=$((i+1)); [ $i -gt 300 ] && { echo "proj/tty.log never appeared" >&2; exit 1; }; sleep 0.1; done`)
+		sb = resume(b, sb, st)
+		_, err = p.Wait()
+		Expect(err).To(MatchError(sandbox.ErrGone), "the old handle")
+		got := sh(sb, `a=$(wc -l < proj/tty.log); sleep 1; b=$(wc -l < proj/tty.log); [ "$b" -gt "$a" ] && echo alive; tail -n 1 proj/tty.log`)
+		Expect(got).To(Equal("alive\ntick tty=True\n"), "after resume")
+	})
 
-// A checkpoint during a large copy-up commits the whole file or leaves it
-// alone: the sandbox is paused until the system call that copies the file
-// has finished. The test proves that the checkpoint overlapped the writer
-// process: the writer had started (a marker in the upper layer) and had not
-// finished (no end marker) when the sandbox was paused. It does not prove that
-// the pause landed inside the copy itself; the content check (the exact old or
-// the exact new bytes) is what catches a torn file. A run where the
-// writer was already done does not count; the test tries again, a bounded
-// number of times, and fails when no attempt overlapped.
-func TestCheckpointDuringALargeCopyUpIsWholeOrNothing(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{})
-	s := sb.(*sbx)
-	const size = 96 << 20
-	big := bytes.Repeat([]byte("0123456789abcdef"), size/16)
-	appended := append(append([]byte{}, big...), "x\n"...)
-	content := func() []byte {
-		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/big.bin")
-		if err != nil {
-			t.Fatal(err)
+	// A checkpoint during a large copy-up commits the whole file or leaves it
+	// alone: the sandbox is paused until the system call that copies the file
+	// has finished. The test proves that the checkpoint overlapped the writer
+	// process: the writer had started (a marker in the upper layer) and had not
+	// finished (no end marker) when the sandbox was paused. It does not prove that
+	// the pause landed inside the copy itself; the content check (the exact old or
+	// the exact new bytes) is what catches a torn file. A run where the
+	// writer was already done does not count; the test tries again, a bounded
+	// number of times, and fails when no attempt overlapped.
+	It("commits a checkpoint during a large copy-up whole or not at all", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{})
+		s := sb.(*sbx)
+		const size = 96 << 20
+		big := bytes.Repeat([]byte("0123456789abcdef"), size/16)
+		appended := append(append([]byte{}, big...), "x\n"...)
+		content := func() []byte {
+			r, _, err := st.Open(bg(), sbtest.Admin, "/proj/big.bin")
+			Expect(err).ToNot(HaveOccurred())
+			defer r.Close()
+			body, err := io.ReadAll(r)
+			Expect(err).ToNot(HaveOccurred())
+			return body
 		}
-		defer r.Close()
-		body, err := io.ReadAll(r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return body
-	}
-	upperProj := filepath.Join(s.dir, "upper", "data", "proj")
-	const attempts = 8
-	overlapped := false
-	for i := 0; i < attempts && !overlapped; i++ {
-		if _, err := st.Put(bg(), sbtest.Admin, "/proj/big.bin", bytes.NewReader(big), workspace.PutOptions{Overwrite: true}); err != nil {
-			t.Fatal(err)
-		}
-		if err := sb.Refresh(bg()); err != nil { // the guest sees the original big.bin, in the lower layer
-			t.Fatal(err)
-		}
-		started, finished := "started"+strconv.Itoa(i), "finished"+strconv.Itoa(i)
-		p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"sh", "-c", "echo go > proj/" + started + "; echo x >> proj/big.bin; echo end > proj/" + finished}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		// The upper layer is a host folder: the marker shows that the writer runs.
-		deadline := time.Now().Add(30 * time.Second)
-		for {
-			if _, err := os.Stat(filepath.Join(upperProj, started)); err == nil {
-				break
+		upperProj := filepath.Join(s.dir, "upper", "data", "proj")
+		const attempts = 8
+		overlapped := false
+		for i := 0; i < attempts && !overlapped; i++ {
+			_, err := st.Put(bg(), sbtest.Admin, "/proj/big.bin", bytes.NewReader(big), workspace.PutOptions{Overwrite: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sb.Refresh(bg())).To(Succeed()) // the guest sees the original big.bin, in the lower layer
+			started, finished := "started"+strconv.Itoa(i), "finished"+strconv.Itoa(i)
+			p, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"sh", "-c", "echo go > proj/" + started + "; echo x >> proj/big.bin; echo end > proj/" + finished}})
+			Expect(err).ToNot(HaveOccurred())
+			// The upper layer is a host folder: the marker shows that the writer runs.
+			Eventually(func() error {
+				_, err := os.Stat(filepath.Join(upperProj, started))
+				return err
+			}, 30*time.Second, 2*time.Millisecond).Should(Succeed(), "the writer did not start")
+			var sawEnd bool
+			var upperSize int64 = -1
+			s.hooks.afterRead = func() { // the sandbox is paused here
+				_, err := os.Stat(filepath.Join(upperProj, finished))
+				sawEnd = err == nil
+				if fi, err := os.Stat(filepath.Join(upperProj, "big.bin")); err == nil {
+					upperSize = fi.Size()
+				}
 			}
-			if time.Now().After(deadline) {
-				t.Fatal("the writer did not start")
-			}
-			time.Sleep(2 * time.Millisecond)
-		}
-		var sawEnd bool
-		var upperSize int64 = -1
-		s.hooks.afterRead = func() { // the sandbox is paused here
-			_, err := os.Stat(filepath.Join(upperProj, finished))
-			sawEnd = err == nil
-			if fi, err := os.Stat(filepath.Join(upperProj, "big.bin")); err == nil {
-				upperSize = fi.Size()
+			_, _, err = sb.Checkpoint(bg(), "mid copy-up")
+			s.hooks.afterRead = nil
+			Expect(err).ToNot(HaveOccurred())
+			body := content()
+			Expect(bytes.Equal(body, big) || bytes.Equal(body, appended)).To(BeTrue(), "attempt %d: the store has %d bytes that are neither the old nor the new content: a torn copy", i, len(body))
+			_, err = p.Wait()
+			Expect(err).ToNot(HaveOccurred())
+			_, _, err = sb.Checkpoint(bg(), "after")
+			Expect(err).ToNot(HaveOccurred())
+			body = content()
+			Expect(bytes.Equal(body, appended)).To(BeTrue(), "attempt %d: after the writer ended the store has %d bytes, not the old content plus \"x\\n\"", i, len(body))
+			if !sawEnd {
+				overlapped = true
+				fmt.Fprintf(GinkgoWriter, "attempt %d: the writer was running at the pause (upper big.bin was %d bytes)\n", i, upperSize)
 			}
 		}
-		_, _, err = sb.Checkpoint(bg(), "mid copy-up")
-		s.hooks.afterRead = nil
-		if err != nil {
-			t.Fatal(err)
-		}
-		if body := content(); !bytes.Equal(body, big) && !bytes.Equal(body, appended) {
-			t.Fatalf("attempt %d: the store has %d bytes that are neither the old nor the new content: a torn copy", i, len(body))
-		}
-		if _, err := p.Wait(); err != nil {
-			t.Fatal(err)
-		}
-		if _, _, err := sb.Checkpoint(bg(), "after"); err != nil {
-			t.Fatal(err)
-		}
-		if body := content(); !bytes.Equal(body, appended) {
-			t.Fatalf("attempt %d: after the writer ended the store has %d bytes, not the old content plus \"x\\n\"", i, len(body))
-		}
-		if !sawEnd {
-			overlapped = true
-			t.Logf("attempt %d: the writer was running at the pause (upper big.bin was %d bytes)", i, upperSize) //nolint:forbidigo // plain testing.T test; this package has no Ginkgo suite
-		}
-	}
-	if !overlapped {
-		t.Fatalf("no checkpoint overlapped the writer in %d attempts: the test proved nothing", attempts)
-	}
-}
+		Expect(overlapped).To(BeTrue(), "no checkpoint overlapped the writer in %d attempts: the test proved nothing", attempts)
+	})
 
-func TestCrashGivesErrGoneAndCheckpointStillWorks(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{})
-	sh(t, sb, "echo kept > proj/kept.txt")
-	s := sb.(*sbx)
-	if err := syscall.Kill(s.in.pid, syscall.SIGKILL); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-s.in.done:
-	case <-time.After(30 * time.Second):
-		t.Fatal("the watcher did not see the crash")
-	}
-	if _, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}}); !errors.Is(err, sandbox.ErrGone) {
-		t.Fatalf("exec after a crash: %v", err)
-	}
-	if _, _, err := sb.Checkpoint(bg(), "after crash"); err != nil {
-		t.Fatal(err)
-	}
-	r, _, err := st.Open(bg(), sbtest.Admin, "/proj/kept.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	r.Close()
-}
+	It("gives ErrGone after a crash and the checkpoint still works", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{})
+		sh(sb, "echo kept > proj/kept.txt")
+		s := sb.(*sbx)
+		Expect(syscall.Kill(s.in.pid, syscall.SIGKILL)).To(Succeed())
+		Eventually(s.in.done, 30*time.Second).Should(BeClosed(), "the watcher did not see the crash")
+		_, err := sb.Exec(bg(), sandbox.Cmd{Args: []string{"true"}})
+		Expect(err).To(MatchError(sandbox.ErrGone), "exec after a crash")
+		_, _, err = sb.Checkpoint(bg(), "after crash")
+		Expect(err).ToNot(HaveOccurred())
+		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/kept.txt")
+		Expect(err).ToNot(HaveOccurred())
+		r.Close()
+	})
 
-func TestBusy(t *testing.T) {
-	b := testBackend(t)
-	sb, _ := fixture(t, b, sandbox.Spec{})
-	s := sb.(*sbx)
-	if !s.op.TryLock() {
-		t.Fatal("the checkpoint lock was already taken")
-	}
-	defer s.op.Unlock()
-	if _, _, err := sb.Checkpoint(bg(), "x"); !errors.Is(err, sandbox.ErrBusy) {
-		t.Fatalf("checkpoint under the lock: %v", err)
-	}
-	if err := sb.Refresh(bg()); !errors.Is(err, sandbox.ErrBusy) {
-		t.Fatalf("refresh under the lock: %v", err)
-	}
-	if _, err := sb.Suspend(bg()); !errors.Is(err, sandbox.ErrBusy) {
-		t.Fatalf("suspend under the lock: %v", err)
-	}
-}
+	It("is busy while the operation lock is taken", func() {
+		b := testBackend()
+		sb, _ := fixture(b, sandbox.Spec{})
+		s := sb.(*sbx)
+		Expect(s.op.TryLock()).To(BeTrue(), "the checkpoint lock was already taken")
+		defer s.op.Unlock()
+		_, _, err := sb.Checkpoint(bg(), "x")
+		Expect(err).To(MatchError(sandbox.ErrBusy), "checkpoint under the lock")
+		Expect(sb.Refresh(bg())).To(MatchError(sandbox.ErrBusy), "refresh under the lock")
+		_, err = sb.Suspend(bg())
+		Expect(err).To(MatchError(sandbox.ErrBusy), "suspend under the lock")
+	})
 
-// A second Checkpoint, a Refresh and a Suspend that arrive while a checkpoint
-// runs get ErrBusy at once, and the first checkpoint is not disturbed.
-func TestConcurrentCheckpointIsBusy(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{})
-	s := sb.(*sbx)
-	sh(t, sb, "echo one > proj/one.txt")
-	entered, release := make(chan struct{}), make(chan struct{})
-	s.hooks.afterRead = func() { // the first checkpoint is running here
-		close(entered)
+	// A second Checkpoint, a Refresh and a Suspend that arrive while a checkpoint
+	// runs get ErrBusy at once, and the first checkpoint is not disturbed.
+	It("is busy for a concurrent checkpoint", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{})
+		s := sb.(*sbx)
+		sh(sb, "echo one > proj/one.txt")
+		entered, release := make(chan struct{}), make(chan struct{})
+		s.hooks.afterRead = func() { // the first checkpoint is running here
+			close(entered)
+			select {
+			case <-release:
+			case <-time.After(60 * time.Second):
+			}
+		}
+		errc := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			_, _, err := sb.Checkpoint(bg(), "first")
+			errc <- err
+		}()
 		select {
-		case <-release:
+		case <-entered:
 		case <-time.After(60 * time.Second):
+			close(release)
+			Fail("the first checkpoint did not start")
 		}
-	}
-	errc := make(chan error, 1)
-	go func() {
-		_, _, err := sb.Checkpoint(bg(), "first")
-		errc <- err
-	}()
-	select {
-	case <-entered:
-	case <-time.After(60 * time.Second):
+		_, _, err2 := sb.Checkpoint(bg(), "second")
+		rerr := sb.Refresh(bg())
+		_, serr := sb.Suspend(bg())
 		close(release)
-		t.Fatal("the first checkpoint did not start")
-	}
-	_, _, err2 := sb.Checkpoint(bg(), "second")
-	rerr := sb.Refresh(bg())
-	_, serr := sb.Suspend(bg())
-	close(release)
-	if err := <-errc; err != nil {
-		t.Fatalf("the first checkpoint: %v", err)
-	}
-	for name, err := range map[string]error{"checkpoint": err2, "refresh": rerr, "suspend": serr} {
-		if !errors.Is(err, sandbox.ErrBusy) {
-			t.Fatalf("%s during a checkpoint: %v", name, err)
+		Expect(<-errc).ToNot(HaveOccurred(), "the first checkpoint")
+		for name, err := range map[string]error{"checkpoint": err2, "refresh": rerr, "suspend": serr} {
+			Expect(err).To(MatchError(sandbox.ErrBusy), "%s during a checkpoint", name)
 		}
-	}
-	r, _, err := st.Open(bg(), sbtest.Admin, "/proj/one.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	r.Close()
-}
+		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/one.txt")
+		Expect(err).ToNot(HaveOccurred())
+		r.Close()
+	})
 
-func TestReadyTimeoutCleansUp(t *testing.T) {
-	b := testBackend(t)
-	b.opts.ReadyTimeout = time.Nanosecond // over before the first try
-	st := sbtest.OpenStore(t)
-	if _, err := st.Mkdir(bg(), sbtest.Admin, "/proj"); err != nil {
-		t.Fatal(err)
-	}
-	v, _ := st.View(bg(), sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
-	sb, err := b.Create(bg(), sandbox.Spec{Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, View: v, Memory: 1 << 30, Disk: 1 << 30})
-	if err == nil {
-		sb.Destroy(bg()) // do not leave a sandbox behind when the test fails
-	}
-	if err == nil || !strings.Contains(err.Error(), "not ready") {
-		t.Fatalf("create = %v", err)
-	}
-	if ents := sessionFolders(b.opts.StateDir); len(ents) != 0 {
-		t.Fatalf("a failed create left %d session folders", len(ents))
-	}
-}
+	It("cleans up when the ready timeout passes", func() {
+		b := testBackend()
+		b.opts.ReadyTimeout = time.Nanosecond // over before the first try
+		st := sbtest.OpenStore()
+		_, err := st.Mkdir(bg(), sbtest.Admin, "/proj")
+		Expect(err).ToNot(HaveOccurred())
+		v, _ := st.View(bg(), sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
+		sb, err := b.Create(bg(), sandbox.Spec{Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, View: v, Memory: 1 << 30, Disk: 1 << 30})
+		if err == nil {
+			sb.Destroy(bg()) // do not leave a sandbox behind when the test fails
+		}
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("not ready"))
+		Expect(sessionFolders(b.opts.StateDir)).To(BeEmpty(), "a failed create left session folders")
+	})
 
-func TestResumeRefusals(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
-	if _, err := b.Resume(bg(), sandbox.SnapshotRef{Backend: "chv", Path: sb.(*sbx).dir}, sandbox.Env{Store: st, Actor: sbtest.Admin}); !errors.Is(err, workspace.ErrInvalid) {
-		t.Fatalf("snapshot of another backend: %v", err)
-	}
-	if _, err := b.Resume(bg(), sandbox.SnapshotRef{Backend: "gvisor", Path: "/etc"}, sandbox.Env{Store: st, Actor: sbtest.Admin}); !errors.Is(err, workspace.ErrInvalid) {
-		t.Fatalf("a folder outside StateDir: %v", err)
-	}
-	ref, err := sb.Suspend(bg())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Agent, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}); !errors.Is(err, workspace.ErrInvalid) {
-		t.Fatalf("another actor: %v", err)
-	}
-	if _, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin}); !errors.Is(err, workspace.ErrInvalid) {
-		t.Fatalf("other ports: %v", err)
-	}
-	next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer next.Destroy(bg())
-	if _, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}); !errors.Is(err, workspace.ErrInvalid) {
-		t.Fatalf("a sandbox that already runs: %v", err)
-	}
-	// The old handle no longer owns the folder.
-	if _, _, err := sb.Checkpoint(bg(), "stale"); !errors.Is(err, sandbox.ErrGone) {
-		t.Fatalf("stale handle: %v", err)
-	}
-}
+	It("refuses the resumes it must refuse", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
+		_, err := b.Resume(bg(), sandbox.SnapshotRef{Backend: "chv", Path: sb.(*sbx).dir}, sandbox.Env{Store: st, Actor: sbtest.Admin})
+		Expect(err).To(MatchError(workspace.ErrInvalid), "snapshot of another backend")
+		_, err = b.Resume(bg(), sandbox.SnapshotRef{Backend: "gvisor", Path: "/etc"}, sandbox.Env{Store: st, Actor: sbtest.Admin})
+		Expect(err).To(MatchError(workspace.ErrInvalid), "a folder outside StateDir")
+		ref, err := sb.Suspend(bg())
+		Expect(err).ToNot(HaveOccurred())
+		_, err = b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Agent, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}})
+		Expect(err).To(MatchError(workspace.ErrInvalid), "another actor")
+		_, err = b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
+		Expect(err).To(MatchError(workspace.ErrInvalid), "other ports")
+		next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}})
+		Expect(err).ToNot(HaveOccurred())
+		defer next.Destroy(bg())
+		_, err = b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}})
+		Expect(err).To(MatchError(workspace.ErrInvalid), "a sandbox that already runs")
+		// The old handle no longer owns the folder.
+		_, _, err = sb.Checkpoint(bg(), "stale")
+		Expect(err).To(MatchError(sandbox.ErrGone), "stale handle")
+	})
 
-// A host without the AppArmor profile gets ErrUnsupported with a reason that
-// names the fix. The test needs a host where the profile for
-// SANDBOX_TEST_RUNSC is not loaded: run it with SANDBOX_EXPECT_NO_PROFILE=1.
-func TestNewWithoutTheProfileNamesTheFix(t *testing.T) {
-	runsc := os.Getenv("SANDBOX_TEST_RUNSC")
-	if runsc == "" || os.Getenv("SANDBOX_EXPECT_NO_PROFILE") != "1" {
-		t.Skip("set SANDBOX_TEST_RUNSC and SANDBOX_EXPECT_NO_PROFILE=1 on a host where its AppArmor profile is not loaded")
-	}
-	_, err := New(Options{StateDir: shortDir(t), CacheDir: t.TempDir(), Runsc: runsc})
-	if !errors.Is(err, sandbox.ErrUnsupported) || !strings.Contains(err.Error(), "gvisor.Profile") {
-		t.Fatalf("New = %v", err)
-	}
-}
+	// A host without the AppArmor profile gets ErrUnsupported with a reason that
+	// names the fix. The test needs a host where the profile for
+	// SANDBOX_TEST_RUNSC is not loaded: run it with SANDBOX_EXPECT_NO_PROFILE=1.
+	It("names the fix when New runs without the profile", func() {
+		runsc := os.Getenv("SANDBOX_TEST_RUNSC")
+		if runsc == "" || os.Getenv("SANDBOX_EXPECT_NO_PROFILE") != "1" {
+			Skip("set SANDBOX_TEST_RUNSC and SANDBOX_EXPECT_NO_PROFILE=1 on a host where its AppArmor profile is not loaded")
+		}
+		_, err := New(Options{StateDir: shortDir(), CacheDir: GinkgoT().TempDir(), Runsc: runsc})
+		Expect(err).To(MatchError(sandbox.ErrUnsupported))
+		Expect(err.Error()).To(ContainSubstring("gvisor.Profile"))
+	})
 
-// Two sandboxes of one backend run at the same time, from one unpacked image,
-// each with its own state, sockets and files.
-func TestTwoSandboxesRunAtOnce(t *testing.T) {
-	b := testBackend(t)
-	sb1, _ := fixture(t, b, sandbox.Spec{})
-	sb2, _ := fixture(t, b, sandbox.Spec{})
-	var out [2]bytes.Buffer
-	var procs [2]sandbox.Process
-	for i, sb := range []sandbox.Sandbox{sb1, sb2} {
-		p, err := sb.Exec(bg(), sandbox.Cmd{
-			Args:   []string{"sh", "-c", "echo " + strconv.Itoa(i+1) + " > proj/who.txt; sleep 1; cat proj/who.txt"},
-			Stdout: &out[i],
-		})
-		if err != nil {
-			t.Fatal(err)
+	// Two sandboxes of one backend run at the same time, from one unpacked image,
+	// each with its own state, sockets and files.
+	It("runs two sandboxes at once", func() {
+		b := testBackend()
+		sb1, _ := fixture(b, sandbox.Spec{})
+		sb2, _ := fixture(b, sandbox.Spec{})
+		var out [2]bytes.Buffer
+		var procs [2]sandbox.Process
+		for i, sb := range []sandbox.Sandbox{sb1, sb2} {
+			p, err := sb.Exec(bg(), sandbox.Cmd{
+				Args:   []string{"sh", "-c", "echo " + strconv.Itoa(i+1) + " > proj/who.txt; sleep 1; cat proj/who.txt"},
+				Stdout: &out[i],
+			})
+			Expect(err).ToNot(HaveOccurred())
+			procs[i] = p
 		}
-		procs[i] = p
-	}
-	for i, p := range procs {
-		if code, err := p.Wait(); err != nil || code != 0 {
-			t.Fatalf("sandbox %d: %d %v", i+1, code, err)
+		for i, p := range procs {
+			code, err := p.Wait()
+			Expect(err).ToNot(HaveOccurred(), "sandbox %d", i+1)
+			Expect(code).To(BeZero(), "sandbox %d", i+1)
 		}
-	}
-	if out[0].String() != "1\n" || out[1].String() != "2\n" {
-		t.Fatalf("got %q %q", out[0].String(), out[1].String())
-	}
-	if sb1.ID() == sb2.ID() {
-		t.Fatal("two sandboxes have one ID")
-	}
-}
+		Expect(out[0].String()).To(Equal("1\n"))
+		Expect(out[1].String()).To(Equal("2\n"))
+		Expect(sb1.ID()).ToNot(Equal(sb2.ID()), "two sandboxes have one ID")
+	})
 
-// A restore that fails leaves the checkpoint and the suspended state where
-// they are, so the caller can retry.
-func TestFailedResumeKeepsTheCheckpoint(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{})
-	s := sb.(*sbx)
-	ref, err := sb.Suspend(bg())
-	if err != nil {
-		t.Fatal(err)
-	}
-	snap := filepath.Join(s.dir, "checkpoint")
-	files, err := os.ReadDir(snap)
-	if err != nil || len(files) == 0 {
-		t.Fatalf("the checkpoint folder: %v %v", files, err)
-	}
-	var saved []string
-	for _, f := range files {
-		p := filepath.Join(snap, f.Name())
-		raw, err := os.ReadFile(p)
-		if err != nil {
-			t.Fatal(err)
+	// A restore that fails leaves the checkpoint and the suspended state where
+	// they are, so the caller can retry.
+	It("keeps the checkpoint after a failed resume", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{})
+		s := sb.(*sbx)
+		ref, err := sb.Suspend(bg())
+		Expect(err).ToNot(HaveOccurred())
+		snap := filepath.Join(s.dir, "checkpoint")
+		files, err := os.ReadDir(snap)
+		Expect(err).ToNot(HaveOccurred(), "the checkpoint folder")
+		Expect(files).ToNot(BeEmpty(), "the checkpoint folder")
+		var saved []string
+		for _, f := range files {
+			p := filepath.Join(snap, f.Name())
+			raw, err := os.ReadFile(p)
+			Expect(err).ToNot(HaveOccurred())
+			saved = append(saved, p, string(raw))
+			Expect(os.WriteFile(p, nil, 0o600)).To(Succeed())
 		}
-		saved = append(saved, p, string(raw))
-		if err := os.WriteFile(p, nil, 0o600); err != nil {
-			t.Fatal(err)
+		_, err = b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
+		Expect(err).To(HaveOccurred(), "a resume from a broken checkpoint worked")
+		left, _ := os.ReadDir(snap)
+		Expect(left).To(HaveLen(len(files)), "the failed resume changed the checkpoint folder")
+		got, err := loadState(s.dir)
+		Expect(err).ToNot(HaveOccurred(), "state after the failed resume")
+		Expect(got.Suspended).To(BeTrue(), "state after the failed resume: %+v", got)
+		// With the files back, the retry works.
+		for i := 0; i < len(saved); i += 2 {
+			Expect(os.WriteFile(saved[i], []byte(saved[i+1]), 0o600)).To(Succeed())
 		}
-	}
-	if _, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin}); err == nil {
-		t.Fatal("a resume from a broken checkpoint worked")
-	}
-	if left, _ := os.ReadDir(snap); len(left) != len(files) {
-		t.Fatalf("the failed resume changed the checkpoint folder: %d files, was %d", len(left), len(files))
-	}
-	if got, err := loadState(s.dir); err != nil || !got.Suspended {
-		t.Fatalf("state after the failed resume: %+v %v", got, err)
-	}
-	// With the files back, the retry works.
-	for i := 0; i < len(saved); i += 2 {
-		if err := os.WriteFile(saved[i], []byte(saved[i+1]), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
-	if err != nil {
-		t.Fatalf("retry: %v", err)
-	}
-	defer next.Destroy(bg())
-	sh(t, next, "echo back > proj/back.txt")
-}
+		next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
+		Expect(err).ToNot(HaveOccurred(), "retry")
+		defer next.Destroy(bg())
+		sh(next, "echo back > proj/back.txt")
+	})
 
-// The files of the workspace come from read-only blobs (mode 0444). A command
-// has CAP_DAC_OVERRIDE, so it can change them in every way a program does:
-// truncate and write, write in place, replace through a rename. The copy of
-// the file in the upper layer is a host file, and the host must let the
-// sandbox write it (runsc runs with --directfs=false for this).
-func TestEveryWayOfEditingAReadOnlyWorkspaceFile(t *testing.T) {
-	b := testBackend(t)
-	sb, st := fixture(t, b, sandbox.Spec{})
-	for _, name := range []string{"a", "b", "c", "d", "e"} {
-		if _, err := st.Put(bg(), sbtest.Admin, "/proj/"+name+".txt", strings.NewReader("old "+name+"\n"), workspace.PutOptions{Overwrite: true}); err != nil {
-			t.Fatal(err)
+	// The files of the workspace come from read-only blobs (mode 0444). A command
+	// has CAP_DAC_OVERRIDE, so it can change them in every way a program does:
+	// truncate and write, write in place, replace through a rename. The copy of
+	// the file in the upper layer is a host file, and the host must let the
+	// sandbox write it (runsc runs with --directfs=false for this).
+	It("allows every way of editing a read-only workspace file", func() {
+		b := testBackend()
+		sb, st := fixture(b, sandbox.Spec{})
+		for _, name := range []string{"a", "b", "c", "d", "e"} {
+			_, err := st.Put(bg(), sbtest.Admin, "/proj/"+name+".txt", strings.NewReader("old "+name+"\n"), workspace.PutOptions{Overwrite: true})
+			Expect(err).ToNot(HaveOccurred())
 		}
-	}
-	if err := sb.Refresh(bg()); err != nil { // the guest sees the files
-		t.Fatal(err)
-	}
-	got := sh(t, sb, `cd proj
+		Expect(sb.Refresh(bg())).To(Succeed()) // the guest sees the files
+		got := sh(sb, `cd proj
 echo new > a.txt
 python3 -c "open('b.txt', 'w').write('new b\n')"
 sed -i 's/old/new/' c.txt
 : > d.txt && echo new d >> d.txt
 cp /dev/null e.txt && echo new e > e.txt
 cat a.txt b.txt c.txt d.txt e.txt`)
-	if want := "new\nnew b\nnew c\nnew d\nnew e\n"; got != want {
-		t.Fatalf("after the edits: %q, want %q", got, want)
-	}
-	if _, c, err := sb.Checkpoint(bg(), "edits"); err != nil || len(c) != 0 {
-		t.Fatalf("checkpoint: %v %+v", err, c)
-	}
-	r, _, err := st.Open(bg(), sbtest.Admin, "/proj/c.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer r.Close()
-	if body, _ := io.ReadAll(r); string(body) != "new c\n" {
-		t.Fatalf("c.txt in the store: %q", body)
-	}
-}
+		Expect(got).To(Equal("new\nnew b\nnew c\nnew d\nnew e\n"), "after the edits")
+		_, c, err := sb.Checkpoint(bg(), "edits")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(c).To(BeEmpty())
+		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/c.txt")
+		Expect(err).ToNot(HaveOccurred())
+		defer r.Close()
+		body, _ := io.ReadAll(r)
+		Expect(string(body)).To(Equal("new c\n"), "c.txt in the store")
+	})
 
-// While a Suspend runs, the port listeners refuse new connections: a guest
-// process must not open one between the close of the old ones and the
-// checkpoint of runsc. When the Suspend fails, the ports work again.
-func TestPortGateRefusesConnectionsDuringAFailingSuspend(t *testing.T) {
-	b := testBackend(t)
-	sb, _ := fixture(t, b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
-	s := sb.(*sbx)
-	const probe = `python3 -c "
+	// While a Suspend runs, the port listeners refuse new connections: a guest
+	// process must not open one between the close of the old ones and the
+	// checkpoint of runsc. When the Suspend fails, the ports work again.
+	It("refuses port connections during a failing suspend", func() {
+		b := testBackend()
+		sb, _ := fixture(b, sandbox.Spec{Env: sandbox.Env{Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}}})
+		s := sb.(*sbx)
+		const probe = `python3 -c "
 import socket
 c = socket.create_connection(('127.0.0.1', 7000), 5)
 c.sendall(b'ping')
 print('echo', c.recv(4).decode())"`
-	if got := sh(t, sb, probe); got != "echo ping\n" {
-		t.Fatalf("before the suspend: %q", got)
-	}
-	var during string
-	s.hooks.suspendSave = func() error { // the ports are gated here
-		c, err := net.Dial("unix", portSock(s.dir, 7000))
-		if err != nil {
-			during = "dial: " + err.Error()
+		Expect(sh(sb, probe)).To(Equal("echo ping\n"), "before the suspend")
+		var during string
+		s.hooks.suspendSave = func() error { // the ports are gated here
+			c, err := net.Dial("unix", portSock(s.dir, 7000))
+			if err != nil {
+				during = "dial: " + err.Error()
+				return errors.New("injected save failure")
+			}
+			defer c.Close()
+			_ = c.SetDeadline(time.Now().Add(10 * time.Second))
+			_, _ = c.Write([]byte("ping"))
+			buf := make([]byte, 4)
+			n, err := c.Read(buf)
+			during = "read " + strconv.Itoa(n) + " bytes: " + fmt.Sprint(err)
+			if n == 0 && err != nil && !errors.Is(err, os.ErrDeadlineExceeded) {
+				during = "refused"
+			}
 			return errors.New("injected save failure")
 		}
-		defer c.Close()
-		_ = c.SetDeadline(time.Now().Add(10 * time.Second))
-		_, _ = c.Write([]byte("ping"))
-		buf := make([]byte, 4)
-		n, err := c.Read(buf)
-		during = "read " + strconv.Itoa(n) + " bytes: " + fmt.Sprint(err)
-		if n == 0 && err != nil && !errors.Is(err, os.ErrDeadlineExceeded) {
-			during = "refused"
-		}
-		return errors.New("injected save failure")
-	}
-	if _, err := sb.Suspend(bg()); err == nil || errors.Is(err, sandbox.ErrGone) {
-		t.Fatalf("Suspend = %v, want the injected error and no ErrGone", err)
-	}
-	s.hooks.suspendSave = nil
-	if during != "refused" {
-		t.Fatalf("a connection during the suspend: %s", during)
-	}
-	if got := sh(t, sb, probe); got != "echo ping\n" {
-		t.Fatalf("after the failed suspend: %q", got)
-	}
-}
+		_, err := sb.Suspend(bg())
+		Expect(err).To(HaveOccurred())
+		Expect(errors.Is(err, sandbox.ErrGone)).To(BeFalse(), "Suspend = %v, want the injected error and no ErrGone", err)
+		s.hooks.suspendSave = nil
+		Expect(during).To(Equal("refused"), "a connection during the suspend")
+		Expect(sh(sb, probe)).To(Equal("echo ping\n"), "after the failed suspend")
+	})
+})

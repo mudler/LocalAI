@@ -4,17 +4,16 @@ package gvisor
 
 import (
 	"os"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // shortDir is a temporary folder with a short path, for Unix sockets.
-func shortDir(t *testing.T) string {
-	t.Helper()
+func shortDir() string {
 	d, err := os.MkdirTemp("", "gv")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { removeAllForTest(d) })
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { removeAllForTest(d) })
 	return d
 }
 

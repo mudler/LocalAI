@@ -5,27 +5,20 @@ package gvisor
 import (
 	"os"
 	"path/filepath"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestRemoveAllEmptiesAReadOnlyFolder(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "x")
-	if err := os.MkdirAll(filepath.Join(dir, "ro", "sub"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "ro", "sub", "f"), []byte("x"), 0o444); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(filepath.Join(dir, "ro", "sub"), 0o555); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(filepath.Join(dir, "ro"), 0o555); err != nil {
-		t.Fatal(err)
-	}
-	if err := removeAll(dir); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(dir); !os.IsNotExist(err) {
-		t.Fatalf("folder still there: %v", err)
-	}
-}
+var _ = Describe("removeAll", func() {
+	It("empties a read-only folder", func() {
+		dir := filepath.Join(GinkgoT().TempDir(), "x")
+		Expect(os.MkdirAll(filepath.Join(dir, "ro", "sub"), 0o755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "ro", "sub", "f"), []byte("x"), 0o444)).To(Succeed())
+		Expect(os.Chmod(filepath.Join(dir, "ro", "sub"), 0o555)).To(Succeed())
+		Expect(os.Chmod(filepath.Join(dir, "ro"), 0o555)).To(Succeed())
+		Expect(removeAll(dir)).To(Succeed())
+		_, err := os.Stat(dir)
+		Expect(os.IsNotExist(err)).To(BeTrue(), "folder still there: %v", err)
+	})
+})

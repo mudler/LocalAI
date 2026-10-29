@@ -4,13 +4,16 @@ package gvisor
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -19,20 +22,14 @@ import (
 // bigLimits are limits that no test layer reaches.
 var bigLimits = readLimits{stage: 1 << 40}
 
-func write(t *testing.T, p, body string) {
-	t.Helper()
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
+func write(p, body string) {
+	Expect(os.MkdirAll(filepath.Dir(p), 0o755)).To(Succeed())
+	Expect(os.WriteFile(p, []byte(body), 0o644)).To(Succeed())
 }
 
 // summary lists "path kind" for the entries, sorted, with the content of
 // files read from their Open.
-func summary(t *testing.T, src stagedSource) []string {
-	t.Helper()
+func summary(src stagedSource) []string {
 	var out []string
 	err := src.Walk(context.Background(), func(e workspace.UpperEntry) error {
 		line := e.Path + " " + map[workspace.EntryKind]string{
@@ -50,221 +47,172 @@ func summary(t *testing.T, src stagedSource) []string {
 		out = append(out, line)
 		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).ToNot(HaveOccurred())
 	sort.Strings(out)
 	return out
 }
 
-func TestReadUpperSendsOnlyWhatChanged(t *testing.T) {
-	ctx := context.Background()
-	root, stage := filepath.Join(t.TempDir(), "data"), t.TempDir()
-	write(t, filepath.Join(root, "a.txt"), "a1")
-	write(t, filepath.Join(root, "d", "b.txt"), "b1")
+var _ = Describe("upper layer", func() {
+	It("sends only what changed", func() {
+		ctx := context.Background()
+		root, stage := filepath.Join(GinkgoT().TempDir(), "data"), GinkgoT().TempDir()
+		write(filepath.Join(root, "a.txt"), "a1")
+		write(filepath.Join(root, "d", "b.txt"), "b1")
 
-	src, next, err := readUpper(ctx, root, stage, sandbox.UpperIndex{}, bigLimits)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.Join(summary(t, src), "|"); got != "a.txt file a1|d dir|d/b.txt file b1" {
-		t.Fatalf("first read: %s", got)
-	}
-	// The staged copies do not follow later writes to the live files.
-	write(t, filepath.Join(root, "a.txt"), "a2-longer")
-	if got := strings.Join(summary(t, src), "|"); !strings.Contains(got, "a.txt file a1") {
-		t.Fatalf("staged content changed: %s", got)
-	}
+		src, next, err := readUpper(ctx, root, stage, sandbox.UpperIndex{}, bigLimits)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.Join(summary(src), "|")).To(Equal("a.txt file a1|d dir|d/b.txt file b1"), "first read")
+		// The staged copies do not follow later writes to the live files.
+		write(filepath.Join(root, "a.txt"), "a2-longer")
+		Expect(strings.Join(summary(src), "|")).To(ContainSubstring("a.txt file a1"), "staged content changed")
 
-	// Nothing changed since the index was made: only the folder is sent again
-	// (a folder has no key). Then the edit of a.txt is sent, the rest is not.
-	src, next2, err := readUpper(ctx, root, t.TempDir(), next, bigLimits)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.Join(summary(t, src), "|"); got != "a.txt file a2-longer|d dir" {
-		t.Fatalf("second read: %s", got)
-	}
-	// A file that an earlier checkpoint committed and the guest deleted
-	// since: overlayfs leaves no whiteout for it, the index does.
-	if err := os.Remove(filepath.Join(root, "d", "b.txt")); err != nil {
-		t.Fatal(err)
-	}
-	src, _, err = readUpper(ctx, root, t.TempDir(), next2, bigLimits)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := strings.Join(summary(t, src), "|"); got != "d dir|d/b.txt whiteout" {
-		t.Fatalf("third read: %s", got)
-	}
-}
+		// Nothing changed since the index was made: only the folder is sent again
+		// (a folder has no key). Then the edit of a.txt is sent, the rest is not.
+		src, next2, err := readUpper(ctx, root, GinkgoT().TempDir(), next, bigLimits)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.Join(summary(src), "|")).To(Equal("a.txt file a2-longer|d dir"), "second read")
+		// A file that an earlier checkpoint committed and the guest deleted
+		// since: overlayfs leaves no whiteout for it, the index does.
+		Expect(os.Remove(filepath.Join(root, "d", "b.txt"))).To(Succeed())
+		src, _, err = readUpper(ctx, root, GinkgoT().TempDir(), next2, bigLimits)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(strings.Join(summary(src), "|")).To(Equal("d dir|d/b.txt whiteout"), "third read")
+	})
 
-func TestReadUpperOfAMissingFolderIsEmpty(t *testing.T) {
-	src, next, err := readUpper(context.Background(), filepath.Join(t.TempDir(), "none"), t.TempDir(), sandbox.UpperIndex{}, bigLimits)
-	if err != nil || len(src) != 0 || len(next) != 0 {
-		t.Fatalf("%v %v %v", src, next, err)
-	}
-}
+	It("reads a missing folder as empty", func() {
+		src, next, err := readUpper(context.Background(), filepath.Join(GinkgoT().TempDir(), "none"), GinkgoT().TempDir(), sandbox.UpperIndex{}, bigLimits)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(src).To(BeEmpty())
+		Expect(next).To(BeEmpty())
+	})
 
-func TestStatKeyChangesWithTheFile(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "f")
-	write(t, p, "one")
-	st1, _ := os.Lstat(p)
-	k1 := statKey(st1)
-	if k1 == "" {
-		t.Fatal("empty key")
-	}
-	// The same content with a different modification time is a different key,
-	// whatever the clock granularity is.
-	if err := os.Chtimes(p, time.Unix(1_000_000_000, 0), time.Unix(1_000_000_000, 0)); err != nil {
-		t.Fatal(err)
-	}
-	st2, _ := os.Lstat(p)
-	k2 := statKey(st2)
-	if k1 == k2 {
-		t.Fatalf("key did not change with the mtime: %q", k1)
-	}
-	// A different size is a different key.
-	write(t, p, "three")
-	st3, _ := os.Lstat(p)
-	if k3 := statKey(st3); k3 == k2 || k3 == k1 {
-		t.Fatalf("key did not change with the size: %q %q %q", k1, k2, k3)
-	}
-	// An unchanged file keeps its key.
-	st4, _ := os.Lstat(p)
-	if statKey(st4) != statKey(st3) {
-		t.Fatal("key of an unchanged file changed")
-	}
-}
+	It("changes the stat key with the file", func() {
+		p := filepath.Join(GinkgoT().TempDir(), "f")
+		write(p, "one")
+		st1, _ := os.Lstat(p)
+		k1 := statKey(st1)
+		Expect(k1).ToNot(BeEmpty(), "empty key")
+		// The same content with a different modification time is a different key,
+		// whatever the clock granularity is.
+		Expect(os.Chtimes(p, time.Unix(1_000_000_000, 0), time.Unix(1_000_000_000, 0))).To(Succeed())
+		st2, _ := os.Lstat(p)
+		k2 := statKey(st2)
+		Expect(k2).ToNot(Equal(k1), "key did not change with the mtime")
+		// A different size is a different key.
+		write(p, "three")
+		st3, _ := os.Lstat(p)
+		k3 := statKey(st3)
+		Expect(k3).ToNot(Equal(k2), "key did not change with the size")
+		Expect(k3).ToNot(Equal(k1), "key did not change with the size")
+		// An unchanged file keeps its key.
+		st4, _ := os.Lstat(p)
+		Expect(statKey(st4)).To(Equal(statKey(st3)), "key of an unchanged file changed")
+	})
 
-func TestDirUsageCountsBlocks(t *testing.T) {
-	dir := t.TempDir()
-	write(t, filepath.Join(dir, "a"), strings.Repeat("x", 100000))
-	if n, capped := dirUsage(dir, 100); n < 100000 || capped {
-		t.Fatalf("usage = %d, capped %v", n, capped)
-	}
-	if n, capped := dirUsage(filepath.Join(dir, "missing"), 100); n != 0 || capped {
-		t.Fatalf("usage of a missing folder = %d, capped %v", n, capped)
-	}
-}
+	It("counts blocks in dirUsage", func() {
+		dir := GinkgoT().TempDir()
+		write(filepath.Join(dir, "a"), strings.Repeat("x", 100000))
+		n, capped := dirUsage(dir, 100)
+		Expect(n).To(BeNumerically(">=", 100000))
+		Expect(capped).To(BeFalse())
+		n, capped = dirUsage(filepath.Join(dir, "missing"), 100)
+		Expect(n).To(BeZero(), "usage of a missing folder")
+		Expect(capped).To(BeFalse())
+	})
 
-func TestDirUsageStopsAtTheEntryCap(t *testing.T) {
-	dir := t.TempDir()
-	for _, n := range []string{"a", "b", "c", "d"} {
-		write(t, filepath.Join(dir, n), "")
-	}
-	// The root and four files are five entries.
-	if _, capped := dirUsage(dir, 5); capped {
-		t.Fatal("five entries are within a cap of five")
-	}
-	if _, capped := dirUsage(dir, 4); !capped {
-		t.Fatal("five entries are over a cap of four")
-	}
-}
+	It("stops dirUsage at the entry cap", func() {
+		dir := GinkgoT().TempDir()
+		for _, n := range []string{"a", "b", "c", "d"} {
+			write(filepath.Join(dir, n), "")
+		}
+		// The root and four files are five entries.
+		_, capped := dirUsage(dir, 5)
+		Expect(capped).To(BeFalse(), "five entries are within a cap of five")
+		_, capped = dirUsage(dir, 4)
+		Expect(capped).To(BeTrue(), "five entries are over a cap of four")
+	})
 
-func TestMeasureDiskSetsTheFlagAtTheEntryCapAndDropsStaleReadings(t *testing.T) {
-	dir := t.TempDir()
-	s := &sbx{dir: dir}
-	upper := filepath.Join(dir, "upper")
-	write(t, filepath.Join(upper, "a"), "")
-	in := newInst(1)
-	s.measureDisk(in, 1<<30)
-	if s.diskFull.Load() {
-		t.Fatal("a small layer is full")
-	}
-	s.measureDisk(in, -1) // over the limit
-	if !s.diskFull.Load() {
-		t.Fatal("a layer over the limit is not full")
-	}
-	// A refresh stops the old instance and clears the flag. A reading of the
-	// old instance that finishes later must not set it again.
-	s.diskFull.Store(false)
-	close(in.quit)
-	s.measureDisk(in, -1)
-	if s.diskFull.Load() {
-		t.Fatal("a reading of a stopped instance set the flag")
-	}
-}
+	It("sets the disk flag at the entry cap and drops stale readings", func() {
+		dir := GinkgoT().TempDir()
+		s := &sbx{dir: dir}
+		upper := filepath.Join(dir, "upper")
+		write(filepath.Join(upper, "a"), "")
+		in := newInst(1)
+		s.measureDisk(in, 1<<30)
+		Expect(s.diskFull.Load()).To(BeFalse(), "a small layer is full")
+		s.measureDisk(in, -1) // over the limit
+		Expect(s.diskFull.Load()).To(BeTrue(), "a layer over the limit is not full")
+		// A refresh stops the old instance and clears the flag. A reading of the
+		// old instance that finishes later must not set it again.
+		s.diskFull.Store(false)
+		close(in.quit)
+		s.measureDisk(in, -1)
+		Expect(s.diskFull.Load()).To(BeFalse(), "a reading of a stopped instance set the flag")
+	})
 
-func TestTheUpperCapsAreTheOnesOfChv(t *testing.T) {
-	if maxUpperDepth != 512 || maxUpperEntries != 1000000 {
-		t.Fatalf("caps: %d levels, %d entries", maxUpperDepth, maxUpperEntries)
-	}
-	if got := (readLimits{}).withDefaults(); got.depth != 512 || got.entries != 1000000 {
-		t.Fatalf("defaults: %+v", got)
-	}
-}
+	It("uses the upper caps of chv", func() {
+		Expect(maxUpperDepth).To(BeEquivalentTo(512))
+		Expect(maxUpperEntries).To(BeEquivalentTo(1000000))
+		got := (readLimits{}).withDefaults()
+		Expect(got.depth).To(BeEquivalentTo(512), "defaults: %+v", got)
+		Expect(got.entries).To(BeEquivalentTo(1000000), "defaults: %+v", got)
+	})
 
-func TestReadUpperFailsOverTheEntryCapAndNamesIt(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "data")
-	for _, n := range []string{"a", "b", "c", "d"} {
-		write(t, filepath.Join(root, n), "x")
-	}
-	lim := readLimits{entries: 4, stage: 1 << 20}
-	if _, _, err := readUpper(context.Background(), root, t.TempDir(), sandbox.UpperIndex{}, lim); err != nil {
-		t.Fatalf("four entries within a cap of four: %v", err)
-	}
-	stage := t.TempDir()
-	lim.entries = 3
-	_, _, err := readUpper(context.Background(), root, stage, sandbox.UpperIndex{}, lim)
-	if err == nil || !strings.Contains(err.Error(), "more than 3 entries") {
-		t.Fatalf("err = %v", err)
-	}
-	if ents, _ := os.ReadDir(stage); len(ents) != 0 {
-		t.Fatalf("a failed read staged %d files", len(ents))
-	}
-}
+	It("fails over the entry cap and names it", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "data")
+		for _, n := range []string{"a", "b", "c", "d"} {
+			write(filepath.Join(root, n), "x")
+		}
+		lim := readLimits{entries: 4, stage: 1 << 20}
+		_, _, err := readUpper(context.Background(), root, GinkgoT().TempDir(), sandbox.UpperIndex{}, lim)
+		Expect(err).ToNot(HaveOccurred(), "four entries within a cap of four")
+		stage := GinkgoT().TempDir()
+		lim.entries = 3
+		_, _, err = readUpper(context.Background(), root, stage, sandbox.UpperIndex{}, lim)
+		Expect(err).To(MatchError(ContainSubstring("more than 3 entries")))
+		ents, _ := os.ReadDir(stage)
+		Expect(ents).To(BeEmpty(), "a failed read staged files")
+	})
 
-func TestReadUpperFailsOverTheDepthCapAndNamesIt(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "data")
-	write(t, filepath.Join(root, "a", "b", "c", "f"), "x")
-	lim := readLimits{depth: 4, stage: 1 << 20}
-	if _, _, err := readUpper(context.Background(), root, t.TempDir(), sandbox.UpperIndex{}, lim); err != nil {
-		t.Fatalf("four levels within a cap of four: %v", err)
-	}
-	lim.depth = 3
-	_, _, err := readUpper(context.Background(), root, t.TempDir(), sandbox.UpperIndex{}, lim)
-	if err == nil || !strings.Contains(err.Error(), "deeper than 3 levels") {
-		t.Fatalf("err = %v", err)
-	}
-}
+	It("fails over the depth cap and names it", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "data")
+		write(filepath.Join(root, "a", "b", "c", "f"), "x")
+		lim := readLimits{depth: 4, stage: 1 << 20}
+		_, _, err := readUpper(context.Background(), root, GinkgoT().TempDir(), sandbox.UpperIndex{}, lim)
+		Expect(err).ToNot(HaveOccurred(), "four levels within a cap of four")
+		lim.depth = 3
+		_, _, err = readUpper(context.Background(), root, GinkgoT().TempDir(), sandbox.UpperIndex{}, lim)
+		Expect(err).To(MatchError(ContainSubstring("deeper than 3 levels")))
+	})
 
-func TestReadUpperFailsOverTheDefaultDepthCap(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "data")
-	deep := root
-	for range maxUpperDepth + 1 {
-		deep = filepath.Join(deep, "d")
-	}
-	if err := os.MkdirAll(deep, 0o755); err != nil {
-		t.Skipf("cannot make %d levels: %v", maxUpperDepth+1, err)
-	}
-	_, _, err := readUpper(context.Background(), root, t.TempDir(), sandbox.UpperIndex{}, readLimits{stage: 1 << 20})
-	if err == nil || !strings.Contains(err.Error(), "deeper than 512 levels") {
-		t.Fatalf("err = %v", err)
-	}
-}
+	It("fails over the default depth cap", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "data")
+		deep := root
+		for range maxUpperDepth + 1 {
+			deep = filepath.Join(deep, "d")
+		}
+		if err := os.MkdirAll(deep, 0o755); err != nil {
+			Skip(fmt.Sprintf("cannot make %d levels: %v", maxUpperDepth+1, err))
+		}
+		_, _, err := readUpper(context.Background(), root, GinkgoT().TempDir(), sandbox.UpperIndex{}, readLimits{stage: 1 << 20})
+		Expect(err).To(MatchError(ContainSubstring("deeper than 512 levels")))
+	})
 
-func TestReadUpperFailsOverTheStageLimit(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "data")
-	write(t, filepath.Join(root, "a"), strings.Repeat("x", 600))
-	write(t, filepath.Join(root, "b"), strings.Repeat("y", 600))
-	stage := t.TempDir()
-	_, _, err := readUpper(context.Background(), root, stage, sandbox.UpperIndex{}, readLimits{stage: 1000})
-	if err == nil || !strings.Contains(err.Error(), "stage limit of 1000 bytes") {
-		t.Fatalf("err = %v", err)
-	}
-	if ents, _ := os.ReadDir(stage); len(ents) != 0 {
-		t.Fatalf("a failed read staged %d files", len(ents))
-	}
-	if _, _, err := readUpper(context.Background(), root, t.TempDir(), sandbox.UpperIndex{}, readLimits{stage: 1200}); err != nil {
-		t.Fatalf("exactly the limit: %v", err)
-	}
-	// Files that are not sent (unchanged) do not count.
-	_, next, err := readUpper(context.Background(), root, t.TempDir(), sandbox.UpperIndex{}, readLimits{stage: 1200})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := readUpper(context.Background(), root, t.TempDir(), next, readLimits{stage: 1}); err != nil {
-		t.Fatalf("unchanged files counted against the limit: %v", err)
-	}
-}
+	It("fails over the stage limit", func() {
+		root := filepath.Join(GinkgoT().TempDir(), "data")
+		write(filepath.Join(root, "a"), strings.Repeat("x", 600))
+		write(filepath.Join(root, "b"), strings.Repeat("y", 600))
+		stage := GinkgoT().TempDir()
+		_, _, err := readUpper(context.Background(), root, stage, sandbox.UpperIndex{}, readLimits{stage: 1000})
+		Expect(err).To(MatchError(ContainSubstring("stage limit of 1000 bytes")))
+		ents, _ := os.ReadDir(stage)
+		Expect(ents).To(BeEmpty(), "a failed read staged files")
+		_, _, err = readUpper(context.Background(), root, GinkgoT().TempDir(), sandbox.UpperIndex{}, readLimits{stage: 1200})
+		Expect(err).ToNot(HaveOccurred(), "exactly the limit")
+		// Files that are not sent (unchanged) do not count.
+		_, next, err := readUpper(context.Background(), root, GinkgoT().TempDir(), sandbox.UpperIndex{}, readLimits{stage: 1200})
+		Expect(err).ToNot(HaveOccurred())
+		_, _, err = readUpper(context.Background(), root, GinkgoT().TempDir(), next, readLimits{stage: 1})
+		Expect(err).ToNot(HaveOccurred(), "unchanged files counted against the limit")
+	})
+})
