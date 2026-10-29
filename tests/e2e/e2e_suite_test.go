@@ -287,8 +287,9 @@ var _ = BeforeSuite(func() {
 			"model": "mock-s2s.bin",
 		},
 		"pipeline": map[string]any{
-			"any_to_any": true,
-			"vad":        "mock-vad",
+			"any_to_any":    true,
+			"vad":           "mock-vad",
+			"transcription": "mock-stt", // the input transcript comes from a model of its own
 		},
 	}
 	s2sData, err := yaml.Marshal(s2sCfg)
@@ -305,7 +306,8 @@ var _ = BeforeSuite(func() {
 			"model": "mock-s2s.bin",
 		},
 		"pipeline": map[string]any{
-			"any_to_any": true,
+			"any_to_any":    true,
+			"transcription": "mock-stt",
 		},
 	}
 	s2sNoVADData, err := yaml.Marshal(s2sNoVADCfg)

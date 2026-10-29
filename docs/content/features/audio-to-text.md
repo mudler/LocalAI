@@ -178,7 +178,7 @@ curl http://localhost:8080/v1/audio/transcriptions \
 
 ### LFM3-Audio (experimental)
 
-The gallery entries `lfm3-audio-2b` and `lfm3-audio-2b-q8` also transcribe through the `llama-cpp` backend, using the same model as speech-to-speech and TTS. When a `language` is given, the request asks for transcription in that language with the system prompt `Perform ASR in <Language>.`. Without one, the model is asked to infer the language. Transcription uses the second slot (`parallel:2`), so it can run in a realtime session; the session makes it between two responses. This needs a llama.cpp build with LFM3-Audio support.
+The gallery entries `lfm3-audio-2b` and `lfm3-audio-2b-q8` also transcribe through the `llama-cpp` backend, using the same model as speech-to-speech and TTS. When a `language` is given, the request asks for transcription in that language with the system prompt `Perform ASR in <Language>.`. Without one, the model is asked to infer the language. Transcription uses the second slot (`parallel:2`), so it can run next to a realtime session. A realtime session does not use it for the input transcript by default; see [Realtime]({{% relref "openai-realtime" %}}). This needs a llama.cpp build with LFM3-Audio support.
 
 ## Using the parakeet-cpp backend
 

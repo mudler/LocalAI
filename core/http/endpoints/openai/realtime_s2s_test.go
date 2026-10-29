@@ -1107,6 +1107,22 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(r.outcome).To(Equal(outcomeFailed))
 	})
 
+	Describe("the model that transcribes the input of an any-to-any session", func() {
+		It("is none by default, another model, or the model itself when named", func() {
+			yes := true
+			for name, tc := range map[string]struct{ transcription, want string }{
+				"default":     {"", ""},
+				"other model": {"asr", "asr"},
+				"own model":   {"s2s", "s2s"},
+			} {
+				cfg := &config.ModelConfig{Name: "s2s", Pipeline: config.Pipeline{AnyToAny: &yes, Transcription: tc.transcription}}
+				_, _, ok := prepareRealtimeConfig(cfg)
+				Expect(ok).To(BeTrue(), name)
+				Expect(s2sInputTranscriptionModel(cfg)).To(Equal(tc.want), name)
+			}
+		})
+	})
+
 	Describe("the input transcription on the model of the stream", func() {
 		sessionOn := func(name, transcription string) *Session {
 			st := newS2SSession(newFakeS2SStream(), nil, nil)
@@ -1232,12 +1248,14 @@ var _ = Describe("realtime speech-to-speech", func() {
 		newCfg := func() *config.ModelConfig {
 			return &config.ModelConfig{Name: "s2s", Pipeline: config.Pipeline{AnyToAny: &yes}}
 		}
-		It("fills llm and transcription, leaves VAD and TTS empty", func() {
+		It("fills llm, leaves transcription, VAD and TTS empty", func() {
 			cfg := newCfg()
 			_, _, ok := prepareRealtimeConfig(cfg)
 			Expect(ok).To(BeTrue())
 			Expect(cfg.Pipeline.LLM).To(Equal("s2s"))
-			Expect(cfg.Pipeline.Transcription).To(Equal("s2s"))
+			// no input transcription unless the config asks for one
+			Expect(cfg.Pipeline.Transcription).To(BeEmpty())
+			Expect(s2sInputTranscriptionModel(cfg)).To(BeEmpty())
 			Expect(cfg.Pipeline.VAD).To(BeEmpty())
 			Expect(cfg.Pipeline.TTS).To(BeEmpty())
 		})

@@ -57,10 +57,12 @@ var _ = Describe("LFM3-Audio gallery entries in the realtime endpoint", func() {
 				Expect(defaultSessionTurnDetection(cfg)).To(BeNil())
 			}
 			Expect(cfg.Pipeline.LLM).To(Equal(name))
-			Expect(cfg.Pipeline.Transcription).To(Equal(name))
 			if anyToAny {
+				Expect(cfg.Pipeline.Transcription).To(BeEmpty(), "the input is not transcribed by default")
+				Expect(s2sInputTranscriptionModel(cfg)).To(BeEmpty())
 				Expect(cfg.Pipeline.TTS).To(BeEmpty(), "speech comes from the same stream")
 			} else {
+				Expect(cfg.Pipeline.Transcription).To(Equal(name))
 				Expect(cfg.Pipeline.TTS).To(Equal(name))
 				Expect(cfg.KnownUsecases).NotTo(BeNil())
 				Expect(*cfg.KnownUsecases & config.FLAG_REALTIME_AUDIO).To(BeZero())

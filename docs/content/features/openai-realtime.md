@@ -554,7 +554,7 @@ How a call is read depends on the model:
 ### Transcripts
 
 - **Reply transcript.** `response.output_audio_transcript.delta` and `response.output_audio_transcript.done` carry the text of the spoken reply. In a text-only response, `response.output_text.delta` is used instead.
-- **User transcript.** When input transcription is on, `conversation.item.input_audio_transcription.delta` and `.completed` are sent for the user item. The transcript comes from `pipeline.transcription` if it is set, or else from the same model through its speech recognition path, which uses a second slot. On the same model the transcript is made between responses, not during one, because both share one llama.cpp context. If transcription fails, `conversation.item.input_audio_transcription.failed` is sent and the reply continues.
+- **User transcript.** The stream answers from the audio, so an any-to-any model does not transcribe the input unless `pipeline.transcription` is set. When it names another model (a sherpa-onnx ASR, for example), `conversation.item.input_audio_transcription.completed` is sent for the user item, in parallel with the reply. When it names the model itself, the transcript is made on a second slot before the reply starts, so it arrives before the first output of that reply (for a manual commit and for a VAD turn), and it delays the reply by its own run time. Both share one llama.cpp context, and while they run together llama.cpp rebuilds its buffers on every step, which slows the reply to a few tokens per second; this is why the default is no transcript. The transcript of the reply always comes from the stream. If transcription fails, `conversation.item.input_audio_transcription.failed` is sent and the reply continues.
 
 ### Barge-in
 

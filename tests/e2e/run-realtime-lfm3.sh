@@ -156,8 +156,11 @@ write_model_config() {
   - chat
   - transcript
   - tts"
+        # the input transcript of an any-to-any model comes from a model of its
+        # own: on the model itself it would share the llama.cpp context with the reply
         pipeline="pipeline:
-  any_to_any: true"
+  any_to_any: true
+  transcription: $ASR_MODEL"
     fi
     [[ "$vad" == "1" ]] && pipeline="$pipeline
   vad: $VAD_MODEL"

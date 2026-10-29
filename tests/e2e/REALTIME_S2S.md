@@ -40,6 +40,11 @@ sherpa-onnx ASR transcribes the reply audio, so the checks do not rely on the
 model's own transcript. Assertions are robust to sampling: reply duration and
 loudness, keywords found in the transcript or the ASR text, and event order.
 
+An any-to-any model does not transcribe its input by default (that would share
+the llama.cpp context with the reply and slow it down). The script sets
+`pipeline.transcription` of the any-to-any configs to the sherpa ASR, so the
+input transcript path stays covered. The mock configs name `mock-stt` the same way.
+
 ```sh
 # Build the backend images once (pick the build type for the host).
 BUILD_TYPE=cublas CUDA_MAJOR_VERSION=13 make docker-build-llama-cpp

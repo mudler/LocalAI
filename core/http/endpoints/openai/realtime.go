@@ -762,6 +762,9 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	turnDetection := defaultSessionTurnDetection(cfg)
 	inputAudioTranscription := &types.AudioTranscription{Model: sttModel}
 	anyToAny := cfg.Pipeline.IsAnyToAny()
+	if anyToAny && s2sInputTranscriptionModel(cfg) == "" {
+		inputAudioTranscription = nil // the stream answers from the audio; see s2sInputTranscriptionModel
+	}
 	if soundOnly {
 		turnDetection = nil           // turn_detection none: no VAD
 		inputAudioTranscription = nil // no transcription stage

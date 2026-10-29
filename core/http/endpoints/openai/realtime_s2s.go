@@ -985,6 +985,23 @@ func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Sess
 	}
 }
 
+// s2sInputTranscriptionModel is the model that transcribes the input audio of
+// an any-to-any session, or "" for none. The stream already holds the audio and
+// answers from it, so the transcript is only for the client, and on the model of
+// the stream it is costly: llama.cpp serves the transcript request and the
+// realtime stream from one context and rebuilds its compute buffers on every
+// step while both are active (a GB10 run: 26 to 29 reserves of 175 ms per
+// turn, against 0 to 1 on the llama.cpp server). So an any-to-any model
+// transcribes the input only when pipeline.transcription asks for it: another
+// model runs in parallel with the reply, the model itself (named explicitly)
+// runs before the reply. The output transcript always comes from the stream.
+func s2sInputTranscriptionModel(cfg *config.ModelConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	return cfg.Pipeline.Transcription
+}
+
 // s2sTranscribesOnStreamModel tells if the input transcription of the session
 // runs on the same model as the speech-to-speech stream, so on the same
 // llama.cpp context.
@@ -1547,8 +1564,7 @@ func prepareAnyToAnyConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 	if p.LLM == "" {
 		p.LLM = cfg.Name
 	}
-	if p.Transcription == "" {
-		p.Transcription = cfg.Name
-	}
+	// pipeline.transcription is left as the config has it: empty means the
+	// session does not transcribe the input (see s2sInputTranscriptionModel).
 	return "", "", true
 }
