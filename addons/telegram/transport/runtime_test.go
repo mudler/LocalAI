@@ -89,4 +89,22 @@ var _ = Describe("the connector route", func() {
 			Expect(err).To(MatchError(contract.ErrRefused))
 		}
 	})
+
+	It("replaces a working message with the answer and sends a file into the topic of the conversation", func() {
+		f := newFakeBot()
+		f.reply["sendDocument"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"message_id":8}}` }
+		r := run(f)
+		out, err := r.Connector(ctx, contract.ConnectorRequest{Op: "send", Kind: "telegram", Token: secretToken, Chat: "5", MessageID: "6", Text: "the answer"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error).To(BeNil())
+		Expect(out.MessageID).To(Equal("6"))
+		Expect(f.called("editMessageText")).To(HaveLen(1))
+		Expect(f.called("sendMessage")).To(BeEmpty())
+		out, err = r.Connector(ctx, contract.ConnectorRequest{Op: "send_file", Kind: "telegram", Token: secretToken, Chat: "5", Thread: "77",
+			File: &contract.ConnectorFile{Name: "notes.txt", MIME: "text/plain", Data: []byte("hello")}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error).To(BeNil())
+		Expect(out.MessageID).To(Equal("8"))
+		Expect(f.called("sendDocument")[0].Body).To(HaveKeyWithValue("message_thread_id", "77"))
+	})
 })

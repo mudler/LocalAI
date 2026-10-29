@@ -10,11 +10,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf16"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -50,6 +55,11 @@ type API struct {
 	// Client sends the requests. Nil: a client of pkg/httpclient with a
 	// timeout.
 	Client *http.Client
+
+	// names caches the username of each bot, by the bot's ID, to find a
+	// mention in a group. It holds no token.
+	mu    sync.Mutex
+	names map[int64]string
 }
 
 func (t *API) client(extra time.Duration) *http.Client {
@@ -71,16 +81,22 @@ type apiError struct {
 
 // call posts a method and decodes the result into out.
 func (t *API) call(ctx context.Context, token, method string, params map[string]any, wait time.Duration, out any) error {
+	body, _ := json.Marshal(params)
+	return t.post(ctx, token, method, "application/json", body, wait, out)
+}
+
+// post sends a body of the given type to a method and decodes the result
+// into out.
+func (t *API) post(ctx context.Context, token, method, contentType string, body []byte, wait time.Duration, out any) error {
 	base := t.BaseURL
 	if base == "" {
 		base = DefaultBase
 	}
-	body, _ := json.Marshal(params)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(base, "/")+"/bot"+url.PathEscape(token)+"/"+method, bytes.NewReader(body))
 	if err != nil {
 		return errors.New("telegram: could not build a Telegram request")
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 	resp, err := t.client(wait).Do(req)
 	if err != nil {
 		// The error of net/http names the URL, which has the token.
@@ -137,7 +153,12 @@ func (t *API) Me(ctx context.Context, token string) (Bot, error) {
 }
 
 type tgMessage struct {
-	Chat struct {
+	ID     int64 `json:"message_id"`
+	Thread int64 `json:"message_thread_id"`
+	// Topic tells that Thread is a topic of a forum. Without it, Thread is
+	// only the start of a reply chain.
+	Topic bool `json:"is_topic_message"`
+	Chat  struct {
 		ID   int64  `json:"id"`
 		Type string `json:"type"`
 	} `json:"chat"`
@@ -147,7 +168,18 @@ type tgMessage struct {
 		LastName  string `json:"last_name"`
 		Username  string `json:"username"`
 	} `json:"from"`
-	Text string `json:"text"`
+	Text     string `json:"text"`
+	Entities []struct {
+		Type   string `json:"type"`
+		Offset int    `json:"offset"`
+		Length int    `json:"length"`
+	} `json:"entities"`
+	ReplyTo *struct {
+		ID   int64 `json:"message_id"`
+		From struct {
+			ID int64 `json:"id"`
+		} `json:"from"`
+	} `json:"reply_to_message"`
 }
 
 // Updates long-polls for updates from offset on, waiting up to timeoutSeconds.
@@ -177,25 +209,144 @@ func (t *API) Updates(ctx context.Context, token string, offset int64, timeoutSe
 		u.SenderName = strings.TrimSpace(m.From.FirstName + " " + m.From.LastName)
 		u.SenderUsername, u.Text = m.From.Username, m.Text
 		u.Unsupported = m.Text == ""
+		if m.ID != 0 {
+			u.MessageID = strconv.FormatInt(m.ID, 10)
+		}
+		if m.Topic && m.Thread != 0 {
+			u.Thread = strconv.FormatInt(m.Thread, 10)
+		}
+		if m.ReplyTo != nil && m.ReplyTo.ID != 0 {
+			u.ReplyTo = strconv.FormatInt(m.ReplyTo.ID, 10)
+		}
+		if !u.Direct {
+			u.Mention, u.Text = t.addressed(ctx, token, m)
+		}
 		out = append(out, u)
 	}
 	return out, nil
 }
 
+// botID is the ID of the bot of a token: the part before the colon.
+func botID(token string) int64 {
+	head, _, _ := strings.Cut(token, ":")
+	id, _ := strconv.ParseInt(head, 10, 64)
+	return id
+}
+
+// addressed tells whether a message in a group is for the bot: it answers a
+// message of the bot, or names the bot. The name is taken out of the text.
+func (t *API) addressed(ctx context.Context, token string, m tgMessage) (bool, string) {
+	id := botID(token)
+	if m.ReplyTo != nil && id != 0 && m.ReplyTo.From.ID == id {
+		return true, m.Text
+	}
+	if !strings.Contains(m.Text, "@") {
+		return false, m.Text
+	}
+	name := t.botName(ctx, token, id)
+	if name == "" {
+		return false, m.Text
+	}
+	// Entity offsets count UTF-16 units.
+	units := utf16.Encode([]rune(m.Text))
+	for _, e := range m.Entities {
+		if e.Type != "mention" || e.Offset < 0 || e.Length < 1 || e.Offset+e.Length > len(units) {
+			continue
+		}
+		at := string(utf16.Decode(units[e.Offset : e.Offset+e.Length]))
+		if strings.EqualFold(at, "@"+name) {
+			rest := append(append([]uint16{}, units[:e.Offset]...), units[e.Offset+e.Length:]...)
+			return true, strings.Join(strings.Fields(string(utf16.Decode(rest))), " ")
+		}
+	}
+	return false, m.Text
+}
+
+// botName is the username of the bot of a token, read once with getMe. It
+// is "" when getMe fails; the next message asks again.
+func (t *API) botName(ctx context.Context, token string, id int64) string {
+	t.mu.Lock()
+	name, ok := t.names[id]
+	t.mu.Unlock()
+	if ok {
+		return name
+	}
+	bot, err := t.Me(ctx, token)
+	if err != nil {
+		return ""
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.names == nil {
+		t.names = map[int64]string{}
+	}
+	t.names[id] = bot.Username
+	return bot.Username
+}
+
 // Send sends plain text and returns the ID of the message. The caller splits
 // the text to the limit of Telegram. A model writes the text, so no parse mode
 // is set: a stray character must not make Telegram refuse the message.
-func (t *API) Send(ctx context.Context, token string, chatID int64, text string) (int64, error) {
+// A thread other than 0 is the topic of a forum.
+func (t *API) Send(ctx context.Context, token string, chatID, thread int64, text string) (int64, error) {
+	params := map[string]any{"chat_id": chatID, "text": text}
+	if thread != 0 {
+		params["message_thread_id"] = thread
+	}
 	var raw json.RawMessage
-	if err := t.call(ctx, token, "sendMessage", map[string]any{"chat_id": chatID, "text": text}, 0, &raw); err != nil {
+	if err := t.call(ctx, token, "sendMessage", params, 0, &raw); err != nil {
 		return 0, err
 	}
-	// The ID only serves a later edit, so an answer without one is not a failure.
+	return messageID(raw), nil
+}
+
+// messageID reads the ID of a sent message. The ID only serves a later edit,
+// so an answer without one is not a failure.
+func messageID(raw json.RawMessage) int64 {
 	var r struct {
 		ID int64 `json:"message_id"`
 	}
 	_ = json.Unmarshal(raw, &r)
-	return r.ID, nil
+	return r.ID
+}
+
+// photoTypes are the pictures that Telegram shows as photos. Anything else,
+// and a GIF (which Telegram would turn into a video), goes as a document.
+var photoTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/webp": true}
+
+// SendFile uploads a file to a chat and returns the ID of its message. A
+// picture goes with sendPhoto, anything else with sendDocument. A thread
+// other than 0 is the topic of a forum.
+func (t *API) SendFile(ctx context.Context, token string, chatID, thread int64, name, mimeType string, data []byte) (int64, error) {
+	method, field := "sendDocument", "document"
+	if photoTypes[mimeType] {
+		method, field = "sendPhoto", "photo"
+	}
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	_ = w.WriteField("chat_id", strconv.FormatInt(chatID, 10))
+	if thread != 0 {
+		_ = w.WriteField("message_thread_id", strconv.FormatInt(thread, 10))
+	}
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": field, "filename": name}))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	h.Set("Content-Type", mimeType)
+	part, err := w.CreatePart(h)
+	if err != nil {
+		return 0, errors.New("telegram: could not build the upload")
+	}
+	_, _ = part.Write(data)
+	if err := w.Close(); err != nil {
+		return 0, errors.New("telegram: could not build the upload")
+	}
+	var raw json.RawMessage
+	if err := t.post(ctx, token, method, w.FormDataContentType(), body.Bytes(), 30*time.Second, &raw); err != nil {
+		return 0, err
+	}
+	return messageID(raw), nil
 }
 
 // Edit replaces the text of a message the bot sent.
@@ -203,7 +354,11 @@ func (t *API) Edit(ctx context.Context, token string, chatID, messageID int64, t
 	return t.call(ctx, token, "editMessageText", map[string]any{"chat_id": chatID, "message_id": messageID, "text": text}, 0, nil)
 }
 
-// Typing shows "typing" in a chat for a few seconds.
-func (t *API) Typing(ctx context.Context, token string, chatID int64) error {
-	return t.call(ctx, token, "sendChatAction", map[string]any{"chat_id": chatID, "action": "typing"}, 0, nil)
+// Typing shows "typing" in a chat, or in a topic of it, for a few seconds.
+func (t *API) Typing(ctx context.Context, token string, chatID, thread int64) error {
+	params := map[string]any{"chat_id": chatID, "action": "typing"}
+	if thread != 0 {
+		params["message_thread_id"] = thread
+	}
+	return t.call(ctx, token, "sendChatAction", params, 0, nil)
 }

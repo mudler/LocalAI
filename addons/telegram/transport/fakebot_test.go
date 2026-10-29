@@ -32,9 +32,22 @@ type call struct {
 func newFakeBot() *fakeBot {
 	f := &fakeBot{reply: map[string]func(map[string]any) (int, string){}}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(r.Body)
-		var body map[string]any
-		_ = json.Unmarshal(raw, &body)
+		body := map[string]any{}
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			// A file upload: the fields as text, and the file as its field,
+			// name and size.
+			if r.ParseMultipartForm(4<<20) == nil {
+				for k, v := range r.MultipartForm.Value {
+					body[k] = v[0]
+				}
+				for k, fhs := range r.MultipartForm.File {
+					body["_file_field"], body["_file_name"], body["_file_size"] = k, fhs[0].Filename, fhs[0].Size
+				}
+			}
+		} else {
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &body)
+		}
 		path := r.URL.EscapedPath()
 		method := path[strings.LastIndex(path, "/")+1:]
 		f.mu.Lock()

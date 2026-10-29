@@ -46,12 +46,37 @@ func (p platform) Poll(ctx context.Context, token string, offset int64, wait int
 	return p.api.Updates(ctx, token, offset, wait)
 }
 
+var _ connector.FileSender = platform{}
+
+// where reads the chat and the topic of a request. Telegram names them with
+// numbers; a request without a topic has thread 0.
+func where(req contract.ConnectorRequest) (chat, thread int64, err error) {
+	if chat, err = strconv.ParseInt(req.Chat, 10, 64); err != nil {
+		return 0, 0, err
+	}
+	if req.Thread != "" {
+		if thread, err = strconv.ParseInt(req.Thread, 10, 64); err != nil {
+			return 0, 0, err
+		}
+	}
+	return chat, thread, nil
+}
+
 func (p platform) Send(ctx context.Context, req contract.ConnectorRequest) (string, error) {
-	chat, err := strconv.ParseInt(req.Chat, 10, 64)
+	chat, thread, err := where(req)
 	if err != nil {
 		return "", err
 	}
-	id, err := p.api.Send(ctx, req.Token, chat, req.Text)
+	id, err := p.api.Send(ctx, req.Token, chat, thread, req.Text)
+	return strconv.FormatInt(id, 10), err
+}
+
+func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error) {
+	chat, thread, err := where(req)
+	if err != nil {
+		return "", err
+	}
+	id, err := p.api.SendFile(ctx, req.Token, chat, thread, req.File.Name, req.File.MIME, req.File.Data)
 	return strconv.FormatInt(id, 10), err
 }
 
@@ -68,11 +93,11 @@ func (p platform) Edit(ctx context.Context, req contract.ConnectorRequest) error
 }
 
 func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) error {
-	chat, err := strconv.ParseInt(req.Chat, 10, 64)
+	chat, thread, err := where(req)
 	if err != nil {
 		return err
 	}
-	return p.api.Typing(ctx, req.Token, chat)
+	return p.api.Typing(ctx, req.Token, chat, thread)
 }
 
 func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
