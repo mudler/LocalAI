@@ -94,7 +94,7 @@ int main(int argc, char ** argv) {
 
         rts::TurnText t;
         std::string   err;
-        check(rts::derive_turn_text(render, rts::default_instructions(), with_tools ? "get_time" : "", t, err), "LFM3 template fits the turn format");
+        check(rts::derive_turn_text(render, rts::default_instructions(with_tools), with_tools ? "get_time" : "", t, err), "LFM3 template fits the turn format");
         if (!err.empty()) {
             std::fprintf(stderr, "  %s\n", err.c_str());
         }
@@ -102,10 +102,11 @@ int main(int argc, char ** argv) {
         if (with_tools) {
             check(t.first_header.find("<tools>") != std::string::npos || t.first_header.find("get_time") != std::string::npos,
                   "the first header lists the tools");
+            check(t.first_header.find("Respond with function calls") != std::string::npos, "the first header asks for function calls");
         }
 
         // what the slot sees must equal what the template renders for the whole conversation
-        const auto sys = rts::Msg{"system", rts::default_instructions(), {}, ""};
+        const auto sys = rts::Msg{"system", rts::default_instructions(with_tools), {}, ""};
         auto       m   = [](const char * role, const char * content) { return rts::Msg{role, content, {}, ""}; };
         const std::string slot_two_turns = t.first_header + "hi" + t.user_footer + t.assistant_header + "hello" + t.assistant_footer +
                                            t.user_header + "bye" + t.user_footer + t.assistant_header;

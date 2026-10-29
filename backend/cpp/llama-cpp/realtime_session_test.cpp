@@ -542,7 +542,22 @@ void test_meta() {
 
 } // namespace
 
+void test_default_instructions_follow_the_tools() {
+    check(std::string(rt::default_instructions(false)) == "Respond with interleaved text and audio.", "default without tools");
+    // the model card prompt for tool calls: under the plain one the model answers in words and never calls
+    check(std::string(rt::default_instructions(true)).rfind("Respond with function calls", 0) == 0, "default with tools asks for function calls");
+    check(rt::is_default_instructions(rt::default_instructions(false)) && rt::is_default_instructions(rt::default_instructions(true)), "both defaults are known");
+    check(!rt::is_default_instructions("Be brief."), "a client prompt is not a default");
+
+    check_eq(rt::resolve_instructions("", true), std::string(rt::default_instructions(true)), "none + tools");
+    check_eq(rt::resolve_instructions("", false), std::string(rt::default_instructions(false)), "none, no tools");
+    // the server sends the plain default back as the default of the session
+    check_eq(rt::resolve_instructions(rt::default_instructions(false), true), std::string(rt::default_instructions(true)), "plain default + tools");
+    check_eq(rt::resolve_instructions("Be brief.", true), std::string("Be brief."), "a client prompt wins");
+}
+
 int main() {
+    test_default_instructions_follow_the_tools();
     test_turn_text();
     test_tool_turn_needs_a_tool();
     test_turn_text_with_tools();

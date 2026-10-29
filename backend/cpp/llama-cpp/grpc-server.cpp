@@ -1725,6 +1725,7 @@ private:
     // session config, owned by the reader thread once it runs
     bool                          configured = false;
     std::string                   instructions;
+    bool                          instructions_default = true; // the client chose none: they follow the tools
     std::string                   voice;
     std::string                   tools_text;
     std::vector<common_chat_tool> tools;
@@ -1962,7 +1963,7 @@ private:
         if (!parse_tools(c.tools(), new_tools, err)) {
             return false;
         }
-        const std::string new_instructions = c.system_prompt().empty() ? rts::default_instructions() : c.system_prompt();
+        const std::string new_instructions = rts::resolve_instructions(c.system_prompt(), !new_tools.empty());
 
         // render with the new tools, keep the old state until it works
         const auto old_tools = tools;
@@ -1973,6 +1974,7 @@ private:
             return false;
         }
         instructions   = new_instructions;
+        instructions_default = c.system_prompt().empty() || rts::is_default_instructions(c.system_prompt());
         tools_text     = c.tools();
         voice          = c.voice();
         session_params = p;
@@ -1983,16 +1985,28 @@ private:
     // session.update, or a later config: before the first turn everything changes, afterwards only the response options
     void update_session(const std::string & new_instructions, const std::string & new_tools, const std::string & new_voice,
                         const rts::json & modalities, const rts::json & max_tokens, const rts::json & choice) {
-        const bool instr_changed = !new_instructions.empty() && new_instructions != instructions;
         const bool tools_changed = !new_tools.empty() && new_tools != tools_text;
         const bool voice_changed = !new_voice.empty() && new_voice != voice;
-        const std::string denied = state.session_update_error(instr_changed, tools_changed, voice_changed);
+        // The default instructions follow the tools, so a client that sends none (or the
+        // default back) gets the text that fits the tools it ends up with. A tools update
+        // that is not valid keeps the old tools, and the error is sent below.
+        std::vector<common_chat_tool> parsed_tools;
+        std::string                   err;
+        const bool                    tools_ok = !tools_changed || parse_tools(new_tools, parsed_tools, err);
+        const bool has_tools_after = tools_changed && tools_ok ? !parsed_tools.empty() : !tools.empty();
+        std::string target_instructions = instructions;
+        if (!new_instructions.empty()) {
+            target_instructions = rts::resolve_instructions(new_instructions, has_tools_after);
+        } else if (instructions_default) {
+            target_instructions = rts::default_instructions(has_tools_after);
+        }
+        const bool instr_changed = target_instructions != instructions;
+        const std::string denied = state.session_update_error(instr_changed && !new_instructions.empty(), tools_changed, voice_changed);
         if (!denied.empty()) {
             send_error("invalid_request_error", "session.update: " + denied);
             return;
         }
         rts::SessionParams p = session_params;
-        std::string       err;
         if (!modalities.is_null()) {
             rts::OutMode m;
             if (!rts::parse_output_modalities(modalities, m, err)) {
@@ -2010,24 +2024,24 @@ private:
             return;
         }
         if (!state.started() && (instr_changed || tools_changed)) {
-            std::vector<common_chat_tool> t;
-            if (tools_changed && !parse_tools(new_tools, t, err)) {
+            if (!tools_ok) {
                 send_error("invalid_request_error", "session.update: " + err);
                 return;
             }
             const auto old_tools = tools;
             if (tools_changed) {
-                tools = t;
+                tools = parsed_tools;
             }
             rts::TurnText tt;
-            if (!rts::derive_turn_text(renderer(), instr_changed ? new_instructions : instructions, tool_name(), tt, err)) {
+            if (!rts::derive_turn_text(renderer(), target_instructions, tool_name(), tt, err)) {
                 tools = old_tools;
                 send_error("server_error", err);
                 return;
             }
             turn = tt;
-            if (instr_changed) {
-                instructions = new_instructions;
+            instructions = target_instructions;
+            if (!new_instructions.empty()) {
+                instructions_default = rts::is_default_instructions(new_instructions);
             }
             if (tools_changed) {
                 tools_text = new_tools;

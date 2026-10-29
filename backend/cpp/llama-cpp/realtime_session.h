@@ -34,10 +34,28 @@ namespace realtime {
 
 using json = nlohmann::json;
 
-// System prompt of the LFM3-Audio model card for an interleaved reply. Used when
-// the client sends none.
-inline const char * default_instructions() {
-    return "Respond with interleaved text and audio.";
+// System prompts of the LFM3-Audio model card. Without tools the model answers in
+// interleaved text and audio. With tools the card asks for "function calls, and
+// interleaved text and audio": under the plain interleaved prompt the model
+// answers in words ("I'll check the weather ...") and never writes the call.
+// Used when the client sends no instructions. The tools prompt ends with the
+// label of the tool list the chat template adds.
+inline const char * default_instructions(bool has_tools = false) {
+    return has_tools ? "Respond with function calls, and interleaved text and audio.\n\nList of tools:"
+                     : "Respond with interleaved text and audio.";
+}
+
+// True for either default. A client that sends one back (the LocalAI server
+// does, as the default of the session) has not chosen it, so it follows the
+// tools of the session.
+inline bool is_default_instructions(const std::string & s) {
+    return s == default_instructions(false) || s == default_instructions(true);
+}
+
+// The instructions of a session: what the client asked for, or the default for
+// the tools it has. Empty requested means the client sent none.
+inline std::string resolve_instructions(const std::string & requested, bool has_tools) {
+    return requested.empty() || is_default_instructions(requested) ? std::string(default_instructions(has_tools)) : requested;
 }
 
 // Voices of the LFM3 "tts" chat template.
