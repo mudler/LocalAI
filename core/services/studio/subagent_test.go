@@ -3,9 +3,7 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -14,6 +12,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 func searchTool() session.Tool {
@@ -23,15 +23,12 @@ func searchTool() session.Tool {
 	}
 }
 
-func newToolService(t *testing.T, script func(workspace.Actor, string) []studiotest.ToolStep, opts ...func(*studio.Deps)) (*studio.Service, *studiotest.ToolHarness) {
-	t.Helper()
+func newToolService(script func(workspace.Actor, string) []studiotest.ToolStep, opts ...func(*studio.Deps)) (*studio.Service, *studiotest.ToolHarness) {
 	h := &studiotest.ToolHarness{Script: script}
 	st, err := store.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	d := studio.Deps{
-		Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: h,
+		Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h,
 		HostTools: func(context.Context, workspace.Actor) ([]session.Tool, error) {
 			return []session.Tool{searchTool()}, nil
 		},
@@ -40,20 +37,15 @@ func newToolService(t *testing.T, script func(workspace.Actor, string) []studiot
 		o(&d)
 	}
 	svc, err := studio.New(d)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = svc.Close(context.Background()) })
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 	return svc, h
 }
 
 // childrenOf lists the sub-agent conversations of a parent.
-func childrenOf(t *testing.T, svc *studio.Service, user, parent string) []session.ChatRecord {
-	t.Helper()
+func childrenOf(svc *studio.Service, user, parent string) []session.ChatRecord {
 	all, err := svc.List(context.Background(), user, 100)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	var out []session.ChatRecord
 	for _, r := range all {
 		if r.ParentID == parent {
@@ -63,262 +55,228 @@ func childrenOf(t *testing.T, svc *studio.Service, user, parent string) []sessio
 	return out
 }
 
-func idle(t *testing.T, svc *studio.Service, user, id string) {
-	t.Helper()
-	until(t, "the turn to end", func() bool { return !turn(t, svc, user, id).Running && turn(t, svc, user, id).Last != "" })
+func idle(svc *studio.Service, user, id string) {
+	until("the turn to end", func() bool { return !turn(svc, user, id).Running && turn(svc, user, id).Last != "" })
 }
 
-func TestAForegroundSubAgentAnswersInsideTheParentsTurn(t *testing.T) {
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		switch text {
-		case "go":
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"find the answer","wait":true}`}, {Say: "parent done"}}
-		case "find the answer":
-			return []studiotest.ToolStep{{Say: "42"}}
-		}
-		return nil
+var _ = Describe("subagent", func() {
+	It("a foreground sub agent answers inside the parents turn", func() {
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			switch text {
+			case "go":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"find the answer","wait":true}`}, {Say: "parent done"}}
+			case "find the answer":
+				return []studiotest.ToolStep{{Say: "42"}}
+			}
+			return nil
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+
+		res := h.ResultsFor("spawn_agent")
+		Expect(res).To(HaveLen(1), "spawn_agent result = %+v, want the child's answer 42", res)
+		Expect(res[0].Err).To(BeNil(), "spawn_agent result = %+v, want the child's answer 42", res)
+		Expect(res[0].Out).To(ContainSubstring("42"), "spawn_agent result = %+v, want the child's answer 42", res)
+		kids := childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(1), "children = %+v, want one sub-agent of the same user and model", kids)
+		Expect(kids[0].Kind).To(Equal(session.KindSubAgent), "children = %+v, want one sub-agent of the same user and model", kids)
+		Expect(kids[0].Principal).To(Equal(alice), "children = %+v, want one sub-agent of the same user and model", kids)
+		Expect(kids[0].Model).To(Equal("m"), "children = %+v, want one sub-agent of the same user and model", kids)
 	})
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	idle(t, svc, alice, id)
 
-	res := h.ResultsFor("spawn_agent")
-	if len(res) != 1 || res[0].Err != nil || !strings.Contains(res[0].Out, "42") {
-		t.Fatalf("spawn_agent result = %+v, want the child's answer 42", res)
-	}
-	kids := childrenOf(t, svc, alice, id)
-	if len(kids) != 1 || kids[0].Kind != session.KindSubAgent || kids[0].Principal != alice || kids[0].Model != "m" {
-		t.Fatalf("children = %+v, want one sub-agent of the same user and model", kids)
-	}
-}
+	It("a background sub agent reports back as a message and an event", func() {
+		release := make(chan struct{})
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			switch {
+			case text == "go":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"slow job","wait":false}`}, {Say: "parent moved on"}}
+			case text == "slow job":
+				return []studiotest.ToolStep{{Block: release}, {Say: "child done: 7"}}
+			case strings.Contains(text, "child done: 7"):
+				return []studiotest.ToolStep{{Say: "thanks"}}
+			}
+			return nil
+		})
+		id := create(svc, alice)
+		events, cancel, err := svc.Events(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		defer cancel()
 
-func TestABackgroundSubAgentReportsBackAsAMessageAndAnEvent(t *testing.T) {
-	release := make(chan struct{})
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		switch {
-		case text == "go":
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"slow job","wait":false}`}, {Say: "parent moved on"}}
-		case text == "slow job":
-			return []studiotest.ToolStep{{Block: release}, {Say: "child done: 7"}}
-		case strings.Contains(text, "child done: 7"):
-			return []studiotest.ToolStep{{Say: "thanks"}}
-		}
-		return nil
-	})
-	id := create(t, svc, alice)
-	events, cancel, err := svc.Events(context.Background(), alice, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		res := h.ResultsFor("spawn_agent")
+		Expect(res).To(HaveLen(1), "background spawn returned %+v, want an immediate 'Started'", res)
+		Expect(res[0].Err).To(BeNil(), "background spawn returned %+v, want an immediate 'Started'", res)
+		Expect(res[0].Out).To(ContainSubstring("Started"), "background spawn returned %+v, want an immediate 'Started'", res)
+		Expect(h.Sent(id)).To(HaveLen(1), "the parent has taken another turn too early: %v", h.Sent(id))
 
-	sent(t, svc, alice, id, "go")
-	idle(t, svc, alice, id)
-	res := h.ResultsFor("spawn_agent")
-	if len(res) != 1 || res[0].Err != nil || !strings.Contains(res[0].Out, "Started") {
-		t.Fatalf("background spawn returned %+v, want an immediate 'Started'", res)
-	}
-	if len(h.Sent(id)) != 1 {
-		t.Fatalf("the parent has taken another turn too early: %v", h.Sent(id))
-	}
-
-	close(release)
-	until(t, "the result to reach the parent as a new message", func() bool { return len(h.Sent(id)) == 2 })
-	if got := h.Sent(id)[1]; !strings.Contains(got, "child done: 7") {
-		t.Fatalf("parent's second message = %q", got)
-	}
-	timeout := time.After(20 * time.Second)
-	for {
-		select {
-		case e := <-events:
-			if e.Kind == session.KindSubAgentDone {
-				if len(e.IDs) != 1 || e.IDs[0] != childrenOf(t, svc, alice, id)[0].ID {
-					t.Fatalf("sub_agent_done = %+v", e)
+		close(release)
+		until("the result to reach the parent as a new message", func() bool { return len(h.Sent(id)) == 2 })
+		Expect(h.Sent(id)[1]).To(ContainSubstring("child done: 7"))
+		timeout := time.After(20 * time.Second)
+		for {
+			select {
+			case e := <-events:
+				if e.Kind == session.KindSubAgentDone {
+					Expect(e.IDs).To(HaveLen(1), "sub_agent_done = %+v", e)
+					Expect(e.IDs[0]).To(Equal(childrenOf(svc, alice, id)[0].ID), "sub_agent_done = %+v", e)
+					return
 				}
-				return
+			case <-timeout:
+				Fail("no sub_agent_done event")
 			}
-		case <-timeout:
-			t.Fatal("no sub_agent_done event")
 		}
-	}
-}
-
-func TestASubAgentCannotSpawnAndGetsTheParentsToolsUnlessNarrowed(t *testing.T) {
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		switch text {
-		case "inherit":
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"a","wait":true}`}}
-		case "none":
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"b","tools":[],"wait":true}`}}
-		case "bad":
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"c","tools":["nope"],"wait":true}`}}
-		}
-		return []studiotest.ToolStep{{Say: "ok"}}
 	})
-	id := create(t, svc, alice)
 
-	sent(t, svc, alice, id, "inherit")
-	idle(t, svc, alice, id)
-	kids := childrenOf(t, svc, alice, id)
-	if len(kids) != 1 {
-		t.Fatalf("children = %d, want 1", len(kids))
-	}
-	if got := h.ToolNames(kids[0].ID); !eq(got, []string{"search"}) {
-		t.Fatalf("a sub-agent that was not narrowed has tools %v, want only search (never spawn_agent)", got)
-	}
-	if got := h.ToolNames(id); !eq(got, []string{"search", "spawn_agent"}) {
-		t.Fatalf("the parent has tools %v, want search and spawn_agent", got)
-	}
-
-	sent(t, svc, alice, id, "none")
-	idle(t, svc, alice, id)
-	kids = childrenOf(t, svc, alice, id)
-	if len(kids) != 2 {
-		t.Fatalf("children = %d, want 2", len(kids))
-	}
-	var narrowed session.ChatRecord
-	for _, k := range kids {
-		if len(h.ToolNames(k.ID)) == 0 {
-			narrowed = k
-		}
-	}
-	if narrowed.ID == "" {
-		t.Fatalf("no sub-agent was started with an empty tool list; tool lists: %v / %v", h.ToolNames(kids[0].ID), h.ToolNames(kids[1].ID))
-	}
-
-	sent(t, svc, alice, id, "bad")
-	idle(t, svc, alice, id)
-	bad := h.ResultsFor("spawn_agent")
-	last := bad[len(bad)-1]
-	if last.Err == nil || !strings.Contains(last.Err.Error(), "nope") {
-		t.Fatalf("a tool the parent lacks must be refused by name; got %+v", last)
-	}
-	if n := len(childrenOf(t, svc, alice, id)); n != 2 {
-		t.Fatalf("a refused spawn created a conversation: %d children", n)
-	}
-}
-
-func TestAtMostFourSubAgentsRunInTheBackground(t *testing.T) {
-	never := make(chan struct{})
-	t.Cleanup(func() { close(never) })
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		if text == "many" {
-			var steps []studiotest.ToolStep
-			for _, task := range []string{"t1", "t2", "t3", "t4", "t5"} {
-				steps = append(steps, studiotest.ToolStep{Tool: "spawn_agent", Args: `{"task":"` + task + `","wait":false}`})
+	It("a sub agent cannot spawn and gets the parents tools unless narrowed", func() {
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			switch text {
+			case "inherit":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"a","wait":true}`}}
+			case "none":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"b","tools":[],"wait":true}`}}
+			case "bad":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"c","tools":["nope"],"wait":true}`}}
 			}
-			return steps
-		}
-		return []studiotest.ToolStep{{Block: never}}
-	})
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "many")
-	idle(t, svc, alice, id)
-	res := h.ResultsFor("spawn_agent")
-	if len(res) != 5 {
-		t.Fatalf("spawn calls = %d", len(res))
-	}
-	for i := 0; i < 4; i++ {
-		if res[i].Err != nil {
-			t.Errorf("spawn %d failed: %v", i+1, res[i].Err)
-		}
-	}
-	if res[4].Err == nil || !strings.Contains(strings.ToLower(res[4].Err.Error()), "limit") {
-		t.Fatalf("the fifth background sub-agent must hit the limit, got %+v", res[4])
-	}
-	if n := len(childrenOf(t, svc, alice, id)); n != 4 {
-		t.Fatalf("children = %d, want 4", n)
-	}
-}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		})
+		id := create(svc, alice)
 
-func TestStoppingTheParentStopsItsRunningSubAgents(t *testing.T) {
-	never := make(chan struct{})
-	t.Cleanup(func() { close(never) })
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		if text == "go" {
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"blocked child","wait":false}`}, {Block: never}}
-		}
-		return []studiotest.ToolStep{{Block: never}}
-	})
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	until(t, "the child to run", func() bool {
-		k := childrenOf(t, svc, alice, id)
-		return len(k) == 1 && turn(t, svc, alice, k[0].ID).Running && len(h.Sent(k[0].ID)) == 1
-	})
-	if err := svc.Stop(context.Background(), alice, id); err != nil {
-		t.Fatal(err)
-	}
-	child := childrenOf(t, svc, alice, id)[0].ID
-	until(t, "the child to stop", func() bool { return turn(t, svc, alice, child).Last == store.TurnStopped })
-}
+		sent(svc, alice, id, "inherit")
+		idle(svc, alice, id)
+		kids := childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(1), "children = %d, want 1", len(kids))
+		got := h.ToolNames(kids[0].ID)
+		Expect(got).To(Equal([]string{"search"}), "a sub-agent that was not narrowed has tools %v, want only search (never spawn_agent)", got)
+		got = h.ToolNames(id)
+		Expect(got).To(Equal([]string{"search", "spawn_agent"}), "the parent has tools %v, want search and spawn_agent", got)
 
-// The parent's turn can end while a background child still runs. Stopping the
-// parent then still stops the child.
-func TestStoppingAParentWhoseTurnEndedStopsItsBackgroundSubAgent(t *testing.T) {
-	never := make(chan struct{})
-	t.Cleanup(func() { close(never) })
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		if text == "go" {
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"blocked child","wait":false}`}, {Say: "started it"}}
+		sent(svc, alice, id, "none")
+		idle(svc, alice, id)
+		kids = childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(2), "children = %d, want 2", len(kids))
+		var narrowed session.ChatRecord
+		for _, k := range kids {
+			if len(h.ToolNames(k.ID)) == 0 {
+				narrowed = k
+			}
 		}
-		return []studiotest.ToolStep{{Block: never}}
-	})
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	until(t, "the child to run", func() bool {
-		k := childrenOf(t, svc, alice, id)
-		return len(k) == 1 && turn(t, svc, alice, k[0].ID).Running && len(h.Sent(k[0].ID)) == 1
-	})
-	until(t, "the parent's turn to end", func() bool {
-		i := turn(t, svc, alice, id)
-		return !i.Running && i.Last == store.TurnDone
-	})
-	if err := svc.Stop(context.Background(), alice, id); err != nil {
-		t.Fatal(err)
-	}
-	child := childrenOf(t, svc, alice, id)[0].ID
-	until(t, "the child to stop", func() bool { return turn(t, svc, alice, child).Last == store.TurnStopped })
-}
+		Expect(narrowed.ID).NotTo(Equal(""), "no sub-agent was started with an empty tool list; tool lists: %v / %v", h.ToolNames(kids[0].ID), h.ToolNames(kids[1].ID))
 
-// A sub-agent conversation runs with the tools its parent chose. A message
-// from the user would start it with none, so it is read-only.
-func TestAUserCannotSendToASubAgentConversation(t *testing.T) {
-	svc, _ := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		if text == "go" {
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"job","wait":true}`}, {Say: "done"}}
+		sent(svc, alice, id, "bad")
+		idle(svc, alice, id)
+		bad := h.ResultsFor("spawn_agent")
+		last := bad[len(bad)-1]
+		Expect(last.Err).NotTo(BeNil(), "a tool the parent lacks must be refused by name; got %+v", last)
+		Expect(last.Err.Error()).To(ContainSubstring("nope"), "a tool the parent lacks must be refused by name; got %+v", last)
+		Expect(childrenOf(svc, alice, id)).To(HaveLen(2))
+	})
+
+	It("at most four sub agents run in the background", func() {
+		never := make(chan struct{})
+		DeferCleanup(func() { close(never) })
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "many" {
+				var steps []studiotest.ToolStep
+				for _, task := range []string{"t1", "t2", "t3", "t4", "t5"} {
+					steps = append(steps, studiotest.ToolStep{Tool: "spawn_agent", Args: `{"task":"` + task + `","wait":false}`})
+				}
+				return steps
+			}
+			return []studiotest.ToolStep{{Block: never}}
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "many")
+		idle(svc, alice, id)
+		res := h.ResultsFor("spawn_agent")
+		Expect(res).To(HaveLen(5), "spawn calls = %d", len(res))
+		for i := 0; i < 4; i++ {
+			Expect(res[i].Err).To(BeNil(), "spawn %d failed: %v", i+1, res[i].Err)
 		}
-		return []studiotest.ToolStep{{Say: "ok"}}
+		Expect(res[4].Err).NotTo(BeNil(), "the fifth background sub-agent must hit the limit, got %+v", res[4])
+		Expect(strings.ToLower(res[4].Err.Error())).To(ContainSubstring("limit"), "the fifth background sub-agent must hit the limit, got %+v", res[4])
+		Expect(childrenOf(svc, alice, id)).To(HaveLen(4))
 	})
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	idle(t, svc, alice, id)
-	kids := childrenOf(t, svc, alice, id)
-	if len(kids) != 1 {
-		t.Fatalf("children = %d, want 1", len(kids))
-	}
-	if _, err := svc.Send(context.Background(), alice, kids[0].ID, "more"); !errors.Is(err, studio.ErrSubAgentReadOnly) {
-		t.Fatalf("Send to a sub-agent conversation = %v, want ErrSubAgentReadOnly", err)
-	}
-}
 
-// A turn that the server's shutdown cuts short is interrupted, not done: its
-// text is partial, and a run of a trigger or a connector must not report it as
-// finished.
-func TestATurnCutShortByShutdownIsInterrupted(t *testing.T) {
-	block := make(chan struct{})
-	t.Cleanup(func() { close(block) })
-	svc, _ := newToolService(t, func(workspace.Actor, string) []studiotest.ToolStep {
-		return []studiotest.ToolStep{{Block: block}}
+	It("stopping the parent stops its running sub agents", func() {
+		never := make(chan struct{})
+		DeferCleanup(func() { close(never) })
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"blocked child","wait":false}`}, {Block: never}}
+			}
+			return []studiotest.ToolStep{{Block: never}}
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		until("the child to run", func() bool {
+			k := childrenOf(svc, alice, id)
+			return len(k) == 1 && turn(svc, alice, k[0].ID).Running && len(h.Sent(k[0].ID)) == 1
+		})
+		Expect(svc.Stop(context.Background(), alice, id)).To(Succeed())
+		child := childrenOf(svc, alice, id)[0].ID
+		until("the child to stop", func() bool { return turn(svc, alice, child).Last == store.TurnStopped })
 	})
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "work")
-	until(t, "the turn to run", func() bool { return turn(t, svc, alice, id).Running })
-	if err := svc.Close(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	until(t, "the turn to be settled", func() bool { return !turn(t, svc, alice, id).Running })
-	if got := turn(t, svc, alice, id).Last; got != store.TurnInterrupted {
-		t.Fatalf("the turn ended as %q, want interrupted", got)
-	}
-}
+
+	// The parent's turn can end while a background child still runs. Stopping the
+	// parent then still stops the child.
+	It("stopping a parent whose turn ended stops its background sub agent", func() {
+		never := make(chan struct{})
+		DeferCleanup(func() { close(never) })
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"blocked child","wait":false}`}, {Say: "started it"}}
+			}
+			return []studiotest.ToolStep{{Block: never}}
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		until("the child to run", func() bool {
+			k := childrenOf(svc, alice, id)
+			return len(k) == 1 && turn(svc, alice, k[0].ID).Running && len(h.Sent(k[0].ID)) == 1
+		})
+		until("the parent's turn to end", func() bool {
+			i := turn(svc, alice, id)
+			return !i.Running && i.Last == store.TurnDone
+		})
+		Expect(svc.Stop(context.Background(), alice, id)).To(Succeed())
+		child := childrenOf(svc, alice, id)[0].ID
+		until("the child to stop", func() bool { return turn(svc, alice, child).Last == store.TurnStopped })
+	})
+
+	// A sub-agent conversation runs with the tools its parent chose. A message
+	// from the user would start it with none, so it is read-only.
+	It("a user cannot send to a sub agent conversation", func() {
+		svc, _ := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"job","wait":true}`}, {Say: "done"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		kids := childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(1), "children = %d, want 1", len(kids))
+		_, err := svc.Send(context.Background(), alice, kids[0].ID, "more")
+		Expect(err).To(MatchError(studio.ErrSubAgentReadOnly), "Send to a sub-agent conversation = %v, want ErrSubAgentReadOnly", err)
+	})
+
+	// A turn that the server's shutdown cuts short is interrupted, not done: its
+	// text is partial, and a run of a trigger or a connector must not report it as
+	// finished.
+	It("a turn cut short by shutdown is interrupted", func() {
+		block := make(chan struct{})
+		DeferCleanup(func() { close(block) })
+		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Block: block}}
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "work")
+		until("the turn to run", func() bool { return turn(svc, alice, id).Running })
+		Expect(svc.Close(context.Background())).To(Succeed())
+		until("the turn to be settled", func() bool { return !turn(svc, alice, id).Running })
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnInterrupted))
+	})
+})

@@ -2,9 +2,8 @@ package studio_test
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strings"
-	"testing"
 	"time"
 	"unicode/utf8"
 
@@ -13,68 +12,50 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 const alice = "alice"
 
-func newService(t *testing.T, h *studiotest.GateHarness) *studio.Service {
-	t.Helper()
+func newService(h *studiotest.GateHarness) *studio.Service {
 	st, err := store.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: h})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = svc.Close(context.Background()) })
+	Expect(err).NotTo(HaveOccurred())
+	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h})
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 	return svc
 }
 
-func create(t *testing.T, svc *studio.Service, user string) string {
-	t.Helper()
+func create(svc *studio.Service, user string) string {
 	rec, err := svc.Create(context.Background(), user, studio.CreateInput{Model: "m"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return rec.ID
 }
 
-func until(t *testing.T, what string, f func() bool) {
-	t.Helper()
+func until(what string, f func() bool) {
 	deadline := time.Now().Add(20 * time.Second)
 	for !f() {
-		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for %s", what)
-		}
+		Expect(time.Now().After(deadline)).To(BeFalse(), "timed out waiting for %s", what)
 		time.Sleep(5 * time.Millisecond)
 	}
 }
 
-func turn(t *testing.T, svc *studio.Service, user, id string) store.TurnInfo {
-	t.Helper()
+func turn(svc *studio.Service, user, id string) store.TurnInfo {
 	info, err := svc.Turn(context.Background(), user, id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return info
 }
 
-func sent(t *testing.T, svc *studio.Service, user, id, text string) studio.SendResult {
-	t.Helper()
+func sent(svc *studio.Service, user, id, text string) studio.SendResult {
 	r, err := svc.Send(context.Background(), user, id, text)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return r
 }
 
-func pendingTexts(t *testing.T, svc *studio.Service, user, id string) []string {
-	t.Helper()
+func pendingTexts(svc *studio.Service, user, id string) []string {
 	ps, err := svc.Pending(context.Background(), user, id)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	var out []string
 	for _, p := range ps {
 		out = append(out, p.Text)
@@ -82,375 +63,295 @@ func pendingTexts(t *testing.T, svc *studio.Service, user, id string) []string {
 	return out
 }
 
-func eq(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+var _ = Describe("service", func() {
+	It("a send starts a turn and it ends done", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		r := sent(svc, alice, id, "hi")
+		Expect(r.Started).To(BeTrue(), "Send = %+v, want a started turn", r)
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		h.Gate <- struct{}{}
+		until("the turn to end", func() bool { return !turn(svc, alice, id).Running })
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnDone))
+		Expect(h.Sent()).To(Equal([]string{"hi"}), "harness got %v", h.Sent())
+	})
+
+	It("messages sent during a turn arrive as one ordered batch", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "start")
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		for _, x := range []string{"one", "two", "three"} {
+			r := sent(svc, alice, id, x)
+			Expect(r.Started).To(BeFalse(), "Send during a turn = %+v, want pending", r)
+			Expect(r.PendingID).NotTo(Equal(""), "Send during a turn = %+v, want pending", r)
 		}
-	}
-	return true
-}
+		got := pendingTexts(svc, alice, id)
+		Expect(got).To(Equal([]string{"one", "two", "three"}), "pending = %v", got)
+		h.Gate <- struct{}{} // the next model request takes the batch
+		until("the turn to end", func() bool { return !turn(svc, alice, id).Running })
+		d := h.Delivered()
+		Expect(d).To(HaveLen(1), "delivered = %v, want one batch in order", d)
+		Expect(d[0]).To(Equal([]string{"one", "two", "three"}), "delivered = %v, want one batch in order", d)
+		Expect(pendingTexts(svc, alice, id)).To(BeEmpty())
+	})
 
-func TestASendStartsATurnAndItEndsDone(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	if r := sent(t, svc, alice, id, "hi"); !r.Started {
-		t.Fatalf("Send = %+v, want a started turn", r)
-	}
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	h.Gate <- struct{}{}
-	until(t, "the turn to end", func() bool { return !turn(t, svc, alice, id).Running })
-	if got := turn(t, svc, alice, id).Last; got != store.TurnDone {
-		t.Fatalf("turn ended %q, want done", got)
-	}
-	if !eq(h.Sent(), []string{"hi"}) {
-		t.Fatalf("harness got %v", h.Sent())
-	}
-}
+	It("pending messages can be edited and cancelled until delivered", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "start")
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		a := sent(svc, alice, id, "keep")
+		b := sent(svc, alice, id, "typo")
+		c := sent(svc, alice, id, "drop")
+		ctx := context.Background()
+		Expect(svc.EditPending(ctx, alice, id, b.PendingID, "fixed")).To(Succeed())
+		Expect(svc.CancelPending(ctx, alice, id, c.PendingID)).To(Succeed())
+		h.Gate <- struct{}{}
+		until("the turn to end", func() bool { return !turn(svc, alice, id).Running })
+		d := h.Delivered()
+		Expect(d).To(HaveLen(1), "delivered = %v", d)
+		Expect(d[0]).To(Equal([]string{"keep", "fixed"}), "delivered = %v", d)
+		Expect(svc.EditPending(ctx, alice, id, a.PendingID, "late")).To(MatchError(store.ErrDelivered))
+	})
 
-func TestMessagesSentDuringATurnArriveAsOneOrderedBatch(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "start")
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	for _, x := range []string{"one", "two", "three"} {
-		if r := sent(t, svc, alice, id, x); r.Started || r.PendingID == "" {
-			t.Fatalf("Send during a turn = %+v, want pending", r)
-		}
-	}
-	if got := pendingTexts(t, svc, alice, id); !eq(got, []string{"one", "two", "three"}) {
-		t.Fatalf("pending = %v", got)
-	}
-	h.Gate <- struct{}{} // the next model request takes the batch
-	until(t, "the turn to end", func() bool { return !turn(t, svc, alice, id).Running })
-	if d := h.Delivered(); len(d) != 1 || !eq(d[0], []string{"one", "two", "three"}) {
-		t.Fatalf("delivered = %v, want one batch in order", d)
-	}
-	if got := pendingTexts(t, svc, alice, id); len(got) != 0 {
-		t.Fatalf("pending after delivery = %v", got)
-	}
-}
+	// A message that arrives after the last model request of a turn but before the
+	// turn ends still reaches the model: it starts the next turn.
+	It("a message left over at the end starts the next turn", func() {
+		h := studiotest.NewGateHarness()
+		h.End = make(chan struct{}, 8) // the turn waits here after its last request
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "first")
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		h.Gate <- struct{}{} // the only request of the turn: nothing pending yet
+		until("the harness to be past its request", func() bool { return h.Boundaries() == 1 })
+		sent(svc, alice, id, "late")
+		h.End <- struct{}{} // the turn ends; "late" was never taken
+		until("the second turn to start", func() bool { return len(h.Sent()) == 2 })
+		Expect(h.Sent()).To(Equal([]string{"first", "late"}), "turns = %v, want first then late", h.Sent())
+		h.Gate <- struct{}{}
+		h.End <- struct{}{}
+		until("everything to settle", func() bool { return !turn(svc, alice, id).Running })
+	})
 
-func TestPendingMessagesCanBeEditedAndCancelledUntilDelivered(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "start")
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	a := sent(t, svc, alice, id, "keep")
-	b := sent(t, svc, alice, id, "typo")
-	c := sent(t, svc, alice, id, "drop")
-	ctx := context.Background()
-	if err := svc.EditPending(ctx, alice, id, b.PendingID, "fixed"); err != nil {
-		t.Fatal(err)
-	}
-	if err := svc.CancelPending(ctx, alice, id, c.PendingID); err != nil {
-		t.Fatal(err)
-	}
-	h.Gate <- struct{}{}
-	until(t, "the turn to end", func() bool { return !turn(t, svc, alice, id).Running })
-	if d := h.Delivered(); len(d) != 1 || !eq(d[0], []string{"keep", "fixed"}) {
-		t.Fatalf("delivered = %v", d)
-	}
-	if err := svc.EditPending(ctx, alice, id, a.PendingID, "late"); !errors.Is(err, store.ErrDelivered) {
-		t.Fatalf("edit after delivery = %v, want ErrDelivered", err)
-	}
-}
+	// A Stop is final until the user decides: waiting messages stay, and SendNow
+	// is what starts them.
+	It("stop leaves pending messages waiting and send now starts them", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		ctx := context.Background()
+		sent(svc, alice, id, "start")
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		sent(svc, alice, id, "z1")
+		sent(svc, alice, id, "z2")
+		Expect(svc.Stop(ctx, alice, id)).To(Succeed())
+		until("the turn to stop", func() bool { return !turn(svc, alice, id).Running })
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnStopped))
+		time.Sleep(150 * time.Millisecond) // nothing may start by itself
+		Expect(h.Sent()).To(HaveLen(1), "a turn started after Stop: %v", h.Sent())
+		got := pendingTexts(svc, alice, id)
+		Expect(got).To(Equal([]string{"z1", "z2"}), "pending after Stop = %v", got)
+		Expect(svc.SendNow(ctx, alice, id)).To(Succeed())
+		until("the turn to start", func() bool { return len(h.Sent()) == 2 })
+		Expect(h.Sent()[1]).To(Equal("z1\n\nz2"), "SendNow started a turn with the messages joined in order")
+	})
 
-// A message that arrives after the last model request of a turn but before the
-// turn ends still reaches the model: it starts the next turn.
-func TestAMessageLeftOverAtTheEndStartsTheNextTurn(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	h.End = make(chan struct{}, 8) // the turn waits here after its last request
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "first")
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	h.Gate <- struct{}{} // the only request of the turn: nothing pending yet
-	until(t, "the harness to be past its request", func() bool { return h.Boundaries() == 1 })
-	sent(t, svc, alice, id, "late")
-	h.End <- struct{}{} // the turn ends; "late" was never taken
-	until(t, "the second turn to start", func() bool { return len(h.Sent()) == 2 })
-	if !eq(h.Sent(), []string{"first", "late"}) {
-		t.Fatalf("turns = %v, want first then late", h.Sent())
-	}
-	h.Gate <- struct{}{}
-	h.End <- struct{}{}
-	until(t, "everything to settle", func() bool { return !turn(t, svc, alice, id).Running })
-}
+	It("a failed request puts the messages back and the turn fails", func() {
+		h := studiotest.NewGateHarness()
+		h.FailRequest = 1
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "start")
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		sent(svc, alice, id, "keep me")
+		h.Gate <- struct{}{} // the request takes "keep me", then fails
+		until("the turn to fail", func() bool { return turn(svc, alice, id).Last == store.TurnFailed })
+		got := pendingTexts(svc, alice, id)
+		Expect(got).To(Equal([]string{"keep me"}), "pending after a failed request = %v, want the message back", got)
+		time.Sleep(150 * time.Millisecond)
+		Expect(h.Sent()).To(HaveLen(1), "a turn started after a failure: %v", h.Sent())
+	})
 
-// A Stop is final until the user decides: waiting messages stay, and SendNow
-// is what starts them.
-func TestStopLeavesPendingMessagesWaitingAndSendNowStartsThem(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	ctx := context.Background()
-	sent(t, svc, alice, id, "start")
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	sent(t, svc, alice, id, "z1")
-	sent(t, svc, alice, id, "z2")
-	if err := svc.Stop(ctx, alice, id); err != nil {
-		t.Fatal(err)
-	}
-	until(t, "the turn to stop", func() bool { return !turn(t, svc, alice, id).Running })
-	if got := turn(t, svc, alice, id).Last; got != store.TurnStopped {
-		t.Fatalf("turn ended %q, want stopped", got)
-	}
-	time.Sleep(150 * time.Millisecond) // nothing may start by itself
-	if len(h.Sent()) != 1 {
-		t.Fatalf("a turn started after Stop: %v", h.Sent())
-	}
-	if got := pendingTexts(t, svc, alice, id); !eq(got, []string{"z1", "z2"}) {
-		t.Fatalf("pending after Stop = %v", got)
-	}
-	if err := svc.SendNow(ctx, alice, id); err != nil {
-		t.Fatal(err)
-	}
-	until(t, "the turn to start", func() bool { return len(h.Sent()) == 2 })
-	if got := h.Sent()[1]; got != "z1\n\nz2" {
-		t.Fatalf("SendNow started a turn with %q, want the messages joined in order", got)
-	}
-}
+	It("another user cannot see or use a conversation", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		ctx := context.Background()
+		_, err := svc.Send(ctx, "bob", id, "hi")
+		Expect(err).To(MatchError(session.ErrNotFound), "Send as bob = %v, want not found", err)
+		_, err = svc.Pending(ctx, "bob", id)
+		Expect(err).To(MatchError(session.ErrNotFound), "Pending as bob = %v", err)
+		Expect(svc.Stop(ctx, "bob", id)).To(MatchError(session.ErrNotFound))
+		_, _, err = svc.Events(ctx, "bob", id)
+		Expect(err).To(MatchError(session.ErrNotFound), "Events as bob = %v", err)
+	})
 
-func TestAFailedRequestPutsTheMessagesBackAndTheTurnFails(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	h.FailRequest = 1
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "start")
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	sent(t, svc, alice, id, "keep me")
-	h.Gate <- struct{}{} // the request takes "keep me", then fails
-	until(t, "the turn to fail", func() bool { return turn(t, svc, alice, id).Last == store.TurnFailed })
-	if got := pendingTexts(t, svc, alice, id); !eq(got, []string{"keep me"}) {
-		t.Fatalf("pending after a failed request = %v, want the message back", got)
-	}
-	time.Sleep(150 * time.Millisecond)
-	if len(h.Sent()) != 1 {
-		t.Fatalf("a turn started after a failure: %v", h.Sent())
-	}
-}
-
-func TestAnotherUserCannotSeeOrUseAConversation(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	ctx := context.Background()
-	if _, err := svc.Send(ctx, "bob", id, "hi"); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Send as bob = %v, want not found", err)
-	}
-	if _, err := svc.Pending(ctx, "bob", id); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Pending as bob = %v", err)
-	}
-	if err := svc.Stop(ctx, "bob", id); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Stop as bob = %v", err)
-	}
-	if _, _, err := svc.Events(ctx, "bob", id); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Events as bob = %v", err)
-	}
-}
-
-func TestEventsCarryTextAndTheDeliveredMarker(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	events, cancel, err := svc.Events(context.Background(), alice, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
-	sent(t, svc, alice, id, "start")
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	p := sent(t, svc, alice, id, "extra")
-	h.Gate <- struct{}{}
-	var sawText, sawDelivered, sawEnd bool
-	timeout := time.After(20 * time.Second)
-	for !sawEnd {
-		select {
-		case e := <-events:
-			switch e.Kind {
-			case session.KindText:
-				sawText = true
-			case session.KindPendingDelivered:
-				sawDelivered = len(e.IDs) == 1 && e.IDs[0] == p.PendingID
-			case session.KindTurnEnd:
-				sawEnd = true
+	It("events carry text and the delivered marker", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		events, cancel, err := svc.Events(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		defer cancel()
+		sent(svc, alice, id, "start")
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		p := sent(svc, alice, id, "extra")
+		h.Gate <- struct{}{}
+		var sawText, sawDelivered, sawEnd bool
+		timeout := time.After(20 * time.Second)
+		for !sawEnd {
+			select {
+			case e := <-events:
+				switch e.Kind {
+				case session.KindText:
+					sawText = true
+				case session.KindPendingDelivered:
+					sawDelivered = len(e.IDs) == 1 && e.IDs[0] == p.PendingID
+				case session.KindTurnEnd:
+					sawEnd = true
+				}
+			case <-timeout:
+				Fail(fmt.Sprintf("timed out: text=%v delivered=%v", sawText, sawDelivered))
 			}
-		case <-timeout:
-			t.Fatalf("timed out: text=%v delivered=%v", sawText, sawDelivered)
 		}
-	}
-	if !sawText || !sawDelivered {
-		t.Fatalf("text=%v pending_delivered=%v, want both", sawText, sawDelivered)
-	}
-}
+		Expect(sawText).To(BeTrue(), "text=%v pending_delivered=%v, want both", sawText, sawDelivered)
+		Expect(sawDelivered).To(BeTrue(), "text=%v pending_delivered=%v, want both", sawText, sawDelivered)
+	})
 
-func TestDeleteRemovesAConversationForItsOwnerOnly(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	ctx := context.Background()
-	sent(t, svc, alice, id, "hi")
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	h.Gate <- struct{}{}
-	until(t, "the turn to end", func() bool { return !turn(t, svc, alice, id).Running })
+	It("delete removes a conversation for its owner only", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		ctx := context.Background()
+		sent(svc, alice, id, "hi")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		h.Gate <- struct{}{}
+		until("the turn to end", func() bool { return !turn(svc, alice, id).Running })
 
-	if err := svc.Delete(ctx, "bob", id); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Delete as bob = %v, want not found", err)
-	}
-	if _, err := svc.Get(ctx, alice, id); err != nil {
-		t.Fatalf("bob's failed delete removed the conversation: %v", err)
-	}
-	if err := svc.Delete(ctx, alice, id); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.Get(ctx, alice, id); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Get after delete = %v, want not found", err)
-	}
-	if entries, err := svc.Messages(ctx, alice, id, 0, 10); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Messages after delete = %v, %v", entries, err)
-	}
-}
+		Expect(svc.Delete(ctx, "bob", id)).To(MatchError(session.ErrNotFound))
+		_, err := svc.Get(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred(), "bob's failed delete removed the conversation")
+		Expect(svc.Delete(ctx, alice, id)).To(Succeed())
+		_, err = svc.Get(ctx, alice, id)
+		Expect(err).To(MatchError(session.ErrNotFound), "Get after delete = %v, want not found", err)
+		entries, err := svc.Messages(ctx, alice, id, 0, 10)
+		Expect(err).To(MatchError(session.ErrNotFound), "Messages after delete = %v, %v", entries, err)
+	})
 
-func TestDeleteStopsARunningTurnFirst(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "hi")
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	if err := svc.Delete(context.Background(), alice, id); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := svc.Get(context.Background(), alice, id); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("Get after delete = %v", err)
-	}
-}
+	It("delete stops a running turn first", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		Expect(svc.Delete(context.Background(), alice, id)).To(Succeed())
+		_, err := svc.Get(context.Background(), alice, id)
+		Expect(err).To(MatchError(session.ErrNotFound), "Get after delete = %v", err)
+	})
 
-// A new message must not overtake the ones that wait before it.
-func TestANewMessageStartsATurnBehindTheOnesWaitingBeforeIt(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "start")
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	sent(t, svc, alice, id, "old")
-	if err := svc.Stop(context.Background(), alice, id); err != nil {
-		t.Fatal(err)
-	}
-	until(t, "the turn to stop", func() bool { return !turn(t, svc, alice, id).Running })
+	// A new message must not overtake the ones that wait before it.
+	It("a new message starts a turn behind the ones waiting before it", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "start")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		sent(svc, alice, id, "old")
+		Expect(svc.Stop(context.Background(), alice, id)).To(Succeed())
+		until("the turn to stop", func() bool { return !turn(svc, alice, id).Running })
 
-	if r := sent(t, svc, alice, id, "new"); !r.Started {
-		t.Fatalf("Send = %+v, want a started turn", r)
-	}
-	until(t, "the second turn", func() bool { return len(h.Sent()) == 2 })
-	if got := h.Sent()[1]; got != "old\n\nnew" {
-		t.Fatalf("the turn started with %q, want the waiting message first", got)
-	}
-	if got := pendingTexts(t, svc, alice, id); len(got) != 0 {
-		t.Fatalf("pending = %v, want none: the waiting message went with the turn", got)
-	}
-}
+		r := sent(svc, alice, id, "new")
+		Expect(r.Started).To(BeTrue(), "Send = %+v, want a started turn", r)
+		until("the second turn", func() bool { return len(h.Sent()) == 2 })
+		got := h.Sent()[1]
+		Expect(got).To(Equal("old\n\nnew"), "the turn started with %q, want the waiting message first", got)
+		Expect(pendingTexts(svc, alice, id)).To(BeEmpty())
+	})
 
-func TestAChatIsNamedAfterItsFirstMessage(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	ctx := context.Background()
-	id := create(t, svc, alice)
-	if rec, _ := svc.Get(ctx, alice, id); rec.Title != session.DefaultTitle {
-		t.Fatalf("a new chat is called %q", rec.Title)
-	}
-	sent(t, svc, alice, id, "Plan the offsite budget\nfor the third quarter, with the venue costs we saw last year and a margin of ten percent")
-	rec, err := svc.Get(ctx, alice, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(rec.Title, "Plan the offsite budget") || strings.Contains(rec.Title, "\n") || utf8.RuneCountInString(rec.Title) > session.MaxTitleRunes {
-		t.Fatalf("the title is %q", rec.Title)
-	}
-	// A title the user chose, or an earlier one, is not replaced by a later message.
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	sent(t, svc, alice, id, "A second message")
-	if again, _ := svc.Get(ctx, alice, id); again.Title != rec.Title {
-		t.Fatalf("the title changed to %q", again.Title)
-	}
-	named, err := svc.Create(ctx, alice, studio.CreateInput{Model: "m", Title: "Mine"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sent(t, svc, alice, named.ID, "something else entirely")
-	if got, _ := svc.Get(ctx, alice, named.ID); got.Title != "Mine" {
-		t.Fatalf("a chosen title became %q", got.Title)
-	}
-}
+	It("a chat is named after its first message", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		ctx := context.Background()
+		id := create(svc, alice)
+		rec, _ := svc.Get(ctx, alice, id)
+		Expect(rec.Title).To(Equal(session.DefaultTitle), "a new chat is called %q", rec.Title)
+		sent(svc, alice, id, "Plan the offsite budget\nfor the third quarter, with the venue costs we saw last year and a margin of ten percent")
+		rec, err := svc.Get(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Title).To(HavePrefix("Plan the offsite budget"), "the title is %q", rec.Title)
+		Expect(rec.Title).NotTo(ContainSubstring("\n"), "the title is %q", rec.Title)
+		Expect(utf8.RuneCountInString(rec.Title)).To(BeNumerically("<=", session.MaxTitleRunes), "the title is %q", rec.Title)
+		// A title the user chose, or an earlier one, is not replaced by a later message.
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		sent(svc, alice, id, "A second message")
+		again, _ := svc.Get(ctx, alice, id)
+		Expect(again.Title).To(Equal(rec.Title), "the title changed to %q", again.Title)
+		named, err := svc.Create(ctx, alice, studio.CreateInput{Model: "m", Title: "Mine"})
+		Expect(err).NotTo(HaveOccurred())
+		sent(svc, alice, named.ID, "something else entirely")
+		got, _ := svc.Get(ctx, alice, named.ID)
+		Expect(got.Title).To(Equal("Mine"), "a chosen title became %q", got.Title)
+	})
 
-func TestUpdateRenamesAChatThatIsNotRunning(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	ctx := context.Background()
-	id := create(t, svc, alice)
-	title := "  Budget\n 2027  "
-	rec, err := svc.Update(ctx, alice, id, studio.UpdateInput{Title: &title})
-	if err != nil || rec.Title != "Budget 2027" {
-		t.Fatalf("Update = %+v, %v", rec, err)
-	}
-	if got, _ := svc.Get(ctx, alice, id); got.Title != "Budget 2027" {
-		t.Fatalf("stored title %q", got.Title)
-	}
-	for _, bad := range []string{"", "   ", strings.Repeat("x", session.MaxTitleRunes+1)} {
-		if _, err := svc.Update(ctx, alice, id, studio.UpdateInput{Title: &bad}); !errors.Is(err, studio.ErrInvalidSettings) {
-			t.Fatalf("Update(%q) = %v, want ErrInvalidSettings", bad, err)
+	It("update renames a chat that is not running", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		ctx := context.Background()
+		id := create(svc, alice)
+		title := "  Budget\n 2027  "
+		rec, err := svc.Update(ctx, alice, id, studio.UpdateInput{Title: &title})
+		Expect(err).NotTo(HaveOccurred(), "Update = %+v, %v", rec, err)
+		Expect(rec.Title).To(Equal("Budget 2027"), "Update = %+v, %v", rec, err)
+		got, _ := svc.Get(ctx, alice, id)
+		Expect(got.Title).To(Equal("Budget 2027"), "stored title %q", got.Title)
+		for _, bad := range []string{"", "   ", strings.Repeat("x", session.MaxTitleRunes+1)} {
+			_, err := svc.Update(ctx, alice, id, studio.UpdateInput{Title: &bad})
+			Expect(err).To(MatchError(studio.ErrInvalidSettings), "Update(%q) = %v, want ErrInvalidSettings", bad, err)
 		}
-	}
-	mine := "Mine now"
-	if _, err := svc.Update(ctx, "bob", id, studio.UpdateInput{Title: &mine}); !errors.Is(err, session.ErrNotFound) {
-		t.Fatalf("another user renamed it: %v", err)
-	}
-	sent(t, svc, alice, id, "go")
-	until(t, "the turn to start", func() bool { return turn(t, svc, alice, id).Running })
-	running := "While running"
-	if _, err := svc.Update(ctx, alice, id, studio.UpdateInput{Title: &running}); !errors.Is(err, studio.ErrChatBusy) {
-		t.Fatalf("Update while a turn runs = %v, want ErrChatBusy", err)
-	}
-}
+		mine := "Mine now"
+		_, err = svc.Update(ctx, "bob", id, studio.UpdateInput{Title: &mine})
+		Expect(err).To(MatchError(session.ErrNotFound), "another user renamed it: %v", err)
+		sent(svc, alice, id, "go")
+		until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+		running := "While running"
+		_, err = svc.Update(ctx, alice, id, studio.UpdateInput{Title: &running})
+		Expect(err).To(MatchError(studio.ErrChatBusy), "Update while a turn runs = %v, want ErrChatBusy", err)
+	})
 
-func TestTurnEndIsAnnouncedAfterTheTurnIsRecorded(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newService(t, h)
-	id := create(t, svc, alice)
-	events, cancel, err := svc.Events(context.Background(), alice, id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
-	sent(t, svc, alice, id, "hi")
-	until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-	h.Gate <- struct{}{}
-	timeout := time.After(20 * time.Second)
-	for {
-		select {
-		case e := <-events:
-			if e.Kind != session.KindTurnEnd {
-				continue
+	It("turn end is announced after the turn is recorded", func() {
+		h := studiotest.NewGateHarness()
+		svc := newService(h)
+		id := create(svc, alice)
+		events, cancel, err := svc.Events(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		defer cancel()
+		sent(svc, alice, id, "hi")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		h.Gate <- struct{}{}
+		timeout := time.After(20 * time.Second)
+		for {
+			select {
+			case e := <-events:
+				if e.Kind != session.KindTurnEnd {
+					continue
+				}
+				Expect(turn(svc, alice, id).Running).To(BeFalse(), "turn_end was announced while the chat was still recorded as running")
+				return
+			case <-timeout:
+				Fail("timed out waiting for turn_end")
 			}
-			if turn(t, svc, alice, id).Running {
-				t.Fatal("turn_end was announced while the chat was still recorded as running")
-			}
-			return
-		case <-timeout:
-			t.Fatal("timed out waiting for turn_end")
 		}
-	}
-}
+	})
+})

@@ -17,12 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// specT is the testing.T of the suite. The rigs of this package take one, and
-// their cleanup runs when the suite ends.
-var specT *testing.T
-
 func TestConnectorSpecs(t *testing.T) {
-	specT = t
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Chats connector add-on path")
 }
@@ -62,12 +57,12 @@ var _ = Describe("a connector add-on pushing a message", func() {
 	}
 
 	BeforeEach(func() {
-		sh, bot := newShared(specT), newScriptedBot(specT)
-		st = connStore(specT)
-		r = newConnRig(specT, sh, st, bot, connSay("pushed answer"), nil)
+		sh, bot := newShared(), newScriptedBot()
+		st = connStore()
+		r = newConnRig(sh, st, bot, connSay("pushed answer"), nil)
 		// A push-only add-on: stop the pull loop so the host operation is the only door.
 		r.tr.SetRunning(true)
-		b = r.bind(specT, studio.ConnectorInput{Allow: []string{"11"}})
+		b = r.bind(studio.ConnectorInput{Allow: []string{"11"}})
 		inbox := hostops.New(hostops.NewInFlight(), func(string, string) bool { return false }, contract.DefaultLimits())
 		Expect(hostops.RegisterConnector(inbox, r.conns)).To(Succeed())
 		broker = inbox.Handler("telegram", incarnation, []string{"connector."})
@@ -177,10 +172,10 @@ var _ = Describe("the pull loop of a connector add-on", func() {
 	ctx := context.Background()
 
 	It("moves the stored offset to what the poll answer names, also past updates it skips", func() {
-		sh, bot := newShared(specT), newScriptedBot(specT)
-		st := connStore(specT)
-		r := newConnRig(specT, sh, st, bot, connSay("ok"), nil)
-		b := r.bind(specT, studio.ConnectorInput{AcceptAny: true})
+		sh, bot := newShared(), newScriptedBot()
+		st := connStore()
+		r := newConnRig(sh, st, bot, connSay("ok"), nil)
+		b := r.bind(studio.ConnectorInput{AcceptAny: true})
 		bot.mu.Lock()
 		bot.updates = append(bot.updates, map[string]any{"update_id": 7, "edited_message": map[string]any{"text": "an edit"}})
 		bot.mu.Unlock()
@@ -195,11 +190,11 @@ var _ = Describe("a binding made before connectors became add-ons", func() {
 	ctx := context.Background()
 
 	It("shows as inactive with a plain reason while the add-on is missing, and works once it runs", func() {
-		sh, bot := newShared(specT), newScriptedBot(specT)
-		st := connStore(specT)
-		r := newConnRig(specT, sh, st, bot, connSay("answered after the install"), nil)
+		sh, bot := newShared(), newScriptedBot()
+		st := connStore()
+		r := newConnRig(sh, st, bot, connSay("answered after the install"), nil)
 		r.tr.SetRunning(false)
-		b := r.bind(specT, studio.ConnectorInput{AcceptAny: true})
+		b := r.bind(studio.ConnectorInput{AcceptAny: true})
 		// What the old core stored: a telegram binding that names no add-on.
 		old, err := st.GetBinding(ctx, b.ID)
 		Expect(err).NotTo(HaveOccurred())
@@ -224,8 +219,8 @@ var _ = Describe("a binding made before connectors became add-ons", func() {
 	})
 
 	It("lets a client older than the add-ons create a telegram binding, and refuses an unknown kind", func() {
-		sh, bot := newShared(specT), newScriptedBot(specT)
-		r := newConnRig(specT, sh, connStore(specT), bot, connSay("ok"), nil)
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
 		r.tr.SetRunning(false)
 		ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Support", Model: "m"})
 		Expect(err).NotTo(HaveOccurred())

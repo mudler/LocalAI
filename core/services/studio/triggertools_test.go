@@ -2,10 +2,6 @@ package studio_test
 
 import (
 	"context"
-	"errors"
-	"slices"
-	"strings"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -13,6 +9,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 func proposeScript(args string) func(workspace.Actor, string) []studiotest.ToolStep {
@@ -29,182 +27,163 @@ func proposeScript(args string) func(workspace.Actor, string) []studiotest.ToolS
 
 const goodProposal = `{"name":"Morning digest","prompt":"Summarise yesterday.","when":"weekdays 09:00","time_zone":"Europe/Rome"}`
 
-func TestAProposalDoesNothingUntilItsOwnerConfirmsIt(t *testing.T) {
-	r := newTrigRig(t, proposeScript(goodProposal))
-	ctx := context.Background()
-	src, err := r.svc.Create(ctx, alice, studio.CreateInput{Model: "src-model"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sent(t, r.svc, alice, src.ID, "propose")
-	idle(t, r.svc, alice, src.ID)
-	res := r.h.ResultsFor("propose_trigger")
-	if len(res) != 1 || res[0].Err != nil || !strings.Contains(res[0].Out, "not active") || !strings.Contains(res[0].Out, "confirm") {
-		t.Fatalf("result = %+v", res)
-	}
-	props, err := r.host.Proposals(ctx, alice)
-	if err != nil || len(props) != 1 {
-		t.Fatalf("proposals = %+v, %v", props, err)
-	}
-	p := props[0]
-	if p.Enabled || !p.Proposed || p.SourceChatID != src.ID || p.Model != "src-model" || p.Schedule != "weekdays 09:00" || p.TZ != "Europe/Rome" {
-		t.Fatalf("proposal = %+v", p)
-	}
-	if list, _ := r.host.ListTriggers(ctx, alice); len(list) != 0 {
-		t.Fatalf("a proposal is listed as a trigger: %+v", list)
-	}
-	r.sh.clock.Advance(48 * time.Hour)
-	r.pass(t)
-	if runs, _ := r.sh.trg.ListRuns(ctx, p.ID, 0); len(runs) != 0 {
-		t.Fatalf("an unconfirmed proposal ran: %+v", runs)
-	}
-	if _, err := r.host.RunTrigger(ctx, alice, p.ID); !errors.Is(err, triggers.ErrNotFound) {
-		t.Fatalf("a proposal was run by hand: %v", err)
-	}
-	// Bob can neither see nor confirm it.
-	if _, err := r.host.ConfirmProposal(ctx, "bob", p.ID, ""); !errors.Is(err, triggers.ErrNotFound) {
-		t.Fatalf("bob confirmed alice's proposal: %v", err)
-	}
-	got, err := r.host.ConfirmProposal(ctx, alice, p.ID, "")
-	if err != nil || !got.Enabled || got.Proposed {
-		t.Fatalf("confirmed = %+v, %v", got, err)
-	}
-	if list, _ := r.host.ListTriggers(ctx, alice); len(list) != 1 {
-		t.Fatalf("triggers after confirming: %+v", list)
-	}
-	if props, _ := r.host.Proposals(ctx, alice); len(props) != 0 {
-		t.Fatalf("still a proposal: %+v", props)
-	}
-}
-
-func TestAProposalWithoutAZoneTakesTheZoneOfTheConfirmation(t *testing.T) {
-	r := newTrigRig(t, proposeScript(`{"name":"Digest","prompt":"p","when":"daily 08:00"}`))
-	ctx := context.Background()
-	id := create(t, r.svc, alice)
-	sent(t, r.svc, alice, id, "propose")
-	idle(t, r.svc, alice, id)
-	props, _ := r.host.Proposals(ctx, alice)
-	if len(props) != 1 {
-		t.Fatalf("proposals = %+v", props)
-	}
-	got, err := r.host.ConfirmProposal(ctx, alice, props[0].ID, "America/New_York")
-	if err != nil || got.TZ != "America/New_York" {
-		t.Fatalf("confirmed = %+v, %v", got, err)
-	}
-}
-
-func TestAChatWithAnAgentProposesATriggerThatKeepsTheAgent(t *testing.T) {
-	r := newTrigRig(t, proposeScript(goodProposal))
-	ctx := context.Background()
-	ag, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Digester", Model: "m"})
-	rec, err := r.svc.Create(ctx, alice, studio.CreateInput{AgentID: ag.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sent(t, r.svc, alice, rec.ID, "propose")
-	idle(t, r.svc, alice, rec.ID)
-	props, _ := r.host.Proposals(ctx, alice)
-	if len(props) != 1 || props[0].AgentID != ag.ID {
-		t.Fatalf("proposals = %+v", props)
-	}
-}
-
-func TestABadProposalIsRefusedWithTheReasonAndStoresNothing(t *testing.T) {
-	r := newTrigRig(t, proposeScript(`{"name":"x","prompt":"p","when":"daily 25:00"}`))
-	id := create(t, r.svc, alice)
-	sent(t, r.svc, alice, id, "propose")
-	idle(t, r.svc, alice, id)
-	res := r.h.ResultsFor("propose_trigger")
-	if len(res) != 1 || res[0].Err == nil || !strings.Contains(res[0].Err.Error(), "hour must be 0 to 23") {
-		t.Fatalf("result = %+v", res)
-	}
-	if props, _ := r.host.Proposals(context.Background(), alice); len(props) != 0 {
-		t.Fatalf("stored %+v", props)
-	}
-}
-
-func TestTheTriggerToolsAreOfferedToPeopleChatsOnly(t *testing.T) {
-	r := newTrigRig(t, func(_ workspace.Actor, text string) []studiotest.ToolStep {
-		if text == "go" {
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"child job","wait":true}`}, {Say: "done"}}
-		}
-		return []studiotest.ToolStep{{Say: "ok"}}
+var _ = Describe("triggertools", func() {
+	It("a proposal does nothing until its owner confirms it", func() {
+		r := newTrigRig(proposeScript(goodProposal))
+		ctx := context.Background()
+		src, err := r.svc.Create(ctx, alice, studio.CreateInput{Model: "src-model"})
+		Expect(err).NotTo(HaveOccurred())
+		sent(r.svc, alice, src.ID, "propose")
+		idle(r.svc, alice, src.ID)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1), "result = %+v", res)
+		Expect(res[0].Err).To(BeNil(), "result = %+v", res)
+		Expect(res[0].Out).To(ContainSubstring("not active"), "result = %+v", res)
+		Expect(res[0].Out).To(ContainSubstring("confirm"), "result = %+v", res)
+		props, err := r.host.Proposals(ctx, alice)
+		Expect(err).NotTo(HaveOccurred(), "proposals = %+v, %v", props, err)
+		Expect(props).To(HaveLen(1), "proposals = %+v, %v", props, err)
+		p := props[0]
+		Expect(p.Enabled).To(BeFalse(), "proposal = %+v", p)
+		Expect(p.Proposed).To(BeTrue(), "proposal = %+v", p)
+		Expect(p.SourceChatID).To(Equal(src.ID), "proposal = %+v", p)
+		Expect(p.Model).To(Equal("src-model"), "proposal = %+v", p)
+		Expect(p.Schedule).To(Equal("weekdays 09:00"), "proposal = %+v", p)
+		Expect(p.TZ).To(Equal("Europe/Rome"), "proposal = %+v", p)
+		list, _ := r.host.ListTriggers(ctx, alice)
+		Expect(list).To(BeEmpty(), "a proposal is listed as a trigger: %+v", list)
+		r.sh.clock.Advance(48 * time.Hour)
+		r.pass()
+		runs, _ := r.sh.trg.ListRuns(ctx, p.ID, 0)
+		Expect(runs).To(BeEmpty(), "an unconfirmed proposal ran: %+v", runs)
+		_, err = r.host.RunTrigger(ctx, alice, p.ID)
+		Expect(err).To(MatchError(triggers.ErrNotFound), "a proposal was run by hand: %v", err)
+		// Bob can neither see nor confirm it.
+		_, err = r.host.ConfirmProposal(ctx, "bob", p.ID, "")
+		Expect(err).To(MatchError(triggers.ErrNotFound), "bob confirmed alice's proposal: %v", err)
+		got, err := r.host.ConfirmProposal(ctx, alice, p.ID, "")
+		Expect(err).NotTo(HaveOccurred(), "confirmed = %+v, %v", got, err)
+		Expect(got.Enabled).To(BeTrue(), "confirmed = %+v, %v", got, err)
+		Expect(got.Proposed).To(BeFalse(), "confirmed = %+v, %v", got, err)
+		list, _ = r.host.ListTriggers(ctx, alice)
+		Expect(list).To(HaveLen(1), "triggers after confirming: %+v", list)
+		props, _ = r.host.Proposals(ctx, alice)
+		Expect(props).To(BeEmpty(), "still a proposal: %+v", props)
 	})
-	ctx := context.Background()
-	id := create(t, r.svc, alice)
-	sent(t, r.svc, alice, id, "go")
-	idle(t, r.svc, alice, id)
-	if names := r.h.ToolNames(id); !slices.Contains(names, "propose_trigger") || !slices.Contains(names, "list_triggers") {
-		t.Fatalf("a person's chat has %v", names)
-	}
-	for _, c := range childrenOf(t, r.svc, alice, id) {
-		if names := r.h.ToolNames(c.ID); slices.Contains(names, "propose_trigger") || slices.Contains(names, "list_triggers") {
-			t.Fatalf("a sub-agent has %v", names)
+
+	It("a proposal without a zone takes the zone of the confirmation", func() {
+		r := newTrigRig(proposeScript(`{"name":"Digest","prompt":"p","when":"daily 08:00"}`))
+		ctx := context.Background()
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "propose")
+		idle(r.svc, alice, id)
+		props, _ := r.host.Proposals(ctx, alice)
+		Expect(props).To(HaveLen(1), "proposals = %+v", props)
+		got, err := r.host.ConfirmProposal(ctx, alice, props[0].ID, "America/New_York")
+		Expect(err).NotTo(HaveOccurred(), "confirmed = %+v, %v", got, err)
+		Expect(got.TZ).To(Equal("America/New_York"), "confirmed = %+v, %v", got, err)
+	})
+
+	It("a chat with an agent proposes a trigger that keeps the agent", func() {
+		r := newTrigRig(proposeScript(goodProposal))
+		ctx := context.Background()
+		ag, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Digester", Model: "m"})
+		rec, err := r.svc.Create(ctx, alice, studio.CreateInput{AgentID: ag.ID})
+		Expect(err).NotTo(HaveOccurred())
+		sent(r.svc, alice, rec.ID, "propose")
+		idle(r.svc, alice, rec.ID)
+		props, _ := r.host.Proposals(ctx, alice)
+		Expect(props).To(HaveLen(1), "proposals = %+v", props)
+		Expect(props[0].AgentID).To(Equal(ag.ID), "proposals = %+v", props)
+	})
+
+	It("a bad proposal is refused with the reason and stores nothing", func() {
+		r := newTrigRig(proposeScript(`{"name":"x","prompt":"p","when":"daily 25:00"}`))
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "propose")
+		idle(r.svc, alice, id)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1), "result = %+v", res)
+		Expect(res[0].Err).NotTo(BeNil(), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("hour must be 0 to 23"), "result = %+v", res)
+		props, _ := r.host.Proposals(context.Background(), alice)
+		Expect(props).To(BeEmpty(), "stored %+v", props)
+	})
+
+	It("the trigger tools are offered to people chats only", func() {
+		r := newTrigRig(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"child job","wait":true}`}, {Say: "done"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		})
+		ctx := context.Background()
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "go")
+		idle(r.svc, alice, id)
+		names := r.h.ToolNames(id)
+		Expect(names).To(ContainElement("propose_trigger"), "a person's chat has %v", names)
+		Expect(names).To(ContainElement("list_triggers"), "a person's chat has %v", names)
+		for _, c := range childrenOf(r.svc, alice, id) {
+			names := r.h.ToolNames(c.ID)
+			Expect(names).NotTo(ContainElement("propose_trigger"), "a sub-agent has %v", names)
+			Expect(names).NotTo(ContainElement("list_triggers"), "a sub-agent has %v", names)
 		}
-	}
-	tr := r.schedule(t, studio.TriggerInput{})
-	r.due(t)
-	run := r.waitEnded(t, tr.ID)
-	if names := r.h.ToolNames(run.ChatID); slices.Contains(names, "propose_trigger") || slices.Contains(names, "list_triggers") {
-		t.Fatalf("an unattended run has %v", names)
-	}
-	_ = ctx
-}
+		tr := r.schedule(studio.TriggerInput{})
+		r.due()
+		run := r.waitEnded(tr.ID)
+		names = r.h.ToolNames(run.ChatID)
+		Expect(names).NotTo(ContainElement("propose_trigger"), "an unattended run has %v", names)
+		Expect(names).NotTo(ContainElement("list_triggers"), "an unattended run has %v", names)
+		_ = ctx
+	})
 
-func TestListTriggersShowsNamesAndStatesButNoPromptsOrIDs(t *testing.T) {
-	r := newTrigRig(t, proposeScript(goodProposal))
-	r.schedule(t, studio.TriggerInput{Name: "Nightly", Prompt: "secret instructions"})
-	id := create(t, r.svc, alice)
-	sent(t, r.svc, alice, id, "list")
-	idle(t, r.svc, alice, id)
-	res := r.h.ResultsFor("list_triggers")
-	if len(res) != 1 || res[0].Err != nil || !strings.Contains(res[0].Out, "Nightly") || strings.Contains(res[0].Out, "secret instructions") {
-		t.Fatalf("result = %+v", res)
-	}
-}
+	It("list triggers shows names and states but no prompts or i ds", func() {
+		r := newTrigRig(proposeScript(goodProposal))
+		r.schedule(studio.TriggerInput{Name: "Nightly", Prompt: "secret instructions"})
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "list")
+		idle(r.svc, alice, id)
+		res := r.h.ResultsFor("list_triggers")
+		Expect(res).To(HaveLen(1), "result = %+v", res)
+		Expect(res[0].Err).To(BeNil(), "result = %+v", res)
+		Expect(res[0].Out).To(ContainSubstring("Nightly"), "result = %+v", res)
+		Expect(res[0].Out).NotTo(ContainSubstring("secret instructions"), "result = %+v", res)
+	})
 
-func TestADeletedTriggerLeavesItsChatsAndNothingRuns(t *testing.T) {
-	r := newTrigRig(t, saySummary)
-	ctx := context.Background()
-	tr := r.schedule(t, studio.TriggerInput{})
-	r.due(t)
-	run := r.waitEnded(t, tr.ID)
-	if err := r.host.DeleteTrigger(ctx, alice, tr.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := r.host.GetTrigger(ctx, alice, tr.ID); !errors.Is(err, triggers.ErrNotFound) {
-		t.Fatalf("after delete: %v", err)
-	}
-	if _, err := r.svc.Get(ctx, alice, run.ChatID); err != nil {
-		t.Fatalf("the chat of a deleted trigger is gone: %v", err)
-	}
-}
+	It("a deleted trigger leaves its chats and nothing runs", func() {
+		r := newTrigRig(saySummary)
+		ctx := context.Background()
+		tr := r.schedule(studio.TriggerInput{})
+		r.due()
+		run := r.waitEnded(tr.ID)
+		Expect(r.host.DeleteTrigger(ctx, alice, tr.ID)).To(Succeed())
+		_, err := r.host.GetTrigger(ctx, alice, tr.ID)
+		Expect(err).To(MatchError(triggers.ErrNotFound), "after delete: %v", err)
+		_, err = r.svc.Get(ctx, alice, run.ChatID)
+		Expect(err).NotTo(HaveOccurred(), "the chat of a deleted trigger is gone")
+	})
 
-func TestTheSameProposalIsKeptOnce(t *testing.T) {
-	r := newTrigRig(t, proposeScript(goodProposal))
-	ctx := context.Background()
-	src, err := r.svc.Create(ctx, alice, studio.CreateInput{Model: "src-model"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for range 3 {
-		sent(t, r.svc, alice, src.ID, "propose")
-		idle(t, r.svc, alice, src.ID)
-	}
-	props, err := r.host.Proposals(ctx, alice)
-	if err != nil || len(props) != 1 {
-		t.Fatalf("proposals = %d, %v; want the one", len(props), err)
-	}
-	// Another prompt is another proposal.
-	in := studio.TriggerInput{Name: "Morning digest", Prompt: "Summarise the week.", Kind: triggers.KindSchedule, Schedule: "weekdays 09:00", TZ: "Europe/Rome", Model: "src-model"}
-	if _, err := r.host.ProposeTrigger(ctx, alice, in); err != nil {
-		t.Fatal(err)
-	}
-	if props, _ := r.host.Proposals(ctx, alice); len(props) != 2 {
-		t.Fatalf("proposals = %d, want 2", len(props))
-	}
-	// Once confirmed, a new proposal of the same text may wait again.
-	if _, err := r.host.ConfirmProposal(ctx, alice, props[0].ID, ""); err != nil {
-		t.Fatal(err)
-	}
-}
+	It("the same proposal is kept once", func() {
+		r := newTrigRig(proposeScript(goodProposal))
+		ctx := context.Background()
+		src, err := r.svc.Create(ctx, alice, studio.CreateInput{Model: "src-model"})
+		Expect(err).NotTo(HaveOccurred())
+		for range 3 {
+			sent(r.svc, alice, src.ID, "propose")
+			idle(r.svc, alice, src.ID)
+		}
+		props, err := r.host.Proposals(ctx, alice)
+		Expect(err).NotTo(HaveOccurred(), "proposals = %d, %v; want the one", len(props), err)
+		Expect(props).To(HaveLen(1), "proposals = %d, %v; want the one", len(props), err)
+		// Another prompt is another proposal.
+		in := studio.TriggerInput{Name: "Morning digest", Prompt: "Summarise the week.", Kind: triggers.KindSchedule, Schedule: "weekdays 09:00", TZ: "Europe/Rome", Model: "src-model"}
+		_, err = r.host.ProposeTrigger(ctx, alice, in)
+		Expect(err).NotTo(HaveOccurred())
+		props, _ = r.host.Proposals(ctx, alice)
+		Expect(props).To(HaveLen(2), "proposals = %d, want 2", len(props))
+		// Once confirmed, a new proposal of the same text may wait again.
+		_, err = r.host.ConfirmProposal(ctx, alice, props[0].ID, "")
+		Expect(err).NotTo(HaveOccurred())
+	})
+})

@@ -2,13 +2,10 @@ package studio_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"sync/atomic"
-	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -18,6 +15,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type e2eIn struct {
@@ -25,8 +24,7 @@ type e2eIn struct {
 }
 
 // e2eServer is a real MCP server over HTTP, in this process.
-func e2eServer(t *testing.T) (*httptest.Server, *atomic.Int32) {
-	t.Helper()
+func e2eServer() (*httptest.Server, *atomic.Int32) {
 	var reached atomic.Int32
 	srv := mcp.NewServer(&mcp.Implementation{Name: "e2e", Version: "1"}, nil)
 	mcp.AddTool(srv, &mcp.Tool{Name: "shout", Description: "upper-cases"}, func(_ context.Context, _ *mcp.CallToolRequest, in e2eIn) (*mcp.CallToolResult, any, error) {
@@ -37,84 +35,69 @@ func e2eServer(t *testing.T) (*httptest.Server, *atomic.Int32) {
 		reached.Add(1)
 		h.ServeHTTP(w, r)
 	}))
-	t.Cleanup(func() { ts.CloseClientConnections(); ts.Close() })
+	DeferCleanup(func() { ts.CloseClientConnections(); ts.Close() })
 	return ts, &reached
 }
 
-func realConnectors(t *testing.T, allowPrivate bool) (*mcpconns.Service, mcpconns.Store) {
-	t.Helper()
+func realConnectors(allowPrivate bool) (*mcpconns.Service, mcpconns.Store) {
 	ms, err := mcpconns.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	cs, _ := connectors.NewJSON("")
 	svc, err := mcpconns.New(mcpconns.Options{
 		Store: ms, Key: func(ctx context.Context) ([]byte, error) { return cs.EnsureKey(ctx, connectors.NewKey) },
 		AllowPrivate: func() bool { return allowPrivate },
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(svc.Close)
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(svc.Close)
 	return svc, ms
 }
 
-func TestAChatTurnCallsAToolOfAUserDefinedMCPServer(t *testing.T) {
-	ts, reached := e2eServer(t)
-	conns, _ := realConnectors(t, true) // the test server listens on loopback
-	c, err := conns.Create(context.Background(), alice, mcpconns.Input{Name: "Shouter", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	svc, h := newToolService(t, func(workspace.Actor, string) []studiotest.ToolStep {
-		return []studiotest.ToolStep{{Tool: "shout", Args: `{"text":"hello"}`}, {Say: "done"}}
-	}, func(d *studio.Deps) { d.MCPConnectors = conns })
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	idle(t, svc, alice, id)
-	res := h.ResultsFor("shout")
-	if len(res) != 1 || res[0].Err != nil || res[0].Out != "HELLO" {
-		t.Fatalf("result = %+v (server reached %d times)", res, reached.Load())
-	}
-	// Renaming the connector does not break an agent that holds its id.
-	if _, err := conns.Update(context.Background(), alice, c.ID, mcpconns.Input{Name: "Renamed", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true}); err != nil {
-		t.Fatal(err)
-	}
-	tools, missing := conns.Resolve(context.Background(), alice, []string{c.ID}, false)
-	if len(tools) != 1 || len(missing) != 0 || tools[0].Connector != "Renamed" {
-		t.Fatalf("after the rename: %v %v", tools, missing)
-	}
-}
+var _ = Describe("mcpconnectors e2e", func() {
+	It("a chat turn calls a tool of a user defined MCP server", func() {
+		ts, reached := e2eServer()
+		conns, _ := realConnectors(true) // the test server listens on loopback
+		c, err := conns.Create(context.Background(), alice, mcpconns.Input{Name: "Shouter", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true})
+		Expect(err).NotTo(HaveOccurred())
+		svc, h := newToolService(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: "shout", Args: `{"text":"hello"}`}, {Say: "done"}}
+		}, func(d *studio.Deps) { d.MCPConnectors = conns })
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		res := h.ResultsFor("shout")
+		Expect(res).To(HaveLen(1), "result = %+v (server reached %d times)", res, reached.Load())
+		Expect(res[0].Err).To(BeNil(), "result = %+v (server reached %d times)", res, reached.Load())
+		Expect(res[0].Out).To(Equal("HELLO"), "result = %+v (server reached %d times)", res, reached.Load())
+		// Renaming the connector does not break an agent that holds its id.
+		_, err = conns.Update(context.Background(), alice, c.ID, mcpconns.Input{Name: "Renamed", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true})
+		Expect(err).NotTo(HaveOccurred())
+		tools, missing := conns.Resolve(context.Background(), alice, []string{c.ID}, false)
+		Expect(tools).To(HaveLen(1), "after the rename: %v %v", tools, missing)
+		Expect(missing).To(BeEmpty(), "after the rename: %v %v", tools, missing)
+		Expect(tools[0].Connector).To(Equal("Renamed"), "after the rename: %v %v", tools, missing)
+	})
 
-func TestAPrivateAddressGivesTheModelANoteAndNoTools(t *testing.T) {
-	ts, reached := e2eServer(t)
-	conns, store := realConnectors(t, false) // the default: private addresses are refused
-	if _, err := conns.Create(context.Background(), alice, mcpconns.Input{Name: "Direct", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true}); !errors.Is(err, mcpconns.ErrInvalid) {
-		t.Fatalf("an enabled connector with a loopback address: %v", err)
-	}
-	// A record that got in another way (saved while the switch was on, or
-	// written by another frontend): the connection itself must refuse.
-	rec := mcpconns.Connector{ID: "internal1", Owner: alice, Name: "Internal", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true}
-	if err := store.Put(context.Background(), rec); err != nil {
-		t.Fatal(err)
-	}
-	as, _ := agents.NewJSON("")
-	svc, h := newToolService(t, func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} },
-		func(d *studio.Deps) { d.MCPConnectors, d.Agents = conns, as })
-	_ = as.Put(context.Background(), agents.Agent{ID: "ag", Principal: alice, Name: "A", MCPServers: []string{"connector:internal1"}})
-	chat, err := svc.Create(context.Background(), alice, studio.CreateInput{Model: "m", AgentID: "ag"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sent(t, svc, alice, chat.ID, "go")
-	idle(t, svc, alice, chat.ID)
-	if slices.Contains(h.ToolNames(chat.ID), "shout") {
-		t.Fatal("the tool of a refused connector was offered")
-	}
-	if msg := strings.Join(h.Sent(chat.ID), "\n"); !strings.Contains(msg, "MCP connector Internal") || !strings.Contains(msg, "cannot be reached") {
-		t.Fatalf("no note for the model: %q", msg)
-	}
-	if reached.Load() != 0 {
-		t.Fatal("the server on a private address was reached")
-	}
-}
+	It("a private address gives the model a note and no tools", func() {
+		ts, reached := e2eServer()
+		conns, store := realConnectors(false) // the default: private addresses are refused
+		_, err := conns.Create(context.Background(), alice, mcpconns.Input{Name: "Direct", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true})
+		Expect(err).To(MatchError(mcpconns.ErrInvalid), "an enabled connector with a loopback address: %v", err)
+		// A record that got in another way (saved while the switch was on, or
+		// written by another frontend): the connection itself must refuse.
+		rec := mcpconns.Connector{ID: "internal1", Owner: alice, Name: "Internal", Transport: mcpconns.TransportHTTP, URL: ts.URL, Enabled: true}
+		Expect(store.Put(context.Background(), rec)).To(Succeed())
+		as, _ := agents.NewJSON("")
+		svc, h := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} },
+			func(d *studio.Deps) { d.MCPConnectors, d.Agents = conns, as })
+		_ = as.Put(context.Background(), agents.Agent{ID: "ag", Principal: alice, Name: "A", MCPServers: []string{"connector:internal1"}})
+		chat, err := svc.Create(context.Background(), alice, studio.CreateInput{Model: "m", AgentID: "ag"})
+		Expect(err).NotTo(HaveOccurred())
+		sent(svc, alice, chat.ID, "go")
+		idle(svc, alice, chat.ID)
+		Expect(h.ToolNames(chat.ID)).NotTo(ContainElement("shout"), "the tool of a refused connector was offered")
+		msg := strings.Join(h.Sent(chat.ID), "\n")
+		Expect(msg).To(ContainSubstring("MCP connector Internal"), "no note for the model: %q", msg)
+		Expect(msg).To(ContainSubstring("cannot be reached"), "no note for the model: %q", msg)
+		Expect(reached.Load()).To(BeNumerically("==", 0), "the server on a private address was reached")
+	})
+})

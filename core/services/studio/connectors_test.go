@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
@@ -24,6 +23,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/tests/studiobot"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 const botToken = "777:TOKEN-must-never-leak"
@@ -48,8 +49,7 @@ type scriptedBot struct {
 	inflight int
 }
 
-func newScriptedBot(t *testing.T) *scriptedBot {
-	t.Helper()
+func newScriptedBot() *scriptedBot {
 	b := &scriptedBot{fail: map[string]func() (int, string){}}
 	b.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body := map[string]any{}
@@ -135,7 +135,7 @@ func newScriptedBot(t *testing.T) *scriptedBot {
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		}
 	}))
-	t.Cleanup(b.srv.Close)
+	DeferCleanup(b.srv.Close)
 	return b
 }
 
@@ -191,9 +191,8 @@ type connRig struct {
 }
 
 // newConnRig builds a frontend with a connector manager on the shared stores of sh.
-func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedBot, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool) *connRig {
-	t.Helper()
-	r := newConnRigWith(t, sh, store, studiobot.NewBotTransport(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()}), script, lead)
+func newConnRig(sh *shared, store connectors.Store, bot *scriptedBot, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool) *connRig {
+	r := newConnRigWith(sh, store, studiobot.NewBotTransport(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()}), script, lead)
 	r.bot = bot
 	return r
 }
@@ -203,15 +202,13 @@ func newConnRig(t *testing.T, sh *shared, store connectors.Store, bot *scriptedB
 const connEditEvery = 20 * time.Millisecond
 
 // newConnRigWith builds the rig over any connector transport.
-func newConnRigWith(t *testing.T, sh *shared, store connectors.Store, tr *studiobot.BotTransport, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool) *connRig {
-	t.Helper()
-	return newConnRigOpts(t, sh, store, tr, script, lead, nil)
+func newConnRigWith(sh *shared, store connectors.Store, tr *studiobot.BotTransport, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool) *connRig {
+	return newConnRigOpts(sh, store, tr, script, lead, nil)
 }
 
 // newConnRigOpts is newConnRigWith with options that a spec changes last.
-func newConnRigOpts(t *testing.T, sh *shared, store connectors.Store, tr *studiobot.BotTransport, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool, opt func(*studio.ConnectorOptions)) *connRig {
-	t.Helper()
-	r := sh.rig(t, script, studio.TriggerOptions{})
+func newConnRigOpts(sh *shared, store connectors.Store, tr *studiobot.BotTransport, script func(workspace.Actor, string) []studiotest.ToolStep, lead func(context.Context) bool, opt func(*studio.ConnectorOptions)) *connRig {
+	r := sh.rig(script, studio.TriggerOptions{})
 	logs := &bytes.Buffer{}
 	o := studio.ConnectorOptions{
 		Store: store, Transport: tr,
@@ -223,32 +220,24 @@ func newConnRigOpts(t *testing.T, sh *shared, store connectors.Store, tr *studio
 		opt(&o)
 	}
 	c, err := studio.NewConnectors(r.svc, o)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(c.Close)
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(c.Close)
 	ctx, cancel := context.WithCancel(context.Background())
-	t.Cleanup(cancel)
+	DeferCleanup(cancel)
 	go c.Run(ctx)
 	return &connRig{trigRig: r, tr: tr, conns: c, logs: logs}
 }
 
-func connStore(t *testing.T) connectors.Store {
-	t.Helper()
+func connStore() connectors.Store {
 	s, err := connectors.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return s
 }
 
-func (c *connRig) bind(t *testing.T, in studio.ConnectorInput) connectors.Binding {
-	t.Helper()
+func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
 	if c.agent.ID == "" {
 		ag, err := c.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Support", Model: "m", Addons: []string{"office"}})
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
 		c.agent = ag
 	}
 	if in.Name == "" {
@@ -267,49 +256,48 @@ func (c *connRig) bind(t *testing.T, in studio.ConnectorInput) connectors.Bindin
 		in.Reply = connectors.ReplyOff
 	}
 	b, err := c.conns.CreateConnector(context.Background(), alice, in)
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return b.Binding
 }
 
-func waitFor(t *testing.T, what string, f func() bool) {
-	t.Helper()
-	until(t, what, f)
+func waitFor(what string, f func() bool) {
+	until(what, f)
 }
 
 func connSay(text string) func(workspace.Actor, string) []studiotest.ToolStep {
 	return func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: text}} }
 }
 
-func TestAnAllowedSenderGetsTheAnswerOfTheBoundAgentInAChatOfTheirOwn(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("Hello from the agent."), nil)
-	b := r.bind(t, studio.ConnectorInput{Allow: []string{"11"}})
-	bot.say(1, 11, "Ada", "ada", "hi there")
-	waitFor(t, "the answer", func() bool { return len(bot.answers()) == 1 })
-	if got := bot.answers()[0]; got != "All caught up."[:0]+"Hello from the agent." {
-		t.Fatalf("answer = %q", got)
-	}
-	chats, _ := r.svc.List(context.Background(), alice, 10)
-	if len(chats) != 1 || chats[0].Origin != session.OriginConnector || chats[0].OriginID != b.ID || chats[0].AgentID != r.agent.ID || !strings.HasPrefix(chats[0].Title, "Telegram · Ada") {
-		t.Fatalf("chats = %+v", chats)
-	}
-	if sent := r.h.Sent(chats[0].ID); len(sent) != 1 || sent[0] != "hi there" {
-		t.Fatalf("the chat got %q", sent)
-	}
-	// Only the agent's grants: the office tool, no propose_trigger.
-	names := r.h.ToolNames(chats[0].ID)
-	if !hasName(names, "addon__office__read-doc") || hasName(names, "addon__sandbox__bash") || hasName(names, "propose_trigger") {
-		t.Fatalf("tools = %v", names)
-	}
-	// A second message continues the same chat.
-	bot.say(2, 11, "Ada", "ada", "and then?")
-	waitFor(t, "the second answer", func() bool { return len(bot.answers()) == 2 })
-	if again, _ := r.svc.List(context.Background(), alice, 10); len(again) != 1 {
-		t.Fatalf("a second chat was made: %d", len(again))
-	}
-}
+var _ = Describe("connectors", func() {
+	It("an allowed sender gets the answer of the bound agent in a chat of their own", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("Hello from the agent."), nil)
+		b := r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		bot.say(1, 11, "Ada", "ada", "hi there")
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		got := bot.answers()[0]
+		Expect(got).To(Equal("All caught up."[:0]+"Hello from the agent."), "answer = %q", got)
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(HaveLen(1), "chats = %+v", chats)
+		Expect(chats[0].Origin).To(Equal(session.OriginConnector), "chats = %+v", chats)
+		Expect(chats[0].OriginID).To(Equal(b.ID), "chats = %+v", chats)
+		Expect(chats[0].AgentID).To(Equal(r.agent.ID), "chats = %+v", chats)
+		Expect(chats[0].Title).To(HavePrefix("Telegram · Ada"), "chats = %+v", chats)
+		sent := r.h.Sent(chats[0].ID)
+		Expect(sent).To(HaveLen(1), "the chat got %q", sent)
+		Expect(sent[0]).To(Equal("hi there"), "the chat got %q", sent)
+		// Only the agent's grants: the office tool, no propose_trigger.
+		names := r.h.ToolNames(chats[0].ID)
+		Expect(hasName(names, "addon__office__read-doc")).To(BeTrue(), "tools = %v", names)
+		Expect(hasName(names, "addon__sandbox__bash")).To(BeFalse(), "tools = %v", names)
+		Expect(hasName(names, "propose_trigger")).To(BeFalse(), "tools = %v", names)
+		// A second message continues the same chat.
+		bot.say(2, 11, "Ada", "ada", "and then?")
+		waitFor("the second answer", func() bool { return len(bot.answers()) == 2 })
+		again, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(again).To(HaveLen(1), "a second chat was made: %d", len(again))
+	})
+})
 
 func hasName(l []string, s string) bool {
 	for _, x := range l {
@@ -320,427 +308,377 @@ func hasName(l []string, s string) bool {
 	return false
 }
 
-func TestAStrangerAGroupAndAnEditAreIgnoredButLogged(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	st := connStore(t)
-	r := newConnRig(t, sh, st, bot, connSay("x"), nil)
-	b := r.bind(t, studio.ConnectorInput{Allow: []string{"11"}})
-	bot.say(1, 99, "Stranger", "eve", "let me in")
-	bot.group(2, 11, "an allowed person in a group")
-	bot.say(3, 11, "Ada", "ada", "real message")
-	waitFor(t, "the real answer", func() bool { return len(bot.answers()) == 1 })
-	if chats, _ := r.svc.List(context.Background(), alice, 10); len(chats) != 1 {
-		t.Fatalf("chats = %d, want only the allowed sender's", len(chats))
-	}
-	senders, _ := st.Senders(context.Background(), b.ID, 0)
-	byID := map[string]connectors.Sender{}
-	for _, s := range senders {
-		byID[s.ID] = s
-	}
-	if s, ok := byID["99"]; !ok || s.Allowed || s.Count != 1 || s.Name != "Stranger" {
-		t.Fatalf("stranger row = %+v %v", s, ok)
-	}
-	if s := byID["11"]; !s.Allowed {
-		t.Fatalf("allowed row = %+v", s)
-	}
-	for _, a := range bot.answers() {
-		if strings.Contains(a, "let me in") {
-			t.Fatal("the stranger was answered")
+var _ = Describe("connectors", func() {
+	It("a stranger a group and an edit are ignored but logged", func() {
+		sh, bot := newShared(), newScriptedBot()
+		st := connStore()
+		r := newConnRig(sh, st, bot, connSay("x"), nil)
+		b := r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		bot.say(1, 99, "Stranger", "eve", "let me in")
+		bot.group(2, 11, "an allowed person in a group")
+		bot.say(3, 11, "Ada", "ada", "real message")
+		waitFor("the real answer", func() bool { return len(bot.answers()) == 1 })
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(HaveLen(1), "chats = %d, want only the allowed sender's", len(chats))
+		senders, _ := st.Senders(context.Background(), b.ID, 0)
+		byID := map[string]connectors.Sender{}
+		for _, s := range senders {
+			byID[s.ID] = s
 		}
-	}
-}
+		s, ok := byID["99"]
+		Expect(ok).To(BeTrue(), "stranger row = %+v %v", s, ok)
+		Expect(s.Allowed).To(BeFalse(), "stranger row = %+v %v", s, ok)
+		Expect(s.Count).To(BeNumerically("==", 1), "stranger row = %+v %v", s, ok)
+		Expect(s.Name).To(Equal("Stranger"), "stranger row = %+v %v", s, ok)
+		s = byID["11"]
+		Expect(s.Allowed).To(BeTrue(), "allowed row = %+v", s)
+		for _, a := range bot.answers() {
+			Expect(a).NotTo(ContainSubstring("let me in"), "the stranger was answered")
+		}
+	})
 
-func TestAcceptAnyGivesEachSenderAChatOfTheirOwn(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	bot.say(1, 1, "One", "", "a")
-	bot.say(2, 2, "Two", "", "b")
-	waitFor(t, "two answers", func() bool { return len(bot.answers()) == 2 })
-	chats, _ := r.svc.List(context.Background(), alice, 10)
-	if len(chats) != 2 {
-		t.Fatalf("chats = %d, want one for each sender", len(chats))
-	}
-	seen := map[string]bool{}
-	for _, c := range chats {
-		seen[strings.Join(r.h.Sent(c.ID), "|")] = true
-	}
-	if !seen["a"] || !seen["b"] {
-		t.Fatalf("the chats mixed the senders: %v", seen)
-	}
-}
+	It("accept any gives each sender a chat of their own", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{AcceptAny: true})
+		bot.say(1, 1, "One", "", "a")
+		bot.say(2, 2, "Two", "", "b")
+		waitFor("two answers", func() bool { return len(bot.answers()) == 2 })
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(HaveLen(2), "chats = %d, want one for each sender", len(chats))
+		seen := map[string]bool{}
+		for _, c := range chats {
+			seen[strings.Join(r.h.Sent(c.ID), "|")] = true
+		}
+		Expect(seen["a"]).To(BeTrue(), "the chats mixed the senders: %v", seen)
+		Expect(seen["b"]).To(BeTrue(), "the chats mixed the senders: %v", seen)
+	})
 
-func TestASenderWhoWritesTooFastIsDroppedWithOneNotice(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	r.bind(t, studio.ConnectorInput{AcceptAny: true}) // the rig allows 5 a minute
-	for i := 1; i <= 9; i++ {
-		bot.say(i, 5, "Fast", "", fmt.Sprintf("m%d", i))
-	}
-	waitFor(t, "the notice", func() bool {
+	It("a sender who writes too fast is dropped with one notice", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{AcceptAny: true}) // the rig allows 5 a minute
+		for i := 1; i <= 9; i++ {
+			bot.say(i, 5, "Fast", "", fmt.Sprintf("m%d", i))
+		}
+		waitFor("the notice", func() bool {
+			for _, a := range bot.answers() {
+				if strings.Contains(a, "Too many messages") {
+					return true
+				}
+			}
+			return false
+		})
+		time.Sleep(150 * time.Millisecond)
+		notices := 0
 		for _, a := range bot.answers() {
 			if strings.Contains(a, "Too many messages") {
-				return true
+				notices++
 			}
 		}
-		return false
+		Expect(notices).To(BeNumerically("==", 1), "%d notices, want one a minute", notices)
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(HaveLen(1), "more than the limit reached the model: %d chats", len(chats))
+		Expect(len(r.h.Sent(chats[0].ID))).To(BeNumerically("<=", 5), "more than the limit reached the model: %d chats", len(chats))
 	})
-	time.Sleep(150 * time.Millisecond)
-	notices := 0
-	for _, a := range bot.answers() {
-		if strings.Contains(a, "Too many messages") {
-			notices++
+
+	It("a too long message and a photo get their sentences and no run", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{AcceptAny: true})
+		bot.say(1, 5, "Big", "", strings.Repeat("x", 8001))
+		bot.photo(2, 5)
+		waitFor("both sentences", func() bool { return len(bot.answers()) == 2 })
+		a := strings.Join(bot.answers(), "\n")
+		Expect(a).To(ContainSubstring("too long"), "answers = %q", a)
+		Expect(a).To(ContainSubstring("only read text"), "answers = %q", a)
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(BeEmpty(), "a refused message made %d chats", len(chats))
+	})
+
+	It("a refused model request is answered with the fixed sentence", func() {
+		sh, bot := newShared(), newScriptedBot()
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Err: errors.New("the model refused the request " + session.MarkQuota)}}
 		}
-	}
-	if notices != 1 {
-		t.Fatalf("%d notices, want one a minute", notices)
-	}
-	chats, _ := r.svc.List(context.Background(), alice, 10)
-	if len(chats) != 1 || len(r.h.Sent(chats[0].ID)) > 5 {
-		t.Fatalf("more than the limit reached the model: %d chats", len(chats))
-	}
-}
+		r := newConnRig(sh, connStore(), bot, script, nil)
+		r.bind(studio.ConnectorInput{AcceptAny: true})
+		bot.say(1, 5, "Q", "", "hi")
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal(session.ReasonQuota))
+	})
 
-func TestATooLongMessageAndAPhotoGetTheirSentencesAndNoRun(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	bot.say(1, 5, "Big", "", strings.Repeat("x", 8001))
-	bot.photo(2, 5)
-	waitFor(t, "both sentences", func() bool { return len(bot.answers()) == 2 })
-	a := strings.Join(bot.answers(), "\n")
-	if !strings.Contains(a, "too long") || !strings.Contains(a, "only read text") {
-		t.Fatalf("answers = %q", a)
-	}
-	if chats, _ := r.svc.List(context.Background(), alice, 10); len(chats) != 0 {
-		t.Fatalf("a refused message made %d chats", len(chats))
-	}
-}
-
-func TestARefusedModelRequestIsAnsweredWithTheFixedSentence(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	script := func(workspace.Actor, string) []studiotest.ToolStep {
-		return []studiotest.ToolStep{{Err: errors.New("the model refused the request " + session.MarkQuota)}}
-	}
-	r := newConnRig(t, sh, connStore(t), bot, script, nil)
-	r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	bot.say(1, 5, "Q", "", "hi")
-	waitFor(t, "the answer", func() bool { return len(bot.answers()) == 1 })
-	if got := bot.answers()[0]; got != session.ReasonQuota {
-		t.Fatalf("answer = %q", got)
-	}
-}
-
-func TestALongAnswerIsSplitAndNeverCutInTheMiddleOfAWord(t *testing.T) {
-	long := strings.Repeat("word ", 1900) // 9500 characters
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay(long), nil)
-	r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	bot.say(1, 5, "L", "", "go")
-	waitFor(t, "three parts", func() bool { return len(bot.answers()) == 3 })
-	total := 0
-	for _, a := range bot.answers() {
-		if len([]rune(a)) > 4096 || strings.HasPrefix(a, "ord") || strings.HasSuffix(a, "wor") {
-			t.Fatalf("a bad part of %d characters: %q...", len(a), a[:10])
+	It("a long answer is split and never cut in the middle of a word", func() {
+		long := strings.Repeat("word ", 1900) // 9500 characters
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay(long), nil)
+		r.bind(studio.ConnectorInput{AcceptAny: true})
+		bot.say(1, 5, "L", "", "go")
+		waitFor("three parts", func() bool { return len(bot.answers()) == 3 })
+		total := 0
+		for _, a := range bot.answers() {
+			Expect(len([]rune(a))).To(BeNumerically("<=", 4096), "a bad part of %d characters: %q...", len(a), a[:10])
+			Expect(a).NotTo(HavePrefix("ord"), "a bad part of %d characters: %q...", len(a), a[:10])
+			Expect(a).NotTo(HaveSuffix("wor"), "a bad part of %d characters: %q...", len(a), a[:10])
+			total += len(strings.Fields(a))
 		}
-		total += len(strings.Fields(a))
-	}
-	if total != 1900 {
-		t.Fatalf("%d words came back, want 1900", total)
-	}
-}
+		Expect(total).To(BeNumerically("==", 1900), "%d words came back, want 1900", total)
+	})
 
-func TestTheOffsetMovesPastHandledUpdatesAndARestartDoesNotReplayThem(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	st := connStore(t)
-	r := newConnRig(t, sh, st, bot, connSay("ok"), nil)
-	b := r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	bot.say(1, 5, "A", "", "one")
-	bot.say(2, 6, "B", "", "two") // another sender: two quick messages of one sender may share a turn
-	waitFor(t, "two answers", func() bool { return len(bot.answers()) == 2 })
-	waitFor(t, "the offset", func() bool { off, ok, _ := st.Offset(context.Background(), b.ID); return ok && off == 3 })
-	r.conns.Close()
-	// A new process on the same store must not answer the old updates again.
-	r2 := newConnRig(t, sh, st, bot, connSay("ok"), nil)
-	_ = r2
-	bot.say(3, 5, "A", "", "three")
-	waitFor(t, "the third answer", func() bool { return len(bot.answers()) == 3 })
-	time.Sleep(100 * time.Millisecond)
-	if n := len(bot.answers()); n != 3 {
-		t.Fatalf("%d answers, an old update was replayed", n)
-	}
-}
+	It("the offset moves past handled updates and a restart does not replay them", func() {
+		sh, bot := newShared(), newScriptedBot()
+		st := connStore()
+		r := newConnRig(sh, st, bot, connSay("ok"), nil)
+		b := r.bind(studio.ConnectorInput{AcceptAny: true})
+		bot.say(1, 5, "A", "", "one")
+		bot.say(2, 6, "B", "", "two") // another sender: two quick messages of one sender may share a turn
+		waitFor("two answers", func() bool { return len(bot.answers()) == 2 })
+		waitFor("the offset", func() bool { off, ok, _ := st.Offset(context.Background(), b.ID); return ok && off == 3 })
+		r.conns.Close()
+		// A new process on the same store must not answer the old updates again.
+		r2 := newConnRig(sh, st, bot, connSay("ok"), nil)
+		_ = r2
+		bot.say(3, 5, "A", "", "three")
+		waitFor("the third answer", func() bool { return len(bot.answers()) == 3 })
+		time.Sleep(100 * time.Millisecond)
+		Expect(bot.answers()).To(HaveLen(3))
+	})
 
-func TestADeletedAgentDisablesTheBindingAndTellsTheOwner(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	st := connStore(t)
-	r := newConnRig(t, sh, st, bot, connSay("ok"), nil)
-	b := r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	if err := r.svc.DeleteAgent(context.Background(), alice, r.agent.ID); err != nil {
-		t.Fatal(err)
-	}
-	bot.say(1, 5, "A", "", "hi")
-	waitFor(t, "the binding to be disabled", func() bool { got, _ := st.GetBinding(context.Background(), b.ID); return !got.Enabled })
-	waitFor(t, "the notification", func() bool {
-		for _, n := range r.notes(t) {
-			if n.Kind == notify.KindNeedsAttention && strings.Contains(n.Body, "agent") {
-				return true
+	It("a deleted agent disables the binding and tells the owner", func() {
+		sh, bot := newShared(), newScriptedBot()
+		st := connStore()
+		r := newConnRig(sh, st, bot, connSay("ok"), nil)
+		b := r.bind(studio.ConnectorInput{AcceptAny: true})
+		Expect(r.svc.DeleteAgent(context.Background(), alice, r.agent.ID)).To(Succeed())
+		bot.say(1, 5, "A", "", "hi")
+		waitFor("the binding to be disabled", func() bool { got, _ := st.GetBinding(context.Background(), b.ID); return !got.Enabled })
+		waitFor("the notification", func() bool {
+			for _, n := range r.notes() {
+				if n.Kind == notify.KindNeedsAttention && strings.Contains(n.Body, "agent") {
+					return true
+				}
 			}
+			return false
+		})
+		for _, a := range bot.answers() {
+			Expect(a).NotTo(ContainSubstring("Traceback"), "answer = %q", a)
+			Expect(a).NotTo(ContainSubstring(botToken), "answer = %q", a)
 		}
-		return false
 	})
-	for _, a := range bot.answers() {
-		if strings.Contains(a, "Traceback") || strings.Contains(a, botToken) {
-			t.Fatalf("answer = %q", a)
-		}
-	}
-}
 
-func TestTelegramRefusingTheTokenOrAnotherPollerDisablesTheBinding(t *testing.T) {
-	for name, code := range map[string]int{"unauthorized": 401, "conflict": 409} {
-		t.Run(name, func(t *testing.T) {
-			sh, bot := newShared(t), newScriptedBot(t)
+	DescribeTable("telegram refusing the token or another poller disables the binding",
+		func(code int) {
+			sh, bot := newShared(), newScriptedBot()
 			bot.fail["getUpdates"] = func() (int, string) {
 				return code, fmt.Sprintf(`{"ok":false,"error_code":%d,"description":"x"}`, code)
 			}
-			st := connStore(t)
-			r := newConnRig(t, sh, st, bot, connSay("ok"), nil)
-			b := r.bind(t, studio.ConnectorInput{AcceptAny: true})
-			waitFor(t, "the binding to be disabled", func() bool { got, _ := st.GetBinding(context.Background(), b.ID); return !got.Enabled })
-			waitFor(t, "the notification", func() bool { return len(r.notes(t)) > 0 })
-		})
-	}
-}
+			st := connStore()
+			r := newConnRig(sh, st, bot, connSay("ok"), nil)
+			b := r.bind(studio.ConnectorInput{AcceptAny: true})
+			waitFor("the binding to be disabled", func() bool { got, _ := st.GetBinding(context.Background(), b.ID); return !got.Enabled })
+			waitFor("the notification", func() bool { return len(r.notes()) > 0 })
+		},
+		Entry("unauthorized", 401),
+		Entry("conflict", 409),
+	)
 
-func TestATooManyRequestsAnswerMakesTheLoopWaitAndRecover(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	var mu sync.Mutex
-	n := 0
-	bot.fail["getUpdates"] = func() (int, string) {
-		mu.Lock()
-		defer mu.Unlock()
-		n++
-		if n <= 2 {
-			return 429, `{"ok":false,"error_code":429,"description":"slow down","parameters":{"retry_after":0}}`
-		}
-		return 200, `{"ok":true,"result":[]}`
-	}
-	st := connStore(t)
-	r := newConnRig(t, sh, st, bot, connSay("ok"), nil)
-	b := r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	waitFor(t, "three polls", func() bool { mu.Lock(); defer mu.Unlock(); return n >= 3 })
-	if got, _ := st.GetBinding(context.Background(), b.ID); !got.Enabled {
-		t.Fatal("a 429 disabled the binding")
-	}
-}
-
-func TestDisablingOrDeletingABindingStopsItsLoopAtOnce(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	b := r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	waitFor(t, "polling", func() bool { return bot.pollCount() > 2 })
-	if _, err := r.conns.SetConnectorEnabled(context.Background(), alice, b.ID, false); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(200 * time.Millisecond)
-	n := bot.pollCount()
-	time.Sleep(200 * time.Millisecond)
-	if bot.pollCount() != n {
-		t.Fatal("a disabled binding is still polled")
-	}
-	if _, err := r.conns.SetConnectorEnabled(context.Background(), alice, b.ID, true); err != nil {
-		t.Fatal(err)
-	}
-	waitFor(t, "polling again", func() bool { return bot.pollCount() > n })
-	if err := r.conns.DeleteConnector(context.Background(), alice, b.ID); err != nil {
-		t.Fatal(err)
-	}
-	time.Sleep(200 * time.Millisecond)
-	m := bot.pollCount()
-	time.Sleep(200 * time.Millisecond)
-	if bot.pollCount() != m {
-		t.Fatal("a deleted binding is still polled")
-	}
-}
-
-func TestOnlyTheLeaderPollsAndANewLeaderContinuesFromTheStoredOffset(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	st := connStore(t)
-	var mu sync.Mutex
-	leader := "a"
-	lead := func(who string) func(context.Context) bool {
-		return func(context.Context) bool { mu.Lock(); defer mu.Unlock(); return leader == who }
-	}
-	a := newConnRig(t, sh, st, bot, connSay("ok"), lead("a"))
-	b := newConnRig(t, sh, st, bot, connSay("ok"), lead("b"))
-	bind := a.bind(t, studio.ConnectorInput{AcceptAny: true})
-	_ = bind
-	bot.say(1, 5, "A", "", "one")
-	waitFor(t, "the answer", func() bool { return len(bot.answers()) == 1 })
-	mu.Lock()
-	leader = "b"
-	mu.Unlock()
-	bot.say(2, 5, "A", "", "two")
-	waitFor(t, "the second answer from the new leader", func() bool { return len(bot.answers()) == 2 })
-	time.Sleep(100 * time.Millisecond)
-	if n := len(bot.answers()); n != 2 {
-		t.Fatalf("%d answers: two frontends both answered or an update was replayed", n)
-	}
-	_ = b
-}
-
-func TestTheTokenIsInNoLogLineAndNeverComesBackFromTheService(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	st := connStore(t)
-	r := newConnRig(t, sh, st, bot, connSay("ok"), nil)
-	b := r.bind(t, studio.ConnectorInput{AcceptAny: true})
-	bot.say(1, 5, "A", "", "hi")
-	waitFor(t, "an answer", func() bool { return len(bot.answers()) == 1 })
-	if strings.Contains(r.logs.String(), "TOKEN-must-never-leak") {
-		t.Fatalf("the token is in the log:\n%s", r.logs.String())
-	}
-	stored, _ := st.GetBinding(context.Background(), b.ID)
-	if bytes.Contains(stored.Token, []byte("TOKEN-must-never-leak")) {
-		t.Fatal("the token is stored in the clear")
-	}
-	list, _ := r.conns.ListConnectors(context.Background(), alice)
-	raw, _ := json.Marshal(list)
-	if strings.Contains(string(raw), "TOKEN-must-never-leak") || len(list) != 1 || !list[0].HasToken {
-		t.Fatalf("list = %s", raw)
-	}
-	// An update without a token keeps the old one.
-	if _, err := r.conns.UpdateConnector(context.Background(), alice, b.ID, studio.ConnectorInput{Name: "Renamed", AgentID: r.agent.ID, AcceptAny: true, Enabled: true}); err != nil {
-		t.Fatal(err)
-	}
-	bot.say(2, 5, "A", "", "still works")
-	waitFor(t, "an answer after the update", func() bool { return len(bot.answers()) == 2 })
-}
-
-func TestABindingNeedsAnAgentOfItsOwnerThatNamesAModel(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	ctx := context.Background()
-	if _, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken}); !errors.Is(err, connectors.ErrInvalid) {
-		t.Fatalf("no agent: %v", err)
-	}
-	if _, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: "missing"}); !errors.Is(err, agents.ErrNotFound) {
-		t.Fatalf("unknown agent: %v", err)
-	}
-	bare, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "No model"})
-	if _, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bare.ID}); !errors.Is(err, connectors.ErrInvalid) {
-		t.Fatalf("agent with no model: %v", err)
-	}
-	bobs, _ := r.svc.SaveAgent(ctx, "bob", agents.Agent{Name: "Bobs", Model: "m"})
-	if _, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bobs.ID}); !errors.Is(err, agents.ErrNotFound) {
-		t.Fatalf("another user's agent: %v", err)
-	}
-	r.bind(t, studio.ConnectorInput{})
-	if _, err := r.conns.GetConnector(ctx, "bob", "nope"); !errors.Is(err, connectors.ErrNotFound) {
-		t.Fatalf("bob: %v", err)
-	}
-	if err := func() error {
-		_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "y", AgentID: r.agent.ID})
-		return err
-	}(); !errors.Is(err, connectors.ErrInvalid) {
-		t.Fatalf("no token: %v", err)
-	}
-}
-
-func TestTestAsksTelegramForTheBotAndAllowAddsASeenSender(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	b := r.bind(t, studio.ConnectorInput{})
-	ctx := context.Background()
-	me, err := r.conns.TestConnector(ctx, alice, b.ID)
-	if err != nil || me.Username != "helper_bot" {
-		t.Fatalf("test = %+v %v", me, err)
-	}
-	bot.say(1, 42, "Newcomer", "new", "let me in")
-	waitFor(t, "the sender to be logged", func() bool { s, _ := r.conns.ConnectorSenders(ctx, alice, b.ID); return len(s) == 1 })
-	if len(bot.answers()) != 0 {
-		t.Fatal("an unknown sender was answered")
-	}
-	if _, err := r.conns.AllowSender(ctx, alice, b.ID, "42"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := r.conns.AllowSender(ctx, alice, b.ID, "999"); err == nil {
-		t.Fatal("a sender that never wrote was allowed")
-	}
-	bot.say(2, 42, "Newcomer", "new", "now?")
-	waitFor(t, "the answer", func() bool { return len(bot.answers()) == 1 })
-}
-
-func TestForwardSendsARunNotificationToTheBoundChatOnce(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	r.bind(t, studio.ConnectorInput{NotifyChat: "314"})
-	r.bind(t, studio.ConnectorInput{Name: "No notify"})
-	off := r.bind(t, studio.ConnectorInput{Name: "Off", NotifyChat: "999"})
-	if _, err := r.conns.SetConnectorEnabled(context.Background(), alice, off.ID, false); err != nil {
-		t.Fatal(err)
-	}
-	r.conns.Forward(context.Background(), notify.Notification{Principal: alice, Title: "Nightly failed", Body: "took longer than 15m", Link: "/app/chats/c1"})
-	r.conns.Forward(context.Background(), notify.Notification{Principal: "bob", Title: "Bob's", Body: "x"})
-	waitFor(t, "the message", func() bool { return len(bot.answers()) == 1 })
-	time.Sleep(60 * time.Millisecond)
-	bot.mu.Lock()
-	defer bot.mu.Unlock()
-	if len(bot.sent) != 1 || !strings.Contains(bot.sent[0], "Nightly failed") || !strings.Contains(bot.sent[0], "took longer") || strings.Contains(bot.sent[0], "/app/chats") || bot.sentTo[0] != 314 {
-		t.Fatalf("sent %q to %v", bot.sent, bot.sentTo)
-	}
-}
-
-func TestAFailedSendDoesNotFailTheNotification(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	bot.fail["sendMessage"] = func() (int, string) { return 400, `{"ok":false,"error_code":400,"description":"chat not found"}` }
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	r.bind(t, studio.ConnectorInput{NotifyChat: "314"})
-	// The inbox hook runs after the notification is stored.
-	r.inbox.OnAdd(func(n notify.Notification) { r.conns.Forward(context.Background(), n) })
-	n, err := r.inbox.Add(context.Background(), notify.Notification{Principal: alice, Title: "T", Body: "B"})
-	if err != nil || n.ID == 0 {
-		t.Fatalf("the notification was not stored: %v", err)
-	}
-	if got, _ := r.inbox.Count(context.Background(), alice); got != 1 {
-		t.Fatalf("unread = %d", got)
-	}
-}
-
-// Forward adds to the wait group of Close. An Add that runs while Close waits
-// is a misuse of the group (a panic or a goroutine that outlives Close), and
-// nothing may be sent once Close has returned.
-func TestForwardRacingCloseNeitherPanicsNorSendsAfterClose(t *testing.T) {
-	sh, bot := newShared(t), newScriptedBot(t)
-	r := newConnRig(t, sh, connStore(t), bot, connSay("ok"), nil)
-	r.bind(t, studio.ConnectorInput{NotifyChat: "314"})
-	ctx := context.Background()
-	var wg sync.WaitGroup
-	stop := make(chan struct{})
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case <-stop:
-					return
-				default:
-					r.conns.Forward(ctx, notify.Notification{Principal: alice, Title: "T", Body: "B"})
-				}
+	It("a too many requests answer makes the loop wait and recover", func() {
+		sh, bot := newShared(), newScriptedBot()
+		var mu sync.Mutex
+		n := 0
+		bot.fail["getUpdates"] = func() (int, string) {
+			mu.Lock()
+			defer mu.Unlock()
+			n++
+			if n <= 2 {
+				return 429, `{"ok":false,"error_code":429,"description":"slow down","parameters":{"retry_after":0}}`
 			}
-		}()
-	}
-	time.Sleep(20 * time.Millisecond)
-	r.conns.Close()
-	bot.mu.Lock()
-	sentAtClose := len(bot.sent)
-	bot.mu.Unlock()
-	time.Sleep(50 * time.Millisecond)
-	close(stop)
-	wg.Wait()
-	bot.mu.Lock()
-	defer bot.mu.Unlock()
-	if len(bot.sent) != sentAtClose {
-		t.Fatalf("%d messages went out after Close returned", len(bot.sent)-sentAtClose)
-	}
-}
+			return 200, `{"ok":true,"result":[]}`
+		}
+		st := connStore()
+		r := newConnRig(sh, st, bot, connSay("ok"), nil)
+		b := r.bind(studio.ConnectorInput{AcceptAny: true})
+		waitFor("three polls", func() bool { mu.Lock(); defer mu.Unlock(); return n >= 3 })
+		got, _ := st.GetBinding(context.Background(), b.ID)
+		Expect(got.Enabled).To(BeTrue(), "a 429 disabled the binding")
+	})
+
+	It("disabling or deleting a binding stops its loop at once", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		b := r.bind(studio.ConnectorInput{AcceptAny: true})
+		waitFor("polling", func() bool { return bot.pollCount() > 2 })
+		_, err := r.conns.SetConnectorEnabled(context.Background(), alice, b.ID, false)
+		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(200 * time.Millisecond)
+		n := bot.pollCount()
+		time.Sleep(200 * time.Millisecond)
+		Expect(bot.pollCount()).To(Equal(n), "a disabled binding is still polled")
+		_, err = r.conns.SetConnectorEnabled(context.Background(), alice, b.ID, true)
+		Expect(err).NotTo(HaveOccurred())
+		waitFor("polling again", func() bool { return bot.pollCount() > n })
+		Expect(r.conns.DeleteConnector(context.Background(), alice, b.ID)).To(Succeed())
+		time.Sleep(200 * time.Millisecond)
+		m := bot.pollCount()
+		time.Sleep(200 * time.Millisecond)
+		Expect(bot.pollCount()).To(Equal(m), "a deleted binding is still polled")
+	})
+
+	It("only the leader polls and a new leader continues from the stored offset", func() {
+		sh, bot := newShared(), newScriptedBot()
+		st := connStore()
+		var mu sync.Mutex
+		leader := "a"
+		lead := func(who string) func(context.Context) bool {
+			return func(context.Context) bool { mu.Lock(); defer mu.Unlock(); return leader == who }
+		}
+		a := newConnRig(sh, st, bot, connSay("ok"), lead("a"))
+		b := newConnRig(sh, st, bot, connSay("ok"), lead("b"))
+		bind := a.bind(studio.ConnectorInput{AcceptAny: true})
+		_ = bind
+		bot.say(1, 5, "A", "", "one")
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		mu.Lock()
+		leader = "b"
+		mu.Unlock()
+		bot.say(2, 5, "A", "", "two")
+		waitFor("the second answer from the new leader", func() bool { return len(bot.answers()) == 2 })
+		time.Sleep(100 * time.Millisecond)
+		Expect(bot.answers()).To(HaveLen(2))
+		_ = b
+	})
+
+	It("the token is in no log line and never comes back from the service", func() {
+		sh, bot := newShared(), newScriptedBot()
+		st := connStore()
+		r := newConnRig(sh, st, bot, connSay("ok"), nil)
+		b := r.bind(studio.ConnectorInput{AcceptAny: true})
+		bot.say(1, 5, "A", "", "hi")
+		waitFor("an answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(r.logs.String()).NotTo(ContainSubstring("TOKEN-must-never-leak"), "the token is in the log:\n%s", r.logs.String())
+		stored, _ := st.GetBinding(context.Background(), b.ID)
+		Expect(bytes.Contains(stored.Token, []byte("TOKEN-must-never-leak"))).To(BeFalse(), "the token is stored in the clear")
+		list, _ := r.conns.ListConnectors(context.Background(), alice)
+		raw, _ := json.Marshal(list)
+		Expect(string(raw)).NotTo(ContainSubstring("TOKEN-must-never-leak"), "list = %s", raw)
+		Expect(list).To(HaveLen(1), "list = %s", raw)
+		Expect(list[0].HasToken).To(BeTrue(), "list = %s", raw)
+		// An update without a token keeps the old one.
+		_, err := r.conns.UpdateConnector(context.Background(), alice, b.ID, studio.ConnectorInput{Name: "Renamed", AgentID: r.agent.ID, AcceptAny: true, Enabled: true})
+		Expect(err).NotTo(HaveOccurred())
+		bot.say(2, 5, "A", "", "still works")
+		waitFor("an answer after the update", func() bool { return len(bot.answers()) == 2 })
+	})
+
+	It("a binding needs an agent of its owner that names a model", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		ctx := context.Background()
+		_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken})
+		Expect(err).To(MatchError(connectors.ErrInvalid), "no agent: %v", err)
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: "missing"})
+		Expect(err).To(MatchError(agents.ErrNotFound), "unknown agent: %v", err)
+		bare, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "No model"})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bare.ID})
+		Expect(err).To(MatchError(connectors.ErrInvalid), "agent with no model: %v", err)
+		bobs, _ := r.svc.SaveAgent(ctx, "bob", agents.Agent{Name: "Bobs", Model: "m"})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bobs.ID})
+		Expect(err).To(MatchError(agents.ErrNotFound), "another user's agent: %v", err)
+		r.bind(studio.ConnectorInput{})
+		_, err = r.conns.GetConnector(ctx, "bob", "nope")
+		Expect(err).To(MatchError(connectors.ErrNotFound), "bob: %v", err)
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "y", AgentID: r.agent.ID})
+		Expect(err).To(MatchError(connectors.ErrInvalid), "a connector with no token")
+	})
+
+	It("test asks telegram for the bot and allow adds a seen sender", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		b := r.bind(studio.ConnectorInput{})
+		ctx := context.Background()
+		me, err := r.conns.TestConnector(ctx, alice, b.ID)
+		Expect(err).NotTo(HaveOccurred(), "test = %+v %v", me, err)
+		Expect(me.Username).To(Equal("helper_bot"), "test = %+v %v", me, err)
+		bot.say(1, 42, "Newcomer", "new", "let me in")
+		waitFor("the sender to be logged", func() bool { s, _ := r.conns.ConnectorSenders(ctx, alice, b.ID); return len(s) == 1 })
+		Expect(bot.answers()).To(BeEmpty(), "an unknown sender was answered")
+		_, err = r.conns.AllowSender(ctx, alice, b.ID, "42")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = r.conns.AllowSender(ctx, alice, b.ID, "999")
+		Expect(err).To(HaveOccurred(), "a sender that never wrote was allowed")
+		bot.say(2, 42, "Newcomer", "new", "now?")
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+	})
+
+	It("forward sends a run notification to the bound chat once", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{NotifyChat: "314"})
+		r.bind(studio.ConnectorInput{Name: "No notify"})
+		off := r.bind(studio.ConnectorInput{Name: "Off", NotifyChat: "999"})
+		_, err := r.conns.SetConnectorEnabled(context.Background(), alice, off.ID, false)
+		Expect(err).NotTo(HaveOccurred())
+		r.conns.Forward(context.Background(), notify.Notification{Principal: alice, Title: "Nightly failed", Body: "took longer than 15m", Link: "/app/chats/c1"})
+		r.conns.Forward(context.Background(), notify.Notification{Principal: "bob", Title: "Bob's", Body: "x"})
+		waitFor("the message", func() bool { return len(bot.answers()) == 1 })
+		time.Sleep(60 * time.Millisecond)
+		bot.mu.Lock()
+		defer bot.mu.Unlock()
+		Expect(bot.sent).To(HaveLen(1), "sent %q to %v", bot.sent, bot.sentTo)
+		Expect(bot.sent[0]).To(ContainSubstring("Nightly failed"), "sent %q to %v", bot.sent, bot.sentTo)
+		Expect(bot.sent[0]).To(ContainSubstring("took longer"), "sent %q to %v", bot.sent, bot.sentTo)
+		Expect(bot.sent[0]).NotTo(ContainSubstring("/app/chats"), "sent %q to %v", bot.sent, bot.sentTo)
+		Expect(bot.sentTo[0]).To(BeNumerically("==", 314), "sent %q to %v", bot.sent, bot.sentTo)
+	})
+
+	It("a failed send does not fail the notification", func() {
+		sh, bot := newShared(), newScriptedBot()
+		bot.fail["sendMessage"] = func() (int, string) { return 400, `{"ok":false,"error_code":400,"description":"chat not found"}` }
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{NotifyChat: "314"})
+		// The inbox hook runs after the notification is stored.
+		r.inbox.OnAdd(func(n notify.Notification) { r.conns.Forward(context.Background(), n) })
+		n, err := r.inbox.Add(context.Background(), notify.Notification{Principal: alice, Title: "T", Body: "B"})
+		Expect(err).NotTo(HaveOccurred(), "the notification was not stored")
+		Expect(n.ID).NotTo(BeNumerically("==", 0), "the notification was not stored: %v", err)
+		got, _ := r.inbox.Count(context.Background(), alice)
+		Expect(got).To(BeNumerically("==", 1), "unread = %d", got)
+	})
+
+	// Forward adds to the wait group of Close. An Add that runs while Close waits
+	// is a misuse of the group (a panic or a goroutine that outlives Close), and
+	// nothing may be sent once Close has returned.
+	It("forward racing close neither panics nor sends after close", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{NotifyChat: "314"})
+		ctx := context.Background()
+		var wg sync.WaitGroup
+		stop := make(chan struct{})
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+						r.conns.Forward(ctx, notify.Notification{Principal: alice, Title: "T", Body: "B"})
+					}
+				}
+			}()
+		}
+		time.Sleep(20 * time.Millisecond)
+		r.conns.Close()
+		bot.mu.Lock()
+		sentAtClose := len(bot.sent)
+		bot.mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		close(stop)
+		wg.Wait()
+		bot.mu.Lock()
+		defer bot.mu.Unlock()
+		Expect(bot.sent).To(HaveLen(sentAtClose), "%d messages went out after Close returned", len(bot.sent)-sentAtClose)
+	})
+})

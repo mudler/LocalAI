@@ -2,11 +2,9 @@ package studio_test
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"path/filepath"
 	"strings"
-	"testing"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -19,184 +17,164 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func newFiles(t *testing.T) *files.Service {
-	t.Helper()
-	blobs, err := blob.NewFS(filepath.Join(t.TempDir(), "blobs"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ws, err := jsonstore.New(filepath.Join(t.TempDir(), "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = ws.Close() })
+func newFiles() *files.Service {
+	blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
+	Expect(err).NotTo(HaveOccurred())
+	ws, err := jsonstore.New(filepath.Join(GinkgoT().TempDir(), "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal})
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = ws.Close() })
 	return files.New(ws)
 }
 
-func newServiceWithFiles(t *testing.T, h *studiotest.GateHarness, f *files.Service) *studio.Service {
-	t.Helper()
+func newServiceWithFiles(h *studiotest.GateHarness, f *files.Service) *studio.Service {
 	st, err := store.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: t.TempDir(), Harness: h, Files: f})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = svc.Close(context.Background()) })
+	Expect(err).NotTo(HaveOccurred())
+	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Files: f})
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = svc.Close(context.Background()) })
 	return svc
 }
 
-func TestAChatGivesItsUserAHomeFolderWhenFilesAreOn(t *testing.T) {
-	f := newFiles(t)
-	h := studiotest.NewGateHarness()
-	svc := newServiceWithFiles(t, h, f)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "hi")
-	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	h.Gate <- struct{}{}
-	idle(t, svc, alice, id)
+var _ = Describe("files", func() {
+	It("a chat gives its user a home folder when files are on", func() {
+		f := newFiles()
+		h := studiotest.NewGateHarness()
+		svc := newServiceWithFiles(h, f)
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		until("the turn to start", func() bool { return len(h.Sent()) == 1 })
+		h.Gate <- struct{}{}
+		idle(svc, alice, id)
 
-	if _, err := f.Store().Stat(context.Background(), workspace.Actor{Principal: alice}, session.HomePath(alice)); err != nil {
-		t.Fatalf("the user's home does not exist after a chat: %v", err)
-	}
-	if _, err := f.Store().Stat(context.Background(), workspace.Actor{Principal: "bob"}, session.HomePath(alice)); !errors.Is(err, workspace.ErrNotFound) {
-		t.Fatalf("another user sees the home: %v", err)
-	}
-}
+		_, err := f.Store().Stat(context.Background(), workspace.Actor{Principal: alice}, session.HomePath(alice))
+		Expect(err).NotTo(HaveOccurred(), "the user's home does not exist after a chat")
+		_, err = f.Store().Stat(context.Background(), workspace.Actor{Principal: "bob"}, session.HomePath(alice))
+		Expect(err).To(MatchError(workspace.ErrNotFound), "another user sees the home: %v", err)
+	})
 
-func TestAChatWorksWithoutFiles(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newServiceWithFiles(t, h, files.Disabled("off for this test"))
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "hi")
-	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	h.Gate <- struct{}{}
-	idle(t, svc, alice, id)
-	if got := turn(t, svc, alice, id).Last; got != store.TurnDone {
-		t.Fatalf("turn ended %q, want done", got)
-	}
-	if svc.Files().Available() {
-		t.Fatal("the service reports files as available")
-	}
-}
+	It("a chat works without files", func() {
+		h := studiotest.NewGateHarness()
+		svc := newServiceWithFiles(h, files.Disabled("off for this test"))
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		until("the turn to start", func() bool { return len(h.Sent()) == 1 })
+		h.Gate <- struct{}{}
+		idle(svc, alice, id)
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnDone))
+		Expect(svc.Files().Available()).To(BeFalse(), "the service reports files as available")
+	})
+})
 
 func upload(name, body string) session.Upload {
 	return session.Upload{Name: name, Body: strings.NewReader(body)}
 }
 
-func TestAnAttachedFileLandsInTheChatFolderAndTheModelGetsItsPath(t *testing.T) {
-	f := newFiles(t)
-	h := studiotest.NewGateHarness()
-	svc := newServiceWithFiles(t, h, f)
-	id := create(t, svc, alice)
-	res, err := svc.SendWithFiles(context.Background(), alice, id, "summarize this", []session.Upload{upload("notes.txt", "alpha beta")})
-	if err != nil || !res.Started {
-		t.Fatalf("SendWithFiles = %+v, %v", res, err)
-	}
-	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	sent := h.Sent()[0]
-	if !strings.Contains(sent, "summarize this") || !strings.Contains(sent, "/workspace/home/Chats/") || !strings.Contains(sent, "notes.txt") {
-		t.Fatalf("the model got %q, want the text and the guest path of notes.txt", sent)
-	}
-	// The file is in the user's chat folder, as the user.
-	kids, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, session.ChatsPath(alice))
-	if err != nil || len(kids) != 1 {
-		t.Fatalf("chat folders = %v, %v, want one", kids, err)
-	}
-	inner, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, kids[0].Path)
-	if err != nil || len(inner) != 1 || inner[0].Name != "notes.txt" {
-		t.Fatalf("chat folder holds %v, %v, want notes.txt", inner, err)
-	}
-	h.Gate <- struct{}{}
-	idle(t, svc, alice, id)
-}
+var _ = Describe("files", func() {
+	It("an attached file lands in the chat folder and the model gets its path", func() {
+		f := newFiles()
+		h := studiotest.NewGateHarness()
+		svc := newServiceWithFiles(h, f)
+		id := create(svc, alice)
+		res, err := svc.SendWithFiles(context.Background(), alice, id, "summarize this", []session.Upload{upload("notes.txt", "alpha beta")})
+		Expect(err).NotTo(HaveOccurred(), "SendWithFiles = %+v, %v", res, err)
+		Expect(res.Started).To(BeTrue(), "SendWithFiles = %+v, %v", res, err)
+		until("the turn to start", func() bool { return len(h.Sent()) == 1 })
+		sent := h.Sent()[0]
+		Expect(sent).To(ContainSubstring("summarize this"), "the model got %q, want the text and the guest path of notes.txt", sent)
+		Expect(sent).To(ContainSubstring("/workspace/home/Chats/"), "the model got %q, want the text and the guest path of notes.txt", sent)
+		Expect(sent).To(ContainSubstring("notes.txt"), "the model got %q, want the text and the guest path of notes.txt", sent)
+		// The file is in the user's chat folder, as the user.
+		kids, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, session.ChatsPath(alice))
+		Expect(err).NotTo(HaveOccurred(), "chat folders = %v, %v, want one", kids, err)
+		Expect(kids).To(HaveLen(1), "chat folders = %v, %v, want one", kids, err)
+		inner, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, kids[0].Path)
+		Expect(err).NotTo(HaveOccurred(), "chat folder holds %v, %v, want notes.txt", inner, err)
+		Expect(inner).To(HaveLen(1), "chat folder holds %v, %v, want notes.txt", inner, err)
+		Expect(inner[0].Name).To(Equal("notes.txt"), "chat folder holds %v, %v, want notes.txt", inner, err)
+		h.Gate <- struct{}{}
+		idle(svc, alice, id)
+	})
 
-func TestAFileSentWhileATurnRunsIsSavedAndQueuedWithItsPath(t *testing.T) {
-	f := newFiles(t)
-	h := studiotest.NewGateHarness()
-	svc := newServiceWithFiles(t, h, f)
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "start")
-	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	res, err := svc.SendWithFiles(context.Background(), alice, id, "and this", []session.Upload{upload("x.txt", "extra")})
-	if err != nil || res.Started || res.PendingID == "" {
-		t.Fatalf("SendWithFiles during a turn = %+v, %v; want a waiting message", res, err)
-	}
-	got := pendingTexts(t, svc, alice, id)
-	if len(got) != 1 || !strings.Contains(got[0], "and this") || !strings.Contains(got[0], "/workspace/home/Chats/") || !strings.Contains(got[0], "x.txt") {
-		t.Fatalf("waiting messages = %q, want the text and the guest path of x.txt", got)
-	}
-	// The file is saved already, in the chat folder, as the user.
-	kids, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, session.ChatsPath(alice))
-	if err != nil || len(kids) != 1 {
-		t.Fatalf("chat folders = %v, %v, want one", kids, err)
-	}
-	inner, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, kids[0].Path)
-	if err != nil || len(inner) != 1 || inner[0].Name != "x.txt" {
-		t.Fatalf("chat folder holds %v, %v, want x.txt", inner, err)
-	}
-	h.Gate <- struct{}{}
-	idle(t, svc, alice, id)
-}
+	It("a file sent while a turn runs is saved and queued with its path", func() {
+		f := newFiles()
+		h := studiotest.NewGateHarness()
+		svc := newServiceWithFiles(h, f)
+		id := create(svc, alice)
+		sent(svc, alice, id, "start")
+		until("the turn to start", func() bool { return len(h.Sent()) == 1 })
+		res, err := svc.SendWithFiles(context.Background(), alice, id, "and this", []session.Upload{upload("x.txt", "extra")})
+		Expect(err).NotTo(HaveOccurred(), "SendWithFiles during a turn = %+v, %v; want a waiting message", res, err)
+		Expect(res.Started).To(BeFalse(), "SendWithFiles during a turn = %+v, %v; want a waiting message", res, err)
+		Expect(res.PendingID).NotTo(Equal(""), "SendWithFiles during a turn = %+v, %v; want a waiting message", res, err)
+		got := pendingTexts(svc, alice, id)
+		Expect(got).To(HaveLen(1), "waiting messages = %q, want the text and the guest path of x.txt", got)
+		Expect(got[0]).To(ContainSubstring("and this"), "waiting messages = %q, want the text and the guest path of x.txt", got)
+		Expect(got[0]).To(ContainSubstring("/workspace/home/Chats/"), "waiting messages = %q, want the text and the guest path of x.txt", got)
+		Expect(got[0]).To(ContainSubstring("x.txt"), "waiting messages = %q, want the text and the guest path of x.txt", got)
+		// The file is saved already, in the chat folder, as the user.
+		kids, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, session.ChatsPath(alice))
+		Expect(err).NotTo(HaveOccurred(), "chat folders = %v, %v, want one", kids, err)
+		Expect(kids).To(HaveLen(1), "chat folders = %v, %v, want one", kids, err)
+		inner, err := f.Store().List(context.Background(), workspace.Actor{Principal: alice}, kids[0].Path)
+		Expect(err).NotTo(HaveOccurred(), "chat folder holds %v, %v, want x.txt", inner, err)
+		Expect(inner).To(HaveLen(1), "chat folder holds %v, %v, want x.txt", inner, err)
+		Expect(inner[0].Name).To(Equal("x.txt"), "chat folder holds %v, %v, want x.txt", inner, err)
+		h.Gate <- struct{}{}
+		idle(svc, alice, id)
+	})
 
-func TestAFileCannotBeAttachedWhenFilesAreOff(t *testing.T) {
-	h := studiotest.NewGateHarness()
-	svc := newServiceWithFiles(t, h, files.Disabled("no data path"))
-	id := create(t, svc, alice)
-	_, err := svc.SendWithFiles(context.Background(), alice, id, "see", []session.Upload{upload("x.txt", "x")})
-	if !errors.Is(err, files.ErrUnavailable) {
-		t.Fatalf("SendWithFiles with files off = %v, want ErrUnavailable", err)
-	}
-	if len(h.Sent()) != 0 {
-		t.Fatalf("a turn started: %v", h.Sent())
-	}
-}
+	It("a file cannot be attached when files are off", func() {
+		h := studiotest.NewGateHarness()
+		svc := newServiceWithFiles(h, files.Disabled("no data path"))
+		id := create(svc, alice)
+		_, err := svc.SendWithFiles(context.Background(), alice, id, "see", []session.Upload{upload("x.txt", "x")})
+		Expect(err).To(MatchError(files.ErrUnavailable), "SendWithFiles with files off = %v, want ErrUnavailable", err)
+		Expect(h.Sent()).To(BeEmpty(), "a turn started: %v", h.Sent())
+	})
 
-func TestTheModelGetsFileToolsWhenFilesAreOnAndItsSubAgentsDoNot(t *testing.T) {
-	f := newFiles(t)
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		if text == "go" {
-			return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"child job","wait":true}`}, {Say: "done"}}
+	It("the model gets file tools when files are on and its sub agents do not", func() {
+		f := newFiles()
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"child job","wait":true}`}, {Say: "done"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files = f })
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+
+		parent := h.ToolNames(id)
+		for _, want := range []string{"read_file", "write_file", "list_files", "move_file", "delete_file", "search_files", "spawn_agent"} {
+			Expect(contains(parent, want)).To(BeTrue(), "the chat's tools %v lack %s", parent, want)
 		}
-		return []studiotest.ToolStep{{Say: "ok"}}
-	}, func(d *studio.Deps) { d.Files = f })
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	idle(t, svc, alice, id)
+		kids := childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(1), "children = %d, want 1", len(kids))
+		for _, name := range h.ToolNames(kids[0].ID) {
+			Expect(name).NotTo(HaveSuffix("_file"), "the sub-agent got the file tool %s", name)
+			Expect(name).NotTo(Equal("list_files"), "the sub-agent got the file tool %s", name)
+			Expect(name).NotTo(Equal("search_files"), "the sub-agent got the file tool %s", name)
+		}
+	})
 
-	parent := h.ToolNames(id)
-	for _, want := range []string{"read_file", "write_file", "list_files", "move_file", "delete_file", "search_files", "spawn_agent"} {
-		if !contains(parent, want) {
-			t.Errorf("the chat's tools %v lack %s", parent, want)
+	It("the model gets no file tools when files are off", func() {
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files = files.Disabled("off") })
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		for _, name := range h.ToolNames(id) {
+			Expect(name).NotTo(HaveSuffix("_file"), "a chat with files off got the tool %s", name)
+			Expect(name).NotTo(Equal("list_files"), "a chat with files off got the tool %s", name)
+			Expect(name).NotTo(Equal("search_files"), "a chat with files off got the tool %s", name)
 		}
-	}
-	kids := childrenOf(t, svc, alice, id)
-	if len(kids) != 1 {
-		t.Fatalf("children = %d, want 1", len(kids))
-	}
-	for _, name := range h.ToolNames(kids[0].ID) {
-		if strings.HasSuffix(name, "_file") || name == "list_files" || name == "search_files" {
-			t.Errorf("the sub-agent got the file tool %s", name)
-		}
-	}
-}
-
-func TestTheModelGetsNoFileToolsWhenFilesAreOff(t *testing.T) {
-	svc, h := newToolService(t, func(a workspace.Actor, text string) []studiotest.ToolStep {
-		return []studiotest.ToolStep{{Say: "ok"}}
-	}, func(d *studio.Deps) { d.Files = files.Disabled("off") })
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	idle(t, svc, alice, id)
-	for _, name := range h.ToolNames(id) {
-		if strings.HasSuffix(name, "_file") || name == "list_files" || name == "search_files" {
-			t.Errorf("a chat with files off got the tool %s", name)
-		}
-	}
-}
+	})
+})
 
 func contains(list []string, s string) bool {
 	for _, x := range list {
@@ -207,8 +185,7 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-func newMediaService(t *testing.T) (*media.Service, *provider.Provider) {
-	t.Helper()
+func newMediaService() (*media.Service, *provider.Provider) {
 	p := provider.New()
 	p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -220,52 +197,49 @@ func newMediaService(t *testing.T) (*media.Service, *provider.Provider) {
 	return media.New(p, users, func(c media.Capability) string { return "any-model" }), p
 }
 
-func TestAVoiceNoteBecomesTextInTheMessageTheModelGets(t *testing.T) {
-	f := newFiles(t)
-	m, p := newMediaService(t)
-	h := studiotest.NewGateHarness()
-	st, _ := store.NewJSON("")
-	svc, err := studio.New(studio.Deps{Store: st, Provider: p, StateDir: t.TempDir(), Harness: h, Files: f, Media: m})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = svc.Close(context.Background()) })
-	id := create(t, svc, alice)
-	if _, err := svc.SendWithFiles(context.Background(), alice, id, "my day", []session.Upload{upload("memo.m4a", "AUDIO")}); err != nil {
-		t.Fatal(err)
-	}
-	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	got := h.Sent()[0]
-	if !strings.Contains(got, "my day") || !strings.Contains(got, "buy milk and call the dentist") || !strings.Contains(got, "memo.m4a") {
-		t.Fatalf("the model got %q, want the text, the voice note's name and its transcript", got)
-	}
-	h.Gate <- struct{}{}
-	idle(t, svc, alice, id)
-}
+var _ = Describe("files", func() {
+	It("a voice note becomes text in the message the model gets", func() {
+		f := newFiles()
+		m, p := newMediaService()
+		h := studiotest.NewGateHarness()
+		st, _ := store.NewJSON("")
+		svc, err := studio.New(studio.Deps{Store: st, Provider: p, StateDir: GinkgoT().TempDir(), Harness: h, Files: f, Media: m})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = svc.Close(context.Background()) })
+		id := create(svc, alice)
+		_, err = svc.SendWithFiles(context.Background(), alice, id, "my day", []session.Upload{upload("memo.m4a", "AUDIO")})
+		Expect(err).NotTo(HaveOccurred())
+		until("the turn to start", func() bool { return len(h.Sent()) == 1 })
+		got := h.Sent()[0]
+		Expect(got).To(ContainSubstring("my day"), "the model got %q, want the text, the voice note's name and its transcript", got)
+		Expect(got).To(ContainSubstring("buy milk and call the dentist"), "the model got %q, want the text, the voice note's name and its transcript", got)
+		Expect(got).To(ContainSubstring("memo.m4a"), "the model got %q, want the text, the voice note's name and its transcript", got)
+		h.Gate <- struct{}{}
+		idle(svc, alice, id)
+	})
 
-func TestAVoiceNoteSentWhileATurnRunsIsTranscribedAndQueued(t *testing.T) {
-	f := newFiles(t)
-	m, p := newMediaService(t)
-	p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"text":"buy milk"}`))
-	}))
-	h := studiotest.NewGateHarness()
-	st, _ := store.NewJSON("")
-	svc, err := studio.New(studio.Deps{Store: st, Provider: p, StateDir: t.TempDir(), Harness: h, Files: f, Media: m})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = svc.Close(context.Background()) })
-	id := create(t, svc, alice)
-	sent(t, svc, alice, id, "go")
-	until(t, "the turn to start", func() bool { return len(h.Sent()) == 1 })
-	if res, err := svc.SendWithFiles(context.Background(), alice, id, "x", []session.Upload{upload("memo.m4a", "A")}); err != nil || res.PendingID == "" {
-		t.Fatalf("SendWithFiles = %+v, %v; want a waiting message", res, err)
-	}
-	got := pendingTexts(t, svc, alice, id)
-	if len(got) != 1 || !strings.Contains(got[0], "buy milk") || !strings.Contains(got[0], "memo.m4a") {
-		t.Fatalf("waiting messages = %q, want the transcript and the voice note's path", got)
-	}
-	h.Gate <- struct{}{}
-	idle(t, svc, alice, id)
-}
+	It("a voice note sent while a turn runs is transcribed and queued", func() {
+		f := newFiles()
+		m, p := newMediaService()
+		p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"text":"buy milk"}`))
+		}))
+		h := studiotest.NewGateHarness()
+		st, _ := store.NewJSON("")
+		svc, err := studio.New(studio.Deps{Store: st, Provider: p, StateDir: GinkgoT().TempDir(), Harness: h, Files: f, Media: m})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = svc.Close(context.Background()) })
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		until("the turn to start", func() bool { return len(h.Sent()) == 1 })
+		res, err := svc.SendWithFiles(context.Background(), alice, id, "x", []session.Upload{upload("memo.m4a", "A")})
+		Expect(err).NotTo(HaveOccurred(), "SendWithFiles = %+v, %v; want a waiting message", res, err)
+		Expect(res.PendingID).NotTo(Equal(""), "SendWithFiles = %+v, %v; want a waiting message", res, err)
+		got := pendingTexts(svc, alice, id)
+		Expect(got).To(HaveLen(1), "waiting messages = %q, want the transcript and the voice note's path", got)
+		Expect(got[0]).To(ContainSubstring("buy milk"), "waiting messages = %q, want the transcript and the voice note's path", got)
+		Expect(got[0]).To(ContainSubstring("memo.m4a"), "waiting messages = %q, want the transcript and the voice note's path", got)
+		h.Gate <- struct{}{}
+		idle(svc, alice, id)
+	})
+})

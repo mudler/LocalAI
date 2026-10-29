@@ -3,45 +3,40 @@ package studio_test
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // A newer run of a sub-agent must not push older chats out of a list of chats.
-func TestListChatsSkipsSubAgentRunsBeforeApplyingTheLimit(t *testing.T) {
-	ctx := context.Background()
-	st, err := store.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	base := time.Now().Add(-time.Hour)
-	add := func(id, kind string, age int) {
-		rec := session.ChatRecord{ID: id, Principal: studio.AnonymousPrincipal, Kind: kind, Created: base, Updated: base.Add(time.Duration(age) * time.Minute)}
-		if err := st.CreateChat(ctx, rec); err != nil {
-			t.Fatal(err)
+var _ = Describe("listchats", func() {
+	It("list chats skips sub agent runs before applying the limit", func() {
+		ctx := context.Background()
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		base := time.Now().Add(-time.Hour)
+		add := func(id, kind string, age int) {
+			rec := session.ChatRecord{ID: id, Principal: studio.AnonymousPrincipal, Kind: kind, Created: base, Updated: base.Add(time.Duration(age) * time.Minute)}
+			Expect(st.CreateChat(ctx, rec)).To(Succeed())
 		}
-	}
-	add("chat-old", session.KindChat, 1)
-	add("chat-empty-kind", "", 2)
-	for i := 0; i < 5; i++ {
-		add(fmt.Sprintf("run-%d", i), session.KindSubAgent, 10+i)
-	}
-	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: t.TempDir()})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = svc.Close(ctx) })
+		add("chat-old", session.KindChat, 1)
+		add("chat-empty-kind", "", 2)
+		for i := 0; i < 5; i++ {
+			add(fmt.Sprintf("run-%d", i), session.KindSubAgent, 10+i)
+		}
+		svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir()})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = svc.Close(ctx) })
 
-	got, err := svc.ListChats(ctx, "", 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 2 || got[0].ID != "chat-empty-kind" || got[1].ID != "chat-old" {
-		t.Fatalf("want the two chats newest first, got %+v", got)
-	}
-}
+		got, err := svc.ListChats(ctx, "", 2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(2), "want the two chats newest first, got %+v", got)
+		Expect(got[0].ID).To(Equal("chat-empty-kind"), "want the two chats newest first, got %+v", got)
+		Expect(got[1].ID).To(Equal("chat-old"), "want the two chats newest first, got %+v", got)
+	})
+})

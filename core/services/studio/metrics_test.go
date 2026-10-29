@@ -2,7 +2,6 @@ package studio_test
 
 import (
 	"context"
-	"testing"
 
 	"go.opentelemetry.io/otel"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -10,6 +9,8 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // metricsReader reads what the loop records. The global meter provider is set
@@ -22,12 +23,9 @@ var metricsReader = func() *sdkmetric.ManualReader {
 }()
 
 // turnCount is the value of localai_agent_runs_total for an outcome.
-func turnCount(t *testing.T, outcome string) int64 {
-	t.Helper()
+func turnCount(outcome string) int64 {
 	var rm metricdata.ResourceMetrics
-	if err := metricsReader.Collect(context.Background(), &rm); err != nil {
-		t.Fatal(err)
-	}
+	Expect(metricsReader.Collect(context.Background(), &rm)).To(Succeed())
 	var total int64
 	for _, sm := range rm.ScopeMetrics {
 		for _, m := range sm.Metrics {
@@ -35,9 +33,7 @@ func turnCount(t *testing.T, outcome string) int64 {
 				continue
 			}
 			sum, ok := m.Data.(metricdata.Sum[int64])
-			if !ok {
-				t.Fatalf("localai_agent_runs_total is a %T, want a counter", m.Data)
-			}
+			Expect(ok).To(BeTrue(), "localai_agent_runs_total is a %T, want a counter", m.Data)
 			for _, dp := range sum.DataPoints {
 				if v, ok := dp.Attributes.Value("outcome"); ok && v.AsString() == outcome {
 					total += dp.Value
@@ -48,46 +44,44 @@ func turnCount(t *testing.T, outcome string) int64 {
 	return total
 }
 
-func TestATurnThatEndsIsCountedByOutcome(t *testing.T) {
+var _ = Describe("a turn that ends is counted by outcome", func() {
 	ctx := context.Background()
 
-	t.Run("completed", func(t *testing.T) {
-		before := turnCount(t, "completed")
+	It("completed", func() {
+		before := turnCount("completed")
 		h := studiotest.NewGateHarness()
-		svc := newService(t, h)
-		id := create(t, svc, alice)
-		sent(t, svc, alice, id, "hi")
-		until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
 		h.Gate <- struct{}{} // let its one request through; the turn then finishes
-		until(t, "the turn to end", func() bool { return turn(t, svc, alice, id).Last == store.TurnDone })
-		until(t, "the turn to be counted", func() bool { return turnCount(t, "completed") == before+1 })
+		until("the turn to end", func() bool { return turn(svc, alice, id).Last == store.TurnDone })
+		until("the turn to be counted", func() bool { return turnCount("completed") == before+1 })
 	})
 
-	t.Run("cancelled", func(t *testing.T) {
-		before := turnCount(t, "cancelled")
+	It("cancelled", func() {
+		before := turnCount("cancelled")
 		h := studiotest.NewGateHarness()
-		svc := newService(t, h)
-		id := create(t, svc, alice)
-		sent(t, svc, alice, id, "hi")
-		until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-		if err := svc.Stop(ctx, alice, id); err != nil {
-			t.Fatal(err)
-		}
-		until(t, "the turn to stop", func() bool { return turn(t, svc, alice, id).Last == store.TurnStopped })
-		until(t, "the turn to be counted", func() bool { return turnCount(t, "cancelled") == before+1 })
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		Expect(svc.Stop(ctx, alice, id)).To(Succeed())
+		until("the turn to stop", func() bool { return turn(svc, alice, id).Last == store.TurnStopped })
+		until("the turn to be counted", func() bool { return turnCount("cancelled") == before+1 })
 	})
 
-	t.Run("error", func(t *testing.T) {
-		before := turnCount(t, "error")
+	It("error", func() {
+		before := turnCount("error")
 		h := studiotest.NewGateHarness()
 		h.FailRequest = 1
-		svc := newService(t, h)
-		id := create(t, svc, alice)
-		sent(t, svc, alice, id, "hi")
-		until(t, "the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
-		sent(t, svc, alice, id, "keep me")
+		svc := newService(h)
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		sent(svc, alice, id, "keep me")
 		h.Gate <- struct{}{} // the request takes "keep me", then fails
-		until(t, "the turn to fail", func() bool { return turn(t, svc, alice, id).Last == store.TurnFailed })
-		until(t, "the turn to be counted", func() bool { return turnCount(t, "error") == before+1 })
+		until("the turn to fail", func() bool { return turn(svc, alice, id).Last == store.TurnFailed })
+		until("the turn to be counted", func() bool { return turnCount("error") == before+1 })
 	})
-}
+})
