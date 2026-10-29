@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,18 +21,38 @@ import (
 )
 
 // jsonStore keeps chats in memory and, when it has a directory, mirrors them to
-// files: one small record file per chat (rewritten atomically) and one
-// append-only transcript file per chat. One process owns the directory: the
-// lock below is in-process only, so two LocalAI processes must not share it.
+// files: one small record file per chat (rewritten atomically), one
+// append-only transcript file per chat and one harness state file per chat
+// (written only when the state changes). One process owns the directory: the
+// locks below are in-process only, so two LocalAI processes must not share it.
 // A cluster uses the GORM store.
+//
+// mu guards the map only. Each chat has its own lock, held for the whole
+// read-modify-write of that chat including its file I/O, so the operations on
+// one chat serialize and the operations on different chats do not wait for
+// each other. A goroutine that holds a chat lock may take mu (DeleteChat);
+// one that holds mu never takes a chat lock.
 type jsonStore struct {
 	mu    sync.Mutex
 	dir   string // empty: memory only
-	chats map[string]*chatState
+	chats map[string]*chatSlot
+}
+
+// chatSlot is one chat with its lock. gone is set, under the lock, when the
+// chat is deleted, so a caller that found the slot before the delete and
+// waited for the lock sees that it is gone.
+type chatSlot struct {
+	mu   sync.Mutex
+	gone bool
+	chatState
 }
 
 type chatState struct {
+	// Rec.HarnessState is not in the record file: it is in the state file of
+	// generation StateGen. A record without StateGen keeps it inline, as the
+	// records written before the state file existed did.
 	Rec         session.ChatRecord `json:"rec"`
+	StateGen    int64              `json:"state_gen,omitempty"`
 	Pending     []Pending          `json:"pending"`
 	NextPending int64              `json:"next_pending"`
 	Run         string             `json:"run,omitempty"`
@@ -46,7 +67,7 @@ type chatState struct {
 // loses it on exit. With a directory it creates it, loads what is there, and
 // writes every change.
 func NewJSON(dir string) (Store, error) {
-	s := &jsonStore{dir: dir, chats: map[string]*chatState{}}
+	s := &jsonStore{dir: dir, chats: map[string]*chatSlot{}}
 	if dir == "" {
 		return s, nil
 	}
@@ -85,9 +106,100 @@ func NewJSON(dir string) (Store, error) {
 			xlog.Warn("studio store: skipping chat with unreadable transcript", "chat", c.Rec.ID, "error", err)
 			continue
 		}
-		s.chats[c.Rec.ID] = &c
+		if err := s.loadState(&c); err != nil {
+			xlog.Warn("studio store: skipping chat with unreadable harness state", "chat", c.Rec.ID, "error", err)
+			continue
+		}
+		s.chats[c.Rec.ID] = &chatSlot{chatState: c}
 	}
+	s.removeStaleStates()
 	return s, nil
+}
+
+// stateFile is the harness state file of generation gen of chat id.
+func (s *jsonStore) stateFile(id string, gen int64) string {
+	return s.file(id, fmt.Sprintf(".%d.state", gen))
+}
+
+// loadState reads the harness state of c from its state file. A record written
+// before the state file existed holds the state inline; it is moved to a state
+// file now, so the record file stays small from here on.
+func (s *jsonStore) loadState(c *chatState) error {
+	if c.StateGen == 0 {
+		if len(c.Rec.HarnessState) == 0 {
+			return nil
+		}
+		next := *c
+		if err := s.writeState(&next, c.Rec.HarnessState); err != nil {
+			return fmt.Errorf("move the harness state to its own file: %w", err)
+		}
+		if err := s.save(&next); err != nil {
+			_ = os.Remove(s.stateFile(c.Rec.ID, next.StateGen))
+			return fmt.Errorf("move the harness state to its own file: %w", err)
+		}
+		*c = next
+		return nil
+	}
+	raw, err := os.ReadFile(s.stateFile(c.Rec.ID, c.StateGen)) // #nosec G304 -- the path is a file of the store directory
+	if err != nil {
+		return err
+	}
+	c.Rec.HarnessState = raw
+	return nil
+}
+
+// writeState writes state as the next generation of the state file of c and
+// moves c to it. The record file still names the old generation until the
+// caller saves c, so a crash in between leaves the old state in force and a
+// stray file that the next start removes.
+func (s *jsonStore) writeState(c *chatState, state []byte) error {
+	c.Rec.HarnessState = append([]byte(nil), state...)
+	if s.dir == "" {
+		return nil
+	}
+	gen := c.StateGen + 1
+	if err := atomicfile.Write(s.stateFile(c.Rec.ID, gen), state, 0o600); err != nil {
+		return err
+	}
+	c.StateGen = gen
+	return nil
+}
+
+// removeStaleStates deletes the state files that no loaded record names: the
+// old generations that a crash left behind, and the files of chats that did
+// not load are kept for inspection.
+func (s *jsonStore) removeStaleStates() {
+	names, err := filepath.Glob(filepath.Join(s.chatDir(), "*.state"))
+	if err != nil {
+		return
+	}
+	keep := map[string]bool{}
+	skipped := map[string]bool{}
+	for _, c := range s.chats {
+		if c.StateGen > 0 {
+			keep[s.stateFile(c.Rec.ID, c.StateGen)] = true
+		}
+	}
+	for _, p := range names {
+		base := filepath.Base(p)
+		i := strings.IndexByte(base, '.')
+		if i < 0 {
+			continue
+		}
+		raw, err := base64.RawURLEncoding.DecodeString(base[:i])
+		if err != nil {
+			continue
+		}
+		if _, ok := s.chats[string(raw)]; !ok {
+			skipped[p] = true
+		}
+		if keep[p] || skipped[p] {
+			continue
+		}
+		if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+			xlog.Warn("studio store: could not remove an old harness state file", "file", base, "error", err)
+		}
+	}
 }
 
 func (s *jsonStore) chatDir() string { return filepath.Join(s.dir, "chats") }
@@ -185,12 +297,17 @@ func repairTranscriptCreate(path string, body []byte) error {
 	return werr
 }
 
-// save rewrites the record file of c atomically.
+// save rewrites the record file of c atomically. The harness state is not in
+// it once the chat has a state file (see writeState).
 func (s *jsonStore) save(c *chatState) error {
 	if s.dir == "" {
 		return nil
 	}
-	raw, err := json.Marshal(c)
+	rec := *c
+	if rec.StateGen > 0 {
+		rec.Rec.HarnessState = nil
+	}
+	raw, err := json.Marshal(&rec)
 	if err != nil {
 		return err
 	}
@@ -233,36 +350,94 @@ func appendTo(f appendFile, size int64, data []byte) error {
 	return err
 }
 
-// get returns the chat when principal owns it. The caller holds s.mu.
-func (s *jsonStore) get(principal, id string) (*chatState, error) {
+// lock returns chat id with its lock held. The caller calls unlock. A chat
+// that does not exist, or was deleted while the caller waited, is
+// session.ErrNotFound.
+func (s *jsonStore) lock(id string) (c *chatSlot, unlock func(), err error) {
+	s.mu.Lock()
 	c, ok := s.chats[id]
-	if !ok || c.Rec.Principal != principal {
-		return nil, session.ErrNotFound
+	s.mu.Unlock()
+	if !ok {
+		return nil, nil, session.ErrNotFound
 	}
-	return c, nil
+	c.mu.Lock()
+	if c.gone {
+		c.mu.Unlock()
+		return nil, nil, session.ErrNotFound
+	}
+	return c, c.mu.Unlock, nil
 }
 
+// get is lock for a chat that principal owns.
+func (s *jsonStore) get(principal, id string) (c *chatSlot, unlock func(), err error) {
+	c, unlock, err = s.lock(id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if c.Rec.Principal != principal {
+		unlock()
+		return nil, nil, session.ErrNotFound
+	}
+	return c, unlock, nil
+}
+
+// slots returns the chats that exist now. The caller locks each one it reads
+// and skips the ones that are gone.
+func (s *jsonStore) slots() []*chatSlot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*chatSlot, 0, len(s.chats))
+	for _, c := range s.chats {
+		out = append(out, c)
+	}
+	return out
+}
+
+// records returns a copy of the record of every chat that keep accepts.
+func (s *jsonStore) records(keep func(session.ChatRecord) bool) []session.ChatRecord {
+	var out []session.ChatRecord
+	for _, c := range s.slots() {
+		c.mu.Lock()
+		if !c.gone && keep(c.Rec) {
+			out = append(out, cloneRec(c.Rec))
+		}
+		c.mu.Unlock()
+	}
+	return out
+}
+
+// CreateChat holds the map lock while it writes the new chat's files: the ID
+// must stay taken until the chat exists or the write failed. Creating a chat
+// is rare next to the other operations.
 func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.chats[rec.ID]; ok {
 		return session.ErrExists
 	}
-	c := &chatState{Rec: rec}
-	if err := s.save(c); err != nil {
+	c := chatState{Rec: rec}
+	c.Rec.HarnessState = nil
+	if len(rec.HarnessState) > 0 {
+		if err := s.writeState(&c, rec.HarnessState); err != nil {
+			return err
+		}
+	}
+	if err := s.save(&c); err != nil {
+		if c.StateGen > 0 {
+			_ = os.Remove(s.stateFile(rec.ID, c.StateGen))
+		}
 		return err
 	}
-	s.chats[rec.ID] = c
+	s.chats[rec.ID] = &chatSlot{chatState: c}
 	return nil
 }
 
 func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.ChatRecord, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
+	defer unlock()
 	return cloneRec(c.Rec), nil
 }
 
@@ -272,22 +447,12 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 }
 
 func (s *jsonStore) ListChats(_ context.Context, principal string, before session.ChatCursor, limit int) ([]session.ChatRecord, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var out []session.ChatRecord
-	for _, c := range s.chats {
-		r := c.Rec
+	out := s.records(func(r session.ChatRecord) bool {
 		if r.Principal != principal {
-			continue
+			return false
 		}
-		if !before.Updated.IsZero() {
-			older := r.Updated.Before(before.Updated) || (r.Updated.Equal(before.Updated) && r.ID < before.ID)
-			if !older {
-				continue
-			}
-		}
-		out = append(out, cloneRec(r))
-	}
+		return before.Updated.IsZero() || r.Updated.Before(before.Updated) || (r.Updated.Equal(before.Updated) && r.ID < before.ID)
+	})
 	sort.Slice(out, func(i, j int) bool {
 		if !out[i].Updated.Equal(out[j].Updated) {
 			return out[i].Updated.After(out[j].Updated)
@@ -301,54 +466,69 @@ func (s *jsonStore) ListChats(_ context.Context, principal string, before sessio
 }
 
 // edit changes the record of a chat on a copy and keeps the copy only when it
-// was saved, so a failed write leaves the chat as it was. It holds the store
-// lock for the whole change.
-func (s *jsonStore) edit(principal, id string, change func(next *chatState)) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+// was saved, so a failed write leaves the chat as it was. It holds the chat's
+// lock for the whole change. A change that fails leaves the chat as it was and
+// nothing is saved.
+func (s *jsonStore) edit(principal, id string, change func(next *chatState) error) error {
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
-	next := *c
-	change(&next)
-	if err := s.save(&next); err != nil {
+	defer unlock()
+	next := c.chatState
+	if err := change(&next); err != nil {
 		return err
 	}
-	*c = next
+	if err := s.save(&next); err != nil {
+		if next.StateGen != c.StateGen {
+			_ = os.Remove(s.stateFile(id, next.StateGen))
+		}
+		return err
+	}
+	if next.StateGen != c.StateGen && c.StateGen > 0 {
+		if err := os.Remove(s.stateFile(id, c.StateGen)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			xlog.Warn("studio store: could not remove an old harness state file", "chat", id, "error", err)
+		}
+	}
+	c.chatState = next
 	return nil
 }
 
+// set is edit for a change that cannot fail.
+func (s *jsonStore) set(principal, id string, change func(next *chatState)) error {
+	return s.edit(principal, id, func(next *chatState) error { change(next); return nil })
+}
+
+// UpdateChat writes the harness state file only when the state changed: a
+// title or a snapshot change does not rewrite the agent's whole history.
 func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error {
-	return s.edit(rec.Principal, rec.ID, func(next *chatState) {
+	return s.edit(rec.Principal, rec.ID, func(next *chatState) error {
 		next.Rec.Title, next.Rec.Folder, next.Rec.Snapshot = rec.Title, rec.Folder, rec.Snapshot
-		next.Rec.HarnessState = append([]byte(nil), rec.HarnessState...)
 		next.Rec.Turns, next.Rec.Updated = rec.Turns, rec.Updated
 		next.Rec.Status = rec.Status
+		if bytes.Equal(next.Rec.HarnessState, rec.HarnessState) {
+			return nil
+		}
+		return s.writeState(next, rec.HarnessState)
 	})
 }
 
 func (s *jsonStore) SetSkillsOff(_ context.Context, principal, id string, off []string) error {
-	return s.edit(principal, id, func(next *chatState) { next.Rec.SkillsOff = append([]string(nil), off...) })
+	return s.set(principal, id, func(next *chatState) { next.Rec.SkillsOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) SetAddonsOff(_ context.Context, principal, id string, off []string) error {
-	return s.edit(principal, id, func(next *chatState) { next.Rec.AddonsOff = append([]string(nil), off...) })
+	return s.set(principal, id, func(next *chatState) { next.Rec.AddonsOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []string) error {
-	return s.edit(principal, id, func(next *chatState) { next.Rec.McpOff = append([]string(nil), off...) })
+	return s.set(principal, id, func(next *chatState) { next.Rec.McpOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) ([]session.ChatRecord, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var out []session.ChatRecord
-	for _, c := range s.chats {
-		if r := c.Rec; r.Principal == principal && r.ParentID == parentID && r.Kind == session.KindSubAgent {
-			out = append(out, cloneRec(r))
-		}
-	}
+	out := s.records(func(r session.ChatRecord) bool {
+		return r.Principal == principal && r.ParentID == parentID && r.Kind == session.KindSubAgent
+	})
 	sort.Slice(out, func(i, j int) bool {
 		if !out[i].Created.Equal(out[j].Created) {
 			return out[i].Created.Before(out[j].Created)
@@ -359,7 +539,7 @@ func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) 
 }
 
 func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m session.ChatMeta) error {
-	return s.edit(principal, id, func(next *chatState) {
+	return s.set(principal, id, func(next *chatState) {
 		if m.Title != nil {
 			next.Rec.Title = *m.Title
 		}
@@ -373,12 +553,11 @@ func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m sessi
 }
 
 func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, keep int64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
+	defer unlock()
 	var kept []session.Entry
 	for _, e := range c.entries {
 		if e.Seq <= keep {
@@ -403,29 +582,35 @@ func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, kee
 }
 
 func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, err := s.get(principal, id); err != nil {
+	c, unlock, err := s.get(principal, id)
+	if err != nil {
 		return err
 	}
+	defer unlock()
 	if s.dir != "" {
-		for _, ext := range []string{".json", ".entries"} {
-			if err := os.Remove(s.file(id, ext)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		files := []string{s.file(id, ".json"), s.file(id, ".entries")}
+		if c.StateGen > 0 {
+			files = append(files, s.stateFile(id, c.StateGen))
+		}
+		for _, f := range files {
+			if err := os.Remove(f); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 		}
 	}
+	c.gone = true
+	s.mu.Lock()
 	delete(s.chats, id)
+	s.mu.Unlock()
 	return nil
 }
 
 func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, ok := s.chats[id]
-	if !ok {
-		return 0, session.ErrNotFound
+	c, unlock, err := s.lock(id)
+	if err != nil {
+		return 0, err
 	}
+	defer unlock()
 	// Continue after the last Seq, not the count: a skipped damaged line leaves a gap.
 	e.Seq = 1
 	if n := len(c.entries); n > 0 {
@@ -449,12 +634,11 @@ func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (
 }
 
 func (s *jsonStore) AppendEntries(_ context.Context, id string, entries []session.Entry) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, ok := s.chats[id]
-	if !ok {
-		return session.ErrNotFound
+	c, unlock, err := s.lock(id)
+	if err != nil {
+		return err
 	}
+	defer unlock()
 	if len(entries) == 0 {
 		return nil
 	}
@@ -489,12 +673,11 @@ func (s *jsonStore) AppendEntries(_ context.Context, id string, entries []sessio
 }
 
 func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int) ([]session.Entry, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, ok := s.chats[id]
-	if !ok {
-		return nil, session.ErrNotFound
+	c, unlock, err := s.lock(id)
+	if err != nil {
+		return nil, err
 	}
+	defer unlock()
 	var out []session.Entry
 	for _, e := range c.entries {
 		if e.Seq > after {
@@ -508,13 +691,12 @@ func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int
 }
 
 func (s *jsonStore) AddPending(_ context.Context, principal, id, text string) (Pending, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return Pending{}, err
 	}
-	next := *c
+	defer unlock()
+	next := c.chatState
 	next.NextPending++
 	p := Pending{ID: fmt.Sprintf("p%d", next.NextPending), Text: text, Seq: next.NextPending, At: time.Now().UTC()}
 	next.Pending = append(append([]Pending(nil), c.Pending...), p)
@@ -538,12 +720,11 @@ func undelivered(ps []Pending) []Pending {
 }
 
 func (s *jsonStore) Pending(_ context.Context, principal, id string) ([]Pending, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return nil, err
 	}
+	defer unlock()
 	return undelivered(c.Pending), nil
 }
 
@@ -557,12 +738,11 @@ func indexOf(ps []Pending, id string) int {
 }
 
 func (s *jsonStore) EditPending(_ context.Context, principal, id, pendingID, text string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
+	defer unlock()
 	i := indexOf(c.Pending, pendingID)
 	if i < 0 {
 		return session.ErrNotFound
@@ -570,7 +750,7 @@ func (s *jsonStore) EditPending(_ context.Context, principal, id, pendingID, tex
 	if c.Pending[i].Delivered {
 		return ErrDelivered
 	}
-	next := *c
+	next := c.chatState
 	next.Pending = append([]Pending(nil), c.Pending...)
 	next.Pending[i].Text = text
 	if err := s.save(&next); err != nil {
@@ -581,12 +761,11 @@ func (s *jsonStore) EditPending(_ context.Context, principal, id, pendingID, tex
 }
 
 func (s *jsonStore) CancelPending(_ context.Context, principal, id, pendingID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
+	defer unlock()
 	i := indexOf(c.Pending, pendingID)
 	if i < 0 {
 		return session.ErrNotFound
@@ -594,7 +773,7 @@ func (s *jsonStore) CancelPending(_ context.Context, principal, id, pendingID st
 	if c.Pending[i].Delivered {
 		return ErrDelivered
 	}
-	next := *c
+	next := c.chatState
 	next.Pending = append(append([]Pending(nil), c.Pending[:i]...), c.Pending[i+1:]...)
 	if err := s.save(&next); err != nil {
 		return err
@@ -604,17 +783,16 @@ func (s *jsonStore) CancelPending(_ context.Context, principal, id, pendingID st
 }
 
 func (s *jsonStore) TakePending(_ context.Context, principal, id string) ([]Pending, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return nil, err
 	}
+	defer unlock()
 	taken := undelivered(c.Pending)
 	if len(taken) == 0 {
 		return nil, nil
 	}
-	next := *c
+	next := c.chatState
 	next.Pending = append([]Pending(nil), c.Pending...)
 	for i := range next.Pending {
 		if !next.Pending[i].Delivered {
@@ -632,13 +810,12 @@ func (s *jsonStore) TakePending(_ context.Context, principal, id string) ([]Pend
 }
 
 func (s *jsonStore) ConfirmPending(_ context.Context, principal, id string, ids []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
-	next := *c
+	defer unlock()
+	next := c.chatState
 	next.Pending = append([]Pending(nil), c.Pending...)
 	for _, pid := range ids {
 		if i := indexOf(next.Pending, pid); i >= 0 {
@@ -653,13 +830,12 @@ func (s *jsonStore) ConfirmPending(_ context.Context, principal, id string, ids 
 }
 
 func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
-	next := *c
+	defer unlock()
+	next := c.chatState
 	next.Pending = append([]Pending(nil), c.Pending...)
 	for _, pid := range ids {
 		if i := indexOf(next.Pending, pid); i >= 0 {
@@ -674,16 +850,15 @@ func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids 
 }
 
 func (s *jsonStore) ClaimTurn(_ context.Context, principal, id, runID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
+	defer unlock()
 	if c.Run != "" {
 		return ErrTurnRunning
 	}
-	next := *c
+	next := c.chatState
 	next.Run, next.RunSince = runID, time.Now().UTC()
 	next.RunBeat = next.RunSince
 	if err := s.save(&next); err != nil {
@@ -694,12 +869,11 @@ func (s *jsonStore) ClaimTurn(_ context.Context, principal, id, runID string) er
 }
 
 func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
+	defer unlock()
 	if c.Run == "" || c.Run != runID {
 		return ErrNotClaimed
 	}
@@ -709,46 +883,57 @@ func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) er
 }
 
 func (s *jsonStore) ReapTurns(_ context.Context, olderThan time.Time) ([]ReapedTurn, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	var out []ReapedTurn
-	for _, c := range s.chats {
-		beat := c.RunBeat
-		if beat.IsZero() {
-			beat = c.RunSince
+	for _, c := range s.slots() {
+		reaped, err := s.reapTurn(c, olderThan)
+		if reaped != nil {
+			out = append(out, *reaped)
 		}
-		if c.Run == "" || !beat.Before(olderThan) {
-			continue
-		}
-		next := *c
-		next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, TurnInterrupted
-		// What a request took and nobody confirmed was lost with the frontend.
-		next.Pending = append([]Pending(nil), c.Pending...)
-		for i := range next.Pending {
-			if next.Pending[i].Unconfirmed {
-				next.Pending[i].Delivered, next.Pending[i].Unconfirmed = false, false
-			}
-		}
-		if err := s.save(&next); err != nil {
+		if err != nil {
 			return out, err
 		}
-		out = append(out, ReapedTurn{Principal: c.Rec.Principal, ChatID: c.Rec.ID, RunID: c.Run})
-		c.Run, c.RunSince, c.RunBeat, c.Last, c.Pending = next.Run, next.RunSince, next.RunBeat, next.Last, next.Pending
 	}
 	return out, nil
 }
 
+// reapTurn ends the turn of c when it has not beaten since olderThan.
+func (s *jsonStore) reapTurn(c *chatSlot, olderThan time.Time) (*ReapedTurn, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	beat := c.RunBeat
+	if beat.IsZero() {
+		beat = c.RunSince
+	}
+	if c.gone || c.Run == "" || !beat.Before(olderThan) {
+		return nil, nil
+	}
+	next := c.chatState
+	next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, TurnInterrupted
+	// What a request took and nobody confirmed was lost with the frontend.
+	next.Pending = append([]Pending(nil), c.Pending...)
+	for i := range next.Pending {
+		if next.Pending[i].Unconfirmed {
+			next.Pending[i].Delivered, next.Pending[i].Unconfirmed = false, false
+		}
+	}
+	if err := s.save(&next); err != nil {
+		return nil, err
+	}
+	reaped := &ReapedTurn{Principal: c.Rec.Principal, ChatID: c.Rec.ID, RunID: c.Run}
+	c.Run, c.RunSince, c.RunBeat, c.Last, c.Pending = next.Run, next.RunSince, next.RunBeat, next.Last, next.Pending
+	return reaped, nil
+}
+
 func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, status TurnStatus) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
+	defer unlock()
 	if c.Run == "" || c.Run != runID {
 		return ErrNotClaimed
 	}
-	next := *c
+	next := c.chatState
 	next.Run, next.RunSince, next.RunBeat, next.Last = "", time.Time{}, time.Time{}, status
 	if err := s.save(&next); err != nil {
 		return err
@@ -758,11 +943,10 @@ func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, 
 }
 
 func (s *jsonStore) Turn(_ context.Context, principal, id string) (TurnInfo, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
+	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return TurnInfo{}, err
 	}
+	defer unlock()
 	return TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Beat: c.RunBeat, Last: c.Last}, nil
 }
