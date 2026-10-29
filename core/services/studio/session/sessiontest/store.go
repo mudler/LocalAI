@@ -1,28 +1,31 @@
 // Package sessiontest has the conformance suite that every session.Store must
-// pass, and a scripted harness for tests.
+// pass, and a scripted harness for tests. RunStoreSuite registers Ginkgo
+// specs, so call it inside a Describe of the implementation's test package.
 package sessiontest
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"strings"
-	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
-// NewStore returns an empty store for one test.
-type NewStore func(t *testing.T) session.Store
+// NewStore returns an empty store for one spec. Clean up with DeferCleanup.
+type NewStore func() session.Store
 
 var t0 = time.Date(2026, 10, 18, 9, 0, 0, 0, time.UTC)
 
-func ctx(t *testing.T) context.Context {
+// ctx returns a context that is cancelled when the spec ends.
+func ctx() context.Context {
 	c, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+	DeferCleanup(cancel)
 	return c
 }
 
@@ -30,132 +33,92 @@ func rec(id, principal string, at time.Time) session.ChatRecord {
 	return session.ChatRecord{ID: id, Principal: principal, Title: "New chat", Created: at, Updated: at}
 }
 
-// RunStoreSuite runs the conformance suite against stores from newStore.
-func RunStoreSuite(t *testing.T, newStore NewStore) {
-	t.Helper()
-	t.Run("create and get", func(t *testing.T) {
-		s := newStore(t)
+// RunStoreSuite registers the conformance specs for stores from newStore.
+func RunStoreSuite(newStore NewStore) {
+	It("create and get", func() {
+		s := newStore()
 		in := rec("c1", "alice", t0)
-		if err := s.CreateChat(ctx(t), in); err != nil {
-			t.Fatal(err)
-		}
-		got, err := s.GetChat(ctx(t), "alice", "c1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.ID != "c1" || got.Principal != "alice" || got.Title != "New chat" || !got.Created.Equal(t0) || !got.Updated.Equal(t0) || got.Snapshot != nil || got.Turns != 0 {
-			t.Fatalf("got %+v", got)
-		}
+		Expect(s.CreateChat(ctx(), in)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ID).To(Equal("c1"))
+		Expect(got.Principal).To(Equal("alice"))
+		Expect(got.Title).To(Equal("New chat"))
+		Expect(got.Created.Equal(t0)).To(BeTrue(), "got %+v", got)
+		Expect(got.Updated.Equal(t0)).To(BeTrue(), "got %+v", got)
+		Expect(got.Snapshot).To(BeNil())
+		Expect(got.Turns).To(BeZero())
 	})
-	t.Run("a duplicate ID is ErrExists, also for another principal", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("a duplicate ID is ErrExists, also for another principal", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
 		for _, p := range []string{"alice", "bob"} {
-			if err := s.CreateChat(ctx(t), rec("c1", p, t0)); !errors.Is(err, session.ErrExists) {
-				t.Fatalf("%s: err = %v, want ErrExists", p, err)
-			}
+			Expect(s.CreateChat(ctx(), rec("c1", p, t0))).To(MatchError(session.ErrExists), p)
 		}
 	})
-	t.Run("another principal sees ErrNotFound", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "mine"}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.GetChat(ctx(t), "bob", "c1"); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("get: %v", err)
-		}
-		if got, err := s.ListChats(ctx(t), "bob", session.ChatCursor{}, 10); err != nil || len(got) != 0 {
-			t.Fatalf("list: %v %v", got, err)
-		}
+	It("another principal sees ErrNotFound", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "mine"})).Error().NotTo(HaveOccurred())
+		_, err := s.GetChat(ctx(), "bob", "c1")
+		Expect(err).To(MatchError(session.ErrNotFound), "get")
+		list, err := s.ListChats(ctx(), "bob", session.ChatCursor{}, 10)
+		Expect(err).NotTo(HaveOccurred(), "list")
+		Expect(list).To(BeEmpty(), "list")
 		u := rec("c1", "bob", t0)
 		u.Title = "stolen"
 		u.Updated = t0.Add(time.Hour)
-		if err := s.UpdateChat(ctx(t), u); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("update: %v", err)
-		}
-		if err := s.DeleteChat(ctx(t), "bob", "c1"); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("delete: %v", err)
-		}
-		got, err := s.GetChat(ctx(t), "alice", "c1")
-		if err != nil || got.Title != "New chat" {
-			t.Fatalf("alice's chat changed: %+v %v", got, err)
-		}
-		if !got.Updated.Equal(t0) {
-			t.Fatalf("alice's Updated changed to %v", got.Updated)
-		}
-		es, err := s.Entries(ctx(t), "c1", 0, 10)
-		if err != nil || len(es) != 1 || es[0].Text != "mine" {
-			t.Fatalf("alice's entries changed: %+v %v", es, err)
-		}
+		Expect(s.UpdateChat(ctx(), u)).To(MatchError(session.ErrNotFound), "update")
+		Expect(s.DeleteChat(ctx(), "bob", "c1")).To(MatchError(session.ErrNotFound), "delete")
+		got, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Title).To(Equal("New chat"), "alice's chat changed")
+		Expect(got.Updated.Equal(t0)).To(BeTrue(), "alice's Updated changed to %v", got.Updated)
+		es, err := s.Entries(ctx(), "c1", 0, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(1), "alice's entries changed: %+v", es)
+		Expect(es[0].Text).To(Equal("mine"))
 	})
-	t.Run("a missing chat is ErrNotFound", func(t *testing.T) {
-		s := newStore(t)
-		if _, err := s.GetChat(ctx(t), "alice", "nope"); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("get: %v", err)
-		}
-		if err := s.UpdateChat(ctx(t), rec("nope", "alice", t0)); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("update: %v", err)
-		}
-		if err := s.DeleteChat(ctx(t), "alice", "nope"); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("delete: %v", err)
-		}
-		if _, err := s.AppendEntry(ctx(t), "nope", session.Entry{Role: session.RoleUser, Text: "x"}); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("append: %v", err)
-		}
+	It("a missing chat is ErrNotFound", func() {
+		s := newStore()
+		_, err := s.GetChat(ctx(), "alice", "nope")
+		Expect(err).To(MatchError(session.ErrNotFound), "get")
+		Expect(s.UpdateChat(ctx(), rec("nope", "alice", t0))).To(MatchError(session.ErrNotFound), "update")
+		Expect(s.DeleteChat(ctx(), "alice", "nope")).To(MatchError(session.ErrNotFound), "delete")
+		_, err = s.AppendEntry(ctx(), "nope", session.Entry{Role: session.RoleUser, Text: "x"})
+		Expect(err).To(MatchError(session.ErrNotFound), "append")
 	})
-	t.Run("update replaces the mutable fields", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("update replaces the mutable fields", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
 		u := rec("c1", "alice", t0)
 		u.Title, u.Folder, u.Turns = "Budget", "2026-10-18 Budget", 3
 		u.Updated = t0.Add(time.Hour)
 		u.HarnessState = []byte("state\x00with a zero byte")
 		u.Snapshot = &sandbox.SnapshotRef{Backend: "chv", Path: "/snap/1"}
 		u.Created = t0.Add(-time.Hour) // must be ignored
-		if err := s.UpdateChat(ctx(t), u); err != nil {
-			t.Fatal(err)
-		}
-		got, err := s.GetChat(ctx(t), "alice", "c1")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Title != "Budget" || got.Folder != "2026-10-18 Budget" || got.Turns != 3 || !got.Updated.Equal(t0.Add(time.Hour)) {
-			t.Fatalf("got %+v", got)
-		}
-		if !got.Created.Equal(t0) {
-			t.Fatalf("created changed to %v", got.Created)
-		}
-		if !bytes.Equal(got.HarnessState, u.HarnessState) {
-			t.Fatalf("state = %q", got.HarnessState)
-		}
-		if got.Snapshot == nil || *got.Snapshot != *u.Snapshot {
-			t.Fatalf("snapshot = %+v", got.Snapshot)
-		}
+		Expect(s.UpdateChat(ctx(), u)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Title).To(Equal("Budget"))
+		Expect(got.Folder).To(Equal("2026-10-18 Budget"))
+		Expect(got.Turns).To(Equal(3))
+		Expect(got.Updated.Equal(t0.Add(time.Hour))).To(BeTrue(), "got %+v", got)
+		Expect(got.Created.Equal(t0)).To(BeTrue(), "created changed to %v", got.Created)
+		Expect(bytes.Equal(got.HarnessState, u.HarnessState)).To(BeTrue(), "state = %q", got.HarnessState)
+		Expect(got.Snapshot).NotTo(BeNil())
+		Expect(*got.Snapshot).To(Equal(*u.Snapshot))
 		u.Snapshot = nil
-		if err := s.UpdateChat(ctx(t), u); err != nil {
-			t.Fatal(err)
-		}
-		if got, _ = s.GetChat(ctx(t), "alice", "c1"); got.Snapshot != nil {
-			t.Fatalf("snapshot not cleared: %+v", got.Snapshot)
-		}
+		Expect(s.UpdateChat(ctx(), u)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(got.Snapshot).To(BeNil(), "snapshot not cleared")
 	})
-	t.Run("list is newest first and pages by time", func(t *testing.T) {
-		s := newStore(t)
+	It("list is newest first and pages by time", func() {
+		s := newStore()
 		for i, id := range []string{"a", "b", "c", "d", "e"} {
-			if err := s.CreateChat(ctx(t), rec(id, "alice", t0.Add(time.Duration(i)*time.Minute))); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.CreateChat(ctx(), rec(id, "alice", t0.Add(time.Duration(i)*time.Minute)))).To(Succeed())
 		}
-		if err := s.CreateChat(ctx(t), rec("z", "bob", t0.Add(time.Hour))); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.CreateChat(ctx(), rec("z", "bob", t0.Add(time.Hour)))).To(Succeed())
 		ids := func(cs []session.ChatRecord) string {
 			var b []byte
 			for _, c := range cs {
@@ -167,50 +130,35 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			last := cs[len(cs)-1]
 			return session.ChatCursor{Updated: last.Updated, ID: last.ID}
 		}
-		page1, err := s.ListChats(ctx(t), "alice", session.ChatCursor{}, 2)
-		if err != nil || ids(page1) != "ed" {
-			t.Fatalf("page1 = %q %v", ids(page1), err)
-		}
-		page2, err := s.ListChats(ctx(t), "alice", cursor(page1), 2)
-		if err != nil || ids(page2) != "cb" {
-			t.Fatalf("page2 = %q %v", ids(page2), err)
-		}
-		page3, err := s.ListChats(ctx(t), "alice", cursor(page2), 2)
-		if err != nil || ids(page3) != "a" {
-			t.Fatalf("page3 = %q %v", ids(page3), err)
-		}
+		page1, err := s.ListChats(ctx(), "alice", session.ChatCursor{}, 2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ids(page1)).To(Equal("ed"), "page1")
+		page2, err := s.ListChats(ctx(), "alice", cursor(page1), 2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ids(page2)).To(Equal("cb"), "page2")
+		page3, err := s.ListChats(ctx(), "alice", cursor(page2), 2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ids(page3)).To(Equal("a"), "page3")
 		// An update moves a chat to the front.
-		u, _ := s.GetChat(ctx(t), "alice", "a")
+		u, _ := s.GetChat(ctx(), "alice", "a")
 		u.Updated = t0.Add(time.Hour)
-		if err := s.UpdateChat(ctx(t), u); err != nil {
-			t.Fatal(err)
-		}
-		all, _ := s.ListChats(ctx(t), "alice", session.ChatCursor{}, 10)
-		if ids(all) != "aedcb" {
-			t.Fatalf("after update = %q", ids(all))
-		}
+		Expect(s.UpdateChat(ctx(), u)).To(Succeed())
+		all, _ := s.ListChats(ctx(), "alice", session.ChatCursor{}, 10)
+		Expect(ids(all)).To(Equal("aedcb"), "after update")
 	})
-	t.Run("paging crosses chats that share an Updated value", func(t *testing.T) {
-		s := newStore(t)
+	It("paging crosses chats that share an Updated value", func() {
+		s := newStore()
 		// Five chats share t0; one is newer. Order: f, then e d c b a.
 		for _, id := range []string{"a", "b", "c", "d", "e"} {
-			if err := s.CreateChat(ctx(t), rec(id, "alice", t0)); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.CreateChat(ctx(), rec(id, "alice", t0))).To(Succeed())
 		}
-		if err := s.CreateChat(ctx(t), rec("f", "alice", t0.Add(time.Minute))); err != nil {
-			t.Fatal(err)
-		}
+		Expect(s.CreateChat(ctx(), rec("f", "alice", t0.Add(time.Minute)))).To(Succeed())
 		var got []string
 		var cur session.ChatCursor
 		for pages := 0; ; pages++ {
-			if pages > 10 {
-				t.Fatalf("paging did not end: %q", got)
-			}
-			page, err := s.ListChats(ctx(t), "alice", cur, 2)
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(pages).To(BeNumerically("<=", 10), "paging did not end: %q", got)
+			page, err := s.ListChats(ctx(), "alice", cur, 2)
+			Expect(err).NotTo(HaveOccurred())
 			if len(page) == 0 {
 				break
 			}
@@ -219,213 +167,156 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			}
 			cur = session.ChatCursor{Updated: page[len(page)-1].Updated, ID: page[len(page)-1].ID}
 		}
-		if strings.Join(got, "") != "fedcba" {
-			t.Fatalf("paged = %q, want fedcba", strings.Join(got, ""))
-		}
+		Expect(strings.Join(got, "")).To(Equal("fedcba"), "paged")
 	})
-	t.Run("entries come back in order and page by Seq", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.CreateChat(ctx(t), rec("c2", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("entries come back in order and page by Seq", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
+		Expect(s.CreateChat(ctx(), rec("c2", "alice", t0))).To(Succeed())
 		for i, txt := range []string{"one", "two", "three", "four"} {
 			e := session.Entry{Turn: i/2 + 1, Role: session.RoleUser, Text: txt}
 			if i == 3 {
 				e.Role, e.Rev = session.RoleCheckpoint, 42
 			}
-			if _, err := s.AppendEntry(ctx(t), "c1", e); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.AppendEntry(ctx(), "c1", e)).Error().NotTo(HaveOccurred())
 		}
-		if _, err := s.AppendEntry(ctx(t), "c2", session.Entry{Role: session.RoleUser, Text: "other chat"}); err != nil {
-			t.Fatal(err)
-		}
-		all, err := s.Entries(ctx(t), "c1", 0, 100)
-		if err != nil || len(all) != 4 {
-			t.Fatalf("entries = %+v %v", all, err)
-		}
+		Expect(s.AppendEntry(ctx(), "c2", session.Entry{Role: session.RoleUser, Text: "other chat"})).Error().NotTo(HaveOccurred())
+		all, err := s.Entries(ctx(), "c1", 0, 100)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(all).To(HaveLen(4))
 		for i, e := range all {
-			if e.Seq != int64(i+1) || e.At.IsZero() {
-				t.Fatalf("entry %d = %+v", i, e)
-			}
+			Expect(e.Seq).To(Equal(int64(i+1)), "entry %d = %+v", i, e)
+			Expect(e.At.IsZero()).To(BeFalse(), "entry %d = %+v", i, e)
 		}
-		if all[3].Role != session.RoleCheckpoint || all[3].Rev != 42 || all[2].Turn != 2 || all[1].Text != "two" {
-			t.Fatalf("entries = %+v", all)
-		}
-		rest, err := s.Entries(ctx(t), "c1", 2, 1)
-		if err != nil || len(rest) != 1 || rest[0].Text != "three" {
-			t.Fatalf("after 2, limit 1 = %+v %v", rest, err)
-		}
-		other, _ := s.Entries(ctx(t), "c2", 0, 100)
-		if len(other) != 1 || other[0].Seq != 1 {
-			t.Fatalf("c2 = %+v", other)
-		}
+		Expect(all[3].Role).To(Equal(session.RoleCheckpoint))
+		Expect(all[3].Rev).To(BeEquivalentTo(42))
+		Expect(all[2].Turn).To(Equal(2))
+		Expect(all[1].Text).To(Equal("two"))
+		rest, err := s.Entries(ctx(), "c1", 2, 1)
+		Expect(err).NotTo(HaveOccurred(), "after 2, limit 1")
+		Expect(rest).To(HaveLen(1))
+		Expect(rest[0].Text).To(Equal("three"))
+		other, _ := s.Entries(ctx(), "c2", 0, 100)
+		Expect(other).To(HaveLen(1), "c2 = %+v", other)
+		Expect(other[0].Seq).To(BeEquivalentTo(1))
 	})
-	t.Run("delete removes the chat and its entries", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "hi"}); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.DeleteChat(ctx(t), "alice", "c1"); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.GetChat(ctx(t), "alice", "c1"); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("get: %v", err)
-		}
-		if es, _ := s.Entries(ctx(t), "c1", 0, 10); len(es) != 0 {
-			t.Fatalf("entries survived: %+v", es)
-		}
+	It("delete removes the chat and its entries", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "hi"})).Error().NotTo(HaveOccurred())
+		Expect(s.DeleteChat(ctx(), "alice", "c1")).To(Succeed())
+		_, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).To(MatchError(session.ErrNotFound), "get")
+		es, _ := s.Entries(ctx(), "c1", 0, 10)
+		Expect(es).To(BeEmpty(), "entries survived: %+v", es)
 		// The ID is free again, with a fresh transcript.
-		if err := s.CreateChat(ctx(t), rec("c1", "bob", t0)); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "new"}); err != nil {
-			t.Fatal(err)
-		}
-		es, _ := s.Entries(ctx(t), "c1", 0, 10)
-		if len(es) != 1 || es[0].Seq != 1 || es[0].Text != "new" {
-			t.Fatalf("entries = %+v", es)
-		}
+		Expect(s.CreateChat(ctx(), rec("c1", "bob", t0))).To(Succeed())
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "new"})).Error().NotTo(HaveOccurred())
+		es, _ = s.Entries(ctx(), "c1", 0, 10)
+		Expect(es).To(HaveLen(1), "entries = %+v", es)
+		Expect(es[0].Seq).To(BeEquivalentTo(1))
+		Expect(es[0].Text).To(Equal("new"))
 	})
-	t.Run("text keeps its bytes", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("text keeps its bytes", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
 		text := "line one\nline two\t'quoted' \"double\" ; DROP TABLE chats; -- é世\U0001F600"
-		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleAssistant, Text: text}); err != nil {
-			t.Fatal(err)
-		}
-		es, _ := s.Entries(ctx(t), "c1", 0, 10)
-		if len(es) != 1 || es[0].Text != text {
-			t.Fatalf("entries = %+v", es)
-		}
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleAssistant, Text: text})).Error().NotTo(HaveOccurred())
+		es, _ := s.Entries(ctx(), "c1", 0, 10)
+		Expect(es).To(HaveLen(1))
+		Expect(es[0].Text).To(Equal(text))
 	})
-	t.Run("TestTheStoreSuiteAcceptsTheReasoningRole", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("accepts the reasoning role", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
 		long := strings.Repeat("r", 64<<10)
 		for _, e := range []session.Entry{
 			{Turn: 1, Role: session.RoleUser, Text: "q"},
 			{Turn: 1, Role: session.RoleReasoning, Text: long, Dur: 1500 * time.Millisecond},
 			{Turn: 1, Role: session.RoleAssistant, Text: "a"},
 		} {
-			if _, err := s.AppendEntry(ctx(t), "c1", e); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.AppendEntry(ctx(), "c1", e)).Error().NotTo(HaveOccurred())
 		}
-		es, err := s.Entries(ctx(t), "c1", 0, 10)
-		if err != nil || len(es) != 3 {
-			t.Fatalf("entries = %d %v", len(es), err)
-		}
+		es, err := s.Entries(ctx(), "c1", 0, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(3))
 		r := es[1]
-		if r.Role != session.RoleReasoning || r.Text != long || r.Dur != 1500*time.Millisecond || r.Seq != 2 {
-			t.Fatalf("reasoning entry = role %q, %d bytes, dur %v, seq %d", r.Role, len(r.Text), r.Dur, r.Seq)
-		}
-		if es[0].Dur != 0 || es[2].Dur != 0 || es[0].Role != session.RoleUser || es[2].Role != session.RoleAssistant {
-			t.Fatalf("neighbours = %+v %+v", es[0], es[2])
-		}
+		Expect(r.Role).To(Equal(session.RoleReasoning))
+		Expect(r.Text).To(Equal(long))
+		Expect(r.Dur).To(Equal(1500 * time.Millisecond))
+		Expect(r.Seq).To(BeEquivalentTo(2))
+		Expect(es[0].Dur).To(BeZero(), "neighbours = %+v %+v", es[0], es[2])
+		Expect(es[2].Dur).To(BeZero(), "neighbours = %+v %+v", es[0], es[2])
+		Expect(es[0].Role).To(Equal(session.RoleUser))
+		Expect(es[2].Role).To(Equal(session.RoleAssistant))
 	})
-	t.Run("TestAppendEntryReturnsTheSeqItStored", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("AppendEntry returns the seq it stored", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
 		for want := int64(1); want <= 3; want++ {
-			seq, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "x"})
-			if err != nil || seq != want {
-				t.Fatalf("AppendEntry = %d, %v; want %d", seq, err, want)
-			}
+			seq, err := s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "x"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(seq).To(Equal(want))
 		}
-		if seq, err := s.AppendEntry(ctx(t), "nope", session.Entry{Role: session.RoleUser, Text: "x"}); !errors.Is(err, session.ErrNotFound) || seq != 0 {
-			t.Fatalf("a missing chat: %d, %v", seq, err)
-		}
+		seq, err := s.AppendEntry(ctx(), "nope", session.Entry{Role: session.RoleUser, Text: "x"})
+		Expect(err).To(MatchError(session.ErrNotFound), "a missing chat")
+		Expect(seq).To(BeZero())
 	})
-	t.Run("TestAppendEntriesStoresAWholeBatchInOrder", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "first"}); err != nil {
-			t.Fatal(err)
-		}
+	It("AppendEntries stores a whole batch in order", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "first"})).Error().NotTo(HaveOccurred())
 		batch := []session.Entry{{Role: session.RoleUser, Text: "b1", At: t0}, {Role: session.RoleAssistant, Text: "b2", At: t0}, {Role: session.RoleTool, Text: "b3", At: t0}}
-		if err := s.AppendEntries(ctx(t), "c1", batch); err != nil {
-			t.Fatal(err)
-		}
-		if err := s.AppendEntries(ctx(t), "c1", nil); err != nil {
-			t.Fatalf("an empty batch: %v", err)
-		}
-		seq, err := s.AppendEntry(ctx(t), "c1", session.Entry{Role: session.RoleUser, Text: "last"})
-		if err != nil || seq != 5 {
-			t.Fatalf("the entry after a batch got seq %d, %v; want 5", seq, err)
-		}
-		es, err := s.Entries(ctx(t), "c1", 0, 0)
-		if err != nil || len(es) != 5 {
-			t.Fatalf("entries = %+v, %v", es, err)
-		}
+		Expect(s.AppendEntries(ctx(), "c1", batch)).To(Succeed())
+		Expect(s.AppendEntries(ctx(), "c1", nil)).To(Succeed(), "an empty batch")
+		seq, err := s.AppendEntry(ctx(), "c1", session.Entry{Role: session.RoleUser, Text: "last"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(seq).To(BeEquivalentTo(5), "the entry after a batch")
+		es, err := s.Entries(ctx(), "c1", 0, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(5))
 		for i, want := range []string{"first", "b1", "b2", "b3", "last"} {
-			if es[i].Text != want || es[i].Seq != int64(i+1) {
-				t.Fatalf("entry %d = %q seq %d, want %q seq %d", i, es[i].Text, es[i].Seq, want, i+1)
-			}
+			Expect(es[i].Text).To(Equal(want), "entry %d", i)
+			Expect(es[i].Seq).To(Equal(int64(i+1)), "entry %d", i)
 		}
-		if err := s.AppendEntries(ctx(t), "nope", batch); !errors.Is(err, session.ErrNotFound) {
-			t.Fatalf("a missing chat: %v", err)
-		}
+		Expect(s.AppendEntries(ctx(), "nope", batch)).To(MatchError(session.ErrNotFound), "a missing chat")
 	})
-	t.Run("TestTheStoreKeepsTheAppOfACard", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("keeps the app of a card", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
 		card := &session.ToolCard{Kind: "mcp_app", ID: "abc123", App: &session.ToolApp{
 			Server: "connector:x", Tool: "get-time", ResourceURI: "ui://clock/app.html", Visibility: []string{"model", "app"},
 			Input: json.RawMessage(`{"zone":"UTC"}`), Result: json.RawMessage(`{"content":[{"type":"text","text":"12:00"}]}`),
 		}}
-		if _, err := s.AppendEntry(ctx(t), "c1", session.Entry{Turn: 1, Role: session.RoleTool, Text: "get-time", Card: card}); err != nil {
-			t.Fatal(err)
-		}
-		es, err := s.Entries(ctx(t), "c1", 0, 10)
-		if err != nil || len(es) != 1 || es[0].Card == nil || es[0].Card.App == nil {
-			t.Fatalf("entries = %+v %v", es, err)
-		}
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Turn: 1, Role: session.RoleTool, Text: "get-time", Card: card})).Error().NotTo(HaveOccurred())
+		es, err := s.Entries(ctx(), "c1", 0, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(1))
+		Expect(es[0].Card).NotTo(BeNil())
+		Expect(es[0].Card.App).NotTo(BeNil())
 		a := es[0].Card.App
-		if a.Server != "connector:x" || a.ResourceURI != "ui://clock/app.html" || len(a.Visibility) != 2 ||
-			string(a.Input) != `{"zone":"UTC"}` || !strings.Contains(string(a.Result), "12:00") {
-			t.Fatalf("app = %+v", a)
-		}
+		Expect(a.Server).To(Equal("connector:x"))
+		Expect(a.ResourceURI).To(Equal("ui://clock/app.html"))
+		Expect(a.Visibility).To(HaveLen(2))
+		Expect(string(a.Input)).To(Equal(`{"zone":"UTC"}`))
+		Expect(string(a.Result)).To(ContainSubstring("12:00"))
 	})
-	t.Run("TestTheStoreSuiteAcceptsACard", func(t *testing.T) {
-		s := newStore(t)
-		if err := s.CreateChat(ctx(t), rec("c1", "alice", t0)); err != nil {
-			t.Fatal(err)
-		}
+	It("accepts a card", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
 		card := &session.ToolCard{Kind: "note_2", ID: "a/b:c-123"}
 		for _, e := range []session.Entry{
 			{Turn: 1, Role: session.RoleTool, Text: "with card", Card: card},
 			{Turn: 1, Role: session.RoleTool, Text: "without card"},
 		} {
-			if _, err := s.AppendEntry(ctx(t), "c1", e); err != nil {
-				t.Fatal(err)
-			}
+			Expect(s.AppendEntry(ctx(), "c1", e)).Error().NotTo(HaveOccurred())
 		}
-		es, err := s.Entries(ctx(t), "c1", 0, 10)
-		if err != nil || len(es) != 2 {
-			t.Fatalf("entries = %d %v", len(es), err)
-		}
-		if es[0].Card == nil || *es[0].Card != *card || es[0].Text != "with card" {
-			t.Fatalf("entry with a card = %+v", es[0])
-		}
-		if es[1].Card != nil {
-			t.Fatalf("entry without a card = %+v", es[1])
-		}
+		es, err := s.Entries(ctx(), "c1", 0, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(2))
+		Expect(es[0].Card).NotTo(BeNil(), "entry with a card = %+v", es[0])
+		Expect(*es[0].Card).To(Equal(*card))
+		Expect(es[0].Text).To(Equal("with card"))
+		Expect(es[1].Card).To(BeNil(), "entry without a card = %+v", es[1])
 	})
 }
