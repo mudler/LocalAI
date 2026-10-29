@@ -195,7 +195,13 @@ int main(int argc, char ** argv) {
             const auto parsed = rts::json::parse(args, nullptr, false);
             check(parsed.is_object() && parsed.value("tz", "") == "UTC", (label + "tool arguments are a JSON object").c_str());
             check_eq(transcript, "One moment.", (label + "the call is not in the transcript").c_str());
-            check(tr.dropped_audio_frames() > 0, (label + "audio after the call starts is dropped").c_str());
+            size_t audio_frames = 0;
+            for (const auto & e : all) {
+                if (e.event == "response.audio.delta") {
+                    audio_frames++;
+                }
+            }
+            check(audio_frames > 0, (label + "audio is sent while the call is written").c_str());
             check(all.back().event == "response.done", (label + "response.done is last").c_str());
             check(all.back().meta["raw_text"].get<std::string>() == text, (label + "response.done carries the raw text").c_str());
         }

@@ -2298,9 +2298,6 @@ private:
             }
             events = translator->on_result(res.text, res.audio, res.response_done, res.cancelled, res.n_decoded);
             if (translator->done()) {
-                if (translator->dropped_audio_frames() > 0) {
-                    LOG_DBG("realtime: dropped %zu audio frames inside a tool call\n", translator->dropped_audio_frames());
-                }
                 translator.reset();
                 response_active = false;
             }

@@ -401,7 +401,7 @@ void test_translator_tool_call() {
     std::vector<std::string> seen;
     rt::ResponseTranslator   tr(rt::OutMode::Auto, 24000, fake_splitter(&seen), [] { return std::string("call_gen"); });
     const auto ev = run(tr, {{"One moment.", {0.1f}}, {"<", {}}, {"c>get_time|{\"tz\"", {0.2f}}, {":\"UTC\"}</c>", {0.3f}}, {"", {0.4f}}});
-    // the transcript never shows the call, the audio after it is dropped
+    // the transcript never shows the call; audio is not dropped because a call started
     std::string transcript;
     for (const auto & e : ev) {
         if (e.event == "response.audio_transcript.delta") {
@@ -409,7 +409,13 @@ void test_translator_tool_call() {
         }
     }
     check_eq(transcript, std::string("One moment."), "the call is not in the transcript");
-    check(tr.dropped_audio_frames() >= 1, "audio after the start of a call was dropped");
+    size_t audio_frames = 0;
+    for (const auto & e : ev) {
+        if (e.event == "response.audio.delta") {
+            audio_frames++;
+        }
+    }
+    check_eq(audio_frames, (size_t) 4, "every audio frame is sent, also the ones after the start of a call");
     check_eq(seen.back(), std::string("|final"), "the parser is told when the response ends");
 
     const auto n        = names(ev);
@@ -454,7 +460,6 @@ void test_translator_without_splitter() {
     check_eq(ev.back().meta["text"].get<std::string>(), std::string("a <c>b|c</c>"), "without tools nothing is a call");
     check(!ev.back().meta.contains("raw_text"), "without tools the raw text is not repeated");
     check_eq(tr.n_calls(), 0, "no calls");
-    check_eq(tr.dropped_audio_frames(), (size_t) 0, "no audio dropped");
 }
 
 void test_translator_final_without_text() {

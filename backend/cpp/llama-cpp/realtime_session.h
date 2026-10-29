@@ -609,16 +609,13 @@ public:
             }
         }
         if (!audio.empty()) {
-            if (!calls_.empty()) {
-                // the model reads the call out; the audio that follows a call is not for the user
-                dropped_audio_++;
-            } else {
-                OutEvent ev;
-                ev.event       = "response.audio.delta";
-                ev.pcm         = f32_to_pcm_s16le(audio);
-                ev.sample_rate = sample_rate_;
-                events.push_back(std::move(ev));
-            }
+            // Audio is never dropped because a call started, as upstream: in mixed
+            // mode the speech for text written before the call can still be pending.
+            OutEvent ev;
+            ev.event       = "response.audio.delta";
+            ev.pcm         = f32_to_pcm_s16le(audio);
+            ev.sample_rate = sample_rate_;
+            events.push_back(std::move(ev));
         }
         if (!response_done) {
             return events;
@@ -652,7 +649,6 @@ public:
 
     bool done() const { return done_; }
     int  n_calls() const { return n_calls_; }
-    size_t dropped_audio_frames() const { return dropped_audio_; }
     const std::string & shown_text() const { return shown_; }
 
 private:
@@ -666,7 +662,6 @@ private:
     std::string                   pending_; // bytes of a character that is not complete yet
     bool                          done_          = false;
     int                           n_calls_       = 0;
-    size_t                        dropped_audio_ = 0;
 
     OutEvent delta_event(const std::string & delta) const {
         OutEvent ev;
