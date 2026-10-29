@@ -61,9 +61,9 @@ import (
 // pipeline.transcription and is reported as
 // conversation.item.input_audio_transcription.* on the user item. A transcription
 // model other than the stream's runs in parallel with the response. The default,
-// the same model on a second slot, runs between responses: both share one
-// llama.cpp context, and together they make it rebuild its compute buffers on
-// every step. A failure there emits ...failed and never affects the response.
+// the same model on a second slot, runs before the response of its turn: both
+// share one llama.cpp context, and together they make it rebuild its compute
+// buffers on every step. A failure there emits ...failed and never affects the response.
 
 const (
 	// s2sDefaultInstructions is what the model card prescribes for interleaved
@@ -965,20 +965,23 @@ func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Sess
 	// response does: llama.cpp keeps one context for both, and a normal slot and
 	// the realtime slot ask for different output modes of it, so each loop
 	// iteration re-reserves the compute buffers (about 175 ms twice per step on
-	// a GB10) and the reply slows to a few tokens per second. Such a transcript
-	// waits for the response, see s2sTranscribeInput.
+	// a GB10) and the reply slows to a few tokens per second. So it runs first
+	// and in line with the commit: the response of this turn (a VAD turn here, a
+	// client response.create waits for the commit slot) starts once the
+	// transcript is out. The transcript event therefore comes before any output
+	// of that response. A transcription model of its own runs in parallel.
 	transcribe := session.InputAudioTranscription != nil && !session.TranscriptionOnly
-	sharesModel := s2sTranscribesOnStreamModel(session)
-	if transcribe && !sharesModel {
-		go s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
+	if transcribe {
+		if s2sTranscribesOnStreamModel(session) {
+			s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
+		} else {
+			go s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
+		}
 	}
 	// A turn whose response context is already cancelled (a newer turn, or a
 	// response that is not interrupted) commits its item only.
 	if slot.source == respcoord.SourceVAD && ctx.Err() == nil {
 		triggerResponse(ctx, session, conv, t, nil)
-	}
-	if transcribe && sharesModel {
-		go s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
 	}
 }
 

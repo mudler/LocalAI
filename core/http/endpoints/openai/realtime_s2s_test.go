@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -292,6 +293,36 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Eventually(func() int {
 			return tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)
 		}, 2*time.Second).Should(Equal(1))
+	})
+
+	It("reports the transcript of an input transcribed on the stream model before the reply", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		m := baseModel()
+		m.transcribeBlock = make(chan struct{})
+		session, tr, conv := newHarness(stream, m)
+		// pipeline.transcription names the model of the stream: one llama.cpp context
+		session.ModelConfig = &config.ModelConfig{Name: "s2s", Pipeline: config.Pipeline{Transcription: "s2s"}}
+
+		session.s2sEndTurn()
+		session.issueClientCommit([]byte{1, 2, 3, 4}, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+
+		// The reply does not run next to the transcript: they would make llama.cpp
+		// rebuild its buffers on every step.
+		Consistently(func() int { return tr.countEvents(types.ServerEventTypeResponseOutputAudioDelta) }, 300*time.Millisecond).Should(BeZero())
+		Expect(stream.controls()).ToNot(ContainElement("response.create"))
+
+		close(m.transcribeBlock)
+		session.respSink.wait()
+
+		// A client reads up to response.done of its reply. The transcript must be in
+		// that window, ahead of the output of the reply.
+		names := eventTypeNames(tr.events())
+		completed := slices.Index(names, "conversation.item.input_audio_transcription.completed")
+		Expect(completed).To(BeNumerically(">=", 0), "no transcript: %v", names)
+		Expect(completed).To(BeNumerically("<", slices.Index(names, "response.output_audio.delta")))
+		Expect(completed).To(BeNumerically("<", slices.Index(names, "response.done")))
 	})
 
 	It("reports a failed input transcription without breaking the response", func() {
