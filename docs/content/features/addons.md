@@ -2330,7 +2330,9 @@ people or conversations, not part of the chat history and not sent to the model.
 - A refusal the model can act on is a result of kind `error`, never a raw error string.
   The codes are `invalid_request` (the add-on refused the call; a `message` carries its
   short reason when it gave one, such as a missing training engine), `not_permitted` (the
-  person lacks a permission), `resource_unreachable` (no such resource, or no access) and
+  person lacks a permission), `resource_unreachable` (no such resource, or no access; a read
+  and a change are denied the same way, and the result does not tell a missing resource from
+  one the person may not use) and
   `not_running` (the add-on is starting or stopped; nothing was sent). Each note says that
   nothing changed and not to repeat the call. A preview that finds a conflict, such as a
   table that exists, is an `invalid_request`, not an outage. The tools of the fine-tuning and
@@ -2342,9 +2344,9 @@ people or conversations, not part of the chat history and not sent to the model.
 | Status | `error.type` | Meaning |
 |---|---|---|
 | 400 | `invalid_request` | A missing or wrong confirmation, an operation the add-on does not support, arguments or a name it refuses, a malformed identifier. |
-| 403 | `addon_error` | Not the person's own session, feature or role denied, unknown resource: one answer for all of them. |
+| 403 | `addon_error` | Not the person's own session, or the feature or role is denied: one answer for all of them. |
 | 403 | `not_permitted` | The add-on checked a host permission of the person, such as fine-tuning, and it is not granted. Nothing changed. |
-| 403 | `resource_unreachable` | The resource does not exist or the person has no access to it: one answer for both. |
+| 403 | `resource_unreachable` | The resource does not exist or the person has no access to it: one answer for both, for a read and for a change. |
 | 403 | `package_unverified` | An install failed because the package does not match its library entry or is not a valid add-on package. Nothing was installed. |
 | 403 | `library_unavailable`, `library_conflict`, `release_not_found`, `package_fetch_failed`, `install_storage_failed` | An install or upgrade failed at the step the type names. Nothing was installed. The server log has the detail. |
 | 403 | `quota_reached` | The per-person resource limits. |

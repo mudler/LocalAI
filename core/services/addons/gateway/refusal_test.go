@@ -113,6 +113,16 @@ func (unreachableAdmission) Admit(context.Context, contract.Actor, ResourceKey, 
 	return ErrResourceUnreachable
 }
 
+// failingResolver fails to resolve every resource with err.
+type failingResolver struct{ err error }
+
+func (f failingResolver) Resolve(context.Context, contract.Actor, contract.Request) (ResourceKey, error) {
+	return ResourceKey{}, f.err
+}
+func (failingResolver) Output(context.Context, contract.Actor, contract.Request, string) (contract.OutputDescription, error) {
+	return contract.OutputDescription{}, ErrForbidden
+}
+
 var _ = Describe("a denial that says which denial it is", func() {
 	ok := func(context.Context, contract.Actor) error { return nil }
 	actor := contract.Actor{UserID: "u", CredentialID: "key:k", Mode: "named-user"}
@@ -140,5 +150,20 @@ var _ = Describe("a denial that says which denial it is", func() {
 		_, e = frontend(g).Dispatch(context.Background(), actor, read)
 		Expect(e).To(MatchError(ErrResourceUnreachable))
 		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+	})
+	It("types the denial of a read like the denial of a write, on the owner and on a forwarding frontend", func() {
+		g := &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: failingResolver{ErrResourceUnreachable}, Runtime: currentFixture{refusingRuntime{}}}
+		_, e := g.Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+		_, e = frontend(g).Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+	})
+	It("keeps any other failure to resolve a resource a plain denial, so nothing more is told", func() {
+		for _, cause := range []error{errors.New("record store: row 7 is held by another user"), ErrUnavailable, ErrQuotaReached} {
+			g := &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: failingResolver{cause}, Runtime: currentFixture{refusingRuntime{}}}
+			_, e := g.Dispatch(context.Background(), actor, read)
+			Expect(e).To(Equal(ErrForbidden), cause.Error())
+		}
 	})
 })
