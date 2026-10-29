@@ -15,6 +15,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -23,16 +24,25 @@ import (
 
 // Sentences the bot says. They name no internal error.
 const (
-	sentUnsupported = "I can only read text messages for now."
-	sentTooLong     = "That message is too long. Please send less than 8,000 characters."
-	sentRate        = "Too many messages: please wait a minute."
-	sentUnavailable = "This bot is not available right now."
-	sentNoAnswer    = "The agent had nothing to say."
-	sentStopped     = "The turn was stopped."
-	sentInterrupted = "The agent was interrupted. Please send your message again."
-	sentFailed      = "The agent stopped because of an error."
-	sentNoFile      = "I could not read the file you sent."
-	sentNoFiles     = "I can only read the text of your message here: files are turned off."
+	sentUnsupported  = "I cannot read this kind of message. Please send text, a photo, a file or a voice message."
+	sentTooLong      = "That message is too long. Please send less than 8,000 characters."
+	sentRate         = "Too many messages: please wait a minute."
+	sentUnavailable  = "This bot is not available right now."
+	sentNoAnswer     = "The agent had nothing to say."
+	sentStopped      = "The turn was stopped."
+	sentInterrupted  = "The agent was interrupted. Please send your message again."
+	sentFailed       = "The agent stopped because of an error."
+	sentNoFile       = "I could not read the file you sent."
+	sentNoFiles      = "I can only read the text of your message here: files are turned off."
+	sentFileTooBig   = "That file is too large: I can read files of up to 1 MB."
+	sentNoListen     = "I cannot listen to voice messages here: no speech-to-text model is set up. Please write your message."
+	sentNoTranscript = "I could not understand your voice message. Please send it again, or write it."
+
+	// voiceMark starts the transcript of a voice message in the text of a
+	// turn, so the agent knows that the sender spoke and did not write.
+	voiceMark = "[Voice message, transcribed]"
+	// transcribeTimeout bounds the transcription of one voice message.
+	transcribeTimeout = 2 * time.Minute
 
 	conflictTries   = 6
 	maxMessageRunes = 8000
@@ -669,6 +679,15 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			return
 		}
 	}
+	// The files are read before the chat is made: a message that cannot
+	// start a turn leaves no empty chat.
+	var up []session.Upload
+	if len(m.Media) > 0 {
+		var ok bool
+		if m.Text, up, ok = c.inputs(ctx, b, token, m, say); !ok {
+			return
+		}
+	}
 	key := c.conversationOf(ctx, b, m)
 	chatID, err := c.chatFor(ctx, b, key, name, fresh)
 	if err != nil {
@@ -683,28 +702,89 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		say(sentUnavailable)
 		return
 	}
-	var up []session.Upload
-	if len(m.Media) > 0 {
-		switch {
-		case !c.svc.d.Files.Available():
-			say(sentNoFiles)
-		default:
-			if up = c.media(ctx, b, token, m.Media); len(up) < len(m.Media) {
-				say(sentNoFile)
-			}
-		}
-		if len(up) == 0 && strings.TrimSpace(m.Text) == "" {
-			return
-		}
-	}
 	// One reply goroutine serves a conversation; the rate limit stays the sender's.
 	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up)
 }
 
+// inputs turns the files of a message into what the turn gets: the uploads
+// of the chat, as if the owner had attached them in the chat, and the text.
+// An audio file is a voice message: the transcription model of the
+// instance, the one the chats use for voice notes, makes it text, which goes
+// in the text under voiceMark; the recording is not kept. The sender is told
+// about a file that could not be read or was too large. It reports false when
+// the message must not start a turn: nothing is left to send, or a voice
+// message cannot be transcribed.
+func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, say func(string)) (string, []session.Upload, bool) {
+	got, note := c.media(ctx, b, token, m.Media)
+	if note != "" {
+		say(note)
+	}
+	var (
+		up       []session.Upload
+		voices   []string
+		filesOff bool
+	)
+	for _, f := range got {
+		if media.IsAudio(f.Name) {
+			t, refusal := c.transcribe(ctx, b, f)
+			if refusal != "" {
+				say(refusal)
+				return "", nil, false
+			}
+			voices = append(voices, t)
+			continue
+		}
+		if !c.svc.d.Files.Available() {
+			filesOff = true
+			continue
+		}
+		up = append(up, session.Upload{Name: f.Name, Body: bytes.NewReader(f.Data)})
+	}
+	if filesOff {
+		say(sentNoFiles)
+	}
+	text := m.Text
+	if len(voices) > 0 {
+		parts := make([]string, 0, len(voices)+1)
+		for _, v := range voices {
+			parts = append(parts, voiceMark+"\n"+v)
+		}
+		if strings.TrimSpace(text) != "" {
+			parts = append(parts, text)
+		}
+		text = strings.Join(parts, "\n\n")
+	}
+	return text, up, len(up) > 0 || strings.TrimSpace(text) != ""
+}
+
+// transcribe makes a voice message text, through the same media service and
+// model as a voice note attached in a chat, as the owner of the binding: the
+// owner's model allowlist and quota apply. It returns the sentence for the
+// sender when it cannot.
+func (c *Connectors) transcribe(ctx context.Context, b connectors.Binding, f contract.ConnectorFile) (string, string) {
+	m := c.svc.d.Media
+	if !m.CanTranscribe() {
+		return "", sentNoListen
+	}
+	tctx, cancel := context.WithTimeout(ctx, transcribeTimeout)
+	defer cancel()
+	t, err := m.Transcribe(tctx, principal(b.Owner), f.Name, bytes.NewReader(f.Data))
+	if t = strings.TrimSpace(t); err != nil || t == "" {
+		c.log.Warn("studio: could not transcribe the voice message of a connector", "binding", b.ID, "kind", b.Kind, "error", err)
+		return "", sentNoTranscript
+	}
+	return t, ""
+}
+
 // media reads the files of a message through the add-on. A file that cannot
-// be read is left out; the caller tells the sender.
-func (c *Connectors) media(ctx context.Context, b connectors.Binding, token string, refs []string) []session.Upload {
-	var up []session.Upload
+// be read is left out, and the sentence for the sender says why: too large,
+// or not read. The name of a file is made safe here too, whatever the add-on
+// sent; the chat saves it in its own folder.
+func (c *Connectors) media(ctx context.Context, b connectors.Binding, token string, refs []string) ([]contract.ConnectorFile, string) {
+	var (
+		out  []contract.ConnectorFile
+		note string
+	)
 	for _, ref := range refs {
 		mctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		resp, err := c.o.Transport.Call(mctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: b.Kind, Token: token, Media: ref})
@@ -713,13 +793,22 @@ func (c *Connectors) media(ctx context.Context, b connectors.Binding, token stri
 			err = resp.Error
 		}
 		f := resp.File
-		if err != nil || f == nil || len(f.Data) == 0 || len(f.Data) > contract.MaxConnectorFileBytes {
+		var ce *contract.ConnectorError
+		switch {
+		case (errors.As(err, &ce) && ce.Code == contract.ConnectorTooLarge) || (err == nil && f != nil && len(f.Data) > contract.MaxConnectorFileBytes):
+			note = sentFileTooBig
+			continue
+		case err != nil || f == nil || len(f.Data) == 0:
 			c.log.Warn("studio: could not read the file of a connector message", "binding", b.ID, "kind", b.Kind, "error", err)
+			if note == "" {
+				note = sentNoFile
+			}
 			continue
 		}
-		up = append(up, session.Upload{Name: f.Name, Body: bytes.NewReader(f.Data)})
+		f.Name = contract.SafeFileName(f.Name)
+		out = append(out, *f)
 	}
-	return up
+	return out, note
 }
 
 var errAgentGone = errors.New("the agent was deleted")

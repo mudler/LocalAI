@@ -207,6 +207,14 @@ var audioExts = map[string]bool{".wav": true, ".mp3": true, ".m4a": true, ".ogg"
 
 func isAudioName(name string) bool { return audioExts[strings.ToLower(path.Ext(name))] }
 
+// IsAudio tells whether a file is a recording by its name, as PrepareUploads
+// and transcribe_audio decide.
+func IsAudio(name string) bool { return isAudioName(name) }
+
+// CanTranscribe tells whether a transcription model is set in the settings
+// or installed. It is false on a nil Service.
+func (s *Service) CanTranscribe() bool { return s != nil && s.resolve(Transcription) != "" }
+
 // PrepareUploads transcribes the voice notes among the files attached to a
 // message and adds the transcripts to its text. The files themselves are kept,
 // byte for byte. A voice note is skipped without a word when there is no

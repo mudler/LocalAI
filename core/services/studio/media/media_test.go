@@ -236,6 +236,15 @@ var _ = Describe("media tools", func() {
 		Expect(fx.calls[0].file).To(Equal("memo.m4a:AUDIOBYTES"))
 	})
 
+	It("says whether a recording can be transcribed, and which files are recordings", func() {
+		Expect(newFixture("", "").svc.CanTranscribe()).To(BeFalse())
+		Expect(newFixture("", "whisper").svc.CanTranscribe()).To(BeTrue())
+		var none *media.Service
+		Expect(none.CanTranscribe()).To(BeFalse(), "a chat without media")
+		Expect(media.IsAudio("voice-1.ogg")).To(BeTrue())
+		Expect(media.IsAudio("photo-1.JPG")).To(BeFalse())
+	})
+
 	It("a voice note with no transcription model is still kept", func() {
 		fx := newFixture("", "")
 		text, up, err := fx.svc.PrepareUploads(context.Background(), "alice", "hi", []session.Upload{{Name: "memo.m4a", Body: strings.NewReader("AUDIO")}})

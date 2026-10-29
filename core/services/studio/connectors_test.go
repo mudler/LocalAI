@@ -50,11 +50,31 @@ type scriptedBot struct {
 	offsets  []int64
 	polls    int
 	inflight int
+	media    map[string]botMedia // by file_id: what getFile and the download answer
+}
+
+// botMedia is a file of a message that the bot can download.
+type botMedia struct {
+	Path string
+	Size int64 // as getFile tells it; zero: the length of Data
+	Data []byte
 }
 
 func newScriptedBot() *scriptedBot {
-	b := &scriptedBot{fail: map[string]func() (int, string){}}
+	b := &scriptedBot{fail: map[string]func() (int, string){}, media: map[string]botMedia{}}
 	b.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rest, ok := strings.CutPrefix(r.URL.EscapedPath(), "/file/bot"+botToken+"/"); ok {
+			b.mu.Lock()
+			defer b.mu.Unlock()
+			for _, m := range b.media {
+				if m.Path == rest {
+					_, _ = w.Write(m.Data)
+					return
+				}
+			}
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		body := map[string]any{}
 		var upload *botFile
 		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
@@ -136,6 +156,20 @@ func newScriptedBot() *scriptedBot {
 				b.files = append(b.files, *upload)
 			}
 			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, b.nextID)
+		case "getFile":
+			id, _ := body["file_id"].(string)
+			m, ok := b.media[id]
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"ok":false,"error_code":400,"description":"Bad Request: invalid file_id"}`))
+				return
+			}
+			size := m.Size
+			if size == 0 {
+				size = int64(len(m.Data))
+			}
+			raw, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"file_id": id, "file_unique_id": "u" + id, "file_size": size, "file_path": m.Path}})
+			_, _ = w.Write(raw)
 		case "sendChatAction":
 			b.typing++
 			b.typedAt = append(b.typedAt, time.Now())
@@ -196,11 +230,16 @@ func (b *scriptedBot) group(id int, from int64, text string) {
 		"chat": map[string]any{"id": -500, "type": "group"}, "from": map[string]any{"id": from, "first_name": "G"}, "text": text}})
 }
 
-func (b *scriptedBot) photo(id int, from int64) {
+// message queues a message of a private chat with the fields of extra, such
+// as a photo, a voice message or a sticker.
+func (b *scriptedBot) message(id int, from int64, extra map[string]any) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.updates = append(b.updates, map[string]any{"update_id": id, "message": map[string]any{
-		"chat": map[string]any{"id": from, "type": "private"}, "from": map[string]any{"id": from, "first_name": "P"}, "photo": []any{map[string]any{"file_id": "x"}}}})
+	m := map[string]any{"message_id": id, "chat": map[string]any{"id": from, "type": "private"}, "from": map[string]any{"id": from, "first_name": "P"}}
+	for k, v := range extra {
+		m[k] = v
+	}
+	b.updates = append(b.updates, map[string]any{"update_id": id, "message": m})
 }
 
 func (b *scriptedBot) answers() []string {
@@ -412,16 +451,16 @@ var _ = Describe("connectors", func() {
 		Expect(len(r.h.Sent(chats[0].ID))).To(BeNumerically("<=", 5), "more than the limit reached the model: %d chats", len(chats))
 	})
 
-	It("a too long message and a photo get their sentences and no run", func() {
+	It("a too long message and a sticker get their sentences and no run", func() {
 		sh, bot := newShared(), newScriptedBot()
 		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
 		r.bind(studio.ConnectorInput{AcceptAny: true})
 		bot.say(1, 5, "Big", "", strings.Repeat("x", 8001))
-		bot.photo(2, 5)
+		bot.message(2, 5, map[string]any{"sticker": map[string]any{"file_id": "s1"}})
 		waitFor("both sentences", func() bool { return len(bot.answers()) == 2 })
 		a := strings.Join(bot.answers(), "\n")
 		Expect(a).To(ContainSubstring("too long"), "answers = %q", a)
-		Expect(a).To(ContainSubstring("only read text"), "answers = %q", a)
+		Expect(a).To(ContainSubstring("cannot read this kind of message"), "answers = %q", a)
 		chats, _ := r.svc.List(context.Background(), alice, 10)
 		Expect(chats).To(BeEmpty(), "a refused message made %d chats", len(chats))
 	})
