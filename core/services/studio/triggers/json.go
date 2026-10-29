@@ -241,6 +241,40 @@ func (s *jsonStore) ListRuns(_ context.Context, triggerID string, limit int) ([]
 	return out, nil
 }
 
+func (s *jsonStore) PruneRuns(_ context.Context, triggerID string, p Retention) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	drop := make([]bool, len(s.d.Runs))
+	n, finished := 0, 0
+	for i := len(s.d.Runs) - 1; i >= 0; i-- { // newest claim first
+		r := s.d.Runs[i]
+		if r.TriggerID != triggerID || !r.Status.Final() {
+			continue
+		}
+		finished++
+		if p.expires(r.Due) || (p.Keep > 0 && finished > p.Keep && !p.protects(r.Due)) {
+			drop[i] = true
+			n++
+		}
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	prev := s.d.Runs
+	kept := make([]Run, 0, len(prev)-n)
+	for i, r := range prev {
+		if !drop[i] {
+			kept = append(kept, r)
+		}
+	}
+	s.d.Runs = kept
+	if err := s.save(); err != nil {
+		s.d.Runs = prev
+		return 0, err
+	}
+	return n, nil
+}
+
 func (s *jsonStore) byStatus(st Status) []Run {
 	s.mu.Lock()
 	defer s.mu.Unlock()

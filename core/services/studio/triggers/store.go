@@ -9,6 +9,31 @@ import (
 // ErrNotFound is returned by a Store for a trigger or run that does not exist.
 var ErrNotFound = errors.New("triggers: not found")
 
+// Retention says which finished runs Store.PruneRuns removes. A run that is
+// queued or running is never removed.
+type Retention struct {
+	// Keep is the number of newest finished runs (by claim order) that are
+	// kept. Zero or less sets no count limit.
+	Keep int
+	// Protect keeps every finished run that is due at or after this time, even
+	// beyond Keep. The daily limit counts the runs of the current day, so those
+	// must stay. The zero time protects nothing.
+	Protect time.Time
+	// Expire removes every finished run that is due before this time, whatever
+	// Keep and Protect say. The zero time sets no age limit.
+	Expire time.Time
+}
+
+// protects tells whether a finished run due at due stays beyond Keep.
+func (p Retention) protects(due time.Time) bool {
+	return !p.Protect.IsZero() && !due.Before(p.Protect)
+}
+
+// expires tells whether a finished run due at due is removed for its age.
+func (p Retention) expires(due time.Time) bool {
+	return !p.Expire.IsZero() && due.Before(p.Expire)
+}
+
 // Store keeps triggers, runs and the state of a Runner. A Store is safe for
 // concurrent use. triggerstest.RunStoreSuite checks every method.
 type Store interface {
@@ -40,6 +65,11 @@ type Store interface {
 	// ListRuns returns the runs of a trigger, newest claim first, at most limit.
 	// A limit of zero or less returns every run.
 	ListRuns(ctx context.Context, triggerID string, limit int) ([]Run, error)
+	// PruneRuns removes finished runs of a trigger as p says and returns how
+	// many it removed. A run that is queued or running stays. The unique claim
+	// of a removed run is gone too, so retention bounds how far back a due
+	// time or file version is remembered.
+	PruneRuns(ctx context.Context, triggerID string, p Retention) (int, error)
 	// RunningRuns returns every run with the status running, oldest claim first.
 	RunningRuns(ctx context.Context) ([]Run, error)
 	// QueuedRuns returns every run with the status queued, oldest claim first.

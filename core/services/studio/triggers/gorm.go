@@ -225,6 +225,49 @@ func (s *gormStore) ListRuns(ctx context.Context, triggerID string, limit int) (
 	return s.runs(q)
 }
 
+func (s *gormStore) PruneRuns(ctx context.Context, triggerID string, p Retention) (int, error) {
+	open := []string{string(StatusQueued), string(StatusRunning)}
+	removed := 0
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		removed = 0
+		finished := func() *gorm.DB {
+			return tx.Model(&runRow{}).Where("trigger_id = ? AND status NOT IN ?", triggerID, open)
+		}
+		if !p.Expire.IsZero() {
+			res := finished().Where("due < ?", utc(p.Expire)).Delete(&runRow{})
+			if res.Error != nil {
+				return res.Error
+			}
+			removed += int(res.RowsAffected)
+		}
+		if p.Keep <= 0 {
+			return nil
+		}
+		// The Keep-th newest finished run is the oldest that stays.
+		var oldestKept []int64
+		if err := finished().Order("seq DESC").Offset(p.Keep-1).Limit(1).Pluck("seq", &oldestKept).Error; err != nil {
+			return err
+		}
+		if len(oldestKept) == 0 {
+			return nil
+		}
+		q := finished().Where("seq < ?", oldestKept[0])
+		if !p.Protect.IsZero() {
+			q = q.Where("due < ?", utc(p.Protect))
+		}
+		res := q.Delete(&runRow{})
+		if res.Error != nil {
+			return res.Error
+		}
+		removed += int(res.RowsAffected)
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return removed, nil
+}
+
 func (s *gormStore) RunningRuns(ctx context.Context) ([]Run, error) {
 	return s.runs(s.db.WithContext(ctx).Where("status = ?", string(StatusRunning)).Order("seq"))
 }

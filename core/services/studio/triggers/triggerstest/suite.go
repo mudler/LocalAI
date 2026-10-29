@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
 
@@ -604,6 +606,7 @@ func RunStoreSuite(t *testing.T, newStore NewStore) {
 			t.Fatalf("Cursor after the delete = %d, %v; want 7", rev, ok)
 		}
 	})
+	pruneContract(t, newStore)
 }
 
 // must fails the test on an error.
@@ -621,4 +624,105 @@ func idsOf(rs []triggers.Run) string {
 		b.WriteString(r.ID)
 	}
 	return b.String()
+}
+
+// seedRuns stores one running run, one queued run and ten finished runs for
+// trigger t1 in claim order, due one hour apart from base+1h to base+10h, and
+// two finished runs for t2.
+func seedRuns(g *gomega.WithT, s triggers.Store) {
+	ctx := context.Background()
+	for _, tr := range []string{"t1", "t2"} {
+		g.Expect(s.PutTrigger(ctx, sample(tr, "1", tr))).To(gomega.Succeed())
+	}
+	old := run("running", "t1", "running", triggers.StatusRunning)
+	old.Due = base.Add(-1000 * time.Hour)
+	queued := run("queued", "t1", "queued", triggers.StatusQueued)
+	queued.Due = base.Add(-999 * time.Hour)
+	for _, r := range []triggers.Run{old, queued} {
+		ok, err := s.Claim(ctx, r)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(ok).To(gomega.BeTrue())
+	}
+	for i := 1; i <= 10; i++ {
+		r := run(fmt.Sprintf("r%d", i), "t1", fmt.Sprintf("k%d", i), triggers.StatusDone)
+		r.Due = base.Add(time.Duration(i) * time.Hour)
+		ok, err := s.Claim(ctx, r)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(ok).To(gomega.BeTrue())
+	}
+	for i := 1; i <= 2; i++ {
+		r := run(fmt.Sprintf("o%d", i), "t2", fmt.Sprintf("k%d", i), triggers.StatusFailed)
+		r.Due = base.Add(-time.Duration(i) * time.Hour)
+		ok, err := s.Claim(ctx, r)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(ok).To(gomega.BeTrue())
+	}
+}
+
+// runIDs lists the IDs of the runs of a trigger, oldest claim first.
+func runIDs(g *gomega.WithT, s triggers.Store, trigger string) []string {
+	runs, err := s.ListRuns(context.Background(), trigger, 0)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	ids := make([]string, 0, len(runs))
+	for i := len(runs) - 1; i >= 0; i-- {
+		ids = append(ids, runs[i].ID)
+	}
+	return ids
+}
+
+// pruneContract checks Store.PruneRuns: the count limit, the protected window,
+// the age limit, that open runs and other triggers stay, and that a removed
+// claim can be made again.
+func pruneContract(t *testing.T, newStore NewStore) {
+	ctx := context.Background()
+	open := []string{"running", "queued"}
+	ids := func(from, to int) []string {
+		var out []string
+		for i := from; i <= to; i++ {
+			out = append(out, fmt.Sprintf("r%d", i))
+		}
+		return out
+	}
+	cases := []struct {
+		name    string
+		p       triggers.Retention
+		removed int
+		kept    []string // finished runs of t1 that stay
+	}{
+		{"the newest Keep finished runs stay", triggers.Retention{Keep: 3}, 7, ids(8, 10)},
+		{"runs due in the protected window stay beyond Keep", triggers.Retention{Keep: 3, Protect: base.Add(5 * time.Hour)}, 4, ids(5, 10)},
+		{"runs older than Expire go whatever Keep says", triggers.Retention{Keep: 10, Protect: base, Expire: base.Add(4 * time.Hour)}, 3, ids(4, 10)},
+		{"Expire goes over the protected window", triggers.Retention{Keep: 3, Protect: base, Expire: base.Add(6 * time.Hour)}, 5, ids(6, 10)},
+		{"no limit removes nothing", triggers.Retention{}, 0, ids(1, 10)},
+		{"Keep above the number of runs removes nothing", triggers.Retention{Keep: 50}, 0, ids(1, 10)},
+	}
+	for _, c := range cases {
+		g := gomega.NewWithT(t)
+		s := newStore(t)
+		seedRuns(g, s)
+		n, err := s.PruneRuns(ctx, "t1", c.p)
+		g.Expect(err).NotTo(gomega.HaveOccurred(), c.name)
+		g.Expect(n).To(gomega.Equal(c.removed), c.name)
+		g.Expect(runIDs(g, s, "t1")).To(gomega.Equal(append(append([]string{}, open...), c.kept...)), c.name)
+		g.Expect(runIDs(g, s, "t2")).To(gomega.Equal([]string{"o1", "o2"}), c.name+": another trigger is not touched")
+		queued, err := s.QueuedRuns(ctx)
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(queued).To(gomega.HaveLen(1), c.name+": a queued run stays")
+	}
+
+	g := gomega.NewWithT(t)
+	s := newStore(t)
+	seedRuns(g, s)
+	_, err := s.PruneRuns(ctx, "t1", triggers.Retention{Keep: 3})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	again := run("again", "t1", "k1", triggers.StatusQueued)
+	ok, err := s.Claim(ctx, again)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(ok).To(gomega.BeTrue(), "the claim of a removed run is free again")
+	ok, err = s.Claim(ctx, run("kept", "t1", "k10", triggers.StatusQueued))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(ok).To(gomega.BeFalse(), "the claim of a kept run is still taken")
+	n, err := s.PruneRuns(ctx, "nope", triggers.Retention{Keep: 1})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(n).To(gomega.BeZero(), "an unknown trigger has nothing to prune")
 }
