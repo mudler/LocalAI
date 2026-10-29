@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/home.json",
+  "title": "home.json",
+  "description": "The widgets of the Home page, in order.",
+  "type": "object",
+  "properties": {
+    "widgets": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+          "type": { "enum": ["list", "metric", "chats"], "title": "Type" },
+          "title": { "type": "string", "title": "Title", "minLength": 1, "maxLength": 60 },
+          "source": {
+            "type": "string",
+            "title": "Data file",
+            "description": "A file in your home that follows widget-data.schema.json, such as data/tasks.json.",
+            "maxLength": 200,
+            "pattern": "^/?([A-Za-z0-9 ._-]+/)*[A-Za-z0-9 ._-]+\\.json$"
+          }
+        },
+        "required": ["id", "type", "title"],
+        "if": { "properties": { "type": { "enum": ["list", "metric"] } } },
+        "then": { "required": ["source"] }
+      }
+    }
+  },
+  "required": ["widgets"]
+}
