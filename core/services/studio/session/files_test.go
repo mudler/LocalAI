@@ -159,8 +159,9 @@ func TestChatFilesTellUploadsModelAndToolWritesApart(t *testing.T) {
 		"q1.csv":    {session.FileFromUser, false, 1},
 		"photo.png": {session.FileFromUser, false, 1},
 		"report.md": {session.FileFromModel, false, 2},
-		"tool.txt":  {session.FileFromTool, false, 1},
-		"old.txt":   {session.FileFromTool, true, 1},
+		// Made after the entry of turn 2, so they count as turn 2.
+		"tool.txt": {session.FileFromTool, false, 2},
+		"old.txt":  {session.FileFromTool, true, 2},
 	}
 	if len(got) != len(want) {
 		t.Fatalf("files = %+v, want %d files", cf.Files, len(want))
@@ -216,7 +217,7 @@ func TestChatFilesFollowARenameOfTheChatFolder(t *testing.T) {
 		t.Fatalf("stale = %v, want [%s]", after.Stale, oldFolder)
 	}
 	prompt := session.FilesPrompt(after)
-	if !strings.Contains(prompt, f.GuestPath) {
+	if !strings.Contains(prompt, after.Folder+"\n- a.txt (") {
 		t.Errorf("the prompt lacks the current path:\n%s", prompt)
 	}
 	if !strings.Contains(prompt, "renamed to "+after.Folder) || !strings.Contains(prompt, oldFolder) {
@@ -257,13 +258,13 @@ func TestFilesPromptIsEmptyWithoutFilesAndCappedWithMany(t *testing.T) {
 	}
 	prompt := session.FilesPrompt(cf)
 	lines := strings.Split(prompt, "\n")
-	if got := len(lines); got != 1+session.MaxPromptFiles+1 {
-		t.Fatalf("prompt has %d lines, want a head, %d files and a count:\n%s", got, session.MaxPromptFiles, prompt)
+	if got := len(lines); got != 1+1+session.MaxPromptFiles+1 {
+		t.Fatalf("prompt has %d lines, want a head, the folder, %d files and a count:\n%s", got, session.MaxPromptFiles, prompt)
 	}
 	if !strings.Contains(lines[len(lines)-1], "and 10 older files") {
 		t.Errorf("last line = %q", lines[len(lines)-1])
 	}
-	if strings.Contains(prompt, "f00.txt") || !strings.Contains(prompt, "f59.txt") {
+	if strings.Contains(prompt, "f00.txt") || !strings.Contains(prompt, "\n- f59.txt (") || strings.Count(prompt, cf.Folder) != 2 {
 		t.Errorf("the cap keeps the oldest files, not the newest:\n%s", prompt)
 	}
 }

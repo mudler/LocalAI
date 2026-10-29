@@ -258,9 +258,11 @@ func (ix *fileIndex) agentNodes(ctx context.Context, chatID string) (map[int64]*
 }
 
 // turnAt is the turn of the last transcript entry stored at or before t: a
-// tool's change is made after the user message of its turn is stored.
+// tool's change is made after the user message of its turn is stored. The
+// workspace keeps times to the millisecond, so the entries are compared at
+// that precision.
 func (ix *fileIndex) turnAt(t time.Time) int {
-	i := sort.Search(len(ix.entries), func(i int) bool { return ix.entries[i].At.After(t) })
+	i := sort.Search(len(ix.entries), func(i int) bool { return ix.entries[i].At.Truncate(time.Millisecond).After(t) })
 	if i == 0 {
 		return 0
 	}
@@ -420,8 +422,9 @@ func (ix *fileIndex) result(rec ChatRecord) ChatFiles {
 const MaxPromptFiles = 50
 
 // FilesPrompt is the block that tells the model which files the chat has, by
-// their current paths. It lists the newest MaxPromptFiles files and counts the
-// rest. It is "" for a chat with no files and no stale folder.
+// their current paths. It lists the newest MaxPromptFiles files, grouped by
+// folder so that a long folder path is written once, and counts the rest. It
+// is "" for a chat with no files and no stale folder.
 func FilesPrompt(cf ChatFiles) string {
 	if len(cf.Files) == 0 && len(cf.Stale) == 0 {
 		return ""
@@ -433,15 +436,27 @@ func FilesPrompt(cf ChatFiles) string {
 		if len(files) > MaxPromptFiles {
 			files = files[len(files)-MaxPromptFiles:]
 		}
+		var dirs []string
+		byDir := map[string][]ChatFile{}
 		for _, f := range files {
-			fmt.Fprintf(&b, "- %s (%s, %s) %s", f.GuestPath, SizeLabel(f.Size), f.Mime, originLabel(f))
-			if f.Turn > 0 {
-				fmt.Fprintf(&b, ", turn %d", f.Turn)
+			d := path.Dir(f.GuestPath)
+			if byDir[d] == nil {
+				dirs = append(dirs, d)
 			}
-			b.WriteByte('\n')
+			byDir[d] = append(byDir[d], f)
+		}
+		for _, d := range dirs {
+			fmt.Fprintf(&b, "%s/\n", d)
+			for _, f := range byDir[d] {
+				fmt.Fprintf(&b, "- %s (%s, %s) %s", f.Name, SizeLabel(f.Size), f.Mime, originLabel(f))
+				if f.Turn > 0 {
+					fmt.Fprintf(&b, ", turn %d", f.Turn)
+				}
+				b.WriteByte('\n')
+			}
 		}
 		if n := len(cf.Files) - len(files); n > 0 {
-			fmt.Fprintf(&b, "- and %d older files; list %s to see them.\n", n, cf.Folder)
+			fmt.Fprintf(&b, "and %d older files; list %s to see them.\n", n, cf.Folder)
 		}
 	}
 	if len(cf.Stale) > 0 && cf.Folder != "" {

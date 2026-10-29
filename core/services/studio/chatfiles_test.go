@@ -88,7 +88,7 @@ func TestChatFilesListUploadsAndToolWritesAndReachThePrompt(t *testing.T) {
 		t.Errorf("data.csv = %+v, want an upload that is not media", f)
 	}
 	prompt := h.TurnPrompt(id)
-	if !strings.Contains(prompt, "Files in this conversation") || !strings.Contains(prompt, files["data.csv"].GuestPath) {
+	if !strings.Contains(prompt, "Files in this conversation") || !strings.Contains(prompt, "\n- data.csv (8 B, text/csv) uploaded by the user, turn 1") {
 		t.Fatalf("the turn prompt does not list the uploads:\n%s", prompt)
 	}
 
@@ -101,7 +101,7 @@ func TestChatFilesListUploadsAndToolWritesAndReachThePrompt(t *testing.T) {
 	}
 	sent(t, svc, alice, id, "again")
 	idle(t, svc, alice, id)
-	if p := h.TurnPrompt(id); !strings.Contains(p, "/workspace/home/notes/out.md (5 B, text/markdown) created by you") {
+	if p := h.TurnPrompt(id); !strings.Contains(p, "/workspace/home/notes/\n- out.md (5 B, text/markdown) created by you") {
 		t.Errorf("the next turn's prompt does not list the written file:\n%s", p)
 	}
 
@@ -137,7 +137,7 @@ func TestChatFilesFollowARenameAndTellTheModel(t *testing.T) {
 	sent(t, svc, alice, id, "next")
 	idle(t, svc, alice, id)
 	p := h.TurnPrompt(id)
-	if !strings.Contains(p, cur) || !strings.Contains(p, "was renamed to") {
+	if !strings.Contains(p, strings.TrimSuffix(cur, "a.txt")+"\n- a.txt (") || !strings.Contains(p, "was renamed to") {
 		t.Fatalf("the prompt after the rename lacks the new path or the note:\n%s", p)
 	}
 }
