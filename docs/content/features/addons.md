@@ -1538,8 +1538,10 @@ with at most 1 MiB of data) and, for a kind that declares `drafts`, `draft`
 unsealed bot token of one binding. It is passed on each call and the add-on must not
 write it anywhere. The answer is `{"updates", "nextOffset", "messageId", "botId", "botUsername", "file"}` or
 `{"error": {"code", "retryAfter"}}` with a code of `unauthorized`, `conflict`,
-`rate_limited` or `failed`. The host maps `unauthorized` to switching the binding off,
-repeated `conflict` to the same, and `rate_limited` to a wait. A runtime that
+`rate_limited`, `too_large` or `failed`. The host maps `unauthorized` to switching the binding off,
+repeated `conflict` to the same, and `rate_limited` to a wait. `too_large` is the
+answer of a `media` whose file is larger than 1 MiB or than the platform lets a bot
+download; the host tells the sender that the file is too large. A runtime that
 implements `contract.ConnectorRuntime` has the route; others get a 404. The add-on
 cuts a long `text` to the limit of its platform.
 
@@ -1560,8 +1562,17 @@ follows); any other message is logged and ignored. Which chat a message belongs 
 depends on the conversation mode of the binding (see
 [How the bot answers](/features/chats-connectors/#how-the-bot-answers)); by default a
 message with a `thread` belongs to a chat of that thread, shared by the people who
-write in it, and any other message belongs to a chat of its sender. When a message has `media`, the host reads each file
-with the op `media` and attaches it to the chat, as an upload of the chat page would.
+write in it, and any other message belongs to a chat of its sender. When a message has `media` (at most 8
+references), the host reads each file with the op `media` before it makes the chat,
+and attaches it to the chat, as an upload of the chat page would. The host makes the
+name of each file safe again (`contract.SafeFileName`), and the chat saves it in its
+own folder. An audio file (by its extension: `.ogg`, `.oga`, `.opus`, `.mp3`, `.m4a`,
+`.wav`, `.flac`, ...) is a voice message: the host transcribes it with the
+transcription model of the instance and the transcript, under
+`[Voice message, transcribed]`, is the text of the turn; the recording is not kept.
+With no transcription model, or when the transcription fails, the sender gets one
+sentence and no turn starts. `unsupported` marks a message with no text and no file
+that the add-on hands over.
 The turn runs as the owner of the binding, with the tools of the binding's saved agent.
 
 **Where it runs.** Core calls the route and registers the host operation on the process

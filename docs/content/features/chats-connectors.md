@@ -57,6 +57,42 @@ curl -X POST .../api/chats/connectors/<id>/test
 curl .../api/chats/connectors/<id>/senders
 ```
 
+### What a person can send
+
+- **Text.** Up to 8,000 characters.
+- **Photos.** The add-on downloads the largest size of the photo that is at most 1 MB
+  and attaches it to the chat. The caption is the text of the message. An album is
+  one message, with all its photos (at most 8; more start a second message, which
+  the agent reads after the first). The add-on waits about a second for the rest of
+  an album; an album that takes longer to arrive can become two messages.
+- **Voice messages, audio files and video notes.** A voice message or an audio file
+  is transcribed (see [Voice messages](#voice-messages)). A video note is attached as
+  a video.
+- **Files.** A picture (JPEG, PNG, WebP), a PDF or a text file sent as a file is
+  attached. The add-on checks the bytes of each file, not only its name, and names the
+  file itself, for example `photo-AQADxyz.jpg`, so a name that the sender chose never
+  reaches your files. Another type gets a sentence that the file could not be read.
+- **Size.** At most 1 MB a file. Telegram lets a bot download at most 20 MB; the
+  add-on hands over less, so that the file fits one call of the connector route. A
+  larger file gets a sentence that it is too large, and the caption still reaches the
+  agent.
+
+### Voice messages
+
+A voice message is transcribed with the **Chat transcription model** of the
+instance settings, the same model that transcribes a voice note attached on the chat
+page. Without one set, the first installed model that can transcribe is used. There
+is no setting per binding: the model is the instance's, and the request runs as you,
+so your model allowlist and quota apply.
+
+The transcript is the text of the turn, under `[Voice message, transcribed]`, so the
+agent knows that the sender spoke. A caption follows it. The recording itself is not
+kept in the chat's files.
+
+With no transcription model installed, or when the transcription fails, the sender
+gets one sentence (for example "I cannot listen to voice messages here: no
+speech-to-text model is set up") and no turn starts.
+
 `GET`, `PUT` and `DELETE /api/chats/connectors/{id}` read, replace and delete a
 binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
 A binding says `active: false` and gives a `reason` while its add-on does not run.
@@ -107,7 +143,9 @@ curl -X POST .../api/chats/connectors -d '{"kind": "slack", "name": "Team app", 
 - **Files.** A file attached to a message (up to 1 MiB, at most 8) is downloaded with
   the bot token and attached to the chat, as an upload on the chat page would be: a
   document is read, an image goes to a model that can see. A larger file gets a
-  sentence that it could not be read. The add-on downloads only from Slack's file host.
+  sentence that it is too large. An audio file is transcribed like a Telegram voice
+  message (see [Voice messages](#voice-messages)). The add-on downloads only from
+  Slack's file host.
 - **Waits.** When Slack answers `429` with `Retry-After`, the add-on waits that long once
   and tries again.
 
@@ -163,11 +201,17 @@ gives the same events without one.
   the binding can change this (see [How the bot answers](#how-the-bot-answers)). If
   you change the agent of the binding, the next message of each sender starts a new
   chat with the new agent.
-- **Text, and files where the add-on reads them.** On Telegram a photo, voice note or
-  file gets a sentence that says only text is read for now. The Slack add-on hands
-  files to the chat (see [Slack](#slack)); with the files of the chats turned off, a
-  message with a file gets a sentence that files are off, and its text still reaches
-  the agent. A message longer than 8,000 characters is refused. A sender may
+- **Text, files and voice messages.** The add-on hands the files of a message to the
+  chat: on Telegram photos, voice messages and some other files (see
+  [What a person can send](#what-a-person-can-send)), on Slack any file (see
+  [Slack](#slack)). A file is attached to the chat as if you had attached it on the
+  chat page: it is in **Files**, and an image goes to a model that can see. A voice
+  message (any audio file) is transcribed, and the transcript is what the agent reads
+  (see [Voice messages](#voice-messages)). A file over 1 MB gets a sentence that it is
+  too large. With the files of the chats turned off, a message with a file gets a
+  sentence that files are off, and its text still reaches the agent; a voice message
+  is still transcribed. A sticker, a poll or a location gets a sentence that names
+  what the bot reads. A message longer than 8,000 characters is refused. A sender may
   send 20 messages a minute; more are dropped, with one notice a minute.
 - **Private chats, and mentions.** A message in a group that the bot was added to is
   ignored, unless the add-on marks it as addressed to the bot: a Slack mention or a

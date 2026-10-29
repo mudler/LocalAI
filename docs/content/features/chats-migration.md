@@ -68,9 +68,10 @@ Telegram. A name that is taken becomes `Name (2)`. A task is converted into a
 trigger; to run it through the [agent jobs API](/features/agent-jobs/) with
 parameters and a webhook, make it again as a task.
 
-The Telegram connector of the chats reads private text messages only. A bot
-converted from the old pool no longer answers photos, voice notes or group
-chats. Saved agents have no export or import: copy the definition through
+The Telegram connector of the chats reads text, photos and voice messages in a
+private chat, and in a group only a message that names the bot or answers it (see
+[connectors](/features/chats-connectors/#what-a-person-can-send)). A voice message
+needs a transcription model. Saved agents have no export or import: copy the definition through
 `GET /api/chats/agents/{id}` and `POST /api/chats/agents`.
 
 ## The report
