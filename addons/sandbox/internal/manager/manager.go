@@ -453,7 +453,11 @@ func (m *Manager) Start(ctx context.Context) {
 // The administrator changed the backend, so the old sandboxes are of no use.
 func (m *Manager) Reset(ctx context.Context) { _ = m.Close(ctx) }
 
-// Close destroys every sandbox. What the code did is already in the files.
+// Close destroys every sandbox, all at once, and returns when they are gone
+// or ctx ends, whichever is first. What the code did is already in the files.
+// On the deadline it returns the context error: the stops go on in the
+// background, and a sandbox that a busy call still holds is left to the sweep
+// the backend makes at the next start.
 func (m *Manager) Close(ctx context.Context) error {
 	m.mu.Lock()
 	list := make([]*entry, 0, len(m.entries))
@@ -462,13 +466,25 @@ func (m *Manager) Close(ctx context.Context) error {
 	}
 	m.entries = map[string]*entry{}
 	m.mu.Unlock()
+	var wg sync.WaitGroup
 	for _, e := range list {
-		e.mu.Lock()
-		e.gone = true
-		m.destroy(ctx, e)
-		e.mu.Unlock()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			e.mu.Lock()
+			defer e.mu.Unlock()
+			e.gone = true
+			m.destroy(ctx, e)
+		}()
 	}
-	return nil
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // tracker is the store of one sandbox. It remembers the revision the files

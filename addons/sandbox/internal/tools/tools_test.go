@@ -302,3 +302,32 @@ func TestTheSettingsToolsAreForThePageOnly(t *testing.T) {
 		t.Errorf("page-only tools = %v, want set-backend and confirm-host, not status", ui)
 	}
 }
+
+type closingRunner struct {
+	fakeRunner
+	closed int
+	err    error
+}
+
+func (c *closingRunner) Close(context.Context) error { c.closed++; return c.err }
+
+func TestRuntimeCloseDestroysTheSandboxes(t *testing.T) {
+	c := &closingRunner{}
+	rt, ok := tools.New(c, nil, nil).(interface{ Close(context.Context) error })
+	if !ok {
+		t.Fatal("the runtime has no Close: the add-on cannot stop its sandboxes when the host goes away")
+	}
+	if err := rt.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if c.closed != 1 {
+		t.Fatalf("the runner was closed %d times, want 1", c.closed)
+	}
+}
+
+func TestRuntimeCloseWithARunnerThatHasNoClose(t *testing.T) {
+	rt := tools.New(&fakeRunner{}, nil, nil).(interface{ Close(context.Context) error })
+	if err := rt.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -413,3 +413,71 @@ func TestAManagerCanLeaveTheStateDirAloneAtStart(t *testing.T) {
 		t.Errorf("the backend's own folder was removed: %v", err)
 	}
 }
+
+// slowDestroy is a sandbox whose Destroy takes a while, as a runsc delete does.
+type slowDestroy struct {
+	sandbox.Sandbox
+	d time.Duration
+}
+
+func (s slowDestroy) Destroy(ctx context.Context) error {
+	time.Sleep(s.d)
+	return s.Sandbox.Destroy(ctx)
+}
+
+type slowBackend struct {
+	sandbox.Backend
+	d time.Duration
+}
+
+func (b slowBackend) Create(ctx context.Context, s sandbox.Spec) (sandbox.Sandbox, error) {
+	sb, err := b.Backend.Create(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	return slowDestroy{sb, b.d}, nil
+}
+
+func slowFixture(t *testing.T, d time.Duration, n int) *fixture {
+	t.Helper()
+	f := setup(t, func(o *manager.Options) {
+		inner := o.Backend
+		o.Backend = func() (sandbox.Backend, error) {
+			b, err := inner()
+			if err != nil {
+				return nil, err
+			}
+			return slowBackend{b, d}, nil
+		}
+	})
+	for i := 1; i <= n; i++ {
+		f.run(t, "alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
+	}
+	return f
+}
+
+func TestCloseStopsTheSandboxesTogether(t *testing.T) {
+	f := slowFixture(t, 300*time.Millisecond, 4)
+	start := time.Now()
+	if err := f.m.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// Four in a row take 1.2 s: the add-on has a few seconds to stop all of them.
+	if took := time.Since(start); took > 700*time.Millisecond {
+		t.Fatalf("Close took %s for 4 sandboxes of 300 ms each: they were stopped one after the other", took)
+	}
+}
+
+func TestCloseReturnsWhenItsContextEnds(t *testing.T) {
+	f := slowFixture(t, 2*time.Second, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	err := f.m.Close(ctx)
+	if took := time.Since(start); took > time.Second {
+		t.Fatalf("Close took %s with a 100 ms context", took)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Close = %v, want the deadline error: a caller must know sandboxes may be left", err)
+	}
+}

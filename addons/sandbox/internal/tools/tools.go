@@ -80,6 +80,16 @@ func New(r Runner, s Settings, a Admin) contract.Runtime {
 	return &runtime{run: r, settings: s, admin: a}
 }
 
+// Close stops every sandbox the runner holds. The add-on process calls it
+// before it exits: a gVisor sandbox is detached from the process that started
+// it and would otherwise stay on the host.
+func (r *runtime) Close(ctx context.Context) error {
+	if c, ok := r.run.(interface{ Close(context.Context) error }); ok {
+		return c.Close(ctx)
+	}
+	return nil
+}
+
 var errNoTool = errors.New("this tool is not served by the sandbox add-on")
 
 // Definitions returns what a model sees of each tool. They come from the code
