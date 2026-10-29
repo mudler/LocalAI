@@ -2,12 +2,13 @@ package gormstore_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -16,132 +17,100 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace/wstest"
 )
 
-func TestAFileOverTheLimitIsRefusedAndLeavesNothing(t *testing.T) {
-	s := sqliteStore(t, gormstore.Options{MaxFileSize: 10})
-	_, err := s.Put(context.Background(), wstest.AdminActor, "/big.txt", strings.NewReader(strings.Repeat("x", 100)), workspace.PutOptions{})
-	if !errors.Is(err, workspace.ErrTooLarge) {
-		t.Fatalf("Put over the limit = %v, want ErrTooLarge", err)
-	}
-	if _, err := s.Stat(context.Background(), wstest.AdminActor, "/big.txt"); !errors.Is(err, workspace.ErrNotFound) {
-		t.Fatalf("the refused file exists: %v", err)
-	}
-}
+var _ = Describe("The SQLite store beyond the contract", func() {
+	It("a file over the limit is refused and leaves nothing", func() {
+		s := sqliteStore(gormstore.Options{MaxFileSize: 10})
+		_, err := s.Put(context.Background(), wstest.AdminActor, "/big.txt", strings.NewReader(strings.Repeat("x", 100)), workspace.PutOptions{})
+		Expect(err).To(MatchError(workspace.ErrTooLarge), "Put over the limit")
+		_, err = s.Stat(context.Background(), wstest.AdminActor, "/big.txt")
+		Expect(err).To(MatchError(workspace.ErrNotFound), "the refused file exists")
+	})
 
-// Two frontends share one database and one blob store. Each opens its own
-// Workspace; what one writes the other reads, and their change sets never
-// share a revision.
-func TestTwoFrontendsShareOneDatabaseAndKeepRevisionsApart(t *testing.T) {
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "ws.db")
-	blobs, err := blob.NewFS(filepath.Join(dir, "blobs"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	open := func() workspace.Store {
-		db, err := auth.OpenSQLiteFile(dbPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
-	}
-	a, b := open(), open()
-	ctx := context.Background()
-	var wg sync.WaitGroup
-	for i := 0; i < 20; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			s := a
-			if i%2 == 1 {
-				s = b
-			}
-			if _, err := s.Put(ctx, wstest.AdminActor, fmt.Sprintf("/f%d.txt", i), strings.NewReader(fmt.Sprint(i)), workspace.PutOptions{}); err != nil {
-				t.Errorf("put %d: %v", i, err)
-			}
-		}(i)
-	}
-	wg.Wait()
-	if got := wstest.MustRead(t, b, wstest.AdminActor, "/f0.txt"); got != "0" {
-		t.Fatalf("frontend B reads %q from A's write, want 0", got)
-	}
-	hist, err := a.History(ctx, wstest.AdminActor, workspace.HistoryQuery{Limit: 100})
-	if err != nil {
-		t.Fatal(err)
-	}
-	seen := map[int64]bool{}
-	for _, cs := range hist {
-		if seen[cs.Rev] {
-			t.Fatalf("revision %d appears twice", cs.Rev)
-		}
-		seen[cs.Rev] = true
-	}
-	if len(seen) != 20 {
-		t.Fatalf("history has %d change sets, want 20", len(seen))
-	}
-}
-
-// A restart with a data path keeps the files: the database file and the blob
-// folder are all there is, and a new process reads them as they were.
-func TestFilesSurviveReopeningTheDatabaseAndTheBlobFolder(t *testing.T) {
-	dir := t.TempDir()
-	dbPath := filepath.Join(dir, "ws.db")
-	open := func() (workspace.Store, func()) {
-		db, err := auth.OpenSQLiteFile(dbPath)
-		if err != nil {
-			t.Fatal(err)
-		}
+	// Two frontends share one database and one blob store. Each opens its own
+	// Workspace; what one writes the other reads, and their change sets never
+	// share a revision.
+	It("two frontends share one database and keep revisions apart", func() {
+		dir := GinkgoT().TempDir()
+		dbPath := filepath.Join(dir, "ws.db")
 		blobs, err := blob.NewFS(filepath.Join(dir, "blobs"))
-		if err != nil {
-			t.Fatal(err)
+		Expect(err).ToNot(HaveOccurred())
+		open := func() workspace.Store {
+			db, err := auth.OpenSQLiteFile(dbPath)
+			Expect(err).ToNot(HaveOccurred())
+			s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
+			Expect(err).ToNot(HaveOccurred())
+			return s
 		}
-		s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
-		if err != nil {
-			t.Fatal(err)
+		a, b := open(), open()
+		ctx := context.Background()
+		var wg sync.WaitGroup
+		for i := 0; i < 20; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer GinkgoRecover()
+				defer wg.Done()
+				s := a
+				if i%2 == 1 {
+					s = b
+				}
+				_, err := s.Put(ctx, wstest.AdminActor, fmt.Sprintf("/f%d.txt", i), strings.NewReader(fmt.Sprint(i)), workspace.PutOptions{})
+				Expect(err).ToNot(HaveOccurred(), "put %d", i)
+			}(i)
 		}
-		return s, func() {
-			if raw, err := db.DB(); err == nil {
-				_ = raw.Close()
-			}
+		wg.Wait()
+		Expect(wstest.MustRead(b, wstest.AdminActor, "/f0.txt")).To(Equal("0"), "frontend B reads from A's write")
+		hist, err := a.History(ctx, wstest.AdminActor, workspace.HistoryQuery{Limit: 100})
+		Expect(err).ToNot(HaveOccurred())
+		seen := map[int64]bool{}
+		for _, cs := range hist {
+			Expect(seen).ToNot(HaveKey(cs.Rev), "revision %d appears twice", cs.Rev)
+			seen[cs.Rev] = true
 		}
-	}
-	ctx := context.Background()
-	first, closeFirst := open()
-	wstest.MustPut(t, first, wstest.AdminActor, "/Docs/kept.txt", "still here")
-	if err := first.Delete(ctx, wstest.AdminActor, "/Docs/kept.txt"); err != nil {
-		t.Fatal(err)
-	}
-	wstest.MustPut(t, first, wstest.AdminActor, "/Docs/other.txt", "me too")
-	closeFirst()
+		Expect(seen).To(HaveLen(20), "history change sets")
+	})
 
-	second, closeSecond := open()
-	defer closeSecond()
-	if got := wstest.MustRead(t, second, wstest.AdminActor, "/Docs/other.txt"); got != "me too" {
-		t.Fatalf("after reopening, other.txt = %q", got)
-	}
-	// What was deleted is still undoable after the restart: nothing was erased.
-	hist, err := second.History(ctx, wstest.AdminActor, workspace.HistoryQuery{Path: "/Docs", Limit: 10})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var deleteRev int64
-	for _, cs := range hist {
-		for _, op := range cs.Ops {
-			if op.Kind == workspace.OpDelete {
-				deleteRev = cs.Rev
+	// A restart with a data path keeps the files: the database file and the blob
+	// folder are all there is, and a new process reads them as they were.
+	It("files survive reopening the database and the blob folder", func() {
+		dir := GinkgoT().TempDir()
+		dbPath := filepath.Join(dir, "ws.db")
+		open := func() (workspace.Store, func()) {
+			db, err := auth.OpenSQLiteFile(dbPath)
+			Expect(err).ToNot(HaveOccurred())
+			blobs, err := blob.NewFS(filepath.Join(dir, "blobs"))
+			Expect(err).ToNot(HaveOccurred())
+			s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
+			Expect(err).ToNot(HaveOccurred())
+			return s, func() {
+				if raw, err := db.DB(); err == nil {
+					_ = raw.Close()
+				}
 			}
 		}
-	}
-	if deleteRev == 0 {
-		t.Fatalf("the delete is not in the history after reopening: %+v", hist)
-	}
-	if _, _, err := second.Undo(ctx, wstest.AdminActor, deleteRev, workspace.UndoOptions{}); err != nil {
-		t.Fatalf("undo after reopening: %v", err)
-	}
-	if got := wstest.MustRead(t, second, wstest.AdminActor, "/Docs/kept.txt"); got != "still here" {
-		t.Fatalf("after the undo, kept.txt = %q", got)
-	}
-}
+		ctx := context.Background()
+		first, closeFirst := open()
+		wstest.MustPut(first, wstest.AdminActor, "/Docs/kept.txt", "still here")
+		Expect(first.Delete(ctx, wstest.AdminActor, "/Docs/kept.txt")).To(Succeed())
+		wstest.MustPut(first, wstest.AdminActor, "/Docs/other.txt", "me too")
+		closeFirst()
+
+		second, closeSecond := open()
+		defer closeSecond()
+		Expect(wstest.MustRead(second, wstest.AdminActor, "/Docs/other.txt")).To(Equal("me too"), "after reopening, other.txt")
+		// What was deleted is still undoable after the restart: nothing was erased.
+		hist, err := second.History(ctx, wstest.AdminActor, workspace.HistoryQuery{Path: "/Docs", Limit: 10})
+		Expect(err).ToNot(HaveOccurred())
+		var deleteRev int64
+		for _, cs := range hist {
+			for _, op := range cs.Ops {
+				if op.Kind == workspace.OpDelete {
+					deleteRev = cs.Rev
+				}
+			}
+		}
+		Expect(deleteRev).ToNot(BeZero(), "the delete is not in the history after reopening: %+v", hist)
+		_, _, err = second.Undo(ctx, wstest.AdminActor, deleteRev, workspace.UndoOptions{})
+		Expect(err).ToNot(HaveOccurred(), "undo after reopening")
+		Expect(wstest.MustRead(second, wstest.AdminActor, "/Docs/kept.txt")).To(Equal("still here"), "after the undo, kept.txt")
+	})
+})

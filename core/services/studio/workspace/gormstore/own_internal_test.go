@@ -1,26 +1,22 @@
 package gormstore
 
 import (
-	"reflect"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// The checkpoint queries must stay plain SQL: json_each takes an array only
-// on SQLite, and PostgreSQL is not available to the unit tests.
-func TestNotInRevsIsPortableSQL(t *testing.T) {
-	cond, args := notInRevs("j.rev", nil)
-	if cond != "1 = 1" || len(args) != 0 {
-		t.Fatalf("empty list = %q %v, want a condition that always holds", cond, args)
-	}
-	cond, args = notInRevs("j.rev", []int64{3, 5, 8})
-	if cond != "j.rev NOT IN (?, ?, ?)" {
-		t.Fatalf("condition = %q", cond)
-	}
-	if !reflect.DeepEqual(args, []any{int64(3), int64(5), int64(8)}) {
-		t.Fatalf("args = %v", args)
-	}
-	if strings.Contains(strings.ToLower(cond), "json") {
-		t.Fatalf("condition is not portable: %q", cond)
-	}
-}
+var _ = Describe("notInRevs", func() {
+	// The checkpoint queries must stay plain SQL: json_each takes an array only
+	// on SQLite, and PostgreSQL is not available to the unit tests.
+	It("is portable SQL", func() {
+		cond, args := notInRevs("j.rev", nil)
+		Expect(cond).To(Equal("1 = 1"), "empty list: want a condition that always holds")
+		Expect(args).To(BeEmpty())
+		cond, args = notInRevs("j.rev", []int64{3, 5, 8})
+		Expect(cond).To(Equal("j.rev NOT IN (?, ?, ?)"))
+		Expect(args).To(Equal([]any{int64(3), int64(5), int64(8)}))
+		Expect(strings.ToLower(cond)).ToNot(ContainSubstring("json"), "condition is not portable: %q", cond)
+	})
+})
