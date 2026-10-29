@@ -1,8 +1,8 @@
 package nibharness
 
 import (
-	"reflect"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // run feeds the chunks and returns the text and the reasoning, each joined.
@@ -24,27 +24,20 @@ func run(chunks ...string) (text, reasoning string) {
 	return text, reasoning
 }
 
-func TestThinkSplitterSeparatesReasoningFromTheAnswer(t *testing.T) {
-	tests := []struct {
-		name            string
-		chunks          []string
-		wantText, wantR string
-	}{
-		{"no tags", []string{"hello ", "world"}, "hello world", ""},
-		{"one chunk", []string{"<think>plan</think>answer"}, "answer", "plan"},
-		{"tags cut across chunks", []string{"<thi", "nk>pla", "n</th", "ink>ans", "wer"}, "answer", "plan"},
-		{"text before the tag", []string{"Sure. <think>why</think> Done."}, "Sure.  Done.", "why"},
-		{"two blocks", []string{"<think>a</think>x<think>b</think>y"}, "xy", "ab"},
-		{"a lone angle bracket is text", []string{"1 < 2 and <b>bold</b>"}, "1 < 2 and <b>bold</b>", ""},
-		{"a cut tag that never completes is text", []string{"done <thi"}, "done <thi", ""},
-		{"an unclosed block stays reasoning", []string{"<think>still thinking"}, "", "still thinking"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			text, reasoning := run(tc.chunks...)
-			if !reflect.DeepEqual([]string{text, reasoning}, []string{tc.wantText, tc.wantR}) {
-				t.Fatalf("got text %q reasoning %q, want %q and %q", text, reasoning, tc.wantText, tc.wantR)
-			}
-		})
-	}
-}
+var _ = Describe("think splitter", func() {
+	DescribeTable("separates reasoning from the answer",
+		func(chunks []string, wantText, wantReasoning string) {
+			text, reasoning := run(chunks...)
+			Expect(text).To(Equal(wantText))
+			Expect(reasoning).To(Equal(wantReasoning))
+		},
+		Entry("no tags", []string{"hello ", "world"}, "hello world", ""),
+		Entry("one chunk", []string{"<think>plan</think>answer"}, "answer", "plan"),
+		Entry("tags cut across chunks", []string{"<thi", "nk>pla", "n</th", "ink>ans", "wer"}, "answer", "plan"),
+		Entry("text before the tag", []string{"Sure. <think>why</think> Done."}, "Sure.  Done.", "why"),
+		Entry("two blocks", []string{"<think>a</think>x<think>b</think>y"}, "xy", "ab"),
+		Entry("a lone angle bracket is text", []string{"1 < 2 and <b>bold</b>"}, "1 < 2 and <b>bold</b>", ""),
+		Entry("a cut tag that never completes is text", []string{"done <thi"}, "done <thi", ""),
+		Entry("an unclosed block stays reasoning", []string{"<think>still thinking"}, "", "still thinking"),
+	)
+})
