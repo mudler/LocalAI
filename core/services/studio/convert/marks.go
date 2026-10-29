@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 type jsonMarks struct {
@@ -100,11 +102,7 @@ func (m *jsonMarks) save() error {
 	if err != nil {
 		return err
 	}
-	tmp := m.path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, m.path)
+	return atomicfile.Write(m.path, raw, 0o600)
 }
 
 func (m *jsonMarks) Ref(_ context.Context, key string) (string, bool, error) {

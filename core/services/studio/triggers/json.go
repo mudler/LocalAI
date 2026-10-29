@@ -9,6 +9,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // jsonStore keeps triggers, runs and the Runner's state in memory and, with a
@@ -66,11 +68,7 @@ func (s *jsonStore) save() error {
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, s.path)
+	return atomicfile.Write(s.path, raw, 0o600)
 }
 
 func utc(t time.Time) time.Time {

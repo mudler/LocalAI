@@ -9,6 +9,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // jsonStore keeps the notifications in memory and, with a directory, in the file
@@ -68,11 +70,7 @@ func (s *jsonStore) save() error {
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, s.path)
+	return atomicfile.Write(s.path, raw, 0o600)
 }
 
 // change runs f on a copy of the state and keeps the copy only when it saved.

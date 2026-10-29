@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // jsonData is the content of the file.
@@ -75,11 +77,7 @@ func (s *jsonStore) save() error {
 	if err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, s.path)
+	return atomicfile.Write(s.path, raw, 0o600)
 }
 
 func (s *jsonStore) PutTask(_ context.Context, t Task) error {

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"slices"
 	"sync"
+
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // jsonPush keeps subscriptions and the VAPID pair in memory and, with a
@@ -57,11 +59,7 @@ func (s *jsonPush) change(f func(*pushData)) error {
 		if err != nil {
 			return err
 		}
-		tmp := s.path + ".tmp"
-		if err := os.WriteFile(tmp, raw, 0o600); err != nil {
-			return err
-		}
-		if err := os.Rename(tmp, s.path); err != nil {
+		if err := atomicfile.Write(s.path, raw, 0o600); err != nil {
 			return err
 		}
 	}

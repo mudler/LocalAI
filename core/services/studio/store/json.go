@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/xlog"
 )
 
@@ -193,19 +194,7 @@ func (s *jsonStore) save(c *chatState) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(s.chatDir(), ".tmp-*")
-	if err != nil {
-		return err
-	}
-	_, werr := tmp.Write(raw)
-	// Without the sync a power loss after the rename can leave an empty record.
-	serr := tmp.Sync()
-	cerr := tmp.Close()
-	if werr != nil || serr != nil || cerr != nil {
-		_ = os.Remove(tmp.Name())
-		return errors.Join(werr, serr, cerr)
-	}
-	return os.Rename(tmp.Name(), s.file(c.Rec.ID, ".json"))
+	return atomicfile.Write(s.file(c.Rec.ID, ".json"), raw, 0o600)
 }
 
 // appendFile is the part of an open file that appendTo needs.
