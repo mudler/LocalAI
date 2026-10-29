@@ -880,8 +880,16 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		go func() {
 			unlock := s.lock(k)
 			defer unlock()
-			if _, err := s.startFromPending(ctx, p, conv); err != nil {
+			started, err := s.startFromPending(ctx, p, conv)
+			if err != nil {
 				s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)
+				return
+			}
+			if started {
+				// On a chat worker the next turn gets the same bound as the
+				// turn that a frontend started: nothing else watches it when
+				// that frontend is gone.
+				s.limitWorkerRun(ctx, p, conv)
 			}
 		}()
 	}

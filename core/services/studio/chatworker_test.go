@@ -346,4 +346,46 @@ var _ = Describe("chatworker", func() {
 		info := turn(front, alice, plain)
 		Expect(info.Running).To(BeTrue(), "a turn with no limit ended: %+v", info)
 	})
+
+	// A message that arrives after the last model request of a worker's turn
+	// starts the next turn on the worker. That turn has the same bound: the
+	// frontend that watched the run may be gone.
+	It("a chat worker bounds the next turn that waiting messages start", func() {
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		bus := &requestBus{FakeBus: testutil.NewFakeBus()}
+		h := studiotest.NewGateHarness()
+		h.End = make(chan struct{}, 4)
+		worker, err := studio.New(studio.Deps{
+			Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h, Bus: studio.NewBroadcastBus(bus, nil),
+			RunLimit: func(origin string) time.Duration {
+				if origin == session.OriginJob {
+					return time.Second
+				}
+				return 0
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = worker.Close(context.Background()) })
+		_, err = nodes.NewNATSChatStartServer(bus).Serve(worker.ServeStart)
+		Expect(err).NotTo(HaveOccurred())
+		front, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: studiotest.NewGateHarness(),
+			Bus: studio.NewBroadcastBus(bus, nil), Workers: nodes.NewNATSChatStarter(bus)})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = front.Close(context.Background()) })
+		job, err := front.CreateAs(context.Background(), alice, studio.CreateInput{Model: "m"}, studio.Origin{Kind: session.OriginJob, ID: "task"})
+		Expect(err).NotTo(HaveOccurred())
+		background(front, alice, job.ID, "go")
+		until("the worker to run the turn", func() bool { return len(h.Sent()) == 1 })
+		h.Gate <- struct{}{}
+		until("the turn to make its last request", func() bool { return h.Boundaries() == 1 })
+		res := sent(front, alice, job.ID, "late")
+		Expect(res.Started).To(BeFalse(), "Send after the last request = %+v, want pending", res)
+		h.End <- struct{}{}
+		until("the worker to start the next turn", func() bool { return len(h.Sent()) == 2 })
+		Expect(h.Sent()[1]).To(Equal("late"))
+		// The next turn waits for a model request that never comes; only the
+		// bound ends it.
+		until("the next turn to stop at the limit", func() bool { return turn(front, alice, job.ID).Last == store.TurnStopped })
+	})
 })

@@ -67,10 +67,12 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	return workerctl.ChatStartReply{Started: res.Started, PendingID: res.PendingID}
 }
 
-// limitWorkerRun stops the turn that ServeStart just started once
+// limitWorkerRun stops the turn that just started on this chat worker, by
+// ServeStart or from the waiting messages after such a turn, once
 // Deps.RunLimit has passed for its origin. The frontend that watches the run
 // stops it at its own limit through the bus; this bound is for the case where
 // that frontend died, and the turn would otherwise run on here without one.
+// It does nothing without Deps.RunLimit, that is on a frontend.
 func (s *Service) limitWorkerRun(ctx context.Context, p, conv string) {
 	if s.d.RunLimit == nil {
 		return
