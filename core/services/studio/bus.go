@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/messaging"
+	"github.com/mudler/LocalAI/core/services/studio/fanout"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -33,19 +34,24 @@ type Bus interface {
 }
 
 // NewLocalBus returns a Bus for one process.
-func NewLocalBus() Bus { return &localBus{hub: newHub(), ctl: map[string]map[int]func(ControlMsg){}} }
+// subscriberBuffer is how many events a subscriber may fall behind by.
+const subscriberBuffer = 512
+
+func NewLocalBus() Bus {
+	return &localBus{hub: fanout.NewHub[string, session.Event](subscriberBuffer), ctl: map[string]map[int]func(ControlMsg){}}
+}
 
 type localBus struct {
-	hub *hub
+	hub *fanout.Hub[string, session.Event]
 
 	mu   sync.Mutex
 	next int
 	ctl  map[string]map[int]func(ControlMsg)
 }
 
-func (b *localBus) Publish(key string, ev session.Event) { b.hub.publish(key, ev) }
+func (b *localBus) Publish(key string, ev session.Event) { b.hub.Publish(key, ev) }
 
-func (b *localBus) Subscribe(key string) (<-chan session.Event, func()) { return b.hub.subscribe(key) }
+func (b *localBus) Subscribe(key string) (<-chan session.Event, func()) { return b.hub.Subscribe(key) }
 
 func (b *localBus) Control(key string, msg ControlMsg) {
 	b.mu.Lock()
@@ -163,42 +169,22 @@ func cut(s string, n int) string {
 }
 
 func (b *broadcastBus) Subscribe(key string) (<-chan session.Event, func()) {
-	sub := &subscriber{ch: make(chan session.Event, subscriberBuffer)}
-	var mu sync.Mutex
-	closed := false
-	closeSub := func() {
-		mu.Lock()
-		defer mu.Unlock()
-		if !closed {
-			closed = true
-			close(sub.ch)
-		}
-	}
+	pipe := fanout.NewPipe[session.Event](subscriberBuffer)
 	nsub, err := b.b.Subscribe(eventSubject(key), func(data []byte) {
 		var ev session.Event
 		if err := json.Unmarshal(data, &ev); err != nil {
 			return
 		}
-		mu.Lock()
-		defer mu.Unlock()
-		if closed {
-			return
-		}
-		select {
-		case sub.ch <- ev:
-		default: // a subscriber that falls behind is dropped; it reconnects
-			closed = true
-			close(sub.ch)
-		}
+		pipe.Send(ev) // a subscriber that falls behind is closed; it reconnects
 	})
 	if err != nil {
 		b.log.Warn("studio: could not subscribe to a chat's events", "error", err)
-		closeSub()
-		return sub.ch, func() {}
+		pipe.Close()
+		return pipe.C(), func() {}
 	}
-	return sub.ch, func() {
+	return pipe.C(), func() {
 		_ = nsub.Unsubscribe()
-		closeSub()
+		pipe.Close()
 	}
 }
 

@@ -1,9 +1,7 @@
 package studio
 
 import (
-	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -112,37 +110,5 @@ func (h *Handlers) NotificationEvents(c echo.Context) error {
 	}
 	defer cancel()
 
-	w := c.Response()
-	w.Header().Set(echo.HeaderContentType, "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.WriteHeader(http.StatusOK)
-	w.Flush()
-
-	tick := time.NewTicker(heartbeat)
-	defer tick.Stop()
-	for {
-		select {
-		case <-c.Request().Context().Done():
-			return nil
-		case <-tick.C:
-			if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-				return nil
-			}
-			w.Flush()
-		case n, ok := <-ch:
-			if !ok {
-				return nil // the subscriber fell behind; the client reconnects
-			}
-			raw, err := json.Marshal(notificationOut(n))
-			if err != nil {
-				continue
-			}
-			if _, err := w.Write([]byte("event: notification\ndata: " + string(raw) + "\n\n")); err != nil {
-				return nil
-			}
-			w.Flush()
-		}
-	}
+	return streamSSE(c, ch, func(n notify.Notification) (string, any) { return "notification", notificationOut(n) })
 }

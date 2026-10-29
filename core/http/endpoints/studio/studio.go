@@ -4,7 +4,6 @@ package studio
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -436,39 +435,7 @@ func (h *Handlers) Events(c echo.Context) error {
 	}
 	defer cancel()
 
-	w := c.Response()
-	w.Header().Set(echo.HeaderContentType, "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-	w.WriteHeader(http.StatusOK)
-	w.Flush()
-
-	tick := time.NewTicker(heartbeat)
-	defer tick.Stop()
-	for {
-		select {
-		case <-c.Request().Context().Done():
-			return nil
-		case <-tick.C:
-			if _, err := w.Write([]byte(": ping\n\n")); err != nil {
-				return nil
-			}
-			w.Flush()
-		case ev, ok := <-events:
-			if !ok {
-				return nil // the subscriber fell behind; the client reconnects
-			}
-			raw, err := json.Marshal(eventJSON(ev))
-			if err != nil {
-				continue
-			}
-			if _, err := w.Write([]byte("event: " + string(ev.Kind) + "\ndata: " + string(raw) + "\n\n")); err != nil {
-				return nil
-			}
-			w.Flush()
-		}
-	}
+	return streamSSE(c, events, func(ev session.Event) (string, any) { return string(ev.Kind), eventJSON(ev) })
 }
 
 func eventJSON(ev session.Event) schema.ChatsEvent {
