@@ -554,10 +554,41 @@ func (s *s2sSession) claim(id string) bool {
 	return true
 }
 
+// forwardToolResult queues one tool result unless a user turn is open or the
+// result was already sent. It reports whether the result was queued.
+func (s *s2sSession) forwardToolResult(out *types.MessageItemFunctionCallOutput, id string, audioLock sync.Locker) bool {
+	audioLock.Lock()
+	defer audioLock.Unlock()
+	if s.forwarding || s.turnHasAudio {
+		return false
+	}
+	if !s.claim(id) {
+		return false
+	}
+	payload, err := json.Marshal(map[string]any{
+		"type":    "function_call_output",
+		"call_id": out.CallID,
+		"output":  out.Output,
+	})
+	if err != nil {
+		return false
+	}
+	s.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+		Control: &proto.AudioToAudioControl{Event: "conversation.item.create", Payload: payload},
+	}})
+	return true
+}
+
 // forwardPendingItems sends the client's text messages and tool results that
 // the backend has not seen yet. Audio turns are not here: their audio is
 // already forwarded and they are marked sent when committed.
-func (s *s2sSession) forwardPendingItems(conv *Conversation) {
+//
+// The backend refuses a tool result while a user turn is open, so a result
+// stays pending until the turn is closed: it is claimed and queued under
+// audioLock, the lock that orders the turn's frames, so no turn can open
+// between the check and the write. Whatever is still pending goes with the
+// next commit or response.
+func (s *s2sSession) forwardPendingItems(conv *Conversation, audioLock sync.Locker) {
 	conv.Lock.Lock()
 	items := append([]*types.MessageItemUnion(nil), conv.Items...)
 	conv.Lock.Unlock()
@@ -569,15 +600,8 @@ func (s *s2sSession) forwardPendingItems(conv *Conversation) {
 		}
 		switch {
 		case item.FunctionCallOutput != nil:
-			if !s.claim(id) {
+			if !s.forwardToolResult(item.FunctionCallOutput, id, audioLock) {
 				continue
-			}
-			if err := s.control("conversation.item.create", map[string]any{
-				"type":    "function_call_output",
-				"call_id": item.FunctionCallOutput.CallID,
-				"output":  item.FunctionCallOutput.Output,
-			}); err != nil {
-				xlog.Warn("s2s: forwarding a tool result failed", "error", err)
 			}
 		case item.User != nil:
 			if !s.claim(id) {
@@ -747,7 +771,7 @@ func (s *Session) s2sCommitAudio(audio []byte, conv *Conversation) {
 	if st == nil {
 		return
 	}
-	st.forwardPendingItems(conv)
+	st.forwardPendingItems(conv, &s.AudioBufferLock)
 	if st.forwardPCM(audio, s.InputSampleRate) == 0 {
 		return
 	}
@@ -1134,7 +1158,7 @@ func s2sRunTurn(ctx context.Context, session *Session, conv *Conversation, t Tra
 		return nil
 	}
 
-	st.forwardPendingItems(conv)
+	st.forwardPendingItems(conv, &session.AudioBufferLock)
 
 	var respMods []types.Modality
 	maxOutputTokens := session.MaxOutputTokens

@@ -575,6 +575,31 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "input_audio_buffer.commit"}))
 	})
 
+	It("holds a tool result back while a user turn is open and sends it after", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		conv.Items = append(conv.Items, &types.MessageItemUnion{FunctionCallOutput: &types.MessageItemFunctionCallOutput{
+			ID: "fo1", CallID: "call_1", Output: "{}",
+		}})
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sBeginTurn(0)
+
+		// The user speaks before the result is forwarded: the backend would
+		// refuse it, so it must stay pending and not be marked as sent.
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		Expect(stream.controls()).To(BeEmpty())
+
+		// A turn that was dropped after audio went out is still open.
+		session.s2sAbortTurn()
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		Expect(stream.controls()).To(BeEmpty())
+
+		session.s2sEndTurn()
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "conversation.item.create"}))
+	})
+
 	It("resamples a committed turn to the backend input rate", func() {
 		stream := newFakeS2SStream()
 		session, _, conv := newHarness(stream, baseModel())
