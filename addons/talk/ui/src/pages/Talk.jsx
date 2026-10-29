@@ -214,9 +214,9 @@ export default function Talk() {
   }, [mcpDisconnect])
 
   const selectedModelInfo = pipelineModels.find(m => m.name === selectedModel)
-  // A speech-to-speech model without a VAD model gets no turn boundaries from
-  // the server, so the user ends each turn with Done speaking.
-  const manualTurns = Boolean(selectedModelInfo && (selectedModelInfo.any_to_any || selectedModelInfo.self_contained) && !selectedModelInfo.vad)
+  // A model without a VAD model, speech-to-speech or chained, gets no turn
+  // boundaries from the server, so the user ends each turn with Done speaking.
+  const manualTurns = Boolean(selectedModelInfo && !selectedModelInfo.vad)
   const manualTurnsRef = useRef(false)
   manualTurnsRef.current = manualTurns
 

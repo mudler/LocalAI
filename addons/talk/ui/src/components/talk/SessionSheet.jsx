@@ -162,6 +162,7 @@ export default function SessionSheet({
                   ))}
                 </dl>
               )}
+              {!anyToAny && !pipeline.vad && <p className="talk-help">{t('settings.noVad')}</p>}
               {!connected && (
                 <button type="button" className="talk-btn" onClick={onEditPipeline}>
                   <Icon name="edit" /> {anyToAny ? t('settings.editConfig') : t('settings.editPipeline')}

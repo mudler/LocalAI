@@ -91,6 +91,31 @@ pipeline:
 		Expect(hasAnyToAny).To(BeFalse())
 	})
 
+	It("lists a chained pipeline that has no VAD", func() {
+		writeConfig("no-vad-pipeline", `
+name: no-vad-pipeline
+backend: llama-cpp
+pipeline:
+  transcription: whisper
+  llm: llama
+  tts: piper
+`)
+		// Still partial without a speech slot.
+		writeConfig("no-tts-pipeline", `
+name: no-tts-pipeline
+backend: llama-cpp
+pipeline:
+  transcription: whisper
+  llm: llama
+`)
+
+		models := queryPipelineModels()
+		Expect(models).To(HaveLen(1))
+		Expect(models[0]["name"]).To(Equal("no-vad-pipeline"))
+		Expect(models[0]["vad"]).To(BeEmpty())
+		Expect(models[0]["tts"]).To(Equal("piper"))
+	})
+
 	It("surfaces any-to-any models as one speech-to-speech model with an optional VAD", func() {
 		writeConfig("lfm-realtime", `
 name: lfm-realtime

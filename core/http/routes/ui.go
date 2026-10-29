@@ -26,7 +26,7 @@ func RegisterUIRoutes(app *echo.Echo,
 	app.GET("/api/canvas/preview/:id", localai.GetCanvasPreviewEndpoint(canvasPreviews))
 
 	// Pipeline models API (for the Talk page WebRTC interface).
-	// A model qualifies when it either declares an explicit VAD+STT+LLM+TTS
+	// A model qualifies when it either declares an explicit STT+LLM+TTS (the VAD is optional)
 	// pipeline (legacy/composed) or is an any-to-any speech-to-speech model
 	// (realtime_audio plus pipeline.any_to_any). The second one runs the whole
 	// loop in a single AudioToAudioStream RPC, so it needs no slots: its VAD
@@ -52,7 +52,7 @@ func RegisterUIRoutes(app *echo.Echo,
 				return true
 			}
 			p := cfg.Pipeline
-			return p.VAD != "" && p.Transcription != "" && p.LLM != "" && p.TTS != ""
+			return p.Transcription != "" && p.LLM != "" && p.TTS != ""
 		})
 
 		slices.SortFunc(pipelineModels, func(a, b config.ModelConfig) int {
