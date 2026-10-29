@@ -2,8 +2,9 @@ package connectors_test
 
 import (
 	"os"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
@@ -13,27 +14,24 @@ import (
 
 // The PostgreSQL run needs a database that tests may wipe. Set
 // LOCALAI_TEST_POSTGRES_URL to enable it.
-func TestGORMOnPostgres(t *testing.T) {
+var _ = Describe("GORM on PostgreSQL", func() {
 	url := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
 	if url == "" {
-		t.Skip("LOCALAI_TEST_POSTGRES_URL is not set")
+		It("runs the store contract", func() {
+			Skip("LOCALAI_TEST_POSTGRES_URL is not set")
+		})
+		return
 	}
-	connectorstest.Run(t, func(t *testing.T) connectors.Store {
+	connectorstest.Run(func() connectors.Store {
 		db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
 		sqlDB, _ := db.DB()
-		t.Cleanup(func() { _ = sqlDB.Close() })
+		DeferCleanup(func() { _ = sqlDB.Close() })
 		s, err := connectors.NewGORM(db)
-		if err != nil {
-			t.Fatal(err)
-		}
+		Expect(err).NotTo(HaveOccurred())
 		for _, tbl := range []string{"studio_connector_chats", "studio_connector_senders", "studio_connector_state", "studio_connector_keys", "studio_connectors"} {
-			if err := db.Exec("DELETE FROM " + tbl).Error; err != nil {
-				t.Fatal(err)
-			}
+			Expect(db.Exec("DELETE FROM " + tbl).Error).To(Succeed())
 		}
 		return s
 	})
-}
+})
