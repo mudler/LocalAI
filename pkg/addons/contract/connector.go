@@ -65,6 +65,10 @@ const (
 	ConnectorConflict = "conflict"
 	// ConnectorRateLimited means the platform asks the host to wait RetryAfter seconds.
 	ConnectorRateLimited = "rate_limited"
+	// ConnectorTooLarge means the file that the op media names is larger than
+	// MaxConnectorFileBytes or than the platform lets a bot download. The host
+	// tells the sender so, instead of saying that the file could not be read.
+	ConnectorTooLarge = "too_large"
 	// ConnectorFailed is any other failure of the platform or of the network.
 	ConnectorFailed = "failed"
 )
@@ -184,10 +188,14 @@ type ConnectorMessage struct {
 	SenderName     string `json:"senderName,omitempty"`
 	SenderUsername string `json:"senderUsername,omitempty"`
 	Text           string `json:"text,omitempty"`
-	// Unsupported is a message with no text: a photo, a voice note, a file.
+	// Unsupported is a message with no text and no file that the add-on can
+	// hand over, such as a sticker or a poll.
 	Unsupported bool `json:"unsupported,omitempty"`
 	// Media are references to files that the add-on resolves with the op
-	// media. They are opaque to the host.
+	// media, at most MaxConnectorMedia. They are opaque to the host. The host
+	// attaches each file to the turn as an upload of the chat; an audio file
+	// is a voice message, which the host transcribes, and the transcript is
+	// the text of the turn.
 	Media []string `json:"media,omitempty"`
 }
 

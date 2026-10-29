@@ -4,6 +4,7 @@ package connector_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -160,6 +161,7 @@ var _ = Describe("Serve", func() {
 		},
 		Entry("a refused token", connector.ErrUnauthorized, contract.ConnectorUnauthorized),
 		Entry("another reader", connector.ErrConflict, contract.ConnectorConflict),
+		Entry("a file too large", fmt.Errorf("telegram: %w", connector.ErrTooLarge), contract.ConnectorTooLarge),
 		Entry("a wait", &connector.RetryAfter{Seconds: 3}, contract.ConnectorRateLimited),
 		Entry("anything else", errors.New("boom"), contract.ConnectorFailed),
 	)

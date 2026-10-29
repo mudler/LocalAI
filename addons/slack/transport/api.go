@@ -223,8 +223,9 @@ func (a *API) FileInfo(ctx context.Context, bot, id string) (File, error) {
 	return r.File, err
 }
 
-// ErrTooLarge means a file is larger than the add-on hands over.
-var ErrTooLarge = errors.New("slack: the file is too large")
+// ErrTooLarge means a file is larger than the add-on hands over. It is the
+// shared error of the connector add-ons, so the host tells the sender.
+var ErrTooLarge = connector.ErrTooLarge
 
 // onFilesHost parses an address of a file and checks that it is on the files
 // host of Slack, over https or over the scheme of the base URL that a test
