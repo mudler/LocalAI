@@ -46,6 +46,7 @@ var _ = Describe("the connector route", func() {
 		Expect([]string{u.Chat, u.Thread, u.SenderID, u.SenderName, u.SenderUsername, u.Text}).
 			To(Equal([]string{"D1", "", "U1", "Ada Lovelace", "ada", "hello & x (https://x.example)"}))
 		Expect(u.Direct).To(BeTrue())
+		Expect(u.MessageID).NotTo(BeEmpty(), "a message names its timestamp, so a thread mode can start a thread from it")
 		Expect(u.Cursor).To(BeNumerically(">=", 1))
 		Expect(out.NextOffset).To(Equal(u.Cursor + 1))
 		Expect(f.Acks()).To(HaveLen(1))

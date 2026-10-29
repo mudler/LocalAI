@@ -26,13 +26,44 @@ var LegacyAddon = map[string]string{"telegram": "telegram"}
 // KindTelegram is the kind core carried before connectors became add-ons.
 const KindTelegram = "telegram"
 
+// Reply modes: what a sender sees while a turn runs.
+const (
+	// ReplyOff shows typing only, then the answer.
+	ReplyOff = "off"
+	// ReplyProgress shows one working message that names the tools as they
+	// start; the answer replaces it. It is the default.
+	ReplyProgress = "progress"
+	// ReplyStream shows one working message with the answer as it is
+	// written; the answer replaces it.
+	ReplyStream = "stream"
+)
+
+// Conversation modes: which chat a message belongs to.
+const (
+	// ConversationSender gives each sender one long-lived chat, and each
+	// thread of the platform one chat. It is the default.
+	ConversationSender = "sender"
+	// ConversationChat gives each chat of the platform (a group, a channel,
+	// a direct chat) one chat that everyone in it shares.
+	ConversationChat = "chat"
+	// ConversationWindow is ConversationSender, but a message that comes
+	// WindowMinutes or more after the last turn starts a new chat.
+	ConversationWindow = "window"
+	// ConversationThread starts a new chat for each message that is not an
+	// answer: a reply to an answer of the bot, or a message in a thread of
+	// the platform, goes on in that chat.
+	ConversationThread = "thread"
+)
+
 // Limits.
 const (
-	MaxNameRunes   = 80
-	MaxAllow       = 200
-	MaxAllowRunes  = 64
-	MaxPerUser     = 10
-	MaxSendersKept = 200
+	// MaxWindowMinutes is the longest time window: one week.
+	MaxWindowMinutes = 7 * 24 * 60
+	MaxNameRunes     = 80
+	MaxAllow         = 200
+	MaxAllowRunes    = 64
+	MaxPerUser       = 10
+	MaxSendersKept   = 200
 )
 
 // Errors.
@@ -62,6 +93,17 @@ type Binding struct {
 	Allow []string
 	// NotifyChat, when set, receives the owner's run notifications.
 	NotifyChat string
+	// Reply is a reply mode (ReplyOff, ReplyProgress, ReplyStream); empty
+	// means ReplyProgress.
+	Reply string
+	// Conversation is a conversation mode; empty means ConversationSender.
+	Conversation string
+	// WindowMinutes is the time window of ConversationWindow.
+	WindowMinutes int
+	// FilesOff keeps the files a turn makes from going to the sender. The
+	// zero value sends them, so a binding stored before the option sends
+	// them too.
+	FilesOff bool
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
@@ -142,8 +184,42 @@ func Validate(b Binding) error {
 	if b.NotifyChat != "" && !chatShape.MatchString(b.NotifyChat) {
 		return bad("the notification chat must be a chat ID")
 	}
+	switch b.Reply {
+	case "", ReplyOff, ReplyProgress, ReplyStream:
+	default:
+		return bad("the reply mode must be %s, %s or %s", ReplyOff, ReplyProgress, ReplyStream)
+	}
+	switch b.Conversation {
+	case "", ConversationSender, ConversationChat, ConversationThread:
+	case ConversationWindow:
+		if b.WindowMinutes < 1 || b.WindowMinutes > MaxWindowMinutes {
+			return bad("the time window must be 1 to %d minutes", MaxWindowMinutes)
+		}
+	default:
+		return bad("the conversation mode must be %s, %s, %s or %s", ConversationSender, ConversationChat, ConversationWindow, ConversationThread)
+	}
 	return nil
 }
+
+// ReplyMode is the reply mode of a binding, with the default filled in.
+func (b Binding) ReplyMode() string {
+	if b.Reply == "" {
+		return ReplyProgress
+	}
+	return b.Reply
+}
+
+// ConversationMode is the conversation mode of a binding, with the default
+// filled in.
+func (b Binding) ConversationMode() string {
+	if b.Conversation == "" {
+		return ConversationSender
+	}
+	return b.Conversation
+}
+
+// SendsFiles tells whether the files a turn makes go to the sender.
+func (b Binding) SendsFiles() bool { return !b.FilesOff }
 
 // Allows tells whether a sender is on the allowlist. A match is by ID or, for an
 // @name entry, by username, ignoring case.

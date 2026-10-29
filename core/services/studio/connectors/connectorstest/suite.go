@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 )
 
@@ -51,6 +53,23 @@ func Run(t *testing.T, newStore NewStore) {
 		if got.Name != "Bot 2" || got.Enabled || len(got.Allow) != 0 {
 			t.Fatalf("after replace: %+v", got)
 		}
+	})
+	t.Run("KeepsTheReplyConversationAndFileSettings", func(t *testing.T) {
+		g := gomega.NewWithT(t)
+		s := newStore(t)
+		b := binding("modes", "u1", "Modes")
+		b.Reply, b.Conversation, b.WindowMinutes, b.FilesOff = connectors.ReplyStream, connectors.ConversationWindow, 45, true
+		g.Expect(s.PutBinding(ctx, b)).To(gomega.Succeed())
+		got, err := s.GetBinding(ctx, "modes")
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect([]any{got.Reply, got.Conversation, got.WindowMinutes, got.FilesOff}).To(gomega.Equal([]any{connectors.ReplyStream, connectors.ConversationWindow, 45, true}))
+		plain, err := s.GetBinding(ctx, "modes")
+		g.Expect(err).NotTo(gomega.HaveOccurred())
+		plain.Reply, plain.Conversation, plain.WindowMinutes, plain.FilesOff = "", "", 0, false
+		g.Expect(s.PutBinding(ctx, plain)).To(gomega.Succeed())
+		got, _ = s.GetBinding(ctx, "modes")
+		g.Expect(got.ReplyMode()).To(gomega.Equal(connectors.ReplyProgress))
+		g.Expect(got.SendsFiles()).To(gomega.BeTrue())
 	})
 	t.Run("AnOldBindingBelongsToTheAddonOfItsKind", func(t *testing.T) {
 		// A binding stored before connectors became add-ons has no add-on ID.

@@ -45,7 +45,7 @@ func (ss *session) message(e event) (contract.ConnectorMessage, bool) {
 	if e.User == "" || e.User == ss.bot.UserID || e.BotID != "" || !personal[e.Subtype] || e.Channel == "" {
 		return contract.ConnectorMessage{}, false
 	}
-	m := contract.ConnectorMessage{Chat: e.Channel, SenderID: e.User, Text: Plain(e.Text, ss.bot.UserID)}
+	m := contract.ConnectorMessage{Chat: e.Channel, SenderID: e.User, MessageID: e.TS, Text: Plain(e.Text, ss.bot.UserID)}
 	switch {
 	case e.Type == "app_mention":
 		m.Mention = true

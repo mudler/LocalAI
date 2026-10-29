@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 )
 
@@ -83,4 +85,28 @@ func TestAllowsMatchesByIDOrUsername(t *testing.T) {
 	if (connectors.Binding{}).Allows("1", "x") {
 		t.Fatal("an empty allowlist accepted someone")
 	}
+}
+
+func TestValidateChecksTheReplyAndConversationModes(t *testing.T) {
+	g := gomega.NewWithT(t)
+	base := connectors.Binding{Name: "Bot", Kind: connectors.KindTelegram, AgentID: "a"}
+	for _, ok := range []connectors.Binding{
+		base,
+		{Name: "Bot", Kind: "telegram", AgentID: "a", Reply: connectors.ReplyOff, Conversation: connectors.ConversationChat},
+		{Name: "Bot", Kind: "telegram", AgentID: "a", Reply: connectors.ReplyStream, Conversation: connectors.ConversationThread},
+		{Name: "Bot", Kind: "telegram", AgentID: "a", Reply: connectors.ReplyProgress, Conversation: connectors.ConversationWindow, WindowMinutes: 30},
+	} {
+		g.Expect(connectors.Validate(ok)).To(gomega.Succeed(), "%+v", ok)
+	}
+	for name, b := range map[string]connectors.Binding{
+		"unknown reply":        {Name: "b", Kind: "telegram", AgentID: "a", Reply: "loud"},
+		"unknown conversation": {Name: "b", Kind: "telegram", AgentID: "a", Conversation: "forever"},
+		"window without time":  {Name: "b", Kind: "telegram", AgentID: "a", Conversation: connectors.ConversationWindow},
+		"window too long":      {Name: "b", Kind: "telegram", AgentID: "a", Conversation: connectors.ConversationWindow, WindowMinutes: connectors.MaxWindowMinutes + 1},
+	} {
+		g.Expect(connectors.Validate(b)).To(gomega.MatchError(connectors.ErrInvalid), name)
+	}
+	g.Expect(base.ReplyMode()).To(gomega.Equal(connectors.ReplyProgress), "progress is the default")
+	g.Expect(base.ConversationMode()).To(gomega.Equal(connectors.ConversationSender), "one chat per sender is the default")
+	g.Expect(base.SendsFiles()).To(gomega.BeTrue(), "files go out by default")
 }

@@ -22,9 +22,15 @@ type bindingRow struct {
 	AcceptAny  bool
 	Allow      string
 	NotifyChat string `gorm:"size:64"`
-	Token      []byte
-	Created    time.Time
-	Updated    time.Time
+	// The columns of the reply and conversation modes are added by
+	// AutoMigrate; a row stored before them reads as the defaults.
+	Reply         string `gorm:"size:16"`
+	Conversation  string `gorm:"size:16"`
+	WindowMinutes int
+	FilesOff      bool
+	Token         []byte
+	Created       time.Time
+	Updated       time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -78,7 +84,8 @@ func NewGORM(db *gorm.DB) (Store, error) {
 
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
-		NotifyChat: r.NotifyChat, Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
+		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff,
+		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
 			return b, err
@@ -94,7 +101,8 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		allow = string(raw)
 	}
 	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
-		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
+		FilesOff: b.FilesOff, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {
