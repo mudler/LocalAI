@@ -12,7 +12,8 @@ Feather project.
 What was changed: the text about LibreOffice was replaced by a note that
 LibreOffice is not installed, the text about OCR was shortened in the same way,
 and the generated page of the LibreOffice-backed module "openpyxl.oracle" got
-the same note. The skill "writing-skills" was written for the chats.
+the same note. The skills "writing-skills" and "localai-workspace" were written
+for the chats.
 
 The MIT licence of the Feather project
 --------------------------------------

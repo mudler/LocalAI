@@ -18,7 +18,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
-var names = []string{"docx", "xlsx", "pptx", "pdf", "writing-skills"}
+var names = []string{"docx", "xlsx", "pptx", "pdf", "writing-skills", "localai-workspace"}
 
 var _ = Describe("the built-in skills", func() {
 	It("parses every built-in skill", func() {
