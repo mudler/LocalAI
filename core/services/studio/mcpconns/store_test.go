@@ -3,8 +3,9 @@ package mcpconns_test
 import (
 	"os"
 	"path/filepath"
-	"testing"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
@@ -12,13 +13,10 @@ import (
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
-func openSQLite(t *testing.T, path string) *gorm.DB {
-	t.Helper()
+func openSQLite(path string) *gorm.DB {
 	db, err := sqlitedb.Open("file:"+path+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
 		if sqlDB, err := db.DB(); err == nil {
 			_ = sqlDB.Close()
 		}
@@ -26,58 +24,49 @@ func openSQLite(t *testing.T, path string) *gorm.DB {
 	return db
 }
 
-func TestJSONInMemory(t *testing.T) {
-	mcpconnstest.Run(t, func(t *testing.T) mcpconns.Store {
-		s, err := mcpconns.NewJSON("")
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
+var _ = Describe("Connector stores", func() {
+	Describe("JSON in memory", func() {
+		mcpconnstest.Run(func() mcpconns.Store {
+			s, err := mcpconns.NewJSON("")
+			Expect(err).NotTo(HaveOccurred())
+			return s
+		})
 	})
-}
 
-func TestJSONOnDisk(t *testing.T) {
-	mcpconnstest.Run(t, func(t *testing.T) mcpconns.Store {
-		s, err := mcpconns.NewJSON(t.TempDir())
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
+	Describe("JSON on disk", func() {
+		mcpconnstest.Run(func() mcpconns.Store {
+			s, err := mcpconns.NewJSON(GinkgoT().TempDir())
+			Expect(err).NotTo(HaveOccurred())
+			return s
+		})
 	})
-}
 
-func TestJSONSurvivesReopenAndKeepsItsFilePrivate(t *testing.T) {
-	dir := t.TempDir()
-	first, _ := mcpconns.NewJSON(dir)
-	mcpconnstest.Seed(t, first)
-	second, err := mcpconns.NewJSON(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mcpconnstest.CheckSeed(t, second)
-	st, err := os.Stat(filepath.Join(dir, "mcp-connectors.json"))
-	if err != nil || st.Mode().Perm() != 0o600 {
-		t.Fatalf("%v %v", st, err)
-	}
-}
-
-func TestGORMOnSQLite(t *testing.T) {
-	mcpconnstest.Run(t, func(t *testing.T) mcpconns.Store {
-		s, err := mcpconns.NewGORM(openSQLite(t, filepath.Join(t.TempDir(), "c.db")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return s
+	It("JSON survives a reopen and keeps its file private", func() {
+		dir := GinkgoT().TempDir()
+		first, _ := mcpconns.NewJSON(dir)
+		mcpconnstest.Seed(first)
+		second, err := mcpconns.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		mcpconnstest.CheckSeed(second)
+		st, err := os.Stat(filepath.Join(dir, "mcp-connectors.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)))
 	})
-}
 
-func TestGORMSurvivesReopen(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "c.db")
-	first, _ := mcpconns.NewGORM(openSQLite(t, path))
-	mcpconnstest.Seed(t, first)
-	second, err := mcpconns.NewGORM(openSQLite(t, path))
-	if err != nil {
-		t.Fatal(err)
-	}
-	mcpconnstest.CheckSeed(t, second)
-}
+	Describe("GORM on SQLite", func() {
+		mcpconnstest.Run(func() mcpconns.Store {
+			s, err := mcpconns.NewGORM(openSQLite(filepath.Join(GinkgoT().TempDir(), "c.db")))
+			Expect(err).NotTo(HaveOccurred())
+			return s
+		})
+	})
+
+	It("GORM survives a reopen", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "c.db")
+		first, _ := mcpconns.NewGORM(openSQLite(path))
+		mcpconnstest.Seed(first)
+		second, err := mcpconns.NewGORM(openSQLite(path))
+		Expect(err).NotTo(HaveOccurred())
+		mcpconnstest.CheckSeed(second)
+	})
+})
