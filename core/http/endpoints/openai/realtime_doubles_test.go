@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 	"strings"
+	"os"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -115,6 +116,13 @@ type fakeModel struct {
 	predictChunkDeltas [][]*proto.ChatDelta
 	predictResp        backend.LLMResponse
 	predictErr         error
+	// transcribedWAV is the content of each file handed to Transcribe.
+	transcribedMu  sync.Mutex
+	transcribedWAV [][]byte
+	// predictUntilCancel makes the deferred predict function wait for the
+	// context of Predict and fail with its error, like a backend call that a
+	// barge-in cancels while the model is still generating.
+	predictUntilCancel bool
 
 	// ClassifyTurn scripting: classifyScores is returned as the option
 	// distribution (in option order); classifyErr fails the call.
@@ -205,9 +213,15 @@ func (m *fakeModel) waitTranscribeBlock(ctx context.Context) error {
 	}
 }
 
-func (m *fakeModel) Transcribe(ctx context.Context, _, _ string, _, diarize bool, _ string) (*schema.TranscriptionResult, error) {
+func (m *fakeModel) Transcribe(ctx context.Context, audioPath, _ string, _, diarize bool, _ string) (*schema.TranscriptionResult, error) {
 	if err := m.waitTranscribeBlock(ctx); err != nil {
 		return nil, err
+	}
+	// keep what the transcription was handed: the file is removed after the call
+	if raw, err := os.ReadFile(audioPath); err == nil {
+		m.transcribedMu.Lock()
+		m.transcribedWAV = append(m.transcribedWAV, raw)
+		m.transcribedMu.Unlock()
 	}
 	m.lastDiarize = diarize
 	return m.transcribeFinal, m.transcribeErr
@@ -223,12 +237,16 @@ func (m *fakeModel) SoundDetection(ctx context.Context, _ string, _ int, _ float
 	return m.soundDetectionResult, nil
 }
 
-func (m *fakeModel) Predict(_ context.Context, msgs schema.Messages, _, _, _ []string, cb func(string, backend.TokenUsage) bool, _ []types.ToolUnion, _ *types.ToolChoiceUnion, _, _ *int, _ map[string]float64) (func() (backend.LLMResponse, error), error) {
+func (m *fakeModel) Predict(ctx context.Context, msgs schema.Messages, _, _, _ []string, cb func(string, backend.TokenUsage) bool, _ []types.ToolUnion, _ *types.ToolChoiceUnion, _, _ *int, _ map[string]float64) (func() (backend.LLMResponse, error), error) {
 	m.lastMessages = msgs
 	if m.predictErr != nil {
 		return nil, m.predictErr
 	}
 	return func() (backend.LLMResponse, error) {
+		if m.predictUntilCancel {
+			<-ctx.Done()
+			return backend.LLMResponse{}, ctx.Err()
+		}
 		for i, tok := range m.predictTokens {
 			if cb == nil {
 				continue

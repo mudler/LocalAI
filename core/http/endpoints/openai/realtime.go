@@ -2969,6 +2969,12 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 
 	predFunc, err := session.ModelInterface.Predict(ctx, conversationHistory, images, nil, nil, nil, tools, toolChoice, nil, nil, nil)
 	if err != nil {
+		if ctx.Err() != nil {
+			// A barge-in cancelled the response: a cancel has its own terminal.
+			xlog.Debug("Response cancelled before LLM inference (barge-in)")
+			r.outcome = outcomeCancelled
+			return
+		}
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "") // item.Assistant.ID is unknown here
 		r.outcome = outcomeFailed
 		return
@@ -2976,6 +2982,14 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 
 	pred, err := predFunc()
 	if err != nil {
+		if ctx.Err() != nil {
+			// The barge-in landed while the model was generating: the call fails
+			// with the context error. Without this the response ended as failed,
+			// with an error and no response.done, and the client waited for it.
+			xlog.Debug("Response cancelled during LLM inference (barge-in)")
+			r.outcome = outcomeCancelled
+			return
+		}
 		sendError(t, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", "")
 		r.outcome = outcomeFailed
 		return
