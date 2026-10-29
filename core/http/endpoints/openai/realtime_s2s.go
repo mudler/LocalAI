@@ -992,6 +992,15 @@ func s2sTranscribeInput(ctx context.Context, session *Session, conv *Conversatio
 	})
 }
 
+const s2sNamedToolChoiceMessage = "an any-to-any model cannot be forced to call one function; use tool_choice auto, none or required"
+
+// s2sNamedToolChoice tells if tc names a function. The backend knows only the
+// modes, so a named function is refused instead of silently keeping the
+// previous mode.
+func s2sNamedToolChoice(tc *types.ToolChoiceUnion) bool {
+	return tc != nil && tc.Mode == "" && tc.Function != nil
+}
+
 // s2sToolChoiceMode is the tool_choice the backend understands: the mode. A
 // named function cannot be forced on a response, so it maps to nothing.
 func s2sToolChoiceMode(tc *types.ToolChoiceUnion) string {
@@ -1009,20 +1018,45 @@ func s2sToolChoiceMode(tc *types.ToolChoiceUnion) string {
 // the backend parsed win. Without any, and only if the request had tools, the
 // raw text of the response is parsed the way the chained pipeline parses the
 // text of its LLM, so a model whose call format the backend does not know still
-// works. content is the text around the calls, as the config captures it, and
-// is set only in that case.
-func s2sResponseToolCalls(parsed []functions.FuncCallResults, rawText string, hasTools bool, fc functions.FunctionsConfig) (calls []functions.FuncCallResults, content string, fromText bool) {
+// works. content is the text around the calls and is meaningful only when
+// contentKnown is set: the config captures it, or the call was XML markup that
+// could be cut out. content may then be empty (the reply was only a call).
+func s2sResponseToolCalls(parsed []functions.FuncCallResults, rawText string, hasTools bool, fc functions.FunctionsConfig) (calls []functions.FuncCallResults, content string, contentKnown, fromText bool) {
 	if len(parsed) > 0 {
-		return parsed, "", false
+		return parsed, "", false, false
 	}
 	if !hasTools || rawText == "" {
-		return nil, "", false
+		return nil, "", false, false
 	}
 	calls = functions.ParseFunctionCall(functions.CleanupLLMResult(rawText, fc), fc)
 	if len(calls) == 0 {
-		return nil, "", false
+		return nil, "", false, false
 	}
-	return calls, functions.ParseTextContent(rawText, fc), true
+	if captured := functions.ParseTextContent(rawText, fc); captured != "" {
+		return calls, captured, true, true
+	}
+	// No capture regex (none of the LFM3-Audio gallery entries set one): the
+	// text left after the call markup is cut out is the content.
+	if stripped := functions.StripToolCallMarkup(rawText); stripped != strings.TrimSpace(rawText) {
+		return calls, stripped, true, true
+	}
+	return calls, "", false, true
+}
+
+// s2sFallbackToolsAllowed tells if the raw text of a response may be parsed
+// for tool calls. The backend knows only the tools of the session, so those are
+// the tools of every response. With tool_choice "none" (the response value wins
+// over the session value) the backend builds no tool parser and a call the
+// model writes anyway is plain text.
+func s2sFallbackToolsAllowed(session *Session, overrides *types.ResponseCreateParams) bool {
+	if len(session.Tools) == 0 {
+		return false
+	}
+	choice := session.ToolChoice
+	if overrides != nil && overrides.ToolChoice != nil {
+		choice = overrides.ToolChoice
+	}
+	return s2sToolChoiceMode(choice) != string(types.ToolChoiceModeNone)
 }
 
 // s2sTurn is the state of one response while its events arrive.
@@ -1197,6 +1231,12 @@ func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, 
 func s2sRunTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int, r *liveResponse) (after func()) {
 	st := session.s2s
 
+	if overrides != nil && s2sNamedToolChoice(overrides.ToolChoice) {
+		sendError(t, "invalid_request_error", s2sNamedToolChoiceMessage, "tool_choice", "")
+		r.outcome = outcomeFailed
+		return nil
+	}
+
 	// One response at a time on the stream. A superseded response holds it
 	// until the backend acknowledges the cancel.
 	select {
@@ -1247,11 +1287,9 @@ func s2sRunTurn(ctx context.Context, session *Session, conv *Conversation, t Tra
 		textOnly: !modalitiesContainAudio(modalities),
 		isWebRTC: isWebRTC,
 	}
-	tools := session.Tools
-	if overrides != nil && overrides.Tools != nil {
-		tools = overrides.Tools
-	}
-	tn.hasTools = len(tools) > 0
+	// A response cannot carry tools of its own on this path: the backend has
+	// the tools of the session and nothing else, so Go and the backend agree.
+	tn.hasTools = s2sFallbackToolsAllowed(session, overrides)
 	if session.ModelInterface == nil {
 		// no model interface, no function config
 	} else if mc := session.ModelInterface.PredictConfig(); mc != nil {
@@ -1367,10 +1405,9 @@ func (tn *s2sTurn) handle(ev *proto.AudioToAudioResponse, toolTurn int) bool {
 		cancelled := tn.stopped || m.Status == "cancelled"
 		var override *string
 		if !cancelled {
-			calls, content, fromText := s2sResponseToolCalls(tn.toolCalls, m.RawText, tn.hasTools, tn.funcCfg)
+			calls, content, contentKnown, fromText := s2sResponseToolCalls(tn.toolCalls, m.RawText, tn.hasTools, tn.funcCfg)
 			tn.toolCalls = calls
-			// the content is known only when the config says how to capture it
-			if fromText && content != "" {
+			if fromText && contentKnown {
 				override = &content
 			}
 		}
@@ -1399,6 +1436,9 @@ func checkS2SUpdate(session *Session, rt *types.RealtimeSession) error {
 	}
 	if rt.LocalAIClassifier != nil {
 		return fmt.Errorf("classifier mode: %w", errS2SOnly)
+	}
+	if s2sNamedToolChoice(rt.ToolChoice) {
+		return errors.New(s2sNamedToolChoiceMessage)
 	}
 	if rt.Audio != nil && rt.Audio.Input != nil {
 		if tr := rt.Audio.Input.Transcription; tr != nil && tr.Model != "" && session.InputAudioTranscription != nil && tr.Model != session.InputAudioTranscription.Model {
