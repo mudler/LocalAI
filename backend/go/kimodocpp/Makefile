@@ -1,5 +1,5 @@
 KIMODO_REPO?=https://github.com/localai-org/kimodo.cpp
-KIMODO_VERSION?=ed8a931aedb132f768190f6931c365855caba74c
+KIMODO_VERSION?=75ed52d2d3ec767a9bac79d11060b65d99f61a89
 BUILD_TYPE?=
 GOCMD?=go
 GO_TAGS?=
