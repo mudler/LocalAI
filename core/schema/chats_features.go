@@ -231,3 +231,38 @@ type ChatsAgentHistory struct {
 	Failed  int `json:"failed"`
 	Running int `json:"running"`
 }
+
+// ChatsChatFile is one file of a chat.
+type ChatsChatFile struct {
+	Name string `json:"name"`
+	// Path is the current path in the user's files ("/" is the home folder),
+	// for the files API. GuestPath is the path the model's tools use.
+	Path      string `json:"path"`
+	GuestPath string `json:"guest_path"`
+	Size      int64  `json:"size"`
+	Mime      string `json:"mime"`
+	// Origin is "user" (attached by the user or put in the chat folder),
+	// "model" (written by the model in the sandbox) or "tool" (written by a
+	// host tool of the chat, such as write_file).
+	Origin string `json:"origin"`
+	// Changed is true when the chat changed a file it did not create.
+	Changed bool `json:"changed,omitempty"`
+	// Turn is the turn that brought the file in; 0 when not known.
+	Turn int        `json:"turn,omitempty"`
+	At   *time.Time `json:"at,omitempty"`
+	// Media is true for an attachment that the model received as an image
+	// or a video inside its message.
+	Media bool `json:"media,omitempty"`
+}
+
+// ChatsChatFileList is the file index of a chat.
+type ChatsChatFileList struct {
+	Files []ChatsChatFile `json:"files"`
+	// Folder is the guest path of the chat folder; empty until a file is
+	// attached. FolderPath is the same folder in the user's files.
+	Folder     string `json:"folder,omitempty"`
+	FolderPath string `json:"folder_path,omitempty"`
+	// Stale are old chat folder paths that earlier messages name, such as
+	// the folder's name before a rename. The model is told the new one.
+	Stale []string `json:"stale,omitempty"`
+}

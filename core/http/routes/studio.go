@@ -162,6 +162,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/:id/messages/:seq/edit", h.EditMessage)
 	e.POST(base+"/:id/fork", h.Fork)
 	e.GET(base+"/:id/export", h.Export)
+	e.GET(base+"/:id/files", h.ChatFiles)
 	e.GET(base+"/:id/agents", h.SubAgents)
 	e.GET(base+"/:id/agents/:agent_id/messages", h.SubAgentMessages)
 	e.POST(base+"/:id/agents/:agent_id/stop", h.StopSubAgent)

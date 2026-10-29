@@ -21,6 +21,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/chats/:id/messages/:seq/edit", FeatureChats},
 	{"POST", "/api/chats/:id/fork", FeatureChats},
 	{"GET", "/api/chats/:id/export", FeatureChats},
+	{"GET", "/api/chats/:id/files", FeatureChats},
 	{"GET", "/api/chats/:id/agents", FeatureChats},
 	{"GET", "/api/chats/:id/agents/:agent_id/messages", FeatureChats},
 	{"POST", "/api/chats/:id/agents/:agent_id/stop", FeatureChats},

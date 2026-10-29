@@ -2795,6 +2795,62 @@ definitions:
       skipped:
         type: integer
     type: object
+  schema.ChatsChatFile:
+    properties:
+      at:
+        type: string
+      changed:
+        description: Changed is true when the chat changed a file it did not create.
+        type: boolean
+      guest_path:
+        type: string
+      media:
+        description: |-
+          Media is true for an attachment that the model received as an image
+          or a video inside its message.
+        type: boolean
+      mime:
+        type: string
+      name:
+        type: string
+      origin:
+        description: |-
+          Origin is "user" (attached by the user or put in the chat folder),
+          "model" (written by the model in the sandbox) or "tool" (written by a
+          host tool of the chat, such as write_file).
+        type: string
+      path:
+        description: |-
+          Path is the current path in the user's files ("/" is the home folder),
+          for the files API. GuestPath is the path the model's tools use.
+        type: string
+      size:
+        type: integer
+      turn:
+        description: Turn is the turn that brought the file in; 0 when not known.
+        type: integer
+    type: object
+  schema.ChatsChatFileList:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/schema.ChatsChatFile'
+        type: array
+      folder:
+        description: |-
+          Folder is the guest path of the chat folder; empty until a file is
+          attached. FolderPath is the same folder in the user's files.
+        type: string
+      folder_path:
+        type: string
+      stale:
+        description: |-
+          Stale are old chat folder paths that earlier messages name, such as
+          the folder's name before a rename. The model is told the new one.
+        items:
+          type: string
+        type: array
+    type: object
   schema.ChatsChatHit:
     properties:
       chat:
@@ -10312,8 +10368,8 @@ paths:
   /api/chats/{id}/events:
     get:
       description: 'Server-sent events: text, reasoning, tool_start, tool_end, checkpoint,
-        turn_start, turn_end, error, pending_delivered, sub_agent_done and compacted.
-        Events are live only; read the transcript for what came before.'
+        turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted
+        and files. Events are live only; read the transcript for what came before.'
       parameters:
       - description: conversation id
         in: path
@@ -10358,6 +10414,28 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsExport'
       summary: Export a chat.
+      tags:
+      - chats
+  /api/chats/{id}/files:
+    get:
+      description: 'The files that belong to one conversation: the files in its folder
+        under Chats (attached by the user, or written there), and the files its turns
+        created or changed elsewhere in the user''s home folder. Paths are the current
+        ones, so they follow a rename of the chat. The model gets the same list in
+        its prompt at every turn. A files event on the chat''s event stream says that
+        the list may have changed.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The files of the chat
+          schema:
+            $ref: '#/definitions/schema.ChatsChatFileList'
+      summary: List the files of a chat.
       tags:
       - chats
   /api/chats/{id}/fork:

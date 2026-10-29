@@ -114,7 +114,7 @@ The reply is not in that response. Read it from the event stream or from the
 transcript:
 
 ```bash
-# Live server-sent events: text, reasoning, tool_start, tool_end, turn_end, ...
+# Live server-sent events: text, reasoning, tool_start, tool_end, turn_end, files, ...
 curl -N localhost:8080/api/chats/3f1c.../events
 
 # The transcript, in order. Read it first, then open the event stream: the
@@ -236,6 +236,56 @@ Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
 
 The files are always kept in the chat's folder too. Images over 20 MB, videos
 over 100 MB and more than 128 MB of media in one message stay files only.
+
+## The files of a chat
+
+Each chat lists the files that belong to it: the files you attached, the files
+the model created, and the files it changed. The model gets the same list at
+every turn, so it knows which files exist and where they are now.
+
+- **Where attachments live.** In the chat's own folder in your files:
+  `/Chats/<date> <title>/<name>`, for example `/Chats/2026-10-29 Budget/q1.csv`.
+  The model sees the same file as
+  `/workspace/home/Chats/2026-10-29 Budget/q1.csv`. The folder is made at the
+  first attachment.
+- **What is listed.** Every file in the chat folder, and every file that the
+  chat's turns created or changed elsewhere in your home folder: in the
+  sandbox, or with a file tool such as `write_file`. The list is read from the
+  history of your files, so a file that you or the model moved or deleted
+  later is not listed at its old path.
+- **Rename.** Renaming a chat renames its folder to match the new title, and
+  the list gives the new paths at once. Earlier messages keep the old paths.
+  The model is told at its next turn that the folder was renamed and which
+  path is current.
+- **Delete.** Deleting a chat removes its transcript and its sandbox. Its
+  folder and every file the model wrote stay in your files.
+- **Fork.** A fork has no folder of its own until you attach a file. The files
+  that the copied messages attached stay in the original chat's folder; the
+  fork lists them while they are there.
+
+```bash
+curl .../api/chats/3f1c.../files
+# {"files":[{"name":"q1.csv","path":"/Chats/2026-10-29 Budget/q1.csv",
+#   "guest_path":"/workspace/home/Chats/2026-10-29 Budget/q1.csv","size":2048,
+#   "mime":"text/csv","origin":"user","turn":1,"at":"..."},
+#  {"name":"report.md","path":"/report.md","guest_path":"/workspace/home/report.md",
+#   "size":930,"mime":"text/markdown","origin":"model","turn":2,"at":"..."}],
+#  "folder":"/workspace/home/Chats/2026-10-29 Budget/","folder_path":"/Chats/2026-10-29 Budget"}
+```
+
+`origin` is `user` (you attached it, or put it in the chat folder), `model`
+(the model wrote it in the sandbox) or `tool` (a tool of the chat wrote it,
+such as `write_file`). `changed` marks a file the chat changed but did not
+create. `media` marks an attachment that the model received as an image or a
+video inside the message; the others reach the model by path. `path` works
+with the files API above. `stale` lists old folder paths that earlier
+messages name. A `files` event on the chat's event stream says that the list
+may have changed; read it again.
+
+The list that the model gets has the newest 50 files, one line each with the
+path, size, type, origin and turn, and a count of the rest. A chat with no
+files gets no list. The list is built from the stored history when a turn
+starts, so every frontend of a cluster gives the same one.
 
 ## Sub-agents
 
