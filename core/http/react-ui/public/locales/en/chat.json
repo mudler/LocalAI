@@ -114,7 +114,8 @@
   },
   "tokens": {
     "perSec": "{{count}} tok/s",
-    "peak": "Peak: {{count}} tok/s",
+    "estimatedPerSec": "{{count}} tok/s · estimated",
+    "averagePerSec": "{{count}} tok/s · end-to-end",
     "usage": "{{prompt}}p + {{completion}}c = {{total}}",
     "generating": "generating",
     "ofContext": "{{used}} / {{size}} tokens"

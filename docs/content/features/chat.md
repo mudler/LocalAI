@@ -46,6 +46,8 @@ The **MCP** chip opens the server and client tool lists. **Canvas** turns code b
 
 Enter sends, Shift+Enter adds a line. Paste an image to attach it. Under the box, the line shows the speed while a reply streams and the token count of the chat.
 
+The live speed is an estimate based on four output characters per token, including reasoning. When the reply finishes and every request reports completion-token usage, the speed uses those totals instead. This **end-to-end** average includes request latency, model loading, prompt processing, and client tool execution across all turns; it is not the backend’s generation-only speed. Reasoning tokens are already part of the reported completion total and are not added again. If usage is missing or the reply is interrupted, the speed remains labeled **estimated**.
+
 The buttons under the box attach an image, an audio file or a document. A PDF is sent as its text layer. A scanned PDF has none, so its first ten pages are attached as images instead, for a model that reads images; a toast says how many pages went along.
 
 The microphone button dictates: click it to record, click again to stop, and the recording goes to `/v1/audio/transcriptions` with the first installed transcription model ([audio to text]({{< relref "audio-to-text.md" >}})). The text lands in the box, so you can read and correct it before sending. Without a transcription model the button is not shown. Recording needs microphone access in the browser, which browsers only grant on `https://` or `localhost`.

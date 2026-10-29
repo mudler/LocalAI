@@ -123,7 +123,7 @@ function ChatPage() {
   const { operations } = useOperations()
   const {
     chats, activeChat, activeChatId, isStreaming, streamingChatId, streamingContent,
-    streamingReasoning, streamingToolCalls, tokensPerSecond, maxTokensPerSecond, modelLoading,
+    streamingReasoning, streamingToolCalls, tokensPerSecond, throughputIsEstimated, modelLoading,
     addChat, forkChat, switchChat, deleteChat, deleteAllChats, renameChat, updateChatSettings,
     sendMessage, stopGeneration, clearHistory, getContextUsagePercent, addMessage,
   } = useChat(urlModel || '')
@@ -1322,10 +1322,10 @@ function ChatPage() {
             <div className="cx-foot" data-testid="chat-foot">
               <span data-warn={(!isStreaming && contextPercent !== null && contextPercent > 90) || undefined}>
                 {isStreaming
-                  ? (tokensPerSecond !== null ? `${t('tokens.perSec', { count: tokensPerSecond })} · ${t('tokens.generating')}` : t('tokens.generating'))
+                  ? (tokensPerSecond !== null ? `${t('tokens.estimatedPerSec', { count: tokensPerSecond })} · ${t('tokens.generating')}` : t('tokens.generating'))
                   : (contextPercent !== null && contextPercent > 90
                     ? t('context.nearlyFull')
-                    : (maxTokensPerSecond !== null ? t('tokens.peak', { count: maxTokensPerSecond }) : ''))}
+                    : (tokensPerSecond !== null ? t(throughputIsEstimated ? 'tokens.estimatedPerSec' : 'tokens.averagePerSec', { count: tokensPerSecond }) : ''))}
               </span>
               <span className="cx-foot__tokens">
                 {activeChat.tokenUsage?.total > 0 && (activeChat.contextSize
