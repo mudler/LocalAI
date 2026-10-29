@@ -15,6 +15,8 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // stub is a backend that only says its name.
@@ -37,8 +39,12 @@ var _ = workspace.ErrInvalid
 // kinds says which backends can start on the fake host.
 type kinds struct{ kvm, gvisor, host error }
 
-func open(t *testing.T, k kinds, dir string) *backends.Selector {
-	t.Helper()
+func TestBackends(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Sandbox Backends Suite")
+}
+
+func open(k kinds, dir string) *backends.Selector {
 	mk := func(name string, err error) func() (sandbox.Backend, error) {
 		return func() (sandbox.Backend, error) {
 			if err != nil {
@@ -51,256 +57,182 @@ func open(t *testing.T, k kinds, dir string) *backends.Selector {
 		DataDir: dir,
 		KVM:     mk("kvm", k.kvm), GVisor: mk("gvisor", k.gvisor), Host: mk("host", k.host),
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	Expect(err).NotTo(HaveOccurred())
 	return s
 }
 
-func name(t *testing.T, s *backends.Selector) string {
-	t.Helper()
+func name(s *backends.Selector) string {
 	b, err := s.Backend()
 	if err != nil {
 		if errors.Is(err, codetools.ErrNoSandbox) {
 			return ""
 		}
-		t.Fatal(err)
+		Expect(err).NotTo(HaveOccurred())
 	}
 	return b.(*stub).name
 }
 
 var unsupported = fmt.Errorf("%w: /dev/kvm: permission denied", sandbox.ErrUnsupported)
 
-func TestAutoPicksKVMThenGVisorThenNothingAndNeverTheHost(t *testing.T) {
-	cases := []struct {
-		k    kinds
-		want string
-	}{
-		{kinds{}, "kvm"},
-		{kinds{kvm: unsupported}, "gvisor"},
-		{kinds{kvm: unsupported, gvisor: unsupported}, ""},
-	}
-	for _, c := range cases {
-		s := open(t, c.k, t.TempDir())
-		if got := name(t, s); got != c.want {
-			t.Errorf("%+v: auto picked %q, want %q", c.k, got, c.want)
+var _ = Describe("Backend selector", func() {
+	It("picks KVM, then gVisor, then nothing, and never the host", func() {
+		cases := []struct {
+			k    kinds
+			want string
+		}{
+			{kinds{}, "kvm"},
+			{kinds{kvm: unsupported}, "gvisor"},
+			{kinds{kvm: unsupported, gvisor: unsupported}, ""},
 		}
-	}
-}
-
-func TestAutoNeverPicksTheHostEvenWhenItWasConfirmed(t *testing.T) {
-	s := open(t, kinds{kvm: unsupported, gvisor: unsupported}, t.TempDir())
-	if err := s.ConfirmHost(backends.HostPhrase); err != nil {
-		t.Fatal(err)
-	}
-	if got := name(t, s); got != "" {
-		t.Fatalf("auto picked %q after the host was confirmed", got)
-	}
-	if st := s.Status(); st.Active != "" || st.Setting != backends.Auto {
-		t.Fatalf("status = %+v", st)
-	}
-}
-
-func TestAnExplicitChoiceIsNeverAFallback(t *testing.T) {
-	s := open(t, kinds{kvm: unsupported}, t.TempDir())
-	if err := s.Set(backends.KVM); err != nil {
-		t.Fatal(err)
-	}
-	if got := name(t, s); got != "" {
-		t.Fatalf("kvm was chosen but %q ran", got)
-	}
-	if err := s.Set(backends.GVisor); err != nil {
-		t.Fatal(err)
-	}
-	if got := name(t, s); got != "gvisor" {
-		t.Fatalf("gvisor was chosen but %q ran", got)
-	}
-	if err := s.Set(backends.Off); err != nil {
-		t.Fatal(err)
-	}
-	if got := name(t, s); got != "" {
-		t.Fatalf("off, but %q ran", got)
-	}
-}
-
-func TestTheHostNeedsTheTypedPhraseBeforeItCanBeChosen(t *testing.T) {
-	s := open(t, kinds{}, t.TempDir())
-	if err := s.Set(backends.Host); !errors.Is(err, backends.ErrNotConfirmed) {
-		t.Fatalf("Set(host) before the phrase = %v, want ErrNotConfirmed", err)
-	}
-	for _, bad := range []string{"", "yes", "i understand", strings.ToLower(backends.HostPhrase), backends.HostPhrase + " "} {
-		if err := s.ConfirmHost(bad); !errors.Is(err, backends.ErrNotConfirmed) {
-			t.Errorf("ConfirmHost(%q) = %v, want ErrNotConfirmed", bad, err)
+		for _, c := range cases {
+			s := open(c.k, GinkgoT().TempDir())
+			Expect(name(s)).To(Equal(c.want), "%+v", c.k)
 		}
-	}
-	if err := s.ConfirmHost(backends.HostPhrase); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Set(backends.Host); err != nil {
-		t.Fatal(err)
-	}
-	if got := name(t, s); got != "host" {
-		t.Fatalf("host chosen, %q ran", got)
-	}
-	st := s.Status()
-	if !st.HostNotice || st.Active != "host" {
-		t.Fatalf("status = %+v, want the persistent notice", st)
-	}
-}
+	})
 
-func TestTheHostRefusesWhereItCannotRun(t *testing.T) {
-	s := open(t, kinds{kvm: unsupported, gvisor: unsupported, host: fmt.Errorf("%w: the host backend must not run as root", sandbox.ErrUnsupported)}, t.TempDir())
-	_ = s.ConfirmHost(backends.HostPhrase)
-	err := s.Set(backends.Host)
-	if err == nil || !strings.Contains(err.Error(), "must not run as root") {
-		t.Fatalf("Set(host) = %v, want the reason", err)
-	}
-	if got := name(t, s); got != "" {
-		t.Fatalf("%q ran", got)
-	}
-}
+	It("never picks the host automatically, even when it was confirmed", func() {
+		s := open(kinds{kvm: unsupported, gvisor: unsupported}, GinkgoT().TempDir())
+		Expect(s.ConfirmHost(backends.HostPhrase)).To(Succeed())
+		Expect(name(s)).To(BeEmpty(), "auto picked a backend after the host was confirmed")
+		st := s.Status()
+		Expect(st.Active).To(BeEmpty())
+		Expect(st.Setting).To(Equal(backends.Auto))
+	})
 
-func TestStatusSaysWhyEachBackendIsMissing(t *testing.T) {
-	s := open(t, kinds{kvm: unsupported, gvisor: fmt.Errorf("%w: runsc not found", sandbox.ErrUnsupported)}, t.TempDir())
-	st := s.Status()
-	reasons := map[string]string{}
-	for _, b := range st.Backends {
-		reasons[b.Name] = b.Reason
-		if b.Name == "host" && b.Usable != true {
-			t.Errorf("the host backend should be usable here: %+v", b)
+	It("never treats an explicit choice as a fallback", func() {
+		s := open(kinds{kvm: unsupported}, GinkgoT().TempDir())
+		Expect(s.Set(backends.KVM)).To(Succeed())
+		Expect(name(s)).To(BeEmpty(), "kvm was chosen but another backend ran")
+		Expect(s.Set(backends.GVisor)).To(Succeed())
+		Expect(name(s)).To(Equal("gvisor"), "gvisor was chosen")
+		Expect(s.Set(backends.Off)).To(Succeed())
+		Expect(name(s)).To(BeEmpty(), "off, but a backend ran")
+	})
+
+	It("needs the typed phrase before the host can be chosen", func() {
+		s := open(kinds{}, GinkgoT().TempDir())
+		Expect(s.Set(backends.Host)).To(MatchError(backends.ErrNotConfirmed), "Set(host) before the phrase")
+		for _, bad := range []string{"", "yes", "i understand", strings.ToLower(backends.HostPhrase), backends.HostPhrase + " "} {
+			Expect(s.ConfirmHost(bad)).To(MatchError(backends.ErrNotConfirmed), "ConfirmHost(%q)", bad)
 		}
-	}
-	if !strings.Contains(reasons["kvm"], "/dev/kvm") || !strings.Contains(reasons["gvisor"], "runsc") {
-		t.Errorf("reasons = %v", reasons)
-	}
-	if strings.Contains(reasons["kvm"], "unsupported") {
-		t.Errorf("the reason repeats the error class: %q", reasons["kvm"])
-	}
-}
+		Expect(s.ConfirmHost(backends.HostPhrase)).To(Succeed())
+		Expect(s.Set(backends.Host)).To(Succeed())
+		Expect(name(s)).To(Equal("host"))
+		st := s.Status()
+		Expect(st.HostNotice).To(BeTrue(), "want the persistent notice: %+v", st)
+		Expect(st.Active).To(Equal("host"))
+	})
 
-func TestTheChoiceSurvivesARestartAndABrokenFileFallsBackToAuto(t *testing.T) {
-	dir := t.TempDir()
-	s := open(t, kinds{}, dir)
-	if err := s.Set(backends.GVisor); err != nil {
-		t.Fatal(err)
-	}
-	if got := open(t, kinds{}, dir).Status().Setting; got != backends.GVisor {
-		t.Fatalf("setting after restart = %q", got)
-	}
-	info, err := os.Stat(filepath.Join(dir, "settings.json"))
-	if err != nil || info.Mode().Perm() != 0o600 {
-		t.Fatalf("settings file: %v %v", info, err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte("{broken"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if st := open(t, kinds{}, dir).Status(); st.Setting != backends.Auto {
-		t.Fatalf("a broken file gave %q, want auto", st.Setting)
-	}
-	// A setting nobody offers is not accepted from the file either, and the
-	// host is not selected by a file that says so without a confirmation.
-	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"backend":"host"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if st := open(t, kinds{}, dir).Status(); st.Setting == backends.Host {
-		t.Fatalf("the file selected the host without a confirmation")
-	}
-	if err := s.Set("anything"); !errors.Is(err, backends.ErrUnknown) {
-		t.Fatalf("Set(unknown) = %v", err)
-	}
-}
+	It("refuses the host where it cannot run", func() {
+		s := open(kinds{kvm: unsupported, gvisor: unsupported, host: fmt.Errorf("%w: the host backend must not run as root", sandbox.ErrUnsupported)}, GinkgoT().TempDir())
+		_ = s.ConfirmHost(backends.HostPhrase)
+		Expect(s.Set(backends.Host)).To(MatchError(ContainSubstring("must not run as root")))
+		Expect(name(s)).To(BeEmpty())
+	})
 
-func TestSwitchingClosesTheBackendThatWasRunning(t *testing.T) {
-	s := open(t, kinds{}, t.TempDir())
-	b, err := s.Backend()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Set(backends.Off); err != nil {
-		t.Fatal(err)
-	}
-	if !b.(*stub).closed.Load() {
-		t.Error("the backend was not closed when the choice changed")
-	}
-}
-
-func TestTheAppArmorReasonNamesTheExactAdminStep(t *testing.T) {
-	dir := t.TempDir()
-	runsc := filepath.Join(dir, "runsc")
-	tool := filepath.Join(dir, "gvisor-profile")
-	if err := os.WriteFile(tool, []byte("x"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, runsc)
-	s := open(t, kinds{kvm: unsupported, gvisor: err}, t.TempDir())
-	var got string
-	for _, b := range s.Status().Backends {
-		if b.Name == "gvisor" {
-			got = b.Reason
+	It("says why each backend is missing", func() {
+		s := open(kinds{kvm: unsupported, gvisor: fmt.Errorf("%w: runsc not found", sandbox.ErrUnsupported)}, GinkgoT().TempDir())
+		st := s.Status()
+		reasons := map[string]string{}
+		for _, b := range st.Backends {
+			reasons[b.Name] = b.Reason
+			if b.Name == "host" {
+				Expect(b.Usable).To(BeTrue(), "the host backend should be usable here: %+v", b)
+			}
 		}
-	}
-	for _, want := range []string{tool + " " + runsc, "/etc/apparmor.d/", "apparmor_parser -r", "Ubuntu 24.04"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("reason lacks %q: %q", want, got)
+		Expect(reasons["kvm"]).To(ContainSubstring("/dev/kvm"))
+		Expect(reasons["gvisor"]).To(ContainSubstring("runsc"))
+		Expect(reasons["kvm"]).NotTo(ContainSubstring("unsupported"), "the reason repeats the error class")
+	})
+
+	It("keeps the choice across a restart and falls back to auto on a broken file", func() {
+		dir := GinkgoT().TempDir()
+		s := open(kinds{}, dir)
+		Expect(s.Set(backends.GVisor)).To(Succeed())
+		Expect(open(kinds{}, dir).Status().Setting).To(Equal(backends.GVisor), "setting after restart")
+		info, err := os.Stat(filepath.Join(dir, "settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		Expect(os.WriteFile(filepath.Join(dir, "settings.json"), []byte("{broken"), 0o600)).To(Succeed())
+		Expect(open(kinds{}, dir).Status().Setting).To(Equal(backends.Auto), "a broken file")
+		// A setting nobody offers is not accepted from the file either, and the
+		// host is not selected by a file that says so without a confirmation.
+		Expect(os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"backend":"host"}`), 0o600)).To(Succeed())
+		Expect(open(kinds{}, dir).Status().Setting).NotTo(Equal(backends.Host), "the file selected the host without a confirmation")
+		Expect(s.Set("anything")).To(MatchError(backends.ErrUnknown))
+	})
+
+	It("closes the backend that was running when it switches", func() {
+		s := open(kinds{}, GinkgoT().TempDir())
+		b, err := s.Backend()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Set(backends.Off)).To(Succeed())
+		Expect(b.(*stub).closed.Load()).To(BeTrue(), "the backend was not closed when the choice changed")
+	})
+
+	It("names the exact admin step in the AppArmor reason", func() {
+		dir := GinkgoT().TempDir()
+		runsc := filepath.Join(dir, "runsc")
+		tool := filepath.Join(dir, "gvisor-profile")
+		Expect(os.WriteFile(tool, []byte("x"), 0o755)).To(Succeed())
+		err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, runsc)
+		s := open(kinds{kvm: unsupported, gvisor: err}, GinkgoT().TempDir())
+		var got string
+		for _, b := range s.Status().Backends {
+			if b.Name == "gvisor" {
+				got = b.Reason
+			}
 		}
-	}
-	if strings.Contains(got, "gvisor.Profile") {
-		t.Errorf("reason names a Go function: %q", got)
-	}
-}
-
-func TestTheAppArmorReasonWithoutTheShippedToolStillNamesTheCommand(t *testing.T) {
-	err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, "/opt/gvisor/runsc")
-	s := open(t, kinds{kvm: unsupported, gvisor: err}, t.TempDir())
-	var got string
-	for _, b := range s.Status().Backends {
-		if b.Name == "gvisor" {
-			got = b.Reason
+		for _, want := range []string{tool + " " + runsc, "/etc/apparmor.d/", "apparmor_parser -r", "Ubuntu 24.04"} {
+			Expect(got).To(ContainSubstring(want))
 		}
-	}
-	if !strings.Contains(got, "gvisor-profile /opt/gvisor/runsc") || !strings.Contains(got, "apparmor_parser -r") {
-		t.Fatalf("reason = %q", got)
-	}
-}
+		Expect(got).NotTo(ContainSubstring("gvisor.Profile"), "reason names a Go function")
+	})
 
-func TestTheRootRefusalSaysHowToRunUnprivileged(t *testing.T) {
-	err := fmt.Errorf("%w: the backend must not run as root on the host: run it as an unprivileged user", sandbox.ErrUnsupported)
-	s := open(t, kinds{kvm: err, gvisor: err}, t.TempDir())
-	for _, b := range s.Status().Backends {
-		if b.Name == "kvm" && (!strings.Contains(b.Reason, "LOCALAI_RUN_AS_ROOT") || !strings.Contains(b.Reason, "unprivileged")) {
-			t.Errorf("reason = %q", b.Reason)
+	It("names the command in the AppArmor reason without the shipped tool", func() {
+		err := fmt.Errorf("%w: runsc cannot make a user namespace (permission denied): an administrator must load the AppArmor profile that gvisor.Profile(%q) returns", sandbox.ErrUnsupported, "/opt/gvisor/runsc")
+		s := open(kinds{kvm: unsupported, gvisor: err}, GinkgoT().TempDir())
+		var got string
+		for _, b := range s.Status().Backends {
+			if b.Name == "gvisor" {
+				got = b.Reason
+			}
 		}
-	}
-}
+		Expect(got).To(ContainSubstring("gvisor-profile /opt/gvisor/runsc"))
+		Expect(got).To(ContainSubstring("apparmor_parser -r"))
+	})
 
-// A backend sweeps the sandboxes an earlier process left when it starts. It
-// starts at the first call, so after a restart nothing was swept until
-// someone used the sandbox. Warm starts the chosen backend at once.
-func TestWarmStartsTheChosenBackendWithoutACall(t *testing.T) {
-	var started atomic.Int32
-	mk := func(name string) func() (sandbox.Backend, error) {
-		return func() (sandbox.Backend, error) { started.Add(1); return &stub{name: name}, nil }
-	}
-	s, err := backends.Open(backends.Options{DataDir: t.TempDir(), KVM: mk("kvm"), GVisor: mk("gvisor"), Host: mk("host")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if started.Load() != 0 {
-		t.Fatal("Open started a backend")
-	}
-	s.Warm()
-	if started.Load() != 1 {
-		t.Fatalf("Warm started %d backends, want the 1 that auto picks", started.Load())
-	}
-	if got := name(t, s); got != "kvm" || started.Load() != 1 {
-		t.Fatalf("after Warm the first call got %q and %d starts: the backend must be reused", got, started.Load())
-	}
-}
+	It("says how to run unprivileged when it refuses root", func() {
+		err := fmt.Errorf("%w: the backend must not run as root on the host: run it as an unprivileged user", sandbox.ErrUnsupported)
+		s := open(kinds{kvm: err, gvisor: err}, GinkgoT().TempDir())
+		for _, b := range s.Status().Backends {
+			if b.Name == "kvm" {
+				Expect(b.Reason).To(ContainSubstring("LOCALAI_RUN_AS_ROOT"))
+				Expect(b.Reason).To(ContainSubstring("unprivileged"))
+			}
+		}
+	})
 
-func TestWarmWithNoUsableBackendIsQuiet(t *testing.T) {
-	s := open(t, kinds{kvm: unsupported, gvisor: unsupported}, t.TempDir())
-	s.Warm() // must not panic or block
-	if got := name(t, s); got != "" {
-		t.Fatalf("got %q", got)
-	}
-}
+	// A backend sweeps the sandboxes an earlier process left when it starts. It
+	// starts at the first call, so after a restart nothing was swept until
+	// someone used the sandbox. Warm starts the chosen backend at once.
+	It("starts the chosen backend on Warm without a call", func() {
+		var started atomic.Int32
+		mk := func(name string) func() (sandbox.Backend, error) {
+			return func() (sandbox.Backend, error) { started.Add(1); return &stub{name: name}, nil }
+		}
+		s, err := backends.Open(backends.Options{DataDir: GinkgoT().TempDir(), KVM: mk("kvm"), GVisor: mk("gvisor"), Host: mk("host")})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(started.Load()).To(BeZero(), "Open started a backend")
+		s.Warm()
+		Expect(started.Load()).To(BeEquivalentTo(1), "Warm must start the 1 backend that auto picks")
+		Expect(name(s)).To(Equal("kvm"))
+		Expect(started.Load()).To(BeEquivalentTo(1), "the backend must be reused after Warm")
+	})
+
+	It("is quiet when Warm has no usable backend", func() {
+		s := open(kinds{kvm: unsupported, gvisor: unsupported}, GinkgoT().TempDir())
+		s.Warm() // must not panic or block
+		Expect(name(s)).To(BeEmpty())
+	})
+})
