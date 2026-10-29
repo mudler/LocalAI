@@ -7,7 +7,7 @@ import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWa
 const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
-  'usage', 'trigger_proposed',
+  'usage', 'trigger_proposed', 'files',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -40,9 +40,10 @@ export function useServerChat() {
   // tokens_per_second }). The server does not keep it: a reload has none until
   // the next request.
   const [usage, setUsage] = useState(null)
-  // Counts the sub-agent starts and ends and the trigger proposals, so the
-  // panels that list them read the server again.
-  const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0 })
+  // Counts the sub-agent starts and ends, the trigger proposals and the
+  // changes to the chat's files, so the panels that list them read the server
+  // again.
+  const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0, files: 0 })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -146,6 +147,7 @@ export function useServerChat() {
       },
       usage: (e) => { if (e.usage) setUsage(e.usage) },
       trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
+      files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
       error: (e) => { if (e.text) setError(e.text) },
       turn_end: async () => {
         // The server publishes the end of a turn just before it records it, so

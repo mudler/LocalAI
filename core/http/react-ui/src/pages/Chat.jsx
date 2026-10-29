@@ -15,6 +15,9 @@ import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from 
 import { connectorRef } from '../utils/chatMCP'
 // eslint-disable-next-line no-unused-vars
 import CanvasPanel from '../components/CanvasPanel'
+// eslint-disable-next-line no-unused-vars
+import ChatFilesPane from '../components/chat/ChatFilesPane'
+import { useChatFiles } from '../hooks/useChatFiles'
 import { chatAgentsApi, chatsApi, modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -128,6 +131,8 @@ function ChatPage() {
   const [find, setFind] = useState({ open: false, query: '', index: 0, count: 0, token: 0 })
   const [canvasMode, setCanvasMode] = useState(false)
   const [canvasOpen, setCanvasOpen] = useState(false)
+  // The files pane and the canvas share the right side: one at a time.
+  const [filesOpen, setFilesOpen] = useState(false)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [renaming, setRenaming] = useState(false)
@@ -182,6 +187,7 @@ function ChatPage() {
   const model = activeChat ? activeChat.model : draftModel
   const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
   const switches = useChatSwitches(activeId, chat.files.on)
+  const chatFiles = useChatFiles(chat.files.on ? activeId : null, chat.ticks.files)
   const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), activeId)
   // What the Tools picker says under an add-on: the Sandbox's state.
   const addonNote = (a) => {
@@ -250,7 +256,7 @@ function ChatPage() {
       // A block opened from its own Canvas button is the one to show.
       setSelectedArtifactId(pendingArtifactRef.current || artifacts[artifacts.length - 1].id)
       pendingArtifactRef.current = null
-      if (!canvasOpen) setCanvasOpen(true)
+      if (!canvasOpen) { setCanvasOpen(true); setFilesOpen(false) }
     }
     prevArtifactCountRef.current = artifacts.length
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -314,7 +320,7 @@ function ChatPage() {
   // the canvas; it also exits focus mode. None of that fires while a menu or
   // dialog is open: those take their own Esc first.
   const escapeRef = useRef({})
-  escapeRef.current = { running: chat.running, stop: () => chat.stop(activeId), findOpen: find.open, canvasOpen }
+  escapeRef.current = { running: chat.running, stop: () => chat.stop(activeId), findOpen: find.open, canvasOpen, filesOpen }
   useEffect(() => {
     const onKey = (e) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -344,6 +350,7 @@ function ChatPage() {
         if (cur.running) cur.stop()
         else if (cur.findOpen) setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
         else if (cur.canvasOpen) setCanvasOpen(false)
+        else if (cur.filesOpen) setFilesOpen(false)
       }
       if (e.key === 'Escape' && focusActive) setFocusOverride(true)
     }
@@ -842,12 +849,27 @@ function ChatPage() {
             className="home-chip cx-chip-count"
             title={t('input.openCanvas')}
             aria-label={t('input.openCanvas')}
-            onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true) }}
+            onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true); setFilesOpen(false) }}
           >
             {artifacts.length}
           </button>
         )}
       </span>
+      {activeId && chat.files.on && (
+        <button
+          type="button"
+          className="home-chip cx-chip-toggle"
+          aria-pressed={filesOpen}
+          aria-controls={filesOpen ? 'chat-files-pane' : undefined}
+          onClick={() => { const next = !filesOpen; setFilesOpen(next); if (next) setCanvasOpen(false) }}
+          title={t('files.chipTitle')}
+          data-testid="chat-files-chip"
+        >
+          <Icon name="paperclip" />
+          <span className="home-chip__text">{t('files.chip')}</span>
+          {chatFiles.files.length > 0 && <span className="cx-files__count" data-testid="chat-files-count">{chatFiles.files.length}</span>}
+        </button>
+      )}
     </>
   )
 
@@ -1110,6 +1132,13 @@ function ChatPage() {
           </div>
         )}
       </div>
+      {filesOpen && activeId && chat.files.on && !(canvasOpen && artifacts.length > 0) && (
+        <ChatFilesPane
+          state={chatFiles}
+          onClose={() => setFilesOpen(false)}
+          onDropFiles={(list) => attachFiles('file', list)}
+        />
+      )}
       {canvasOpen && artifacts.length > 0 && (
         <CanvasPanel
           artifacts={artifacts}

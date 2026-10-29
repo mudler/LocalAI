@@ -146,5 +146,26 @@
   "shortcuts": {
     "onMessage": "Sur un message : copier, modifier, régénérer",
     "editLast": "Modifier votre dernier message"
+  },
+  "files": {
+    "title": "Fichiers de cette conversation",
+    "chip": "Fichiers",
+    "chipTitle": "Fichiers de cette conversation : ce que vous avez joint et ce que l'assistant a créé ou modifié",
+    "close": "Fermer les fichiers",
+    "emptyTitle": "Aucun fichier dans cette conversation",
+    "emptyBody": "Déposez des fichiers ici pour les joindre à votre prochain message. Les fichiers que l'assistant crée ou modifie apparaissent aussi ici.",
+    "dropHint": "Déposez des fichiers ici pour les joindre à votre prochain message.",
+    "groups": {
+      "uploaded": "Envoyés par vous",
+      "created": "Créés par l'assistant",
+      "changed": "Modifiés par l'assistant"
+    },
+    "turn": "tour {{n}}",
+    "media": "Dans le contexte",
+    "mediaTitle": "Le modèle a reçu ce fichier comme image ou vidéo avec votre message",
+    "changedTag": "Modifié",
+    "changedTitle": "L'assistant a modifié ce fichier",
+    "download": "Télécharger {{name}}",
+    "error": "Impossible de lire les fichiers de cette conversation."
   }
 }

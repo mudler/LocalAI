@@ -4,24 +4,9 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { filesApi } from '../utils/api'
-import AddonSlot from '../addons/AddonSlot'
+import FilePreview from '../components/files/FilePreview'
+import { fileSize as size } from '../utils/fileInfo'
 import './workspace.css'
-
-const TEXT_EXT = /\.(txt|md|markdown|json|ya?ml|csv|tsv|log|xml|html?|css|js|jsx|ts|tsx|py|go|rs|c|h|cpp|sh|sql|toml|ini)$/i
-const IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i
-
-// The extension an add-on preview is matched on: lower case, without the dot.
-// A name with no extension, or one the slot would refuse, has none.
-function extensionOf(name) {
-  const m = /\.([A-Za-z0-9]{1,8})$/.exec(name || '')
-  return m ? m[1].toLowerCase() : ''
-}
-
-function size(bytes) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
 
 function Breadcrumb({ path, onOpen, t }) {
   const parts = path.split('/').filter(Boolean)
@@ -38,39 +23,6 @@ function Breadcrumb({ path, onOpen, t }) {
         )
       })}
     </nav>
-  )
-}
-
-function Preview({ entry, t }) {
-  const [text, setText] = useState(null)
-  const [failed, setFailed] = useState(false)
-  useEffect(() => {
-    setText(null)
-    setFailed(false)
-    // A read that ends after another file was chosen must not show its text.
-    let current = true
-    if (entry.kind === 'file' && TEXT_EXT.test(entry.name) && entry.size <= 5 * 1024 * 1024) {
-      filesApi.readText(entry.path).then((v) => { if (current) setText(v) }).catch(() => { if (current) setFailed(true) })
-    }
-    return () => { current = false }
-  }, [entry.path, entry.kind, entry.name, entry.size])
-  const download = filesApi.contentUrl(entry.path)
-  return (
-    <aside className="ws-preview" aria-label={t('preview.label')}>
-      <h2 className="ws-preview__name">{entry.name}</h2>
-      <p className="ws-muted">{size(entry.size)}</p>
-      {entry.kind === 'file' && extensionOf(entry.name) && (
-        <AddonSlot slot="files.preview" context={{ path: entry.path, name: entry.name, extension: extensionOf(entry.name) }} />
-      )}
-      {IMAGE_EXT.test(entry.name) && (
-        <img className="ws-preview__image" src={filesApi.contentUrl(entry.path, true)} alt={entry.name} />
-      )}
-      {text !== null && <pre className="ws-preview__text">{text}</pre>}
-      {failed && <p className="ws-muted">{t('preview.failed')}</p>}
-      <a className="btn btn-secondary btn-sm" href={download} download={entry.name}>
-        <Icon name="download" /> {t('download')}
-      </a>
-    </aside>
   )
 }
 
@@ -296,7 +248,7 @@ export default function Workspace() {
           </>
         )}
       </div>
-      {selected && tab === 'files' && ws.hits === null && <Preview entry={selected} t={t} />}
+      {selected && tab === 'files' && ws.hits === null && <FilePreview entry={selected} t={t} />}
     </div>
   )
 }

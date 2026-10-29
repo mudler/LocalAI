@@ -148,5 +148,26 @@
   "shortcuts": {
     "onMessage": "Su un messaggio: copia, modifica, rigenera",
     "editLast": "Modifica il tuo ultimo messaggio"
+  },
+  "files": {
+    "title": "File di questa chat",
+    "chip": "File",
+    "chipTitle": "File di questa chat: quelli che hai allegato e quelli che l'assistente ha creato o modificato",
+    "close": "Chiudi i file",
+    "emptyTitle": "Ancora nessun file in questa chat",
+    "emptyBody": "Trascina qui i file per allegarli al prossimo messaggio. Anche i file che l'assistente crea o modifica compaiono qui.",
+    "dropHint": "Trascina qui i file per allegarli al prossimo messaggio.",
+    "groups": {
+      "uploaded": "Caricati da te",
+      "created": "Creati dall'assistente",
+      "changed": "Modificati dall'assistente"
+    },
+    "turn": "turno {{n}}",
+    "media": "Nel contesto",
+    "mediaTitle": "Il modello ha ricevuto questo file come immagine o video insieme al tuo messaggio",
+    "changedTag": "Modificato",
+    "changedTitle": "L'assistente ha modificato questo file",
+    "download": "Scarica {{name}}",
+    "error": "Impossibile leggere i file di questa chat."
   }
 }

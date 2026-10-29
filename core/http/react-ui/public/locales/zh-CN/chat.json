@@ -148,5 +148,26 @@
   "shortcuts": {
     "onMessage": "在消息上：复制、编辑、重新生成",
     "editLast": "编辑你的最后一条消息"
+  },
+  "files": {
+    "title": "此对话中的文件",
+    "chip": "文件",
+    "chipTitle": "此对话中的文件：你附加的文件，以及助手创建或修改的文件",
+    "close": "关闭文件",
+    "emptyTitle": "此对话中还没有文件",
+    "emptyBody": "将文件拖到这里，即可附加到下一条消息。助手创建或修改的文件也会显示在这里。",
+    "dropHint": "将文件拖到这里，即可附加到下一条消息。",
+    "groups": {
+      "uploaded": "你上传的",
+      "created": "助手创建的",
+      "changed": "助手修改的"
+    },
+    "turn": "第 {{n}} 轮",
+    "media": "在上下文中",
+    "mediaTitle": "模型已随你的消息以图片或视频形式收到此文件",
+    "changedTag": "已编辑",
+    "changedTitle": "助手修改了此文件",
+    "download": "下载 {{name}}",
+    "error": "无法读取此对话的文件。"
   }
 }

@@ -148,5 +148,26 @@
   "shortcuts": {
     "onMessage": "En un mensaje: copiar, editar, regenerar",
     "editLast": "Editar tu último mensaje"
+  },
+  "files": {
+    "title": "Archivos de este chat",
+    "chip": "Archivos",
+    "chipTitle": "Archivos de este chat: lo que adjuntaste y lo que el asistente creó o cambió",
+    "close": "Cerrar archivos",
+    "emptyTitle": "Todavía no hay archivos en este chat",
+    "emptyBody": "Suelta archivos aquí para adjuntarlos a tu próximo mensaje. Los archivos que el asistente cree o cambie también aparecen aquí.",
+    "dropHint": "Suelta archivos aquí para adjuntarlos a tu próximo mensaje.",
+    "groups": {
+      "uploaded": "Subidos por ti",
+      "created": "Creados por el asistente",
+      "changed": "Cambiados por el asistente"
+    },
+    "turn": "turno {{n}}",
+    "media": "En contexto",
+    "mediaTitle": "El modelo recibió este archivo como imagen o vídeo con tu mensaje",
+    "changedTag": "Editado",
+    "changedTitle": "El asistente cambió este archivo",
+    "download": "Descargar {{name}}",
+    "error": "No se pudieron leer los archivos de este chat."
   }
 }

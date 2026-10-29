@@ -328,5 +328,26 @@
     "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
     "used": "{{used}} tokens",
     "speed": "{{speed}} tok/s"
+  },
+  "files": {
+    "title": "Files in this chat",
+    "chip": "Files",
+    "chipTitle": "Files in this chat: what you attached and what the assistant created or changed",
+    "close": "Close files",
+    "emptyTitle": "No files in this chat yet",
+    "emptyBody": "Drop files here to attach them to your next message. Files the assistant creates or changes show up here too.",
+    "dropHint": "Drop files here to attach them to your next message.",
+    "groups": {
+      "uploaded": "You uploaded",
+      "created": "Created by the assistant",
+      "changed": "Changed by the assistant"
+    },
+    "turn": "turn {{n}}",
+    "media": "In context",
+    "mediaTitle": "The model received this file as an image or video with your message",
+    "changedTag": "Edited",
+    "changedTitle": "The assistant changed this file",
+    "download": "Download {{name}}",
+    "error": "The files of this chat could not be read."
   }
 }

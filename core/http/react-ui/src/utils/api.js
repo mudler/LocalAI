@@ -160,6 +160,9 @@ export const chatsApi = {
   importChat: (chat, model) => postJSON(`${API_CONFIG.endpoints.chats}/import`, { chat, ...(model ? { model } : {}) }),
   // The raw localStorage value of the old chat page, sent as it is.
   importBrowser: (raw) => fetchJSON(`${API_CONFIG.endpoints.chats}/import/browser`, { method: 'POST', body: raw }),
+  // The files of a chat: attached, written by the model or a tool, changed.
+  // Paths are the current ones; a files event says the list may have changed.
+  files: (id) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/files`),
   subAgents: (id) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/agents`),
   subAgentMessages: (id, agentId) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/agents/${encodeURIComponent(agentId)}/messages`),
   stopSubAgent: (id, agentId) => postJSON(`${API_CONFIG.endpoints.chat(id)}/agents/${encodeURIComponent(agentId)}/stop`, {}),

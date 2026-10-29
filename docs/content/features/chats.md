@@ -673,6 +673,12 @@ there keeps running when you close the tab and opens again from any browser.
   call the add-on refused (`not_permitted`, `resource_unreachable`,
   `not_running`, `invalid_request`) says why. MCP Apps show live under their
   tool call.
+- **Files** over the message box opens the files pane on the right: the
+  files you attached, the files the assistant created and the files it
+  changed, each with its size and turn, a preview and a download. It updates
+  while the model works and after a rename. Drop files on it to attach them to
+  your next message. A file the model received as an image or video is marked
+  **In context**. The pane and the canvas share the right side.
 - **A trigger the model proposes** shows as a card under its tool line with
   **Create trigger**, **Edit** (name and schedule or folder) and **Dismiss**.
 - **Find** (`Ctrl+Shift+F`), **Canvas** (code blocks in a side panel), focus

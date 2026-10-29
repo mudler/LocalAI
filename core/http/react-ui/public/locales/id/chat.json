@@ -148,5 +148,26 @@
   "shortcuts": {
     "onMessage": "Pada pesan: salin, ubah, buat ulang",
     "editLast": "Ubah pesan terakhir Anda"
+  },
+  "files": {
+    "title": "File di obrolan ini",
+    "chip": "File",
+    "chipTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
+    "close": "Tutup file",
+    "emptyTitle": "Belum ada file di obrolan ini",
+    "emptyBody": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya. File yang dibuat atau diubah asisten juga muncul di sini.",
+    "dropHint": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya.",
+    "groups": {
+      "uploaded": "Anda unggah",
+      "created": "Dibuat oleh asisten",
+      "changed": "Diubah oleh asisten"
+    },
+    "turn": "giliran {{n}}",
+    "media": "Dalam konteks",
+    "mediaTitle": "Model menerima file ini sebagai gambar atau video bersama pesan Anda",
+    "changedTag": "Diedit",
+    "changedTitle": "Asisten mengubah file ini",
+    "download": "Unduh {{name}}",
+    "error": "File obrolan ini tidak dapat dibaca."
   }
 }
