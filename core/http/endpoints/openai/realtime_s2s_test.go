@@ -389,6 +389,117 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(names[len(names)-1]).To(Equal("response.done"))
 	})
 
+	Describe("tool calls in the raw text of a response", func() {
+		const rawCall = `{"name":"get_time","arguments":{"tz":"UTC"}}`
+		weather := []types.ToolUnion{{Function: &types.ToolFunction{Name: "get_weather"}}, {Function: &types.ToolFunction{Name: "get_time"}}}
+
+		// run answers the first response with the given events and returns the
+		// names of the function calls the client saw.
+		run := func(tools []types.ToolUnion, callEvent map[string]any, done map[string]any) (names []string) {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if !isControl(req, "response.create") {
+					return
+				}
+				f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "One moment. "})
+				if callEvent != nil {
+					f.push("response.function_call_arguments.done", nil, callEvent)
+				}
+				f.push("response.done", nil, done)
+			}
+			session, tr, conv := newHarness(stream, baseModel())
+			session.Tools = tools
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			session.respSink.wait()
+			for _, e := range tr.events() {
+				if d, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
+					names = append(names, d.Name)
+				}
+			}
+			return names
+		}
+
+		It("prefers the calls the backend parsed", func() {
+			names := run(weather,
+				map[string]any{"call_id": "x", "name": "get_weather", "arguments": `{"city":"Paris"}`},
+				map[string]any{"status": "completed", "text": "One moment. ", "raw_text": "One moment. " + rawCall})
+			Expect(names).To(Equal([]string{"get_weather"}))
+		})
+
+		It("parses the raw text when the backend found no call", func() {
+			names := run(weather, nil,
+				map[string]any{"status": "completed", "text": "One moment. " + rawCall, "raw_text": "One moment. " + rawCall})
+			Expect(names).To(Equal([]string{"get_time"}))
+		})
+
+		It("does not look for calls when the request had no tools", func() {
+			names := run(nil, nil,
+				map[string]any{"status": "completed", "text": "One moment. " + rawCall, "raw_text": "One moment. " + rawCall})
+			Expect(names).To(BeEmpty())
+		})
+	})
+
+	Describe("s2sResponseToolCalls", func() {
+		parsed := []functions.FuncCallResults{{Name: "a", Arguments: "{}"}}
+
+		It("returns the parsed calls whatever the text says", func() {
+			calls, content, fromText := s2sResponseToolCalls(parsed, `{"name":"b","arguments":{}}`, true, functions.FunctionsConfig{})
+			Expect(calls).To(Equal(parsed))
+			Expect(content).To(BeEmpty())
+			Expect(fromText).To(BeFalse())
+		})
+
+		It("finds a call in the text and returns the content around it", func() {
+			fc := functions.FunctionsConfig{CaptureLLMResult: []string{`(?s)^(.*?)\s*\{"name"`}}
+			calls, content, fromText := s2sResponseToolCalls(nil, `Sure. {"name":"b","arguments":{"x":1}}`, true, fc)
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].Name).To(Equal("b"))
+			Expect(content).To(Equal("Sure."))
+			Expect(fromText).To(BeTrue())
+
+			// without a capture regex the content is unknown, as in the chained pipeline
+			calls, content, fromText = s2sResponseToolCalls(nil, `Sure. {"name":"b","arguments":{"x":1}}`, true, functions.FunctionsConfig{})
+			Expect(calls).To(HaveLen(1))
+			Expect(content).To(BeEmpty())
+			Expect(fromText).To(BeTrue())
+		})
+
+		It("finds nothing in plain text or without tools", func() {
+			calls, _, fromText := s2sResponseToolCalls(nil, "just words", true, functions.FunctionsConfig{})
+			Expect(calls).To(BeEmpty())
+			Expect(fromText).To(BeFalse())
+			calls, _, fromText = s2sResponseToolCalls(nil, `{"name":"b","arguments":{}}`, false, functions.FunctionsConfig{})
+			Expect(calls).To(BeEmpty())
+			Expect(fromText).To(BeFalse())
+		})
+	})
+
+	Describe("tool_choice on the wire", func() {
+		It("maps a mode and drops a named function", func() {
+			Expect(s2sToolChoiceMode(nil)).To(BeEmpty())
+			Expect(s2sToolChoiceMode(&types.ToolChoiceUnion{Mode: types.ToolChoiceModeRequired})).To(Equal("required"))
+			Expect(s2sToolChoiceMode(&types.ToolChoiceUnion{Mode: types.ToolChoiceModeNone})).To(Equal("none"))
+			Expect(s2sToolChoiceMode(&types.ToolChoiceUnion{Function: &types.ToolChoiceFunction{Name: "f"}})).To(BeEmpty())
+		})
+
+		It("sends the session mode in the config and a response mode with response.create", func() {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if req.GetConfig() != nil {
+					f.push("session.created", nil, map[string]any{"input_sample_rate": rate, "output_sample_rate": 24000})
+				}
+				if isControl(req, "response.create") {
+					f.push("response.done", nil, map[string]any{"status": "completed"})
+				}
+			}
+			session := &Session{ToolChoice: &types.ToolChoiceUnion{Mode: types.ToolChoiceModeRequired}}
+			Expect(openS2SForSession(session, openerFunc(func(context.Context) (S2SStream, error) { return stream, nil }), &fakeTransport{})).To(Succeed())
+			stream.owner = session.s2s
+			DeferCleanup(session.closeS2S)
+			Expect(stream.requests()[0].GetConfig().GetParams()).To(HaveKeyWithValue("tool_choice", "required"))
+		})
+	})
+
 	It("cancels on barge-in before the new speech and forwards no audio after it", func() {
 		stream := newFakeS2SStream()
 		cancelled := make(chan struct{})

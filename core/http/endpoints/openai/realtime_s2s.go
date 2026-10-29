@@ -100,6 +100,7 @@ type s2sConfig struct {
 	Instructions     string
 	Voice            string
 	ToolsJSON        string
+	ToolChoice       string   // "auto", "none" or "required"; empty: the backend default
 	OutputModalities []string // nil: the model chooses
 }
 
@@ -211,6 +212,7 @@ type s2sSentConfig struct {
 	instructions string
 	voice        string
 	tools        string
+	toolChoice   string
 	modalities   string
 }
 
@@ -401,6 +403,9 @@ func (s *s2sSession) open(ctx context.Context, cfg s2sConfig) error {
 		b, _ := json.Marshal(cfg.OutputModalities)
 		params["output_modalities"] = string(b)
 	}
+	if cfg.ToolChoice != "" {
+		params["tool_choice"] = cfg.ToolChoice
+	}
 	if err := s.send(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Config{Config: &proto.AudioToAudioConfig{
 		SystemPrompt: cfg.Instructions,
 		Voice:        cfg.Voice,
@@ -421,6 +426,7 @@ func (s *s2sSession) open(ctx context.Context, cfg s2sConfig) error {
 		instructions: cfg.Instructions,
 		voice:        cfg.Voice,
 		tools:        cfg.ToolsJSON,
+		toolChoice:   cfg.ToolChoice,
 		modalities:   strings.Join(cfg.OutputModalities, ","),
 	}
 	s.mu.Unlock()
@@ -664,6 +670,7 @@ func openS2SForSession(session *Session, opener s2sOpener, t Transport) error {
 		Instructions:     session.Instructions,
 		Voice:            session.Voice,
 		ToolsJSON:        toolsJSON,
+		ToolChoice:       s2sToolChoiceMode(session.ToolChoice),
 		OutputModalities: s2sWireModalities(session.OutputModalities),
 	}); err != nil {
 		st.close()
@@ -705,6 +712,7 @@ func (s *Session) s2sSyncConfig() {
 	}
 	toolsJSON, _ := realtimeToolsJSON(s.Tools, nil)
 	cur.tools = toolsJSON
+	cur.toolChoice = s2sToolChoiceMode(s.ToolChoice)
 	sessionLock.Unlock()
 
 	st.mu.Lock()
@@ -725,6 +733,9 @@ func (s *Session) s2sSyncConfig() {
 		} else {
 			payload["tools"] = json.RawMessage(cur.tools)
 		}
+	}
+	if cur.toolChoice != prev.toolChoice && cur.toolChoice != "" {
+		payload["tool_choice"] = cur.toolChoice
 	}
 	if cur.modalities != prev.modalities && wireMods != nil {
 		payload["output_modalities"] = wireMods
@@ -981,6 +992,39 @@ func s2sTranscribeInput(ctx context.Context, session *Session, conv *Conversatio
 	})
 }
 
+// s2sToolChoiceMode is the tool_choice the backend understands: the mode. A
+// named function cannot be forced on a response, so it maps to nothing.
+func s2sToolChoiceMode(tc *types.ToolChoiceUnion) string {
+	if tc == nil {
+		return ""
+	}
+	switch tc.Mode {
+	case types.ToolChoiceModeAuto, types.ToolChoiceModeNone, types.ToolChoiceModeRequired:
+		return string(tc.Mode)
+	}
+	return ""
+}
+
+// s2sResponseToolCalls picks the tool calls of a finished response. The calls
+// the backend parsed win. Without any, and only if the request had tools, the
+// raw text of the response is parsed the way the chained pipeline parses the
+// text of its LLM, so a model whose call format the backend does not know still
+// works. content is the text around the calls, as the config captures it, and
+// is set only in that case.
+func s2sResponseToolCalls(parsed []functions.FuncCallResults, rawText string, hasTools bool, fc functions.FunctionsConfig) (calls []functions.FuncCallResults, content string, fromText bool) {
+	if len(parsed) > 0 {
+		return parsed, "", false
+	}
+	if !hasTools || rawText == "" {
+		return nil, "", false
+	}
+	calls = functions.ParseFunctionCall(functions.CleanupLLMResult(rawText, fc), fc)
+	if len(calls) == 0 {
+		return nil, "", false
+	}
+	return calls, functions.ParseTextContent(rawText, fc), true
+}
+
 // s2sTurn is the state of one response while its events arrive.
 type s2sTurn struct {
 	ctx      context.Context
@@ -991,6 +1035,10 @@ type s2sTurn struct {
 	st       *s2sSession
 	textOnly bool
 	isWebRTC bool
+	// hasTools is true if the request had tools; funcCfg is how the model
+	// writes a call, for parsing the raw text of a response.
+	hasTools bool
+	funcCfg  functions.FunctionsConfig
 
 	item      *types.MessageItemUnion
 	text      strings.Builder
@@ -1074,14 +1122,19 @@ func (tn *s2sTurn) onText(delta string) {
 }
 
 // closeItem emits the closing events of the assistant item. fallbackText is
-// the full text from response.done, used when no delta carried any.
-func (tn *s2sTurn) closeItem(fallbackText string, incomplete bool) {
+// the full text from response.done, used when no delta carried any. A non-nil
+// override replaces the streamed text: it is the content once the calls were
+// cut out of the raw text.
+func (tn *s2sTurn) closeItem(fallbackText string, override *string, incomplete bool) {
 	if tn.item == nil {
 		return
 	}
 	text := tn.text.String()
 	if text == "" {
 		text = fallbackText
+	}
+	if override != nil {
+		text = *override
 	}
 	id := tn.item.Assistant.ID
 	if tn.textOnly {
@@ -1180,12 +1233,29 @@ func s2sRunTurn(ctx context.Context, session *Session, conv *Conversation, t Tra
 	if maxOutputTokens != 0 && !maxOutputTokens.IsInf() {
 		payload["max_output_tokens"] = int(maxOutputTokens)
 	}
+	// The mode of the session travels with the config; only an override of the
+	// response is sent here.
+	if overrides != nil {
+		if mode := s2sToolChoiceMode(overrides.ToolChoice); mode != "" {
+			payload["tool_choice"] = mode
+		}
+	}
 
 	_, isWebRTC := t.(*WebRTCTransport)
 	tn := &s2sTurn{
 		ctx: ctx, session: session, conv: conv, t: t, r: r, st: st,
 		textOnly: !modalitiesContainAudio(modalities),
 		isWebRTC: isWebRTC,
+	}
+	tools := session.Tools
+	if overrides != nil && overrides.Tools != nil {
+		tools = overrides.Tools
+	}
+	tn.hasTools = len(tools) > 0
+	if session.ModelInterface == nil {
+		// no model interface, no function config
+	} else if mc := session.ModelInterface.PredictConfig(); mc != nil {
+		tn.funcCfg = mc.FunctionsConfig
 	}
 
 	// Events left over from an earlier response must not reach this one.
@@ -1286,14 +1356,25 @@ func (tn *s2sTurn) handle(ev *proto.AudioToAudioResponse, toolTurn int) bool {
 		var m struct {
 			Status string `json:"status"`
 			Text   string `json:"text"`
-			Usage  struct {
+			// RawText is what the model wrote, tool-call markup included.
+			RawText string `json:"raw_text"`
+			Usage   struct {
 				OutputTokens int `json:"output_tokens"`
 			} `json:"usage"`
 		}
 		_ = json.Unmarshal(ev.GetMeta(), &m)
 		tn.r.addUsage(backend.TokenUsage{Completion: m.Usage.OutputTokens})
 		cancelled := tn.stopped || m.Status == "cancelled"
-		tn.closeItem(m.Text, cancelled)
+		var override *string
+		if !cancelled {
+			calls, content, fromText := s2sResponseToolCalls(tn.toolCalls, m.RawText, tn.hasTools, tn.funcCfg)
+			tn.toolCalls = calls
+			// the content is known only when the config says how to capture it
+			if fromText && content != "" {
+				override = &content
+			}
+		}
+		tn.closeItem(m.Text, override, cancelled)
 		if cancelled {
 			tn.r.outcome = outcomeCancelled
 			return true
