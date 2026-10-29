@@ -272,3 +272,35 @@ func TestTheRootRefusalSaysHowToRunUnprivileged(t *testing.T) {
 		}
 	}
 }
+
+// A backend sweeps the sandboxes an earlier process left when it starts. It
+// starts at the first call, so after a restart nothing was swept until
+// someone used the sandbox. Warm starts the chosen backend at once.
+func TestWarmStartsTheChosenBackendWithoutACall(t *testing.T) {
+	var started atomic.Int32
+	mk := func(name string) func() (sandbox.Backend, error) {
+		return func() (sandbox.Backend, error) { started.Add(1); return &stub{name: name}, nil }
+	}
+	s, err := backends.Open(backends.Options{DataDir: t.TempDir(), KVM: mk("kvm"), GVisor: mk("gvisor"), Host: mk("host")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if started.Load() != 0 {
+		t.Fatal("Open started a backend")
+	}
+	s.Warm()
+	if started.Load() != 1 {
+		t.Fatalf("Warm started %d backends, want the 1 that auto picks", started.Load())
+	}
+	if got := name(t, s); got != "kvm" || started.Load() != 1 {
+		t.Fatalf("after Warm the first call got %q and %d starts: the backend must be reused", got, started.Load())
+	}
+}
+
+func TestWarmWithNoUsableBackendIsQuiet(t *testing.T) {
+	s := open(t, kinds{kvm: unsupported, gvisor: unsupported}, t.TempDir())
+	s.Warm() // must not panic or block
+	if got := name(t, s); got != "" {
+		t.Fatalf("got %q", got)
+	}
+}

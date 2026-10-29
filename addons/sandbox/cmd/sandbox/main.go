@@ -51,6 +51,10 @@ func main() {
 			return tools.New(unavailable{}, nil, hostAdmin{client})
 		}
 		m.Start(context.Background())
+		// Start the backend now: it removes the sandboxes that a process before
+		// this one left running. Waiting for the first call would leave them
+		// until somebody uses the add-on.
+		go sel.Warm()
 		return tools.New(m, settingsAdapter{Selector: sel, m: m}, hostAdmin{client})
 	}))
 }

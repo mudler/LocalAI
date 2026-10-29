@@ -221,6 +221,15 @@ func (s *Selector) Backend() (sandbox.Backend, error) {
 	return nil, codetools.ErrNoSandbox
 }
 
+// Warm starts the backend the next call would use, without a call. A backend
+// stops the sandboxes that an earlier process left when it starts, so the
+// add-on warms the selector at startup: after a crash or a kill the leftovers
+// are removed at once and not at the first tool call, which may never come.
+// A backend that cannot start is left to Status and to the next call.
+func (s *Selector) Warm() {
+	_, _ = s.Backend()
+}
+
 // Set saves the choice. The host needs its confirmation first; any other choice
 // forgets it.
 func (s *Selector) Set(b Setting) error {
