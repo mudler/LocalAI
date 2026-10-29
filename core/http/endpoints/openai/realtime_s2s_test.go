@@ -1109,6 +1109,38 @@ var _ = Describe("realtime speech-to-speech", func() {
 			Expect(update).ToNot(HaveKey("output_modalities"))
 		})
 
+		It("forwards the flat tools of a client session.update to the backend in the nested form", func() {
+			session, stream := openSession(nil, nil)
+			// The event as the real-weights e2e spec sends it: the Responses
+			// API tool shape, no session type, tools before the first audio.
+			var update types.SessionUpdateEvent
+			Expect(json.Unmarshal([]byte(`{"type":"session.update","session":{"tools":[{"type":"function","name":"get_weather","description":"Current weather for a city.","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}]}}`), &update)).To(Succeed())
+			Expect(updateSession(session, &update.Session, nil, nil, nil, nil, nil, nil)).To(Succeed())
+			session.s2sSyncConfig()
+
+			var payload struct {
+				Tools []struct {
+					Type     string `json:"type"`
+					Function struct {
+						Name       string         `json:"name"`
+						Parameters map[string]any `json:"parameters"`
+					} `json:"function"`
+				} `json:"tools"`
+			}
+			var seen bool
+			for _, r := range stream.requests() {
+				if isControl(r, "session.update") {
+					seen = true
+					Expect(json.Unmarshal(r.GetControl().GetPayload(), &payload)).To(Succeed())
+				}
+			}
+			Expect(seen).To(BeTrue(), "no session.update control reached the backend")
+			Expect(payload.Tools).To(HaveLen(1))
+			Expect(payload.Tools[0].Type).To(Equal("function"))
+			Expect(payload.Tools[0].Function.Name).To(Equal("get_weather"))
+			Expect(payload.Tools[0].Function.Parameters).To(HaveKey("properties"))
+		})
+
 		It("sends the modalities the client chose", func() {
 			_, stream := openSession(nil, []types.Modality{types.ModalityText})
 			Expect(stream.requests()[0].GetConfig().GetParams()).To(HaveKeyWithValue("output_modalities", `["text"]`))

@@ -676,6 +676,9 @@ func openS2SForSession(session *Session, opener s2sOpener, t Transport) error {
 		st.close()
 		return err
 	}
+	if toolsJSON != "" {
+		xlog.Debug("s2s: opened the stream with session tools", "count", s2sToolCount(toolsJSON))
+	}
 	st.setOnDead(func(err error) {
 		// The stream is gone and every later response would fail the same
 		// way: tell the client and end the session.
@@ -743,9 +746,19 @@ func (s *Session) s2sSyncConfig() {
 	if len(payload) == 0 {
 		return
 	}
+	if _, ok := payload["tools"]; ok {
+		xlog.Debug("s2s: forwarding the session tools to the backend", "count", s2sToolCount(cur.tools))
+	}
 	if err := st.control("session.update", payload); err != nil {
 		xlog.Warn("s2s: forwarding session.update failed", "error", err)
 	}
+}
+
+// s2sToolCount counts the tools of a tools JSON array, for the log.
+func s2sToolCount(toolsJSON string) int {
+	var tools []json.RawMessage
+	_ = json.Unmarshal([]byte(toolsJSON), &tools)
+	return len(tools)
 }
 
 // s2sManualTurns reports whether the client, not a VAD, decides when a turn
