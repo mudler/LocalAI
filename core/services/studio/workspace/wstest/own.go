@@ -1,6 +1,8 @@
 package wstest
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -31,6 +33,18 @@ func describeUpperOwn(newStore NewStore) {
 			tree := Tree(s)
 			Expect(tree["/w/edit.txt"]).To(Equal("two"), "tree = %v", tree)
 			Expect(tree["/w/new.txt"]).To(Equal("n2"), "tree = %v", tree)
+		})
+		It("a long list of earlier checkpoints is not a conflict", func() {
+			// The own revisions travel as a bound IN list. PostgreSQL counts
+			// each placeholder, so a list this long checks the binding.
+			s := newStore()
+			v, base := upperSetup(s)
+			var own []int64
+			for i := 0; i < 60; i++ {
+				Expect(checkpoint(s, v, base, &own, workspace.FixtureSource{D("w"), F("w/edit.txt", strconv.Itoa(i))})).To(BeEmpty(), "checkpoint %d", i)
+			}
+			Expect(own).To(HaveLen(60))
+			Expect(Tree(s)["/w/edit.txt"]).To(Equal("59"))
 		})
 		It("a delete and a rename after a checkpoint are not conflicts", func() {
 			s := newStore()
