@@ -178,7 +178,7 @@ func (b *backendInProcess) upload(ctx context.Context, collection, filename stri
 	}
 	// Write to a temp file; kb.Store will copy it into the correct UUID
 	// subdirectory under the collection's asset dir.
-	tmpDir, err := os.MkdirTemp("", "localagi-upload")
+	tmpDir, err := os.MkdirTemp("", "collections-upload")
 	if err != nil {
 		return "", err
 	}

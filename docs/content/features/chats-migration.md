@@ -116,7 +116,7 @@ a chat is never twice.
 
 ## What stays
 
-The [collections](/features/runtime-settings/#chats-and-collections-settings) and their API, the terminal agent (`local-ai chat`), and the agent worker of a cluster, which serves the MCP tool calls of the frontend. The collections backend is built on localrecall; LocalAI no longer depends on LocalAGI.
+The [collections](/features/runtime-settings/#chats-and-collections-settings) and their API, the terminal agent (`local-ai chat`), and the agent worker of a cluster, which serves the MCP tool calls of the frontend. The collections backend is built on localrecall.
 
 ## What was removed
 

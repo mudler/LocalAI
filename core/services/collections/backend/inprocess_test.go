@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	postgresLogChildEnv = "LOCALAGI_TEST_POSTGRES_LOG_DSN"
+	postgresLogChildEnv = "LOCALAI_TEST_POSTGRES_LOG_DSN"
 	postgresLogSecret   = "collection-secret-sentinel"
 )
 
