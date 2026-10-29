@@ -115,6 +115,9 @@ type Deps struct {
 	// Bus carries live events and control messages between the frontends that
 	// serve a chat. Nil: a bus for this process only.
 	Bus Bus
+	// Workers runs the turns of unattended runs (triggers, jobs, connector
+	// messages) on chat workers; see SendBackground. Nil: they run here.
+	Workers ChatWorkers
 	// HeartbeatEvery is how often a running turn tells the store it is alive.
 	// Zero means 15 seconds.
 	HeartbeatEvery time.Duration

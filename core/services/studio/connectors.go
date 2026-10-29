@@ -675,7 +675,7 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
-	if _, err := c.svc.SendWithFiles(ctx, b.Owner, chatID, m.Text, up); err != nil {
+	if _, err := c.svc.SendBackground(ctx, b.Owner, chatID, m.Text, up); err != nil {
 		if !was {
 			cancel()
 			c.smu.Lock()

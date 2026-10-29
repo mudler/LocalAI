@@ -455,7 +455,7 @@ func (j *Jobs) Execute(ctx context.Context, user, taskID string, req RunRequest)
 	j.mu.Lock()
 	j.watch[rec.ID] = struct{}{}
 	j.mu.Unlock()
-	if _, err := j.svc.SendWithFiles(ctx, owner, rec.ID, text, up); err != nil {
+	if _, err := j.svc.SendBackground(ctx, owner, rec.ID, text, up); err != nil {
 		cancel()
 		j.mu.Lock()
 		delete(j.watch, rec.ID)

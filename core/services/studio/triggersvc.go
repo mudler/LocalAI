@@ -333,7 +333,7 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 	h.sup[rec.ID] = struct{}{}
 	h.wg.Add(1) // the supervisor, which calls Done when it ends
 	h.mu.Unlock()
-	if _, err := h.svc.Send(ctx, owner, rec.ID, text); err != nil {
+	if _, err := h.svc.SendBackground(ctx, owner, rec.ID, text, nil); err != nil {
 		cancel()
 		h.mu.Lock()
 		delete(h.sup, rec.ID)

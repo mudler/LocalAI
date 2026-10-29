@@ -45,7 +45,8 @@ type shared struct {
 	users   func(string) error
 	allowed func(*auth.User, string) bool
 	addons  *fakeAddons
-	net     *testutil.FakeBus // when set, notifications travel over it, as between frontends
+	net     *testutil.FakeBus  // when set, notifications travel over it, as between frontends
+	deps    func(*studio.Deps) // when set, it changes the service's dependencies last
 }
 
 func newShared(t *testing.T) *shared {
@@ -83,6 +84,9 @@ func (sh *shared) rig(t *testing.T, script func(workspace.Actor, string) []studi
 		d.Allowed = sh.allowed
 		if sh.users != nil {
 			d.Users = func(_ context.Context, id string) (*auth.User, error) { return &auth.User{ID: id}, sh.users(id) }
+		}
+		if sh.deps != nil {
+			sh.deps(d)
 		}
 	})
 	o.Store, o.Clock = sh.trg, sh.clock.Now
