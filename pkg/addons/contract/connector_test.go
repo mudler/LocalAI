@@ -3,6 +3,8 @@ package contract
 
 import (
 	"os"
+	"strings"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -47,4 +49,23 @@ var _ = Describe("the connector capability", func() {
 		Entry("an unknown delivery", func(c *ConnectorCapability) { c.Kinds[0].Delivery = "webhook" }),
 		Entry("a page the UI does not declare", func(c *ConnectorCapability) { c.Kinds[0].Page = "other" }),
 	)
+})
+
+var _ = DescribeTable("SafeFileName",
+	func(in, want string) { Expect(SafeFileName(in)).To(Equal(want)) },
+	Entry("a plain name", "report.pdf", "report.pdf"),
+	Entry("a path keeps its last element", "/home/u/out/chart.png", "chart.png"),
+	Entry("a Windows path", `C:\tmp\a.txt`, "a.txt"),
+	Entry("control characters and quotes", "a\x00b\"c\n.txt", "a_b_c_.txt"),
+	Entry("dots only", "..", "file"),
+	Entry("empty", "", "file"),
+	Entry("a hidden name loses its leading dot", ".env", "env"),
+	Entry("a long name keeps its extension", strings.Repeat("é", 100)+".csv", strings.Repeat("é", 62)+".csv"),
+)
+
+var _ = It("cuts a long name on a character boundary", func() {
+	got := SafeFileName("a" + strings.Repeat("é", 100) + ".csv")
+	Expect(len(got)).To(BeNumerically("<=", MaxConnectorFileName))
+	Expect(utf8.ValidString(got)).To(BeTrue())
+	Expect(got).To(HaveSuffix(".csv"))
 })

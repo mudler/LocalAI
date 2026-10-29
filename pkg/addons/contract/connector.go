@@ -4,7 +4,11 @@ package contract
 import (
 	"context"
 	"fmt"
+	"path"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // A connector add-on carries messages between a messaging platform and a
@@ -18,8 +22,9 @@ import (
 //     route "/connector" with the op "poll". A push platform tells the host:
 //     the add-on calls the host operation ConnectorInboundOp.
 //   - Outbound. The host calls "/connector" with the ops "send", "edit",
-//     "typing" and "me", and "media" to read a file a message carries. The host
-//     passes the token on every call; the add-on never stores it.
+//     "typing", "send_file" and "me", and "media" to read a file a message
+//     carries. The host passes the token on every call; the add-on never
+//     stores it.
 
 // Delivery says how messages reach the host.
 const (
@@ -44,6 +49,8 @@ const (
 	ConnectorOpMe     = "me"
 	// ConnectorOpMedia reads one file that a message names in Media.
 	ConnectorOpMedia = "media"
+	// ConnectorOpSendFile sends ConnectorRequest.File to Chat and Thread.
+	ConnectorOpSendFile = "send_file"
 )
 
 // Codes of a ConnectorError.
@@ -64,10 +71,13 @@ const (
 	MaxConnectorMedia  = 8
 	MaxPollSeconds     = 25
 	MaxConnectorSender = 64 // the width of the sender column of the stores
-	// MaxConnectorFileBytes is the largest file the op media returns. The
-	// answer is JSON, so the file with its base64 overhead stays within the
-	// envelope limit of the add-on route.
+	// MaxConnectorFileBytes is the largest file the ops media and send_file
+	// carry. The body is JSON, so the file with its base64 overhead stays
+	// within the envelope limit of the add-on route.
 	MaxConnectorFileBytes = 1 << 20
+	// MaxConnectorFileName is the longest file name, in bytes, that the op
+	// send_file takes.
+	MaxConnectorFileName = 128
 )
 
 // ConnectorKind is one kind of binding an add-on serves, such as telegram.
@@ -146,7 +156,12 @@ type ConnectorMessage struct {
 	// Mention tells that a message in a group conversation is addressed to the
 	// bot: it names the bot, or it answers in a thread that the bot follows.
 	// The host answers it like a direct message.
-	Mention        bool   `json:"mention,omitempty"`
+	Mention bool `json:"mention,omitempty"`
+	// MessageID is the platform's ID of this message, when it has one.
+	MessageID string `json:"messageId,omitempty"`
+	// ReplyTo is the ID of the message of Chat that this message answers,
+	// when the person used the platform's reply.
+	ReplyTo        string `json:"replyTo,omitempty"`
 	SenderID       string `json:"senderId,omitempty"`
 	SenderName     string `json:"senderName,omitempty"`
 	SenderUsername string `json:"senderUsername,omitempty"`
@@ -175,17 +190,25 @@ type ConnectorRequest struct {
 	// poll
 	Offset         int64 `json:"offset,omitempty"`
 	TimeoutSeconds int   `json:"timeoutSeconds,omitempty"`
-	// send, edit, typing
-	Chat      string `json:"chat,omitempty"`
-	Thread    string `json:"thread,omitempty"`
+	// send, edit, typing, send_file
+	Chat   string `json:"chat,omitempty"`
+	Thread string `json:"thread,omitempty"`
+	// MessageID is the message that edit replaces. On send it is a message
+	// of the bot that the first part of Text replaces, such as a "working"
+	// message; when that edit fails, the part is sent as a new message. On
+	// typing it says that the host already shows a working message with this
+	// ID, so a platform without a typing indicator need not post one.
 	MessageID string `json:"messageId,omitempty"`
 	Text      string `json:"text,omitempty"`
 	// media: one reference of ConnectorMessage.Media.
 	Media string `json:"media,omitempty"`
+	// send_file: the file. Its name is SafeFileName of itself and its data
+	// is 1 to MaxConnectorFileBytes long.
+	File *ConnectorFile `json:"file,omitempty"`
 }
 
-// ConnectorFile is a file that the op media returns. Data is at most
-// MaxConnectorFileBytes.
+// ConnectorFile is a file that the op media returns or the op send_file
+// carries. Data is at most MaxConnectorFileBytes.
 type ConnectorFile struct {
 	Name string `json:"name"`
 	MIME string `json:"mime,omitempty"`
@@ -208,7 +231,7 @@ type ConnectorResponse struct {
 	// poll
 	Updates    []ConnectorMessage `json:"updates,omitempty"`
 	NextOffset int64              `json:"nextOffset,omitempty"`
-	// send and edit: the id of the last message sent
+	// send, edit and send_file: the id of the last message sent
 	MessageID string `json:"messageId,omitempty"`
 	// me
 	BotID       string `json:"botId,omitempty"`
@@ -226,3 +249,38 @@ type ConnectorRuntime interface {
 // ConnectorTimeout is how long one connector call may run: a poll waits up to
 // MaxPollSeconds for the platform.
 const ConnectorTimeout = (MaxPollSeconds + 20) * time.Second
+
+// SafeFileName returns a file name that every platform takes: the last
+// element of a path, without control characters, quotes or path separators,
+// cut to MaxConnectorFileName bytes on a character boundary and keeping the
+// extension. A name with nothing left is "file".
+func SafeFileName(name string) string {
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r == utf8.RuneError, unicode.IsControl(r), r == '"', r == '<', r == '>', r == ':', r == '|', r == '?', r == '*':
+			b.WriteRune('_')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	name = strings.Trim(strings.TrimSpace(b.String()), ".")
+	if name == "" {
+		return "file"
+	}
+	if len(name) <= MaxConnectorFileName {
+		return name
+	}
+	ext := path.Ext(name)
+	if len(ext) > 16 {
+		ext = ""
+	}
+	stem := name[:MaxConnectorFileName-len(ext)]
+	for !utf8.ValidString(stem) {
+		stem = stem[:len(stem)-1]
+	}
+	return stem + ext
+}

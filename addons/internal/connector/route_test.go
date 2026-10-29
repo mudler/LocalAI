@@ -21,6 +21,18 @@ type script struct {
 	ups     []contract.ConnectorMessage
 	err     error
 	sendErr []error
+	editErr error
+}
+
+// filing also sends files.
+type filing struct {
+	script
+	files []contract.ConnectorFile
+}
+
+func (f *filing) SendFile(_ context.Context, req contract.ConnectorRequest) (string, error) {
+	f.files = append(f.files, *req.File)
+	return "f1", f.err
 }
 
 func (*script) Kind() string  { return "chat" }
@@ -44,6 +56,9 @@ func (s *script) Send(_ context.Context, req contract.ConnectorRequest) (string,
 }
 func (s *script) Edit(_ context.Context, req contract.ConnectorRequest) error {
 	s.edited = append(s.edited, req)
+	if s.editErr != nil {
+		return s.editErr
+	}
 	return s.err
 }
 func (s *script) Typing(context.Context, contract.ConnectorRequest) error { s.typed++; return s.err }
@@ -62,7 +77,11 @@ func (*shouting) Media(_ context.Context, _, ref string) (contract.ConnectorFile
 var _ = Describe("Serve", func() {
 	ctx := context.Background()
 	req := func(op string) contract.ConnectorRequest {
-		return contract.ConnectorRequest{Op: op, Kind: "chat", Token: "t", Chat: "c", Text: "alpha beta gamma", MessageID: "9"}
+		r := contract.ConnectorRequest{Op: op, Kind: "chat", Token: "t", Chat: "c", Text: "alpha beta gamma"}
+		if op == "edit" {
+			r.MessageID = "9"
+		}
+		return r
 	}
 
 	It("polls with a capped wait and names the next offset", func() {
@@ -148,5 +167,64 @@ var _ = Describe("Serve", func() {
 			_, err := connector.Serve(ctx, &script{}, r)
 			Expect(err).To(MatchError(contract.ErrRefused))
 		}
+	})
+
+	It("replaces the working message with the first part of a send and sends the rest", func() {
+		s := &script{}
+		r := req("send")
+		r.MessageID = "9"
+		out, err := connector.Serve(ctx, s, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.edited).To(HaveLen(1))
+		Expect(s.edited[0].MessageID).To(Equal("9"))
+		Expect(s.edited[0].Text).To(Equal("alpha"))
+		Expect(s.sent).To(HaveLen(1))
+		Expect(s.sent[0].Text).To(Equal("beta gamma"))
+		Expect(s.sent[0].MessageID).To(BeEmpty())
+		Expect(out.MessageID).To(Equal("mb"))
+	})
+
+	It("sends the first part as a new message when the working message cannot be edited", func() {
+		s := &script{editErr: errors.New("message to edit not found")}
+		r := req("send")
+		r.MessageID = "9"
+		out, err := connector.Serve(ctx, s, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error).To(BeNil())
+		Expect(s.sent).To(HaveLen(2))
+		Expect(s.sent[0].Text).To(Equal("alpha"))
+	})
+
+	It("answers an edit that the platform rate-limits at once, without waiting", func() {
+		s := &script{editErr: &connector.RetryAfter{Seconds: 5}}
+		start := time.Now()
+		out, err := connector.Serve(ctx, s, req("edit"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.Error.Code).To(Equal(contract.ConnectorRateLimited))
+		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+	})
+
+	It("sends a file only on a platform that can, with a safe name and a size in bounds", func() {
+		f := &filing{}
+		r := req("send_file")
+		r.File = &contract.ConnectorFile{Name: "chart.png", MIME: "image/png", Data: []byte("png")}
+		out, err := connector.Serve(ctx, f, r)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.MessageID).To(Equal("f1"))
+		Expect(f.files).To(HaveLen(1))
+		Expect(f.files[0].Name).To(Equal("chart.png"))
+		_, err = connector.Serve(ctx, &script{}, r)
+		Expect(err).To(MatchError(contract.ErrRefused))
+		for _, bad := range []*contract.ConnectorFile{
+			nil,
+			{Name: "a.txt"},
+			{Name: "../a.txt", Data: []byte("x")},
+			{Name: "a.txt", Data: make([]byte, contract.MaxConnectorFileBytes+1)},
+		} {
+			r.File = bad
+			_, err = connector.Serve(ctx, f, r)
+			Expect(err).To(MatchError(contract.ErrRefused))
+		}
+		Expect(f.files).To(HaveLen(1))
 	})
 })

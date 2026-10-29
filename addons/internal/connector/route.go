@@ -68,6 +68,12 @@ type MediaReader interface {
 	Media(ctx context.Context, token, ref string) (contract.ConnectorFile, error)
 }
 
+// FileSender is a Platform that sends files for the op send_file. It returns
+// the ID of the message that holds the file.
+type FileSender interface {
+	SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error)
+}
+
 // Splitter is a Platform that cuts its texts itself; others use Split.
 type Splitter interface {
 	Split(text string) []string
@@ -93,9 +99,11 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 		if len(parts) == 0 {
 			return contract.ConnectorResponse{}, fmt.Errorf("%w: no text", contract.ErrRefused)
 		}
-		// An edit replaces one message: the text keeps what fits.
+		// An edit replaces one message: the text keeps what fits. It is not
+		// retried after a wait: an edit shows progress, and the host would
+		// rather skip one than hold the turn's answer behind it.
 		req.Text = parts[0]
-		err = Retry(ctx, func() error { return p.Edit(ctx, req) })
+		err = p.Edit(ctx, req)
 		out.MessageID = req.MessageID
 	case contract.ConnectorOpTyping:
 		err = p.Typing(ctx, req)
@@ -104,6 +112,16 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 		if bot, err = p.Me(ctx, req.Token); err == nil {
 			out.BotID, out.BotUsername = bot.ID, bot.Username
 		}
+	case contract.ConnectorOpSendFile:
+		fs, ok := p.(FileSender)
+		if !ok || !validFile(req.File) {
+			return contract.ConnectorResponse{}, fmt.Errorf("%w: no file, or one this platform cannot send", contract.ErrRefused)
+		}
+		err = Retry(ctx, func() error {
+			id, err := fs.SendFile(ctx, req)
+			out.MessageID = id
+			return err
+		})
 	case contract.ConnectorOpMedia:
 		m, ok := p.(MediaReader)
 		if !ok || req.Media == "" {
@@ -146,12 +164,32 @@ func parts(p Platform, text string) []string {
 	return Split(text, p.MaxRunes())
 }
 
+// validFile tells whether the op send_file may carry f.
+func validFile(f *contract.ConnectorFile) bool {
+	return f != nil && len(f.Data) > 0 && len(f.Data) <= contract.MaxConnectorFileBytes && f.Name == contract.SafeFileName(f.Name)
+}
+
 // send sends the parts of a text in order and returns the ID of the last one.
+// When the request names a message, the first part replaces it; a message
+// that cannot be edited (deleted, too old) gets the part as a new message.
 func send(ctx context.Context, p Platform, req contract.ConnectorRequest) (string, error) {
 	last := ""
+	replace := req.MessageID
+	req.MessageID = ""
 	for _, part := range parts(p, req.Text) {
 		r := req
 		r.Text = part
+		if replace != "" {
+			e := r
+			e.MessageID = replace
+			replace = ""
+			if err := Retry(ctx, func() error { return p.Edit(ctx, e) }); err == nil {
+				last = e.MessageID
+				continue
+			} else if ctx.Err() != nil {
+				return "", ctx.Err()
+			}
+		}
 		err := Retry(ctx, func() error {
 			id, err := p.Send(ctx, r)
 			if err == nil {
