@@ -483,6 +483,12 @@ func maybeApplyTTSUsecase(modelConfig *config.ModelConfig, cfg *gallery.ModelCon
 			modelConfig.Options = append(modelConfig.Options, "parallel:2")
 		}
 		modelConfig.TemplateConfig.UseTokenizerTemplate = true
+		// The model writes its tool calls in the LFM3 template format. The
+		// backend parses them; this is how the server reads the raw text if
+		// the backend found none.
+		if modelConfig.FunctionsConfig.XMLFormatPreset == "" {
+			modelConfig.FunctionsConfig.XMLFormatPreset = "lfm3"
+		}
 		xlog.Info("[tts-importer] audio encoder and gen-audio projector detected; importing as a speech-to-speech model", "name", modelConfig.Name)
 		return
 	}

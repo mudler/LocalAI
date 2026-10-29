@@ -31982,6 +31982,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - realtime_audio
       - chat
@@ -32033,6 +32035,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - realtime_audio
       - chat
@@ -32086,6 +32090,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - realtime_audio
       - chat
@@ -32140,6 +32146,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - realtime_audio
       - chat
@@ -32193,6 +32201,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - chat
       - transcript
@@ -32246,6 +32256,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - chat
       - transcript
@@ -32300,6 +32312,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - chat
       - transcript
@@ -32355,6 +32369,8 @@
   overrides:
     backend: llama-cpp
     context_size: 8192
+    function:
+      xml_format_preset: lfm3
     known_usecases:
       - chat
       - transcript

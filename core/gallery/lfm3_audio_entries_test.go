@@ -64,6 +64,8 @@ var _ = Describe("gallery/index.yaml LFM3-Audio entries", func() {
 			Expect(e.Overrides["template"]).To(HaveKeyWithValue("use_tokenizer_template", true), name)
 			Expect(e.Overrides["parameters"]).To(HaveKeyWithValue("model", want.model), name)
 			Expect(e.Overrides["tts"]).To(HaveKeyWithValue("voice", "female"), name)
+			// The template writes calls as <tool_call><function=..><parameter=..>.
+			Expect(e.Overrides["function"]).To(HaveKeyWithValue("xml_format_preset", "lfm3"), name)
 
 			pipe, _ := e.Overrides["pipeline"].(map[string]any)
 			if want.vad {

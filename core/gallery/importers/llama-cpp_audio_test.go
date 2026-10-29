@@ -93,6 +93,7 @@ var _ = Describe("maybeApplyTTSUsecase on an mmproj probe", func() {
 		Expect(*modelConfig.Pipeline.AnyToAny).To(BeTrue())
 		Expect(modelConfig.Options).To(ContainElements("use_jinja:true", "parallel:2"))
 		Expect(modelConfig.TemplateConfig.UseTokenizerTemplate).To(BeTrue())
+		Expect(modelConfig.FunctionsConfig.XMLFormatPreset).To(Equal("lfm3"))
 	})
 
 	It("keeps a parallel option the model already carries", func() {
@@ -124,6 +125,7 @@ var _ = Describe("maybeApplyTTSUsecase on an mmproj probe", func() {
 
 		Expect(modelConfig.KnownUsecaseStrings).To(Equal([]string{config.UsecaseTTS}))
 		Expect(modelConfig.Pipeline.AnyToAny).To(BeNil())
+		Expect(modelConfig.FunctionsConfig.XMLFormatPreset).To(BeEmpty())
 	})
 
 	It("keeps the TTS-only result for a gen-audio projector without an audio encoder", func() {
