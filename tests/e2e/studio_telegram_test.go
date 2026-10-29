@@ -266,24 +266,21 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 		Expect(code).To(Equal(http.StatusBadRequest), "a binding without an agent: "+string(out))
 	})
 
-	It("shows the answer in one working message as it is written, and the answer replaces it", func() {
+	It("shows the answer in a draft as it is written, and sends the answer after it", func() {
 		token := "7011:stream"
 		bind(token, newAgent(), obj{"allow": []string{"111"}, "reply_mode": "stream"})
 		telegram.say(token, nextID(), 111, "MOCK_LONG_STREAM_SHORT please")
+		Eventually(func() string { return telegram.lastDraft(token) }, 60*time.Second, 100*time.Millisecond).
+			Should(And(ContainSubstring("tick"), HaveSuffix("▉")), "a preview of the answer while it is written")
 		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(1))
-		working := telegram.sentBy(token)[0]
-		Expect(working.Text).To(Equal("Working…"))
-		Eventually(func() string { return telegram.lastEdit(token, working.ID) }, 60*time.Second, 100*time.Millisecond).
-			Should(And(ContainSubstring("tick"), HaveSuffix("▍")), "a preview of the answer while it is written")
-		Eventually(func() string { return telegram.lastEdit(token, working.ID) }, 90*time.Second, 200*time.Millisecond).
-			Should(And(ContainSubstring("tick"), Not(ContainSubstring("▍"))), "the answer in place of the preview")
-		Consistently(sent(token), 2*time.Second, 200*time.Millisecond).Should(Equal(1), "the answer replaced the working message")
-		// The previews go at most once a second; the answer, the last edit,
-		// is not held back.
-		edits := telegram.editsOf(token, working.ID)
-		Expect(len(edits)).To(BeNumerically(">=", 2))
-		for i := 1; i < len(edits)-1; i++ {
-			Expect(edits[i].At.Sub(edits[i-1].At)).To(BeNumerically(">=", 900*time.Millisecond), "at most one preview a second")
+		Expect(telegram.sentBy(token)[0].Text).To(And(ContainSubstring("tick"), Not(ContainSubstring("▉"))), "the answer as a message")
+		Consistently(sent(token), 2*time.Second, 200*time.Millisecond).Should(Equal(1), "no working message")
+		// The drafts of one answer share an ID and go at most every 400 ms.
+		drafts := telegram.draftsBy(token)
+		Expect(len(drafts)).To(BeNumerically(">=", 2))
+		for i := 1; i < len(drafts); i++ {
+			Expect(drafts[i].ID).To(Equal(drafts[0].ID))
+			Expect(drafts[i].At.Sub(drafts[i-1].At)).To(BeNumerically(">=", 370*time.Millisecond), "at most one preview each 400 ms")
 		}
 	})
 

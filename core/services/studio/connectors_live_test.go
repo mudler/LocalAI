@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -65,6 +66,29 @@ func (b *scriptedBot) sentFiles() []botFile {
 	return append([]botFile(nil), b.files...)
 }
 
+func (b *scriptedBot) draftsSent() []botDraft {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]botDraft(nil), b.drafts...)
+}
+
+// lastDraft is the text of the latest draft, or "".
+func (b *scriptedBot) lastDraft() string {
+	d := b.draftsSent()
+	if len(d) == 0 {
+		return ""
+	}
+	return d[len(d)-1].Text
+}
+
+func (b *scriptedBot) parseModes() []string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]string(nil), b.modes...)
+}
+
+func (b *scriptedBot) editCount() int { b.mu.Lock(); defer b.mu.Unlock(); return len(b.edits) }
+
 func (b *scriptedBot) typingCount() int { b.mu.Lock(); defer b.mu.Unlock(); return b.typing }
 
 // lastEdit is the text the message shows after its edits, or "".
@@ -124,23 +148,149 @@ var _ = Describe("connectors live", func() {
 		Expect(bot.answers()).To(Equal([]string{"Working…"}), "the answer replaced the working message: no second message")
 	})
 
-	It("stream shows the answer as it is written", func() {
+	It("stream in a group shows the answer as it is written in a working message that the answer replaces", func() {
 		sh, bot := newShared(), newScriptedBot()
 		release := make(chan struct{})
 		script := func(workspace.Actor, string) []studiotest.ToolStep {
-			return []studiotest.ToolStep{{Say: "The first half"}, {Block: release}, {Say: " and the second half."}}
+			return []studiotest.ToolStep{{Say: "The first half"}, {Block: release}, {Say: " and the **second** half."}}
+		}
+		r := newConnRig(sh, connStore(), bot, script, nil)
+		r.bind(studio.ConnectorInput{Allow: []string{"-600"}, Reply: connectors.ReplyStream})
+		bot.mention(1, -600, 21, "Ann", "write")
+		waitFor("the working message", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("Working… ▉"), "the working message is a preview with a cursor")
+		id := bot.firstID()
+		waitFor("a preview of the answer", func() bool { return bot.lastEdit(id) == "The first half ▉" })
+		Expect(bot.editsOf(id)[0].Mode).To(BeEmpty(), "a preview is plain text")
+		close(release)
+		waitFor("the whole answer", func() bool { return strings.Contains(bot.lastEdit(id), "second") })
+		e := bot.editsOf(id)
+		Expect(e[len(e)-1].Text).To(Equal("The first half and the *second* half."))
+		Expect(e[len(e)-1].Mode).To(Equal("MarkdownV2"), "the answer is MarkdownV2")
+		Expect(bot.answers()).To(HaveLen(1))
+		Expect(bot.draftsSent()).To(BeEmpty(), "a group has no drafts")
+	})
+
+	It("stream in a private chat shows the reasoning and then the answer in one draft, and sends the answer after it", func() {
+		sh, bot := newShared(), newScriptedBot()
+		thought, half := make(chan struct{}), make(chan struct{})
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Think: "checking "}, {Think: "the notes"}, {Block: thought},
+				{Say: "The first half"}, {Block: half}, {Say: " and the **second** half."}}
 		}
 		r := newConnRig(sh, connStore(), bot, script, nil)
 		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyStream})
 		bot.say(1, 11, "Ada", "ada", "write")
+		waitFor("the reasoning in the draft", func() bool { return bot.lastDraft() == "checking the notes ▉" })
+		Expect(bot.draftsSent()[0].Text).To(Equal("Working… ▉"), "the first draft shows that the bot works")
+		Expect(bot.answers()).To(BeEmpty(), "no working message")
+		close(thought)
+		waitFor("the answer in the draft", func() bool { return bot.lastDraft() == "The first half ▉" })
+		close(half)
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("The first half and the *second* half."))
+		Expect(bot.parseModes()).To(Equal([]string{"MarkdownV2"}))
+		Expect(bot.editCount()).To(BeZero(), "a draft is never edited")
+		drafts := bot.draftsSent()
+		for _, d := range drafts {
+			Expect(d.ID).NotTo(BeZero())
+			Expect(d.ID).To(Equal(drafts[0].ID), "one draft for the whole answer")
+			Expect(d.Chat).To(Equal(int64(11)))
+		}
+	})
+
+	It("a draft the platform refuses gives way to a working message for the rest of the turn", func() {
+		sh, bot := newShared(), newScriptedBot()
+		bot.setFail("sendMessageDraft", func() (int, string) {
+			return http.StatusBadRequest, `{"ok":false,"error_code":400,"description":"Bad Request: drafts are not available"}`
+		})
+		release := make(chan struct{})
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Say: "Half"}, {Block: release}, {Say: " done."}}
+		}
+		r := newConnRig(sh, connStore(), bot, script, nil)
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyStream})
+		bot.say(1, 11, "Ada", "ada", "go")
 		waitFor("the working message", func() bool { return len(bot.answers()) == 1 })
 		id := bot.firstID()
-		waitFor("a preview of the answer", func() bool { return strings.HasPrefix(bot.lastEdit(id), "The first half") })
-		Expect(bot.lastEdit(id)).To(HaveSuffix("▍"), "a preview ends with a cursor")
+		waitFor("the preview in the working message", func() bool { return bot.lastEdit(id) == "Half ▉" })
 		close(release)
-		waitFor("the whole answer", func() bool { return strings.Contains(bot.lastEdit(id), "second half.") })
-		Expect(bot.lastEdit(id)).NotTo(ContainSubstring("▍"), "the answer has no cursor")
+		waitFor("the answer in place of the working message", func() bool { return bot.lastEdit(id) == "Half done." })
 		Expect(bot.answers()).To(HaveLen(1))
+	})
+
+	It("sends a draft that shows nothing new again after the heartbeat, and stops with the turn", func() {
+		sh, bot := newShared(), newScriptedBot()
+		release := make(chan struct{})
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Say: "Waiting"}, {Block: release}, {Say: " done."}}
+		}
+		r := newConnRigOpts(sh, connStore(), studiobotFor(bot), script, nil, func(o *studio.ConnectorOptions) { o.DraftHeartbeat = 150 * time.Millisecond })
+		r.bot = bot
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyStream})
+		bot.say(1, 11, "Ada", "ada", "go")
+		waitFor("the draft sent again", func() bool {
+			n := 0
+			for _, d := range bot.draftsSent() {
+				if d.Text == "Waiting ▉" {
+					n++
+				}
+			}
+			return n >= 3
+		})
+		close(release)
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		n := len(bot.draftsSent())
+		time.Sleep(400 * time.Millisecond)
+		Expect(bot.draftsSent()).To(HaveLen(n), "no heartbeat after the answer")
+	})
+
+	It("coalesces previews to the interval of the kind", func() {
+		sh, bot := newShared(), newScriptedBot()
+		gates := make([]chan struct{}, 30)
+		var steps []studiotest.ToolStep
+		for i := range gates {
+			gates[i] = make(chan struct{})
+			steps = append(steps, studiotest.ToolStep{Say: "w "}, studiotest.ToolStep{Block: gates[i]})
+		}
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return append(steps, studiotest.ToolStep{Say: "end"})
+		}
+		tr := studiobot.NewTransport(studiobot.TelegramPaced(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()}))
+		r := newConnRigOpts(sh, connStore(), tr, script, nil, nil)
+		r.bot = bot
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyStream})
+		bot.say(1, 11, "Ada", "ada", "go")
+		waitFor("the first draft", func() bool { return len(bot.draftsSent()) == 1 })
+		for _, g := range gates {
+			close(g)
+			time.Sleep(50 * time.Millisecond)
+		}
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		drafts := bot.draftsSent()
+		Expect(len(drafts)).To(BeNumerically("<=", 6), "30 changes in 1.5 s make few drafts")
+		for i := 1; i < len(drafts); i++ {
+			Expect(drafts[i].At.Sub(drafts[i-1].At)).To(BeNumerically(">=", 370*time.Millisecond))
+		}
+	})
+
+	It("a preview shows the end of a long answer, and the answer goes whole", func() {
+		sh, bot := newShared(), newScriptedBot()
+		release := make(chan struct{})
+		long := strings.Repeat("é", 3100)
+		script := func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Say: "start" + long}, {Block: release}}
+		}
+		r := newConnRig(sh, connStore(), bot, script, nil)
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyStream})
+		bot.say(1, 11, "Ada", "ada", "go")
+		waitFor("a preview of the answer", func() bool { return strings.HasPrefix(bot.lastDraft(), "éé") })
+		d := bot.lastDraft()
+		Expect(utf8.RuneCountInString(d)).To(Equal(3000))
+		Expect(d).To(HaveSuffix("é ▉"))
+		close(release)
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("start" + long))
 	})
 
 	It("an edit that fails sends the answer as a new message", func() {

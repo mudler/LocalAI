@@ -79,10 +79,14 @@ type ConnectorOptions struct {
 	RatePerMinute int
 	// Lead says whether this frontend runs the bindings now. Nil: always.
 	Lead func(ctx context.Context) bool
-	// EditEvery is the shortest time between two edits of the working
-	// messages of one binding; zero means one second. Platforms limit how
-	// often a bot may write, and an edit counts.
+	// EditEvery is the shortest time between two previews (edits of the
+	// working messages, or drafts) of one binding, when the kind of the
+	// binding declares none; zero means one second. Platforms limit how often
+	// a bot may write, and a preview counts.
 	EditEvery time.Duration
+	// DraftHeartbeat is how often a draft that shows nothing new is sent
+	// again; zero means 25 seconds.
+	DraftHeartbeat time.Duration
 	// VerifyToken checks a bot token that a binding is saved with, before it
 	// is stored. Nil: tokens are not checked. The application sets
 	// VerifyTokenWithMe; a test that fakes no platform leaves it nil.
@@ -159,6 +163,9 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	}
 	if o.EditEvery <= 0 {
 		o.EditEvery = time.Second
+	}
+	if o.DraftHeartbeat <= 0 {
+		o.DraftHeartbeat = draftHeartbeat
 	}
 	if o.Logger == nil {
 		o.Logger = slog.Default()
@@ -786,17 +793,20 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 }
 
 // reply follows each turn of the chat and sends its answer. While a turn runs
-// it shows typing and, unless the binding's reply mode is off, a working
-// message that it edits with the progress of the turn; the answer replaces
-// that message. The files the turn made follow the answer.
+// it shows typing and, unless the binding's reply mode is off, a preview of
+// the turn: a working message that it edits, which the answer replaces, or in
+// the stream mode of a direct conversation a draft, which the answer
+// follows. Previews are coalesced to the pace of the binding's kind. The
+// files the turn made follow the answer.
 func (c *Connectors) reply(b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string, events <-chan session.Event) {
 	typing := time.NewTicker(typingEvery)
 	defer typing.Stop()
-	flush := time.NewTicker(c.o.EditEvery)
+	pace := c.livePaceOf(b)
+	flush := time.NewTicker(pace.every)
 	defer flush.Stop()
 	var poll <-chan time.Time
 	errText := ""
-	l, since, turn := c.startLive(b, token, m), time.Now(), 0
+	l, since, turn := c.startLive(b, token, m, pace), time.Now(), 0
 	for {
 		ended := false
 		select {
@@ -820,7 +830,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 				ended = true
 			}
 		case <-flush.C:
-			c.flush(b, token, m, l)
+			c.flush(b, token, m, l, pace)
 		case <-typing.C:
 			c.typing(b, token, m, l.id)
 		case <-c.done:
@@ -840,7 +850,7 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		if err == nil && info.Running {
 			c.smu.Unlock()
 			// A waiting message started the next turn.
-			l, since, turn = c.startLive(b, token, m), time.Now(), 0
+			l, since, turn = c.startLive(b, token, m, pace), time.Now(), 0
 			continue
 		}
 		st.active = false

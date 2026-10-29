@@ -22,9 +22,18 @@ type Addon struct {
 	Runtime contract.ConnectorRuntime
 }
 
-// Telegram is the Telegram add-on over api.
+// Telegram is the Telegram add-on over api. Its kind has drafts, as the
+// manifest declares, but no preview interval: the host's EditEvery applies,
+// which a spec sets short. TelegramPaced keeps the interval of the manifest.
 func Telegram(api *transport.API) Addon {
-	return Addon{ID: "telegram", Kind: contract.ConnectorKind{ID: transport.Kind, Title: "Telegram", Delivery: contract.DeliveryPull}, Runtime: transport.Runtime{API: api}}
+	return Addon{ID: "telegram", Kind: contract.ConnectorKind{ID: transport.Kind, Title: "Telegram", Delivery: contract.DeliveryPull, Drafts: true}, Runtime: transport.Runtime{API: api}}
+}
+
+// TelegramPaced is Telegram with the preview interval of the manifest.
+func TelegramPaced(api *transport.API) Addon {
+	a := Telegram(api)
+	a.Kind.PreviewMs = 400
+	return a
 }
 
 // Slack is the Slack add-on over api. The caller closes the runtime.

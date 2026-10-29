@@ -30,6 +30,7 @@ type fakeTelegram struct {
 	pending map[string][]map[string]any
 	sent    []tgSent
 	edits   []tgEdit
+	drafts  []tgDraft
 	files   []tgFile
 	nextID  int64
 	typing  map[string]int
@@ -46,6 +47,14 @@ type tgSent struct {
 
 // tgEdit is one editMessageText the fake received.
 type tgEdit struct {
+	Token string
+	ID    int64
+	Text  string
+	At    time.Time
+}
+
+// tgDraft is one sendMessageDraft the fake received.
+type tgDraft struct {
 	Token string
 	ID    int64
 	Text  string
@@ -128,6 +137,12 @@ func startFakeTelegram() {
 			f.edits = append(f.edits, tgEdit{Token: token, ID: int64(id), Text: body["text"].(string), At: time.Now()})
 			f.mu.Unlock()
 			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
+		case "sendMessageDraft":
+			f.mu.Lock()
+			id, _ := body["draft_id"].(float64)
+			f.drafts = append(f.drafts, tgDraft{Token: token, ID: int64(id), Text: body["text"].(string), At: time.Now()})
+			f.mu.Unlock()
+			_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 		case "sendDocument", "sendPhoto":
 			f.mu.Lock()
 			f.nextID++
@@ -148,7 +163,7 @@ func startFakeTelegram() {
 		}
 	}))
 	// The Slack add-on is served next to Telegram (see studio_slack_test.go).
-	f.restore = localaiapp.UseConnectorTransportForTests(studiobot.NewTransport(studiobot.Telegram(&transport.API{BaseURL: f.srv.URL}), studiobot.Slack(slackFake.rt)))
+	f.restore = localaiapp.UseConnectorTransportForTests(studiobot.NewTransport(studiobot.TelegramPaced(&transport.API{BaseURL: f.srv.URL}), studiobot.Slack(slackFake.rt)))
 	telegram = f
 }
 
@@ -205,6 +220,28 @@ func (f *fakeTelegram) lastEdit(token string, id int64) string {
 		return ""
 	}
 	return e[len(e)-1].Text
+}
+
+// draftsBy lists the drafts a bot showed.
+func (f *fakeTelegram) draftsBy(token string) []tgDraft {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []tgDraft
+	for _, d := range f.drafts {
+		if d.Token == token {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// lastDraft is the text of the latest draft of a bot, or "".
+func (f *fakeTelegram) lastDraft(token string) string {
+	d := f.draftsBy(token)
+	if len(d) == 0 {
+		return ""
+	}
+	return d[len(d)-1].Text
 }
 
 // filesBy lists the files a bot sent.

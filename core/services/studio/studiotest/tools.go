@@ -13,6 +13,7 @@ import (
 // ToolStep is one action of a scripted turn. Set one field.
 type ToolStep struct {
 	Say   string          // emit a text event
+	Think string          // emit a reasoning event
 	Tool  string          // call the host tool with this name ...
 	Args  string          // ... with these JSON arguments
 	Block <-chan struct{} // wait until the channel closes or the turn ends
@@ -122,6 +123,8 @@ func (s *toolSession) Send(ctx context.Context, text string) error {
 		switch {
 		case step.Say != "":
 			s.env.Emit(session.Event{Kind: session.KindText, Text: step.Say})
+		case step.Think != "":
+			s.env.Emit(session.Event{Kind: session.KindReasoning, Text: step.Think})
 		case step.Tool != "":
 			s.env.Emit(session.Event{Kind: session.KindToolStart, Tool: &session.ToolEvent{Name: step.Tool, Summary: session.Summarize(json.RawMessage(step.Args))}})
 			out, err := s.call(ctx, step.Tool, step.Args)
