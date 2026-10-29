@@ -397,6 +397,21 @@ void test_translator_cancel() {
     check(tr.on_result("late", {0.1f}, false, false, 9).empty(), "nothing after response.done");
 }
 
+void test_translator_cancel_flushes_held_back_text() {
+    std::vector<std::string> seen;
+    rt::ResponseTranslator   tr(rt::OutMode::Mixed, 24000, fake_splitter(&seen));
+    // "<" could start a tag: the parser holds it back until it knows
+    const auto ev = run(tr, {{"Hel", {}}, {"lo <", {}}}, /*cancelled=*/true, 3);
+    check_eq(seen.back(), std::string("|final"), "the parser is told the cancelled response ended");
+    std::string transcript;
+    for (const auto & e : ev) {
+        if (e.event == "response.audio_transcript.delta") {
+            transcript += e.meta["delta"].get<std::string>();
+        }
+    }
+    check(transcript.rfind("Hello", 0) == 0, "the transcript has the decoded text");
+}
+
 void test_translator_tool_call() {
     std::vector<std::string> seen;
     rt::ResponseTranslator   tr(rt::OutMode::Auto, 24000, fake_splitter(&seen), [] { return std::string("call_gen"); });
@@ -545,6 +560,7 @@ int main() {
     test_translator_audio_and_text();
     test_translator_text_only();
     test_translator_cancel();
+    test_translator_cancel_flushes_held_back_text();
     test_translator_tool_call();
     test_translator_call_ids_and_empty_arguments();
     test_translator_without_splitter();

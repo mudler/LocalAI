@@ -597,7 +597,9 @@ public:
         std::string chunk = pending_.substr(0, n);
         pending_.erase(0, n);
 
-        const bool final = response_done && !cancelled;
+        // Also on a cancelled response, as upstream: the parser flushes the text it held back.
+        // A cancelled response still makes no tool call (see below).
+        const bool final = response_done;
         if (!chunk.empty() || (final && splitter_)) {
             SplitResult r = splitter_ ? splitter_(chunk, final) : SplitResult{chunk, {}};
             if (!r.content.empty()) {
