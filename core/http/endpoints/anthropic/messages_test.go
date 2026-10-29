@@ -122,3 +122,15 @@ var _ = Describe("Typed inbound conversion", func() {
 		Expect(req.Messages[0].Content).To(Equal(blocks))
 	})
 })
+
+var _ = Describe("Anthropic stop_reason for an exhausted max_tokens", func() {
+	DescribeTable("budgetStopReason",
+		func(stopReason string, completion, maxTokens int, expected string) {
+			Expect(budgetStopReason(stopReason, completion, maxTokens)).To(Equal(expected))
+		},
+		Entry("under the limit", "end_turn", 9, 10, "end_turn"),
+		Entry("at the limit", "end_turn", 10, 10, "max_tokens"),
+		Entry("tool_use is kept", "tool_use", 10, 10, "tool_use"),
+		Entry("no limit", "end_turn", 10, 0, "end_turn"),
+	)
+})

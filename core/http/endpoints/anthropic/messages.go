@@ -310,6 +310,7 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		if len(contentBlocks) == 0 {
 			contentBlocks = []schema.AnthropicContentBlock{{Type: "text", Text: result}}
 		}
+		stopReason = budgetStopReason(stopReason, tokenUsage.Completion, input.MaxTokens)
 
 		resp := &schema.AnthropicResponse{
 			ID:         fmt.Sprintf("msg_%s", id),
@@ -671,6 +672,7 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 		if toolCallsEmitted > 0 {
 			stopReason = "tool_use"
 		}
+		stopReason = budgetStopReason(stopReason, tokenUsage.Completion, input.MaxTokens)
 
 		sendAnthropicSSE(c, schema.AnthropicStreamEvent{
 			Type: "message_delta",
@@ -829,6 +831,16 @@ func anthropicStreamSequence(in streamInput) []schema.AnthropicStreamEvent {
 	}
 
 	return events
+}
+
+// budgetStopReason reports "max_tokens" instead of "end_turn" when the
+// generation used up the request's max_tokens, mirroring the "length"
+// finish_reason of the OpenAI endpoint. tool_use is left as is.
+func budgetStopReason(stopReason string, completionTokens, maxTokens int) string {
+	if stopReason == "end_turn" && maxTokens > 0 && completionTokens >= maxTokens {
+		return "max_tokens"
+	}
+	return stopReason
 }
 
 func convertFuncsToOpenAITools(funcs functions.Functions) []functions.Tool {
