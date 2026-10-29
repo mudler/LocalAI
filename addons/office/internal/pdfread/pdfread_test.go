@@ -7,8 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"image/png"
-	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 // assemble writes a PDF from the bodies of objects 1..n. trailer holds the
@@ -129,145 +130,12 @@ func blankPDF() []byte {
 	return buildPDF("")
 }
 
-func mustOpen(t *testing.T, data []byte) *Doc {
-	t.Helper()
+func mustOpen(data []byte) *Doc {
+	GinkgoHelper()
 	doc, err := Open(data)
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = doc.Close() })
+	Expect(err).ToNot(HaveOccurred(), "Open")
+	DeferCleanup(func() { _ = doc.Close() })
 	return doc
-}
-
-func TestOpenPagesText(t *testing.T) {
-	doc := mustOpen(t, helloPDF())
-
-	if got := doc.Pages(); got != 1 {
-		t.Fatalf("Pages() = %d, want 1", got)
-	}
-	text, err := doc.Text(1)
-	if err != nil {
-		t.Fatalf("Text(1): %v", err)
-	}
-	if !strings.Contains(text, "Hello PDF") {
-		t.Fatalf("Text(1) = %q, want it to contain %q", text, "Hello PDF")
-	}
-}
-
-func TestHasText(t *testing.T) {
-	doc := mustOpen(t, helloPDF())
-	ok, err := doc.HasText(1)
-	if err != nil {
-		t.Fatalf("HasText(1): %v", err)
-	}
-	if !ok {
-		t.Fatal("HasText(1) = false on a page with text")
-	}
-
-	blank := mustOpen(t, blankPDF())
-	ok, err = blank.HasText(1)
-	if err != nil {
-		t.Fatalf("HasText(1) on blank page: %v", err)
-	}
-	if ok {
-		t.Fatal("HasText(1) = true on a page with no text")
-	}
-}
-
-func TestRenderPNG(t *testing.T) {
-	doc := mustOpen(t, helloPDF())
-
-	// At 72 dpi a 300 by 144 point page is 300 by 144 pixels.
-	data, err := doc.Render(1, 72)
-	if err != nil {
-		t.Fatalf("Render(1, 72): %v", err)
-	}
-	if len(data) < 8 || !bytes.Equal(data[:8], []byte("\x89PNG\r\n\x1a\n")) {
-		t.Fatalf("Render output is not a PNG: % x", data[:min(8, len(data))])
-	}
-	cfg, err := png.DecodeConfig(bytes.NewReader(data))
-	if err != nil {
-		t.Fatalf("decode PNG: %v", err)
-	}
-	if cfg.Width != 300 || cfg.Height != 144 {
-		t.Fatalf("PNG size = %dx%d, want 300x144", cfg.Width, cfg.Height)
-	}
-	if len(data) < 200 {
-		t.Fatalf("PNG is only %d bytes, too small for a rendered page", len(data))
-	}
-}
-
-func TestRenderDPIClamp(t *testing.T) {
-	doc := mustOpen(t, helloPDF())
-
-	cases := []struct {
-		dpi       int
-		wantWidth int
-	}{
-		{dpi: 1, wantWidth: 150},     // clamped to 36 dpi: 300 * 36 / 72
-		{dpi: 1000, wantWidth: 1250}, // clamped to 300 dpi: 300 * 300 / 72
-	}
-	for _, c := range cases {
-		data, err := doc.Render(1, c.dpi)
-		if err != nil {
-			t.Fatalf("Render(1, %d): %v", c.dpi, err)
-		}
-		cfg, err := png.DecodeConfig(bytes.NewReader(data))
-		if err != nil {
-			t.Fatalf("decode PNG at dpi %d: %v", c.dpi, err)
-		}
-		if cfg.Width != c.wantWidth {
-			t.Errorf("dpi %d: width = %d, want %d", c.dpi, cfg.Width, c.wantWidth)
-		}
-	}
-}
-
-func TestPageRange(t *testing.T) {
-	doc := mustOpen(t, helloPDF())
-
-	for _, page := range []int{0, -1, 2} {
-		if _, err := doc.Text(page); !errors.Is(err, ErrPageRange) {
-			t.Errorf("Text(%d) error = %v, want ErrPageRange", page, err)
-		}
-		if _, err := doc.HasText(page); !errors.Is(err, ErrPageRange) {
-			t.Errorf("HasText(%d) error = %v, want ErrPageRange", page, err)
-		}
-		if _, err := doc.Render(page, 72); !errors.Is(err, ErrPageRange) {
-			t.Errorf("Render(%d) error = %v, want ErrPageRange", page, err)
-		}
-	}
-}
-
-func TestOpenRejectsNonPDF(t *testing.T) {
-	cases := map[string][]byte{
-		"nil":    nil,
-		"empty":  {},
-		"text":   []byte("this is not a pdf file at all"),
-		"binary": bytes.Repeat([]byte{0x00, 0xff, 0x7f}, 100),
-	}
-	for name, data := range cases {
-		doc, err := Open(data)
-		if !errors.Is(err, ErrNotPDF) {
-			if doc != nil {
-				_ = doc.Close()
-			}
-			t.Errorf("%s: Open error = %v, want ErrNotPDF", name, err)
-		}
-	}
-}
-
-func TestOpenRejectsTooLarge(t *testing.T) {
-	if MaxBytes != 256<<20 {
-		t.Fatalf("MaxBytes = %d, want 256 MiB", MaxBytes)
-	}
-	data := make([]byte, MaxBytes+1)
-	copy(data, pdfMagic)
-	if _, err := Open(data); !errors.Is(err, ErrTooLarge) {
-		t.Fatalf("Open(256 MiB + 1) error = %v, want ErrTooLarge", err)
-	}
-	if _, err := OpenWithPassword(data, "secret"); !errors.Is(err, ErrTooLarge) {
-		t.Fatalf("OpenWithPassword(256 MiB + 1) error = %v, want ErrTooLarge", err)
-	}
 }
 
 const (
@@ -275,122 +143,190 @@ const (
 	testOwnerPassword = "owner-secret"
 )
 
-func TestOpenEncryptedWithPassword(t *testing.T) {
-	data := encryptedPDF("BT /F1 24 Tf 20 60 Td (Hello PDF) Tj ET", testUserPassword, testOwnerPassword)
-	doc, err := OpenWithPassword(data, testUserPassword)
-	if err != nil {
-		t.Fatalf("OpenWithPassword(encrypted, right password): %v", err)
-	}
-	t.Cleanup(func() { _ = doc.Close() })
+const helloContent = "BT /F1 24 Tf 20 60 Td (Hello PDF) Tj ET"
 
-	if got := doc.Pages(); got != 1 {
-		t.Fatalf("Pages() = %d, want 1", got)
-	}
-	text, err := doc.Text(1)
-	if err != nil {
-		t.Fatalf("Text(1): %v", err)
-	}
-	if !strings.Contains(text, "Hello PDF") {
-		t.Fatalf("Text(1) = %q, want it to contain %q", text, "Hello PDF")
-	}
-}
+var _ = Describe("pdfread", func() {
+	It("opens a document and reads its pages and text", func() {
+		doc := mustOpen(helloPDF())
 
-func TestOpenEncryptedNoPassword(t *testing.T) {
-	data := encryptedPDF("BT /F1 24 Tf 20 60 Td (Hello PDF) Tj ET", testUserPassword, testOwnerPassword)
-	for name, open := range map[string]func() (*Doc, error){
-		"Open":                   func() (*Doc, error) { return Open(data) },
-		"OpenWithPassword(\"\")": func() (*Doc, error) { return OpenWithPassword(data, "") },
-	} {
-		doc, err := open()
+		Expect(doc.Pages()).To(Equal(1))
+		text, err := doc.Text(1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(text).To(ContainSubstring("Hello PDF"))
+	})
+
+	It("reports whether a page has text", func() {
+		doc := mustOpen(helloPDF())
+		ok, err := doc.HasText(1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ok).To(BeTrue(), "HasText(1) on a page with text")
+
+		blank := mustOpen(blankPDF())
+		ok, err = blank.HasText(1)
+		Expect(err).ToNot(HaveOccurred(), "HasText(1) on blank page")
+		Expect(ok).To(BeFalse(), "HasText(1) on a page with no text")
+	})
+
+	It("renders a page as a PNG", func() {
+		doc := mustOpen(helloPDF())
+
+		// At 72 dpi a 300 by 144 point page is 300 by 144 pixels.
+		data, err := doc.Render(1, 72)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(data)).To(BeNumerically(">=", 8))
+		Expect(data[:8]).To(Equal([]byte("\x89PNG\r\n\x1a\n")), "Render output is not a PNG")
+		cfg, err := png.DecodeConfig(bytes.NewReader(data))
+		Expect(err).ToNot(HaveOccurred(), "decode PNG")
+		Expect(cfg.Width).To(Equal(300))
+		Expect(cfg.Height).To(Equal(144))
+		Expect(len(data)).To(BeNumerically(">=", 200), "PNG too small for a rendered page")
+	})
+
+	It("clamps the render DPI", func() {
+		doc := mustOpen(helloPDF())
+
+		cases := []struct {
+			dpi       int
+			wantWidth int
+		}{
+			{dpi: 1, wantWidth: 150},     // clamped to 36 dpi: 300 * 36 / 72
+			{dpi: 1000, wantWidth: 1250}, // clamped to 300 dpi: 300 * 300 / 72
+		}
+		for _, c := range cases {
+			data, err := doc.Render(1, c.dpi)
+			Expect(err).ToNot(HaveOccurred(), "Render(1, %d)", c.dpi)
+			cfg, err := png.DecodeConfig(bytes.NewReader(data))
+			Expect(err).ToNot(HaveOccurred(), "decode PNG at dpi %d", c.dpi)
+			Expect(cfg.Width).To(Equal(c.wantWidth), "dpi %d", c.dpi)
+		}
+	})
+
+	It("returns ErrPageRange for pages out of range", func() {
+		doc := mustOpen(helloPDF())
+
+		for _, page := range []int{0, -1, 2} {
+			_, err := doc.Text(page)
+			Expect(err).To(MatchError(ErrPageRange), "Text(%d)", page)
+			_, err = doc.HasText(page)
+			Expect(err).To(MatchError(ErrPageRange), "HasText(%d)", page)
+			_, err = doc.Render(page, 72)
+			Expect(err).To(MatchError(ErrPageRange), "Render(%d)", page)
+		}
+	})
+
+	It("rejects input that is not a PDF", func() {
+		cases := map[string][]byte{
+			"nil":    nil,
+			"empty":  {},
+			"text":   []byte("this is not a pdf file at all"),
+			"binary": bytes.Repeat([]byte{0x00, 0xff, 0x7f}, 100),
+		}
+		for name, data := range cases {
+			doc, err := Open(data)
+			if doc != nil {
+				_ = doc.Close()
+			}
+			Expect(err).To(MatchError(ErrNotPDF), "%s", name)
+		}
+	})
+
+	It("rejects input that is too large", func() {
+		Expect(MaxBytes).To(Equal(256<<20), "MaxBytes is 256 MiB")
+		data := make([]byte, MaxBytes+1)
+		copy(data, pdfMagic)
+		_, err := Open(data)
+		Expect(err).To(MatchError(ErrTooLarge), "Open(256 MiB + 1)")
+		_, err = OpenWithPassword(data, "secret")
+		Expect(err).To(MatchError(ErrTooLarge), "OpenWithPassword(256 MiB + 1)")
+	})
+
+	It("opens an encrypted document with the right password", func() {
+		data := encryptedPDF(helloContent, testUserPassword, testOwnerPassword)
+		doc, err := OpenWithPassword(data, testUserPassword)
+		Expect(err).ToNot(HaveOccurred(), "OpenWithPassword(encrypted, right password)")
+		DeferCleanup(func() { _ = doc.Close() })
+
+		Expect(doc.Pages()).To(Equal(1))
+		text, err := doc.Text(1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(text).To(ContainSubstring("Hello PDF"))
+	})
+
+	It("requires a password for an encrypted document", func() {
+		data := encryptedPDF(helloContent, testUserPassword, testOwnerPassword)
+		for name, open := range map[string]func() (*Doc, error){
+			"Open":                   func() (*Doc, error) { return Open(data) },
+			"OpenWithPassword(\"\")": func() (*Doc, error) { return OpenWithPassword(data, "") },
+		} {
+			doc, err := open()
+			if doc != nil {
+				_ = doc.Close()
+			}
+			Expect(doc).To(BeNil(), "%s: got a document for an encrypted file without a password", name)
+			Expect(err).To(MatchError(ErrPasswordRequired), "%s", name)
+		}
+	})
+
+	It("rejects a wrong password", func() {
+		data := encryptedPDF(helloContent, testUserPassword, testOwnerPassword)
+		doc, err := OpenWithPassword(data, "not-the-password")
 		if doc != nil {
 			_ = doc.Close()
-			t.Errorf("%s: got a document for an encrypted file without a password", name)
 		}
-		if !errors.Is(err, ErrPasswordRequired) {
-			t.Errorf("%s: error = %v, want ErrPasswordRequired", name, err)
+		Expect(doc).To(BeNil(), "got a document for a wrong password")
+		Expect(err).To(MatchError(ErrWrongPassword))
+		Expect(errors.Is(err, ErrPasswordRequired)).To(BeFalse(), "a wrong password must not report ErrPasswordRequired")
+	})
+
+	It("opens a plain document with any password", func() {
+		doc, err := OpenWithPassword(helloPDF(), "")
+		Expect(err).ToNot(HaveOccurred(), "OpenWithPassword(plain, empty)")
+		DeferCleanup(func() { _ = doc.Close() })
+		Expect(doc.Pages()).To(Equal(1))
+
+		doc2, err := OpenWithPassword(helloPDF(), "unused")
+		Expect(err).ToNot(HaveOccurred(), "OpenWithPassword(plain, password)")
+		DeferCleanup(func() { _ = doc2.Close() })
+		text, err := doc2.Text(1)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(text).To(ContainSubstring("Hello PDF"))
+	})
+
+	It("returns ErrClosed after Close", func() {
+		doc, err := Open(helloPDF())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(doc.Close()).To(Succeed())
+		Expect(doc.Close()).To(Succeed(), "second Close")
+		_, err = doc.Text(1)
+		Expect(err).To(MatchError(ErrClosed), "Text after Close")
+		_, err = doc.Render(1, 72)
+		Expect(err).To(MatchError(ErrClosed), "Render after Close")
+		Expect(doc.Pages()).To(Equal(0), "Pages after Close")
+	})
+
+	// Opens every prefix of a valid PDF. Truncated input must produce an error
+	// or a usable document, never a panic.
+	It("does not panic on truncated prefixes", func() {
+		good := helloPDF()
+		for i := 0; i <= len(good); i++ {
+			doc, err := Open(good[:i])
+			if err != nil {
+				continue
+			}
+			_, _ = doc.Text(1)
+			_, _ = doc.Render(1, 36)
+			_ = doc.Close()
 		}
-	}
-}
+	})
 
-func TestOpenEncryptedWrongPassword(t *testing.T) {
-	data := encryptedPDF("BT /F1 24 Tf 20 60 Td (Hello PDF) Tj ET", testUserPassword, testOwnerPassword)
-	doc, err := OpenWithPassword(data, "not-the-password")
-	if doc != nil {
-		_ = doc.Close()
-		t.Fatal("got a document for a wrong password")
-	}
-	if !errors.Is(err, ErrWrongPassword) {
-		t.Fatalf("error = %v, want ErrWrongPassword", err)
-	}
-	if errors.Is(err, ErrPasswordRequired) {
-		t.Fatal("a wrong password must not report ErrPasswordRequired")
-	}
-}
-
-func TestOpenPlainWithPassword(t *testing.T) {
-	doc, err := OpenWithPassword(helloPDF(), "")
-	if err != nil {
-		t.Fatalf("OpenWithPassword(plain, empty): %v", err)
-	}
-	defer doc.Close()
-	if got := doc.Pages(); got != 1 {
-		t.Fatalf("Pages() = %d, want 1", got)
-	}
-
-	doc2, err := OpenWithPassword(helloPDF(), "unused")
-	if err != nil {
-		t.Fatalf("OpenWithPassword(plain, password): %v", err)
-	}
-	defer doc2.Close()
-	if text, err := doc2.Text(1); err != nil || !strings.Contains(text, "Hello PDF") {
-		t.Fatalf("Text(1) = %q, %v; want it to contain %q", text, err, "Hello PDF")
-	}
-}
-
-func TestClosed(t *testing.T) {
-	doc, err := Open(helloPDF())
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	if err := doc.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
-	if err := doc.Close(); err != nil {
-		t.Fatalf("second Close: %v", err)
-	}
-	if _, err := doc.Text(1); !errors.Is(err, ErrClosed) {
-		t.Fatalf("Text after Close error = %v, want ErrClosed", err)
-	}
-	if _, err := doc.Render(1, 72); !errors.Is(err, ErrClosed) {
-		t.Fatalf("Render after Close error = %v, want ErrClosed", err)
-	}
-	if got := doc.Pages(); got != 0 {
-		t.Fatalf("Pages after Close = %d, want 0", got)
-	}
-}
-
-// TestNoPanicOnPrefixes opens every prefix of a valid PDF. Truncated input
-// must produce an error or a usable document, never a panic.
-func TestNoPanicOnPrefixes(t *testing.T) {
-	good := helloPDF()
-	for i := 0; i <= len(good); i++ {
-		doc, err := Open(good[:i])
+	It("does not panic on garbage after the header", func() {
+		junk := append([]byte("%PDF-1.7\n"), bytes.Repeat([]byte("0 obj << /Type garbage >> endobj\x00\xff"), 50)...)
+		doc, err := Open(junk)
 		if err != nil {
-			continue
+			return
 		}
+		defer doc.Close()
 		_, _ = doc.Text(1)
-		_, _ = doc.Render(1, 36)
-		_ = doc.Close()
-	}
-}
-
-func TestNoPanicOnGarbageAfterHeader(t *testing.T) {
-	junk := append([]byte("%PDF-1.7\n"), bytes.Repeat([]byte("0 obj << /Type garbage >> endobj\x00\xff"), 50)...)
-	doc, err := Open(junk)
-	if err != nil {
-		return
-	}
-	defer doc.Close()
-	_, _ = doc.Text(1)
-	_, _ = doc.Render(1, 72)
-}
+		_, _ = doc.Render(1, 72)
+	})
+})
