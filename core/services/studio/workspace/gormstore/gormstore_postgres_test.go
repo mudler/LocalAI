@@ -1,8 +1,10 @@
 package gormstore_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,6 +17,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace/wstest"
 )
 
+var schemaSeq atomic.Int64
+
 // The PostgreSQL run needs a database that tests may wipe. Set
 // LOCALAI_TEST_POSTGRES_URL to enable it.
 var _ = Describe("The PostgreSQL store", func() {
@@ -26,12 +30,24 @@ var _ = Describe("The PostgreSQL store", func() {
 		return
 	}
 	Describe("meets the contract", func() {
+		// Each store gets its own schema: a spec that opens two stores (the
+		// "same calls give the same tree" property) needs two independent
+		// trees, and one shared set of tables made the second wipe the first.
 		wstest.RunStoreSuite(func() workspace.Store {
-			db, err := gorm.Open(postgres.Open(url), &gorm.Config{})
+			schema := fmt.Sprintf("ws_%d_%d", os.Getpid(), schemaSeq.Add(1))
+			admin, err := gorm.Open(postgres.Open(url), &gorm.Config{})
+			Expect(err).ToNot(HaveOccurred())
+			adminRaw, _ := admin.DB()
+			Expect(admin.Exec(`DROP SCHEMA IF EXISTS ` + schema + ` CASCADE`).Error).To(Succeed())
+			Expect(admin.Exec(`CREATE SCHEMA ` + schema).Error).To(Succeed())
+			DeferCleanup(func() {
+				_ = admin.Exec(`DROP SCHEMA IF EXISTS ` + schema + ` CASCADE`).Error
+				_ = adminRaw.Close()
+			})
+			db, err := gorm.Open(postgres.Open(url+"&search_path="+schema), &gorm.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			raw, _ := db.DB()
 			DeferCleanup(func() { _ = raw.Close() })
-			Expect(db.Exec(`DROP TABLE IF EXISTS studio_ws_grants, studio_ws_journal, studio_ws_changesets, studio_ws_nodes, studio_ws_meta CASCADE`).Error).To(Succeed())
 			blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
 			Expect(err).ToNot(HaveOccurred())
 			s, err := gormstore.New(db, blobs, gormstore.Options{Admin: wstest.Admin})
