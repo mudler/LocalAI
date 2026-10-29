@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/wstest"
@@ -95,9 +97,7 @@ func newRig(t *testing.T, mutate ...func(*triggers.Options)) *rig {
 	ws := openWorkspace(t, clock.Now)
 	h := &host{byRun: map[string]triggers.Trigger{}, live: map[string]bool{}}
 	store, err := triggers.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
+	gomega.NewWithT(t).Expect(err).NotTo(gomega.HaveOccurred())
 	r := &rig{t: t, clock: clock, store: store, ws: ws, host: h}
 	r.opts = triggers.Options{
 		Store: r.store, Workspace: ws, Admin: wstest.AdminActor,

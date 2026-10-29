@@ -59,17 +59,13 @@ func TestErrorTablesGiveTheStatusTypeAndTextOfEachRow(t *testing.T) {
 		{"an app refusal with no reason", failApp, studiosvc.ErrMCPAppRefused, 403, "mcp_app_refused", ""},
 		{"an MCP content failure", failMCPContent, fmt.Errorf("%w: server said no", studiosvc.ErrMCPContent), 502, "mcp_error", "server said no"},
 	}
+	g := gomega.NewWithT(t)
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := gomega.NewWithT(t)
-			status, apiErr := answer(t, tt.mapper, tt.err)
-			g.Expect(status).To(gomega.Equal(tt.status))
-			g.Expect(apiErr.Type).To(gomega.Equal(tt.typ))
-			g.Expect(apiErr.Code).To(gomega.BeEquivalentTo(tt.status))
-			if tt.msg != "" || tt.name == "an app refusal with no reason" {
-				g.Expect(apiErr.Message).To(gomega.ContainSubstring(tt.msg))
-			}
-		})
+		status, apiErr := answer(t, tt.mapper, tt.err)
+		g.Expect(status).To(gomega.Equal(tt.status), tt.name)
+		g.Expect(apiErr.Type).To(gomega.Equal(tt.typ), tt.name)
+		g.Expect(apiErr.Code).To(gomega.BeEquivalentTo(tt.status), tt.name)
+		g.Expect(apiErr.Message).To(gomega.ContainSubstring(tt.msg), tt.name)
 	}
 }
 
