@@ -151,9 +151,9 @@ func (s *toolSession) Send(ctx context.Context, text string) error {
 }
 
 func (s *toolSession) call(ctx context.Context, name, args string) (string, error) {
-	for _, t := range s.env.Tools {
-		if t.Name == name {
-			return t.Run(ctx, json.RawMessage(args))
+	for _, tool := range s.env.Tools {
+		if tool.Name == name {
+			return tool.Run(ctx, json.RawMessage(args))
 		}
 	}
 	return "", fmt.Errorf("no tool named %q", name)
