@@ -22,6 +22,8 @@ type fakeBot struct {
 	mu    sync.Mutex
 	calls []call
 	reply map[string]func(body map[string]any) (int, string)
+	// files are the downloads of the bot, by their path after /file/bot<token>/.
+	files map[string][]byte
 }
 
 type call struct {
@@ -30,8 +32,21 @@ type call struct {
 }
 
 func newFakeBot() *fakeBot {
-	f := &fakeBot{reply: map[string]func(map[string]any) (int, string){}}
+	f := &fakeBot{reply: map[string]func(map[string]any) (int, string){}, files: map[string][]byte{}}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if rest, ok := strings.CutPrefix(r.URL.EscapedPath(), "/file/bot"); ok {
+			f.mu.Lock()
+			f.calls = append(f.calls, call{Path: r.URL.EscapedPath()})
+			_, file, _ := strings.Cut(rest, "/")
+			data, found := f.files[file]
+			f.mu.Unlock()
+			if !found {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_, _ = w.Write(data)
+			return
+		}
 		body := map[string]any{}
 		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
 			// A file upload: the fields as text, and the file as its field,

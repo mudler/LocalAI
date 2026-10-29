@@ -218,13 +218,19 @@ type tgMessage struct {
 		LastName  string `json:"last_name"`
 		Username  string `json:"username"`
 	} `json:"from"`
-	Text     string `json:"text"`
-	Entities []struct {
-		Type   string `json:"type"`
-		Offset int    `json:"offset"`
-		Length int    `json:"length"`
-	} `json:"entities"`
-	ReplyTo *struct {
+	Text     string     `json:"text"`
+	Entities []tgEntity `json:"entities"`
+	// A message with a file has a caption, not a text.
+	Caption         string     `json:"caption"`
+	CaptionEntities []tgEntity `json:"caption_entities"`
+	// MediaGroup names the album that the message is one item of.
+	MediaGroup string    `json:"media_group_id"`
+	Photo      []tgPhoto `json:"photo"`
+	Voice      *tgFile   `json:"voice"`
+	Audio      *tgFile   `json:"audio"`
+	VideoNote  *tgFile   `json:"video_note"`
+	Document   *tgFile   `json:"document"`
+	ReplyTo    *struct {
 		ID   int64 `json:"message_id"`
 		From struct {
 			ID int64 `json:"id"`
@@ -232,11 +238,52 @@ type tgMessage struct {
 	} `json:"reply_to_message"`
 }
 
+type tgEntity struct {
+	Type   string `json:"type"`
+	Offset int    `json:"offset"`
+	Length int    `json:"length"`
+}
+
+// albumPolls is how many more times Updates asks for updates while the last
+// update it has is an item of an album: Telegram answers a long poll as soon
+// as the first item of an album is there.
+const albumPolls = 3
+
+// update is a message of getUpdates with the album it is an item of.
+type update struct {
+	contract.ConnectorMessage
+	group string
+}
+
 // Updates long-polls for updates from offset on, waiting up to timeoutSeconds.
 // Each update comes back as a normalized message with its update ID as the
 // cursor. A kind that is not a plain message (an edited message, a channel
-// post) has Skip set, so the host can move its offset past it.
+// post) has Skip set, so the host can move its offset past it. The items of
+// an album that follow each other become one message with all their files
+// (see mergeAlbums).
 func (t *API) Updates(ctx context.Context, token string, offset int64, timeoutSeconds int) ([]contract.ConnectorMessage, error) {
+	ups, err := t.updates(ctx, token, offset, timeoutSeconds)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < albumPolls && len(ups) > 0 && ups[len(ups)-1].group != ""; i++ {
+		// The rest of an album may be on its way: wait a moment and ask
+		// again, from the same offset. A higher offset would confirm the
+		// updates to Telegram before the host has handled them. A failure
+		// only ends the wait; the next poll reads the rest.
+		if !sleep(ctx, albumWait) {
+			break
+		}
+		more, err := t.updates(ctx, token, offset, 0)
+		if err != nil || len(more) < len(ups) {
+			break
+		}
+		ups = more
+	}
+	return mergeAlbums(ups), nil
+}
+
+func (t *API) updates(ctx context.Context, token string, offset int64, timeoutSeconds int) ([]update, error) {
 	var raw []struct {
 		ID      int64           `json:"update_id"`
 		Message json.RawMessage `json:"message"`
@@ -245,20 +292,25 @@ func (t *API) Updates(ctx context.Context, token string, offset int64, timeoutSe
 	if err := t.call(ctx, token, "getUpdates", params, time.Duration(timeoutSeconds)*time.Second, &raw); err != nil {
 		return nil, err
 	}
-	out := make([]contract.ConnectorMessage, 0, len(raw))
+	out := make([]update, 0, len(raw))
 	for _, r := range raw {
 		u := contract.ConnectorMessage{Cursor: r.ID}
 		var m tgMessage
 		if len(r.Message) == 0 || string(r.Message) == "null" || json.Unmarshal(r.Message, &m) != nil {
 			u.Skip = true
-			out = append(out, u)
+			out = append(out, update{ConnectorMessage: u})
 			continue
+		}
+		if m.Text == "" {
+			// The caption of a file is its text, with its own entities.
+			m.Text, m.Entities = m.Caption, m.CaptionEntities
 		}
 		u.Chat, u.Direct = strconv.FormatInt(m.Chat.ID, 10), m.Chat.Type == "private"
 		u.SenderID = strconv.FormatInt(m.From.ID, 10)
 		u.SenderName = strings.TrimSpace(m.From.FirstName + " " + m.From.LastName)
 		u.SenderUsername, u.Text = m.From.Username, m.Text
-		u.Unsupported = m.Text == ""
+		u.Media = mediaRefs(m)
+		u.Unsupported = m.Text == "" && len(u.Media) == 0
 		if m.ID != 0 {
 			u.MessageID = strconv.FormatInt(m.ID, 10)
 		}
@@ -271,7 +323,7 @@ func (t *API) Updates(ctx context.Context, token string, offset int64, timeoutSe
 		if !u.Direct {
 			u.Mention, u.Text = t.addressed(ctx, token, m)
 		}
-		out = append(out, u)
+		out = append(out, update{ConnectorMessage: u, group: m.MediaGroup})
 	}
 	return out, nil
 }

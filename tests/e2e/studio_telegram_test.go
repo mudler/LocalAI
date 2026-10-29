@@ -175,9 +175,9 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 	It("answers a message with no text, a message that is too long and nothing for a group", func() {
 		token := "7005:content"
 		bind(token, newAgent(), obj{"accept_any": true, "confirm_accept_any": "accept any message"})
-		telegram.queue(token, obj{"update_id": nextID(), "message": obj{"chat": obj{"id": 51, "type": "private"}, "from": obj{"id": 51}, "photo": []any{}}})
+		telegram.queue(token, obj{"update_id": nextID(), "message": obj{"chat": obj{"id": 51, "type": "private"}, "from": obj{"id": 51}, "sticker": obj{"file_id": "s1"}}})
 		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(1))
-		Expect(telegram.sentBy(token)[0].Text).To(ContainSubstring("only read text"))
+		Expect(telegram.sentBy(token)[0].Text).To(ContainSubstring("cannot read this kind of message"))
 		telegram.say(token, nextID(), 51, strings.Repeat("x", 8001))
 		Eventually(sent(token), 90*time.Second, 200*time.Millisecond).Should(Equal(2))
 		Expect(telegram.sentBy(token)[1].Text).To(ContainSubstring("too long"))

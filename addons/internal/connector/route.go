@@ -22,6 +22,10 @@ var (
 	ErrUnauthorized = errors.New("the platform refused the token")
 	// ErrConflict means another process reads the updates of the same bot.
 	ErrConflict = errors.New("another process reads the updates of this bot")
+	// ErrTooLarge means a file of a message is larger than the add-on may
+	// hand over (contract.MaxConnectorFileBytes) or than the platform lets a
+	// bot download.
+	ErrTooLarge = errors.New("the file is too large")
 )
 
 // RetryAfter means the platform asks the caller to wait.
@@ -258,6 +262,8 @@ func Typed(err error) *contract.ConnectorError {
 		return &contract.ConnectorError{Code: contract.ConnectorUnauthorized, Message: err.Error()}
 	case errors.Is(err, ErrConflict):
 		return &contract.ConnectorError{Code: contract.ConnectorConflict, Message: err.Error()}
+	case errors.Is(err, ErrTooLarge):
+		return &contract.ConnectorError{Code: contract.ConnectorTooLarge, Message: err.Error()}
 	case errors.As(err, &ra):
 		return &contract.ConnectorError{Code: contract.ConnectorRateLimited, Message: err.Error(), RetryAfter: ra.Seconds}
 	}

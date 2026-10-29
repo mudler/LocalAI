@@ -1,6 +1,6 @@
 {
   "title": "Telegram",
-  "intro": "Bind a Telegram bot to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own.",
+  "intro": "Bind a Telegram bot to one of your saved agents. A person who messages the bot talks to that agent, in a conversation of their own. They can send text, photos (up to 1 MB) and voice messages; a voice message is transcribed with the Chat transcription model of the settings.",
   "new": "New Telegram bot",
   "edit": "Edit Telegram bot",
   "name": "Name",
