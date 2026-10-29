@@ -25,6 +25,15 @@ const (
 	QueueAgentWorkers     = "agent-workers"
 )
 
+// Chat starts (Request-Reply via NATS — load-balanced across chat workers).
+// A frontend sends the start of an unattended chat run here; one chat worker
+// runs the turn and replies whether it started or queued the message. The
+// turn's events and stop keep using the chats.events and chats.control subjects.
+const (
+	SubjectChatStart = "chats.start"
+	QueueChatWorkers = "chat-workers"
+)
+
 // SubjectFineTuneProgress returns the NATS subject for fine-tune progress.
 func SubjectFineTuneProgress(jobID string) string {
 	return subjectFineTunePrefix + sanitizeSubjectToken(jobID) + ".progress"
