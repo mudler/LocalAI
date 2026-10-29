@@ -81,9 +81,15 @@ func (s *Service) httpClientFor(c Connector, sec Secrets) (*http.Client, error) 
 	return httpclient.New(httpclient.WithTransport(rt), httpclient.WithExternalOnly(), httpclient.WithFollowRedirects()), nil
 }
 
-// open connects to a connector and lists its tools.
-func (s *Service) openConn(c Connector, sec Secrets) (*conn, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+// openConn connects to a connector and lists its tools. The connection lives
+// until conn.close: it keeps the values of reqCtx but not its cancellation,
+// because a session is shared by later turns. While it connects, the end of
+// reqCtx still aborts the work, so a stopped turn does not wait for a server
+// that is slow to answer.
+func (s *Service) openConn(reqCtx context.Context, c Connector, sec Secrets) (*conn, error) {
+	ctx, cancel := context.WithCancel(context.WithoutCancel(reqCtx))
+	stop := context.AfterFunc(reqCtx, cancel)
+	defer stop()
 	var (
 		cs  *mcp.ClientSession
 		err error
@@ -132,6 +138,12 @@ func (s *Service) openConn(c Connector, sec Secrets) (*conn, error) {
 	if len(tools) > maxTools {
 		tools = tools[:maxTools]
 	}
+	if !stop() {
+		// reqCtx ended and cancelled the connection while the tools were
+		// listed: do not hand out a dead session.
+		_ = cs.Close()
+		return nil, reqCtx.Err()
+	}
 	return &conn{cs: cs, cancel: cancel, tools: tools}, nil
 }
 
@@ -148,6 +160,9 @@ func connectCommand(ctx context.Context, cancel context.CancelFunc, cmd *exec.Cm
 	select {
 	case r := <-done:
 		return r.cs, r.err
+	case <-ctx.Done():
+		// The request ended; the cancelled context kills the process.
+		return nil, context.Cause(ctx)
 	case <-time.After(timeout):
 		// Cancelling the context kills the process.
 		cancel()

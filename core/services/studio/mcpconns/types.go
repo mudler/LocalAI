@@ -46,6 +46,8 @@ var (
 	ErrNotFound  = errors.New("mcpconns: not found")
 	ErrInvalid   = errors.New("mcpconns: invalid connector")
 	ErrForbidden = errors.New("mcpconns: not allowed")
+	// ErrClosed is returned when a session is asked for after Close.
+	ErrClosed = errors.New("mcpconns: closed")
 )
 
 // Connector is one MCP server of one user.

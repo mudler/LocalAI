@@ -103,8 +103,12 @@ type session struct {
 // frontend notices an edit made on another by the record's update time.
 type Service struct {
 	o      Options
-	mu     sync.Mutex
+	mu     sync.Mutex // guards sess and closed; never held across I/O
+	closed bool       // Close has run: no session may be added
 	wmu    sync.Mutex // serialises writes, so the per-user limit holds
+	// sealMu guards sealer. It is held while the key is read from the store,
+	// so it is not mu: a slow key read must not block the sessions.
+	sealMu sync.Mutex
 	sealer *connectors.Sealer
 	sess   map[string]*session
 	stop   chan struct{}
@@ -147,6 +151,7 @@ func (s *Service) Close() {
 	s.once.Do(func() { close(s.stop) })
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.closed = true
 	for id, se := range s.sess {
 		se.conn.close()
 		delete(s.sess, id)
@@ -214,8 +219,8 @@ func newID() string {
 }
 
 func (s *Service) sealerFor(ctx context.Context) (*connectors.Sealer, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.sealMu.Lock()
+	defer s.sealMu.Unlock()
 	if s.sealer != nil {
 		return s.sealer, nil
 	}
@@ -477,7 +482,7 @@ func (s *Service) Test(ctx context.Context, user, id string) (Probe, error) {
 	if err != nil {
 		return Probe{Error: reason(err)}, nil
 	}
-	cn, err := s.openConn(c, sec)
+	cn, err := s.openConn(ctx, c, sec)
 	if err != nil {
 		return Probe{Error: redact(reason(err), c, sec)}, nil
 	}
@@ -514,12 +519,17 @@ func (s *Service) session(ctx context.Context, c Connector) (*session, error) {
 	if err != nil {
 		return nil, err
 	}
-	cn, err := s.openConn(c, sec)
+	cn, err := s.openConn(ctx, c, sec)
 	if err != nil {
 		return nil, errors.New(redact(err.Error(), c, sec))
 	}
 	se := &session{owner: c.Owner, version: version, conn: cn, last: s.o.Clock(), private: s.o.AllowPrivate()}
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		cn.close()
+		return nil, ErrClosed
+	}
 	if other := s.sess[c.ID]; other != nil && other.version == version && other.owner == c.Owner {
 		s.mu.Unlock()
 		cn.close()
