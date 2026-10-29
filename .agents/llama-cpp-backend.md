@@ -81,3 +81,13 @@ The `spec_type` option in `grpc-server.cpp` delegates to upstream's `common_spec
 - `llama.cpp/common/chat-parser.cpp` - Format presets and model-specific handlers
 - `llama.cpp/common/chat.h` - Format enums and parameter structures
 - `llama.cpp/tools/server/server-context.cpp` - Server configuration options
+
+## Speech-to-speech (AudioToAudioStream)
+
+`grpc-server.cpp` implements `AudioToAudioStream` on upstream's realtime slot (`server_realtime_slot`, task type `SERVER_TASK_TYPE_REALTIME`, `server-realtime.cpp`). It is compiled only when `prepare.sh` finds the realtime task type (`LOCALAI_HAS_REALTIME`); forks without it answer `UNIMPLEMENTED`.
+
+- `RealtimeStreamSession` (in `grpc-server.cpp`) feeds the slot with `SERVER_TASK_TYPE_CONTROL` tasks and writes the events. A reader thread handles client messages, the RPC thread consumes slot results.
+- `realtime_session.h` holds everything that needs no model: the turn text derived from the chat template, the conversation state machine and the translation of slot results into events. The text of a response goes through the splitter that `grpc-server.cpp` builds from a `common_chat_session` (grammar, preserved tokens and incremental parser of the chat template). `realtime_session_test.cpp` tests it (picked up by `backend/cpp/run-unit-tests.sh`). `realtime_chat_check.cpp` checks it against the LFM3 template of the llama.cpp tree and runs under ctest (`-DLLAMA_GRPC_BUILD_TESTS=ON`).
+- No proto change: tools travel in `AudioToAudioConfig.tools` (OpenAI format) and `tool_choice` in its `params`, tool calls leave as `response.function_call_arguments.done`, `response.done` carries `raw_text` for a Go-side parse when the C++ parser found no call, tool results arrive as a `conversation.item.create` control with a `function_call_output` item. The event names are listed in the comments of `backend.proto`.
+- Upstream's slot has no voice selection and no VAD. Tool calls follow upstream's `server-realtime.cpp`: the session grammar goes into the sampling of the response (`server_control_response::sampling`), the tool turn is derived from the template. A requested voice is reported in `session.created` with `voice_applied: false`.
+- Upstream renames controls and moves the slot often. After a llama.cpp bump, build the backend and run the `realtime_*` tests first.

@@ -79,8 +79,6 @@ cpu-kokoro-development	linux	amd64
 cpu-kokoro-development	linux	arm64	
 cpu-kokoros	linux	amd64	sha256:9b6ad2d1b6ca7da7ba437af0470f8459d6321ed15f6adfeaa69d873c4d1d8785
 cpu-kokoros-development	linux	amd64	
-cpu-liquid-audio	linux	amd64	sha256:ad9798b82dae6f2e8d12b077bf1e029c586f44480cea2ff2428671fbbbd4a870
-cpu-liquid-audio-development	linux	amd64	
 cpu-llama-cpp	linux	amd64	sha256:cc0eaf6d6db4c5c22b9e431e7d90b917906a2262add102da65f241b4cfe06bf7
 cpu-llama-cpp	linux	arm64	sha256:de6aa44e96e52a715b55ec6ac48b7bde5711401267817fef3af052872b63935c
 cpu-llama-cpp-development	linux	amd64	
@@ -286,8 +284,6 @@ cuda12-insightface	linux	amd64	sha256:771e0ef97bec577a9e73176de2215cd8a832a5b705
 cuda12-insightface-development	linux	amd64	
 cuda12-kokoro	linux	amd64	sha256:04b040393fad829bd6816c2a52a8e1620eccd9960e80812f6c7e026014745c34
 cuda12-kokoro-development	linux	amd64	
-cuda12-liquid-audio	linux	amd64	sha256:ca554511dd390a5ffcef6d02164e27f1c22226d51598365bb6126219c0c870b8
-cuda12-liquid-audio-development	linux	amd64	
 cuda12-llama-cpp	linux	amd64	sha256:21800474dce13aa477b392a61a84015d488cb14bc6cbaf7e6c367521f1190ae3
 cuda12-llama-cpp-development	linux	amd64	
 cuda12-locate-anything-cpp	linux	amd64	sha256:ce8611790ea22f4807963c2cf6a48556e6e8055888b90a098248169c8d71c181
@@ -404,8 +400,6 @@ cuda13-funasr	linux	amd64	sha256:01db0d81834756fc1bee6b29c0f7e53cd2e0c943db6e350
 cuda13-funasr-development	linux	amd64	
 cuda13-kokoro	linux	amd64	sha256:1577a61547955fbcf47d9065642a0b9170e9079236e7456702ffeedfec39a52b
 cuda13-kokoro-development	linux	amd64	
-cuda13-liquid-audio	linux	amd64	sha256:d1ec28a025abf0b7397d5dae2bfd08b5a864dc7c80a87359bd9071bdc8b6b063
-cuda13-liquid-audio-development	linux	amd64	
 cuda13-llama-cpp	linux	amd64	sha256:db9a34f0532badb72551f68c028969bf8bd2b37035d973954d0f47a3e41af034
 cuda13-llama-cpp-development	linux	amd64	
 cuda13-locate-anything-cpp	linux	amd64	sha256:9ce5321d47c6f0623d110db6e83327ba0dbbfb0d34658fc0d56689ec9b0bfa66
@@ -456,8 +450,6 @@ cuda13-nvidia-l4t-arm64-fish-speech	linux	arm64	sha256:d8ed573b1a0622fe7a6eda8b4
 cuda13-nvidia-l4t-arm64-fish-speech-development	linux	arm64	
 cuda13-nvidia-l4t-arm64-funasr	linux	arm64	sha256:b9e4659ed178da1ce73af4b65f7cf0d364aef107d5df45019092d895e2b4cad1
 cuda13-nvidia-l4t-arm64-funasr-development	linux	arm64	
-cuda13-nvidia-l4t-arm64-liquid-audio	linux	arm64	sha256:fb521024116a1c2c69fcdc241922a25631c46555e42b3fcf66aa2d23da9506f2
-cuda13-nvidia-l4t-arm64-liquid-audio-development	linux	arm64	
 cuda13-nvidia-l4t-arm64-llama-cpp	linux	arm64	sha256:18824d9c35c313f92c430c816726ce9743809d2b48b03285754b8b490b6ca57d
 cuda13-nvidia-l4t-arm64-llama-cpp-development	linux	arm64	
 cuda13-nvidia-l4t-arm64-locate-anything-cpp	linux	arm64	sha256:d3017733e7f376f1492361cb795bc8b0facf7546ab9d2c0cd9c9c8b40c5e5807
@@ -582,8 +574,6 @@ intel-funasr	linux	amd64	sha256:6283ffaf34bf7c3fec112cbf66cea6573cdf3c16f27743a0
 intel-funasr-development	linux	amd64	
 intel-kokoro	linux	amd64	sha256:367b1857cbf7d0a5b67fcff482a8e79eb12e139f064bd9be91d2bb587f5e3c8f
 intel-kokoro-development	linux	amd64	
-intel-liquid-audio	linux	amd64	sha256:e331eab911829e84d23634483beeef813e0fb334bc58743f95e3a9eba9db360b
-intel-liquid-audio-development	linux	amd64	
 intel-nemo	linux	amd64	sha256:7347434ab262b06e0a7159b624f1a3eaf47d0f172c46da6468f481b522d65f32
 intel-nemo-development	linux	amd64	
 intel-pocket-tts	linux	amd64	sha256:8140d0f885716d0c0f045b03ef3f01c3366ef131e5466707afc79d4f9def564a
@@ -721,8 +711,6 @@ metal-kitten-tts	darwin	arm64	sha256:2626da6d0f0ba6abd41bf62431459aa5554ceb55d2f
 metal-kitten-tts-development	darwin	arm64	
 metal-kokoro	darwin	arm64	sha256:c53faaa7724694b9957fbafb79ba9eb830688ead472504944692ec328c44fdac
 metal-kokoro-development	darwin	arm64	
-metal-liquid-audio	darwin	arm64	sha256:f744bafbc2026d852d109161c9aad3efd99d5b339fcdea0856d058e1a50e6d78
-metal-liquid-audio-development	darwin	arm64	
 metal-llama-cpp	darwin	arm64	sha256:090580162ce329b460ebb51a40f9c19cc576ef8f446e976bfeef6e5ba63a2b91
 metal-llama-cpp-development	darwin	arm64	
 metal-local-store	darwin	arm64	sha256:58e8e057ab81e50a4a2d6d699692c9dd788908a3b4bd12a25119e26b6eca1623
@@ -927,8 +915,6 @@ rocm-funasr	linux	amd64	sha256:f02fe7f955725d005ae707f56be269980f5ed46cbb067d055
 rocm-funasr-development	linux	amd64	
 rocm-kokoro	linux	amd64	sha256:992505e2c68ab49261761708cad4dd0c0ba08d2dec9cb1ee2dd26a307375368a
 rocm-kokoro-development	linux	amd64	
-rocm-liquid-audio	linux	amd64	sha256:6fafe2ba12f0810292899fc37f35553ebdada0e073d7b5d7fcde2c8fcc3b50d4
-rocm-liquid-audio-development	linux	amd64	
 rocm-llama-cpp	linux	amd64	sha256:3668d32f62aa63431e1214129b06eb964813c73105be58ff51c2afcff0f12803
 rocm-llama-cpp-development	linux	amd64	
 rocm-magpie-tts-cpp	linux	amd64	sha256:b820d07693b65ac905bbae1289bd8ed431d9cb1735ac300d750316660ca86b99

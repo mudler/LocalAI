@@ -1166,6 +1166,12 @@ type Pipeline struct {
 	// a diarize request they cannot serve. Speaker labels are per turn.
 	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
 
+	// AnyToAny marks a realtime_audio model that serves the whole speech loop
+	// itself through AudioToAudioStream (for example LFM3-Audio on llama.cpp).
+	// true routes the session to that single stream; unset or false keeps the
+	// chained VAD, transcription, LLM and TTS pipeline the four slots describe.
+	AnyToAny *bool `yaml:"any_to_any,omitempty" json:"any_to_any,omitempty"`
+
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
 	// own reasoning_effort. Unset leaves the LLM model config in charge.
@@ -1380,6 +1386,10 @@ type PipelineStreaming struct {
 	// retain whole-reply synthesis for engines without native live text input.
 	ClauseChunking *bool `yaml:"clause_chunking,omitempty" json:"clause_chunking,omitempty"`
 }
+
+// IsAnyToAny reports whether the realtime session runs the whole speech loop
+// on one model through AudioToAudioStream (pipeline.any_to_any: true).
+func (p Pipeline) IsAnyToAny() bool { return p.AnyToAny != nil && *p.AnyToAny }
 
 // StreamLLM reports whether LLM tokens should be streamed for this pipeline.
 func (p Pipeline) StreamLLM() bool { return p.Streaming.LLM != nil && *p.Streaming.LLM }
@@ -2772,13 +2782,10 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_REALTIME_AUDIO) == FLAG_REALTIME_AUDIO {
-		// Backends that own a single any-to-any loop and implement
-		// AudioToAudioStream — listed here so models without an explicit
-		// known_usecases still surface on the Talk page.
-		realtimeAudioBackends := []string{"liquid-audio"}
-		if !slices.Contains(realtimeAudioBackends, c.Backend) {
-			return false
-		}
+		// No heuristic: realtime_audio is a deliberate operator choice. A
+		// plain GGUF must not appear on the Talk page, so HasUsecases(
+		// FLAG_REALTIME_AUDIO) is true only when KnownUsecases declares it.
+		return false
 	}
 
 	if (u & FLAG_SCORE) == FLAG_SCORE {

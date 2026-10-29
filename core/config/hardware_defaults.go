@@ -280,6 +280,10 @@ func hasParallelOption(opts []string) bool {
 	return backendOptionSet(opts, "parallel", "n_parallel")
 }
 
+// HasParallelOption reports whether opts already carry a parallel or
+// n_parallel backend option, whatever its value.
+func HasParallelOption(opts []string) bool { return hasParallelOption(opts) }
+
 // localGPU builds a GPU descriptor from local detection, used by SetDefaults on
 // a single host (the distributed router builds it from the selected node's
 // reported info instead). It is a package var so tests can inject a

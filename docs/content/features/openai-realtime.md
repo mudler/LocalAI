@@ -465,6 +465,111 @@ Registering an option list (pipeline seed or `session.update`) prewarms the scor
 
 The concrete scoring model must declare `score` in `known_usecases`. A single llama.cpp model can serve ordinary inference and classification concurrently by declaring multiple use cases, for example `known_usecases: [chat, completion, score]`; LocalAI reserves the scoring slots only when `score` is present. Scoring also requires the unified KV cache, which is enabled by default, so a score-enabled model cannot set `kv_unified:false`.
 
+## Speech-to-speech models (experimental)
+
+A speech-to-speech (S2S) model takes audio in and answers with audio, text or both, in one model. Instead of chaining VAD, transcription, an LLM and TTS, the session sends audio to the model and gets the reply back from it. The llama-cpp backend serves these models.
+
+{{% notice warning %}}
+Speech-to-speech over the Realtime API is experimental. It needs a llama.cpp build with LFM3-Audio and realtime support, which the LocalAI llama.cpp pin must include. It has not been measured on real hardware, and its behaviour may change.
+{{% /notice %}}
+
+### Configuration
+
+The gallery has [LiquidAI LFM3-Audio-2B](https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF) in two quantizations (Q4_K_M or Q8_0 weights, both with the Q8_0 audio projector) and four shapes each. Every entry is independent: installing `lfm3-audio-2b` always gets the Q4_K_M build, never Q8_0.
+
+| Entry (Q4_K_M) | Entry (Q8_0) | Shape | VAD |
+|---|---|---|---|
+| `lfm3-audio-2b` | `lfm3-audio-2b-q8` | One speech-to-speech model | none, the client commits turns |
+| `lfm3-audio-2b-vad` | `lfm3-audio-2b-q8-vad` | One speech-to-speech model | `silero-vad-ggml` |
+| `lfm3-audio-2b-pipeline` | `lfm3-audio-2b-q8-pipeline` | Chained pipeline on the same model | none, the client commits turns |
+| `lfm3-audio-2b-pipeline-vad` | `lfm3-audio-2b-q8-pipeline-vad` | Chained pipeline on the same model | `silero-vad-ggml` |
+
+The gallery cannot install one model as a dependency of another. The `-vad` entries name `silero-vad-ggml` in `pipeline.vad`, so install it first with `local-ai models install silero-vad-ggml`. Without it, the session fails to start with a model-not-found error.
+
+Install one with `local-ai models install lfm3-audio-2b`. Its model configuration looks like this:
+
+```yaml
+name: lfm3-audio-2b
+backend: llama-cpp
+context_size: 8192
+mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+parameters:
+  model: LFM3-Audio-2B-Q4_K_M.gguf
+options:
+  - parallel:2
+known_usecases: [realtime_audio, chat, transcript, tts]
+pipeline:
+  any_to_any: true
+template:
+  use_tokenizer_template: true
+```
+
+- **`pipeline.any_to_any: true`** runs the model as one speech-to-speech model. Without it, a `realtime_audio` model keeps the chained path (VAD, transcription, LLM, TTS).
+- **`parallel:2`** gives the model two slots. One is held by the session. The other serves transcription, TTS or chat calls at the same time.
+
+### Chained pipeline on LFM3
+
+The `-pipeline` entries do not use the speech-to-speech stream. They run the classic realtime pipeline (VAD, transcription, LLM, TTS), with the transcription, chat and speech stages all served by the one llama.cpp model: speech recognition through the transcription path, the reply through the chat path (with its templates, tools and streaming), and speech synthesis through the TTS path with the named voice `female` (or `male`). Choose it when you want the regular chat path or the text of each stage; choose the speech-to-speech entries for the lowest latency. The model configuration names itself in each slot and is not a `realtime_audio` model:
+
+```yaml
+name: lfm3-audio-2b-pipeline-vad
+backend: llama-cpp
+mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+parameters:
+  model: LFM3-Audio-2B-Q4_K_M.gguf
+known_usecases: [chat, transcript, tts]
+tts:
+  voice: female
+pipeline:
+  vad: silero-vad-ggml
+  transcription: lfm3-audio-2b-pipeline-vad
+  llm: lfm3-audio-2b-pipeline-vad
+  tts: lfm3-audio-2b-pipeline-vad
+```
+
+Keep the installed model name, because the slots refer to it. The `-pipeline` entries have no `vad` line. A chained pipeline without a VAD starts with turn detection off, refuses `turn_detection` of type `server_vad` in `session.update`, and expects `input_audio_buffer.commit` followed by `response.create`.
+
+### Migrating from the liquid-audio backend
+
+The Python `liquid-audio` backend is removed, together with its importer and its gallery entries. It served LFM2-Audio models. Use the `llama-cpp` backend with `lfm3-audio-2b` or `lfm3-audio-2b-q8` instead, and set `pipeline.any_to_any: true` as shown above. A model with `backend: llama-cpp` and `realtime_audio` but without `pipeline.any_to_any` is refused with `invalid_pipeline`, because llama.cpp has no VAD, transcription or TTS of its own.
+
+LFM2.5-Audio is not covered: llama.cpp does not run it, so there is no replacement for it. Remove the old model configurations that name `backend: liquid-audio`.
+
+### Voice activity detection
+
+Speech-to-speech models do not have a VAD of their own. Turn detection depends on the pipeline:
+
+- **With a VAD model** (`pipeline.vad`, for example `silero-vad-ggml`, installed separately), the server detects the start and end of each turn. Use `turn_detection` with `server_vad` as in the rest of this page. Audio is forwarded from 300 ms before speech starts, so silence before the user speaks is not added to the model context.
+- **Without a VAD model** (the plain `lfm3-audio-2b` entries), server VAD is off. The client ends each turn with `input_audio_buffer.commit` and then sends `response.create`. Set `turn_detection` to `null` in `session.update` to make this explicit.
+
+### Tools
+
+Define tools in `session.update` as usual. When the model calls one, the session sends `response.output_item.added` with a `function_call` item, then `response.function_call_arguments.delta` and `response.function_call_arguments.done`, and then `response.done`. To return the result, send a `conversation.item.create` with `type: function_call_output`, the same `call_id` and the `output` string, and then `response.create`. The model answers with the result in the next reply. A reply that is only a tool call has no audio.
+
+How a call is read depends on the model:
+
+- The backend reads the text of the reply with the parser and grammar of the model's chat template, as the llama.cpp server does for `/v1/realtime`. The call is cut out of the transcript. The audio is sent as the model produces it, also after a call started. `tool_choice` (`auto`, `none` or `required`) works in `session.update` and in `response.create`, and the response value wins. A named function cannot be forced: `session.update` and `response.create` refuse it with an error. The backend knows only the tools of the session, so a `tools` list on `response.create` does not change what it reads. With `tool_choice` set to `none`, a call the model writes anyway stays text.
+- If the backend found no call and the request had tools, LocalAI parses the raw text of the reply with the `function` settings of the model, the way the chained pipeline does. Set `function.xml_format_preset` (the LFM3-Audio gallery entries set it to `lfm3`) or the other `function` options for a format the backend parser does not know. In this case the call text can already be in the streamed transcript, and the transcript is replaced only if `function.capture_llm_results` captures the content.
+
+### Transcripts
+
+- **Reply transcript.** `response.output_audio_transcript.delta` and `response.output_audio_transcript.done` carry the text of the spoken reply. In a text-only response, `response.output_text.delta` is used instead.
+- **User transcript.** The stream answers from the audio, so an any-to-any model does not transcribe the input unless `pipeline.transcription` is set. When it names another model (a sherpa-onnx ASR, for example), `conversation.item.input_audio_transcription.completed` is sent for the user item, in parallel with the reply. When it names the model itself, the transcript is made on a second slot before the reply starts, so it arrives before the first output of that reply (for a manual commit and for a VAD turn), and it delays the reply by its own run time. Both share one llama.cpp context, and while they run together llama.cpp rebuilds its buffers on every step, which slows the reply to a few tokens per second; this is why the default is no transcript. The transcript of the reply always comes from the stream. If transcription fails, `conversation.item.input_audio_transcription.failed` is sent and the reply continues.
+
+### Barge-in
+
+Interruption works as described in [Controlling response interruption](#controlling-response-interruption). When the user starts speaking during a reply, the server stops the reply, sends `response.done` with `status: cancelled`, and handles the new speech as the next turn. The part of the reply that was already decoded stays in the model context, as in llama.cpp.
+
+### Limits
+
+- **Audio format.** The model listens to 16 kHz mono audio. LocalAI resamples the session input to 16 kHz. Output audio is 24 kHz mono PCM.
+- **Voice.** The `voice` setting is not applied to speech-to-speech output. llama.cpp's realtime slot has no voice selection. The `voice` setting still applies to the [text-to-speech endpoint]({{%relref "features/text-to-audio" %}}).
+- **Context.** A session holds one slot for its whole life, and all its audio stays in the context. A long session reaches `context_size`. The session then sends an error and closes. There is no compaction for speech-to-speech sessions.
+- **Session updates after the first turn.** Once the first audio or message has been added, `instructions`, `tools` and `voice` cannot change. A `session.update` that tries to change them gets an `error`. `output_modalities` and `max_output_tokens` can still change.
+- **Not supported.** `conversation.item.truncate` and `conversation.item.delete` return an `error`, because the context cannot be cut by audio time. `input_audio_buffer.clear` drops audio that has not been committed. Without a VAD model, the server keeps appended audio in its buffer and sends it to the model only at `input_audio_buffer.commit` (or at a `response.create` that finds uncommitted audio), so a clear discards it for good. With server VAD, audio is streamed to the model during a turn, and what was already sent stays in the context.
+- **Pipeline features.** The pipeline features that need a separate LLM call are rejected with `invalid_pipeline`: classifier mode, conversation compaction with a summary, `streaming.llm`, and voice recognition gating.
+- **Distributed mode.** The conversation state lives in one backend slot, so a session stays on the instance that opened it until it ends. See [distributed mode]({{%relref "features/distributed-mode" %}}) for how instances are chosen.
+
 ## Transports
 
 The Realtime API supports two transports: **WebSocket** and **WebRTC**.
@@ -751,7 +856,7 @@ This event is a LocalAI extension to the OpenAI Realtime API and is server-emitt
 
 ## Talk in the web UI
 
-The **Talk** page of the web UI is a client for this API over WebRTC. Pick a pipeline model with the chip at the top, then press **Start session**. The microphone streams while the session runs. The server detects when you stop talking and answers on its own, and you can speak over a reply to interrupt it. The page has no push-to-talk or hands-free switch.
+The **Talk** page of the web UI is a client for this API over WebRTC. Pick a pipeline model with the chip at the top, then press **Start session**. The microphone streams while the session runs. The server detects when you stop talking and answers on its own, and you can speak over a reply to interrupt it. The page has no push-to-talk or hands-free switch. A speech-to-speech model with no VAD model set has no turn detection: the page shows **Done speaking**, which ends the turn and asks for the reply.
 
 The heading under the orb says what is happening: connecting, listening, thinking (also while a tool runs), speaking, or interrupted after you cut a reply off. The orb follows the real microphone level while it listens and the reply's audio while it speaks. These states have their own screen:
 

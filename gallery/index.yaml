@@ -29718,103 +29718,6 @@
       model: llama-cpp/models/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
     template:
       use_tokenizer_template: true
-- url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
-  name: lfm2.5-audio-1.5b-realtime
-  description: |
-    LFM2.5-Audio-1.5B is LiquidAI's any-to-any audio foundation model. The
-    1.2B LFM2.5 backbone plus a FastConformer audio encoder and an LFM2-based
-    audio detokenizer give real-time speech-to-speech with text + audio output
-    interleaved at 12.5 Hz / 24 kHz. This entry runs in S2S (speech-to-speech)
-    mode and is the model the LocalAI realtime API any-to-any path consumes.
-    Switch to ASR, TTS, or chat by picking the sibling gallery entries.
-  license: LFM-Open-License-v1.0
-  urls:
-    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
-  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/61b8e2ba285851687028d395/7_6D7rWrLxp2hb6OHSV1p.png
-  tags:
-    - lfm2
-    - liquid
-    - audio
-    - speech-to-speech
-    - any-to-any
-    - realtime
-    - 1.5b
-  overrides:
-    backend: liquid-audio
-    known_usecases:
-      - realtime_audio
-      - chat
-      - transcript
-      - tts
-      - vad
-    options:
-      - mode:s2s
-- url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
-  name: lfm2.5-audio-1.5b-chat
-  description: |
-    LFM2.5-Audio-1.5B in text-only chat mode. The model runs `generate_sequential`
-    with no audio modality, behaving like a small LFM2 chat model. Pick this
-    entry for tool-calling experiments without the audio overhead.
-  license: LFM-Open-License-v1.0
-  urls:
-    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
-  tags:
-    - lfm2
-    - liquid
-    - audio
-    - chat
-    - 1.5b
-  overrides:
-    backend: liquid-audio
-    known_usecases:
-      - chat
-    options:
-      - mode:chat
-- url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
-  name: lfm2.5-audio-1.5b-asr
-  description: |
-    LFM2.5-Audio-1.5B in ASR mode. System prompt `Perform ASR.` is prepended;
-    output is capitalised and punctuated. Wire this entry as a transcription
-    model on the /v1/audio/transcriptions endpoint.
-  license: LFM-Open-License-v1.0
-  urls:
-    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
-  tags:
-    - lfm2
-    - liquid
-    - audio
-    - asr
-    - speech-to-text
-    - 1.5b
-  overrides:
-    backend: liquid-audio
-    known_usecases:
-      - transcript
-    options:
-      - mode:asr
-- url: github:mudler/LocalAI/gallery/liquid-audio.yaml@master
-  name: lfm2.5-audio-1.5b-tts
-  description: |
-    LFM2.5-Audio-1.5B in TTS mode. Four baked voices: us_male, us_female,
-    uk_male, uk_female — pick the default at load time via `voice:` option,
-    or override per-request via the OpenAI `/v1/audio/speech` `voice` field.
-  license: LFM-Open-License-v1.0
-  urls:
-    - https://huggingface.co/LiquidAI/LFM2.5-Audio-1.5B
-  tags:
-    - lfm2
-    - liquid
-    - audio
-    - tts
-    - text-to-speech
-    - 1.5b
-  overrides:
-    backend: liquid-audio
-    known_usecases:
-      - tts
-    options:
-      - mode:tts
-      - voice:us_female
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: mistral-nemo-instruct-2407-12b-thinking-m-claude-opus-high-reasoning-i1
   description: |
@@ -32044,6 +31947,448 @@
     mmproj: mmproj-LFM2-VL-1.6B-F16.gguf
     parameters:
       model: LFM2-VL-1.6B-F16.gguf
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q4_K_M weights with the Q8_0 audio projector). An any-to-any model: one llama.cpp session takes speech or text
+    and answers with speech, text or both, and the same model also transcribes speech (ASR, with a language
+    hint) and synthesises speech with the named voices female or male.
+    No VAD model is set: the client commits each turn with input_audio_buffer.commit. Use the -vad entry
+    for automatic turn detection.
+    Speech-to-speech over /v1/realtime is experimental and needs a LocalAI build whose llama.cpp pin includes the
+    LFM3 audio and realtime support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - any-to-any
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q4_K_M.gguf
+      sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - realtime_audio
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q4_K_M.gguf
+    pipeline:
+      any_to_any: true
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b-q8
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q8_0 weights with the Q8_0 audio projector). An any-to-any model: one llama.cpp session takes speech or text
+    and answers with speech, text or both, and the same model also transcribes speech (ASR, with a language
+    hint) and synthesises speech with the named voices female or male.
+    No VAD model is set: the client commits each turn with input_audio_buffer.commit. Use the -vad entry
+    for automatic turn detection.
+    Speech-to-speech over /v1/realtime is experimental and needs a LocalAI build whose llama.cpp pin includes the
+    LFM3 audio and realtime support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - any-to-any
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q8_0.gguf
+      sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - realtime_audio
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q8_0.gguf
+    pipeline:
+      any_to_any: true
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b-vad
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q4_K_M weights with the Q8_0 audio projector). An any-to-any model: one llama.cpp session takes speech or text
+    and answers with speech, text or both, and the same model also transcribes speech (ASR, with a language
+    hint) and synthesises speech with the named voices female or male.
+    Server-side turn detection is on: the entry sets pipeline.vad to silero-vad-ggml, so install the
+    silero-vad-ggml model first (the gallery does not install it for you). The VAD only decides when a turn
+    ends; the model itself answers the speech.
+    Speech-to-speech over /v1/realtime is experimental and needs a LocalAI build whose llama.cpp pin includes the
+    LFM3 audio and realtime support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - any-to-any
+    - vad
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q4_K_M.gguf
+      sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - realtime_audio
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q4_K_M.gguf
+    pipeline:
+      any_to_any: true
+      vad: silero-vad-ggml
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b-q8-vad
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q8_0 weights with the Q8_0 audio projector). An any-to-any model: one llama.cpp session takes speech or text
+    and answers with speech, text or both, and the same model also transcribes speech (ASR, with a language
+    hint) and synthesises speech with the named voices female or male.
+    Server-side turn detection is on: the entry sets pipeline.vad to silero-vad-ggml, so install the
+    silero-vad-ggml model first (the gallery does not install it for you). The VAD only decides when a turn
+    ends; the model itself answers the speech.
+    Speech-to-speech over /v1/realtime is experimental and needs a LocalAI build whose llama.cpp pin includes the
+    LFM3 audio and realtime support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - any-to-any
+    - vad
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q8_0.gguf
+      sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - realtime_audio
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q8_0.gguf
+    pipeline:
+      any_to_any: true
+      vad: silero-vad-ggml
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b-pipeline
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q4_K_M weights with the Q8_0 audio projector), used as a chained realtime pipeline: transcription,
+    chat and speech synthesis (voice female) all run on this one llama.cpp model, one stage after the other,
+    instead of as one speech-to-speech session. Pick it when you want per-stage text, the regular chat
+    path (tools, templates, streaming) or the transcript before the answer.
+    No VAD model is set: the client commits each turn with input_audio_buffer.commit. Use the
+    -pipeline-vad entry for automatic turn detection.
+    The pipeline slots name this entry, so keep the installed model name as it is.
+    Needs a LocalAI build whose llama.cpp pin includes the LFM3 audio support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - pipeline
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q4_K_M.gguf
+      sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q4_K_M.gguf
+    pipeline:
+      llm: lfm3-audio-2b-pipeline
+      transcription: lfm3-audio-2b-pipeline
+      tts: lfm3-audio-2b-pipeline
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b-q8-pipeline
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q8_0 weights with the Q8_0 audio projector), used as a chained realtime pipeline: transcription,
+    chat and speech synthesis (voice female) all run on this one llama.cpp model, one stage after the other,
+    instead of as one speech-to-speech session. Pick it when you want per-stage text, the regular chat
+    path (tools, templates, streaming) or the transcript before the answer.
+    No VAD model is set: the client commits each turn with input_audio_buffer.commit. Use the
+    -pipeline-vad entry for automatic turn detection.
+    The pipeline slots name this entry, so keep the installed model name as it is.
+    Needs a LocalAI build whose llama.cpp pin includes the LFM3 audio support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - pipeline
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q8_0.gguf
+      sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q8_0.gguf
+    pipeline:
+      llm: lfm3-audio-2b-q8-pipeline
+      transcription: lfm3-audio-2b-q8-pipeline
+      tts: lfm3-audio-2b-q8-pipeline
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b-pipeline-vad
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q4_K_M weights with the Q8_0 audio projector), used as a chained realtime pipeline: transcription,
+    chat and speech synthesis (voice female) all run on this one llama.cpp model, one stage after the other,
+    instead of as one speech-to-speech session. Pick it when you want per-stage text, the regular chat
+    path (tools, templates, streaming) or the transcript before the answer.
+    Server-side turn detection is on: the entry sets pipeline.vad to silero-vad-ggml, so install the
+    silero-vad-ggml model first (the gallery does not install it for you).
+    The pipeline slots name this entry, so keep the installed model name as it is.
+    Needs a LocalAI build whose llama.cpp pin includes the LFM3 audio support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - pipeline
+    - vad
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q4_K_M.gguf
+      sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q4_K_M.gguf
+    pipeline:
+      llm: lfm3-audio-2b-pipeline-vad
+      transcription: lfm3-audio-2b-pipeline-vad
+      tts: lfm3-audio-2b-pipeline-vad
+      vad: silero-vad-ggml
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-audio-2b-q8-pipeline-vad
+  description: |
+    LiquidAI LFM3-Audio-2B in GGUF (Q8_0 weights with the Q8_0 audio projector), used as a chained realtime pipeline: transcription,
+    chat and speech synthesis (voice female) all run on this one llama.cpp model, one stage after the other,
+    instead of as one speech-to-speech session. Pick it when you want per-stage text, the regular chat
+    path (tools, templates, streaming) or the transcript before the answer.
+    Server-side turn detection is on: the entry sets pipeline.vad to silero-vad-ggml, so install the
+    silero-vad-ggml model first (the gallery does not install it for you).
+    The pipeline slots name this entry, so keep the installed model name as it is.
+    Needs a LocalAI build whose llama.cpp pin includes the LFM3 audio support.
+    Licensed under the LFM Open License v1.0 (https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/blob/main/LICENSE).
+  license: lfm1.0
+  urls:
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B
+    - https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF
+  tags:
+    - gguf
+    - audio
+    - speech
+    - tts
+    - asr
+    - realtime
+    - pipeline
+    - vad
+    - cpu
+    - gpu
+  files:
+    - filename: LFM3-Audio-2B-Q8_0.gguf
+      sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
+    - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
+      uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      xml_format_preset: lfm3
+    known_usecases:
+      - chat
+      - transcript
+      - tts
+    mmproj: mmproj-LFM3-Audio-2B-Q8_0.gguf
+    options:
+      - parallel:2
+    parameters:
+      model: LFM3-Audio-2B-Q8_0.gguf
+    pipeline:
+      llm: lfm3-audio-2b-q8-pipeline-vad
+      transcription: lfm3-audio-2b-q8-pipeline-vad
+      tts: lfm3-audio-2b-q8-pipeline-vad
+      vad: silero-vad-ggml
+    template:
+      use_tokenizer_template: true
+    tts:
+      voice: female
 - url: github:mudler/LocalAI/gallery/lfm.yaml@master
   name: lfm2.5-vl-1.6b
   description: |
