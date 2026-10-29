@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
+	managerpkg "github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -194,6 +195,24 @@ func undoStatus(code string) (int, string) {
 	return 409, "The data changed after this change, so it cannot be undone without overwriting later work"
 }
 
+// operationCauseMessage is the text for the cause of a failed install or
+// upgrade. The type tells the causes apart; the server log has the detail.
+func operationCauseMessage(code string) string {
+	switch code {
+	case managerpkg.CauseLibraryUnavailable:
+		return "The library could not be read. Check that it is reachable and refresh it, then try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseLibraryConflict:
+		return "Two enabled libraries list this add-on. Disable one of them, then try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseReleaseNotFound:
+		return "The library does not list this add-on or version for this platform. Nothing was installed"
+	case managerpkg.CausePackageFetch:
+		return "The package could not be downloaded. Try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseInstallStorage:
+		return "The package could not be written to the add-on storage. Check the free space and the permissions of the add-on folder. Nothing was installed"
+	}
+	return "The operation failed"
+}
+
 func resultError(c echo.Context, e error) error {
 	// The add-on's own refusal of a request is a typed 400 from every path,
 	// never an outage banner.
@@ -218,6 +237,10 @@ func resultError(c echo.Context, e error) error {
 	var refusal *contract.SDKRefusal
 	if errors.As(e, &refusal) {
 		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "sdk_incompatible", Code: 403, Message: refusal.Error()}})
+	}
+	var failed *managerpkg.FailureCause
+	if errors.As(e, &failed) && gateway.IsOperationCause(failed.Code) {
+		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: failed.Code, Code: 403, Message: operationCauseMessage(failed.Code)}})
 	}
 	var refused *gateway.UndoRefused
 	if errors.As(e, &refused) {

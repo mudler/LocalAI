@@ -9,12 +9,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
@@ -479,5 +481,108 @@ var _ = Describe("owner identity file", func() {
 		Expect(acquire(cfg)).To(Succeed())
 		cfg.StorageID = "disk-two"
 		Expect(acquire(cfg)).To(MatchError(ErrConfiguration))
+	})
+})
+
+// failureCode is the code of the typed cause of a failed operation, or "".
+func failureCode(e error) string {
+	var c *FailureCause
+	if errors.As(e, &c) {
+		return c.Code
+	}
+	return ""
+}
+
+var _ = Describe("the cause of a failed install", func() {
+	// withSource adds a library with the given ID and URL to the fixture.
+	withSource := func(c catalog.Catalog, id, url string) {
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: id, Name: id, URL: url, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+	}
+	// only makes the fixture's own library stop listing the add-on, so that a
+	// second library with the same index does not conflict with it.
+	only := func(c catalog.Catalog, url string) {
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "test", Name: "test", URL: url, Enabled: false, AllowLoopbackHTTP: true})).To(Succeed())
+	}
+	libraryURL := func(c catalog.Catalog) string {
+		s, e := c.Sources.Get(ctx, actor, "test")
+		Expect(e).NotTo(HaveOccurred())
+		return s.URL
+	}
+
+	It("names a release that the library does not list", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		cmd := command("op-missing", "install")
+		cmd.Version = "9.9.9"
+		_, e := m.Submit(ctx, actor, cmd)
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(failureCode(e)).To(Equal(CauseReleaseNotFound))
+	})
+
+	It("names two libraries that list the same add-on", func() {
+		cfg, c, i := fixture()
+		withSource(c, "twin", libraryURL(c))
+		_, e := c.Sources.Refresh(ctx, "twin")
+		Expect(e).NotTo(HaveOccurred())
+		m := open(cfg, c, i)
+		_, e = m.Submit(ctx, actor, command("op-twin", "install"))
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(failureCode(e)).To(Equal(CauseLibraryConflict))
+	})
+
+	It("names a library that cannot be read", func() {
+		cfg, c, i := fixture()
+		dead := httptest.NewServer(http.NotFoundHandler())
+		url := dead.URL
+		dead.Close()
+		withSource(c, "dead", url)
+		m := open(cfg, c, i)
+		cmd := command("op-dead", "install")
+		cmd.SourceID = "dead"
+		_, e := m.Submit(ctx, actor, cmd)
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(failureCode(e)).To(Equal(CauseLibraryUnavailable))
+	})
+
+	It("reads the library on demand when the startup refresh has not filled the cache", func() {
+		cfg, c, i := fixture()
+		url := libraryURL(c)
+		only(c, url)
+		withSource(c, "cold", url) // never refreshed
+		m := open(cfg, c, i)
+		cmd := command("op-cold", "install")
+		cmd.SourceID = "cold"
+		_, e := m.Submit(ctx, actor, cmd)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.journal.Addons["sample"].Installed).To(BeTrue())
+	})
+
+	It("reads the library again when the startup refresh failed", func() {
+		cfg, c, i := fixture()
+		upstream := libraryURL(c)
+		only(c, upstream)
+		var calls atomic.Int32
+		flaky := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if calls.Add(1) == 1 {
+				http.Error(w, "starting", http.StatusServiceUnavailable)
+				return
+			}
+			resp, err := http.Get(upstream)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			defer func() { _ = resp.Body.Close() }()
+			_, _ = io.Copy(w, resp.Body)
+		}))
+		DeferCleanup(flaky.Close)
+		withSource(c, "flaky", flaky.URL)
+		_, e := c.Sources.Refresh(ctx, "flaky") // the startup refresh: it fails
+		Expect(e).To(HaveOccurred())
+		m := open(cfg, c, i)
+		cmd := command("op-flaky", "install")
+		cmd.SourceID = "flaky"
+		_, e = m.Submit(ctx, actor, cmd)
+		Expect(e).NotTo(HaveOccurred())
 	})
 })

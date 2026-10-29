@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -56,6 +58,31 @@ var (
 	// offers, so nothing was started. It is not an unknown outcome.
 	ErrCheckFailed = errors.New("update check failed")
 )
+
+// Codes of the cause of a failed install or upgrade. A cause is typed so that
+// an administrator is told which step failed without reading the server log.
+const (
+	// CauseLibraryUnavailable: the library could not be read.
+	CauseLibraryUnavailable = "library_unavailable"
+	// CauseLibraryConflict: two enabled libraries list the same add-on.
+	CauseLibraryConflict = "library_conflict"
+	// CauseReleaseNotFound: the library does not list the requested release
+	// for this platform.
+	CauseReleaseNotFound = "release_not_found"
+	// CausePackageFetch: the package could not be downloaded or staged.
+	CausePackageFetch = "package_fetch_failed"
+	// CauseInstallStorage: the verified package could not be written to disk.
+	CauseInstallStorage = "install_storage_failed"
+)
+
+// FailureCause is the typed cause of a failed operation. Its text is fixed and
+// safe to show; the underlying error stays in the server log.
+type FailureCause struct {
+	Code   string
+	detail error
+}
+
+func (c *FailureCause) Error() string { return "addon operation failed: " + c.Code }
 
 // These hooks are contracts for the runtime/migration tasks. This manager does
 // not claim to drain processes, back up databases, or execute migrations.
@@ -330,6 +357,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	// the administrator, and so does a package that failed verification; the
 	// returned error still matches ErrOperationFailed.
 	fail := func(cause ...error) (OperationStatus, error) {
+		// The client gets a typed cause or the generic error; the operator
+		// gets the underlying error here, which would otherwise be lost.
+		xlog.Warn("Addon operation failed", "action", cmd.Action, "addonId", cmd.AddonID, "operationId", cmd.OperationID, "causes", describeCauses(cause))
 		op.Status.Phase = "failed"
 		m.journal.Operations[cmd.OperationID] = op
 		if e := m.persist("failed"); e != nil {
@@ -344,6 +374,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				// The package is not what its library entry says. The text of
 				// ErrPackage is fixed, so it is safe to show.
 				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, packages.ErrPackage)
+			}
+			var typed *FailureCause
+			if errors.As(c, &typed) {
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, typed)
 			}
 		}
 		return op.Status, ErrOperationFailed
@@ -369,7 +403,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if release != nil {
 				r = *release
 			} else {
-				r, resolveErr = m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+				r, resolveErr = m.resolveRelease(ctx, cmd)
 			}
 			var staged packages.StagedPackage
 			var stageErr error
@@ -378,10 +412,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			m.mu.Lock()
 			if resolveErr != nil {
-				return fail()
+				return fail(resolveErr, &FailureCause{Code: resolveCauseCode(resolveErr), detail: resolveErr})
 			}
 			if stageErr != nil {
-				return fail(stageErr)
+				return fail(stageErr, &FailureCause{Code: CausePackageFetch, detail: stageErr})
 			}
 			if m.uncertain || m.runtimeRecoveryRequired {
 				return op.Status, ErrRecoveryRequired
@@ -415,12 +449,12 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
-				return fail()
+				return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("commit: %w", e)})
 			}
 			// Installer publication alone is not a power-loss durability promise. Flush
 			// every immutable file and directory before journaling its generation.
 			if e = syncPackage(receipt.Directory); e != nil {
-				return fail()
+				return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("sync package: %w", e)})
 			}
 			if m.boundary != nil {
 				if e = m.boundary("published"); e != nil {
@@ -463,7 +497,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		next.DesiredEnabled = false
 	}
 	if e := os.MkdirAll(filepath.Dir(next.GrantsPath), 0700); e != nil {
-		return fail()
+		return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("create the grants folder: %w", e)})
 	}
 	op.Next = &next
 	op.Status.Generation = next.Generation
@@ -482,6 +516,51 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	}
 	return result, m.syncFor(ctx, cmd.AddonID)
 }
+
+// describeCauses is the text of the errors a failed operation had, for the log.
+func describeCauses(causes []error) string {
+	var parts []string
+	for _, c := range causes {
+		var typed *FailureCause
+		if errors.As(c, &typed) && typed.detail != nil {
+			parts = append(parts, typed.Code+": "+typed.detail.Error())
+		} else if c != nil {
+			parts = append(parts, c.Error())
+		}
+	}
+	if len(parts) == 0 {
+		return "no cause recorded (a check refused the operation)"
+	}
+	return strings.Join(parts, "; ")
+}
+
+// resolveCauseCode is the cause code of a release that could not be resolved.
+func resolveCauseCode(e error) string {
+	switch {
+	case errors.Is(e, catalog.ErrNotFound):
+		return CauseReleaseNotFound
+	case errors.Is(e, catalog.ErrConflict), errors.Is(e, catalog.ErrShadowed):
+		return CauseLibraryConflict
+	}
+	return CauseLibraryUnavailable
+}
+
+// resolveRelease finds the release a command names. The library cache is
+// filled by a refresh at startup, which runs in the background and can fail
+// once (a slow start, a library that is not up yet) and leave the cache empty
+// until someone refreshes. An install must not depend on that: when the cache
+// has nothing for the library, read the library once now and look again.
+func (m *Manager) resolveRelease(ctx context.Context, cmd LifecycleCommand) (catalog.Release, error) {
+	r, e := m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+	if e == nil || !(errors.Is(e, catalog.ErrUnavailable) || errors.Is(e, catalog.ErrRefresh)) || m.catalog.Sources == nil {
+		return r, e
+	}
+	if _, rerr := m.catalog.Sources.Refresh(ctx, cmd.SourceID); rerr != nil {
+		return catalog.Release{}, fmt.Errorf("%w (library read on demand: %w)", e, rerr)
+	}
+	return m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+}
+
 func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	m.journal.Addons[op.Command.AddonID] = copyStatus(*op.Next)
 	op.Status.Phase = "applied"

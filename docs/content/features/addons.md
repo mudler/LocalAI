@@ -815,8 +815,17 @@ the add-on needs SDK 3 to 3 and this host provides SDK 2
 The dispatch response for that refusal has status 403 and error type
 `sdk_incompatible`, with the message above. A package that does not match its
 library entry, or is not a valid add-on package, is 403 with error type
-`package_unverified` and a message that says nothing was installed. Every other
-failed install keeps the generic `Addon request denied` message. If the administrator sends the same
+`package_unverified` and a message that says nothing was installed. A failed
+install or upgrade can also name its step in the error type: `library_unavailable`
+(the library could not be read), `library_conflict` (two enabled libraries list the
+add-on), `release_not_found` (the library has no such add-on or version for this
+platform), `package_fetch_failed` (the package could not be downloaded) and
+`install_storage_failed` (the package could not be written to the add-on storage).
+The owner writes the underlying error to its log as `Addon operation failed`, with
+the action, the add-on ID and the operation ID. Every other failed install keeps the
+generic `Addon request denied` message. The owner reads the library once on demand
+when its startup refresh left nothing in the cache, so an install does not depend on
+that refresh having finished. If the administrator sends the same
 operation ID again, the owner returns the stored failure, so the repeat gets the
 generic message and not the refusal text. Use a new operation ID to see the
 refusal again.
@@ -2292,6 +2301,7 @@ people or conversations, not part of the chat history and not sent to the model.
 | 403 | `not_permitted` | The add-on checked a host permission of the person, such as fine-tuning, and it is not granted. Nothing changed. |
 | 403 | `resource_unreachable` | The resource does not exist or the person has no access to it: one answer for both. |
 | 403 | `package_unverified` | An install failed because the package does not match its library entry or is not a valid add-on package. Nothing was installed. |
+| 403 | `library_unavailable`, `library_conflict`, `release_not_found`, `package_fetch_failed`, `install_storage_failed` | An install or upgrade failed at the step the type names. Nothing was installed. The server log has the detail. |
 | 403 | `quota_reached` | The per-person resource limits. |
 | 403 | `outcome_blocked` | Another operation on the resource has an unresolved outcome (`blockedBy` is shown to the owner role only). |
 | 404 | `not_selected` | No resource is selected, or the reference is no longer usable. |
@@ -3681,7 +3691,7 @@ The Sandbox add-on lets a chat run commands and code. Its tools are action tools
 
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
 - **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, the sandbox's version is kept as a copy and the answer says so. A file change by someone else makes the sandbox rebuild its view of the files before the next call.
-- **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When a suspended sandbox is removed, the host backend also stops the processes it left running.
+- **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When the add-on stops (it is disabled, or the server shuts down) it first stops all its sandboxes, for at most 8 seconds. The supervisor waits for that before it kills the add-on process; a server that is killed with SIGKILL cannot do this, and the next start removes what was left. When a suspended sandbox is removed, the host backend also stops the processes it left running.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
 - **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.

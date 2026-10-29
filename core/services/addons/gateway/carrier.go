@@ -485,12 +485,35 @@ func denialType(e error) string {
 		return ""
 	case errors.Is(e, packages.ErrPackage) && errors.Is(e, addons.ErrOperationFailed):
 		return wirePackage
+	case operationCause(e) != "":
+		return operationCause(e)
 	case errors.Is(e, ErrNotPermitted):
 		return wireNotPermitted
 	case errors.Is(e, ErrResourceUnreachable):
 		return wireUnreachable
 	}
 	return ""
+}
+
+// operationCause is the code of the typed cause of a failed operation, or "".
+// The codes are the wire types, so a forwarding frontend gives the same
+// answer as the owner.
+func operationCause(e error) string {
+	var c *addons.FailureCause
+	if errors.As(e, &c) && IsOperationCause(c.Code) {
+		return c.Code
+	}
+	return ""
+}
+
+// IsOperationCause reports whether code is one of the causes of a failed
+// operation that cross the wire.
+func IsOperationCause(code string) bool {
+	switch code {
+	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+		return true
+	}
+	return false
 }
 
 // wireSDK types the owner's refusal of an add-on built for another SDK range.
@@ -654,6 +677,8 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 					return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
 				case wirePackage:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
+				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
 				case wireNotPermitted:
 					return nil, ErrNotPermitted
 				case wireUnreachable:
