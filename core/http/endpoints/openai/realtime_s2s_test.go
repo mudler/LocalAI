@@ -547,6 +547,34 @@ var _ = Describe("realtime speech-to-speech", func() {
 		Expect(kinds).To(Equal([]string{"conversation.item.create", "frame", "input_audio_buffer.commit"}))
 	})
 
+	It("ends the open VAD turn when turn detection is switched off", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sBeginTurn(0)
+		Expect(session.s2sUserTurnOpen()).To(BeTrue())
+
+		session.s2sStopVAD()
+		Expect(session.s2sUserTurnOpen()).To(BeFalse())
+
+		// Manual mode: new audio is buffered, not forwarded, and a commit
+		// sends only that.
+		session.TurnDetection = nil
+		chunk := make([]byte, 320)
+		session.InputAudioBuffer = append(session.InputAudioBuffer, chunk...)
+		session.s2sOnAppendLocked(chunk)
+		session.s2sCommitAudio(session.InputAudioBuffer, conv)
+
+		pcm := 0
+		for _, r := range stream.requests() {
+			if f := r.GetFrame(); f != nil {
+				pcm += len(f.GetPcm())
+			}
+		}
+		Expect(pcm).To(Equal(640+320), "each sample reaches the backend once")
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "input_audio_buffer.commit"}))
+	})
+
 	It("resamples a committed turn to the backend input rate", func() {
 		stream := newFakeS2SStream()
 		session, _, conv := newHarness(stream, baseModel())

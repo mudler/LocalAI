@@ -87,6 +87,8 @@ func (s *connSink) Perform(e conncoord.Effect) {
 		xlog.Debug("Stopping VAD goroutine...")
 		close(s.vadDone)
 		s.vadDone = nil
+		// A turn the VAD left open must not keep forwarding into manual mode.
+		s.session.s2sStopVAD()
 	case conncoord.Teardown:
 		// Tear down in dependency order, driving every child machine to its
 		// terminal state so none outlives the session (the hierarchy invariant in

@@ -827,6 +827,31 @@ func (s *Session) s2sEndTurn() {
 	}})
 }
 
+// s2sStopVAD ends the turn that was open when the VAD stopped (turn detection
+// switched to manual). Without it forwarding would go on and a later client
+// commit would send the same audio again. The forwarded audio is committed on
+// the backend and dropped from the input buffer, so the manual commit that
+// follows carries only audio that arrives after this point.
+func (s *Session) s2sStopVAD() {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	if !st.forwarding {
+		return
+	}
+	st.forwarding = false
+	if st.turnHasAudio {
+		st.turnHasAudio = false
+		st.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+			Control: &proto.AudioToAudioControl{Event: "input_audio_buffer.commit"},
+		}})
+	}
+	s.InputAudioBuffer = nil
+}
+
 // s2sAbortTurn stops forwarding a turn the VAD dropped as noise. Audio already
 // forwarded stays in the backend's context.
 func (s *Session) s2sAbortTurn() {
