@@ -338,6 +338,18 @@ test.describe('Talk with a speech-to-speech model', () => {
     expect(types.slice(-2)).toEqual(['input_audio_buffer.commit', 'response.create'])
   })
 
+  test('without voice detection, the input buffer is emptied when the session starts and when a reply ends', async ({ page }) => {
+    await fakeRealtime(page)
+    await s2sModel(page)
+    await startSession(page)
+    const sentTypes = () => page.evaluate(() => window.__talk.sent.map(m => m.type))
+    expect(await sentTypes()).toContain('input_audio_buffer.clear')
+    const before = (await sentTypes()).filter(t => t === 'input_audio_buffer.clear').length
+    await emit(page, { type: 'response.done', response: { status: 'completed' } })
+    const after = (await sentTypes()).filter(t => t === 'input_audio_buffer.clear').length
+    expect(after).toBe(before + 1)
+  })
+
   test('idle note says to press Done speaking when no voice detection model is set', async ({ page }) => {
     await fakeRealtime(page)
     await s2sModel(page)

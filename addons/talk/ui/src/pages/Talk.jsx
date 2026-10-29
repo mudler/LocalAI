@@ -217,6 +217,18 @@ export default function Talk() {
   // A speech-to-speech model without a VAD model gets no turn boundaries from
   // the server, so the user ends each turn with Done speaking.
   const manualTurns = Boolean(selectedModelInfo && (selectedModelInfo.any_to_any || selectedModelInfo.self_contained) && !selectedModelInfo.vad)
+  const manualTurnsRef = useRef(false)
+  manualTurnsRef.current = manualTurns
+
+  // Without a VAD the microphone fills the server's input buffer for as long as
+  // the session runs, and Done speaking commits all of it. Emptying the buffer
+  // when a session starts and when a reply ends keeps idle silence and the
+  // reply's own echo out of the next turn.
+  const clearInputBuffer = useCallback(() => {
+    const dc = dcRef.current
+    if (!manualTurnsRef.current || !dc || dc.readyState !== 'open') return
+    dc.send(JSON.stringify({ type: 'input_audio_buffer.clear' }))
+  }, [])
 
   // ── Status helper ──
   const updateStatus = useCallback((state, line) => {
@@ -296,6 +308,7 @@ export default function Talk() {
     switch (event.type) {
       case 'session.created':
         sendSessionUpdate()
+        clearInputBuffer()
         updateStatus('listening')
         break
       case 'session.updated':
@@ -407,6 +420,7 @@ export default function Talk() {
           })
           setInterrupted(true)
         }
+        clearInputBuffer()
         updateStatus('listening')
         break
       }
@@ -415,7 +429,7 @@ export default function Talk() {
         updateStatus('error', { key: 'server', params: { message: event.error?.message || t('detail.unknown') } })
         break
     }
-  }, [sendSessionUpdate, updateStatus, handleFunctionCall, t])
+  }, [sendSessionUpdate, clearInputBuffer, updateStatus, handleFunctionCall, t])
 
   // ── Connect ──
   const connect = useCallback(async () => {
