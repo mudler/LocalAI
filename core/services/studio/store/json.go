@@ -300,71 +300,44 @@ func (s *jsonStore) ListChats(_ context.Context, principal string, before sessio
 	return out, nil
 }
 
-func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error {
+// edit changes the record of a chat on a copy and keeps the copy only when it
+// was saved, so a failed write leaves the chat as it was. It holds the store
+// lock for the whole change.
+func (s *jsonStore) edit(principal, id string, change func(next *chatState)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	c, err := s.get(rec.Principal, rec.ID)
+	c, err := s.get(principal, id)
 	if err != nil {
 		return err
 	}
 	next := *c
-	next.Rec.Title, next.Rec.Folder, next.Rec.Snapshot = rec.Title, rec.Folder, rec.Snapshot
-	next.Rec.HarnessState = append([]byte(nil), rec.HarnessState...)
-	next.Rec.Turns, next.Rec.Updated = rec.Turns, rec.Updated
-	next.Rec.Status = rec.Status
+	change(&next)
 	if err := s.save(&next); err != nil {
 		return err
 	}
-	c.Rec = next.Rec
+	*c = next
 	return nil
+}
+
+func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error {
+	return s.edit(rec.Principal, rec.ID, func(next *chatState) {
+		next.Rec.Title, next.Rec.Folder, next.Rec.Snapshot = rec.Title, rec.Folder, rec.Snapshot
+		next.Rec.HarnessState = append([]byte(nil), rec.HarnessState...)
+		next.Rec.Turns, next.Rec.Updated = rec.Turns, rec.Updated
+		next.Rec.Status = rec.Status
+	})
 }
 
 func (s *jsonStore) SetSkillsOff(_ context.Context, principal, id string, off []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
-	if err != nil {
-		return err
-	}
-	next := *c
-	next.Rec.SkillsOff = append([]string(nil), off...)
-	if err := s.save(&next); err != nil {
-		return err
-	}
-	c.Rec.SkillsOff = next.Rec.SkillsOff
-	return nil
+	return s.edit(principal, id, func(next *chatState) { next.Rec.SkillsOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) SetAddonsOff(_ context.Context, principal, id string, off []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
-	if err != nil {
-		return err
-	}
-	next := *c
-	next.Rec.AddonsOff = append([]string(nil), off...)
-	if err := s.save(&next); err != nil {
-		return err
-	}
-	c.Rec.AddonsOff = next.Rec.AddonsOff
-	return nil
+	return s.edit(principal, id, func(next *chatState) { next.Rec.AddonsOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
-	if err != nil {
-		return err
-	}
-	next := *c
-	next.Rec.McpOff = append([]string(nil), off...)
-	if err := s.save(&next); err != nil {
-		return err
-	}
-	c.Rec.McpOff = next.Rec.McpOff
-	return nil
+	return s.edit(principal, id, func(next *chatState) { next.Rec.McpOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) ([]session.ChatRecord, error) {
@@ -386,27 +359,17 @@ func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) 
 }
 
 func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m session.ChatMeta) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, err := s.get(principal, id)
-	if err != nil {
-		return err
-	}
-	next := *c
-	if m.Title != nil {
-		next.Rec.Title = *m.Title
-	}
-	if m.Model != nil {
-		next.Rec.Model = *m.Model
-	}
-	if m.Settings != nil {
-		next.Rec.Settings = *m.Settings
-	}
-	if err := s.save(&next); err != nil {
-		return err
-	}
-	c.Rec = next.Rec
-	return nil
+	return s.edit(principal, id, func(next *chatState) {
+		if m.Title != nil {
+			next.Rec.Title = *m.Title
+		}
+		if m.Model != nil {
+			next.Rec.Model = *m.Model
+		}
+		if m.Settings != nil {
+			next.Rec.Settings = *m.Settings
+		}
+	})
 }
 
 func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, keep int64) error {

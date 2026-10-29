@@ -217,16 +217,18 @@ func (s *gormStore) UpdateChat(ctx context.Context, rec session.ChatRecord) erro
 	return nil
 }
 
-func (s *gormStore) SetSkillsOff(ctx context.Context, principal, id string, off []string) error {
+// setList saves a list of names in a column of the chat row; an empty list is
+// the empty text.
+func (s *gormStore) setList(ctx context.Context, column, principal, id string, list []string) error {
 	raw := ""
-	if len(off) > 0 {
-		b, err := json.Marshal(off)
+	if len(list) > 0 {
+		b, err := json.Marshal(list)
 		if err != nil {
 			return err
 		}
 		raw = string(b)
 	}
-	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("skills_off", raw)
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update(column, raw)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -234,44 +236,18 @@ func (s *gormStore) SetSkillsOff(ctx context.Context, principal, id string, off 
 		return session.ErrNotFound
 	}
 	return nil
+}
+
+func (s *gormStore) SetSkillsOff(ctx context.Context, principal, id string, off []string) error {
+	return s.setList(ctx, "skills_off", principal, id, off)
 }
 
 func (s *gormStore) SetAddonsOff(ctx context.Context, principal, id string, off []string) error {
-	raw := ""
-	if len(off) > 0 {
-		b, err := json.Marshal(off)
-		if err != nil {
-			return err
-		}
-		raw = string(b)
-	}
-	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("addons_off", raw)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return session.ErrNotFound
-	}
-	return nil
+	return s.setList(ctx, "addons_off", principal, id, off)
 }
 
 func (s *gormStore) SetMcpOff(ctx context.Context, principal, id string, off []string) error {
-	raw := ""
-	if len(off) > 0 {
-		b, err := json.Marshal(off)
-		if err != nil {
-			return err
-		}
-		raw = string(b)
-	}
-	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("mcp_off", raw)
-	if res.Error != nil {
-		return res.Error
-	}
-	if res.RowsAffected == 0 {
-		return session.ErrNotFound
-	}
-	return nil
+	return s.setList(ctx, "mcp_off", principal, id, off)
 }
 
 func (s *gormStore) ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error) {
