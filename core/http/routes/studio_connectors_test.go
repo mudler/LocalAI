@@ -162,4 +162,54 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/"+id+"/senders", nil))["senders"]).To(BeEmpty())
 		Expect(s.do("alice", http.MethodPost, "/api/chats/connectors/"+id+"/senders/99/allow", nil).Code).To(Equal(http.StatusBadRequest))
 	})
+
+	It("stores the reply mode, the conversation mode and the file switch, and refuses unknown ones", func() {
+		ag := agent("alice", "Modes", "test-model")
+		rec := create("alice", map[string]any{"name": "Modes bot", "token": specToken, "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("reply_mode", "progress"), HaveKeyWithValue("conversation", "sender"), HaveKeyWithValue("send_files", true)), "the defaults")
+		id := decodeJSON(rec)["id"].(string)
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Modes bot", "agent_id": ag,
+			"reply_mode": "stream", "conversation": "window", "window_minutes": 45, "send_files": false})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil)
+		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("reply_mode", "stream"), HaveKeyWithValue("conversation", "window"),
+			HaveKeyWithValue("window_minutes", BeNumerically("==", 45)), HaveKeyWithValue("send_files", false)))
+		// An update without send_files keeps it.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Modes bot", "agent_id": ag, "reply_mode": "off", "conversation": "thread"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("reply_mode", "off"), HaveKeyWithValue("conversation", "thread"), HaveKeyWithValue("send_files", false), Not(HaveKey("window_minutes"))))
+		for _, bad := range []map[string]any{
+			{"reply_mode": "shout"},
+			{"conversation": "forever"},
+			{"conversation": "window"},
+			{"conversation": "window", "window_minutes": 20000},
+		} {
+			body := map[string]any{"name": "Modes bot", "agent_id": ag}
+			for k, v := range bad {
+				body[k] = v
+			}
+			rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), "%v: %s", bad, rec.Body.String())
+		}
+	})
+
+	It("checks a new token with the platform and refuses one that the platform refuses", func() {
+		studioVerifyTokens = true
+		DeferCleanup(func() { studioVerifyTokens = false })
+		s = newStudioServer()
+		ag := agent("alice", "Checked", "test-model")
+		rec := create("alice", map[string]any{"name": "Checked bot", "token": specToken, "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		id := decodeJSON(rec)["id"].(string)
+		code = http.StatusUnauthorized
+		rec = create("alice", map[string]any{"name": "Typo bot", "token": "555:typo", "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("the platform refused the bot token"))
+		Expect(rec.Body.String()).NotTo(ContainSubstring("typo"))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Checked bot", "agent_id": ag, "token": "555:typo"})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Renamed", "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusOK), "an update that keeps the token is not checked: %s", rec.Body.String())
+	})
 })

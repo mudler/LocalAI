@@ -2551,6 +2551,14 @@ definitions:
         items:
           type: string
         type: array
+      conversation:
+        description: |-
+          Conversation says which chat a message belongs to: sender (one chat
+          per sender and per platform thread), chat (one chat per group, channel
+          or direct chat), window (sender, and a new chat after window_minutes
+          without a message) or thread (a new chat per message; a reply to an
+          answer goes on in its chat).
+        type: string
       created:
         type: string
       enabled:
@@ -2570,6 +2578,20 @@ definitions:
       reason:
         description: Reason says in plain words why the binding is not active.
         type: string
+      reply_mode:
+        description: |-
+          ReplyMode is what a sender sees while a turn runs: off (typing, then
+          the answer), progress (a working message that names the tools as they
+          start) or stream (a working message that shows the answer as it is
+          written). The answer replaces the working message.
+        type: string
+      send_files:
+        description: |-
+          SendFiles sends the files that a turn makes to the sender, after the
+          answer.
+        type: boolean
+      window_minutes:
+        type: integer
     type: object
   schema.ChatsAdminConnectorList:
     properties:
@@ -2890,6 +2912,14 @@ definitions:
         items:
           type: string
         type: array
+      conversation:
+        description: |-
+          Conversation says which chat a message belongs to: sender (one chat
+          per sender and per platform thread), chat (one chat per group, channel
+          or direct chat), window (sender, and a new chat after window_minutes
+          without a message) or thread (a new chat per message; a reply to an
+          answer goes on in its chat).
+        type: string
       created:
         type: string
       enabled:
@@ -2907,6 +2937,20 @@ definitions:
       reason:
         description: Reason says in plain words why the binding is not active.
         type: string
+      reply_mode:
+        description: |-
+          ReplyMode is what a sender sees while a turn runs: off (typing, then
+          the answer), progress (a working message that names the tools as they
+          start) or stream (a working message that shows the answer as it is
+          written). The answer replaces the working message.
+        type: string
+      send_files:
+        description: |-
+          SendFiles sends the files that a turn makes to the sender, after the
+          answer.
+        type: boolean
+      window_minutes:
+        type: integer
     type: object
   schema.ChatsConnectorKind:
     properties:
@@ -2985,6 +3029,9 @@ definitions:
           that changes it from off to on). Anyone who can message the bot then uses
           the agent's tools as you, so the server asks you to say you mean it.
         type: string
+      conversation:
+        description: Conversation is sender, chat, window or thread; empty means sender.
+        type: string
       enabled:
         type: boolean
       kind:
@@ -2996,8 +3043,19 @@ definitions:
         type: string
       notify_chat:
         type: string
+      reply_mode:
+        description: ReplyMode is off, progress or stream; empty means progress.
+        type: string
+      send_files:
+        description: |-
+          SendFiles turns the sending of a turn's files on or off. Absent means
+          on for a new binding and unchanged for an update.
+        type: boolean
       token:
         type: string
+      window_minutes:
+        description: WindowMinutes is the time window of the window mode, 1 to 10080.
+        type: integer
     type: object
   schema.ChatsConversation:
     properties:
@@ -11328,11 +11386,15 @@ paths:
       - chats
     post:
       description: 'Needs the kind (the platform), the bot token (kept sealed, never
-        returned) and an agent of yours that names a model. The allowlist is empty
-        at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or
-        set accept_any (anyone who can message the bot then uses the agent''s tools;
-        the request that turns it on must also carry confirm_accept_any set to "accept
-        any message", or it is a 400). At most 10 bindings.'
+        returned) and an agent of yours that names a model. The token is checked with
+        the platform when its add-on runs: a token that the platform refuses is a
+        400. reply_mode (off, progress, stream; default progress), conversation (sender,
+        chat, window with window_minutes, thread; default sender) and send_files (default
+        true) say how the bot answers. The allowlist is empty at first, so nobody
+        is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone
+        who can message the bot then uses the agent''s tools; the request that turns
+        it on must also carry confirm_accept_any set to "accept any message", or it
+        is a 400). At most 10 bindings.'
       parameters:
       - description: the binding
         in: body
@@ -11384,8 +11446,10 @@ paths:
       tags:
       - chats
     put:
-      description: The body replaces every field except the token, which is kept unless
-        the request has a new one.
+      description: 'The body replaces every field except the token, which is kept
+        unless the request has a new one, and send_files, which is kept when it is
+        absent. A new token is checked with the platform: a token that the platform
+        refuses is a 400 and nothing is saved.'
       parameters:
       - description: the binding's id
         in: path

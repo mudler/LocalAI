@@ -570,6 +570,21 @@ type ChatsConnector struct {
 	NotifyChat string    `json:"notify_chat,omitempty"`
 	HasToken   bool      `json:"has_token"`
 	Created    time.Time `json:"created"`
+	// ReplyMode is what a sender sees while a turn runs: off (typing, then
+	// the answer), progress (a working message that names the tools as they
+	// start) or stream (a working message that shows the answer as it is
+	// written). The answer replaces the working message.
+	ReplyMode string `json:"reply_mode"`
+	// Conversation says which chat a message belongs to: sender (one chat
+	// per sender and per platform thread), chat (one chat per group, channel
+	// or direct chat), window (sender, and a new chat after window_minutes
+	// without a message) or thread (a new chat per message; a reply to an
+	// answer goes on in its chat).
+	Conversation  string `json:"conversation"`
+	WindowMinutes int    `json:"window_minutes,omitempty"`
+	// SendFiles sends the files that a turn makes to the sender, after the
+	// answer.
+	SendFiles bool `json:"send_files"`
 	// Active is false when the add-on that serves the binding is not running. The
 	// binding is kept and works once the add-on is installed.
 	Active bool `json:"active"`
@@ -611,6 +626,15 @@ type ChatsConnectorWrite struct {
 	ConfirmAcceptAny string   `json:"confirm_accept_any,omitempty"`
 	Allow            []string `json:"allow,omitempty"`
 	NotifyChat       string   `json:"notify_chat,omitempty"`
+	// ReplyMode is off, progress or stream; empty means progress.
+	ReplyMode string `json:"reply_mode,omitempty"`
+	// Conversation is sender, chat, window or thread; empty means sender.
+	Conversation string `json:"conversation,omitempty"`
+	// WindowMinutes is the time window of the window mode, 1 to 10080.
+	WindowMinutes int `json:"window_minutes,omitempty"`
+	// SendFiles turns the sending of a turn's files on or off. Absent means
+	// on for a new binding and unchanged for an update.
+	SendFiles *bool `json:"send_files,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

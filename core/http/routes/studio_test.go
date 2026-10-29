@@ -57,6 +57,11 @@ var studioWebhooks studio.WebhookSender
 // points it at a fake Bot API.
 var studioTelegram *studiobot.BotTransport
 
+// studioVerifyTokens turns on the token check on save, over studioTelegram.
+// It is off by default, so the specs that save a binding over the real Bot
+// API address never reach it.
+var studioVerifyTokens bool
+
 // studioModels are the models the test server's checker accepts besides test-model.
 var studioModels []string
 
@@ -111,7 +116,11 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	if studioTelegram == nil {
 		ctr = studiobot.NewBotTransport(&transport.API{})
 	}
-	conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: cs, Transport: ctr})
+	copts := studio.ConnectorOptions{Store: cs, Transport: ctr}
+	if studioVerifyTokens && studioTelegram != nil {
+		copts.VerifyToken = studio.VerifyTokenWithMe(ctr)
+	}
+	conns, err := studio.NewConnectors(svc, copts)
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetConnectors(conns)
 	DeferCleanup(conns.Close)
