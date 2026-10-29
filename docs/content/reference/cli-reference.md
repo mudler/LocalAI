@@ -231,6 +231,7 @@ See [Authentication & Authorization]({{%relref "features/authentication" %}}) fo
 | `--disable-agents` | `false` | Deprecated. Sets `--disable-chats` and `--disable-collections`, as the old agent pool switch did | `$LOCALAI_DISABLE_AGENTS` |
 | `--distributed-chat-workers` | `false` | Distributed mode: send the turns of triggers, agent jobs and connector messages to chat workers. With no chat worker listening, the turn runs on the frontend | `$LOCALAI_DISTRIBUTED_CHAT_WORKERS` |
 | `--chat-worker` | `false` | Distributed mode: run this instance as a chat worker, which runs the turns that frontends send it and starts no triggers, connectors or jobs | `$LOCALAI_CHAT_WORKER` |
+| `--chat-worker-max-turns` | `32` | Distributed mode: on a chat worker, the most turns it runs at once. A start beyond it is refused and its run fails. `0` means no limit | `$LOCALAI_CHAT_WORKER_MAX_TURNS` |
 | `--chat-start-timeout` | `30s` | Distributed mode: how long a frontend waits for a chat worker to start a turn, and how long the worker gives the start. Set the same value on the frontends and the chat workers | `$LOCALAI_CHAT_START_TIMEOUT` |
 
 See [Chats]({{% relref "features/chats#switch-the-chats-off" %}}), [Agent tasks and jobs]({{% relref "features/agent-jobs" %}}) and [Chat workers]({{% relref "features/distributed-mode#chat-workers" %}}).

@@ -170,8 +170,10 @@ other seams against a real server, also through Docker.
   a node, so the node list does not show it and the admin cannot approve or
   drain it. A minted per-node JWT for it needs `chats.start` (sub, queue) and
   the `chats.events.*` / `chats.control.*` subjects in `pkg/natsauth`.
-- A chat worker takes every start it is offered. There is no per-worker cap on
-  running turns, and a busy worker cannot pass a start on to another one.
+- A chat worker refuses a start that would take it past
+  `LOCALAI_CHAT_WORKER_MAX_TURNS` running turns (`studio.ErrWorkerFull`), and
+  the run fails. A full worker cannot pass a start on to another one: NATS
+  picks the worker of the queue group, not the frontend.
 - A start that carries files runs on the frontend: the uploads are not sent
   over the bus.
 - `ReplicaReconcilerOptions` has no `ClientFactory` field. Without a

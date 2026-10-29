@@ -144,6 +144,18 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 		Expect(err.Error()).To(ContainSubstring("must not be negative"))
 	})
 
+	It("rejects a negative ChatWorkerMaxTurns with the flag name in the error", func() {
+		c := config.DistributedConfig{
+			Enabled:            true,
+			NatsURL:            "nats://localhost:4222",
+			ChatWorkerMaxTurns: -1,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagChatWorkerMaxTurns))
+		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
 	It("rejects a negative ChatStartTimeout with the flag name in the error", func() {
 		c := config.DistributedConfig{
 			Enabled:          true,

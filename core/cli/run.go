@@ -228,6 +228,7 @@ type RunCMD struct {
 	NatsTLSKey                   string `env:"LOCALAI_NATS_TLS_KEY" type:"existingfile" help:"Client private key for NATS mTLS" group:"distributed"`
 	DistributedChatWorkers       bool   `env:"LOCALAI_DISTRIBUTED_CHAT_WORKERS" default:"false" help:"Send the turns of triggers, agent jobs and connector messages to chat workers (instances started with --chat-worker). When no chat worker listens, the turn runs on this frontend. Chats that a person starts stay on the frontend. Distributed mode only." group:"distributed"`
 	ChatStartTimeout             string `env:"LOCALAI_CHAT_START_TIMEOUT" help:"How long a frontend waits for a chat worker to start a turn, and how long a chat worker gives the start (default 30s). A start that times out fails its trigger run, job or connector message and is not run on the frontend, because the worker may have started it. Set the same value on frontends and chat workers. Distributed mode only." group:"distributed"`
+	ChatWorkerMaxTurns           int    `env:"LOCALAI_CHAT_WORKER_MAX_TURNS" default:"32" help:"On a chat worker, the most turns it runs at once. A start beyond it is refused, and its trigger run, job or connector message fails with an error that says the worker is full. 0 means no limit. Distributed mode only." group:"distributed"`
 	ChatWorker                   bool   `env:"LOCALAI_CHAT_WORKER" default:"false" help:"Run this instance as a chat worker: it runs the chat turns that frontends send it over NATS and starts no triggers, connectors or agent jobs. Distributed mode only." group:"distributed"`
 	ExposeNodeHeader             bool   `env:"LOCALAI_EXPOSE_NODE_HEADER" default:"false" help:"Set the X-LocalAI-Node response header on inference responses (OpenAI chat/completions/embeddings, Anthropic /v1/messages, Ollama /api/chat,/api/generate,/api/embed) with the ID of the worker that served the request. Disabled by default: the node ID reveals internal topology and should not be exposed on a public endpoint. Best-effort: under heavy concurrency the header may reflect a recent routing decision rather than this exact request's." group:"distributed"`
 	ModelScheduling              string `env:"LOCALAI_MODEL_SCHEDULING" help:"Declarative per-model scheduling config applied at startup (inline JSON list of {model_name,node_selector,min_replicas,max_replicas,replicas:\"all\"}). Authoritative: overwrites matching models on every boot. Distributed mode only." group:"distributed"`
@@ -530,7 +531,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		if !r.Distributed {
 			return fmt.Errorf("LOCALAI_CHAT_WORKER needs distributed mode (LOCALAI_DISTRIBUTED=true)")
 		}
-		opts = append(opts, config.EnableChatWorker)
+		opts = append(opts, config.EnableChatWorker, config.WithChatWorkerMaxTurns(r.ChatWorkerMaxTurns))
 	}
 	if r.DistributedChatWorkers {
 		if r.Distributed {

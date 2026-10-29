@@ -24,6 +24,11 @@ type ChatWorkers interface {
 // worker is present and nothing started; the text of its error follows.
 var ErrWorkerRefused = errors.New("studio: the chat worker refused the start")
 
+// ErrWorkerFull means a chat worker refused a start because it runs
+// Deps.MaxWorkerTurns turns already. Nothing started. Its text reaches the
+// frontend in the refusal.
+var ErrWorkerFull = errors.New("studio: the chat worker runs as many turns as it may")
+
 // SendBackground gives a message to a chat that no person watches at the
 // keyboard: a trigger run, a job, a connector message. It is SendWithFiles,
 // except that with Deps.Workers a message without files goes to a chat worker,
@@ -57,6 +62,13 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 	if req.Principal == "" || req.ChatID == "" {
 		return workerctl.ChatStartReply{Error: "a chat start needs the owner and the chat"}
 	}
+	if s.d.MaxWorkerTurns > 0 {
+		s.admit.Lock()
+		defer s.admit.Unlock()
+		if err := s.checkWorkerRoom(ctx, req.Principal, req.ChatID); err != nil {
+			return workerctl.ChatStartReply{Error: err.Error()}
+		}
+	}
 	res, err := s.SendWithFiles(ctx, req.Principal, req.ChatID, req.Text, nil)
 	if err != nil {
 		return workerctl.ChatStartReply{Error: err.Error()}
@@ -65,6 +77,28 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 		s.limitWorkerRun(ctx, req.Principal, req.ChatID)
 	}
 	return workerctl.ChatStartReply{Started: res.Started, PendingID: res.PendingID}
+}
+
+// checkWorkerRoom returns ErrWorkerFull when this chat worker runs
+// Deps.MaxWorkerTurns turns and the start would begin another one. A start
+// for a chat whose turn runs, here or on another process, only adds a waiting
+// message, so it is let through. Every turn of the process counts, also one
+// that waiting messages started after a start and a sub-agent's.
+func (s *Service) checkWorkerRoom(ctx context.Context, p, conv string) error {
+	s.mu.Lock()
+	n := len(s.runs)
+	s.mu.Unlock()
+	if n < s.d.MaxWorkerTurns {
+		return nil
+	}
+	info, err := s.d.Store.Turn(ctx, p, conv)
+	if err != nil {
+		return err
+	}
+	if info.Running {
+		return nil
+	}
+	return fmt.Errorf("%w: %d of %d running", ErrWorkerFull, n, s.d.MaxWorkerTurns)
 }
 
 // limitWorkerRun stops the turn that just started on this chat worker, by

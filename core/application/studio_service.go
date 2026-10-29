@@ -106,6 +106,7 @@ func (a *Application) initStudioService() {
 	}
 	if a.applicationConfig.Distributed.ChatWorker {
 		deps.RunLimit = a.studioWorkerRunLimit
+		deps.MaxWorkerTurns = a.applicationConfig.Distributed.ChatWorkerMaxTurns
 	}
 	svc, err := studio.New(deps)
 	if err != nil {
