@@ -219,7 +219,10 @@ curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
 - A fork has the model, the settings and the tool switches of the original. It
   has no folder and no files of its own until you attach some.
 - The JSON export has `version`, `title`, `model`, `settings` and `messages`
-  (`role`, `text`, `at`). It holds no files and no model state. An import
+  (`role`, `text`, `at`, and for a message of yours with files `attachments`,
+  with the path of each file, and `note`, the text the model read from them).
+  It holds no files and no model state. The Markdown export and a copied chat
+  name the files of a message, not their paths. An import
   makes a new chat of yours with the model of the file, or the one named in
   `model`, which you must be allowed to use.
 
@@ -589,7 +592,8 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **Nothing is erased.** A delete goes to the Trash, and undo restores it as a new change. A change you made after the deletion that conflicts with the restore makes it answer `409`; with `skip_conflicts` the rest is restored.
 - **Two uploads, one name.** An upload replaces a file only when it says which version it started from (`base`). Otherwise both are kept, and the new one is named `name (from you).ext`; the answer says so in `conflict_of`.
 - **Downloads are safe.** Files are served as downloads. With `inline=1` an image, PDF, plain text, audio or video is shown by the browser; anything else, HTML and SVG included, never runs as a page.
-- **Attachments.** Send a message as `multipart/form-data` with a `text` field and `files`. The files are saved in the chat's own folder under `Chats/` and the model gets their paths. With a turn running the files are saved at once and the message waits like any other, with the paths of the files in its text; the model reads them by path when the message reaches it. A sandbox that started before the files arrived sees them from the next turn.
+- **Attachments.** Send a message as `multipart/form-data` with a `text` field and `files`. The files are saved in the chat's own folder under `Chats/` and the model gets their paths after your text. With a turn running the files are saved at once and the message waits like any other; the model reads them by path when the message reaches it. A sandbox that started before the files arrived sees them from the next turn.
+- **Attachments in the transcript.** The transcript keeps your text and your files apart. In `GET /api/chats/{id}/messages` a user line has `text`, the words you typed, and `attachments`: `path` (inside your home, for the files API), `name`, `size`, `mime`, `version`, and `missing` when the file is no longer in your files. A file whose chat folder was renamed gets its new path. A waiting message has the same two fields. The list of paths and the text read from the files go to the model only: the chat shows an image as a thumbnail and any other file as a chip with its size and a download link, and a click or Enter opens the file in the chat's files pane. Messages sent before this change are shown the same way.
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
 - **The model can use your files.** A chat with files on gives the model `list_files`, `read_file`, `write_file`, `move_file`, `delete_file` and `search_files`, for your home folder only. What it changes is listed in the history as an agent change of that chat, and you can undo it; a delete goes to the Trash. Sub-agents do not get these tools.
 - **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, the first installed model that can see images, or transcribe, is used. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
