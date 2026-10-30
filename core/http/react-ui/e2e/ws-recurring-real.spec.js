@@ -14,7 +14,9 @@ const api = (request, path) => request.get(path).then(r => r.json())
 const upload = (request, path, body) => request.put(`/api/chats/files/content?path=${encodeURIComponent(path)}&overwrite=1`, {
   data: typeof body === 'string' ? body : JSON.stringify(body), headers: { 'Content-Type': 'application/octet-stream' },
 })
-const shot = (page, name) => page.screenshot({ path: `test-results/ws-share/${name}.png` })
+// Screenshots wait for the entry animations, so a sheet is drawn as it stays.
+const settle = (page) => page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))))
+const shot = async (page, name) => { await settle(page); await page.screenshot({ path: `test-results/ws-share/${name}.png` }) }
 const VIEWS = [
   { name: 'desktop', width: 1440, height: 900 },
   { name: 'phone', width: 390, height: 844 },

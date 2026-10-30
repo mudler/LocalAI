@@ -51,6 +51,7 @@ func main() {
 	foundationPath := flag.String("foundation", "", "cluster.json of the add-ons foundation fixture; enables authentication and the add-on carrier")
 	foundationRole := flag.String("foundation-role", "", "instance of the foundation cluster: owner, front-a or front-b")
 	librarySources := flag.Bool("library-sources", false, "start like a normal install for the library sources: default galleries and default sources of every kind")
+	sharedPagesFixture := flag.Bool("shared-pages-fixture", false, "seed shared folders with pages for the shared pages specs (see shared_fixture.go)")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -233,6 +234,13 @@ func main() {
 			os.Exit(1)
 		}
 		defer func() { _ = control.Close() }()
+	}
+
+	if *sharedPagesFixture {
+		if err := seedSharedPages(ctx, app); err != nil {
+			fmt.Fprintf(os.Stderr, "error seeding the shared pages fixture: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Register mock backend
