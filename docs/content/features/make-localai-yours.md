@@ -181,9 +181,30 @@ keep answers short" and "every morning update this". Its line in the index of
 skills costs about 44 tokens a turn; like any skill, you can switch it off for
 a chat in the **Skills** menu.
 
-The assistant may offer once to remember your name or a short bio, when
-`user.json` has neither: only in a casual moment, never in the middle of a
-task, and never again after you say no. It records the answer under `seen`.
+### Offers from the assistant
+
+The assistant may offer, as the last sentence of an ordinary answer, to
+remember something you told it (your name or a short bio), to make a request
+you repeat a shortcut, or to update a Home widget every morning. LocalAI, not
+the model, decides when an offer is allowed:
+
+- at most one a day (by the time zone of `user.json`) and one per chat;
+- never in the first 10 minutes after LocalAI first met you, and never in the
+  first two turns of a chat;
+- never while a task runs in the chat (a sub-agent in the background, or a
+  trigger proposal that waits for your answer), after a failed turn, or after
+  the assistant turned a request down in that chat;
+- never in a chat that a connector (Telegram, Slack), a trigger, a job, a page,
+  a saved agent or the LocalAI Assistant started;
+- never when you or the server turned offers off.
+
+When an offer is allowed, the model gets one line at the start of the turn
+(about 45 to 50 tokens); in every other turn nothing is added. LocalAI records
+the day and the chat under `seen` in `user.json`, and the assistant records
+your answer there: **no** is never offered again, **not now** may come back
+after 14 days (a second "not now" counts as no), and "stop suggesting things"
+turns all offers off. You can turn them back on, and forget your answers, in
+**Account > About you and the assistant > Help and suggestions**.
 
 Pages (your own HTML shown inside LocalAI) are planned for a later release.
 

@@ -91,6 +91,11 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if aNote != "" {
 		note = strings.TrimSpace(note + " " + aNote)
 	}
+	// An offer from the assistant is allowed in few turns (see hintsvc.go); the
+	// model learns it from one line of the note, so other turns cost nothing.
+	if line := s.hintLine(ctx, a, rec); line != "" {
+		note = strings.TrimSpace(line + " " + note)
+	}
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
