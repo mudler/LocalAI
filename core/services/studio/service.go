@@ -232,6 +232,8 @@ type Service struct {
 	feed *wsfeed.Feed // changes of the home folders; nil without files
 
 	shared *sharedfolders.Service // the folders an administrator shares
+
+	runners runners // the add-on tools that run commands; see capabilities.go
 }
 
 type run struct {

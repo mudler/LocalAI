@@ -21,6 +21,9 @@ type AddonTool struct {
 	// Action is true for a tool that acts at once as the user (runs code, edits
 	// files, changes data) instead of only reading.
 	Action bool
+	// Runs is true for the tool that runs shell commands and code. A chat
+	// without such a tool is told that it cannot run anything.
+	Runs bool
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -144,6 +147,7 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	reasons := map[string]string{}
 	for _, d := range defs {
 		have[d.AddonID] = true
+		s.runners.mark(d)
 		if gate != nil && !off[d.AddonID] && (sc == nil || sc.addons[d.AddonID]) {
 			reason, known := reasons[d.AddonID]
 			if !known {

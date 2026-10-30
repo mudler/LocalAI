@@ -98,6 +98,23 @@ var _ = Describe("the studio add-ons", func() {
 		Expect(action["addon__tables__rows-get"]).To(BeFalse(), "Action flags = %v, want the read tool not marked", action)
 	})
 
+	It("marks the Sandbox's bash tool, and only it, as the tool that runs commands", func() {
+		obj := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
+		app := apps.App{ID: "sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash", "read"},
+			ToolDefinitions: []contract.ToolDefinition{
+				{Name: "bash", Kind: contract.ToolKindAction, Description: "Run a shell script.", InputSchema: obj},
+				{Name: "read", Kind: contract.ToolKindAction, Description: "Read a file.", InputSchema: obj},
+			}}
+		s := &studioAddons{adapter: addontools.NewChatToolAdapter(changeOwner{app}), mode: auth.AddonModeNamedUser}
+		got, err := s.Tools(context.Background(), "alice")
+		Expect(err).ToNot(HaveOccurred())
+		runs := map[string]bool{}
+		for _, d := range got {
+			runs[d.Name] = d.Runs
+		}
+		Expect(runs).To(Equal(map[string]bool{"addon__sandbox__bash": true, "addon__sandbox__read": false}))
+	})
+
 	It("shows an applied change to the model as a document that says it cannot be undone", func() {
 		res := addontools.ToolResult{Kind: addontools.ResultApplied, Tool: "t", Applied: &addontools.AppliedRef{ID: "o1", AddonID: "tables", Action: "write", Count: 2}, Note: addontools.AppliedNote}
 		got := studioAddonText(res)
