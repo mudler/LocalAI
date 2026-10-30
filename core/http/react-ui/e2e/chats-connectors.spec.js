@@ -45,7 +45,8 @@ test.describe('Chat connectors', () => {
     await page.goto('/app/chats/connectors')
     await expect(page.getByTestId('connector-row')).toBeVisible()
     await expect(page.getByRole('tablist')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /New/ })).toHaveCount(0)
+    // The page has no New button; the sidebar's New chat (recent chats) is not part of it.
+    await expect(page.getByRole('main').getByRole('button', { name: /New/ })).toHaveCount(0)
     await expect(page.getByLabel('Bot token')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0)
   })
