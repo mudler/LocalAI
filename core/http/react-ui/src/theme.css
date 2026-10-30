@@ -333,3 +333,20 @@
     --lh-title: 30px;
   }
 }
+
+/* Dark: a secondary button is an inset fill, darker than the canvas, with
+   at most a hairline edge, so it almost disappears. Use the card fill and an
+   edge with at least 3:1 against the canvas. The legacy .btn-secondary gets
+   the same fix until it becomes an alias of the kit button. */
+[data-theme="dark"] {
+  --ctl-edge-dark: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-edge));
+}
+[data-theme="dark"] .dk-btn--secondary {
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-dark);
+}
+[data-theme="dark"] .dk-btn--secondary:hover { background: var(--dk-hover); }
+[data-theme="dark"] .btn-secondary {
+  background: var(--dk-card);
+  border-color: var(--ctl-edge-dark);
+}
