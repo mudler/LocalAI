@@ -223,7 +223,10 @@ person.
 ## Shared pages
 
 A shared folder is a folder outside your home that an administrator gave you
-access to, read-only or read-write (a workspace grant). Its pages are the
+access to, read-only or read-write (a workspace grant). An administrator
+creates the shared folders and chooses their members in the **Shared** tab of
+**Files** or through the API (see [Shared
+folders]({{%relref "features/chats#shared-folders" %}})). Its pages are the
 folders `pages/<name>/` with an `index.html`, as in your home. They show on the
 Pages screen under **Shared with you**, with their author (the account that
 last wrote `index.html`), the folder, and a badge: **Not allowed yet**,
@@ -298,6 +301,7 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `POST /api/chats/pages/{name}/chat` | `chat.send` after you chose Send, body `{text, chat_id, model}` |
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
+| `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
 | `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
 | `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`). |
 | `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. |

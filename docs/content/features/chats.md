@@ -70,6 +70,7 @@ a bot token or an agent's instructions:
 | `GET /api/chats/admin/connectors` | Connector bindings |
 | `POST .../admin/triggers/{id}/disable`, `POST .../admin/connectors/{id}/disable` | Switch one off |
 | `DELETE .../admin/agents/{id}`, `.../admin/triggers/{id}`, `.../admin/connectors/{id}` | Delete one |
+| `/api/chats/admin/shared-folders...` | Create shared folders and choose who may use them (see [Shared folders](#shared-folders)) |
 
 The agent tasks and jobs have their own view: `?all_users=true` on
 `GET /api/agent/tasks` and `GET /api/agent/jobs` (see [Agent tasks and
@@ -556,6 +557,74 @@ The **Files** page in the sidebar is a file browser for all of this: folders wit
 
 A folder `pages/<name>/` with an `index.html` is a page: the UI shows it in a
 sandboxed frame under **Pages**. See [Pages]({{%relref "features/pages" %}}).
+
+### Shared folders
+
+A shared folder is a folder that several users use. An administrator creates
+it and chooses its members: a user, or **Everyone** (every user, also the ones
+who sign up later), each with **Can read** or **Can edit**. A member's chats see
+the folder at `/workspace/shared-<name>` (read-only for a reader), and its pages
+show on the Pages screen under **Shared with you** (see [Shared
+pages]({{%relref "features/pages#shared-pages" %}})). A user who is not a member
+sees nothing of the folder: every call about it answers `404`, as for a folder
+that does not exist.
+
+In the UI, the **Shared** tab of **Files** lists the folders. An administrator
+creates, renames and removes them there, and opens **Members** to add a person
+or Everyone, change their access or take it away. Any other user sees the
+folders shared with them and their access.
+
+- **Where it lives.** A shared folder is `/shared/<name>` in the workspace,
+  outside every home folder. A name has 1 to 64 letters, digits, spaces, dots,
+  dashes or underscores, starts with a letter or a digit, and is unique without
+  regard to case. A server keeps at most 100 shared folders, with at most 200
+  members each. A new folder has an empty `pages` folder, and the administrator
+  who creates it is a member who can edit it, so they can fill it. Remove them
+  when they do not need it.
+- **Access is a grant.** A member is a workspace grant on the folder and
+  everything in it, checked on every call. A change applies at once to the
+  Files and Pages screens and to the shared pages' bridge; an open chat sees it
+  the next time it opens.
+- **Rename** keeps the members, the pages and the consents to them.
+- **Remove** moves the folder and its files to the Trash as one change, and
+  answers with `undo_rev`. **Undo** (or `POST .../restore` with that `rev`)
+  brings it back with its members. Nothing is erased. Removing a folder also
+  drops every user's consent to its pages, so a restored page asks again before
+  it runs.
+- **Audit.** Every change (create, rename, delete, restore, grant, revoke) is
+  written with who made it and when: in the table
+  `studio_shared_folder_events` of the auth database, or in
+  `chats/shared-folders/audit.json` under the data path, and in the log. A
+  change that the LocalAI Assistant made is written as `@assistant`.
+
+| Route | Who | Use |
+|---|---|---|
+| `GET /api/chats/shared-folders` | any user | The folders shared with you: `id`, `name`, `path`, `pages`, `mode` (`read` or `write`). |
+| `GET /api/chats/shared-folders/{id}` | any user | One of them; `404` when it is not shared with you. |
+| `GET /api/chats/admin/shared-folders` | administrator | Every shared folder with its `members` (`principal`, `name`, `everyone`, `mode`). |
+| `POST /api/chats/admin/shared-folders` | administrator | Create one, body `{name}`. `409` when the name is taken or the limit is reached. |
+| `GET`, `PATCH`, `DELETE /api/chats/admin/shared-folders/{id}` | administrator | Read one, rename it (body `{name}`), remove it (answers `{folder, undo_rev}`). |
+| `POST /api/chats/admin/shared-folders/restore` | administrator | Undo a removal, body `{rev}`. `409` when a folder with its name exists now. |
+| `PUT /api/chats/admin/shared-folders/{id}/members/{member}` | administrator | Add a member or change its access, body `{mode}` (`read` or `write`). `member` is a user's ID, email or name, or `@everyone`. |
+| `DELETE /api/chats/admin/shared-folders/{id}/members/{member}` | administrator | Take a member's access away. |
+| `GET /api/chats/admin/shared-folders/events?limit=` | administrator | The audit, newest first. |
+
+```bash
+# Create a folder, share it with everyone (read) and with one person (edit).
+curl -X POST ".../api/chats/admin/shared-folders" -d '{"name": "Team"}'
+# {"id":42,"name":"Team","path":"/shared/Team","pages":0,
+#  "members":[{"principal":"<your id>","name":"Ada","mode":"write"}]}
+curl -X PUT ".../api/chats/admin/shared-folders/42/members/%40everyone" -d '{"mode": "read"}'
+curl -X PUT ".../api/chats/admin/shared-folders/42/members/marta@example.com" -d '{"mode": "write"}'
+# Remove it, then bring it back.
+curl -X DELETE ".../api/chats/admin/shared-folders/42"          # {"folder":{...},"undo_rev":118}
+curl -X POST ".../api/chats/admin/shared-folders/restore" -d '{"rev": 118}'
+```
+
+The LocalAI Assistant has the same operations as tools (see [LocalAI
+Assistant]({{%relref "features/localai-assistant" %}})). In a cluster the
+folders and the grants live in the shared workspace database and the audit in
+the auth database, so every frontend sees the same state.
 
 Files need a place to live. The choice is made at start and is explicit: with a
 database the tree goes there, and without one it goes in a JSON index.
