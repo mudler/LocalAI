@@ -233,3 +233,35 @@ func (stubClient) ListFailoverChains(_ context.Context) ([]localaitools.Failover
 func (stubClient) PinFailoverTarget(_ context.Context, _, _ string) error { return nil }
 
 func (stubClient) UnpinFailoverTarget(_ context.Context, _ string) error { return nil }
+
+func (stubClient) ListSharedFolders(_ context.Context) ([]localaitools.SharedFolder, error) {
+	return nil, nil
+}
+
+func (stubClient) CreateSharedFolder(_ context.Context, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) RenameSharedFolder(_ context.Context, _ int64, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) DeleteSharedFolder(_ context.Context, _ int64) (*localaitools.SharedFolderRemoved, error) {
+	return &localaitools.SharedFolderRemoved{}, nil
+}
+
+func (stubClient) RestoreSharedFolder(_ context.Context, _ int64) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) SetSharedFolderMember(_ context.Context, _ int64, _, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) RemoveSharedFolderMember(_ context.Context, _ int64, _ string) (*localaitools.SharedFolder, error) {
+	return &localaitools.SharedFolder{}, nil
+}
+
+func (stubClient) ListSharedFolderEvents(_ context.Context, _ int) ([]localaitools.SharedFolderEvent, error) {
+	return nil, nil
+}
