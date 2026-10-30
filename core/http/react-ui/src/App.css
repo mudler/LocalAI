@@ -991,8 +991,10 @@
    The stack sits at the bottom centre and rises in 16px. */
 .toast-container {
   position: fixed;
-  left: 50%;
-  bottom: var(--spacing-md);
+  /* A chat page sets the two variables so the stack sits above its composer
+     (see components/wellknown/changeNote.js). */
+  left: var(--toast-anchor-x, 50%);
+  bottom: var(--toast-anchor-bottom, var(--spacing-md));
   transform: translateX(-50%);
   width: min(440px, calc(100vw - 32px));
   z-index: 1100;
@@ -1066,6 +1068,18 @@
   margin-left: var(--spacing-xs);
 }
 .toast-link:hover { opacity: 1; }
+.toast-action {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.toast-action:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
 
 /* Chat error trace link */
 .chat-error-trace-link {

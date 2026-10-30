@@ -9,7 +9,7 @@ export function useToast() {
 
   const addToast = useCallback((message, type = 'info', duration = 5000, options = {}) => {
     const id = ++toastId
-    setToasts(prev => [...prev, { id, message, type, link: options.link }])
+    setToasts(prev => [...prev, { id, message, type, link: options.link, action: options.action, testId: options.testId }])
     if (duration > 0) {
       setTimeout(() => {
         setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t))
@@ -69,11 +69,14 @@ function ToastItem({ toast, onRemove }) {
   }, [])
 
   return (
-    <div ref={ref} className={`toast ${colorMap[toast.type] || 'toast-info'} ${toast.exiting ? 'toast-exit' : ''}`}>
+    <div ref={ref} className={`toast ${colorMap[toast.type] || 'toast-info'} ${toast.exiting ? 'toast-exit' : ''}`} data-testid={toast.testId}>
       <Icon name={iconMap[toast.type] || 'info'} />
       <span>{toast.message}</span>
       {toast.link && (
         <a href={toast.link.href} className="toast-link">{toast.link.text}</a>
+      )}
+      {toast.action && (
+        <button type="button" className="toast-action" onClick={() => { toast.action.onClick(); onRemove(toast.id) }}>{toast.action.label}</button>
       )}
       <button
         onClick={() => onRemove(toast.id)}
