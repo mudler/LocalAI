@@ -67,7 +67,7 @@ func RunPush(newStore NewPushStore) {
 	})
 	It("trims to the newest subscriptions", func() {
 		s := newStore()
-		for i := 0; i < notify.MaxPushSubscriptions+3; i++ {
+		for i := range notify.MaxPushSubscriptions + 3 {
 			_ = s.Subscribe(ctx, sub("u1", fmt.Sprintf("https://push/%02d", i), t0.Add(time.Duration(i)*time.Second)))
 		}
 		_ = s.Subscribe(ctx, sub("u2", "https://push/other", t0))
@@ -91,7 +91,7 @@ func RunPush(newStore NewPushStore) {
 		}
 		results := make(chan [2]string, 8)
 		var wg sync.WaitGroup
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()

@@ -1,6 +1,8 @@
 package gormstore
 
 import (
+	"slices"
+
 	. "github.com/mudler/LocalAI/core/services/studio/workspace"
 
 	"context"
@@ -22,10 +24,8 @@ func (w *writer) moveNode(src nodeRow, to []string) (nodeRow, error) {
 	if err != nil {
 		return nodeRow{}, err
 	}
-	for _, id := range ancs {
-		if id == src.id {
-			return nodeRow{}, ErrInvalid
-		}
+	if slices.Contains(ancs, src.id) {
+		return nodeRow{}, ErrInvalid
 	}
 	if other, taken, err := childByFold(w.ctx, w.tx, parent.id, name); err != nil {
 		return nodeRow{}, err

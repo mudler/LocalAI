@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // A long sub-agent run has more entries than one page; its answer is the last
@@ -26,7 +27,7 @@ var _ = Describe("subagent internal", func() {
 		ctx := context.Background()
 		Expect(st.CreateChat(ctx, session.ChatRecord{ID: "kid", Principal: "alice"})).To(Succeed())
 		_, _ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleAssistant, Text: "early"})
-		for i := 0; i < 2500; i++ {
+		for i := range 2500 {
 			_, _ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleTool, Text: fmt.Sprint("t", i)})
 		}
 		_, _ = st.AppendEntry(ctx, "kid", session.Entry{Role: session.RoleAssistant, Text: "final"})

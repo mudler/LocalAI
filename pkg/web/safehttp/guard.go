@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -102,12 +103,7 @@ func (g *Guard) check(a netip.Addr) error {
 func (g *Guard) AllowedAddr(a netip.Addr) error { return g.check(a) }
 
 func (g *Guard) portAllowed(port int) bool {
-	for _, p := range g.p.Ports {
-		if p == port {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(g.p.Ports, port)
 }
 
 // CheckHost applies the host rules of CheckURL to a bare host and port: a
@@ -223,12 +219,7 @@ func (g *Guard) control(_, address string, _ syscall.RawConn) error {
 // included.
 func isMetadata(a netip.Addr) bool {
 	a = a.Unmap()
-	for _, m := range metadata {
-		if a == m {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(metadata, a)
 }
 
 // selfRefresh is how often SelfAddrs reads the interfaces again.

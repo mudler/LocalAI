@@ -9,6 +9,7 @@ package egress
 
 import (
 	"net/netip"
+	"slices"
 	"strings"
 	"time"
 
@@ -295,12 +296,7 @@ func (s Settings) PortAllowed(port int) bool {
 	if len(ports) == 0 {
 		ports = []int{80, 443}
 	}
-	for _, p := range ports {
-		if p == port {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ports, port)
 }
 
 // DefaultPreset is the preset of a new chat: the default, capped by the ceiling.

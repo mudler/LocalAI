@@ -235,8 +235,8 @@ func relsOf(p parts, part string) (map[string]rel, error) {
 		id, _ := attr(se, "Id")
 		typ, _ := attr(se, "Type")
 		target, _ := attr(se, "Target")
-		if strings.HasPrefix(target, "/") {
-			target = path.Clean(strings.TrimPrefix(target, "/"))
+		if after, ok0 := strings.CutPrefix(target, "/"); ok0 {
+			target = path.Clean(after)
 		} else {
 			target = path.Join(path.Dir(part), target)
 		}

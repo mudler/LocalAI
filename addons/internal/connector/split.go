@@ -88,7 +88,7 @@ func SplitFenced(text string, max int) []string {
 // language lang of the open block. A language longer than maxLang is not
 // carried, so the fence that opens the block again stays short.
 func fenceState(open bool, lang, part string, maxLang int) (bool, string) {
-	for _, line := range strings.Split(part, "\n") {
+	for line := range strings.SplitSeq(part, "\n") {
 		t := strings.TrimSpace(line)
 		if !strings.HasPrefix(t, fence) {
 			continue

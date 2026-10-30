@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
@@ -172,10 +173,8 @@ type container struct {
 func Resolve(ctx context.Context, s workspace.Store, a workspace.Actor, roots []Root, o Options) ([]Skill, []string, error) {
 	var notes []string
 	addNote := func(n string) {
-		for _, have := range notes {
-			if have == n {
-				return
-			}
+		if slices.Contains(notes, n) {
+			return
 		}
 		notes = append(notes, n)
 	}

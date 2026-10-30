@@ -339,11 +339,11 @@ func (c *Chat) summary(ctx context.Context) string {
 	}
 	var lines []string
 	size := 0
-	for i := len(es) - 1; i >= 0; i-- {
-		if es[i].Role == RoleCheckpoint || es[i].Role == RoleReasoning {
+	for _, e := range slices.Backward(es) {
+		if e.Role == RoleCheckpoint || e.Role == RoleReasoning {
 			continue
 		}
-		l := es[i].Role + ": " + CapText(ModelText(es[i]), 1000)
+		l := e.Role + ": " + CapText(ModelText(e), 1000)
 		if size += len(l) + 1; size > 8<<10 {
 			break
 		}

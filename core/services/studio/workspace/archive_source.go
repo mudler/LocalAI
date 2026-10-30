@@ -103,7 +103,7 @@ func archivePath(name string) (string, error) {
 		return "", fmt.Errorf("%w: the archive has an entry named %q", ErrInvalid, name)
 	}
 	var segs []string
-	for _, s := range strings.Split(strings.TrimSuffix(name, "/"), "/") {
+	for s := range strings.SplitSeq(strings.TrimSuffix(name, "/"), "/") {
 		switch s {
 		case "", ".":
 			continue

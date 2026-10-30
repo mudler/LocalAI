@@ -144,7 +144,7 @@ func proxyInGuest(newBackend func() sandbox.Backend) {
 		code, out, errOut = g.run(fmt.Sprintf("curl -sS --max-time 10 --noproxy '*' http://10.0.2.2:%d/; echo; cat /proc/net/dev", port))
 		Expect(out).NotTo(ContainSubstring("hello from the host"), "%s", errOut)
 		ifaces := []string{}
-		for _, l := range strings.Split(out, "\n") {
+		for l := range strings.SplitSeq(out, "\n") {
 			if name, _, ok := strings.Cut(strings.TrimSpace(l), ":"); ok && !strings.Contains(name, "|") {
 				ifaces = append(ifaces, name)
 			}

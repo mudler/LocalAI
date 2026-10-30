@@ -4,7 +4,11 @@ import (
 	"context"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -17,8 +21,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 func newFiles() *files.Service {
@@ -194,12 +196,7 @@ var _ = Describe("files", func() {
 })
 
 func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, s)
 }
 
 func newMediaService() (*media.Service, *provider.Provider) {

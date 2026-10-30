@@ -215,8 +215,8 @@ func (p *pkg) rels(owner string) (map[string]string, error) {
 			return nil
 		}
 		id, target := attr(se, "Id"), attr(se, "Target")
-		if strings.HasPrefix(target, "/") {
-			out[id] = strings.TrimPrefix(target, "/")
+		if after, ok := strings.CutPrefix(target, "/"); ok {
+			out[id] = after
 		} else {
 			out[id] = path.Clean(dir + target)
 		}

@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // A newer run of a sub-agent must not push older chats out of a list of chats.
@@ -26,7 +27,7 @@ var _ = Describe("listchats", func() {
 		}
 		add("chat-old", session.KindChat, 1)
 		add("chat-empty-kind", "", 2)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			add(fmt.Sprintf("run-%d", i), session.KindSubAgent, 10+i)
 		}
 		svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir()})

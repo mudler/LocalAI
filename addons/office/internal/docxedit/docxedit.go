@@ -384,8 +384,8 @@ func recoverErr(err *error) {
 // with "/" is from the package root, any other is relative to base.
 func resolve(base, target string) string {
 	var p string
-	if strings.HasPrefix(target, "/") {
-		p = path.Clean(strings.TrimPrefix(target, "/"))
+	if after, ok := strings.CutPrefix(target, "/"); ok {
+		p = path.Clean(after)
 	} else {
 		p = path.Join(base, target)
 	}

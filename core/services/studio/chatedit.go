@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -42,8 +43,8 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 	p := principal(user)
 	return s.rerun(ctx, p, conv, func(entries []session.Entry) (int64, session.Message, error) {
 		last := -1
-		for i := len(entries) - 1; i >= 0; i-- {
-			if entries[i].Role == session.RoleUser {
+		for i, entrie := range slices.Backward(entries) {
+			if entrie.Role == session.RoleUser {
 				last = i
 				break
 			}

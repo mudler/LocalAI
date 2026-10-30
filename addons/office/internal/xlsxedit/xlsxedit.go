@@ -157,8 +157,8 @@ func (w *Workbook) readRels(owner string) ([]relInfo, error) {
 		id, _ := attrOf(se, "Id")
 		typ, _ := attrOf(se, "Type")
 		target, _ := attrOf(se, "Target")
-		if strings.HasPrefix(target, "/") {
-			target = path.Clean(strings.TrimPrefix(target, "/"))
+		if after, ok0 := strings.CutPrefix(target, "/"); ok0 {
+			target = path.Clean(after)
 		} else if owner != "" {
 			target = path.Join(path.Dir(owner), target)
 		} else {

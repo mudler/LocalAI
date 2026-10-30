@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -46,9 +47,7 @@ func (s Settings) clone() Settings {
 	out := Settings{Order: slices.Clone(s.Order), GoogleEngine: s.GoogleEngine, SearXNGURL: s.SearXNGURL}
 	if len(s.Keys) > 0 {
 		out.Keys = make(map[string]string, len(s.Keys))
-		for k, v := range s.Keys {
-			out.Keys[k] = v
-		}
+		maps.Copy(out.Keys, s.Keys)
 	}
 	return out
 }

@@ -4,14 +4,16 @@ import (
 	"archive/zip"
 	"bytes"
 	"io"
+	"slices"
 	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/office/internal/deck"
 	"github.com/mudler/LocalAI/addons/office/internal/deck/pptx"
 	"github.com/mudler/LocalAI/addons/office/internal/officecheck"
 	"github.com/mudler/LocalAI/addons/office/internal/officeread"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const testLayout = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n" +
@@ -141,12 +143,7 @@ func openSource() (*Deck, []byte) {
 }
 
 func contains(lines []string, s string) bool {
-	for _, l := range lines {
-		if l == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(lines, s)
 }
 
 // assertSameParts fails unless every part of a and b outside changed is

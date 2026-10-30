@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -236,8 +237,8 @@ func dropOlderImages(m map[string]json.RawMessage) error {
 		return err
 	}
 	last := -1
-	for i := len(msgs) - 1; i >= 0; i-- {
-		if string(msgs[i]["role"]) == `"user"` {
+	for i, msg := range slices.Backward(msgs) {
+		if string(msg["role"]) == `"user"` {
 			last = i
 			break
 		}

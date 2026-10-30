@@ -50,7 +50,7 @@ func mustCreate(spec Spec) []byte {
 // onePageSpec returns a spec of n pages, each with one short paragraph.
 func onePageSpec(n int, text string) Spec {
 	s := Spec{Title: "t"}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		s.Pages = append(s.Pages, Page{Blocks: []Block{Paragraph{Text: fmt.Sprintf("%s %d", text, i+1)}}})
 	}
 	return s
@@ -148,7 +148,7 @@ var _ = Describe("PDF creation and editing", func() {
 
 		It("breaks table rows across pages", func() {
 			var rows [][]string
-			for i := 0; i < 200; i++ {
+			for i := range 200 {
 				rows = append(rows, []string{fmt.Sprintf("row %d", i), "value"})
 			}
 			data := mustCreate(Spec{Pages: []Page{{Blocks: []Block{
@@ -401,10 +401,7 @@ var _ = Describe("PDF creation and editing", func() {
 		// broken cross-reference table, so only the absence of a panic is checked.
 		It("does not panic on truncated prefixes", func() {
 			good := mustCreate(sampleSpec())
-			step := len(good) / 150
-			if step < 1 {
-				step = 1
-			}
+			step := max(len(good)/150, 1)
 			for n := 0; n <= len(good); n += step {
 				p := good[:n]
 				_ = Check(p)

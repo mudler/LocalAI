@@ -3,6 +3,7 @@ package sharedfolders_test
 import (
 	"context"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -74,8 +75,8 @@ var _ = Describe("shared folders", func() {
 		evs, err := svc.Events(ctx, 0)
 		Expect(err).NotTo(HaveOccurred())
 		out := []string{}
-		for i := len(evs) - 1; i >= 0; i-- {
-			out = append(out, evs[i].Action+" "+evs[i].Principal)
+		for _, ev := range slices.Backward(evs) {
+			out = append(out, ev.Action+" "+ev.Principal)
 		}
 		return out
 	}
@@ -124,7 +125,7 @@ var _ = Describe("shared folders", func() {
 	})
 
 	It("keeps at most MaxFolders folders", func() {
-		for i := 0; i < sharedfolders.MaxFolders; i++ {
+		for i := range sharedfolders.MaxFolders {
 			_, err := f.Store().Mkdir(ctx, workspace.Actor{Principal: files.AdminPrincipal}, "/shared/f"+strings.Repeat("x", i%3)+time.Duration(i).String())
 			Expect(err).NotTo(HaveOccurred())
 		}

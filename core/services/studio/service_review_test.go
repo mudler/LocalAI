@@ -7,14 +7,15 @@ import (
 	"sync"
 	"sync/atomic"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // flakyRelease fails ReleaseTurn the first fail times (all times when fail is
@@ -136,11 +137,11 @@ var _ = Describe("service review", func() {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() { defer wg.Done(); g.Gate <- struct{}{} }()
-			for k := 0; k < 4; k++ {
+			for range 4 {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					for j := 0; j < 5; j++ {
+					for range 5 {
 						_ = svc.Stop(context.Background(), alice, id)
 					}
 				}()

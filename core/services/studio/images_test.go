@@ -3,13 +3,14 @@ package studio_test
 import (
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // imagesChat is a chat service with files whose chat model sees images when
@@ -30,7 +31,7 @@ func imagesChat(sees bool, describer string) (*studio.Service, string, func() st
 
 // imagesLine is the block of the prompt that starts with "Images:".
 func imagesLine(prompt string) string {
-	for _, part := range strings.Split(prompt, "\n\n") {
+	for part := range strings.SplitSeq(prompt, "\n\n") {
 		if strings.HasPrefix(part, "Images:") {
 			return part
 		}

@@ -77,8 +77,8 @@ func (p *pkg) mainPart(def string) string {
 
 // path0 is the first folder of a part name ("xl", "word", "ppt").
 func path0(name string) string {
-	if i := strings.IndexByte(name, '/'); i >= 0 {
-		return name[:i]
+	if before, _, ok := strings.Cut(name, "/"); ok {
+		return before
 	}
 	return name
 }

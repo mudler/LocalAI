@@ -192,7 +192,7 @@ func checkStderr(stderr []byte, cmds []command) error {
 		}
 	}
 	missing := 0
-	for _, line := range strings.Split(string(stderr), "\n") {
+	for line := range strings.SplitSeq(string(stderr), "\n") {
 		switch {
 		case line == "" || debugfsBanner.MatchString(line):
 		case strings.HasPrefix(line, eaNotFound) && missing < eaCmds:
@@ -236,7 +236,7 @@ func lastLines(b []byte, n int) string {
 func parseSuperStats(body []byte) (fsBounds, []byte, error) {
 	var b fsBounds
 	var haveFirst, haveCount bool
-	for _, line := range strings.Split(string(body), "\n") {
+	for line := range strings.SplitSeq(string(body), "\n") {
 		k, v, ok := strings.Cut(line, ":")
 		if !ok {
 			continue

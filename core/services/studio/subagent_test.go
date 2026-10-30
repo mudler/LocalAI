@@ -6,14 +6,15 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 func searchTool() session.Tool {
@@ -221,7 +222,7 @@ var _ = Describe("subagent", func() {
 		idle(svc, alice, id)
 		res := h.ResultsFor("spawn_agent")
 		Expect(res).To(HaveLen(5), "spawn calls = %d", len(res))
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			Expect(res[i].Err).To(BeNil(), "spawn %d failed: %v", i+1, res[i].Err)
 		}
 		Expect(res[4].Err).NotTo(BeNil(), "the fifth background sub-agent must hit the limit, got %+v", res[4])

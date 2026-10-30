@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"text/template"
 	"time"
@@ -191,9 +192,7 @@ func (t Task) clone() Task {
 	ws := make([]Webhook, len(t.Webhooks))
 	for i, w := range t.Webhooks {
 		h := make(map[string]string, len(w.Headers))
-		for k, v := range w.Headers {
-			h[k] = v
-		}
+		maps.Copy(h, w.Headers)
 		w.Headers = h
 		ws[i] = w
 	}
@@ -203,9 +202,7 @@ func (t Task) clone() Task {
 
 func (j Job) clone() Job {
 	p := make(map[string]string, len(j.Parameters))
-	for k, v := range j.Parameters {
-		p[k] = v
-	}
+	maps.Copy(p, j.Parameters)
 	j.Parameters = p
 	return j
 }

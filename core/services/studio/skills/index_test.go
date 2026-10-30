@@ -45,7 +45,7 @@ var _ = Describe("Index", func() {
 
 	It("stops at one hundred entries", func() {
 		var in []Skill
-		for i := 0; i < 130; i++ {
+		for i := range 130 {
 			in = append(in, sk(LayerShared, fmt.Sprintf("s%03d", i), "D."))
 		}
 		lines := strings.Split(Index(in), "\n")
@@ -57,7 +57,7 @@ var _ = Describe("Index", func() {
 
 	It("stops at sixteen kibibytes", func() {
 		var in []Skill
-		for i := 0; i < 60; i++ {
+		for i := range 60 {
 			in = append(in, sk(LayerShared, fmt.Sprintf("s%02d", i), strings.Repeat("d", MaxDescription)))
 		}
 		got := Index(in)

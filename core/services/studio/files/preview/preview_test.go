@@ -113,7 +113,7 @@ var _ = Describe("Spreadsheets", func() {
 		var sb strings.Builder
 		for r := 1; r <= 500; r++ {
 			cells := []string{}
-			for c := 0; c < 40; c++ {
+			for c := range 40 {
 				cells = append(cells, cell(colName(c)+fmt.Sprint(r), "", "", fmt.Sprintf("<v>%d</v>", r*100+c)))
 			}
 			sb.WriteString(row(r, cells...))
@@ -189,7 +189,7 @@ var _ = Describe("CSV and TSV", func() {
 
 	It("keeps the first 200 rows and 30 columns and counts the rest", func() {
 		var sb strings.Builder
-		for r := 0; r < 450; r++ {
+		for r := range 450 {
 			cols := make([]string, 35)
 			for c := range cols {
 				cols[c] = fmt.Sprint(r, "-", c)

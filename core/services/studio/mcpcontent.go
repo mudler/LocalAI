@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
@@ -147,17 +148,13 @@ func (s *Service) checkServer(ctx context.Context, user, conv, server string) (m
 		return "", err
 	}
 	if id, ok := strings.CutPrefix(server, mcpconns.Prefix); ok {
-		for _, c := range conns {
-			if c == id {
-				return model, nil
-			}
+		if slices.Contains(conns, id) {
+			return model, nil
 		}
 		return "", ErrMCPServerNotUsable
 	}
-	for _, sv := range servers {
-		if sv == server {
-			return model, nil
-		}
+	if slices.Contains(servers, server) {
+		return model, nil
 	}
 	return "", ErrMCPServerNotUsable
 }

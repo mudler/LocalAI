@@ -29,8 +29,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"path"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
@@ -123,12 +125,7 @@ func (d *Deck) has(name string) bool {
 	if !ok {
 		return false
 	}
-	for _, n := range d.order {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(d.order, name)
 }
 
 // get returns the current content of a part.
@@ -178,9 +175,7 @@ func (d *Deck) tx(fn func(*Deck) error) error {
 	c := *d
 	c.order = append([]string(nil), d.order...)
 	c.mod = make(map[string][]byte, len(d.mod))
-	for k, v := range d.mod {
-		c.mod[k] = v
-	}
+	maps.Copy(c.mod, d.mod)
 	if err := fn(&c); err != nil {
 		return err
 	}

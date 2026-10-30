@@ -121,7 +121,7 @@ var _ = Describe("Trigger stores", func() {
 		Expect(err).NotTo(HaveOccurred())
 		ctx := context.Background()
 		const rounds = 20
-		for round := 0; round < rounds; round++ {
+		for round := range rounds {
 			var wg sync.WaitGroup
 			wins := make(chan string, 8)
 			for i, s := range []triggers.Store{a, b, a, b} {

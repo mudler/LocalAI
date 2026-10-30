@@ -103,7 +103,7 @@ var _ = Describe("ArchiveSource", func() {
 		DeferCleanup(workspace.SetArchiveMaxEntries(1000))
 		var many bytes.Buffer
 		w := tar.NewWriter(&many)
-		for i := 0; i < 1001; i++ {
+		for i := range 1001 {
 			_ = w.WriteHeader(&tar.Header{Name: fmt.Sprintf("f%d", i), Typeflag: tar.TypeReg, Mode: 0o644})
 		}
 		_ = w.Close()

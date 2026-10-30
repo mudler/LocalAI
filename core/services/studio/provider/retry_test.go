@@ -32,7 +32,7 @@ var _ = Describe("the model failure budget", func() {
 		}))
 		c := tr.Client(nil)
 		var err error
-		for i := 0; i < provider.MaxModelFailures+3; i++ {
+		for range provider.MaxModelFailures + 3 {
 			var resp *http.Response
 			if resp, err = post(c, `{}`); err != nil {
 				break
@@ -57,7 +57,7 @@ var _ = Describe("the model failure budget", func() {
 			_, _ = io.WriteString(w, `{}`)
 		}))
 		c := tr.Client(nil)
-		for i := 0; i < provider.MaxModelFailures*3; i++ {
+		for i := range provider.MaxModelFailures * 3 {
 			resp, err := post(c, `{}`)
 			Expect(err).ToNot(HaveOccurred(), "request %d", i)
 			_ = resp.Body.Close()

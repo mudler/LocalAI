@@ -45,7 +45,7 @@ func RulesAs(ctx context.Context, store workspace.Store, actor workspace.Actor, 
 	dirs := []string{"/"}
 	if folder != "/" {
 		cur := ""
-		for _, seg := range strings.Split(strings.Trim(folder, "/"), "/") {
+		for seg := range strings.SplitSeq(strings.Trim(folder, "/"), "/") {
 			cur += "/" + seg
 			dirs = append(dirs, cur)
 		}

@@ -183,11 +183,11 @@ func (s *jsonStore) removeStaleStates() {
 	}
 	for _, p := range names {
 		base := filepath.Base(p)
-		i := strings.IndexByte(base, '.')
-		if i < 0 {
+		before, _, ok := strings.Cut(base, ".")
+		if !ok {
 			continue
 		}
-		raw, err := base64.RawURLEncoding.DecodeString(base[:i])
+		raw, err := base64.RawURLEncoding.DecodeString(before)
 		if err != nil {
 			continue
 		}

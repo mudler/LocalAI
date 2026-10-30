@@ -230,7 +230,7 @@ var _ = Describe("the JSON store", func() {
 		var wg sync.WaitGroup
 		for _, id := range []string{"a", "b"} {
 			newChat(st, id)
-			for i := 0; i < n; i++ {
+			for i := range n {
 				wg.Add(1)
 				go func(id string, i int) {
 					defer GinkgoRecover()
@@ -261,7 +261,7 @@ var _ = Describe("the JSON store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		newChat(st, "a")
 		var wg sync.WaitGroup
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()

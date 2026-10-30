@@ -187,7 +187,6 @@ func (r upperReader) walk(ctx context.Context, lim readLimits, b fsBounds, root 
 		listed := map[uint64][]lsEntry{}
 		opaque := map[uint64]map[string][]byte{}
 		for _, n := range level {
-			n := n
 			if n.ls.Mode&sIFMT != sIFDIR {
 				if n.path != "" && (n.ls.Mode&sIFMT == sIFREG || n.ls.Mode&sIFMT == sIFCHR) {
 					cmds = append(cmds, command{text: "inode_dump <" + itoa(n.ls.Ino) + ">", parse: func(x []byte) ([]byte, error) {
@@ -217,7 +216,6 @@ func (r upperReader) walk(ctx context.Context, lim readLimits, b fsBounds, root 
 			// cannot set a trusted.* attribute. Honouring the user attribute
 			// would delete files the guest still sees.
 			for _, key := range []string{"trusted.overlay.opaque"} {
-				key := key
 				get := parseEAGet(key)
 				cmds = append(cmds, command{text: "ea_get -x <" + itoa(ino) + "> " + key, parse: func(x []byte) ([]byte, error) {
 					v, rest, err := get(x)

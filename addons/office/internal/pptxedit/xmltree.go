@@ -149,8 +149,8 @@ func tagName(raw []byte, n *node) string {
 // prefixOf returns the prefix of the qualified name of n ("" for none).
 func prefixOf(raw []byte, n *node) string {
 	q := tagName(raw, n)
-	if i := strings.IndexByte(q, ':'); i >= 0 {
-		return q[:i]
+	if before, _, ok := strings.Cut(q, ":"); ok {
+		return before
 	}
 	return ""
 }

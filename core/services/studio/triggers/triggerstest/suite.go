@@ -3,6 +3,7 @@ package triggerstest
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -321,7 +322,7 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		var wins atomic.Int32
 		var wg sync.WaitGroup
 		start := make(chan struct{})
-		for i := 0; i < workers; i++ {
+		for i := range workers {
 			wg.Add(1)
 			go func(i int) {
 				defer GinkgoRecover()
@@ -345,7 +346,7 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		const workers = 16
 		var wins atomic.Int32
 		var wg sync.WaitGroup
-		for i := 0; i < workers; i++ {
+		for i := range workers {
 			wg.Add(1)
 			go func(i int) {
 				defer GinkgoRecover()
@@ -592,8 +593,8 @@ func runIDs(s triggers.Store, trigger string) []string {
 	runs, err := s.ListRuns(context.Background(), trigger, 0)
 	Expect(err).NotTo(HaveOccurred())
 	ids := make([]string, 0, len(runs))
-	for i := len(runs) - 1; i >= 0; i-- {
-		ids = append(ids, runs[i].ID)
+	for _, run := range slices.Backward(runs) {
+		ids = append(ids, run.ID)
 	}
 	return ids
 }

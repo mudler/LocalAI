@@ -238,7 +238,7 @@ func Run(newStore New) {
 		Expect(rec.Egress.Preset).To(Equal(egress.PresetRegistries), "a failed change leaves the state")
 
 		var wg sync.WaitGroup
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
@@ -392,7 +392,7 @@ func Run(newStore New) {
 		var other []error
 		var mu sync.Mutex
 		var wg sync.WaitGroup
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
@@ -487,7 +487,7 @@ func Run(newStore New) {
 	It("racing takes never deliver a message twice", func() {
 		s := newStore()
 		chat(s, "c1", "alice")
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			_, _ = s.AddPending(ctx(), "alice", "c1", string(rune('a'+i)))
 		}
 		c := ctx()
@@ -495,7 +495,7 @@ func Run(newStore New) {
 		seen := map[string]int{}
 		var errs []error
 		var wg sync.WaitGroup
-		for i := 0; i < 6; i++ {
+		for range 6 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

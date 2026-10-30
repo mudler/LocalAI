@@ -163,7 +163,7 @@ func Run(newStore NewStore) {
 		one, _ := s.Senders(ctx, "b1", 1)
 		Expect(one).To(HaveLen(1), "limit 1")
 		Expect(one[0].ID).To(Equal("2"))
-		for i := 0; i < connectors.MaxSendersKept+5; i++ {
+		for i := range connectors.MaxSendersKept + 5 {
 			_ = s.RecordSender(ctx, "b3", fmt.Sprint(i), "x", false, t0.Add(time.Duration(i)*time.Second))
 		}
 		all, _ := s.Senders(ctx, "b3", 0)
@@ -197,7 +197,7 @@ func Run(newStore NewStore) {
 		}
 		res := make(chan []byte, 8)
 		var wg sync.WaitGroup
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"mime"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -56,12 +57,7 @@ func (u UI) ForModel() bool { return has(u.Visibility, VisibilityModel) }
 func (u UI) ForApp() bool { return has(u.Visibility, VisibilityApp) }
 
 func has(list []string, v string) bool {
-	for _, s := range list {
-		if s == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(list, v)
 }
 
 // ParseUI reads the ui part of a tool's _meta. A tool without it is visible to

@@ -70,8 +70,8 @@ func parseVersion(out []byte) ([2]int, bool) {
 }
 
 func firstLine(b []byte) []byte {
-	if i := bytes.IndexByte(b, '\n'); i >= 0 {
-		return b[:i]
+	if before, _, ok := bytes.Cut(b, []byte{'\n'}); ok {
+		return before
 	}
 	return b
 }

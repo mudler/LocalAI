@@ -289,8 +289,8 @@ func (r *run) readAgents() []oldAgent {
 		sort.Strings(keys)
 		for _, k := range keys {
 			user, name := "", k
-			if i := strings.Index(k, ":"); i >= 0 {
-				user, name = k[:i], k[i+1:]
+			if before, after, ok := strings.Cut(k, ":"); ok {
+				user, name = before, after
 			}
 			out = append(out, oldAgent{user: user, name: name, cfg: pool[k]})
 		}
@@ -558,7 +558,7 @@ func (r *run) connectors(ctx context.Context, owner string, a oldAgent) {
 			continue
 		}
 		var allow []string
-		for _, u := range strings.Split(str(conf, "admins"), ",") {
+		for u := range strings.SplitSeq(str(conf, "admins"), ",") {
 			u = strings.TrimPrefix(strings.TrimSpace(u), "@")
 			if usernameShape.MatchString(u) {
 				allow = append(allow, "@"+u)

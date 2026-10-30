@@ -107,7 +107,7 @@ var _ = Describe("ResourceMeta", func() {
 	})
 	It("bounds the number of domains", func() {
 		var many []any
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			many = append(many, "https://h"+strings.Repeat("a", i%5)+string(rune('a'+i%26))+".example.com")
 		}
 		m := mcpapps.ResourceMeta(map[string]any{"ui": map[string]any{"csp": map[string]any{"connectDomains": many}}})

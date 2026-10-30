@@ -8,12 +8,17 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -24,8 +29,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/tests/studiobot"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const botToken = "777:TOKEN-must-never-leak"
@@ -236,9 +239,7 @@ func (b *scriptedBot) message(id int, from int64, extra map[string]any) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	m := map[string]any{"message_id": id, "chat": map[string]any{"id": from, "type": "private"}, "from": map[string]any{"id": from, "first_name": "P"}}
-	for k, v := range extra {
-		m[k] = v
-	}
+	maps.Copy(m, extra)
 	b.updates = append(b.updates, map[string]any{"update_id": id, "message": m})
 }
 
@@ -369,12 +370,7 @@ var _ = Describe("connectors", func() {
 })
 
 func hasName(l []string, s string) bool {
-	for _, x := range l {
-		if x == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(l, s)
 }
 
 var _ = Describe("connectors", func() {
@@ -724,7 +720,7 @@ var _ = Describe("connectors", func() {
 		ctx := context.Background()
 		var wg sync.WaitGroup
 		stop := make(chan struct{})
-		for i := 0; i < 8; i++ {
+		for range 8 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

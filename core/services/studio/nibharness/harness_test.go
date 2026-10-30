@@ -63,10 +63,7 @@ func TestNibharness(t *testing.T) {
 }
 
 func start(llm *recordingLLM, env session.HarnessEnv, tweak ...func(*nibharness.Model)) session.HarnessSession {
-	ctxTokens := 0
-	if llm.contextTokens > 0 {
-		ctxTokens = llm.contextTokens
-	}
+	ctxTokens := max(llm.contextTokens, 0)
 	h := nibharness.New(nibharness.Config{
 		LLM: func(a workspace.Actor) (nibharness.Model, error) {
 			defer GinkgoRecover()
@@ -211,7 +208,7 @@ var _ = Describe("the nib harness", func() {
 	// it interrupts the next turn of the same session.
 	It("a context cancelled after Send returns does not interrupt the next turn", func() {
 		hs := start(&recordingLLM{}, session.HarnessEnv{})
-		for i := 0; i < 300; i++ {
+		for i := range 300 {
 			ctx, cancel := context.WithCancel(context.Background())
 			Expect(hs.Send(ctx, "first")).To(Succeed(), "send %d", i)
 			cancel()
@@ -235,7 +232,7 @@ var _ = Describe("the nib harness", func() {
 				}
 			},
 		})
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			send(hs, "message number "+string(rune('a'+i))+" with some words so there is history to compact")
 		}
 		mu.Lock()
@@ -260,7 +257,7 @@ var _ = Describe("the nib harness", func() {
 				}
 			},
 		})
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			send(hs, "message number "+string(rune('a'+i))+" with some words so there is history to compact")
 		}
 		mu.Lock()

@@ -3,6 +3,7 @@ package convert_test
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -14,9 +15,7 @@ import (
 
 func mcpPool(dir string, cfg map[string]any) {
 	base := map[string]any{"name": alice + ":Helper", "model": "llama", "system_prompt": "help"}
-	for k, v := range cfg {
-		base[k] = v
-	}
+	maps.Copy(base, cfg)
 	write(dir+"/pool.json", mustJSON(map[string]any{alice + ":Helper": base}))
 }
 

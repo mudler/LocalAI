@@ -33,7 +33,7 @@ func hasNotable(r convert.Report, name, status string) bool {
 func historyDB(n int) *gorm.DB {
 	db := newDB()
 	exec(db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, deleted_at datetime)`)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		conv := mustJSON(map[string]any{"name": fmt.Sprintf("Chat %03d", i), "model": "m", "createdAt": 1700000000000 + i,
 			"history": []any{map[string]any{"role": "user", "content": "hi"}}})
 		exec(db, `INSERT INTO chat_conversations (user_id, conv_id, content, version) VALUES (?, ?, ?, 1)`, alice, fmt.Sprintf("c%03d", i), conv)

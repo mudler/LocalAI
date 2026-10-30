@@ -258,8 +258,8 @@ func undoPlan(ctx context.Context, q querier, rev int64) ([]undoItem, error) {
 		return nil, err
 	}
 	out := make([]undoItem, 0, len(order))
-	for i := len(order) - 1; i >= 0; i-- {
-		it := *items[order[i]]
+	for _, o := range slices.Backward(order) {
+		it := *items[o]
 		if it.target.deleted {
 			// A node that did not exist: keep its location and blob, set the tombstone.
 			t := it.expected

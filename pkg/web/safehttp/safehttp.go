@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -357,10 +358,8 @@ func Allowed(a netip.Addr, allowPrivate bool) bool {
 			return false
 		}
 	}
-	for _, m := range metadata {
-		if a == m {
-			return false
-		}
+	if slices.Contains(metadata, a) {
+		return false
 	}
 	if a.IsUnspecified() {
 		return false

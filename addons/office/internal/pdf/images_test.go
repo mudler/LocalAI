@@ -185,14 +185,14 @@ var _ = Describe("ExtractImages", func() {
 		want := make([][]byte, h)
 		for y := range want {
 			want[y] = make([]byte, w*3)
-			for x := 0; x < w; x++ {
+			for x := range w {
 				want[y][3*x] = byte(x*97 + y*31)
 				want[y][3*x+1] = byte(y*83 + x*7)
 				want[y][3*x+2] = byte(250 - x*40 - y*9)
 			}
 		}
 		var filtered []byte
-		for y := 0; y < h; y++ {
+		for y := range h {
 			var prev []byte
 			if y > 0 {
 				prev = want[y-1]
@@ -215,8 +215,8 @@ var _ = Describe("ExtractImages", func() {
 		Expect(got.BitsPerComponent).To(Equal(8), "metadata: %+v", got)
 		Expect(got.ColorSpace).To(Equal("DeviceRGB"), "metadata: %+v", got)
 		px := decodePNG(got.Data)
-		for y := 0; y < h; y++ {
-			for x := 0; x < w; x++ {
+		for y := range h {
+			for x := range w {
 				c := rgbaAt(px, x, y)
 				wantPix := color.RGBA{want[y][3*x], want[y][3*x+1], want[y][3*x+2], 0xff}
 				Expect(c).To(Equal(wantPix), "pixel (%d,%d)", x, y)
@@ -247,8 +247,8 @@ var _ = Describe("ExtractImages", func() {
 
 	It("returns a DCT JPEG unchanged", func() {
 		src := image.NewRGBA(image.Rect(0, 0, 5, 4))
-		for y := 0; y < 4; y++ {
-			for x := 0; x < 5; x++ {
+		for y := range 4 {
+			for x := range 5 {
 				src.Set(x, y, color.RGBA{uint8(x * 50), uint8(y * 60), 128, 0xff})
 			}
 		}
@@ -423,7 +423,7 @@ var _ = Describe("ExtractImages", func() {
 		build := func(n int) []byte {
 			var names []string
 			var extra []pdfObj
-			for i := 0; i < n; i++ {
+			for i := range n {
 				names = append(names, fmt.Sprintf("/I%d %d 0 R", i, 4+i))
 				extra = append(extra, flateRGB(1, 1, []byte{1, 2, 3}, ""))
 			}
@@ -449,10 +449,7 @@ var _ = Describe("ExtractImages", func() {
 			flateRGB(2, 2, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}, "/DecodeParms << /Predictor 2 >>"),
 			pdfObj{dict: "/Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode", stream: []byte("abcdefgh")},
 		)
-		step := len(good) / 150
-		if step < 1 {
-			step = 1
-		}
+		step := max(len(good)/150, 1)
 		for n := 0; n <= len(good); n += step {
 			_, _ = ExtractImages(good[:n], nil)
 		}
@@ -522,7 +519,7 @@ var _ = Describe("ExtractImages", func() {
 	It("walks a form DAG once", func() {
 		const levels = 12
 		var extra []pdfObj
-		for i := 0; i < levels; i++ {
+		for i := range levels {
 			res := xobjectRes("/Im 16 0 R") // the last form holds the image, object 16
 			if i < levels-1 {
 				next := fmt.Sprintf("%d 0 R", 5+i) // form i+1 is object 5+i

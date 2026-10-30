@@ -5,13 +5,14 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // A page feeds a file trigger: what the bridge's files.write stores under a
@@ -48,7 +49,7 @@ var _ = Describe("a page feeds a file trigger", func() {
 
 		// The page reacts to the answer and writes a request again, three
 		// times in a few seconds: one more run, after the gap.
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			_, err = bridge.Write(ctx, alice, "ask", "requests/1.json", []byte(`{"text":"again `+string(rune('a'+i))+`"}`), 0)
 			Expect(err).NotTo(HaveOccurred())
 			r.pass()

@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // applyFake adds the owner side of an immediate change to the fake owner.
@@ -153,7 +154,7 @@ var _ = Describe("changes made at once for a chat", func() {
 		f, _, chats := build()
 		big := make([]byte, 0, 4000)
 		big = append(big, `"`...)
-		for i := 0; i < 3000; i++ {
+		for range 3000 {
 			big = append(big, 'x')
 		}
 		big = append(big, `"`...)

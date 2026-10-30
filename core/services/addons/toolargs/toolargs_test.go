@@ -37,7 +37,7 @@ var _ = Describe("the argument limit", func() {
 var _ = Describe("the resource ID of a conversation", func() {
 	It("is valid, stable and distinct for 200 random conversation IDs", func() {
 		seen := map[string]string{}
-		for i := 0; i < 200; i++ {
+		for range 200 {
 			raw := make([]byte, 12)
 			_, err := rand.Read(raw)
 			Expect(err).ToNot(HaveOccurred())

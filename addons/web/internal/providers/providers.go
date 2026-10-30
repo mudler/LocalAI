@@ -148,7 +148,7 @@ func text(s string, max int) string {
 func results(n int, get func(i int) (title, link, snippet string)) []search.Result {
 	out := make([]search.Result, 0, n)
 	seen := map[string]bool{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		title, link, snippet := get(i)
 		u, err := url.Parse(strings.TrimSpace(link))
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || seen[u.String()] {

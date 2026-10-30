@@ -3,9 +3,13 @@ package studio_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -13,8 +17,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // frontends builds two services that share one store and one message bus, as
@@ -102,7 +104,7 @@ var _ = Describe("cluster", func() {
 		id := create(f.a, alice)
 		var started int32
 		var wg sync.WaitGroup
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			wg.Add(1)
 			go func(i int) {
 				defer GinkgoRecover()
@@ -279,10 +281,8 @@ var _ = Describe("cluster", func() {
 		f.ha.Gate <- struct{}{}
 		until("the late message to start a turn", func() bool {
 			for _, h := range []*studiotest.GateHarness{f.ha, f.hb} {
-				for _, s := range h.Sent() {
-					if s == "late" {
-						return true
-					}
+				if slices.Contains(h.Sent(), "late") {
+					return true
 				}
 			}
 			return false

@@ -56,9 +56,9 @@ var _ = Describe("process state", func() {
 		}
 		status, err := os.ReadFile("/proc/self/status")
 		Expect(err).ToNot(HaveOccurred())
-		for _, l := range strings.Split(string(status), "\n") {
-			if strings.HasPrefix(l, "CapAmb:") {
-				v := strings.TrimSpace(strings.TrimPrefix(l, "CapAmb:"))
+		for l := range strings.SplitSeq(string(status), "\n") {
+			if after, ok := strings.CutPrefix(l, "CapAmb:"); ok {
+				v := strings.TrimSpace(after)
 				Expect(strings.Trim(v, "0")).To(BeEmpty(), "ambient set = %s", v)
 				return
 			}

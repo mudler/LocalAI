@@ -72,7 +72,7 @@ var _ = Describe("the limits of the proxy", func() {
 			}
 		}()
 		codes := []int{}
-		for i := 0; i < 2; i++ {
+		for range 2 {
 			c, err := net.Dial("tcp", ln.Addr().String())
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(func() { _ = c.Close() })

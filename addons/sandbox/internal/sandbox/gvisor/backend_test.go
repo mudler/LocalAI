@@ -137,7 +137,7 @@ echo ROUTE end
 true`)
 		routes := map[string][]string{}
 		var cur string
-		for _, line := range strings.Split(got, "\n") {
+		for line := range strings.SplitSeq(got, "\n") {
 			if name, ok := strings.CutPrefix(line, "ROUTE "); ok {
 				cur = name
 				continue

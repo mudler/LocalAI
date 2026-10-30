@@ -969,7 +969,7 @@ func (c *Connectors) answerOf(b connectors.Binding, chatID, errText string) stri
 	tick := time.NewTicker(20 * time.Millisecond)
 	defer tick.Stop()
 wait:
-	for i := 0; i < 250; i++ {
+	for range 250 {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		var err error
 		info, err = c.svc.Turn(ctx, b.Owner, chatID)

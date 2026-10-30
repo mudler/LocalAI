@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -84,12 +85,7 @@ var ReplaceableTools = []string{"bash", "web_search", "web_fetch"}
 // Replaceable reports whether an add-on tool may shadow the built-in tool
 // name.
 func Replaceable(name string) bool {
-	for _, n := range ReplaceableTools {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ReplaceableTools, name)
 }
 
 var toolPropertyName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{0,63}$`)

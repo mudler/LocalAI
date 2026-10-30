@@ -355,7 +355,7 @@ var _ = Describe("the proxy", func() {
 		defer end()
 		port := portOf(plainSrv.URL)
 		codes := []int{}
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			c := f.dial()
 			_, _ = fmt.Fprintf(c, "GET http://public.test:%d/ HTTP/1.1\r\nHost: public.test:%d\r\nConnection: close\r\n\r\n", port, port)
 			resp := readResponse(c, bufio.NewReader(c), nil)

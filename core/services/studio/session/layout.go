@@ -91,7 +91,7 @@ func fitBytes(s string, n int) string {
 // that has text, cleaned, cut to MaxTitleRunes at a word boundary with an
 // ellipsis. It returns "" when the message has no usable text.
 func TitleFrom(text string) string {
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		t := CleanTitle(line)
 		if t == "" {
 			continue

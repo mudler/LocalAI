@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -106,12 +107,8 @@ func (s *jsonStore) DeleteTrigger(_ context.Context, id string) error {
 	defer s.mu.Unlock()
 	d := s.d
 	old := jsonData{Triggers: map[string]Trigger{}, LastDue: map[string]time.Time{}, Runs: append([]Run(nil), d.Runs...), Cursor: d.Cursor, HasCur: d.HasCur}
-	for k, v := range d.Triggers {
-		old.Triggers[k] = v
-	}
-	for k, v := range d.LastDue {
-		old.LastDue[k] = v
-	}
+	maps.Copy(old.Triggers, d.Triggers)
+	maps.Copy(old.LastDue, d.LastDue)
 	delete(s.d.Triggers, id)
 	delete(s.d.LastDue, id)
 	kept := s.d.Runs[:0:0]

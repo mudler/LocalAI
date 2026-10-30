@@ -111,7 +111,7 @@ var _ = Describe("the file tools that replace the Sandbox's", func() {
 		It("stops at 500 paths and says so", func() {
 			f := newFiles()
 			b := newToolBox(f, "alice", "c1")
-			for i := 0; i < 503; i++ {
+			for i := range 503 {
 				userPut(f, "alice", fmt.Sprintf("/many/f%03d.txt", i), "x")
 			}
 			out, err := b.run("list_files", map[string]any{"pattern": "many/*"})

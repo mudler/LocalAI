@@ -83,9 +83,9 @@ func IsMemory(path string) bool {
 func buildSQLiteDSN(path string) string {
 	base := path
 	rawQuery := ""
-	if i := strings.IndexByte(path, '?'); i >= 0 {
-		base = path[:i]
-		rawQuery = path[i+1:]
+	if before, after, ok := strings.Cut(path, "?"); ok {
+		base = before
+		rawQuery = after
 	}
 
 	values, err := url.ParseQuery(rawQuery)

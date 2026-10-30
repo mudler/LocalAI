@@ -227,7 +227,7 @@ var _ = Describe("Resolve", func() {
 		maxSkillFiles = 3
 		DeferCleanup(func() { maxSkillFiles = old })
 		st, roots := layers()
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			put(st, fmt.Sprintf("/builtin-skills/b%d/SKILL.md", i), skillText(fmt.Sprintf("b%d", i), "Built-in."))
 		}
 		put(st, "/users/alice/.skills/p/SKILL.md", skillText("p", "Personal."))
@@ -284,7 +284,7 @@ var _ = Describe("Resolve", func() {
 		st, roots := layers()
 		put(st, "/Shared/Team/.skills/team/SKILL.md", skillText("team", "Team."))
 		put(st, "/users/alice/Chats/c1/.skills/upload/SKILL.md", skillText("upload", "In a chat folder."))
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			put(st, fmt.Sprintf("/users/alice/Chats/c%d/f/x.txt", i), "x")
 		}
 		// The home walk comes first, as in a chat, and the budget is small.

@@ -3,6 +3,7 @@ package wstest
 import (
 	"errors"
 	"math/rand"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,7 +63,7 @@ func runOps(s workspace.Store, seed int64, n int) []int64 {
 	GinkgoHelper()
 	rng := rand.New(rand.NewSource(seed)) // #nosec G404 -- a seeded generator makes the test reproducible
 	var revs []int64
-	for i := 0; i < n; i++ {
+	for range n {
 		if cs := randomOp(s, rng); cs.Rev != 0 {
 			revs = append(revs, cs.Rev)
 		}
@@ -78,9 +79,9 @@ func describeProperty(newStore NewStore) {
 				start := Tree(s)
 				revs := runOps(s, seed, 25)
 				Expect(len(revs)).To(BeNumerically(">=", 10), "seed %d: too few revisions committed", seed)
-				for i := len(revs) - 1; i >= 0; i-- {
-					_, conflicts, err := s.Undo(Ctx(), AdminActor, revs[i], workspace.UndoOptions{})
-					Expect(err).ToNot(HaveOccurred(), "seed %d: undo %d: %+v", seed, revs[i], conflicts)
+				for _, rev := range slices.Backward(revs) {
+					_, conflicts, err := s.Undo(Ctx(), AdminActor, rev, workspace.UndoOptions{})
+					Expect(err).ToNot(HaveOccurred(), "seed %d: undo %d: %+v", seed, rev, conflicts)
 				}
 				Expect(Tree(s)).To(Equal(start), "seed %d", seed)
 			}

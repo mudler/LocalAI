@@ -44,7 +44,7 @@ var _ = Describe("The SQLite store beyond the contract", func() {
 		a, b := open(), open()
 		ctx := context.Background()
 		var wg sync.WaitGroup
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			wg.Add(1)
 			go func(i int) {
 				defer GinkgoRecover()

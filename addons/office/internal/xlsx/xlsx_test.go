@@ -317,7 +317,7 @@ var _ = Describe("xlsx writer", func() {
 
 	It("rejects a non-finite number", func() {
 		inf := 1.0
-		for i := 0; i < 2000; i++ {
+		for range 2000 {
 			inf *= 10
 		}
 		wb := Workbook{Sheets: []Sheet{{Name: "S", Cells: []Cell{{Ref: "A1", Value: Num(inf)}}}}}

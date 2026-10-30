@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -93,12 +94,7 @@ func (nopCloser) Close() error { return nil }
 func (f *fakeServer) sawAuth(want string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for _, a := range f.auths {
-		if a == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(f.auths, want)
 }
 
 type env struct {
@@ -293,7 +289,7 @@ var _ = Describe("Service", func() {
 	It("allows at most the per-user limit", func() {
 		e := newEnv()
 		ctx := specCtx()
-		for i := 0; i < mcpconns.MaxPerUser; i++ {
+		for i := range mcpconns.MaxPerUser {
 			in := httpInput("c"+string(rune('a'+i)), "https://mcp.example")
 			_, err := e.svc.Create(ctx, "u1", in)
 			Expect(err).NotTo(HaveOccurred())

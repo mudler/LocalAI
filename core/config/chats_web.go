@@ -16,7 +16,7 @@ func ParsePorts(s string) ([]int, error) {
 	}
 	var out []int
 	seen := map[int]bool{}
-	for _, f := range strings.Split(s, ",") {
+	for f := range strings.SplitSeq(s, ",") {
 		f = strings.TrimSpace(f)
 		n, err := strconv.Atoi(f)
 		if err != nil || n < 1 || n > 65535 {

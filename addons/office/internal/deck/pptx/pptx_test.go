@@ -10,14 +10,16 @@ import (
 	"image/png"
 	"io"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/office/internal/deck"
 	"github.com/mudler/LocalAI/addons/office/internal/officecheck"
 	"github.com/mudler/LocalAI/addons/office/internal/pptxedit"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 func tinyPNG() []byte {
@@ -114,12 +116,7 @@ func shapeWith(xmlText, ph string) string {
 }
 
 func contains(lines []string, s string) bool {
-	for _, l := range lines {
-		if l == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(lines, s)
 }
 
 var _ = Describe("Write", func() {

@@ -6,11 +6,12 @@ import (
 	"slices"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // fakeCollections keeps collections per user, as the real backend does.
@@ -82,7 +83,7 @@ var _ = Describe("collections", func() {
 
 	It("a collection answer is bounded", func() {
 		var hits []studio.CollectionHit
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			hits = append(hits, studio.CollectionHit{Content: strings.Repeat("x", 5000)})
 		}
 		fc := &fakeCollections{mine: map[string]map[string][]studio.CollectionHit{alice: {"big": hits}}}

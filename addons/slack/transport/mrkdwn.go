@@ -129,7 +129,7 @@ type Tokens struct {
 // ParseTokens reads the tokens of the secret of a binding, in any order.
 func ParseTokens(secret string) Tokens {
 	var t Tokens
-	for _, f := range strings.Fields(secret) {
+	for f := range strings.FieldsSeq(secret) {
 		switch {
 		case strings.HasPrefix(f, "xoxb-"):
 			t.Bot = f

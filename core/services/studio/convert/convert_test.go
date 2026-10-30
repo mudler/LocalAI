@@ -403,7 +403,7 @@ var _ = Describe("converting the old agents", func() {
 		db := newDB()
 		exec(db, `CREATE TABLE chat_conversations (user_id text, conv_id text, content text, version integer, deleted_at datetime)`)
 		var h []any
-		for i := 0; i < convert.MaxMessages+50; i++ {
+		for i := range convert.MaxMessages + 50 {
 			h = append(h, map[string]any{"role": "user", "content": fmt.Sprintf("m%d", i)})
 		}
 		conv := mustJSON(map[string]any{"id": "big", "name": "Big", "model": "m", "history": h})

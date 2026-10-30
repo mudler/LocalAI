@@ -59,7 +59,7 @@ func ParseSchedule(text string) (Schedule, error) {
 		}
 		s.kind = "weekly"
 		s.dom, s.month, s.domStar = allDays, allMonths, true
-		for _, d := range strings.Split(f[1], ",") {
+		for d := range strings.SplitSeq(f[1], ",") {
 			i := dayIndex(d)
 			if i < 0 {
 				return Schedule{}, fmt.Errorf("day must be one of %s, not %q", strings.Join(dayNames[1:], ", ")+", sun", d)
@@ -209,7 +209,7 @@ func bits(v uint64, lo, hi int) []int {
 // field starts with "*".
 func cronField(name, text string, lo, hi int) (uint64, bool, error) {
 	var set uint64
-	for _, part := range strings.Split(text, ",") {
+	for part := range strings.SplitSeq(text, ",") {
 		base, stepText, hasStep := strings.Cut(part, "/")
 		step := 1
 		if hasStep {
@@ -286,7 +286,7 @@ func (s Schedule) canonical(f []string) string {
 }
 
 func firstBit(v uint64) int {
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		if v&(1<<uint(i)) != 0 {
 			return i
 		}

@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/office/internal/docx"
 	"github.com/mudler/LocalAI/addons/office/internal/officecheck"
@@ -17,8 +20,6 @@ import (
 	"github.com/mudler/LocalAI/addons/office/internal/tools"
 	"github.com/mudler/LocalAI/addons/office/internal/xlsx"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // fakeHost is the host side of the workspace operations: a map of files with a
@@ -350,7 +351,7 @@ var _ = Describe("office tools", func() {
 	It("bounds the sizes", func() {
 		h := newHost()
 		var paras []string
-		for i := 0; i < 3000; i++ {
+		for i := range 3000 {
 			paras = append(paras, fmt.Sprintf("paragraph %d %s", i, strings.Repeat("x", 80)))
 		}
 		h.put("/big.docx", docxBytes(paras...))

@@ -279,7 +279,7 @@ func readAllowedCPUs() []int {
 // parseCPUList reads "0-3,8,10-11".
 func parseCPUList(s string) []int {
 	var out []int
-	for _, part := range strings.Split(s, ",") {
+	for part := range strings.SplitSeq(s, ",") {
 		lo, hi, isRange := strings.Cut(part, "-")
 		a, err := strconv.Atoi(lo)
 		if err != nil {

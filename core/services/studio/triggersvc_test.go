@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
@@ -19,8 +22,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 type tclock struct {
@@ -225,7 +226,7 @@ var _ = Describe("triggersvc", func() {
 		Expect(sent).To(HaveLen(1), "first message = %q", sent)
 		Expect(sent[0]).To(ContainSubstring("A new file arrived: /Contracts/a.txt"), "first message = %q", sent)
 		// The run wrote summary.txt in the watched folder: that must not start the trigger.
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			sh.clock.Advance(2 * time.Second)
 			r.pass()
 		}

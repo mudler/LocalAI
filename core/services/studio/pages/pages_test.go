@@ -260,7 +260,7 @@ var _ = Describe("the pages service", func() {
 
 		It("limits the rate of chat messages per page", func() {
 			allowed := 0
-			for i := 0; i < 20; i++ {
+			for range 20 {
 				if s.AllowSend("alice", "tasks") {
 					allowed++
 				}

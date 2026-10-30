@@ -320,13 +320,13 @@ var _ = Describe("agent server", func() {
 		// which would hide the leak. It is restored before the check's runtime.GC.
 		oldGC := debug.SetGCPercent(-1)
 		before := openFDs()
-		for i := 0; i < 25; i++ {
+		for range 25 {
 			run(dial, sh("echo hi"), strings.NewReader("in"))
 		}
-		for i := 0; i < 25; i++ {
+		for range 25 {
 			run(dial, ExecRequest{Args: []string{"sh", "-c", "echo hi"}, TTY: &TTY{Rows: 24, Cols: 80}}, nil)
 		}
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			c, pgid := pgidOf(dial)
 			_ = c.Close()
 			Expect(waitUntil(5*time.Second, func() bool { return !groupAlive(pgid) })).To(BeTrue(), "host close did not kill the group")

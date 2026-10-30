@@ -227,7 +227,7 @@ var _ = Describe("Searcher", func() {
 	})
 
 	It("limits each user per minute and does not count cache hits", func() {
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			_, err := s.Search(context.Background(), "alice", search.Query{Text: string(rune('a' + i))})
 			Expect(err).NotTo(HaveOccurred())
 		}

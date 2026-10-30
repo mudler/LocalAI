@@ -11,6 +11,7 @@ package builtins
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -180,12 +181,7 @@ func (r *Registry) IsOptIn(g string) bool {
 
 // IsGroup says whether g is the switch group of a registered tool.
 func (r *Registry) IsGroup(g string) bool {
-	for _, have := range r.Groups() {
-		if have == g {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.Groups(), g)
 }
 
 // BuiltinProvider is the Provider of a built-in tool in a chat.

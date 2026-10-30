@@ -14,11 +14,12 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/sbtest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // The real-guest checks of the kernel and init hardening (Tasks 4 and 5).
@@ -54,7 +55,7 @@ echo sys-checked
 grep '^NoNewPrivs:' /proc/self/status
 grep -E '^Cap(Eff|Amb):' /proc/self/status`)
 		var lines []string
-		for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+		for l := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
 			lines = append(lines, strings.Join(strings.Fields(l), " "))
 		}
 		want := []string{

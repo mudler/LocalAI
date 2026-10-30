@@ -130,8 +130,8 @@ func (s *jsonStore) List(_ context.Context, principal string, unreadOnly bool, l
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var out []Notification
-	for i := len(s.st.Rows) - 1; i >= 0; i-- {
-		r := s.st.Rows[i]
+	for _, r := range slices.Backward(s.st.Rows) {
+
 		if r.Principal != principal || (unreadOnly && r.Read) {
 			continue
 		}

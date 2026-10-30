@@ -54,7 +54,7 @@ func ParseEgressHosts(s string) ([]string, error) {
 	g := safehttp.NewGuard(safehttp.GuardPolicy{AllowPrivate: true}, nil)
 	var out []string
 	seen := map[string]bool{}
-	for _, f := range strings.Split(s, ",") {
+	for f := range strings.SplitSeq(s, ",") {
 		f = strings.TrimSpace(f)
 		if f == "" {
 			continue

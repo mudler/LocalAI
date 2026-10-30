@@ -2,6 +2,7 @@ package studio
 
 import (
 	"errors"
+	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -60,9 +61,7 @@ func docOut(c echo.Context, d wellknown.Doc) schema.ChatsWellKnownFile {
 	if u := auth.GetUser(c); d.Name == wellknown.User && u != nil && strings.TrimSpace(u.Name) != "" {
 		if name, _ := out.Data["name"].(string); name == "" {
 			data := make(map[string]any, len(out.Data)+1)
-			for k, v := range out.Data {
-				data[k] = v
-			}
+			maps.Copy(data, out.Data)
 			data["name"] = u.Name
 			out.Data, out.Prefilled = data, map[string]string{"name": "account"}
 		}

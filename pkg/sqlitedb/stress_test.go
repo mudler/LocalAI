@@ -62,12 +62,12 @@ var _ = Describe("one SQLite file written by many goroutines", func() {
 		}
 
 		var wg sync.WaitGroup
-		for w := 0; w < workers; w++ {
+		for w := range workers {
 			wg.Add(1)
 			go func(w int) {
 				defer GinkgoRecover()
 				defer wg.Done()
-				for r := 0; r < rounds; r++ {
+				for r := range rounds {
 					switch (w + r) % 5 {
 					case 0: // single insert (implicit transaction)
 						note(db.Create(&stressItem{Owner: w, Body: strings.Repeat("x", 200)}).Error)

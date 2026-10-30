@@ -453,7 +453,7 @@ func bytesPerPixel(comps, bpc int) int {
 // byte and rowBytes bytes per row.
 func unfilter(src []byte, rowBytes, height, bpp int) ([]byte, error) {
 	out := make([]byte, rowBytes*height)
-	for y := 0; y < height; y++ {
+	for y := range height {
 		ft := src[y*(rowBytes+1)]
 		cur := src[y*(rowBytes+1)+1 : (y+1)*(rowBytes+1)]
 		row := out[y*rowBytes : (y+1)*rowBytes]
@@ -461,7 +461,7 @@ func unfilter(src []byte, rowBytes, height, bpp int) ([]byte, error) {
 		if y > 0 {
 			prev = out[(y-1)*rowBytes : y*rowBytes]
 		}
-		for i := 0; i < rowBytes; i++ {
+		for i := range rowBytes {
 			var left, up, upLeft byte
 			if i >= bpp {
 				left = row[i-bpp]
@@ -526,9 +526,9 @@ func toImage(samples []byte, w, h, comps, bpc int) (image.Image, error) {
 	}
 	if comps == 1 {
 		g := image.NewGray(image.Rect(0, 0, w, h))
-		for y := 0; y < h; y++ {
+		for y := range h {
 			row := samples[y*rowBytes : (y+1)*rowBytes]
-			for x := 0; x < w; x++ {
+			for x := range w {
 				g.Pix[y*g.Stride+x] = sample(row, x)
 			}
 		}
@@ -538,9 +538,9 @@ func toImage(samples []byte, w, h, comps, bpc int) (image.Image, error) {
 		return nil, fmt.Errorf("pdf: extract images: %d components", comps)
 	}
 	rgba := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
+	for y := range h {
 		row := samples[y*rowBytes : (y+1)*rowBytes]
-		for x := 0; x < w; x++ {
+		for x := range w {
 			o := y*rgba.Stride + 4*x
 			rgba.Pix[o] = sample(row, 3*x)
 			rgba.Pix[o+1] = sample(row, 3*x+1)

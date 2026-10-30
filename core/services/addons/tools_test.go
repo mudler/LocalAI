@@ -103,9 +103,9 @@ func fillNonZero(v reflect.Value) {
 		fillNonZero(e)
 		v.SetMapIndex(k, e)
 	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			if v.Field(i).CanSet() {
-				fillNonZero(v.Field(i))
+		for _, field := range v.Fields() {
+			if field.CanSet() {
+				fillNonZero(field)
 			}
 		}
 	}

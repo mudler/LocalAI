@@ -139,7 +139,7 @@ var _ = Describe("ChatState", func() {
 	It("keeps the last 50 cards, dropping answered ones first", func() {
 		var s egress.ChatState
 		s.PutCard(egress.Card{ID: "p", State: egress.CardPending})
-		for i := 0; i < 60; i++ {
+		for i := range 60 {
 			s.PutCard(egress.Card{ID: strings.Repeat("x", i+1), State: egress.CardDenied})
 		}
 		Expect(s.Cards).To(HaveLen(egress.MaxCards))

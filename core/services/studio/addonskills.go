@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 
@@ -163,10 +164,8 @@ func shipsReplacement(sets []AddonSkillSet, addon, name string) bool {
 		if set.AddonID != addon {
 			continue
 		}
-		for _, n := range set.Shadows {
-			if n == name {
-				return true
-			}
+		if slices.Contains(set.Shadows, name) {
+			return true
 		}
 	}
 	return false

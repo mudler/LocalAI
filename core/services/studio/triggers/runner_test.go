@@ -262,7 +262,7 @@ var _ = Describe("Runner", func() {
 		tr.DailyCap = 2
 		tr.Since = t0
 		r.put(tr)
-		for i := 0; i < 4; i++ {
+		for range 4 {
 			r.after(10 * time.Minute)
 			if run := r.latest("t1"); run.Status == triggers.StatusRunning {
 				r.finish(run, triggers.StatusDone, "")
@@ -555,7 +555,7 @@ var _ = Describe("Runner", func() {
 
 	It("notify never blocks", func() {
 		r := newRig()
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			r.runner.Notify()
 		}
 	})
@@ -674,7 +674,7 @@ var _ = Describe("Runner", func() {
 			r.put(schedule(id, "* * * * *"))
 		}
 		var wg sync.WaitGroup
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			r.after(time.Minute)
 			wg.Add(2)
 			go func() { defer wg.Done(); _ = r.runner.Cancel(ctx, "t3") }()
@@ -694,7 +694,7 @@ var _ = Describe("Runner", func() {
 	})
 
 	It("run now right after the context ends is refused", func() {
-		for i := 0; i < 200; i++ {
+		for i := range 200 {
 			var dead bool
 			var sig *passSignalStore
 			r := newRig(func(o *triggers.Options) {

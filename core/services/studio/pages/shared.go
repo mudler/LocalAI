@@ -117,7 +117,6 @@ func (s *Service) ListShared(ctx context.Context, principal string) ([]Page, err
 	a := s.actor(principal)
 	out := []Page{}
 	for _, f := range folders {
-		f := f
 		list, err := s.listIn(ctx, a, f.Path+"/"+Dir, func(name string) (loc, error) {
 			return loc{a: a, folder: f.Path + "/" + Dir + "/" + name, name: name}, nil
 		}, func(p *Page) { sharedPage(p, f) })

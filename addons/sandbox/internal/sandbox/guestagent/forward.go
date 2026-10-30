@@ -58,7 +58,7 @@ func Pipe(a, b net.Conn) {
 // command line. It skips values that are not ports.
 func ParsePorts(cmdline string) []int {
 	var out []int
-	for _, w := range strings.Fields(cmdline) {
+	for w := range strings.FieldsSeq(cmdline) {
 		v, ok := strings.CutPrefix(w, "sandbox.ports=")
 		if !ok {
 			continue
@@ -72,7 +72,7 @@ func ParsePorts(cmdline string) []int {
 // skips values that are not ports.
 func ParsePortList(v string) []int {
 	var out []int
-	for _, s := range strings.Split(v, ",") {
+	for s := range strings.SplitSeq(v, ",") {
 		if p, err := strconv.Atoi(s); err == nil && p > 0 && p < 65536 && p != AgentPort {
 			out = append(out, p)
 		}

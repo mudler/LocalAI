@@ -15,8 +15,8 @@ import (
 
 func pngOf(w, h int, alpha uint8) []byte {
 	img := image.NewNRGBA(image.Rect(0, 0, w, h))
-	for y := 0; y < h; y++ {
-		for x := 0; x < w; x++ {
+	for y := range h {
+		for x := range w {
 			img.SetNRGBA(x, y, color.NRGBA{R: uint8(x), G: uint8(y), B: 90, A: alpha})
 		}
 	}

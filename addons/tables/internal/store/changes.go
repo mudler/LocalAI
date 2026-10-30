@@ -412,7 +412,7 @@ func readChange(ctx context.Context, q rowQuery, id string) (changeRow, bool, er
 // canonical resolves a revision through the undos: the revision an undo
 // produced has the state of the revision before the change it undid.
 func canonical(ctx context.Context, q rowQuery, cur contract.Revision) (contract.Revision, error) {
-	for i := 0; i < 256; i++ {
+	for range 256 {
 		var s, d uint64
 		err := q.QueryRowContext(ctx, "SELECT before_schema,before_data FROM tables_changes WHERE undone_schema=? AND undone_data=? LIMIT 1", cur.Schema, cur.Data).Scan(&s, &d)
 		if errors.Is(err, sql.ErrNoRows) {

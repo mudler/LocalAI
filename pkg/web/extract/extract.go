@@ -377,7 +377,7 @@ func (r *renderer) walk(n *html.Node) {
 		if r.md {
 			lang := ""
 			if c := find(n, atom.Code); c != nil {
-				for _, cl := range strings.Fields(attr(c, "class")) {
+				for cl := range strings.FieldsSeq(attr(c, "class")) {
 					if l, ok := strings.CutPrefix(cl, "language-"); ok {
 						lang = l
 					}

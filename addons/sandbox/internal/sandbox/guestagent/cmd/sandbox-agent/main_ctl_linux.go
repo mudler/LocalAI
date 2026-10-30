@@ -66,7 +66,7 @@ const (
 // retry calls f up to tries times, waiting wait between the calls, and
 // returns nil at the first success or the last error.
 func retry(tries int, wait time.Duration, f func() error) (err error) {
-	for i := 0; i < tries; i++ {
+	for i := range tries {
 		if i > 0 {
 			time.Sleep(wait)
 		}

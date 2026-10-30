@@ -4,12 +4,13 @@ import (
 	"context"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // runAddon is the Sandbox add-on as the broker lists it: bash runs commands.
@@ -83,7 +84,7 @@ var _ = Describe("capabilities", func() {
 		id := create(svc, alice)
 		prompt := turnPrompt(svc, h, id)
 		var block string
-		for _, part := range strings.Split(prompt, "\n\n") {
+		for part := range strings.SplitSeq(prompt, "\n\n") {
 			if strings.HasPrefix(part, "Commands:") {
 				block = part
 			}

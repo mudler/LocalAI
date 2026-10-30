@@ -88,7 +88,7 @@ func (s *Service) awaitTurn(owner, chatID string, events <-chan session.Event, l
 func (s *Service) settledTurn(owner, chatID string) store.TurnInfo {
 	ctx := context.Background()
 	var info store.TurnInfo
-	for i := 0; i < 250; i++ {
+	for range 250 {
 		var err error
 		if info, err = s.Turn(ctx, owner, chatID); err != nil || !info.Running {
 			break

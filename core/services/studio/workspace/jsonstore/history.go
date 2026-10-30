@@ -180,8 +180,8 @@ func (d *data) undoPlan(rev int64) []undoItem {
 		it.expected = r.New.state()
 	}
 	out := make([]undoItem, 0, len(order))
-	for i := len(order) - 1; i >= 0; i-- {
-		it := *items[order[i]]
+	for _, o := range slices.Backward(order) {
+		it := *items[o]
 		if it.target.Deleted {
 			// A node that did not exist: keep its location and blob, set the tombstone.
 			t := it.expected

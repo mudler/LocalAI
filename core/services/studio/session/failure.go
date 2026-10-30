@@ -201,8 +201,8 @@ func Sanitize(msg string) string {
 	msg = urlRe.ReplaceAllString(msg, "[address]")
 	msg = hostPort.ReplaceAllString(msg, "[address]")
 	msg = pathRe.ReplaceAllStringFunc(msg, func(s string) string {
-		if i := strings.Index(s, "/"); i >= 0 {
-			return s[:i] + "[path]"
+		if before, _, ok := strings.Cut(s, "/"); ok {
+			return before + "[path]"
 		}
 		return s
 	})

@@ -13,9 +13,9 @@ import (
 func parseDSN(dsn string) (string, url.Values) {
 	base := dsn
 	rawQuery := ""
-	if i := strings.IndexByte(dsn, '?'); i >= 0 {
-		base = dsn[:i]
-		rawQuery = dsn[i+1:]
+	if before, after, ok := strings.Cut(dsn, "?"); ok {
+		base = before
+		rawQuery = after
 	}
 	values, err := url.ParseQuery(rawQuery)
 	Expect(err).ToNot(HaveOccurred())

@@ -2,11 +2,14 @@
 package application
 
 import (
+	"slices"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("add-on tools offered to a chat by the features of the person", func() {
@@ -23,12 +26,7 @@ var _ = Describe("add-on tools offered to a chat by the features of the person",
 	named := contract.Actor{UserID: "member", Mode: auth.AddonModeNamedUser}
 	holds := func(features ...string) func(string, string) bool {
 		return func(_, f string) bool {
-			for _, x := range features {
-				if x == f {
-					return true
-				}
-			}
-			return false
+			return slices.Contains(features, f)
 		}
 	}
 

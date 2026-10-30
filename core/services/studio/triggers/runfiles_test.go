@@ -372,7 +372,7 @@ var _ = Describe("Folder triggers", func() {
 	It("a feed error after some changes leaves the saved cursor alone", func() {
 		r := armed()
 		before, _, _ := r.store.Cursor(ctx)
-		for i := 0; i < 250; i++ { // more than one page
+		for i := range 250 { // more than one page
 			r.write(fmt.Sprintf("/users/1/noise/%03d.txt", i), "n")
 		}
 		r.write(folder+"/a.txt", "x")
@@ -439,7 +439,7 @@ var _ = Describe("Folder triggers", func() {
 
 	It("a long feed is read in pages", func() {
 		r := armed()
-		for i := 0; i < 450; i++ {
+		for i := range 450 {
 			r.write(fmt.Sprintf("/users/1/noise/%03d.txt", i), "n")
 		}
 		r.write(folder+"/a.txt", "x")
@@ -494,7 +494,7 @@ var _ = Describe("Folder triggers", func() {
 		r.write(folder+"/a.txt", "a")
 		r.sync()
 		sf.path = folder + "/a.txt"
-		for i := 0; i < 12; i++ {
+		for range 12 {
 			r.clock.Advance(10 * time.Minute) // more than an hour from the first failure
 			_ = r.runner.Sync(ctx)
 		}
@@ -515,7 +515,7 @@ var _ = Describe("Folder triggers", func() {
 		r.sync()
 		r.clock.Advance(31 * time.Second)
 		sf.path = folder + "/a.txt"
-		for i := 0; i < 10; i++ { // ten passes within one second
+		for range 10 { // ten passes within one second
 			_ = r.runner.Sync(ctx)
 		}
 		sf.path = "" // the error was transient
@@ -533,7 +533,7 @@ var _ = Describe("Folder triggers", func() {
 		r.sync()
 		sf.path = folder + "/a.txt"
 		r.clock.Advance(31 * time.Second)
-		for i := 0; i < 5; i++ { // fewer than 10 passes, 24 hours of failures
+		for range 5 { // fewer than 10 passes, 24 hours of failures
 			_ = r.runner.Sync(ctx)
 			r.clock.Advance(6 * time.Hour)
 		}

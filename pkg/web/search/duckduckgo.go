@@ -142,7 +142,7 @@ func unwrapDDG(href string) string {
 
 func classes(n *html.Node) map[string]bool {
 	out := map[string]bool{}
-	for _, f := range strings.Fields(attrOf(n, "class")) {
+	for f := range strings.FieldsSeq(attrOf(n, "class")) {
 		out[f] = true
 	}
 	return out

@@ -3,6 +3,7 @@ package contract
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -40,12 +41,7 @@ var protectedSkills = []string{"localai-workspace", "localai-apps", "writing-ski
 // ProtectedSkill reports whether name is a built-in skill that an add-on may
 // not replace.
 func ProtectedSkill(name string) bool {
-	for _, n := range protectedSkills {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(protectedSkills, name)
 }
 
 // ReplaceableSkills are the built-in skills an add-on skill may replace by
@@ -56,12 +52,7 @@ var ReplaceableSkills = []string{"xlsx", "docx", "pptx", "pdf"}
 // ReplaceableSkill reports whether an add-on skill may replace the built-in
 // skill name.
 func ReplaceableSkill(name string) bool {
-	for _, n := range ReplaceableSkills {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ReplaceableSkills, name)
 }
 
 // BuiltinSkillName reports whether name is the name of a skill that ships with

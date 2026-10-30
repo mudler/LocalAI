@@ -25,7 +25,7 @@ func describeConcurrency(newStore NewStore) {
 				err  error
 			}
 			res := make(chan result, n)
-			for i := 0; i < n; i++ {
+			for i := range n {
 				wg.Add(1)
 				go func(i int) {
 					defer wg.Done()
@@ -52,7 +52,7 @@ func describeConcurrency(newStore NewStore) {
 					got[c] = true
 				}
 			}
-			for i := 0; i < n; i++ {
+			for i := range n {
 				Expect(got).To(HaveKey("v"+strconv.Itoa(i)), "lost write v%d", i)
 			}
 		})
@@ -61,12 +61,12 @@ func describeConcurrency(newStore NewStore) {
 			names := []string{"a.txt", "A.txt", "b.txt"}
 			var wg sync.WaitGroup
 			errs := make(chan error, 6*30)
-			for g := 0; g < 6; g++ {
+			for g := range 6 {
 				wg.Add(1)
 				go func(g int) {
 					defer wg.Done()
 					rng := rand.New(rand.NewSource(int64(g))) // #nosec G404 -- a seeded generator makes the test reproducible
-					for i := 0; i < 30; i++ {
+					for i := range 30 {
 						p := "/m/" + names[rng.Intn(len(names))]
 						var err error
 						switch rng.Intn(3) {

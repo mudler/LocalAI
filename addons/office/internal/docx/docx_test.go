@@ -409,7 +409,7 @@ var _ = Describe("docx writer", func() {
 			Expect(xml.Unmarshal(data, new(struct{}))).To(Succeed(), name)
 		}
 		els := body(files)
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			Expect(paraText(els[i].para)).To(Equal(nasty), "element %d text", i)
 		}
 		tbl := els[4].table

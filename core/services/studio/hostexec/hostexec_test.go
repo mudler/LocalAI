@@ -118,7 +118,7 @@ var _ = Describe("commands on this machine", func() {
 		// A login shell adds what the system profile sets (XDG_DATA_DIRS, say);
 		// nothing may come from the server's own environment.
 		got := map[string]string{}
-		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
 			k, v, _ := strings.Cut(line, "=")
 			got[k] = v
 		}

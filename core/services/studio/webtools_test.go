@@ -7,6 +7,9 @@ import (
 	"strings"
 	"sync"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -14,8 +17,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/web/search"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // fakeWeb is the built-in web tools with switches and a record of the calls.
@@ -195,9 +196,9 @@ var _ = Describe("built-in web tools", func() {
 // runtimeSettingNames are the JSON names of the runtime settings.
 func runtimeSettingNames() map[string]bool {
 	out := map[string]bool{}
-	t := reflect.TypeOf(config.RuntimeSettings{})
-	for i := 0; i < t.NumField(); i++ {
-		name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
+	t := reflect.TypeFor[config.RuntimeSettings]()
+	for field := range t.Fields() {
+		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
 		out[name] = true
 	}
 	return out

@@ -1140,7 +1140,7 @@ func (s *Service) releaseTurn(ctx context.Context, p, conv, runID string, status
 	const attempts = 5
 	wait := 25 * time.Millisecond
 	var err error
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		if err = s.d.Store.ReleaseTurn(ctx, p, conv, runID, status); err == nil || errors.Is(err, store.ErrNotClaimed) {
 			return err
 		}

@@ -2,6 +2,7 @@ package transport
 
 import (
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -72,8 +73,8 @@ func textV2(s string) string {
 	})
 	s = escapeV2(s)
 	// Last first: a later entity (bold) may hold an earlier one (code).
-	for i := len(kept) - 1; i >= 0; i-- {
-		s = strings.Replace(s, "\x00"+strconv.Itoa(i)+"\x00", kept[i], 1)
+	for i, k := range slices.Backward(kept) {
+		s = strings.Replace(s, "\x00"+strconv.Itoa(i)+"\x00", k, 1)
 	}
 	return s
 }

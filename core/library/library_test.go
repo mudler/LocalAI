@@ -124,7 +124,7 @@ var _ = Describe("mapping flags and sources", func() {
 	It("maps additively and never twice", func() {
 		dir := GinkgoT().TempDir()
 		flag := []config.Gallery{{Name: "mine", URL: "https://example.org/a.yaml"}}
-		for run := 0; run < 3; run++ {
+		for run := range 3 {
 			store := open(dir)
 			added, err := MapGalleries(store, catalog.KindModel, flag)
 			Expect(err).ToNot(HaveOccurred())
@@ -225,7 +225,7 @@ var _ = Describe("the startup option", func() {
 			config.WithStringGalleries(config.DefaultGalleriesJSON),
 			config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
 		)
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			o := build()
 			Expect(o.Galleries).To(Equal([]config.Gallery{modelLibrary()}), "start %d changed the galleries", i)
 			Expect(o.BackendGalleries).To(Equal(want.BackendGalleries), "start %d changed the galleries", i)

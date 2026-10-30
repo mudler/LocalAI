@@ -140,7 +140,7 @@ func (h *WorkspaceHost) dataDir(addonID, rel string, create bool) (*os.Root, err
 	}
 	defer func() { _ = root.Close() }()
 	cur := ""
-	for _, seg := range strings.Split(rel, "/") {
+	for seg := range strings.SplitSeq(rel, "/") {
 		if seg == "" || seg == "." || seg == ".." {
 			return nil, bad
 		}

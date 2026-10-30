@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -66,12 +67,7 @@ func (r *Registries) Has(host string, extra []string) bool {
 	if r != nil && r.hosts[host] {
 		return true
 	}
-	for _, h := range extra {
-		if h == host {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(extra, host)
 }
 
 // Titles returns the titles of the registries, in the order of the list.

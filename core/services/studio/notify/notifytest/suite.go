@@ -88,7 +88,7 @@ func Run(newStore NewStore) {
 	})
 	It("trims to a count", func() {
 		s := newStore()
-		for i := 0; i < notify.MaxPerUser+5; i++ {
+		for i := range notify.MaxPerUser + 5 {
 			_, err := s.Add(ctx, note("u1", "n", t0.Add(time.Duration(i)*time.Second)))
 			Expect(err).NotTo(HaveOccurred())
 		}

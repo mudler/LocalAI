@@ -261,7 +261,7 @@ var _ = Describe("Runtime startup of many add-ons", func() {
 		// Each add-on takes a second to be ready, as a real one that opens a
 		// database or probes the host does.
 		const count, boot = 8, time.Second
-		for i := 0; i < count; i++ {
+		for i := range count {
 			id := fmt.Sprintf("slow%d", i)
 			pkg := filepath.Join(dir, id)
 			Expect(os.Mkdir(pkg, 0o700)).To(Succeed())

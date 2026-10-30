@@ -339,7 +339,7 @@ func pendingOf(p store.Pending) schema.ChatsPending {
 func homePaths(principal, text string) string {
 	home := session.HomePath(principal)
 	var out []string
-	for _, p := range strings.Split(text, "\n") {
+	for p := range strings.SplitSeq(text, "\n") {
 		if rel, ok := strings.CutPrefix(p, home+"/"); ok && rel != "" {
 			out = append(out, "/"+rel)
 		}

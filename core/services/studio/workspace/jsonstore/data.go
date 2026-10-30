@@ -1,6 +1,7 @@
 package jsonstore
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -378,8 +379,8 @@ func (d *data) subtree(id int64, deepestFirst bool) []nodeRow {
 	}
 	var out []nodeRow
 	if deepestFirst {
-		for i := len(levels) - 1; i >= 0; i-- {
-			out = append(out, levels[i]...)
+		for _, level := range slices.Backward(levels) {
+			out = append(out, level...)
 		}
 		return out
 	}

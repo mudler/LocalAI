@@ -3,6 +3,7 @@ package mcpconns
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -70,9 +71,7 @@ func (s *Service) httpClientFor(c Connector, sec Secrets) (*http.Client, error) 
 	if sec.Token != "" {
 		headers["Authorization"] = "Bearer " + sec.Token
 	}
-	for k, v := range sec.Headers {
-		headers[k] = v
-	}
+	maps.Copy(headers, sec.Headers)
 	if s.o.AllowPrivate() {
 		rt := &headerRT{base: httpclient.HardenedTransport(), origin: origin, headers: headers}
 		return httpclient.New(httpclient.WithTransport(rt)), nil

@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -255,12 +256,8 @@ func open(a map[string]any, now time.Time) bool {
 func (s *Service) record(ctx context.Context, principal string, user wellknown.Doc, values map[string]any) error {
 	for attempt := 0; ; attempt++ {
 		seen := map[string]any{}
-		for k, v := range seenOf(user.Data) {
-			seen[k] = v
-		}
-		for k, v := range values {
-			seen[k] = v
-		}
+		maps.Copy(seen, seenOf(user.Data))
+		maps.Copy(seen, values)
 		base := user.Version
 		_, err := s.d.WellKnown.Write(ctx, principal, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{"seen": seen}, Base: &base})
 		var cf *wellknown.ConflictError

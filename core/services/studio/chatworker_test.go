@@ -11,6 +11,9 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
@@ -21,8 +24,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/testutil"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // requestBus is the fake bus with request/reply: a request reaches the reply
@@ -257,7 +258,7 @@ var _ = Describe("chatworker", func() {
 		id := create(r.front, alice)
 		var started int32
 		var wg sync.WaitGroup
-		for i := 0; i < 8; i++ {
+		for i := range 8 {
 			wg.Add(1)
 			go func(i int) {
 				defer GinkgoRecover()

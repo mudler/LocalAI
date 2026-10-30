@@ -25,11 +25,11 @@ func parseSkill(text string) (name, description, body string, ok bool) {
 		return "", "", "", false
 	}
 	rest := t[4:]
-	end := strings.Index(rest, "\n---")
-	if end < 0 {
+	before, after, ok := strings.Cut(rest, "\n---")
+	if !ok {
 		return "", "", "", false
 	}
-	for _, line := range strings.Split(rest[:end], "\n") {
+	for line := range strings.SplitSeq(before, "\n") {
 		k, v, found := strings.Cut(line, ":")
 		if !found {
 			continue
@@ -42,7 +42,7 @@ func parseSkill(text string) (name, description, body string, ok bool) {
 			description = v
 		}
 	}
-	body = strings.TrimPrefix(rest[end+4:], "\n")
+	body = strings.TrimPrefix(after, "\n")
 	return name, description, body, description != ""
 }
 

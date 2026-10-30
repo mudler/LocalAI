@@ -11,7 +11,7 @@ var _ = ginkgo.Describe("the event bus", func() {
 	ginkgo.It("keeps the turn events when full", func() {
 		b := newEventBus()
 		b.push(Event{Kind: KindTurnStart, Turn: 1})
-		for i := 0; i < 2*maxQueued; i++ {
+		for range 2 * maxQueued {
 			b.push(Event{Kind: KindToolStart, Turn: 1})
 			b.push(Event{Kind: KindText, Turn: 1, Text: "x"})
 		}
@@ -49,7 +49,7 @@ var _ = ginkgo.Describe("the event bus", func() {
 	ginkgo.It("drops the oldest text", func() {
 		b := newEventBus()
 		defer b.close()
-		for i := 0; i < textRing+10; i++ {
+		for i := range textRing + 10 {
 			b.push(Event{Kind: KindText, Turn: i})
 		}
 		// Read before the close: a close flushes only what fits in the channel,
@@ -73,11 +73,11 @@ var _ = ginkgo.Describe("the event bus", func() {
 	ginkgo.It("does not drop answer text in a reasoning flood", func() {
 		b := newEventBus()
 		b.push(Event{Kind: KindTurnStart, Turn: 1})
-		for i := 0; i < 10000; i++ {
+		for range 10000 {
 			b.push(Event{Kind: KindReasoning, Turn: 1, Text: "r"})
 		}
 		const answers = 100
-		for i := 0; i < answers; i++ {
+		for range answers {
 			b.push(Event{Kind: KindText, Turn: 1, Text: "t"})
 			b.push(Event{Kind: KindToolStart, Turn: 1})
 		}

@@ -40,7 +40,7 @@ func describeUpperOwn(newStore NewStore) {
 			s := newStore()
 			v, base := upperSetup(s)
 			var own []int64
-			for i := 0; i < 60; i++ {
+			for i := range 60 {
 				Expect(checkpoint(s, v, base, &own, workspace.FixtureSource{D("w"), F("w/edit.txt", strconv.Itoa(i))})).To(BeEmpty(), "checkpoint %d", i)
 			}
 			Expect(own).To(HaveLen(60))

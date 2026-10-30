@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
@@ -290,8 +291,8 @@ func (s *sbx) renameAll(moves [][2]string) (renameErr, undoErr error) {
 // undoMoves reverses renameAll on moves that were made.
 func (s *sbx) undoMoves(moves [][2]string) error {
 	var errs []error
-	for j := len(moves) - 1; j >= 0; j-- {
-		if err := s.rename(moves[j][1], moves[j][0]); err != nil {
+	for _, move := range slices.Backward(moves) {
+		if err := s.rename(move[1], move[0]); err != nil {
 			errs = append(errs, err)
 		}
 	}

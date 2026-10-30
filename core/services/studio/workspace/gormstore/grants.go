@@ -77,10 +77,7 @@ func (s *Workspace) View(ctx context.Context, a Actor, reqs []MountRequest) (Vie
 		if n.kind != KindDir {
 			return View{}, ErrInvalid
 		}
-		mode := r.Mode
-		if m < mode {
-			mode = m
-		}
+		mode := min(m, r.Mode)
 		p, err := pathOf(ctx, s.db, n.id)
 		if err != nil {
 			return View{}, err

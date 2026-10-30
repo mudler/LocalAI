@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -315,11 +316,9 @@ func execGate(c Commands, n *int) func(skills.Skill) string {
 		if c.State == CommandsAvailable {
 			return ""
 		}
-		for _, r := range sk.Requires {
-			if r == skills.RequireExec {
-				*n++
-				return skillNeedsExec
-			}
+		if slices.Contains(sk.Requires, skills.RequireExec) {
+			*n++
+			return skillNeedsExec
 		}
 		return ""
 	}
