@@ -79,6 +79,8 @@ export function preloadRoute(path) {
 const Home = page('', () => import('./pages/Home'))
 const Chats = page('chats', () => import('./pages/Chat'))
 const Workspace = page('workspace', () => import('./pages/Workspace'))
+const Pages = page('pages', () => import('./pages/Pages'))
+const PageView = page(null, () => import('./pages/PageView'))
 const Agents = page('agents', () => import('./pages/Agents'))
 const AgentCreate = page(null, () => import('./pages/AgentCreate'))
 const AgentPage = page(null, () => import('./pages/AgentPage'))
@@ -277,6 +279,8 @@ const appChildren = [
   // chat starts or is left (a delete waiting for its Undo survives the move).
   { path: 'chats/:id?', element: <Feature feature="chats"><Chats /></Feature> },
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
+  { path: 'pages', element: <Feature feature="chats"><Feature feature="pages"><Pages /></Feature></Feature> },
+  { path: 'pages/:name', element: <Feature feature="chats"><Feature feature="pages"><PageView /></Feature></Feature> },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:id/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },

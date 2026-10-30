@@ -59,7 +59,9 @@ pages/
   the page runs as you, when and by whom it was last updated, and has
   **Reload** and **Ask the assistant to change this**. When the assistant
   changes `index.html`, the page reloads. When only a data file changes, the
-  page gets a `files.changed` event and stays as it is.
+  page gets a `files.changed` event and stays as it is. Switching between the
+  light and dark theme reloads the page too: it gets the theme as `data-theme`
+  on its `<html>` element.
 - Pins are kept in `ui.json` of your home, under `pinnedPages` (a list of page
   names). A pin or unpin keeps every other key of the file.
 
@@ -73,7 +75,8 @@ change this**.
 
 Tell the assistant to use `window.localai` for data, never `fetch`, and to keep
 the page in one `index.html` with inline script and style: the sandbox blocks
-everything else.
+everything else. A form cannot be submitted in the sandbox, so a page handles
+the click of a button and the Enter key itself.
 
 ## The bridge
 
@@ -86,7 +89,7 @@ path is relative to the page's own folder.
 | `localai.files.write(path, content, {base})` | `{path, version, size, conflict_of}`. Creates missing folders. Without `base` the file is replaced. With `base` (the `version` you read), a file that changed since is kept and your content goes to a conflict copy, named in `conflict_of`. |
 | `localai.files.list(dir)` | `[{path, kind, size, version}]`. `dir` is optional; the default is the page's folder. |
 | `localai.chat.send(text)` | `{sent: true, chat_id}` or `{sent: false}`. See below. |
-| `localai.on('files.changed', fn)` | Calls `fn({paths})` when files of the page's folder change. `paths` are relative to the folder. Returns a function that removes the listener. |
+| `localai.on('files.changed', fn)` | Calls `fn({paths})` when files of the page's folder change. `paths` are relative to the folder. When LocalAI cannot tell what changed (for example after the window was in the background), `fn` gets `{paths: [], resync: true}`: read again what you show. Returns a function that removes the listener. |
 | `localai.page` | `{name, title}` of the page. |
 
 Example: a counter that keeps its value in `count.json`.
@@ -157,7 +160,7 @@ person.
 
 - The frame is `<iframe sandbox="allow-scripts">` without `allow-same-origin`.
   The page has an opaque origin: it cannot read LocalAI's cookies, storage or
-  DOM, cannot navigate the window, open pop-ups or submit forms.
+  DOM, cannot navigate the LocalAI window, open pop-ups or submit forms.
 - The page is loaded with this content security policy in front of its own
   markup:
 
@@ -169,6 +172,11 @@ person.
 
   `fetch`, `XMLHttpRequest`, WebSocket, external scripts, styles, fonts and
   images, and nested frames are all blocked. Images work as `data:` URLs.
+- A page can still navigate its own frame to another address. LocalAI sees
+  the second load, closes the bridge and shows "The page tried to open another
+  address" with **Reload**. The request of that navigation has left the
+  browser by then, so do not run a page you do not trust with data you would
+  not share.
 - The bridge is a `MessageChannel` that LocalAI hands to the frame when it
   loads. Every call is checked by the server with your rights: a path that
   leaves the page's folder (`..`, an absolute path, a backslash, a control

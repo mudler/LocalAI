@@ -1,0 +1,211 @@
+/* Pages of the workspace: the list (/app/pages) and the viewer (/app/pages/:name). */
+
+/* ── List ─────────────────────────────────────────────────────────────── */
+
+.pg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.pg-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+}
+.pg-row + .pg-row { border-top: 1px solid var(--color-border-divider); }
+
+.pg-row__chip { width: 36px; height: 36px; }
+
+.pg-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pg-row__title {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.pg-row__title:hover { color: var(--color-primary); }
+.pg-row__title:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.pg-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--spacing-xs);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.pg-row__path { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.pg-row__desc { margin: 2px 0 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
+
+.pg-row__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--spacing-xs); }
+
+.pg-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+.pg-note--error { border-color: var(--color-error-border); color: var(--color-error); }
+
+.pg-sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Empty: one line of what a page is, then the two ways to get one. */
+.pg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl) 0;
+  max-width: 60ch;
+}
+.pg-empty__title {
+  margin: 0;
+  font-size: var(--text-xl, 1.25rem);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.pg-empty__text { margin: 0; color: var(--color-text-secondary); line-height: var(--leading-normal); }
+.pg-empty__actions { display: flex; flex-wrap: wrap; gap: var(--spacing-sm); margin-top: var(--spacing-sm); }
+
+@media (max-width: 720px) {
+  .pg-row { grid-template-columns: auto minmax(0, 1fr); }
+  .pg-row__actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* ── Viewer ───────────────────────────────────────────────────────────── */
+
+.pg-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-lg);
+  min-width: 0;
+}
+
+/* The strip of the mockup: what the page is, that it runs as you, who
+   changed it last, and the two actions. */
+.pg-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm) var(--spacing-md);
+  min-width: 0;
+}
+.pg-strip__chip { width: 32px; height: 32px; }
+.pg-strip__id { display: flex; flex-direction: column; min-width: 0; }
+.pg-strip__title {
+  margin: 0;
+  font-size: var(--text-lg, 1.0625rem);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.pg-strip__path {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+.pg-strip__pills { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); }
+.pg-strip__actions { display: flex; flex-wrap: wrap; gap: var(--spacing-xs); margin-left: auto; }
+
+.pg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+/* Mint means live: the page follows the file as it changes. */
+.pg-pill--live {
+  border-color: var(--color-success-border);
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+/* The frame and the bar that says what kind of frame it is. */
+.pg-stage {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+  min-width: 0;
+}
+.pg-stage__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-divider);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.pg-stage__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl) var(--spacing-md);
+  color: var(--color-text-secondary);
+  min-height: 240px;
+}
+.pg-frame {
+  display: block;
+  width: 100%;
+  height: max(420px, calc(100dvh - 190px));
+  border: 0;
+  background: var(--color-bg-primary);
+}
+
+/* A message the page asks to send: amber, because it needs a decision. */
+.pg-asks { display: flex; flex-direction: column; gap: var(--spacing-xs); }
+.pg-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs) var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-light);
+  min-width: 0;
+}
+.pg-ask--done { border-color: var(--color-success-border); background: var(--color-success-light); }
+.pg-ask__icon { color: var(--color-success); }
+.pg-ask__label { flex-basis: 100%; font-size: var(--text-xs); color: var(--color-text-secondary); }
+.pg-ask--done .pg-ask__label { flex-basis: auto; flex: 1 1 auto; }
+.pg-ask__text {
+  flex: 1 1 240px;
+  min-width: 0;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.pg-ask__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.pg-ask__to { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--color-text-secondary); }
+.pg-ask__to .input { max-width: 220px; height: 30px; padding-block: 0; font-size: var(--text-sm); }
+.pg-ask__error { flex-basis: 100%; font-size: var(--text-xs); color: var(--color-error); }
+
+@media (max-width: 720px) {
+  .pg-view { padding: var(--spacing-sm); }
+  .pg-strip__actions { margin-left: 0; }
+  .pg-frame { height: max(360px, calc(100dvh - 260px)); }
+}

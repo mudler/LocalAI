@@ -71,7 +71,8 @@
     "files": "Berkas",
     "triggers": "Pemicu",
     "mcpConnectors": "Konektor MCP",
-    "chatsAdmin": "Obrolan semua pengguna"
+    "chatsAdmin": "Obrolan semua pengguna",
+    "pages": "Halaman"
   },
   "footer": {
     "github": "GitHub",
@@ -107,5 +108,6 @@
       "addons": "Pasang add-on dan buka aplikasi yang disediakannya.",
       "triggers": "Mulai obrolan secara otomatis, sesuai jadwal atau saat ada berkas masuk."
     }
-  }
+  },
+  "pinnedPages": "Halaman yang disematkan"
 }

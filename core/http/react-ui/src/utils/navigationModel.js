@@ -1,7 +1,7 @@
 // Pure rules of the primary sidebar items. No React, no imports, so a node
 // test drives it directly.
 
-// Chats, Files, Agents, MCP connectors, Memory, Models and Add-ons. Home and the
+// Chats, Files, Pages (once there is one), Agents, MCP connectors, Memory, Models and Add-ons. Home and the
 // Operate hub keep the place they have today (see hubConfig.js and
 // destinations.js). Settings is a tab of the Operate hub, not a primary item.
 // `match` lists other paths that light the item up: the pages that belong to it.
@@ -10,6 +10,9 @@ export const primaryDestinations = Object.freeze([
   { path: '/app/chats', icon: 'chat', labelKey: 'items.chats', feature: 'chats', exclude: ['/app/chats/connectors', '/app/chats/conversion'] },
   // The user's own files: a workspace of folders, with a Trash and history.
   { path: '/app/files', icon: 'folder', labelKey: 'items.files', feature: 'chats' },
+  // The user's pages (pages/<name>/index.html in the files). Shown only once
+  // the user has a page; pinned pages are listed under it.
+  { path: '/app/pages', icon: 'file-code', labelKey: 'items.pages', feature: 'pages', pagesEntry: true },
   // Saved agents, with what runs them by itself: triggers and messaging
   // connectors, and the skills they use.
   {
@@ -27,8 +30,9 @@ export const primaryDestinations = Object.freeze([
 
 // `features` is the /api/features map. An absent `addons` key (an older server)
 // counts as on; only an explicit false hides the Add-ons entry.
-export function visiblePrimary(items, { isAdmin, hasFeature, hasBuiltin, features }) {
+export function visiblePrimary(items, { isAdmin, hasFeature, hasBuiltin, features, hasPages }) {
   return items.filter(item => {
+    if (item.pagesEntry && (!hasPages || !hasFeature('chats'))) return false
     if (item.adminOnly && !isAdmin) return false
     if (item.requiresCollections && features?.collections === false) return false
     if (item.feature && !hasFeature(item.feature)) return false

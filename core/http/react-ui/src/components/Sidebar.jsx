@@ -14,6 +14,9 @@ import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
 import AppsPinnedLinks from './AppsPinnedLinks'
+import PagesPinnedLinks from './PagesPinnedLinks'
+import { usePages } from '../hooks/usePages'
+import { usePinnedPages } from '../hooks/usePinnedPages'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -167,7 +170,19 @@ export default function Sidebar({ isOpen, onClose }) {
   // The previous sidebar returns when the operator sets the legacy switch.
   const legacy = features.addon_navigation === false
   const hasBuiltin = builtin.length > 0
-  const navAuth = { isAdmin, hasFeature, hasBuiltin, features }
+  // The Pages entry shows once the user has a page; the list is read only for
+  // a user who may have pages at all.
+  const pagesOn = !legacy && hasFeature('chats') && hasFeature('pages')
+  const { pages } = usePages(pagesOn)
+  const hasPages = pagesOn && pages.length > 0
+  const { pins } = usePinnedPages(hasPages)
+  // A pinned page lights up its own link under Pages, not the Pages entry too.
+  const pagesActive = (pathname) => {
+    if (pathname === '/app/pages') return true
+    const m = /^\/app\/pages\/([^/]+)/.exec(pathname)
+    return Boolean(m) && !pins.includes(decodeURIComponent(m[1]))
+  }
+  const navAuth = { isAdmin, hasFeature, hasBuiltin, features, hasPages }
   const primary = visiblePrimary(primaryDestinations, navAuth)
 
   // One badge, on the always-visible sidebar entry. The Operate tab bar only
@@ -220,9 +235,11 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="sidebar-section">
             {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
               <Fragment key={item.path}>
-                <NavItem item={item} onClose={onClose} collapsed={collapsed} active={legacy || item.path === '/app' ? undefined : primaryActive(item, location.pathname)} />
+                <NavItem item={item} onClose={onClose} collapsed={collapsed} active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)} />
                 {/* The Apps group: the pinned apps in pin order, under the Apps entry. */}
                 {!legacy && item.addonsEntry && features.addons !== false && !collapsed && <AppsPinnedLinks onClose={onClose} />}
+                {/* Pinned pages, in pin order, under the Pages entry. */}
+                {item.pagesEntry && !collapsed && <PagesPinnedLinks pages={pages} onClose={onClose} />}
               </Fragment>
             ))}
           </div>

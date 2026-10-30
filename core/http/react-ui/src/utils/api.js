@@ -239,6 +239,26 @@ export const filesApi = {
   search: (query, path = '/') => fetchJSON(API_CONFIG.endpoints.filesSearch + q({ q: query, path })),
 }
 
+// Pages of the workspace: pages/<name>/index.html in the user's home, and the
+// bridge a page uses from its sandboxed frame. Paths of the bridge are relative
+// to the page's folder; the server keeps them inside it.
+const pageUrl = (name) => `/api/chats/pages/${encodeURIComponent(name)}`
+export const pagesApi = {
+  list: () => fetchJSON('/api/chats/pages'),
+  get: (name) => fetchJSON(pageUrl(name)),
+  read: (name, path) => fetchJSON(`${pageUrl(name)}/file${q({ path })}`),
+  write: (name, path, content, base) => fetchJSON(`${pageUrl(name)}/file`, {
+    method: 'PUT', body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
+  }),
+  files: (name, dir) => fetchJSON(`${pageUrl(name)}/files${q({ dir })}`),
+  // chatId empty: the page's own chat; model is used when that chat is new.
+  send: (name, text, chatId, model) => postJSON(`${pageUrl(name)}/chat`, {
+    text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}),
+  }),
+  starters: () => fetchJSON('/api/chats/page-starters'),
+  copyStarter: (id) => postJSON(`/api/chats/page-starters/${encodeURIComponent(id)}/copy`, {}),
+}
+
 // Chat skills: folders with a SKILL.md in four layers, switched per chat.
 const enc2 = encodeURIComponent
 export const chatSkillsApi = {

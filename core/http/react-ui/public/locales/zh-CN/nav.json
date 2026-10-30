@@ -71,7 +71,8 @@
     "files": "文件",
     "triggers": "触发器",
     "mcpConnectors": "MCP 连接器",
-    "chatsAdmin": "所有用户的聊天"
+    "chatsAdmin": "所有用户的聊天",
+    "pages": "页面"
   },
   "footer": {
     "github": "GitHub",
@@ -107,5 +108,6 @@
       "addons": "安装附加组件并打开它们提供的应用。",
       "triggers": "按计划或在文件到达时自动开始对话。"
     }
-  }
+  },
+  "pinnedPages": "已固定的页面"
 }

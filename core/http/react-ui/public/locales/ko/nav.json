@@ -71,7 +71,8 @@
     "files": "파일",
     "triggers": "트리거",
     "mcpConnectors": "MCP 커넥터",
-    "chatsAdmin": "모든 사용자의 채팅"
+    "chatsAdmin": "모든 사용자의 채팅",
+    "pages": "페이지"
   },
   "footer": {
     "github": "GitHub",
@@ -107,5 +108,6 @@
       "addons": "애드온을 설치하고 그것이 제공하는 앱을 엽니다.",
       "triggers": "일정에 따라 또는 파일이 도착하면 채팅을 자동으로 시작합니다."
     }
-  }
+  },
+  "pinnedPages": "고정된 페이지"
 }

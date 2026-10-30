@@ -527,6 +527,14 @@ function ChatPage() {
   useEffect(() => {
     if (startRef.current) setInput(startRef.current)
   }, [])
+  // A draft (for example "Ask the assistant to change this" on a page) only
+  // fills the box: the person finishes the sentence and sends it.
+  useEffect(() => {
+    const draft = location.state?.draft
+    if (typeof draft !== 'string' || !draft) return
+    setInput(d => d || draft)
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [location.state?.draft]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const start = startRef.current
     if (!start || input !== start || activeId || busy || !effectiveModel) return
