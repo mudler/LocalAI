@@ -25,6 +25,7 @@
     "providedBy": "Fornecida por {{name}}",
     "replacedBy": "Substituída por {{name}}",
     "notActive": "Inativa: a habilidade integrada é usada",
+    "notActiveBy": "Inativa: {{name}} a fornece",
     "fallback": "Em uso porque a habilidade do complemento {{name}} está desligada ou não está em execução"
   },
   "empty": {

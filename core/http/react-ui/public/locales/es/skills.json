@@ -25,6 +25,7 @@
     "providedBy": "Proporcionada por {{name}}",
     "replacedBy": "Reemplazada por {{name}}",
     "notActive": "No activa: se usa la habilidad integrada",
+    "notActiveBy": "No activa: la proporciona {{name}}",
     "fallback": "En uso porque la habilidad del complemento {{name}} está desactivada o no se ejecuta"
   },
   "empty": {

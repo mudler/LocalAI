@@ -887,7 +887,9 @@ tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
   names never overlap). With no choice, the add-on installed first serves, by
   the same rule as for the tools (see [Install
   time](#tools-that-replace-a-built-in-tool)). A choice
-  of an add-on that is not running leaves the name to the built-in skill.
+  of an add-on that is not running leaves the name to the built-in skill. The
+  Skills page marks the skill of an add-on that is not chosen "Not active:
+  <add-on> provides it", and the built-in skill "Replaced by <add-on>".
   `GET /api/chats/admin/tools` lists the replaced skills in `skills`, with who
   serves each one, the candidates oldest install first, `default` (the one that
   serves with no choice) and `installed_at` (the install time of each).

@@ -25,6 +25,7 @@
     "providedBy": "{{name}} 제공",
     "replacedBy": "{{name}}(으)로 대체됨",
     "notActive": "비활성: 기본 제공 스킬이 사용됩니다",
+    "notActiveBy": "비활성: {{name}}에서 제공합니다",
     "fallback": "{{name}} 애드온의 스킬이 꺼져 있거나 실행 중이 아니어서 사용 중"
   },
   "empty": {

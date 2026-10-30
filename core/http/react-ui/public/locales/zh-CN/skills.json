@@ -25,6 +25,7 @@
     "providedBy": "由 {{name}} 提供",
     "replacedBy": "已被 {{name}} 替换",
     "notActive": "未生效：使用内置技能",
+    "notActiveBy": "未生效：由 {{name}} 提供",
     "fallback": "因 {{name}} 插件的技能已关闭或未运行而使用"
   },
   "empty": {

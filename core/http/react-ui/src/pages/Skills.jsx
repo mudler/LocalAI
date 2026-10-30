@@ -31,6 +31,9 @@ const badgeOf = (t, s) => (s.layer === 'addon' ? (s.addon_title || s.addon) : t(
 // titles maps an add-on ID to its title, from the add-on skills of the list.
 function statusOf(t, s, titles = {}) {
   if (s.invalid) return t('card.invalid')
+  // An add-on skill of a name that another, chosen add-on serves is not
+  // active; a built-in skill that an add-on serves is replaced.
+  if (s.shadowed_by && s.layer === 'addon') return t('card.notActiveBy', { name: titles[s.shadowed_by] || s.shadowed_by })
   if (s.shadowed_by) return t('card.replacedBy', { name: titles[s.shadowed_by] || s.shadowed_by })
   if (s.shadowed === 'builtin' && s.layer === 'addon') return t('card.notActive')
   if (s.shadowed) return t('card.shadowed', { layer: t(`layers.${s.shadowed}`) })

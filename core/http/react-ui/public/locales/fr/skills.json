@@ -25,6 +25,7 @@
     "providedBy": "Fournie par {{name}}",
     "replacedBy": "Remplacée par {{name}}",
     "notActive": "Inactive : la compétence intégrée est utilisée",
+    "notActiveBy": "Inactive : {{name}} la fournit",
     "fallback": "Utilisée car la compétence du module {{name}} est désactivée ou ne tourne pas"
   },
   "empty": {
