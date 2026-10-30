@@ -10,9 +10,16 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-// Actor returns the actor that acts for a user.
+// Actor returns the actor that acts for a user. Every user is in the
+// EveryoneGroup, so a grant to that group reaches them all.
 func (s *Service) Actor(principal string) workspace.Actor {
-	return workspace.Actor{Principal: principal}
+	return UserActor(principal)
+}
+
+// UserActor is the actor of a user outside a chat: the principal in the
+// EveryoneGroup.
+func UserActor(principal string) workspace.Actor {
+	return workspace.Actor{Principal: principal, Groups: []string{EveryoneGroup}}
 }
 
 // Abs turns a path inside the user's home ("/" is the home) into the

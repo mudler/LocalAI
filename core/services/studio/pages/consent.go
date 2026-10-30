@@ -83,6 +83,10 @@ type ConsentStore interface {
 	Put(ctx context.Context, c Consent, ev ConsentEvent) error
 	// Revoke removes every consent of the viewer for the page and writes ev.
 	Revoke(ctx context.Context, principal string, pageID int64, ev ConsentEvent) error
+	// RevokePages removes the consents of every viewer to the pages and writes
+	// one audit line with action for each consent it removes. It returns how
+	// many it removed.
+	RevokePages(ctx context.Context, pageIDs []int64, action string, at time.Time) (int, error)
 	// Events returns the newest audit lines of a viewer, newest first; an empty
 	// principal returns everyone's.
 	Events(ctx context.Context, principal string, limit int) ([]ConsentEvent, error)
@@ -212,6 +216,39 @@ func (g *gormConsents) Revoke(ctx context.Context, principal string, pageID int6
 	})
 }
 
+func (g *gormConsents) RevokePages(ctx context.Context, pageIDs []int64, action string, at time.Time) (int, error) {
+	if len(pageIDs) == 0 {
+		return 0, nil
+	}
+	n := 0
+	err := g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var rows []consentRow
+		if err := tx.Where("page_id IN ?", pageIDs).Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		if err := tx.Where("page_id IN ?", pageIDs).Delete(&consentRow{}).Error; err != nil {
+			return err
+		}
+		for _, r := range rows {
+			er := eventRow(revokeEvent(r.consent(), action, at))
+			if err := tx.Create(&er).Error; err != nil {
+				return err
+			}
+		}
+		n = len(rows)
+		return nil
+	})
+	return n, err
+}
+
+// revokeEvent is the audit line of a consent that RevokePages removed.
+func revokeEvent(c Consent, action string, at time.Time) ConsentEvent {
+	return ConsentEvent{Principal: c.Principal, PageID: c.PageID, Folder: c.Folder, Name: c.Name, Hash: c.Hash, Action: action, At: at.UTC()}
+}
+
 func (g *gormConsents) Events(ctx context.Context, principal string, limit int) ([]ConsentEvent, error) {
 	q := g.db.WithContext(ctx).Order("seq DESC").Limit(limit)
 	if principal != "" {
@@ -336,6 +373,27 @@ func (s *fileConsents) Revoke(_ context.Context, principal string, pageID int64,
 	s.d.Consents = slices.DeleteFunc(s.d.Consents, func(x Consent) bool { return x.Principal == principal && x.PageID == pageID })
 	s.log(ev)
 	return s.save()
+}
+
+func (s *fileConsents) RevokePages(_ context.Context, pageIDs []int64, action string, at time.Time) (int, error) {
+	if len(pageIDs) == 0 {
+		return 0, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	s.d.Consents = slices.DeleteFunc(s.d.Consents, func(x Consent) bool {
+		if !slices.Contains(pageIDs, x.PageID) {
+			return false
+		}
+		s.log(revokeEvent(x, action, at))
+		n++
+		return true
+	})
+	if n == 0 {
+		return 0, nil
+	}
+	return n, s.save()
 }
 
 func (s *fileConsents) Events(_ context.Context, principal string, limit int) ([]ConsentEvent, error) {

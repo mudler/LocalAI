@@ -349,6 +349,14 @@ func principal(user string) string {
 	return user
 }
 
+// chatActor is the actor of a chat: its owner, in the group of every user, so
+// the chat sees the folders shared with everyone.
+func chatActor(p, conv string) workspace.Actor {
+	a := files.UserActor(p)
+	a.ChatID = conv
+	return a
+}
+
 func key(p, conv string) string { return p + "\x00" + conv }
 
 func newID() string {
@@ -825,7 +833,7 @@ func (s *Service) chat(ctx context.Context, p, conv string) (*session.Chat, erro
 			return nil, err
 		}
 	}
-	chat, err := s.mgr.Open(ctx, workspace.Actor{Principal: p, ChatID: conv}, conv)
+	chat, err := s.mgr.Open(ctx, chatActor(p, conv), conv)
 	if err != nil {
 		return nil, err
 	}
@@ -1076,7 +1084,7 @@ func (s *Service) Delete(ctx context.Context, user, conv string) error {
 		return err
 	}
 	s.stopChildren(p, conv)
-	return s.mgr.Delete(ctx, workspace.Actor{Principal: p, ChatID: conv}, conv)
+	return s.mgr.Delete(ctx, chatActor(p, conv), conv)
 }
 
 // MCPConnectors returns the service that keeps the users' MCP connectors, or
