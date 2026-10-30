@@ -3411,13 +3411,6 @@ definitions:
       updated:
         type: string
     type: object
-  schema.ChatsHostConsent:
-    properties:
-      command:
-        type: string
-      id:
-        type: string
-    type: object
   schema.ChatsConversationList:
     properties:
       conversations:
@@ -3740,6 +3733,13 @@ definitions:
       rev:
         type: integer
       title:
+        type: string
+    type: object
+  schema.ChatsHostConsent:
+    properties:
+      command:
+        type: string
+      id:
         type: string
     type: object
   schema.ChatsHostExecConsent:

@@ -17833,17 +17833,6 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.ChatsHostConsent": {
-            "type": "object",
-            "properties": {
-                "command": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                }
-            }
-        },
         "schema.ChatsConversationList": {
             "type": "object",
             "properties": {
@@ -18293,6 +18282,17 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsHostConsent": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 }
             }
