@@ -283,8 +283,10 @@
     "noAddonHint": "A connector add-on carries the messages of a platform such as Telegram. Install one from the add-on gallery to add a binding.",
     "gallery": "Open the add-on gallery",
     "inactive": "Not running: {{reason}}.",
-    "mcpLink": "Manage MCP connectors",
-    "bindingsOf": "Bindings of {{name}}"
+    "bindingsOf": "Bindings of {{name}}",
+    "loadFailed": "Could not load your connectors.",
+    "waitingTitle": "Waiting for their add-on",
+    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on."
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -329,8 +331,7 @@
     }
   },
   "mcpPage": {
-    "intro": "An MCP server gives your chats tools to call. Your chats use the ones that are on. A saved agent uses a connector only when you pick it in its list. The server must be reachable from this machine and must use http or https; sign-in with OAuth is not supported yet, so use a token or a header.",
-    "new": "New MCP server",
+    "new": "Add MCP server",
     "edit": "Edit MCP server",
     "name": "Name",
     "transport": "Kind",
@@ -371,7 +372,6 @@
     "testFailed": "Could not connect: {{error}}",
     "onFor": "{{name}} on",
     "on": "On",
-    "empty": "No MCP servers yet.",
     "tokenSet": "token saved",
     "headersSet": "headers saved",
     "envSet": "environment saved",
@@ -388,7 +388,19 @@
       "failed": "{{name}} was not imported: {{error}}",
       "left": "The servers that were not imported stay in this browser."
     },
-    "title": "MCP connectors"
+    "title": "MCP connectors",
+    "supporting": "Servers that give your chats tools to call. Chats use the ones that are on; a saved agent uses only the ones you pick for it.",
+    "emptyTitle": "No MCP servers yet",
+    "emptyBody": "Add the address of a server this machine can reach over http or https. If it needs a key, add it as a token or a header.",
+    "factToken": "Token or custom header",
+    "factOAuth": "OAuth sign-in (not yet)",
+    "learn": "How MCP works",
+    "rules": "The server must be reachable from this machine over http or https. OAuth sign-in is not supported yet: use a token or a header.",
+    "loadFailed": "Could not load your MCP servers.",
+    "related": "Related",
+    "chats": "Chats",
+    "saved": "Saved “{{name}}”.",
+    "deleted": "Deleted “{{name}}”."
   },
   "proposal": {
     "loading": "Reading the proposed trigger...",

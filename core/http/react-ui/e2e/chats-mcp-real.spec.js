@@ -24,7 +24,7 @@ async function setAllowPrivate(request, on) {
 
 async function addConnector(page, name, url) {
   await page.goto('/app/mcp-connectors')
-  await page.getByRole('button', { name: 'New MCP server' }).click()
+  await page.getByRole('button', { name: 'Add MCP server' }).click()
   await page.getByLabel('Name', { exact: true }).fill(name)
   await page.getByLabel('Address').fill(url)
   await page.getByRole('button', { name: 'Save' }).click()

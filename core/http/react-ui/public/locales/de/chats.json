@@ -1,0 +1,22 @@
+{
+  "mcpPage": {
+    "new": "MCP-Server hinzufügen",
+    "supporting": "Server, die Ihren Chats Werkzeuge bereitstellen. Chats nutzen die eingeschalteten; ein gespeicherter Agent nutzt nur die, die Sie für ihn auswählen.",
+    "emptyTitle": "Noch keine MCP-Server",
+    "emptyBody": "Fügen Sie die Adresse eines Servers hinzu, den dieser Rechner über http oder https erreicht. Braucht er einen Schlüssel, geben Sie ihn als Token oder Header an.",
+    "factToken": "Token oder eigener Header",
+    "factOAuth": "OAuth-Anmeldung (noch nicht)",
+    "learn": "So funktioniert MCP",
+    "rules": "Der Server muss von diesem Rechner über http oder https erreichbar sein. OAuth-Anmeldung wird noch nicht unterstützt: Verwenden Sie ein Token oder einen Header.",
+    "loadFailed": "Ihre MCP-Server konnten nicht geladen werden.",
+    "related": "Verwandt",
+    "chats": "Chats",
+    "saved": "„{{name}}“ gespeichert.",
+    "deleted": "„{{name}}“ gelöscht."
+  },
+  "connectorsPage": {
+    "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
+    "waitingTitle": "Warten auf ihr Add-on",
+    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist."
+  }
+}

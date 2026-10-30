@@ -1,0 +1,22 @@
+{
+  "mcpPage": {
+    "new": "Añadir servidor MCP",
+    "supporting": "Servidores que dan a tus chats herramientas para usar. Los chats usan los que están activados; un agente guardado usa solo los que eliges para él.",
+    "emptyTitle": "Aún no hay servidores MCP",
+    "emptyBody": "Añade la dirección de un servidor al que esta máquina llegue por http o https. Si necesita una clave, añádela como token o como cabecera.",
+    "factToken": "Token o cabecera propia",
+    "factOAuth": "Inicio de sesión OAuth (todavía no)",
+    "learn": "Cómo funciona MCP",
+    "rules": "El servidor debe ser accesible desde esta máquina por http o https. El inicio de sesión OAuth aún no está disponible: usa un token o una cabecera.",
+    "loadFailed": "No se pudieron cargar tus servidores MCP.",
+    "related": "Relacionado",
+    "chats": "Chats",
+    "saved": "Se guardó «{{name}}».",
+    "deleted": "Se eliminó «{{name}}»."
+  },
+  "connectorsPage": {
+    "loadFailed": "No se pudieron cargar tus conectores.",
+    "waitingTitle": "Esperando su complemento",
+    "waitingText": "Estos enlaces se conservan, pero no funcionan hasta que su complemento esté instalado y activado."
+  }
+}

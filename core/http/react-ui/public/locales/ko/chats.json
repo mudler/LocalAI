@@ -1,0 +1,22 @@
+{
+  "mcpPage": {
+    "new": "MCP 서버 추가",
+    "supporting": "채팅에 호출할 도구를 제공하는 서버입니다. 채팅은 켜진 서버를 사용하고, 저장된 에이전트는 선택한 서버만 사용합니다.",
+    "emptyTitle": "아직 MCP 서버가 없습니다",
+    "emptyBody": "이 컴퓨터에서 http 또는 https로 접속할 수 있는 서버 주소를 추가하세요. 키가 필요하면 토큰이나 헤더로 추가하세요.",
+    "factToken": "토큰 또는 사용자 지정 헤더",
+    "factOAuth": "OAuth 로그인(아직 지원 안 됨)",
+    "learn": "MCP 작동 방식",
+    "rules": "서버는 이 컴퓨터에서 http 또는 https로 접속할 수 있어야 합니다. OAuth 로그인은 아직 지원되지 않으니 토큰이나 헤더를 사용하세요.",
+    "loadFailed": "MCP 서버를 불러올 수 없습니다.",
+    "related": "관련 항목",
+    "chats": "채팅",
+    "saved": "“{{name}}”을(를) 저장했습니다.",
+    "deleted": "“{{name}}”을(를) 삭제했습니다."
+  },
+  "connectorsPage": {
+    "loadFailed": "커넥터를 불러올 수 없습니다.",
+    "waitingTitle": "애드온 대기 중",
+    "waitingText": "이 연결은 유지되지만, 해당 애드온을 설치하고 켜야 실행됩니다."
+  }
+}
