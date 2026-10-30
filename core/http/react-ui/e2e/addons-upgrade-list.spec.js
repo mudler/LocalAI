@@ -6,11 +6,12 @@ import { ADMIN, MEMBER, app, installedAddon, sessionFor, mockAddons, fail } from
 // covered by addons-upgrade.spec.js against the real owner.
 
 const shots = process.env.UPGRADE_SHOTS
+const theme = process.env.UPGRADE_THEME
 async function shoot(page, name) {
   if (!shots) return
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.waitForTimeout(400)
-  await page.screenshot({ path: `${shots}/${name}.png`, fullPage: false })
+  await page.screenshot({ path: `${shots}/${name}${process.env.UPGRADE_SUFFIX || ''}.png`, fullPage: false })
 }
 
 const CANDIDATE = 'sha256:' + 'b'.repeat(64)
@@ -21,6 +22,7 @@ const rec = (id, title, update) => installedAddon({ id, title, icon: undefined, 
 const tile = (page, id) => page.locator(`[data-testid="addon-tile"][data-app="${id}"]`)
 
 async function signIn(page, user, permissions = {}) {
+  if (theme) await page.addInitScript((value) => { try { localStorage.setItem('localai-theme', value) } catch { /* private window */ } }, theme)
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, permissions) }))
 }
 
