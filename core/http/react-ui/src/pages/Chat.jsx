@@ -10,7 +10,7 @@ import { extractCodeArtifacts } from '../utils/artifacts'
 import {
   threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, artifactSource, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
-import { contextReading, tokenCount } from '../utils/chatSettings'
+import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
 import { connectorRef } from '../utils/chatMCP'
 // eslint-disable-next-line no-unused-vars
@@ -43,6 +43,9 @@ import FindBar from '../components/chat/FindBar'
 import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
 import SkillsMenu from '../components/chat/SkillsMenu'
+// eslint-disable-next-line no-unused-vars
+import ChatFoot from '../components/chat/ChatFoot'
+// eslint-disable-next-line no-unused-vars
 import SwitchMenu from '../components/chat/SwitchMenu'
 import { CommandsChip, CommandsNotice } from '../components/chat/CommandsNotice'
 import { useCommandsNotice } from '../hooks/useCommandsNotice'
@@ -137,6 +140,9 @@ function ChatPage() {
   const [busy, setBusy] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [modelInfo, setModelInfo] = useState(null)
+  // Whether the composer has focus: the status line shows the keyboard hint
+  // only then.
+  const [composerFocused, setComposerFocused] = useState(false)
   const [find, setFind] = useState({ open: false, query: '', index: 0, count: 0, token: 0 })
   const [canvasMode, setCanvasMode] = useState(false)
   const [canvasOpen, setCanvasOpen] = useState(false)
@@ -159,7 +165,7 @@ function ChatPage() {
   })
   const importInputRef = useRef(null)
   const pendingArtifactRef = useRef(null)
-  const { ids: loadedIds } = useLoadedModels()
+  const { ids: loadedIds, loaded: loadedModels } = useLoadedModels()
   const messagesEndRef = useRef(null)
   const messagesRef = useRef(null)
   const textareaRef = useRef(null)
@@ -272,6 +278,16 @@ function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artifacts])
 
+  useEffect(() => {
+    const on = (e) => { if (e.target === textareaRef.current) setComposerFocused(e.type === 'focusin') }
+    document.addEventListener('focusin', on)
+    document.addEventListener('focusout', on)
+    return () => {
+      document.removeEventListener('focusin', on)
+      document.removeEventListener('focusout', on)
+    }
+  }, [])
+
   // Admins read the model config for the model info of the settings sheet.
   useEffect(() => {
     if (!isAdmin || !model) { setModelInfo(null); return undefined }
@@ -355,7 +371,9 @@ function ChatPage() {
         return
       }
       const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, .chat-mcp-dropdown-menu, [role="dialog"], [role="alertdialog"]')
-      if (e.key === 'Escape' && !overlay) {
+      // An Escape that a popover or a sheet already used to close itself must
+      // not also stop the turn.
+      if (e.key === 'Escape' && !overlay && !e.defaultPrevented) {
         const cur = escapeRef.current
         if (cur.running) cur.stop()
         else if (cur.findOpen) setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
@@ -797,7 +815,6 @@ function ChatPage() {
   }, [filesOn])
   useEffect(() => { setFilesFocus(null) }, [activeId])
 
-  const meter = contextReading(chat.usage)
   const streaming = streamingParts(chat.live)
   const sendLive = useCallback((text) => activeId && chat.send(activeId, text), [activeId, chat])
 
@@ -973,10 +990,19 @@ function ChatPage() {
     : activeId && chat.lastTurn === 'interrupted' ? tc('status.interrupted')
       : activeId && chat.lastTurn === 'stopped' ? tc('status.stopped') : ''
   // The failed turn shows as the one banner in the thread, and the footer says
-  // nothing more about it. A failure the server reports without a reason (the
+  // only the state word. A failure the server reports without a reason (the
   // page was reloaded) fades after a day, so an old failure does not look new.
   const showFailure = Boolean(activeId) && !chat.running && chat.lastTurn === 'failed'
     && (Boolean(chat.failure) || !isStaleFailure(chat.detail?.updated))
+  // The one state of the status line, and whether the keyboard hint shows:
+  // only while the composer has focus, is empty and the chat is idle.
+  const footState = chatFootState({
+    activeId, noModel, running: chat.running, sending: busy, lastTurn: chat.lastTurn,
+    pending: chat.pending, live: chat.live, warm: modelWarm,
+  })
+  const footHint = showHint({ focused: composerFocused, empty: !input.trim() && files.length === 0, state: footState })
+  const footModel = chat.usage?.model || model
+  const footBackend = loadedModels.find(m => m.id === footModel)?.backend || ''
   const placeholder = effectiveModel
     ? (chat.running ? t('input.placeholderQueue') : t('input.placeholderModel', { model: effectiveModel }))
     : (noModel ? t('input.placeholderNoModel') : t('input.placeholderPick'))
@@ -1174,28 +1200,16 @@ function ChatPage() {
               sendId="chat-submit-btn"
               sendTestId="chat-send"
             />
-            <div className="cx-foot" data-testid="chat-foot">
-              <span role="status" aria-live="polite" data-warn={(activeId && chat.lastTurn === 'interrupted' && !chat.running) || undefined}>
-                {status}
-              </span>
-              {activeId && meter && (
-                <span
-                  className="cx-ctx cx-foot__tokens"
-                  data-testid="chat-context-meter"
-                  data-warn={meter.tone === 'warn' || undefined}
-                  data-hot={meter.tone === 'err' || undefined}
-                  title={t('meter.title')}
-                >
-                  {meter.pct !== null && <span className="cx-ctx__bar" aria-hidden="true"><i style={fillStyle(meter.pct)} /></span>}
-                  <span>
-                    {meter.limit
-                      ? t('meter.usedOf', { used: tokenCount(meter.used), limit: tokenCount(meter.limit), pct: meter.pct })
-                      : t('meter.used', { used: tokenCount(meter.used) })}
-                    {meter.speed !== null ? ` · ${t('meter.speed', { speed: meter.speed })}` : ''}
-                  </span>
-                </span>
-              )}
-            </div>
+            <ChatFoot
+              state={footState}
+              status={status}
+              model={footModel}
+              backend={footBackend}
+              hint={footHint}
+              chat={chat}
+              showMeter={!!activeId}
+              quiet={!activeId}
+            />
           </div>
         </div>
         {isEmpty && (

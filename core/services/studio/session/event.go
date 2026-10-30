@@ -85,6 +85,13 @@ type UsageEvent struct {
 	Completion int
 	// TokensPerSecond is the generation speed, or 0 when it is not known.
 	TokensPerSecond float64
+	// Model is the model the request used.
+	Model string
+	// Node is the worker that served the request, when the server exposes it.
+	Node string
+	// PromptMillis is the backend's prompt processing time, or 0 when it is
+	// not known.
+	PromptMillis float64
 }
 
 // ToolEvent describes one tool call.

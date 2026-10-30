@@ -317,9 +317,9 @@ test.describe('Chats page with a stubbed API', () => {
     await banner.getByText('Technical detail').click()
     await expect(page.getByTestId('chat-error-detail')).toContainText('load is in cooldown')
     await expect(page.getByTestId('chat-error-detail')).not.toContainText('studio.invalid')
-    // No second line about the same failure, and no orphan under the composer.
+    // No second sentence about the same failure: the line has the state word only.
     await expect(page.getByText('The last turn failed.')).toHaveCount(0)
-    await expect(page.getByTestId('chat-foot').getByRole('status')).toHaveText('')
+    await expect(page.getByTestId('chat-foot').getByRole('status')).toHaveText('Failed')
     await expect(page.getByRole('alert')).toHaveCount(1)
     await page.screenshot({ path: process.env.ERRCAUSE_SHOTS ? `${process.env.ERRCAUSE_SHOTS}/backend-missing.png` : 'test-results/backend-missing.png' })
   })

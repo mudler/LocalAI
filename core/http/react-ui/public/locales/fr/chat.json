@@ -265,5 +265,59 @@
     "emptyTitle": "Aucune conversation",
     "emptyBody": "Une conversation commence sur l'accueil : écrivez un message et envoyez-le. Vos conversations s'affichent ensuite ici.",
     "start": "Commencer une conversation"
+  },
+  "foot": {
+    "state": {
+      "ready": "Prêt",
+      "nomodel": "Aucun modèle",
+      "sending": "Envoi",
+      "loading": "Chargement du modèle",
+      "thinking": "Réflexion",
+      "tool": "Exécution de {{tool}}",
+      "answering": "Réponse en cours",
+      "waiting": "En attente de vous",
+      "stopped": "Arrêté",
+      "failed": "Échec",
+      "interrupted": "Interrompu"
+    },
+    "tool": {
+      "search": "Recherche",
+      "list": "Liste",
+      "read": "Lecture",
+      "create": "Création",
+      "write": "Écriture",
+      "change": "Modification",
+      "move": "Déplacement",
+      "delete": "Suppression",
+      "run": "Exécution d’une commande",
+      "fetch": "Récupération",
+      "delegate": "Appel d’un sous-agent"
+    },
+    "hint": "Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne",
+    "meter": {
+      "label": "Contexte rempli à {{pct}} %. Afficher le contexte et la vitesse",
+      "labelNoLimit": "Contexte de {{used}} jetons. Afficher le contexte et la vitesse"
+    },
+    "details": {
+      "title": "Contexte et vitesse",
+      "context": "Contexte",
+      "contextOf": "{{used}} sur {{limit}} jetons ({{pct}} %)",
+      "contextUsed": "{{used}} jetons",
+      "contextHelp": "Le contexte est ce que le modèle lit à chaque requête : les instructions, ce chat jusqu’ici et les résultats des outils.",
+      "nearFull": "Ce chat approche de la limite. Le serveur condense la partie la plus ancienne pour que le modèle puisse continuer. La transcription garde chaque message.",
+      "limitUnknown": "Le serveur n’a pas indiqué la taille de la fenêtre de contexte.",
+      "lastRequest": "Dernière requête",
+      "model": "Modèle",
+      "backend": "Backend",
+      "node": "Nœud",
+      "tokensIn": "Jetons en entrée",
+      "tokensOut": "Jetons en sortie",
+      "firstToken": "Délai du premier jeton",
+      "promptTime": "Traitement du prompt",
+      "speed": "Vitesse",
+      "speedLive": "Vitesse estimée pendant le flux",
+      "average": "Moyenne des {{count}} dernières requêtes",
+      "note": "Ces chiffres viennent des requêtes vues par cette page. Le serveur ne les garde pas : un rechargement les efface."
+    }
   }
 }
