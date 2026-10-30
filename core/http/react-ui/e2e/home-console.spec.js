@@ -33,11 +33,15 @@ test.describe('Home slash menu', () => {
     await ready(page)
     await page.locator('.home-textarea').fill('/')
     const names = await page.locator('.dk-cmd-name').allTextContents()
+    // The administrator gets /studio while Studio is not installed: it
+    // opens the add-on in the library.
     expect(names).toEqual([
       '/model', '/new', '/chat', '/assistant',
       '/gallery', '/installed', '/import', '/stop',
-      '/agents', '/mcp', '/memory', '/settings', '/docs',
+      '/agents', '/mcp', '/memory', '/studio', '/settings', '/docs',
     ])
+    await expect(page.getByTestId('home-slash-studioInstall')).toBeVisible()
+    await expect(page.getByTestId('home-slash-studio')).toHaveCount(0)
   })
 
   test('the /agents, /mcp and /memory commands open their pages', async ({ page }) => {
