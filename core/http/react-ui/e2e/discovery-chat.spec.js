@@ -8,7 +8,8 @@ import { mockDiscovery, newState, TASK_PAGE } from './discovery-fixtures.js'
 // writes (files_change "<rev>:<path>", checkpoint rev and paths).
 
 const SHOTS = process.env.DISCOVERY_SHOTS || ''
-const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png` }) }
+// Screenshots wait out the entry fade, so they show the settled screen.
+const shot = async (page, name) => { if (SHOTS) { await page.waitForTimeout(600); await page.screenshot({ path: `${SHOTS}/${name}.png` }) } }
 
 const AT = '2026-10-30T09:00:00Z'
 const CHAT = { id: 'c1', title: 'Getting started', model: 'qwen3-8b-instruct', kind: 'chat', created: AT, updated: AT, running: false }

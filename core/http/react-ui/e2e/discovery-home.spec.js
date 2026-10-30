@@ -5,7 +5,8 @@ import { mockDiscovery, newState, stubFeed, TASK_PAGE } from './discovery-fixtur
 // "Hide these", with every API call stubbed (discovery-fixtures.js).
 
 const SHOTS = process.env.DISCOVERY_SHOTS || ''
-const shot = async (page, name) => { if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png` }) }
+// Screenshots wait out the entry fade, so they show the settled screen.
+const shot = async (page, name) => { if (SHOTS) { await page.waitForTimeout(600); await page.screenshot({ path: `${SHOTS}/${name}.png` }) } }
 
 const section = (page) => page.getByTestId('home-examples')
 const cards = (page) => page.getByTestId('home-example')
