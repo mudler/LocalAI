@@ -58,6 +58,12 @@ Open **http://localhost:8080** in your browser. The web interface lets you:
 - **Monitor system resources** and loaded models
 - **Configure settings** including GPU acceleration
 
+Use the globe button in the navigation to choose **简体中文** (Simplified
+Chinese). The selection is saved in this browser and also applies to the built-in
+Studio, Talk, Voice, Face, Fine-tuning and Quantization add-on pages. Model names,
+API paths and configuration keys keep their original spelling; model responses
+and messages returned by external services are not translated by this setting.
+
 To get your first chat working:
 
 1. Open **Models → Explore** and search for `qwen3-4b`. Click **Install** on the `qwen3-4b` entry and wait for the download to finish. (`qwen3-4b` is a small, CPU-friendly Qwen3 model that also supports tool calling, so you can reuse it later in the [Build your first agent]({{% relref "getting-started/first-agent" %}}) walkthrough.)

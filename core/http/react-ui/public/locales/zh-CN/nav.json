@@ -19,18 +19,18 @@
     "workspace": "工作区"
   },
   "operate": {
-    "inference": "Inference",
-    "cluster": "Cluster",
-    "observability": "Observability",
-    "access": "Access",
-    "system": "System",
-    "activity": "Activity",
+    "inference": "推理",
+    "cluster": "集群",
+    "observability": "可观测性",
+    "access": "访问控制",
+    "system": "系统",
+    "activity": "活动",
     "runtime": "运行时",
     "administration": "管理"
   },
   "items": {
     "home": "首页",
-    "models": "Models",
+    "models": "模型",
     "chat": "聊天",
     "fineTune": "微调（实验性）",
     "quantize": "量化（实验性）",
@@ -51,21 +51,21 @@
     "traces": "追踪",
     "nodes": "节点",
     "scheduling": "调度",
-    "swarm": "Swarm",
+    "swarm": "集群",
     "system": "系统",
     "settings": "设置",
     "api": "API",
-    "middleware": "Middleware",
+    "middleware": "中间件",
     "activity": "活动",
     "overview": "概览",
     "thisMachine": "本机",
     "failover": "故障转移",
     "p2p": "P2P",
     "addons": "附加组件",
-    "voiceLibrary": "Voice Library",
-    "logs": "Logs",
-    "trafficModels": "Models",
-    "gpuHost": "GPU and host",
+    "voiceLibrary": "声音库",
+    "logs": "日志",
+    "trafficModels": "模型",
+    "gpuHost": "GPU 与主机",
     "prometheus": "Prometheus"
   },
   "footer": {
@@ -77,8 +77,8 @@
   "console": {
     "automation": "自动化",
     "training": "训练",
-    "expandNavigation": "Expand {{section}} navigation",
-    "collapseNavigation": "Collapse {{section}} navigation"
+    "expandNavigation": "展开{{section}}导航",
+    "collapseNavigation": "收起{{section}}导航"
   },
   "hub": {
     "status": "状态",

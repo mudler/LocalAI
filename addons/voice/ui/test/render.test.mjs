@@ -35,6 +35,19 @@ export async function load(extra = {}) {
   return { mod, sdk, controller, calls }
 }
 
+test('render: Chinese labels and privacy lists follow the host language', async () => {
+  let language = 'zh-CN'
+  const { mod, sdk } = await load({ language: () => language })
+  const addon = await mod.createAddon(sdk)
+  const ctx = mod.__ctxFor(sdk)
+  const draw = () => renderToString(React.createElement(addon.Component, { page: 'voice', path: 'speech' }))
+  assert.match(draw(), /生成语音/)
+  assert.match(ctx.list('voice.why')[0], /说话人/)
+  language = 'en'
+  assert.match(draw(), /Generate speech/)
+  assert.match(ctx.list('voice.why')[0], /One speaker/)
+})
+
 test('render: createAddon returns a page component and dispose', async () => {
   const { mod, sdk, controller } = await load()
   const addon = await mod.createAddon(sdk)

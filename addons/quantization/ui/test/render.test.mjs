@@ -4,6 +4,13 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { load, draw, here, React } from './load.mjs'
 
+test('render: quantization uses the Chinese bundle registered with the host', async () => {
+  const { mod, sdk } = await load({ language: () => 'zh-CN' })
+  const addon = await mod.createAddon(sdk)
+  assert.match(draw(addon, { page: 'jobs', path: '' }), /量化/)
+  assert.equal(mod.__ctxFor(sdk).t('run.unknownPercent'), '尚未报告进度')
+})
+
 test('render: createAddon returns a page component and dispose', async () => {
   const { mod, sdk, controller } = await load()
   const addon = await mod.createAddon(sdk)

@@ -1,60 +1,142 @@
 {
   "lifecycle": {
-    "title": "Models",
-    "navLabel": "Model lifecycle",
-    "views": { "explore": "Explore", "installed": "Installed" },
-    "filters": { "all": "All", "running": "Running", "idle": "Idle", "disabled": "Disabled", "pinned": "Pinned", "distributed": "Distributed" },
+    "title": "模型",
+    "navLabel": "模型生命周期",
+    "views": {
+      "explore": "探索",
+      "installed": "已安装"
+    },
+    "filters": {
+      "all": "全部",
+      "running": "运行中",
+      "idle": "空闲",
+      "disabled": "已禁用",
+      "pinned": "已固定",
+      "distributed": "分布式",
+      "motion": "动作捕捉"
+    },
     "installed": {
-      "searchPlaceholder": "Search installed models",
-      "count": "{{shown}} of {{total}}",
-      "backToAll": "All installed models",
-      "eyebrow": "Installed on this host",
-      "summary": "{{count}} models ready to serve.",
-      "summaryHint": "Select a model to inspect its runtime state and controls."
+      "searchPlaceholder": "搜索已安装的模型",
+      "count": "{{total}} 个中的 {{shown}} 个",
+      "backToAll": "所有已安装的模型",
+      "eyebrow": "已安装在此主机",
+      "summary": "{{count}} 个模型可提供服务。",
+      "summaryHint": "选择模型以查看运行状态和控制选项。",
+      "filterLabel": "按状态筛选",
+      "storageSummary": "磁盘占用 {{total}} · 模型间共享 {{shared}}",
+      "storageMissing": "{{count}} 个缺失引用"
     },
-    "states": { "running": "Running", "idle": "Idle", "disabled": "Disabled", "working": "Working…" },
+    "states": {
+      "running": "运行中",
+      "idle": "空闲",
+      "disabled": "已禁用",
+      "working": "处理中…"
+    },
     "actions": {
-      "load": "Load", "loading": "Loading…", "stop": "Stop", "update": "Update", "updating": "Updating…",
-      "enable": "Enable model", "disable": "Disable model", "pin": "Pin (prevent idle unload)",
-      "unpin": "Unpin (allow idle unload)", "edit": "Edit configuration", "logs": "Backend logs",
-      "delete": "Delete model", "forModel": "Actions for {{model}}",
-      "open": "Open {{useCase}}", "manageInstallation": "Manage installation"
+      "load": "加载",
+      "loading": "正在加载…",
+      "stop": "停止",
+      "update": "更新",
+      "updating": "正在更新…",
+      "enable": "启用模型",
+      "disable": "禁用模型",
+      "pin": "固定（防止空闲卸载）",
+      "unpin": "取消固定（允许空闲卸载）",
+      "edit": "编辑配置",
+      "logs": "后端日志",
+      "delete": "删除模型",
+      "forModel": "{{model}}的操作",
+      "open": "打开{{useCase}}",
+      "manageInstallation": "管理安装"
     },
-    "actionNames": { "load": "load", "stop": "stop", "enable": "enable", "disable": "disable", "pin": "pin", "unpin": "unpin", "delete": "delete", "update": "update" },
+    "actionNames": {
+      "load": "加载",
+      "stop": "停止",
+      "enable": "启用",
+      "disable": "禁用",
+      "pin": "固定",
+      "unpin": "取消固定",
+      "delete": "删除",
+      "update": "更新"
+    },
     "toasts": {
-      "loaded": "Loaded {{model}}", "stopped": "Stopped {{model}}", "enabled": "Enabled {{model}}",
-      "disabled": "Disabled {{model}}", "pinned": "Pinned {{model}}", "unpinned": "Unpinned {{model}}",
-      "deleted": "Deleted {{model}}", "updated": "Models updated"
+      "loaded": "已加载 {{model}}",
+      "stopped": "已停止 {{model}}",
+      "enabled": "已启用 {{model}}",
+      "disabled": "已禁用 {{model}}",
+      "pinned": "已固定 {{model}}",
+      "unpinned": "已取消固定 {{model}}",
+      "deleted": "已删除 {{model}}",
+      "updated": "模型已更新"
     },
     "confirm": {
-      "stopTitle": "Stop Model", "stopMessage": "Stop model {{model}}?",
-      "deleteTitle": "Delete Model", "deleteMessage": "Delete model {{model}}? This cannot be undone."
+      "stopTitle": "停止模型",
+      "stopMessage": "停止模型 {{model}}？",
+      "deleteTitle": "删除模型",
+      "deleteMessage": "删除模型 {{model}}？此操作无法撤销。"
     },
     "errors": {
-      "action": "Could not {{action}} {{model}}: {{message}}",
-      "loadList": "Could not load installed models: {{message}}"
+      "action": "无法{{action}} {{model}}：{{message}}",
+      "loadList": "无法加载已安装的模型：{{message}}"
     },
     "detail": {
-      "title": "Details", "state": "State", "backend": "Backend", "auto": "Auto", "pinned": "Pinned", "yes": "yes",
-      "description": "Description", "noDescription": "No gallery description is available for this model.",
-      "license": "License", "tags": "Tags", "links": "Links", "distributed": "Distributed", "source": "Source",
-      "files": "Files", "fileCount": "{{count}} file", "fileCount_other": "{{count}} files",
-      "adopted": "Adopted", "adoptedHint": "Discovered on a worker but not configured locally. Persist the config to make it permanent.",
-      "alias": "alias → {{target}}", "aliasTitle": "Alias → {{target}}",
-      "chain": "chain → {{target}}", "chainTitle": "Failover chain → {{target}}"
+      "title": "详情",
+      "state": "状态",
+      "backend": "后端",
+      "auto": "自动",
+      "pinned": "已固定",
+      "yes": "是",
+      "description": "描述",
+      "noDescription": "模型库未提供此模型的描述。",
+      "license": "许可证",
+      "tags": "标签",
+      "links": "链接",
+      "distributed": "分布式",
+      "source": "来源",
+      "files": "文件",
+      "fileCount": "{{count}} 个文件",
+      "fileCount_other": "{{count}} 个文件",
+      "adopted": "已接管",
+      "adoptedHint": "在工作节点上发现，但本地尚未配置。保存配置以永久保留。",
+      "alias": "别名 → {{target}}",
+      "aliasTitle": "别名 → {{target}}",
+      "chain": "链 → {{target}}",
+      "chainTitle": "故障转移链 → {{target}}",
+      "size": "磁盘占用",
+      "sharesFiles": "共享文件的模型",
+      "sharedBytes": "与其他模型共享 {{size}}",
+      "storageFiles": "磁盘文件",
+      "missingFiles": "缺失文件",
+      "missingCount": "{{count}} 个引用文件缺失",
+      "missingCount_other": "{{count}} 个引用文件缺失"
     },
     "open": {
-      "title": "Open", "chat": "Chat", "completion": "Completion", "image": "Image", "video": "Video", "tts": "TTS",
-      "transcribe": "Transcribe", "sound": "Sound", "face": "Face", "voice": "Voice", "embeddings": "Embeddings",
-      "rerank": "Rerank", "vad": "VAD", "score": "Score", "decisions": "Decisions"
+      "title": "打开",
+      "chat": "聊天",
+      "completion": "文本补全",
+      "image": "图像",
+      "video": "视频",
+      "tts": "文本转语音",
+      "transcribe": "转录",
+      "sound": "声音",
+      "face": "人脸",
+      "voice": "声音",
+      "embeddings": "嵌入",
+      "rerank": "重排",
+      "vad": "语音活动检测",
+      "score": "评分",
+      "decisions": "决策"
     },
     "empty": {
-      "title": "No models installed yet", "text": "Explore the gallery or import a model to get started.",
-      "explore": "Explore models", "import": "Import model", "noMatches": "No installed models match these filters.",
-      "clear": "Clear filters"
+      "title": "尚未安装模型",
+      "text": "探索模型库或导入模型以开始。",
+      "explore": "探索模型",
+      "import": "导入模型",
+      "noMatches": "没有符合这些筛选条件的已安装模型。",
+      "clear": "清除筛选"
     }
   },
-  "title": "Models",
+  "title": "模型",
   "subtitle": "从模型库浏览和安装 AI 模型",
   "recommended": {
     "title": "适合你硬件的推荐",
@@ -66,8 +148,11 @@
     "installFailed": "安装失败：{{message}}",
     "dismiss": "关闭推荐",
     "summary": "已推荐 {{n}} 个模型",
-    "bestFit": "Best fit",
-    "alternative": "Also fits"
+    "bestFit": "最佳适配",
+    "alternative": "同样适配",
+    "needs": "{{vram}} 显存",
+    "more": "另有 {{count}} 个适配模型",
+    "fewer": "收起"
   },
   "stats": {
     "available": "可用",
@@ -86,8 +171,8 @@
     "image": "图像",
     "multimodal": "多模态",
     "vision": "视觉",
-    "tts": "TTS",
-    "stt": "STT",
+    "tts": "文本转语音",
+    "stt": "语音转文本",
     "diarization": "说话人分离",
     "embedding": "嵌入",
     "rerank": "重排",
@@ -99,7 +184,20 @@
     "useCaseLabel": "按用例筛选",
     "unavailableForBackend": "所选后端不支持",
     "someSelected": "已选 {{count}} 项",
-    "refineLabel": "细化"
+    "refineLabel": "细化",
+    "video": "视频",
+    "soundGen": "声音",
+    "motion": "动作捕捉",
+    "forecast": "预测",
+    "threed": "3D",
+    "threedAnimation": "3D 动画",
+    "soundClassification": "声音标注",
+    "audioTransform": "音频效果",
+    "realtimeAudio": "实时音频",
+    "detection": "目标检测",
+    "vad": "语音活动检测",
+    "ner": "命名实体识别",
+    "fitsMemory": "内存足够"
   },
   "search": {
     "placeholder": "搜索模型...",
@@ -116,7 +214,7 @@
     "vram": "VRAM：{{vram}}",
     "fits": "适合",
     "mayNotFit": "可能不适合",
-    "trustRemoteCode": "Trust Remote Code",
+    "trustRemoteCode": "信任远程代码",
     "installing": "正在安装",
     "installingPct": "正在安装 · {{percent}}%",
     "installed": "已安装",
@@ -127,7 +225,7 @@
     "gallery": "模型库",
     "backend": "后端",
     "size": "大小",
-    "vram": "VRAM",
+    "vram": "显存",
     "license": "许可证",
     "tags": "标签",
     "links": "链接",
@@ -144,13 +242,15 @@
     "backToAll": "全部模型",
     "vramAt": "{{context}} 时显存",
     "headroom": "剩余显存",
-    "headroomOn": "{{node}} 上的余量"
+    "headroomOn": "{{node}} 上的余量",
+    "memoryAt": "{{context}}上下文下的内存"
   },
   "empty": {
     "title": "未找到模型",
     "withFilters": "没有模型与当前搜索或筛选条件匹配。",
     "collapsedVariantsHint": "其他条目已经提供的替代构建已被隐藏。关闭“每个模型一行”即可将其包含在内。",
-    "noFilters": "模型库为空。"
+    "noFilters": "模型库为空。",
+    "library": "资源库 {{name}} 在此页面没有模型。"
   },
   "deleteDialog": {
     "title": "删除模型",
@@ -164,16 +264,16 @@
     "deleteFailed": "删除失败：{{message}}"
   },
   "variants": {
-    "title": "Variants",
-    "chooseVariant": "Choose a variant",
-    "auto": "Auto",
-    "autoSelected": "Auto-selected",
-    "base": "Base build",
+    "title": "变体",
+    "chooseVariant": "选择变体",
+    "auto": "自动",
+    "autoSelected": "自动选择",
+    "base": "基础构建",
     "fits": "Fits",
-    "doesNotFit": "Does not fit",
-    "unknownSize": "Unknown size",
-    "unknownBackend": "Unknown backend",
-    "loading": "Loading variants...",
+    "doesNotFit": "无法容纳",
+    "unknownSize": "大小未知",
+    "unknownBackend": "后端未知",
+    "loading": "正在加载变体…",
     "quantizationTitle": "权重格式",
     "unknownQuantization": "未知格式",
     "showDetails": "显示 {{variant}} 的完整详情",
@@ -183,7 +283,8 @@
     "features": {
       "dflash": "更快：DFlash",
       "mtp": "更快：MTP"
-    }
+    },
+    "installVariant": "安装 {{variant}}"
   },
   "rail": {
     "sortLabel": "排序模型",
@@ -208,7 +309,8 @@
     "barTitle": "{{context}} 上下文需要 {{vram}}",
     "fitsEverywhere": "在此主机上可以任意上下文长度运行。",
     "fitsNowhere": "在此主机上任何上下文长度都无法运行。",
-    "fitsUpTo": "最高可在 {{context}} 上下文下运行。"
+    "fitsUpTo": "最高可在 {{context}} 上下文下运行。",
+    "titleRam": "不同上下文长度的内存占用"
   },
   "shelves": {
     "hostLabel": "你的主机",
@@ -287,5 +389,538 @@
         "cta": "创建故障转移链"
       }
     }
+  },
+  "models": "模型",
+  "storage": {
+    "columns": {
+      "file": "文件",
+      "size": "大小",
+      "status": "状态",
+      "models": "使用方"
+    },
+    "status": {
+      "missing": "缺失",
+      "shared": "{{count}} 个模型共享"
+    },
+    "searchPlaceholder": "按文件或模型筛选…",
+    "empty": "没有引用的文件。"
+  },
+  "selector": {
+    "searchPlaceholder": "搜索模型...",
+    "loading": "正在加载模型…",
+    "selectModel": "选择模型…",
+    "noModels": "没有可用模型"
+  },
+  "ledger": {
+    "retry": "重试",
+    "failedInstall": "安装失败：{{message}}",
+    "columns": {
+      "size": "大小",
+      "fit": "{{context}}上下文适配"
+    },
+    "summary": {
+      "ram": "内存",
+      "title": "本机适配情况",
+      "onNode": "在最大节点上",
+      "fits": "{{context}}上下文需要 {{need}}。可以容纳，剩余 {{free}}。",
+      "spill": "{{context}}上下文需要 {{need}}。其中 {{cpu}} 将在 CPU 上运行，速度较慢。",
+      "overGpu": "{{context}}上下文需要 {{need}}，超出 GPU 显存和系统内存的可用总量 {{over}}。",
+      "overRam": "{{context}}上下文需要 {{need}}，超出此主机容量 {{over}}。",
+      "gpu": "GPU"
+    },
+    "hostOnly": {
+      "none": "本机",
+      "gpu": "{{memory}} GPU 显存",
+      "ram": "{{memory}} 内存，无 GPU"
+    },
+    "keys": {
+      "move": "移动",
+      "close": "关闭",
+      "search": "搜索",
+      "install": "安装",
+      "density": "密度"
+    },
+    "caption": "模型库模型的大小及在 {{context}} 上下文下的适配情况",
+    "selected": "已选择",
+    "inspector": "模型详情",
+    "closeInspector": "关闭详情",
+    "builds": "多个构建",
+    "retryNamed": "重新安装 {{model}}",
+    "installNamed": "安装 {{model}}",
+    "sizeUnknownTitle": "模型库未列出此模型，因此磁盘大小未知",
+    "sizeEstimateTitle": "根据模型库的文件大小估算，无法读取实际磁盘占用。",
+    "sizeOnDiskTitle": "磁盘占用 {{exact}}",
+    "sharedSize": "共享 {{size}}",
+    "sharedSizeTitle": "此模型中有 {{size}} 文件也由 {{models}} 使用。移除此模型后，这些文件仍会保留在磁盘上。",
+    "density": {
+      "label": "行密度",
+      "comfortable": "宽松行",
+      "compact": "紧凑行"
+    },
+    "basis": {
+      "gpu": "按 {{memory}} GPU 显存评估适配情况",
+      "ram": "未发现 GPU。按 {{memory}} 内存评估适配情况",
+      "cluster": "按 {{node}} 上的 {{memory}} 评估适配情况"
+    },
+    "fit": {
+      "free": "{{amount}} 可用",
+      "spill": "另需 CPU 内存 {{amount}}",
+      "over": "超出 {{amount}}",
+      "noEstimate": "无估算",
+      "fitsTitle": "{{context}}上下文需要 {{need}}。可以容纳，剩余 {{amount}}。",
+      "spillTitle": "{{context}}上下文需要 {{need}}。其中 {{amount}} 将在 CPU 上运行。",
+      "overTitle": "{{context}}上下文需要 {{need}}，超出此主机容量 {{amount}}。"
+    },
+    "offline": {
+      "title": "无法连接模型库。",
+      "stale": "显示上次的列表。安装需要网络连接。（{{message}}）",
+      "empty": "{{message}}",
+      "emptyTitle": "没有可显示的列表",
+      "emptyText": "无法连接模型库。请检查连接，然后重试。"
+    },
+    "emptyGalleryHint": "模型库中没有模型。可通过上方按钮从配置添加模型或导入模型。"
+  },
+  "cleanup": {
+    "close": "关闭",
+    "legend": {
+      "other": "其他",
+      "models": "模型",
+      "frees": "释放",
+      "free": "可用"
+    },
+    "selectAll": "全选",
+    "clearGroup": "清除",
+    "clear": "清除",
+    "confirm": {
+      "close": "关闭",
+      "title_one": "移除 {{count}} 个模型？",
+      "title_other": "移除 {{count}} 个模型？",
+      "caption": "待移除的模型、原因及大小",
+      "effect": "将释放 {{freed}}，可用空间从 {{now}} 增至 {{after}}。",
+      "effectNoDisk": "将释放 {{freed}}。",
+      "unknownSizes_one": "{{count}} 个模型大小未知，未计入。",
+      "unknownSizes_other": "{{count}} 个模型大小未知，未计入。",
+      "none": "没有可移除的项",
+      "dropped": "已排除正在使用的模型：{{names}}。",
+      "checked": "刚刚已检查，没有已加载模型、固定模型、智能体、任务、故障转移链或别名使用这些模型。",
+      "hold": "尚未删除文件。文件将保留 {{seconds}} 秒，以便撤销。之后将从磁盘删除，重新下载需要时间。"
+    },
+    "undo": "撤销",
+    "protected": {
+      "title": "受保护",
+      "never": "从不建议移除"
+    },
+    "title": "磁盘与清理",
+    "desc": "可用 {{free}} / {{total}}。模型占用 {{models}}。",
+    "meterAria": "磁盘：其他文件 {{other}}，模型 {{models}}，可用 {{free}}",
+    "noUsage": {
+      "title": "尚未记录使用历史。",
+      "text": "模型按 LocalAI 可见信息排序：是否加载、固定、被智能体、任务、故障转移链或别名使用，是否安装其他构建，以及能否从模型库重新下载。"
+    },
+    "sizes": {
+      "disk": "大小表示每个模型实际占用的磁盘空间。不包含其他已安装模型也使用的文件，因为移除单个模型会保留这些文件。",
+      "estimate": "无法读取磁盘占用，因此根据模型库文件大小估算。模型库未列出的模型没有估算。"
+    },
+    "sharedWith": "与 {{models}} 共享 {{size}}。除非该模型也被移除，否则这些文件会保留。",
+    "missing": {
+      "note": "配置引用了磁盘上不存在的文件：{{models}}。可能下载未完成，或文件被手动删除。",
+      "item": "配置引用了 {{count}} 个磁盘上不存在的文件。",
+      "item_other": "配置引用了 {{count}} 个磁盘上不存在的文件。"
+    },
+    "unverified": "无法读取部分智能体或任务，因此未标记任何安全移除项。请稍后重试。",
+    "count_one": "{{count}} 个模型",
+    "count_other": "{{count}} 个模型",
+    "selectModel": "选择 {{model}}",
+    "sizeUnknown": "大小未知",
+    "checkingBuilds": "正在检查已安装的构建",
+    "tier": {
+      "safe": {
+        "title": "可安全移除",
+        "hint": "已安装同一模型的其他构建，且没有使用方使用此构建。"
+      },
+      "probably": {
+        "title": "可能安全",
+        "hint": "已关闭且未使用，可从模型库重新下载。"
+      },
+      "call": {
+        "title": "由你决定",
+        "hint": "这些模型均未加载且没有使用方。LocalAI 无法得知最近使用时间，请自行决定。"
+      }
+    },
+    "reason": {
+      "duplicate": "已安装其他构建：{{keep}}。LocalAI 在此主机上会优先选择该构建。",
+      "disabledGallery": "已禁用且未使用，可重新下载。",
+      "disabledLocal": "已禁用且未使用，不在模型库中，无法重新下载。",
+      "idleGallery": "未加载且没有使用方，可重新下载。",
+      "idleLocal": "未加载且没有使用方，不在模型库中，无法重新下载。",
+      "unverified": "无法检查智能体或任务。",
+      "running": "当前已加载。",
+      "pinned": "已固定。",
+      "usedBy": "由 {{by}} 使用。"
+    },
+    "ref": {
+      "agent": "智能体「{{name}}」",
+      "task": "任务「{{name}}」",
+      "chain": "故障转移链「{{name}}」",
+      "alias": "别名「{{name}}」"
+    },
+    "empty": {
+      "title": "没有可释放的空间",
+      "text": "所有已安装模型均已加载、固定或使用中，或者尚未安装模型。"
+    },
+    "effect": {
+      "none": "未选择任何项",
+      "couldFree": "{{count}} 个模型最多可释放 {{amount}}。",
+      "couldFreeUnknown": "可移除 {{count}} 个模型，但大小未知。",
+      "selected_one": "已选择 {{count}} 个模型",
+      "selected_other": "已选择 {{count}} 个模型",
+      "frees": "释放 {{freed}}。可用空间从 {{now}} 增至 {{after}}。",
+      "freesNoDisk": "释放 {{freed}}。",
+      "unknown_one": "{{count}} 项大小未知，未计入。",
+      "unknown_other": "{{count}} 项大小未知，未计入。",
+      "pending": "有移除操作等待完成。请先撤销或等待完成。"
+    },
+    "pickSafe_one": "选择安全项",
+    "pickSafe_other": "选择 {{count}} 个安全项",
+    "remove_one": "移除 {{count}} 个模型",
+    "remove_other": "移除 {{count}} 个模型",
+    "toasts": {
+      "undoMessage_one": "已移除 {{count}} 个模型。{{seconds}} 秒撤销时间结束后将释放 {{amount}}。",
+      "undoMessage_other": "已移除 {{count}} 个模型。{{seconds}} 秒撤销时间结束后将释放 {{amount}}。",
+      "removing_one": "正在删除 {{count}} 个模型…",
+      "removing_other": "正在删除 {{count}} 个模型…",
+      "removed_one": "已删除 {{count}} 个模型。",
+      "removed_other": "已删除 {{count}} 个模型。",
+      "failed": "无法删除 {{model}}：{{message}}",
+      "skipped": "以下模型已在此期间加载，未删除：{{models}}",
+      "abandoned_one": "你已离开页面，因此未删除 {{count}} 个模型。",
+      "abandoned_other": "你已离开页面，因此未删除 {{count}} 个模型。"
+    }
+  },
+  "page": {
+    "back": "模型",
+    "tabs": {
+      "overview": "概览",
+      "logs": "日志",
+      "config": "配置",
+      "label": "此模型的分区",
+      "fit": "适配与内存",
+      "variants": "变体与文件",
+      "usage": "用量与历史"
+    },
+    "install": {
+      "cancel": "取消",
+      "eta": "约剩余 {{time}}",
+      "title": "正在安装 {{build}}",
+      "bytes": "{{done}} / {{total}}",
+      "seconds": "{{count}} 秒",
+      "minutes": "{{count}} 分钟"
+    },
+    "answer": {
+      "install": "安装",
+      "state": "状态",
+      "installing": "安装中",
+      "notInstalled": "未安装",
+      "label": "一览",
+      "fit": "本机适配情况",
+      "does": "功能",
+      "fitLoading": "正在读取估算…",
+      "fitNone": "此模型尚无估算。",
+      "opensIn": "在{{useCases}}中打开。",
+      "opensAfter": "安装后在对应页面打开。",
+      "installingPct": "正在安装 {{percent}}%",
+      "installingNote": "离开此页面后下载仍会继续。",
+      "failed": "安装失败",
+      "notInstalledNote": "安装后即可使用。",
+      "leaves": "模型磁盘将剩余 {{amount}}。",
+      "runningNote": "已加载到内存并就绪。",
+      "idleNote": "已安装，首次使用时加载，也可立即加载。",
+      "disabledNote": "已关闭，启用后可使用。"
+    },
+    "usedBy": {
+      "kind": {
+        "chain": "链",
+        "agent": "智能体",
+        "task": "任务",
+        "alias": "别名"
+      },
+      "title": "使用方",
+      "loading": "正在查找智能体、任务、链和别名…",
+      "none": "没有智能体、任务、故障转移链或别名引用此模型。",
+      "unknown": "未找到使用方，但部分查询无法读取，结果可能不完整。",
+      "partial": "部分查询无法读取，此列表可能不完整。"
+    },
+    "fit": {
+      "fitsGpu": "适合 GPU",
+      "build": "构建",
+      "context": "上下文",
+      "gpuMemory": "GPU 显存",
+      "verdict": "结果",
+      "tableFits": "适合",
+      "dataTable": "数据表",
+      "fitsMemory": "内存足够",
+      "spill": "部分转至 CPU",
+      "over": "无法容纳",
+      "fitsText": "{{context}}上下文需要 {{need}}，可用 {{free}}，剩余 {{spare}}。",
+      "weights": "权重与工作内存",
+      "poolGpu": "GPU，{{memory}}",
+      "poolRam": "系统内存，{{memory}}",
+      "barAria": "{{pool}}：此模型需要 {{need}}。刻度表示本页允许模型使用的 {{limit}}。",
+      "limitNote": "适配评估最多使用 {{percent}}% 内存，与列表中的限制一致。",
+      "chartTitle": "不同上下文大小的内存需求（{{build}}）",
+      "chartTitleRam": "不同上下文大小的系统内存需求（{{build}}）",
+      "limitLabel": "{{pool}}可用 {{memory}}",
+      "systemMemory": "系统内存",
+      "needs": "需求",
+      "tableOver": "无法容纳",
+      "flat": "此模型的内存需求不随上下文大小变化，因此不显示图表。",
+      "footnote": "估算基于模型文件和本机内存。更换构建或上下文大小会改变条形图。",
+      "loading": "正在读取估算",
+      "noMachine": "无法读取本机内存，因此无法判断。",
+      "unavailableTitle": "无估算",
+      "unavailableText": "估算需要模型文件，但模型库未列出此构建的文件。",
+      "unavailableInstalled": "服务器无法读取此模型的文件。文件可能缺失、仍在下载，或格式不支持估算。"
+    },
+    "variants": {
+      "build": "构建",
+      "fitsGpu": "适合 GPU",
+      "fitsServer": "适合",
+      "source": "来源",
+      "status": "状态",
+      "caption": "此模型各构建的大小和适配情况",
+      "chosen": "已选构建",
+      "choose": "使用 {{build}} 构建",
+      "fit": "适配情况",
+      "fitAt": "适配情况基于 {{context}} 上下文",
+      "fitsMemory": "内存足够",
+      "spill": "另需 CPU 内存 {{amount}} GB",
+      "over": "超出 {{amount}} GB",
+      "single": "此模型只有一个构建。",
+      "error": "无法读取构建列表。",
+      "noFiles": "模型库未列出此构建的文件。",
+      "filesCaption": "{{build}}的文件",
+      "notDownloaded": "未下载",
+      "onDisk": "已在磁盘",
+      "downloading": "正在下载 {{percent}}%"
+    },
+    "config": {
+      "saving": "保存中...",
+      "savedLabel": "已保存",
+      "saveFailed": "保存失败：{{message}}",
+      "fullEditor": "打开完整编辑器",
+      "thisModel": "此模型",
+      "generated": "保存后的配置文件",
+      "save": "保存更改",
+      "saved": "部署设置已保存",
+      "loading": "正在读取配置",
+      "loadFailed": "无法读取配置：{{message}}",
+      "appliesNext": "此模型已加载。更改将在下次加载时生效。"
+    },
+    "primary": {
+      "running": "正在运行",
+      "idle": "未加载，将在首次使用时加载。",
+      "disabled": "已关闭，启用后可使用。"
+    },
+    "openDetails": "打开详情",
+    "openFor": "打开 {{model}} 的详情",
+    "loading": "正在加载模型",
+    "chooseBuild": "选择构建",
+    "installBuild": "安装 {{build}}",
+    "walk": {
+      "label": "此列表中的模型",
+      "previous": "上一个模型",
+      "next": "下一个模型",
+      "position": "{{index}} / {{total}}"
+    },
+    "keys": {
+      "walk": "上一个和下一个模型",
+      "tabs": "分区",
+      "back": "返回列表"
+    },
+    "missing": {
+      "title": "没有名为 {{id}} 的模型",
+      "text": "此服务器和模型库中均无此名称的模型。模型可能已被移除或重命名。",
+      "closest": "最接近的匹配项",
+      "back": "返回模型"
+    },
+    "offline": {
+      "installDisabled": "需要模型库",
+      "text": "安装需要网络连接。请检查后重试。",
+      "installedOnly": "显示此服务器已知的已安装模型信息。"
+    },
+    "overview": {
+      "about": "关于",
+      "glance": "适配概览",
+      "status": "状态与使用",
+      "maxContext": "最大上下文",
+      "tokens": "{{size}} 个词元"
+    },
+    "files": {
+      "title": "磁盘文件",
+      "view": "查看文件",
+      "caption": "{{model}}在磁盘上使用的文件及其大小和状态",
+      "total": "{{count}} 个文件，共 {{size}}",
+      "total_other": "{{count}} 个文件，共 {{size}}",
+      "sharedWith": "其他使用方",
+      "sharedNote": "移除此模型时，其他已安装模型仍使用的文件会保留在磁盘上。",
+      "missing": "配置引用了磁盘上不存在的文件。可能下载未完成，或文件被手动删除。",
+      "unavailable": "磁盘占用仅向管理员显示，或者服务器无法读取该信息。"
+    },
+    "usage": {
+      "title": "最近 30 天用量",
+      "emptyTitle": "尚未记录使用历史",
+      "emptyText": "LocalAI 不记录各模型的请求次数、耗时或更改，因此没有可绘制的数据。服务器开始记录后将在此显示。",
+      "missingLabel": "此处将显示的内容",
+      "notRecorded": "未记录",
+      "missing": {
+        "requests": {
+          "name": "每日请求数",
+          "why": "服务器不记录各模型的请求次数。"
+        },
+        "ttft": {
+          "name": "首个词元耗时",
+          "why": "服务器不记录各模型的耗时。"
+        },
+        "loads": {
+          "name": "加载与停止",
+          "why": "服务器不保留模型加载时间的历史。"
+        },
+        "changes": {
+          "name": "配置更改",
+          "why": "服务器不保留模型文件的编辑日志。"
+        }
+      },
+      "known": "服务器当前已知的信息",
+      "count": {
+        "agent_one": "{{count}} 个智能体",
+        "agent_other": "{{count}} 个智能体",
+        "task_one": "{{count}} 个任务",
+        "task_other": "{{count}} 个任务",
+        "chain_one": "{{count}} 条故障转移链",
+        "chain_other": "{{count}} 条故障转移链",
+        "alias_one": "{{count}} 个别名",
+        "alias_other": "{{count}} 个别名"
+      }
+    },
+    "logs": {
+      "note": "后端进程的输出",
+      "fullPage": "打开运行此模型的节点上的日志"
+    }
+  },
+  "placement": {
+    "layers": "GPU 层数",
+    "layersAll": "全部",
+    "context": "上下文大小",
+    "memory": "内存",
+    "fit": {
+      "fits": {
+        "title": "适合 GPU",
+        "text": "GPU 占用 {{gpu}}，可用 {{free}}。这是最快的设置。"
+      },
+      "nogpu": {
+        "title": "未发现 GPU",
+        "text": "此模型在 CPU 上运行，系统内存可用 {{ramFree}}，将使用 {{need}}。速度慢于 GPU。"
+      },
+      "spill": {
+        "title": "部分转至 CPU",
+        "text": "GPU 容纳 {{gpu}}，约 {{cpu}} 保留在系统内存中。速度慢于所有层均在 GPU 上运行。"
+      },
+      "trimmed": {
+        "title": "无法全部容纳",
+        "text": "所有层需要 {{allNeed}}，但可用 {{free}}。llama.cpp 会在加载时减少 GPU 层数，部分模型将在 CPU 上运行，速度较慢。"
+      },
+      "toomany": {
+        "title": "GPU 层数过多",
+        "text": "GPU 需要 {{need}}，但可用 {{free}}。除非关闭适配，llama.cpp 会在加载时降低层数，其他引擎可能加载失败。请减少层数或上下文。"
+      },
+      "cpu": {
+        "title": "仅在 CPU 上运行",
+        "text": "系统内存可用 {{ramFree}}，将使用 {{need}}。速度慢于 GPU。"
+      },
+      "cpu-over": {
+        "title": "内存不足",
+        "text": "需要 {{need}}，但系统内存仅剩 {{ramFree}}。"
+      },
+      "nogpu-over": {
+        "title": "内存不足",
+        "text": "未发现 GPU。需要 {{need}}，但系统内存仅剩 {{ramFree}}。"
+      },
+      "spill-over": {
+        "title": "内存不足",
+        "text": "GPU 容纳 {{gpu}}，其余 {{cpu}} 将保留在系统内存中，但系统内存仅剩 {{ramFree}}。"
+      },
+      "trimmed-over": {
+        "title": "内存不足",
+        "text": "所有层需要 {{allNeed}}，但 GPU 显存可用 {{free}}，剩余的 {{cpu}} 也超出系统内存的 {{ramFree}} 可用空间。"
+      }
+    },
+    "undo": "撤销",
+    "modes": {
+      "auto": "自动",
+      "cpu": "仅 CPU",
+      "custom": "自定义",
+      "autoWrites": "不写入配置"
+    },
+    "bar": {
+      "ram": "系统内存",
+      "gpu": "GPU，{{name}}",
+      "gpuNamed": "GPU {{index}}，{{name}}",
+      "freeAfter": "完成后剩余 {{amount}}",
+      "over": "超出 {{amount}}",
+      "aria": "{{name}}：{{parts}}，总容量 {{capacity}}"
+    },
+    "title": "部署位置",
+    "runOn": "运行此模型的设备",
+    "autoHint": "gpu_layers 保持未设置。LocalAI 请求将所有层放到 GPU 上，llama.cpp 会将其降低到可容纳的层数。其他引擎对未设置值使用各自默认值。",
+    "noGpu": "未发现 GPU，此模型将在 CPU 上运行。",
+    "noMachine": "无法读取本机内存，因此不显示内存视图。",
+    "allLayers": "所有层",
+    "sliderValue": "{{count}} / {{total}} 层在 GPU 上",
+    "noSlider": "未报告此模型的层数，因此不显示滑块。请输入数字，或选择「所有层」，该选项会写入 {{all}}。",
+    "contextTokens": "上下文大小（词元数）",
+    "contextHint": "用于下方条形图中的 KV 缓存估算。",
+    "contextUnset": "未设置，估算使用 {{context}}。",
+    "split": {
+      "title": "跨 GPU 分配",
+      "byFree": "按可用内存分配",
+      "share": "GPU {{index}} 份额",
+      "sliderLabel": "第一个 GPU 的份额",
+      "main": "主 GPU",
+      "gpu": "GPU {{index}}"
+    },
+    "weights": "磁盘权重 {{size}}，内存按 {{context}} 上下文显示。",
+    "noBars": "此选项没有可绘制的数据。",
+    "cluster": "此服务器将模型调度到其他机器，本机设备不能代表模型实际运行位置。因此不按设备显示估算。",
+    "estimateLoading": "正在读取估算",
+    "unavailable": {
+      "title": "估算不可用",
+      "text": "LocalAI 无法读取模型文件，因此无法估算此设置需要的内存。文件可能仍在下载，或格式不支持估算。",
+      "retry": "重新估算"
+    },
+    "legend": {
+      "other": "其他应用",
+      "model": "此模型",
+      "weights": "权重与工作内存",
+      "kv": "上下文（KV 缓存）"
+    },
+    "fitForMe": "自动适配",
+    "fitApplied": {
+      "all": "已设为所有层，可以全部容纳。",
+      "layers": "已设为 {{count}} 层在 GPU 上。"
+    },
+    "fitFailed": {
+      "none": "{{free}}连一层也无法容纳。请减小上下文，或在 CPU 上运行。",
+      "flat": "此模型的估算不随层数变化，需要 {{need}}，可用 {{free}}。请减小上下文。",
+      "unavailable": "无法读取估算，因此无法选择层数。"
+    }
+  },
+  "disk": {
+    "free": "{{amount}} 可用",
+    "low": "磁盘空间不足",
+    "lowShort": "磁盘空间不足。",
+    "stripAria": "模型磁盘：可用 {{free}} / {{total}}。{{low}} 打开清理检查。",
+    "leaves": "下载 {{size}}，完成后剩余 {{amount}}",
+    "notEnough": "下载 {{size}}，磁盘可用空间还差 {{amount}}。",
+    "freeUp": "释放空间"
   }
 }

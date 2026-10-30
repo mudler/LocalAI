@@ -1,4 +1,5 @@
 import en from './i18n/en.js'
+import zh from './i18n/zh-CN.js'
 import { modelFrom as pickModel } from './lib/model.js'
 
 // The one object every factory of the quantization add-on receives. It binds the
@@ -11,6 +12,7 @@ export function createContext(sdk) {
   const h = React.createElement
   const Fragment = React.Fragment
   sdk.locale.define('en', Object.fromEntries(Object.entries(en).filter(([, v]) => typeof v === 'string')))
+  sdk.locale.define('zh-CN', zh)
 
   const t = (key, vars) => sdk.locale.t(key, key, vars)
   // The text of a key, or the fallback when the bundle has none.

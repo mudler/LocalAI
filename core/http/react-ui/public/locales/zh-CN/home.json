@@ -5,27 +5,28 @@
     "nodesOnline": "{{healthy}}/{{total}} 节点在线"
   },
   "resourceGpu": "GPU",
-  "resourceRam": "RAM",
+  "resourceRam": "内存",
   "greeting": {
-    "morning": "Good morning",
-    "afternoon": "Good afternoon",
-    "evening": "Good evening",
-    "night": "Working late"
+    "morning": "早上好",
+    "afternoon": "下午好",
+    "evening": "晚上好",
+    "night": "夜深了"
   },
   "statusLine": {
-    "modelsLoaded_one": "{{count}} model loaded",
-    "modelsLoaded_other": "{{count}} models loaded",
-    "noModelsLoaded": "No models loaded",
-    "nodes_one": "{{count}} node",
-    "nodes_other": "{{count}} nodes",
-    "loadedLabel": "Loaded",
-    "nodesLabel": "Nodes"
+    "modelsLoaded_one": "已加载 {{count}} 个模型",
+    "modelsLoaded_other": "已加载 {{count}} 个模型",
+    "noModelsLoaded": "未加载模型",
+    "nodes_one": "{{count}} 个节点",
+    "nodes_other": "{{count}} 个节点",
+    "loadedLabel": "已加载",
+    "nodesLabel": "节点"
   },
   "assistant": {
     "title": "通过聊天管理 LocalAI",
     "description": "通过与 LocalAI 对话来安装模型、切换后端、编辑配置和查看状态。",
     "open": "打开助手",
-    "tooltip": "通过聊天管理 LocalAI"
+    "tooltip": "通过聊天管理 LocalAI",
+    "dismiss": "关闭"
   },
   "input": {
     "placeholder": "消息...",
@@ -42,7 +43,15 @@
     "dictateEmpty": "未识别到语音。",
     "dictateFailed": "转写失败：{{error}}",
     "dictateNoMic": "麦克风不可用：{{error}}",
-    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。"
+    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。",
+    "pdfReadFailed": "无法读取 {{name}} 中的文本。文件可能是扫描件、已加密或已损坏。",
+    "placeholderFirstRun": "安装模型以开始聊天",
+    "label": "消息",
+    "slashHint": "输入 <kbd>/</kbd> 查看操作",
+    "enterHint": "按 Enter 发送，Shift+Enter 换行",
+    "send": "发送",
+    "removeFile": "移除 {{name}}",
+    "stop": "停止"
   },
   "quickLinks": {
     "manageByChat": "通过聊天管理",
@@ -57,7 +66,7 @@
     "count_other": "已加载 {{count}} 个模型",
     "stop": "停止模型",
     "stopAll": "全部停止",
-    "serving": "Serving"
+    "serving": "服务中"
   },
   "stopDialog": {
     "title": "停止模型",
@@ -85,7 +94,8 @@
     "importModel": "导入模型",
     "docs": "文档",
     "noModelsTitle": "暂无可用模型",
-    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。"
+    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。",
+    "guideLabel": "入门指南"
   },
   "connect": {
     "title": "一个端点，所有 API",
@@ -95,17 +105,157 @@
     "apiReference": "完整 API 参考",
     "copy": "复制",
     "copied": "已复制",
-    "browse": "Browse the API",
-    "hide": "Hide endpoints",
-    "dismiss": "Dismiss"
+    "browse": "浏览 API",
+    "hide": "隐藏端点",
+    "dismiss": "关闭",
+    "hideSection": "隐藏此区域"
   },
   "jump": {
-    "heading": "Jump back in",
+    "heading": "继续之前的对话",
     "models": "Models",
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
     "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "move": "移动",
+    "resume": "继续",
+    "group": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "week": "本周早些时候",
+      "older": "更早"
+    },
+    "messages_one": "{{count}} 条消息",
+    "messages_other": "{{count}} 条消息",
+    "delete": "删除对话",
+    "deleteNamed": "删除对话：{{title}}",
+    "deleted": "已删除「{{title}}」",
+    "undo": "撤销",
+    "dismissToast": "关闭",
+    "showMore_one": "显示 {{count}} 个更早的对话",
+    "showMore_other": "显示 {{count}} 个更早的对话",
+    "emptyTitle": "你的对话将保留在这里。",
+    "emptyBody": "对话按日期分组，并显示回复的模型。用 j 和 k 移动，按 Enter 继续。",
+    "hasImage": "包含图片",
+    "noModel": "无模型",
+    "examples": "斜杠操作"
+  },
+  "starters": {
+    "title": "适合你的硬件的推荐模型",
+    "tier": {
+      "cpu": "仅 CPU",
+      "gpu-small": "GPU",
+      "gpu-mid": "GPU",
+      "gpu-large": "GPU"
+    },
+    "cpuNote": "未检测到 GPU，这些小型模型在 CPU 上也能流畅运行。",
+    "gpuNote": "根据可用显存选择，并为上下文预留空间。",
+    "install": "安装",
+    "installing": "正在安装",
+    "installStarted": "正在安装 {{model}}…",
+    "installFailed": "安装失败：{{message}}"
+  },
+  "picker": {
+    "loading": "正在加载模型",
+    "none": "没有聊天模型",
+    "noneSelected": "未选择模型",
+    "title": "为此消息选择模型",
+    "filter": "筛选模型",
+    "label": "模型",
+    "heading": "聊天模型",
+    "noMatch": "没有匹配的模型。",
+    "warm": "已就绪",
+    "cold": "未加载",
+    "loadedNow": "当前已加载",
+    "installed": "已安装",
+    "vision": "支持图像理解"
+  },
+  "slash": {
+    "label": "操作",
+    "move": "移动",
+    "close": "关闭",
+    "group": {
+      "chat": "聊天",
+      "models": "模型",
+      "go": "前往"
+    },
+    "model": {
+      "label": "切换模型",
+      "desc": "选择其他聊天模型"
+    },
+    "new": {
+      "label": "新建聊天",
+      "desc": "开始新对话"
+    },
+    "chat": {
+      "label": "打开聊天",
+      "desc": "前往聊天页面"
+    },
+    "assistant": {
+      "label": "通过聊天管理",
+      "desc": "通过对话安装和配置模型"
+    },
+    "gallery": {
+      "label": "浏览模型库",
+      "desc": "查找并安装模型"
+    },
+    "installed": {
+      "label": "已安装的模型",
+      "desc": "查看和管理已安装的模型"
+    },
+    "import": {
+      "label": "导入模型",
+      "desc": "添加你自己的模型文件"
+    },
+    "stop": {
+      "label": "停止模型",
+      "desc": "卸载模型以释放内存"
+    },
+    "studio": {
+      "label": "打开工作室",
+      "desc": "创建图像、音频和视频"
+    },
+    "settings": {
+      "label": "设置",
+      "desc": "更改 LocalAI 的运行方式"
+    },
+    "docs": {
+      "label": "文档",
+      "desc": "在新标签页打开 localai.io"
+    }
+  },
+  "strip": {
+    "label": "内存",
+    "noneLoaded": "未加载模型",
+    "modelsLoaded_one": "个模型已加载",
+    "modelsLoaded_other": "个模型已加载",
+    "modelsOn_one": "个模型运行于",
+    "modelsOn_other": "个模型运行于",
+    "nodes_one": "个节点",
+    "nodes_other": "个节点",
+    "gpus_one": "{{count}} 个 GPU",
+    "gpus_other": "{{count}} 个 GPU",
+    "memoryLabel": "已用内存",
+    "ramLabel": "已用系统内存",
+    "nodesLabel": "节点",
+    "progress": "{{name}}的进度",
+    "staging": "正在暂存 {{name}}",
+    "stagingTo": "至 {{node}}",
+    "failed": "无法暂存",
+    "firstRun": "没有运行中的模型。加载模型后会在此显示内存用量。"
+  },
+  "notice": {
+    "loadFailedTitle": "LocalAI 无法加载你的模型",
+    "loadFailedBody": "服务器未响应。请检查服务是否运行，然后重试。",
+    "retry": "重试",
+    "stagingFailedTitle": "无法暂存 {{name}}",
+    "stagingFailedBody": "无法将模型发送到节点。其他内容未更改。",
+    "stagingFailedBodyNode": "无法将模型发送到 {{node}}。其他内容未更改。",
+    "openActivity": "打开活动",
+    "details": "详情"
+  },
+  "library": {
+    "label": "资源库"
   }
 }

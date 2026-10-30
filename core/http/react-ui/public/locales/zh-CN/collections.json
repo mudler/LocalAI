@@ -10,7 +10,8 @@
     "delete": "删除",
     "viewDetails": "查看详情",
     "resetCollection": "重置集合",
-    "deleteCollection": "删除集合"
+    "deleteCollection": "删除集合",
+    "newCollection": "新建集合"
   },
   "sections": {
     "yourCollections": "您的集合",
@@ -19,7 +20,10 @@
   "empty": {
     "title": "暂无集合",
     "text": "集合让您可以将文档组织成知识库，智能体可以通过 RAG（检索增强生成）进行搜索。在上方创建一个集合以开始。",
-    "noPersonal": "您还没有任何集合。"
+    "noPersonal": "您还没有任何集合。",
+    "stepCreate": "创建集合。",
+    "stepFill": "添加文件或网页。",
+    "stepAsk": "提问查看检索结果，然后将集合提供给智能体。"
   },
   "deleteDialog": {
     "title": "删除集合",
@@ -38,6 +42,101 @@
     "deleted": "集合 \"{{name}}\" 已删除",
     "deleteFailed": "删除集合失败：{{message}}",
     "reset": "集合 \"{{name}}\" 已重置",
-    "resetFailed": "重置集合失败：{{message}}"
-  }
+    "resetFailed": "重置集合失败：{{message}}",
+    "entriesFailed": "加载条目失败：{{message}}",
+    "sourcesFailed": "加载来源失败：{{message}}",
+    "uploaded": "已添加 {{file}}",
+    "sourceAdded": "来源已添加",
+    "sourceFailed": "添加来源失败：{{message}}",
+    "sourceRemoved": "来源已移除",
+    "sourceRemoveFailed": "移除来源失败：{{message}}",
+    "contentFailed": "加载条目内容失败：{{message}}",
+    "entryDeleted": "条目已删除",
+    "entryDeleteFailed": "删除条目失败：{{message}}"
+  },
+  "newLabel": "新集合名称",
+  "filter": {
+    "label": "筛选集合",
+    "placeholder": "筛选集合",
+    "show": "显示",
+    "all": "全部",
+    "used": "已使用",
+    "unused": "尚未使用",
+    "none": "没有匹配的集合。"
+  },
+  "list": {
+    "label": "集合"
+  },
+  "pane": {
+    "back": "所有集合",
+    "pick": "选择集合以搜索、添加内容或查看使用情况。",
+    "counts": "{{files}} 个文件，{{sources}} 个网页来源",
+    "failed": "{{count}} 项失败",
+    "addSource": "添加来源"
+  },
+  "add": {
+    "file": "文件",
+    "upload": "上传",
+    "url": "网页或订阅源",
+    "interval": "刷新间隔",
+    "intervalPlaceholder": "分钟",
+    "addUrl": "添加 URL",
+    "adding": "正在添加…"
+  },
+  "ask": {
+    "title": "尝试提问",
+    "label": "向此集合提问",
+    "placeholder": "输入问题",
+    "search": "搜索",
+    "searching": "正在搜索…",
+    "alone": "仅搜索此集合，不涉及聊天、模型或智能体。",
+    "tune": "调整搜索",
+    "max": "返回的段落数",
+    "none": "此问题没有检索结果。",
+    "ranked": "{{count}} 个段落，按相似度排序"
+  },
+  "sources": {
+    "title": "网页来源",
+    "none": "没有网页来源。添加 URL 以在此集合中保存网页或订阅源。",
+    "every": "每 {{count}} 分钟刷新",
+    "manual": "不自动刷新",
+    "updated": "最近更新于 {{when}}",
+    "never": "尚未抓取",
+    "remove": "移除 {{url}}",
+    "removeTitle": "移除来源"
+  },
+  "entries": {
+    "title": "文件",
+    "none": "尚无文件。添加文件或网页以填充此集合。",
+    "failed": "无法读取此集合的部分内容。",
+    "indexing": "正在建立索引…",
+    "uploadFailed": "上传失败",
+    "retry": "重试",
+    "dismiss": "关闭",
+    "view": "查看 {{name}}",
+    "viewTitle": "查看内容",
+    "delete": "删除 {{name}}",
+    "deleteTitle": "删除条目",
+    "chunks": "{{count}} 个分块",
+    "close": "关闭",
+    "empty": "（空）",
+    "noContent": "没有可用内容。",
+    "adding": "正在添加文件"
+  },
+  "removeSource": {
+    "title": "移除来源",
+    "message": "移除此来源？已添加的内容会保留，直到你删除对应条目。",
+    "confirm": "移除"
+  },
+  "deleteEntry": {
+    "title": "删除条目",
+    "message": "确定删除此条目？",
+    "confirm": "删除"
+  },
+  "api": {
+    "title": "索引、API 与隐私",
+    "index": "文件添加时会被拆分为段落并建立索引。问题按相似度匹配段落，返回的每个段落都带有分数。",
+    "privacy": "上传的文件保存在此服务器上。网页来源按你设置的间隔从指定地址抓取。"
+  },
+  "loading": "正在加载…"
 }

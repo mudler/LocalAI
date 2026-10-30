@@ -70,7 +70,9 @@
     "manualPickTooltip": "自动检测不会路由到此后端。如果您知道这就是您想要的，请在此处选择。",
     "optionsSummary": "后端、名称、描述、量化…",
     "modalityAny": "全部",
-    "modalityFilter": "按模态筛选后端"
+    "modalityFilter": "按模态筛选后端",
+    "backendInstallDisabled": "此后端尚未安装，且此服务器不支持安装后端。请先在 LocalAI 外部安装后端，否则导入会被拒绝。",
+    "yamlHint": "按原样写入模型目录，不进行检测或下载。"
   },
   "modality": {
     "text": "文本 LLM",
@@ -82,11 +84,20 @@
     "reranker": "重排器",
     "detection": "对象检测",
     "vad": "语音活动检测",
-    "other": "其他"
+    "other": "其他",
+    "3d": "3D 网格生成",
+    "3d_animation": "3D 动画",
+    "motion": "动作捕捉"
   },
   "estimate": {
     "downloadLabel": "下载",
-    "vramLabel": "加载时显存"
+    "vramLabel": "加载时显存",
+    "fit": {
+      "fits": "可放入 {{free}} 可用内存中。",
+      "tight": "接近 {{free}} 可用内存的上限。",
+      "over": "超出 {{free}} 可用内存。"
+    },
+    "diskShort": "超出模型磁盘的 {{free}} 可用空间。"
   },
   "progress": {
     "label": "导入进度",
@@ -115,10 +126,83 @@
       "title": "本机"
     },
     "oci": {
-      "title": "OCI registry"
+      "title": "OCI 镜像仓库"
     },
     "ollama": {
       "title": "Ollama"
     }
+  },
+  "steps": {
+    "source": "来源",
+    "import": "导入",
+    "label": "进度",
+    "review": "检查",
+    "done": "完成"
+  },
+  "found": {
+    "kind": {
+      "url": "直接 URL",
+      "huggingface": "Hugging Face 仓库",
+      "config": "配置文件",
+      "oci": "OCI 镜像",
+      "ollama": "Ollama 模型",
+      "local": "此主机上的文件",
+      "unknown": "无法识别"
+    },
+    "ref": {
+      "config": "文件",
+      "oci": "图像",
+      "ollama": "模型",
+      "unknown": "来源",
+      "huggingface": "仓库",
+      "url": "地址",
+      "local": "路径"
+    },
+    "file": "文件",
+    "backend": "后端",
+    "title": "LocalAI 能识别的信息",
+    "untouched": "此处仅识别来源格式，尚未访问来源或验证其是否为模型。LocalAI 会在导入时解析。",
+    "examples": "或从示例开始",
+    "backendAuto": "开始导入时，根据来源内容选择。",
+    "backendChosen": "由你选择",
+    "backendDownload": "由你选择，先下载后端",
+    "adjust": "调整名称、后端和量化方式"
+  },
+  "ambiguity": {
+    "dismiss": "关闭",
+    "title": "有多个后端可以运行此模型",
+    "tts": "这似乎是文本转语音模型。请选择下方后端之一以继续。",
+    "asr": "这似乎是语音识别模型。请选择下方后端之一以继续。",
+    "embeddings": "这似乎是嵌入模型。请选择下方后端之一以继续。",
+    "image": "这似乎是图像生成模型。请选择下方后端之一以继续。",
+    "reranker": "这似乎是重排序或分类模型。请选择下方后端之一以继续。",
+    "detection": "这似乎是目标检测模型。请选择下方后端之一以继续。",
+    "other": "这似乎是{{modality}}模型，但 LocalAI 无法自动选择后端。请选择下方后端之一以继续。",
+    "installed": "已安装。",
+    "notInstalled": "尚未安装。LocalAI 会先下载后端。",
+    "use": "使用 {{name}}",
+    "useTitle": "使用 {{name}} 导入此模型",
+    "useInstallTitle": "使用 {{name}}。LocalAI 会先安装此后端。"
+  },
+  "preview": {
+    "title": "请求预览",
+    "note": "这是表单将发送的内容。LocalAI 不提供模型配置预览，配置会在导入开始后写入。「编写 YAML」允许你自行编写配置。"
+  },
+  "checks": {
+    "heading": "检查项",
+    "note": "仅包含导入前可以确认的信息。"
+  },
+  "done": {
+    "title": "模型已导入",
+    "titleNamed": "{{name}}已导入",
+    "text": "模型已注册到 LocalAI。可在「模型」中打开，或开始与其聊天。",
+    "chat": "与 {{name}} 聊天",
+    "models": "在「模型」中打开",
+    "another": "导入其他模型"
+  },
+  "bar": {
+    "empty": "输入来源以继续。",
+    "ready": "导入 {{ref}} 并写入模型配置。开始后才能获知大小。",
+    "working": "正在导入，进度显示在上方。"
   }
 }

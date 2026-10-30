@@ -2,13 +2,13 @@
   "activity": {
     "title": "Activity",
     "supporting": "Installs, downloads and removals on this instance.",
-    "hide": "Hide",
-    "moveToHistory": "Move to history",
-    "moreCount": "{{count}} more",
-    "waitingForInstaller": "waiting for the installer",
-    "progressLabel": "Progress for {{name}}",
-    "toNode": "to {{node}}",
-    "nodesDone": "{{done}} of {{total}} nodes done",
+    "hide": "隐藏",
+    "moveToHistory": "移至历史记录",
+    "moreCount": "另有 {{count}} 项",
+    "waitingForInstaller": "等待安装程序",
+    "progressLabel": "{{name}}的进度",
+    "toNode": "至 {{node}}",
+    "nodesDone": "已完成 {{done}} / {{total}} 个节点",
     "timeLeft": "{{value}} left",
     "cancel": "Cancel",
     "cancelLabel": "Cancel {{name}}",
@@ -27,27 +27,27 @@
       "downloading": "Downloading"
     },
     "kind": {
-      "model": "model",
-      "backend": "backend"
+      "model": "模型",
+      "backend": "后端"
     },
     "verb": {
-      "installing": "Installing {{kind}}",
-      "installed": "Installed {{kind}}",
-      "removed": "Removed {{kind}}",
-      "staged": "Staged model",
-      "failed": "Couldn't install {{kind}}",
-      "queued": "Queued",
-      "staging": "Staging model",
-      "removing": "Removing {{kind}}",
-      "failedRemoval": "Couldn't remove {{kind}}",
-      "failedStaging": "Couldn't stage model"
+      "installing": "正在安装{{kind}}",
+      "installed": "已安装{{kind}}",
+      "removed": "已移除{{kind}}",
+      "staged": "模型已暂存",
+      "failed": "无法安装{{kind}}",
+      "queued": "已排队",
+      "staging": "正在暂存模型",
+      "removing": "正在移除{{kind}}",
+      "failedRemoval": "无法移除{{kind}}",
+      "failedStaging": "无法暂存模型"
     },
     "phase": {
-      "resolving": "Resolving files",
-      "downloading": "Downloading",
-      "verifying": "Verifying",
-      "committing": "Finalizing",
-      "persisting": "Saving configuration"
+      "resolving": "正在解析文件",
+      "downloading": "正在下载",
+      "verifying": "正在校验",
+      "committing": "正在完成",
+      "persisting": "正在保存配置"
     },
     "clearHistory": "Clear history",
     "inProgress": "In progress",
@@ -104,10 +104,11 @@
       "apikeys": "API 密钥",
       "agents": "智能体任务",
       "agentpool": "智能体池",
-      "assistant": "LocalAI Assistant",
+      "assistant": "LocalAI 助手",
       "distributed": "分布式",
       "responses": "响应"
-    }
+    },
+    "autoUpgradeAddons": "自动升级附加组件"
   },
   "backends": {
     "lifecycle": {
@@ -192,7 +193,30 @@
   },
   "usage": {
     "title": "使用情况",
-    "subtitle": "API 令牌使用统计"
+    "subtitle": "API 令牌使用统计",
+    "sources": {
+      "tab": "来源",
+      "mixTitle": "来源分布",
+      "ribbonAria": "{{apikey}}% API 密钥，{{web}}% Web 界面，{{legacy}}% 旧版来源",
+      "topSources": "主要来源随时间的变化",
+      "searchPlaceholder": "按名称或前缀搜索",
+      "sortBy": "排序",
+      "sortTokens": "词元数",
+      "sortRequests": "请求数",
+      "sortLastUsed": "最近使用",
+      "sortName": "名称",
+      "sortUser": "用户",
+      "webUI": "Web 界面",
+      "legacy": "旧版来源",
+      "revoked": "已撤销",
+      "filteredTo": "已筛选为：{{name}}",
+      "clearFilter": "清除筛选",
+      "other": "其他（{{count}}）",
+      "noTrafficShort": "此时间段内没有请求。",
+      "noKeysYet": "收到请求后，这里将按来源显示明细。",
+      "createKey": "创建你的第一个 API 密钥",
+      "truncatedWarning": "显示前 200 个密钥。请使用筛选进一步缩小范围。"
+    }
   },
   "explorer": {
     "title": "资源浏览器",
@@ -253,5 +277,10 @@
     "subtitle": "此 LocalAI 实例上已加载的模型及其占用的主机容量。",
     "scaleOut": "添加机器",
     "hideScaleOut": "隐藏设置"
+  },
+  "tabs": {
+    "users": "用户",
+    "invites": "邀请",
+    "keys": "API 密钥"
   }
 }

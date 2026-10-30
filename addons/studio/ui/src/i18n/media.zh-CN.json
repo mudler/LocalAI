@@ -3,14 +3,16 @@
     "tabs": {
       "images": "图像",
       "video": "视频",
-      "tts": "TTS",
+      "tts": "文本转语音",
       "sound": "声音",
-      "transform": "Transform",
-      "overview": "Overview"
+      "transform": "音频变换",
+      "overview": "概览",
+      "diarization": "说话人分离",
+      "threed": "3D"
     },
     "overview": {
       "eyebrow": "{{ready}} of {{total}} modalities ready",
-      "title": "Studio",
+      "title": "工作室",
       "subtitle": "Generate images, video, 3D, speech and sound with the models on this machine.",
       "canMake": "What you can make",
       "running": "Running now",
@@ -29,9 +31,368 @@
       }
     },
     "groups": {
-      "create": "Create",
-      "voice": "Voice",
-      "transform": "Transform"
+      "create": "创建",
+      "voice": "声音",
+      "transform": "音频变换"
+    },
+    "composer": {
+      "prompt": "提示词",
+      "model": "模型",
+      "size": "大小",
+      "generate": "生成",
+      "startFrom": "起始模板",
+      "title": "你想创作什么？",
+      "lede": "描述你的想法，工作室会推荐类型。Alt+1 至 7 可直接选择。",
+      "startTyping": "开始输入",
+      "placeholder": {
+        "images": "描述你想要的图像…",
+        "video": "描述镜头：主体、运镜、光线…",
+        "tts": "输入要朗读的文字…",
+        "sound": "描述声音或音乐…"
+      },
+      "fileLead": {
+        "threed": "3D 将一张图片变成物体。从下方图片开始，或在下一页添加文件。",
+        "transform": "音频变换可清理录音或转换音色。从下方录音开始，或在下一页添加文件。",
+        "diarization": "说话人分离可识别录音中谁在何时说话。从下方录音开始，或在下一页添加文件。"
+      },
+      "starters": "起始示例",
+      "soundsLike": "似乎是{{type}}。",
+      "soundsLikeMissing": "似乎是{{type}}，但尚未安装{{type}}模型。",
+      "switchTo": "切换至{{type}}",
+      "seeNeeds": "查看所需条件",
+      "noModel": "未安装模型",
+      "count": "数量",
+      "countOption_one": "{{count}} 张图像",
+      "countOption_other": "{{count}} 张图像",
+      "sourceNone": "从零开始",
+      "sourceOnPage": "在下一页添加文件",
+      "fit": {
+        "fits": "需要 {{need}}，可以容纳，剩余 {{amount}} GB",
+        "spill": "需要 {{need}}，其中 {{amount}} GB 转至系统内存",
+        "over": "需要 {{need}}，超出本机容量 {{amount}} GB"
+      },
+      "whyModel": "请先安装{{type}}模型",
+      "whyPrompt": "请先填写提示词",
+      "openType": "打开{{type}}",
+      "firstRun": "尚未安装任何模型。请先安装需要的模型，其他模型可稍后按需添加。"
+    },
+    "work": {
+      "results_other": "{{count}} 个结果",
+      "nResults_other": "{{count}} 个结果",
+      "clear": "清除历史",
+      "clearConfirm": "清除历史",
+      "all": "全部",
+      "untitled": {
+        "sound": "声音",
+        "images": "图片",
+        "video": "短片",
+        "threed": "3D 物体",
+        "tts": "语音",
+        "transform": "变换后的音频",
+        "diarization": "录音"
+      },
+      "title": "你的作品",
+      "results_one": "{{count}} 个结果",
+      "nResults_one": "{{count}} 个结果",
+      "group": "将相关结果分组",
+      "clearTitle": "清空作品历史？",
+      "clearBody": "这会从此浏览器移除结果和收藏列表。已生成的文件仍保留在服务器上。",
+      "filters": "筛选作品",
+      "favourites": "收藏",
+      "favourite": "收藏",
+      "open": "打开 {{title}}",
+      "openProject": "打开 {{title}}，包含 {{count}} 个相互衍生的结果",
+      "project": "项目",
+      "emptyTitle": "此处尚无内容",
+      "emptyBody": "创作结果会显示在这里，方便再次查找和继续创作。",
+      "emptyFilterTitle": "尚无{{filter}}",
+      "emptyFilterBody": "选择其他筛选条件，或创作新内容。",
+      "fileGone": "文件已不在服务器上"
+    },
+    "lineage": {
+      "prompt": "提示词",
+      "file": "文件",
+      "ready": "已就绪",
+      "branch": "从这里分支",
+      "cancel": "取消",
+      "promptLabel": "提示词",
+      "download": "下载",
+      "draft": "生成草稿",
+      "back": "你的作品",
+      "sub_one": "{{count}} 个结果",
+      "sub_other": "{{count}} 个相互衍生的结果",
+      "subOne": "一个结果",
+      "board": "从左侧提示词查看这些结果的生成过程",
+      "suggested": "推荐",
+      "needsModel": "需要{{type}}模型",
+      "dock": "已选结果",
+      "details": "显示详情",
+      "take": "作为新版本运行",
+      "openIn": "在{{type}}中打开",
+      "newBranch": "新分支：{{step}}",
+      "fromResult": "来自 {{title}}",
+      "makeFrom": "基于此结果创作",
+      "targets": "下一步创作类型",
+      "describe": "描述内容",
+      "keeps": "保留原始结果。打开工作区并填入内容，点击「生成」前不会运行。",
+      "continue": "基于此结果继续",
+      "took": "耗时 {{seconds}} 秒",
+      "speakers_one": "{{count}} 位说话人",
+      "speakers_other": "{{count}} 位说话人",
+      "noInput": "未保留原始输入，无法按原样重新运行。",
+      "noBranch": "尚无功能支持以{{type}}作为起点。",
+      "cannotStart": "{{page}}页面尚不支持以{{what}}作为起点。",
+      "goneTitle": "此结果已不在此浏览器中",
+      "goneBody": "可能已从历史中清除。请返回作品列表查看剩余内容。"
+    },
+    "handoff": {
+      "remove": "移除",
+      "aResult": "工作室的结果",
+      "loading": "正在加载 {{name}} 作为起点…",
+      "ready": "以 {{name}} 为起点。",
+      "missing": "源结果已不在此浏览器的历史中，无法作为起点。仍可在下方添加文件。",
+      "error": "无法加载 {{name}}。服务器可能已清理文件。可在下方添加文件。"
+    },
+    "error": {
+      "retry": "重试",
+      "title": "工作室无法读取已安装的模型",
+      "body": "模型列表未加载，工作室无法判断哪些类型已就绪。下方作品不受影响。"
+    },
+    "workspace": {
+      "sources": {
+        "endImage": "结束图像",
+        "audio": "音频",
+        "startImage": "从图像开始",
+        "chosen": "已选文件",
+        "reference": "参考"
+      },
+      "fields": {
+        "model": "模型",
+        "prompt": "文本",
+        "size": "尺寸",
+        "count": "数量",
+        "steps": "步数",
+        "seed": "种子",
+        "negative": "负面提示词",
+        "duration": "时长",
+        "fps": "帧率",
+        "frames": "帧数",
+        "cfg": "CFG",
+        "quality": "质量",
+        "background": "背景",
+        "voice": "音色",
+        "instructions": "表达方式",
+        "mode": "模式",
+        "caption": "描述",
+        "lyrics": "歌词",
+        "bpm": "每分钟节拍数",
+        "key": "调性",
+        "language": "语言",
+        "timesignature": "拍号",
+        "instrumental": "纯音乐",
+        "think": "思考模式",
+        "params": "参数",
+        "speakers": "说话人",
+        "detail": "细节"
+      },
+      "download": "下载",
+      "failed": {
+        "retry": "重试",
+        "traces": "查看追踪以了解详情",
+        "title": "未能完成",
+        "note": "你的提示词和设置仍然保留。"
+      },
+      "transform": {
+        "noModel": "请选择一个模型",
+        "noAudio": "请选择音频文件",
+        "done": "音频已变换",
+        "inputGone": "此次运行使用的音频已不在服务器上。请重新添加后运行。",
+        "loadReference": "请先加载参考音频",
+        "noMic": "此浏览器不提供麦克风访问",
+        "recorded": "已录制带有参考回声的麦克风音频。点击「变换」测试回声消除。",
+        "echoFailed": "回声测试失败：{{message}}",
+        "recording": "正在录音 {{seconds}} 秒",
+        "whyAudio": "请先添加音频文件",
+        "waiting": "音频已就绪，等待变换",
+        "paramCount_one": "{{count}} 个参数",
+        "paramCount_other": "{{count}} 个参数"
+      },
+      "auto": "自动",
+      "sound": {
+        "more": "更多选项",
+        "generated": "声音已生成",
+        "noCaption": "请输入描述或歌词"
+      },
+      "runAgain": "再次运行",
+      "sourcesLabel": "起点",
+      "lede": {
+        "images": "文生图、图生图、参考图像",
+        "video": "文生视频与图生视频",
+        "threed": "输入一张图片，生成一个 3D 物体",
+        "tts": "文本转语音，支持克隆的模型可使用已保存音色",
+        "sound": "根据描述生成音乐和声音",
+        "transform": "清理录音或转换音色",
+        "diarization": "识别谁在何时说话"
+      },
+      "changedFrom": "相对此版本的更改：",
+      "edited": "已编辑",
+      "useIn": "用于",
+      "rerun": "使用修改重新运行",
+      "lineage": "衍生关系",
+      "tools": "结果操作",
+      "from": "来自",
+      "fromGone": "来自此浏览器中已不存在的结果（{{edge}}）",
+      "strip": {
+        "title": "最近结果",
+        "allWork": "所有作品",
+        "noFavourites": "尚无收藏。为结果标星以保留在此处。"
+      },
+      "threed": {
+        "whyImage": "请先添加图片"
+      },
+      "choose": "选择",
+      "replace": "替换",
+      "dropHint": "或拖放到此处",
+      "diarization": {
+        "whyFile": "请先选择录音",
+        "hint": "音频或视频，也可拖放到此处",
+        "timeline": "{{length}}内 {{count}} 位说话人的时间线",
+        "segmentCount_one": "{{count}} 个片段",
+        "segmentCount_other": "{{count}} 个片段",
+        "talk": "说话 {{seconds}} 秒，占 {{percent}}%",
+        "notKept": "未保留录音和转录文本，仅显示此次运行的摘要。请携带文件重新运行以查看时间线。",
+        "empty": "选择录音以查看谁在何时说话"
+      }
+    },
+    "install": {
+      "button": "安装 {{model}}",
+      "title": "未安装{{type}}模型",
+      "size": "下载大小为 {{size}}。",
+      "sizeUnknown": "未列出下载大小。",
+      "need": "运行时约需 {{need}} 内存。",
+      "needUnknown": "未列出内存需求。",
+      "free": "当前可用 {{free}}。",
+      "nothingStarts": "安装前不会启动任何操作。",
+      "installing": "正在安装 {{model}}",
+      "started": "正在安装 {{model}}",
+      "failed": "安装未启动：{{message}}",
+      "galleryDown": "无法连接模型库，因此没有推荐。请检查连接，或手动添加模型。",
+      "noneListed": "模型库未列出{{type}}模型。",
+      "browse": "浏览所有模型"
+    },
+    "tabState": {
+      "on": "（已安装模型）",
+      "off": "（未安装模型）"
+    },
+    "edges": {
+      "take": "版本",
+      "animate": "动画",
+      "to-3d": "转为 3D",
+      "variation": "变体",
+      "transform": "变换",
+      "diarize": "说话人识别",
+      "soundtrack": "配乐",
+      "turntable": "转台",
+      "upscale": "放大"
+    },
+    "steps": {
+      "animate": {
+        "title": "制作动画",
+        "why": "将此图片变为短片",
+        "template": "缓慢推进，轻微自然运动"
+      },
+      "to-3d": {
+        "title": "转为 3D",
+        "why": "构建可旋转查看的物体",
+        "plain": "以此图片开始 3D 生成。在下一页选择模型和选项。"
+      },
+      "variation": {
+        "title": "变体",
+        "why": "修改后生成另一版本"
+      },
+      "transform": {
+        "title": "音频变换",
+        "why": "清理音频或转换音色",
+        "plain": "对此音频进行变换。在下一页选择模型和选项。"
+      },
+      "diarize": {
+        "title": "识别说话人",
+        "why": "在时间线上标注每位说话人",
+        "plain": "在说话人分离中打开此录音。在下一页选择模型。"
+      },
+      "soundtrack": {
+        "title": "添加配乐",
+        "why": "与画面匹配的声音"
+      },
+      "turntable": {
+        "title": "转台短片",
+        "why": "从各个角度展示物体"
+      },
+      "upscale": {
+        "title": "放大",
+        "why": "提高此图像的分辨率。"
+      }
+    },
+    "kinds": {
+      "video": "视频",
+      "mesh": "3D 物体"
+    },
+    "upscale": {
+      "model": "放大模型",
+      "scale": "缩放倍数",
+      "source": "源图像",
+      "loading": "正在放大…",
+      "failed": "放大失败：{{message}}",
+      "noResult": "未返回输出图像。"
+    },
+    "starters": {
+      "images": [
+        {
+          "label": "晨光中的港口",
+          "text": "晨光中的渔港，柔和色彩的房屋，绵长倒影，35 毫米胶片颗粒感"
+        },
+        {
+          "label": "剪纸群山",
+          "text": "层叠的青绿色与琥珀色剪纸群山，轻柔薄雾"
+        },
+        {
+          "label": "蕨类微距",
+          "text": "挂满露珠的蕨类微距照片，浅景深"
+        }
+      ],
+      "video": [
+        {
+          "label": "雾林移镜",
+          "text": "日出时分，在雾气笼罩的松林中缓慢移动镜头"
+        },
+        {
+          "label": "黑沙海浪",
+          "text": "海浪涌上黑色沙滩，无人机镜头"
+        }
+      ],
+      "tts": [
+        {
+          "label": "欢迎词",
+          "text": "欢迎参加港口游览。第一班船六点出发，面包店五点开门。"
+        },
+        {
+          "label": "发行说明",
+          "text": "3.2 版本已发布，新增更快的调度器，并修复了模型卸载问题。"
+        }
+      ],
+      "sound": [
+        {
+          "label": "低保真钢琴",
+          "text": "低保真钢琴伴随雨滴敲打玻璃的声音"
+        },
+        {
+          "label": "松林风声",
+          "text": "风穿过松林的声音，不要音乐"
+        }
+      ],
+      "threed": [],
+      "transform": [],
+      "diarization": []
     }
   },
   "image": {
@@ -56,7 +417,7 @@
       "refImagesAdded_other": "已添加 {{count}} 张图像"
     },
     "actions": {
-      "view": "View",
+      "view": "视图",
       "generate": "生成",
       "generating": "生成中..."
     },
@@ -74,7 +435,7 @@
       "prompt": "提示词",
       "promptPlaceholder": "描述您想要生成的视频...",
       "duration": "时长（秒）",
-      "fps": "FPS",
+      "fps": "帧率",
       "size": "尺寸",
       "advanced": "高级设置",
       "seed": "随机种子",
@@ -116,7 +477,17 @@
     "toasts": {
       "noText": "请输入文本",
       "noModel": "请选择一个模型",
-      "generateFailed": "生成失败"
+      "generateFailed": "生成失败",
+      "generated": "语音已生成"
+    },
+    "voiceLibrary": {
+      "cloningReady": "声音克隆",
+      "loading": "正在加载已保存的声音档案…",
+      "modelDefault": "使用模型默认值",
+      "empty": "尚无已保存的声音档案。",
+      "create": "创建档案",
+      "manage": "管理声音档案库",
+      "namedVoiceHint": "此模型不接受参考音频档案。你仍可输入其后端支持的说话人名称。"
     }
   },
   "sound": {
@@ -132,7 +503,15 @@
       "lyricsPlaceholder": "用于声乐生成的歌词",
       "advanced": "高级设置",
       "seed": "随机种子",
-      "seedPlaceholder": "随机"
+      "seedPlaceholder": "随机",
+      "instrumental": "纯音乐",
+      "bpm": "每分钟节拍数",
+      "timesignature": "拍号",
+      "keyscale": "调性/音阶",
+      "vocalLanguagePlaceholder": "例如：中文",
+      "caption": "描述",
+      "simple": "简单",
+      "thinkMode": "思考模式"
     },
     "actions": {
       "generate": "生成",
@@ -143,6 +522,16 @@
       "noPrompt": "请输入提示词",
       "noModel": "请选择一个模型",
       "generateFailed": "生成失败"
+    },
+    "expansion": {
+      "label": "提示词扩展模型",
+      "placeholder": "选择模型或使用后端默认值",
+      "backendDefault": "后端默认值",
+      "choose": "选择聊天模型或后端默认值以继续。",
+      "loading": "正在加载已安装的聊天模型…",
+      "error": "无法加载聊天模型。请选择后端默认值，或返回此标签页重试。",
+      "noChat": "未安装聊天模型。请选择后端默认值以使用音频后端。",
+      "help": "聊天模型将描述扩展为风格和歌词。后端默认值沿用音频后端现有的提示词行为。"
     }
   },
   "talk": {
@@ -188,8 +577,303 @@
     "cleared": "历史已清除"
   },
   "request": {
-    "heading": "Request",
-    "copyCurl": "Copy as curl",
-    "copied": "Copied"
+    "heading": "请求",
+    "copyCurl": "复制为 curl",
+    "copied": "已复制"
+  },
+  "threed": {
+    "animation": {
+      "pause": "暂停",
+      "timeline": "时间线",
+      "skeletonHint": "生成动画骨架，不包含网格或蒙皮。",
+      "preview": "动画骨架预览",
+      "play": "播放",
+      "reset": "重置视图",
+      "zoom": "缩放",
+      "inputTooLong": "输入超出 {{limit}} 字节限制。",
+      "fileTooLarge": "所选文件过大。",
+      "readFailed": "无法读取所选文件。"
+    },
+    "labels": {
+      "model": "模型",
+      "advanced": "高级设置",
+      "seed": "随机种子",
+      "seedPlaceholder": "随机",
+      "image": "输入图像",
+      "quality": "质量",
+      "quality_auto": "自动（最佳可用质量）",
+      "quality_coarse": "粗略预览（快速）",
+      "quality_512": "512³ 精细",
+      "quality_1024": "1024³ 级联（较慢）",
+      "background": "背景",
+      "background_auto": "自动移除纯色背景",
+      "background_keep": "保留原始背景",
+      "background_black": "移除黑色",
+      "background_white": "移除白色",
+      "steps": "形状步数",
+      "textureSteps": "材质步数",
+      "guidance": "引导强度"
+    },
+    "actions": {
+      "generate": "生成",
+      "generating": "生成中...",
+      "remesh": "应用网格重建",
+      "remeshing": "正在应用网格重建…",
+      "showOriginal": "显示原始模型",
+      "download": "下载 GLB"
+    },
+    "toasts": {
+      "noModel": "请选择一个模型",
+      "noImage": "请提供输入图像",
+      "noResults": "未生成模型"
+    },
+    "title": "3D 生成",
+    "remesh": {
+      "title": "适合打印的水密网格重建",
+      "detail": "网格重建细节",
+      "coarser": "较粗 · 更快",
+      "finer": "较细 · 更慢",
+      "hint": "细节控制可保留的最小特征，外包偏移量会自动随之调整。",
+      "ready": "正在预览水密重建模型，下载的将是此版本。"
+    },
+    "viewer": {
+      "wireframe": "线框",
+      "autoRotate": "自动旋转",
+      "noWebgl": "此浏览器不支持 WebGL2，请下载 GLB 到其他应用查看。",
+      "contextLost": "3D 视图丢失 GPU 上下文，请刷新页面恢复。",
+      "stats": "{{verts}} 个顶点 · {{tris}} 个三角形",
+      "hint": "拖动：旋转 · 双指缩放/滚轮：缩放 · 双指/右键拖动：平移 · 双击：重置"
+    },
+    "empty": "生成的 3D 模型将显示在此处"
+  },
+  "voiceLibrary": {
+    "status": {
+      "ready": "已就绪"
+    },
+    "detail": {
+      "close": "关闭",
+      "eyebrow": "参考录音与准确转录文本",
+      "emptyTitle": "选择音色以查看详情",
+      "emptyBody": "参考音频、转录文本、兼容性和授权详情会显示在此处。",
+      "referenceAudio": "参考音频",
+      "transcript": "参考转录文本"
+    },
+    "metadata": {
+      "language": "语言",
+      "duration": "耗时",
+      "created": "创建时间",
+      "languageUnknown": "未指定",
+      "sampleRate": "采样率"
+    },
+    "modelSetup": {
+      "install": "安装",
+      "title": "安装声音克隆模型",
+      "body": "此音色已就绪，但需要支持参考音频的模型。请选择经过此服务器验证的模型。",
+      "loading": "正在模型库中查找兼容模型…",
+      "backendUnknown": "安装时选择后端",
+      "installing": "正在安装…",
+      "loadFailed": "无法加载兼容模型推荐。",
+      "noneAvailable": "已配置的模型库中没有尚未安装的兼容模型。",
+      "capabilityNote": "推荐依据模型能力元数据，而非浏览器端的模型列表。"
+    },
+    "actions": {
+      "retry": "重试",
+      "clearFilters": "清除筛选",
+      "create": "添加语音音色",
+      "createFirst": "添加首个语音音色",
+      "useInTTS": "在文本转语音中使用",
+      "delete": "删除音色",
+      "installModel": "安装兼容模型",
+      "browseModels": "浏览所有模型"
+    },
+    "title": "语音音色",
+    "subtitle": "录音及其准确转录文本。支持参考音频的文本转语音模型可使用此音色。",
+    "loadFailed": "无法加载语音音色",
+    "loading": "正在加载已保存的声音档案…",
+    "listLabel": "已保存的声音档案",
+    "summary": {
+      "label": "声音库状态",
+      "profiles": "已保存的档案",
+      "modelsReady_one": "{{count}} 个兼容模型已就绪",
+      "modelsReady_other": "{{count}} 个兼容模型已就绪",
+      "noModels": "未安装兼容模型"
+    },
+    "search": {
+      "label": "搜索声音档案",
+      "placeholder": "搜索音色、语言或转录文本"
+    },
+    "filters": {
+      "language": "按语言筛选",
+      "allLanguages": "所有语言"
+    },
+    "empty": {
+      "title": "尚无语音音色",
+      "body": "录制或上传已获授权的参考片段，添加准确转录文本，即可在兼容的文本转语音模型中复用音色。"
+    },
+    "noResults": {
+      "title": "没有符合筛选条件的音色",
+      "body": "尝试其他搜索条件，或显示所有语言。"
+    },
+    "consent": {
+      "label": "授权",
+      "confirmed": "已确认授权",
+      "confirmedAt": "确认于 {{date}}"
+    },
+    "api": {
+      "title": "API 用法与兼容模型",
+      "summary": "在浏览器外使用此音色，或检查模型支持情况",
+      "body": "每次语音请求发送档案的固定音色 URI。LocalAI 在生成时解析私有参考音频和转录文本，不修改模型 YAML。",
+      "compatibleModels": "已安装的兼容模型",
+      "noInstalledModels": "暂无。发送此请求前，请先安装上方经过服务器验证的模型。",
+      "curlExample": "cURL 示例",
+      "copy": "复制请求",
+      "endpointNote": "相同的 model、input 和 voice 字段也可用于 POST /tts。"
+    },
+    "deleteDialog": {
+      "title": "删除此音色？",
+      "message": "「{{name}}」及其参考音频将被永久移除，不修改现有模型 YAML。",
+      "deleting": "正在删除…"
+    },
+    "toasts": {
+      "deleted": "已删除 {{name}}",
+      "installStarted": "正在安装 {{name}}。可在操作页面查看进度。",
+      "installFailed": "无法开始安装：{{message}}",
+      "apiCopied": "API 请求已复制",
+      "copyFailed": "无法复制 API 请求"
+    }
+  },
+  "voiceCreate": {
+    "references": {
+      "remove": "移除",
+      "add": "添加另一段参考",
+      "additional": "参考 {{number}}"
+    },
+    "actions": {
+      "cancel": "取消",
+      "back": "返回声音库",
+      "save": "保存音色",
+      "saving": "正在保存…"
+    },
+    "title": "添加语音音色",
+    "subtitle": "语音音色由一段或多段清晰参考音频及准确转录文本组成。支持参考音频的文本转语音模型可使用此音色。",
+    "sections": {
+      "reference": {
+        "title": "参考音频",
+        "body": "在浏览器中录制或上传已有片段。语音应清晰自然，且仅包含一位说话人。"
+      },
+      "details": {
+        "title": "身份与转录文本",
+        "body": "设置便于管理员识别的名称，并准确转录片段，包括语气词和标点。"
+      },
+      "consent": {
+        "title": "授权",
+        "body": "声音克隆可能涉及敏感信息。保存参考音频前请确认授权。"
+      }
+    },
+    "audio": {
+      "label": "声音参考",
+      "normalizing": "正在准备安全的 PCM WAV…",
+      "preview": "标准化参考音频",
+      "tooLarge": "此文件超过 50 MiB。",
+      "durationError": "参考音频必须介于 1 秒至 2 分钟。",
+      "decodeError": "此浏览器无法解码所选音频文件。",
+      "qualityReady": "推荐长度",
+      "qualityHint": "6 至 30 秒通常能获得更好的克隆效果"
+    },
+    "fields": {
+      "name": "音色名称",
+      "namePlaceholder": "例如：纪录片旁白",
+      "language": "语言（可选）",
+      "languagePlaceholder": "例如 zh-CN",
+      "description": "描述（可选）",
+      "descriptionPlaceholder": "音调、来源或预期用途",
+      "transcript": "准确转录文本",
+      "transcriptPlaceholder": "输入参考片段中的每一个字词…",
+      "transcriptHint": "与录音完全一致。不要改写语法或删去停顿和语气词。"
+    },
+    "consent": {
+      "title": "我确认此声音可以克隆",
+      "body": "我已获得说话人许可，或具有其他合法依据，可保存此录音并用于合成语音。"
+    },
+    "readiness": {
+      "title": "档案就绪情况",
+      "body": "所有必填项完成后，音色即可用于文本转语音。",
+      "audio": "有效的 PCM-WAV 参考音频",
+      "quality": "6 至 30 秒的推荐时长",
+      "name": "便于识别的音色名称",
+      "transcript": "准确的参考转录文本",
+      "consent": "已确认授权"
+    },
+    "privacy": {
+      "title": "默认私有。",
+      "body": "参考音频以受限文件权限保存在 LocalAI 数据目录中，绝不会作为模型目录路径公开。"
+    },
+    "toasts": {
+      "created": "{{name}}已可使用"
+    }
+  },
+  "audioTransform": {
+    "title": "音频变换",
+    "labels": {
+      "model": "模型",
+      "audio": "音频（必填）",
+      "reference": "参考（可选）",
+      "referenceHelp": "回声消除时使用回环/远端信号，音色转换时使用目标说话人。留空执行无条件变换。",
+      "advancedParameters": "高级参数",
+      "advancedParametersHelp": "后端专用参数（每行一个 key=value，例如 noise_gate=true）",
+      "advancedParametersPlaceholder": "# 可选。LocalVQE 示例：\n# noise_gate=true\n# noise_gate_threshold_dbfs=-50"
+    },
+    "input": {
+      "upload": "上传",
+      "stop": "停止",
+      "clear": "清除",
+      "record": "记录",
+      "uploadDescription": "将文件拖放到此处，或",
+      "uploadBrowse": "浏览",
+      "startRecording": "开始录音",
+      "encoding": "正在编码…",
+      "microphoneUnavailable": "此浏览器无法使用麦克风采集。",
+      "echoNotice": "浏览器通常默认应用 WebRTC 回声消除和降噪。这通常不如直接在原始音频上运行 LocalVQE 的效果。",
+      "echoTest": "回声测试（播放参考音频时录制麦克风）",
+      "stopEchoTest": "停止回声测试"
+    },
+    "result": {
+      "audio": "音频",
+      "reference": "参考",
+      "inputSpectrum": "输入频谱",
+      "outputSpectrum": "输出频谱",
+      "outputSpectrumHint": "变换后比较衰减",
+      "output": "输出"
+    },
+    "actions": {
+      "transform": "变换",
+      "processing": "正在处理…"
+    },
+    "empty": "选择音频文件及可选参考音频以进行变换"
+  },
+  "diarization": {
+    "model": "模型",
+    "name": "名称",
+    "cancel": "取消",
+    "title": "说话人分离",
+    "subtitle": "上传录音以查看谁在何时说话。记住声音前可先预览清晰语音。",
+    "recording": "录音",
+    "optIn": "准备可记忆的说话人",
+    "warning": "记住的声音在此服务器上全局共享，重启后丢失。不会自动记住任何声音。",
+    "manage": "管理已记住的声音",
+    "running": "正在分离说话人…",
+    "run": "分离说话人",
+    "unsupported": "选择具有说话人编码器且支持档案的模型，或关闭「准备可记忆的说话人」以执行普通分离。",
+    "previewError": "无法播放此录音。请检查浏览器是否支持其音频格式。",
+    "speakers": "说话人",
+    "segments": "片段",
+    "duration": "清晰语音：{{seconds}} 秒",
+    "preview": "预览 {{number}}",
+    "insufficient": "清晰语音不足或没有可用档案。请尝试更长且无重叠说话的录音。",
+    "nameAndRemember": "命名并记住",
+    "saving": "正在保存…",
+    "remember": "记住",
+    "stop": "停止预览",
+    "missingProfiles": "后端未返回请求的说话人档案。"
   }
 }

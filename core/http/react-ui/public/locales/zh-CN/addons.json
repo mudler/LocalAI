@@ -38,10 +38,10 @@
     "firstRun": {
       "browse": "Browse add-ons",
       "title": "Welcome to Apps",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
-      "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "lead": "附加组件为 LocalAI 提供页面和聊天工具。从以下组件开始，或查找更多。",
+      "featuredLabel": "精选附加组件",
+      "featuredFailed": "无法读取附加组件列表。",
+      "noFeatured": "你的来源尚未列出附加组件。添加来源后再查找。"
     },
     "headless": "在后台运行,没有自己的页面。",
     "listLabel": "应用",
@@ -51,15 +51,15 @@
     "stale": "无法刷新列表,当前显示的内容可能已过时。",
     "start": "打开",
     "stop": "关闭",
-    "toolsMore_one": "and {{count}} more",
+    "toolsMore_one": "另有 {{count}} 个",
     "toolsMore_other": "另有 {{count}} 个",
-    "tools_one": "{{count}} tool",
+    "tools_one": "{{count}} 个工具",
     "tools_other": "{{count}} 个工具",
     "version": "版本 {{version}}",
     "working": "正在等待所有者确认。",
-    "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchTitle": "没有匹配的附加组件",
+    "noMatchBody": "「我的附加组件」中没有匹配「{{query}}」的项目。请尝试其他关键词。",
+    "clearSearch": "清除搜索"
   },
   "browse": {
     "confirmTitle": "安装 {{name}}?",
@@ -75,23 +75,23 @@
     "installing": "正在安装",
     "search": "搜索库",
     "kind": {
-      "addon": "Add-on",
-      "backend": "Backend"
+      "addon": "附加组件",
+      "backend": "后端"
     },
-    "installedBackend": "Installed",
-    "installedBackendNote": "Installed as a backend on this node. Models can use it now.",
-    "confirmBackendBody": "Version {{version}} of the backend from the library {{library}} will be downloaded, checked against its digest and signature, and installed on this node. The backend gallery is not changed.",
-    "confirmBackendNote": "A backend runs native code with the rights of LocalAI. Install it only from a library you trust.",
-    "backendFailed": "The backend was not installed.",
-    "alias": "Alias",
-    "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedBackend": "已安装",
+    "installedBackendNote": "已在此节点上作为后端安装，模型现在可以使用它。",
+    "confirmBackendBody": "将从资源库 {{library}} 下载后端版本 {{version}}，校验摘要和签名后安装到此节点。不更改后端模型库。",
+    "confirmBackendNote": "后端以 LocalAI 的权限运行原生代码。请仅从可信资源库安装。",
+    "backendFailed": "后端未安装。",
+    "alias": "别名",
+    "kindLabel": "类型",
+    "installedOn": "{{name}}已安装并开启。"
   },
   "catalog": {
     "allLibraries": "所有库",
     "cancel": "取消",
     "close": "关闭",
-    "count_one": "{{count}} result",
+    "count_one": "{{count}} 个结果",
     "count_other": "{{count}} 个结果",
     "emptyBody": "此列表为空。",
     "emptyFiltered": "没有匹配的结果。请更换关键词或库。",
@@ -106,23 +106,23 @@
   "drawer": {
     "add": "Add a new add-on",
     "browse": "Browse add-ons",
-    "builtinDetail": "This add-on ships with LocalAI.",
-    "close": "Close",
-    "limitBody": "The sidebar shows at most eight pinned add-ons. Unpin one first.",
-    "limitTitle": "Eight add-ons are pinned",
-    "moveEarlier": "Move {{name}} earlier",
-    "moveLater": "Move {{name}} later",
-    "pin": "Pin {{name}}",
-    "pinLabel": "Pin",
-    "pinned": "Pinned",
+    "builtinDetail": "此附加组件随 LocalAI 提供。",
+    "close": "关闭",
+    "limitBody": "侧边栏最多显示八个固定的附加组件。请先取消固定一个。",
+    "limitTitle": "已固定八个附加组件",
+    "moveEarlier": "将 {{name}} 前移",
+    "moveLater": "将 {{name}} 后移",
+    "pin": "固定 {{name}}",
+    "pinLabel": "固定",
+    "pinned": "已固定",
     "running": "已打开",
-    "search": "Search add-ons",
+    "search": "搜索附加组件",
     "status": {
-      "failed": "failed",
-      "starting": "starting"
+      "failed": "失败",
+      "starting": "正在开始"
     },
     "stopped": "已关闭",
-    "unpin": "Unpin {{name}}"
+    "unpin": "取消固定 {{name}}"
   },
   "errors": {
     "auth": "你已退出登录,请重新登录。",
@@ -154,9 +154,9 @@
       "url": "请输入 http 或 https 地址。",
       "urlCredentials": "地址不能包含用户名或密码。",
       "urlQuery": "地址不能包含查询字符串或片段。",
-      "either": "Use the exact identity or the pattern, not both.",
-      "urlEmpty": "Enter the address of the index.",
-      "mirrors": "Each mirror must start with https://, http://, github:, oci:// or file://, and at most 8 are allowed."
+      "either": "精确身份和匹配模式只能选择其一。",
+      "urlEmpty": "输入索引地址。",
+      "mirrors": "每个镜像地址必须以 https://、http://、github:、oci:// 或 file:// 开头，最多允许 8 个。"
     },
     "fields": {
       "enabled": "已启用",
@@ -167,18 +167,18 @@
       "reference": "凭据引用(可选)",
       "requireSignature": "要求签名",
       "url": "目录 URL",
-      "identityRegex": "Signer identity pattern (optional)",
-      "kind": "Kind",
-      "format": "Index format",
-      "mirrors": "Mirrors"
+      "identityRegex": "签名者身份匹配模式（可选）",
+      "kind": "类型",
+      "format": "索引格式",
+      "mirrors": "镜像地址"
     },
     "hints": {
       "id": "小写字母、数字和连字符,之后不能更改。",
       "reference": "所有者已配置的凭据名称。切勿在此粘贴令牌或密码。",
       "url": "不含凭据和查询字符串的 https 地址。",
-      "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
-      "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
-      "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
+      "identityRegex": "以 ^ 开头、$ 结尾的匹配模式，替代精确身份。后端资源库使用它同时验证 master 和标签构建。",
+      "format": "资源库索引使用共享的条目结构。模型库索引对应配置参数所指的模型或后端模型库。",
+      "mirrors": "备用地址，每行一个。无法获取主地址时依次尝试。"
     },
     "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
     "lead": "库是列出附加组件的目录文档。凭据绝不在此输入:私有库只引用所有者配置的凭据。",
@@ -195,47 +195,47 @@
     "removed": "已移除 {{name}}。",
     "save": "保存",
     "saved": "已保存 {{name}}。",
-    "skipped_one": "{{count}} entry skipped: kind {{kinds}} is not read by this version",
-    "skipped_other": "{{count}} entries skipped: kind {{kinds}} is not read by this version",
-    "default": "Default",
-    "emptyKindBody": "Add a library of this kind, or pick another filter.",
-    "emptyKindTitle": "No libraries of this kind",
+    "skipped_one": "已跳过 {{count}} 个条目：此版本不读取 {{kinds}} 类型",
+    "skipped_other": "已跳过 {{count}} 个条目：此版本不读取 {{kinds}} 类型",
+    "default": "默认",
+    "emptyKindBody": "添加此类型的资源库，或选择其他筛选条件。",
+    "emptyKindTitle": "没有此类型的资源库",
     "formats": {
-      "library": "Library index",
-      "gallery": "Gallery index"
+      "library": "资源库索引",
+      "gallery": "模型库索引"
     },
-    "gallery": "Gallery index",
+    "gallery": "模型库索引",
     "kind": {
-      "addon": "Add-on",
-      "backend": "Backend",
-      "model": "Model"
+      "addon": "附加组件",
+      "backend": "后端",
+      "model": "模型"
     },
-    "kindFilter": "Filter by kind",
+    "kindFilter": "按类型筛选",
     "kinds": {
-      "all": "All",
-      "addon": "Add-ons",
-      "backend": "Backends",
-      "model": "Models"
+      "all": "全部",
+      "addon": "附加组件",
+      "backend": "后端",
+      "model": "模型"
     },
-    "officialOff": "Official libraries are off in Settings. The default libraries stay listed, shown as off, and are not read. Libraries you added are not affected.",
-    "removeDefaultBody": "This is a default library that comes with LocalAI. It is removed from the list and stays removed at the next start. You can restore it from the list. Installed items are not touched.",
-    "removedDefault": "Removed {{name}}. It stays removed at the next start; restore it to bring it back.",
-    "restore": "Restore",
+    "officialOff": "已在设置中关闭官方资源库。默认资源库仍列出但显示为关闭，不会读取。你添加的资源库不受影响。",
+    "removeDefaultBody": "这是 LocalAI 附带的默认资源库。移除后下次启动仍保持移除状态，可从列表恢复。已安装的项目不受影响。",
+    "removedDefault": "已移除 {{name}}。下次启动仍保持移除状态，恢复后可重新使用。",
+    "restore": "恢复",
     "state": {
       "enabled": "Enabled",
       "disabled": "Disabled",
-      "removed": "Removed",
-      "suspended": "Off (official libraries are off)"
+      "removed": "已移除",
+      "suspended": "关闭（官方资源库已关闭）"
     },
-    "turnOff": "Turn off",
-    "turnOn": "Turn on",
-    "turnedOff": "Turned off {{name}}.",
-    "turnedOn": "Turned on {{name}}.",
-    "manage": "Manage libraries",
+    "turnOff": "关闭",
+    "turnOn": "打开",
+    "turnedOff": "已关闭 {{name}}。",
+    "turnedOn": "已开启 {{name}}。",
+    "manage": "管理资源库",
     "manageTitle": {
-      "backend": "Backend libraries",
-      "model": "Model libraries",
-      "addon": "Add-on libraries"
+      "backend": "后端资源库",
+      "model": "模型资源库",
+      "addon": "附加组件资源库"
     }
   },
   "manage": {
@@ -245,7 +245,7 @@
     "data": "保留的数据",
     "dataFormat": "数据格式",
     "desired": "期望状态",
-    "failedNote_one": "The process is not serving after {{count}} restart attempt.",
+    "failedNote_one": "重启 {{count}} 次后，进程仍未提供服务。",
     "failedNote_other": "经过 {{count}} 次重启尝试后,进程仍未提供服务。",
     "generations": "保留的代数",
     "hasUI": "有页面",
@@ -319,16 +319,16 @@
       "close": "关闭"
     },
     "off": {
-      "title": "{{name}} is off",
-      "body": "Turn it on to use its page.",
-      "reader": "An administrator can turn it on."
+      "title": "{{name}}已关闭",
+      "body": "开启后可使用其页面。",
+      "reader": "管理员可将其开启。"
     },
     "notInstalled": {
-      "title": "{{name}} is not installed",
-      "body": "Find it in Find add-ons, then install and turn it on.",
-      "reader": "An administrator can install it."
+      "title": "{{name}}未安装",
+      "body": "在「查找附加组件」中找到它，然后安装并开启。",
+      "reader": "管理员可安装此组件。"
     },
-    "failedTitle": "{{name}} failed to start"
+    "failedTitle": "{{name}}启动失败"
   },
   "slots": {
     "unavailable": "不可用",
@@ -605,64 +605,64 @@
     "toastFailed": "{{name}} 未升级：{{message}}"
   },
   "install": {
-    "stepsLabel": "Install steps",
+    "stepsLabel": "安装步骤",
     "step": {
-      "resolving": "Resolve the library entry",
-      "verifying": "Verify the signature",
-      "size": "Check the image size",
-      "fetching": "Fetch the image",
-      "writing": "Write the metadata"
+      "resolving": "解析资源库条目",
+      "verifying": "验证签名",
+      "size": "检查镜像大小",
+      "fetching": "获取镜像",
+      "writing": "写入元数据"
     },
     "state": {
-      "pending": "Waiting",
-      "active": "Running",
-      "done": "Done",
-      "failed": "Failed"
+      "pending": "等待中",
+      "active": "运行中",
+      "done": "完成",
+      "failed": "失败"
     }
   },
   "settingsView": {
-    "loadFailed": "The library sources could not be read.",
-    "none": "No library sources of this kind.",
-    "listLabel": "Library sources",
-    "mirrors": "Mirrors: {{list}}"
+    "loadFailed": "无法读取资源库来源。",
+    "none": "没有此类型的资源库来源。",
+    "listLabel": "资源库来源",
+    "mirrors": "镜像地址：{{list}}"
   },
   "card": {
     "showInSidebar": "在侧边栏中显示",
-    "hideFromSidebar": "Remove from sidebar",
+    "hideFromSidebar": "从侧边栏移除",
     "details": "详情",
     "remove": "移除",
-    "menu": "Actions for {{name}}",
+    "menu": "{{name}}的操作",
     "addsPage": "添加一个页面",
-    "chatTools_one": "{{count}} chat tool",
-    "chatTools_other": "{{count}} chat tools",
-    "addsTools_one": "Adds {{count}} tool",
-    "addsTools_other": "Adds {{count}} tools",
-    "openNamed": "Open {{name}}",
-    "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "chatTools_one": "{{count}} 个聊天工具",
+    "chatTools_other": "{{count}} 个聊天工具",
+    "addsTools_one": "添加 {{count}} 个工具",
+    "addsTools_other": "添加 {{count}} 个工具",
+    "openNamed": "打开 {{name}}",
+    "removeTitle": "移除 {{name}}?",
+    "removeBody": "{{name}}将关闭并从此服务器移除。其数据会保留，重新安装时可继续使用。不会删除数据。"
   },
   "preview": {
-    "screenshots": "Screenshots",
-    "adds": "What it adds",
-    "page": "A page of its own in LocalAI",
-    "addsNothing": "Nothing you can see. It works in the background.",
-    "version": "Version",
-    "id": "Identifier",
-    "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "screenshots": "截图",
+    "adds": "提供的功能",
+    "page": "LocalAI 中的独立页面",
+    "addsNothing": "没有可见界面，在后台运行。",
+    "version": "版本",
+    "id": "标识符",
+    "sourceUnknown": "未知",
+    "moreDetails": "健康、信任与更新"
   },
   "flow": {
     "installAndTurnOn": "安装并打开",
-    "installing": "Installing {{name}}...",
-    "turningOn": "Turning on {{name}}...",
-    "installFailed": "{{name}} was not installed.",
-    "turnOnFailed": "{{name}} is installed but did not turn on.",
-    "confirmTitle": "Install and turn on {{name}}?",
-    "confirmBody": "Version {{version}} from the source {{library}} is downloaded and verified, installed, and turned on.",
+    "installing": "正在安装 {{name}}…",
+    "turningOn": "正在开启 {{name}}…",
+    "installFailed": "{{name}}未安装。",
+    "turnOnFailed": "{{name}}已安装，但未能开启。",
+    "confirmTitle": "安装并开启 {{name}}？",
+    "confirmBody": "将从来源 {{library}} 下载并验证版本 {{version}}，然后安装并开启。",
     "step": {
-      "install": "Download, verify and install",
-      "turn-on": "Turn on"
+      "install": "下载、验证并安装",
+      "turn-on": "打开"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "在「我的附加组件」中查看"
   }
 }
