@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 import { pagesApi } from '../utils/api'
-import { ageParts, touchesPages } from '../utils/pages'
+import { ageParts, feedPaths, touchesPages } from '../utils/pages'
 import { useWorkspaceFeed } from './workspaceFeed'
 
 // The user's pages, read once and shared by the sidebar and the Pages screen,
@@ -42,7 +42,7 @@ export function usePages(enabled = true) {
     if (enabled && !state.loaded && !inflight) refreshPages()
   }, [enabled])
   const onChange = useCallback((ev) => {
-    if (enabled && touchesPages(ev?.paths)) refreshPages()
+    if (enabled && touchesPages(feedPaths(ev))) refreshPages()
   }, [enabled])
   useWorkspaceFeed(['/pages/**'], onChange)
   return { ...s, refresh: refreshPages }

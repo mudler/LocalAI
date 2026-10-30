@@ -133,23 +133,51 @@ test('chat.send waits for the person: Dismiss answers sent false, Send posts to 
   expect(state.sends[0].chat_id).toBeUndefined()
 })
 
+// Stubs the change feed. Each stream stays open until the test sends a change,
+// carries it and ends, as a dropped connection does; the client reconnects
+// with the revision it saw and waits for the next one.
+async function stubFeed(page) {
+  const queue = []
+  let wake = null
+  let revision = 10
+  await page.route('**/api/workspace/events*', async (route) => {
+    while (queue.length === 0) await new Promise((resolve) => { wake = resolve })
+    const body = queue.splice(0).join('')
+    await route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' }, body }).catch(() => {})
+  })
+  return (paths) => {
+    revision++
+    queue.push(`id: ${revision}\nevent: change\ndata: ${JSON.stringify({ revision, paths })}\n\n`)
+    wake?.()
+  }
+}
+
 test('a change of index.html reloads the page; anything else reaches it as files.changed', async ({ page }) => {
   const state = { pages: [TASKS], html: PAGE_HTML('v1') }
   await stub(page, state)
+  const change = await stubFeed(page)
   await page.goto('/app/pages/tasks')
   const f = page.frameLocator('[data-testid="page-frame"]')
   await expect(f.locator('#v')).toHaveText('v1')
   const mark = await f.locator('#v').getAttribute('data-mark')
 
-  // Same HTML: the frame stays and hears about the change.
+  // The window gets the focus back: the feed may have missed changes, so the
+  // page hears a resync and stays.
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
   await expect(f.locator('#ev')).toHaveText('{"paths":[],"resync":true}')
   expect(await f.locator('#v').getAttribute('data-mark')).toBe(mark)
 
-  // New HTML: the frame loads again.
+  // A data file of the page changes: the page hears its path, relative to its
+  // folder, and stays. Other pages and other files do not reach it.
+  change(['pages/tasks/tasks.json', 'pages/other/tasks.json', 'notes.txt'])
+  await expect(f.locator('#ev')).toHaveText('{"paths":["tasks.json"]}')
+  expect(await f.locator('#v').getAttribute('data-mark')).toBe(mark)
+
+  // index.html changes: the frame loads the new page.
   state.html = PAGE_HTML('v2')
-  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  change(['pages/tasks/index.html'])
   await expect(f.locator('#v')).toHaveText('v2')
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
 })
 
 test('a page that does not exist says so, with a way back', async ({ page }) => {

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PAGE_CSP, buildPageSrcdoc, createPageHost, MAX_CONTENT } from '../../src/utils/pagesBridge.js'
-import { ageParts, isPageName, pageChanges, pinsOf, pinnedPages, touchesPages, trusted, withPin } from '../../src/utils/pages.js'
+import { ageParts, feedPaths, isPageName, pageChanges, pinsOf, pinnedPages, touchesPages, trusted, withPin } from '../../src/utils/pages.js'
 
 function setup(over = {}) {
   const sent = []
@@ -124,6 +124,17 @@ test('pages feed: splits a change into the page itself and its data files', () =
   assert.ok(touchesPages(['/pages']))
   assert.ok(!touchesPages(['/pagesx/a', '/notes/pages/a']))
   assert.ok(touchesPages(undefined))
+})
+
+test('pages feed: a resync of the change feed has no paths and means everything may have changed', () => {
+  // The feed calls back with {paths: [], resync: true} after a gap (focus,
+  // reconnect, end of a chat turn), and with the changed paths otherwise.
+  assert.equal(feedPaths({ paths: [], revision: 4, resync: true }), null)
+  assert.equal(feedPaths(undefined), null)
+  assert.deepEqual(feedPaths({ paths: ['pages/tasks/a.json'], revision: 5 }), ['pages/tasks/a.json'])
+  assert.equal(pageChanges(feedPaths({ paths: [], resync: true }), 'tasks').all, true)
+  assert.ok(touchesPages(feedPaths({ paths: [], resync: true })))
+  assert.ok(!touchesPages(feedPaths({ paths: ['notes.txt'], revision: 6 })))
 })
 
 test('pages trust: own pages run, anything else waits for the trust sheet', () => {

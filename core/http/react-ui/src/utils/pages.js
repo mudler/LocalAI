@@ -11,6 +11,14 @@ export const isPageName = (name) => typeof name === 'string' && PAGE_NAME.test(n
 export const pageFolder = (name) => `/pages/${name}`
 export const pageIndexPath = (name) => `pages/${name}/index.html`
 
+// The changed paths of a call of the change feed, or null for a resync: the
+// feed calls with {paths: [], resync: true} when it may have missed changes,
+// and an empty list there means "anything", not "nothing".
+export function feedPaths(ev) {
+  if (!ev || ev.resync || !Array.isArray(ev.paths)) return null
+  return ev.paths
+}
+
 // What a change of the feed means for one page. paths are inside the home,
 // with or without a leading slash. rel are the changed paths relative to the
 // page's folder; index says the page itself changed and must load again.

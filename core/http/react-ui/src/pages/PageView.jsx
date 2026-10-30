@@ -7,8 +7,8 @@ import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { readLastModel } from '../utils/lastModel'
-import { isPageName, pageChanges, pageIndexPath, trusted } from '../utils/pages'
-import { invalidate, useWorkspaceFeed } from '../hooks/workspaceFeed'
+import { feedPaths, isPageName, pageChanges, pageIndexPath, trusted } from '../utils/pages'
+import { useWorkspaceFeed } from '../hooks/workspaceFeed'
 import { usePageAge } from '../hooks/usePages'
 import './pages.css'
 
@@ -98,7 +98,7 @@ export default function PageView() {
   }, [load])
 
   const onFeed = useCallback((ev) => {
-    const ch = pageChanges(ev?.paths, name)
+    const ch = pageChanges(feedPaths(ev), name)
     if (!ch.all && !ch.index && !ch.meta && ch.rel.length === 0) return
     load({ quiet: true })
     if (ch.rel.length) frameRef.current?.emit('files.changed', { paths: ch.rel })
@@ -141,8 +141,6 @@ export default function PageView() {
     if (a.status !== 'sent') a.resolve({ sent: false })
     setAsks((list) => list.filter((x) => x.id !== a.id))
   }
-
-  const onWrite = useCallback((path) => invalidate(`/pages/${name}/${path}`), [name])
 
   if (status === 'notfound' || status === 'error') {
     return (
@@ -218,7 +216,6 @@ export default function PageView() {
             theme={theme}
             title={t('view.frameTitle', { title: page.title })}
             onSend={onPageSend}
-            onWrite={onWrite}
             onNavigated={() => setNavigated(true)}
           />
         )}
