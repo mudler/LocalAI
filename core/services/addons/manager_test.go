@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -65,12 +66,23 @@ func fixtureFor(manifest []byte) (OwnerConfig, catalog.Catalog, *packages.Instal
 // fixtureWithDigest is fixtureFor with a library that lists the given digest
 // for the package, so the package it serves does not match its entry.
 func fixtureWithDigest(manifest []byte, digest string) (OwnerConfig, catalog.Catalog, *packages.Installer) {
+	return fixtureWithFiles(manifest, digest, nil)
+}
+
+// fixtureWithFiles is fixtureWithDigest with more package files, which are
+// not executable.
+func fixtureWithFiles(manifest []byte, digest string, files map[string][]byte) (OwnerConfig, catalog.Catalog, *packages.Installer) {
 	root := GinkgoT().TempDir()
 	var e error
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
 	for name, data := range map[string][]byte{"manifest.json": manifest, "bin/sample": []byte("binary"), "ui.js": []byte("export {}")} {
 		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+		_, e = tw.Write(data)
+		Expect(e).NotTo(HaveOccurred())
+	}
+	for name, data := range files {
+		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0644, Size: int64(len(data))})).To(Succeed())
 		_, e = tw.Write(data)
 		Expect(e).NotTo(HaveOccurred())
 	}
@@ -583,6 +595,79 @@ var _ = Describe("the cause of a failed install", func() {
 		cmd := command("op-flaky", "install")
 		cmd.SourceID = "flaky"
 		_, e = m.Submit(ctx, actor, cmd)
+		Expect(e).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("the skills of a package", func() {
+	type call struct {
+		id    string
+		files int
+	}
+	It("copies them at install, upgrade and owner start, and removes them at uninstall", func() {
+		manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		var mf contract.Manifest
+		Expect(json.Unmarshal(manifest, &mf)).To(Succeed())
+		mf.Capabilities.SkillDefinitions = []contract.SkillDefinition{{Name: "sample"}}
+		manifest, e = json.Marshal(mf)
+		Expect(e).NotTo(HaveOccurred())
+		cfg, c, i := fixtureWithFiles(manifest, "", map[string][]byte{
+			"skills/sample/SKILL.md": []byte("---\nname: sample\ndescription: Use for samples.\n---\nBody.\n"),
+		})
+		m := open(cfg, c, i)
+		var mu sync.Mutex
+		var calls []call
+		record := func(_ context.Context, id string, r *packages.PackageReceipt) error {
+			mu.Lock()
+			defer mu.Unlock()
+			n := -1
+			if r != nil {
+				fsys, err := packages.SkillFS(*r)
+				Expect(err).NotTo(HaveOccurred())
+				data, err := fs.ReadFile(fsys, "sample/SKILL.md")
+				Expect(err).NotTo(HaveOccurred())
+				n = len(data)
+			}
+			calls = append(calls, call{id, n})
+			return nil
+		}
+		m.SetSkillSync(ctx, record)
+		Expect(calls).To(BeEmpty(), "nothing is installed yet")
+		_, e = m.Submit(ctx, actor, command("one", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].id).To(Equal("sample"))
+		Expect(calls[0].files).To(BeNumerically(">", 0))
+		ids, e := m.InstalledSkillIDs(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(ids).To(Equal([]string{"sample"}))
+
+		_, e = m.Submit(ctx, actor, command("two", "disable"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls).To(HaveLen(1), "a stop leaves the files: the turn decides what is offered")
+		_, e = m.Submit(ctx, actor, command("three", "upgrade"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls).To(HaveLen(2))
+
+		// Owner start: the hook runs for every add-on the journal knows.
+		calls = nil
+		m.SetSkillSync(ctx, record)
+		Expect(calls).To(HaveLen(1))
+
+		_, e = m.Submit(ctx, actor, command("four", "uninstall"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls[len(calls)-1]).To(Equal(call{"sample", -1}), "uninstall removes the skills")
+		ids, e = m.InstalledSkillIDs(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(ids).To(BeEmpty())
+	})
+
+	It("never fails the operation when the copy fails", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		m.SetSkillSync(ctx, func(context.Context, string, *packages.PackageReceipt) error { return errors.New("store down") })
+		_, e := m.Submit(ctx, actor, command("one", "install"))
 		Expect(e).NotTo(HaveOccurred())
 	})
 })

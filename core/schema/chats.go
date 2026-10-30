@@ -466,8 +466,12 @@ type ChatsSkill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Layer is where it comes from: folder (a .skills folder of your files),
-	// personal, shared or builtin.
+	// personal, shared, addon (an installed add-on ships it) or builtin.
 	Layer string `json:"layer"`
+	// Addon and AddonTitle name the add-on that provides a skill of the addon
+	// layer.
+	Addon      string `json:"addon,omitempty"`
+	AddonTitle string `json:"addon_title,omitempty"`
 	// Path is the path of its SKILL.md as the model sees it.
 	Path string `json:"path"`
 	// Enabled is false when the chat has switched it off.

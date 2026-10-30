@@ -40,6 +40,7 @@ change the key.
 | Layer | Root `Path` | Meaning |
 |---|---|---|
 | `LayerBuiltin` | the layer folder | skills that ship with the product |
+| `LayerAddon` | the folder of one add-on | skills an add-on ships; one root per add-on, with `Addon` and `AddonTitle` set |
 | `LayerShared` | the layer folder | skills an administrator gives to everyone |
 | `LayerPersonal` | the layer folder | the skills of one user |
 | `LayerFolder` | a folder to walk | every `.skills` folder below it |

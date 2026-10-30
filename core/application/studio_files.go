@@ -5,10 +5,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -96,6 +99,53 @@ func (a *Application) initStudioFiles() {
 		xlog.Warn("Could not write the built-in skills", "error", err)
 	}
 	a.studioFiles, a.studioFilesIndex = f, closer
+	a.syncAddonSkills(f)
+}
+
+// syncAddonSkills lets the add-on owner keep the add-on skill layer in step
+// with the installed packages: it copies the skills of every installed add-on
+// now and after each install, upgrade and uninstall, and removes the folders of
+// add-ons that are gone. It does nothing on a frontend: only the owner holds
+// the verified packages, and the layer is in the workspace store every
+// frontend reads.
+func (a *Application) syncAddonSkills(f *files.Service) {
+	m := a.addonManager
+	if m == nil {
+		return
+	}
+	ctx := a.applicationConfig.Context
+	m.SetSkillSync(ctx, addonSkillSync(f))
+	installed, err := m.InstalledSkillIDs(ctx)
+	if err != nil {
+		return // not the owner
+	}
+	present, err := f.AddonSkillIDs(ctx)
+	if err != nil {
+		xlog.Warn("Could not list the add-on skills", "error", err)
+		return
+	}
+	for _, id := range present {
+		if !slices.Contains(installed, id) {
+			if err := f.RemoveAddonSkills(ctx, id); err != nil {
+				xlog.Warn("Could not remove the skills of an add-on", "addon", id, "error", err)
+			}
+		}
+	}
+}
+
+// addonSkillSync copies the skills of a package into the add-on layer, each
+// file checked against the receipt, or removes them.
+func addonSkillSync(f *files.Service) addons.SkillSync {
+	return func(ctx context.Context, id string, r *packages.PackageReceipt) error {
+		if r == nil || len(r.Skills) == 0 {
+			return f.RemoveAddonSkills(ctx, id)
+		}
+		fsys, err := packages.SkillFS(*r)
+		if err != nil {
+			return err
+		}
+		return f.SyncAddonSkills(ctx, id, fsys)
+	}
 }
 
 // clusterFilesBlocker returns why files cannot work in this cluster, or "" when

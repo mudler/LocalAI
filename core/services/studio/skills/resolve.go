@@ -18,12 +18,15 @@ import (
 // Layer is where a skill comes from. A nearer layer wins over a farther one.
 type Layer string
 
-// The four layers, nearest first.
+// The five layers, nearest first.
 const (
 	LayerFolder   Layer = "folder"
 	LayerPersonal Layer = "personal"
 	LayerShared   Layer = "shared"
-	LayerBuiltin  Layer = "builtin"
+	// LayerAddon holds the skills of the add-ons a chat may use now. It is
+	// below every layer a person writes and above the built-in layer.
+	LayerAddon   Layer = "addon"
+	LayerBuiltin Layer = "builtin"
 )
 
 // rank orders the layers; a lower rank is nearer.
@@ -35,10 +38,12 @@ func (l Layer) rank() int {
 		return 1
 	case LayerShared:
 		return 2
-	case LayerBuiltin:
+	case LayerAddon:
 		return 3
+	case LayerBuiltin:
+		return 4
 	}
-	return 4
+	return 5
 }
 
 // SkillsDir is the name of the folder that holds the skills of a folder.
@@ -64,8 +69,8 @@ const (
 // Root names a place to look for skills.
 type Root struct {
 	Layer Layer
-	// Path is the workspace path of the layer folder (built-in, shared and
-	// personal: the folder that holds one subfolder per skill), or, for the
+	// Path is the workspace path of the layer folder (built-in, add-on, shared
+	// and personal: the folder that holds one subfolder per skill), or, for the
 	// folder layer, a folder to walk for ".skills" folders.
 	Path string
 	// Guest is the same place as the guest sees it. The index shows guest
@@ -76,6 +81,9 @@ type Root struct {
 	// only for the folder layer. A ".skills" folder inside a skipped folder is
 	// not found.
 	Skip []string
+	// Addon and AddonTitle name the add-on of an add-on layer root: one root
+	// per add-on. They are copied to the skills found there.
+	Addon, AddonTitle string
 }
 
 // Skill is one skill that Resolve saw.
@@ -99,6 +107,9 @@ type Skill struct {
 	// skill with the reason and without the path of its SKILL.md, so the
 	// model explains instead of starting it.
 	Unavailable string
+	// Addon and AddonTitle name the add-on that ships a skill of the add-on
+	// layer.
+	Addon, AddonTitle string
 
 	depth int // folders below the walked root, for the order inside the folder layer
 }
@@ -121,6 +132,8 @@ type container struct {
 	path  string
 	guest string
 	depth int // folders between the walk root and the container's parent
+	addon string
+	title string
 }
 
 // Resolve reads the skills that the actor can see in roots and applies the
@@ -175,7 +188,7 @@ func Resolve(ctx context.Context, s workspace.Store, a workspace.Actor, roots []
 			boxes = append(boxes, found...)
 			continue
 		}
-		boxes = append(boxes, container{layer: r.Layer, path: cleanPath(r.Path), guest: strings.TrimSuffix(r.Guest, "/")})
+		boxes = append(boxes, container{layer: r.Layer, path: cleanPath(r.Path), guest: strings.TrimSuffix(r.Guest, "/"), addon: r.Addon, title: r.AddonTitle})
 	}
 	if o.Logger != nil {
 		o.Logger.Debug("skills: folder walk", "folders", walked, "limit", maxWalkFolders)
@@ -338,11 +351,13 @@ func readSkill(ctx context.Context, s workspace.Store, a workspace.Actor, b cont
 		dp = path.Join(b.path, dir.Name)
 	}
 	sk := Skill{
-		Name:      dir.Name,
-		Layer:     b.layer,
-		Path:      dp,
-		GuestPath: b.guest + "/" + dir.Name + "/" + SkillFile,
-		depth:     b.depth,
+		Name:       dir.Name,
+		Layer:      b.layer,
+		Path:       dp,
+		GuestPath:  b.guest + "/" + dir.Name + "/" + SkillFile,
+		depth:      b.depth,
+		Addon:      b.addon,
+		AddonTitle: b.title,
 	}
 	rc, node, err := s.Open(ctx, a, dp+"/"+SkillFile)
 	if err != nil {

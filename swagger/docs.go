@@ -6595,7 +6595,7 @@ const docTemplate = `{
         },
         "/api/chats/skills": {
             "get": {
-                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
+                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
                 "tags": [
                     "chats"
                 ],
@@ -13646,6 +13646,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "skills": {
+                    "description": "Skills are the skills the package ships, from the verified manifest.\nThe owner copies their files into the chats' skill layer.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SkillDefinition"
+                    }
+                },
                 "state": {
                     "description": "State is running, starting, failed or stopped: the observation of the\nprocess, never an update.",
                     "type": "string",
@@ -14197,6 +14204,15 @@ const docTemplate = `{
                 },
                 "schema": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.SkillDefinition": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name.",
+                    "type": "string"
                 }
             }
         },
@@ -18915,6 +18931,13 @@ const docTemplate = `{
         "schema.ChatsSkill": {
             "type": "object",
             "properties": {
+                "addon": {
+                    "description": "Addon and AddonTitle name the add-on that provides a skill of the addon\nlayer.",
+                    "type": "string"
+                },
+                "addon_title": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -18935,7 +18958,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "layer": {
-                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\npersonal, shared or builtin.",
+                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\npersonal, shared, addon (an installed add-on ships it) or builtin.",
                     "type": "string"
                 },
                 "name": {

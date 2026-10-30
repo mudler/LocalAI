@@ -39,6 +39,8 @@ func skipShared(p, home string) bool {
 		return true
 	case p == files.BuiltinSkillsPath || strings.HasPrefix(p, files.BuiltinSkillsPath+"/"):
 		return true
+	case p == files.AddonSkillsPath || strings.HasPrefix(p, files.AddonSkillsPath+"/"):
+		return true
 	}
 	return false
 }

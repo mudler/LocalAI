@@ -3,7 +3,7 @@
 //
 // A skill is a folder with a SKILL.md file: a short description in the
 // frontmatter and a procedure in the body. Skills live in workspace folders in
-// four layers: built-in, shared, personal and folder. [Resolve] reads them
+// five layers: built-in, add-on, shared, personal and folder. [Resolve] reads them
 // through the actor, so a folder that the actor cannot read gives no skill. It
 // applies the precedence rule (the nearest layer wins) and marks the skills it
 // skipped. [Index] renders the skills that remain as a short list of names,

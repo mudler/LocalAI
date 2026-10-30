@@ -698,14 +698,17 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. A `SKILL.md` over 64 KiB is refused.
 
-Skills come from four places, nearest first, and the nearest wins when two have the same name:
+Skills come from five places, nearest first, and the nearest wins when two have the same name:
 
 | Layer | Where | Who writes it |
 |---|---|---|
 | Folder | any `.skills` folder in your files | you |
 | Personal | `.skills` in your home folder | you |
 | Shared | for every user | an administrator |
+| Add-on | ships with an installed add-on | the add-on owner |
 | Built-in | ships with the server | the server |
+
+The add-on layer holds the skills of the add-ons that the chat can use now: installed, running, usable by you and on for the chat (see [Add-on tools](#add-on-tools)). A chat with a saved agent gets them only for the add-ons the agent grants. The model reads one at `/workspace/shared-addon-skills/<add-on>/<skill>/SKILL.md`; the add-on ID in the path says where it comes from. Switching the add-on off for a chat takes its skills out of that chat's index, and the skill list shows each one with `addon` and `addon_title`. Its switch id is `addon:<name>`. See [Skills of an add-on]({{%relref "features/addons#skills" %}}) for how an add-on ships them.
 
 The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Git sources and zip import and export are not part of chats.
 

@@ -42,7 +42,7 @@ func editable(c echo.Context, l skills.Layer) bool {
 
 // ListSkills lists the skills.
 // @Summary List your skills.
-// @Description Skills from every layer: .skills folders of your files, your personal skills, the shared ones and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.
+// @Description Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.
 // @Tags chats
 // @Param chat query string false "a chat id, to apply its switches"
 // @Success 200 {object} schema.ChatsSkillList "The skills"
@@ -59,6 +59,7 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 	for _, sk := range list {
 		out.Skills = append(out.Skills, schema.ChatsSkill{
 			ID: studiosvc.SkillID(sk), Name: sk.Name, Description: sk.Description, Layer: string(sk.Layer), Path: sk.GuestPath,
+			Addon: sk.Addon, AddonTitle: sk.AddonTitle,
 			Enabled: !sk.Off, Shadowed: string(sk.Shadowed), Invalid: sk.Invalid, Editable: editable(c, sk.Layer),
 		})
 	}

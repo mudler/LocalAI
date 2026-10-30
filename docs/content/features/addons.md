@@ -799,6 +799,65 @@ needs none of them.
 | `ui.icon` | A packaged image: `.png`, `.webp`, `.jpg` or `.jpeg`, a normalized package-relative path of at most 256 bytes, at most 256 KiB. A remote URL, a `data:` URL, an absolute path and a traversal are rejected. It cannot also be the module or a stylesheet. |
 | `ui.title`, `ui.description` | Plain text: one string, or a map of BCP 47 language tag to string (at most 16 tags). At most 80 and 280 characters. Markup characters (`<`, `>`), control characters and direction overrides are rejected. |
 
+### Skills
+
+An add-on can ship skills, the procedures a chat model reads before a task
+(see [Skills]({{%relref "features/chats#skills" %}})). The manifest declares
+them in `capabilities.skillDefinitions` and the package holds the files:
+
+```json
+"skillDefinitions": [
+  { "name": "office" },
+  { "name": "office-quickstart" }
+]
+```
+
+```
+skills/<name>/SKILL.md
+skills/<name>/references/<file>      (up to 3 folders below the skill folder)
+```
+
+The description is not in the manifest: the `SKILL.md` frontmatter is its only
+source. The manifest is checked at parse, at install and when a library is
+refreshed:
+
+| Rule | Limit |
+|---|---|
+| Skills per add-on | 16 |
+| Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
+| A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
+| A built-in skill name | refused (`writing-skills`, `localai-workspace`, `localai-apps` and the office skills) |
+
+Staging checks the files against the manifest. The folders under `skills/`
+must be the declared names, and a package that declares no skills must have
+no `skills/` folder. Every entry is a plain file or a folder: links, special
+files and executable files are refused. A path segment uses lowercase ASCII
+letters, digits, `.`, `_` and `-`, does not start with a dot, and a path is at
+most 128 bytes. A file is a `.md`, `.txt`, `.json`, `.csv`, `.yaml` or `.yml`
+file of UTF-8 text with no NUL byte. **There are no scripts**: `.py`, `.sh`,
+`.js` and other files are refused. A skill that needs to run code is a
+built-in skill with `requires: [exec]`. `SKILL.md` is at most 64 KiB and must
+parse with a `name` equal to its folder and a `description`; a reference file
+is at most 256 KiB; a skill has at most 64 files and 1 MiB, and a package at
+most 4 MiB of skill files. The receipt records each file with its size and
+SHA-256 digest.
+
+The add-on owner copies the skills into the chats' add-on skill layer, in the
+workspace at `/addon-skills/<add-on>/`, when it installs or upgrades the
+add-on and every time it starts, and deletes them when the add-on is
+uninstalled. Each copied file is checked against the digest in the receipt,
+so a package folder changed after install never reaches a chat. A copy that
+fails is logged; the add-on itself still installs and runs. The files stay
+while the add-on is stopped. A chat offers them only while the add-on is
+installed, running, usable by the user and on for that chat, and for a chat
+with a saved agent only when the agent grants the add-on.
+
+In distributed mode the state is **shared**: the files are in the workspace
+store that every frontend reads, and only the owner writes them, because only
+the owner holds the verified package. Which add-ons are usable is read from
+the broker at each turn, as for the tools. With the owner down the add-ons
+are down, their skills are not offered and the built-in skills serve.
+
 ### SDK versions
 
 This host provides SDK version 2. An add-on that has a UI declares the SDK
