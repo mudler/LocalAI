@@ -15,7 +15,7 @@
   border-radius: var(--dk-radius-1);
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
-  font-size: 0.8125rem;
+  font-size: var(--fs-small);
 }
 
 .ca-chip__x {
@@ -32,7 +32,7 @@
 .ca-add { display: flex; gap: var(--dk-space-2); }
 .ca-add .input { flex: 1; min-width: 0; }
 
-.ca-status { font-size: 0.75rem; padding: 0 var(--dk-space-2); border-radius: var(--dk-radius-1); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.ca-status { font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--dk-radius-1); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
 .ca-status--done { color: var(--color-success, var(--color-text-secondary)); }
 .ca-status--failed { color: var(--color-error, var(--color-text-secondary)); }
 .ca-status--skipped { color: var(--color-warning, var(--color-text-secondary)); }
@@ -42,8 +42,8 @@
 .ca-row2 { display: flex; flex-wrap: wrap; gap: var(--dk-space-3); }
 .ca-row2 > .cs-field { flex: 1 1 10rem; min-width: 0; }
 .ca-days { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
-.ca-preview { margin: 0; color: var(--color-text-secondary); font-size: 0.8125rem; }
-.ca-runs { margin: var(--dk-space-2) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 0.8125rem; }
+.ca-preview { margin: 0; color: var(--color-text-secondary); font-size: var(--fs-small); }
+.ca-runs { margin: var(--dk-space-2) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-small); }
 .ca-runs li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-2); }
 
 .ca-inbox {
@@ -55,7 +55,7 @@
 }
 .ca-inbox__head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-2); }
 .ca-inbox__item { display: flex; flex-direction: column; gap: 2px; padding: var(--dk-space-2) 0; border-bottom: 1px solid var(--color-border-subtle); }
-.ca-inbox { font-size: 0.8125rem; }
+.ca-inbox { font-size: var(--fs-small); }
 .ca-inbox__item--unread .ca-inbox__title { font-weight: 600; }
 .ca-inbox__meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--dk-space-2); color: var(--color-text-muted); }
 .ca-inbox__title { color: var(--color-text-primary); text-align: left; }
@@ -65,15 +65,15 @@
   border-radius: 999px;
   background: var(--color-primary, var(--color-bg-secondary));
   color: var(--color-primary-text, var(--color-text-primary));
-  font-size: 0.75rem;
+  font-size: var(--fs-meta);
   text-align: center;
 }
 .ca-rail { display: flex; flex-direction: column; gap: var(--dk-space-1); padding-top: var(--dk-space-2); }
-.ca-rail__group { margin: var(--dk-space-2) 0 0; font-size: 0.6875rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
+.ca-rail__group { margin: var(--dk-space-2) 0 0; font-size: var(--fs-meta); letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-muted); }
 
 /* A group of choices (radios, days) reads like the other fields, not like a boxed set. */
 fieldset.cs-field { border: 0; padding: 0; margin: 0; min-width: 0; }
-fieldset.cs-field > legend { padding: 0; margin-bottom: var(--dk-space-1); font-size: 0.8125rem; color: var(--color-text-secondary); }
+fieldset.cs-field > legend { padding: 0; margin-bottom: var(--dk-space-1); font-size: var(--fs-small); color: var(--color-text-secondary); }
 .ca-warning { flex-direction: column; align-items: flex-start; gap: var(--dk-space-2); }
 
 /* On a narrow screen a row stacks: its text gets the full width and its actions wrap below. */
