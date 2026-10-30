@@ -145,5 +145,122 @@
         }
       }
     }
+  },
+  "discovery": {
+    "ex": {
+      "title": "Buat LocalAI jadi milikmu",
+      "lede": "Katakan di chat. Asisten menyimpannya sebagai file yang bisa kamu ubah atau batalkan.",
+      "hide": "Sembunyikan",
+      "hiddenToast": "Contoh disembunyikan.",
+      "saveFailed": "Tidak tersimpan: {{message}}",
+      "card1": {
+        "kicker": "Kamu dan asisten",
+        "prompt": "Panggil aku {{firstName}} dan jawab singkat saja",
+        "promptNoName": "Ingat namaku dan jawab singkat saja",
+        "what": "Menyimpan user.json dan persona.json"
+      },
+      "card2": {
+        "kicker": "Sebuah halaman",
+        "prompt": "Buatkan aku papan tugas",
+        "what": "Menambah halaman yang kamu buka dari bilah sisi"
+      },
+      "card3": {
+        "kicker": "Setiap pagi",
+        "prompt": "Setiap pagi, ringkas kotak masukku di sini",
+        "promptNoMail": "Setiap pagi, daftarkan chat kemarin di sini",
+        "what": "Menambah widget Home dan pemicu yang kamu konfirmasi"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "Selesai.",
+      "doneLink": "Ubah di Account",
+      "ready": "Atau mulai dari halaman siap pakai:",
+      "readyTasks": "Papan tugas",
+      "readyReading": "Daftar bacaan",
+      "readyFailed": "Halaman tidak disalin: {{message}}",
+      "learn": "Cara kerjanya",
+      "inComposer": "Ubah jika perlu, lalu tekan Enter. Tidak ada yang disimpan sampai kamu mengirimnya.",
+      "live": "Prompt ditambahkan ke kotak pesan."
+    },
+    "home": {
+      "customise": "Sesuaikan Home"
+    },
+    "action": {
+      "undo": "Urungkan",
+      "openAccount": "Buka di Account",
+      "openPage": "Buka halaman",
+      "openHome": "Buka Home",
+      "turnBackOn": "Aktifkan lagi di Account"
+    },
+    "change": {
+      "profilePersona": "Namamu disimpan di <code>user.json</code> dan instruksimu di <code>persona.json</code>. Setiap chat memakainya mulai pesan berikutnya.",
+      "profile": "Disimpan ke profilmu di <code>user.json</code>.",
+      "persona": "<code>persona.json</code> disimpan. Setiap chat memakainya mulai pesan berikutnya.",
+      "shortcuts": "<code>shortcuts.json</code> disimpan.",
+      "home": "<code>home.json</code> disimpan. Home menampilkan perubahannya.",
+      "ui": "<code>ui.json</code> disimpan.",
+      "pageCreated": "Halaman {{title}} dibuat di <code>{{folder}}</code>.",
+      "pageChanged": "<code>{{file}}</code> diubah.",
+      "offersOff": "Saran dari asisten dimatikan.",
+      "undoing": "Mengurungkan…",
+      "undone": "Diurungkan.",
+      "undoFailed": "Tidak diurungkan: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Ditambahkan ke kotak pesanmu: {{label}}",
+      "pageCreated": "{{title}} ada di Pages, di bilah sisi",
+      "open": "Buka",
+      "homeChanged": "Home diperbarui.",
+      "themeChanged": "Tema diubah."
+    },
+    "files": {
+      "learn": "File ini mengubah cara LocalAI bekerja untukmu.",
+      "tag": {
+        "profile": "Profilmu",
+        "persona": "Asisten",
+        "shortcuts": "Pintasan",
+        "home": "Tata letak Home",
+        "ui": "Tampilan",
+        "page": "Halaman"
+      }
+    },
+    "privacy": "Asisten menerima namamu, teks ini, bahasa dan zona waktumu di awal setiap chat. Kosongkan kolom agar tidak dikirim.",
+    "versions": {
+      "label": "Versi",
+      "title": "Versi {{file}}",
+      "titleBefore": "Versi",
+      "loading": "Membaca riwayat…",
+      "none": "Belum ada versi sebelumnya.",
+      "current": "saat ini",
+      "invalid": "ada kesalahan",
+      "byAssistant": "Oleh asisten",
+      "byAssistantIn": "Oleh asisten di “{{chat}}”",
+      "byYou": "Oleh kamu",
+      "undo": "Sebuah urungan",
+      "upload": "Diunggah",
+      "revert": "Pulihkan",
+      "note": "Memulihkan menyimpan versi yang lebih baru di daftar ini.",
+      "invalidBadge": "Tidak valid",
+      "revertGood": "Pulihkan ke versi bagus terakhir"
+    },
+    "help": {
+      "title": "Bantuan dan saran",
+      "sub": "Cara LocalAI menunjukkan apa yang bisa dilakukannya. Matikan yang tidak kamu perlukan.",
+      "offers": "Tawaran dari asisten",
+      "offersHint": "Paling banyak satu per hari, tidak pernah saat tugas berjalan: misalnya, untuk mengingat sesuatu yang kamu katakan.",
+      "new": "Catatan tentang hal baru",
+      "newHint": "Label “Baru” singkat di bilah sisi saat sesuatu pertama kali muncul.",
+      "examples": "Contoh di Home",
+      "examplesShown": "Kartu “Buat LocalAI jadi milikmu” tampil di Home selama masih ada yang bisa dicoba.",
+      "examplesHidden": "Kamu menyembunyikan kartu “Buat LocalAI jadi milikmu”.",
+      "showExamples": "Tampilkan contoh lagi",
+      "examplesBack": "Contoh kembali di Home.",
+      "dismissed": "Yang dipelajari asisten",
+      "dismissedHint_one": "Kamu menolak {{count}} tawaran. Tawaran itu tetap tersembunyi sampai kamu mengatur ulang.",
+      "dismissedHint_other": "Kamu menolak {{count}} tawaran. Semuanya tetap tersembunyi sampai kamu mengatur ulang.",
+      "forget": "Lupakan yang dipelajari asisten dari petunjukku",
+      "forgotten": "Selesai. Asisten boleh menawarkan lagi.",
+      "learn": "Pelajari apa yang bisa kamu ubah:",
+      "dismissedNone": "Belum ada. Saat kamu menjawab tawaran, asisten mengingatnya di sini."
+    }
   }
 }

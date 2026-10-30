@@ -1,0 +1,37 @@
+{
+  "subtitle": "助手为你制作的小工具。它们在这里的沙盒中打开，数据保存在你的文件里。",
+  "card": {
+    "pin": "固定到侧边栏",
+    "unpin": "从侧边栏取消固定",
+    "changedBy": {
+      "you": "{{when}}由你修改",
+      "assistant": "{{when}}由助手修改"
+    },
+    "menu": "{{title}} 的更多操作",
+    "files": "显示其文件",
+    "rename": "重命名",
+    "renameLabel": "新文件夹名称",
+    "renameHint": "小写字母、数字和连字符。",
+    "renameSave": "保存",
+    "renameCancel": "取消",
+    "renameFailed": "页面未能重命名：{{message}}",
+    "delete": "删除页面",
+    "deleteTitle": "删除“{{title}}”？",
+    "deleteMessage": "文件夹 {{folder}} 将移到回收站。你可以在“文件”中恢复。",
+    "deleted": "{{title}} 已在回收站中。",
+    "deleteFailed": "页面未能删除：{{message}}"
+  },
+  "empty": {
+    "text": "页面是一个小工具，比如任务看板或阅读清单。可以在聊天中让助手做一个，或从现成的页面开始。",
+    "starting": "正在复制页面",
+    "starterFailed": "页面未能复制：{{message}}",
+    "ask": "请求创建页面",
+    "askPrompt": "帮我做一个页面，",
+    "starterReading": "从阅读清单开始",
+    "note": "没有页面时，此入口会从侧边栏消失。创建下一个页面后会重新出现。",
+    "learn": "页面的工作原理"
+  },
+  "askNew": "请求创建新页面",
+  "yours": "你的页面",
+  "filter": "筛选页面"
+}

@@ -110,5 +110,6 @@
       "triggers": "Avvia una chat da sola, a orari prefissati o quando arriva un file."
     }
   },
-  "pinnedPages": "Pagine fissate"
+  "pinnedPages": "Pagine fissate",
+  "new": "Nuovo"
 }

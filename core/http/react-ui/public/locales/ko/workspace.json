@@ -145,5 +145,122 @@
         }
       }
     }
+  },
+  "discovery": {
+    "ex": {
+      "title": "LocalAI를 나에게 맞게 만들기",
+      "lede": "채팅에서 말해 보세요. 어시스턴트가 바꾸거나 되돌릴 수 있는 파일로 저장해요.",
+      "hide": "숨기기",
+      "hiddenToast": "예시를 숨겼어요.",
+      "saveFailed": "저장되지 않음: {{message}}",
+      "card1": {
+        "kicker": "나와 어시스턴트",
+        "prompt": "저를 {{firstName}}(이)라고 부르고 답변은 짧게 해 주세요",
+        "promptNoName": "제 이름을 기억하고 답변은 짧게 해 주세요",
+        "what": "user.json과 persona.json을 저장해요"
+      },
+      "card2": {
+        "kicker": "페이지",
+        "prompt": "작업 보드를 만들어 주세요",
+        "what": "사이드바에서 여는 페이지를 추가해요"
+      },
+      "card3": {
+        "kicker": "매일 아침",
+        "prompt": "매일 아침 받은 편지함을 여기에 요약해 주세요",
+        "promptNoMail": "매일 아침 어제의 채팅 목록을 여기에 보여 주세요",
+        "what": "홈 위젯과 직접 확인하는 트리거를 추가해요"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "완료했어요.",
+      "doneLink": "계정에서 변경",
+      "ready": "또는 준비된 페이지로 시작하세요:",
+      "readyTasks": "작업 보드",
+      "readyReading": "읽기 목록",
+      "readyFailed": "페이지를 복사하지 못했어요: {{message}}",
+      "learn": "사용 방법",
+      "inComposer": "원하면 수정한 뒤 Enter를 누르세요. 보내기 전에는 아무것도 저장되지 않아요.",
+      "live": "프롬프트를 메시지 입력창에 추가했어요."
+    },
+    "home": {
+      "customise": "홈 꾸미기"
+    },
+    "action": {
+      "undo": "실행 취소",
+      "openAccount": "계정에서 열기",
+      "openPage": "페이지 열기",
+      "openHome": "홈 열기",
+      "turnBackOn": "계정에서 다시 켜기"
+    },
+    "change": {
+      "profilePersona": "이름은 <code>user.json</code>에, 지침은 <code>persona.json</code>에 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "profile": "프로필을 <code>user.json</code>에 저장했어요.",
+      "persona": "<code>persona.json</code>을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "shortcuts": "<code>shortcuts.json</code>을 저장했어요.",
+      "home": "<code>home.json</code>을 저장했어요. 홈에 변경 사항이 보여요.",
+      "ui": "<code>ui.json</code>을 저장했어요.",
+      "pageCreated": "<code>{{folder}}</code>에 {{title}} 페이지를 만들었어요.",
+      "pageChanged": "<code>{{file}}</code>을(를) 변경했어요.",
+      "offersOff": "어시스턴트의 제안이 꺼져 있어요.",
+      "undoing": "되돌리는 중…",
+      "undone": "되돌렸어요.",
+      "undoFailed": "되돌리지 못했어요: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "입력창에 추가했어요: {{label}}",
+      "pageCreated": "{{title}}이(가) 사이드바의 페이지에 있어요",
+      "open": "열기",
+      "homeChanged": "홈을 업데이트했어요.",
+      "themeChanged": "테마를 변경했어요."
+    },
+    "files": {
+      "learn": "이 파일들이 LocalAI가 나에게 동작하는 방식을 바꿔요.",
+      "tag": {
+        "profile": "내 프로필",
+        "persona": "어시스턴트",
+        "shortcuts": "바로 가기",
+        "home": "홈 레이아웃",
+        "ui": "모양",
+        "page": "페이지"
+      }
+    },
+    "privacy": "어시스턴트는 모든 채팅을 시작할 때 이름, 이 텍스트, 언어, 시간대를 받아요. 보내고 싶지 않은 항목은 비워 두세요.",
+    "versions": {
+      "label": "버전",
+      "title": "{{file}}의 버전",
+      "titleBefore": "다음 파일의 버전",
+      "loading": "기록을 읽는 중…",
+      "none": "이전 버전이 아직 없어요.",
+      "current": "현재",
+      "invalid": "오류가 있음",
+      "byAssistant": "어시스턴트가 변경",
+      "byAssistantIn": "“{{chat}}” 채팅에서 어시스턴트가 변경",
+      "byYou": "내가 변경",
+      "undo": "되돌리기",
+      "upload": "업로드함",
+      "revert": "복원",
+      "note": "복원해도 더 새로운 버전은 이 목록에 남아요.",
+      "invalidBadge": "잘못됨",
+      "revertGood": "마지막 정상 버전으로 복원"
+    },
+    "help": {
+      "title": "도움말과 제안",
+      "sub": "LocalAI가 할 수 있는 일을 보여 주는 방법들이에요. 필요 없는 것은 끄세요.",
+      "offers": "어시스턴트의 제안",
+      "offersHint": "하루에 최대 한 번, 작업 중에는 절대 하지 않아요. 예를 들어 말씀하신 내용을 기억해 둘지 물어볼 때예요.",
+      "new": "새 기능 알림",
+      "newHint": "무언가 처음 나타나면 사이드바에 짧은 “새 기능” 라벨이 표시돼요.",
+      "examples": "홈의 예시",
+      "examplesShown": "시도해 볼 것이 남아 있는 동안 홈에 “LocalAI를 나에게 맞게 만들기” 카드가 표시돼요.",
+      "examplesHidden": "“LocalAI를 나에게 맞게 만들기” 카드를 숨겼어요.",
+      "showExamples": "예시 다시 표시",
+      "examplesBack": "예시가 홈에 다시 표시돼요.",
+      "dismissed": "어시스턴트가 배운 내용",
+      "dismissedHint_one": "제안 {{count}}개를 거절했어요. 초기화할 때까지 숨겨져 있어요.",
+      "dismissedHint_other": "제안 {{count}}개를 거절했어요. 초기화할 때까지 숨겨져 있어요.",
+      "forget": "제안에 대해 어시스턴트가 배운 내용 지우기",
+      "forgotten": "완료했어요. 어시스턴트가 다시 제안할 수 있어요.",
+      "learn": "바꿀 수 있는 것 알아보기:",
+      "dismissedNone": "아직 없어요. 제안에 답하면 어시스턴트가 여기에 기억해 둬요."
+    }
   }
 }

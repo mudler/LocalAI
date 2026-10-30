@@ -1,0 +1,37 @@
+{
+  "subtitle": "Alat kecil yang dibuat asisten untukmu. Dibuka di sini, dalam sandbox, dan menyimpan datanya di file-mu.",
+  "card": {
+    "pin": "Sematkan ke bilah sisi",
+    "unpin": "Lepas dari bilah sisi",
+    "changedBy": {
+      "you": "Diubah {{when}} oleh kamu",
+      "assistant": "Diubah {{when}} oleh asisten"
+    },
+    "menu": "Lainnya untuk {{title}}",
+    "files": "Tampilkan filenya",
+    "rename": "Ganti nama",
+    "renameLabel": "Nama folder baru",
+    "renameHint": "Huruf kecil, angka, dan tanda hubung.",
+    "renameSave": "Simpan",
+    "renameCancel": "Batal",
+    "renameFailed": "Halaman tidak diganti namanya: {{message}}",
+    "delete": "Hapus halaman",
+    "deleteTitle": "Hapus “{{title}}”?",
+    "deleteMessage": "Folder {{folder}} masuk ke Sampah. Kamu bisa memulihkannya dari File.",
+    "deleted": "{{title}} ada di Sampah.",
+    "deleteFailed": "Halaman tidak dihapus: {{message}}"
+  },
+  "empty": {
+    "text": "Halaman adalah alat kecil, seperti papan tugas atau daftar bacaan. Minta satu ke asisten di chat, atau mulai dari halaman siap pakai.",
+    "starting": "Menyalin halaman",
+    "starterFailed": "Halaman tidak disalin: {{message}}",
+    "ask": "Minta halaman",
+    "askPrompt": "Buatkan aku halaman yang ",
+    "starterReading": "Mulai dari daftar bacaan",
+    "note": "Entri ini hilang dari bilah sisi saat kamu tidak punya halaman. Entri ini muncul lagi dengan halaman berikutnya.",
+    "learn": "Cara kerja halaman"
+  },
+  "askNew": "Minta halaman baru",
+  "yours": "Milikmu",
+  "filter": "Saring halaman"
+}

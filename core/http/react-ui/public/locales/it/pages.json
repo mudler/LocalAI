@@ -1,0 +1,37 @@
+{
+  "subtitle": "Piccoli strumenti creati per te dall'assistente. Si aprono qui, in una sandbox, e tengono i loro dati nei tuoi file.",
+  "card": {
+    "pin": "Fissa nella barra laterale",
+    "unpin": "Rimuovi dalla barra laterale",
+    "changedBy": {
+      "you": "Modificata {{when}} da te",
+      "assistant": "Modificata {{when}} dall'assistente"
+    },
+    "menu": "Altro per {{title}}",
+    "files": "Mostra i suoi file",
+    "rename": "Rinomina",
+    "renameLabel": "Nuovo nome della cartella",
+    "renameHint": "Lettere minuscole, cifre e trattini.",
+    "renameSave": "Salva",
+    "renameCancel": "Annulla",
+    "renameFailed": "La pagina non è stata rinominata: {{message}}",
+    "delete": "Elimina pagina",
+    "deleteTitle": "Eliminare «{{title}}»?",
+    "deleteMessage": "La cartella {{folder}} va nel Cestino. Puoi ripristinarla da File.",
+    "deleted": "{{title}} è nel Cestino.",
+    "deleteFailed": "La pagina non è stata eliminata: {{message}}"
+  },
+  "empty": {
+    "text": "Una pagina è un piccolo strumento, come una bacheca delle attività o una lista di lettura. Chiedine una all'assistente in una chat, oppure parti da una pagina pronta.",
+    "starting": "Copia della pagina",
+    "starterFailed": "La pagina non è stata copiata: {{message}}",
+    "ask": "Chiedi una pagina",
+    "askPrompt": "Crea una pagina che ",
+    "starterReading": "Parti da una lista di lettura",
+    "note": "Questa voce esce dalla barra laterale quando non hai pagine. Torna con la prossima.",
+    "learn": "Come funzionano le pagine"
+  },
+  "askNew": "Chiedi una nuova pagina",
+  "yours": "Tue",
+  "filter": "Filtra le pagine"
+}

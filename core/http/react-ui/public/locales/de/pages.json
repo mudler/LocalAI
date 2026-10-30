@@ -1,0 +1,37 @@
+{
+  "subtitle": "Kleine Werkzeuge, die der Assistent für dich gebaut hat. Sie öffnen sich hier in einer Sandbox und speichern ihre Daten in deinen Dateien.",
+  "card": {
+    "pin": "An Seitenleiste anheften",
+    "unpin": "Von Seitenleiste lösen",
+    "changedBy": {
+      "you": "Geändert {{when}} von dir",
+      "assistant": "Geändert {{when}} vom Assistenten"
+    },
+    "menu": "Mehr für {{title}}",
+    "files": "Dateien anzeigen",
+    "rename": "Umbenennen",
+    "renameLabel": "Neuer Ordnername",
+    "renameHint": "Kleinbuchstaben, Ziffern und Bindestriche.",
+    "renameSave": "Speichern",
+    "renameCancel": "Abbrechen",
+    "renameFailed": "Die Seite wurde nicht umbenannt: {{message}}",
+    "delete": "Seite löschen",
+    "deleteTitle": "„{{title}}“ löschen?",
+    "deleteMessage": "Der Ordner {{folder}} kommt in den Papierkorb. Du kannst ihn in Dateien wiederherstellen.",
+    "deleted": "{{title}} ist im Papierkorb.",
+    "deleteFailed": "Die Seite wurde nicht gelöscht: {{message}}"
+  },
+  "empty": {
+    "text": "Eine Seite ist ein kleines Werkzeug, etwa ein Aufgabenboard oder eine Leseliste. Bitte den Assistenten im Chat um eine oder starte mit einer fertigen Seite.",
+    "starting": "Seite wird kopiert",
+    "starterFailed": "Die Seite wurde nicht kopiert: {{message}}",
+    "ask": "Seite anfragen",
+    "askPrompt": "Erstelle mir eine Seite, die ",
+    "starterReading": "Mit einer Leseliste starten",
+    "note": "Dieser Eintrag verschwindet aus der Seitenleiste, wenn du keine Seiten hast. Mit der nächsten kommt er zurück.",
+    "learn": "So funktionieren Seiten"
+  },
+  "askNew": "Neue Seite anfragen",
+  "yours": "Deine",
+  "filter": "Seiten filtern"
+}
