@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useTranslation } from 'react-i18next'
-import Icon from '../Icon'
+import Button from '../ui/Button'
 import { StateChip, Fact, UnknownNotice } from './AddonBits'
 import { formatBytes, rangeText, shortDigest } from './addonState'
 import { describeError, describeOutcome } from './errors'
@@ -20,6 +20,17 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
   const compat = addon.compatibility || {}
   return (
     <div className="ad-facts-body" data-testid="addon-manage">
+      <section className="ad-section" aria-labelledby="manage-trust">
+        <h3 id="manage-trust" className="ad-section__title">{t('manage.trust')}</h3>
+        <dl className="dk-kv ad-kv">
+          <dt>{t('trust.verification')}</dt><dd>{t(`trust.mode.${addon.verification === 'sha256+sigstore' ? 'signed' : 'digest'}`)}</dd>
+          <dt>{t('trust.library')}</dt><dd>{addon.sourceId || '—'}</dd>
+          {addon.channel && (<><dt>{t('trust.channel')}</dt><dd>{addon.channel}</dd></>)}
+          {addon.selection && (<><dt>{t('trust.selection')}</dt><dd>{addon.selection}</dd></>)}
+          <dt>{t('trust.digest')}</dt><dd className="dk-mono ad-wrap" title={addon.digest}>{shortDigest(addon.digest)}</dd>
+        </dl>
+      </section>
+
       <section className="ad-section" aria-labelledby="manage-health">
         <h3 id="manage-health" className="ad-section__title">{t('manage.health')}</h3>
         <dl className="dk-kv ad-kv">
@@ -30,15 +41,9 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
         {addon.enabled && addon.state === 'failed' && <p className="ad-entry__note" data-tone="error" role="alert">{t('manage.failedNote', { count: addon.restarts })}</p>}
       </section>
 
-      <section className="ad-section" aria-labelledby="manage-trust">
-        <h3 id="manage-trust" className="ad-section__title">{t('manage.trust')}</h3>
-        <dl className="dk-kv ad-kv">
-          <dt>{t('trust.verification')}</dt><dd>{t(`trust.mode.${addon.verification === 'sha256+sigstore' ? 'signed' : 'digest'}`)}</dd>
-          <dt>{t('trust.library')}</dt><dd>{addon.sourceId || '—'}</dd>
-          {addon.channel && (<><dt>{t('trust.channel')}</dt><dd>{addon.channel}</dd></>)}
-          {addon.selection && (<><dt>{t('trust.selection')}</dt><dd>{addon.selection}</dd></>)}
-          <dt>{t('trust.digest')}</dt><dd className="dk-mono ad-wrap" title={addon.digest}>{shortDigest(addon.digest)}</dd>
-        </dl>
+      <section className="ad-section" aria-labelledby="manage-updates" data-testid="manage-updates">
+        <h3 id="manage-updates" className="ad-section__title">{t('updates.title')}</h3>
+        <UpdatePanel addon={addon} t={t} language={language} actions={actions} check={check} upgraded={upgraded} working={working} onCheck={onCheck} onUpgrade={onUpgrade} />
       </section>
 
       <section className="ad-section" aria-labelledby="manage-compat">
@@ -65,11 +70,6 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
       <section className="ad-section" aria-labelledby="manage-recovery" data-testid="manage-recovery">
         <h3 id="manage-recovery" className="ad-section__title">{t('recovery.title')}</h3>
         <RecoveryPanel api={api} addon={addon} />
-      </section>
-
-      <section className="ad-section" aria-labelledby="manage-updates" data-testid="manage-updates">
-        <h3 id="manage-updates" className="ad-section__title">{t('updates.title')}</h3>
-        <UpdatePanel addon={addon} t={t} language={language} actions={actions} check={check} upgraded={upgraded} working={working} onCheck={onCheck} onUpgrade={onUpgrade} />
       </section>
 
       <section className="ad-section" aria-labelledby="manage-logs">
@@ -147,13 +147,13 @@ function UpdatePanel({ addon, t, language, actions, check, upgraded, working, on
         ? <UnknownNotice addonId={addon.id} actions={actions} />
         : result && result.outcome !== 'completed' && <p className="ad-entry__note" data-tone="error" role="alert">{outcomeText(result, t)}</p>}
       <div className="ad-section__acts">
-        <button type="button" className="dk-btn dk-btn--sm" disabled={checking || working} onClick={onCheck} data-testid="update-check">
-          <Icon name={checking ? 'spinner' : 'refresh'} spin={checking} /> {checking ? t('updates.checking') : t('updates.checkNow')}
-        </button>
+        <Button size="sm" icon="refresh" busy={checking} disabled={checking || working} onClick={onCheck} data-testid="update-check">
+          {checking ? t('updates.checking') : t('updates.checkNow')}
+        </Button>
         {view.canUpgrade && (
-          <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working} onClick={onUpgrade} data-testid="update-upgrade">
-            <Icon name="arrow-up" /> {t('updates.upgrade')}
-          </button>
+          <Button variant="primary" size="sm" icon="arrow-up" disabled={working} onClick={onUpgrade} data-testid="update-upgrade">
+            {t('updates.upgrade')}
+          </Button>
         )}
       </div>
     </>

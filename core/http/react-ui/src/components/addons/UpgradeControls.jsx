@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useTranslation } from 'react-i18next'
-import Icon from '../Icon'
+import Button from '../ui/Button'
 import ConfirmDialog from '../ConfirmDialog'
 import { UpgradeReason } from '../upgrade/UpgradeBits'
 import { shortDigest } from './addonState'
@@ -37,15 +37,15 @@ export function reasonText(availability, t) {
 // The Upgrade action of one installed add-on where its notice is seen, or the
 // reason it cannot start with a way to check again. `upgrade` is the
 // useAddonUpgrade of the view; the confirmation is <UpgradeConfirm>.
-export function AddonUpgradeAction({ addon, pending, isAdmin, upgrade, working }) {
+export function AddonUpgradeAction({ addon, pending, isAdmin, upgrade, working, variant = 'primary' }) {
   const { t } = useTranslation('addons')
   if (!addon && !pending) return null
   const availability = upgradeAvailability(addon, { isAdmin, pending })
   if (availability.startable) {
     return (
-      <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={working} onClick={() => upgrade.ask(addon)} data-testid="update-upgrade-card" aria-label={t('updates.upgradeNamed', { name: addon.title })}>
-        <Icon name="arrow-up" aria-hidden="true" /> {t('updates.upgrade')}
-      </button>
+      <Button variant={variant} size="sm" icon="arrow-up" busy={working} disabled={working} onClick={() => upgrade.ask(addon)} data-testid="update-upgrade-card" aria-label={t('updates.upgradeNamed', { name: addon.title })}>
+        {t('updates.upgrade')}
+      </Button>
     )
   }
   if (!availability.reason) return null

@@ -10,9 +10,9 @@ import { addedByAddon, stateChip } from './addonState'
 // One installed add-on as a row: identity tile, name and state, one line of
 // what it does, and a meta line (page, tools, where it came from, version).
 // The row body selects the add-on (its details open beside the list). On the
-// right: the action that fits its state (Open, Upgrade), Pin, and the overflow
+// right: the actions that fit its state (Upgrade, Open), Pin, and the overflow
 // menu with reordering, Details and Remove.
-export default function AddonRow({ tile, pinned, selected = false, attention = '', source, updateVersion = '', onPin, onMove, onOpenDetail, onRemove, upgrade }) {
+export default function AddonRow({ tile, pinned, selected = false, attention = '', source, updateVersion = '', onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
   const { t } = useTranslation('addons')
   const { t: tn } = useTranslation('nav')
   const title = tile.titleKey ? tn(tile.titleKey) : tile.title
@@ -55,6 +55,7 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
         </span>
       </button>
       <div className="ad-tile__side">
+        {upgrade && upgradeInline && <span className="ad-tile__act" data-testid="tile-upgrade">{upgrade}</span>}
         {tile.target && (
           <Button size="sm" to={tile.target} aria-label={t('card.openNamed', { name: title })}>{t('apps.open')}</Button>
         )}
@@ -77,7 +78,7 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
           onRemove={onRemove && app ? () => onRemove(tile) : undefined}
         />
       </div>
-      {upgrade && <div className="ad-tile__upgrade" data-testid="tile-upgrade">{upgrade}</div>}
+      {upgrade && !upgradeInline && <div className="ad-tile__upgrade" data-testid="tile-upgrade">{upgrade}</div>}
     </li>
   )
 }
