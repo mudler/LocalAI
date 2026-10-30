@@ -1,0 +1,91 @@
+{
+  "shared": {
+    "yours": "Tuyas",
+    "group": "Compartidas contigo",
+    "note": "Una página compartida solo se ejecuta después de que la permitas. Si su autor la cambia, se te vuelve a preguntar.",
+    "offNotice": "Las páginas compartidas están desactivadas en este servidor. Un administrador las desactivó.",
+    "off": "Las páginas compartidas están desactivadas en este servidor. Un administrador las desactivó.",
+    "gone": "Esta página ya no está en la carpeta compartida o ya no tienes acceso a ella.",
+    "review": "Revisar",
+    "from": "De {{author}}",
+    "menu": "Menú de la página",
+    "badge": {
+      "notAllowed": "Aún no permitida",
+      "changed": "Cambió desde que la permitiste",
+      "allowed": "Permitida"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "Dejar de permitir esta página",
+    "authorChanged": "{{author}} cambió esta página. La versión que permitiste sigue en marcha hasta que revises el cambio.",
+    "sandboxShared": "Aislada. Se ejecuta como tú, solo en {{folder}}, y no puede acceder a la red."
+  },
+  "trust": {
+    "title": "¿Abrir «{{title}}»?",
+    "desc": "Esta página viene de una carpeta compartida. Las páginas se ejecutan como tú, así que revísala antes de que se ejecute.",
+    "who": "Escrita por {{author}}",
+    "whereLabel": "Carpeta compartida",
+    "whereWhen": ", cambiada {{when}}",
+    "someone": "alguien",
+    "close": "Cerrar",
+    "canTitle": "Puede",
+    "canStillTitle": "Todavía puede",
+    "cannotTitle": "No puede",
+    "items": {
+      "files": "Leer y escribir archivos en su propia carpeta",
+      "readOnly": "Solo puedes leer esta carpeta compartida, así que la página no puede guardar sus cambios.",
+      "chat": "Escribir un mensaje en un chat",
+      "chatNote": "Ves el mensaje en el chat antes de que el asistente lo responda.",
+      "noFiles": "Leer tus otros archivos o chats",
+      "noNet": "Acceder a la red u otros sitios",
+      "noNetNote": "Un límite: puede cargar otra dirección en su propio marco. Eso envía una solicitud hacia fuera y luego la página se detiene.",
+      "noTools": "Usar herramientas o cambiar tus ajustes"
+    },
+    "warn": "Actúa como tú dentro de su carpeta. Si {{author}} la cambia, se te vuelve a preguntar.",
+    "viewSource": "Ver el código",
+    "cancel": "Cancelar",
+    "allowOnce": "Permitir una vez",
+    "allow": "Permitir",
+    "changed": {
+      "title": "«{{title}}» ha cambiado",
+      "desc": "Permitiste una versión anterior. Revisa qué cambió antes de que se vuelva a ejecutar.",
+      "who": "Cambiada por {{author}} {{when}}",
+      "allowed": "Permitiste la versión del {{date}}",
+      "what": "Qué cambió",
+      "same": "Lo que puede hacer es lo mismo que antes.",
+      "warn": "Si la permites, esta versión se ejecuta cada vez que la abras, hasta que {{author}} la vuelva a cambiar.",
+      "view": "Ver los cambios",
+      "lines": "{{before}} → {{after}} líneas"
+    },
+    "pill": {
+      "notYet": "Aún no permitida",
+      "not": "No permitida",
+      "once": "Permitida para esta visita",
+      "allowed": "Permitida",
+      "changed": "Cambió desde que la permitiste"
+    },
+    "from": "De {{author}}",
+    "frame": {
+      "chrome": "Página compartida de {{folder}}. No se ha ejecutado."
+    },
+    "blocked": {
+      "title": "Esta página no se ha ejecutado",
+      "body": "Elegiste no ejecutarla. Viene de la carpeta compartida {{folder}} de {{author}}. No se ha ejecutado nada de ella y no se ha guardado nada.",
+      "review": "Revisar y permitir"
+    },
+    "waiting": {
+      "title": "Esperándote",
+      "body": "Nada de esta página se ejecuta hasta que la permitas."
+    },
+    "stopped": {
+      "revoked": "Dejaste de permitir esta página. Se detuvo y nada de ella se ejecuta hasta que la vuelvas a permitir.",
+      "refused": "Esta página ya no está permitida, así que se detuvo. Revísala para volver a permitirla.",
+      "off": "Las páginas compartidas se desactivaron en este servidor, así que esta página se detuvo."
+    },
+    "changedMeanwhile": "La página cambió mientras la revisabas. Esta es la versión nueva.",
+    "sourceTitle": "Código de «{{title}}»",
+    "sourceLines_one": "{{count}} línea",
+    "sourceLines_other": "{{count}} líneas",
+    "sourceNote": "El código se muestra como texto. Nada de él se ejecuta aquí."
+  }
+}

@@ -81,6 +81,7 @@ const Chats = page('chats', () => import('./pages/Chat'))
 const Workspace = page('workspace', () => import('./pages/Workspace'))
 const Pages = page('pages', () => import('./pages/Pages'))
 const PageView = page(null, () => import('./pages/PageView'))
+const SharedPageView = page(null, () => import('./pages/SharedPageView'))
 const Agents = page('agents', () => import('./pages/Agents'))
 const AgentCreate = page(null, () => import('./pages/AgentCreate'))
 const AgentPage = page(null, () => import('./pages/AgentPage'))
@@ -281,6 +282,7 @@ const appChildren = [
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
   { path: 'pages', element: <Feature feature="chats"><Feature feature="pages"><Pages /></Feature></Feature> },
   { path: 'pages/:name', element: <Feature feature="chats"><Feature feature="pages"><PageView /></Feature></Feature> },
+  { path: 'pages/shared/:folder/:name', element: <Feature feature="chats"><Feature feature="pages"><SharedPageView /></Feature></Feature> },
   { path: 'agents', element: <Feature feature="agents"><Agents /></Feature> },
   { path: 'agents/new', element: <Feature feature="agents"><AgentCreate /></Feature> },
   { path: 'agents/:id/edit', element: <Feature feature="agents"><AgentCreate /></Feature> },

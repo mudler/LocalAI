@@ -57,5 +57,94 @@
     "sent": "Sent to {{title}}",
     "openChat": "Open chat",
     "failed": "Not sent: {{message}}"
+  },
+  "shared": {
+    "yours": "Yours",
+    "group": "Shared with you",
+    "note": "A shared page runs only after you allow it. If its author changes it, you are asked again.",
+    "offNotice": "Shared pages are off on this server. An administrator turned them off.",
+    "off": "Shared pages are off on this server. An administrator turned them off.",
+    "gone": "This page is no longer in the shared folder, or you no longer have access to it.",
+    "review": "Review",
+    "from": "From {{author}}",
+    "menu": "Page menu",
+    "badge": {
+      "notAllowed": "Not allowed yet",
+      "changed": "Changed since you allowed it",
+      "allowed": "Allowed"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "Stop allowing this page",
+    "authorChanged": "{{author}} changed this page. The version you allowed keeps running until you review the change.",
+    "sandboxShared": "Sandboxed. Runs as you, in {{folder}} only, and cannot reach the network."
+  },
+  "trust": {
+    "title": "Open \"{{title}}\"?",
+    "desc": "This page comes from a shared folder. Pages run as you, so check it before it runs.",
+    "who": "Written by {{author}}",
+    "whereLabel": "Shared folder",
+    "whereWhen": ", changed {{when}}",
+    "someone": "someone",
+    "close": "Close",
+    "canTitle": "It can",
+    "canStillTitle": "It can still",
+    "cannotTitle": "It cannot",
+    "items": {
+      "files": "Read and write files in its own folder",
+      "readOnly": "You can only read this shared folder, so the page cannot save its changes.",
+      "chat": "Write a message into a chat",
+      "chatNote": "You see the message in the chat before the assistant answers it.",
+      "noFiles": "Read your other files or chats",
+      "noNet": "Reach the network or other sites",
+      "noNetNote": "One limit: it can load another address in its own frame. That sends one request out, and then the page stops.",
+      "noTools": "Use tools or change your settings"
+    },
+    "warn": "It acts as you inside its folder. If {{author}} changes it, you are asked again.",
+    "viewSource": "View source",
+    "cancel": "Cancel",
+    "allowOnce": "Allow once",
+    "allow": "Allow",
+    "changed": {
+      "title": "\"{{title}}\" has changed",
+      "desc": "You allowed an earlier version. Check what changed before it runs again.",
+      "who": "Changed by {{author}} {{when}}",
+      "allowed": "You allowed the version of {{date}}",
+      "what": "What changed",
+      "same": "What it can do is the same as before.",
+      "warn": "If you allow it, this version runs each time you open it, until {{author}} changes it again.",
+      "view": "View changes",
+      "lines": "{{before}} → {{after}} lines"
+    },
+    "pill": {
+      "notYet": "Not allowed yet",
+      "not": "Not allowed",
+      "once": "Allowed for this visit",
+      "allowed": "Allowed",
+      "changed": "Changed since you allowed it"
+    },
+    "from": "From {{author}}",
+    "frame": {
+      "chrome": "Shared page from {{folder}}. It has not run."
+    },
+    "blocked": {
+      "title": "This page has not run",
+      "body": "You chose not to run it. It comes from {{author}}'s shared folder {{folder}}. Nothing in it has run, and nothing was saved.",
+      "review": "Review and allow"
+    },
+    "waiting": {
+      "title": "Waiting for you",
+      "body": "Nothing in this page runs until you allow it."
+    },
+    "stopped": {
+      "revoked": "You stopped allowing this page. It stopped running and nothing else in it runs until you allow it again.",
+      "refused": "This page is no longer allowed, so it was stopped. Review it to allow it again.",
+      "off": "Shared pages were turned off on this server, so this page was stopped."
+    },
+    "changedMeanwhile": "The page changed while you were reviewing it. This is the new version.",
+    "sourceTitle": "Source of \"{{title}}\"",
+    "sourceLines_one": "{{count}} line",
+    "sourceLines_other": "{{count}} lines",
+    "sourceNote": "The source is shown as text. Nothing in it runs here."
   }
 }

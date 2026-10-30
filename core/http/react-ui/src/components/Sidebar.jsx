@@ -16,6 +16,7 @@ import Icon from './Icon'
 import AppsPinnedLinks from './AppsPinnedLinks'
 import PagesPinnedLinks from './PagesPinnedLinks'
 import { usePages } from '../hooks/usePages'
+import { useSharedPages } from '../hooks/useSharedPages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -174,7 +175,9 @@ export default function Sidebar({ isOpen, onClose }) {
   // a user who may have pages at all.
   const pagesOn = !legacy && hasFeature('chats') && hasFeature('pages')
   const { pages } = usePages(pagesOn)
-  const hasPages = pagesOn && pages.length > 0
+  // Pages of shared folders count too: they are reached from the Pages screen.
+  const { pages: shared } = useSharedPages(pagesOn)
+  const hasPages = pagesOn && (pages.length > 0 || shared.length > 0)
   const { pins } = usePinnedPages(hasPages)
   // A pinned page lights up its own link under Pages, not the Pages entry too.
   const pagesActive = (pathname) => {
