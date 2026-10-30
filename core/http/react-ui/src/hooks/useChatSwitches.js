@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatAddonsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
 import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
+import { changedIds, offList, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 
-// The id the server gives a skill; an older server sends the name only.
-export const skillKey = (s) => s.id || s.name
+export { skillKey }
 
 // What a chat can use besides its built-in tools, with a switch each: add-ons,
 // the MCP servers of its model, the user's MCP connectors and the skills. A
@@ -16,9 +16,15 @@ export function useChatSwitches(chatId, filesOn) {
   const [mcp, setMcp] = useState(noMCP)
   const [skills, setSkills] = useState([])
   const [error, setError] = useState('')
+  const [skillsError, setSkillsError] = useState('')
+  const [skillsBusy, setSkillsBusy] = useState(0)
+  // The skills as the screen shows them now, for requests that start before a render.
+  const skillsRef = useRef([])
+  skillsRef.current = skills
 
   useEffect(() => {
     setError('')
+    setSkillsError('')
     if (!chatId) { setAddons([]); setMcp(noMCP); setSkills([]); return undefined }
     let live = true
     chatAddonsApi.list(chatId)
@@ -71,24 +77,37 @@ export function useChatSwitches(chatId, filesOn) {
     }
   }, [mcp, chatId])
 
+  // Switches the skills with these ids (a Set) on or off with one request: the
+  // server stores the full list of skills that are off. The screen changes at
+  // once; when the server refuses, only these skills go back and the message
+  // says so.
+  const setSkillsOn = useCallback(async (ids, on) => {
+    const before = skillsRef.current
+    if (changedIds(before, ids, on).length === 0) return
+    const next = withSkillsSet(before, ids, on)
+    skillsRef.current = next
+    setSkills(next)
+    setSkillsError('')
+    setSkillsBusy((n) => n + 1)
+    try {
+      await chatSkillsApi.setOff(chatId, offList(next))
+    } catch (e) {
+      const back = revertSkills(skillsRef.current, before, ids)
+      skillsRef.current = back
+      setSkills(back)
+      setSkillsError(e.message || 'error')
+    } finally {
+      setSkillsBusy((n) => n - 1)
+    }
+  }, [chatId])
+
   // A switch names the skill by its id ("layer:name"): a plain name would
   // turn off whichever skill of that name wins, not this one.
-  const toggleSkill = useCallback(async (id, on) => {
-    const before = skills
-    const next = skills.map((s) => (skillKey(s) === id ? { ...s, enabled: on } : s))
-    setSkills(next)
-    setError('')
-    try {
-      await chatSkillsApi.setOff(chatId, next.filter((s) => !s.enabled).map(skillKey).sort())
-    } catch (e) {
-      setSkills(before)
-      setError(e.message || 'error')
-    }
-  }, [skills, chatId])
+  const toggleSkill = useCallback((id, on) => setSkillsOn(new Set([id]), on), [setSkillsOn])
 
   return {
-    addons, servers: mcp.servers, connectors: mcp.connectors, skills, error,
+    addons, servers: mcp.servers, connectors: mcp.connectors, skills, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ addons, servers: mcp.servers, connectors: mcp.connectors }),
-    toggleAddon, toggleMCP, toggleSkill,
+    toggleAddon, toggleMCP, toggleSkill, setSkillsOn,
   }
 }
