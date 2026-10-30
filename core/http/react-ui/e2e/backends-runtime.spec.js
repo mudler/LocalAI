@@ -8,6 +8,8 @@ import {
 // into the rest.
 
 const row = (page, name) => page.locator(`[data-entity="${name}"]`)
+// Rare actions (check for updates, install from a URL) are in the More menu.
+const openMore = page => page.getByRole('button', { name: 'More backend actions' }).click()
 const jsonOk = route => route.fulfill({ json: { status: 'ok' } })
 
 const VLLM_INSTALLING = { ...RUNNING_OP, name: 'vllm', id: 'vllm', fullName: 'localai@vllm', jobID: 'job-vllm', progress: 6 }
@@ -139,7 +141,8 @@ test.describe('Backend updates', () => {
     const calls = []
     await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
-    await page.getByRole('button', { name: 'Update all (2)' }).click()
+    await expect(page.getByTestId('backends-updates')).toContainText('2 updates available')
+    await page.getByTestId('backends-updates').getByRole('button', { name: 'Review' }).click()
     await page.getByTestId('bulk-upgrade-start').click()
     await expect.poll(() => calls.sort()).toEqual(['llama-cpp', 'whisper'])
   })
@@ -149,16 +152,19 @@ test.describe('Backend updates', () => {
     let checks = 0
     await page.route('**/api/backends/upgrades/check', route => { checks += 1; return route.fulfill({ json: UPGRADE_LLAMA }) })
     await page.goto('/app/backends?view=installed')
-    await page.getByRole('button', { name: 'Check for updates' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Check for updates' }).click()
     await expect.poll(() => checks).toBe(1)
-    await expect(page.getByRole('button', { name: 'Update all (1)' })).toBeVisible()
+    await expect(page.getByTestId('backends-updates')).toContainText('1 update available')
+    await expect(page.getByTestId('backends-updates').getByRole('button', { name: 'Review' })).toBeVisible()
   })
 
   test('says when every backend is current', async ({ page }) => {
     await mockOperate(page)
     await page.route('**/api/backends/upgrades/check', route => route.fulfill({ json: {} }))
     await page.goto('/app/backends?view=installed')
-    await page.getByRole('button', { name: 'Check for updates' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Check for updates' }).click()
     await expect(page.getByText('Every installed backend is current')).toBeVisible()
   })
 })
@@ -224,7 +230,8 @@ test.describe('Install from URL and the catalog', () => {
     const bodies = []
     await page.route('**/api/backends/install-external', route => { bodies.push(route.request().postDataJSON()); return jsonOk(route) })
     await page.goto('/app/backends')
-    await page.getByRole('button', { name: 'From URL' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Install from URL…' }).click()
     await page.getByLabel('OCI image, URL or path').fill('oci://quay.io/example/backend:latest')
     await page.getByLabel('Name (required for an OCI image)').fill('my-backend')
     await page.getByLabel('Alias (optional)').fill('mine')
@@ -235,7 +242,8 @@ test.describe('Install from URL and the catalog', () => {
   test('asks for an address before posting anything', async ({ page }) => {
     await mockOperate(page)
     await page.goto('/app/backends')
-    await page.getByRole('button', { name: 'From URL' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Install from URL…' }).click()
     await page.getByRole('button', { name: 'Install', exact: true }).click()
     await expect(page.getByRole('alert')).toContainText('Enter an image, URL or path')
   })

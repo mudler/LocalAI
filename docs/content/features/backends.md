@@ -68,23 +68,39 @@ complete backend lifecycle. It is one list with two views, **Installed** and
    On a new installation with nothing installed it recommends llama-cpp, which
    runs most text models, with a single install button.
 2. **Installed** shows the runtimes present on the host or cluster, those with
-   an update first. Search and filter by user, system, update, or offline-node
-   state.
-3. Variant and development builds remain opt-in refinements. Target-node links
-   compose with the current view and selection instead of opening a separate
-   management page.
+   an update first.
+3. Target-node links compose with the current view and selection instead of
+   opening a separate management page.
+
+Above the list there is one row of controls: the two views, the search, a
+**Filters** button and a **More** menu (⋮). The row stays at the top of the
+page while you scroll a long list.
+
+- **Filters** opens a menu (a sheet on a phone). In Installed, filter by state:
+  user, system, with an update, or on an offline node. In Catalog, filter by
+  type: chat, image, video, TTS, STT, or vision. In both, **Variant builds**
+  and **Development builds** show the builds that are hidden by default, and,
+  when library sources are set up, **Library** narrows the list to one source.
+  The button shows how many filters are on.
+- The line under the controls shows how many backends are listed, each active
+  filter as a chip that you can remove, and, when updates exist, **N updates
+  available · Review**.
+- **More** holds the actions you need less often: **Check for updates** asks
+  the server to check now instead of waiting for its next scheduled check,
+  **Install from URL…** installs a backend from an OCI image, a URL or a path,
+  and **Manage libraries…** opens the library sources panel.
 
 Each row shows the backend, its version and its state: **Current**, **Update
 1.2.0**, **Not installed**, **Queued**, **Removing**, or a progress bar while it
 installs, with **Cancel** in the row. A failed install says why, with **Retry**.
-The one action that matters sits in the row (**Install**, **Update**), and the
-chevron opens the row for the rest. **Update all** opens a dialog where you pick which pending updates to run;
-**Update** on a row opens the same dialog with only that backend checked, so nothing starts
-until you confirm. They run one after another, a failure does not stop the others, you can close the
-dialog while they run, and **Retry failed** runs the failed ones again. The upgrades run as
-operations in Activity. **Check for updates** asks the server to check now instead of waiting for
-its next scheduled check. **From URL** installs a backend from an OCI image, a
-URL or a path.
+The one action that matters sits in the row (**Install**, **Update**). The row
+menu (⋮) holds **Reinstall backend** and **Delete backend** in both views, and
+the chevron opens the row for the rest. **Review** opens a dialog where you
+pick which pending updates to run; **Update** on a row opens the same dialog
+with only that backend checked, so nothing starts until you confirm. They run
+one after another, a failure does not stop the others, you can close the
+dialog while they run, and **Retry failed** runs the failed ones again. The
+upgrades run as operations in Activity.
 
 The current view, search, filter, open row, and target node are stored in the
 URL. Browser Back and shared links therefore restore the same state.
@@ -111,8 +127,9 @@ Each open row displays:
 - Backend name and description
 - Type of models it supports
 - Installation status
-- Install, reinstall, upgrade, or delete actions as appropriate
 - Version, source, digest, placement, and catalog information
+- The models that use the backend, a link to its logs, and, in a cluster, the
+  per-node controls
 
 ## Backend Galleries
 
@@ -490,8 +507,8 @@ tokens. Set `max_tokens` on the model config, and keep `repeat_penalty` above
 ### Remove an installed backend from one node
 
 In distributed mode, expand a row in **Backends → Installed** to see its node
-installations. Use **Show variants** and **Development builds** when needed to
-reveal concrete builds such as `cpu-example-engine-development`. Removal uses
+installations. Turn on **Variant builds** and **Development builds** under
+**Filters** when needed to reveal concrete builds such as `cpu-example-engine-development`. Removal uses
 that exact row name, not a generic alias or the recommended build.
 
 **Remove from worker-alpha…** asks for confirmation naming both the backend and

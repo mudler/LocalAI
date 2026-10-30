@@ -3,7 +3,32 @@
     "updateAllTitle": "Actualizar todos los backends",
     "updateAllIntro": "Elija qué backends actualizar. Cada uno se actualiza por separado, uno tras otro. Un error no detiene a los demás.",
     "updateSelected": "Actualizar selección",
-    "loadFailedTitle": "No se pudo cargar el catálogo de backends."
+    "loadFailedTitle": "No se pudo cargar el catálogo de backends.",
+    "filtersButton": "Filtros",
+    "filtersDone": "Listo",
+    "filterGroups": {
+      "state": "Estado",
+      "type": "Tipo",
+      "show": "Mostrar",
+      "library": "Biblioteca"
+    },
+    "showVariants": "Variantes",
+    "showDevelopment": "Compilaciones de desarrollo",
+    "allLibraries": "Todas las bibliotecas",
+    "moreActions": "Más acciones de backends",
+    "installFromUrl": "Instalar desde URL…",
+    "manageLibraries": "Gestionar bibliotecas…",
+    "count_one": "{{count}} backend",
+    "count_other": "{{count}} backends",
+    "countOf": "{{shown}} de {{total}} backends",
+    "activeFilters": "Filtros activos",
+    "removeFilter": "Quitar filtro: {{name}}",
+    "checking": "Buscando actualizaciones…",
+    "updatesAvailable_one": "{{count}} actualización disponible",
+    "updatesAvailable_other": "{{count}} actualizaciones disponibles",
+    "reviewUpdates": "Revisar",
+    "close": "Cerrar",
+    "installedLoadFailedTitle": "No se pudieron cargar los backends instalados."
   },
   "capacity": {
     "diskChip": "Disco casi lleno"

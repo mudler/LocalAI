@@ -316,20 +316,117 @@
 
 /* ---- Runtime: Backends --------------------------------------------------- */
 
-.bk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-3); }
+/* One row of controls and one line of text above the list. They stick to the
+   top of the scroll area, so search and filters stay in reach on a long list. */
+.bk-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: calc(-1 * var(--sp-2));
+  padding: var(--sp-2) 0;
+  background: var(--dk-canvas);
+}
+.bk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
 .bk-seg { text-decoration: none; }
 .bk-seg[aria-current="page"] {
   background: var(--dk-card); color: var(--dk-text);
   box-shadow: var(--dk-shadow-rest), inset 0 0 0 1px var(--dk-edge);
 }
 .bk-seg__count { font-size: var(--dk-text-12); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
-.bk-search { position: relative; flex: 1 1 220px; max-width: 360px; min-width: 180px; }
+.bk-search { position: relative; flex: 1 1 220px; max-width: 420px; min-width: 180px; }
 .bk-search .dk-input { width: 100%; }
-.bk-bar__acts { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); margin-left: auto; }
-.bk-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
-.bk-filters > .bk-chips:only-child { margin-left: 0; }
-.bk-chips { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
-.bk-states { max-width: 100%; }
+.bk-filter-btn__n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: var(--sp-1);
+  padding: 0 5px;
+  border-radius: var(--r-sm);
+  background: var(--dk-accent-wash);
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+/* The overflow menu's trigger is a full-size secondary icon button here, not
+   the faint row kebab. */
+.bk-more { display: inline-flex; margin-left: auto; }
+.bk-more .action-menu__trigger {
+  width: var(--ctl-h);
+  height: var(--ctl-h);
+  opacity: 1;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  box-shadow: inset 0 0 0 1px var(--btn-edge);
+}
+.bk-more .action-menu__trigger:hover,
+.bk-more .action-menu__trigger.is-open { background: var(--dk-hover); }
+
+.bk-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  min-height: var(--ctl-h-sm);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--dk-muted);
+}
+.bk-count { font-variant-numeric: tabular-nums; }
+.bk-active { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.bk-active__chip.dk-chip { height: var(--ctl-h-sm); gap: 2px; padding-right: var(--sp-1); }
+.bk-active__remove {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--dk-muted);
+  cursor: pointer;
+}
+.bk-active__remove:hover { background: var(--dk-hover); color: var(--dk-text); }
+.bk-active__remove:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.bk-status__note { display: inline-flex; align-items: center; gap: 6px; }
+/* An update is a decision, so its line is amber; it is a line, not a banner. */
+.bk-updates { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); margin-left: auto; }
+.bk-updates__text { display: inline-flex; align-items: center; gap: 6px; color: var(--dk-warn-text); font-weight: 500; }
+
+/* The filter menu: a popover under its button, a bottom sheet on a phone. */
+.bk-filter-pop.popover { min-width: 260px; max-height: min(520px, 75vh); }
+.bk-filter-pop__head { display: none; }
+.bk-filter-pop__title { margin: 0; font: 600 var(--fs-section) / var(--lh-section) var(--font-sans); }
+.bk-filter-pop__body { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); overflow-y: auto; }
+.bk-filter-group { display: flex; flex-direction: column; margin: 0; padding: 0; border: 0; min-width: 0; }
+.bk-filter-group__legend {
+  padding: 0 var(--sp-2) var(--sp-1);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.bk-filter-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 32px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-small);
+  color: var(--dk-text);
+  cursor: pointer;
+}
+.bk-filter-opt:hover { background: var(--dk-hover); }
+.bk-filter-opt__label { flex: 1; min-width: 0; }
+.bk-filter-opt__count { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
 
 .bk-table .dk-table-name { font-size: var(--dk-text-13); font-weight: var(--dk-weight-semibold); }
 .bk-table .dk-table-sub { max-width: 56ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -357,13 +454,9 @@
 .bk-usedby .dk-mono { color: var(--dk-text); }
 .bk-onnodes { display: flex; flex-direction: column; gap: var(--dk-space-2); }
 .bk-onnodes__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
-.bk-remove { color: var(--dk-error-text); }
-.bk-count { margin: 0; font-size: var(--dk-text-12); color: var(--dk-muted); }
 .bk-pager { display: flex; align-items: center; justify-content: center; gap: var(--dk-space-3); }
 
-.bk-manual { display: flex; flex-direction: column; gap: var(--dk-space-3); padding: var(--dk-space-4); }
-.bk-manual__title { margin: 0; font-size: var(--dk-text-15); }
-.bk-manual__grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--dk-space-3); align-items: end; }
+.bk-manual { display: flex; flex-direction: column; gap: var(--sp-4); }
 
 .bk-recommend {
   display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-4); flex-wrap: wrap;
@@ -429,9 +522,29 @@
   .operation-card .operation-nodes-list { padding-left: var(--dk-space-2); }
   .activity-row { grid-template-columns: 20px minmax(0, 1fr) auto; }
   .activity-row__acts { grid-column: 2 / -1; justify-content: flex-start; flex-wrap: wrap; }
-  .bk-bar__acts { margin-left: 0; width: 100%; }
-  .bk-search { max-width: none; flex-basis: 100%; }
-  .bk-manual__grid { grid-template-columns: minmax(0, 1fr); }
+  /* Two lines: the views and More, then search and Filters. */
+  .bk-views { order: 1; }
+  .bk-more { order: 2; }
+  .bk-search { order: 3; flex: 1 1 200px; max-width: none; min-width: 0; }
+  .bk-filter-btn { order: 4; flex: none; }
+  .bk-updates { margin-left: 0; }
+  .bk-filter-pop.popover {
+    top: auto !important;
+    right: 0;
+    bottom: 0;
+    left: 0 !important;
+    width: auto;
+    max-width: none;
+    max-height: 85dvh;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* The wide shadow is the scrim; a tap on it closes the sheet. */
+    box-shadow: 0 0 0 100vmax var(--dk-scrim), var(--dk-shadow-float);
+    animation: dk-sheet-up-in var(--dur-slow) var(--ease-out-strong) both;
+  }
+  .bk-filter-pop__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-4) var(--sp-4) 0; }
+  .bk-filter-pop__body { padding: var(--sp-3) var(--sp-4) var(--sp-6); }
+  .bk-filter-opt { min-height: 44px; }
   /* A row becomes a two-line card: the name and its state, the action at the
      right. A table this wide has no room for columns at 390 px. */
   .bk-table thead { display: none; }

@@ -3,7 +3,32 @@
     "updateAllTitle": "更新所有后端",
     "updateAllIntro": "选择要更新的后端。每个后端会单独、依次更新。某一项失败不会中断其他项。",
     "updateSelected": "更新所选",
-    "loadFailedTitle": "无法加载后端目录。"
+    "loadFailedTitle": "无法加载后端目录。",
+    "filtersButton": "筛选",
+    "filtersDone": "完成",
+    "filterGroups": {
+      "state": "状态",
+      "type": "类型",
+      "show": "显示",
+      "library": "库"
+    },
+    "showVariants": "变体构建",
+    "showDevelopment": "开发构建",
+    "allLibraries": "所有库",
+    "moreActions": "更多后端操作",
+    "installFromUrl": "从 URL 安装…",
+    "manageLibraries": "管理库…",
+    "count_one": "{{count}} 个后端",
+    "count_other": "{{count}} 个后端",
+    "countOf": "{{shown}} / {{total}} 个后端",
+    "activeFilters": "已启用的筛选",
+    "removeFilter": "移除筛选：{{name}}",
+    "checking": "正在检查更新…",
+    "updatesAvailable_one": "{{count}} 个更新可用",
+    "updatesAvailable_other": "{{count}} 个更新可用",
+    "reviewUpdates": "查看",
+    "close": "关闭",
+    "installedLoadFailedTitle": "无法加载已安装的后端。"
   },
   "capacity": {
     "diskChip": "磁盘快满了"
