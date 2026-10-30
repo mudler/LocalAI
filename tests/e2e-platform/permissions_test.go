@@ -18,14 +18,21 @@ import (
 // route added later is checked without a change to this file.
 type routeSpec struct{ Method, Pattern string }
 
-var routeLine = regexp.MustCompile(`(?:e|cg)\.(GET|POST|PUT|DELETE|PATCH)\((?:base\s*\+\s*)?"([^"]*)"`)
+var routeLine = regexp.MustCompile(`(e|cg)\.(GET|POST|PUT|DELETE|PATCH)\((base\s*\+\s*)?"([^"]*)"`)
 
 func registeredRoutes(file, prefix string) []routeSpec {
 	raw, err := os.ReadFile(filepath.Join(repoRoot, file))
 	Expect(err).ToNot(HaveOccurred())
 	var out []routeSpec
 	for _, m := range routeLine.FindAllStringSubmatch(string(raw), -1) {
-		out = append(out, routeSpec{Method: m[1], Pattern: prefix + m[2]})
+		// A route of e registered without base is an absolute path, such
+		// as /api/workspace/events in the routes of the chats. The routes
+		// of a group (cg) are relative to its prefix.
+		pattern := m[4]
+		if m[1] == "cg" || m[3] != "" {
+			pattern = prefix + pattern
+		}
+		out = append(out, routeSpec{Method: m[2], Pattern: pattern})
 	}
 	Expect(out).ToNot(BeEmpty(), file)
 	return out
