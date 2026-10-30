@@ -779,6 +779,24 @@ Administrators find every user's agents, triggers and connectors under
 jobs](/features/agent-jobs/) have a page of their own, **Agents > Tasks**
 (`/app/agent-tasks`).
 
+## Troubleshooting a failed reply
+
+When a turn fails, the thread shows one banner: "The reply failed", the reason in plain words, what to do about it, a **Retry** button and, under **Technical detail**, the error text with addresses, paths and keys removed. The full cause is in the server log. The banner names the cause when LocalAI can tell:
+
+| Reason in the banner | What it means | What to do |
+|---|---|---|
+| The model "x" could not be started: its backend is not installed | The model needs a backend that is not installed. | Install the backend from the Backends page (the banner links to it for administrators), or pick another model. |
+| The model "x" failed to start a moment ago and is resting | A load failed and LocalAI waits before it tries again. | Try again after the number of seconds the banner gives. |
+| The model "x" could not be started | The backend started but the model did not load. | Check the model's configuration and the backend log. |
+| The model "x" was not found | No model has that name. | Pick another model, or install it from the Models page. |
+| The upstream refused the key | A cloud-proxy model's provider answered 401 or 403. | Check the API key in the model's settings. |
+| The upstream does not accept this request at that address | The provider answered 404 or 405. | Set `upstream_url` to the full endpoint, for example `.../v1/chat/completions`. |
+| The upstream address could not be reached | The host name does not resolve, or nothing answers there. | Check the address in the model's settings. |
+| The provider behind the model returned an error | The provider or a proxy answered with a server error several times in a row. | Retry in a moment, then check the provider. |
+| The model took too long to answer / The turn was cancelled | A timeout, or the turn was stopped. | Retry, or use a smaller or faster model. |
+
+A failure that the page learns about only after a reload shows the banner without a reason, and only for a day after the turn. A new turn clears the banner.
+
 ## Moving from the old chat
 
 The old chat page, the agents, the agent jobs and the old skills were replaced by the chats. At the first start the server converts what they left; see [Moving from the old chat and agents](/features/chats-migration/).

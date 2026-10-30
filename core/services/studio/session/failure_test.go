@@ -78,6 +78,9 @@ var _ = ginkgo.Describe("the cause of a failed turn", func() {
 			Expect(got).To(ContainSubstring("[address]"))
 			Expect(got).To(ContainSubstring("[path]"))
 		})
+		ginkgo.It("drops the internal marks", func() {
+			Expect(Sanitize("the model could not be loaded "+MarkBackendMissing+": x")).To(Equal("the model could not be loaded: x"))
+		})
 		ginkgo.It("cuts a long text", func() {
 			Expect(len(Sanitize(strings.Repeat("word ", 500)))).To(BeNumerically("<=", MaxDetail))
 		})

@@ -174,6 +174,7 @@ const MaxDetail = 600
 
 var (
 	urlRe    = regexp.MustCompile(`(?i)\b[a-z][a-z0-9+.-]*://[^\s"')\]]+`)
+	markRe   = regexp.MustCompile(`\s?\[studio:[a-z-]+\]`)
 	bearerRe = regexp.MustCompile(`(?i)\b(?:bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}`)
 	secretRe = regexp.MustCompile(`(?i)\b(api[_-]?key|token|secret|password|authorization)(["']?\s*[:=]\s*["']?)[^\s"',;]+|\bsk-[A-Za-z0-9_-]{8,}`)
 	pathRe   = regexp.MustCompile(`(?:^|[\s"'(=])(/(?:home|root|tmp|var|opt|usr|etc|mnt|srv|run|data|models|backends)/[^\s"')]*)`)
@@ -189,6 +190,7 @@ func Sanitize(msg string) string {
 	if i := strings.IndexAny(msg, "\r\n"); i >= 0 {
 		msg = msg[:i]
 	}
+	msg = markRe.ReplaceAllString(msg, "")
 	msg = bearerRe.ReplaceAllString(msg, "[hidden]")
 	msg = secretRe.ReplaceAllStringFunc(msg, func(s string) string {
 		if m := secretRe.FindStringSubmatch(s); m != nil && m[1] != "" {
