@@ -174,9 +174,37 @@ test('a trigger the model proposes shows a card that creates it', async ({ page 
   await expect.poll(async () => (await api(page.request, '/api/chats/triggers/proposals')).triggers.find(t => t.id === proposal.id)?.schedule).toBe('weekdays 09:30')
   await page.screenshot({ path: 'test-results/wiring-proposal.png' })
   await card.getByRole('button', { name: 'Create trigger' }).click()
-  await expect(card).toHaveAttribute('data-state', 'created')
+  // The card turns into a receipt in place, and the server keeps the answer.
+  await expect(card).toHaveAttribute('data-state', 'accepted')
+  await expect(card).toContainText('Scheduled:')
+  await expect(card.getByTestId('receipt-title')).toHaveText(name)
   const trig = (await api(page.request, '/api/chats/triggers')).triggers.find(t => t.id === proposal.id)
   expect(trig.enabled).toBe(true)
+  expect((await api(page.request, `/api/chats/triggers/proposals/${proposal.id}`)).state).toBe('accepted')
+  await page.reload()
+  await expect(page.getByTestId('trigger-proposal').first()).toHaveAttribute('data-state', 'accepted', { timeout: 20_000 })
+  await page.screenshot({ path: 'test-results/wiring-proposal-receipt.png' })
+
+  // Undo removes the trigger and keeps the receipt; it can be scheduled again.
+  await page.getByTestId('trigger-proposal').first().getByRole('button', { name: 'Undo' }).click()
+  await expect(page.getByTestId('trigger-proposal').first()).toHaveAttribute('data-state', 'undone')
+  expect((await api(page.request, '/api/chats/triggers')).triggers.find(t => t.id === proposal.id)).toBeUndefined()
+  await page.reload()
+  await expect(page.getByTestId('trigger-proposal').first()).toHaveAttribute('data-state', 'undone', { timeout: 20_000 })
+  await page.getByTestId('trigger-proposal').first().getByRole('button', { name: 'Schedule it again' }).click()
+  await expect(page.getByTestId('trigger-proposal').first()).toHaveAttribute('data-state', 'proposed')
+
+  // Once the trigger has run or been edited, the server refuses the undo.
+  await page.getByTestId('trigger-proposal').first().getByRole('button', { name: 'Create trigger' }).click()
+  await expect(page.getByTestId('trigger-proposal').first()).toHaveAttribute('data-state', 'accepted')
+  const cur = (await api(page.request, '/api/chats/triggers')).triggers.find(t => t.id === proposal.id)
+  const edited = await page.request.put(`/api/chats/triggers/${proposal.id}`, { data: { ...cur, name: `${name} edited`, enabled: true } })
+  expect(edited.ok()).toBe(true)
+  const refused = await page.request.post(`/api/chats/triggers/proposals/${proposal.id}/undo`)
+  expect(refused.status()).toBe(409)
+  expect((await refused.json()).error.message).toContain('You edited it since')
+  await page.reload()
+  await expect(page.getByTestId('trigger-proposal').first().getByTestId('receipt-blocked')).toBeVisible({ timeout: 20_000 })
   await page.request.delete(`/api/chats/triggers/${proposal.id}`)
 })
 
