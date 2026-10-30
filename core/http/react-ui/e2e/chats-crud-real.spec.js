@@ -82,10 +82,10 @@ test.describe('Skills, agents, triggers and connectors against the real server',
     await page.goto('/app/agents')
     await row.getByRole('button', { name: /More actions/ }).click()
     await page.getByRole('menuitem', { name: 'Delete' }).click()
-    await confirmDelete(page)
+    // No question: the row goes at once and the delete is sent when the
+    // Undo window (8 s) closes.
     await expect(row).toHaveCount(0)
-    const after = (await json(page, '/api/chats/agents')).agents
-    expect(after.some(a => a.id === saved.id)).toBe(false)
+    await expect.poll(async () => (await json(page, '/api/chats/agents')).agents.some(a => a.id === saved.id), { timeout: 15_000 }).toBe(false)
   })
 
   test('a trigger is created on a schedule, is switched off and deleted', async ({ page }) => {

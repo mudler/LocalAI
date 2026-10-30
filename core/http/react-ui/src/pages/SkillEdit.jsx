@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
+// eslint-disable-next-line no-unused-vars
+import { Link, useParams, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatSkillsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 // eslint-disable-next-line no-unused-vars
-import PageHeader from '../components/PageHeader'
+import { Button, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import Icon from '../components/Icon'
 import './library.css'
+import './agents.css'
 
 const NAME_PATTERN = '[a-z0-9]+(-[a-z0-9]+)*'
 
@@ -23,6 +25,8 @@ export default function SkillEdit() {
   const isNew = !name
 
   const [loading, setLoading] = useState(!isNew)
+  const [loadError, setLoadError] = useState(null)
+  const [attempt, setAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
   const [activeSection, setActiveSection] = useState('basic')
   const [editable, setEditable] = useState(true)
@@ -40,10 +44,11 @@ export default function SkillEdit() {
         setForm({ layer: d.layer, name: d.name, description: d.description || '', body: d.body || '' })
         setEditable(d.editable !== false)
       })
-      .catch(err => { addToast(err.message || t('edit.loadFailed'), 'error'); navigate('/app/skills') })
+      // Said in place of the form, with a way to try again.
+      .catch(err => { if (live) setLoadError(err) })
       .finally(() => { if (live) setLoading(false) })
     return () => { live = false }
-  }, [isNew, layerParam, name, addToast, navigate, t])
+  }, [isNew, layerParam, name, attempt])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -69,11 +74,18 @@ export default function SkillEdit() {
     }
   }
 
-  if (loading) {
+  const back = <Link className="ag-back" to="/app/skills"><Icon name="arrow-left" /> {t('edit.back')}</Link>
+
+  if (loading || loadError) {
     return (
-      <div className="page page--narrow loading-center">
-        <Icon name="spinner" spin className="icon-xl text-primary" />
-      </div>
+      <Page>
+        <div className="ag-home">
+          {back}
+          {loadError
+            ? <LoadError title={t('edit.loadFailed')} error={loadError} onRetry={() => { setLoadError(null); setLoading(true); setAttempt(n => n + 1) }} />
+            : <SkeletonRows count={3} />}
+        </div>
+      </Page>
     )
   }
 
@@ -83,19 +95,13 @@ export default function SkillEdit() {
   ]
 
   return (
-    <div className="page page--narrow">
-      <a className="skilledit-back-link" onClick={() => navigate('/app/skills')}>
-        <Icon name="arrow-left" /> {t('edit.back')}
-      </a>
-      <PageHeader
-        title={
-          <>
-            <Icon name="book" className="icon-before" /> {isNew ? t('edit.titleNew') : t('edit.titleEdit', { name })}
-          </>
-        }
-      />
+    <Page>
+      <div className="ag-edit__head">
+        {back}
+        <PageHeader title={isNew ? t('edit.titleNew') : t('edit.titleEdit', { name })} />
+      </div>
 
-      <div className="card mt-md">
+      <div className="card">
         <div className="skilledit-layout">
           <div className="skilledit-sidebar">
             <ul className="skilledit-sidebar-nav">
@@ -103,7 +109,11 @@ export default function SkillEdit() {
                 <li
                   key={s.id}
                   className={`skilledit-sidebar-item ${activeSection === s.id ? 'active' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={activeSection === s.id}
                   onClick={() => setActiveSection(s.id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveSection(s.id) } }}
                 >
                   <Icon name={s.icon} /> {s.label}
                 </li>
@@ -179,19 +189,15 @@ export default function SkillEdit() {
               </fieldset>
 
               <div className="skilledit-form-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => navigate('/app/skills')}>
-                  <Icon name="close" /> {t('edit.cancel')}
-                </button>
+                <Button variant="ghost" onClick={() => navigate('/app/skills')}>{t('edit.cancel')}</Button>
                 {editable && (
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
-                    <Icon name="save" /> {saving ? t('edit.saving') : (isNew ? t('edit.create') : t('edit.save'))}
-                  </button>
+                  <Button type="submit" variant="primary" icon="save" busy={saving}>{isNew ? t('edit.create') : t('edit.save')}</Button>
                 )}
               </div>
             </form>
           </div>
         </div>
       </div>
-    </div>
+    </Page>
   )
 }

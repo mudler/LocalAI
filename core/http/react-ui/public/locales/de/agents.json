@@ -7,7 +7,8 @@
     "edit": "Bearbeiten",
     "chat": "Chat",
     "export": "Exportieren",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "newAgent": "Neuer Agent"
   },
   "table": {
     "name": "Name",
@@ -25,7 +26,8 @@
     "noConfigured": "Keine Agenten konfiguriert",
     "noConfiguredText": "Erstellen Sie einen Agenten, um mit autonomen KI-Workflows zu beginnen.",
     "noMatching": "Keine passenden Agenten",
-    "noMatchingText": "Kein Agent entspricht \"{{query}}\""
+    "noMatchingText": "Kein Agent entspricht \"{{query}}\"",
+    "clearSearch": "Suche leeren"
   },
   "deleteDialog": {
     "title": "Agent löschen",
@@ -38,7 +40,10 @@
     "deleteFailed": "Löschen des Agenten fehlgeschlagen: {{message}}",
     "exported": "Agent \"{{name}}\" exportiert",
     "parseFailed": "Parsen der Agentendatei fehlgeschlagen: {{message}}",
-    "notAnAgent": "The file is not an exported agent"
+    "notAnAgent": "The file is not an exported agent",
+    "deletedUndo": "„{{name}}“ gelöscht.",
+    "undoLate": "„{{name}}“ wurde bereits gelöscht.",
+    "restored": "„{{name}}“ wiederhergestellt."
   },
   "facts": {
     "addons": "Add-ons",
@@ -56,7 +61,8 @@
       "connector": "Started by a connector"
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
-    "missingText": "It may have been deleted, or it belongs to another user."
+    "missingText": "It may have been deleted, or it belongs to another user.",
+    "backToList": "Zurück zu den Agenten"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -230,6 +236,37 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes"
-    }
+    },
+    "subtitle": "Starten Sie einen Agenten nach Zeitplan oder wenn eine Datei ankommt. Jeder Lauf ist ein Chat, den Sie öffnen können."
+  },
+  "views": {
+    "label": "Agentenbereich",
+    "agents": "Agenten"
+  },
+  "now": {
+    "failedTitle": "{{name}} ist fehlgeschlagen.",
+    "workingTitle": "{{name}} arbeitet.",
+    "openRun": "Lauf öffnen"
+  },
+  "load": {
+    "agents": "Ihre Agenten konnten nicht geladen werden.",
+    "agentsStale": "Die Liste konnte nicht aktualisiert werden. Sie zeigt den vorherigen Stand.",
+    "agent": "Dieser Agent konnte nicht geladen werden.",
+    "agentStale": "Diese Seite konnte nicht aktualisiert werden. Sie zeigt den vorherigen Stand.",
+    "agentForm": "Dieser Agent konnte nicht zum Bearbeiten geladen werden.",
+    "triggers": "Ihre Auslöser konnten nicht geladen werden.",
+    "triggersStale": "Die Auslöser konnten nicht aktualisiert werden. Sie zeigen den vorherigen Stand.",
+    "trigger": "Dieser Auslöser konnte nicht geladen werden.",
+    "triggerStale": "Dieser Auslöser konnte nicht aktualisiert werden. Er zeigt den vorherigen Stand.",
+    "tasks": "Die Aufgaben konnten nicht geladen werden.",
+    "tasksStale": "Die Aufgaben konnten nicht aktualisiert werden. Sie zeigen den vorherigen Stand."
+  },
+  "meta": {
+    "anyModel": "Beliebiges Modell",
+    "addons_one": "{{count}} Add-on",
+    "addons_other": "{{count}} Add-ons"
+  },
+  "chips": {
+    "lastFailed": "Letzter Lauf fehlgeschlagen"
   }
 }

@@ -20,6 +20,8 @@ import NameList from '../components/ChatNameList'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import { Button, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 
 // The sections of the form. Each folds; Basic info is open at first.
 const SECTIONS = [
@@ -78,6 +80,8 @@ export default function AgentCreate() {
   const imported = location.state?.importedConfig || null
 
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [attempt, setAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
   // Sections fold. Basics is open at first; the rest open on demand.
   const [openSections, setOpenSections] = useState(() => new Set(['BasicInfo']))
@@ -115,6 +119,7 @@ export default function AgentCreate() {
 
   useEffect(() => {
     const init = async () => {
+      setLoadError(null)
       try {
         let initialForm = emptyAgent()
         if (isEdit) {
@@ -132,13 +137,15 @@ export default function AgentCreate() {
         setForm(initialForm)
         if (imported) setOpenSections(new Set(SECTIONS.map(s => s.id)))
       } catch (err) {
-        addToast(t('create.loadFailed', { message: err.message }), 'error')
+        // An agent that could not be read is said in place of the form: an
+        // empty form would save over it.
+        setLoadError(err)
       } finally {
         setLoading(false)
       }
     }
     init()
-  }, [id, isEdit, imported, templateId, addToast, t])
+  }, [id, isEdit, imported, templateId, attempt])
 
   const updateField = (name, value) => setForm(prev => ({ ...prev, [name]: value }))
 
@@ -181,11 +188,16 @@ export default function AgentCreate() {
     return others.length === 0 ? t('library:usedBy.none') : t('library:usedBy.line', { name: others.map(x => x.name).join(', ') })
   }
 
-  if (loading) {
+  if (loading || loadError) {
     return (
-      <div className="page page--medium loading-center">
-        <Icon name="spinner" spin className="icon-xl text-primary" />
-      </div>
+      <Page className="ag-page" data-testid="agent-edit">
+        <div className="ag-home">
+          <button type="button" className="ag-back" onClick={() => navigate('/app/agents')}><Icon name="arrow-left" /> {t('agent.back')}</button>
+          {loadError
+            ? <LoadError title={t('load.agentForm')} error={loadError} onRetry={() => { setLoading(true); setAttempt(n => n + 1) }} />
+            : <SkeletonRows count={4} />}
+        </div>
+      </Page>
     )
   }
 
@@ -264,7 +276,7 @@ export default function AgentCreate() {
         return (
           <div className="form-group">
             <label className="form-label" htmlFor="ag-instructions">{t('create.instructions')}</label>
-            <textarea id="ag-instructions" className="textarea ag-mono" rows={10} value={form.instructions} onChange={(e) => updateField('instructions', e.target.value)} />
+            <textarea id="ag-instructions" className="textarea" rows={10} value={form.instructions} onChange={(e) => updateField('instructions', e.target.value)} />
             <p className="ag-note">{t('create.instructionsHelp')}</p>
           </div>
         )
@@ -315,31 +327,26 @@ export default function AgentCreate() {
   const saveLabel = isEdit ? t('create.save') : imported ? t('create.titleImport') : t('create.titleCreate')
 
   return (
-    <div className="page page--medium ag-page" data-testid="agent-edit">
+    <Page className="ag-page" data-testid="agent-edit">
       <UnsavedChangesGuard when={dirty && !saving} />
       <form onSubmit={handleSubmit} noValidate className="ag-edit">
-        <header className="ag-edit__head">
-          <div>
-            <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? savedConfig?.name : t('agent.back')}</button>
-            <h1>{title}</h1>
-            <p className="ag-edit__sub">{isEdit ? t('create.subEdit') : t('create.subCreate')}</p>
-          </div>
-          <div className="ag-edit__acts">
-            <button type="button" className="btn btn-secondary" onClick={() => { setPreviewTab('config'); setPreviewOpen(true) }} data-testid="agent-preview-open">
-              <Icon name="eye" /> {t('create.preview')}
-              {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={leave}>
-              {t('create.discard')}
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving
-                ? <><Icon name="spinner" spin /> {t('create.saving')}</>
-                : <><Icon name="save" /> {saveLabel}</>
-              }
-            </button>
-          </div>
-        </header>
+        <div className="ag-edit__head">
+          <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? savedConfig?.name : t('agent.back')}</button>
+          <PageHeader
+            title={title}
+            supporting={isEdit ? t('create.subEdit') : t('create.subCreate')}
+            actions={(
+              <div className="ag-edit__acts">
+                <Button variant="ghost" onClick={leave}>{t('create.discard')}</Button>
+                <Button icon="eye" onClick={() => { setPreviewTab('config'); setPreviewOpen(true) }} data-testid="agent-preview-open">
+                  {t('create.preview')}
+                  {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
+                </Button>
+                <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
+              </div>
+            )}
+          />
+        </div>
 
         {imported && (
           <div className="ag-import-note" role="note" data-testid="agent-import-note">
@@ -350,7 +357,7 @@ export default function AgentCreate() {
 
         {!isEdit && !imported && (
           <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
-            <h2 id="ag-start-h" className="ag-eyebrow">{t('create.startFrom')}</h2>
+            <h2 id="ag-start-h" className="ag-h3">{t('create.startFrom')}</h2>
             <div className="ag-start__row">
               {AGENT_TEMPLATES.map(tpl => (
                 <button key={tpl.id} type="button" className="dk-chip" onClick={() => applyTemplate(tpl)} data-template={tpl.id}>
@@ -404,9 +411,9 @@ export default function AgentCreate() {
               {openSections.has('export') && (
                 <div className="ag-fold__body" id="ag-fold-export">
                   <p className="ag-note">{t('create.exportHelp')}</p>
-                  <button type="button" className="btn btn-primary" onClick={() => downloadJSON(`${savedConfig.name}.json`, exportAgent(savedConfig))}>
-                    <Icon name="download" className="icon-before" /> {t('create.exportButton')}
-                  </button>
+                  <Button icon="download" onClick={() => downloadJSON(`${savedConfig.name}.json`, exportAgent(savedConfig))}>
+                    {t('create.exportButton')}
+                  </Button>
                 </div>
               )}
             </section>
@@ -414,15 +421,8 @@ export default function AgentCreate() {
         </div>
 
         <div className="ag-foot">
-          <button type="button" className="btn btn-secondary" onClick={leave}>
-            {t('create.discard')}
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving
-              ? <><Icon name="spinner" spin /> {t('create.saving')}</>
-              : <><Icon name="save" /> {saveLabel}</>
-            }
-          </button>
+          <Button variant="ghost" onClick={leave}>{t('create.discard')}</Button>
+          <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
         </div>
       </form>
 
@@ -438,7 +438,7 @@ export default function AgentCreate() {
           onClose={() => setPreviewOpen(false)}
         />
       )}
-    </div>
+    </Page>
   )
 }
 

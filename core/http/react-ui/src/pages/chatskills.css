@@ -15,8 +15,8 @@
 
 .cs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
 .cs-head > .btn { flex: none; white-space: nowrap; }
-.cs-title { margin: 0; font-size: 1.25rem; font-weight: 600; }
-.cs-sub { margin: 0 0 var(--dk-space-2); font-size: 1rem; font-weight: 600; }
+.cs-title { margin: 0; font-size: var(--fs-section); font-weight: 600; }
+.cs-sub { margin: 0 0 var(--dk-space-2); font-size: var(--fs-body); font-weight: 600; }
 .cs-muted { margin: 0; color: var(--color-text-muted); }
 
 .cs-group { display: flex; flex-direction: column; }
@@ -42,7 +42,7 @@
   border-radius: var(--dk-radius-1);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--fs-meta);
 }
 
 .cs-form {
@@ -56,7 +56,7 @@
 }
 
 .cs-field { display: flex; flex-direction: column; gap: var(--dk-space-1); }
-.cs-field > span { font-size: 0.8125rem; color: var(--color-text-secondary); }
+.cs-field > span { font-size: var(--fs-small); color: var(--color-text-secondary); }
 .cs-body { font-family: var(--font-mono, monospace); }
 .cs-actions { display: flex; gap: var(--dk-space-2); }
 

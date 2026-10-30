@@ -5,7 +5,7 @@ import { chatSkillsApi } from '../utils/api'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
 import { useWideLayout } from '../hooks/useWideLayout'
 // eslint-disable-next-line no-unused-vars
-import PageHeader from '../components/PageHeader'
+import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
@@ -37,6 +37,7 @@ export default function Skills() {
   const [usage, setUsage] = useState('all')
   const [layer, setLayer] = useState('all')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [off, setOff] = useState('')
   const [toDelete, setToDelete] = useState(null)
   const [undo, setUndo] = useState(null)
@@ -50,14 +51,15 @@ export default function Skills() {
       setSkills(data.skills || [])
       setNotes(data.notes || [])
       setOff('')
+      setError(null)
     } catch (err) {
+      // A failed read is said in place of the list; it never looks empty.
       if (err?.status === 409 && err.body?.error?.type === 'files_off') setOff(err.body.error.message)
-      else addToast(err.message || t('toasts.loadFailed'), 'error')
-      setSkills([])
+      else setError(err)
     } finally {
       setLoading(false)
     }
-  }, [addToast, t])
+  }, [])
 
   useEffect(() => { fetchSkills() }, [fetchSkills])
 
@@ -139,49 +141,39 @@ export default function Skills() {
 
   if (off) {
     return (
-      <div className="page page--wide lib-page" data-testid="skills-page">
+      <Page width="full" className="lib-page" data-testid="skills-page">
         <PageHeader title={t('title')} supporting={t('unavailable.subtitle')} />
-        <div className="lib-note lib-note--warn" role="note" data-testid="files-off">{off}</div>
-      </div>
+        <div role="note"><EmptyState variant="unavailable" testId="files-off" title={off} /></div>
+      </Page>
     )
   }
 
-  const empty = !loading && skills.length === 0
+  const empty = !loading && !error && skills.length === 0
 
   return (
-    <div className="page page--wide lib-page" data-testid="skills-page">
+    <Page width="full" className="lib-page" data-testid="skills-page">
       <PageHeader
         title={t('title')}
         supporting={t('subtitle')}
-        actions={(
-          <div className="lib-head-actions">
-            <button type="button" className="dk-btn dk-btn--primary" onClick={() => navigate('/app/skills/new')}>
-              <Icon name="plus" /> {t('actions.newSkill')}
-            </button>
-          </div>
+        actions={!empty && !error && (
+          <Button variant="primary" icon="plus" onClick={() => navigate('/app/skills/new')}>{t('actions.newSkill')}</Button>
         )}
       />
 
       {notes.map(n => <p key={n} className="lib-note lib-note--warn" role="note">{n}</p>)}
 
       {loading ? (
-        <div className="dk-empty" aria-busy="true"><Icon name="spinner" spin /></div>
+        <SkeletonRows count={4} />
+      ) : error ? (
+        <LoadError title={t('load.title')} error={error} onRetry={fetchSkills} />
       ) : empty ? (
-        <div className="lib-empty" data-testid="skills-empty">
-          <div className="dk-empty-icon"><Icon name="book" /></div>
-          <h2>{t('empty.title')}</h2>
-          <p>{t('empty.text')}</p>
-          <ol className="lib-empty__steps">
-            <li><span className="lib-step-n">1</span><span>{t('empty.stepWrite')}</span></li>
-            <li><span className="lib-step-n">2</span><span>{t('empty.stepTry')}</span></li>
-            <li><span className="lib-step-n">3</span><span>{t('empty.stepAdd')}</span></li>
-          </ol>
-          <div className="lib-empty__acts">
-            <button className="dk-btn dk-btn--primary" onClick={() => navigate('/app/skills/new')}>
-              <Icon name="plus" /> {t('actions.createSkill')}
-            </button>
-          </div>
-        </div>
+        <EmptyState
+          testId="skills-empty"
+          title={t('empty.title')}
+          body={t('empty.text')}
+          steps={[t('empty.stepWrite'), t('empty.stepTry'), t('empty.stepAdd')]}
+          actions={<Button variant="primary" icon="plus" onClick={() => navigate('/app/skills/new')}>{t('actions.createSkill')}</Button>}
+        />
       ) : (
         <div className="dk-split lib-split" data-view={open ? 'pane' : 'list'}>
           <div className="dk-split-rail lib-rail">
@@ -295,7 +287,7 @@ export default function Skills() {
       )}
 
       <ChatDeleteConfirm item={toDelete} kind="skill" onConfirm={deleteSkill} onCancel={() => setToDelete(null)} />
-    </div>
+    </Page>
   )
 }
 
@@ -321,9 +313,7 @@ function SkillPane({ t, skill, users, status, agents, busy, onBack, onEdit, onDe
 
   return (
     <>
-      <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm lib-back" onClick={onBack}>
-        <Icon name="arrow-left" /> {t('pane.back')}
-      </button>
+      <Button variant="ghost" size="sm" icon="arrow-left" className="lib-back" onClick={onBack}>{t('pane.back')}</Button>
 
       <div className="lib-pane__head">
         <div className="lib-pane__title">
@@ -332,14 +322,10 @@ function SkillPane({ t, skill, users, status, agents, busy, onBack, onEdit, onDe
         </div>
         <div className="lib-pane__acts">
           {skill.editable && (
-            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => onEdit(skill)} title={t('card.editTitle')}>
-              <Icon name="edit" /> {t('actions.edit')}
-            </button>
+            <Button size="sm" icon="edit" onClick={() => onEdit(skill)} title={t('card.editTitle')}>{t('actions.edit')}</Button>
           )}
           {skill.editable && (
-            <button type="button" className="dk-btn dk-btn--danger dk-btn--sm" onClick={() => onDelete(skill)} title={t('card.deleteTitle')}>
-              <Icon name="trash" /> {t('actions.delete')}
-            </button>
+            <Button variant="danger-ghost" size="sm" icon="trash" onClick={() => onDelete(skill)} title={t('card.deleteTitle')}>{t('actions.delete')}</Button>
           )}
         </div>
       </div>

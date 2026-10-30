@@ -56,22 +56,31 @@ test.describe('Agents list', () => {
     expect(s.createdChats[0]).toMatchObject({ agent_id: 'a2' })
   })
 
-  test('deletes an agent after asking, and Cancel sends nothing', async ({ page }) => {
+  test('deletes an agent at once with an Undo; Undo brings it back and sends nothing', async ({ page }) => {
+    // Delete is reversible for the Undo window (8 s), so it asks nothing and
+    // the server hears about it only when the window closes.
+    await page.clock.install()
     const s = await installAgents(page)
     await page.goto('/app/agents')
-    const open = async () => {
+    const del = async () => {
       await page.locator('[data-agent="code-reviewer"]').getByRole('button', { name: /More actions/ }).click()
       await page.getByRole('menuitem', { name: 'Delete' }).click()
     }
-    await open()
-    const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toContainText('Delete code-reviewer?')
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    expect(s.calls.some(c => c.method === 'DELETE')).toBe(false)
-    await open()
-    await dialog.getByRole('button', { name: 'Delete' }).click()
+    await del()
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
     await expect(page.locator('[data-agent="code-reviewer"]')).toHaveCount(0)
-    expect(s.calls.filter(c => c.method === 'DELETE')).toHaveLength(1)
+    const toast = page.getByTestId('agent-undo-toast')
+    await expect(toast).toContainText('Deleted “code-reviewer”.')
+    await toast.getByRole('button', { name: 'Undo' }).click()
+    await expect(page.locator('[data-agent="code-reviewer"]')).toBeVisible()
+    await page.clock.runFor(9000)
+    expect(s.calls.some(c => c.method === 'DELETE')).toBe(false)
+
+    await del()
+    await expect(page.locator('[data-agent="code-reviewer"]')).toHaveCount(0)
+    await page.clock.runFor(9000)
+    await expect.poll(() => s.calls.filter(c => c.method === 'DELETE').length).toBe(1)
+    await expect(page.locator('[data-agent="code-reviewer"]')).toHaveCount(0)
   })
 
   test('exports an agent as a file without id, dates or secrets', async ({ page }) => {
@@ -139,12 +148,17 @@ test.describe('Agent page', () => {
     await page.getByRole('link', { name: 'Edit' }).click()
     await expect(page).toHaveURL(/\/app\/agents\/a2\/edit$/)
 
+    // Delete goes back to the list, where the agent is gone at once and the
+    // server is asked when the Undo window closes.
+    await page.clock.install()
     await page.goto('/app/agents/a2')
     await page.getByRole('button', { name: /More actions/ }).click()
     await page.getByRole('menuitem', { name: 'Delete' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.some(c => c.method === 'DELETE' && c.url === '/api/chats/agents/a2')).toBe(true)
+    await expect(page.getByTestId('agent-undo-toast')).toBeVisible()
+    await expect(page.locator('[data-agent="code-reviewer"]')).toHaveCount(0)
+    await page.clock.runFor(9000)
+    await expect.poll(() => s.calls.some(c => c.method === 'DELETE' && c.url === '/api/chats/agents/a2')).toBe(true)
   })
 })
 

@@ -70,5 +70,8 @@
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
     "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+  },
+  "load": {
+    "title": "No se pudieron cargar tus habilidades."
   }
 }

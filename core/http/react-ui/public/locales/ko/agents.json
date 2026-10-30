@@ -7,7 +7,8 @@
     "edit": "편집",
     "chat": "채팅",
     "export": "내보내기",
-    "delete": "삭제"
+    "delete": "삭제",
+    "newAgent": "새 에이전트"
   },
   "table": {
     "name": "이름",
@@ -25,7 +26,8 @@
     "noConfigured": "구성된 에이전트가 없습니다",
     "noConfiguredText": "에이전트를 만들어 자율 AI 워크플로를 시작하세요.",
     "noMatching": "일치하는 에이전트가 없습니다",
-    "noMatchingText": "\"{{query}}\"와 일치하는 에이전트가 없습니다"
+    "noMatchingText": "\"{{query}}\"와 일치하는 에이전트가 없습니다",
+    "clearSearch": "검색 지우기"
   },
   "deleteDialog": {
     "title": "에이전트 삭제",
@@ -38,7 +40,10 @@
     "deleteFailed": "에이전트 삭제 실패: {{message}}",
     "exported": "에이전트 \"{{name}}\"이(가) 내보내졌습니다",
     "parseFailed": "에이전트 파일을 분석하지 못했습니다: {{message}}",
-    "notAnAgent": "The file is not an exported agent"
+    "notAnAgent": "The file is not an exported agent",
+    "deletedUndo": "“{{name}}”을(를) 삭제했습니다.",
+    "undoLate": "“{{name}}”은(는) 이미 삭제되었습니다.",
+    "restored": "“{{name}}”을(를) 복원했습니다."
   },
   "facts": {
     "addons": "Add-ons",
@@ -56,7 +61,8 @@
       "connector": "Started by a connector"
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
-    "missingText": "It may have been deleted, or it belongs to another user."
+    "missingText": "It may have been deleted, or it belongs to another user.",
+    "backToList": "에이전트로 돌아가기"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -230,6 +236,37 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes"
-    }
+    },
+    "subtitle": "일정에 따라 또는 파일이 도착하면 에이전트를 시작합니다. 각 실행은 열어 볼 수 있는 채팅입니다."
+  },
+  "views": {
+    "label": "에이전트 영역",
+    "agents": "에이전트"
+  },
+  "now": {
+    "failedTitle": "{{name}} 실행이 실패했습니다.",
+    "workingTitle": "{{name}}이(가) 작업 중입니다.",
+    "openRun": "실행 열기"
+  },
+  "load": {
+    "agents": "에이전트를 불러올 수 없습니다.",
+    "agentsStale": "목록을 새로 고칠 수 없습니다. 이전 내용을 표시합니다.",
+    "agent": "이 에이전트를 불러올 수 없습니다.",
+    "agentStale": "이 페이지를 새로 고칠 수 없습니다. 이전 내용을 표시합니다.",
+    "agentForm": "편집할 에이전트를 불러올 수 없습니다.",
+    "triggers": "트리거를 불러올 수 없습니다.",
+    "triggersStale": "트리거를 새로 고칠 수 없습니다. 이전 내용을 표시합니다.",
+    "trigger": "이 트리거를 불러올 수 없습니다.",
+    "triggerStale": "이 트리거를 새로 고칠 수 없습니다. 이전 내용을 표시합니다.",
+    "tasks": "작업을 불러올 수 없습니다.",
+    "tasksStale": "작업을 새로 고칠 수 없습니다. 이전 내용을 표시합니다."
+  },
+  "meta": {
+    "anyModel": "모든 모델",
+    "addons_one": "애드온 {{count}}개",
+    "addons_other": "애드온 {{count}}개"
+  },
+  "chips": {
+    "lastFailed": "마지막 실행 실패"
   }
 }
