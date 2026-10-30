@@ -46,6 +46,29 @@ var _ = Describe("Chats triggers endpoints", func() {
 		return decodeJSON(rec)
 	}
 
+	It("returns the plan and the cost of a trigger, and a form save keeps the plan", func() {
+		body := map[string]any{}
+		for k, v := range good {
+			body[k] = v
+		}
+		body["schedule"] = "daily 08:00"
+		body["plan"] = map[string]any{"reads": "Mail from the last 24 hours", "writes": "data/inbox.json", "widget": "inbox"}
+		body["estimated_tokens"] = 1500
+		t := create("alice", body)
+		Expect(t["plan"]).To(And(HaveKeyWithValue("reads", "Mail from the last 24 hours"), HaveKeyWithValue("writes", "data/inbox.json"), HaveKeyWithValue("widget", "inbox")))
+		Expect(t["cost"]).To(And(HaveKeyWithValue("estimated_tokens", BeNumerically("==", 1500)), HaveKeyWithValue("max_runs_per_day", BeNumerically("==", 1)), HaveKeyWithValue("remote", false)))
+		put := s.do("alice", http.MethodPut, "/api/chats/triggers/"+t["id"].(string), map[string]any{"name": "Inbox", "prompt": "Go.", "kind": "schedule",
+			"schedule": "*/15 * * * *", "time_zone": "UTC", "enabled": true, "model": "test-model"})
+		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
+		got := decodeJSON(put)
+		Expect(got["plan"]).To(HaveKeyWithValue("widget", "inbox"), "a save from a form dropped the plan")
+		Expect(got["cost"]).To(HaveKeyWithValue("max_runs_per_day", BeNumerically("==", 24)), "the daily limit bounds a quarter-hourly schedule")
+
+		file := s.do("alice", http.MethodPost, "/api/chats/triggers", map[string]any{"name": "Drop", "prompt": "Read it.", "kind": "file", "folder": "/",
+			"enabled": true, "model": "test-model"})
+		Expect(file.Code).To(Equal(http.StatusBadRequest), "the whole home is not a folder to watch: %s", file.Body.String())
+	})
+
 	It("creates, reads, lists, switches, runs, replaces and deletes a trigger", func() {
 		t := create("alice", good)
 		id := t["id"].(string)
