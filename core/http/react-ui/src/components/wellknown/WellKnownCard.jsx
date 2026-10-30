@@ -175,10 +175,14 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
   }
 
   const file = WELL_KNOWN_FILES[name] || `${name}.json`
+  // seen is LocalAI's own record of what it showed (the server and the pages
+  // write it into user.json), so a file that holds nothing else has no value
+  // the person saved.
+  const unsaved = doc && (!doc.exists || Object.keys(fileData).every(k => k === 'seen'))
   const status = (() => {
     if (savedAt) return t('wellKnown.savedAt', { time: timeLabel(savedAt, i18n.language) })
-    if (doc && !doc.exists && Object.keys(filled.values).length > 0) return t('wellKnown.notSavedPrefilled')
-    if (doc && !doc.exists) return t('wellKnown.notSaved')
+    if (unsaved && Object.keys(filled.values).length > 0) return t('wellKnown.notSavedPrefilled')
+    if (unsaved) return t('wellKnown.notSaved')
     return ''
   })()
 
