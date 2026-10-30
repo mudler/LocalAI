@@ -435,6 +435,11 @@ RUN groupadd --gid 10001 localai && \
     useradd --uid 10001 --gid 10001 --home-dir /home/localai --create-home --shell /usr/sbin/nologin localai && \
     chown localai:localai /models /backends /data
 
+# The default staging directory sits next to the binary, which is the root
+# directory here, and the unprivileged user cannot write there. Stage the
+# in-flight downloads in the data volume instead of the RAM-backed /tmp.
+ENV LOCALAI_DOWNLOAD_STAGING_PATH=/data/downloading
+
 # Define the health check command.
 #
 # --start-period is the knob for slow starts, not --timeout/--retries. Since
