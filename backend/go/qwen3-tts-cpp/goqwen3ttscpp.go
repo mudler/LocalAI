@@ -6,16 +6,19 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/xlog"
 )
 
 var (
-	// qt3_load(talker_path, codec_path, use_fa, clamp_fp16) int
-	CppLoad func(talkerPath, codecPath string, useFA, clampFP16 int) int
+	// qt3_load(talker_path, codec_path, use_fa, clamp_fp16, max_batch) int
+	CppLoad func(talkerPath, codecPath string, useFA, clampFP16, maxBatch int) int
 	// qt3_tts(text, lang, instruct, speaker, ref_samples, ref_n, ref_text,
 	//         seed, temperature, top_k, top_p, rep_pen, max_new, out_n) -> float*
 	CppTTS func(text, lang, instruct, speaker string, refSamples unsafe.Pointer,
@@ -35,6 +38,18 @@ type Qwen3TtsCpp struct {
 	// audioPath is the model-config reference voice (tts.audio_path), the
 	// default clone reference when a request omits an audio Voice.
 	audioPath string
+	// maxBatch mirrors opts.maxBatch for Locking(), which the gRPC server
+	// reads on every request (atomic: Load writes it once, requests read it).
+	maxBatch atomic.Int32
+}
+
+// Locking keeps LocalAI's per-backend request lock only for single-sequence
+// synthesis. With max_batch > 1 the native compute worker owns every backend
+// compute on the handle and batches concurrent qt_synthesize calls, so
+// TTS/TTSStream requests must reach it concurrently instead of one at a time.
+// Before Load (maxBatch 0) the lock stays on, so loading is serialized.
+func (q *Qwen3TtsCpp) Locking() bool {
+	return q.maxBatch.Load() <= 1
 }
 
 func (q *Qwen3TtsCpp) Load(opts *pb.ModelOptions) error {
@@ -70,12 +85,52 @@ func (q *Qwen3TtsCpp) Load(opts *pb.ModelOptions) error {
 	useFA := boolToInt(q.opts.useFA)
 	clamp := boolToInt(q.opts.clampFP16)
 
-	fmt.Fprintf(os.Stderr, "[qwen3-tts-cpp] Load talker=%s codec=%s use_fa=%d clamp_fp16=%d\n",
-		model, codec, useFA, clamp)
+	fmt.Fprintf(os.Stderr, "[qwen3-tts-cpp] Load talker=%s codec=%s use_fa=%d clamp_fp16=%d max_batch=%d\n",
+		model, codec, useFA, clamp, q.opts.maxBatch)
 
-	if rc := CppLoad(model, codec, useFA, clamp); rc != 0 {
+	if rc := CppLoad(model, codec, useFA, clamp, q.opts.maxBatch); rc != 0 {
 		return fmt.Errorf("qwen3-tts: failed to load model (rc=%d)", rc)
 	}
+	q.maxBatch.Store(int32(q.opts.maxBatch))
+	if q.opts.maxBatch > 1 && q.opts.batchWarmup {
+		if err := warmupBatch(q.opts.maxBatch); err != nil {
+			xlog.Warn("qwen3-tts batch warmup incomplete", "error", err)
+		}
+	}
+	return nil
+}
+
+// warmupBatch synthesizes n short utterances of increasing length
+// concurrently through the streaming path, discarding the audio. qt builds
+// its code-predictor and codec-stream graphs lazily per batch width; the
+// first request that hits a new width (e.g. two requests finishing in the
+// same step) otherwise stalls the whole batch for seconds (~5 s per width on
+// an RTX 5060 Ti). Staggered lengths encourage different batch widths, but
+// do not guarantee them. Modes requiring a speaker or instruction reject
+// these generic requests; report failures without preventing model load.
+func warmupBatch(n int) error {
+	streamCbOnce.Do(func() {
+		streamCbPtr = purego.NewCallback(streamCallback)
+	})
+	start := time.Now()
+	var wg sync.WaitGroup
+	var failed atomic.Int32
+	for i := 0; i < n; i++ {
+		text := strings.TrimSpace(strings.Repeat("Hello there. ", i+1))
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// user_data 0 is never a registered route: chunks are dropped.
+			if rc := CppTTSStream(text, "", "", "", nil, 0, "", 0, 0, 0, 0, 0, 96, streamCbPtr, 0); rc != 0 {
+				failed.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	if count := failed.Load(); count != 0 {
+		return fmt.Errorf("%d of %d synthesis requests failed", count, n)
+	}
+	fmt.Fprintf(os.Stderr, "[qwen3-tts-cpp] batch warmup (%d concurrent) done in %s\n", n, time.Since(start).Round(time.Millisecond))
 	return nil
 }
 
@@ -169,26 +224,104 @@ func (q *Qwen3TtsCpp) TTS(req *pb.TTSRequest) error {
 	return writeWAV24k(req.Dst, out)
 }
 
-// streamState carries the active TTSStream channel to the single shared C
-// callback. base.SingleThread serializes TTS/TTSStream, so one global slot is
-// safe and avoids leaking a purego callback per request (purego callbacks
-// cannot be freed and are capped).
+// One purego callback is shared by every TTSStream request (purego callbacks
+// cannot be freed and are capped). Each request registers a streamRoute under
+// a fresh id that travels as the C callback's user_data, so concurrent
+// requests (max_batch > 1) each get their own chunks. streamMu serializes the
+// incremental (TTSLive) path, whose state is global (see live.go).
 var (
 	streamMu     sync.Mutex
-	streamChan   chan []byte
 	streamCbOnce sync.Once
 	streamCbPtr  uintptr
+
+	streamRoutesMu sync.Mutex
+	streamRoutes   = map[uintptr]*streamRoute{}
+	streamNextID   uintptr
 )
 
-// streamCallback is registered once and forwards each PCM chunk to streamChan.
-func streamCallback(samples *float32, nSamples int32, _ uintptr) uintptr {
-	if nSamples <= 0 || samples == nil || streamChan == nil {
+// streamRoute queues one request's PCM chunks. With max_batch > 1 the native
+// worker invokes every request's callback from its single compute thread, so
+// push never blocks on the consumer: a slow client must not stall the other
+// requests of the batch. forward drains the queue into the request's channel.
+type streamRoute struct {
+	mu     sync.Mutex
+	cond   *sync.Cond
+	chunks [][]byte
+	closed bool
+}
+
+func newStreamRoute() *streamRoute {
+	r := &streamRoute{}
+	r.cond = sync.NewCond(&r.mu)
+	return r
+}
+
+func (r *streamRoute) push(b []byte) {
+	r.mu.Lock()
+	r.chunks = append(r.chunks, b)
+	r.mu.Unlock()
+	r.cond.Signal()
+}
+
+func (r *streamRoute) close() {
+	r.mu.Lock()
+	r.closed = true
+	r.mu.Unlock()
+	r.cond.Signal()
+}
+
+// forward sends queued chunks to out until close() and the queue is empty.
+func (r *streamRoute) forward(out chan<- []byte) {
+	for {
+		r.mu.Lock()
+		for len(r.chunks) == 0 && !r.closed {
+			r.cond.Wait()
+		}
+		batch := r.chunks
+		r.chunks = nil
+		done := r.closed
+		r.mu.Unlock()
+		for _, b := range batch {
+			out <- b
+		}
+		if done && len(batch) == 0 {
+			return
+		}
+	}
+}
+
+func registerStreamRoute() (uintptr, *streamRoute) {
+	r := newStreamRoute()
+	streamRoutesMu.Lock()
+	streamNextID++
+	id := streamNextID
+	streamRoutes[id] = r
+	streamRoutesMu.Unlock()
+	return id, r
+}
+
+func unregisterStreamRoute(id uintptr) {
+	streamRoutesMu.Lock()
+	delete(streamRoutes, id)
+	streamRoutesMu.Unlock()
+}
+
+// streamCallback is registered once and routes each PCM chunk to the request
+// identified by user_data.
+func streamCallback(samples *float32, nSamples int32, user uintptr) uintptr {
+	if nSamples <= 0 || samples == nil {
+		return 1 // continue
+	}
+	streamRoutesMu.Lock()
+	r := streamRoutes[user]
+	streamRoutesMu.Unlock()
+	if r == nil {
 		return 1 // continue
 	}
 	src := unsafe.Slice(samples, int(nSamples))
 	cp := make([]float32, int(nSamples)) // copy out of C memory before returning
 	copy(cp, src)
-	streamChan <- floatToPCM16LE(cp)
+	r.push(floatToPCM16LE(cp))
 	return 1 // continue
 }
 
@@ -214,12 +347,17 @@ func (q *Qwen3TtsCpp) TTSStream(req *pb.TTSRequest, results chan []byte) error {
 	// Emit the WAV header first so the HTTP layer gets a self-describing stream.
 	results <- wavHeader24k()
 
-	streamMu.Lock()
-	streamChan = results
+	id, route := registerStreamRoute()
+	forwarded := make(chan struct{})
+	go func() {
+		route.forward(results)
+		close(forwarded)
+	}()
 	rc := CppTTSStream(req.Text, lang, instruct, speaker, refPtr, len(ref), refText,
-		s.seed, s.temperature, s.topK, s.topP, s.repPen, s.maxNew, streamCbPtr, 0)
-	streamChan = nil
-	streamMu.Unlock()
+		s.seed, s.temperature, s.topK, s.topP, s.repPen, s.maxNew, streamCbPtr, id)
+	unregisterStreamRoute(id)
+	route.close()
+	<-forwarded // every chunk is in results before the deferred close
 	runtimeKeepAlive(ref)
 
 	if rc != 0 {
