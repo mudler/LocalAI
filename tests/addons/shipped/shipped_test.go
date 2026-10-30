@@ -466,7 +466,8 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 			Expect(admin.dispatch("sandbox", gen, "disable", nil, "").Status).To(Equal(200))
 			Expect(admin.dispatch("sandbox", gen, "enable", nil, "").Status).To(Equal(200))
 			Eventually(func() string { return admin.state("sandbox") }, 60*time.Second, 300*time.Millisecond).Should(Equal("running"))
-			msg := admin.toolCallIn(newLetterChat(admin), "sandbox__bash", map[string]any{"command": "mkdir -p home/Reports && echo data > home/Reports/from-sandbox.txt"})
+			// The Sandbox's bash shadows the built-in bash: the chat offers it as "bash".
+			msg := admin.toolCallIn(newLetterChat(admin), "bash", map[string]any{"command": "mkdir -p home/Reports && echo data > home/Reports/from-sandbox.txt"})
 			Expect(fmt.Sprint(toolResult(msg)["result"])).To(ContainSubstring("ok:true"), msg)
 			Expect(admin.get("/api/chats/files/content?path=/Reports/from-sandbox.txt").Status).To(Equal(200))
 		})
