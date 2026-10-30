@@ -38,6 +38,8 @@ function Marked({ text, upto }) {
 //                queueWhileStreaming, Send stays once there is text to queue
 //   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
 //   onDictateError (message for a failed dictation, e.g. a toast),
+//   onDictate (takes the dictated text instead of the box; the callback of
+//                the render where the recording started gets it),
 //   testIds and class names for the pieces tests and the thread reach for
 //   extras       a node drawn after the attach buttons (the add-on slot)
 export default function HomeComposer({
@@ -47,7 +49,7 @@ export default function HomeComposer({
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
   textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras,
-  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false,
+  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate,
 }) {
   const { t } = useTranslation('home')
   const imageRef = useRef(null)
@@ -220,7 +222,7 @@ export default function HomeComposer({
             </>
           )}
           <DictateButton
-            onText={(text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text)}
+            onText={onDictate || ((text) => onMessage(message.trim() ? `${message.trimEnd()} ${text}` : text))}
             onError={onDictateError}
           />
           {extras}

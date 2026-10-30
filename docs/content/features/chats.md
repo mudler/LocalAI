@@ -801,6 +801,12 @@ The chat page (`/app/chats/<id>`) shows one chat.
   edit or cancel it until then. `Esc` or **Stop** ends the turn; waiting
   messages stay for **Send now**. `Up` in an empty box edits the last waiting
   message, or puts your last message back in the box.
+- **Drafts stay with their chat.** What you type or attach in a chat stays
+  there when you open another chat, and comes back when you return; a new chat
+  starts empty. The browser keeps the text of each draft (not the files)
+  across a reload, and drops it when you send it or delete the chat. A waiting
+  message always goes to the chat you wrote it in, also when you open another
+  chat before the server answers.
 - **On a message**: **Edit** (your message) replaces it and runs the chat
   again from it, **Regenerate** (the last answer) answers again, and
   **Branch** copies the chat up to that message into a new chat. The keys are
