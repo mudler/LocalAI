@@ -58,6 +58,8 @@ top of the target's config for requests to the alias:
 | `profile.evidence_check.note` | Text appended by the evidence check. Defaults to an English note. |
 | `profile.evidence_check.sources` | Appends the URLs the request's MCP tools returned to an answer that names no URL. See [Source line](#source-line). |
 | `profile.evidence_check.sources_label` | Label of the source line. Defaults to `Sources`. |
+| `profile.evidence_check.urls` | Marks answers that name links neither the request nor a tool returned. See [Links not retrieved](#links-not-retrieved). |
+| `profile.evidence_check.urls_note` | Text appended by the link check; `{urls}` is replaced by the links. Defaults to an English note. |
 | `profile.require_tool` | Makes the first model call of a request call one of the profile's MCP tools. See [Requiring a tool call](#requiring-a-tool-call). |
 
 ```yaml
@@ -169,6 +171,53 @@ In a streamed response the line arrives as one additional content chunk before
 the final chunk, like the number note. Both checks can be enabled together; the
 number note follows the source line. `sources_label` without `sources: true` is
 rejected.
+
+### Links not retrieved
+
+A model can also name a link it never opened: a plausible deep link on a known
+site, written from memory. The client cannot tell such a link from one a search
+tool returned, because it never sees the tool results. With `urls: true` LocalAI
+marks it at the output:
+
+```yaml
+name: researcher
+alias: my-llama-3
+profile:
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"search": {"url": "http://search.internal/mcp"}}}
+  evidence_check:
+    urls: true
+    # optional; {urls} is replaced by the links, defaults to the note below
+    urls_note: "_Note: this answer names links that no tool returned in this turn — not retrieved: {urls}_"
+```
+
+Like the other checks it acts on `/v1/chat/completions`, streamed or not. The
+rule is deterministic and applies to each request on its own:
+
+1. Every `http://` or `https://` URL in the final answer is collected, bare or
+   inside a Markdown link. Punctuation that ends a sentence is not part of it.
+2. Evidence is every URL in the request as received — the profile's system
+   prompt and the content of every system, user and tool message — and in the
+   results of the MCP tool calls that succeeded on the server during this
+   request. Assistant messages are not evidence, so a link the model invented on
+   an earlier turn is marked again when the client sends it back. Failed tool
+   calls deliver no evidence.
+3. Links are compared without scheme, fragment, a leading `www.` and a trailing
+   slash; the host is compared case-insensitively, path and query exactly. A
+   link counts as retrieved when it equals an evidence URL or is a shorter form
+   of one at a `/` or `?` boundary: `https://a.example` is backed by a retrieved
+   `https://a.example/report.pdf`, but `https://a.example/other.pdf` is not.
+4. If at least one link is not backed, the note is appended after a blank line
+   with up to five such links. In a streamed response it arrives as one
+   additional content chunk before the final chunk. If `urls_note` contains no
+   `{urls}`, the links follow the note after a space.
+
+The source line, this note and the number note can be enabled together and are
+appended in that order. `urls_note` without `urls: true` is rejected. The check
+flags, it does not prove: a link that was retrieved can still be cited for a
+claim the page does not make.
 
 ### Requiring a tool call
 

@@ -335,6 +335,83 @@ var _ = Describe("ChatEndpoint evidence check", func() {
 		})
 	})
 
+	Context("urls", func() {
+		const withURLs = "profile:\n  evidence_check:\n    urls: true\n    urls_note: \"Nicht abgerufen: {urls}\"\n"
+		const toolResult = `{"results":[{"title":"A","url":"https://a.example/oil"}]}`
+
+		toolThenAnswer := func(answer string) {
+			stubBackend(
+				backend.LLMResponse{ChatDeltas: []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Id: "call-1", Name: "lookup", Arguments: "{}"}}}}},
+				backend.LLMResponse{Response: answer, ChatDeltas: []*pb.ChatDelta{{Content: answer}}},
+			)
+		}
+
+		for _, stream := range []bool{false, true} {
+			answer := func(rec *httptest.ResponseRecorder) string {
+				if stream {
+					return streamedAnswer(rec)
+				}
+				return answerOf(rec)
+			}
+
+			Context(map[bool]string{false: "non-streaming", true: "streaming"}[stream], func() {
+				It("marks a link no tool returned", func() {
+					stubBackend(backend.LLMResponse{Response: "Per [Statista](https://www.statista.com/statistics/1/x), it grows."})
+					Expect(answer(run(resolve(withURLs, ""), stream, "Does the market grow?"))).
+						To(Equal("Per [Statista](https://www.statista.com/statistics/1/x), it grows.\n\nNicht abgerufen: https://www.statista.com/statistics/1/x"))
+				})
+
+				It("marks an invented link next to a retrieved one", func() {
+					fx := newMCPResultFixture(toolResult)
+					toolThenAnswer("See https://a.example/oil and https://gartner.example/report.")
+					Expect(answer(run(resolve(withURLs, fx.url), stream, "Is this a good olive oil?"))).
+						To(HaveSuffix("See https://a.example/oil and https://gartner.example/report.\n\nNicht abgerufen: https://gartner.example/report"))
+				})
+
+				It("leaves a link from a tool result unmarked", func() {
+					fx := newMCPResultFixture(toolResult)
+					toolThenAnswer("See https://a.example/oil/.")
+					Expect(answer(run(resolve(withURLs, fx.url), stream, "Is this a good olive oil?"))).
+						To(HaveSuffix("See https://a.example/oil/."))
+				})
+
+				It("leaves a link from the user message unmarked", func() {
+					stubBackend(backend.LLMResponse{Response: "https://shop.example/oil sells a good oil."})
+					Expect(answer(run(resolve(withURLs, ""), stream, "Is https://shop.example/oil a good olive oil?"))).
+						To(Equal("https://shop.example/oil sells a good oil."))
+				})
+
+				It("changes nothing without urls: true", func() {
+					stubBackend(backend.LLMResponse{Response: "See https://www.statista.com/statistics/1/x."})
+					Expect(answer(run(resolve(withoutCheck, ""), stream, "Does the market grow?"))).
+						To(Equal("See https://www.statista.com/statistics/1/x."))
+				})
+			})
+		}
+
+		It("marks a link when the MCP tool call failed", func() {
+			fx := newMCPResultFixture(toolResult)
+			stubBackend(
+				backend.LLMResponse{ChatDeltas: []*pb.ChatDelta{{ToolCalls: []*pb.ToolCallDelta{{Id: "call-1", Name: "lookup", Arguments: "{not json"}}}}},
+				backend.LLMResponse{Response: "See https://a.example/oil.", ChatDeltas: []*pb.ChatDelta{{Content: "See https://a.example/oil."}}},
+			)
+			Expect(answerOf(run(resolve(withURLs, fx.url), false, "Is this a good olive oil?"))).
+				To(Equal("See https://a.example/oil.\n\nNicht abgerufen: https://a.example/oil"))
+		})
+
+		It("uses the English note by default", func() {
+			stubBackend(backend.LLMResponse{Response: "See https://statista.example/x."})
+			Expect(answerOf(run(resolve("profile:\n  evidence_check:\n    urls: true\n", ""), false, "Market?"))).
+				To(Equal("See https://statista.example/x.\n\n" + strings.ReplaceAll(config.DefaultURLsNote, config.URLsPlaceholder, "https://statista.example/x")))
+		})
+
+		It("keeps the number check unchanged when both are on", func() {
+			stubBackend(backend.LLMResponse{Response: "There are 3 reports, see https://statista.example/x."})
+			Expect(answerOf(run(resolve(withURLs+"    numbers: true\n    note: "+note+"\n", ""), false, "How many reports?"))).
+				To(Equal("There are 3 reports, see https://statista.example/x.\n\nNicht abgerufen: https://statista.example/x\n\n" + note))
+		})
+	})
+
 	Context("streaming", func() {
 		It("sends the note as a last content delta", func() {
 			stubBackend(backend.LLMResponse{Response: "There are 0 open invoices."})
