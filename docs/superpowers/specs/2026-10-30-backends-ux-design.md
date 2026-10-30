@@ -100,3 +100,103 @@ On a phone: **9 rows of controls** above the first backend.
 What works and stays: one list with two views, the row state words, one action
 per row, the row opening in place, the URL keeping view, search, filter, open
 row and target node, the update dialog that runs updates one after another.
+
+## 2. Design
+
+### Rules
+
+- At most two rows of controls above the list, and only the first holds
+  buttons. The second is a text line: the result count, the active filters as
+  removable chips, and the update line when there are updates.
+- One primary action per zone. The toolbar has none: what a person does here
+  most is read the list. A row's action is a secondary `sm` button. The first
+  run card and the empty state carry the page's only filled button.
+- Rare actions go into one overflow menu. Filters go into one filter menu.
+- Nothing is removed. Every action keeps its handler, its API call, its
+  admin and install gating, and its URL parameter.
+
+### Zones
+
+**Toolbar (row A), sticky.** `Installed 3 · Catalog 6` (the page's one tab
+level, unchanged), search, **Filters** (with the number of active filters),
+and **More** (kebab). It sticks to the top of the scroll area, with the count
+line under it, so search and filters stay in reach on a long list.
+
+**Filters menu.** A popover anchored to the button (a bottom sheet on a
+phone). Native radios and checkboxes, so arrow keys, Space and Tab work as
+usual; Escape and a click outside close it and focus returns to the button.
+
+- Installed: *State*: All, User, System, Updates, Offline nodes (each with
+  its count; Updates and Offline only when they exist).
+- Catalog: *Type*: All, Chat, Image, Video, TTS, STT, Vision.
+- Both: *Show*: Variant builds, Development builds (with the hidden count).
+- Both, when library sources exist: *Library*: All libraries, one per source.
+
+**More menu** (`ActionMenu`): Check for updates, Install from URL…, Manage
+libraries…. Install items hide when installs are off. "Install from URL…"
+opens the form in a side sheet (`SideSheet`) instead of pushing the list down.
+"Manage libraries…" opens the existing library panel; `?libraries=1` still
+opens it on load.
+
+**Count line (row B).** "3 backends" or "1 of 3 backends", the active filters
+as chips with a remove button each (`Remove filter: User`), and on the right,
+when updates exist and installs are on: "↑ 2 updates available · **Review**".
+Review opens the existing `BulkUpgradeDialog`. While it runs the line says
+"Updating 1 of 2…", and after it the summary, as `BulkUpgradeTrigger` does
+today. The line is text with one ghost button, not a filled button.
+
+**Rows.** The same in both views: the one action (Install, Update, Choose
+nodes…, Install on all, Retry, Cancel), then a row menu, then the chevron.
+The menu holds Reinstall backend and Delete backend in both views (Catalog
+had them only in the open row). Install on specific nodes stays in the menu of
+a cluster row. System backends keep the Protected badge and no menu.
+
+**Open row.** Facts, used by, node controls and the Logs link. The duplicate
+filled "Update to vX" and the Catalog Reinstall/Remove buttons go: the row
+holds them. The node-scoped Reinstall and Remove from node stay in the open
+row, because they act on one node.
+
+**States.** Nothing installed: the empty state only, no filters (there is
+nothing to filter). An installed list that failed to load: `LoadError` like
+the catalog. No results: the existing no-results empty state with "Clear
+filters".
+
+**Bulk actions.** Updating several backends is the only bulk action. The
+update dialog already is the selection (checkboxes, select all and none), so
+the list gets no select mode of its own.
+
+**Phone.** Row A wraps to two lines: the view switch and More, then search
+and Filters. The filter menu is a bottom sheet, the same look as the Models
+filter sheet. Row actions stay as on desktop: one action, menu, chevron.
+
+### Before and after (desktop, Installed with two updates)
+
+```
+BEFORE                                                         controls
+ [Manage libraries]                                                 1
+ [Installed 3|Catalog 6] [search…]  [Update all (2)] [Check] [From URL]  5
+ [All 3|User 3|System 0|Updates 2]            [Variants] [Development]   6
+ llama-cpp   v0.9.4  ↑ Update 0.9.7                 [Update] ⋮ ›
+ …
+AFTER
+ [Installed 3|Catalog 6] [search…………………]          [Filters] ⋮           4   (sticky)
+ 3 backends                       ↑ 2 updates available · [Review]      1
+ llama-cpp   v0.9.4  ↑ Update 0.9.7                 [Update] ⋮ ›
+ …
+```
+
+Phone: nine rows of controls become three (view switch and More; search and
+Filters; the count line).
+
+### Keyboard and focus
+
+- Filters: Enter or Space opens; focus moves to the checked radio of the first
+  group; Tab moves between groups; arrows move inside a group; Escape closes
+  and focus returns to the button.
+- More and row menus: `ActionMenu` (arrows, Home, End, Enter, Escape, focus
+  back to the trigger).
+- A removable chip is a button named "Remove filter: User".
+
+### Out of scope
+
+The hub's title and its two tab rows belong to the hub layout (S4) and stay.
