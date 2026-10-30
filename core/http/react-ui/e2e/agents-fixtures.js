@@ -56,7 +56,7 @@ export const SKILLS = [
 const BODIES = { citations: 'Cite every claim.\n\n1. Number the sources.\n2. List them at the end.\n' }
 
 export async function installAgents(page, {
-  agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [],
+  agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [],
   collections = ['handbook', 'notes'], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
 } = {}) {
   await mockChat(page)
@@ -96,6 +96,38 @@ export async function installAgents(page, {
       return route.fulfill({ status: 201, json: a })
     }
     return route.fulfill({ json: { agents: s.agents } })
+  })
+
+  // Agent files and run history, as the server answers them: an export is the
+  // definition without id or owner, an import always makes a new agent, and
+  // the runs are the chats that ran with the agent.
+  await page.route(/\/api\/chats\/agents\/import$/, route => {
+    const req = route.request()
+    rec(req)
+    const b = req.postDataJSON()
+    const def = b && b.kind === 'localai-agent' ? b.agent : b
+    if (!def || typeof def !== 'object' || !def.name) return err(route, 400, 'the body is not a valid agent file')
+    const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], ...def }
+    s.agents.push(a)
+    return route.fulfill({ status: 201, json: { agent: a, ...(importWarnings.length ? { warnings: importWarnings } : {}) } })
+  })
+  await page.route(/\/api\/chats\/agents\/[^/?]+\/export$/, route => {
+    rec(route.request())
+    const id = new URL(route.request().url()).pathname.split('/')[4]
+    const found = s.agents.find(a => a.id === id)
+    if (!found) return err(route, 404, 'no such agent')
+    const { name, description, instructions, model, mcp_servers, addons, collections, skills } = found
+    return route.fulfill({ json: { version: 1, kind: 'localai-agent', agent: { name, description, instructions, model, mcp_servers, addons, collections, skills } } })
+  })
+  await page.route(/\/api\/chats\/agents\/[^/?]+\/runs(\?.*)?$/, route => {
+    const id = new URL(route.request().url()).pathname.split('/')[4]
+    const mine = chats.filter(c => c.agent_id === id)
+    return route.fulfill({
+      json: {
+        runs: mine.map(c => ({ chat_id: c.id, title: c.title, model: c.model, origin: c.origin, origin_id: c.origin_id, created: c.created, updated: c.updated, running: c.running, last_turn: c.last_turn })),
+        total: mine.length, failed: mine.filter(c => c.last_turn === 'failed').length, running: mine.filter(c => c.running).length,
+      },
+    })
   })
 
   // Chats.
