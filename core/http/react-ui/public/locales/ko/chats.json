@@ -43,5 +43,21 @@
     "loadFailed": "커넥터를 불러올 수 없습니다.",
     "waitingTitle": "애드온 대기 중",
     "waitingText": "이 연결은 유지되지만, 해당 애드온을 설치하고 켜야 실행됩니다."
+  },
+  "tools": {
+    "commands": {
+      "title": "여기서는 명령을 실행할 수 없습니다",
+      "none": "코드를 실행하는 애드온이 설치되어 있지 않아, 어시스턴트는 파일을 쓸 수 있지만 스크립트나 명령은 실행할 수 없습니다.",
+      "off": "이 채팅에서 Sandbox 애드온이 꺼져 있습니다. 도구 메뉴에서 켜면 어시스턴트가 코드를 실행할 수 있습니다.",
+      "unavailable": "Sandbox 애드온이 설치되어 있지만 이 서버에서는 명령을 실행할 수 없습니다.",
+      "unavailableWhy": "Sandbox 애드온이 이 서버에서 명령을 실행할 수 없습니다: {{reason}}",
+      "install": "Sandbox 설치",
+      "openSandbox": "Sandbox 애드온 열기",
+      "askInstall": "관리자에게 Sandbox 애드온 설치를 요청하세요.",
+      "askFix": "관리자에게 해결을 요청하세요.",
+      "hide": "숨기기",
+      "hideLabel": "이 알림 숨기기",
+      "chipTitle": "이 채팅은 코드나 명령을 실행할 수 없습니다. 자세히 보려면 선택하세요."
+    }
   }
 }

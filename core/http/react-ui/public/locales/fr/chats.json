@@ -43,5 +43,21 @@
     "loadFailed": "Impossible de charger vos connecteurs.",
     "waitingTitle": "En attente de leur module",
     "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé."
+  },
+  "tools": {
+    "commands": {
+      "title": "Les commandes ne peuvent pas s'exécuter ici",
+      "none": "Aucun module qui exécute du code n'est installé : l'assistant peut écrire des fichiers, mais pas exécuter de scripts ni de commandes.",
+      "off": "Le module Sandbox est désactivé pour ce chat. Activez-le dans le menu Outils pour que l'assistant puisse exécuter du code.",
+      "unavailable": "Le module Sandbox est installé, mais il ne peut pas exécuter de commandes sur ce serveur.",
+      "unavailableWhy": "Le module Sandbox ne peut pas exécuter de commandes sur ce serveur : {{reason}}",
+      "install": "Installer Sandbox",
+      "openSandbox": "Ouvrir le module Sandbox",
+      "askInstall": "Demandez à un administrateur d'installer le module Sandbox.",
+      "askFix": "Demandez à un administrateur de corriger le problème.",
+      "hide": "Masquer",
+      "hideLabel": "Masquer cet avis",
+      "chipTitle": "Ce chat ne peut pas exécuter de code ni de commandes. Sélectionnez pour les détails."
+    }
   }
 }

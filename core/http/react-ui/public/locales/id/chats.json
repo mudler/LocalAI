@@ -43,5 +43,21 @@
     "loadFailed": "Konektor Anda tidak dapat dimuat.",
     "waitingTitle": "Menunggu add-on-nya",
     "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan."
+  },
+  "tools": {
+    "commands": {
+      "title": "Perintah tidak bisa dijalankan di sini",
+      "none": "Tidak ada add-on yang menjalankan kode, jadi asisten bisa menulis file tetapi tidak bisa menjalankan skrip atau perintah.",
+      "off": "Add-on Sandbox dimatikan untuk chat ini. Nyalakan di menu Alat agar asisten bisa menjalankan kode.",
+      "unavailable": "Add-on Sandbox terpasang, tetapi tidak bisa menjalankan perintah di server ini.",
+      "unavailableWhy": "Add-on Sandbox tidak bisa menjalankan perintah di server ini: {{reason}}",
+      "install": "Pasang Sandbox",
+      "openSandbox": "Buka add-on Sandbox",
+      "askInstall": "Minta administrator memasang add-on Sandbox.",
+      "askFix": "Minta administrator memperbaikinya.",
+      "hide": "Sembunyikan",
+      "hideLabel": "Sembunyikan pemberitahuan ini",
+      "chipTitle": "Chat ini tidak bisa menjalankan kode atau perintah. Pilih untuk detail."
+    }
   }
 }

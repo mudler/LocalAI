@@ -43,5 +43,21 @@
     "loadFailed": "Impossibile caricare i tuoi connettori.",
     "waitingTitle": "In attesa del loro add-on",
     "waitingText": "Questi collegamenti restano salvati, ma non funzionano finché il loro add-on non è installato e attivo."
+  },
+  "tools": {
+    "commands": {
+      "title": "Qui non si possono eseguire comandi",
+      "none": "Non è installato nessun componente aggiuntivo che esegue codice: l'assistente può scrivere file, ma non eseguire script o comandi.",
+      "off": "Il componente aggiuntivo Sandbox è spento per questa chat. Attivalo nel menu Strumenti per far eseguire codice all'assistente.",
+      "unavailable": "Il componente aggiuntivo Sandbox è installato, ma non può eseguire comandi su questo server.",
+      "unavailableWhy": "Il componente aggiuntivo Sandbox non può eseguire comandi su questo server: {{reason}}",
+      "install": "Installa Sandbox",
+      "openSandbox": "Apri il componente Sandbox",
+      "askInstall": "Chiedi a un amministratore di installare il componente aggiuntivo Sandbox.",
+      "askFix": "Chiedi a un amministratore di risolvere il problema.",
+      "hide": "Nascondi",
+      "hideLabel": "Nascondi questo avviso",
+      "chipTitle": "Questa chat non può eseguire codice o comandi. Seleziona per i dettagli."
+    }
   }
 }

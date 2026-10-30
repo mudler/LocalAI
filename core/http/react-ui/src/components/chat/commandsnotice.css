@@ -1,0 +1,70 @@
+/* The notice of a chat that cannot run commands: a callout at the top of the
+   Tools menu, one quiet line once hidden, and a chip in the composer's tools
+   area that opens the same callout. Tokens only. */
+.cmd-notice {
+  margin: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-meta);
+}
+/* A menu is narrow: the actions always go under the text, as on a phone. */
+.cmd-notice.ui-callout {
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+.cmd-notice .ui-callout__actions {
+  grid-column: 2;
+  margin: 0;
+  gap: var(--sp-1);
+}
+.cmd-notice__line {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-4) var(--sp-2);
+  font-size: var(--fs-meta);
+  color: var(--color-text-secondary);
+}
+
+/* The chip is a plain button around a status chip, so it takes the keyboard
+   and the focus ring without looking like a second kind of chip. */
+.cmd-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.cmd-chip:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.cmd-chip .ui-chip {
+  max-width: min(14rem, calc(100vw - 2 * var(--sp-4)));
+}
+.cmd-chip .ui-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* On a phone the composer row has no room for the words: the icon stays, the
+   button keeps its name for screen readers, and a tap opens the notice. */
+@media (max-width: 640px) {
+  .cmd-chip .ui-chip__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .cmd-chip .ui-chip {
+    padding: 0 6px;
+  }
+}
+
+/* The popover keeps 320 px from the right edge free, so the notice fits in it. */
+.cmd-pop {
+  width: min(20rem, calc(100vw - 2 * var(--sp-4)));
+  padding: var(--sp-2);
+}
+.cmd-pop .cmd-notice {
+  margin: 0;
+}
