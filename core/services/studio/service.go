@@ -273,6 +273,7 @@ type Service struct {
 	runners runners // the add-on tools that run commands; see capabilities.go
 
 	egressAuditStore audit.Store // see egress.go
+	egressChats      egressChats // see egresscheck.go
 }
 
 type run struct {

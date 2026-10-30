@@ -32,8 +32,12 @@ var (
 // never a value from the arguments.
 type Call struct {
 	AddonID, OperationID string
-	Actor                contract.Actor
-	Arguments            json.RawMessage
+	// ResourceID is the resource of the live request, as the host put it in
+	// the envelope (for an action tool, the key of the chat). It is never a
+	// value from the arguments.
+	ResourceID string
+	Actor      contract.Actor
+	Arguments  json.RawMessage
 }
 
 type Handler func(ctx context.Context, call Call) (json.RawMessage, error)
@@ -219,7 +223,7 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
-		call := Call{AddonID: addonID, OperationID: req.OperationID, Actor: actor, Arguments: args}
+		call := Call{AddonID: addonID, OperationID: req.OperationID, ResourceID: env.Request.ResourceID, Actor: actor, Arguments: args}
 		result, err := b.run(ctx, spec, call)
 		if err != nil {
 			status, code, msg := http.StatusServiceUnavailable, contract.HostUnavailable, "operation unavailable"

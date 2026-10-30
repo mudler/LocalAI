@@ -14,11 +14,27 @@ import (
 
 	"github.com/mudler/LocalAI/addons/internal/hostclient"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
+	"github.com/mudler/LocalAI/addons/sandbox/internal/egress"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
+
+// hostEgress asks the host about the connections of the sandboxes, over the
+// host operations egress.check and egress.audit of the live call.
+type hostEgress struct{ c *hostclient.Client }
+
+func (h hostEgress) Check(ctx context.Context, op string, a egress.CheckArgs) (egress.Verdict, error) {
+	var v egress.Verdict
+	err := h.c.Do(ctx, op, "egress.check", a, &v)
+	return v, err
+}
+
+func (h hostEgress) Audit(ctx context.Context, op string, evs []egress.Event) error {
+	return h.c.Do(ctx, op, "egress.audit", map[string]any{"events": evs}, nil)
+}
 
 // hostAdmin asks the host whether the user of a request is an administrator.
 type hostAdmin struct{ c *hostclient.Client }
@@ -36,7 +52,18 @@ func main() {
 			xlog.Error("sandbox: cannot read the settings", "error", err)
 			return tools.New(unavailable{}, nil, hostAdmin{client})
 		}
+		// The network proxy of the sandboxes: guest port 3128 of every sandbox,
+		// whatever the chat's preset (the host decides each connection).
+		// Without a host channel nothing can decide, so no port is offered.
+		var ports func(user, conv string) map[int]sandbox.PortHandler
+		var begin func(ctx context.Context, user, conv, op string) func()
+		if client != nil {
+			proxy := egress.New(egress.Options{Host: hostEgress{client}})
+			ports, begin = proxy.Ports, proxy.Begin
+		}
 		m, err := runner.New(runner.Options{
+			Ports:   ports,
+			Begin:   begin,
 			Backend: sel.Backend,
 			Store:   remote.New(client, s.DataDir),
 			// The backends keep their sandboxes under run/. The manager needs the

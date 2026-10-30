@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
 // The network of the Sandbox commands. The guest has no network device: the
@@ -68,4 +69,17 @@ func (s *Service) now() time.Time {
 		return s.d.Clock()
 	}
 	return time.Now()
+}
+
+// egressLine is the line of the turn's note that tells the model what the
+// network of its commands is: the preset that applies (the chat's, its
+// parent's for a sub-agent, its agent's for an unattended run) under the
+// ceiling.
+func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord) string {
+	pol, err := s.egressPolicyOf(ctx, rec, "")
+	preset := egress.PresetOff
+	if err == nil {
+		preset = egress.Min(pol.chat.Preset, s.egressSettings().Ceiling)
+	}
+	return egress.Describe(preset, egress.BuiltinRegistries())
 }

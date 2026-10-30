@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
@@ -61,5 +62,63 @@ var _ = Describe("the Sandbox network state of a chat", func() {
 		n, err := svc.PruneEgressAudit(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(Equal(int64(1)))
+	})
+})
+
+var _ = Describe("egress.check and egress.audit on the chats service", func() {
+	ctx := context.Background()
+	var (
+		svc      *studio.Service
+		st       store.Store
+		a        audit.Store
+		settings egress.Settings
+	)
+	BeforeEach(func() {
+		st, _ = store.NewJSON("")
+		a, _ = audit.NewJSON("")
+		settings = egress.Settings{Ceiling: egress.PresetRegistries, Default: egress.PresetRegistries}
+		svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
+			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressAudit = a
+		})
+	})
+	req := func(host string) egress.Request {
+		return egress.Request{Host: host, Port: 443, Kind: egress.KindConnect, TLS: true}
+	}
+
+	It("finds the chat by its action resource and decides by its preset under the ceiling, auditing each verdict", func() {
+		id := create(svc, alice)
+		rid := toolargs.ActionResourceID(id)
+		v, err := svc.EgressCheck(ctx, alice, rid, "op1", req("PyPI.org."))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v).To(Equal(egress.Verdict{Action: egress.Allow, Reason: egress.ReasonPreset}))
+		v, _ = svc.EgressCheck(ctx, alice, rid, "op1", req("example.com"))
+		Expect(v.Action).To(Equal(egress.Block))
+		lines, _ := a.Events(ctx, audit.Query{})
+		Expect(lines).To(HaveLen(2))
+		Expect(lines[1]).To(SatisfyAll(HaveField("User", alice), HaveField("Chat", id), HaveField("Host", "pypi.org"), HaveField("Verdict", "allow")))
+		Expect(lines[0]).To(SatisfyAll(HaveField("Host", "example.com"), HaveField("Verdict", "block")))
+
+		Expect(svc.EgressAudit(ctx, alice, rid, []studio.EgressEvent{{Host: "pypi.org", Port: 443, Kind: "connect", Verdict: "done", Reason: "preset", BytesDown: 99}})).To(Succeed())
+		lines, _ = a.Events(ctx, audit.Query{Verdict: "done"})
+		Expect(lines).To(ConsistOf(SatisfyAll(HaveField("Chat", id), HaveField("BytesDown", int64(99)))))
+	})
+
+	It("never finds another user's chat", func() {
+		id := create(svc, alice)
+		v, err := svc.EgressCheck(ctx, bob, toolargs.ActionResourceID(id), "op1", req("pypi.org"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v).To(Equal(egress.Verdict{Action: egress.Block, Reason: "chat"}))
+	})
+
+	It("lowering the ceiling applies at the next check", func() {
+		id := create(svc, alice)
+		settings.Ceiling = egress.PresetOff
+		v, _ := svc.EgressCheck(ctx, alice, toolargs.ActionResourceID(id), "op1", req("pypi.org"))
+		Expect(v).To(Equal(egress.Verdict{Action: egress.Block, Reason: egress.ReasonCeiling}))
+	})
+
+	It("tells the model the network of its commands", func() {
+		Expect(egress.Describe(egress.PresetRegistries, egress.BuiltinRegistries())).To(ContainSubstring("package registries only"))
 	})
 })
