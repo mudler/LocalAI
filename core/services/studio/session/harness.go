@@ -74,4 +74,8 @@ type Tool struct {
 	Description string
 	Schema      json.RawMessage // a JSON Schema of type object
 	Run         func(ctx context.Context, args json.RawMessage) (string, error)
+	// Provider says who serves a tool whose name an add-on may shadow (bash,
+	// say): "builtin" or the add-on's ID. It is empty for every other tool.
+	// The harness does not read it.
+	Provider string
 }

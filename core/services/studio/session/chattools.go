@@ -102,15 +102,17 @@ func fingerprint(tools []Tool, prompt string) string {
 }
 
 // acceptHostTools drops what the harness could not take: a name that collides
-// with a sandbox tool or with another host tool, a name the tool server
-// refuses, a missing Run, a schema that is not a JSON object.
-func acceptHostTools(tools []Tool, log *slog.Logger, chat string) []Tool {
+// with a tool of the session's own sandbox (only when the session has one) or
+// with another host tool, a name the tool server refuses, a missing Run, a
+// schema that is not a JSON object. Without a session sandbox the names are
+// free: the product's own bash takes "bash".
+func acceptHostTools(tools []Tool, log *slog.Logger, chat string, sandboxed bool) []Tool {
 	var out []Tool
 	seen := map[string]bool{}
 	for _, t := range tools {
 		var schema map[string]any
 		switch {
-		case sandboxToolNames[t.Name]:
+		case sandboxed && sandboxToolNames[t.Name]:
 			log.Warn("session: a host tool has the name of a sandbox tool and was dropped", "chat", chat, "tool", t.Name)
 		case !hostToolNameRE.MatchString(t.Name) || t.Run == nil:
 			log.Warn("session: a host tool has no usable name or no Run and was dropped", "chat", chat)
@@ -203,7 +205,7 @@ func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool) {
 		c.m.log.Warn("session: ChatTools failed; the turn runs with the sandbox tools", "chat", c.id, "error", err)
 		note = noteChatToolsFailed
 	} else {
-		tools = acceptHostTools(tt.Tools, c.m.log, c.id)
+		tools = acceptHostTools(tt.Tools, c.m.log, c.id, c.m.o.Sandbox != nil)
 		prompt = capPrompt(tt.Prompt, c.m.log, c.id)
 	}
 	fp := fingerprint(tools, prompt)
@@ -436,7 +438,7 @@ func (c *Chat) primeChatTools(ctx context.Context) {
 	if err != nil || ctx.Err() != nil {
 		return
 	}
-	tools := acceptHostTools(tt.Tools, c.m.log, c.id)
+	tools := acceptHostTools(tt.Tools, c.m.log, c.id, c.m.o.Sandbox != nil)
 	prompt := capPrompt(tt.Prompt, c.m.log, c.id)
 	cur := make(map[string]Tool, len(tools))
 	defs := make([]Tool, len(tools))

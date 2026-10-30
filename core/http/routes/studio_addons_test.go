@@ -21,8 +21,8 @@ func (routeAddons) Tools(_ context.Context, user string) ([]studio.AddonTool, er
 	}
 	return []studio.AddonTool{
 		{Name: "addon__office__read", AddonID: "office"},
-		{Name: "addon__sandbox__bash", AddonID: "sandbox", Action: true, Runs: true},
-		{Name: "addon__sandbox__read", AddonID: "sandbox"},
+		{Name: "addon__sandbox__bash", AddonID: "sandbox", Action: true, Runs: true, Shadows: "bash"},
+		{Name: "addon__sandbox__status", AddonID: "sandbox"},
 	}, nil
 }
 

@@ -74,13 +74,31 @@ func (r *runners) mark(t AddonTool) {
 	if t.Runs {
 		r.tools.Store(t.Name, t.AddonID)
 		r.addons.Store(t.AddonID, t.Name)
+		if t.Shadows != "" {
+			// In a chat the tool has the built-in's name: it is known by the
+			// pair of its add-on and that name, never by the name alone,
+			// which the built-in tool has too.
+			r.tools.Store(shadowKey(t.AddonID, t.Shadows), t.AddonID)
+		}
 	}
 }
 
-// in returns the first tool of the list that runs commands, and its add-on.
+func shadowKey(addon, name string) string { return addon + "\x00" + name }
+
+// in returns the first tool of the list that an add-on serves and that runs
+// commands, and its add-on. The built-in bash is not an add-on's: see
+// builtinRunner.
 func (r *runners) in(tools []session.Tool) (name, addon string) {
 	for _, t := range tools {
-		if id, ok := r.tools.Load(t.Name); ok {
+		key := t.Name
+		switch t.Provider {
+		case BuiltinProvider:
+			continue
+		case "":
+		default:
+			key = shadowKey(t.Provider, t.Name)
+		}
+		if id, ok := r.tools.Load(key); ok {
 			return t.Name, id.(string)
 		}
 	}

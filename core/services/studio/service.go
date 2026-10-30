@@ -154,6 +154,10 @@ type Deps struct {
 	// whatever their status, for the members of a shared folder. Nil: Users
 	// looks members up by ID, and with no Users any principal is a member.
 	FindUser func(ctx context.Context, ref string) (*auth.User, error)
+	// ToolPins names, for a built-in tool that several add-ons replace, the
+	// add-on an administrator chose to serve it (runtime setting
+	// chats_tool_providers). Nil: no pins.
+	ToolPins func() map[string]string
 	// SharedPagesOn says whether the pages of shared folders are on; an
 	// administrator switches them at run time. Nil: on.
 	SharedPagesOn func() bool

@@ -157,3 +157,28 @@ var _ = Describe("Tools for the add-on's own page", func() {
 		Expect(f.calls()).To(BeZero())
 	})
 })
+
+var _ = Describe("A tool that shadows a built-in chat tool", func() {
+	ctx := context.Background()
+	schema := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
+	It("keeps its namespaced name and carries the built-in it shadows, only for a replaceable name", func() {
+		app := apps.App{ID: "sandbox", Name: "sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash", "write"},
+			ToolDefinitions: []contract.ToolDefinition{
+				{Name: "bash", Kind: contract.ToolKindAction, Description: "Run a script.", InputSchema: schema, Shadows: "bash"},
+				// A manifest that got past install with a name off the list
+				// still never shadows it.
+				{Name: "write", Kind: contract.ToolKindAction, Description: "Write.", InputSchema: schema, Shadows: "write_file"},
+			}}
+		f := &fake{list: apps.List{Apps: []apps.App{app}}}
+		defs, err := tools.NewChatToolAdapter(f).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(defs).To(HaveLen(2))
+		byTool := map[string]tools.ToolDefinition{}
+		for _, d := range defs {
+			byTool[d.Tool] = d
+		}
+		Expect(byTool["bash"].Name).To(Equal(tools.ToolName("sandbox", "bash")))
+		Expect(byTool["bash"].Shadows).To(Equal("bash"))
+		Expect(byTool["write"].Shadows).To(BeEmpty())
+	})
+})

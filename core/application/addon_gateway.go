@@ -737,7 +737,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Runs: d.Name == sandboxRunTool})
+			Runs: d.Name == sandboxRunTool, Shadows: d.Shadows})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
