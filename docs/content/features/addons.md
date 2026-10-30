@@ -3195,6 +3195,35 @@ library, the channel, the installed and the new version and digest, and says tha
 of the add-on is backed up first. It then shows progress and, on failure, the error and the
 kept version. Anyone else sees the status without actions.
 
+The **Upgrade** action is on the card of the add-on in the list and on its entry in **Find
+add-ons**, next to the update notice, and in its details. All of them open the same
+confirmation.
+
+When the notice is shown but the upgrade cannot start, the card says why instead of hiding the
+action:
+
+| What the card says | Cause | What to do |
+|---|---|---|
+| Only an administrator can upgrade it | Your account is not an administrator. | Ask an administrator. |
+| The update is not confirmed yet | The check did not resolve a candidate to pin (no digest). | Select **Check again**. |
+| The last check failed | The library could not be read. | Select **Check again**. |
+| The update cannot run here, with the reasons | The state is `incompatible`. | None until the host or the platform fits. |
+| The library lists this version with different contents | The state is `integrity-error`. It is never an update. | None. |
+| The data needs recovery first | The add-on is in the recovery state. | Restore a backup in the details, then upgrade. |
+| The latest check found no update | The list showed a cached notice that a newer evaluation no longer supports. | Select **Check again**. |
+
+**Upgrade all (N)** shows in the bar of the list for administrators when at least one add-on
+has an update. It opens a dialog that lists every add-on with an update: the name, the
+installed and the new version, and, for one that cannot start, the reason above. Only add-ons
+that can start can be selected; **Select all** and **Select none** change the selection.
+**Upgrade selected** then runs the single-add-on upgrade for each selected add-on, one after
+another, never in parallel. Each is its own operation with its own operation ID and its own
+pinned digests, so the owner decides every one again. The dialog shows each add-on as queued,
+upgrading, done, failed (with the reason the owner gave) or skipped. A failure does not stop
+the others. You can close the dialog while it runs: the upgrades continue and the bar shows
+the progress and then a summary. **Retry failed** runs the failed add-ons again as new
+operations.
+
 ## Add-on pages
 
 An add-on with a `ui` object contributes pages to the web UI. The code of those pages is
