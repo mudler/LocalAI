@@ -10,7 +10,7 @@ import (
 // DefaultAddonHostOps names the add-ons that may call host operations, and
 // the operation prefixes each may call. It is a host setting: neither a
 // manifest field nor a model argument can add to it.
-const DefaultAddonHostOps = "fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,office=workspace.,web=workspace.,telegram=connector."
+const DefaultAddonHostOps = "fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector."
 
 var (
 	addonIDForHostOps = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)

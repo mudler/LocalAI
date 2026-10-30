@@ -135,6 +135,11 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if line := s.hintLine(ctx, a, rec); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 	}
+	// The network of the Sandbox commands, in one line: it follows the
+	// chat's preset at each turn and needs no restart of the harness.
+	if cmds.State == CommandsAvailable && cmds.Isolation == "isolated" && cmds.Provider != BuiltinProvider {
+		note = strings.TrimSpace(s.egressLine(ctx, rec) + " " + note)
+	}
 	// The AGENTS.md files of the chat's folder and the home: a pointer, first,
 	// so the cut of a long note keeps it.
 	if line := nudge.turnLine(ctx, rec); line != "" {

@@ -108,7 +108,40 @@
       "distributed": "Distribuído",
       "responses": "Respostas"
     },
-    "loadFailedTitle": "Não foi possível carregar as configurações."
+    "loadFailedTitle": "Não foi possível carregar as configurações.",
+    "egress": {
+      "title": "Rede do Sandbox",
+      "intro": "Os comandos no Sandbox alcançam a rede só por um proxy que pergunta ao LocalAI sobre cada conexão. Abaixo você define o limite, a predefinição de um chat novo, as portas, os registros extras e a retenção da auditoria; cada pessoa escolhe a predefinição de cada chat no menu Ferramentas dele, até o limite, e permite um host bloqueado num cartão.",
+      "serves": "Os comandos rodam isolados no complemento {{name}}",
+      "servesHost": "Os comandos rodam nesta máquina pelo {{name}}",
+      "servesNone": "Nenhum Sandbox roda comandos ainda",
+      "hostNote": "O backend do host roda comandos nesta máquina com a rede dela: estas configurações não se aplicam.",
+      "counts": "Últimas 24 horas: {{allowed}} permitidas, {{blocked}} bloqueadas.",
+      "private": "Deixar a regra de um administrador alcançar redes privadas",
+      "privateWarning": "Um host permitido por um administrador passa a alcançar endereços dentro da sua rede. Uma predefinição sozinha nunca faz isso; os endereços de metadados da nuvem e do servidor continuam recusados.",
+      "typePhrase": "Para ligar, digite: {{phrase}}",
+      "registries": "Registros de pacotes ({{count}})",
+      "showAudit": "Mostrar a auditoria",
+      "hideAudit": "Ocultar a auditoria",
+      "loadFailed": "Não foi possível ler as configurações de rede do Sandbox",
+      "audit": {
+        "verdict": "Resultado",
+        "host": "Host",
+        "user": "Usuário",
+        "at": "Quando",
+        "reason": "Motivo",
+        "bytes": "Bytes enviados / recebidos",
+        "refresh": "Atualizar",
+        "empty": "Nenhum pedido corresponde.",
+        "loadFailed": "Não foi possível ler a auditoria",
+        "verdicts": {
+          "any": "Qualquer resultado",
+          "allow": "Permitido",
+          "block": "Bloqueado",
+          "done": "Concluído"
+        }
+      }
+    }
   },
   "backends": {
     "lifecycle": {

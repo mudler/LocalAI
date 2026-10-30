@@ -10,6 +10,7 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import SettingField from '../components/settings/SettingField'
 import BuiltinToolsSection from '../components/settings/BuiltinToolsSection'
+import EgressSection from '../components/settings/EgressSection'
 import PendingBar from '../components/settings/PendingBar'
 import HistorySheet from '../components/settings/HistorySheet'
 import Icon from '../components/Icon'
@@ -312,6 +313,7 @@ export default function Settings() {
                 <p className="st-note">Sign-in, users, invites and per-user API keys are under Users and keys when authentication is on.</p>
               )}
               {group === 'tools' && <BuiltinToolsSection settings={settings} onChange={onChange} />}
+              {group === 'tools' && <EgressSection settings={settings} initial={initial} onChange={onChange} />}
               <div className="st-list">
                 {groupFields.filter(f => f.custom !== group).map(f => {
                   const head = group === 'agents' && f.was !== lastWas ? OLD_SECTIONS[f.was] : null

@@ -20,6 +20,8 @@ import (
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/media"
@@ -191,6 +193,18 @@ type Deps struct {
 	// name, a shortcut, a schedule) to a user who did not choose. Read at each
 	// turn, so a change applies at once. Nil: on.
 	SuggestionsDefault func() bool
+	// EgressSettings returns the administrator's limits of the Sandbox
+	// network (chats_egress_*), read at each check. Nil: the ceiling is off and
+	// no command reaches the network.
+	EgressSettings func() egress.Settings
+	// EgressAudit keeps the audit of the Sandbox network requests. Nil: an
+	// in-memory audit, for a single process and tests.
+	EgressAudit audit.Store
+	// EgressAuditDays is chats_egress_audit_days. Nil or out of range: 30.
+	EgressAuditDays func() int
+	// EgressCardWait is how long a connection waits for the answer of a
+	// network card. Zero: 60 seconds. Tests set it shorter.
+	EgressCardWait time.Duration
 	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
 	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.
@@ -260,6 +274,9 @@ type Service struct {
 	shared *sharedfolders.Service // the folders an administrator shares
 
 	runners runners // the add-on tools that run commands; see capabilities.go
+
+	egressAuditStore audit.Store // see egress.go
+	egressChats      egressChats // see egresscheck.go
 }
 
 type run struct {
@@ -301,6 +318,10 @@ func New(d Deps) (*Service, error) {
 	}
 	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, locks: map[string]*keyLock{},
 		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
+	s.egressAuditStore = d.EgressAudit
+	if s.egressAuditStore == nil {
+		s.egressAuditStore, _ = audit.NewJSON("")
+	}
 	s.builtins = d.Builtins
 	if s.builtins == nil {
 		s.builtins = builtins.NewRegistry()
@@ -517,6 +538,17 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	now := time.Now().UTC()
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
 		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant}
+	if origin.Kind == "" {
+		// A chat a person starts gets the instance default, or the network
+		// of its saved agent when the agent sets one, under the ceiling. An
+		// unattended run follows its agent's network field at each check.
+		rec.Egress = s.newChatEgress()
+		if in.AgentID != "" {
+			if n := s.agentNetwork(ctx, rec); n != egress.PresetOff {
+				rec.Egress.Preset = egress.Min(n, s.egressSettings().Ceiling)
+			}
+		}
+	}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		return session.ChatRecord{}, err
 	}
@@ -1050,6 +1082,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 	if err := chat.Close(); err != nil {
 		s.log.Warn("studio: could not close the chat after its turn", "chat", conv, "error", err)
 	}
+	// The network cards of the turn: unanswered ones expire, each is tied to
+	// its tool line.
+	s.settleEgressCards(ctx, p, conv, r.started)
 	status := store.TurnDone
 	switch {
 	case r.stopped:

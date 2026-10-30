@@ -108,7 +108,40 @@
       "distributed": "Distribuido",
       "responses": "Respuestas"
     },
-    "loadFailedTitle": "No se pudieron cargar los ajustes."
+    "loadFailedTitle": "No se pudieron cargar los ajustes.",
+    "egress": {
+      "title": "Red del Sandbox",
+      "intro": "Los comandos del Sandbox llegan a la red solo a través de un proxy que consulta a LocalAI cada conexión. Abajo se fijan el límite, el valor de un chat nuevo, los puertos, los registros adicionales y la retención del registro; cada persona elige el valor de cada chat en su menú Herramientas, hasta el límite, y permite un host bloqueado en una tarjeta.",
+      "serves": "Los comandos se ejecutan aislados en el complemento {{name}}",
+      "servesHost": "Los comandos se ejecutan en esta máquina con {{name}}",
+      "servesNone": "Ningún Sandbox ejecuta comandos todavía",
+      "hostNote": "El backend del host ejecuta comandos en esta máquina con su red: estos ajustes no se les aplican.",
+      "counts": "Últimas 24 horas: {{allowed}} permitidas, {{blocked}} bloqueadas.",
+      "private": "Permitir que la regla de un administrador llegue a redes privadas",
+      "privateWarning": "Un host que permite un administrador podrá llegar a direcciones dentro de tu red. Un valor por sí solo nunca lo hace; las direcciones de metadatos de la nube y del servidor siguen rechazadas.",
+      "typePhrase": "Para activarlo, escribe: {{phrase}}",
+      "registries": "Registros de paquetes ({{count}})",
+      "showAudit": "Ver el registro",
+      "hideAudit": "Ocultar el registro",
+      "loadFailed": "No se pudieron leer los ajustes de red del Sandbox",
+      "audit": {
+        "verdict": "Resultado",
+        "host": "Host",
+        "user": "Usuario",
+        "at": "Cuándo",
+        "reason": "Motivo",
+        "bytes": "Bytes subida / bajada",
+        "refresh": "Actualizar",
+        "empty": "No hay solicitudes que coincidan.",
+        "loadFailed": "No se pudo leer el registro",
+        "verdicts": {
+          "any": "Cualquier resultado",
+          "allow": "Permitida",
+          "block": "Bloqueada",
+          "done": "Terminada"
+        }
+      }
+    }
   },
   "backends": {
     "lifecycle": {

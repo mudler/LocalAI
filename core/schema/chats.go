@@ -23,17 +23,21 @@ type ChatsCreateRequest struct {
 // ChatsAgent is a saved agent. The four lists are exact grants: an empty list
 // grants nothing, and a chat gets only what you may use at that moment.
 type ChatsAgent struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	Instructions string    `json:"instructions"`
-	Model        string    `json:"model,omitempty"`
-	MCPServers   []string  `json:"mcp_servers"`
-	Addons       []string  `json:"addons"`
-	Collections  []string  `json:"collections"`
-	Skills       []string  `json:"skills"`
-	Created      time.Time `json:"created"`
-	Updated      time.Time `json:"updated"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Instructions string   `json:"instructions"`
+	Model        string   `json:"model,omitempty"`
+	MCPServers   []string `json:"mcp_servers"`
+	Addons       []string `json:"addons"`
+	Collections  []string `json:"collections"`
+	Skills       []string `json:"skills"`
+	// Network is the network preset of the Sandbox commands of the agent's
+	// unattended runs: off (the default), registries or all, capped by the
+	// administrator's ceiling.
+	Network string    `json:"network"`
+	Created time.Time `json:"created"`
+	Updated time.Time `json:"updated"`
 }
 
 // ChatsAgentWrite creates or replaces a saved agent.
@@ -46,6 +50,7 @@ type ChatsAgentWrite struct {
 	Addons       []string `json:"addons,omitempty"`
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
+	Network      string   `json:"network,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.
@@ -1240,4 +1245,103 @@ type ChatsWellKnownError struct {
 	Error   *APIError           `json:"error"`
 	Errors  []string            `json:"errors,omitempty"`
 	Current *ChatsWellKnownFile `json:"current,omitempty"`
+}
+
+// ChatsEgressRule is one allow or deny rule of a chat's Sandbox network.
+type ChatsEgressRule struct {
+	Host  string    `json:"host"`
+	Port  int       `json:"port"`
+	Allow bool      `json:"allow"`
+	By    string    `json:"by,omitempty"`
+	Admin bool      `json:"admin,omitempty"`
+	At    time.Time `json:"at"`
+	// AboveLimit says the ceiling no longer admits the host, so the rule
+	// does not apply until an administrator raises it.
+	AboveLimit bool `json:"above_limit,omitempty"`
+}
+
+// ChatsEgressCard is a card that asked whether a command may reach a host.
+type ChatsEgressCard struct {
+	ID         string     `json:"id"`
+	Host       string     `json:"host"`
+	Port       int        `json:"port"`
+	Kind       string     `json:"kind"`
+	State      string     `json:"state"` // pending, once, chat, denied, expired, refused
+	Private    bool       `json:"private,omitempty"`
+	ToolSeq    int64      `json:"tool_seq,omitempty"`
+	AskedAt    time.Time  `json:"asked_at"`
+	AnsweredAt *time.Time `json:"answered_at,omitempty"`
+	AnsweredBy string     `json:"answered_by,omitempty"`
+}
+
+// ChatsEgressRegistry is one package registry the preset registries admits.
+type ChatsEgressRegistry struct {
+	ID    string   `json:"id"`
+	Title string   `json:"title"`
+	Hosts []string `json:"hosts"`
+}
+
+// ChatsEgress is the network of a chat's Sandbox commands.
+type ChatsEgress struct {
+	Preset    string `json:"preset"`    // off, registries, all
+	Ceiling   string `json:"ceiling"`   // the administrator's limit
+	Effective string `json:"effective"` // the lower of the two
+	// Applies is false when commands run on this machine (applies_reason
+	// host) or no Sandbox serves bash (none).
+	Applies       bool                  `json:"applies"`
+	AppliesReason string                `json:"applies_reason,omitempty"`
+	Registries    []ChatsEgressRegistry `json:"registries"`
+	Rules         []ChatsEgressRule     `json:"rules"`
+	Cards         []ChatsEgressCard     `json:"cards"`
+}
+
+// ChatsEgressPreset sets the preset of a chat.
+type ChatsEgressPreset struct {
+	Preset string `json:"preset"`
+}
+
+// ChatsEgressConsent answers a card: once (for the command in progress),
+// chat (a rule for the chat) or deny (remembered for the chat).
+type ChatsEgressConsent struct {
+	ID       string `json:"id"`
+	Decision string `json:"decision"`
+}
+
+// ChatsEgressAdmin is the administrator's view of the Sandbox network.
+type ChatsEgressAdmin struct {
+	Ceiling         string                `json:"ceiling"`
+	Default         string                `json:"default"`
+	AllowPrivate    bool                  `json:"allow_private"`
+	Ports           []int                 `json:"ports"`
+	ExtraRegistries []string              `json:"extra_registries"`
+	AuditDays       int                   `json:"audit_days"`
+	Registries      []ChatsEgressRegistry `json:"registries"`
+	// Sandbox is the add-on that runs commands, empty when none serves;
+	// Isolation is isolated, host, or empty when unknown.
+	Sandbox   string `json:"sandbox,omitempty"`
+	Isolation string `json:"isolation,omitempty"`
+	Allowed   int64  `json:"allowed_24h"`
+	Blocked   int64  `json:"blocked_24h"`
+}
+
+// ChatsEgressEvent is one line of the Sandbox network audit.
+type ChatsEgressEvent struct {
+	User       string    `json:"user"`
+	UserName   string    `json:"user_name,omitempty"`
+	Chat       string    `json:"chat"`
+	Host       string    `json:"host"`
+	Port       int       `json:"port"`
+	Kind       string    `json:"kind"`
+	Verdict    string    `json:"verdict"` // allow, block, done
+	Reason     string    `json:"reason"`
+	Addr       string    `json:"addr,omitempty"`
+	BytesUp    int64     `json:"bytes_up,omitempty"`
+	BytesDown  int64     `json:"bytes_down,omitempty"`
+	DurationMS int64     `json:"duration_ms,omitempty"`
+	At         time.Time `json:"at"`
+}
+
+// ChatsEgressEventList is the audit, newest first.
+type ChatsEgressEventList struct {
+	Events []ChatsEgressEvent `json:"events"`
 }

@@ -123,7 +123,14 @@
     "configNote": "The definition this form will save.",
     "previewNew": "The agent this form will save.",
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
-    "default": "Default"
+    "default": "Default",
+    "network": "Rete dei comandi nelle esecuzioni non presidiate",
+    "networkHelp": "Quando un trigger o un connettore esegue questo agente, i suoi comandi nel Sandbox raggiungono questa parte della rete, fino al limite fissato da un amministratore. Un’esecuzione non chiede mai: un host al di fuori viene bloccato. Anche una chat che avvii con questo agente parte così.",
+    "networkPresets": {
+      "off": "Disattivata",
+      "registries": "Registri di pacchetti",
+      "all": "Tutti i siti pubblici"
+    }
   },
   "run": {
     "workingLine": "Working"

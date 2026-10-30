@@ -9,7 +9,7 @@
     "toolDefinitions": [
       {
         "name": "bash",
-        "description": "Run a shell script with bash in /workspace. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1680).",
+        "description": "Run a shell script with bash in /workspace. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1680). Network: only HTTP and HTTPS through the proxy the sandbox sets; other hosts are blocked unless the user allows them.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,

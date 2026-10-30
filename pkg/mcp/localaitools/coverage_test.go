@@ -51,6 +51,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolListSharedFolderEvents:    "GET /api/chats/admin/shared-folders/events",
 	ToolListChatTools:             "GET /api/chats/admin/tools",
 	ToolListHostExecEvents:        "GET /api/chats/admin/host-exec/events",
+	ToolGetChatEgress:             "GET /api/chats/admin/egress",
+	ToolListEgressEvents:          "GET /api/chats/admin/egress/events",
 	ToolListFailoverChains:        "GET /api/failover",
 
 	// Mutating tools.
@@ -83,6 +85,10 @@ var toolToHTTPRoute = map[string]string{
 	ToolDeleteScheduling:         "DELETE /api/nodes/scheduling/:model",
 	ToolPinFailoverTarget:        "POST /api/failover/:chain/pin",
 	ToolUnpinFailoverTarget:      "DELETE /api/failover/:chain/pin",
+	// chats_egress_allow_private is deliberately not a tool (uiOnly): turning
+	// it on needs the typed phrase in chats_egress_private_confirm, a
+	// person's act in Settings > Tools, like confirm-host of the Sandbox.
+	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in

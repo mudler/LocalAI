@@ -372,6 +372,23 @@ type ApplicationConfig struct {
 	ChatsWebAllowPrivate  bool
 	ChatsWebPorts         string
 
+	// The network of the commands that chats run in the Sandbox, through the
+	// host proxy. Each is runtime-toggleable via /api/settings and read at
+	// each check, so no restart. ChatsEgressCeiling is the widest preset
+	// (off, registries, all) any chat may use; ChatsEgressDefault the preset
+	// of a new chat, capped by the ceiling. ChatsEgressAllowPrivate lets an
+	// administrator's rule or card answer reach private addresses (never the
+	// metadata addresses). ChatsEgressPorts is a comma list of the ports a
+	// command may reach (empty: 80 and 443), ChatsEgressExtraRegistries a
+	// comma list of host names added to the package registries, and
+	// ChatsEgressAuditDays how long the audit keeps a line (0: 30 days).
+	ChatsEgressCeiling         string
+	ChatsEgressDefault         string
+	ChatsEgressAllowPrivate    bool
+	ChatsEgressPorts           string
+	ChatsEgressExtraRegistries string
+	ChatsEgressAuditDays       int
+
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents
 	// as sub-agents (list_agents and the agent argument of spawn_agent).
 	// Stored as the negation (chats_saved_agents), so it is on by default;

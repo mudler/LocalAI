@@ -104,6 +104,11 @@ RUN set -eux; \
 # loopback interface; the sandbox serves it with a host port handler.
 ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \
     http_proxy=http://127.0.0.1:3128 https_proxy=http://127.0.0.1:3128 no_proxy=localhost,127.0.0.1
+# Go and npm fetch from their registries through the proxy, not from version
+# control hosts directly (GOPROXY without ",direct"). cargo and uv read
+# HTTPS_PROXY.
+ENV GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod \
+    npm_config_proxy=http://127.0.0.1:3128 npm_config_https_proxy=http://127.0.0.1:3128
 RUN set -eux; \
     printf '[global]\nproxy = http://127.0.0.1:3128\nbreak-system-packages = true\n' > /etc/pip.conf; \
     printf 'Acquire::http::Proxy "http://127.0.0.1:3128";\nAcquire::https::Proxy "http://127.0.0.1:3128";\n' > /etc/apt/apt.conf.d/80proxy; \

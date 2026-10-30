@@ -147,6 +147,41 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(app.ApplicationConfig().ChatsToolProviders).To(Equal(map[string]string{"bash": "sandbox"}))
 	})
 
+	It("checks the Sandbox network settings and asks for the phrase to reach private addresses", func() {
+		for body, want := range map[string]string{
+			`{"chats_egress_ceiling":"wide"}`:                                          "Invalid chats_egress_ceiling",
+			`{"chats_egress_default":"everything"}`:                                    "Invalid chats_egress_default",
+			`{"chats_egress_ports":"443,22"}`:                                          "Invalid chats_egress_ports",
+			`{"chats_egress_ports":"443,25"}`:                                          "Invalid chats_egress_ports",
+			`{"chats_egress_extra_registries":"*.example.com"}`:                        "Invalid chats_egress_extra_registries",
+			`{"chats_egress_extra_registries":"0x7f.1"}`:                               "Invalid chats_egress_extra_registries",
+			`{"chats_egress_audit_days":0}`:                                            "Invalid chats_egress_audit_days",
+			`{"chats_egress_audit_days":366}`:                                          "Invalid chats_egress_audit_days",
+			`{"chats_egress_allow_private":true}`:                                      "chats_egress_private_confirm",
+			`{"chats_egress_allow_private":true,"chats_egress_private_confirm":"yes"}`: "chats_egress_private_confirm",
+		} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring(want), body)
+		}
+		cfg := app.ApplicationConfig()
+		Expect(cfg.ChatsEgressAllowPrivate).To(BeFalse())
+		rec := post(`{"chats_egress_ceiling":"registries","chats_egress_default":"registries","chats_egress_ports":"443","chats_egress_extra_registries":"Mirror.Example.org, pypi.internal.example","chats_egress_audit_days":7,` +
+			`"chats_egress_allow_private":true,"chats_egress_private_confirm":"` + config.EgressPrivatePhrase + `"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.ChatsEgressCeiling).To(Equal("registries"))
+		Expect(cfg.ChatsEgressDefault).To(Equal("registries"))
+		Expect(cfg.ChatsEgressPorts).To(Equal("443"))
+		Expect(cfg.ChatsEgressAuditDays).To(Equal(7))
+		Expect(cfg.ChatsEgressAllowPrivate).To(BeTrue())
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring(config.EgressPrivatePhrase), "the phrase is not stored")
+		// Already on: saving it again needs no phrase.
+		rec = post(`{"chats_egress_allow_private":true}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+	})
+
 	It("errors when DynamicConfigsDir is unset", func() {
 		app.ApplicationConfig().DynamicConfigsDir = ""
 		rec := post(`{}`)

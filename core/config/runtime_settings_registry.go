@@ -506,6 +506,78 @@ var runtimeSettingsFields = []fieldSpec{
 			return true
 		}),
 
+	// The network of the Sandbox commands: read at each check, so no
+	// restart. The lists and the presets are checked by the settings
+	// endpoint; a bad value in the file is logged and the safe default kept.
+	withApply(field("chats_egress_ceiling",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressCeiling },
+		func(o *ApplicationConfig) string { return o.ChatsEgressCeiling },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressCeiling = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressCeiling)
+			if !ValidEgressPreset(v) {
+				xlog.Warn("invalid chats_egress_ceiling in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsEgressCeiling = v
+			return true
+		}),
+	withApply(field("chats_egress_default",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressDefault },
+		func(o *ApplicationConfig) string { return o.ChatsEgressDefault },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressDefault = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressDefault)
+			if !ValidEgressPreset(v) {
+				xlog.Warn("invalid chats_egress_default in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsEgressDefault = v
+			return true
+		}),
+	field("chats_egress_allow_private",
+		func(s *RuntimeSettings) **bool { return &s.ChatsEgressAllowPrivate },
+		func(o *ApplicationConfig) bool { return o.ChatsEgressAllowPrivate },
+		func(o *ApplicationConfig, v bool) { o.ChatsEgressAllowPrivate = v }),
+	withApply(field("chats_egress_ports",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressPorts },
+		func(o *ApplicationConfig) string { return o.ChatsEgressPorts },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressPorts = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressPorts)
+			if _, err := ParseEgressPorts(v); err != nil {
+				xlog.Warn("invalid chats_egress_ports in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsEgressPorts = v
+			return true
+		}),
+	withApply(field("chats_egress_extra_registries",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressExtraRegistries },
+		func(o *ApplicationConfig) string { return o.ChatsEgressExtraRegistries },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressExtraRegistries = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressExtraRegistries)
+			if _, err := ParseEgressHosts(v); err != nil {
+				xlog.Warn("invalid chats_egress_extra_registries in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsEgressExtraRegistries = v
+			return true
+		}),
+	withApply(field("chats_egress_audit_days",
+		func(s *RuntimeSettings) **int { return &s.ChatsEgressAuditDays },
+		func(o *ApplicationConfig) int { return o.ChatsEgressAuditDays },
+		func(o *ApplicationConfig, v int) { o.ChatsEgressAuditDays = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsEgressAuditDays; v < 1 || v > 365 {
+				xlog.Warn("invalid chats_egress_audit_days in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsEgressAuditDays = *s.ChatsEgressAuditDays
+			return true
+		}),
+
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
 	field("chats_suggestions",

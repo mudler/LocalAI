@@ -1514,7 +1514,7 @@ The rules:
 - The host setting `--addon-host-ops` (`LOCALAI_ADDON_HOST_OPS`) names the
   add-ons that get the channel and the operation prefixes each may call, as a
   comma list of `addon-id=op-prefix`. The default is
-  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,office=workspace.,web=workspace.,telegram=connector.`. An empty value names nobody.
+  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.`. An empty value names nobody.
   This is a host setting, not a manifest field and not a model argument.
 - An add-on that the setting names finds two optional fields in its startup
   object: `hostEndpoint`, a loopback address of the form
@@ -3941,6 +3941,13 @@ An add-on that holds `sandbox=workspace.`, `office=workspace.` or `web=workspace
 
 Every call runs as the user of the live request, never as a user named in the arguments. Folders are named relative to the home of that user, and `dir` is a relative folder inside the add-on's data directory; an absolute path, a parent reference or a symbolic link is refused.
 
+#### Network operations
+
+An add-on that holds `sandbox=egress.` in the host operation setting (the default) can ask about the network connections of the commands it runs (see [Network access](#network-access)):
+
+- `egress.check` (`act`, feature `chats`) takes `{host, port, kind, tls}`, with `kind` `connect` or `http`, and answers `{action, reason, allowPrivate}`, with `action` `allow` or `block`. When a card asks the person (see the cards under [Network access](#network-access)), the call waits for the answer, at most 60 seconds, before it answers. The chat is the resource of the live envelope and the user is its actor: arguments named `chat`, `user`, `preset` or `allow`, or any other unknown name, are refused. The host writes the audit line of the verdict itself. The operation may wait up to 60 seconds for a card and has a 75-second timeout.
+- `egress.audit` (`act`, feature `chats`) takes `{events: [...]}`, at most 500 lines of `{host, port, kind, verdict, reason, addr, bytesUp, bytesDown, durationMs, at}`. `verdict` is `done` (an allowed connection ended; the bytes it moved) or `block` (the add-on refused it itself: an address that is private, the server's own or a metadata address, a TLS name that is not the host, a limit, or a connection while no call ran).
+
 ## Office
 
 The Office add-on reads and edits documents in the user's files, from a chat. It is a package like the others (`office` in the add-on library) and uses the `workspace.*` host operations to take a file in and give the result back.
@@ -4021,6 +4028,79 @@ The **Host** backend is for a machine that can run neither of the others. Choosi
 The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
 
 The guest image, `runsc` and the KVM programs are not part of the add-on's source. A release sets `main.guestImage` (the image, by digest) at build time. The checksums of the `runsc` and of the Cloud Hypervisor and `virtiofsd` it was tested with are compiled into the add-on (`runscPins` and `kvmPins` in `addons/sandbox/cmd/sandbox`), and tests keep them equal to `package/runsc.json` and `package/kvm.json`. A build without a guest image reports that on the page, and only the host backend can run.
+
+### Network access
+
+The guest of a sandbox has no network device: no NIC, no TAP device and no user-mode network stack. A command reaches the network only through one proxy, on guest port 3128, which the guest image sets in `HTTP_PROXY`, `HTTPS_PROXY`, pip, apt, git, npm and `GOPROXY`. The guest agent forwards each connection to that port to the add-on, over vsock (KVM) or a Unix socket (gVisor), and the add-on's proxy asks LocalAI about each connection with the host operation `egress.check`. LocalAI decides; the add-on dials. The proxy never decrypts TLS and holds no certificate the guest trusts.
+
+Commands that run on this machine (the host backend, or the chats' built-in `bash`) have the network of the server: none of this applies to them, and the settings say so.
+
+**Presets.** A chat has one of three presets, and an administrator sets the ceiling, the widest preset any chat may use:
+
+| Preset | What a command reaches |
+|---|---|
+| Off (default) | Nothing. |
+| Package registries only | The HTTPS hosts of the package registries below, on port 443. |
+| Allow all | Every public host on an allowed port. |
+
+The preset of a chat is the lower of its own choice and the ceiling (`chats_egress_ceiling`, default `off`). A new chat starts with `chats_egress_default`, capped by the ceiling. The preset lives in the chat's record on the server, never in a file of the workspace: the sandbox can write the home, so a file there could be changed by the code it is meant to confine. A preset never reaches a private, loopback or link-local address, nor the server's own addresses, nor a cloud metadata address. With `chats_egress_allow_private` on, a host that an administrator allowed by a rule or a card answer may reach private addresses; the metadata addresses stay refused. See [Runtime settings]({{%relref "features/runtime-settings#tools" %}}) for the six `chats_egress_*` settings.
+
+**Package registries.** The list ships with LocalAI (`core/services/studio/egress/registries.json`) and changes only by a reviewed pull request that also changes this table and is named in the release notes. Every entry is an exact host name, HTTPS on port 443, with no pattern. Upload hosts (such as `upload.pypi.org`) are not on it, and neither is `raw.githubusercontent.com`, which serves any user's content. An administrator adds exact hosts with `chats_egress_extra_registries`, for example an internal mirror (which is private and so also needs the private switch and an administrator's rule).
+
+| Registry | Hosts |
+|---|---|
+| Python (PyPI) | `pypi.org`, `files.pythonhosted.org` |
+| JavaScript (npm) | `registry.npmjs.org`, `registry.yarnpkg.com` |
+| Go modules | `proxy.golang.org`, `sum.golang.org` |
+| Rust (crates.io) | `index.crates.io`, `static.crates.io`, `crates.io` |
+| Ruby (RubyGems) | `rubygems.org`, `index.rubygems.org` |
+| Java (Maven Central) | `repo.maven.apache.org`, `repo1.maven.org` |
+| GitHub releases and archives | `github.com`, `codeload.github.com`, `objects.githubusercontent.com` |
+
+**What the proxy checks.** The host of a request goes through the same guard as `web_fetch` ([Addresses inside your network]({{%relref "features/web#addresses-inside-your-network" %}})): a canonical name or literal, no address zone, no numeric tricks, no `localhost`. A host the guard refuses is never resolved, so it does not leak through DNS. A name is resolved once; when any answer is not allowed the connection is refused, and the proxy dials the address it checked. The addresses of the node's own interfaces and the whole loopback range are refused even when public. Only ports 80 and 443 by default (`chats_egress_ports`; 22 and 25 are always refused). HTTPS goes as `CONNECT host:443`: after the tunnel opens, the first TLS record must be a ClientHello whose server name is the CONNECT host, or the tunnel is closed (this stops a tunnel to one tenant of a CDN that talks to another). Plain HTTP goes as an absolute `http://` URL: each request of a kept-alive connection is decided on its own, the `Proxy-*` and hop-by-hop headers are dropped, a `Host` header that names another host is refused, and every request gets a new upstream connection. `CONNECT` to port 80, the origin form, `https://` in absolute form and `Upgrade` are refused with 400. The proxy follows no redirect: the guest's client follows it with a new request, which is checked again.
+
+**Cards.** When a command asks for a host that the chat's preset does not admit but the ceiling would, and a person watches the chat, LocalAI stores a card in the chat and the person sees it in the chat: *A command in this chat wants to reach* `host:port`, with **Allow once** (the rest of that command), **Allow for this chat** (a rule) and **Deny** (a deny rule, so the host does not ask again; it can be removed in the network panel). The connection waits for the answer for up to 60 seconds, and never past the call's own timeout, so `pip` goes on by itself after the click; without an answer it gets the 403 line with *the user did not answer*. A late answer still counts: *Allow for this chat* stores the rule, and *Allow once* lets the next call of the chat reach the host within ten minutes. A card nobody answered expires when the chat's turn ends; it stays visible and can still be answered. Ceiling `off` never shows a card; ceiling `registries` shows one only for a registry host (so a chat on Off can approve `pypi.org`); ceiling `all` for any public host. A host inside your network shows a card only with `chats_egress_allow_private` on, and only an administrator can allow it. A chat shows at most three cards at a time and one per host and port; a second connection to the same host waits on the same card. Unattended runs (triggers, connectors) and sub-agents get no card: the block is in their output. The card is written to the chat record before the answer is sent on the chat bus, and the waiting check reads it again every two seconds, so an answer given through any frontend reaches it within two seconds even when the bus message is lost. When the ceiling goes down while a card waits, the card is refused.
+
+**What the model reads.** The Sandbox `bash` says that the network is HTTP and HTTPS through the proxy only. When the Sandbox serves `bash`, each turn tells the model the preset in one line, such as *Network for commands: package registries only (Python (PyPI), ...). A blocked host asks the user; do not try to get around the proxy.* A blocked request gets `403` with one line of text in the tool output, for example *Blocked by LocalAI: example.com:443 is not allowed for this chat (off). Ask the user to allow it.*
+
+**Only while a command runs.** The proxy knows the call in progress of each sandbox. A connection while no call runs (a background process left by an earlier command) is blocked with the reason `idle`, nothing is asked, and it is audited at the next call. When a call ends, every tunnel it opened is closed. An allow verdict is cached for the call in progress for at most 30 seconds; a block is never cached.
+
+**Limits.** These are fixed in this release:
+
+| Limit | Value |
+|---|---|
+| Concurrent connections of one sandbox | 32 (the guest agent caps all its ports at 64) |
+| New connections of one sandbox | 20 per second, burst 40 |
+| Concurrent connections of the add-on process | 256 |
+| Dial timeout | 10 s |
+| Idle tunnel (no bytes either way) | 120 s |
+| Bytes from the guest, per call | 64 MiB |
+| Bytes to the guest, per call | 4 GiB |
+
+**Audit.** Every verdict is a line of the audit (who, which chat, host, port, kind, verdict, reason), and every allowed connection adds a `done` line with the address it reached, the bytes each way and how long it lasted. Lines older than `chats_egress_audit_days` (default 30) are removed daily.
+
+**What fails.** Tools that ignore the proxy variables, SSH remotes (`git@...`), raw TCP and UDP, ICMP and DNS from the guest fail, as before.
+
+**Residual risks.** The presets bound what a command reaches; they do not make every reachable host safe:
+
+- A registry that takes uploads (`npm publish` with a token the command holds) can carry data out under "Package registries only", and so can any host under "Allow all". The preset is the person's choice of risk; the per-call upload cap bounds the volume, not the risk.
+- Inside a TLS tunnel the `Host` header is encrypted and cannot be checked; a CDN that routes by it can still be reached through an allowed name.
+- A command that sees the proxy can try many hosts; each one is checked and audited.
+
+**Distributed mode.** Each piece of state has one mode:
+
+| State | Mode |
+|---|---|
+| Ceiling, private switch, ports, extra registries, default | shared: runtime settings, like the other `chats_*` settings |
+| A chat's preset, rules and cards | shared and durable: the chat record in the chat store (the database in a cluster) |
+| A card that waits | stateless per request: the host operation on the owner waits; it wakes on the answer's bus message or on a re-read of the card every two seconds |
+| The decision of one connection | stateless per request: the host operation reads the settings and the chat record at each check |
+| The map from a call's resource to its chat | per instance: a cache of a fixed mapping (a hash of the chat ID); each frontend fills its own, and a miss only costs a search of the user's chats |
+| Audit | shared: the `studio_egress_events` table in a cluster, a JSON file under the data path, or memory without one |
+| Audit pruning | single-runner: one frontend at each daily tick, under an advisory lock |
+| Verdict cache, rate limits, connection counts | per instance: the add-on process on the owner; an allow lives at most 30 seconds and only within one call, so a settings change applies within 30 seconds |
+
+With `--addons-role frontend` a frontend runs no proxy; the owner does, and the host operations run on the owner's host.
 
 ### Packaging and setting up the Sandbox add-on
 

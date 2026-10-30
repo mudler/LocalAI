@@ -53,6 +53,14 @@ const (
 	// attached, a turn or a tool changed files, or the chat folder was renamed.
 	// It carries nothing; read the file index again.
 	KindFiles EventKind = "files"
+	// KindEgressConsent asks the person whether a command of the chat's
+	// Sandbox may reach a host: IDs holds the card ID, Text the host:port. The
+	// card is kept with the chat (ChatRecord.Egress), so a reload shows it.
+	KindEgressConsent EventKind = "egress_consent"
+	// KindEgressCard says that the network of the chat changed: a card was
+	// answered or expired (IDs holds its ID), or the preset or a rule changed
+	// (no ID). Read GET /api/chats/{id}/egress again.
+	KindEgressCard EventKind = "egress_card"
 )
 
 // Event is one thing that happened in a chat.

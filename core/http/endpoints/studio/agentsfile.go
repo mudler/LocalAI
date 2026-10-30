@@ -34,7 +34,7 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 		return failFor(c, err)
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills}
+		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network}
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", fileSafe(a.Name)+".json"))
 	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: 1, Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
 }
@@ -104,7 +104,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
-		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills}
+		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network}
 	saved, err := h.svc.ImportAgent(c.Request().Context(), userID(c), a)
 	if err != nil {
 		return failFor(c, err)

@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "Questo modello non può guardare le immagini. Scegli un altro modello, oppure l'immagine sarà descritta da {{model}}.",
     "none": "Questo modello non può guardare le immagini e nessun modello qui può descriverle. Scegli un modello che può guardare le immagini."
+  },
+  "egress": {
+    "label": "Rete",
+    "preset": {
+      "off": "Disattivata",
+      "registries": "Registri di pacchetti",
+      "all": "Tutti i siti pubblici"
+    },
+    "presetHint": {
+      "off": "I comandi nel Sandbox non raggiungono nessuna rete.",
+      "registries": "I comandi raggiungono solo i registri di pacchetti (PyPI, npm, Go, crates.io, RubyGems, Maven Central, release di GitHub).",
+      "all": "I comandi raggiungono ogni sito pubblico."
+    },
+    "limited": "Limitato dal tuo amministratore",
+    "limitedBy": "Il tuo amministratore consente al massimo: {{limit}}.",
+    "hostNetwork": "I comandi vengono eseguiti su questa macchina e usano la sua rete.",
+    "panel": "Regole e richieste ({{count}})",
+    "rules": "Regole di questa chat",
+    "cards": "Richieste di questa chat",
+    "ruleAllow": "Consentito per questa chat",
+    "ruleDeny": "Negato per questa chat",
+    "aboveLimit": "oltre il limite, non si applica",
+    "remove": "Rimuovi",
+    "removeLabel": "Rimuovi la regola di {{host}}",
+    "card": {
+      "pending": "In attesa di risposta",
+      "allowedOnce": "Consentito una volta",
+      "allowedChat": "Consentito per questa chat",
+      "denied": "Negato",
+      "expired": "Senza risposta",
+      "refused": "Rifiutato: oltre il limite"
+    },
+    "consent": {
+      "title": "Accesso alla rete",
+      "body": "Un comando in questa chat vuole raggiungere",
+      "once": "Consenti una volta",
+      "chat": "Consenti per questa chat",
+      "deny": "Nega",
+      "preset": "Questa chat: {{preset}}. Limite del tuo amministratore: {{limit}}.",
+      "adminOnly": "Questo host è nella tua rete: solo un amministratore può consentirlo.",
+      "answered": "{{state}} da {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "te"
+    }
   }
 }

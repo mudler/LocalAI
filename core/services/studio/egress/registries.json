@@ -1,0 +1,9 @@
+{"version": 1, "registries": [
+  {"id": "pypi",     "title": "Python (PyPI)",        "hosts": ["pypi.org", "files.pythonhosted.org"]},
+  {"id": "npm",      "title": "JavaScript (npm)",     "hosts": ["registry.npmjs.org", "registry.yarnpkg.com"]},
+  {"id": "go",       "title": "Go modules",           "hosts": ["proxy.golang.org", "sum.golang.org"]},
+  {"id": "crates",   "title": "Rust (crates.io)",     "hosts": ["index.crates.io", "static.crates.io", "crates.io"]},
+  {"id": "rubygems", "title": "Ruby (RubyGems)",      "hosts": ["rubygems.org", "index.rubygems.org"]},
+  {"id": "maven",    "title": "Java (Maven Central)", "hosts": ["repo.maven.apache.org", "repo1.maven.org"]},
+  {"id": "github",   "title": "GitHub releases and archives", "hosts": ["github.com", "codeload.github.com", "objects.githubusercontent.com"]}
+]}

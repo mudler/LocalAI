@@ -126,6 +126,13 @@ var chatRules = []errRule{
 	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
 	verbatim(http.StatusConflict, typeAgentsOff, "", studiosvc.ErrAgentsOff),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow commands on this machine; anyone can refuse them", studiosvc.ErrHostExecDecision),
+	fixed(http.StatusBadRequest, "egress_above_ceiling", "the preset is above the limit an administrator set", studiosvc.ErrEgressAboveCeiling),
+	fixed(http.StatusBadRequest, typeInvalid, "the preset must be off, registries or all", studiosvc.ErrEgressPreset),
+	fixed(http.StatusNotFound, typeNotFound, "no such network rule", studiosvc.ErrEgressNoRule),
+	fixed(http.StatusNotFound, typeNotFound, "no such network card", studiosvc.ErrEgressNoCard),
+	fixed(http.StatusBadRequest, typeInvalid, "the answer must be once, chat or deny", studiosvc.ErrEgressBadDecision),
+	fixed(http.StatusConflict, typeConflict, "the network card was answered already", studiosvc.ErrEgressAnswered),
+	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow a host inside your network; anyone can deny it", studiosvc.ErrEgressDecision),
 }
 
 // failFor maps a service error to a response.

@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "Este modelo no puede ver imágenes. Elige otro modelo o la imagen la describirá {{model}}.",
     "none": "Este modelo no puede ver imágenes y ningún modelo aquí puede describirlas. Elige un modelo que pueda ver imágenes."
+  },
+  "egress": {
+    "label": "Red",
+    "preset": {
+      "off": "Desactivada",
+      "registries": "Registros de paquetes",
+      "all": "Todos los sitios públicos"
+    },
+    "presetHint": {
+      "off": "Los comandos del Sandbox no llegan a ninguna red.",
+      "registries": "Los comandos solo llegan a los registros de paquetes (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versiones de GitHub).",
+      "all": "Los comandos llegan a cualquier sitio público."
+    },
+    "limited": "Limitado por tu administrador",
+    "limitedBy": "Tu administrador permite como máximo: {{limit}}.",
+    "hostNetwork": "Los comandos se ejecutan en esta máquina y usan su red.",
+    "panel": "Reglas y solicitudes ({{count}})",
+    "rules": "Reglas de este chat",
+    "cards": "Solicitudes de este chat",
+    "ruleAllow": "Permitido en este chat",
+    "ruleDeny": "Denegado en este chat",
+    "aboveLimit": "por encima del límite, no se aplica",
+    "remove": "Quitar",
+    "removeLabel": "Quitar la regla de {{host}}",
+    "card": {
+      "pending": "Esperando respuesta",
+      "allowedOnce": "Permitido una vez",
+      "allowedChat": "Permitido en este chat",
+      "denied": "Denegado",
+      "expired": "Sin respuesta",
+      "refused": "Rechazado: por encima del límite"
+    },
+    "consent": {
+      "title": "Acceso a la red",
+      "body": "Un comando de este chat quiere llegar a",
+      "once": "Permitir una vez",
+      "chat": "Permitir en este chat",
+      "deny": "Denegar",
+      "preset": "Este chat: {{preset}}. Límite de tu administrador: {{limit}}.",
+      "adminOnly": "Este host está dentro de tu red: solo un administrador puede permitirlo.",
+      "answered": "{{state}} por {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "ti"
+    }
   }
 }

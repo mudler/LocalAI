@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/atomicfile"
 	"github.com/mudler/xlog"
@@ -417,6 +418,7 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 	}
 	c := chatState{Rec: rec}
 	c.Rec.HarnessState = nil
+	c.Rec.Egress = rec.Egress.Clone()
 	if len(rec.HarnessState) > 0 {
 		if err := s.writeState(&c, rec.HarnessState); err != nil {
 			return err
@@ -443,6 +445,7 @@ func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.Ch
 
 func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.HarnessState = append([]byte(nil), r.HarnessState...)
+	r.Egress = r.Egress.Clone()
 	return r
 }
 
@@ -537,6 +540,17 @@ func (s *jsonStore) SetHostConsent(_ context.Context, principal, id string, c *s
 		}
 		cp := *c
 		next.Rec.HostConsent = &cp
+	})
+}
+
+func (s *jsonStore) UpdateEgress(_ context.Context, principal, id string, change func(*egress.ChatState) error) error {
+	return s.edit(principal, id, func(next *chatState) error {
+		st := next.Rec.Egress.Clone()
+		if err := change(&st); err != nil {
+			return err
+		}
+		next.Rec.Egress = st
+		return nil
 	})
 }
 

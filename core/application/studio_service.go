@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -19,6 +20,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
@@ -115,6 +118,9 @@ func (a *Application) initStudioService() {
 		RemoteModel:        a.studioRemoteModel,
 		PageConsents:       a.studioPageConsents(),
 		SharedFolderAudit:  a.studioSharedFolderAudit(),
+		EgressSettings:     a.studioEgressSettings,
+		EgressAudit:        a.studioEgressAudit(),
+		EgressAuditDays:    func() int { return a.applicationConfig.ChatsEgressAuditDays },
 		FindUser:           a.studioFindUser(),
 		SharedPagesOn:      func() bool { return !a.applicationConfig.DisableSharedPages },
 		Modalities:         a.studioModalities,
@@ -170,6 +176,7 @@ func (a *Application) initStudioService() {
 	a.studioService = svc
 	svcRef = svc
 	a.startStudioReaper(svc)
+	a.startStudioEgressPrune(svc)
 	if a.applicationConfig.Distributed.ChatWorker {
 		// The hosts that start unattended runs keep their leader locks on the
 		// frontends; this process runs the turns they send (StartChatWorker).
@@ -409,6 +416,84 @@ func (a *Application) studioHostExecAudit() hostexec.AuditStore {
 		st, _ = hostexec.NewJSONAudit("")
 	}
 	return st
+}
+
+// studioEgressSettings is the chats_egress_* settings as they apply now. A
+// value the settings endpoint would refuse falls back to the safe default.
+func (a *Application) studioEgressSettings() egress.Settings {
+	cfg := a.applicationConfig
+	ports, err := config.ParseEgressPorts(cfg.ChatsEgressPorts)
+	if err != nil {
+		ports = []int{80, 443}
+	}
+	extra, _ := config.ParseEgressHosts(cfg.ChatsEgressExtraRegistries)
+	return egress.Settings{
+		Ceiling:         egress.Preset(strings.TrimSpace(cfg.ChatsEgressCeiling)),
+		Default:         egress.Preset(strings.TrimSpace(cfg.ChatsEgressDefault)),
+		AllowPrivate:    cfg.ChatsEgressAllowPrivate,
+		Ports:           ports,
+		ExtraRegistries: extra,
+	}
+}
+
+// studioEgressAudit opens the audit of the Sandbox network requests, beside
+// the audit of the commands run on this machine.
+func (a *Application) studioEgressAudit() audit.Store {
+	var (
+		st  audit.Store
+		err error
+	)
+	switch {
+	case a.authDB != nil:
+		st, err = audit.NewGORM(a.authDB)
+	case a.applicationConfig.DataPath != "":
+		st, err = audit.NewJSON(filepath.Join(a.applicationConfig.DataPath, "chats", "egress-audit"))
+	default:
+		st, err = audit.NewJSON("")
+	}
+	if err != nil {
+		xlog.Warn("Chats: the audit of the Sandbox network is kept in memory", "error", err)
+		st, _ = audit.NewJSON("")
+	}
+	return st
+}
+
+// studioEgressPruneEvery is how often the network audit loses its old lines.
+const studioEgressPruneEvery = 24 * time.Hour
+
+// startStudioEgressPrune removes the old lines of the network audit once at
+// start and then daily. With a database one frontend does it at each tick,
+// under an advisory lock; a standalone process does it alone.
+func (a *Application) startStudioEgressPrune(svc *studio.Service) {
+	ctx := a.applicationConfig.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	prune := func() {
+		n, err := svc.PruneEgressAudit(ctx)
+		if err != nil {
+			xlog.Warn("Chats: could not prune the Sandbox network audit", "error", err)
+		} else if n > 0 {
+			xlog.Info("Chats: pruned the Sandbox network audit", "lines", n)
+		}
+	}
+	if a.authDB != nil && a.Distributed() != nil {
+		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsEgressPrune, studioEgressPruneEvery, prune)
+		return
+	}
+	go func() {
+		prune()
+		t := time.NewTicker(studioEgressPruneEvery)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				prune()
+			}
+		}
+	}()
 }
 
 // studioSharedFolderAudit opens the audit of the shared folders, beside the

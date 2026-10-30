@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
@@ -15,6 +15,8 @@ import ChatAppFrame from '../ChatAppFrame'
 import ProposalCard from './ProposalCard'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from './CommandsConsentCard'
+import NetworkConsentCard from './NetworkConsentCard'
+import { EgressCardsContext } from './egressCardsContext'
 import { providerTag } from '../../utils/chatCommands'
 
 // What the thread says about reasoning and tool use: one quiet line that opens
@@ -276,9 +278,18 @@ export function ActivityGroup({ items, id, proposalTick = 0, withProposals = tru
         </ol>
       </FoldFrame>
       {changes.map((item) => <ChangeNote key={`c-${item.seq}`} text={item.text} t={tc} />)}
+      <NetworkCards items={items} />
       {withProposals && <ActivityProposals items={items} proposalTick={proposalTick} />}
     </>
   )
+}
+
+// The network cards that the bash calls of a run of tool lines asked, under the
+// fold, so a reload shows them where they were asked.
+function NetworkCards({ items }) {
+  const { byTool, chatId, egress } = useContext(EgressCardsContext)
+  const cards = items.filter(item => item.role === 'tool').flatMap(item => byTool.get(item.seq) || [])
+  return cards.map(c => <NetworkConsentCard key={c.id} card={c} chatId={chatId} egress={egress} />)
 }
 
 // The trigger proposals of a run of tool lines, as cards. A message draws them

@@ -70,6 +70,9 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	// the built-in bash ran on this machine.
 	e.GET(base+"/admin/tools", h.AdminBuiltinTools, adminMw)
 	e.GET(base+"/admin/host-exec/events", h.AdminHostExecEvents, adminMw)
+	// The network of the Sandbox commands, and its audit.
+	e.GET(base+"/admin/egress", h.AdminEgress, adminMw)
+	e.GET(base+"/admin/egress/events", h.AdminEgressEvents, adminMw)
 	e.GET(base+"/admin/shared-folders/:id", h.AdminGetSharedFolder, adminMw)
 	e.PATCH(base+"/admin/shared-folders/:id", h.AdminRenameSharedFolder, adminMw)
 	e.DELETE(base+"/admin/shared-folders/:id", h.AdminDeleteSharedFolder, adminMw)
@@ -114,6 +117,10 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/:id/addons", h.ListChatAddons)
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
 	e.POST(base+"/:id/host-exec/consent", h.HostExecConsent)
+	e.GET(base+"/:id/egress", h.GetEgress)
+	e.PUT(base+"/:id/egress", h.PutEgress)
+	e.DELETE(base+"/:id/egress/rules/:host/:port", h.DeleteEgressRule)
+	e.POST(base+"/:id/egress/consent", h.EgressConsent)
 	e.GET(base+"/files/search", h.SearchFiles)
 	// The pages of the workspace: the chats feature lets the request in, and
 	// the handlers check the pages feature too.

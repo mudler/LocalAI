@@ -12,7 +12,7 @@ export const AGENTS = [
   },
   {
     id: 'a2', name: 'code-reviewer', description: 'Reviews a change and lists what to fix first.', model: '',
-    instructions: 'You review code changes.', mcp_servers: [], addons: [], collections: [], skills: [],
+    instructions: 'You review code changes.', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off',
     created: '2026-10-01T10:00:00Z', updated: '2026-10-02T10:00:00Z',
   },
 ]
@@ -91,7 +91,7 @@ export async function installAgents(page, {
     if (req.method() === 'POST') {
       rec(req)
       const b = req.postDataJSON()
-      const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], ...b }
+      const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', ...b }
       s.agents.push(a)
       return route.fulfill({ status: 201, json: a })
     }

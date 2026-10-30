@@ -12,6 +12,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -112,6 +113,13 @@ type Store interface {
 	// an answer, or clears it with nil. UpdateChat leaves it alone, like the
 	// switches above.
 	SetHostConsent(ctx context.Context, principal, chatID string, c *session.HostConsent) error
+
+	// UpdateEgress changes the network state of a chat (preset, rules, cards,
+	// grants) in one atomic step: change gets the current state and edits it;
+	// an error from change leaves the chat as it was and is returned. Two
+	// frontends that change the same chat at once do not lose either change.
+	// UpdateChat leaves the state alone.
+	UpdateEgress(ctx context.Context, principal, chatID string, change func(*egress.ChatState) error) error
 
 	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
 	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)

@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "이 모델은 이미지를 볼 수 없습니다. 다른 모델을 선택하지 않으면 {{model}}이(가) 이미지를 설명합니다.",
     "none": "이 모델은 이미지를 볼 수 없고, 여기에는 이미지를 설명할 수 있는 모델이 없습니다. 이미지를 볼 수 있는 모델을 선택하세요."
+  },
+  "egress": {
+    "label": "네트워크",
+    "preset": {
+      "off": "끔",
+      "registries": "패키지 레지스트리",
+      "all": "모든 공개 사이트"
+    },
+    "presetHint": {
+      "off": "샌드박스의 명령은 어떤 네트워크에도 연결되지 않습니다.",
+      "registries": "명령은 패키지 레지스트리(PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub 릴리스)에만 연결됩니다.",
+      "all": "명령은 모든 공개 사이트에 연결됩니다."
+    },
+    "limited": "관리자가 제한함",
+    "limitedBy": "관리자가 허용하는 최대 범위: {{limit}}.",
+    "hostNetwork": "명령은 이 컴퓨터에서 실행되며 이 컴퓨터의 네트워크를 사용합니다.",
+    "panel": "규칙과 요청 ({{count}})",
+    "rules": "이 채팅의 규칙",
+    "cards": "이 채팅의 요청",
+    "ruleAllow": "이 채팅에서 허용됨",
+    "ruleDeny": "이 채팅에서 거부됨",
+    "aboveLimit": "제한을 넘어 적용되지 않음",
+    "remove": "삭제",
+    "removeLabel": "{{host}} 규칙 삭제",
+    "card": {
+      "pending": "응답 대기 중",
+      "allowedOnce": "한 번 허용됨",
+      "allowedChat": "이 채팅에서 허용됨",
+      "denied": "거부됨",
+      "expired": "응답 없음",
+      "refused": "거부됨: 제한 초과"
+    },
+    "consent": {
+      "title": "네트워크 접근",
+      "body": "이 채팅의 명령이 다음에 연결하려고 합니다:",
+      "once": "한 번 허용",
+      "chat": "이 채팅에서 허용",
+      "deny": "거부",
+      "preset": "이 채팅: {{preset}}. 관리자가 정한 제한: {{limit}}.",
+      "adminOnly": "이 호스트는 내부 네트워크에 있습니다. 관리자만 허용할 수 있습니다.",
+      "answered": "{{who}}: {{state}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "나"
+    }
   }
 }

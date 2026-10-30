@@ -472,6 +472,56 @@ frontmatter (see [Skills](#skills)). In a chat that cannot run commands, such a
 skill is listed to the model as "unavailable here: needs command execution",
 without the path to its procedure, so the model explains instead of starting.
 
+### Network of the Sandbox commands
+
+The Sandbox has no network device: its commands reach HTTP and HTTPS only
+through a proxy that asks LocalAI about each connection (see [Network
+access]({{%relref "features/addons#network-access" %}})). Each chat has a
+**Network** row in its Tools menu with three choices:
+
+- **Off**: commands reach nothing.
+- **Package registries**: commands reach the package registries only (PyPI,
+  npm, Go modules, crates.io, RubyGems, Maven Central and GitHub releases), so
+  `pip install`, `npm install`, `go get` and `cargo build` work.
+- **All public sites**: commands reach every public host.
+
+A choice above the limit an administrator set (`chats_egress_ceiling`) is
+greyed out with *Limited by your administrator*. A new chat starts with the
+administrator's default. A fork keeps the choice and the allow rules of the
+chat it copies. The choice and the rules live with the chat on the server,
+never in your files, so the code that runs in the Sandbox cannot change them.
+**Rules and requests** under the row lists the hosts this chat allowed or
+denied, with a button to remove each, and the requests that asked.
+
+When a command asks for a host the chat does not allow but the limit would,
+the chat shows a card: *A command in this chat wants to reach* `host:port`,
+with **Allow once** (for the rest of that command), **Allow for this chat**
+and **Deny**. The command waits up to 60 seconds for your answer and goes on
+by itself after it. The card stays with the chat, so a reload shows it; once
+answered it becomes one line under the `bash` call that asked, such as
+*Allowed for this chat by you, 14:02*. A host inside your network needs an
+administrator to allow it. A trigger, a connector run or a sub-agent never
+shows a card.
+
+When commands run on this machine instead, the row is one line, *Commands run
+on this machine and use its network*: these settings do not apply there.
+
+The routes, for the chat's owner (another user's chat is 404):
+
+| Route | What it does |
+|---|---|
+| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, registries, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). A rule the ceiling no longer admits has `above_limit`. |
+| `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
+| `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
+| `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). A card already answered is 409; a host the ceiling no longer admits refuses the card (400). |
+
+The chat's event stream carries `egress_consent` (`ids: [card id]`, `text:
+host:port`) when a card asks and `egress_card` when the chat's network changes,
+so every open tab reads it again. Administrators read the settings in force
+and the audit with `GET /api/chats/admin/egress` and `GET
+/api/chats/admin/egress/events?limit=&user=&chat=&verdict=&host=`, and see
+both in Settings > Tools > Sandbox network.
+
 ### Commands on this machine
 
 The built-in `bash` is for a server that cannot run the Sandbox. Read this
@@ -489,7 +539,8 @@ shown when the Sandbox is already installed, or when add-ons are off.
   It can read every file that LocalAI can read and reach the internet, your
   local network, the LocalAI API on the loopback and cloud metadata addresses.
   Nothing blocks the network without privileges, so there is no "no network"
-  option. Install the Sandbox to isolate commands.
+  option, and the network settings of the Sandbox (`chats_egress_*`) do not
+  apply. Install the Sandbox to isolate commands.
 - **Never as root.** When LocalAI runs as root, the built-in `bash` is not
   offered.
 - **Your files.** Each chat gets a scratch folder with your files: `home/`

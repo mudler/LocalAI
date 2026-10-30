@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -73,6 +74,11 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 					Error:   "Invalid chats_web_searxng_url: " + err.Error(),
 				})
 			}
+		}
+
+		// The network of the Sandbox commands.
+		if msg := validateEgressSettings(settings, body, appConfig.ChatsEgressAllowPrivate); msg != "" {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})
 		}
 
 		// Validate timeouts if provided
@@ -391,3 +397,38 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
 func validAddonID(id string) bool { return addonIDShape.MatchString(id) }
+
+// validateEgressSettings checks the chats_egress_* settings of a request and
+// returns the error to show, or "". Turning chats_egress_allow_private on
+// needs chats_egress_private_confirm with the typed phrase in the same body;
+// the phrase is a person's act, it is not stored.
+func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn bool) string {
+	for name, v := range map[string]*string{"chats_egress_ceiling": s.ChatsEgressCeiling, "chats_egress_default": s.ChatsEgressDefault} {
+		if v != nil && !config.ValidEgressPreset(*v) {
+			return "Invalid " + name + ": use off, registries or all"
+		}
+	}
+	if s.ChatsEgressPorts != nil {
+		if _, err := config.ParseEgressPorts(*s.ChatsEgressPorts); err != nil {
+			return "Invalid chats_egress_ports: " + err.Error()
+		}
+	}
+	if s.ChatsEgressExtraRegistries != nil {
+		if _, err := config.ParseEgressHosts(*s.ChatsEgressExtraRegistries); err != nil {
+			return "Invalid chats_egress_extra_registries: " + err.Error()
+		}
+	}
+	if s.ChatsEgressAuditDays != nil && (*s.ChatsEgressAuditDays < 1 || *s.ChatsEgressAuditDays > 365) {
+		return "Invalid chats_egress_audit_days: use 1 to 365"
+	}
+	if s.ChatsEgressAllowPrivate != nil && *s.ChatsEgressAllowPrivate && !privateOn {
+		var confirm struct {
+			Phrase string `json:"chats_egress_private_confirm"`
+		}
+		_ = json.Unmarshal(body, &confirm)
+		if strings.TrimSpace(confirm.Phrase) != config.EgressPrivatePhrase {
+			return "Turning chats_egress_allow_private on needs chats_egress_private_confirm: \"" + config.EgressPrivatePhrase + "\""
+		}
+	}
+	return ""
+}

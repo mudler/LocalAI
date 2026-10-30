@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"time"
@@ -34,9 +35,15 @@ const MaxTimeout = 28 * time.Minute
 // here.
 const ShadowedTool = "bash"
 
+// NetworkNote ends the description of bash: the guest reaches the network
+// only through the proxy, and only the hosts the chat allows.
+const NetworkNote = " Network: only HTTP and HTTPS through the proxy the sandbox sets; other hosts are blocked unless the user allows them."
+
 // Runs returns the tools a sandbox runs.
 func Runs(acquire runner.Acquire) []runner.Tool {
-	return []runner.Tool{runner.Bash(acquire, runner.BashOptions{MaxTimeout: MaxTimeout})}
+	desc := fmt.Sprintf("Run a shell script with bash in %s. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most %d).",
+		runner.GuestRoot, int(MaxTimeout/time.Second)) + NetworkNote
+	return []runner.Tool{runner.Bash(acquire, runner.BashOptions{MaxTimeout: MaxTimeout, Description: desc})}
 }
 
 // The settings tools. status is offered to everyone; set-backend and

@@ -31,6 +31,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/internal"
@@ -1392,4 +1393,53 @@ func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaito
 			DurationMS: e.DurationMS, TimedOut: e.TimedOut, At: e.At})
 	}
 	return out, nil
+}
+
+// ---- Sandbox network ----
+
+func (c *Client) GetChatEgress(ctx context.Context) (*localaitools.ChatEgress, error) {
+	svc, err := c.chats()
+	if err != nil {
+		return nil, err
+	}
+	v, err := svc.AdminEgress(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	out := v.JSON()
+	return &out, nil
+}
+
+func (c *Client) ListEgressEvents(ctx context.Context, q localaitools.EgressEventsQuery) ([]localaitools.EgressEvent, error) {
+	svc, err := c.chats()
+	if err != nil {
+		return nil, err
+	}
+	evs, err := svc.EgressEvents(ctx, audit.Query{Limit: q.Limit, User: q.User, Chat: q.Chat, Verdict: q.Verdict, Host: q.Host})
+	if err != nil {
+		return nil, err
+	}
+	return svc.EgressEventsJSON(ctx, evs).Events, nil
+}
+
+// SetChatEgressCeiling changes the runtime setting as POST /api/settings
+// does: the value in force and the persisted file.
+func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*localaitools.ChatEgress, error) {
+	ceiling = strings.TrimSpace(ceiling)
+	if ceiling == "" || !config.ValidEgressPreset(ceiling) {
+		return nil, fmt.Errorf("the ceiling must be off, registries or all")
+	}
+	if c.AppConfig == nil {
+		return nil, errors.New("settings are unavailable")
+	}
+	settings, err := c.AppConfig.ReadPersistedSettings()
+	if err != nil {
+		return nil, err
+	}
+	settings.ChatsEgressCeiling = &ceiling
+	if err := c.AppConfig.WritePersistedSettings(settings); err != nil {
+		return nil, err
+	}
+	c.AppConfig.ChatsEgressCeiling = ceiling
+	return c.GetChatEgress(ctx)
 }

@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
@@ -48,6 +49,8 @@ type chatRow struct {
 	Assistant    bool
 	Settings     string `gorm:"type:text"` // JSON of session.ChatSettings
 	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
+	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
+	EgressRev    int64  // bumped by UpdateEgress; its row lock
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -154,6 +157,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.Egress != "" {
+		if err := json.Unmarshal([]byte(r.Egress), &rec.Egress); err != nil {
+			return rec, err
+		}
+	}
 	if r.HostConsent != "" {
 		var c session.HostConsent
 		if err := json.Unmarshal([]byte(r.HostConsent), &c); err != nil {
@@ -196,6 +204,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		row.Settings = string(raw)
+	}
+	if !rec.Egress.Empty() {
+		raw, err := json.Marshal(rec.Egress)
+		if err != nil {
+			return err
+		}
+		row.Egress = string(raw)
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		var n int64
@@ -371,6 +386,38 @@ func (s *gormStore) SetChatMeta(ctx context.Context, principal, id string, m ses
 		return session.ErrNotFound
 	}
 	return nil
+}
+
+func (s *gormStore) UpdateEgress(ctx context.Context, principal, id string, change func(*egress.ChatState) error) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// The counter bump takes the row lock first, so a second frontend's
+		// change waits for this one and then reads what it wrote.
+		if _, err := lock(tx, principal, id, "egress_rev"); err != nil {
+			return err
+		}
+		var raw string
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("egress").Row().Scan(&raw); err != nil {
+			return err
+		}
+		var st egress.ChatState
+		if raw != "" {
+			if err := json.Unmarshal([]byte(raw), &st); err != nil {
+				return err
+			}
+		}
+		if err := change(&st); err != nil {
+			return err
+		}
+		out := ""
+		if !st.Empty() {
+			b, err := json.Marshal(st)
+			if err != nil {
+				return err
+			}
+			out = string(b)
+		}
+		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("egress", out).Error
+	})
 }
 
 func (s *gormStore) TruncateEntries(ctx context.Context, principal, id string, keep int64) error {

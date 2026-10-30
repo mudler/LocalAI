@@ -970,3 +970,35 @@ func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaito
 	}
 	return out.Events, nil
 }
+
+func (c *Client) GetChatEgress(ctx context.Context) (*localaitools.ChatEgress, error) {
+	var out localaitools.ChatEgress
+	if err := c.do(ctx, http.MethodGet, routeChatEgress, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ListEgressEvents(ctx context.Context, q localaitools.EgressEventsQuery) ([]localaitools.EgressEvent, error) {
+	v := url.Values{}
+	v.Set("limit", strconv.Itoa(q.Limit))
+	for k, x := range map[string]string{"user": q.User, "chat": q.Chat, "verdict": q.Verdict, "host": q.Host} {
+		if x != "" {
+			v.Set(k, x)
+		}
+	}
+	var out struct {
+		Events []localaitools.EgressEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeEgressEvents+"?"+v.Encode(), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Events, nil
+}
+
+func (c *Client) SetChatEgressCeiling(ctx context.Context, ceiling string) (*localaitools.ChatEgress, error) {
+	if err := c.do(ctx, http.MethodPost, routeSettings, map[string]any{"chats_egress_ceiling": ceiling}, nil); err != nil {
+		return nil, err
+	}
+	return c.GetChatEgress(ctx)
+}

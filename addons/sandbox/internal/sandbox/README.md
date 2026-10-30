@@ -61,6 +61,8 @@ Stdin to a process is flow-controlled with a 2 MiB window. The host sends at mos
 
 For each entry of `Env.Ports`, the guest listens on `127.0.0.1:<port>`. The host handler serves each connection. The guest image sets `HTTP_PROXY` and `HTTPS_PROXY` to `http://127.0.0.1:3128`, and it writes the same proxy into the pip, apt and git configuration. A handler on port 3128 therefore sees all web traffic. Tools that ignore the proxy settings fail. With no handler on port 3128, the connection closes at once.
 
+The add-on always registers port 3128, on `Create` and on `Resume`, with the proxy of `addons/sandbox/internal/egress`, whatever the chat allows: the set of ports never changes, and the host's verdict for each connection is what enforces the chat's network preset (off blocks every connection). The image also sets `GOPROXY=https://proxy.golang.org`, `GOFLAGS=-mod=mod` and the npm proxy variables, so Go and npm use their registries through the proxy.
+
 ## Images
 
 - Every image reference needs a digest: `name@sha256:...`, or `oci-layout:<folder>@sha256:...` for a local OCI layout.

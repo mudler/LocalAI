@@ -123,7 +123,14 @@
     "configNote": "The definition this form will save.",
     "previewNew": "The agent this form will save.",
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
-    "default": "Default"
+    "default": "Default",
+    "network": "Jaringan perintah dalam proses tanpa pengawasan",
+    "networkHelp": "Saat pemicu atau konektor menjalankan agen ini, perintah Sandbox-nya menjangkau jaringan sejauh ini, sampai batas yang diatur administrator. Proses tidak pernah bertanya: host di luarnya diblokir. Chat yang Anda mulai dengan agen ini juga dimulai dengan ini.",
+    "networkPresets": {
+      "off": "Mati",
+      "registries": "Registri paket",
+      "all": "Semua situs publik"
+    }
   },
   "run": {
     "workingLine": "Working"

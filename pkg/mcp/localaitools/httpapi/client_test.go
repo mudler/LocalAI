@@ -589,6 +589,40 @@ var _ = Describe("Shared folders", func() {
 		Expect(evs[0].Command).To(Equal("ls"))
 	})
 
+	It("reads the Sandbox network settings and audit, and sets the ceiling through the settings", func() {
+		var posted map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			switch r.URL.Path {
+			case "/api/chats/admin/egress":
+				_, _ = w.Write([]byte(`{"ceiling":"registries","default":"off","ports":[80,443],"extra_registries":[],"audit_days":30,"registries":[],"allowed_24h":2,"blocked_24h":1}`))
+			case "/api/chats/admin/egress/events":
+				Expect(r.URL.Query().Get("limit")).To(Equal("5"))
+				Expect(r.URL.Query().Get("verdict")).To(Equal("block"))
+				_, _ = w.Write([]byte(`{"events":[{"user":"alice","chat":"c1","host":"evil.example","port":443,"kind":"connect","verdict":"block","reason":"off","at":"2026-10-30T09:00:00Z"}]}`))
+			case "/api/settings":
+				Expect(r.Method).To(Equal(http.MethodPost))
+				Expect(json.NewDecoder(r.Body).Decode(&posted)).To(Succeed())
+				_, _ = w.Write([]byte(`{"success":true}`))
+			default:
+				Fail("unexpected path " + r.URL.Path)
+			}
+		}))
+		DeferCleanup(srv.Close)
+		c := New(srv.URL, "")
+		v, err := c.GetChatEgress(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Ceiling).To(Equal("registries"))
+		Expect(v.Blocked).To(Equal(int64(1)))
+		evs, err := c.ListEgressEvents(ctx, localaitools.EgressEventsQuery{Limit: 5, Verdict: "block"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(evs).To(HaveLen(1))
+		Expect(evs[0].Host).To(Equal("evil.example"))
+		_, err = c.SetChatEgressCeiling(ctx, "registries")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(posted).To(Equal(map[string]any{"chats_egress_ceiling": "registries"}))
+	})
+
 	It("creates, renames, removes and restores a folder", func() {
 		out, err := New(serve(http.MethodPost, "/api/chats/admin/shared-folders", map[string]any{"name": "Team"}, folder).URL, "").CreateSharedFolder(ctx, "Team")
 		Expect(err).NotTo(HaveOccurred())

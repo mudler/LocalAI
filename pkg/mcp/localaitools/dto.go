@@ -544,3 +544,24 @@ type HostExecEvent = schema.ChatsHostExecEvent
 type HostExecEventsQuery struct {
 	Limit int `json:"limit,omitempty" jsonschema:"How many lines, newest first. Defaults to 50; at most 500."`
 }
+
+// ChatEgress is the administrator's view of the Sandbox network
+// (get_chat_egress).
+type ChatEgress = schema.ChatsEgressAdmin
+
+// EgressEvent is one line of the Sandbox network audit (list_egress_events).
+type EgressEvent = schema.ChatsEgressEvent
+
+// EgressEventsQuery is the input for list_egress_events.
+type EgressEventsQuery struct {
+	Limit   int    `json:"limit,omitempty"   jsonschema:"How many lines, newest first. Defaults to 50; at most 500."`
+	User    string `json:"user,omitempty"    jsonschema:"Only the lines of this user ID."`
+	Chat    string `json:"chat,omitempty"    jsonschema:"Only the lines of this chat ID."`
+	Verdict string `json:"verdict,omitempty" jsonschema:"allow, block, or done (an allowed connection that ended)."`
+	Host    string `json:"host,omitempty"    jsonschema:"Only the lines of this host name."`
+}
+
+// SetChatEgressCeilingRequest is the input for set_chat_egress_ceiling.
+type SetChatEgressCeilingRequest struct {
+	Ceiling string `json:"ceiling" jsonschema:"The widest network preset any chat may use: off, registries or all."`
+}

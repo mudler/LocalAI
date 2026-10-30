@@ -123,7 +123,14 @@
     "configNote": "The definition this form will save.",
     "previewNew": "The agent this form will save.",
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
-    "default": "Default"
+    "default": "Default",
+    "network": "无人值守运行中命令的网络",
+    "networkHelp": "当触发器或连接器运行此代理时，其沙盒命令可访问的网络范围，不超过管理员设置的限制。运行时从不询问：范围外的主机会被阻止。用此代理开始的聊天也以此开始。",
+    "networkPresets": {
+      "off": "关闭",
+      "registries": "软件包仓库",
+      "all": "所有公共网站"
+    }
   },
   "run": {
     "workingLine": "Working"

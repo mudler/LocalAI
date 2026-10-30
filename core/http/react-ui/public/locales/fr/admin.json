@@ -58,7 +58,40 @@
       "distributed": "Distribué",
       "responses": "Réponses"
     },
-    "loadFailedTitle": "Impossible de charger les paramètres."
+    "loadFailedTitle": "Impossible de charger les paramètres.",
+    "egress": {
+      "title": "Réseau du Sandbox",
+      "intro": "Les commandes du Sandbox n’atteignent le réseau que par un proxy qui consulte LocalAI pour chaque connexion. Réglez ci-dessous la limite, le préréglage d’un nouveau chat, les ports, les registres supplémentaires et la durée du journal ; chaque personne choisit le préréglage de chaque chat dans son menu Outils, dans la limite, et autorise un hôte bloqué sur une carte.",
+      "serves": "Les commandes s’exécutent isolées dans le module {{name}}",
+      "servesHost": "Les commandes s’exécutent sur cette machine via {{name}}",
+      "servesNone": "Aucun Sandbox n’exécute encore de commandes",
+      "hostNote": "Le backend hôte exécute les commandes sur cette machine avec son réseau : ces réglages ne s’y appliquent pas.",
+      "counts": "Dernières 24 heures : {{allowed}} autorisées, {{blocked}} bloquées.",
+      "private": "Laisser la règle d’un administrateur atteindre les réseaux privés",
+      "privateWarning": "Un hôte autorisé par un administrateur pourra alors atteindre des adresses de votre réseau. Un préréglage seul ne le fait jamais ; les adresses de métadonnées du cloud et du serveur restent refusées.",
+      "typePhrase": "Pour l’activer, tapez : {{phrase}}",
+      "registries": "Registres de paquets ({{count}})",
+      "showAudit": "Afficher le journal",
+      "hideAudit": "Masquer le journal",
+      "loadFailed": "Les réglages réseau du Sandbox n’ont pas pu être lus",
+      "audit": {
+        "verdict": "Verdict",
+        "host": "Hôte",
+        "user": "Utilisateur",
+        "at": "Quand",
+        "reason": "Raison",
+        "bytes": "Octets envoyés / reçus",
+        "refresh": "Actualiser",
+        "empty": "Aucune demande ne correspond.",
+        "loadFailed": "Le journal n’a pas pu être lu",
+        "verdicts": {
+          "any": "Tous les verdicts",
+          "allow": "Autorisée",
+          "block": "Bloquée",
+          "done": "Terminée"
+        }
+      }
+    }
   },
   "traces": {
     "title": "Traces",

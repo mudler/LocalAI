@@ -28,3 +28,10 @@ test('chat agents: the list line says what an agent grants, and nothing for a ba
   assert.equal(grantSummary({ mcp_servers: ['crm'], collections: ['docs'] }), '1 MCP server, 1 collection')
   assert.equal(grantSummary(emptyAgent()), '')
 })
+
+test('chat agents: the network of unattended runs is off unless chosen, and only a known preset is sent', () => {
+  assert.equal(emptyAgent().network, 'off')
+  assert.equal(agentPayload({ ...emptyAgent(), name: 'a', network: 'registries' }).network, 'registries')
+  assert.equal(agentPayload({ ...emptyAgent(), name: 'a', network: 'everything' }).network, 'off')
+  assert.equal(agentPayload({ name: 'a' }).network, 'off')
+})

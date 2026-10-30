@@ -270,6 +270,18 @@ func (stubClient) ListChatTools(_ context.Context) (localaitools.ChatBuiltinTool
 	return localaitools.ChatBuiltinToolList{}, nil
 }
 
+func (stubClient) GetChatEgress(_ context.Context) (*localaitools.ChatEgress, error) {
+	return &localaitools.ChatEgress{}, nil
+}
+
+func (stubClient) ListEgressEvents(_ context.Context, _ localaitools.EgressEventsQuery) ([]localaitools.EgressEvent, error) {
+	return nil, nil
+}
+
+func (stubClient) SetChatEgressCeiling(_ context.Context, _ string) (*localaitools.ChatEgress, error) {
+	return &localaitools.ChatEgress{}, nil
+}
+
 func (stubClient) ListHostExecEvents(_ context.Context, _ int) ([]localaitools.HostExecEvent, error) {
 	return nil, nil
 }

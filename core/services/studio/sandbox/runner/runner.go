@@ -69,7 +69,18 @@ type Options struct {
 	// keep their own folders in it: they stop the sandboxes an earlier process
 	// left before they remove the folders, and emptying the folder first
 	// would drop what they need to find those sandboxes.
-	KeepStateDir      bool
+	KeepStateDir bool
+	// Ports returns the port handlers of the sandbox of a user and a
+	// conversation, given at Create and again at Resume (which needs a
+	// handler for every port the sandbox was made with, so the set must not
+	// change). Nil: no network.
+	Ports func(user, conv string) map[int]sandbox.PortHandler
+	// Begin marks the call in progress of a sandbox, for the port handlers:
+	// a connection the guest opens while no call runs belongs to nobody. It
+	// is called with the entry locked, before the tool runs, and end after
+	// the checkpoint; end may be called more than once. Nil: nothing is
+	// marked.
+	Begin             func(ctx context.Context, user, conv, operation string) (end func())
 	PerUser, Total    int
 	IdleAfter, MaxAge time.Duration
 	Now               func() time.Time
@@ -326,6 +337,9 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 		e.trk = &tracker{Store: m.o.Store}
 	}
 	env := sandbox.Env{Store: e.trk, Actor: m.actorOf(e)}
+	if m.o.Ports != nil {
+		env.Ports = m.o.Ports(e.user, e.conv)
+	}
 	switch {
 	case e.sb != nil:
 		if e.trk.stale(ctx, m.actorOf(e)) {
@@ -412,6 +426,11 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 		return "", err
 	}
 	current = e.sb
+	end := func() {}
+	if m.o.Begin != nil {
+		end = m.o.Begin(ctx, r.User, r.Conversation, r.Operation)
+		defer end() // a panic of the tool still ends the call
+	}
 	out, runErr := tool.Run(ctx, r.Args)
 	// The call's changes become one change set, whether or not the command
 	// succeeded: a failing script may still have written files.
@@ -423,6 +442,7 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	case len(conflicts) > 0:
 		out += fmt.Sprintf("\n[%d file(s) changed in your files meanwhile; the sandbox's version was kept as a copy]", len(conflicts))
 	}
+	end()
 	m.mu.Lock()
 	e.lastUse = m.o.Now()
 	m.mu.Unlock()

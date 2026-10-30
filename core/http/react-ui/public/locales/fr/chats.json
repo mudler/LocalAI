@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",
     "none": "Ce modèle ne peut pas regarder les images, et aucun modèle ici ne peut les décrire. Choisissez un modèle capable de regarder les images."
+  },
+  "egress": {
+    "label": "Réseau",
+    "preset": {
+      "off": "Désactivé",
+      "registries": "Registres de paquets",
+      "all": "Tous les sites publics"
+    },
+    "presetHint": {
+      "off": "Les commandes du Sandbox n’atteignent aucun réseau.",
+      "registries": "Les commandes n’atteignent que les registres de paquets (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versions GitHub).",
+      "all": "Les commandes atteignent tous les sites publics."
+    },
+    "limited": "Limité par votre administrateur",
+    "limitedBy": "Votre administrateur autorise au plus : {{limit}}.",
+    "hostNetwork": "Les commandes s’exécutent sur cette machine et utilisent son réseau.",
+    "panel": "Règles et demandes ({{count}})",
+    "rules": "Règles de ce chat",
+    "cards": "Demandes de ce chat",
+    "ruleAllow": "Autorisé pour ce chat",
+    "ruleDeny": "Refusé pour ce chat",
+    "aboveLimit": "au-dessus de la limite, ne s’applique pas",
+    "remove": "Retirer",
+    "removeLabel": "Retirer la règle de {{host}}",
+    "card": {
+      "pending": "En attente d’une réponse",
+      "allowedOnce": "Autorisé une fois",
+      "allowedChat": "Autorisé pour ce chat",
+      "denied": "Refusé",
+      "expired": "Sans réponse",
+      "refused": "Refusé : au-dessus de la limite"
+    },
+    "consent": {
+      "title": "Accès au réseau",
+      "body": "Une commande de ce chat veut atteindre",
+      "once": "Autoriser une fois",
+      "chat": "Autoriser pour ce chat",
+      "deny": "Refuser",
+      "preset": "Ce chat : {{preset}}. Limite fixée par votre administrateur : {{limit}}.",
+      "adminOnly": "Cet hôte est dans votre réseau : seul un administrateur peut l’autoriser.",
+      "answered": "{{state}} par {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "vous"
+    }
   }
 }

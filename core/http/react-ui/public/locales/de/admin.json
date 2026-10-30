@@ -108,7 +108,40 @@
       "distributed": "Verteilt",
       "responses": "Antworten"
     },
-    "loadFailedTitle": "Die Einstellungen konnten nicht geladen werden."
+    "loadFailedTitle": "Die Einstellungen konnten nicht geladen werden.",
+    "egress": {
+      "title": "Sandbox-Netzwerk",
+      "intro": "Befehle in der Sandbox erreichen das Netzwerk nur über einen Proxy, der LocalAI bei jeder Verbindung fragt. Legen Sie unten das Limit, die Voreinstellung neuer Chats, die Ports, zusätzliche Registries und die Aufbewahrung des Protokolls fest; jede Person wählt die Voreinstellung eines Chats in dessen Tools-Menü bis zum Limit und erlaubt einen blockierten Host über eine Karte.",
+      "serves": "Befehle laufen isoliert im Add-on {{name}}",
+      "servesHost": "Befehle laufen über {{name}} auf diesem Rechner",
+      "servesNone": "Noch führt keine Sandbox Befehle aus",
+      "hostNote": "Das Host-Backend führt Befehle auf diesem Rechner mit dessen Netzwerk aus: Diese Einstellungen gelten dafür nicht.",
+      "counts": "Letzte 24 Stunden: {{allowed}} erlaubt, {{blocked}} blockiert.",
+      "private": "Regeln eines Administrators dürfen private Netzwerke erreichen",
+      "privateWarning": "Ein Host, den ein Administrator erlaubt, kann dann Adressen in Ihrem Netzwerk erreichen. Eine Voreinstellung allein tut das nie; Cloud-Metadaten- und Serveradressen bleiben gesperrt.",
+      "typePhrase": "Zum Einschalten eingeben: {{phrase}}",
+      "registries": "Paket-Registries ({{count}})",
+      "showAudit": "Protokoll zeigen",
+      "hideAudit": "Protokoll ausblenden",
+      "loadFailed": "Die Einstellungen des Sandbox-Netzwerks konnten nicht gelesen werden",
+      "audit": {
+        "verdict": "Ergebnis",
+        "host": "Host",
+        "user": "Benutzer",
+        "at": "Zeitpunkt",
+        "reason": "Grund",
+        "bytes": "Bytes hoch / runter",
+        "refresh": "Aktualisieren",
+        "empty": "Keine passenden Anfragen.",
+        "loadFailed": "Das Protokoll konnte nicht gelesen werden",
+        "verdicts": {
+          "any": "Alle Ergebnisse",
+          "allow": "Erlaubt",
+          "block": "Blockiert",
+          "done": "Beendet"
+        }
+      }
+    }
   },
   "backends": {
     "lifecycle": {

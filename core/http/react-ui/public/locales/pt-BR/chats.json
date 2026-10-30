@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "Este modelo não consegue ver imagens. Escolha outro modelo, ou a imagem será descrita por {{model}}.",
     "none": "Este modelo não consegue ver imagens, e nenhum modelo aqui pode descrevê-las. Escolha um modelo que consiga ver imagens."
+  },
+  "egress": {
+    "label": "Rede",
+    "preset": {
+      "off": "Desligada",
+      "registries": "Registros de pacotes",
+      "all": "Todos os sites públicos"
+    },
+    "presetHint": {
+      "off": "Os comandos no Sandbox não alcançam nenhuma rede.",
+      "registries": "Os comandos alcançam só os registros de pacotes (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versões do GitHub).",
+      "all": "Os comandos alcançam qualquer site público."
+    },
+    "limited": "Limitado pelo seu administrador",
+    "limitedBy": "Seu administrador permite no máximo: {{limit}}.",
+    "hostNetwork": "Os comandos rodam nesta máquina e usam a rede dela.",
+    "panel": "Regras e pedidos ({{count}})",
+    "rules": "Regras deste chat",
+    "cards": "Pedidos deste chat",
+    "ruleAllow": "Permitido neste chat",
+    "ruleDeny": "Negado neste chat",
+    "aboveLimit": "acima do limite, não se aplica",
+    "remove": "Remover",
+    "removeLabel": "Remover a regra de {{host}}",
+    "card": {
+      "pending": "Aguardando resposta",
+      "allowedOnce": "Permitido uma vez",
+      "allowedChat": "Permitido neste chat",
+      "denied": "Negado",
+      "expired": "Sem resposta",
+      "refused": "Recusado: acima do limite"
+    },
+    "consent": {
+      "title": "Acesso à rede",
+      "body": "Um comando neste chat quer alcançar",
+      "once": "Permitir uma vez",
+      "chat": "Permitir neste chat",
+      "deny": "Negar",
+      "preset": "Este chat: {{preset}}. Limite do seu administrador: {{limit}}.",
+      "adminOnly": "Este host está dentro da sua rede: só um administrador pode permitir.",
+      "answered": "{{state}} por {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "você"
+    }
   }
 }

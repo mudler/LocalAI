@@ -22,6 +22,8 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_shared_folder_events` — Read the audit of the shared folders, newest first.
 - `list_chat_tools` — List the built-in chat tools (bash on this machine, the web tools): on or off, who serves each, and the host-commands mode.
 - `list_host_exec_events` — Read the audit of the commands the chats' built-in bash ran directly on this machine, newest first.
+- `get_chat_egress` — Read the network settings of the chats' Sandbox commands (ceiling, default, ports, registries) and the requests of the last 24 hours.
+- `list_egress_events` — Read the audit of the Sandbox network requests, newest first, with filters.
 - `get_branding` — Read the resolved instance name, tagline, and branding asset URLs.
 - `get_usage_stats` — Read token/request usage aggregates when usage tracking is enabled.
 - `get_pii_events` — Inspect recent PII-filter events without returning redacted request bodies.
@@ -46,6 +48,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `toggle_model_state` — Enable or disable a model (`action`: `enable` or `disable`).
 - `toggle_model_pinned` — Pin or unpin a model (`action`: `pin` or `unpin`).
 - `set_branding` — Change the instance name or tagline.
+- `set_chat_egress_ceiling` — Set the widest network preset any chat's Sandbox commands may use: off, registries or all.
 - `set_alias` — Create, update, or remove a model alias.
 - `seed_router_corpus` — Add validated labelled exemplars to a KNN router corpus.
 - `clear_router_corpus` — Permanently clear a KNN router corpus and its live index entries.

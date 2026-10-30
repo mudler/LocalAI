@@ -489,3 +489,18 @@ func (f *fakeClient) ListHostExecEvents(_ context.Context, limit int) ([]HostExe
 	f.record("ListHostExecEvents", limit)
 	return []HostExecEvent{}, nil
 }
+
+func (f *fakeClient) GetChatEgress(_ context.Context) (*ChatEgress, error) {
+	f.record("GetChatEgress", nil)
+	return &ChatEgress{Ceiling: "off"}, nil
+}
+
+func (f *fakeClient) ListEgressEvents(_ context.Context, q EgressEventsQuery) ([]EgressEvent, error) {
+	f.record("ListEgressEvents", q)
+	return []EgressEvent{}, nil
+}
+
+func (f *fakeClient) SetChatEgressCeiling(_ context.Context, ceiling string) (*ChatEgress, error) {
+	f.record("SetChatEgressCeiling", ceiling)
+	return &ChatEgress{Ceiling: ceiling}, nil
+}

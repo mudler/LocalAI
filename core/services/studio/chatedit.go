@@ -202,6 +202,7 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 	rec := session.ChatRecord{
 		ID: newID(), Principal: p, Title: title, Created: now, Updated: now, Kind: session.KindChat,
 		Model: src.Model, AgentID: src.AgentID, Assistant: src.Assistant, Settings: src.Settings,
+		Egress: forkEgress(src.Egress),
 	}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		return session.ChatRecord{}, err

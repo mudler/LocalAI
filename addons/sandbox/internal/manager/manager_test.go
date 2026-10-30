@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,6 +118,7 @@ type counting struct {
 	sandbox.Backend
 	mu               sync.Mutex
 	created, resumed int
+	ports            [][]int // the guest ports of each Create and Resume
 	discarded        []sandbox.SnapshotRef
 }
 
@@ -132,6 +134,7 @@ func (c *counting) Discard(_ context.Context, r sandbox.SnapshotRef) error {
 func (c *counting) Create(ctx context.Context, s sandbox.Spec) (sandbox.Sandbox, error) {
 	c.mu.Lock()
 	c.created++
+	c.ports = append(c.ports, portsOf(s.Ports))
 	c.mu.Unlock()
 	return c.Backend.Create(ctx, s)
 }
@@ -139,8 +142,17 @@ func (c *counting) Create(ctx context.Context, s sandbox.Spec) (sandbox.Sandbox,
 func (c *counting) Resume(ctx context.Context, r sandbox.SnapshotRef, e sandbox.Env) (sandbox.Sandbox, error) {
 	c.mu.Lock()
 	c.resumed++
+	c.ports = append(c.ports, portsOf(e.Ports))
 	c.mu.Unlock()
 	return c.Backend.Resume(ctx, r, e)
+}
+
+func portsOf(m map[int]sandbox.PortHandler) []int {
+	out := []int{}
+	for p := range m {
+		out = append(out, p)
+	}
+	return out
 }
 
 type fixture struct {
@@ -282,6 +294,30 @@ var _ = Describe("Sandbox manager", func() {
 		_, _, err := f.run("u4", "c", "bash", `{"command":"true"}`)
 		Expect(err).To(MatchError(runner.ErrBusy))
 		Expect(f.m.Count("")).To(Equal(3))
+	})
+
+	It("gives every sandbox the proxy port at Create and Resume and marks the call in progress", func() {
+		var marks []string
+		live := ""
+		f := setup(func(o *runner.Options) {
+			o.Ports = func(user, conv string) map[int]sandbox.PortHandler {
+				return map[int]sandbox.PortHandler{3128: func(_ context.Context, c net.Conn) { _ = c.Close() }}
+			}
+			o.Begin = func(_ context.Context, user, conv, op string) func() {
+				marks = append(marks, user+"/"+conv+"/"+op)
+				live = op
+				return func() { live = "" }
+			}
+		})
+		_, op, err := f.run("alice", "c1", "bash", `{"command":"true"}`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(marks).To(Equal([]string{"alice/c1/" + op}))
+		Expect(live).To(BeEmpty(), "the mark ends with the call")
+		*f.now = f.now.Add(11 * time.Minute)
+		f.m.Sweep(context.Background())
+		_, _, err = f.run("alice", "c1", "bash", `{"command":"true"}`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.b.ports).To(Equal([][]int{{3128}, {3128}}), "the same port set at Create and Resume")
 	})
 
 	It("puts an idle sandbox to sleep, wakes it, and removes it after a day", func() {
