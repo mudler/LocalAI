@@ -24,6 +24,9 @@ type AddonTool struct {
 	// Runs is true for the tool that runs shell commands and code. A chat
 	// without such a tool is told that it cannot run anything.
 	Runs bool
+	// Shadows is the built-in chat tool this tool replaces (see shadow.go), or
+	// empty: the tool keeps its add-on name.
+	Shadows string
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -174,6 +177,10 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 		if len(schema) == 0 {
 			schema = json.RawMessage(`{"type":"object"}`)
 		}
+		if t, ok := s.shadowTool(a, d, schema); ok {
+			tools = append(tools, t)
+			continue
+		}
 		tools = append(tools, session.Tool{
 			Name: name, Description: d.Description, Schema: schema,
 			// The user and the conversation come from the chat, never from the
@@ -183,6 +190,11 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			},
 		})
 	}
+	var pins map[string]string
+	if s.d.ToolPins != nil {
+		pins = s.d.ToolPins()
+	}
+	tools = resolveShadows(tools, pins)
 	var missing []string
 	if sc != nil {
 		for _, id := range sc.addonNames {

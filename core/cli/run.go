@@ -149,8 +149,9 @@ type RunCMD struct {
 	LegacyNavigation bool `env:"LOCALAI_LEGACY_NAVIGATION" default:"false" help:"Show the previous sidebar instead of Chat, Models, Add-ons and Settings with pinned add-ons" group:"ui"`
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
-	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
-	DisableSharedPages      bool `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
+	DisableLocalAIAssistant bool   `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
+	DisableSharedPages      bool   `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
+	ChatsHostExec           string `env:"LOCALAI_CHATS_HOST_EXEC" default:"" enum:",off,ask,on" help:"Who gets the chats' built-in bash, which runs commands on this machine with no isolation and with its network: off, ask (administrators, who allow each command) or on. Empty: off with accounts, ask without. The Sandbox add-on replaces it with isolated commands" group:"assistant"`
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
@@ -688,6 +689,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.DisableSharedPages {
 		opts = append(opts, config.WithDisableSharedPages(true))
+	}
+	if r.ChatsHostExec != "" {
+		opts = append(opts, config.WithChatsHostExec(r.ChatsHostExec))
 	}
 	if r.CollectionsStateDir != "" {
 		opts = append(opts, config.WithCollectionsStateDir(r.CollectionsStateDir))

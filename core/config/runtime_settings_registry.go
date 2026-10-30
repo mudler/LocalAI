@@ -1,6 +1,7 @@
 package config
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -517,6 +518,17 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
 		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
 		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
+
+	// Built-in chat tools: the host-commands mode and the add-on pins.
+	field("chats_host_exec",
+		func(s *RuntimeSettings) **string { return &s.ChatsHostExec },
+		func(o *ApplicationConfig) string { return o.ChatsHostExec },
+		func(o *ApplicationConfig, v string) { o.ChatsHostExec = v }),
+	fieldEq("chats_tool_providers",
+		func(s *RuntimeSettings) **map[string]string { return &s.ChatsToolProviders },
+		func(o *ApplicationConfig) map[string]string { return maps.Clone(o.ChatsToolProviders) },
+		func(o *ApplicationConfig, v map[string]string) { o.ChatsToolProviders = maps.Clone(v) },
+		func(a, b map[string]string) bool { return maps.Equal(a, b) }),
 
 	// Branding: the file is the only source (no env/CLI), so it is always
 	// authoritative. Without fromFileAlways a restart silently drops the

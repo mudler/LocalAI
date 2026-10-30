@@ -50,6 +50,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/convert"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
@@ -155,6 +156,7 @@ type Application struct {
 	studioWorkerSub      messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
 	studioWorkerNode     *chatWorkerNode        // the chat worker's row in the node list; nil otherwise
 	studioTempDir        string                 // removed at shutdown; set only in memory-only mode
+	studioHostExec       *hostexec.Runner       // the chats' built-in bash on this machine
 	studioFiles          *files.Service
 	studioFilesIndex     io.Closer // the JSON index of the workspace; nil when it uses the database
 	studioFilesTemp      string    // blob cache folder of a cluster with no data path; removed at shutdown
@@ -664,6 +666,9 @@ func (a *Application) Shutdown() error {
 			a.studioPusher.Close()
 		}
 		a.closeStudioLocks() // after both hosts: a running host would take a released lock back
+		if a.studioHostExec != nil {
+			_ = a.studioHostExec.Close(context.Background())
+		}
 		if a.studioService != nil {
 			_ = a.studioService.Close(context.Background())
 		}
@@ -789,6 +794,7 @@ func (a *Application) start() (startErr error) {
 			}
 			return nil
 		}
+		assistantClient.Chats = a.StudioService
 		if a.backendLibrary != nil {
 			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
 		}

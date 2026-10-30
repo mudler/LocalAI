@@ -277,5 +277,44 @@
     "subtitle": "Modelos carregados nesta instância do LocalAI e a capacidade do host que utilizam.",
     "scaleOut": "Adicionar máquinas",
     "hideScaleOut": "Ocultar configuração"
+  },
+  "settingsTools": {
+    "intro": "Os chats têm algumas ferramentas integradas que um complemento pode substituir. Quando o complemento está instalado, rodando e ligado em um chat, o chat usa a ferramenta do complemento, com o mesmo nome.",
+    "empty": "Não há ferramentas integradas para gerenciar neste servidor.",
+    "loadFailed": "Não foi possível ler as ferramentas integradas",
+    "switch": "Ligado",
+    "byBuiltin": "Integrada",
+    "byAddon": "Complemento: {{name}}",
+    "byNone": "Desligada",
+    "unavailable": "Este servidor não consegue executá-la: {{reason}}.",
+    "installSandbox": "Instale o Sandbox para rodar comandos isolados",
+    "replaceExplain": "Estes complementos substituem {{tool}}: o escolhido o fornece em cada chat em que está ligado e rodando, e o integrado fica oculto. Só um pode estar ativo.",
+    "choose_one": "{{count}} complemento substitui {{tool}}: escolha qual usar.",
+    "choose_other": "{{count}} complementos substituem {{tool}}: escolha qual usar.",
+    "labels": {
+      "bash": "Comandos (bash)",
+      "web_search": "Pesquisa na web",
+      "web_fetch": "Ler páginas da web"
+    },
+    "descriptions": {
+      "bash": "Roda comandos e código para os chats diretamente nesta máquina quando nenhum Sandbox fornece o bash. O complemento Sandbox o substitui por comandos isolados.",
+      "web_search": "Pesquisa na web para os chats com o DuckDuckGo, ou com sua instância do SearXNG quando houver uma definida.",
+      "web_fetch": "Lê para os chats uma página ou arquivo público da web pelo endereço. Endereços dentro da sua rede são recusados, a menos que você os permita."
+    },
+    "bash": {
+      "switch": "Deixar os chats rodarem comandos nesta máquina",
+      "modeLegend": "Quem pode rodar comandos",
+      "ask": "Perguntar toda vez.",
+      "askHint": "Só os chats de administradores o recebem, e cada comando espera o sim deles no chat.",
+      "on": "Permitir para todos.",
+      "onHint": "Os chats de todos os usuários rodam comandos aqui sem perguntar, inclusive execuções agendadas e subagentes.",
+      "default": "Não definido: vale o padrão ({{mode}}).",
+      "warning": "Os comandos rodam como o usuário do LocalAI, sem isolamento e com a rede desta máquina: podem ler o que o LocalAI lê e acessar a internet, a sua rede e a API do LocalAI. Cada comando é registrado. Instale o Sandbox para isolá-los."
+    },
+    "modes": {
+      "off": "desligado",
+      "ask": "perguntar toda vez",
+      "on": "permitido para todos"
+    }
   }
 }

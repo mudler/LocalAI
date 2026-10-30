@@ -92,3 +92,14 @@ test('chat live: a call whose entry was not stored keeps a key of its own', () =
   assert.equal(items[0].type, 'app')
   assert.equal(items[0].key, 'live-tool-0')
 })
+
+test('chat live: the consent card sits on the running bash call and goes at its end', async () => {
+  const { emptyLive, toolStart, toolEnd, consentAsk } = await import('../../src/utils/chatLive.js')
+  let live = toolStart(toolStart(emptyLive(), { name: 'read_file' }), { name: 'bash', summary: 'ls' })
+  live = consentAsk(live, 'chat1', 'abc', 'ls')
+  assert.deepEqual(live.tools[1].consent, { chatId: 'chat1', id: 'abc', command: 'ls' })
+  assert.equal(live.tools[0].consent, undefined)
+  live = toolEnd(live, { name: 'bash', ok: true })
+  assert.equal(live.tools[1].consent, undefined)
+  assert.equal(consentAsk(emptyLive(), 'c', 'x', 'y').tools.length, 0, 'no running bash call: nothing to attach')
+})

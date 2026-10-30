@@ -268,15 +268,16 @@ var _ = Describe("Add-on actions end to end", func() {
 
 	It("cannot be called as another user or without a live request", func() {
 		w := start()
-		w.put("alice", "/a.txt", "x")
+		w.put("alice", "/a.txt", "alice-secret")
 		// The host operation channel works only while a request is live: a call from
 		// the add-on with no envelope is refused. The add-on has no way to start one,
 		// so the check is that an envelope of one user never reads another's files.
 		w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase})
 		w.read("set-backend", "root", map[string]any{"backend": "host"})
-		got := w.act("read", "bob", "convbbbb", map[string]any{"path": "home/a.txt"})
+		// The Sandbox serves bash only; reading is the chat's own file tools.
+		got := w.act("bash", "bob", "convbbbb", map[string]any{"command": "cat home/a.txt"})
 		if got["ok"] == true {
-			Expect(got["output"]).NotTo(ContainSubstring("x"), "bob read alice's file: %v", got)
+			Expect(got["output"]).NotTo(ContainSubstring("alice-secret"), "bob read alice's file: %v", got)
 		}
 	})
 

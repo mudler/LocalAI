@@ -277,5 +277,44 @@
     "subtitle": "Model yang dimuat di instans LocalAI ini dan kapasitas host yang digunakannya.",
     "scaleOut": "Tambah mesin",
     "hideScaleOut": "Sembunyikan pengaturan"
+  },
+  "settingsTools": {
+    "intro": "Chat memiliki beberapa alat bawaan yang dapat digantikan add-on. Saat add-on terpasang, berjalan, dan aktif untuk sebuah chat, chat memakai alat add-on itu dengan nama yang sama.",
+    "empty": "Tidak ada alat bawaan yang dapat dikelola di server ini.",
+    "loadFailed": "Alat bawaan tidak dapat dibaca",
+    "switch": "Aktif",
+    "byBuiltin": "Bawaan",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Mati",
+    "unavailable": "Server ini tidak dapat menjalankannya: {{reason}}.",
+    "installSandbox": "Pasang Sandbox untuk menjalankan perintah secara terisolasi",
+    "replaceExplain": "Add-on ini menggantikan {{tool}}: yang dipilih melayaninya di setiap chat tempat ia aktif dan berjalan, dan yang bawaan disembunyikan. Hanya satu yang bisa aktif.",
+    "choose_one": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
+    "choose_other": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
+    "labels": {
+      "bash": "Perintah (bash)",
+      "web_search": "Pencarian web",
+      "web_fetch": "Baca halaman web"
+    },
+    "descriptions": {
+      "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada Sandbox yang melayani bash. Add-on Sandbox menggantinya dengan perintah terisolasi.",
+      "web_search": "Mencari di web untuk chat dengan DuckDuckGo, atau dengan instans SearXNG Anda jika sudah diatur.",
+      "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya."
+    },
+    "bash": {
+      "switch": "Izinkan chat menjalankan perintah di mesin ini",
+      "modeLegend": "Siapa yang dapat menjalankan perintah",
+      "ask": "Tanya setiap kali.",
+      "askHint": "Hanya chat administrator yang mendapatkannya, dan setiap perintah menunggu persetujuan mereka di chat.",
+      "on": "Izinkan untuk semua.",
+      "onHint": "Chat semua pengguna menjalankan perintah di sini tanpa bertanya, termasuk jalankan terjadwal dan sub-agen.",
+      "default": "Belum diatur: bawaan berlaku ({{mode}}).",
+      "warning": "Perintah berjalan sebagai pengguna LocalAI, tanpa isolasi dan dengan jaringan mesin ini: dapat membaca apa yang bisa dibaca LocalAI dan menjangkau internet, jaringan Anda, dan API LocalAI. Setiap perintah dicatat. Pasang Sandbox untuk mengisolasinya."
+    },
+    "modes": {
+      "off": "mati",
+      "ask": "tanya setiap kali",
+      "on": "diizinkan untuk semua"
+    }
   }
 }

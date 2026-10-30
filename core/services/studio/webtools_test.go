@@ -3,10 +3,13 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"sync"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -185,5 +188,119 @@ var _ = Describe("built-in web tools", func() {
 		svc2, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil })
 		_, _, _, err = svc2.TestWebSearch(context.Background(), alice, "q")
 		Expect(err).To(MatchError(studio.ErrWebOff))
+	})
+})
+
+// runtimeSettingNames are the JSON names of the runtime settings.
+func runtimeSettingNames() map[string]bool {
+	out := map[string]bool{}
+	t := reflect.TypeOf(config.RuntimeSettings{})
+	for i := 0; i < t.NumField(); i++ {
+		name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
+		out[name] = true
+	}
+	return out
+}
+
+var _ = Describe("the one registry of built-in tools", func() {
+	It("holds bash and the web tools, and every entry names runtime settings that exist", func() {
+		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, withWeb(&fakeWeb{search: true, fetch: true}),
+			func(d *studio.Deps) { d.HostExec = &fakeHostExec{} })
+		tools := svc.Builtins().Tools()
+		var ids []string
+		names := runtimeSettingNames()
+		for _, t := range tools {
+			ids = append(ids, t.ID)
+			Expect(names).To(HaveKey(t.Setting), t.ID)
+			for _, o := range t.Options {
+				Expect(names).To(HaveKey(o), t.ID)
+			}
+			Expect(t.Replaceable).To(BeTrue(), t.ID)
+		}
+		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch"}))
+		for _, id := range []string{"web_search", "web_fetch"} {
+			t, ok := svc.Builtins().Lookup(id)
+			Expect(ok).To(BeTrue(), id)
+			Expect(t.Group).To(Equal(builtins.GroupWeb))
+			Expect(t.ReadOnly).To(BeTrue())
+		}
+		Expect(svc.Builtins().Groups()).To(Equal([]string{"web"}))
+	})
+
+	It("lists the web tools in Settings > Tools with their settings", func() {
+		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, withWeb(&fakeWeb{search: true}))
+		list, err := svc.AdminBuiltinTools(context.Background(), alice)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(2))
+		Expect(list[0].ID).To(Equal("web_search"))
+		Expect(list[0].Setting).To(Equal("chats_web_search"))
+		Expect(list[0].Options).To(Equal([]string{"chats_web_searxng_url"}))
+		Expect(list[0].Group).To(Equal("web"))
+		Expect(list[0].Enabled).To(BeTrue())
+		Expect(list[0].Provider).To(Equal(studio.BuiltinProvider))
+		Expect(list[1].ID).To(Equal("web_fetch"))
+		Expect(list[1].Enabled).To(BeFalse())
+		Expect(list[1].Provider).To(BeEmpty())
+	})
+})
+
+var _ = Describe("an add-on tool that shadows web_search", func() {
+	// webSearcher is an add-on whose search tool declares shadows: web_search.
+	webSearcher := func() []studio.AddonTool {
+		t := addonTool("searcher", "search")
+		t.Shadows = "web_search"
+		return []studio.AddonTool{t}
+	}
+
+	It("takes the name from the built-in, which is left out, while web_fetch stays built in", func() {
+		w := &fakeWeb{search: true, fetch: true}
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: webSearcher()}}
+		svc, h := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "look" {
+				return []studiotest.ToolStep{{Tool: "web_search", Args: `{"query":"localai"}`}, {Say: "done"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, withWeb(w), func(d *studio.Deps) { d.AddonTools = fa })
+		id := create(svc, alice)
+		sent(svc, alice, id, "look")
+		idle(svc, alice, id)
+
+		names := h.ToolNames(id)
+		count := 0
+		for _, n := range names {
+			if n == "web_search" {
+				count++
+			}
+		}
+		Expect(count).To(Equal(1), "one web_search in %v", names)
+		Expect(names).To(ContainElement("web_fetch"))
+		Expect(names).NotTo(ContainElement("addon__searcher__search"))
+		Expect(w.searches).To(BeEmpty(), "the built-in search ran")
+		Expect(fa.calls).To(HaveLen(1))
+		Expect(fa.calls[0]).To(ContainSubstring("addon__searcher__search"))
+		tools := toolEntries(svc, alice, id)
+		Expect(tools).To(HaveLen(1))
+		Expect(tools[0].Card).NotTo(BeNil())
+		Expect(tools[0].Card.Kind).To(Equal(studio.ProviderCardKind))
+		Expect(tools[0].Card.ID).To(Equal("searcher"))
+		Expect(h.TurnPrompt(id)).To(ContainSubstring("Web: web_search finds pages and web_fetch reads one."))
+
+		list, err := svc.AdminBuiltinTools(context.Background(), alice)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list[0].ID).To(Equal("web_search"))
+		Expect(list[0].Provider).To(Equal("searcher"))
+		Expect(list[0].Candidates).To(Equal([]string{"searcher"}))
+	})
+
+	It("serves web_search also when the administrator switched the built-in off", func() {
+		w := &fakeWeb{fetch: true}
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: webSearcher()}}
+		svc, h := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} },
+			withWeb(w), func(d *studio.Deps) { d.AddonTools = fa })
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		idle(svc, alice, id)
+		Expect(h.ToolNames(id)).To(ContainElements("web_search", "web_fetch"))
+		Expect(h.ToolNames(id)).NotTo(ContainElement("addon__searcher__search"))
 	})
 })

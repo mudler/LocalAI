@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mudler/LocalAI/core/services/studio/builtintools"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
-	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/web/search"
 	"github.com/mudler/LocalAI/pkg/web/webtools"
 )
@@ -52,31 +51,50 @@ func (s *Service) TestWebSearch(ctx context.Context, user, query string) (provid
 	return t.TestSearch(ctx, principal(user), query)
 }
 
-// webTools returns the web tools of a chat: those the administrator has on,
-// unless the chat switched the web group off. They only read, so unattended
-// chats, chats with an agent and sub-agents get them too.
-func (s *Service) webTools(a workspace.Actor, rec session.ChatRecord) []session.Tool {
+// registerWebTools adds web_search and web_fetch to the registry of built-in
+// tools. They only read, so unattended chats, chats with an agent and
+// sub-agents get them too. An add-on tool that shadows one of them replaces
+// it (see shadow.go), and a chat that switched the web group off gets neither
+// built-in.
+func (s *Service) registerWebTools() error {
 	w := s.d.Web
-	if w == nil || set(rec.BuiltinsOff)[builtintools.GroupWeb] {
+	if w == nil {
 		return nil
 	}
-	var out []session.Tool
-	if w.Enabled(webSearchName) {
-		d := webtools.SearchDefinition()
-		out = append(out, session.Tool{Name: d.Name, Description: d.Description, Schema: d.Schema,
-			// The user comes from the chat, never from the arguments.
-			Run: func(ctx context.Context, args json.RawMessage) (string, error) {
-				return w.Search(ctx, a.Principal, args)
-			}})
+	search := webtools.SearchDefinition()
+	if err := s.builtins.Register(builtins.Tool{
+		ID: webSearchName, Group: builtins.GroupWeb, Label: "Web search",
+		Description: "Search the web with DuckDuckGo, or with your SearXNG instance when one is set.",
+		Setting:     builtins.SettingWebSearch, Options: []string{builtins.SettingWebSearXNGURL},
+		ReadOnly: true, Replaceable: true,
+		// Read at each turn, so a change of the setting applies at the next
+		// turn of every chat.
+		Enabled: func() bool { return w.Enabled(webSearchName) },
+		Build: func(_ context.Context, c builtins.Chat) (session.Tool, bool, string) {
+			user := c.Actor.Principal
+			return session.Tool{Description: search.Description, Schema: search.Schema,
+				// The user comes from the chat, never from the arguments.
+				Run: func(ctx context.Context, args json.RawMessage) (string, error) {
+					return w.Search(ctx, user, args)
+				}}, true, ""
+		},
+	}); err != nil {
+		return err
 	}
-	if w.Enabled(webFetchName) {
-		d := webtools.FetchDefinition()
-		out = append(out, session.Tool{Name: d.Name, Description: d.Description, Schema: d.Schema,
-			Run: func(ctx context.Context, args json.RawMessage) (string, error) {
-				return w.Fetch(ctx, args)
-			}})
-	}
-	return out
+	fetch := webtools.FetchDefinition()
+	return s.builtins.Register(builtins.Tool{
+		ID: webFetchName, Group: builtins.GroupWeb, Label: "Read web pages",
+		Description: "Read a public web page or file by its address. Addresses inside your network are refused unless you allow them.",
+		Setting:     builtins.SettingWebFetch, Options: []string{builtins.SettingWebAllowPrivate, builtins.SettingWebPorts},
+		ReadOnly: true, Replaceable: true,
+		Enabled: func() bool { return w.Enabled(webFetchName) },
+		Build: func(context.Context, builtins.Chat) (session.Tool, bool, string) {
+			return session.Tool{Description: fetch.Description, Schema: fetch.Schema,
+				Run: func(ctx context.Context, args json.RawMessage) (string, error) {
+					return w.Fetch(ctx, args)
+				}}, true, ""
+		},
+	})
 }
 
 // webBlock is the line of the system prompt about the web tools, or "" when
@@ -117,37 +135,35 @@ type BuiltinGroup struct {
 	Tools []string
 	// Off says that the chat switched the group off.
 	Off bool
-	// Provider is "builtin"; an add-on that replaces a tool comes later.
+	// Provider is BuiltinProvider. An add-on tool that shadows a tool of the
+	// group serves it under its add-on's own switch, not this one.
 	Provider string
 }
 
 // builtinGroups lists the groups of built-in tools a chat can switch. A
 // group whose tools are all off on this instance is not listed.
 func (s *Service) builtinGroups(rec session.ChatRecord) []BuiltinGroup {
-	if s.d.Web == nil {
-		return nil
-	}
 	off := set(rec.BuiltinsOff)
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
-	for _, t := range builtintools.All() {
-		if !s.d.Web.Enabled(t.Name) {
+	for _, t := range s.builtins.Tools() {
+		if t.Group == "" || !t.On() {
 			continue
 		}
 		i, ok := byGroup[t.Group]
 		if !ok {
 			i = len(out)
 			byGroup[t.Group] = i
-			out = append(out, BuiltinGroup{Group: t.Group, Off: off[t.Group], Provider: "builtin"})
+			out = append(out, BuiltinGroup{Group: t.Group, Off: off[t.Group], Provider: BuiltinProvider})
 		}
-		out[i].Tools = append(out[i].Tools, t.Name)
+		out[i].Tools = append(out[i].Tools, t.ID)
 	}
 	return out
 }
 
 // ErrBadBuiltinGroup means a switch names something that is not a group of
 // built-in tools.
-var ErrBadBuiltinGroup = fmt.Errorf("studio: not a group of built-in tools (known: %s)", strings.Join(builtintools.Groups(), ", "))
+var ErrBadBuiltinGroup = errors.New("studio: not a group of built-in tools")
 
 // SetBuiltinsOff sets the groups of built-in tools a chat has switched off,
 // replacing the earlier list. The chat of another user is session.ErrNotFound.
@@ -155,8 +171,8 @@ func (s *Service) SetBuiltinsOff(ctx context.Context, user, conv string, off []s
 	seen := map[string]bool{}
 	clean := make([]string, 0, len(off))
 	for _, g := range off {
-		if !builtintools.IsGroup(g) {
-			return fmt.Errorf("%w: %q", ErrBadBuiltinGroup, g)
+		if !s.builtins.IsGroup(g) {
+			return fmt.Errorf("%w: %q (known: %s)", ErrBadBuiltinGroup, g, strings.Join(s.builtins.Groups(), ", "))
 		}
 		if !seen[g] {
 			seen[g] = true

@@ -685,7 +685,8 @@
     },
     "seeInList": "Lihat di Terpasang",
     "install": "Pasang",
-    "installNamed": "Pasang {{name}}"
+    "installNamed": "Pasang {{name}}",
+    "shadowWarning": "Add-on ini menggantikan {{tool}} bawaan. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat."
   },
   "family": {
     "pages": "Mencari halaman yang Anda atau agen buat? Ada di <go>Halaman</go>."

@@ -1,4 +1,4 @@
-package sandbox_test
+package sandbox
 
 import (
 	"testing"

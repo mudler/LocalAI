@@ -125,6 +125,7 @@ var chatRules = []errRule{
 	fixed(http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server", studiosvc.ErrAssistantOff),
 	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
 	verbatim(http.StatusConflict, typeAgentsOff, "", studiosvc.ErrAgentsOff),
+	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow commands on this machine; anyone can refuse them", studiosvc.ErrHostExecDecision),
 }
 
 // failFor maps a service error to a response.

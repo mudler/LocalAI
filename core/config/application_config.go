@@ -319,6 +319,15 @@ type ApplicationConfig struct {
 	// Runtime-toggleable via /api/settings (shared_pages_enabled).
 	DisableSharedPages bool
 
+	// ChatsHostExec is who gets the chats' built-in bash, which runs commands
+	// on this machine with no isolation: off, ask (administrators, with a card
+	// for each command) or on. Empty: off with accounts, ask without.
+	// Runtime-toggleable via /api/settings (chats_host_exec).
+	ChatsHostExec string
+	// ChatsToolProviders pins, for a built-in chat tool that several add-ons
+	// replace, the add-on that serves it (tool ID -> add-on ID).
+	ChatsToolProviders map[string]string
+
 	// DisableChats turns off the whole chats surface: the /api/chats API, saved
 	// agents, triggers, connectors and the agent tasks and jobs. Nothing starts
 	// (no loop, bot or trigger runner).
@@ -1302,6 +1311,13 @@ const (
 	DefaultAgentJobRetentionDays = 30
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 )
+
+// WithChatsHostExec sets who gets the chats' built-in bash: off, ask or on.
+func WithChatsHostExec(mode string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ChatsHostExec = mode
+	}
+}
 
 // WithDisableSharedPages turns off the pages of shared folders.
 func WithDisableSharedPages(disabled bool) AppOption {

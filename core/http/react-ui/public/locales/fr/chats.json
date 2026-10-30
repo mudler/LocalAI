@@ -91,7 +91,31 @@
       "askFix": "Demandez à un administrateur de corriger le problème.",
       "hide": "Masquer",
       "hideLabel": "Masquer cet avis",
-      "chipTitle": "Ce chat ne peut pas exécuter de code ni de commandes. Sélectionnez pour les détails."
+      "chipTitle": "Ce chat ne peut pas exécuter de code ni de commandes. Sélectionnez pour les détails.",
+      "hostTitle": "Les commandes s'exécutent sur cette machine",
+      "host": "Les commandes s'exécutent sur cette machine, avec ses fichiers et son réseau, sans isolation. Installez le Sandbox pour les isoler.",
+      "hostOff": "Le Sandbox est désactivé pour ce chat : les commandes s'exécutent donc sur cette machine, avec ses fichiers et son réseau, sans isolation. Activez le Sandbox dans ce menu pour les isoler.",
+      "hostUnavailable": "Le Sandbox ne peut pas s'exécuter ici : les commandes s'exécutent donc sur cette machine, avec ses fichiers et son réseau, sans isolation.",
+      "hostUnavailableWhy": "Le Sandbox ne peut pas s'exécuter ici ({{reason}}) : les commandes s'exécutent donc sur cette machine, avec ses fichiers et son réseau, sans isolation.",
+      "hostChipTitle": "Les commandes de ce chat s'exécutent sur cette machine, sans isolation. Sélectionnez pour les détails."
+    },
+    "consent": {
+      "title": "Exécuter cette commande sur cette machine ?",
+      "body": "Les commandes s'exécutent sur cette machine sans isolation. Elles peuvent lire les fichiers que LocalAI peut lire et joindre Internet et votre réseau. Installez le Sandbox pour les isoler.",
+      "once": "Exécuter une fois",
+      "always": "Toujours sur cette instance",
+      "deny": "Ne pas exécuter",
+      "alwaysHint": "« Toujours sur cette instance » laisse les chats de tous les utilisateurs exécuter des commandes ici sans demander (Paramètres > Outils).",
+      "askAdmin": "Seul un administrateur peut autoriser des commandes sur cette machine. Demandez à l'un d'eux, ou exécutez la commande vous-même."
+    },
+    "provider": {
+      "sandbox": "Sandbox",
+      "addon": "Module {{name}}",
+      "host": "Cette machine, non isolée",
+      "hostOnce": "Cette machine, autorisée une fois",
+      "hostDenied": "Non exécutée : refusée",
+      "hostTimeout": "Non exécutée : pas de réponse",
+      "hostAdmin": "Non exécutée : nécessite un administrateur"
     },
     "builtins": "Outils intégrés",
     "builtin": {

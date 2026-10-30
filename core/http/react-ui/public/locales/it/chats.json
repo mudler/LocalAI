@@ -91,7 +91,31 @@
       "askFix": "Chiedi a un amministratore di risolvere il problema.",
       "hide": "Nascondi",
       "hideLabel": "Nascondi questo avviso",
-      "chipTitle": "Questa chat non può eseguire codice o comandi. Seleziona per i dettagli."
+      "chipTitle": "Questa chat non può eseguire codice o comandi. Seleziona per i dettagli.",
+      "hostTitle": "I comandi vengono eseguiti su questa macchina",
+      "host": "I comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento. Installa il Sandbox per isolarli.",
+      "hostOff": "Il Sandbox è spento per questa chat, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento. Accendi il Sandbox in questo menu per isolarli.",
+      "hostUnavailable": "Il Sandbox non può funzionare qui, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
+      "hostUnavailableWhy": "Il Sandbox non può funzionare qui ({{reason}}), quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
+      "hostChipTitle": "I comandi di questa chat vengono eseguiti su questa macchina, senza isolamento. Seleziona per i dettagli."
+    },
+    "consent": {
+      "title": "Eseguire questo comando su questa macchina?",
+      "body": "I comandi vengono eseguiti su questa macchina senza isolamento. Possono leggere i file che LocalAI può leggere e raggiungere internet e la tua rete. Installa il Sandbox per isolarli.",
+      "once": "Esegui una volta",
+      "always": "Sempre su questa istanza",
+      "deny": "Non eseguire",
+      "alwaysHint": "«Sempre su questa istanza» permette alle chat di tutti gli utenti di eseguire comandi qui senza chiedere (Impostazioni > Strumenti).",
+      "askAdmin": "Solo un amministratore può consentire comandi su questa macchina. Chiedi a un amministratore, oppure esegui tu il comando."
+    },
+    "provider": {
+      "sandbox": "Sandbox",
+      "addon": "Componente {{name}}",
+      "host": "Questa macchina, non isolata",
+      "hostOnce": "Questa macchina, consentito una volta",
+      "hostDenied": "Non eseguito: rifiutato",
+      "hostTimeout": "Non eseguito: nessuna risposta",
+      "hostAdmin": "Non eseguito: serve un amministratore"
     },
     "builtins": "Strumenti integrati",
     "builtin": {

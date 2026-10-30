@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 
-// Package tools is the runtime of the sandbox add-on executable. It serves the
-// code tools of a chat: bash, read, write, edit, glob and grep, run in the
-// sandbox of the user and the conversation the host names. They are action
-// tools: they run at once, as the user, and what they change in the user's
-// files is one change set that can be undone.
+// Package tools is the runtime of the sandbox add-on executable. It serves
+// bash, run in the sandbox of the user and the conversation the host names. It
+// is an action tool: it runs at once, as the user, and what it changes in the
+// user's files is one change set that can be undone. Reading and changing
+// files are the chat's own file tools: the Sandbox only isolates execution.
 package tools
 
 import (
@@ -14,16 +14,30 @@ import (
 	"errors"
 	"io"
 	"regexp"
+	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// Tools are the code tools: action tools a model may call in a chat.
-var Tools = []string{"bash", "read", "write", "edit", "glob", "grep"}
+// Tools are the action tools a model may call in a chat: bash only.
+var Tools = []string{"bash"}
+
+// MaxTimeout bounds a bash call: below the host's action timeout, with room
+// to commit and answer.
+const MaxTimeout = 28 * time.Minute
+
+// ShadowedTool is the built-in chat tool that the add-on's bash replaces: in
+// a chat with the Sandbox on and running, the model sees one bash, served
+// here.
+const ShadowedTool = "bash"
+
+// Runs returns the tools a sandbox runs.
+func Runs(acquire runner.Acquire) []runner.Tool {
+	return []runner.Tool{runner.Bash(acquire, runner.BashOptions{MaxTimeout: MaxTimeout})}
+}
 
 // The settings tools. status is offered to everyone; set-backend and
 // confirm-host are for the Settings page only (UIOnly), so no model is offered
@@ -57,14 +71,14 @@ type Admin interface {
 
 // maxAnswer bounds the text of an answer; the tools cut their own output at
 // 64 KiB, this is the margin for their notes.
-const maxAnswer = codetools.MaxOutput + 4<<10
+const maxAnswer = runner.MaxOutput + 4<<10
 
-// Runner runs a tool call in its sandbox. *manager.Manager implements it.
+// Runner runs a tool call in its sandbox. *runner.Manager implements it.
 type Runner interface {
-	Run(ctx context.Context, r manager.Request) (string, error)
+	Run(ctx context.Context, r runner.Request) (string, error)
 }
 
-var _ Runner = (*manager.Manager)(nil)
+var _ Runner = (*runner.Manager)(nil)
 
 var operationShape = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
@@ -97,7 +111,7 @@ var errNoTool = errors.New("this tool is not served by the sandbox add-on")
 // schema.
 func Definitions() []contract.ToolDefinition {
 	var out []contract.ToolDefinition
-	for _, t := range codetools.NewTools(nil) {
+	for _, t := range Runs(nil) {
 		var schema map[string]any
 		if err := json.Unmarshal(t.Schema, &schema); err != nil {
 			panic(err)
@@ -107,7 +121,11 @@ func Definitions() []contract.ToolDefinition {
 		if err != nil {
 			panic(err)
 		}
-		out = append(out, contract.ToolDefinition{Name: t.Name, Kind: contract.ToolKindAction, Description: t.Description, InputSchema: raw})
+		def := contract.ToolDefinition{Name: t.Name, Kind: contract.ToolKindAction, Description: t.Description, InputSchema: raw}
+		if t.Name == ShadowedTool {
+			def.Shadows = ShadowedTool
+		}
+		out = append(out, def)
 	}
 	// The two settings tools have a definition so that the host runs them as
 	// reads without a resource, which the Settings page needs. UIOnly keeps
@@ -227,7 +245,7 @@ func (r *runtime) Act(ctx context.Context, env contract.Envelope) (contract.Resu
 	}
 	delete(a, "tool")
 	args, _ := json.Marshal(a)
-	out, err := r.run.Run(ctx, manager.Request{User: user, Conversation: conv, Operation: op, Tool: tool, Args: bytes.TrimSpace(args)})
+	out, err := r.run.Run(ctx, runner.Request{User: user, Conversation: conv, Operation: op, Tool: tool, Args: bytes.TrimSpace(args)})
 	switch {
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return contract.Result{}, err // the turn was stopped: the owner reads it as uncertain

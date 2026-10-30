@@ -254,5 +254,44 @@
     "subtitle": "此 LocalAI 实例上已加载的模型及其占用的主机容量。",
     "scaleOut": "添加机器",
     "hideScaleOut": "隐藏设置"
+  },
+  "settingsTools": {
+    "intro": "聊天有一些内置工具，可以由插件替换。插件已安装、正在运行并在某个聊天中开启时，该聊天会以相同的名称使用插件的工具。",
+    "empty": "此服务器上没有可管理的内置工具。",
+    "loadFailed": "无法读取内置工具",
+    "switch": "开启",
+    "byBuiltin": "内置",
+    "byAddon": "插件：{{name}}",
+    "byNone": "关闭",
+    "unavailable": "此服务器无法运行它：{{reason}}。",
+    "installSandbox": "安装 Sandbox 以隔离运行命令",
+    "replaceExplain": "这些插件会替换 {{tool}}：所选插件在其开启并运行的每个聊天中提供该工具，内置工具会被隐藏。只能有一个生效。",
+    "choose_one": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "choose_other": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "labels": {
+      "bash": "命令（bash）",
+      "web_search": "网页搜索",
+      "web_fetch": "读取网页"
+    },
+    "descriptions": {
+      "bash": "当没有 Sandbox 提供 bash 时，直接在这台机器上为聊天运行命令和代码。Sandbox 插件会将其替换为隔离运行的命令。",
+      "web_search": "使用 DuckDuckGo 或已设置的 SearXNG 实例为聊天搜索网页。",
+      "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。"
+    },
+    "bash": {
+      "switch": "允许聊天在这台机器上运行命令",
+      "modeLegend": "谁可以运行命令",
+      "ask": "每次询问。",
+      "askHint": "只有管理员的聊天可以使用，并且每条命令都要等待其在聊天中确认。",
+      "on": "允许所有人。",
+      "onHint": "所有用户的聊天都可以无需询问在此运行命令，包括计划运行和子代理。",
+      "default": "未设置：使用默认值（{{mode}}）。",
+      "warning": "命令以运行 LocalAI 的用户身份执行，没有隔离，并使用这台机器的网络：它们可以读取 LocalAI 能读取的内容，并访问互联网、你的网络和 LocalAI API。每条命令都会被记录。安装 Sandbox 以隔离运行。"
+    },
+    "modes": {
+      "off": "关闭",
+      "ask": "每次询问",
+      "on": "允许所有人"
+    }
   }
 }

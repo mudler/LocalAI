@@ -685,7 +685,8 @@
     },
     "seeInList": "Ver em Instalados",
     "install": "Instalar",
-    "installNamed": "Instalar {{name}}"
+    "installNamed": "Instalar {{name}}",
+    "shadowWarning": "Este complemento substitui o {{tool}} integrado. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas."
   },
   "family": {
     "pages": "Procurando páginas que você ou um agente criou? Elas estão em <go>Páginas</go>."

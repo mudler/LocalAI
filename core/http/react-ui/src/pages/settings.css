@@ -176,3 +176,13 @@
   .st-pending__acts .dk-btn { flex: 1 1 auto; }
   .st-pending__acts .dk-btn--primary { order: 3; flex-basis: 100%; }
 }
+
+/* Settings > Tools: one row per built-in chat tool, with its controls under
+   the description. Tokens only. */
+.st-tools__row .st-row__main { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.st-tools__controls { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.st-tools__switch { display: flex; align-items: center; gap: var(--dk-space-2); font-size: var(--dk-text-13); }
+.st-tools__choice { display: flex; flex-direction: column; gap: var(--dk-space-1); margin: 0; padding: 0; border: 0; }
+.st-tools__radio { display: flex; align-items: flex-start; gap: var(--dk-space-2); font-size: var(--dk-text-13); line-height: 1.5; cursor: pointer; }
+.st-tools__radio input { margin-top: 3px; }
+.st-tools .st-row__desc[data-tone="warn"] { color: var(--dk-warn-text); }

@@ -68,3 +68,38 @@
 .cmd-pop .cmd-notice {
   margin: 0;
 }
+
+/* The card a command of the built-in bash waits on: a warning callout under the
+   live fold, with the command and the answers. */
+.cmd-consent {
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-meta);
+}
+.cmd-consent p {
+  margin: 0 0 var(--sp-1);
+}
+.cmd-consent__command {
+  margin: var(--sp-1) 0;
+  padding: var(--sp-2);
+  max-height: 12rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono);
+  background: var(--color-bg-secondary);
+  border-radius: var(--r-sm);
+}
+.cmd-consent__hint {
+  color: var(--color-text-secondary);
+}
+.cmd-consent__error {
+  color: var(--color-error);
+}
+
+/* Who served a call of a replaceable tool, on its line in the fold. */
+.cx-step__provider {
+  flex: none;
+  margin-left: var(--sp-1);
+  font-size: var(--fs-meta);
+  color: var(--color-text-secondary);
+}

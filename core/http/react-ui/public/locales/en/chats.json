@@ -346,7 +346,31 @@
       "askFix": "Ask an administrator to fix it.",
       "hide": "Hide",
       "hideLabel": "Hide this notice",
-      "chipTitle": "This chat cannot run code or commands. Select for details."
+      "chipTitle": "This chat cannot run code or commands. Select for details.",
+      "hostTitle": "Commands run on this machine",
+      "host": "Commands run on this machine, with its files and network, not isolated. Install the Sandbox for isolation.",
+      "hostOff": "The Sandbox is off for this chat, so commands run on this machine, with its files and network, not isolated. Switch the Sandbox on in this menu to isolate them.",
+      "hostUnavailable": "The Sandbox cannot run here, so commands run on this machine, with its files and network, not isolated.",
+      "hostUnavailableWhy": "The Sandbox cannot run here ({{reason}}), so commands run on this machine, with its files and network, not isolated.",
+      "hostChipTitle": "Commands in this chat run on this machine, not isolated. Select for details."
+    },
+    "consent": {
+      "title": "Run this command on this machine?",
+      "body": "Commands run on this machine with no isolation. They can read files that LocalAI can read and reach the internet and your network. Install the Sandbox for isolation.",
+      "once": "Run once",
+      "always": "Always on this instance",
+      "deny": "Don't run",
+      "alwaysHint": "Always on this instance lets every user's chats run commands here without asking (Settings > Tools).",
+      "askAdmin": "Only an administrator can allow commands on this machine. Ask one, or run the command yourself."
+    },
+    "provider": {
+      "sandbox": "Sandbox",
+      "addon": "Add-on {{name}}",
+      "host": "This machine, not isolated",
+      "hostOnce": "This machine, allowed once",
+      "hostDenied": "Not run: refused",
+      "hostTimeout": "Not run: no answer",
+      "hostAdmin": "Not run: needs an administrator"
     }
   },
   "mcpPage": {

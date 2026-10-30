@@ -528,3 +528,15 @@ type RemoveSharedFolderMemberRequest struct {
 type SharedFolderEventsQuery struct {
 	Limit int `json:"limit,omitempty" jsonschema:"How many lines, newest first. Defaults to 50; at most 500."`
 }
+
+// ChatBuiltinTool is one built-in chat tool (list_chat_tools).
+type ChatBuiltinTool = schema.ChatsBuiltinTool
+
+// HostExecEvent is one command the chats' built-in bash ran on this machine
+// (list_host_exec_events).
+type HostExecEvent = schema.ChatsHostExecEvent
+
+// HostExecEventsQuery is the input for list_host_exec_events.
+type HostExecEventsQuery struct {
+	Limit int `json:"limit,omitempty" jsonschema:"How many lines, newest first. Defaults to 50; at most 500."`
+}

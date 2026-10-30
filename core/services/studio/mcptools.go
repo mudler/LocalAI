@@ -41,9 +41,6 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]ses
 	if sc != nil && sc.deleted {
 		return tools, []string{"the agent of this chat was deleted"}, nil
 	}
-	// The built-in web tools come before the tools of add-ons and MCP
-	// servers, so that their names are taken first.
-	tools = append(tools, s.webTools(a, rec)...)
 	var missing []string
 	t, m := s.addonTools(ctx, a, rec, sc)
 	tools, missing = append(tools, t...), append(missing, m...)

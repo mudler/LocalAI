@@ -70,6 +70,7 @@ export function streamingParts(live) {
       summary: tool.summary || '',
       result: tool.output || '',
       failed: tool.state === 'failed',
+      consent: tool.consent,
     }))
   return { reasoning: live?.reasoning || '', text: live?.text || '', tools }
 }

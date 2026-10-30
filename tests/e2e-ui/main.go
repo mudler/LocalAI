@@ -166,6 +166,10 @@ func main() {
 		config.WithDataPath(dataDir),
 		config.WithDynamicConfigDir(dataDir),
 		config.WithGeneratedContentDir(generatedDir),
+		// The mock model calls the first tool it is offered, which is the
+		// built-in bash: with the default "ask" (no accounts) every turn would
+		// wait for a card nobody answers. The UI specs stub the host commands.
+		config.WithChatsHostExec("off"),
 		config.EnableTracing,
 		config.EnableBackendLogging,
 	}

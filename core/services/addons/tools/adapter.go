@@ -109,6 +109,10 @@ type ToolDefinition struct {
 	Kind        string         `json:"kind"`
 	Description string         `json:"description"`
 	Parameters  map[string]any `json:"parameters"`
+	// Shadows is the built-in chat tool this tool replaces in a chat (see
+	// contract.ToolDefinition.Shadows), or empty. Only the chat consumer acts
+	// on it; every other consumer keeps the namespaced Name.
+	Shadows string `json:"shadows,omitempty"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -369,7 +373,13 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	return ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params}, true
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params}
+	// Checked again for the same reason as the schema: a manifest that names a
+	// tool outside the list never shadows it.
+	if contract.Replaceable(d.Shadows) && !d.UIOnly {
+		def.Shadows = d.Shadows
+	}
+	return def, true
 }
 
 // Discover returns the tools the actor may offer a model now, in a stable

@@ -1638,6 +1638,40 @@ names it gets the unknown-tool answer. The Sandbox uses it for `set-backend` and
 `confirm-host`: they change a setting, and the add-on asks the host whether the
 caller is an administrator before it acts.
 
+### Tools that replace a built-in tool
+
+A chat has a few built-in tools that an add-on may replace: `bash`,
+`web_search` and `web_fetch` (`contract.ReplaceableTools`). The file tools are
+not on the list: they are the one file toolset of every chat. A tool
+definition replaces one with `"shadows": "<name>"`:
+
+```json
+{ "name": "bash", "kind": "action", "shadows": "bash", "description": "...", "inputSchema": { "...": "..." } }
+```
+
+- **Checked at install.** The name must be on the list, a page-only tool
+  cannot shadow, and one manifest shadows a name once. The tool adapter checks
+  it again when it lists the tools.
+- **In a chat.** When the add-on is installed, running and on for the chat, the
+  model sees one tool under the built-in's name, served by the add-on, and the
+  built-in one is hidden. The call still goes to the add-on under its own name
+  (`addon__<id>__<tool>`), with the same checks and audit. An add-on that is
+  off for the chat, stopped or unavailable offers nothing, so the built-in tool
+  serves again and the **Tools** menu says so. A tool without `shadows` keeps
+  its add-on name.
+- **Who served it.** A call the add-on served carries the card `tool_provider`
+  with the add-on's ID, so the chat shows the provider on the tool line.
+- **Several add-ons.** Only one add-on serves a name. An administrator picks it
+  in Settings, **Tools** (runtime setting `chats_tool_providers`, a map from the
+  tool to the add-on ID); with no choice, the first by add-on ID serves. The
+  library entry and the installed view list the names an add-on replaces in
+  `shadows`, and the install dialog warns when an installed add-on already
+  replaces one: "This add-on replaces the built-in bash. Another add-on
+  (Sandbox) already does. Only one can be active; you choose which in
+  Settings > Tools." The install is still allowed.
+- **Other consumers.** The OpenAI-compatible API, MCP and agents keep the
+  add-on name; only chats act on `shadows`.
+
 ### Public API
 
 - `POST /api/addons/dispatch` accepts a contract request. Supported lifecycle actions
@@ -3789,7 +3823,9 @@ The action tools run at once, as the user of the chat, with no confirmation, and
 
 ## Sandbox
 
-The Sandbox add-on lets a chat run commands and code. Its tools are action tools: `bash`, `read`, `write`, `edit`, `glob` and `grep`. They run inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`.
+The Sandbox add-on lets a chat run commands and code in isolation. It has one tool for the model, the action tool `bash`, which replaces the chat's built-in `bash` (`"shadows": "bash"`), so a chat with the Sandbox sees one `bash` and it runs isolated. The model reads and changes files with the chat's own file tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files` and the others; see [Chats]({{%relref "features/chats#running-commands" %}})): they work on the same files, so a script written with `write_file` runs with `bash` at once, and what `bash` writes is in the user's files after the call. `bash` runs inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`. The status tool keeps its add-on name (`addon__sandbox__status`). Without the Sandbox, or with it off or unable to run, a chat may still run commands on the server itself, without isolation, when an administrator allows it; see [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
+
+An older package of the add-on also served `read`, `write`, `edit`, `glob` and `grep`. They are gone: reinstall the package to drop them. A chat's switch for the add-on is kept by add-on ID, so nothing a chat stored changes.
 
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
 - **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, the sandbox's version is kept as a copy and the answer says so. A file change by someone else makes the sandbox rebuild its view of the files before the next call.
@@ -3797,7 +3833,8 @@ The Sandbox add-on lets a chat run commands and code. Its tools are action tools
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. Without the add-on, or with it switched off for a chat, the chat's model is told that it cannot run commands, and the chat's Tools menu says so to the user; see [Running commands]({{%relref "features/chats#running-commands" %}}). A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.
 - **Where you see the state.** The Sandbox page tells every user which backend runs the code, or that no backend works, or, while the host backend is in use, that commands run directly on this machine with no isolation. An administrator also sees, on that page and in Settings, the reason each backend does not work and what to do. An administrator can choose the host backend there: the page shows the warning that commands then run on this machine without isolation, and asks for the typed confirmation before it saves. A user who is not an administrator is told that only an administrator can change this.
-- **Undo.** Each tool call that changes files is one change set in the history of the user's files (Files, History), and it is undone there, one call at a time. A whole turn is not one change set: the sandbox runs in the add-on process and the Files service commits each write of a tool on its own. The file tools of the chat itself work the same way.
+- **Undo.** Each `bash` call that changes files is one change set in the history of the user's files (Files, History), and it is undone there, one call at a time. A whole turn is not one change set: the sandbox runs in the add-on process and the Files service commits each write of a tool on its own. The file tools of the chat itself work the same way, with an Undo note under the call.
+- **Shared code.** The Host backend, the manager that keeps one sandbox per user and chat, and `bash` live in `core/services/studio/sandbox` (`host`, `runner`). The add-on runs them over its host operations; the chats' built-in `bash` runs the same code over the workspace store directly.
 
 ### Sandbox backends and settings
 

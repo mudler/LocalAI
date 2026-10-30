@@ -15,6 +15,9 @@ import (
 // ControlMsg is a request to the frontend that runs a chat's turn.
 type ControlMsg struct {
 	Stop bool `json:"stop,omitempty"`
+	// HostExec is the answer of the card that asks to run a command on this
+	// machine.
+	HostExec *HostExecDecision `json:"host_exec,omitempty"`
 }
 
 // Bus carries a chat's live events, and control messages to the frontend that

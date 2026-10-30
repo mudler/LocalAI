@@ -411,7 +411,7 @@ func (c *client) toolCallIn(chat, tool string, args map[string]any) string {
 	GinkgoHelper()
 	raw, err := json.Marshal(args)
 	Expect(err).NotTo(HaveOccurred())
-	text := "Please run ADDON_TOOL_CALL:addon__" + tool + ":" + base64.RawURLEncoding.EncodeToString(raw)
+	text := "Please run ADDON_TOOL_CALL:" + chatToolName(tool) + ":" + base64.RawURLEncoding.EncodeToString(raw)
 	r := c.do("POST", "/api/chats/"+chat+"/messages", map[string]string{"text": text}, nil)
 	Expect(r.Status).To(Equal(200), r.String())
 	var tool0 string
@@ -442,7 +442,7 @@ func (c *client) toolOffered(tool string, args map[string]any) bool {
 	raw, err := json.Marshal(args)
 	Expect(err).NotTo(HaveOccurred())
 	chat := c.chat()
-	text := "Please run ADDON_TOOL_CALL:addon__" + tool + ":" + base64.RawURLEncoding.EncodeToString(raw)
+	text := "Please run ADDON_TOOL_CALL:" + chatToolName(tool) + ":" + base64.RawURLEncoding.EncodeToString(raw)
 	r := c.do("POST", "/api/chats/"+chat+"/messages", map[string]string{"text": text}, nil)
 	Expect(r.Status).To(Equal(200), r.String())
 	deadline := time.Now().Add(20 * time.Second)
@@ -456,6 +456,16 @@ func (c *client) toolOffered(tool string, args map[string]any) bool {
 		time.Sleep(300 * time.Millisecond)
 	}
 	return false
+}
+
+// chatToolName is the name a chat offers a tool under: "<addon>__<tool>" is the
+// add-on tool addon__<addon>__<tool>; a bare name ("bash") is a tool the chat
+// offers under its own name, such as a built-in that an add-on shadows.
+func chatToolName(tool string) string {
+	if strings.Contains(tool, "__") {
+		return "addon__" + tool
+	}
+	return tool
 }
 
 // toolResult decodes the JSON document of a tool message ("name: label\n{...}").

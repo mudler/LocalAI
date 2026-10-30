@@ -67,6 +67,29 @@ type ToolDefinition struct {
 	// administrator. It is never offered to a model, a chat or an agent. The
 	// page has no resource to name, so it must be a read tool without one.
 	UIOnly bool `json:"uiOnly,omitempty"`
+	// Shadows names a built-in chat tool that this tool replaces. When the
+	// add-on is installed, running and on for a chat, the model sees one tool
+	// under that name, served by the add-on, and the built-in one is hidden.
+	// Only a name in ReplaceableTools may be shadowed. A tool without it keeps
+	// its add-on name (addon__<id>__<tool>).
+	Shadows string `json:"shadows,omitempty"`
+}
+
+// ReplaceableTools are the built-in chat tools an add-on tool may shadow.
+// The file tools are not on the list: they are the one file toolset of a
+// chat, with Undo cards and the shared-folder rules, and an add-on must not
+// take them over.
+var ReplaceableTools = []string{"bash", "web_search", "web_fetch"}
+
+// Replaceable reports whether an add-on tool may shadow the built-in tool
+// name.
+func Replaceable(name string) bool {
+	for _, n := range ReplaceableTools {
+		if n == name {
+			return true
+		}
+	}
+	return false
 }
 
 var toolPropertyName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{0,63}$`)
@@ -113,6 +136,7 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 		declared[t] = true
 	}
 	seen := map[string]bool{}
+	shadowed := map[string]bool{}
 	total := 0
 	for _, d := range defs {
 		if !declared[d.Name] || seen[d.Name] {
@@ -139,6 +163,17 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 		}
 		if d.UIOnly && !IsResourceless(d) {
 			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
+		}
+		if d.Shadows != "" {
+			switch {
+			case !Replaceable(d.Shadows):
+				return fmt.Errorf("tool %s: %q is not a built-in tool an add-on may shadow", d.Name, d.Shadows)
+			case d.UIOnly:
+				return fmt.Errorf("tool %s: a page-only tool cannot shadow a chat tool", d.Name)
+			case shadowed[d.Shadows]:
+				return fmt.Errorf("tool %s: two tools shadow %s", d.Name, d.Shadows)
+			}
+			shadowed[d.Shadows] = true
 		}
 	}
 	return nil
@@ -285,4 +320,16 @@ func IsResourceless(d ToolDefinition) bool {
 	}
 	_, has := root.Properties[ResourceArgument]
 	return !has
+}
+
+// ShadowedTools lists, in definition order, the built-in chat tools that the
+// tool definitions replace.
+func ShadowedTools(defs []ToolDefinition) []string {
+	var out []string
+	for _, d := range defs {
+		if d.Shadows != "" && Replaceable(d.Shadows) && !d.UIOnly {
+			out = append(out, d.Shadows)
+		}
+	}
+	return out
 }

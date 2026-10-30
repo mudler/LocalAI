@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 
 	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 )
@@ -188,7 +188,7 @@ func (s *Selector) plan() []Setting {
 	return nil
 }
 
-// Backend returns the backend to run a call on, or codetools.ErrNoSandbox when
+// Backend returns the backend to run a call on, or runner.ErrNoSandbox when
 // there is none.
 func (s *Selector) Backend() (sandbox.Backend, error) {
 	s.mu.Lock()
@@ -204,7 +204,7 @@ func (s *Selector) Backend() (sandbox.Backend, error) {
 		}
 	}
 	s.closeExcept("")
-	return nil, codetools.ErrNoSandbox
+	return nil, runner.ErrNoSandbox
 }
 
 // Warm starts the backend the next call would use, without a call. A backend

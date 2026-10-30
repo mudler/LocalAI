@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatsApi } from '../utils/api'
 import { eventPayload, retryDelay } from '../utils/streamRetry'
-import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted } from '../utils/chatLive'
+import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
 import { pushUsage } from '../utils/chatFoot'
 
@@ -9,7 +9,7 @@ import { pushUsage } from '../utils/chatFoot'
 const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
-  'usage', 'trigger_proposed', 'files',
+  'usage', 'trigger_proposed', 'files', 'host_exec_consent',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -196,6 +196,8 @@ export function useServerChat() {
       },
       trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
+      // A command of the built-in bash waits for a yes (chats_host_exec ask).
+      host_exec_consent: (e) => { if (e.ids?.[0]) setLive(l => consentAsk(l, id, e.ids[0], e.text)) },
       error: (e) => {
         if (!e.text) return
         setError(e.text)

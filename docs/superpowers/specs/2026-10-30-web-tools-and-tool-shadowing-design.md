@@ -277,6 +277,17 @@ provider and, in phase 2, the choice between add-ons that replace it. This
 work does not draw that section. It gives it:
 
 - the registry `core/services/studio/builtintools` (below);
+
+> **Settled at the merge with the built-in `bash` work.** There is one
+> registry, `builtins.Registry` in `core/services/studio/builtins`. The
+> `builtintools` package below was removed: its fields (`Group`, `Options`,
+> `ReadOnly`, `Replaceable`) and setting names moved into `builtins.Tool`, and
+> the web tools register there (`registerWebTools` in
+> `core/services/studio/webtools.go`) with `Replaceable: true`. They are added
+> through the same shadowing path as `bash`, so an add-on tool that declares
+> `shadows: web_search` replaces the built-in. Settings > Tools lists all three
+> rows, and the Tools tab draws the web switches and settings.
+
 - the settings keys above, through `/api/settings`;
 - `POST /api/chats/admin/web/test` with `{"query": "LocalAI"}`, which answers
   the first results or the exact error with the saved settings, for a

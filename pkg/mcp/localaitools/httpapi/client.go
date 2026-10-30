@@ -952,3 +952,23 @@ func (c *Client) ListSharedFolderEvents(ctx context.Context, limit int) ([]local
 	}
 	return out.Events, nil
 }
+
+func (c *Client) ListChatTools(ctx context.Context) ([]localaitools.ChatBuiltinTool, error) {
+	var out struct {
+		Tools []localaitools.ChatBuiltinTool `json:"tools"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeChatTools, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Tools, nil
+}
+
+func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaitools.HostExecEvent, error) {
+	var out struct {
+		Events []localaitools.HostExecEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeHostExecEvents+"?limit="+strconv.Itoa(limit), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Events, nil
+}

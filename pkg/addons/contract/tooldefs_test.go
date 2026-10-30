@@ -125,3 +125,40 @@ var _ = Describe("Tools for the add-on's own page", func() {
 		Expect(IsResourceless(def(ToolKindRead, noResource)[0])).To(BeTrue())
 	})
 })
+
+var _ = Describe("A tool that shadows a built-in chat tool", func() {
+	const schema = `{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`
+	def := func(name, shadows string, uiOnly bool) ToolDefinition {
+		kind := ToolKindAction
+		if uiOnly {
+			kind = ToolKindRead
+		}
+		return ToolDefinition{Name: name, Description: "Run a script.", Kind: kind, InputSchema: json.RawMessage(schema), UIOnly: uiOnly, Shadows: shadows}
+	}
+	DescribeTable("is verified at install",
+		func(defs []ToolDefinition, ok bool) {
+			names := []string{}
+			for _, d := range defs {
+				names = append(names, d.Name)
+			}
+			err := validateToolDefinitions(defs, names)
+			if ok {
+				Expect(err).To(Succeed())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+		},
+		Entry("bash is replaceable", []ToolDefinition{def("bash", "bash", false)}, true),
+		Entry("web_search and web_fetch are replaceable", []ToolDefinition{def("search", "web_search", false), def("fetch", "web_fetch", false)}, true),
+		Entry("a file tool is not", []ToolDefinition{def("write", "write_file", false)}, false),
+		Entry("an unknown name is not", []ToolDefinition{def("x", "spawn_agent", false)}, false),
+		Entry("a page-only tool cannot shadow", []ToolDefinition{def("bash", "bash", true)}, false),
+		Entry("two tools cannot shadow one name", []ToolDefinition{def("a", "bash", false), def("b", "bash", false)}, false),
+	)
+	It("keeps the file tools off the replaceable list", func() {
+		for _, n := range []string{"read_file", "write_file", "edit_file", "list_files", "search_files", "move_file", "delete_file"} {
+			Expect(Replaceable(n)).To(BeFalse(), n)
+		}
+		Expect(Replaceable("bash")).To(BeTrue())
+	})
+})

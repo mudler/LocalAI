@@ -16,7 +16,9 @@ func addonList(c echo.Context, h *Handlers) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	out := schema.ChatsAddonList{Addons: make([]schema.ChatsAddon, 0, len(list)), Commands: string(cmds.State), CommandsReason: cmds.Reason}
+	out := schema.ChatsAddonList{Addons: make([]schema.ChatsAddon, 0, len(list)), Commands: string(cmds.State), CommandsReason: cmds.Reason,
+		CommandsIsolation: cmds.Isolation, CommandsProvider: cmds.Provider, CommandsConsent: cmds.Consent,
+		CommandsFallback: cmds.Fallback, CommandsFallbackReason: cmds.FallbackReason}
 	for _, a := range list {
 		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})
 	}
@@ -25,7 +27,7 @@ func addonList(c echo.Context, h *Handlers) error {
 
 // ListChatAddons lists the add-ons a chat can use.
 // @Summary List the add-ons a chat can use.
-// @Description The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable or none). Without the add-on host the list is empty and commands is none.
+// @Description The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable or none). When commands is available, commands_provider says who serves bash (builtin: directly on this machine with no isolation and with its network, or the add-on's ID) and commands_isolation says isolated or host; commands_consent is ask when each command waits for a yes in the chat, and commands_fallback names an add-on that would serve but does not (commands_fallback_reason: off, or why it cannot run). Without the add-on host the list is empty.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsAddonList "The add-ons and their switches"

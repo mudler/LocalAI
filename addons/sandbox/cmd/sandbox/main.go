@@ -14,9 +14,9 @@ import (
 
 	"github.com/mudler/LocalAI/addons/internal/hostclient"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -36,7 +36,7 @@ func main() {
 			xlog.Error("sandbox: cannot read the settings", "error", err)
 			return tools.New(unavailable{}, nil, hostAdmin{client})
 		}
-		m, err := manager.New(manager.Options{
+		m, err := runner.New(runner.Options{
 			Backend: sel.Backend,
 			Store:   remote.New(client, s.DataDir),
 			// The backends keep their sandboxes under run/. The manager needs the
@@ -45,6 +45,10 @@ func main() {
 			// process itself before it removes their folders.
 			StateDir:     filepath.Join(s.DataDir, "run"),
 			KeepStateDir: true,
+			Tools:        tools.Runs,
+			Prepare: func(ctx context.Context, r runner.Request) context.Context {
+				return remote.WithOperation(ctx, r.Operation)
+			},
 		})
 		if err != nil {
 			xlog.Error("sandbox: cannot start the manager", "error", err)

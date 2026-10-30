@@ -20,6 +20,8 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_voice_profiles` — List reusable voice-cloning profiles and their stable TTS voice URIs.
 - `list_shared_folders` — List the shared folders with their id, page count and members (a user or `@everyone`, mode `read` or `write`).
 - `list_shared_folder_events` — Read the audit of the shared folders, newest first.
+- `list_chat_tools` — List the built-in chat tools (bash on this machine, the web tools): on or off, who serves each, and the host-commands mode.
+- `list_host_exec_events` — Read the audit of the commands the chats' built-in bash ran directly on this machine, newest first.
 - `get_branding` — Read the resolved instance name, tagline, and branding asset URLs.
 - `get_usage_stats` — Read token/request usage aggregates when usage tracking is enabled.
 - `get_pii_events` — Inspect recent PII-filter events without returning redacted request bodies.

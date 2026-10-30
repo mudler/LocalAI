@@ -155,7 +155,7 @@ var _ = Describe("files", func() {
 		Expect(h.Sent()).To(BeEmpty(), "a turn started: %v", h.Sent())
 	})
 
-	It("the model gets file tools when files are on and its sub agents do not", func() {
+	It("the model and its sub agents get the file tools when files are on", func() {
 		f := newFiles()
 		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
 			if text == "go" {
@@ -168,16 +168,14 @@ var _ = Describe("files", func() {
 		idle(svc, alice, id)
 
 		parent := h.ToolNames(id)
-		for _, want := range []string{"read_file", "write_file", "list_files", "move_file", "delete_file", "search_files", "spawn_agent"} {
+		for _, want := range []string{"read_file", "write_file", "list_files", "move_file", "delete_file", "edit_file", "search_files", "spawn_agent"} {
 			Expect(contains(parent, want)).To(BeTrue(), "the chat's tools %v lack %s", parent, want)
 		}
 		kids := childrenOf(svc, alice, id)
 		Expect(kids).To(HaveLen(1), "children = %d, want 1", len(kids))
-		for _, name := range h.ToolNames(kids[0].ID) {
-			Expect(name).NotTo(HaveSuffix("_file"), "the sub-agent got the file tool %s", name)
-			Expect(name).NotTo(Equal("list_files"), "the sub-agent got the file tool %s", name)
-			Expect(name).NotTo(Equal("search_files"), "the sub-agent got the file tool %s", name)
-		}
+		// The file tools are the one file toolset of a chat: a sub-agent that was
+		// not narrowed gets them too.
+		Expect(h.ToolNames(kids[0].ID)).To(ContainElements("read_file", "write_file", "edit_file", "list_files", "search_files"))
 	})
 
 	It("the model gets no file tools when files are off", func() {

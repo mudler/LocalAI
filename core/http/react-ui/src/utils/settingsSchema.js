@@ -30,6 +30,7 @@ export const GROUPS = [
   { id: 'access', label: 'Access and security', hint: 'Cross-origin rules, CSRF, legacy API keys', icon: 'shield' },
   { id: 'debug', label: 'Debugging and traces', hint: 'Verbose logs, request traces, backend output', icon: 'bug' },
   { id: 'agents', label: 'Chats and collections', hint: 'Chat media models, collections, assistant, stored responses', icon: 'robot' },
+  { id: 'tools', label: 'Tools', hint: 'Built-in chat tools, commands on this machine, add-ons that replace them', icon: 'wrench' },
   { id: 'swarm', label: 'Swarm and sharing', hint: 'Peer-to-peer network, scheduling checks', icon: 'network' },
   { id: 'look', label: 'Look and feel', hint: 'Instance name, tagline, logos', icon: 'palette' },
 ]
@@ -199,6 +200,29 @@ export const FIELDS = [
   { key: 'chats_suggestions', group: 'agents', was: 'chats', kind: 'bool', label: 'Offers from the assistant',
     desc: 'Let the assistant offer, at most once a day and never during a task, to remember something a user said, make a shortcut or update a Home widget on a schedule. This is the default for users who did not choose; each user can switch it in Account, About you and the assistant.',
     default: true, fallback: true, apply: 'live' },
+  // ---- Tools (the Tools tab draws these two with its own controls) ----------
+  { key: 'chats_host_exec', group: 'tools', was: 'chats', kind: 'select', options: ['', 'off', 'ask', 'on'], label: 'Commands on this machine',
+    desc: 'Who gets the chats\' built-in bash, which runs commands directly on this machine with no isolation and with its network, when no Sandbox add-on serves bash: off, ask (administrators, who allow each command) or on (every user, no card). Empty is the default: off with accounts, ask without.',
+    default: '', apply: 'live', custom: 'tools' },
+  { key: 'chats_tool_providers', group: 'tools', was: 'chats', kind: 'json', label: 'Add-ons that replace a built-in tool',
+    desc: 'When several add-ons replace one built-in tool, the one that serves it: a map from the tool (bash, web_search, web_fetch) to the add-on ID. With none chosen, the first by add-on ID serves.',
+    placeholder: '{ "bash": "sandbox" }', apply: 'live', custom: 'tools' },
+  // The Tools tab draws the switches of the web tools on their rows.
+  { key: 'chats_web_search', group: 'tools', was: 'chats', kind: 'bool', label: 'Web search',
+    desc: 'Offer the chats the built-in web_search, which searches the web with DuckDuckGo or your SearXNG instance.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  { key: 'chats_web_fetch', group: 'tools', was: 'chats', kind: 'bool', label: 'Read web pages',
+    desc: 'Offer the chats the built-in web_fetch, which reads a public web page or file by its address.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  { key: 'chats_web_searxng_url', group: 'tools', was: 'chats', kind: 'text', label: 'SearXNG instance',
+    desc: 'Search with this SearXNG instance (it must allow the JSON format). Empty searches with DuckDuckGo.',
+    placeholder: 'https://searx.example.org', default: '', apply: 'live' },
+  { key: 'chats_web_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Web pages may be on private networks',
+    desc: 'Let web_fetch reach addresses inside your network. Any user of the chats can then read an internal web service the server can reach. The cloud metadata addresses stay refused.',
+    default: false, fallback: false, apply: 'live' },
+  { key: 'chats_web_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Ports for web pages',
+    desc: 'The ports web_fetch may use, comma separated.',
+    placeholder: '80,443', default: '80,443', apply: 'live' },
   { key: 'shared_pages_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Shared pages',
     desc: 'Let users open the pages of the shared folders they have access to. Each user still allows each page before it runs. Turning it off stops open shared pages at their next action; the files are kept.',
     default: true, fallback: true, apply: 'live' },
@@ -254,6 +278,8 @@ export function getValue(field, s) {
       return s.backend_galleries_json ?? (s.backend_galleries ? JSON.stringify(s.backend_galleries, null, 2) : '')
     case 'api_keys':
       return s.api_keys_text ?? (s.api_keys || []).join('\n')
+    case 'chats_tool_providers':
+      return s.chats_tool_providers_json ?? (s.chats_tool_providers && Object.keys(s.chats_tool_providers).length ? JSON.stringify(s.chats_tool_providers, null, 2) : '')
     case 'memory_reclaimer_threshold':
       return s.memory_reclaimer_threshold || field.fallback
     default: {
@@ -282,6 +308,8 @@ export function setValue(field, s, value) {
       return { ...s, backend_galleries_json: value }
     case 'api_keys':
       return { ...s, api_keys_text: value }
+    case 'chats_tool_providers':
+      return { ...s, chats_tool_providers_json: value }
     default:
       return { ...s, [field.key]: value }
   }

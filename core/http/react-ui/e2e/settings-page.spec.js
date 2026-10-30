@@ -14,11 +14,11 @@ test.describe('Settings: groups and search', () => {
     await expect(page.getByTestId('settings-page')).toBeVisible()
   })
 
-  test('shows eight groups by intent and opens on memory and models', async ({ page }) => {
+  test('shows nine groups by intent and opens on memory and models', async ({ page }) => {
     const names = await page.locator('.st-group .st-group__label').allTextContents()
     expect(names).toEqual([
       'Memory and models', 'Speed and defaults', 'Backends and galleries', 'Access and security',
-      'Debugging and traces', 'Chats and collections', 'Swarm and sharing', 'Look and feel',
+      'Debugging and traces', 'Chats and collections', 'Tools', 'Swarm and sharing', 'Look and feel',
     ])
     await expect(page.locator('.st-group[aria-current="true"]')).toHaveText(/Memory and models/)
     await expect(page.getByRole('heading', { level: 2, name: /Memory and models/ })).toBeVisible()
@@ -38,11 +38,13 @@ test.describe('Settings: groups and search', () => {
     // The schema is the list of settings the page owns (the three branding
     // images included). Compare by name so a failure says which one is
     // missing from every group or shown twice, not just a count.
-    const expected = FIELDS.map(f => f.key)
+    // A field a tab draws with its own controls (Settings > Tools) is found by
+    // search, not as a row of its group.
+    const expected = FIELDS.filter(f => !f.custom).map(f => f.key)
     expect([...seen].filter(k => !expected.includes(k)), 'shown but not in the schema').toEqual([])
     expect(expected.filter(k => !seen.has(k)), 'in the schema but in no group').toEqual([])
     expect(seen.size).toBe(expected.length)
-    await expect(page.getByLabel(new RegExp(`Search all ${expected.length} settings`))).toBeVisible()
+    await expect(page.getByLabel(new RegExp(`Search all ${FIELDS.length} settings`))).toBeVisible()
   })
 
   test('a group lists its settings, and the memory group shows memory use now', async ({ page }) => {

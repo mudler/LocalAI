@@ -30,6 +30,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/internal"
@@ -101,6 +102,9 @@ type Client struct {
 	// because the chats start after the assistant; nil or a nil service makes
 	// the tools report that the chats are off.
 	SharedFolders func() *sharedfolders.Service
+	// Chats backs the built-in chat tools (list_chat_tools,
+	// list_host_exec_events). It is read at each call, like SharedFolders.
+	Chats func() *studio.Service
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -1327,6 +1331,61 @@ func (c *Client) ListSharedFolderEvents(ctx context.Context, limit int) ([]local
 	out := make([]localaitools.SharedFolderEvent, 0, len(evs))
 	for _, e := range evs {
 		out = append(out, sharedfolders.EventToSchema(e, nil))
+	}
+	return out, nil
+}
+
+func (c *Client) chats() (*studio.Service, error) {
+	if c.Chats == nil {
+		return nil, errChatsOff
+	}
+	svc := c.Chats()
+	if svc == nil {
+		return nil, errChatsOff
+	}
+	return svc, nil
+}
+
+func (c *Client) ListChatTools(ctx context.Context) ([]localaitools.ChatBuiltinTool, error) {
+	svc, err := c.chats()
+	if err != nil {
+		return nil, err
+	}
+	// The assistant has no user of its own: the add-ons that replace a tool
+	// are the ones the local owner sees.
+	list, err := svc.AdminBuiltinTools(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.ChatBuiltinTool, 0, len(list))
+	for _, t := range list {
+		cands := t.Candidates
+		if cands == nil {
+			cands = []string{}
+		}
+		opts := t.Options
+		if opts == nil {
+			opts = []string{}
+		}
+		out = append(out, localaitools.ChatBuiltinTool{ID: t.ID, Label: t.Label, Description: t.Description, Group: t.Group, Setting: t.Setting,
+			Options: opts, ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Enabled: t.Enabled, Provider: t.Provider, Candidates: cands, Pinned: t.Pinned, Mode: t.Mode, Unavailable: t.Unavailable})
+	}
+	return out, nil
+}
+
+func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaitools.HostExecEvent, error) {
+	svc, err := c.chats()
+	if err != nil {
+		return nil, err
+	}
+	evs, err := svc.HostExecEvents(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.HostExecEvent, 0, len(evs))
+	for _, e := range evs {
+		out = append(out, localaitools.HostExecEvent{User: e.User, Chat: e.Chat, Command: e.Command, Exit: e.Exit,
+			DurationMS: e.DurationMS, TimedOut: e.TimedOut, At: e.At})
 	}
 	return out, nil
 }

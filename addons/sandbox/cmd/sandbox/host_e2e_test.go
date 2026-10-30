@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -80,7 +80,7 @@ func call(rt contract.Runtime, tool, user, conv string, args map[string]any) map
 	args["tool"] = tool
 	raw, _ := json.Marshal(args)
 	scope, action := "read", "read"
-	if tool == "bash" || tool == "write" {
+	if tool == "bash" {
 		scope, action = "act", "act"
 	}
 	env := contract.Envelope{
@@ -108,7 +108,8 @@ var _ = Describe("Host backend end to end", func() {
 		sel, err := newSelector(data)
 		Expect(err).NotTo(HaveOccurred())
 		eng := &engine{data: data, committed: map[string]string{}}
-		m, err := manager.New(manager.Options{Backend: sel.Backend, Store: remote.New(eng, data)})
+		m, err := runner.New(runner.Options{Backend: sel.Backend, Store: remote.New(eng, data), Tools: tools.Runs,
+			Prepare: func(ctx context.Context, r runner.Request) context.Context { return remote.WithOperation(ctx, r.Operation) }})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
 		rt := tools.New(m, settingsAdapter{Selector: sel, m: m}, admin(true))

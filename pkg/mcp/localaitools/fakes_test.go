@@ -479,3 +479,13 @@ func (f *fakeClient) ListSharedFolderEvents(_ context.Context, limit int) ([]Sha
 	f.record("ListSharedFolderEvents", limit)
 	return []SharedFolderEvent{}, nil
 }
+
+func (f *fakeClient) ListChatTools(_ context.Context) ([]ChatBuiltinTool, error) {
+	f.record("ListChatTools", nil)
+	return []ChatBuiltinTool{}, nil
+}
+
+func (f *fakeClient) ListHostExecEvents(_ context.Context, limit int) ([]HostExecEvent, error) {
+	f.record("ListHostExecEvents", limit)
+	return []HostExecEvent{}, nil
+}

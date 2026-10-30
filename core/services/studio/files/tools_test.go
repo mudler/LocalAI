@@ -55,7 +55,7 @@ var _ = Describe("the file tools of the model", func() {
 	It("writes and reads files in the user's home", func() {
 		f := newFiles()
 		b := newToolBox(f, "alice", "chat1")
-		for _, name := range []string{"list_files", "read_file", "write_file", "move_file", "delete_file", "search_files"} {
+		for _, name := range []string{"list_files", "read_file", "write_file", "edit_file", "move_file", "delete_file", "search_files"} {
 			Expect(b.tools).To(HaveKey(name), "missing tool %s", name)
 		}
 		_, err := b.run("write_file", map[string]any{"path": "/Reports/q1.txt", "content": "line one\nline two\nline three\n"})

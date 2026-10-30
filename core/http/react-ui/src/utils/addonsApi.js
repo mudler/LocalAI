@@ -275,6 +275,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     // What the add-on brings to chat, with the names of the installed view.
     toolCount: Number.isFinite(release.toolCount) ? release.toolCount : 0,
     tools: Array.isArray(release.tools) ? release.tools : [],
+    // The built-in chat tools the add-on replaces (bash, say), for the warning
+    // of the install dialog.
+    shadows: Array.isArray(release.shadows) ? release.shadows : [],
   })
   return {
     kind: 'addons',

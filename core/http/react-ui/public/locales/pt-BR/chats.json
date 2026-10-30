@@ -91,7 +91,31 @@
       "askFix": "Peça a um administrador para corrigir isso.",
       "hide": "Ocultar",
       "hideLabel": "Ocultar este aviso",
-      "chipTitle": "Este chat não pode executar código nem comandos. Selecione para ver detalhes."
+      "chipTitle": "Este chat não pode executar código nem comandos. Selecione para ver detalhes.",
+      "hostTitle": "Os comandos rodam nesta máquina",
+      "host": "Os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento. Instale o Sandbox para isolá-los.",
+      "hostOff": "O Sandbox está desligado neste chat, então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento. Ligue o Sandbox neste menu para isolá-los.",
+      "hostUnavailable": "O Sandbox não consegue rodar aqui, então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento.",
+      "hostUnavailableWhy": "O Sandbox não consegue rodar aqui ({{reason}}), então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento.",
+      "hostChipTitle": "Os comandos deste chat rodam nesta máquina, sem isolamento. Selecione para ver detalhes."
+    },
+    "consent": {
+      "title": "Rodar este comando nesta máquina?",
+      "body": "Os comandos rodam nesta máquina sem isolamento. Eles podem ler os arquivos que o LocalAI lê e acessar a internet e a sua rede. Instale o Sandbox para isolá-los.",
+      "once": "Rodar uma vez",
+      "always": "Sempre nesta instância",
+      "deny": "Não rodar",
+      "alwaysHint": "\"Sempre nesta instância\" deixa os chats de todos os usuários rodarem comandos aqui sem perguntar (Configurações > Ferramentas).",
+      "askAdmin": "Só um administrador pode permitir comandos nesta máquina. Peça a um, ou rode o comando você mesmo."
+    },
+    "provider": {
+      "sandbox": "Sandbox",
+      "addon": "Complemento {{name}}",
+      "host": "Esta máquina, sem isolamento",
+      "hostOnce": "Esta máquina, permitido uma vez",
+      "hostDenied": "Não rodou: recusado",
+      "hostTimeout": "Não rodou: sem resposta",
+      "hostAdmin": "Não rodou: precisa de um administrador"
     },
     "builtins": "Ferramentas integradas",
     "builtin": {

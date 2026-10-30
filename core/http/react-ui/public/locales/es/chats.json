@@ -91,7 +91,31 @@
       "askFix": "Pide a un administrador que lo solucione.",
       "hide": "Ocultar",
       "hideLabel": "Ocultar este aviso",
-      "chipTitle": "Este chat no puede ejecutar código ni comandos. Selecciona para ver detalles."
+      "chipTitle": "Este chat no puede ejecutar código ni comandos. Selecciona para ver detalles.",
+      "hostTitle": "Los comandos se ejecutan en esta máquina",
+      "host": "Los comandos se ejecutan en esta máquina, con sus archivos y su red, sin aislamiento. Instala el Sandbox para aislarlos.",
+      "hostOff": "El Sandbox está desactivado en este chat, así que los comandos se ejecutan en esta máquina, con sus archivos y su red, sin aislamiento. Activa el Sandbox en este menú para aislarlos.",
+      "hostUnavailable": "El Sandbox no puede ejecutarse aquí, así que los comandos se ejecutan en esta máquina, con sus archivos y su red, sin aislamiento.",
+      "hostUnavailableWhy": "El Sandbox no puede ejecutarse aquí ({{reason}}), así que los comandos se ejecutan en esta máquina, con sus archivos y su red, sin aislamiento.",
+      "hostChipTitle": "Los comandos de este chat se ejecutan en esta máquina, sin aislamiento. Selecciona para ver detalles."
+    },
+    "consent": {
+      "title": "¿Ejecutar este comando en esta máquina?",
+      "body": "Los comandos se ejecutan en esta máquina sin aislamiento. Pueden leer los archivos que LocalAI puede leer y llegar a internet y a tu red. Instala el Sandbox para aislarlos.",
+      "once": "Ejecutar una vez",
+      "always": "Siempre en esta instancia",
+      "deny": "No ejecutar",
+      "alwaysHint": "«Siempre en esta instancia» deja que los chats de todos los usuarios ejecuten comandos aquí sin preguntar (Ajustes > Herramientas).",
+      "askAdmin": "Solo un administrador puede permitir comandos en esta máquina. Pídeselo a uno o ejecuta tú el comando."
+    },
+    "provider": {
+      "sandbox": "Sandbox",
+      "addon": "Complemento {{name}}",
+      "host": "Esta máquina, sin aislar",
+      "hostOnce": "Esta máquina, permitido una vez",
+      "hostDenied": "No ejecutado: rechazado",
+      "hostTimeout": "No ejecutado: sin respuesta",
+      "hostAdmin": "No ejecutado: requiere un administrador"
     },
     "builtins": "Herramientas integradas",
     "builtin": {

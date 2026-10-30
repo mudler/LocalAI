@@ -936,7 +936,7 @@ var _ = Describe("catalog template", func() {
 		}
 	})
 	It("reports the chat tools of the manifest on each entry and not the admin tools", func() {
-		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 9}
+		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 4}
 		for id, want := range counts {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
@@ -955,6 +955,9 @@ var _ = Describe("catalog template", func() {
 			if want == 0 {
 				Expect(string(b)).NotTo(ContainSubstring("toolCount"))
 			}
+			if id == "sandbox" {
+				Expect(entries[0].Shadows).To(Equal([]string{"bash"}), "the Sandbox's bash replaces the built-in bash")
+			}
 			if id == "tables" {
 				// The admin tool is declared next to the chat tools and is not one of them.
 				Expect(entries[0].Tools).NotTo(ContainElement("databases-delete"))
@@ -971,6 +974,9 @@ var _ = Describe("catalog template", func() {
 		Expect(text).To(HavePrefix(fmt.Sprintf("toolCount: %d\n", MaxEntryTools+8)))
 		Expect(strings.Count(text, "\n  - ")).To(Equal(MaxEntryTools))
 		Expect(toolFieldsYAML(nil, "")).To(BeEmpty())
+	})
+	It("lists the built-in tools an add-on replaces after its tools", func() {
+		Expect(toolFieldsYAML([]string{"bash", "status"}, "  ", "bash")).To(Equal("  toolCount: 2\n  tools:\n    - \"bash\"\n    - \"status\"\n  shadows:\n    - \"bash\"\n"))
 	})
 	It("adds the tool fields to an existing index from the repository manifests, and changes nothing else", func() {
 		raw, err := os.ReadFile("../../../gallery/addons/index.yaml")
@@ -994,7 +1000,7 @@ var _ = Describe("catalog template", func() {
 		for _, e := range entries {
 			got[e.ID] = e.ToolCount
 		}
-		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "office": 11, "sandbox": 9}))
+		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "office": 11, "sandbox": 4}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()

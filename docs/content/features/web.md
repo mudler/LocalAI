@@ -113,8 +113,8 @@ internal host. `web_fetch` does not use a proxy for the same reason, also when
 
 ## Settings
 
-An administrator sets these in **Settings** or with `POST /api/settings`. They
-apply at the next turn of every chat.
+An administrator sets these in **Settings > Tools** or with `POST /api/settings`.
+They apply at the next turn of every chat.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -135,6 +135,17 @@ curl -X POST .../api/chats/admin/web/test -d '{"query": "LocalAI"}'
 # {"ok":true,"provider":"duckduckgo","host":"duckduckgo.com","results":[{"title":"...","url":"...","snippet":"..."}]}
 # {"ok":false,"provider":"searxng","host":"searx.example.org","results":[],"error":"no search provider works: ..."}
 ```
+
+## Replace a web tool with an add-on
+
+An add-on can serve `web_search` or `web_fetch` in place of the built-in tool,
+for example to search with a provider that needs a key. Its tool declares
+`"shadows": "web_search"` (or `"web_fetch"`) in its manifest. When the add-on
+is installed, running and on for the chat, the model sees one `web_search`, served by the add-on, and the built-in one is left out. This
+holds also when an administrator switched the built-in off. The Web switch of
+the chat's Tools menu switches only the built-in tools; the add-on has its own
+switch. **Settings > Tools** shows who serves each tool. See
+[Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
 
 ## Limits
 
