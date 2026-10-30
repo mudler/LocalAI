@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/shortcuts.json",
-  "title": "shortcuts.json",
+  "title": "LocalAI/shortcuts.json",
   "description": "The prompts shown above the composer in every chat. Without this file the chat shows its default starters.",
   "type": "object",
   "properties": {

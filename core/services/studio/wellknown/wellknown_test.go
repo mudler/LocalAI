@@ -75,20 +75,20 @@ var _ = Describe("well-known files", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc.Exists).To(BeFalse())
 		Expect(doc.Valid).To(BeTrue())
-		Expect(doc.Path).To(Equal("/persona.json"))
+		Expect(doc.Path).To(Equal("/LocalAI/persona.json"))
 		Expect(doc.Data).To(BeEmpty())
 	})
 
 	It("writes a file, reads it back, and keeps the keys the editor did not send", func() {
 		s, f := newService()
-		raw(f, alice, "/persona.json", `{"name":"Ada","system_prompt":"be brief","x_mood":"calm"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada","system_prompt":"be brief","x_mood":"calm"}`)
 		cur, err := s.Read(ctx, alice, wellknown.Persona, "")
 		Expect(err).NotTo(HaveOccurred())
 		doc, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Persona, Values: map[string]any{"name": "Ada Lovelace"}, Base: base(cur.Version)})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc.Data).To(HaveKeyWithValue("name", "Ada Lovelace"))
 		Expect(doc.Version).To(BeNumerically(">", cur.Version))
-		on := readRaw(f, alice, "/persona.json")
+		on := readRaw(f, alice, "/LocalAI/persona.json")
 		Expect(on).To(HaveKeyWithValue("x_mood", "calm"))
 		Expect(on).To(HaveKeyWithValue("system_prompt", "be brief"))
 	})
@@ -99,15 +99,15 @@ var _ = Describe("well-known files", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{"bio": nil}})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(readRaw(f, alice, "/user.json")).NotTo(HaveKey("bio"))
+		Expect(readRaw(f, alice, "/LocalAI/user.json")).NotTo(HaveKey("bio"))
 	})
 
 	It("replaces the whole file from the source view", func() {
 		s, f := newService()
-		raw(f, alice, "/persona.json", `{"name":"Ada","x_mood":"calm"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada","x_mood":"calm"}`)
 		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Persona, Values: map[string]any{"name": "Bea"}, Replace: true})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(readRaw(f, alice, "/persona.json")).To(Equal(map[string]any{"name": "Bea"}))
+		Expect(readRaw(f, alice, "/LocalAI/persona.json")).To(Equal(map[string]any{"name": "Bea"}))
 	})
 
 	It("refuses a write that breaks the schema and lists why", func() {
@@ -116,7 +116,7 @@ var _ = Describe("well-known files", func() {
 		var inv *wellknown.InvalidError
 		Expect(errors.As(err, &inv)).To(BeTrue(), "%v", err)
 		Expect(inv.Errors).NotTo(BeEmpty())
-		abs, _ := f.Abs(alice, "/shortcuts.json")
+		abs, _ := f.Abs(alice, "/LocalAI/shortcuts.json")
 		_, err = f.Store().Stat(ctx, f.Actor(alice), abs)
 		Expect(err).To(MatchError(workspace.ErrNotFound), "nothing is written")
 	})
@@ -160,7 +160,7 @@ var _ = Describe("well-known files", func() {
 		s, f := newService()
 		first, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Persona, Values: map[string]any{"name": "Ada"}, Base: base(0)})
 		Expect(err).NotTo(HaveOccurred())
-		raw(f, alice, "/persona.json", `{"name":"Changed by the assistant"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Changed by the assistant"}`)
 		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Persona, Values: map[string]any{"name": "Mine"}, Base: base(first.Version)})
 		var cf *wellknown.ConflictError
 		Expect(errors.As(err, &cf)).To(BeTrue(), "%v", err)
@@ -171,9 +171,9 @@ var _ = Describe("well-known files", func() {
 
 	It("lists the versions of a file, newest first, and reverts to any valid one as a new change", func() {
 		s, f := newService()
-		raw(f, alice, "/persona.json", `{"name":"Ada"}`)
-		raw(f, alice, "/persona.json", `{"name": 42}`)
-		raw(f, alice, "/persona.json", `{"name":"Bea"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name": 42}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Bea"}`)
 		vs, err := s.Versions(ctx, alice, wellknown.Persona, "", 10)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vs).To(HaveLen(3))
@@ -198,9 +198,9 @@ var _ = Describe("well-known files", func() {
 
 	It("shows the last good version when the file on disk is broken", func() {
 		s, f := newService()
-		raw(f, alice, "/persona.json", `{"name":"Ada"}`)
-		raw(f, alice, "/persona.json", `{"name":"Bea"}`)
-		raw(f, alice, "/persona.json", `{"name": 42}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Bea"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name": 42}`)
 		doc, err := s.Read(ctx, alice, wellknown.Persona, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc.Valid).To(BeFalse())
@@ -209,7 +209,7 @@ var _ = Describe("well-known files", func() {
 		Expect(doc.FallbackRev).To(BeNumerically(">", 0))
 		Expect(doc.Data).To(HaveKeyWithValue("name", "Bea"))
 
-		raw(f, alice, "/persona.json", `not json`)
+		raw(f, alice, "/LocalAI/persona.json", `not json`)
 		doc, err = s.Read(ctx, alice, wellknown.Persona, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc.Valid).To(BeFalse())
@@ -218,14 +218,14 @@ var _ = Describe("well-known files", func() {
 
 	It("reverts to the previous good version, as a new change", func() {
 		s, f := newService()
-		raw(f, alice, "/persona.json", `{"name":"Ada"}`)
-		raw(f, alice, "/persona.json", `{"name":"Bea"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Bea"}`)
 		doc, err := s.Revert(ctx, alice, wellknown.Persona, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc.Data).To(HaveKeyWithValue("name", "Ada"))
-		Expect(readRaw(f, alice, "/persona.json")).To(HaveKeyWithValue("name", "Ada"))
+		Expect(readRaw(f, alice, "/LocalAI/persona.json")).To(HaveKeyWithValue("name", "Ada"))
 
-		raw(f, alice, "/persona.json", `{"name": 1}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name": 1}`)
 		doc, err = s.Revert(ctx, alice, wellknown.Persona, "")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(doc.Valid).To(BeTrue())
@@ -264,8 +264,8 @@ var _ = Describe("the turn prompt", func() {
 
 	It("adds the persona and a short block about the user", func() {
 		s, f := newService()
-		raw(f, alice, "/persona.json", `{"name":"Ada","system_prompt":"Keep answers short."}`)
-		raw(f, alice, "/user.json", `{"name":"Marta","bio":"Product designer in Milan.","language":"it","timezone":"Europe/Rome","seen":{"bio":{"state":"declined"}}}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada","system_prompt":"Keep answers short."}`)
+		raw(f, alice, "/LocalAI/user.json", `{"name":"Marta","bio":"Product designer in Milan.","language":"it","timezone":"Europe/Rome","seen":{"bio":{"state":"declined"}}}`)
 		block, key := s.TurnPrompt(ctx, alice)
 		Expect(key).NotTo(BeEmpty())
 		Expect(block).To(ContainSubstring("Ada"))
@@ -277,7 +277,7 @@ var _ = Describe("the turn prompt", func() {
 		Expect(block).NotTo(ContainSubstring("declined"), "the hint record stays out of the prompt")
 		Expect(strings.Index(block, "Keep answers short.")).To(BeNumerically("<", strings.Index(block, "About the user")))
 
-		raw(f, alice, "/persona.json", `{"name":"Bea"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Bea"}`)
 		block2, key2 := s.TurnPrompt(ctx, alice)
 		Expect(key2).NotTo(Equal(key))
 		Expect(block2).To(ContainSubstring("Bea"))
@@ -285,15 +285,15 @@ var _ = Describe("the turn prompt", func() {
 
 	It("caps the block about the user", func() {
 		s, f := newService()
-		raw(f, alice, "/user.json", `{"name":"Marta","bio":"`+strings.Repeat("long words ", 90)+`"}`)
+		raw(f, alice, "/LocalAI/user.json", `{"name":"Marta","bio":"`+strings.Repeat("long words ", 90)+`"}`)
 		block, _ := s.TurnPrompt(ctx, alice)
 		Expect(len(block)).To(BeNumerically("<=", wellknown.MaxUserBlock))
 	})
 
 	It("uses the last good persona when the file is broken", func() {
 		s, f := newService()
-		raw(f, alice, "/persona.json", `{"name":"Ada"}`)
-		raw(f, alice, "/persona.json", `{"name":["broken"]}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":"Ada"}`)
+		raw(f, alice, "/LocalAI/persona.json", `{"name":["broken"]}`)
 		block, _ := s.TurnPrompt(ctx, alice)
 		Expect(block).To(ContainSubstring("Ada"))
 	})

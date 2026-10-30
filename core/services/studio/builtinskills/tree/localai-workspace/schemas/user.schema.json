@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/user.json",
-  "title": "user.json",
+  "title": "LocalAI/user.json",
   "description": "Who the assistant talks to. A short block of it reaches the model in every chat.",
   "type": "object",
   "properties": {

@@ -1,7 +1,7 @@
 // Package wellknown reads and writes the files in a user's home that change how
 // LocalAI looks and behaves for that user: persona.json, user.json,
-// shortcuts.json, home.json and ui.json, and the data files that Home widgets
-// read. Each has a JSON Schema. The schemas live in the built-in skill
+// shortcuts.json, home.json and ui.json in the LocalAI/ folder, and the data
+// files that Home widgets read. Each has a JSON Schema. The schemas live in the built-in skill
 // localai-workspace, so the server validates with the same text that the
 // assistant reads.
 package wellknown
@@ -18,6 +18,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
 // Name names a kind of well-known file.
@@ -57,12 +58,16 @@ func Parse(s string) (Name, error) {
 	return "", fmt.Errorf("%w: %q", ErrUnknown, s)
 }
 
+// Dir is the folder of the home that holds the settings files. It is visible:
+// the user, the settings pages and the assistant edit the same files.
+const Dir = "/" + session.SettingsDir
+
 // File is the path of the file in the home, or "" for WidgetData.
 func File(n Name) string {
 	if n == WidgetData {
 		return ""
 	}
-	return "/" + string(n) + ".json"
+	return Dir + "/" + string(n) + ".json"
 }
 
 type compiled struct {

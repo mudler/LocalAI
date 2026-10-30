@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/persona.json",
-  "title": "persona.json",
+  "title": "LocalAI/persona.json",
   "description": "The name and instructions the assistant uses in every chat of this user.",
   "type": "object",
   "properties": {

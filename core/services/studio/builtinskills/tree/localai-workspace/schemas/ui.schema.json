@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/ui.json",
-  "title": "ui.json",
+  "title": "LocalAI/ui.json",
   "description": "How LocalAI looks for this user.",
   "type": "object",
   "properties": {
