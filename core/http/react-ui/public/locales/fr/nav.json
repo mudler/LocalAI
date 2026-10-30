@@ -10,6 +10,7 @@
   "changeLanguage": "Changer de langue",
   "logout": "Déconnexion",
   "accountSettings": "Paramètres du compte",
+  "yourSettings": "Vos paramètres",
   "account": "Compte",
   "accountFor": "Compte : {{name}}",
   "sections": {

@@ -1,0 +1,149 @@
+{
+  "wellKnown": {
+    "storedIn": "Guardado en",
+    "definedIn": "Definido en",
+    "revert": "Volver a la versión anterior",
+    "view": "Vista",
+    "form": "Formulario",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "notSet": "No definido",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "remove": "Quitar",
+    "savedAt": "Guardado a las {{time}}",
+    "notSaved": "Aún no guardado.",
+    "notSavedPrefilled": "Aún no guardado. Algunos valores ya están rellenados; Guardar los conserva.",
+    "loadFailed": "No se pudo cargar el archivo: {{message}}",
+    "invalid": "{{file}} no coincide con su formato y no hay una versión válida anterior.",
+    "invalidFallback": "{{file}} no coincide con su formato. Se muestra su última versión válida.",
+    "conflict": "{{file}} cambió mientras lo editabas, probablemente por el asistente u otra pestaña. Los valores más recientes son:",
+    "useTheirs": "Usar los valores más recientes",
+    "keepMine": "Mantener mis cambios",
+    "editWithAssistant": "Editar con el asistente",
+    "from": {
+      "account": "Desde tu cuenta",
+      "browser": "Desde tu navegador"
+    },
+    "check": {
+      "required": "Obligatorio.",
+      "tooLong": "Como máximo {{max}} caracteres.",
+      "format": "Este valor tiene un formato incorrecto."
+    },
+    "source": {
+      "label": "Fuente",
+      "hint": "El archivo sin procesar. Al guardar se comprueba con el mismo esquema.",
+      "notJson": "No es JSON válido.",
+      "notObject": "El archivo debe ser un objeto JSON entre llaves."
+    },
+    "persona": {
+      "title": "Asistente",
+      "lede": "Nombre e instrucciones que el asistente usa en cada chat."
+    },
+    "user": {
+      "title": "Tú",
+      "lede": "El asistente lee esto para saber con quién habla. Llega al modelo en cada chat."
+    },
+    "ui": {
+      "title": "Apariencia",
+      "lede": "Cómo se ve LocalAI para ti. Los cambios se muestran al momento; Guardar los conserva."
+    },
+    "shortcuts": {
+      "title": "Atajos",
+      "lede": "Las sugerencias encima del cuadro de texto de cada chat.",
+      "edit": "Editar atajos",
+      "defaults": "Atajos predeterminados",
+      "none": "No hay atajos. Añade uno o guarda una lista vacía para ocultarlos.",
+      "label": "Etiqueta",
+      "prompt": "Prompt",
+      "send": "Enviar al momento",
+      "add": "Añadir atajo",
+      "invalid": "shortcuts.json tiene errores",
+      "assistantPrompt": "Cambia mis atajos del cuadro de texto en shortcuts.json: "
+    },
+    "home": {
+      "editLayout": "Editar diseño",
+      "ask": "Preguntar al asistente",
+      "layoutIn": "El diseño está en",
+      "askPrompt": "Cambia mi página de inicio (home.json): ",
+      "add": "Añadir widget",
+      "newTitle": "Nuevo widget",
+      "noWidgets": "Aún no hay widgets.",
+      "type": "Tipo",
+      "title": "Título",
+      "source": "Archivo de datos",
+      "noSourceNeeded": "No hace falta archivo de datos",
+      "types": {
+        "list": "Lista",
+        "metric": "Métrica",
+        "chats": "Últimos chats"
+      },
+      "left": "{{count}} restantes",
+      "fromChats": "de los chats",
+      "noChats": "Aún no hay chats.",
+      "noData": "Aún no hay datos. El asistente puede escribir",
+      "nothing": "No hay nada aquí.",
+      "noSource": "Este widget no tiene archivo de datos. Elige uno en Editar diseño.",
+      "broken": "{{file}} tiene errores y no hay una versión válida anterior.",
+      "stale": "Se muestran los últimos datos válidos: {{file}} tiene errores.",
+      "updated": "Actualizado {{when}}"
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Nombre",
+          "help": "Cómo se llama el asistente a sí mismo."
+        },
+        "system_prompt": {
+          "label": "Prompt del sistema",
+          "help": "Se añade a cada chat, después del prompt del chat y de las instrucciones del agente."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Nombre",
+          "help": "Cómo te llama el asistente."
+        },
+        "language": {
+          "label": "Idioma",
+          "help": "El idioma en el que responde el asistente."
+        },
+        "bio": {
+          "label": "Sobre ti",
+          "help": "Algunas líneas que el asistente lee en cada chat."
+        },
+        "timezone": {
+          "label": "Zona horaria",
+          "help": "Para fechas y horas en las respuestas."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Tema",
+          "help": "Sistema sigue la configuración de tu dispositivo.",
+          "options": {
+            "dark": "Oscuro",
+            "light": "Claro",
+            "system": "Sistema"
+          }
+        },
+        "accent": {
+          "label": "Color de acento",
+          "help": "Para botones y enlaces. Vacío mantiene el predeterminado."
+        },
+        "density": {
+          "label": "Densidad",
+          "help": "Compacta muestra más en una pantalla.",
+          "options": {
+            "comfortable": "Cómoda",
+            "compact": "Compacta"
+          }
+        },
+        "defaultModel": {
+          "label": "Modelo predeterminado",
+          "help": "El modelo con el que empieza un chat nuevo."
+        }
+      }
+    }
+  }
+}

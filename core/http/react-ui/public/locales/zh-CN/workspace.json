@@ -1,0 +1,149 @@
+{
+  "wellKnown": {
+    "storedIn": "保存位置",
+    "definedIn": "定义位置",
+    "revert": "恢复到上一个版本",
+    "view": "查看",
+    "form": "表单",
+    "save": "保存",
+    "cancel": "取消",
+    "notSet": "未设置",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "remove": "移除",
+    "savedAt": "保存于 {{time}}",
+    "notSaved": "尚未保存。",
+    "notSavedPrefilled": "尚未保存。部分值已为您填好；点击保存即可保留。",
+    "loadFailed": "无法加载文件：{{message}}",
+    "invalid": "{{file}} 不符合其格式，且没有更早的有效版本。",
+    "invalidFallback": "{{file}} 不符合其格式。此处显示其最后一个有效版本。",
+    "conflict": "{{file}} 在您编辑时发生了变化，可能是助手或其他标签页所改。较新的值如下：",
+    "useTheirs": "使用较新的值",
+    "keepMine": "保留我的更改",
+    "editWithAssistant": "通过助手编辑",
+    "from": {
+      "account": "来自您的账户",
+      "browser": "来自您的浏览器"
+    },
+    "check": {
+      "required": "必填。",
+      "tooLong": "最多 {{max}} 个字符。",
+      "format": "此值的格式不正确。"
+    },
+    "source": {
+      "label": "源文件",
+      "hint": "原始文件。保存时会按相同的架构进行检查。",
+      "notJson": "这不是有效的 JSON。",
+      "notObject": "文件必须是用大括号括起来的 JSON 对象。"
+    },
+    "persona": {
+      "title": "助手",
+      "lede": "助手在每次聊天中使用的名称和指令。"
+    },
+    "user": {
+      "title": "您",
+      "lede": "助手会读取此内容，以了解对话对象。它会在每次聊天中传递给模型。"
+    },
+    "ui": {
+      "title": "外观",
+      "lede": "LocalAI 对您的显示方式。更改会立即生效；保存即可保留。"
+    },
+    "shortcuts": {
+      "title": "快捷指令",
+      "lede": "每次聊天输入框上方的提示词。",
+      "edit": "编辑快捷指令",
+      "defaults": "默认快捷指令",
+      "none": "没有快捷指令。添加一个，或保存空列表以隐藏。",
+      "label": "标签",
+      "prompt": "提示词",
+      "send": "立即发送",
+      "add": "添加快捷指令",
+      "invalid": "shortcuts.json 有错误",
+      "assistantPrompt": "请在 shortcuts.json 中修改我的输入框快捷指令："
+    },
+    "home": {
+      "editLayout": "编辑布局",
+      "ask": "询问助手",
+      "layoutIn": "布局位于",
+      "askPrompt": "请修改我的首页 (home.json)：",
+      "add": "添加小组件",
+      "newTitle": "新小组件",
+      "noWidgets": "还没有小组件。",
+      "type": "类型",
+      "title": "标题",
+      "source": "数据文件",
+      "noSourceNeeded": "无需数据文件",
+      "types": {
+        "list": "列表",
+        "metric": "指标",
+        "chats": "最近的聊天"
+      },
+      "left": "剩余 {{count}}",
+      "fromChats": "来自聊天",
+      "noChats": "还没有聊天。",
+      "noData": "还没有数据。助手可以写入",
+      "nothing": "这里没有内容。",
+      "noSource": "此小组件没有数据文件。请在“编辑布局”中选择一个。",
+      "broken": "{{file}} 有错误，且没有更早的有效版本。",
+      "stale": "正在显示最后一个有效数据：{{file}} 有错误。",
+      "updated": "更新于 {{when}}"
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "名称",
+          "help": "助手对自己的称呼。"
+        },
+        "system_prompt": {
+          "label": "系统提示词",
+          "help": "会添加到每次聊天中，位于聊天自身的提示词和代理指令之后。"
+        }
+      },
+      "user": {
+        "name": {
+          "label": "名称",
+          "help": "助手如何称呼您。"
+        },
+        "language": {
+          "label": "语言",
+          "help": "助手回答时使用的语言。"
+        },
+        "bio": {
+          "label": "关于您",
+          "help": "助手在每次聊天中阅读的几行内容。"
+        },
+        "timezone": {
+          "label": "时区",
+          "help": "用于回答中的日期和时间。"
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "主题",
+          "help": "“系统”跟随您设备的设置。",
+          "options": {
+            "dark": "深色",
+            "light": "浅色",
+            "system": "系统"
+          }
+        },
+        "accent": {
+          "label": "强调色",
+          "help": "用于按钮和链接。留空则使用默认值。"
+        },
+        "density": {
+          "label": "密度",
+          "help": "紧凑模式可在一屏内显示更多内容。",
+          "options": {
+            "comfortable": "舒适",
+            "compact": "紧凑"
+          }
+        },
+        "defaultModel": {
+          "label": "默认模型",
+          "help": "新聊天开始时使用的模型。"
+        }
+      }
+    }
+  }
+}

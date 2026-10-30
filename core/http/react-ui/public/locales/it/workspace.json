@@ -1,0 +1,149 @@
+{
+  "wellKnown": {
+    "storedIn": "Salvato in",
+    "definedIn": "Definito in",
+    "revert": "Ripristina la versione precedente",
+    "view": "Vista",
+    "form": "Modulo",
+    "save": "Salva",
+    "cancel": "Annulla",
+    "notSet": "Non impostato",
+    "moveUp": "Sposta su",
+    "moveDown": "Sposta giù",
+    "remove": "Rimuovi",
+    "savedAt": "Salvato alle {{time}}",
+    "notSaved": "Non ancora salvato.",
+    "notSavedPrefilled": "Non ancora salvato. Alcuni valori sono già compilati per te; Salva li mantiene.",
+    "loadFailed": "Impossibile caricare il file: {{message}}",
+    "invalid": "{{file}} non rispetta il suo formato e non esiste una versione valida precedente.",
+    "invalidFallback": "{{file}} non rispetta il suo formato. Viene mostrata l'ultima versione valida.",
+    "conflict": "{{file}} è cambiato mentre lo modificavi, probabilmente dall'assistente o da un'altra scheda. I valori più recenti sono:",
+    "useTheirs": "Usa i valori più recenti",
+    "keepMine": "Mantieni le mie modifiche",
+    "editWithAssistant": "Modifica con l'assistente",
+    "from": {
+      "account": "Dal tuo account",
+      "browser": "Dal tuo browser"
+    },
+    "check": {
+      "required": "Obbligatorio.",
+      "tooLong": "Massimo {{max}} caratteri.",
+      "format": "Questo valore ha un formato errato."
+    },
+    "source": {
+      "label": "Sorgente",
+      "hint": "Il file grezzo. Al salvataggio viene controllato con lo stesso schema.",
+      "notJson": "Non è un JSON valido.",
+      "notObject": "Il file deve essere un oggetto JSON tra parentesi graffe."
+    },
+    "persona": {
+      "title": "Assistente",
+      "lede": "Nome e istruzioni che l'assistente usa in ogni chat."
+    },
+    "user": {
+      "title": "Tu",
+      "lede": "L'assistente legge questo per sapere con chi parla. Arriva al modello in ogni chat."
+    },
+    "ui": {
+      "title": "Aspetto",
+      "lede": "Come appare LocalAI per te. Le modifiche si vedono subito; Salva le mantiene."
+    },
+    "shortcuts": {
+      "title": "Scorciatoie",
+      "lede": "I suggerimenti sopra il campo di scrittura di ogni chat.",
+      "edit": "Modifica scorciatoie",
+      "defaults": "Scorciatoie predefinite",
+      "none": "Nessuna scorciatoia. Aggiungine una, o salva un elenco vuoto per nasconderle.",
+      "label": "Etichetta",
+      "prompt": "Prompt",
+      "send": "Invia subito",
+      "add": "Aggiungi scorciatoia",
+      "invalid": "shortcuts.json contiene errori",
+      "assistantPrompt": "Modifica le mie scorciatoie del campo di scrittura in shortcuts.json: "
+    },
+    "home": {
+      "editLayout": "Modifica layout",
+      "ask": "Chiedi all'assistente",
+      "layoutIn": "Il layout si trova in",
+      "askPrompt": "Modifica la mia pagina Home (home.json): ",
+      "add": "Aggiungi widget",
+      "newTitle": "Nuovo widget",
+      "noWidgets": "Nessun widget ancora.",
+      "type": "Tipo",
+      "title": "Titolo",
+      "source": "File dati",
+      "noSourceNeeded": "Nessun file dati necessario",
+      "types": {
+        "list": "Elenco",
+        "metric": "Metrica",
+        "chats": "Ultime chat"
+      },
+      "left": "{{count}} rimanenti",
+      "fromChats": "dalle chat",
+      "noChats": "Nessuna chat ancora.",
+      "noData": "Nessun dato ancora. L'assistente può scrivere",
+      "nothing": "Niente qui.",
+      "noSource": "Questo widget non ha un file dati. Sceglierne uno in Modifica layout.",
+      "broken": "{{file}} contiene errori e non esiste una versione valida precedente.",
+      "stale": "Vengono mostrati gli ultimi dati validi: {{file}} contiene errori.",
+      "updated": "Aggiornato {{when}}"
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Nome",
+          "help": "Il nome con cui l'assistente si presenta."
+        },
+        "system_prompt": {
+          "label": "Prompt di sistema",
+          "help": "Aggiunto a ogni chat, dopo il prompt della chat e le istruzioni dell'agente."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Nome",
+          "help": "Come ti chiama l'assistente."
+        },
+        "language": {
+          "label": "Lingua",
+          "help": "La lingua in cui risponde l'assistente."
+        },
+        "bio": {
+          "label": "Su di te",
+          "help": "Alcune righe che l'assistente legge in ogni chat."
+        },
+        "timezone": {
+          "label": "Fuso orario",
+          "help": "Per date e orari nelle risposte."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Tema",
+          "help": "Sistema segue l'impostazione del tuo dispositivo.",
+          "options": {
+            "dark": "Scuro",
+            "light": "Chiaro",
+            "system": "Sistema"
+          }
+        },
+        "accent": {
+          "label": "Colore di accento",
+          "help": "Per pulsanti e link. Vuoto mantiene il predefinito."
+        },
+        "density": {
+          "label": "Densità",
+          "help": "Compatta mostra di più in una schermata.",
+          "options": {
+            "comfortable": "Confortevole",
+            "compact": "Compatta"
+          }
+        },
+        "defaultModel": {
+          "label": "Modello predefinito",
+          "help": "Il modello con cui inizia una nuova chat."
+        }
+      }
+    }
+  }
+}

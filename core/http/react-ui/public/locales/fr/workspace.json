@@ -1,0 +1,149 @@
+{
+  "wellKnown": {
+    "storedIn": "Enregistré dans",
+    "definedIn": "Défini dans",
+    "revert": "Revenir à la version précédente",
+    "view": "Affichage",
+    "form": "Formulaire",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "notSet": "Non défini",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "remove": "Retirer",
+    "savedAt": "Enregistré à {{time}}",
+    "notSaved": "Pas encore enregistré.",
+    "notSavedPrefilled": "Pas encore enregistré. Certaines valeurs sont déjà remplies ; Enregistrer les conserve.",
+    "loadFailed": "Impossible de charger le fichier : {{message}}",
+    "invalid": "{{file}} ne respecte pas son format, et il n'existe aucune version valide antérieure.",
+    "invalidFallback": "{{file}} ne respecte pas son format. Affichage de sa dernière version valide.",
+    "conflict": "{{file}} a changé pendant votre modification, probablement par l'assistant ou un autre onglet. Les valeurs les plus récentes sont :",
+    "useTheirs": "Utiliser les valeurs les plus récentes",
+    "keepMine": "Garder mes modifications",
+    "editWithAssistant": "Modifier avec l'assistant",
+    "from": {
+      "account": "Depuis votre compte",
+      "browser": "Depuis votre navigateur"
+    },
+    "check": {
+      "required": "Obligatoire.",
+      "tooLong": "{{max}} caractères au maximum.",
+      "format": "Cette valeur a un format incorrect."
+    },
+    "source": {
+      "label": "Source",
+      "hint": "Le fichier brut. Il est vérifié avec le même schéma à l'enregistrement.",
+      "notJson": "Ce n'est pas du JSON valide.",
+      "notObject": "Le fichier doit être un objet JSON entre accolades."
+    },
+    "persona": {
+      "title": "Assistant",
+      "lede": "Nom et instructions que l'assistant utilise dans chaque chat."
+    },
+    "user": {
+      "title": "Vous",
+      "lede": "L'assistant lit ceci pour savoir à qui il parle. Cela parvient au modèle dans chaque chat."
+    },
+    "ui": {
+      "title": "Apparence",
+      "lede": "L'apparence de LocalAI pour vous. Les changements s'affichent immédiatement ; Enregistrer les conserve."
+    },
+    "shortcuts": {
+      "title": "Raccourcis",
+      "lede": "Les suggestions au-dessus de la zone de saisie de chaque chat.",
+      "edit": "Modifier les raccourcis",
+      "defaults": "Raccourcis par défaut",
+      "none": "Aucun raccourci. Ajoutez-en un, ou enregistrez une liste vide pour les masquer.",
+      "label": "Libellé",
+      "prompt": "Prompt",
+      "send": "Envoyer immédiatement",
+      "add": "Ajouter un raccourci",
+      "invalid": "shortcuts.json contient des erreurs",
+      "assistantPrompt": "Modifie mes raccourcis de saisie dans shortcuts.json : "
+    },
+    "home": {
+      "editLayout": "Modifier la mise en page",
+      "ask": "Demander à l'assistant",
+      "layoutIn": "La mise en page est dans",
+      "askPrompt": "Modifie ma page d'accueil (home.json) : ",
+      "add": "Ajouter un widget",
+      "newTitle": "Nouveau widget",
+      "noWidgets": "Aucun widget pour l'instant.",
+      "type": "Type",
+      "title": "Titre",
+      "source": "Fichier de données",
+      "noSourceNeeded": "Aucun fichier de données requis",
+      "types": {
+        "list": "Liste",
+        "metric": "Indicateur",
+        "chats": "Derniers chats"
+      },
+      "left": "{{count}} restant(s)",
+      "fromChats": "des chats",
+      "noChats": "Aucun chat pour l'instant.",
+      "noData": "Pas encore de données. L'assistant peut écrire",
+      "nothing": "Rien ici.",
+      "noSource": "Ce widget n'a pas de fichier de données. Choisissez-en un dans Modifier la mise en page.",
+      "broken": "{{file}} contient des erreurs et n'a pas de version valide antérieure.",
+      "stale": "Affichage des dernières données valides : {{file}} contient des erreurs.",
+      "updated": "Mis à jour {{when}}"
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Nom",
+          "help": "Le nom que l'assistant se donne."
+        },
+        "system_prompt": {
+          "label": "Prompt système",
+          "help": "Ajouté à chaque chat, après le prompt du chat et les instructions de l'agent."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Nom",
+          "help": "Le nom sous lequel l'assistant vous appelle."
+        },
+        "language": {
+          "label": "Langue",
+          "help": "La langue dans laquelle l'assistant répond."
+        },
+        "bio": {
+          "label": "À propos de vous",
+          "help": "Quelques lignes que l'assistant lit dans chaque chat."
+        },
+        "timezone": {
+          "label": "Fuseau horaire",
+          "help": "Pour les dates et heures dans les réponses."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Thème",
+          "help": "Système suit le réglage de votre appareil.",
+          "options": {
+            "dark": "Sombre",
+            "light": "Clair",
+            "system": "Système"
+          }
+        },
+        "accent": {
+          "label": "Couleur d'accent",
+          "help": "Pour les boutons et liens. Vide garde la valeur par défaut."
+        },
+        "density": {
+          "label": "Densité",
+          "help": "Compact affiche plus de contenu sur un écran.",
+          "options": {
+            "comfortable": "Confortable",
+            "compact": "Compact"
+          }
+        },
+        "defaultModel": {
+          "label": "Modèle par défaut",
+          "help": "Le modèle avec lequel un nouveau chat démarre."
+        }
+      }
+    }
+  }
+}

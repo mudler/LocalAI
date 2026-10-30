@@ -10,6 +10,7 @@
   "changeLanguage": "Sprache ändern",
   "logout": "Abmelden",
   "accountSettings": "Kontoeinstellungen",
+  "yourSettings": "Deine Einstellungen",
   "account": "Konto",
   "accountFor": "Konto: {{name}}",
   "sections": {
