@@ -82,10 +82,11 @@ func (s *Service) CopyStarter(ctx context.Context, principal, id string) (Page, 
 		if len(name) > 64 {
 			break
 		}
-		folder, err := s.abs(principal, name, "")
+		l, err := s.own(principal, name)
 		if err != nil {
 			return Page{}, err
 		}
+		folder := l.folder
 		if _, err := s.f.Store().Stat(ctx, a, folder); err == nil {
 			continue
 		} else if !errors.Is(err, workspace.ErrNotFound) {

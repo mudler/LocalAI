@@ -11,6 +11,8 @@ package pages
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,6 +67,9 @@ var (
 	ErrNotText     = errors.New("pages: the file is not UTF-8 text")
 	ErrReadOnly    = errors.New("pages: a page cannot change its own index.html or page.json")
 	ErrRateLimited = errors.New("pages: too many changes; wait a moment")
+	// ErrFolderReadOnly means the viewer may only read the shared folder of the
+	// page, so the page cannot write there either.
+	ErrFolderReadOnly = errors.New("pages: you can only read this shared folder, so the page cannot save here")
 )
 
 var nameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
@@ -111,9 +116,22 @@ type Page struct {
 	Title       string
 	Icon        string
 	Description string
-	Source      string // SourceOwn
-	// Author is who wrote the current index.html: AuthorYou or AuthorAssistant.
-	Author string
+	Source      string // SourceOwn or SourceShared
+	// Author is who wrote the current index.html: AuthorYou or AuthorAssistant
+	// for an own page. AuthorID is the principal that wrote it (a shared page's
+	// author is another account).
+	Author   string
+	AuthorID string
+	// A shared page also has its shared folder (Folder, a workspace path, and
+	// FolderID, the folder's node ID), whether the viewer may write in it, the
+	// node ID of the page's own folder (PageID) and the hash of its code
+	// (index.html and page.json), against which a consent is kept.
+	Folder   string
+	FolderID int64
+	Writable bool
+	PageID   int64
+	Hash     string
+	MetaSize int64 // of page.json, 0 when it has none
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time
 	UpdatedBy string
@@ -166,16 +184,36 @@ func New(f *files.Service, opts ...Option) *Service {
 
 func (s *Service) actor(principal string) workspace.Actor { return s.f.Actor(principal) }
 
-// abs returns the workspace path of a path inside the page folder; rel "" is the folder.
-func (s *Service) abs(principal, name, rel string) (string, error) {
+// loc is where a page lives and who looks at it: the page's folder in the
+// workspace and the viewer's actor. Every call of the bridge goes through one,
+// so an own page and a shared page are read and written the same way, with the
+// viewer's own rights.
+type loc struct {
+	a      workspace.Actor
+	folder string // workspace path of pages/<name>
+	name   string
+	key    string // the rate limit bucket
+}
+
+// own returns the location of a page of the user's home.
+func (s *Service) own(principal, name string) (loc, error) {
 	if !ValidName(name) {
-		return "", ErrBadName
+		return loc{}, ErrBadName
 	}
-	p := "/" + Dir + "/" + name
-	if rel != "" {
-		p += "/" + rel
+	folder, err := s.f.Abs(principal, "/"+Dir+"/"+name)
+	if err != nil {
+		return loc{}, err
 	}
-	return s.f.Abs(principal, p)
+	return loc{a: s.actor(principal), folder: folder, name: name, key: principal + "/" + name}, nil
+}
+
+// path returns the workspace path of rel, a path that CleanPath accepted,
+// inside the page's folder; rel "" is the folder.
+func (l loc) path(rel string) string {
+	if rel == "" {
+		return l.folder
+	}
+	return l.folder + "/" + rel
 }
 
 func mapNotFound(err error) error {
@@ -192,7 +230,14 @@ func (s *Service) List(ctx context.Context, principal string) ([]Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	kids, err := s.f.Store().List(ctx, s.actor(principal), dir)
+	return s.listIn(ctx, s.actor(principal), dir, func(name string) (loc, error) { return s.own(principal, name) }, func(p *Page) {
+		p.Path = "/" + Dir + "/" + p.Name
+	})
+}
+
+// listIn lists the pages of one pages/ folder.
+func (s *Service) listIn(ctx context.Context, a workspace.Actor, dir string, at func(string) (loc, error), fill func(*Page)) ([]Page, error) {
+	kids, err := s.f.Store().List(ctx, a, dir)
 	if errors.Is(err, workspace.ErrNotFound) {
 		return []Page{}, nil
 	}
@@ -204,13 +249,18 @@ func (s *Service) List(ctx context.Context, principal string) ([]Page, error) {
 		if k.Kind != workspace.KindDir || !ValidName(k.Name) {
 			continue
 		}
-		p, err := s.Get(ctx, principal, k.Name)
+		l, err := at(k.Name)
+		if err != nil {
+			continue
+		}
+		p, err := s.getAt(ctx, l)
 		if errors.Is(err, ErrNotFound) {
 			continue
 		}
 		if err != nil {
 			return nil, err
 		}
+		fill(&p)
 		out = append(out, p)
 		if len(out) == MaxPages {
 			break
@@ -220,14 +270,10 @@ func (s *Service) List(ctx context.Context, principal string) ([]Page, error) {
 	return out, nil
 }
 
-// exists checks that the page has an index.html: the bridge works only for a
-// page, so a write can never create one.
-func (s *Service) exists(ctx context.Context, principal, name string) error {
-	folder, err := s.abs(principal, name, "")
-	if err != nil {
-		return err
-	}
-	n, err := s.f.Store().Stat(ctx, s.actor(principal), folder+"/"+IndexFile)
+// existsAt checks that the page has an index.html: the bridge works only for
+// a page, so a write can never create one.
+func (s *Service) existsAt(ctx context.Context, l loc) error {
+	n, err := s.f.Store().Stat(ctx, l.a, l.path(IndexFile))
 	if err != nil {
 		return mapNotFound(err)
 	}
@@ -239,27 +285,50 @@ func (s *Service) exists(ctx context.Context, principal, name string) error {
 
 // Get returns one page.
 func (s *Service) Get(ctx context.Context, principal, name string) (Page, error) {
-	folder, err := s.abs(principal, name, "")
+	l, err := s.own(principal, name)
 	if err != nil {
 		return Page{}, err
 	}
-	a := s.actor(principal)
-	index, err := s.f.Store().Stat(ctx, a, folder+"/"+IndexFile)
+	p, err := s.getAt(ctx, l)
+	if err != nil {
+		return Page{}, err
+	}
+	p.Path = "/" + Dir + "/" + name
+	return p, nil
+}
+
+func (s *Service) getAt(ctx context.Context, l loc) (Page, error) {
+	index, err := s.f.Store().Stat(ctx, l.a, l.path(IndexFile))
 	if err != nil {
 		return Page{}, mapNotFound(err)
 	}
 	if index.Kind != workspace.KindFile {
 		return Page{}, ErrNotFound
 	}
-	p := Page{Name: name, Path: "/" + Dir + "/" + name, Title: name, Source: SourceOwn, Author: AuthorYou, UpdatedBy: AuthorYou, Rev: index.Rev, Size: index.Size}
-	s.readMeta(ctx, a, folder, &p)
-	if cs, ok := s.last(ctx, a, folder); ok {
+	p := Page{Name: l.name, Title: l.name, Source: SourceOwn, Author: AuthorYou, UpdatedBy: AuthorYou, Rev: index.Rev, Size: index.Size}
+	meta := s.readMeta(ctx, l.a, l.folder, &p)
+	p.MetaSize = meta.Size
+	p.Hash = codeHash(index, meta)
+	if dir, err := s.f.Store().Stat(ctx, l.a, l.folder); err == nil {
+		p.PageID = dir.ID
+	}
+	if cs, ok := s.last(ctx, l.a, l.folder); ok {
 		p.UpdatedAt, p.UpdatedBy, p.Rev = cs.CreatedAt, authorOf(cs), cs.Rev
 	}
-	if cs, ok := s.last(ctx, a, folder+"/"+IndexFile); ok {
-		p.Author = authorOf(cs)
+	if cs, ok := s.last(ctx, l.a, l.path(IndexFile)); ok {
+		p.Author, p.AuthorID = authorOf(cs), cs.Actor
 	}
 	return p, nil
+}
+
+// codeHash is the hash of what a page runs: its index.html and its page.json
+// (the title and icon the trust sheet shows). The data files of the page are
+// not in it: they change at every save and the page's code decides what to do
+// with them.
+func codeHash(index, meta workspace.Node) string {
+	h := sha256.New()
+	fmt.Fprintf(h, "index.html\x00%s\x00%d\x00page.json\x00%s\x00%d", index.Blob, index.Size, meta.Blob, meta.Size)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (s *Service) last(ctx context.Context, a workspace.Actor, p string) (workspace.ChangeSet, bool) {
@@ -279,17 +348,20 @@ func authorOf(cs workspace.ChangeSet) string {
 	return AuthorYou
 }
 
-// readMeta fills the title, icon and description from page.json. A missing or
-// broken file keeps the defaults: the metadata is a nicety, never a reason for
-// a page not to show.
-func (s *Service) readMeta(ctx context.Context, a workspace.Actor, folder string, p *Page) {
+// readMeta fills the title, icon and description from page.json and returns
+// its node (zero when there is none). A missing or broken file keeps the
+// defaults: the metadata is a nicety, never a reason for a page not to show.
+func (s *Service) readMeta(ctx context.Context, a workspace.Actor, folder string, p *Page) workspace.Node {
 	r, n, err := s.f.Store().Open(ctx, a, folder+"/"+MetaFile)
 	if err != nil {
-		return
+		return workspace.Node{}
 	}
 	defer r.Close()
+	if n.Kind != workspace.KindFile {
+		return workspace.Node{}
+	}
 	if n.Size > maxMetaBytes {
-		return
+		return n
 	}
 	var m struct {
 		Title       string `json:"title"`
@@ -297,7 +369,7 @@ func (s *Service) readMeta(ctx context.Context, a workspace.Actor, folder string
 		Description string `json:"description"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r, maxMetaBytes)).Decode(&m); err != nil {
-		return
+		return n
 	}
 	if t := clip(m.Title, maxTitle); t != "" {
 		p.Title = t
@@ -306,6 +378,7 @@ func (s *Service) readMeta(ctx context.Context, a workspace.Actor, folder string
 		p.Icon = m.Icon
 	}
 	p.Description = clip(m.Description, maxDesc)
+	return n
 }
 
 // clip trims white space, drops control characters and cuts s to max bytes on
@@ -339,18 +412,22 @@ func (s *Service) Source(ctx context.Context, principal, name string) (Page, str
 
 // Read returns a text file of the page's folder.
 func (s *Service) Read(ctx context.Context, principal, name, rel string) (Content, error) {
+	l, err := s.own(principal, name)
+	if err != nil {
+		return Content{}, err
+	}
+	return s.readAt(ctx, l, rel)
+}
+
+func (s *Service) readAt(ctx context.Context, l loc, rel string) (Content, error) {
 	rel, err := CleanPath(rel)
 	if err != nil {
 		return Content{}, err
 	}
-	if err := s.exists(ctx, principal, name); err != nil {
+	if err := s.existsAt(ctx, l); err != nil {
 		return Content{}, err
 	}
-	abs, err := s.abs(principal, name, rel)
-	if err != nil {
-		return Content{}, ErrBadPath
-	}
-	r, n, err := s.f.Store().Open(ctx, s.actor(principal), abs)
+	r, n, err := s.f.Store().Open(ctx, l.a, l.path(rel))
 	if err != nil {
 		return Content{}, mapNotFound(err)
 	}
@@ -379,12 +456,23 @@ func (s *Service) Read(ctx context.Context, principal, name, rel string) (Conten
 // new content goes to a conflict copy; without, the file is replaced. A page
 // cannot write its own index.html or page.json, so it cannot rewrite itself.
 func (s *Service) Write(ctx context.Context, principal, name, rel string, body []byte, base int64) (File, error) {
+	if !ValidName(name) {
+		return File{}, ErrBadName
+	}
+	if _, err := CleanPath(rel); err != nil {
+		return File{}, err
+	}
+	l, err := s.own(principal, name)
+	if err != nil {
+		return File{}, ErrBadPath
+	}
+	return s.writeAt(ctx, l, rel, body, base)
+}
+
+func (s *Service) writeAt(ctx context.Context, l loc, rel string, body []byte, base int64) (File, error) {
 	rel, err := CleanPath(rel)
 	if err != nil {
 		return File{}, err
-	}
-	if !ValidName(name) {
-		return File{}, ErrBadName
 	}
 	if first := workspace.FoldName(strings.SplitN(rel, "/", 2)[0]); first == workspace.FoldName(IndexFile) || first == workspace.FoldName(MetaFile) {
 		return File{}, ErrReadOnly
@@ -392,63 +480,67 @@ func (s *Service) Write(ctx context.Context, principal, name, rel string, body [
 	if len(body) > MaxFileSize {
 		return File{}, ErrTooLarge
 	}
-	if err := s.exists(ctx, principal, name); err != nil {
+	if err := s.existsAt(ctx, l); err != nil {
 		return File{}, err
 	}
-	if !s.writes.allow(principal + "/" + name) {
+	if !s.writes.allow(l.key) {
 		return File{}, ErrRateLimited
 	}
-	abs, err := s.abs(principal, name, rel)
-	if err != nil {
-		return File{}, ErrBadPath
-	}
-	opts := workspace.PutOptions{MaxSize: MaxFileSize, Title: "Page " + name + ": save " + rel}
+	opts := workspace.PutOptions{MaxSize: MaxFileSize, Title: "Page " + l.name + ": save " + rel}
 	if base > 0 {
 		opts.BaseVersion = base
 	} else {
 		opts.Overwrite = true
 	}
-	n, err := s.f.Store().Put(ctx, s.actor(principal), abs, bytes.NewReader(body), opts)
+	n, err := s.f.Store().Put(ctx, l.a, l.path(rel), bytes.NewReader(body), opts)
 	if err != nil && !errors.Is(err, workspace.ErrCommitted) {
-		if errors.Is(err, workspace.ErrTooLarge) {
+		switch {
+		case errors.Is(err, workspace.ErrTooLarge):
 			return File{}, ErrTooLarge
+		case errors.Is(err, workspace.ErrReadOnly):
+			return File{}, ErrFolderReadOnly
 		}
 		return File{}, mapNotFound(err)
 	}
-	return s.file(principal, name, n), nil
+	return l.file(n), nil
 }
 
-func (s *Service) file(principal, name string, n workspace.Node) File {
-	prefix := "/" + Dir + "/" + name + "/"
-	f := File{Path: strings.TrimPrefix(s.f.Rel(principal, n.Path), prefix), Kind: string(n.Kind), Size: n.Size, Version: n.Version}
+// file is a node as the page sees it: its path relative to the page's folder.
+func (l loc) file(n workspace.Node) File {
+	prefix := l.folder + "/"
+	f := File{Path: strings.TrimPrefix(n.Path, prefix), Kind: string(n.Kind), Size: n.Size, Version: n.Version}
 	if n.ConflictOf != "" {
-		f.ConflictOf = strings.TrimPrefix(s.f.Rel(principal, n.ConflictOf), prefix)
+		f.ConflictOf = strings.TrimPrefix(n.ConflictOf, prefix)
 	}
 	return f
 }
 
 // ListFiles lists a folder of the page; dir "" is the page's folder.
 func (s *Service) ListFiles(ctx context.Context, principal, name, dir string) ([]File, error) {
+	l, err := s.own(principal, name)
+	if err != nil {
+		return nil, err
+	}
+	return s.listAt(ctx, l, dir)
+}
+
+func (s *Service) listAt(ctx context.Context, l loc, dir string) ([]File, error) {
 	if dir != "" {
 		var err error
 		if dir, err = CleanPath(dir); err != nil {
 			return nil, err
 		}
 	}
-	if err := s.exists(ctx, principal, name); err != nil {
+	if err := s.existsAt(ctx, l); err != nil {
 		return nil, err
 	}
-	abs, err := s.abs(principal, name, dir)
-	if err != nil {
-		return nil, ErrBadPath
-	}
-	kids, err := s.f.Store().List(ctx, s.actor(principal), abs)
+	kids, err := s.f.Store().List(ctx, l.a, l.path(dir))
 	if err != nil {
 		return nil, mapNotFound(err)
 	}
 	out := make([]File, 0, len(kids))
 	for _, k := range kids {
-		out = append(out, s.file(principal, name, k))
+		out = append(out, l.file(k))
 	}
 	return out, nil
 }
