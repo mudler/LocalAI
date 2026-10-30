@@ -303,5 +303,66 @@
       "learn": "Lerne, was du ändern kannst:",
       "dismissedNone": "Noch nichts. Wenn du auf ein Angebot antwortest, merkt sich der Assistent das hier."
     }
+  },
+  "tabs": {
+    "shared": "Geteilt"
+  },
+  "shared": {
+    "adminTitle": "Geteilte Ordner",
+    "adminLede": "Ordner, die mehrere Personen nutzen. Mitglieder öffnen ihre Seiten, und ihre Chats können die Dateien lesen oder bearbeiten.",
+    "userTitle": "Mit dir geteilt",
+    "userLede": "Ordner, die ein Administrator mit dir geteilt hat. Ihre Seiten sind unter Seiten, und deine Chats können die Dateien nutzen.",
+    "new": "Neuer geteilter Ordner",
+    "nameLabel": "Ordnername",
+    "nameHint": "Bis zu 64 Buchstaben, Ziffern, Leerzeichen, Punkte, Bindestriche oder Unterstriche. Beginne mit einem Buchstaben oder einer Ziffer.",
+    "create": "Erstellen",
+    "cancel": "Abbrechen",
+    "rename": "Umbenennen",
+    "renameSave": "Speichern",
+    "remove": "Entfernen",
+    "manage": "Mitglieder",
+    "menu": "Weitere Aktionen für {{name}}",
+    "pages_one": "{{count}} Seite",
+    "pages_other": "{{count}} Seiten",
+    "pagesNone": "Keine Seiten",
+    "people_one": "{{count}} Person",
+    "people_other": "{{count}} Personen",
+    "membersNone": "Keine Mitglieder",
+    "everyone": "Alle",
+    "everyoneOption": "Alle (alle Benutzer)",
+    "everyoneHint": "Alle Benutzer, auch die, die später dazukommen",
+    "everyoneCan": {
+      "read": "Alle können lesen",
+      "write": "Alle können bearbeiten"
+    },
+    "mode": {
+      "read": "Kann lesen",
+      "write": "Kann bearbeiten"
+    },
+    "addTitle": "Mitglied hinzufügen",
+    "person": "Person",
+    "access": "Zugriff",
+    "accessFor": "Zugriff für {{name}}",
+    "add": "Hinzufügen",
+    "allAdded": "Alle sind bereits Mitglied.",
+    "usersUnavailable": "Die Benutzerliste konnte nicht geladen werden. Du kannst trotzdem Alle hinzufügen.",
+    "membersTitle": "Mitglieder",
+    "noMembers": "Noch niemand kann diesen Ordner nutzen. Füge eine Person oder Alle hinzu.",
+    "removeMember": "{{name}} entfernen",
+    "paneNote": "Eine Änderung gilt sofort. Ein offener Chat sieht sie, wenn er das nächste Mal geöffnet wird.",
+    "created": "„{{name}}“ erstellt. Füge die Personen hinzu, die ihn nutzen dürfen.",
+    "removed": "„{{name}}“ entfernt. Seine Seiten fragen erneut, bevor sie laufen.",
+    "restored": "„{{name}}“ ist wieder da, mit seinen Mitgliedern.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} kann „{{folder}}“ nicht mehr nutzen.",
+    "failed": "Nicht erledigt: {{message}}",
+    "loadFailed": "Die geteilten Ordner konnten nicht geladen werden.",
+    "emptyAdminTitle": "Noch keine geteilten Ordner",
+    "emptyAdminBody": "Ein geteilter Ordner enthält Dateien und Seiten, die andere lesen oder bearbeiten können. Erstelle einen und füge dann Mitglieder hinzu.",
+    "factMembers": "Gib einer Person oder allen Lese- oder Bearbeitungszugriff",
+    "factChats": "Die Chats der Mitglieder sehen die Dateien des Ordners",
+    "factUndo": "Das Entfernen eines Ordners lässt sich rückgängig machen",
+    "emptyUserTitle": "Noch nichts mit dir geteilt",
+    "emptyUserBody": "Wenn ein Administrator einen Ordner mit dir teilt, erscheint er hier und seine Seiten unter Seiten."
   }
 }

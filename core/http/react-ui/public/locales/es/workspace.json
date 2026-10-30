@@ -303,5 +303,66 @@
       "learn": "Descubre qué puedes cambiar:",
       "dismissedNone": "Nada todavía. Cuando respondas a una propuesta, el asistente lo recordará aquí."
     }
+  },
+  "tabs": {
+    "shared": "Compartido"
+  },
+  "shared": {
+    "adminTitle": "Carpetas compartidas",
+    "adminLede": "Carpetas que usan varias personas. Los miembros abren sus páginas y sus chats pueden leer o editar los archivos.",
+    "userTitle": "Compartido contigo",
+    "userLede": "Carpetas que un administrador compartió contigo. Sus páginas están en Páginas y tus chats pueden usar los archivos.",
+    "new": "Nueva carpeta compartida",
+    "nameLabel": "Nombre de la carpeta",
+    "nameHint": "Hasta 64 letras, dígitos, espacios, puntos, guiones o guiones bajos. Empieza con una letra o un dígito.",
+    "create": "Crear",
+    "cancel": "Cancelar",
+    "rename": "Cambiar nombre",
+    "renameSave": "Guardar",
+    "remove": "Quitar",
+    "manage": "Miembros",
+    "menu": "Más acciones para {{name}}",
+    "pages_one": "{{count}} página",
+    "pages_other": "{{count}} páginas",
+    "pagesNone": "Sin páginas",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} personas",
+    "membersNone": "Sin miembros",
+    "everyone": "Todos",
+    "everyoneOption": "Todos (todos los usuarios)",
+    "everyoneHint": "Todos los usuarios, también los que lleguen después",
+    "everyoneCan": {
+      "read": "Todos pueden leer",
+      "write": "Todos pueden editar"
+    },
+    "mode": {
+      "read": "Puede leer",
+      "write": "Puede editar"
+    },
+    "addTitle": "Añadir un miembro",
+    "person": "Persona",
+    "access": "Acceso",
+    "accessFor": "Acceso de {{name}}",
+    "add": "Añadir",
+    "allAdded": "Todos ya son miembros.",
+    "usersUnavailable": "No se pudo cargar la lista de usuarios. Aun así puedes añadir a Todos.",
+    "membersTitle": "Miembros",
+    "noMembers": "Nadie puede usar esta carpeta todavía. Añade una persona o a Todos.",
+    "removeMember": "Quitar a {{name}}",
+    "paneNote": "El cambio se aplica al instante. Un chat abierto lo verá la próxima vez que se abra.",
+    "created": "Se creó «{{name}}». Añade a las personas que pueden usarla.",
+    "removed": "Se quitó «{{name}}». Sus páginas vuelven a pedir permiso antes de ejecutarse.",
+    "restored": "«{{name}}» ha vuelto, con sus miembros.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} ya no puede usar «{{folder}}».",
+    "failed": "No se hizo: {{message}}",
+    "loadFailed": "No se pudieron cargar las carpetas compartidas.",
+    "emptyAdminTitle": "Aún no hay carpetas compartidas",
+    "emptyAdminBody": "Una carpeta compartida guarda archivos y páginas que otras personas pueden leer o editar. Crea una y luego añade miembros.",
+    "factMembers": "Da acceso de lectura o edición a una persona o a todos",
+    "factChats": "Los chats de los miembros ven los archivos de la carpeta",
+    "factUndo": "Quitar una carpeta se puede deshacer",
+    "emptyUserTitle": "Todavía no se ha compartido nada contigo",
+    "emptyUserBody": "Cuando un administrador comparta una carpeta contigo, aparecerá aquí y sus páginas en Páginas."
   }
 }

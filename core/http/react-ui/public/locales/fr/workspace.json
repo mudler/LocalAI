@@ -303,5 +303,66 @@
       "learn": "Découvrez ce que vous pouvez modifier :",
       "dismissedNone": "Rien pour l’instant. Quand vous répondez à une proposition, l’assistant s’en souvient ici."
     }
+  },
+  "tabs": {
+    "shared": "Partagé"
+  },
+  "shared": {
+    "adminTitle": "Dossiers partagés",
+    "adminLede": "Des dossiers que plusieurs personnes utilisent. Les membres ouvrent leurs pages, et leurs discussions peuvent lire ou modifier les fichiers.",
+    "userTitle": "Partagé avec vous",
+    "userLede": "Les dossiers qu’un administrateur a partagés avec vous. Leurs pages sont dans Pages, et vos discussions peuvent utiliser les fichiers.",
+    "new": "Nouveau dossier partagé",
+    "nameLabel": "Nom du dossier",
+    "nameHint": "Jusqu’à 64 lettres, chiffres, espaces, points, tirets ou soulignés. Commencez par une lettre ou un chiffre.",
+    "create": "Créer",
+    "cancel": "Annuler",
+    "rename": "Renommer",
+    "renameSave": "Enregistrer",
+    "remove": "Retirer",
+    "manage": "Membres",
+    "menu": "Autres actions pour {{name}}",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "pagesNone": "Aucune page",
+    "people_one": "{{count}} personne",
+    "people_other": "{{count}} personnes",
+    "membersNone": "Aucun membre",
+    "everyone": "Tout le monde",
+    "everyoneOption": "Tout le monde (tous les utilisateurs)",
+    "everyoneHint": "Tous les utilisateurs, y compris ceux qui arrivent plus tard",
+    "everyoneCan": {
+      "read": "Tout le monde peut lire",
+      "write": "Tout le monde peut modifier"
+    },
+    "mode": {
+      "read": "Peut lire",
+      "write": "Peut modifier"
+    },
+    "addTitle": "Ajouter un membre",
+    "person": "Personne",
+    "access": "Accès",
+    "accessFor": "Accès de {{name}}",
+    "add": "Ajouter",
+    "allAdded": "Tout le monde est déjà membre.",
+    "usersUnavailable": "La liste des utilisateurs n’a pas pu être chargée. Vous pouvez quand même ajouter Tout le monde.",
+    "membersTitle": "Membres",
+    "noMembers": "Personne ne peut encore utiliser ce dossier. Ajoutez une personne ou Tout le monde.",
+    "removeMember": "Retirer {{name}}",
+    "paneNote": "Un changement s’applique tout de suite. Une discussion ouverte le voit à sa prochaine ouverture.",
+    "created": "« {{name}} » créé. Ajoutez les personnes qui peuvent l’utiliser.",
+    "removed": "« {{name}} » retiré. Ses pages redemandent l’accord avant de s’exécuter.",
+    "restored": "« {{name}} » est de retour, avec ses membres.",
+    "memberAdded": "{{name}} : {{mode}}.",
+    "memberRemoved": "{{name}} ne peut plus utiliser « {{folder}} ».",
+    "failed": "Non effectué : {{message}}",
+    "loadFailed": "Impossible de charger les dossiers partagés.",
+    "emptyAdminTitle": "Aucun dossier partagé pour l’instant",
+    "emptyAdminBody": "Un dossier partagé contient des fichiers et des pages que d’autres personnes peuvent lire ou modifier. Créez-en un, puis ajoutez des membres.",
+    "factMembers": "Donnez à une personne ou à tout le monde l’accès en lecture ou en modification",
+    "factChats": "Les discussions des membres voient les fichiers du dossier",
+    "factUndo": "Le retrait d’un dossier peut être annulé",
+    "emptyUserTitle": "Rien n’est encore partagé avec vous",
+    "emptyUserBody": "Quand un administrateur partage un dossier avec vous, il apparaît ici et ses pages dans Pages."
   }
 }

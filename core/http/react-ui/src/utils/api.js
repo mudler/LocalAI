@@ -286,6 +286,22 @@ export const sharedPagesApi = {
   }),
 }
 
+// Shared folders: /shared/<name> folders an administrator shares with users
+// (or @everyone), each member with the mode read or write.
+const sharedFolderUrl = (id) => `/api/chats/admin/shared-folders/${encodeURIComponent(id)}`
+export const sharedFoldersApi = {
+  mine: () => fetchJSON('/api/chats/shared-folders'),
+  list: () => fetchJSON('/api/chats/admin/shared-folders'),
+  create: (name) => fetchJSON('/api/chats/admin/shared-folders', { method: 'POST', body: JSON.stringify({ name }) }),
+  rename: (id, name) => fetchJSON(sharedFolderUrl(id), { method: 'PATCH', body: JSON.stringify({ name }) }),
+  remove: (id) => fetchJSON(sharedFolderUrl(id), { method: 'DELETE' }),
+  restore: (rev) => fetchJSON('/api/chats/admin/shared-folders/restore', { method: 'POST', body: JSON.stringify({ rev }) }),
+  setMember: (id, principal, mode) => fetchJSON(`${sharedFolderUrl(id)}/members/${encodeURIComponent(principal)}`, {
+    method: 'PUT', body: JSON.stringify({ mode }),
+  }),
+  removeMember: (id, principal) => fetchJSON(`${sharedFolderUrl(id)}/members/${encodeURIComponent(principal)}`, { method: 'DELETE' }),
+}
+
 // Chat skills: folders with a SKILL.md in four layers, switched per chat.
 const enc2 = encodeURIComponent
 export const chatSkillsApi = {

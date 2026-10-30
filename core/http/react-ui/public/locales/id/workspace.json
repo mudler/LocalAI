@@ -303,5 +303,66 @@
       "learn": "Pelajari apa yang bisa kamu ubah:",
       "dismissedNone": "Belum ada. Saat kamu menjawab tawaran, asisten mengingatnya di sini."
     }
+  },
+  "tabs": {
+    "shared": "Dibagikan"
+  },
+  "shared": {
+    "adminTitle": "Folder bersama",
+    "adminLede": "Folder yang dipakai beberapa orang. Anggota membuka halamannya, dan chat mereka bisa membaca atau mengubah filenya.",
+    "userTitle": "Dibagikan kepada Anda",
+    "userLede": "Folder yang dibagikan administrator kepada Anda. Halamannya ada di Halaman, dan chat Anda bisa memakai filenya.",
+    "new": "Folder bersama baru",
+    "nameLabel": "Nama folder",
+    "nameHint": "Hingga 64 huruf, angka, spasi, titik, tanda hubung, atau garis bawah. Mulai dengan huruf atau angka.",
+    "create": "Buat",
+    "cancel": "Batal",
+    "rename": "Ganti nama",
+    "renameSave": "Simpan",
+    "remove": "Hapus",
+    "manage": "Anggota",
+    "menu": "Tindakan lain untuk {{name}}",
+    "pages_one": "{{count}} halaman",
+    "pages_other": "{{count}} halaman",
+    "pagesNone": "Tidak ada halaman",
+    "people_one": "{{count}} orang",
+    "people_other": "{{count}} orang",
+    "membersNone": "Tidak ada anggota",
+    "everyone": "Semua orang",
+    "everyoneOption": "Semua orang (semua pengguna)",
+    "everyoneHint": "Semua pengguna, termasuk yang bergabung nanti",
+    "everyoneCan": {
+      "read": "Semua orang bisa membaca",
+      "write": "Semua orang bisa mengubah"
+    },
+    "mode": {
+      "read": "Bisa membaca",
+      "write": "Bisa mengubah"
+    },
+    "addTitle": "Tambah anggota",
+    "person": "Orang",
+    "access": "Akses",
+    "accessFor": "Akses untuk {{name}}",
+    "add": "Tambah",
+    "allAdded": "Semua orang sudah menjadi anggota.",
+    "usersUnavailable": "Daftar pengguna tidak dapat dimuat. Anda tetap bisa menambahkan Semua orang.",
+    "membersTitle": "Anggota",
+    "noMembers": "Belum ada yang bisa memakai folder ini. Tambahkan seseorang atau Semua orang.",
+    "removeMember": "Hapus {{name}}",
+    "paneNote": "Perubahan langsung berlaku. Chat yang terbuka melihatnya saat dibuka lagi.",
+    "created": "“{{name}}” dibuat. Tambahkan orang yang boleh memakainya.",
+    "removed": "“{{name}}” dihapus. Halamannya meminta izin lagi sebelum berjalan.",
+    "restored": "“{{name}}” kembali, bersama anggotanya.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} tidak bisa lagi memakai “{{folder}}”.",
+    "failed": "Tidak berhasil: {{message}}",
+    "loadFailed": "Folder bersama tidak dapat dimuat.",
+    "emptyAdminTitle": "Belum ada folder bersama",
+    "emptyAdminBody": "Folder bersama menyimpan file dan halaman yang bisa dibaca atau diubah orang lain. Buat satu, lalu tambahkan anggota.",
+    "factMembers": "Beri seseorang atau semua orang akses baca atau ubah",
+    "factChats": "Chat anggota melihat file folder itu",
+    "factUndo": "Menghapus folder bisa dibatalkan",
+    "emptyUserTitle": "Belum ada yang dibagikan kepada Anda",
+    "emptyUserBody": "Saat administrator membagikan folder kepada Anda, folder itu muncul di sini dan halamannya di Halaman."
   }
 }

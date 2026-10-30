@@ -17,7 +17,8 @@
     "label": "Views",
     "files": "Files",
     "trash": "Trash",
-    "history": "History"
+    "history": "History",
+    "shared": "Shared"
   },
   "trash": {
     "empty": "The Trash is empty.",
@@ -342,5 +343,63 @@
       "learn": "Learn what you can change:",
       "dismissedNone": "Nothing yet. When you answer an offer, the assistant remembers it here."
     }
+  },
+  "shared": {
+    "adminTitle": "Shared folders",
+    "adminLede": "Folders that several people use. Members open their pages, and their chats can read or edit the files.",
+    "userTitle": "Shared with you",
+    "userLede": "Folders an administrator shared with you. Their pages are in Pages, and your chats can use the files.",
+    "new": "New shared folder",
+    "nameLabel": "Folder name",
+    "nameHint": "Up to 64 letters, digits, spaces, dots, dashes or underscores. Start with a letter or a digit.",
+    "create": "Create",
+    "cancel": "Cancel",
+    "rename": "Rename",
+    "renameSave": "Save",
+    "remove": "Remove",
+    "manage": "Members",
+    "menu": "More actions for {{name}}",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "pagesNone": "No pages",
+    "people_one": "{{count}} person",
+    "people_other": "{{count}} people",
+    "membersNone": "No members",
+    "everyone": "Everyone",
+    "everyoneOption": "Everyone (all users)",
+    "everyoneHint": "All users, also the ones who join later",
+    "everyoneCan": {
+      "read": "Everyone can read",
+      "write": "Everyone can edit"
+    },
+    "mode": {
+      "read": "Can read",
+      "write": "Can edit"
+    },
+    "addTitle": "Add a member",
+    "person": "Person",
+    "access": "Access",
+    "accessFor": "Access for {{name}}",
+    "add": "Add",
+    "allAdded": "Everyone is already a member.",
+    "usersUnavailable": "The user list could not be loaded. You can still add Everyone.",
+    "membersTitle": "Members",
+    "noMembers": "Nobody can use this folder yet. Add a person or Everyone.",
+    "removeMember": "Remove {{name}}",
+    "paneNote": "A change applies at once. A chat that is open sees it the next time it opens.",
+    "created": "Created “{{name}}”. Add the people who can use it.",
+    "removed": "Removed “{{name}}”. Its pages ask again before they run.",
+    "restored": "“{{name}}” is back, with its members.",
+    "memberAdded": "Added {{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} can no longer use “{{folder}}”.",
+    "failed": "Not done: {{message}}",
+    "loadFailed": "Could not load the shared folders.",
+    "emptyAdminTitle": "No shared folders yet",
+    "emptyAdminBody": "A shared folder holds files and pages that other people can read or edit. Create one, then add members.",
+    "factMembers": "Give a person or everyone read or edit access",
+    "factChats": "Members' chats see the folder's files",
+    "factUndo": "Removing a folder can be undone",
+    "emptyUserTitle": "Nothing is shared with you yet",
+    "emptyUserBody": "When an administrator shares a folder with you, it shows here and its pages show in Pages."
   }
 }

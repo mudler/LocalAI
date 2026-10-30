@@ -303,5 +303,66 @@
       "learn": "Scopri cosa puoi cambiare:",
       "dismissedNone": "Ancora niente. Quando rispondi a una proposta, l'assistente la ricorda qui."
     }
+  },
+  "tabs": {
+    "shared": "Condivisi"
+  },
+  "shared": {
+    "adminTitle": "Cartelle condivise",
+    "adminLede": "Cartelle usate da più persone. I membri aprono le loro pagine e le loro chat possono leggere o modificare i file.",
+    "userTitle": "Condivisi con te",
+    "userLede": "Le cartelle che un amministratore ha condiviso con te. Le loro pagine sono in Pagine e le tue chat possono usare i file.",
+    "new": "Nuova cartella condivisa",
+    "nameLabel": "Nome della cartella",
+    "nameHint": "Fino a 64 lettere, cifre, spazi, punti, trattini o trattini bassi. Inizia con una lettera o una cifra.",
+    "create": "Crea",
+    "cancel": "Annulla",
+    "rename": "Rinomina",
+    "renameSave": "Salva",
+    "remove": "Rimuovi",
+    "manage": "Membri",
+    "menu": "Altre azioni per {{name}}",
+    "pages_one": "{{count}} pagina",
+    "pages_other": "{{count}} pagine",
+    "pagesNone": "Nessuna pagina",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} persone",
+    "membersNone": "Nessun membro",
+    "everyone": "Tutti",
+    "everyoneOption": "Tutti (tutti gli utenti)",
+    "everyoneHint": "Tutti gli utenti, anche quelli che arriveranno dopo",
+    "everyoneCan": {
+      "read": "Tutti possono leggere",
+      "write": "Tutti possono modificare"
+    },
+    "mode": {
+      "read": "Può leggere",
+      "write": "Può modificare"
+    },
+    "addTitle": "Aggiungi un membro",
+    "person": "Persona",
+    "access": "Accesso",
+    "accessFor": "Accesso di {{name}}",
+    "add": "Aggiungi",
+    "allAdded": "Sono già tutti membri.",
+    "usersUnavailable": "Non è stato possibile caricare l’elenco degli utenti. Puoi comunque aggiungere Tutti.",
+    "membersTitle": "Membri",
+    "noMembers": "Nessuno può ancora usare questa cartella. Aggiungi una persona o Tutti.",
+    "removeMember": "Rimuovi {{name}}",
+    "paneNote": "La modifica vale subito. Una chat aperta la vede la prossima volta che si apre.",
+    "created": "Creata «{{name}}». Aggiungi le persone che possono usarla.",
+    "removed": "Rimossa «{{name}}». Le sue pagine chiedono di nuovo il consenso prima di avviarsi.",
+    "restored": "«{{name}}» è tornata, con i suoi membri.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} non può più usare «{{folder}}».",
+    "failed": "Non riuscito: {{message}}",
+    "loadFailed": "Impossibile caricare le cartelle condivise.",
+    "emptyAdminTitle": "Ancora nessuna cartella condivisa",
+    "emptyAdminBody": "Una cartella condivisa contiene file e pagine che altre persone possono leggere o modificare. Creane una, poi aggiungi i membri.",
+    "factMembers": "Dai a una persona o a tutti l’accesso in lettura o modifica",
+    "factChats": "Le chat dei membri vedono i file della cartella",
+    "factUndo": "La rimozione di una cartella si può annullare",
+    "emptyUserTitle": "Ancora nulla è condiviso con te",
+    "emptyUserBody": "Quando un amministratore condivide una cartella con te, compare qui e le sue pagine in Pagine."
   }
 }

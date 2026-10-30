@@ -303,5 +303,66 @@
       "learn": "了解你可以更改什么：",
       "dismissedNone": "暂无。你回应提议后，助手会记在这里。"
     }
+  },
+  "tabs": {
+    "shared": "共享"
+  },
+  "shared": {
+    "adminTitle": "共享文件夹",
+    "adminLede": "多人共用的文件夹。成员可以打开其中的页面，他们的聊天可以读取或编辑这些文件。",
+    "userTitle": "与你共享",
+    "userLede": "管理员与你共享的文件夹。其页面在“页面”中，你的聊天可以使用这些文件。",
+    "new": "新建共享文件夹",
+    "nameLabel": "文件夹名称",
+    "nameHint": "最多 64 个字母、数字、空格、点、短横线或下划线，须以字母或数字开头。",
+    "create": "创建",
+    "cancel": "取消",
+    "rename": "重命名",
+    "renameSave": "保存",
+    "remove": "移除",
+    "manage": "成员",
+    "menu": "{{name}} 的更多操作",
+    "pages_one": "{{count}} 个页面",
+    "pages_other": "{{count}} 个页面",
+    "pagesNone": "没有页面",
+    "people_one": "{{count}} 人",
+    "people_other": "{{count}} 人",
+    "membersNone": "没有成员",
+    "everyone": "所有人",
+    "everyoneOption": "所有人（全部用户）",
+    "everyoneHint": "全部用户，包括以后加入的用户",
+    "everyoneCan": {
+      "read": "所有人可读",
+      "write": "所有人可编辑"
+    },
+    "mode": {
+      "read": "可读",
+      "write": "可编辑"
+    },
+    "addTitle": "添加成员",
+    "person": "用户",
+    "access": "权限",
+    "accessFor": "{{name}} 的权限",
+    "add": "添加",
+    "allAdded": "所有人都已是成员。",
+    "usersUnavailable": "无法加载用户列表。你仍可以添加“所有人”。",
+    "membersTitle": "成员",
+    "noMembers": "还没有人可以使用此文件夹。请添加用户或“所有人”。",
+    "removeMember": "移除 {{name}}",
+    "paneNote": "更改立即生效。已打开的聊天会在下次打开时看到。",
+    "created": "已创建“{{name}}”。请添加可以使用它的人。",
+    "removed": "已移除“{{name}}”。其页面在运行前会再次请求许可。",
+    "restored": "“{{name}}”已恢复，成员保持不变。",
+    "memberAdded": "{{name}}：{{mode}}。",
+    "memberRemoved": "{{name}} 已无法使用“{{folder}}”。",
+    "failed": "未完成：{{message}}",
+    "loadFailed": "无法加载共享文件夹。",
+    "emptyAdminTitle": "还没有共享文件夹",
+    "emptyAdminBody": "共享文件夹存放其他人可以读取或编辑的文件和页面。先创建一个，再添加成员。",
+    "factMembers": "给某个人或所有人读取或编辑权限",
+    "factChats": "成员的聊天可以看到文件夹中的文件",
+    "factUndo": "移除文件夹可以撤销",
+    "emptyUserTitle": "还没有与你共享的内容",
+    "emptyUserBody": "管理员与你共享文件夹后，它会显示在这里，其页面会显示在“页面”中。"
   }
 }
