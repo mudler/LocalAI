@@ -756,6 +756,18 @@ button.cx-step__head:hover,
   width: min(680px, calc(100vw - 24px));
   max-height: min(640px, calc(100dvh - 120px));
 }
+/* ChatsList inside a frame: the dialog above, or the All chats page. */
+.cx-menu__body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.cx-menu--inline {
+  position: static;
+  z-index: auto;
+  transform: none;
+  width: auto;
+  max-height: none;
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  animation: none;
+}
+.cx-menu--inline .cx-menu__list { overflow: visible; }
 .cx-menu__search { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 10px 0 16px; box-shadow: inset 0 -1px 0 var(--dk-edge); flex: none; }
 .cx-menu__search > .lai-icon { color: var(--dk-muted); font-size: 18px; }
 .cx-menu__search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: var(--dk-text); font: inherit; font-size: 16px; }
