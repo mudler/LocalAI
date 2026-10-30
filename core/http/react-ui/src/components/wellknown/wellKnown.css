@@ -2,7 +2,7 @@
    the shortcuts row of the chat and the Home widgets. */
 
 .wk-src { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
-.wk-src code { font-family: var(--font-mono); font-size: var(--text-xs); padding: 1px 6px; border-radius: 6px; background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
+.wk-src code { font-family: var(--font-mono); font-size: var(--text-xs); padding: 1px 6px; border-radius: var(--radius-sm); background: var(--color-bg-tertiary); color: var(--color-text-secondary); }
 .wk-src .lai-icon { width: 14px; height: 14px; flex-shrink: 0; }
 .wk-linkbtn { background: none; border: 0; padding: 0; font: inherit; font-size: var(--text-xs); color: var(--dk-accent-text); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .wk-linkbtn:hover:not(:disabled) { text-decoration: underline; }
@@ -88,8 +88,8 @@
 .wk-wlist .wk-m { color: var(--color-text-muted); font-size: var(--text-xs); white-space: nowrap; }
 .wk-wlist .lai-icon { width: 15px; height: 15px; color: var(--color-text-muted); flex-shrink: 0; }
 .wk-wlist button { all: unset; display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; cursor: pointer; }
-.wk-wlist button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; border-radius: 4px; }
-.wk-box { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--color-border-strong); flex-shrink: 0; display: grid; place-items: center; }
+.wk-wlist button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.wk-box { width: 16px; height: 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--color-border-strong); flex-shrink: 0; display: grid; place-items: center; }
 .wk-box--done { background: var(--color-accent-light); border-color: var(--color-accent-border); }
 .wk-box--done .lai-icon { width: 12px; height: 12px; color: var(--dk-accent-text); }
 .wk-wlist li.is-done .wk-t { color: var(--color-text-muted); text-decoration: line-through; }
