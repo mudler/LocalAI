@@ -48,6 +48,7 @@
         "new_off": { "type": "boolean", "description": "true: no \"New\" label in the sidebar." },
         "since": { "type": "string", "maxLength": 40, "description": "When LocalAI first saw you, for the quiet start." },
         "last_offer": { "type": "string", "maxLength": 40, "description": "When the server last allowed an offer." },
+        "offer_turn": { "type": "string", "maxLength": 160, "description": "The chat and turn of the last offer allowed." },
         "offer_chats": {
           "type": "array",
           "description": "The last chats where an offer was allowed.",
