@@ -99,6 +99,11 @@ An add-on tool can replace a built-in chat tool by name.
   install: "This add-on replaces the built-in <tool>. Another add-on
   (<name>) already does. Only one can be active; you choose which in
   Settings > Tools." The install is allowed.
+- **Shared code.** The add-on's host backend, its runner and `bash` moved to
+  `core/services/studio/sandbox` (`host`, `runner`), with the conformance
+  suite (`sbtest`). The add-on's `internal/sandbox` keeps its name as type
+  aliases. The guard that keeps add-ons off the core allows these packages,
+  and checks that they use only the workspace packages of the core.
 - **Assembly** (`core/services/studio/shadow.go`). The broker lists the tool
   under its add-on name with `Shadows` set. The chat turns it into a tool of
   the built-in's name, with `Provider` set to the add-on's ID. A built-in
@@ -143,10 +148,17 @@ type Chat struct {
 }
 
 func NewRegistry() *Registry
-func (r *Registry) Register(t Tool) error // refuses an ID off the list or twice
+func (r *Registry) Register(t Tool) error // refuses an ID off the list, no Build, or twice
 func (r *Registry) Tools() []Tool          // in ID order
 func (r *Registry) Lookup(id string) (Tool, bool)
+func (r *Registry) Build(ctx context.Context, c Chat) []Built // what the chats call each turn
 ```
+
+The chats' registry is `(*studio.Service).Builtins()`, and from the
+application `(*application.Application).StudioBuiltins()`. A tool that
+registers needs a boolean runtime setting (its `Setting`) with a field of
+group `tools` in `settingsSchema.js`, so the Settings > Tools switch saves it
+with the other drafts.
 
 The studio service takes the registry in `Deps.Builtins` and pins in
 `Deps.ToolPins` (the runtime setting `chats_tool_providers`, a map from tool
@@ -266,6 +278,12 @@ The consent decision rides the chat bus to the frontend that runs the turn.
   assistant tool `list_host_exec_events`.
 - Runtime setting `chats_host_exec`.
 
+### Tests and fixtures
+
+The UI test server sets `chats_host_exec` off: its mock model calls the first
+tool it is offered (`bash`), and in `ask` mode every turn would wait for a
+card. The host-commands UI specs stub the API.
+
 ### Hook for the first-start wizard
 
 The wizard step "Run code safely: install the Sandbox" is a later task. Its
@@ -278,3 +296,7 @@ link target is the one the notice uses, `SANDBOX_INSTALL_LINK`
 - Mount the shared folders in the Sandbox add-on too (it mounts the home only;
   the host operations take one mount today).
 - A per-chat switch for host commands.
+- An install time on the installed add-ons, so that with no pin the oldest
+  install serves a shadowed tool (today: the first by add-on ID).
+- Keep the consent card across a reload (today it lives in the running
+  frontend's memory).
