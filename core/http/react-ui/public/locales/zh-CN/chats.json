@@ -23,5 +23,25 @@
       "stopWidget": "在小组件中暂停，或在触发器中删除",
       "stop": "在触发器中关闭或删除"
     }
+  },
+  "mcpPage": {
+    "new": "添加 MCP 服务器",
+    "supporting": "为你的聊天提供可调用工具的服务器。聊天使用已开启的服务器；已保存的智能体只使用你为它选择的服务器。",
+    "emptyTitle": "还没有 MCP 服务器",
+    "emptyBody": "添加一个本机可通过 http 或 https 访问的服务器地址。如果需要密钥，请以令牌或请求头的形式添加。",
+    "factToken": "令牌或自定义请求头",
+    "factOAuth": "OAuth 登录（暂不支持）",
+    "learn": "了解 MCP 的工作方式",
+    "rules": "服务器必须能从本机通过 http 或 https 访问。暂不支持 OAuth 登录：请使用令牌或请求头。",
+    "loadFailed": "无法加载你的 MCP 服务器。",
+    "related": "相关",
+    "chats": "聊天",
+    "saved": "已保存“{{name}}”。",
+    "deleted": "已删除“{{name}}”。"
+  },
+  "connectorsPage": {
+    "loadFailed": "无法加载你的连接器。",
+    "waitingTitle": "等待对应的插件",
+    "waitingText": "这些绑定会被保留，但要等对应插件安装并开启后才会运行。"
   }
 }

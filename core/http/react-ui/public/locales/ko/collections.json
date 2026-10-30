@@ -4,13 +4,13 @@
   "newPlaceholder": "새 컬렉션 이름...",
   "actions": {
     "create": "만들기",
-    "creating": "생성 중...",
     "details": "세부 정보",
     "reset": "초기화",
     "delete": "삭제",
     "viewDetails": "세부 정보 보기",
     "resetCollection": "컬렉션 초기화",
-    "deleteCollection": "컬렉션 삭제"
+    "deleteCollection": "컬렉션 삭제",
+    "cancel": "취소"
   },
   "sections": {
     "yourCollections": "내 컬렉션",
@@ -19,7 +19,8 @@
   "empty": {
     "title": "아직 컬렉션이 없습니다",
     "text": "컬렉션을 사용하면 문서를 지식 베이스로 정리하여 에이전트가 RAG(검색 증강 생성)로 검색할 수 있습니다. 위에서 컬렉션을 만들어 시작하세요.",
-    "noPersonal": "아직 컬렉션이 없습니다."
+    "noPersonal": "아직 컬렉션이 없습니다.",
+    "learn": "메모리 작동 방식"
   },
   "deleteDialog": {
     "title": "컬렉션 삭제",
@@ -32,12 +33,22 @@
     "confirm": "초기화"
   },
   "toasts": {
-    "loadFailed": "컬렉션을 불러오지 못했습니다: {{message}}",
     "created": "컬렉션 \"{{name}}\"이(가) 생성되었습니다",
     "createFailed": "컬렉션 생성 실패: {{message}}",
     "deleted": "컬렉션 \"{{name}}\"이(가) 삭제되었습니다",
     "deleteFailed": "컬렉션 삭제 실패: {{message}}",
     "reset": "컬렉션 \"{{name}}\"이(가) 초기화되었습니다",
     "resetFailed": "컬렉션 초기화 실패: {{message}}"
+  },
+  "loadFailed": "컬렉션을 불러올 수 없습니다.",
+  "sources": {
+    "loadFailed": "웹 소스를 불러올 수 없습니다."
+  },
+  "entries": {
+    "loadFailed": "파일을 불러올 수 없습니다."
+  },
+  "starting": {
+    "title": "메모리를 시작하는 중입니다.",
+    "text": "서버가 아직 메모리 서비스를 준비하고 있습니다. 이 페이지가 자동으로 다시 확인합니다."
   }
 }

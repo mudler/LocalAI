@@ -23,5 +23,25 @@
       "stopWidget": "Mettez-le en pause depuis le widget, ou supprimez-le dans Déclencheurs",
       "stop": "Désactivez-le ou supprimez-le dans Déclencheurs"
     }
+  },
+  "mcpPage": {
+    "new": "Ajouter un serveur MCP",
+    "supporting": "Des serveurs qui donnent des outils à vos chats. Les chats utilisent ceux qui sont activés ; un agent enregistré n'utilise que ceux que vous choisissez pour lui.",
+    "emptyTitle": "Aucun serveur MCP pour le moment",
+    "emptyBody": "Ajoutez l'adresse d'un serveur que cette machine peut joindre en http ou https. S'il demande une clé, ajoutez-la comme jeton ou comme en-tête.",
+    "factToken": "Jeton ou en-tête personnalisé",
+    "factOAuth": "Connexion OAuth (pas encore)",
+    "learn": "Fonctionnement de MCP",
+    "rules": "Le serveur doit être joignable depuis cette machine en http ou https. La connexion OAuth n'est pas encore prise en charge : utilisez un jeton ou un en-tête.",
+    "loadFailed": "Impossible de charger vos serveurs MCP.",
+    "related": "Voir aussi",
+    "chats": "Chats",
+    "saved": "« {{name}} » enregistré.",
+    "deleted": "« {{name}} » supprimé."
+  },
+  "connectorsPage": {
+    "loadFailed": "Impossible de charger vos connecteurs.",
+    "waitingTitle": "En attente de leur module",
+    "waitingText": "Ces liaisons sont conservées, mais elles ne fonctionnent qu'une fois leur module installé et activé."
   }
 }

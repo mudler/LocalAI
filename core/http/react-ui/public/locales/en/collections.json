@@ -4,14 +4,14 @@
   "newPlaceholder": "New collection name...",
   "actions": {
     "create": "Create",
-    "creating": "Creating...",
     "details": "Details",
     "reset": "Reset",
     "delete": "Delete",
     "viewDetails": "View details",
     "resetCollection": "Remove every entry, keep the collection",
     "deleteCollection": "Delete collection",
-    "newCollection": "New collection"
+    "newCollection": "New collection",
+    "cancel": "Cancel"
   },
   "sections": {
     "yourCollections": "Your collections",
@@ -23,7 +23,8 @@
     "stepCreate": "Create a collection.",
     "stepFill": "Add files or a web page to it.",
     "stepAsk": "Ask it a question to see what comes back, then give it to an agent.",
-    "noPersonal": "You have no collections yet."
+    "noPersonal": "You have no collections yet.",
+    "learn": "How memory works"
   },
   "deleteDialog": {
     "title": "Delete Collection",
@@ -36,15 +37,12 @@
     "confirm": "Remove entries"
   },
   "toasts": {
-    "loadFailed": "Failed to load collections: {{message}}",
     "created": "Collection \"{{name}}\" created",
     "createFailed": "Failed to create collection: {{message}}",
     "deleted": "Collection \"{{name}}\" deleted",
     "deleteFailed": "Failed to delete collection: {{message}}",
     "reset": "Collection \"{{name}}\" reset",
     "resetFailed": "Failed to reset collection: {{message}}",
-    "entriesFailed": "Failed to load entries: {{message}}",
-    "sourcesFailed": "Failed to load sources: {{message}}",
     "uploaded": "{{file}} added",
     "sourceAdded": "Source added",
     "sourceFailed": "Failed to add source: {{message}}",
@@ -80,15 +78,13 @@
     "url": "A web page or feed",
     "interval": "Refresh every",
     "intervalPlaceholder": "minutes",
-    "addUrl": "Add URL",
-    "adding": "Adding..."
+    "addUrl": "Add URL"
   },
   "ask": {
     "title": "Try a question",
     "label": "Ask this collection a question",
     "placeholder": "Ask a question",
     "search": "Search",
-    "searching": "Searching...",
     "alone": "Runs on this collection alone. No chat, model or agent is involved.",
     "tune": "Tune the search",
     "max": "Passages to return",
@@ -103,12 +99,12 @@
     "updated": "last updated {{when}}",
     "never": "not fetched yet",
     "remove": "Remove {{url}}",
-    "removeTitle": "Remove source"
+    "removeTitle": "Remove source",
+    "loadFailed": "Could not load the web sources."
   },
   "entries": {
     "title": "Files",
     "none": "No files yet. Add a file or a web page to fill this collection.",
-    "failed": "Part of this collection could not be read.",
     "indexing": "Indexing...",
     "uploadFailed": "Upload failed",
     "retry": "Retry",
@@ -121,7 +117,8 @@
     "close": "Close",
     "empty": "(empty)",
     "noContent": "No content available.",
-    "adding": "Adding files"
+    "adding": "Adding files",
+    "loadFailed": "Could not load the files."
   },
   "removeSource": {
     "title": "Remove Source",
@@ -138,5 +135,9 @@
     "index": "Files are split into passages and indexed when they are added. A question is matched to passages by similarity, and each passage comes back with a score.",
     "privacy": "Files you upload stay on this server. A web source is fetched from the address you give, on the interval you set."
   },
-  "loading": "Loading..."
+  "loadFailed": "Could not load your collections.",
+  "starting": {
+    "title": "Memory is starting.",
+    "text": "The server is still getting the memory service ready. This page asks again by itself."
+  }
 }

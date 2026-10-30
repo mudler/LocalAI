@@ -4,13 +4,13 @@
   "newPlaceholder": "Nome da nova coleção...",
   "actions": {
     "create": "Criar",
-    "creating": "Criando...",
     "details": "Detalhes",
     "reset": "Redefinir",
     "delete": "Excluir",
     "viewDetails": "Ver detalhes",
     "resetCollection": "Redefinir coleção",
-    "deleteCollection": "Excluir coleção"
+    "deleteCollection": "Excluir coleção",
+    "cancel": "Cancelar"
   },
   "sections": {
     "yourCollections": "Suas Coleções",
@@ -19,7 +19,8 @@
   "empty": {
     "title": "Nenhuma coleção ainda",
     "text": "As coleções permitem organizar documentos em bases de conhecimento que os agentes podem pesquisar usando RAG (Retrieval-Augmented Generation). Crie uma coleção acima para começar.",
-    "noPersonal": "Você ainda não tem coleções."
+    "noPersonal": "Você ainda não tem coleções.",
+    "learn": "Como a memória funciona"
   },
   "deleteDialog": {
     "title": "Excluir Coleção",
@@ -32,12 +33,22 @@
     "confirm": "Redefinir"
   },
   "toasts": {
-    "loadFailed": "Falha ao carregar coleções: {{message}}",
     "created": "Coleção \"{{name}}\" criada",
     "createFailed": "Falha ao criar a coleção: {{message}}",
     "deleted": "Coleção \"{{name}}\" excluída",
     "deleteFailed": "Falha ao excluir a coleção: {{message}}",
     "reset": "Coleção \"{{name}}\" redefinida",
     "resetFailed": "Falha ao redefinir a coleção: {{message}}"
+  },
+  "loadFailed": "Não foi possível carregar suas coleções.",
+  "sources": {
+    "loadFailed": "Não foi possível carregar as fontes web."
+  },
+  "entries": {
+    "loadFailed": "Não foi possível carregar os arquivos."
+  },
+  "starting": {
+    "title": "A memória está iniciando.",
+    "text": "O servidor ainda está preparando o serviço de memória. Esta página tenta de novo sozinha."
   }
 }

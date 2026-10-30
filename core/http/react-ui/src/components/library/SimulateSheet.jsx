@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+// eslint-disable-next-line no-unused-vars
+import { Button, Callout } from '../ui'
 import Icon from '../Icon'
 import { agentCollectionsApi } from '../../utils/api'
 import {
@@ -142,9 +144,7 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
             <h2 className="dk-sheet-title" id="simulate-title">{t('simulate.title')}</h2>
             <p className="dk-sheet-desc">{t('simulate.desc')}</p>
           </div>
-          <button ref={closeRef} type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('simulate.close')} onClick={onClose}>
-            <Icon name="close" />
-          </button>
+          <Button ref={closeRef} variant="ghost" size="sm" icon="close" aria-label={t('simulate.close')} onClick={onClose} />
         </div>
 
         <div className="dk-sheet-body lib-sheet__body">
@@ -240,14 +240,14 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
           )}
 
           <div className="lib-sim-actions">
-            <button type="button" className="dk-btn dk-btn--primary" onClick={run} disabled={state.phase === 'running'} aria-busy={state.phase === 'running' || undefined} data-testid="simulate-run">
-              <Icon name={state.phase === 'running' ? 'spinner' : 'play'} spin={state.phase === 'running'} /> {state.phase === 'running' ? t('simulate.running') : t('simulate.run')}
-            </button>
+            <Button variant="primary" icon="play" busy={state.phase === 'running'} onClick={run} data-testid="simulate-run">
+              {t('simulate.run')}
+            </Button>
             <span className="lib-muted lib-sim-note">{t('simulate.backendNote')}</span>
           </div>
 
           <div aria-live="polite">
-            {state.phase === 'error' && <p className="lib-note lib-note--error" role="alert">{state.message}</p>}
+            {state.phase === 'error' && <Callout tone="error" role="alert">{state.message}</Callout>}
           </div>
 
           {state.phase === 'done' && (

@@ -23,5 +23,25 @@
       "stopWidget": "Mettilo in pausa dal widget, o eliminalo in Trigger",
       "stop": "Spegnilo o eliminalo in Trigger"
     }
+  },
+  "mcpPage": {
+    "new": "Aggiungi server MCP",
+    "supporting": "Server che danno ai tuoi chat strumenti da usare. Le chat usano quelli attivi; un agente salvato usa solo quelli che scegli per lui.",
+    "emptyTitle": "Nessun server MCP",
+    "emptyBody": "Aggiungi l'indirizzo di un server che questa macchina raggiunge via http o https. Se serve una chiave, aggiungila come token o come header.",
+    "factToken": "Token o header personalizzato",
+    "factOAuth": "Accesso OAuth (non ancora)",
+    "learn": "Come funziona MCP",
+    "rules": "Il server deve essere raggiungibile da questa macchina via http o https. L'accesso OAuth non è ancora supportato: usa un token o un header.",
+    "loadFailed": "Impossibile caricare i tuoi server MCP.",
+    "related": "Correlati",
+    "chats": "Chat",
+    "saved": "“{{name}}” salvato.",
+    "deleted": "“{{name}}” eliminato."
+  },
+  "connectorsPage": {
+    "loadFailed": "Impossibile caricare i tuoi connettori.",
+    "waitingTitle": "In attesa del loro add-on",
+    "waitingText": "Questi collegamenti restano salvati, ma non funzionano finché il loro add-on non è installato e attivo."
   }
 }

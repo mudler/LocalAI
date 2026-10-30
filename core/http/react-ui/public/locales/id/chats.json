@@ -23,5 +23,25 @@
       "stopWidget": "Jeda dari widget, atau hapus di Pemicu",
       "stop": "Matikan atau hapus di Pemicu"
     }
+  },
+  "mcpPage": {
+    "new": "Tambah server MCP",
+    "supporting": "Server yang memberi chat Anda alat untuk dipanggil. Chat memakai yang aktif; agen tersimpan hanya memakai yang Anda pilih untuknya.",
+    "emptyTitle": "Belum ada server MCP",
+    "emptyBody": "Tambahkan alamat server yang dapat dijangkau mesin ini lewat http atau https. Jika perlu kunci, tambahkan sebagai token atau header.",
+    "factToken": "Token atau header khusus",
+    "factOAuth": "Masuk dengan OAuth (belum)",
+    "learn": "Cara kerja MCP",
+    "rules": "Server harus dapat dijangkau dari mesin ini lewat http atau https. Masuk dengan OAuth belum didukung: gunakan token atau header.",
+    "loadFailed": "Server MCP Anda tidak dapat dimuat.",
+    "related": "Terkait",
+    "chats": "Chat",
+    "saved": "“{{name}}” disimpan.",
+    "deleted": "“{{name}}” dihapus."
+  },
+  "connectorsPage": {
+    "loadFailed": "Konektor Anda tidak dapat dimuat.",
+    "waitingTitle": "Menunggu add-on-nya",
+    "waitingText": "Tautan ini tetap disimpan, tetapi tidak berjalan sampai add-on-nya dipasang dan diaktifkan."
   }
 }
