@@ -45,7 +45,7 @@ threads: 11
 gpu_layers: 90
 mmap: true
 parameters:
-  # Reference any HF model or a local file here
+  # Use a Hugging Face file shorthand or a local filename here
   model: huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
   temperature: 0.2
   top_k: 40
@@ -65,6 +65,32 @@ Then, launch LocalAI using your gist's URL:
 ## Important! Substitute with your gist's URL!
 docker run -p 8080:8080 localai/localai:{{< version >}} https://gist.githubusercontent.com/xxxx/phi-2.yaml
 ```
+
+## Download a model from a direct URL
+
+For a model weight file served over HTTP(S), put its URL in `download_files`.
+Set `parameters.model` to the local filename, as in this configuration:
+
+```yaml
+name: story
+backend: llama-cpp
+parameters:
+  model: ggml-org-stories260K.gguf
+download_files:
+  - filename: ggml-org-stories260K.gguf
+    uri: https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories260K.gguf
+```
+
+Save this configuration as `story.yaml` in your models directory, then restart LocalAI.
+LocalAI downloads the file during model configuration preload if the file is missing.
+Choose a filename that does not belong to another model.
+You can add the file's complete SHA-256 checksum as `sha256` to check its contents.
+
+{{% notice note %}}
+LocalAI does not automatically download direct `http://` or `https://` URLs placed in `parameters.model`.
+For file-based backends such as `llama-cpp`, use the `download_files` configuration above or a supported shorthand such as `huggingface://`.
+The HTTP(S) URL passed to `local-ai` in the earlier examples points to a YAML configuration, not a model weight file.
+{{% /notice %}}
 
 ## Next Steps
 
