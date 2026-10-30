@@ -16,7 +16,9 @@ name: 'sandbox guest image'
 #   pull_request          build both architectures, push nothing, no secrets
 #   push to master        build and push, tag sha-<short sha>
 #   workflow_dispatch     build and push, tag sha-<short sha>
-#   workflow_call         build and push, tag sha-<short sha>
+#   workflow_call         as the event of the caller: build and push, tag
+#                         sha-<short sha>, except for a pull request and for a
+#                         push to a branch other than master, which push nothing
 #
 # The repository is quay.io/go-skynet/sandbox-guest unless the repository
 # variable SANDBOX_GUEST_REPOSITORY names another one. The repository must
@@ -45,8 +47,11 @@ on:
 permissions:
   contents: read
 
+# The group names the workflow that runs: for a workflow_call it is the
+# caller, so the run of this file and the run that add-on packages calls for
+# the same pull request do not cancel each other.
 concurrency:
-  group: sandbox-images-${{ github.event.pull_request.number || github.sha }}
+  group: sandbox-images-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -59,7 +64,9 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     env:
       REPOSITORY: ${{ vars.SANDBOX_GUEST_REPOSITORY || 'quay.io/go-skynet/sandbox-guest' }}
-      PUSH: ${{ github.event_name != 'pull_request' && github.repository == 'mudler/LocalAI' }}
+      # A caller's push to a branch other than master publishes nothing
+      # (scripts/addons/channel.sh), so it pushes no guest image either.
+      PUSH: ${{ github.repository == 'mudler/LocalAI' && github.event_name != 'pull_request' && !(github.event_name == 'push' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/master') }}
     steps:
       - uses: actions/checkout@v7
         with:
