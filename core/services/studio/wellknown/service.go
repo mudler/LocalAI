@@ -289,3 +289,38 @@ func (s *Service) Revert(ctx context.Context, principal string, n Name, rel stri
 	}
 	return s.read(ctx, principal, n, abs, home)
 }
+
+// LinkWidget sets the trigger of the Home widget widgetID in home.json, so the
+// widget can show when the trigger runs and offer Pause. It changes nothing
+// and returns false when home.json is missing or invalid or has no such
+// widget. The other keys of the file and of the widget stay as they are.
+func (s *Service) LinkWidget(ctx context.Context, principal, widgetID, triggerID string) (bool, error) {
+	for range 2 { // a second try when another writer won the race
+		doc, err := s.Read(ctx, principal, Home, "")
+		if err != nil || !doc.Exists || !doc.Valid {
+			return false, err
+		}
+		list, _ := doc.Data["widgets"].([]any)
+		found := false
+		for _, w := range list {
+			if m, ok := w.(map[string]any); ok && m["id"] == widgetID {
+				if m["trigger"] == triggerID {
+					return true, nil
+				}
+				m["trigger"], found = triggerID, true
+				break
+			}
+		}
+		if !found {
+			return false, nil
+		}
+		v := doc.Version
+		_, err = s.Write(ctx, principal, WriteRequest{Name: Home, Values: map[string]any{"widgets": list}, Base: &v})
+		var conflict *ConflictError
+		if errors.As(err, &conflict) {
+			continue
+		}
+		return err == nil, err
+	}
+	return false, nil
+}

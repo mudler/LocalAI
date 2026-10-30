@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -365,7 +366,20 @@ func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (tr
 		return triggers.Trigger{}, err
 	}
 	h.Notify()
+	h.linkWidget(ctx, t)
 	return t, nil
+}
+
+// linkWidget names the confirmed trigger in the Home widget its plan names, so
+// the widget shows when it runs. A missing widget or file is not an error: the
+// widget can be added later and still finds its trigger by the plan.
+func (h *Triggers) linkWidget(ctx context.Context, t triggers.Trigger) {
+	if t.Widget == "" || !h.svc.d.Files.Available() {
+		return
+	}
+	if _, err := wellknown.New(h.svc.d.Files).LinkWidget(ctx, t.Owner, t.Widget, t.ID); err != nil {
+		h.log.Warn("studio: could not link a Home widget to its trigger", "trigger", t.ID, "error", err)
+	}
 }
 
 // EditProposal replaces the fields of a proposal that waits for an answer. It

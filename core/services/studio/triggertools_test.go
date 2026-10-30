@@ -2,6 +2,8 @@ package studio_test
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -246,5 +248,39 @@ var _ = Describe("triggertools: cadence and plan", func() {
 		Expect(res).To(HaveLen(1))
 		Expect(res[0].Err).NotTo(BeNil(), "result = %+v", res)
 		Expect(res[0].Err.Error()).To(ContainSubstring("writes is not a path in your files"))
+	})
+})
+
+var _ = Describe("triggertools: the Home widget of a trigger", func() {
+	It("confirming a proposal names the trigger in its widget and keeps the other keys", func() {
+		r := newTrigRig(proposeScript(`{"name":"Inbox","prompt":"Rewrite data/inbox.json.","when":"daily 08:00","writes":"data/inbox.json","widget":"inbox"}`))
+		ctx := context.Background()
+		fs := r.sh.files
+		Expect(fs.EnsureHome(ctx, alice)).To(Succeed())
+		home, _ := fs.Abs(alice, "/home.json")
+		_, err := fs.Store().Put(ctx, fs.Actor(alice), home, strings.NewReader(
+			`{"widgets":[{"id":"inbox","type":"list","title":"Inbox","source":"data/inbox.json","note":"mine"},{"id":"chats","type":"chats","title":"Chats"}],"extra":1}`),
+			workspace.PutOptions{Overwrite: true})
+		Expect(err).NotTo(HaveOccurred())
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "propose")
+		idle(r.svc, alice, id)
+		props, _ := r.host.Proposals(ctx, alice)
+		Expect(props).To(HaveLen(1))
+		on, err := r.host.ConfirmProposal(ctx, alice, props[0].ID, "UTC")
+		Expect(err).NotTo(HaveOccurred())
+		rd, _, err := fs.Store().Open(ctx, fs.Actor(alice), home)
+		Expect(err).NotTo(HaveOccurred())
+		defer rd.Close()
+		var doc struct {
+			Widgets []map[string]any `json:"widgets"`
+			Extra   int              `json:"extra"`
+		}
+		Expect(json.NewDecoder(rd).Decode(&doc)).To(Succeed())
+		Expect(doc.Extra).To(Equal(1), "a key of the file was lost")
+		Expect(doc.Widgets).To(HaveLen(2))
+		Expect(doc.Widgets[0]["trigger"]).To(Equal(on.ID))
+		Expect(doc.Widgets[0]["note"]).To(Equal("mine"), "a key of the widget was lost")
+		Expect(doc.Widgets[1]).NotTo(HaveKey("trigger"))
 	})
 })
