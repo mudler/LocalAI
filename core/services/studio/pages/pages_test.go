@@ -274,9 +274,12 @@ var _ = Describe("the pages service", func() {
 	Context("starters", func() {
 		It("ships a task board and copies it into pages/ under a free name", func() {
 			list := s.Starters()
-			Expect(list).NotTo(BeEmpty())
-			Expect(list[0].ID).To(Equal("task-board"))
-			Expect(list[0].Title).NotTo(BeEmpty())
+			ids := []string{}
+			for _, st := range list {
+				Expect(st.Title).NotTo(BeEmpty())
+				ids = append(ids, st.ID)
+			}
+			Expect(ids).To(Equal([]string{"reading-list", "task-board"}))
 
 			p, err := s.CopyStarter(ctx, "alice", "task-board")
 			Expect(err).NotTo(HaveOccurred())
@@ -293,6 +296,18 @@ var _ = Describe("the pages service", func() {
 
 			_, err = s.CopyStarter(ctx, "alice", "../x")
 			Expect(err).To(MatchError(pages.ErrNotFound))
+		})
+
+		It("ships a reading list that reads and writes reading.json", func() {
+			p, err := s.CopyStarter(ctx, "alice", "reading-list")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(p.Title).To(Equal("Reading list"))
+			_, html, err := s.Source(ctx, "alice", "reading-list")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(html).To(ContainSubstring("reading.json"))
+			Expect(html).NotTo(ContainSubstring("innerHTML ="), "an item is data")
+			_, err = s.Read(ctx, "alice", "reading-list", "reading.json")
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

@@ -55,6 +55,9 @@ pages/
   this**, which opens a new chat with the page's path in the message box.
 - With no pages, **Start from a task board** copies a starter page into
   `pages/task-board/`. The copy is yours; ask the assistant to change it.
+  Two starter pages ship with LocalAI: a task board (`task-board`, data in
+  `tasks.json`) and a reading list (`reading-list`, data in `reading.json`).
+  Home offers both under **Or start from a ready page**.
 - Open a page to see it at `/app/pages/<name>`. The strip above it says that
   the page runs as you, when and by whom it was last updated, and has
   **Reload** and **Ask the assistant to change this**. When the assistant
