@@ -413,8 +413,9 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	}
 	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt}
 	// Checked again for the same reason as the schema: a manifest that names a
-	// tool outside the list never shadows it.
-	if contract.Replaceable(d.Shadows) && !d.UIOnly {
+	// tool outside the list, or a shadow of the wrong kind or schema, never
+	// shadows it.
+	if d.Shadows != "" && contract.ValidateShadow(d) == nil {
 		def.Shadows = d.Shadows
 	}
 	return def, true

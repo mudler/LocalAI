@@ -1760,8 +1760,19 @@ definition replaces one with `"shadows": "<name>"`:
 ```
 
 - **Checked at install.** The name must be on the list, a page-only tool
-  cannot shadow, and one manifest shadows a name once. The tool adapter checks
-  it again when it lists the tools.
+  cannot shadow, and one manifest shadows a name once. The tool must also look
+  like the built-in it replaces, so the model calls it the same way and the
+  user keeps the consent split of the built-in name:
+
+  | Name | Kind | Must declare (and may require only) |
+  |------|------|-------------------------------------|
+  | `bash` | `action` | `command` (string) |
+  | `web_search` | `read` | `query` (string) |
+  | `web_fetch` | `read` | `url` (string) |
+
+  Extra optional properties are allowed, and a shadowing tool names no
+  `resourceId`. The tool adapter checks all of this again when it lists the
+  tools: a tool that fails keeps its add-on name and replaces nothing.
 - **In a chat.** When the add-on is installed, running and on for the chat, the
   model sees one tool under the built-in's name, served by the add-on, and the
   built-in one is hidden. The call still goes to the add-on under its own name
