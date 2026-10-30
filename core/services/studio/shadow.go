@@ -3,6 +3,9 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"slices"
+	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -85,28 +88,66 @@ func withBuiltins(tools []session.Tool, builtins ...session.Tool) []session.Tool
 	return append(out, keep...)
 }
 
+// OrderProviders sorts the add-ons that replace one name into the order of
+// preference with no pin: the oldest install first. Ties go by ID; an add-on
+// with no install time (a record from before the host kept it) sorts after
+// every add-on that has one, by ID. installed maps an add-on ID to its install
+// time (RFC 3339). It is the one rule for tools and skills.
+func OrderProviders(ids []string, installed map[string]string) []string {
+	out := slices.Clone(ids)
+	slices.SortStableFunc(out, func(a, b string) int {
+		ta, oka := installTime(installed[a])
+		tb, okb := installTime(installed[b])
+		switch {
+		case oka && okb && !ta.Equal(tb):
+			return ta.Compare(tb)
+		case oka != okb:
+			if oka {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(a, b)
+	})
+	return out
+}
+
+// installTime parses an install time; a missing or unreadable one has none.
+func installTime(s string) (time.Time, bool) {
+	t, err := time.Parse(time.RFC3339, s)
+	return t, err == nil
+}
+
+// ChooseProvider returns the add-on that serves a name: the pinned one when it
+// is among ids, else the first of OrderProviders. It is "" when ids is empty.
+func ChooseProvider(ids []string, installed map[string]string, pin string) string {
+	if slices.Contains(ids, pin) {
+		return pin
+	}
+	if ordered := OrderProviders(ids, installed); len(ordered) > 0 {
+		return ordered[0]
+	}
+	return ""
+}
+
 // resolveShadows keeps one add-on tool per shadowed name: the add-on that pins
 // names, or with no pin (or a pin to an add-on the chat does not have) the
-// first by add-on ID. The add-ons that replace one tool are mutually
-// exclusive; the host keeps no install time to prefer the oldest.
-func resolveShadows(tools []session.Tool, pins map[string]string) []session.Tool {
-	active := map[string]string{}
+// default one (ChooseProvider: the oldest install). The add-ons that replace
+// one tool are mutually exclusive.
+func resolveShadows(tools []session.Tool, pins, installed map[string]string) []session.Tool {
+	byName := map[string][]string{}
 	for _, t := range tools {
-		if t.Provider == "" || t.Provider == BuiltinProvider {
+		if t.Provider == "" || t.Provider == BuiltinProvider || slices.Contains(byName[t.Name], t.Provider) {
 			continue
 		}
-		cur, seen := active[t.Name]
-		switch {
-		case pins[t.Name] == t.Provider:
-			active[t.Name] = t.Provider
-		case !seen:
-			active[t.Name] = t.Provider
-		case pins[t.Name] != cur && t.Provider < cur:
-			active[t.Name] = t.Provider
-		}
+		byName[t.Name] = append(byName[t.Name], t.Provider)
 	}
-	if len(active) == 0 {
+	if len(byName) == 0 {
 		return tools
+	}
+	active := make(map[string]string, len(byName))
+	for name, ids := range byName {
+		active[name] = ChooseProvider(ids, installed, pins[name])
 	}
 	out := tools[:0:0]
 	for _, t := range tools {

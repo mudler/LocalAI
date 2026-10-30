@@ -109,7 +109,9 @@
     "byNone": "Désactivé",
     "unavailable": "Ce serveur ne peut pas l'exécuter : {{reason}}.",
     "installSandbox": "Installez le Sandbox pour exécuter les commandes isolées",
-    "replaceExplain": "Ces modules remplacent {{tool}} : celui choisi le fournit dans chaque chat où il est activé et en marche, et l'outil intégré est masqué. Un seul peut être actif.",
+    "replaceExplain": "Ces modules remplacent {{tool}} : celui choisi le fournit dans chaque chat où il est activé et en marche, et l'outil intégré est masqué. Un seul peut être actif. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit.",
+    "defaultInstalledFirst": "Par défaut : installé en premier",
+    "installedOn": "Installé {{when}}",
     "choose_one": "{{count}} module remplace {{tool}} : choisissez lequel utiliser.",
     "choose_other": "{{count}} modules remplacent {{tool}} : choisissez lequel utiliser.",
     "labels": {

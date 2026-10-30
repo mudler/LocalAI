@@ -423,7 +423,7 @@ const details = (id, over = {}, installedOver = {}) => ({
 test.describe('Add-ons: installed', () => {
   test('installed: health is separate from enabled and the details show trust, compatibility and storage', async ({ page }) => {
     await signIn(page, ADMIN)
-    await mockAddons(page, details('notes', { state: 'failed' }, { state: 'failed', restarts: 3, verification: 'sha256+sigstore', title: 'Notes' }))
+    await mockAddons(page, details('notes', { state: 'failed' }, { state: 'failed', restarts: 3, verification: 'sha256+sigstore', title: 'Notes', installedAt: '2026-10-01T10:00:00Z' }))
     await page.goto('/app/addons?manage=notes')
     const pane = page.getByTestId('addon-detail')
     await expect(pane.getByRole('heading', { name: 'Notes' })).toBeVisible()
@@ -438,6 +438,7 @@ test.describe('Add-ons: installed', () => {
     await expect(sheet.getByTestId('manage-updates').getByText('sha256:0123456789ab')).toBeVisible()
     await expect(sheet.locator('dt', { hasText: 'Host API' }).locator('xpath=following-sibling::dd[1]')).toHaveText('1-2')
     await expect(sheet.getByText('12 KiB')).toBeVisible()
+    await expect(sheet.getByTestId('manage-installed-at')).toContainText('2026')
     await expect(sheet.getByTestId('update-state')).toHaveAttribute('data-state', 'unknown')
     await expect(sheet.getByText('not collected in this release')).toBeVisible()
     await shoot(page, 'manage')

@@ -115,7 +115,9 @@
     "byNone": "Off",
     "unavailable": "This server cannot run it: {{reason}}.",
     "installSandbox": "Install the Sandbox to run commands isolated",
-    "replaceExplain": "These add-ons replace {{tool}}: the one chosen serves it in every chat where it is on and running, and the built-in is hidden. Only one can be active.",
+    "replaceExplain": "These add-ons replace {{tool}}: the one chosen serves it in every chat where it is on and running, and the built-in is hidden. Only one can be active. Until you choose, the one installed first serves.",
+    "defaultInstalledFirst": "Default: installed first",
+    "installedOn": "Installed {{when}}",
     "choose_one": "{{count}} add-on replaces {{tool}}: choose which one to use.",
     "choose_other": "{{count}} add-ons replace {{tool}}: choose which one to use.",
     "labels": {

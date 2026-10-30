@@ -56,6 +56,14 @@ var _ = Describe("apps list", func() {
 		Expect(Build(nil, true)).To(BeEmpty())
 		Expect(Build(nil, true)).NotTo(BeNil())
 	})
+	It("carries the install time to the list and the management view, and none for an old record", func() {
+		s := snapshot("notes", true, "running", nil, "add")
+		Expect(Build([]Snapshot{s}, false)[0].InstalledAt).To(BeEmpty())
+		Expect(BuildInstalled([]Snapshot{s})[0].InstalledAt).To(BeEmpty())
+		s.InstalledAt = "2026-10-01T10:00:00Z"
+		Expect(Build([]Snapshot{s}, false)[0].InstalledAt).To(Equal("2026-10-01T10:00:00Z"))
+		Expect(BuildInstalled([]Snapshot{s})[0].InstalledAt).To(Equal("2026-10-01T10:00:00Z"))
+	})
 	It("derives display fields, the main page and the icon URL from the verified manifest only", func() {
 		got := Build([]Snapshot{snapshot("notes", true, "running", page("home"), "add", "list")}, false)
 		Expect(got).To(HaveLen(1))

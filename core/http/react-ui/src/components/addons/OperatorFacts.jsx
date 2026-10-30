@@ -37,6 +37,9 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
           <dt>{t('manage.desired')}</dt><dd>{addon.enabled ? t('installed.enabled') : t('installed.disabled')}</dd>
           <dt>{t('manage.observed')}</dt><dd><StateChip app={addon} /></dd>
           <dt>{t('manage.restarts')}</dt><dd>{addon.restarts}</dd>
+          {addon.installedAt && formatWhen(addon.installedAt, language) && (
+            <><dt>{t('manage.installedAt')}</dt><dd data-testid="manage-installed-at"><time dateTime={addon.installedAt}>{formatWhen(addon.installedAt, language)}</time></dd></>
+          )}
         </dl>
         {addon.enabled && addon.state === 'failed' && <p className="ad-entry__note" data-tone="error" role="alert">{t('manage.failedNote', { count: addon.restarts })}</p>}
       </section>

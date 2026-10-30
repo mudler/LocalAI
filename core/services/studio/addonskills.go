@@ -33,8 +33,10 @@ import (
 type AddonSkillSet struct {
 	AddonID string
 	// Title is the add-on's title, shown as the provider of its skills.
-	Title  string
-	Skills []string
+	Title string
+	// InstalledAt is when the add-on was first installed, or empty.
+	InstalledAt string
+	Skills      []string
 	// Shadows are the built-in skills it replaces (a subset of Skills).
 	Shadows []string
 	// Running is true when the add-on can serve now: installed, enabled and
@@ -112,7 +114,7 @@ func (a addonSkills) roots() []skills.Root {
 
 // provider decides which add-on serves a replaceable name (skills.Options
 // AddonProvider): the pinned add-on when it ships the name, or none when that
-// add-on cannot serve now; with no pin, the first usable add-on by ID.
+// add-on cannot serve now; with no pin, the default one (ChooseProvider: the oldest install).
 func (a addonSkills) provider(name string) (string, bool) {
 	if !contract.ReplaceableSkill(name) {
 		return "", false
@@ -123,12 +125,30 @@ func (a addonSkills) provider(name string) (string, bool) {
 		}
 		return "", true
 	}
-	for _, set := range a.usable {
-		if shipsReplacement([]AddonSkillSet{set}, set.AddonID, name) {
-			return set.AddonID, true
-		}
+	if id := ChooseProvider(a.shippers(a.usable, name), a.installTimes(), ""); id != "" {
+		return id, true
 	}
 	return "", false
+}
+
+// shippers lists the add-ons of the sets that ship a replacement for name.
+func (a addonSkills) shippers(sets []AddonSkillSet, name string) []string {
+	var ids []string
+	for _, set := range sets {
+		if shipsReplacement([]AddonSkillSet{set}, set.AddonID, name) {
+			ids = append(ids, set.AddonID)
+		}
+	}
+	return ids
+}
+
+// installTimes maps each known add-on to its install time, for ChooseProvider.
+func (a addonSkills) installTimes() map[string]string {
+	m := make(map[string]string, len(a.known))
+	for _, set := range a.known {
+		m[set.AddonID] = set.InstalledAt
+	}
+	return m
 }
 
 // options are the add-on parts of skills.Options.
@@ -177,12 +197,7 @@ func (a addonSkills) markFallbacks(list []skills.Skill) string {
 		if pin := a.pins[sk.Name]; pin != "" && shipsReplacement(a.known, pin, sk.Name) {
 			by = pin
 		} else {
-			for _, set := range a.known {
-				if shipsReplacement([]AddonSkillSet{set}, set.AddonID, sk.Name) {
-					by = set.AddonID
-					break
-				}
-			}
+			by = ChooseProvider(a.shippers(a.known, sk.Name), a.installTimes(), "")
 		}
 		if by == "" {
 			continue

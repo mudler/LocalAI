@@ -258,6 +258,7 @@
     "hasUI": "Tiene páginas",
     "headless": "Sin interfaz, sin páginas",
     "health": "Salud",
+    "installedAt": "Instalado",
     "host": "API del host",
     "interface": "Interfaz",
     "logs": "Registros",
@@ -686,9 +687,9 @@
     "seeInList": "Verlo en Instalados",
     "install": "Instalar",
     "installNamed": "Instalar {{name}}",
-    "shadowWarning": "Este complemento reemplaza el {{tool}} integrado. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas.",
+    "shadowWarning": "Este complemento reemplaza el {{tool}} integrado. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas. Hasta que elijas, lo sirve el que se instaló primero.",
     "skillShadow": "Este complemento reemplaza la habilidad integrada {{skill}}.",
-    "skillShadowWarning": "Este complemento reemplaza la habilidad integrada {{skill}}. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas."
+    "skillShadowWarning": "Este complemento reemplaza la habilidad integrada {{skill}}. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas. Hasta que elijas, lo sirve el que se instaló primero."
   },
   "family": {
     "pages": "¿Buscas páginas que creaste tú o un agente? Están en <go>Páginas</go>."

@@ -258,6 +258,7 @@
     "hasUI": "Punya halaman",
     "headless": "Tanpa antarmuka, tanpa halaman",
     "health": "Kesehatan",
+    "installedAt": "Dipasang",
     "host": "API host",
     "interface": "Antarmuka",
     "logs": "Log",
@@ -686,9 +687,9 @@
     "seeInList": "Lihat di Terpasang",
     "install": "Pasang",
     "installNamed": "Pasang {{name}}",
-    "shadowWarning": "Add-on ini menggantikan {{tool}} bawaan. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat.",
+    "shadowWarning": "Add-on ini menggantikan {{tool}} bawaan. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
     "skillShadow": "Add-on ini menggantikan skill bawaan {{skill}}.",
-    "skillShadowWarning": "Add-on ini menggantikan skill bawaan {{skill}}. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat."
+    "skillShadowWarning": "Add-on ini menggantikan skill bawaan {{skill}}. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya."
   },
   "family": {
     "pages": "Mencari halaman yang Anda atau agen buat? Ada di <go>Halaman</go>."

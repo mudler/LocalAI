@@ -265,7 +265,9 @@
     "byNone": "关闭",
     "unavailable": "此服务器无法运行它：{{reason}}。",
     "installSandbox": "安装 Sandbox 以隔离运行命令",
-    "replaceExplain": "这些插件会替换 {{tool}}：所选插件在其开启并运行的每个聊天中提供该工具，内置工具会被隐藏。只能有一个生效。",
+    "replaceExplain": "这些插件会替换 {{tool}}：所选插件在其开启并运行的每个聊天中提供该工具，内置工具会被隐藏。只能有一个生效。 在你选择之前，由最先安装的插件提供。",
+    "defaultInstalledFirst": "默认：最先安装",
+    "installedOn": "安装于 {{when}}",
     "choose_one": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
     "choose_other": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
     "labels": {

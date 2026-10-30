@@ -265,7 +265,9 @@
     "byNone": "Spento",
     "unavailable": "Questo server non può eseguirlo: {{reason}}.",
     "installSandbox": "Installa il Sandbox per eseguire i comandi isolati",
-    "replaceExplain": "Questi componenti sostituiscono {{tool}}: quello scelto lo fornisce in ogni chat in cui è acceso e in esecuzione, e quello integrato viene nascosto. Solo uno può essere attivo.",
+    "replaceExplain": "Questi componenti sostituiscono {{tool}}: quello scelto lo fornisce in ogni chat in cui è acceso e in esecuzione, e quello integrato viene nascosto. Solo uno può essere attivo. Finché non scegli, lo fornisce quello installato per primo.",
+    "defaultInstalledFirst": "Predefinito: installato per primo",
+    "installedOn": "Installato {{when}}",
     "choose_one": "{{count}} componente sostituisce {{tool}}: scegli quale usare.",
     "choose_other": "{{count}} componenti sostituiscono {{tool}}: scegli quale usare.",
     "labels": {

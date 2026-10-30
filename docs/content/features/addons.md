@@ -884,10 +884,13 @@ tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it
   in Settings, **Tools**, in the same runtime setting as the tools
   (`chats_tool_providers`, for example `{"xlsx": "office"}`; tool and skill
-  names never overlap). With no choice, the first by add-on ID serves. A choice
+  names never overlap). With no choice, the add-on installed first serves, by
+  the same rule as for the tools (see [Install
+  time](#tools-that-replace-a-built-in-tool)). A choice
   of an add-on that is not running leaves the name to the built-in skill.
   `GET /api/chats/admin/tools` lists the replaced skills in `skills`, with who
-  serves each one.
+  serves each one, the candidates oldest install first, `default` (the one that
+  serves with no choice) and `installed_at` (the install time of each).
 - **Before install.** The library entry and the installed view list the
   skills an add-on replaces in `skillShadows`, and the install dialog names
   each one: "This add-on replaces the built-in skill xlsx." When another
@@ -1771,13 +1774,26 @@ definition replaces one with `"shadows": "<name>"`:
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it
   in Settings, **Tools** (runtime setting `chats_tool_providers`, a map from the
   tool to the add-on ID; the same map holds the choices for the built-in skills
-  an add-on replaces, see [Skills](#skills)); with no choice, the first by
-  add-on ID serves. The
+  an add-on replaces, see [Skills](#skills)); with no choice, the add-on
+  installed first serves (ties go by add-on ID, and an add-on installed before
+  the host kept the time sorts last). Settings > Tools lists the add-ons that
+  replace a name oldest install first, with the install time of each, and marks
+  the default as **Default: installed first**. The
   library entry and the installed view list the names an add-on replaces in
   `shadows`, and the install dialog warns when an installed add-on already
   replaces one: "This add-on replaces the built-in bash. Another add-on
   (Sandbox) already does. Only one can be active; you choose which in
-  Settings > Tools." The install is still allowed.
+  Settings > Tools. Until you choose, the one installed first serves." The
+  install is still allowed.
+- **Install time.** The owner records when an add-on was first installed
+  (`installedAt`, RFC 3339 in UTC) in its lifecycle journal, next to the other
+  install facts. An upgrade keeps it; removing the add-on and installing it
+  again sets a new one. `GET /api/addons/apps` and the installed view of an
+  administrator carry it, and **More details** shows it. An add-on installed
+  before the host kept the time has none. **Distributed state: shared.** The
+  time lives in the owner's journal, the one durable record of the install, and
+  the frontends read it from the owner, so every frontend picks the same
+  default. A choice in `chats_tool_providers` always wins over it.
 - **Other consumers.** The OpenAI-compatible API, MCP and agents keep the
   add-on name; only chats act on `shadows`.
 
@@ -2960,7 +2976,7 @@ first. Selecting a card, or **Details**, opens the preview pane beside the list
 process. The pane shows the name and state, the description, screenshots only when the host
 lists images for the add-on (it lists none today, so no slot is drawn), what the add-on adds
 (its page and its chat tools), **Turn on** or **Turn off**, **Remove** and the version and
-source. For an administrator it also has **More details**: health, trust, compatibility,
+source. For an administrator it also has **More details**: health (with the install time), trust, compatibility,
 storage, data recovery and updates. Administrators also see **Find add-ons**.
 A caller without the `addons` feature sees only the built-in cards (none today), and the page does not
 call `GET /api/addons/apps` for that caller.

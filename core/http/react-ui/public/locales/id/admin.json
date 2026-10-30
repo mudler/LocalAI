@@ -288,7 +288,9 @@
     "byNone": "Mati",
     "unavailable": "Server ini tidak dapat menjalankannya: {{reason}}.",
     "installSandbox": "Pasang Sandbox untuk menjalankan perintah secara terisolasi",
-    "replaceExplain": "Add-on ini menggantikan {{tool}}: yang dipilih melayaninya di setiap chat tempat ia aktif dan berjalan, dan yang bawaan disembunyikan. Hanya satu yang bisa aktif.",
+    "replaceExplain": "Add-on ini menggantikan {{tool}}: yang dipilih melayaninya di setiap chat tempat ia aktif dan berjalan, dan yang bawaan disembunyikan. Hanya satu yang bisa aktif. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
+    "defaultInstalledFirst": "Bawaan: dipasang lebih dulu",
+    "installedOn": "Dipasang {{when}}",
     "choose_one": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
     "choose_other": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
     "labels": {
