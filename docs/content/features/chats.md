@@ -472,7 +472,7 @@ A chat keeps its own switches. Turning a skill off takes it out of the index at 
 
 The **Skills** page lists them by layer and edits personal skills, and the **Skills** menu over the message box switches them per chat.
 
-The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf` and `writing-skills`. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
+The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills` and `localai-workspace`. The last one tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
 
 ## Collections
 
@@ -681,6 +681,10 @@ there keeps running when you close the tab and opens again from any browser.
   **In context**. The pane and the canvas share the right side.
 - **A trigger the model proposes** shows as a card under its tool line with
   **Create trigger**, **Edit** (name and schedule or folder) and **Dismiss**.
+- **Shortcuts** over the message box are the prompts of your
+  `shortcuts.json`, or the default starters without it. A click puts one in the
+  box; **Edit shortcuts** changes the list. See [Make LocalAI
+  yours](/features/make-localai-yours/).
 - **Find** (`Ctrl+Shift+F`), **Canvas** (code blocks in a side panel), focus
   mode, copying the chat as Markdown and the keyboard shortcuts work as
   before.
