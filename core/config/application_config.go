@@ -371,6 +371,12 @@ type ApplicationConfig struct {
 	ChatsWebAllowPrivate  bool
 	ChatsWebPorts         string
 
+	// DisableChatsSavedAgents switches off, for every chat, the saved agents
+	// as sub-agents (list_agents and the agent argument of spawn_agent).
+	// Stored as the negation (chats_saved_agents), so it is on by default;
+	// each chat still has to switch it on. Read at each turn.
+	DisableChatsSavedAgents bool
+
 	// DisableChatSuggestions stops the assistant from offering things (to
 	// remember a name, to make a shortcut, to update a widget on a schedule)
 	// to users who did not choose for themselves. Runtime-toggleable via

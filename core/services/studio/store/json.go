@@ -525,6 +525,10 @@ func (s *jsonStore) SetBuiltinsOff(_ context.Context, principal, id string, off 
 	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOff = append([]string(nil), off...) })
 }
 
+func (s *jsonStore) SetBuiltinsOn(_ context.Context, principal, id string, on []string) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOn = append([]string(nil), on...) })
+}
+
 func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []string) error {
 	return s.set(principal, id, func(next *chatState) { next.Rec.McpOff = append([]string(nil), off...) })
 }

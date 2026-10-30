@@ -119,7 +119,8 @@
     },
     "builtins": "Herramientas integradas",
     "builtin": {
-      "web": "Web"
+      "web": "Web",
+      "saved_agents": "Agentes guardados"
     },
     "builtinBy": "{{tools}} · integradas"
   },

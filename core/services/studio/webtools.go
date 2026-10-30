@@ -133,17 +133,28 @@ type BuiltinGroup struct {
 	Group string
 	// Tools are the tools of the group that the administrator has on.
 	Tools []string
-	// Off says that the chat switched the group off.
+	// Off says that the chat switched the group off, or, for an opt-in
+	// group, that it did not switch it on.
 	Off bool
+	// OptIn says that the group is off until the chat switches it on.
+	OptIn bool
+	// Usable is false when no tool of the group can serve this chat now, and
+	// Reason says why.
+	Usable bool
+	Reason string
 	// Provider is BuiltinProvider. An add-on tool that shadows a tool of the
 	// group serves it under its add-on's own switch, not this one.
 	Provider string
 }
 
 // builtinGroups lists the groups of built-in tools a chat can switch. A
-// group whose tools are all off on this instance is not listed.
-func (s *Service) builtinGroups(rec session.ChatRecord) []BuiltinGroup {
-	off := set(rec.BuiltinsOff)
+// group whose tools are all off on this instance is not listed. An opt-in
+// group is off unless the chat switched it on.
+func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord) []BuiltinGroup {
+	off, on := set(rec.BuiltinsOff), set(rec.BuiltinsOn)
+	a := chatActor(rec.Principal, rec.ID)
+	c := builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", SubAgent: rec.Kind == session.KindSubAgent,
+		Admin: s.isAdmin(ctx, rec.Principal)}
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
 	for _, t := range s.builtins.Tools() {
@@ -154,9 +165,21 @@ func (s *Service) builtinGroups(rec session.ChatRecord) []BuiltinGroup {
 		if !ok {
 			i = len(out)
 			byGroup[t.Group] = i
-			out = append(out, BuiltinGroup{Group: t.Group, Off: off[t.Group], Provider: BuiltinProvider})
+			isOff := off[t.Group] || (t.OptIn && !on[t.Group])
+			out = append(out, BuiltinGroup{Group: t.Group, Off: isOff, OptIn: t.OptIn, Provider: BuiltinProvider})
 		}
 		out[i].Tools = append(out[i].Tools, t.ID)
+		// Only an opt-in tool is built here: it may depend on the user (the
+		// saved agents need the agents feature), the others serve any chat.
+		usable, reason := true, ""
+		if t.OptIn {
+			_, usable, reason = t.Build(ctx, c)
+		}
+		if usable {
+			out[i].Usable, out[i].Reason = true, ""
+		} else if !out[i].Usable && out[i].Reason == "" {
+			out[i].Reason = reason
+		}
 	}
 	return out
 }
@@ -166,18 +189,47 @@ func (s *Service) builtinGroups(rec session.ChatRecord) []BuiltinGroup {
 var ErrBadBuiltinGroup = errors.New("studio: not a group of built-in tools")
 
 // SetBuiltinsOff sets the groups of built-in tools a chat has switched off,
-// replacing the earlier list. The chat of another user is session.ErrNotFound.
+// replacing the earlier list. An opt-in group in the list is ignored: it is
+// off unless SetBuiltinsOn names it. The chat of another user is
+// session.ErrNotFound.
 func (s *Service) SetBuiltinsOff(ctx context.Context, user, conv string, off []string) error {
+	clean, err := s.cleanGroups(off, false)
+	if err != nil {
+		return err
+	}
+	return s.d.Store.SetBuiltinsOff(ctx, principal(user), conv, clean)
+}
+
+// SetBuiltinsOn sets the opt-in groups of built-in tools a chat has switched
+// on, such as saved_agents, replacing the earlier list. A group that is not
+// opt-in is refused. The chat of another user is session.ErrNotFound.
+func (s *Service) SetBuiltinsOn(ctx context.Context, user, conv string, on []string) error {
+	clean, err := s.cleanGroups(on, true)
+	if err != nil {
+		return err
+	}
+	return s.d.Store.SetBuiltinsOn(ctx, principal(user), conv, clean)
+}
+
+// cleanGroups checks and dedups a list of switch groups. With optIn it keeps
+// only opt-in groups and refuses others; without, it drops the opt-in ones.
+func (s *Service) cleanGroups(groups []string, optIn bool) ([]string, error) {
 	seen := map[string]bool{}
-	clean := make([]string, 0, len(off))
-	for _, g := range off {
+	clean := make([]string, 0, len(groups))
+	for _, g := range groups {
 		if !s.builtins.IsGroup(g) {
-			return fmt.Errorf("%w: %q (known: %s)", ErrBadBuiltinGroup, g, strings.Join(s.builtins.Groups(), ", "))
+			return nil, fmt.Errorf("%w: %q (known: %s)", ErrBadBuiltinGroup, g, strings.Join(s.builtins.Groups(), ", "))
+		}
+		if s.builtins.IsOptIn(g) != optIn {
+			if optIn {
+				return nil, fmt.Errorf("%w: %q is on unless switched off; use off", ErrBadBuiltinGroup, g)
+			}
+			continue
 		}
 		if !seen[g] {
 			seen[g] = true
 			clean = append(clean, g)
 		}
 	}
-	return s.d.Store.SetBuiltinsOff(ctx, principal(user), conv, clean)
+	return clean, nil
 }

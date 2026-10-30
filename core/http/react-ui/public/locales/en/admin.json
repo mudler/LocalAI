@@ -121,12 +121,14 @@
     "labels": {
       "bash": "Commands (bash)",
       "web_search": "Web search",
-      "web_fetch": "Read web pages"
+      "web_fetch": "Read web pages",
+      "list_agents": "Saved agents"
     },
     "descriptions": {
       "bash": "Runs commands and code for the chats directly on this machine when no Sandbox serves bash. The Sandbox add-on replaces it with isolated commands.",
       "web_search": "Searches the web for the chats with DuckDuckGo, or with your SearXNG instance when one is set.",
-      "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them."
+      "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them.",
+      "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu."
     },
     "bash": {
       "switch": "Let chats run commands on this machine",

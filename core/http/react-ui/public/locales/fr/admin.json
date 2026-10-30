@@ -115,12 +115,14 @@
     "labels": {
       "bash": "Commandes (bash)",
       "web_search": "Recherche web",
-      "web_fetch": "Lire des pages web"
+      "web_fetch": "Lire des pages web",
+      "list_agents": "Agents enregistrés"
     },
     "descriptions": {
       "bash": "Exécute des commandes et du code pour les chats directement sur cette machine quand aucun Sandbox ne fournit bash. Le module Sandbox le remplace par des commandes isolées.",
       "web_search": "Cherche sur le web pour les chats avec DuckDuckGo, ou avec votre instance SearXNG si elle est définie.",
-      "web_fetch": "Lit pour les chats une page ou un fichier web public par son adresse. Les adresses de votre réseau sont refusées sauf si vous les autorisez."
+      "web_fetch": "Lit pour les chats une page ou un fichier web public par son adresse. Les adresses de votre réseau sont refusées sauf si vous les autorisez.",
+      "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils."
     },
     "bash": {
       "switch": "Laisser les chats exécuter des commandes sur cette machine",

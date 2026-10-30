@@ -7762,7 +7762,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/builtins": {
             "put": {
-                "description": "The list replaces the earlier one. A group is a name such as web (web_search and web_fetch). A switch only takes away: a tool the administrator has off stays off. The next turn of the chat gets the tools that are on.",
+                "description": "off replaces the earlier list of groups that are off. A group is a name such as web (web_search and web_fetch). An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
                 "tags": [
                     "chats"
                 ],
@@ -17205,10 +17205,17 @@ const docTemplate = `{
                 "off": {
                     "type": "boolean"
                 },
+                "opt_in": {
+                    "description": "OptIn says that the group is off until the chat switches it on with\n\"on\" (saved_agents).",
+                    "type": "boolean"
+                },
                 "provider": {
                     "description": "Provider is \"builtin\" when LocalAI serves the tools itself.",
                     "type": "string",
                     "example": "builtin"
+                },
+                "reason": {
+                    "type": "string"
                 },
                 "tools": {
                     "type": "array",
@@ -17219,6 +17226,10 @@ const docTemplate = `{
                         "web_search",
                         "web_fetch"
                     ]
+                },
+                "usable": {
+                    "description": "Usable is false when the group cannot serve this chat now; Reason says\nwhy.",
+                    "type": "boolean"
                 }
             }
         },
@@ -17226,6 +17237,13 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "on": {
+                    "description": "On lists the opt-in groups the chat switches on (saved_agents). Omit\nit to keep them as they are.",
                     "type": "array",
                     "items": {
                         "type": "string"

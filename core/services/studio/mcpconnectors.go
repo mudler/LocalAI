@@ -106,7 +106,7 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 	if err != nil {
 		return ToolsPanel{}, err
 	}
-	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(rec)}
+	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(ctx, rec)}
 	if p.Addons, err = s.Addons(ctx, user, conv); err != nil {
 		return p, err
 	}

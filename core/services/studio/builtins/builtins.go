@@ -1,6 +1,6 @@
 // Package builtins is the one registry of the built-in chat tools that an
-// administrator can switch off: bash (commands on this machine), web_search
-// and web_fetch. A tool registers its runtime settings, the per-chat switch
+// administrator can switch off: bash (commands on this machine), web_search,
+// web_fetch and list_agents (the user's saved agents as sub-agents). A tool registers its runtime settings, the per-chat switch
 // group it belongs to, whether an add-on may replace it, and how it is built
 // for one chat. The chats add the built-in tools no add-on serves (see
 // shadowing in core/services/studio), the chat's Tools menu lists the groups,
@@ -22,6 +22,9 @@ import (
 // /api/chats/{id}/builtins accepts.
 const (
 	GroupWeb = "web"
+	// GroupSavedAgents lets a chat call the user's saved agents as
+	// sub-agents. It is opt-in: off until the chat switches it on.
+	GroupSavedAgents = "saved_agents"
 )
 
 // The runtime settings of the built-in tools.
@@ -32,6 +35,7 @@ const (
 	SettingWebSearXNGURL   = "chats_web_searxng_url"
 	SettingWebAllowPrivate = "chats_web_allow_private"
 	SettingWebPorts        = "chats_web_ports"
+	SettingSavedAgents     = "chats_saved_agents"
 )
 
 // Chat is what a built-in tool knows of the chat it is built for.
@@ -50,6 +54,8 @@ type Chat struct {
 	Admin bool
 	// GroupsOff are the switch groups the chat switched off.
 	GroupsOff []string
+	// GroupsOn are the opt-in switch groups the chat switched on.
+	GroupsOn []string
 }
 
 // Tool is one built-in chat tool.
@@ -61,6 +67,10 @@ type Tool struct {
 	// Group is the per-chat switch the tool belongs to, such as GroupWeb, or
 	// "" for a tool a chat cannot switch off by itself.
 	Group string
+	// OptIn says that the tool's group is off in a chat until the chat
+	// switches it on (Chat.GroupsOn), instead of on until the chat switches
+	// it off. It needs a Group.
+	OptIn bool
 	// Setting is the runtime setting that switches the tool off.
 	Setting string
 	// Options are the other runtime settings that configure the tool.
@@ -103,6 +113,8 @@ func (r *Registry) Register(t Tool) error {
 		return fmt.Errorf("builtins: %s has no Build", t.ID)
 	case t.Setting == "":
 		return fmt.Errorf("builtins: %s has no Setting", t.ID)
+	case t.OptIn && t.Group == "":
+		return fmt.Errorf("builtins: %s is opt-in but has no Group", t.ID)
 	}
 	t.Options = append([]string(nil), t.Options...)
 	r.mu.Lock()
@@ -156,6 +168,16 @@ func (r *Registry) Groups() []string {
 	return out
 }
 
+// IsOptIn says whether g is the switch group of a registered opt-in tool.
+func (r *Registry) IsOptIn(g string) bool {
+	for _, t := range r.Tools() {
+		if t.Group == g && t.OptIn {
+			return true
+		}
+	}
+	return false
+}
+
 // IsGroup says whether g is the switch group of a registered tool.
 func (r *Registry) IsGroup(g string) bool {
 	for _, have := range r.Groups() {
@@ -175,6 +197,9 @@ const (
 	ReasonOff = "off"
 	// ReasonChatOff: the chat switched the tool's group off.
 	ReasonChatOff = "off for this chat"
+	// ReasonNotOn: the tool's group is opt-in and the chat did not switch it
+	// on.
+	ReasonNotOn = "not switched on for this chat"
 )
 
 // Built is a built-in tool built for a chat, or why not.
@@ -187,9 +212,12 @@ type Built struct {
 
 // Build builds every registered tool for one chat.
 func (r *Registry) Build(ctx context.Context, c Chat) []Built {
-	off := map[string]bool{}
+	off, on := map[string]bool{}, map[string]bool{}
 	for _, g := range c.GroupsOff {
 		off[g] = true
+	}
+	for _, g := range c.GroupsOn {
+		on[g] = true
 	}
 	var out []Built
 	for _, t := range r.Tools() {
@@ -199,6 +227,10 @@ func (r *Registry) Build(ctx context.Context, c Chat) []Built {
 		}
 		if t.Group != "" && off[t.Group] {
 			out = append(out, Built{ID: t.ID, Reason: ReasonChatOff})
+			continue
+		}
+		if t.OptIn && !on[t.Group] {
+			out = append(out, Built{ID: t.ID, Reason: ReasonNotOn})
 			continue
 		}
 		tool, ok, reason := t.Build(ctx, c)

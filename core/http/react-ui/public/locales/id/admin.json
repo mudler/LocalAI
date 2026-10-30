@@ -294,12 +294,14 @@
     "labels": {
       "bash": "Perintah (bash)",
       "web_search": "Pencarian web",
-      "web_fetch": "Baca halaman web"
+      "web_fetch": "Baca halaman web",
+      "list_agents": "Agen tersimpan"
     },
     "descriptions": {
       "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada Sandbox yang melayani bash. Add-on Sandbox menggantinya dengan perintah terisolasi.",
       "web_search": "Mencari di web untuk chat dengan DuckDuckGo, atau dengan instans SearXNG Anda jika sudah diatur.",
-      "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya."
+      "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya.",
+      "list_agents": "Memungkinkan chat menampilkan agen tersimpan milik pengguna dan memulai salah satunya sebagai sub-agen. Setiap chat mengaktifkannya di menu Alat."
     },
     "bash": {
       "switch": "Izinkan chat menjalankan perintah di mesin ini",

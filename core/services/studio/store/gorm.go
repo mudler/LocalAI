@@ -41,6 +41,7 @@ type chatRow struct {
 	AddonsOff    string `gorm:"type:text"` // JSON list of add-on IDs
 	McpOff       string `gorm:"type:text"` // JSON list of MCP server names and connector:<id>
 	BuiltinsOff  string `gorm:"type:text"` // JSON list of built-in tool groups
+	BuiltinsOn   string `gorm:"type:text"` // JSON list of opt-in built-in tool groups
 	AgentID      string `gorm:"size:128"`
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
@@ -139,6 +140,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 	}
 	if r.BuiltinsOff != "" {
 		if err := json.Unmarshal([]byte(r.BuiltinsOff), &rec.BuiltinsOff); err != nil {
+			return rec, err
+		}
+	}
+	if r.BuiltinsOn != "" {
+		if err := json.Unmarshal([]byte(r.BuiltinsOn), &rec.BuiltinsOn); err != nil {
 			return rec, err
 		}
 	}
@@ -279,6 +285,10 @@ func (s *gormStore) SetAddonsOff(ctx context.Context, principal, id string, off 
 
 func (s *gormStore) SetBuiltinsOff(ctx context.Context, principal, id string, off []string) error {
 	return s.setList(ctx, "builtins_off", principal, id, off)
+}
+
+func (s *gormStore) SetBuiltinsOn(ctx context.Context, principal, id string, on []string) error {
+	return s.setList(ctx, "builtins_on", principal, id, on)
 }
 
 func (s *gormStore) SetMcpOff(ctx context.Context, principal, id string, off []string) error {

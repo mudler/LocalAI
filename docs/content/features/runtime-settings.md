@@ -134,10 +134,11 @@ Configure the collections (the knowledge base) and the models the [chats]({{%rel
 
 ### Tools
 
-The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tools`: `bash`, `web_search` and `web_fetch`. An add-on may replace each of them. Each row says who serves the tool now (built-in, or an add-on) and has its switch:
+The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tools`: `bash`, `web_search`, `web_fetch` and `list_agents`. An add-on may replace each of the first three. Each row says who serves the tool now (built-in, or an add-on) and has its switch:
 
 - **Commands on this machine** (`chats_host_exec`, `off`, `ask` or `on`, applies at once; `LOCALAI_CHATS_HOST_EXEC`): who gets the chats' built-in `bash` when no Sandbox add-on serves `bash`. It runs commands directly on this machine **with no isolation and with its network**: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. `ask` gives it to administrators, and each command waits for their yes in the chat; `on` gives it to every user with no card. Empty is the default: `off` with accounts, `ask` without. Every command is audited. See [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
 - **Web search** (`chats_web_search`, default on, applies at the next turn; its row in the tab) and **Read web pages** (`chats_web_fetch`, default on; its row in the tab): offer the built-in `web_search` and `web_fetch` tools to chats. See [Web search and web pages in chats]({{%relref "features/web" %}}).
+- **Saved agents in chats** (`chats_saved_agents`, default on, applies at the next turn; its row in the tab): let a chat list your saved agents (`list_agents`) and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the `agents` feature. See [Saved agents as sub-agents]({{%relref "features/chats#saved-agents-as-sub-agents" %}}).
 - **SearXNG instance** (`chats_web_searxng_url`, default empty): send the searches of `web_search` to this SearXNG instance instead of DuckDuckGo. The instance must allow the JSON format.
 - **Web pages may be on private networks** (`chats_web_allow_private`, default off): let `web_fetch` reach addresses inside your network. The cloud metadata addresses stay refused. Turn it on only if you trust every user of chats.
 - **Ports for web pages** (`chats_web_ports`, default `80,443`): the ports `web_fetch` may use, comma separated. A value that is not a list of ports is refused.

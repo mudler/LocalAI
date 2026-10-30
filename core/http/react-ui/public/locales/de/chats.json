@@ -119,7 +119,8 @@
     },
     "builtins": "Eingebaute Werkzeuge",
     "builtin": {
-      "web": "Web"
+      "web": "Web",
+      "saved_agents": "Gespeicherte Agenten"
     },
     "builtinBy": "{{tools}} · eingebaut"
   },

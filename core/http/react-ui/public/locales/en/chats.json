@@ -320,7 +320,8 @@
     "summary": "Tools ({{on}} of {{total}} on)",
     "builtins": "Built-in tools",
     "builtin": {
-      "web": "Web"
+      "web": "Web",
+      "saved_agents": "Saved agents"
     },
     "builtinBy": "{{tools}} · built-in",
     "addons": "Add-ons",

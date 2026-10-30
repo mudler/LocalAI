@@ -101,6 +101,9 @@ type RuntimeSettings struct {
 	ChatsWebSearXNGURL   *string `json:"chats_web_searxng_url,omitempty"`   // search with this SearXNG instance; empty: DuckDuckGo
 	ChatsWebAllowPrivate *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
 	ChatsWebPorts        *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
+	// Let a chat that switches it on call the user's saved agents as
+	// sub-agents (default: true). Read at each turn.
+	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`
 
 	// Offers from the assistant in the chats, for users who did not choose.
 	// Read at each turn, so a change applies at once.

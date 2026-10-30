@@ -167,6 +167,10 @@ type Deps struct {
 	// HostExecMode is the setting chats_host_exec as it applies now: off, ask
 	// or on. Nil: off.
 	HostExecMode func() string
+	// SavedAgentsOn is the setting chats_saved_agents: whether a chat that
+	// switched it on may call the user's saved agents as sub-agents. Read at
+	// each turn. Nil: on.
+	SavedAgentsOn func() bool
 	// IsAdmin says whether a user is an administrator. Nil: everyone is (a
 	// server without accounts).
 	IsAdmin func(ctx context.Context, user string) bool
@@ -305,6 +309,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerWebTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerSavedAgents(); err != nil {
 		return nil, err
 	}
 	h := d.Harness

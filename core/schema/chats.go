@@ -1026,6 +1026,13 @@ type ChatsBuiltinGroup struct {
 	Group string   `json:"group" example:"web"`
 	Tools []string `json:"tools" example:"web_search,web_fetch"`
 	Off   bool     `json:"off"`
+	// OptIn says that the group is off until the chat switches it on with
+	// "on" (saved_agents).
+	OptIn bool `json:"opt_in,omitempty"`
+	// Usable is false when the group cannot serve this chat now; Reason says
+	// why.
+	Usable bool   `json:"usable"`
+	Reason string `json:"reason,omitempty"`
 	// Provider is "builtin" when LocalAI serves the tools itself.
 	Provider string `json:"provider" example:"builtin"`
 }
@@ -1056,6 +1063,9 @@ type ChatsWebTestResponse struct {
 // chat has switched off.
 type ChatsBuiltinSwitches struct {
 	Off []string `json:"off"`
+	// On lists the opt-in groups the chat switches on (saved_agents). Omit
+	// it to keep them as they are.
+	On *[]string `json:"on,omitempty"`
 }
 
 // ChatsToolsPanel lists what a chat can use besides its own tools: the groups

@@ -90,14 +90,19 @@ export function useChatSwitches(chatId, filesOn) {
     }
   }, [mcp, chatId])
 
-  // group is a group of built-in tools, such as web.
+  // group is a group of built-in tools, such as web. An opt-in group
+  // (saved_agents) is off until the chat switches it on, so it goes in the
+  // list of groups that are on instead.
   const toggleBuiltin = useCallback(async (group, on) => {
     const before = builtins
     const next = builtins.map((b) => (b.group === group ? { ...b, off: !on } : b))
     setBuiltins(next)
     setError('')
     try {
-      const res = await chatToolsApi.setBuiltinsOff(chatId, next.filter((b) => b.off).map((b) => b.group).sort())
+      const off = next.filter((b) => b.off && !b.opt_in).map((b) => b.group).sort()
+      const optIn = next.filter((b) => b.opt_in)
+      const onList = optIn.length ? optIn.filter((b) => !b.off).map((b) => b.group).sort() : undefined
+      const res = await chatToolsApi.setBuiltinsOff(chatId, off, onList)
       setBuiltins(res.builtins || [])
       setMcp(mcpOf(res))
     } catch (e) {

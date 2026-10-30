@@ -402,6 +402,39 @@ curl .../api/chats/3f1c.../agents/9ab2.../messages     # one run's transcript
 curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
 ```
 
+### Saved agents as sub-agents
+
+A chat can also start one of your [saved
+agents]({{%relref "features/chats-agents#saved-agents" %}}) as a sub-agent. This
+is off for every chat until you switch **Saved agents** on in the chat's
+**Tools** menu. The chat then has two more things:
+
+- `list_agents` lists your saved agents: `id`, `name`, `description` and
+  `model`, at most 100. It lists only your own agents.
+- `spawn_agent` takes an `agent` argument, the id or the name (ignoring case) of
+  one of them. The sub-agent runs with the agent's instructions, its model (or
+  the chat's model when the agent names none) and only what the agent grants,
+  the same as a chat started with that agent. `tools` cannot be given together
+  with `agent`. The run is listed with the other sub-agents, with the agent's
+  name in its title.
+
+The sub-agent cannot start sub-agents of its own and never gets `list_agents`.
+Each call checks again that the chat has the switch on, that an administrator
+left `chats_saved_agents` on, and that you have the `agents` feature, as the
+agents API does. When one of them fails, or the agent does not exist or is
+another user's, the call fails with a message that says why and no sub-agent
+starts. Without the `agents` feature the switch is shown greyed out with the
+reason.
+
+```bash
+curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":[],"on":["saved_agents"]}'
+```
+
+`on` lists the opt-in groups that are on and replaces the earlier list; omit it
+to keep them. An opt-in group in `off` is ignored. The group in `GET
+/api/chats/{id}/tools` has `opt_in: true`, and `usable` and `reason` say whether
+it can serve the chat now.
+
 ## Running commands
 
 A chat runs commands and code with one tool, `bash`. Who serves it depends on
@@ -584,6 +617,9 @@ The built-in web tools have their own switch, by group:
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web"]}'
 ```
+
+The saved agents group (`saved_agents`) is opt-in: it is off until `on` names
+it. See [Saved agents as sub-agents](#saved-agents-as-sub-agents).
 
 ### Interactive tool pages (MCP Apps)
 
@@ -937,7 +973,7 @@ In [distributed mode]({{% relref "features/distributed-mode" %}}) any frontend c
 
 **State mode: shared.** Chats, their messages, the waiting messages and the claim that lets one turn run at a time live in PostgreSQL. Live events travel over the message bus, so a client connected to one frontend sees a turn that another frontend runs. Events are delivered at most once: a client that missed some reads the transcript.
 
-**Sub-agents.** The runs are chats in the shared store, linked to their parent. The background limit, the list of runs and "stopping a chat stops its sub-agents" all read the store, so they hold when the turns of one chat run on different frontends. A stop reaches a run on another frontend over the bus. The tool subset of a running sub-agent is kept in the memory of the frontend that runs it, which is where it runs.
+**Sub-agents.** The runs are chats in the shared store, linked to their parent. The background limit, the list of runs and "stopping a chat stops its sub-agents" all read the store, so they hold when the turns of one chat run on different frontends. A stop reaches a run on another frontend over the bus. The tool subset of a running sub-agent is kept in the memory of the frontend that runs it, which is where it runs. A sub-agent started from a saved agent keeps nothing in memory (stateless): the agent is named on its chat record, and its tools are read from the store at each turn, as for any chat with an agent. The chat's saved agents switch is stored with the chat, and the permission is checked again at each call, so every frontend gives the same answer.
 
 **Settings and edits.** The settings, the title and the model of a chat, and the cut that regenerate and edit make, are stored with the chat. A change of title or model, a regenerate and an edit take the same turn claim as a message, so they are refused with 409 while a turn runs on any frontend. A video that comes with a message is held in the memory of the frontend that runs the turn, for that turn's first request.
 

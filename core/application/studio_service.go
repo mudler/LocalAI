@@ -152,6 +152,7 @@ func (a *Application) initStudioService() {
 		deps.HostExec = a.studioHostExec
 	}
 	deps.HostExecMode = a.studioHostExecMode
+	deps.SavedAgentsOn = func() bool { return !a.applicationConfig.DisableChatsSavedAgents }
 	deps.IsAdmin = a.studioIsAdmin
 	deps.ToolPins = func() map[string]string { return a.applicationConfig.ChatsToolProviders }
 	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {

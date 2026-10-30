@@ -271,12 +271,14 @@
     "labels": {
       "bash": "命令（bash）",
       "web_search": "网页搜索",
-      "web_fetch": "读取网页"
+      "web_fetch": "读取网页",
+      "list_agents": "已保存的智能体"
     },
     "descriptions": {
       "bash": "当没有 Sandbox 提供 bash 时，直接在这台机器上为聊天运行命令和代码。Sandbox 插件会将其替换为隔离运行的命令。",
       "web_search": "使用 DuckDuckGo 或已设置的 SearXNG 实例为聊天搜索网页。",
-      "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。"
+      "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。",
+      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。"
     },
     "bash": {
       "switch": "允许聊天在这台机器上运行命令",

@@ -17,7 +17,9 @@ func TestBuiltins(t *testing.T) {
 }
 
 var _ = Describe("the registry of built-in tools", func() {
-	build := func(context.Context, builtins.Chat) (session.Tool, bool, string) { return session.Tool{Description: "x"}, true, "" }
+	build := func(context.Context, builtins.Chat) (session.Tool, bool, string) {
+		return session.Tool{Description: "x"}, true, ""
+	}
 	It("takes a tool once, with a Build and a Setting, and a replaceable one only by a replaceable name", func() {
 		r := builtins.NewRegistry()
 		Expect(r.Register(builtins.Tool{ID: "bash", Setting: "s", Replaceable: true, Build: build})).To(Succeed())
@@ -67,6 +69,25 @@ var _ = Describe("the registry of built-in tools", func() {
 		Expect(got[0].OK).To(BeTrue())
 		Expect(got[1]).To(MatchFields(IgnoreExtras, Fields{"ID": Equal("web_search"), "OK": BeFalse(), "Reason": Equal(builtins.ReasonChatOff)}))
 		Expect(got[2].Reason).To(Equal(builtins.ReasonChatOff))
+	})
+
+	It("keeps an opt-in group off until the chat switches it on", func() {
+		r := builtins.NewRegistry()
+		Expect(r.Register(builtins.Tool{ID: "list_agents", Setting: "s", OptIn: true, Build: build})).NotTo(Succeed(), "an opt-in tool needs a group")
+		Expect(r.Register(builtins.Tool{ID: "list_agents", Group: builtins.GroupSavedAgents, Setting: "s", OptIn: true, Build: build})).To(Succeed())
+		Expect(r.Register(builtins.Tool{ID: "web_fetch", Group: builtins.GroupWeb, Setting: "s", Build: build})).To(Succeed())
+		Expect(r.IsOptIn(builtins.GroupSavedAgents)).To(BeTrue())
+		Expect(r.IsOptIn(builtins.GroupWeb)).To(BeFalse())
+
+		got := r.Build(context.Background(), builtins.Chat{})
+		Expect(got[0]).To(MatchFields(IgnoreExtras, Fields{"ID": Equal("list_agents"), "OK": BeFalse(), "Reason": Equal(builtins.ReasonNotOn)}))
+		Expect(got[1].OK).To(BeTrue())
+
+		got = r.Build(context.Background(), builtins.Chat{GroupsOn: []string{builtins.GroupSavedAgents}})
+		Expect(got[0].OK).To(BeTrue())
+
+		got = r.Build(context.Background(), builtins.Chat{GroupsOn: []string{builtins.GroupSavedAgents}, GroupsOff: []string{builtins.GroupSavedAgents}})
+		Expect(got[0].Reason).To(Equal(builtins.ReasonChatOff), "off wins over on")
 	})
 
 	It("hands out copies", func() {
