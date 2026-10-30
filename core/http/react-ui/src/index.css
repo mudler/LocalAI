@@ -13,9 +13,10 @@ html {
 
 body {
   font-family: var(--font-sans);
-  font-size: var(--text-base);
+  font-size: var(--fs-body);
   font-weight: var(--font-weight-regular);
-  line-height: var(--leading-normal);
+  /* Unitless, so smaller text inside keeps a proportional line. */
+  line-height: var(--leading-body);
   font-feature-settings: "ss01", "ss03", "cv11";
   letter-spacing: 0;
   min-height: 100%;
@@ -53,8 +54,10 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--color-text-primary);
   line-height: var(--leading-tight);
 }
-h1 { font-family: var(--font-sans); font-size: clamp(1.75rem, 1.2rem + 2.4vw, var(--text-4xl)); font-weight: var(--font-weight-bold); letter-spacing: -0.03em; }
-h2 { font-family: var(--font-sans); font-size: clamp(1.4rem, 1.05rem + 1.6vw, var(--text-3xl)); font-weight: var(--font-weight-bold); letter-spacing: -0.02em; }
+/* A bare h1 is a page title and a bare h2 a section title. Fixed sizes, not
+   viewport clamps: a title must not grow with the window. */
+h1 { font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--font-weight-semibold); letter-spacing: -0.02em; }
+h2 { font-size: var(--fs-section); line-height: var(--lh-section); font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; }
 h3 { font-size: var(--text-xl);  font-weight: var(--font-weight-bold); letter-spacing: -0.015em; }
 h4 { font-size: var(--text-lg);  font-weight: var(--font-weight-semibold); letter-spacing: -0.01em; }
 h5 { font-size: var(--text-base);font-weight: var(--font-weight-semibold); }
