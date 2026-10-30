@@ -871,7 +871,7 @@ function ChatPage() {
       rows: switches.builtins.map((b) => ({
         key: `b-${b.group}`, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
         title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
-        on: !b.off, onToggle: (on) => switches.toggleBuiltin(b.group, on),
+        on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
         ...builtinNote(b),
       })),
     },

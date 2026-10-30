@@ -625,3 +625,47 @@ test.describe('Chat tools menu: MCP', () => {
     await expect(page.getByTestId('chat-tools')).toHaveCount(0)
   })
 })
+
+test.describe('Chat tools menu: built-in groups', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  const builtins = (on) => [
+    { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin' },
+    { group: 'saved_agents', tools: ['list_agents'], off: !on, opt_in: true, usable: true, provider: 'builtin' },
+  ]
+
+  test('switches the saved agents on with the list of opt-in groups, and leaves them out of off', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    const calls = []
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: builtins(false) } }))
+    await page.route('**/api/chats/c1/builtins', route => {
+      const body = route.request().postDataJSON()
+      calls.push(body)
+      return route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: builtins((body.on || []).includes('saved_agents')) } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByRole('checkbox', { name: 'Web' })).toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Saved agents' })).not.toBeChecked()
+    await page.getByRole('checkbox', { name: 'Saved agents' }).check()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: ['saved_agents'] })
+    await expect(page.getByRole('checkbox', { name: 'Saved agents' })).toBeChecked()
+    await page.getByRole('checkbox', { name: 'Saved agents' }).uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: [] })
+  })
+
+  test('shows why the saved agents cannot be used', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: [
+      { group: 'saved_agents', tools: ['list_agents'], off: true, opt_in: true, usable: false, reason: 'saved agents are not enabled for this account', provider: 'builtin' },
+    ] } }))
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByRole('checkbox', { name: 'Saved agents' })).toBeDisabled()
+    await expect(page.getByText('saved agents are not enabled for this account')).toBeVisible()
+  })
+})

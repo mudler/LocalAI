@@ -61,8 +61,10 @@ var _ = Describe("Chats built-in bash routes", func() {
 		rec = s.do("root", http.MethodGet, "/api/chats/admin/tools", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		tools := decodeJSON(rec)["tools"].([]any)
-		Expect(tools).To(HaveLen(1))
+		// bash, and list_agents: the route specs keep saved agents.
+		Expect(tools).To(HaveLen(2))
 		bash := tools[0].(map[string]any)
+		Expect(tools[1]).To(HaveKeyWithValue("id", "list_agents"))
 		Expect(bash).To(HaveKeyWithValue("id", "bash"))
 		Expect(bash).To(HaveKeyWithValue("setting", "chats_host_exec"))
 		Expect(bash).To(HaveKeyWithValue("mode", "ask"))

@@ -119,7 +119,8 @@
     },
     "builtins": "内置工具",
     "builtin": {
-      "web": "网页"
+      "web": "网页",
+      "saved_agents": "已保存的智能体"
     },
     "builtinBy": "{{tools}} · 内置",
     "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",

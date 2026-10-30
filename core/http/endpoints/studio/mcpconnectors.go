@@ -204,7 +204,8 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 	out := schema.ChatsToolsPanel{Builtins: make([]schema.ChatsBuiltinGroup, 0, len(p.Builtins)), Addons: make([]schema.ChatsAddon, 0, len(p.Addons)), Servers: make([]schema.ChatsMCPServerSwitch, 0, len(p.Servers)),
 		Connectors: make([]schema.ChatsMCPConnectorSwitch, 0, len(p.Connectors)), Off: p.Off}
 	for _, g := range p.Builtins {
-		out.Builtins = append(out.Builtins, schema.ChatsBuiltinGroup{Group: g.Group, Tools: g.Tools, Off: g.Off, Provider: g.Provider, Providers: g.Providers})
+		out.Builtins = append(out.Builtins, schema.ChatsBuiltinGroup{Group: g.Group, Tools: g.Tools, Off: g.Off, OptIn: g.OptIn,
+			Usable: g.Usable, Reason: g.Reason, Provider: g.Provider, Providers: g.Providers})
 	}
 	for _, a := range p.Addons {
 		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})
@@ -229,9 +230,10 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 // @Router /api/chats/{id}/tools [get]
 func (h *Handlers) ListChatTools(c echo.Context) error { return toolsPanel(c, h) }
 
-// SetChatBuiltins sets the groups of built-in tools a chat has switched off.
+// SetChatBuiltins sets the groups of built-in tools a chat has switched off,
+// and the opt-in groups it has switched on.
 // @Summary Switch groups of built-in tools on and off for a chat.
-// @Description The list replaces the earlier one. A group is a name such as web (web_search and web_fetch). A switch only takes away: a tool the administrator has off stays off. The next turn of the chat gets the tools that are on.
+// @Description off replaces the earlier list of groups that are off. A group is a name such as web (web_search and web_fetch). An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsBuiltinSwitches true "the groups that are off"
@@ -246,6 +248,11 @@ func (h *Handlers) SetChatBuiltins(c echo.Context) error {
 	}
 	if err := h.svc.SetBuiltinsOff(c.Request().Context(), userID(c), c.Param("id"), req.Off); err != nil {
 		return failFor(c, err)
+	}
+	if req.On != nil {
+		if err := h.svc.SetBuiltinsOn(c.Request().Context(), userID(c), c.Param("id"), *req.On); err != nil {
+			return failFor(c, err)
+		}
 	}
 	return toolsPanel(c, h)
 }

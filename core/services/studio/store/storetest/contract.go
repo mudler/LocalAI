@@ -168,6 +168,25 @@ func Run(newStore New) {
 		Expect(rec.BuiltinsOff).To(BeEmpty(), "after clearing")
 	})
 
+	It("opt-in built-in tool switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetBuiltinsOn(ctx(), "alice", "c1", []string{"saved_agents"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.BuiltinsOn).To(Equal([]string{"saved_agents"}))
+		stale := rec
+		stale.BuiltinsOn = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOn).To(Equal([]string{"saved_agents"}), "want the switches kept")
+		Expect(s.SetBuiltinsOn(ctx(), "bob", "c1", []string{"saved_agents"})).To(MatchError(session.ErrNotFound), "another principal's SetBuiltinsOn")
+		Expect(s.SetBuiltinsOn(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOn).To(BeEmpty(), "after clearing")
+	})
+
 	It("add-on switches round-trip, survive a chat update and belong to the owner", func() {
 		s := newStore()
 		chat(s, "c1", "alice")

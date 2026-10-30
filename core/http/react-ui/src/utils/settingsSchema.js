@@ -214,6 +214,10 @@ export const FIELDS = [
   { key: 'chats_web_fetch', group: 'tools', was: 'chats', kind: 'bool', label: 'Read web pages',
     desc: 'Offer the chats the built-in web_fetch, which reads a public web page or file by its address.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The Tools tab draws this switch on the list_agents row.
+  { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
+    desc: 'Let a chat list the user\'s saved agents and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the agents feature.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
   { key: 'chats_web_searxng_url', group: 'tools', was: 'chats', kind: 'text', label: 'SearXNG instance',
     desc: 'Search with this SearXNG instance (it must allow the JSON format). Empty searches with DuckDuckGo.',
     placeholder: 'https://searx.example.org', default: '', apply: 'live' },

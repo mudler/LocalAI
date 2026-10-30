@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -34,13 +35,16 @@ type child struct {
 
 // chatTools is the hook that gives every chat its host tools. A conversation
 // gets the host tools plus spawn_agent; a sub-agent gets only the tools its
-// parent chose and never spawn_agent.
+// parent chose and never spawn_agent. A sub-agent started from a saved agent
+// gets what the agent grants instead, read from the store like any chat with
+// an agent, so it needs no tool list in memory.
 func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.TurnTools, error) {
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return session.TurnTools{}, err
 	}
-	if rec.Kind == session.KindSubAgent {
+	sub := rec.Kind == session.KindSubAgent
+	if sub && rec.AgentID == "" {
 		s.mu.Lock()
 		tools := s.allowed[key(a.Principal, a.ChatID)]
 		s.mu.Unlock()
@@ -59,12 +63,18 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
-	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
+	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, sub))
 	cmds = s.withHostBash(cmds, tools)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
-	// them from subset, built for the parent chat.
+	// them from subset, built for the parent chat; one from a saved agent gets
+	// them here, built for the parent chat too, so the parent's Files pane
+	// sees its changes.
+	fa := a
+	if sub {
+		fa.ChatID = rec.ParentID
+	}
 	nudge := s.newRulesNudge(ctx, a, rec)
-	tools = append(tools, nudge.wrap(s.announceFileChanges(a, s.d.Files.Tools(a)))...)
+	tools = append(tools, nudge.wrap(s.announceFileChanges(fa, s.d.Files.Tools(fa)))...)
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a, rec.Model)...)
 	}
@@ -74,7 +84,10 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// and the agent's instructions, which take precedence, and before the
 	// index of skills. A change to either file restarts the harness at the
 	// next turn, because the prompt changes.
-	persona, personaKey := s.WellKnown().TurnPrompt(ctx, a.Principal)
+	var persona, personaKey string
+	if !sub {
+		persona, personaKey = s.WellKnown().TurnPrompt(ctx, a.Principal)
+	}
 	if persona != "" {
 		prompt = strings.TrimSpace(persona + "\n\n" + prompt)
 	}
@@ -91,7 +104,11 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 			prompt = strings.TrimSpace(sc.instructions + "\n\n" + prompt)
 		}
 	}
-	tools = append(tools, s.spawnTool(a))
+	if !sub {
+		// The agent argument is offered only when list_agents is: the chat
+		// switched the saved agents on and its user may use them.
+		tools = append(tools, s.spawnTool(a, hasTool(tools, listAgentsName)))
+	}
 	tools = append(tools, s.triggerTools(a, rec)...)
 	// The assistant tools are not part of hostTools, so a sub-agent never gets
 	// them, whatever its parent names.
@@ -142,13 +159,20 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
 }
 
-func (s *Service) spawnTool(a workspace.Actor) session.Tool {
+func (s *Service) spawnTool(a workspace.Actor, savedAgents bool) session.Tool {
+	desc := "Start a sub-agent that works on a task and reports back. Use it for a self-contained piece of work. " +
+		"By default you wait for its answer. With wait=false it runs in the background and its result arrives later as a message."
+	agent := ""
+	if savedAgents {
+		desc += " With agent, the sub-agent is one of the user's saved agents (see " + listAgentsName + "): it works with that agent's instructions, model and tools."
+		agent = `"agent":{"type":"string","description":"The id or name of a saved agent from ` + listAgentsName + `. Omit for a plain sub-agent with your tools. Cannot be combined with tools."},`
+	}
 	return session.Tool{
-		Name: "spawn_agent",
-		Description: "Start a sub-agent that works on a task and reports back. Use it for a self-contained piece of work. " +
-			"By default you wait for its answer. With wait=false it runs in the background and its result arrives later as a message.",
+		Name:        "spawn_agent",
+		Description: desc,
 		Schema: json.RawMessage(`{"type":"object","properties":{` +
 			`"task":{"type":"string","description":"What the sub-agent should do, with everything it needs to know."},` +
+			agent +
 			`"tools":{"type":"array","items":{"type":"string"},"description":"Names of your tools the sub-agent may use. Omit to give it all of them; [] gives it none."},` +
 			`"wait":{"type":"boolean","description":"true (default): wait for the answer. false: carry on now."}},` +
 			`"required":["task"]}`),
@@ -159,6 +183,7 @@ func (s *Service) spawnTool(a workspace.Actor) session.Tool {
 func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMessage) (string, error) {
 	var args struct {
 		Task  string    `json:"task"`
+		Agent string    `json:"agent"`
 		Tools *[]string `json:"tools"`
 		Wait  *bool     `json:"wait"`
 	}
@@ -178,15 +203,33 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 		return "", ErrSubAgentDepth
 	}
 
-	subset, err := s.subset(ctx, a, args.Tools)
-	if err != nil {
-		return "", err
-	}
-	// A sub-agent has the parent's tools or fewer: when none of them runs
-	// commands, a task that asks to run something cannot work. Say so now
-	// instead of spending a turn of the sub-agent on it.
-	if !s.runsCommands(subset) && asksToRun(task) {
-		return "", ErrSubAgentCannotRun
+	var (
+		subset []session.Tool
+		agent  agents.Agent
+	)
+	if ref := strings.TrimSpace(args.Agent); ref != "" {
+		// A saved agent: the permission is checked again at the call, since
+		// the setting, the chat's switch or the user's feature may have
+		// changed since the turn started.
+		if args.Tools != nil {
+			return "", ErrSavedAgentWithTools
+		}
+		if err := s.savedAgentsAllowed(ctx, parent); err != nil {
+			return "", err
+		}
+		if agent, err = s.resolveAgent(ctx, a.Principal, ref); err != nil {
+			return "", err
+		}
+	} else {
+		if subset, err = s.subset(ctx, a, args.Tools); err != nil {
+			return "", err
+		}
+		// A sub-agent has the parent's tools or fewer: when none of them runs
+		// commands, a task that asks to run something cannot work. Say so now
+		// instead of spending a turn of the sub-agent on it.
+		if !s.runsCommands(subset) && asksToRun(task) {
+			return "", ErrSubAgentCannotRun
+		}
 	}
 	if again, err := s.repeatedTask(ctx, a, task); err != nil {
 		return "", err
@@ -197,21 +240,30 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	parentKey := key(a.Principal, a.ChatID)
 	childID := newID()
 	title := "Sub-agent: " + truncate(task, 60)
+	model := parent.Model
+	if agent.ID != "" {
+		title = "Sub-agent " + agent.Name + ": " + truncate(task, 60)
+		if agent.Model != "" {
+			model = agent.Model
+		}
+	}
 	if err := s.registerChild(ctx, a.Principal, a.ChatID, &child{id: childID, title: title, background: !wait}); err != nil {
 		return "", err
 	}
 	now := parent.Updated
 	rec := session.ChatRecord{ID: childID, Principal: a.Principal, Title: title, Created: now, Updated: now,
-		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: parent.Model}
+		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		s.forgetChild(parentKey, childID)
 		return "", err
 	}
 	s.bus.Publish(parentKey, session.Event{Kind: session.KindSubAgentStarted, IDs: []string{childID}, Text: title})
 	childKey := key(a.Principal, childID)
-	s.mu.Lock()
-	s.allowed[childKey] = subset
-	s.mu.Unlock()
+	if agent.ID == "" {
+		s.mu.Lock()
+		s.allowed[childKey] = subset
+		s.mu.Unlock()
+	}
 	done := s.waitFor(childKey)
 	if _, err := s.send(context.WithoutCancel(ctx), a.Principal, childID, session.Message{Text: task}); err != nil {
 		// The child never ran: drop what was set up for it, or the waiter and

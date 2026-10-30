@@ -38,4 +38,13 @@ var _ = Describe("the chats' web tool settings", func() {
 		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsWebPorts: &bad})
 		Expect(o.ChatsWebPorts).To(Equal("80"), "a bad list in the file is not taken")
 	})
+
+	It("keeps the saved agents of the chats on until an administrator switches them off", func() {
+		o := &config.ApplicationConfig{}
+		Expect(o.ToRuntimeSettings().ChatsSavedAgents).To(HaveValue(BeTrue()))
+		off := false
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsSavedAgents: &off})
+		Expect(o.DisableChatsSavedAgents).To(BeTrue())
+		Expect(o.ToRuntimeSettings().ChatsSavedAgents).To(HaveValue(BeFalse()))
+	})
 })

@@ -271,12 +271,14 @@
     "labels": {
       "bash": "Comandi (bash)",
       "web_search": "Ricerca web",
-      "web_fetch": "Leggi pagine web"
+      "web_fetch": "Leggi pagine web",
+      "list_agents": "Agenti salvati"
     },
     "descriptions": {
       "bash": "Esegue comandi e codice per le chat direttamente su questa macchina quando nessun Sandbox fornisce bash. Il componente Sandbox lo sostituisce con comandi isolati.",
       "web_search": "Cerca sul web per le chat con DuckDuckGo, o con la tua istanza SearXNG se è impostata.",
-      "web_fetch": "Legge per le chat una pagina o un file web pubblico dal suo indirizzo. Gli indirizzi della tua rete sono rifiutati se non li consenti."
+      "web_fetch": "Legge per le chat una pagina o un file web pubblico dal suo indirizzo. Gli indirizzi della tua rete sono rifiutati se non li consenti.",
+      "list_agents": "Permette a una chat di elencare gli agenti salvati dell'utente e di avviarne uno come sotto-agente. Ogni chat lo attiva dal suo menu Strumenti."
     },
     "bash": {
       "switch": "Consenti alle chat di eseguire comandi su questa macchina",

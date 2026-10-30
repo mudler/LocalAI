@@ -119,7 +119,8 @@
     },
     "builtins": "Ferramentas integradas",
     "builtin": {
-      "web": "Web"
+      "web": "Web",
+      "saved_agents": "Agentes salvos"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",

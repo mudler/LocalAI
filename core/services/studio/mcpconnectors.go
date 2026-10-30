@@ -111,7 +111,7 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 	if sc == nil || !sc.deleted {
 		shadowing, _ = s.addonTools(ctx, chatActor(principal(user), conv), rec, sc)
 	}
-	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(rec, shadowing)}
+	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(ctx, rec, shadowing)}
 	if p.Addons, err = s.Addons(ctx, user, conv); err != nil {
 		return p, err
 	}

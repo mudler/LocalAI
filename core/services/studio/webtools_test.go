@@ -113,7 +113,7 @@ var _ = Describe("built-in web tools", func() {
 
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(p.Builtins).To(Equal([]studio.BuiltinGroup{{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Provider: "builtin",
+		Expect(p.Builtins).To(Equal([]studio.BuiltinGroup{{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Usable: true, Provider: "builtin",
 			Providers: map[string]string{"web_search": "builtin", "web_fetch": "builtin"}}}))
 	})
 
@@ -129,7 +129,7 @@ var _ = Describe("built-in web tools", func() {
 		id := create(svc, alice)
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(p.Builtins).To(Equal([]studio.BuiltinGroup{{Group: "web", Tools: []string{"web_search"}, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}}))
+		Expect(p.Builtins).To(Equal([]studio.BuiltinGroup{{Group: "web", Tools: []string{"web_search"}, Usable: true, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}}))
 
 		svc2, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, withWeb(&fakeWeb{}))
 		id2 := create(svc2, alice)

@@ -53,6 +53,10 @@ line at the start of the turn, for example `unavailable this turn: add-on
 office, collection docs`. A sub-agent of the chat can only get tools the chat
 has.
 
+A chat can also start a saved agent as a sub-agent, when you switch **Saved
+agents** on in its Tools menu. See [Saved agents as
+sub-agents]({{%relref "features/chats#saved-agents-as-sub-agents" %}}).
+
 If you delete an agent, the chats that ran with it keep their history. Their
 next turn runs without the agent's tools, and the model is told that the agent
 was deleted.

@@ -358,7 +358,8 @@ export const chatMCPConnectorsApi = {
 export const chatToolsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/tools`),
   setMcpOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/mcp`, { method: 'PUT', body: JSON.stringify({ off }) }),
-  setBuiltinsOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/builtins`, { method: 'PUT', body: JSON.stringify({ off }) }),
+  // on lists the opt-in groups that are on (saved_agents); omit it to keep them.
+  setBuiltinsOff: (chat, off, on) => fetchJSON(`/api/chats/${enc2(chat)}/builtins`, { method: 'PUT', body: JSON.stringify(on ? { off, on } : { off }) }),
 }
 
 // Saved agents: instructions and exact lists of what a chat may use.

@@ -478,6 +478,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsWebFetch },
 		func(o *ApplicationConfig) bool { return !o.DisableChatsWebFetch },
 		func(o *ApplicationConfig, v bool) { o.DisableChatsWebFetch = !v }),
+	// The saved agents as sub-agents of a chat: read at each turn, so no
+	// restart. Stored as the negation, so it is on by default.
+	field("chats_saved_agents",
+		func(s *RuntimeSettings) **bool { return &s.ChatsSavedAgents },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsSavedAgents },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsSavedAgents = !v }),
 	field("chats_web_searxng_url",
 		func(s *RuntimeSettings) **string { return &s.ChatsWebSearXNGURL },
 		func(o *ApplicationConfig) string { return o.ChatsWebSearXNGURL },

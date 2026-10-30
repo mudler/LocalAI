@@ -46,10 +46,11 @@ var _ = Describe("Chats built-in web tools endpoints", func() {
 		chat := s.create("alice")
 		panel := s.do("alice", http.MethodGet, "/api/chats/"+chat+"/tools", nil)
 		Expect(panel.Code).To(Equal(http.StatusOK), panel.Body.String())
-		Expect(decodeJSON(panel)["builtins"]).To(Equal([]any{map[string]any{
-			"group": "web", "tools": []any{"web_search", "web_fetch"}, "off": false, "provider": "builtin",
+		// The saved agents group comes after web: the route specs keep agents.
+		Expect(decodeJSON(panel)["builtins"].([]any)[0]).To(Equal(map[string]any{
+			"group": "web", "tools": []any{"web_search", "web_fetch"}, "off": false, "usable": true, "provider": "builtin",
 			"providers": map[string]any{"web_search": "builtin", "web_fetch": "builtin"},
-		}}))
+		}))
 
 		put := s.do("alice", http.MethodPut, "/api/chats/"+chat+"/builtins", map[string]any{"off": []string{"web"}})
 		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())

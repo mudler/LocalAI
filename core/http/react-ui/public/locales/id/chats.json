@@ -119,7 +119,8 @@
     },
     "builtins": "Alat bawaan",
     "builtin": {
-      "web": "Web"
+      "web": "Web",
+      "saved_agents": "Agen tersimpan"
     },
     "builtinBy": "{{tools}} · bawaan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",

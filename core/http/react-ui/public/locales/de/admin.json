@@ -271,12 +271,14 @@
     "labels": {
       "bash": "Befehle (bash)",
       "web_search": "Websuche",
-      "web_fetch": "Webseiten lesen"
+      "web_fetch": "Webseiten lesen",
+      "list_agents": "Gespeicherte Agenten"
     },
     "descriptions": {
       "bash": "Führt Befehle und Code für die Chats direkt auf diesem Rechner aus, wenn keine Sandbox bash bereitstellt. Das Sandbox-Add-on ersetzt es durch isolierte Befehle.",
       "web_search": "Durchsucht das Web für die Chats mit DuckDuckGo oder mit Ihrer SearXNG-Instanz, wenn eine eingestellt ist.",
-      "web_fetch": "Liest für die Chats eine öffentliche Webseite oder Datei über ihre Adresse. Adressen in Ihrem Netzwerk werden abgelehnt, außer Sie erlauben sie."
+      "web_fetch": "Liest für die Chats eine öffentliche Webseite oder Datei über ihre Adresse. Adressen in Ihrem Netzwerk werden abgelehnt, außer Sie erlauben sie.",
+      "list_agents": "Erlaubt einem Chat, die gespeicherten Agenten des Benutzers aufzulisten und einen als Sub-Agenten zu starten. Jeder Chat schaltet es in seinem Werkzeugmenü ein."
     },
     "bash": {
       "switch": "Chats Befehle auf diesem Rechner ausführen lassen",

@@ -104,6 +104,10 @@ type Store interface {
 	// off, the way SetAddonsOff does for add-ons.
 	SetBuiltinsOff(ctx context.Context, principal, chatID string, off []string) error
 
+	// SetBuiltinsOn sets the opt-in groups of built-in tools this chat has
+	// switched on, the way SetAddonsOff does for add-ons.
+	SetBuiltinsOn(ctx context.Context, principal, chatID string, on []string) error
+
 	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
 	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)
 
