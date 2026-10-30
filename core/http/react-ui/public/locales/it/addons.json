@@ -592,6 +592,16 @@
       "denied": "Solo un amministratore può farlo dalla propria sessione del browser.",
       "network": "La rete non è raggiungibile.",
       "unavailable": "Il proprietario del componente non è disponibile. Riprova."
+    },
+    "upgradeNamed": "Aggiorna {{name}}",
+    "why": {
+      "role": "Un aggiornamento è disponibile. Solo un amministratore può installarlo.",
+      "needs-check": "Viene segnalato un aggiornamento, ma i dettagli non sono ancora confermati. Controlla di nuovo per confermarlo.",
+      "check-failed": "L'ultimo controllo è fallito, quindi l'aggiornamento non può essere confermato. Controlla di nuovo.",
+      "incompatible": "Esiste un aggiornamento, ma non può funzionare qui:",
+      "integrity": "La libreria elenca questa versione con contenuto diverso. Non è proposta come aggiornamento.",
+      "recovery": "I dati di questo componente aggiuntivo richiedono prima il ripristino. Ripristina un backup nei Dettagli, poi aggiorna.",
+      "current": "L'ultimo controllo non ha trovato aggiornamenti. L'avviso potrebbe essere obsoleto. Controlla di nuovo."
     }
   },
   "install": {

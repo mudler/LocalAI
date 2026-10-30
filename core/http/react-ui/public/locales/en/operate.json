@@ -449,7 +449,10 @@
       "pinned": "Pinned to {{digest}}",
       "updated": "{{name}} updated from its library.",
       "updateFailed": "The update failed. {{message}}"
-    }
+    },
+    "updateAllTitle": "Update all backends",
+    "updateAllIntro": "Choose which backends to update. Each one is updated on its own, one after another. A failure does not stop the others.",
+    "updateSelected": "Update selected"
   },
   "logs": {
     "title": "Backend logs",

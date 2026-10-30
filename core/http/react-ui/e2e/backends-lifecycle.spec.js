@@ -180,6 +180,7 @@ test.describe('Backends lifecycle page', () => {
     await page.goto('/app/backends?view=installed')
 
     await page.getByRole('button', { name: /update all/i }).click()
+    await page.getByTestId('bulk-upgrade-start').click()
 
     await expect(page.getByRole('alert')).toContainText('upgrade registry unavailable')
   })
@@ -207,6 +208,7 @@ test.describe('Backends lifecycle page', () => {
     await page.goto('/app/backends?view=installed')
 
     await page.getByRole('button', { name: /update all/i }).click()
+    await page.getByTestId('bulk-upgrade-start').click()
 
     await expect(page.getByRole('alert')).toContainText('first registry unavailable')
     await expect.poll(() => laterUpgradeRequests).toBe(1)

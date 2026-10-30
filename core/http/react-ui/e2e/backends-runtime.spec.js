@@ -129,6 +129,7 @@ test.describe('Backend updates', () => {
     await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
     await page.getByRole('button', { name: 'Update all (2)' }).click()
+    await page.getByTestId('bulk-upgrade-start').click()
     await expect.poll(() => calls.sort()).toEqual(['llama-cpp', 'whisper'])
   })
 

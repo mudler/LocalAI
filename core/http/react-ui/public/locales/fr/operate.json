@@ -1,0 +1,7 @@
+{
+  "backends": {
+    "updateAllTitle": "Mettre à jour tous les backends",
+    "updateAllIntro": "Choisissez les backends à mettre à jour. Chacun est mis à jour séparément, l'un après l'autre. Un échec n'arrête pas les autres.",
+    "updateSelected": "Mettre à jour la sélection"
+  }
+}

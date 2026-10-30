@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "Aggiornamento disponibile",
+    "availableVersion": "Aggiornamento disponibile: {{version}}"
+  },
+  "trigger": {
+    "all": "Aggiorna tutto ({{count}})",
+    "running": "Aggiornamento {{current}} di {{total}}",
+    "summary": "{{done}} aggiornati, {{failed}} falliti, {{skipped}} saltati",
+    "summaryOk": "{{done}} aggiornati",
+    "review": "Rivedi"
+  },
+  "dialog": {
+    "title": "Aggiorna tutto",
+    "intro": "Scegli cosa aggiornare. Ogni elemento viene aggiornato da solo, uno dopo l'altro. Un errore non ferma gli altri.",
+    "selection": "Selezione",
+    "selectAll": "Seleziona tutto",
+    "selectNone": "Deseleziona tutto",
+    "selectedCount_one": "{{count}} selezionato",
+    "selectedCount_other": "{{count}} selezionati",
+    "item": "Aggiorna {{name}}",
+    "versions": "{{from}} a {{to}}",
+    "blocked": "Non può partire",
+    "start": "Aggiorna selezione",
+    "starting": "Aggiornamento...",
+    "retry": "Riprova i falliti ({{count}})",
+    "again": "Nuova selezione",
+    "close": "Chiudi",
+    "closeRunning": "Chiudi (continua)",
+    "runningNote": "Chiudere questa finestra non ferma gli aggiornamenti.",
+    "progress": "Aggiornamento {{current}} di {{total}}",
+    "summary": "{{done}} aggiornati, {{failed}} falliti, {{skipped}} saltati",
+    "empty": "Niente da aggiornare."
+  },
+  "item": {
+    "queued": "In coda",
+    "upgrading": "In aggiornamento",
+    "done": "Fatto",
+    "failed": "Fallito",
+    "skipped": "Saltato"
+  },
+  "reason": {
+    "checkAgain": "Controlla di nuovo",
+    "checking": "Controllo..."
+  }
+}

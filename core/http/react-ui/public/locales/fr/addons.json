@@ -596,6 +596,16 @@
       "denied": "Seul un administrateur peut le faire depuis sa propre session de navigateur.",
       "network": "Le réseau est injoignable.",
       "unavailable": "Le propriétaire du module n'est pas disponible. Réessayez."
+    },
+    "upgradeNamed": "Mettre à jour {{name}}",
+    "why": {
+      "role": "Une mise à jour est disponible. Seul un administrateur peut l'installer.",
+      "needs-check": "Une mise à jour est signalée, mais ses détails ne sont pas encore confirmés. Vérifiez à nouveau pour la confirmer.",
+      "check-failed": "La dernière vérification a échoué, la mise à jour ne peut pas être confirmée. Vérifiez à nouveau.",
+      "incompatible": "Une mise à jour existe, mais elle ne peut pas fonctionner ici :",
+      "integrity": "La bibliothèque liste cette version avec un contenu différent. Elle n'est pas proposée comme mise à jour.",
+      "recovery": "Les données de cet module doivent d'abord être récupérées. Restaurez une sauvegarde dans Détails, puis mettez à jour.",
+      "current": "La dernière vérification n'a trouvé aucune mise à jour. L'avis est peut-être périmé. Vérifiez à nouveau."
     }
   },
   "install": {

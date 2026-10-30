@@ -19,10 +19,12 @@ import ConfirmDialog from '../ConfirmDialog'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { UnknownNotice } from './AddonBits'
-import { OperatorFacts, UpgradeSummary } from './OperatorFacts'
-import { AddonsError } from '../../utils/addonsApi'
-import { newOperationId } from '../catalog/catalogState'
-import { updateView, upgradeBody } from './updateState'
+import { OperatorFacts, outcomeText } from './OperatorFacts'
+import { AddonUpgradeAction, UpgradeConfirm, reasonText } from './UpgradeControls'
+import { useAddonUpgrade } from './useAddonUpgrade'
+import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../upgrade/BulkUpgradeDialog'
+import { useBulkUpgrade } from '../../hooks/useBulkUpgrade'
+import { updateView, upgradeAvailability } from './updateState'
 import FirstRun from './FirstRun'
 import { listState } from './addonState'
 import { describeError, describeOutcome } from './errors'
@@ -91,7 +93,6 @@ export default function AppsView({ api, adapter }) {
   // pane. A change reads it again.
   const [installedInfo, setInstalledInfo] = useState({})
   const [installedReload, setInstalledReload] = useState(0)
-  const [checks, setChecks] = useState({})
   const [upgraded, setUpgraded] = useState({})
   const actions = useAddonActions(api, {
     onSettled: (key, result) => {
@@ -130,42 +131,8 @@ export default function AppsView({ api, adapter }) {
     })
   }, [actions, adapter, api])
 
-  // The explicit upgrade: the digest of the installed package this page showed
-  // and the digest of the candidate the owner's check resolved. The owner
-  // checks both again and refuses before it changes anything.
-  const [confirmUpgrade, setConfirmUpgrade] = useState(null)
-  const upgrade = useCallback((addon) => {
-    actions.run(`upgrade:${addon.id}:${addon.generation}`, {
-      addonId: addon.id,
-      submit: (operationId, signal) => {
-        const body = upgradeBody(addon, operationId)
-        if (!body) return Promise.reject(new AddonsError({ kind: 'invalid' }))
-        return api.updates.upgrade(addon.id, body, signal)
-      },
-      verify: async (signal) => {
-        const now = (await api.installed(signal)).find(a => a.id === addon.id)
-        return Boolean(now) && now.generation > addon.generation
-      },
-    })
-  }, [actions, api])
-  // Asks the owner to read the library again. It never applies anything.
-  const aborter = useRef(null)
-  useEffect(() => {
-    aborter.current = new AbortController()
-    return () => aborter.current.abort()
-  }, [])
-  const check = useCallback(async (addon) => {
-    const signal = aborter.current.signal
-    setChecks(c => ({ ...c, [addon.id]: { phase: 'working' } }))
-    try {
-      const status = await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
-      setChecks(c => ({ ...c, [addon.id]: { phase: 'done', throttled: Boolean(status && status.throttled) } }))
-      setInstalledReload(n => n + 1)
-    } catch (error) {
-      if (error && error.name === 'AbortError') return
-      setChecks(c => ({ ...c, [addon.id]: { phase: 'error', error } }))
-    }
-  }, [api])
+  const upgrade = useAddonUpgrade(api, actions, { onChecked: () => { setInstalledReload(n => n + 1); reloadRef.current() } })
+  const checks = upgrade.checks
 
   const nav = useNavigation()
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
@@ -190,17 +157,39 @@ export default function AppsView({ api, adapter }) {
   }, [tiles, query, titleOf, pinOrder])
   const detail = tiles.find(x => x.id === detailId) || null
 
-  const detailApp = detail ? detail.app : null
-  const detailAppId = detailApp ? detailApp.id : ''
-  const detailAppGeneration = detailApp ? detailApp.generation : 0
+  // The installed records, for the administrator: Details and the upgrade
+  // action on the list both read them. A change of any add-on (generation,
+  // notice) reads them again.
+  const appsKey = state.apps.map(a => `${a.id}:${a.generation}:${a.update || ''}`).join('|')
   useEffect(() => {
-    if (!isAdmin || !detailAppId) return undefined
+    if (!isAdmin || !canList || !appsKey) return undefined
     const ctl = new AbortController()
     api.installed(ctl.signal)
       .then(list => setInstalledInfo(Object.fromEntries(list.map(a => [a.id, a]))))
       .catch(() => { /* the pane says the source is not known */ })
     return () => ctl.abort()
-  }, [api, isAdmin, detailAppId, detailAppGeneration, installedReload])
+  }, [api, isAdmin, canList, appsKey, installedReload])
+
+  // Everything that has an update notice, for "Upgrade all": the owner's
+  // record when the administrator can read it, with the reason when the
+  // upgrade cannot start. The upgrade of each is the single-add-on path.
+  const upgradeItems = useMemo(() => {
+    if (!isAdmin) return []
+    return state.apps.filter(a => a.update === 'update-pending' || updateView(installedInfo[a.id]?.update).state === 'update-available').map(a => {
+      const rec = installedInfo[a.id]
+      const av = upgradeAvailability(rec, { isAdmin, pending: true })
+      return { id: a.id, name: a.title || a.id, from: rec ? rec.version : a.version, to: rec ? updateView(rec.update).version : '', startable: av.startable, reason: reasonText(av, t), addon: rec }
+    })
+  }, [state.apps, installedInfo, isAdmin, t])
+  const bulk = useBulkUpgrade({
+    items: upgradeItems,
+    runOne: async (item) => {
+      const result = await upgrade.upgrade(item.addon)
+      if (!result) return { ok: false, skipped: true }
+      if (result.outcome === 'completed') return { ok: true }
+      return { ok: false, message: outcomeText(result, t) }
+    },
+  })
 
   const onPin = async (id) => {
     if (pinnedIds.has(id)) { await nav.unpin(id); return }
@@ -255,6 +244,7 @@ export default function AppsView({ api, adapter }) {
           />
           {/* One way into Browse per screen: the first-run card carries it while
               nothing is installed, and the bar carries it afterwards. */}
+          {isAdmin && !firstRun && <BulkUpgradeTrigger bulk={bulk} className="dk-btn dk-btn--sm" />}
           {isAdmin && !firstRun && (
             <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
           )}
@@ -273,7 +263,17 @@ export default function AppsView({ api, adapter }) {
           ) : (
           <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
             {shown.map(tile => (
-              <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined} />
+              <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined}
+                upgrade={tile.app ? (
+                  <AddonUpgradeAction
+                    addon={installedInfo[tile.id]}
+                    pending={tile.app.update === 'update-pending'}
+                    isAdmin={isAdmin}
+                    upgrade={upgrade}
+                    working={Boolean(actions.unknown[tile.id]) || actions.state[`upgrade:${tile.id}:${tile.app.generation}`]?.phase === 'working'}
+                  />
+                ) : null}
+              />
             ))}
           </ul>
         )}
@@ -304,8 +304,8 @@ export default function AppsView({ api, adapter }) {
                   actions={actions}
                   check={checks[detail.id]}
                   upgraded={Boolean(upgraded[detail.id])}
-                  onCheck={() => check(installedInfo[detail.id])}
-                  onUpgrade={() => setConfirmUpgrade(installedInfo[detail.id])}
+                  onCheck={() => upgrade.check(installedInfo[detail.id])}
+                  onUpgrade={() => upgrade.ask(installedInfo[detail.id])}
                 />
               </details>
             )}
@@ -325,14 +325,8 @@ export default function AppsView({ api, adapter }) {
       {manageId && state.status === 'ready' && !detail && (
         <div className="op-notice" role="status"><Icon name="info" /><span>{t('installed.missing', { id: manageId })}</span></div>
       )}
-      <ConfirmDialog
-        open={Boolean(confirmUpgrade)}
-        title={confirmUpgrade ? t('updates.confirm.title', { name: confirmUpgrade.title, version: updateView(confirmUpgrade.update).version }) : ''}
-        message={confirmUpgrade ? <UpgradeSummary addon={confirmUpgrade} t={t} /> : null}
-        confirmLabel={t('updates.confirm.action')}
-        onConfirm={() => { const a = confirmUpgrade; setConfirmUpgrade(null); upgrade(a) }}
-        onCancel={() => setConfirmUpgrade(null)}
-      />
+      <UpgradeConfirm upgrade={upgrade} />
+      <BulkUpgradeDialog bulk={bulk} />
       {limit && (
         <SideSheet title={t('drawer.limitTitle')} onClose={() => setLimit(false)} closeLabel={t('drawer.close')} testId="pin-limit">
           <p>{t('drawer.limitBody')}</p>

@@ -353,6 +353,33 @@ var _ = Describe("Update detection", func() {
 			Expect(st.State).To(Equal(updates.UpdateAvailable))
 			Expect(st.Stale).To(BeTrue(), "the library was last fetched longer ago than the time to live")
 		})
+		It("always names the candidate digest of an update, so the upgrade has something to pin", func() {
+			moving := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestB))
+			pinned := newRig(installed("1.2.0", "1.2.0", "", digestA), rel("1.2.0", "", digestA), rel("1.3.0", "", digestB))
+			for _, r := range []*rig{moving, pinned} {
+				st := check(r, false)
+				Expect(st.State).To(Equal(updates.UpdateAvailable))
+				Expect(st.CandidateDigest).To(Equal(digestB))
+				Expect(st.CandidateVersion).NotTo(BeEmpty())
+			}
+		})
+		It("keeps a stale cached notice readable while a plain check says the update is gone", func() {
+			// The apps list reads the cache only (Cached); the installed view
+			// evaluates again when the answer is stale. Both are true at once,
+			// so a page that shows the notice must be ready for a record that
+			// no longer agrees, and offer a new check.
+			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestB))
+			Expect(check(r, false).State).To(Equal(updates.UpdateAvailable))
+			r.lib.mu.Lock()
+			r.lib.cached = []catalog.Release{rel("1.0.0", "development", digestA)}
+			r.lib.mu.Unlock()
+			*r.clock = r.clock.Add(2 * time.Hour)
+			cached, ok := r.checker.Cached("notes", digestA, 1)
+			Expect(ok).To(BeTrue())
+			Expect(cached.State).To(Equal(updates.UpdateAvailable))
+			Expect(cached.Stale).To(BeTrue())
+			Expect(check(r, false).State).To(Equal(updates.UpToDate))
+		})
 		It("marks a cached answer older than the time to live as stale", func() {
 			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))
 			check(r, false)

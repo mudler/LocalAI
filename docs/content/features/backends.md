@@ -78,8 +78,9 @@ Each row shows the backend, its version and its state: **Current**, **Update
 1.2.0**, **Not installed**, **Queued**, **Removing**, or a progress bar while it
 installs, with **Cancel** in the row. A failed install says why, with **Retry**.
 The one action that matters sits in the row (**Install**, **Update**), and the
-chevron opens the row for the rest. **Update all** starts every pending update,
-and **Check for updates** asks the server to check now instead of waiting for
+chevron opens the row for the rest. **Update all** opens a dialog where you pick which pending updates to run;
+they run one after another, a failure does not stop the others, you can close the
+dialog while they run, and **Retry failed** runs the failed ones again. **Check for updates** asks the server to check now instead of waiting for
 its next scheduled check. **From URL** installs a backend from an OCI image, a
 URL or a path.
 

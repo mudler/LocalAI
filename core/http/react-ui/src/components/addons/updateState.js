@@ -91,3 +91,26 @@ export function formatWhen(iso, language) {
     return new Date(t).toISOString()
   }
 }
+
+// Whether an upgrade can start for an add-on, and when it cannot, why. The page
+// shows the reason next to the notice instead of hiding the action. `pending`
+// is true when the list already carries the "update available" notice, so a
+// record that disagrees (or is missing) is explained rather than ignored.
+// `canCheck` says a new check could change the answer.
+export function upgradeAvailability(addon, { isAdmin, pending = false } = {}) {
+  const view = updateView(addon && addon.update)
+  const notice = pending || view.state === 'update-available'
+  const no = (reason, extra = {}) => ({ startable: false, reason, reasons: [], canCheck: false, ...extra })
+  if (!notice && view.state !== 'incompatible' && view.state !== 'integrity-error') return no('')
+  if (!isAdmin) return no('role')
+  if (addon && addon.recovery) return no('recovery')
+  switch (view.state) {
+    case 'update-available':
+      return view.canUpgrade ? { startable: true, reason: '', reasons: [], canCheck: false } : no('needs-check', { canCheck: true })
+    case 'incompatible': return no('incompatible', { reasons: view.reasons })
+    case 'integrity-error': return no('integrity')
+    case 'check-failed': return no('check-failed', { canCheck: true })
+    case 'up-to-date': return no('current', { canCheck: true })
+    default: return no('needs-check', { canCheck: true })
+  }
+}

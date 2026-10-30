@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "Mise à jour disponible",
+    "availableVersion": "Mise à jour disponible : {{version}}"
+  },
+  "trigger": {
+    "all": "Tout mettre à jour ({{count}})",
+    "running": "Mise à jour {{current}} sur {{total}}",
+    "summary": "{{done}} mis à jour, {{failed}} en échec, {{skipped}} ignorés",
+    "summaryOk": "{{done}} mis à jour",
+    "review": "Consulter"
+  },
+  "dialog": {
+    "title": "Tout mettre à jour",
+    "intro": "Choisissez ce qu'il faut mettre à jour. Chaque élément est mis à jour séparément, l'un après l'autre. Un échec n'arrête pas les autres.",
+    "selection": "Sélection",
+    "selectAll": "Tout sélectionner",
+    "selectNone": "Tout désélectionner",
+    "selectedCount_one": "{{count}} sélectionné",
+    "selectedCount_other": "{{count}} sélectionnés",
+    "item": "Mettre à jour {{name}}",
+    "versions": "{{from}} vers {{to}}",
+    "blocked": "Ne peut pas démarrer",
+    "start": "Mettre à jour la sélection",
+    "starting": "Mise à jour...",
+    "retry": "Réessayer les échecs ({{count}})",
+    "again": "Nouvelle sélection",
+    "close": "Fermer",
+    "closeRunning": "Fermer (continue en arrière-plan)",
+    "runningNote": "Fermer cette fenêtre n'arrête pas les mises à jour.",
+    "progress": "Mise à jour {{current}} sur {{total}}",
+    "summary": "{{done}} mis à jour, {{failed}} en échec, {{skipped}} ignorés",
+    "empty": "Rien à mettre à jour."
+  },
+  "item": {
+    "queued": "En attente",
+    "upgrading": "Mise à jour",
+    "done": "Terminé",
+    "failed": "Échec",
+    "skipped": "Ignoré"
+  },
+  "reason": {
+    "checkAgain": "Vérifier à nouveau",
+    "checking": "Vérification..."
+  }
+}

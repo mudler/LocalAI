@@ -592,6 +592,16 @@
       "denied": "Only an administrator can do this from their own browser session.",
       "network": "The network is not reachable.",
       "unavailable": "The add-on owner is not available. Try again."
+    },
+    "upgradeNamed": "Upgrade {{name}}",
+    "why": {
+      "role": "An update is available. Only an administrator can upgrade it.",
+      "needs-check": "An update is reported, but its details are not confirmed yet. Check again to confirm it.",
+      "check-failed": "The last check failed, so the update cannot be confirmed. Check again.",
+      "incompatible": "An update exists but cannot run here:",
+      "integrity": "The library lists this version with different contents. It is not offered as an update.",
+      "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then upgrade.",
+      "current": "The latest check found no update. The notice may be out of date. Check again."
     }
   },
   "install": {

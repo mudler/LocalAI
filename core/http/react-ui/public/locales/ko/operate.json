@@ -1,0 +1,7 @@
+{
+  "backends": {
+    "updateAllTitle": "모든 백엔드 업데이트",
+    "updateAllIntro": "업데이트할 백엔드를 선택하세요. 각각 하나씩 차례로 업데이트되며, 하나가 실패해도 나머지는 계속됩니다.",
+    "updateSelected": "선택 항목 업데이트"
+  }
+}
