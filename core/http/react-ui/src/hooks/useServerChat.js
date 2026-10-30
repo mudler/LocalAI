@@ -245,7 +245,8 @@ export function useServerChat() {
     setError('')
     const run = async () => {
       const res = await chatsApi.send(id, text, attached)
-      if (res.started) setDetail(d => (d ? { ...d, running: true } : d))
+      // Another chat may be open by now: its state is not this chat's.
+      if (res.started && activeRef.current === id) setDetail(d => (d ? { ...d, running: true } : d))
       await refreshChat(id)
       return res
     }
@@ -294,9 +295,9 @@ export function useServerChat() {
     setError('')
     try {
       const res = await call()
-      if (res?.started) setDetail(d => (d ? { ...d, running: true } : d))
+      if (res?.started && activeRef.current === id) setDetail(d => (d ? { ...d, running: true } : d))
     } catch (e) {
-      setError(e.message)
+      if (activeRef.current === id) setError(e.message)
     }
     await refreshChat(id)
   }, [refreshChat, setError])
