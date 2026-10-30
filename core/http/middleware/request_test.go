@@ -902,6 +902,41 @@ var _ = Describe("SetModelAndConfig metadata passthrough (chat completions)", fu
 		Expect(*captured).ToNot(BeNil())
 		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("preserve_thinking", "true"))
 	})
+
+	It("folds llama-server style chat_template_kwargs into the request metadata", func() {
+		app, captured := buildApp()
+		body := `{"model":"test-model","messages":[{"role":"user","content":"hi"}],` +
+			`"chat_template_kwargs":{"enable_thinking":false,"reasoning_effort":"low","budget":512,` +
+			`"nested":{"a":1},"list":[1],"chat_template_kwargs":"x"}}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).RequestMetadata).To(Equal(map[string]string{
+			"enable_thinking":  "false",
+			"reasoning_effort": "low",
+			"budget":           "512",
+		}))
+	})
+
+	It("lets an explicit metadata key win over chat_template_kwargs", func() {
+		app, captured := buildApp()
+		body := `{"model":"test-model","messages":[{"role":"user","content":"hi"}],` +
+			`"chat_template_kwargs":{"enable_thinking":false,"preserve_thinking":true},` +
+			`"metadata":{"enable_thinking":"true"}}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("enable_thinking", "true"))
+		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("preserve_thinking", "true"))
+	})
 })
 
 // A model config may default to decayed_mean pooling with a half-life
