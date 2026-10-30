@@ -587,6 +587,35 @@ test.describe('Chat tools menu: MCP', () => {
     await expect(page.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
   })
 
+  test('the Web row says who serves the web tools: the built-in, an add-on, or each by name', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    let web = { group: 'web', tools: ['web_search', 'web_fetch'], off: false, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' } }
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { builtins: [web], addons: [], servers: [], connectors: [], off: [] } }))
+    const row = () => page.getByTestId('chat-tools-item').filter({ has: page.getByRole('checkbox', { name: 'Web' }) })
+    const open = async () => {
+      await page.goto('/app/chats/c1')
+      await page.getByTestId('chat-tools-button').click()
+    }
+
+    // Served by LocalAI: no add-on named, the tooltip says built-in.
+    await open()
+    await expect(row()).toHaveAttribute('title', 'web_search, web_fetch · built-in')
+    await expect(row().getByTestId('chat-tools-note')).toHaveCount(0)
+
+    // An add-on shadows both tools: the row names it.
+    web = { ...web, provider: 'searx', providers: { web_search: 'searx', web_fetch: 'searx' } }
+    await open()
+    await expect(row().getByTestId('chat-tools-note')).toHaveText('Served by add-on searx')
+    await expect(row()).toHaveAttribute('title', 'web_search, web_fetch · served by searx')
+
+    // One tool shadowed: the row names the provider of each.
+    web = { ...web, provider: 'mixed', providers: { web_search: 'searx', web_fetch: 'builtin' } }
+    await open()
+    await expect(row().getByTestId('chat-tools-note')).toHaveText('web_search: searx · web_fetch: built-in')
+  })
+
   test('shows no menu when there is nothing to switch', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()

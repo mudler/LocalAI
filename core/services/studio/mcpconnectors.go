@@ -106,11 +106,15 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 	if err != nil {
 		return ToolsPanel{}, err
 	}
-	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(rec)}
+	sc := s.scopeOf(ctx, rec)
+	var shadowing []session.Tool
+	if sc == nil || !sc.deleted {
+		shadowing, _ = s.addonTools(ctx, chatActor(principal(user), conv), rec, sc)
+	}
+	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(rec, shadowing)}
 	if p.Addons, err = s.Addons(ctx, user, conv); err != nil {
 		return p, err
 	}
-	sc := s.scopeOf(ctx, rec)
 	off := set(rec.McpOff)
 	granted := func(name string) bool { return sc == nil }
 	var grantedIDs []string

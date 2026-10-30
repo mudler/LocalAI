@@ -323,6 +323,10 @@
       "web": "Web"
     },
     "builtinBy": "{{tools}} · built-in",
+    "builtinByAddon": "{{tools}} · served by {{provider}}",
+    "servedBy": "Served by add-on {{provider}}",
+    "servedByTool": "{{tool}}: {{provider}}",
+    "servedByBuiltin": "built-in",
     "addons": "Add-ons",
     "servers": "MCP servers of the model",
     "connectors": "Your connectors",

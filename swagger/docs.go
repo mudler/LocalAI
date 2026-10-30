@@ -17206,9 +17206,19 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "provider": {
-                    "description": "Provider is \"builtin\" when LocalAI serves the tools itself.",
+                    "description": "Provider is \"builtin\" when LocalAI serves the tools itself, the ID of\nthe add-on that serves them in this chat when one shadows them, or\n\"mixed\" when the tools have different providers.",
                     "type": "string",
                     "example": "builtin"
+                },
+                "providers": {
+                    "description": "Providers says who serves each tool, by tool name.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "example": {
+                        "web_search": "builtin"
+                    }
                 },
                 "tools": {
                     "type": "array",

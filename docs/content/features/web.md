@@ -144,7 +144,11 @@ for example to search with a provider that needs a key. Its tool declares
 is installed, running and on for the chat, the model sees one `web_search`, served by the add-on, and the built-in one is left out. This
 holds also when an administrator switched the built-in off. The Web switch of
 the chat's Tools menu switches only the built-in tools; the add-on has its own
-switch. **Settings > Tools** shows who serves each tool. See
+switch. The Web row says who serves the tools in that chat: "Served by add-on
+searx" when an add-on replaces both, one line per tool when only one is replaced,
+and nothing extra when the built-in tools serve them. `GET /api/chats/{id}/tools`
+reports the same in `builtins[].provider` (`builtin`, an add-on ID, or `mixed`)
+and `builtins[].providers` (the provider of each tool). **Settings > Tools** shows who serves each tool. See
 [Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
 
 ## Limits

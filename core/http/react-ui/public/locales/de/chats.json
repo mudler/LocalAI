@@ -121,7 +121,11 @@
     "builtin": {
       "web": "Web"
     },
-    "builtinBy": "{{tools}} · eingebaut"
+    "builtinBy": "{{tools}} · eingebaut",
+    "builtinByAddon": "{{tools}} · bedient von {{provider}}",
+    "servedBy": "Bedient vom Add-on {{provider}}",
+    "servedByTool": "{{tool}}: {{provider}}",
+    "servedByBuiltin": "eingebaut"
   },
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",

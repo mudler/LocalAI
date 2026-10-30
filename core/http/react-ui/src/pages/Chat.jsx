@@ -215,6 +215,18 @@ function ChatPage() {
     if (sandbox.state === 'host') return { note: tc('tools.sandbox.host'), warn: true }
     return { note: tc('tools.sandbox.isolated', { backend: sandbox.backend }) }
   }
+  // Who serves a group of built-in tools in this chat: the built-in itself, or
+  // an add-on that shadows a tool of the group (the server resolves it).
+  const builtinNote = (b) => {
+    const by = b.providers || {}
+    const shadowed = Object.entries(by).filter(([, p]) => p && p !== 'builtin')
+    if (shadowed.length === 0) return {}
+    const provider = (p) => (p === 'builtin' ? tc('tools.servedByBuiltin') : p)
+    const note = b.provider === 'mixed'
+      ? Object.entries(by).map(([tool, p]) => tc('tools.servedByTool', { tool, provider: provider(p) })).join(' · ')
+      : tc('tools.servedBy', { provider: b.provider })
+    return { note, title: tc('tools.builtinByAddon', { tools: (b.tools || []).join(', '), provider: b.provider === 'mixed' ? note : b.provider }) }
+  }
   const messages = chat.messages
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
   const modelWarm = !!model && loadedIds.has(model)
@@ -860,6 +872,7 @@ function ChatPage() {
         key: `b-${b.group}`, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
         title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
         on: !b.off, onToggle: (on) => switches.toggleBuiltin(b.group, on),
+        ...builtinNote(b),
       })),
     },
     {

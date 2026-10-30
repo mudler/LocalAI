@@ -135,14 +135,24 @@ type BuiltinGroup struct {
 	Tools []string
 	// Off says that the chat switched the group off.
 	Off bool
-	// Provider is BuiltinProvider. An add-on tool that shadows a tool of the
-	// group serves it under its add-on's own switch, not this one.
+	// Provider says who serves the group: BuiltinProvider, the ID of the
+	// add-on that shadows its tools, or MixedProvider when they differ.
+	// An add-on that shadows a tool of the group keeps its own switch; this
+	// one only governs the tools LocalAI serves itself.
 	Provider string
+	// Providers says who serves each tool of the group, by tool name.
+	Providers map[string]string
 }
 
+// MixedProvider is the Provider of a group whose tools are served by
+// different providers.
+const MixedProvider = "mixed"
+
 // builtinGroups lists the groups of built-in tools a chat can switch. A
-// group whose tools are all off on this instance is not listed.
-func (s *Service) builtinGroups(rec session.ChatRecord) []BuiltinGroup {
+// group whose tools are all off on this instance is not listed. tools are the
+// add-on tools of the chat after shadows are resolved: a tool of the group
+// with an add-on in it is served by that add-on.
+func (s *Service) builtinGroups(rec session.ChatRecord, tools []session.Tool) []BuiltinGroup {
 	off := set(rec.BuiltinsOff)
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
@@ -154,9 +164,21 @@ func (s *Service) builtinGroups(rec session.ChatRecord) []BuiltinGroup {
 		if !ok {
 			i = len(out)
 			byGroup[t.Group] = i
-			out = append(out, BuiltinGroup{Group: t.Group, Off: off[t.Group], Provider: BuiltinProvider})
+			out = append(out, BuiltinGroup{Group: t.Group, Off: off[t.Group], Providers: map[string]string{}})
 		}
 		out[i].Tools = append(out[i].Tools, t.ID)
+		provider := BuiltinProvider
+		if p := providerOf(tools, t.ID); t.Replaceable && p != "" {
+			provider = p
+		}
+		g := &out[i]
+		g.Providers[t.ID] = provider
+		switch {
+		case g.Provider == "":
+			g.Provider = provider
+		case g.Provider != provider:
+			g.Provider = MixedProvider
+		}
 	}
 	return out
 }

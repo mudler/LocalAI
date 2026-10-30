@@ -2911,9 +2911,19 @@ definitions:
       "off":
         type: boolean
       provider:
-        description: Provider is "builtin" when LocalAI serves the tools itself.
+        description: |-
+          Provider is "builtin" when LocalAI serves the tools itself, the ID of
+          the add-on that serves them in this chat when one shadows them, or
+          "mixed" when the tools have different providers.
         example: builtin
         type: string
+      providers:
+        additionalProperties:
+          type: string
+        description: Providers says who serves each tool, by tool name.
+        example:
+          web_search: builtin
+        type: object
       tools:
         example:
         - web_search
@@ -12886,7 +12896,8 @@ paths:
         type: string
       responses:
         "200":
-          description: The folder's entries, sorted by name; managed marks the folders LocalAI manages
+          description: The folder's entries, sorted by name; managed marks the folders
+            LocalAI manages
           schema:
             $ref: '#/definitions/schema.ChatsFileList'
         "409":

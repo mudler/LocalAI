@@ -204,7 +204,7 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 	out := schema.ChatsToolsPanel{Builtins: make([]schema.ChatsBuiltinGroup, 0, len(p.Builtins)), Addons: make([]schema.ChatsAddon, 0, len(p.Addons)), Servers: make([]schema.ChatsMCPServerSwitch, 0, len(p.Servers)),
 		Connectors: make([]schema.ChatsMCPConnectorSwitch, 0, len(p.Connectors)), Off: p.Off}
 	for _, g := range p.Builtins {
-		out.Builtins = append(out.Builtins, schema.ChatsBuiltinGroup{Group: g.Group, Tools: g.Tools, Off: g.Off, Provider: g.Provider})
+		out.Builtins = append(out.Builtins, schema.ChatsBuiltinGroup{Group: g.Group, Tools: g.Tools, Off: g.Off, Provider: g.Provider, Providers: g.Providers})
 	}
 	for _, a := range p.Addons {
 		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})

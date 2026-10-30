@@ -1,6 +1,7 @@
 package studio_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -40,6 +41,33 @@ var _ = Describe("an add-on tool that shadows a built-in", func() {
 		Expect(tools[0].Card).NotTo(BeNil())
 		Expect(tools[0].Card.Kind).To(Equal(studio.ProviderCardKind))
 		Expect(tools[0].Card.ID).To(Equal("sandbox"))
+	})
+
+	It("names the add-on that serves a web tool in the tools panel, and the built-in otherwise", func() {
+		search := addonTool("searx", "search")
+		search.Shadows = "web_search"
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: {search}}}
+		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} },
+			withWeb(&fakeWeb{search: true, fetch: true}), func(d *studio.Deps) { d.AddonTools = fa })
+		id := create(svc, alice)
+		panel, err := svc.Tools(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(panel.Builtins).To(HaveLen(1))
+		Expect(panel.Builtins[0].Provider).To(Equal(studio.MixedProvider))
+		Expect(panel.Builtins[0].Providers).To(Equal(map[string]string{"web_search": "searx", "web_fetch": "builtin"}))
+
+		fetch := addonTool("searx", "fetch")
+		fetch.Shadows = "web_fetch"
+		fa.tools[alice] = []studio.AddonTool{search, fetch}
+		panel, err = svc.Tools(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(panel.Builtins[0].Provider).To(Equal("searx"))
+
+		// An add-on the chat switched off no longer serves.
+		Expect(svc.SetAddonsOff(context.Background(), alice, id, []string{"searx"})).To(Succeed())
+		panel, err = svc.Tools(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(panel.Builtins[0].Provider).To(Equal(studio.BuiltinProvider))
 	})
 
 	It("keeps its add-on name when the name it shadows is not replaceable", func() {

@@ -1026,8 +1026,12 @@ type ChatsBuiltinGroup struct {
 	Group string   `json:"group" example:"web"`
 	Tools []string `json:"tools" example:"web_search,web_fetch"`
 	Off   bool     `json:"off"`
-	// Provider is "builtin" when LocalAI serves the tools itself.
+	// Provider is "builtin" when LocalAI serves the tools itself, the ID of
+	// the add-on that serves them in this chat when one shadows them, or
+	// "mixed" when the tools have different providers.
 	Provider string `json:"provider" example:"builtin"`
+	// Providers says who serves each tool, by tool name.
+	Providers map[string]string `json:"providers" example:"web_search:builtin"`
 }
 
 // ChatsWebTestRequest is the body of a test web search.

@@ -48,6 +48,7 @@ var _ = Describe("Chats built-in web tools endpoints", func() {
 		Expect(panel.Code).To(Equal(http.StatusOK), panel.Body.String())
 		Expect(decodeJSON(panel)["builtins"]).To(Equal([]any{map[string]any{
 			"group": "web", "tools": []any{"web_search", "web_fetch"}, "off": false, "provider": "builtin",
+			"providers": map[string]any{"web_search": "builtin", "web_fetch": "builtin"},
 		}}))
 
 		put := s.do("alice", http.MethodPut, "/api/chats/"+chat+"/builtins", map[string]any{"off": []string{"web"}})
