@@ -757,7 +757,9 @@ default. They only read. Every result is labelled as untrusted content from the
 internet, and `web_fetch` refuses addresses inside your network. An
 administrator can switch each tool off, set a SearXNG instance for the
 searches and allow more ports in **Settings > Tools**. An add-on can replace
-either tool by name. See [Web search and web pages in chats](/features/web/).
+either tool by name: the optional Web add-on replaces both, to search with Brave
+Search, Tavily or Google with a key and to read PDF files. See
+[Web search and web pages in chats](/features/web/).
 
 ## Collections
 

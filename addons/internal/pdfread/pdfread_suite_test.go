@@ -9,5 +9,5 @@ import (
 
 func TestPDFRead(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Office PDF Read Suite")
+	RunSpecs(t, "PDF Read Suite")
 }

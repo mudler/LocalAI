@@ -3,7 +3,7 @@
 This directory holds the template of the catalog entries of the first-party add-ons.
 It holds no live URL, registry or namespace. The registry and repository are inputs of
 the release workflow (`ADDON_OCI_REPOSITORY`). Each first-party add-on has its own
-template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office`, `sandbox`) and its own release
+template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office`, `sandbox`, `web`) and its own release
 platform matrix, `addons/<id>/package/platforms.yaml`. The templates differ in `name:` only.
 
 ## Generate the index
@@ -57,7 +57,7 @@ go run ./scripts/addons/cmd/addonpkg catalog \
   --merged <merged layout of voice> ... # the other flags as above
 ```
 
-Use `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office` or `sandbox` in place of `voice` for the other packages.
+Use `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office`, `sandbox` or `web` in place of `voice` for the other packages.
 All packages share one repository, so pass the same repository for each. The artifact of an
 entry is `oci://<repository>:<id>-<tag>`, for example `...:voice-sha-50f0f3de26d2`.
 

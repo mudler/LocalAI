@@ -83,10 +83,25 @@ const nonEmptyLines = (s) => String(s || '').split('\n').map((l) => l.trim()).fi
 // What the output says, in a word: a count for a listing or a search, a size
 // for a write. null when there is nothing worth saying. Returned as an i18n
 // key of the chat namespace (steps.*) with its values.
+// The text of an add-on result. An add-on that replaces a built-in tool
+// answers as every add-on does, {"kind":"data","result":{"ok":true,"output":"..."}},
+// so the count is read from its output, as from the built-in's text.
+function addonOutput(out) {
+  if (!out.startsWith('{')) return out
+  try {
+    const r = JSON.parse(out)
+    const o = r && r.result && r.result.output
+    return typeof o === 'string' ? o.trim() : out
+  } catch {
+    return out
+  }
+}
+
 export function toolResult(verb, output) {
-  const out = String(output || '').trim()
+  let out = String(output || '').trim()
   if (!out) return null
   if (verb === 'websearch') {
+    out = addonOutput(out)
     if (/^No results\.$/m.test(out)) return { key: 'steps.noResults' }
     const n = (out.match(/^\d+\. /gm) || []).length
     return n > 0 ? { key: 'steps.results', values: { count: n } } : null

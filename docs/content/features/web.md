@@ -61,7 +61,8 @@ default 20000) and `format` (`markdown`, the default, or `text`).
   preferred. Headings, lists, links (with their full address), code blocks and
   tables are kept.
 - Plain text, Markdown, CSV, JSON and XML are returned as they are.
-- PDF and other types are refused with "unsupported type" and the type.
+- PDF and other types are refused with "unsupported type" and the type. The
+  [Web add-on](#the-web-add-on) reads the text of PDF files.
 - The download stops at 2 MiB and the text at `max_chars`. A cut text ends
   with `[truncated, N chars more]`.
 - A request takes at most 15 seconds and follows at most 5 redirects. It sends
@@ -139,7 +140,8 @@ curl -X POST .../api/chats/admin/web/test -d '{"query": "LocalAI"}'
 ## Replace a web tool with an add-on
 
 An add-on can serve `web_search` or `web_fetch` in place of the built-in tool,
-for example to search with a provider that needs a key. Its tool declares
+for example to search with a provider that needs a key, as the
+[Web add-on](#the-web-add-on) does. Its tool declares
 `"shadows": "web_search"` (or `"web_fetch"`) in its manifest. When the add-on
 is installed, running and on for the chat, the model sees one `web_search`, served by the add-on, and the built-in one is left out. This
 holds also when an administrator switched the built-in off. The Web switch of
@@ -150,6 +152,83 @@ and nothing extra when the built-in tools serve them. `GET /api/chats/{id}/tools
 reports the same in `builtins[].provider` (`builtin`, an add-on ID, or `mixed`)
 and `builtins[].providers` (the provider of each tool). **Settings > Tools** shows who serves each tool. See
 [Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
+
+## The Web add-on
+
+The Web add-on is an optional add-on of the official library (`web`). It replaces both
+`web_search` and `web_fetch` while it is installed, running and on for the chat. It adds:
+
+- search providers that need a key: Brave Search, Tavily and Google Programmable Search,
+  next to SearXNG and DuckDuckGo;
+- an order of providers: when one fails (it refuses the key, its key reached its limit, it
+  is down or does not answer in 8 seconds), the next one is tried;
+- the text of PDF files in `web_fetch`.
+
+Install it from **Add-ons**, **Find add-ons**. The chat's **Tools** menu then says
+"Served by add-on web" on the Web row, and **Settings > Tools** lists the add-on as the
+provider of both tools. When another add-on already replaces one of them, the install
+dialog says so for each tool ("This add-on replaces the built-in web_search. Another add-on
+(...) already does."), and you choose which one serves in **Settings > Tools**.
+
+### Providers
+
+An administrator sets the providers in the **Web** section of the Settings page. The
+section lists the five providers in the order they are tried; a checkbox takes a provider
+in or out of the order, and the arrows move it. A provider without what it needs is
+skipped.
+
+| Provider | Needs | Key sent as |
+|---|---|---|
+| Brave Search | An API key of the Brave Search API | `X-Subscription-Token` header |
+| Tavily | An API key | `Authorization: Bearer` header |
+| Google Programmable Search | An API key of the Custom Search JSON API and the search engine ID (`cx`) | `X-Goog-Api-Key` header |
+| SearXNG | The address of your instance (it must allow the JSON format) | no key |
+| DuckDuckGo | nothing | no key |
+
+The default order is Brave Search, Tavily, Google, SearXNG, DuckDuckGo, so with no key set
+the add-on searches with DuckDuckGo, as the built-in tool does. Take DuckDuckGo out of the
+order to never use it.
+
+A key is a secret of the add-on. It is saved in the add-on's data folder (`settings.json`,
+mode 0600) and sent only to its provider, in a header, never in a URL. The add-on's clients
+follow no redirect, so the key cannot travel to another host. The Settings page never shows a
+saved key: it says "A key is set", and an empty field keeps it. **Remove the key** deletes it.
+No tool result, error, log line or prompt holds a key.
+
+**Test the providers** runs one search with each provider of the order and shows, for
+each, how many results came back from which host, or why it failed ("Brave Search refused
+the key (401)", "no key").
+
+When no provider answers, the chat reads "no search provider works", followed by each
+provider and its reason, and that an administrator can set the providers in Settings.
+
+### Reading pages and PDF files
+
+`web_fetch` of the add-on reads what the built-in reads, and PDF files. A PDF comes back as
+its text, page by page, each page under a `Page N` line. A scanned PDF has no text. A PDF
+with a password, or one that is damaged, is refused with that reason.
+
+The add-on uses the same SSRF guard as the built-in tool, in its own process: public
+addresses only, ports 80 and 443, every redirect checked, at most 5 redirects, 15 seconds,
+no proxy, no cookies. The runtime settings `chats_web_allow_private` and `chats_web_ports`
+do not apply to the add-on: it never reaches an address inside your network. Its download
+stops at 10 MiB instead of 2 MiB so that common PDF files fit; a PDF that is cut there is
+refused ("the PDF is larger than 10 MiB"), because the rest of the file is missing. The text
+returned has the built-in limits (`maxChars`, 20000 by default, 100000 at most) and the same
+untrusted-content label.
+
+### Arguments
+
+The add-on's tools have the arguments of the built-in tools, with the names in camel case,
+because the add-on contract allows no underscore in an argument name: `maxResults` for
+`max_results` and `maxChars` for `max_chars`. The model reads the add-on's schema.
+
+### The add-on in a cluster
+
+The add-on runs on the add-on owner, one process for the whole cluster. Its settings are in
+its data folder there, and its search cache and rate limits (the same values as the built-in:
+20 searches per user and 60 for everyone each minute, 5 minutes of cache) are in the memory
+of that process, so every frontend sees the same. Saving the settings starts the cache again.
 
 ## Limits
 

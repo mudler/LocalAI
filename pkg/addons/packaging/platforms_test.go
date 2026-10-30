@@ -30,7 +30,7 @@ var nativeChecked = map[string]bool{"linux/amd64": true, "linux/arm64": true, "d
 // platforms stay listed and disabled.
 var linuxOnly = map[string]bool{"sandbox": true}
 
-var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "office", "sandbox"}
+var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "office", "sandbox", "web"}
 
 var _ = Describe("the packaged add-ons", func() {
 	for _, id := range packagedAddons {

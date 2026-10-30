@@ -4,9 +4,9 @@ package tools
 import (
 	"encoding/json"
 	"errors"
+	"github.com/mudler/LocalAI/addons/internal/pdfread"
 	"github.com/mudler/LocalAI/addons/office/internal/docxedit"
 	"github.com/mudler/LocalAI/addons/office/internal/officeread"
-	"github.com/mudler/LocalAI/addons/office/internal/pdfread"
 	"github.com/mudler/LocalAI/addons/office/internal/pptxedit"
 )
 

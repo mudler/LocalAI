@@ -1,0 +1,229 @@
+{
+  "api": {
+    "max": 1,
+    "min": 1
+  },
+  "arch": "amd64",
+  "capabilities": {
+    "toolDefinitions": [
+      {
+        "name": "search",
+        "description": "Search the web. Returns up to 10 results with title, URL and snippet. Use web_fetch to read a result.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "freshness": {
+              "description": "Only results from this recent period.",
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "year"
+              ],
+              "type": "string"
+            },
+            "maxResults": {
+              "description": "How many results (default 5).",
+              "maximum": 10,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "query": {
+              "description": "What to search for.",
+              "maxLength": 400,
+              "type": "string"
+            },
+            "site": {
+              "description": "Only results from this host, for example docs.python.org.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "shadows": "web_search"
+      },
+      {
+        "name": "fetch",
+        "description": "Read a public web page or file by URL (http or https), PDF included. Returns its main text as Markdown. Long pages are cut; the end says how much is left.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "format": {
+              "description": "markdown (default) keeps headings, links and tables; text is plain.",
+              "enum": [
+                "markdown",
+                "text"
+              ],
+              "type": "string"
+            },
+            "maxChars": {
+              "description": "Most characters to return (default 20000).",
+              "maximum": 100000,
+              "minimum": 100,
+              "type": "integer"
+            },
+            "url": {
+              "description": "The http or https address to read.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "shadows": "web_fetch"
+      },
+      {
+        "name": "status",
+        "description": "Say which search providers serve now. An administrator also gets the settings, without the keys. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "set-settings",
+        "description": "Save the search providers, their order and their keys. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "clear": {
+              "description": "Remove the saved key of these providers.",
+              "items": {
+                "enum": [
+                  "brave",
+                  "tavily",
+                  "google"
+                ],
+                "type": "string"
+              },
+              "maxItems": 3,
+              "type": "array"
+            },
+            "googleEngine": {
+              "description": "The Programmable Search Engine ID (cx).",
+              "maxLength": 128,
+              "type": "string"
+            },
+            "keys": {
+              "additionalProperties": false,
+              "description": "A new key for each named provider. An empty value keeps the saved key.",
+              "properties": {
+                "brave": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "google": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                "tavily": {
+                  "maxLength": 256,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "order": {
+              "description": "The providers to try, first to last.",
+              "items": {
+                "enum": [
+                  "brave",
+                  "tavily",
+                  "google",
+                  "searxng",
+                  "duckduckgo"
+                ],
+                "type": "string"
+              },
+              "maxItems": 5,
+              "type": "array"
+            },
+            "searxngUrl": {
+              "description": "The address of a SearXNG instance.",
+              "maxLength": 2048,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "test-search",
+        "description": "Run one search with each provider of the order and say which answer. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "description": "What to search for. Default LocalAI.",
+              "maxLength": 400,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "uiOnly": true
+      }
+    ],
+    "tools": [
+      "search",
+      "fetch",
+      "status",
+      "set-settings",
+      "test-search"
+    ],
+    "ui": {
+      "css": [
+        "ui/web.css"
+      ],
+      "description": "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web.",
+      "entry": "ui/web.js",
+      "icon": "ui/icon.png",
+      "mainPage": "web",
+      "pages": [
+        "web"
+      ],
+      "sdk": {
+        "max": 2,
+        "min": 2
+      },
+      "slots": [
+        {
+          "component": "WebSettings",
+          "id": "settings",
+          "slot": "settings.sections"
+        }
+      ],
+      "title": "Web"
+    }
+  },
+  "dataFormat": {
+    "max": 1,
+    "min": 1
+  },
+  "executable": "web",
+  "host": {
+    "max": 1,
+    "min": 1
+  },
+  "id": "web",
+  "os": "linux",
+  "protocol": {
+    "max": 1,
+    "min": 1
+  },
+  "schemaVersion": 1,
+  "version": "0.1.0"
+}
