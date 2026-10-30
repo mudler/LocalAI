@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -156,16 +157,5 @@ func plural(n int, word string) string {
 	if n == 1 {
 		return "1 " + word
 	}
-	return strings.TrimSpace(strings.Join([]string{itoa(n), word + "s"}, " "))
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b []byte
-	for ; n > 0; n /= 10 {
-		b = append([]byte{byte('0' + n%10)}, b...)
-	}
-	return string(b)
+	return strconv.Itoa(n) + " " + word + "s"
 }
