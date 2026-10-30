@@ -208,6 +208,70 @@ person.
   file history as "Page <name>: save <file>". Undo works as for any other
   change.
 
+## Shared pages
+
+A shared folder is a folder outside your home that an administrator gave you
+access to, read-only or read-write (a workspace grant). Its pages are the
+folders `pages/<name>/` with an `index.html`, as in your home. They show on the
+Pages screen under **Shared with you**, with their author (the account that
+last wrote `index.html`), the folder, and a badge: **Not allowed yet**,
+**Changed since you allowed it** or **Allowed**. A user without a grant on the
+folder sees nothing of it.
+
+A shared page runs as you, so it runs only after you allow it. Opening one the
+first time shows a sheet that says who wrote it, where it lives, what it can do
+(read and write files in its own folder, write a message into a chat that you
+see before the assistant answers), what it cannot do (read your other files or
+chats, reach the network, use tools or change your settings), and one limit of
+the sandbox in plain words: a page can load another address in its own frame,
+which sends one request out before the page stops. **Cancel** has the focus;
+Escape is Cancel. **View source** shows `index.html` as text.
+
+| Choice | Result |
+|---|---|
+| **Allow** | Kept for this version of this page. It runs now and each time you open it. |
+| **Allow once** | It runs for this visit. You are asked again next time. A visit ends after 12 hours. |
+| **Cancel** | Nothing runs. The frame says "This page has not run", with **Review and allow** and **View source**. |
+
+A consent is kept against the page (the node of its folder, so a rename does
+not lose it and a page deleted and made again asks again) and the hash of its
+code: `index.html` and `page.json`. When the author changes either, the next
+open asks again and says what changed: the size of each file and the lines of
+`index.html`, against the version you allowed. A page that is open when its
+author changes it keeps running the version you allowed, and its strip says
+that it changed, with **Review**. The data files of a page are not in the hash:
+a page saves them all the time. A page whose code reads its data and runs it
+as code does what its data says; you trust its author for that when you allow
+it.
+
+A consent for one page never lets another page run, even one with the same
+code, and it is yours only. **Stop allowing this page** in the page's menu
+revokes it. Every call of a shared page's bridge checks the consent on the
+server, so a page that you stop allowing, in this tab or in another one, stops
+at its next call.
+
+A shared page uses the same bridge and limits as your own, with your own grant
+on the folder: in a folder you can only read, its writes are refused ("you can
+only read this shared folder"). It reads, writes and lists only its own folder.
+A message it sends goes to your chat and says which shared page it comes from.
+
+The consents are kept on the server, not in your files: the assistant, a page
+and a trigger run can all write your files, so a consent there could be written
+by the code it is meant to hold back. With a database (authentication on), they
+are in the tables `studio_page_consents` and `studio_page_consent_events`, which
+every frontend shares; without one, in `chats/pages/consents.json` under the
+data path. Each **Allow**, **Allow once** and revoke is also written to the
+consent audit (`studio_page_consent_events`: who, which page and folder, which
+hash, when) and to the log.
+
+An administrator can turn shared pages off at run time with
+`shared_pages_enabled` in the [runtime settings](/features/runtime-settings/)
+(or start with `LOCALAI_DISABLE_SHARED_PAGES=true`). Then the list still shows
+the pages, dimmed, with "Shared pages are off on this server. An administrator
+turned them off."; a page does not open; and the bridge refuses every call, so
+an open shared page stops at its next call. Revoking a consent still works. The
+files are kept.
+
 ## API
 
 The UI uses these routes. They need the `chats` and `pages` features.
@@ -222,6 +286,14 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `POST /api/chats/pages/{name}/chat` | `chat.send` after you chose Send, body `{text, chat_id, model}` |
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
+| `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
+| `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`). |
+| `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. |
+| `DELETE /api/chats/shared-pages/{folder_id}/{name}/consent` | Stop allowing it. |
+| `GET .../files`, `GET` and `PUT .../file`, `POST .../chat` | The bridge of a shared page, as above. Each call sends `X-LocalAI-Page-Hash` (the version that runs) and, for a visit, `X-LocalAI-Page-Visit`. Without a consent: `403 page_not_allowed`. |
+
+With shared pages off, every shared-pages route but the list and the revoke
+answers `403 shared_pages_off`.
 
 ```bash
 curl -s http://localhost:8080/api/chats/pages -H "Authorization: Bearer $KEY"

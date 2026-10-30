@@ -22,7 +22,7 @@ The groups reorganise the fields the page used to show under fifteen sections. T
 | Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists | Backend Management, Galleries |
 | Access and security | CORS and allowed origins, CSRF protection, shared API keys | API & CORS, API Keys |
 | Debugging and traces | Verbose debug logging, API traces and their limits, backend logging | Performance, Tracing |
-| Chats and responses | The collections (knowledge base) service, the helper models of the chats, MCP connector addresses, the LocalAI Assistant (the switch for the admin assistant chat that starts from Home; see [LocalAI Assistant]({{% relref "features/localai-assistant" %}})), the response store TTL | Collections, Chats, LocalAI Assistant, Open Responses |
+| Chats and responses | The collections (knowledge base) service, the helper models of the chats, MCP connector addresses, the LocalAI Assistant (the switch for the admin assistant chat that starts from Home; see [LocalAI Assistant]({{% relref "features/localai-assistant" %}})), shared pages (`shared_pages_enabled`: the pages of shared folders; see [Pages]({{% relref "features/pages" %}})), the response store TTL | Collections, Chats, LocalAI Assistant, Open Responses |
 | Swarm and sharing | P2P token, network ID and federated mode, the disk headroom check | P2P Network, Distributed |
 | Look and feel | Instance name, tagline, the three logos | Branding |
 
@@ -129,6 +129,7 @@ Configure the collections (the knowledge base) and the models the [chats]({{%rel
 - **Max Chunking Size**: Maximum chunk size for document ingestion (default: `400`)
 - **Chunk Overlap**: Overlap between document chunks (default: `0`)
 - **Collection DB Path**: Custom path for the collections database
+- **Shared pages** (`shared_pages_enabled`, default on): lets users open the [pages]({{%relref "features/pages" %}}) of the shared folders they have access to. Each user still allows each page before it runs. It applies at once: off, the pages are listed but do not open, and an open shared page stops at its next action. Start with `LOCALAI_DISABLE_SHARED_PAGES=true` to have it off from the start.
 
 > **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.
 
