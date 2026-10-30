@@ -6,7 +6,7 @@ import { useServerChat } from '../hooks/useServerChat'
 import { useChatDrafts } from '../hooks/useChatDrafts'
 import { useChatSwitches } from '../hooks/useChatSwitches'
 import { useChatEgress } from '../hooks/useChatEgress'
-import { networkMode } from '../utils/chatEgress'
+import { cardsByTool, networkMode } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
@@ -67,6 +67,8 @@ import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
 import NetworkRow from '../components/chat/NetworkRow'
+import NetworkConsentCard from '../components/chat/NetworkConsentCard'
+import { EgressCardsContext } from '../components/chat/egressCardsContext'
 import MessageAttachments from '../components/chat/Attachments'
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
@@ -206,6 +208,12 @@ function ChatPage() {
   const switches = useChatSwitches(activeId, chat.files.on)
   // The network of the chat's Sandbox commands, read again on its events.
   const egress = useChatEgress(activeId, chat.ticks.egress)
+  // The cards of the chat by their tool line; the ones that wait are drawn
+  // under the live fold until the call ends.
+  const egressCards = useMemo(() => ({
+    byTool: cardsByTool(egress.cards.filter(c => c.state !== 'pending' && c.tool_seq)), chatId: activeId, egress,
+  }), [egress, activeId])
+  const waitingCards = egress.cards.filter(c => c.state === 'pending' || (!c.tool_seq && c.state !== 'expired'))
   const chatFiles = useChatFiles(chat.files.on ? activeId : null, chat.ticks.files)
   // The preview pane on the right: the chat's files and what its answers
   // produced. It opens by itself on a new result (useChatPreviewPane).
@@ -1032,6 +1040,7 @@ function ChatPage() {
           <div className="cx-body" ref={messagesRef}>
             {isEmpty && <EmptyHead name={activeId ? title : (pickedAgent?.name || '')} manage={manage} />}
             <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
+              <EgressCardsContext.Provider value={egressCards}>
               {rows.map((row, i) => {
                 if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
@@ -1053,6 +1062,7 @@ function ChatPage() {
                   fileChipsFor(row),
                 ]
               })}
+              </EgressCardsContext.Provider>
 
               {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
                 <StreamingTurn
@@ -1071,6 +1081,7 @@ function ChatPage() {
               {chat.hostConsent && !streaming.tools.some(tc => tc.consent?.id === chat.hostConsent.id) && (
                 <CommandsConsentCard consent={chat.hostConsent} />
               )}
+              {waitingCards.map(c => <NetworkConsentCard key={c.id} card={c} chatId={activeId} egress={egress} />)}
 
               {showFailure && (
                 <ErrorCard

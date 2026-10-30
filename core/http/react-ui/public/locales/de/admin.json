@@ -111,7 +111,7 @@
     "loadFailedTitle": "Die Einstellungen konnten nicht geladen werden.",
     "egress": {
       "title": "Sandbox-Netzwerk",
-      "intro": "Befehle in der Sandbox erreichen das Netzwerk nur über einen Proxy, der LocalAI bei jeder Verbindung fragt. Legen Sie oben das Limit, die Voreinstellung neuer Chats, die Ports, zusätzliche Registries und die Aufbewahrung des Protokolls fest; jede Person wählt die Voreinstellung eines Chats in dessen Tools-Menü bis zum Limit und erlaubt einen blockierten Host über eine Karte.",
+      "intro": "Befehle in der Sandbox erreichen das Netzwerk nur über einen Proxy, der LocalAI bei jeder Verbindung fragt. Legen Sie unten das Limit, die Voreinstellung neuer Chats, die Ports, zusätzliche Registries und die Aufbewahrung des Protokolls fest; jede Person wählt die Voreinstellung eines Chats in dessen Tools-Menü bis zum Limit und erlaubt einen blockierten Host über eine Karte.",
       "serves": "Befehle laufen isoliert im Add-on {{name}}",
       "servesHost": "Befehle laufen über {{name}} auf diesem Rechner",
       "servesNone": "Noch führt keine Sandbox Befehle aus",

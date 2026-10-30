@@ -40,6 +40,7 @@ var _ = Describe("Chats Sandbox network routes", func() {
 		Entry("view", http.MethodGet, "/api/chats/c1/egress"),
 		Entry("preset", http.MethodPut, "/api/chats/c1/egress"),
 		Entry("rule", http.MethodDelete, "/api/chats/c1/egress/rules/example.com/443"),
+		Entry("consent", http.MethodPost, "/api/chats/c1/egress/consent"),
 		Entry("admin view", http.MethodGet, "/api/chats/admin/egress"),
 		Entry("audit", http.MethodGet, "/api/chats/admin/egress/events"),
 	)
@@ -97,5 +98,24 @@ var _ = Describe("Chats Sandbox network routes", func() {
 		rec = s.do("root", http.MethodGet, "/api/chats/admin/egress/events?verdict=block&user=alice", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)["events"]).To(ConsistOf(HaveKeyWithValue("host", "evil.example")))
+	})
+
+	It("answers a card of the owner's chat, and refuses what it may not", func() {
+		id := s.create("alice")
+		Expect(chats.UpdateEgress(context.Background(), "alice", id, func(st *egress.ChatState) error {
+			st.PutCard(egress.Card{ID: "k1", Host: "pypi.org", Port: 443, Kind: "connect", State: egress.CardPending, AskedAt: time.Now()})
+			st.PutCard(egress.Card{ID: "k2", Host: "10.0.0.5", Port: 443, Kind: "connect", State: egress.CardPending, Private: true, AskedAt: time.Now()})
+			return nil
+		})).To(Succeed())
+		path := "/api/chats/" + id + "/egress/consent"
+		Expect(s.do("alice", http.MethodPost, path, map[string]any{"id": "k1", "decision": "maybe"}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodPost, path, map[string]any{"id": "nope", "decision": "once"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("bob", http.MethodPost, path, map[string]any{"id": "k1", "decision": "once"}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("alice", http.MethodPost, path, map[string]any{"id": "k2", "decision": "once"}).Code).To(Equal(http.StatusForbidden), "a private host needs an administrator")
+		rec := s.do("alice", http.MethodPost, path, map[string]any{"id": "k1", "decision": "chat"})
+		Expect(rec.Code).To(Equal(http.StatusNoContent), rec.Body.String())
+		Expect(s.do("alice", http.MethodPost, path, map[string]any{"id": "k1", "decision": "deny"}).Code).To(Equal(http.StatusConflict))
+		rules := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/egress", nil))["rules"].([]any)
+		Expect(rules).To(ConsistOf(SatisfyAll(HaveKeyWithValue("host", "pypi.org"), HaveKeyWithValue("allow", true))))
 	})
 })

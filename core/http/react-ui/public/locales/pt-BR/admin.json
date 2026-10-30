@@ -111,7 +111,7 @@
     "loadFailedTitle": "Não foi possível carregar as configurações.",
     "egress": {
       "title": "Rede do Sandbox",
-      "intro": "Os comandos no Sandbox alcançam a rede só por um proxy que pergunta ao LocalAI sobre cada conexão. Acima você define o limite, a predefinição de um chat novo, as portas, os registros extras e a retenção da auditoria; cada pessoa escolhe a predefinição de cada chat no menu Ferramentas dele, até o limite, e permite um host bloqueado num cartão.",
+      "intro": "Os comandos no Sandbox alcançam a rede só por um proxy que pergunta ao LocalAI sobre cada conexão. Abaixo você define o limite, a predefinição de um chat novo, as portas, os registros extras e a retenção da auditoria; cada pessoa escolhe a predefinição de cada chat no menu Ferramentas dele, até o limite, e permite um host bloqueado num cartão.",
       "serves": "Os comandos rodam isolados no complemento {{name}}",
       "servesHost": "Os comandos rodam nesta máquina pelo {{name}}",
       "servesNone": "Nenhum Sandbox roda comandos ainda",

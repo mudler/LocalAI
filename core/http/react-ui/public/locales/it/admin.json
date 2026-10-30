@@ -111,7 +111,7 @@
     "loadFailedTitle": "Impossibile caricare le impostazioni.",
     "egress": {
       "title": "Rete del Sandbox",
-      "intro": "I comandi nel Sandbox raggiungono la rete solo tramite un proxy che chiede a LocalAI di ogni connessione. Qui sopra imposti il limite, il preset di una nuova chat, le porte, i registri aggiuntivi e la durata del registro; ogni persona sceglie il preset di ogni chat nel suo menu Strumenti, fino al limite, e consente un host bloccato da una scheda.",
+      "intro": "I comandi nel Sandbox raggiungono la rete solo tramite un proxy che chiede a LocalAI di ogni connessione. Qui sotto imposti il limite, il preset di una nuova chat, le porte, i registri aggiuntivi e la durata del registro; ogni persona sceglie il preset di ogni chat nel suo menu Strumenti, fino al limite, e consente un host bloccato da una scheda.",
       "serves": "I comandi girano isolati nell’add-on {{name}}",
       "servesHost": "I comandi girano su questa macchina tramite {{name}}",
       "servesNone": "Nessun Sandbox esegue ancora comandi",

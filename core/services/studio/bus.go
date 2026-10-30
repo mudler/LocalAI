@@ -18,6 +18,9 @@ type ControlMsg struct {
 	// HostExec is the answer of the card that asks to run a command on this
 	// machine.
 	HostExec *HostExecDecision `json:"host_exec,omitempty"`
+	// Egress is the answer of a card that asks whether a Sandbox command may
+	// reach a host. The check that waits may run on any frontend.
+	Egress *EgressDecision `json:"egress,omitempty"`
 }
 
 // Bus carries a chat's live events, and control messages to the frontend that

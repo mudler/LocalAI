@@ -157,11 +157,6 @@ func (s *Service) EgressCheck(ctx context.Context, user, rid, op string, r egres
 	return v, nil
 }
 
-// askEgress is the card flow; this phase has none, so the request is blocked.
-func (s *Service) askEgress(_ context.Context, _ egressPolicy, _ session.ChatRecord, _ string, _ egress.Request) egress.Verdict {
-	return egress.Verdict{Action: egress.Block, Reason: egress.ReasonOff}
-}
-
 // claimGrant ties a late "allow once" to the call that used it first, so it
 // does not carry on to later calls.
 func (s *Service) claimGrant(ctx context.Context, rec session.ChatRecord, op string, r egress.Request) {

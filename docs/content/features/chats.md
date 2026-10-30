@@ -488,6 +488,16 @@ never in your files, so the code that runs in the Sandbox cannot change them.
 **Rules and requests** under the row lists the hosts this chat allowed or
 denied, with a button to remove each, and the requests that asked.
 
+When a command asks for a host the chat does not allow but the limit would,
+the chat shows a card: *A command in this chat wants to reach* `host:port`,
+with **Allow once** (for the rest of that command), **Allow for this chat**
+and **Deny**. The command waits up to 60 seconds for your answer and goes on
+by itself after it. The card stays with the chat, so a reload shows it; once
+answered it becomes one line under the `bash` call that asked, such as
+*Allowed for this chat by you, 14:02*. A host inside your network needs an
+administrator to allow it. A trigger, a connector run or a sub-agent never
+shows a card.
+
 When commands run on this machine instead, the row is one line, *Commands run
 on this machine and use its network*: these settings do not apply there.
 
@@ -498,8 +508,10 @@ The routes, for the chat's owner (another user's chat is 404):
 | `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, registries, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
+| `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). A card already answered is 409; a host the ceiling no longer admits refuses the card (400). |
 
-The chat's event stream carries `egress_card` when the chat's network changes,
+The chat's event stream carries `egress_consent` (`ids: [card id]`, `text:
+host:port`) when a card asks and `egress_card` when the chat's network changes,
 so every open tab reads it again. Administrators read the settings in force
 and the audit with `GET /api/chats/admin/egress` and `GET
 /api/chats/admin/egress/events?limit=&user=&chat=&verdict=&host=`, and see

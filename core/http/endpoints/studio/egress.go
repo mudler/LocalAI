@@ -108,3 +108,26 @@ func (h *Handlers) AdminEgressEvents(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, h.svc.EgressEventsJSON(ctx, evs))
 }
+
+// EgressConsent answers a card that asks whether a command may reach a host.
+// @Summary Answer a network card of a chat's Sandbox commands.
+// @Description A command asked for a host the chat does not allow but the administrator's ceiling would: an egress_consent event carried the card id and host:port, and the card is in GET /api/chats/{id}/egress. once allows the host for the rest of that command (or the next call of the chat within ten minutes when the answer comes late), chat stores an allow rule for the chat, deny stores a deny rule so the host does not ask again. A host inside your network (private) needs an administrator to allow it; anyone who owns the chat may deny. A card that expired at the end of its turn may still be answered. The waiting connection goes on at once; without an answer it gets a 403 after 60 seconds.
+// @Tags chats
+// @Param id path string true "conversation id"
+// @Param request body schema.ChatsEgressConsent true "the card id and the answer"
+// @Success 204 "The answer was stored and sent to the waiting command"
+// @Failure 400 {object} schema.ErrorResponse "Not an answer, or the ceiling no longer admits the host (the card is refused)"
+// @Failure 403 {object} schema.ErrorResponse "Only an administrator can allow a host inside your network"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation or card"
+// @Failure 409 {object} schema.ErrorResponse "The card was answered already"
+// @Router /api/chats/{id}/egress/consent [post]
+func (h *Handlers) EgressConsent(c echo.Context) error {
+	var in schema.ChatsEgressConsent
+	if err := c.Bind(&in); err != nil {
+		return fail(c, http.StatusBadRequest, typeInvalid, "the body must be {id, decision}")
+	}
+	if err := h.svc.EgressDecide(c.Request().Context(), userID(c), c.Param("id"), in.ID, in.Decision); err != nil {
+		return failFor(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}

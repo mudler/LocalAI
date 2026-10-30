@@ -120,6 +120,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/:id/egress", h.GetEgress)
 	e.PUT(base+"/:id/egress", h.PutEgress)
 	e.DELETE(base+"/:id/egress/rules/:host/:port", h.DeleteEgressRule)
+	e.POST(base+"/:id/egress/consent", h.EgressConsent)
 	e.GET(base+"/files/search", h.SearchFiles)
 	// The pages of the workspace: the chats feature lets the request in, and
 	// the handlers check the pages feature too.

@@ -31,3 +31,8 @@
 .chat-network__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .chat-network__host { overflow-wrap: anywhere; }
 .chat-network__state { flex: 1; color: var(--color-text-secondary); }
+.chat-network-card__line {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-meta);
+  color: var(--color-text-secondary);
+}

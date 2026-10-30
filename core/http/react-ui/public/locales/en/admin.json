@@ -62,7 +62,7 @@
     "loadFailedTitle": "Could not load the settings.",
     "egress": {
       "title": "Sandbox network",
-      "intro": "Commands in the Sandbox reach the network only through a proxy that asks LocalAI about each connection. Set the limit, the preset of a new chat, the ports, the extra registries and the audit retention above; a person chooses the preset of each chat in its Tools menu, up to the limit, and allows a blocked host on a card.",
+      "intro": "Commands in the Sandbox reach the network only through a proxy that asks LocalAI about each connection. Set the limit, the preset of a new chat, the ports, the extra registries and the audit retention below; a person chooses the preset of each chat in its Tools menu, up to the limit, and allows a blocked host on a card.",
       "serves": "Commands run isolated in the {{name}} add-on",
       "servesHost": "Commands run on this machine through {{name}}",
       "servesNone": "No Sandbox runs commands yet",

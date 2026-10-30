@@ -7950,6 +7950,62 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/egress/consent": {
+            "post": {
+                "description": "A command asked for a host the chat does not allow but the administrator's ceiling would: an egress_consent event carried the card id and host:port, and the card is in GET /api/chats/{id}/egress. once allows the host for the rest of that command (or the next call of the chat within ten minutes when the answer comes late), chat stores an allow rule for the chat, deny stores a deny rule so the host does not ask again. A host inside your network (private) needs an administrator to allow it; anyone who owns the chat may deny. A card that expired at the end of its turn may still be answered. The waiting connection goes on at once; without an answer it gets a 403 after 60 seconds.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Answer a network card of a chat's Sandbox commands.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the card id and the answer",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgressConsent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The answer was stored and sent to the waiting command"
+                    },
+                    "400": {
+                        "description": "Not an answer, or the ceiling no longer admits the host (the card is refused)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Only an administrator can allow a host inside your network",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation or card",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The card was answered already",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/egress/rules/{host}/{port}": {
             "delete": {
                 "description": "Removes the rule that allows or denies one host and port for the chat's Sandbox commands. A host that was denied asks again; one that was allowed follows the preset again.",
@@ -18192,6 +18248,17 @@ const docTemplate = `{
                 },
                 "tool_seq": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsEgressConsent": {
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
                 }
             }
         },

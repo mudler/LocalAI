@@ -202,6 +202,9 @@ type Deps struct {
 	EgressAudit audit.Store
 	// EgressAuditDays is chats_egress_audit_days. Nil or out of range: 30.
 	EgressAuditDays func() int
+	// EgressCardWait is how long a connection waits for the answer of a
+	// network card. Zero: 60 seconds. Tests set it shorter.
+	EgressCardWait time.Duration
 	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
 	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.
@@ -1073,6 +1076,9 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 	if err := chat.Close(); err != nil {
 		s.log.Warn("studio: could not close the chat after its turn", "chat", conv, "error", err)
 	}
+	// The network cards of the turn: unanswered ones expire, each is tied to
+	// its tool line.
+	s.settleEgressCards(ctx, p, conv, r.started)
 	status := store.TurnDone
 	switch {
 	case r.stopped:

@@ -111,7 +111,7 @@
     "loadFailedTitle": "Pengaturan tidak dapat dimuat.",
     "egress": {
       "title": "Jaringan Sandbox",
-      "intro": "Perintah di Sandbox menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di atas; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
+      "intro": "Perintah di Sandbox menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di bawah; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
       "serves": "Perintah berjalan terisolasi di add-on {{name}}",
       "servesHost": "Perintah berjalan di mesin ini melalui {{name}}",
       "servesNone": "Belum ada Sandbox yang menjalankan perintah",
