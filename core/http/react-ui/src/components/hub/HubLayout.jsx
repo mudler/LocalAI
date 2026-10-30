@@ -158,7 +158,9 @@ function HubLayoutInner({ config }) {
             row is labelled with the same name for assistive technology. */}
         <p className="hub-title">{t(config.titleKey)}</p>
         <div className="hub-head__supporting" data-testid="hub-supporting">
-          {slots.filled === 0 && config.header.supportingKey ? t(config.header.supportingKey) : null}
+          {slots.filled === 0 && config.header.supportingKey
+            ? <span className="hub-head__default">{t(config.header.supportingKey)}</span>
+            : null}
           {/* The page's line is portalled here; the node has no React children. */}
           <div className="hub-head__slot" ref={slots.setSupporting} />
         </div>

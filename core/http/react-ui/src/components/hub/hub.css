@@ -182,6 +182,9 @@
 @media (max-width: 768px) {
   .hub-layout { padding-top: var(--sp-4); }
   .hub-head { flex-direction: column; align-items: stretch; margin-bottom: var(--sp-4); }
+  /* The hub's own line says nothing a phone needs above the fold; a page's
+     line (the Status sentence, the Settings hint) still shows. */
+  .hub-head__default { display: none; }
   .hub-bar .dk-hubtabs { gap: var(--sp-5); }
   /* The row runs to the screen edge so a half-visible tab says "scroll". */
   .hub-bar .dk-hubtabs { margin-right: calc(-1 * var(--page-gutter)); }
