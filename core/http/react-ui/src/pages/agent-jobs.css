@@ -80,9 +80,8 @@
   overflow: auto;
   border-radius: var(--r-md);
   background: var(--dk-inset);
-  font-family: var(--font-mono);
-  font-size: var(--fs-small);
-  line-height: 1.65;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

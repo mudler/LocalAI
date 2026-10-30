@@ -539,7 +539,7 @@ function TaskForm({ id, isNew }) {
             <label className="dk-label" htmlFor="aj-prompt">{t('jobs.edit.prompt')}</label>
             <textarea
               id="aj-prompt"
-              className="dk-textarea aj-mono"
+              className="dk-textarea"
               rows={7}
               value={task.prompt}
               onChange={(e) => set('prompt', e.target.value)}
