@@ -51,11 +51,13 @@ type Handlers struct {
 	models ModelChecker
 	pages  *pages.Service
 	trust  *pages.Trust
+	// previews keeps the recent file previews of this frontend.
+	previews *previewCache
 }
 
 // New returns the handlers. A nil models skips the model check.
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
-	h := &Handlers{svc: svc, models: models}
+	h := &Handlers{svc: svc, models: models, previews: newPreviewCache()}
 	if svc != nil {
 		h.pages = pages.New(svc.Files())
 		store := svc.PageConsents()

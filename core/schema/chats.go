@@ -311,6 +311,54 @@ type ChatsFile struct {
 	ConflictOf string `json:"conflict_of,omitempty"`
 }
 
+// ChatsFilePreview is what the server reads out of a file that a browser
+// cannot show by itself. Kind says which of the lists is set: "table" (a
+// spreadsheet, a CSV or a TSV file), "document" (a Word document) or "slides"
+// (a PowerPoint presentation). The values are text: the formatting is not
+// kept.
+type ChatsFilePreview struct {
+	Kind   string                  `json:"kind"`
+	Sheets []ChatsFilePreviewSheet `json:"sheets,omitempty"`
+	Blocks []ChatsFilePreviewBlock `json:"blocks,omitempty"`
+	Slides []ChatsFilePreviewSlide `json:"slides,omitempty"`
+	// Truncated is set when a document or presentation had more text than
+	// the preview keeps.
+	Truncated bool `json:"truncated,omitempty"`
+}
+
+// ChatsFilePreviewSheet is one sheet of a table: at most the first 200 rows and
+// 30 columns. TotalRows and TotalCols count the whole sheet.
+type ChatsFilePreviewSheet struct {
+	Name      string     `json:"name"`
+	Rows      [][]string `json:"rows"`
+	TotalRows int        `json:"total_rows"`
+	TotalCols int        `json:"total_cols"`
+}
+
+// ChatsFilePreviewBlock is one paragraph of a document. Type is "heading"
+// (Level 1 to 9), "item" (a list item, Level 0 and up) or "paragraph".
+type ChatsFilePreviewBlock struct {
+	Type  string `json:"type"`
+	Level int    `json:"level,omitempty"`
+	Text  string `json:"text"`
+}
+
+// ChatsFilePreviewSlide is one slide: its title, its other text one line per
+// paragraph, and its speaker notes.
+type ChatsFilePreviewSlide struct {
+	N     int                    `json:"n"`
+	Title string                 `json:"title,omitempty"`
+	Lines []ChatsFilePreviewLine `json:"lines,omitempty"`
+	Notes string                 `json:"notes,omitempty"`
+}
+
+// ChatsFilePreviewLine is a paragraph of a slide and its outline level (0 is
+// the top).
+type ChatsFilePreviewLine struct {
+	Text  string `json:"text"`
+	Level int    `json:"level,omitempty"`
+}
+
 // WorkspaceChange is one event of the change feed of the user's files. Paths
 // are inside the user's home folder, without a leading slash. A "resync" event
 // has the revision only: changes were left out, so read again what you show.

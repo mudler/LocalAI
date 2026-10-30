@@ -115,6 +115,18 @@ var _ = Describe("Chats files endpoints", func() {
 		Expect(img.Header().Get("Content-Disposition")).To(HavePrefix("inline"))
 	})
 
+	It("serves an inline PDF for the preview pane with the same sandbox as every other type", func() {
+		Expect(s.putFile("alice", "/doc.pdf", "%PDF-1.4\n%%EOF\n").Code).To(Equal(http.StatusOK))
+		rec := s.do("alice", http.MethodGet, "/api/chats/files/content?path="+q("/doc.pdf")+"&inline=1", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Header().Get("Content-Type")).To(Equal("application/pdf"))
+		Expect(rec.Header().Get("Content-Disposition")).To(HavePrefix("inline"))
+		// The browser's PDF viewer works inside the sandbox, so the pane needs
+		// no weaker policy for it.
+		Expect(rec.Header().Get("Content-Security-Policy")).To(Equal("sandbox; default-src 'none'"))
+		Expect(rec.Header().Get("X-Content-Type-Options")).To(Equal("nosniff"))
+	})
+
 	It("keeps another user's files out of reach", func() {
 		Expect(s.putFile("alice", "/secret.txt", "mine").Code).To(Equal(http.StatusOK))
 		for _, c := range []struct{ method, path string }{

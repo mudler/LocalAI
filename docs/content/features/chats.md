@@ -668,6 +668,7 @@ curl -X POST ".../api/chats/files/move" -d '{"from": "/Reports/q1.txt", "to": "/
 curl -X DELETE ".../api/chats/files?path=/Archive"                  # to the Trash
 curl         ".../api/chats/files/trash"                            # what can be restored
 curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
+curl         ".../api/chats/files/preview?path=/Reports/budget.xlsx" # what a workbook holds
 ```
 
 - **Nothing is erased.** A delete goes to the Trash, and undo restores it as a new change. A change you made after the deletion that conflicts with the restore makes it answer `409`; with `skip_conflicts` the rest is restored.
@@ -675,12 +676,13 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **Downloads are safe.** Files are served as downloads. With `inline=1` an image, PDF, plain text, audio or video is shown by the browser; anything else, HTML and SVG included, never runs as a page.
 - **Attachments.** Send a message as `multipart/form-data` with a `text` field and `files`. The files are saved in the chat's own folder under `Chats/` and the model gets their paths after your text. With a turn running the files are saved at once and the message waits like any other; the model reads them by path when the message reaches it. A sandbox that started before the files arrived sees them from the next turn.
 - **Attachments in the transcript.** The transcript keeps your text and your files apart. In `GET /api/chats/{id}/messages` a user line has `text`, the words you typed, and `attachments`: `path` (inside your home, for the files API), `name`, `size`, `mime`, `version`, and `missing` when the file is no longer in your files. A file whose chat folder was renamed gets its new path. A waiting message has the same two fields. The list of paths and the text read from the files go to the model only: the chat shows an image as a thumbnail and any other file as a chip with its size and a download link, and a click or Enter opens the file in the chat's files pane. Messages sent before this change are shown the same way.
+- **Previews of documents.** `GET /api/chats/files/preview?path=` reads what a `.xlsx`, `.xlsm`, `.csv`, `.tsv`, `.docx` or `.pptx` file holds, for the preview pane of a chat and the **Files** page. A spreadsheet gives `{"kind": "table", "sheets": [{"name", "rows", "total_rows", "total_cols"}]}`: every sheet, the first 200 rows and 30 columns of each as text, with dates, booleans and the stored result of formulas. A Word document gives `{"kind": "document", "blocks": [{"type": "heading" | "item" | "paragraph", "level", "text"}]}` and a presentation `{"kind": "slides", "slides": [{"n", "title", "lines", "notes"}]}`; both keep at most 200 000 characters and set `truncated` when they cut. The formatting is not kept. The path rules are those of the download. A file over 20 MiB answers `413`, another type `415`, and a file that is not what its name says `422`. Each frontend keeps the recent answers in memory, by the content of the file: a new version is a new entry, so frontends of a cluster never disagree, and nothing is shared between them.
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
 - **The model can use your files.** A chat with files on gives the model `list_files`, `read_file`, `write_file`, `move_file`, `delete_file` and `search_files`, for your home folder only. What it changes is listed in the history as an agent change of that chat, and you can undo it; a delete goes to the Trash. Sub-agents do not get these tools.
 - **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, `describe_image` uses the chat's own model when it can see images, and otherwise the first installed model that can see images (or, for audio, transcribe). If there is none, a cloud-proxy chat model that does not declare vision is tried as a last resort. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
 - **A file is at most 256 MiB.** A message with attachments is limited to 1 GiB in all.
 
-The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of text and images.
+The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of the selected file (the same views as the preview pane of a chat).
 
 A folder `pages/<name>/` with an `index.html` is a page: the UI shows it in a
 sandboxed frame under **Pages**. See [Pages]({{%relref "features/pages" %}}).
@@ -921,21 +923,40 @@ The chat page (`/app/chats/<id>`) shows one chat.
   call the add-on refused (`not_permitted`, `resource_unreachable`,
   `not_running`, `invalid_request`) says why. MCP Apps show live under their
   tool call.
-- **Files** over the message box opens the files pane on the right: the
-  files you attached, the files the assistant created and the files it
-  changed, each with its size and turn, a preview and a download. It updates
-  while the model works and after a rename. Drop files on it to attach them to
-  your next message. A file the model received as an image or video is marked
-  **In context**. The pane and the canvas share the right side.
+- **The preview pane** on the right shows what the assistant made. It opens
+  by itself when a turn creates or changes a file, or when an answer holds a
+  result: a whole HTML page, an SVG, a code block of 25 lines or more, or a
+  block the answer presents as a file. A short snippet never opens it. It
+  opens beside the thread from 1280 px and over it below that; on a phone it
+  never opens by itself. It does not take the focus from the message box, and
+  a screen reader hears "Preview opened: budget.xlsx". Close it and it stays
+  closed in that chat (this browser remembers it) until you open it again.
+- **Chips under an answer** name the files its turn made: "Created
+  budget.xlsx · Open preview" or "Changed ...". A chip opens the pane on its
+  file. **Files** over the message box opens and closes the pane.
+- **What the pane shows.** The selected file or code block on top, with
+  **Download**, **Copy** (text and code) and **Open in Files**, then the
+  chat's files in two groups, **Created and changed** and **You gave it**,
+  each with its size and turn. Spreadsheets, CSV and TSV files show as a table
+  with a tab per sheet and the first 200 rows; Word documents and
+  presentations as their text (the formatting is not shown); PDF files in the
+  browser's viewer; HTML files run in the sandbox of
+  [Pages]({{%relref "features/pages" %}}) with no network and no bridge;
+  images, Markdown, JSON, code, audio and video with their own views; any
+  other type as a card with **Download**. An add-on that previews a type (the
+  `files.preview` slot) replaces the built-in view for it. Drop files on the
+  pane to attach them to your next message. A file the model received as an
+  image or video is marked **In context**.
+- **Code blocks** in an answer have **Copy** and **Download**, and a block
+  that is a result has **Open preview**.
 - **A trigger the model proposes** shows as a card under its tool line with
   **Create trigger**, **Edit** (name and schedule or folder) and **Dismiss**.
 - **Shortcuts** over the message box are the prompts of your
   `shortcuts.json`, or the default starters without it. A click puts one in the
   box; **Edit shortcuts** changes the list. See [Make LocalAI
   yours](/features/make-localai-yours/).
-- **Find** (`Ctrl+Shift+F`), **Canvas** (code blocks in a side panel), focus
-  mode, copying the chat as Markdown and the keyboard shortcuts work as
-  before.
+- **Find** (`Ctrl+Shift+F`), focus mode, copying the chat as Markdown and
+  the keyboard shortcuts work as before.
 
 Administrators find every user's agents, triggers and connectors under
 **Operate > Settings > Chats of all users**. The [agent tasks and

@@ -73,9 +73,6 @@
   },
   "input": {
     "stopGenerating": "Hentikan pembuatan",
-    "canvasTitle": "Canvas — ekstrak blok kode dan media ke panel samping untuk pratinjau, salin, dan unduh",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Buka panel canvas",
     "placeholderQueue": "Model sedang bekerja. Pesan yang dikirim sekarang menunggu langkah berikutnya."
   },
   "deleteAllDialog": {
@@ -167,9 +164,8 @@
     "emptyBody": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya. File yang dibuat atau diubah asisten juga muncul di sini.",
     "dropHint": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya.",
     "groups": {
-      "uploaded": "Anda unggah",
-      "created": "Dibuat oleh asisten",
-      "changed": "Diubah oleh asisten"
+      "uploaded": "Dari Anda",
+      "created": "Dibuat dan diubah"
     },
     "turn": "giliran {{n}}",
     "media": "Dalam konteks",
@@ -332,5 +328,25 @@
     "open": "Buka {{name}}",
     "showMore": "Tampilkan {{count}} lagi",
     "missing": "File tidak lagi tersedia"
+  },
+  "preview": {
+    "open": "Buka pratinjau",
+    "created": "Dibuat oleh asisten",
+    "changed": "Diubah oleh asisten",
+    "yours": "Dari Anda",
+    "fromReply": "Dari jawaban",
+    "download": "Unduh",
+    "downloadCode": "Unduh kode",
+    "copy": "Salin",
+    "copied": "Disalin",
+    "openInFiles": "Buka di File",
+    "actions": "Tindakan file",
+    "opened": "Pratinjau dibuka: {{name}}",
+    "chip": {
+      "created": "Dibuat",
+      "changed": "Diubah",
+      "label": "{{verb}} {{name}}, buka pratinjau",
+      "row": "File dari jawaban ini"
+    }
   }
 }

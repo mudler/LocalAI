@@ -73,9 +73,6 @@
   },
   "input": {
     "stopGenerating": "Generierung stoppen",
-    "canvasTitle": "Canvas — Codeblöcke und Medien in ein Seitenpanel zur Vorschau, zum Kopieren und Herunterladen extrahieren",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Canvas-Panel öffnen",
     "placeholderQueue": "Das Modell arbeitet. Eine jetzt gesendete Nachricht wartet auf seinen nächsten Schritt."
   },
   "deleteAllDialog": {
@@ -167,9 +164,8 @@
     "emptyBody": "Zieh Dateien hierher, um sie an deine nächste Nachricht anzuhängen. Dateien, die der Assistent erstellt oder ändert, erscheinen auch hier.",
     "dropHint": "Zieh Dateien hierher, um sie an deine nächste Nachricht anzuhängen.",
     "groups": {
-      "uploaded": "Von dir hochgeladen",
-      "created": "Vom Assistenten erstellt",
-      "changed": "Vom Assistenten geändert"
+      "uploaded": "Von dir",
+      "created": "Erstellt und geändert"
     },
     "turn": "Runde {{n}}",
     "media": "Im Kontext",
@@ -332,5 +328,25 @@
     "open": "{{name}} öffnen",
     "showMore": "{{count}} weitere anzeigen",
     "missing": "Datei nicht mehr verfügbar"
+  },
+  "preview": {
+    "open": "Vorschau öffnen",
+    "created": "Vom Assistenten erstellt",
+    "changed": "Vom Assistenten geändert",
+    "yours": "Von dir",
+    "fromReply": "Aus der Antwort",
+    "download": "Herunterladen",
+    "downloadCode": "Code herunterladen",
+    "copy": "Kopieren",
+    "copied": "Kopiert",
+    "openInFiles": "In Dateien öffnen",
+    "actions": "Dateiaktionen",
+    "opened": "Vorschau geöffnet: {{name}}",
+    "chip": {
+      "created": "Erstellt",
+      "changed": "Geändert",
+      "label": "{{verb}}: {{name}}, Vorschau öffnen",
+      "row": "Dateien aus dieser Antwort"
+    }
   }
 }

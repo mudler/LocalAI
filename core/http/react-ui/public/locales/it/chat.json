@@ -73,9 +73,6 @@
   },
   "input": {
     "stopGenerating": "Ferma generazione",
-    "canvasTitle": "Canvas — estrae blocchi di codice e media in un pannello laterale per anteprima, copia e download",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Apri pannello canvas",
     "placeholderQueue": "Il modello sta lavorando. Un messaggio inviato ora aspetta il suo prossimo passo."
   },
   "deleteAllDialog": {
@@ -167,9 +164,8 @@
     "emptyBody": "Trascina qui i file per allegarli al prossimo messaggio. Anche i file che l'assistente crea o modifica compaiono qui.",
     "dropHint": "Trascina qui i file per allegarli al prossimo messaggio.",
     "groups": {
-      "uploaded": "Caricati da te",
-      "created": "Creati dall'assistente",
-      "changed": "Modificati dall'assistente"
+      "uploaded": "Forniti da te",
+      "created": "Creati e modificati"
     },
     "turn": "turno {{n}}",
     "media": "Nel contesto",
@@ -332,5 +328,25 @@
     "open": "Apri {{name}}",
     "showMore": "Mostra altri {{count}}",
     "missing": "File non più disponibile"
+  },
+  "preview": {
+    "open": "Apri anteprima",
+    "created": "Creato dall’assistente",
+    "changed": "Modificato dall’assistente",
+    "yours": "Fornito da te",
+    "fromReply": "Dalla risposta",
+    "download": "Scarica",
+    "downloadCode": "Scarica il codice",
+    "copy": "Copia",
+    "copied": "Copiato",
+    "openInFiles": "Apri in File",
+    "actions": "Azioni sul file",
+    "opened": "Anteprima aperta: {{name}}",
+    "chip": {
+      "created": "Creato",
+      "changed": "Modificato",
+      "label": "{{verb}} {{name}}, apri anteprima",
+      "row": "File di questa risposta"
+    }
   }
 }

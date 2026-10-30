@@ -73,9 +73,6 @@
   },
   "input": {
     "stopGenerating": "停止生成",
-    "canvasTitle": "Canvas — 将代码块和媒体提取到侧边栏以便预览、复制和下载",
-    "canvasLabel": "Canvas",
-    "openCanvas": "打开 Canvas 面板",
     "placeholderQueue": "模型正在工作。现在发送的消息会等待它的下一步。"
   },
   "deleteAllDialog": {
@@ -167,9 +164,8 @@
     "emptyBody": "将文件拖到这里，即可附加到下一条消息。助手创建或修改的文件也会显示在这里。",
     "dropHint": "将文件拖到这里，即可附加到下一条消息。",
     "groups": {
-      "uploaded": "你上传的",
-      "created": "助手创建的",
-      "changed": "助手修改的"
+      "uploaded": "你提供的文件",
+      "created": "创建和修改的文件"
     },
     "turn": "第 {{n}} 轮",
     "media": "在上下文中",
@@ -332,5 +328,25 @@
     "open": "打开 {{name}}",
     "showMore": "再显示 {{count}} 个",
     "missing": "文件已不可用"
+  },
+  "preview": {
+    "open": "打开预览",
+    "created": "由助手创建",
+    "changed": "由助手修改",
+    "yours": "你提供的",
+    "fromReply": "来自回答",
+    "download": "下载",
+    "downloadCode": "下载代码",
+    "copy": "复制",
+    "copied": "已复制",
+    "openInFiles": "在文件中打开",
+    "actions": "文件操作",
+    "opened": "已打开预览：{{name}}",
+    "chip": {
+      "created": "已创建",
+      "changed": "已修改",
+      "label": "{{verb}} {{name}}，打开预览",
+      "row": "本回答的文件"
+    }
   }
 }

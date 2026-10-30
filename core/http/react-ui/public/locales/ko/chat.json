@@ -73,9 +73,6 @@
   },
   "input": {
     "stopGenerating": "생성 중지",
-    "canvasTitle": "캔버스 — 코드 블록과 미디어를 사이드 패널로 추출해 미리보기, 복사, 다운로드할 수 있습니다",
-    "canvasLabel": "캔버스",
-    "openCanvas": "캔버스 패널 열기",
     "placeholderQueue": "모델이 작업 중입니다. 지금 보낸 메시지는 다음 단계까지 기다립니다."
   },
   "deleteAllDialog": {
@@ -167,9 +164,8 @@
     "emptyBody": "파일을 여기에 놓으면 다음 메시지에 첨부됩니다. 어시스턴트가 만들거나 변경한 파일도 여기에 표시됩니다.",
     "dropHint": "파일을 여기에 놓으면 다음 메시지에 첨부됩니다.",
     "groups": {
-      "uploaded": "내가 업로드함",
-      "created": "어시스턴트가 만듦",
-      "changed": "어시스턴트가 변경함"
+      "uploaded": "내가 준 파일",
+      "created": "만들고 바꾼 파일"
     },
     "turn": "{{n}}번째 턴",
     "media": "컨텍스트에 포함",
@@ -332,5 +328,25 @@
     "open": "{{name}} 열기",
     "showMore": "{{count}}개 더 보기",
     "missing": "더 이상 없는 파일"
+  },
+  "preview": {
+    "open": "미리보기 열기",
+    "created": "어시스턴트가 만든 파일",
+    "changed": "어시스턴트가 바꾼 파일",
+    "yours": "내가 준 파일",
+    "fromReply": "답변에서",
+    "download": "다운로드",
+    "downloadCode": "코드 다운로드",
+    "copy": "복사",
+    "copied": "복사됨",
+    "openInFiles": "파일에서 열기",
+    "actions": "파일 작업",
+    "opened": "미리보기 열림: {{name}}",
+    "chip": {
+      "created": "만듦",
+      "changed": "바꿈",
+      "label": "{{verb}} {{name}}, 미리보기 열기",
+      "row": "이 답변의 파일"
+    }
   }
 }

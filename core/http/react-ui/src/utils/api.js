@@ -222,6 +222,9 @@ export const filesApi = {
     if (!res.ok) { await handleResponse(res) }
     return res.text()
   },
+  // What the server reads out of a spreadsheet, a CSV or TSV file, a Word
+  // document or a presentation: { kind: table | document | slides, ... }.
+  preview: (path) => fetchJSON(API_CONFIG.endpoints.filesPreview + q({ path })),
   // Sends the file as the request body. Without base, a file that exists is
   // kept and the new one gets a conflict name (see conflict_of in the answer).
   upload: async (path, file, { base } = {}) => {
