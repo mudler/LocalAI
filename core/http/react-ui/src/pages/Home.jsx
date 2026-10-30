@@ -34,7 +34,9 @@ import { greetingKey } from '../utils/greeting'
 import { resumeItems } from '../utils/homeConversations'
 // eslint-disable-next-line no-unused-vars
 import Skeleton from '../components/Skeleton'
-import { staggerStyle } from '../hooks/useStagger'
+// eslint-disable-next-line no-unused-vars
+import { Button, Callout, LoadError } from '../components/ui'
+import './home.css'
 import Icon from '../components/Icon'
 
 const DOCS_URL = 'https://localai.io'
@@ -389,15 +391,15 @@ export default function Home() {
   )
   return (
     <div className="home-page">
-      <div className="home-col reveal-stagger">
-        <header className="home-header" style={staggerStyle(0)}>
+      <div className="home-col">
+        <header className="home-header">
           <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
           <span className="home-date">{dateLabel}</span>
         </header>
 
-        <div style={staggerStyle(1)}>
+        <div>
           <HomeComposer
-          onDictateError={(m) => addToast(m, 'error')}
+            onDictateError={(m) => addToast(m, 'error')}
             message={message}
             onMessage={setMessage}
             onSubmit={doSubmit}
@@ -427,43 +429,40 @@ export default function Home() {
           />
         )}
 
-        <div className="home-below" style={staggerStyle(2)}>
+        <div className="home-below">
           {addonNotice && (
-            <div className="home-notice home-notice--info" role="note" data-testid="home-addons-off">
-              <Icon name="puzzle" />
-              <h3>{t('notice.addonsOffTitle')}</h3>
-              <p>{t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: addonNotice === 'studio' ? 'Studio' : addonNotice === 'addons' ? t('notice.thisPage') : addonNotice })}</p>
-              <div className="home-notice__acts">
-                <a className="home-secondary home-secondary--sm" href={ADDONS_DOCS_URL} target="_blank" rel="noopener noreferrer">{t('notice.addonsDocs')}</a>
-                <button type="button" className="home-secondary home-secondary--sm" onClick={() => setAddonNotice('')}>{t('notice.dismiss')}</button>
-              </div>
-            </div>
+            <Callout
+              tone="info" icon="puzzle" role="note" testId="home-addons-off"
+              title={t('notice.addonsOffTitle')}
+              actions={(
+                <>
+                  <Button size="sm" href={ADDONS_DOCS_URL} target="_blank" rel="noopener noreferrer">{t('notice.addonsDocs')}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setAddonNotice('')}>{t('notice.dismiss')}</Button>
+                </>
+              )}
+            >
+              {t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: addonNotice === 'studio' ? 'Studio' : addonNotice === 'addons' ? t('notice.thisPage') : addonNotice })}
+            </Callout>
           )}
 
           {modelsFailed && configuredModels === null && (
-            <div className="home-notice home-notice--error" role="alert" data-testid="home-load-error">
-              <Icon name="alert-circle" />
-              <h3>{t('notice.loadFailedTitle')}</h3>
-              <p>{t('notice.loadFailedBody')}</p>
-              <div className="home-notice__acts">
-                <button type="button" className="home-primary home-primary--sm" onClick={fetchSystemInfo}>{t('notice.retry')}</button>
-              </div>
-            </div>
+            <LoadError title={`${t('notice.loadFailedTitle')}.`} nothingChanged={false} onRetry={fetchSystemInfo} testId="home-load-error">
+              {t('notice.loadFailedBody')}
+            </LoadError>
           )}
 
           {failedOp && (
-            <div className="home-notice home-notice--error" role="alert" data-testid="home-staging-error">
-              <Icon name="alert-circle" />
-              <h3>{t('notice.stagingFailedTitle', { name: failedOp.name || failedOp.id })}</h3>
-              <p>{failedOp.nodeName ? t('notice.stagingFailedBodyNode', { node: failedOp.nodeName }) : t('notice.stagingFailedBody')}</p>
-              <div className="home-notice__acts">
-                <button type="button" className="home-secondary home-secondary--sm" onClick={() => navigate('/app/activity')}>{t('notice.openActivity')}</button>
-              </div>
-              <details>
+            <Callout
+              tone="error" role="alert" testId="home-staging-error" className="home-staging"
+              title={t('notice.stagingFailedTitle', { name: failedOp.name || failedOp.id })}
+              actions={<Button size="sm" onClick={() => navigate('/app/activity')}>{t('notice.openActivity')}</Button>}
+            >
+              {failedOp.nodeName ? t('notice.stagingFailedBodyNode', { node: failedOp.nodeName }) : t('notice.stagingFailedBody')}
+              <details className="home-staging__details">
                 <summary>{t('notice.details')}</summary>
                 <pre>{failedOp.error}</pre>
               </details>
-            </div>
+            </Callout>
           )}
 
           <div ref={stripRef}>
@@ -496,13 +495,13 @@ export default function Home() {
         </div>
 
         {chatsOn && !firstRun && (
-          <div style={staggerStyle(3)}>
+          <div>
             <HomeWidgets wk={homeFile} conversations={conversations} onResume={resumeConversation} onAsk={askLayout} editRequest={editLayout} />
           </div>
         )}
 
         {firstRun && (
-          <div className="home-first" style={staggerStyle(3)}>
+          <div className="home-first">
             <HomeFirstRun
               addToast={addToast}
               onInstallStarted={fetchSystemInfo}
@@ -512,7 +511,7 @@ export default function Home() {
           </div>
         )}
 
-        {!chatsWidget && <div style={staggerStyle(4)}>
+        {!chatsWidget && <div>
           <HomeResume
             items={conversations}
             onResume={resumeConversation}
@@ -526,7 +525,7 @@ export default function Home() {
           />
         </div>}
 
-        <div className="home-libline" style={staggerStyle(5)} data-testid="home-library">
+        <div className="home-libline" data-testid="home-library">
           <span>{t('library.label')}</span>
           {examplesOn && examplesGone && (
             <button type="button" className="home-ghost" onClick={() => setEditLayout(n => n + 1)} data-testid="home-customise">

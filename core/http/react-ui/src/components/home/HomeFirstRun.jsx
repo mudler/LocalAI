@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import StarterModels from '../StarterModels'
-import Icon from '../Icon'
+// eslint-disable-next-line no-unused-vars
+import Button from '../ui/Button'
 
 // First run: no model is installed yet. Three steps, with the recommended
 // models for the detected hardware inside the second one, so the way forward
@@ -16,12 +17,8 @@ export default function HomeFirstRun({ addToast, onInstallStarted, onGallery, on
           <b>{t('wizard.steps.step1Title')}</b>
           <span className="home-step__desc">{t('wizard.steps.step1Body')}</span>
           <div className="home-step__extra">
-            <button type="button" className="home-secondary home-secondary--sm" onClick={onGallery}>
-              <Icon name="store" /> {t('wizard.browseGallery')}
-            </button>
-            <button type="button" className="home-ghost" onClick={onImport}>
-              <Icon name="upload" /> {t('wizard.importModel')}
-            </button>
+            <Button size="sm" icon="store" onClick={onGallery}>{t('wizard.browseGallery')}</Button>
+            <Button size="sm" variant="ghost" icon="upload" onClick={onImport}>{t('wizard.importModel')}</Button>
           </div>
         </div>
       </li>

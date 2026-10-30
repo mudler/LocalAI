@@ -109,7 +109,9 @@ test.describe('Account: other people and states', () => {
     await mockAccess(page)
     await page.route('**/api/auth/usage?*', route => route.fulfill({ status: 500, json: { error: 'boom' } }))
     await page.goto('/app/account?tab=usage')
-    await expect(page.getByRole('alert')).toContainText('Failed to load your usage')
+    // The load error primitive: what failed, then the server's words.
+    await expect(page.getByRole('alert')).toContainText('Could not load your usage')
+    await expect(page.getByRole('alert')).toContainText('boom')
   })
 
   test('a person with no limits and no requests sees calm empty states', async ({ page }) => {

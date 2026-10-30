@@ -248,6 +248,7 @@
   min-height: 72px;
 }
 
+
 .sidebar-close-btn {
   display: none;
   background: none;
@@ -4321,52 +4322,6 @@ button.collapsible-header:focus-visible {
 }
 /* The confirm button is the same danger wash as every other danger button. */
 
-/* ─── Home: the console ────────────────────────────────────────────────────
-   One command bar first, memory folded into a one-line strip, and a list of
-   conversations worth resuming. Flat surfaces, solid bars, no glow. Colours
-   are the kit roles (--dk-*). Focus is a 2 px outline with an offset. */
-.home-page {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  width: 100%;
-  padding: var(--spacing-xl) var(--spacing-lg) 96px;
-}
-.home-col {
-  width: 100%;
-  max-width: 880px;
-  margin: 0 auto;
-  min-width: 0;
-}
-/* The reveal must not leave a transform behind: it would trap the menus that
-   hang below the command bar under the sections that follow it. */
-.reveal-stagger.home-col > * { animation-fill-mode: backwards; }
-.home-col button:focus-visible,
-.home-col a:focus-visible,
-.home-col summary:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
-
-.home-header {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding: 0 0 18px;
-}
-.home-greeting {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 28px;
-  line-height: 1.2;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-}
-.home-date {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--dk-muted);
-}
-
 /* Shared small controls */
 .home-dot {
   flex: none;
@@ -4453,63 +4408,8 @@ button.collapsible-header:focus-visible {
 }
 .home-link:hover { color: var(--dk-text); }
 
-/* Under the command bar: notices, the memory strip, the assistant line */
-.home-below { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
-.home-notice {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 14px;
-  padding: 16px;
-  border-radius: var(--dk-radius-2);
-  background: var(--dk-error-wash);
-  color: var(--dk-text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dk-error) 40%, transparent);
-}
-.home-notice > .lai-icon { margin-top: 2px; color: var(--dk-error-text); }
-/* An information notice, not a failure. */
-.home-notice--info { background: var(--dk-card); box-shadow: inset 0 0 0 1px var(--dk-edge); }
-.home-notice--info > .lai-icon { color: var(--color-text-secondary); }
-.home-notice h3 { margin: 0; font-size: 15px; font-weight: 650; }
-.home-notice p { grid-column: 2; margin: 0; color: var(--color-text-secondary); font-size: 14px; }
-.home-notice__acts { grid-column: 2; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.home-notice details { grid-column: 2; margin-top: 6px; font-size: 13px; color: var(--color-text-secondary); }
-.home-notice summary { width: max-content; border-radius: 6px; cursor: pointer; }
-.home-notice pre {
-  margin: 8px 0 0;
-  padding: 10px 12px;
-  border-radius: var(--dk-radius-1);
-  background: var(--dk-inset);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.home-tip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 4px;
-  color: var(--dk-muted);
-  font-size: 13px;
-}
-.home-tip b { color: var(--color-text-secondary); font-weight: 600; }
-.home-tip > .lai-icon { flex: none; width: 16px; height: 16px; color: var(--dk-accent-text); }
-.home-tip__close {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  margin-left: auto;
-  border: 0;
-  border-radius: var(--dk-radius-1);
-  background: none;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-.home-tip__close:hover { background: var(--dk-hover); color: var(--dk-text); }
 
+/* Under the command bar: notices, the memory strip, the assistant line */
 /* Memory strip */
 .home-strip {
   position: relative;
@@ -4936,10 +4836,6 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 @keyframes homePulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 
 @media (max-width: 640px) {
-  .home-page { padding: var(--spacing-sm) 16px 64px; }
-  .home-greeting { font-size: 24px; }
-  .home-cmd { padding: 10px; }
-  .home-slash-hint,
   .home-input-hint,
   .home-resume__keys,
   .home-connect__compat,
