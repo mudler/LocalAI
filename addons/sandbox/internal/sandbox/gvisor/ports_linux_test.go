@@ -33,7 +33,7 @@ var _ = Describe("port serving", func() {
 		for range maxPortConns + 2 {
 			c, err := net.Dial("unix", portSock(dir, 7000))
 			Expect(err).ToNot(HaveOccurred())
-			defer c.Close()
+			defer func() { _ = c.Close() }()
 			guest = append(guest, c)
 		}
 		// Wait until the host closed the two connections over the cap.
@@ -70,7 +70,7 @@ var _ = Describe("port serving", func() {
 			Expect(time.Now().After(deadline.Add(10*time.Second))).To(BeFalse(), "no connection was served after closeConns")
 			c, err := net.Dial("unix", portSock(dir, 7000))
 			Expect(err).ToNot(HaveOccurred())
-			defer c.Close()
+			defer func() { _ = c.Close() }()
 			select {
 			case <-held:
 				return
@@ -82,14 +82,14 @@ var _ = Describe("port serving", func() {
 	It("refuses connections to a connSet after shutdown", func() {
 		var set connSet
 		a, b := net.Pipe()
-		defer b.Close()
+		defer func() { _ = b.Close() }()
 		tc := set.add(a)
 		Expect(tc).ToNot(BeNil(), "add refused before shutdown")
 		set.shutdown()
 		_, err := b.Read(make([]byte, 1))
 		Expect(err).To(HaveOccurred(), "a tracked connection survived shutdown")
 		c, d := net.Pipe()
-		defer d.Close()
+		defer func() { _ = d.Close() }()
 		Expect(set.add(c)).To(BeNil(), "add accepted a connection after shutdown")
 		_, err = d.Read(make([]byte, 1))
 		Expect(err).To(HaveOccurred(), "the late connection was not closed")

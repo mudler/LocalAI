@@ -163,7 +163,7 @@ func RemoveTree(dir string) error {
 func PrepareTar(ctx context.Context, cacheDir, ref string, build func(tar io.Reader, dir string) error) (dir string, env []string, err error) {
 	return Prepare(ctx, cacheDir, ref, func(img v1.Image, dir string) error {
 		rc := Extract(img)
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 		return build(rc, dir)
 	})
 }
@@ -190,11 +190,11 @@ func WriteSync(p string, b []byte) error {
 		return err
 	}
 	if _, err := f.Write(b); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Sync(); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	return f.Close()
@@ -206,7 +206,7 @@ func SyncDir(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return f.Sync()
 }
 

@@ -299,7 +299,7 @@ func openPTY() (master, slave *os.File, err error) {
 	}
 	slave, err = os.OpenFile("/dev/pts/"+itoa(int(n)), os.O_RDWR|syscall.O_NOCTTY|syscall.O_CLOEXEC, 0)
 	if err != nil {
-		master.Close()
+		_ = master.Close()
 		return nil, nil, err
 	}
 	return master, slave, nil

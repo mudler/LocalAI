@@ -115,7 +115,7 @@ func readRules(ctx context.Context, store workspace.Store, actor workspace.Actor
 	if err != nil {
 		return "", false, fmt.Errorf("triggers: read %s: %w", p, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if node.Kind != workspace.KindFile {
 		return "", false, nil
 	}

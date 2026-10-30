@@ -142,7 +142,7 @@ func (r upperReader) read(ctx context.Context, ix sandbox.UpperIndex) (workspace
 				return nil, err
 			}
 			if st, err := f.Stat(); err != nil || st.Size() != size {
-				f.Close()
+				_ = f.Close()
 				return nil, fmt.Errorf("chv: staged copy of %s has the wrong size", e.Path)
 			}
 			return f, nil

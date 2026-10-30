@@ -161,7 +161,7 @@ var _ = Describe("Chats files and workspace", Ordered, func() {
 		req := c.req(http.MethodPut, "/api/chats/files/content?path=/huge.bin", pr, "application/octet-stream")
 		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			status = resp.StatusCode
 		}
 		_ = pr.Close()
@@ -181,7 +181,7 @@ var _ = Describe("Chats files and workspace", Ordered, func() {
 			Expect(mw.Close()).To(Succeed())
 			resp, err := http.DefaultClient.Do(c.req(http.MethodPost, "/api/chats/"+id+"/messages", &buf, mw.FormDataContentType()))
 			Expect(err).ToNot(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			raw, _ := io.ReadAll(resp.Body)
 			return resp.StatusCode, raw
 		}

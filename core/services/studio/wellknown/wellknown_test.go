@@ -45,7 +45,7 @@ func readRaw(f *files.Service, who, rel string) map[string]any {
 	abs, _ := f.Abs(who, rel)
 	r, _, err := f.Store().Open(context.Background(), f.Actor(who), abs)
 	Expect(err).NotTo(HaveOccurred())
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	var m map[string]any
 	Expect(json.NewDecoder(r).Decode(&m)).To(Succeed())
 	return m

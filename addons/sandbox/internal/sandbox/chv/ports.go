@@ -60,7 +60,7 @@ func servePortListener(ctx context.Context, l net.Listener, h sandbox.PortHandle
 				h(ctx, c)
 			}()
 		default:
-			c.Close()
+			_ = c.Close()
 		}
 	}
 }
@@ -72,7 +72,7 @@ func (ps *portServer) close() {
 	}
 	ps.cancel()
 	for _, l := range ps.ls {
-		l.Close()
+		_ = l.Close()
 	}
 	ps.ls = nil
 }

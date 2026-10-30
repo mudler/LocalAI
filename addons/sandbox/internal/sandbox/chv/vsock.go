@@ -21,7 +21,7 @@ func dialGuest(ctx context.Context, sock string, port uint32) (net.Conn, error) 
 	}
 	_ = c.SetDeadline(time.Now().Add(5 * time.Second))
 	if _, err := fmt.Fprintf(c, "CONNECT %d\n", port); err != nil {
-		c.Close()
+		_ = c.Close()
 		return nil, err
 	}
 	// Read one byte at a time: the bytes after the newline belong to the guest.
@@ -29,7 +29,7 @@ func dialGuest(ctx context.Context, sock string, port uint32) (net.Conn, error) 
 	b := make([]byte, 1)
 	for len(line) < 64 {
 		if _, err := c.Read(b); err != nil {
-			c.Close()
+			_ = c.Close()
 			return nil, fmt.Errorf("chv: vsock connect to port %d: %w", port, err)
 		}
 		if b[0] == '\n' {
@@ -38,7 +38,7 @@ func dialGuest(ctx context.Context, sock string, port uint32) (net.Conn, error) 
 		line = append(line, b[0])
 	}
 	if !strings.HasPrefix(string(line), "OK ") {
-		c.Close()
+		_ = c.Close()
 		return nil, fmt.Errorf("chv: vsock connect to port %d: %q", port, line)
 	}
 	_ = c.SetDeadline(time.Time{})

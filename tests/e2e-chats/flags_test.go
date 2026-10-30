@@ -126,7 +126,7 @@ var _ = Describe("Options and removed routes", func() {
 		req := c.req(http.MethodGet, "/api/agents/collections", nil, "")
 		resp, err := http.DefaultClient.Do(req)
 		Expect(err).ToNot(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(resp.Header.Get("Deprecation")).To(Equal("true"))
 	})

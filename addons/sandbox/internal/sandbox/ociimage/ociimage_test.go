@@ -127,7 +127,7 @@ var _ = Describe("OCI image", func() {
 			defer GinkgoRecover()
 			builds.Add(1)
 			rc := Extract(img)
-			defer rc.Close()
+			defer func() { _ = rc.Close() }()
 			tr := tar.NewReader(rc)
 			h, err := tr.Next()
 			Expect(err).NotTo(HaveOccurred())

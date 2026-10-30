@@ -80,7 +80,7 @@ var _ = Describe("POST /v1/chat/completions beside the chats", Ordered, func() {
 		req := c.req(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"fake","stream":true,"messages":[{"role":"user","content":"V1-STREAM"}]}`), "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		Expect(err).ToNot(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(resp.Header.Get("Content-Type")).To(HavePrefix("text/event-stream"))
 		sc := bufio.NewScanner(resp.Body)

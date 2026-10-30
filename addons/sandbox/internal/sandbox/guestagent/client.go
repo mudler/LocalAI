@@ -130,7 +130,7 @@ func Exec(ctx context.Context, conn net.Conn, req ExecRequest, stdin io.Reader, 
 		err = replyErr(f)
 	}
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 	_ = conn.SetReadDeadline(time.Time{})

@@ -22,6 +22,6 @@ func shortDir() string {
 	GinkgoHelper()
 	d, err := os.MkdirTemp("", "chv")
 	Expect(err).To(Succeed())
-	DeferCleanup(func() { os.RemoveAll(d) })
+	DeferCleanup(func() { _ = os.RemoveAll(d) })
 	return d
 }

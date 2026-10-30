@@ -38,7 +38,7 @@ func (s *Workspace) MaterializeRoot(ctx context.Context, v View, dir *os.Root) (
 		if err != nil {
 			return 0, err
 		}
-		defer tx.Rollback()
+		defer func() { _ = tx.Rollback() }()
 		base, err := s.currentRev(ctx, tx)
 		if err != nil {
 			return 0, err

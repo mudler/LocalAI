@@ -45,7 +45,7 @@ var _ = Describe("Forward", func() {
 		go func() { _ = Forward(front, func() (net.Conn, error) { return net.Dial("tcp", up.Addr().String()) }) }()
 		c, err := net.Dial("tcp", front.Addr().String())
 		Expect(err).ToNot(HaveOccurred())
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 		_, err = c.Write([]byte("hello"))
 		Expect(err).ToNot(HaveOccurred())
 		_ = c.(*net.TCPConn).CloseWrite()
@@ -63,7 +63,7 @@ var _ = Describe("Forward", func() {
 				if err != nil {
 					return
 				}
-				go func() { _, _ = io.Copy(c, c); c.Close() }()
+				go func() { _, _ = io.Copy(c, c); _ = c.Close() }()
 			}
 		}()
 		base, err := net.Listen("tcp", "127.0.0.1:0")
@@ -75,7 +75,7 @@ var _ = Describe("Forward", func() {
 		}()
 		c, err := net.Dial("tcp", base.Addr().String())
 		Expect(err).ToNot(HaveOccurred())
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 		_ = c.SetDeadline(time.Now().Add(5 * time.Second))
 		_, err = c.Write([]byte("ping\n"))
 		Expect(err).ToNot(HaveOccurred())

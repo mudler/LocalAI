@@ -151,7 +151,7 @@ func (h *Handlers) GetFileContent(c echo.Context) error {
 	if err != nil {
 		return failFile(c, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	ct := mime.TypeByExtension(path.Ext(n.Name))
 	if i := strings.IndexByte(ct, ';'); i >= 0 {
 		ct = ct[:i]

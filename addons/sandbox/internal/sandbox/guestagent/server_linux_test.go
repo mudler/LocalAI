@@ -191,7 +191,7 @@ var _ = Describe("agent server", func() {
 	It("kills the group on close", func() {
 		dial := agent(&Server{})
 		c, pgid := pgidOf(dial)
-		c.Close()
+		_ = c.Close()
 		Expect(waitUntil(5*time.Second, func() bool { return !groupAlive(pgid) })).To(BeTrue(), "the process group survived the close")
 	})
 
@@ -200,7 +200,7 @@ var _ = Describe("agent server", func() {
 		c, pgid := pgidOf(dial)
 		DeferCleanup(func() { _ = syscall.Kill(-pgid, syscall.SIGKILL) })
 		Expect(Call(context.Background(), dial(), TypeDetach)).To(Succeed())
-		c.Close()
+		_ = c.Close()
 		time.Sleep(500 * time.Millisecond)
 		Expect(groupAlive(pgid)).To(BeTrue(), "a detached process group was killed")
 		_, after := pgidOf(dial)
@@ -243,7 +243,7 @@ var _ = Describe("agent server", func() {
 	It("refuses a large frame", func() {
 		dial := agent(&Server{})
 		c := dial()
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 		_, err := c.Write([]byte{0x7f, 0xff, 0xff, 0xff})
 		Expect(err).ToNot(HaveOccurred())
 		f, err := ReadFrame(c)
@@ -307,7 +307,7 @@ var _ = Describe("agent server", func() {
 			Fail("signal blocked behind unread stdin")
 		}
 		Expect(groupAlive(pgid)).To(BeTrue(), "the signal ended the group")
-		c.Close()
+		_ = c.Close()
 		Expect(waitUntil(5*time.Second, func() bool { return !groupAlive(pgid) })).To(BeTrue(), "host close did not kill the group")
 	})
 
@@ -328,7 +328,7 @@ var _ = Describe("agent server", func() {
 		}
 		for i := 0; i < 10; i++ {
 			c, pgid := pgidOf(dial)
-			c.Close()
+			_ = c.Close()
 			Expect(waitUntil(5*time.Second, func() bool { return !groupAlive(pgid) })).To(BeTrue(), "host close did not kill the group")
 		}
 		const margin = 4
@@ -438,7 +438,7 @@ var _ = Describe("agent server", func() {
 			Fail("signal blocked by the stdin feed")
 		}
 		Expect(groupAlive(pgid)).To(BeTrue(), "the signal ended the group")
-		c.Close()
+		_ = c.Close()
 		Expect(waitUntil(5*time.Second, func() bool { return !groupAlive(pgid) })).To(BeTrue(), "host close did not kill the group")
 	})
 

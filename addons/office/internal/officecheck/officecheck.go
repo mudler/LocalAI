@@ -120,7 +120,7 @@ func (c *checker) readZip(data []byte) bool {
 			continue
 		}
 		b, err := io.ReadAll(io.LimitReader(rc, maxPartSize+1))
-		rc.Close()
+		_ = rc.Close()
 		switch {
 		case err != nil:
 			c.add(name, "cannot read zip entry: %v", err)

@@ -136,7 +136,7 @@ func (b *Backend) start(ctx context.Context, dir, id string, cpus int, verb stri
 	if err != nil {
 		return 0, err
 	}
-	defer console.Close()
+	defer func() { _ = console.Close() }()
 	pidFile := filepath.Join(dir, "pid")
 	_ = os.Remove(pidFile)
 	args := append([]string{"-c", b.pickCPUs(cpus), b.runsc}, globalFlags(filepath.Join(dir, "runsc"))...)

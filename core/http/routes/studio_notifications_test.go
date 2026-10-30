@@ -88,7 +88,7 @@ var _ = Describe("Chats notifications endpoints", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("Content-Type")).To(HavePrefix("text/event-stream"))
-			return bufio.NewScanner(resp.Body), func() { cancel(); resp.Body.Close() }
+			return bufio.NewScanner(resp.Body), func() { cancel(); _ = resp.Body.Close() }
 		}
 		alice, closeAlice := open("alice")
 		defer closeAlice()

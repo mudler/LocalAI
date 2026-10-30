@@ -42,7 +42,7 @@ func unzipParts(slides []deck.StudioSlide, opts Options, load ImageLoader) map[s
 		rc, err := f.Open()
 		Expect(err).NotTo(HaveOccurred())
 		b, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(parts).NotTo(HaveKey(f.Name), "duplicate part")
 		parts[f.Name] = b

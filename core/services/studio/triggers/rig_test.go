@@ -100,7 +100,7 @@ func newRig(mutate ...func(*triggers.Options)) *rig {
 	r.opts = triggers.Options{
 		Store: r.store, Workspace: ws, Admin: wstest.AdminActor,
 		Start: h.start, Stop: h.stop, Live: h.isLive, Clock: clock.Now,
-		Tick: 10 * time.Millisecond, Logf: func(format string, args ...any) { fmt.Fprintf(GinkgoWriter, format+"\n", args...) },
+		Tick: 10 * time.Millisecond, Logf: func(format string, args ...any) { _, _ = fmt.Fprintf(GinkgoWriter, format+"\n", args...) },
 	}
 	for _, m := range mutate {
 		m(&r.opts)

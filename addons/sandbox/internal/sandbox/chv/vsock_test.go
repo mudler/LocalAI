@@ -18,7 +18,7 @@ func fakeMuxer() string {
 	sock := filepath.Join(shortDir(), "vsock.sock")
 	l, err := net.Listen("unix", sock)
 	Expect(err).To(Succeed())
-	DeferCleanup(func() { l.Close() })
+	DeferCleanup(func() { _ = l.Close() })
 	go func() {
 		for {
 			c, err := l.Accept()
@@ -26,7 +26,7 @@ func fakeMuxer() string {
 				return
 			}
 			go func() {
-				defer c.Close()
+				defer func() { _ = c.Close() }()
 				r := bufio.NewReader(c)
 				line, _ := r.ReadString('\n')
 				if line != "CONNECT 1024\n" {
@@ -49,7 +49,7 @@ var _ = Describe("dialGuest", func() {
 		Expect(err).To(Succeed())
 		line, _ := bufio.NewReader(c).ReadString('\n')
 		Expect(line).To(Equal("ping\n"), "echo")
-		c.Close()
+		_ = c.Close()
 		_, err = dialGuest(context.Background(), sock, 2000)
 		Expect(err).To(HaveOccurred(), "a port without a listener connected")
 	})

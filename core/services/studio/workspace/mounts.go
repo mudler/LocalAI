@@ -54,7 +54,7 @@ func CheckEmptyRoot(dir *os.Root) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if _, err := f.Readdirnames(1); err == nil {
 		return ErrExists
 	} else if !errors.Is(err, io.EOF) {

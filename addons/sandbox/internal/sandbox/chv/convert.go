@@ -65,17 +65,17 @@ func convert(img v1.Image, dir string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(rootTmp.Name())
-	defer rootTmp.Close()
+	defer func() { _ = os.Remove(rootTmp.Name()) }()
+	defer func() { _ = rootTmp.Close() }()
 	kernTmp, err := os.CreateTemp(dir, "vmlinux-*.tmp")
 	if err != nil {
 		return err
 	}
-	defer os.Remove(kernTmp.Name())
-	defer kernTmp.Close()
+	defer func() { _ = os.Remove(kernTmp.Name()) }()
+	defer func() { _ = kernTmp.Close() }()
 
 	flat := ociimage.Extract(img)
-	defer flat.Close()
+	defer func() { _ = flat.Close() }()
 	pr, pw := io.Pipe()
 	kernel := make(chan error, 1)
 	go func() { kernel <- copyKernel(pr, kernTmp) }()
@@ -105,7 +105,7 @@ func convert(img v1.Image, dir string) error {
 // copyKernel reads a tar stream, copies boot/vmlinux to out and drains the
 // rest, so the writer of the stream never blocks.
 func copyKernel(r io.Reader, out io.Writer) error {
-	defer io.Copy(io.Discard, r)
+	defer func() { _, _ = io.Copy(io.Discard, r) }()
 	tr := tar.NewReader(r)
 	found := false
 	for {

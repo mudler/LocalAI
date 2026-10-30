@@ -148,7 +148,7 @@ func lockStateDir(dir string) (*os.File, error) {
 		return nil, err
 	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		f.Close()
+		_ = f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, fmt.Errorf("gvisor: StateDir %q is in use by another backend: use one StateDir per backend, or close the other one first", dir)
 		}
@@ -215,7 +215,7 @@ func (b *Backend) checkUserNamespace(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 	if err := os.MkdirAll(filepath.Join(tmp, "bundle"), 0o700); err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func readAllowedCPUs() []int {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		if v, ok := strings.CutPrefix(sc.Text(), "Cpus_allowed_list:"); ok {

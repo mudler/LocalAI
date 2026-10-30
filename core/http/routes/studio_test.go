@@ -362,7 +362,7 @@ var _ = Describe("Chats endpoints", func() {
 		req.AddCookie(&http.Cookie{Name: "session", Value: s.sessions["alice"]})
 		resp, err := http.DefaultClient.Do(req)
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Expect(resp.Header.Get("Content-Type")).To(HavePrefix("text/event-stream"))
 

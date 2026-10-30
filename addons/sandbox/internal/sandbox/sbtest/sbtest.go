@@ -151,7 +151,7 @@ func (f *fixture) read(p string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	var b bytes.Buffer
 	_, err = b.ReadFrom(r)
 	Expect(err).NotTo(HaveOccurred())

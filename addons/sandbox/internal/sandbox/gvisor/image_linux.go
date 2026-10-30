@@ -65,7 +65,7 @@ func unpack(r io.Reader, dir string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	// A failed unpack leaves nothing behind that cannot be removed.
 	defer func() {
 		if err != nil {

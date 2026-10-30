@@ -19,7 +19,7 @@ func consoleHasPanic(path string) bool {
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	const n = 64 << 10
 	if st, err := f.Stat(); err == nil && st.Size() > n {
 		_, _ = f.Seek(-n, io.SeekEnd)
@@ -69,7 +69,7 @@ func trimConsole(path string, keep int64) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	st, err := f.Stat()
 	if err != nil {
 		return err

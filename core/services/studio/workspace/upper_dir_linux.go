@@ -26,7 +26,7 @@ func (d DirSource) Walk(ctx context.Context, fn func(UpperEntry) error) error {
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	return fs.WalkDir(root.FS(), ".", func(rel string, de fs.DirEntry, err error) error {
 		if err != nil {
 			return err

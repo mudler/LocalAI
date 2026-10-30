@@ -257,7 +257,7 @@ func (s *studioServer) readEvents(user, id string, start func(), stop func(kind 
 	req.AddCookie(&http.Cookie{Name: "session", Value: s.sessions[user]})
 	resp, err := http.DefaultClient.Do(req)
 	Expect(err).NotTo(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	go start()
 	var (
 		out  []map[string]any

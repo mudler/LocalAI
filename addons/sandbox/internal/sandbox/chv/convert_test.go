@@ -103,7 +103,7 @@ func tarEntry(tw *tar.Writer, h *tar.Header, body string) {
 	if err := tw.WriteHeader(h); err != nil {
 		panic(err)
 	}
-	io.WriteString(tw, body)
+	_, _ = io.WriteString(tw, body)
 }
 
 // writeLayoutDir is writeLayout that also returns the folder and the digest.

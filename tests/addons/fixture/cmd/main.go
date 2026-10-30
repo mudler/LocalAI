@@ -67,10 +67,10 @@ func main() {
 	// The "log" mode writes to its output streams, as an add-on that reports
 	// what it does would; one line is far over any sane limit.
 	if config.Mode == "log" {
-		fmt.Fprintln(os.Stdout, "hello from stdout")
+		_, _ = fmt.Fprintln(os.Stdout, "hello from stdout")
 		fmt.Fprintln(os.Stderr, "hello from stderr")
-		fmt.Fprintln(os.Stdout, strings.Repeat("x", 20000))
-		fmt.Fprint(os.Stdout, "no newline at the end")
+		_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("x", 20000))
+		_, _ = fmt.Fprint(os.Stdout, "no newline at the end")
 	}
 	if config.Mode == "exit-start" {
 		os.Exit(4)

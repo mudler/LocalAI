@@ -43,7 +43,7 @@ func ownRevisions(ctx context.Context, q querier, a Actor, own []int64) ([]int64
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var keep []int64
 	for rows.Next() {
 		var r int64

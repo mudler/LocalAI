@@ -139,7 +139,7 @@ var _ = Describe("Workspace host operations", func() {
 		outside := GinkgoT().TempDir()
 		dir, err := f.host.dataDir("sandbox", "a/b", true)
 		Expect(err).ToNot(HaveOccurred())
-		defer dir.Close()
+		defer func() { _ = dir.Close() }()
 		// The add-on owns its data directory: after the check it replaces "a"
 		// with a link to a folder of the host.
 		Expect(os.Rename(filepath.Join(f.data, "sandbox", "a"), filepath.Join(f.data, "sandbox", "a.old"))).To(Succeed())

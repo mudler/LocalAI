@@ -225,8 +225,8 @@ func (s *sbx) markGone(in *inst, reason string) {
 	s.gone = true
 	log.Printf("gvisor: sandbox %s stopped: %s", s.id, reason)
 	if f, err := os.OpenFile(filepath.Join(s.dir, "console.log"), os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600); err == nil {
-		fmt.Fprintf(f, "sandbox stopped: %s\n", reason)
-		f.Close()
+		_, _ = fmt.Fprintf(f, "sandbox stopped: %s\n", reason)
+		_ = f.Close()
 	}
 }
 
@@ -280,7 +280,7 @@ func (s *sbx) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process, error) 
 	}
 	p, err := guestagent.Exec(ctx, conn, req, c.Stdin, c.Stdout, c.Stderr)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 	return proc{p: p, gone: in.exited}, nil

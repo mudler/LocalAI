@@ -117,7 +117,7 @@ func (s *Service) copyTree(ctx context.Context, a workspace.Actor, root, folder,
 		if err != nil {
 			return err
 		}
-		defer body.Close()
+		defer func() { _ = body.Close() }()
 		_, err = tx.Put(ctx, folder+"/"+strings.TrimPrefix(p, root+"/"), body, workspace.PutOptions{})
 		return err
 	})

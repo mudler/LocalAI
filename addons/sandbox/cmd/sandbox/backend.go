@@ -199,7 +199,7 @@ func newSelector(dataDir string) (*backends.Selector, error) {
 				CacheDir:     filepath.Join(dataDir, "images", "kvm"),
 				DefaultImage: guestImage,
 				Bin:          bins,
-				NoBwrap:      noBwrap(os.LookupEnv, inContainer(containerMarkers...)),
+				NoBwrap:      noBwrap(os.LookupEnv, inContainer(containerMarkers...)), //nolint:forbidigo // add-on entry point, a separate process: SANDBOX_NO_BWRAP is a setting of the host it runs on
 			})
 		},
 		GVisor: func() (sandbox.Backend, error) {

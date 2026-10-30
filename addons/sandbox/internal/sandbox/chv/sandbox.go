@@ -72,7 +72,7 @@ func (s *sbx) boot(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer func() { rl.Close(); _ = os.Remove(readySock) }()
+	defer func() { _ = rl.Close(); _ = os.Remove(readySock) }()
 	vfsd, vfsdDone, err := s.b.startVirtiofsd(s.dir)
 	if err != nil {
 		return err
@@ -93,7 +93,7 @@ func (s *sbx) boot(ctx context.Context) error {
 			ready <- err
 			return
 		}
-		defer c.Close()
+		defer func() { _ = c.Close() }()
 		_, err = guestagent.ReadReady(c, timeout)
 		ready <- err
 	}()

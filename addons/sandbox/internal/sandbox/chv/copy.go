@@ -26,7 +26,7 @@ func cloneFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	st, err := in.Stat()
 	if err != nil {
 		return err
@@ -39,11 +39,11 @@ func cloneFile(src, dst string) error {
 		return out.Close()
 	}
 	if err := sparseCopy(in, out, st.Size()); err != nil {
-		out.Close()
+		_ = out.Close()
 		return err
 	}
 	if err := out.Sync(); err != nil {
-		out.Close()
+		_ = out.Close()
 		return err
 	}
 	return out.Close()

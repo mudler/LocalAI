@@ -144,7 +144,7 @@ func copyFile(ctx context.Context, src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
@@ -155,13 +155,13 @@ func copyFile(ctx context.Context, src, dst string) error {
 	buf := make([]byte, 1<<20)
 	for {
 		if err := ctx.Err(); err != nil {
-			out.Close()
+			_ = out.Close()
 			return err
 		}
 		n, rerr := in.Read(buf)
 		if n > 0 {
 			if _, werr := out.Write(buf[:n]); werr != nil {
-				out.Close()
+				_ = out.Close()
 				return werr
 			}
 		}
@@ -169,7 +169,7 @@ func copyFile(ctx context.Context, src, dst string) error {
 			break
 		}
 		if rerr != nil {
-			out.Close()
+			_ = out.Close()
 			return rerr
 		}
 	}

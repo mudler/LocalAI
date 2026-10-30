@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("appending to a transcript file", func() {
 		Expect(os.WriteFile(p, []byte("{\"seq\":1}\n"), 0o600)).To(Succeed())
 		f, err := os.OpenFile(p, os.O_APPEND|os.O_RDWR, 0o600)
 		Expect(err).NotTo(HaveOccurred())
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		w := &shortWriter{File: f}
 		Expect(appendTo(w, 10, []byte("{\"seq\":2}\n"))).To(HaveOccurred(), "the failed write was reported as a success")
 		got, _ := os.ReadFile(p)

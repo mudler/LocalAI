@@ -38,7 +38,7 @@ var _ = Describe("studio provider", func() {
 		client := localApp.StudioProvider().Transport().Client(nil)
 		resp, err := client.Get("http://studio.invalid/healthz")
 		Expect(err).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		_, _ = io.Copy(io.Discard, resp.Body)
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 	})

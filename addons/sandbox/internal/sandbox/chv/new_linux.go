@@ -59,7 +59,7 @@ func New(opts Options) (*Backend, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: /dev/kvm: %v", sandbox.ErrUnsupported, err)
 	}
-	f.Close()
+	_ = f.Close()
 	b := &Backend{opts: opts}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

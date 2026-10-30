@@ -90,7 +90,7 @@ func (s *Service) ReadSkill(ctx context.Context, principal string, layer skills.
 	if err != nil {
 		return "", "", err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	data, err := io.ReadAll(io.LimitReader(r, 1<<20))
 	if err != nil {
 		return "", "", err

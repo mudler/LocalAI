@@ -95,9 +95,9 @@ func fingerprint(tools []Tool, prompt string) string {
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
 	h := sha256.New()
 	for _, t := range sorted {
-		fmt.Fprintf(h, "%d:%s\n%d:%s\n%d:%s\n", len(t.Name), t.Name, len(t.Description), t.Description, len(t.Schema), t.Schema)
+		_, _ = fmt.Fprintf(h, "%d:%s\n%d:%s\n%d:%s\n", len(t.Name), t.Name, len(t.Description), t.Description, len(t.Schema), t.Schema)
 	}
-	fmt.Fprintf(h, "prompt\n%d:%s\n", len(prompt), prompt)
+	_, _ = fmt.Fprintf(h, "prompt\n%d:%s\n", len(prompt), prompt)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -107,20 +107,20 @@ func fingerprint(tools []Tool, prompt string) string {
 func acceptHostTools(tools []Tool, log *slog.Logger, chat string) []Tool {
 	var out []Tool
 	seen := map[string]bool{}
-	for _, t := range tools {
+	for _, tool := range tools {
 		var schema map[string]any
 		switch {
-		case sandboxToolNames[t.Name]:
-			log.Warn("session: a host tool has the name of a sandbox tool and was dropped", "chat", chat, "tool", t.Name)
-		case !hostToolNameRE.MatchString(t.Name) || t.Run == nil:
+		case sandboxToolNames[tool.Name]:
+			log.Warn("session: a host tool has the name of a sandbox tool and was dropped", "chat", chat, "tool", tool.Name)
+		case !hostToolNameRE.MatchString(tool.Name) || tool.Run == nil:
 			log.Warn("session: a host tool has no usable name or no Run and was dropped", "chat", chat)
-		case seen[t.Name]:
-			log.Warn("session: two host tools have one name; the second was dropped", "chat", chat, "tool", t.Name)
-		case json.Unmarshal(t.Schema, &schema) != nil || schema == nil:
-			log.Warn("session: a host tool has a schema that is not an object and was dropped", "chat", chat, "tool", t.Name)
+		case seen[tool.Name]:
+			log.Warn("session: two host tools have one name; the second was dropped", "chat", chat, "tool", tool.Name)
+		case json.Unmarshal(tool.Schema, &schema) != nil || schema == nil:
+			log.Warn("session: a host tool has a schema that is not an object and was dropped", "chat", chat, "tool", tool.Name)
 		default:
-			seen[t.Name] = true
-			out = append(out, t)
+			seen[tool.Name] = true
+			out = append(out, tool)
 		}
 	}
 	return out

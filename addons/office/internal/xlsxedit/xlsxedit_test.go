@@ -51,7 +51,7 @@ func zipParts(data []byte) (names []string, parts map[string][]byte) {
 		rc, err := f.Open()
 		Expect(err).ToNot(HaveOccurred())
 		b, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		Expect(err).ToNot(HaveOccurred())
 		names = append(names, f.Name)
 		parts[f.Name] = b
@@ -72,7 +72,7 @@ func mutate(data []byte, name string, fn func(string) string) []byte {
 		}
 		w, err := zw.Create(n)
 		Expect(err).ToNot(HaveOccurred())
-		w.Write(b)
+		_, _ = w.Write(b)
 	}
 	_ = zw.Close()
 	return buf.Bytes()
@@ -118,8 +118,8 @@ func docxLike() []byte {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
 	w, _ := zw.Create("word/document.xml")
-	w.Write([]byte("<document/>"))
-	zw.Close()
+	_, _ = w.Write([]byte("<document/>"))
+	_ = zw.Close()
 	return buf.Bytes()
 }
 

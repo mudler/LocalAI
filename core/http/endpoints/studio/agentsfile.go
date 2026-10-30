@@ -76,7 +76,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		if err != nil {
 			return fail(c, http.StatusBadRequest, "invalid_request_error", "the file could not be read")
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		if raw, err = io.ReadAll(io.LimitReader(f, maxAgentImportBody+1)); err != nil {
 			return fail(c, http.StatusBadRequest, "invalid_request_error", "the file could not be read")
 		}

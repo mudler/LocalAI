@@ -14,7 +14,7 @@ import (
 // EchoHandler writes back what it reads until the guest closes the
 // connection.
 func EchoHandler(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 	_, _ = io.Copy(conn, conn)
@@ -42,7 +42,7 @@ func (p *ConnectProxy) Seen() []string {
 
 // Handler is the sandbox.PortHandler of the proxy.
 func (p *ConnectProxy) Handler(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 	br := bufio.NewReader(conn)
 	req, err := http.ReadRequest(br)
@@ -70,7 +70,7 @@ func (p *ConnectProxy) Handler(ctx context.Context, conn net.Conn) {
 		_, _ = io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
 		return
 	}
-	defer up.Close()
+	defer func() { _ = up.Close() }()
 	_ = conn.SetReadDeadline(time.Time{})
 	if _, err := io.WriteString(conn, "HTTP/1.1 200 Connection established\r\n\r\n"); err != nil {
 		return

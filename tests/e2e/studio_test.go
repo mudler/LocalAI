@@ -45,7 +45,7 @@ func chatsDo(method, url string, body any) (int, []byte) {
 	}
 	resp, err := http.DefaultClient.Do(req)
 	Expect(err).ToNot(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	out, err := io.ReadAll(resp.Body)
 	Expect(err).ToNot(HaveOccurred())
 	return resp.StatusCode, out
@@ -172,7 +172,7 @@ var _ = Describe("Chat completions stream", Label("Chats"), func() {
 		body := `{"model":"mock-model","stream":true,"messages":[{"role":"user","content":"hello"}]}`
 		resp, err := http.Post(apiURL+"/chat/completions", "application/json", strings.NewReader(body))
 		Expect(err).ToNot(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		raw, err := io.ReadAll(resp.Body)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resp.StatusCode).To(Equal(http.StatusOK), string(raw))
@@ -209,7 +209,7 @@ var _ = Describe("Chats files", Label("Chats"), func() {
 		Expect(err).ToNot(HaveOccurred())
 		resp, err := http.DefaultClient.Do(req)
 		Expect(err).ToNot(HaveOccurred())
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 
 		code, out := chatsDo(http.MethodGet, filesURL("/content")+query(name), nil)
@@ -260,7 +260,7 @@ var _ = Describe("Chats files", Label("Chats"), func() {
 		Expect(mw.Close()).To(Succeed())
 		resp, err := http.Post(chatsBase()+"/"+id+"/messages", mw.FormDataContentType(), &buf)
 		Expect(err).ToNot(HaveOccurred())
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		Eventually(func() bool { return chatsIdle(id) }, 30*time.Second, 200*time.Millisecond).Should(BeTrue())
 

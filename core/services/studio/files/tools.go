@@ -123,7 +123,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				defer r.Close()
+				defer func() { _ = r.Close() }()
 				if n.Size > readMaxBytes {
 					return "", fmt.Errorf("the file is %d bytes, which is too large to read as text", n.Size)
 				}

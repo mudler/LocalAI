@@ -68,7 +68,7 @@ func (ps *portServer) serve(ctx context.Context, l net.Listener, h sandbox.PortH
 			continue // the server is closed; add closed c
 		}
 		if ps.gated.Load() { // checked after add: closeConns after gate sees every earlier one
-			tc.Close()
+			_ = tc.Close()
 			continue
 		}
 		select {
@@ -78,7 +78,7 @@ func (ps *portServer) serve(ctx context.Context, l net.Listener, h sandbox.PortH
 				h(ctx, tc)
 			}()
 		default:
-			tc.Close()
+			_ = tc.Close()
 		}
 	}
 }
@@ -113,7 +113,7 @@ func (ps *portServer) close() {
 	}
 	ps.cancel()
 	for _, l := range ps.ls {
-		l.Close()
+		_ = l.Close()
 	}
 	ps.ls = nil
 	ps.conns.shutdown()
@@ -144,7 +144,7 @@ func (s *connSet) add(c net.Conn) *trackedConn {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
-		c.Close()
+		_ = c.Close()
 		return nil
 	}
 	if s.m == nil {
@@ -171,7 +171,7 @@ func (s *connSet) closeAll() {
 	}
 	s.mu.Unlock()
 	for _, c := range all {
-		c.Close()
+		_ = c.Close()
 	}
 }
 

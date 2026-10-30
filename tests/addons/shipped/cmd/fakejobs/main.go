@@ -50,7 +50,7 @@ func (b *backend) stop(id string) {
 }
 
 func finished(id string) bool {
-	dir := os.Getenv("FAKEJOBS_DIR")
+	dir := os.Getenv("FAKEJOBS_DIR") //nolint:forbidigo // test add-on executable; the spec passes its folder through the environment
 	if dir == "" {
 		return false
 	}

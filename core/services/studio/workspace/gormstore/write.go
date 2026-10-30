@@ -334,7 +334,7 @@ func (s *Workspace) loadChangeSet(ctx context.Context, q querier, rev int64) (Ch
 	if err != nil {
 		return ChangeSet{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var o Op
 		var k string

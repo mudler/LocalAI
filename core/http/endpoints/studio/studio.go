@@ -370,7 +370,7 @@ func (h *Handlers) Send(c echo.Context) error {
 			if err != nil {
 				return fail(c, http.StatusBadRequest, "invalid_request_error", "an attachment could not be read")
 			}
-			defer f.Close()
+			defer func() { _ = f.Close() }()
 			up = append(up, session.Upload{Name: fh.Filename, Body: f})
 		}
 	} else {

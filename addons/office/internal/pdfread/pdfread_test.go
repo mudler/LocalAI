@@ -325,7 +325,7 @@ var _ = Describe("pdfread", func() {
 		if err != nil {
 			return
 		}
-		defer doc.Close()
+		defer func() { _ = doc.Close() }()
 		_, _ = doc.Text(1)
 		_, _ = doc.Render(1, 72)
 	})

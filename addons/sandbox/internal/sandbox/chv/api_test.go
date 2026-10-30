@@ -35,8 +35,8 @@ func fakeAPI() string {
 	})
 	mux.HandleFunc("PUT /api/v1/vmm.shutdown", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	srv := &http.Server{Handler: mux}
-	go srv.Serve(l)
-	DeferCleanup(func() { srv.Close() })
+	go func() { _ = srv.Serve(l) }()
+	DeferCleanup(func() { _ = srv.Close() })
 	return sock
 }
 

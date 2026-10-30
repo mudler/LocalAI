@@ -81,13 +81,13 @@ func start(argv []string, logPath string) (*exec.Cmd, chan struct{}, error) {
 	err = cmd.Start()
 	runtime.UnlockOSThread()
 	if err != nil {
-		logf.Close()
+		_ = logf.Close()
 		return nil, nil, err
 	}
 	done := make(chan struct{})
 	go func() {
 		_ = cmd.Wait()
-		logf.Close()
+		_ = logf.Close()
 		close(done)
 	}()
 	return cmd, done, nil
@@ -180,7 +180,7 @@ func (b *Backend) mkUpper(ctx context.Context, path string, size int64) error {
 		return err
 	}
 	if err := f.Truncate(size); err != nil {
-		f.Close()
+		_ = f.Close()
 		return err
 	}
 	if err := f.Close(); err != nil {
@@ -224,7 +224,7 @@ func tail(path string, n int64) string {
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if st, err := f.Stat(); err == nil && st.Size() > n {
 		_, _ = f.Seek(-n, io.SeekEnd)
 	}

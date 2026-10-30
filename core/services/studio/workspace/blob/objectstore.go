@@ -73,7 +73,7 @@ func (s *objectStore) Open(ctx context.Context, sha string) (io.ReadSeekCloser, 
 	if err != nil {
 		return nil, err
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	tmp, got, _, err := ingest(body, 0, filepath.Join(s.cache, "tmp"))
 	if err != nil {
 		if tmp != "" {

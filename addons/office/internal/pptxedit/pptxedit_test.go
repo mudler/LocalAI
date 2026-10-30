@@ -45,14 +45,14 @@ func rewriteZip(data []byte, fns map[string]func(string) string) []byte {
 		rc, err := f.Open()
 		Expect(err).NotTo(HaveOccurred())
 		b, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		Expect(err).NotTo(HaveOccurred())
 		if fn := fns[f.Name]; fn != nil {
 			b = []byte(fn(string(b)))
 		}
 		w, err := zw.Create(f.Name)
 		Expect(err).NotTo(HaveOccurred())
-		w.Write(b)
+		_, _ = w.Write(b)
 	}
 	Expect(zw.Close()).To(Succeed())
 	return out.Bytes()
@@ -103,7 +103,7 @@ func zipParts(data []byte) (names []string, parts map[string][]byte) {
 		rc, err := f.Open()
 		Expect(err).NotTo(HaveOccurred())
 		b, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		Expect(err).NotTo(HaveOccurred())
 		names = append(names, f.Name)
 		parts[f.Name] = b
@@ -362,13 +362,13 @@ var _ = Describe("pptxedit", func() {
 		for _, f := range zr.File {
 			rc, _ := f.Open()
 			b, _ := io.ReadAll(rc)
-			rc.Close()
+			_ = rc.Close()
 			w, _ := zw.Create(f.Name)
-			w.Write(b)
+			_, _ = w.Write(b)
 		}
 		w, _ := zw.Create("ppt/media/image9.png")
-		w.Write([]byte("png"))
-		zw.Close()
+		_, _ = w.Write([]byte("png"))
+		_ = zw.Close()
 		d, err := Open(buf.Bytes())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(d.DeleteSlide(3)).To(Succeed())
@@ -429,14 +429,14 @@ var _ = Describe("pptxedit", func() {
 		var plain bytes.Buffer
 		zw := zip.NewWriter(&plain)
 		w, _ := zw.Create("a.txt")
-		w.Write([]byte("hello"))
-		zw.Close()
+		_, _ = w.Write([]byte("hello"))
+		_ = zw.Close()
 
 		var traversal bytes.Buffer
 		zw = zip.NewWriter(&traversal)
 		w, _ = zw.Create("../evil.xml")
-		w.Write([]byte("<a/>"))
-		zw.Close()
+		_, _ = w.Write([]byte("<a/>"))
+		_ = zw.Close()
 
 		src := sourceDeck()
 		broken := rewriteZip(src, map[string]func(string) string{
@@ -471,9 +471,9 @@ var _ = Describe("pptxedit", func() {
 			"xl/workbook.xml":     `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>`,
 		} {
 			w, _ := zw.Create(name)
-			w.Write([]byte(body))
+			_, _ = w.Write([]byte(body))
 		}
-		zw.Close()
+		_ = zw.Close()
 		_, err := Open(buf.Bytes())
 		Expect(err).To(HaveOccurred(), "an xlsx must not open")
 	})

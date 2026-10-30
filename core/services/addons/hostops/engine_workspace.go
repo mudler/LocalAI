@@ -138,7 +138,7 @@ func (h *WorkspaceHost) dataDir(addonID, rel string, create bool) (*os.Root, err
 	if err != nil {
 		return nil, bad
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	cur := ""
 	for _, seg := range strings.Split(rel, "/") {
 		if seg == "" || seg == "." || seg == ".." {
@@ -207,7 +207,7 @@ func (h *WorkspaceHost) materialize(ctx context.Context, c Call) (json.RawMessag
 	if err != nil {
 		return nil, err
 	}
-	defer dir.Close()
+	defer func() { _ = dir.Close() }()
 	v, _, err := h.view(ctx, c, a.Mounts)
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 	if err != nil {
 		return nil, err
 	}
-	defer dir.Close()
+	defer func() { _ = dir.Close() }()
 	// The add-on writes this file, so it could make it a link to any archive
 	// of the host. Export and import refuse links for the same reason.
 	f, err := dir.OpenFile(upperName, os.O_RDONLY|syscallNoFollow, 0)
@@ -359,7 +359,7 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 	if err != nil {
 		return nil, err
 	}
-	defer dstDir.Close()
+	defer func() { _ = dstDir.Close() }()
 	rc, node, err := h.Store.Open(ctx, h.Files.Actor(p), abs)
 	if err != nil {
 		return nil, workspaceErr(err)
@@ -409,7 +409,7 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if err != nil {
 		return nil, err
 	}
-	defer srcDir.Close()
+	defer func() { _ = srcDir.Close() }()
 	f, err := srcDir.OpenFile(src, os.O_RDONLY|syscallNoFollow, 0)
 	if err != nil {
 		return nil, ErrNotFound

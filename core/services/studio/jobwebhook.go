@@ -66,7 +66,7 @@ func (c *webhookClient) Send(ctx context.Context, call WebhookCall) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return fmt.Errorf("the server answered %d", resp.StatusCode)

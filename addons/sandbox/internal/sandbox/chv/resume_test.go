@@ -30,7 +30,7 @@ func resumeEnvFor(st workspace.Store) sandbox.Env {
 	return sandbox.Env{Store: st, Actor: sbtest.Admin}
 }
 
-func nopPort(_ context.Context, c net.Conn) { c.Close() }
+func nopPort(_ context.Context, c net.Conn) { _ = c.Close() }
 
 // procsIn lists the host processes whose command line names dir.
 func procsIn(dir string) []string {
@@ -57,7 +57,7 @@ var _ = Describe("resume", func() {
 		Expect(err).To(MatchError(workspace.ErrInvalid), "other port set")
 		live, err := b.Resume(ctx, ref, resumeEnvFor(st))
 		Expect(err).To(Succeed())
-		DeferCleanup(func() { live.Destroy(context.Background()) })
+		DeferCleanup(func() { _ = live.Destroy(context.Background()) })
 		_, err = b.Resume(ctx, ref, resumeEnvFor(st))
 		Expect(err).To(MatchError(workspace.ErrInvalid), "resume while live")
 		sh(live, "echo alive")
@@ -90,7 +90,7 @@ var _ = Describe("resume", func() {
 			if r.err == nil {
 				ok++
 				live = r.sb
-				DeferCleanup(func() { r.sb.Destroy(context.Background()) })
+				DeferCleanup(func() { _ = r.sb.Destroy(context.Background()) })
 			} else {
 				Expect(r.err).To(MatchError(workspace.ErrInvalid), "a refused resume failed")
 			}
@@ -106,7 +106,7 @@ var _ = Describe("resume", func() {
 		ctx := context.Background()
 		live, err := b.Resume(ctx, ref, resumeEnvFor(st))
 		Expect(err).To(Succeed())
-		DeferCleanup(func() { live.Destroy(context.Background()) })
+		DeferCleanup(func() { _ = live.Destroy(context.Background()) })
 		Expect(old.Destroy(ctx)).To(Succeed(), "destroy of the stale handle")
 		sh(live, "echo alive")
 		_, err = os.Stat(ref.Path)

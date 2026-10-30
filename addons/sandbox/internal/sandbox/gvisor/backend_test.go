@@ -33,7 +33,7 @@ func resume(b *Backend, sb sandbox.Sandbox, st workspace.Store) sandbox.Sandbox 
 	Expect(err).ToNot(HaveOccurred(), "suspend")
 	next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
 	Expect(err).ToNot(HaveOccurred(), "resume")
-	DeferCleanup(func() { next.Destroy(bg()) })
+	DeferCleanup(func() { _ = next.Destroy(bg()) })
 	return next
 }
 
@@ -216,7 +216,7 @@ true`)
 		Expect(sh(sb, "ls proj | tr '\\n' ' '")).To(Equal("a.bin b.bin "), "after the refresh")
 		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/b.bin")
 		Expect(err).ToNot(HaveOccurred())
-		r.Close()
+		_ = r.Close()
 	})
 
 	// A single file over the disk size stops at the size limit of the process.
@@ -286,7 +286,7 @@ while True:
 		content := func() []byte {
 			r, _, err := st.Open(bg(), sbtest.Admin, "/proj/big.bin")
 			Expect(err).ToNot(HaveOccurred())
-			defer r.Close()
+			defer func() { _ = r.Close() }()
 			body, err := io.ReadAll(r)
 			Expect(err).ToNot(HaveOccurred())
 			return body
@@ -328,7 +328,7 @@ while True:
 			Expect(bytes.Equal(body, appended)).To(BeTrue(), "attempt %d: after the writer ended the store has %d bytes, not the old content plus \"x\\n\"", i, len(body))
 			if !sawEnd {
 				overlapped = true
-				fmt.Fprintf(GinkgoWriter, "attempt %d: the writer was running at the pause (upper big.bin was %d bytes)\n", i, upperSize)
+				_, _ = fmt.Fprintf(GinkgoWriter, "attempt %d: the writer was running at the pause (upper big.bin was %d bytes)\n", i, upperSize)
 			}
 		}
 		Expect(overlapped).To(BeTrue(), "no checkpoint overlapped the writer in %d attempts: the test proved nothing", attempts)
@@ -347,7 +347,7 @@ while True:
 		Expect(err).ToNot(HaveOccurred())
 		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/kept.txt")
 		Expect(err).ToNot(HaveOccurred())
-		r.Close()
+		_ = r.Close()
 	})
 
 	It("is busy while the operation lock is taken", func() {
@@ -400,7 +400,7 @@ while True:
 		}
 		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/one.txt")
 		Expect(err).ToNot(HaveOccurred())
-		r.Close()
+		_ = r.Close()
 	})
 
 	It("cleans up when the ready timeout passes", func() {
@@ -412,7 +412,7 @@ while True:
 		v, _ := st.View(bg(), sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
 		sb, err := b.Create(bg(), sandbox.Spec{Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, View: v, Memory: 1 << 30, Disk: 1 << 30})
 		if err == nil {
-			sb.Destroy(bg()) // do not leave a sandbox behind when the test fails
+			_ = sb.Destroy(bg()) // do not leave a sandbox behind when the test fails
 		}
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("not ready"))
@@ -434,7 +434,7 @@ while True:
 		Expect(err).To(MatchError(workspace.ErrInvalid), "other ports")
 		next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}})
 		Expect(err).ToNot(HaveOccurred())
-		defer next.Destroy(bg())
+		defer func() { _ = next.Destroy(bg()) }()
 		_, err = b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin, Ports: map[int]sandbox.PortHandler{7000: sbtest.EchoHandler}})
 		Expect(err).To(MatchError(workspace.ErrInvalid), "a sandbox that already runs")
 		// The old handle no longer owns the folder.
@@ -514,7 +514,7 @@ while True:
 		}
 		next, err := b.Resume(bg(), ref, sandbox.Env{Store: st, Actor: sbtest.Admin})
 		Expect(err).ToNot(HaveOccurred(), "retry")
-		defer next.Destroy(bg())
+		defer func() { _ = next.Destroy(bg()) }()
 		sh(next, "echo back > proj/back.txt")
 	})
 
@@ -544,7 +544,7 @@ cat a.txt b.txt c.txt d.txt e.txt`)
 		Expect(c).To(BeEmpty())
 		r, _, err := st.Open(bg(), sbtest.Admin, "/proj/c.txt")
 		Expect(err).ToNot(HaveOccurred())
-		defer r.Close()
+		defer func() { _ = r.Close() }()
 		body, _ := io.ReadAll(r)
 		Expect(string(body)).To(Equal("new c\n"), "c.txt in the store")
 	})
@@ -569,7 +569,7 @@ print('echo', c.recv(4).decode())"`
 				during = "dial: " + err.Error()
 				return errors.New("injected save failure")
 			}
-			defer c.Close()
+			defer func() { _ = c.Close() }()
 			_ = c.SetDeadline(time.Now().Add(10 * time.Second))
 			_, _ = c.Write([]byte("ping"))
 			buf := make([]byte, 4)

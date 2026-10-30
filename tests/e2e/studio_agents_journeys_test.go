@@ -226,15 +226,6 @@ var _ = Describe("Chats saved agents", Label("Chats"), func() {
 	})
 })
 
-func contains(list []string, s string) bool {
-	for _, x := range list {
-		if x == s {
-			return true
-		}
-	}
-	return false
-}
-
 var _ = Describe("Chats skill layers", Label("Chats"), func() {
 	skillsURL := func(p string) string { return chatsBase() + "/skills" + p }
 	type skill struct {
@@ -582,7 +573,7 @@ var _ = Describe("Removed agent, job and conversation APIs", Label("Chats"), fun
 		}
 		resp, err := http.Get(root + "/api/agents/collections")
 		Expect(err).NotTo(HaveOccurred())
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
 			Expect(resp.Header.Get("Deprecation")).To(Equal("true"))
 		}

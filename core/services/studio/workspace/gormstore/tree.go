@@ -51,7 +51,7 @@ func scanNodes(rows *sql.Rows, err error) ([]nodeRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []nodeRow
 	for rows.Next() {
 		n, err := scanNode(rows)
@@ -168,7 +168,7 @@ func pathOf(ctx context.Context, q querier, id int64) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var segs []string
 	for rows.Next() {
 		var s string
@@ -190,7 +190,7 @@ func ancestors(ctx context.Context, q querier, id int64) ([]int64, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []int64
 	for rows.Next() {
 		var v int64

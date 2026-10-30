@@ -64,7 +64,7 @@ func MustRead(s workspace.Store, a workspace.Actor, p string) string {
 	GinkgoHelper()
 	r, _, err := s.Open(Ctx(), a, p)
 	Expect(err).ToNot(HaveOccurred(), "open %s", p)
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	b, err := io.ReadAll(r)
 	Expect(err).ToNot(HaveOccurred(), "read %s", p)
 	return string(b)

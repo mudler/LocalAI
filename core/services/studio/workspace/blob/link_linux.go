@@ -18,7 +18,7 @@ func linkInto(src string, dir *os.Root, name string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := unix.Linkat(unix.AT_FDCWD, src, int(f.Fd()), name, 0); err != nil {
 		return &os.LinkError{Op: "link", Old: src, New: name, Err: err}
 	}

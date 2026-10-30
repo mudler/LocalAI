@@ -143,7 +143,7 @@ func (s *Service) open(ctx context.Context, principal, abs string) ([]byte, work
 	if err != nil {
 		return nil, workspace.Node{}, err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if node.Kind != workspace.KindFile {
 		return nil, node, ErrBadPath
 	}
