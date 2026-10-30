@@ -958,6 +958,9 @@ var _ = Describe("catalog template", func() {
 			if id == "sandbox" {
 				Expect(entries[0].Shadows).To(Equal([]string{"bash"}), "the Sandbox's bash replaces the built-in bash")
 			}
+			if id == "office" {
+				Expect(entries[0].SkillShadows).To(Equal([]string{"xlsx", "docx", "pptx", "pdf"}), "the Office skills replace the built-in office skills")
+			}
 			if id == "tables" {
 				// The admin tool is declared next to the chat tools and is not one of them.
 				Expect(entries[0].Tools).NotTo(ContainElement("databases-delete"))
@@ -1440,3 +1443,38 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+var _ = Describe("package skills", func() {
+	It("lays the skills of the add-on in their own layer and verifies them with the install rules", func() {
+		p := newProjectFor("office", map[string][]string{"linux/amd64": nil})
+		dir := p.mustBuild("linux/amd64", "1.2.3", "office binary")
+		Expect(p.verify(dir, "linux/amd64", "1.2.3")).To(Succeed())
+		l, _, err := loadLeg(dir)
+		Expect(err).NotTo(HaveOccurred())
+		var roles []string
+		for _, d := range l.manifest.Layers {
+			roles = append(roles, d.Annotations[AnnotationLayer])
+		}
+		Expect(roles).To(Equal([]string{roleExecutable, roleUI, roleSkills, roleManifest}))
+		files, err := l.openLayers()
+		Expect(err).NotTo(HaveOccurred())
+		var names []string
+		for _, f := range files {
+			if f.role == roleSkills {
+				names = append(names, f.name)
+			}
+		}
+		Expect(names).To(ConsistOf("skills/xlsx/SKILL.md", "skills/docx/SKILL.md", "skills/pptx/SKILL.md", "skills/pdf/SKILL.md"))
+	})
+
+	It("refuses to build when the skills folder and the manifest disagree, or a skill breaks a rule", func() {
+		p := newProjectFor("office", map[string][]string{"linux/amd64": nil})
+		Expect(os.WriteFile(filepath.Join(p.root, "addons/office/skills/xlsx/run.py"), []byte("print(1)\n"), 0o644)).To(Succeed())
+		_, err := p.build("linux/amd64", "1.2.3", exe("office binary"))
+		Expect(err).To(MatchError(ContainSubstring("no scripts")))
+		Expect(os.Remove(filepath.Join(p.root, "addons/office/skills/xlsx/run.py"))).To(Succeed())
+		Expect(os.RemoveAll(filepath.Join(p.root, "addons/office/skills/pdf"))).To(Succeed())
+		_, err = p.build("linux/amd64", "1.2.3", exe("office binary"))
+		Expect(err).To(MatchError(ContainSubstring("no skills/pdf folder")))
+	})
+})

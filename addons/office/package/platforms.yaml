@@ -19,6 +19,10 @@ executable: office
 manifest: addons/office/manifest.json
 # The directory whose content is laid at the package root (ui/office.js ...).
 ui: addons/office/ui/dist
+# The skills laid at the package root as skills/ (skills/xlsx/SKILL.md ...).
+# They are the same on every platform; the build checks them with the rules
+# the owner applies at install.
+skills: addons/office/skills
 platforms:
   - platform: linux/amd64
     enabled: true

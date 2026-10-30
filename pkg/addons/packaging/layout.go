@@ -17,10 +17,12 @@ import (
 )
 
 // Roles of the layers of a platform image, in order. The ui layer exists only
-// when the manifest declares a UI.
+// when the manifest declares a UI, the skills layer only when it declares
+// skills.
 const (
 	roleExecutable = "executable"
 	roleUI         = "ui"
+	roleSkills     = "skills"
 	roleManifest   = "manifest"
 )
 

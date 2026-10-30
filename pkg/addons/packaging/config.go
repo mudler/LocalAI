@@ -56,12 +56,15 @@ type PlatformEntry struct {
 
 // PlatformsFile is addons/<id>/package/platforms.yaml.
 type PlatformsFile struct {
-	Schema     int             `yaml:"schema"`
-	Addon      string          `yaml:"addon"`
-	Executable string          `yaml:"executable"`
-	Manifest   string          `yaml:"manifest"`
-	UI         string          `yaml:"ui"`
-	Platforms  []PlatformEntry `yaml:"platforms"`
+	Schema     int    `yaml:"schema"`
+	Addon      string `yaml:"addon"`
+	Executable string `yaml:"executable"`
+	Manifest   string `yaml:"manifest"`
+	UI         string `yaml:"ui"`
+	// Skills is the directory laid at the package root as skills/: one folder
+	// per skill the manifest declares. It is the same on every platform.
+	Skills    string          `yaml:"skills"`
+	Platforms []PlatformEntry `yaml:"platforms"`
 }
 
 // NativeCheckKind is the only native check that exists: the packaged
@@ -97,6 +100,9 @@ func loadPlatforms(file string) (*PlatformsFile, error) {
 	}
 	if p.UI != "" && !localPath(p.UI) {
 		return nil, fmt.Errorf("platform matrix: ui must be a local path, got %q", p.UI)
+	}
+	if p.Skills != "" && !localPath(p.Skills) {
+		return nil, fmt.Errorf("platform matrix: skills must be a local path, got %q", p.Skills)
 	}
 	if len(p.Platforms) == 0 {
 		return nil, errNoPlatforms

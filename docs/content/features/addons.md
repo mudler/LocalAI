@@ -3773,6 +3773,13 @@ on `ubuntu-24.04-arm`, `darwin/arm64` on `macos-14` and `darwin/amd64` on `macos
 Voice, Face, fine-tuning, quantization, Studio and Talk enable all four. A test fails when a
 platform is enabled without a recorded check.
 
+A package that ships skills names their folder with `skills:` (for example
+`skills: addons/office/skills`). The build lays it at the package root as `skills/`,
+in a layer of its own, on every platform, and checks it with the rules the owner
+applies at install: the folders must be the skills the manifest declares, and every
+file must pass the checks of [Skills](#skills). A package that the owner would refuse
+is never built.
+
 Each package also has a catalog template in `gallery/addons/<id>.yaml.tmpl`, so it can be
 listed in Find add-ons once a maintainer renders and publishes its entries. See
 `gallery/addons/README.md` for the commands.
@@ -3929,6 +3936,8 @@ The Office add-on reads and edits documents in the user's files, from a chat. It
 | `create-docx`, `create-xlsx`, `create-pptx`, `create-pdf` | action | Make a new file. `create-pdf` takes headings, paragraphs, bullets and tables, and writes Latin-1 text with the built-in font; text in other scripts is refused with a reason. It needs no sandbox. |
 
 The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. Without accounts, the files are the same ones the chat and the Files page use. With accounts and `local-owner` mode, the `workspace.*` operations are refused, because the local owner is no account and has no files; use `named-user` mode for the Office and Sandbox add-ons. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
+
+The add-on also ships four skills, `xlsx`, `docx`, `pptx` and `pdf` (see [Skills](#skills)). Each one replaces the built-in skill of the same name while the add-on can serve the chat. They are short procedures written for the tools above: read first, change only what must change, create a file only when none exists, and say what the tools cannot do (charts, tracked changes, form fields and the like) instead of describing a manual method. They need no command runner, so they are never "unavailable here". When the add-on is stopped, off for the chat or removed, the built-in skills come back. A test checks that every tool a skill names is a tool of the manifest.
 
 ## Sandbox
 

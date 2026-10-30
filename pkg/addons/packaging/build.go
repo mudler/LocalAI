@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/mudler/LocalAI/core/services/addons/skilltree"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -211,6 +212,15 @@ func cmdBuild(args []string) error {
 		}
 		roles = append(roles, role{roleUI, ui})
 	}
+	if len(m.Capabilities.SkillDefinitions) > 0 || cfg.Skills != "" {
+		sk, err := collectSkills(*root, cfg.Skills, m)
+		if err != nil {
+			return err
+		}
+		if len(sk) > 0 {
+			roles = append(roles, role{roleSkills, sk})
+		}
+	}
 	roles = append(roles, role{roleManifest, []fileEntry{{name: "manifest.json", data: manifest, mode: 0o644}}})
 
 	img := mutate.ConfigMediaType(mutate.MediaType(empty.Image, types.OCIManifestSchema1), types.OCIConfigJSON)
@@ -280,6 +290,37 @@ func cmdBuild(args []string) error {
 // collectUI reads every file under the UI directory that sits below prefix
 // (the top directory of the declared entry). Links and special files are
 // refused so a build output cannot smuggle content from outside the tree.
+// collectSkills reads the skills directory of the platform matrix and checks
+// it with the rules the owner applies when it stages the package, so a build
+// never publishes a package the owner would refuse. The files are laid under
+// skills/ at the package root.
+func collectSkills(root, dir string, m contract.Manifest) ([]fileEntry, error) {
+	var skillsFS fs.FS
+	if dir != "" {
+		full := filepath.Join(root, dir)
+		info, err := os.Lstat(full)
+		if err != nil || !info.IsDir() {
+			return nil, fmt.Errorf("skills directory %s: missing or not a directory", dir)
+		}
+		skillsFS = os.DirFS(full)
+	}
+	list, err := skilltree.Verify(skillsFS, m)
+	if err != nil {
+		return nil, fmt.Errorf("skills: %w", err)
+	}
+	var out []fileEntry
+	for _, s := range list {
+		for _, f := range s.Files {
+			data, err := fs.ReadFile(skillsFS, s.Name+"/"+f.Path)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, fileEntry{name: contract.SkillsDir + "/" + s.Name + "/" + f.Path, data: data, mode: 0o644})
+		}
+	}
+	return out, nil
+}
+
 func collectUI(dir, prefix string) ([]fileEntry, error) {
 	top := filepath.Join(dir, filepath.FromSlash(prefix))
 	var out []fileEntry

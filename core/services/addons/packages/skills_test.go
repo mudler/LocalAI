@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/addons/skilltree"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -179,11 +180,11 @@ var _ = Describe("package skills", func() {
 	})
 
 	It("refuses oversize files, deep paths and too many files", func() {
-		refuse(both, with("skills/sample/references/big.md", []byte(strings.Repeat("a", MaxSkillReferenceBytes+1))), "oversize reference")
+		refuse(both, with("skills/sample/references/big.md", []byte(strings.Repeat("a", skilltree.MaxReferenceBytes+1))), "oversize reference")
 		refuse(both, with("skills/sample/SKILL.md", append(skillMD("sample"), []byte(strings.Repeat("a", 64<<10))...)), "oversize SKILL.md")
 		refuse(both, with("skills/sample/a/b/c/d/deep.md", []byte("x\n")), "too deep")
 		f := good()
-		for i := range MaxSkillFiles {
+		for i := range skilltree.MaxFiles {
 			f[fmt.Sprintf("skills/sample/references/f%02d.md", i)] = []byte("x\n")
 		}
 		refuse(both, f, "too many files")
