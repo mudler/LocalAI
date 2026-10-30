@@ -37,5 +37,152 @@
   "preview": {
     "label": "Preview",
     "failed": "This file could not be shown."
+  },
+  "wellKnown": {
+    "storedIn": "Stored in",
+    "definedIn": "Defined in",
+    "revert": "Revert to previous version",
+    "view": "View",
+    "form": "Form",
+    "save": "Save",
+    "cancel": "Cancel",
+    "notSet": "Not set",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove",
+    "savedAt": "Saved at {{time}}",
+    "notSaved": "Not saved yet.",
+    "notSavedPrefilled": "Not saved yet. Some values are filled in for you; Save keeps them.",
+    "loadFailed": "Could not load the file: {{message}}",
+    "invalid": "{{file}} does not match its format, and there is no earlier valid version.",
+    "invalidFallback": "{{file}} does not match its format. This shows its last valid version.",
+    "conflict": "{{file}} changed while you were editing it, probably by the assistant or another tab. The newer values are:",
+    "useTheirs": "Use the newer values",
+    "keepMine": "Keep my changes",
+    "editWithAssistant": "Edit with the assistant",
+    "from": {
+      "account": "From your account",
+      "browser": "From your browser"
+    },
+    "check": {
+      "required": "Required.",
+      "tooLong": "At most {{max}} characters.",
+      "format": "This value has the wrong format."
+    },
+    "source": {
+      "label": "Source",
+      "hint": "The raw file. It is checked against the same schema when you save.",
+      "notJson": "This is not valid JSON.",
+      "notObject": "The file must be a JSON object, in braces."
+    },
+    "persona": {
+      "title": "Assistant",
+      "lede": "Name and instructions the assistant uses in every chat."
+    },
+    "user": {
+      "title": "You",
+      "lede": "The assistant reads this to know who it talks to. It reaches the model in every chat."
+    },
+    "ui": {
+      "title": "Appearance",
+      "lede": "How LocalAI looks for you. Changes show at once; Save keeps them."
+    },
+    "shortcuts": {
+      "title": "Shortcuts",
+      "lede": "The prompts above the composer of every chat.",
+      "edit": "Edit shortcuts",
+      "defaults": "Default shortcuts",
+      "none": "No shortcuts. Add one, or save an empty list to hide them.",
+      "label": "Label",
+      "prompt": "Prompt",
+      "send": "Send at once",
+      "add": "Add shortcut",
+      "invalid": "shortcuts.json has errors",
+      "assistantPrompt": "Change my composer shortcuts in shortcuts.json: "
+    },
+    "home": {
+      "editLayout": "Edit layout",
+      "ask": "Ask the assistant",
+      "layoutIn": "Layout is in",
+      "askPrompt": "Change my Home page (home.json): ",
+      "add": "Add widget",
+      "newTitle": "New widget",
+      "noWidgets": "No widgets yet.",
+      "type": "Type",
+      "title": "Title",
+      "source": "Data file",
+      "noSourceNeeded": "No data file needed",
+      "types": {
+        "list": "List",
+        "metric": "Metric",
+        "chats": "Last chats"
+      },
+      "left": "{{count}} left",
+      "fromChats": "from chats",
+      "noChats": "No chats yet.",
+      "noData": "No data yet. The assistant can write",
+      "nothing": "Nothing here.",
+      "noSource": "This widget has no data file. Pick one in Edit layout.",
+      "broken": "{{file}} has errors and no earlier valid version.",
+      "stale": "Showing the last valid data: {{file}} has errors.",
+      "updated": "Updated {{when}}"
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Name",
+          "help": "What the assistant calls itself."
+        },
+        "system_prompt": {
+          "label": "System prompt",
+          "help": "Added to every chat, after the chat's own prompt and the agent's instructions."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Name",
+          "help": "How the assistant addresses you."
+        },
+        "language": {
+          "label": "Language",
+          "help": "The language the assistant answers in."
+        },
+        "bio": {
+          "label": "About you",
+          "help": "A few lines the assistant reads in every chat."
+        },
+        "timezone": {
+          "label": "Time zone",
+          "help": "For dates and times in answers."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Theme",
+          "help": "System follows the setting of your device.",
+          "options": {
+            "dark": "Dark",
+            "light": "Light",
+            "system": "System"
+          }
+        },
+        "accent": {
+          "label": "Accent colour",
+          "help": "For buttons and links. Empty keeps the default."
+        },
+        "density": {
+          "label": "Density",
+          "help": "Compact shows more on one screen.",
+          "options": {
+            "comfortable": "Comfortable",
+            "compact": "Compact"
+          }
+        },
+        "defaultModel": {
+          "label": "Default model",
+          "help": "The model a new chat starts with."
+        }
+      }
+    }
   }
 }
