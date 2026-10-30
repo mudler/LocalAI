@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -21,6 +22,7 @@ const (
 	contextKeyAPIKey              = "auth_apikey"
 	contextKeySource              = "auth_source"
 	contextKeyHeaderAuthenticated = "auth_header_authenticated"
+	contextKeyStorageUserID       = "auth_storage_user_id"
 )
 
 // Middleware returns an Echo middleware that handles authentication.
@@ -58,6 +60,9 @@ func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.Middlewar
 				if user != nil {
 					c.Set(contextKeyUser, user)
 					c.Set(contextKeyRole, user.Role)
+					if IsLegacyOwner(user, appConfig.Auth.LegacyOwnerEmail) || isAgentPoolRootCall(c, appConfig) {
+						c.Set(contextKeyStorageUserID, "")
+					}
 					authenticated = true
 
 					// Session rotation for cookie-based sessions
@@ -219,6 +224,60 @@ func GetUser(c echo.Context) *User {
 		return nil
 	}
 	return u
+}
+
+// IsLegacyOwner reports whether user is the account configured to own the
+// data created before user authentication was enabled.
+//
+// The e-mail alone is not proof: an OAuth provider may report an address it
+// has not verified, and e-mail addresses are not unique across identities.
+// The owner must therefore also hold the admin role, which LocalAI only grants
+// on a verified e-mail (or to the first account / LOCALAI_ADMIN_EMAIL on local
+// registration). An unverified identity that claims the owner's address keeps
+// its own storage area.
+func IsLegacyOwner(user *User, legacyOwnerEmail string) bool {
+	owner := strings.TrimSpace(legacyOwnerEmail)
+	return user != nil && owner != "" && user.Role == RoleAdmin &&
+		strings.EqualFold(strings.TrimSpace(user.Email), owner)
+}
+
+// agentPoolRootRoute matches the only call the pool makes back into LocalAI
+// for a root agent: the knowledge base search behind KB auto-search citations.
+var agentPoolRootRoute = regexp.MustCompile(`^/api/agents/collections/[^/]+/search$`)
+
+// isAgentPoolRootCall reports whether the request is the agent pool searching
+// the knowledge base of a root agent with its own API key. The root agents
+// belong to the legacy owner, so their collections live in the root area;
+// without this the pool's service account would search its own, empty area.
+// It applies only when a legacy owner is configured, only to that search
+// route (never to chat history, agents, skills or any other root data), and
+// never when the call names a user (?user_id=), so a user's agent is never
+// answered from the root area.
+func isAgentPoolRootCall(c echo.Context, appConfig *config.ApplicationConfig) bool {
+	poolKey := appConfig.AgentPool.APIKey
+	if strings.TrimSpace(appConfig.Auth.LegacyOwnerEmail) == "" || poolKey == "" || c.QueryParam("user_id") != "" {
+		return false
+	}
+	if c.Request().Method != http.MethodPost || !agentPoolRootRoute.MatchString(c.Request().URL.Path) {
+		return false
+	}
+	key := extractHeaderKey(c)
+	return key != "" && subtle.ConstantTimeCompare([]byte(key), []byte(poolKey)) == 1
+}
+
+// GetStorageUserID returns the user ID that scopes per-user storage (agents,
+// collections, skills, jobs, outputs, chat history). It is the authenticated
+// user's ID, except for the legacy owner, whose storage is the root area
+// (empty ID) that holds everything created while auth was off. Without an
+// authenticated user it is empty, as before auth existed.
+func GetStorageUserID(c echo.Context) string {
+	if id, ok := c.Get(contextKeyStorageUserID).(string); ok {
+		return id
+	}
+	if u := GetUser(c); u != nil {
+		return u.ID
+	}
+	return ""
 }
 
 // GetUserRole returns the role of the authenticated user, or empty string.

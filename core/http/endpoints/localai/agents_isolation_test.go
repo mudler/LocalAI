@@ -37,6 +37,13 @@ var _ = Describe("Agent endpoint per-user isolation", func() {
 			c.Set("auth_user", &auth.User{ID: "alice", Role: auth.RoleUser})
 			Expect(getUserID(c)).To(Equal("alice"))
 		})
+
+		It("returns the root scope for the legacy owner", func() {
+			c := makeContext("")
+			c.Set("auth_user", &auth.User{ID: "owner", Role: auth.RoleAdmin})
+			c.Set("auth_storage_user_id", "")
+			Expect(getUserID(c)).To(Equal(""))
+		})
 	})
 
 	Describe("isAdminUser", func() {
