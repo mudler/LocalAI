@@ -17,6 +17,7 @@ import AppsPinnedLinks from './AppsPinnedLinks'
 import PagesPinnedLinks from './PagesPinnedLinks'
 import { usePages } from '../hooks/usePages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
+import { useNewLabel } from './wellknown/useNewLabel'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
@@ -182,6 +183,8 @@ export default function Sidebar({ isOpen, onClose }) {
     const m = /^\/app\/pages\/([^/]+)/.exec(pathname)
     return Boolean(m) && !pins.includes(decodeURIComponent(m[1]))
   }
+  // The one-time "New" label of the Pages entry, kept in user.json.
+  const pagesNew = useNewLabel('pages', { enabled: hasPages, visiting: location.pathname.startsWith('/app/pages') })
   const navAuth = { isAdmin, hasFeature, hasBuiltin, features, hasPages }
   const primary = visiblePrimary(primaryDestinations, navAuth)
 
@@ -235,7 +238,11 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="sidebar-section">
             {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
               <Fragment key={item.path}>
-                <NavItem item={item} onClose={onClose} collapsed={collapsed} active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)} />
+                <NavItem
+                  item={item} onClose={onClose} collapsed={collapsed}
+                  active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)}
+                  badge={item.pagesEntry && pagesNew && !collapsed ? <span className="nav-new" data-testid="nav-pages-new">{t('new')}</span> : undefined}
+                />
                 {/* The Apps group: the pinned apps in pin order, under the Apps entry. */}
                 {!legacy && item.addonsEntry && features.addons !== false && !collapsed && <AppsPinnedLinks onClose={onClose} />}
                 {/* Pinned pages, in pin order, under the Pages entry. */}
