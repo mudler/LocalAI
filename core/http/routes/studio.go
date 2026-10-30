@@ -87,6 +87,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/wellknown/:name", h.PutWellKnown)
 	e.POST(base+"/wellknown/:name/revert", h.RevertWellKnown)
 	e.GET(base+"/wellknown/:name/schema", h.WellKnownSchema)
+	e.GET(base+"/wellknown/:name/versions", h.WellKnownVersions)
 	e.GET(base+"/skills", h.ListSkills)
 	e.POST(base+"/skills", h.CreateSkill)
 	e.GET(base+"/skills/:layer/:name", h.GetSkill)

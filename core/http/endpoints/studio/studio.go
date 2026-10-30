@@ -290,10 +290,23 @@ func (h *Handlers) Messages(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	return c.JSON(http.StatusOK, messageList(entries))
+	return c.JSON(http.StatusOK, messageList(h.svc.Principal(userID(c)), entries))
 }
 
-func messageList(entries []session.Entry) schema.ChatsMessageList {
+// homePaths turns the workspace paths of a checkpoint line into paths inside
+// the user's home, one a line, and drops the others.
+func homePaths(principal, text string) string {
+	home := session.HomePath(principal)
+	var out []string
+	for _, p := range strings.Split(text, "\n") {
+		if rel, ok := strings.CutPrefix(p, home+"/"); ok && rel != "" {
+			out = append(out, "/"+rel)
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+func messageList(principal string, entries []session.Entry) schema.ChatsMessageList {
 	out := schema.ChatsMessageList{Messages: make([]schema.ChatsMessage, 0, len(entries))}
 	for _, e := range entries {
 		m := schema.ChatsMessage{
@@ -302,6 +315,9 @@ func messageList(entries []session.Entry) schema.ChatsMessageList {
 		if e.Card != nil {
 			m.App = appJSON(e.Card.App, true)
 			m.Card = &schema.ChatsToolCard{Kind: e.Card.Kind, ID: e.Card.ID}
+		}
+		if e.Role == session.RoleCheckpoint {
+			m.Rev, m.Text = e.Rev, homePaths(principal, e.Text)
 		}
 		out.Messages = append(out.Messages, m)
 	}

@@ -6413,11 +6413,11 @@ const docTemplate = `{
         },
         "/api/chats/wellknown/{name}/revert": {
             "post": {
-                "description": "Writes the newest earlier version that differs from the file and matches its schema, as a new change: the revert itself can be undone.",
+                "description": "Without a body, writes the newest earlier version that differs from the file and matches its schema. With {\"rev\"}, writes that version from GET .../versions. Either way it is a new change: the revert itself can be undone, and the newer version stays in the list.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "Revert a well-known file to its previous valid version.",
+                "summary": "Revert a well-known file to an earlier valid version.",
                 "parameters": [
                     {
                         "type": "string",
@@ -6431,6 +6431,14 @@ const docTemplate = `{
                         "description": "the data file, for widget-data",
                         "name": "path",
                         "in": "query"
+                    },
+                    {
+                        "description": "the version to write back",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownRevert"
+                        }
                     }
                 ],
                 "responses": {
@@ -6441,7 +6449,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "There is no earlier valid version",
+                        "description": "There is no such valid version",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -6474,6 +6482,50 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not a well-known file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/wellknown/{name}/versions": {
+            "get": {
+                "description": "Newest first, from the history of your files: when, who (kind user or agent, and the chat that wrote it), and the content when it matches the schema. POST .../revert {rev} writes one back.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the versions of a well-known file.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "persona, user, shortcuts, home, ui or widget-data",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the data file, for widget-data",
+                        "name": "path",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "most versions to return (default 10, at most 50)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The versions, newest first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsWellKnownVersions"
                         }
                     },
                     "404": {
@@ -17161,6 +17213,10 @@ const docTemplate = `{
                     "description": "DurMs is how long the model thought, for reasoning lines.",
                     "type": "integer"
                 },
+                "rev": {
+                    "description": "Rev is the change set of a checkpoint line, whose text lists the paths\nit changed inside your home, one a line. POST /api/chats/files/undo\n{rev} undoes it.",
+                    "type": "integer"
+                },
                 "role": {
                     "description": "user, assistant, tool, checkpoint or reasoning",
                     "type": "string"
@@ -18021,6 +18077,60 @@ const docTemplate = `{
                 "version": {
                     "description": "Version is what a write sends back in If-Match. It is 0 when the file\ndoes not exist.",
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsWellKnownRevert": {
+            "type": "object",
+            "properties": {
+                "rev": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsWellKnownVersion": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "chat": {
+                    "description": "Chat is the chat that wrote it, and ChatTitle its title when it still exists.",
+                    "type": "string"
+                },
+                "chat_title": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "kind": {
+                    "description": "Kind says who made it: user (you, in a form or the Files page), agent\n(the assistant), upload or undo.",
+                    "type": "string"
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsWellKnownVersions": {
+            "type": "object",
+            "properties": {
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsWellKnownVersion"
+                    }
                 }
             }
         },

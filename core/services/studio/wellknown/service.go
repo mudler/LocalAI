@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -279,6 +280,86 @@ func (s *Service) Revert(ctx context.Context, principal string, n Name, rel stri
 	}
 	if good == nil {
 		return Doc{}, ErrNoPrevious
+	}
+	data, err := json.MarshalIndent(good, "", "  ")
+	if err != nil {
+		return Doc{}, err
+	}
+	if err := s.put(ctx, principal, abs, home, append(data, '\n'), exists, node, true); err != nil {
+		return Doc{}, err
+	}
+	return s.read(ctx, principal, n, abs, home)
+}
+
+// Version is one content a well-known file had, from its history.
+type Version struct {
+	Rev  int64
+	At   time.Time
+	Kind string // user, agent, upload or undo
+	// ChatID is the chat that wrote it, when a chat did.
+	ChatID string
+	// Data is the content when it matches the schema, else nil with Errors.
+	Data   map[string]any
+	Valid  bool
+	Errors []string
+}
+
+// Versions lists the versions of the file, newest first, at most limit.
+func (s *Service) Versions(ctx context.Context, principal string, n Name, rel string, limit int) ([]Version, error) {
+	abs, _, err := s.path(principal, n, rel)
+	if err != nil {
+		return nil, err
+	}
+	if limit <= 0 || limit > historyDepth {
+		limit = historyDepth
+	}
+	out := []Version{}
+	err = s.f.Versions(ctx, principal, abs, historyDepth, MaxSize, func(v files.FileVersion) bool {
+		ver := Version{Rev: v.Rev, At: v.At, Kind: string(v.Kind), ChatID: v.ChatID, Valid: true}
+		if obj, bad := Validate(n, v.Data); len(bad) == 0 {
+			ver.Data = obj
+		} else {
+			ver.Valid, ver.Errors = false, bad
+		}
+		out = append(out, ver)
+		return len(out) < limit
+	})
+	if errors.Is(err, workspace.ErrNotFound) {
+		return out, nil
+	}
+	return out, err
+}
+
+// RevertTo writes the version rev of the file back as a new change. A version
+// that is not in the history or breaks the schema is ErrNoPrevious.
+func (s *Service) RevertTo(ctx context.Context, principal string, n Name, rel string, rev int64) (Doc, error) {
+	abs, home, err := s.path(principal, n, rel)
+	if err != nil {
+		return Doc{}, err
+	}
+	var good map[string]any
+	err = s.f.Versions(ctx, principal, abs, historyDepth, MaxSize, func(v files.FileVersion) bool {
+		if v.Rev != rev {
+			return true
+		}
+		if obj, bad := Validate(n, v.Data); len(bad) == 0 {
+			good = obj
+		}
+		return false
+	})
+	if errors.Is(err, workspace.ErrNotFound) || errors.Is(err, files.ErrNoVersions) {
+		return Doc{}, ErrNoPrevious
+	}
+	if err != nil {
+		return Doc{}, err
+	}
+	if good == nil {
+		return Doc{}, ErrNoPrevious
+	}
+	_, node, err := s.open(ctx, principal, abs)
+	exists := err == nil
+	if err != nil && !errors.Is(err, workspace.ErrNotFound) && !errors.Is(err, ErrTooLarge) {
+		return Doc{}, err
 	}
 	data, err := json.MarshalIndent(good, "", "  ")
 	if err != nil {
