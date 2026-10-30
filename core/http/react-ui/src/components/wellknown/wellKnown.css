@@ -154,3 +154,15 @@
   .wk-ex__card:not(.wk-ex__card--done) .wk-ex__kicker { display: none; }
   .wk-ex__what { margin-top: 0; }
 }
+
+/* The note under an answer that says what the turn changed in the user's
+   files, with Undo and where to see it. */
+.wk-change { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+.wk-change__icon { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; color: var(--dk-ok, var(--color-success)); }
+.wk-change__text { flex: 1 1 280px; min-width: 0; }
+.wk-change__text code { font-family: var(--font-mono); font-size: var(--text-xs); padding: 0 4px; border-radius: var(--radius-sm); background: var(--color-bg-tertiary); }
+.wk-change__acts { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.wk-shortcuts--flash { outline: 1px solid var(--dk-accent-text); outline-offset: 4px; border-radius: var(--radius-md); }
+.wk-files-note { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wk-files-note .lai-icon { width: 13px; height: 13px; flex-shrink: 0; }
+.wk-files-note a { color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }

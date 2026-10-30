@@ -74,6 +74,11 @@ import { useSandboxStatus } from '../hooks/useSandboxStatus'
 import { SANDBOX_ADDON } from '../utils/sandboxStatus'
 import { copyToClipboard } from '../utils/clipboard'
 import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
+import { anchorToasts } from '../components/wellknown/changeNote'
+import { turnChanges, describeChanges, liveTurns } from '../utils/changeNotes'
+import { usePages } from '../hooks/usePages'
 import './chat.css'
 import './chats.css'
 
@@ -752,6 +757,41 @@ function ChatPage() {
     for (let i = rows.length - 1; i >= 0; i--) if (rows[i].kind === 'msg' && rows[i].msg.role === 'assistant') return rows[i].key
     return ''
   }, [rows])
+  // What each turn changed in the well-known files and the pages: a note under
+  // the last answer of the turn. Turns that end while this tab watches are
+  // live and may raise a toast; a reload or a reopened chat shows the notes only.
+  const { pages: pageList } = usePages(true)
+  const pageTitle = useCallback((name) => pageList.find(p => p.name === name)?.title || name, [pageList])
+  const changeByTurn = useMemo(() => {
+    const out = new Map()
+    const pagesSeen = new Set()
+    for (const [turn, changes] of [...turnChanges(messages)].sort((a, b) => a[0] - b[0])) out.set(turn, describeChanges(changes, pagesSeen))
+    return out
+  }, [messages])
+  const noteKeyByTurn = useMemo(() => {
+    const out = new Map()
+    for (const r of rows) if (r.kind === 'msg' && r.msg.role === 'assistant') out.set(r.msg.turn, r.key)
+    return out
+  }, [rows])
+  const [baseTurn, setBaseTurn] = useState({ id: null, turn: null })
+  useEffect(() => {
+    if (!activeId || chat.loading || chat.detail?.id !== activeId || baseTurn.id === activeId) return
+    const last = messages.reduce((n, m) => Math.max(n, m.turn || 0), 0)
+    setBaseTurn({ id: activeId, turn: chat.running ? Math.max(0, last - 1) : last })
+  }, [activeId, chat.loading, chat.detail, chat.running, messages, baseTurn.id])
+  const live = useMemo(() => liveTurns(baseTurn.id === activeId ? baseTurn.turn : null, messages), [baseTurn, activeId, messages])
+  const changeNoteFor = (row) => {
+    if (row.kind !== 'msg' || row.msg.role !== 'assistant' || noteKeyByTurn.get(row.msg.turn) !== row.key) return null
+    const desc = changeByTurn.get(row.msg.turn)
+    if (!desc) return null
+    return <WorkspaceChangeNote key={`wc-${row.msg.turn}`} desc={desc} live={live.has(row.msg.turn)} addToast={addToast} pageTitle={pageTitle} />
+  }
+  // The toasts of this page sit above its composer.
+  useEffect(() => {
+    const el = document.querySelector('.cx-dock__in')
+    return anchorToasts(el)
+  }, [activeId])
+
   const meter = contextReading(chat.usage)
   const streaming = streamingParts(chat.live)
   const sendLive = useCallback((text) => activeId && chat.send(activeId, text), [activeId, chat])
@@ -986,7 +1026,7 @@ function ChatPage() {
               {rows.map((row, i) => {
                 if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
-                return (
+                return [
                   <ChatMessage
                     key={row.key}
                     msg={row.msg}
@@ -1000,8 +1040,9 @@ function ChatPage() {
                     conversationId={activeId}
                     canRegenerate={!chat.running && row.key === lastAnswerKey}
                     proposalTick={chat.ticks.proposals}
-                  />
-                )
+                  />,
+                  changeNoteFor(row),
+                ]
               })}
 
               {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (

@@ -1,11 +1,12 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Popover from '../Popover'
 import ShortcutsEditor, { defaultStarters } from './ShortcutsEditor'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { shortcutList } from '../../utils/wellKnown'
+import { SHORTCUT_ADDED_EVENT } from './changeNote'
 import './wellKnown.css'
 
 // ShortcutsRow is the one list of prompts above the composer: the ones of
@@ -25,9 +26,18 @@ export default function ShortcutsRow({ onPick, onEditWithAssistant, starters, fi
   const anchor = useRef(null)
   const defaults = starters || defaultStarters(tc)
   const { items, fromFile } = useMemo(() => shortcutList(wk.doc, defaults), [wk.doc, defaults])
+  // A shortcut the assistant just added: the row is outlined for 4 seconds, a
+  // static outline, so reduced motion needs nothing else.
+  const [flash, setFlash] = useState(false)
+  useEffect(() => {
+    let timer = null
+    const on = () => { setFlash(true); clearTimeout(timer); timer = setTimeout(() => setFlash(false), 4000) }
+    window.addEventListener(SHORTCUT_ADDED_EVENT, on)
+    return () => { window.removeEventListener(SHORTCUT_ADDED_EVENT, on); clearTimeout(timer) }
+  }, [])
 
   return (
-    <div className="wk-shortcuts" data-testid="chat-shortcuts">
+    <div className={`wk-shortcuts${flash ? ' wk-shortcuts--flash' : ''}`} data-testid="chat-shortcuts">
       {items.length > 0 && (
         <div className="wk-shortcuts__chips" role="list" aria-label={t('wellKnown.shortcuts.title')}>
           {items.map((s, i) => (

@@ -224,7 +224,43 @@
       "customise": "Customise Home"
     },
     "action": {
-      "undo": "Undo"
+      "undo": "Undo",
+      "openAccount": "Open in Account",
+      "openPage": "Open page",
+      "openHome": "Open Home",
+      "turnBackOn": "Turn them back on in Account"
+    },
+    "change": {
+      "profilePersona": "Saved your name in <code>user.json</code> and your instructions in <code>persona.json</code>. Every chat uses them from your next message.",
+      "profile": "Saved to your profile in <code>user.json</code>.",
+      "persona": "Saved <code>persona.json</code>. Every chat uses it from your next message.",
+      "shortcuts": "Saved <code>shortcuts.json</code>.",
+      "home": "Saved <code>home.json</code>. Home shows the change.",
+      "ui": "Saved <code>ui.json</code>.",
+      "pageCreated": "Created the page {{title}} in <code>{{folder}}</code>.",
+      "pageChanged": "Changed <code>{{file}}</code>.",
+      "offersOff": "Suggestions from the assistant are off.",
+      "undoing": "Undoing…",
+      "undone": "Undone.",
+      "undoFailed": "Not undone: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Added to your composer: {{label}}",
+      "pageCreated": "{{title}} is in Pages, in the sidebar",
+      "open": "Open",
+      "homeChanged": "Home updated.",
+      "themeChanged": "Theme changed."
+    },
+    "files": {
+      "learn": "These files change how LocalAI works for you.",
+      "tag": {
+        "profile": "Your profile",
+        "persona": "Assistant",
+        "shortcuts": "Shortcuts",
+        "home": "Home layout",
+        "ui": "Look",
+        "page": "Page"
+      }
     }
   }
 }

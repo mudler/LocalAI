@@ -6,10 +6,13 @@ import FilePreview from '../files/FilePreview'
 import { filesApi } from '../../utils/api'
 import { fileIcon, fileSize } from '../../utils/fileInfo'
 import { groupChatFiles } from '../../hooks/useChatFiles'
+import { wellKnownTag } from '../../utils/changeNotes'
+import { DOCS_MAKE_YOURS } from '../../utils/discovery'
 
 const GROUPS = ['uploaded', 'created', 'changed']
 
-function FileRow({ file, selected, onSelect, t }) {
+function FileRow({ file, selected, onSelect, t, tw }) {
+  const tag = wellKnownTag(file.path)
   return (
     <li className={`ws-row cx-files__row${selected ? ' ws-row--selected' : ''}`} data-testid="chat-file-row" data-origin={file.origin}>
       <Icon name={fileIcon(file.name, file.mime)} className="ws-row__icon" />
@@ -25,6 +28,7 @@ function FileRow({ file, selected, onSelect, t }) {
           {file.turn > 0 && <span>{t('files.turn', { n: file.turn })}</span>}
           {file.media && <span className="cx-files__tag" title={t('files.mediaTitle')}>{t('files.media')}</span>}
           {file.changed && <span className="cx-files__tag" title={t('files.changedTitle')}>{t('files.changedTag')}</span>}
+          {tag && <span className="cx-files__tag" data-testid="chat-file-wellknown">{tw(`discovery.files.tag.${tag}`)}</span>}
         </span>
       </div>
       <a
@@ -98,12 +102,18 @@ export default function ChatFilesPane({ state, onClose, onDropFiles }) {
             </h3>
             <ul className="ws-list">
               {groups[g].map(f => (
-                <FileRow key={f.path} file={f} selected={current?.path === f.path} onSelect={setSelected} t={t} />
+                <FileRow key={f.path} file={f} selected={current?.path === f.path} onSelect={setSelected} t={t} tw={tw} />
               ))}
             </ul>
           </section>
         ))}
         {current && <FilePreview entry={{ ...current, kind: 'file' }} t={tw} className="cx-files__preview" />}
+        {state.files.some(f => wellKnownTag(f.path)) && (
+          <p className="ws-hint cx-files__hint wk-files-note" data-testid="chat-files-wellknown-note">
+            <Icon name="info" /> {tw('discovery.files.learn')}{' '}
+            <a href={DOCS_MAKE_YOURS} target="_blank" rel="noopener noreferrer">{tw('discovery.ex.learn')}</a>
+          </p>
+        )}
         {state.files.length > 0 && <p className="ws-hint cx-files__hint">{t('files.dropHint')}</p>}
       </div>
     </aside>

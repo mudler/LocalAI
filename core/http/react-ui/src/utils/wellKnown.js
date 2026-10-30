@@ -50,6 +50,12 @@ export function createWellKnownApi({ fetch, url = (p) => p }) {
       body: JSON.stringify({ values, replace }),
     }),
     revert: (name, file) => call(path(name, '/revert', file), { method: 'POST' }),
+    // revertTo writes back the version rev that versions listed.
+    revertTo: (name, rev, file) => call(path(name, '/revert', file), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rev }),
+    }),
+    // versions lists the versions of the file, newest first.
+    versions: (name, file) => call(path(name, '/versions', file), { headers: { Accept: 'application/json' } }),
     schema: (name) => call(path(name, '/schema'), { headers: { Accept: 'application/schema+json' } }),
   }
 }

@@ -8,6 +8,9 @@
 
 const DURATION = 6000
 
+// A shortcut the assistant added lights up the shortcuts row for a moment.
+export const SHORTCUT_ADDED_EVENT = 'localai:shortcut-added'
+
 // showChange shows a toast. action is { label, onClick } or nothing.
 export function showChange(addToast, { message, action, testId = 'change-toast', tone = 'info', duration = DURATION }) {
   if (typeof addToast !== 'function' || !message) return null

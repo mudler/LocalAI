@@ -136,7 +136,19 @@ least an hour between runs.
 once and keeps it when you save. `defaultModel` is the model a new chat starts
 with. `pinnedPages` is reserved for a later release.
 
-## Validation and history
+## What a change shows
+
+When the assistant changes one of these files or a page in a chat, the answer
+ends with a short note: what it saved and where ("Saved to your profile in
+`user.json`", "Created the page Task board in `pages/tasks/`"), with **Undo**
+and a link to where you see it (Account, the page, Home). **Undo** undoes the
+change sets of that turn in your file history. A toast appears only when the
+effect is outside the chat: a new shortcut ("Added to your composer"), the
+first page ("Task board is in Pages, in the sidebar"), Home or the theme. Every
+toast action is also on the note. A change made in another tab or by a
+trigger refreshes the screens quietly, without a toast. The **Files** pane of
+the chat tags these files ("Your profile", "Assistant") and links here.
+
 
 Each file has a JSON Schema (draft 2020-12). LocalAI validates every read and
 every write against it, and refuses a file over 64 KiB.
@@ -181,7 +193,8 @@ Pages (your own HTML shown inside LocalAI) are planned for a later release.
 |---|---|---|
 | GET | `/api/chats/wellknown/{name}` | Reads a file: `persona`, `user`, `shortcuts`, `home`, `ui`, or `widget-data` with `?path=` |
 | PUT | `/api/chats/wellknown/{name}` | Changes a file: `{"values": {...}, "replace": false}` |
-| POST | `/api/chats/wellknown/{name}/revert` | Writes the previous valid version back |
+| POST | `/api/chats/wellknown/{name}/revert` | Writes the previous valid version back, or the version `{"rev": N}` |
+| GET | `/api/chats/wellknown/{name}/versions` | The versions of the file, newest first: `rev`, `at`, `kind` (`user` or `agent`), `chat` and `chat_title`, and `data` when valid |
 | GET | `/api/chats/wellknown/{name}/schema` | The JSON Schema of the file |
 
 A read answers `data`, `version` (also in the `ETag` header), `exists`,
