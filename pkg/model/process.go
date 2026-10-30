@@ -255,7 +255,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	if fi, err := os.Stat(grpcProcess); err == nil {
 		if fi.Mode()&0111 == 0 {
 			xlog.Debug("Process is not executable. Making it executable.", "process", grpcProcess)
-			if err := os.Chmod(grpcProcess, 0700); err != nil {
+			if err := os.Chmod(grpcProcess, 0700); err != nil { // #nosec G302 -- the backend binary must be executable; 0700 gives it to the owner only
 				return nil, err
 			}
 		}

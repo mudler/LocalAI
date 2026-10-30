@@ -10,7 +10,7 @@ import (
 
 // deprecatedFlags maps old flag names to their new replacements.
 var deprecatedFlags = map[string]string{
-	"--p2ptoken": "--p2p-token",
+	"--p2ptoken": "--p2p-token", // #nosec G101 -- flag names, not a credential
 }
 
 // warnDeprecatedFlags checks os.Args for any deprecated flag names and logs
