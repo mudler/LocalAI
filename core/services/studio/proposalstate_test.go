@@ -127,7 +127,7 @@ var _ = Describe("proposal answers are kept", func() {
 
 		v, _ := r.host.ProposalStatus(ctx, alice, p.ID)
 		Expect(v.CanUndo).To(BeFalse(), "view = %+v", v)
-		Expect(v.UndoBlocked).To(ContainSubstring("already ran"), "view = %+v", v)
+		Expect(v.UndoBlocked).To(Equal(studio.UndoRan), "view = %+v", v)
 		_, err = r.host.UndoProposal(ctx, alice, p.ID)
 		Expect(err).To(MatchError(studio.ErrCannotUndo))
 		Expect(err.Error()).To(ContainSubstring("already ran"))
@@ -147,7 +147,7 @@ var _ = Describe("proposal answers are kept", func() {
 		v, _ := r.host.ProposalStatus(ctx, alice, p.ID)
 		Expect(v.State).To(Equal(studio.ProposalAccepted), "an edit lost the receipt: %+v", v)
 		Expect(v.CanUndo).To(BeFalse(), "view = %+v", v)
-		Expect(v.UndoBlocked).To(ContainSubstring("edited"), "view = %+v", v)
+		Expect(v.UndoBlocked).To(Equal(studio.UndoEdited), "view = %+v", v)
 		_, err = r.host.UndoProposal(ctx, alice, p.ID)
 		Expect(err).To(MatchError(studio.ErrCannotUndo))
 

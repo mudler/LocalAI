@@ -22,11 +22,18 @@ const (
 	ProposalUndone   ProposalState = "undone"
 )
 
-// Why an accepted trigger cannot be undone, written for the person.
+// Why an accepted trigger cannot be undone. The codes are for the interface,
+// which words them in the person's language; undoText is the English the
+// refusal of an undo carries.
 const (
-	undoRan    = "It already ran once; remove it from the Triggers page."
-	undoEdited = "You edited it since; change or remove it on the Triggers page."
+	UndoRan    = "ran"
+	UndoEdited = "edited"
 )
+
+var undoText = map[string]string{
+	UndoRan:    "It already ran once; remove it from the Triggers page.",
+	UndoEdited: "You edited it since; change or remove it on the Triggers page.",
+}
 
 // ProposalView is a proposal as the chat card shows it: its state, the record
 // (the proposal itself, or the trigger that accepting made), when it was
@@ -37,7 +44,7 @@ type ProposalView struct {
 	// At is when the proposal was answered; zero while it waits.
 	At time.Time
 	// CanUndo is set on an accepted trigger that nothing has used or changed.
-	// UndoBlocked says why not otherwise.
+	// UndoBlocked says why not otherwise: UndoRan or UndoEdited.
 	CanUndo     bool
 	UndoBlocked string
 }
@@ -68,14 +75,14 @@ func (h *Triggers) ownedAny(ctx context.Context, user, id string) (triggers.Trig
 // "" when it can: it ran (a run of any kind counts) or the person changed it.
 func (h *Triggers) undoBlock(ctx context.Context, t triggers.Trigger) (string, error) {
 	if t.Touched {
-		return undoEdited, nil
+		return UndoEdited, nil
 	}
 	runs, err := h.o.Store.ListRuns(ctx, t.ID, 1)
 	if err != nil {
 		return "", err
 	}
 	if len(runs) > 0 {
-		return undoRan, nil
+		return UndoRan, nil
 	}
 	return "", nil
 }
@@ -124,7 +131,7 @@ func (h *Triggers) UndoProposal(ctx context.Context, user, id string) (triggers.
 		return triggers.Trigger{}, err
 	}
 	if block != "" {
-		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, block)
+		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, undoText[block])
 	}
 	undone := t
 	undone.Enabled, undone.Proposed, undone.Touched = false, true, false
@@ -141,7 +148,7 @@ func (h *Triggers) UndoProposal(ctx context.Context, user, id string) (triggers.
 		if err != nil {
 			return triggers.Trigger{}, err
 		}
-		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, block)
+		return triggers.Trigger{}, fmt.Errorf("%w: %s", ErrCannotUndo, undoText[block])
 	}
 	h.Notify()
 	return undone, nil

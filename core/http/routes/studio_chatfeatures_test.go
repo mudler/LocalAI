@@ -577,6 +577,27 @@ var _ = Describe("Chats trigger proposals in the chat", func() {
 		Expect(confirm.Code).To(Equal(http.StatusOK), confirm.Body.String())
 		Expect(decodeJSON(confirm)).To(And(HaveKeyWithValue("name", "Evening news"), HaveKeyWithValue("enabled", true)))
 		Expect(s.do("alice", http.MethodPut, url, map[string]any{"name": "x", "prompt": "p", "kind": "schedule", "schedule": "daily 09:00"}).Code).To(Equal(http.StatusNotFound))
+
+		// The answer is kept: the receipt reads it back, and only its owner.
+		got := s.do("alice", http.MethodGet, url, nil)
+		Expect(got.Code).To(Equal(http.StatusOK), got.Body.String())
+		Expect(decodeJSON(got)).To(And(HaveKeyWithValue("state", "accepted"), HaveKeyWithValue("can_undo", true), HaveKey("answered_at")))
+		Expect(s.do("bob", http.MethodGet, url, nil).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("bob", http.MethodPost, url+"/undo", nil).Code).To(Equal(http.StatusNotFound))
+
+		// Undo takes the trigger off the page and keeps the receipt.
+		undo := s.do("alice", http.MethodPost, url+"/undo", nil)
+		Expect(undo.Code).To(Equal(http.StatusOK), undo.Body.String())
+		Expect(decodeJSON(undo)).To(HaveKeyWithValue("state", "undone"))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/triggers", nil))["triggers"]).To(BeEmpty())
+		Expect(s.do("alice", http.MethodPost, url+"/undo", nil).Code).To(Equal(http.StatusConflict))
+
+		// Scheduling it again, then declining it, leaves a declined line.
+		again := s.do("alice", http.MethodPost, url+"/reopen", nil)
+		Expect(again.Code).To(Equal(http.StatusOK), again.Body.String())
+		Expect(decodeJSON(again)).To(HaveKeyWithValue("state", "pending"))
+		Expect(s.do("alice", http.MethodDelete, url, nil).Code).To(Equal(http.StatusNoContent))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, url, nil))).To(HaveKeyWithValue("state", "declined"))
 	})
 })
 

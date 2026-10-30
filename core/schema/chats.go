@@ -532,6 +532,20 @@ type ChatsTrigger struct {
 	Cost ChatsTriggerCost `json:"cost"`
 }
 
+// ChatsTriggerProposal is a trigger a chat proposed and what became of it.
+// State is pending (it waits), accepted (trigger is the trigger that accepting
+// made, the same id), declined or undone (trigger is the record kept so the
+// chat can show a receipt and offer to restore it). CanUndo is set on an
+// accepted trigger that has not run and was not edited; UndoBlocked says why
+// not: ran or edited.
+type ChatsTriggerProposal struct {
+	State       string       `json:"state"`
+	Trigger     ChatsTrigger `json:"trigger"`
+	AnsweredAt  *time.Time   `json:"answered_at,omitempty"`
+	CanUndo     bool         `json:"can_undo"`
+	UndoBlocked string       `json:"undo_blocked,omitempty"`
+}
+
 // ChatsTriggerPlan is what a run of a trigger does, as the model that proposed
 // it described it. Every field is optional.
 type ChatsTriggerPlan struct {
