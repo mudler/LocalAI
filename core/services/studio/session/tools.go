@@ -8,10 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"path"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -153,53 +151,8 @@ func noNUL(s, what string) error {
 	return nil
 }
 
-// capWriter keeps the first max bytes and counts the rest. It is safe for
-// the two writers (stdout and stderr) of one process. When the cap is
-// reached, full is called once, so that the process can be stopped.
-type capWriter struct {
-	mu    sync.Mutex
-	max   int
-	buf   bytes.Buffer
-	extra int64
-	full  func()
-}
-
-func (w *capWriter) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	room := w.max - w.buf.Len()
-	if room > len(p) {
-		room = len(p)
-	}
-	if room > 0 {
-		w.buf.Write(p[:room])
-	}
-	if w.extra == 0 && room < len(p) && w.full != nil {
-		w.full()
-	}
-	w.extra += int64(len(p) - max(room, 0))
-	return len(p), nil
-}
-
-// cut reports whether output was dropped at the cap.
-func (w *capWriter) cut() bool {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.extra > 0
-}
-
-func (w *capWriter) String() string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	s := strings.ToValidUTF8(w.buf.String(), "�")
-	if w.extra > 0 {
-		s += fmt.Sprintf("\n[output cut: %d more bytes]", w.extra)
-	}
-	return s
-}
-
 // rawWriter keeps the first max bytes exactly as they arrive and records
-// whether more came. Unlike capWriter it never changes a byte.
+// whether more came. Unlike sandbox.CapWriter it never changes a byte.
 type rawWriter struct {
 	max  int
 	buf  bytes.Buffer
@@ -219,24 +172,6 @@ func (w *rawWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// run runs args in the guest and returns the output of stdout and stderr in
-// one string, and the exit code. When the output reaches limit, run stops the
-// process at once and returns the output with its cut marker, and no error.
-func run(ctx context.Context, sb sandbox.Sandbox, args []string, stdin io.Reader, limit int) (string, int, error) {
-	rctx, stop := context.WithCancel(ctx)
-	defer stop()
-	out := &capWriter{max: limit, full: stop}
-	p, err := sb.Exec(rctx, sandbox.Cmd{Args: args, Stdin: stdin, Stdout: out, Stderr: out})
-	if err != nil {
-		return "", 0, err
-	}
-	code, err := p.Wait()
-	if ctx.Err() == nil && rctx.Err() != nil && out.cut() {
-		return out.String(), 0, nil // stopped by us at the cap
-	}
-	return out.String(), code, err
-}
-
 // fileToolTimedOut is the result of a read, glob or grep that ran out of time.
 func fileToolTimedOut() string {
 	return "timed out after " + fileToolTimeout.String()
@@ -247,7 +182,7 @@ func fileToolTimedOut() string {
 // back a changed copy of a file it could not read exactly.
 func readText(ctx context.Context, sb sandbox.Sandbox, p string) (string, error) {
 	out := &rawWriter{max: MaxFile}
-	errOut := &capWriter{max: 4096}
+	errOut := &sandbox.CapWriter{Max: 4096}
 	script := `[ -f "$1" ] || { echo "not a file: $1" >&2; exit 2; }; cat -- "$1"`
 	proc, err := sb.Exec(ctx, sandbox.Cmd{Args: sh(script, p), Stdout: out, Stderr: errOut})
 	if err != nil {
@@ -293,7 +228,7 @@ func (r *runner) bash(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessa
 	}
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	out, code, err := run(tctx, sb, []string{"bash", "-lc", a.Command}, nil, MaxOutput)
+	out, code, err := sandbox.RunCapped(tctx, sb, []string{"bash", "-lc", a.Command}, nil, MaxOutput)
 	switch {
 	case ctx.Err() != nil:
 		return "", ctx.Err() // the turn was stopped
@@ -330,7 +265,7 @@ func (r *runner) read(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessa
 	script := `[ -f "$1" ] || { echo "not a file: $1"; exit 2; }; sed -n "$2,$3p" -- "$1"`
 	tctx, cancel := context.WithTimeout(ctx, fileToolTimeout)
 	defer cancel()
-	out, code, err := run(tctx, sb, sh(script, p, fmt.Sprint(a.Offset), fmt.Sprint(a.Offset+a.Limit-1)), nil, MaxOutput)
+	out, code, err := sandbox.RunCapped(tctx, sb, sh(script, p, fmt.Sprint(a.Offset), fmt.Sprint(a.Offset+a.Limit-1)), nil, MaxOutput)
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}
@@ -361,7 +296,7 @@ func writeFile(ctx context.Context, sb sandbox.Sandbox, p, content string) error
 	script := `[ ! -d "$1" ] || { echo "is a folder: $1" >&2; exit 2; }; ` +
 		`mkdir -p -- "$(dirname -- "$1")" && trap 'rm -f -- "$2"' EXIT && cat > "$2" && ` +
 		`{ [ ! -e "$1" ] || chmod --reference="$1" "$2" 2>/dev/null; true; } && mv -f -- "$2" "$1"`
-	out, code, err := run(ctx, sb, sh(script, p, tmp), strings.NewReader(content), 4096)
+	out, code, err := sandbox.RunCapped(ctx, sb, sh(script, p, tmp), strings.NewReader(content), 4096)
 	if err == nil && code == 0 {
 		return nil
 	}
@@ -390,7 +325,7 @@ func tempName(p string) (string, error) {
 func removeTemp(sb sandbox.Sandbox, tmp string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, _, _ = run(ctx, sb, sh(`rm -f -- "$1"`, tmp), nil, 4096)
+	_, _, _ = sandbox.RunCapped(ctx, sb, sh(`rm -f -- "$1"`, tmp), nil, 4096)
 }
 
 func (r *runner) write(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessage) (string, error) {
@@ -460,7 +395,7 @@ func (r *runner) glob(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessa
 	pat := strings.TrimPrefix(strings.TrimPrefix(a.Pattern, "./"), "/")
 	tctx, cancel := context.WithTimeout(ctx, fileToolTimeout)
 	defer cancel()
-	out, code, err := run(tctx, sb, sh(`cd -- "$1" 2>/dev/null || { echo "not a folder: $1"; exit 2; }; find . -path "./$2" 2>/dev/null | sed 's|^\./||' | sort | head -n 500`, dir, pat), nil, MaxOutput)
+	out, code, err := sandbox.RunCapped(tctx, sb, sh(`cd -- "$1" 2>/dev/null || { echo "not a folder: $1"; exit 2; }; find . -path "./$2" 2>/dev/null | sed 's|^\./||' | sort | head -n 500`, dir, pat), nil, MaxOutput)
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}
@@ -504,7 +439,7 @@ func (r *runner) grep(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessa
 	}
 	tctx, cancel := context.WithTimeout(ctx, fileToolTimeout)
 	defer cancel()
-	out, _, err := run(tctx, sb, sh(`grep -rnI --exclude-dir=.git "$1" -e "$2" -- "$3" 2>&1 | head -n 200`, flags, a.Pattern, target), nil, MaxOutput)
+	out, _, err := sandbox.RunCapped(tctx, sb, sh(`grep -rnI --exclude-dir=.git "$1" -e "$2" -- "$3" 2>&1 | head -n 200`, flags, a.Pattern, target), nil, MaxOutput)
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}

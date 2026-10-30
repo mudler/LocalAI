@@ -6,14 +6,11 @@
 package runner
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
@@ -107,69 +104,6 @@ func noNUL(s, what string) error {
 	return nil
 }
 
-// capWriter keeps the first max bytes and counts the rest. It is safe for
-// the two writers (stdout and stderr) of one process. When the cap is
-// reached, full is called once, so that the process can be stopped.
-type capWriter struct {
-	mu    sync.Mutex
-	max   int
-	buf   bytes.Buffer
-	extra int64
-	full  func()
-}
-
-func (w *capWriter) Write(p []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	room := w.max - w.buf.Len()
-	if room > len(p) {
-		room = len(p)
-	}
-	if room > 0 {
-		w.buf.Write(p[:room])
-	}
-	if w.extra == 0 && room < len(p) && w.full != nil {
-		w.full()
-	}
-	w.extra += int64(len(p) - max(room, 0))
-	return len(p), nil
-}
-
-// cut reports whether output was dropped at the cap.
-func (w *capWriter) cut() bool {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.extra > 0
-}
-
-func (w *capWriter) String() string {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	s := strings.ToValidUTF8(w.buf.String(), "�")
-	if w.extra > 0 {
-		s += fmt.Sprintf("\n[output cut: %d more bytes]", w.extra)
-	}
-	return s
-}
-
-// run runs args in the guest and returns the output of stdout and stderr in
-// one string, and the exit code. When the output reaches limit, run stops the
-// process at once and returns the output with its cut marker, and no error.
-func run(ctx context.Context, sb sandbox.Sandbox, args []string, stdin io.Reader, limit int) (string, int, error) {
-	rctx, stop := context.WithCancel(ctx)
-	defer stop()
-	out := &capWriter{max: limit, full: stop}
-	p, err := sb.Exec(rctx, sandbox.Cmd{Args: args, Stdin: stdin, Stdout: out, Stderr: out})
-	if err != nil {
-		return "", 0, err
-	}
-	code, err := p.Wait()
-	if ctx.Err() == nil && rctx.Err() != nil && out.cut() {
-		return out.String(), 0, nil // stopped by us at the cap
-	}
-	return out.String(), code, err
-}
-
 // bash runs one call. A timeout of the model is capped at max.
 func bash(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessage, o BashOptions) (string, error) {
 	maxTimeout := o.MaxTimeout
@@ -193,7 +127,7 @@ func bash(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessage, o BashOp
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	start := time.Now()
-	out, code, err := run(tctx, sb, []string{"bash", "-lc", a.Command}, nil, MaxOutput)
+	out, code, err := sandbox.RunCapped(tctx, sb, []string{"bash", "-lc", a.Command}, nil, MaxOutput)
 	if o.Done != nil {
 		res := BashResult{Command: a.Command, Exit: code, Duration: time.Since(start), TimedOut: errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil}
 		if err != nil {
