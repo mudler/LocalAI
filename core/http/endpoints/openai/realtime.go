@@ -2113,7 +2113,17 @@ func vadScanWindowSec(sv *types.RealtimeSessionSemanticVad, silenceThreshold flo
 	return window
 }
 
+// commitUtterance commits a client-issued turn (input_audio_buffer.commit).
+// The client buffer holds audio at the session input sample rate (e.g.
+// 24 kHz for OpenAI Realtime clients), while every commit path writes the
+// transcription WAV at localSampleRate: the VAD path stores audio that is
+// already resampled (vadCommit). Resample here so a 24 kHz buffer is not
+// decoded at 16 kHz (1.5x speed/pitch, garbage or empty transcript, then
+// input_not_committed on the follow-up response).
 func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
+	if rate := session.InputSampleRate; rate > 0 && rate != localSampleRate && len(utt) > 0 {
+		utt = sound.Int16toBytesLE(sound.ResampleInt16(sound.BytesToInt16sLE(utt), rate, localSampleRate))
+	}
 	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t, slot)
 }
 
