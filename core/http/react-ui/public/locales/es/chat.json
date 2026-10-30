@@ -213,5 +213,13 @@
     "showAll_other": "Mostrar las {{count}} líneas",
     "details": "Mostrar detalles",
     "openFile": "Abrir {{path}} en Archivos"
+  },
+  "allChats": {
+    "title": "Todos los chats",
+    "supporting": "Todos los chats guardados. Busca, renombra, exporta o elimina.",
+    "loadFailed": "No se pudieron cargar tus chats.",
+    "emptyTitle": "Aún no hay chats",
+    "emptyBody": "Un chat empieza en Inicio: escribe un mensaje y envíalo. Después, tus chats aparecen aquí.",
+    "start": "Empezar un chat"
   }
 }

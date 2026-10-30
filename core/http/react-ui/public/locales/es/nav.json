@@ -73,7 +73,8 @@
     "triggers": "Disparadores",
     "mcpConnectors": "Conectores MCP",
     "chatsAdmin": "Chats de todos los usuarios",
-    "pages": "Páginas"
+    "pages": "Páginas",
+    "allChats": "Todos los chats"
   },
   "footer": {
     "github": "GitHub",
@@ -112,5 +113,9 @@
     "operateSupporting": "Qué se ejecuta en este servidor, cómo se usa y cómo está configurado."
   },
   "pinnedPages": "Páginas fijadas",
-  "new": "Nuevo"
+  "new": "Nuevo",
+  "recentChats": "Chats recientes",
+  "newChat": "Nuevo chat",
+  "untitledChat": "Chat sin título",
+  "chatRunning": "En curso"
 }

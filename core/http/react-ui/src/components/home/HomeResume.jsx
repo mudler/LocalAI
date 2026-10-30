@@ -20,7 +20,7 @@ function EnterKey() {
 
 // "Jump back in": the newest chats the server keeps, one card per day. A row
 // opens its chat. j and k move between rows, Enter resumes.
-export default function HomeResume({ items, onResume, emptyHint }) {
+export default function HomeResume({ items, onResume, onAll, emptyHint }) {
   const { t, i18n } = useTranslation('home')
   const [expanded, setExpanded] = useState(false)
   const listRef = useRef(null)
@@ -72,6 +72,12 @@ export default function HomeResume({ items, onResume, emptyHint }) {
         <span className="home-resume__keys">
           <kbd className="dk-kbd">j</kbd><kbd className="dk-kbd">k</kbd> {t('jump.move')} <EnterKey /> {t('jump.resume')}
         </span>
+        {/* The whole history, with search and delete: the All chats page. */}
+        {onAll && (
+          <button type="button" className="home-ghost home-resume__all" onClick={onAll} data-testid="home-all-chats">
+            {t('jump.allChats')}
+          </button>
+        )}
       </div>
       <div ref={listRef}>
         {groups.map(g => {

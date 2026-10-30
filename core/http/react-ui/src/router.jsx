@@ -78,6 +78,7 @@ export function preloadRoute(path) {
 
 const Home = page('', () => import('./pages/Home'))
 const Chats = page('chats', () => import('./pages/Chat'))
+const AllChats = page(null, () => import('./pages/AllChats'))
 const Workspace = page('workspace', () => import('./pages/Workspace'))
 const Pages = page('pages', () => import('./pages/Pages'))
 const PageView = page(null, () => import('./pages/PageView'))
@@ -160,7 +161,7 @@ import HubLayout from './components/hub/HubLayout'
 import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
-import { addonPageAddress, chatsRedirect, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
+import { addonPageAddress, bareChatsRedirect, chatsRedirect, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
 import { legacyAddonsHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
@@ -170,6 +171,18 @@ import { useHubAuth } from './components/hub/useHubAuth'
 function ChatsRedirect() {
   const { pathname, search, hash } = useLocation()
   return <Navigate to={chatsRedirect(pathname, search, hash)} replace />
+}
+
+// /app/chats/<id> is a transcript. /app/chats with no id is the empty chat
+// only when the app hands something to it in the navigation state; as an
+// address it opens Home (see bareChatsRedirect). The chat page stays mounted
+// across the two, so a transcript that becomes the empty chat (its chat was
+// deleted) keeps its undo offer.
+function ChatsRoute() {
+  const { pathname, search, hash, state } = useLocation()
+  const to = bareChatsRedirect(pathname, search, hash, state)
+  if (to) return <Navigate to={to} replace />
+  return <Chats />
 }
 
 // The old status, run and chat pages of an agent are its page now.
@@ -283,7 +296,8 @@ const appChildren = [
   { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
   // One route for a new chat and an open one, so the page stays mounted when a
   // chat starts or is left (a delete waiting for its Undo survives the move).
-  { path: 'chats/:id?', element: <Feature feature="chats"><Chats /></Feature> },
+  { path: 'chats/all', element: <Feature feature="chats"><AllChats /></Feature> },
+  { path: 'chats/:id?', element: <Feature feature="chats"><ChatsRoute /></Feature> },
   { path: 'files', element: <Feature feature="chats"><Workspace /></Feature> },
   { path: 'pages', element: <Feature feature="chats"><Feature feature="pages"><Pages /></Feature></Feature> },
   { path: 'pages/:name', element: <Feature feature="chats"><Feature feature="pages"><PageView /></Feature></Feature> },

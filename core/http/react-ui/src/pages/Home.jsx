@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useLocation, useNavigate, useOutletContext } from 'react-router-dom'
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
@@ -66,7 +66,10 @@ export default function Home() {
   const configuredModelsRef = useRef(configuredModels)
   configuredModelsRef.current = configuredModels
   const [loadedModels, setLoadedModels] = useState([])
-  const [selectedModel, setSelectedModel] = useState('')
+  // An old chat address names a model (/app/chats?model=…, /app/chat/<model>)
+  // and lands here: the picker starts on it.
+  const [searchParams] = useSearchParams()
+  const [selectedModel, setSelectedModel] = useState(() => searchParams.get('model') || '')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
@@ -180,9 +183,10 @@ export default function Home() {
     navigate(`/app/chats?model=${encodeURIComponent(selectedModel)}`, { state: { start: text } })
   }, [message, selectedModel, addToast, navigate, t])
 
-  // An empty new chat on the chosen model.
+  // An empty new chat on the chosen model. The state marks it as a hand-off:
+  // /app/chats opened as a bare address comes back here.
   const openNewChat = useCallback(() => {
-    navigate(selectedModel ? `/app/chats?model=${encodeURIComponent(selectedModel)}` : '/app/chats')
+    navigate(selectedModel ? `/app/chats?model=${encodeURIComponent(selectedModel)}` : '/app/chats', { state: { newChat: true } })
   }, [navigate, selectedModel])
 
   // The LocalAI assistant is a chat like any other, started with the management
@@ -308,7 +312,7 @@ export default function Home() {
     switch (id) {
       case 'model': pickerRef.current?.open(); break
       case 'new': openNewChat(); break
-      case 'chat': navigate('/app/chats'); break
+      case 'chat': navigate('/app/chats/all'); break
       case 'assistant': openAssistantChat(); break
       case 'gallery': navigate('/app/models'); break
       case 'installed': navigate('/app/models?view=installed'); break
@@ -515,6 +519,7 @@ export default function Home() {
           <HomeResume
             items={conversations}
             onResume={resumeConversation}
+            onAll={() => navigate('/app/chats/all')}
             emptyHint={(
               <div className="home-examples" aria-label={t('jump.examples')}>
                 {(isAdmin ? ['/gallery', '/import'] : []).concat(studioPage ? ['/studio'] : []).map(c => (
@@ -527,6 +532,11 @@ export default function Home() {
 
         <div className="home-libline" data-testid="home-library">
           <span>{t('library.label')}</span>
+          {chatsOn && chatsWidget && (
+            <button type="button" className="home-ghost" onClick={() => navigate('/app/chats/all')} data-testid="home-all-chats">
+              {t('jump.allChats')}
+            </button>
+          )}
           {examplesOn && examplesGone && (
             <button type="button" className="home-ghost" onClick={() => setEditLayout(n => n + 1)} data-testid="home-customise">
               {tw('discovery.home.customise')}

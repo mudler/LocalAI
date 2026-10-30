@@ -213,5 +213,13 @@
     "showAll_other": "Tampilkan semua {{count}} baris",
     "details": "Tampilkan detail",
     "openFile": "Buka {{path}} di File"
+  },
+  "allChats": {
+    "title": "Semua obrolan",
+    "supporting": "Semua obrolan yang disimpan. Cari, ganti nama, ekspor, atau hapus.",
+    "loadFailed": "Tidak dapat memuat obrolan Anda.",
+    "emptyTitle": "Belum ada obrolan",
+    "emptyBody": "Obrolan dimulai di Beranda: ketik pesan lalu kirim. Setelah itu obrolan Anda tercantum di sini.",
+    "start": "Mulai obrolan"
   }
 }

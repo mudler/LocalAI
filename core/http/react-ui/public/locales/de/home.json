@@ -109,7 +109,8 @@
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
     "operate": "Verwaltung",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "Alle Chats"
   },
   "slash": {
     "agents": {

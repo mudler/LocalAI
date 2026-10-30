@@ -211,5 +211,13 @@
     "showAll_other": "Afficher les {{count}} lignes",
     "details": "Afficher les détails",
     "openFile": "Ouvrir {{path}} dans Fichiers"
+  },
+  "allChats": {
+    "title": "Toutes les conversations",
+    "supporting": "Toutes vos conversations. Recherchez, renommez, exportez ou supprimez-les.",
+    "loadFailed": "Impossible de charger vos conversations.",
+    "emptyTitle": "Aucune conversation",
+    "emptyBody": "Une conversation commence sur l'accueil : écrivez un message et envoyez-le. Vos conversations s'affichent ensuite ici.",
+    "start": "Commencer une conversation"
   }
 }

@@ -213,5 +213,13 @@
     "showAll_other": "Mostra tutte le {{count}} righe",
     "details": "Mostra dettagli",
     "openFile": "Apri {{path}} in File"
+  },
+  "allChats": {
+    "title": "Tutte le chat",
+    "supporting": "Tutte le chat salvate. Cerca, rinomina, esporta o elimina.",
+    "loadFailed": "Impossibile caricare le tue chat.",
+    "emptyTitle": "Ancora nessuna chat",
+    "emptyBody": "Una chat inizia dalla Home: scrivi un messaggio e invialo. Poi le tue chat sono elencate qui.",
+    "start": "Inizia una chat"
   }
 }

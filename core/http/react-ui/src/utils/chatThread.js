@@ -143,3 +143,20 @@ export function artifactSource(messages) {
   }
   return out
 }
+
+// The server writes the export file and names it; the link downloads it.
+export function downloadFrom(url) {
+  const a = document.createElement('a')
+  a.href = url
+  a.download = ''
+  a.click()
+}
+
+// The chat of an export file (GET /api/chats/<id>/export?format=json), or
+// null when the text is not one. The file holds { chat } or the chat itself.
+export function chatFromExport(text) {
+  let data
+  try { data = JSON.parse(text) } catch { return null }
+  const exported = data && typeof data === 'object' && data.chat ? data.chat : data
+  return exported && Array.isArray(exported.messages) ? exported : null
+}
