@@ -8,7 +8,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
-import AnswerFields, { answerSummary } from './AnswerFields'
+import AnswerFields, { answerSummary, answerT } from './AnswerFields'
+import { Check, Field, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
 import { agentsApi, connectorsApi } from './api'
 import { canSave, connectorPayload, emptyConnector, listEntries, replaceList, senderLine } from './connector'
@@ -21,7 +22,7 @@ function Senders({ id, onAllowed, t }) {
     connectorsApi.senders(id).then((r) => setList(r.senders || [])).catch((e) => setError(e?.message || ''))
   }, [id])
   useEffect(() => { load() }, [load])
-  if (error) return <p className="cn-error" role="alert">{error}</p>
+  if (error) return <Notice tone="error" role="alert">{error}</Notice>
   if (list === null) return null
   if (list.length === 0) return <p className="cn-muted">{t('noSenders')}</p>
   return (
@@ -31,7 +32,7 @@ function Senders({ id, onAllowed, t }) {
           <span className={`cn-status cn-status--${s.allowed ? 'done' : 'skipped'}`}>{s.allowed ? t('accepted') : t('ignored')}</span>
           <span>{senderLine(s)}</span>
           {!s.allowed && (
-            <button type="button" className="btn btn-secondary btn-sm"
+            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
               onClick={async () => {
                 setError('')
                 try { await connectorsApi.allow(id, s.id); load(); onAllowed() } catch (e) { setError(e?.message || '') }
@@ -46,12 +47,12 @@ function Senders({ id, onAllowed, t }) {
 // The default fields of a token: one password field.
 function SingleToken({ form, setForm, t }) {
   return (
-    <label className="cn-field">
-      <span>{t('token')}</span>
-      <input className="input" type="password" autoComplete="off" value={form.token || ''} required={!form.id}
-        placeholder={form.id ? t('tokenSaved') : ''} onChange={(e) => setForm({ ...form, token: e.target.value })} />
-      <span className="cn-muted">{t('tokenHelp')}</span>
-    </label>
+    <Field label={t('token')} hint={t('tokenHelp')}>
+      {(p) => (
+        <TextInput {...p} mono type="password" autoComplete="off" value={form.token || ''} required={!form.id}
+          placeholder={form.id ? t('tokenSaved') : ''} onChange={(e) => setForm({ ...form, token: e.target.value })} />
+      )}
+    </Field>
   )
 }
 
@@ -130,8 +131,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   if (off) {
     return (
       <div className="cn-page" data-testid={testId}>
-        <h1 className="page-title cn-title">{t('title')}</h1>
-        <div className="cn-notice" role="note">{off}</div>
+        <h1 className="cn-title">{t('title')}</h1>
+        <Notice tone="info" role="note">{off}</Notice>
       </div>
     )
   }
@@ -139,8 +140,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   return (
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
-        <h1 className="page-title cn-title">{t('title')}</h1>
-        <button type="button" className="btn btn-primary btn-sm" onClick={() => open(emptyConnector())}>
+        <h1 className="cn-title">{t('title')}</h1>
+        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open(emptyConnector())}>
           <Icon name="plus" /> {t('new')}
         </button>
       </header>
@@ -148,64 +149,65 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       {Help && <Help t={t} />}
 
       {error && (
-        <div className="cn-error" role="alert">
+        <Notice tone="error" role="alert">
           <span>{error}</span>
-          <button type="button" className="cn-link" onClick={() => setError('')}>×</button>
-        </div>
+          <button type="button" className="cn-link" aria-label={t('dismiss', { defaultValue: 'Dismiss' })} onClick={() => setError('')}>×</button>
+        </Notice>
       )}
-      {note && <p className="cn-muted" role="status">{note}</p>}
+      {note && <Notice tone="ok" role="status">{note}</Notice>}
 
       {form && (
-        <form className="cn-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')}>
-          <label className="cn-field">
-            <span>{t('name')}</span>
-            <input className="input" value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </label>
-          <TokenFields form={form} setForm={setForm} t={t} />
-          <label className="cn-field">
-            <span>{t('agent')}</span>
-            <select className="input" aria-label={t('agent')} value={form.agent_id} required onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
-              <option value="">{t('agentNone')}</option>
-              {agents.map((a) => (
-                <option key={a.id} value={a.id} disabled={!a.model}>{a.model ? a.name : t('agentNoModel', { name: a.name })}</option>
+        <div className="cn-formgrid">
+          <form className="cn-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')}>
+            <Field label={t('name')}>
+              {(p) => <TextInput {...p} value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />}
+            </Field>
+            <TokenFields form={form} setForm={setForm} t={t} />
+            <Field label={t('agent')}>
+              {(p) => (
+                <Select {...p} aria-label={t('agent')} value={form.agent_id} required onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
+                  <option value="">{t('agentNone')}</option>
+                  {agents.map((a) => (
+                    <option key={a.id} value={a.id} disabled={!a.model}>{a.model ? a.name : t('agentNoModel', { name: a.name })}</option>
+                  ))}
+                </Select>
+              )}
+            </Field>
+            <fieldset className="cn-group">
+              <legend>{t('who')}</legend>
+              <RadioCards name="who" legend={t('who')} value={form.accept_any} onChange={(any) => { setForm({ ...form, accept_any: any }); if (!any) setConfirmed(false) }}
+                options={[{ value: false, label: t('onlyListed') }, { value: true, label: t('anyone') }]} />
+              {form.accept_any && (
+                <Notice tone="warn" role="alert" testId="anyone-warning">
+                  <p className="cn-notice__text">{t('anyoneWarning')}</p>
+                  <Check checked={confirmed} onChange={setConfirmed}>{t('anyoneConfirm')}</Check>
+                </Notice>
+              )}
+              {!form.accept_any && lists.map((l, i) => (
+                <NameList key={l.key} label={t(l.label)} hint={t(l.hint)} value={listEntries(form.allow, lists, i)} addLabel={answerT(t)('add')}
+                  onChange={(v) => setForm({ ...form, allow: replaceList(form.allow, lists, i, v) })} testId={l.testId} />
               ))}
-            </select>
-          </label>
-          <fieldset className="cn-field">
-            <legend>{t('who')}</legend>
-            <label className="cn-radio">
-              <input type="radio" name="who" checked={!form.accept_any} onChange={() => { setForm({ ...form, accept_any: false }); setConfirmed(false) }} />
-              <span>{t('onlyListed')}</span>
-            </label>
-            <label className="cn-radio">
-              <input type="radio" name="who" checked={form.accept_any} onChange={() => setForm({ ...form, accept_any: true })} />
-              <span>{t('anyone')}</span>
-            </label>
-          </fieldset>
-          {form.accept_any && (
-            <div className="cn-error cn-warning" role="alert" data-testid="anyone-warning">
-              <span>{t('anyoneWarning')}</span>
-              <label className="cn-radio">
-                <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-                <span>{t('anyoneConfirm')}</span>
-              </label>
+            </fieldset>
+            <Field label={t('notifyChat')} hint={t('notifyHelp')} optional>
+              {(p) => <TextInput {...p} mono inputMode={notifyMode} value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />}
+            </Field>
+            <AnswerFields form={form} setForm={setForm} t={t} />
+            <div className="cn-actions">
+              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()))}>{t('save')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setForm(null)}>{t('cancel')}</button>
             </div>
-          )}
-          {!form.accept_any && lists.map((l, i) => (
-            <NameList key={l.key} label={t(l.label)} hint={t(l.hint)} value={listEntries(form.allow, lists, i)}
-              onChange={(v) => setForm({ ...form, allow: replaceList(form.allow, lists, i, v) })} testId={l.testId} />
-          ))}
-          <label className="cn-field">
-            <span>{t('notifyChat')}</span>
-            <input className="input" inputMode={notifyMode} value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />
-            <span className="cn-muted">{t('notifyHelp')}</span>
-          </label>
-          <AnswerFields form={form} setForm={setForm} t={t} />
-          <div className="cn-actions">
-            <button type="submit" className="btn btn-primary btn-sm" disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()))}>{t('save')}</button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setForm(null)}>{t('cancel')}</button>
-          </div>
-        </form>
+          </form>
+          <aside className="cn-aside" aria-label={answerT(t)('aside.title')}>
+            <h2 className="cn-aside__title">{answerT(t)('aside.title')}</h2>
+            <ol className="cn-aside__steps">
+              <li>{answerT(t)('aside.step1')}</li>
+              <li>{answerT(t)('aside.step2')}</li>
+              <li>{answerT(t)('aside.step3')}</li>
+            </ol>
+            <h2 className="cn-aside__title">{answerT(t)('aside.testTitle')}</h2>
+            <p className="cn-muted">{answerT(t)('aside.testText')}</p>
+          </aside>
+        </div>
       )}
 
       <ul className="cn-list">
@@ -223,22 +225,18 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               {openSenders === c.id && <Senders id={c.id} onAllowed={load} t={t} />}
             </div>
             <span className="cn-row__actions">
-              <label className="cn-radio">
-                <input type="checkbox" checked={c.enabled} aria-label={t('onFor', { name: c.name })}
-                  onChange={(e) => {
-                    const on = e.target.checked
-                    setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
-                    act(() => (on ? connectorsApi.enable(c.id) : connectorsApi.disable(c.id)))
-                  }} />
-                <span>{t('on')}</span>
-              </label>
-              <button type="button" className="btn btn-secondary btn-sm"
+              <Switch checked={c.enabled} label={t('onFor', { name: c.name })}
+                onChange={(on) => {
+                  setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
+                  act(() => (on ? connectorsApi.enable(c.id) : connectorsApi.disable(c.id)))
+                }} />
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
                 onClick={async () => { setError(''); try { const r = await connectorsApi.test(c.id); setNote(t('testOk', { bot: r.bot_username })) } catch (e) { fail(e) } }}>
                 {t('test')}
               </button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => open({ ...emptyConnector(), ...c, token: '' })}>{t('editButton')}</button>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setToDelete(c)}>{t('delete')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open({ ...emptyConnector(), ...c, token: '' })}>{t('editButton')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setToDelete(c)}>{t('delete')}</button>
             </span>
           </li>
         ))}

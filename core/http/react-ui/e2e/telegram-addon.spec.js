@@ -85,7 +85,7 @@ test.describe('Telegram add-on', () => {
     const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: [], has_token: true }])
     await a.install()
     await page.goto(PAGE)
-    await page.getByRole('checkbox', { name: 'Support bot on' }).uncheck()
+    await page.getByRole('switch', { name: 'Support bot on' }).uncheck()
     await expect.poll(() => a.s.calls.some(c => c.url.endsWith('/disable'))).toBe(true)
     // Deleting asks first, and says the bot token goes with it.
     await page.getByTestId('connector-row').getByRole('button', { name: 'Delete' }).click()

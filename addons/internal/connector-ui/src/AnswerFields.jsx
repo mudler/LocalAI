@@ -3,6 +3,7 @@
 // while the agent works, which chat a message belongs to, and whether the
 // files of a turn go out. The words are the same on every platform, so they
 // live here as defaults; an add-on can still change one in its namespace.
+import { Field, Hint, Select, Switch, TextInput } from './controls'
 import { CONVERSATIONS, MAX_WINDOW_MINUTES, REPLY_MODES } from './connector'
 
 export const ANSWER_TEXT = {
@@ -18,7 +19,17 @@ export const ANSWER_TEXT = {
   'answer.conversation.window': 'Per person, new after a quiet time',
   'answer.conversation.thread': 'New chat per message; replies go on',
   'answer.window': 'Quiet time, in minutes',
+  'answer.windowRange': 'Use a whole number from 1 to {{max}}.',
   'answer.files': 'Send the files the agent makes',
+  'aside.title': 'How it works',
+  'aside.step1': 'Give the connection a name and its token. The token is sealed and never shown again.',
+  'aside.step2': 'Pick the agent that answers. It needs a model.',
+  'aside.step3': 'Choose who may write to it, and how it answers.',
+  'aside.testTitle': 'Test the connection',
+  'aside.testText': 'When you save a new token, LocalAI checks it and names the account it belongs to. Use Test on a saved row to check it again.',
+  'add': 'Add',
+  'more': 'More',
+  'less': 'Less',
   'answer.filesHelp': 'After the answer, up to 5 files of at most 1 MB each. Programs and scripts are not sent.',
   'answer.summary': 'Answers: {{reply}} · {{conversation}}',
   'answer.short.off': 'typing',
@@ -46,37 +57,42 @@ export function answerSummary(c, t) {
 
 export default function AnswerFields({ form, setForm, t }) {
   const s = answerT(t)
+  const m = Number(form.window_minutes)
+  const windowBad = form.conversation === 'window' && (!Number.isInteger(m) || m < 1 || m > MAX_WINDOW_MINUTES)
   return (
-    <fieldset className="cn-field cn-answer" data-testid="connector-answer">
+    <fieldset className="cn-group" data-testid="connector-answer">
       <legend>{s('answer.title')}</legend>
-      <label className="cn-field">
-        <span>{s('answer.replyLabel')}</span>
-        <select className="input" data-testid="connector-reply" value={form.reply_mode || 'progress'}
-          onChange={(e) => setForm({ ...form, reply_mode: e.target.value })}>
-          {REPLY_MODES.map((m) => <option key={m} value={m}>{s(`answer.reply.${m}`)}</option>)}
-        </select>
-        <span className="cn-muted">{s('answer.replyHelp')}</span>
-      </label>
-      <label className="cn-field">
-        <span>{s('answer.conversationLabel')}</span>
-        <select className="input" data-testid="connector-conversation" value={form.conversation || 'sender'}
-          onChange={(e) => setForm({ ...form, conversation: e.target.value })}>
-          {CONVERSATIONS.map((m) => <option key={m} value={m}>{s(`answer.conversation.${m}`)}</option>)}
-        </select>
-      </label>
+      <Field label={s('answer.replyLabel')} hint={s('answer.replyHelp')}>
+        {(p) => (
+          <Select {...p} data-testid="connector-reply" value={form.reply_mode || 'progress'}
+            onChange={(e) => setForm({ ...form, reply_mode: e.target.value })}>
+            {REPLY_MODES.map((x) => <option key={x} value={x}>{s(`answer.reply.${x}`)}</option>)}
+          </Select>
+        )}
+      </Field>
+      <Field label={s('answer.conversationLabel')}>
+        {(p) => (
+          <Select {...p} data-testid="connector-conversation" value={form.conversation || 'sender'}
+            onChange={(e) => setForm({ ...form, conversation: e.target.value })}>
+            {CONVERSATIONS.map((x) => <option key={x} value={x}>{s(`answer.conversation.${x}`)}</option>)}
+          </Select>
+        )}
+      </Field>
       {form.conversation === 'window' && (
-        <label className="cn-field cn-answer__window">
-          <span>{s('answer.window')}</span>
-          <input className="input" type="number" inputMode="numeric" min={1} max={MAX_WINDOW_MINUTES} required data-testid="connector-window"
-            value={form.window_minutes ?? ''} onChange={(e) => setForm({ ...form, window_minutes: e.target.value === '' ? '' : Number(e.target.value) })} />
-        </label>
+        <Field label={s('answer.window')} className="cn-answer__window"
+          error={windowBad ? s('answer.windowRange', { max: MAX_WINDOW_MINUTES }) : undefined}>
+          {(p) => (
+            <TextInput {...p} type="number" inputMode="numeric" min={1} max={MAX_WINDOW_MINUTES} required data-testid="connector-window"
+              value={form.window_minutes ?? ''} onChange={(e) => setForm({ ...form, window_minutes: e.target.value === '' ? '' : Number(e.target.value) })} />
+          )}
+        </Field>
       )}
-      <label className="cn-radio">
-        <input type="checkbox" data-testid="connector-files" checked={form.send_files !== false}
-          onChange={(e) => setForm({ ...form, send_files: e.target.checked })} />
-        <span>{s('answer.files')}</span>
-      </label>
-      <span className="cn-muted">{s('answer.filesHelp')}</span>
+      <div className="cn-switchfield">
+        <Switch testId="connector-files" checked={form.send_files !== false} onChange={(on) => setForm({ ...form, send_files: on })}>
+          {s('answer.files')}
+        </Switch>
+        <Hint>{s('answer.filesHelp')}</Hint>
+      </div>
     </fieldset>
   )
 }
