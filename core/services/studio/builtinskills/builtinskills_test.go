@@ -3,7 +3,9 @@ package builtinskills_test
 import (
 	"context"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
-var names = []string{"docx", "xlsx", "pptx", "pdf", "writing-skills", "localai-workspace"}
+var names = []string{"docx", "xlsx", "pptx", "pdf", "writing-skills", "localai-workspace", "localai-apps"}
 
 var _ = Describe("the built-in skills", func() {
 	It("parses every built-in skill", func() {
@@ -97,6 +99,78 @@ var _ = Describe("the built-in skills", func() {
 		}
 		for _, n := range names {
 			Expect(have).To(HaveKey(n), "the built-in skill %s is not found by a user", n)
+		}
+	})
+})
+
+// The calls that the Pages bridge offers to a page, from
+// core/http/react-ui/src/utils/pagesBridge.js (the object api in BOOTSTRAP).
+// The test below reads that file, so a change of the bridge fails here.
+var bridgeCalls = []string{"files.read", "files.write", "files.list", "chat.send", "on", "page"}
+
+var apiRE = regexp.MustCompile(`localai\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)`)
+
+var _ = Describe("the localai-apps skill", func() {
+	var skill string
+
+	BeforeEach(func() {
+		data, err := fs.ReadFile(builtinskills.FS(), "localai-apps/SKILL.md")
+		Expect(err).NotTo(HaveOccurred())
+		skill = string(data)
+	})
+
+	It("has a description that triggers on what a user calls an app", func() {
+		_, desc, err := skills.Parse([]byte(skill))
+		Expect(err).NotTo(HaveOccurred())
+		for _, w := range []string{"app", "tool", "tracker", "dashboard", "form", "game", "calculator", "planner", "Page"} {
+			Expect(desc).To(ContainSubstring(w))
+		}
+	})
+
+	It("stays short and has no marketing", func() {
+		Expect(strings.Count(skill, "\n")).To(BeNumerically("<", 250))
+	})
+
+	It("leaves the personalisation skill about personalisation and points to the apps skill", func() {
+		data, err := fs.ReadFile(builtinskills.FS(), "localai-workspace/SKILL.md")
+		Expect(err).NotTo(HaveOccurred())
+		_, desc, err := skills.Parse(data)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(desc).To(ContainSubstring("localai-apps"))
+		Expect(desc).NotTo(ContainSubstring("pages,"))
+	})
+
+	It("uses only calls that the Pages bridge has", func() {
+		src, err := os.ReadFile(filepath.Join("..", "..", "..", "http", "react-ui", "src", "utils", "pagesBridge.js"))
+		Expect(err).NotTo(HaveOccurred())
+		bridge := string(src)
+		// Every call in the list is defined in the bridge source.
+		for _, c := range bridgeCalls {
+			switch c {
+			case "on", "page":
+				Expect(bridge).To(MatchRegexp(`\b`+c+`:`), "the bridge has no %q", c)
+			default:
+				parent, name, _ := strings.Cut(c, ".")
+				Expect(bridge).To(MatchRegexp(`\b`+name+`: function`), "the bridge has no %q", c)
+				Expect(bridge).To(ContainSubstring(parent+": Object.freeze"), "the bridge has no %q", c)
+			}
+		}
+		used := apiRE.FindAllStringSubmatch(skill, -1)
+		Expect(used).NotTo(BeEmpty())
+		for _, m := range used {
+			Expect(bridgeCalls).To(ContainElement(m[1]), "the skill uses localai.%s, which the bridge does not have", m[1])
+		}
+		for _, ev := range regexp.MustCompile(`localai\.on\('([^']+)'`).FindAllStringSubmatch(skill, -1) {
+			Expect(bridge).To(ContainSubstring("'" + ev[1] + "': []"))
+		}
+	})
+
+	It("keeps the example page inside the sandbox policy", func() {
+		for _, bad := range []string{"fetch(", "XMLHttpRequest", "WebSocket(", "localStorage.", "<form", "https://", "http://", "innerHTML"} {
+			// The rules section names them; the example must not use them.
+			example := skill[strings.Index(skill, "## Example"):]
+			example = example[:strings.Index(example, "## After you write it")]
+			Expect(example).NotTo(ContainSubstring(bad), "the example uses %q", bad)
 		}
 	})
 })

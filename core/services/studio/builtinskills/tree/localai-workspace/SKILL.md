@@ -1,6 +1,6 @@
 ---
 name: localai-workspace
-description: Use to personalise LocalAI for the user - persona, profile, shortcuts, Home widgets, pages, theme, and updates on a schedule.
+description: Use to personalise LocalAI for the user - persona, profile, shortcuts, Home widgets, theme, and updates on a schedule. To build an app or a tool as a page, use localai-apps.
 ---
 
 # Make LocalAI theirs
@@ -20,7 +20,7 @@ Rules:
 - Change only the keys the user asked for. Read the file first and keep every other key.
 - Keep files small (at most 64 KiB). Use 2-space indentation.
 - After a change, tell the user in one line what changed and where ("Saved to `shortcuts.json`. It shows above the composer.").
-- A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`. After you make one, say it is in Pages, in the sidebar.
+- A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`. To build one, use the `localai-apps` skill.
 
 ## Widget data
 

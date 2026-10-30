@@ -1,6 +1,6 @@
 // Package builtinskills holds the skills that ship with the server: the office
-// skills docx, xlsx, pptx and pdf, writing-skills and localai-workspace. The
-// tree is embedded in the binary and written into the built-in layer when the
+// skills docx, xlsx, pptx and pdf, writing-skills, localai-workspace and localai-apps.
+// The tree is embedded in the binary and written into the built-in layer when the
 // server starts. The
 // office skills are adapted from the Feather project (MIT); the NOTICE file in
 // the tree keeps its source and licence, and must stay with them.
