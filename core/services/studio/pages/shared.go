@@ -77,7 +77,7 @@ func (s *Service) writable(ctx context.Context, a workspace.Actor, p string) boo
 }
 
 func validPrincipal(p string) bool {
-	return p != "" && p != workspace.StudioAdmin && !strings.ContainsAny(p, "/\\\x00") && p != "." && p != ".."
+	return p != "" && p != workspace.StudioAdmin && p != files.EveryoneGroup && !strings.ContainsAny(p, "/\\\x00") && p != "." && p != ".."
 }
 
 // sharedLoc finds the shared folder folderID of the viewer and the page name

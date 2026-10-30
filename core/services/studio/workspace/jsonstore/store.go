@@ -79,7 +79,10 @@ type Store struct {
 	compactAt int64
 }
 
-var _ workspace.Store = (*Store)(nil)
+var (
+	_ workspace.Store       = (*Store)(nil)
+	_ workspace.GrantLister = (*Store)(nil)
+)
 
 var (
 	openMu   sync.Mutex

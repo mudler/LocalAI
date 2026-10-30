@@ -303,5 +303,66 @@
       "learn": "Veja o que você pode mudar:",
       "dismissedNone": "Nada ainda. Quando você responde a uma proposta, o assistente lembra aqui."
     }
+  },
+  "tabs": {
+    "shared": "Compartilhado"
+  },
+  "shared": {
+    "adminTitle": "Pastas compartilhadas",
+    "adminLede": "Pastas que várias pessoas usam. Os membros abrem as páginas delas, e os chats deles podem ler ou editar os arquivos.",
+    "userTitle": "Compartilhado com você",
+    "userLede": "Pastas que um administrador compartilhou com você. As páginas estão em Páginas, e seus chats podem usar os arquivos.",
+    "new": "Nova pasta compartilhada",
+    "nameLabel": "Nome da pasta",
+    "nameHint": "Até 64 letras, dígitos, espaços, pontos, hifens ou sublinhados. Comece com uma letra ou um dígito.",
+    "create": "Criar",
+    "cancel": "Cancelar",
+    "rename": "Renomear",
+    "renameSave": "Salvar",
+    "remove": "Remover",
+    "manage": "Membros",
+    "menu": "Mais ações para {{name}}",
+    "pages_one": "{{count}} página",
+    "pages_other": "{{count}} páginas",
+    "pagesNone": "Nenhuma página",
+    "people_one": "{{count}} pessoa",
+    "people_other": "{{count}} pessoas",
+    "membersNone": "Nenhum membro",
+    "everyone": "Todos",
+    "everyoneOption": "Todos (todos os usuários)",
+    "everyoneHint": "Todos os usuários, inclusive os que entrarem depois",
+    "everyoneCan": {
+      "read": "Todos podem ler",
+      "write": "Todos podem editar"
+    },
+    "mode": {
+      "read": "Pode ler",
+      "write": "Pode editar"
+    },
+    "addTitle": "Adicionar um membro",
+    "person": "Pessoa",
+    "access": "Acesso",
+    "accessFor": "Acesso de {{name}}",
+    "add": "Adicionar",
+    "allAdded": "Todos já são membros.",
+    "usersUnavailable": "Não foi possível carregar a lista de usuários. Você ainda pode adicionar Todos.",
+    "membersTitle": "Membros",
+    "noMembers": "Ninguém pode usar esta pasta ainda. Adicione uma pessoa ou Todos.",
+    "removeMember": "Remover {{name}}",
+    "paneNote": "A mudança vale na hora. Um chat aberto a vê na próxima vez que for aberto.",
+    "created": "“{{name}}” criada. Adicione as pessoas que podem usá-la.",
+    "removed": "“{{name}}” removida. As páginas dela pedem permissão de novo antes de rodar.",
+    "restored": "“{{name}}” voltou, com seus membros.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} não pode mais usar “{{folder}}”.",
+    "failed": "Não concluído: {{message}}",
+    "loadFailed": "Não foi possível carregar as pastas compartilhadas.",
+    "emptyAdminTitle": "Ainda não há pastas compartilhadas",
+    "emptyAdminBody": "Uma pasta compartilhada guarda arquivos e páginas que outras pessoas podem ler ou editar. Crie uma e depois adicione membros.",
+    "factMembers": "Dê a uma pessoa ou a todos acesso de leitura ou edição",
+    "factChats": "Os chats dos membros veem os arquivos da pasta",
+    "factUndo": "Remover uma pasta pode ser desfeito",
+    "emptyUserTitle": "Ainda não há nada compartilhado com você",
+    "emptyUserBody": "Quando um administrador compartilhar uma pasta com você, ela aparece aqui e as páginas dela em Páginas."
   }
 }

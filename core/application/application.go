@@ -54,6 +54,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
@@ -778,6 +779,14 @@ func (a *Application) start() (startErr error) {
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
+		// The chats start after the assistant, so the shared folder tools
+		// look the service up at each call.
+		assistantClient.SharedFolders = func() *sharedfolders.Service {
+			if svc := a.StudioService(); svc != nil {
+				return svc.SharedFolders()
+			}
+			return nil
+		}
 		if a.backendLibrary != nil {
 			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
 		}

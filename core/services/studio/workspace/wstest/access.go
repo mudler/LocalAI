@@ -205,3 +205,50 @@ func describeReadablePrefixes(newStore NewStore) {
 		})
 	})
 }
+
+func describeGrants(newStore NewStore) {
+	Describe("Grants", func() {
+		lister := func(s workspace.Store) workspace.GrantLister {
+			GinkgoHelper()
+			g, ok := s.(workspace.GrantLister)
+			Expect(ok).To(BeTrue(), "the store lists grants")
+			return g
+		}
+		It("lists the grants on the folder itself, sorted, and follows grant and revoke", func() {
+			s := newStore()
+			setupAccess(s)
+			MustPut(s, AdminActor, "/shared/sub/c.txt", "c")
+			g := lister(s)
+			got, err := g.Grants(Ctx(), AdminActor, "/shared")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(BeEmpty())
+			Expect(s.Grant(Ctx(), AdminActor, Bob.Principal, "/shared", workspace.ModeWrite)).To(Succeed())
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			Expect(s.Grant(Ctx(), AdminActor, "group:office", "/shared/sub", workspace.ModeRead)).To(Succeed())
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/", workspace.ModeRead)).To(Succeed())
+			got, err = g.Grants(Ctx(), AdminActor, "/shared")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal([]workspace.Grant{{Principal: Alice.Principal, Mode: workspace.ModeRead}, {Principal: Bob.Principal, Mode: workspace.ModeWrite}}))
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeWrite)).To(Succeed())
+			Expect(s.Revoke(Ctx(), AdminActor, Bob.Principal, "/shared")).To(Succeed())
+			got, err = g.Grants(Ctx(), AdminActor, "/shared")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(got).To(Equal([]workspace.Grant{{Principal: Alice.Principal, Mode: workspace.ModeWrite}}))
+		})
+		It("is for the admin, on a live folder", func() {
+			s := newStore()
+			setupAccess(s)
+			g := lister(s)
+			Expect(s.Grant(Ctx(), AdminActor, Alice.Principal, "/shared", workspace.ModeRead)).To(Succeed())
+			_, err := g.Grants(Ctx(), Alice, "/shared")
+			Expect(err).To(MatchError(workspace.ErrNotAdmin))
+			_, err = g.Grants(Ctx(), AdminActor, "/shared/a.txt")
+			Expect(err).To(MatchError(workspace.ErrInvalid))
+			_, err = g.Grants(Ctx(), AdminActor, "/nope")
+			Expect(err).To(MatchError(workspace.ErrNotFound))
+			Expect(s.Delete(Ctx(), AdminActor, "/shared")).To(Succeed())
+			_, err = g.Grants(Ctx(), AdminActor, "/shared")
+			Expect(err).To(MatchError(workspace.ErrNotFound), "a deleted folder")
+		})
+	})
+}

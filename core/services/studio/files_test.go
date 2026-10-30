@@ -56,6 +56,25 @@ var _ = Describe("files", func() {
 		Expect(err).To(MatchError(workspace.ErrNotFound), "another user sees the home: %v", err)
 	})
 
+	It("a chat mounts the folders shared with its owner, with the mode of the grant", func() {
+		ctx := context.Background()
+		f := newFiles()
+		h := studiotest.NewGateHarness()
+		svc := newServiceWithFiles(h, f)
+		team, err := svc.SharedFolders().Create(ctx, "", "Team")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = svc.SharedFolders().SetMember(ctx, "", team.ID, files.EveryoneGroup, workspace.ModeRead)
+		Expect(err).NotTo(HaveOccurred())
+		id := create(svc, alice)
+		sent(svc, alice, id, "hi")
+		until("the turn to start", func() bool { return len(h.Sent()) == 1 })
+		h.Gate <- struct{}{}
+		idle(svc, alice, id)
+		env := h.Env()
+		Expect(env.Actor.Groups).To(ContainElement(files.EveryoneGroup))
+		Expect(env.SystemPrompt).To(ContainSubstring("/workspace/shared-Team: a folder shared with the user (read only)"))
+	})
+
 	It("a chat works without files", func() {
 		h := studiotest.NewGateHarness()
 		svc := newServiceWithFiles(h, files.Disabled("off for this test"))

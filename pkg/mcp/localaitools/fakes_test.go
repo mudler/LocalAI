@@ -439,3 +439,43 @@ func (f *fakeClient) UnpinFailoverTarget(_ context.Context, chain string) error 
 	}
 	return nil
 }
+
+func (f *fakeClient) ListSharedFolders(_ context.Context) ([]SharedFolder, error) {
+	f.record("ListSharedFolders", nil)
+	return []SharedFolder{}, nil
+}
+
+func (f *fakeClient) CreateSharedFolder(_ context.Context, name string) (*SharedFolder, error) {
+	f.record("CreateSharedFolder", name)
+	return &SharedFolder{ID: 1, Name: name, Path: "/shared/" + name}, nil
+}
+
+func (f *fakeClient) RenameSharedFolder(_ context.Context, id int64, name string) (*SharedFolder, error) {
+	f.record("RenameSharedFolder", []any{id, name})
+	return &SharedFolder{ID: id, Name: name, Path: "/shared/" + name}, nil
+}
+
+func (f *fakeClient) DeleteSharedFolder(_ context.Context, id int64) (*SharedFolderRemoved, error) {
+	f.record("DeleteSharedFolder", id)
+	return &SharedFolderRemoved{Folder: SharedFolder{ID: id}, UndoRev: 9}, nil
+}
+
+func (f *fakeClient) RestoreSharedFolder(_ context.Context, rev int64) (*SharedFolder, error) {
+	f.record("RestoreSharedFolder", rev)
+	return &SharedFolder{ID: 1}, nil
+}
+
+func (f *fakeClient) SetSharedFolderMember(_ context.Context, id int64, member, mode string) (*SharedFolder, error) {
+	f.record("SetSharedFolderMember", []any{id, member, mode})
+	return &SharedFolder{ID: id}, nil
+}
+
+func (f *fakeClient) RemoveSharedFolderMember(_ context.Context, id int64, member string) (*SharedFolder, error) {
+	f.record("RemoveSharedFolderMember", []any{id, member})
+	return &SharedFolder{ID: id}, nil
+}
+
+func (f *fakeClient) ListSharedFolderEvents(_ context.Context, limit int) ([]SharedFolderEvent, error) {
+	f.record("ListSharedFolderEvents", limit)
+	return []SharedFolderEvent{}, nil
+}

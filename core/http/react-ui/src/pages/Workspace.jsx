@@ -6,6 +6,7 @@ import Icon from '../components/Icon'
 import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { filesApi } from '../utils/api'
 import FilePreview from '../components/files/FilePreview'
+import SharedFolders from '../components/files/SharedFolders'
 import { fileSize as size } from '../utils/fileInfo'
 import './workspace.css'
 
@@ -118,7 +119,7 @@ export default function Workspace() {
   // ?path= opens a folder, for example from "Show its files" of a page.
   const [params] = useSearchParams()
   const ws = useWorkspace(params.get('path') || '/')
-  const [tab, setTab] = useState('files')
+  const [tab, setTab] = useState(params.get('tab') === 'shared' ? 'shared' : 'files')
   const [selected, setSelected] = useState(null)
   const [dragging, setDragging] = useState(false)
   const [folderName, setFolderName] = useState(null)
@@ -200,7 +201,7 @@ export default function Workspace() {
         ) : (
           <>
             <div className="ws-tabs" role="tablist" aria-label={t('tabs.label')}>
-              {['files', 'trash', 'history'].map((k) => (
+              {['files', 'trash', 'history', 'shared'].map((k) => (
                 <button
                   key={k} type="button" role="tab" aria-selected={tab === k} id={`ws-tab-${k}`}
                   className={`ws-tab${tab === k ? ' ws-tab--on' : ''}`} onClick={() => setTab(k)}
@@ -248,6 +249,7 @@ export default function Workspace() {
             )}
             {tab === 'trash' && <TrashList ws={ws} t={t} />}
             {tab === 'history' && <HistoryList ws={ws} t={t} />}
+            {tab === 'shared' && <SharedFolders />}
           </>
         )}
       </div>

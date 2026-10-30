@@ -58,8 +58,24 @@ var _ = Describe("the files service", func() {
 
 	It("lets nobody take the admin principal or an unsafe one", func() {
 		f := newFiles()
-		for _, p := range []string{files.AdminPrincipal, "", "a/b", "..", "a\x00b"} {
+		for _, p := range []string{files.AdminPrincipal, files.EveryoneGroup, "", "a/b", "..", "a\x00b"} {
 			Expect(f.EnsureHome(context.Background(), p)).NotTo(Succeed(), "EnsureHome(%q) succeeded, want an error", p)
+		}
+	})
+
+	It("puts every user in the everyone group, so one grant reaches them all", func() {
+		ctx := context.Background()
+		f := newFiles()
+		admin := workspace.Actor{Principal: files.AdminPrincipal}
+		_, err := f.Store().Mkdir(ctx, admin, "/shared/all")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.Actor("alice").Groups).To(ConsistOf(files.EveryoneGroup))
+		_, err = f.Store().Stat(ctx, f.Actor("alice"), "/shared/all")
+		Expect(err).To(MatchError(workspace.ErrNotFound), "no grant yet")
+		Expect(f.Store().Grant(ctx, admin, files.EveryoneGroup, "/shared/all", workspace.ModeRead)).To(Succeed())
+		for _, u := range []string{"alice", "bob"} {
+			_, err = f.Store().Stat(ctx, f.Actor(u), "/shared/all")
+			Expect(err).NotTo(HaveOccurred(), u)
 		}
 	})
 

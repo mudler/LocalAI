@@ -71,6 +71,42 @@ var _ = Describe("consent stores", func() {
 			Expect(evs[0].Action).To(Equal("revoke"))
 			Expect(evs[3].Hash).To(Equal("h1"))
 		})
+
+		It(name+": revokes every viewer's consents to a set of pages and audits each one", func() {
+			s := open()
+			for _, c := range []pages.Consent{
+				{Principal: "marta", PageID: 7, Folder: "/shared/team", Name: "standup", Hash: "h1", Kind: pages.ConsentAlways, At: at},
+				{Principal: "sara", PageID: 7, Folder: "/shared/team", Name: "standup", Hash: "h1", Kind: pages.ConsentAlways, At: at},
+				{Principal: "sara", PageID: 8, Folder: "/shared/team", Name: "board", Hash: "h2", Kind: pages.ConsentOnce, Token: "t", At: at, Expires: time.Now().Add(time.Hour)},
+				{Principal: "marta", PageID: 9, Folder: "/shared/other", Name: "keep", Hash: "h3", Kind: pages.ConsentAlways, At: at},
+			} {
+				Expect(s.Put(ctx, c, pages.ConsentEvent{Principal: c.Principal, PageID: c.PageID, Action: "allow", At: at})).To(Succeed())
+			}
+			n, err := s.RevokePages(ctx, []int64{7, 8}, "revoke_folder", at)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(3))
+			for _, k := range []struct {
+				who string
+				id  int64
+			}{{"marta", 7}, {"sara", 7}} {
+				_, ok, _ := s.Always(ctx, k.who, k.id)
+				Expect(ok).To(BeFalse(), k.who)
+			}
+			_, ok, _ := s.Once(ctx, "sara", "t")
+			Expect(ok).To(BeFalse(), "a visit consent goes too")
+			_, ok, _ = s.Always(ctx, "marta", 9)
+			Expect(ok).To(BeTrue(), "another page keeps its consent")
+			evs, err := s.Events(ctx, "", 3)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(evs).To(HaveLen(3))
+			for _, e := range evs {
+				Expect(e.Action).To(Equal("revoke_folder"))
+				Expect(e.Folder).To(Equal("/shared/team"))
+			}
+			n, err = s.RevokePages(ctx, nil, "revoke_folder", at)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(BeZero())
+		})
 	}
 
 	It("file: the consents outlive the process", func() {

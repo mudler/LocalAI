@@ -267,6 +267,22 @@ type RootStore interface {
 	MaterializeRoot(ctx context.Context, v View, dir *os.Root) (int64, error)
 }
 
+// Grant is one grant on a folder: a principal or group and its mode.
+type Grant struct {
+	Principal string
+	Mode      Mode
+}
+
+// GrantLister is a Store that lists the grants on one folder, so an
+// administrator can see who may use it. The stores of this package implement it.
+type GrantLister interface {
+	// Grants returns the grants on the live folder p itself, not the ones on
+	// the folders above or below it, sorted by principal. Only the admin may
+	// call it (ErrNotAdmin). A missing folder is ErrNotFound and a file is
+	// ErrInvalid.
+	Grants(ctx context.Context, admin Actor, p string) ([]Grant, error)
+}
+
 // Tx is an open change set. Use only its methods until Commit or Rollback.
 type Tx interface {
 	Put(ctx context.Context, p string, r io.Reader, o PutOptions) (Node, error)

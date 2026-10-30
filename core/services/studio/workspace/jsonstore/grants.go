@@ -3,6 +3,7 @@ package jsonstore
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -141,4 +142,32 @@ func (s *Store) ReadablePrefixes(ctx context.Context, a workspace.Actor) ([]stri
 		return nil
 	})
 	return out, err
+}
+
+// Grants returns the grants on the live folder p itself, sorted by principal.
+func (s *Store) Grants(ctx context.Context, admin workspace.Actor, p string) ([]workspace.Grant, error) {
+	if !s.isAdmin(admin) {
+		return nil, workspace.ErrNotAdmin
+	}
+	out := []workspace.Grant{}
+	err := s.readLocked(ctx, func(d *data) error {
+		n, err := d.lookupPath(p)
+		if err != nil {
+			return err
+		}
+		if n.Kind != workspace.KindDir {
+			return workspace.ErrInvalid
+		}
+		for k, m := range d.grants {
+			if k.Node == n.ID && m >= workspace.ModeRead {
+				out = append(out, workspace.Grant{Principal: k.Principal, Mode: m})
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	slices.SortFunc(out, func(a, b workspace.Grant) int { return strings.Compare(a.Principal, b.Principal) })
+	return out, nil
 }

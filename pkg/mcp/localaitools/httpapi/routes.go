@@ -3,6 +3,7 @@ package httpapi
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 )
 
 // Route paths for the LocalAI admin REST surface that this client targets.
@@ -37,7 +38,18 @@ const (
 	routeRouterDecisions        = "/api/router/decisions"
 	routeVoiceProfiles          = "/api/voice-profiles"
 	routeFailover               = "/api/failover"
+	routeSharedFolders          = "/api/chats/admin/shared-folders"
+	routeSharedFolderRestore    = "/api/chats/admin/shared-folders/restore"
+	routeSharedFolderEvents     = "/api/chats/admin/shared-folders/events"
 )
+
+func routeSharedFolder(id int64) string {
+	return routeSharedFolders + "/" + strconv.FormatInt(id, 10)
+}
+
+func routeSharedFolderMember(id int64, member string) string {
+	return routeSharedFolder(id) + "/members/" + url.PathEscape(member)
+}
 
 func routeJobStatus(jobID string) string {
 	return "/models/jobs/" + url.PathEscape(jobID)

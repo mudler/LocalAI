@@ -303,5 +303,66 @@
       "learn": "바꿀 수 있는 것 알아보기:",
       "dismissedNone": "아직 없어요. 제안에 답하면 어시스턴트가 여기에 기억해 둬요."
     }
+  },
+  "tabs": {
+    "shared": "공유"
+  },
+  "shared": {
+    "adminTitle": "공유 폴더",
+    "adminLede": "여러 사람이 함께 쓰는 폴더입니다. 멤버는 페이지를 열 수 있고, 멤버의 채팅은 파일을 읽거나 편집할 수 있습니다.",
+    "userTitle": "나와 공유됨",
+    "userLede": "관리자가 나와 공유한 폴더입니다. 페이지는 페이지 메뉴에 있고, 내 채팅에서 파일을 쓸 수 있습니다.",
+    "new": "새 공유 폴더",
+    "nameLabel": "폴더 이름",
+    "nameHint": "글자, 숫자, 공백, 마침표, 하이픈, 밑줄로 최대 64자. 글자나 숫자로 시작하세요.",
+    "create": "만들기",
+    "cancel": "취소",
+    "rename": "이름 바꾸기",
+    "renameSave": "저장",
+    "remove": "제거",
+    "manage": "멤버",
+    "menu": "{{name}}의 다른 작업",
+    "pages_one": "페이지 {{count}}개",
+    "pages_other": "페이지 {{count}}개",
+    "pagesNone": "페이지 없음",
+    "people_one": "{{count}}명",
+    "people_other": "{{count}}명",
+    "membersNone": "멤버 없음",
+    "everyone": "모든 사용자",
+    "everyoneOption": "모든 사용자 (전체)",
+    "everyoneHint": "나중에 가입하는 사용자를 포함한 모든 사용자",
+    "everyoneCan": {
+      "read": "모두 읽기 가능",
+      "write": "모두 편집 가능"
+    },
+    "mode": {
+      "read": "읽기 가능",
+      "write": "편집 가능"
+    },
+    "addTitle": "멤버 추가",
+    "person": "사용자",
+    "access": "권한",
+    "accessFor": "{{name}}의 권한",
+    "add": "추가",
+    "allAdded": "모두 이미 멤버입니다.",
+    "usersUnavailable": "사용자 목록을 불러오지 못했습니다. 모든 사용자는 추가할 수 있습니다.",
+    "membersTitle": "멤버",
+    "noMembers": "아직 이 폴더를 쓸 수 있는 사람이 없습니다. 사용자나 모든 사용자를 추가하세요.",
+    "removeMember": "{{name}} 제거",
+    "paneNote": "변경은 바로 적용됩니다. 열려 있는 채팅은 다음에 열 때 반영됩니다.",
+    "created": "“{{name}}”을(를) 만들었습니다. 사용할 사람을 추가하세요.",
+    "removed": "“{{name}}”을(를) 제거했습니다. 페이지는 실행 전에 다시 허락을 묻습니다.",
+    "restored": "“{{name}}”이(가) 멤버와 함께 돌아왔습니다.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}}은(는) 이제 “{{folder}}”을(를) 쓸 수 없습니다.",
+    "failed": "실패: {{message}}",
+    "loadFailed": "공유 폴더를 불러오지 못했습니다.",
+    "emptyAdminTitle": "아직 공유 폴더가 없습니다",
+    "emptyAdminBody": "공유 폴더에는 다른 사람이 읽거나 편집할 수 있는 파일과 페이지가 있습니다. 폴더를 만들고 멤버를 추가하세요.",
+    "factMembers": "사용자 또는 모두에게 읽기나 편집 권한 부여",
+    "factChats": "멤버의 채팅이 폴더의 파일을 봅니다",
+    "factUndo": "폴더 제거는 되돌릴 수 있습니다",
+    "emptyUserTitle": "아직 나와 공유된 것이 없습니다",
+    "emptyUserBody": "관리자가 폴더를 공유하면 여기에 표시되고, 페이지는 페이지 메뉴에 나타납니다."
   }
 }

@@ -18,6 +18,11 @@ import (
 // access. It cannot be a user: EnsureHome refuses it.
 const AdminPrincipal = workspace.StudioAdmin
 
+// EveryoneGroup is the group of every user. A grant to it gives a folder to all
+// users, the ones that sign up later too. It cannot be a user: EnsureHome
+// refuses it.
+const EveryoneGroup = "@everyone"
+
 // ErrUnavailable means the workspace is off. Its text is the reason.
 var ErrUnavailable = errors.New("files are off")
 
@@ -74,7 +79,7 @@ func (s *Service) Store() workspace.Store {
 }
 
 func validPrincipal(p string) bool {
-	return p != "" && p != AdminPrincipal && p != "." && p != ".." && len(p) <= 200 &&
+	return p != "" && p != AdminPrincipal && p != EveryoneGroup && p != "." && p != ".." && len(p) <= 200 &&
 		!strings.ContainsAny(p, "/\\\x00")
 }
 

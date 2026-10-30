@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/schema"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
 )
 
@@ -519,5 +520,67 @@ var _ = Describe("ListBackendLibraryUpdates", func() {
 		Expect(res).To(HaveLen(1))
 		Expect(res[0].SourceID).To(Equal("official"))
 		Expect(res[0].Version).To(Equal("1.1.0"))
+	})
+})
+
+var _ = Describe("Shared folders", func() {
+	// serve answers one request and checks its method, path and body.
+	serve := func(method, path string, wantBody map[string]any, reply any) *httptest.Server {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			Expect(r.Method).To(Equal(method))
+			Expect(r.URL.EscapedPath()).To(Equal(path))
+			if wantBody != nil {
+				var body map[string]any
+				Expect(json.NewDecoder(r.Body).Decode(&body)).To(Succeed())
+				Expect(body).To(Equal(wantBody))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			Expect(json.NewEncoder(w).Encode(reply)).To(Succeed())
+		}))
+		DeferCleanup(srv.Close)
+		return srv
+	}
+	folder := localaitools.SharedFolder{ID: 3, Name: "Team", Path: "/shared/Team", Members: []schema.SharedFolderMember{{Principal: "@everyone", Name: "@everyone", Everyone: true, Mode: "read"}}}
+	ctx := context.Background()
+
+	It("lists the folders and the audit", func() {
+		srv := serve(http.MethodGet, "/api/chats/admin/shared-folders", nil, map[string]any{"folders": []any{folder}})
+		out, err := New(srv.URL, "").ListSharedFolders(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal([]localaitools.SharedFolder{folder}))
+
+		srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			Expect(r.URL.Path).To(Equal("/api/chats/admin/shared-folders/events"))
+			Expect(r.URL.Query().Get("limit")).To(Equal("7"))
+			_, _ = w.Write([]byte(`{"events":[{"actor":"root","action":"create","folder_id":3,"folder":"/shared/Team","at":"2026-10-30T09:00:00Z"}]}`))
+		}))
+		DeferCleanup(srv.Close)
+		evs, err := New(srv.URL, "").ListSharedFolderEvents(ctx, 7)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(evs).To(HaveLen(1))
+		Expect(evs[0].Action).To(Equal("create"))
+	})
+
+	It("creates, renames, removes and restores a folder", func() {
+		out, err := New(serve(http.MethodPost, "/api/chats/admin/shared-folders", map[string]any{"name": "Team"}, folder).URL, "").CreateSharedFolder(ctx, "Team")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out.ID).To(Equal(int64(3)))
+		_, err = New(serve(http.MethodPatch, "/api/chats/admin/shared-folders/3", map[string]any{"name": "Crew"}, folder).URL, "").RenameSharedFolder(ctx, 3, "Crew")
+		Expect(err).NotTo(HaveOccurred())
+		removed, err := New(serve(http.MethodDelete, "/api/chats/admin/shared-folders/3", nil, localaitools.SharedFolderRemoved{Folder: folder, UndoRev: 42}).URL, "").DeleteSharedFolder(ctx, 3)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(removed.UndoRev).To(Equal(int64(42)))
+		_, err = New(serve(http.MethodPost, "/api/chats/admin/shared-folders/restore", map[string]any{"rev": float64(42)}, folder).URL, "").RestoreSharedFolder(ctx, 42)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("sets and removes a member, escaping the principal", func() {
+		_, err := New(serve(http.MethodPut, "/api/chats/admin/shared-folders/3/members/marta@example.com", map[string]any{"mode": "write"}, folder).URL, "").
+			SetSharedFolderMember(ctx, 3, "marta@example.com", "write")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = New(serve(http.MethodDelete, "/api/chats/admin/shared-folders/3/members/Marta%20Rossi", nil, folder).URL, "").RemoveSharedFolderMember(ctx, 3, "Marta Rossi")
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
