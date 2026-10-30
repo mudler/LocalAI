@@ -18,6 +18,8 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_scheduling` — List distributed per-model scheduling configs.
 - `get_scheduling` — Read the distributed scheduling config for one model.
 - `list_voice_profiles` — List reusable voice-cloning profiles and their stable TTS voice URIs.
+- `list_shared_folders` — List the shared folders with their id, page count and members (a user or `@everyone`, mode `read` or `write`).
+- `list_shared_folder_events` — Read the audit of the shared folders, newest first.
 - `get_branding` — Read the resolved instance name, tagline, and branding asset URLs.
 - `get_usage_stats` — Read token/request usage aggregates when usage tracking is enabled.
 - `get_pii_events` — Inspect recent PII-filter events without returning redacted request bodies.
@@ -47,6 +49,12 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `clear_router_corpus` — Permanently clear a KNN router corpus and its live index entries.
 - `create_voice_profile` — Save a consent-confirmed base64 PCM-WAV reference and exact transcript for reuse in TTS.
 - `delete_voice_profile` — Permanently delete a saved voice profile by UUID.
+- `create_shared_folder` — Create the shared folder `/shared/<name>` with no members.
+- `rename_shared_folder` — Rename a shared folder by id; its members and pages stay.
+- `delete_shared_folder` — Move a shared folder to the trash. Returns `undo_rev`; drops every user's consent to its pages.
+- `restore_shared_folder` — Restore a removed shared folder with its `undo_rev`.
+- `set_shared_folder_member` — Give a user (ID, email or name) or `@everyone` `read` or `write` access to a shared folder, or change it.
+- `remove_shared_folder_member` — Take a member's access to a shared folder away.
 - `set_node_vram_budget` — Set or clear a federated node's VRAM budget override.
 - `set_scheduling` — Create or update a distributed per-model scheduling config.
 - `delete_scheduling` — Remove a distributed per-model scheduling config.

@@ -103,6 +103,20 @@ type LocalAIClient interface {
 	CreateVoiceProfile(ctx context.Context, req CreateVoiceProfileRequest) (*VoiceProfile, error)
 	DeleteVoiceProfile(ctx context.Context, id string) error
 
+	// ---- Shared folders ----
+	// ListSharedFolders returns every shared folder with its members.
+	ListSharedFolders(ctx context.Context) ([]SharedFolder, error)
+	CreateSharedFolder(ctx context.Context, name string) (*SharedFolder, error)
+	RenameSharedFolder(ctx context.Context, id int64, name string) (*SharedFolder, error)
+	// DeleteSharedFolder moves the folder to the trash; RestoreSharedFolder
+	// with the returned undo_rev brings it back with its members.
+	DeleteSharedFolder(ctx context.Context, id int64) (*SharedFolderRemoved, error)
+	RestoreSharedFolder(ctx context.Context, rev int64) (*SharedFolder, error)
+	// SetSharedFolderMember adds a member or changes its mode (read or write).
+	SetSharedFolderMember(ctx context.Context, id int64, member, mode string) (*SharedFolder, error)
+	RemoveSharedFolderMember(ctx context.Context, id int64, member string) (*SharedFolder, error)
+	ListSharedFolderEvents(ctx context.Context, limit int) ([]SharedFolderEvent, error)
+
 	// ---- Usage / billing ----
 
 	// GetUsageStats returns aggregated token usage. In single-user

@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -880,4 +881,74 @@ func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (loca
 
 func (c *Client) UnpinFailoverTarget(ctx context.Context, chain string) error {
 	return c.do(ctx, http.MethodDelete, routeFailover+"/"+url.PathEscape(chain)+"/pin", nil, nil)
+}
+
+// ---- Shared folders ----
+
+func (c *Client) ListSharedFolders(ctx context.Context) ([]localaitools.SharedFolder, error) {
+	var out struct {
+		Folders []localaitools.SharedFolder `json:"folders"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeSharedFolders, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Folders, nil
+}
+
+func (c *Client) CreateSharedFolder(ctx context.Context, name string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPost, routeSharedFolders, map[string]string{"name": name}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RenameSharedFolder(ctx context.Context, id int64, name string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPatch, routeSharedFolder(id), map[string]string{"name": name}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) DeleteSharedFolder(ctx context.Context, id int64) (*localaitools.SharedFolderRemoved, error) {
+	var out localaitools.SharedFolderRemoved
+	if err := c.do(ctx, http.MethodDelete, routeSharedFolder(id), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RestoreSharedFolder(ctx context.Context, rev int64) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPost, routeSharedFolderRestore, map[string]int64{"rev": rev}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) SetSharedFolderMember(ctx context.Context, id int64, member, mode string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodPut, routeSharedFolderMember(id, member), map[string]string{"mode": mode}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RemoveSharedFolderMember(ctx context.Context, id int64, member string) (*localaitools.SharedFolder, error) {
+	var out localaitools.SharedFolder
+	if err := c.do(ctx, http.MethodDelete, routeSharedFolderMember(id, member), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) ListSharedFolderEvents(ctx context.Context, limit int) ([]localaitools.SharedFolderEvent, error) {
+	var out struct {
+		Events []localaitools.SharedFolderEvent `json:"events"`
+	}
+	if err := c.do(ctx, http.MethodGet, routeSharedFolderEvents+"?limit="+strconv.Itoa(limit), nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Events, nil
 }

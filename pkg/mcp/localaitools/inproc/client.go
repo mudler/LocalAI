@@ -30,6 +30,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/corpus"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/internal"
 	localaitools "github.com/mudler/LocalAI/pkg/mcp/localaitools"
@@ -95,6 +96,11 @@ type Client struct {
 	// running" — the same as a deployment with no failover chains
 	// configured.
 	Failover *failover.Manager
+
+	// SharedFolders backs the shared folder tools. It is read at each call,
+	// because the chats start after the assistant; nil or a nil service makes
+	// the tools report that the chats are off.
+	SharedFolders func() *sharedfolders.Service
 
 	modelAdmin *modeladmin.ConfigService
 }
@@ -1210,4 +1216,117 @@ func (c *Client) CancelModelLoad(ctx context.Context, model, jobID string) (loca
 	result.State = string(out.State)
 	result.RetryAfter = int(out.RetryAfter.Seconds())
 	return result, nil
+}
+
+// ---- Shared folders ----
+
+// errChatsOff is the answer of the shared folder tools on a server without
+// chats: the folders live in the chats' workspace.
+var errChatsOff = errors.New("the chats are off on this server, so there are no shared folders")
+
+func (c *Client) folders() (*sharedfolders.Service, error) {
+	if c.SharedFolders == nil {
+		return nil, errChatsOff
+	}
+	svc := c.SharedFolders()
+	if svc == nil {
+		return nil, errChatsOff
+	}
+	return svc, nil
+}
+
+// folderResult turns a service folder into the tool's answer.
+func folderResult(f sharedfolders.Folder, err error) (*localaitools.SharedFolder, error) {
+	if err != nil {
+		return nil, err
+	}
+	out := sharedfolders.ToSchema(f, true)
+	return &out, nil
+}
+
+// The assistant has no user of its own: its changes are audited as
+// sharedfolders.ActorAssistant, and creating a folder adds no member.
+
+func (c *Client) ListSharedFolders(ctx context.Context) ([]localaitools.SharedFolder, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	list, err := svc.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.SharedFolder, 0, len(list))
+	for _, f := range list {
+		out = append(out, sharedfolders.ToSchema(f, true))
+	}
+	return out, nil
+}
+
+func (c *Client) CreateSharedFolder(ctx context.Context, name string) (*localaitools.SharedFolder, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	return folderResult(svc.Create(ctx, "", name))
+}
+
+func (c *Client) RenameSharedFolder(ctx context.Context, id int64, name string) (*localaitools.SharedFolder, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	return folderResult(svc.Rename(ctx, "", id, name))
+}
+
+func (c *Client) DeleteSharedFolder(ctx context.Context, id int64) (*localaitools.SharedFolderRemoved, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	f, rev, err := svc.Delete(ctx, "", id)
+	if err != nil {
+		return nil, err
+	}
+	return &localaitools.SharedFolderRemoved{Folder: sharedfolders.ToSchema(f, true), UndoRev: rev}, nil
+}
+
+func (c *Client) RestoreSharedFolder(ctx context.Context, rev int64) (*localaitools.SharedFolder, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	return folderResult(svc.Restore(ctx, "", rev))
+}
+
+func (c *Client) SetSharedFolderMember(ctx context.Context, id int64, member, mode string) (*localaitools.SharedFolder, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	return folderResult(svc.SetMember(ctx, "", id, member, sharedfolders.ParseMode(mode)))
+}
+
+func (c *Client) RemoveSharedFolderMember(ctx context.Context, id int64, member string) (*localaitools.SharedFolder, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	return folderResult(svc.RemoveMember(ctx, "", id, member))
+}
+
+func (c *Client) ListSharedFolderEvents(ctx context.Context, limit int) ([]localaitools.SharedFolderEvent, error) {
+	svc, err := c.folders()
+	if err != nil {
+		return nil, err
+	}
+	evs, err := svc.Events(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]localaitools.SharedFolderEvent, 0, len(evs))
+	for _, e := range evs {
+		out = append(out, sharedfolders.EventToSchema(e, nil))
+	}
+	return out, nil
 }

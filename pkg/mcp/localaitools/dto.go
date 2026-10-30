@@ -1,6 +1,9 @@
 package localaitools
 
-import "github.com/mudler/LocalAI/core/services/voiceprofile"
+import (
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/voiceprofile"
+)
 
 // DTOs for the LocalAIClient interface. Where the same shape already exists
 // elsewhere (config.Gallery, gallery.Metadata, schema.KnownBackend,
@@ -473,4 +476,55 @@ type LoadCancelResult struct {
 	JobID      string `json:"job_id"`
 	State      string `json:"state"`
 	RetryAfter int    `json:"retry_after,omitempty"`
+}
+
+// SharedFolder is a shared folder with its members, as the REST endpoint
+// /api/chats/admin/shared-folders returns it. A member is a user ID, or
+// "@everyone" for every user, with the mode read or write.
+type SharedFolder = schema.SharedFolder
+
+// SharedFolderRemoved is a removed shared folder and the undo_rev that
+// restore_shared_folder takes.
+type SharedFolderRemoved = schema.SharedFolderRemoved
+
+// SharedFolderEvent is one line of the audit of the shared folders.
+type SharedFolderEvent = schema.SharedFolderEvent
+
+// CreateSharedFolderRequest is the input for create_shared_folder.
+type CreateSharedFolderRequest struct {
+	Name string `json:"name" jsonschema:"Folder name: 1 to 64 letters, digits, spaces, dots, dashes or underscores, starting with a letter or a digit. It becomes /shared/<name>."`
+}
+
+// RenameSharedFolderRequest is the input for rename_shared_folder.
+type RenameSharedFolderRequest struct {
+	ID   int64  `json:"id"   jsonschema:"Shared folder id from list_shared_folders."`
+	Name string `json:"name" jsonschema:"The new name, with the same rules as create_shared_folder."`
+}
+
+// SharedFolderRef names one shared folder.
+type SharedFolderRef struct {
+	ID int64 `json:"id" jsonschema:"Shared folder id from list_shared_folders."`
+}
+
+// RestoreSharedFolderRequest is the input for restore_shared_folder.
+type RestoreSharedFolderRequest struct {
+	Rev int64 `json:"rev" jsonschema:"The undo_rev that delete_shared_folder returned."`
+}
+
+// SetSharedFolderMemberRequest is the input for set_shared_folder_member.
+type SetSharedFolderMemberRequest struct {
+	ID     int64  `json:"id"     jsonschema:"Shared folder id from list_shared_folders."`
+	Member string `json:"member" jsonschema:"A user's ID, email or name, or @everyone for every user."`
+	Mode   string `json:"mode"   jsonschema:"read (can read) or write (can edit)."`
+}
+
+// RemoveSharedFolderMemberRequest is the input for remove_shared_folder_member.
+type RemoveSharedFolderMemberRequest struct {
+	ID     int64  `json:"id"     jsonschema:"Shared folder id from list_shared_folders."`
+	Member string `json:"member" jsonschema:"The member's principal from list_shared_folders, or @everyone."`
+}
+
+// SharedFolderEventsQuery is the input for list_shared_folder_events.
+type SharedFolderEventsQuery struct {
+	Limit int `json:"limit,omitempty" jsonschema:"How many lines, newest first. Defaults to 50; at most 500."`
 }

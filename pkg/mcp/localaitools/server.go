@@ -51,6 +51,7 @@ func NewServer(client LocalAIClient, opts Options) *mcp.Server {
 	registerStateTools(srv, client, opts)
 	registerBrandingTools(srv, client, opts)
 	registerVoiceProfileTools(srv, client, opts)
+	registerSharedFolderTools(srv, client, opts)
 	registerUsageTools(srv, client, opts)
 	registerPIITools(srv, client, opts)
 	registerMiddlewareTools(srv, client, opts)

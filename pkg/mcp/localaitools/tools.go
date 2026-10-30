@@ -28,30 +28,38 @@ const (
 	ToolGetRouterDecisions        = "get_router_decisions"
 	ToolGetRouterCorpusStats      = "get_router_corpus_stats"
 	ToolListVoiceProfiles         = "list_voice_profiles"
+	ToolListSharedFolders         = "list_shared_folders"
+	ToolListSharedFolderEvents    = "list_shared_folder_events"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
-	ToolInstallModel          = "install_model"
-	ToolImportModelURI        = "import_model_uri"
-	ToolDeleteModel           = "delete_model"
-	ToolEditModelConfig       = "edit_model_config"
-	ToolReloadModels          = "reload_models"
-	ToolCancelModelLoad       = "cancel_model_load"
-	ToolLoadModel             = "load_model"
-	ToolInstallBackend        = "install_backend"
-	ToolUpgradeBackend        = "upgrade_backend"
-	ToolInstallLibraryBackend = "install_library_backend"
-	ToolToggleModelState      = "toggle_model_state"
-	ToolToggleModelPinned     = "toggle_model_pinned"
-	ToolSetBranding           = "set_branding"
-	ToolSetAlias              = "set_alias"
-	ToolSeedRouterCorpus      = "seed_router_corpus"
-	ToolClearRouterCorpus     = "clear_router_corpus"
-	ToolCreateVoiceProfile    = "create_voice_profile"
-	ToolDeleteVoiceProfile    = "delete_voice_profile"
-	ToolSetNodeVRAMBudget     = "set_node_vram_budget"
-	ToolSetScheduling         = "set_scheduling"
-	ToolDeleteScheduling      = "delete_scheduling"
+	ToolInstallModel             = "install_model"
+	ToolImportModelURI           = "import_model_uri"
+	ToolDeleteModel              = "delete_model"
+	ToolEditModelConfig          = "edit_model_config"
+	ToolReloadModels             = "reload_models"
+	ToolCancelModelLoad          = "cancel_model_load"
+	ToolLoadModel                = "load_model"
+	ToolInstallBackend           = "install_backend"
+	ToolUpgradeBackend           = "upgrade_backend"
+	ToolInstallLibraryBackend    = "install_library_backend"
+	ToolToggleModelState         = "toggle_model_state"
+	ToolToggleModelPinned        = "toggle_model_pinned"
+	ToolSetBranding              = "set_branding"
+	ToolSetAlias                 = "set_alias"
+	ToolSeedRouterCorpus         = "seed_router_corpus"
+	ToolClearRouterCorpus        = "clear_router_corpus"
+	ToolCreateVoiceProfile       = "create_voice_profile"
+	ToolDeleteVoiceProfile       = "delete_voice_profile"
+	ToolCreateSharedFolder       = "create_shared_folder"
+	ToolRenameSharedFolder       = "rename_shared_folder"
+	ToolDeleteSharedFolder       = "delete_shared_folder"
+	ToolRestoreSharedFolder      = "restore_shared_folder"
+	ToolSetSharedFolderMember    = "set_shared_folder_member"
+	ToolRemoveSharedFolderMember = "remove_shared_folder_member"
+	ToolSetNodeVRAMBudget        = "set_node_vram_budget"
+	ToolSetScheduling            = "set_scheduling"
+	ToolDeleteScheduling         = "delete_scheduling"
 	// ToolPinFailoverTarget and ToolUnpinFailoverTarget live here (rather
 	// than grouped with ToolListFailoverChains below) so mutatingToolNames
 	// stays a contiguous scan of this block.
@@ -94,6 +102,12 @@ var mutatingToolNames = []string{
 	ToolClearRouterCorpus,
 	ToolCreateVoiceProfile,
 	ToolDeleteVoiceProfile,
+	ToolCreateSharedFolder,
+	ToolRenameSharedFolder,
+	ToolDeleteSharedFolder,
+	ToolRestoreSharedFolder,
+	ToolSetSharedFolderMember,
+	ToolRemoveSharedFolderMember,
 	ToolSetNodeVRAMBudget,
 	ToolSetScheduling,
 	ToolDeleteScheduling,

@@ -8,18 +8,12 @@ import (
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
-	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // The shared folders endpoints. An administrator creates the folders
 // /shared/<name>, chooses who may read or edit each one (a user or everyone),
 // renames them and removes them with an undo. A user lists the folders shared
 // with them; a folder without a grant is not found, like a missing one.
-
-const (
-	modeRead  = "read"
-	modeWrite = "write"
-)
 
 var folderRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "shared folder not found", sharedfolders.ErrNotFound),
@@ -33,25 +27,8 @@ func failFolder(c echo.Context, err error) error {
 	return mapErr(c, err, folderRules, failFile)
 }
 
-func modeName(m workspace.Mode) string {
-	if m >= workspace.ModeWrite {
-		return modeWrite
-	}
-	return modeRead
-}
-
 func folderJSON(f sharedfolders.Folder, admin bool) schema.SharedFolder {
-	out := schema.SharedFolder{ID: f.ID, Name: f.Name, Path: f.Path, Pages: f.Pages}
-	if !admin {
-		out.Mode = modeName(f.Mode)
-		return out
-	}
-	out.Members = make([]schema.SharedFolderMember, 0, len(f.Members))
-	for _, m := range f.Members {
-		out.Members = append(out.Members, schema.SharedFolderMember{Principal: m.Principal, Name: m.Name,
-			Everyone: m.Principal == sharedfolders.Everyone, Mode: modeName(m.Mode)})
-	}
-	return out
+	return sharedfolders.ToSchema(f, admin)
 }
 
 func folderID(c echo.Context) int64 {
@@ -238,14 +215,7 @@ func (h *Handlers) AdminSetSharedFolderMember(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	var mode workspace.Mode
-	switch req.Mode {
-	case modeRead:
-		mode = workspace.ModeRead
-	case modeWrite:
-		mode = workspace.ModeWrite
-	}
-	f, err := h.svc.SharedFolders().SetMember(c.Request().Context(), h.by(c), folderID(c), c.Param("principal"), mode)
+	f, err := h.svc.SharedFolders().SetMember(c.Request().Context(), h.by(c), folderID(c), c.Param("principal"), sharedfolders.ParseMode(req.Mode))
 	if err != nil {
 		return failFolder(c, err)
 	}
@@ -282,16 +252,9 @@ func (h *Handlers) AdminSharedFolderEvents(c echo.Context) error {
 		return failFolder(c, err)
 	}
 	out := schema.SharedFolderEventList{Events: make([]schema.SharedFolderEvent, 0, len(evs))}
+	name := func(id string) string { return h.svc.UserName(ctx, id) }
 	for _, e := range evs {
-		ev := schema.SharedFolderEvent{Actor: e.Actor, Action: e.Action, FolderID: e.FolderID, Folder: e.Folder,
-			Principal: e.Principal, Rev: e.Rev, At: e.At}
-		if e.Actor != sharedfolders.ActorAssistant {
-			ev.ActorName = h.svc.UserName(ctx, e.Actor)
-		}
-		if e.Action == sharedfolders.ActionGrant {
-			ev.Mode = modeName(e.Mode)
-		}
-		out.Events = append(out.Events, ev)
+		out.Events = append(out.Events, sharedfolders.EventToSchema(e, name))
 	}
 	return c.JSON(http.StatusOK, out)
 }
