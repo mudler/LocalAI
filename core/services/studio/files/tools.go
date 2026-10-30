@@ -173,9 +173,11 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 					_ = tx.Rollback()
 					return "", err
 				}
-				if _, err := tx.Commit(); err != nil && !errors.Is(err, workspace.ErrCommitted) {
+				cs, err := tx.Commit()
+				if err != nil && !errors.Is(err, workspace.ErrCommitted) {
 					return "", err
 				}
+				changeCard(ctx, cs.Rev, s.Rel(a.Principal, abs))
 				return fmt.Sprintf("Wrote %d bytes to %s.", len(in.Content), s.Rel(a.Principal, abs)), nil
 			})},
 		{Name: "move_file", Description: "Move or rename a file or folder of the user's.",
@@ -196,9 +198,11 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if s.Rel(a.Principal, from) == "/" || s.Rel(a.Principal, to) == "/" {
 					return "", workspace.ErrInvalid
 				}
-				if _, err := s.ws.Move(ctx, a, from, to); err != nil && !errors.Is(err, workspace.ErrCommitted) {
+				n, err := s.ws.Move(ctx, a, from, to)
+				if err != nil && !errors.Is(err, workspace.ErrCommitted) {
 					return "", err
 				}
+				changeCard(ctx, n.Rev, s.Rel(a.Principal, to))
 				return "Moved.", nil
 			})},
 		{Name: "delete_file", Description: "Delete a file or folder of the user's. It goes to the Trash, so the user can restore it.",
@@ -244,6 +248,17 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				}
 				return b.String(), nil
 			})},
+	}
+}
+
+// ChangeCardKind is the card of a file tool call that changed a file: its ID is
+// "<rev>:<path in the home>". The chat shows a note with Undo under the call,
+// and the Undo undoes that change set. The model never sees the card.
+const ChangeCardKind = "files_change"
+
+func changeCard(ctx context.Context, rev int64, rel string) {
+	if rev > 0 && rel != "" {
+		session.SetToolCard(ctx, session.ToolCard{Kind: ChangeCardKind, ID: fmt.Sprintf("%d:%s", rev, rel)})
 	}
 }
 
