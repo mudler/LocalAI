@@ -647,6 +647,10 @@ Each step is one PR-sized commit series with its docs.
   of a web tool shows what it searched or read. Other tools with a `query`
   argument now show it too.
 - The error a user reads when no provider works names Settings > Tools.
+- No LocalAI Assistant tool yet. The settings are runtime settings, and the
+  assistant has no general settings tool; `get/set_web_tools_settings` can
+  come with the Settings > Tools section. The test search endpoint is a
+  diagnostic button and gets no tool.
 
 ## Later
 
