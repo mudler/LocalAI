@@ -121,6 +121,11 @@ const NodeDetail = page(null, () => import('./pages/NodeDetail'))
 // eslint-disable-next-line no-unused-vars
 const AddNode = page(null, () => import('./pages/AddNode'))
 const NotFound = page(null, () => import('./pages/NotFound'))
+// The UI primitives in every state: a reference for developers and the
+// fixture of e2e/ui-primitives.spec.js. Admin only and not in the navigation.
+// Only referenced from JSX below.
+// eslint-disable-next-line no-unused-vars
+const UiCatalog = page(null, () => import('./pages/UiCatalog'))
 const Usage = page('usage', () => import('./pages/Usage'))
 // The Traffic hub's other pages. Only referenced from JSX below, which eslint
 // cannot see.
@@ -390,6 +395,7 @@ const appChildren = [
   { path: 'voice-library/new', element: <AddonRedirect addon="voice" page="voice/library/new" /> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
+  { path: 'ui-catalog', element: <Admin><UiCatalog /></Admin> },
   { path: '*', element: <NotFound /> },
 ]
 
