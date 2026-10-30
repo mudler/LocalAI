@@ -320,7 +320,17 @@
     "search": "Search skills",
     "noMatch": "No skill matches “{{query}}”.",
     "later": "Skills you add later start on.",
-    "failed": "Could not save. Nothing changed."
+    "failed": "Could not save. Nothing changed.",
+    "source": {
+      "builtin": "Built-in",
+      "personal": "Personal",
+      "shared": "Shared",
+      "folder": "Workspace",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Replaced by {{name}}",
+    "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",
+    "fallback_other": "Built-in {{skills}} in use: the {{name}} add-on's own skills are off or not running here."
   },
   "agent": {
     "label": "Agent",

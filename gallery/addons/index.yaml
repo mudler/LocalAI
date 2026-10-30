@@ -225,6 +225,11 @@
     - "create-xlsx"
     - "create-pptx"
     - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
 - id: "office"
   name: Office
   description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
@@ -256,6 +261,11 @@
     - "create-xlsx"
     - "create-pptx"
     - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
 - id: "office"
   name: Office
   description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
@@ -287,6 +297,11 @@
     - "create-xlsx"
     - "create-pptx"
     - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
 - id: "office"
   name: Office
   description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
@@ -318,6 +333,11 @@
     - "create-xlsx"
     - "create-pptx"
     - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."

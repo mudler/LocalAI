@@ -6,6 +6,24 @@
   "arch": "amd64",
   "capabilities": {
     "actions": true,
+    "skillDefinitions": [
+      {
+        "name": "xlsx",
+        "shadows": "xlsx"
+      },
+      {
+        "name": "docx",
+        "shadows": "docx"
+      },
+      {
+        "name": "pptx",
+        "shadows": "pptx"
+      },
+      {
+        "name": "pdf",
+        "shadows": "pdf"
+      }
+    ],
     "toolDefinitions": [
       {
         "name": "read-docx",

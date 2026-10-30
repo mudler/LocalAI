@@ -130,11 +130,11 @@ func (s *Service) EnsureHome(ctx context.Context, principal string) error {
 	if err := s.ws.Grant(ctx, s.admin, principal, session.HomePath(principal), workspace.ModeWrite); err != nil {
 		return fmt.Errorf("files: give a user their home: %w", err)
 	}
-	// Everyone reads the shared and built-in skills; nobody but the server and
-	// an administrator writes them.
-	for _, p := range []string{SharedSkillsPath, BuiltinSkillsPath} {
-		if err := s.ws.Grant(ctx, s.admin, principal, p, workspace.ModeRead); err != nil {
-			return fmt.Errorf("files: let a user read %s: %w", p, err)
+	// Everyone reads the shared, add-on and built-in skills; nobody but the
+	// server and an administrator writes them.
+	for _, l := range readOnlyLayers {
+		if err := s.ws.Grant(ctx, s.admin, principal, l.real, workspace.ModeRead); err != nil {
+			return fmt.Errorf("files: let a user read %s: %w", l.real, err)
 		}
 	}
 	s.mu.Lock()

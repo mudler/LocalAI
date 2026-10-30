@@ -130,6 +130,14 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_tool_providers"))
 		rec = post(`{"chats_tool_providers":{"bash":"Not An ID"}}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		rec = post(`{"chats_tool_providers":{"writing-skills":"office"}}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), "a built-in skill an add-on may not replace")
+	})
+
+	It("saves a pin for a built-in skill in the same map as the tools", func() {
+		rec := post(`{"chats_tool_providers":{"bash":"sandbox","xlsx":"office"}}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(app.ApplicationConfig().ChatsToolProviders).To(Equal(map[string]string{"bash": "sandbox", "xlsx": "office"}))
 	})
 
 	It("saves the host-commands mode and a pin", func() {

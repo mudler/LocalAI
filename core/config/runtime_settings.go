@@ -121,7 +121,7 @@ type RuntimeSettings struct {
 	// ChatsHostExec is who gets the built-in bash that runs commands on this
 	// machine with no isolation: off, ask or on; empty is the default (off
 	// with accounts, ask without). ChatsToolProviders pins, for a built-in tool
-	// that several add-ons replace, the add-on that serves it.
+	// or skill that several add-ons replace, the add-on that serves it.
 	ChatsHostExec      *string            `json:"chats_host_exec,omitempty"`
 	ChatsToolProviders *map[string]string `json:"chats_tool_providers,omitempty"`
 

@@ -101,6 +101,11 @@ type App struct {
 	// the argument schema and the kind of each tool. The host serves them to
 	// chat from the verified manifest; the add-on process is never asked.
 	ToolDefinitions []contract.ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Skills are the skills the package ships, from the verified manifest.
+	// The owner copies their files into the chats' skill layer.
+	Skills []contract.SkillDefinition `json:"skills,omitempty"`
+	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say).
+	SkillShadows []string `json:"skillShadows,omitempty"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
@@ -206,6 +211,8 @@ func build(s Snapshot, admin bool) App {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
+	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
+	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
 		if u.Title != nil {

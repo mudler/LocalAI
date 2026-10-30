@@ -123,6 +123,19 @@ var _ = Describe("library index document (YAML)", func() {
 			_, e, _ = refreshBody(yamlEntry + "  toolCount: 1\n  tools:\n    - bash\n  shadows:\n    - write_file\n")
 			Expect(e).To(HaveOccurred())
 		})
+		It("carries the built-in skills an add-on replaces, and refuses one that may not be replaced", func() {
+			body := yamlEntry + "  skillShadows:\n    - xlsx\n    - docx\n"
+			_, e, s := refreshBody(body)
+			Expect(e).NotTo(HaveOccurred())
+			page, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Search(ctx, Query{})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(page.Releases).To(HaveLen(1))
+			Expect(page.Releases[0].SkillShadows).To(Equal([]string{"xlsx", "docx"}))
+			for _, bad := range []string{"writing-skills", "bash", "xlsx\n    - xlsx"} {
+				_, e, _ = refreshBody(yamlEntry + "  skillShadows:\n    - " + bad + "\n")
+				Expect(e).To(HaveOccurred(), bad)
+			}
+		})
 		It("carries toolCount and tools from the index to the listing", func() {
 			body := yamlEntry + "  toolCount: 2\n  tools:\n    - resource-exists\n    - tables-create\n"
 			_, e, s := refreshBody(body)

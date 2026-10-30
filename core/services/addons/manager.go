@@ -144,6 +144,72 @@ type Manager struct {
 	// automatic upgrade that failed. In memory only: a restart tries again.
 	autoMu       sync.Mutex
 	autoFailures map[string]string
+	// skillSync keeps the chats' skill layer in step with the installed
+	// packages. Nil until the chats' files exist (see SetSkillSync).
+	skillSync SkillSync
+}
+
+// SkillSync copies the skills of an add-on package into the chats' skill layer
+// (receipt set), or removes them (receipt nil). It runs on the owner only, which
+// holds the verified package. A failure is logged and never fails the lifecycle
+// operation: skills are help for a chat, the add-on works without them.
+type SkillSync func(ctx context.Context, addonID string, receipt *packages.PackageReceipt) error
+
+// SetSkillSync sets the skill copy and runs it once for every add-on the
+// journal knows: the current package of an installed one, a removal for the
+// others. It is how the owner reconciles the skill layer at start.
+func (m *Manager) SetSkillSync(ctx context.Context, sync SkillSync) {
+	m.opMu.Lock()
+	defer m.opMu.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.skillSync = sync
+	if sync == nil || m.check(ctx) != nil {
+		return
+	}
+	ids := make([]string, 0, len(m.journal.Addons))
+	for id := range m.journal.Addons {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		m.syncSkills(ctx, id)
+	}
+}
+
+// InstalledSkillIDs returns the installed add-ons whose current package ships
+// skills, sorted.
+func (m *Manager) InstalledSkillIDs(ctx context.Context) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return nil, e
+	}
+	var out []string
+	for id, st := range m.journal.Addons {
+		if r, ok := currentReceipt(st); ok && st.Installed && len(r.Skills) > 0 {
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// syncSkills runs the skill copy for one add-on from the journal: its current
+// package while installed, a removal otherwise. The caller holds mu.
+func (m *Manager) syncSkills(ctx context.Context, id string) {
+	if m.skillSync == nil {
+		return
+	}
+	var receipt *packages.PackageReceipt
+	if st := m.journal.Addons[id]; st.Installed {
+		if r, ok := currentReceipt(st); ok {
+			receipt = &r
+		}
+	}
+	if e := m.skillSync(ctx, id, receipt); e != nil {
+		xlog.Warn("Could not copy the skills of an add-on", "addon", id, "error", e)
+	}
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
@@ -513,6 +579,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			_ = m.runtime.Close(context.Background())
 		}
 		return result, e
+	}
+	switch cmd.Action {
+	case "install", "upgrade", "uninstall":
+		m.syncSkills(ctx, cmd.AddonID)
 	}
 	return result, m.syncFor(ctx, cmd.AddonID)
 }
@@ -1179,6 +1249,7 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	c := receipt.Manifest.Capabilities
 	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Actions: c.Actions, Undo: c.Undo}
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
+	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
 	if c.Resources != nil {
 		r := *c.Resources
 		out.Resources = &r

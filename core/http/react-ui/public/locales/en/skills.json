@@ -22,7 +22,11 @@
     "invalid": "Skipped: not a valid skill",
     "invalidWhy": "This SKILL.md was skipped: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
-    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Provided by {{name}}",
+    "replacedBy": "Replaced by {{name}}",
+    "notActive": "Not active: the built-in skill serves",
+    "fallback": "In use because the {{name}} add-on's own skill is off or not running"
   },
   "empty": {
     "title": "Skills are instructions an agent can follow",
@@ -68,7 +72,8 @@
     "personal": "Personal",
     "shared": "Shared",
     "builtin": "Built-in",
-    "folder": "Workspace"
+    "folder": "Workspace",
+    "addon": "Add-on"
   },
   "edit": {
     "back": "Back to skills",

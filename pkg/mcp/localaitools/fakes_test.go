@@ -480,9 +480,9 @@ func (f *fakeClient) ListSharedFolderEvents(_ context.Context, limit int) ([]Sha
 	return []SharedFolderEvent{}, nil
 }
 
-func (f *fakeClient) ListChatTools(_ context.Context) ([]ChatBuiltinTool, error) {
+func (f *fakeClient) ListChatTools(_ context.Context) (ChatBuiltinToolList, error) {
 	f.record("ListChatTools", nil)
-	return []ChatBuiltinTool{}, nil
+	return ChatBuiltinToolList{Tools: []ChatBuiltinTool{}, Skills: []schema.ChatsBuiltinSkill{}}, nil
 }
 
 func (f *fakeClient) ListHostExecEvents(_ context.Context, limit int) ([]HostExecEvent, error) {

@@ -138,6 +138,10 @@
       "off": "désactivé",
       "ask": "demander à chaque fois",
       "on": "autorisé pour tous"
-    }
+    },
+    "skillsTitle": "Compétences remplacées par des modules",
+    "skillsIntro": "Un module peut remplacer une compétence intégrée par la sienne, écrite pour ses outils. Si plusieurs modules remplacent la même, choisissez celui qui est utilisé.",
+    "skillLabel": "Compétence {{skill}}",
+    "skillNotRunning": "Le module choisi ne tourne pas : la compétence intégrée est utilisée."
   }
 }

@@ -186,3 +186,4 @@
 .st-tools__radio { display: flex; align-items: flex-start; gap: var(--dk-space-2); font-size: var(--dk-text-13); line-height: 1.5; cursor: pointer; }
 .st-tools__radio input { margin-top: 3px; }
 .st-tools .st-row__desc[data-tone="warn"] { color: var(--dk-warn-text); }
+.st-tools__skills { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-top: var(--dk-space-4); }

@@ -236,3 +236,21 @@ export function versionLabel(version) {
   if (/^0\.0\.0([-+].*)?$/.test(v) || /(^|[-+.])dev(elopment)?$/i.test(v)) return { dev: true, text: v }
   return { dev: false, text: v.startsWith('v') ? v : `v${v}` }
 }
+
+// The built-in skills that a library entry replaces, each with the installed
+// add-on that already replaces it, if any. The install dialog names every one:
+// the add-on's own skill serves in the chats instead of the built-in skill.
+export function skillShadowNotes(entry, installed) {
+  const want = Array.isArray(entry?.skillShadows) ? entry.skillShadows : []
+  return want.map(skill => {
+    const other = Object.values(installed || {}).find(a => a && a.id !== entry.id && Array.isArray(a.skillShadows) && a.skillShadows.includes(skill))
+    return { skill, name: other ? other.title || other.id : '' }
+  })
+}
+
+// The skills an installed add-on ships, for its details: the name of each and
+// whether it replaces the built-in skill of that name.
+export function skillsOf(app) {
+  const list = Array.isArray(app?.skills) ? app.skills : []
+  return list.filter(s => s && typeof s.name === 'string').map(s => ({ name: s.name, replaces: s.shadows === s.name }))
+}

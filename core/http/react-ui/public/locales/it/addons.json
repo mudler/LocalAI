@@ -686,7 +686,9 @@
     "seeInList": "Vedilo in Installati",
     "install": "Installa",
     "installNamed": "Installa {{name}}",
-    "shadowWarning": "Questo componente sostituisce lo strumento integrato {{tool}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti."
+    "shadowWarning": "Questo componente sostituisce lo strumento integrato {{tool}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti.",
+    "skillShadow": "Questo componente sostituisce la skill integrata {{skill}}.",
+    "skillShadowWarning": "Questo componente sostituisce la skill integrata {{skill}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti."
   },
   "family": {
     "pages": "Cerchi le pagine create da te o da un agente? Sono in <go>Pagine</go>."
@@ -722,5 +724,14 @@
     "checked": "Verificato · {{library}}",
     "devBuild": "Build di sviluppo",
     "library": "libreria {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} skill della chat",
+    "title_other": "{{count}} skill della chat",
+    "replaces": "sostituisce la skill integrata",
+    "serves": "usata nelle chat",
+    "notServing": "non usata ora",
+    "serveIn": "Usa per {{skill}} nelle chat",
+    "saveFailed": "Impossibile salvare la scelta."
   }
 }

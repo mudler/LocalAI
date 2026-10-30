@@ -86,6 +86,23 @@ func (s *Service) ReadSkill(ctx context.Context, principal string, layer skills.
 	if err != nil {
 		return "", "", err
 	}
+	return s.readSkillAt(ctx, actor, dir)
+}
+
+// ReadAddonSkill reads a skill of the add-on layer, like ReadSkill: the skill
+// name of the add-on addonID. The layer is read-only for everyone.
+func (s *Service) ReadAddonSkill(ctx context.Context, principal, addonID, name string) (description, body string, err error) {
+	if !s.Available() {
+		return "", "", ErrUnavailable
+	}
+	if !skills.ValidName(name) || !skills.ValidName(addonID) {
+		return "", "", fmt.Errorf("%w: %q is not a skill of an add-on", ErrBadSkill, addonID+"/"+name)
+	}
+	return s.readSkillAt(ctx, s.Actor(principal), AddonSkillsPath+"/"+addonID+"/"+name)
+}
+
+// readSkillAt reads the SKILL.md of the skill folder dir as actor.
+func (s *Service) readSkillAt(ctx context.Context, actor workspace.Actor, dir string) (description, body string, err error) {
 	r, _, err := s.ws.Open(ctx, actor, dir+"/"+skills.SkillFile)
 	if err != nil {
 		return "", "", err

@@ -717,14 +717,21 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. A `SKILL.md` over 64 KiB is refused.
 
-Skills come from four places, nearest first, and the nearest wins when two have the same name:
+Skills come from five places, nearest first, and the nearest wins when two have the same name:
 
 | Layer | Where | Who writes it |
 |---|---|---|
 | Folder | any `.skills` folder in your files | you |
 | Personal | `.skills` in your home folder | you |
 | Shared | for every user | an administrator |
+| Add-on | ships with an installed add-on | the add-on owner |
 | Built-in | ships with the server | the server |
+
+The add-on layer holds the skills of the add-ons that the chat can use now: installed, running, usable by you and on for the chat (see [Add-on tools](#add-on-tools)). A chat with a saved agent gets them only for the add-ons the agent grants. The model reads one at `/workspace/shared-addon-skills/<add-on>/<skill>/SKILL.md`; the add-on ID in the path says where it comes from. Switching the add-on off for a chat takes its skills out of that chat's index, and the skill list shows each one with `addon` and `addon_title`. Its switch id is `addon:<name>`.
+
+An add-on can also replace a built-in skill of the same name, for example the Office add-on's own `xlsx`, written for its tools. The add-on's skill then serves and the built-in one shows `shadowed: "addon"` with `shadowed_by`, the add-on's ID. When the add-on is off for the chat or not running, or you switch its skill off (`addon:xlsx`), the built-in skill serves again: the model is told in one line, and the built-in skill in the skill list carries `fallback`, the add-on's title. When several add-ons replace one skill, an administrator chooses the one that serves in Settings > Tools, under **Skills that add-ons replace**, or with the switch in the add-on's details on the Add-ons page.
+
+In the **Skills** menu over the message box each skill says where it comes from: **Built-in**, the add-on's title, **Personal**, **Shared** or **Workspace**. A built-in skill that an add-on replaces is listed under the others, dimmed, with "Replaced by <add-on>" and no switch. When a built-in skill serves because the add-on's own skill is off or not running, one line under the title says so. The **Skills** page lists add-on skills under the **Add-on** layer, with the add-on's title as the badge, and says which skill replaces which. See [Skills of an add-on]({{%relref "features/addons#skills" %}}) for how an add-on ships them.
 
 The format is the same as the skills LocalAI already used, so an existing skill carries over by copying its folder into one of the places above. Git sources and zip import and export are not part of chats.
 
@@ -740,7 +747,7 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills`, `localai-workspace` and `localai-apps`. `localai-workspace` tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). `localai-apps` tells it to build an app, a tracker or a tool as a [Page]({{%relref "features/pages" %}}) and not as a program. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox, so they have `requires: [exec]` and are unavailable in a chat that cannot run commands. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
+The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills`, `localai-workspace` and `localai-apps`. `localai-workspace` tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). `localai-apps` tells it to build an app, a tracker or a tool as a [Page]({{%relref "features/pages" %}}) and not as a program. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox, so they have `requires: [exec]` and are unavailable in a chat that cannot run commands. When the Office add-on runs, its own skills replace these four: they use its tools, which read, edit and create Word, Excel and PowerPoint files, and read and create PDF files, in your files, with no command runner.
 
 ## Web
 

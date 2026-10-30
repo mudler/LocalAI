@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatAddonsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
 import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
-import { changedIds, offList, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
+import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 import { commandsState } from '../utils/chatCommands'
 
 const noMCP = { servers: [], connectors: [], off: [] }
@@ -24,6 +24,11 @@ export function useChatSwitches(chatId, filesOn) {
   const [mcp, setMcp] = useState(noMCP)
   const [builtins, setBuiltins] = useState([])
   const [skills, setSkills] = useState([])
+  // The built-in skills an add-on replaces now: shown dimmed, with no switch.
+  const [replaced, setReplaced] = useState([])
+  // A change of the add-ons or of the skills can bring a built-in skill back,
+  // so the list is read again after one.
+  const [skillsRev, setSkillsRev] = useState(0)
   const [error, setError] = useState('')
   const [skillsError, setSkillsError] = useState('')
   const [skillsBusy, setSkillsBusy] = useState(0)
@@ -34,7 +39,7 @@ export function useChatSwitches(chatId, filesOn) {
   useEffect(() => {
     setError('')
     setSkillsError('')
-    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setSkills([]); return undefined }
+    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setSkills([]); setReplaced([]); return undefined }
     let live = true
     chatAddonsApi.list(chatId)
       .then((res) => { if (live) { setAddons(res.addons || []); setCommands(commandsOf(res)) } })
@@ -42,16 +47,24 @@ export function useChatSwitches(chatId, filesOn) {
     chatToolsApi.list(chatId)
       .then((res) => { if (live) { setMcp(mcpOf(res)); setBuiltins(res.builtins || []) } })
       .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]) } })
-    if (filesOn) {
-      // Only the skill that wins is listed: one that another overrides cannot be used anyway.
-      chatSkillsApi.list(chatId)
-        .then((res) => { if (live) setSkills((res.skills || []).filter((s) => !s.shadowed && !s.invalid)) })
-        .catch(() => { if (live) setSkills([]) })
-    } else {
-      setSkills([])
-    }
     return () => { live = false }
   }, [chatId, filesOn])
+
+  useEffect(() => {
+    if (!chatId || !filesOn) { setSkills([]); setReplaced([]); return undefined }
+    let live = true
+    // Only the skill that wins has a switch: one that another overrides cannot
+    // be used anyway. A built-in skill an add-on replaces is shown apart.
+    chatSkillsApi.list(chatId)
+      .then((res) => {
+        if (!live) return
+        const picked = pickerSkills(res.skills)
+        setSkills(picked.skills)
+        setReplaced(picked.replaced)
+      })
+      .catch(() => { if (live) { setSkills([]); setReplaced([]) } })
+    return () => { live = false }
+  }, [chatId, filesOn, skillsRev])
 
   const toggleAddon = useCallback(async (id, on) => {
     const before = addons
@@ -64,6 +77,7 @@ export function useChatSwitches(chatId, filesOn) {
         setAddons(res.addons)
         setCommands(commandsOf(res))
       }
+      setSkillsRev((n) => n + 1)
     } catch (e) {
       setAddons(before)
       setError(e.message || 'error')
@@ -125,6 +139,9 @@ export function useChatSwitches(chatId, filesOn) {
     setSkillsBusy((n) => n + 1)
     try {
       await chatSkillsApi.setOff(chatId, offList(next))
+      // An add-on skill off brings back the built-in skill it replaces, and on
+      // hides it again: the list is read again so the picker shows which.
+      if (changedIds(before, ids, on).some((id) => String(id).startsWith('addon:'))) setSkillsRev((n) => n + 1)
     } catch (e) {
       const back = revertSkills(skillsRef.current, before, ids)
       skillsRef.current = back
@@ -140,7 +157,7 @@ export function useChatSwitches(chatId, filesOn) {
   const toggleSkill = useCallback((id, on) => setSkillsOn(new Set([id]), on), [setSkillsOn])
 
   return {
-    addons, builtins, commands, servers: mcp.servers, connectors: mcp.connectors, skills, error, skillsError, skillsBusy: skillsBusy > 0,
+    addons, builtins, commands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn,
   }

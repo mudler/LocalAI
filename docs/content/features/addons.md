@@ -799,6 +799,113 @@ needs none of them.
 | `ui.icon` | A packaged image: `.png`, `.webp`, `.jpg` or `.jpeg`, a normalized package-relative path of at most 256 bytes, at most 256 KiB. A remote URL, a `data:` URL, an absolute path and a traversal are rejected. It cannot also be the module or a stylesheet. |
 | `ui.title`, `ui.description` | Plain text: one string, or a map of BCP 47 language tag to string (at most 16 tags). At most 80 and 280 characters. Markup characters (`<`, `>`), control characters and direction overrides are rejected. |
 
+### Skills
+
+An add-on can ship skills, the procedures a chat model reads before a task
+(see [Skills]({{%relref "features/chats#skills" %}})). The manifest declares
+them in `capabilities.skillDefinitions` and the package holds the files:
+
+```json
+"skillDefinitions": [
+  { "name": "office" },
+  { "name": "office-quickstart" }
+]
+```
+
+```
+skills/<name>/SKILL.md
+skills/<name>/references/<file>      (up to 3 folders below the skill folder)
+```
+
+The description is not in the manifest: the `SKILL.md` frontmatter is its only
+source. The manifest is checked at parse, at install and when a library is
+refreshed:
+
+| Rule | Limit |
+|---|---|
+| Skills per add-on | 16 |
+| Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
+| A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
+| A built-in skill name | refused for a plain skill (`writing-skills`, `localai-workspace`, `localai-apps` and the office skills) |
+| `shadows` | optional; must repeat `name` and be a replaceable built-in skill: `xlsx`, `docx`, `pptx` or `pdf` (`contract.ReplaceableSkills`) |
+
+Staging checks the files against the manifest. The folders under `skills/`
+must be the declared names, and a package that declares no skills must have
+no `skills/` folder. Every entry is a plain file or a folder: links, special
+files and executable files are refused. A path segment uses lowercase ASCII
+letters, digits, `.`, `_` and `-`, does not start with a dot, and a path is at
+most 128 bytes. A file is a `.md`, `.txt`, `.json`, `.csv`, `.yaml` or `.yml`
+file of UTF-8 text with no NUL byte. **There are no scripts**: `.py`, `.sh`,
+`.js` and other files are refused. A skill that needs to run code is a
+built-in skill with `requires: [exec]`. `SKILL.md` is at most 64 KiB and must
+parse with a `name` equal to its folder and a `description`; a reference file
+is at most 256 KiB; a skill has at most 64 files and 1 MiB, and a package at
+most 4 MiB of skill files. The receipt records each file with its size and
+SHA-256 digest.
+
+The add-on owner copies the skills into the chats' add-on skill layer, in the
+workspace at `/addon-skills/<add-on>/`, when it installs or upgrades the
+add-on and every time it starts, and deletes them when the add-on is
+uninstalled. Each copied file is checked against the digest in the receipt,
+so a package folder changed after install never reaches a chat. A copy that
+fails is logged; the add-on itself still installs and runs. The files stay
+while the add-on is stopped. A chat offers them only while the add-on is
+installed, running, usable by the user and on for that chat, and for a chat
+with a saved agent only when the agent grants the add-on.
+
+#### Skills that replace a built-in skill
+
+An add-on skill can replace a built-in skill of the same name, as a tool
+replaces a built-in tool (see [Tools that replace a built-in
+tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
+`docx`, `pptx` and `pdf` can be replaced; `writing-skills`,
+`localai-workspace` and `localai-apps` cannot. The manifest says so with
+`shadows`, which repeats the name:
+
+```json
+"skillDefinitions": [
+  { "name": "xlsx", "shadows": "xlsx" },
+  { "name": "docx", "shadows": "docx" }
+]
+```
+
+- **In a chat.** While the add-on can serve (installed, running, usable by the
+  user and on for the chat), the model sees one `xlsx` skill, the add-on's,
+  and the built-in one is hidden. The index grows by nothing: one line
+  replaces another. A skill a person writes (folder, personal or shared) still
+  wins over the add-on's.
+- **The built-in comes back.** When the add-on is stopped, off for the chat or
+  removed, or the chat switches the add-on's skill off, the built-in skill
+  serves again. The turn tells the model in one line, and the Skills menu
+  says so on the built-in skill.
+- **Checked twice.** The install refuses a `shadows` that is not on the list,
+  and the chats refuse it again at each turn: an add-on skill with the name of
+  a built-in skill that cannot be replaced is skipped as invalid.
+- **Several add-ons.** Only one add-on serves a name. An administrator picks it
+  in Settings, **Tools**, in the same runtime setting as the tools
+  (`chats_tool_providers`, for example `{"xlsx": "office"}`; tool and skill
+  names never overlap). With no choice, the first by add-on ID serves. A choice
+  of an add-on that is not running leaves the name to the built-in skill.
+  `GET /api/chats/admin/tools` lists the replaced skills in `skills`, with who
+  serves each one.
+- **Before install.** The library entry and the installed view list the
+  skills an add-on replaces in `skillShadows`, and the install dialog names
+  each one: "This add-on replaces the built-in skill xlsx." When another
+  installed add-on already replaces it, the dialog says that only one can be
+  active and that the choice is in Settings > Tools. The install is still
+  allowed.
+- **On the Add-ons page.** The details of an add-on list its chat skills and
+  the built-in skills it replaces. For an administrator, a skill that several
+  add-ons replace has a switch, **Use for xlsx in the chats**: on, this add-on
+  serves it; off, the next add-on that replaces it does. The switch writes the
+  same choice as Settings > Tools.
+
+In distributed mode the state is **shared**: the files are in the workspace
+store that every frontend reads, and only the owner writes them, because only
+the owner holds the verified package. Which add-ons are usable is read from
+the broker at each turn, as for the tools. With the owner down the add-ons
+are down, their skills are not offered and the built-in skills serve.
+
 ### SDK versions
 
 This host provides SDK version 2. An add-on that has a UI declares the SDK
@@ -1663,7 +1770,9 @@ definition replaces one with `"shadows": "<name>"`:
   with the add-on's ID, so the chat shows the provider on the tool line.
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it
   in Settings, **Tools** (runtime setting `chats_tool_providers`, a map from the
-  tool to the add-on ID); with no choice, the first by add-on ID serves. The
+  tool to the add-on ID; the same map holds the choices for the built-in skills
+  an add-on replaces, see [Skills](#skills)); with no choice, the first by
+  add-on ID serves. The
   library entry and the installed view list the names an add-on replaces in
   `shadows`, and the install dialog warns when an installed add-on already
   replaces one: "This add-on replaces the built-in bash. Another add-on
@@ -3664,6 +3773,13 @@ on `ubuntu-24.04-arm`, `darwin/arm64` on `macos-14` and `darwin/amd64` on `macos
 Voice, Face, fine-tuning, quantization, Studio and Talk enable all four. A test fails when a
 platform is enabled without a recorded check.
 
+A package that ships skills names their folder with `skills:` (for example
+`skills: addons/office/skills`). The build lays it at the package root as `skills/`,
+in a layer of its own, on every platform, and checks it with the rules the owner
+applies at install: the folders must be the skills the manifest declares, and every
+file must pass the checks of [Skills](#skills). A package that the owner would refuse
+is never built.
+
 Each package also has a catalog template in `gallery/addons/<id>.yaml.tmpl`, so it can be
 listed in Find add-ons once a maintainer renders and publishes its entries. See
 `gallery/addons/README.md` for the commands.
@@ -3820,6 +3936,8 @@ The Office add-on reads and edits documents in the user's files, from a chat. It
 | `create-docx`, `create-xlsx`, `create-pptx`, `create-pdf` | action | Make a new file. `create-pdf` takes headings, paragraphs, bullets and tables, and writes Latin-1 text with the built-in font; text in other scripts is refused with a reason. It needs no sandbox. |
 
 The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. Without accounts, the files are the same ones the chat and the Files page use. With accounts and `local-owner` mode, the `workspace.*` operations are refused, because the local owner is no account and has no files; use `named-user` mode for the Office and Sandbox add-ons. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
+
+The add-on also ships four skills, `xlsx`, `docx`, `pptx` and `pdf` (see [Skills](#skills)). Each one replaces the built-in skill of the same name while the add-on can serve the chat. They are short procedures written for the tools above: read first, change only what must change, create a file only when none exists, and say what the tools cannot do (charts, tracked changes, form fields and the like) instead of describing a manual method. They need no command runner, so they are never "unavailable here". When the add-on is stopped, off for the chat or removed, the built-in skills come back. A test checks that every tool a skill names is a tool of the manifest.
 
 ## Sandbox
 

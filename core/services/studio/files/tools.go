@@ -114,16 +114,12 @@ func (s *Service) locate(ctx context.Context, a workspace.Actor, p string) (targ
 			return target{}, workspace.ErrBadName
 		}
 	}
-	if real := SharedGuestPath(p); real != "" {
+	if real, layer, guest := sharedLayer(p); real != "" {
 		segs, err := workspace.SplitPath(real)
 		if err != nil {
 			return target{}, err
 		}
 		abs := workspace.JoinPath(segs)
-		guest, layer := sharedGuest, SharedSkillsPath
-		if abs == BuiltinSkillsPath || strings.HasPrefix(abs, BuiltinSkillsPath+"/") {
-			guest, layer = builtinGuest, BuiltinSkillsPath
-		}
 		return target{abs: abs, readErr: errSharedReadOnly, root: layer, show: rebase(layer, guest)}, nil
 	}
 	if err := strayGuestPath(p); err != nil {

@@ -48,7 +48,7 @@ func validSwitch(n string) bool {
 		return skills.ValidName(n)
 	}
 	switch skills.Layer(layer) {
-	case skills.LayerFolder, skills.LayerPersonal, skills.LayerShared, skills.LayerBuiltin:
+	case skills.LayerFolder, skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin:
 		return skills.ValidName(name)
 	}
 	return false
@@ -90,19 +90,25 @@ func skillOff(off []string) func(skills.Skill) bool {
 //
 // gate, when set, returns why a skill cannot be used in this chat ("" when it
 // can); Index lists such a skill with the reason instead of its path.
-func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *scope, gate func(skills.Skill) string) (prompt, note, key string) {
+// addonsOff are the add-ons the chat switched off: their skills are not
+// offered, and a built-in skill of the same name serves again. fallback is
+// one line for the turn note when a built-in skill serves because the add-on
+// skill that replaces it is off or not running here.
+func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []string, sc *scope, gate func(skills.Skill) string) (prompt, note, key, fallback string) {
 	if !s.d.Files.Available() {
-		return "", "", ""
+		return "", "", "", ""
 	}
 	skip := skillOff(off)
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p), skills.Options{
+	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
 		Logger: s.log,
-	})
+	}))
 	if err != nil {
 		s.log.Warn("studio: skills unavailable", "user", p, "error", err)
-		return "", "", ""
+		return "", "", "", ""
 	}
+	fallback = ad.markFallbacks(list)
 	// The key covers every valid skill file, switched off or not: a switch takes
 	// a line out of the index without changing a file, and must not refresh the
 	// sandbox. A shadowed skill is left out, because it is never read.
@@ -136,9 +142,9 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *sco
 		}
 	}
 	if valid == 0 {
-		return "", strings.Join(notes, "; "), ""
+		return "", strings.Join(notes, "; "), "", fallback
 	}
-	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil))
+	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback
 }
 
 // Skills lists the skills the user has: every layer, with shadowed and skipped
@@ -150,18 +156,25 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		return nil, nil, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
 	}
 	p := principal(user)
-	var off []string
+	var off, addonsOff []string
+	var sc *scope
 	if conv != "" {
 		rec, err := s.d.Store.GetChat(ctx, p, conv)
 		if err != nil {
 			return nil, nil, err
 		}
-		off = rec.SkillsOff
+		off, addonsOff, sc = rec.SkillsOff, rec.AddonsOff, s.scopeOf(ctx, rec)
 	}
-	return skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p), skills.Options{
+	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,
-	})
+	}))
+	if err != nil {
+		return nil, nil, err
+	}
+	ad.markFallbacks(list)
+	return list, notes, nil
 }
 
 // WellKnown returns the well-known files of the users' homes: persona.json,

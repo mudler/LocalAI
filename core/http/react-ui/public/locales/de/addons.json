@@ -686,7 +686,9 @@
     "seeInList": "In Installiert ansehen",
     "install": "Installieren",
     "installNamed": "{{name}} installieren",
-    "shadowWarning": "Dieses Add-on ersetzt das eingebaute {{tool}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge."
+    "shadowWarning": "Dieses Add-on ersetzt das eingebaute {{tool}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge.",
+    "skillShadow": "Dieses Add-on ersetzt den integrierten Skill {{skill}}.",
+    "skillShadowWarning": "Dieses Add-on ersetzt den integrierten Skill {{skill}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge."
   },
   "family": {
     "pages": "Du suchst Seiten, die du oder ein Agent erstellt hast? Sie sind unter <go>Seiten</go>."
@@ -722,5 +724,14 @@
     "checked": "Geprüft · {{library}}",
     "devBuild": "Entwicklungs-Build",
     "library": "Bibliothek {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} Chat-Skill",
+    "title_other": "{{count}} Chat-Skills",
+    "replaces": "ersetzt den integrierten Skill",
+    "serves": "wird in den Chats verwendet",
+    "notServing": "derzeit nicht verwendet",
+    "serveIn": "Für {{skill}} in den Chats verwenden",
+    "saveFailed": "Die Auswahl konnte nicht gespeichert werden."
   }
 }

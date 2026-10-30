@@ -309,7 +309,8 @@ export const sharedFoldersApi = {
 const enc2 = encodeURIComponent
 export const chatSkillsApi = {
   list: (chat) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : ''}`),
-  get: (layer, name) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`),
+  // addon names the add-on of a skill of the addon layer.
+  get: (layer, name, addon) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${addon ? `?addon=${enc2(addon)}` : ''}`),
   create: (body) => postJSON('/api/chats/skills', body),
   update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
   remove: (layer, name) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'DELETE' }),

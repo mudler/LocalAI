@@ -267,6 +267,8 @@
 .ad-adds li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; align-items: start; overflow-wrap: anywhere; }
 .ad-adds .lai-icon { width: 16px; height: 16px; margin-top: 1px; color: var(--dk-muted); }
 .ad-adds__ids { display: block; margin-top: 2px; color: var(--dk-muted); font-size: var(--fs-meta); }
+.ad-adds li.ad-skill { grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; }
+.ad-skill__switch { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .ad-shots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: var(--sp-2); }
 .ad-shots img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-inset); }
 .ad-scrim { display: none; }

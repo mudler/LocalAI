@@ -126,7 +126,17 @@
     "search": "스킬 검색",
     "noMatch": "“{{query}}”와 일치하는 스킬이 없습니다.",
     "later": "나중에 추가하는 스킬은 켜진 상태로 시작합니다.",
-    "failed": "저장하지 못했습니다. 변경되지 않았습니다."
+    "failed": "저장하지 못했습니다. 변경되지 않았습니다.",
+    "source": {
+      "builtin": "기본 제공",
+      "personal": "개인",
+      "shared": "공유",
+      "folder": "작업 공간",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "{{name}}(으)로 대체됨",
+    "fallback_one": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
+    "fallback_other": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다."
   },
   "agent": {
     "label": "에이전트",

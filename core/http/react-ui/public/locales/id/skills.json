@@ -21,7 +21,11 @@
     "invalid": "Skipped: not a valid skill",
     "invalidWhy": "This SKILL.md was skipped: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
-    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Disediakan oleh {{name}}",
+    "replacedBy": "Digantikan oleh {{name}}",
+    "notActive": "Tidak aktif: skill bawaan yang dipakai",
+    "fallback": "Dipakai karena skill add-on {{name}} mati atau tidak berjalan"
   },
   "empty": {
     "title": "Tidak ada skill yang ditemukan",
@@ -40,7 +44,8 @@
     "personal": "Personal",
     "shared": "Shared",
     "builtin": "Built-in",
-    "folder": "Workspace"
+    "folder": "Workspace",
+    "addon": "Add-on"
   },
   "pane": {
     "loading": "Loading...",

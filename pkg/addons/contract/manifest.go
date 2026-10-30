@@ -109,7 +109,10 @@ type Capabilities struct {
 	// Connector says that the add-on carries the messages of a messaging
 	// platform (see connector.go). It needs no tool.
 	Connector *ConnectorCapability `json:"connector,omitempty"`
-	UI        *UI                  `json:"ui,omitempty"`
+	// SkillDefinitions are the skills the package ships under skills/ (see
+	// skills.go). The chat's skill index offers them while the add-on runs.
+	SkillDefinitions []SkillDefinition `json:"skillDefinitions,omitempty"`
+	UI               *UI               `json:"ui,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -355,6 +358,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateConnector(c.Connector, c.UI); e != nil {
+		return e
+	}
+	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {

@@ -126,7 +126,17 @@
     "search": "Cari keahlian",
     "noMatch": "Tidak ada keahlian yang cocok dengan “{{query}}”.",
     "later": "Keahlian yang Anda tambahkan nanti mulai dalam keadaan aktif.",
-    "failed": "Gagal menyimpan. Tidak ada yang berubah."
+    "failed": "Gagal menyimpan. Tidak ada yang berubah.",
+    "source": {
+      "builtin": "Bawaan",
+      "personal": "Pribadi",
+      "shared": "Bersama",
+      "folder": "Ruang kerja",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Digantikan oleh {{name}}",
+    "fallback_one": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
+    "fallback_other": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini."
   },
   "agent": {
     "label": "Agen",

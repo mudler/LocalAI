@@ -88,6 +88,10 @@
   color: var(--color-text-muted);
 }
 .sk-row[data-on="false"] .sk-row__name { color: var(--color-text-secondary); }
+.sk-row__src { flex: 0 0 auto; align-self: center; white-space: nowrap; font-size: var(--fs-meta); color: var(--color-text-muted); }
+.sk-row[data-replaced="true"] { opacity: 0.6; }
+.sk-row[data-replaced="true"]:hover { background: none; }
+.sk-head__note--fallback { color: var(--color-warning); }
 .sk-row .dk-switch { transform-origin: center; }
 
 .sk-empty { margin: 0; padding: var(--sp-4) var(--sp-3); font-size: var(--fs-small); color: var(--color-text-secondary); }

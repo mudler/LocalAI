@@ -557,6 +557,14 @@ func (l lateStudioAddons) Unavailable(ctx context.Context, user, addonID string,
 	return ""
 }
 
+// AddonSkills forwards to the broker when it knows the skills of the add-ons.
+func (l lateStudioAddons) AddonSkills(ctx context.Context, user string) ([]studio.AddonSkillSet, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonSkillLister); ok {
+		return g.AddonSkills(ctx, user)
+	}
+	return nil, nil
+}
+
 // Isolation forwards to the broker when it can say how commands are isolated.
 func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
 	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
@@ -740,6 +748,33 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			Runs: d.Name == sandboxRunTool, Shadows: d.Shadows})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
+}
+
+// AddonSkills lists the add-ons that ship skills and that the user can see,
+// less those whose host operations need a feature the user lacks: the same
+// rule as their tools.
+func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.AddonSkillSet, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Skills(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	out := make([]studio.AddonSkillSet, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, Skills: contract.SkillNames(a.Skills),
+			Shadows: contract.ShadowedSkills(a.Skills), Running: a.Running})
+	}
+	return out, nil
 }
 
 func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {

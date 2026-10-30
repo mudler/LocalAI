@@ -1346,16 +1346,16 @@ func (c *Client) chats() (*studio.Service, error) {
 	return svc, nil
 }
 
-func (c *Client) ListChatTools(ctx context.Context) ([]localaitools.ChatBuiltinTool, error) {
+func (c *Client) ListChatTools(ctx context.Context) (localaitools.ChatBuiltinToolList, error) {
 	svc, err := c.chats()
 	if err != nil {
-		return nil, err
+		return localaitools.ChatBuiltinToolList{}, err
 	}
 	// The assistant has no user of its own: the add-ons that replace a tool
 	// are the ones the local owner sees.
 	list, err := svc.AdminBuiltinTools(ctx, "")
 	if err != nil {
-		return nil, err
+		return localaitools.ChatBuiltinToolList{}, err
 	}
 	out := make([]localaitools.ChatBuiltinTool, 0, len(list))
 	for _, t := range list {
@@ -1370,7 +1370,11 @@ func (c *Client) ListChatTools(ctx context.Context) ([]localaitools.ChatBuiltinT
 		out = append(out, localaitools.ChatBuiltinTool{ID: t.ID, Label: t.Label, Description: t.Description, Group: t.Group, Setting: t.Setting,
 			Options: opts, ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Enabled: t.Enabled, Provider: t.Provider, Candidates: cands, Pinned: t.Pinned, Mode: t.Mode, Unavailable: t.Unavailable})
 	}
-	return out, nil
+	skills := []schema.ChatsBuiltinSkill{}
+	for _, sk := range svc.AdminBuiltinSkills(ctx, "") {
+		skills = append(skills, schema.ChatsBuiltinSkill{ID: sk.ID, Provider: sk.Provider, Candidates: sk.Candidates, Titles: sk.Titles, Pinned: sk.Pinned, Note: sk.Note})
+	}
+	return localaitools.ChatBuiltinToolList{Tools: out, Skills: skills}, nil
 }
 
 func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaitools.HostExecEvent, error) {

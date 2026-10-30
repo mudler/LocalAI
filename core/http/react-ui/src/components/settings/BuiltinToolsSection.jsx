@@ -10,6 +10,8 @@ import { SANDBOX_INSTALL_LINK } from '../../utils/chatCommands'
 // Settings > Tools: the built-in chat tools (bash, web_search, web_fetch), each
 // of which an add-on may replace, from GET /api/chats/admin/tools. Each row has its switch, says who serves the tool
 // now, and lets an administrator choose the add-on when several replace it.
+// Below them, the built-in skills that installed add-ons replace (xlsx, say),
+// chosen the same way and in the same chats_tool_providers map.
 // The changes are drafts of the page, applied with the other settings.
 
 const MODE = FIELD_BY_KEY.chats_host_exec
@@ -76,8 +78,9 @@ function BoolControls({ tool, settings, onChange }) {
   )
 }
 
-// The add-ons that replace one tool: mutually exclusive, the pinned one serves.
-function ProviderChoice({ tool, settings, onChange }) {
+// The add-ons that replace one tool or skill: mutually exclusive, the pinned
+// one serves. titles, when given, maps an add-on ID to its title.
+function ProviderChoice({ tool, settings, onChange, titles }) {
   const { t } = useTranslation('admin')
   const pins = readPins(settings)
   const pinned = pins[tool.id] || ''
@@ -94,7 +97,7 @@ function ProviderChoice({ tool, settings, onChange }) {
       {tool.candidates.map(id => (
         <label key={id} className="st-tools__radio">
           <input type="radio" name={`provider-${tool.id}`} value={id} checked={id === active} onChange={() => set(id)} />
-          <span>{id}</span>
+          <span>{titles?.[id] || id}</span>
         </label>
       ))}
     </fieldset>
@@ -103,15 +106,15 @@ function ProviderChoice({ tool, settings, onChange }) {
 
 export default function BuiltinToolsSection({ settings, onChange }) {
   const { t } = useTranslation('admin')
-  const [state, setState] = useState({ loading: true, tools: [], error: '' })
+  const [state, setState] = useState({ loading: true, tools: [], skills: [], error: '' })
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
     let live = true
     setState(s => ({ ...s, loading: true, error: '' }))
     chatBuiltinToolsApi.list()
-      .then(res => { if (live) setState({ loading: false, tools: res?.tools || [], error: '' }) })
-      .catch(e => { if (live) setState({ loading: false, tools: [], error: e.message || 'error' }) })
+      .then(res => { if (live) setState({ loading: false, tools: res?.tools || [], skills: res?.skills || [], error: '' }) })
+      .catch(e => { if (live) setState({ loading: false, tools: [], skills: [], error: e.message || 'error' }) })
     return () => { live = false }
   }, [reload])
 
@@ -143,6 +146,37 @@ export default function BuiltinToolsSection({ settings, onChange }) {
               {tool.id === 'bash' && tool.candidates.length === 0 && (
                 <p className="st-row__desc"><Link to={SANDBOX_INSTALL_LINK} data-testid="settings-tools-install-sandbox">{t('settingsTools.installSandbox')}</Link></p>
               )}
+            </div>
+          </div>
+        )
+      })}
+      {state.skills.length > 0 && <SkillRows skills={state.skills} settings={settings} onChange={onChange} />}
+    </div>
+  )
+}
+
+// The built-in skills that installed add-ons replace: who serves each now and,
+// when several add-ons replace one, the choice.
+function SkillRows({ skills, settings, onChange }) {
+  const { t } = useTranslation('admin')
+  return (
+    <div className="st-tools__skills" data-testid="settings-tools-skills">
+      <h3 className="st-row__label">{t('settingsTools.skillsTitle')}</h3>
+      <p className="st-note">{t('settingsTools.skillsIntro')}</p>
+      {skills.map(skill => {
+        const titles = skill.titles || {}
+        const by = skill.provider === 'builtin'
+          ? t('settingsTools.byBuiltin')
+          : t('settingsTools.byAddon', { name: titles[skill.provider] || skill.provider })
+        return (
+          <div key={skill.id} className="st-row st-tools__row" data-wide data-skill={skill.id} data-testid={`settings-tools-skill-${skill.id}`}>
+            <div className="st-row__main">
+              <div className="st-row__title">
+                <span className="st-row__label">{t('settingsTools.skillLabel', { skill: skill.id })}</span>
+                <span className="st-tag" data-testid={`settings-tools-skill-${skill.id}-provider`}>{by}</span>
+              </div>
+              {skill.note && <p className="st-row__desc" data-tone="warn" data-testid={`settings-tools-skill-${skill.id}-note`}>{t('settingsTools.skillNotRunning')}</p>}
+              {skill.candidates.length > 1 && <ProviderChoice tool={skill} settings={settings} onChange={onChange} titles={titles} />}
             </div>
           </div>
         )

@@ -229,6 +229,19 @@ definitions:
         items:
           type: string
         type: array
+      skillShadows:
+        description: SkillShadows lists the built-in skills the add-on replaces (xlsx,
+          say).
+        items:
+          type: string
+        type: array
+      skills:
+        description: |-
+          Skills are the skills the package ships, from the verified manifest.
+          The owner copies their files into the chats' skill layer.
+        items:
+          $ref: '#/definitions/contract.SkillDefinition'
+        type: array
       state:
         description: |-
           State is running, starting, failed or stopped: the observation of the
@@ -666,6 +679,24 @@ definitions:
         type: integer
       schema:
         type: integer
+    type: object
+  contract.SkillDefinition:
+    properties:
+      name:
+        description: |-
+          Name is the skill's name and the name of its folder. A plain skill is
+          named after the add-on: the add-on ID, or the ID and a dash and more
+          (office-quickstart), so two add-ons never ship one plain name. A skill
+          that replaces a built-in one has the built-in's name (see Shadows).
+        type: string
+      shadows:
+        description: |-
+          Shadows names the built-in skill this skill replaces. It must equal Name
+          and be one of ReplaceableSkills. It repeats the name on purpose: the
+          replacement is an explicit act, which the install warning and the check
+          read from the manifest without opening the package. Empty: a plain
+          add-on skill.
+        type: string
     type: object
   contract.ToolDefinition:
     properties:
@@ -2944,6 +2975,32 @@ definitions:
           why.
         type: boolean
     type: object
+  schema.ChatsBuiltinSkill:
+    properties:
+      candidates:
+        description: |-
+          Candidates are the add-ons that replace it, by ID, and Titles their
+          titles; Pinned the one chosen in chats_tool_providers.
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      note:
+        description: |-
+          Note says why the built-in serves although an add-on replaces it, or is
+          empty: the chosen add-on is not running.
+        type: string
+      pinned:
+        type: string
+      provider:
+        description: 'Provider serves it now: builtin or an add-on''s ID.'
+        type: string
+      titles:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
   schema.ChatsBuiltinSwitches:
     properties:
       "off":
@@ -3009,6 +3066,10 @@ definitions:
     type: object
   schema.ChatsBuiltinToolList:
     properties:
+      skills:
+        items:
+          $ref: '#/definitions/schema.ChatsBuiltinSkill'
+        type: array
       tools:
         items:
           $ref: '#/definitions/schema.ChatsBuiltinTool'
@@ -4164,6 +4225,13 @@ definitions:
     type: object
   schema.ChatsSkill:
     properties:
+      addon:
+        description: |-
+          Addon and AddonTitle name the add-on that provides a skill of the addon
+          layer.
+        type: string
+      addon_title:
+        type: string
       description:
         type: string
       editable:
@@ -4172,6 +4240,12 @@ definitions:
       enabled:
         description: Enabled is false when the chat has switched it off.
         type: boolean
+      fallback:
+        description: |-
+          Fallback is set on a built-in skill that serves because the add-on
+          skill that replaces it is off or not running in the chat: the title of
+          that add-on.
+        type: string
       id:
         description: |-
           ID is "layer:name". A switch with the ID turns off the skill of that
@@ -4183,7 +4257,7 @@ definitions:
       layer:
         description: |-
           Layer is where it comes from: folder (a .skills folder of your files),
-          personal, shared or builtin.
+          personal, shared, addon (an installed add-on ships it) or builtin.
         type: string
       name:
         type: string
@@ -4193,6 +4267,12 @@ definitions:
       shadowed:
         description: Shadowed names the layer of a nearer skill with the same name,
           which wins.
+        type: string
+      shadowed_by:
+        description: |-
+          ShadowedBy is the add-on whose skill wins over this one, when the
+          winner ships with an add-on (a built-in skill an add-on replaces, or
+          the skill of an add-on that is not the chosen one).
         type: string
     type: object
   schema.ChatsSkillDetail:
@@ -12359,7 +12439,10 @@ paths:
         is on, whether it only reads and whether an add-on may replace it, who serves
         it now (builtin, an add-on''s ID, or empty), the add-ons that replace it and
         the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec
-        and why this server cannot run it, if so. Change them with POST /api/settings.'
+        and why this server cannot run it, if so. skills lists the built-in skills
+        (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each
+        now, the add-ons that replace it and the one pinned in the same chats_tool_providers
+        map. Change them with POST /api/settings.'
       responses:
         "200":
           description: The built-in tools, by ID
@@ -14049,9 +14132,10 @@ paths:
   /api/chats/skills:
     get:
       description: 'Skills from every layer: .skills folders of your files, your personal
-        skills, the shared ones and the built-in ones. The nearest wins; a skill that
-        another overrides says so in shadowed. With chat set, the chat''s switches
-        are applied.'
+        skills, the shared ones, the ones of the add-ons you may use now (addon, with
+        the add-on in addon and addon_title) and the built-in ones. The nearest wins;
+        a skill that another overrides says so in shadowed. With chat set, the chat''s
+        switches are applied.'
       parameters:
       - description: a chat id, to apply its switches
         in: query
@@ -14119,7 +14203,7 @@ paths:
       - chats
     get:
       parameters:
-      - description: personal, shared or builtin
+      - description: personal, shared, addon or builtin
         in: path
         name: layer
         required: true
@@ -14128,6 +14212,10 @@ paths:
         in: path
         name: name
         required: true
+        type: string
+      - description: the add-on's ID, for the addon layer
+        in: query
+        name: addon
         type: string
       responses:
         "200":

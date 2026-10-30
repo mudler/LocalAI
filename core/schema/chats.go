@@ -475,14 +475,26 @@ type ChatsSkill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Layer is where it comes from: folder (a .skills folder of your files),
-	// personal, shared or builtin.
+	// personal, shared, addon (an installed add-on ships it) or builtin.
 	Layer string `json:"layer"`
+	// Addon and AddonTitle name the add-on that provides a skill of the addon
+	// layer.
+	Addon      string `json:"addon,omitempty"`
+	AddonTitle string `json:"addon_title,omitempty"`
 	// Path is the path of its SKILL.md as the model sees it.
 	Path string `json:"path"`
 	// Enabled is false when the chat has switched it off.
 	Enabled bool `json:"enabled"`
 	// Shadowed names the layer of a nearer skill with the same name, which wins.
 	Shadowed string `json:"shadowed,omitempty"`
+	// ShadowedBy is the add-on whose skill wins over this one, when the
+	// winner ships with an add-on (a built-in skill an add-on replaces, or
+	// the skill of an add-on that is not the chosen one).
+	ShadowedBy string `json:"shadowed_by,omitempty"`
+	// Fallback is set on a built-in skill that serves because the add-on
+	// skill that replaces it is off or not running in the chat: the title of
+	// that add-on.
+	Fallback string `json:"fallback,omitempty"`
 	// Invalid says why a SKILL.md was skipped.
 	Invalid string `json:"invalid,omitempty"`
 	// Editable is true when you may change or delete it here.
@@ -614,9 +626,27 @@ type ChatsBuiltinTool struct {
 	Unavailable string `json:"unavailable,omitempty"`
 }
 
-// ChatsBuiltinToolList lists the built-in chat tools.
+// ChatsBuiltinSkill is one built-in skill that installed add-ons replace, in
+// Settings > Tools.
+type ChatsBuiltinSkill struct {
+	ID string `json:"id"`
+	// Provider serves it now: builtin or an add-on's ID.
+	Provider string `json:"provider"`
+	// Candidates are the add-ons that replace it, by ID, and Titles their
+	// titles; Pinned the one chosen in chats_tool_providers.
+	Candidates []string          `json:"candidates"`
+	Titles     map[string]string `json:"titles,omitempty"`
+	Pinned     string            `json:"pinned,omitempty"`
+	// Note says why the built-in serves although an add-on replaces it, or is
+	// empty: the chosen add-on is not running.
+	Note string `json:"note,omitempty"`
+}
+
+// ChatsBuiltinToolList lists the built-in chat tools, and the built-in skills
+// that at least one installed add-on replaces.
 type ChatsBuiltinToolList struct {
-	Tools []ChatsBuiltinTool `json:"tools"`
+	Tools  []ChatsBuiltinTool  `json:"tools"`
+	Skills []ChatsBuiltinSkill `json:"skills"`
 }
 
 // ChatsNotification is one item of the inbox. Kind is run_ended, run_failed or

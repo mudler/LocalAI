@@ -4193,7 +4193,7 @@
         },
         "/api/chats/admin/tools": {
             "get": {
-                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. Change them with POST /api/settings.",
+                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
                 "tags": [
                     "chats"
                 ],
@@ -6592,7 +6592,7 @@
         },
         "/api/chats/skills": {
             "get": {
-                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
+                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
                 "tags": [
                     "chats"
                 ],
@@ -6656,7 +6656,7 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "personal, shared or builtin",
+                        "description": "personal, shared, addon or builtin",
                         "name": "layer",
                         "in": "path",
                         "required": true
@@ -6667,6 +6667,12 @@
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the add-on's ID, for the addon layer",
+                        "name": "addon",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13643,6 +13649,20 @@
                         "type": "string"
                     }
                 },
+                "skillShadows": {
+                    "description": "SkillShadows lists the built-in skills the add-on replaces (xlsx, say).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills": {
+                    "description": "Skills are the skills the package ships, from the verified manifest.\nThe owner copies their files into the chats' skill layer.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.SkillDefinition"
+                    }
+                },
                 "state": {
                     "description": "State is running, starting, failed or stopped: the observation of the\nprocess, never an update.",
                     "type": "string",
@@ -14194,6 +14214,19 @@
                 },
                 "schema": {
                     "type": "integer"
+                }
+            }
+        },
+        "contract.SkillDefinition": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nthat replaces a built-in one has the built-in's name (see Shadows).",
+                    "type": "string"
+                },
+                "shadows": {
+                    "description": "Shadows names the built-in skill this skill replaces. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
+                    "type": "string"
                 }
             }
         },
@@ -17240,6 +17273,38 @@
                 }
             }
         },
+        "schema.ChatsBuiltinSkill": {
+            "type": "object",
+            "properties": {
+                "candidates": {
+                    "description": "Candidates are the add-ons that replace it, by ID, and Titles their\ntitles; Pinned the one chosen in chats_tool_providers.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "note": {
+                    "description": "Note says why the built-in serves although an add-on replaces it, or is\nempty: the chosen add-on is not running.",
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider serves it now: builtin or an add-on's ID.",
+                    "type": "string"
+                },
+                "titles": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsBuiltinSwitches": {
             "type": "object",
             "properties": {
@@ -17321,6 +17386,12 @@
         "schema.ChatsBuiltinToolList": {
             "type": "object",
             "properties": {
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsBuiltinSkill"
+                    }
+                },
                 "tools": {
                     "type": "array",
                     "items": {
@@ -18931,6 +19002,13 @@
         "schema.ChatsSkill": {
             "type": "object",
             "properties": {
+                "addon": {
+                    "description": "Addon and AddonTitle name the add-on that provides a skill of the addon\nlayer.",
+                    "type": "string"
+                },
+                "addon_title": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -18942,6 +19020,10 @@
                     "description": "Enabled is false when the chat has switched it off.",
                     "type": "boolean"
                 },
+                "fallback": {
+                    "description": "Fallback is set on a built-in skill that serves because the add-on\nskill that replaces it is off or not running in the chat: the title of\nthat add-on.",
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID is \"layer:name\". A switch with the ID turns off the skill of that\nlayer; a switch with the plain name turns off the skill that wins.",
                     "type": "string"
@@ -18951,7 +19033,7 @@
                     "type": "string"
                 },
                 "layer": {
-                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\npersonal, shared or builtin.",
+                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\npersonal, shared, addon (an installed add-on ships it) or builtin.",
                     "type": "string"
                 },
                 "name": {
@@ -18963,6 +19045,10 @@
                 },
                 "shadowed": {
                     "description": "Shadowed names the layer of a nearer skill with the same name, which wins.",
+                    "type": "string"
+                },
+                "shadowed_by": {
+                    "description": "ShadowedBy is the add-on whose skill wins over this one, when the\nwinner ships with an add-on (a built-in skill an add-on replaces, or\nthe skill of an add-on that is not the chosen one).",
                     "type": "string"
                 }
             }

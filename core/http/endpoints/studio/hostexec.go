@@ -53,7 +53,7 @@ func (h *Handlers) AdminHostExecEvents(c echo.Context) error {
 
 // AdminBuiltinTools lists the built-in chat tools for Settings > Tools.
 // @Summary List the built-in chat tools (administrators).
-// @Description The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. Change them with POST /api/settings.
+// @Description The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.
 // @Tags chats
 // @Success 200 {object} schema.ChatsBuiltinToolList "The built-in tools, by ID"
 // @Router /api/chats/admin/tools [get]
@@ -74,6 +74,10 @@ func (h *Handlers) AdminBuiltinTools(c echo.Context) error {
 		}
 		out.Tools = append(out.Tools, schema.ChatsBuiltinTool{ID: t.ID, Label: t.Label, Description: t.Description, Group: t.Group, Setting: t.Setting,
 			Options: opts, ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Enabled: t.Enabled, Provider: t.Provider, Candidates: cands, Pinned: t.Pinned, Mode: t.Mode, Unavailable: t.Unavailable})
+	}
+	out.Skills = []schema.ChatsBuiltinSkill{}
+	for _, sk := range h.svc.AdminBuiltinSkills(c.Request().Context(), userID(c)) {
+		out.Skills = append(out.Skills, schema.ChatsBuiltinSkill{ID: sk.ID, Provider: sk.Provider, Candidates: sk.Candidates, Titles: sk.Titles, Pinned: sk.Pinned, Note: sk.Note})
 	}
 	return c.JSON(http.StatusOK, out)
 }

@@ -690,7 +690,9 @@
     "seeInList": "Le voir dans Installés",
     "install": "Installer",
     "installNamed": "Installer {{name}}",
-    "shadowWarning": "Ce module remplace l'outil intégré {{tool}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils."
+    "shadowWarning": "Ce module remplace l'outil intégré {{tool}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils.",
+    "skillShadow": "Ce module remplace la compétence intégrée {{skill}}.",
+    "skillShadowWarning": "Ce module remplace la compétence intégrée {{skill}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils."
   },
   "family": {
     "pages": "Vous cherchez des pages créées par vous ou par un agent ? Elles sont dans <go>Pages</go>."
@@ -726,5 +728,14 @@
     "checked": "Vérifié · {{library}}",
     "devBuild": "Version de développement",
     "library": "bibliothèque {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} compétence de chat",
+    "title_other": "{{count}} compétences de chat",
+    "replaces": "remplace la compétence intégrée",
+    "serves": "utilisée dans les discussions",
+    "notServing": "non utilisée pour l'instant",
+    "serveIn": "Utiliser pour {{skill}} dans les discussions",
+    "saveFailed": "Impossible d'enregistrer le choix."
   }
 }

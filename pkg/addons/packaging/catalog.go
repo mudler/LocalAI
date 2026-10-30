@@ -47,7 +47,10 @@ type catalogRelease struct {
 	// Shadows repeats catalog.Release.Shadows: the built-in chat tools the
 	// manifest's tool definitions replace.
 	Shadows []string `json:"shadows,omitempty"`
-	UI      struct {
+	// SkillShadows repeats catalog.Release.SkillShadows: the built-in skills
+	// the manifest's skill definitions replace.
+	SkillShadows []string `json:"skillShadows,omitempty"`
+	UI           struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		MainPage    string `json:"mainPage"`
@@ -89,6 +92,20 @@ func toolFieldsYAML(tools []string, indent string, shadows ...string) string {
 		for _, t := range shadows {
 			b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
 		}
+	}
+	return b.String()
+}
+
+// skillFieldsYAML returns the skillShadows field of a library entry: the
+// built-in skills the add-on replaces, so the install dialog can warn.
+func skillFieldsYAML(shadows []string, indent string) string {
+	if len(shadows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString(indent + "skillShadows:\n")
+	for _, t := range shadows {
+		b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
 	}
 	return b.String()
 }
@@ -142,7 +159,7 @@ func cmdCatalogTools(args []string) error {
 			switch {
 			case strings.HasPrefix(line, "  toolCount:"):
 				continue
-			case strings.HasPrefix(line, "  tools:"), strings.HasPrefix(line, "  shadows:"):
+			case strings.HasPrefix(line, "  tools:"), strings.HasPrefix(line, "  shadows:"), strings.HasPrefix(line, "  skillShadows:"):
 				skip = true
 				continue
 			case skip && strings.HasPrefix(line, "    - "):
@@ -152,7 +169,8 @@ func cmdCatalogTools(args []string) error {
 			kept = append(kept, line)
 		}
 		text := strings.TrimRight(strings.Join(kept, ""), "\n") + "\n"
-		blocks[i] = text + toolFieldsYAML(m.Capabilities.Tools, "  ", contract.ShadowedTools(m.Capabilities.ToolDefinitions)...)
+		blocks[i] = text + toolFieldsYAML(m.Capabilities.Tools, "  ", contract.ShadowedTools(m.Capabilities.ToolDefinitions)...) +
+			skillFieldsYAML(contract.ShadowedSkills(m.Capabilities.SkillDefinitions), "  ")
 	}
 	out := strings.Join(blocks, "")
 	if _, err := readCatalogIndex([]byte(out)); err != nil {
@@ -245,7 +263,8 @@ func cmdCatalog(args []string) error {
 			"title": title, "description": description, "main_page": mainPage, "icon": icon,
 		}
 		text := string(tmpl)
-		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(manifest.Capabilities.Tools, "", contract.ShadowedTools(manifest.Capabilities.ToolDefinitions)...)
+		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(manifest.Capabilities.Tools, "", contract.ShadowedTools(manifest.Capabilities.ToolDefinitions)...) +
+			skillFieldsYAML(contract.ShadowedSkills(manifest.Capabilities.SkillDefinitions), "")
 		if mutable {
 			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)
 		}

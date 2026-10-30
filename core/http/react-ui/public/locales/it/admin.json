@@ -294,6 +294,10 @@
       "off": "spento",
       "ask": "chiedi ogni volta",
       "on": "consentito a tutti"
-    }
+    },
+    "skillsTitle": "Skill sostituite dai componenti",
+    "skillsIntro": "Un componente può sostituire una skill integrata con la propria, scritta per i suoi strumenti. Se più componenti sostituiscono la stessa, scegli quale usare.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "Il componente scelto non è in esecuzione: si usa la skill integrata."
   }
 }

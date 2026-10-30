@@ -21,7 +21,11 @@
     "invalid": "Skipped: not a valid skill",
     "invalidWhy": "This SKILL.md was skipped: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
-    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "{{name}} 제공",
+    "replacedBy": "{{name}}(으)로 대체됨",
+    "notActive": "비활성: 기본 제공 스킬이 사용됩니다",
+    "fallback": "{{name}} 애드온의 스킬이 꺼져 있거나 실행 중이 아니어서 사용 중"
   },
   "empty": {
     "title": "스킬을 찾을 수 없습니다",
@@ -40,7 +44,8 @@
     "personal": "Personal",
     "shared": "Shared",
     "builtin": "Built-in",
-    "folder": "Workspace"
+    "folder": "Workspace",
+    "addon": "애드온"
   },
   "pane": {
     "loading": "Loading...",

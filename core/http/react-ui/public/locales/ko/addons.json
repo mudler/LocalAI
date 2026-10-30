@@ -686,7 +686,9 @@
     "seeInList": "설치됨에서 보기",
     "install": "설치",
     "installNamed": "{{name}} 설치",
-    "shadowWarning": "이 애드온은 내장 {{tool}}을 대체합니다. 다른 애드온({{name}})이 이미 대체하고 있습니다. 하나만 활성화할 수 있으며, 설정 > 도구에서 선택합니다."
+    "shadowWarning": "이 애드온은 내장 {{tool}}을 대체합니다. 다른 애드온({{name}})이 이미 대체하고 있습니다. 하나만 활성화할 수 있으며, 설정 > 도구에서 선택합니다.",
+    "skillShadow": "이 애드온은 기본 제공 스킬 {{skill}}을(를) 대체합니다.",
+    "skillShadowWarning": "이 애드온은 기본 제공 스킬 {{skill}}을(를) 대체합니다. 다른 애드온({{name}})이 이미 대체하고 있습니다. 하나만 활성화할 수 있으며, 설정 > 도구에서 선택합니다."
   },
   "family": {
     "pages": "본인이나 에이전트가 만든 페이지를 찾으시나요? <go>페이지</go>에 있습니다."
@@ -722,5 +724,14 @@
     "checked": "확인됨 · {{library}}",
     "devBuild": "개발 빌드",
     "library": "{{library}} 라이브러리"
+  },
+  "skills": {
+    "title_one": "채팅 스킬 {{count}}개",
+    "title_other": "채팅 스킬 {{count}}개",
+    "replaces": "기본 제공 스킬을 대체",
+    "serves": "채팅에서 사용 중",
+    "notServing": "현재 사용 안 함",
+    "serveIn": "채팅의 {{skill}}에 사용",
+    "saveFailed": "선택을 저장하지 못했습니다."
   }
 }

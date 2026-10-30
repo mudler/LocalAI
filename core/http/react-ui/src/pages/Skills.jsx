@@ -19,9 +19,23 @@ import './library.css'
 
 const PREVIEW_LINES = 8
 // The layers, nearest first: a skill of a nearer layer hides one of the same name.
-const LAYERS = ['personal', 'folder', 'shared', 'builtin']
+const LAYERS = ['personal', 'folder', 'shared', 'addon', 'builtin']
 
-const keyOf = (s) => `${s.layer}/${s.name}`
+// Two add-ons may ship a skill of one name, so an add-on skill keys by its add-on too.
+const keyOf = (s) => (s.layer === 'addon' ? `addon/${s.addon}/${s.name}` : `${s.layer}/${s.name}`)
+
+// The badge of a skill: the add-on's title for an add-on skill, else the layer.
+const badgeOf = (t, s) => (s.layer === 'addon' ? (s.addon_title || s.addon) : t(`layers.${s.layer}`))
+
+// Why a skill does not serve, or where a serving one comes from, in one line.
+// titles maps an add-on ID to its title, from the add-on skills of the list.
+function statusOf(t, s, titles = {}) {
+  if (s.invalid) return t('card.invalid')
+  if (s.shadowed_by) return t('card.replacedBy', { name: titles[s.shadowed_by] || s.shadowed_by })
+  if (s.shadowed === 'builtin' && s.layer === 'addon') return t('card.notActive')
+  if (s.shadowed) return t('card.shadowed', { layer: t(`layers.${s.shadowed}`) })
+  return ''
+}
 
 export default function Skills() {
   const { addToast } = useOutletContext()
@@ -72,6 +86,7 @@ export default function Skills() {
   const known = facts.status === 'ready'
 
   const layersPresent = LAYERS.filter(l => skills.some(s => s.layer === l))
+  const addonTitles = useMemo(() => Object.fromEntries(skills.filter(s => s.layer === 'addon').map(s => [s.addon, s.addon_title || s.addon])), [skills])
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase()
     return skills.filter(s => {
@@ -239,10 +254,10 @@ export default function Skills() {
                     <span className="dk-row-main">
                       <span className="dk-row-title dk-mono">{s.name}</span>
                       <span className="dk-row-meta" data-testid={`skill-used-${s.name}`}>
-                        {s.invalid ? t('card.invalid') : s.shadowed ? t('card.shadowed', { layer: t(`layers.${s.shadowed}`) }) : usedByLine(t, usersOf.get(s.name), facts.status)}
+                        {statusOf(t, s, addonTitles) || (s.fallback ? t('card.fallback', { name: s.fallback }) : usedByLine(t, usersOf.get(s.name), facts.status))}
                       </span>
                     </span>
-                    <span className="dk-row-end"><span className="dk-badge">{t(`layers.${s.layer}`)}</span></span>
+                    <span className="dk-row-end"><span className="dk-badge" data-testid={`skill-badge-${s.name}`}>{badgeOf(t, s)}</span></span>
                   </button>
                 ))}
               </div>
@@ -255,6 +270,7 @@ export default function Skills() {
                 key={keyOf(selected)}
                 t={t}
                 skill={selected}
+                titles={addonTitles}
                 users={usersOf.get(selected.name) || []}
                 status={facts.status}
                 agents={facts.agents}
@@ -292,7 +308,7 @@ export default function Skills() {
 }
 
 // eslint-disable-next-line no-unused-vars
-function SkillPane({ t, skill, users, status, agents, busy, onBack, onEdit, onDelete, onAdd, onRemove }) {
+function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEdit, onDelete, onAdd, onRemove }) {
   const [tab, setTab] = useState('overview')
   const [detail, setDetail] = useState({ phase: 'loading', data: null })
   const unused = status === 'ready' && users.length === 0
@@ -301,11 +317,11 @@ function SkillPane({ t, skill, users, status, agents, busy, onBack, onEdit, onDe
   useEffect(() => {
     if (skill.invalid) { setDetail({ phase: 'failed', data: null }); return undefined }
     let live = true
-    chatSkillsApi.get(skill.layer, skill.name)
+    chatSkillsApi.get(skill.layer, skill.name, skill.layer === 'addon' ? skill.addon : '')
       .then(data => { if (live) setDetail({ phase: 'ready', data }) })
       .catch(() => { if (live) setDetail({ phase: 'failed', data: null }) })
     return () => { live = false }
-  }, [skill.layer, skill.name, skill.invalid])
+  }, [skill.layer, skill.name, skill.addon, skill.invalid])
 
   const body = detail.data?.body || ''
   const tokens = estimateTokens(body)
@@ -331,9 +347,10 @@ function SkillPane({ t, skill, users, status, agents, busy, onBack, onEdit, onDe
       </div>
 
       <ul className="lib-facts">
-        <li className="lib-fact" data-testid="skill-layer">{t(`layers.${skill.layer}`)}</li>
+        <li className="lib-fact" data-testid="skill-layer">{skill.layer === 'addon' ? t('card.providedBy', { name: badgeOf(t, skill) }) : t(`layers.${skill.layer}`)}</li>
         {!skill.editable && <li className="lib-fact">{t('card.readOnly')}</li>}
-        {skill.shadowed && <li className="lib-fact">{t('card.shadowedLong', { layer: t(`layers.${skill.shadowed}`) })}</li>}
+        {skill.shadowed && <li className="lib-fact" data-testid="skill-shadowed">{skill.shadowed_by || skill.layer === 'addon' ? statusOf(t, skill, titles) : t('card.shadowedLong', { layer: t(`layers.${skill.shadowed}`) })}</li>}
+        {skill.fallback && <li className="lib-fact" data-testid="skill-fallback">{t('card.fallback', { name: skill.fallback })}</li>}
         {detail.phase === 'ready' && <li className="lib-fact" data-testid="skill-tokens" title={t('pane.tokensTitle')}>{t('pane.tokens', { count: tokens })}</li>}
       </ul>
 

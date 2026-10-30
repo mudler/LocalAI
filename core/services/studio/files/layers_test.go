@@ -131,3 +131,98 @@ var _ = Describe("skill layers", func() {
 		Expect(err).NotTo(HaveOccurred(), "keep/SKILL.md")
 	})
 })
+
+var _ = Describe("the add-on skill layer", func() {
+	admin := workspace.Actor{Principal: files.AdminPrincipal}
+	resolveWith := func(f *files.Service, user string, roots ...skills.Root) map[string]skills.Skill {
+		list, _, err := skills.Resolve(context.Background(), f.Store(), f.Actor(user), f.SkillRoots(user, roots...), skills.Options{})
+		Expect(err).NotTo(HaveOccurred())
+		out := map[string]skills.Skill{}
+		for _, s := range list {
+			if s.Shadowed == "" && s.Invalid == "" {
+				out[s.Name] = s
+			}
+		}
+		return out
+	}
+
+	It("copies an add-on's skills, offers them only with the add-on's root, and shows the add-on in the guest path", func() {
+		ctx := context.Background()
+		f := newFiles()
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		tree := fstest.MapFS{
+			"notes/SKILL.md":              {Data: []byte(skillMD("notes", "notes of the add-on"))},
+			"notes/references/how.md":     {Data: []byte("how")},
+			"notes-extra/SKILL.md":        {Data: []byte(skillMD("notes-extra", "more notes"))},
+			"notes-extra/references/a.md": {Data: []byte("a")},
+		}
+		Expect(f.SyncAddonSkills(ctx, "notes", tree)).To(Succeed())
+		Expect(resolveWith(f, "alice")).NotTo(HaveKey("notes"), "no root: an add-on that is not usable offers nothing")
+		got := resolveWith(f, "alice", files.AddonSkillsRoot("notes", "Notes"))
+		Expect(got).To(HaveKey("notes-extra"))
+		sk := got["notes"]
+		Expect(sk.Layer).To(Equal(skills.LayerAddon))
+		Expect(sk.Addon).To(Equal("notes"))
+		Expect(sk.AddonTitle).To(Equal("Notes"))
+		Expect(sk.GuestPath).To(Equal(session.GuestRoot + "/shared-addon-skills/notes/notes/SKILL.md"))
+		Expect(files.SharedGuestPath(sk.GuestPath)).To(Equal(files.AddonSkillsPath + "/notes/notes/SKILL.md"))
+	})
+
+	It("is idempotent, drops a file the package no longer has and leaves another add-on alone", func() {
+		ctx := context.Background()
+		f := newFiles()
+		other := fstest.MapFS{"other/SKILL.md": {Data: []byte(skillMD("other", "other add-on"))}}
+		Expect(f.SyncAddonSkills(ctx, "other", other)).To(Succeed())
+		tree := fstest.MapFS{
+			"notes/SKILL.md":          {Data: []byte(skillMD("notes", "v1"))},
+			"notes/references/old.md": {Data: []byte("old")},
+		}
+		Expect(f.SyncAddonSkills(ctx, "notes", tree)).To(Succeed())
+		before, _ := f.Store().History(ctx, admin, workspace.HistoryQuery{Limit: 1000})
+		Expect(f.SyncAddonSkills(ctx, "notes", tree)).To(Succeed())
+		after, _ := f.Store().History(ctx, admin, workspace.HistoryQuery{Limit: 1000})
+		Expect(after).To(HaveLen(len(before)), "a second sync of the same tree made changes")
+
+		delete(tree, "notes/references/old.md")
+		Expect(f.SyncAddonSkills(ctx, "notes", tree)).To(Succeed())
+		_, err := f.Store().Stat(ctx, admin, files.AddonSkillsPath+"/notes/notes/references/old.md")
+		Expect(err).To(HaveOccurred(), "a dropped file is still there")
+		_, err = f.Store().Stat(ctx, admin, files.AddonSkillsPath+"/other/other/SKILL.md")
+		Expect(err).NotTo(HaveOccurred(), "another add-on's skill was touched")
+
+		ids, err := f.AddonSkillIDs(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ids).To(ConsistOf("notes", "other"))
+		Expect(f.RemoveAddonSkills(ctx, "notes")).To(Succeed())
+		ids, _ = f.AddonSkillIDs(ctx)
+		Expect(ids).To(ConsistOf("other"), "uninstall removes the add-on's folder only")
+		before, _ = f.Store().History(ctx, admin, workspace.HistoryQuery{Limit: 1000})
+		Expect(f.RemoveAddonSkills(ctx, "notes")).To(Succeed(), "removing twice is not an error")
+		after, _ = f.Store().History(ctx, admin, workspace.HistoryQuery{Limit: 1000})
+		Expect(after).To(HaveLen(len(before)), "removing nothing made a change")
+	})
+
+	It("is read-only for users, and below every layer a person writes", func() {
+		ctx := context.Background()
+		f := newFiles()
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		Expect(f.SyncAddonSkills(ctx, "notes", fstest.MapFS{
+			"notes/SKILL.md":      {Data: []byte(skillMD("notes", "add-on"))},
+			"notes-docs/SKILL.md": {Data: []byte(skillMD("notes-docs", "add-on docs"))},
+		})).To(Succeed())
+		adminPut(f, "/builtin-skills/notes-docs/SKILL.md", skillMD("notes-docs", "built-in"))
+		userPut(f, "alice", "/.skills/notes/SKILL.md", skillMD("notes", "mine"))
+		got := resolveWith(f, "alice", files.AddonSkillsRoot("notes", "Notes"))
+		Expect(got["notes"].Layer).To(Equal(skills.LayerPersonal), "a person's own skill beats the add-on's")
+		Expect(got["notes-docs"].Layer).To(Equal(skills.LayerBuiltin), "an add-on never takes over a built-in skill that is not replaceable")
+		_, err := f.Store().Put(ctx, f.Actor("alice"), files.AddonSkillsPath+"/notes/notes/SKILL.md", strings.NewReader("x"), workspace.PutOptions{Overwrite: true})
+		Expect(err).To(HaveOccurred(), "a user wrote the add-on layer")
+		Expect(f.SyncAddonSkills(ctx, "Bad/Id", fstest.MapFS{})).NotTo(Succeed())
+		desc, body, err := f.ReadAddonSkill(ctx, "alice", "notes", "notes")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(desc).To(Equal("add-on"))
+		Expect(body).To(ContainSubstring("Body of notes."))
+		_, _, err = f.ReadAddonSkill(ctx, "alice", "notes", "../x")
+		Expect(err).To(MatchError(files.ErrBadSkill))
+	})
+})

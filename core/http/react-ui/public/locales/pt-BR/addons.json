@@ -686,7 +686,9 @@
     "seeInList": "Ver em Instalados",
     "install": "Instalar",
     "installNamed": "Instalar {{name}}",
-    "shadowWarning": "Este complemento substitui o {{tool}} integrado. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas."
+    "shadowWarning": "Este complemento substitui o {{tool}} integrado. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas.",
+    "skillShadow": "Este complemento substitui a habilidade integrada {{skill}}.",
+    "skillShadowWarning": "Este complemento substitui a habilidade integrada {{skill}}. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas."
   },
   "family": {
     "pages": "Procurando páginas que você ou um agente criou? Elas estão em <go>Páginas</go>."
@@ -722,5 +724,14 @@
     "checked": "Verificado · {{library}}",
     "devBuild": "Build de desenvolvimento",
     "library": "biblioteca {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} habilidade de chat",
+    "title_other": "{{count}} habilidades de chat",
+    "replaces": "substitui a habilidade integrada",
+    "serves": "usada nos chats",
+    "notServing": "não está em uso agora",
+    "serveIn": "Usar para {{skill}} nos chats",
+    "saveFailed": "Não foi possível salvar a escolha."
   }
 }

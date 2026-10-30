@@ -532,6 +532,10 @@ type SharedFolderEventsQuery struct {
 // ChatBuiltinTool is one built-in chat tool (list_chat_tools).
 type ChatBuiltinTool = schema.ChatsBuiltinTool
 
+// ChatBuiltinToolList is the built-in chat tools and the built-in skills that
+// installed add-ons replace (list_chat_tools).
+type ChatBuiltinToolList = schema.ChatsBuiltinToolList
+
 // HostExecEvent is one command the chats' built-in bash ran on this machine
 // (list_host_exec_events).
 type HostExecEvent = schema.ChatsHostExecEvent
