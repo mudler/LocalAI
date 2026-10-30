@@ -265,3 +265,11 @@ func (stubClient) RemoveSharedFolderMember(_ context.Context, _ int64, _ string)
 func (stubClient) ListSharedFolderEvents(_ context.Context, _ int) ([]localaitools.SharedFolderEvent, error) {
 	return nil, nil
 }
+
+func (stubClient) ListChatTools(_ context.Context) ([]localaitools.ChatBuiltinTool, error) {
+	return nil, nil
+}
+
+func (stubClient) ListHostExecEvents(_ context.Context, _ int) ([]localaitools.HostExecEvent, error) {
+	return nil, nil
+}
