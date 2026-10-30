@@ -549,7 +549,12 @@ shown when the Sandbox is already installed, or when add-ons are off.
   offered.
 - **Your files.** Each chat gets a scratch folder with your files: `home/`
   there is `/workspace/home` of the file tools, and `shared-<name>/` is a
-  shared folder. After each call, what the command changed is saved to your
+  shared folder. The skills are there too, read-only, at the names the file
+  tools use: `shared-skills/` (shared by an administrator),
+  `shared-builtin-skills/` (built in) and `shared-addon-skills/` (from
+  add-ons), so a skill's scripts run in place, for example
+  `python3 shared-builtin-skills/pdf/scripts/verify_pdf.py home/report.pdf`. A
+  shared folder named `skills` is at `shared-skills 2/`. After each call, what the command changed is saved to your
   files as one change of the chat, which you can undo in Files, History; a
   file you or the file tools changed meanwhile is read again before the next
   call.
@@ -881,7 +886,7 @@ curl         ".../api/chats/files/preview?path=/Reports/budget.xlsx" # what a wo
 - **Previews of documents.** `GET /api/chats/files/preview?path=` reads what a `.xlsx`, `.xlsm`, `.csv`, `.tsv`, `.docx` or `.pptx` file holds, for the preview pane of a chat and the **Files** page. A spreadsheet gives `{"kind": "table", "sheets": [{"name", "rows", "total_rows", "total_cols"}]}`: every sheet, the first 200 rows and 30 columns of each as text, with dates, booleans and the stored result of formulas. A Word document gives `{"kind": "document", "blocks": [{"type": "heading" | "item" | "paragraph", "level", "text"}]}` and a presentation `{"kind": "slides", "slides": [{"n", "title", "lines", "notes"}]}`; both keep at most 200 000 characters and set `truncated` when they cut. The formatting is not kept. The path rules are those of the download. A file over 20 MiB answers `413`, another type `415`, and a file that is not what its name says `422`. Each frontend keeps the recent answers in memory, by the content of the file: a new version is a new entry, so frontends of a cluster never disagree, and nothing is shared between them.
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
 - **The model can use your files.** A chat with files on gives the model one set of file tools: `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file` and `search_files`. They are the same with or without the Sandbox. What they change is listed in the history as an agent change of that chat, and you can undo it from the note under the call; a delete goes to the Trash. A sub-agent gets the file tools of its parent chat (or the ones its parent names).
-  - **Paths.** `/workspace/home/<path>`, `home/<path>` and `/<path>` all name `<path>` in your home folder. `/workspace/shared-<name>/...` is a shared folder, read-only when it is shared with you for reading, and `/workspace/shared-skills/...` and `/workspace/shared-builtin-skills/...` are the shared and built-in skills, read-only. Any other path under `/workspace` is refused with the right spelling, and nothing is written: an app the model builds goes to a Page, `/workspace/home/pages/<name>/index.html`.
+  - **Paths.** `/workspace/home/<path>`, `home/<path>` and `/<path>` all name `<path>` in your home folder. `/workspace/shared-<name>/...` is a shared folder, read-only when it is shared with you for reading, and `/workspace/shared-skills/...`, `/workspace/shared-builtin-skills/...` and `/workspace/shared-addon-skills/...` are the shared, built-in and add-on skills, read-only. Any other path under `/workspace` is refused with the right spelling, and nothing is written: an app the model builds goes to a Page, `/workspace/home/pages/<name>/index.html`.
   - **`read_file`** reads lines `offset` to `offset+limit-1` (at most 2000 lines, text files up to 4 MiB).
   - **`edit_file`** replaces `old_string` with `new_string`. `old_string` must match exactly once, unless `replace_all` is true; no match and several matches are errors that say what to do. Text files up to 8 MiB. When the file changed while it was edited, the edit is saved as a copy next to it.
   - **`list_files`** lists one folder, or with `pattern` every path below the folder that matches it: `*` matches any characters including `/`, `?` one character, `[...]` a class. At most 500 paths.

@@ -172,9 +172,10 @@ func (r *Runner) Close(ctx context.Context) error {
 	return r.m.Close(ctx)
 }
 
-// mounts is the view of a scratch folder: the home, writable, at home, and the
-// shared folders of the user at shared-<name>, with the names the chat's file
-// tools use.
+// mounts is the view of a scratch folder: the home, writable, at home, the
+// shared folders of the user at shared-<name>, and the skill layers read-only
+// (shared-skills, shared-builtin-skills, shared-addon-skills), with the names
+// the chat's file tools use, so a skill's scripts run in place.
 func (r *Runner) mounts(ctx context.Context, a workspace.Actor) ([]workspace.MountRequest, error) {
 	var shared []session.SharedRoot
 	if r.o.Shared != nil {
@@ -187,11 +188,15 @@ func (r *Runner) mounts(ctx context.Context, a workspace.Actor) ([]workspace.Mou
 	if err != nil {
 		return nil, err
 	}
-	out := make([]workspace.MountRequest, 0, len(v.Mounts))
+	out := make([]workspace.MountRequest, 0, len(v.Mounts)+len(session.SkillLayers))
 	for _, m := range v.Mounts {
 		out = append(out, workspace.MountRequest{Path: m.Path, At: m.At, Mode: m.Mode})
 	}
-	return out, nil
+	layers, err := session.SkillLayerMounts(ctx, r.o.Store, a)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, layers...), nil
 }
 
 // audit records one call.

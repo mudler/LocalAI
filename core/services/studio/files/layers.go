@@ -23,10 +23,14 @@ const (
 	// per add-on: /addon-skills/<add-on>/<skill>/SKILL.md. The add-on owner
 	// writes it when it installs, upgrades or starts.
 	AddonSkillsPath = "/addon-skills"
+)
 
-	sharedGuest  = session.GuestRoot + "/shared-skills"
-	builtinGuest = session.GuestRoot + "/shared-builtin-skills"
-	addonGuest   = session.GuestRoot + "/shared-addon-skills"
+// The paths the model uses for the layers: their mount names in a chat's view
+// (session.SkillLayers), where the commands see them too.
+var (
+	sharedGuest  = session.GuestRoot + "/" + session.SkillLayers[0].At
+	builtinGuest = session.GuestRoot + "/" + session.SkillLayers[1].At
+	addonGuest   = session.GuestRoot + "/" + session.SkillLayers[2].At
 )
 
 // readOnlyLayers are the skill layers every user reads and none writes, by

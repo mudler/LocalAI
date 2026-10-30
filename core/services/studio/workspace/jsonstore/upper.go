@@ -106,7 +106,11 @@ func (s *Store) readUpper(ctx context.Context, v workspace.View, pts map[int]str
 		}
 		rest := strings.TrimPrefix(strings.TrimPrefix(up, pts[mi]), "/")
 		if v.Mounts[mi].Mode < workspace.ModeWrite {
-			if rest != "" || e.Kind != workspace.EntryDir {
+			// A folder alone changes nothing: the host backend lists every
+			// folder of its work tree, and overlayfs makes the parents of a
+			// changed file. A file, a whiteout or an opaque folder is a
+			// change that a read-only mount refuses.
+			if e.Kind != workspace.EntryDir || (rest != "" && isOpaque(e.Xattrs)) {
 				lit(up, workspace.ReasonReadOnly)
 			}
 			return nil
