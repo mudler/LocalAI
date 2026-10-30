@@ -192,8 +192,10 @@ curl -X PATCH .../api/chats/3f1c... -H 'Content-Type: application/json' -d '{
 
 Each model request sends a `usage` event with `used` (tokens in the context
 the request sent), `limit` (the window the loop plans with, when known),
-`completion` (tokens generated) and `tokens_per_second` (when the backend
-reports timings).
+`completion` (tokens generated), `tokens_per_second` and `prompt_ms` (the
+time the backend took to read the prompt; both only when the backend reports
+timings), `model` (the model of the request) and `node` (the worker that
+served it, only when the server runs with `--expose-node-header`).
 
 ## Regenerate, edit, fork, search, export
 

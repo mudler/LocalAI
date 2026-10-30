@@ -236,6 +236,14 @@ type ChatsUsage struct {
 	Completion int `json:"completion"`
 	// TokensPerSecond is the generation speed, 0 when the backend gave no timing.
 	TokensPerSecond float64 `json:"tokens_per_second,omitempty"`
+	// Model is the model the request used.
+	Model string `json:"model,omitempty"`
+	// Node is the worker node that served the request. It is set only when
+	// the server exposes the node header (--expose-node-header).
+	Node string `json:"node,omitempty"`
+	// PromptMs is the time the backend took to read the prompt, in
+	// milliseconds, when the backend reports it.
+	PromptMs float64 `json:"prompt_ms,omitempty"`
 }
 
 // ChatsToolEvent describes a tool call.

@@ -481,7 +481,10 @@ func (h *Handlers) Events(c echo.Context) error {
 func eventJSON(ev session.Event) schema.ChatsEvent {
 	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After}
 	if u := ev.Usage; u != nil {
-		out.Usage = &schema.ChatsUsage{Used: u.Used, Limit: u.Limit, Completion: u.Completion, TokensPerSecond: u.TokensPerSecond}
+		out.Usage = &schema.ChatsUsage{
+			Used: u.Used, Limit: u.Limit, Completion: u.Completion, TokensPerSecond: u.TokensPerSecond,
+			Model: u.Model, Node: u.Node, PromptMs: u.PromptMillis,
+		}
 	}
 	if ev.Tool != nil {
 		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output, Seq: ev.Tool.Seq}

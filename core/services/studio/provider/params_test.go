@@ -83,5 +83,24 @@ var _ = Describe("LLMWith", func() {
 		u := <-got
 		Expect(u.PromptTokens).To(Equal(50))
 		Expect(u.CompletionTokens).To(Equal(10))
+		Expect(u.Node).To(BeEmpty(), "no node header, so no node")
+	})
+
+	It("reports the prompt time and the node that served the request", func() {
+		p := provider.New()
+		p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.ReadAll(r.Body)
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-LocalAI-Node", "worker-2")
+			_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":80,"completion_tokens":20,"timing_prompt_processing":250,"timing_token_generation":500}}`)
+		}))
+		got := make(chan provider.Usage, 1)
+		llm := p.LLMWith(nil, "m", provider.Params{OnUsage: func(u provider.Usage) { got <- u }})
+		_, _, err := llm.CreateChatCompletion(context.Background(), userRequest("hello"))
+		Expect(err).ToNot(HaveOccurred(), "CreateChatCompletion")
+		u := <-got
+		Expect(u.PromptMillis).To(BeNumerically("==", 250))
+		Expect(u.TokensPerSecond).To(BeNumerically("==", 40))
+		Expect(u.Node).To(Equal("worker-2"))
 	})
 })

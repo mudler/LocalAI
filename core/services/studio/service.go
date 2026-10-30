@@ -1097,7 +1097,7 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 	}
 	params := provider.Params{
 		Temperature: set.Temperature, TopP: set.TopP, TopK: set.TopK, ReasoningEffort: set.ReasoningEffort,
-		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, limit) },
+		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, rec.Model, limit) },
 		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
 	}
 	m := nibharness.Model{
@@ -1111,9 +1111,10 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 }
 
 // reportUsage tells the watchers of the chat what one model request used.
-func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, limit int) {
+func (s *Service) reportUsage(a workspace.Actor, u provider.Usage, model string, limit int) {
 	s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindUsage, Usage: &session.UsageEvent{
 		Used: u.PromptTokens, Limit: limit, Completion: u.CompletionTokens, TokensPerSecond: u.TokensPerSecond,
+		Model: model, Node: u.Node, PromptMillis: u.PromptMillis,
 	}})
 }
 
