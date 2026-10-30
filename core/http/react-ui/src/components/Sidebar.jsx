@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
-import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
+import { hubs, operateHub, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
 import { topDestinations } from '../utils/destinations'
 import { primaryActive, primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
@@ -26,7 +26,8 @@ const SECTIONS_KEY = 'localai_sidebar_sections'
 
 // The sidebar has two layouts. The primary layout shows Home, Chats, Files,
 // Agents, MCP connectors, Memory, Models and Add-ons (the entry for the add-ons
-// drawer), and Operate under Workspace. Pinned apps are listed under Add-ons.
+// drawer). Pinned apps are listed under Add-ons. Administration (the Operate
+// hub) is pinned at the bottom, above the account controls, not in a section.
 // With the legacy switch on (features.addon_navigation === false) it shows the
 // legacy entries of destinations.js, and Workspace. Operate is a single entry
 // that opens a hub whose tab bar lives in hub/hubConfig.js (shared with
@@ -200,14 +201,21 @@ export default function Sidebar({ isOpen, onClose }) {
 
   // Workspace lists one entry per hub the viewer can use; its target is the
   // hub's overview.
+  const hubEntry = (hub) => {
+    const path = hubEntryPath(hub, auth)
+    return path ? { path, icon: hub.icon, labelKey: hub.titleKey, hub } : null
+  }
+  // Administration is not part of Workspace: it is pinned at the bottom.
   const getVisibleSectionItems = (section) => {
     if (!section.hubs) return section.items.filter(filterItem)
-    return hubs.flatMap(hub => {
-      const path = hubEntryPath(hub, auth)
-      if (!path) return []
-      return [{ path, icon: hub.icon, labelKey: hub.titleKey, hub }]
-    })
+    return hubs.filter(hub => hub.id !== operateHub.id).flatMap(hub => hubEntry(hub) ?? [])
   }
+  const adminItem = hubEntry(operateHub)
+  const operateBadge = activeOps > 0 ? (
+    <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
+      {failedOps > 0 ? failedOps : activeOps}
+    </span>
+  ) : null
 
   return (
     <>
@@ -283,11 +291,6 @@ export default function Sidebar({ isOpen, onClose }) {
                         onClose={onClose}
                         collapsed={collapsed}
                         active={item.hub ? hubOwnsPath(item.hub, location.pathname, auth) : undefined}
-                        badge={item.hub?.id === 'operate' && activeOps > 0 ? (
-                          <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
-                            {failedOps > 0 ? failedOps : activeOps}
-                          </span>
-                        ) : null}
                       />
                     ))}
                   </div>
@@ -297,6 +300,19 @@ export default function Sidebar({ isOpen, onClose }) {
           })}
 
         </nav>
+
+        {/* Administration: pinned above the footer so it stays in reach when the list scrolls. */}
+        {adminItem && (
+          <nav className="sidebar-nav sidebar-nav--pinned" aria-label={t('sections.operate')}>
+            <NavItem
+              item={adminItem}
+              onClose={onClose}
+              collapsed={collapsed}
+              active={hubOwnsPath(adminItem.hub, location.pathname, auth)}
+              badge={operateBadge}
+            />
+          </nav>
+        )}
 
         {/* Footer */}
         <div className="sidebar-footer">
