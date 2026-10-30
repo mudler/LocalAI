@@ -15,10 +15,30 @@ test('switching a skill off in a chat sends its id, and the chat lists it off', 
   const skill = skills[0]
   expect(skill.id).toBe(`${skill.layer}:${skill.name}`)
   await page.getByTestId('chat-skills-button').click()
-  const put = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith(`/api/chats/${id}/skills`))
-  await page.getByTestId('chat-skills-menu').getByRole('checkbox', { name: skill.name, exact: true }).uncheck()
+  const menu = page.getByTestId('chat-skills-menu')
+  const enabled = async () => (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.filter(s => !s.shadowed && !s.invalid)
+  const putOff = () => page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith(`/api/chats/${id}/skills`))
+
+  // One switch per skill, named by the skill. Switching it sends its id.
+  const one = menu.getByRole('switch', { name: skill.name, exact: true })
+  await expect(one).toHaveAttribute('aria-checked', 'true')
+  let put = putOff()
+  await one.click()
   expect(JSON.parse((await put).postData()).off).toEqual([skill.id])
-  await expect.poll(async () => (await api(page.request, `/api/chats/skills?chat=${id}`)).skills.find(s => s.id === skill.id).enabled).toBe(false)
+  await expect(one).toHaveAttribute('aria-checked', 'false')
+  await expect.poll(async () => (await enabled()).find(s => s.id === skill.id).enabled).toBe(false)
+
+  // Disable all sends every id; Select all sends an empty list.
+  put = putOff()
+  await menu.getByRole('button', { name: 'Disable all' }).click()
+  expect(JSON.parse((await put).postData()).off).toEqual(skills.map(s => s.id).sort())
+  await expect.poll(async () => (await enabled()).every(s => !s.enabled)).toBe(true)
+  await expect(menu.getByRole('button', { name: 'Disable all' })).toBeDisabled()
+  put = putOff()
+  await menu.getByRole('button', { name: 'Select all' }).click()
+  expect(JSON.parse((await put).postData()).off).toEqual([])
+  await expect.poll(async () => (await enabled()).every(s => s.enabled)).toBe(true)
+  await expect(one).toHaveAttribute('aria-checked', 'true')
 })
 
 test('an add-on address with add-ons off lands on Home with a notice, and /studio offers Install Studio', async ({ page, request }) => {

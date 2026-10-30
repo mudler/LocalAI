@@ -58,12 +58,28 @@ test('the files pane lists what was attached and what the model wrote, live, and
   await expect(page.getByTestId('chat-files-count')).toHaveText(String(second.length))
   await page.screenshot({ path: 'test-results/chat-files-created.png' })
 
-  // A file opens a preview with its text and a download.
-  await pane.getByRole('button', { name: 'report.md' }).click()
+  // The file the model just wrote opens by itself in the preview on top of
+  // the pane, with its text, a download and no focus move. The preview is part
+  // of the pane; the Canvas is gone.
   const preview = pane.getByTestId('file-preview')
   await expect(preview).toContainText('Written by the model.')
-  await expect(preview.getByRole('link', { name: /download/i })).toHaveAttribute('href', /report\.md/)
+  await expect(preview.getByRole('heading', { name: 'report.md' })).toBeVisible()
+  await expect(preview.getByTestId('chat-preview-download')).toHaveAttribute('href', /report\.md/)
+  await expect(pane.getByRole('button', { name: 'report.md' })).toHaveAttribute('aria-expanded', 'true')
   await page.screenshot({ path: 'test-results/chat-files-preview.png' })
+
+  // A file of the list takes the preview over; its row is the one expanded.
+  await pane.getByRole('button', { name: note }).click()
+  await expect(preview.getByRole('heading', { name: note })).toBeVisible()
+  await expect(preview).toContainText('my notes for the files pane')
+  await expect(preview.getByTestId('chat-preview-download')).toHaveAttribute('href', new RegExp(note.replace('.', '\\.')))
+  await expect(pane.getByRole('button', { name: 'report.md' })).toHaveAttribute('aria-expanded', 'false')
+
+  // The same row again closes the preview and leaves the list.
+  await pane.getByRole('button', { name: note }).click()
+  await expect(preview).toHaveCount(0)
+  await pane.getByRole('button', { name: 'report.md' }).click()
+  await expect(preview).toContainText('Written by the model.')
 
   // A rename moves the chat folder: the pane and the API give the new path.
   const r = await page.request.patch(`/api/chats/${id}`, { data: { title: `Renamed ${stamp}` } })
