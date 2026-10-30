@@ -266,8 +266,8 @@ func (stubClient) ListSharedFolderEvents(_ context.Context, _ int) ([]localaitoo
 	return nil, nil
 }
 
-func (stubClient) ListChatTools(_ context.Context) ([]localaitools.ChatBuiltinTool, error) {
-	return nil, nil
+func (stubClient) ListChatTools(_ context.Context) (localaitools.ChatBuiltinToolList, error) {
+	return localaitools.ChatBuiltinToolList{}, nil
 }
 
 func (stubClient) ListHostExecEvents(_ context.Context, _ int) ([]localaitools.HostExecEvent, error) {
