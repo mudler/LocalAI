@@ -19,7 +19,8 @@ document.getElementById('s').onclick = () => localai.chat.send('summarise my tas
 </script></body>`
 
 // Stubs the pages routes and ui.json. state.pages and state.html can change
-// during a test; state.ui is the parsed ui.json; puts records the writes.
+// during a test; state.ui is the parsed ui.json; puts records the writes of
+// ui.json with the version each one started from.
 async function stub(page, state) {
   state.puts = []
   state.sends = []
@@ -33,18 +34,36 @@ async function stub(page, state) {
     state.pages = [{ ...TASKS, name: 'tasks', title: 'Task board', author: 'you', updated_by: 'you' }]
     return route.fulfill({ status: 201, json: state.pages[0] })
   })
-  await page.route(/\/api\/chats\/files\?path=%2F$/, (route) => route.fulfill({
-    json: { path: '/', entries: state.ui ? [{ path: '/ui.json', name: 'ui.json', kind: 'file', size: 10, version: state.uiVersion || 1, rev: 1 }] : [] },
-  }))
-  await page.route(/\/api\/chats\/files\/content\?path=%2Fui\.json/, async (route) => {
-    if (route.request().method() === 'PUT') {
-      const body = JSON.parse(route.request().postData())
-      state.puts.push({ url: route.request().url(), body })
-      state.ui = body
-      state.uiVersion = (state.uiVersion || 1) + 1
-      return route.fulfill({ json: { path: '/ui.json', name: 'ui.json', kind: 'file', size: 10, version: state.uiVersion, rev: 2 } })
+  // ui.json through the well-known files service: a write names the version it
+  // read in If-Match, keeps the keys it does not send, and an older version is
+  // a 409 that carries what the file holds now. state.racer, when set, changes
+  // the file once just before the next write lands, as another tab would.
+  const uiDoc = () => ({
+    name: 'ui', path: '/ui.json', exists: !!state.ui, version: state.ui ? (state.uiVersion || 1) : 0,
+    data: state.ui || {}, valid: true, errors: [],
+  })
+  await page.route(/\/api\/chats\/wellknown\/ui$/, (route) => {
+    const req = route.request()
+    if (req.method() !== 'PUT') return route.fulfill({ json: uiDoc() })
+    if (state.racer) {
+      state.ui = state.racer(state.ui || {})
+      state.uiVersion = uiDoc().version + 1
+      state.racer = null
     }
-    return route.fulfill({ body: JSON.stringify(state.ui || {}), contentType: 'application/octet-stream' })
+    const body = req.postDataJSON()
+    const base = Number(String(req.headers()['if-match'] || '').replace(/"/g, ''))
+    state.puts.push({ base, body })
+    if (base !== uiDoc().version) {
+      return route.fulfill({ status: 409, json: { error: { message: 'the file changed since you read it', code: 409, type: 'conflict' }, current: uiDoc() } })
+    }
+    const next = body.replace ? {} : { ...(state.ui || {}) }
+    for (const [k, v] of Object.entries(body.values)) {
+      if (v === null) delete next[k]
+      else next[k] = v
+    }
+    state.ui = next
+    state.uiVersion = uiDoc().version + 1
+    return route.fulfill({ json: uiDoc() })
   })
 }
 
@@ -84,13 +103,19 @@ test('the list shows each page with who changed it, and Pin keeps the other keys
   await card.getByTestId('page-pin').click()
   await expect(card.getByTestId('page-pin')).toHaveText(/Unpin/)
   expect(state.puts).toHaveLength(1)
-  expect(state.puts[0].url).toContain('base=1')
-  expect(state.puts[0].body).toEqual({ theme: 'light', accent: '#112233', later: { x: 1 }, pinnedPages: ['tasks'] })
+  expect(state.puts[0].base).toBe(1)
+  expect(state.puts[0].body).toEqual({ values: { pinnedPages: ['tasks'] }, replace: false })
+  expect(state.ui).toEqual({ theme: 'light', accent: '#112233', later: { x: 1 }, pinnedPages: ['tasks'] })
   await expect(nav(page).getByTestId('pages-pinned-link')).toHaveText('Tasks board')
 
+  // Someone else changes ui.json between the read and the write: the unpin
+  // gets a 409 with the newer file and is written again on top of it.
+  state.racer = (ui) => ({ ...ui, density: 'compact' })
   await card.getByTestId('page-pin').click()
   await expect(card.getByTestId('page-pin')).toHaveText(/^\s*Pin/)
-  expect(state.puts[1].body.pinnedPages).toEqual([])
+  expect(state.puts.map((p) => p.base)).toEqual([1, 2, 3])
+  expect(state.puts[2].body.values).toEqual({ pinnedPages: [] })
+  expect(state.ui).toEqual({ theme: 'light', accent: '#112233', later: { x: 1 }, density: 'compact', pinnedPages: [] })
   await expect(nav(page).getByTestId('pages-pinned-link')).toHaveCount(0)
 })
 

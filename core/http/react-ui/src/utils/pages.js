@@ -3,7 +3,6 @@
 
 export const PAGE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
 export const MAX_PINS = 20
-export const UI_FILE = '/ui.json'
 
 export const isPageName = (name) => typeof name === 'string' && PAGE_NAME.test(name)
 
