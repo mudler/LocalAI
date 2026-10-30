@@ -110,5 +110,23 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "重试",
+    "undo": "撤销",
+    "loadError": {
+      "title": "无法加载。",
+      "serverSaid": "服务器返回“{{message}}”。",
+      "nothingChanged": "没有任何更改。"
+    }
+  },
+  "chip": {
+    "running": "运行中",
+    "starting": "正在启动",
+    "stopped": "已停止",
+    "failed": "失败",
+    "updateAvailable": "有可用更新",
+    "ready": "就绪",
+    "noRunsYet": "尚无运行"
   }
 }

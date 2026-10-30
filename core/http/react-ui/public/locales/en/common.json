@@ -111,5 +111,23 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "ui": {
+    "tryAgain": "Try again",
+    "undo": "Undo",
+    "loadError": {
+      "title": "Could not load this.",
+      "serverSaid": "The server answered “{{message}}”.",
+      "nothingChanged": "Nothing was changed."
+    }
+  },
+  "chip": {
+    "running": "Running",
+    "starting": "Starting",
+    "stopped": "Stopped",
+    "failed": "Failed",
+    "updateAvailable": "Update available",
+    "ready": "Ready",
+    "noRunsYet": "No runs yet"
   }
 }
