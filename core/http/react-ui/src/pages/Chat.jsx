@@ -29,7 +29,7 @@ import { useModels } from '../hooks/useModels'
 import { useModelFit } from '../hooks/useModelFit'
 import { fillStyle, hostMemory, memoryFigure } from '../components/home/memory'
 import { gbLabel, gbNumber } from '../utils/modelLedger'
-import { CHAT_SLASH_GROUPS, availableChatActions } from '../components/chat/chatActions'
+import { CHAT_SLASH_GROUPS, OPEN_CHAT_FILE_EVENT, availableChatActions } from '../components/chat/chatActions'
 import { isTyping } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
 import ChatHeader from '../components/chat/ChatHeader'
@@ -141,6 +141,8 @@ function ChatPage() {
   const [canvasOpen, setCanvasOpen] = useState(false)
   // The files pane and the canvas share the right side: one at a time.
   const [filesOpen, setFilesOpen] = useState(false)
+  // The file the pane opens at, when a file chip of the transcript asked.
+  const [filesFocus, setFilesFocus] = useState(null)
   const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [renaming, setRenaming] = useState(false)
@@ -786,6 +788,22 @@ function ChatPage() {
     if (!desc) return null
     return <WorkspaceChangeNote key={`wc-${row.msg.turn}`} desc={desc} live={live.has(row.msg.turn)} addToast={addToast} pageTitle={pageTitle} />
   }
+  // A file chip of a step opens the Files pane at its file.
+  const filesOn = chat.files.on
+  useEffect(() => {
+    if (!filesOn) return undefined
+    const on = (e) => {
+      const path = e.detail?.path
+      if (!path) return
+      setCanvasOpen(false)
+      setFilesOpen(true)
+      setFilesFocus(f => ({ path, n: (f?.n || 0) + 1 }))
+    }
+    window.addEventListener(OPEN_CHAT_FILE_EVENT, on)
+    return () => window.removeEventListener(OPEN_CHAT_FILE_EVENT, on)
+  }, [filesOn])
+  useEffect(() => { setFilesFocus(null) }, [activeId])
+
   // The toasts of this page sit above its composer.
   useEffect(() => {
     const el = document.querySelector('.cx-dock__in')
@@ -932,7 +950,8 @@ function ChatPage() {
         >
           <Icon name="paperclip" />
           <span className="home-chip__text">{t('files.chip')}</span>
-          {chatFiles.files.length > 0 && <span className="cx-files__count" data-testid="chat-files-count">{chatFiles.files.length}</span>}
+          {/* Keyed by the number, so a new count rises into place. */}
+          {chatFiles.files.length > 0 && <span key={chatFiles.files.length} className="cx-files__count" data-testid="chat-files-count">{chatFiles.files.length}</span>}
         </button>
       )}
     </>
@@ -1095,7 +1114,8 @@ function ChatPage() {
 
         {/* Dock: the Home command bar under the thread, with the waiting messages over it. */}
         <div className="cx-dock">
-          <div className="cx-dock__in">
+          {/* The whole dock (notices, shortcuts, composer) is what toasts stay above. */}
+          <div className="cx-dock__in" data-toast-anchor="">
             {!chat.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
             {!chat.files.on && <p className="cx-notice" role="note">{chat.files.reason || tc('attach.off')}</p>}
             {browserStores.length > 0 && (
@@ -1207,6 +1227,8 @@ function ChatPage() {
       {filesOpen && activeId && chat.files.on && !(canvasOpen && artifacts.length > 0) && (
         <ChatFilesPane
           state={chatFiles}
+          chatId={activeId}
+          focus={filesFocus}
           onClose={() => setFilesOpen(false)}
           onDropFiles={(list) => attachFiles('file', list)}
         />

@@ -1,0 +1,283 @@
+/* The command bar of Home and Chat (HomeComposer). One surface: the card is
+   the input, so the message box has no well of its own. The chips, the slash
+   hint, the attach buttons and Send sit on that one surface. */
+.home-cmd {
+  position: relative;
+  padding: var(--sp-3);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-control-edge);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+.home-cmd:focus-within { box-shadow: inset 0 0 0 1px var(--dk-accent-text), 0 0 0 3px color-mix(in srgb, var(--dk-accent) 16%, transparent); }
+.home-cmd__top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.home-pick { position: relative; min-width: 0; }
+.home-chip,
+.home-cmd__top .chat-mcp-dropdown > .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ctl-h-sm);
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-control-edge);
+  color: var(--dk-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  font-weight: var(--font-weight-medium);
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.home-chip:hover:not(:disabled),
+.home-cmd__top .chat-mcp-dropdown > .btn:hover { background: var(--dk-hover); }
+.home-chip:active:not(:disabled),
+.home-cmd__top .chat-mcp-dropdown > .btn:active { transform: scale(0.98); }
+.home-chip:disabled { cursor: default; color: var(--dk-muted); }
+.home-chip .lai-icon { width: 14px; height: 14px; flex: none; color: var(--color-text-secondary); }
+.home-chip__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The model chip names a model id: the one chip in mono. */
+.home-pick .home-chip__text { font-family: var(--font-mono); font-size: var(--fs-meta); }
+/* The MCP trigger is the app's shared dropdown; this restyles it as a chip. */
+.home-cmd__top .chat-mcp-dropdown > .btn { color: var(--color-text-secondary); }
+.home-cmd__top .chat-mcp-dropdown > .btn .chat-mcp-badge {
+  height: auto;
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  background: var(--dk-accent-wash);
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+.home-slash-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  white-space: nowrap;
+}
+
+/* Menus: the model list and the slash list */
+.home-menu,
+.dk-cmdlist.home-slash {
+  background: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text));
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  box-shadow: var(--dk-shadow-float);
+}
+.home-menu {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: min(400px, calc(100vw - 48px));
+  max-width: min(560px, calc(100vw - 48px));
+  padding: 6px;
+  animation: homeRise var(--dur-base) var(--ease-out) both;
+}
+.home-menu__filter {
+  width: 100%;
+  height: var(--ctl-h);
+  margin-bottom: var(--sp-1);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--fs-small);
+}
+.home-menu__filter:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 0; }
+.home-menu__list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; outline: none; }
+.home-menu__head {
+  padding: var(--sp-2) 10px var(--sp-1);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.home-menu__empty { padding: var(--sp-3) 10px; color: var(--dk-muted); font-size: var(--fs-small); }
+.home-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.home-menu__item[data-active="true"] { background: var(--dk-hover); color: var(--dk-text); }
+.home-menu__item code { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: var(--fs-small); font-weight: 600; color: var(--dk-text); background: none; padding: 0; white-space: nowrap; }
+.home-menu__item small { margin-left: auto; font-size: var(--fs-meta); color: var(--dk-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.home-menu__check { margin-left: auto; color: var(--dk-accent-text); }
+.dk-cmdlist.home-slash {
+  position: absolute;
+  z-index: 130;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  width: auto;
+  max-height: 360px;
+  animation: homeRise var(--dur-base) var(--ease-out) both;
+}
+.dk-cmdlist.home-slash { overflow: hidden; padding: 6px 6px 0; }
+.home-slash__scroll { display: flex; flex-direction: column; gap: 2px; max-height: 300px; overflow: auto; overscroll-behavior: contain; }
+.home-slash .dk-cmd[aria-selected="true"] { background: var(--dk-hover); }
+.home-slash .dk-cmd-foot { margin-top: 2px; padding-bottom: var(--sp-2); }
+
+/* The message box sits on the card itself: no fill and no edge of its own.
+   The card's focus edge says where typing goes. */
+.home-well { position: relative; }
+.home-textarea {
+  display: block;
+  width: 100%;
+  min-height: 88px;
+  padding: var(--sp-3) var(--sp-1) var(--sp-2);
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: none;
+  color: var(--dk-text);
+  font: inherit;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.home-textarea::placeholder { color: var(--dk-muted); }
+.home-file-tags { display: flex; flex-wrap: wrap; gap: 6px; padding-top: var(--sp-3); }
+.home-file-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-1) 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--dk-hover);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-meta);
+}
+.home-file-tag__thumb { width: 20px; height: 20px; border-radius: var(--r-xs); object-fit: cover; }
+.home-file-tag__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-file-tag button {
+  display: inline-grid;
+  place-items: center;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: var(--dk-muted);
+  cursor: pointer;
+}
+.home-file-tag button:hover { background: var(--dk-hover); color: var(--dk-text); }
+.home-cmd__foot { display: flex; align-items: center; gap: var(--sp-1); }
+.home-attach-buttons { display: flex; align-items: center; gap: 2px; }
+.home-attach-btn.dk-btn--ghost { color: var(--color-text-secondary); }
+.home-attach-btn .lai-icon { width: 16px; height: 16px; }
+.home-input-hint { flex: 1; margin-right: var(--sp-3); color: var(--dk-muted); font-size: var(--fs-meta); text-align: right; }
+
+/* Send: the one accent fill of the bar, with the Enter glyph in a darker
+   cell that teaches the shortcut. Quiet until there is something to send. */
+.home-send-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: var(--ctl-h);
+  margin-left: auto;
+  padding: 0 var(--sp-1) 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--dk-accent);
+  color: var(--dk-on-accent);
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out), transform var(--dur-instant) var(--ease-out);
+}
+.home-send-btn__cell {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / .18);
+}
+.home-send-btn__glyph {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.home-send-btn:hover:not(:disabled) { background: color-mix(in srgb, var(--dk-accent) 88%, white); }
+.home-send-btn:hover:not(:disabled) .home-send-btn__glyph { transform: translateX(-2px); }
+.home-send-btn:active:not(:disabled) {
+  transform: scale(0.98);
+  background: color-mix(in srgb, var(--dk-accent) 82%, black);
+}
+.home-send-btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+.home-send-btn[data-empty],
+.home-send-btn:disabled {
+  background: var(--dk-hover);
+  color: var(--dk-muted);
+  cursor: not-allowed;
+}
+.home-send-btn[data-empty] .home-send-btn__cell,
+.home-send-btn:disabled .home-send-btn__cell { background: transparent; }
+.home-send-btn[data-loading] { pointer-events: none; }
+.home-send-btn[data-loading] > * { visibility: hidden; }
+.home-send-btn[data-loading]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 16px;
+  height: 16px;
+  margin: auto;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: dk-spin 700ms linear infinite;
+}
+
+@media (max-width: 640px) {
+  /* One row of chips, not two (finding 14): the model chip gives up width
+     first and ends in an ellipsis. No scroll container here, so the menus
+     that hang from the chips are never clipped. */
+  .home-cmd__top { flex-wrap: nowrap; }
+  .home-cmd__top > .home-pick { flex: 0 1 auto; }
+  .home-cmd__top > :not(.home-pick) { flex: none; }
+  .home-slash-hint { display: none; }
+  /* 16 px keeps a phone from zooming into the field. */
+  .home-textarea { font-size: 16px; }
+}
+.home-attach-btn[aria-pressed="true"] { background: var(--dk-error-wash); color: var(--dk-error-text); }
+@media (prefers-reduced-motion: reduce) {
+  .home-menu, .dk-cmdlist.home-slash { animation: none; }
+  .home-chip:active:not(:disabled),
+  .home-send-btn:active:not(:disabled),
+  .home-send-btn:hover:not(:disabled) .home-send-btn__glyph { transform: none; }
+}

@@ -197,7 +197,9 @@ test.describe('UI primitives', () => {
     await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: [detail], persistent: true, files: true, files_reason: '' } }))
     await page.goto('/app/chats/c1')
     await expect(page.getByText('Hi. What do you need?')).toBeVisible({ timeout: 15_000 })
-    const composer = page.locator('.home-cmd').first()
+    // The chat marks what the stack stays above with data-toast-anchor: the
+    // dock that holds the notices, the shortcuts and the composer.
+    const composer = page.locator('[data-toast-anchor]').first()
     await expect(composer).toBeVisible()
     const read = () => composer.evaluate(el => ({
       lift: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toast-lift')) || 0,

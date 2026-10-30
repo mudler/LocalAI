@@ -1,20 +1,28 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import Button from '../ui/Button'
 import FilePreview from '../files/FilePreview'
 import { filesApi } from '../../utils/api'
 import { fileIcon, fileSize } from '../../utils/fileInfo'
 import { groupChatFiles } from '../../hooks/useChatFiles'
 import { wellKnownTag } from '../../utils/changeNotes'
 import { DOCS_MAKE_YOURS } from '../../utils/discovery'
+import { useArrivals } from '../../hooks/useArrivals'
 
 const GROUPS = ['uploaded', 'created', 'changed']
 
-function FileRow({ file, selected, onSelect, t, tw }) {
+// fresh: the file arrived while the pane was open ('on', then 'fade': an
+// accent wash that fades). recent: the assistant wrote it in the last turn (a 2 px accent edge).
+function FileRow({ file, selected, fresh, recent, onSelect, t, tw }) {
   const tag = wellKnownTag(file.path)
   return (
-    <li className={`ws-row cx-files__row${selected ? ' ws-row--selected' : ''}`} data-testid="chat-file-row" data-origin={file.origin}>
+    <li
+      className={`ws-row cx-files__row${selected ? ' ws-row--selected' : ''}`}
+      data-testid="chat-file-row" data-origin={file.origin} data-path={file.path}
+      data-fresh={fresh} data-recent={recent || undefined}
+    >
       <Icon name={fileIcon(file.name, file.mime)} className="ws-row__icon" />
       <div className="cx-files__main">
         <button
@@ -41,19 +49,49 @@ function FileRow({ file, selected, onSelect, t, tw }) {
   )
 }
 
+// The file a step of the transcript names: by its path, as the pane or the
+// model knows it, or else by its name.
+export function findChatFile(files, path) {
+  if (!path) return null
+  const name = path.split('/').pop()
+  return files.find(f => f.path === path || f.guest_path === path)
+    || files.find(f => f.name === name)
+    || null
+}
+
 // The files pane of a chat: the files the user attached, the files the
 // assistant created and the files it changed, with a preview and a download.
 // Files dropped on it are added to the message being written.
-export default function ChatFilesPane({ state, onClose, onDropFiles }) {
+//
+// 360 px docked beside the thread from 1280 px; below that it covers the
+// thread from the right with a scrim, and on a phone it is a bottom sheet.
+// focus ({ path, n }) opens the preview of that file; a new n asks again.
+export default function ChatFilesPane({ state, chatId = '', focus, onClose, onDropFiles }) {
   const { t } = useTranslation('chat')
   const { t: tw } = useTranslation('workspace')
   const [selected, setSelected] = useState(null)
   const [dragging, setDragging] = useState(false)
+  const bodyRef = useRef(null)
   const groups = groupChatFiles(state.files)
+  const fresh = useArrivals(state.files.map(f => f.path), { scope: chatId, ready: state.loaded })
+  const lastTurn = state.files.reduce((n, f) => Math.max(n, f.turn || 0), 0)
   // Keep the preview on the same file when the list is read again, and drop
   // it when the file is gone.
   const current = selected && state.files.find(f => f.path === selected.path)
   useEffect(() => { if (selected && !current) setSelected(null) }, [selected, current])
+
+  // A file chip of the transcript opens its file here.
+  const focusPath = focus?.path
+  const focusN = focus?.n
+  useEffect(() => {
+    if (!focusPath) return
+    const file = findChatFile(state.files, focusPath)
+    if (!file) return
+    setSelected(file)
+    const row = bodyRef.current?.querySelector(`[data-path="${CSS.escape(file.path)}"]`)
+    row?.scrollIntoView?.({ block: 'nearest' })
+    row?.querySelector('button')?.focus({ preventScroll: true })
+  }, [focusPath, focusN, state.files])
 
   const onDrop = (e) => {
     e.preventDefault()
@@ -61,8 +99,10 @@ export default function ChatFilesPane({ state, onClose, onDropFiles }) {
     if (e.dataTransfer?.files?.length) onDropFiles(Array.from(e.dataTransfer.files))
   }
   return (
+    <>
+    <div className="cx-files-scrim" onMouseDown={onClose} aria-hidden="true" />
     <aside
-      className={`canvas-panel cx-files${dragging ? ' cx-files--drop' : ''}`}
+      className={`cx-files${dragging ? ' cx-files--drop' : ''}`}
       aria-label={t('files.title')}
       id="chat-files-pane"
       data-testid="chat-files-pane"
@@ -70,18 +110,15 @@ export default function ChatFilesPane({ state, onClose, onDropFiles }) {
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDragging(false) }}
       onDrop={onDrop}
     >
-      <div className="canvas-panel-header">
-        <span className="canvas-panel-title">
+      <span className="cx-files__grip" aria-hidden="true" />
+      <div className="cx-files__head">
+        <h2 className="cx-files__title">
           {t('files.title')}
           {state.files.length > 0 && <span className="cx-files__count">{state.files.length}</span>}
-        </span>
-        <div className="canvas-header-actions">
-          <button type="button" className="canvas-icobtn" onClick={onClose} title={t('files.close')} aria-label={t('files.close')}>
-            <Icon name="close" />
-          </button>
-        </div>
+        </h2>
+        <Button variant="ghost" size="sm" icon="close" onClick={onClose} title={t('files.close')} aria-label={t('files.close')} />
       </div>
-      <div className="cx-files__body">
+      <div className="cx-files__body" ref={bodyRef}>
         {state.error && <p className="ws-error" role="alert">{t('files.error')}</p>}
         {state.folderPath && (
           <p className="cx-files__folder" title={state.folder}>
@@ -102,7 +139,10 @@ export default function ChatFilesPane({ state, onClose, onDropFiles }) {
             </h3>
             <ul className="ws-list">
               {groups[g].map(f => (
-                <FileRow key={f.path} file={f} selected={current?.path === f.path} onSelect={setSelected} t={t} tw={tw} />
+                <FileRow
+                  key={f.path} file={f} selected={current?.path === f.path} onSelect={setSelected} t={t} tw={tw}
+                  fresh={fresh.get(f.path)} recent={f.origin !== 'user' && lastTurn > 0 && f.turn === lastTurn}
+                />
               ))}
             </ul>
           </section>
@@ -117,5 +157,6 @@ export default function ChatFilesPane({ state, onClose, onDropFiles }) {
         {state.files.length > 0 && <p className="ws-hint cx-files__hint">{t('files.dropHint')}</p>}
       </div>
     </aside>
+    </>
   )
 }

@@ -4,6 +4,9 @@ import { useTranslation, Trans } from 'react-i18next'
 import { availableActions, filterActions, SLASH_GROUPS } from './homeActions'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
+import Button from '../ui/Button'
+import './composer.css'
+// eslint-disable-next-line no-unused-vars
 import DictateButton from './DictateButton'
 
 // The Enter glyph is not in the kit sprite. A return arrow in a darker cell
@@ -121,6 +124,9 @@ export default function HomeComposer({
       onSubmit={(e) => { e.preventDefault(); onSubmit() }}
       autoComplete="off"
       data-testid={testId}
+      // The toast stack stays above this bar on a chat page (components/Toast).
+      // A page can mark a larger box around it instead; the outer mark wins.
+      data-toast-anchor=""
     >
       <div className="home-cmd__top">
         {picker}
@@ -208,15 +214,9 @@ export default function HomeComposer({
         <div className="home-attach-buttons">
           {onAttach && (
             <>
-              <button type="button" className="home-attach-btn" disabled={attachDisabled} onClick={() => imageRef.current?.click()} title={attachTitle || t('input.attachImage')} aria-label={t('input.attachImage')}>
-                <Icon name="image" />
-              </button>
-              <button type="button" className="home-attach-btn" disabled={attachDisabled} onClick={() => audioRef.current?.click()} title={attachTitle || t('input.attachAudio')} aria-label={t('input.attachAudio')}>
-                <Icon name="music" />
-              </button>
-              <button type="button" className="home-attach-btn" disabled={attachDisabled} onClick={() => fileRef.current?.click()} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')}>
-                <Icon name="file" />
-              </button>
+              <Button variant="ghost" size="sm" icon="image" className="home-attach-btn" disabled={attachDisabled} onClick={() => imageRef.current?.click()} title={attachTitle || t('input.attachImage')} aria-label={t('input.attachImage')} />
+              <Button variant="ghost" size="sm" icon="music" className="home-attach-btn" disabled={attachDisabled} onClick={() => audioRef.current?.click()} title={attachTitle || t('input.attachAudio')} aria-label={t('input.attachAudio')} />
+              <Button variant="ghost" size="sm" icon="file" className="home-attach-btn" disabled={attachDisabled} onClick={() => fileRef.current?.click()} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')} />
             </>
           )}
           <DictateButton

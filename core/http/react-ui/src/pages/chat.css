@@ -362,8 +362,24 @@
   line-height: 18px;
   text-align: left;
 }
-button.cx-step__head { cursor: pointer; transition: background var(--dur-instant) var(--ease-out); }
-button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%, transparent); }
+button.cx-step__head,
+.cx-step__head--split { cursor: pointer; transition: background var(--dur-instant) var(--ease-out); }
+button.cx-step__head:hover,
+.cx-step__head--split:hover { background: color-mix(in srgb, var(--dk-hover) 60%, transparent); }
+/* The chevron of a line that holds a file chip is its own button. */
+.cx-step__toggle {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
 .cx-step[data-state="failed"] > .cx-step__head { background: var(--dk-error-wash); }
 .cx-step__icon { display: grid; place-items: center; color: var(--dk-muted); }
 .cx-step__icon .lai-icon { width: 15px; height: 15px; }
@@ -387,6 +403,10 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
 .cx-step__meta { flex: none; color: var(--dk-muted); }
 .cx-step__file {
   display: inline-flex;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out);
   align-items: center;
   gap: var(--sp-1);
   min-width: 0;
@@ -400,6 +420,7 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
   text-overflow: ellipsis;
 }
 .cx-step__file .lai-icon { width: 13px; height: 13px; flex: none; }
+.cx-step__file:hover { background: color-mix(in srgb, var(--dk-accent) 22%, transparent); text-decoration: underline; }
 .cx-step__dur {
   color: var(--dk-muted);
   font-size: var(--fs-meta);
@@ -574,55 +595,58 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
 /* ---- The dock: the Home command bar under the thread ------------------------ */
 .cx-dock { flex: none; padding: 6px 24px 10px; }
 .cx-dock__in { max-width: 760px; margin: 0 auto; position: relative; }
-.cx-dock .home-cmd__top { flex-wrap: wrap; padding-bottom: 8px; }
-.cx-dock .home-cmd__foot { padding-top: 8px; }
-.cx-dock .home-textarea { min-height: 56px; max-height: 220px; font-size: 15.5px; }
+.cx-dock .home-cmd__top { flex-wrap: wrap; }
+.cx-dock .home-textarea { min-height: 52px; max-height: 220px; }
 /* The dock sits at the bottom of the page, so its menus open upward. */
 .cx-dock .home-menu,
 .cx-dock .chat-mcp-dropdown-menu { top: auto; bottom: calc(100% + 8px); }
 .cx-dock .dk-cmdlist.home-slash { top: auto; bottom: calc(100% + 6px); }
-.cx-chipset { display: inline-flex; gap: 4px; }
+.cx-chipset { display: inline-flex; gap: var(--sp-2); }
 .home-chip[aria-pressed="true"] {
   background: var(--dk-accent-wash);
   color: var(--dk-accent-text);
   box-shadow: inset 0 0 0 1px var(--dk-accent-text);
 }
 .home-chip[aria-pressed="true"] .lai-icon { color: var(--dk-accent-text); }
-.cx-chip-count { padding: 0 9px; color: var(--dk-accent-text); font-size: 12px; }
+.cx-chip-count { padding: 0 9px; color: var(--dk-accent-text); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
 .home-stop-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 40px;
+  gap: var(--sp-2);
+  height: var(--ctl-h);
   margin-left: auto;
-  padding: 0 10px 0 14px;
+  padding: 0 var(--sp-1) 0 var(--sp-3);
   border: 0;
-  border-radius: var(--dk-radius-2);
+  border-radius: var(--r-md);
   background: var(--dk-card);
   box-shadow: inset 0 0 0 1px var(--dk-control-edge);
   color: var(--dk-text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-small);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--dk-dur-1) var(--dk-ease-out), transform var(--dk-dur-1) var(--dk-ease-out);
+  transition: background var(--dur-instant) var(--ease-out), transform var(--dur-instant) var(--ease-out);
 }
 .home-stop-btn:hover { background: var(--dk-hover); }
-.home-stop-btn:active { transform: scale(var(--dk-press-scale)); }
+.home-stop-btn:active { transform: scale(0.98); }
 .home-stop-btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+/* Under the bar: the turn status on the left, the context meter on the right.
+   Sans words, tabular numbers: nothing here is code. */
 .cx-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 26px;
-  padding: 8px 6px 0;
+  gap: var(--sp-3);
+  min-height: 24px;
+  padding: 6px var(--sp-1) 0;
   color: var(--dk-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  font-variant-numeric: tabular-nums;
 }
 .cx-foot__tokens { margin-left: auto; white-space: nowrap; }
+.cx-foot .cx-ctx { height: auto; padding: 0; gap: var(--sp-2); font-family: var(--font-sans); font-size: var(--fs-meta); font-weight: 500; color: var(--dk-muted); }
 
 /* ---- Header ----------------------------------------------------------------- */
 .cx-page { --cx-float: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text)); }
@@ -690,8 +714,8 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
   font-size: 12px;
   font-weight: 600;
 }
-.cx-ctx__bar { position: relative; width: 56px; height: 6px; border-radius: 3px; background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-edge); overflow: hidden; }
-.cx-ctx__bar i { position: absolute; inset: 0 auto 0 0; width: var(--home-fill, 0%); border-radius: 2px; background: var(--dk-accent); }
+.cx-ctx__bar { position: relative; width: 48px; height: 4px; border-radius: var(--r-xs); background: var(--dk-hover); overflow: hidden; }
+.cx-ctx__bar i { position: absolute; inset: 0 auto 0 0; width: var(--home-fill, 0%); border-radius: inherit; background: var(--dk-accent); }
 .cx-ctx[data-warn] .cx-ctx__bar i { background: var(--dk-warn); }
 .cx-ctx[data-hot] .cx-ctx__bar i { background: var(--dk-error); }
 .cx-hdr { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
@@ -934,7 +958,7 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
 .cx-conv[data-empty] .cx-stage { flex: none; }
 .cx-conv[data-empty] .cx-body { flex: none; overflow: visible; padding: 7vh 24px 18px; }
 .cx-conv[data-empty] .cx-dock { padding-top: 0; }
-.cx-conv[data-empty] .home-textarea { min-height: 92px; }
+.cx-conv[data-empty] .home-textarea { min-height: 88px; }
 /* The bar is at the top here, so its menus open downward. */
 .cx-conv[data-empty] .home-menu,
 .cx-conv[data-empty] .chat-mcp-dropdown-menu { top: calc(100% + 6px); bottom: auto; }
@@ -1020,7 +1044,7 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
   .cx-msg:not([data-last]):not(:focus-within) .cx-acts .cx-icobtn:nth-child(n+3) { display: none; }
   .cx-dock { padding: 4px 12px 8px; }
   .cx-dock .home-slash-hint, .cx-dock .home-input-hint { display: none; }
-  .cx-dock .home-textarea { font-size: 16px; }
+  .cx-dock .home-cmd__top { flex-wrap: nowrap; }
   .cx-foot { padding-top: 6px; }
   .cx-find { width: calc(100% - 24px); margin-bottom: 6px; }
   .cx-menu { top: 56px; }
@@ -1107,51 +1131,133 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
 .cx-hdr .ca-inbox__btn .ca-count { position: absolute; top: 2px; right: 0; line-height: 1.25rem; }
 .cx-hdr .ca-inbox__panel { display: flex; flex-direction: column; gap: var(--dk-space-2); }
 
-/* The files pane of a chat: what was attached, created and changed. It sits
-   where the canvas sits and uses its frame. */
+/* The files pane of a chat: what was attached, created and changed.
+   360 px docked beside the thread from 1280 px, so the composer keeps its
+   width; below that it covers the thread from the right over a scrim, and on
+   a phone it is a bottom sheet. It slides in with transform and opacity; the
+   thread's width changes in one step. */
+.cx-files {
+  --pane-w: 360px;
+  position: relative;
+  flex: none;
+  width: var(--pane-w);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--dk-card);
+  box-shadow: inset 1px 0 0 var(--dk-edge);
+  overflow: hidden;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--dur-slow) var(--ease-out-strong), transform var(--dur-slow) var(--ease-out-strong);
+}
+@starting-style {
+  .cx-files { opacity: 0; transform: translateX(16px); }
+}
+.cx-files:focus-within { outline: none; }
+.cx-files-scrim { display: none; }
+.cx-files__grip { display: none; }
+.cx-files__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  min-height: 56px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--dk-edge);
+}
+.cx-files__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cx-files__body {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: var(--dk-space-3);
-  padding: var(--dk-space-3) 0 var(--dk-space-4);
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0 var(--sp-4);
 }
 .cx-files--drop .cx-files__body { box-shadow: inset 0 0 0 2px var(--dk-accent); }
 .cx-files__folder {
   display: flex;
   align-items: center;
-  gap: var(--dk-space-2);
+  gap: var(--sp-2);
   margin: 0;
-  padding: 0 var(--dk-space-4);
+  padding: 0 var(--sp-4);
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   min-width: 0;
 }
 .cx-files__folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cx-files__heading {
   display: flex;
   align-items: center;
-  gap: var(--dk-space-2);
+  gap: var(--sp-2);
   margin: 0;
-  padding: 0 var(--dk-space-4) var(--dk-space-1);
+  padding: 0 var(--sp-4) var(--sp-1);
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .cx-files__count {
-  margin-left: var(--dk-space-2);
+  display: inline-block;
+  margin-left: var(--sp-2);
   color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .cx-files__heading .cx-files__count { margin-left: 0; }
-.cx-files__row { padding-left: var(--dk-space-4); padding-right: var(--dk-space-3); }
+/* The count on the Files chip ticks: the new number rises into place. */
+.home-chip .cx-files__count {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+@starting-style {
+  .home-chip .cx-files__count { opacity: 0; transform: translateY(4px); }
+}
+.cx-files__row {
+  position: relative;
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-3);
+  contain: layout paint;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+/* A file the assistant wrote in the last turn keeps a 2 px accent edge. */
+.cx-files__row[data-recent] { box-shadow: inset 2px 0 0 var(--dk-accent); }
+/* A file that arrives while the pane is open slides in from 4 px above, and
+   an accent wash fades over 3 s. The wash is a layer's opacity, so nothing
+   else on the page moves. */
+.cx-files__row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--dk-accent-wash);
+  opacity: 0;
+  pointer-events: none;
+}
+.cx-files__row[data-fresh="on"]::after { opacity: 1; }
+.cx-files__row[data-fresh="fade"]::after { opacity: 0; transition: opacity 3s linear; }
+@starting-style {
+  .cx-files__row[data-fresh] { opacity: 0; transform: translateY(-4px); }
+}
+.cx-files__row > * { position: relative; z-index: 1; }
 .cx-files__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cx-files__name {
   padding: 0;
@@ -1159,6 +1265,7 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
   background: none;
   color: var(--color-text-primary);
   font: inherit;
+  font-size: var(--fs-body);
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1166,18 +1273,19 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
   cursor: pointer;
 }
 .cx-files__name:hover { text-decoration: underline; }
-.cx-files__name:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--dk-radius-1); }
+.cx-files__name:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--r-xs); }
 .cx-files__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--dk-space-2);
+  gap: var(--sp-2);
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
 }
 .cx-files__tag {
-  padding: 0 var(--dk-space-2);
-  border-radius: var(--dk-radius-1);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
 }
@@ -1185,15 +1293,73 @@ button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--dk-space-2);
-  margin: var(--dk-space-5) var(--dk-space-4);
-  padding: var(--dk-space-5) var(--dk-space-4);
+  gap: var(--sp-2);
+  margin: var(--sp-5) var(--sp-4);
+  padding: var(--sp-5) var(--sp-4);
   border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--dk-radius-2);
+  border-radius: var(--r-lg);
   text-align: center;
 }
 .cx-files__empty .lai-icon { width: 20px; height: 20px; color: var(--color-text-muted); }
 .cx-files__empty-title { margin: 0; color: var(--color-text-primary); font-weight: 600; }
 .cx-files__preview { width: auto; border-top: 1px solid var(--color-border-subtle); }
-.cx-files__hint { padding: 0 var(--dk-space-4); }
+.cx-files__hint { padding: 0 var(--sp-4); }
 .cx-files__preview .btn { align-self: flex-start; }
+
+/* Below 1280 px the pane would squeeze the composer under 600 px: it covers
+   the thread from the right, over a scrim that closes it. */
+@media (max-width: 1279px) {
+  .cx-files {
+    position: absolute;
+    z-index: 40;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    box-shadow: var(--dk-shadow-float);
+    border-left: 1px solid var(--dk-edge);
+  }
+  .cx-files-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 39;
+    background: var(--dk-scrim);
+    opacity: 1;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  @starting-style {
+    .cx-files { opacity: 1; transform: translateX(100%); }
+    .cx-files-scrim { opacity: 0; }
+  }
+}
+/* A phone: a bottom sheet at 90 % of the height. */
+@media (max-width: 639px) {
+  .cx-files,
+  .cx-files-scrim { position: fixed; z-index: var(--dk-z-dialog); }
+  .cx-files-scrim { z-index: var(--dk-z-veil); }
+  .cx-files {
+    top: auto;
+    left: 0;
+    width: auto;
+    height: 90dvh;
+    border-left: 0;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+  }
+  .cx-files__grip {
+    display: block;
+    flex: none;
+    width: 36px;
+    height: 4px;
+    margin: var(--sp-2) auto 0;
+    border-radius: var(--r-xs);
+    background: var(--dk-control-edge);
+  }
+  .cx-files__head { min-height: 48px; }
+  @starting-style {
+    .cx-files { transform: translateY(100%); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No movement, but the wash still says which file is new for 3 s. */
+  .cx-files__row[data-fresh]::after { opacity: 1; }
+}

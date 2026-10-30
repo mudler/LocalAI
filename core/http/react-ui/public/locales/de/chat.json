@@ -210,6 +210,8 @@
     "lines_one": "{{count}} Zeile",
     "lines_other": "{{count}} Zeilen",
     "showAll_one": "Alle {{count}} Zeilen zeigen",
-    "showAll_other": "Alle {{count}} Zeilen zeigen"
+    "showAll_other": "Alle {{count}} Zeilen zeigen",
+    "details": "Details anzeigen",
+    "openFile": "{{path}} in Dateien öffnen"
   }
 }
