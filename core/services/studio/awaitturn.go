@@ -31,6 +31,9 @@ type TurnEnd struct {
 	Info store.TurnInfo
 	// ErrText is the text of the error event of the turn, if one was raised.
 	ErrText string
+	// Tokens is the sum of the prompt and completion tokens of the model
+	// requests of the turn that the events reported; 0 when none were seen.
+	Tokens int
 }
 
 // awaitTurn waits for the turn that the caller started on a chat and reports how
@@ -43,7 +46,7 @@ func (s *Service) awaitTurn(owner, chatID string, events <-chan session.Event, l
 	timer := time.NewTimer(limit)
 	defer timer.Stop()
 	var poll <-chan time.Time
-	started, errText := false, ""
+	started, errText, tokens := false, "", 0
 	for {
 		select {
 		case ev, ok := <-events:
@@ -59,17 +62,21 @@ func (s *Service) awaitTurn(owner, chatID string, events <-chan session.Event, l
 				started = true
 			case session.KindError:
 				errText = ev.Text
+			case session.KindUsage:
+				if ev.Usage != nil && started {
+					tokens += ev.Usage.Used + ev.Usage.Completion
+				}
 			case session.KindTurnEnd:
 				if started {
-					return TurnEnd{How: TurnEnded, Info: s.settledTurn(owner, chatID), ErrText: errText}
+					return TurnEnd{How: TurnEnded, Info: s.settledTurn(owner, chatID), ErrText: errText, Tokens: tokens}
 				}
 			}
 		case <-poll:
 			if info, err := s.Turn(context.Background(), owner, chatID); err == nil && !info.Running && info.Last != "" {
-				return TurnEnd{How: TurnEnded, Info: info, ErrText: errText}
+				return TurnEnd{How: TurnEnded, Info: info, ErrText: errText, Tokens: tokens}
 			}
 		case <-timer.C:
-			return TurnEnd{How: TurnTimedOut, ErrText: errText}
+			return TurnEnd{How: TurnTimedOut, ErrText: errText, Tokens: tokens}
 		case <-stop:
 			return TurnEnd{How: TurnAbandoned}
 		}

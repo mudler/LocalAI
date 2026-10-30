@@ -91,6 +91,7 @@ func (a *Application) initStudioService() {
 		Assistant:     studioAssistant{a},
 		Collections:   studioCollections{a},
 		ContextTokens: a.studioContextTokens,
+		RemoteModel:   a.studioRemoteModel,
 		Modalities:    a.studioModalities,
 		MCPContent:    studioMCPContent{a: a},
 		AgentOptions:  a.studioAgentOptions,
@@ -313,4 +314,11 @@ func (a *Application) studioMCP(ctx context.Context, user, model string, only []
 		control = d.AgentControl
 	}
 	return mcpendpoint.NewToolExecutor(ctx, control, cfg.MCPSessionKey(), remote, stdio, servers), missing
+}
+
+// studioRemoteModel says whether a model is served by a remote proxy, so the
+// cost of a trigger run can say that its tokens leave this server.
+func (a *Application) studioRemoteModel(model string) bool {
+	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	return ok && cfg.IsRemoteProxy()
 }

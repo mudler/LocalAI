@@ -30,29 +30,55 @@ func runOut(host *studiosvc.Triggers, user string, r triggers.Run) schema.ChatsT
 		file = host.RelPath(user, file)
 	}
 	return schema.ChatsTriggerRun{ID: r.ID, Status: string(r.Status), Reason: r.Reason, ChatID: r.ChatID, File: file,
-		Due: r.Due.UTC(), Started: utcPtr(r.Started), Ended: utcPtr(r.Ended)}
+		Due: r.Due.UTC(), Started: utcPtr(r.Started), Ended: utcPtr(r.Ended), Tokens: r.Tokens}
 }
+
+// costRuns is how many recent runs the average cost of a trigger reads.
+const costRuns = 10
 
 func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigger, withLast bool) schema.ChatsTrigger {
 	out := schema.ChatsTrigger{ID: t.ID, Name: t.Name, Prompt: t.Prompt, Kind: string(t.Kind), Schedule: t.Schedule, TimeZone: t.TZ,
 		Folder: host.RelFolder(t), QuietSeconds: int(t.Quiet / time.Second), DailyCap: t.CapOrDefault(), Enabled: t.Enabled,
-		AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Summary: host.Summary(t)}
+		AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Summary: host.Summary(t),
+		Plan: schema.ChatsTriggerPlan{Reads: t.Reads, Writes: t.Writes, Widget: t.Widget},
+		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)}}
+	if t.Kind == triggers.KindFile {
+		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
+	}
 	if next, ok := host.NextRun(t); ok {
 		out.NextRun = utcPtr(next)
 	}
 	if withLast {
-		if runs, err := host.TriggerRuns(ctx, t.Owner, t.ID, 1); err == nil && len(runs) == 1 {
+		if runs, err := host.TriggerRuns(ctx, t.Owner, t.ID, costRuns); err == nil && len(runs) > 0 {
 			r := runOut(host, t.Owner, runs[0])
 			out.LastRun = &r
+			sum := 0
+			for _, run := range runs {
+				if run.Status == triggers.StatusDone && out.LastDone == nil {
+					out.LastDone = utcPtr(run.Ended)
+				}
+				if run.Status.Final() && run.Tokens > 0 {
+					sum += run.Tokens
+					out.Cost.Runs++
+				}
+			}
+			if out.Cost.Runs > 0 {
+				out.Cost.AverageTokens = sum / out.Cost.Runs
+			}
 		}
 	}
 	return out
 }
 
 func triggerIn(req schema.ChatsTriggerWrite) studiosvc.TriggerInput {
-	return studiosvc.TriggerInput{Name: req.Name, Prompt: req.Prompt, Kind: triggers.Kind(req.Kind), Schedule: req.Schedule, TZ: req.TimeZone,
+	in := studiosvc.TriggerInput{Name: req.Name, Prompt: req.Prompt, Kind: triggers.Kind(req.Kind), Schedule: req.Schedule, TZ: req.TimeZone,
 		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap,
 		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled}
+	in.MinGap, in.EstTokens = time.Duration(req.MinGapSeconds)*time.Second, req.EstimatedTokens
+	if req.Plan != nil {
+		in.Reads, in.Writes, in.Widget = req.Plan.Reads, req.Plan.Writes, req.Plan.Widget
+	}
+	return in
 }
 
 var triggerRules = []errRule{

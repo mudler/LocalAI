@@ -492,8 +492,43 @@ type ChatsTrigger struct {
 	// trigger that is on.
 	Summary string     `json:"summary"`
 	NextRun *time.Time `json:"next_run,omitempty"`
-	// LastRun is the newest run, if any.
-	LastRun *ChatsTriggerRun `json:"last_run,omitempty"`
+	// LastRun is the newest run, if any, and LastDone the end of the newest
+	// run that finished without an error.
+	LastRun  *ChatsTriggerRun `json:"last_run,omitempty"`
+	LastDone *time.Time       `json:"last_done,omitempty"`
+	// MinGapSeconds is the shortest time between two runs of a file trigger.
+	MinGapSeconds int `json:"min_gap_seconds,omitempty"`
+	// Plan says what a run reads and writes and which Home widget shows the
+	// file it writes; Cost what a run costs.
+	Plan ChatsTriggerPlan `json:"plan"`
+	Cost ChatsTriggerCost `json:"cost"`
+}
+
+// ChatsTriggerPlan is what a run of a trigger does, as the model that proposed
+// it described it. Every field is optional.
+type ChatsTriggerPlan struct {
+	Reads string `json:"reads,omitempty"`
+	// Writes is a path in the owner's home, such as data/inbox.json.
+	Writes string `json:"writes,omitempty"`
+	// Widget is the id of the Home widget in home.json that shows Writes.
+	Widget string `json:"widget,omitempty"`
+}
+
+// ChatsTriggerCost is what the runs of a trigger cost, in tokens. LocalAI keeps
+// no price list, so there is no price.
+type ChatsTriggerCost struct {
+	// EstimatedTokens is the estimate of the proposal; 0 is unknown.
+	EstimatedTokens int `json:"estimated_tokens,omitempty"`
+	// AverageTokens is the mean of the last finished runs that reported their
+	// tokens, and Runs how many runs that is.
+	AverageTokens int `json:"average_tokens,omitempty"`
+	Runs          int `json:"runs,omitempty"`
+	// MaxRunsPerDay is the most runs one day can have: the daily limit, or
+	// fewer when the schedule runs less often.
+	MaxRunsPerDay int `json:"max_runs_per_day"`
+	// Remote is true when the model runs on a remote service, so the tokens
+	// leave this server.
+	Remote bool `json:"remote"`
 }
 
 // ChatsTriggerWrite creates or replaces a trigger.
@@ -512,6 +547,14 @@ type ChatsTriggerWrite struct {
 	AgentID      string `json:"agent_id,omitempty"`
 	Model        string `json:"model,omitempty"`
 	SourceChatID string `json:"source_chat_id,omitempty"`
+	// MinGapSeconds is the shortest time between two runs of a file trigger;
+	// 0 keeps the trigger's value (one minute for a new one).
+	MinGapSeconds int `json:"min_gap_seconds,omitempty"`
+	// Plan describes the runs. An empty field keeps the trigger's value.
+	Plan *ChatsTriggerPlan `json:"plan,omitempty"`
+	// EstimatedTokens is about how many tokens one run uses; 0 keeps the
+	// trigger's value.
+	EstimatedTokens int `json:"estimated_tokens,omitempty"`
 }
 
 // ChatsTriggerList is the response of the trigger list endpoint.
@@ -530,6 +573,8 @@ type ChatsTriggerRun struct {
 	Due     time.Time  `json:"due"`
 	Started *time.Time `json:"started,omitempty"`
 	Ended   *time.Time `json:"ended,omitempty"`
+	// Tokens is what the run's model requests used, when it is known.
+	Tokens int `json:"tokens,omitempty"`
 }
 
 // ChatsTriggerRunList is the response of the runs endpoint.

@@ -500,10 +500,10 @@ func (h *Triggers) supervise(run triggers.Run, t triggers.Trigger, chatID string
 		return
 	case TurnTimedOut:
 		h.stopRun(chatID)
-		h.finish(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit))
+		h.finishRun(run, t, chatID, triggers.StatusFailed, "took longer than "+limitText(h.o.RunLimit), end.Tokens)
 	default:
 		status, reason := outcome(end.Info.Last, end.ErrText)
-		h.finish(run, t, chatID, status, reason)
+		h.finishRun(run, t, chatID, status, reason, end.Tokens)
 	}
 }
 
@@ -530,6 +530,11 @@ const finishTimeout = 30 * time.Second
 // does it when it exists; otherwise the store is written directly, which is what
 // Runner.Finish does.
 func (h *Triggers) finish(run triggers.Run, t triggers.Trigger, chatID string, status triggers.Status, reason string) {
+	h.finishRun(run, t, chatID, status, reason, 0)
+}
+
+// finishRun is finish that also records the tokens the run used.
+func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string, status triggers.Status, reason string, tokens int) {
 	// The store may hang; do not hold the runner for good.
 	ctx, cancel := context.WithTimeout(context.Background(), finishTimeout)
 	defer cancel()
@@ -538,9 +543,12 @@ func (h *Triggers) finish(run triggers.Run, t triggers.Trigger, chatID string, s
 		return // deleted with its trigger, or ended already
 	}
 	if r := h.currentRunner(); r != nil {
-		err = r.Finish(ctx, run.ID, status, reason)
+		err = r.FinishRun(ctx, run.ID, status, reason, tokens)
 	} else {
 		cur.Status, cur.Ended = status, h.o.Clock().UTC()
+		if tokens > 0 {
+			cur.Tokens = tokens
+		}
 		if reason != "" {
 			cur.Reason = triggers.CutReason(reason)
 		}

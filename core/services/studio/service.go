@@ -142,6 +142,10 @@ type Deps struct {
 	// video does. A model without them gets the file and the describe_image
 	// tool. Nil: no model takes either.
 	Modalities func(model string) Modalities
+	// RemoteModel says whether a model runs on a remote service (a cloud
+	// proxy), so a cost shown to the person can say that the tokens leave the
+	// server. Nil: no model is remote.
+	RemoteModel func(model string) bool
 	// Persistent is true when the store keeps conversations across a restart.
 	Persistent bool
 	// Harness replaces the nib harness. It is for tests.
@@ -433,6 +437,11 @@ func (s *Service) Principal(user string) string { return principal(user) }
 
 // Files returns the workspace of the chats. It is never nil.
 func (s *Service) Files() *files.Service { return s.d.Files }
+
+// RemoteModel says whether model runs on a remote service.
+func (s *Service) RemoteModel(model string) bool {
+	return s.d.RemoteModel != nil && model != "" && s.d.RemoteModel(model)
+}
 
 // Persistent reports whether conversations survive a restart of the server.
 func (s *Service) Persistent() bool { return s.d.Persistent }
