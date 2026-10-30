@@ -96,6 +96,17 @@ func byName(cf session.ChatFiles) map[string]session.ChatFile {
 	return out
 }
 
+var _ = Describe("MimeOf", func() {
+	It("gives the same type for the common text files on every host", func() {
+		Expect(session.MimeOf("notes/out.md")).To(Equal("text/markdown"))
+		Expect(session.MimeOf("README.MARKDOWN")).To(Equal("text/markdown"))
+		Expect(session.MimeOf("data.csv")).To(Equal("text/csv"))
+		Expect(session.MimeOf("a.txt")).To(Equal("text/plain"))
+		Expect(session.MimeOf("pic.png")).To(Equal("image/png"))
+		Expect(session.MimeOf("noext")).To(Equal("application/octet-stream"))
+	})
+})
+
 var _ = Describe("the files of a chat", func() {
 	It("tells uploads, model and tool writes apart", func() {
 		r := newFilesRig()

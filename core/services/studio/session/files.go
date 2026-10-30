@@ -88,9 +88,24 @@ func workspacePath(home, guest string) string {
 	return home + strings.TrimPrefix(guest, root)
 }
 
+// textTypes are the types of the text files a chat writes most. The table of
+// the mime package reads the types of the operating system, and these differ:
+// macOS, for one, knows no ".md". The prompt and the file list must say the
+// same on every host.
+var textTypes = map[string]string{
+	".md":       "text/markdown",
+	".markdown": "text/markdown",
+	".csv":      "text/csv",
+	".txt":      "text/plain",
+}
+
 // MimeOf guesses the type of a file from its name.
 func MimeOf(name string) string {
-	if t := mime.TypeByExtension(strings.ToLower(path.Ext(name))); t != "" {
+	ext := strings.ToLower(path.Ext(name))
+	if t, ok := textTypes[ext]; ok {
+		return t
+	}
+	if t := mime.TypeByExtension(ext); t != "" {
 		if i := strings.IndexByte(t, ';'); i > 0 {
 			t = t[:i]
 		}
