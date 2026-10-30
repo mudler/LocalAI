@@ -108,7 +108,8 @@
       "faces": "Detecte, compare e associe rostos.",
       "addons": "Instale complementos e abra os apps que eles oferecem.",
       "triggers": "Inicie um chat sozinho, em um horário agendado ou quando um arquivo chegar."
-    }
+    },
+    "operateSupporting": "O que roda neste servidor, como ele é usado e como está configurado."
   },
   "pinnedPages": "Páginas fixadas"
 }

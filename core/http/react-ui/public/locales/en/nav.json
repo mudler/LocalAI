@@ -107,7 +107,8 @@
       "faces": "Detect, compare and match faces.",
       "addons": "Install, turn on and open add-ons.",
       "triggers": "Start a chat by itself, on a schedule or when a file arrives."
-    }
+    },
+    "operateSupporting": "What runs on this server, how it is used, and how it is set up."
   },
   "pinnedPages": "Pinned pages"
 }

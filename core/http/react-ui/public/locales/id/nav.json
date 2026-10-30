@@ -108,7 +108,8 @@
       "faces": "Deteksi, bandingkan, dan cocokkan wajah.",
       "addons": "Pasang add-on dan buka aplikasi yang disediakannya.",
       "triggers": "Mulai obrolan secara otomatis, sesuai jadwal atau saat ada berkas masuk."
-    }
+    },
+    "operateSupporting": "Apa yang berjalan di server ini, bagaimana server ini dipakai, dan bagaimana pengaturannya."
   },
   "pinnedPages": "Halaman yang disematkan"
 }

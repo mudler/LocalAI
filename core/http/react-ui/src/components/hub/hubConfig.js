@@ -64,6 +64,9 @@ export const operateHub = {
   titleKey: 'sections.operate',
   icon: 'sliders',
   overviewPath: '/app/operate',
+  // The hub draws one page header above its tabs. A page fills the supporting
+  // line and the actions with <HubHeader>; this line shows when it does not.
+  header: { supportingKey: 'hub.operateSupporting' },
   tabs: [
     {
       id: 'status',

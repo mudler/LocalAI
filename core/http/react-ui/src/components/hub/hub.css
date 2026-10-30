@@ -1,0 +1,168 @@
+/* ==========================================================================
+   Hub layout: the page frame of Administration (and the legacy Add-ons hub).
+
+   One header, one tab level. The hub name is the page title; the page on
+   screen fills the supporting line and the actions (HubHeader.jsx). The tabs
+   are an underline row; a tab that owns several pages shows them as a
+   segmented control under it, so the two levels never look alike.
+   ========================================================================== */
+
+.hub-layout {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--page-gutter);
+}
+
+/* The frame lines up with the page padding and caps at the widest page. */
+.hub-bar {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--page-max-default);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+  min-width: 0;
+}
+
+/* ---- Header -------------------------------------------------------------- */
+
+.hub-head.page-header { margin: 0 0 var(--sp-6); }
+.hub-head__slot { display: contents; }
+.hub-head .page-header__meta:empty { display: none; }
+/* A page's supporting line can carry a status sentence and a scope word. */
+.hub-head .page-header__supporting > * { margin: 0; }
+.hub-title { margin: 0; }
+
+/* ---- Tabs: one underline row -------------------------------------------- */
+
+.hub-bar .dk-hubtabs {
+  position: relative;
+  align-self: stretch;
+  gap: var(--sp-6);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: inset 0 -1px 0 var(--dk-edge);
+  scroll-padding-inline: var(--sp-6);
+}
+.hub-bar .dk-hubtab {
+  height: 40px;
+  padding: 0;
+  gap: var(--sp-2);
+  border-radius: 0;
+  background: transparent;
+  color: var(--dk-muted);
+  font: 500 var(--fs-small) / 1 var(--font-sans);
+  transition: color var(--dur-instant) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.hub-bar .dk-hubtab:hover { background: transparent; color: var(--dk-text); }
+.hub-bar .dk-hubtab[aria-current="page"] {
+  background: transparent;
+  color: var(--dk-text);
+  box-shadow: inset 0 -2px 0 currentColor;
+}
+.hub-bar .dk-hubtab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.hub-bar .dk-hubtab .lai-icon { width: 12px; height: 12px; color: var(--dk-muted); }
+.hub-bar .dk-hubtab-count { background: var(--dk-inset); font-family: var(--font-sans); }
+.hub-bar .dk-hubtab-attn { font-family: var(--font-sans); }
+
+/* Edge fades say "there is more" when the row scrolls (set by HubLayout). */
+.hub-bar .dk-hubtabs[data-fade~="end"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+.hub-bar .dk-hubtabs[data-fade~="start"] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+.hub-bar .dk-hubtabs[data-fade~="start"][data-fade~="end"] {
+  mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+}
+
+/* ---- Second level: a segmented control ---------------------------------- */
+
+.hub-subnav {
+  display: flex;
+  align-self: flex-start;
+  gap: 2px;
+  max-width: 100%;
+  margin-top: var(--sp-5);
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: var(--dk-inset);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.hub-subnav::-webkit-scrollbar { display: none; }
+.hub-subnav__link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  color: var(--dk-muted);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
+}
+.hub-subnav__link:hover { color: var(--dk-text); }
+.hub-subnav__link[aria-current="page"] {
+  background: var(--dk-card);
+  color: var(--dk-text);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.hub-subnav__link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---- Body ---------------------------------------------------------------- */
+
+.hub-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+/* The header and the tabs already open the page: the body starts 20 px under
+   the tabs instead of a second full page top padding. */
+.hub-body > .page { padding-top: var(--sp-5); }
+/* A page's own title is a section title under the hub header: one title per
+   screen at page size, the hub's. */
+.hub-body .page-title,
+.hub-body .page-header .page-title {
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  letter-spacing: 0;
+}
+/* A medium page is centred in the content area, but the tab bar above it is
+   flush with the page edge. Inside a hub the medium column starts where the
+   bar starts. */
+.hub-body .page--medium {
+  margin-left: max(0px, calc((100% - var(--page-max-default)) / 2));
+  margin-right: auto;
+}
+
+/* A split view needs a ceiling to scroll inside: without it the page ran past
+   the viewport and over the footer. The hub layout sizes to content for every
+   other page, so only the split-view routes are pinned, scoped with :has(). */
+.hub-layout:has(.page--app) {
+  flex: 1;
+  min-height: 0;
+}
+.hub-layout:has(.page--app) > .hub-body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .hub-layout:has(.page--app) { flex: none; }
+  .hub-layout:has(.page--app) > .hub-body { display: block; }
+}
+
+@media (max-width: 768px) {
+  .hub-layout { padding-top: var(--sp-4); }
+  .hub-head.page-header { margin-bottom: var(--sp-4); }
+  .hub-bar .dk-hubtabs { gap: var(--sp-5); }
+  /* The row runs to the screen edge so a half-visible tab says "scroll". */
+  .hub-bar .dk-hubtabs { margin-right: calc(-1 * var(--page-gutter)); }
+  .hub-subnav { margin-top: var(--sp-4); }
+}
