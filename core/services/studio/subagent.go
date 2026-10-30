@@ -59,7 +59,8 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The file tools belong to the chat itself: a sub-agent never gets them,
 	// because its tools come from hostTools, which does not include them.
-	tools = append(tools, s.announceFileChanges(a, s.d.Files.Tools(a))...)
+	nudge := s.newRulesNudge(ctx, a, rec)
+	tools = append(tools, nudge.wrap(s.announceFileChanges(a, s.d.Files.Tools(a)))...)
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a, rec.Model)...)
 	}
@@ -108,6 +109,11 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// An offer from the assistant is allowed in few turns (see hintsvc.go); the
 	// model learns it from one line of the note, so other turns cost nothing.
 	if line := s.hintLine(ctx, a, rec); line != "" {
+		note = strings.TrimSpace(line + " " + note)
+	}
+	// The AGENTS.md files of the chat's folder and the home: a pointer, first,
+	// so the cut of a long note keeps it.
+	if line := nudge.turnLine(ctx, rec); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 	}
 	// What the chat can run comes before the other blocks: the prompt is cut at
