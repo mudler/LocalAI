@@ -6,6 +6,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 // Limits of the format.
@@ -115,7 +117,7 @@ func valueXML(prefix, ref, style string, v Value) string {
 	var b strings.Builder
 	b.WriteString("<" + prefix + `c r="` + ref + `"`)
 	if style != "" {
-		b.WriteString(` s="` + esc(style) + `"`)
+		b.WriteString(` s="` + ooxml.Escape(style) + `"`)
 	}
 	open := func(typ string) {
 		if typ != "" {
@@ -129,7 +131,7 @@ func valueXML(prefix, ref, style string, v Value) string {
 	switch v.kind {
 	case kindString:
 		open("inlineStr")
-		b.WriteString("<" + prefix + `is><` + prefix + `t xml:space="preserve">` + esc(v.str) + "</" + prefix + "t></" + prefix + "is>")
+		b.WriteString("<" + prefix + `is><` + prefix + `t xml:space="preserve">` + ooxml.Escape(v.str) + "</" + prefix + "t></" + prefix + "is>")
 	case kindNumber:
 		open("")
 		b.WriteString(el("v", fmtFloat(v.num)))
@@ -147,11 +149,11 @@ func valueXML(prefix, ref, style string, v Value) string {
 			}
 		}
 		open(typ)
-		b.WriteString(el("f", esc(v.formula)))
+		b.WriteString(el("f", ooxml.Escape(v.formula)))
 		if c := v.cached; c != nil {
 			switch c.kind {
 			case kindString:
-				b.WriteString(el("v", esc(c.str)))
+				b.WriteString(el("v", ooxml.Escape(c.str)))
 			case kindNumber:
 				b.WriteString(el("v", fmtFloat(c.num)))
 			case kindBool:

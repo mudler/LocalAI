@@ -2,7 +2,6 @@ package pptx
 
 import (
 	"bytes"
-	"encoding/xml"
 	"fmt"
 	"image"
 	_ "image/jpeg" // register the JPEG decoder for DecodeConfig
@@ -13,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/office/internal/deck"
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 // palette is the content colours of one deck style (the studio's
@@ -76,12 +76,6 @@ const (
 	rightColX = padSide + leftColW + colGap
 	rightColW = frameW - leftColW - colGap
 )
-
-func esc(s string) string {
-	var b bytes.Buffer
-	_ = xml.EscapeText(&b, []byte(s))
-	return b.String()
-}
 
 // oneLine folds line breaks into spaces.
 func oneLine(s string) string {
@@ -160,8 +154,8 @@ func (r run) xml(font string) string {
 	if r.under != "" && r.uclr != "" {
 		inner += `<a:uFill>` + solid(r.uclr) + `</a:uFill>`
 	}
-	inner += `<a:latin typeface="` + esc(font) + `"/>`
-	return `<a:r><a:rPr` + attrs + ` dirty="0">` + inner + `</a:rPr><a:t>` + esc(r.text) + `</a:t></a:r>`
+	inner += `<a:latin typeface="` + ooxml.Escape(font) + `"/>`
+	return `<a:r><a:rPr` + attrs + ` dirty="0">` + inner + `</a:rPr><a:t>` + ooxml.Escape(r.text) + `</a:t></a:r>`
 }
 
 // para is one paragraph.
@@ -566,7 +560,7 @@ func (b *slideBuilder) picture(img deck.StudioImage, x, y, w, h float64) {
 	fmt.Fprintf(&b.sp, `<p:pic><p:nvPicPr><p:cNvPr id="%d" name="Picture %d" descr="%s"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>`+
 		`<p:blipFill><a:blip r:embed="%s"/><a:srcRect l="%d" t="%d" r="%d" b="%d"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>`+
 		`<p:spPr>%s<a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom>%s</p:spPr></p:pic>`,
-		id, id, esc(caption), rid, l, t, l, t, xfrm(x, y, w, h, ""), solid(b.pal.wash))
+		id, id, ooxml.Escape(caption), rid, l, t, l, t, xfrm(x, y, w, h, ""), solid(b.pal.wash))
 	if caption != "" {
 		cw := min(float64(utf8.RuneCountInString(caption))*1.5*0.55+2, w-2.4)
 		b.textBox(x+1.2, y+h-1.2-3.1, cw, 3.1, textBoxOpts{

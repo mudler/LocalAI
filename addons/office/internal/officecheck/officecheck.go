@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 // Problem is one structural problem. Part is the zip entry where it was
@@ -104,7 +106,7 @@ func (c *checker) readZip(data []byte) bool {
 	}
 	for _, f := range zr.File {
 		name := f.Name
-		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || hasDotDot(name) {
+		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || ooxml.HasDotDot(name) {
 			c.add(name, "entry name is absolute or contains ..")
 		}
 		if strings.HasSuffix(name, "/") {
@@ -135,15 +137,6 @@ func (c *checker) readZip(data []byte) bool {
 	}
 	sort.Strings(c.names)
 	return true
-}
-
-func hasDotDot(name string) bool {
-	for _, seg := range strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if seg == ".." {
-			return true
-		}
-	}
-	return false
 }
 
 // attr returns the value of the attribute with the given local name.

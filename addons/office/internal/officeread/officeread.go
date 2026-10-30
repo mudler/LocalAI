@@ -19,6 +19,8 @@ import (
 	"io"
 	"path"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 // Document is the content of an office file.
@@ -102,7 +104,7 @@ func unzip(data []byte) (parts, error) {
 	var total int64
 	for _, f := range zr.File {
 		name := f.Name
-		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || hasDotDot(name) {
+		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || ooxml.HasDotDot(name) {
 			return nil, fmt.Errorf("officeread: unsafe entry name %q", name)
 		}
 		if strings.HasSuffix(name, "/") {
@@ -130,15 +132,6 @@ func unzip(data []byte) (parts, error) {
 		out[name] = b
 	}
 	return out, nil
-}
-
-func hasDotDot(name string) bool {
-	for _, s := range strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if s == ".." {
-			return true
-		}
-	}
-	return false
 }
 
 // detect finds the main part from the content types.

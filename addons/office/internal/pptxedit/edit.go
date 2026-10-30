@@ -3,6 +3,8 @@ package pptxedit
 import (
 	"fmt"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 // Slides lists the slides in presentation order. A slide that cannot be
@@ -110,7 +112,7 @@ func textRuns(pfx, text, rPr string) string {
 		if line == "" {
 			continue
 		}
-		b.WriteString("<" + qual(pfx, "r") + ">" + rPr + "<" + qual(pfx, "t") + ">" + esc(line) + "</" + qual(pfx, "t") + "></" + qual(pfx, "r") + ">")
+		b.WriteString("<" + qual(pfx, "r") + ">" + rPr + "<" + qual(pfx, "t") + ">" + ooxml.Escape(line) + "</" + qual(pfx, "t") + "></" + qual(pfx, "r") + ">")
 	}
 	return b.String()
 }

@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 const groupHeader = `<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>` +
@@ -20,10 +22,10 @@ type layoutPlaceholder struct{ typ, idx string }
 func (l layoutPlaceholder) xml() string {
 	s := "<p:ph"
 	if l.typ != "" {
-		s += ` type="` + esc(l.typ) + `"`
+		s += ` type="` + ooxml.Escape(l.typ) + `"`
 	}
 	if l.idx != "" {
-		s += ` idx="` + esc(l.idx) + `"`
+		s += ` idx="` + ooxml.Escape(l.idx) + `"`
 	}
 	return s + "/>"
 }
@@ -134,7 +136,7 @@ func (d *Deck) AddSlide(layoutName, title string, bullets []string) error {
 		d.set(slidePart, []byte(header+`<p:sld xmlns:a="`+nsA+`" xmlns:r="`+nsR+`" xmlns:p="`+nsP+`"><p:cSld><p:spTree>`+
 			groupHeader+sps.String()+`</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`))
 		d.set(relsName(slidePart), []byte(header+`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`+
-			`<Relationship Id="rId1" Type="`+relSlideLayout+`" Target="../slideLayouts/`+esc(path.Base(layoutPart))+`"/></Relationships>`))
+			`<Relationship Id="rId1" Type="`+relSlideLayout+`" Target="../slideLayouts/`+ooxml.Escape(path.Base(layoutPart))+`"/></Relationships>`))
 
 		// presentation.xml.rels
 		rels, relsRaw, relsRoot, err := d.relsOf(d.pres)
@@ -156,7 +158,7 @@ func (d *Deck) AddSlide(layoutName, title string, bullets []string) error {
 		}
 		rp := prefixOf(relsRaw, relsRoot)
 		out, err := splice(relsRaw, []edit{{relsRoot.closeStart, relsRoot.closeStart,
-			"<" + qual(rp, "Relationship") + ` Id="` + rid + `" Type="` + relSlide + `" Target="slides/` + esc(path.Base(slidePart)) + `"/>`}})
+			"<" + qual(rp, "Relationship") + ` Id="` + rid + `" Type="` + relSlide + `" Target="slides/` + ooxml.Escape(path.Base(slidePart)) + `"/>`}})
 		if err != nil {
 			return fmt.Errorf("pptxedit: %w", err)
 		}
@@ -220,7 +222,7 @@ func (d *Deck) AddSlide(layoutName, title string, bullets []string) error {
 		}
 		cp := prefixOf(ct, ctRoot)
 		if out, err = splice(ct, []edit{{ctRoot.closeStart, ctRoot.closeStart,
-			"<" + qual(cp, "Override") + ` PartName="/` + esc(slidePart) + `" ContentType="` + ctSlide + `"/>`}}); err != nil {
+			"<" + qual(cp, "Override") + ` PartName="/` + ooxml.Escape(slidePart) + `" ContentType="` + ctSlide + `"/>`}}); err != nil {
 			return fmt.Errorf("pptxedit: %w", err)
 		}
 		d.set(contentTypes, out)

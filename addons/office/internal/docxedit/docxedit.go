@@ -24,6 +24,8 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 const (
@@ -73,7 +75,7 @@ func Open(data []byte) (doc *Document, err error) {
 	var total int64
 	for _, f := range zr.File {
 		name := f.Name
-		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || hasDotDot(name) {
+		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || ooxml.HasDotDot(name) {
 			return nil, fmt.Errorf("docxedit: unsafe entry name %q", name)
 		}
 		if _, dup := files[name]; dup {
@@ -241,7 +243,7 @@ func (d *Document) InsertParagraph(after int, style string, text string) (err er
 	pf := s.prefix
 	b.WriteString("<" + pf + "p>")
 	if style != "" {
-		b.WriteString("<" + pf + "pPr><" + pf + `pStyle ` + pf + `val="` + esc(style) + `"/></` + pf + "pPr>")
+		b.WriteString("<" + pf + "pPr><" + pf + `pStyle ` + pf + `val="` + ooxml.Escape(style) + `"/></` + pf + "pPr>")
 	}
 	if text != "" {
 		b.WriteString(runXML(pf, nil, text))
@@ -302,7 +304,7 @@ func (d *Document) ReplaceAll(old, new string) (count int, err error) {
 		if !t.hasSpace {
 			edits = append(edits, edit{t.bodyStart - 1, t.bodyStart - 1, []byte(` xml:space="preserve"`)})
 		}
-		edits = append(edits, edit{t.bodyStart, t.bodyEnd, []byte(esc(strings.ReplaceAll(t.text, old, new)))})
+		edits = append(edits, edit{t.bodyStart, t.bodyEnd, []byte(ooxml.Escape(strings.ReplaceAll(t.text, old, new)))})
 	}
 	if count == 0 {
 		return 0, nil
@@ -366,14 +368,8 @@ func applyEdits(src []byte, edits []edit) []byte {
 	return out.Bytes()
 }
 
-func esc(s string) string {
-	var b bytes.Buffer
-	_ = xml.EscapeText(&b, []byte(s))
-	return b.String()
-}
-
 func runXML(prefix string, rPr []byte, text string) string {
-	return "<" + prefix + "r>" + string(rPr) + "<" + prefix + `t xml:space="preserve">` + esc(text) + "</" + prefix + "t></" + prefix + "r>"
+	return "<" + prefix + "r>" + string(rPr) + "<" + prefix + `t xml:space="preserve">` + ooxml.Escape(text) + "</" + prefix + "t></" + prefix + "r>"
 }
 
 func recoverErr(err *error) {
@@ -383,15 +379,6 @@ func recoverErr(err *error) {
 }
 
 // ---- package helpers ----
-
-func hasDotDot(name string) bool {
-	for _, s := range strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if s == ".." {
-			return true
-		}
-	}
-	return false
-}
 
 // resolve turns a relationship target into a part name. A target that starts
 // with "/" is from the package root, any other is relative to base.

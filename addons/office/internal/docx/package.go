@@ -1,10 +1,10 @@
 package docx
 
 import (
-	"bytes"
-	"encoding/xml"
 	"fmt"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 const (
@@ -46,18 +46,12 @@ type part struct {
 
 type rel struct{ id, typ, target string }
 
-func esc(s string) string {
-	var b bytes.Buffer
-	_ = xml.EscapeText(&b, []byte(s))
-	return b.String()
-}
-
 func relsXML(rels []rel) []byte {
 	var b strings.Builder
 	b.WriteString(xmlHeader)
 	b.WriteString(`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
 	for _, r := range rels {
-		fmt.Fprintf(&b, `<Relationship Id="%s" Type="%s" Target="%s"/>`, r.id, r.typ, esc(r.target))
+		fmt.Fprintf(&b, `<Relationship Id="%s" Type="%s" Target="%s"/>`, r.id, r.typ, ooxml.Escape(r.target))
 	}
 	b.WriteString(`</Relationships>`)
 	return []byte(b.String())
@@ -107,8 +101,8 @@ func coreXML(title, author string) []byte {
 	s.WriteString(xmlHeader + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ` +
 		`xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" ` +
 		`xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`)
-	s.WriteString(`<dc:title>` + esc(title) + `</dc:title>`)
-	s.WriteString(`<dc:creator>` + esc(author) + `</dc:creator>`)
+	s.WriteString(`<dc:title>` + ooxml.Escape(title) + `</dc:title>`)
+	s.WriteString(`<dc:creator>` + ooxml.Escape(author) + `</dc:creator>`)
 	s.WriteString(`</cp:coreProperties>`)
 	return []byte(s.String())
 }
@@ -116,7 +110,7 @@ func coreXML(title, author string) []byte {
 func appXML(application string) []byte {
 	var app string
 	if application != "" {
-		app = "<Application>" + esc(application) + "</Application>"
+		app = "<Application>" + ooxml.Escape(application) + "</Application>"
 	}
 	return []byte(xmlHeader + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" ` +
 		`xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` + app + `</Properties>`)
@@ -137,7 +131,7 @@ var headingSize = map[int]int{1: 32, 2: 28, 3: 26}
 
 func (b *builder) stylesXML() []byte {
 	st := b.style
-	font := esc(st.Font)
+	font := ooxml.Escape(st.Font)
 	var s strings.Builder
 	s.WriteString(xmlHeader)
 	s.WriteString(`<w:styles xmlns:w="` + nsW + `">`)
@@ -212,7 +206,7 @@ func runXML(r Run) string {
 	if rpr != "" {
 		rpr = `<w:rPr>` + rpr + `</w:rPr>`
 	}
-	return `<w:r>` + rpr + `<w:t xml:space="preserve">` + esc(r.Text) + `</w:t></w:r>`
+	return `<w:r>` + rpr + `<w:t xml:space="preserve">` + ooxml.Escape(r.Text) + `</w:t></w:r>`
 }
 
 // columnWidths returns the grid widths: the given widths, or an equal split of

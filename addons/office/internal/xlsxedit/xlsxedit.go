@@ -31,6 +31,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 const (
@@ -338,7 +340,7 @@ func (w *Workbook) editCell(sheet, ref string, col, row int, v *Value) error {
 		c := rs.cells[ci]
 		repl := ""
 		if c.style != "" {
-			repl = "<" + p + `c r="` + ref + `" s="` + esc(c.style) + `"/>`
+			repl = "<" + p + `c r="` + ref + `" s="` + ooxml.Escape(c.style) + `"/>`
 		}
 		edits = append(edits, edit{c.start, c.end, repl})
 	} else {
@@ -567,7 +569,7 @@ func (w *Workbook) AddSheet(name string) (err error) {
 	if rp == "" {
 		rp, decl = "r", ` xmlns:r="`+nsR+`"`
 	}
-	sheetXML := "<" + sheetsEl.prefix + `sheet name="` + esc(name) + `" sheetId="` + strconv.Itoa(sheetID) + `"` +
+	sheetXML := "<" + sheetsEl.prefix + `sheet name="` + ooxml.Escape(name) + `" sheetId="` + strconv.Itoa(sheetID) + `"` +
 		decl + " " + rp + `:id="` + rid + `"/>`
 	newWB := appendChild(wbData, sheetsEl, sheetXML)
 
@@ -577,14 +579,14 @@ func (w *Workbook) AddSheet(name string) (err error) {
 		return fmt.Errorf("xlsxedit: %s: no Relationships element", wbRelsName)
 	}
 	target := path.Join("worksheets", path.Base(partName))
-	newRels := appendChild(relsData, relsEl, "<"+relsEl.prefix+`Relationship Id="`+rid+`" Type="`+relSheet+`" Target="`+esc(target)+`"/>`)
+	newRels := appendChild(relsData, relsEl, "<"+relsEl.prefix+`Relationship Id="`+rid+`" Type="`+relSheet+`" Target="`+ooxml.Escape(target)+`"/>`)
 
 	// content types
 	typesEl, ok, err := findElement(ctData, "Types", 1)
 	if err != nil || !ok {
 		return errors.New("xlsxedit: [Content_Types].xml has no Types element")
 	}
-	newCT := appendChild(ctData, typesEl, "<"+typesEl.prefix+`Override PartName="/`+esc(partName)+`" ContentType="`+ctWorksheet+`"/>`)
+	newCT := appendChild(ctData, typesEl, "<"+typesEl.prefix+`Override PartName="/`+ooxml.Escape(partName)+`" ContentType="`+ctWorksheet+`"/>`)
 
 	newWB, err = fullCalcEdit(newWB)
 	if err != nil {

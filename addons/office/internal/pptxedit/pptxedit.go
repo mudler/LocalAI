@@ -32,6 +32,8 @@ import (
 	"path"
 	"regexp"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 const (
@@ -81,7 +83,7 @@ func Open(data []byte) (*Deck, error) {
 	var total uint64
 	for _, f := range zr.File {
 		name := f.Name
-		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || hasDotDot(name) {
+		if strings.HasPrefix(name, "/") || strings.HasPrefix(name, "\\") || ooxml.HasDotDot(name) {
 			return nil, fmt.Errorf("pptxedit: unsafe entry name %q", name)
 		}
 		if _, dup := d.files[name]; dup {
@@ -111,15 +113,6 @@ func Open(data []byte) (*Deck, error) {
 		return nil, errors.New("pptxedit: the deck has no slides")
 	}
 	return d, nil
-}
-
-func hasDotDot(name string) bool {
-	for _, seg := range strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if seg == ".." {
-			return true
-		}
-	}
-	return false
 }
 
 func (d *Deck) has(name string) bool {

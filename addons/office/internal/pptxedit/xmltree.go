@@ -199,10 +199,3 @@ func splice(raw []byte, edits []edit) ([]byte, error) {
 	out.Write(raw[last:])
 	return out.Bytes(), nil
 }
-
-// esc escapes text for element content and attribute values.
-func esc(s string) string {
-	var b bytes.Buffer
-	_ = xml.EscapeText(&b, []byte(s))
-	return b.String()
-}

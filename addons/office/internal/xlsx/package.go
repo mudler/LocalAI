@@ -1,11 +1,11 @@
 package xlsx
 
 import (
-	"bytes"
-	"encoding/xml"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 const (
@@ -40,18 +40,12 @@ type part struct {
 
 type rel struct{ id, typ, target string }
 
-func esc(s string) string {
-	var b bytes.Buffer
-	_ = xml.EscapeText(&b, []byte(s))
-	return b.String()
-}
-
 func relsXML(rels []rel) []byte {
 	var b strings.Builder
 	b.WriteString(xmlHeader)
 	b.WriteString(`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
 	for _, r := range rels {
-		fmt.Fprintf(&b, `<Relationship Id="%s" Type="%s" Target="%s"/>`, r.id, r.typ, esc(r.target))
+		fmt.Fprintf(&b, `<Relationship Id="%s" Type="%s" Target="%s"/>`, r.id, r.typ, ooxml.Escape(r.target))
 	}
 	b.WriteString(`</Relationships>`)
 	return []byte(b.String())
@@ -87,7 +81,7 @@ func (b *builder) parts() []part {
 	var rels []rel
 	for i, s := range b.sheets {
 		n := i + 1
-		fmt.Fprintf(&wbx, `<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, esc(s.sheet.Name), n, n)
+		fmt.Fprintf(&wbx, `<sheet name="%s" sheetId="%d" r:id="rId%d"/>`, ooxml.Escape(s.sheet.Name), n, n)
 		rels = append(rels, rel{fmt.Sprintf("rId%d", n), relSheet, fmt.Sprintf("worksheets/sheet%d.xml", n)})
 	}
 	wbx.WriteString(`</sheets></workbook>`)
@@ -111,13 +105,13 @@ func coreXML(title string) []byte {
 	return []byte(xmlHeader + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ` +
 		`xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" ` +
 		`xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
-		`<dc:title>` + esc(title) + `</dc:title></cp:coreProperties>`)
+		`<dc:title>` + ooxml.Escape(title) + `</dc:title></cp:coreProperties>`)
 }
 
 func appXML(application string) []byte {
 	var app string
 	if application != "" {
-		app = "<Application>" + esc(application) + "</Application>"
+		app = "<Application>" + ooxml.Escape(application) + "</Application>"
 	}
 	return []byte(xmlHeader + `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" ` +
 		`xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` + app + `</Properties>`)
@@ -128,7 +122,7 @@ func (b *builder) sharedStringsXML() []byte {
 	s.WriteString(xmlHeader)
 	fmt.Fprintf(&s, `<sst xmlns="%s" count="%d" uniqueCount="%d">`, nsMain, len(b.strings), len(b.strings))
 	for _, str := range b.strings {
-		s.WriteString(`<si><t xml:space="preserve">` + esc(str) + `</t></si>`)
+		s.WriteString(`<si><t xml:space="preserve">` + ooxml.Escape(str) + `</t></si>`)
 	}
 	s.WriteString(`</sst>`)
 	return []byte(s.String())
@@ -144,7 +138,7 @@ func (b *builder) stylesXML() []byte {
 	if len(b.numFmts) > 0 {
 		fmt.Fprintf(&s, `<numFmts count="%d">`, len(b.numFmts))
 		for i, f := range b.numFmts {
-			fmt.Fprintf(&s, `<numFmt numFmtId="%d" formatCode="%s"/>`, firstCustomNumFmt+i, esc(f))
+			fmt.Fprintf(&s, `<numFmt numFmtId="%d" formatCode="%s"/>`, firstCustomNumFmt+i, ooxml.Escape(f))
 		}
 		s.WriteString(`</numFmts>`)
 	}
@@ -237,7 +231,7 @@ func (b *builder) sheetXML(bs builtSheet) []byte {
 }
 
 func (b *builder) cellXML(x *strings.Builder, c builtCell) {
-	fmt.Fprintf(x, `<c r="%s"`, esc(c.cell.Ref))
+	fmt.Fprintf(x, `<c r="%s"`, ooxml.Escape(c.cell.Ref))
 	if c.xf != 0 {
 		fmt.Fprintf(x, ` s="%d"`, c.xf)
 	}
@@ -249,10 +243,10 @@ func (b *builder) cellXML(x *strings.Builder, c builtCell) {
 		case KindBool:
 			x.WriteString(` t="b"`)
 		}
-		x.WriteString(`><f>` + esc(c.cell.Formula) + `</f>`)
+		x.WriteString(`><f>` + ooxml.Escape(c.cell.Formula) + `</f>`)
 		switch v.Kind {
 		case KindString:
-			x.WriteString(`<v>` + esc(v.String) + `</v>`)
+			x.WriteString(`<v>` + ooxml.Escape(v.String) + `</v>`)
 		case KindNumber:
 			x.WriteString(`<v>` + fmtFloat(v.Number) + `</v>`)
 		case KindBool:

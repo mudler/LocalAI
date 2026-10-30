@@ -3,6 +3,8 @@ package pptx
 import (
 	"fmt"
 	"strings"
+
+	"github.com/mudler/LocalAI/addons/office/internal/ooxml"
 )
 
 // XML namespaces and relationship types.
@@ -55,7 +57,7 @@ func relsXML(rels []rel) []byte {
 	b.WriteString(xmlHeader)
 	b.WriteString(`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`)
 	for _, r := range rels {
-		fmt.Fprintf(&b, `<Relationship Id="%s" Type="%s" Target="%s"/>`, r.id, r.typ, esc(r.target))
+		fmt.Fprintf(&b, `<Relationship Id="%s" Type="%s" Target="%s"/>`, r.id, r.typ, ooxml.Escape(r.target))
 	}
 	b.WriteString(`</Relationships>`)
 	return []byte(b.String())
@@ -183,13 +185,13 @@ func coreXML(title string) []byte {
 	return []byte(xmlHeader + `<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" ` +
 		`xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" ` +
 		`xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">` +
-		`<dc:title>` + esc(title) + `</dc:title></cp:coreProperties>`)
+		`<dc:title>` + ooxml.Escape(title) + `</dc:title></cp:coreProperties>`)
 }
 
 func appXML(slides, notes int, application string) []byte {
 	var app string
 	if application != "" {
-		app = "<Application>" + esc(application) + "</Application>"
+		app = "<Application>" + ooxml.Escape(application) + "</Application>"
 	}
 	return fmt.Appendf(nil, xmlHeader+`<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" `+
 		`xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">`+
@@ -252,7 +254,7 @@ func themeXML(name string, pal palette) []byte {
 	line := `<a:ln w="9525"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>`
 	effect := `<a:effectStyle><a:effectLst/></a:effectStyle>`
 	font := func(tag string) string {
-		return `<a:` + tag + `><a:latin typeface="` + esc(pal.font) + `"/><a:ea typeface=""/><a:cs typeface=""/></a:` + tag + `>`
+		return `<a:` + tag + `><a:latin typeface="` + ooxml.Escape(pal.font) + `"/><a:ea typeface=""/><a:cs typeface=""/></a:` + tag + `>`
 	}
 	return []byte(xmlHeader + `<a:theme xmlns:a="` + nsA + `" name="` + name + `"><a:themeElements>` +
 		`<a:clrScheme name="` + name + `">` +
@@ -297,7 +299,7 @@ func notesSlideXML(notes string) []byte {
 			paras.WriteString(`<a:p><a:endParaRPr lang="en-US"/></a:p>`)
 			continue
 		}
-		paras.WriteString(`<a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>` + esc(line) + `</a:t></a:r></a:p>`)
+		paras.WriteString(`<a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>` + ooxml.Escape(line) + `</a:t></a:r></a:p>`)
 	}
 	return []byte(xmlHeader + `<p:notes ` + nsDecl + `><p:cSld><p:spTree>` + groupHeader +
 		`<p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr>` +
