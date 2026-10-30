@@ -7350,7 +7350,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/addons": {
             "get": {
-                "description": "The add-ons whose tools the signed-in user may use now, each with the chat's switch. Without the add-on host the list is empty.",
+                "description": "The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable or none). Without the add-on host the list is empty and commands is none.",
                 "tags": [
                     "chats"
                 ],
@@ -16325,6 +16325,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsAddon"
                     }
+                },
+                "commands": {
+                    "description": "Commands says whether the chat can run commands and code at its next\nturn: available, off (the add-on that runs them is switched off for this\nchat or not named by its agent), unavailable (installed, but it cannot run\nthem on this server) or none (no add-on that runs them is installed for\nthe user).",
+                    "type": "string"
+                },
+                "commands_reason": {
+                    "description": "CommandsReason is why commands cannot run, when Commands is unavailable.",
+                    "type": "string"
                 }
             }
         },

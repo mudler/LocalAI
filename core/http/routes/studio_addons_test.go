@@ -21,7 +21,7 @@ func (routeAddons) Tools(_ context.Context, user string) ([]studio.AddonTool, er
 	}
 	return []studio.AddonTool{
 		{Name: "addon__office__read", AddonID: "office"},
-		{Name: "addon__sandbox__bash", AddonID: "sandbox"},
+		{Name: "addon__sandbox__bash", AddonID: "sandbox", Action: true, Runs: true},
 		{Name: "addon__sandbox__read", AddonID: "sandbox"},
 	}, nil
 }
@@ -65,6 +65,16 @@ var _ = Describe("Chats add-on switches", func() {
 		Expect(list["office"]).To(HaveKeyWithValue("off", false))
 	})
 
+	It("says whether the chat can run commands", func() {
+		id := s.create("alice")
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/addons", nil))).To(HaveKeyWithValue("commands", "available"))
+		rec := s.do("alice", http.MethodPut, "/api/chats/"+id+"/addons", map[string]any{"off": []string{"sandbox"}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("commands", "off"))
+		other := s.create("bob")
+		Expect(decodeJSON(s.do("bob", http.MethodGet, "/api/chats/"+other+"/addons", nil))).To(HaveKeyWithValue("commands", "none"))
+	})
+
 	It("refuses a bad ID and another user's chat", func() {
 		id := s.create("alice")
 		Expect(s.do("alice", http.MethodPut, "/api/chats/"+id+"/addons", map[string]any{"off": []string{"Not Valid"}}).Code).To(Equal(http.StatusBadRequest))
@@ -78,5 +88,6 @@ var _ = Describe("Chats add-on switches", func() {
 		rec := plain.do("alice", http.MethodGet, "/api/chats/"+id+"/addons", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(decodeJSON(rec)["addons"]).To(BeEmpty())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("commands", "none"))
 	})
 })
