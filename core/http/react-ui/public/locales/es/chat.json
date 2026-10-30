@@ -210,6 +210,8 @@
     "lines_one": "{{count}} línea",
     "lines_other": "{{count}} líneas",
     "showAll_one": "Mostrar las {{count}} líneas",
-    "showAll_other": "Mostrar las {{count}} líneas"
+    "showAll_other": "Mostrar las {{count}} líneas",
+    "details": "Mostrar detalles",
+    "openFile": "Abrir {{path}} en Archivos"
   }
 }

@@ -210,6 +210,8 @@
     "lines_one": "{{count}} riga",
     "lines_other": "{{count}} righe",
     "showAll_one": "Mostra tutte le {{count}} righe",
-    "showAll_other": "Mostra tutte le {{count}} righe"
+    "showAll_other": "Mostra tutte le {{count}} righe",
+    "details": "Mostra dettagli",
+    "openFile": "Apri {{path}} in File"
   }
 }

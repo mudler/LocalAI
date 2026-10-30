@@ -5,6 +5,7 @@ import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
 import { StoredIn } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
+import { useSwapMotion } from '../../hooks/useSwapMotion'
 import { shortcutList, cleanShortcuts, move } from '../../utils/wellKnown'
 import './wellKnown.css'
 
@@ -35,6 +36,8 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
   }, [wk.doc, dirty, tc])
 
   const edit = (next) => { setRows(next); setDirty(true); setProblem(null) }
+  const { listRef, swap } = useSwapMotion([rows])
+  const moveRow = (i, j) => { swap(i, j); edit(move(rows, i, j)) }
   const setRow = (i, k, v) => edit(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)))
 
   const save = async () => {
@@ -56,7 +59,7 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
       {!inline && <h3>{t('wellKnown.shortcuts.edit')}</h3>}
       {inline && <StoredIn file="shortcuts.json" onRevert={async () => { await wk.revert(); setDirty(false) }} canRevert={!!wk.doc?.exists} busy={busy} />}
       {!inline && <StoredIn file="shortcuts.json" />}
-      <ol className="wk-rows">
+      <ol className="wk-rows" ref={listRef}>
         {rows.length === 0 && <li className="wk-row--empty">{t('wellKnown.shortcuts.none')}</li>}
         {rows.map((r, i) => (
           <li key={i} className="wk-row" data-testid="wk-shortcut-row">
@@ -69,8 +72,8 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
               </label>
             </div>
             <div className="wk-row__tools">
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveUp')} disabled={i === 0} onClick={() => edit(move(rows, i, i - 1))}><Icon name="arrow-up" /></button>
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveDown')} disabled={i === rows.length - 1} onClick={() => edit(move(rows, i, i + 1))}><Icon name="arrow-down" /></button>
+              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveUp')} disabled={i === 0} onClick={() => moveRow(i, i - 1)}><Icon name="arrow-up" /></button>
+              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveDown')} disabled={i === rows.length - 1} onClick={() => moveRow(i, i + 1)}><Icon name="arrow-down" /></button>
               <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.remove')} onClick={() => edit(rows.filter((_, j) => j !== i))}><Icon name="trash" /></button>
             </div>
           </li>

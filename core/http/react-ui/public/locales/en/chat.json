@@ -390,6 +390,8 @@
     "lines_one": "{{count}} line",
     "lines_other": "{{count}} lines",
     "showAll_one": "Show all {{count}} lines",
-    "showAll_other": "Show all {{count}} lines"
+    "showAll_other": "Show all {{count}} lines",
+    "details": "Show details",
+    "openFile": "Open {{path}} in Files"
   }
 }

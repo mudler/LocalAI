@@ -4,19 +4,22 @@ import { useTranslation } from 'react-i18next'
 import Icon from './Icon'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import { pinnedPages } from '../utils/pages'
+import { useArrivals } from '../hooks/useArrivals'
 
 // The pinned pages, drawn as children of the Pages entry in pin order. A pin
-// whose page is gone is not drawn.
+// whose page is gone is not drawn. A page pinned while the sidebar is on
+// screen opens into its slot with an accent wash (sidebar.css).
 export default function PagesPinnedLinks({ pages, onClose }) {
   const { t } = useTranslation('nav')
-  const { pins } = usePinnedPages(true)
+  const { pins, loaded } = usePinnedPages(true)
   const links = pinnedPages(pages, pins)
+  const fresh = useArrivals(links.map(p => p.name), { ready: loaded && Array.isArray(pages) })
   if (links.length === 0) return null
   return (
     <div role="group" aria-label={t('pinnedPages')}>
       {links.map((p) => (
+        <div key={p.name} className="nav-pin" data-fresh={fresh.get(p.name)}>
         <NavLink
-          key={p.name}
           to={`/app/pages/${encodeURIComponent(p.name)}`}
           onClick={onClose}
           className={({ isActive }) => `nav-item nav-item--sub${isActive ? ' active' : ''}`}
@@ -26,6 +29,7 @@ export default function PagesPinnedLinks({ pages, onClose }) {
           <Icon name={p.icon || 'file-code'} className="nav-icon" aria-hidden="true" />
           <span className="nav-label">{p.title}</span>
         </NavLink>
+        </div>
       ))}
     </div>
   )

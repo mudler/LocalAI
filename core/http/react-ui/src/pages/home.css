@@ -1,0 +1,64 @@
+/* Home: the console. One command bar first, the memory strip, the widgets
+   and the conversations worth resuming. Flat surfaces; colours are the kit
+   roles (--dk-*). The command bar itself is in components/home/composer.css. */
+.home-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  padding: var(--sp-8) var(--sp-8) 96px;
+}
+.home-col {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  min-width: 0;
+}
+.home-col button:focus-visible,
+.home-col a:focus-visible,
+.home-col summary:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+
+/* The greeting is the one display line of the app; the date is meta text,
+   not code. */
+.home-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  padding: 0 0 var(--sp-5);
+}
+.home-greeting {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.home-date {
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--dk-muted);
+}
+
+/* Under the command bar: notices (Callout), the memory strip. */
+.home-below { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.home-staging__details { margin-top: var(--sp-2); font-size: var(--fs-small); color: var(--color-text-secondary); }
+.home-staging__details summary { width: max-content; border-radius: var(--r-xs); cursor: pointer; }
+.home-staging__details pre {
+  margin: var(--sp-2) 0 0;
+  padding: 10px var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .home-page { padding: var(--sp-2) var(--sp-4) 64px; }
+  .home-header { padding-bottom: var(--sp-4); }
+  .home-cmd { padding: 10px; }
+}

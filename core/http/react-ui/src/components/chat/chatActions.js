@@ -26,3 +26,12 @@ export function availableChatActions(ctx) {
     return true
   })
 }
+
+// A file chip in the transcript (a step that saved a file) asks the chat page
+// to open the Files pane at that file. detail: { path }.
+export const OPEN_CHAT_FILE_EVENT = 'localai:open-chat-file'
+
+export function openChatFile(path) {
+  if (!path || typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(OPEN_CHAT_FILE_EVENT, { detail: { path } }))
+}

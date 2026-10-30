@@ -6,9 +6,8 @@ import { useAuth } from '../context/AuthContext'
 import { profileApi, usageApi } from '../utils/api'
 import { totalsOf, groupUsage, compactCount } from '../utils/traffic'
 import { timeUntil, initialOf } from '../utils/access'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { Button, Callout, EmptyState, LoadError, PageHeader, SkeletonRows, useLoad } from '../components/ui'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
-import Icon from '../components/Icon'
 import { AboutYouTab, AppearanceTab } from '../components/wellknown/SettingsTabs'
 import './access.css'
 
@@ -80,9 +79,9 @@ function ProfileTab({ addToast }) {
         </span>
       </div>
       <div className="ac-actions">
-        <button type="submit" className="dk-btn dk-btn--primary" disabled={saving || !name.trim() || !hasChanges}>
-          {saving ? <><LoadingSpinner size="sm" /> {t('account.profile.saving')}</> : <><Icon name="save" /> {t('account.profile.save')}</>}
-        </button>
+        <Button type="submit" variant="primary" icon="save" busy={saving} disabled={!name.trim() || !hasChanges}>
+          {saving ? t('account.profile.saving') : t('account.profile.save')}
+        </Button>
       </div>
     </form>
   )
@@ -101,10 +100,9 @@ function SecurityTab({ addToast }) {
 
   if (!isLocal) {
     return (
-      <div className="ac-note" data-testid="account-oauth-only">
-        <Icon name="shield" aria-hidden="true" />
-        <p>{t('account.security.oauthOnly', { provider: user?.provider || 'OAuth' })}</p>
-      </div>
+      <Callout icon="shield" testId="account-oauth-only" className="ac-callout">
+        {t('account.security.oauthOnly', { provider: user?.provider || 'OAuth' })}
+      </Callout>
     )
   }
 
@@ -158,9 +156,9 @@ function SecurityTab({ addToast }) {
         </div>
       )}
       <div className="ac-actions">
-        <button type="submit" className="dk-btn dk-btn--primary" disabled={saving || !currentPw || !newPw || !confirmPw}>
-          {saving ? <><LoadingSpinner size="sm" /> {t('account.security.changing')}</> : t('account.security.changePassword')}
-        </button>
+        <Button type="submit" variant="primary" busy={saving} disabled={!currentPw || !newPw || !confirmPw}>
+          {saving ? t('account.security.changing') : t('account.security.changePassword')}
+        </Button>
       </div>
     </form>
   )
@@ -170,25 +168,16 @@ function SecurityTab({ addToast }) {
 // them. The full page, with every window and the cost estimate, is Usage.
 function UsageTab() {
   const { t } = useTranslation('auth')
-  const [state, setState] = useState({ loading: true, error: null, usage: null, quotas: [] })
+  const load = useLoad(() => Promise.all([
+    usageApi.getMyUsage('month'),
+    usageApi.getMyQuotas().catch(() => ({ quotas: [] })),
+  ]).then(([usage, q]) => ({ usage, quotas: q?.quotas || [] })), [])
 
-  useEffect(() => {
-    let live = true
-    Promise.all([
-      usageApi.getMyUsage('month'),
-      usageApi.getMyQuotas().catch(() => ({ quotas: [] })),
-    ]).then(([usage, q]) => {
-      if (live) setState({ loading: false, error: null, usage, quotas: q?.quotas || [] })
-    }).catch(err => {
-      if (live) setState({ loading: false, error: err, usage: null, quotas: [] })
-    })
-    return () => { live = false }
-  }, [])
-
-  if (state.loading) return <div className="ak-loading"><LoadingSpinner size="sm" /></div>
-  if (state.error) {
-    return <div className="ac-note" role="alert"><Icon name="alert-circle" aria-hidden="true" /><p>{t('account.usage.loadFailed', { message: state.error.message })}</p></div>
+  if (load.status === 'loading') return <SkeletonRows count={3} />
+  if (load.status === 'error') {
+    return <LoadError title={t('account.usage.loadFailedTitle')} error={load.error} onRetry={load.retry} />
   }
+  const state = load.data
   const buckets = state.usage?.usage || []
   const totals = totalsOf(buckets)
   const byModel = groupUsage(buckets, 'model').sort((a, b) => b.total - a.total).slice(0, 8)
@@ -206,7 +195,7 @@ function UsageTab() {
       </dl>
 
       {byModel.length === 0 ? (
-        <div className="dk-empty"><p className="dk-empty-text">{t('account.usage.none')}</p></div>
+        <EmptyState variant="no-results" title={t('account.usage.none')} />
       ) : (
         <ul className="dk-hbars" aria-label={t('account.usage.byModel')}>
           {byModel.map(r => (
@@ -239,7 +228,7 @@ function UsageTab() {
                 <span className={`dk-progress${pct >= 90 ? ' dk-progress--error' : ''}`} role="progressbar" aria-label={r.text} aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct} style={{ '--dk-value': `${pct}%` }}>
                   <span className="dk-progress-bar" />
                 </span>
-                <span className="ac-limit__value dk-mono">{compactCount(r.cur)} of {compactCount(r.max)}</span>
+                <span className="ac-limit__value">{compactCount(r.cur)} of {compactCount(r.max)}</span>
                 {r.q.resets_at && <span className="ac-limit__reset">{t('account.usage.resets', { when: timeUntil(r.q.resets_at) })}</span>}
               </li>
             )
@@ -265,12 +254,8 @@ export default function Account() {
 
   if (tabs.length === 0) {
     return (
-      <div className="page page--narrow">
-        <div className="dk-empty">
-          <div className="dk-empty-icon"><Icon name="user-settings" /></div>
-          <h2 className="dk-empty-title">{t('account.unavailable')}</h2>
-          <p className="dk-empty-text">{t('account.unavailableText')}</p>
-        </div>
+      <div className="page page--content ac-page">
+        <EmptyState variant="unavailable" icon="user-settings" title={t('account.unavailable')} body={t('account.unavailableText')} />
       </div>
     )
   }
@@ -288,14 +273,12 @@ export default function Account() {
   }
 
   return (
-    <div className={`page ${WIDE_TABS.has(tab) ? 'page--medium' : 'page--narrow'} ac-page`} data-testid="account-page">
-      <header className="ac-head">
-        <div>
-          <h1 className="ac-title">{t('account.title')}</h1>
-          <p className="ac-lede">{t(authEnabled ? 'account.subtitle' : 'account.subtitleLocal')}</p>
-        </div>
-        {authEnabled && <span className="ac-me">{user?.name || user?.email} · {user?.role}</span>}
-      </header>
+    <div className={`page page--content ac-page${WIDE_TABS.has(tab) ? ' ac-page--wide' : ''}`} data-testid="account-page">
+      <PageHeader
+        title={t('account.title')}
+        supporting={t(authEnabled ? 'account.subtitle' : 'account.subtitleLocal')}
+        actions={authEnabled ? <span className="ac-me">{user?.name || user?.email} · {user?.role}</span> : null}
+      />
 
       <div className="dk-tabs" role="tablist" aria-label={t('account.title')} onKeyDown={onKey}>
         {tabs.map(x => (

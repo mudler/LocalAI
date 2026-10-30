@@ -210,6 +210,8 @@
     "lines_one": "{{count}} baris",
     "lines_other": "{{count}} baris",
     "showAll_one": "Tampilkan semua {{count}} baris",
-    "showAll_other": "Tampilkan semua {{count}} baris"
+    "showAll_other": "Tampilkan semua {{count}} baris",
+    "details": "Tampilkan detail",
+    "openFile": "Buka {{path}} di File"
   }
 }

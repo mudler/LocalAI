@@ -59,10 +59,9 @@ const colorMap = {
 
 // The element the stack must stay above: a bar fixed at the bottom of the
 // window, such as the chat composer. A bar registers itself with
-// useToastAnchor(ref); on a chat page the stack also finds the element marked
-// data-toast-anchor (the chat dock), or else the composer (.home-cmd), by
-// itself.
-const CHAT_ANCHOR = '[data-toast-anchor], .home-cmd'
+// useToastAnchor(ref); on a chat page the stack also finds the composer by
+// itself: the composer marks itself with data-toast-anchor.
+const CHAT_ANCHOR = '[data-toast-anchor]'
 const anchors = new Set()
 const anchorListeners = new Set()
 function anchorsChanged() { anchorListeners.forEach(fn => fn()) }

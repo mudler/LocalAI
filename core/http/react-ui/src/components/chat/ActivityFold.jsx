@@ -6,6 +6,7 @@ import { addonChange, toolRefusal } from '../../utils/addonChange'
 import { proposalIds } from '../../utils/chatProposal'
 import { toolLabel, formatDuration, runTimes } from '../../utils/toolLabels'
 import Icon from '../Icon'
+import { openChatFile } from './chatActions'
 // eslint-disable-next-line no-unused-vars
 import ChangeNote from './ChangeNote'
 // eslint-disable-next-line no-unused-vars
@@ -81,7 +82,15 @@ function ToolText({ label }) {
       <b className="cx-step__verb">{t(`steps.verb.${label.verb}`)}</b>
       {label.verb === 'used' && <code className="cx-step__tool">{label.tool || t('activity.tool')}</code>}
       {label.arg && (label.file ? (
-        <span className="cx-step__file" title={label.argTitle}><Icon name="file-text" />{label.arg}</span>
+        // The file a step saved opens in the Files pane. The step line is not
+        // a button when it holds this one (see Step), so they do not nest.
+        <button
+          type="button" className="cx-step__file" title={t('steps.openFile', { path: label.argTitle })}
+          data-testid="chat-step-file"
+          onClick={(e) => { e.stopPropagation(); openChatFile(label.argTitle) }}
+        >
+          <Icon name="file-text" />{label.arg}
+        </button>
       ) : (
         <span className="cx-step__arg" title={label.argTitle}>{label.arg}</span>
       ))}
@@ -126,9 +135,11 @@ function ToolDetail({ name, summary, output }) {
 }
 
 // One step. The line toggles its detail when it has one. state is running,
-// done, failed or thought.
+// done, failed or thought. A line that holds its own button (the file chip,
+// split) is not a button: a click on it still toggles, and the chevron is
+// the button for the keyboard.
 // eslint-disable-next-line no-unused-vars
-function Step({ state, duration, children, detail, defaultOpen = false, testId }) {
+function Step({ state, duration, children, detail, defaultOpen = false, testId, split = false }) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(defaultOpen)
   const icon = { running: 'spinner', done: 'check', failed: 'alert-circle', thought: 'lightbulb' }[state]
@@ -141,12 +152,19 @@ function Step({ state, duration, children, detail, defaultOpen = false, testId }
       </span>
       <span className="cx-step__line">{children}</span>
       {duration ? <span className="cx-step__dur">{duration}</span> : <span />}
-      {detail ? <Icon name="chevron-right" className="cx-step__chev" /> : <span />}
+      {detail && split ? (
+        <button type="button" className="cx-step__toggle" aria-expanded={open} aria-label={t('steps.details')} onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}>
+          <Icon name="chevron-right" className="cx-step__chev" />
+        </button>
+      ) : detail ? <Icon name="chevron-right" className="cx-step__chev" /> : <span />}
     </>
   )
   return (
     <li className="cx-step" data-state={state} data-open={(detail && open) || undefined} data-testid={testId}>
-      {detail ? (
+      {detail && split ? (
+        // A click anywhere on the line toggles; the chevron is the keyboard control.
+        <div className="cx-step__head cx-step__head--split" onClick={() => setOpen(v => !v)}>{head}</div>
+      ) : detail ? (
         <button type="button" className="cx-step__head" aria-expanded={open} onClick={() => setOpen(v => !v)}>{head}</button>
       ) : (
         <div className="cx-step__head">{head}</div>
@@ -212,6 +230,7 @@ function ToolStep({ text, duration }) {
     <Step
       state={refused ? 'failed' : 'done'}
       duration={duration}
+      split={label.file && Boolean(label.arg)}
       testId="chat-step"
       detail={<ToolDetail name={name} summary={summary} output={shownOut} />}
     >
@@ -370,15 +389,17 @@ export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
         )}
         {calls.map((tc, idx) => {
           const state = tc.type === 'tool_call' ? 'running' : (tc.failed ? 'failed' : 'done')
+          const label = toolLabel(tc.name, tc.summary, tc.failed ? '' : tc.result)
           return (
             <Step
               key={idx}
               state={state}
               duration={state === 'running' ? '' : fmt(times.tools[idx])}
               testId="chat-step"
+              split={label.file && Boolean(label.arg)}
               detail={<ToolDetail name={tc.name} summary={tc.summary} output={tc.result} />}
             >
-              <ToolText label={toolLabel(tc.name, tc.summary, tc.failed ? '' : tc.result)} />
+              <ToolText label={label} />
             </Step>
           )
         })}

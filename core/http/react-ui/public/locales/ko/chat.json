@@ -210,6 +210,8 @@
     "lines_one": "{{count}}줄",
     "lines_other": "{{count}}줄",
     "showAll_one": "{{count}}줄 모두 보기",
-    "showAll_other": "{{count}}줄 모두 보기"
+    "showAll_other": "{{count}}줄 모두 보기",
+    "details": "세부 정보 보기",
+    "openFile": "파일에서 {{path}} 열기"
   }
 }

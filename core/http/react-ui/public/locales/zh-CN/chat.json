@@ -210,6 +210,8 @@
     "lines_one": "{{count}} 行",
     "lines_other": "{{count}} 行",
     "showAll_one": "显示全部 {{count}} 行",
-    "showAll_other": "显示全部 {{count}} 行"
+    "showAll_other": "显示全部 {{count}} 行",
+    "details": "显示详情",
+    "openFile": "在文件中打开 {{path}}"
   }
 }
