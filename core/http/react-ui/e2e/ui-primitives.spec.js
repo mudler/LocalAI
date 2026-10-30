@@ -199,7 +199,9 @@ test.describe('UI primitives', () => {
     await expect(page.getByText('Hi. What do you need?')).toBeVisible({ timeout: 15_000 })
     const composer = page.locator('.home-cmd').first()
     await expect(composer).toBeVisible()
-    const read = () => composer.evaluate(el => ({
+    // The stack clears the whole dock, the shortcut row over the composer too.
+    const dock = page.locator('.cx-dock__in')
+    const read = () => dock.evaluate(el => ({
       lift: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--toast-lift')) || 0,
       top: el.getBoundingClientRect().top,
       vh: window.innerHeight,

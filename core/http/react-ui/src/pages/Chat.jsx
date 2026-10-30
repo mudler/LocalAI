@@ -76,7 +76,6 @@ import { copyToClipboard } from '../utils/clipboard'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
-import { anchorToasts } from '../components/wellknown/changeNote'
 import { turnChanges, describeChanges, liveTurns } from '../utils/changeNotes'
 import { usePages } from '../hooks/usePages'
 import './chat.css'
@@ -786,12 +785,6 @@ function ChatPage() {
     if (!desc) return null
     return <WorkspaceChangeNote key={`wc-${row.msg.turn}`} desc={desc} live={live.has(row.msg.turn)} addToast={addToast} pageTitle={pageTitle} />
   }
-  // The toasts of this page sit above its composer.
-  useEffect(() => {
-    const el = document.querySelector('.cx-dock__in')
-    return anchorToasts(el)
-  }, [activeId])
-
   const meter = contextReading(chat.usage)
   const streaming = streamingParts(chat.live)
   const sendLive = useCallback((text) => activeId && chat.send(activeId, text), [activeId, chat])
@@ -1095,7 +1088,9 @@ function ChatPage() {
 
         {/* Dock: the Home command bar under the thread, with the waiting messages over it. */}
         <div className="cx-dock">
-          <div className="cx-dock__in">
+          {/* The toast stack stays above the whole dock, so a toast never
+              covers the shortcut row it talks about. */}
+          <div className="cx-dock__in" data-toast-anchor="">
             {!chat.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
             {!chat.files.on && <p className="cx-notice" role="note">{chat.files.reason || tc('attach.off')}</p>}
             {browserStores.length > 0 && (
