@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//go:build !windows// SPDX-License-Identifier: MIT
 package cluster
 
 import (
@@ -96,3 +96,4 @@ func TestStopReapsOrphansLeftByKill(t *testing.T) {
 	n.Stop()
 	assertGone(t, append(first, second...)...)
 }
+

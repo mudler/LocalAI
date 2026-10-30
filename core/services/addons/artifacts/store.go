@@ -22,7 +22,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -161,24 +160,6 @@ type metaStore struct {
 	// durable. Memory then holds it and no further write is accepted.
 	failed bool
 	closed bool
-}
-
-func lockDir(dir string) (*os.File, error) {
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, err
-	}
-	if err := os.Chmod(dir, 0o700); err != nil { // #nosec G302 -- directory mode: the owner needs the search bit
-		return nil, err
-	}
-	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
-	if err != nil {
-		return nil, err
-	}
-	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		_ = f.Close()
-		return nil, ErrStoreBusy
-	}
-	return f, nil
 }
 
 func loadMeta(dir string) (*document, error) {
@@ -363,7 +344,7 @@ func (s *stagedStore) Put(ctx context.Context, key string, r io.Reader) (err err
 		return err
 	}
 	part := s.part(key)
-	f, err := os.OpenFile(part, os.O_CREATE|os.O_EXCL|os.O_WRONLY|syscall.O_NOFOLLOW, 0o600) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	f, err := openPartialFile(part)
 	if err != nil {
 		return err
 	}
@@ -416,7 +397,7 @@ func (s *stagedStore) Get(_ context.Context, key string) (io.ReadCloser, error) 
 	if err != nil {
 		return nil, err
 	}
-	f, err := os.OpenFile(p, os.O_RDONLY|syscall.O_NOFOLLOW, 0) // #nosec G304 -- path is under the add-on state root and is built from validated identifiers, never from a request
+	f, err := openBlobFile(p)
 	if err != nil {
 		return nil, err
 	}

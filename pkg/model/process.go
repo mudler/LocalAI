@@ -179,12 +179,16 @@ func (ml *ModelLoader) deleteProcess(ctx context.Context, s string, force bool) 
 		if !process.IsAlive() {
 			// A concurrently crashed/already-reaped process can no longer own
 			// resources even if Stop could not read or signal its PID.
+			ml.terminateProcessTreeForProcess(process)
 			store.Delete(s)
 			ml.cleanupProcessRuntime(process)
 		} else {
 			localErr = err
 		}
 	} else {
+		// Stop kills the launcher; the process-tree tracker reaps any backend
+		// child it spawned so the tree cannot outlive a deliberate unload.
+		ml.terminateProcessTreeForProcess(process)
 		store.Delete(s)
 		ml.cleanupProcessRuntime(process)
 	}
@@ -268,6 +272,16 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// The gallery contract names a run.sh stub as the backend entrypoint. On a
+	// Windows host that stub cannot run (no POSIX shell), so resolveLauncher
+	// substitutes the bundled run.ps1 through the system PowerShell; elsewhere
+	// it returns the stub and its arguments unchanged. See
+	// process_launcher_windows.go / process_launcher_other.go.
+	processName, processArgs, err := resolveLauncher(grpcProcess, workDir, args)
+	if err != nil {
+		return nil, err
+	}
+
 	runtime, err := newBackendProcessRuntime()
 	if err != nil {
 		return nil, err
@@ -301,8 +315,8 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
-		process.WithName(filepath.Base(grpcProcess)),
-		process.WithArgs(append(args, []string{"--addr", serverAddress}...)...),
+		process.WithName(processName),
+		process.WithArgs(append(processArgs, []string{"--addr", serverAddress}...)...),
 		process.WithEnvironment(env...),
 		process.WithWorkDir(workDir),
 	)
@@ -319,6 +333,13 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 	ml.processRuntimes.Store(grpcControlProcess, runtime)
 
+	// Attach the freshly started backend to the platform's process-tree
+	// tracker so that stopping it reaps the whole tree. The mechanism is
+	// platform specific; see the processTree interface.
+	if pid, err := strconv.Atoi(grpcControlProcess.CurrentPID()); err == nil {
+		runtime.trackProcessTree(pid)
+	}
+
 	xlog.Debug("GRPC Service state dir", "dir", grpcControlProcess.StateDir())
 
 	signals.RegisterGracefulTerminationHandler(func() {
@@ -334,6 +355,10 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		if err := grpcControlProcess.Stop(); err != nil {
 			xlog.Error("error while shutting down grpc process", "error", err)
 		}
+		// The wrapper's Stop only kills the launcher; reaping the backend it
+		// spawned needs the process-tree tracker. Idempotent for processes
+		// StopAllGRPC already stopped (their runtime is gone from the map).
+		ml.terminateProcessTreeForProcess(grpcControlProcess)
 	})
 
 	go func() {
@@ -435,6 +460,19 @@ func (ml *ModelLoader) forgetExitedProcess(id string, p *process.Process) {
 	}
 	store.Delete(id)
 	ml.cleanupProcessRuntime(p)
+}
+
+// terminateProcessTreeForProcess kills the backend's full process tree using
+// the tracker created at launch (see createProcess). Idempotent: the tracker
+// makes a concurrent stop racing with this one safe, and the map lookup is a
+// no-op once the runtime has been cleaned up.
+func (ml *ModelLoader) terminateProcessTreeForProcess(process *process.Process) {
+	if process == nil {
+		return
+	}
+	if value, ok := ml.processRuntimes.Load(process); ok {
+		value.(*backendProcessRuntime).terminateProcessTree()
+	}
 }
 
 func (ml *ModelLoader) cleanupProcessRuntime(process *process.Process) {

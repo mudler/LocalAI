@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+//go:build !windows// SPDX-License-Identifier: MIT
 package cluster
 
 import (
@@ -105,3 +105,4 @@ func (c *Cluster) Session(node, user string) Client {
 func (c *Cluster) Control(path string, body any) (*Response, error) {
 	return Client{Base: "http://" + c.Config.ControlAddr}.Do("POST", "/"+path, body, map[string]string{"X-Foundation-Control": c.Config.Control})
 }
+

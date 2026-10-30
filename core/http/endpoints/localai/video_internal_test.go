@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
@@ -28,7 +29,11 @@ var _ = Describe("video media staging", func() {
 		Expect(os.ReadFile(path)).To(Equal(content))
 		info, err := os.Stat(path)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		// POSIX permission bits are not enforceable on Windows, where the file
+		// is reported with the default 0666 mode regardless of chmod.
+		if runtime.GOOS != "windows" {
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
+		}
 	})
 
 	It("accepts browser data URIs with codec parameters", func() {
