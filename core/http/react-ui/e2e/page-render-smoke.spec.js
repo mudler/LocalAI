@@ -39,8 +39,9 @@ test.describe('Page render smoke', () => {
     test(`renders ${label} (${path})`, async ({ page }) => {
       await page.goto(path)
       // .page-title for the normal header; .empty-state-title for pages that
-      // render a gated/empty state (e.g. Account when auth is disabled).
-      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title, .dk-empty-title, .op-status__title, .op-runtime h1, .sw-page h1, .tf-title, .st-title').first()).toBeVisible({ timeout: 15_000 })
+      // render a gated/empty state; .ac-title for Account, which shows its
+      // settings tabs with or without accounts.
+      await expect(page.locator('.page-title, .view-bar__title, .empty-state-title, .dk-empty-title, .op-status__title, .op-runtime h1, .sw-page h1, .tf-title, .st-title, .ac-title').first()).toBeVisible({ timeout: 15_000 })
       await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/') + '$'))
     })
   }
