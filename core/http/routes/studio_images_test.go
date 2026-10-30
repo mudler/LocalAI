@@ -18,11 +18,11 @@ var _ = Describe("Chats list and images", func() {
 	It("names the model that describes images for a chat whose model cannot see them", func() {
 		s := newStudioServerWith(newTestFiles(), func(d *studio.Deps) {
 			d.Media = media.New(provider.New(), nil, func(media.Capability) string { return "" }).
-				WithVisionChooser(func(chatModel string) string {
+				WithVisionChooser(func(chatModel string) (string, bool) {
 					if chatModel == "" {
-						return "helper-vl"
+						return "helper-vl", false
 					}
-					return chatModel
+					return chatModel, false
 				})
 		})
 		rec := s.do("alice", http.MethodGet, "/api/chats", nil)

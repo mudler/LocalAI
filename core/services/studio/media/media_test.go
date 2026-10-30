@@ -210,12 +210,12 @@ var _ = Describe("media tools", func() {
 	It("describe_image uses the model the chooser picks for the chat's own model", func() {
 		fx := newFixture("", "")
 		var asked []string
-		fx.svc.WithVisionChooser(func(chatModel string) string {
+		fx.svc.WithVisionChooser(func(chatModel string) (string, bool) {
 			asked = append(asked, chatModel)
 			if chatModel == "cloud-vl" {
-				return chatModel
+				return chatModel, false
 			}
-			return ""
+			return "", false
 		})
 		fx.put("/a.png", png)
 		out, err := run(fx.toolIn("describe_image", "cloud-vl"), map[string]any{"path": "/a.png"})
@@ -230,6 +230,42 @@ var _ = Describe("media tools", func() {
 		_, err = run(fx.toolIn("describe_image", "text-only"), map[string]any{"path": "/a.png"})
 		Expect(err).To(MatchError(ContainSubstring("No vision model")))
 		Expect(fx.calls).To(HaveLen(1), "a request went out with no model")
+	})
+
+	It("describe_image tries a model whose abilities are unknown and, when it refuses, says what to do", func() {
+		fx := newFixture("", "")
+		fx.svc.WithVisionChooser(func(chatModel string) (string, bool) { return chatModel, true })
+		fx.put("/a.png", png)
+		fx.reply = func(string) (int, string) {
+			return 400, `{"error":{"message":"image input is not supported, see https://secret.example/v1/x key sk-abcdefghijklmnop"}}`
+		}
+		_, err := run(fx.toolIn("describe_image", "cloud-x"), map[string]any{"path": "/a.png"})
+		Expect(err).To(HaveOccurred())
+		msg := err.Error()
+		Expect(msg).To(HavePrefix(`The model cloud-x did not accept the image. If it can look at images, turn on "This model can look at images" in its settings; ` +
+			"otherwise choose another model or ask an administrator to set a Chat image model."))
+		Expect(msg).To(ContainSubstring("image input is not supported"))
+		Expect(msg).ToNot(ContainSubstring("secret.example"), "an upstream address leaked")
+		Expect(msg).ToNot(ContainSubstring("sk-abcdefgh"), "an upstream key leaked")
+		Expect(fx.calls).To(HaveLen(1), "the image was not tried")
+	})
+
+	It("describe_image returns the description when the guessed model takes the image", func() {
+		fx := newFixture("", "")
+		fx.svc.WithVisionChooser(func(chatModel string) (string, bool) { return chatModel, true })
+		fx.put("/a.png", png)
+		out, err := run(fx.toolIn("describe_image", "cloud-x"), map[string]any{"path": "/a.png"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(Equal("a red square"))
+	})
+
+	It("a model that is not a guess keeps the plain error when it refuses", func() {
+		fx := newFixture("", "")
+		fx.svc.WithVisionChooser(func(chatModel string) (string, bool) { return chatModel, false })
+		fx.put("/a.png", png)
+		fx.reply = func(string) (int, string) { return 400, `{"error":{"message":"bad"}}` }
+		_, err := run(fx.toolIn("describe_image", "cloud-x"), map[string]any{"path": "/a.png"})
+		Expect(err).To(MatchError("the model cloud-x answered with an error (400)"))
 	})
 
 	It("without a chooser describe_image uses the resolver's vision model", func() {

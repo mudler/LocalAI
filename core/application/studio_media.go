@@ -35,13 +35,18 @@ func chooseHelperModel(setting string, all []config.ModelConfig, flag config.Mod
 // model is chatModel: the one the setting names when it is installed, then the
 // chat's own model when it can look at images, then the first installed model
 // that can. The chat's model comes before any other model because the person
-// chose it, and it may be the only one they may use. It returns "" when no
-// model can look at images.
-func chooseVisionModel(setting, chatModel string, all []config.ModelConfig) string {
+// chose it, and it may be the only one they may use.
+//
+// Last, the chat's own model is a guess (guess is true) when it is a
+// passthrough cloud-proxy model with no vision declaration: LocalAI cannot
+// ask the upstream what it accepts, and it may take images. A local model
+// without vision is not tried, since an image would fail or be ignored.
+// It returns "" when no model can be tried.
+func chooseVisionModel(setting, chatModel string, all []config.ModelConfig) (model string, guess bool) {
 	if setting != "" {
 		for _, m := range all {
 			if m.Name == setting {
-				return setting
+				return setting, false
 			}
 		}
 	}
@@ -53,20 +58,25 @@ func chooseVisionModel(setting, chatModel string, all []config.ModelConfig) stri
 			continue
 		}
 		if all[i].Name == chatModel {
-			return chatModel
+			return chatModel, false
 		}
 		names = append(names, all[i].Name)
 	}
-	if len(names) == 0 {
-		return ""
+	if len(names) > 0 {
+		sort.Strings(names)
+		return names[0], false
 	}
-	sort.Strings(names)
-	return names[0]
+	for i := range all {
+		if chatModel != "" && all[i].Name == chatModel && all[i].IsCloudProxyBackendPassthrough() {
+			return chatModel, true
+		}
+	}
+	return "", false
 }
 
 // studioVisionModel is describe_image's chooser, read when the tool runs, so
 // a change of the setting or of a model applies at once.
-func (a *Application) studioVisionModel(chatModel string) string {
+func (a *Application) studioVisionModel(chatModel string) (string, bool) {
 	return chooseVisionModel(a.applicationConfig.ChatsVisionModel, chatModel, a.ModelConfigLoader().GetAllModelsConfigs())
 }
 

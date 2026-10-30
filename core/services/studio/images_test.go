@@ -17,7 +17,7 @@ import (
 func imagesChat(sees bool, describer string) (*studio.Service, string, func() string) {
 	f := newFiles()
 	m := media.New(provider.New(), nil, func(media.Capability) string { return "" }).
-		WithVisionChooser(func(string) string { return describer })
+		WithVisionChooser(func(string) (string, bool) { return describer, false })
 	say := func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }
 	svc, h := newToolService(say, func(d *studio.Deps) {
 		d.Files = f

@@ -4,7 +4,8 @@
 // apply like for any request. A voice note attached to a message is
 // transcribed on the way in. The helper models come from the instance
 // settings, or are the first installed model with the capability; a chat
-// whose own model can look at images describes them with that model.
+// whose own model can look at images describes them with that model, and a
+// cloud-proxy model whose abilities are unknown is tried as a last resort.
 package media
 
 import (
@@ -20,6 +21,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"path"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -56,8 +58,11 @@ type UserLookup func(ctx context.Context, principal string) (*auth.User, error)
 type Resolver func(Capability) string
 
 // VisionChooser names the model that describe_image uses in a chat whose own
-// model is chatModel, or "" when no model can look at images.
-type VisionChooser func(chatModel string) string
+// model is chatModel, or "" when no model can look at images. guess is true
+// when the model is the chat's own model and LocalAI cannot tell whether it
+// accepts images (a cloud-proxy model with no vision declaration): the tool
+// tries it and, when it refuses, tells the user what to do.
+type VisionChooser func(chatModel string) (model string, guess bool)
 
 // Service runs the media tools.
 type Service struct {
@@ -86,10 +91,15 @@ func (s *Service) VisionModel(chatModel string) string {
 	if s == nil {
 		return ""
 	}
+	m, _ := s.visionChoice(chatModel)
+	return m
+}
+
+func (s *Service) visionChoice(chatModel string) (string, bool) {
 	if s.vision != nil {
 		return s.vision(chatModel)
 	}
-	return s.resolve(Vision)
+	return s.resolve(Vision), false
 }
 
 func (s *Service) client(ctx context.Context, principal string) (*http.Client, error) {
@@ -143,17 +153,78 @@ func (s *Service) post(ctx context.Context, principal, route, contentType string
 	case resp.StatusCode == http.StatusTooManyRequests:
 		return nil, errors.New("the model refused the request: your quota is used up or the server is busy")
 	case resp.StatusCode < 200 || resp.StatusCode > 299:
-		return nil, fmt.Errorf("the model %s answered with an error (%d)", model, resp.StatusCode)
+		return nil, &statusError{model: model, code: resp.StatusCode, body: data}
 	}
 	return data, nil
 }
 
-// DescribeImage asks the vision model about an image.
-func (s *Service) DescribeImage(ctx context.Context, principal, name string, img []byte, question string) (string, error) {
-	return s.describeWith(ctx, s.resolve(Vision), principal, name, img, question)
+// statusError is a model's error answer. Its text is safe to show: the body is
+// kept for the caller, which sanitises what it quotes.
+type statusError struct {
+	model string
+	code  int
+	body  []byte
 }
 
-func (s *Service) describeWith(ctx context.Context, model, principal, name string, img []byte, question string) (string, error) {
+func (e *statusError) Error() string {
+	return fmt.Sprintf("the model %s answered with an error (%d)", e.model, e.code)
+}
+
+// upstreamText returns the message of an error body, as one sanitised line.
+func (e *statusError) upstreamText() string {
+	var out struct {
+		Error json.RawMessage `json:"error"`
+	}
+	text := string(e.body)
+	if json.Unmarshal(e.body, &out) == nil && len(out.Error) > 0 {
+		var obj struct {
+			Message string `json:"message"`
+		}
+		var str string
+		switch {
+		case json.Unmarshal(out.Error, &obj) == nil && obj.Message != "":
+			text = obj.Message
+		case json.Unmarshal(out.Error, &str) == nil && str != "":
+			text = str
+		}
+	}
+	return session.Sanitize(text)
+}
+
+var imagesUnsupportedRe = regexp.MustCompile(`(?i)image|vision|multimodal|modalit|content.?type|unsupported`)
+
+// notAccepted is what describe_image tells the user when a model that may or
+// may not take images refused one: what happened and what to do about it.
+func notAccepted(model, detail string) error {
+	msg := fmt.Sprintf("The model %s did not accept the image. If it can look at images, turn on \"This model can look at images\" in its settings; "+
+		"otherwise choose another model or ask an administrator to set a Chat image model.", model)
+	if detail != "" {
+		msg += " The upstream said: " + detail
+	}
+	return errors.New(msg)
+}
+
+// guessFailure turns the failure of a best-effort call into notAccepted when
+// the model refused the request; other failures (not allowed, quota, network)
+// keep their own text.
+func guessFailure(model string, err error) error {
+	var se *statusError
+	if !errors.As(err, &se) {
+		return err
+	}
+	detail := se.upstreamText()
+	if se.code >= 400 && se.code < 500 || se.code >= 500 && imagesUnsupportedRe.MatchString(detail) {
+		return notAccepted(model, detail)
+	}
+	return err
+}
+
+// DescribeImage asks the vision model about an image.
+func (s *Service) DescribeImage(ctx context.Context, principal, name string, img []byte, question string) (string, error) {
+	return s.describeWith(ctx, s.resolve(Vision), false, principal, name, img, question)
+}
+
+func (s *Service) describeWith(ctx context.Context, model string, guess bool, principal, name string, img []byte, question string) (string, error) {
 	if model == "" {
 		return "", noModel(Vision)
 	}
@@ -174,6 +245,9 @@ func (s *Service) describeWith(ctx context.Context, model, principal, name strin
 	raw, _ := json.Marshal(payload)
 	data, err := s.post(ctx, principal, "/chat/completions", "application/json", bytes.NewReader(raw), model)
 	if err != nil {
+		if guess {
+			err = guessFailure(model, err)
+		}
 		return "", err
 	}
 	var out struct {
@@ -314,7 +388,7 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor, chatModel string) [
 				if err != nil {
 					return "", err
 				}
-				model := s.VisionModel(chatModel)
+				model, guess := s.visionChoice(chatModel)
 				if model == "" {
 					return "", noModel(Vision)
 				}
@@ -322,7 +396,7 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor, chatModel string) [
 				if err != nil {
 					return "", err
 				}
-				return s.describeWith(ctx, model, a.Principal, name, img, in.Question)
+				return s.describeWith(ctx, model, guess, a.Principal, name, img, in.Question)
 			}},
 		{Name: "read_document", Description: "Read the text of a PDF, Word, Excel, PowerPoint or EPUB file in the user's files. Long documents come in parts: pass offset to read on.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `,"offset":{"type":"integer","description":"Character to start at. 0 is the start."},"limit":{"type":"integer","description":"Most characters to return (default 20000)."}},"required":["path"]}`),
