@@ -318,11 +318,51 @@ later as a message in the conversation and as a `sub_agent_done` event.
   when they run on another frontend and when the parent has no turn left.
 - A `sub_agent_started` event (with the run's id and title) and a
   `sub_agent_done` event mark the run in the parent's event stream.
+- A sub-agent cannot run commands when its parent cannot (see [Running
+  commands](#running-commands)). A task that asks to run something ("execute
+  the script", "run make_deck.py") is then refused at once with "the sub-agent
+  has no way to run commands either", and no sub-agent starts.
+- A task with the same words as an earlier sub-agent of the chat is refused
+  while no file of the chat was created or changed since that run: it would
+  answer the same. The check reads the store, so it holds on every frontend of
+  a cluster.
 
 ```bash
 curl .../api/chats/3f1c.../agents                      # runs, their state, the limit
 curl .../api/chats/3f1c.../agents/9ab2.../messages     # one run's transcript
 curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
+```
+
+## Running commands
+
+A chat runs commands and code only through the [Sandbox
+add-on]({{%relref "features/addons#sandbox" %}}). At every turn the model is
+told in one short block whether it can:
+
+- **It can.** The block names the tool (`addon__sandbox__bash`) and says
+  whether commands run isolated or directly on this machine with no isolation.
+- **It cannot.** The block says that nothing in the chat runs code, that the
+  model must not say or imply that it ran something, and that it must not send
+  a sub-agent to run it. The model writes the result as a file instead (text,
+  CSV, Markdown, HTML, JSON) or gives you the script to run, and tells you how
+  to get commands: an administrator installs the Sandbox add-on, you switch it
+  on in the **Tools** menu, or an administrator fixes a Sandbox that cannot run
+  on this server.
+
+A skill can say that it needs commands with `requires: [exec]` in its
+frontmatter (see [Skills](#skills)). In a chat that cannot run commands, such a
+skill is listed to the model as "unavailable here: needs command execution",
+without the path to its procedure, so the model explains instead of starting.
+
+`GET /api/chats/{id}/addons` says the same for the web interface in
+`commands`: `available`, `off` (the Sandbox is installed but off for this chat,
+or its agent does not name it), `unavailable` (installed, but it cannot run
+commands on this server; `commands_reason` says why) or `none` (no add-on that
+runs commands is installed for you).
+
+```bash
+curl -s localhost:8080/api/chats/$ID/addons
+# {"addons":[],"commands":"none"}
 ```
 
 ## Long conversations
@@ -463,7 +503,7 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 ## Skills
 
-A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. A `SKILL.md` over 64 KiB is refused.
+A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. A `SKILL.md` over 64 KiB is refused.
 
 Skills come from four places, nearest first, and the nearest wins when two have the same name:
 
@@ -488,7 +528,7 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills` and `localai-workspace`. The last one tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
+The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills` and `localai-workspace`. The last one tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox, so they have `requires: [exec]` and are unavailable in a chat that cannot run commands. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
 
 ## Collections
 
@@ -776,7 +816,16 @@ The chat page (`/app/chats/<id>`) shows one chat.
   skills for this chat (see above; a skill is switched by its `id`, and the Skills menu has Select all, Disable all and a search), and list
   the sub-agents of the chat with their transcript and a **Stop** for a
   running one. The Tools menu says whether the Sandbox add-on runs commands
-  isolated, directly on this machine, or not at all. Changes an add-on tool
+  isolated, directly on this machine, or not at all. When the chat cannot run
+  commands, the Tools menu opens with a notice, "Commands can't run here", and
+  the reason: no add-on that runs code is installed, the Sandbox is off for
+  this chat, or it cannot run on this server. An administrator gets a link to
+  install the Sandbox or to its add-on page; anyone else is told to ask an
+  administrator. A chip with the same words sits next to the Tools menu (on a
+  phone, only its icon) and opens the notice. **Hide** removes the chip and
+  leaves one line in the Tools menu; this browser remembers it until the
+  reason changes. The Tools menu shows for this notice even when there is
+  nothing to switch. Changes an add-on tool
   made show under the tool line with **Undo** when the add-on can undo them; a
   call the add-on refused (`not_permitted`, `resource_unreachable`,
   `not_running`, `invalid_request`) says why. MCP Apps show live under their

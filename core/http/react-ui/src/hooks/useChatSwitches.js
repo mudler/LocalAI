@@ -4,6 +4,11 @@ import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
 import { changedIds, offList, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 
 const noMCP = { servers: [], connectors: [], off: [] }
+const noCommands = { state: '', reason: '' }
+const commandsOf = (res) => ({
+  state: typeof res?.commands === 'string' ? res.commands : '',
+  reason: typeof res?.commands_reason === 'string' ? res.commands_reason : '',
+})
 
 export { skillKey }
 
@@ -13,6 +18,8 @@ export { skillKey }
 // list at once and goes back when the server refuses.
 export function useChatSwitches(chatId, filesOn) {
   const [addons, setAddons] = useState([])
+  // Whether the chat can run commands, from the same list (see utils/chatCommands.js).
+  const [commands, setCommands] = useState({ state: '', reason: '' })
   const [mcp, setMcp] = useState(noMCP)
   const [skills, setSkills] = useState([])
   const [error, setError] = useState('')
@@ -25,11 +32,11 @@ export function useChatSwitches(chatId, filesOn) {
   useEffect(() => {
     setError('')
     setSkillsError('')
-    if (!chatId) { setAddons([]); setMcp(noMCP); setSkills([]); return undefined }
+    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setSkills([]); return undefined }
     let live = true
     chatAddonsApi.list(chatId)
-      .then((res) => { if (live) setAddons(res.addons || []) })
-      .catch(() => { if (live) setAddons([]) })
+      .then((res) => { if (live) { setAddons(res.addons || []); setCommands(commandsOf(res)) } })
+      .catch(() => { if (live) { setAddons([]); setCommands(noCommands) } })
     chatToolsApi.list(chatId)
       .then((res) => { if (live) setMcp({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] }) })
       .catch(() => { if (live) setMcp(noMCP) })
@@ -51,7 +58,10 @@ export function useChatSwitches(chatId, filesOn) {
     setError('')
     try {
       const res = await chatAddonsApi.setOff(chatId, next.filter((a) => a.off).map((a) => a.id).sort())
-      if (res?.addons) setAddons(res.addons)
+      if (res?.addons) {
+        setAddons(res.addons)
+        setCommands(commandsOf(res))
+      }
     } catch (e) {
       setAddons(before)
       setError(e.message || 'error')
@@ -106,7 +116,7 @@ export function useChatSwitches(chatId, filesOn) {
   const toggleSkill = useCallback((id, on) => setSkillsOn(new Set([id]), on), [setSkillsOn])
 
   return {
-    addons, servers: mcp.servers, connectors: mcp.connectors, skills, error, skillsError, skillsBusy: skillsBusy > 0,
+    addons, commands, servers: mcp.servers, connectors: mcp.connectors, skills, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleMCP, toggleSkill, setSkillsOn,
   }

@@ -328,6 +328,20 @@
       "host": "Commands run directly on this machine, with no isolation",
       "cannot": "Sandbox unavailable: this host cannot run commands",
       "cannotWhy": "Sandbox unavailable: {{reason}}"
+    },
+    "commands": {
+      "title": "Commands can't run here",
+      "none": "No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.",
+      "off": "The Sandbox add-on is off for this chat. Switch it on in the Tools menu to let the assistant run code.",
+      "unavailable": "The Sandbox add-on is installed but cannot run commands on this server.",
+      "unavailableWhy": "The Sandbox add-on cannot run commands on this server: {{reason}}",
+      "install": "Install the Sandbox",
+      "openSandbox": "Open the Sandbox add-on",
+      "askInstall": "Ask an administrator to install the Sandbox add-on.",
+      "askFix": "Ask an administrator to fix it.",
+      "hide": "Hide",
+      "hideLabel": "Hide this notice",
+      "chipTitle": "This chat cannot run code or commands. Select for details."
     }
   },
   "mcpPage": {

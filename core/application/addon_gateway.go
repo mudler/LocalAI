@@ -557,6 +557,14 @@ func (l lateStudioAddons) Unavailable(ctx context.Context, user, addonID string,
 	return ""
 }
 
+// Isolation forwards to the broker when it can say how commands are isolated.
+func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
+	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
+		return g.Isolation(ctx, user, addonID)
+	}
+	return ""
+}
+
 func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	b := l.a.StudioAddonTools()
 	if b == nil {
@@ -617,6 +625,9 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 // sandboxAddonID is the add-on that runs commands and code.
 const sandboxAddonID = "sandbox"
 
+// sandboxRunTool is the tool of the Sandbox add-on that runs commands.
+var sandboxRunTool = addontools.ToolName(sandboxAddonID, "bash")
+
 // needsWorkspace says whether the add-on works on the files of the user.
 func (s *studioAddons) needsWorkspace(addonID string) bool {
 	for _, p := range s.hostOps[addonID] {
@@ -641,20 +652,55 @@ func (s *studioAddons) Unavailable(ctx context.Context, user, addonID string, wo
 	if err != nil {
 		return ""
 	}
+	st, ok := s.sandboxStatus(ctx, actor)
+	if !ok || st.CanRun {
+		return ""
+	}
+	return "no sandbox backend works on this host, so commands cannot run"
+}
+
+// sandboxState is the part of the Sandbox add-on's status read that the chats use.
+type sandboxState struct {
+	OK         bool   `json:"ok"`
+	CanRun     bool   `json:"canRun"`
+	Active     string `json:"active"`
+	HostNotice bool   `json:"hostNotice"`
+}
+
+// sandboxStatus reads the Sandbox add-on's status as the actor. ok is false
+// when the read failed or the add-on did not answer ok.
+func (s *studioAddons) sandboxStatus(ctx context.Context, actor contract.Actor) (sandboxState, bool) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	res, err := s.adapter.Execute(ctx, actor, addontools.ToolName(sandboxAddonID, "status"), json.RawMessage(`{}`))
 	if err != nil || res.Kind != addontools.ResultData {
+		return sandboxState{}, false
+	}
+	var st sandboxState
+	if json.Unmarshal(res.Result, &st) != nil || !st.OK {
+		return sandboxState{}, false
+	}
+	return st, true
+}
+
+// Isolation says how the Sandbox add-on runs commands: "isolated", "host" (on
+// the server, with no isolation) or "" when it cannot tell.
+func (s *studioAddons) Isolation(ctx context.Context, user, addonID string) string {
+	if addonID != sandboxAddonID {
 		return ""
 	}
-	var st struct {
-		OK     bool `json:"ok"`
-		CanRun bool `json:"canRun"`
-	}
-	if json.Unmarshal(res.Result, &st) != nil || !st.OK || st.CanRun {
+	actor, err := s.actor(user)
+	if err != nil {
 		return ""
 	}
-	return "no sandbox backend works on this host, so commands cannot run"
+	st, ok := s.sandboxStatus(ctx, actor)
+	switch {
+	case !ok || !st.CanRun:
+		return ""
+	case st.HostNotice || st.Active == "host":
+		return "host"
+	}
+	return "isolated"
 }
 
 func (s *studioAddons) actor(user string) (contract.Actor, error) {
@@ -690,7 +736,8 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 		if err != nil {
 			continue
 		}
-		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead})
+		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
+			Runs: d.Name == sandboxRunTool})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }

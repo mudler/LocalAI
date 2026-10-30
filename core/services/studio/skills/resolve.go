@@ -91,6 +91,14 @@ type Skill struct {
 	// Off is true when Options.Off turned the skill off. An off skill takes
 	// no part in the precedence rule and is not in the index.
 	Off bool
+	// Requires are the capabilities the skill needs (the "requires" key of
+	// its frontmatter), for example RequireExec.
+	Requires []string
+	// Unavailable, set by the product, says why the skill cannot be used in
+	// this chat, for example "needs command execution". Index lists such a
+	// skill with the reason and without the path of its SKILL.md, so the
+	// model explains instead of starting it.
+	Unavailable string
 
 	depth int // folders below the walked root, for the order inside the folder layer
 }
@@ -366,6 +374,7 @@ func readSkill(ctx context.Context, s workspace.Store, a workspace.Actor, b cont
 		return sk, true, nil
 	}
 	sk.Name, sk.Description = name, desc
+	sk.Requires = Requires(data)
 	return sk, true, nil
 }
 

@@ -43,5 +43,21 @@
     "loadFailed": "Não foi possível carregar seus conectores.",
     "waitingTitle": "Aguardando o complemento",
     "waitingText": "Estes vínculos são mantidos, mas só funcionam quando o complemento deles estiver instalado e ligado."
+  },
+  "tools": {
+    "commands": {
+      "title": "Comandos não podem ser executados aqui",
+      "none": "Nenhum complemento que executa código está instalado, então o assistente pode escrever arquivos, mas não executar scripts nem comandos.",
+      "off": "O complemento Sandbox está desligado neste chat. Ligue-o no menu Ferramentas para o assistente poder executar código.",
+      "unavailable": "O complemento Sandbox está instalado, mas não consegue executar comandos neste servidor.",
+      "unavailableWhy": "O complemento Sandbox não consegue executar comandos neste servidor: {{reason}}",
+      "install": "Instalar o Sandbox",
+      "openSandbox": "Abrir o complemento Sandbox",
+      "askInstall": "Peça a um administrador para instalar o complemento Sandbox.",
+      "askFix": "Peça a um administrador para corrigir isso.",
+      "hide": "Ocultar",
+      "hideLabel": "Ocultar este aviso",
+      "chipTitle": "Este chat não pode executar código nem comandos. Selecione para ver detalhes."
+    }
   }
 }

@@ -12,9 +12,10 @@ import { resolveStatus } from './status'
 //   tone      ok | warn | error | idle | accent, to override the status tone
 //   label     text to use instead of the vocabulary's words
 //   dot       a 6 px dot instead of the icon, for dense rows
+//   icon      a kit icon id, to replace the tone's icon ("terminal")
 //
 // One state per chip. Never "Off, starting".
-export default function StatusChip({ status, tone, label, dot = false, className = '', title, testId, children }) {
+export default function StatusChip({ status, tone, label, dot = false, icon, className = '', title, testId, children }) {
   const { t } = useTranslation('common')
   const s = resolveStatus({ status, tone })
   const text = children ?? label ?? (s.label ? t(`chip.${s.label}`) : status)
@@ -22,7 +23,7 @@ export default function StatusChip({ status, tone, label, dot = false, className
     <span className={`ui-chip ui-chip--${s.tone} ${className}`.trim()} data-status={status} title={title} data-testid={testId}>
       {dot
         ? <span className="ui-chip__dot" aria-hidden="true" />
-        : <Icon name={s.icon} spin={s.busy} className="ui-chip__icon" />}
+        : <Icon name={icon || s.icon} spin={!icon && s.busy} className="ui-chip__icon" />}
       <span className="ui-chip__label">{text}</span>
     </span>
   )

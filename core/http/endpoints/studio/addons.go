@@ -12,7 +12,11 @@ func addonList(c echo.Context, h *Handlers) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	out := schema.ChatsAddonList{Addons: make([]schema.ChatsAddon, 0, len(list))}
+	cmds, err := h.svc.CommandRunner(c.Request().Context(), userID(c), c.Param("id"))
+	if err != nil {
+		return failFor(c, err)
+	}
+	out := schema.ChatsAddonList{Addons: make([]schema.ChatsAddon, 0, len(list)), Commands: string(cmds.State), CommandsReason: cmds.Reason}
 	for _, a := range list {
 		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})
 	}
@@ -21,7 +25,7 @@ func addonList(c echo.Context, h *Handlers) error {
 
 // ListChatAddons lists the add-ons a chat can use.
 // @Summary List the add-ons a chat can use.
-// @Description The add-ons whose tools the signed-in user may use now, each with the chat's switch. Without the add-on host the list is empty.
+// @Description The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable or none). Without the add-on host the list is empty and commands is none.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsAddonList "The add-ons and their switches"

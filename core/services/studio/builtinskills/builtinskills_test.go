@@ -33,6 +33,19 @@ var _ = Describe("the built-in skills", func() {
 		}
 	})
 
+	It("marks the office skills as needing command execution, and only them", func() {
+		for _, n := range names {
+			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")
+			Expect(err).NotTo(HaveOccurred(), n)
+			switch n {
+			case "docx", "xlsx", "pptx", "pdf":
+				Expect(skills.Requires(data)).To(Equal([]string{skills.RequireExec}), n)
+			default:
+				Expect(skills.Requires(data)).To(BeEmpty(), n)
+			}
+		}
+	})
+
 	It("keeps the source and the licence in the notice", func() {
 		data, err := fs.ReadFile(builtinskills.FS(), "NOTICE")
 		Expect(err).NotTo(HaveOccurred())

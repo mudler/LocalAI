@@ -1,6 +1,7 @@
 ---
 name: pdf
 description: Work with PDF files using the installed tools for fixed-page authoring, extraction, page operations, forms, annotations, redactions, and mechanical checks.
+requires: [exec]
 ---
 
 # PDF documents

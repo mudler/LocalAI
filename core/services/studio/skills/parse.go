@@ -3,6 +3,7 @@ package skills
 import (
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -69,6 +70,39 @@ func Parse(data []byte) (name, description string, err error) {
 		return "", "", ErrDescriptionTooLong
 	}
 	return name, description, nil
+}
+
+// Capabilities a skill can require. A product that cannot give one marks the
+// skill unavailable instead of listing it as usable.
+const (
+	// RequireExec is a way to run commands or code (a sandbox).
+	RequireExec = "exec"
+)
+
+var capabilityRE = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
+// Requires reads the optional "requires" key of the frontmatter: the
+// capabilities the procedure needs, as a flow list ("[exec]") or words split
+// by commas or spaces. Values that are not capability words are dropped, so a
+// typo never hides a skill. A file without frontmatter requires nothing.
+func Requires(data []byte) []string {
+	if len(data) > MaxFileSize {
+		return nil
+	}
+	fm, ok := frontmatter(string(data))
+	if !ok {
+		return nil
+	}
+	v := strings.TrimSpace(keyValues(fm)["requires"])
+	v = strings.TrimSuffix(strings.TrimPrefix(v, "["), "]")
+	var out []string
+	for _, f := range strings.FieldsFunc(v, func(r rune) bool { return r == ',' || unicode.IsSpace(r) }) {
+		f = strings.ToLower(strings.Trim(f, `"'`))
+		if capabilityRE.MatchString(f) && !slices.Contains(out, f) {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 // Clean drops invalid UTF-8, control characters and format characters from s,

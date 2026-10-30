@@ -87,7 +87,10 @@ func skillOff(off []string) func(skills.Skill) bool {
 // gets: the index for the prompt, a note for the model when something could not
 // be read, and a key that changes only when a skill the index names changed.
 // A skill the chat switched off is not in the index and does not change the key.
-func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *scope) (prompt, note, key string) {
+//
+// gate, when set, returns why a skill cannot be used in this chat ("" when it
+// can); Index lists such a skill with the reason instead of its path.
+func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *scope, gate func(skills.Skill) string) (prompt, note, key string) {
 	if !s.d.Files.Available() {
 		return "", "", ""
 	}
@@ -113,6 +116,9 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *sco
 		valid++
 		fmt.Fprintf(h, "%s\x00%s\x00%s\n", sk.Name, sk.GuestPath, sk.Hash)
 		if !sk.Off {
+			if gate != nil {
+				sk.Unavailable = gate(sk)
+			}
 			on = append(on, sk)
 		}
 	}

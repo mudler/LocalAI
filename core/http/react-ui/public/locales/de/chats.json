@@ -43,5 +43,21 @@
     "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
     "waitingTitle": "Warten auf ihr Add-on",
     "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist."
+  },
+  "tools": {
+    "commands": {
+      "title": "Befehle können hier nicht laufen",
+      "none": "Es ist kein Add-on installiert, das Code ausführt. Der Assistent kann Dateien schreiben, aber keine Skripte oder Befehle ausführen.",
+      "off": "Das Sandbox-Add-on ist für diesen Chat aus. Schalte es im Menü „Werkzeuge“ ein, damit der Assistent Code ausführen kann.",
+      "unavailable": "Das Sandbox-Add-on ist installiert, kann auf diesem Server aber keine Befehle ausführen.",
+      "unavailableWhy": "Das Sandbox-Add-on kann auf diesem Server keine Befehle ausführen: {{reason}}",
+      "install": "Sandbox installieren",
+      "openSandbox": "Sandbox-Add-on öffnen",
+      "askInstall": "Bitte eine Administratorin oder einen Administrator, das Sandbox-Add-on zu installieren.",
+      "askFix": "Bitte eine Administratorin oder einen Administrator, das zu beheben.",
+      "hide": "Ausblenden",
+      "hideLabel": "Diesen Hinweis ausblenden",
+      "chipTitle": "Dieser Chat kann keinen Code und keine Befehle ausführen. Für Details auswählen."
+    }
   }
 }

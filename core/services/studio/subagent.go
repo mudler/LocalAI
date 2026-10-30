@@ -44,20 +44,26 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		s.mu.Lock()
 		tools := s.allowed[key(a.Principal, a.ChatID)]
 		s.mu.Unlock()
-		return session.TurnTools{Tools: tools}, nil
+		var prompt string
+		if s.commandsOf(ctx, a.Principal, tools, nil, nil).State != CommandsAvailable {
+			prompt = subAgentCommandsBlock
+		}
+		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
 	if err != nil {
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
 	sc := s.scopeOf(ctx, rec)
+	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The file tools belong to the chat itself: a sub-agent never gets them,
 	// because its tools come from hostTools, which does not include them.
 	tools = append(tools, s.announceFileChanges(a, s.d.Files.Tools(a))...)
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
 	}
-	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff, sc)
+	skillsOff := 0
+	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff, sc, execGate(cmds, &skillsOff))
 	// The persona and the facts about the user come after the chat's prompt
 	// and the agent's instructions, which take precedence, and before the
 	// index of skills. A change to either file restarts the harness at the
@@ -96,6 +102,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if line := s.hintLine(ctx, a, rec); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 	}
+	// What the chat can run comes before the other blocks: the prompt is cut at
+	// its end, and this block must reach the model.
+	prompt = strings.TrimSpace(commandsBlock(cmds, hasTool(tools, "write_file"), skillsOff > 0) + "\n\n" + prompt)
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
@@ -147,6 +156,17 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	subset, err := s.subset(ctx, a, args.Tools)
 	if err != nil {
 		return "", err
+	}
+	// A sub-agent has the parent's tools or fewer: when none of them runs
+	// commands, a task that asks to run something cannot work. Say so now
+	// instead of spending a turn of the sub-agent on it.
+	if name, _ := s.runners.in(subset); name == "" && asksToRun(task) {
+		return "", ErrSubAgentCannotRun
+	}
+	if again, err := s.repeatedTask(ctx, a, task); err != nil {
+		return "", err
+	} else if again {
+		return "", ErrSubAgentRepeat
 	}
 
 	parentKey := key(a.Principal, a.ChatID)
@@ -416,4 +436,14 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// hasTool says whether the list has a tool of that name.
+func hasTool(tools []session.Tool, name string) bool {
+	for _, t := range tools {
+		if t.Name == name {
+			return true
+		}
+	}
+	return false
 }

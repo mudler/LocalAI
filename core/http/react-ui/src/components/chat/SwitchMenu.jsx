@@ -9,7 +9,9 @@ import Icon from '../Icon'
 //
 // groups: [{ key, title, rows: [{ key, label, title, on, usable, reason, note, warn, onToggle }] }]
 // note is a line under the name (warn draws it as a warning).
-export default function SwitchMenu({ icon, label, title, heading, note, groups, error, footer, testId }) {
+// notice is a block over the groups, for something that holds for the whole
+// chat (the chat cannot run commands); the menu shows for it even with no rows.
+export default function SwitchMenu({ icon, label, title, heading, note, notice, groups, error, footer, testId }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const noteId = useId()
@@ -27,7 +29,7 @@ export default function SwitchMenu({ icon, label, title, heading, note, groups, 
   }, [open])
 
   const rows = groups.flatMap((g) => g.rows)
-  if (rows.length === 0) return null
+  if (rows.length === 0 && !notice) return null
   const count = rows.filter((r) => r.usable !== false && r.on).length
   const titled = groups.filter((g) => g.rows.length > 0).length > 1
 
@@ -50,6 +52,7 @@ export default function SwitchMenu({ icon, label, title, heading, note, groups, 
         <div className="chat-mcp-dropdown-menu chat-addons-menu" role="group" aria-label={title} data-testid={`${testId}-menu`}>
           <div className="chat-mcp-dropdown-header"><span>{heading}</span></div>
           {note && <p className="chat-addons-note" id={noteId}>{note}</p>}
+          {notice}
           {groups.filter((g) => g.rows.length > 0).map((g) => (
             <div key={g.key} role="group" aria-label={g.title}>
               {titled && <div className="chat-mcp-dropdown-header chat-switch-group"><span>{g.title}</span></div>}

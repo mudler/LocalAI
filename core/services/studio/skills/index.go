@@ -23,7 +23,8 @@ const moreReserve = 64
 
 // Index renders the skills that are valid, not shadowed and not off, for the
 // system prompt: a fixed first line, then one line per skill with its name,
-// its description and the guest path of its SKILL.md. Nearer layers come
+// its description and the guest path of its SKILL.md (or, for a skill the
+// product marked Unavailable, the reason instead of the path). Nearer layers come
 // first, then names. At most MaxIndexEntries skills and MaxIndexBytes bytes
 // are listed; a last line says how many were left out. It returns "" when no
 // skill is listed. Name and Description are cleaned, so a caller that builds
@@ -48,7 +49,9 @@ func Index(skills []Skill) string {
 	listed := 0
 	for _, s := range list {
 		line := "\n- " + s.Name + ": " + s.Description
-		if gp := Clean(s.GuestPath); gp != "" {
+		if why := Clean(s.Unavailable); why != "" {
+			line += " (unavailable here: " + why + ")"
+		} else if gp := Clean(s.GuestPath); gp != "" {
 			line += " (read " + gp + ")"
 		}
 		if listed >= MaxIndexEntries || b.Len()+len(line)+moreReserve > MaxIndexBytes {

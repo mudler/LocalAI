@@ -445,6 +445,14 @@ type ChatsAddon struct {
 // ChatsAddonList lists the add-ons a chat can use.
 type ChatsAddonList struct {
 	Addons []ChatsAddon `json:"addons"`
+	// Commands says whether the chat can run commands and code at its next
+	// turn: available, off (the add-on that runs them is switched off for this
+	// chat or not named by its agent), unavailable (installed, but it cannot run
+	// them on this server) or none (no add-on that runs them is installed for
+	// the user).
+	Commands string `json:"commands"`
+	// CommandsReason is why commands cannot run, when Commands is unavailable.
+	CommandsReason string `json:"commands_reason,omitempty"`
 }
 
 // ChatsNotification is one item of the inbox. Kind is run_ended, run_failed or

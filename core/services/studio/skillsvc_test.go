@@ -124,7 +124,9 @@ var _ = Describe("skillsvc", func() {
 		kids := childrenOf(svc, alice, id)
 		Expect(kids).To(HaveLen(1), "children = %d", len(kids))
 		Expect(h.TurnPrompt(id)).NotTo(Equal(""), "chat prompt %q, sub-agent prompt %q: only the chat gets the index", h.TurnPrompt(id), h.TurnPrompt(kids[0].ID))
-		Expect(h.TurnPrompt(kids[0].ID)).To(Equal(""), "chat prompt %q, sub-agent prompt %q: only the chat gets the index", h.TurnPrompt(id), h.TurnPrompt(kids[0].ID))
+		// A sub-agent gets only the line that says it cannot run commands.
+		Expect(h.TurnPrompt(kids[0].ID)).NotTo(ContainSubstring("Skills:"), "chat prompt %q, sub-agent prompt %q: only the chat gets the index", h.TurnPrompt(id), h.TurnPrompt(kids[0].ID))
+		Expect(h.TurnPrompt(kids[0].ID)).NotTo(ContainSubstring("review"), "chat prompt %q, sub-agent prompt %q: only the chat gets the index", h.TurnPrompt(id), h.TurnPrompt(kids[0].ID))
 	})
 
 	It("another users skills never reach the index", func() {

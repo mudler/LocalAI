@@ -44,6 +44,8 @@ import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
 import SkillsMenu from '../components/chat/SkillsMenu'
 import SwitchMenu from '../components/chat/SwitchMenu'
+import { CommandsChip, CommandsNotice } from '../components/chat/CommandsNotice'
+import { useCommandsNotice } from '../hooks/useCommandsNotice'
 // eslint-disable-next-line no-unused-vars
 import AgentPicker from '../components/chat/AgentPicker'
 // eslint-disable-next-line no-unused-vars
@@ -196,6 +198,7 @@ function ChatPage() {
   const switches = useChatSwitches(activeId, chat.files.on)
   const chatFiles = useChatFiles(chat.files.on ? activeId : null, chat.ticks.files)
   const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), activeId)
+  const commands = useCommandsNotice(switches.commands.state, switches.commands.reason, isAdmin)
   // What the Tools picker says under an add-on: the Sandbox's state.
   const addonNote = (a) => {
     if (a.id !== SANDBOX_ADDON || !sandbox || sandbox.state === 'unknown') return {}
@@ -881,11 +884,12 @@ function ChatPage() {
     <>
       <SwitchMenu
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')} note={t('tools.note')}
-        groups={toolGroups} error={switches.error} testId="chat-tools"
+        groups={toolGroups} error={switches.error} testId="chat-tools" notice={commands.info ? <CommandsNotice notice={commands} /> : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <button type="button" className="chat-mcp-select-all chat-switch-manage" onClick={() => navigate('/app/mcp-connectors')}>{tc('tools.manage')}</button>
           : null}
       />
+      <CommandsChip notice={commands} />
       <SkillsMenu skills={switches.skills} onSet={switches.setSkillsOn} error={switches.skillsError} />
       <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
     </>

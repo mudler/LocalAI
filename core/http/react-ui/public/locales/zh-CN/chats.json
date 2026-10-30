@@ -43,5 +43,21 @@
     "loadFailed": "无法加载你的连接器。",
     "waitingTitle": "等待对应的插件",
     "waitingText": "这些绑定会被保留，但要等对应插件安装并开启后才会运行。"
+  },
+  "tools": {
+    "commands": {
+      "title": "此处无法运行命令",
+      "none": "未安装可运行代码的插件，因此助手可以写入文件，但无法运行脚本或命令。",
+      "off": "此对话已关闭 Sandbox 插件。在“工具”菜单中开启后，助手即可运行代码。",
+      "unavailable": "Sandbox 插件已安装，但无法在此服务器上运行命令。",
+      "unavailableWhy": "Sandbox 插件无法在此服务器上运行命令：{{reason}}",
+      "install": "安装 Sandbox",
+      "openSandbox": "打开 Sandbox 插件",
+      "askInstall": "请联系管理员安装 Sandbox 插件。",
+      "askFix": "请联系管理员修复。",
+      "hide": "隐藏",
+      "hideLabel": "隐藏此提示",
+      "chipTitle": "此对话无法运行代码或命令。选择以查看详情。"
+    }
   }
 }
