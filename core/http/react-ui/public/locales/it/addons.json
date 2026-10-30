@@ -258,6 +258,7 @@
     "hasUI": "Ha delle pagine",
     "headless": "Senza interfaccia, nessuna pagina",
     "health": "Stato di salute",
+    "installedAt": "Installato",
     "host": "API dell'host",
     "interface": "Interfaccia",
     "logs": "Log",
@@ -686,9 +687,9 @@
     "seeInList": "Vedilo in Installati",
     "install": "Installa",
     "installNamed": "Installa {{name}}",
-    "shadowWarning": "Questo componente sostituisce lo strumento integrato {{tool}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti.",
+    "shadowWarning": "Questo componente sostituisce lo strumento integrato {{tool}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo.",
     "skillShadow": "Questo componente sostituisce la skill integrata {{skill}}.",
-    "skillShadowWarning": "Questo componente sostituisce la skill integrata {{skill}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti."
+    "skillShadowWarning": "Questo componente sostituisce la skill integrata {{skill}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo."
   },
   "family": {
     "pages": "Cerchi le pagine create da te o da un agente? Sono in <go>Pagine</go>."

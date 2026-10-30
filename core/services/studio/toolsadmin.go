@@ -2,7 +2,6 @@ package studio
 
 import (
 	"context"
-	"sort"
 
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -24,10 +23,15 @@ type BuiltinToolInfo struct {
 	// Provider serves the tool now: an add-on's ID, BuiltinProvider, or ""
 	// when nothing does (it is off and no add-on replaces it).
 	Provider string
-	// Candidates are the add-ons that replace the tool, by ID; Pinned is the
-	// one an administrator chose, if any.
-	Candidates []string
-	Pinned     string
+	// Candidates are the add-ons that replace the tool, oldest install first
+	// (ties and add-ons with no time by ID); Default is the first, the one
+	// that serves with no pin; Pinned is the one an administrator chose, if
+	// any. InstalledAt maps a candidate to its install time (RFC 3339), when
+	// known.
+	Candidates  []string
+	Default     string
+	Pinned      string
+	InstalledAt map[string]string
 	// Mode is chats_host_exec as it applies now, for bash only.
 	Mode string
 	// Unavailable says why this server cannot run the built-in, or "".
@@ -38,6 +42,7 @@ type BuiltinToolInfo struct {
 // whether each is on, who serves it, and the add-ons that replace it.
 func (s *Service) AdminBuiltinTools(ctx context.Context, user string) ([]BuiltinToolInfo, error) {
 	candidates := map[string][]string{}
+	installed := map[string]string{}
 	if s.d.AddonTools != nil {
 		defs, err := s.d.AddonTools.Tools(ctx, principal(user))
 		if err != nil {
@@ -50,6 +55,9 @@ func (s *Service) AdminBuiltinTools(ctx context.Context, user string) ([]Builtin
 			}
 			seen[d.Shadows+"\x00"+d.AddonID] = true
 			candidates[d.Shadows] = append(candidates[d.Shadows], d.AddonID)
+			if d.InstalledAt != "" {
+				installed[d.AddonID] = d.InstalledAt
+			}
 		}
 	}
 	var pins map[string]string
@@ -58,18 +66,13 @@ func (s *Service) AdminBuiltinTools(ctx context.Context, user string) ([]Builtin
 	}
 	var out []BuiltinToolInfo
 	for _, t := range s.builtins.Tools() {
-		c := candidates[t.ID]
-		sort.Strings(c)
+		c := OrderProviders(candidates[t.ID], installed)
 		info := BuiltinToolInfo{ID: t.ID, Label: t.Label, Description: t.Description, Group: t.Group, Setting: t.Setting,
-			Options: t.Options, Enabled: t.On(), ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Candidates: c, Pinned: pins[t.ID]}
+			Options: t.Options, Enabled: t.On(), ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Candidates: c, Pinned: pins[t.ID], InstalledAt: installTimesOf(c, installed)}
 		switch {
 		case len(c) > 0 && t.Replaceable:
-			info.Provider = c[0]
-			for _, id := range c {
-				if id == info.Pinned {
-					info.Provider = id
-				}
-			}
+			info.Default = c[0]
+			info.Provider = ChooseProvider(c, installed, info.Pinned)
 		case info.Enabled:
 			info.Provider = BuiltinProvider
 		}
@@ -107,8 +110,11 @@ type BuiltinSkillInfo struct {
 	// Candidates are the add-ons that replace it, by ID, with their Titles;
 	// Pinned is the one an administrator chose, if any.
 	Candidates []string
-	Titles     map[string]string
-	Pinned     string
+	// Default is the candidate that serves with no pin: the oldest install.
+	Default     string
+	Titles      map[string]string
+	Pinned      string
+	InstalledAt map[string]string
 	// Note says why the built-in serves although an add-on replaces it.
 	Note string
 }
@@ -122,14 +128,15 @@ func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) []Builtin
 	var out []BuiltinSkillInfo
 	for _, name := range contract.ReplaceableSkills {
 		info := BuiltinSkillInfo{ID: name, Pinned: ad.pins[name], Titles: map[string]string{}}
-		for _, set := range ad.known {
-			if shipsReplacement([]AddonSkillSet{set}, set.AddonID, name) {
-				info.Candidates = append(info.Candidates, set.AddonID)
-				info.Titles[set.AddonID] = ad.title(set.AddonID)
-			}
-		}
+		installed := ad.installTimes()
+		info.Candidates = OrderProviders(ad.shippers(ad.known, name), installed)
 		if len(info.Candidates) == 0 {
 			continue
+		}
+		info.Default = info.Candidates[0]
+		info.InstalledAt = installTimesOf(info.Candidates, installed)
+		for _, id := range info.Candidates {
+			info.Titles[id] = ad.title(id)
 		}
 		info.Provider = BuiltinProvider
 		if p, _ := ad.provider(name); p != "" {
@@ -138,6 +145,20 @@ func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) []Builtin
 			info.Note = "not running"
 		}
 		out = append(out, info)
+	}
+	return out
+}
+
+// installTimesOf keeps the known install times of ids.
+func installTimesOf(ids []string, installed map[string]string) map[string]string {
+	var out map[string]string
+	for _, id := range ids {
+		if t := installed[id]; t != "" {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[id] = t
+		}
 	}
 	return out
 }

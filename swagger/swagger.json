@@ -4193,7 +4193,7 @@
         },
         "/api/chats/admin/tools": {
             "get": {
-                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
+                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the add-on installed first) and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
                 "tags": [
                     "chats"
                 ],
@@ -13629,6 +13629,11 @@
                     "type": "string",
                     "example": "notes"
                 },
+                "installedAt": {
+                    "description": "InstalledAt is when the add-on was first installed, RFC 3339 in UTC. It\nis absent for an add-on installed before the host kept the time. The\noldest install is the default provider of a tool or skill name that\nseveral add-ons replace.",
+                    "type": "string",
+                    "example": "2026-10-30T09:15:00Z"
+                },
                 "launchMode": {
                     "type": "string",
                     "example": "always"
@@ -17277,14 +17282,23 @@
             "type": "object",
             "properties": {
                 "candidates": {
-                    "description": "Candidates are the add-ons that replace it, by ID, and Titles their\ntitles; Pinned the one chosen in chats_tool_providers.",
+                    "description": "Candidates are the add-ons that replace it, by ID, and Titles their\ntitles; Pinned the one chosen in chats_tool_providers.\nCandidates come oldest install first; Default is the first, the one\nthat serves with no pin. InstalledAt maps a candidate to its install\ntime (RFC 3339, UTC) when known.",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
+                "default": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
+                },
+                "installed_at": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "note": {
                     "description": "Note says why the built-in serves although an add-on replaces it, or is\nempty: the chosen add-on is not running.",
@@ -17327,11 +17341,14 @@
             "type": "object",
             "properties": {
                 "candidates": {
-                    "description": "Candidates are the add-ons that replace it; Pinned the one chosen.",
+                    "description": "Candidates are the add-ons that replace it; Pinned the one chosen.\nCandidates come oldest install first; Default is the first, the one\nthat serves with no pin (\"installed first\"). InstalledAt maps a\ncandidate to its install time (RFC 3339, UTC) when known.",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                },
+                "default": {
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -17345,6 +17362,12 @@
                 },
                 "id": {
                     "type": "string"
+                },
+                "installed_at": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "label": {
                     "type": "string"

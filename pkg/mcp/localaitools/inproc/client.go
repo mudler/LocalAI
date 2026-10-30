@@ -1368,11 +1368,11 @@ func (c *Client) ListChatTools(ctx context.Context) (localaitools.ChatBuiltinToo
 			opts = []string{}
 		}
 		out = append(out, localaitools.ChatBuiltinTool{ID: t.ID, Label: t.Label, Description: t.Description, Group: t.Group, Setting: t.Setting,
-			Options: opts, ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Enabled: t.Enabled, Provider: t.Provider, Candidates: cands, Pinned: t.Pinned, Mode: t.Mode, Unavailable: t.Unavailable})
+			Options: opts, ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Enabled: t.Enabled, Provider: t.Provider, Candidates: cands, Default: t.Default, Pinned: t.Pinned, InstalledAt: t.InstalledAt, Mode: t.Mode, Unavailable: t.Unavailable})
 	}
 	skills := []schema.ChatsBuiltinSkill{}
 	for _, sk := range svc.AdminBuiltinSkills(ctx, "") {
-		skills = append(skills, schema.ChatsBuiltinSkill{ID: sk.ID, Provider: sk.Provider, Candidates: sk.Candidates, Titles: sk.Titles, Pinned: sk.Pinned, Note: sk.Note})
+		skills = append(skills, schema.ChatsBuiltinSkill{ID: sk.ID, Provider: sk.Provider, Candidates: sk.Candidates, Default: sk.Default, Titles: sk.Titles, Pinned: sk.Pinned, InstalledAt: sk.InstalledAt, Note: sk.Note})
 	}
 	return localaitools.ChatBuiltinToolList{Tools: out, Skills: skills}, nil
 }

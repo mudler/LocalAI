@@ -210,6 +210,14 @@ definitions:
           the same in version one: the receipt records no separate catalog name.
         example: notes
         type: string
+      installedAt:
+        description: |-
+          InstalledAt is when the add-on was first installed, RFC 3339 in UTC. It
+          is absent for an add-on installed before the host kept the time. The
+          oldest install is the default provider of a tool or skill name that
+          several add-ons replace.
+        example: "2026-10-30T09:15:00Z"
+        type: string
       launchMode:
         example: always
         type: string
@@ -2981,11 +2989,20 @@ definitions:
         description: |-
           Candidates are the add-ons that replace it, by ID, and Titles their
           titles; Pinned the one chosen in chats_tool_providers.
+          Candidates come oldest install first; Default is the first, the one
+          that serves with no pin. InstalledAt maps a candidate to its install
+          time (RFC 3339, UTC) when known.
         items:
           type: string
         type: array
+      default:
+        type: string
       id:
         type: string
+      installed_at:
+        additionalProperties:
+          type: string
+        type: object
       note:
         description: |-
           Note says why the built-in serves although an add-on replaces it, or is
@@ -3018,10 +3035,16 @@ definitions:
   schema.ChatsBuiltinTool:
     properties:
       candidates:
-        description: Candidates are the add-ons that replace it; Pinned the one chosen.
+        description: |-
+          Candidates are the add-ons that replace it; Pinned the one chosen.
+          Candidates come oldest install first; Default is the first, the one
+          that serves with no pin ("installed first"). InstalledAt maps a
+          candidate to its install time (RFC 3339, UTC) when known.
         items:
           type: string
         type: array
+      default:
+        type: string
       description:
         type: string
       enabled:
@@ -3031,6 +3054,10 @@ definitions:
         type: string
       id:
         type: string
+      installed_at:
+        additionalProperties:
+          type: string
+        type: object
       label:
         type: string
       mode:
@@ -12437,12 +12464,15 @@ paths:
         as this server registers them): label, the per-chat switch group, the runtime
         setting that switches each off and the ones that configure it, whether it
         is on, whether it only reads and whether an add-on may replace it, who serves
-        it now (builtin, an add-on''s ID, or empty), the add-ons that replace it and
-        the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec
+        it now (builtin, an add-on''s ID, or empty), the add-ons that replace it (oldest
+        install first, with their install times in installed_at), the default one
+        that serves with no pin (default: the add-on installed first) and the one
+        pinned with chats_tool_providers, and for bash the mode of chats_host_exec
         and why this server cannot run it, if so. skills lists the built-in skills
         (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each
-        now, the add-ons that replace it and the one pinned in the same chats_tool_providers
-        map. Change them with POST /api/settings.'
+        now, the add-ons that replace it (the same order, default and installed_at)
+        and the one pinned in the same chats_tool_providers map. Change them with
+        POST /api/settings.'
       responses:
         "200":
           description: The built-in tools, by ID

@@ -26,6 +26,9 @@ type Snapshot struct {
 	// State is the supervisor's observation of the process.
 	State   string
 	Receipt packages.PackageReceipt
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC, or
+	// "" for a record that predates the field.
+	InstalledAt string
 	// UpdatePending is true when the owner's cached update check says an
 	// update is available for exactly this installed package.
 	UpdatePending bool
@@ -70,6 +73,11 @@ type App struct {
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`
 	Version string `json:"version" example:"1.2.3"`
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC. It
+	// is absent for an add-on installed before the host kept the time. The
+	// oldest install is the default provider of a tool or skill name that
+	// several add-ons replace.
+	InstalledAt string `json:"installedAt,omitempty" example:"2026-10-30T09:15:00Z"`
 	// Generation is the installed generation. A Start or Stop request must
 	// carry the value that was listed; a stale value is denied.
 	Generation uint64 `json:"generation" example:"3"`
@@ -200,7 +208,7 @@ func Build(snaps []Snapshot, admin bool) []App {
 func build(s Snapshot, admin bool) App {
 	m := s.Receipt.Manifest
 	id := s.AddonID
-	a := App{ID: id, Name: id, Title: id, Version: m.Version, Generation: s.Generation, Enabled: s.Enabled, State: state(s), LaunchMode: contract.LaunchModeAlways, Tools: []string{}}
+	a := App{ID: id, Name: id, Title: id, Version: m.Version, InstalledAt: s.InstalledAt, Generation: s.Generation, Enabled: s.Enabled, State: state(s), LaunchMode: contract.LaunchModeAlways, Tools: []string{}}
 	if m.LaunchMode != "" {
 		a.LaunchMode = m.LaunchMode
 	}

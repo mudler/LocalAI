@@ -618,8 +618,13 @@ type ChatsBuiltinTool struct {
 	// Provider serves it now: builtin, an add-on's ID, or empty for nothing.
 	Provider string `json:"provider"`
 	// Candidates are the add-ons that replace it; Pinned the one chosen.
-	Candidates []string `json:"candidates"`
-	Pinned     string   `json:"pinned,omitempty"`
+	// Candidates come oldest install first; Default is the first, the one
+	// that serves with no pin ("installed first"). InstalledAt maps a
+	// candidate to its install time (RFC 3339, UTC) when known.
+	Candidates  []string          `json:"candidates"`
+	Default     string            `json:"default,omitempty"`
+	Pinned      string            `json:"pinned,omitempty"`
+	InstalledAt map[string]string `json:"installed_at,omitempty"`
 	// Mode is chats_host_exec as it applies (bash only): off, ask or on.
 	Mode string `json:"mode,omitempty"`
 	// Unavailable says why this server cannot run the built-in, or is empty.
@@ -634,9 +639,14 @@ type ChatsBuiltinSkill struct {
 	Provider string `json:"provider"`
 	// Candidates are the add-ons that replace it, by ID, and Titles their
 	// titles; Pinned the one chosen in chats_tool_providers.
-	Candidates []string          `json:"candidates"`
-	Titles     map[string]string `json:"titles,omitempty"`
-	Pinned     string            `json:"pinned,omitempty"`
+	// Candidates come oldest install first; Default is the first, the one
+	// that serves with no pin. InstalledAt maps a candidate to its install
+	// time (RFC 3339, UTC) when known.
+	Candidates  []string          `json:"candidates"`
+	Default     string            `json:"default,omitempty"`
+	Titles      map[string]string `json:"titles,omitempty"`
+	Pinned      string            `json:"pinned,omitempty"`
+	InstalledAt map[string]string `json:"installed_at,omitempty"`
 	// Note says why the built-in serves although an add-on replaces it, or is
 	// empty: the chosen add-on is not running.
 	Note string `json:"note,omitempty"`

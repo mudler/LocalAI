@@ -113,6 +113,9 @@ type ToolDefinition struct {
 	// contract.ToolDefinition.Shadows), or empty. Only the chat consumer acts
 	// on it; every other consumer keeps the namespaced Name.
 	Shadows string `json:"shadows,omitempty"`
+	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
+	// empty. The chat consumer ranks the add-ons that shadow one name by it.
+	InstalledAt string `json:"installedAt,omitempty"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -359,7 +362,9 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 // AddonSkills is the skills of one add-on the actor can see.
 type AddonSkills struct {
 	AddonID, Title string
-	Skills         []contract.SkillDefinition
+	// InstalledAt is when the add-on was first installed, or empty.
+	InstalledAt string
+	Skills      []contract.SkillDefinition
 	// Running is true when the add-on may serve now: enabled and running, as
 	// Discover requires for tools.
 	Running bool
@@ -383,7 +388,7 @@ func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]Addon
 			continue
 		}
 		running := a.Enabled && a.State == "running" && a.Generation > 0
-		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, Skills: slices.Clone(a.Skills), Running: running})
+		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: slices.Clone(a.Skills), Running: running})
 	}
 	slices.SortFunc(out, func(x, y AddonSkills) int { return strings.Compare(x.AddonID, y.AddonID) })
 	return out, nil
@@ -406,7 +411,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params}
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list never shadows it.
 	if contract.Replaceable(d.Shadows) && !d.UIOnly {

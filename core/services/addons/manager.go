@@ -392,6 +392,11 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		if next.Installed && !resumed {
 			return OperationStatus{}, ErrConflict
 		}
+		// Set once, here: the default provider of a shadowed tool or skill is
+		// the oldest install, so an upgrade must not move it.
+		if next.InstalledAt == "" || !next.Installed {
+			next.InstalledAt = time.Now().UTC().Format(time.RFC3339)
+		}
 	case "upgrade", "enable", "disable", "uninstall":
 		if !next.Installed {
 			return OperationStatus{}, ErrConflict
@@ -1085,7 +1090,7 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		if !ok {
 			continue
 		}
-		snap := apps.Snapshot{AddonID: id, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
+		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
 		}

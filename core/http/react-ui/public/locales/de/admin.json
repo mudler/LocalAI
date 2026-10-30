@@ -265,7 +265,9 @@
     "byNone": "Aus",
     "unavailable": "Dieser Server kann es nicht ausführen: {{reason}}.",
     "installSandbox": "Installieren Sie die Sandbox, um Befehle isoliert auszuführen",
-    "replaceExplain": "Diese Add-ons ersetzen {{tool}}: Das gewählte stellt es in jedem Chat bereit, in dem es an ist und läuft, und das eingebaute wird ausgeblendet. Nur eines kann aktiv sein.",
+    "replaceExplain": "Diese Add-ons ersetzen {{tool}}: Das gewählte stellt es in jedem Chat bereit, in dem es an ist und läuft, und das eingebaute wird ausgeblendet. Nur eines kann aktiv sein. Solange Sie nichts wählen, stellt das zuerst installierte es bereit.",
+    "defaultInstalledFirst": "Standard: zuerst installiert",
+    "installedOn": "Installiert {{when}}",
     "choose_one": "{{count}} Add-on ersetzt {{tool}}: Wählen Sie, welches verwendet wird.",
     "choose_other": "{{count}} Add-ons ersetzen {{tool}}: Wählen Sie, welches verwendet wird.",
     "labels": {

@@ -258,6 +258,7 @@
     "hasUI": "有页面",
     "headless": "无界面,没有页面",
     "health": "健康状况",
+    "installedAt": "安装时间",
     "host": "主机 API",
     "interface": "界面",
     "logs": "日志",
@@ -686,9 +687,9 @@
     "seeInList": "在“已安装”中查看",
     "install": "安装",
     "installNamed": "安装 {{name}}",
-    "shadowWarning": "此插件会替换内置的 {{tool}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。",
+    "shadowWarning": "此插件会替换内置的 {{tool}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。 在你选择之前，由最先安装的插件提供。",
     "skillShadow": "此插件会替换内置技能 {{skill}}。",
-    "skillShadowWarning": "此插件会替换内置技能 {{skill}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。"
+    "skillShadowWarning": "此插件会替换内置技能 {{skill}}。另一个插件（{{name}}）已经替换了它。只能有一个生效；你可以在 设置 > 工具 中选择。 在你选择之前，由最先安装的插件提供。"
   },
   "family": {
     "pages": "在找你或智能体创建的页面?它们在<go>页面</go>中。"

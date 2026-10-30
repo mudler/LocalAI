@@ -16,9 +16,13 @@ type Installed struct {
 	Title       string `json:"title" example:"Notes"`
 	Description string `json:"description,omitempty"`
 	// Icon is the same-origin icon URL of the installed generation.
-	Icon       string `json:"icon,omitempty"`
-	Version    string `json:"version" example:"1.2.3"`
-	Generation uint64 `json:"generation" example:"3"`
+	Icon    string `json:"icon,omitempty"`
+	Version string `json:"version" example:"1.2.3"`
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC; an
+	// upgrade keeps it. It is absent for an add-on installed before the host
+	// kept the time.
+	InstalledAt string `json:"installedAt,omitempty" example:"2026-10-30T09:15:00Z"`
+	Generation  uint64 `json:"generation" example:"3"`
 	// Enabled is the durable desired state. State is the separate observation
 	// of the process: running, starting, failed or stopped.
 	Enabled bool   `json:"enabled"`
@@ -113,7 +117,7 @@ func BuildInstalled(snaps []Snapshot) []Installed {
 		a := build(s, true)
 		m, r := s.Receipt.Manifest, s.Receipt
 		out = append(out, Installed{
-			ID: s.AddonID, Title: a.Title, Description: a.Description, Icon: a.Icon, Version: m.Version, Generation: s.Generation,
+			ID: s.AddonID, Title: a.Title, Description: a.Description, Icon: a.Icon, Version: m.Version, InstalledAt: s.InstalledAt, Generation: s.Generation,
 			Enabled: s.Enabled, State: a.State, SourceID: r.SourceID, Channel: r.Channel, Selection: r.Selection, Verification: r.Verification, Digest: r.Digest,
 			Platform:      Platform{OS: m.OS, Arch: m.Arch},
 			Compatibility: Compatibility{Host: m.Host, API: m.API, Protocol: m.Protocol, DataFormat: m.DataFormat},

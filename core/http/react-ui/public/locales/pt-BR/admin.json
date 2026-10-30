@@ -288,7 +288,9 @@
     "byNone": "Desligada",
     "unavailable": "Este servidor não consegue executá-la: {{reason}}.",
     "installSandbox": "Instale o Sandbox para rodar comandos isolados",
-    "replaceExplain": "Estes complementos substituem {{tool}}: o escolhido o fornece em cada chat em que está ligado e rodando, e o integrado fica oculto. Só um pode estar ativo.",
+    "replaceExplain": "Estes complementos substituem {{tool}}: o escolhido o fornece em cada chat em que está ligado e rodando, e o integrado fica oculto. Só um pode estar ativo. Até você escolher, o que foi instalado primeiro o fornece.",
+    "defaultInstalledFirst": "Padrão: instalado primeiro",
+    "installedOn": "Instalado em {{when}}",
     "choose_one": "{{count}} complemento substitui {{tool}}: escolha qual usar.",
     "choose_other": "{{count}} complementos substituem {{tool}}: escolha qual usar.",
     "labels": {

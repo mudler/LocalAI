@@ -258,6 +258,7 @@
     "hasUI": "Has pages",
     "headless": "Headless, no pages",
     "health": "Health",
+    "installedAt": "Installed",
     "host": "Host API",
     "interface": "Interface",
     "logs": "Logs",
@@ -686,9 +687,9 @@
     "seeInList": "See it in Installed",
     "install": "Install",
     "installNamed": "Install {{name}}",
-    "shadowWarning": "This add-on replaces the built-in {{tool}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools.",
+    "shadowWarning": "This add-on replaces the built-in {{tool}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves.",
     "skillShadow": "This add-on replaces the built-in skill {{skill}}.",
-    "skillShadowWarning": "This add-on replaces the built-in skill {{skill}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools."
+    "skillShadowWarning": "This add-on replaces the built-in skill {{skill}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves."
   },
   "family": {
     "pages": "Looking for pages you or an agent made? They are in <go>Pages</go>."

@@ -250,6 +250,30 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 		}
 	})
 
+	It("serves the oldest install with no pin, ties and missing times by ID, and a pin still wins", func() {
+		old, young := office(true), sheets(true)
+		old.InstalledAt, young.InstalledAt = "2026-10-02T10:00:00Z", "2026-10-01T10:00:00Z"
+		b.set(old, young)
+		prompt, _, _ := turn(nil, nil)
+		Expect(prompt).To(ContainSubstring("Sheets sheets."), "sheets was installed first")
+		Expect(prompt).NotTo(ContainSubstring("Office sheets."))
+		list := svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(list[0].Candidates).To(Equal([]string{"sheets", "office"}))
+		Expect(list[0].Default).To(Equal("sheets"))
+		Expect(list[0].InstalledAt).To(HaveKeyWithValue("sheets", "2026-10-01T10:00:00Z"))
+		pins["xlsx"] = "office"
+		prompt, _, _ = turn(nil, nil)
+		Expect(prompt).To(ContainSubstring("Office sheets."))
+		list = svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(list[0].Provider).To(Equal("office"))
+		Expect(list[0].Default).To(Equal("sheets"), "the default does not follow the pin")
+		pins["xlsx"] = ""
+		old.InstalledAt = ""
+		b.set(old, young)
+		prompt, _, _ = turn(nil, nil)
+		Expect(prompt).To(ContainSubstring("Sheets sheets."), "a record with no time sorts last")
+	})
+
 	It("lets the built-in serve, with a note, when the pinned add-on is stopped", func() {
 		pins["xlsx"] = "sheets"
 		b.set(office(true), sheets(false))

@@ -27,6 +27,9 @@ type AddonTool struct {
 	// Shadows is the built-in chat tool this tool replaces (see shadow.go), or
 	// empty: the tool keeps its add-on name.
 	Shadows string
+	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
+	// empty. It decides the default provider of a shadowed name.
+	InstalledAt string
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -194,7 +197,11 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	if s.d.ToolPins != nil {
 		pins = s.d.ToolPins()
 	}
-	tools = resolveShadows(tools, pins)
+	installed := map[string]string{}
+	for _, d := range defs {
+		installed[d.AddonID] = d.InstalledAt
+	}
+	tools = resolveShadows(tools, pins, installed)
 	var missing []string
 	if sc != nil {
 		for _, id := range sc.addonNames {

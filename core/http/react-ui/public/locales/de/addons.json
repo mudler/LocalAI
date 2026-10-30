@@ -258,6 +258,7 @@
     "hasUI": "Hat Seiten",
     "headless": "Ohne Oberfläche, keine Seiten",
     "health": "Zustand",
+    "installedAt": "Installiert",
     "host": "Host-API",
     "interface": "Oberfläche",
     "logs": "Protokolle",
@@ -686,9 +687,9 @@
     "seeInList": "In Installiert ansehen",
     "install": "Installieren",
     "installNamed": "{{name}} installieren",
-    "shadowWarning": "Dieses Add-on ersetzt das eingebaute {{tool}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge.",
+    "shadowWarning": "Dieses Add-on ersetzt das eingebaute {{tool}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge. Solange Sie nichts wählen, stellt das zuerst installierte es bereit.",
     "skillShadow": "Dieses Add-on ersetzt den integrierten Skill {{skill}}.",
-    "skillShadowWarning": "Dieses Add-on ersetzt den integrierten Skill {{skill}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge."
+    "skillShadowWarning": "Dieses Add-on ersetzt den integrierten Skill {{skill}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge. Solange Sie nichts wählen, stellt das zuerst installierte es bereit."
   },
   "family": {
     "pages": "Du suchst Seiten, die du oder ein Agent erstellt hast? Sie sind unter <go>Seiten</go>."

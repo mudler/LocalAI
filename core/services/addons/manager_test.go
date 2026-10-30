@@ -19,6 +19,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -246,6 +247,35 @@ var _ = Describe("designated owner lifecycle", func() {
 			Expect(g.Number).To(Equal(uint64(n + 1)))
 			Expect(filepath.Join(g.Receipt.Directory, "receipt.json")).To(BeAnExistingFile())
 		}
+	})
+
+	It("stamps the first install, keeps the time over an upgrade and stamps it again after an uninstall", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		_, e := m.Submit(ctx, actor, command("0", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		s, e := m.Status(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		first, perr := time.Parse(time.RFC3339, s.InstalledAt)
+		Expect(perr).NotTo(HaveOccurred())
+		Expect(s.InstalledAt).To(HaveSuffix("Z"), "UTC")
+		Expect(first).To(BeTemporally("~", time.Now(), time.Minute))
+		_, e = m.Submit(ctx, actor, command("1", "upgrade"))
+		Expect(e).NotTo(HaveOccurred())
+		s, _ = m.Status(ctx, "sample")
+		Expect(s.Generation).To(Equal(uint64(2)))
+		Expect(s.InstalledAt).To(Equal(first.UTC().Format(time.RFC3339)))
+		list, e := m.Installed(ctx, actor)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(list[0].InstalledAt).To(Equal(s.InstalledAt))
+		_, e = m.Submit(ctx, actor, command("2", "uninstall"))
+		Expect(e).NotTo(HaveOccurred())
+		_, e = m.Submit(ctx, actor, command("3", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		s, _ = m.Status(ctx, "sample")
+		again, perr := time.Parse(time.RFC3339, s.InstalledAt)
+		Expect(perr).NotTo(HaveOccurred())
+		Expect(again).To(BeTemporally(">=", first))
 	})
 
 	It("excludes competing owners and rejects conflicting durable identities", func() {

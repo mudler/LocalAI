@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatWhen } from '../addons/updateState'
 import { Link } from 'react-router-dom'
 import { Callout, LoadError, SkeletonRows, Switch } from '../ui'
 import { chatBuiltinToolsApi } from '../../utils/api'
@@ -79,12 +80,14 @@ function BoolControls({ tool, settings, onChange }) {
 }
 
 // The add-ons that replace one tool or skill: mutually exclusive, the pinned
-// one serves. titles, when given, maps an add-on ID to its title.
+// one serves. titles, when given, maps an add-on ID to its title. With no pin
+// the server's default serves: the add-on installed first, which is marked.
 function ProviderChoice({ tool, settings, onChange, titles }) {
-  const { t } = useTranslation('admin')
+  const { t, i18n } = useTranslation('admin')
   const pins = readPins(settings)
   const pinned = pins[tool.id] || ''
-  const active = pinned && tool.candidates.includes(pinned) ? pinned : tool.candidates[0]
+  const first = tool.default || tool.candidates[0]
+  const active = pinned && tool.candidates.includes(pinned) ? pinned : first
   const set = (id) => onChange(writePins(settings, { ...pins, [tool.id]: id }))
   return (
     <fieldset className="st-tools__choice" data-testid={`settings-tools-${tool.id}-providers`}>
@@ -97,7 +100,15 @@ function ProviderChoice({ tool, settings, onChange, titles }) {
       {tool.candidates.map(id => (
         <label key={id} className="st-tools__radio">
           <input type="radio" name={`provider-${tool.id}`} value={id} checked={id === active} onChange={() => set(id)} />
-          <span>{titles?.[id] || id}</span>
+          <span>
+            {titles?.[id] || id}
+            {tool.installed_at?.[id] && formatWhen(tool.installed_at[id], i18n.language) && (
+              <span className="st-row__desc" data-testid={`settings-tools-${tool.id}-${id}-installed`}> {t('settingsTools.installedOn', { when: formatWhen(tool.installed_at[id], i18n.language) })}</span>
+            )}
+            {id === first && tool.candidates.length > 1 && (
+              <span className="st-tag" data-testid={`settings-tools-${tool.id}-${id}-default`}> {t('settingsTools.defaultInstalledFirst')}</span>
+            )}
+          </span>
         </label>
       ))}
     </fieldset>

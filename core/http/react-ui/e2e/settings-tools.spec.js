@@ -47,9 +47,12 @@ test.describe('Settings > Tools', () => {
   })
 
   test('with two add-ons that replace bash and no choice, it asks to choose one and saves the pin', async ({ page }) => {
-    const state = await openTools(page, [bash({ provider: 'other', candidates: ['other', 'sandbox'] })])
+    const state = await openTools(page, [bash({ provider: 'other', candidates: ['other', 'sandbox'], default: 'other', installed_at: { other: '2026-09-01T10:00:00Z', sandbox: '2026-10-01T10:00:00Z' } })])
     await expect(page.getByTestId('settings-tools-bash-unpinned')).toHaveText('2 add-ons replace bash: choose which one to use.')
     await expect(page.getByTestId('settings-tools-bash-provider')).toHaveText('Add-on: other')
+    await expect(page.getByTestId('settings-tools-bash-other-default')).toHaveText('Default: installed first')
+    await expect(page.getByTestId('settings-tools-bash-sandbox-default')).toHaveCount(0)
+    await expect(page.getByTestId('settings-tools-bash-sandbox-installed')).toContainText('Installed')
     await page.getByTestId('settings-tools-bash-providers').getByRole('radio', { name: 'sandbox' }).check()
     await page.getByRole('button', { name: 'Apply' }).click()
     await expect.poll(() => state.posts).toEqual([{ chats_tool_providers: { bash: 'sandbox' } }])
@@ -66,7 +69,7 @@ test.describe('Install of an add-on that replaces a built-in tool', () => {
     await page.goto('/app/addons?tab=browse')
     await page.getByRole('button', { name: 'Install Runner' }).click()
     const warning = page.getByTestId('install-shadow-warning')
-    await expect(warning).toHaveText('This add-on replaces the built-in bash. Another add-on (Sandbox) already does. Only one can be active; you choose which in Settings > Tools.')
+    await expect(warning).toHaveText('This add-on replaces the built-in bash. Another add-on (Sandbox) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves.')
     await expect(page.getByTestId('install-dialog').getByRole('button', { name: 'Install and turn on' })).toBeEnabled()
     await shot(page, 'install-shadow-warning')
   })
@@ -84,12 +87,13 @@ test.describe('Settings > Tools: skills that add-ons replace', () => {
 
   test('lists who serves a replaced skill and saves the choice in the same pin map as the tools', async ({ page }) => {
     const state = await openWithSkills(page, [
-      { id: 'xlsx', provider: 'office', candidates: ['office', 'sheets'], titles: { office: 'Office', sheets: 'Sheets' } },
+      { id: 'xlsx', provider: 'office', candidates: ['office', 'sheets'], default: 'office', titles: { office: 'Office', sheets: 'Sheets' } },
       { id: 'docx', provider: 'builtin', candidates: ['office'], titles: { office: 'Office' }, pinned: 'office', note: 'not running' },
     ])
     await expect(page.getByTestId('settings-tools-skills')).toContainText('Skills that add-ons replace')
     await expect(page.getByTestId('settings-tools-skill-xlsx-provider')).toHaveText('Add-on: Office')
     await expect(page.getByTestId('settings-tools-xlsx-unpinned')).toHaveText('2 add-ons replace xlsx: choose which one to use.')
+    await expect(page.getByTestId('settings-tools-xlsx-office-default')).toBeVisible()
     await expect(page.getByTestId('settings-tools-skill-docx-provider')).toHaveText('Built-in')
     await expect(page.getByTestId('settings-tools-skill-docx-note')).toHaveText('The chosen add-on is not running: the built-in skill serves.')
     await expect(page.getByTestId('settings-tools-docx-providers')).toHaveCount(0)
@@ -111,7 +115,7 @@ test.describe('Install of an add-on that replaces a built-in skill', () => {
     await page.getByRole('button', { name: 'Install Office' }).click()
     const warnings = page.getByTestId('install-skill-warning')
     await expect(warnings).toHaveCount(2)
-    await expect(warnings.nth(0)).toHaveText('This add-on replaces the built-in skill xlsx. Another add-on (Sheets) already does. Only one can be active; you choose which in Settings > Tools.')
+    await expect(warnings.nth(0)).toHaveText('This add-on replaces the built-in skill xlsx. Another add-on (Sheets) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves.')
     await expect(warnings.nth(1)).toHaveText('This add-on replaces the built-in skill docx.')
     await expect(page.getByTestId('install-dialog').getByRole('button', { name: 'Install and turn on' })).toBeEnabled()
     await shot(page, 'install-skill-warning')
