@@ -99,6 +99,24 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(rec.Body.String()).To(ContainSubstring("Invalid watchdog_idle_timeout"))
 	})
 
+	It("rejects a host-commands mode and pins the chats do not understand", func() {
+		rec := post(`{"chats_host_exec":"always"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_host_exec"))
+		rec = post(`{"chats_tool_providers":{"write_file":"files"}}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_tool_providers"))
+		rec = post(`{"chats_tool_providers":{"bash":"Not An ID"}}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+	})
+
+	It("saves the host-commands mode and a pin", func() {
+		rec := post(`{"chats_host_exec":"ask","chats_tool_providers":{"bash":"sandbox"}}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(app.ApplicationConfig().ChatsHostExec).To(Equal("ask"))
+		Expect(app.ApplicationConfig().ChatsToolProviders).To(Equal(map[string]string{"bash": "sandbox"}))
+	})
+
 	It("errors when DynamicConfigsDir is unset", func() {
 		app.ApplicationConfig().DynamicConfigsDir = ""
 		rec := post(`{}`)
