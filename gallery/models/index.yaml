@@ -28027,6 +28027,7 @@
         model: ced-base-q8_0.gguf
     variants:
       - model: ced-base-f16
+      - model: parakeet-cpp-ced-base
 - kind: model
   id: ced-tiny-f16
   name: ced-tiny-f16
@@ -28091,6 +28092,7 @@
         model: ced-tiny-q8_0.gguf
     variants:
       - model: ced-tiny-f16
+      - model: parakeet-cpp-ced-tiny
 - kind: model
   id: ced-mini-f16
   name: ced-mini-f16
@@ -30769,6 +30771,9 @@
         - video_num_frames:124
       parameters:
         model: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
+    variants:
+      - model: minimax-h3-fl2va-q4
+      - model: minimax-h3-fl2va-unpruned-q4-ggml
 - kind: model
   id: minimax-h3-fl2va-q4
   name: minimax-h3-fl2va-q4
@@ -30963,6 +30968,8 @@
         - video_num_frames:124
       parameters:
         model: minimax-h3/MiniMax-H3-REF2VA-Q4_K_M.gguf
+    variants:
+      - model: minimax-h3-ref2va-q4
 - kind: model
   id: minimax-h3-ref2va-q4
   name: minimax-h3-ref2va-q4
@@ -31632,6 +31639,14 @@
         - video_num_frames:124
       parameters:
         model: minimax-h3/minimax_h3_fl2va_pruned-Q2_K.gguf
+    variants:
+      - model: minimax-h3-fl2va-pruned-nvfp4
+      - model: minimax-h3-fl2va-pruned-q3
+      - model: minimax-h3-fl2va-pruned-q4
+      - model: minimax-h3-fl2va-pruned-q4-ggml
+      - model: minimax-h3-fl2va-pruned-q5
+      - model: minimax-h3-fl2va-pruned-q6
+      - model: minimax-h3-fl2va-pruned-q8
 - kind: model
   id: minimax-h3-ref2va-pruned-q8
   name: minimax-h3-ref2va-pruned-q8
@@ -32220,6 +32235,13 @@
         - video_num_frames:124
       parameters:
         model: minimax-h3/minimax_h3_ref2va_pruned-Q2_K.gguf
+    variants:
+      - model: minimax-h3-ref2va-pruned-q3
+      - model: minimax-h3-ref2va-pruned-q4
+      - model: minimax-h3-ref2va-pruned-q4-ggml
+      - model: minimax-h3-ref2va-pruned-q5
+      - model: minimax-h3-ref2va-pruned-q6
+      - model: minimax-h3-ref2va-pruned-q8
 - kind: model
   id: minimax-h3-fl2va-pruned-nvfp4
   name: minimax-h3-fl2va-pruned-nvfp4
@@ -68308,6 +68330,8 @@
       parameters:
         model: stablediffusion-cpp/models/flux3_image_klein_sd-Q4_K_M.gguf
       step: 16
+    variants:
+      - model: flux.3-image-klein-q8_0
 - kind: model
   id: flux.3-image-klein-q8_0
   name: flux.3-image-klein-q8_0
@@ -68417,6 +68441,8 @@
       parameters:
         model: stablediffusion-cpp/models/flux3_image_klein-Q4_K_M.gguf
       step: 20
+    variants:
+      - model: flux.3-image-klein-base-q8_0
 - kind: model
   id: flux.3-image-klein-base-q8_0
   name: flux.3-image-klein-base-q8_0
@@ -76757,6 +76783,8 @@
       name: parakeet-cpp-tdt-0.6b-v3
       parameters:
         model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+    variants:
+      - model: parakeet-cpp-tdt-0.6b-v3-silero-vad
 - kind: model
   id: parakeet-cpp-phonon-2.5-f16
   name: parakeet-cpp-phonon-2.5-f16
@@ -76874,6 +76902,9 @@
       name: parakeet-cpp-phonon-2.5-q4_k
       parameters:
         model: parakeet-cpp/phonon-2.5-q4_k.gguf
+    variants:
+      - model: parakeet-cpp-phonon-2.5-f16
+      - model: parakeet-cpp-phonon-2.5-q8_0
 - kind: model
   id: parakeet-cpp-phonon-2.5-packed
   name: parakeet-cpp-phonon-2.5-packed
@@ -77030,6 +77061,9 @@
       name: parakeet-cpp-phonon-2.5-english-q4_k
       parameters:
         model: parakeet-cpp/phonon-2.5-english-q4_k.gguf
+    variants:
+      - model: parakeet-cpp-phonon-2.5-english-f16
+      - model: parakeet-cpp-phonon-2.5-english-q8_0
 - kind: model
   id: parakeet-cpp-phonon-2.5-english-packed
   name: parakeet-cpp-phonon-2.5-english-packed
@@ -77375,6 +77409,8 @@
         - vad:true
       parameters:
         model: parakeet-cpp/ultra-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-moondream-ultra-f16
 - kind: model
   id: parakeet-cpp-moondream-redux-packed
   name: parakeet-cpp-moondream-redux-packed
@@ -77498,6 +77534,8 @@
         - vad:true
       parameters:
         model: parakeet-cpp/redux-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-moondream-redux-f16
 - kind: model
   id: parakeet-cpp-silero-vad-f16
   name: parakeet-cpp-silero-vad-f16
@@ -77537,6 +77575,8 @@
       name: parakeet-cpp-silero-vad-f16
       parameters:
         model: parakeet-cpp/silero-vad-f16.gguf
+    variants:
+      - model: parakeet-cpp-vad
 - kind: model
   id: parakeet-cpp-vad-moondream-redux-packed
   name: parakeet-cpp-vad-moondream-redux-packed
@@ -77692,6 +77732,8 @@
       name: parakeet-cpp-vad-moondream-ultra
       parameters:
         model: parakeet-cpp/ultra-vad-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-vad-moondream-ultra-q8_0
 - kind: model
   id: parakeet-cpp-vad
   name: parakeet-cpp-vad
@@ -77810,6 +77852,10 @@
       name: parakeet-cpp-nemotron-3-diarization
       parameters:
         model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+    variants:
+      - model: parakeet-cpp-nemotron-3-diarization-asr
+      - model: parakeet-cpp-nemotron-3-diarization-asr-speakers
+      - model: parakeet-cpp-nemotron-3-diarization-speakers
 - kind: model
   id: parakeet-cpp-nemotron-3-diarization-asr
   name: parakeet-cpp-nemotron-3-diarization-asr
@@ -78037,6 +78083,10 @@
         - speaker_model:voice-detect-wespeaker-resnet34.gguf
       parameters:
         model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+    variants:
+      - model: parakeet-cpp-multilingual-diarization-speakers-sounds
+      - model: parakeet-cpp-realtime-scene-tdt
+      - model: parakeet-cpp-realtime-scene-tdt-base
 - kind: model
   id: parakeet-cpp-multilingual-diarization-speakers-sounds
   name: parakeet-cpp-multilingual-diarization-speakers-sounds
@@ -78331,6 +78381,9 @@
         - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
       parameters:
         model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+    variants:
+      - model: parakeet-cpp-realtime-scene-base
+      - model: parakeet-cpp-realtime-scene-speakers
 - kind: model
   id: parakeet-cpp-realtime-scene-tdt
   name: parakeet-cpp-realtime-scene-tdt
@@ -92168,6 +92221,8 @@
       name: nemo-speech-cpp-nemotron-3.5-asr-streaming
       parameters:
         model: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+    variants:
+      - model: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
 - kind: model
   id: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
   name: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
@@ -92266,6 +92321,8 @@
       name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
       parameters:
         model: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+    variants:
+      - model: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
 - kind: model
   id: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
   name: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized

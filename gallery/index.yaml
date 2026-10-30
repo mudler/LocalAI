@@ -23946,6 +23946,7 @@
       model: ced-base-q8_0.gguf
   variants:
     - model: ced-base-f16
+    - model: parakeet-cpp-ced-base
 - url: github:mudler/LocalAI/gallery/ced.yaml@master
   name: ced-tiny-f16
   description: |
@@ -23994,6 +23995,7 @@
       model: ced-tiny-q8_0.gguf
   variants:
     - model: ced-tiny-f16
+    - model: parakeet-cpp-ced-tiny
 - url: github:mudler/LocalAI/gallery/ced.yaml@master
   name: ced-mini-f16
   description: |
@@ -26200,6 +26202,9 @@
       - video_num_frames:124
     parameters:
       model: minimax-h3/MiniMax-H3-FL2VA-Q4_K_M.gguf
+  variants:
+    - model: minimax-h3-fl2va-q4
+    - model: minimax-h3-fl2va-unpruned-q4-ggml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: minimax-h3-fl2va-q4
   description: |
@@ -26378,6 +26383,8 @@
       - video_num_frames:124
     parameters:
       model: minimax-h3/MiniMax-H3-REF2VA-Q4_K_M.gguf
+  variants:
+    - model: minimax-h3-ref2va-q4
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: minimax-h3-ref2va-q4
   description: |
@@ -26991,6 +26998,14 @@
       - video_num_frames:124
     parameters:
       model: minimax-h3/minimax_h3_fl2va_pruned-Q2_K.gguf
+  variants:
+    - model: minimax-h3-fl2va-pruned-nvfp4
+    - model: minimax-h3-fl2va-pruned-q3
+    - model: minimax-h3-fl2va-pruned-q4
+    - model: minimax-h3-fl2va-pruned-q4-ggml
+    - model: minimax-h3-fl2va-pruned-q5
+    - model: minimax-h3-fl2va-pruned-q6
+    - model: minimax-h3-fl2va-pruned-q8
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: minimax-h3-ref2va-pruned-q8
   description: |
@@ -27531,6 +27546,13 @@
       - video_num_frames:124
     parameters:
       model: minimax-h3/minimax_h3_ref2va_pruned-Q2_K.gguf
+  variants:
+    - model: minimax-h3-ref2va-pruned-q3
+    - model: minimax-h3-ref2va-pruned-q4
+    - model: minimax-h3-ref2va-pruned-q4-ggml
+    - model: minimax-h3-ref2va-pruned-q5
+    - model: minimax-h3-ref2va-pruned-q6
+    - model: minimax-h3-ref2va-pruned-q8
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: minimax-h3-fl2va-pruned-nvfp4
   description: |
@@ -56559,6 +56581,8 @@
     parameters:
       model: stablediffusion-cpp/models/flux3_image_klein_sd-Q4_K_M.gguf
     step: 16
+  variants:
+    - model: flux.3-image-klein-q8_0
 - url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
   name: flux.3-image-klein-q8_0
   description: |
@@ -56652,6 +56676,8 @@
     parameters:
       model: stablediffusion-cpp/models/flux3_image_klein-Q4_K_M.gguf
     step: 20
+  variants:
+    - model: flux.3-image-klein-base-q8_0
 - url: github:mudler/LocalAI/gallery/flux-ggml.yaml@master
   name: flux.3-image-klein-base-q8_0
   description: |
@@ -63024,6 +63050,8 @@
     name: parakeet-cpp-tdt-0.6b-v3
     parameters:
       model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  variants:
+    - model: parakeet-cpp-tdt-0.6b-v3-silero-vad
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-phonon-2.5-f16
   description: |
@@ -63117,6 +63145,9 @@
     name: parakeet-cpp-phonon-2.5-q4_k
     parameters:
       model: parakeet-cpp/phonon-2.5-q4_k.gguf
+  variants:
+    - model: parakeet-cpp-phonon-2.5-f16
+    - model: parakeet-cpp-phonon-2.5-q8_0
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-phonon-2.5-packed
   description: |
@@ -63241,6 +63272,9 @@
     name: parakeet-cpp-phonon-2.5-english-q4_k
     parameters:
       model: parakeet-cpp/phonon-2.5-english-q4_k.gguf
+  variants:
+    - model: parakeet-cpp-phonon-2.5-english-f16
+    - model: parakeet-cpp-phonon-2.5-english-q8_0
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-phonon-2.5-english-packed
   description: |
@@ -63514,6 +63548,8 @@
       - vad:true
     parameters:
       model: parakeet-cpp/ultra-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-moondream-ultra-f16
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-moondream-redux-packed
   description: |
@@ -63613,6 +63649,8 @@
       - vad:true
     parameters:
       model: parakeet-cpp/redux-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-moondream-redux-f16
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-silero-vad-f16
   description: |
@@ -63644,6 +63682,8 @@
     name: parakeet-cpp-silero-vad-f16
     parameters:
       model: parakeet-cpp/silero-vad-f16.gguf
+  variants:
+    - model: parakeet-cpp-vad
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-vad-moondream-redux-packed
   description: |
@@ -63767,6 +63807,8 @@
     name: parakeet-cpp-vad-moondream-ultra
     parameters:
       model: parakeet-cpp/ultra-vad-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-vad-moondream-ultra-q8_0
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-vad
   description: |
@@ -63861,6 +63903,10 @@
     name: parakeet-cpp-nemotron-3-diarization
     parameters:
       model: parakeet-cpp/nemotron-3-diarization-q8_0.gguf
+  variants:
+    - model: parakeet-cpp-nemotron-3-diarization-asr
+    - model: parakeet-cpp-nemotron-3-diarization-asr-speakers
+    - model: parakeet-cpp-nemotron-3-diarization-speakers
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-nemotron-3-diarization-asr
   description: |
@@ -64056,6 +64102,10 @@
       - speaker_model:voice-detect-wespeaker-resnet34.gguf
     parameters:
       model: parakeet-cpp/tdt-0.6b-v3-f16.gguf
+  variants:
+    - model: parakeet-cpp-multilingual-diarization-speakers-sounds
+    - model: parakeet-cpp-realtime-scene-tdt
+    - model: parakeet-cpp-realtime-scene-tdt-base
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-multilingual-diarization-speakers-sounds
   description: |
@@ -64310,6 +64360,9 @@
       - sound_model:parakeet-cpp/ced-tiny-q8_0.gguf
     parameters:
       model: parakeet-cpp/realtime_eou_120m-v1-f16.gguf
+  variants:
+    - model: parakeet-cpp-realtime-scene-base
+    - model: parakeet-cpp-realtime-scene-speakers
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: parakeet-cpp-realtime-scene-tdt
   description: |
@@ -74915,6 +74968,8 @@
     name: nemo-speech-cpp-nemotron-3.5-asr-streaming
     parameters:
       model: nemo-speech-cpp/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf
+  variants:
+    - model: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: nemo-speech-cpp-nemotron-3.5-asr-streaming-diarized
   description: |
@@ -74997,6 +75052,8 @@
     name: nemo-speech-cpp-parakeet-tdt-0.6b-v3
     parameters:
       model: nemo-speech-cpp/parakeet-tdt-0.6b-v3.q8_0.gguf
+  variants:
+    - model: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: nemo-speech-cpp-parakeet-tdt-0.6b-v3-diarized
   description: |
