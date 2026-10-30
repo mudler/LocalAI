@@ -28,6 +28,8 @@ import Icon from '../components/Icon'
 import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
 import CatalogEmpty from '../components/catalog/CatalogEmpty'
+import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
+import { useBulkUpgrade } from '../hooks/useBulkUpgrade'
 import './operate.css'
 
 const CATALOG_FILTERS = [
@@ -114,7 +116,6 @@ export default function Backends() {
   const [libUpdates, setLibUpdates] = useState({})
   const [libWork, setLibWork] = useState({})
   const [libReload, setLibReload] = useState(0)
-  const [upgradingAll, setUpgradingAll] = useState(false)
   const [checking, setChecking] = useState(false)
   const [preferDevLoaded, setPreferDevLoaded] = useState(false)
   const [preferDev, setPreferDev] = useState(false)
@@ -257,6 +258,24 @@ export default function Backends() {
     [allBackends],
   )
   const updateNames = Object.keys(upgrades)
+  // "Update all": each backend is updated on its own, one after another, and a
+  // failure does not stop the rest. The run lives here so closing the dialog
+  // keeps it going.
+  const bulkItems = useMemo(() => updateNames.map(name => ({
+    id: name, name, from: upgrades[name].installed_version || '', to: upgrades[name].available_version || '', startable: true,
+  })), [upgrades]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bulk = useBulkUpgrade({
+    items: bulkItems,
+    runOne: async (item) => {
+      try {
+        await backendsApi.upgrade(item.id)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, message: t('backends.updateAllFailed', { name: item.name, message: err.message }) }
+      }
+    },
+  })
+  const upgradingAll = bulk.running
   const installedCount = installed.length
   const recommended = activeView === 'catalog' && !search && !catalogFilter && installedOnce.current && installedCount === 0
     ? recommendedBackend(allBackends)
@@ -513,29 +532,6 @@ export default function Backends() {
       setError(name, t('backends.reinstallFailed', { message: err.message }))
     } finally {
       markPending(name, false)
-    }
-  }
-
-  const handleUpgradeAll = async () => {
-    if (updateNames.length === 0) return
-    setUpgradingAll(true)
-    setGlobalError('')
-    try {
-      const failures = []
-      for (const name of updateNames) {
-        try {
-          await backendsApi.upgrade(name)
-        } catch (err) {
-          failures.push(t('backends.updateAllFailed', { name, message: err.message }))
-        }
-      }
-      if (failures.length > 0) {
-        setGlobalError(failures.join(' '))
-        return
-      }
-      addToast(t('backends.updateAllStarted', { count: updateNames.length }), 'info')
-    } finally {
-      setUpgradingAll(false)
     }
   }
 
@@ -1012,10 +1008,7 @@ export default function Backends() {
 
         <div className="bk-bar__acts">
           {installEnabled && updateNames.length > 0 && (
-            <button type="button" className="dk-btn dk-btn--primary" onClick={handleUpgradeAll} disabled={upgradingAll}>
-              <Icon name={upgradingAll ? 'spinner' : 'arrow-up'} spin={Boolean(upgradingAll)} />
-              {upgradingAll ? t('backends.updating') : t('backends.updateAll', { count: updateNames.length })}
-            </button>
+            <BulkUpgradeTrigger bulk={bulk} labels={{ trigger: t('backends.updateAll', { count: updateNames.length }) }} />
           )}
           {installEnabled && (
             <button type="button" className="dk-btn dk-btn--ghost" onClick={handleCheck} disabled={checking}>
@@ -1195,6 +1188,7 @@ export default function Backends() {
         </>
       )}
 
+      <BulkUpgradeDialog bulk={bulk} labels={{ title: t('backends.updateAllTitle'), intro: t('backends.updateAllIntro'), action: t('backends.updateSelected') }} />
       <ConfirmDialog
         open={!!confirmDialog}
         title={confirmDialog?.title}
