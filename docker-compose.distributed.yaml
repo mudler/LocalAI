@@ -1,10 +1,15 @@
 # Docker Compose for LocalAI Distributed Mode
 #
-# Starts a full distributed stack: PostgreSQL, NATS, a LocalAI frontend,
-# and one llama-cpp backend node.
+# Starts a full distributed stack: PostgreSQL, NATS, Garage (S3-compatible
+# object storage), a LocalAI frontend, a chat worker, a model worker and an
+# agent worker.
 #
 # Model files are transferred from the frontend to backend nodes via HTTP
 # — no shared volumes needed between frontend and backends.
+#
+# The bytes of the chat files go to Garage, so every frontend and chat worker
+# reads what another one wrote. All credentials below are examples: change
+# them for anything beyond a local test.
 #
 # Usage:
 #   docker compose -f docker-compose.distributed.yaml up
@@ -35,6 +40,49 @@ services:
       - "8222:8222"   # HTTP monitoring (optional, useful for debugging)
     command: ["--js", "-m", "8222"]  # Enable JetStream + monitoring
 
+  # Garage: a small S3-compatible object store. One node, no replication.
+  # The chat files (and optionally model files) are stored here, so that every
+  # frontend sees the same bytes. The node needs a layout before it takes
+  # data: garage-init below assigns it and creates the bucket and the key.
+  garage:
+    image: dxflrs/garage:v2.1.0
+    volumes:
+      - ./examples/distributed/garage.toml:/etc/garage.toml:ro
+      - garage_data:/var/lib/garage
+
+  # One-shot setup of Garage: layout, bucket, access key. Safe to run again.
+  # The Garage image has no shell, so this image copies the garage binary
+  # next to one. The node ID is the public key that Garage keeps in its
+  # metadata directory, which this container reads from the same volume.
+  garage-init:
+    build:
+      dockerfile_inline: |
+        FROM dxflrs/garage:v2.1.0 AS garage
+        FROM alpine:3.20
+        COPY --from=garage /garage /usr/local/bin/garage
+    restart: "no"
+    volumes:
+      - ./examples/distributed/garage.toml:/etc/garage.toml:ro
+      - garage_data:/var/lib/garage:ro
+    depends_on:
+      garage:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        until [ -s /var/lib/garage/meta/node_key.pub ]; do sleep 1; done
+        ID=$$(od -An -v -tx1 /var/lib/garage/meta/node_key.pub | tr -d ' \n')
+        G="garage -c /etc/garage.toml -h $$ID@garage:3901"
+        until $$G status >/dev/null 2>&1; do sleep 1; done
+        # These steps fail harmlessly when a previous run already did them.
+        $$G layout assign -z dc1 -c 10G $$ID || true
+        $$G layout apply --version 1 || true
+        until $$G bucket create localai >/dev/null 2>&1 || $$G bucket info localai >/dev/null 2>&1; do sleep 1; done
+        $$G key import --yes -n localai GK0123456789abcdef01234567 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef || true
+        $$G bucket allow --read --write --owner localai --key localai
+        echo "garage ready: bucket localai"
+
   # --- LocalAI Frontend ---
   # Stateless API server that routes requests to backend nodes.
   # Add more replicas behind a load balancer for HA.
@@ -57,6 +105,16 @@ services:
       LOCALAI_COLLECTIONS_VECTOR_ENGINE: "postgres"
       LOCALAI_COLLECTIONS_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
       LOCALAI_REGISTRATION_TOKEN: "changeme"  # Change this in production!
+      # Object storage (Garage). Chat files need it in a cluster: without it
+      # they are off. Path-style addressing is always used, which Garage needs.
+      LOCALAI_STORAGE_URL: "http://garage:3900"
+      LOCALAI_STORAGE_BUCKET: "localai"
+      LOCALAI_STORAGE_REGION: "us-east-1"  # Must match s3_region in garage.toml
+      LOCALAI_STORAGE_ACCESS_KEY: "GK0123456789abcdef01234567"
+      LOCALAI_STORAGE_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      # Send the turns of triggers, agent jobs and connector messages to the
+      # chat worker below. With no chat worker running, the frontend runs them.
+      LOCALAI_DISTRIBUTED_CHAT_WORKERS: "true"
       # Shared-models mode (optional): set when every node mounts the SAME
       # models directory at the SAME path (see "Shared Volume Mode" below).
       # The router then skips gRPC file staging and workers load models
@@ -85,6 +143,52 @@ services:
         condition: service_healthy
       nats:
         condition: service_started
+      garage-init:
+        condition: service_completed_successfully
+
+  # --- Chat Worker ---
+  # Runs the turns of triggers, agent jobs and connector messages away from
+  # the frontend. It is the frontend configuration plus LOCALAI_CHAT_WORKER:
+  # same database, NATS, storage, models path and data path. It starts no
+  # triggers, connectors or jobs, and it does not take user traffic.
+
+  chat-worker-1:
+    # image: localai/localai:latest-cpu
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - IMAGE_TYPE=core
+        - BASE_IMAGE=ubuntu:24.04
+    environment:
+      LOCALAI_DISTRIBUTED: "true"
+      LOCALAI_CHAT_WORKER: "true"
+      LOCALAI_NATS_URL: "nats://nats:4222"
+      LOCALAI_AUTH: "true"
+      LOCALAI_AUTH_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
+      LOCALAI_COLLECTIONS_EMBEDDING_MODEL: "granite-embedding-107m-multilingual"
+      LOCALAI_COLLECTIONS_VECTOR_ENGINE: "postgres"
+      LOCALAI_COLLECTIONS_DATABASE_URL: "postgresql://localai:localai@postgres:5432/localai?sslmode=disable"
+      LOCALAI_REGISTRATION_TOKEN: "changeme"  # Must match frontend token
+      LOCALAI_STORAGE_URL: "http://garage:3900"
+      LOCALAI_STORAGE_BUCKET: "localai"
+      LOCALAI_STORAGE_REGION: "us-east-1"
+      LOCALAI_STORAGE_ACCESS_KEY: "GK0123456789abcdef01234567"
+      LOCALAI_STORAGE_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      LOCALAI_CHAT_WORKER_MAX_TURNS: "32"
+      GODEBUG: "netdns=go"  # See note in localai service
+      MODELS_PATH: /models
+      LOCALAI_VRAM_WARM_LIMIT: "0"
+    volumes:
+      - chat_worker_1_models:/models
+      - chat_worker_1_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+      garage-init:
+        condition: service_completed_successfully
 
   # --- Worker Node ---
   # A generic worker that self-registers with the frontend.
@@ -226,3 +330,6 @@ volumes:
   frontend_models:
   frontend_data:
   worker_1_models:
+  garage_data:
+  chat_worker_1_models:
+  chat_worker_1_data:

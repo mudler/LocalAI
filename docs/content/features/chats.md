@@ -654,7 +654,7 @@ the reason, the list endpoint returns `"files": false` and `files_reason`, and
 everything else in the chats works.
 
 In a cluster the bytes go to the object store, so a file written through one
-frontend is read through another. That needs S3 (the storage URL setting).
+frontend is read through another. That needs S3 (the storage URL setting); `docker-compose.distributed.yaml` sets it up with Garage.
 Without it the object store is a folder of each frontend, so files are off in
 that cluster, with a reason that says so, instead of every frontend keeping its
 own copy.

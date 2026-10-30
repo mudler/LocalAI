@@ -52,6 +52,8 @@ docker compose -f docker-compose.distributed.yaml up
 This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
 
 {{% notice tip %}}
+The compose file starts PostgreSQL, NATS, [Garage](https://garagehq.deuxfleurs.fr/) as S3-compatible object storage (with a one-shot step that creates its bucket and access key), a frontend, a model worker, an agent worker and a [chat worker](#chat-workers). The frontend and the chat worker store the chat files in Garage, and the frontend sends unattended chat turns to the chat worker. Its credentials are examples: change them, and the `rpc_secret` in `examples/distributed/garage.toml`, for anything beyond a local test.
+
 Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL and NATS as managed services and run frontends/workers on separate hosts.
 {{% /notice %}}
 
@@ -271,7 +273,7 @@ For multi-host deployments where workers don't share a filesystem, S3-compatible
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--storage-url` | `LOCALAI_STORAGE_URL` | *(empty)* | S3 endpoint URL (e.g., `http://minio:9000`) |
+| `--storage-url` | `LOCALAI_STORAGE_URL` | *(empty)* | S3 endpoint URL (e.g., `http://garage:3900`) |
 | `--storage-bucket` | `LOCALAI_STORAGE_BUCKET` | `localai` | S3 bucket name |
 | `--storage-region` | `LOCALAI_STORAGE_REGION` | `us-east-1` | S3 region |
 | `--storage-access-key` | `LOCALAI_STORAGE_ACCESS_KEY` | *(empty)* | S3 access key |
@@ -988,7 +990,7 @@ agent-worker-1:
 
 A chat worker runs the turns of the chats that no person starts at the keyboard: [trigger](/features/chats-agents/#triggers) runs, [agent jobs](/features/agent-jobs/) and connector messages. Use one to keep this work off the frontends that serve your users.
 
-A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. It needs the same NATS credentials as a frontend. Turn on the routing on the frontends with `--distributed-chat-workers`:
+A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. The `chat-worker-1` service in `docker-compose.distributed.yaml` is an example. It needs the same NATS credentials as a frontend. Turn on the routing on the frontends with `--distributed-chat-workers`:
 
 ```bash
 # frontends
