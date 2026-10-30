@@ -22,8 +22,6 @@ body {
   min-height: 100%;
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  transition: background-color var(--duration-normal) var(--ease-default),
-              color var(--duration-normal) var(--ease-default);
 }
 
 #root {
@@ -97,6 +95,15 @@ a {
 }
 a:hover {
   color: var(--color-primary-hover);
+}
+
+/* Theme switch: a cross-fade of the whole page through the View Transitions
+   API (ThemeContext starts it). A browser without the API, or a person who
+   asks for less motion, gets an instant switch. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--dur-base);
+  animation-timing-function: var(--ease-in-out);
 }
 
 /* Reduced motion: nothing moves, scales or fades. Keyframe animations jump
