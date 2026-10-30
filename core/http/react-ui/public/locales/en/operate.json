@@ -62,7 +62,8 @@
     "nodeMeter": "{{name}}: {{used}} of {{total}} in use",
     "openMachine": "Open This machine",
     "openNodes": "Open the swarm",
-    "reclaimer": "The memory reclaimer is on."
+    "reclaimer": "The memory reclaimer is on.",
+    "diskChip": "Disk almost full"
   },
   "running": {
     "none": "Nothing is running.",
@@ -452,7 +453,8 @@
     },
     "updateAllTitle": "Update all backends",
     "updateAllIntro": "Choose which backends to update. Each one is updated on its own, one after another. A failure does not stop the others.",
-    "updateSelected": "Update selected"
+    "updateSelected": "Update selected",
+    "loadFailedTitle": "Could not load the backend catalog."
   },
   "logs": {
     "title": "Backend logs",

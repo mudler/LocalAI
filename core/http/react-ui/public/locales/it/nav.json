@@ -108,7 +108,8 @@
       "faces": "Rileva, confronta e abbina volti.",
       "addons": "Installa componenti aggiuntivi e apri le app che offrono.",
       "triggers": "Avvia una chat da sola, a orari prefissati o quando arriva un file."
-    }
+    },
+    "operateSupporting": "Cosa gira su questo server, come viene usato e come è configurato."
   },
   "pinnedPages": "Pagine fissate",
   "new": "Nuovo"

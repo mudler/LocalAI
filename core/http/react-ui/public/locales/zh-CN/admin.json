@@ -107,7 +107,8 @@
       "assistant": "LocalAI Assistant",
       "distributed": "分布式",
       "responses": "响应"
-    }
+    },
+    "loadFailedTitle": "无法加载设置。"
   },
   "backends": {
     "lifecycle": {

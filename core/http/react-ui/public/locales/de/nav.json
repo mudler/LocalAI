@@ -108,7 +108,8 @@
       "faces": "Gesichter erkennen, vergleichen und zuordnen.",
       "addons": "Add-ons installieren und die Apps öffnen, die sie bereitstellen.",
       "triggers": "Starte einen Chat von selbst, nach Zeitplan oder wenn eine Datei eintrifft."
-    }
+    },
+    "operateSupporting": "Was auf diesem Server läuft, wie er genutzt wird und wie er eingerichtet ist."
   },
   "pinnedPages": "Angeheftete Seiten",
   "new": "Neu"

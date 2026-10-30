@@ -23,11 +23,10 @@ import NodeInstallPicker from '../components/NodeInstallPicker'
 import BackendsTable from '../components/operate/BackendsTable'
 import { InstallSteps } from '../components/addons/AddonBits'
 import HomeUndoToast from '../components/home/HomeUndoToast'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
 import Icon from '../components/Icon'
 import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
-import CatalogEmpty from '../components/catalog/CatalogEmpty'
 import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
 import { UpdateBadge } from '../components/upgrade/UpgradeBits'
 import { useBulkUpgrade } from '../hooks/useBulkUpgrade'
@@ -68,6 +67,7 @@ export default function Backends() {
   // Variants and development builds are told apart by the catalog, so the
   // Installed list waits for it rather than flashing rows it then hides.
   const [catalogReady, setCatalogReady] = useState(false)
+  const [loadError, setLoadError] = useState(null)
   const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
@@ -190,6 +190,7 @@ export default function Backends() {
       const data = await backendsApi.list(params)
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
       setAllBackends(list)
+      setLoadError(null)
       // On first load, use the server's preference for development builds.
       if (!preferDevLoaded && data?.preferDevelopmentBackends) {
         setPreferDev(true)
@@ -197,14 +198,15 @@ export default function Backends() {
       }
       return true
     } catch (err) {
-      addToast(t('backends.loadFailed', { message: err.message }), 'error')
+      // A failed read replaces the list with the error; it never looks empty.
+      setLoadError(err)
       return false
     } finally {
       loadedOnce.current = true
       setCatalogReady(true)
       setLoading(false)
     }
-  }, [activeView, search, sortBy, sortOrder, addToast, t, preferDevLoaded])
+  }, [activeView, search, sortBy, sortOrder, preferDevLoaded])
 
   const debouncedFetch = useDebouncedCallback(fetchBackends)
   useEffect(() => { debouncedFetch() }, [debouncedFetch, fetchBackends])
@@ -1133,17 +1135,23 @@ export default function Backends() {
       )}
 
       {showCatalogCold || showInstalledCold ? (
-        <div className="op-loading"><LoadingSpinner size="lg" /></div>
+        <SkeletonRows />
       ) : activeView === 'installed' ? (
         installed.length === 0 && globalError ? null : installed.length === 0 ? (
-          <CatalogEmpty icon="server" title={t('backends.emptyTitle')} text={t('backends.emptyBody')}>
-            <Link className="dk-btn dk-btn--primary" to={hrefForView('catalog')}>{t('backends.openCatalog')}</Link>
-          </CatalogEmpty>
+          <EmptyState
+            icon="server"
+            title={t('backends.emptyTitle')}
+            body={t('backends.emptyBody')}
+            actions={<Button variant="primary" to={hrefForView('catalog')}>{t('backends.openCatalog')}</Button>}
+          />
         ) : installedRows.length === 0 ? (
-          <CatalogEmpty icon="filter" text={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : t('backends.noMatches')}>
-            <button
-              type="button"
-              className="dk-btn dk-btn--ghost"
+          <EmptyState
+            variant="no-results"
+            body={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : t('backends.noMatches')}
+            actions={(
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setSearchParams(prev => {
                 const next = new URLSearchParams(prev)
                 next.delete('q')
@@ -1152,8 +1160,9 @@ export default function Backends() {
               }, { replace: true })}
             >
               {t('backends.clearFilters')}
-            </button>
-          </CatalogEmpty>
+            </Button>
+            )}
+          />
         ) : (
           <BackendsTable
             rows={installedRows}
@@ -1163,8 +1172,15 @@ export default function Backends() {
             caption={t('backends.installedAria')}
           />
         )
+      ) : activeView === 'catalog' && loadError && allBackends.length === 0 ? (
+        <LoadError title={t('backends.loadFailedTitle')} error={loadError} onRetry={fetchBackends} />
       ) : catalogRows.length === 0 ? (
-        <CatalogEmpty icon="server" title={t('backends.noneFound')} text={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')} />
+        <EmptyState
+          variant={search || catalogFilter || librarySource ? 'no-results' : 'first-run'}
+          icon="server"
+          title={t('backends.noneFound')}
+          body={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')}
+        />
       ) : (
         <>
           <BackendsTable

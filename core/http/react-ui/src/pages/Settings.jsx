@@ -4,7 +4,8 @@ import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
+import { HubHeader } from '../components/hub/HubHeader'
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import SettingField from '../components/settings/SettingField'
@@ -72,6 +73,7 @@ export default function Settings() {
   const [settings, setSettings] = useState(null)
   const [initial, setInitial] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [resources, setResources] = useState(null)
   const [group, setGroup] = useState(GROUPS[0].id)
@@ -87,15 +89,22 @@ export default function Settings() {
     try { setResources(await resourcesApi.get()) } catch { /* the memory line says it is unavailable */ }
   }, [])
 
+  // A failed read shows in the page with Try again; it is not a toast.
+  const liveRef = useRef(true)
+  const loadSettings = useCallback(() => {
+    setLoadError(null)
+    return settingsApi.get()
+      .then(data => { if (liveRef.current) { const loaded = normalizeLoaded(data); setSettings(loaded); setInitial(structuredClone(loaded)) } })
+      .catch(err => { if (liveRef.current) setLoadError(err) })
+      .finally(() => { if (liveRef.current) setLoading(false) })
+  }, [])
+
   useEffect(() => {
-    let live = true
-    settingsApi.get()
-      .then(data => { if (live) { const loaded = normalizeLoaded(data); setSettings(loaded); setInitial(structuredClone(loaded)) } })
-      .catch(err => { if (live) addToast(t('settings.loadFailed', { message: err.message }), 'error') })
-      .finally(() => { if (live) setLoading(false) })
+    liveRef.current = true
+    loadSettings()
     fetchResources()
-    return () => { live = false }
-  }, [addToast, t, fetchResources])
+    return () => { liveRef.current = false }
+  }, [loadSettings, fetchResources])
 
   const changes = useMemo(() => pendingChanges(initial, settings), [initial, settings])
   const visible = useMemo(() => visibleChanges(changes), [changes])
@@ -205,11 +214,12 @@ export default function Settings() {
 
   const onChange = (next) => setSettings(next)
 
-  if (loading) return <div className="page page--wide st-page"><div className="st-loading"><LoadingSpinner size="lg" /></div></div>
+  if (loading) return <div className="page page--wide st-page"><SkeletonRows /></div>
   if (!settings) {
     return (
       <div className="page page--wide st-page">
-        <div className="dk-empty"><h2 className="dk-empty-title">Settings not available</h2><p className="dk-empty-text">The server did not return its settings.</p></div>
+        <h1 className="dk-sr-only">{t('settings.title')}</h1>
+        <LoadError title={t('settings.loadFailedTitle')} error={loadError} onRetry={loadSettings} />
       </div>
     )
   }
@@ -236,12 +246,10 @@ export default function Settings() {
     <div className="page page--wide st-page" data-testid="settings-page">
       <UnsavedChangesGuard when={isDirty} />
 
-      <header className="st-head">
-        <div className="st-head__lead">
-          <h1 className="st-title">{t('settings.title')}</h1>
-          <p className="st-lede">{t('settings.subtitle')}. Edits wait here until you apply them.</p>
-        </div>
-      </header>
+      {/* The header above says what the page does; the title is a section
+          title under it, like every page under the Administration tabs. */}
+      <h1 className="st-title">{t('settings.title')}</h1>
+      <HubHeader supporting={<p className="st-lede">{t('settings.subtitle')}. Edits wait here until you apply them.</p>} />
 
       <div className="st-bar">
         <div className="dk-input-icon st-search">
@@ -254,11 +262,9 @@ export default function Settings() {
           />
         </div>
         <p className="st-bar__count" data-testid="settings-changed-count">
-          <span className="dk-mono">{changedFromDefault}</span> changed from default
+          <strong className="st-bar__n">{changedFromDefault}</strong> changed from default
         </p>
-        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm st-bar__history" onClick={() => setHistoryOpen(true)}>
-          <Icon name="history" /> History
-        </button>
+        <Button size="sm" icon="history" className="st-bar__history" onClick={() => setHistoryOpen(true)}>History</Button>
       </div>
 
       <div className="st-layout">
@@ -288,10 +294,11 @@ export default function Settings() {
                 {results.length > 0 && <span className="st-sub">across all groups</span>}
               </h2>
               {results.length === 0 ? (
-                <div className="dk-empty">
-                  <p className="dk-empty-text">Nothing matches. Try a word from the setting&apos;s name, its description, its key, or the section it used to be in, such as {OLD_SECTIONS.watchdog}.</p>
-                  <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setQuery('')}>Clear search</button>
-                </div>
+                <EmptyState
+                  variant="no-results"
+                  body={<>Nothing matches. Try a word from the setting&apos;s name, its description, its key, or the section it used to be in, such as {OLD_SECTIONS.watchdog}.</>}
+                  actions={<Button variant="ghost" size="sm" onClick={() => setQuery('')}>Clear search</Button>}
+                />
               ) : (
                 <div className="st-list" data-testid="settings-results">{results.map(f => renderField(f, true))}</div>
               )}

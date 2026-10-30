@@ -108,7 +108,8 @@
       "faces": "Detecta, compara y empareja rostros.",
       "addons": "Instala complementos y abre las apps que ofrecen.",
       "triggers": "Inicia un chat por sí solo, con una programación o cuando llega un archivo."
-    }
+    },
+    "operateSupporting": "Qué se ejecuta en este servidor, cómo se usa y cómo está configurado."
   },
   "pinnedPages": "Páginas fijadas",
   "new": "Nuevo"

@@ -2,6 +2,10 @@
   "backends": {
     "updateAllTitle": "Alle Backends aktualisieren",
     "updateAllIntro": "Wählen Sie, welche Backends aktualisiert werden. Jedes wird einzeln nacheinander aktualisiert. Ein Fehler stoppt die anderen nicht.",
-    "updateSelected": "Auswahl aktualisieren"
+    "updateSelected": "Auswahl aktualisieren",
+    "loadFailedTitle": "Der Backend-Katalog konnte nicht geladen werden."
+  },
+  "capacity": {
+    "diskChip": "Datenträger fast voll"
   }
 }

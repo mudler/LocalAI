@@ -107,7 +107,8 @@
       "assistant": "Asisten LocalAI",
       "distributed": "Terdistribusi",
       "responses": "Respons"
-    }
+    },
+    "loadFailedTitle": "Pengaturan tidak dapat dimuat."
   },
   "backends": {
     "lifecycle": {

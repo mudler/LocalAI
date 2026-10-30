@@ -6713,73 +6713,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 
 /* Route fallback: moved to components/ui/ui.css. */
 
-/* Hub layout: a page-level tab bar (the kit's dk-hubtabs) above the page body.
-   Build and Operate use it in place of a second navigation rail. */
-.hub-layout {
-  display: flex;
-  flex-direction: column;
-  padding-top: var(--spacing-md);
-}
-/* The bar lines up with the page padding and caps at the widest page. */
-.hub-bar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  width: 100%;
-  max-width: var(--page-max-default);
-  margin: 0 auto;
-  padding: 0 var(--spacing-xl);
-  min-width: 0;
-}
-/* The bar scrolls sideways on its own; it never widens the page. */
-.hub-bar .dk-hubtabs { align-self: flex-start; }
-/* Second row for a tab that owns several routes: quiet text links. */
-.hub-subnav {
-  display: flex;
-  gap: var(--spacing-xs);
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.hub-subnav::-webkit-scrollbar { display: none; }
-.hub-subnav__link {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  height: 32px;
-  padding: 0 var(--spacing-sm);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
-  text-decoration: none;
-  white-space: nowrap;
-  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
-}
-.hub-subnav__link:hover { background: var(--color-bg-hover); color: var(--color-text-primary); }
-.hub-subnav__link[aria-current="page"] {
-  color: var(--color-accent-text, var(--dk-accent-text));
-  box-shadow: inset 0 -2px 0 var(--dk-accent);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-}
-.hub-body {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: 100%;
-}
-/* A medium page is centred in the content area, but the tab bar above it is
-   flush with the page edge, so the title sat 60px to the right of the first
-   tab. Inside a hub the medium column starts where the bar starts. */
-.hub-body .page--medium {
-  margin-left: max(0px, calc((100% - var(--page-max-default)) / 2));
-  margin-right: auto;
-}
-@media (max-width: 768px) {
-  .hub-layout { padding-top: var(--spacing-sm); }
-  .hub-bar { padding: 0 var(--spacing-md); }
-  /* Let the bar run to the screen edge so a half-visible tab says "scroll". */
-  .hub-bar .dk-hubtabs { align-self: stretch; }
-}
+/* Hub layout: moved to components/hub/hub.css. */
 
 /* .status-pill is a StatusChip now: components/ui/ui.css. */
 
@@ -8523,24 +8457,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .page--app > .tabs { flex: none; }
 .page--app > .view-bar { flex: none; }
 
-/* A split view needs a ceiling to scroll inside: without it the page ran past
-   the viewport and over the footer. The hub layout sizes to content for every
-   other page, so only the split-view routes are pinned, scoped with :has(). */
-.hub-layout:has(.page--app) {
-  flex: 1;
-  min-height: 0;
-}
-
-.hub-layout:has(.page--app) > .hub-body {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-@media (max-width: 900px) {
-  .hub-layout:has(.page--app) { flex: none; }
-  .hub-layout:has(.page--app) > .hub-body { display: block; }
-}
+/* The pinned hub layout for split views: components/hub/hub.css. */
 
 /* Refetching is not the same event as first load. A first load has nothing to
    show, so it gets a skeleton; a refetch already has a list on screen and must

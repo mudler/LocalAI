@@ -79,7 +79,7 @@ export default function VramChart({ points, limit, selected, onPick, title, pool
               {points.map(p => (
                 <tr key={p.ctx}>
                   <td className="dk-mono">{contextLabel(p.ctx)}</td>
-                  <td className="dk-num dk-mono">{gbLabel(p.bytes)}</td>
+                  <td className="dk-num">{gbLabel(p.bytes)}</td>
                   <td>{p.bytes > limit ? t('page.fit.tableOver') : t('page.fit.tableFits')}</td>
                 </tr>
               ))}

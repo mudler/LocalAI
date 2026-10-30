@@ -58,7 +58,8 @@
       "assistant": "LocalAI Assistant",
       "distributed": "Distributed",
       "responses": "Responses"
-    }
+    },
+    "loadFailedTitle": "Could not load the settings."
   },
   "traces": {
     "title": "Traces",

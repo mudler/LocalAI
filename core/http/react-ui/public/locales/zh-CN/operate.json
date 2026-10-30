@@ -2,6 +2,10 @@
   "backends": {
     "updateAllTitle": "更新所有后端",
     "updateAllIntro": "选择要更新的后端。每个后端会单独、依次更新。某一项失败不会中断其他项。",
-    "updateSelected": "更新所选"
+    "updateSelected": "更新所选",
+    "loadFailedTitle": "无法加载后端目录。"
+  },
+  "capacity": {
+    "diskChip": "磁盘快满了"
   }
 }

@@ -120,11 +120,11 @@ test.describe('Settings: defaults and hints', () => {
   })
 
   test('counts the settings that differ from their default', async ({ page }) => {
-    const count = Number(await page.getByTestId('settings-changed-count').locator('.dk-mono').textContent())
+    const count = Number(await page.getByTestId('settings-changed-count').locator('.st-bar__n').textContent())
     expect(count).toBeGreaterThan(0)
     await row(page, 'lru_eviction_max_retries').getByRole('button', { name: 'Reset' }).click()
     await expect(row(page, 'lru_eviction_max_retries').getByRole('spinbutton')).toHaveValue('30')
-    await expect(page.getByTestId('settings-changed-count').locator('.dk-mono')).toHaveText(String(count - 1))
+    await expect(page.getByTestId('settings-changed-count').locator('.st-bar__n')).toHaveText(String(count - 1))
     await expect(page.getByTestId('settings-pending')).toContainText('1 pending')
   })
 

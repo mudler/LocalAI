@@ -41,7 +41,8 @@
       "voices": "Identifiez les locuteurs et conservez une bibliothèque de profils vocaux.",
       "addons": "Install, turn on and open add-ons.",
       "triggers": "Démarrez un chat automatiquement, selon un calendrier ou à l'arrivée d'un fichier."
-    }
+    },
+    "operateSupporting": "Ce qui tourne sur ce serveur, comment il est utilisé et comment il est configuré."
   },
   "operate": {
     "inference": "Inférence",

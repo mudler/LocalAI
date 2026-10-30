@@ -107,7 +107,8 @@
       "assistant": "LocalAI Assistant",
       "distributed": "Verteilt",
       "responses": "Antworten"
-    }
+    },
+    "loadFailedTitle": "Die Einstellungen konnten nicht geladen werden."
   },
   "backends": {
     "lifecycle": {
