@@ -58,14 +58,14 @@
       "prompt": "Prompt",
       "send": "Kirim langsung",
       "add": "Tambah pintasan",
-      "invalid": "shortcuts.json memiliki kesalahan",
-      "assistantPrompt": "Ubah pintasan kolom tulis saya di shortcuts.json: "
+      "invalid": "LocalAI/shortcuts.json memiliki kesalahan",
+      "assistantPrompt": "Ubah pintasan kolom tulis saya di LocalAI/shortcuts.json: "
     },
     "home": {
       "editLayout": "Edit tata letak",
       "ask": "Tanya asisten",
       "layoutIn": "Tata letak ada di",
-      "askPrompt": "Ubah halaman Beranda saya (home.json): ",
+      "askPrompt": "Ubah halaman Beranda saya (LocalAI/home.json): ",
       "add": "Tambah widget",
       "newTitle": "Widget baru",
       "noWidgets": "Belum ada widget.",
@@ -198,7 +198,7 @@
         "kicker": "Kamu dan asisten",
         "prompt": "Panggil aku {{firstName}} dan jawab singkat saja",
         "promptNoName": "Ingat namaku dan jawab singkat saja",
-        "what": "Menyimpan user.json dan persona.json"
+        "what": "Menyimpan LocalAI/user.json dan LocalAI/persona.json"
       },
       "card2": {
         "kicker": "Sebuah halaman",
@@ -233,12 +233,12 @@
       "turnBackOn": "Aktifkan lagi di Account"
     },
     "change": {
-      "profilePersona": "Namamu disimpan di <code>user.json</code> dan instruksimu di <code>persona.json</code>. Setiap chat memakainya mulai pesan berikutnya.",
-      "profile": "Disimpan ke profilmu di <code>user.json</code>.",
-      "persona": "<code>persona.json</code> disimpan. Setiap chat memakainya mulai pesan berikutnya.",
-      "shortcuts": "<code>shortcuts.json</code> disimpan.",
-      "home": "<code>home.json</code> disimpan. Home menampilkan perubahannya.",
-      "ui": "<code>ui.json</code> disimpan.",
+      "profilePersona": "Namamu disimpan di <code>LocalAI/user.json</code> dan instruksimu di <code>LocalAI/persona.json</code>. Setiap chat memakainya mulai pesan berikutnya.",
+      "profile": "Disimpan ke profilmu di <code>LocalAI/user.json</code>.",
+      "persona": "<code>LocalAI/persona.json</code> disimpan. Setiap chat memakainya mulai pesan berikutnya.",
+      "shortcuts": "<code>LocalAI/shortcuts.json</code> disimpan.",
+      "home": "<code>LocalAI/home.json</code> disimpan. Home menampilkan perubahannya.",
+      "ui": "<code>LocalAI/ui.json</code> disimpan.",
       "pageCreated": "Halaman {{title}} dibuat di <code>{{folder}}</code>.",
       "pageChanged": "<code>{{file}}</code> diubah.",
       "offersOff": "Saran dari asisten dimatikan.",
@@ -393,5 +393,30 @@
     "items_one": "{{count}} item",
     "items_other": "{{count}} item",
     "textCut": "Menampilkan {{size}} pertama."
+  },
+  "managed": {
+    "group": "Dikelola oleh LocalAI",
+    "marker": "dikelola oleh LocalAI",
+    "about": {
+      "localai": "Pengaturan yang dibaca LocalAI: persona, profil, pintasan, Beranda, tema.",
+      "chats": "Satu folder per obrolan, berisi file obrolan itu."
+    },
+    "confirm": {
+      "deleteTitle": "Pindahkan {{name}} ke Tempat Sampah?",
+      "renameTitle": "Ganti nama {{name}}?",
+      "delete": "Pindahkan ke Tempat Sampah",
+      "rename": "Ganti nama",
+      "restore": "Anda dapat memulihkannya dari Tempat Sampah.",
+      "renameNote": "LocalAI hanya membacanya dengan nama ini; setelah diganti namanya, seolah-olah hilang."
+    },
+    "loses": {
+      "settings": "LocalAI melupakan persona, profil, pintasan, tata letak Beranda, dan tema Anda.",
+      "chats": "Setiap obrolan kehilangan filenya: yang Anda lampirkan dan yang ditulis asisten di sana.",
+      "persona": "Asisten kehilangan nama dan instruksinya.",
+      "user": "Asisten melupakan apa yang Anda ceritakan tentang diri Anda, dan jawaban Anda atas tawarannya.",
+      "shortcuts": "Kotak pesan kembali menampilkan pintasan bawaan.",
+      "home": "Beranda kehilangan widgetnya.",
+      "ui": "Tema, warna aksen, kepadatan, model bawaan, dan halaman yang disematkan kembali ke bawaan."
+    }
   }
 }

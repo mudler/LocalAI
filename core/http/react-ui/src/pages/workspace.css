@@ -121,6 +121,55 @@
   white-space: nowrap;
 }
 
+/* A row of the home: the name, and for a folder LocalAI manages, its marker
+   and what it holds. The name keeps its ellipsis; the line under it wraps. */
+.ws-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--dk-space-2);
+  row-gap: 2px;
+}
+.ws-row__main .ws-row__name { flex: 0 1 auto; }
+.ws-row__about {
+  flex-basis: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-13);
+}
+.ws-managed-tag {
+  flex: none;
+  padding: 0 var(--dk-space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--dk-radius-1);
+  color: var(--color-text-secondary);
+  font-size: var(--dk-text-12);
+  white-space: nowrap;
+}
+
+/* The managed folders come after the user's own files, under a heading. */
+.ws-managed { margin-top: var(--dk-space-4); }
+.ws-managed__title {
+  margin: 0;
+  padding: 0 var(--dk-space-3) var(--dk-space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-12);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ws-folder-about {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--dk-space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--dk-text-13);
+}
+
 .ws-row__name--static { cursor: default; }
 .ws-row__edit { flex: 1; }
 .ws-row__size { flex: none; color: var(--color-text-muted); font-size: 0.8125rem; }

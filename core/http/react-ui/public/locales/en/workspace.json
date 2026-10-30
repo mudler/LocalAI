@@ -125,14 +125,14 @@
       "prompt": "Prompt",
       "send": "Send at once",
       "add": "Add shortcut",
-      "invalid": "shortcuts.json has errors",
-      "assistantPrompt": "Change my composer shortcuts in shortcuts.json: "
+      "invalid": "LocalAI/shortcuts.json has errors",
+      "assistantPrompt": "Change my composer shortcuts in LocalAI/shortcuts.json: "
     },
     "home": {
       "editLayout": "Edit layout",
       "ask": "Ask the assistant",
       "layoutIn": "Layout is in",
-      "askPrompt": "Change my Home page (home.json): ",
+      "askPrompt": "Change my Home page (LocalAI/home.json): ",
       "add": "Add widget",
       "newTitle": "New widget",
       "noWidgets": "No widgets yet.",
@@ -265,7 +265,7 @@
         "kicker": "You and the assistant",
         "prompt": "Call me {{firstName}} and keep answers short",
         "promptNoName": "Remember my name and keep answers short",
-        "what": "Saves user.json and persona.json"
+        "what": "Saves LocalAI/user.json and LocalAI/persona.json"
       },
       "card2": {
         "kicker": "A page",
@@ -300,12 +300,12 @@
       "turnBackOn": "Turn them back on in Account"
     },
     "change": {
-      "profilePersona": "Saved your name in <code>user.json</code> and your instructions in <code>persona.json</code>. Every chat uses them from your next message.",
-      "profile": "Saved to your profile in <code>user.json</code>.",
-      "persona": "Saved <code>persona.json</code>. Every chat uses it from your next message.",
-      "shortcuts": "Saved <code>shortcuts.json</code>.",
-      "home": "Saved <code>home.json</code>. Home shows the change.",
-      "ui": "Saved <code>ui.json</code>.",
+      "profilePersona": "Saved your name in <code>LocalAI/user.json</code> and your instructions in <code>LocalAI/persona.json</code>. Every chat uses them from your next message.",
+      "profile": "Saved to your profile in <code>LocalAI/user.json</code>.",
+      "persona": "Saved <code>LocalAI/persona.json</code>. Every chat uses it from your next message.",
+      "shortcuts": "Saved <code>LocalAI/shortcuts.json</code>.",
+      "home": "Saved <code>LocalAI/home.json</code>. Home shows the change.",
+      "ui": "Saved <code>LocalAI/ui.json</code>.",
       "pageCreated": "Created the page {{title}} in <code>{{folder}}</code>.",
       "pageChanged": "Changed <code>{{file}}</code>.",
       "offersOff": "Suggestions from the assistant are off.",
@@ -428,5 +428,30 @@
     "factUndo": "Removing a folder can be undone",
     "emptyUserTitle": "Nothing is shared with you yet",
     "emptyUserBody": "When an administrator shares a folder with you, it shows here and its pages show in Pages."
+  },
+  "managed": {
+    "group": "Managed by LocalAI",
+    "marker": "managed by LocalAI",
+    "about": {
+      "localai": "Settings LocalAI reads: persona, profile, shortcuts, Home, theme.",
+      "chats": "One folder per chat, with the files of the chat."
+    },
+    "confirm": {
+      "deleteTitle": "Move {{name}} to the Trash?",
+      "renameTitle": "Rename {{name}}?",
+      "delete": "Move to Trash",
+      "rename": "Rename",
+      "restore": "You can restore it from the Trash.",
+      "renameNote": "LocalAI reads it only under this name, so after a rename it is as if it were gone."
+    },
+    "loses": {
+      "settings": "LocalAI forgets your persona, your profile, your shortcuts, your Home layout and your theme.",
+      "chats": "Every chat loses its files: what you attached and what the assistant wrote there.",
+      "persona": "The assistant loses its name and its instructions.",
+      "user": "The assistant forgets what you told it about you, and your answers to its offers.",
+      "shortcuts": "The message box shows the default shortcuts again.",
+      "home": "Home loses its widgets.",
+      "ui": "Your theme, accent, density, default model and pinned pages go back to the defaults."
+    }
   }
 }
