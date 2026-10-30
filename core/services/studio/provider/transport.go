@@ -90,8 +90,24 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// backend, and each retry only meets the same refusal, so the turn
 		// ends and tells the user why.
 		reason := loadFailureReason(resp)
+		mark := session.MarkLoadFailed
+		if resp.Header.Get(model.LoadCauseHeader) == model.LoadCauseBackendMissing {
+			mark = session.MarkBackendMissing
+		}
 		_ = resp.Body.Close()
-		return nil, cogito.Permanent(errors.New("the model could not be loaded: " + reason))
+		return nil, cogito.Permanent(errors.New("the model could not be loaded " + mark + ": " + reason))
+	}
+	if resp.Header.Get(model.UpstreamStatusHeader) != "" {
+		// The status is the upstream's own, so it says nothing about what the
+		// user may do on this server.
+		switch resp.StatusCode {
+		case http.StatusUnauthorized, http.StatusForbidden:
+			_ = resp.Body.Close()
+			return nil, cogito.Permanent(errors.New("the upstream refused the key " + session.MarkUpstreamKey))
+		case http.StatusNotFound, http.StatusMethodNotAllowed:
+			_ = resp.Body.Close()
+			return nil, cogito.Permanent(errors.New("the upstream does not accept the request at that address " + session.MarkUpstreamPath))
+		}
 	}
 	switch resp.StatusCode {
 	case http.StatusForbidden:
@@ -105,7 +121,7 @@ func (u userTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// A server error may pass: the loop above retries it. The last one
 		// allowed is turned into a permanent error.
 		if u.fails.Add(1) >= MaxModelFailures {
-			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
+			snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 500))
 			_ = resp.Body.Close()
 			return nil, u.giveUp(fmt.Sprintf("HTTP %d %s", resp.StatusCode, strings.TrimSpace(string(snippet))))
 		}

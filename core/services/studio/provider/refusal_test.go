@@ -43,6 +43,42 @@ var _ = Describe("refused and failing model requests", func() {
 		Expect(err.Error()).To(ContainSubstring("could not be loaded"))
 	})
 
+	// A cloud-proxy model relays the upstream's status. A 403 there is the
+	// upstream refusing the key, which the user must not read as a missing right.
+	It("tells an upstream refusal from a refusal of the user", func() {
+		for code, mark := range map[int]string{
+			http.StatusUnauthorized: session.MarkUpstreamKey, http.StatusForbidden: session.MarkUpstreamKey,
+			http.StatusNotFound: session.MarkUpstreamPath, http.StatusMethodNotAllowed: session.MarkUpstreamPath,
+		} {
+			tr := provider.NewTransport()
+			tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set(model.UpstreamStatusHeader, "x")
+				w.WriteHeader(code)
+			}))
+			_, err := get(tr.Client(nil), context.Background(), "http://studio.invalid/v1/chat/completions")
+			Expect(err).To(HaveOccurred(), "status %d", code)
+			Expect(err.Error()).To(ContainSubstring(mark), "status %d", code)
+			Expect(err.Error()).NotTo(ContainSubstring(session.MarkNotAllowed))
+			Expect(cogito.IsPermanent(err)).To(BeTrue(), "status %d", code)
+		}
+	})
+
+	It("marks a model whose backend is not installed", func() {
+		tr := provider.NewTransport()
+		tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(model.LoadFailedHeader, "true")
+			w.Header().Set(model.LoadCauseHeader, model.LoadCauseBackendMissing)
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":{"message":"model \"m\" load is in cooldown after a recent failure; retry after 30s"}}`))
+		}))
+		_, err := get(tr.Client(nil), context.Background(), "http://studio.invalid/v1/chat/completions")
+		Expect(err).To(HaveOccurred())
+		f := session.Classify(err)
+		Expect(f.Code).To(Equal(session.CodeBackendMissing))
+		Expect(f.Model).To(Equal("m"))
+		Expect(f.RetryAfter).To(Equal(30))
+	})
+
 	It("still retries an overloaded model", func() {
 		tr := provider.NewTransport()
 		tr.SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

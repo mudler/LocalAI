@@ -77,6 +77,9 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 	}
 	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
 	c.Response().Header().Set(model.LoadFailedHeader, "true")
+	if coolErr.BackendMissing {
+		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendMissing)
+	}
 	return http.StatusServiceUnavailable
 }
 
