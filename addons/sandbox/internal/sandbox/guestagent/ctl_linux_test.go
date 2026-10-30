@@ -24,12 +24,12 @@ var _ = Describe("CtlDir", func() {
 		go func() {
 			conn, err := l.Accept()
 			if err == nil {
-				conn.Close()
+				_ = conn.Close()
 			}
 		}()
 		conn, err := c.Dial("agent.sock")
 		Expect(err).ToNot(HaveOccurred())
-		conn.Close()
+		_ = conn.Close()
 		_ = l.Close()
 		_, err = os.Stat(filepath.Join(dir, "agent.sock"))
 		Expect(err).To(MatchError(os.ErrNotExist), "closing the listener left the socket file")

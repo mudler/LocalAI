@@ -82,7 +82,7 @@ func patch(in, out string, add []string) (string, error) {
 		if path.Clean(dst) != dst || dst == ".." || strings.HasPrefix(dst, "../") {
 			return "", fmt.Errorf("-add %q: the image path must be clean and must not leave the image root", a)
 		}
-		body, err := os.ReadFile(file)
+		body, err := os.ReadFile(file) // #nosec G304 -- build tool: reads the file named on its command line
 		if err != nil {
 			return "", err
 		}

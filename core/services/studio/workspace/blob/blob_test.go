@@ -61,7 +61,7 @@ var _ = Describe("Blob stores", func() {
 				h, _, _ := s.Put(ctx, strings.NewReader("0123456789"), 0)
 				r, err := s.Open(ctx, h)
 				Expect(err).ToNot(HaveOccurred())
-				defer r.Close()
+				defer func() { _ = r.Close() }()
 				_, err = r.Seek(4, io.SeekStart)
 				Expect(err).ToNot(HaveOccurred())
 				got, _ := io.ReadAll(r)

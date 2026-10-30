@@ -90,7 +90,7 @@ func New(o Options) (*Backend, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	out, err := output(exec.CommandContext(ctx, b.runsc, "--version"))
+	out, err := output(exec.CommandContext(ctx, b.runsc, "--version")) // #nosec G204 -- a pinned helper program that the add-on resolved; the add-on builds the arguments
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s --version: %v", sandbox.ErrUnsupported, b.runsc, err)
 	}
@@ -143,12 +143,12 @@ const lockName = ".lock"
 // belongs to the open file, so it ends when the file is closed or the process
 // dies.
 func lockStateDir(dir string) (*os.File, error) {
-	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_RDWR|os.O_CREATE, 0o600)
+	f, err := os.OpenFile(filepath.Join(dir, lockName), os.O_RDWR|os.O_CREATE, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return nil, err
 	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		f.Close()
+		_ = f.Close()
 		if errors.Is(err, syscall.EWOULDBLOCK) {
 			return nil, fmt.Errorf("gvisor: StateDir %q is in use by another backend: use one StateDir per backend, or close the other one first", dir)
 		}
@@ -215,7 +215,7 @@ func (b *Backend) checkUserNamespace(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmp)
+	defer func() { _ = os.RemoveAll(tmp) }()
 	if err := os.MkdirAll(filepath.Join(tmp, "bundle"), 0o700); err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func readAllowedCPUs() []int {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		if v, ok := strings.CutPrefix(sc.Text(), "Cpus_allowed_list:"); ok {

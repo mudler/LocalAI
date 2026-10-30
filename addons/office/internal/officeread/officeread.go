@@ -116,7 +116,7 @@ func unzip(data []byte) (parts, error) {
 			return nil, fmt.Errorf("officeread: cannot open %q: %w", name, err)
 		}
 		b, err := io.ReadAll(io.LimitReader(rc, maxEntry+1))
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			return nil, fmt.Errorf("officeread: cannot read %q: %w", name, err)
 		}

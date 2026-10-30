@@ -16,7 +16,7 @@ var _ = Describe("OpenSQLiteFile", func() {
 		db, err := auth.OpenSQLiteFile(filepath.Join(GinkgoT().TempDir(), "private.db"))
 		Expect(err).ToNot(HaveOccurred())
 		raw, _ := db.DB()
-		defer raw.Close()
+		defer func() { _ = raw.Close() }()
 		Expect(db.Exec(`CREATE TABLE probe (id INTEGER)`).Error).To(Succeed())
 		Expect(db.Migrator().HasTable("users")).To(BeFalse(), "the private database has the auth tables")
 	})

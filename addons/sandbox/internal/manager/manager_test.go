@@ -221,7 +221,7 @@ func slowFixture(d time.Duration, n int) *fixture {
 		}
 	})
 	for i := 1; i <= n; i++ {
-		f.run("alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
+		_, _, _ = f.run("alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
 	}
 	return f
 }
@@ -242,7 +242,7 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("keeps the sandbox for the same conversation", func() {
 		f := setup(nil)
-		f.run("alice", "c1", "bash", `{"command":"echo one > home/keep.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo one > home/keep.txt"}`)
 		out, _, err := f.run("alice", "c1", "bash", `{"command":"cat home/keep.txt"}`)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).To(ContainSubstring("one"))
@@ -251,7 +251,7 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("never lets another user reach the sandbox of a conversation", func() {
 		f := setup(nil)
-		f.run("alice", "c1", "bash", `{"command":"echo secret > home/alice.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo secret > home/alice.txt"}`)
 		out, _, err := f.run("bob", "c1", "bash", `{"command":"ls home"}`)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).NotTo(ContainSubstring("alice.txt"), "bob saw alice's file")
@@ -262,7 +262,7 @@ var _ = Describe("Sandbox manager", func() {
 		f := setup(nil)
 		for i := 1; i <= 4; i++ {
 			*f.now = f.now.Add(time.Minute)
-			f.run("alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
+			_, _, _ = f.run("alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
 		}
 		*f.now = f.now.Add(time.Minute)
 		_, _, err := f.run("alice", "c5", "bash", `{"command":"true"}`)
@@ -270,14 +270,14 @@ var _ = Describe("Sandbox manager", func() {
 		Expect(f.m.Count("alice")).To(Equal(4))
 		// c1 was the oldest: it was removed, so it starts again.
 		before := f.b.created
-		f.run("alice", "c1", "bash", `{"command":"true"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"true"}`)
 		Expect(f.b.created).To(Equal(before+1), "c1 kept its sandbox although it was the oldest")
 	})
 
 	It("bounds all sandboxes together", func() {
 		f := setup(func(o *runner.Options) { o.PerUser, o.Total = 4, 3 })
 		for i := 1; i <= 3; i++ {
-			f.run(fmt.Sprintf("u%d", i), "c", "bash", `{"command":"true"}`)
+			_, _, _ = f.run(fmt.Sprintf("u%d", i), "c", "bash", `{"command":"true"}`)
 		}
 		_, _, err := f.run("u4", "c", "bash", `{"command":"true"}`)
 		Expect(err).To(MatchError(runner.ErrBusy))
@@ -286,7 +286,7 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("puts an idle sandbox to sleep, wakes it, and removes it after a day", func() {
 		f := setup(nil)
-		f.run("alice", "c1", "bash", `{"command":"echo kept > home/note.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo kept > home/note.txt"}`)
 		*f.now = f.now.Add(11 * time.Minute)
 		f.m.Sweep(context.Background())
 		Expect(f.m.Running()).To(BeZero(), "running after the idle time")
@@ -302,18 +302,18 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("refreshes the sandbox before the next call after an outside change", func() {
 		f := setup(nil)
-		f.run("alice", "c1", "bash", `{"command":"echo mine > home/a.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo mine > home/a.txt"}`)
 		f.h.mu.Lock()
 		f.h.rev = 99
 		f.h.changes = append(f.h.changes, map[string]any{"revision": 99, "title": "someone"})
 		f.h.mu.Unlock()
 		mat := f.h.count("workspace.materialize")
-		f.run("alice", "c1", "bash", `{"command":"true"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"true"}`)
 		Expect(f.h.count("workspace.materialize")).To(Equal(mat+1), "the sandbox was not rebuilt from the current files")
 		// The user's own commits do not count as outside changes.
 		mat = f.h.count("workspace.materialize")
-		f.run("alice", "c1", "bash", `{"command":"echo more > home/b.txt"}`)
-		f.run("alice", "c1", "bash", `{"command":"true"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo more > home/b.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"true"}`)
 		Expect(f.h.count("workspace.materialize")).To(Equal(mat), "an own commit made the sandbox refresh")
 	})
 
@@ -351,7 +351,7 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("lets the backend discard a day-old suspended sandbox", func() {
 		f := setup(nil)
-		f.run("alice", "c1", "bash", `{"command":"true"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"true"}`)
 		*f.now = f.now.Add(11 * time.Minute)
 		f.m.Sweep(context.Background())
 		Expect(f.b.discarded).To(BeEmpty(), "discarded too early")
@@ -365,12 +365,12 @@ var _ = Describe("Sandbox manager", func() {
 		f := setup(nil)
 		for i := 1; i <= 4; i++ {
 			*f.now = f.now.Add(time.Minute)
-			f.run("alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
+			_, _, _ = f.run("alice", fmt.Sprintf("c%d", i), "bash", `{"command":"true"}`)
 		}
 		*f.now = f.now.Add(11 * time.Minute)
 		f.m.Sweep(context.Background()) // all four sleep
 		*f.now = f.now.Add(time.Minute)
-		f.run("alice", "c5", "bash", `{"command":"true"}`) // c1 gives way
+		_, _, _ = f.run("alice", "c5", "bash", `{"command":"true"}`) // c1 gives way
 		Expect(f.b.discarded).To(HaveLen(1), "after the eviction")
 		_ = f.m.Close(context.Background())
 		Expect(f.b.discarded).To(HaveLen(4), "after Close: want the 3 suspended ones and the evicted one")
@@ -380,7 +380,7 @@ var _ = Describe("Sandbox manager", func() {
 		f := setup(func(o *runner.Options) { o.PerUser, o.Total = 4, 3 })
 		for i := 1; i <= 3; i++ {
 			*f.now = f.now.Add(time.Minute)
-			f.run(fmt.Sprintf("u%d", i), "c", "bash", `{"command":"true"}`)
+			_, _, _ = f.run(fmt.Sprintf("u%d", i), "c", "bash", `{"command":"true"}`)
 		}
 		*f.now = f.now.Add(11 * time.Minute)
 		f.m.Sweep(context.Background()) // everybody sleeps

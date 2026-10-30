@@ -1165,10 +1165,10 @@ func safeSend(ctx context.Context, hs HarnessSession, text string, media []Media
 func (c *Chat) guardTools(tools []Tool) []Tool {
 	log := c.m.log
 	out := make([]Tool, len(tools))
-	for i, t := range tools {
-		run := t.Run
-		name := t.Name
-		t.Run = func(ctx context.Context, args json.RawMessage) (res string, err error) {
+	for i, tool := range tools {
+		run := tool.Run
+		name := tool.Name
+		tool.Run = func(ctx context.Context, args json.RawMessage) (res string, err error) {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Error("session: a tool panicked", "tool", name, "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
@@ -1189,7 +1189,7 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 			defer context.AfterFunc(tctx, cancel)()
 			return run(rctx, args)
 		}
-		out[i] = t
+		out[i] = tool
 	}
 	return out
 }

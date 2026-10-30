@@ -36,8 +36,8 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 
 		st := w.read("status", "alice", nil)
 		adminStatus := w.read("status", "root", nil)
-		fmt.Fprintf(GinkgoWriter, "status for a user: %v\n", st)
-		fmt.Fprintf(GinkgoWriter, "status for an administrator: %v\n", adminStatus)
+		_, _ = fmt.Fprintf(GinkgoWriter, "status for a user: %v\n", st)
+		_, _ = fmt.Fprintf(GinkgoWriter, "status for an administrator: %v\n", adminStatus)
 		Expect(st["hostNotice"]).NotTo(Equal(true), "the default settings run commands on the host with no isolation: %v", st)
 
 		got := w.act("bash", "alice", "convsmoke", map[string]any{"command": "echo smoke-ok; cat home/smoke.txt; echo written > home/smoke-out.txt"})

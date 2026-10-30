@@ -36,7 +36,7 @@ var _ = Describe("compaction", func() {
 	It("reaches the client", func() {
 		m, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), Harness: compactingHarness{}, StateDir: GinkgoT().TempDir()})
 		Expect(err).NotTo(HaveOccurred())
-		defer m.Close(context.Background())
+		defer func() { _ = m.Close(context.Background()) }()
 		ctx := context.Background()
 		chat, err := m.Open(ctx, workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
 		Expect(err).NotTo(HaveOccurred())

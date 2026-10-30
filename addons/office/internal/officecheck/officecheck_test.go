@@ -79,7 +79,7 @@ func rewrite(zipped []byte, name string, fn func([]byte) []byte) []byte {
 		var b bytes.Buffer
 		_, err = b.ReadFrom(rc)
 		Expect(err).NotTo(HaveOccurred())
-		rc.Close()
+		_ = rc.Close()
 		data := b.Bytes()
 		if f.Name == name {
 			found = true
@@ -89,7 +89,7 @@ func rewrite(zipped []byte, name string, fn func([]byte) []byte) []byte {
 		}
 		w, err := zw.Create(f.Name)
 		Expect(err).NotTo(HaveOccurred())
-		w.Write(data)
+		_, _ = w.Write(data)
 	}
 	Expect(found).To(BeTrue(), "entry %s not in the package", name)
 	Expect(zw.Close()).To(Succeed())
@@ -125,16 +125,16 @@ func renameEntry(zipped []byte, from, to string) []byte {
 	for _, f := range zr.File {
 		rc, _ := f.Open()
 		var b bytes.Buffer
-		b.ReadFrom(rc)
-		rc.Close()
+		_, _ = b.ReadFrom(rc)
+		_ = rc.Close()
 		name := f.Name
 		if name == from {
 			name = to
 		}
 		w, _ := zw.Create(name)
-		w.Write(b.Bytes())
+		_, _ = w.Write(b.Bytes())
 	}
-	zw.Close()
+	_ = zw.Close()
 	return out.Bytes()
 }
 
@@ -162,8 +162,8 @@ var _ = Describe("Check", func() {
 		var buf bytes.Buffer
 		zw := zip.NewWriter(&buf)
 		w, _ := zw.Create("../evil.xml")
-		w.Write([]byte("<a/>"))
-		zw.Close()
+		_, _ = w.Write([]byte("<a/>"))
+		_ = zw.Close()
 		wantProblem(buf.Bytes(), "../evil.xml", "absolute or contains ..")
 
 		// Also in an otherwise good package.
@@ -174,14 +174,14 @@ var _ = Describe("Check", func() {
 		for _, f := range zr.File {
 			rc, _ := f.Open()
 			var b bytes.Buffer
-			b.ReadFrom(rc)
-			rc.Close()
+			_, _ = b.ReadFrom(rc)
+			_ = rc.Close()
 			w, _ := zw.Create(f.Name)
-			w.Write(b.Bytes())
+			_, _ = w.Write(b.Bytes())
 		}
 		w, _ = zw.Create("word/../../x.xml")
-		w.Write([]byte("<a/>"))
-		zw.Close()
+		_, _ = w.Write([]byte("<a/>"))
+		_ = zw.Close()
 		wantProblem(out.Bytes(), "word/../../x.xml", "absolute or contains ..")
 	})
 

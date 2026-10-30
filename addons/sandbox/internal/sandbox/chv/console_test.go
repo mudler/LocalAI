@@ -25,7 +25,7 @@ var _ = Describe("watchConsole", func() {
 		Expect(err).To(Succeed())
 		_, err = f.WriteString("[  1.0] Kernel panic - not syncing: Attempted to kill init!\n")
 		Expect(err).To(Succeed())
-		f.Close()
+		_ = f.Close()
 		Eventually(panicked, 2*time.Second).Should(Receive(), "a panic in the log was not reported")
 		close(done)
 	})

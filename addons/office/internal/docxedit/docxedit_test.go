@@ -77,7 +77,7 @@ func zipParts(b []byte) (names []string, data map[string][]byte) {
 		rc, err := f.Open()
 		Expect(err).ToNot(HaveOccurred())
 		c, _ := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		names = append(names, f.Name)
 		data[f.Name] = c
 	}

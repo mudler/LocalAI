@@ -322,7 +322,7 @@ type appendFile interface {
 
 // appendLines appends data, whole lines, to the file at p.
 func appendLines(p string, data []byte) error {
-	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := os.OpenFile(p, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o600) // #nosec G304 -- a file of the store under its configured folder
 	if err != nil {
 		return err
 	}

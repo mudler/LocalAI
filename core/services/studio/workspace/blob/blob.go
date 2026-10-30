@@ -130,7 +130,7 @@ func linkOrCopy(src string, dir *os.Root, name string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := target.OpenFile(base, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o444) // #nosec G302 -- blobs are content addressed and read only on purpose
 	if err != nil {
 		return err

@@ -311,7 +311,7 @@ func Run(newStore New) {
 			go func(i int) {
 				defer wg.Done()
 				defer GinkgoRecover()
-				err := s.ClaimTurn(c, "alice", "c1", string(rune('a'+i)))
+				err := s.ClaimTurn(c, "alice", "c1", string(rune('a'+i))) // #nosec G115 -- i counts a few test turns
 				switch {
 				case err == nil:
 					atomic.AddInt32(&wins, 1)

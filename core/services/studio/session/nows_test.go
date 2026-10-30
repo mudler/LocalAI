@@ -23,7 +23,7 @@ var _ = Describe("a manager without a workspace", func() {
 			StateDir: GinkgoT().TempDir(),
 		})
 		Expect(err).NotTo(HaveOccurred(), "session.New without a workspace")
-		defer m.Close(context.Background())
+		defer func() { _ = m.Close(context.Background()) }()
 
 		ctx := context.Background()
 		chat, err := m.Open(ctx, workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")

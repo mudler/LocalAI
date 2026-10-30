@@ -228,7 +228,7 @@ var _ = Describe("Chats reasoning, compaction, switches and inbox", Ordered, fun
 		It("streams new notifications as server-sent events", func() {
 			resp, err := http.DefaultClient.Do(c.req(http.MethodGet, "/api/chats/notifications/events", nil, ""))
 			Expect(err).ToNot(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("Content-Type")).To(HavePrefix("text/event-stream"))
 		})

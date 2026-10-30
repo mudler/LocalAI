@@ -41,6 +41,7 @@ func profile(path string) (string, error) {
 	if abs, err = filepath.EvalSymlinks(abs); err != nil {
 		return "", fmt.Errorf("%s is not a file: %w", path, err)
 	}
+	// #nosec G703 -- administrator tool: checks the path named on its command line
 	if st, err := os.Stat(abs); err != nil || st.IsDir() {
 		return "", fmt.Errorf("%s is not a file", abs)
 	}

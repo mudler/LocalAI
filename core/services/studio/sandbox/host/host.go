@@ -107,6 +107,7 @@ func (b *Backend) Create(ctx context.Context, spec sandbox.Spec) (_ sandbox.Sand
 		}
 	}()
 	s := &hostSandbox{b: b, id: filepath.Base(dir), dir: dir, env: spec.Env, view: spec.View}
+	// #nosec G301 -- the home folder of the commands, as on the user's own machine
 	if err := os.MkdirAll(s.home(), 0o755); err != nil {
 		return nil, err
 	}
@@ -204,13 +205,13 @@ func (s *hostSandbox) materialize(ctx context.Context) error {
 		rel, _ := filepath.Rel(s.lower(), p)
 		dst := filepath.Join(s.work(), rel)
 		if d.IsDir() {
-			return os.MkdirAll(dst, 0o755)
+			return os.MkdirAll(dst, 0o755) // #nosec G301 -- the work copy is the user's folder, as on the user's own machine
 		}
-		b, err := os.ReadFile(p)
+		b, err := os.ReadFile(p) // #nosec G122 G304 -- the walk reads the lower folder that the add-on itself wrote
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(dst, b, 0o644)
+		return os.WriteFile(dst, b, 0o644) // #nosec G306 G703 -- the destination is inside the work folder of the add-on; the work copy is the user's folder
 	})
 }
 
@@ -253,7 +254,7 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(prog, c.Args[1:]...)
+	cmd := exec.Command(prog, c.Args[1:]...) // #nosec G204 -- the host backend runs the command of the user by design
 	cmd.Dir = filepath.Join(s.work(), filepath.FromSlash(rel))
 	// A fixed environment: nothing of the add-on's own reaches the command.
 	cmd.Env = append([]string{"PATH=" + commandPath, "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, c.Env...)
@@ -377,7 +378,7 @@ func (s *hostSandbox) scan() ([]sandbox.IndexedEntry, error) {
 			st := info.Sys().(*syscall.Stat_t)
 			path := p
 			out = append(out, sandbox.IndexedEntry{
-				UpperEntry: workspace.UpperEntry{Path: rel, Kind: workspace.EntryFile, Mode: info.Mode(), Open: func() (io.ReadCloser, error) { return os.Open(path) }},
+				UpperEntry: workspace.UpperEntry{Path: rel, Kind: workspace.EntryFile, Mode: info.Mode(), Open: func() (io.ReadCloser, error) { return os.Open(path) }}, // #nosec G304 -- a file of the work folder of the add-on
 				Key:        fmt.Sprintf("%d/%d/%d/%d", st.Ino, info.Size(), statCtimeNano(st), info.ModTime().UnixNano()),
 			})
 		default:
@@ -408,11 +409,11 @@ func (s *hostSandbox) scan() ([]sandbox.IndexedEntry, error) {
 }
 
 func sameContent(a, b string) bool {
-	x, err := os.ReadFile(a)
+	x, err := os.ReadFile(a) // #nosec G304 -- files of the lower and work folders of the add-on
 	if err != nil {
 		return false
 	}
-	y, err := os.ReadFile(b)
+	y, err := os.ReadFile(b) // #nosec G304 -- files of the lower and work folders of the add-on
 	return err == nil && bytes.Equal(x, y)
 }
 

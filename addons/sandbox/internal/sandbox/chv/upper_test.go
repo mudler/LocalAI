@@ -76,7 +76,7 @@ func summary(src workspace.FixtureSource) []string {
 			rc, err := e.Open()
 			Expect(err).To(Succeed())
 			b, _ := io.ReadAll(rc)
-			rc.Close()
+			_ = rc.Close()
 			s += " " + strings.TrimSpace(string(b))
 		}
 		out = append(out, s)

@@ -353,7 +353,7 @@ func readSkill(ctx context.Context, s workspace.Store, a workspace.Actor, b cont
 		}
 		return Skill{}, false, fmt.Errorf("skills: open %s: %w", dp, err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	if node.Size > MaxFileSize {
 		sk.Invalid = ErrTooLarge.Error()
 		return sk, true, nil

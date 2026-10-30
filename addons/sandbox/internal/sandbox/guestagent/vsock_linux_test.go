@@ -49,12 +49,12 @@ var _ = Describe("vsock listener", func() {
 		go func() {
 			c, err := net.Dial("unix", path)
 			if err == nil {
-				c.Close()
+				_ = c.Close()
 			}
 		}()
 		c, err := l.Accept()
 		Expect(err).ToNot(HaveOccurred())
-		c.Close()
+		_ = c.Close()
 	})
 
 	It("allows only the host as a peer", func() {
@@ -67,18 +67,18 @@ var _ = Describe("vsock listener", func() {
 	// next one it accepts.
 	It("drops other peers", func() {
 		l, path := unixListener()
-		defer l.Close()
+		defer func() { _ = l.Close() }()
 		var seen int
 		l.allow = func(sockaddrVM) bool { seen++; return seen > 1 }
 		first, err := net.Dial("unix", path)
 		Expect(err).ToNot(HaveOccurred())
-		defer first.Close()
+		defer func() { _ = first.Close() }()
 		second, err := net.Dial("unix", path)
 		Expect(err).ToNot(HaveOccurred())
-		defer second.Close()
+		defer func() { _ = second.Close() }()
 		c, err := l.Accept()
 		Expect(err).ToNot(HaveOccurred())
-		c.Close()
+		_ = c.Close()
 		Expect(seen).To(Equal(2), "the check ran twice")
 		// The refused connection is closed by the listener side.
 		_ = first.SetReadDeadline(time.Now().Add(2 * time.Second))

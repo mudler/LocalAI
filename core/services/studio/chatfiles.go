@@ -91,11 +91,11 @@ var fileWriteTools = map[string]bool{"write_file": true, "edit_file": true, "mov
 // successful call tells the chat's clients that its files changed.
 func (s *Service) announceFileChanges(a workspace.Actor, tools []session.Tool) []session.Tool {
 	k := key(a.Principal, a.ChatID)
-	for i, t := range tools {
-		if !fileWriteTools[t.Name] {
+	for i, tool := range tools {
+		if !fileWriteTools[tool.Name] {
 			continue
 		}
-		run := t.Run
+		run := tool.Run
 		tools[i].Run = func(ctx context.Context, args json.RawMessage) (string, error) {
 			out, err := run(ctx, args)
 			if err == nil {

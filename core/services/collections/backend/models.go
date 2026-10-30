@@ -70,9 +70,9 @@ func (b *backendInProcess) saveModel(name, model string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	if _, err = tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if err = tmp.Close(); err != nil {
@@ -247,7 +247,7 @@ func (b *backendInProcess) rerank(ctx context.Context, model, query string, resu
 	if err != nil {
 		return nil, fmt.Errorf("rerank request failed: %w", err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("rerank request failed with HTTP %d", response.StatusCode)
 	}

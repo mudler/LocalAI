@@ -119,7 +119,7 @@ func (w *Workbook) part(name string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("xlsxedit: open %s: %w", name, err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	b, err := io.ReadAll(io.LimitReader(rc, maxPartSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("xlsxedit: read %s: %w", name, err)

@@ -190,7 +190,7 @@ func Run(newStore NewStore) {
 		gen := func() ([]byte, error) {
 			mu.Lock()
 			n++
-			v := byte(n)
+			v := byte(n) // #nosec G115 -- test data: the byte value may wrap
 			mu.Unlock()
 			time.Sleep(5 * time.Millisecond)
 			return bytes.Repeat([]byte{v}, connectors.KeySize), nil

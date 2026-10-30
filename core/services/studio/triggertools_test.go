@@ -271,7 +271,7 @@ var _ = Describe("triggertools: the Home widget of a trigger", func() {
 		Expect(err).NotTo(HaveOccurred())
 		rd, _, err := fs.Store().Open(ctx, fs.Actor(alice), home)
 		Expect(err).NotTo(HaveOccurred())
-		defer rd.Close()
+		defer func() { _ = rd.Close() }()
 		var doc struct {
 			Widgets []map[string]any `json:"widgets"`
 			Extra   int              `json:"extra"`

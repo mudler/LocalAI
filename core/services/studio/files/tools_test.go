@@ -38,7 +38,7 @@ func (b *toolBox) run(name string, args map[string]any) (string, error) {
 func wstestRead(f *files.Service, abs string) string {
 	r, _, err := f.Store().Open(context.Background(), workspace.Actor{Principal: files.AdminPrincipal}, abs)
 	Expect(err).NotTo(HaveOccurred())
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	b := new(strings.Builder)
 	buf := make([]byte, 4096)
 	for {

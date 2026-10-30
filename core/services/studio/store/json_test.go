@@ -72,7 +72,7 @@ var _ = Describe("the JSON store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_, err = f.WriteString(`{"Seq":3,"Role":"us`)
 		Expect(err).NotTo(HaveOccurred())
-		f.Close()
+		_ = f.Close()
 
 		second, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred(), "NewJSON with a torn transcript")

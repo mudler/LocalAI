@@ -42,7 +42,7 @@ func run(timeout time.Duration, env map[string]string, args ...string) (string, 
 func freeAddr() string {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	Expect(err).ToNot(HaveOccurred())
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	return ln.Addr().String()
 }
 
@@ -108,7 +108,7 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 		It("opens no profiling socket unless asked", func() {
 			resp, err := http.Get(in.api.base + "/debug/pprof/") //nolint:noctx // a probe
 			Expect(err).ToNot(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).NotTo(Equal(http.StatusOK))
 		})
 	})
@@ -220,15 +220,15 @@ var _ = Describe("The process and the command line", Label("platform", "cli"), f
 			in := startInstance(startOpts{Name: "pprof", Args: []string{"--pprof", "--pprof-address", addr}})
 			resp, err := http.Get("http://" + addr + "/debug/pprof/") //nolint:noctx // a probe
 			Expect(err).ToNot(HaveOccurred())
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			resp, err = http.Get("http://" + addr + "/debug/pprof/cmdline") //nolint:noctx // a probe
 			Expect(err).ToNot(HaveOccurred())
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
 			resp, err = http.Get(in.api.base + "/debug/pprof/") //nolint:noctx // a probe
 			Expect(err).ToNot(HaveOccurred())
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			Expect(resp.StatusCode).NotTo(Equal(http.StatusOK))
 		})
 

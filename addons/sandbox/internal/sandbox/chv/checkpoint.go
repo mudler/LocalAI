@@ -111,7 +111,7 @@ func (s *sbx) checkpoint(ctx context.Context, title string, keepFrozen bool) (cs
 	if err = os.Mkdir(stage, 0o700); err != nil {
 		return workspace.ChangeSet{}, nil, err
 	}
-	defer os.RemoveAll(stage)
+	defer func() { _ = os.RemoveAll(stage) }()
 	// The stage limit defaults to the size of the upper image, read here on
 	// the host: debugfs may see the image under another path.
 	limit := s.b.opts.StageLimit

@@ -60,7 +60,7 @@ func readBlobFile(dir string, h v1.Hash) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ociimage: layout blob %s: %w", h, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(f, maxManifestBytes+1))
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func checkBlob(dir string, d v1.Hash) error {
 	if err != nil {
 		return fmt.Errorf("ociimage: layout blob %s: %w", d, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	got, _, err := v1.SHA256(f)
 	if err != nil {
 		return err

@@ -182,17 +182,17 @@ func (b *backendInProcess) upload(ctx context.Context, collection, filename stri
 	if err != nil {
 		return "", err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 	tmpPath := filepath.Join(tmpDir, filepath.Base(filename))
 	out, err := os.Create(tmpPath) // #nosec G304 -- tmpPath is inside a fresh temp directory and the name is reduced to its base
 	if err != nil {
 		return "", err
 	}
 	if _, err := io.Copy(out, fileBody); err != nil {
-		out.Close()
+		_ = out.Close()
 		return "", err
 	}
-	out.Close()
+	_ = out.Close()
 	now := time.Now().Format(time.RFC3339)
 	return kb.Store(tmpPath, map[string]string{"created_at": now})
 }
@@ -398,8 +398,8 @@ func NewInProcessBackend(cfg *Config) (Backend, *State) {
 	backend := &backendInProcess{state: st, cfg: cfg, openAIClient: openAIClient}
 	st.backend = backend
 
-	os.MkdirAll(cfg.CollectionDBPath, 0755) // #nosec G301 -- the collection directories are shared with the services that read them
-	os.MkdirAll(cfg.FileAssets, 0755)       // #nosec G301 -- the collection directories are shared with the services that read them
+	_ = os.MkdirAll(cfg.CollectionDBPath, 0755) // #nosec G301 -- the collection directories are shared with the services that read them
+	_ = os.MkdirAll(cfg.FileAssets, 0755)       // #nosec G301 -- the collection directories are shared with the services that read them
 
 	colls := rag.ListAllCollections(cfg.CollectionDBPath)
 	for _, c := range colls {

@@ -237,7 +237,7 @@ var _ = Describe("New", func() {
 		Expect(b.Close()).To(Succeed(), "second Close")
 		b2, err := New(o2)
 		Expect(err).ToNot(HaveOccurred(), "New after Close")
-		b2.Close()
+		_ = b2.Close()
 	})
 
 	It("refuses a negative stage limit", func() {
@@ -259,7 +259,7 @@ var _ = Describe("New", func() {
 		Expect(os.Mkdir(filepath.Join(d, "checkpoint"), 0o700)).To(Succeed())
 		b, err := New(o)
 		Expect(err).ToNot(HaveOccurred())
-		DeferCleanup(func() { b.Close() })
+		DeferCleanup(func() { _ = b.Close() })
 		_, err = os.Stat(d)
 		Expect(os.IsNotExist(err)).To(BeTrue(), "the suspended folder is still there: %v", err)
 	})
@@ -286,7 +286,7 @@ var _ = Describe("New", func() {
 		Expect(os.Mkdir(other, 0o700)).To(Succeed())
 		b, err := New(o)
 		Expect(err).ToNot(HaveOccurred())
-		DeferCleanup(func() { b.Close() })
+		DeferCleanup(func() { _ = b.Close() })
 		for _, d := range []string{running, noState, corrupt} {
 			_, err := os.Stat(d)
 			Expect(os.IsNotExist(err)).To(BeTrue(), "%s is still there: %v", filepath.Base(d), err)
@@ -314,7 +314,7 @@ var _ = Describe("New", func() {
 		Expect(os.WriteFile(r, []byte(script), 0o755)).To(Succeed())
 		b, err := New(o)
 		Expect(err).ToNot(HaveOccurred())
-		defer b.Close()
+		defer func() { _ = b.Close() }()
 		_, err = os.Stat(d)
 		Expect(err).ToNot(HaveOccurred(), "the folder was removed although its sandbox may still run")
 	})
@@ -452,7 +452,7 @@ var _ = Describe("sandbox handle without an instance", func() {
 		s := bootFixture(r)
 		l, err := net.Listen("unix", s.agentSock())
 		Expect(err).ToNot(HaveOccurred())
-		defer l.Close()
+		defer func() { _ = l.Close() }()
 		go func() {
 			defer GinkgoRecover()
 			for {
@@ -460,7 +460,7 @@ var _ = Describe("sandbox handle without an instance", func() {
 				if err != nil {
 					return
 				}
-				defer c.Close() // never answers
+				defer func() { _ = c.Close() }() // never answers
 			}
 		}()
 		old := agentCallBudget

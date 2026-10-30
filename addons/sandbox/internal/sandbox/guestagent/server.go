@@ -78,7 +78,7 @@ func (s *Server) Serve(l net.Listener) error {
 
 // ServeConn handles one request connection and closes it.
 func (s *Server) ServeConn(c net.Conn) {
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 	_ = c.SetReadDeadline(time.Now().Add(10 * time.Second))
 	f, err := ReadFrame(c)
 	if err != nil {

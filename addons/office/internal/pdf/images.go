@@ -424,7 +424,7 @@ func (x *imageExtractor) samples(sd *types.StreamDict, compressed bool, n int) (
 	if err != nil {
 		return nil, err
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 	// Read one byte past n, so output longer than n is seen without
 	// reading the rest of the stream.
 	var buf bytes.Buffer

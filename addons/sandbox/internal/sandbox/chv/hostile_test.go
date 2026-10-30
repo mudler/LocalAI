@@ -133,7 +133,7 @@ func zeroXattrMagic(img string, ino uint64) {
 	off, _ := strconv.ParseInt(m[2], 16, 64)
 	f, err := os.OpenFile(img, os.O_RDWR, 0)
 	Expect(err).To(Succeed())
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	raw := make([]byte, 256)
 	_, err = f.ReadAt(raw, blk*bs+off)
 	Expect(err).To(Succeed())

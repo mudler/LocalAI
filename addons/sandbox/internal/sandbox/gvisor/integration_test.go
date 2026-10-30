@@ -74,7 +74,7 @@ func fixture(b *Backend, spec sandbox.Spec) (sandbox.Sandbox, workspace.Store) {
 	}
 	sb, err := b.Create(ctx, spec)
 	Expect(err).ToNot(HaveOccurred())
-	DeferCleanup(func() { sb.Destroy(context.Background()) })
+	DeferCleanup(func() { _ = sb.Destroy(context.Background()) })
 	return sb, st
 }
 
@@ -149,7 +149,7 @@ var _ = Describe("gVisor backend integration", func() {
 		Expect(err).ToNot(HaveOccurred())
 		rb, err := b.Resume(context.Background(), ref, s.env)
 		Expect(err).ToNot(HaveOccurred())
-		DeferCleanup(func() { rb.Destroy(context.Background()) })
+		DeferCleanup(func() { _ = rb.Destroy(context.Background()) })
 		Expect(sh(rb, "cat /tmp/marker")).To(Equal("before\n"), "marker after resume")
 	})
 
@@ -164,7 +164,7 @@ var _ = Describe("gVisor backend integration", func() {
 		Expect(b.Close()).To(Succeed())
 		b2, err := New(b.opts)
 		Expect(err).ToNot(HaveOccurred())
-		DeferCleanup(func() { b2.Close() })
+		DeferCleanup(func() { _ = b2.Close() })
 		waitNoProcs(id)
 		_, err = os.Stat(filepath.Join(b.opts.StateDir, id))
 		Expect(os.IsNotExist(err)).To(BeTrue(), "the folder of the old sandbox is still there: %v", err)
@@ -184,7 +184,7 @@ var _ = Describe("gVisor backend integration", func() {
 			sb, err := b.Create(ctx, sandbox.Spec{View: v, Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, Memory: 1 << 30, Disk: 1 << 30})
 			cancel()
 			if err == nil {
-				sb.Destroy(bg())
+				_ = sb.Destroy(bg())
 			}
 			waitNoProcs(b.opts.StateDir)
 			Expect(sessionFolders(b.opts.StateDir)).To(BeEmpty(), "timeout %s: folders are left in StateDir", d)

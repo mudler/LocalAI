@@ -137,12 +137,12 @@ func (r upperReader) read(ctx context.Context, ix sandbox.UpperIndex) (workspace
 		host := filepath.Join(r.host, itoa(ino))
 		size := inodes[ino].Size
 		send[i].Open = func() (io.ReadCloser, error) {
-			f, err := os.Open(host)
+			f, err := os.Open(host) // #nosec G304 -- a path the add-on builds under its own data or state folder
 			if err != nil {
 				return nil, err
 			}
 			if st, err := f.Stat(); err != nil || st.Size() != size {
-				f.Close()
+				_ = f.Close()
 				return nil, fmt.Errorf("chv: staged copy of %s has the wrong size", e.Path)
 			}
 			return f, nil

@@ -15,11 +15,11 @@ const kernelPanicText = "Kernel panic - not syncing"
 // consoleHasPanic reports whether the end of the console log holds the
 // kernel panic line.
 func consoleHasPanic(path string) bool {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return false
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	const n = 64 << 10
 	if st, err := f.Stat(); err == nil && st.Size() > n {
 		_, _ = f.Seek(-n, io.SeekEnd)
@@ -65,11 +65,11 @@ func watchConsole(path string, done <-chan struct{}, every time.Duration, limit 
 // trimConsole cuts the log in place to its last keep bytes. The VM must be
 // stopped: nothing else writes the file.
 func trimConsole(path string, keep int64) error {
-	f, err := os.OpenFile(path, os.O_RDWR, 0)
+	f, err := os.OpenFile(path, os.O_RDWR, 0) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	st, err := f.Stat()
 	if err != nil {
 		return err

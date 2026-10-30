@@ -154,7 +154,7 @@ func runBatch(ctx context.Context, argv []string, cmds []command, maxOut int64) 
 	}
 	ctx, cancel := debugfsContext(ctx)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...) // #nosec G204 -- a pinned helper program that the add-on resolved; the add-on builds the arguments
 	cmd.Stdin = &in
 	out := &capWriter{max: maxOut, cancel: cancel}
 	errw := &capWriter{max: maxDebugfsStderr, cancel: cancel}

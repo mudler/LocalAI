@@ -216,7 +216,7 @@ func (t *API) get(ctx context.Context, token, path string) ([]byte, error) {
 		}
 		return nil, fmt.Errorf("telegram: the download failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
 		return nil, fmt.Errorf("telegram: the download answered %d", resp.StatusCode)

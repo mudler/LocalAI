@@ -87,7 +87,7 @@ func (b *Backend) call(ctx context.Context, root string, args ...string) ([]byte
 	if len(args) == 0 {
 		return nil, errors.New("gvisor: runsc call without a command")
 	}
-	cmd := exec.CommandContext(ctx, b.runsc, append(globalFlags(root), args...)...)
+	cmd := exec.CommandContext(ctx, b.runsc, append(globalFlags(root), args...)...) // #nosec G204 -- a pinned helper program that the add-on resolved; the add-on builds the arguments
 	cmd.Stdin = nil
 	out, err := output(cmd)
 	if err != nil {
@@ -116,7 +116,7 @@ func (b *Backend) pickCPUs(n int) string {
 		return ""
 	}
 	n = min(n, len(all))
-	start := int(b.next.Add(uint32(n))-uint32(n)) % len(all)
+	start := int(b.next.Add(uint32(n))-uint32(n)) % len(all) // #nosec G115 -- n is at most the number of CPUs of the host
 	list := make([]string, 0, n)
 	for i := range n {
 		list = append(list, strconv.Itoa(all[(start+i)%len(all)]))
@@ -132,24 +132,24 @@ func (b *Backend) start(ctx context.Context, dir, id string, cpus int, verb stri
 	if err := validID(id); err != nil {
 		return 0, err
 	}
-	console, err := os.OpenFile(filepath.Join(dir, "console.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	console, err := os.OpenFile(filepath.Join(dir, "console.log"), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return 0, err
 	}
-	defer console.Close()
+	defer func() { _ = console.Close() }()
 	pidFile := filepath.Join(dir, "pid")
 	_ = os.Remove(pidFile)
 	args := append([]string{"-c", b.pickCPUs(cpus), b.runsc}, globalFlags(filepath.Join(dir, "runsc"))...)
 	args = append(args, verb, "-detach", "--bundle="+filepath.Join(dir, "bundle"), "--pid-file="+pidFile)
 	args = append(args, extra...)
 	args = append(args, id)
-	cmd := exec.CommandContext(ctx, b.taskset, args...)
+	cmd := exec.CommandContext(ctx, b.taskset, args...) // #nosec G204 -- a pinned helper program that the add-on resolved; the add-on builds the arguments
 	cmd.Stdin = nil
 	cmd.Stdout, cmd.Stderr = console, console
 	if err := cmd.Run(); err != nil {
 		return 0, fmt.Errorf("gvisor: runsc %s: %w\n%s", verb, err, tail(filepath.Join(dir, "console.log"), 2048))
 	}
-	raw, err := os.ReadFile(pidFile)
+	raw, err := os.ReadFile(pidFile) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return 0, err
 	}
@@ -197,7 +197,7 @@ func pidAlive(pid int) bool {
 
 // tail returns the last n bytes of the file p, for error messages.
 func tail(p string, n int) string {
-	b, err := os.ReadFile(p)
+	b, err := os.ReadFile(p) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return ""
 	}

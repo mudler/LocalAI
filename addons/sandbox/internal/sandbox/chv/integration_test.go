@@ -66,7 +66,7 @@ func fixture(b *Backend, image string) (sandbox.Sandbox, workspace.Store) {
 	Expect(err).To(Succeed())
 	sb, err := b.Create(ctx, sandbox.Spec{Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, View: v, Image: image, Memory: 1 << 30, Disk: 1 << 30})
 	Expect(err).To(Succeed())
-	DeferCleanup(func() { sb.Destroy(context.Background()) })
+	DeferCleanup(func() { _ = sb.Destroy(context.Background()) })
 	return sb, st
 }
 
@@ -144,7 +144,7 @@ python3 -c "import os; print(os.getxattr('xattr', 'user.demo').decode())"`)
 		v, _ := st.View(ctx, sbtest.Admin, []workspace.MountRequest{{Path: "/proj", At: "proj", Mode: workspace.ModeWrite}})
 		sb, err := b.Create(ctx, sandbox.Spec{Env: sandbox.Env{Store: st, Actor: sbtest.Admin}, View: v, Memory: 1 << 30, Disk: 64 << 20})
 		Expect(err).To(Succeed())
-		defer sb.Destroy(ctx)
+		defer func() { _ = sb.Destroy(ctx) }()
 		var errb bytes.Buffer
 		p, err := sb.Exec(ctx, sandbox.Cmd{Args: []string{"sh", "-c", "head -c 200000000 /dev/zero > proj/big.bin"}, Stderr: &errb})
 		Expect(err).To(Succeed())
@@ -168,7 +168,7 @@ python3 -c "import os; print(os.getxattr('xattr', 'user.demo').decode())"`)
 		Expect(err).To(Succeed())
 		r, _, err := st.Open(context.Background(), sbtest.Admin, "/proj/kept.txt")
 		Expect(err).To(Succeed())
-		r.Close()
+		_ = r.Close()
 	})
 
 	// It holds the checkpoint lock, as a running checkpoint or refresh does,
@@ -231,7 +231,7 @@ python3 -c "import os; print(os.getxattr('xattr', 'user.demo').decode())"`)
 		Expect(sh(sb, "cat proj/slow.txt")).To(Equal("slow\nmore\n"), "after the refresh that did not happen")
 		r, _, err := st.Open(context.Background(), sbtest.Admin, "/proj/slow.txt")
 		Expect(err).To(Succeed())
-		r.Close()
+		_ = r.Close()
 	})
 
 	// A freeze call that fails may still have frozen the guest (a lost
@@ -292,7 +292,7 @@ python3 -c "import os; print(os.getxattr('xattr', 'user.demo').decode())"`)
 		Expect(err).To(Succeed())
 		r, _, err := st.Open(context.Background(), sbtest.Admin, "/proj/kept.txt")
 		Expect(err).To(Succeed())
-		r.Close()
+		_ = r.Close()
 	})
 
 	// A boot that fails after the swap puts the old files and state back and
@@ -363,7 +363,7 @@ python3 -c "import os; print(os.getxattr('xattr', 'user.demo').decode())"`)
 		s.hooks.call = nil
 		r, _, err := st.Open(context.Background(), sbtest.Admin, "/proj/change.txt")
 		Expect(err).To(Succeed())
-		r.Close()
+		_ = r.Close()
 		sh(sb, "echo more >> proj/change.txt")
 	})
 

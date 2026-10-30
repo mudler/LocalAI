@@ -24,7 +24,7 @@ func appProps(application string) string {
 		}
 		rc, err := f.Open()
 		Expect(err).NotTo(HaveOccurred())
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 		b, err := io.ReadAll(rc)
 		Expect(err).NotTo(HaveOccurred())
 		return string(b)

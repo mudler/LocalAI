@@ -58,6 +58,7 @@ func (b *Backend) image(ctx context.Context, ref string) (guestImage, error) {
 // module requires go 1.25.0).
 func unpack(r io.Reader, dir string) (err error) {
 	rootDir := filepath.Join(dir, "rootfs")
+	// #nosec G301 -- the root folder of the guest image, readable by the guest user
 	if err := os.Mkdir(rootDir, 0o755); err != nil {
 		return err
 	}
@@ -65,7 +66,7 @@ func unpack(r io.Reader, dir string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer root.Close()
+	defer func() { _ = root.Close() }()
 	// A failed unpack leaves nothing behind that cannot be removed.
 	defer func() {
 		if err != nil {

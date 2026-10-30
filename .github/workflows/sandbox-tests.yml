@@ -139,6 +139,10 @@ jobs:
         run: |
           export SANDBOX_TEST_RUNSC="$HOME/gvisor/runsc"
           go test -tags auth -count=1 -timeout 45m ./addons/sandbox/internal/sandbox/gvisor/
+      - name: Install the host UI build tools
+        # The smoke test packages the add-on, and the package build bundles
+        # the add-on UI with the bundler the host UI installs.
+        run: npm ci --prefix core/http/react-ui
       - name: Release smoke test
         env:
           SANDBOX_GUEST_IMAGE: ${{ steps.image.outputs.ref }}

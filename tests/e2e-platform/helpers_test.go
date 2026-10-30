@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -108,13 +106,4 @@ func createConnector(a *api, body obj) string {
 
 func setSetting(a *api, key string, value any) {
 	a.mustJSON(http.MethodPost, "/api/settings", obj{key: value}, http.StatusOK)
-}
-
-// knownGap skips a spec that checks behavior the product does not have yet.
-// Set LOCALAI_E2E_RUN_KNOWN_GAPS=1 to run these specs and see them fail. The
-// id points at the gap in the e2e report of the platform area.
-func knownGap(id, reason string) {
-	if os.Getenv("LOCALAI_E2E_RUN_KNOWN_GAPS") == "" {
-		Skip("known gap: " + id + ": " + reason)
-	}
 }

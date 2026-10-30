@@ -327,7 +327,7 @@ func (s *Service) getAt(ctx context.Context, l loc) (Page, error) {
 // with them.
 func codeHash(index, meta workspace.Node) string {
 	h := sha256.New()
-	fmt.Fprintf(h, "index.html\x00%s\x00%d\x00page.json\x00%s\x00%d", index.Blob, index.Size, meta.Blob, meta.Size)
+	_, _ = fmt.Fprintf(h, "index.html\x00%s\x00%d\x00page.json\x00%s\x00%d", index.Blob, index.Size, meta.Blob, meta.Size)
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -356,7 +356,7 @@ func (s *Service) readMeta(ctx context.Context, a workspace.Actor, folder string
 	if err != nil {
 		return workspace.Node{}
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if n.Kind != workspace.KindFile {
 		return workspace.Node{}
 	}
@@ -431,7 +431,7 @@ func (s *Service) readAt(ctx context.Context, l loc, rel string) (Content, error
 	if err != nil {
 		return Content{}, mapNotFound(err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if n.Kind != workspace.KindFile {
 		return Content{}, ErrNotFound
 	}

@@ -75,7 +75,7 @@ func (s *Service) readBlob(ctx context.Context, sha string, maxSize int64) ([]by
 	if err != nil {
 		return nil, fmt.Errorf("files: read an earlier version: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	data, err := io.ReadAll(io.LimitReader(r, maxSize+1))
 	if err != nil {
 		return nil, fmt.Errorf("files: read an earlier version: %w", err)

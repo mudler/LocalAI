@@ -54,16 +54,16 @@ func rewrite(data []byte, fn func(name string, b []byte) []byte) []byte {
 	for _, f := range zr.File {
 		rc, _ := f.Open()
 		var b bytes.Buffer
-		b.ReadFrom(rc)
-		rc.Close()
+		_, _ = b.ReadFrom(rc)
+		_ = rc.Close()
 		nb := fn(f.Name, b.Bytes())
 		if nb == nil {
 			continue
 		}
 		w, _ := zw.Create(f.Name)
-		w.Write(nb)
+		_, _ = w.Write(nb)
 	}
-	zw.Close()
+	_ = zw.Close()
 	return out.Bytes()
 }
 
@@ -76,14 +76,14 @@ func addEntry(data []byte, name, content string) []byte {
 	for _, f := range zr.File {
 		rc, _ := f.Open()
 		var b bytes.Buffer
-		b.ReadFrom(rc)
-		rc.Close()
+		_, _ = b.ReadFrom(rc)
+		_ = rc.Close()
 		w, _ := zw.Create(f.Name)
-		w.Write(b.Bytes())
+		_, _ = w.Write(b.Bytes())
 	}
 	w, _ := zw.Create(name)
-	w.Write([]byte(content))
-	zw.Close()
+	_, _ = w.Write([]byte(content))
+	_ = zw.Close()
 	return out.Bytes()
 }
 
@@ -94,9 +94,9 @@ func makeZip(entries map[string]string) []byte {
 	for n, c := range entries {
 		w, err := zw.Create(n)
 		Expect(err).ToNot(HaveOccurred())
-		w.Write([]byte(c))
+		_, _ = w.Write([]byte(c))
 	}
-	zw.Close()
+	_ = zw.Close()
 	return out.Bytes()
 }
 
@@ -229,7 +229,7 @@ var _ = Describe("officeread", func() {
 			var data []byte
 			if f.name == "docx" {
 				var buf bytes.Buffer
-				docx.Write(&buf, docx.Document{Blocks: []docx.Block{docx.Paragraph{Text: "x"}}})
+				Expect(docx.Write(&buf, docx.Document{Blocks: []docx.Block{docx.Paragraph{Text: "x"}}})).To(Succeed())
 				data = buf.Bytes()
 			} else {
 				data = samplePPTX()
@@ -247,7 +247,7 @@ var _ = Describe("officeread", func() {
 
 	It("never panics on truncated input", func() {
 		var d bytes.Buffer
-		docx.Write(&d, docx.Document{Blocks: []docx.Block{docx.Heading{Level: 1, Text: "h"}, docx.Bullets{Items: []string{"a"}}}})
+		Expect(docx.Write(&d, docx.Document{Blocks: []docx.Block{docx.Heading{Level: 1, Text: "h"}, docx.Bullets{Items: []string{"a"}}}})).To(Succeed())
 		for name, good := range map[string][]byte{"xlsx": sampleXLSX(), "docx": d.Bytes(), "pptx": samplePPTX()} {
 			step := len(good)/300 + 1
 			for n := 0; n < len(good); n += step {

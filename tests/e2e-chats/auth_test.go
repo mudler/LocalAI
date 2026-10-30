@@ -19,7 +19,7 @@ func register(base, email string) (*client, string) {
 	body, _ := json.Marshal(map[string]string{"email": email, "password": strongPassword, "name": email})
 	resp, err := http.Post(base+"/api/auth/register", "application/json", strings.NewReader(string(body)))
 	Expect(err).ToNot(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	Expect(resp.StatusCode).To(BeNumerically("<", 300), "register "+email)
 	var cookie string
 	for _, ck := range resp.Cookies() {

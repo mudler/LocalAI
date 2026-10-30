@@ -1085,7 +1085,7 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("hands the guest image digest of the sandbox-image job to the package leg", func() {
 		Expect(base).To(ContainSubstring("needs: [plan, validate, sandbox-image]"))
-		Expect(base).To(ContainSubstring("SANDBOX_GUEST_IMAGE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.digest || '' }}"))
+		Expect(base).To(ContainSubstring("SANDBOX_GUEST_IMAGE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.image || '' }}"))
 	})
 	It("rejects a registry login or publish in an untrusted job", func() {
 		expect(mutate("      - name: Run the packaging checks\n        if: matrix.addon == 'tables'\n        run: sh scripts/addons/package_test.sh", "      - name: Run the packaging checks\n        run: go run ./scripts/addons/cmd/addonpkg publish --layout x"), "P_UNTRUSTED_SECRETS")

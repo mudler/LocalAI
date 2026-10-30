@@ -22,7 +22,7 @@ var _ = Describe("cloneFile", func() {
 		data := strings.Repeat("data", 1<<18) // 1 MiB
 		_, err = f.WriteAt([]byte(data), 100<<20)
 		Expect(err).To(Succeed())
-		f.Close()
+		_ = f.Close()
 		Expect(cloneFile(src, dst)).To(Succeed())
 		st, err := os.Stat(dst)
 		Expect(err).To(Succeed())
@@ -30,7 +30,7 @@ var _ = Describe("cloneFile", func() {
 		blocks := st.Sys().(*syscall.Stat_t).Blocks * 512
 		Expect(blocks).To(BeNumerically("<=", 16<<20), "the copy uses %d bytes on disk; it is not sparse", blocks)
 		g, _ := os.Open(dst)
-		defer g.Close()
+		defer func() { _ = g.Close() }()
 		buf := make([]byte, len(data))
 		_, err = g.ReadAt(buf, 100<<20)
 		Expect(err).To(Succeed())

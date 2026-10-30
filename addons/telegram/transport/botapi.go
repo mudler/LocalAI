@@ -149,7 +149,7 @@ func (t *API) do(ctx context.Context, token, method, contentType string, body []
 		}
 		return fmt.Errorf("telegram: Telegram %s failed: %w", method, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	var env struct {
 		OK     bool            `json:"ok"`

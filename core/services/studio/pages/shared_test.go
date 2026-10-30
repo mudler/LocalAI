@@ -136,7 +136,7 @@ var _ = Describe("shared pages", func() {
 		Expect(err).NotTo(HaveOccurred())
 		buf := new(strings.Builder)
 		_, _ = io.Copy(buf, got)
-		got.Close()
+		_ = got.Close()
 		Expect(buf.String()).To(Equal("team secret"))
 		for _, bad := range []string{"..", "Standup", "STANDUP", "standup/../copy", "../team"} {
 			_, err := r.svc.ReadShared(ctx, "marta", r.team, bad, "data.json")

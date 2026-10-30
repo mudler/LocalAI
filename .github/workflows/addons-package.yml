@@ -41,8 +41,10 @@ name: 'add-on packages'
 #
 # Sandbox guest image. The sandbox-image job (sandbox-images.yml) builds and
 # signs the guest image and exposes its reference by digest as the output
-# "digest". The package job passes it to the Sandbox package as
-# SANDBOX_GUEST_IMAGE; a publishing event fails without it.
+# "image" (<repository>@sha256:<digest>). The package job passes it to the
+# Sandbox package as SANDBOX_GUEST_IMAGE; a publishing event fails without it.
+# An event that publishes nothing pushes no image, so its Sandbox leg is a
+# local-check build.
 
 on:
   push:
@@ -286,8 +288,9 @@ jobs:
           PUBLISH: ${{ needs.plan.outputs.publish }}
           # The guest image of the Sandbox add-on, by digest. scripts/addons/
           # package.sh stamps it into the executable.
-          SANDBOX_GUEST_IMAGE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.digest || '' }}
+          SANDBOX_GUEST_IMAGE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.image || '' }}
         run: |
+          set -- --config "addons/$ADDON/package/platforms.yaml" --layout "layout" --version "$VERSION" --platform "$PLATFORM" --revision "$SHA"
           if [ "$ADDON" = sandbox ] && [ "$PUBLISH" = true ]; then
             # Fail closed: a published Sandbox package without a guest image
             # can run the host backend only.
@@ -295,8 +298,12 @@ jobs:
               *@sha256:????????????????????????????????????????????????????????????????) ;;
               *) echo "SANDBOX_GUEST_IMAGE must be <repository>@sha256:<digest>; the sandbox-image job gave '$SANDBOX_GUEST_IMAGE'" >&2; exit 1 ;;
             esac
+          elif [ "$ADDON" = sandbox ] && [ -z "$SANDBOX_GUEST_IMAGE" ]; then
+            # An event that publishes nothing pushes no guest image, so there
+            # is no digest to stamp. Build a local-check leg: package.sh then
+            # uses a stand-in reference and the receipt is not publishable.
+            set -- "$@" --local-check
           fi
-          set -- --config "addons/$ADDON/package/platforms.yaml" --layout "layout" --version "$VERSION" --platform "$PLATFORM" --revision "$SHA"
           if [ -d "$RUNNER_TEMP/runtime" ]; then set -- "$@" --runtime-dir "$RUNNER_TEMP/runtime"; fi
           sh scripts/addons/package.sh "$@"
       - name: Native runtime check

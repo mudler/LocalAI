@@ -115,13 +115,13 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		ids = append(ids, id)
 	}
 	err = rows.Err()
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (s *Workspace) Grants(ctx context.Context, admin Actor, p string) ([]Grant,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	out := []Grant{}
 	for rows.Next() {
 		var g Grant

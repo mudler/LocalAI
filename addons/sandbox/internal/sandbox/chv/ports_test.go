@@ -36,7 +36,7 @@ var _ = Describe("servePortListener", func() {
 	// the next connection is still handled.
 	It("retries transient Accept errors", func() {
 		a, b := net.Pipe()
-		defer b.Close()
+		defer func() { _ = b.Close() }()
 		l := &scriptedListener{results: []func() (net.Conn, error){
 			func() (net.Conn, error) { return nil, errors.New("accept: too many open files") },
 			func() (net.Conn, error) { return nil, errors.New("accept: connection aborted") },
@@ -44,7 +44,7 @@ var _ = Describe("servePortListener", func() {
 		}}
 		handled := make(chan struct{})
 		servePortListener(context.Background(), l, func(ctx context.Context, c net.Conn) {
-			c.Close()
+			_ = c.Close()
 			close(handled)
 		}, make(chan struct{}, 4))
 		<-handled
@@ -60,7 +60,7 @@ var _ = Describe("servePortListener", func() {
 			a, b := net.Pipe()
 			peers = append(peers, b)
 			results = append(results, func() (net.Conn, error) { return a, nil })
-			defer b.Close()
+			defer func() { _ = b.Close() }()
 		}
 		l := &scriptedListener{results: results}
 		release := make(chan struct{})
@@ -71,12 +71,12 @@ var _ = Describe("servePortListener", func() {
 			calls++
 			mu.Unlock()
 			<-release
-			c.Close()
+			_ = c.Close()
 		}, make(chan struct{}, limit))
 		// The two connections over the cap are closed: a read on the peer ends.
 		for _, b := range peers[limit:] {
 			done := make(chan struct{})
-			go func() { b.Read(make([]byte, 1)); close(done) }()
+			go func() { _, _ = b.Read(make([]byte, 1)); close(done) }()
 			Eventually(done, 2*time.Second).Should(BeClosed(), "a connection over the cap was not closed")
 		}
 		close(release)

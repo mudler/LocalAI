@@ -200,28 +200,6 @@ func (f *fakeTelegram) sentBy(token string) []tgSent {
 	return out
 }
 
-// editsOf lists the edits of one message of a bot.
-func (f *fakeTelegram) editsOf(token string, id int64) []tgEdit {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	var out []tgEdit
-	for _, e := range f.edits {
-		if e.Token == token && e.ID == id {
-			out = append(out, e)
-		}
-	}
-	return out
-}
-
-// lastEdit is the text a message of a bot shows after its edits, or "".
-func (f *fakeTelegram) lastEdit(token string, id int64) string {
-	e := f.editsOf(token, id)
-	if len(e) == 0 {
-		return ""
-	}
-	return e[len(e)-1].Text
-}
-
 // draftsBy lists the drafts a bot showed.
 func (f *fakeTelegram) draftsBy(token string) []tgDraft {
 	f.mu.Lock()

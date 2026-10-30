@@ -145,7 +145,7 @@ func (s *Service) post(ctx context.Context, principal, route, contentType string
 		}
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	switch {
 	case resp.StatusCode == http.StatusForbidden:
@@ -376,7 +376,7 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor, chatModel string) [
 		if err != nil {
 			return "", nil, errors.New("not found")
 		}
-		defer r.Close()
+		defer func() { _ = r.Close() }()
 		if n.Size > max {
 			return "", nil, fmt.Errorf("%s is %d bytes, which is too large", n.Name, n.Size)
 		}

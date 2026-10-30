@@ -97,7 +97,7 @@ func (s *sbx) checkpoint(ctx context.Context, title string, keepPaused bool) (cs
 	if err = os.Mkdir(stage, 0o700); err != nil {
 		return workspace.ChangeSet{}, nil, err
 	}
-	defer removeAll(stage)
+	defer func() { _ = removeAll(stage) }()
 
 	readCtx, cancel := context.WithTimeout(ctx, pauseBudget)
 	defer cancel()

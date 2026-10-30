@@ -33,7 +33,7 @@ var _ = Describe("the transport", func() {
 		// The host name resolves nowhere, so only the transport can answer.
 		resp, err := get(tr.Client(nil), context.Background(), "http://studio.invalid/v1/ping")
 		Expect(err).ToNot(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		body, _ := io.ReadAll(resp.Body)
 		Expect(resp.StatusCode).To(Equal(http.StatusTeapot))
 		Expect(string(body)).To(Equal("from the router"))
@@ -58,7 +58,7 @@ var _ = Describe("the transport", func() {
 		}))
 		resp, err := get(tr.Client(nil), context.Background(), "http://studio.invalid/stream")
 		Expect(err).ToNot(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		buf := make([]byte, 6)
 		_, err = io.ReadFull(resp.Body, buf)
 		Expect(err).ToNot(HaveOccurred())
@@ -96,13 +96,13 @@ var _ = Describe("the transport", func() {
 		resp, err := get(tr.Client(user), context.Background(), "http://studio.invalid/v1/whoami")
 		Expect(err).ToNot(HaveOccurred())
 		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		Expect(resp.StatusCode).To(Equal(http.StatusOK), "as the user: %q", body)
 		Expect(string(body)).To(Equal("u-1"))
 
 		anon, err := get(tr.Client(nil), context.Background(), "http://studio.invalid/v1/whoami")
 		Expect(err).ToNot(HaveOccurred())
-		anon.Body.Close()
+		_ = anon.Body.Close()
 		Expect(anon.StatusCode).To(Equal(http.StatusUnauthorized), "without a user")
 	})
 

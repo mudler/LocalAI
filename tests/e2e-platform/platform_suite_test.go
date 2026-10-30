@@ -133,7 +133,7 @@ func (a *api) doH(method, path string, body any, hdr map[string]string) (int, []
 	}
 	resp, err := a.hc.Do(req)
 	Expect(err).ToNot(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	out, err := io.ReadAll(resp.Body)
 	Expect(err).ToNot(HaveOccurred())
 	return resp.StatusCode, out, resp.Header
@@ -259,7 +259,7 @@ func startInstance(o startOpts) *instance {
 			if err != nil {
 				return 0
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			return resp.StatusCode
 		}, 90*time.Second, 250*time.Millisecond).Should(Equal(200), in.logs())
 	}
@@ -329,7 +329,7 @@ func startFixtureHTTP() *fixtureServer {
 func (f *fixtureServer) stats() (requests int64, headers map[string]string) {
 	resp, err := http.Get("http://" + f.Addr + "/debug/stats") //nolint:noctx // a test probe
 	Expect(err).ToNot(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var s struct {
 		Requests    int64             `json:"requests"`
 		LastHeaders map[string]string `json:"last_headers"`

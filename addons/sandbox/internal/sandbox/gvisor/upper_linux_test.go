@@ -41,7 +41,7 @@ func summary(src stagedSource) []string {
 				return err
 			}
 			b, _ := io.ReadAll(r)
-			r.Close()
+			_ = r.Close()
 			line += " " + string(b)
 		}
 		out = append(out, line)

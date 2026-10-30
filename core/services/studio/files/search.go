@@ -156,7 +156,7 @@ func (s *Service) scanFile(ctx context.Context, a workspace.Actor, n workspace.N
 	if err != nil {
 		return nil
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	head := make([]byte, 8192)
 	k, _ := io.ReadFull(r, head)
 	head = head[:k]

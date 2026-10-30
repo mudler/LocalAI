@@ -109,7 +109,7 @@ func (l *vsockListener) Accept() (net.Conn, error) {
 			return nil, l.closedErr(aerr)
 		}
 		if !l.allowed(peer) {
-			syscall.Close(nfd)
+			_ = syscall.Close(nfd)
 			continue
 		}
 		return newVsockConn(nfd, VsockAddr{CID: peer.CID, Port: l.port}), nil
@@ -146,13 +146,13 @@ func DialVsock(cid, port uint32) (net.Conn, error) {
 			continue
 		}
 		if e != 0 {
-			syscall.Close(fd)
+			_ = syscall.Close(fd)
 			return nil, e
 		}
 		break
 	}
 	if err := syscall.SetNonblock(fd, true); err != nil {
-		syscall.Close(fd)
+		_ = syscall.Close(fd)
 		return nil, err
 	}
 	return newVsockConn(fd, VsockAddr{CID: cid, Port: port}), nil

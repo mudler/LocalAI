@@ -21,7 +21,7 @@ func (s *Workspace) revs(ctx context.Context, query string, args ...any) ([]int6
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []int64
 	for rows.Next() {
 		var r int64
@@ -63,13 +63,13 @@ func (s *Workspace) visibleOps(ctx context.Context, a Actor, rev int64, ops []Op
 	for rows.Next() {
 		var p opParents
 		if err := rows.Scan(&p.old, &p.new); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, false, err
 		}
 		ps = append(ps, p)
 	}
 	err = rows.Err()
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return nil, false, err
 	}
@@ -240,7 +240,7 @@ func undoPlan(ctx context.Context, q querier, rev int64) ([]undoItem, error) {
 		var o, n state
 		var od, nd int
 		if err := rows.Scan(&id, &o.parent, &o.name, &o.blob, &o.size, &od, &n.parent, &n.name, &n.blob, &n.size, &nd); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		o.deleted, n.deleted = od != 0, nd != 0
@@ -253,7 +253,7 @@ func undoPlan(ctx context.Context, q querier, rev int64) ([]undoItem, error) {
 		it.expected = n
 	}
 	err = rows.Err()
-	rows.Close()
+	_ = rows.Close()
 	if err != nil {
 		return nil, err
 	}

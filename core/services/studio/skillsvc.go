@@ -114,7 +114,7 @@ func (s *Service) skillTurn(ctx context.Context, p string, off []string, sc *sco
 			continue
 		}
 		valid++
-		fmt.Fprintf(h, "%s\x00%s\x00%s\n", sk.Name, sk.GuestPath, sk.Hash)
+		_, _ = fmt.Fprintf(h, "%s\x00%s\x00%s\n", sk.Name, sk.GuestPath, sk.Hash)
 		if !sk.Off {
 			if gate != nil {
 				sk.Unavailable = gate(sk)

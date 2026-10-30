@@ -30,7 +30,7 @@ func servePorts(dir string, ports map[int]sandbox.PortHandler) (*portServer, err
 	ps := &portServer{cancel: cancel}
 	slots := make(chan struct{}, maxPortConns)
 	for port, h := range ports {
-		p := filepath.Join(dir, "vsock.sock_"+itoa(uint64(port)))
+		p := filepath.Join(dir, "vsock.sock_"+itoa(uint64(port))) // #nosec G115 -- a port number is not negative
 		_ = os.Remove(p)
 		l, err := net.Listen("unix", p)
 		if err != nil {
@@ -60,7 +60,7 @@ func servePortListener(ctx context.Context, l net.Listener, h sandbox.PortHandle
 				h(ctx, c)
 			}()
 		default:
-			c.Close()
+			_ = c.Close()
 		}
 	}
 }
@@ -72,7 +72,7 @@ func (ps *portServer) close() {
 	}
 	ps.cancel()
 	for _, l := range ps.ls {
-		l.Close()
+		_ = l.Close()
 	}
 	ps.ls = nil
 }

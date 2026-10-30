@@ -32,7 +32,7 @@ func walkAndSwap(root, swapAt string, swap func()) (read map[string]string, refu
 			refused[e.Path] = true
 			return nil
 		}
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 		b, _ := io.ReadAll(rc)
 		read[e.Path] = string(b)
 		return nil

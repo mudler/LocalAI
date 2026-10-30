@@ -55,7 +55,7 @@ func (c *client) do(method, path string, body any) (int, []byte) {
 	}
 	resp, err := http.DefaultClient.Do(c.req(method, path, rd, ctype))
 	Expect(err).ToNot(HaveOccurred())
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	out, err := io.ReadAll(resp.Body)
 	Expect(err).ToNot(HaveOccurred())
 	return resp.StatusCode, out
@@ -65,15 +65,6 @@ func (c *client) do(method, path string, body any) (int, []byte) {
 func (c *client) get(path string, out any) int {
 	code, raw := c.do(http.MethodGet, path, nil)
 	if out != nil && code == http.StatusOK {
-		Expect(json.Unmarshal(raw, out)).To(Succeed(), string(raw))
-	}
-	return code
-}
-
-// post sends JSON, decodes a JSON answer and returns the status.
-func (c *client) post(path string, body, out any) int {
-	code, raw := c.do(http.MethodPost, path, body)
-	if out != nil && code < 300 {
 		Expect(json.Unmarshal(raw, out)).To(Succeed(), string(raw))
 	}
 	return code
@@ -214,7 +205,7 @@ func (c *client) events(id string) *eventStream {
 			close(ready)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		es.mu.Lock()
 		es.status, es.ctype = resp.StatusCode, resp.Header.Get("Content-Type")
 		es.mu.Unlock()

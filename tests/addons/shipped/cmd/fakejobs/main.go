@@ -50,11 +50,11 @@ func (b *backend) stop(id string) {
 }
 
 func finished(id string) bool {
-	dir := os.Getenv("FAKEJOBS_DIR")
+	dir := os.Getenv("FAKEJOBS_DIR") //nolint:forbidigo // test add-on executable; the spec passes its folder through the environment
 	if dir == "" {
 		return false
 	}
-	_, err := os.Stat(filepath.Join(dir, id+".finish")) // #nosec G304 -- test backend reads its own directory
+	_, err := os.Stat(filepath.Join(dir, id+".finish")) // #nosec G304 G703 -- test backend reads its own directory
 	return err == nil
 }
 
