@@ -130,3 +130,31 @@ test('the starter task board is copied, opened and saves its tasks', async ({ pa
   const saved = await (await request.get(`/api/chats/pages/${name}/file?path=tasks.json`)).json()
   expect(saved.content).toContain(`Buy milk ${stamp}`)
 })
+
+test('the task board keeps a task added while its first read is still on the way', async ({ page, request }) => {
+  const { name } = await (await request.post('/api/chats/page-starters/task-board/copy', { data: {} })).json()
+  // The first read of tasks.json answers late, with the file as it was before
+  // the task was added.
+  let first = true
+  let landed
+  const late = new Promise((resolve) => { landed = resolve })
+  await page.route(new RegExp(`/api/chats/pages/${name}/file\\?path=tasks\\.json`), async (route) => {
+    if (route.request().method() !== 'GET' || !first) return route.continue()
+    first = false
+    const before = await route.fetch()
+    await new Promise((resolve) => { setTimeout(resolve, 1500) })
+    await route.fulfill({ response: before })
+    landed()
+  })
+  await page.goto(`/app/pages/${name}`)
+  const f = frame(page)
+  await expect(f.locator('.col')).toHaveCount(3)
+  await f.getByLabel('New task').fill(`Call the bank ${stamp}`)
+  await f.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(f.locator('.status')).toHaveText('Saved')
+  await late
+  await page.waitForTimeout(500) // the page handles the late answer
+  await expect(f.getByText(`Call the bank ${stamp}`)).toBeVisible()
+  await expect(f.locator('.status')).toHaveText('Saved')
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+})

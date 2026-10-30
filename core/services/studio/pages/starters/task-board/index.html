@@ -38,6 +38,7 @@
   var FILE = 'tasks.json'
   var data = { columns: ['To do', 'Doing', 'Done'], tasks: [] }
   var version = 0
+  var edits = 0 // counts the changes made here; a read older than one is dropped
   var saving = null
   var board = document.getElementById('board')
   var status = document.getElementById('status')
@@ -85,6 +86,7 @@
 
   // Saves after a short pause, so a burst of clicks is one write.
   function changed() {
+    edits++
     render()
     clearTimeout(saving)
     saving = setTimeout(function () {
@@ -96,8 +98,12 @@
   }
 
   function load() {
+    // A read that started before a change made here answers with the file as
+    // it was: showing it would undo the change. The write of that change, and
+    // its files.changed, bring the file again.
+    var asked = edits
     return localai.files.read(FILE).then(function (f) {
-      if (f.version === version) return
+      if (asked !== edits || f.version === version) return
       var next = JSON.parse(f.content)
       if (!next || !Array.isArray(next.columns) || !Array.isArray(next.tasks)) throw new Error('tasks.json has no columns or tasks')
       data = next
