@@ -998,3 +998,115 @@
     description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
     mainPage: "voice"
     icon: "ui/icon.png"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"

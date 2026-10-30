@@ -383,8 +383,8 @@ consequences:
 
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
-first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Office
-and Sandbox). The index has one entry for each enabled platform of each add-on, so an
+first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Office,
+Sandbox and Web). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
 its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
 official library lists nothing there.
@@ -426,7 +426,7 @@ is pushed and attached to the release when it is published (see
 
 ### Add-ons that are not built in
 
-Studio, Talk, Voice, Face, Fine-tuning, Quantization and Office are not part of the LocalAI
+Studio, Talk, Voice, Face, Fine-tuning, Quantization, Office and Web are not part of the LocalAI
 binary or image. A fresh install has none of them. The old links to the pages they replaced
 (see [Old links](#old-links)) open the add-on page, which says the add-on is not available
 until it is installed.
@@ -1511,7 +1511,7 @@ The rules:
 - The host setting `--addon-host-ops` (`LOCALAI_ADDON_HOST_OPS`) names the
   add-ons that get the channel and the operation prefixes each may call, as a
   comma list of `addon-id=op-prefix`. The default is
-  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,office=workspace.,telegram=connector.`. An empty value names nobody.
+  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,office=workspace.,web=workspace.,telegram=connector.`. An empty value names nobody.
   This is a host setting, not a manifest field and not a model argument.
 - An add-on that the setting names finds two optional fields in its startup
   object: `hostEndpoint`, a loopback address of the form
@@ -3915,7 +3915,7 @@ fetched) are two separate things, and the host tests them separately.
 
 #### Workspace operations
 
-An add-on that holds `sandbox=workspace.` or `office=workspace.` in the host operation setting can ask for the files of the user it is working for:
+An add-on that holds `sandbox=workspace.`, `office=workspace.` or `web=workspace.` in the host operation setting can ask for the files of the user it is working for:
 
 - `workspace.materialize` builds a read-only tree of some folders of the user in a directory of the add-on's own data directory.
 - `workspace.commit` takes the `upper.tar` layer the add-on left in such a directory and commits it as one change set. It needs an `act` request.
@@ -3938,6 +3938,38 @@ The Office add-on reads and edits documents in the user's files, from a chat. It
 The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. Without accounts, the files are the same ones the chat and the Files page use. With accounts and `local-owner` mode, the `workspace.*` operations are refused, because the local owner is no account and has no files; use `named-user` mode for the Office and Sandbox add-ons. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
 
 The add-on also ships four skills, `xlsx`, `docx`, `pptx` and `pdf` (see [Skills](#skills)). Each one replaces the built-in skill of the same name while the add-on can serve the chat. They are short procedures written for the tools above: read first, change only what must change, create a file only when none exists, and say what the tools cannot do (charts, tracked changes, form fields and the like) instead of describing a manual method. They need no command runner, so they are never "unavailable here". When the add-on is stopped, off for the chat or removed, the built-in skills come back. A test checks that every tool a skill names is a tool of the manifest.
+
+## Web
+
+The Web add-on serves the chat tools `web_search` and `web_fetch` in place of the built-in
+ones. Its tools `search` and `fetch` declare `"shadows": "web_search"` and
+`"shadows": "web_fetch"`, so a chat with the add-on on and running sees one `web_search` and
+one `web_fetch`, served by the add-on. It adds two things the built-in tools do not have:
+search providers that need a key (Brave Search, Tavily, Google Programmable Search), tried in
+an order the administrator chooses, and the text of PDF files. Both tools run the code of the
+built-in tools for the rest: the same SSRF guard, limits and untrusted-content label. See
+[Web search and web pages]({{%relref "features/web#the-web-add-on" %}}) for what it does in a
+chat and how to set it up.
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `search` | read | Replaces `web_search`. Arguments `query`, `maxResults`, `freshness`, `site`. |
+| `fetch` | read | Replaces `web_fetch`. Arguments `url`, `maxChars`, `format`. Reads PDF too. |
+| `status`, `set-settings`, `test-search` | read, page only (`uiOnly`) | The **Web** section of the Settings page: the providers, their order and keys, and a test of each provider. A change and a test need an administrator, which the add-on asks the host with `workspace.admin`. |
+
+The contract allows no underscore in an argument name, so the add-on's tools name
+`max_results` and `max_chars` of the built-in tools `maxResults` and `maxChars`. The model
+reads the add-on's schema.
+
+The keys are kept in `settings.json` in the add-on's data folder (mode 0600). They are never
+returned by a tool, written to a log or put in a model's prompt or a tool result: the
+Settings page shows only whether a key is set. A key reaches its provider in a request header
+(`X-Subscription-Token`, `Authorization` or `X-Goog-Api-Key`), never in a URL, and the clients
+of the keyed providers follow no redirect, so a key is never sent to another host.
+
+The add-on runs on the add-on owner, like every add-on. Its settings, its search cache and
+its rate limits live in that one process, so they are the same for every frontend of a
+cluster.
 
 ## Sandbox
 
