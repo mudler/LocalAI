@@ -132,6 +132,13 @@ Configure the collections (the knowledge base) and the models the [chats]({{%rel
 - **Collection DB Path**: Custom path for the collections database
 - **Shared pages** (`shared_pages_enabled`, default on): lets users open the [pages]({{%relref "features/pages" %}}) of the shared folders they have access to. Each user still allows each page before it runs. It applies at once: off, the pages are listed but do not open, and an open shared page stops at its next action. Start with `LOCALAI_DISABLE_SHARED_PAGES=true` to have it off from the start.
 
+### Tools
+
+The **Tools** tab lists the built-in chat tools that an add-on may replace (`bash`, and `web_search` and `web_fetch` when they are installed), from `GET /api/chats/admin/tools`. Each row says who serves the tool now (built-in, or an add-on) and has its switch:
+
+- **Commands on this machine** (`chats_host_exec`, `off`, `ask` or `on`, applies at once; `LOCALAI_CHATS_HOST_EXEC`): who gets the chats' built-in `bash` when no Sandbox add-on serves `bash`. It runs commands directly on this machine **with no isolation and with its network**: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. `ask` gives it to administrators, and each command waits for their yes in the chat; `on` gives it to every user with no card. Empty is the default: `off` with accounts, `ask` without. Every command is audited. See [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
+- **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox"}`, applies at once): when several add-ons replace one tool, the one that serves it. With none chosen, the first by add-on ID serves, and the tab says that you should choose. See [Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
+
 > **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.
 
 ## Configuration Persistence

@@ -259,8 +259,8 @@ every turn, so it knows which files exist and where they are now.
   `/workspace/home/Chats/2026-10-29 Budget/q1.csv`. The folder is made at the
   first attachment.
 - **What is listed.** Every file in the chat folder, and every file that the
-  chat's turns created or changed elsewhere in your home folder: in the
-  sandbox, or with a file tool such as `write_file`. The list is read from the
+  chat's turns created or changed elsewhere in your home folder: with `bash`,
+  or with a file tool such as `write_file`. The list is read from the
   history of your files, so a file that you or the model moved or deleted
   later is not listed at its old path.
 - **Rename.** Renaming a chat renames its folder to match the new title, and
@@ -288,7 +288,7 @@ curl .../api/chats/3f1c.../files
 ```
 
 `origin` is `user` (you attached it, or put it in the chat folder), `model`
-(the model wrote it in the sandbox) or `tool` (a tool of the chat wrote it,
+(a command of the model wrote it) or `tool` (a tool of the chat wrote it,
 such as `write_file`). `changed` marks a file the chat changed but did not
 create. `media` marks an attachment that the model received as an image or a
 video inside the message; the others reach the model by path. `path` works
@@ -335,34 +335,116 @@ curl -X POST .../api/chats/3f1c.../agents/9ab2.../stop # stop one run
 
 ## Running commands
 
-A chat runs commands and code only through the [Sandbox
-add-on]({{%relref "features/addons#sandbox" %}}). At every turn the model is
-told in one short block whether it can:
+A chat runs commands and code with one tool, `bash`. Who serves it depends on
+the server:
 
-- **It can.** The block names the tool (`addon__sandbox__bash`) and says
-  whether commands run isolated or directly on this machine with no isolation.
-- **It cannot.** The block says that nothing in the chat runs code, that the
-  model must not say or imply that it ran something, and that it must not send
-  a sub-agent to run it. The model writes the result as a file instead (text,
-  CSV, Markdown, HTML, JSON) or gives you the script to run, and tells you how
-  to get commands: an administrator installs the Sandbox add-on, you switch it
-  on in the **Tools** menu, or an administrator fixes a Sandbox that cannot run
-  on this server.
+- **The Sandbox.** With the [Sandbox
+  add-on]({{%relref "features/addons#sandbox" %}}) installed, running and on
+  for the chat, `bash` runs in an isolated sandbox. The add-on's `bash`
+  replaces the built-in one (see [Tools that replace a built-in
+  tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}})),
+  so the chat never has two.
+- **This machine.** Otherwise, when an administrator allows it, the built-in
+  `bash` runs commands directly on the machine that runs LocalAI, **with no
+  isolation**. This covers a server with no Sandbox, a chat that switched the
+  Sandbox off, and a Sandbox that is stopped or cannot run.
+- **Nothing.** With neither, nothing in the chat runs code.
+
+At every turn the model is told in one short block which of the three holds.
+With host commands the block says that `bash` runs on this machine with no
+isolation and with its network, and tells the model to be careful: no
+destructive or data-sending commands outside the task unless you asked. When
+nothing runs, the block says that the model must not say or imply that it ran
+something, nor send a sub-agent to run it; it writes the result as a file
+(text, CSV, Markdown, HTML, JSON) or gives you the script, and tells you how to
+get commands.
 
 A skill can say that it needs commands with `requires: [exec]` in its
 frontmatter (see [Skills](#skills)). In a chat that cannot run commands, such a
 skill is listed to the model as "unavailable here: needs command execution",
 without the path to its procedure, so the model explains instead of starting.
 
+### Commands on this machine
+
+The built-in `bash` is for a server that cannot run the Sandbox. Read this
+before you allow it:
+
+- **No isolation, full network.** A command runs as the user LocalAI runs as.
+  It can read every file that LocalAI can read and reach the internet, your
+  local network, the LocalAI API on the loopback and cloud metadata addresses.
+  Nothing blocks the network without privileges, so there is no "no network"
+  option. Install the Sandbox to isolate commands.
+- **Never as root.** When LocalAI runs as root, the built-in `bash` is not
+  offered.
+- **Your files.** Each chat gets a scratch folder with your files: `home/`
+  there is `/workspace/home` of the file tools, and `shared-<name>/` is a
+  shared folder. After each call, what the command changed is saved to your
+  files as one change of the chat, which you can undo in Files, History; a
+  file you or the file tools changed meanwhile is read again before the next
+  call.
+- **A clean environment.** A command gets `PATH`, `HOME`, `LANG` and `TZ`
+  only: no API key, database address or token of the server.
+- **Limits.** A call stops after `timeoutSeconds` (120 by default, 1800 at
+  most), and the whole process group is killed then, when the turn is stopped
+  and when the output passes 64 KiB. One call runs at a time in a chat, and at
+  most four chats of one user run commands at once.
+- **Audit.** Every call is recorded: user, chat, command (cut at 4 KiB), exit
+  code, duration and whether it timed out, in the auth database (in a cluster,
+  shared by every frontend), in a file under the data path, or in memory. The
+  server log has one line per command with the prefix `[host-exec]`.
+  Administrators read the audit with `GET /api/chats/admin/host-exec/events`
+  or the assistant tool `list_host_exec_events`.
+
+The runtime setting `chats_host_exec` (Settings, **Tools**, the `bash` row;
+`LOCALAI_CHATS_HOST_EXEC`) decides who gets it:
+
+| Value | Who gets the built-in `bash` |
+|---|---|
+| `off` | Nobody. |
+| `ask` | Administrators, in chats they watch. Each command waits for a card in the chat. |
+| `on` | Every user who may use chats, also unattended runs that have an agent, and sub-agents. |
+
+Empty is the default: `off` on a server with accounts, `ask` without. In `ask`
+mode the chat shows a card under the running call: "Run this command on this
+machine?", the command, and **Run once**, **Always on this instance** (saves
+`chats_host_exec: on`) and **Don't run**. A person who is not an administrator
+can only refuse it. The card lives as long as the call waits, at most 5
+minutes; after a reload the call ends with "no answer". The answer is sent
+with:
+
+```bash
+curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_exec_consent event>","decision":"once"}'
+```
+
+Only an administrator may send `once`; anyone who owns the chat may send
+`deny`. The call's line in the chat then says what happened: run on this
+machine, allowed once, refused or not answered (card `host_exec`). A call that
+the Sandbox served carries the card `tool_provider` with the add-on's ID.
+
+**Distributed mode.** The scratch folders belong to the frontend that runs the
+turn, like the Sandbox's sandboxes: your files are the record, and a chat whose
+next turn runs on another frontend gets a new folder there. The answer of the
+card travels on the chat bus to the frontend that runs the turn. The setting
+is a runtime setting like the others.
+
+### What the web interface is told
+
 `GET /api/chats/{id}/addons` says the same for the web interface in
 `commands`: `available`, `off` (the Sandbox is installed but off for this chat,
-or its agent does not name it), `unavailable` (installed, but it cannot run
-commands on this server; `commands_reason` says why) or `none` (no add-on that
-runs commands is installed for you).
+or its agent does not name it, and the built-in `bash` is not allowed),
+`unavailable` (installed, but it cannot run commands on this server;
+`commands_reason` says why) or `none` (no add-on that runs commands is
+installed for you). When commands run, `commands_provider` says who serves
+`bash` (`builtin`, or the add-on's ID) and `commands_isolation` says `isolated`
+or `host`. `commands_consent` is `ask` when each command waits for the card,
+and `commands_fallback` with `commands_fallback_reason` name the add-on that
+would serve but does not (`off`, or its reason). The **Tools** menu and the
+chip next to it say "Commands run on this machine" with the reason, and link an
+administrator to the Sandbox.
 
 ```bash
 curl -s localhost:8080/api/chats/$ID/addons
-# {"addons":[],"commands":"none"}
+# {"addons":[],"commands":"available","commands_isolation":"host","commands_provider":"builtin","commands_consent":"ask"}
 ```
 
 ## Long conversations
@@ -591,7 +673,12 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **Downloads are safe.** Files are served as downloads. With `inline=1` an image, PDF, plain text, audio or video is shown by the browser; anything else, HTML and SVG included, never runs as a page.
 - **Attachments.** Send a message as `multipart/form-data` with a `text` field and `files`. The files are saved in the chat's own folder under `Chats/` and the model gets their paths. With a turn running the files are saved at once and the message waits like any other, with the paths of the files in its text; the model reads them by path when the message reaches it. A sandbox that started before the files arrived sees them from the next turn.
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
-- **The model can use your files.** A chat with files on gives the model `list_files`, `read_file`, `write_file`, `move_file`, `delete_file` and `search_files`, for your home folder only. What it changes is listed in the history as an agent change of that chat, and you can undo it; a delete goes to the Trash. Sub-agents do not get these tools.
+- **The model can use your files.** A chat with files on gives the model one set of file tools: `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file` and `search_files`. They are the same with or without the Sandbox. What they change is listed in the history as an agent change of that chat, and you can undo it from the note under the call; a delete goes to the Trash. A sub-agent gets the file tools of its parent chat (or the ones its parent names).
+  - **Paths.** `/workspace/home/<path>`, `home/<path>` and `/<path>` all name `<path>` in your home folder. `/workspace/shared-<name>/...` is a shared folder, read-only when it is shared with you for reading, and `/workspace/shared-skills/...` and `/workspace/shared-builtin-skills/...` are the shared and built-in skills, read-only. Any other path under `/workspace` is refused with the right spelling, and nothing is written: an app the model builds goes to a Page, `/workspace/home/pages/<name>/index.html`.
+  - **`read_file`** reads lines `offset` to `offset+limit-1` (at most 2000 lines, text files up to 4 MiB).
+  - **`edit_file`** replaces `old_string` with `new_string`. `old_string` must match exactly once, unless `replace_all` is true; no match and several matches are errors that say what to do. Text files up to 8 MiB. When the file changed while it was edited, the edit is saved as a copy next to it.
+  - **`list_files`** lists one folder, or with `pattern` every path below the folder that matches it: `*` matches any characters including `/`, `?` one character, `[...]` a class. At most 500 paths.
+  - **`search_files`** finds plain text in names and inside text files (at most 30 hits). With `regex: true`, `query` is a regular expression (the extended syntax of `grep -E`) matched against each line (at most 200 lines). Case does not matter unless `ignore_case` is false. `path` may be a file or a folder.
 - **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, the first installed model that can see images, or transcribe, is used. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
 - **A file is at most 256 MiB.** A message with attachments is limited to 1 GiB in all.
 
