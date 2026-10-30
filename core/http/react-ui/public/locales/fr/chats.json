@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "Lecture du déclencheur proposé...",
+    "unread": "Impossible de lire le déclencheur proposé : {{message}}",
+    "removed": "Ce déclencheur a été supprimé.",
+    "retry": "Réessayer",
+    "inactive": "Déclencheur proposé. Il n'exécute rien tant que vous ne l'avez pas créé.",
+    "name": "Nom",
+    "schedule": "Quand (par exemple daily 08:00)",
+    "folder": "Dossier à surveiller",
+    "saveEdit": "Enregistrer",
+    "cancelEdit": "Annuler",
+    "create": "Créer le déclencheur",
+    "edit": "Modifier",
+    "dismiss": "Refuser",
+    "receipt": {
+      "scheduled": "Planifié :",
+      "watching": "Surveille :",
+      "next": "Prochaine exécution {{when}}",
+      "view": "Voir le déclencheur",
+      "undo": "Annuler",
+      "undone": "Annulé :",
+      "again": "Le planifier de nouveau",
+      "declined": "Refusé :",
+      "restore": "Restaurer",
+      "blocked": {
+        "ran": "Il s'est déjà exécuté une fois ; supprimez-le depuis la page Déclencheurs.",
+        "edited": "Vous l'avez modifié depuis ; modifiez-le ou supprimez-le depuis la page Déclencheurs."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} planifié.",
+      "undone": "{{name}} annulé. Il n'est pas planifié.",
+      "declined": "{{name}} refusé.",
+      "reopened": "{{name}} attend de nouveau votre réponse."
+    },
     "plan": {
       "whenLabel": "Quand",
       "runsAsLabel": "S’exécute en tant que",

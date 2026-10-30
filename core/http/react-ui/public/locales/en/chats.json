@@ -419,9 +419,8 @@
   "proposal": {
     "loading": "Reading the proposed trigger...",
     "unread": "The proposed trigger could not be read: {{message}}",
-    "created": "Trigger \"{{name}}\" is on.",
-    "open": "Open it",
-    "gone": "This proposed trigger was dismissed.",
+    "removed": "This trigger was removed.",
+    "retry": "Try again",
     "inactive": "Proposed trigger. It runs nothing until you create it.",
     "name": "Name",
     "schedule": "When (for example daily 08:00)",
@@ -431,6 +430,27 @@
     "create": "Create trigger",
     "edit": "Edit",
     "dismiss": "Dismiss",
+    "receipt": {
+      "scheduled": "Scheduled:",
+      "watching": "Watching:",
+      "next": "Next run {{when}}",
+      "view": "View trigger",
+      "undo": "Undo",
+      "undone": "Undone:",
+      "again": "Schedule it again",
+      "declined": "Declined:",
+      "restore": "Restore",
+      "blocked": {
+        "ran": "It already ran once; remove it from the Triggers page.",
+        "edited": "You edited it since; change or remove it on the Triggers page."
+      }
+    },
+    "announce": {
+      "accepted": "Scheduled {{name}}.",
+      "undone": "Undid {{name}}. It is not scheduled.",
+      "declined": "Declined {{name}}.",
+      "reopened": "{{name}} waits for your answer again."
+    },
     "plan": {
       "whenLabel": "When",
       "runsAsLabel": "Runs as",

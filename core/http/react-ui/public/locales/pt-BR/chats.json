@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "Lendo o gatilho proposto...",
+    "unread": "Não foi possível ler o gatilho proposto: {{message}}",
+    "removed": "Este gatilho foi removido.",
+    "retry": "Tentar de novo",
+    "inactive": "Gatilho proposto. Ele não executa nada até você criá-lo.",
+    "name": "Nome",
+    "schedule": "Quando (por exemplo daily 08:00)",
+    "folder": "Pasta a observar",
+    "saveEdit": "Salvar",
+    "cancelEdit": "Cancelar",
+    "create": "Criar gatilho",
+    "edit": "Editar",
+    "dismiss": "Recusar",
+    "receipt": {
+      "scheduled": "Agendado:",
+      "watching": "Observando:",
+      "next": "Próxima execução {{when}}",
+      "view": "Ver gatilho",
+      "undo": "Desfazer",
+      "undone": "Desfeito:",
+      "again": "Agendar de novo",
+      "declined": "Recusado:",
+      "restore": "Restaurar",
+      "blocked": {
+        "ran": "Ele já foi executado uma vez; remova-o na página Gatilhos.",
+        "edited": "Você o editou depois; altere ou remova na página Gatilhos."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} agendado.",
+      "undone": "{{name}} desfeito. Não está agendado.",
+      "declined": "{{name}} recusado.",
+      "reopened": "{{name}} espera sua resposta de novo."
+    },
     "plan": {
       "whenLabel": "Quando",
       "runsAsLabel": "Executa como",
