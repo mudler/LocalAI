@@ -4,13 +4,13 @@
   "newPlaceholder": "Nama koleksi baru...",
   "actions": {
     "create": "Buat",
-    "creating": "Membuat...",
     "details": "Detail",
     "reset": "Reset",
     "delete": "Hapus",
     "viewDetails": "Lihat detail",
     "resetCollection": "Reset koleksi",
-    "deleteCollection": "Hapus koleksi"
+    "deleteCollection": "Hapus koleksi",
+    "cancel": "Batal"
   },
   "sections": {
     "yourCollections": "Koleksi Anda",
@@ -19,7 +19,8 @@
   "empty": {
     "title": "Belum ada koleksi",
     "text": "Koleksi memungkinkan Anda mengatur dokumen ke dalam basis pengetahuan yang dapat dicari oleh agen menggunakan RAG (Retrieval-Augmented Generation). Buat koleksi di atas untuk memulai.",
-    "noPersonal": "Anda belum memiliki koleksi."
+    "noPersonal": "Anda belum memiliki koleksi.",
+    "learn": "Cara kerja memori"
   },
   "deleteDialog": {
     "title": "Hapus koleksi",
@@ -32,12 +33,22 @@
     "confirm": "Reset"
   },
   "toasts": {
-    "loadFailed": "Gagal memuat koleksi: {{message}}",
     "created": "Koleksi \"{{name}}\" berhasil dibuat",
     "createFailed": "Gagal membuat koleksi: {{message}}",
     "deleted": "Koleksi \"{{name}}\" berhasil dihapus",
     "deleteFailed": "Gagal menghapus koleksi: {{message}}",
     "reset": "Koleksi \"{{name}}\" berhasil direset",
     "resetFailed": "Gagal mereset koleksi: {{message}}"
+  },
+  "loadFailed": "Koleksi Anda tidak dapat dimuat.",
+  "sources": {
+    "loadFailed": "Sumber web tidak dapat dimuat."
+  },
+  "entries": {
+    "loadFailed": "File tidak dapat dimuat."
+  },
+  "starting": {
+    "title": "Memori sedang dimulai.",
+    "text": "Server masih menyiapkan layanan memori. Halaman ini akan mencoba lagi dengan sendirinya."
   }
 }
