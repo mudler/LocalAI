@@ -137,6 +137,28 @@ its first message was written by a page and not by you.
 
 Tool calls through the bridge are not available.
 
+## A page that starts a run
+
+A page cannot call the assistant on its own, but it can write files, and a
+[file trigger](/features/chats-agents/#triggers) can watch a folder of the
+page. Each file the page writes there starts a run, which answers by writing a
+file the page reads back.
+
+1. The assistant makes the folder `pages/ask/requests/` (a trigger needs a
+   folder that exists) and proposes a trigger:
+   `{"when": {"file_arrives_in": "/pages/ask/requests"}, "prompt": "Read the request file named in this message, do what it asks, and write the answer to pages/ask/answers.json.", "writes": "pages/ask/answers.json"}`.
+   You confirm it on its card.
+2. The page writes a request:
+   `localai.files.write('requests/' + Date.now() + '.json', JSON.stringify({text}))`.
+3. The page listens for the answer:
+   `localai.on('files.changed', (ev) => { if (ev.paths.includes('answers.json')) show() })`.
+
+Every request is one run, so it costs tokens. A page cannot start runs in a
+loop: a file waits until it has not changed for 30 seconds, a file that changes
+again after a run began waits for the trigger's minimum gap (one minute by
+default), the run's own writes start nothing, and the trigger has a daily limit
+(24 runs by default). The bridge also limits writes (below).
+
 ## Limits
 
 | Limit | Value |

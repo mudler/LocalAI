@@ -83,7 +83,7 @@ empty list hides them.
 ```json
 {
   "widgets": [
-    { "id": "tasks", "type": "list", "title": "Open tasks", "source": "data/tasks.json" },
+    { "id": "tasks", "type": "list", "title": "Open tasks", "source": "data/tasks.json", "trigger": "6f1c0e2a9b" },
     { "id": "tokens", "type": "metric", "title": "Tokens this week", "source": "data/tokens.json" },
     { "id": "chats", "type": "chats", "title": "Last chats" }
   ]
@@ -96,6 +96,7 @@ A `list` or `metric` widget reads its `source`, a data file in your home:
 {
   "title": "Open tasks",
   "updatedAt": "2026-10-29T08:00:00Z",
+  "source": { "kind": "trigger", "note": "From the mail of the last day" },
   "items": [
     { "label": "Call the dentist", "meta": "Fri" },
     { "label": "Send the invoice", "done": true }
@@ -108,10 +109,36 @@ A metric uses `value`, `note` and `series` (numbers for the small line). A
 of recent chats under it. A missing data file shows as empty. A data file that
 breaks its schema shows its last valid data, marked as stale.
 
+`updatedAt` is an RFC 3339 time. `source` says who wrote the data: `kind` is
+`trigger`, `page` (with `page`, the page's name), `assistant` or `you`, and
+`note` is one short line. Both are checked by the schema, and the editors keep
+every key they do not show, so a save from Edit layout keeps a widget's
+`trigger` and any key the assistant added.
+
 To update a widget every morning, ask the assistant: it writes the data file,
 adds the widget, and proposes a schedule trigger that you confirm on its card
-(see [triggers](/features/chats-agents/)). Each run is one chat turn; keep at
-least an hour between runs.
+(see [triggers](/features/chats-agents/#proposals)). Each run is one chat turn,
+and a schedule proposed in a chat runs at most once an hour.
+
+A widget that a trigger feeds (named by `trigger`, or by the `widget` in the
+trigger's plan) shows a footer:
+
+| State | Footer |
+|---|---|
+| Updated | The schedule and the time of the last update, **Pause**; under it the next run and the tokens of a run |
+| Running | "Updating now", **Open the run** |
+| Never ran | "First run" and its time, **Run now** |
+| Paused | "Paused" and the schedule it had, **Resume** |
+| Last run failed | "Last update failed" and the day of the data it still shows, dimmed, **Details** (the trigger's runs) and **Retry** |
+| Failed, no data | "The update failed and there is no data yet", **Details**, **Retry** |
+| Waiting | A proposal names the widget: "Waiting for you to create its trigger in the chat", **Open the chat** |
+
+A widget without a trigger says where its data comes from ("From the page
+tasks", "From data/tasks.json"). A broken data file says so and shows its last
+good version with **Revert**; a missing one offers to ask the assistant to fix
+it. The header of the widget shows the cadence (Daily, Weekly, Paused), and a
+line under the widgets counts the ones that update on a schedule, since their
+runs use your models.
 
 ### ui.json
 
