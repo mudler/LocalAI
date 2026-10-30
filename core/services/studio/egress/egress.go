@@ -454,3 +454,18 @@ func Describe(p Preset, reg *Registries) string {
 	}
 	return "Network for commands: off. A blocked host asks the user; do not try to get around the proxy."
 }
+
+// Hint is the sentence after Describe in the turn's note: which tool to use
+// for what. With the network off, curl and the installers cannot reach
+// anything, so the sentence says that instead. web says whether the chat has
+// web_fetch or web_search (the built-in ones or an add-on's): only then are
+// they named.
+func Hint(p Preset, web bool) string {
+	if normal(p) == PresetOff {
+		return "curl, pip, npm and git cannot reach anything now; ask the user to turn the network on if a task needs it."
+	}
+	if web {
+		return "curl, pip, npm and git work in the sandbox through the proxy. To read or search web pages use web_fetch or web_search; use curl for APIs, downloads and installs."
+	}
+	return "curl, pip, npm and git work in the sandbox through the proxy."
+}

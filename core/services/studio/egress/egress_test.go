@@ -188,4 +188,28 @@ var _ = Describe("the registries list", func() {
 		Expect(egress.Describe(egress.PresetRegistries, reg)).To(ContainSubstring("Python (PyPI)"))
 		Expect(egress.Describe(egress.PresetOff, reg)).To(HavePrefix("Network for commands: off."))
 	})
+
+	Describe("the hint on tools", func() {
+		It("names the web tools only when the chat has them", func() {
+			on := egress.Hint(egress.PresetAll, true)
+			Expect(on).To(ContainSubstring("curl"))
+			Expect(on).To(ContainSubstring("web_fetch or web_search"))
+			Expect(on).To(ContainSubstring("APIs, downloads and installs"))
+		})
+
+		It("does not name the web tools when they are off", func() {
+			off := egress.Hint(egress.PresetRegistries, false)
+			Expect(off).To(ContainSubstring("curl, pip, npm and git work"))
+			Expect(off).NotTo(ContainSubstring("web_"))
+		})
+
+		It("tells the model that nothing is reachable when the network is off", func() {
+			for _, web := range []bool{true, false} {
+				h := egress.Hint(egress.PresetOff, web)
+				Expect(h).To(ContainSubstring("cannot reach anything"))
+				Expect(h).NotTo(ContainSubstring("web_"))
+				Expect(h).NotTo(ContainSubstring("work in the sandbox"))
+			}
+		})
+	})
 })

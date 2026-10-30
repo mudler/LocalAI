@@ -75,11 +75,11 @@ func (s *Service) now() time.Time {
 // network of its commands is: the preset that applies (the chat's, its
 // parent's for a sub-agent, its agent's for an unattended run) under the
 // ceiling.
-func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord) string {
+func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bool) string {
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	preset := egress.PresetOff
 	if err == nil {
 		preset = egress.Min(pol.chat.Preset, s.egressSettings().Ceiling)
 	}
-	return egress.Describe(preset, egress.BuiltinRegistries())
+	return egress.Describe(preset, egress.BuiltinRegistries()) + " " + egress.Hint(preset, web)
 }

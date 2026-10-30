@@ -493,6 +493,8 @@ never in your files, so the code that runs in the Sandbox cannot change them.
 **Rules and requests** under the row lists the hosts this chat allowed or
 denied, with a button to remove each, and the requests that asked.
 
+The model knows that `curl`, `pip`, `npm` and `git` work in the Sandbox within this setting. It prefers `web_fetch` and `web_search` to read or search web pages when the chat has them, and uses `curl` for APIs, downloads and installs.
+
 When a command asks for a host the chat does not allow but the limit would,
 the chat shows a card: *A command in this chat wants to reach* `host:port`,
 with **Allow once** (for the rest of that command), **Allow for this chat**

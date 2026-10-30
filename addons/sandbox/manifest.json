@@ -9,7 +9,7 @@
     "toolDefinitions": [
       {
         "name": "bash",
-        "description": "Run a shell script with bash in /workspace. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1680). Network: only HTTP and HTTPS through the proxy the sandbox sets; other hosts are blocked unless the user allows them.",
+        "description": "Run a shell script with bash in /workspace. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1680). Network: curl, pip, npm and git use the proxy, within the chat's network setting; a blocked host asks the user, do not get around it. To read or search web pages, prefer web_fetch or web_search if you have them.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,

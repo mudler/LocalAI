@@ -179,6 +179,13 @@ var _ = Describe("Sandbox tools", func() {
 		Expect(tools.MaxTimeout + time.Minute).To(BeNumerically("<=", contract.ActTimeout))
 	})
 
+	It("tells the model about curl, the proxy and the web tools in the bash description", func() {
+		d := tools.NetworkNote
+		for _, want := range []string{"curl", "pip", "npm", "git", "proxy", "web_fetch", "web_search", "do not get around it"} {
+			Expect(d).To(ContainSubstring(want))
+		}
+	})
+
 	It("declares the tools of the runtime in the manifest", func() {
 		const path = "../../manifest.json"
 		raw, err := os.ReadFile(path)
