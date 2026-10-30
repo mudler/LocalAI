@@ -10,9 +10,10 @@ import { outcomeLine, recordStatus, runOfChat, STRIP_LENGTH, titleOf } from '../
 import { StatusMark, RunStrip, RecordLine, Chip, LibraryChips, formatWhen, agentPath } from '../components/agents/AgentBits'
 // eslint-disable-next-line no-unused-vars
 import ActionMenu from '../components/ActionMenu'
-// eslint-disable-next-line no-unused-vars
-import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { deleteAgentWithUndo } from '../components/agents/agentUndo'
 import { firstLine } from '../utils/agentRuns'
 import './agents.css'
 
@@ -21,7 +22,7 @@ import './agents.css'
 // its saved definition; a run is a chat with this agent_id.
 export default function AgentPage() {
   const { id } = useParams()
-  const { t } = useTranslation('agents')
+  const { t } = useTranslation(['agents', 'common'])
   const { addToast } = useOutletContext()
   const navigate = useNavigate()
 
@@ -30,8 +31,8 @@ export default function AgentPage() {
   const [triggers, setTriggers] = useState([])
   const [missing, setMissing] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [showAll, setShowAll] = useState(false)
-  const [toDelete, setToDelete] = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -49,12 +50,15 @@ export default function AgentPage() {
       ])
       setChats((hist.runs || []).map(r => ({ ...r, id: r.chat_id })))
       setTriggers((trig.triggers || []).filter(x => x.agent_id === found.id))
+      setError(null)
     } catch (err) {
-      addToast(t('toasts.loadFailed', { message: err.message }), 'error')
+      // Said in the page, not as a toast; a later poll that fails keeps
+      // what is on screen and says so above it.
+      setError(err)
     } finally {
       setLoading(false)
     }
-  }, [id, addToast, t])
+  }, [id])
 
   useEffect(() => {
     load()
@@ -66,33 +70,36 @@ export default function AgentPage() {
   const runs = useMemo(() => chats.map(runOfChat).sort((a, b) => b.startedAt - a.startedAt), [chats])
   const state = runs.some(r => recordStatus(r) === 'running') ? 'running' : 'ready'
 
-  const remove = async (a) => {
-    setToDelete(null)
-    try {
-      await chatAgentsApi.remove(a.id)
-      addToast(t('toasts.deleted', { name: a.name }), 'success')
-      navigate('/app/agents')
-    } catch (err) {
-      addToast(t('toasts.deleteFailed', { message: err.message }), 'error')
-    }
+  // Delete waits out its Undo window; the list it returns to hides the agent.
+  const remove = (a) => {
+    deleteAgentWithUndo(a, { addToast, t })
+    navigate('/app/agents')
   }
 
-  if (loading) {
-    return <div className="page page--medium loading-center"><Icon name="spinner" spin className="icon-xl text-primary" /></div>
+  const back = <Link className="ag-back" to="/app/agents"><Icon name="arrow-left" /> {t('agent.back')}</Link>
+
+  if (loading || (error && !agent)) {
+    return (
+      <Page className="ag-page">
+        <div className="ag-home">
+          {back}
+          {error
+            ? <LoadError title={t('load.agent')} error={error} onRetry={load} />
+            : <SkeletonRows count={4} />}
+        </div>
+      </Page>
+    )
   }
 
   if (missing) {
     return (
-      <div className="page page--medium ag-page">
-        <div className="ag-home">
-          <Link className="ag-back" to="/app/agents"><Icon name="arrow-left" /> {t('agent.back')}</Link>
-          <div className="ag-empty" data-testid="agent-missing">
-            <h1 className="ag-title">{t('agent.missingTitle', { name: id })}</h1>
-            <p>{t('agent.missingText')}</p>
-            <Link className="btn btn-primary" to="/app/agents">{t('agent.back')}</Link>
-          </div>
+      <Page className="ag-page">
+        <div className="ag-home" data-testid="agent-missing">
+          {back}
+          <PageHeader title={t('agent.missingTitle', { name: id })} supporting={t('agent.missingText')} />
+          <div><Button variant="primary" icon="arrow-left" to="/app/agents">{t('agent.backToList')}</Button></div>
         </div>
-      </div>
+      </Page>
     )
   }
 
@@ -100,35 +107,32 @@ export default function AgentPage() {
   const hasTools = info.tools.length + info.mcp.length + info.connectors.length > 0
 
   return (
-    <div className="page page--medium ag-page" data-testid="agent-page">
+    <Page className="ag-page" data-testid="agent-page">
       <div className="ag-home">
-        <div className="ag-bar">
-          <Link className="ag-back" to="/app/agents"><Icon name="arrow-left" /> {t('agent.back')}</Link>
-          <div className="ag-bar__acts">
-            <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })} data-testid="agent-chat">
-              <Icon name="message" /> {t('actions.chat')}
-            </button>
-            <Link className="btn btn-secondary btn-sm" to={agentPath(agent.id, '/edit')}>
-              <Icon name="edit" /> {t('actions.edit')}
-            </Link>
-            <ActionMenu
-              ariaLabel={t('actions.moreFor', { name: agent.name })}
-              items={[
-                { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => downloadAgentFile(agent, addToast, t) },
-                { divider: true },
-                { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => setToDelete(agent) },
-              ]}
-            />
-          </div>
-        </div>
+        {back}
+        <PageHeader
+          title={agent.name}
+          supporting={info.description || undefined}
+          actions={(
+            <div className="ag-bar__acts">
+              <StatusMark status={state} />
+              <Button variant="primary" icon="chat" onClick={() => navigate('/app/chats', { state: { agentId: agent.id } })} data-testid="agent-chat">
+                {t('actions.chat')}
+              </Button>
+              <Button icon="edit" to={agentPath(agent.id, '/edit')}>{t('actions.edit')}</Button>
+              <ActionMenu
+                ariaLabel={t('actions.moreFor', { name: agent.name })}
+                items={[
+                  { key: 'export', icon: 'download', label: t('actions.export'), onClick: () => downloadAgentFile(agent, addToast, t) },
+                  { divider: true },
+                  { key: 'delete', icon: 'trash', label: t('actions.delete'), danger: true, onClick: () => remove(agent) },
+                ]}
+              />
+            </div>
+          )}
+        />
 
-        <header>
-          <div className="ag-title">
-            <h1>{agent.name}</h1>
-            <StatusMark status={state} />
-          </div>
-          {info.description && <p className="ag-lede">{info.description}</p>}
-        </header>
+        {error && <LoadError title={t('load.agentStale')} error={error} onRetry={load} />}
 
         <dl className="ag-facts" data-testid="agent-facts">
           <dt>{t('facts.model')}</dt>
@@ -157,10 +161,10 @@ export default function AgentPage() {
           <dd><span className="ag-record"><RunStrip runs={runs} /><RecordLine runs={runs} /></span></dd>
         </dl>
 
-        <section aria-labelledby="ag-triggers-h" data-testid="agent-triggers">
+        <section className="ag-group" aria-labelledby="ag-triggers-h" data-testid="agent-triggers">
           <div className="ag-section-head">
-            <h2 className="ag-eyebrow" id="ag-triggers-h">{t('agent.triggers')}</h2>
-            <Link className="ag-link ag-small" to="/app/triggers/new">{t('agent.newTrigger')}</Link>
+            <h2 className="ag-h2" id="ag-triggers-h">{t('agent.triggers')}</h2>
+            <Button variant="ghost" size="sm" icon="plus" to="/app/triggers/new">{t('agent.newTrigger')}</Button>
           </div>
           {triggers.length === 0 ? (
             <p className="ag-note">{t('agent.noTriggers')}</p>
@@ -168,7 +172,7 @@ export default function AgentPage() {
             <div className="ag-runs">
               {triggers.map(x => (
                 <Link key={x.id} className="ag-run-row" to={`/app/triggers/${encodeURIComponent(x.id)}`}>
-                  <StatusMark status={x.enabled ? 'ready' : 'paused'} label={t(x.enabled ? 'agent.triggerOn' : 'agent.triggerOff')} />
+                  <StatusMark status={x.enabled ? 'done' : 'paused'} label={t(x.enabled ? 'agent.triggerOn' : 'agent.triggerOff')} />
                   <span className="ag-run-row__main">
                     <span className="ag-run-row__title">{x.name}</span>
                     <span className="ag-run-row__line">{x.summary}</span>
@@ -181,16 +185,13 @@ export default function AgentPage() {
           )}
         </section>
 
-        <section aria-labelledby="ag-runs-h">
+        <section className="ag-group" aria-labelledby="ag-runs-h">
           <div className="ag-section-head">
-            <h2 className="ag-eyebrow" id="ag-runs-h">{t('agent.runs')}</h2>
+            <h2 className="ag-h2" id="ag-runs-h">{t('agent.runs')}</h2>
             {runs.length > 0 && <span className="ag-muted ag-small">{t('agent.runsCount', { count: runs.length })}</span>}
           </div>
           {runs.length === 0 ? (
-            <div className="ag-empty">
-              <h3>{t('agent.noRunsTitle')}</h3>
-              <p>{t('agent.noRunsText')}</p>
-            </div>
+            <EmptyState level={3} title={t('agent.noRunsTitle')} body={t('agent.noRunsText')} />
           ) : (
             <div className="ag-runs" data-testid="agent-runs">
               {shown.map(r => {
@@ -211,15 +212,14 @@ export default function AgentPage() {
             </div>
           )}
           {runs.length > STRIP_LENGTH && (
-            <button type="button" className="ag-btn-quiet" onClick={() => setShowAll(v => !v)}>
+            <div><Button variant="ghost" size="sm" onClick={() => setShowAll(v => !v)}>
               {showAll ? t('agent.showFewer') : t('agent.showOlder', { count: runs.length - STRIP_LENGTH })}
-            </button>
+            </Button></div>
           )}
           <p className="ag-note ag-note--gap">{t('record.where')}</p>
         </section>
       </div>
 
-      <ChatDeleteConfirm item={toDelete} kind="agent" onConfirm={remove} onCancel={() => setToDelete(null)} />
-    </div>
+    </Page>
   )
 }

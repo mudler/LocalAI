@@ -7,7 +7,8 @@
     "edit": "Edit",
     "chat": "Obrolan",
     "export": "Ekspor",
-    "delete": "Hapus"
+    "delete": "Hapus",
+    "newAgent": "Agen baru"
   },
   "table": {
     "name": "Nama",
@@ -25,7 +26,8 @@
     "noConfigured": "Belum ada agen yang dikonfigurasi",
     "noConfiguredText": "Buat agen untuk memulai alur kerja AI otonom.",
     "noMatching": "Tidak ada agen yang cocok",
-    "noMatchingText": "Tidak ada agen yang cocok dengan \"{{query}}\""
+    "noMatchingText": "Tidak ada agen yang cocok dengan \"{{query}}\"",
+    "clearSearch": "Hapus pencarian"
   },
   "deleteDialog": {
     "title": "Hapus Agen",
@@ -38,7 +40,10 @@
     "deleteFailed": "Gagal menghapus agen: {{message}}",
     "exported": "Agen \"{{name}}\" berhasil diekspor",
     "parseFailed": "Gagal melakukan parse file agen: {{message}}",
-    "notAnAgent": "The file is not an exported agent"
+    "notAnAgent": "The file is not an exported agent",
+    "deletedUndo": "“{{name}}” dihapus.",
+    "undoLate": "“{{name}}” sudah dihapus.",
+    "restored": "“{{name}}” dipulihkan."
   },
   "facts": {
     "addons": "Add-ons",
@@ -56,7 +61,8 @@
       "connector": "Started by a connector"
     },
     "noRunsText": "Press Chat to start a conversation with this agent. Chats that ran with it, and the ones its triggers start, are listed here.",
-    "missingText": "It may have been deleted, or it belongs to another user."
+    "missingText": "It may have been deleted, or it belongs to another user.",
+    "backToList": "Kembali ke agen"
   },
   "record": {
     "where": "A run is a chat that ran with the agent, including the ones its triggers and connectors started.",
@@ -230,6 +236,37 @@
       "loadingTask": "Loading trigger",
       "changed_one": "{{count}} change",
       "changed_other": "{{count}} changes"
-    }
+    },
+    "subtitle": "Jalankan agen sesuai jadwal atau saat sebuah file tiba. Setiap jalan adalah chat yang bisa Anda buka."
+  },
+  "views": {
+    "label": "Area agen",
+    "agents": "Agen"
+  },
+  "now": {
+    "failedTitle": "{{name}} gagal.",
+    "workingTitle": "{{name}} sedang bekerja.",
+    "openRun": "Buka jalannya"
+  },
+  "load": {
+    "agents": "Agen Anda tidak dapat dimuat.",
+    "agentsStale": "Daftar tidak dapat diperbarui. Daftar menampilkan isi sebelumnya.",
+    "agent": "Agen ini tidak dapat dimuat.",
+    "agentStale": "Halaman ini tidak dapat diperbarui. Halaman menampilkan isi sebelumnya.",
+    "agentForm": "Agen ini tidak dapat dimuat untuk diedit.",
+    "triggers": "Pemicu Anda tidak dapat dimuat.",
+    "triggersStale": "Pemicu tidak dapat diperbarui. Yang tampil adalah isi sebelumnya.",
+    "trigger": "Pemicu ini tidak dapat dimuat.",
+    "triggerStale": "Pemicu ini tidak dapat diperbarui. Yang tampil adalah isi sebelumnya.",
+    "tasks": "Tugas tidak dapat dimuat.",
+    "tasksStale": "Tugas tidak dapat diperbarui. Yang tampil adalah isi sebelumnya."
+  },
+  "meta": {
+    "anyModel": "Model apa saja",
+    "addons_one": "{{count}} add-on",
+    "addons_other": "{{count}} add-on"
+  },
+  "chips": {
+    "lastFailed": "Jalan terakhir gagal"
   }
 }

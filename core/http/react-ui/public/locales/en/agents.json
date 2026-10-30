@@ -3,7 +3,7 @@
   "subtitle": "Saved agents: instructions, a model and what a chat with them may use.",
   "actions": {
     "import": "Import",
-    "createAgent": "Create Agent",
+    "createAgent": "Create agent",
     "edit": "Edit",
     "chat": "Chat",
     "export": "Export",
@@ -11,7 +11,8 @@
     "open": "Open",
     "moreFor": "More actions for {{name}}",
     "triggers": "Triggers",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "newAgent": "New agent"
   },
   "table": {
     "name": "Name",
@@ -21,17 +22,18 @@
     "eventsTooltip": "{{count}} events - Click to view"
   },
   "search": {
-    "placeholder": "Search agents...",
+    "placeholder": "Search agents",
     "summary_one": "{{shown}} of {{total}} agent",
     "summary_other": "{{shown}} of {{total}} agents"
   },
   "empty": {
-    "noConfigured": "No agents configured",
-    "noConfiguredText": "Create an agent to get started with autonomous AI workflows.",
+    "noConfigured": "No agents yet",
+    "noConfiguredText": "An agent is saved instructions, a model, and what a chat with it may use. Write one, or start from one of these.",
     "noMatching": "No matching agents",
     "noMatchingText": "No agents match \"{{query}}\"",
     "startWith": "Start from one of these",
-    "useTemplate": "Use this"
+    "useTemplate": "Use this",
+    "clearSearch": "Clear search"
   },
   "sections": {
     "agents": "Your agents"
@@ -53,7 +55,10 @@
     "importedWith": "Agent \"{{name}}\" imported. {{notes}}",
     "importDropped": "Not imported: {{fields}}.",
     "fromTemplate": "Agent \"{{name}}\" saved. Grant it the tools it needs.",
-    "templateFailed": "The starter agent could not be saved: {{message}}"
+    "templateFailed": "The starter agent could not be saved: {{message}}",
+    "deletedUndo": "Deleted “{{name}}”.",
+    "undoLate": "“{{name}}” was already deleted.",
+    "restored": "Restored “{{name}}”."
   },
   "state": {
     "ready": "Ready",
@@ -78,7 +83,10 @@
     "working": "Working",
     "failed": "Failed",
     "open": "Open",
-    "runAgain": "Run again"
+    "runAgain": "Run again",
+    "failedTitle": "{{name}} failed.",
+    "workingTitle": "{{name}} is working.",
+    "openRun": "Open the run"
   },
   "facts": {
     "model": "Model",
@@ -97,7 +105,8 @@
     "memory": {
       "knowledge": "Knowledge base",
       "longTerm": "Long-term memory"
-    }
+    },
+    "lastFailed": "Last run failed"
   },
   "templates": {
     "researcher": {
@@ -133,13 +142,14 @@
     "origin": {
       "trigger": "Started by a trigger",
       "connector": "Started by a connector"
-    }
+    },
+    "backToList": "Back to agents"
   },
   "create": {
-    "titleCreate": "Create Agent",
-    "titleEdit": "Edit Agent: {{name}}",
-    "titleImport": "Import Agent",
-    "save": "Save Changes",
+    "titleCreate": "Create agent",
+    "titleEdit": "Edit {{name}}",
+    "titleImport": "Import agent",
+    "save": "Save changes",
     "saving": "Saving...",
     "discard": "Discard",
     "subCreate": "Fill in what you need. Sections you leave alone keep their defaults.",
@@ -446,7 +456,8 @@
       "noAgent": "No agent",
       "capHint": "The most chats this trigger may start in one day. Empty uses the default."
     },
-    "actionFailed": "The action failed: {{message}}"
+    "actionFailed": "The action failed: {{message}}",
+    "subtitle": "Start an agent on a schedule or when a file arrives. Every run is a chat you can open."
   },
   "run": {
     "workingLine": "Working"
@@ -538,5 +549,27 @@
     "deleted": "\"{{name}}\" deleted",
     "loadFailed": "Could not read the list: {{message}}",
     "actionFailed": "That did not work: {{message}}"
+  },
+  "views": {
+    "label": "Agents area",
+    "agents": "Agents"
+  },
+  "load": {
+    "agents": "Could not load your agents.",
+    "agentsStale": "The list could not be refreshed. It shows what was there before.",
+    "agent": "Could not load this agent.",
+    "agentStale": "This page could not be refreshed. It shows what was there before.",
+    "agentForm": "Could not load this agent for editing.",
+    "triggers": "Could not load your triggers.",
+    "triggersStale": "The triggers could not be refreshed. They show what was there before.",
+    "trigger": "Could not load this trigger.",
+    "triggerStale": "This trigger could not be refreshed. It shows what was there before.",
+    "tasks": "Could not load the tasks.",
+    "tasksStale": "The tasks could not be refreshed. They show what was there before."
+  },
+  "meta": {
+    "anyModel": "Any model",
+    "addons_one": "{{count}} add-on",
+    "addons_other": "{{count}} add-ons"
   }
 }
