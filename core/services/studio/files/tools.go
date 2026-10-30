@@ -31,18 +31,57 @@ const (
 	maxPatternLen = 1000
 )
 
-// toolPath accepts a path the way the model sees it: inside the home ("/a.txt")
-// or in the chat's view ("/workspace/home/a.txt").
+// toolPath accepts a path the way the model sees it, in the home: "/a.txt",
+// "/workspace/home/a.txt", "workspace/home/a.txt" and "home/a.txt" are all
+// "/a.txt".
 func toolPath(p string) string {
 	p = strings.TrimSpace(p)
 	guest := session.GuestRoot + "/" + session.GuestHome
+	if strings.HasPrefix(p, strings.TrimPrefix(session.GuestRoot, "/")+"/") {
+		p = "/" + p
+	}
 	switch {
-	case p == guest:
+	case p == guest, p == session.GuestRoot, p == session.GuestHome:
 		return "/"
 	case strings.HasPrefix(p, guest+"/"):
 		return strings.TrimPrefix(p, guest)
+	case strings.HasPrefix(p, session.GuestHome+"/"):
+		return strings.TrimPrefix(p, session.GuestHome)
 	}
 	return p
+}
+
+// HomePath turns a path the model wrote into a path inside the user's home,
+// with the same spellings and the same refusal of a stray /workspace path as
+// the file tools. Other tools that read the user's files (the media tools)
+// use it.
+func HomePath(p string) (string, error) {
+	if err := strayGuestPath(p); err != nil {
+		return "", err
+	}
+	return toolPath(p), nil
+}
+
+// strayGuestPath returns an error for a path below /workspace that is no
+// place of the chat's view (/workspace/newsapp, say). Taken as a path in the
+// home it would make a folder named "workspace" there, so it is refused with
+// the right spelling.
+func strayGuestPath(p string) error {
+	p = strings.TrimSpace(p)
+	if strings.HasPrefix(p, strings.TrimPrefix(session.GuestRoot, "/")+"/") {
+		p = "/" + p
+	}
+	rest, ok := strings.CutPrefix(p, session.GuestRoot+"/")
+	if !ok {
+		return nil
+	}
+	first, _, _ := strings.Cut(rest, "/")
+	if first == session.GuestHome || strings.HasPrefix(first, session.GuestSharedPrefix) || first == "" {
+		return nil
+	}
+	return fmt.Errorf("%s is not a place of the user's files: files live under %s/%s/. Did you mean %s/%s/%s? "+
+		"To make an app the user can open, build a Page: %s/%s/pages/<name>/index.html",
+		p, session.GuestRoot, session.GuestHome, session.GuestRoot, session.GuestHome, rest, session.GuestRoot, session.GuestHome)
 }
 
 // Errors of a write to a place the model may only read.
@@ -86,6 +125,12 @@ func (s *Service) locate(ctx context.Context, a workspace.Actor, p string) (targ
 			guest, layer = builtinGuest, BuiltinSkillsPath
 		}
 		return target{abs: abs, readErr: errSharedReadOnly, root: layer, show: rebase(layer, guest)}, nil
+	}
+	if err := strayGuestPath(p); err != nil {
+		return target{}, err
+	}
+	if strings.HasPrefix(p, strings.TrimPrefix(session.GuestRoot, "/")+"/") {
+		p = "/" + p
 	}
 	if strings.HasPrefix(p, session.GuestRoot+"/"+session.GuestSharedPrefix) {
 		return s.locateShared(ctx, a, p)
@@ -177,7 +222,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 		req, _ := json.Marshal(required)
 		return json.RawMessage(`{"type":"object","properties":{` + props + `},"required":` + string(req) + `}`)
 	}
-	pathProp := `"path":{"type":"string","description":"A path in the user's files. / is their home folder (also /workspace/home); a shared folder is /workspace/shared-<name>."}`
+	pathProp := `"path":{"type":"string","description":"A path in the user's files: /workspace/home/... is their home folder (/ means the same), /workspace/shared-<name>/... a shared folder."}`
 	return []session.Tool{
 		{Name: "list_files", Description: "List a folder of the user's files. With pattern, list every file and folder below path whose path matches it: * matches any characters including /, ? one character. At most 500 results.",
 			Schema: obj(pathProp + `,"pattern":{"type":"string","description":"For example *.md or reports/*.xlsx"}`),

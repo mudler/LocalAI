@@ -201,7 +201,7 @@ func missingFolder(err error) bool {
 // LayoutPrompt describes the guest layout for the system prompt.
 func LayoutPrompt(v workspace.View) string {
 	var b strings.Builder
-	b.WriteString("Your working directory is " + GuestRoot + ". Your tools see these folders:\n")
+	b.WriteString("The user's files are in these folders; use these paths with the file tools:\n")
 	for _, m := range v.Mounts {
 		access := "read and write"
 		if m.Mode < workspace.ModeWrite {
@@ -214,6 +214,7 @@ func LayoutPrompt(v workspace.View) string {
 			fmt.Fprintf(&b, "- %s/%s: a folder shared with the user (%s).\n", GuestRoot, m.At, access)
 		}
 	}
-	b.WriteString("Only files in these folders last. Everything else in the guest is lost when the chat ends. Every turn is saved as one change that the user can undo.")
+	b.WriteString("There is nothing else under " + GuestRoot + ": a path such as " + GuestRoot + "/myapp is not a folder of the user; write " + GuestRoot + "/" + GuestHome + "/myapp instead. " +
+		"To make an app the user can open, build a Page: " + GuestRoot + "/" + GuestHome + "/pages/<name>/index.html. Every change is saved, and the user can undo it.")
 	return b.String()
 }

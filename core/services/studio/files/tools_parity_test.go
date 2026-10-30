@@ -219,4 +219,48 @@ var _ = Describe("the file tools that replace the Sandbox's", func() {
 			}
 		})
 	})
+
+	Describe("the spellings of a path", func() {
+		DescribeTable("all name the same file in the home",
+			func(p string) {
+				f := newFiles()
+				b := newToolBox(f, "alice", "c1")
+				_, err := b.run("write_file", map[string]any{"path": p, "content": "same"})
+				Expect(err).NotTo(HaveOccurred(), p)
+				Expect(wstestRead(f, "/users/alice/notes/a.txt")).To(Equal("same"))
+				kids, err := f.Store().List(context.Background(), f.Actor("alice"), "/users/alice")
+				Expect(err).NotTo(HaveOccurred())
+				for _, k := range kids {
+					Expect(k.Name).NotTo(BeElementOf("workspace", "home"), "%s made a folder %s", p, k.Name)
+				}
+			},
+			Entry("/workspace/home/<p>", "/workspace/home/notes/a.txt"),
+			Entry("workspace/home/<p>", "workspace/home/notes/a.txt"),
+			Entry("home/<p>", "home/notes/a.txt"),
+			Entry("/<p>", "/notes/a.txt"),
+			Entry("<p>", "notes/a.txt"),
+		)
+
+		It("refuses another path below /workspace, writes nothing and teaches the right one", func() {
+			f := newFiles()
+			b := newToolBox(f, "alice", "c1")
+			for _, p := range []string{"/workspace/newsapp/page.html", "workspace/build_deck.py"} {
+				_, err := b.run("write_file", map[string]any{"path": p, "content": "x"})
+				Expect(err).To(HaveOccurred(), p)
+				Expect(err.Error()).To(ContainSubstring("/workspace/home/"))
+				Expect(err.Error()).To(ContainSubstring("pages/<name>/index.html"))
+			}
+			_, err := b.run("write_file", map[string]any{"path": "/workspace/newsapp/page.html", "content": "x"})
+			Expect(err).To(MatchError(ContainSubstring("Did you mean /workspace/home/newsapp/page.html?")))
+			kids, err := f.Store().List(context.Background(), f.Actor("alice"), "/users/alice")
+			Expect(err).NotTo(HaveOccurred())
+			for _, k := range kids {
+				Expect(k.Name).NotTo(Equal("workspace"))
+			}
+			for _, tool := range []string{"read_file", "list_files", "edit_file", "delete_file"} {
+				_, err := b.run(tool, map[string]any{"path": "/workspace/newsapp/page.html", "old_string": "a", "new_string": "b"})
+				Expect(err).To(MatchError(ContainSubstring("/workspace/home/")), tool)
+			}
+		})
+	})
 })

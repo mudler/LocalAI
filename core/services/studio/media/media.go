@@ -257,7 +257,11 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
 		return nil
 	}
 	read := func(ctx context.Context, rel string, max int64) (string, []byte, error) {
-		abs, err := f.Abs(a.Principal, strings.TrimPrefix(rel, session.GuestRoot+"/"+session.GuestHome))
+		home, err := files.HomePath(rel)
+		if err != nil {
+			return "", nil, err
+		}
+		abs, err := f.Abs(a.Principal, home)
 		if err != nil {
 			return "", nil, errors.New("the path has a name that is not allowed")
 		}
@@ -272,7 +276,7 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
 		b, err := io.ReadAll(r)
 		return n.Name, b, err
 	}
-	pathProp := `"path":{"type":"string","description":"A path in the user's files. / is their home folder."}`
+	pathProp := `"path":{"type":"string","description":"A path in the user's files: /workspace/home/... is their home folder (/ means the same)."}`
 	return []session.Tool{
 		{Name: "describe_image", Description: "Describe an image in the user's files, or answer a question about it. Use it for pictures and screenshots, including to read text in them.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `,"question":{"type":"string"}},"required":["path"]}`),
