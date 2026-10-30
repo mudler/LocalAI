@@ -391,6 +391,40 @@ func extractToolChoiceFunctionName(m map[string]any) string {
 	return ""
 }
 
+// mergeChatTemplateKwargs folds a request's chat_template_kwargs (the
+// llama-server / vLLM / SGLang field) into its metadata map, so clients written
+// for those servers can set e.g. enable_thinking per request. Scalars become the
+// strings the metadata path expects (booleans as "true"/"false", which
+// ResolveChatTemplateKwargs turns back into booleans); nested objects and arrays
+// are skipped, as is the reserved "chat_template_kwargs" key. An explicit
+// metadata entry wins over the same key here. With no kwargs, metadata is
+// returned unchanged.
+func mergeChatTemplateKwargs(kwargs map[string]any, metadata map[string]string) map[string]string {
+	if len(kwargs) == 0 {
+		return metadata
+	}
+	out := make(map[string]string, len(kwargs)+len(metadata))
+	for k, v := range kwargs {
+		if k == "chat_template_kwargs" {
+			continue
+		}
+		switch t := v.(type) {
+		case bool:
+			out[k] = strconv.FormatBool(t)
+		case string:
+			out[k] = t
+		case float64:
+			out[k] = strconv.FormatFloat(t, 'f', -1, 64)
+		case json.Number:
+			out[k] = t.String()
+		}
+	}
+	for k, v := range metadata {
+		out[k] = v
+	}
+	return out
+}
+
 func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenAIRequest) error {
 	// Discard client tools before anything below derives functions or a forced
 	// tool_choice from them; the model's own MCP tools are injected later.
@@ -456,8 +490,9 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	// Forward the client's request metadata so chat-template kwargs set per-request
 	// (enable_thinking, reasoning_effort, preserve_thinking, ...) reach the backend
 	// and override the model's reasoning-config defaults. See gRPCPredictOpts.
-	if len(input.Metadata) > 0 {
-		config.RequestMetadata = input.Metadata
+	// The llama-server style chat_template_kwargs field takes the same path.
+	if md := mergeChatTemplateKwargs(input.ChatTemplateKwargs, input.Metadata); len(md) > 0 {
+		config.RequestMetadata = md
 	}
 
 	// Collapse the modern max_completion_tokens alias into the

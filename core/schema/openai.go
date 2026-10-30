@@ -263,6 +263,12 @@ type OpenAIRequest struct {
 	ReasoningEffort string `json:"reasoning_effort,omitempty" yaml:"reasoning_effort"`
 
 	Metadata map[string]string `json:"metadata,omitempty" yaml:"metadata"`
+
+	// ChatTemplateKwargs is the per-request chat_template_kwargs field that
+	// llama.cpp's llama-server, vLLM and SGLang accept (e.g.
+	// {"enable_thinking": false}). Scalar values are folded into Metadata, so
+	// they take the same path to the backend; an explicit Metadata key wins.
+	ChatTemplateKwargs map[string]any `json:"chat_template_kwargs,omitempty" yaml:"chat_template_kwargs"`
 }
 
 type ModelsDataResponse struct {
