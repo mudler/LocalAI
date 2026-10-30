@@ -92,7 +92,12 @@
       "hide": "Ocultar",
       "hideLabel": "Ocultar este aviso",
       "chipTitle": "Este chat não pode executar código nem comandos. Selecione para ver detalhes."
-    }
+    },
+    "builtins": "Ferramentas integradas",
+    "builtin": {
+      "web": "Web"
+    },
+    "builtinBy": "{{tools}} · integradas"
   },
   "vision": {
     "describedBy": "Este modelo não consegue ver imagens. Escolha outro modelo, ou a imagem será descrita por {{model}}.",

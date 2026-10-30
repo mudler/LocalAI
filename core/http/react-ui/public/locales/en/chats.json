@@ -318,6 +318,11 @@
   },
   "tools": {
     "summary": "Tools ({{on}} of {{total}} on)",
+    "builtins": "Built-in tools",
+    "builtin": {
+      "web": "Web"
+    },
+    "builtinBy": "{{tools}} · built-in",
     "addons": "Add-ons",
     "servers": "MCP servers of the model",
     "connectors": "Your connectors",

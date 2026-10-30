@@ -201,8 +201,11 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	out := schema.ChatsToolsPanel{Addons: make([]schema.ChatsAddon, 0, len(p.Addons)), Servers: make([]schema.ChatsMCPServerSwitch, 0, len(p.Servers)),
+	out := schema.ChatsToolsPanel{Builtins: make([]schema.ChatsBuiltinGroup, 0, len(p.Builtins)), Addons: make([]schema.ChatsAddon, 0, len(p.Addons)), Servers: make([]schema.ChatsMCPServerSwitch, 0, len(p.Servers)),
 		Connectors: make([]schema.ChatsMCPConnectorSwitch, 0, len(p.Connectors)), Off: p.Off}
+	for _, g := range p.Builtins {
+		out.Builtins = append(out.Builtins, schema.ChatsBuiltinGroup{Group: g.Group, Tools: g.Tools, Off: g.Off, Provider: g.Provider})
+	}
 	for _, a := range p.Addons {
 		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})
 	}
@@ -217,7 +220,7 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 
 // ListChatTools lists what a chat can use besides its built-in tools.
 // @Summary List the tools a chat can switch on and off.
-// @Description Add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants.
+// @Description The groups of built-in tools (such as web), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches"
@@ -225,6 +228,27 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
 // @Router /api/chats/{id}/tools [get]
 func (h *Handlers) ListChatTools(c echo.Context) error { return toolsPanel(c, h) }
+
+// SetChatBuiltins sets the groups of built-in tools a chat has switched off.
+// @Summary Switch groups of built-in tools on and off for a chat.
+// @Description The list replaces the earlier one. A group is a name such as web (web_search and web_fetch). A switch only takes away: a tool the administrator has off stays off. The next turn of the chat gets the tools that are on.
+// @Tags chats
+// @Param id path string true "conversation id"
+// @Param request body schema.ChatsBuiltinSwitches true "the groups that are off"
+// @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches now in force"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
+// @Router /api/chats/{id}/builtins [put]
+func (h *Handlers) SetChatBuiltins(c echo.Context) error {
+	var req schema.ChatsBuiltinSwitches
+	if err := c.Bind(&req); err != nil {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "off is required")
+	}
+	if err := h.svc.SetBuiltinsOff(c.Request().Context(), userID(c), c.Param("id"), req.Off); err != nil {
+		return failFor(c, err)
+	}
+	return toolsPanel(c, h)
+}
 
 // SetChatMCP sets the MCP servers and connectors a chat has switched off.
 // @Summary Switch MCP servers and connectors on and off for a chat.

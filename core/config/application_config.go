@@ -348,6 +348,20 @@ type ApplicationConfig struct {
 	// through the server. Runtime-toggleable via /api/settings.
 	MCPConnectorsAllowPrivate bool
 
+	// The built-in web tools of the chats. Each is runtime-toggleable via
+	// /api/settings and read at each turn. DisableChatsWebSearch and
+	// DisableChatsWebFetch are stored as the negation (chats_web_search,
+	// chats_web_fetch), so both tools are on by default. ChatsWebSearXNGURL
+	// sends the searches to that SearXNG instance instead of DuckDuckGo.
+	// ChatsWebAllowPrivate lets web_fetch reach addresses on private networks
+	// (never the cloud metadata addresses). ChatsWebPorts is a comma list of
+	// the ports web_fetch may use; empty means 80 and 443.
+	DisableChatsWebSearch bool
+	DisableChatsWebFetch  bool
+	ChatsWebSearXNGURL    string
+	ChatsWebAllowPrivate  bool
+	ChatsWebPorts         string
+
 	// DisableChatSuggestions stops the assistant from offering things (to
 	// remember a name, to make a shortcut, to update a widget on a schedule)
 	// to users who did not choose for themselves. Runtime-toggleable via

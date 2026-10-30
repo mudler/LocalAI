@@ -92,7 +92,12 @@
       "hide": "Masquer",
       "hideLabel": "Masquer cet avis",
       "chipTitle": "Ce chat ne peut pas exécuter de code ni de commandes. Sélectionnez pour les détails."
-    }
+    },
+    "builtins": "Outils intégrés",
+    "builtin": {
+      "web": "Web"
+    },
+    "builtinBy": "{{tools}} · intégrés"
   },
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",

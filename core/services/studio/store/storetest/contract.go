@@ -149,6 +149,25 @@ func Run(newStore New) {
 		Expect(rec.McpOff).To(BeEmpty(), "after clearing")
 	})
 
+	It("built-in tool switches round-trip, survive a chat update and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetBuiltinsOff(ctx(), "alice", "c1", []string{"web"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.BuiltinsOff).To(Equal([]string{"web"}))
+		stale := rec
+		stale.BuiltinsOff = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOff).To(Equal([]string{"web"}), "want the switches kept")
+		Expect(s.SetBuiltinsOff(ctx(), "bob", "c1", []string{"web"})).To(MatchError(session.ErrNotFound), "another principal's SetBuiltinsOff")
+		Expect(s.SetBuiltinsOff(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.BuiltinsOff).To(BeEmpty(), "after clearing")
+	})
+
 	It("add-on switches round-trip, survive a chat update and belong to the owner", func() {
 		s := newStore()
 		chat(s, "c1", "alice")

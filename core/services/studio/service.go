@@ -140,6 +140,8 @@ type Deps struct {
 	// Media runs the image and audio helper tools and transcribes voice notes.
 	// Nil: neither.
 	Media *media.Service
+	// Web serves the built-in web_search and web_fetch tools. Nil: neither.
+	Web WebTools
 	// Modalities says which inputs a model takes natively: with Vision an
 	// attached image goes to the chat model as an image part, with Video a
 	// video does. A model without them gets the file and the describe_image

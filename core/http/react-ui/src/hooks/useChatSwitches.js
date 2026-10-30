@@ -4,6 +4,7 @@ import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
 import { changedIds, offList, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 
 const noMCP = { servers: [], connectors: [], off: [] }
+const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
 const noCommands = { state: '', reason: '' }
 const commandsOf = (res) => ({
   state: typeof res?.commands === 'string' ? res.commands : '',
@@ -12,8 +13,9 @@ const commandsOf = (res) => ({
 
 export { skillKey }
 
-// What a chat can use besides its built-in tools, with a switch each: add-ons,
-// the MCP servers of its model, the user's MCP connectors and the skills. A
+// What a chat can use besides its own tools, with a switch each: the groups of
+// built-in tools (web), add-ons, the MCP servers of its model, the user's MCP
+// connectors and the skills. A
 // chat with an agent lists only what the agent grants. A switch changes the
 // list at once and goes back when the server refuses.
 export function useChatSwitches(chatId, filesOn) {
@@ -21,6 +23,7 @@ export function useChatSwitches(chatId, filesOn) {
   // Whether the chat can run commands, from the same list (see utils/chatCommands.js).
   const [commands, setCommands] = useState({ state: '', reason: '' })
   const [mcp, setMcp] = useState(noMCP)
+  const [builtins, setBuiltins] = useState([])
   const [skills, setSkills] = useState([])
   const [error, setError] = useState('')
   const [skillsError, setSkillsError] = useState('')
@@ -32,14 +35,14 @@ export function useChatSwitches(chatId, filesOn) {
   useEffect(() => {
     setError('')
     setSkillsError('')
-    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setSkills([]); return undefined }
+    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setSkills([]); return undefined }
     let live = true
     chatAddonsApi.list(chatId)
       .then((res) => { if (live) { setAddons(res.addons || []); setCommands(commandsOf(res)) } })
       .catch(() => { if (live) { setAddons([]); setCommands(noCommands) } })
     chatToolsApi.list(chatId)
-      .then((res) => { if (live) setMcp({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] }) })
-      .catch(() => { if (live) setMcp(noMCP) })
+      .then((res) => { if (live) { setMcp(mcpOf(res)); setBuiltins(res.builtins || []) } })
+      .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]) } })
     if (filesOn) {
       // Only the skill that wins is listed: one that another overrides cannot be used anyway.
       chatSkillsApi.list(chatId)
@@ -80,12 +83,29 @@ export function useChatSwitches(chatId, filesOn) {
     setError('')
     try {
       const res = await chatToolsApi.setMcpOff(chatId, off)
-      setMcp({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
+      setMcp(mcpOf(res))
+      setBuiltins(res.builtins || [])
     } catch (e) {
       setMcp(before)
       setError(e.message || 'error')
     }
   }, [mcp, chatId])
+
+  // group is a group of built-in tools, such as web.
+  const toggleBuiltin = useCallback(async (group, on) => {
+    const before = builtins
+    const next = builtins.map((b) => (b.group === group ? { ...b, off: !on } : b))
+    setBuiltins(next)
+    setError('')
+    try {
+      const res = await chatToolsApi.setBuiltinsOff(chatId, next.filter((b) => b.off).map((b) => b.group).sort())
+      setBuiltins(res.builtins || [])
+      setMcp(mcpOf(res))
+    } catch (e) {
+      setBuiltins(before)
+      setError(e.message || 'error')
+    }
+  }, [builtins, chatId])
 
   // Switches the skills with these ids (a Set) on or off with one request: the
   // server stores the full list of skills that are off. The screen changes at
@@ -116,8 +136,8 @@ export function useChatSwitches(chatId, filesOn) {
   const toggleSkill = useCallback((id, on) => setSkillsOn(new Set([id]), on), [setSkillsOn])
 
   return {
-    addons, commands, servers: mcp.servers, connectors: mcp.connectors, skills, error, skillsError, skillsBusy: skillsBusy > 0,
-    counts: toolsCounts({ addons, servers: mcp.servers, connectors: mcp.connectors }),
-    toggleAddon, toggleMCP, toggleSkill, setSkillsOn,
+    addons, builtins, commands, servers: mcp.servers, connectors: mcp.connectors, skills, error, skillsError, skillsBusy: skillsBusy > 0,
+    counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
+    toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn,
   }
 }

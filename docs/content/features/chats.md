@@ -474,7 +474,7 @@ message in the transcript.
 
 ### Switch tools off for one chat
 
-The **Tools** menu over the message box lists the add-ons you may use, the MCP servers of the
+The **Tools** menu over the message box lists the built-in web tools, the add-ons you may use, the MCP servers of the
 chat's model and your connectors, with a switch each. What cannot be used now is
 shown off, with the reason (a connector that is switched off, a model server
 that the model does not use by itself). A switch takes effect at the next turn.
@@ -490,6 +490,12 @@ curl -s -X PUT localhost:8080/api/chats/$ID/mcp -d '{"off":["crm","connector:c1"
 ```
 
 `off` holds the name of a server of the model, or `connector:<id>`. At most 200 switches.
+
+The built-in web tools have their own switch, by group:
+
+```bash
+curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web"]}'
+```
 
 ### Interactive tool pages (MCP Apps)
 
@@ -592,6 +598,15 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
 The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills`, `localai-workspace` and `localai-apps`. `localai-workspace` tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). `localai-apps` tells it to build an app, a tracker or a tool as a [Page]({{%relref "features/pages" %}}) and not as a program. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox, so they have `requires: [exec]` and are unavailable in a chat that cannot run commands. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
+
+## Web
+
+A chat can search the web with `web_search` and read a page with `web_fetch`.
+LocalAI serves both itself, with no add-on and no key, and they are on by
+default. They only read. Every result is labelled as untrusted content from the
+internet, and `web_fetch` refuses addresses inside your network. An
+administrator can switch each tool off, set a SearXNG instance for the
+searches and allow more ports. See [Web search and web pages in chats](/features/web/).
 
 ## Collections
 

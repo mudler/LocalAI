@@ -48,6 +48,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		if s.commandsOf(ctx, a.Principal, tools, nil, nil).State != CommandsAvailable {
 			prompt = subAgentCommandsBlock
 		}
+		prompt = joinBlocks(prompt, webBlock(tools))
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
@@ -118,7 +119,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		sees := s.d.Modalities != nil && s.d.Modalities(rec.Model).Vision
 		head += "\n\n" + imagesBlock(sees, s.d.Media.VisionModel(rec.Model))
 	}
-	prompt = strings.TrimSpace(head + "\n\n" + prompt)
+	prompt = joinBlocks(head, webBlock(tools), prompt)
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)

@@ -78,6 +78,7 @@ func (a *Application) initStudioService() {
 		a.studioPusher = pusher
 	}
 	a.initStudioMCPConnectors()
+	a.studioWeb = newStudioWeb(a.applicationConfig)
 	deps := studio.Deps{
 		Bus:      bus,
 		Store:    a.studioStore,
@@ -107,6 +108,7 @@ func (a *Application) initStudioService() {
 		Persistent:         a.studioStoreKind != "memory",
 		Files:              a.StudioFiles(),
 		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel),
+		Web:                a.studioWeb,
 	}
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns

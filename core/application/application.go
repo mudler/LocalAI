@@ -132,6 +132,8 @@ type Application struct {
 	studioNotify         notify.Store     // notifications; same kind as the chats store
 	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
 	studioInbox          *notify.Service
+	// studioWeb serves the built-in web tools of the chats.
+	studioWeb            *studioWeb
 	studioMarks          convert.Marks // what the conversion of the old data did
 	studioConvertMu      sync.Mutex    // one conversion at a time in this process
 	studioTriggers       *studio.Triggers

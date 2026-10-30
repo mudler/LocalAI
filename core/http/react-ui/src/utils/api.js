@@ -337,11 +337,12 @@ export const chatMCPConnectorsApi = {
   test: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/test`, {}),
 }
 
-// The MCP servers and connectors of a chat, with their switches. The add-ons
-// have their own calls above.
+// The built-in tool groups (such as web), the MCP servers and the connectors of
+// a chat, with their switches. The add-ons have their own calls above.
 export const chatToolsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/tools`),
   setMcpOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/mcp`, { method: 'PUT', body: JSON.stringify({ off }) }),
+  setBuiltinsOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/builtins`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
 
 // Saved agents: instructions and exact lists of what a chat may use.

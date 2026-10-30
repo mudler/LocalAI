@@ -54,6 +54,24 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			})
 		}
 
+		// The ports and the SearXNG address of the chats' web tools.
+		if settings.ChatsWebPorts != nil {
+			if _, err := config.ParsePorts(*settings.ChatsWebPorts); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_ports: " + err.Error(),
+				})
+			}
+		}
+		if settings.ChatsWebSearXNGURL != nil {
+			if err := config.ValidateSearXNGURL(*settings.ChatsWebSearXNGURL); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_searxng_url: " + err.Error(),
+				})
+			}
+		}
+
 		// Validate timeouts if provided
 		if settings.WatchdogIdleTimeout != nil {
 			if _, err := time.ParseDuration(*settings.WatchdogIdleTimeout); err != nil {

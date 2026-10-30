@@ -10,6 +10,10 @@
 // Checked in order: the first verb with a word in the name wins, so
 // "search_files" is a search and "list_collections" a listing.
 const VERBS = [
+  // The built-in web tools (web_search, web_fetch) read as what they did on
+  // the web, before the generic verbs claim "search" and "fetch".
+  ['websearch', (w) => w.includes('web') && w.includes('search')],
+  ['webfetch', (w) => w.includes('web') && w.some((x) => ['fetch', 'read', 'browse'].includes(x))],
   ['delegate', (w) => w.includes('spawn') || (w.includes('agent') && (w.includes('ask') || w.includes('call')))],
   ['search', (w) => w.some((x) => ['search', 'grep', 'find', 'lookup'].includes(x))],
   ['list', (w) => w.some((x) => ['list', 'ls', 'glob', 'tree'].includes(x))],
@@ -60,6 +64,14 @@ export function toolArg(summary) {
   }
 }
 
+const hostOf = (u) => {
+  try {
+    return new URL(u).host
+  } catch {
+    return ''
+  }
+}
+
 const baseName = (p) => {
   const trimmed = p.replace(/\/+$/, '')
   const at = trimmed.lastIndexOf('/')
@@ -74,6 +86,11 @@ const nonEmptyLines = (s) => String(s || '').split('\n').map((l) => l.trim()).fi
 export function toolResult(verb, output) {
   const out = String(output || '').trim()
   if (!out) return null
+  if (verb === 'websearch') {
+    if (/^No results\.$/m.test(out)) return { key: 'steps.noResults' }
+    const n = (out.match(/^\d+\. /gm) || []).length
+    return n > 0 ? { key: 'steps.results', values: { count: n } } : null
+  }
   if (verb === 'list') {
     if (/^the folder is empty\.?$/i.test(out)) return { key: 'steps.emptyFolder' }
     let entries
@@ -108,7 +125,9 @@ export function toolResult(verb, output) {
 export function toolLabel(name, summary, output) {
   const verb = toolVerb(name)
   const full = toolArg(summary)
-  const arg = full && FILE_VERBS.has(verb) ? baseName(full) : full
+  let arg = full && FILE_VERBS.has(verb) ? baseName(full) : full
+  // A page read from the web shows its host; the full address is the title.
+  if (verb === 'webfetch' && full) arg = hostOf(full) || full
   return {
     verb,
     tool: String(name || ''),

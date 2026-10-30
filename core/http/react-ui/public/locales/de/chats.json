@@ -92,7 +92,12 @@
       "hide": "Ausblenden",
       "hideLabel": "Diesen Hinweis ausblenden",
       "chipTitle": "Dieser Chat kann keinen Code und keine Befehle ausführen. Für Details auswählen."
-    }
+    },
+    "builtins": "Eingebaute Werkzeuge",
+    "builtin": {
+      "web": "Web"
+    },
+    "builtinBy": "{{tools}} · eingebaut"
   },
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",

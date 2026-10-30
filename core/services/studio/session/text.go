@@ -6,13 +6,13 @@ import (
 )
 
 // Summarize returns a short label for a tool call: the first of the string
-// arguments command, path or pattern, at most 200 bytes.
+// arguments command, path, pattern, url or query, at most 200 bytes.
 func Summarize(args json.RawMessage) string {
 	var m map[string]any
 	if json.Unmarshal(args, &m) != nil {
 		return ""
 	}
-	for _, k := range []string{"command", "path", "pattern"} {
+	for _, k := range []string{"command", "path", "pattern", "url", "query"} {
 		if s, ok := m[k].(string); ok && s != "" {
 			return CapText(s, 200)
 		}

@@ -92,7 +92,12 @@
       "hide": "隐藏",
       "hideLabel": "隐藏此提示",
       "chipTitle": "此对话无法运行代码或命令。选择以查看详情。"
-    }
+    },
+    "builtins": "内置工具",
+    "builtin": {
+      "web": "网页"
+    },
+    "builtinBy": "{{tools}} · 内置"
   },
   "vision": {
     "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",
