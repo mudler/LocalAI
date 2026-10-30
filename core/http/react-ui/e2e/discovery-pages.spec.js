@@ -45,7 +45,7 @@ test('the Pages entry says New once, keeps the date in user.json, and drops the 
   await expect(label).toHaveCount(0)
   await expect.poll(() => state.files.user?.seen?.new?.pages).toBe('opened')
   await page.goto('/app')
-  await expect(nav(page).getByRole('link', { name: 'Pages', exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(nav(page).getByRole('link', { name: /^Pages( New)?$/ })).toBeVisible({ timeout: 15_000 })
   await expect(label).toHaveCount(0)
 })
 
@@ -53,12 +53,12 @@ test('no New label after a week, or with "Notes about new things" off', async ({
   const state = newState({ pages: [TASK_PAGE], files: { user: { seen: { new: { pages: '2020-01-01' } } } } })
   await mockDiscovery(page, state)
   await page.goto('/app')
-  await expect(nav(page).getByRole('link', { name: 'Pages', exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(nav(page).getByRole('link', { name: /^Pages( New)?$/ })).toBeVisible({ timeout: 15_000 })
   await expect(nav(page).getByTestId('nav-pages-new')).toHaveCount(0)
 
   state.files.user = { seen: { new_off: true } }
   await page.reload()
-  await expect(nav(page).getByRole('link', { name: 'Pages', exact: true })).toBeVisible({ timeout: 15_000 })
+  await expect(nav(page).getByRole('link', { name: /^Pages( New)?$/ })).toBeVisible({ timeout: 15_000 })
   await expect(nav(page).getByTestId('nav-pages-new')).toHaveCount(0)
   expect(state.files.user.seen.new).toBeUndefined()
 })
