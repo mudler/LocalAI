@@ -2,6 +2,7 @@ package config
 
 import (
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/model"
@@ -41,6 +42,13 @@ type fieldSpec struct {
 }
 
 type fieldOpt func(*fieldSpec)
+
+// withApply replaces the apply step of a spec, for a setting whose value is
+// checked before it is taken.
+func withApply(f fieldSpec, apply func(o *ApplicationConfig, s *RuntimeSettings) bool) fieldSpec {
+	f.apply = apply
+	return f
+}
 
 func restartRequired() fieldOpt { return func(f *fieldSpec) { f.requiresRestart = true } }
 func fromFileAlways() fieldOpt  { return func(f *fieldSpec) { f.fileAuthoritative = true } }
@@ -457,6 +465,39 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.MCPConnectorsAllowPrivate },
 		func(o *ApplicationConfig) bool { return o.MCPConnectorsAllowPrivate },
 		func(o *ApplicationConfig, v bool) { o.MCPConnectorsAllowPrivate = v }),
+
+	// The built-in web tools of the chats: read at each turn, so no restart.
+	// The two switches are stored as the negation, so both tools are on by
+	// default.
+	field("chats_web_search",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWebSearch },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsWebSearch },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsWebSearch = !v }),
+	field("chats_web_fetch",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWebFetch },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsWebFetch },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsWebFetch = !v }),
+	field("chats_web_searxng_url",
+		func(s *RuntimeSettings) **string { return &s.ChatsWebSearXNGURL },
+		func(o *ApplicationConfig) string { return o.ChatsWebSearXNGURL },
+		func(o *ApplicationConfig, v string) { o.ChatsWebSearXNGURL = strings.TrimSpace(v) }),
+	field("chats_web_allow_private",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWebAllowPrivate },
+		func(o *ApplicationConfig) bool { return o.ChatsWebAllowPrivate },
+		func(o *ApplicationConfig, v bool) { o.ChatsWebAllowPrivate = v }),
+	withApply(field("chats_web_ports",
+		func(s *RuntimeSettings) **string { return &s.ChatsWebPorts },
+		func(o *ApplicationConfig) string { return o.ChatsWebPorts },
+		func(o *ApplicationConfig, v string) { o.ChatsWebPorts = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsWebPorts)
+			if _, err := ParsePorts(v); err != nil {
+				xlog.Warn("invalid chats_web_ports in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsWebPorts = v
+			return true
+		}),
 
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
