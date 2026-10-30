@@ -1185,7 +1185,10 @@ button.cx-step__head:hover,
 .cx-pending__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--color-text-secondary); font-weight: 600; }
 .cx-pending__why { margin: 6px 0 0; color: var(--dk-muted); }
 .cx-pending__row { display: flex; align-items: center; gap: 12px; padding: 6px 0 0; }
-.cx-pending__text { flex: 1; min-width: 0; overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+/* The words and, under them, the files of one waiting message. */
+.cx-pending__body { flex: 1; min-width: 0; }
+.cx-pending__body .cx-atts { align-items: flex-start; margin-top: var(--sp-2); max-width: none; }
+.cx-pending__text { min-width: 0; overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
 .cx-pending__edit { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--color-border-divider); border-radius: 6px; background: var(--color-bg-primary); color: var(--dk-text); font: inherit; }
 .cx-pending__acts { display: flex; flex: none; gap: 10px; }
 .cx-hdr .ca-inbox__panel {

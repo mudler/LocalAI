@@ -144,7 +144,8 @@ Send another message while a turn runs and it waits. The response says so:
 ```
 
 Waiting messages reach the model together, in the order you sent them, at its
-next request. Until then you can change or remove one:
+next request. A waiting message shows the files you attached to it as the same
+chips a sent message has. Until it is delivered you can change or remove it:
 
 ```bash
 curl -X PATCH  .../api/chats/3f1c.../pending/p2 -d '{"text": "Use euros."}'

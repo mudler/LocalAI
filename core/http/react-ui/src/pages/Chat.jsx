@@ -63,6 +63,7 @@ import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
+import MessageAttachments from '../components/chat/Attachments'
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
 import { AppRow } from '../components/chat/ActivityFold'
@@ -1294,7 +1295,10 @@ function PendingList({ chat, editing, setEditing, t }) {
             </>
           ) : (
             <>
-              <span className="cx-pending__text">{p.text}</span>
+              <div className="cx-pending__body">
+                {p.text && <div className="cx-pending__text">{p.text}</div>}
+                <MessageAttachments attachments={p.attachments} />
+              </div>
               <span className="cx-pending__acts">
                 <button type="button" className="cx-link" onClick={() => setEditing({ id: p.id, text: p.text })}>{t('pending.edit')}</button>
                 <button type="button" className="cx-link cx-link--danger" onClick={() => chat.cancelPending(activeId, p.id)}>{t('pending.cancel')}</button>

@@ -12,10 +12,10 @@ const FOLDER = '/Chats/2026-10-30 ci sei?'
 
 const photo = (name, extra = {}) => ({ path: `${FOLDER}/${name}`, name, size: 48213, mime: 'image/jpeg', version: 1, ...extra })
 
-async function chatWith(page, messages, { files = [], missing = [] } = {}) {
+async function chatWith(page, messages, { files = [], missing = [], pending = [], running = false } = {}) {
   const detail = {
-    id: 'c1', title: 'ci sei?', model: 'qwen3-8b', kind: 'chat', running: false, last_turn: 'done',
-    created: '2026-10-30T10:00:00Z', updated: '2026-10-30T10:00:00Z', pending: [],
+    id: 'c1', title: 'ci sei?', model: 'qwen3-8b', kind: 'chat', running, last_turn: 'done',
+    created: '2026-10-30T10:00:00Z', updated: '2026-10-30T10:00:00Z', pending,
   }
   await page.route('**/api/chats/c1/events', route => route.abort())
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages } }))
@@ -169,5 +169,22 @@ test.describe('Chat attachments', () => {
     await expect(staged.nth(1)).toContainText('5 B')
     await staged.nth(1).getByRole('button', { name: /notes\.txt/ }).click()
     await expect(staged).toHaveCount(1)
+  })
+
+  test('a message that waits for the model shows its files as chips', async ({ page }) => {
+    await chatWith(page, [user(1, 'start', undefined)], {
+      running: true,
+      pending: [{
+        id: 'p1', seq: 2, text: 'and this one',
+        attachments: [{ path: `${FOLDER}/q1.csv`, name: 'q1.csv', size: 2048, mime: 'text/csv' }],
+      }],
+    })
+    await page.goto('/app/chats/c1')
+
+    const row = page.getByTestId('pending-row')
+    await expect(row).toContainText('and this one')
+    const chip = row.getByTestId('attachment')
+    await expect(chip).toContainText('q1.csv')
+    await expect(chip).toContainText('2.0 KB')
   })
 })
