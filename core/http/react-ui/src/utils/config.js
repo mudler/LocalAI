@@ -67,6 +67,7 @@ export const API_CONFIG = {
     chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
     files: '/api/chats/files',
     filesContent: '/api/chats/files/content',
+    filesPreview: '/api/chats/files/preview',
     filesFolders: '/api/chats/files/folders',
     filesMove: '/api/chats/files/move',
     filesTrash: '/api/chats/files/trash',
