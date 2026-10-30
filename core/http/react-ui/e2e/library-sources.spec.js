@@ -24,7 +24,11 @@ const PAGES = { addon: '/app/addons?tab=libraries', model: '/app/models', backen
 
 async function openLibraries(page, kind = 'addon') {
   await page.goto(PAGES[kind])
-  if (kind !== 'addon') await page.getByRole('button', { name: 'Manage libraries' }).click()
+  // The Backends page keeps its rare actions in the More menu.
+  if (kind === 'backend') {
+    await page.getByRole('button', { name: 'More backend actions' }).click()
+    await page.getByRole('menuitem', { name: 'Manage libraries…' }).click()
+  } else if (kind !== 'addon') await page.getByRole('button', { name: 'Manage libraries' }).click()
   await expect(page.getByRole('list', { name: 'Libraries' })).toBeVisible()
 }
 

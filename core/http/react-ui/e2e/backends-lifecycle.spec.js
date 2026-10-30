@@ -107,7 +107,9 @@ test.describe('Backends lifecycle page', () => {
 
     await page.getByRole('textbox', { name: /search installed backends/i }).fill('llama')
     await expect(page).toHaveURL(/[?&]q=llama(?:&|$)/)
-    await page.getByRole('tab', { name: /user/i }).click()
+    // The state filter is in the Filters menu.
+    await page.getByTestId('backends-filters').click()
+    await page.getByRole('radio', { name: /user/i }).check()
     await expect(page).toHaveURL(/[?&]state=user(?:&|$)/)
   })
 
@@ -116,7 +118,11 @@ test.describe('Backends lifecycle page', () => {
 
     await expect(page.getByRole('link', { name: 'Installed', exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('textbox', { name: /search installed backends/i })).toHaveValue('llama')
-    await expect(page.getByRole('tab', { name: /updates/i })).toHaveAttribute('aria-selected', 'true')
+    // The state from the URL shows as an active filter and is the checked option.
+    await expect(page.getByRole('button', { name: 'Remove filter: Updates' })).toBeVisible()
+    await page.getByTestId('backends-filters').click()
+    await expect(page.getByRole('radio', { name: /updates/i })).toBeChecked()
+    await page.keyboard.press('Escape')
     // The open row is the one in the URL.
     await expect(backendRow(page, 'llama-cpp')).toHaveAttribute('data-selected', 'true')
     await expect(page.locator('[data-testid="backends-installed-pane"]')).toContainText('v1.1.0')
@@ -143,7 +149,8 @@ test.describe('Backends lifecycle page', () => {
     })
     await page.goto('/app/backends?view=installed&backend=llama-cpp')
 
-    await expect(page.getByRole('button', { name: /update to v1\.1\.0/i })).toBeVisible()
+    // Update is the row's action (the open row no longer repeats it).
+    await expect(backendRow(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
     await page.getByRole('button', { name: 'Actions for llama-cpp', exact: true }).click()
     const reinstall = page.getByRole('menuitem', { name: 'Reinstall backend' })
     await expect(reinstall).toBeVisible()
@@ -154,8 +161,12 @@ test.describe('Backends lifecycle page', () => {
   test('keeps Reinstall beside Upgrade for an installed backend in Catalog', async ({ page }) => {
     await page.goto('/app/backends?view=catalog&backend=llama-cpp')
 
-    await expect(page.locator('button[title^="Update to"]')).toBeVisible()
-    await expect(page.locator('button[title="Reinstall"]')).toBeVisible()
+    // The same row actions as in Installed: Update in the row, Reinstall and
+    // Delete in its menu.
+    await expect(backendRow(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' })).toBeVisible()
+    await page.getByRole('button', { name: 'Actions for llama-cpp', exact: true }).click()
+    await expect(page.getByRole('menuitem', { name: 'Reinstall backend' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Delete backend' })).toBeVisible()
   })
 
   test('shows a backend action failure inline with the selected backend', async ({ page }) => {
@@ -179,7 +190,7 @@ test.describe('Backends lifecycle page', () => {
     }))
     await page.goto('/app/backends?view=installed')
 
-    await page.getByRole('button', { name: /update all/i }).click()
+    await page.getByTestId('backends-updates').getByRole('button', { name: 'Review' }).click()
     await page.getByTestId('bulk-upgrade-start').click()
 
     await expect(page.getByRole('alert')).toContainText('upgrade registry unavailable')
@@ -207,7 +218,7 @@ test.describe('Backends lifecycle page', () => {
     })
     await page.goto('/app/backends?view=installed')
 
-    await page.getByRole('button', { name: /update all/i }).click()
+    await page.getByTestId('backends-updates').getByRole('button', { name: 'Review' }).click()
     await page.getByTestId('bulk-upgrade-start').click()
 
     await expect(page.getByRole('alert')).toContainText('first registry unavailable')
@@ -264,8 +275,11 @@ test.describe('Backends lifecycle page', () => {
     await expect(backendRow(page, 'llama-cpp-cuda12')).toHaveCount(0)
     await expect(backendRow(page, 'llama-cpp-development')).toHaveCount(0)
 
-    await page.getByText(/variants \(1\)/i).click()
-    await page.getByText(/development \(1\)/i).click()
+    // Both are in the Filters menu, each with the number it hides.
+    await page.getByTestId('backends-filters').click()
+    await expect(page.getByRole('checkbox', { name: /variant builds 1/i })).not.toBeChecked()
+    await page.getByRole('checkbox', { name: /variant builds/i }).check()
+    await page.getByRole('checkbox', { name: /development builds 1/i }).check()
     await expect(backendRow(page, 'llama-cpp-cuda12')).toBeVisible()
     await expect(backendRow(page, 'llama-cpp-development')).toBeVisible()
   })
