@@ -68,6 +68,9 @@ test('chat MCP: the tools panel counts what is on among what can be used', () =>
   }
   assert.deepEqual(toolsCounts(panel), { on: 3, total: 6, mcp: 4 })
   assert.deepEqual(toolsCounts({ addons: [{ id: 'o', off: false }] }), { on: 1, total: 1, mcp: 0 })
+  // A group of built-in tools (web) is one switch like an add-on.
+  assert.deepEqual(toolsCounts({ ...panel, builtins: [{ group: 'web', off: false }] }), { on: 4, total: 7, mcp: 4 })
+  assert.deepEqual(toolsCounts({ builtins: [{ group: 'web', off: true }] }), { on: 0, total: 1, mcp: 0 })
 })
 
 test('browser import: reads the servers the old chat page kept, drops what is not valid and never exposes a value', () => {

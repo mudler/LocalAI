@@ -885,6 +885,15 @@ function ChatPage() {
   // them when it starts; an agent's chat lists only what the agent grants.
   const toolGroups = [
     {
+      // The tools LocalAI serves itself, such as web search: one switch per group.
+      key: 'builtins', title: tc('tools.builtins'),
+      rows: switches.builtins.map((b) => ({
+        key: `b-${b.group}`, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
+        title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
+        on: !b.off, onToggle: (on) => switches.toggleBuiltin(b.group, on),
+      })),
+    },
+    {
       key: 'addons', title: tc('tools.addons'),
       rows: switches.addons.map((a) => ({ key: `a-${a.id}`, label: a.id, title: tc('addons.tools', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on), ...addonNote(a) })),
     },

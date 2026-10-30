@@ -58,6 +58,11 @@
       "hide": "숨기기",
       "hideLabel": "이 알림 숨기기",
       "chipTitle": "이 채팅은 코드나 명령을 실행할 수 없습니다. 자세히 보려면 선택하세요."
-    }
+    },
+    "builtins": "기본 제공 도구",
+    "builtin": {
+      "web": "웹"
+    },
+    "builtinBy": "{{tools}} · 기본 제공"
   }
 }

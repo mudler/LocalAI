@@ -58,6 +58,11 @@
       "hide": "Sembunyikan",
       "hideLabel": "Sembunyikan pemberitahuan ini",
       "chipTitle": "Chat ini tidak bisa menjalankan kode atau perintah. Pilih untuk detail."
-    }
+    },
+    "builtins": "Alat bawaan",
+    "builtin": {
+      "web": "Web"
+    },
+    "builtinBy": "{{tools}} · bawaan"
   }
 }

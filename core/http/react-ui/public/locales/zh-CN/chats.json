@@ -58,6 +58,11 @@
       "hide": "隐藏",
       "hideLabel": "隐藏此提示",
       "chipTitle": "此对话无法运行代码或命令。选择以查看详情。"
-    }
+    },
+    "builtins": "内置工具",
+    "builtin": {
+      "web": "网页"
+    },
+    "builtinBy": "{{tools}} · 内置"
   }
 }

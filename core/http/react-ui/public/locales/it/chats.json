@@ -58,6 +58,11 @@
       "hide": "Nascondi",
       "hideLabel": "Nascondi questo avviso",
       "chipTitle": "Questa chat non può eseguire codice o comandi. Seleziona per i dettagli."
-    }
+    },
+    "builtins": "Strumenti integrati",
+    "builtin": {
+      "web": "Web"
+    },
+    "builtinBy": "{{tools}} · integrati"
   }
 }

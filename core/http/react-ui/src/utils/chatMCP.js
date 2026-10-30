@@ -82,7 +82,7 @@ export function toggleOff(off, key, on) {
 
 // What is on among what can be used, for the summary of the tools panel.
 export function toolsCounts(panel) {
-  const addons = panel.addons || []
+  const addons = [...(panel.builtins || []), ...(panel.addons || [])]
   const mcp = [...(panel.servers || []), ...(panel.connectors || [])]
   const all = [...addons, ...mcp]
   return { on: all.filter(x => !x.off && x.usable !== false).length, total: all.length, mcp: mcp.length }
