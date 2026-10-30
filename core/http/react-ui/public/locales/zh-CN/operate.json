@@ -1,0 +1,8 @@
+{
+  "capacity": {
+    "diskChip": "磁盘快满了"
+  },
+  "backends": {
+    "loadFailedTitle": "无法加载后端目录。"
+  }
+}

@@ -57,7 +57,8 @@
       "assistant": "Assistant LocalAI",
       "distributed": "Distribué",
       "responses": "Réponses"
-    }
+    },
+    "loadFailedTitle": "Impossible de charger les paramètres."
   },
   "traces": {
     "title": "Traces",

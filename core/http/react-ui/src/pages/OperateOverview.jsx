@@ -14,7 +14,8 @@ import LedgerRow from '../components/operate/LedgerRow'
 import LocalRunningModels from '../components/nodes/LocalRunningModels'
 import CapacityChart from '../components/operate/CapacityChart'
 import { useUnloadModel } from '../components/operate/useUnloadModel'
-import Icon from '../components/Icon'
+import { HubHeader } from '../components/hub/HubHeader'
+import { Button, StatusChip } from '../components/ui'
 import './operate.css'
 
 // The front door to Operate: one sentence, then four rows that say what needs
@@ -108,21 +109,24 @@ export default function OperateOverview() {
 
   return (
     <div className="page op-page op-status" data-testid="operate-overview" aria-busy={!ready}>
-      <header className="op-status__head">
-        {firstRun ? (
-          <FirstRun t={t} />
-        ) : (
-          <>
-            <h1 className="op-status__title" data-testid="operate-headline" data-kind={ready ? headline.kind : 'loading'}>
-              {ready ? t(`status.headline.${headline.kind}`, { count: headline.count }) : t('status.headline.loading')}
+      {/* The page's statement goes in the Administration header: the scope,
+          then one sentence on what is true now. A first run puts the two
+          ways to start in the header's actions. */}
+      <HubHeader
+        supporting={(
+          <div className="op-status__lead">
+            {scope && <span className="op-status__scope">{scope}</span>}
+            <h1 className="op-status__title" data-testid="operate-headline" data-kind={!ready ? 'loading' : firstRun ? 'firstRun' : headline.kind}>
+              {!ready
+                ? t('status.headline.loading')
+                : firstRun ? t('status.headline.firstRun') : t(`status.headline.${headline.kind}`, { count: headline.count })}
             </h1>
-            {ready && headline.kind === 'looking' && (
-              <p className="op-status__sub">{t('status.lookingSub')}</p>
-            )}
-          </>
+            {ready && firstRun && <span className="op-status__sub">{t('status.firstRunBody')}</span>}
+            {ready && !firstRun && headline.kind === 'looking' && <span className="op-status__sub">{t('status.lookingSub')}</span>}
+          </div>
         )}
-        {scope && <p className="op-status__scope">{scope}</p>}
-      </header>
+        actions={firstRun ? <FirstRunActions t={t} /> : null}
+      />
 
       <ol className="op-ledger" aria-label={t('status.ledger')}>
         <LedgerRow
@@ -198,7 +202,9 @@ export default function OperateOverview() {
           level={ready ? byId.capacity.level : 'idle'}
           open={ready && isOpen('capacity')}
           onToggle={() => toggle('capacity')}
-          title={t('status.rows.capacity')}
+          title={ready && problems.some(p => p.key === 'disk')
+            ? <>{t('status.rows.capacity')} <StatusChip tone="warn">{t('capacity.diskChip')}</StatusChip></>
+            : t('status.rows.capacity')}
           summary={!ready
             ? <span className="dk-skeleton dk-skeleton--line op-skeleton" />
             : <CapacitySummary memory={memory} problems={problems} resources={summary?.resources} distributed={distributed} t={t} />}
@@ -261,17 +267,11 @@ export default function OperateOverview() {
   )
 }
 
-function FirstRun({ t }) {
+function FirstRunActions({ t }) {
   return (
-    <div className="op-first" data-testid="operate-first-run">
-      <h1 className="op-status__title" data-testid="operate-headline" data-kind="firstRun">{t('status.headline.firstRun')}</h1>
-      <p className="op-status__sub">{t('status.firstRunBody')}</p>
-      <div className="op-first__acts">
-        <Link className="dk-btn dk-btn--primary" to="/app/backends?view=catalog">
-          <Icon name="download" /> {t('status.firstRunBackend')}
-        </Link>
-        <Link className="dk-btn dk-btn--secondary" to="/app/models">{t('status.firstRunModels')}</Link>
-      </div>
+    <div className="op-first__acts" data-testid="operate-first-run">
+      <Button to="/app/models">{t('status.firstRunModels')}</Button>
+      <Button variant="primary" icon="download" to="/app/backends?view=catalog">{t('status.firstRunBackend')}</Button>
     </div>
   )
 }
@@ -349,14 +349,14 @@ function CapacityBody({ t, memory, problems, loaded, distributed, nodes, resourc
       )}
       {diskProblem && (
         <p className="op-note">
-          {t('capacity.diskBody', { free: gbLabel(diskProblem.disk.free), total: gbLabel(diskProblem.disk.total) })}{' '}
-          <Link className="dk-link" to="/app/models?view=installed">{t('capacity.reviewModels')}</Link>
+          {t('capacity.diskBody', { free: gbLabel(diskProblem.disk.free), total: gbLabel(diskProblem.disk.total) })}
         </p>
       )}
-      <p className="op-note op-note--quiet">
-        <Link className="dk-link" to="/app/nodes">{distributed ? t('capacity.openNodes') : t('capacity.openMachine')}</Link>
-        {resources?.reclaimer_enabled && <> · {t('capacity.reclaimer')}</>}
-      </p>
+      {resources?.reclaimer_enabled && <p className="op-note op-note--quiet">{t('capacity.reclaimer')}</p>}
+      <div className="op-acts">
+        {diskProblem && <Button size="sm" to="/app/models?view=installed">{t('capacity.reviewModels')}</Button>}
+        <Button size="sm" variant="ghost" to="/app/nodes">{distributed ? t('capacity.openNodes') : t('capacity.openMachine')}</Button>
+      </div>
     </div>
   )
 }

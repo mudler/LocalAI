@@ -1,0 +1,12 @@
+{
+  "overview": {
+    "usageErrorTitle": "无法读取用量。"
+  },
+  "host": {
+    "errorTitle": "无法读取主机信息。"
+  },
+  "models": {
+    "noMatch": "没有与“{{query}}”匹配的模型。"
+  },
+  "clearSearch": "清除搜索"
+}

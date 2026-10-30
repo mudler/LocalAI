@@ -62,7 +62,8 @@
     "nodeMeter": "{{name}}: {{used}} of {{total}} in use",
     "openMachine": "Open This machine",
     "openNodes": "Open the swarm",
-    "reclaimer": "The memory reclaimer is on."
+    "reclaimer": "The memory reclaimer is on.",
+    "diskChip": "Disk almost full"
   },
   "running": {
     "none": "Nothing is running.",
@@ -449,7 +450,8 @@
       "pinned": "Pinned to {{digest}}",
       "updated": "{{name}} updated from its library.",
       "updateFailed": "The update failed. {{message}}"
-    }
+    },
+    "loadFailedTitle": "Could not load the backend catalog."
   },
   "logs": {
     "title": "Backend logs",

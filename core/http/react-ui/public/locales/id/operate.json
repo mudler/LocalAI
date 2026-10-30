@@ -1,0 +1,8 @@
+{
+  "capacity": {
+    "diskChip": "Disk hampir penuh"
+  },
+  "backends": {
+    "loadFailedTitle": "Katalog backend tidak dapat dimuat."
+  }
+}

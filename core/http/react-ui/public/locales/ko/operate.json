@@ -1,0 +1,8 @@
+{
+  "capacity": {
+    "diskChip": "디스크 거의 가득 참"
+  },
+  "backends": {
+    "loadFailedTitle": "백엔드 카탈로그를 불러오지 못했습니다."
+  }
+}

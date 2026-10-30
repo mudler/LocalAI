@@ -17,23 +17,24 @@
 
 /* ---- Head ----------------------------------------------------------------- */
 
-.tf-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--dk-space-3); padding-top: var(--dk-space-3); }
+.tf-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
 .tf-head--col { flex-direction: column; align-items: flex-start; }
 .tf-head__lead { display: flex; flex-direction: column; gap: var(--dk-space-1); min-width: 0; }
 .tf-head__acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); margin-left: auto; }
+/* Under the Administration header a page's title is a section title. */
 .tf-title {
   margin: 0;
-  font: var(--dk-weight-bold) 24px / 1.2 var(--dk-font-display);
-  letter-spacing: -.02em;
+  font: 600 var(--fs-section) / var(--lh-section) var(--font-sans);
   color: var(--dk-text);
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
-.tf-title--mono { font-family: var(--dk-font-mono); font-size: 22px; letter-spacing: 0; }
+/* A trace's method and path is an identifier: mono, same size. */
+.tf-title--mono { font-family: var(--font-mono); }
 .tf-lede { margin: 0; max-width: 64ch; font-size: var(--dk-text-15); line-height: 1.5; color: var(--dk-muted); }
 .tf-source { margin: calc(var(--dk-space-3) * -1) 0 0; max-width: 78ch; font-size: var(--dk-text-12); line-height: 1.5; color: var(--dk-muted); }
 .tf-sub { font-size: var(--dk-text-12); font-weight: var(--dk-weight-regular); color: var(--dk-muted); }
-.tf-count { font-family: var(--dk-font-mono); font-size: var(--dk-text-12); color: var(--dk-muted); }
+.tf-count { font-size: var(--dk-text-12); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
 .tf-h2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--dk-space-2); margin: 0; font-size: var(--dk-text-17); font-weight: var(--dk-weight-bold); }
 .tf-h3 { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-semibold); }
 .tf-section { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
@@ -44,7 +45,7 @@
 .tf-note { padding: var(--dk-space-3) 0; }
 .tf-note p { margin: var(--dk-space-1) 0 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
 .tf-summary { margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
-.tf-summary strong { color: var(--dk-text); font-family: var(--dk-font-mono); font-weight: var(--dk-weight-semibold); }
+.tf-summary strong { color: var(--dk-text); font-weight: var(--dk-weight-semibold); font-variant-numeric: tabular-nums; }
 .tf-foot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--dk-space-2); margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
 .tf-loading { display: flex; justify-content: center; padding: var(--dk-space-6); }
 .tf-error {
@@ -66,9 +67,7 @@
   border-radius: var(--dk-radius-pill);
   background: var(--dk-inset);
   box-shadow: inset 0 0 0 1px var(--dk-edge);
-  font: var(--dk-weight-semibold) 11px / 18px var(--dk-font-mono);
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  font: 500 var(--fs-meta) / 18px var(--font-sans);
   color: var(--dk-muted);
 }
 .tf-danger:hover:not(:disabled) { color: var(--dk-error-text); }
@@ -119,7 +118,8 @@
 }
 .tf-figure { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .tf-figure dt { font-size: var(--dk-text-13); color: var(--dk-muted); }
-.tf-figure dd { margin: 0; font: var(--dk-weight-semibold) 28px / 1.15 var(--dk-font-mono); letter-spacing: -.02em; color: var(--dk-text); }
+/* Figures are numbers to compare, not identifiers: sans, tabular. */
+.tf-figure dd { margin: 0; font: 600 var(--fs-title) / var(--lh-title) var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--dk-text); }
 .tf-figure small { font-size: var(--dk-text-12); color: var(--dk-muted); }
 .tf-figure[data-level="error"] dd, .tf-figure[data-level="error"] small:first-of-type { color: var(--dk-error-text); }
 .tf-figure__link { margin-top: 2px; font-size: var(--dk-text-12); }
@@ -344,7 +344,6 @@ button.tf-step:focus-visible { outline: 2px solid var(--dk-accent); outline-offs
 }
 @media (max-width: 600px) {
   .tf-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tf-figure dd { font-size: 24px; }
   .tf-head__acts { margin-left: 0; width: 100%; }
   .tf-controls__group--end { margin-left: 0; width: 100%; }
   .tf-search { max-width: none; flex-basis: 100%; }

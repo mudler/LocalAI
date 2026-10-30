@@ -107,7 +107,8 @@
       "assistant": "LocalAI Assistant",
       "distributed": "Distribuito",
       "responses": "Risposte"
-    }
+    },
+    "loadFailedTitle": "Impossibile caricare le impostazioni."
   },
   "backends": {
     "lifecycle": {

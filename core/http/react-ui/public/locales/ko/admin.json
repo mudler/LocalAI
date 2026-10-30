@@ -107,7 +107,8 @@
       "assistant": "LocalAI 어시스턴트",
       "distributed": "분산",
       "responses": "응답"
-    }
+    },
+    "loadFailedTitle": "설정을 불러오지 못했습니다."
   },
   "backends": {
     "lifecycle": {

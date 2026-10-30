@@ -1,0 +1,8 @@
+{
+  "capacity": {
+    "diskChip": "Disco quasi pieno"
+  },
+  "backends": {
+    "loadFailedTitle": "Impossibile caricare il catalogo dei backend."
+  }
+}
