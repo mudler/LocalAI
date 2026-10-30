@@ -160,11 +160,11 @@ func parseCron(f []string) (Schedule, error) {
 	if v, star, err = cronField("day of month", f[2], 1, 31); err != nil {
 		return Schedule{}, err
 	}
-	s.dom, s.domStar = uint32(v), star
+	s.dom, s.domStar = uint32(v), star // #nosec G115 -- cronField keeps the value between 1 and 31
 	if v, _, err = cronField("month", f[3], 1, 12); err != nil {
 		return Schedule{}, err
 	}
-	s.month = uint16(v)
+	s.month = uint16(v) // #nosec G115 -- cronField keeps the value between 1 and 12
 	if v, star, err = cronField("day of week", f[4], 0, 7); err != nil {
 		return Schedule{}, err
 	}

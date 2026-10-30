@@ -798,7 +798,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up
 	// While the turn runs, tell the store it is alive and listen for a stop
 	// requested on another frontend.
 	hbCtx, stopBeat := context.WithCancel(context.Background())
-	go s.heartbeat(hbCtx, p, conv, runID)
+	go s.heartbeat(hbCtx, p, conv, runID) // #nosec G118 -- the heartbeat outlives the request and stops with the turn
 	stopListening := s.bus.OnControl(k, func(m ControlMsg) {
 		if m.Stop {
 			if err := s.stopLocal(context.Background(), p, conv); err != nil {

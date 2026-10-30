@@ -88,7 +88,7 @@ func WriteFrame(w io.Writer, f Frame) error {
 		return ErrFrameTooLarge
 	}
 	buf := make([]byte, 4+len(body))
-	binary.BigEndian.PutUint32(buf, uint32(len(body)))
+	binary.BigEndian.PutUint32(buf, uint32(len(body))) // #nosec G115 -- the body is at most MaxFrame bytes, checked above
 	copy(buf[4:], body)
 	_, err = w.Write(buf)
 	return err

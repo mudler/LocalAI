@@ -39,7 +39,7 @@ func (s state) save(dir string) error {
 
 func loadState(dir string) (state, error) {
 	var s state
-	b, err := os.ReadFile(filepath.Join(dir, "state.json"))
+	b, err := os.ReadFile(filepath.Join(dir, "state.json")) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return s, err
 	}

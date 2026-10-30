@@ -136,7 +136,7 @@ func (s *Store) CommitUpper(ctx context.Context, v workspace.View, _ workspace.A
 		// The parent goes too when no other commit is using it.
 		_ = os.Remove(filepath.Dir(dir))
 	}()
-	f, err := os.OpenFile(filepath.Join(dir, "upper.tar"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	f, err := os.OpenFile(filepath.Join(dir, "upper.tar"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return workspace.ChangeSet{}, nil, err
 	}

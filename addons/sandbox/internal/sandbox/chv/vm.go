@@ -65,11 +65,11 @@ func (v *vm) stop() {
 // start runs a host process with its output in logPath. The process gets
 // SIGKILL when this process dies.
 func start(argv []string, logPath string) (*exec.Cmd, chan struct{}, error) {
-	logf, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+	logf, err := os.OpenFile(logPath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return nil, nil, err
 	}
-	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd := exec.Command(argv[0], argv[1:]...) // #nosec G204 -- a pinned helper program that the add-on resolved; the add-on builds the arguments
 	cmd.Stdout, cmd.Stderr = logf, logf
 	cmd.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL, Setpgid: true}
 	// Pdeathsig fires when the OS thread that forked the child exits, not
@@ -175,7 +175,7 @@ func (b *Backend) debugfsArgv(dir string) ([]string, string) {
 // without a journal replay.
 func (b *Backend) mkUpper(ctx context.Context, path string, size int64) error {
 	_ = os.Remove(path)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}
@@ -186,6 +186,7 @@ func (b *Backend) mkUpper(ctx context.Context, path string, size int64) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
+	// #nosec G204 -- a pinned helper program that the add-on resolved; the add-on builds the arguments
 	out, err := exec.CommandContext(ctx, b.bins.Mke2fs, "-q", "-F", "-t", "ext4", "-O", "^has_journal",
 		"-E", "root_owner=1000:1000,lazy_itable_init=1", path).CombinedOutput()
 	if err != nil {
@@ -220,7 +221,7 @@ func chArgs(dir string, img guestImage, st state) []string {
 
 // tail returns the last n bytes of a file.
 func tail(path string, n int64) string {
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return ""
 	}

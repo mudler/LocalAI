@@ -53,6 +53,7 @@ func (b *fakeBackend) Create(ctx context.Context, spec sandbox.Spec) (sandbox.Sa
 		return nil, err
 	}
 	s := &fakeSandbox{b: b, id: filepath.Base(dir), dir: dir, env: spec.Env, view: spec.View}
+	// #nosec G301 -- test fake of the host backend
 	if err := os.MkdirAll(s.home(), 0o755); err != nil {
 		return nil, err
 	}
@@ -116,13 +117,13 @@ func (s *fakeSandbox) materialize(ctx context.Context) error {
 		rel, _ := filepath.Rel(s.lower(), p)
 		dst := filepath.Join(s.work(), rel)
 		if d.IsDir() {
-			return os.MkdirAll(dst, 0o755)
+			return os.MkdirAll(dst, 0o755) // #nosec G301 -- test fake of the host backend
 		}
-		b, err := os.ReadFile(p)
+		b, err := os.ReadFile(p) // #nosec G122 G304 -- test fake of the host backend
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(dst, b, 0o644)
+		return os.WriteFile(dst, b, 0o644) // #nosec G306 G703 -- test fake of the host backend
 	})
 }
 
@@ -146,7 +147,7 @@ func (s *fakeSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	if !ok {
 		return nil, fmt.Errorf("fake: dir %q is outside %s", dir, sandbox.DefaultDir)
 	}
-	cmd := exec.Command(c.Args[0], c.Args[1:]...)
+	cmd := exec.Command(c.Args[0], c.Args[1:]...) // #nosec G204 -- test fake: it runs the command of the spec
 	cmd.Dir = filepath.Join(s.work(), filepath.FromSlash(rel))
 	cmd.Env = append(os.Environ(), "HOME="+s.home()) //nolint:forbidigo // the fake runs host commands with the host environment
 	cmd.Env = append(cmd.Env, c.Env...)
@@ -270,7 +271,7 @@ func (s *fakeSandbox) scan() ([]sandbox.IndexedEntry, error) {
 			st := info.Sys().(*syscall.Stat_t)
 			path := p
 			out = append(out, sandbox.IndexedEntry{
-				UpperEntry: workspace.UpperEntry{Path: rel, Kind: workspace.EntryFile, Mode: info.Mode(), Open: func() (io.ReadCloser, error) { return os.Open(path) }},
+				UpperEntry: workspace.UpperEntry{Path: rel, Kind: workspace.EntryFile, Mode: info.Mode(), Open: func() (io.ReadCloser, error) { return os.Open(path) }}, // #nosec G304 -- test fake of the host backend
 				Key:        fmt.Sprintf("%d/%d/%d/%d", st.Ino, info.Size(), statCtimeNano(st), info.ModTime().UnixNano()),
 			})
 		default:
@@ -301,11 +302,11 @@ func (s *fakeSandbox) scan() ([]sandbox.IndexedEntry, error) {
 }
 
 func sameContent(a, b string) bool {
-	x, err := os.ReadFile(a)
+	x, err := os.ReadFile(a) // #nosec G304 -- test fake of the host backend
 	if err != nil {
 		return false
 	}
-	y, err := os.ReadFile(b)
+	y, err := os.ReadFile(b) // #nosec G304 -- test fake of the host backend
 	return err == nil && bytes.Equal(x, y)
 }
 

@@ -54,7 +54,7 @@ func finished(id string) bool {
 	if dir == "" {
 		return false
 	}
-	_, err := os.Stat(filepath.Join(dir, id+".finish")) // #nosec G304 -- test backend reads its own directory
+	_, err := os.Stat(filepath.Join(dir, id+".finish")) // #nosec G304 G703 -- test backend reads its own directory
 	return err == nil
 }
 

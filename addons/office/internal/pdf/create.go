@@ -215,7 +215,7 @@ func checkLatin1(s string) error {
 func latin1Bytes(s string) string {
 	b := make([]byte, 0, len(s))
 	for _, r := range s {
-		b = append(b, byte(r))
+		b = append(b, byte(r)) // #nosec G115 -- checkLatin1 accepted the text, so every rune is below 256
 	}
 	return string(b)
 }

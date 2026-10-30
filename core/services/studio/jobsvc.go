@@ -464,7 +464,7 @@ func (j *Jobs) Execute(ctx context.Context, user, taskID string, req RunRequest)
 	}
 	started = true
 	j.wg.Add(1)
-	go j.supervise(job, events, cancel)
+	go j.supervise(job, events, cancel) // #nosec G118 -- the job outlives the request that starts it; cancel ends it
 	return JobInfo{Job: job, TaskName: t.Name, Status: JobPending}, nil
 }
 

@@ -200,7 +200,7 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	}
 
 	if !wait {
-		go s.reportBack(a, childID, title, done)
+		go s.reportBack(a, childID, title, done) // #nosec G118 -- a background sub-agent reports after the request ended
 		return fmt.Sprintf("Started sub-agent %s in the background. Its result will arrive as a message.", childID), nil
 	}
 	select {

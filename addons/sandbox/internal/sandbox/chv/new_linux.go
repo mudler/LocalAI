@@ -87,7 +87,7 @@ func New(opts Options) (*Backend, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s not found: %v", sandbox.ErrUnsupported, t.name, err)
 		}
-		out, err := exec.CommandContext(ctx, p, t.args...).CombinedOutput()
+		out, err := exec.CommandContext(ctx, p, t.args...).CombinedOutput() // #nosec G204 -- a pinned helper program that the add-on resolved; the add-on builds the arguments
 		if err != nil {
 			return nil, fmt.Errorf("%w: %s %v: %v", sandbox.ErrUnsupported, p, t.args, err)
 		}

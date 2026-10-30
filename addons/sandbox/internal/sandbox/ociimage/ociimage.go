@@ -148,7 +148,7 @@ func RemoveTree(dir string) error {
 	}
 	_ = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if d != nil && d.IsDir() {
-			_ = os.Chmod(p, 0o700)
+			_ = os.Chmod(p, 0o700) // #nosec G122 G302 -- makes a folder of the add-on cache removable by its owner
 		}
 		return nil
 	})
@@ -171,7 +171,7 @@ func PrepareTar(ctx context.Context, cacheDir, ref string, build func(tar io.Rea
 // ReadEnv reads the environment that Prepare stored in dir. An error means
 // the folder is not complete.
 func ReadEnv(dir string) ([]string, error) {
-	b, err := os.ReadFile(filepath.Join(dir, "env.json"))
+	b, err := os.ReadFile(filepath.Join(dir, "env.json")) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func Extract(img v1.Image) io.ReadCloser { return mutate.Extract(img) }
 
 // WriteSync writes b to p and flushes it to disk before it returns.
 func WriteSync(p string, b []byte) error {
-	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func WriteSync(p string, b []byte) error {
 
 // SyncDir flushes the entries of dir, so the renames in it survive a crash.
 func SyncDir(dir string) error {
-	f, err := os.Open(dir)
+	f, err := os.Open(dir) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}

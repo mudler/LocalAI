@@ -22,7 +22,7 @@ const (
 // supports one, and otherwise copies only the data ranges, so a sparse
 // upper image stays sparse.
 func cloneFile(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func cloneFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}

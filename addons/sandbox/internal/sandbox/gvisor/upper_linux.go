@@ -127,7 +127,7 @@ func readUpper(ctx context.Context, root, stage string, ix sandbox.UpperIndex, l
 			if err := copyFile(ctx, filepath.Join(root, filepath.FromSlash(e.Path)), dst); err != nil {
 				return nil, nil, fmt.Errorf("gvisor: staging %s: %w", e.Path, err)
 			}
-			e.Open = func() (io.ReadCloser, error) { return os.Open(dst) }
+			e.Open = func() (io.ReadCloser, error) { return os.Open(dst) } // #nosec G304 -- a path the add-on builds under its own data or state folder
 		}
 		out = append(out, e)
 	}
@@ -140,12 +140,12 @@ const ficlone = 0x40049409
 // copyFile copies src to dst. It shares the blocks when the file system can
 // (reflink), and copies the bytes otherwise.
 func copyFile(ctx context.Context, src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}
 	defer func() { _ = in.Close() }()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}

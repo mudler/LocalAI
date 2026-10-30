@@ -58,7 +58,7 @@ func main() {
 			fail("listen on port %d: %v", port, err)
 		}
 		go func() {
-			_ = guestagent.Forward(tl, func() (net.Conn, error) { return guestagent.DialVsock(guestagent.HostCID, uint32(port)) })
+			_ = guestagent.Forward(tl, func() (net.Conn, error) { return guestagent.DialVsock(guestagent.HostCID, uint32(port)) }) // #nosec G115 -- ParsePorts returns port numbers, 1 to 65535
 		}()
 	}
 	go func() {

@@ -404,7 +404,7 @@ func readChange(ctx context.Context, q rowQuery, id string) (changeRow, bool, er
 	}
 	c.UndoneBy = by.String
 	if us.Valid && ud.Valid {
-		c.Undone, c.HasUndone = contract.Revision{Schema: uint64(us.Int64), Data: uint64(ud.Int64)}, true
+		c.Undone, c.HasUndone = contract.Revision{Schema: uint64(us.Int64), Data: uint64(ud.Int64)}, true // #nosec G115 -- revisions are counters that start at 0 and never go below it
 	}
 	return c, true, nil
 }
@@ -698,7 +698,7 @@ func (s *Store) UndoChange(ctx context.Context, resourceID, changeID, operationI
 	}
 	us, ud := sql.NullInt64{}, sql.NullInt64{}
 	if c.Kind != kindDatabaseRename {
-		us, ud = sql.NullInt64{Int64: int64(next.Schema), Valid: true}, sql.NullInt64{Int64: int64(next.Data), Valid: true}
+		us, ud = sql.NullInt64{Int64: int64(next.Schema), Valid: true}, sql.NullInt64{Int64: int64(next.Data), Valid: true} // #nosec G115 -- revisions are counters far below the int64 limit
 	}
 	if _, err = tx.ExecContext(ctx, "UPDATE tables_changes SET undone_by=?, undone_schema=?, undone_data=? WHERE operation_id=?", operationID, us, ud, changeID); err != nil {
 		return contract.Receipt{}, capacityError(err)

@@ -13,7 +13,7 @@ import (
 // LockFile takes an exclusive lock on p, polling until ctx ends. It creates p
 // when it is missing. The returned function releases the lock.
 func LockFile(ctx context.Context, p string) (func(), error) {
-	f, err := os.OpenFile(p, os.O_RDWR|os.O_CREATE, 0o600)
+	f, err := os.OpenFile(p, os.O_RDWR|os.O_CREATE, 0o600) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return nil, err
 	}

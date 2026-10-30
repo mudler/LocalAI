@@ -152,7 +152,7 @@ func helpersPresent(srcDir, dstDir string) bool {
 
 // copyExecutable writes src to dst with mode 0755, through a temporary file.
 func copyExecutable(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := os.Open(src) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func copyExecutable(src, dst string) error {
 }
 
 func fileSHA256(p string) (string, error) {
-	f, err := os.Open(p)
+	f, err := os.Open(p) // #nosec G304 -- a path the add-on builds under its own data or state folder
 	if err != nil {
 		return "", err
 	}
