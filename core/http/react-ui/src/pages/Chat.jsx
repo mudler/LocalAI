@@ -3,6 +3,7 @@ import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams 
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
+import { useChatDrafts } from '../hooks/useChatDrafts'
 import { useChatSwitches } from '../hooks/useChatSwitches'
 import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
@@ -122,7 +123,7 @@ function ChatPage() {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const { t: tw } = useTranslation('workspace')
-  const { isAdmin, hasFeature } = useAuth()
+  const { user, isAdmin, hasFeature } = useAuth()
   const canAgents = hasFeature('agents')
   const { operations } = useOperations()
   const chat = useServerChat()
@@ -135,8 +136,9 @@ function ChatPage() {
   const [agentId, setAgentId] = useState(location.state?.agentId || '')
   const [agents, setAgents] = useState([])
   const [assistantOn, setAssistantOn] = useState(false)
-  const [input, setInput] = useState('')
-  const [files, setFiles] = useState([])
+  // The text and files of the composer belong to the open chat (useChatDrafts).
+  const drafts = useChatDrafts(activeId, user?.id)
+  const { text: input, setText: setInput, files, setFiles } = drafts
   const [busy, setBusy] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [modelInfo, setModelInfo] = useState(null)
@@ -384,7 +386,7 @@ function ChatPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [focusActive])
+  }, [focusActive, setInput])
 
   // Find in chat: mark the matches in the thread, then show the current one.
   useEffect(() => {
@@ -487,7 +489,7 @@ function ChatPage() {
   // the chat's folder of the workspace.
   const attachFiles = useCallback((_kind, list) => {
     setFiles(prev => [...prev, ...list])
-  }, [])
+  }, [setFiles])
 
   const handlePaste = useCallback((e) => {
     if (!chat.files.on) return
@@ -509,7 +511,7 @@ function ChatPage() {
       return new File([file], name, { type: file.type })
     })
     setFiles(prev => [...prev, ...named])
-  }, [chat.files.on])
+  }, [chat.files.on, setFiles])
 
   // Sends the composer. The message that starts a chat creates it first. In a
   // chat that exists a message always goes: while a turn runs it waits and
@@ -522,13 +524,10 @@ function ChatPage() {
       addToast(t('toasts.selectModel'), 'warning')
       return
     }
-    if (typeof override !== 'string') {
-      setInput('')
-      setFiles([])
-    }
+    if (typeof override !== 'string') drafts.clear(activeId)
     setLocalError('')
+    let target = activeId
     try {
-      let target = activeId
       if (!target) {
         setBusy(true)
         target = await chat.createChat(draftModel, agentId)
@@ -538,16 +537,15 @@ function ChatPage() {
       stickToBottomRef.current = true
       await chat.send(target, text, sending)
     } catch (e) {
-      // Give the text and files back, unless the user typed something else.
-      if (typeof override !== 'string') {
-        setInput(d => d || text)
-        setFiles(f => (f.length ? f : sending))
-      }
-      setLocalError(e.message || tc('errors.send'))
+      // Give the text and files back to the chat they were written in, unless
+      // the user typed something else there. Another chat may be open by now.
+      if (typeof override !== 'string') drafts.restore(target, text, sending)
+      if (drafts.isOpen(target)) setLocalError(e.message || tc('errors.send'))
+      else addToast(e.message || tc('errors.send'), 'error')
     } finally {
       setBusy(false)
     }
-  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, chat, select, navigate, addToast, t, tc])
+  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, chat, select, navigate, addToast, t, tc, drafts])
 
   // The Home page hands over the first message in the location state. It goes
   // once, when a model is known; without one the text waits in the box. A
@@ -557,7 +555,7 @@ function ChatPage() {
   useEffect(() => {
     if (startRef.current) setInput(startRef.current)
     else if (draftRef.current) { setInput(draftRef.current); textareaRef.current?.focus() }
-  }, [])
+  }, [setInput])
   // A draft (for example "Ask the assistant to change this" on a page) only
   // fills the box: the person finishes the sentence and sends it.
   useEffect(() => {
@@ -584,7 +582,7 @@ function ChatPage() {
     }
     setInput(s.prompt)
     textareaRef.current?.focus()
-  }, [effectiveModel, activeId, busy, handleSend])
+  }, [effectiveModel, activeId, busy, handleSend, setInput])
 
   // Regenerate answers the last message again: the server removes what the
   // model said after it and starts a new turn.
@@ -679,7 +677,7 @@ function ChatPage() {
   // is hidden; if it was the open one, the empty chat opens in its place, so
   // the offer stays on screen (leaving the page would end it at once).
   const deletes = useChatDelete({
-    remove: chat.remove,
+    remove: async (id) => { await chat.remove(id); drafts.clear(id) },
     // A chat the server would not delete comes back, with the reason.
     onFailed: (e) => {
       setLocalError(e.message || tc('errors.delete'))
@@ -714,7 +712,7 @@ function ChatPage() {
     onConfirm: async () => {
       setConfirmDialog(null)
       for (const c of visibleChats) {
-        try { await chat.remove(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
+        try { await chat.remove(c.id); drafts.clear(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
       }
       navigate('/app')
     },
@@ -1167,6 +1165,7 @@ function ChatPage() {
             )}
             <HomeComposer
               onDictateError={(m) => addToast(m, 'error')}
+              onDictate={(text) => drafts.append(activeId, text)}
               message={input}
               onMessage={setInput}
               onSubmit={handleSend}
