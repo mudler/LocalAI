@@ -746,7 +746,7 @@ export default function ModelEditor() {
                             annotation={field.path === 'context_size' ? vramAnnotation : undefined}
                           />
                         ))}
-                        {s.id === 'proxy' && values.backend === 'cloud-proxy' && (
+                        {s.id === 'proxy' && values.backend === 'cloud-proxy' && values['proxy.mode'] !== 'translate' && (
                           <ProxyVisionSwitch usecases={values.known_usecases} onChange={v => handleAddedFieldChange('known_usecases', v)} />
                         )}
                       </div>

@@ -62,6 +62,13 @@ test.describe('Cloud-proxy model: can look at images', () => {
     expect(patches[0].known_usecases).toEqual(['chat'])
   })
 
+  test('a cloud model in translate mode has no switch: that mode sends text only', async ({ page }) => {
+    await mockEditor(page, 'name: cloud\nbackend: cloud-proxy\nknown_usecases: [chat]\nproxy:\n  mode: translate\n  upstream_url: https://upstream.example/v1/messages\n')
+    await page.goto('/app/model-editor/cloud')
+    await expect(page.getByText('Proxy Upstream URL')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('proxy-vision-switch')).toHaveCount(0)
+  })
+
   test('a model that is not a cloud proxy has no switch', async ({ page }) => {
     await mockEditor(page, 'name: local\nbackend: llama-cpp\nknown_usecases: [chat]\nproxy:\n  upstream_url: https://upstream.example/v1/chat/completions\n')
     await page.goto('/app/model-editor/local')
