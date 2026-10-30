@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   createWellKnownApi, WellKnownError, fieldsFromSchema, checkField, changedValues, parseSource,
   shortcutList, cleanShortcuts, move, widgetList, cleanWidgets, widgetId, widgetData, sparkPath, formatMetric,
+  createWellKnownStore, wellKnownPath,
 } from '../../src/utils/wellKnown.js'
 
 const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -117,4 +118,77 @@ test('home widgets: a missing data file is empty, a broken one is stale or an er
   assert.equal(formatMetric(184000), '184k')
   assert.match(sparkPath([1, 2, 3]), /^M0\.0,/)
   assert.equal(sparkPath([1]), '')
+})
+
+// A fake api for the store: get answers from `files`, put merges like the
+// server and bumps the version, and every call can be held to order races.
+function fakeApi(files = {}) {
+  const calls = []
+  const held = []
+  const api = {
+    get: async (name) => {
+      calls.push(['get', name])
+      const hold = held.shift()
+      if (hold) await hold
+      const f = files[name] || { version: 0, data: {} }
+      return { name, version: f.version, exists: f.version > 0, data: { ...f.data } }
+    },
+    put: async (name, values, { version }) => {
+      calls.push(['put', name, version])
+      const f = files[name] || { version: 0, data: {} }
+      if (version !== f.version) {
+        throw Object.assign(new Error('changed'), { status: 409, conflict: true, current: { name, version: f.version, data: { ...f.data } } })
+      }
+      files[name] = { version: f.version + 1, data: { ...f.data, ...values } }
+      return { name, version: files[name].version, exists: true, data: { ...files[name].data } }
+    },
+    revert: async (name) => api.get(name),
+  }
+  return { api, calls, files, hold: () => { let open; held.push(new Promise(r => { open = r })); return () => open() } }
+}
+
+test('well-known store: every reader of one file shares one copy, so a save shows everywhere at once', async () => {
+  const { api, calls } = fakeApi({ shortcuts: { version: 1, data: { shortcuts: [] } } })
+  const own = []
+  const store = createWellKnownStore({ api, onOwnWrite: (p) => own.push(p) })
+  let seen = 0
+  const off = store.subscribe('shortcuts', undefined, () => { seen++ })
+  await Promise.all([store.load('shortcuts'), store.load('shortcuts')])
+  assert.equal(calls.filter(c => c[0] === 'get').length, 1, 'two readers at once read the file once')
+  assert.equal(store.snapshot('shortcuts').doc.version, 1)
+
+  const before = seen
+  await store.save('shortcuts', { shortcuts: [{ label: 'a', prompt: 'a' }] })
+  assert.deepEqual(calls.at(-1), ['put', 'shortcuts', 1], 'the save starts from the version every reader shows')
+  assert.equal(store.snapshot('shortcuts').doc.version, 2)
+  assert.ok(seen > before, 'the other readers are told')
+  assert.deepEqual(own, ['shortcuts.json'], 'the feed is told this tab wrote the file, so its echo does not read it again')
+  off()
+})
+
+test('well-known store: a read that started before a save does not bring back the older file', async () => {
+  const { api, hold } = fakeApi({ ui: { version: 3, data: { theme: 'dark' } } })
+  const store = createWellKnownStore({ api })
+  await store.load('ui')
+  const open = hold()
+  const stale = store.load('ui')
+  await store.save('ui', { theme: 'light' })
+  open()
+  await stale
+  assert.equal(store.snapshot('ui').doc.version, 4)
+  assert.equal(store.snapshot('ui').doc.data.theme, 'light')
+  // A read asked for after the save does not join the stale one.
+  await store.load('ui')
+  assert.equal(store.snapshot('ui').doc.version, 4)
+})
+
+test('well-known store: files of other names and paths are kept apart', async () => {
+  const { api } = fakeApi({ ui: { version: 2, data: { theme: 'dark' } } })
+  const store = createWellKnownStore({ api })
+  await store.load('ui')
+  assert.equal(store.snapshot('ui').doc.version, 2)
+  assert.equal(store.snapshot('home').doc, null)
+  assert.equal(store.snapshot('widget-data', '/data/a.json').doc, null)
+  assert.equal(wellKnownPath('widget-data', '/data/a.json'), 'data/a.json')
+  assert.equal(wellKnownPath('ui'), 'ui.json')
 })

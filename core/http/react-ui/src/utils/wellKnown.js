@@ -54,6 +54,87 @@ export function createWellKnownApi({ fetch, url = (p) => p }) {
   }
 }
 
+// wellKnownPath is the path in the home that a document lives at, without a
+// leading slash, as the change feed names it.
+export function wellKnownPath(name, file) {
+  return file ? String(file).replace(/^\/+/, '') : (WELL_KNOWN_FILES[name] || '')
+}
+
+const EMPTY = Object.freeze({ doc: null, error: null, loaded: false })
+
+// createWellKnownStore keeps one copy of each document for the whole tab. The
+// shortcuts row and its editor, the Appearance tab, the theme and the pinned
+// pages all read ui.json or shortcuts.json at the same time: with one copy
+// each, a save shows in every reader at once, and the next save of any of them
+// starts from the version the last one wrote, so two editors of one file do not
+// conflict with each other.
+//
+// onOwnWrite(path) is called after a save or a revert, so the change feed can
+// skip the echo of a write this tab already shows.
+export function createWellKnownStore({ api, onOwnWrite = () => {} }) {
+  const entries = new Map()
+  const keyOf = (name, file) => `${name}\n${file || ''}`
+  const entry = (name, file) => {
+    const k = keyOf(name, file)
+    let e = entries.get(k)
+    if (!e) {
+      e = { snap: EMPTY, subs: new Set(), seq: 0, inflight: null, inflightSeq: -1 }
+      entries.set(k, e)
+    }
+    return e
+  }
+  const publish = (e, patch) => {
+    e.snap = { ...e.snap, ...patch }
+    e.subs.forEach((fn) => fn())
+  }
+  // A write bumps seq, so a read that started before it is dropped.
+  const wrote = (e, doc, name, file) => {
+    e.seq++
+    publish(e, { doc, error: null, loaded: true })
+    onOwnWrite(wellKnownPath(name, file))
+    return doc
+  }
+
+  return {
+    snapshot: (name, file) => entry(name, file).snap,
+    subscribe(name, file, fn) {
+      const e = entry(name, file)
+      e.subs.add(fn)
+      return () => { e.subs.delete(fn) }
+    },
+    // load reads the file again. Readers that ask at the same time share one
+    // request; it resolves to the document (null after an error).
+    load(name, file) {
+      const e = entry(name, file)
+      if (e.inflight && e.inflightSeq === e.seq) return e.inflight
+      const mine = e.seq
+      const p = api.get(name, file)
+        .then((doc) => {
+          if (mine === e.seq) publish(e, { doc, error: null, loaded: true })
+          return e.snap.doc
+        }, (error) => {
+          if (mine === e.seq) publish(e, { error, loaded: true })
+          return e.snap.doc
+        })
+        .finally(() => { if (e.inflight === p) e.inflight = null })
+      e.inflight = p
+      e.inflightSeq = mine
+      return p
+    },
+    // save writes values from version (by default the version every reader
+    // shows). A conflict or a refusal is thrown and changes nothing here.
+    async save(name, values, { replace = false, version, file } = {}) {
+      const e = entry(name, file)
+      const d = await api.put(name, values, { version: version ?? e.snap.doc?.version ?? 0, replace, file })
+      return wrote(e, d, name, file)
+    },
+    async revert(name, file) {
+      const d = await api.revert(name, file)
+      return wrote(entry(name, file), d, name, file)
+    },
+  }
+}
+
 // fieldsFromSchema turns the top-level properties of a JSON Schema into the
 // fields an editor shows, in schema order. A property with x-ui.hidden, or one
 // that is an object or an array, is left to the Source view.
