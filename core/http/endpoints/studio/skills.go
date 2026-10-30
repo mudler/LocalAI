@@ -59,7 +59,7 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 	for _, sk := range list {
 		out.Skills = append(out.Skills, schema.ChatsSkill{
 			ID: studiosvc.SkillID(sk), Name: sk.Name, Description: sk.Description, Layer: string(sk.Layer), Path: sk.GuestPath,
-			Addon: sk.Addon, AddonTitle: sk.AddonTitle,
+			Addon: sk.Addon, AddonTitle: sk.AddonTitle, ShadowedBy: sk.ShadowedBy, Fallback: sk.Fallback,
 			Enabled: !sk.Off, Shadowed: string(sk.Shadowed), Invalid: sk.Invalid, Editable: editable(c, sk.Layer),
 		})
 	}

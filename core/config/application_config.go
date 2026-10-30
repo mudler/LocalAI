@@ -324,8 +324,9 @@ type ApplicationConfig struct {
 	// for each command) or on. Empty: off with accounts, ask without.
 	// Runtime-toggleable via /api/settings (chats_host_exec).
 	ChatsHostExec string
-	// ChatsToolProviders pins, for a built-in chat tool that several add-ons
-	// replace, the add-on that serves it (tool ID -> add-on ID).
+	// ChatsToolProviders pins, for a built-in chat tool or skill that several
+	// add-ons replace, the add-on that serves it (tool or skill name -> add-on
+	// ID). Tool and skill names never overlap.
 	ChatsToolProviders map[string]string
 
 	// DisableChats turns off the whole chats surface: the /api/chats API, saved

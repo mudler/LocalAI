@@ -37,7 +37,9 @@ type Installed struct {
 	ToolCount     int           `json:"toolCount"`
 	// Shadows lists the built-in chat tools the add-on replaces (bash, say).
 	Shadows []string `json:"shadows,omitempty"`
-	HasUI   bool     `json:"hasUI"`
+	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say).
+	SkillShadows []string `json:"skillShadows,omitempty"`
+	HasUI        bool     `json:"hasUI"`
 	// MainPage is present only when the addon is enabled and declares one.
 	MainPage   string `json:"mainPage,omitempty"`
 	LaunchMode string `json:"launchMode"`
@@ -115,7 +117,7 @@ func BuildInstalled(snaps []Snapshot) []Installed {
 			Enabled: s.Enabled, State: a.State, SourceID: r.SourceID, Channel: r.Channel, Selection: r.Selection, Verification: r.Verification, Digest: r.Digest,
 			Platform:      Platform{OS: m.OS, Arch: m.Arch},
 			Compatibility: Compatibility{Host: m.Host, API: m.API, Protocol: m.Protocol, DataFormat: m.DataFormat},
-			Tools:         a.Tools, ToolCount: a.ToolCount, Shadows: a.Shadows, HasUI: a.HasUI, MainPage: a.MainPage, LaunchMode: a.LaunchMode,
+			Tools:         a.Tools, ToolCount: a.ToolCount, Shadows: a.Shadows, SkillShadows: a.SkillShadows, HasUI: a.HasUI, MainPage: a.MainPage, LaunchMode: a.LaunchMode,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

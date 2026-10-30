@@ -953,14 +953,12 @@ func (c *Client) ListSharedFolderEvents(ctx context.Context, limit int) ([]local
 	return out.Events, nil
 }
 
-func (c *Client) ListChatTools(ctx context.Context) ([]localaitools.ChatBuiltinTool, error) {
-	var out struct {
-		Tools []localaitools.ChatBuiltinTool `json:"tools"`
-	}
+func (c *Client) ListChatTools(ctx context.Context) (localaitools.ChatBuiltinToolList, error) {
+	var out localaitools.ChatBuiltinToolList
 	if err := c.do(ctx, http.MethodGet, routeChatTools, nil, &out); err != nil {
-		return nil, err
+		return localaitools.ChatBuiltinToolList{}, err
 	}
-	return out.Tools, nil
+	return out, nil
 }
 
 func (c *Client) ListHostExecEvents(ctx context.Context, limit int) ([]localaitools.HostExecEvent, error) {

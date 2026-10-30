@@ -132,7 +132,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 
 		// The built-in chat tools: a mode the chats understand, and pins only for
-		// tools an add-on may replace.
+		// tools and skills an add-on may replace.
 		if settings.ChatsHostExec != nil && !hostexec.ValidMode(*settings.ChatsHostExec) {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
 				Success: false,
@@ -141,10 +141,10 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 		if settings.ChatsToolProviders != nil {
 			for tool, addon := range *settings.ChatsToolProviders {
-				if !contract.Replaceable(tool) || !validAddonID(addon) {
+				if !(contract.Replaceable(tool) || contract.ReplaceableSkill(tool)) || !validAddonID(addon) {
 					return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
 						Success: false,
-						Error:   "Invalid chats_tool_providers: map a replaceable tool (bash, web_search, web_fetch) to an add-on ID",
+						Error:   "Invalid chats_tool_providers: map a replaceable tool (bash, web_search, web_fetch) or skill (xlsx, docx, pptx, pdf) to an add-on ID",
 					})
 				}
 			}

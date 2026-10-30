@@ -79,7 +79,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a, rec.Model)...)
 	}
 	skillsOff := 0
-	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
 	// The persona and the facts about the user come after the chat's prompt
 	// and the agent's instructions, which take precedence, and before the
 	// index of skills. A change to either file restarts the harness at the
@@ -103,6 +103,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 			// The instructions go first: the prompt is cut at its end.
 			prompt = strings.TrimSpace(sc.instructions + "\n\n" + prompt)
 		}
+	}
+	if fallback != "" {
+		note = strings.TrimSpace(note + " " + fallback)
 	}
 	if !sub {
 		// The agent argument is offered only when list_agents is: the chat

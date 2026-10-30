@@ -568,7 +568,7 @@ var _ = Describe("Shared folders", func() {
 			defer GinkgoRecover()
 			switch r.URL.Path {
 			case "/api/chats/admin/tools":
-				_, _ = w.Write([]byte(`{"tools":[{"id":"bash","label":"Commands (bash)","setting":"chats_host_exec","enabled":true,"provider":"builtin","candidates":[],"mode":"ask"}]}`))
+				_, _ = w.Write([]byte(`{"tools":[{"id":"bash","label":"Commands (bash)","setting":"chats_host_exec","enabled":true,"provider":"builtin","candidates":[],"mode":"ask"}],"skills":[{"id":"xlsx","provider":"office","candidates":["office"]}]}`))
 			case "/api/chats/admin/host-exec/events":
 				Expect(r.URL.Query().Get("limit")).To(Equal("3"))
 				_, _ = w.Write([]byte(`{"events":[{"user":"alice","chat":"c1","command":"ls","exit":0,"duration_ms":4,"at":"2026-10-30T09:00:00Z"}]}`))
@@ -577,10 +577,12 @@ var _ = Describe("Shared folders", func() {
 			}
 		}))
 		DeferCleanup(srv.Close)
-		tools, err := New(srv.URL, "").ListChatTools(ctx)
+		list, err := New(srv.URL, "").ListChatTools(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(tools).To(HaveLen(1))
-		Expect(tools[0].Mode).To(Equal("ask"))
+		Expect(list.Tools).To(HaveLen(1))
+		Expect(list.Tools[0].Mode).To(Equal("ask"))
+		Expect(list.Skills).To(HaveLen(1))
+		Expect(list.Skills[0].Provider).To(Equal("office"))
 		evs, err := New(srv.URL, "").ListHostExecEvents(ctx, 3)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(evs).To(HaveLen(1))

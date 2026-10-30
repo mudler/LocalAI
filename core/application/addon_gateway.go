@@ -750,9 +750,9 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
 
-// AddonSkills lists the add-ons that ship skills and that the user may use
-// now, less those whose host operations need a feature the user lacks: the
-// same rule as their tools.
+// AddonSkills lists the add-ons that ship skills and that the user can see,
+// less those whose host operations need a feature the user lacks: the same
+// rule as their tools.
 func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.AddonSkillSet, error) {
 	actor, err := s.actor(user)
 	if err != nil {
@@ -771,7 +771,8 @@ func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.A
 		if denied[a.AddonID] {
 			continue
 		}
-		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, Skills: contract.SkillNames(a.Skills)})
+		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, Skills: contract.SkillNames(a.Skills),
+			Shadows: contract.ShadowedSkills(a.Skills), Running: a.Running})
 	}
 	return out, nil
 }

@@ -826,7 +826,8 @@ refreshed:
 | Skills per add-on | 16 |
 | Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
 | A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
-| A built-in skill name | refused (`writing-skills`, `localai-workspace`, `localai-apps` and the office skills) |
+| A built-in skill name | refused for a plain skill (`writing-skills`, `localai-workspace`, `localai-apps` and the office skills) |
+| `shadows` | optional; must repeat `name` and be a replaceable built-in skill: `xlsx`, `docx`, `pptx` or `pdf` (`contract.ReplaceableSkills`) |
 
 Staging checks the files against the manifest. The folders under `skills/`
 must be the declared names, and a package that declares no skills must have
@@ -851,6 +852,45 @@ fails is logged; the add-on itself still installs and runs. The files stay
 while the add-on is stopped. A chat offers them only while the add-on is
 installed, running, usable by the user and on for that chat, and for a chat
 with a saved agent only when the agent grants the add-on.
+
+#### Skills that replace a built-in skill
+
+An add-on skill can replace a built-in skill of the same name, as a tool
+replaces a built-in tool (see [Tools that replace a built-in
+tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
+`docx`, `pptx` and `pdf` can be replaced; `writing-skills`,
+`localai-workspace` and `localai-apps` cannot. The manifest says so with
+`shadows`, which repeats the name:
+
+```json
+"skillDefinitions": [
+  { "name": "xlsx", "shadows": "xlsx" },
+  { "name": "docx", "shadows": "docx" }
+]
+```
+
+- **In a chat.** While the add-on can serve (installed, running, usable by the
+  user and on for the chat), the model sees one `xlsx` skill, the add-on's,
+  and the built-in one is hidden. The index grows by nothing: one line
+  replaces another. A skill a person writes (folder, personal or shared) still
+  wins over the add-on's.
+- **The built-in comes back.** When the add-on is stopped, off for the chat or
+  removed, or the chat switches the add-on's skill off, the built-in skill
+  serves again. The turn tells the model in one line, and the Skills menu
+  says so on the built-in skill.
+- **Checked twice.** The install refuses a `shadows` that is not on the list,
+  and the chats refuse it again at each turn: an add-on skill with the name of
+  a built-in skill that cannot be replaced is skipped as invalid.
+- **Several add-ons.** Only one add-on serves a name. An administrator picks it
+  in Settings, **Tools**, in the same runtime setting as the tools
+  (`chats_tool_providers`, for example `{"xlsx": "office"}`; tool and skill
+  names never overlap). With no choice, the first by add-on ID serves. A choice
+  of an add-on that is not running leaves the name to the built-in skill.
+  `GET /api/chats/admin/tools` lists the replaced skills in `skills`, with who
+  serves each one.
+- **Before install.** The library entry and the installed view list the
+  skills an add-on replaces in `skillShadows`, so a client can warn before the
+  install. The install is still allowed.
 
 In distributed mode the state is **shared**: the files are in the workspace
 store that every frontend reads, and only the owner writes them, because only
@@ -1722,7 +1762,9 @@ definition replaces one with `"shadows": "<name>"`:
   with the add-on's ID, so the chat shows the provider on the tool line.
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it
   in Settings, **Tools** (runtime setting `chats_tool_providers`, a map from the
-  tool to the add-on ID); with no choice, the first by add-on ID serves. The
+  tool to the add-on ID; the same map holds the choices for the built-in skills
+  an add-on replaces, see [Skills](#skills)); with no choice, the first by
+  add-on ID serves. The
   library entry and the installed view list the names an add-on replaces in
   `shadows`, and the install dialog warns when an installed add-on already
   replaces one: "This add-on replaces the built-in bash. Another add-on

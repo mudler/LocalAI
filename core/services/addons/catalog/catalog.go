@@ -56,6 +56,13 @@ func validEntryTools(r Release) bool {
 		}
 		shadowed[t] = true
 	}
+	skills := map[string]bool{}
+	for _, t := range r.SkillShadows {
+		if !contract.ReplaceableSkill(t) || skills[t] {
+			return false
+		}
+		skills[t] = true
+	}
 	return true
 }
 
@@ -137,6 +144,9 @@ type Release struct {
 	// from the manifest's tool definitions, so the install dialog can warn
 	// when another installed add-on already replaces one. A hint, like Tools.
 	Shadows []string `json:"shadows,omitempty"`
+	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say),
+	// from the manifest's skill definitions, for the same warning. A hint.
+	SkillShadows []string `json:"skillShadows,omitempty"`
 
 	// The fields below describe a backend and are refused on any other kind.
 	// They carry what the backend gallery carries beyond the image, so the

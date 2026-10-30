@@ -95,7 +95,10 @@ type Skill struct {
 	GuestPath   string // guest path of its SKILL.md
 	Hash        string // hex SHA-256 of the SKILL.md content; empty when it was not read
 	Shadowed    string // the layer that overrides it, or ""
-	Invalid     string // the reason it was skipped, or ""
+	// ShadowedBy is the add-on whose skill overrides this one, when the
+	// winner is in the add-on layer.
+	ShadowedBy string
+	Invalid    string // the reason it was skipped, or ""
 	// Off is true when Options.Off turned the skill off. An off skill takes
 	// no part in the precedence rule and is not in the index.
 	Off bool
@@ -110,6 +113,9 @@ type Skill struct {
 	// Addon and AddonTitle name the add-on that ships a skill of the add-on
 	// layer.
 	Addon, AddonTitle string
+	// Fallback, set by the product, names the add-on whose own skill of this
+	// name would replace this built-in one but is off or not running here.
+	Fallback string
 
 	depth int // folders below the walked root, for the order inside the folder layer
 }
@@ -124,7 +130,24 @@ type Options struct {
 	// Logger, when set, gets one debug line per call with the number of
 	// folders that the folder walks listed. Nil logs nothing.
 	Logger *slog.Logger
+	// AddonProvider decides which add-on serves a skill name in the add-on
+	// layer, when several add-ons may ship it. decided false leaves the name
+	// to the precedence rule (between add-ons, the path that sorts first,
+	// which is the add-on ID). decided true with an add-on ID serves the name
+	// from that add-on only; with "" no add-on serves it, so the layer below
+	// shows through. A skill of another add-on gets Shadowed and ShadowedBy
+	// set to the provider. Nil decides nothing.
+	AddonProvider func(name string) (addon string, decided bool)
+	// Replaceable reports a built-in skill name that an add-on skill may
+	// replace. An add-on skill with the name of another skill of the built-in
+	// layer in the same call is Invalid. Nil: no add-on skill may replace a
+	// built-in one.
+	Replaceable func(name string) bool
 }
+
+// ErrNotReplaceable is the reason of an add-on skill that has the name of a
+// built-in skill that may not be replaced.
+var ErrNotReplaceable = errors.New("the name is a built-in skill and cannot be replaced")
 
 // container is a folder that holds one subfolder per skill.
 type container struct {
@@ -234,8 +257,9 @@ scan:
 	// Off is asked in precedence order, so a caller that turns off the first
 	// skill of a name turns off the one that wins.
 	sort.SliceStable(out, func(i, j int) bool { return less(out[i], out[j]) })
+	guardAddons(out, o)
 	for i := range out {
-		if out[i].Invalid == "" && o.Off != nil && o.Off(out[i]) {
+		if out[i].Invalid == "" && out[i].Shadowed == "" && o.Off != nil && o.Off(out[i]) {
 			out[i].Off = true
 		}
 	}
@@ -393,12 +417,44 @@ func readSkill(ctx context.Context, s workspace.Store, a workspace.Actor, b cont
 	return sk, true, nil
 }
 
+// guardAddons applies the rules of the add-on layer before the precedence
+// rule: an add-on skill with the name of a built-in skill that may not be
+// replaced is invalid, and an add-on skill of a name that another add-on (or
+// none) serves is shadowed.
+func guardAddons(skills []Skill, o Options) {
+	builtin := map[string]bool{}
+	for _, sk := range skills {
+		if sk.Layer == LayerBuiltin && sk.Invalid == "" {
+			builtin[sk.Name] = true
+		}
+	}
+	for i := range skills {
+		sk := &skills[i]
+		if sk.Layer != LayerAddon || sk.Invalid != "" {
+			continue
+		}
+		if builtin[sk.Name] && (o.Replaceable == nil || !o.Replaceable(sk.Name)) {
+			sk.Invalid = ErrNotReplaceable.Error()
+			continue
+		}
+		if o.AddonProvider == nil {
+			continue
+		}
+		if p, decided := o.AddonProvider(sk.Name); decided && p != sk.Addon {
+			sk.Shadowed, sk.ShadowedBy = string(LayerBuiltin), ""
+			if p != "" {
+				sk.Shadowed, sk.ShadowedBy = string(LayerAddon), p
+			}
+		}
+	}
+}
+
 // shadow sets Shadowed on every valid skill that is not off and loses to
 // another skill with the same name.
 func shadow(skills []Skill) {
 	byName := map[string][]int{}
 	for i, sk := range skills {
-		if sk.Invalid == "" && !sk.Off {
+		if sk.Invalid == "" && !sk.Off && sk.Shadowed == "" {
 			byName[sk.Name] = append(byName[sk.Name], i)
 		}
 	}
@@ -407,9 +463,12 @@ func shadow(skills []Skill) {
 			continue
 		}
 		sort.SliceStable(idx, func(x, y int) bool { return less(skills[idx[x]], skills[idx[y]]) })
-		winner := skills[idx[0]].Layer
+		winner := skills[idx[0]]
 		for _, i := range idx[1:] {
-			skills[i].Shadowed = string(winner)
+			skills[i].Shadowed = string(winner.Layer)
+			if winner.Layer == LayerAddon {
+				skills[i].ShadowedBy = winner.Addon
+			}
 		}
 	}
 }

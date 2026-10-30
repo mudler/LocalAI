@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // BuiltinToolInfo is one built-in chat tool as Settings > Tools shows it.
@@ -95,4 +96,48 @@ func (s *Service) HostExecEvents(ctx context.Context, limit int) ([]hostexec.Eve
 		return []hostexec.Event{}, nil
 	}
 	return a.Events(ctx, limit)
+}
+
+// BuiltinSkillInfo is one built-in skill that installed add-ons replace, as
+// Settings > Tools shows it next to the tools.
+type BuiltinSkillInfo struct {
+	ID string
+	// Provider serves the skill now: an add-on's ID or BuiltinProvider.
+	Provider string
+	// Candidates are the add-ons that replace it, by ID, with their Titles;
+	// Pinned is the one an administrator chose, if any.
+	Candidates []string
+	Titles     map[string]string
+	Pinned     string
+	// Note says why the built-in serves although an add-on replaces it.
+	Note string
+}
+
+// AdminBuiltinSkills lists, for the administrator user, the replaceable
+// built-in skills that at least one installed add-on replaces: who serves each
+// one now and the add-ons to choose from. The choice is the same pin map as
+// for the tools (chats_tool_providers).
+func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) []BuiltinSkillInfo {
+	ad := s.addonSkillsFor(ctx, principal(user), nil, nil)
+	var out []BuiltinSkillInfo
+	for _, name := range contract.ReplaceableSkills {
+		info := BuiltinSkillInfo{ID: name, Pinned: ad.pins[name], Titles: map[string]string{}}
+		for _, set := range ad.known {
+			if shipsReplacement([]AddonSkillSet{set}, set.AddonID, name) {
+				info.Candidates = append(info.Candidates, set.AddonID)
+				info.Titles[set.AddonID] = ad.title(set.AddonID)
+			}
+		}
+		if len(info.Candidates) == 0 {
+			continue
+		}
+		info.Provider = BuiltinProvider
+		if p, _ := ad.provider(name); p != "" {
+			info.Provider = p
+		} else {
+			info.Note = "not running"
+		}
+		out = append(out, info)
+	}
+	return out
 }

@@ -20,8 +20,15 @@ const SkillsDir = "skills"
 type SkillDefinition struct {
 	// Name is the skill's name and the name of its folder. A plain skill is
 	// named after the add-on: the add-on ID, or the ID and a dash and more
-	// (office-quickstart), so two add-ons never ship one plain name.
+	// (office-quickstart), so two add-ons never ship one plain name. A skill
+	// that replaces a built-in one has the built-in's name (see Shadows).
 	Name string `json:"name"`
+	// Shadows names the built-in skill this skill replaces. It must equal Name
+	// and be one of ReplaceableSkills. It repeats the name on purpose: the
+	// replacement is an explicit act, which the install warning and the check
+	// read from the manifest without opening the package. Empty: a plain
+	// add-on skill.
+	Shadows string `json:"shadows,omitempty"`
 }
 
 // protectedSkills are the built-in skills that no add-on may replace or
@@ -85,6 +92,15 @@ func validateSkillDefinitions(id string, defs []SkillDefinition) error {
 			return fmt.Errorf("skill %s: declared twice", d.Name)
 		}
 		seen[d.Name] = true
+		if d.Shadows != "" {
+			switch {
+			case d.Shadows != d.Name:
+				return fmt.Errorf("skill %s: shadows must repeat the skill's name", d.Name)
+			case !ReplaceableSkill(d.Shadows):
+				return fmt.Errorf("skill %s: %q is not a built-in skill an add-on may replace", d.Name, d.Shadows)
+			}
+			continue
+		}
 		if BuiltinSkillName(d.Name) {
 			return fmt.Errorf("skill %s: the name is a built-in skill", d.Name)
 		}
@@ -93,6 +109,18 @@ func validateSkillDefinitions(id string, defs []SkillDefinition) error {
 		}
 	}
 	return nil
+}
+
+// ShadowedSkills lists, in definition order, the built-in skills that the skill
+// definitions replace.
+func ShadowedSkills(defs []SkillDefinition) []string {
+	var out []string
+	for _, d := range defs {
+		if d.Shadows != "" && d.Shadows == d.Name && ReplaceableSkill(d.Shadows) {
+			out = append(out, d.Shadows)
+		}
+	}
+	return out
 }
 
 // SkillNames lists the names of the skill definitions, in order.

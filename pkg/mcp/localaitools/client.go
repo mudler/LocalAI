@@ -121,8 +121,9 @@ type LocalAIClient interface {
 
 	// ListChatTools lists the built-in chat tools an add-on may replace (bash
 	// on this machine, the web tools): on or off, who serves each, the add-ons
-	// that replace it, and for bash the mode of chats_host_exec.
-	ListChatTools(ctx context.Context) ([]ChatBuiltinTool, error)
+	// that replace it, and for bash the mode of chats_host_exec. It also lists
+	// the built-in skills that installed add-ons replace, with who serves each.
+	ListChatTools(ctx context.Context) (ChatBuiltinToolList, error)
 	// ListHostExecEvents reads the audit of the commands the chats' built-in
 	// bash ran on this machine, newest first.
 	ListHostExecEvents(ctx context.Context, limit int) ([]HostExecEvent, error)

@@ -10,12 +10,14 @@ import (
 // replace: bash, which runs commands directly on this machine with no isolation
 // when no Sandbox add-on serves it, and the web tools. Both tools here only
 // read; an administrator changes the settings (chats_host_exec,
-// chats_tool_providers) in Settings > Tools.
+// chats_tool_providers) in Settings > Tools. The same list carries the
+// built-in skills that installed add-ons replace, pinned in the same map.
 func registerChatToolTools(s *mcp.Server, client LocalAIClient, _ Options) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: ToolListChatTools,
 		Description: "List the built-in chat tools that an add-on may replace: whether each is on, who serves it (builtin, or an add-on), " +
-			"the add-ons that replace it and the one pinned, and for bash the mode of chats_host_exec (off, ask or on) and why this server cannot run it, if so.",
+			"the add-ons that replace it and the one pinned, and for bash the mode of chats_host_exec (off, ask or on) and why this server cannot run it, if so. " +
+			"skills lists the built-in skills (xlsx, docx, pptx, pdf) that installed add-ons replace: who serves each, the add-ons that replace it and the one pinned in chats_tool_providers.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		out, err := client.ListChatTools(ctx)
 		if err != nil {

@@ -356,15 +356,19 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 	return out, nil
 }
 
-// AddonSkills is the skills of one add-on that the actor may use now.
+// AddonSkills is the skills of one add-on the actor can see.
 type AddonSkills struct {
 	AddonID, Title string
 	Skills         []contract.SkillDefinition
+	// Running is true when the add-on may serve now: enabled and running, as
+	// Discover requires for tools.
+	Running bool
 }
 
-// Skills lists the add-ons that ship skills and that the actor may use now:
-// installed, enabled and running, as Discover sees them for tools. A chat
-// offers their skills from the copy in its skill layer.
+// Skills lists the installed add-ons that ship skills and that the actor can
+// see, running or not. A chat offers the skills of a running one from the copy
+// in its skill layer, and says when a built-in skill serves because the
+// add-on that replaces it is not running.
 func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]AddonSkills, error) {
 	if err := checkActor(actor); err != nil {
 		return nil, err
@@ -375,10 +379,11 @@ func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]Addon
 	}
 	var out []AddonSkills
 	for _, a := range list.Apps {
-		if !a.Enabled || a.State != "running" || a.Generation == 0 || len(a.Skills) == 0 {
+		if len(a.Skills) == 0 {
 			continue
 		}
-		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, Skills: slices.Clone(a.Skills)})
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, Skills: slices.Clone(a.Skills), Running: running})
 	}
 	slices.SortFunc(out, func(x, y AddonSkills) int { return strings.Compare(x.AddonID, y.AddonID) })
 	return out, nil

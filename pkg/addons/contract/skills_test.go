@@ -61,9 +61,22 @@ var _ = Describe("Skill definitions in a manifest", func() {
 
 	It("refuses a plain name that is a built-in skill, whatever the add-on id", func() {
 		for _, n := range []string{"localai-apps", "localai-workspace", "writing-skills", "xlsx", "pdf"} {
-			m := withSkills(SkillDefinition{Name: n})
-			m.ID = n // the prefix rule alone would accept it
+			m := withSkills(SkillDefinition{Name: n}) // no shadows: a plain skill
+			m.ID = n                                  // the prefix rule alone would accept it
 			Expect(valid(m)).To(MatchError(ContainSubstring("built-in skill")), n)
+		}
+	})
+
+	It("accepts a skill that replaces a replaceable built-in skill by its name", func() {
+		m := withSkills(SkillDefinition{Name: "xlsx", Shadows: "xlsx"}, SkillDefinition{Name: "docx", Shadows: "docx"}, SkillDefinition{Name: "sample"})
+		Expect(valid(m)).To(Succeed())
+		Expect(ShadowedSkills(m.Capabilities.SkillDefinitions)).To(Equal([]string{"xlsx", "docx"}))
+	})
+
+	It("refuses shadows that does not repeat the name, or names a skill that may not be replaced", func() {
+		Expect(valid(withSkills(SkillDefinition{Name: "sample-xlsx", Shadows: "xlsx"}))).To(MatchError(ContainSubstring("must repeat the skill's name")))
+		for _, n := range []string{"writing-skills", "localai-apps", "localai-workspace", "sample"} {
+			Expect(valid(withSkills(SkillDefinition{Name: n, Shadows: n}))).To(MatchError(ContainSubstring("may replace")), n)
 		}
 	})
 

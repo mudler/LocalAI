@@ -214,7 +214,7 @@ var _ = Describe("the add-on skill layer", func() {
 		userPut(f, "alice", "/.skills/notes/SKILL.md", skillMD("notes", "mine"))
 		got := resolveWith(f, "alice", files.AddonSkillsRoot("notes", "Notes"))
 		Expect(got["notes"].Layer).To(Equal(skills.LayerPersonal), "a person's own skill beats the add-on's")
-		Expect(got["notes-docs"].Layer).To(Equal(skills.LayerAddon), "the add-on's skill beats the built-in one")
+		Expect(got["notes-docs"].Layer).To(Equal(skills.LayerBuiltin), "an add-on never takes over a built-in skill that is not replaceable")
 		_, err := f.Store().Put(ctx, f.Actor("alice"), files.AddonSkillsPath+"/notes/notes/SKILL.md", strings.NewReader("x"), workspace.PutOptions{Overwrite: true})
 		Expect(err).To(HaveOccurred(), "a user wrote the add-on layer")
 		Expect(f.SyncAddonSkills(ctx, "Bad/Id", fstest.MapFS{})).NotTo(Succeed())

@@ -4196,7 +4196,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/tools": {
             "get": {
-                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. Change them with POST /api/settings.",
+                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
                 "tags": [
                     "chats"
                 ],
@@ -13646,6 +13646,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "skillShadows": {
+                    "description": "SkillShadows lists the built-in skills the add-on replaces (xlsx, say).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "skills": {
                     "description": "Skills are the skills the package ships, from the verified manifest.\nThe owner copies their files into the chats' skill layer.",
                     "type": "array",
@@ -14211,7 +14218,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name.",
+                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nthat replaces a built-in one has the built-in's name (see Shadows).",
+                    "type": "string"
+                },
+                "shadows": {
+                    "description": "Shadows names the built-in skill this skill replaces. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
                     "type": "string"
                 }
             }
@@ -17259,6 +17270,38 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsBuiltinSkill": {
+            "type": "object",
+            "properties": {
+                "candidates": {
+                    "description": "Candidates are the add-ons that replace it, by ID, and Titles their\ntitles; Pinned the one chosen in chats_tool_providers.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "note": {
+                    "description": "Note says why the built-in serves although an add-on replaces it, or is\nempty: the chosen add-on is not running.",
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider serves it now: builtin or an add-on's ID.",
+                    "type": "string"
+                },
+                "titles": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "schema.ChatsBuiltinSwitches": {
             "type": "object",
             "properties": {
@@ -17340,6 +17383,12 @@ const docTemplate = `{
         "schema.ChatsBuiltinToolList": {
             "type": "object",
             "properties": {
+                "skills": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsBuiltinSkill"
+                    }
+                },
                 "tools": {
                     "type": "array",
                     "items": {
@@ -18949,6 +18998,10 @@ const docTemplate = `{
                     "description": "Enabled is false when the chat has switched it off.",
                     "type": "boolean"
                 },
+                "fallback": {
+                    "description": "Fallback is set on a built-in skill that serves because the add-on\nskill that replaces it is off or not running in the chat: the title of\nthat add-on.",
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID is \"layer:name\". A switch with the ID turns off the skill of that\nlayer; a switch with the plain name turns off the skill that wins.",
                     "type": "string"
@@ -18970,6 +19023,10 @@ const docTemplate = `{
                 },
                 "shadowed": {
                     "description": "Shadowed names the layer of a nearer skill with the same name, which wins.",
+                    "type": "string"
+                },
+                "shadowed_by": {
+                    "description": "ShadowedBy is the add-on whose skill wins over this one, when the\nwinner ships with an add-on (a built-in skill an add-on replaces, or\nthe skill of an add-on that is not the chosen one).",
                     "type": "string"
                 }
             }

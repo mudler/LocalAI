@@ -975,6 +975,10 @@ var _ = Describe("catalog template", func() {
 		Expect(strings.Count(text, "\n  - ")).To(Equal(MaxEntryTools))
 		Expect(toolFieldsYAML(nil, "")).To(BeEmpty())
 	})
+	It("lists the built-in skills an add-on replaces", func() {
+		Expect(skillFieldsYAML([]string{"xlsx", "pdf"}, "  ")).To(Equal("  skillShadows:\n    - \"xlsx\"\n    - \"pdf\"\n"))
+		Expect(skillFieldsYAML(nil, "")).To(BeEmpty())
+	})
 	It("lists the built-in tools an add-on replaces after its tools", func() {
 		Expect(toolFieldsYAML([]string{"bash", "status"}, "  ", "bash")).To(Equal("  toolCount: 2\n  tools:\n    - \"bash\"\n    - \"status\"\n  shadows:\n    - \"bash\"\n"))
 	})
