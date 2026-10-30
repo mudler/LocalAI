@@ -112,7 +112,7 @@ func (t Tools) WebSearch(ctx context.Context, user string, raw json.RawMessage) 
 	if t.Search == nil {
 		return "", t.noProvider()
 	}
-	res, err := t.Search.Search(ctx, user, search.Query{Text: a.Query, MaxResults: a.MaxResults, Freshness: a.Freshness, Site: a.Site})
+	res, host, err := t.Search.SearchHost(ctx, user, search.Query{Text: a.Query, MaxResults: a.MaxResults, Freshness: a.Freshness, Site: a.Site})
 	switch {
 	case errors.Is(err, search.ErrBadQuery):
 		return "", fmt.Errorf("%w: %s", ErrArguments, strings.TrimPrefix(err.Error(), search.ErrBadQuery.Error()+": "))
@@ -125,7 +125,6 @@ func (t Tools) WebSearch(ctx context.Context, user string, raw json.RawMessage) 
 	case err != nil:
 		return "", err
 	}
-	host := t.Search.Provider().Host()
 	var b strings.Builder
 	if len(res) == 0 {
 		b.WriteString("No results.")

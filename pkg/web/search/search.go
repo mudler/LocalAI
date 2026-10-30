@@ -95,6 +95,10 @@ func textWithSite(q Query) string {
 	return q.Text + " site:" + q.Site
 }
 
+// Clean trims a result field to one line of at most max characters. Providers
+// outside this package use it with MaxTitle and MaxSnippet.
+func Clean(s string, max int) string { return clean(s, max) }
+
 // clean trims a result field to one line of at most max characters.
 func clean(s string, max int) string {
 	s = strings.Join(strings.Fields(s), " ")
@@ -151,6 +155,7 @@ type Searcher struct {
 
 type cached struct {
 	results []Result
+	host    string
 	at      time.Time
 }
 
@@ -172,48 +177,66 @@ func (s *Searcher) Provider() Provider { return s.p }
 // Search runs q for user. An identical query within the cache time is
 // answered from the cache and does not count against the limits.
 func (s *Searcher) Search(ctx context.Context, user string, q Query) ([]Result, error) {
+	r, _, err := s.SearchHost(ctx, user, q)
+	return r, err
+}
+
+// SearchHost is Search that also returns the host that answered: the host of
+// the provider, or for an Answerer (such as a Fallback) the host of the
+// provider that gave the answer. A cached answer keeps its host.
+func (s *Searcher) SearchHost(ctx context.Context, user string, q Query) ([]Result, string, error) {
 	q, err := Normalize(q)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	key := s.p.Name() + "\x00" + strings.ToLower(q.Text) + "\x00" + fmt.Sprint(q.MaxResults) + "\x00" + q.Freshness + "\x00" + q.Site
-	if r, ok := s.cached(key); ok {
-		return r, nil
+	if r, host, ok := s.cached(key); ok {
+		return r, host, nil
 	}
 	if !s.admit(user) {
-		return nil, ErrRateLimited
+		return nil, "", ErrRateLimited
 	}
-	results, err := s.p.Search(ctx, q)
+	var results []Result
+	host := s.p.Host()
+	if a, ok := s.p.(Answerer); ok {
+		var from Provider
+		results, from, err = a.SearchFrom(ctx, q)
+		if from != nil {
+			host = from.Host()
+		}
+	} else {
+		results, err = s.p.Search(ctx, q)
+	}
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, ErrTimeout
+			return nil, "", ErrTimeout
 		}
-		return nil, err
+		return nil, "", err
 	}
 	if len(results) > q.MaxResults {
 		results = results[:q.MaxResults]
 	}
-	s.store(key, results)
-	return results, nil
+	s.store(key, results, host)
+	return results, host, nil
 }
 
-func (s *Searcher) cached(key string) ([]Result, bool) {
+func (s *Searcher) cached(key string) ([]Result, string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c, ok := s.cache[key]
 	if !ok || s.now().Sub(c.at) >= s.l.CacheTTL {
-		return nil, false
+		return nil, "", false
 	}
-	return append([]Result(nil), c.results...), true
+	return append([]Result(nil), c.results...), c.host, true
 }
 
-func (s *Searcher) store(key string, r []Result) {
+func (s *Searcher) store(key string, r []Result, host string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.cache[key]; !ok {
 		s.order = append(s.order, key)
 	}
-	s.cache[key] = cached{results: append([]Result(nil), r...), at: s.now()}
+	s.cache[key] = cached{results: append([]Result(nil), r...), host: host, at: s.now()}
 	for len(s.order) > s.l.CacheEntries {
 		delete(s.cache, s.order[0])
 		s.order = s.order[1:]
