@@ -45,14 +45,23 @@ func chooseVisionModel(setting, chatModel string, all []config.ModelConfig) stri
 			}
 		}
 	}
-	if chatModel != "" {
-		for i := range all {
-			if all[i].Name == chatModel && all[i].HasUsecases(config.FLAG_VISION) {
-				return chatModel
-			}
+	// VisionSupported as well as the flag: a declared flag does not make an
+	// image reach a cloud model in translate mode.
+	var names []string
+	for i := range all {
+		if !all[i].HasUsecases(config.FLAG_VISION) || !all[i].VisionSupported() {
+			continue
 		}
+		if all[i].Name == chatModel {
+			return chatModel
+		}
+		names = append(names, all[i].Name)
 	}
-	return chooseHelperModel("", all, config.FLAG_VISION)
+	if len(names) == 0 {
+		return ""
+	}
+	sort.Strings(names)
+	return names[0]
 }
 
 // studioVisionModel is describe_image's chooser, read when the tool runs, so

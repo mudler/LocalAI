@@ -47,10 +47,18 @@ var _ = Describe("the helper model", func() {
 			[]config.ModelConfig{proxyModel("cloud", config.FLAG_CHAT|config.FLAG_VISION)}, "cloud"),
 		Entry("none for a cloud model that does not declare it", "", "cloud",
 			[]config.ModelConfig{proxyModel("cloud", config.FLAG_CHAT)}, ""),
+		Entry("not a cloud model in translate mode, which drops images", "", "cloud",
+			[]config.ModelConfig{translateModel("cloud", config.FLAG_CHAT|config.FLAG_VISION)}, ""),
 		Entry("none for an unknown chat model and no vision model", "", "gone",
 			[]config.ModelConfig{modelWith("plain-chat", config.FLAG_CHAT)}, ""),
 	)
 })
+
+func translateModel(name string, flags config.ModelConfigUsecase) config.ModelConfig {
+	m := proxyModel(name, flags)
+	m.Proxy.Mode = config.ProxyModeTranslate
+	return m
+}
 
 func proxyModel(name string, flags config.ModelConfigUsecase) config.ModelConfig {
 	m := modelWith(name, flags)

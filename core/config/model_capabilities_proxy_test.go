@@ -41,4 +41,10 @@ proxy:
 		Expect(err).ToNot(HaveOccurred())
 		Expect(load(string(out)).VisionSupported()).To(BeTrue(), "written back:\n%s", out)
 	})
+
+	It("cannot see images in translate mode, which sends text only", func() {
+		c := load(head + "  mode: translate\n  provider: anthropic\nknown_usecases: [chat, vision]\n")
+		Expect(c.VisionSupported()).To(BeFalse())
+		Expect(c.Capabilities()).ToNot(ContainElement(UsecaseVision))
+	})
 })
