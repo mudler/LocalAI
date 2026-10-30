@@ -276,7 +276,9 @@ export function widgetList(doc) {
       let id = typeof w.id === 'string' && w.id ? w.id : `w${i}`
       while (seen.has(id)) id += '-x'
       seen.add(id)
-      return { id, type: w.type, title: w.title, source: typeof w.source === 'string' ? w.source : '' }
+      // The other keys stay (for example trigger, or a key the assistant
+      // added), so a save from the layout editor does not drop them.
+      return { ...w, id, type: w.type, title: w.title, source: typeof w.source === 'string' ? w.source : '' }
     })
 }
 
@@ -297,9 +299,12 @@ export function cleanWidgets(rows) {
     if (!title || !WIDGET_TYPES.includes(r.type)) continue
     const id = /^[a-z0-9][a-z0-9-]{0,39}$/.test(r.id || '') && !ids.includes(r.id) ? r.id : widgetId(title, ids)
     ids.push(id)
-    const w = { id, type: r.type, title }
+    // Keys the editor does not show are kept as they were.
+    const w = { ...r, id, type: r.type, title }
+    delete w.source
     const source = (r.source || '').trim().replace(/^\/+/, '')
     if (r.type !== 'chats' && source) w.source = source
+    if (r.type === 'chats') delete w.trigger
     out.push(w)
   }
   return out
@@ -320,6 +325,7 @@ export function widgetData(doc) {
     value: typeof d.value === 'number' || typeof d.value === 'string' ? d.value : null,
     note: typeof d.note === 'string' ? d.note : '',
     series,
+    source: d.source && typeof d.source === 'object' && typeof d.source.kind === 'string' ? d.source : null,
     errors: doc.errors || [],
   }
   if (!doc.exists) return { state: 'empty', ...base }
