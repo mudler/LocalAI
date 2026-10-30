@@ -57,6 +57,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/admin/triggers/:id/disable", h.AdminDisableTrigger, adminMw)
 	e.DELETE(base+"/admin/triggers/:id", h.AdminDeleteTrigger, adminMw)
 	e.GET(base+"/admin/connectors", h.AdminListConnectors, adminMw)
+	e.POST(base+"/admin/web/test", h.AdminTestWebSearch, adminMw)
 	e.POST(base+"/admin/connectors/:id/disable", h.AdminDisableConnector, adminMw)
 	e.DELETE(base+"/admin/connectors/:id", h.AdminDeleteConnector, adminMw)
 	// The shared folders and who may use them. "restore" and "events" are not
@@ -179,6 +180,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/mcp-connectors/:id/test", h.TestMCPConnector)
 	e.GET(base+"/:id/tools", h.ListChatTools)
 	e.PUT(base+"/:id/mcp", h.SetChatMCP)
+	e.PUT(base+"/:id/builtins", h.SetChatBuiltins)
 	e.GET(base+"/:id/mcp/prompts", h.MCPPrompts)
 	e.POST(base+"/:id/mcp/prompts", h.MCPExpandPrompt)
 	e.GET(base+"/:id/mcp/resources", h.MCPResources)

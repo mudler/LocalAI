@@ -2844,6 +2844,32 @@ definitions:
       skipped:
         type: integer
     type: object
+  schema.ChatsBuiltinGroup:
+    properties:
+      group:
+        example: web
+        type: string
+      "off":
+        type: boolean
+      provider:
+        description: Provider is "builtin" when LocalAI serves the tools itself.
+        example: builtin
+        type: string
+      tools:
+        example:
+        - web_search
+        - web_fetch
+        items:
+          type: string
+        type: array
+    type: object
+  schema.ChatsBuiltinSwitches:
+    properties:
+      "off":
+        items:
+          type: string
+        type: array
+    type: object
   schema.ChatsChatFile:
     properties:
       at:
@@ -4040,6 +4066,10 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsAddon'
         type: array
+      builtins:
+        items:
+          $ref: '#/definitions/schema.ChatsBuiltinGroup'
+        type: array
       connectors:
         items:
           $ref: '#/definitions/schema.ChatsMCPConnectorSwitch'
@@ -4315,6 +4345,38 @@ definitions:
       used:
         description: Used is the number of tokens in the context the request sent.
         type: integer
+    type: object
+  schema.ChatsWebResult:
+    properties:
+      snippet:
+        type: string
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  schema.ChatsWebTestRequest:
+    properties:
+      query:
+        example: LocalAI
+        type: string
+    type: object
+  schema.ChatsWebTestResponse:
+    properties:
+      error:
+        type: string
+      host:
+        example: duckduckgo.com
+        type: string
+      ok:
+        type: boolean
+      provider:
+        example: duckduckgo
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/schema.ChatsWebResult'
+        type: array
     type: object
   schema.ChatsWellKnownError:
     properties:
@@ -11003,6 +11065,39 @@ paths:
       summary: Stop a sub-agent.
       tags:
       - chats
+  /api/chats/{id}/builtins:
+    put:
+      description: 'The list replaces the earlier one. A group is a name such as web
+        (web_search and web_fetch). A switch only takes away: a tool the administrator
+        has off stays off. The next turn of the chat gets the tools that are on.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the groups that are off
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsBuiltinSwitches'
+      responses:
+        "200":
+          description: The tools and their switches now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsToolsPanel'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Switch groups of built-in tools on and off for a chat.
+      tags:
+      - chats
   /api/chats/{id}/events:
     get:
       description: 'Server-sent events: text, reasoning, tool_start, tool_end, checkpoint,
@@ -11559,9 +11654,10 @@ paths:
       - chats
   /api/chats/{id}/tools:
     get:
-      description: Add-ons, the MCP servers of the chat's model and your MCP connectors,
-        each with the chat's switch and whether it can be used now (with the reason
-        when not). A chat with a saved agent lists only what the agent grants.
+      description: The groups of built-in tools (such as web), add-ons, the MCP servers
+        of the chat's model and your MCP connectors, each with the chat's switch and
+        whether it can be used now (with the reason when not). A chat with a saved
+        agent lists only what the agent grants.
       parameters:
       - description: conversation id
         in: path
@@ -11970,6 +12066,39 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: List the runs of a trigger of any user (administrators).
+      tags:
+      - chats
+  /api/chats/admin/web/test:
+    post:
+      description: Runs the query with the search provider of the built-in web_search
+        tool (DuckDuckGo, or the SearXNG instance of chats_web_searxng_url) and returns
+        the first three results, or the error a user would read. Save the settings
+        first. The search counts against the rate limits like any other.
+      parameters:
+      - description: the query (default LocalAI)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsWebTestRequest'
+      responses:
+        "200":
+          description: The provider and its results, or the error
+          schema:
+            $ref: '#/definitions/schema.ChatsWebTestResponse'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The built-in web tools are not available on this instance
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Run a test web search with the saved settings (administrators).
       tags:
       - chats
   /api/chats/agents:

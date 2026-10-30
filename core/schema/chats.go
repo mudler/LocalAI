@@ -858,9 +858,50 @@ type ChatsMCPConnectorSwitch struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// ChatsToolsPanel lists what a chat can use besides its built-in tools: add-ons,
-// the MCP servers of its model and your connectors, each with the chat's switch.
+// ChatsBuiltinGroup is a group of built-in tools of a chat, such as the web
+// tools, with the chat's switch. Only the tools an administrator has on are
+// listed; a group with none is absent.
+type ChatsBuiltinGroup struct {
+	Group string   `json:"group" example:"web"`
+	Tools []string `json:"tools" example:"web_search,web_fetch"`
+	Off   bool     `json:"off"`
+	// Provider is "builtin" when LocalAI serves the tools itself.
+	Provider string `json:"provider" example:"builtin"`
+}
+
+// ChatsWebTestRequest is the body of a test web search.
+type ChatsWebTestRequest struct {
+	Query string `json:"query" example:"LocalAI"`
+}
+
+// ChatsWebResult is one result of a web search.
+type ChatsWebResult struct {
+	Title   string `json:"title"`
+	URL     string `json:"url"`
+	Snippet string `json:"snippet"`
+}
+
+// ChatsWebTestResponse is the answer of a test web search: the provider and
+// its first results, or the error a user would read.
+type ChatsWebTestResponse struct {
+	OK       bool             `json:"ok"`
+	Provider string           `json:"provider" example:"duckduckgo"`
+	Host     string           `json:"host" example:"duckduckgo.com"`
+	Results  []ChatsWebResult `json:"results"`
+	Error    string           `json:"error,omitempty"`
+}
+
+// ChatsBuiltinSwitches is the body that sets the groups of built-in tools a
+// chat has switched off.
+type ChatsBuiltinSwitches struct {
+	Off []string `json:"off"`
+}
+
+// ChatsToolsPanel lists what a chat can use besides its own tools: the groups
+// of built-in tools, add-ons, the MCP servers of its model and your
+// connectors, each with the chat's switch.
 type ChatsToolsPanel struct {
+	Builtins   []ChatsBuiltinGroup       `json:"builtins"`
 	Addons     []ChatsAddon              `json:"addons"`
 	Servers    []ChatsMCPServerSwitch    `json:"servers"`
 	Connectors []ChatsMCPConnectorSwitch `json:"connectors"`

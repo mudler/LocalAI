@@ -110,7 +110,7 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, typeConflict, "a turn is running; stop it first", studiosvc.ErrChatBusy),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
 		studiosvc.ErrInvalidSettings, studiosvc.ErrBadImport, session.ErrInvalid),
-	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadMCPSwitch),
+	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadMCPSwitch, studiosvc.ErrBadBuiltinGroup),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
 	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "an attachment is too large", workspace.ErrTooLarge),
 	fixed(http.StatusConflict, typeConflict, "a sub-agent conversation takes no messages from you", studiosvc.ErrSubAgentReadOnly),
