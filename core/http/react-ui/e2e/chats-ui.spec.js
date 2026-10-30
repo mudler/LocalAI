@@ -16,7 +16,7 @@ function newChatsApi(page, initial) {
   }
   const detail = () => ({
     id: state.id, title: state.title, model: state.model, kind: 'chat',
-    created: '2026-10-25T10:00:00Z', updated: '2026-10-25T10:00:00Z',
+    created: '2026-10-25T10:00:00Z', updated: state.updated || '2026-10-25T10:00:00Z',
     running: state.running, last_turn: state.last_turn, pending: state.pending,
   })
   const record = (m, url, body) => state.calls.push({ method: m, url: new URL(url).pathname, body })
@@ -285,6 +285,75 @@ test.describe('Chats page with a stubbed API', () => {
       await expect(composer(page)).toHaveValue('keep me')
       await expect(page.getByTestId('attachment')).toContainText('notes.txt')
     })
+  })
+
+  // The error event of a turn that failed, as the server sends it.
+  const failedTurn = async (page, error) => {
+    await page.route('**/api/chats/c1/events', route => route.fulfill({
+      contentType: 'text/event-stream',
+      body: `event: error\ndata: ${JSON.stringify({ kind: 'error', turn: 1, ...error })}\n\n`,
+    }))
+  }
+  const failed = (over = {}) => ({ running: false, last_turn: 'failed', pending: [], updated: new Date().toISOString(), ...over })
+
+  test('a model without its backend fails with a plain reason, a link to Backends and one banner', async ({ page }) => {
+    const api = newChatsApi(page, failed())
+    await api.install()
+    await failedTurn(page, {
+      text: 'The model "test" could not be started: its backend is not installed. Install the backend, or pick another model.',
+      code: 'model_backend_missing', model: 'test', retry: 8, fatal: true,
+      detail: 'failed to select tool: localai stream: request: Post "[address]": the model could not be loaded: model "test" load is in cooldown after a recent failure; retry after 8s',
+    })
+    await page.goto('/app/chats/c1')
+
+    const banner = page.getByTestId('chat-error')
+    await expect(banner).toBeVisible()
+    await expect(page.getByTestId('chat-error-reason')).toHaveText('The model "test" could not be started: its backend is not installed.')
+    await expect(page.getByTestId('chat-error-hint')).toContainText('Backends page')
+    await expect(page.getByTestId('chat-error-backends')).toHaveAttribute('href', '/app/backends')
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+    // The long text is in the technical detail, cleaned of addresses.
+    await banner.getByText('Technical detail').click()
+    await expect(page.getByTestId('chat-error-detail')).toContainText('load is in cooldown')
+    await expect(page.getByTestId('chat-error-detail')).not.toContainText('studio.invalid')
+    // No second line about the same failure, and no orphan under the composer.
+    await expect(page.getByText('The last turn failed.')).toHaveCount(0)
+    await expect(page.getByTestId('chat-foot').getByRole('status')).toHaveText('')
+    await expect(page.getByRole('alert')).toHaveCount(1)
+    await page.screenshot({ path: process.env.ERRCAUSE_SHOTS ? `${process.env.ERRCAUSE_SHOTS}/backend-missing.png` : 'test-results/backend-missing.png' })
+  })
+
+  test('an upstream that rejects the address names the endpoint and does not blame the backend', async ({ page }) => {
+    const api = newChatsApi(page, failed())
+    await api.install()
+    await failedTurn(page, { text: 'The upstream does not accept this request at that address.', code: 'upstream_path', fatal: true, detail: 'HTTP 405' })
+    await page.goto('/app/chats/c1')
+
+    await expect(page.getByTestId('chat-error-reason')).toHaveText('The upstream does not accept this request at that address.')
+    await expect(page.getByTestId('chat-error-hint')).toContainText('/v1/chat/completions')
+    await expect(page.getByTestId('chat-error')).not.toContainText(/backend/i)
+    await expect(page.getByTestId('chat-error-backends')).toHaveCount(0)
+    await page.screenshot({ path: process.env.ERRCAUSE_SHOTS ? `${process.env.ERRCAUSE_SHOTS}/upstream-path.png` : 'test-results/upstream-path.png' })
+  })
+
+  test('a reload shows a recent failure as one banner without a footer line', async ({ page }) => {
+    const api = newChatsApi(page, failed())
+    await api.install()
+    await page.goto('/app/chats/c1')
+
+    await expect(page.getByTestId('chat-error-reason')).toContainText('stopped because of an error')
+    await expect(page.getByText('The last turn failed.')).toHaveCount(0)
+    await expect(page.getByTestId('chat-error').getByText('Technical detail')).toHaveCount(0)
+  })
+
+  test('a failure from long ago does not show as a banner after a reload', async ({ page }) => {
+    const api = newChatsApi(page, failed({ updated: '2026-10-25T10:00:00Z' }))
+    await api.install()
+    await page.goto('/app/chats/c1')
+
+    await expect(page.getByTestId('chats-page')).toBeVisible()
+    await expect(page.getByTestId('chat-error')).toHaveCount(0)
+    await expect(page.getByText('The last turn failed.')).toHaveCount(0)
   })
 })
 

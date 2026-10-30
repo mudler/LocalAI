@@ -3260,6 +3260,15 @@ definitions:
       before:
         description: Before and After are context sizes in tokens, for compacted.
         type: integer
+      code:
+        description: |-
+          Code, Model, Retry and Detail say why a turn failed (error only). Code
+          is a stable name of the cause, such as model_backend_missing; Model names
+          the model it is about; Retry is the seconds until a model in cooldown
+          loads again; Detail is the error text without addresses and secrets.
+        type: string
+      detail:
+        type: string
       ids:
         description: |-
           IDs names the messages of pending_delivered, the conversation of
@@ -3269,6 +3278,10 @@ definitions:
         type: array
       kind:
         type: string
+      model:
+        type: string
+      retry:
+        type: integer
       text:
         type: string
       tool:

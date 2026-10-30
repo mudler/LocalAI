@@ -225,5 +225,42 @@
     "showAll_other": "Mostrar todas as {{count}} linhas",
     "details": "Mostrar detalhes",
     "openFile": "Abrir {{path}} em Arquivos"
+  },
+  "error": {
+    "title": "A resposta falhou",
+    "kept": "O que foi escrito até agora fica acima.",
+    "retry": "Tentar de novo",
+    "detail": "Detalhe técnico",
+    "reason": {
+      "unknown": "O agente parou por causa de um erro. Tente de novo para executar o turno outra vez.",
+      "model_backend_missing": "Não foi possível iniciar o modelo \"{{model}}\": o backend dele não está instalado.",
+      "model_backend_missing_anon": "Não foi possível iniciar o modelo: o backend dele não está instalado.",
+      "model_cooldown": "O modelo \"{{model}}\" falhou ao iniciar há pouco e está em pausa.",
+      "model_cooldown_anon": "O modelo falhou ao iniciar há pouco e está em pausa.",
+      "model_load_failed": "Não foi possível iniciar o modelo \"{{model}}\".",
+      "model_load_failed_anon": "Não foi possível iniciar o modelo.",
+      "model_not_found": "O modelo \"{{model}}\" não foi encontrado.",
+      "model_not_found_anon": "O modelo não foi encontrado.",
+      "upstream_key": "O upstream recusou a chave.",
+      "upstream_path": "O upstream não aceita esta requisição nesse endereço.",
+      "upstream_unreachable": "Não foi possível alcançar o endereço do upstream.",
+      "upstream": "O provedor por trás do modelo retornou um erro.",
+      "timeout": "O modelo demorou demais para responder.",
+      "cancelled": "O turno foi cancelado antes de o modelo responder."
+    },
+    "hint": {
+      "model_backend_missing": "Escolha outro modelo ou peça a um administrador que instale o backend.",
+      "model_backend_missing_admin": "Escolha outro modelo ou instale o backend pela página Backends.",
+      "model_cooldown": "Tente de novo em {{seconds}} segundos.",
+      "model_load_failed": "Confira a configuração do modelo e o backend dele e tente de novo.",
+      "model_not_found": "Escolha outro modelo ou instale este pela página Modelos.",
+      "upstream_key": "Confira a chave de API nas configurações do modelo.",
+      "upstream_path": "O endereço do upstream deve ser o endpoint completo, por exemplo .../v1/chat/completions.",
+      "upstream_unreachable": "Confira o endereço nas configurações do modelo.",
+      "upstream": "Tente de novo em instantes. Se continuar falhando, confira o endereço e a chave do provedor.",
+      "timeout": "Tente de novo ou use um modelo menor ou mais rápido.",
+      "cancelled": "Tente de novo quando quiser."
+    },
+    "openBackends": "Abrir Backends"
   }
 }

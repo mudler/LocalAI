@@ -22,6 +22,12 @@ var _ = Describe("A model in load cooldown", func() {
 		Expect(code).To(Equal(http.StatusServiceUnavailable))
 		Expect(rec.Header().Get(model.LoadFailedHeader)).To(Equal("true"))
 	})
+	It("names a missing backend as the cause", func() {
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), rec)
+		applyModelLoadCooldown(&model.ModelLoadCooldownError{ModelID: "m", RetryAfter: 20 * time.Second, BackendMissing: true}, http.StatusInternalServerError, c)
+		Expect(rec.Header().Get(model.LoadCauseHeader)).To(Equal(model.LoadCauseBackendMissing))
+	})
 	It("leaves other errors unmarked", func() {
 		rec := httptest.NewRecorder()
 		c := echo.New().NewContext(httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil), rec)

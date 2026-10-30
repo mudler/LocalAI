@@ -220,5 +220,42 @@
     "showAll_other": "Afficher les {{count}} lignes",
     "details": "Afficher les détails",
     "openFile": "Ouvrir {{path}} dans Fichiers"
+  },
+  "error": {
+    "title": "La réponse a échoué",
+    "kept": "Ce qui a été écrit jusqu'ici est conservé ci-dessus.",
+    "retry": "Réessayer",
+    "detail": "Détail technique",
+    "reason": {
+      "unknown": "L'agent s'est arrêté à cause d'une erreur. Réessayez pour relancer le tour.",
+      "model_backend_missing": "Le modèle « {{model}} » n'a pas pu démarrer : son backend n'est pas installé.",
+      "model_backend_missing_anon": "Le modèle n'a pas pu démarrer : son backend n'est pas installé.",
+      "model_cooldown": "Le modèle « {{model}} » a échoué au démarrage il y a un instant et se repose.",
+      "model_cooldown_anon": "Le modèle a échoué au démarrage il y a un instant et se repose.",
+      "model_load_failed": "Le modèle « {{model}} » n'a pas pu démarrer.",
+      "model_load_failed_anon": "Le modèle n'a pas pu démarrer.",
+      "model_not_found": "Le modèle « {{model}} » est introuvable.",
+      "model_not_found_anon": "Le modèle est introuvable.",
+      "upstream_key": "L'upstream a refusé la clé.",
+      "upstream_path": "L'upstream n'accepte pas cette requête à cette adresse.",
+      "upstream_unreachable": "L'adresse de l'upstream est injoignable.",
+      "upstream": "Le fournisseur derrière le modèle a renvoyé une erreur.",
+      "timeout": "Le modèle a mis trop de temps à répondre.",
+      "cancelled": "Le tour a été annulé avant la réponse du modèle."
+    },
+    "hint": {
+      "model_backend_missing": "Choisissez un autre modèle ou demandez à un administrateur d'installer le backend.",
+      "model_backend_missing_admin": "Choisissez un autre modèle ou installez le backend depuis la page Backends.",
+      "model_cooldown": "Réessayez dans {{seconds}} secondes.",
+      "model_load_failed": "Vérifiez la configuration du modèle et son backend, puis réessayez.",
+      "model_not_found": "Choisissez un autre modèle ou installez celui-ci depuis la page Modèles.",
+      "upstream_key": "Vérifiez la clé d'API dans les réglages du modèle.",
+      "upstream_path": "L'adresse de l'upstream doit être le point d'accès complet, par exemple .../v1/chat/completions.",
+      "upstream_unreachable": "Vérifiez l'adresse dans les réglages du modèle.",
+      "upstream": "Réessayez dans un instant. Si l'échec persiste, vérifiez l'adresse et la clé du fournisseur.",
+      "timeout": "Réessayez, ou utilisez un modèle plus petit ou plus rapide.",
+      "cancelled": "Réessayez quand vous voulez."
+    },
+    "openBackends": "Ouvrir Backends"
   }
 }

@@ -61,6 +61,14 @@ type Event struct {
 	// Fatal marks the error that ended the turn (error only). Other errors, such
 	// as a failed save or a recovered tool panic, leave the turn to finish.
 	Fatal bool
+	// Code, Model, Retry and Detail say why the turn failed (fatal error only).
+	// Code is one of the Code* constants, Model names the model when the cause
+	// is about one, Retry is the seconds to wait for a model in cooldown and
+	// Detail is the error text with addresses and secrets removed.
+	Code   string `json:",omitempty"`
+	Model  string `json:",omitempty"`
+	Retry  int    `json:",omitempty"`
+	Detail string `json:",omitempty"`
 	// Before and After are the size of the model's context in tokens, before
 	// and after a compaction (compacted only).
 	Before, After int

@@ -222,5 +222,42 @@
     "showAll_other": "{{count}}줄 모두 보기",
     "details": "세부 정보 보기",
     "openFile": "파일에서 {{path}} 열기"
+  },
+  "error": {
+    "title": "답변에 실패했습니다",
+    "kept": "지금까지 작성된 내용은 위에 그대로 있습니다.",
+    "retry": "다시 시도",
+    "detail": "기술 세부 정보",
+    "reason": {
+      "unknown": "오류로 에이전트가 멈췄습니다. 다시 시도하여 턴을 다시 실행하세요.",
+      "model_backend_missing": "모델 \"{{model}}\"을(를) 시작할 수 없습니다: 백엔드가 설치되어 있지 않습니다.",
+      "model_backend_missing_anon": "모델을 시작할 수 없습니다: 백엔드가 설치되어 있지 않습니다.",
+      "model_cooldown": "모델 \"{{model}}\"이(가) 방금 시작에 실패하여 잠시 쉬는 중입니다.",
+      "model_cooldown_anon": "모델이 방금 시작에 실패하여 잠시 쉬는 중입니다.",
+      "model_load_failed": "모델 \"{{model}}\"을(를) 시작할 수 없습니다.",
+      "model_load_failed_anon": "모델을 시작할 수 없습니다.",
+      "model_not_found": "모델 \"{{model}}\"을(를) 찾을 수 없습니다.",
+      "model_not_found_anon": "모델을 찾을 수 없습니다.",
+      "upstream_key": "업스트림이 키를 거부했습니다.",
+      "upstream_path": "업스트림이 해당 주소에서 이 요청을 받지 않습니다.",
+      "upstream_unreachable": "업스트림 주소에 연결할 수 없습니다.",
+      "upstream": "모델 뒤의 제공자가 오류를 반환했습니다.",
+      "timeout": "모델이 응답하는 데 너무 오래 걸렸습니다.",
+      "cancelled": "모델이 응답하기 전에 턴이 취소되었습니다."
+    },
+    "hint": {
+      "model_backend_missing": "다른 모델을 고르거나 관리자에게 백엔드 설치를 요청하세요.",
+      "model_backend_missing_admin": "다른 모델을 고르거나 백엔드 페이지에서 백엔드를 설치하세요.",
+      "model_cooldown": "{{seconds}}초 후에 다시 시도하세요.",
+      "model_load_failed": "모델 설정과 백엔드를 확인한 뒤 다시 시도하세요.",
+      "model_not_found": "다른 모델을 고르거나 모델 페이지에서 이 모델을 설치하세요.",
+      "upstream_key": "모델 설정에서 API 키를 확인하세요.",
+      "upstream_path": "업스트림 주소는 전체 엔드포인트여야 합니다. 예: .../v1/chat/completions",
+      "upstream_unreachable": "모델 설정에서 주소를 확인하세요.",
+      "upstream": "잠시 후 다시 시도하세요. 계속 실패하면 제공자의 주소와 키를 확인하세요.",
+      "timeout": "다시 시도하거나 더 작거나 빠른 모델을 사용하세요.",
+      "cancelled": "준비되면 다시 시도하세요."
+    },
+    "openBackends": "백엔드 열기"
   }
 }

@@ -52,6 +52,7 @@ import SubAgentsMenu from '../components/chat/SubAgentsMenu'
 import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
+import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
@@ -976,9 +977,13 @@ function ChatPage() {
   }
 
   const status = chat.running ? tc('status.working')
-    : activeId && chat.lastTurn === 'failed' ? tc('status.failed')
-      : activeId && chat.lastTurn === 'interrupted' ? tc('status.interrupted')
-        : activeId && chat.lastTurn === 'stopped' ? tc('status.stopped') : ''
+    : activeId && chat.lastTurn === 'interrupted' ? tc('status.interrupted')
+      : activeId && chat.lastTurn === 'stopped' ? tc('status.stopped') : ''
+  // The failed turn shows as the one banner in the thread, and the footer says
+  // nothing more about it. A failure the server reports without a reason (the
+  // page was reloaded) fades after a day, so an old failure does not look new.
+  const showFailure = Boolean(activeId) && !chat.running && chat.lastTurn === 'failed'
+    && (Boolean(chat.failure) || !isStaleFailure(chat.detail?.updated))
   const placeholder = effectiveModel
     ? (chat.running ? t('input.placeholderQueue') : t('input.placeholderModel', { model: effectiveModel }))
     : (noModel ? t('input.placeholderNoModel') : t('input.placeholderPick'))
@@ -1069,9 +1074,10 @@ function ChatPage() {
                 />
               )}
 
-              {!chat.running && chat.lastTurn === 'failed' && (
+              {showFailure && (
                 <ErrorCard
-                  message={chat.error || tc('status.failed')}
+                  failure={chat.failure}
+                  isAdmin={isAdmin}
                   kept={false}
                   canRetry={!!lastUserText(messages)}
                   onRetry={handleRegenerate}
@@ -1176,7 +1182,7 @@ function ChatPage() {
               sendTestId="chat-send"
             />
             <div className="cx-foot" data-testid="chat-foot">
-              <span role="status" aria-live="polite" data-warn={(activeId && (chat.lastTurn === 'failed' || chat.lastTurn === 'interrupted') && !chat.running) || undefined}>
+              <span role="status" aria-live="polite" data-warn={(activeId && chat.lastTurn === 'interrupted' && !chat.running) || undefined}>
                 {status}
               </span>
               {activeId && meter && (

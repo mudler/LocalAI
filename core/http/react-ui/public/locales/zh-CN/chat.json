@@ -222,5 +222,42 @@
     "showAll_other": "显示全部 {{count}} 行",
     "details": "显示详情",
     "openFile": "在文件中打开 {{path}}"
+  },
+  "error": {
+    "title": "回复失败",
+    "kept": "到目前为止写下的内容保留在上方。",
+    "retry": "重试",
+    "detail": "技术详情",
+    "reason": {
+      "unknown": "智能体因错误而停止。请重试以再次运行该轮。",
+      "model_backend_missing": "无法启动模型“{{model}}”:其后端未安装。",
+      "model_backend_missing_anon": "无法启动模型:其后端未安装。",
+      "model_cooldown": "模型“{{model}}”刚才启动失败,正在冷却。",
+      "model_cooldown_anon": "模型刚才启动失败,正在冷却。",
+      "model_load_failed": "无法启动模型“{{model}}”。",
+      "model_load_failed_anon": "无法启动模型。",
+      "model_not_found": "找不到模型“{{model}}”。",
+      "model_not_found_anon": "找不到该模型。",
+      "upstream_key": "上游拒绝了该密钥。",
+      "upstream_path": "上游在该地址不接受此请求。",
+      "upstream_unreachable": "无法连接到上游地址。",
+      "upstream": "模型背后的提供方返回了错误。",
+      "timeout": "模型响应时间过长。",
+      "cancelled": "在模型回答之前,该轮已被取消。"
+    },
+    "hint": {
+      "model_backend_missing": "请选择其他模型,或请管理员安装该后端。",
+      "model_backend_missing_admin": "请选择其他模型,或在“后端”页面安装该后端。",
+      "model_cooldown": "请在 {{seconds}} 秒后重试。",
+      "model_load_failed": "请检查模型的配置及其后端,然后重试。",
+      "model_not_found": "请选择其他模型,或在“模型”页面安装此模型。",
+      "upstream_key": "请检查模型设置中的 API 密钥。",
+      "upstream_path": "上游地址必须是完整的端点,例如 .../v1/chat/completions。",
+      "upstream_unreachable": "请检查模型设置中的地址。",
+      "upstream": "请稍后重试。如果持续失败,请检查提供方的地址和密钥。",
+      "timeout": "请重试,或使用更小或更快的模型。",
+      "cancelled": "准备好后请重试。"
+    },
+    "openBackends": "打开后端"
   }
 }
