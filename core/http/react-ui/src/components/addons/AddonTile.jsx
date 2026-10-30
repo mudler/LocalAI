@@ -11,7 +11,7 @@ import { addedByAddon } from './addonState'
 // body selects the add-on (its preview opens); a running add-on with a page
 // also has an Open link. Pinning, reordering, details and removal sit in the
 // overflow menu, so nothing on the card is a bare icon.
-export default function AddonTile({ tile, pinned, selected = false, onPin, onMove, onOpenDetail, onRemove }) {
+export default function AddonTile({ tile, pinned, selected = false, onPin, onMove, onOpenDetail, onRemove, upgrade }) {
   const { t } = useTranslation('addons')
   const { t: tn } = useTranslation('nav')
   const title = tile.titleKey ? tn(tile.titleKey) : tile.title
@@ -53,6 +53,7 @@ export default function AddonTile({ tile, pinned, selected = false, onPin, onMov
           onRemove={onRemove && tile.app ? () => onRemove(tile) : undefined}
         />
       </div>
+      {upgrade && <div className="ad-tile__upgrade" data-testid="tile-upgrade">{upgrade}</div>}
       {tile.target && (
         <div className="ad-tile__foot">
           <Link className="dk-btn dk-btn--sm" to={tile.target} aria-label={t('card.openNamed', { name: title })}>

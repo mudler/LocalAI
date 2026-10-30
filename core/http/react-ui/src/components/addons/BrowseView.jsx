@@ -12,6 +12,9 @@ import { addedByEntry } from './addonState'
 import { updateView } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
+import { useAddonUpgrade } from './useAddonUpgrade'
+import { AddonUpgradeAction, UpgradeConfirm } from './UpgradeControls'
+import { UpdateBadge } from '../upgrade/UpgradeBits'
 
 // Library entries for this host. An add-on entry has one button, Install and
 // turn on: one confirmation, then the install and the turn on run one after
@@ -45,6 +48,8 @@ export default function BrowseView({ api, adapter }) {
 
   const actions = useAddonActions(api, { onSettled: () => setReload(n => n + 1), adapter })
 
+  const upgrade = useAddonUpgrade(api, actions, { onChecked: () => setReload(n => n + 1) })
+
   const openInstall = (entry) => setDialog(entry)
 
   const renderEntry = (entry) => {
@@ -71,8 +76,13 @@ export default function BrowseView({ api, adapter }) {
             {adds.page && <Fact icon="file"><span data-testid="entry-adds">{t('card.addsPage')}</span></Fact>}
             {adds.tools > 0 && <Fact icon="wrench"><span data-testid="entry-tools">{t('card.addsTools', { count: adds.tools })}</span></Fact>}
             {have && <Fact icon="check-circle" tone="ok">{have.version === entry.version ? t('browse.installedSame', { version: have.version }) : t('browse.installedOther', { version: have.version })}</Fact>}
-            {have && updateView(have.update).state === 'update-available' && <Fact icon="arrow-up" tone="warn">{t('updates.badge.available', { version: updateView(have.update).version })}</Fact>}
+            {have && updateView(have.update).state === 'update-available' && <UpdateBadge version={updateView(have.update).version} />}
           </div>
+          {have && updateView(have.update).state === 'update-available' && (
+            <div className="ad-entry__upgrade" data-testid="entry-upgrade">
+              <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} working={pending || actions.state[`upgrade:${have.id}:${have.generation}`]?.phase === 'working'} />
+            </div>
+          )}
           <EntryFacts entry={entry} have={have} />
           {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
           {!pending && !(dialog && dialog.key === entry.key) && <FlowStatus flow={flow} name={entry.title} onRetry={flow?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on' }) : undefined} />}
@@ -107,6 +117,7 @@ export default function BrowseView({ api, adapter }) {
         emptyTitle={t('browse.emptyTitle')}
         emptyText={t('browse.emptyBody')}
       />
+      <UpgradeConfirm upgrade={upgrade} />
       <InstallDialog entry={dialog} flow={dialog ? actions.flows[`flow:${dialog.key}`] : undefined} actions={actions} onClose={() => setDialog(null)} />
     </>
   )

@@ -592,6 +592,16 @@
       "denied": "Das kann nur ein Administrator in der eigenen Browsersitzung tun.",
       "network": "Das Netzwerk ist nicht erreichbar.",
       "unavailable": "Der Add-on-Eigentümer ist nicht verfügbar. Bitte erneut versuchen."
+    },
+    "upgradeNamed": "{{name}} aktualisieren",
+    "why": {
+      "role": "Ein Update ist verfügbar. Nur ein Administrator kann es installieren.",
+      "needs-check": "Ein Update wird gemeldet, aber die Details sind noch nicht bestätigt. Prüfen Sie erneut, um es zu bestätigen.",
+      "check-failed": "Die letzte Prüfung ist fehlgeschlagen, das Update kann nicht bestätigt werden. Erneut prüfen.",
+      "incompatible": "Ein Update existiert, läuft hier aber nicht:",
+      "integrity": "Die Bibliothek listet diese Version mit anderem Inhalt. Sie wird nicht als Update angeboten.",
+      "recovery": "Die Daten dieses Add-ons müssen zuerst wiederhergestellt werden. Stellen Sie in den Details ein Backup wieder her und aktualisieren Sie dann.",
+      "current": "Die letzte Prüfung hat kein Update gefunden. Der Hinweis ist möglicherweise veraltet. Erneut prüfen."
     }
   },
   "install": {

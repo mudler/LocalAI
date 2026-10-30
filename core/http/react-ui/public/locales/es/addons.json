@@ -592,6 +592,16 @@
       "denied": "Solo un administrador puede hacerlo desde su propia sesión del navegador.",
       "network": "No se puede acceder a la red.",
       "unavailable": "El propietario del complemento no está disponible. Inténtalo de nuevo."
+    },
+    "upgradeNamed": "Actualizar {{name}}",
+    "why": {
+      "role": "Hay una actualización disponible. Solo un administrador puede instalarla.",
+      "needs-check": "Se informa de una actualización, pero sus detalles aún no están confirmados. Compruebe de nuevo para confirmarla.",
+      "check-failed": "La última comprobación falló, así que no se puede confirmar la actualización. Compruebe de nuevo.",
+      "incompatible": "Existe una actualización, pero no puede ejecutarse aquí:",
+      "integrity": "La biblioteca lista esta versión con contenido distinto. No se ofrece como actualización.",
+      "recovery": "Los datos de este complemento necesitan recuperación primero. Restaure una copia en Detalles y luego actualice.",
+      "current": "La última comprobación no encontró actualizaciones. El aviso puede estar desfasado. Compruebe de nuevo."
     }
   },
   "install": {

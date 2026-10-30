@@ -6,6 +6,9 @@ import { formatBytes, rangeText, shortDigest } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { updateView, formatWhen, UPDATE_TYPES } from './updateState'
 import RecoveryPanel from './RecoveryPanel'
+import { reasonText } from './UpgradeControls'
+import { UpgradeReason } from '../upgrade/UpgradeBits'
+import { upgradeAvailability } from './updateState'
 
 // What an administrator needs to run an add-on, shown in the preview pane under
 // Details: health, trust, compatibility, storage, data recovery and updates.
@@ -92,7 +95,7 @@ function latest(actions, addon, verbs) {
 
 // The words for the outcome of an action. A typed refusal of the update
 // routes has its own words; everything else is the shared description.
-function outcomeText(result, t) {
+export function outcomeText(result, t) {
   const type = result && result.error && result.error.type
   if (type && UPDATE_TYPES.has(type)) return t(`updates.errors.${type}`)
   return describeOutcome(result.outcome, t, result.error)
@@ -112,6 +115,7 @@ function UpdatePanel({ addon, t, language, actions, check, upgraded, working, on
       <p data-testid="update-state" data-state={view.state} className={view.state === 'check-failed' || view.state === 'integrity-error' ? 'ad-entry__note' : undefined} data-tone={view.tone === 'error' ? 'error' : undefined}>
         {t(`updates.state.${view.state}`, { version: view.version })}
       </p>
+      {!view.canUpgrade && <UpgradeReason text={reasonText(upgradeAvailability(addon, { isAdmin: true }), t)} testId="update-why" />}
       <dl className="dk-kv ad-kv">
         <dt>{t('updates.installed')}</dt>
         <dd>{addon.version} <span className="dk-mono ad-wrap" title={addon.digest}>{shortDigest(addon.digest)}</span></dd>
@@ -153,23 +157,5 @@ function UpdatePanel({ addon, t, language, actions, check, upgraded, working, on
         )}
       </div>
     </>
-  )
-}
-
-// What the confirmation shows before an upgrade: which library and channel,
-// which version and digest goes to which, and that the data is backed up.
-export function UpgradeSummary({ addon, t }) {
-  const view = updateView(addon.update)
-  return (
-    <div data-testid="upgrade-confirm">
-      <dl className="dk-kv ad-kv">
-        <dt>{t('updates.confirm.library')}</dt><dd>{addon.sourceId || '—'}</dd>
-        <dt>{t('updates.confirm.channel')}</dt><dd>{addon.channel || addon.selection || '—'}</dd>
-        <dt>{t('updates.confirm.from')}</dt><dd>{addon.version} <span className="dk-mono">{shortDigest(addon.digest)}</span></dd>
-        <dt>{t('updates.confirm.to')}</dt><dd>{view.version} <span className="dk-mono">{shortDigest(view.digest)}</span></dd>
-      </dl>
-      <p>{t('updates.confirm.body')}</p>
-      <p>{t('updates.confirm.data')}</p>
-    </div>
   )
 }
