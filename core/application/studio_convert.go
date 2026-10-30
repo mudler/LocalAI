@@ -75,10 +75,7 @@ func (a *Application) ConvertStudioData() {
 	}
 	a.studioConvertMu.Lock()
 	defer a.studioConvertMu.Unlock()
-	ctx := a.applicationConfig.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx := a.backgroundContext()
 	zone, note := convert.LocalZone()
 	// The previous release kept the pool, the skills and the connectors in the
 	// state directory, else in the data path, else in the configuration folder.

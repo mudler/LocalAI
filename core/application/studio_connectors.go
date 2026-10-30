@@ -94,10 +94,7 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 		return
 	}
 	svc.SetConnectors(c)
-	ctx := a.applicationConfig.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx := a.backgroundContext()
 	ctx, cancel := context.WithCancel(ctx)
 	a.studioConnectors, a.studioConnectorsStop = c, cancel
 	a.studioConnectorsHook.Store(c)

@@ -202,10 +202,7 @@ const (
 // frontends are alive, so only turns that stopped beating are reaped, by the one
 // frontend that holds the advisory lock at each tick.
 func (a *Application) startStudioReaper(svc *studio.Service) {
-	ctx := a.applicationConfig.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx := a.backgroundContext()
 	reap := func(olderThan time.Duration) {
 		n, err := svc.ReapStale(ctx, olderThan)
 		if err != nil {
@@ -465,10 +462,7 @@ const studioEgressPruneEvery = 24 * time.Hour
 // start and then daily. With a database one frontend does it at each tick,
 // under an advisory lock; a standalone process does it alone.
 func (a *Application) startStudioEgressPrune(svc *studio.Service) {
-	ctx := a.applicationConfig.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx := a.backgroundContext()
 	prune := func() {
 		n, err := svc.PruneEgressAudit(ctx)
 		if err != nil {
@@ -564,4 +558,14 @@ func (a *Application) studioPageConsents() pages.ConsentStore {
 		st, _ = pages.NewJSONConsents("")
 	}
 	return st
+}
+
+// backgroundContext is the context of the background loops of the
+// application: the one of the configuration, or Background when the caller
+// gave none.
+func (a *Application) backgroundContext() context.Context {
+	if ctx := a.applicationConfig.Context; ctx != nil {
+		return ctx
+	}
+	return context.Background()
 }

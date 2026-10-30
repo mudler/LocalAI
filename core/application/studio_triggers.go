@@ -62,10 +62,7 @@ func (a *Application) startStudioTriggers(svc *studio.Service) {
 		return
 	}
 	svc.SetTriggers(host)
-	ctx := a.applicationConfig.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	ctx := a.backgroundContext()
 	ctx, cancel := context.WithCancel(ctx)
 	a.studioTriggers, a.studioTriggersStop = host, cancel
 	go host.Run(ctx)
