@@ -21,18 +21,6 @@ export default function NetworkConsentCard({ card, chatId, egress }) {
   if (!card?.id) return null
   const target = hostPort(card)
 
-  if (card.state !== 'pending') {
-    const when = card.answered_at ? new Date(card.answered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
-    const state = t(`egress.card.${cardStateKey(card)}`)
-    const who = card.answered_by ? (card.answered_by === user?.id ? t('egress.consent.you') : card.answered_by) : ''
-    return (
-      <p className="chat-network-card__line" data-testid="chat-network-card-line" data-state={card.state}>
-        <code className="chat-network__host">{target}</code>{' '}
-        {who ? t('egress.consent.answered', { state, who, time: when }) : t('egress.consent.answeredNoWho', { state, time: when })}
-      </p>
-    )
-  }
-
   const answer = async (decision) => {
     setBusy(decision)
     setError('')
@@ -44,6 +32,25 @@ export default function NetworkConsentCard({ card, chatId, egress }) {
     }
   }
   const answers = cardAnswers(card, isAdmin)
+
+  if (card.state !== 'pending') {
+    const when = card.answered_at ? new Date(card.answered_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+    const state = t(`egress.card.${cardStateKey(card)}`)
+    const who = card.answered_by ? (card.answered_by === user?.id ? t('egress.consent.you') : card.answered_by) : ''
+    return (
+      <div data-testid="chat-network-card-answered" data-state={card.state}>
+        <p className="chat-network-card__line" data-testid="chat-network-card-line" data-state={card.state}>
+          <code className="chat-network__host">{target}</code>{' '}
+          {who ? t('egress.consent.answered', { state, who, time: when }) : t('egress.consent.answeredNoWho', { state, time: when })}
+        </p>
+        {/* A card that expired with its turn can still be answered: the
+            answer serves the next command. */}
+        {answers.length > 0 && <CardAnswerButtons answers={answers} busy={busy} onAnswer={answer} testId="chat-network-late" />}
+        {error && <p className="cmd-consent__error" role="alert">{error}</p>}
+      </div>
+    )
+  }
+
   return (
     <Callout
       tone="warn"
@@ -52,13 +59,7 @@ export default function NetworkConsentCard({ card, chatId, egress }) {
       role="alertdialog"
       title={t('egress.consent.title')}
       testId="chat-network-consent"
-      actions={(
-        <>
-          {answers.includes('once') && <Button size="sm" variant="primary" disabled={!!busy} onClick={() => answer('once')} data-testid="chat-network-consent-once">{t('egress.consent.once')}</Button>}
-          {answers.includes('chat') && <Button size="sm" disabled={!!busy} onClick={() => answer('chat')} data-testid="chat-network-consent-chat">{t('egress.consent.chat')}</Button>}
-          <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => answer('deny')} data-testid="chat-network-consent-deny">{t('egress.consent.deny')}</Button>
-        </>
-      )}
+      actions={<CardAnswerButtons answers={answers} busy={busy} onAnswer={answer} testId="chat-network-consent" primary />}
     >
       <p>{t('egress.consent.body')} <code className="chat-network__host" data-testid="chat-network-consent-host">{target}</code></p>
       {egress && (
@@ -69,5 +70,20 @@ export default function NetworkConsentCard({ card, chatId, egress }) {
       {card.private && !isAdmin && <p className="cmd-consent__hint" data-testid="chat-network-consent-admin">{t('egress.consent.adminOnly')}</p>}
       {error && <p className="cmd-consent__error" role="alert">{error}</p>}
     </Callout>
+  )
+}
+
+// The answer buttons of a network card: Allow once, Allow for this chat and
+// Deny, as far as the person may give them. primary marks Allow once as the
+// main action (the waiting card); a late answer to an expired card keeps
+// every button quiet.
+export function CardAnswerButtons({ answers, busy, onAnswer, testId, primary = false }) {
+  const { t } = useTranslation('chats')
+  return (
+    <>
+      {answers.includes('once') && <Button size="sm" variant={primary ? 'primary' : undefined} disabled={!!busy} onClick={() => onAnswer('once')} data-testid={`${testId}-once`}>{t('egress.consent.once')}</Button>}
+      {answers.includes('chat') && <Button size="sm" disabled={!!busy} onClick={() => onAnswer('chat')} data-testid={`${testId}-chat`}>{t('egress.consent.chat')}</Button>}
+      {answers.includes('deny') && <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => onAnswer('deny')} data-testid={`${testId}-deny`}>{t('egress.consent.deny')}</Button>}
+    </>
   )
 }

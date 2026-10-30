@@ -125,6 +125,27 @@ test.describe('Network of the Sandbox commands', () => {
     await expect(line).toContainText('files.pythonhosted.org:443', { timeout: 15_000 })
     await expect(line).toContainText('Allowed once by admin')
   })
+
+  test('a card that expired with its turn can still be answered, under its call and in the network panel', async ({ page }) => {
+    const card = { id: 'k3', host: 'pypi.org', port: 443, kind: 'connect', state: 'expired', tool_seq: 2, asked_at: '2026-10-30T10:01:00Z' }
+    const messages = [
+      { seq: 1, turn: 1, role: 'user', text: 'install requests', at: '2026-10-30T10:00:00Z' },
+      { seq: 2, turn: 1, role: 'tool', text: 'bash: pip install requests\nconnection refused', at: '2026-10-30T10:01:40Z', card: { kind: 'provider', id: 'sandbox' } },
+      { seq: 3, turn: 1, role: 'assistant', text: 'The network is off.', at: '2026-10-30T10:01:50Z' },
+    ]
+    const { state } = await stubChat(page, { egress: view({ preset: 'registries', effective: 'registries', cards: [card] }), messages })
+    await page.goto('/app/chats/c1')
+    const line = page.getByTestId('chat-network-card-line')
+    await expect(line).toContainText('Not answered', { timeout: 15_000 })
+    await page.getByTestId('chat-network-late-chat').click()
+    await expect.poll(() => state.answers).toEqual([{ id: 'k3', decision: 'chat' }])
+
+    await page.getByTestId('chat-tools-button').click()
+    await page.getByTestId('chat-network-panel-toggle').click()
+    await page.getByTestId('chat-network-card-k3-deny').click()
+    await expect.poll(() => state.answers).toEqual([{ id: 'k3', decision: 'chat' }, { id: 'k3', decision: 'deny' }])
+    await shot(page, 'network-card-expired')
+  })
 })
 
 test.describe('Settings > Tools > Sandbox network', () => {

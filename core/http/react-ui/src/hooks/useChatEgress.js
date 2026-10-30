@@ -4,8 +4,8 @@ import { chatEgressApi } from '../utils/api'
 const empty = { preset: 'off', ceiling: 'off', effective: 'off', applies: false, applies_reason: '', registries: [], rules: [], cards: [] }
 
 // The network of a chat's Sandbox commands (GET /api/chats/{id}/egress), read
-// again when tick changes (an egress_consent or egress_card event). setPreset
-// and removeRule change it on the server and keep the answer.
+// again when tick changes (an egress_consent or egress_card event). setPreset,
+// removeRule and answer change it on the server and keep the answer.
 export function useChatEgress(chatId, tick) {
   const [state, setState] = useState(empty)
   const [loaded, setLoaded] = useState(false)
@@ -40,5 +40,18 @@ export function useChatEgress(chatId, tick) {
     }
   }, [chatId])
 
-  return { ...state, loaded, error, setPreset, removeRule }
+  // answer answers a card (an expired one too) and reads the state again: an
+  // answer may add a rule.
+  const answer = useCallback(async (id, decision) => {
+    setError('')
+    try {
+      await chatEgressApi.consent(chatId, id, decision)
+      const res = await chatEgressApi.get(chatId)
+      setState({ ...empty, ...res })
+    } catch (e) {
+      setError(e.message || 'error')
+    }
+  }, [chatId])
+
+  return { ...state, loaded, error, setPreset, removeRule, answer }
 }

@@ -2,7 +2,9 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
-import { cardStateKey, hostPort, networkMode, presetChoices, sortedCards } from '../../utils/chatEgress'
+import { useAuth } from '../../context/AuthContext'
+import { cardAnswers, cardStateKey, hostPort, networkMode, presetChoices, sortedCards } from '../../utils/chatEgress'
+import { CardAnswerButtons } from './NetworkConsentCard'
 import './network.css'
 
 // The Network row of the chat's Tools menu: how much of the network the
@@ -53,6 +55,7 @@ export default function NetworkRow({ egress }) {
 // The rules of the chat with a remove button each, and its cards.
 function NetworkPanel({ egress }) {
   const { t } = useTranslation('chats')
+  const { isAdmin } = useAuth()
   return (
     <div className="chat-network__panel" data-testid="chat-network-panel">
       {egress.rules.length > 0 && (
@@ -77,6 +80,9 @@ function NetworkPanel({ egress }) {
             <li key={c.id} className="chat-network__item" data-testid="chat-network-card" data-state={c.state}>
               <code className="chat-network__host">{hostPort(c)}</code>
               <span className="chat-network__state">{t(`egress.card.${cardStateKey(c)}`)}</span>
+              {c.state === 'expired' && cardAnswers(c, isAdmin).length > 0 && (
+                <CardAnswerButtons answers={cardAnswers(c, isAdmin)} busy="" onAnswer={(d) => egress.answer(c.id, d)} testId={`chat-network-card-${c.id}`} />
+              )}
             </li>
           ))}
         </ul>
