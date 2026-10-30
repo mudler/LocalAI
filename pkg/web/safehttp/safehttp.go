@@ -18,7 +18,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/httpclient"
@@ -45,7 +44,10 @@ type Policy struct {
 	// stay blocked.
 	AllowPrivate bool
 	// Ports are the ports a URL may name. Empty means 80 and 443.
-	Ports        []int
+	Ports []int
+	// DenyAddrs lists addresses refused even when public (the addresses of
+	// this server, see SelfAddrs). Nil refuses none.
+	DenyAddrs    func() []netip.Prefix
 	MaxURLBytes  int
 	MaxRedirects int
 	MaxBodyBytes int64
@@ -92,27 +94,23 @@ type Resolver interface {
 // Client fetches URLs under a Policy. It keeps no cookies and sends no
 // credentials. It is safe for concurrent use.
 type Client struct {
-	p        Policy
-	resolver Resolver
-	hc       *http.Client
-	// allowed decides an address. Tests replace it to treat the loopback
-	// address of an httptest server as public.
-	allowed func(netip.Addr) bool
+	p  Policy
+	g  *Guard
+	hc *http.Client
 }
 
 // New returns a client. A nil resolver uses net.DefaultResolver.
 func New(p Policy, r Resolver) *Client {
 	p = p.withDefaults()
-	if r == nil {
-		r = net.DefaultResolver
-	}
-	c := &Client{p: p, resolver: r}
-	c.allowed = func(a netip.Addr) bool { return Allowed(a, p.AllowPrivate) }
-	dialer := &net.Dialer{Timeout: 10 * time.Second, Control: c.control}
+	c := &Client{p: p, g: NewGuard(GuardPolicy{AllowPrivate: p.AllowPrivate, Ports: p.Ports, DenyAddrs: p.DenyAddrs}, r)}
 	tr := &http.Transport{
 		// No proxy: a proxy would resolve the name again, after the check.
-		Proxy:                  nil,
-		DialContext:            c.dial(dialer),
+		Proxy: nil,
+		// The guard's dial: resolve once, check every answer, connect to the
+		// checked address.
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return c.g.DialContext(ctx, network, addr)
+		},
 		ForceAttemptHTTP2:      true,
 		MaxIdleConns:           16,
 		IdleConnTimeout:        30 * time.Second,
@@ -275,8 +273,7 @@ func (c *Client) CheckURL(raw string) (*url.URL, error) {
 	if u.Opaque != "" {
 		return nil, ErrURL
 	}
-	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
-	if host == "" {
+	if u.Hostname() == "" {
 		return nil, fmt.Errorf("%w: it has no host", ErrURL)
 	}
 	port := 80
@@ -290,38 +287,11 @@ func (c *Client) CheckURL(raw string) (*url.URL, error) {
 		}
 		port = n
 	}
-	if !c.portAllowed(port) {
-		return nil, fmt.Errorf("%w: %d", ErrPort, port)
-	}
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		if !c.p.AllowPrivate {
-			return nil, ErrBlockedAddress
-		}
-	}
-	if strings.Contains(host, "%") {
-		return nil, fmt.Errorf("%w: an address zone is not allowed", ErrURL)
-	}
-	if addr, err := netip.ParseAddr(host); err == nil {
-		if !c.allowed(addr) {
-			return nil, ErrBlockedAddress
-		}
-	} else if strings.Contains(host, ":") || looksNumeric(host) {
-		// 2130706433, 0x7f.1, 017700000001 and 127.1 are loopback to some
-		// resolvers and names to others. A URL that means an address must
-		// write it as a canonical dotted quad.
-		return nil, fmt.Errorf("%w: write an IP address as four decimal numbers", ErrURL)
+	if _, err := c.g.CheckHost(u.Hostname(), port); err != nil {
+		return nil, err
 	}
 	u.Fragment, u.RawFragment = "", ""
 	return u, nil
-}
-
-func (c *Client) portAllowed(port int) bool {
-	for _, p := range c.p.Ports {
-		if p == port {
-			return true
-		}
-	}
-	return false
 }
 
 // looksNumeric says whether the last label of host is a number in any base,
@@ -408,54 +378,4 @@ func isZero(b []byte) bool {
 		}
 	}
 	return true
-}
-
-// dial resolves the host once, refuses the connection when any address is
-// not allowed, and connects to the checked addresses only.
-func (c *Client) dial(d *net.Dialer) func(ctx context.Context, network, addr string) (net.Conn, error) {
-	return func(ctx context.Context, network, addr string) (net.Conn, error) {
-		host, port, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, ErrURL
-		}
-		var addrs []netip.Addr
-		if lit, err := netip.ParseAddr(host); err == nil {
-			addrs = []netip.Addr{lit}
-		} else {
-			addrs, err = c.resolver.LookupNetIP(ctx, "ip", host)
-			if err != nil {
-				return nil, err
-			}
-		}
-		if len(addrs) == 0 {
-			return nil, fmt.Errorf("%w: the host name does not resolve", ErrURL)
-		}
-		for _, a := range addrs {
-			if !c.allowed(a) {
-				return nil, ErrBlockedAddress
-			}
-		}
-		var last error
-		for _, a := range addrs {
-			conn, err := d.DialContext(ctx, network, net.JoinHostPort(a.Unmap().String(), port))
-			if err == nil {
-				return conn, nil
-			}
-			last = err
-			if ctx.Err() != nil {
-				break
-			}
-		}
-		return nil, last
-	}
-}
-
-// control checks the address of the socket right before connect, so nothing
-// between the check and the connection can change it.
-func (c *Client) control(_, address string, _ syscall.RawConn) error {
-	ap, err := netip.ParseAddrPort(address)
-	if err != nil || !c.allowed(ap.Addr()) {
-		return ErrBlockedAddress
-	}
-	return nil
 }

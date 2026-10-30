@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -26,13 +28,30 @@ const webSettingsHint = "an administrator can set a SearXNG instance in Settings
 // memory of this process: in a cluster each frontend has its own.
 type studioWeb struct {
 	cfg *config.ApplicationConfig
+	// self lists the addresses of this server, which web_fetch never reaches.
+	self func() []netip.Prefix
 
 	mu    sync.Mutex
 	key   string
 	tools webtools.Tools
 }
 
-func newStudioWeb(cfg *config.ApplicationConfig) *studioWeb { return &studioWeb{cfg: cfg} }
+func newStudioWeb(cfg *config.ApplicationConfig) *studioWeb {
+	return &studioWeb{cfg: cfg, self: selfAddrs(cfg)}
+}
+
+// selfAddrs lists the addresses of this server: its interfaces, loopback and
+// the host of the external base URL. A model's request must not reach the
+// server's own API through any of them.
+func selfAddrs(cfg *config.ApplicationConfig) func() []netip.Prefix {
+	return safehttp.SelfAddrs(func() []string {
+		u, err := url.Parse(strings.TrimSpace(cfg.ExternalBaseURL))
+		if err != nil || u.Hostname() == "" {
+			return nil
+		}
+		return []string{u.Hostname()}
+	})
+}
 
 // Enabled implements studio.WebTools.
 func (w *studioWeb) Enabled(name string) bool {
@@ -63,6 +82,7 @@ func (w *studioWeb) current() webtools.Tools {
 	client := safehttp.New(safehttp.Policy{
 		AllowPrivate: w.cfg.ChatsWebAllowPrivate,
 		Ports:        ports,
+		DenyAddrs:    w.self,
 		UserAgent:    "LocalAI/" + internal.PrintableVersion() + " (web_fetch; +https://localai.io)",
 	}, nil)
 	var provider search.Provider

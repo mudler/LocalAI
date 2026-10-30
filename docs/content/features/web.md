@@ -104,12 +104,20 @@ public internet:
   such as `127.1`;
 - URLs with a user name or password, and schemes other than `http` and
   `https`;
-- ports other than 80 and 443.
+- ports other than 80 and 443;
+- the addresses of the server itself: the address of each of its network
+  interfaces, the whole loopback range and the host of the external base URL.
+  A server that listens on all addresses is reachable through its public
+  address too, so this refusal applies even when the address is public and
+  even when `chats_web_allow_private` is on.
 
 The checks run for the first URL and for every redirect. The connection goes
 to the address that was checked, so a second DNS answer cannot move it to an
 internal host. `web_fetch` does not use a proxy for the same reason, also when
 `HTTP_PROXY` is set.
+
+The same guard checks the network requests of commands in the Sandbox, see
+[Network access]({{% relref "features/addons#network-access" %}}).
 
 ## Settings
 
@@ -121,7 +129,7 @@ They apply at the next turn of every chat.
 | `chats_web_search` | on | Offer `web_search`. |
 | `chats_web_fetch` | on | Offer `web_fetch`. |
 | `chats_web_searxng_url` | empty | Search with this SearXNG instance, for example `https://searx.example.org`. Empty: DuckDuckGo. |
-| `chats_web_allow_private` | off | Let `web_fetch` reach addresses inside your network. The cloud metadata addresses stay refused. |
+| `chats_web_allow_private` | off | Let `web_fetch` reach addresses inside your network. The cloud metadata addresses and the addresses of the server itself stay refused. |
 | `chats_web_ports` | `80,443` | The ports `web_fetch` may use, comma separated. |
 
 Turn `chats_web_allow_private` on only if you trust every user of chats: a user
