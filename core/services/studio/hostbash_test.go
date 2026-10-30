@@ -193,6 +193,36 @@ var _ = Describe("the built-in bash on this machine", func() {
 			Expect(c.h.TurnPrompt(id)).To(ContainSubstring("waits for the user's yes"))
 		})
 
+		It("keeps the card with the chat while it waits, so a reload shows it, and clears it after the answer", func() {
+			c := newHostChat("ask", nil)
+			id := create(c.svc, alice)
+			events, cancel, err := c.svc.Events(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			defer cancel()
+			sent(c.svc, alice, id, "run")
+			var cardID string
+			Eventually(func() string {
+				select {
+				case ev := <-events:
+					if ev.Kind == session.KindHostExecConsent {
+						cardID = ev.IDs[0]
+					}
+				case <-time.After(50 * time.Millisecond):
+				}
+				return cardID
+			}, 20*time.Second).ShouldNot(BeEmpty())
+			// A reader that did not see the event (a reload, another frontend) finds the card in the record.
+			rec, err := c.svc.Get(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.HostConsent).To(Equal(&session.HostConsent{ID: cardID, Command: "ls"}))
+			Expect(c.svc.HostExecDecide(context.Background(), alice, id, cardID, studio.HostExecOnce)).To(Succeed())
+			idle(c.svc, alice, id)
+			rec, err = c.svc.Get(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.HostConsent).To(BeNil())
+			Expect(toolOf(c.svc, alice, id).ID).To(Equal("once"), "an answered card stays answered on the tool line")
+		})
+
 		It("runs nothing when the person refuses", func() {
 			c := newHostChat("ask", nil)
 			id := create(c.svc, alice)

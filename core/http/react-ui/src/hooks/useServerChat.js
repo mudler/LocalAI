@@ -173,6 +173,8 @@ export function useServerChat() {
       tool_start: (e) => { newRequest(); setLive(l => ({ ...toolStart(l, e.tool), phase: 'tool' })) },
       tool_end: (e) => {
         setLive(l => ({ ...toolEnd(l, e.tool), phase: 'after-tool' }))
+        // The call ended, so a card kept with the chat is answered.
+        setDetail(d => (d?.host_consent ? { ...d, host_consent: undefined } : d))
         if (!liveCardWanted(e.tool)) return
         // The event holds the reference of the app only. The line of the call has
         // the input and the result: read that one line, then show the app.
@@ -361,6 +363,9 @@ export function useServerChat() {
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],
+    // The command that waits for a yes, as the server keeps it with the chat: a
+    // reload shows the card again. Null when none waits.
+    hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
     select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, update, regenerate, editMessage, refreshList,
     clearError: () => setError(''),
   }

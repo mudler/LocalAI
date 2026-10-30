@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -54,8 +55,9 @@ type HostExecDecision struct {
 // person who sent it may not allow commands on this machine.
 var ErrHostExecDecision = errors.New("studio: only an administrator can allow commands on this machine")
 
-// hostExecWait is how long a command waits for the card. A reload loses the
-// card; the call then ends with "no answer".
+// hostExecWait is how long a command waits for the card. The card is kept with
+// the chat, so a reload shows it again; the call ends with "no answer" when
+// nobody answers in time.
 var hostExecWait = 5 * time.Minute
 
 func (s *Service) hostExecMode() string {
@@ -179,6 +181,10 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 	if len(command) > 2000 {
 		command = strings.ToValidUTF8(command[:2000], "") + "..."
 	}
+	// The card is kept with the chat while it waits, so a reload, or another
+	// frontend, shows it again and can answer it.
+	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command})
+	defer s.setHostConsent(context.WithoutCancel(ctx), a, nil)
 	s.bus.Publish(k, session.Event{Kind: session.KindHostExecConsent, IDs: []string{id}, Text: command})
 	t := time.NewTimer(hostExecWait)
 	defer t.Stop()
@@ -189,6 +195,14 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 		return "timeout"
 	case <-ctx.Done():
 		return "stopped"
+	}
+}
+
+// setHostConsent stores or clears the card that waits. A failure only costs
+// the card after a reload; the live card still works.
+func (s *Service) setHostConsent(ctx context.Context, a workspace.Actor, c *session.HostConsent) {
+	if err := s.d.Store.SetHostConsent(ctx, a.Principal, a.ChatID, c); err != nil {
+		slog.Warn("Chats: could not keep the consent card with the chat", "chat", a.ChatID, "error", err)
 	}
 }
 

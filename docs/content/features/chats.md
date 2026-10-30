@@ -520,8 +520,11 @@ mode the chat shows a card under the running call: "Run this command on this
 machine?", the command, and **Run once**, **Always on this instance** (saves
 `chats_host_exec: on`) and **Don't run**. A person who is not an administrator
 can only refuse it. The card lives as long as the call waits, at most 5
-minutes; after a reload the call ends with "no answer". The answer is sent
-with:
+minutes. The server keeps it with the chat, so a reload, or another browser
+or frontend, shows it again and it can still be answered; once the call ends
+the card is gone and the call's line says how it ended. `GET /api/chats/{id}`
+carries the waiting card as `host_consent` (`id` and `command`) while the turn
+runs. The answer is sent with:
 
 ```bash
 curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_exec_consent event>","decision":"once"}'
@@ -534,8 +537,10 @@ the Sandbox served carries the card `tool_provider` with the add-on's ID.
 
 **Distributed mode.** The scratch folders belong to the frontend that runs the
 turn, like the Sandbox's sandboxes: your files are the record, and a chat whose
-next turn runs on another frontend gets a new folder there. The answer of the
-card travels on the chat bus to the frontend that runs the turn. The setting
+next turn runs on another frontend gets a new folder there. The waiting card is
+stored in the chat record (state mode: shared), so any frontend can show it;
+its answer travels on the chat bus to the frontend that runs the turn. A card
+left by a frontend that died is not shown, because no turn runs. The setting
 is a runtime setting like the others.
 
 ### What the web interface is told

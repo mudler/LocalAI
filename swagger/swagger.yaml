@@ -3311,6 +3311,12 @@ definitions:
         type: boolean
       created:
         type: string
+      host_consent:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsHostConsent'
+        description: |-
+          HostConsent is the card of a command of the built-in bash that waits for
+          a yes while a turn runs; answer it with POST /api/chats/{id}/host-exec/consent.
       id:
         type: string
       kind:
@@ -3342,6 +3348,13 @@ definitions:
       title:
         type: string
       updated:
+        type: string
+    type: object
+  schema.ChatsHostConsent:
+    properties:
+      command:
+        type: string
+      id:
         type: string
     type: object
   schema.ChatsConversationList:

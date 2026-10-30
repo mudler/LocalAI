@@ -63,6 +63,7 @@ import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
+import CommandsConsentCard from '../components/chat/CommandsConsentCard'
 import MessageAttachments from '../components/chat/Attachments'
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
@@ -1058,6 +1059,9 @@ function ChatPage() {
                     <span className="cx-dots" aria-label={t('streaming.waiting')}><span /><span /><span /></span>
                   )}
                 />
+              )}
+              {chat.hostConsent && !streaming.tools.some(tc => tc.consent?.id === chat.hostConsent.id) && (
+                <CommandsConsentCard consent={chat.hostConsent} />
               )}
 
               {showFailure && (
