@@ -48,6 +48,7 @@ var _ = Describe("Decide", func() {
 		Entry("reg/off registry unattended", row{egress.PresetRegistries, egress.PresetOff, tlsReq("pypi.org"), false, egress.Block, egress.ReasonUnattended}),
 		Entry("reg/reg plain HTTP to a registry", row{egress.PresetRegistries, egress.PresetRegistries, egress.Request{Host: "pypi.org", Port: 80, Kind: egress.KindHTTP}, true, egress.Block, egress.ReasonRegistriesTLS}),
 		Entry("reg/reg GitHub release host", row{egress.PresetRegistries, egress.PresetRegistries, tlsReq("objects.githubusercontent.com"), true, egress.Allow, egress.ReasonPreset}),
+		Entry("reg/reg GitHub release assets host", row{egress.PresetRegistries, egress.PresetRegistries, tlsReq("release-assets.githubusercontent.com"), true, egress.Allow, egress.ReasonPreset}),
 		Entry("reg/reg raw user content is not a registry", row{egress.PresetRegistries, egress.PresetRegistries, tlsReq("raw.githubusercontent.com"), true, egress.Block, egress.ReasonCeiling}),
 		// Ceiling all.
 		Entry("all/all public", row{egress.PresetAll, egress.PresetAll, tlsReq("example.com"), true, egress.Allow, egress.ReasonPreset}),
