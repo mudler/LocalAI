@@ -7,8 +7,8 @@
   :root { --bg: #f6f7f9; --col: #ffffff; --card: #ffffff; --line: #d9dde3; --text: #121417; --muted: #5d6673; --accent: #1f6feb; }
   :root[data-theme="dark"] { --bg: #0b0d10; --col: #12161b; --card: #171c22; --line: #29313b; --text: #e6e9ee; --muted: #8b95a3; --accent: #58a6ff; }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, sans-serif; }
-  form { display: flex; gap: 8px; margin-bottom: 16px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .add { display: flex; gap: 8px; margin-bottom: 16px; }
   input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
   button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -25,11 +25,12 @@
 </style>
 </head>
 <body>
-<form id="add">
+<!-- No form: a sandboxed page cannot submit one, so Enter and the button add the task. -->
+<div class="add">
   <input id="title" placeholder="New task" maxlength="200" aria-label="New task">
-  <button class="primary" type="submit">Add</button>
+  <button id="add" class="primary" type="button">Add</button>
   <button id="ask" type="button">Ask the assistant</button>
-</form>
+</div>
 <div class="board" id="board"></div>
 <div class="status" id="status"></div>
 <script>
@@ -106,14 +107,17 @@
     }).catch(function (e) { say('Could not read tasks.json: ' + e.message) })
   }
 
-  document.getElementById('add').onsubmit = function (ev) {
-    ev.preventDefault()
+  function add() {
     var input = document.getElementById('title')
     var title = input.value.trim()
     if (!title) return
     data.tasks.push({ id: 't' + Date.now(), title: title, column: 0 })
     input.value = ''
     changed()
+  }
+  document.getElementById('add').onclick = add
+  document.getElementById('title').onkeydown = function (ev) {
+    if (ev.key === 'Enter') add()
   }
 
   document.getElementById('ask').onclick = function () {
@@ -122,7 +126,7 @@
 
   // The assistant or another tab changed the tasks: read them again.
   localai.on('files.changed', function (ev) {
-    if (ev.paths.indexOf(FILE) >= 0) load()
+    if (ev.resync || ev.paths.indexOf(FILE) >= 0) load()
   })
 
   render()
