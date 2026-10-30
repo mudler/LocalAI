@@ -200,6 +200,32 @@ and in the transcript, so it shows again after a reload, and a
 has an agent, the trigger keeps that agent. At most 10 proposals wait at a time,
 and you can have 50 triggers.
 
+The card sits below the text of the message it belongs to. When you answer it,
+it does not go away: it turns into a receipt, and the answer is kept on the
+server with the proposal (`GET .../proposals/{id}` returns `state`: `pending`,
+`accepted`, `declined` or `undone`), so the receipt shows again after a reload,
+in another browser and on every frontend of a cluster.
+
+- **Accepted** shows what was scheduled in plain words ("Scheduled: Every Monday
+  at 09:00 (Europe/Rome)"), the name of the trigger, its next run, **View
+  trigger** (the trigger has the proposal's id) and **Undo**.
+- **Undo** (`POST .../proposals/{id}/undo`) switches the trigger off and removes it
+  from the Triggers page. The proposal stays as an undone record, and **Schedule
+  it again** (`POST .../proposals/{id}/reopen`) makes it wait for your answer
+  again. Undo is refused with `409` once the trigger ran (a run started by hand
+  counts) or you edited or switched it on the Triggers page; the receipt then
+  tells you to remove it there. The response carries `can_undo` and `undo_blocked`
+  (`ran` or `edited`).
+- **Declined** leaves a quiet one-line receipt with **Restore**.
+- A trigger you delete on the Triggers page ends the receipt: the card says the
+  trigger was removed (`404`).
+
+At the start of its next turn the model is told what became of the triggers it
+proposed in the chat (accepted, declined or undone), so it does not say a
+trigger runs when it was undone, and does not propose a declined one again
+unless you ask. A declined or undone proposal does not count towards the limit
+of 10 waiting proposals or 50 triggers.
+
 A schedule proposed in a chat runs at most once an hour. A shorter one (for
 example `*/15 * * * *`) is refused with the reason, and the model is told to
 propose an hourly or slower one. An edit of the proposal keeps the same floor.
