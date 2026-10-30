@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+//go:build auth
+
 package routes_test
 
 import (
