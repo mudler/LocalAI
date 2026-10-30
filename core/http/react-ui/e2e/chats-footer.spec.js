@@ -14,6 +14,8 @@ const usage = (used, extra = {}) => ({ kind: 'usage', usage: { used, limit: 3276
 
 const state = (page) => page.getByTestId('chat-state')
 const meter = (page) => page.getByTestId('chat-context-meter')
+// The live region of the line (the toast stack is another status region).
+const live = (page) => state(page).getByRole('status')
 const emit = (page, kind, payload) => page.evaluate(([k, p]) => window.__emit(k, p), [kind, payload])
 
 async function open(page, { running = false, lastTurn = 'done', pending = [], messages = HISTORY, path = '/app/chats/c1' } = {}) {
@@ -43,7 +45,7 @@ test.describe('Chat status line', () => {
   test('an idle chat is Ready, and the keyboard hint shows only for a focused, empty composer', async ({ page }) => {
     await open(page)
     await expect(state(page)).toHaveAttribute('data-state', 'ready')
-    await expect(page.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible()
+    await expect(live(page).filter({ hasText: 'Ready' })).toBeVisible()
     await expect(page.getByTestId('chat-foot-hint')).toHaveCount(0)
     await page.getByTestId('chat-input').focus()
     await expect(page.getByTestId('chat-foot-hint')).toHaveText('Enter to send · Shift+Enter for a new line')
@@ -59,37 +61,37 @@ test.describe('Chat status line', () => {
 
     await emit(page, 'tool_start', { kind: 'tool_start', tool: { name: 'read', summary: 'quotes/q2.pdf' } })
     await expect(state(page)).toHaveAttribute('data-state', 'tool')
-    await expect(page.getByRole('status')).toContainText('Reading')
-    await expect(page.getByRole('status')).toContainText('q2.pdf')
+    await expect(live(page)).toContainText('Reading')
+    await expect(live(page)).toContainText('q2.pdf')
 
     await emit(page, 'tool_end', { kind: 'tool_end', tool: { name: 'read', ok: true, output: 'ok', seq: 2 } })
     await expect(state(page)).toHaveAttribute('data-state', 'thinking')
 
     await emit(page, 'text', { kind: 'text', text: 'The second ' })
     await expect(state(page)).toHaveAttribute('data-state', 'answering')
-    await expect(page.getByRole('status')).toHaveText('Answering')
+    await expect(live(page)).toHaveText('Answering')
   })
 
   test('a failed, an interrupted and a stopped turn each have a word and an icon', async ({ page }) => {
     await open(page, { lastTurn: 'failed', messages: [HISTORY[0]] })
     await expect(state(page)).toHaveAttribute('data-state', 'failed')
-    await expect(page.getByRole('status')).toContainText('Failed')
-    await expect(page.getByRole('status')).toContainText('The last turn failed.')
+    await expect(live(page)).toContainText('Failed')
+    await expect(live(page)).toContainText('The last turn failed.')
     await expect(state(page).locator('svg[data-icon="alert-circle"]')).toBeVisible()
   })
 
   test('an interrupted turn says so with its sentence', async ({ page }) => {
     await open(page, { lastTurn: 'interrupted' })
-    await expect(page.getByRole('status')).toContainText('Interrupted')
-    await expect(page.getByRole('status')).toContainText('The last turn was interrupted.')
+    await expect(live(page)).toContainText('Interrupted')
+    await expect(live(page)).toContainText('The last turn was interrupted.')
     await expect(state(page).locator('svg[data-icon="warning"]')).toBeVisible()
   })
 
   test('messages left after a stop make the chat wait for you', async ({ page }) => {
     await open(page, { lastTurn: 'stopped', pending: [{ id: 'p1', text: 'use euros', seq: 3 }] })
     await expect(state(page)).toHaveAttribute('data-state', 'waiting')
-    await expect(page.getByRole('status')).toContainText('Waiting for you')
-    await expect(page.getByRole('status')).toContainText('1 message waiting')
+    await expect(live(page)).toContainText('Waiting for you')
+    await expect(live(page)).toContainText('1 message waiting')
   })
 
   test('the meter is a button that opens what the last request used, and Escape returns to it', async ({ page }) => {
@@ -100,7 +102,7 @@ test.describe('Chat status line', () => {
     await expect(meter(page)).toContainText('41 tok/s')
     await expect(meter(page)).toHaveAttribute('data-tone', 'ok')
     // The speed is not in the live region: a new figure is not announced.
-    await expect(page.getByRole('status')).not.toContainText('tok/s')
+    await expect(live(page)).not.toContainText('tok/s')
 
     await meter(page).click()
     await expect(meter(page)).toHaveAttribute('aria-expanded', 'true')
@@ -152,7 +154,7 @@ test.describe('Chat status line', () => {
   test('a new chat keeps the line quiet', async ({ page }) => {
     await open(page, { path: '/app/chats' })
     await expect(state(page)).toHaveAttribute('data-quiet', 'true')
-    await expect(page.getByRole('status').filter({ hasText: 'Ready' })).toBeHidden()
+    await expect(live(page).filter({ hasText: 'Ready' })).toBeHidden()
   })
 })
 

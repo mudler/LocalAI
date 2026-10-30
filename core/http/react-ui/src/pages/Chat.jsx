@@ -369,7 +369,9 @@ function ChatPage() {
         return
       }
       const overlay = document.querySelector('.home-menu, .cx-menu, .dk-cmdlist, .chat-mcp-dropdown-menu, [role="dialog"], [role="alertdialog"]')
-      if (e.key === 'Escape' && !overlay) {
+      // An Escape that a popover or a sheet already used to close itself must
+      // not also stop the turn.
+      if (e.key === 'Escape' && !overlay && !e.defaultPrevented) {
         const cur = escapeRef.current
         if (cur.running) cur.stop()
         else if (cur.findOpen) setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))

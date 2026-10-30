@@ -43,6 +43,15 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
   const meter = contextReading(chat.usage)
   const speed = meter ? speedView({ live, measured: chat.usage?.tokens_per_second, running }) : null
 
+  // Escape closes the details and nothing else: the page stops a running turn
+  // on Escape, so the key is marked as used before it gets there.
+  useEffect(() => {
+    if (!open) return undefined
+    const onKey = (e) => { if (e.key === 'Escape') e.preventDefault() }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open])
+
   // The details take focus when they open, so Tab and Escape work from there.
   useEffect(() => {
     if (!open || phone) return undefined
