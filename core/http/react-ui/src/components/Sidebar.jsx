@@ -16,6 +16,7 @@ import Icon from './Icon'
 import './sidebar.css'
 import AppsPinnedLinks from './AppsPinnedLinks'
 import PagesPinnedLinks from './PagesPinnedLinks'
+import SidebarChats from './SidebarChats'
 import { usePages } from '../hooks/usePages'
 import { useSharedPages } from '../hooks/useSharedPages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
@@ -24,9 +25,11 @@ import { useNewLabel } from './wellknown/useNewLabel'
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
-// The sidebar has two layouts. The primary layout shows Home, Chats, Files,
-// Agents, MCP connectors, Memory, Models and Add-ons (the entry for the add-ons
-// drawer). Pinned apps are listed under Add-ons. Administration (the Operate
+// The sidebar has two layouts. The primary layout shows Home, Files, Agents,
+// MCP connectors, Memory, Models and Add-ons (the entry for the add-ons
+// drawer), then the recent chats with New chat and All chats (SidebarChats).
+// Chats is not an entry: Home is where a chat starts. Pinned apps are listed
+// under Add-ons. Administration (the Operate
 // hub) is pinned at the bottom, above the account controls, not in a section.
 // With the legacy switch on (features.addon_navigation === false) it shows the
 // legacy entries of destinations.js, and Workspace. Operate is a single entry
@@ -262,6 +265,11 @@ export default function Sidebar({ isOpen, onClose }) {
               </Fragment>
             ))}
           </div>
+
+          {/* Recent chats, New chat and All chats. */}
+          {!legacy && hasFeature('chats') && features.chats !== false && (
+            <SidebarChats onClose={onClose} collapsed={collapsed} />
+          )}
 
           {/* Collapsible sections */}
           {(legacy ? sections : sections.filter(s => s.hubs)).map(section => {

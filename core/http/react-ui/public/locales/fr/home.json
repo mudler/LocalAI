@@ -112,7 +112,8 @@
     "dismiss": "Ignorer"
   },
   "jump": {
-    "heading": "Reprendre où vous en étiez"
+    "heading": "Reprendre où vous en étiez",
+    "allChats": "Toutes les conversations"
   },
   "slash": {
     "agents": {

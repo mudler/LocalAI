@@ -8,7 +8,7 @@ import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts } from '../utils/artifacts'
 import {
-  threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, artifactSource,
+  threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, artifactSource, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
 import { contextReading, tokenCount } from '../utils/chatSettings'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
@@ -80,20 +80,17 @@ import Icon from '../components/Icon'
 import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
 import { turnChanges, describeChanges, liveTurns } from '../utils/changeNotes'
 import { usePages } from '../hooks/usePages'
+import { CHAT_UNDO_MS, useChatDelete } from '../hooks/useChatDelete'
+import { announceChats } from '../hooks/useRecentChats'
 import './chat.css'
 import './chats.css'
 
 const FOCUS_MODE_KEY = 'localai_chat_focus_mode'
-// How long a deleted chat can be brought back before the server deletes it.
-const UNDO_MS = 6000
 
-// The server writes the export file and names it; the link downloads it.
-function downloadFrom(url) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = ''
-  a.click()
-}
+// The navigation state of the empty chat. /app/chats without state is an
+// address and goes to Home (see ChatsRoute in router.jsx); the page keeps a
+// state so that clearing a hand-off (a start message, a draft) does not.
+const NEW_CHAT = Object.freeze({ newChat: true })
 
 function browserStorage() {
   try { return window.localStorage } catch { return null }
@@ -108,7 +105,8 @@ export default function Chat() {
 
 // The chat page. The server keeps every chat: its transcript, the messages that
 // wait for the model, its tools and its turn, which keeps running when the page
-// closes. /app/chats is a new chat; /app/chats/<id> opens one.
+// closes. /app/chats/<id> opens one; /app/chats is the empty chat that a
+// hand-off opens (Home's first message, an agent, a draft).
 // eslint-disable-next-line no-unused-vars -- used as JSX above
 function ChatPage() {
   const { id: routeId } = useParams()
@@ -148,7 +146,6 @@ function ChatPage() {
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [renaming, setRenaming] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [pendingDelete, setPendingDelete] = useState(null)
   const [editingPending, setEditingPending] = useState(null) // { id, text }
   // An error of this page (a send or a delete that failed); the hook has its own.
   const [localError, setLocalError] = useState('')
@@ -159,7 +156,6 @@ function ChatPage() {
     return browserChatStores(st)
   })
   const importInputRef = useRef(null)
-  const pendingDeleteRef = useRef(null)
   const pendingArtifactRef = useRef(null)
   const { ids: loadedIds } = useLoadedModels()
   const messagesEndRef = useRef(null)
@@ -547,14 +543,14 @@ function ChatPage() {
     const draft = location.state?.draft
     if (typeof draft !== 'string' || !draft) return
     setInput(d => d || draft)
-    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: NEW_CHAT })
   }, [location.state?.draft]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const start = startRef.current
     if (!start || input !== start || activeId || busy || !effectiveModel) return
     startRef.current = ''
     // Clear the state first: Back must not send the message again.
-    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: NEW_CHAT })
     handleSend()
   }, [input, activeId, busy, effectiveModel, handleSend, navigate, location.pathname, location.search])
 
@@ -623,9 +619,8 @@ function ChatPage() {
     e.target.value = ''
     if (!file) return
     try {
-      const data = JSON.parse(await file.text())
-      const exported = data && typeof data === 'object' && data.chat ? data.chat : data
-      if (!exported || !Array.isArray(exported.messages)) throw new Error(t('toasts.notAChat'))
+      const exported = chatFromExport(await file.text())
+      if (!exported) throw new Error(t('toasts.notAChat'))
       const known = chatModels.some(m => m.id === exported.model)
       const conv = await chatsApi.importChat(exported, known ? '' : effectiveModel)
       await chat.refreshList()
@@ -660,34 +655,26 @@ function ChatPage() {
   }
 
   // Deleting a chat is final when its undo time ends. Until then only its row
-  // is hidden; if it was the open one, a new chat opens in its place.
-  const commitDelete = useCallback(() => {
-    const pending = pendingDeleteRef.current
-    if (!pending) return
-    pendingDeleteRef.current = null
-    setPendingDelete(null)
+  // is hidden; if it was the open one, the empty chat opens in its place, so
+  // the offer stays on screen (leaving the page would end it at once).
+  const deletes = useChatDelete({
+    remove: chat.remove,
     // A chat the server would not delete comes back, with the reason.
-    chat.remove(pending.id).catch((e) => {
+    onFailed: (e) => {
       setLocalError(e.message || tc('errors.delete'))
       chat.refreshList()
-    })
-  }, [chat, tc])
-  const commitRef = useRef(commitDelete)
-  commitRef.current = commitDelete
-  useEffect(() => () => commitRef.current(), [])
+    },
+  })
+  const pendingDelete = deletes.pending
+  const commitDelete = deletes.commit
 
   const requestDelete = (c) => {
-    commitDelete()
     const wasActive = c.id === activeId
-    if (wasActive) navigate('/app/chats')
-    const pending = { id: c.id, name: c.name || c.title || tc('list.untitled'), wasActive }
-    pendingDeleteRef.current = pending
-    setPendingDelete(pending)
+    deletes.request({ id: c.id, name: c.name || c.title || tc('list.untitled'), wasActive })
+    if (wasActive) navigate('/app/chats', { state: NEW_CHAT })
   }
   const undoDelete = () => {
-    const pending = pendingDeleteRef.current
-    pendingDeleteRef.current = null
-    setPendingDelete(null)
+    const pending = deletes.undo()
     if (pending?.wasActive) navigate(`/app/chats/${pending.id}`)
   }
 
@@ -695,6 +682,8 @@ function ChatPage() {
     () => menuChats(chat.chats).filter(c => c.id !== pendingDelete?.id),
     [chat.chats, pendingDelete],
   )
+  // The sidebar's recent chats follow this list.
+  useEffect(() => { announceChats(visibleChats) }, [visibleChats])
 
   const promptDeleteAll = () => setConfirmDialog({
     title: t('deleteAllDialog.title'),
@@ -706,7 +695,7 @@ function ChatPage() {
       for (const c of visibleChats) {
         try { await chat.remove(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
       }
-      navigate('/app/chats')
+      navigate('/app')
     },
   })
 
@@ -949,7 +938,7 @@ function ChatPage() {
   )
 
   const moreItems = [
-    { key: 'new', icon: 'plus', label: t('menu.newChat'), onClick: () => navigate('/app/chats') },
+    { key: 'new', icon: 'plus', label: t('menu.newChat'), onClick: () => navigate('/app') },
     { key: 'rename', icon: 'pencil', label: t('menu.rename'), hidden: !activeId, onClick: () => setRenaming(true) },
     { key: 'copy', icon: 'clipboard', label: t('menu.copyChat'), hidden: !hasThread, onClick: () => copyChat(activeId) },
     { key: 'export', icon: 'export', label: t('menu.exportMarkdown'), hidden: !hasThread, onClick: () => exportChat(activeId) },
@@ -964,7 +953,7 @@ function ChatPage() {
   const runSlash = (id) => {
     switch (id) {
       case 'model': pickerRef.current?.open(); break
-      case 'new': navigate('/app/chats'); break
+      case 'new': navigate('/app'); break
       case 'chats': chatsMenuRef.current?.open(); break
       case 'assistant': openAssistant(); break
       case 'canvas': toggleCanvasMode(); break
@@ -998,7 +987,7 @@ function ChatPage() {
               chats={visibleChats}
               activeChatId={activeId}
               onSelect={(id) => navigate(`/app/chats/${id}`)}
-              onNew={() => navigate('/app/chats')}
+              onNew={() => navigate('/app')}
               onDelete={requestDelete}
               onDeleteAll={promptDeleteAll}
               onRename={(id, name) => chat.rename(id, name)}
@@ -1261,7 +1250,7 @@ function ChatPage() {
           message={t('menu.deleted', { title: pendingDelete.name })}
           onUndo={undoDelete}
           onExpire={commitDelete}
-          duration={UNDO_MS}
+          duration={CHAT_UNDO_MS}
           undoLabel={t('menu.undo')}
           dismissLabel={t('menu.dismiss')}
           testId="chat-undo-toast"

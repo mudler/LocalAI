@@ -73,7 +73,8 @@
     "triggers": "触发器",
     "mcpConnectors": "MCP 连接器",
     "chatsAdmin": "所有用户的聊天",
-    "pages": "页面"
+    "pages": "页面",
+    "allChats": "全部对话"
   },
   "footer": {
     "github": "GitHub",
@@ -112,5 +113,9 @@
     "operateSupporting": "此服务器上运行的内容、使用情况和配置。"
   },
   "pinnedPages": "已固定的页面",
-  "new": "新"
+  "new": "新",
+  "recentChats": "最近对话",
+  "newChat": "新对话",
+  "untitledChat": "未命名对话",
+  "chatRunning": "进行中"
 }

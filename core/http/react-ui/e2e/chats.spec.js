@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { openNewChat, sendFromHome } from './journey-fixtures.js'
 
 // The chats page against the real test server: the browser, the chats API, the
 // conversation service, the agent loop and the mock inference backend. Nothing
@@ -20,10 +21,8 @@ async function offerMockModel(page) {
 
 async function startChat(page, text) {
   await offerMockModel(page)
-  await page.goto('/app/chats')
-  await expect(page.getByTestId('chats-page')).toBeVisible()
-  await composer(page).fill(text)
-  await page.getByRole('button', { name: 'Send' }).click()
+  // Home is where a chat starts.
+  await sendFromHome(page, text)
 }
 
 test.describe('Chats against the real server', () => {
@@ -73,7 +72,8 @@ test.describe('Chats against the real server', () => {
   test('a file attached to a message lands in the workspace, where the files page finds it', async ({ page }) => {
     const name = `report-${Date.now()}.txt`
     await offerMockModel(page)
-    await page.goto('/app/chats')
+    // A file goes with the first message from the empty chat (/new on Home).
+    await openNewChat(page)
     test.skip(await page.getByRole('note').filter({ hasText: 'files are off' }).isVisible(), 'files are off on this server build')
     await page.getByTestId('chat-file-input').setInputFiles({ name, mimeType: 'text/plain', buffer: Buffer.from('orbital mechanics notes') })
     await composer(page).fill('summarize the attachment')

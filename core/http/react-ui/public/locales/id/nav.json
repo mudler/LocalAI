@@ -73,7 +73,8 @@
     "triggers": "Pemicu",
     "mcpConnectors": "Konektor MCP",
     "chatsAdmin": "Obrolan semua pengguna",
-    "pages": "Halaman"
+    "pages": "Halaman",
+    "allChats": "Semua obrolan"
   },
   "footer": {
     "github": "GitHub",
@@ -112,5 +113,9 @@
     "operateSupporting": "Apa yang berjalan di server ini, bagaimana server ini dipakai, dan bagaimana pengaturannya."
   },
   "pinnedPages": "Halaman yang disematkan",
-  "new": "Baru"
+  "new": "Baru",
+  "recentChats": "Obrolan terbaru",
+  "newChat": "Obrolan baru",
+  "untitledChat": "Obrolan tanpa judul",
+  "chatRunning": "Berjalan"
 }

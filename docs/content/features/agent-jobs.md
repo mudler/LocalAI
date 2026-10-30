@@ -12,7 +12,7 @@ a CI pipeline or another service: start a job with parameters, poll it, and read
 the answer, or have LocalAI call a webhook when it ends.
 
 The API keeps the paths and the JSON it had before the chats. A job is an
-ordinary chat with origin `job`, so you can open it in the chats page and read
+ordinary chat with origin `job`, so you can open it from **All chats** and read
 its transcript.
 
 {{% notice note %}}

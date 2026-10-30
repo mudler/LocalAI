@@ -259,5 +259,13 @@
       "cancelled": "准备好后请重试。"
     },
     "openBackends": "打开后端"
+  },
+  "allChats": {
+    "title": "全部对话",
+    "supporting": "你保存的所有对话。可以搜索、重命名、导出或删除。",
+    "loadFailed": "无法加载你的对话。",
+    "emptyTitle": "还没有对话",
+    "emptyBody": "对话从首页开始：输入消息并发送。之后你的对话会列在这里。",
+    "start": "开始对话"
   }
 }

@@ -47,10 +47,11 @@ export function studioRedirect(legacy, model, search = '', hash = '') {
   return studioAddress({ tab: STUDIO_TABS[legacy], model, search, hash })
 }
 
-// The old chat page became the chats, and the old agent-jobs pages became the
-// triggers. The pages of the chats that moved back to the agents, skills and
-// triggers addresses redirect too. This is where an old address opens now. The query string and the hash are kept. The
-// model of /app/chat/<model> travels as ?model=<id> and the chats page selects it.
+// The old chat page became Home, the front door where a chat starts, and the
+// old agent-jobs pages became the triggers. The pages of the chats that moved
+// back to the agents, skills and triggers addresses redirect too. This is
+// where an old address opens now. The query string and the hash are kept. The
+// model of /app/chat/<model> travels as ?model=<id> and Home selects it.
 export function chatsRedirect(pathname, search = '', hash = '') {
   const path = pathname.replace(/\/+$/, '')
   const params = new URLSearchParams(search)
@@ -61,7 +62,7 @@ export function chatsRedirect(pathname, search = '', hash = '') {
     try { name = decodeURIComponent(name) } catch { /* not valid encoding */ }
     params.set('model', name)
   }
-  let target = '/app/chats'
+  let target = '/app'
   if (/^\/app\/chats\/agents(\/|$)/.test(path)) target = '/app/agents'
   else if (/^\/app\/(chats\/triggers|agent-jobs)(\/|$)/.test(path)) target = '/app/triggers'
   else if (/^\/app\/chats\/skills(\/|$)/.test(path)) target = '/app/skills'
@@ -73,7 +74,7 @@ export function chatsRedirect(pathname, search = '', hash = '') {
 // its path. `kind` is 'same' (no redirect), 'chats' (a page of the chats),
 // 'studio-tab' (a Studio tab) or 'addon-page' (a page of an add-on).
 export const MIGRATION_ROUTES = Object.freeze([
-  { from: '/app/chat', to: '/app/chats', kind: 'chats' },
+  { from: '/app/chat', to: '/app', kind: 'chats' },
   { from: '/app/chats/agents', to: '/app/agents', kind: 'chats' },
   { from: '/app/chats/triggers', to: '/app/triggers', kind: 'chats' },
   { from: '/app/chats/skills', to: '/app/skills', kind: 'chats' },
@@ -98,3 +99,15 @@ export const MIGRATION_ROUTES = Object.freeze([
   { from: '/app/fine-tune', to: '/app/addons/fine-tuning/jobs', kind: 'addon-page' },
   { from: '/app/quantize', to: '/app/addons/quantization/jobs', kind: 'addon-page' },
 ])
+
+// /app/chats without an id. Opened from inside the app with navigation state
+// (a hand-off: Home's first message, an agent, a draft) it is the empty chat,
+// and the chat page shows it. Opened as an address (a bookmark, an old link, a
+// reload of a page that had no state) it goes to Home, the front door, with
+// the query and the hash: Home selects the ?model= it names. Returns where to
+// go, or '' to stay.
+export function bareChatsRedirect(pathname, search = '', hash = '', state = null) {
+  if (pathname.replace(/\/+$/, '') !== '/app/chats') return ''
+  if (state && typeof state === 'object') return ''
+  return `/app${search}${hash}`
+}

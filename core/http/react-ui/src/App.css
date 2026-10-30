@@ -4508,6 +4508,8 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .home-resume__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 4px; }
 .home-resume__head h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: 0; }
 .home-resume__keys { display: inline-flex; align-items: center; gap: 4px; color: var(--dk-muted); font-size: 12px; }
+.home-resume__head .home-resume__keys { margin-left: auto; }
+.home-resume__all { align-self: center; min-height: 30px; padding: 0 9px; }
 .home-day__label {
   display: flex;
   align-items: baseline;

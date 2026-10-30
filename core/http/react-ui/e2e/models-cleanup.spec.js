@@ -315,8 +315,8 @@ test.describe('Cleanup sheet - removal with an undo window', () => {
   test('leaving the page during the window deletes nothing and says so', async ({ page }) => {
     const state = await removeSafe(page)
     await page.keyboard.press('Escape')
-    await page.getByRole('link', { name: 'Chats', exact: true }).first().click()
-    await expect(page).toHaveURL(/\/app\/chats/)
+    await page.getByRole('link', { name: 'All chats', exact: true }).first().click()
+    await expect(page).toHaveURL(/\/app\/chats\/all$/)
     await expect(page.getByText('You left the page, so 1 model was not deleted.')).toBeVisible()
     await page.clock.fastForward(120_000)
     expect(state.deletes).toHaveLength(0)

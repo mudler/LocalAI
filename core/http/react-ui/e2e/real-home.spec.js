@@ -32,11 +32,12 @@ test('first run: no model installed shows the three steps, and slash actions sti
   await expect(page).toHaveURL(/\/app\/settings/)
 })
 
-test('first run: the chats page offers no way to send without a model', async ({ page }) => {
+test('first run: the old chats address opens Home, which offers no way to send without a model', async ({ page }) => {
   await page.goto(`${empty.url}/app/chats`)
-  await expect(page.getByTestId('chats-page')).toBeVisible()
-  await page.getByRole('textbox', { name: 'Message' }).fill('hello')
-  await expect(page.getByRole('button', { name: 'Send' })).toBeDisabled()
+  await expect(page).toHaveURL(/\/app$/)
+  await expect(page.getByTestId('home-first-run')).toBeVisible({ timeout: 20_000 })
+  await bar(page).fill('hello')
+  await expect(page.locator('.home-send-btn')).toBeDisabled()
 })
 
 test('a message typed on Home starts a real chat that answers, and Home lists it to resume', async ({ page }) => {

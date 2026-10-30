@@ -69,7 +69,7 @@ folds with a preview of the definition and of what changed. **Export** and
 agent and says what the server changed. It also reads the JSON export of an
 older agent, and names what it could not take over. With no agents yet, the
 page offers the server's starter agents. Chat with an agent from its row: the
-chats page opens with the agent chosen.
+chat page opens empty with the agent chosen.
 
 ### API
 

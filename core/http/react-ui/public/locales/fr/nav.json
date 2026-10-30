@@ -100,7 +100,8 @@
     "triggers": "Déclencheurs",
     "mcpConnectors": "Connecteurs MCP",
     "chatsAdmin": "Chats de tous les utilisateurs",
-    "pages": "Pages"
+    "pages": "Pages",
+    "allChats": "Toutes les conversations"
   },
   "footer": {
     "github": "GitHub",
@@ -115,5 +116,9 @@
     "collapseNavigation": "Réduire la navigation {{section}}"
   },
   "pinnedPages": "Pages épinglées",
-  "new": "Nouveau"
+  "new": "Nouveau",
+  "recentChats": "Conversations récentes",
+  "newChat": "Nouvelle conversation",
+  "untitledChat": "Conversation sans titre",
+  "chatRunning": "En cours"
 }

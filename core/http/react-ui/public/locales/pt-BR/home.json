@@ -124,7 +124,8 @@
     "create": "Criar",
     "createSummary": "Abra uma sessão de chat, imagem ou voz",
     "operate": "Administração",
-    "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos"
+    "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos",
+    "allChats": "Todos os chats"
   },
   "slash": {
     "agents": {

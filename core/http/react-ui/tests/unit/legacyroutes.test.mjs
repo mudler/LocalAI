@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { addonPageAddress, chatsRedirect, STUDIO_TABS, studioAddress, studioRedirect, talkAddress, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
+import { addonPageAddress, bareChatsRedirect, chatsRedirect, STUDIO_TABS, studioAddress, studioRedirect, talkAddress, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const router = readFileSync(join(here, '../../src/router.jsx'), 'utf8')
@@ -122,12 +122,12 @@ test('the voice routes open the tabs of the one Voice page', () => {
   assert.equal(to('/app/voice-library/new'), '/app/addons/voice/voice/library/new')
 })
 
-test('chatsRedirect opens the matching page of the chats and keeps the query and the hash', () => {
-  assert.equal(chatsRedirect('/app/chat'), '/app/chats')
-  assert.equal(chatsRedirect('/app/chat/'), '/app/chats')
-  assert.equal(chatsRedirect('/app/chat/llama', '?x=1', '#top'), '/app/chats?x=1&model=llama#top')
+test('chatsRedirect opens the matching page and keeps the query and the hash; the old chat page opens Home', () => {
+  assert.equal(chatsRedirect('/app/chat'), '/app')
+  assert.equal(chatsRedirect('/app/chat/'), '/app')
+  assert.equal(chatsRedirect('/app/chat/llama', '?x=1', '#top'), '/app?x=1&model=llama#top')
   // A model id may hold "/" or ":", so it travels as ?model= and is decoded first.
-  assert.equal(chatsRedirect('/app/chat/org%2Fname%3Aq4'), '/app/chats?model=org%2Fname%3Aq4')
+  assert.equal(chatsRedirect('/app/chat/org%2Fname%3Aq4'), '/app?model=org%2Fname%3Aq4')
   assert.equal(chatsRedirect('/app/chats/agents'), '/app/agents')
   assert.equal(chatsRedirect('/app/chats/agents', '?a=b'), '/app/agents?a=b')
   assert.equal(chatsRedirect('/app/chats/triggers'), '/app/triggers')
@@ -150,6 +150,19 @@ test('every old chat, agent, job and skill route redirects, and no built-in page
 })
 
 test('chatsRedirect keeps a model name that is not valid percent-encoding as typed', () => {
-  assert.equal(chatsRedirect('/app/chat/100%'), '/app/chats?model=100%25')
-  assert.equal(chatsRedirect('/app/chat/a%zzb'), '/app/chats?model=a%25zzb')
+  assert.equal(chatsRedirect('/app/chat/100%'), '/app?model=100%25')
+  assert.equal(chatsRedirect('/app/chat/a%zzb'), '/app?model=a%25zzb')
+})
+
+test('/app/chats as an address opens Home with its query; a hand-off with state stays on the empty chat', () => {
+  assert.equal(bareChatsRedirect('/app/chats'), '/app')
+  assert.equal(bareChatsRedirect('/app/chats/'), '/app')
+  assert.equal(bareChatsRedirect('/app/chats', '?model=llama', '#x'), '/app?model=llama#x')
+  assert.equal(bareChatsRedirect('/app/chats', '?model=llama', '', null), '/app?model=llama')
+  // Home's first message, an agent, a draft or the page's own marker.
+  for (const state of [{ start: 'hi' }, { agentId: 'a1' }, { draft: 'x' }, { newChat: true }]) {
+    assert.equal(bareChatsRedirect('/app/chats', '?model=llama', '', state), '', JSON.stringify(state))
+  }
+  // A transcript and the other chats pages are not touched.
+  for (const p of ['/app/chats/c1', '/app/chats/all', '/app/chats/connectors']) assert.equal(bareChatsRedirect(p), '', p)
 })

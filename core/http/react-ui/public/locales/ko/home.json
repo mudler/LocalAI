@@ -109,7 +109,8 @@
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
     "operate": "관리",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "모든 채팅"
   },
   "slash": {
     "agents": {

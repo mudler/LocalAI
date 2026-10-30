@@ -73,7 +73,8 @@
     "triggers": "트리거",
     "mcpConnectors": "MCP 커넥터",
     "chatsAdmin": "모든 사용자의 채팅",
-    "pages": "페이지"
+    "pages": "페이지",
+    "allChats": "모든 채팅"
   },
   "footer": {
     "github": "GitHub",
@@ -112,5 +113,9 @@
     "operateSupporting": "이 서버에서 실행 중인 것, 사용 현황, 설정을 확인합니다."
   },
   "pinnedPages": "고정된 페이지",
-  "new": "새 기능"
+  "new": "새 기능",
+  "recentChats": "최근 채팅",
+  "newChat": "새 채팅",
+  "untitledChat": "제목 없는 채팅",
+  "chatRunning": "진행 중"
 }

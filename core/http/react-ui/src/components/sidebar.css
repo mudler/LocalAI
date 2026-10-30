@@ -70,3 +70,43 @@
 @media (prefers-reduced-motion: reduce) {
   .nav-pin[data-fresh] > .nav-item::before { opacity: 1; }
 }
+
+/* Recent chats (SidebarChats.jsx): a title with a New chat button, one row per
+   chat with no icon (its text lines up with the labels above), then All
+   chats. The rows are nav-item--sub, which the collapsed rail already hides. */
+.sidebar-chats__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+  padding-right: var(--spacing-sm);
+}
+.sidebar-chats__head .sidebar-section-title { flex: 1; min-width: 0; }
+.sidebar-chats__new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--ctl-h-sm);
+  height: var(--ctl-h-sm);
+  margin-top: var(--spacing-sm);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.sidebar-chats__new:hover { background: var(--dk-hover); color: var(--dk-text); }
+.sidebar-chats__new:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.nav-chat .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-chat__busy { flex: none; margin-left: auto; color: var(--color-text-muted); }
+
+.sidebar.collapsed .sidebar-chats__head { display: none; }
+@media (max-width: 1023px) and (min-width: 640px) {
+  .sidebar:not(.open) .sidebar-chats__head { display: none; }
+}
+/* The phone drawer always shows the whole list. */
+@media (max-width: 639px) {
+  .sidebar.collapsed .sidebar-chats__head { display: flex; }
+  .sidebar.collapsed .nav-item--sub.nav-chat { display: flex; }
+}

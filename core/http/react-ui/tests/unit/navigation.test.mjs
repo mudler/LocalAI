@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   PIN_CAP, sidebarPinLinks, tileFromApp, tileFromBuiltin, buildTiles, filterTiles, resolvePins, togglePin, movePin,
 } from '../../src/utils/addonTiles.js'
-import { primaryActive, primaryDestinations, visiblePrimary } from '../../src/utils/navigationModel.js'
+import { allChatsDestination, primaryActive, primaryDestinations, visiblePrimary } from '../../src/utils/navigationModel.js'
 import { showFirstRun } from '../../src/components/addons/addonState.js'
 import { createPinsApi } from '../../src/utils/pinsApi.js'
 
@@ -99,17 +99,22 @@ test('the pages entry shows only once the user has a page, with the chats and pa
   assert.ok(!paths({ ...user, hasFeature: (f) => f === 'pages', hasPages: true }).includes('/app/pages'), 'no chats feature')
 })
 
-test('the files entry shows with the chats feature, like the chats entry', () => {
+test('the files entry shows with the chats feature, like All chats', () => {
   const paths = (ctx) => visiblePrimary(primaryDestinations, ctx).map(i => i.path)
   assert.ok(paths({ ...user, hasFeature: (f) => f === 'chats' }).includes('/app/files'))
   assert.ok(!paths(user).includes('/app/files'))
 })
 
-test('the chats entry shows only to a viewer who holds the chats feature', () => {
+test('Chats is not a primary item: Home starts a chat, and All chats shows only with the chats feature', () => {
   const paths = (a) => visiblePrimary(primaryDestinations, a).map(i => i.path)
-  assert.ok(paths({ ...user, hasFeature: (f) => f === 'chats' }).includes('/app/chats'))
-  assert.ok(!paths(user).includes('/app/chats'))
-  assert.ok(paths({ ...user, isAdmin: true, hasFeature: () => true }).includes('/app/chats'))
+  for (const a of [{ ...user, hasFeature: (f) => f === 'chats' }, user, { ...user, isAdmin: true, hasFeature: () => true }]) {
+    assert.ok(!paths(a).some(p => p === '/app/chats' || p.startsWith('/app/chats/')))
+  }
+  const all = (a) => visiblePrimary([allChatsDestination], a).map(i => i.path)
+  assert.equal(allChatsDestination.path, '/app/chats/all')
+  assert.deepEqual(all({ ...user, hasFeature: (f) => f === 'chats' }), ['/app/chats/all'])
+  assert.deepEqual(all(user), [])
+  assert.deepEqual(all({ ...user, isAdmin: true, hasFeature: () => true }), ['/app/chats/all'])
 })
 
 test('addons entry shows for a built-in tile even without the addons feature, and hides with neither', () => {
@@ -193,19 +198,19 @@ test('sidebar entries own one route each: Apps on /app/addons, never a hub', asy
   assert.equal(hubOwnsPath(addons, '/app/addons', { ...auth, features: { addon_navigation: false } }), true)
 })
 
-test('the primary items: chats, files, pages, agents, MCP connectors, memory, models and add-ons', () => {
+test('the primary items: files, pages, agents, MCP connectors, memory, models and add-ons', () => {
   assert.deepEqual(primaryDestinations.map(i => i.path), [
-    '/app/chats', '/app/files', '/app/pages', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons',
+    '/app/files', '/app/pages', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons',
   ])
   const all = { isAdmin: true, hasFeature: () => true, hasBuiltin: false, features: {}, hasPages: true }
-  assert.equal(visiblePrimary(primaryDestinations, all).length, 8)
+  assert.equal(visiblePrimary(primaryDestinations, all).length, 7)
   // A server without collections hides Memory; a user without chats sees no chat pages.
   // Agents have their own feature: an administrator grants it apart from the chats.
   assert.ok(!visiblePrimary(primaryDestinations, { ...all, features: { collections: false } }).some(i => i.path === '/app/collections'))
   const noChats = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'chats' }).map(i => i.path)
   assert.deepEqual(noChats, ['/app/agents', '/app/collections', '/app/models', '/app/addons'])
   const noAgents = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'agents' }).map(i => i.path)
-  assert.deepEqual(noAgents, ['/app/chats', '/app/files', '/app/pages', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons'])
+  assert.deepEqual(noAgents, ['/app/files', '/app/pages', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons'])
 })
 
 test('an item lights up on its own pages: agents own triggers, skills and messaging connectors', () => {
@@ -213,8 +218,6 @@ test('an item lights up on its own pages: agents own triggers, skills and messag
   for (const p of ['/app/agents', '/app/agents/a1/edit', '/app/triggers/t1', '/app/skills', '/app/chats/connectors']) {
     assert.equal(primaryActive(item('/app/agents'), p), true, p)
   }
-  assert.equal(primaryActive(item('/app/chats'), '/app/chats/c1'), true)
-  assert.equal(primaryActive(item('/app/chats'), '/app/chats/connectors'), false)
   assert.equal(primaryActive(item('/app/mcp-connectors'), '/app/mcp-connectors'), true)
   assert.equal(primaryActive(item('/app/collections'), '/app/collections/docs'), true)
   assert.equal(primaryActive(item('/app/agents'), '/app/chats/c1'), false)

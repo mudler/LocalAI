@@ -1,13 +1,13 @@
 // Pure rules of the primary sidebar items. No React, no imports, so a node
 // test drives it directly.
 
-// Chats, Files, Pages (once there is one), Agents, MCP connectors, Memory, Models and Add-ons. Home and the
+// Files, Pages (once there is one), Agents, MCP connectors, Memory, Models and Add-ons. Home and the
 // Operate hub keep the place they have today (see hubConfig.js and
 // destinations.js). Settings is a tab of the Operate hub, not a primary item.
+// Chats is not an item: Home is where a chat starts, and the sidebar lists the
+// recent chats under the items, with All chats (allChatsDestination).
 // `match` lists other paths that light the item up: the pages that belong to it.
 export const primaryDestinations = Object.freeze([
-  // Chats the server keeps. Shown to a viewer who holds the chats feature.
-  { path: '/app/chats', icon: 'chat', labelKey: 'items.chats', feature: 'chats', exclude: ['/app/chats/connectors', '/app/chats/conversion'] },
   // The user's own files: a workspace of folders, with a Trash and history.
   { path: '/app/files', icon: 'folder', labelKey: 'items.files', feature: 'chats' },
   // The user's pages (pages/<name>/index.html in the files). Shown only once
@@ -52,3 +52,9 @@ export function primaryActive(item, pathname) {
   if ((item.exclude || []).some(p => under(pathname, p))) return false
   return under(pathname, item.path) || (item.match || []).some(p => under(pathname, p))
 }
+
+// The chat history: search, rename, export and delete. The sidebar links it
+// under the recent chats, and the 404 page and the legacy layout list it.
+export const allChatsDestination = Object.freeze({
+  path: '/app/chats/all', icon: 'history', labelKey: 'items.allChats', feature: 'chats',
+})

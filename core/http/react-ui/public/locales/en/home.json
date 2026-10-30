@@ -151,7 +151,8 @@
     "emptyBody": "They are grouped by day, with the model that answered. Move with j and k, resume with Enter.",
     "hasImage": "Includes an image",
     "noModel": "No model",
-    "examples": "Slash actions"
+    "examples": "Slash actions",
+    "allChats": "All chats"
   },
   "picker": {
     "loading": "Loading models",
@@ -186,8 +187,8 @@
       "desc": "Start an empty conversation"
     },
     "chat": {
-      "label": "Open Chat",
-      "desc": "Go to the chat page"
+      "label": "All chats",
+      "desc": "Find, rename and delete your chats"
     },
     "assistant": {
       "label": "Manage by chat",

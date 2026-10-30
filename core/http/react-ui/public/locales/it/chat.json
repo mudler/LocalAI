@@ -259,5 +259,13 @@
       "cancelled": "Riprova quando vuoi."
     },
     "openBackends": "Apri Backend"
+  },
+  "allChats": {
+    "title": "Tutte le chat",
+    "supporting": "Tutte le chat salvate. Cerca, rinomina, esporta o elimina.",
+    "loadFailed": "Impossibile caricare le tue chat.",
+    "emptyTitle": "Ancora nessuna chat",
+    "emptyBody": "Una chat inizia dalla Home: scrivi un messaggio e invialo. Poi le tue chat sono elencate qui.",
+    "start": "Inizia una chat"
   }
 }

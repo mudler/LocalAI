@@ -73,7 +73,8 @@
     "triggers": "Triggers",
     "mcpConnectors": "MCP connectors",
     "chatsAdmin": "Chats of all users",
-    "pages": "Pages"
+    "pages": "Pages",
+    "allChats": "All chats"
   },
   "footer": {
     "github": "GitHub",
@@ -111,5 +112,9 @@
     "operateSupporting": "What runs on this server, how it is used, and how it is set up."
   },
   "pinnedPages": "Pinned pages",
-  "new": "New"
+  "new": "New",
+  "recentChats": "Recent chats",
+  "newChat": "New chat",
+  "untitledChat": "Untitled chat",
+  "chatRunning": "Working"
 }

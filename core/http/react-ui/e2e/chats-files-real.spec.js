@@ -1,5 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
-import { startChat, composer, offerMockModel, b64 } from './journey-fixtures.js'
+import { startChat, composer, offerMockModel, openNewChat, b64 } from './journey-fixtures.js'
 
 // The files pane of a chat, driven from the chat page against the real test
 // server and the mock model. After each step the spec reads the API, so what
@@ -19,7 +19,8 @@ test('the files pane lists what was attached and what the model wrote, live, and
   const stamp = Date.now().toString(36)
   const note = `notes-${stamp}.txt`
   await offerMockModel(page)
-  await page.goto('/app/chats')
+  // A file goes with the first message from the empty chat (/new on Home).
+  await openNewChat(page)
   await page.getByTestId('chat-file-input').setInputFiles({ name: note, mimeType: 'text/plain', buffer: Buffer.from('my notes for the files pane') })
   await composer(page).fill('read my notes')
   await page.getByRole('button', { name: 'Send' }).click()

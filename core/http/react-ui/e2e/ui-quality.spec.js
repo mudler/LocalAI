@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockHome } from './home-fixtures.js'
-import { offerMockModel, watchProblems, composer } from './journey-fixtures.js'
+import { offerMockModel, watchProblems, composer, openNewChat } from './journey-fixtures.js'
 
 // Cross-cutting quality of the pages on the real test server: a quiet console,
 // no sideways scroll on a phone, the redirects of the removed pages, the theme,
@@ -15,7 +15,7 @@ const EXPECTED = [
 ]
 
 const ROUTES = [
-  '/app', '/app/chats', '/app/chats/skills', '/app/chats/agents', '/app/chats/triggers', '/app/chats/connectors',
+  '/app', '/app/chats/all', '/app/chats/skills', '/app/chats/agents', '/app/chats/triggers', '/app/chats/connectors',
   '/app/chats/conversion', '/app/files', '/app/collections', '/app/build', '/app/operate', '/app/models',
   '/app/settings', '/app/usage', '/app/account', '/app/activity', '/app/traces', '/app/backends',
 ]
@@ -44,8 +44,10 @@ test.describe('Every page of the shell', () => {
 
 test.describe('Removed pages', () => {
   const MAP = [
-    ['/app/chat', /\/app\/chats$/],
-    ['/app/chat/some-model', /\/app\/chats\?model=some-model$/],
+    ['/app/chat', /\/app$/],
+    ['/app/chat/some-model', /\/app\?model=some-model$/],
+    ['/app/chats', /\/app$/],
+    ['/app/chats?model=some-model', /\/app\?model=some-model$/],
     ['/app/chats/agents', /\/app\/agents$/],
     ['/app/chats/skills', /\/app\/skills$/],
     ['/app/chats/triggers', /\/app\/triggers$/],
@@ -78,7 +80,7 @@ test.describe('Theme and language', () => {
     await page.getByRole('button', { name: 'Change language' }).click()
     await page.getByRole('option', { name: /Italiano/ }).click()
     await expect(page.getByRole('link', { name: 'File', exact: true })).toBeVisible()
-    for (const route of ['/app/chats', '/app/agents', '/app/files', '/app/skills']) {
+    for (const route of ['/app/chats/all', '/app/agents', '/app/files', '/app/skills']) {
       await page.goto(route)
       await expect(page.getByRole('heading').first()).toBeVisible()
       const body = await page.locator('body').innerText()
@@ -89,7 +91,7 @@ test.describe('Theme and language', () => {
   test('a language the chats pages are not translated into shows English, not keys', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('i18nextLng', 'de'))
     await offerMockModel(page)
-    await page.goto('/app/chats')
+    await openNewChat(page)
     await expect(composer(page)).toBeVisible()
     await expect(page.getByTestId('chat-send')).toBeVisible()
   })
@@ -99,15 +101,15 @@ test.describe('Keyboard', () => {
   test('Tab reaches the sidebar links and Enter follows one', async ({ page }) => {
     await page.goto('/app')
     const nav = page.getByRole('complementary', { name: 'Primary navigation' })
-    await nav.getByRole('link', { name: 'Chats' }).focus()
-    await expect(nav.getByRole('link', { name: 'Chats' })).toBeFocused()
+    await nav.getByRole('link', { name: 'All chats' }).focus()
+    await expect(nav.getByRole('link', { name: 'All chats' })).toBeFocused()
     await page.keyboard.press('Enter')
-    await expect(page).toHaveURL(/\/app\/chats$/)
+    await expect(page).toHaveURL(/\/app\/chats\/all$/)
   })
 
   test('on the chats page the composer takes keyboard input, Enter sends and Shift+Enter adds a line', async ({ page }) => {
     await offerMockModel(page)
-    await page.goto('/app/chats')
+    await openNewChat(page)
     await composer(page).focus()
     await page.keyboard.type('line one')
     await page.keyboard.press('Shift+Enter')

@@ -262,5 +262,13 @@
       "cancelled": "Tente de novo quando quiser."
     },
     "openBackends": "Abrir Backends"
+  },
+  "allChats": {
+    "title": "Todos os chats",
+    "supporting": "Todos os chats salvos. Pesquise, renomeie, exporte ou exclua.",
+    "loadFailed": "Não foi possível carregar seus chats.",
+    "emptyTitle": "Nenhum chat ainda",
+    "emptyBody": "Um chat começa no Início: digite uma mensagem e envie. Depois disso, seus chats aparecem aqui.",
+    "start": "Começar um chat"
   }
 }
