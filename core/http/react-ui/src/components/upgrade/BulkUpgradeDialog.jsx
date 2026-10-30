@@ -7,7 +7,9 @@ import './upgrade.css'
 // The "upgrade all" button and its dialog. They draw the state of
 // useBulkUpgrade and know nothing about what is being upgraded: the page gives
 // the items and the words. `labels` may replace: title, intro, trigger, action.
-export function BulkUpgradeTrigger({ bulk, labels = {}, className = 'dk-btn dk-btn--primary' }) {
+// `quiet` drops the idle arrow, for a trigger that follows text which already
+// says "update"; the spinner still shows while a run goes.
+export function BulkUpgradeTrigger({ bulk, labels = {}, className = 'dk-btn dk-btn--primary', quiet = false }) {
   const { t } = useTranslation('upgrade')
   const count = bulk.items.filter(i => i.startable).length
   const { run, running, summary } = bulk
@@ -16,7 +18,7 @@ export function BulkUpgradeTrigger({ bulk, labels = {}, className = 'dk-btn dk-b
   return (
     <span className="up-trigger">
       <button type="button" className={className} onClick={() => { if (finished && summary.failed === 0) bulk.reset(); bulk.show() }} data-testid="bulk-upgrade-open">
-        <Icon name={running ? 'spinner' : 'arrow-up'} spin={running} aria-hidden="true" />
+        {(running || !quiet) && <Icon name={running ? 'spinner' : 'arrow-up'} spin={running} aria-hidden="true" />}
         {running
           ? t('trigger.running', { current: Math.min(summary.done + summary.failed + summary.skipped + 1, summary.total), total: summary.total })
           : (labels.trigger || t('trigger.all', { count }))}
