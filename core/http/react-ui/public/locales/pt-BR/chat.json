@@ -216,5 +216,59 @@
     "showAll_other": "Mostrar todas as {{count}} linhas",
     "details": "Mostrar detalhes",
     "openFile": "Abrir {{path}} em Arquivos"
+  },
+  "foot": {
+    "state": {
+      "ready": "Pronto",
+      "nomodel": "Nenhum modelo",
+      "sending": "Enviando",
+      "loading": "Carregando o modelo",
+      "thinking": "Pensando",
+      "tool": "Executando {{tool}}",
+      "answering": "Respondendo",
+      "waiting": "Aguardando você",
+      "stopped": "Parado",
+      "failed": "Falhou",
+      "interrupted": "Interrompido"
+    },
+    "tool": {
+      "search": "Pesquisando",
+      "list": "Listando",
+      "read": "Lendo",
+      "create": "Criando",
+      "write": "Escrevendo",
+      "change": "Alterando",
+      "move": "Movendo",
+      "delete": "Excluindo",
+      "run": "Executando um comando",
+      "fetch": "Buscando",
+      "delegate": "Consultando um subagente"
+    },
+    "hint": "Enter para enviar · Shift+Enter para uma nova linha",
+    "meter": {
+      "label": "Contexto {{pct}}% cheio. Ver contexto e velocidade",
+      "labelNoLimit": "Contexto com {{used}} tokens. Ver contexto e velocidade"
+    },
+    "details": {
+      "title": "Contexto e velocidade",
+      "context": "Contexto",
+      "contextOf": "{{used}} de {{limit}} tokens ({{pct}}%)",
+      "contextUsed": "{{used}} tokens",
+      "contextHelp": "O contexto é o que o modelo lê a cada requisição: as instruções, este chat até agora e os resultados das ferramentas.",
+      "nearFull": "Este chat está perto do limite. O servidor compacta a parte mais antiga para que o modelo possa continuar. A transcrição mantém todas as mensagens.",
+      "limitUnknown": "O servidor não informou o tamanho da janela de contexto.",
+      "lastRequest": "Última requisição",
+      "model": "Modelo",
+      "backend": "Backend",
+      "node": "Nó",
+      "tokensIn": "Tokens de entrada",
+      "tokensOut": "Tokens de saída",
+      "firstToken": "Tempo até o primeiro token",
+      "promptTime": "Processamento do prompt",
+      "speed": "Velocidade",
+      "speedLive": "Velocidade estimada durante o streaming",
+      "average": "Média das últimas {{count}} requisições",
+      "note": "Estes números vêm das requisições que esta página viu. O servidor não os guarda, então recarregar apaga."
+    }
   }
 }

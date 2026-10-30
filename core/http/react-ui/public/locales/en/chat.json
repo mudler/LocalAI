@@ -324,7 +324,6 @@
     "failed": "The old chats could not be imported: {{message}}"
   },
   "meter": {
-    "title": "Context the last model request used",
     "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
     "used": "{{used}} tokens",
     "speed": "{{speed}} tok/s"
@@ -393,5 +392,59 @@
     "showAll_other": "Show all {{count}} lines",
     "details": "Show details",
     "openFile": "Open {{path}} in Files"
+  },
+  "foot": {
+    "state": {
+      "ready": "Ready",
+      "nomodel": "No model",
+      "sending": "Sending",
+      "loading": "Loading model",
+      "thinking": "Thinking",
+      "tool": "Running {{tool}}",
+      "answering": "Answering",
+      "waiting": "Waiting for you",
+      "stopped": "Stopped",
+      "failed": "Failed",
+      "interrupted": "Interrupted"
+    },
+    "tool": {
+      "search": "Searching",
+      "list": "Listing",
+      "read": "Reading",
+      "create": "Creating",
+      "write": "Writing",
+      "change": "Changing",
+      "move": "Moving",
+      "delete": "Deleting",
+      "run": "Running a command",
+      "fetch": "Fetching",
+      "delegate": "Asking a sub-agent"
+    },
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "meter": {
+      "label": "Context {{pct}}% full. Show context and speed",
+      "labelNoLimit": "Context {{used}} tokens. Show context and speed"
+    },
+    "details": {
+      "title": "Context and speed",
+      "context": "Context",
+      "contextOf": "{{used}} of {{limit}} tokens ({{pct}}%)",
+      "contextUsed": "{{used}} tokens",
+      "contextHelp": "The context is what the model reads for each request: the instructions, this chat so far and the tool results.",
+      "nearFull": "This chat is close to the limit. The server compacts the older part so the model can go on. The transcript keeps every message.",
+      "limitUnknown": "The server did not say how large the context window is.",
+      "lastRequest": "Last request",
+      "model": "Model",
+      "backend": "Backend",
+      "node": "Node",
+      "tokensIn": "Tokens in",
+      "tokensOut": "Tokens out",
+      "firstToken": "Time to first token",
+      "promptTime": "Prompt processing",
+      "speed": "Speed",
+      "speedLive": "Speed, estimated while streaming",
+      "average": "Average of the last {{count}} requests",
+      "note": "These figures come from the requests this page saw. The server does not keep them, so a reload clears them."
+    }
   }
 }

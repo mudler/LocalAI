@@ -7,7 +7,9 @@ import { composer, transcript, startChat, watchProblems, b64, offerMockModel } f
 // prompt with MOCK_LONG_STREAM, which leaves a window to stop, type or reload.
 // The assertions use roles and visible text, not class names.
 
-const working = (page) => page.getByText('Working…')
+// A turn runs: the status line shows a busy state (loading, thinking, a tool,
+// answering). Sending is left out, since it comes before the turn starts.
+const working = (page) => page.locator('[data-testid="chat-state"][data-busy]:not([data-state="sending"])')
 
 test.describe('Chat journeys', () => {
   test('a first message streams its answer live and the journey is quiet', async ({ page }) => {

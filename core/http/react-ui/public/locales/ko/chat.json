@@ -213,5 +213,59 @@
     "showAll_other": "{{count}}줄 모두 보기",
     "details": "세부 정보 보기",
     "openFile": "파일에서 {{path}} 열기"
+  },
+  "foot": {
+    "state": {
+      "ready": "준비됨",
+      "nomodel": "모델 없음",
+      "sending": "보내는 중",
+      "loading": "모델 불러오는 중",
+      "thinking": "생각하는 중",
+      "tool": "{{tool}} 실행 중",
+      "answering": "답변하는 중",
+      "waiting": "입력을 기다리는 중",
+      "stopped": "중지됨",
+      "failed": "실패",
+      "interrupted": "중단됨"
+    },
+    "tool": {
+      "search": "검색 중",
+      "list": "목록 보는 중",
+      "read": "읽는 중",
+      "create": "만드는 중",
+      "write": "쓰는 중",
+      "change": "바꾸는 중",
+      "move": "옮기는 중",
+      "delete": "삭제하는 중",
+      "run": "명령 실행 중",
+      "fetch": "가져오는 중",
+      "delegate": "하위 에이전트에 묻는 중"
+    },
+    "hint": "Enter로 보내기 · Shift+Enter로 줄바꿈",
+    "meter": {
+      "label": "컨텍스트 {{pct}}% 사용. 컨텍스트와 속도 보기",
+      "labelNoLimit": "컨텍스트 {{used}} 토큰. 컨텍스트와 속도 보기"
+    },
+    "details": {
+      "title": "컨텍스트와 속도",
+      "context": "컨텍스트",
+      "contextOf": "{{limit}} 토큰 중 {{used}} ({{pct}}%)",
+      "contextUsed": "{{used}} 토큰",
+      "contextHelp": "컨텍스트는 모델이 요청마다 읽는 내용입니다: 지침, 지금까지의 이 채팅, 도구 결과.",
+      "nearFull": "이 채팅이 한도에 가깝습니다. 모델이 계속할 수 있도록 서버가 오래된 부분을 압축합니다. 대화 기록에는 모든 메시지가 남습니다.",
+      "limitUnknown": "서버가 컨텍스트 창의 크기를 알려 주지 않았습니다.",
+      "lastRequest": "마지막 요청",
+      "model": "모델",
+      "backend": "백엔드",
+      "node": "노드",
+      "tokensIn": "입력 토큰",
+      "tokensOut": "출력 토큰",
+      "firstToken": "첫 토큰까지 걸린 시간",
+      "promptTime": "프롬프트 처리",
+      "speed": "속도",
+      "speedLive": "스트리밍 중 추정 속도",
+      "average": "최근 {{count}}개 요청의 평균",
+      "note": "이 수치는 이 페이지가 본 요청에서 나옵니다. 서버는 이를 보관하지 않으므로 새로고침하면 사라집니다."
+    }
   }
 }

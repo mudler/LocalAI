@@ -631,12 +631,12 @@ button.cx-step__head:hover,
 .home-stop-btn:hover { background: var(--dk-hover); }
 .home-stop-btn:active { transform: scale(0.98); }
 .home-stop-btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
-/* Under the bar: the turn status on the left, the context meter on the right.
-   Sans words, tabular numbers: nothing here is code. */
+/* The status line under the bar: one live state on the left, the context
+   meter on the right. One line at every width: the state truncates, the meter
+   keeps its width. Sans words, tabular numbers: nothing here is code. */
 .cx-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--sp-3);
   min-height: 24px;
   padding: 6px var(--sp-1) 0;
@@ -644,9 +644,107 @@ button.cx-step__head:hover,
   font-size: var(--fs-meta);
   line-height: var(--lh-meta);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.cx-foot__tokens { margin-left: auto; white-space: nowrap; }
-.cx-foot .cx-ctx { height: auto; padding: 0; gap: var(--sp-2); font-family: var(--font-sans); font-size: var(--fs-meta); font-weight: 500; color: var(--dk-muted); }
+.cx-foot__state { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.cx-foot__mark { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 14px; height: 14px; }
+.cx-foot__mark .lai-icon { width: 14px; height: 14px; }
+.cx-foot__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+.cx-foot__live { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+.cx-foot__word { flex: none; font-weight: 500; animation: dk-veil-in var(--dur-fast) var(--ease-out); }
+.cx-foot__detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cx-foot__detail::before { content: "·"; margin-right: 6px; }
+/* A new chat: the state is said by the empty state; the hint can stay. */
+.cx-foot__state[data-quiet] .cx-foot__mark,
+.cx-foot__state[data-quiet] .cx-foot__live { display: none; }
+.cx-foot__state[data-quiet] .cx-foot__hint { margin-left: 0; padding-left: 0; border-left: 0; }
+.cx-foot__hint { flex: none; margin-left: var(--sp-2); padding-left: var(--sp-3); border-left: 1px solid var(--dk-edge); }
+/* Tone: the word and the mark carry it; the icon is the cue that does not
+   depend on colour. */
+.cx-foot__state[data-tone="accent"] .cx-foot__mark { color: var(--dk-accent-text); }
+.cx-foot__state[data-tone="accent"] .cx-foot__word { color: var(--dk-text); }
+.cx-foot__state[data-tone="warn"] .cx-foot__mark,
+.cx-foot__state[data-tone="warn"] .cx-foot__word { color: var(--dk-warn-text); }
+.cx-foot__state[data-tone="error"] .cx-foot__mark,
+.cx-foot__state[data-tone="error"] .cx-foot__word { color: var(--dk-error-text); }
+.cx-foot__state[data-state="ready"] .cx-foot__dot { background: var(--dk-ok); opacity: 1; }
+
+/* The meter: a quiet button. */
+.cx-meter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 24px;
+  margin-left: auto;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dk-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
+}
+.cx-meter:hover, .cx-meter[aria-expanded="true"] { background: var(--dk-hover); color: var(--dk-text); }
+.cx-meter:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 1px; }
+.cx-meter__warn { width: 14px; height: 14px; }
+.cx-meter__bar { position: relative; flex: none; width: 40px; height: 4px; border-radius: var(--r-xs); background: var(--dk-hover); overflow: hidden; }
+.cx-meter__bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--dk-accent);
+  transform: scaleX(var(--cx-fill, 0));
+  transform-origin: left center;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.cx-meter[data-tone="warn"], .cx-meter-pop__ctx[data-tone="warn"] { color: var(--dk-warn-text); }
+.cx-meter[data-tone="err"], .cx-meter-pop__ctx[data-tone="err"] { color: var(--dk-error-text); }
+.cx-meter[data-tone="warn"] .cx-meter__bar i, .cx-meter-pop__ctx[data-tone="warn"] .cx-meter__bar i { background: var(--dk-warn); }
+.cx-meter[data-tone="err"] .cx-meter__bar i, .cx-meter-pop__ctx[data-tone="err"] .cx-meter__bar i { background: var(--dk-error); }
+.cx-meter__short { display: none; }
+/* Live speed in text colour; the last figure after the turn goes back to the
+   muted line colour. A minimum width keeps the line from shifting. */
+.cx-meter__speed { min-width: 8ch; color: var(--dk-text); text-align: right; }
+.cx-meter__speed::before { content: "·"; margin-right: var(--sp-2); color: var(--dk-muted); }
+.cx-meter__speed[data-stale] { color: inherit; }
+/* The keyboard hint lives in the status line here, not in the bar. */
+.cx-dock .home-input-hint { visibility: hidden; }
+
+/* The details of the meter: a popover over the composer, a sheet on a phone. */
+.cx-meter-pop { width: 300px; max-width: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-4); font-size: var(--fs-small); line-height: var(--lh-small); white-space: normal; }
+.cx-meter-pop:focus { outline: none; }
+.cx-meter-pop[data-sheet] { width: auto; padding: 0; }
+.cx-meter-pop__title { margin: 0 0 var(--sp-3); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--dk-text); }
+.cx-meter-pop__ctx { display: grid; gap: var(--sp-1); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--dk-edge); color: var(--dk-text); }
+.cx-meter-pop__ctx .cx-meter__bar--wide { width: 100%; height: 6px; margin: var(--sp-1) 0; }
+.cx-meter-pop__help { display: flex; gap: 6px; margin: 0; color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.cx-meter-pop__help .lai-icon { flex: none; width: 14px; height: 14px; margin-top: 1px; }
+.cx-meter-pop__help--warn { color: var(--dk-warn-text); }
+.cx-meter-pop__head { margin: var(--sp-3) 0 var(--sp-1); color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; }
+.cx-meter-pop__head--first { margin-top: 0; }
+.cx-meter-pop__figure { margin: 0; color: inherit; font-weight: 500; font-variant-numeric: tabular-nums; }
+.cx-meter-pop__list { display: grid; gap: var(--sp-1); margin: 0; }
+.cx-meter-pop__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.cx-meter-pop__label { margin: 0; color: var(--dk-muted); }
+.cx-meter-pop__value { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dk-text); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.cx-meter-pop__value--mono { font-family: var(--font-mono); font-size: var(--fs-meta); }
+.cx-meter-pop__note { margin: var(--sp-3) 0 0; color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.cx-meter-sheet.ui-pane { height: auto; max-height: 90dvh; }
+
+/* Phone: the state word and the percentage. The rest is in the sheet. */
+@media (max-width: 639px) {
+  .cx-foot__detail, .cx-foot__hint, .cx-meter__text, .cx-meter__speed, .cx-meter .cx-meter__bar { display: none; }
+  .cx-meter__short { display: inline; }
+}
+/* A touch target of at least 44 px without a taller line. */
+@media (pointer: coarse) {
+  .cx-foot__hint { display: none; }
+  .cx-meter { position: relative; }
+  .cx-meter::after { content: ""; position: absolute; inset: -10px -4px; }
+}
 
 /* ---- Header ----------------------------------------------------------------- */
 .cx-page { --cx-float: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text)); }
@@ -950,7 +1048,6 @@ button.cx-step__head:hover,
 .cx-danger { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--dk-radius-2); background: var(--dk-error-wash); font-size: 13px; }
 .cx-danger > span { flex: 1; color: var(--color-text-secondary); }
 .cx-field .dk-range { width: 100%; }
-.cx-foot [data-warn] { color: var(--dk-warn-text); }
 
 /* ---- An empty chat ------------------------------------------------------------- */
 .cx-conv[data-empty] { overflow-y: auto; overflow-x: hidden; overflow: clip auto; }

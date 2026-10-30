@@ -197,6 +197,33 @@ time the backend took to read the prompt; both only when the backend reports
 timings), `model` (the model of the request) and `node` (the worker that
 served it, only when the server runs with `--expose-node-header`).
 
+## The status line
+
+The line under the composer shows what the chat is doing now, as one word:
+**Ready**, **Loading model**, **Thinking**, a tool step (for example
+**Reading** `q2.pdf`), **Answering**, **Waiting for you** (messages wait for
+**Send now**), **Stopped**, **Failed** or **Interrupted**. A spinner marks a
+running turn, and an icon marks a state that needs your attention. While the
+composer has focus and is empty, the line also shows the keyboard hint.
+
+On the right, the context meter shows how full the model's context was at the
+last request and the speed of that request. While an answer streams, the speed
+is an estimate (shown with `≈`); the measured figure replaces it when the
+request ends. From 80 % the meter turns amber, from 90 % red, both with a
+warning icon. Select the meter to see:
+
+- the context used and the limit, and what happens near the limit (the server
+  compacts the older part of the chat),
+- the model, its backend and, when the server runs with
+  `--expose-node-header`, the node that served the request,
+- the tokens in and out, the time to the first token, the prompt processing
+  time and the speed, with the average of the last requests.
+
+The figures come from the `usage` events of the page's event stream. The server
+does not keep them, so they are empty after a reload until the next request.
+On a phone the line shows the word and the percentage, and the details open in
+a sheet.
+
 ## Regenerate, edit, fork, search, export
 
 ```bash

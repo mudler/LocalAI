@@ -125,7 +125,7 @@ The detail, when there is one, follows in muted text and is cut first.
 | Sending | the send request is on its way and no turn runs yet | spinner | accent | none |
 | Loading model | a turn runs, nothing has streamed, the model is not loaded | spinner | accent | the model id |
 | Thinking | a turn runs and the last thing that arrived is reasoning, a finished tool call or nothing yet | spinner | accent | none |
-| Running tool | a tool call has started and not ended | spinner | accent | the tool and its argument (`read · q2.pdf`) |
+| Running tool | a tool call has started and not ended | spinner | accent | a present-tense verb from the tool-label map ("Reading", "Searching", "Running a command"; "Running <tool>" for an unknown tool) and its argument (`q2.pdf`) |
 | Answering | the last thing that arrived is answer text | spinner | accent | none |
 | Waiting for you | no turn runs and messages wait for **Send now** | clock | warn | "1 message waiting" |
 | Stopped | the person stopped the last turn | stop | idle | none |
@@ -134,7 +134,12 @@ The detail, when there is one, follows in muted text and is cut first.
 | No model | no chat model is installed | 6 px dot | idle | none |
 
 Order when no turn runs: Failed, Interrupted, Waiting for you, Stopped,
-Ready. A turn that runs always wins. The state is derived by one pure function
+Ready.
+
+A new, empty chat keeps the state out of the line (only Sending shows): the
+empty state under the composer already says "qwen3-8b is loaded and ready"
+or "Chat needs a language model", and a second "Ready" next to it was noise
+in the first after-shots. A turn that runs always wins. The state is derived by one pure function
 (`chatFootState`) with unit tests.
 
 - `role="status"` and `aria-live="polite"` go on the state word only. The
@@ -226,3 +231,10 @@ popover entrance; the sheet uses `SidePane`'s. Reduced motion: all off.
 - The error card in the thread and the wording of a failure (separate branch).
 - The fonts: in these screenshots every face renders monospace. That is the
   font-role issue of the polish audit, not part of the footer.
+
+## 4. After
+
+The same 16 states were captured again at both sizes and in both themes,
+plus each state with the details open. `e2e/chats-footer.spec.js` holds the
+states still with the same stubs and checks them. The meter's accessible name starts with
+its visible text (label in name), then the speed, then "Context and speed".

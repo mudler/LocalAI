@@ -10,6 +10,9 @@ import { test, expect } from './coverage-fixtures.js'
 
 const composer = (page) => page.getByTestId('chat-input')
 const log = (page) => page.getByRole('region', { name: 'Conversation' })
+// A turn runs: the status line shows a busy state (loading, thinking, a tool,
+// answering). Sending is left out, since it comes before the turn starts.
+const working = (page) => page.locator('[data-testid="chat-state"][data-busy]:not([data-state="sending"])')
 
 // The test server's mock model is not tagged as chat-capable, so the model list
 // of the picker is empty. That one list is stubbed; the chat itself is not.
@@ -34,7 +37,7 @@ test.describe('Chats against the real server', () => {
     await expect(log(page).locator('.cx-msg--user')).toHaveText('hello there')
     // The model's answer arrives as a second, non-user message.
     await expect(log(page).locator('.cx-msg--model').first()).not.toBeEmpty({ timeout: 20_000 })
-    await expect(page.getByText('Working…')).toBeHidden({ timeout: 20_000 })
+    await expect(working(page)).toBeHidden({ timeout: 20_000 })
     // The conversations menu (Ctrl K) lists the chat.
     await page.keyboard.press('Control+k')
     await expect(page.getByTestId('chats-row').first()).toBeVisible()
@@ -42,7 +45,7 @@ test.describe('Chats against the real server', () => {
 
   test('a message typed while the model works is not lost', async ({ page }) => {
     await startChat(page, 'MOCK_SLOW_STREAM first')
-    await expect(page.getByText('Working…')).toBeVisible()
+    await expect(working(page)).toBeVisible()
 
     await composer(page).fill('second')
     await composer(page).press('Enter')
@@ -53,7 +56,7 @@ test.describe('Chats against the real server', () => {
     // the turn ended first, as the message of the next turn.
     await expect(log(page).locator('.cx-msg--user').filter({ hasText: 'second' })).toBeVisible({ timeout: 30_000 })
     await expect(log(page).locator('.cx-msg--user').filter({ hasText: 'third' })).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText('Working…')).toBeHidden({ timeout: 30_000 })
+    await expect(working(page)).toBeHidden({ timeout: 30_000 })
     await expect(page.getByTestId('pending-list')).toBeHidden()
   })
 
@@ -79,7 +82,7 @@ test.describe('Chats against the real server', () => {
     await composer(page).fill('summarize the attachment')
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(log(page).locator('.cx-msg--user').first()).toContainText('summarize the attachment', { timeout: 20_000 })
-    await expect(page.getByText('Working…')).toBeHidden({ timeout: 30_000 })
+    await expect(working(page)).toBeHidden({ timeout: 30_000 })
 
     await page.goto('/app/files')
     await page.getByRole('searchbox', { name: 'Search your files' }).fill('orbital mechanics')

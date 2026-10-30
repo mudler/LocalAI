@@ -213,5 +213,59 @@
     "showAll_other": "显示全部 {{count}} 行",
     "details": "显示详情",
     "openFile": "在文件中打开 {{path}}"
+  },
+  "foot": {
+    "state": {
+      "ready": "就绪",
+      "nomodel": "没有模型",
+      "sending": "发送中",
+      "loading": "正在加载模型",
+      "thinking": "思考中",
+      "tool": "正在运行 {{tool}}",
+      "answering": "回答中",
+      "waiting": "等待你操作",
+      "stopped": "已停止",
+      "failed": "失败",
+      "interrupted": "已中断"
+    },
+    "tool": {
+      "search": "正在搜索",
+      "list": "正在列出",
+      "read": "正在读取",
+      "create": "正在创建",
+      "write": "正在写入",
+      "change": "正在修改",
+      "move": "正在移动",
+      "delete": "正在删除",
+      "run": "正在运行命令",
+      "fetch": "正在获取",
+      "delegate": "正在询问子代理"
+    },
+    "hint": "Enter 发送 · Shift+Enter 换行",
+    "meter": {
+      "label": "上下文已用 {{pct}}%。查看上下文和速度",
+      "labelNoLimit": "上下文 {{used}} 个 token。查看上下文和速度"
+    },
+    "details": {
+      "title": "上下文和速度",
+      "context": "上下文",
+      "contextOf": "{{used}} / {{limit}} 个 token（{{pct}}%）",
+      "contextUsed": "{{used}} 个 token",
+      "contextHelp": "上下文是模型每次请求时读取的内容：指令、目前为止的对话以及工具结果。",
+      "nearFull": "此对话接近上限。服务器会压缩较早的部分，让模型可以继续。对话记录会保留每条消息。",
+      "limitUnknown": "服务器没有说明上下文窗口有多大。",
+      "lastRequest": "上一次请求",
+      "model": "模型",
+      "backend": "后端",
+      "node": "节点",
+      "tokensIn": "输入 token",
+      "tokensOut": "输出 token",
+      "firstToken": "首个 token 用时",
+      "promptTime": "提示词处理",
+      "speed": "速度",
+      "speedLive": "速度（流式输出时估算）",
+      "average": "最近 {{count}} 次请求的平均值",
+      "note": "这些数字来自本页面看到的请求。服务器不保存它们，刷新页面后会清空。"
+    }
   }
 }
