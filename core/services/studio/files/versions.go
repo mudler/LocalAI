@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
+	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -36,9 +39,15 @@ type FileVersion struct {
 	Data   []byte
 }
 
+// maxMoveHops is how many moves Versions follows back.
+const maxMoveHops = 4
+
 // Versions calls fn with the contents the file abs had, newest first, as the
 // history of the user shows them, until fn returns false. It looks at most at
-// limit change sets. A version larger than maxSize is skipped without reading it.
+// limit change sets per path. A version larger than maxSize is skipped without
+// reading it. When the file was moved to abs, the versions it had at its old
+// path follow, so a move (a rename, or LocalAI moving a settings file into its
+// folder) keeps the file's past.
 func (s *Service) Versions(ctx context.Context, principal, abs string, limit int, maxSize int64, fn func(FileVersion) bool) error {
 	if !s.Available() {
 		return fmt.Errorf("%w: %s", ErrUnavailable, s.Unavailable())
@@ -46,28 +55,71 @@ func (s *Service) Versions(ctx context.Context, principal, abs string, limit int
 	if s.blobs == nil {
 		return ErrNoVersions
 	}
-	hist, err := s.ws.History(ctx, s.Actor(principal), workspace.HistoryQuery{Path: abs, Limit: limit})
-	if err != nil {
-		return err
-	}
-	for _, cs := range hist {
-		for _, op := range cs.Ops {
-			if op.NewPath != abs || op.NewBlob == "" || op.Kind == workspace.OpDelete {
-				continue
-			}
-			data, err := s.readBlob(ctx, op.NewBlob, maxSize)
-			if errors.Is(err, workspace.ErrTooLarge) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-			if !fn(FileVersion{Rev: cs.Rev, At: cs.CreatedAt, Kind: cs.Kind, ChatID: cs.ChatID, Data: data}) {
+	cur, before, skip := abs, int64(0), ""
+	for hop := 0; hop <= maxMoveHops; hop++ {
+		q := workspace.HistoryQuery{Path: cur, Limit: limit, BeforeRev: before}
+		if hop > 0 {
+			// The old path no longer exists: ask the history of the nearest
+			// folder above it that does, and keep the rows of the old path.
+			q.Path, q.Limit = s.liveAncestor(ctx, principal, cur), 1000
+		}
+		hist, err := s.ws.History(ctx, s.Actor(principal), q)
+		if err != nil {
+			if hop > 0 {
 				return nil
 			}
+			return err
 		}
+		from, fromRev, fromBlob := "", int64(0), ""
+		for _, cs := range hist {
+			for _, op := range cs.Ops {
+				if op.NewPath != cur || op.Kind == workspace.OpDelete {
+					continue
+				}
+				if op.Kind == workspace.OpMove && op.OldPath != "" && op.OldPath != cur && from == "" {
+					from, fromRev, fromBlob = op.OldPath, cs.Rev, op.NewBlob
+				}
+				if op.NewBlob == "" {
+					continue
+				}
+				if skip != "" && op.NewBlob == skip {
+					// The move showed this content already.
+					skip = ""
+					continue
+				}
+				skip = ""
+				data, err := s.readBlob(ctx, op.NewBlob, maxSize)
+				if errors.Is(err, workspace.ErrTooLarge) {
+					continue
+				}
+				if err != nil {
+					return err
+				}
+				if !fn(FileVersion{Rev: cs.Rev, At: cs.CreatedAt, Kind: cs.Kind, ChatID: cs.ChatID, Data: data}) {
+					return nil
+				}
+			}
+		}
+		if from == "" {
+			return nil
+		}
+		cur, before, skip = from, fromRev, fromBlob
 	}
 	return nil
+}
+
+// liveAncestor is the nearest folder above p that the user can still read,
+// at most the home.
+func (s *Service) liveAncestor(ctx context.Context, principal, p string) string {
+	home := session.HomePath(principal)
+	for dir := path.Dir(p); ; dir = path.Dir(dir) {
+		if dir == home || !strings.HasPrefix(dir, home+"/") {
+			return home
+		}
+		if n, err := s.ws.Stat(ctx, s.Actor(principal), dir); err == nil && n.Kind == workspace.KindDir {
+			return dir
+		}
+	}
 }
 
 func (s *Service) readBlob(ctx context.Context, sha string, maxSize int64) ([]byte, error) {
