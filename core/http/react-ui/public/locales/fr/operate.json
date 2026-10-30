@@ -3,7 +3,32 @@
     "updateAllTitle": "Mettre à jour tous les backends",
     "updateAllIntro": "Choisissez les backends à mettre à jour. Chacun est mis à jour séparément, l'un après l'autre. Un échec n'arrête pas les autres.",
     "updateSelected": "Mettre à jour la sélection",
-    "loadFailedTitle": "Impossible de charger le catalogue des backends."
+    "loadFailedTitle": "Impossible de charger le catalogue des backends.",
+    "filtersButton": "Filtres",
+    "filtersDone": "Terminé",
+    "filterGroups": {
+      "state": "État",
+      "type": "Type",
+      "show": "Afficher",
+      "library": "Bibliothèque"
+    },
+    "showVariants": "Variantes",
+    "showDevelopment": "Versions de développement",
+    "allLibraries": "Toutes les bibliothèques",
+    "moreActions": "Autres actions sur les backends",
+    "installFromUrl": "Installer depuis une URL…",
+    "manageLibraries": "Gérer les bibliothèques…",
+    "count_one": "{{count}} backend",
+    "count_other": "{{count}} backends",
+    "countOf": "{{shown}} sur {{total}} backends",
+    "activeFilters": "Filtres actifs",
+    "removeFilter": "Retirer le filtre : {{name}}",
+    "checking": "Recherche de mises à jour…",
+    "updatesAvailable_one": "{{count}} mise à jour disponible",
+    "updatesAvailable_other": "{{count}} mises à jour disponibles",
+    "reviewUpdates": "Examiner",
+    "close": "Fermer",
+    "installedLoadFailedTitle": "Impossible de charger les backends installés."
   },
   "capacity": {
     "diskChip": "Disque presque plein"

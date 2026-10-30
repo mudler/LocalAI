@@ -3,7 +3,32 @@
     "updateAllTitle": "모든 백엔드 업데이트",
     "updateAllIntro": "업데이트할 백엔드를 선택하세요. 각각 하나씩 차례로 업데이트되며, 하나가 실패해도 나머지는 계속됩니다.",
     "updateSelected": "선택 항목 업데이트",
-    "loadFailedTitle": "백엔드 카탈로그를 불러오지 못했습니다."
+    "loadFailedTitle": "백엔드 카탈로그를 불러오지 못했습니다.",
+    "filtersButton": "필터",
+    "filtersDone": "완료",
+    "filterGroups": {
+      "state": "상태",
+      "type": "유형",
+      "show": "표시",
+      "library": "라이브러리"
+    },
+    "showVariants": "변형 빌드",
+    "showDevelopment": "개발 빌드",
+    "allLibraries": "모든 라이브러리",
+    "moreActions": "백엔드 작업 더 보기",
+    "installFromUrl": "URL에서 설치…",
+    "manageLibraries": "라이브러리 관리…",
+    "count_one": "백엔드 {{count}}개",
+    "count_other": "백엔드 {{count}}개",
+    "countOf": "백엔드 {{total}}개 중 {{shown}}개",
+    "activeFilters": "적용된 필터",
+    "removeFilter": "필터 제거: {{name}}",
+    "checking": "업데이트 확인 중…",
+    "updatesAvailable_one": "업데이트 {{count}}개 있음",
+    "updatesAvailable_other": "업데이트 {{count}}개 있음",
+    "reviewUpdates": "검토",
+    "close": "닫기",
+    "installedLoadFailedTitle": "설치된 백엔드를 불러오지 못했습니다."
   },
   "capacity": {
     "diskChip": "디스크 거의 가득 참"
