@@ -173,7 +173,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		return contract.Result{}, protocol.ErrBadRequest
 	}
 	refuse := func(msg string) (contract.Result, error) {
-		return contract.Result{Payload: payload(map[string]any{"ok": false, "error": msg})}, nil
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": false, "error": msg})}, nil
 	}
 	admin := r.admin != nil && r.admin.IsAdmin(ctx, op)
 	switch a.Tool {
@@ -186,7 +186,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		if admin {
 			out["backends"], out["hostConfirmed"], out["note"] = st.Backends, st.HostConfirmed, st.Note
 		}
-		return contract.Result{Payload: payload(out)}, nil
+		return contract.Result{Payload: protocol.Payload(out)}, nil
 	case ToolSetBackend, ToolConfirmHost:
 		if r.settings == nil || !admin {
 			return refuse("only an administrator can change this setting")
@@ -204,7 +204,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		if err != nil {
 			return refuse(err.Error())
 		}
-		return contract.Result{Payload: payload(map[string]any{"ok": true})}, nil
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true})}, nil
 	}
 	return contract.Result{}, protocol.ErrBadRequest
 }
@@ -226,8 +226,6 @@ func (*runtime) OpenOutput(context.Context, contract.Envelope, string) (io.ReadC
 }
 
 var _ contract.ActRuntime = (*runtime)(nil)
-
-func payload(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 
 // Act serves a tool. The user is the actor of the request; the conversation is
 // the one the host put in ResourceID from the chat's own turn. Neither comes
@@ -259,10 +257,10 @@ func (r *runtime) Act(ctx context.Context, env contract.Envelope) (contract.Resu
 	case err != nil:
 		// Something the model can read and correct, or must wait for. Nothing
 		// is hidden: the sandbox's own message is the answer.
-		return contract.Result{Payload: payload(map[string]any{"ok": false, "error": err.Error()})}, nil
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": false, "error": err.Error()})}, nil
 	}
 	if len(out) > maxAnswer {
 		out = out[:maxAnswer] + "\n[output cut]"
 	}
-	return contract.Result{Payload: payload(map[string]any{"ok": true, "output": out})}, nil
+	return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true, "output": out})}, nil
 }

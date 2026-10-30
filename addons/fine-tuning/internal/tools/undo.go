@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/jobundo"
+	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -38,7 +39,7 @@ func (r *runtime) undoer() *jobundo.Undoer[job] {
 			next.UndoneBy = undoneBy
 			return r.j.commit(resource, &next, rec)
 		},
-		MapErr: mapErr, Payload: payload,
+		MapErr: protocol.FromHostError, Payload: protocol.Payload,
 	}
 }
 

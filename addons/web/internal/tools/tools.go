@@ -187,14 +187,12 @@ func (g pdfGuard) Get(ctx context.Context, raw string, accept []string) (*safeht
 
 var operationShape = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
-func payload(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
-
 func answer(out string) contract.Result {
-	return contract.Result{Payload: payload(map[string]any{"ok": true, "output": out})}
+	return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true, "output": out})}
 }
 
 func refuse(msg string) contract.Result {
-	return contract.Result{Payload: payload(map[string]any{"ok": false, "error": msg})}
+	return contract.Result{Payload: protocol.Payload(map[string]any{"ok": false, "error": msg})}
 }
 
 // Read serves every tool: the two chat tools, which the host runs as reads
@@ -243,7 +241,7 @@ func (r *runtime) search(ctx context.Context, env contract.Envelope) (contract.R
 	}
 	// The manifest names the arguments in camel case (the contract allows no
 	// underscore); the built-in code reads its own names.
-	raw := payload(map[string]any{"query": a.Query, "max_results": a.MaxResults, "freshness": a.Freshness, "site": a.Site})
+	raw := protocol.Payload(map[string]any{"query": a.Query, "max_results": a.MaxResults, "freshness": a.Freshness, "site": a.Site})
 	t, _ := r.current()
 	out, err := t.WebSearch(ctx, env.Authority.Actor.UserID, omitZero(raw))
 	if err != nil {
@@ -262,7 +260,7 @@ func (r *runtime) fetch(ctx context.Context, env contract.Envelope) (contract.Re
 	if err := strict(env.Request.Arguments, &a); err != nil {
 		return refuse(err.Error()), nil
 	}
-	raw := payload(map[string]any{"url": a.URL, "max_chars": a.MaxChars, "format": a.Format})
+	raw := protocol.Payload(map[string]any{"url": a.URL, "max_chars": a.MaxChars, "format": a.Format})
 	t, _ := r.current()
 	out, err := t.WebFetch(ctx, omitZero(raw))
 	if err != nil {
@@ -283,7 +281,7 @@ func omitZero(raw json.RawMessage) json.RawMessage {
 			delete(m, k)
 		}
 	}
-	return payload(m)
+	return protocol.Payload(m)
 }
 
 func strict(raw json.RawMessage, v any) error {
@@ -327,7 +325,7 @@ func (r *runtime) settingsTool(ctx context.Context, env contract.Envelope, tool,
 		if admin {
 			out["settings"] = r.o.Settings.View()
 		}
-		return contract.Result{Payload: payload(out)}, nil
+		return contract.Result{Payload: protocol.Payload(out)}, nil
 	case ToolSetSettings:
 		if !admin {
 			return refuse("only an administrator can change this setting"), nil
@@ -342,7 +340,7 @@ func (r *runtime) settingsTool(ctx context.Context, env contract.Envelope, tool,
 		if err := r.o.Settings.Apply(a.Change); err != nil {
 			return refuse(err.Error()), nil
 		}
-		return contract.Result{Payload: payload(map[string]any{"ok": true, "settings": r.o.Settings.View()})}, nil
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true, "settings": r.o.Settings.View()})}, nil
 	case ToolTestSearch:
 		if !admin {
 			return refuse("only an administrator can test the providers"), nil
@@ -354,7 +352,7 @@ func (r *runtime) settingsTool(ctx context.Context, env contract.Envelope, tool,
 		if err := strict(env.Request.Arguments, &a); err != nil {
 			return refuse("the test is not valid"), nil
 		}
-		return contract.Result{Payload: payload(map[string]any{"ok": true, "providers": r.test(ctx, a.Query)})}, nil
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": true, "providers": r.test(ctx, a.Query)})}, nil
 	}
 	return contract.Result{}, protocol.ErrBadRequest
 }

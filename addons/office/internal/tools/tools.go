@@ -109,7 +109,7 @@ func isAction(tool string) bool {
 
 // Read serves the read tools.
 func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Result{}, err
 	}
@@ -121,7 +121,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 
 // Act serves the action tools.
 func (r *runtime) Act(ctx context.Context, env contract.Envelope) (contract.Result, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Result{}, err
 	}
@@ -172,11 +172,11 @@ func (r *runtime) run(ctx context.Context, env contract.Envelope, tool string) (
 	switch {
 	case errors.As(err, &rf):
 		// The model can correct this: say what was wrong, change nothing.
-		return contract.Result{Payload: payload(map[string]any{"ok": false, "error": rf.msg})}, nil
+		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": false, "error": rf.msg})}, nil
 	case err != nil:
 		return contract.Result{}, mapErr(err)
 	}
-	return contract.Result{Payload: payload(out)}, nil
+	return contract.Result{Payload: protocol.Payload(out)}, nil
 }
 
 // refusal is a problem with the request that the model can fix. It is an
@@ -186,16 +186,6 @@ type refusal struct{ msg string }
 func (r *refusal) Error() string { return r.msg }
 
 func refuse(format string, a ...any) error { return &refusal{msg: fmt.Sprintf(format, a...)} }
-
-func toolOf(env contract.Envelope) (string, error) {
-	var a struct {
-		Tool string `json:"tool"`
-	}
-	if json.Unmarshal(env.Request.Arguments, &a) != nil || a.Tool == "" {
-		return "", protocol.ErrBadRequest
-	}
-	return a.Tool, nil
-}
 
 // decode reads the arguments strictly: an argument the schema does not name is
 // a bad request. v embeds base, which holds the tool name the host adds.
@@ -217,8 +207,6 @@ func decode(raw json.RawMessage, v any) error {
 type base struct {
 	Tool string `json:"tool"`
 }
-
-func payload(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 
 // mapErr turns the refusal of a host operation into the protocol error that
 // tells the owner what happened. A failure that does not say the request was

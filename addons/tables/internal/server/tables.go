@@ -142,8 +142,6 @@ func mapErr(err error) error {
 	return err
 }
 
-func payload(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
-
 func (t *Tables) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
 	a, err := parse(env)
 	if err != nil {
@@ -162,13 +160,13 @@ func (t *Tables) Read(ctx context.Context, env contract.Envelope) (contract.Resu
 		if err != nil {
 			return contract.Result{}, mapErr(err)
 		}
-		return contract.Result{Payload: payload(map[string]bool{"exists": ok})}, nil
+		return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": ok})}, nil
 	case ToolDatabaseInspect:
 		s, err := t.Store.Inspect(ctx, id)
 		if err != nil {
 			return contract.Result{}, mapErr(err)
 		}
-		return contract.Result{Payload: payload(s)}, nil
+		return contract.Result{Payload: protocol.Payload(s)}, nil
 	}
 	return contract.Result{}, protocol.ErrBadRequest
 }
@@ -200,7 +198,7 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 			}
 		}
 		out.Revision = contract.Revision{Schema: 1, Data: 0}
-		out.Summary = payload(map[string]any{"count": 1, "sample": map[string]string{"action": "create database", "name": a.Name}})
+		out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": map[string]string{"action": "create database", "name": a.Name}})
 	case ToolDatabaseRename:
 		if err := schemaAuthority(env, "preview"); err != nil {
 			return out, err
@@ -210,7 +208,7 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 			return out, mapErr(err)
 		}
 		out.Revision = s.Revision
-		out.Summary = payload(map[string]any{"count": 1, "sample": map[string]string{"action": "rename database", "from": s.Name, "to": a.Name}})
+		out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": map[string]string{"action": "rename database", "from": s.Name, "to": a.Name}})
 	default:
 		if kind, ok := schemaKinds[a.Tool]; ok {
 			if err := schemaAuthority(env, "preview"); err != nil {
@@ -220,7 +218,7 @@ func (t *Tables) Preview(ctx context.Context, env contract.Envelope) (contract.P
 			// preview; its receipt is the answer and apply replays it.
 			if r, e := t.Store.LookupReceipt(ctx, env.Request.OperationID); e == nil && r.State == contract.ReceiptCommitted {
 				out.Revision = r.Revision
-				out.Summary = payload(map[string]any{"count": 0, "sample": []string{}, "dataLoss": map[string]int{"rows": 0, "columns": 0, "tables": 0}, "replay": true})
+				out.Summary = protocol.Payload(map[string]any{"count": 0, "sample": []string{}, "dataLoss": map[string]int{"rows": 0, "columns": 0, "tables": 0}, "replay": true})
 				return out, nil
 			}
 			p, err := t.Store.PreviewSchema(ctx, a.change(kind, id))
@@ -257,13 +255,13 @@ func (t *Tables) previewDelete(ctx context.Context, env contract.Envelope, out c
 	case errors.Is(err, store.ErrNotFound):
 		// Already gone: apply replays the receipt or records the outcome.
 		out.Revision = contract.Revision{Schema: 1}
-		out.Summary = payload(map[string]any{"count": 0, "sample": map[string]string{"action": "delete database", "state": "already deleted"}})
+		out.Summary = protocol.Payload(map[string]any{"count": 0, "sample": map[string]string{"action": "delete database", "state": "already deleted"}})
 		return out, nil
 	case err != nil:
 		return out, mapErr(err)
 	}
 	out.Revision = s.Revision
-	out.Summary = payload(map[string]any{"count": 1, "sample": map[string]any{"action": "delete database", "name": s.Name, "tables": len(s.Tables)}})
+	out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": map[string]any{"action": "delete database", "name": s.Name, "tables": len(s.Tables)}})
 	return out, nil
 }
 
@@ -400,7 +398,7 @@ func (t *Tables) Apply(ctx context.Context, env contract.Envelope, rev contract.
 }
 
 func reject(op string, body map[string]any) contract.Receipt {
-	return contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Result: contract.Result{Payload: payload(body)}}
+	return contract.Receipt{OperationID: op, State: contract.ReceiptRejected, Result: contract.Result{Payload: protocol.Payload(body)}}
 }
 
 func rejectionCode(err error) string {

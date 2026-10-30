@@ -32,12 +32,12 @@ func (t *Tables) readChange(ctx context.Context, env contract.Envelope, a toolAr
 	}
 	info, err := t.Store.Change(ctx, env.Request.ResourceID, a.Change)
 	if errors.Is(err, store.ErrChangeNotFound) {
-		return contract.Result{Payload: payload(contract.ChangeInfo{ID: a.Change, State: contract.ChangeUnknown})}, nil
+		return contract.Result{Payload: protocol.Payload(contract.ChangeInfo{ID: a.Change, State: contract.ChangeUnknown})}, nil
 	}
 	if err != nil {
 		return contract.Result{}, mapErr(err)
 	}
-	return contract.Result{Payload: payload(info.ChangeInfo)}, nil
+	return contract.Result{Payload: protocol.Payload(info.ChangeInfo)}, nil
 }
 
 // applyUndo rolls one change set back. A refusal that is a fact about the
