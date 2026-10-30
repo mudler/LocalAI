@@ -130,5 +130,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "Adjuntos",
+    "label": "Guardar adjuntos en la colección",
+    "none": "Ninguna",
+    "help": "Cada archivo que adjuntes también se sube a esta colección, como archivo original, al enviar. El chat funciona igual que antes. Se recuerda en este navegador.",
+    "helpEmpty": "Aún no tienes colecciones. Crea una en Memoria para guardar allí los adjuntos del chat.",
+    "uploading": "guardando en {{collection}}…",
+    "saved": "guardado en {{collection}}",
+    "failed": "error: {{reason}}",
+    "dismiss": "Ocultar el estado de la subida",
+    "retry": "Reintentar",
+    "retryLabel": "Reintentar guardar {{name}}"
   }
 }

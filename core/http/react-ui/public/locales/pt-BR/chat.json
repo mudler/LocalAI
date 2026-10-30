@@ -136,5 +136,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "Anexos",
+    "label": "Salvar anexos na coleção",
+    "none": "Nenhuma",
+    "help": "Cada arquivo que você anexar também é enviado, como arquivo original, para esta coleção ao enviar a mensagem. O chat funciona como antes. Lembrado neste navegador.",
+    "helpEmpty": "Você ainda não tem coleções. Crie uma em Memória para guardar os anexos do chat.",
+    "uploading": "salvando em {{collection}}…",
+    "saved": "salvo em {{collection}}",
+    "failed": "falhou: {{reason}}",
+    "dismiss": "Fechar o status do envio",
+    "retry": "Tentar novamente",
+    "retryLabel": "Tentar salvar {{name}} novamente"
   }
 }

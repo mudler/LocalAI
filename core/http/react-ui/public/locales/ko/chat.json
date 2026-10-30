@@ -130,5 +130,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "첨부 파일",
+    "label": "첨부 파일을 컬렉션에 저장",
+    "none": "없음",
+    "help": "메시지를 보낼 때 첨부한 각 파일이 원본 파일 그대로 이 컬렉션에도 업로드됩니다. 채팅은 이전과 동일하게 동작합니다. 이 브라우저에 기억됩니다.",
+    "helpEmpty": "아직 컬렉션이 없습니다. 메모리에서 컬렉션을 만들면 채팅 첨부 파일을 그곳에 보관할 수 있습니다.",
+    "uploading": "{{collection}}에 저장 중…",
+    "saved": "{{collection}}에 저장됨",
+    "failed": "실패: {{reason}}",
+    "dismiss": "업로드 상태 닫기",
+    "retry": "다시 시도",
+    "retryLabel": "{{name}} 다시 저장"
   }
 }

@@ -206,6 +206,11 @@ export const settingsApi = {
   save: (body) => postJSON(API_CONFIG.endpoints.settings, body),
 }
 
+// The server's feature switches (agent pool, MCP, add-ons, ...).
+export const featuresApi = {
+  get: () => fetchJSON('/api/features'),
+}
+
 // Branding / whitelabeling
 // /api/branding is public (no auth) — the login page reads it before the
 // user signs in. Asset uploads/deletes still require admin privileges.

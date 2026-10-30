@@ -130,5 +130,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "Lampiran",
+    "label": "Simpan lampiran ke koleksi",
+    "none": "Tidak ada",
+    "help": "Setiap file yang Anda lampirkan juga diunggah, sebagai file asli, ke koleksi ini saat Anda mengirim. Chat tetap berfungsi seperti biasa. Diingat di browser ini.",
+    "helpEmpty": "Anda belum memiliki koleksi. Buat satu di Memori untuk menyimpan lampiran chat di sana.",
+    "uploading": "menyimpan ke {{collection}}…",
+    "saved": "tersimpan di {{collection}}",
+    "failed": "gagal: {{reason}}",
+    "dismiss": "Tutup status unggahan",
+    "retry": "Coba Lagi",
+    "retryLabel": "Coba simpan {{name}} lagi"
   }
 }

@@ -139,5 +139,18 @@
     "heading": "Add-on tools",
     "selectAll": "Select all",
     "deselectAll": "Deselect all"
+  },
+  "attachmentCollection": {
+    "title": "Pièces jointes",
+    "label": "Enregistrer les pièces jointes dans une collection",
+    "none": "Aucune",
+    "help": "Chaque fichier joint est aussi envoyé, en tant que fichier original, dans cette collection lors de l'envoi. Le chat fonctionne comme avant. Mémorisé dans ce navigateur.",
+    "helpEmpty": "Vous n'avez encore aucune collection. Créez-en une dans Mémoire pour y conserver les pièces jointes du chat.",
+    "uploading": "enregistrement dans {{collection}}…",
+    "saved": "enregistré dans {{collection}}",
+    "failed": "échec : {{reason}}",
+    "dismiss": "Masquer l'état de l'envoi",
+    "retry": "Réessayer",
+    "retryLabel": "Réessayer d'enregistrer {{name}}"
   }
 }

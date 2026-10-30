@@ -66,7 +66,14 @@ The sliders button opens the chat settings. They apply from the next message.
 - **Sampling.** Temperature, top P and top K. Each says "model default" until you change it, and has a **Reset**.
 - **Context window.** The size drives the meter in the header and the warning when the context is nearly full. It is not sent to the model. Admins get it filled in from the model's configuration.
 - **Behaviour.** Manage mode (admin) and Focus mode, which collapses the app sidebar while a conversation is open.
+- **Attachments.** *Save attachments to collection* keeps a copy of every file you attach in one of your [knowledge collections]({{%relref "features/agents" %}}). Shown when the agent pool is on and you have the `collections` permission. See below.
 - **Model info** (admin). Backend, model file, context size, threads, GPU layers and an **Edit config** button.
+
+### Saving attachments to a collection
+
+By default an attachment stays in the browser: its text or image is put into the chat request and the file itself is not kept. Pick a collection under **Attachments** in the settings to also upload each attached file, as the original file, to that collection when you send (`POST /api/agents/collections/{name}/upload`, the same upload the **Memory** page uses). A scanned PDF is uploaded once as the PDF, not as its page images, including when the chat starts from Home. If the collection list is still loading when you send, the upload waits for it while the chat reply proceeds. The choice is remembered in this browser (`localai_chat_attachment_collection`) and applies to every chat; **None** turns it off. A collection that has since been deleted counts as **None**.
+
+The reply never waits for the upload. Above the message box a line per file says *saving to …*, *saved to …*, or *failed:* with the server's reason, for example when the collection cannot index that file type. A failed upload does not change the chat; the file is still in the message. **Retry** next to a failed file uploads the same original to the same collection again, without sending the message again; it appears once no other file of that message is still uploading. Collections are read by agents, not by the chat itself.
 
 ## Find, canvas and long threads
 

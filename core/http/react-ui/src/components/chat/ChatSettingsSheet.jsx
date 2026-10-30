@@ -59,6 +59,7 @@ function Slider({ id, label, value, fallback, min, max, step, onChange, onReset,
 // model is. Settings apply from the next message.
 export default function ChatSettingsSheet({
   chat, isAdmin, onUpdate, focusMode, onFocusMode, modelInfo, onEditConfig, onClear, onClose,
+  collectionOptions, attachmentCollection, onAttachmentCollection,
 }) {
   const { t } = useTranslation('chat')
   const sheetRef = useRef(null)
@@ -76,7 +77,7 @@ export default function ChatSettingsSheet({
     const onKey = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCloseRef.current(); return }
       if (e.key !== 'Tab' || !sheetRef.current) return
-      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
       if (focusable.length === 0) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -215,6 +216,29 @@ export default function ChatSettingsSheet({
               <Switch checked={focusMode} onChange={onFocusMode} label={t('settings.focusMode')} />
             </div>
           </section>
+
+          {Array.isArray(collectionOptions) && onAttachmentCollection && (
+            <section className="cx-sec" data-testid="chat-attachment-collection">
+              <h3>{t('attachmentCollection.title')}</h3>
+              <div className="cx-field">
+                <div className="cx-field__label">
+                  <label htmlFor="chat-attachment-collection">{t('attachmentCollection.label')}</label>
+                </div>
+                <select
+                  id="chat-attachment-collection"
+                  className="cx-in"
+                  value={attachmentCollection || ''}
+                  onChange={(e) => onAttachmentCollection(e.target.value)}
+                >
+                  <option value="">{t('attachmentCollection.none')}</option>
+                  {collectionOptions.map(name => <option key={name} value={name}>{name}</option>)}
+                </select>
+                <p className="cx-help">
+                  {collectionOptions.length === 0 ? t('attachmentCollection.helpEmpty') : t('attachmentCollection.help')}
+                </p>
+              </div>
+            </section>
+          )}
 
           {isAdmin && chat.model && modelInfo && (
             <section className="cx-sec" data-testid="chat-model-info">
