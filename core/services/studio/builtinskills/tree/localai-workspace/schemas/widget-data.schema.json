@@ -6,7 +6,24 @@
   "type": "object",
   "properties": {
     "title": { "type": "string", "maxLength": 60 },
-    "updatedAt": { "type": "string", "description": "When the data was written, as an RFC 3339 time.", "maxLength": 40 },
+    "updatedAt": {
+      "type": "string",
+      "description": "When the data was written, as an RFC 3339 time such as 2026-10-29T08:00:00Z.",
+      "maxLength": 40,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "source": {
+      "type": "object",
+      "description": "Who wrote the data: a trigger run, a page, the assistant in a chat, or the person.",
+      "properties": {
+        "kind": { "enum": ["trigger", "page", "assistant", "you"] },
+        "trigger": { "type": "string", "description": "The id of the trigger whose run wrote it.", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "page": { "type": "string", "description": "The name of the page that wrote it (pages/<name>/).", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+        "note": { "type": "string", "description": "One line on where the data comes from, such as Mail from the last 24 hours.", "maxLength": 120 }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
     "items": {
       "type": "array",
       "description": "Rows of a list widget.",

@@ -242,3 +242,31 @@ var _ = Describe("the turn prompt", func() {
 		Expect(block).To(ContainSubstring("Ada"))
 	})
 })
+
+var _ = Describe("widget data and home widgets", func() {
+	It("checks the time and the source of widget data", func() {
+		good := `{"title":"Inbox","updatedAt":"2026-10-30T07:59:00Z","source":{"kind":"trigger","trigger":"a1b2c3","note":"Mail from the last 24 hours"},` +
+			`"items":[{"label":"3 need a reply"}]}`
+		_, errs := wellknown.Validate(wellknown.WidgetData, []byte(good))
+		Expect(errs).To(BeEmpty())
+		_, errs = wellknown.Validate(wellknown.WidgetData, []byte(`{"updatedAt":"2026-10-30T07:59:00+01:00","source":{"kind":"page","page":"tasks"},"items":[]}`))
+		Expect(errs).To(BeEmpty(), "a time with an offset and a page source")
+		for name, bad := range map[string]string{
+			"a time that is not RFC 3339": `{"updatedAt":"yesterday","items":[]}`,
+			"a source without a kind":     `{"source":{"trigger":"a"},"items":[]}`,
+			"an unknown kind":             `{"source":{"kind":"cron"},"items":[]}`,
+			"an unknown source key":       `{"source":{"kind":"you","url":"https://example.com"},"items":[]}`,
+			"a page name with a slash":    `{"source":{"kind":"page","page":"../x"},"items":[]}`,
+		} {
+			_, errs := wellknown.Validate(wellknown.WidgetData, []byte(bad))
+			Expect(errs).NotTo(BeEmpty(), name)
+		}
+	})
+
+	It("lets a home widget name the trigger that feeds it and keeps other keys", func() {
+		_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"inbox","type":"list","title":"Inbox","source":"data/inbox.json","trigger":"0f3c9a","note":"kept"}]}`))
+		Expect(errs).To(BeEmpty())
+		_, errs = wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"inbox","type":"list","title":"Inbox","source":"data/inbox.json","trigger":"../x"}]}`))
+		Expect(errs).NotTo(BeEmpty(), "a trigger id with a path")
+	})
+})
