@@ -14190,7 +14190,7 @@ paths:
       - chats
     get:
       parameters:
-      - description: personal, shared or builtin
+      - description: personal, shared, addon or builtin
         in: path
         name: layer
         required: true
@@ -14199,6 +14199,10 @@ paths:
         in: path
         name: name
         required: true
+        type: string
+      - description: the add-on's ID, for the addon layer
+        in: query
+        name: addon
         type: string
       responses:
         "200":

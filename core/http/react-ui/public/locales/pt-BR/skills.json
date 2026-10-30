@@ -21,7 +21,11 @@
     "invalid": "Skipped: not a valid skill",
     "invalidWhy": "This SKILL.md was skipped: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
-    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Fornecida por {{name}}",
+    "replacedBy": "Substituída por {{name}}",
+    "notActive": "Inativa: a habilidade integrada é usada",
+    "fallback": "Em uso porque a habilidade do complemento {{name}} está desligada ou não está em execução"
   },
   "empty": {
     "title": "Nenhuma habilidade encontrada",
@@ -40,7 +44,8 @@
     "personal": "Personal",
     "shared": "Shared",
     "builtin": "Built-in",
-    "folder": "Workspace"
+    "folder": "Workspace",
+    "addon": "Complemento"
   },
   "pane": {
     "loading": "Loading...",

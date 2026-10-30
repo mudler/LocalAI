@@ -126,7 +126,17 @@
     "search": "Cerca skill",
     "noMatch": "Nessuna skill corrisponde a “{{query}}”.",
     "later": "Le skill che aggiungi dopo partono attive.",
-    "failed": "Salvataggio non riuscito. Nulla è cambiato."
+    "failed": "Salvataggio non riuscito. Nulla è cambiato.",
+    "source": {
+      "builtin": "Integrata",
+      "personal": "Personale",
+      "shared": "Condivisa",
+      "folder": "Area di lavoro",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Sostituita da {{name}}",
+    "fallback_one": "{{skills}} integrata in uso: la skill del componente {{name}} è disattivata o non in esecuzione qui.",
+    "fallback_other": "{{skills}} integrate in uso: le skill del componente {{name}} sono disattivate o non in esecuzione qui."
   },
   "agent": {
     "label": "Agente",

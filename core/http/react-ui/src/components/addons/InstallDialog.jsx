@@ -6,7 +6,7 @@ import Icon from '../Icon'
 import Button from '../ui/Button'
 import { pushLayer } from '../../utils/modalLayers'
 import { EntryAdds, UnknownNotice } from './AddonBits'
-import { shortDigest } from './addonState'
+import { shortDigest, skillShadowNotes } from './addonState'
 import { describeOutcome } from './errors'
 import Callout from '../ui/Callout'
 
@@ -86,6 +86,11 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
               {shadowConflicts(entry, installed).map(c => (
                 <Callout key={c.tool} tone="warn" testId="install-shadow-warning" data-tool={c.tool}>
                   {t('flow.shadowWarning', { tool: c.tool, name: c.name })}
+                </Callout>
+              ))}
+              {skillShadowNotes(entry, installed).map(c => (
+                <Callout key={c.skill} tone={c.name ? 'warn' : 'info'} testId="install-skill-warning" data-skill={c.skill}>
+                  {t(c.name ? 'flow.skillShadowWarning' : 'flow.skillShadow', { skill: c.skill, name: c.name })}
                 </Callout>
               ))}
               <dl className="dk-kv">

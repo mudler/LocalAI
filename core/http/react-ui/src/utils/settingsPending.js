@@ -104,10 +104,10 @@ export function runChecks(changes, initial, draft) {
       let parsed = null
       try { parsed = text ? JSON.parse(text) : {} } catch { /* reported below */ }
       const ok = parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
-        Object.entries(parsed).every(([k, v]) => ['bash', 'web_search', 'web_fetch'].includes(k) && typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(v))
+        Object.entries(parsed).every(([k, v]) => ['bash', 'web_search', 'web_fetch', 'xlsx', 'docx', 'pptx', 'pdf'].includes(k) && typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(v))
       checks.push(ok
         ? { level: 'ok', text: `${field.label}: ${Object.keys(parsed).length} chosen.` }
-        : { level: 'error', text: `${field.label}: map bash, web_search or web_fetch to an add-on ID, for example { "bash": "sandbox" }.` })
+        : { level: 'error', text: `${field.label}: map bash, web_search, web_fetch or a skill (xlsx, docx, pptx, pdf) to an add-on ID, for example { "bash": "sandbox" }.` })
     } else if (field.kind === 'json') {
       const text = String(to || '').trim()
       if (text) {

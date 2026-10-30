@@ -12,7 +12,7 @@ import {
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
   shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
-  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel,
+  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
@@ -592,4 +592,17 @@ test('an add-on without an icon gets a stable letter and hue, and a dev build sa
   assert.deepEqual(versionLabel('1.2.0'), { dev: false, text: 'v1.2.0' })
   assert.deepEqual(versionLabel('v1.2.0'), { dev: false, text: 'v1.2.0' })
   assert.deepEqual(versionLabel(''), { dev: false, text: '' })
+})
+
+test('addons: the install dialog names each built-in skill the entry replaces, and who already does', () => {
+  const entry = { id: 'office', skillShadows: ['xlsx', 'docx'] }
+  const installed = { sheets: { id: 'sheets', title: 'Sheets', skillShadows: ['xlsx'] }, office: { id: 'office', skillShadows: ['xlsx'] } }
+  assert.deepEqual(skillShadowNotes(entry, installed), [{ skill: 'xlsx', name: 'Sheets' }, { skill: 'docx', name: '' }])
+  assert.deepEqual(skillShadowNotes({ id: 'x' }, installed), [])
+})
+
+test('addons: the details list the skills of an add-on and which replace a built-in one', () => {
+  assert.deepEqual(skillsOf({ skills: [{ name: 'xlsx', shadows: 'xlsx' }, { name: 'office-tips' }, { bad: true }] }),
+    [{ name: 'xlsx', replaces: true }, { name: 'office-tips', replaces: false }])
+  assert.deepEqual(skillsOf({}), [])
 })

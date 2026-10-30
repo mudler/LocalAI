@@ -144,6 +144,10 @@
       "off": "off",
       "ask": "ask each time",
       "on": "allowed for everyone"
-    }
+    },
+    "skillsTitle": "Skills that add-ons replace",
+    "skillsIntro": "An add-on can replace a built-in skill with its own, written for its tools. When several add-ons replace one, choose the one that serves.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "The chosen add-on is not running: the built-in skill serves."
   }
 }

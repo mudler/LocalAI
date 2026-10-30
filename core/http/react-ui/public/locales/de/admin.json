@@ -294,6 +294,10 @@
       "off": "aus",
       "ask": "jedes Mal fragen",
       "on": "für alle erlaubt"
-    }
+    },
+    "skillsTitle": "Skills, die Add-ons ersetzen",
+    "skillsIntro": "Ein Add-on kann einen integrierten Skill durch einen eigenen ersetzen, der zu seinen Werkzeugen passt. Ersetzen mehrere Add-ons denselben, wählen Sie, welches verwendet wird.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "Das gewählte Add-on läuft nicht: der integrierte Skill wird verwendet."
   }
 }

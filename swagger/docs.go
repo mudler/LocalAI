@@ -6659,7 +6659,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "personal, shared or builtin",
+                        "description": "personal, shared, addon or builtin",
                         "name": "layer",
                         "in": "path",
                         "required": true
@@ -6670,6 +6670,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the add-on's ID, for the addon layer",
+                        "name": "addon",
+                        "in": "query"
                     }
                 ],
                 "responses": {

@@ -898,7 +898,7 @@ function ChatPage() {
           : null}
       />
       <CommandsChip notice={commands} />
-      <SkillsMenu skills={switches.skills} onSet={switches.setSkillsOn} error={switches.skillsError} />
+      <SkillsMenu skills={switches.skills} replaced={switches.replacedSkills} onSet={switches.setSkillsOn} error={switches.skillsError} />
       <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
     </>
   )

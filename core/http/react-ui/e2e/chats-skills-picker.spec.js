@@ -187,3 +187,55 @@ test.describe('Chat skills picker', () => {
     await expect(page.getByTestId('chat-skills-button')).toBeFocused()
   })
 })
+
+test.describe('Chat skills picker with add-on skills', () => {
+  const shot = async (page, name) => { if (process.env.HOST_EXEC_SHOT_DIR) await page.screenshot({ path: `${process.env.HOST_EXEC_SHOT_DIR}/${name}.png` }) }
+  async function stubAddon(page, skills) {
+    const state = { puts: [], lists: 0 }
+    await mockChat(page)
+    await page.route('**/api/chats/c1/events', route => route.abort())
+    await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [] } }))
+    await page.route(/\/api\/chats\/skills(\?.*)?$/, route => { state.lists++; return route.fulfill({ json: { skills: skills(state) } }) })
+    await page.route('**/api/chats/c1/skills', route => {
+      const body = route.request().postDataJSON()
+      state.puts.push(body)
+      return route.fulfill({ json: { off: body.off } })
+    })
+    await page.route('**/api/chats/c1', route => route.fulfill({ json: {
+      id: 'c1', title: 'Quotes', model: 'qwen3-8b', kind: 'chat', created: '2026-10-25T10:00:00Z', updated: '2026-10-25T10:00:00Z', running: false, last_turn: '', pending: [],
+    } }))
+    await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: [{ id: 'c1', title: 'Quotes', model: 'qwen3-8b', kind: 'chat', created: '2026-10-25T10:00:00Z', updated: '2026-10-25T10:00:00Z', running: false, last_turn: '' }], persistent: true, files: true, files_reason: '' } }))
+    return state
+  }
+  const office = { id: 'addon:xlsx', name: 'xlsx', description: 'Read and edit spreadsheets with the Office tools', layer: 'addon', addon: 'office', addon_title: 'Office', enabled: true }
+  const builtinX = { id: 'builtin:xlsx', name: 'xlsx', description: 'Spreadsheets in a sandbox', layer: 'builtin', shadowed: 'addon', shadowed_by: 'office', enabled: true }
+  const mine = { id: 'personal:review', name: 'review', description: 'Check a change', layer: 'personal', enabled: true }
+
+  test('labels each skill with its source and lists the built-in one an add-on replaces, dimmed and with no switch', async ({ page }) => {
+    await stubAddon(page, () => [office, builtinX, mine])
+    await open(page)
+    const sources = page.getByTestId('chat-skills-source')
+    await expect(sources).toHaveText(['Office', 'Personal'])
+    await expect(page.getByRole('switch')).toHaveCount(2)
+    const replaced = page.getByTestId('chat-skills-replaced')
+    await expect(replaced).toHaveCount(1)
+    await expect(replaced).toContainText('xlsx')
+    await expect(replaced).toContainText('Replaced by Office')
+    await expect(page.getByTestId('chat-skills-fallback')).toHaveCount(0)
+    await expect(summary(page)).toHaveText('2 of 2 on')
+    await shot(page, 'skills-picker-addon')
+  })
+
+  test('switching the add-on skill off brings the built-in one back, with one line that says why', async ({ page }) => {
+    const state = await stubAddon(page, (s) => (s.puts.length === 0
+      ? [office, builtinX, mine]
+      : [{ ...office, enabled: false }, { ...builtinX, shadowed: undefined, shadowed_by: undefined, fallback: 'Office' }, mine]))
+    await open(page)
+    await sw(page, 'xlsx').click()
+    await expect.poll(() => state.puts).toEqual([{ off: ['addon:xlsx'] }])
+    await expect(page.getByTestId('chat-skills-fallback')).toHaveText('Built-in xlsx in use: the Office add-on\'s own skill is off or not running here.')
+    await expect(page.getByTestId('chat-skills-replaced')).toHaveCount(0)
+    await expect(page.locator('[data-testid="chat-skills-source"][data-kind="builtin"]')).toHaveText('Built-in')
+    await shot(page, 'skills-picker-fallback')
+  })
+})

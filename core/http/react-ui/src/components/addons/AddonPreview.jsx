@@ -7,6 +7,7 @@ import { Button, Callout } from '../ui'
 import { apiUrl } from '../../utils/basePath'
 import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
+import AddonSkills from './AddonSkills'
 import { addedByAddon, appActions, attentionOf, localizedText, screenshotsOf } from './addonState'
 import { updateView, upgradeAvailability } from './updateState'
 import { describeOutcome } from './errors'
@@ -139,6 +140,7 @@ function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop
           </div>
         )}
       </section>
+      <AddonSkills app={app} isAdmin={isAdmin} />
       <dl className="dk-kv ad-kv ad-pane__facts" data-testid="preview-facts">
         <dt>{t('preview.version')}</dt><dd>{app.version}</dd>
         {isAdmin && <><dt>{t('trust.library')}</dt><dd data-testid="preview-source">{source ? `${source.sourceId || '—'}${source.channel ? ` · ${source.channel}` : ''}` : t('preview.sourceUnknown')}</dd></>}

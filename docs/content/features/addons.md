@@ -889,8 +889,16 @@ tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
   `GET /api/chats/admin/tools` lists the replaced skills in `skills`, with who
   serves each one.
 - **Before install.** The library entry and the installed view list the
-  skills an add-on replaces in `skillShadows`, so a client can warn before the
-  install. The install is still allowed.
+  skills an add-on replaces in `skillShadows`, and the install dialog names
+  each one: "This add-on replaces the built-in skill xlsx." When another
+  installed add-on already replaces it, the dialog says that only one can be
+  active and that the choice is in Settings > Tools. The install is still
+  allowed.
+- **On the Add-ons page.** The details of an add-on list its chat skills and
+  the built-in skills it replaces. For an administrator, a skill that several
+  add-ons replace has a switch, **Use for xlsx in the chats**: on, this add-on
+  serves it; off, the next add-on that replaces it does. The switch writes the
+  same choice as Settings > Tools.
 
 In distributed mode the state is **shared**: the files are in the workspace
 store that every frontend reads, and only the owner writes them, because only

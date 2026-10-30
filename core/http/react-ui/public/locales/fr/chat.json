@@ -124,7 +124,17 @@
     "search": "Rechercher des compétences",
     "noMatch": "Aucune compétence ne correspond à « {{query}} ».",
     "later": "Les compétences ajoutées plus tard sont activées au départ.",
-    "failed": "Enregistrement impossible. Rien n’a changé."
+    "failed": "Enregistrement impossible. Rien n’a changé.",
+    "source": {
+      "builtin": "Intégrée",
+      "personal": "Personnelle",
+      "shared": "Partagée",
+      "folder": "Espace de travail",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Remplacée par {{name}}",
+    "fallback_one": "{{skills}} intégrée utilisée : la compétence du module {{name}} est désactivée ou ne tourne pas ici.",
+    "fallback_other": "{{skills}} intégrées utilisées : les compétences du module {{name}} sont désactivées ou ne tournent pas ici."
   },
   "agent": {
     "label": "Agent",

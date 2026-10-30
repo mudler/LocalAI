@@ -204,8 +204,8 @@ export const FIELDS = [
   { key: 'chats_host_exec', group: 'tools', was: 'chats', kind: 'select', options: ['', 'off', 'ask', 'on'], label: 'Commands on this machine',
     desc: 'Who gets the chats\' built-in bash, which runs commands directly on this machine with no isolation and with its network, when no Sandbox add-on serves bash: off, ask (administrators, who allow each command) or on (every user, no card). Empty is the default: off with accounts, ask without.',
     default: '', apply: 'live', custom: 'tools' },
-  { key: 'chats_tool_providers', group: 'tools', was: 'chats', kind: 'json', label: 'Add-ons that replace a built-in tool',
-    desc: 'When several add-ons replace one built-in tool, the one that serves it: a map from the tool (bash, web_search, web_fetch) to the add-on ID. With none chosen, the first by add-on ID serves.',
+  { key: 'chats_tool_providers', group: 'tools', was: 'chats', kind: 'json', label: 'Add-ons that replace a built-in tool or skill',
+    desc: 'When several add-ons replace one built-in tool or skill, the one that serves it: a map from the tool (bash, web_search, web_fetch) or skill (xlsx, docx, pptx, pdf) to the add-on ID. With none chosen, the first by add-on ID serves.',
     placeholder: '{ "bash": "sandbox" }', apply: 'live', custom: 'tools' },
   // The Tools tab draws the switches of the web tools on their rows.
   { key: 'chats_web_search', group: 'tools', was: 'chats', kind: 'bool', label: 'Web search',

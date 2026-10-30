@@ -21,7 +21,11 @@
     "invalid": "Skipped: not a valid skill",
     "invalidWhy": "This SKILL.md was skipped: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
-    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Fournie par {{name}}",
+    "replacedBy": "Remplacée par {{name}}",
+    "notActive": "Inactive : la compétence intégrée est utilisée",
+    "fallback": "Utilisée car la compétence du module {{name}} est désactivée ou ne tourne pas"
   },
   "empty": {
     "title": "Aucune compétence trouvée",
@@ -40,7 +44,8 @@
     "personal": "Personal",
     "shared": "Shared",
     "builtin": "Built-in",
-    "folder": "Workspace"
+    "folder": "Workspace",
+    "addon": "Module"
   },
   "pane": {
     "loading": "Loading...",

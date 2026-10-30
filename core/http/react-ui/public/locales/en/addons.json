@@ -686,7 +686,9 @@
     "seeInList": "See it in Installed",
     "install": "Install",
     "installNamed": "Install {{name}}",
-    "shadowWarning": "This add-on replaces the built-in {{tool}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools."
+    "shadowWarning": "This add-on replaces the built-in {{tool}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools.",
+    "skillShadow": "This add-on replaces the built-in skill {{skill}}.",
+    "skillShadowWarning": "This add-on replaces the built-in skill {{skill}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools."
   },
   "family": {
     "pages": "Looking for pages you or an agent made? They are in <go>Pages</go>."
@@ -722,5 +724,14 @@
     "checked": "Checked · {{library}}",
     "devBuild": "Development build",
     "library": "{{library}} library"
+  },
+  "skills": {
+    "title_one": "{{count}} chat skill",
+    "title_other": "{{count}} chat skills",
+    "replaces": "replaces the built-in skill",
+    "serves": "serves in the chats",
+    "notServing": "not serving now",
+    "serveIn": "Use for {{skill}} in the chats",
+    "saveFailed": "Could not save the choice."
   }
 }

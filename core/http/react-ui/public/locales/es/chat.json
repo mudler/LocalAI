@@ -126,7 +126,17 @@
     "search": "Buscar habilidades",
     "noMatch": "Ninguna habilidad coincide con «{{query}}».",
     "later": "Las habilidades que añadas después empiezan activadas.",
-    "failed": "No se pudo guardar. No cambió nada."
+    "failed": "No se pudo guardar. No cambió nada.",
+    "source": {
+      "builtin": "Integrada",
+      "personal": "Personal",
+      "shared": "Compartida",
+      "folder": "Espacio de trabajo",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Reemplazada por {{name}}",
+    "fallback_one": "{{skills}} integrada en uso: la habilidad propia del complemento {{name}} está desactivada o no se ejecuta aquí.",
+    "fallback_other": "{{skills}} integradas en uso: las habilidades propias del complemento {{name}} están desactivadas o no se ejecutan aquí."
   },
   "agent": {
     "label": "Agente",

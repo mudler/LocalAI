@@ -278,6 +278,8 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     // The built-in chat tools the add-on replaces (bash, say), for the warning
     // of the install dialog.
     shadows: Array.isArray(release.shadows) ? release.shadows : [],
+    // The built-in skills the add-on replaces (xlsx, say), for the same warning.
+    skillShadows: Array.isArray(release.skillShadows) ? release.skillShadows : [],
   })
   return {
     kind: 'addons',

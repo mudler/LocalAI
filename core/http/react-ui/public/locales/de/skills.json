@@ -21,7 +21,11 @@
     "invalid": "Skipped: not a valid skill",
     "invalidWhy": "This SKILL.md was skipped: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
-    "shadowedLong": "Hidden by a {{layer}} skill of the same name"
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Bereitgestellt von {{name}}",
+    "replacedBy": "Ersetzt durch {{name}}",
+    "notActive": "Nicht aktiv: der integrierte Skill wird verwendet",
+    "fallback": "Aktiv, weil der eigene Skill des Add-ons {{name}} aus ist oder nicht läuft"
   },
   "empty": {
     "title": "Keine Fähigkeiten gefunden",
@@ -40,7 +44,8 @@
     "personal": "Personal",
     "shared": "Shared",
     "builtin": "Built-in",
-    "folder": "Workspace"
+    "folder": "Workspace",
+    "addon": "Add-on"
   },
   "pane": {
     "loading": "Loading...",
