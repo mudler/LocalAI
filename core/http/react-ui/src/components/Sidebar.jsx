@@ -294,6 +294,21 @@ export default function Sidebar({ isOpen, onClose }) {
               </button>
             </div>
           )}
+          {!authEnabled && hasFeature('chats') && (
+            <div className="sidebar-user">
+              <button
+                className="sidebar-user-link"
+                data-testid="sidebar-your-settings"
+                onClick={() => { navigate('/app/account'); onClose?.() }}
+                onMouseEnter={() => preloadRoute('/app/account')}
+                onFocus={() => preloadRoute('/app/account')}
+                title={t('yourSettings')}
+              >
+                <Icon name="user-settings" className="sidebar-user-avatar-icon" />
+                <span className="nav-label sidebar-user-name">{t('yourSettings')}</span>
+              </button>
+            </div>
+          )}
           <LanguageSwitcher />
           <ThemeToggle />
           <button
