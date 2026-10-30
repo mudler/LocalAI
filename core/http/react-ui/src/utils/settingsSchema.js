@@ -199,6 +199,9 @@ export const FIELDS = [
   { key: 'localai_assistant_enabled', group: 'agents', was: 'assistant', kind: 'bool', label: 'LocalAI Assistant',
     desc: 'Let admins start a chat from the Home page that has the tools to manage this instance (install models and backends, change settings). Turning it off hides the entry and ends the tools in existing assistant chats.',
     default: true, fallback: true, apply: 'live' },
+  { key: 'shared_pages_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Shared pages',
+    desc: 'Let users open the pages of the shared folders they have access to. Each user still allows each page before it runs. Turning it off stops open shared pages at their next action; the files are kept.',
+    default: true, fallback: true, apply: 'live' },
   { key: 'open_responses_store_ttl', group: 'agents', was: 'responses', kind: 'duration', label: 'Response Store TTL', allowZero: true,
     desc: 'How long stored responses are kept, for example 1h or 30m. 0 means they never expire.', placeholder: '1h', default: '0', apply: 'live' },
 

@@ -314,6 +314,11 @@ type ApplicationConfig struct {
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
 
+	// DisableSharedPages turns off the pages of shared folders: they are not
+	// listed as runnable, do not open and their bridge refuses every call.
+	// Runtime-toggleable via /api/settings (shared_pages_enabled).
+	DisableSharedPages bool
+
 	// DisableChats turns off the whole chats surface: the /api/chats API, saved
 	// agents, triggers, connectors and the agent tasks and jobs. Nothing starts
 	// (no loop, bot or trigger runner).
@@ -1277,6 +1282,13 @@ const (
 	DefaultAgentJobRetentionDays = 30
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 )
+
+// WithDisableSharedPages turns off the pages of shared folders.
+func WithDisableSharedPages(disabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableSharedPages = disabled
+	}
+}
 
 // WithDisableLocalAIAssistant hard-disables the in-process admin MCP server.
 // When set, the chat-handler branch for metadata.localai_assistant=true

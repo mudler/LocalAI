@@ -464,6 +464,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return !o.DisableLocalAIAssistant },
 		func(o *ApplicationConfig, v bool) { o.DisableLocalAIAssistant = !v }),
 
+	// Pages of shared folders: stored as the negation, like the assistant.
+	field("shared_pages_enabled",
+		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
+		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
+
 	// Branding: the file is the only source (no env/CLI), so it is always
 	// authoritative. Without fromFileAlways a restart silently drops the
 	// configured instance name and asset filenames.

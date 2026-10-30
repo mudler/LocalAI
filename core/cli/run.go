@@ -150,6 +150,7 @@ type RunCMD struct {
 
 	// LocalAI Assistant chat modality (in-process admin MCP server)
 	DisableLocalAIAssistant bool `env:"LOCALAI_DISABLE_ASSISTANT" default:"false" help:"Disable the LocalAI Assistant chat modality (in-process admin MCP server)" group:"assistant"`
+	DisableSharedPages      bool `env:"LOCALAI_DISABLE_SHARED_PAGES" default:"false" help:"Turn off the pages of shared folders (they can be switched on again in the runtime settings)" group:"assistant"`
 
 	// Removed agent, job and skill options: accepted and ignored.
 	RemovedAgentOptions `embed:""`
@@ -684,6 +685,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	if r.DisableLocalAIAssistant {
 		opts = append(opts, config.WithDisableLocalAIAssistant(true))
+	}
+	if r.DisableSharedPages {
+		opts = append(opts, config.WithDisableSharedPages(true))
 	}
 	if r.CollectionsStateDir != "" {
 		opts = append(opts, config.WithCollectionsStateDir(r.CollectionsStateDir))

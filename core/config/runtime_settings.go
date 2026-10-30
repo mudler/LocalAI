@@ -98,6 +98,10 @@ type RuntimeSettings struct {
 	// entry, so flipping the toggle takes effect on the next request.
 	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity
 
+	// Pages of shared folders — read live by the pages handlers on every
+	// request, so switching them off stops open pages at their next call.
+	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
+
 	// Branding / whitelabeling. Text fields are user-facing; *File fields hold
 	// just the basename of an uploaded asset under {DynamicConfigsDir}/branding/.
 	// All optional — empty values fall back to bundled LocalAI defaults.
