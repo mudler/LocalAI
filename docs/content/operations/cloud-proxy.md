@@ -189,6 +189,10 @@ With the declaration, `/v1/models/capabilities` lists the model with the
 send an attached image to the model inside the message, as an `image_url`
 part with a `data:` URL. Passthrough mode forwards the part as it is. Without
 it, the chats give the model the file path and the `describe_image` tool.
+When no other model can look at images, `describe_image` tries the cloud model
+anyway, since the upstream may accept them. If the upstream refuses, the tool
+tells the user to turn on the switch above, choose another model, or ask an
+administrator to set a Chat image model.
 
 Translate mode sends the upstream the text of the messages only, so a
 translate-mode model never takes images, whatever it declares, and the editor
