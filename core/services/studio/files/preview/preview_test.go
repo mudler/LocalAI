@@ -138,8 +138,7 @@ var _ = Describe("Spreadsheets", func() {
 
 	It("stops at a part that unpacks past the limit", func() {
 		huge := `<?xml version="1.0"?><sst ` + nsMain + `>` + strings.Repeat("<si><t>aaaaaaaaaaaaaaaa</t></si>", 1<<16) + `</sst>`
-		data := workbook(nil, "", false, sheetDef{"S", ""})
-		data = zipOf("xl/workbook.xml", `<workbook `+nsMain+` `+nsRel+`><sheets><sheet name="S" r:id="rId1"/></sheets></workbook>`,
+		data := zipOf("xl/workbook.xml", `<workbook `+nsMain+` `+nsRel+`><sheets><sheet name="S" r:id="rId1"/></sheets></workbook>`,
 			"xl/_rels/workbook.xml.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`,
 			"xl/worksheets/sheet1.xml", `<worksheet `+nsMain+`><sheetData/></worksheet>`,
 			"xl/sharedStrings.xml", huge)

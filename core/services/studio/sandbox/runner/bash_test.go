@@ -3,7 +3,6 @@
 package runner_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -67,17 +66,6 @@ func (e *toolEnv) must(name string, args any) string {
 	out, err := e.call(name, args)
 	Expect(err).NotTo(HaveOccurred(), name)
 	return out
-}
-
-// guest runs a script in the sandbox and returns its stdout as raw bytes.
-func (e *toolEnv) guest(script string) []byte {
-	var out bytes.Buffer
-	p, err := e.sb.Exec(context.Background(), sandbox.Cmd{Args: []string{"sh", "-c", script}, Stdout: &out})
-	Expect(err).NotTo(HaveOccurred())
-	code, err := p.Wait()
-	Expect(err).NotTo(HaveOccurred(), script)
-	Expect(code).To(BeZero(), script)
-	return out.Bytes()
 }
 
 func m(kv ...any) map[string]any {
