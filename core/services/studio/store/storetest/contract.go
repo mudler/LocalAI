@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/session/sessiontest"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -204,6 +205,53 @@ func Run(newStore New) {
 		Expect(s.SetHostConsent(ctx(), "alice", "c1", nil)).To(Succeed())
 		rec, _ = s.GetChat(ctx(), "alice", "c1")
 		Expect(rec.HostConsent).To(BeNil(), "after clearing")
+	})
+
+	It("keeps the network state, survives a chat update, belongs to the owner and loses no concurrent change", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "c1", Principal: "alice", Title: "New chat", Created: t0, Updated: t0,
+			Egress: egress.ChatState{Preset: egress.PresetRegistries}})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Egress.Preset).To(Equal(egress.PresetRegistries), "CreateChat keeps the preset")
+		Expect(s.UpdateEgress(ctx(), "alice", "c1", func(st *egress.ChatState) error {
+			st.PutRule(egress.Rule{Host: "example.com", Port: 443, Allow: true, At: t0})
+			st.PutCard(egress.Card{ID: "k1", Host: "example.com", Port: 443, State: egress.CardPending, ToolSeq: 7, AskedAt: t0})
+			return nil
+		})).To(Succeed())
+		stale := rec
+		stale.Egress = egress.ChatState{}
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Egress.Rules).To(HaveLen(1), "UpdateChat keeps the rules")
+		card, ok := rec.Egress.Card("k1")
+		Expect(ok).To(BeTrue(), "the card is kept with the chat, so a reload shows it")
+		Expect(card.ToolSeq).To(Equal(int64(7)))
+		Expect(s.UpdateEgress(ctx(), "bob", "c1", func(*egress.ChatState) error { return nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateEgress(ctx(), "alice", "c1", func(st *egress.ChatState) error {
+			st.Preset = egress.PresetAll
+			return boom
+		})).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Egress.Preset).To(Equal(egress.PresetRegistries), "a failed change leaves the state")
+
+		var wg sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateEgress(ctx(), "alice", "c1", func(st *egress.ChatState) error {
+					st.PutRule(egress.Rule{Host: "h.example", Port: 1000 + i, Allow: true})
+					return nil
+				})).To(Succeed())
+			}(i)
+		}
+		wg.Wait()
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Egress.Rules).To(HaveLen(9), "no change was lost")
 	})
 
 	It("add-on switches round-trip, survive a chat update and belong to the owner", func() {

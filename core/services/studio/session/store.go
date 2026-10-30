@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 )
 
@@ -93,6 +94,11 @@ type ChatRecord struct {
 	// frontend, shows the card again. SetHostConsent sets it; UpdateChat leaves
 	// it alone.
 	HostConsent *HostConsent
+	// Egress is the network of the chat's Sandbox commands: its preset, the
+	// rules the person stored and the cards that asked. It lives with the
+	// chat, never in the workspace, so the code it confines cannot change it.
+	// UpdateEgress changes it; UpdateChat leaves it alone, like the switches.
+	Egress egress.ChatState
 }
 
 // HostConsent is a consent card that waits for an answer: ID is what the

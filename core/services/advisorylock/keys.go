@@ -33,4 +33,7 @@ const (
 	// KeyChatsConvert makes one frontend at a time convert the data of the old
 	// chat, agents and skills. It is held for the length of one conversion.
 	KeyChatsConvert int64 = 113
+	// KeyChatsEgressPrune elects the one frontend that removes the lines of
+	// the Sandbox network audit older than chats_egress_audit_days.
+	KeyChatsEgressPrune int64 = 114
 )

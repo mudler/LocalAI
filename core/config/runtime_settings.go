@@ -101,6 +101,15 @@ type RuntimeSettings struct {
 	ChatsWebSearXNGURL   *string `json:"chats_web_searxng_url,omitempty"`   // search with this SearXNG instance; empty: DuckDuckGo
 	ChatsWebAllowPrivate *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
 	ChatsWebPorts        *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
+	// The network of the commands the chats run in the Sandbox. Read at each
+	// check of the host proxy, so a change applies at once (a cached allow
+	// lives at most 30 seconds).
+	ChatsEgressCeiling         *string `json:"chats_egress_ceiling,omitempty"`          // widest preset a chat may use: off, registries, all (default: off)
+	ChatsEgressDefault         *string `json:"chats_egress_default,omitempty"`          // preset of a new chat, capped by the ceiling (default: off)
+	ChatsEgressAllowPrivate    *bool   `json:"chats_egress_allow_private,omitempty"`    // let an administrator's rule reach private addresses (default: false)
+	ChatsEgressPorts           *string `json:"chats_egress_ports,omitempty"`            // ports a command may reach, comma separated (default: 80,443)
+	ChatsEgressExtraRegistries *string `json:"chats_egress_extra_registries,omitempty"` // host names added to the package registries, comma separated
+	ChatsEgressAuditDays       *int    `json:"chats_egress_audit_days,omitempty"`       // days the audit keeps a line, 1 to 365 (default: 30)
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`
