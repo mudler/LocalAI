@@ -72,7 +72,8 @@
     "files": "Arquivos",
     "triggers": "Gatilhos",
     "mcpConnectors": "Conectores MCP",
-    "chatsAdmin": "Chats de todos os usuários"
+    "chatsAdmin": "Chats de todos os usuários",
+    "pages": "Páginas"
   },
   "footer": {
     "github": "GitHub",
@@ -108,5 +109,6 @@
       "addons": "Instale complementos e abra os apps que eles oferecem.",
       "triggers": "Inicie um chat sozinho, em um horário agendado ou quando um arquivo chegar."
     }
-  }
+  },
+  "pinnedPages": "Páginas fixadas"
 }

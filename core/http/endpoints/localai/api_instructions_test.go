@@ -71,6 +71,7 @@ var _ = Describe("API Instructions Endpoints", func() {
 				"addons",
 				"chats",
 				"workspace",
+				"pages",
 				"library-sources",
 				"chat-inference",
 				"moderation",

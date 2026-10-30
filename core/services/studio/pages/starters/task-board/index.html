@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Task board</title>
+<style>
+  :root { --bg: #f6f7f9; --col: #ffffff; --card: #ffffff; --line: #d9dde3; --text: #121417; --muted: #5d6673; --accent: #1f6feb; }
+  :root[data-theme="dark"] { --bg: #0b0d10; --col: #12161b; --card: #171c22; --line: #29313b; --text: #e6e9ee; --muted: #8b95a3; --accent: #58a6ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .add { display: flex; gap: 8px; margin-bottom: 16px; }
+  input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
+  button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .4; cursor: default; }
+  .board { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .col { background: var(--col); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 120px; }
+  .col h2 { display: flex; justify-content: space-between; margin: 0 0 8px; font-size: 13px; }
+  .col h2 span { color: var(--muted); font-weight: normal; }
+  .card { border: 1px solid var(--line); border-radius: 6px; background: var(--card); padding: 8px 10px; margin-bottom: 8px; }
+  .card p { margin: 0 0 6px; overflow-wrap: anywhere; }
+  .card div { display: flex; gap: 4px; }
+  .card div button { padding: 2px 8px; }
+  .status { color: var(--muted); font-size: 12px; margin-top: 12px; min-height: 1em; }
+</style>
+</head>
+<body>
+<!-- No form: a sandboxed page cannot submit one, so Enter and the button add the task. -->
+<div class="add">
+  <input id="title" placeholder="New task" maxlength="200" aria-label="New task">
+  <button id="add" class="primary" type="button">Add</button>
+  <button id="ask" type="button">Ask the assistant</button>
+</div>
+<div class="board" id="board"></div>
+<div class="status" id="status"></div>
+<script>
+(function () {
+  var FILE = 'tasks.json'
+  var data = { columns: ['To do', 'Doing', 'Done'], tasks: [] }
+  var version = 0
+  var saving = null
+  var board = document.getElementById('board')
+  var status = document.getElementById('status')
+
+  function say(text) { status.textContent = text }
+
+  // Text goes in with textContent, never innerHTML: a task title is data.
+  function el(tag, text) {
+    var e = document.createElement(tag)
+    if (text !== undefined) e.textContent = text
+    return e
+  }
+
+  function render() {
+    board.textContent = ''
+    data.columns.forEach(function (name, ci) {
+      var col = el('section')
+      col.className = 'col'
+      var tasks = data.tasks.filter(function (t) { return t.column === ci })
+      var h = el('h2', name)
+      h.appendChild(el('span', String(tasks.length)))
+      col.appendChild(h)
+      tasks.forEach(function (t) {
+        var card = el('article')
+        card.className = 'card'
+        card.appendChild(el('p', t.title))
+        var row = el('div')
+        var left = el('button', '←')
+        left.disabled = ci === 0
+        left.setAttribute('aria-label', 'Move left')
+        left.onclick = function () { t.column--; changed() }
+        var right = el('button', '→')
+        right.disabled = ci === data.columns.length - 1
+        right.setAttribute('aria-label', 'Move right')
+        right.onclick = function () { t.column++; changed() }
+        var del = el('button', 'Delete')
+        del.onclick = function () { data.tasks = data.tasks.filter(function (x) { return x !== t }); changed() }
+        row.appendChild(left); row.appendChild(right); row.appendChild(del)
+        card.appendChild(row)
+        col.appendChild(card)
+      })
+      board.appendChild(col)
+    })
+  }
+
+  // Saves after a short pause, so a burst of clicks is one write.
+  function changed() {
+    render()
+    clearTimeout(saving)
+    saving = setTimeout(function () {
+      localai.files.write(FILE, JSON.stringify(data, null, 2)).then(function (f) {
+        version = f.version
+        say('Saved')
+      }, function (e) { say('Not saved: ' + e.message) })
+    }, 400)
+  }
+
+  function load() {
+    return localai.files.read(FILE).then(function (f) {
+      if (f.version === version) return
+      var next = JSON.parse(f.content)
+      if (!next || !Array.isArray(next.columns) || !Array.isArray(next.tasks)) throw new Error('tasks.json has no columns or tasks')
+      data = next
+      version = f.version
+      render()
+      say('')
+    }).catch(function (e) { say('Could not read tasks.json: ' + e.message) })
+  }
+
+  function add() {
+    var input = document.getElementById('title')
+    var title = input.value.trim()
+    if (!title) return
+    data.tasks.push({ id: 't' + Date.now(), title: title, column: 0 })
+    input.value = ''
+    changed()
+  }
+  document.getElementById('add').onclick = add
+  document.getElementById('title').onkeydown = function (ev) {
+    if (ev.key === 'Enter') add()
+  }
+
+  document.getElementById('ask').onclick = function () {
+    localai.chat.send('Look at my task board in pages/' + localai.page.name + '/tasks.json and tell me what to do first.')
+  }
+
+  // The assistant or another tab changed the tasks: read them again.
+  localai.on('files.changed', function (ev) {
+    if (ev.resync || ev.paths.indexOf(FILE) >= 0) load()
+  })
+
+  render()
+  load()
+})()
+</script>
+</body>
+</html>

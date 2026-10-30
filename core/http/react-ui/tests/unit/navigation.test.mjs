@@ -84,10 +84,19 @@ const user = { isAdmin: false, authEnabled: true, hasFeature: () => false, featu
 
 test('Settings is not a primary item and Models is an administrator item', () => {
   assert.ok(!primaryDestinations.some(i => i.path === '/app/settings'))
-  const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true })
+  const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true, hasPages: true })
   assert.equal(admin.length, primaryDestinations.length)
   const member = visiblePrimary(primaryDestinations, { ...user, hasBuiltin: true })
   assert.deepEqual(member.map(i => i.path), ['/app/addons'])
+})
+
+test('the pages entry shows only once the user has a page, with the chats and pages features', () => {
+  const paths = (ctx) => visiblePrimary(primaryDestinations, ctx).map(i => i.path)
+  const both = { ...user, hasFeature: (f) => f === 'chats' || f === 'pages' }
+  assert.ok(!paths({ ...both, hasPages: false }).includes('/app/pages'), 'zero pages')
+  assert.ok(paths({ ...both, hasPages: true }).includes('/app/pages'), 'one page')
+  assert.ok(!paths({ ...user, hasFeature: (f) => f === 'chats', hasPages: true }).includes('/app/pages'), 'no pages feature')
+  assert.ok(!paths({ ...user, hasFeature: (f) => f === 'pages', hasPages: true }).includes('/app/pages'), 'no chats feature')
 })
 
 test('the files entry shows with the chats feature, like the chats entry', () => {
@@ -184,19 +193,19 @@ test('sidebar entries own one route each: Apps on /app/addons, never a hub', asy
   assert.equal(hubOwnsPath(addons, '/app/addons', { ...auth, features: { addon_navigation: false } }), true)
 })
 
-test('the primary items: chats, files, agents, MCP connectors, memory, models and add-ons', () => {
+test('the primary items: chats, files, pages, agents, MCP connectors, memory, models and add-ons', () => {
   assert.deepEqual(primaryDestinations.map(i => i.path), [
-    '/app/chats', '/app/files', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons',
+    '/app/chats', '/app/files', '/app/pages', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons',
   ])
-  const all = { isAdmin: true, hasFeature: () => true, hasBuiltin: false, features: {} }
-  assert.equal(visiblePrimary(primaryDestinations, all).length, 7)
+  const all = { isAdmin: true, hasFeature: () => true, hasBuiltin: false, features: {}, hasPages: true }
+  assert.equal(visiblePrimary(primaryDestinations, all).length, 8)
   // A server without collections hides Memory; a user without chats sees no chat pages.
   // Agents have their own feature: an administrator grants it apart from the chats.
   assert.ok(!visiblePrimary(primaryDestinations, { ...all, features: { collections: false } }).some(i => i.path === '/app/collections'))
   const noChats = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'chats' }).map(i => i.path)
   assert.deepEqual(noChats, ['/app/agents', '/app/collections', '/app/models', '/app/addons'])
   const noAgents = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'agents' }).map(i => i.path)
-  assert.deepEqual(noAgents, ['/app/chats', '/app/files', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons'])
+  assert.deepEqual(noAgents, ['/app/chats', '/app/files', '/app/pages', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons'])
 })
 
 test('an item lights up on its own pages: agents own triggers, skills and messaging connectors', () => {

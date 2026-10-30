@@ -72,7 +72,8 @@
     "files": "File",
     "triggers": "Trigger",
     "mcpConnectors": "Connettori MCP",
-    "chatsAdmin": "Chat di tutti gli utenti"
+    "chatsAdmin": "Chat di tutti gli utenti",
+    "pages": "Pagine"
   },
   "footer": {
     "github": "GitHub",
@@ -108,5 +109,6 @@
       "addons": "Installa componenti aggiuntivi e apri le app che offrono.",
       "triggers": "Avvia una chat da sola, a orari prefissati o quando arriva un file."
     }
-  }
+  },
+  "pinnedPages": "Pagine fissate"
 }

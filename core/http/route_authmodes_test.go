@@ -250,9 +250,9 @@ var _ = Describe("Route auth modes", func() {
 			}
 			// carol had the default-on chats feature revoked by an administrator.
 			Expect(auth.UpdateUserPermissions(db, "carol", auth.PermissionMap{auth.FeatureChats: false})).To(Succeed())
-			// agents, triggers and connectors are off by default for a user; alice has them.
+			// agents, triggers, connectors and pages are off by default for a user; alice has them.
 			Expect(auth.UpdateUserPermissions(db, "alice", auth.PermissionMap{
-				auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true,
+				auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true, auth.FeaturePages: true,
 			})).To(Succeed())
 			server = s
 		})

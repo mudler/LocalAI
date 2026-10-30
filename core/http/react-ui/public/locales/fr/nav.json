@@ -98,7 +98,8 @@
     "files": "Fichiers",
     "triggers": "Déclencheurs",
     "mcpConnectors": "Connecteurs MCP",
-    "chatsAdmin": "Chats de tous les utilisateurs"
+    "chatsAdmin": "Chats de tous les utilisateurs",
+    "pages": "Pages"
   },
   "footer": {
     "github": "GitHub",
@@ -111,5 +112,6 @@
     "training": "Entraînement",
     "expandNavigation": "Développer la navigation {{section}}",
     "collapseNavigation": "Réduire la navigation {{section}}"
-  }
+  },
+  "pinnedPages": "Pages épinglées"
 }

@@ -96,6 +96,16 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/:id/addons", h.ListChatAddons)
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
 	e.GET(base+"/files/search", h.SearchFiles)
+	// The pages of the workspace: the chats feature lets the request in, and
+	// the handlers check the pages feature too.
+	e.GET(base+"/pages", h.ListPages)
+	e.GET(base+"/pages/:name", h.GetPage)
+	e.GET(base+"/pages/:name/files", h.ListPageFiles)
+	e.GET(base+"/pages/:name/file", h.ReadPageFile)
+	e.PUT(base+"/pages/:name/file", h.WritePageFile)
+	e.POST(base+"/pages/:name/chat", h.SendFromPage)
+	e.GET(base+"/page-starters", h.ListPageStarters)
+	e.POST(base+"/page-starters/:id/copy", h.CopyPageStarter)
 	e.GET(base+"/conversion", h.Conversion)
 	e.POST(base+"/import/browser", h.ImportBrowserChats)
 	e.GET(base+"/notifications", h.ListNotifications)

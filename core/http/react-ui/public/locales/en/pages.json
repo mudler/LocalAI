@@ -1,0 +1,61 @@
+{
+  "title": "Pages",
+  "subtitle": "Small apps made of files in pages/ of your home. They run in a sandbox, as you, and keep their data next to them.",
+  "loading": "Loading your pages",
+  "error": "The pages could not be read: {{message}}",
+  "retry": "Try again",
+  "off": "Pages are not available: {{reason}}",
+  "justNow": "just now",
+  "card": {
+    "changed": "Changed {{when}}",
+    "author": {
+      "you": "by you",
+      "assistant": "by the assistant"
+    },
+    "open": "Open",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "pinFailed": "The pin was not saved: {{message}}",
+    "ask": "Ask the assistant to change this",
+    "list": "Your pages"
+  },
+  "empty": {
+    "title": "No pages yet",
+    "text": "A page is an index.html in pages/<name>/ of your files. Ask the assistant for one in a chat (\"make me a reading list page\"), or start from a ready-made page and change it.",
+    "starter": "Start from a task board",
+    "starting": "Copying the task board",
+    "starterFailed": "The task board was not copied: {{message}}",
+    "ask": "Ask the assistant for a page",
+    "askPrompt": "Make me a page in pages/ that "
+  },
+  "view": {
+    "runsAsYou": "Runs as you",
+    "runsAsYouHint": "The page reads and writes the files of its folder with your rights. It cannot reach the network or your other files.",
+    "updated": {
+      "you": "updated {{when}} by you",
+      "assistant": "updated {{when}} by the assistant"
+    },
+    "reload": "Reload",
+    "ask": "Ask the assistant to change this",
+    "askPrompt": "Change the page in pages/{{name}}/ so that ",
+    "sandbox": "Sandboxed frame, own folder only",
+    "frameTitle": "Page: {{title}}",
+    "loading": "Loading the page",
+    "notFound": "There is no page called {{name}}.",
+    "failed": "The page could not be loaded: {{message}}",
+    "back": "All pages",
+    "navigated": "The page tried to open another address and was stopped. Reload to start it again.",
+    "untrusted": "This page comes from a shared folder. It does not run until you allow it."
+  },
+  "send": {
+    "label": "This page wants to send a message to the assistant",
+    "to": "Send to",
+    "pageChat": "This page's chat",
+    "send": "Send",
+    "dismiss": "Dismiss",
+    "sending": "Sending",
+    "sent": "Sent to {{title}}",
+    "openChat": "Open chat",
+    "failed": "Not sent: {{message}}"
+  }
+}

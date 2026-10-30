@@ -72,7 +72,8 @@
     "files": "Dateien",
     "triggers": "Auslöser",
     "mcpConnectors": "MCP-Connectors",
-    "chatsAdmin": "Chats aller Benutzer"
+    "chatsAdmin": "Chats aller Benutzer",
+    "pages": "Seiten"
   },
   "footer": {
     "github": "GitHub",
@@ -108,5 +109,6 @@
       "addons": "Add-ons installieren und die Apps öffnen, die sie bereitstellen.",
       "triggers": "Starte einen Chat von selbst, nach Zeitplan oder wenn eine Datei eintrifft."
     }
-  }
+  },
+  "pinnedPages": "Angeheftete Seiten"
 }

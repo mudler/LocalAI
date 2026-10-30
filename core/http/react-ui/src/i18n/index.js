@@ -27,6 +27,7 @@ export const NAMESPACES = [
   'agents',
   'skills',
   'workspace',
+  'pages',
   'models',
   'collections',
   'library',

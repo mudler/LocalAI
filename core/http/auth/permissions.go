@@ -62,6 +62,10 @@ const (
 	// FeatureMCPJobs gates the agent tasks and jobs API (/api/agent/...), the
 	// name master gave it, so a permission stored there still applies.
 	FeatureMCPJobs = "mcp_jobs"
+	// FeaturePages gates the pages of the workspace (/api/chats/pages...): HTML
+	// pages in the user's home, shown in a sandboxed frame. Off for new users
+	// until an administrator grants it; administrators always have it.
+	FeaturePages = "pages"
 
 	// General features (default OFF for new users)
 	FeatureAddons       = "addons"
@@ -101,7 +105,7 @@ const (
 )
 
 // AgentFeatures lists agent-related features (default OFF).
-var AgentFeatures = []string{FeatureCollections, FeatureLocalAIAssistant, FeatureAgents, FeatureTriggers, FeatureConnectors, FeatureMCPJobs}
+var AgentFeatures = []string{FeatureCollections, FeatureLocalAIAssistant, FeatureAgents, FeatureTriggers, FeatureConnectors, FeatureMCPJobs, FeaturePages}
 
 // GeneralFeatures lists general features (default OFF).
 var GeneralFeatures = []string{FeatureAddons, FeatureFineTuning, FeatureQuantization}
