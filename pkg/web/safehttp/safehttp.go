@@ -151,7 +151,9 @@ type Response struct {
 	FinalURL *url.URL
 	// ContentType is the media type only, in lower case.
 	ContentType string
-	Body        []byte
+	// Charset is the charset parameter of the Content-Type header, if any.
+	Charset string
+	Body    []byte
 	// Truncated says that the body was longer than MaxBodyBytes.
 	Truncated bool
 }
@@ -182,10 +184,10 @@ func (c *Client) Get(ctx context.Context, raw string, accept []string) (*Respons
 		return nil, fmt.Errorf("%w: %s", ErrStatus, resp.Status)
 	}
 	ct := resp.Header.Get("Content-Type")
-	media := "application/octet-stream"
+	media, charset := "application/octet-stream", ""
 	if ct != "" {
-		if m, _, err := mime.ParseMediaType(ct); err == nil {
-			media = strings.ToLower(m)
+		if m, params, err := mime.ParseMediaType(ct); err == nil {
+			media, charset = strings.ToLower(m), params["charset"]
 		}
 	}
 	if len(accept) > 0 && !Accepts(accept, media) {
@@ -195,7 +197,7 @@ func (c *Client) Get(ctx context.Context, raw string, accept []string) (*Respons
 	if err != nil {
 		return nil, classify(ctx, err)
 	}
-	out := &Response{FinalURL: resp.Request.URL, ContentType: media, Body: body}
+	out := &Response{FinalURL: resp.Request.URL, ContentType: media, Charset: charset, Body: body}
 	if int64(len(body)) > c.p.MaxBodyBytes {
 		out.Body, out.Truncated = body[:c.p.MaxBodyBytes], true
 	}
