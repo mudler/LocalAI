@@ -10,8 +10,6 @@ import {
 } from '../utils/agentJobs'
 import { formatDuration } from '../utils/agentRuns'
 // eslint-disable-next-line no-unused-vars
-import LoadingSpinner from '../components/LoadingSpinner'
-// eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
 import ActionMenu from '../components/ActionMenu'
@@ -20,6 +18,10 @@ import { JobMark, JobStrip, ScheduleText } from '../components/agents/JobBits'
 import { jobSentence } from '../utils/agentJobText'
 import { formatWhen } from '../components/agents/AgentBits'
 import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+// eslint-disable-next-line no-unused-vars
+import { AgentViews } from '../components/agents/AgentBits'
 import './agents.css'
 import './agent-jobs.css'
 
@@ -64,6 +66,7 @@ export default function AgentJobs() {
   const [proposals, setProposals] = useState([])
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [off, setOff] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [taskFilter, setTaskFilter] = useState('all')
@@ -81,13 +84,15 @@ export default function AgentJobs() {
       // The runs of every trigger make the history: the server keeps them per trigger.
       const runs = await Promise.all(triggers.map(x => chatTriggersApi.runs(x.id).then(r => (r.runs || []).map(run => jobOfRun(run, x.id))).catch(() => [])))
       setJobs(runs.flat())
+      setError(null)
     } catch (err) {
+      // Said in the page; a failed poll keeps the rows already on screen.
       if (err?.status === 409 && err.body?.error?.type === 'triggers_off') setOff(err.body.error.message)
-      else addToast(t('jobs.loadFailed', { message: err.message }), 'error')
+      else setError(err)
     } finally {
       setLoading(false)
     }
-  }, [addToast, t])
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -148,36 +153,41 @@ export default function AgentJobs() {
   const groups = groupByDay(shown)
   const filtered = statusFilter !== 'all' || taskFilter !== 'all'
 
+  const emptyTasks = !loading && !error && tasks.length === 0 && proposals.length === 0
+  // On an empty page the empty state carries the primary action.
   const header = (
-    <header className="aj-head">
-      <h1 className="aj-title">{t('jobs.title')}</h1>
-      <div className="aj-head__acts">
-        <button type="button" className="dk-btn dk-btn--primary" onClick={() => navigate('/app/triggers/new')}>
-          <Icon name="plus" /> {t('jobs.newTask')}
-        </button>
-      </div>
-    </header>
+    <>
+      <PageHeader
+        title={t('jobs.title')}
+        supporting={t('jobs.subtitle')}
+        actions={!off && !emptyTasks && (
+          <Button variant="primary" icon="plus" onClick={() => navigate('/app/triggers/new')}>{t('jobs.newTask')}</Button>
+        )}
+      />
+      <AgentViews />
+    </>
   )
 
   if (off) {
     return (
-      <div className="page page--medium ag-page aj-page" data-testid="jobs-page">
+      <Page className="ag-page aj-page" data-testid="jobs-page">
         {header}
-        <div className="ag-empty" role="note"><p>{off}</p></div>
-      </div>
+        <div role="note"><EmptyState variant="unavailable" title={off} /></div>
+      </Page>
     )
   }
 
-  const emptyTasks = tasks.length === 0 && proposals.length === 0
-
   return (
-    <div className="page page--wide ag-page aj-page" data-testid="jobs-page">
+    <Page width="full" className="ag-page aj-page" data-testid="jobs-page">
       {header}
 
       {loading ? (
-        <div className="loading-center" aria-label={t('jobs.loading')}><LoadingSpinner size="lg" /></div>
+        <div aria-label={t('jobs.loading')}><SkeletonRows count={3} /></div>
+      ) : error && tasks.length === 0 ? (
+        <LoadError title={t('load.triggers')} error={error} onRetry={fetchData} />
       ) : (
         <>
+          {error && <LoadError title={t('load.triggersStale')} error={error} onRetry={fetchData} />}
           {proposals.length > 0 && (
             <section className="aj-sec" aria-labelledby="aj-prop-h" data-testid="proposals">
               <div className="aj-sec__head"><h2 className="ag-eyebrow" id="aj-prop-h">{t('chats:triggersPage.proposals')}</h2></div>
@@ -191,8 +201,8 @@ export default function AgentJobs() {
                       <span className="ag-muted ag-small">{p.prompt}</span>
                     </div>
                     <div className="aj-acts">
-                      <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => act(() => chatTriggersApi.confirm(p.id, browserZone()))}>{t('chats:triggersPage.confirm')}</button>
-                      <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => act(() => chatTriggersApi.dismiss(p.id))}>{t('chats:triggersPage.dismiss')}</button>
+                      <Button variant="primary" size="sm" onClick={() => act(() => chatTriggersApi.confirm(p.id, browserZone()))}>{t('chats:triggersPage.confirm')}</Button>
+                      <Button variant="ghost" size="sm" onClick={() => act(() => chatTriggersApi.dismiss(p.id))}>{t('chats:triggersPage.dismiss')}</Button>
                     </div>
                   </div>
                 ))}
@@ -201,20 +211,13 @@ export default function AgentJobs() {
           )}
 
           {emptyTasks ? (
-            <div className="aj-empty" data-testid="jobs-empty">
-              <h2>{t('jobs.empty.title')}</h2>
-              <p>{t('jobs.empty.text')}</p>
-              <ol className="aj-steps">
-                <li>{t('jobs.empty.step1')}</li>
-                <li>{t('jobs.empty.step2')}</li>
-                <li>{t('jobs.empty.step3')}</li>
-              </ol>
-              <div className="ag-empty__acts">
-                <button type="button" className="dk-btn dk-btn--primary" onClick={() => navigate('/app/triggers/new')}>
-                  <Icon name="plus" /> {t('jobs.createTask')}
-                </button>
-              </div>
-            </div>
+            <EmptyState
+              testId="jobs-empty"
+              title={t('jobs.empty.title')}
+              body={t('jobs.empty.text')}
+              steps={[t('jobs.empty.step1'), t('jobs.empty.step2'), t('jobs.empty.step3')]}
+              actions={<Button variant="primary" icon="plus" onClick={() => navigate('/app/triggers/new')}>{t('jobs.createTask')}</Button>}
+            />
           ) : (
             <>
               <WeekSentence jobs={jobs} tasks={tasks} />
@@ -222,9 +225,9 @@ export default function AgentJobs() {
               <section className="aj-sec" aria-labelledby="aj-tasks-h">
                 <div className="aj-sec__head">
                   <h2 className="ag-eyebrow" id="aj-tasks-h">{t('jobs.tasks.title', { count: tasks.length })}</h2>
-                  <button type="button" className="ag-btn-quiet" aria-expanded={tasksOpen} aria-controls="aj-tasks" onClick={() => setTasksOpen(v => !v)}>
-                    <Icon name={tasksOpen ? 'chevron-up' : 'chevron-down'} /> {tasksOpen ? t('jobs.tasks.hide') : t('jobs.tasks.show')}
-                  </button>
+                  <Button variant="ghost" size="sm" icon={tasksOpen ? 'chevron-up' : 'chevron-down'} aria-expanded={tasksOpen} aria-controls="aj-tasks" onClick={() => setTasksOpen(v => !v)}>
+                    {tasksOpen ? t('jobs.tasks.hide') : t('jobs.tasks.show')}
+                  </Button>
                 </div>
                 {tasksOpen && (tasks.length === 0 ? (
                   <p className="ag-note" id="aj-tasks">{t('jobs.tasks.noneYet')}</p>
@@ -286,7 +289,7 @@ export default function AgentJobs() {
                               <td className="dk-table-actions">
                                 <div className="aj-acts">
                                   <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => act(() => chatTriggersApi.run(task.id), t('jobs.tasks.started', { name: label }))} title={t('jobs.tasks.runNow')}>
-                                    <Icon name="play" /> <span className="aj-acts__word">{t('jobs.tasks.runNow')}</span>
+                                    <Icon name="play" className="ui-btn__icon" /><span className="aj-acts__word">{t('jobs.tasks.runNow')}</span>
                                   </button>
                                   <ActionMenu
                                     ariaLabel={t('jobs.tasks.moreFor', { name: label })}
@@ -330,15 +333,18 @@ export default function AgentJobs() {
                 </div>
 
                 {shown.length === 0 ? (
-                  <div className="ag-empty" data-testid="jobs-history-empty">
-                    <h3>{filtered ? t('jobs.history.emptyFiltered') : t('jobs.history.emptyTitle')}</h3>
-                    {!filtered && <p>{t('jobs.history.emptyText')}</p>}
-                    {filtered && (
-                      <button type="button" className="dk-btn dk-btn--secondary" onClick={() => { setStatusFilter('all'); setTaskFilter('all') }}>
+                  <EmptyState
+                    testId="jobs-history-empty"
+                    level={3}
+                    variant={filtered ? 'no-results' : 'first-run'}
+                    title={filtered ? t('jobs.history.emptyFiltered') : t('jobs.history.emptyTitle')}
+                    body={filtered ? undefined : t('jobs.history.emptyText')}
+                    actions={filtered && (
+                      <Button variant="ghost" size="sm" onClick={() => { setStatusFilter('all'); setTaskFilter('all') }}>
                         {t('jobs.history.clearFilters')}
-                      </button>
+                      </Button>
                     )}
-                  </div>
+                  />
                 ) : (
                   <div className="dk-table-wrap aj-wrap" role="region" aria-label={t('jobs.history.caption')} tabIndex={0}>
                     <table className="dk-table aj-table aj-table--history" data-testid="jobs-history">
@@ -417,7 +423,7 @@ export default function AgentJobs() {
       )}
 
       <ChatDeleteConfirm item={toDelete} kind="trigger" onConfirm={remove} onCancel={() => setToDelete(null)} />
-    </div>
+    </Page>
   )
 }
 

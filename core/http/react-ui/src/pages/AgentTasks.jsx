@@ -9,12 +9,11 @@ import { jobActive, jobState, promptParams, taskBody, taskForm, taskMissing, wit
 import { jobDurationMs } from '../utils/agentJobs'
 import { formatDuration } from '../utils/agentRuns'
 // eslint-disable-next-line no-unused-vars
-import { StatusMark, formatWhen } from '../components/agents/AgentBits'
+import { AgentViews, StatusMark, formatWhen } from '../components/agents/AgentBits'
 // eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
 // eslint-disable-next-line no-unused-vars
-import LoadingSpinner from '../components/LoadingSpinner'
-import Icon from '../components/Icon'
+import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import './agents.css'
 import './agent-jobs.css'
 
@@ -34,6 +33,7 @@ export default function AgentTasks() {
   const [jobs, setJobs] = useState([])
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [allUsers, setAllUsers] = useState(false)
   const [editing, setEditing] = useState(null) // { task, form } or null
   const [running, setRunning] = useState(null) // { task, params }
@@ -45,12 +45,14 @@ export default function AgentTasks() {
       const [ts, js] = await Promise.all([agentJobsApi.tasks(allUsers), agentJobsApi.jobs({ limit: 100, allUsers })])
       setTasks(withOwners(ts, 'tasks'))
       setJobs(withOwners(js, 'jobs'))
+      setError(null)
     } catch (err) {
-      addToast(t('tasks.loadFailed', { message: err.message }), 'error')
+      // Said in the page; a failed poll keeps the rows already on screen.
+      setError(err)
     } finally {
       setLoading(false)
     }
-  }, [allUsers, addToast, t])
+  }, [allUsers])
 
   useEffect(() => { load() }, [load])
   const busy = jobs.some(j => jobActive(j.item))
@@ -108,26 +110,27 @@ export default function AgentTasks() {
   const runnerName = (task) => (task.agent_id ? agents.find(a => a.id === task.agent_id)?.name || task.agent_id : task.model)
 
   return (
-    <div className="page page--wide ag-page aj-page" data-testid="agent-tasks-page">
-      <header className="aj-head">
-        <h1 className="aj-title">{t('tasks.title')}</h1>
-        <div className="aj-head__acts">
-          {isAdmin && (
-            <label className="aj-filters">
-              <input type="checkbox" checked={allUsers} onChange={(e) => setAllUsers(e.target.checked)} />
-              {t('tasks.allUsers')}
-            </label>
-          )}
-          <button type="button" className="dk-btn dk-btn--primary" onClick={() => setEditing({ task: null, form: taskForm(null) })}>
-            <Icon name="plus" /> {t('tasks.new')}
-          </button>
-        </div>
-      </header>
-      <p className="aj-sum">{t('tasks.lede')}</p>
+    <Page width="full" className="ag-page aj-page" data-testid="agent-tasks-page">
+      <PageHeader
+        title={t('tasks.title')}
+        supporting={t('tasks.lede')}
+        actions={(
+          <div className="aj-head__acts">
+            {isAdmin && (
+              <label className="aj-filters">
+                <input type="checkbox" checked={allUsers} onChange={(e) => setAllUsers(e.target.checked)} />
+                {t('tasks.allUsers')}
+              </label>
+            )}
+            <Button variant="primary" icon="plus" onClick={() => setEditing({ task: null, form: taskForm(null) })}>{t('tasks.new')}</Button>
+          </div>
+        )}
+      />
+      <AgentViews />
 
       {editing && (
         <form className="aj-form aj-sec" onSubmit={save} data-testid="agent-task-form" aria-label={editing.task ? t('tasks.editTitle') : t('tasks.newTitle')}>
-          <h2 className="ag-eyebrow">{editing.task ? t('tasks.editTitle') : t('tasks.newTitle')}</h2>
+          <h2 className="ag-h2">{editing.task ? t('tasks.editTitle') : t('tasks.newTitle')}</h2>
           <div className="dk-field">
             <label className="dk-label" htmlFor="at-name">{t('tasks.name')}</label>
             <input id="at-name" className="dk-input" value={form.name} onChange={(e) => setForm({ name: e.target.value })} />
@@ -179,15 +182,15 @@ export default function AgentTasks() {
           </label>
           {editing.task?.webhooks?.length > 0 && <p className="ag-note">{t('tasks.webhooksKept', { count: editing.task.webhooks.length })}</p>}
           <div className="aj-head__acts">
-            <button type="submit" className="dk-btn dk-btn--primary" disabled={missing.length > 0}>{t('tasks.save')}</button>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setEditing(null)}>{t('tasks.cancel')}</button>
+            <Button type="submit" variant="primary" disabled={missing.length > 0}>{t('tasks.save')}</Button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>{t('tasks.cancel')}</Button>
           </div>
         </form>
       )}
 
       {running && (
         <form className="aj-form aj-sec" onSubmit={run} data-testid="agent-task-run" aria-label={t('tasks.runTitle', { name: running.task.name })}>
-          <h2 className="ag-eyebrow">{t('tasks.runTitle', { name: running.task.name })}</h2>
+          <h2 className="ag-h2">{t('tasks.runTitle', { name: running.task.name })}</h2>
           {promptParams(running.task.prompt).map(p => (
             <div className="dk-field" key={p}>
               <label className="dk-label" htmlFor={`at-p-${p}`}>{p}</label>
@@ -195,20 +198,23 @@ export default function AgentTasks() {
             </div>
           ))}
           <div className="aj-head__acts">
-            <button type="submit" className="dk-btn dk-btn--primary"><Icon name="play" /> {t('tasks.runNow')}</button>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setRunning(null)}>{t('tasks.cancel')}</button>
+            <Button type="submit" variant="primary" icon="play">{t('tasks.runNow')}</Button>
+            <Button variant="ghost" onClick={() => setRunning(null)}>{t('tasks.cancel')}</Button>
           </div>
         </form>
       )}
 
       {loading ? (
-        <div className="loading-center"><LoadingSpinner size="lg" /></div>
+        <SkeletonRows count={3} />
+      ) : error && tasks.length === 0 && jobs.length === 0 ? (
+        <LoadError title={t('load.tasks')} error={error} onRetry={load} />
       ) : (
         <>
+          {error && <LoadError title={t('load.tasksStale')} error={error} onRetry={load} />}
           <section className="aj-sec" aria-labelledby="at-tasks-h">
             <div className="aj-sec__head"><h2 className="ag-eyebrow" id="at-tasks-h">{t('tasks.tasks')}</h2></div>
             {tasks.length === 0 ? (
-              <p className="ag-note" data-testid="agent-tasks-empty">{t('tasks.none')}</p>
+              <EmptyState testId="agent-tasks-empty" level={3} body={t('tasks.none')} />
             ) : (
               <div className="dk-table-wrap aj-wrap" role="region" aria-label={t('tasks.tasks')} tabIndex={0}>
                 <table className="dk-table aj-table" data-testid="agent-tasks">
@@ -321,6 +327,6 @@ export default function AgentTasks() {
         onConfirm={(task) => { setToDelete(null); act(() => agentJobsApi.deleteTask(task.id), t('tasks.deleted', { name: task.name })) }}
         onCancel={() => setToDelete(null)}
       />
-    </div>
+    </Page>
   )
 }

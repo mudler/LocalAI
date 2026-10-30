@@ -25,9 +25,9 @@ import {
   EVERY_HOURS, EVERY_MINUTES, HOURLY_MINUTES, dayCodes, emptyTrigger, formatNext, joinTimes, presetOrder,
   scheduleText, triggerForm, triggerPayload,
 } from '../utils/chatTrigger'
-// eslint-disable-next-line no-unused-vars
-import LoadingSpinner from '../components/LoadingSpinner'
 import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import { Button, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import './agents.css'
 import './agent-jobs.css'
 
@@ -51,6 +51,7 @@ function TaskView({ id }) {
   const [jobs, setJobs] = useState([])
   const [agents, setAgents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [missing, setMissing] = useState(false)
   const [toDelete, setToDelete] = useState(null)
 
@@ -62,8 +63,9 @@ function TaskView({ id }) {
       setTask(found)
       const runs = await chatTriggersApi.runs(id).catch(() => ({ runs: [] }))
       setJobs((runs.runs || []).map(r => jobOfRun(r, id)))
+      setError(null)
     } catch (err) {
-      addToast(t('jobs.task.loadFailed', { message: err.message }), 'error')
+      setError(err)
     } finally {
       setLoading(false)
     }
@@ -113,19 +115,27 @@ function TaskView({ id }) {
     }
   }
 
-  if (loading) return <div className="page page--medium loading-center"><LoadingSpinner size="lg" /></div>
+  const back = <Link className="ag-back" to="/app/triggers"><Icon name="arrow-left" /> {t('jobs.task.back')}</Link>
+
+  if (loading || (error && !task)) {
+    return (
+      <Page className="ag-page aj-page">
+        <div className="ag-home">
+          {back}
+          {error ? <LoadError title={t('load.trigger')} error={error} onRetry={load} /> : <SkeletonRows count={4} />}
+        </div>
+      </Page>
+    )
+  }
 
   if (missing || !task) {
     return (
-      <div className="page page--medium ag-page aj-page">
-        <div className="ag-home">
-          <Link className="ag-back" to="/app/triggers"><Icon name="arrow-left" /> {t('jobs.task.back')}</Link>
-          <div className="ag-empty" data-testid="task-missing">
-            <h1 className="ag-title">{t('jobs.task.missingTitle')}</h1>
-            <p>{t('jobs.task.missingText')}</p>
-          </div>
+      <Page className="ag-page aj-page">
+        <div className="ag-home" data-testid="task-missing">
+          {back}
+          <PageHeader title={t('jobs.task.missingTitle')} supporting={t('jobs.task.missingText')} />
         </div>
-      </div>
+      </Page>
     )
   }
 
@@ -133,31 +143,26 @@ function TaskView({ id }) {
   const agent = agents.find(a => a.id === task.agent_id)
 
   return (
-    <div className="page page--medium ag-page aj-page" data-testid="task-page">
+    <Page className="ag-page aj-page" data-testid="task-page">
       <div className="ag-home">
-        <div className="ag-bar">
-          <Link className="ag-back" to="/app/triggers"><Icon name="arrow-left" /> {t('jobs.task.back')}</Link>
-          <div className="ag-bar__acts">
-            <Link className="dk-btn dk-btn--secondary dk-btn--sm" to={`/app/triggers/${encodeURIComponent(id)}/edit`}>
-              <Icon name="edit" /> {t('jobs.task.edit')}
-            </Link>
-            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={runNow} data-testid="task-run">
-              <Icon name="play" /> {t('jobs.task.runNow')}
-            </button>
-            <ActionMenu
-              ariaLabel={t('jobs.tasks.moreFor', { name: task.name })}
-              items={[{ key: 'delete', icon: 'trash', label: t('jobs.tasks.delete'), danger: true, onClick: () => setToDelete(task) }]}
-            />
-          </div>
-        </div>
+        {back}
+        <PageHeader
+          title={task.name}
+          supporting={task.summary}
+          actions={(
+            <div className="ag-bar__acts">
+              <StatusMark status={off ? 'paused' : 'done'} label={t(off ? 'jobs.task.disabled' : 'jobs.task.enabled')} />
+              <Button icon="edit" to={`/app/triggers/${encodeURIComponent(id)}/edit`}>{t('jobs.task.edit')}</Button>
+              <Button variant="primary" icon="play" onClick={runNow} data-testid="task-run">{t('jobs.task.runNow')}</Button>
+              <ActionMenu
+                ariaLabel={t('jobs.tasks.moreFor', { name: task.name })}
+                items={[{ key: 'delete', icon: 'trash', label: t('jobs.tasks.delete'), danger: true, onClick: () => setToDelete(task) }]}
+              />
+            </div>
+          )}
+        />
 
-        <header>
-          <div className="ag-title">
-            <h1>{task.name}</h1>
-            <StatusMark status={off ? 'paused' : 'ready'} label={t(off ? 'jobs.task.disabled' : 'jobs.task.enabled')} />
-          </div>
-          <p className="ag-lede">{task.summary}</p>
-        </header>
+        {error && <LoadError title={t('load.triggerStale')} error={error} onRetry={load} />}
 
         <dl className="ag-facts" data-testid="task-facts">
           <dt>{t('jobs.task.agent')}</dt>
@@ -184,9 +189,9 @@ function TaskView({ id }) {
           </dd>
         </dl>
 
-        <section aria-labelledby="aj-recent-h">
+        <section className="ag-group" aria-labelledby="aj-recent-h">
           <div className="ag-section-head">
-            <h2 className="ag-eyebrow" id="aj-recent-h">{t('jobs.task.recent')}</h2>
+            <h2 className="ag-h2" id="aj-recent-h">{t('jobs.task.recent')}</h2>
             {mine.length > 0 && (
               <span className="aj-record">
                 <JobStrip jobs={mine} />
@@ -195,7 +200,7 @@ function TaskView({ id }) {
             )}
           </div>
           {mine.length === 0 ? (
-            <div className="ag-empty"><p>{t('jobs.task.noRuns')}</p></div>
+            <p className="ag-note">{t('jobs.task.noRuns')}</p>
           ) : (
             <div className="ag-runs" data-testid="task-runs">
               {mine.map(job => {
@@ -219,12 +224,12 @@ function TaskView({ id }) {
         </section>
 
         <section className="ag-sec" aria-labelledby="aj-prompt-h">
-          <div className="ag-sec__head"><h2 id="aj-prompt-h">{t('jobs.task.prompt')}</h2></div>
+          <div className="ag-section-head"><h2 className="ag-h2" id="aj-prompt-h">{t('jobs.task.prompt')}</h2></div>
           {task.prompt ? <pre className="aj-prompt">{task.prompt}</pre> : <p className="ag-note">{t('jobs.edit.summary.promptEmpty')}</p>}
         </section>
       </div>
       <ChatDeleteConfirm item={toDelete} kind="trigger" onConfirm={remove} onCancel={() => setToDelete(null)} />
-    </div>
+    </Page>
   )
 }
 
@@ -362,6 +367,8 @@ function TaskForm({ id, isNew }) {
   const { addToast } = useOutletContext()
   const [task, setTask] = useState(emptyTrigger)
   const [loading, setLoading] = useState(!isNew)
+  const [loadError, setLoadError] = useState(null)
+  const [attempt, setAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(() => new Set(isNew ? ['basics', 'prompt', 'schedule'] : ['prompt', 'schedule']))
   const [preview, setPreview] = useState(null)
@@ -392,11 +399,12 @@ function TaskForm({ id, isNew }) {
       setLoading(false)
     }).catch(err => {
       if (!alive) return
-      addToast(t('jobs.task.loadFailed', { message: err.message }), 'error')
+      // Said in place of the form: an empty form would save over the trigger.
+      setLoadError(err)
       setLoading(false)
     })
     return () => { alive = false }
-  }, [id, isNew, addToast, t])
+  }, [id, isNew, addToast, t, attempt])
 
   const set = (field, value) => setTask(prev => ({ ...prev, [field]: value }))
 
@@ -465,7 +473,18 @@ function TaskForm({ id, isNew }) {
     }
   }
 
-  if (loading) return <div className="page page--medium loading-center" aria-label={t('jobs.edit.loadingTask')}><LoadingSpinner size="lg" /></div>
+  if (loading || loadError) {
+    return (
+      <Page className="ag-page aj-page" data-testid="task-edit">
+        <div className="ag-home" aria-label={loading ? t('jobs.edit.loadingTask') : undefined}>
+          <button type="button" className="ag-back" onClick={() => navigate('/app/triggers')}><Icon name="arrow-left" /> {t('jobs.edit.back')}</button>
+          {loadError
+            ? <LoadError title={t('load.trigger')} error={loadError} onRetry={() => { setLoadError(null); setLoading(true); setAttempt(n => n + 1) }} />
+            : <SkeletonRows count={4} />}
+        </div>
+      </Page>
+    )
+  }
 
   const leave = () => navigate(isNew ? '/app/triggers' : `/app/triggers/${encodeURIComponent(id)}`)
   const saveLabel = isNew ? t('jobs.edit.create') : t('jobs.edit.save')
@@ -554,26 +573,26 @@ function TaskForm({ id, isNew }) {
   }
 
   return (
-    <div className="page page--medium ag-page aj-page" data-testid="task-edit">
+    <Page className="ag-page aj-page" data-testid="task-edit">
       <UnsavedChangesGuard when={dirty && !saving} />
       <form onSubmit={save} noValidate className="ag-edit">
-        <header className="ag-edit__head">
-          <div>
-            <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {t('jobs.edit.back')}</button>
-            <h1>{isNew ? t('jobs.edit.titleNew') : t('jobs.edit.titleEdit', { name: task.name })}</h1>
-            <p className="ag-edit__sub">{isNew ? t('jobs.edit.subNew') : t('jobs.edit.subEdit')}</p>
-          </div>
-          <div className="ag-edit__acts">
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setPreview('prompt')} data-testid="task-preview-open">
-              <Icon name="eye" /> {t('jobs.edit.preview')}
-              {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
-            </button>
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={leave}>{t('jobs.edit.discard')}</button>
-            <button type="submit" className="dk-btn dk-btn--primary" disabled={saving}>
-              {saving ? <><Icon name="spinner" spin /> {t('jobs.edit.saving')}</> : <><Icon name="save" /> {saveLabel}</>}
-            </button>
-          </div>
-        </header>
+        <div className="ag-edit__head">
+          <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {t('jobs.edit.back')}</button>
+          <PageHeader
+            title={isNew ? t('jobs.edit.titleNew') : t('jobs.edit.titleEdit', { name: task.name })}
+            supporting={isNew ? t('jobs.edit.subNew') : t('jobs.edit.subEdit')}
+            actions={(
+              <div className="ag-edit__acts">
+                <Button variant="ghost" onClick={leave}>{t('jobs.edit.discard')}</Button>
+                <Button icon="eye" onClick={() => setPreview('prompt')} data-testid="task-preview-open">
+                  {t('jobs.edit.preview')}
+                  {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
+                </Button>
+                <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
+              </div>
+            )}
+          />
+        </div>
 
         <div className="ag-folds">
           {SECTIONS.map(s => {
@@ -598,10 +617,8 @@ function TaskForm({ id, isNew }) {
         </div>
 
         <div className="ag-foot">
-          <button type="button" className="dk-btn dk-btn--secondary" onClick={leave}>{t('jobs.edit.discard')}</button>
-          <button type="submit" className="dk-btn dk-btn--primary" disabled={saving}>
-            {saving ? <><Icon name="spinner" spin /> {t('jobs.edit.saving')}</> : <><Icon name="save" /> {saveLabel}</>}
-          </button>
+          <Button variant="ghost" onClick={leave}>{t('jobs.edit.discard')}</Button>
+          <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
         </div>
       </form>
 
@@ -618,7 +635,7 @@ function TaskForm({ id, isNew }) {
           onClose={() => setPreview(null)}
         />
       )}
-    </div>
+    </Page>
   )
 }
 
