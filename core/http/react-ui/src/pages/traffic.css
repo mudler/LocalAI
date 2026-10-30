@@ -357,3 +357,9 @@ button.tf-step:focus-visible { outline: 2px solid var(--dk-accent); outline-offs
   .tf-setting { flex-direction: column; align-items: flex-start; }
   .tf-score { grid-template-columns: minmax(70px, 110px) minmax(0, 1fr) 48px; }
 }
+
+/* Tables on these pages: a sentence-case header, and numbers in the sans face
+   with tabular figures. The kit's defaults are uppercase headers and mono
+   numbers. */
+.tf-page .dk-table thead th { text-transform: none; letter-spacing: 0; }
+.tf-page .dk-table td.dk-num { font-family: var(--font-sans); }

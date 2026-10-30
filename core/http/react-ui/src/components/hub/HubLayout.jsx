@@ -9,6 +9,7 @@ import { useHubAuth } from './useHubAuth'
 import { OperateSummaryProvider, useOperateSummary } from '../../contexts/OperateSummaryContext'
 import Icon from '../Icon'
 import { useAddonNavigation, useSlotContributions } from '../../addons/useAddonRegistry'
+// eslint-disable-next-line no-unused-vars
 import { HubHeaderContext } from './hubHeaderContext'
 import './hub.css'
 // eslint-disable-next-line no-unused-vars

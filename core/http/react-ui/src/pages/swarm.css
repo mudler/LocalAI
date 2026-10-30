@@ -389,3 +389,9 @@
   .sw-wait__dot { animation: none; opacity: .7; }
   .sw-disclose__chev { transition: none; }
 }
+
+/* Tables on these pages: a sentence-case header, and numbers in the sans face
+   with tabular figures. The kit's defaults are uppercase headers and mono
+   numbers. */
+.sw-page .dk-table thead th { text-transform: none; letter-spacing: 0; }
+.sw-page .dk-table td.dk-num { font-family: var(--font-sans); }

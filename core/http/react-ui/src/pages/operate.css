@@ -463,3 +463,9 @@
 }
 
 .bk-library { margin-inline-start: var(--dk-space-2, 8px); font-size: var(--dk-text-12, 12px); vertical-align: middle; }
+
+/* Tables on these pages: a sentence-case header, and numbers in the sans face
+   with tabular figures. The kit's defaults are uppercase headers and mono
+   numbers. */
+.op-page .dk-table thead th { text-transform: none; letter-spacing: 0; }
+.op-page .dk-table td.dk-num { font-family: var(--font-sans); }
