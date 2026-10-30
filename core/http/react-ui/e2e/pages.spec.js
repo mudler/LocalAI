@@ -76,12 +76,12 @@ test('the Pages entry is hidden with no page and shows with one, with pinned pag
   await page.goto('/app/files')
   await listed
   await expect(nav(page).getByRole('link', { name: 'Files', exact: true })).toBeVisible()
-  await expect(nav(page).getByRole('link', { name: 'Pages', exact: true })).toHaveCount(0)
+  await expect(nav(page).getByRole('link', { name: /^Pages( New)?$/ })).toHaveCount(0)
 
   state.pages = [TASKS]
   state.ui = { theme: 'dark', pinnedPages: ['tasks', 'gone'] }
   await page.goto('/app/files')
-  await expect(nav(page).getByRole('link', { name: 'Pages', exact: true })).toBeVisible()
+  await expect(nav(page).getByRole('link', { name: /^Pages( New)?$/ })).toBeVisible()
   const pinned = nav(page).getByTestId('pages-pinned-link')
   await expect(pinned).toHaveCount(1)
   await expect(pinned).toHaveText('Tasks board')
