@@ -47,6 +47,7 @@ type chatRow struct {
 	OriginID     string `gorm:"size:128"`
 	Assistant    bool
 	Settings     string `gorm:"type:text"` // JSON of session.ChatSettings
+	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -152,6 +153,13 @@ func (r chatRow) record() (session.ChatRecord, error) {
 		if err := json.Unmarshal([]byte(r.Settings), &rec.Settings); err != nil {
 			return rec, err
 		}
+	}
+	if r.HostConsent != "" {
+		var c session.HostConsent
+		if err := json.Unmarshal([]byte(r.HostConsent), &c); err != nil {
+			return rec, err
+		}
+		rec.HostConsent = &c
 	}
 	if r.Snapshot != "" {
 		var ref sandbox.SnapshotRef
@@ -289,6 +297,25 @@ func (s *gormStore) SetBuiltinsOff(ctx context.Context, principal, id string, of
 
 func (s *gormStore) SetBuiltinsOn(ctx context.Context, principal, id string, on []string) error {
 	return s.setList(ctx, "builtins_on", principal, id, on)
+}
+
+func (s *gormStore) SetHostConsent(ctx context.Context, principal, id string, c *session.HostConsent) error {
+	raw := ""
+	if c != nil {
+		b, err := json.Marshal(c)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("host_consent", raw)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return session.ErrNotFound
+	}
+	return nil
 }
 
 func (s *gormStore) SetMcpOff(ctx context.Context, principal, id string, off []string) error {

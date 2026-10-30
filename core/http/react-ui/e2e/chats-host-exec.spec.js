@@ -17,8 +17,8 @@ const DETAIL = {
 
 // stubChat serves the chat c1 with the add-on list addons and the transcript
 // messages; events() pushes server-sent events to the open stream.
-async function stubChat(page, { addons, messages = [], running = false }) {
-  const detail = { ...DETAIL, running }
+async function stubChat(page, { addons, messages = [], running = false, hostConsent }) {
+  const detail = { ...DETAIL, running, ...(hostConsent ? { host_consent: hostConsent } : {}) }
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages } }))
   await page.route('**/api/chats/c1', route => route.fulfill({ json: detail }))
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({
@@ -63,6 +63,28 @@ test.describe('Commands on this machine', () => {
     const notice = page.getByTestId('chat-commands-notice')
     await expect(notice).toContainText('The Sandbox is off for this chat, so commands run on this machine')
     await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
+  })
+
+  test('a card that waits comes back after a reload and can be answered', async ({ page }) => {
+    const push = await stubChat(page, {
+      addons: { ...host, commands_consent: 'ask' }, running: true,
+      hostConsent: { id: 'k7', command: 'make deck' },
+    })
+    const answers = []
+    await page.route('**/api/chats/c1/host-exec/consent', route => {
+      answers.push(route.request().postDataJSON())
+      return route.fulfill({ status: 204, body: '' })
+    })
+    await page.goto('/app/chats/c1')
+    const card = page.getByTestId('chat-host-consent')
+    await expect(card.getByTestId('chat-host-consent-command')).toHaveText('make deck', { timeout: 15_000 })
+    await page.reload()
+    await expect(card.getByTestId('chat-host-consent-command')).toHaveText('make deck', { timeout: 15_000 })
+    await card.getByTestId('chat-host-consent-once').click()
+    await expect.poll(() => answers).toEqual([{ id: 'k7', decision: 'once' }])
+    // The call ends: the card goes away.
+    push({ kind: 'tool_end', turn: 2, tool: { name: 'bash', ok: true, output: 'done', seq: 4 } })
+    await expect(card).toHaveCount(0)
   })
 
   test('an administrator answers the card of a waiting command: Run once', async ({ page }) => {

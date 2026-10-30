@@ -82,13 +82,17 @@
       "step2Title": "Instala un modelo",
       "step2Body": "Haz clic en instalar para descargarlo y configurarlo automáticamente.",
       "step3Title": "Empieza a chatear",
-      "step3Body": "Chatea con tu modelo desde el navegador o usa la API."
+      "step3Body": "Chatea con tu modelo desde el navegador o usa la API.",
+      "sandboxTitle": "Ejecuta código de forma segura (opcional)",
+      "sandboxBody": "Instala el complemento Sandbox para que el modelo ejecute código y comandos aislados. Sin él, el modelo solo puede usar el bash integrado del host, que tiene acceso completo a la red y ningún aislamiento."
     },
     "browseGallery": "Explorar galería de modelos",
     "importModel": "Importar modelo",
     "docs": "Documentación",
     "noModelsTitle": "No hay modelos disponibles",
-    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear."
+    "noModelsBody": "No hay modelos instalados aún. Pídele a tu administrador que configure modelos para que puedas empezar a chatear.",
+    "sandboxInstall": "Instalar Sandbox",
+    "sandboxSkip": "Omitir"
   },
   "connect": {
     "title": "Un endpoint, todas las APIs",

@@ -17706,6 +17706,14 @@ const docTemplate = `{
                 "created": {
                     "type": "string"
                 },
+                "host_consent": {
+                    "description": "HostConsent is the card of a command of the built-in bash that waits for\na yes while a turn runs; answer it with POST /api/chats/{id}/host-exec/consent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsHostConsent"
+                        }
+                    ]
+                },
                 "id": {
                     "type": "string"
                 },
@@ -17750,6 +17758,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsHostConsent": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 }
             }

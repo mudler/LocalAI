@@ -96,6 +96,15 @@ type ChatsConversationList struct {
 type ChatsConversationDetail struct {
 	ChatsConversation
 	Pending []ChatsPending `json:"pending"`
+	// HostConsent is the card of a command of the built-in bash that waits for
+	// a yes while a turn runs; answer it with POST /api/chats/{id}/host-exec/consent.
+	HostConsent *ChatsHostConsent `json:"host_consent,omitempty"`
+}
+
+// ChatsHostConsent is a command that waits for the person's answer.
+type ChatsHostConsent struct {
+	ID      string `json:"id"`
+	Command string `json:"command"`
 }
 
 // ChatsSendRequest is a message to a conversation.

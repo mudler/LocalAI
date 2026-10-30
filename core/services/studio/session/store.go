@@ -88,6 +88,18 @@ type ChatRecord struct {
 	// Settings are the per-chat model settings. SetChatMeta sets them;
 	// UpdateChat leaves them alone, like the switches above.
 	Settings ChatSettings
+	// HostConsent is the command of the built-in bash that waits for a person's
+	// yes right now, or nil. It lives with the chat so that a reload, or another
+	// frontend, shows the card again. SetHostConsent sets it; UpdateChat leaves
+	// it alone.
+	HostConsent *HostConsent
+}
+
+// HostConsent is a consent card that waits for an answer: ID is what the
+// answer carries and Command is what would run.
+type HostConsent struct {
+	ID      string `json:"id"`
+	Command string `json:"command"`
 }
 
 // ChatSettings are the model settings of one chat. A nil pointer or a zero

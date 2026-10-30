@@ -267,6 +267,11 @@ func (h *Handlers) Get(c echo.Context) error {
 	for _, p := range pend {
 		out.Pending = append(out.Pending, pendingOf(p))
 	}
+	// The card waits only while its turn runs; a record left by a dead frontend
+	// is not shown.
+	if rec.HostConsent != nil && conv.Running {
+		out.HostConsent = &schema.ChatsHostConsent{ID: rec.HostConsent.ID, Command: rec.HostConsent.Command}
+	}
 	return c.JSON(http.StatusOK, out)
 }
 

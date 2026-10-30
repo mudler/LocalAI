@@ -187,6 +187,25 @@ func Run(newStore New) {
 		Expect(rec.BuiltinsOn).To(BeEmpty(), "after clearing")
 	})
 
+	It("keeps the consent card that waits, survives a chat update and belongs to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetHostConsent(ctx(), "alice", "c1", &session.HostConsent{ID: "k1", Command: "ls -la"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.HostConsent).To(Equal(&session.HostConsent{ID: "k1", Command: "ls -la"}))
+		stale := rec
+		stale.HostConsent = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).NotTo(BeNil(), "want the card kept")
+		Expect(s.SetHostConsent(ctx(), "bob", "c1", nil)).To(MatchError(session.ErrNotFound), "another principal's SetHostConsent")
+		Expect(s.SetHostConsent(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).To(BeNil(), "after clearing")
+	})
+
 	It("add-on switches round-trip, survive a chat update and belong to the owner", func() {
 		s := newStore()
 		chat(s, "c1", "alice")

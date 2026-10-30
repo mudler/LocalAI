@@ -144,7 +144,8 @@ Send another message while a turn runs and it waits. The response says so:
 ```
 
 Waiting messages reach the model together, in the order you sent them, at its
-next request. Until then you can change or remove one:
+next request. A waiting message shows the files you attached to it as the same
+chips a sent message has. Until it is delivered you can change or remove it:
 
 ```bash
 curl -X PATCH  .../api/chats/3f1c.../pending/p2 -d '{"text": "Use euros."}'
@@ -471,6 +472,14 @@ without the path to its procedure, so the model explains instead of starting.
 The built-in `bash` is for a server that cannot run the Sandbox. Read this
 before you allow it:
 
+**First start.** While no model is installed, the Home page of an
+administrator lists the first steps. The optional last step, **Run code
+safely**, offers to install the Sandbox add-on (it opens the add-on browser at
+the Sandbox) and says what happens without it: the model can only use the
+built-in host `bash` fallback, which has full network access and no isolation.
+Press **Skip** to hide the step (the browser remembers it). The step is not
+shown when the Sandbox is already installed, or when add-ons are off.
+
 - **No isolation, full network.** A command runs as the user LocalAI runs as.
   It can read every file that LocalAI can read and reach the internet, your
   local network, the LocalAI API on the loopback and cloud metadata addresses.
@@ -511,8 +520,11 @@ mode the chat shows a card under the running call: "Run this command on this
 machine?", the command, and **Run once**, **Always on this instance** (saves
 `chats_host_exec: on`) and **Don't run**. A person who is not an administrator
 can only refuse it. The card lives as long as the call waits, at most 5
-minutes; after a reload the call ends with "no answer". The answer is sent
-with:
+minutes. The server keeps it with the chat, so a reload, or another browser
+or frontend, shows it again and it can still be answered; once the call ends
+the card is gone and the call's line says how it ended. `GET /api/chats/{id}`
+carries the waiting card as `host_consent` (`id` and `command`) while the turn
+runs. The answer is sent with:
 
 ```bash
 curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_exec_consent event>","decision":"once"}'
@@ -525,8 +537,10 @@ the Sandbox served carries the card `tool_provider` with the add-on's ID.
 
 **Distributed mode.** The scratch folders belong to the frontend that runs the
 turn, like the Sandbox's sandboxes: your files are the record, and a chat whose
-next turn runs on another frontend gets a new folder there. The answer of the
-card travels on the chat bus to the frontend that runs the turn. The setting
+next turn runs on another frontend gets a new folder there. The waiting card is
+stored in the chat record (state mode: shared), so any frontend can show it;
+its answer travels on the chat bus to the frontend that runs the turn. A card
+left by a frontend that died is not shown, because no turn runs. The setting
 is a runtime setting like the others.
 
 ### What the web interface is told

@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,8 +32,10 @@ func (routeHostExec) Events(context.Context, int) ([]hostexec.Event, error) {
 
 var _ = Describe("Chats built-in bash routes", func() {
 	var s *studioServer
+	var chats store.Store
 	BeforeEach(func() {
 		s = newStudioServerWith(newTestFiles(), func(d *studio.Deps) {
+			chats = d.Store
 			d.HostExec = routeHostExec{}
 			d.HostExecMode = func() string { return hostexec.ModeAsk }
 			d.IsAdmin = func(_ context.Context, user string) bool { return user == "root" }
@@ -82,5 +86,19 @@ var _ = Describe("Chats built-in bash routes", func() {
 		own := s.create("root")
 		Expect(s.do("root", http.MethodPost, "/api/chats/"+own+"/host-exec/consent", map[string]any{"id": "x1", "decision": "once"}).Code).To(Equal(http.StatusNoContent))
 		Expect(s.do("root", http.MethodPost, "/api/chats/"+own+"/host-exec/consent", map[string]any{"id": "x1", "decision": "always"}).Code).To(Equal(http.StatusForbidden))
+	})
+
+	It("shows the consent card that waits in the chat while a turn runs, so a reload finds it", func() {
+		id := s.create("root")
+		Expect(s.detail("root", id)).NotTo(HaveKey("host_consent"))
+		s.do("root", http.MethodPost, "/api/chats/"+id+"/messages", map[string]any{"text": "run it"})
+		Eventually(func() bool { return s.detail("root", id)["running"].(bool) }, 10*time.Second).Should(BeTrue())
+		Expect(chats.SetHostConsent(context.Background(), "root", id, &session.HostConsent{ID: "k1", Command: "ls -la"})).To(Succeed())
+		Expect(s.detail("root", id)["host_consent"]).To(Equal(map[string]any{"id": "k1", "command": "ls -la"}))
+
+		// A card left by a frontend that died is not shown once no turn runs.
+		s.harness.Gate <- struct{}{}
+		Eventually(func() bool { return s.detail("root", id)["running"].(bool) }, 10*time.Second).Should(BeFalse())
+		Expect(s.detail("root", id)).NotTo(HaveKey("host_consent"))
 	})
 })

@@ -46,7 +46,8 @@ const (
 	KindTriggerProposed EventKind = "trigger_proposed"
 	// KindHostExecConsent asks the person to allow one command of the built-in
 	// bash on this machine: IDs holds the ID to answer with, Text the command.
-	// It is live only; the call ends with "no answer" after a while.
+	// The chat record keeps the card (ChatRecord.HostConsent) while it waits;
+	// the call ends with "no answer" after a while.
 	KindHostExecConsent EventKind = "host_exec_consent"
 	// KindFiles says that the files of the chat may have changed: files were
 	// attached, a turn or a tool changed files, or the chat folder was renamed.

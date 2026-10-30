@@ -529,6 +529,17 @@ func (s *jsonStore) SetBuiltinsOn(_ context.Context, principal, id string, on []
 	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOn = append([]string(nil), on...) })
 }
 
+func (s *jsonStore) SetHostConsent(_ context.Context, principal, id string, c *session.HostConsent) error {
+	return s.set(principal, id, func(next *chatState) {
+		if c == nil {
+			next.Rec.HostConsent = nil
+			return
+		}
+		cp := *c
+		next.Rec.HostConsent = &cp
+	})
+}
+
 func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []string) error {
 	return s.set(principal, id, func(next *chatState) { next.Rec.McpOff = append([]string(nil), off...) })
 }
