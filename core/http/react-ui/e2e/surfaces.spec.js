@@ -26,7 +26,8 @@ for (const theme of ['light', 'dark']) {
           canvas: getComputedStyle(document.body).backgroundColor,
         }
       })
-      expect(style.radius).toBe('20px')
+      // Cards use the 12px card radius of the token scale (--r-lg).
+      expect(style.radius).toBe('12px')
       expect(style.shadow).not.toBe('none')
       // The edge differs from the card, and the card differs from the canvas.
       expect(distance(rgb(style.border), rgb(style.bg))).toBeGreaterThan(8)
