@@ -213,5 +213,42 @@
     "showAll_other": "Tampilkan semua {{count}} baris",
     "details": "Tampilkan detail",
     "openFile": "Buka {{path}} di File"
+  },
+  "error": {
+    "title": "Balasan gagal",
+    "kept": "Yang sudah tertulis tetap ada di atas.",
+    "retry": "Coba lagi",
+    "detail": "Detail teknis",
+    "reason": {
+      "unknown": "Agen berhenti karena kesalahan. Coba lagi untuk menjalankan giliran ini kembali.",
+      "model_backend_missing": "Model \"{{model}}\" tidak dapat dimulai: backend-nya belum terpasang.",
+      "model_backend_missing_anon": "Model tidak dapat dimulai: backend-nya belum terpasang.",
+      "model_cooldown": "Model \"{{model}}\" gagal dimulai beberapa saat lalu dan sedang beristirahat.",
+      "model_cooldown_anon": "Model gagal dimulai beberapa saat lalu dan sedang beristirahat.",
+      "model_load_failed": "Model \"{{model}}\" tidak dapat dimulai.",
+      "model_load_failed_anon": "Model tidak dapat dimulai.",
+      "model_not_found": "Model \"{{model}}\" tidak ditemukan.",
+      "model_not_found_anon": "Model tidak ditemukan.",
+      "upstream_key": "Upstream menolak kunci.",
+      "upstream_path": "Upstream tidak menerima permintaan ini pada alamat tersebut.",
+      "upstream_unreachable": "Alamat upstream tidak dapat dijangkau.",
+      "upstream": "Penyedia di balik model mengembalikan kesalahan.",
+      "timeout": "Model terlalu lama menjawab.",
+      "cancelled": "Giliran dibatalkan sebelum model menjawab."
+    },
+    "hint": {
+      "model_backend_missing": "Pilih model lain, atau minta administrator memasang backend.",
+      "model_backend_missing_admin": "Pilih model lain, atau pasang backend dari halaman Backend.",
+      "model_cooldown": "Coba lagi dalam {{seconds}} detik.",
+      "model_load_failed": "Periksa konfigurasi model dan backend-nya, lalu coba lagi.",
+      "model_not_found": "Pilih model lain, atau pasang model ini dari halaman Model.",
+      "upstream_key": "Periksa kunci API di pengaturan model.",
+      "upstream_path": "Alamat upstream harus berupa endpoint lengkap, misalnya .../v1/chat/completions.",
+      "upstream_unreachable": "Periksa alamat di pengaturan model.",
+      "upstream": "Coba lagi sebentar lagi. Jika terus gagal, periksa alamat dan kunci penyedia.",
+      "timeout": "Coba lagi, atau gunakan model yang lebih kecil atau lebih cepat.",
+      "cancelled": "Coba lagi saat Anda siap."
+    },
+    "openBackends": "Buka Backend"
   }
 }

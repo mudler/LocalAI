@@ -1,5 +1,8 @@
 import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+// eslint-disable-next-line no-unused-vars
+import { Link } from 'react-router-dom'
+import { failureView } from '../../utils/chatFailure'
 import { renderMarkdown } from '../../utils/markdown'
 import { renderMarkdownWithArtifacts } from '../../utils/artifacts'
 import { escapeHtml } from './chatText'
@@ -17,28 +20,41 @@ function Prose({ html, className = '' }) {
   return <div className={`cx-prose ${className}`} dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-// A turn that failed: what the server said and a Retry that sends the last
-// question again.
-export function ErrorCard({ message, kept, onRetry, canRetry }) {
+// A turn that failed: the reason in plain words, what to do about it, a Retry
+// that sends the last question again and, apart, the cleaned technical detail.
+// failure says why (see utils/chatFailure.js); without it the card still shows
+// that the turn failed and offers the Retry.
+export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry }) {
   const { t } = useTranslation('chat')
+  const view = failureView(t, failure, { isAdmin })
+  // The detail is shown only when it says more than the reason does.
+  const detail = view.detail && view.detail !== view.reason ? view.detail : ''
   return (
-    <div className="cx-error" role="alert" data-testid="chat-error">
+    <div className="cx-error" role="alert" data-testid="chat-error" data-code={failure?.code || undefined}>
       <Icon name="alert-circle" className="cx-error__icon" />
       <div className="cx-error__main">
         <h3>{t('error.title')}</h3>
-        <p>{message}{kept ? ` ${t('error.kept')}` : ''}</p>
+        <p data-testid="chat-error-reason">{view.reason}{kept ? ` ${t('error.kept')}` : ''}</p>
+        {view.hint && <p className="text-note" data-testid="chat-error-hint">{view.hint}</p>}
         <div className="cx-error__acts">
           <button type="button" className="cx-btn cx-btn--primary" onClick={onRetry} disabled={!canRetry}>
             {t('error.retry')}
           </button>
+          {view.backendsLink && (
+            <Link to="/app/backends" className="cx-btn" data-testid="chat-error-backends">
+              {t('error.openBackends')}
+            </Link>
+          )}
           <a href="/app/traces?tab=backend" className="chat-error-trace-link">
             <Icon name="waveform" /> {t('errors.viewTraces')}
           </a>
         </div>
-        <details className="cx-error__detail">
-          <summary>{t('error.detail')}</summary>
-          <pre>{message}</pre>
-        </details>
+        {detail && (
+          <details className="cx-error__detail">
+            <summary>{t('error.detail')}</summary>
+            <pre data-testid="chat-error-detail">{detail}</pre>
+          </details>
+        )}
       </div>
     </div>
   )

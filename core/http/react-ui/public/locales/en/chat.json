@@ -190,7 +190,38 @@
     "title": "The reply failed",
     "kept": "What was written so far is kept above.",
     "retry": "Retry",
-    "detail": "Technical detail"
+    "detail": "Technical detail",
+    "reason": {
+      "unknown": "The agent stopped because of an error. Retry to run the turn again.",
+      "model_backend_missing": "The model \"{{model}}\" could not be started: its backend is not installed.",
+      "model_backend_missing_anon": "The model could not be started: its backend is not installed.",
+      "model_cooldown": "The model \"{{model}}\" failed to start a moment ago and is resting.",
+      "model_cooldown_anon": "The model failed to start a moment ago and is resting.",
+      "model_load_failed": "The model \"{{model}}\" could not be started.",
+      "model_load_failed_anon": "The model could not be started.",
+      "model_not_found": "The model \"{{model}}\" was not found.",
+      "model_not_found_anon": "The model was not found.",
+      "upstream_key": "The upstream refused the key.",
+      "upstream_path": "The upstream does not accept this request at that address.",
+      "upstream_unreachable": "The upstream address could not be reached.",
+      "upstream": "The provider behind the model returned an error.",
+      "timeout": "The model took too long to answer.",
+      "cancelled": "The turn was cancelled before the model answered."
+    },
+    "hint": {
+      "model_backend_missing": "Pick another model, or ask an administrator to install the backend.",
+      "model_backend_missing_admin": "Pick another model, or install the backend from the Backends page.",
+      "model_cooldown": "Try again in {{seconds}} seconds.",
+      "model_load_failed": "Check the model's configuration and its backend, then retry.",
+      "model_not_found": "Pick another model, or install this one from the Models page.",
+      "upstream_key": "Check the API key in the model's settings.",
+      "upstream_path": "The upstream address must be the full endpoint, for example .../v1/chat/completions.",
+      "upstream_unreachable": "Check the address in the model's settings.",
+      "upstream": "Retry in a moment. If it keeps failing, check the provider's address and key.",
+      "timeout": "Retry, or use a smaller or faster model.",
+      "cancelled": "Retry when you are ready."
+    },
+    "openBackends": "Open Backends"
   },
   "slash": {
     "group": {

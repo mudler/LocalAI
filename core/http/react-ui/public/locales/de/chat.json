@@ -213,5 +213,42 @@
     "showAll_other": "Alle {{count}} Zeilen zeigen",
     "details": "Details anzeigen",
     "openFile": "{{path}} in Dateien öffnen"
+  },
+  "error": {
+    "title": "Die Antwort ist fehlgeschlagen",
+    "kept": "Was bisher geschrieben wurde, bleibt oben erhalten.",
+    "retry": "Wiederholen",
+    "detail": "Technische Details",
+    "reason": {
+      "unknown": "Der Agent wurde wegen eines Fehlers angehalten. Wiederhole den Zug, um es erneut zu versuchen.",
+      "model_backend_missing": "Das Modell \"{{model}}\" konnte nicht gestartet werden: Das Backend ist nicht installiert.",
+      "model_backend_missing_anon": "Das Modell konnte nicht gestartet werden: Das Backend ist nicht installiert.",
+      "model_cooldown": "Das Modell \"{{model}}\" ist vor einem Moment beim Start fehlgeschlagen und pausiert.",
+      "model_cooldown_anon": "Das Modell ist vor einem Moment beim Start fehlgeschlagen und pausiert.",
+      "model_load_failed": "Das Modell \"{{model}}\" konnte nicht gestartet werden.",
+      "model_load_failed_anon": "Das Modell konnte nicht gestartet werden.",
+      "model_not_found": "Das Modell \"{{model}}\" wurde nicht gefunden.",
+      "model_not_found_anon": "Das Modell wurde nicht gefunden.",
+      "upstream_key": "Der Upstream hat den Schlüssel abgelehnt.",
+      "upstream_path": "Der Upstream nimmt diese Anfrage unter dieser Adresse nicht an.",
+      "upstream_unreachable": "Die Upstream-Adresse ist nicht erreichbar.",
+      "upstream": "Der Anbieter hinter dem Modell hat einen Fehler zurückgegeben.",
+      "timeout": "Das Modell hat zu lange für die Antwort gebraucht.",
+      "cancelled": "Der Zug wurde abgebrochen, bevor das Modell geantwortet hat."
+    },
+    "hint": {
+      "model_backend_missing": "Wähle ein anderes Modell oder bitte eine Administratorin bzw. einen Administrator, das Backend zu installieren.",
+      "model_backend_missing_admin": "Wähle ein anderes Modell oder installiere das Backend auf der Seite Backends.",
+      "model_cooldown": "Versuche es in {{seconds}} Sekunden erneut.",
+      "model_load_failed": "Prüfe die Konfiguration des Modells und sein Backend und versuche es dann erneut.",
+      "model_not_found": "Wähle ein anderes Modell oder installiere dieses auf der Seite Modelle.",
+      "upstream_key": "Prüfe den API-Schlüssel in den Einstellungen des Modells.",
+      "upstream_path": "Die Upstream-Adresse muss der vollständige Endpunkt sein, zum Beispiel .../v1/chat/completions.",
+      "upstream_unreachable": "Prüfe die Adresse in den Einstellungen des Modells.",
+      "upstream": "Versuche es gleich noch einmal. Wenn es weiter fehlschlägt, prüfe Adresse und Schlüssel des Anbieters.",
+      "timeout": "Versuche es erneut oder nutze ein kleineres oder schnelleres Modell.",
+      "cancelled": "Versuche es erneut, wenn du bereit bist."
+    },
+    "openBackends": "Backends öffnen"
   }
 }

@@ -45,7 +45,14 @@ export function useServerChat() {
   // changes to the chat's files, so the panels that list them read the server
   // again.
   const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0, files: 0 })
-  const [error, setError] = useState('')
+  const [error, setErrorText] = useState('')
+  // Why the last turn failed ({ code, model, retry, detail, text }), when the
+  // server said. It lives and dies with the error text.
+  const [failure, setFailure] = useState(null)
+  const setError = useCallback((message) => {
+    setErrorText(message)
+    if (!message) setFailure(null)
+  }, [])
   const [loading, setLoading] = useState(false)
 
   const sourceRef = useRef(null)
@@ -70,7 +77,7 @@ export function useServerChat() {
     } catch (e) {
       setError(e.message)
     }
-  }, [])
+  }, [setError])
 
   // Reads the chat again. It answers 'gone' when the server no longer has it
   // (deleted in another tab), which ends the stream: there is nothing to follow.
@@ -94,7 +101,7 @@ export function useServerChat() {
       endLive()
       return e?.status === 404 ? 'gone' : 'error'
     }
-  }, [])
+  }, [setError])
 
   const refreshDetail = useCallback(async (id) => {
     try {
@@ -103,7 +110,7 @@ export function useServerChat() {
     } catch (e) {
       if (activeRef.current === id) setError(e.message)
     }
-  }, [])
+  }, [setError])
 
   const closeStream = useCallback(() => {
     clearTimeout(reconnectRef.current)
@@ -122,6 +129,7 @@ export function useServerChat() {
     const on = {
       turn_start: () => {
         epochRef.current++
+        setError('')
         setLive(emptyLive())
         setDetail(d => (d ? { ...d, running: true } : d))
         refreshChat(id)
@@ -149,7 +157,12 @@ export function useServerChat() {
       usage: (e) => { if (e.usage) setUsage(e.usage) },
       trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
-      error: (e) => { if (e.text) setError(e.text) },
+      error: (e) => {
+        if (!e.text) return
+        setError(e.text)
+        // Only the error that ended the turn has a code.
+        if (e.code) setFailure({ code: e.code, model: e.model || '', retry: e.retry || 0, detail: e.detail || '', text: e.text })
+      },
       turn_end: async () => {
         notifyTurnEnd()
         // The server publishes the end of a turn just before it records it, so
@@ -187,7 +200,7 @@ export function useServerChat() {
         connect(id)
       }, retryDelay(attemptRef.current++, RECONNECT_MS))
     }
-  }, [closeStream, refreshChat, refreshList])
+  }, [closeStream, refreshChat, refreshList, setError])
 
   const select = useCallback(async (id) => {
     activeRef.current = id
@@ -208,7 +221,7 @@ export function useServerChat() {
     connect(id)
     await refreshChat(id)
     setLoading(false)
-  }, [closeStream, connect, refreshChat])
+  }, [closeStream, connect, refreshChat, setError])
 
   useEffect(() => {
     refreshList()
@@ -223,7 +236,7 @@ export function useServerChat() {
     const created = await chatsApi.create(model, undefined, agentId)
     await refreshList()
     return created.id
-  }, [refreshList])
+  }, [refreshList, setError])
 
   // Sends go out one after another, so two messages typed quickly reach the
   // server in the order they were typed and cannot swap on the wire.
@@ -239,7 +252,7 @@ export function useServerChat() {
     const result = sendChain.current.then(run, run)
     sendChain.current = result.catch(() => {})
     return result
-  }, [refreshChat])
+  }, [refreshChat, setError])
 
   const act = useCallback(async (id, call) => {
     setError('')
@@ -249,7 +262,7 @@ export function useServerChat() {
       setError(e.message)
     }
     await refreshDetail(id)
-  }, [refreshDetail])
+  }, [refreshDetail, setError])
 
   const editPending = useCallback((id, pid, text) => act(id, () => chatsApi.editPending(id, pid, text)), [act])
   const cancelPending = useCallback((id, pid) => act(id, () => chatsApi.cancelPending(id, pid)), [act])
@@ -274,7 +287,7 @@ export function useServerChat() {
       setError(e.message)
       await refreshList()
     }
-  }, [update, refreshList])
+  }, [update, refreshList, setError])
 
   // Regenerate and edit cut the transcript and start a new turn: read it again.
   const restart = useCallback(async (id, call) => {
@@ -286,7 +299,7 @@ export function useServerChat() {
       setError(e.message)
     }
     await refreshChat(id)
-  }, [refreshChat])
+  }, [refreshChat, setError])
   const regenerate = useCallback((id) => restart(id, () => chatsApi.regenerate(id)), [restart])
   const editMessage = useCallback((id, seq, text) => restart(id, () => chatsApi.editMessage(id, seq, text)), [restart])
 
@@ -297,7 +310,7 @@ export function useServerChat() {
   }, [refreshList, select])
 
   return {
-    chats, persistent, files, activeId, detail, messages, live, notes, error, loading, usage, ticks,
+    chats, persistent, files, activeId, detail, messages, live, notes, error, failure, loading, usage, ticks,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],
