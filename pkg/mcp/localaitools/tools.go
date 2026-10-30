@@ -32,6 +32,8 @@ const (
 	ToolListSharedFolderEvents    = "list_shared_folder_events"
 	ToolListChatTools             = "list_chat_tools"
 	ToolListHostExecEvents        = "list_host_exec_events"
+	ToolGetChatEgress             = "get_chat_egress"
+	ToolListEgressEvents          = "list_egress_events"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).
@@ -65,8 +67,9 @@ const (
 	// ToolPinFailoverTarget and ToolUnpinFailoverTarget live here (rather
 	// than grouped with ToolListFailoverChains below) so mutatingToolNames
 	// stays a contiguous scan of this block.
-	ToolPinFailoverTarget   = "pin_failover_target"
-	ToolUnpinFailoverTarget = "unpin_failover_target"
+	ToolPinFailoverTarget    = "pin_failover_target"
+	ToolUnpinFailoverTarget  = "unpin_failover_target"
+	ToolSetChatEgressCeiling = "set_chat_egress_ceiling"
 
 	// ToolListAliases is read-only but lives here so the alias tools stay
 	// grouped; the catalog tests assert its read-only placement.
@@ -115,4 +118,5 @@ var mutatingToolNames = []string{
 	ToolDeleteScheduling,
 	ToolPinFailoverTarget,
 	ToolUnpinFailoverTarget,
+	ToolSetChatEgressCeiling,
 }

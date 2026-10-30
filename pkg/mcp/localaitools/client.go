@@ -127,6 +127,20 @@ type LocalAIClient interface {
 	// bash ran on this machine, newest first.
 	ListHostExecEvents(ctx context.Context, limit int) ([]HostExecEvent, error)
 
+	// ---- Sandbox network ----
+
+	// GetChatEgress returns the settings of the network of the chats' Sandbox
+	// commands in force, the package registries and the counts of the last
+	// 24 hours.
+	GetChatEgress(ctx context.Context) (*ChatEgress, error)
+	// ListEgressEvents reads the audit of the Sandbox network requests,
+	// newest first.
+	ListEgressEvents(ctx context.Context, q EgressEventsQuery) ([]EgressEvent, error)
+	// SetChatEgressCeiling sets chats_egress_ceiling: off, registries or all.
+	// The private-network switch is not here: its typed confirmation is a
+	// person's act in Settings.
+	SetChatEgressCeiling(ctx context.Context, ceiling string) (*ChatEgress, error)
+
 	// ---- Usage / billing ----
 
 	// GetUsageStats returns aggregated token usage. In single-user

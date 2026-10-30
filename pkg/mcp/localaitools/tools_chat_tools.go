@@ -40,3 +40,52 @@ func registerChatToolTools(s *mcp.Server, client LocalAIClient, _ Options) {
 		return jsonResult(out), nil, nil
 	})
 }
+
+// registerChatEgressTools exposes the settings and the audit of the network of
+// the chats' Sandbox commands. Only the ceiling can be changed here; the
+// private-network switch needs a typed confirmation in Settings > Tools.
+func registerChatEgressTools(s *mcp.Server, client LocalAIClient, opts Options) {
+	mcp.AddTool(s, &mcp.Tool{
+		Name: ToolGetChatEgress,
+		Description: "Read the network settings of the chats' Sandbox commands: the ceiling (off, registries, all), the default of a new chat, " +
+			"whether private addresses may be reached, the ports, the extra registries, the audit retention, the package registries list, " +
+			"which add-on runs commands and how, and the allowed and blocked requests of the last 24 hours.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
+		out, err := client.GetChatEgress(ctx)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(out), nil, nil
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: ToolListEgressEvents,
+		Description: "Read the audit of the network requests of the chats' Sandbox commands, newest first: user, chat, host, port, " +
+			"verdict (allow, block, or done with the bytes moved) and reason. Filters by user, chat, verdict or host.",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args EgressEventsQuery) (*mcp.CallToolResult, any, error) {
+		if args.Limit <= 0 {
+			args.Limit = 50
+		}
+		args.Limit = min(args.Limit, 500)
+		out, err := client.ListEgressEvents(ctx, args)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(out), nil, nil
+	})
+
+	if opts.DisableMutating {
+		return
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name: ToolSetChatEgressCeiling,
+		Description: "Set the widest network preset any chat's Sandbox commands may use (chats_egress_ceiling): off, registries (the package registries only) " +
+			"or all (every public host). Lowering it applies within 30 seconds. Confirm with the user first (safety rule 1).",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, args SetChatEgressCeilingRequest) (*mcp.CallToolResult, any, error) {
+		out, err := client.SetChatEgressCeiling(ctx, args.Ceiling)
+		if err != nil {
+			return errorResult(err), nil, nil
+		}
+		return jsonResult(out), nil, nil
+	})
+}

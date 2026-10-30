@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",
     "none": "Model ini tidak dapat melihat gambar, dan tidak ada model di sini yang dapat menjelaskannya. Pilih model yang dapat melihat gambar."
+  },
+  "egress": {
+    "label": "Jaringan",
+    "preset": {
+      "off": "Mati",
+      "registries": "Registri paket",
+      "all": "Semua situs publik"
+    },
+    "presetHint": {
+      "off": "Perintah di Sandbox tidak menjangkau jaringan apa pun.",
+      "registries": "Perintah hanya menjangkau registri paket (PyPI, npm, Go, crates.io, RubyGems, Maven Central, rilis GitHub).",
+      "all": "Perintah menjangkau semua situs publik."
+    },
+    "limited": "Dibatasi oleh administrator Anda",
+    "limitedBy": "Administrator Anda mengizinkan paling banyak: {{limit}}.",
+    "hostNetwork": "Perintah berjalan di mesin ini dan memakai jaringannya.",
+    "panel": "Aturan dan permintaan ({{count}})",
+    "rules": "Aturan chat ini",
+    "cards": "Permintaan chat ini",
+    "ruleAllow": "Diizinkan untuk chat ini",
+    "ruleDeny": "Ditolak untuk chat ini",
+    "aboveLimit": "di atas batas, tidak berlaku",
+    "remove": "Hapus",
+    "removeLabel": "Hapus aturan {{host}}",
+    "card": {
+      "pending": "Menunggu jawaban",
+      "allowedOnce": "Diizinkan sekali",
+      "allowedChat": "Diizinkan untuk chat ini",
+      "denied": "Ditolak",
+      "expired": "Tidak dijawab",
+      "refused": "Ditolak: di atas batas"
+    },
+    "consent": {
+      "title": "Akses jaringan",
+      "body": "Sebuah perintah di chat ini ingin menjangkau",
+      "once": "Izinkan sekali",
+      "chat": "Izinkan untuk chat ini",
+      "deny": "Tolak",
+      "preset": "Chat ini: {{preset}}. Batas dari administrator Anda: {{limit}}.",
+      "adminOnly": "Host ini ada di dalam jaringan Anda: hanya administrator yang dapat mengizinkannya.",
+      "answered": "{{state}} oleh {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "Anda"
+    }
   }
 }

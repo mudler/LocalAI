@@ -108,7 +108,40 @@
       "distributed": "分布式",
       "responses": "响应"
     },
-    "loadFailedTitle": "无法加载设置。"
+    "loadFailedTitle": "无法加载设置。",
+    "egress": {
+      "title": "沙盒网络",
+      "intro": "沙盒中的命令只能通过一个代理访问网络，代理对每个连接都会询问 LocalAI。在上方设置限制、新聊天的预设、端口、额外仓库和审计保留时间；每个人在聊天的工具菜单中于限制内选择预设，并在卡片上允许被阻止的主机。",
+      "serves": "命令在 {{name}} 插件中隔离运行",
+      "servesHost": "命令通过 {{name}} 在这台机器上运行",
+      "servesNone": "尚无沙盒运行命令",
+      "hostNote": "主机后端使用这台机器的网络运行命令：这些设置对其不适用。",
+      "counts": "最近 24 小时：允许 {{allowed}}，阻止 {{blocked}}。",
+      "private": "允许管理员的规则访问私有网络",
+      "privateWarning": "管理员允许的主机将可以访问你内部网络中的地址。仅靠预设永远不会；云元数据和服务器地址仍被拒绝。",
+      "typePhrase": "要开启，请输入：{{phrase}}",
+      "registries": "软件包仓库（{{count}}）",
+      "showAudit": "显示审计",
+      "hideAudit": "隐藏审计",
+      "loadFailed": "无法读取沙盒网络设置",
+      "audit": {
+        "verdict": "结果",
+        "host": "主机",
+        "user": "用户",
+        "at": "时间",
+        "reason": "原因",
+        "bytes": "上传 / 下载字节",
+        "refresh": "刷新",
+        "empty": "没有匹配的请求。",
+        "loadFailed": "无法读取审计",
+        "verdicts": {
+          "any": "所有结果",
+          "allow": "已允许",
+          "block": "已阻止",
+          "done": "已结束"
+        }
+      }
+    }
   },
   "backends": {
     "lifecycle": {

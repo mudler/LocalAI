@@ -99,6 +99,11 @@ export function runChecks(changes, initial, draft) {
       const err = vramBudgetError(to)
       checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${String(to).trim() || 'No cap'} is a valid GPU memory budget.` })
     }
+    if (field.key === 'chats_egress_allow_private' && to && !getValue(field, initial)) {
+      checks.push(String(draft?.[EGRESS_CONFIRM_KEY] || '').trim() === EGRESS_PRIVATE_PHRASE
+        ? { level: 'ok', text: `${field.label}: the phrase is typed.` }
+        : { level: 'error', text: `${field.label}: type the phrase "${EGRESS_PRIVATE_PHRASE}" in Settings > Tools to turn it on.` })
+    }
     if (field.key === 'chats_tool_providers') {
       const text = String(to || '').trim()
       let parsed = null
@@ -181,12 +186,23 @@ export function payloadFor(changes, source) {
       case 'csrf':
         body.csrf = !!source.csrf
         break
+      case 'chats_egress_allow_private':
+        // Turning it on needs the typed phrase in the same request; the
+        // server does not store it.
+        body.chats_egress_allow_private = !!source.chats_egress_allow_private
+        if (source.chats_egress_allow_private && source[EGRESS_CONFIRM_KEY]) body[EGRESS_CONFIRM_KEY] = source[EGRESS_CONFIRM_KEY]
+        break
       default:
         body[field.key] = getValue(field, source)
     }
   }
   return body
 }
+
+// The phrase an administrator types to let Sandbox commands reach private
+// networks (core/config/chats_egress.go), and the draft key that carries it.
+export const EGRESS_PRIVATE_PHRASE = 'I understand that commands can reach my private network'
+export const EGRESS_CONFIRM_KEY = 'chats_egress_private_confirm'
 
 // ---- Change log ---------------------------------------------------------------
 // LocalAI keeps no log of settings changes. This one lives in this browser's

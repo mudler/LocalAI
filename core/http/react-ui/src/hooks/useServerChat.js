@@ -9,7 +9,7 @@ import { pushUsage } from '../utils/chatFoot'
 const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
-  'usage', 'trigger_proposed', 'files', 'host_exec_consent',
+  'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -53,7 +53,7 @@ export function useServerChat() {
   // Counts the sub-agent starts and ends, the trigger proposals and the
   // changes to the chat's files, so the panels that list them read the server
   // again.
-  const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0, files: 0 })
+  const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0, files: 0, egress: 0 })
   const [error, setErrorText] = useState('')
   // Why the last turn failed ({ code, model, retry, detail, text }), when the
   // server said. It lives and dies with the error text.
@@ -198,6 +198,11 @@ export function useServerChat() {
       },
       trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
+      // The network of the chat's Sandbox commands changed: a card asked or
+      // was answered, or the preset or a rule changed. The network panel and
+      // the cards read the chat's network again.
+      egress_consent: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
+      egress_card: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),
       // A command of the built-in bash waits for a yes (chats_host_exec ask).
       host_exec_consent: (e) => { if (e.ids?.[0]) setLive(l => consentAsk(l, id, e.ids[0], e.text)) },
       error: (e) => {

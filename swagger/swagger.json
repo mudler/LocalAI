@@ -3839,6 +3839,72 @@
                 }
             }
         },
+        "/api/chats/admin/egress": {
+            "get": {
+                "description": "The chats_egress_* settings in force (ceiling, default, allow_private, ports, extra_registries, audit_days), the package registries with the extra hosts, the add-on that runs commands and how (isolated or host; the settings do not apply to commands on this machine), and the allowed and blocked requests of the last 24 hours. Change the settings with POST /api/settings.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the settings of the Sandbox network (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "The settings in force",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgressAdmin"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/egress/events": {
+            "get": {
+                "description": "Every request a command made through the Sandbox proxy, newest first: who, which chat, host, port, kind (connect or http), verdict (allow, block, or done when an allowed connection ended, with its address, bytes and duration) and reason.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the audit of the Sandbox network requests (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "How many lines (default 100, at most 500)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only this user",
+                        "name": "user",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only this chat",
+                        "name": "chat",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "allow, block or done",
+                        "name": "verdict",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Only this host",
+                        "name": "host",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The newest lines first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgressEventList"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/admin/host-exec/events": {
             "get": {
                 "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
@@ -7797,6 +7863,126 @@
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/egress": {
+            "get": {
+                "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the network of a chat's Sandbox commands.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The network of the chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgress"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "off reaches nothing; registries the HTTPS hosts of the package registries; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set the network preset of a chat's Sandbox commands.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the preset",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgressPreset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The network of the chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsEgress"
+                        }
+                    },
+                    "400": {
+                        "description": "Not a preset, or above the ceiling",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/egress/rules/{host}/{port}": {
+            "delete": {
+                "description": "Removes the rule that allows or denies one host and port for the chat's Sandbox commands. A host that was denied asks again; one that was allowed follows the preset again.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Remove a network rule of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "host name",
+                        "name": "host",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "port",
+                        "name": "port",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Removed"
+                    },
+                    "404": {
+                        "description": "No such conversation, or no such rule",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -17759,17 +17945,6 @@
                 }
             }
         },
-        "schema.ChatsHostConsent": {
-            "type": "object",
-            "properties": {
-                "command": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                }
-            }
-        },
         "schema.ChatsConversationList": {
             "type": "object",
             "properties": {
@@ -17888,6 +18063,240 @@
             "properties": {
                 "text": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsEgress": {
+            "type": "object",
+            "properties": {
+                "applies": {
+                    "description": "Applies is false when commands run on this machine (applies_reason\nhost) or no Sandbox serves bash (none).",
+                    "type": "boolean"
+                },
+                "applies_reason": {
+                    "type": "string"
+                },
+                "cards": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsEgressCard"
+                    }
+                },
+                "ceiling": {
+                    "description": "the administrator's limit",
+                    "type": "string"
+                },
+                "effective": {
+                    "description": "the lower of the two",
+                    "type": "string"
+                },
+                "preset": {
+                    "description": "off, registries, all",
+                    "type": "string"
+                },
+                "registries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsEgressRegistry"
+                    }
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsEgressRule"
+                    }
+                }
+            }
+        },
+        "schema.ChatsEgressAdmin": {
+            "type": "object",
+            "properties": {
+                "allow_private": {
+                    "type": "boolean"
+                },
+                "allowed_24h": {
+                    "type": "integer"
+                },
+                "audit_days": {
+                    "type": "integer"
+                },
+                "blocked_24h": {
+                    "type": "integer"
+                },
+                "ceiling": {
+                    "type": "string"
+                },
+                "default": {
+                    "type": "string"
+                },
+                "extra_registries": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "isolation": {
+                    "type": "string"
+                },
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "registries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsEgressRegistry"
+                    }
+                },
+                "sandbox": {
+                    "description": "Sandbox is the add-on that runs commands, empty when none serves;\nIsolation is isolated, host, or empty when unknown.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsEgressCard": {
+            "type": "object",
+            "properties": {
+                "answered_at": {
+                    "type": "string"
+                },
+                "answered_by": {
+                    "type": "string"
+                },
+                "asked_at": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "private": {
+                    "type": "boolean"
+                },
+                "state": {
+                    "description": "pending, once, chat, denied, expired, refused",
+                    "type": "string"
+                },
+                "tool_seq": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsEgressEvent": {
+            "type": "object",
+            "properties": {
+                "addr": {
+                    "type": "string"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "bytes_down": {
+                    "type": "integer"
+                },
+                "bytes_up": {
+                    "type": "integer"
+                },
+                "chat": {
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "user_name": {
+                    "type": "string"
+                },
+                "verdict": {
+                    "description": "allow, block, done",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsEgressEventList": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsEgressEvent"
+                    }
+                }
+            }
+        },
+        "schema.ChatsEgressPreset": {
+            "type": "object",
+            "properties": {
+                "preset": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsEgressRegistry": {
+            "type": "object",
+            "properties": {
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsEgressRule": {
+            "type": "object",
+            "properties": {
+                "above_limit": {
+                    "description": "AboveLimit says the ceiling no longer admits the host, so the rule\ndoes not apply until an administrator raises it.",
+                    "type": "boolean"
+                },
+                "admin": {
+                    "type": "boolean"
+                },
+                "allow": {
+                    "type": "boolean"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "by": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
                 }
             }
         },
@@ -18219,6 +18628,17 @@
                     "type": "integer"
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsHostConsent": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 }
             }

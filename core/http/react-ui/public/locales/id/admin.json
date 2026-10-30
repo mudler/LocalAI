@@ -108,7 +108,40 @@
       "distributed": "Terdistribusi",
       "responses": "Respons"
     },
-    "loadFailedTitle": "Pengaturan tidak dapat dimuat."
+    "loadFailedTitle": "Pengaturan tidak dapat dimuat.",
+    "egress": {
+      "title": "Jaringan Sandbox",
+      "intro": "Perintah di Sandbox menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di atas; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
+      "serves": "Perintah berjalan terisolasi di add-on {{name}}",
+      "servesHost": "Perintah berjalan di mesin ini melalui {{name}}",
+      "servesNone": "Belum ada Sandbox yang menjalankan perintah",
+      "hostNote": "Backend host menjalankan perintah di mesin ini dengan jaringannya: pengaturan ini tidak berlaku untuknya.",
+      "counts": "24 jam terakhir: {{allowed}} diizinkan, {{blocked}} diblokir.",
+      "private": "Izinkan aturan administrator menjangkau jaringan privat",
+      "privateWarning": "Host yang diizinkan administrator lalu dapat menjangkau alamat di dalam jaringan Anda. Preset saja tidak pernah; alamat metadata cloud dan server tetap ditolak.",
+      "typePhrase": "Untuk menyalakannya, ketik: {{phrase}}",
+      "registries": "Registri paket ({{count}})",
+      "showAudit": "Tampilkan audit",
+      "hideAudit": "Sembunyikan audit",
+      "loadFailed": "Pengaturan jaringan Sandbox tidak dapat dibaca",
+      "audit": {
+        "verdict": "Keputusan",
+        "host": "Host",
+        "user": "Pengguna",
+        "at": "Waktu",
+        "reason": "Alasan",
+        "bytes": "Byte naik / turun",
+        "refresh": "Muat ulang",
+        "empty": "Tidak ada permintaan yang cocok.",
+        "loadFailed": "Audit tidak dapat dibaca",
+        "verdicts": {
+          "any": "Semua keputusan",
+          "allow": "Diizinkan",
+          "block": "Diblokir",
+          "done": "Selesai"
+        }
+      }
+    }
   },
   "backends": {
     "lifecycle": {

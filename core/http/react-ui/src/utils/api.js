@@ -328,6 +328,17 @@ export const chatHostExecApi = {
   consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/host-exec/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),
 }
 
+// The network of a chat's Sandbox commands: its preset, rules and cards, for
+// the chat's owner; the settings and the audit, for administrators.
+export const chatEgressApi = {
+  get: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/egress`),
+  setPreset: (chat, preset) => fetchJSON(`/api/chats/${enc2(chat)}/egress`, { method: 'PUT', body: JSON.stringify({ preset }) }),
+  deleteRule: (chat, host, port) => fetchJSON(`/api/chats/${enc2(chat)}/egress/rules/${enc2(host)}/${enc2(String(port))}`, { method: 'DELETE' }),
+  consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/egress/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),
+  admin: () => fetchJSON('/api/chats/admin/egress'),
+  events: (params = {}) => fetchJSON(`/api/chats/admin/egress/events${q(params)}`),
+}
+
 // The built-in chat tools an add-on may replace (Settings > Tools) and the
 // audit of the commands run on this machine. Administrators only.
 export const chatBuiltinToolsApi = {

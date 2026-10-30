@@ -526,5 +526,49 @@
   "vision": {
     "describedBy": "This model can't look at images. Pick another model, or the image will be described by {{model}}.",
     "none": "This model can't look at images, and no model here can describe them. Pick a model that can look at images."
+  },
+  "egress": {
+    "label": "Network",
+    "preset": {
+      "off": "Off",
+      "registries": "Package registries",
+      "all": "All public sites"
+    },
+    "presetHint": {
+      "off": "Commands in the Sandbox reach no network.",
+      "registries": "Commands reach the package registries only (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub releases).",
+      "all": "Commands reach every public site."
+    },
+    "limited": "Limited by your administrator",
+    "limitedBy": "Your administrator allows at most: {{limit}}.",
+    "hostNetwork": "Commands run on this machine and use its network.",
+    "panel": "Rules and requests ({{count}})",
+    "rules": "Rules of this chat",
+    "cards": "Requests of this chat",
+    "ruleAllow": "Allowed for this chat",
+    "ruleDeny": "Denied for this chat",
+    "aboveLimit": "above the limit, does not apply",
+    "remove": "Remove",
+    "removeLabel": "Remove the rule of {{host}}",
+    "card": {
+      "pending": "Waiting for an answer",
+      "allowedOnce": "Allowed once",
+      "allowedChat": "Allowed for this chat",
+      "denied": "Denied",
+      "expired": "Not answered",
+      "refused": "Refused: above the limit"
+    },
+    "consent": {
+      "title": "Network access",
+      "body": "A command in this chat wants to reach",
+      "once": "Allow once",
+      "chat": "Allow for this chat",
+      "deny": "Deny",
+      "preset": "This chat: {{preset}}. Limit set by your administrator: {{limit}}.",
+      "adminOnly": "This host is inside your network: only an administrator can allow it.",
+      "answered": "{{state}} by {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "you"
+    }
   }
 }

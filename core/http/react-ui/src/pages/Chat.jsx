@@ -5,6 +5,8 @@ import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
 import { useChatDrafts } from '../hooks/useChatDrafts'
 import { useChatSwitches } from '../hooks/useChatSwitches'
+import { useChatEgress } from '../hooks/useChatEgress'
+import { networkMode } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
@@ -64,6 +66,7 @@ import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
+import NetworkRow from '../components/chat/NetworkRow'
 import MessageAttachments from '../components/chat/Attachments'
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
@@ -201,6 +204,8 @@ function ChatPage() {
   const model = activeChat ? activeChat.model : draftModel
   const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
   const switches = useChatSwitches(activeId, chat.files.on)
+  // The network of the chat's Sandbox commands, read again on its events.
+  const egress = useChatEgress(activeId, chat.ticks.egress)
   const chatFiles = useChatFiles(chat.files.on ? activeId : null, chat.ticks.files)
   // The preview pane on the right: the chat's files and what its answers
   // produced. It opens by itself on a new result (useChatPreviewPane).
@@ -894,7 +899,10 @@ function ChatPage() {
     <>
       <SwitchMenu
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')} note={t('tools.note')}
-        groups={toolGroups} error={switches.error} testId="chat-tools" notice={commands.info ? <CommandsNotice notice={commands} /> : null}
+        groups={toolGroups} error={switches.error} testId="chat-tools"
+        notice={commands.info || networkMode(egress) !== 'hidden'
+          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<NetworkRow egress={egress} /></>
+          : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <button type="button" className="chat-mcp-select-all chat-switch-manage" onClick={() => navigate('/app/mcp-connectors')}>{tc('tools.manage')}</button>
           : null}

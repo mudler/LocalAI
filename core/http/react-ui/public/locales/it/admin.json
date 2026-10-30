@@ -108,7 +108,40 @@
       "distributed": "Distribuito",
       "responses": "Risposte"
     },
-    "loadFailedTitle": "Impossibile caricare le impostazioni."
+    "loadFailedTitle": "Impossibile caricare le impostazioni.",
+    "egress": {
+      "title": "Rete del Sandbox",
+      "intro": "I comandi nel Sandbox raggiungono la rete solo tramite un proxy che chiede a LocalAI di ogni connessione. Qui sopra imposti il limite, il preset di una nuova chat, le porte, i registri aggiuntivi e la durata del registro; ogni persona sceglie il preset di ogni chat nel suo menu Strumenti, fino al limite, e consente un host bloccato da una scheda.",
+      "serves": "I comandi girano isolati nell’add-on {{name}}",
+      "servesHost": "I comandi girano su questa macchina tramite {{name}}",
+      "servesNone": "Nessun Sandbox esegue ancora comandi",
+      "hostNote": "Il backend host esegue i comandi su questa macchina con la sua rete: queste impostazioni non si applicano.",
+      "counts": "Ultime 24 ore: {{allowed}} consentite, {{blocked}} bloccate.",
+      "private": "Consenti alle regole di un amministratore di raggiungere reti private",
+      "privateWarning": "Un host consentito da un amministratore può allora raggiungere indirizzi della tua rete. Un preset da solo non lo fa mai; gli indirizzi dei metadati cloud e del server restano rifiutati.",
+      "typePhrase": "Per attivarlo, scrivi: {{phrase}}",
+      "registries": "Registri di pacchetti ({{count}})",
+      "showAudit": "Mostra il registro",
+      "hideAudit": "Nascondi il registro",
+      "loadFailed": "Impossibile leggere le impostazioni di rete del Sandbox",
+      "audit": {
+        "verdict": "Esito",
+        "host": "Host",
+        "user": "Utente",
+        "at": "Quando",
+        "reason": "Motivo",
+        "bytes": "Byte inviati / ricevuti",
+        "refresh": "Aggiorna",
+        "empty": "Nessuna richiesta corrisponde.",
+        "loadFailed": "Impossibile leggere il registro",
+        "verdicts": {
+          "any": "Qualsiasi esito",
+          "allow": "Consentita",
+          "block": "Bloccata",
+          "done": "Conclusa"
+        }
+      }
+    }
   },
   "backends": {
     "lifecycle": {

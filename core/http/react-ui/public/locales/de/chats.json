@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",
     "none": "Dieses Modell kann keine Bilder ansehen, und kein Modell hier kann sie beschreiben. Wähle ein Modell, das Bilder ansehen kann."
+  },
+  "egress": {
+    "label": "Netzwerk",
+    "preset": {
+      "off": "Aus",
+      "registries": "Paket-Registries",
+      "all": "Alle öffentlichen Seiten"
+    },
+    "presetHint": {
+      "off": "Befehle in der Sandbox erreichen kein Netzwerk.",
+      "registries": "Befehle erreichen nur die Paket-Registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub-Releases).",
+      "all": "Befehle erreichen jede öffentliche Seite."
+    },
+    "limited": "Von Ihrem Administrator begrenzt",
+    "limitedBy": "Ihr Administrator erlaubt höchstens: {{limit}}.",
+    "hostNetwork": "Befehle laufen auf diesem Rechner und nutzen sein Netzwerk.",
+    "panel": "Regeln und Anfragen ({{count}})",
+    "rules": "Regeln dieses Chats",
+    "cards": "Anfragen dieses Chats",
+    "ruleAllow": "Für diesen Chat erlaubt",
+    "ruleDeny": "Für diesen Chat abgelehnt",
+    "aboveLimit": "über dem Limit, gilt nicht",
+    "remove": "Entfernen",
+    "removeLabel": "Regel für {{host}} entfernen",
+    "card": {
+      "pending": "Wartet auf eine Antwort",
+      "allowedOnce": "Einmal erlaubt",
+      "allowedChat": "Für diesen Chat erlaubt",
+      "denied": "Abgelehnt",
+      "expired": "Nicht beantwortet",
+      "refused": "Abgelehnt: über dem Limit"
+    },
+    "consent": {
+      "title": "Netzwerkzugriff",
+      "body": "Ein Befehl in diesem Chat möchte erreichen:",
+      "once": "Einmal erlauben",
+      "chat": "Für diesen Chat erlauben",
+      "deny": "Ablehnen",
+      "preset": "Dieser Chat: {{preset}}. Limit Ihres Administrators: {{limit}}.",
+      "adminOnly": "Dieser Host liegt in Ihrem Netzwerk: Nur ein Administrator kann ihn erlauben.",
+      "answered": "{{state}} von {{who}}, {{time}}",
+      "answeredNoWho": "{{state}}, {{time}}",
+      "you": "Ihnen"
+    }
   }
 }

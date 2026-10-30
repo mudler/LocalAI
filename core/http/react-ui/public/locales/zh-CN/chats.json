@@ -131,5 +131,49 @@
   "vision": {
     "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",
     "none": "此模型无法查看图片，这里也没有模型可以描述图片。请选择一个可以查看图片的模型。"
+  },
+  "egress": {
+    "label": "网络",
+    "preset": {
+      "off": "关闭",
+      "registries": "软件包仓库",
+      "all": "所有公共网站"
+    },
+    "presetHint": {
+      "off": "沙盒中的命令无法访问任何网络。",
+      "registries": "命令只能访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）。",
+      "all": "命令可以访问所有公共网站。"
+    },
+    "limited": "受管理员限制",
+    "limitedBy": "管理员最多允许：{{limit}}。",
+    "hostNetwork": "命令在这台机器上运行，使用它的网络。",
+    "panel": "规则和请求（{{count}}）",
+    "rules": "此聊天的规则",
+    "cards": "此聊天的请求",
+    "ruleAllow": "在此聊天中允许",
+    "ruleDeny": "在此聊天中拒绝",
+    "aboveLimit": "超出限制，不生效",
+    "remove": "移除",
+    "removeLabel": "移除 {{host}} 的规则",
+    "card": {
+      "pending": "等待回答",
+      "allowedOnce": "已允许一次",
+      "allowedChat": "在此聊天中允许",
+      "denied": "已拒绝",
+      "expired": "未回答",
+      "refused": "已拒绝：超出限制"
+    },
+    "consent": {
+      "title": "网络访问",
+      "body": "此聊天中的一条命令想要访问",
+      "once": "允许一次",
+      "chat": "在此聊天中允许",
+      "deny": "拒绝",
+      "preset": "此聊天：{{preset}}。管理员设置的限制：{{limit}}。",
+      "adminOnly": "此主机位于你的内部网络中：只有管理员可以允许。",
+      "answered": "{{who}}{{state}}，{{time}}",
+      "answeredNoWho": "{{state}}，{{time}}",
+      "you": "你"
+    }
   }
 }

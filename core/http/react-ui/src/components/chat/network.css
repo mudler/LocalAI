@@ -1,0 +1,33 @@
+/* The Network row of the chat's Tools menu and its panel. Tokens only. */
+.chat-network {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--color-border-divider);
+  font-size: var(--fs-meta);
+}
+.chat-network__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.chat-network__label { font-weight: 600; color: var(--color-text-primary); }
+.chat-network__note,
+.chat-network__error { margin: 0; color: var(--color-text-secondary); }
+.chat-network__error { color: var(--color-error); }
+.chat-network__toggle {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.chat-network__panel { display: flex; flex-direction: column; gap: var(--sp-2); }
+.chat-network__list { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+.chat-network__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.chat-network__host { overflow-wrap: anywhere; }
+.chat-network__state { flex: 1; color: var(--color-text-secondary); }
