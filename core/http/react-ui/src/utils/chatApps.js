@@ -60,11 +60,16 @@ export function buildCsp(meta) {
 // everything the page wrote, so no comment or markup in the page can hide it. A
 // leading doctype stays first, so the page does not fall into quirks mode.
 export function buildSrcdoc(html, meta) {
-  const tag = `<meta http-equiv="Content-Security-Policy" content="${buildCsp(meta)}">`
+  return withHead(html, `<meta http-equiv="Content-Security-Policy" content="${buildCsp(meta)}">`)
+}
+
+// withHead puts head (trusted markup of the host) before everything the page
+// wrote; a leading doctype stays first. The pages of the workspace use it too.
+export function withHead(html, head) {
   const text = typeof html === 'string' ? html : ''
   const m = /^\s*<!doctype html>/i.exec(text)
-  if (m) return m[0].trim() + tag + text.slice(m[0].length)
-  return '<!doctype html>' + tag + text
+  if (m) return m[0].trim() + head + text.slice(m[0].length)
+  return '<!doctype html>' + head + text
 }
 
 // The text of a tool result, for when the page cannot be shown.
