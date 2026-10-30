@@ -17208,6 +17208,10 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "network": {
+                    "description": "Network is the network preset of the Sandbox commands of the agent's\nunattended runs: off (the default), registries or all, capped by the\nadministrator's ceiling.",
+                    "type": "string"
+                },
                 "skills": {
                     "type": "array",
                     "items": {
@@ -17385,6 +17389,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "network": {
                     "type": "string"
                 },
                 "skills": {

@@ -23,17 +23,21 @@ type ChatsCreateRequest struct {
 // ChatsAgent is a saved agent. The four lists are exact grants: an empty list
 // grants nothing, and a chat gets only what you may use at that moment.
 type ChatsAgent struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Description  string    `json:"description"`
-	Instructions string    `json:"instructions"`
-	Model        string    `json:"model,omitempty"`
-	MCPServers   []string  `json:"mcp_servers"`
-	Addons       []string  `json:"addons"`
-	Collections  []string  `json:"collections"`
-	Skills       []string  `json:"skills"`
-	Created      time.Time `json:"created"`
-	Updated      time.Time `json:"updated"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	Instructions string   `json:"instructions"`
+	Model        string   `json:"model,omitempty"`
+	MCPServers   []string `json:"mcp_servers"`
+	Addons       []string `json:"addons"`
+	Collections  []string `json:"collections"`
+	Skills       []string `json:"skills"`
+	// Network is the network preset of the Sandbox commands of the agent's
+	// unattended runs: off (the default), registries or all, capped by the
+	// administrator's ceiling.
+	Network string    `json:"network"`
+	Created time.Time `json:"created"`
+	Updated time.Time `json:"updated"`
 }
 
 // ChatsAgentWrite creates or replaces a saved agent.
@@ -46,6 +50,7 @@ type ChatsAgentWrite struct {
 	Addons       []string `json:"addons,omitempty"`
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
+	Network      string   `json:"network,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.

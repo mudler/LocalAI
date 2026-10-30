@@ -3,7 +3,7 @@
 export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills']
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [] }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off' }
 }
 
 // Adds a name to a list: trimmed, not empty, once.
@@ -25,6 +25,8 @@ export function agentPayload(form) {
     description: (form.description || '').trim(),
     instructions: form.instructions || '',
     model: (form.model || '').trim(),
+    // The network of the Sandbox commands of the agent's unattended runs.
+    network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)
   return body

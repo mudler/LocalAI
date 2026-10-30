@@ -23,7 +23,7 @@ func sample(id, principal, name string) agents.Agent {
 	return agents.Agent{
 		ID: id, Principal: principal, Name: name, Description: "d", Instructions: "Be brief.", Model: "m1",
 		MCPServers: []string{"github"}, Addons: []string{"office", "sandbox"}, Collections: []string{"docs"}, Skills: []string{"review"},
-		Created: now, Updated: now,
+		Network: "registries", Created: now, Updated: now,
 	}
 }
 
@@ -43,6 +43,7 @@ func Run(newStore NewStore) {
 		Expect(strings.Join(got.MCPServers, ",")).To(Equal("github"))
 		Expect(strings.Join(got.Collections, ",")).To(Equal("docs"))
 		Expect(strings.Join(got.Skills, ",")).To(Equal("review"))
+		Expect(got.Network).To(Equal("registries"))
 		Expect(got.Created.Equal(a.Created)).To(BeTrue(), "got %+v", got)
 		a.Name, a.Addons, a.Updated = "Reviewer 2", nil, a.Updated.Add(time.Hour)
 		a.Created = time.Time{}

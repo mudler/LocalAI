@@ -13,6 +13,9 @@ var _ = Describe("agent validation", func() {
 	It("accepts a good agent and rejects every bad shape", func() {
 		ok := agents.Agent{Name: "Reviewer", Addons: []string{"office"}}
 		Expect(agents.Validate(ok)).To(Succeed())
+		for _, n := range []string{"", "off", "registries", "all"} {
+			Expect(agents.Validate(agents.Agent{Name: "a", Network: n})).To(Succeed(), n)
+		}
 		many := make([]string, agents.MaxListEntries+1)
 		for i := range many {
 			many[i] = "x"
@@ -27,6 +30,7 @@ var _ = Describe("agent validation", func() {
 			"bad addon":        {Name: "a", Addons: []string{"Office Tools"}},
 			"empty collection": {Name: "a", Collections: []string{" "}},
 			"long entry":       {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
+			"bad network":      {Name: "a", Network: "everything"},
 		} {
 			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid), name)
 		}

@@ -303,6 +303,13 @@ export default function AgentCreate() {
             <p className="ag-note">{t('create.addonsHelp')}</p>
             <GrantList testId="agent-addons" options={addonOptions} value={form.addons} onChange={(v) => updateField('addons', v)}
               emptyText={t('create.noAddons')} goneLabel={t('create.gone')} />
+            <div className="form-group">
+              <label className="form-label" htmlFor="ag-network">{t('create.network')}</label>
+              <select id="ag-network" className="input" value={form.network || 'off'} onChange={(e) => updateField('network', e.target.value)} data-testid="agent-network">
+                {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
+              </select>
+              <p className="ag-note">{t('create.networkHelp')}</p>
+            </div>
           </>
         )
       case 'MCP':

@@ -27,6 +27,7 @@ type agentRow struct {
 	Addons       string
 	Collections  string
 	Skills       string
+	Network      string `gorm:"size:16"`
 	Created      time.Time
 	Updated      time.Time
 }
@@ -65,7 +66,7 @@ func listFromJSON(s string) ([]string, error) {
 
 func (r agentRow) agent() (Agent, error) {
 	a := Agent{ID: r.ID, Principal: r.Principal, Name: r.Name, Description: r.Description,
-		Instructions: r.Instructions, Model: r.Model, Created: r.Created, Updated: r.Updated}
+		Instructions: r.Instructions, Model: r.Model, Network: r.Network, Created: r.Created, Updated: r.Updated}
 	var err error
 	for _, f := range []struct {
 		dst *[]string
@@ -103,7 +104,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 		row := agentRow{ID: a.ID, Principal: a.Principal, NameKey: NameKey(a.Name), Name: a.Name,
 			Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
-			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills),
+			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network,
 			Created: a.Created, Updated: a.Updated}
 		if exists {
 			row.Created = old.Created

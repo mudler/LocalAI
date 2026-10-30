@@ -123,7 +123,14 @@
     "configNote": "The definition this form will save.",
     "previewNew": "The agent this form will save.",
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
-    "default": "Default"
+    "default": "Default",
+    "network": "Netzwerk der Befehle in unbeaufsichtigten Läufen",
+    "networkHelp": "Wenn ein Trigger oder ein Connector diesen Agenten ausführt, erreichen seine Sandbox-Befehle so viel vom Netzwerk, bis zum Limit eines Administrators. Ein Lauf fragt nie: Ein Host außerhalb wird blockiert. Ein Chat, den Sie mit diesem Agenten starten, beginnt ebenfalls damit.",
+    "networkPresets": {
+      "off": "Aus",
+      "registries": "Paket-Registries",
+      "all": "Alle öffentlichen Seiten"
+    }
   },
   "run": {
     "workingLine": "Working"

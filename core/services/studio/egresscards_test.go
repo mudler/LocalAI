@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -235,6 +236,50 @@ var _ = Describe("the network cards of a chat", func() {
 			Expect(a.SetEgressPreset(ctx, alice, id, egress.PresetRegistries)).To(Succeed())
 			v, _ := b.EgressCheck(ctx, alice, rid, "op1", tlsTo("pypi.org"))
 			Expect(v.Action).To(Equal(egress.Allow), "the preset set through A, in the shared record")
+		})
+	})
+
+	Describe("saved agents and unattended runs", func() {
+		It("a trigger run follows its agent's network field, capped by the ceiling, and never asks; a run without an agent is off", func() {
+			ags, _ := agents.NewJSON("")
+			svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
+				d.EgressSettings = func() egress.Settings { return settings }
+				d.Agents = ags
+			})
+			now := time.Now().UTC()
+			Expect(ags.Put(ctx, agents.Agent{ID: "ag1", Principal: alice, Name: "Builder", Network: "registries", Created: now, Updated: now})).To(Succeed())
+			Expect(ags.Put(ctx, agents.Agent{ID: "ag2", Principal: alice, Name: "Quiet", Created: now, Updated: now})).To(Succeed())
+			for _, c := range []session.ChatRecord{
+				{ID: "run1", AgentID: "ag1"}, {ID: "run2", AgentID: "ag2"}, {ID: "run3"},
+			} {
+				c.Principal, c.Title, c.Created, c.Updated, c.Origin = alice, "Run", now, now, session.OriginTrigger
+				Expect(st.CreateChat(ctx, c)).To(Succeed())
+			}
+			v, _ := svc.EgressCheck(ctx, alice, toolargs.ActionResourceID("run1"), "op1", tlsTo("pypi.org"))
+			Expect(v.Action).To(Equal(egress.Allow), "the agent's registries")
+			v, _ = svc.EgressCheck(ctx, alice, toolargs.ActionResourceID("run1"), "op1", tlsTo("example.com"))
+			Expect(v.Reason).To(Equal(egress.ReasonUnattended), "blocked, no card")
+			v, _ = svc.EgressCheck(ctx, alice, toolargs.ActionResourceID("run2"), "op1", tlsTo("pypi.org"))
+			Expect(v.Action).NotTo(Equal(egress.Allow), "an agent with no network field is off")
+			v, _ = svc.EgressCheck(ctx, alice, toolargs.ActionResourceID("run3"), "op1", tlsTo("pypi.org"))
+			Expect(v.Action).NotTo(Equal(egress.Allow), "a run with no agent is off")
+			settings.Ceiling = egress.PresetOff
+			v, _ = svc.EgressCheck(ctx, alice, toolargs.ActionResourceID("run1"), "op1", tlsTo("pypi.org"))
+			Expect(v.Reason).To(Equal(egress.ReasonCeiling), "capped by the ceiling")
+		})
+
+		It("a chat a person starts with an agent takes the agent's network, under the ceiling", func() {
+			ags, _ := agents.NewJSON("")
+			settings.Ceiling = egress.PresetRegistries
+			svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
+				d.EgressSettings = func() egress.Settings { return settings }
+				d.Agents = ags
+			})
+			now := time.Now().UTC()
+			Expect(ags.Put(ctx, agents.Agent{ID: "ag1", Principal: alice, Name: "Builder", Model: "m", Network: "all", Created: now, Updated: now})).To(Succeed())
+			rec, err := svc.Create(ctx, alice, studio.CreateInput{Model: "m", AgentID: "ag1"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.Egress.Preset).To(Equal(egress.PresetRegistries))
 		})
 	})
 })

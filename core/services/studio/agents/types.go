@@ -51,8 +51,13 @@ type Agent struct {
 	Addons      []string // add-on IDs
 	Collections []string // collection names
 	Skills      []string // skill names
-	Created     time.Time
-	Updated     time.Time
+	// Network is the network preset of the Sandbox commands of the agent's
+	// unattended runs (triggers, connectors): off, registries or all, capped
+	// by the administrator's ceiling. Empty is off. A run never asks a
+	// person: a host outside the preset is blocked.
+	Network string
+	Created time.Time
+	Updated time.Time
 }
 
 // Store is the storage of saved agents.
@@ -91,6 +96,11 @@ func Validate(a Agent) error {
 	}
 	if utf8.RuneCountInString(a.Model) > MaxModelRunes {
 		return bad("the model name is longer than %d characters", MaxModelRunes)
+	}
+	switch a.Network {
+	case "", "off", "registries", "all":
+	default:
+		return bad("the network must be off, registries or all")
 	}
 	for _, l := range []struct {
 		name    string

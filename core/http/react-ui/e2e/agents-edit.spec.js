@@ -35,8 +35,20 @@ test.describe('Agent form', () => {
     await expect(page).toHaveURL(/\/app\/agents$/)
     expect(s.calls.find(c => c.method === 'POST').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
-      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'],
+      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], network: 'off',
     })
+  })
+
+  test('sets the network of the commands of unattended runs', async ({ page }) => {
+    const s = await installAgents(page)
+    await page.goto('/app/agents/new')
+    await page.getByLabel('Name', { exact: false }).first().fill('Builder')
+    await fold(page, 'Addons').locator('.ag-fold__button').click()
+    await expect(page.getByTestId('agent-network')).toHaveValue('off')
+    await page.getByTestId('agent-network').selectOption('registries')
+    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.find(c => c.method === 'POST').body.network).toBe('registries')
   })
 
   test('needs a name, and says so on the fold', async ({ page }) => {

@@ -118,9 +118,18 @@ func (s *Service) egressPolicyOf(ctx context.Context, rec session.ChatRecord, op
 	}}, nil
 }
 
-// agentNetwork is the preset of an unattended run: off in this phase.
-func (s *Service) agentNetwork(context.Context, session.ChatRecord) egress.Preset {
-	return egress.PresetOff
+// agentNetwork is the preset of an unattended run (a trigger or a connector
+// message): its saved agent's network field, off when it has none or the agent
+// is gone. A run with no agent is off. Decide caps it by the ceiling.
+func (s *Service) agentNetwork(ctx context.Context, rec session.ChatRecord) egress.Preset {
+	if rec.AgentID == "" || s.d.Agents == nil {
+		return egress.PresetOff
+	}
+	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	if err != nil || !egress.Preset(ag.Network).Valid() {
+		return egress.PresetOff
+	}
+	return egress.Preset(ag.Network)
 }
 
 // EgressCheck decides one connection of a command of the live call op, in the

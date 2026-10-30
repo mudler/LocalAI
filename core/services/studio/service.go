@@ -539,9 +539,15 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
 		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant}
 	if origin.Kind == "" {
-		// A chat a person starts gets the instance default. An unattended
-		// run follows its agent's network field at each check instead.
+		// A chat a person starts gets the instance default, or the network
+		// of its saved agent when the agent sets one, under the ceiling. An
+		// unattended run follows its agent's network field at each check.
 		rec.Egress = s.newChatEgress()
+		if in.AgentID != "" {
+			if n := s.agentNetwork(ctx, rec); n != egress.PresetOff {
+				rec.Egress.Preset = egress.Min(n, s.egressSettings().Ceiling)
+			}
+		}
 	}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		return session.ChatRecord{}, err

@@ -2739,6 +2739,12 @@ definitions:
         type: string
       name:
         type: string
+      network:
+        description: |-
+          Network is the network preset of the Sandbox commands of the agent's
+          unattended runs: off (the default), registries or all, capped by the
+          administrator's ceiling.
+        type: string
       skills:
         items:
           type: string
@@ -2863,6 +2869,8 @@ definitions:
       model:
         type: string
       name:
+        type: string
+      network:
         type: string
       skills:
         items:

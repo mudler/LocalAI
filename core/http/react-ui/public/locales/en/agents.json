@@ -226,7 +226,14 @@
     "importNew": "Imported from an exported agent. Read the form, then save.",
     "importLegacy": "Imported from the export of an older agent. Name, description, model, instructions and skills were read; the rest has no counterpart here.",
     "importDropped": "Not imported: {{keys}}.",
-    "default": "Default"
+    "default": "Default",
+    "network": "Network of commands in unattended runs",
+    "networkHelp": "When a trigger or a connector runs this agent, its Sandbox commands reach this much of the network, up to the limit an administrator set. A run never asks: a host outside it is blocked. A chat you start with this agent starts with it too.",
+    "networkPresets": {
+      "off": "Off",
+      "registries": "Package registries",
+      "all": "All public sites"
+    }
   },
   "status": {
     "title": "Status",

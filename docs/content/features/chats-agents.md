@@ -24,6 +24,7 @@ An agent has:
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. |
+| `network` | The network of the [Sandbox]({{%relref "features/addons#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
 
 Each list is an exact grant. An empty list grants nothing: a chat with an agent
 that names no add-ons has no add-on tools, even when you could use some. A
@@ -166,6 +167,11 @@ message as rules for the run. Treat it as text from whoever can write there.
   unattended run with no agent gets no add-on tool that acts at once, such as the
   Sandbox: name the add-on in an agent to allow it. A run never gets
   `propose_trigger` and cannot change its own trigger.
+- **Network.** The Sandbox commands of a run reach the network of the agent's
+  `network` field, under the administrator's ceiling, and nothing without an
+  agent. Nobody watches a run, so no card asks: a blocked host stays blocked.
+  A sub-agent follows the network of the chat that started it, its rules
+  included, and never shows a card either.
 - **Limits.** A run has 15 minutes. At most 2 runs go at once, one per trigger,
   and a trigger has a daily limit (`daily_cap`, default 24). A run that is skipped
   or fails shows its reason on the trigger.
