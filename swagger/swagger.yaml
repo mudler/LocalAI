@@ -6864,6 +6864,113 @@ definitions:
           classifier-side confidence signal).
         type: number
     type: object
+  schema.SharedFolder:
+    properties:
+      id:
+        description: ID is the folder's stable ID. The shared pages use it as folder_id.
+        type: integer
+      members:
+        description: Members is who may use the folder. Only in the administrator's
+          view.
+        items:
+          $ref: '#/definitions/schema.SharedFolderMember'
+        type: array
+      mode:
+        description: |-
+          Mode is what you may do in the folder: read or write. Only in your
+          own list.
+        type: string
+      name:
+        type: string
+      pages:
+        description: Pages is how many pages (pages/<name>/index.html) the folder
+          has.
+        type: integer
+      path:
+        description: Path is the folder's workspace path, /shared/<name>.
+        type: string
+    type: object
+  schema.SharedFolderEvent:
+    properties:
+      action:
+        description: Action is create, rename, delete, restore, grant or revoke.
+        type: string
+      actor:
+        description: Actor is the user who made the change, or "@assistant".
+        type: string
+      actor_name:
+        type: string
+      at:
+        type: string
+      folder:
+        type: string
+      folder_id:
+        type: integer
+      mode:
+        type: string
+      principal:
+        type: string
+      rev:
+        type: integer
+    type: object
+  schema.SharedFolderEventList:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/schema.SharedFolderEvent'
+        type: array
+    type: object
+  schema.SharedFolderList:
+    properties:
+      folders:
+        items:
+          $ref: '#/definitions/schema.SharedFolder'
+        type: array
+      max_folders:
+        description: MaxFolders and MaxMembers are the limits, in the administrator's
+          view.
+        type: integer
+      max_members:
+        type: integer
+    type: object
+  schema.SharedFolderMember:
+    properties:
+      everyone:
+        description: Everyone is true for the member that stands for every user.
+        type: boolean
+      mode:
+        description: Mode is read or write.
+        type: string
+      name:
+        description: Name is the user's name; for "@everyone" it is "@everyone".
+        type: string
+      principal:
+        description: Principal is the user ID, or "@everyone".
+        type: string
+    type: object
+  schema.SharedFolderMemberRequest:
+    properties:
+      mode:
+        type: string
+    type: object
+  schema.SharedFolderNameRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  schema.SharedFolderRemoved:
+    properties:
+      folder:
+        $ref: '#/definitions/schema.SharedFolder'
+      undo_rev:
+        description: UndoRev is the change to undo with POST /api/chats/admin/shared-folders/restore.
+        type: integer
+    type: object
+  schema.SharedFolderRestoreRequest:
+    properties:
+      rev:
+        type: integer
+    type: object
   schema.SlotCacheRequest:
     properties:
       id:
@@ -11526,6 +11633,229 @@ paths:
       summary: Switch off a connector binding of any user (administrators).
       tags:
       - chats
+  /api/chats/admin/shared-folders:
+    get:
+      description: A member is a user, or @everyone for every user, with the mode
+        read or write.
+      responses:
+        "200":
+          description: The shared folders, by name
+          schema:
+            $ref: '#/definitions/schema.SharedFolderList'
+        "403":
+          description: Not an administrator
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Files are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the shared folders and their members (administrators).
+      tags:
+      - chats
+    post:
+      description: Creates /shared/<name> with an empty pages folder. You become a
+        member who can edit it, so you can fill it; remove yourself when you do not
+        need it.
+      parameters:
+      - description: The folder's name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SharedFolderNameRequest'
+      responses:
+        "201":
+          description: The new folder
+          schema:
+            $ref: '#/definitions/schema.SharedFolder'
+        "400":
+          description: A name that is not allowed
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The name is taken, or the limit is reached
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Create a shared folder (administrators).
+      tags:
+      - chats
+  /api/chats/admin/shared-folders/{id}:
+    delete:
+      description: 'Nothing is erased: the folder and its files go to the trash as
+        one change, and undo_rev restores them with their members. Every user''s consent
+        to the folder''s pages is dropped, so a restored page asks again.'
+      parameters:
+      - description: Shared folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: The removed folder and the change to undo
+          schema:
+            $ref: '#/definitions/schema.SharedFolderRemoved'
+        "404":
+          description: No such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove a shared folder (administrators).
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: Shared folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: The folder
+          schema:
+            $ref: '#/definitions/schema.SharedFolder'
+        "404":
+          description: No such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read a shared folder and its members (administrators).
+      tags:
+      - chats
+    patch:
+      description: The members, the pages and the consents to them stay. A chat that
+        is open sees the new name the next time it opens.
+      parameters:
+      - description: Shared folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: The new name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SharedFolderNameRequest'
+      responses:
+        "200":
+          description: The renamed folder
+          schema:
+            $ref: '#/definitions/schema.SharedFolder'
+        "404":
+          description: No such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The name is taken
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Rename a shared folder (administrators).
+      tags:
+      - chats
+  /api/chats/admin/shared-folders/{id}/members/{principal}:
+    delete:
+      description: The member's pages list and chats stop showing the folder. A member
+        who is not there is not an error.
+      parameters:
+      - description: Shared folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User ID, email or name, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The folder and its members
+          schema:
+            $ref: '#/definitions/schema.SharedFolder'
+        "404":
+          description: No such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Remove a member from a shared folder (administrators).
+      tags:
+      - chats
+    put:
+      description: principal is a user's ID, email or name, or @everyone for every
+        user, the ones who sign up later too. mode is read or write.
+      parameters:
+      - description: Shared folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User ID, email or name, or @everyone
+        in: path
+        name: principal
+        required: true
+        type: string
+      - description: The mode
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SharedFolderMemberRequest'
+      responses:
+        "200":
+          description: The folder and its members
+          schema:
+            $ref: '#/definitions/schema.SharedFolder'
+        "400":
+          description: No such user, or a mode that is not read or write
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Add a member to a shared folder or change their mode (administrators).
+      tags:
+      - chats
+  /api/chats/admin/shared-folders/events:
+    get:
+      parameters:
+      - description: How many lines, newest first (default 100, at most 500)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The newest changes first
+          schema:
+            $ref: '#/definitions/schema.SharedFolderEventList'
+      summary: Read the audit of the shared folders (administrators).
+      tags:
+      - chats
+  /api/chats/admin/shared-folders/restore:
+    post:
+      parameters:
+      - description: The undo_rev of the removal
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.SharedFolderRestoreRequest'
+      responses:
+        "200":
+          description: The restored folder
+          schema:
+            $ref: '#/definitions/schema.SharedFolder'
+        "400":
+          description: That change is not the removal of a shared folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: A folder with its name exists now
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Restore a removed shared folder (administrators).
+      tags:
+      - chats
   /api/chats/admin/triggers:
     get:
       description: Read-only view with the owner of each trigger and its last run.
@@ -12850,6 +13180,44 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsChatSearchResponse'
       summary: Search your chats.
+      tags:
+      - chats
+  /api/chats/shared-folders:
+    get:
+      description: A shared folder is a folder outside your home that an administrator
+        gave you, or every user, access to. mode is read or write. pages counts its
+        pages (pages/<name>/index.html); open them from /api/chats/shared-pages. Your
+        chats see each folder at /workspace/shared-<name>.
+      responses:
+        "200":
+          description: Your shared folders, by path
+          schema:
+            $ref: '#/definitions/schema.SharedFolderList'
+        "409":
+          description: Files are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the folders shared with you.
+      tags:
+      - chats
+  /api/chats/shared-folders/{id}:
+    get:
+      parameters:
+      - description: Shared folder ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: The folder and your mode
+          schema:
+            $ref: '#/definitions/schema.SharedFolder'
+        "404":
+          description: No such folder, or it is not shared with you
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read a folder shared with you.
       tags:
       - chats
   /api/chats/shared-pages:

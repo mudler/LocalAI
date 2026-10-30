@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -21,6 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
+	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -96,6 +98,8 @@ func (a *Application) initStudioService() {
 		ContextTokens:      a.studioContextTokens,
 		RemoteModel:        a.studioRemoteModel,
 		PageConsents:       a.studioPageConsents(),
+		SharedFolderAudit:  a.studioSharedFolderAudit(),
+		FindUser:           a.studioFindUser(),
 		SharedPagesOn:      func() bool { return !a.applicationConfig.DisableSharedPages },
 		Modalities:         a.studioModalities,
 		MCPContent:         studioMCPContent{a: a},
@@ -326,6 +330,53 @@ func (a *Application) studioMCP(ctx context.Context, user, model string, only []
 func (a *Application) studioRemoteModel(model string) bool {
 	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
 	return ok && cfg.IsRemoteProxy()
+}
+
+// studioSharedFolderAudit opens the audit of the shared folders, beside the
+// consents to shared pages.
+func (a *Application) studioSharedFolderAudit() sharedfolders.AuditStore {
+	var (
+		st  sharedfolders.AuditStore
+		err error
+	)
+	switch {
+	case a.authDB != nil:
+		st, err = sharedfolders.NewGORMAudit(a.authDB)
+	case a.applicationConfig.DataPath != "":
+		st, err = sharedfolders.NewJSONAudit(filepath.Join(a.applicationConfig.DataPath, "chats", "shared-folders"))
+	default:
+		st, err = sharedfolders.NewJSONAudit("")
+	}
+	if err != nil {
+		xlog.Warn("Chats: the audit of the shared folders is kept in memory", "error", err)
+		st, _ = sharedfolders.NewJSONAudit("")
+	}
+	return st
+}
+
+// studioFindUser finds a user by ID, email or name, whatever their status, for
+// the members of a shared folder. Without an auth database there is no user to
+// find, and the shared folders take any principal.
+func (a *Application) studioFindUser() func(ctx context.Context, ref string) (*auth.User, error) {
+	if a.authDB == nil {
+		return nil
+	}
+	return func(ctx context.Context, ref string) (*auth.User, error) {
+		for _, col := range []string{"id", "email", "name"} {
+			var users []auth.User
+			if err := a.authDB.WithContext(ctx).Where(col+" = ?", ref).Limit(2).Find(&users).Error; err != nil {
+				return nil, err
+			}
+			switch len(users) {
+			case 1:
+				return &users[0], nil
+			case 2:
+				// Two users share the name: ask for the email or the ID.
+				return nil, fmt.Errorf("%w: more than one user is named %q; use the email or the ID", sharedfolders.ErrUnknownUser, ref)
+			}
+		}
+		return nil, studio.ErrNoUser
+	}
 }
 
 // studioPageConsents opens the store of the consents to shared pages, beside

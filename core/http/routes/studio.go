@@ -59,6 +59,17 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/admin/connectors", h.AdminListConnectors, adminMw)
 	e.POST(base+"/admin/connectors/:id/disable", h.AdminDisableConnector, adminMw)
 	e.DELETE(base+"/admin/connectors/:id", h.AdminDeleteConnector, adminMw)
+	// The shared folders and who may use them. "restore" and "events" are not
+	// folder ids; the static segments win over "/:id".
+	e.GET(base+"/admin/shared-folders", h.AdminListSharedFolders, adminMw)
+	e.POST(base+"/admin/shared-folders", h.AdminCreateSharedFolder, adminMw)
+	e.POST(base+"/admin/shared-folders/restore", h.AdminRestoreSharedFolder, adminMw)
+	e.GET(base+"/admin/shared-folders/events", h.AdminSharedFolderEvents, adminMw)
+	e.GET(base+"/admin/shared-folders/:id", h.AdminGetSharedFolder, adminMw)
+	e.PATCH(base+"/admin/shared-folders/:id", h.AdminRenameSharedFolder, adminMw)
+	e.DELETE(base+"/admin/shared-folders/:id", h.AdminDeleteSharedFolder, adminMw)
+	e.PUT(base+"/admin/shared-folders/:id/members/:principal", h.AdminSetSharedFolderMember, adminMw)
+	e.DELETE(base+"/admin/shared-folders/:id/members/:principal", h.AdminRemoveSharedFolderMember, adminMw)
 	// The agent tasks and jobs keep the paths they had on master. They are
 	// gated by the mcp_jobs feature in the route-feature registry.
 	const agent = "/api/agent"
@@ -107,6 +118,9 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/pages/:name/chat", h.SendFromPage)
 	// The pages of the caller's shared folders, by folder id and name, and the
 	// caller's consent to the version that runs.
+	// The folders an administrator shared with the caller.
+	e.GET(base+"/shared-folders", h.ListMySharedFolders)
+	e.GET(base+"/shared-folders/:id", h.GetMySharedFolder)
 	e.GET(base+"/shared-pages", h.ListSharedPages)
 	e.GET(base+"/shared-pages/:folder/:name", h.GetSharedPage)
 	e.PUT(base+"/shared-pages/:folder/:name/consent", h.AllowSharedPage)

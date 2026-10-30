@@ -3842,6 +3842,333 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/admin/shared-folders": {
+            "get": {
+                "description": "A member is a user, or @everyone for every user, with the mode read or write.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the shared folders and their members (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "The shared folders, by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderList"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an administrator",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Creates /shared/\u003cname\u003e with an empty pages folder. You become a member who can edit it, so you can fill it; remove yourself when you do not need it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Create a shared folder (administrators).",
+                "parameters": [
+                    {
+                        "description": "The folder's name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderNameRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolder"
+                        }
+                    },
+                    "400": {
+                        "description": "A name that is not allowed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The name is taken, or the limit is reached",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/shared-folders/events": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the audit of the shared folders (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "How many lines, newest first (default 100, at most 500)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The newest changes first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderEventList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/shared-folders/restore": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Restore a removed shared folder (administrators).",
+                "parameters": [
+                    {
+                        "description": "The undo_rev of the removal",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderRestoreRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The restored folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolder"
+                        }
+                    },
+                    "400": {
+                        "description": "That change is not the removal of a shared folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A folder with its name exists now",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/shared-folders/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a shared folder and its members (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Shared folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolder"
+                        }
+                    },
+                    "404": {
+                        "description": "No such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Nothing is erased: the folder and its files go to the trash as one change, and undo_rev restores them with their members. Every user's consent to the folder's pages is dropped, so a restored page asks again.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Remove a shared folder (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Shared folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The removed folder and the change to undo",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderRemoved"
+                        }
+                    },
+                    "404": {
+                        "description": "No such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "The members, the pages and the consents to them stay. A chat that is open sees the new name the next time it opens.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Rename a shared folder (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Shared folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The new name",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderNameRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The renamed folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolder"
+                        }
+                    },
+                    "404": {
+                        "description": "No such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The name is taken",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/shared-folders/{id}/members/{principal}": {
+            "put": {
+                "description": "principal is a user's ID, email or name, or @everyone for every user, the ones who sign up later too. mode is read or write.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Add a member to a shared folder or change their mode (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Shared folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID, email or name, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The mode",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderMemberRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder and its members",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolder"
+                        }
+                    },
+                    "400": {
+                        "description": "No such user, or a mode that is not read or write",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "The member's pages list and chats stop showing the folder. A member who is not there is not an error.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Remove a member from a shared folder (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Shared folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "User ID, email or name, or @everyone",
+                        "name": "principal",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder and its members",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolder"
+                        }
+                    },
+                    "404": {
+                        "description": "No such folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/admin/triggers": {
             "get": {
                 "description": "Read-only view with the owner of each trigger and its last run.",
@@ -5726,6 +6053,60 @@ const docTemplate = `{
                         "description": "The matching chats",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsChatSearchResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/shared-folders": {
+            "get": {
+                "description": "A shared folder is a folder outside your home that an administrator gave you, or every user, access to. mode is read or write. pages counts its pages (pages/\u003cname\u003e/index.html); open them from /api/chats/shared-pages. Your chats see each folder at /workspace/shared-\u003cname\u003e.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the folders shared with you.",
+                "responses": {
+                    "200": {
+                        "description": "Your shared folders, by path",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolderList"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/shared-folders/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a folder shared with you.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Shared folder ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The folder and your mode",
+                        "schema": {
+                            "$ref": "#/definitions/schema.SharedFolder"
+                        }
+                    },
+                    "404": {
+                        "description": "No such folder, or it is not shared with you",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -22053,6 +22434,157 @@ const docTemplate = `{
                 "score": {
                     "description": "Score is the top label's softmax probability (the\nclassifier-side confidence signal).",
                     "type": "number"
+                }
+            }
+        },
+        "schema.SharedFolder": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "ID is the folder's stable ID. The shared pages use it as folder_id.",
+                    "type": "integer"
+                },
+                "members": {
+                    "description": "Members is who may use the folder. Only in the administrator's view.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SharedFolderMember"
+                    }
+                },
+                "mode": {
+                    "description": "Mode is what you may do in the folder: read or write. Only in your\nown list.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "pages": {
+                    "description": "Pages is how many pages (pages/\u003cname\u003e/index.html) the folder has.",
+                    "type": "integer"
+                },
+                "path": {
+                    "description": "Path is the folder's workspace path, /shared/\u003cname\u003e.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SharedFolderEvent": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action is create, rename, delete, restore, grant or revoke.",
+                    "type": "string"
+                },
+                "actor": {
+                    "description": "Actor is the user who made the change, or \"@assistant\".",
+                    "type": "string"
+                },
+                "actor_name": {
+                    "type": "string"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "folder": {
+                    "type": "string"
+                },
+                "folder_id": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "type": "string"
+                },
+                "principal": {
+                    "type": "string"
+                },
+                "rev": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SharedFolderEventList": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SharedFolderEvent"
+                    }
+                }
+            }
+        },
+        "schema.SharedFolderList": {
+            "type": "object",
+            "properties": {
+                "folders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.SharedFolder"
+                    }
+                },
+                "max_folders": {
+                    "description": "MaxFolders and MaxMembers are the limits, in the administrator's view.",
+                    "type": "integer"
+                },
+                "max_members": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SharedFolderMember": {
+            "type": "object",
+            "properties": {
+                "everyone": {
+                    "description": "Everyone is true for the member that stands for every user.",
+                    "type": "boolean"
+                },
+                "mode": {
+                    "description": "Mode is read or write.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the user's name; for \"@everyone\" it is \"@everyone\".",
+                    "type": "string"
+                },
+                "principal": {
+                    "description": "Principal is the user ID, or \"@everyone\".",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SharedFolderMemberRequest": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SharedFolderNameRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.SharedFolderRemoved": {
+            "type": "object",
+            "properties": {
+                "folder": {
+                    "$ref": "#/definitions/schema.SharedFolder"
+                },
+                "undo_rev": {
+                    "description": "UndoRev is the change to undo with POST /api/chats/admin/shared-folders/restore.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.SharedFolderRestoreRequest": {
+            "type": "object",
+            "properties": {
+                "rev": {
+                    "type": "integer"
                 }
             }
         },
