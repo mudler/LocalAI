@@ -24,6 +24,13 @@ if [ "x${USE_PIP}" == "xtrue" ]; then
 else
     uv pip install "setuptools<70.0.0"
 fi
+
+# CUDA 12 pins VoxCPM 2.0.3, which already uses a broadcastable SDPA mask.
+# The legacy substitution also changes forward(), corrupting its tensor layout.
+if [ "${BUILD_PROFILE}" = "cublas12" ]; then
+    exit 0
+fi
+
 # Apply patch to fix PyTorch compatibility issue in voxcpm
 # This fixes the "Dimension out of range" error in scaled_dot_product_attention
 # by changing .contiguous() to .unsqueeze(0) in the attention module
