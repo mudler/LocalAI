@@ -494,6 +494,33 @@
   .cx-plan__row { grid-template-columns: 1fr; gap: 2px; }
 }
 .cx-proposal__edit .cx-pending__acts { margin-top: 6px; }
+/* The answer to a proposal: a compact receipt in place of the card. It keeps
+   the card's edge so the eye finds the same spot, and wraps its buttons under
+   the text on a phone. */
+.cx-receipt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.cx-receipt__icon { flex: none; margin-top: 2px; color: var(--dk-ok); }
+.cx-receipt__main { flex: 1 1 220px; min-width: 0; }
+.cx-receipt__line,
+.cx-receipt__sub { margin: 0; overflow-wrap: anywhere; }
+.cx-receipt__line { font-size: var(--text-sm); color: var(--dk-text); }
+.cx-receipt__sub { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; font-size: var(--text-xs); color: var(--dk-muted); }
+.cx-receipt .cx-help { margin: 4px 0 0; }
+.cx-receipt__acts { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.cx-receipt--quiet { padding: 6px 12px; background: transparent; align-items: center; }
+.cx-receipt--quiet .cx-receipt__line { color: var(--dk-muted); }
+@media (max-width: 520px) {
+  .cx-receipt__acts { margin-left: 0; width: 100%; }
+}
 .cx-bubble--edit { width: min(600px, 88%); }
 .cx-bubble--edit .cx-help { margin: 6px 0 8px; }
 

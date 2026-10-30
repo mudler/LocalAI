@@ -40,6 +40,7 @@ func fileTrigger(id, owner string) triggers.Trigger {
 	return triggers.Trigger{
 		ID: id, Owner: owner, Name: "Contracts " + id, Prompt: "Read the file.", Enabled: false,
 		Kind: triggers.KindFile, Folder: "/users/1/Contracts", Quiet: 45 * time.Second, Since: base.Add(time.Hour), Proposed: true,
+		Outcome: triggers.OutcomeDeclined, OutcomeAt: base.Add(2 * time.Hour), Touched: true,
 	}
 }
 
@@ -51,7 +52,8 @@ func same(a, b triggers.Trigger) bool {
 	return a.ID == b.ID && a.Owner == b.Owner && a.Name == b.Name && a.Prompt == b.Prompt &&
 		a.Enabled == b.Enabled && a.Kind == b.Kind && a.Schedule == b.Schedule && a.TZ == b.TZ &&
 		a.Folder == b.Folder && a.Quiet == b.Quiet && a.DailyCap == b.DailyCap && a.Since.Equal(b.Since) &&
-		a.AgentID == b.AgentID && a.SourceChatID == b.SourceChatID && a.Model == b.Model && a.Proposed == b.Proposed
+		a.AgentID == b.AgentID && a.SourceChatID == b.SourceChatID && a.Model == b.Model && a.Proposed == b.Proposed &&
+		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched
 }
 
 func sameRun(a, b triggers.Run) bool {

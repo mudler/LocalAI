@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "正在读取建议的触发器...",
+    "unread": "无法读取建议的触发器：{{message}}",
+    "removed": "此触发器已被删除。",
+    "retry": "重试",
+    "inactive": "建议的触发器。在你创建它之前不会运行任何内容。",
+    "name": "名称",
+    "schedule": "何时（例如 daily 08:00）",
+    "folder": "要监视的文件夹",
+    "saveEdit": "保存",
+    "cancelEdit": "取消",
+    "create": "创建触发器",
+    "edit": "编辑",
+    "dismiss": "拒绝",
+    "receipt": {
+      "scheduled": "已安排：",
+      "watching": "监视中：",
+      "next": "下次运行 {{when}}",
+      "view": "查看触发器",
+      "undo": "撤销",
+      "undone": "已撤销：",
+      "again": "重新安排",
+      "declined": "已拒绝：",
+      "restore": "恢复",
+      "blocked": {
+        "ran": "它已经运行过一次；请在触发器页面中删除。",
+        "edited": "之后你编辑过它；请在触发器页面中修改或删除。"
+      }
+    },
+    "announce": {
+      "accepted": "已安排 {{name}}。",
+      "undone": "已撤销 {{name}}。它未被安排。",
+      "declined": "已拒绝 {{name}}。",
+      "reopened": "{{name}} 再次等待你的答复。"
+    },
     "plan": {
       "whenLabel": "时间",
       "runsAsLabel": "运行身份",

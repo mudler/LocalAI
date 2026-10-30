@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "Leyendo el disparador propuesto...",
+    "unread": "No se pudo leer el disparador propuesto: {{message}}",
+    "removed": "Este disparador se eliminó.",
+    "retry": "Reintentar",
+    "inactive": "Disparador propuesto. No ejecuta nada hasta que lo crees.",
+    "name": "Nombre",
+    "schedule": "Cuándo (por ejemplo daily 08:00)",
+    "folder": "Carpeta a vigilar",
+    "saveEdit": "Guardar",
+    "cancelEdit": "Cancelar",
+    "create": "Crear disparador",
+    "edit": "Editar",
+    "dismiss": "Rechazar",
+    "receipt": {
+      "scheduled": "Programado:",
+      "watching": "Vigilando:",
+      "next": "Próxima ejecución {{when}}",
+      "view": "Ver disparador",
+      "undo": "Deshacer",
+      "undone": "Deshecho:",
+      "again": "Programarlo de nuevo",
+      "declined": "Rechazado:",
+      "restore": "Restaurar",
+      "blocked": {
+        "ran": "Ya se ejecutó una vez; elimínalo desde la página Disparadores.",
+        "edited": "Lo editaste después; cámbialo o elimínalo desde la página Disparadores."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} programado.",
+      "undone": "Se deshizo {{name}}. No está programado.",
+      "declined": "{{name}} rechazado.",
+      "reopened": "{{name}} espera de nuevo tu respuesta."
+    },
     "plan": {
       "whenLabel": "Cuándo",
       "runsAsLabel": "Se ejecuta como",

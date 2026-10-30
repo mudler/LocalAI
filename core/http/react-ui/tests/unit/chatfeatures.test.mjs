@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { contextReading, settingsBody, settingsChanged, settingsErrors, settingsForm, tokenCount } from '../../src/utils/chatSettings.js'
-import { proposalEdit, proposalIds, proposalState } from '../../src/utils/chatProposal.js'
+import { proposalEdit, proposalIds, proposalView, receiptWhen } from '../../src/utils/chatProposal.js'
 import { BROWSER_CHATS_KEY, browserChatStores, importBrowserChats } from '../../src/utils/browserChats.js'
 import { toolRefusal } from '../../src/utils/addonChange.js'
 
@@ -53,9 +53,24 @@ test('chat settings: the context meter reads the usage event and warns near the 
 
 test('trigger proposals: the card says proposed, created (same id) or gone, and an edit sends every field back', () => {
   const p = { id: 'p1', name: 'Digest', prompt: 'Sum up', kind: 'schedule', schedule: 'daily 08:00', time_zone: 'Europe/Rome', daily_cap: 3, model: 'm', source_chat_id: 'c1' }
-  assert.equal(proposalState('p1', [p], []).kind, 'proposed')
-  assert.equal(proposalState('p1', [], [{ id: 'p1', name: 'Digest' }]).kind, 'created')
-  assert.equal(proposalState('p1', [], []).kind, 'gone')
+  const waiting = proposalView({ state: 'pending', trigger: p })
+  assert.equal(waiting.kind, 'pending')
+  assert.equal(waiting.trigger, p)
+  const done = proposalView({ state: 'accepted', trigger: { ...p, enabled: true }, can_undo: true, answered_at: '2026-10-30T09:00:00Z' })
+  assert.equal(done.kind, 'accepted')
+  assert.equal(done.canUndo, true)
+  assert.equal(done.blocked, '')
+  const ran = proposalView({ state: 'accepted', trigger: p, can_undo: false, undo_blocked: 'ran' })
+  assert.deepEqual([ran.canUndo, ran.blocked], [false, 'ran'])
+  assert.equal(proposalView({ state: 'undone', trigger: p }).kind, 'undone')
+  assert.equal(proposalView({ state: 'declined', trigger: p }).kind, 'declined')
+  assert.equal(proposalView(null, Object.assign(new Error('nope'), { status: 404 })).kind, 'removed')
+  const failed = proposalView(null, Object.assign(new Error('boom'), { status: 500 }))
+  assert.deepEqual([failed.kind, failed.message], ['error', 'boom'])
+  assert.equal(proposalView({ state: 'mystery', trigger: p }).kind, 'error', 'an unknown state is not guessed')
+  assert.deepEqual(receiptWhen({ kind: 'schedule', summary: 'Every Monday at 09:00 (Europe/Rome)' }), { mode: 'schedule', text: 'Every Monday at 09:00 (Europe/Rome)' })
+  assert.deepEqual(receiptWhen({ kind: 'file', summary: 'new files in /Contracts' }), { mode: 'file', text: 'new files in /Contracts' })
+  assert.deepEqual(receiptWhen({ kind: 'schedule', schedule: 'daily 08:00' }), { mode: 'schedule', text: 'daily 08:00' })
   assert.deepEqual(proposalEdit(p, { name: ' News ', when: 'weekdays 09:30' }), {
     name: 'News', prompt: 'Sum up', kind: 'schedule', enabled: false, daily_cap: 3, schedule: 'weekdays 09:30', time_zone: 'Europe/Rome', model: 'm', source_chat_id: 'c1',
   })

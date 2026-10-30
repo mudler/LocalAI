@@ -10,7 +10,7 @@ import { messageParts } from '../../utils/chatAttachments'
 // eslint-disable-next-line no-unused-vars
 import MessageAttachments from './Attachments'
 // eslint-disable-next-line no-unused-vars
-import { ActivityGroup, StreamingActivity } from './ActivityFold'
+import { ActivityGroup, ActivityProposals, StreamingActivity } from './ActivityFold'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import AddonSlot from '../../addons/AddonSlot'
@@ -129,7 +129,7 @@ function ChatMessage({
           {model && <b>{model}</b>}
         </div>
       )}
-      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} proposalTick={proposalTick} />}
+      {activityItems && <ActivityGroup items={activityItems} id={`cx-act-${index}`} withProposals={false} />}
 
       {isUser && draft !== null ? (
         <div className="cx-bubble cx-bubble--edit" data-testid="message-edit">
@@ -163,6 +163,8 @@ function ChatMessage({
       ) : (
         text && <Prose html={html} />
       )}
+
+      {activityItems && <ActivityProposals items={activityItems} proposalTick={proposalTick} />}
 
       <div className="cx-acts" data-testid="message-actions">
         <button type="button" className="cx-icobtn" onClick={() => actions.copy(text)} title={t('actions.copy')} aria-label={t('actions.copy')}>

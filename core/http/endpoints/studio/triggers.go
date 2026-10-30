@@ -85,6 +85,8 @@ var triggerRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "trigger not found", triggers.ErrNotFound),
 	verbatim(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadTrigger.Error()+": ", studiosvc.ErrBadTrigger),
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrTooManyTriggers, studiosvc.ErrTooManyProposals),
+	sentinelText(http.StatusConflict, typeConflict, studiosvc.ErrCannotUndo),
+	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrProposalAnswered),
 	verbatim(http.StatusConflict, typeTriggersOff, "", studiosvc.ErrTriggersOff),
 	fixed(http.StatusServiceUnavailable, typeServerError, "the server is shutting down", studiosvc.ErrTriggersClosed),
 }
@@ -368,8 +370,9 @@ func (h *Handlers) EditTriggerProposal(c echo.Context) error {
 	return c.JSON(http.StatusOK, triggerOut(c.Request().Context(), host, t, true))
 }
 
-// DismissTriggerProposal deletes a proposal.
+// DismissTriggerProposal declines a proposal.
 // @Summary Dismiss a trigger proposal.
+// @Description The proposal stays as a declined record (GET .../proposals/{id}) that .../reopen restores.
 // @Tags chats
 // @Param id path string true "the proposal's id"
 // @Success 204 "Dismissed"
@@ -383,4 +386,63 @@ func (h *Handlers) DismissTriggerProposal(c echo.Context) error {
 		return failTrigger(c, err)
 	}
 	return c.NoContent(http.StatusNoContent)
+}
+
+func proposalOut(ctx context.Context, host *studiosvc.Triggers, v studiosvc.ProposalView) schema.ChatsTriggerProposal {
+	return schema.ChatsTriggerProposal{State: string(v.State), Trigger: triggerOut(ctx, host, v.Trigger, false),
+		AnsweredAt: utcPtr(v.At), CanUndo: v.CanUndo, UndoBlocked: v.UndoBlocked}
+}
+
+// GetTriggerProposal reads a proposal and what became of it.
+// @Summary Read a trigger proposal and its answer.
+// @Description Answers the state of a proposal the chat made: pending, accepted (the trigger is the one that accepting made, with the same id), declined or undone. The answer is kept on the server, so the chat shows the same receipt after a reload and on every frontend. 404 once the trigger was removed on the Triggers page.
+// @Tags chats
+// @Param id path string true "the proposal's id"
+// @Success 200 {object} schema.ChatsTriggerProposal "The proposal"
+// @Router /api/chats/triggers/proposals/{id} [get]
+func (h *Handlers) GetTriggerProposal(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	v, err := host.ProposalStatus(c.Request().Context(), userID(c), c.Param("id"))
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	return c.JSON(http.StatusOK, proposalOut(c.Request().Context(), host, v))
+}
+
+// UndoTriggerProposal takes back an accepted proposal.
+// @Summary Undo an accepted trigger proposal.
+// @Description Switches the trigger that accepting made off and removes it from the Triggers page; the proposal stays as an undone record that can be reopened. 409 when the trigger already ran or was edited or switched since (the message says so), or when the proposal is not accepted.
+// @Tags chats
+// @Param id path string true "the proposal's id"
+// @Success 200 {object} schema.ChatsTriggerProposal "The proposal, now undone"
+// @Router /api/chats/triggers/proposals/{id}/undo [post]
+func (h *Handlers) UndoTriggerProposal(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	if _, err := host.UndoProposal(c.Request().Context(), userID(c), c.Param("id")); err != nil {
+		return failTrigger(c, err)
+	}
+	return h.GetTriggerProposal(c)
+}
+
+// ReopenTriggerProposal makes a declined or undone proposal wait again.
+// @Summary Restore a declined or undone trigger proposal.
+// @Tags chats
+// @Param id path string true "the proposal's id"
+// @Success 200 {object} schema.ChatsTriggerProposal "The proposal, waiting again"
+// @Router /api/chats/triggers/proposals/{id}/reopen [post]
+func (h *Handlers) ReopenTriggerProposal(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	if _, err := host.ReopenProposal(c.Request().Context(), userID(c), c.Param("id")); err != nil {
+		return failTrigger(c, err)
+	}
+	return h.GetTriggerProposal(c)
 }

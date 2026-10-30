@@ -242,14 +242,13 @@ function ToolStep({ text, duration }) {
 // One run of reasoning and tool lines between two messages. Add-on changes,
 // refusals and trigger proposals are listed under the fold, so their buttons
 // and reasons stay in sight.
-export function ActivityGroup({ items, id, proposalTick = 0 }) {
+export function ActivityGroup({ items, id, proposalTick = 0, withProposals = true }) {
   const { t, i18n } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const [expanded, setExpanded] = useState(false)
 
   if (!items || items.length === 0) return null
   const changes = items.filter(item => item.role === 'tool' && (addonChange(item.text) || toolRefusal(item.text)))
-  const proposals = proposalIds(items)
   const icon = items.some(i => i.role === 'reasoning') ? 'lightbulb' : 'wrench'
   const { steps } = runTimes(items)
   const dur = (i) => (steps[i] !== null ? formatDuration(steps[i], t, i18n.language) : '')
@@ -270,9 +269,17 @@ export function ActivityGroup({ items, id, proposalTick = 0 }) {
         </ol>
       </FoldFrame>
       {changes.map((item) => <ChangeNote key={`c-${item.seq}`} text={item.text} t={tc} />)}
-      {proposals.map((pid) => <ProposalCard key={`p-${pid}`} id={pid} t={tc} tick={proposalTick} />)}
+      {withProposals && <ActivityProposals items={items} proposalTick={proposalTick} />}
     </>
   )
+}
+
+// The trigger proposals of a run of tool lines, as cards. A message draws them
+// below its text, because the proposal is where the message ends; a run with no
+// message after it (ActivityRow) draws them with the fold.
+export function ActivityProposals({ items, proposalTick = 0 }) {
+  const { t: tc } = useTranslation('chats')
+  return proposalIds(items).map((pid) => <ProposalCard key={`p-${pid}`} id={pid} t={tc} tick={proposalTick} />)
 }
 
 // A tool call that has an MCP App: the tool line, then the app in its frame.

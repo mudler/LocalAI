@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "제안된 트리거를 읽는 중...",
+    "unread": "제안된 트리거를 읽을 수 없습니다: {{message}}",
+    "removed": "이 트리거는 삭제되었습니다.",
+    "retry": "다시 시도",
+    "inactive": "제안된 트리거입니다. 만들기 전에는 아무것도 실행하지 않습니다.",
+    "name": "이름",
+    "schedule": "실행 시점 (예: daily 08:00)",
+    "folder": "감시할 폴더",
+    "saveEdit": "저장",
+    "cancelEdit": "취소",
+    "create": "트리거 만들기",
+    "edit": "수정",
+    "dismiss": "거절",
+    "receipt": {
+      "scheduled": "예약됨:",
+      "watching": "감시 중:",
+      "next": "다음 실행 {{when}}",
+      "view": "트리거 보기",
+      "undo": "실행 취소",
+      "undone": "취소됨:",
+      "again": "다시 예약",
+      "declined": "거절됨:",
+      "restore": "복원",
+      "blocked": {
+        "ran": "이미 한 번 실행되었습니다. 트리거 페이지에서 삭제하세요.",
+        "edited": "이후에 직접 수정했습니다. 트리거 페이지에서 변경하거나 삭제하세요."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}}을(를) 예약했습니다.",
+      "undone": "{{name}}을(를) 취소했습니다. 예약되어 있지 않습니다.",
+      "declined": "{{name}}을(를) 거절했습니다.",
+      "reopened": "{{name}}이(가) 다시 답변을 기다립니다."
+    },
     "plan": {
       "whenLabel": "언제",
       "runsAsLabel": "실행 주체",

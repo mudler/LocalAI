@@ -6739,6 +6739,30 @@ const docTemplate = `{
             }
         },
         "/api/chats/triggers/proposals/{id}": {
+            "get": {
+                "description": "Answers the state of a proposal the chat made: pending, accepted (the trigger is the one that accepting made, with the same id), declined or undone. The answer is kept on the server, so the chat shows the same receipt after a reload and on every frontend. 404 once the trigger was removed on the Triggers page.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read a trigger proposal and its answer.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The proposal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerProposal"
+                        }
+                    }
+                }
+            },
             "put": {
                 "description": "The body replaces every field of the proposal, as for a trigger. The proposal stays a proposal: it is not active until you confirm it.",
                 "tags": [
@@ -6773,6 +6797,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "description": "The proposal stays as a declined record (GET .../proposals/{id}) that .../reopen restores.",
                 "tags": [
                     "chats"
                 ],
@@ -6822,6 +6847,57 @@ const docTemplate = `{
                         "description": "The trigger",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsTrigger"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/proposals/{id}/reopen": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Restore a declined or undone trigger proposal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The proposal, waiting again",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerProposal"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/triggers/proposals/{id}/undo": {
+            "post": {
+                "description": "Switches the trigger that accepting made off and removes it from the Triggers page; the proposal stays as an undone record that can be reopened. 409 when the trigger already ran or was edited or switched since (the message says so), or when the proposal is not accepted.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Undo an accepted trigger proposal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The proposal, now undone",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTriggerProposal"
                         }
                     }
                 }
@@ -18716,6 +18792,26 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "schema.ChatsTriggerProposal": {
+            "type": "object",
+            "properties": {
+                "answered_at": {
+                    "type": "string"
+                },
+                "can_undo": {
+                    "type": "boolean"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "trigger": {
+                    "$ref": "#/definitions/schema.ChatsTrigger"
+                },
+                "undo_blocked": {
+                    "type": "string"
                 }
             }
         },

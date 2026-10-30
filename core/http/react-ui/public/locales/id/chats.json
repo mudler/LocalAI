@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "Membaca pemicu yang diusulkan...",
+    "unread": "Pemicu yang diusulkan tidak dapat dibaca: {{message}}",
+    "removed": "Pemicu ini sudah dihapus.",
+    "retry": "Coba lagi",
+    "inactive": "Pemicu yang diusulkan. Tidak menjalankan apa pun sampai Anda membuatnya.",
+    "name": "Nama",
+    "schedule": "Kapan (misalnya daily 08:00)",
+    "folder": "Folder yang dipantau",
+    "saveEdit": "Simpan",
+    "cancelEdit": "Batal",
+    "create": "Buat pemicu",
+    "edit": "Ubah",
+    "dismiss": "Tolak",
+    "receipt": {
+      "scheduled": "Dijadwalkan:",
+      "watching": "Memantau:",
+      "next": "Eksekusi berikutnya {{when}}",
+      "view": "Lihat pemicu",
+      "undo": "Urungkan",
+      "undone": "Diurungkan:",
+      "again": "Jadwalkan lagi",
+      "declined": "Ditolak:",
+      "restore": "Pulihkan",
+      "blocked": {
+        "ran": "Pemicu ini sudah pernah berjalan; hapus dari halaman Pemicu.",
+        "edited": "Anda sudah mengubahnya; ubah atau hapus dari halaman Pemicu."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} dijadwalkan.",
+      "undone": "{{name}} diurungkan. Tidak dijadwalkan.",
+      "declined": "{{name}} ditolak.",
+      "reopened": "{{name}} kembali menunggu jawaban Anda."
+    },
     "plan": {
       "whenLabel": "Kapan",
       "runsAsLabel": "Berjalan sebagai",

@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "Lettura del trigger proposto...",
+    "unread": "Impossibile leggere il trigger proposto: {{message}}",
+    "removed": "Questo trigger è stato rimosso.",
+    "retry": "Riprova",
+    "inactive": "Trigger proposto. Non esegue nulla finché non lo crei.",
+    "name": "Nome",
+    "schedule": "Quando (per esempio daily 08:00)",
+    "folder": "Cartella da controllare",
+    "saveEdit": "Salva",
+    "cancelEdit": "Annulla",
+    "create": "Crea trigger",
+    "edit": "Modifica",
+    "dismiss": "Rifiuta",
+    "receipt": {
+      "scheduled": "Pianificato:",
+      "watching": "In osservazione:",
+      "next": "Prossima esecuzione {{when}}",
+      "view": "Vedi trigger",
+      "undo": "Annulla",
+      "undone": "Annullato:",
+      "again": "Pianificalo di nuovo",
+      "declined": "Rifiutato:",
+      "restore": "Ripristina",
+      "blocked": {
+        "ran": "È già stato eseguito una volta; rimuovilo dalla pagina Trigger.",
+        "edited": "Lo hai modificato dopo; cambialo o rimuovilo dalla pagina Trigger."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} pianificato.",
+      "undone": "{{name}} annullato. Non è pianificato.",
+      "declined": "{{name}} rifiutato.",
+      "reopened": "{{name}} aspetta di nuovo la tua risposta."
+    },
     "plan": {
       "whenLabel": "Quando",
       "runsAsLabel": "Viene eseguito come",

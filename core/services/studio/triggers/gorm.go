@@ -33,6 +33,9 @@ type triggerRow struct {
 	Writes       string `gorm:"size:1024"`
 	Widget       string `gorm:"size:64"`
 	EstTokens    int
+	Outcome      string `gorm:"size:16"`
+	OutcomeAt    time.Time
+	Touched      bool
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -87,14 +90,16 @@ func (r triggerRow) trigger() Trigger {
 	return Trigger{ID: r.ID, Owner: r.Owner, Name: r.Name, Prompt: r.Prompt, Enabled: r.Enabled, Kind: Kind(r.Kind),
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap,
 		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
-		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens}
+		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
+		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched}
 }
 
 func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 	row := triggerRow{ID: t.ID, Owner: t.Owner, Name: t.Name, Prompt: t.Prompt, Enabled: t.Enabled, Kind: string(t.Kind),
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap,
 		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed,
-		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens}
+		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens,
+		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched}
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 

@@ -97,6 +97,13 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if aNote != "" {
 		note = strings.TrimSpace(note + " " + aNote)
 	}
+	// What the user did with the triggers this chat proposed: the tool result
+	// said they were waiting, so a later turn must hear how they ended.
+	if s.triggers != nil {
+		if line := s.triggers.ProposalNote(ctx, a.Principal, a.ChatID); line != "" {
+			note = strings.TrimSpace(note + " " + line)
+		}
+	}
 	// An offer from the assistant is allowed in few turns (see hintsvc.go); the
 	// model learns it from one line of the note, so other turns cost nothing.
 	if line := s.hintLine(ctx, a, rec); line != "" {

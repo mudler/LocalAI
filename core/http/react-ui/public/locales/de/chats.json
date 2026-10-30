@@ -1,5 +1,39 @@
 {
   "proposal": {
+    "loading": "Der vorgeschlagene Trigger wird gelesen ...",
+    "unread": "Der vorgeschlagene Trigger konnte nicht gelesen werden: {{message}}",
+    "removed": "Dieser Trigger wurde entfernt.",
+    "retry": "Erneut versuchen",
+    "inactive": "Vorgeschlagener Trigger. Er führt nichts aus, bis du ihn erstellst.",
+    "name": "Name",
+    "schedule": "Wann (zum Beispiel daily 08:00)",
+    "folder": "Zu überwachender Ordner",
+    "saveEdit": "Speichern",
+    "cancelEdit": "Abbrechen",
+    "create": "Trigger erstellen",
+    "edit": "Bearbeiten",
+    "dismiss": "Ablehnen",
+    "receipt": {
+      "scheduled": "Geplant:",
+      "watching": "Überwacht:",
+      "next": "Nächster Lauf {{when}}",
+      "view": "Trigger ansehen",
+      "undo": "Rückgängig",
+      "undone": "Rückgängig gemacht:",
+      "again": "Erneut planen",
+      "declined": "Abgelehnt:",
+      "restore": "Wiederherstellen",
+      "blocked": {
+        "ran": "Er ist schon einmal gelaufen; entferne ihn auf der Seite Trigger.",
+        "edited": "Du hast ihn seitdem bearbeitet; ändere oder entferne ihn auf der Seite Trigger."
+      }
+    },
+    "announce": {
+      "accepted": "{{name}} geplant.",
+      "undone": "{{name}} rückgängig gemacht. Er ist nicht geplant.",
+      "declined": "{{name}} abgelehnt.",
+      "reopened": "{{name}} wartet wieder auf deine Antwort."
+    },
     "plan": {
       "whenLabel": "Wann",
       "runsAsLabel": "Läuft als",
