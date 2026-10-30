@@ -7,5 +7,21 @@
   },
   "capacity": {
     "diskChip": "Disk hampir penuh"
+  },
+  "activity": {
+    "kind": {
+      "addon": "add-on"
+    },
+    "verb": {
+      "upgrading": "Memperbarui {{kind}}",
+      "failedUpgrade": "Tidak dapat memperbarui {{kind}}"
+    },
+    "filter": {
+      "addons": "Add-on"
+    },
+    "upgradeVersions": "{{from}} ke {{to}}",
+    "rowUpgraded": "Diperbarui dalam {{duration}}",
+    "rowUpgradedPlain": "Diperbarui",
+    "viewInAddons": "Lihat di Add-on"
   }
 }

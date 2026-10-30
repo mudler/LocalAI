@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AddonsError } from '../../utils/addonsApi'
 import { newOperationId } from '../catalog/catalogState'
-import { upgradeBody } from './updateState'
+import { addonUpgrades } from '../../utils/addonUpgrades'
+import { useAddonUpgrades } from '../../hooks/useAddonUpgrades'
 
 // The single-add-on upgrade and update check, shared by every view that shows
 // the "update available" notice (the list, the details and Browse) and by the
 // "upgrade all" run. One path means one operation identity per upgrade, the
 // same digest pinning and the same confirmation everywhere.
 //
-// `actions` is the useAddonActions book of the view. `onChecked` runs after a
-// check so the view can read the installed records again.
-export function useAddonUpgrade(api, actions, { onChecked } = {}) {
+// The upgrade itself runs in the upgrade store (utils/addonUpgrades), outside
+// any page: it goes on when the view is left and shows in Activity.
+//
+// `onChanged` runs after a check or an upgrade ends, so the view can read the
+// installed records again.
+export function useAddonUpgrade(api, { onChanged } = {}) {
   const [confirm, setConfirm] = useState(null)
   const [checks, setChecks] = useState({})
+  const upgrades = useAddonUpgrades()
   const aborter = useRef(null)
-  const checked = useRef(onChecked)
-  checked.current = onChecked
+  const changed = useRef(onChanged)
+  changed.current = onChanged
   useEffect(() => {
     aborter.current = new AbortController()
     return () => aborter.current.abort()
@@ -23,20 +27,14 @@ export function useAddonUpgrade(api, actions, { onChecked } = {}) {
 
   // The explicit upgrade: the digest of the installed package the page showed
   // and the digest of the candidate the owner's check resolved. The owner
-  // checks both again and refuses before it changes anything. It resolves the
-  // result of the action.
-  const upgrade = useCallback((addon) => actions.run(`upgrade:${addon.id}:${addon.generation}`, {
-    addonId: addon.id,
-    submit: (operationId, signal) => {
-      const body = upgradeBody(addon, operationId)
-      if (!body) return Promise.reject(new AddonsError({ kind: 'invalid' }))
-      return api.updates.upgrade(addon.id, body, signal)
-    },
-    verify: async (signal) => {
-      const now = (await api.installed(signal)).find(a => a.id === addon.id)
-      return Boolean(now) && now.generation > addon.generation
-    },
-  }), [actions, api])
+  // checks both again and refuses before it changes anything. It never throws
+  // and resolves { ok, outcome, message }, where message is the key of the
+  // words of a failure (see upgradeFailureWords).
+  const upgrade = useCallback(async (addon) => {
+    const out = await addonUpgrades.start(api, addon)
+    if (changed.current) changed.current(addon)
+    return out
+  }, [api])
 
   // Asks the owner to read the library again. It never applies anything.
   const check = useCallback(async (addon) => {
@@ -45,12 +43,20 @@ export function useAddonUpgrade(api, actions, { onChecked } = {}) {
     try {
       const status = await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
       setChecks(c => ({ ...c, [addon.id]: { phase: 'done', throttled: Boolean(status && status.throttled) } }))
-      if (checked.current) checked.current(addon)
+      if (changed.current) changed.current(addon)
     } catch (error) {
       if (error && error.name === 'AbortError') return
       setChecks(c => ({ ...c, [addon.id]: { phase: 'error', error } }))
     }
   }, [api])
 
-  return { confirm, ask: setConfirm, upgrade, check, checks }
+  // The upgrade of one add-on the store follows, or null.
+  const opOf = useCallback((id) => upgrades.live.find(op => op.addonId === id) || null, [upgrades.live])
+  // Whether an upgrade of the add-on is running or being canceled.
+  const working = useCallback((id) => {
+    const op = opOf(id)
+    return Boolean(op) && (op.state === 'running' || op.state === 'cancelling')
+  }, [opOf])
+
+  return { confirm, ask: setConfirm, upgrade, check, checks, opOf, working, records: upgrades.records }
 }

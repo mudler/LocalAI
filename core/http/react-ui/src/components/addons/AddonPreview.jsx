@@ -73,7 +73,7 @@ function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop
   const attention = attentionOf(app, source)
   const restarts = Number(source?.restarts) || 0
   const canUpgrade = Boolean(upgrade && source && update?.state === 'update-available' && upgradeAvailability(source, { isAdmin, pending: true }).startable)
-  const upgrading = Boolean(source) && actions.state[`upgrade:${app.id}:${app.generation}`]?.phase === 'working'
+  const upgrading = Boolean(source && upgrade) && upgrade.working(app.id)
   return (
     <div className="ad-pane__body">
       {attention === 'failed' && (

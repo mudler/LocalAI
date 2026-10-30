@@ -38,7 +38,8 @@ func buildProcessKey(modelID, backend string, replicaIndex int) string {
 // upgrade path; force=false is the routine load path.
 //
 // The caller is responsible for holding s.lockBackend(req.Backend) for
-// the duration of the call so the gallery directory isn't raced.
+// the duration of the call so the gallery directory isn't raced. Production
+// serveInstall also holds lockInstallSlot through readiness and attachment.
 //
 //  1. If already running for this (model, replica) slot AND force is false,
 //     return existing address (the fast path used by routine load events that
@@ -73,7 +74,7 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 		// running" again, and the cluster loops on a dead replica forever.
 		if addr := s.getAddr(processKey); addr != "" {
 			switch {
-			case !s.processMatchesBackend(processKey, req.Backend):
+			case !s.processMatchesBackend(processKey, req.Backend) || !s.processMatchesEnv(processKey, req.EnvVars):
 				// The slot is held by a process that must not serve this
 				// backend: either it was started from a DIFFERENT backend
 				// (this model's previous backend was deleted, or superseded by
@@ -169,7 +170,7 @@ func (s *backendSupervisor) installBackend(req workerctl.BackendInstallRequest, 
 	// Start the gRPC process on a new port (keyed by model, not just backend).
 	// req.Backend is recorded on the process so a later backend.delete/stop can
 	// find it by backend name.
-	return s.startBackend(processKey, req.Backend, backendPath)
+	return s.startBackend(processKey, req.Backend, backendPath, req.EnvVars)
 }
 
 // upgradeBackend stops every running process for `backend`, force-reinstalls
@@ -271,6 +272,25 @@ func (s *backendSupervisor) lockBackend(name string) func() {
 	if !ok {
 		m = &sync.Mutex{}
 		s.backendLocks[name] = m
+	}
+	s.mu.Unlock()
+	m.Lock()
+	return m.Unlock
+}
+
+// lockInstallSlot protects one complete serveInstall transaction, including
+// readiness and operation attachment. It is acquired after lockBackend. Stops
+// (including upgrade's multi-slot stops) must not acquire it: they can interrupt
+// startup, and must not wait on an install holding an artifact lock they need.
+func (s *backendSupervisor) lockInstallSlot(key string) func() {
+	s.mu.Lock()
+	if s.installSlotLocks == nil {
+		s.installSlotLocks = make(map[string]*sync.Mutex)
+	}
+	m := s.installSlotLocks[key]
+	if m == nil {
+		m = &sync.Mutex{}
+		s.installSlotLocks[key] = m
 	}
 	s.mu.Unlock()
 	m.Lock()

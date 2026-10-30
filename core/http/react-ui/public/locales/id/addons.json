@@ -610,7 +610,11 @@
       "integrity": "Pustaka mencantumkan versi ini dengan isi berbeda. Versi ini tidak ditawarkan sebagai pembaruan.",
       "recovery": "Data add-on ini perlu dipulihkan dulu. Pulihkan cadangan di Detail, lalu perbarui.",
       "current": "Pemeriksaan terakhir tidak menemukan pembaruan. Pemberitahuan mungkin sudah usang. Periksa lagi."
-    }
+    },
+    "checkAll": "Periksa pembaruan",
+    "checkingAll": "Memeriksa...",
+    "checkAllDone": "{{count}} add-on diperiksa.",
+    "checkAllFailed": "{{count}} tidak dapat diperiksa."
   },
   "install": {
     "stepsLabel": "Install steps",

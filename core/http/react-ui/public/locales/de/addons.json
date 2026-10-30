@@ -610,7 +610,11 @@
       "integrity": "Die Bibliothek listet diese Version mit anderem Inhalt. Sie wird nicht als Update angeboten.",
       "recovery": "Die Daten dieses Add-ons müssen zuerst wiederhergestellt werden. Stellen Sie in den Details ein Backup wieder her und aktualisieren Sie dann.",
       "current": "Die letzte Prüfung hat kein Update gefunden. Der Hinweis ist möglicherweise veraltet. Erneut prüfen."
-    }
+    },
+    "checkAll": "Nach Updates suchen",
+    "checkingAll": "Prüfe...",
+    "checkAllDone": "{{count}} Add-ons geprüft.",
+    "checkAllFailed": "{{count}} konnten nicht geprüft werden."
   },
   "install": {
     "stepsLabel": "Install steps",

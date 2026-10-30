@@ -21,7 +21,7 @@ var managedArtifactBackends = map[string]struct{}{
 	"transformers": {}, "huggingface-embeddings": {}, "sentencetransformers": {},
 	"transformers-musicgen": {}, "mamba": {}, "diffusers": {}, "qwen-asr": {},
 	"fish-speech": {}, "nemo": {}, "voxcpm": {}, "qwen-tts": {},
-	"liquid-audio": {}, "vllm": {}, "vllm-omni": {}, "sglang": {},
+	"vllm": {}, "vllm-omni": {}, "sglang": {},
 	"longcat-video": {},
 }
 

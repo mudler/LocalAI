@@ -49,7 +49,7 @@ export default function BrowseView({ api, adapter }) {
 
   const actions = useAddonActions(api, { onSettled: () => setReload(n => n + 1), adapter })
 
-  const upgrade = useAddonUpgrade(api, actions, { onChecked: () => setReload(n => n + 1) })
+  const upgrade = useAddonUpgrade(api, { onChanged: () => setReload(n => n + 1) })
 
   const openInstall = (entry) => setDialog(entry)
 
@@ -80,7 +80,7 @@ export default function BrowseView({ api, adapter }) {
           </p>
           {updatable && (
             <div className="ad-entry__upgrade" data-testid="entry-upgrade">
-              <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} variant="secondary" working={pending || actions.state[`upgrade:${have.id}:${have.generation}`]?.phase === 'working'} />
+              <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} variant="secondary" working={pending || upgrade.working(have.id)} />
             </div>
           )}
           <EntryFacts entry={entry} have={have} />

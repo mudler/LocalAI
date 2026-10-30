@@ -109,12 +109,23 @@ test.describe('Backend install progress', () => {
 })
 
 test.describe('Backend updates', () => {
-  test('Update on the row starts that update only', async ({ page }) => {
-    await mockOperate(page, { upgrades: UPGRADE_LLAMA })
+  test('Update on the row opens the dialog with that update only, and starts it on confirm', async ({ page }) => {
+    await mockOperate(page, {
+      upgrades: {
+        ...UPGRADE_LLAMA,
+        whisper: { backend_name: 'whisper', installed_version: '1.7.2', available_version: '1.8.0' },
+      },
+    })
     const calls = []
-    await page.route('**/api/backends/upgrade/llama-cpp', route => { calls.push('llama-cpp'); return jsonOk(route) })
+    await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
     await row(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
+    // The row button opens the dialog; nothing starts until it is confirmed.
+    const dialog = page.getByTestId('bulk-upgrade-dialog')
+    await expect(dialog.locator('[data-item="llama-cpp"]').getByRole('checkbox')).toBeChecked()
+    await expect(dialog.locator('[data-item="whisper"]').getByRole('checkbox')).not.toBeChecked()
+    expect(calls).toEqual([])
+    await dialog.getByTestId('bulk-upgrade-start').click()
     await expect.poll(() => calls).toEqual(['llama-cpp'])
   })
 

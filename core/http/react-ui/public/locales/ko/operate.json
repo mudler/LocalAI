@@ -7,5 +7,21 @@
   },
   "capacity": {
     "diskChip": "디스크 거의 가득 참"
+  },
+  "activity": {
+    "kind": {
+      "addon": "애드온"
+    },
+    "verb": {
+      "upgrading": "{{kind}} 업그레이드 중",
+      "failedUpgrade": "{{kind}}을(를) 업그레이드할 수 없습니다"
+    },
+    "filter": {
+      "addons": "애드온"
+    },
+    "upgradeVersions": "{{from}} → {{to}}",
+    "rowUpgraded": "{{duration}} 만에 업그레이드됨",
+    "rowUpgradedPlain": "업그레이드됨",
+    "viewInAddons": "애드온에서 보기"
   }
 }

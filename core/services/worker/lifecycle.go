@@ -127,6 +127,11 @@ func (s *backendSupervisor) serveInstall(_ context.Context, req workerctl.Backen
 	xlog.Info("Received NATS backend.install event")
 	release := s.lockBackend(req.Backend)
 	defer release()
+	// A model/replica process key does not include the backend name. Keep
+	// competing installs on that exact slot serialized through readiness and
+	// operation attachment, not just the gallery artifact download.
+	releaseSlot := s.lockInstallSlot(buildProcessKey(req.ModelID, req.Backend, int(req.ReplicaIndex)))
+	defer releaseSlot()
 	downloadCb, flush := s.downloadProgress(req.OpID, req.Backend, progress)
 	defer flush()
 

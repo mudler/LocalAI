@@ -102,7 +102,11 @@ inline void append_media_parts(nlohmann::ordered_json& content_array,
         nlohmann::ordered_json image_chunk;
         image_chunk["type"] = "image_url";
         nlohmann::ordered_json image_url;
-        image_url["url"] = "data:image/jpeg;base64," + img;
+        if (img.rfind("data:", 0) == 0) {
+            image_url["url"] = img;
+        } else {
+            image_url["url"] = "data:image/jpeg;base64," + img;
+        }
         image_chunk["image_url"] = image_url;
         content_array.push_back(image_chunk);
     }

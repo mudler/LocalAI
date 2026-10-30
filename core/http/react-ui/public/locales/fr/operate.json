@@ -7,5 +7,21 @@
   },
   "capacity": {
     "diskChip": "Disque presque plein"
+  },
+  "activity": {
+    "kind": {
+      "addon": "module"
+    },
+    "verb": {
+      "upgrading": "Mise à niveau du {{kind}}",
+      "failedUpgrade": "Impossible de mettre à niveau le {{kind}}"
+    },
+    "filter": {
+      "addons": "Modules"
+    },
+    "upgradeVersions": "{{from}} vers {{to}}",
+    "rowUpgraded": "Mis à niveau en {{duration}}",
+    "rowUpgradedPlain": "Mis à niveau",
+    "viewInAddons": "Voir dans Modules"
   }
 }

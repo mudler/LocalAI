@@ -79,8 +79,10 @@ Each row shows the backend, its version and its state: **Current**, **Update
 installs, with **Cancel** in the row. A failed install says why, with **Retry**.
 The one action that matters sits in the row (**Install**, **Update**), and the
 chevron opens the row for the rest. **Update all** opens a dialog where you pick which pending updates to run;
-they run one after another, a failure does not stop the others, you can close the
-dialog while they run, and **Retry failed** runs the failed ones again. **Check for updates** asks the server to check now instead of waiting for
+**Update** on a row opens the same dialog with only that backend checked, so nothing starts
+until you confirm. They run one after another, a failure does not stop the others, you can close the
+dialog while they run, and **Retry failed** runs the failed ones again. The upgrades run as
+operations in Activity. **Check for updates** asks the server to check now instead of waiting for
 its next scheduled check. **From URL** installs a backend from an OCI image, a
 URL or a path.
 

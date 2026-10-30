@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/liquid-audio backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/turboquant backends/bonsai backends/outetts backends/piper backends/stablediffusion-ggml backends/trellis2cpp backends/trellis2cpp-darwin backends/whisper backends/crispasr backends/parakeet-cpp backends/moss-transcribe-cpp backends/nemo-speech-cpp backends/faster-whisper backends/silero-vad backends/local-store backends/valkey-store backends/qdrant-store backends/cloud-proxy backends/localai-proxy backends/huggingface backends/rfdetr backends/rfdetr-cpp backends/insightface backends/speaker-recognition backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/mlx-video backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/mlx-distributed backends/stablediffusion-ggml-darwin backends/vllm backends/vllm-omni backends/longcat-video backends/sglang backends/moonshine backends/pocket-tts backends/qwen-tts backends/faster-qwen3-tts backends/qwen-asr backends/nemo backends/voxcpm backends/whisperx backends/ace-step backends/acestep-cpp backends/fish-speech backends/voxtral backends/opus backends/trl backends/llama-cpp-quantization backends/kokoros backends/sam3-cpp backends/qwen3-tts-cpp backends/moss-tts-cpp backends/magpie-tts-cpp backends/vllm-cpp backends/omnivoice-cpp backends/vibevoice-cpp backends/localvqe backends/tinygrad backends/sherpa-onnx backends/ds4 backends/ds4-darwin backends/supertonic backends/depth-anything-cpp backends/timestral-cpp backends/privacy-filter backends/privacy-filter-darwin backends/audio-cpp backends/audio-cpp-darwin
 .NOTPARALLEL: backends/whisper-medusa
 .NOTPARALLEL: backends/funasr
 
@@ -676,7 +676,6 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/mlx-video
 	$(MAKE) -C backend/python/sglang
 	$(MAKE) -C backend/python/vibevoice
-	$(MAKE) -C backend/python/liquid-audio
 	$(MAKE) -C backend/python/moonshine
 	$(MAKE) -C backend/python/pocket-tts
 	$(MAKE) -C backend/python/qwen-tts
@@ -714,7 +713,6 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/longcat-video test
 	$(MAKE) -C backend/python/mlx-video test
 	$(MAKE) -C backend/python/vibevoice test
-	$(MAKE) -C backend/python/liquid-audio test
 	$(MAKE) -C backend/python/moonshine test
 	$(MAKE) -C backend/python/pocket-tts test
 	$(MAKE) -C backend/python/qwen-tts test
@@ -861,6 +859,39 @@ test-extra-backend-llama-cpp-transcription: docker-build-llama-cpp
 	BACKEND_TEST_CAPS=health,load,transcription \
 	BACKEND_TEST_CTX_SIZE=2048 \
 	$(MAKE) test-extra-backend
+
+## LFM3-Audio (LiquidAI) through the llama-cpp backend: a named-voice TTS
+## (no speaker reference), the LFM3 ASR preset, and the tts/ttsstream/transcription
+## s2s specs. Real weights, so it is a manual run and not part of CI. CPU is enough.
+test-extra-backend-llama-cpp-lfm3: docker-build-llama-cpp
+	BACKEND_IMAGE=local-ai-backend:llama-cpp \
+	BACKEND_TEST_MODEL_URL=https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/main/LFM3-Audio-2B-Q4_K_M.gguf \
+	BACKEND_TEST_MMPROJ_URL=https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/main/mmproj-LFM3-Audio-2B-Q8_0.gguf \
+	BACKEND_TEST_AUDIO_URL=https://github.com/ggml-org/whisper.cpp/raw/master/samples/jfk.wav \
+	BACKEND_TEST_CAPS=health,load,predict,tts,ttsstream,transcription,s2s \
+	BACKEND_TEST_CTX_SIZE=4096 \
+	BACKEND_TEST_TTS_TEXT="Hello from LocalAI." \
+	BACKEND_TEST_TTS_MIN_SECONDS=0.3 \
+	BACKEND_TEST_TTS_MAX_SECONDS=15 \
+	BACKEND_TEST_TTS_MIN_RMS=100 \
+	BACKEND_TEST_TRANSCRIPT_CONTAINS=country \
+	BACKEND_TEST_OPTIONS=parallel:2 \
+	$(MAKE) test-extra-backend
+
+## Real-weights realtime e2e: LFM3-Audio on llama-cpp behind /v1/realtime, as
+## an any-to-any model and as a chained pipeline, each with and without a VAD
+## (LFM3_MATRIX picks the shapes). The client speaks generated audio (sherpa
+## VITS) and a separate sherpa ASR checks the reply audio. MANUAL: not run in CI
+## (the CI variant is `make test-realtime`, which uses the mock backend and the
+## `!real-models` label filter). A GPU is recommended. Build the llama-cpp image
+## for your hardware first. The host needs ffmpeg on PATH (input audio
+## conversion). LFM3_VARIANT=q8 selects lfm3-audio-2b-q8.
+test-realtime-s2s-real: build-mock-backend docker-build-llama-cpp docker-build-sherpa-onnx protogen-go
+	bash tests/e2e/run-realtime-lfm3.sh
+
+## Same, without rebuilding the backend images (they must already exist).
+test-realtime-s2s-real-nobuild: build-mock-backend protogen-go
+	bash tests/e2e/run-realtime-lfm3.sh
 
 ## privacy-filter: the PII/NER token-classification backend. Exercises the
 ## TokenClassify RPC and asserts byte-correct, UTF-8-aligned span offsets
@@ -1443,7 +1474,6 @@ BACKEND_SGLANG = sglang|python|.|false|true
 BACKEND_DIFFUSERS = diffusers|python|.|--progress=plain|true
 BACKEND_CHATTERBOX = chatterbox|python|.|false|true
 BACKEND_VIBEVOICE = vibevoice|python|.|--progress=plain|true
-BACKEND_LIQUID_AUDIO = liquid-audio|python|.|--progress=plain|true
 BACKEND_MOONSHINE = moonshine|python|.|false|true
 BACKEND_POCKET_TTS = pocket-tts|python|.|false|true
 BACKEND_QWEN_TTS = qwen-tts|python|.|false|true
@@ -1555,7 +1585,6 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SGLANG)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DIFFUSERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CHATTERBOX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
-$(eval $(call generate-docker-build-target,$(BACKEND_LIQUID_AUDIO)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOONSHINE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_POCKET_TTS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_QWEN_TTS)))
@@ -1591,7 +1620,7 @@ $(eval $(call generate-docker-build-target,$(BACKEND_SUPERTONIC)))
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-liquid-audio docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp
+docker-build-backends: docker-build-llama-cpp docker-build-ik-llama-cpp docker-build-turboquant docker-build-bonsai docker-build-ds4 docker-build-rerankers docker-build-vllm docker-build-vllm-omni docker-build-longcat-video docker-build-sglang docker-build-transformers docker-build-outetts docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-crispasr docker-build-coqui docker-build-chatterbox docker-build-vibevoice docker-build-moonshine docker-build-pocket-tts docker-build-qwen-tts docker-build-fish-speech docker-build-faster-qwen3-tts docker-build-qwen-asr docker-build-nemo docker-build-voxcpm docker-build-whisperx docker-build-ace-step docker-build-acestep-cpp docker-build-voxtral docker-build-mlx-distributed docker-build-trl docker-build-llama-cpp-quantization docker-build-tinygrad docker-build-kokoros docker-build-sam3-cpp docker-build-rfdetr-cpp docker-build-qwen3-tts-cpp docker-build-moss-tts-cpp docker-build-magpie-tts-cpp docker-build-vllm-cpp docker-build-omnivoice-cpp docker-build-vibevoice-cpp docker-build-localvqe docker-build-insightface docker-build-speaker-recognition docker-build-sherpa-onnx docker-build-cloud-proxy docker-build-localai-proxy docker-build-supertonic docker-build-depth-anything-cpp docker-build-moss-transcribe-cpp docker-build-nemo-speech-cpp docker-build-privacy-filter docker-build-trellis2cpp docker-build-valkey-store docker-build-qdrant-store docker-build-audio-cpp docker-build-timestral-cpp
 docker-build-backends: docker-build-whisper-medusa
 docker-build-backends: docker-build-funasr
 

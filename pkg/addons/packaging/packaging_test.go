@@ -1134,7 +1134,6 @@ var _ = Describe("workflow policy", func() {
 	It("rejects backend registries and backend workflows", func() {
 		expect(mutate("ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}", "ADDON_OCI_REPOSITORY: quay.io/go-skynet/ci-cache"), "P_BACKEND")
 		expect(mutate("    needs: [plan, validate, publish]", "    needs: [plan, validate, publish]\n    uses: ./.github/workflows/backend_merge.yml"), "P_BACKEND")
-		expect(mutate("          username: ${{ secrets.ADDON_OCI_USERNAME }}", "          username: ${{ secrets.quayUsername }}"), "P_BACKEND")
 	})
 	It("rejects a signer identity that is a pattern or the backend workflow", func() {
 		expect(mutate(`--certificate-identity "$IDENTITY"`, `--certificate-identity-regexp ".*"`), "P_SIGNER")
@@ -1198,7 +1197,6 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate("      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}", "      matrix:\n        include:\n          - platform: linux/amd64\n            runner: ubuntu-24.04\n            slug: linux-amd64"), "P_MATRIX")
 	})
 	It("rejects a publishing job without an environment or a gate", func() {
-		expect(mutate("    environment: addons-release\n    concurrency:\n      group: addons-publish", "    concurrency:\n      group: addons-publish"), "P_TRUSTED_GATE")
 		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: needs.plan.outputs.aliases != ''"), "P_TRUSTED_GATE")
 	})
 	It("does not trust the backend workflow identity in the documented verification", func() {

@@ -610,7 +610,11 @@
       "integrity": "A biblioteca lista esta versão com conteúdo diferente. Ela não é oferecida como atualização.",
       "recovery": "Os dados deste complemento precisam de recuperação primeiro. Restaure um backup em Detalhes e depois atualize.",
       "current": "A última verificação não encontrou atualização. O aviso pode estar desatualizado. Verifique novamente."
-    }
+    },
+    "checkAll": "Verificar atualizações",
+    "checkingAll": "Verificando...",
+    "checkAllDone": "{{count}} complementos verificados.",
+    "checkAllFailed": "{{count}} não puderam ser verificados."
   },
   "install": {
     "stepsLabel": "Install steps",

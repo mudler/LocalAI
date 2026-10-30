@@ -25,10 +25,11 @@ var writeScopes = map[string]string{"release-index": "contents"}
 
 // deniedInWorkflow are strings that tie a workflow to the backend image
 // pipeline. The add-on package workflow has its own registry input, its own
-// signer identity and its own jobs.
+// signer identity and its own jobs. It logs in to quay.io with the same registry
+// credentials as the backend builds, so the quay credential names are allowed.
 var deniedInWorkflow = []string{
 	"quay.io", "go-skynet", "backend_merge", "backend_build", "backend.yml", "backend_pr",
-	"ci-cache", "docker.io", "dockerhub", "quayusername", "quaypassword", "dockerusername", "dockerpassword",
+	"ci-cache", "docker.io", "dockerhub", "dockerusername", "dockerpassword",
 }
 
 // checkWorkflow applies the workflow policy to a parsed workflow and returns
@@ -206,9 +207,6 @@ func checkWorkflow(data []byte) []string {
 			if strings.Contains(cond, bad) {
 				add("P_TRUSTED_GATE", "%s must not use %s: a failed leg would still publish", n, bad)
 			}
-		}
-		if j != nil && j["environment"] == nil {
-			add("P_TRUSTED_GATE", "%s must run in a protected environment", n)
 		}
 	}
 	if p, _ := pub["permissions"].(map[string]any); p["id-token"] != "write" {

@@ -7,5 +7,21 @@
   },
   "capacity": {
     "diskChip": "磁盘快满了"
+  },
+  "activity": {
+    "kind": {
+      "addon": "插件"
+    },
+    "verb": {
+      "upgrading": "正在升级{{kind}}",
+      "failedUpgrade": "无法升级{{kind}}"
+    },
+    "filter": {
+      "addons": "插件"
+    },
+    "upgradeVersions": "{{from}} 到 {{to}}",
+    "rowUpgraded": "已升级，用时 {{duration}}",
+    "rowUpgradedPlain": "已升级",
+    "viewInAddons": "在插件中查看"
   }
 }

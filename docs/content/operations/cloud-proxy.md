@@ -63,9 +63,28 @@ against - and two modes:
 `proxy.provider` selects the auth scheme and (in translate mode) the wire
 format. Supported values: `openai`, `anthropic`.
 
-If the upstream requires an API key, configure either an environment variable
-(`api_key_env`) or a file (`api_key_file`). The key never appears in the config
-file or the admin UI. If the upstream requires no API key, omit both fields.
+If the upstream requires an API key, configure one of `api_key`, `api_key_env`
+(an environment variable name), or `api_key_file` (a file path). If the upstream
+requires no API key, omit all three fields.
+
+`api_key` is a plaintext administrator-managed credential, supported by both
+`cloud-proxy` and `localai-proxy`:
+
+```yaml
+proxy:
+  api_key: your-upstream-key
+```
+
+The model editor masks this input but preserves its actual value on unrelated
+saves. Masking is not encryption or vault storage: model YAML/JSON, admin
+configuration responses, exports, and backups can contain the plaintext key,
+just as they can contain model `env` values. Restrict access and protect files
+and backups. Use `api_key_env` or `api_key_file` for external secret management.
+
+Direct keys require updated core and proxy backend binaries. In distributed
+installations, update workers and their proxy backends before frontends; older
+binaries can ignore this additive field and send unauthenticated requests.
+This does not add distributed model-environment propagation.
 
 ### OpenAI passthrough
 
@@ -146,7 +165,7 @@ proxy:
 ### Upstreams without an API key
 
 For an OpenAI-compatible upstream that accepts requests without authentication,
-omit both `api_key_env` and `api_key_file`:
+omit `api_key`, `api_key_env`, and `api_key_file`:
 
 ```yaml
 name: internal-chat-proxy
@@ -239,7 +258,7 @@ proxy:
 ```
 
 The file is read at backend load time and trimmed of surrounding whitespace.
-`api_key_env` and `api_key_file` are mutually exclusive.
+`api_key`, `api_key_env`, and `api_key_file` are mutually exclusive.
 
 ## Combining with the intelligent router
 

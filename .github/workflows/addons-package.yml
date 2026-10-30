@@ -319,7 +319,6 @@ jobs:
     if: needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    environment: addons-release
     concurrency:
       group: addons-publish-${{ matrix.addon }}-${{ needs.plan.outputs.immutable }}
       cancel-in-progress: false
@@ -360,8 +359,8 @@ jobs:
         uses: docker/login-action@v4
         with:
           registry: ${{ needs.plan.outputs.registry }}
-          username: ${{ secrets.ADDON_OCI_USERNAME }}
-          password: ${{ secrets.ADDON_OCI_PASSWORD }}
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
       - name: Push the platform digests and the index
         id: push
         env:
@@ -428,7 +427,6 @@ jobs:
     if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment: addons-release
     # One promotion at a time per channel, and a queued run never cancels a
     # running one. The freshness check below makes a slow, older run a no-op.
     concurrency:
@@ -459,8 +457,8 @@ jobs:
         uses: docker/login-action@v4
         with:
           registry: ${{ needs.plan.outputs.registry }}
-          username: ${{ secrets.ADDON_OCI_USERNAME }}
-          password: ${{ secrets.ADDON_OCI_PASSWORD }}
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
       - name: Move the aliases
         env:
           ALIASES: ${{ needs.plan.outputs.aliases }}

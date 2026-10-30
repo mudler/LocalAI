@@ -610,7 +610,11 @@
       "integrity": "The library lists this version with different contents. It is not offered as an update.",
       "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then upgrade.",
       "current": "The latest check found no update. The notice may be out of date. Check again."
-    }
+    },
+    "checkAll": "Check for updates",
+    "checkingAll": "Checking...",
+    "checkAllDone": "Checked {{count}} add-ons.",
+    "checkAllFailed": "{{count}} could not be checked."
   },
   "install": {
     "stepsLabel": "Install steps",

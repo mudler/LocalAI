@@ -157,7 +157,7 @@ behavior.
 
 The initially migrated backend families are `transformers` and its aliases,
 `diffusers`, `qwen-asr`, `fish-speech`, `nemo`, `voxcpm`, `qwen-tts`,
-`liquid-audio`, `vllm`, `vllm-omni`, and `sglang`. Automatic imports add
+`vllm`, `vllm-omni`, and `sglang`. Automatic imports add
 artifact declarations only for this set. Compatible external backends may opt
 in by declaring the artifact explicitly.
 
@@ -915,6 +915,7 @@ Configure how the model handles function/tool calls:
 | `function.replace_function_results` | array | | Replace function call results with patterns |
 | `function.replace_llm_results` | array | | Replace LLM results with patterns |
 | `function.capture_llm_results` | array | | Capture LLM results as text (e.g., for "thinking" blocks) |
+| `function.xml_format_preset` | string | | Force an XML tool-call format: `qwen3-coder`, `qwen3.5`, `lfm3`, `glm-4.5`, `minimax-m2`, `kimi-k2` and others. Empty tries all of them |
 
 ### Grammar Configuration
 
@@ -1134,6 +1135,7 @@ Define pipelines for audio-to-audio processing and the [Realtime API]({{%relref 
 | `pipeline.llm` | string | LLM model name |
 | `pipeline.transcription` | string | Transcription model name |
 | `pipeline.vad` | string | Voice activity detection model name |
+| `pipeline.any_to_any` | bool | When `true`, a `realtime_audio` model runs as one speech-to-speech model (audio in, audio or text out) instead of the chained VAD, transcription, LLM and TTS path. Experimental. See [Speech-to-speech models]({{%relref "features/openai-realtime#speech-to-speech-models-experimental" %}}) |
 | `pipeline.turn_detection` | object | Realtime turn-detection defaults. Keys: `type` (`server_vad`/`semantic_vad`), `eagerness` (`low`/`medium`/`high`/`auto`), `retranscribe`, `vad_window_sec` (widen the per-tick VAD scan window; values below the automatic floor are ignored). See [Realtime turn detection]({{%relref "features/openai-realtime" %}}) |
 | `pipeline.classifier` | object | Realtime classifier mode: prefill-scored option selection instead of generation. Keys: `enabled`, `threshold`, `normalization` (`raw`/`mean`), `history_items`, `fallback` (`mode`: `none`/`reply`/`generate`, `reply`), `options` (list of `id`, `description`, `reply`, `tool` `{name, arguments}`), `address` (wake-word gate: `names`, `mode`: `ignore`/`reply`, `reply`), `model` (optional separate scoring config). See [Realtime classifier mode]({{%relref "features/openai-realtime#classifier-mode-localai-extension" %}}) |
 

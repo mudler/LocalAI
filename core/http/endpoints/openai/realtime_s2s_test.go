@@ -1,0 +1,1359 @@
+package openai
+
+import (
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"io"
+	"slices"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/respcoord"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
+)
+
+// fakeS2SStream is a scripted backend stream. script runs inline in Send, so a
+// control message can trigger the backend's answer.
+type fakeS2SStream struct {
+	mu     sync.Mutex
+	sent   []*proto.AudioToAudioRequest
+	recv   chan *proto.AudioToAudioResponse
+	script func(f *fakeS2SStream, req *proto.AudioToAudioRequest)
+	once   sync.Once
+	owner  *s2sSession // flushed before the sent requests are read
+
+	// A script may push from its own goroutine, so a push can run while the
+	// session closes the stream. closing releases a push that waits for room;
+	// recvMu keeps recv open while a push sends on it.
+	closing chan struct{}
+	recvMu  sync.RWMutex
+}
+
+func newFakeS2SStream() *fakeS2SStream {
+	return &fakeS2SStream{recv: make(chan *proto.AudioToAudioResponse, 256), closing: make(chan struct{})}
+}
+
+func (f *fakeS2SStream) Send(req *proto.AudioToAudioRequest) error {
+	f.mu.Lock()
+	f.sent = append(f.sent, req)
+	f.mu.Unlock()
+	if f.script != nil {
+		f.script(f, req)
+	}
+	return nil
+}
+
+func (f *fakeS2SStream) Recv() (*proto.AudioToAudioResponse, error) {
+	r, ok := <-f.recv
+	if !ok {
+		return nil, io.EOF
+	}
+	return r, nil
+}
+
+func (f *fakeS2SStream) Close() error {
+	f.once.Do(func() {
+		close(f.closing)
+		f.recvMu.Lock()
+		close(f.recv)
+		f.recvMu.Unlock()
+	})
+	return nil
+}
+
+func (f *fakeS2SStream) push(event string, pcm []byte, meta any) {
+	b, _ := json.Marshal(meta)
+	// Nothing is sent once the stream is closed: the backend has hung up.
+	f.recvMu.RLock()
+	defer f.recvMu.RUnlock()
+	select {
+	case <-f.closing:
+		return
+	default:
+	}
+	select {
+	case f.recv <- &proto.AudioToAudioResponse{Event: event, Pcm: pcm, SampleRate: 24000, Meta: b}:
+	case <-f.closing:
+	}
+}
+
+func (f *fakeS2SStream) requests() []*proto.AudioToAudioRequest {
+	if f.owner != nil {
+		f.owner.flush()
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]*proto.AudioToAudioRequest(nil), f.sent...)
+}
+
+// controls returns the control event names in send order.
+func (f *fakeS2SStream) controls() []string {
+	var out []string
+	for _, r := range f.requests() {
+		if c := r.GetControl(); c != nil {
+			out = append(out, c.GetEvent())
+		}
+	}
+	return out
+}
+
+// eofStream fails like a gRPC client stream whose call was rejected: Send
+// returns a bare io.EOF and Recv has the real status.
+type eofStream struct {
+	status error
+	failed chan struct{}
+	once   sync.Once
+}
+
+func (e *eofStream) Send(*proto.AudioToAudioRequest) error {
+	e.once.Do(func() { close(e.failed) })
+	return io.EOF
+}
+
+func (e *eofStream) Recv() (*proto.AudioToAudioResponse, error) {
+	<-e.failed
+	return nil, e.status
+}
+
+func (e *eofStream) Close() error { return nil }
+
+// fakeToolExecutor treats every name in names as a server-side tool.
+type fakeToolExecutor struct {
+	names  map[string]bool
+	output string
+}
+
+func (f *fakeToolExecutor) DiscoverTools(context.Context) ([]functions.Function, error) {
+	return nil, nil
+}
+func (f *fakeToolExecutor) IsTool(name string) bool { return f.names[name] }
+func (f *fakeToolExecutor) ExecuteTool(context.Context, string, string) (string, error) {
+	return f.output, nil
+}
+func (f *fakeToolExecutor) HasTools() bool { return len(f.names) > 0 }
+
+// overlapStream reports a Close that runs while a Send is in progress, which
+// gRPC forbids for CloseSend and SendMsg.
+type overlapStream struct {
+	fakeS2SStream
+	inSend  atomic.Bool
+	overlap atomic.Bool
+}
+
+func (o *overlapStream) Send(req *proto.AudioToAudioRequest) error {
+	o.inSend.Store(true)
+	time.Sleep(20 * time.Millisecond)
+	o.inSend.Store(false)
+	return o.fakeS2SStream.Send(req)
+}
+
+func (o *overlapStream) Close() error {
+	if o.inSend.Load() {
+		o.overlap.Store(true)
+	}
+	return o.fakeS2SStream.Close()
+}
+
+func isControl(r *proto.AudioToAudioRequest, event string) bool {
+	return r.GetControl() != nil && r.GetControl().GetEvent() == event
+}
+
+func eventTypeNames(evs []types.ServerEvent) []string {
+	out := make([]string, 0, len(evs))
+	for _, e := range evs {
+		out = append(out, string(e.ServerEventType()))
+	}
+	return out
+}
+
+// fromResponseCreated returns the event names starting at response.created.
+func fromResponseCreated(evs []types.ServerEvent) []string {
+	names := eventTypeNames(evs)
+	for i, n := range names {
+		if n == "response.created" {
+			return names[i:]
+		}
+	}
+	return nil
+}
+
+var _ = Describe("realtime speech-to-speech", func() {
+	const rate = 16000
+
+	newHarness := func(stream *fakeS2SStream, m *fakeModel) (*Session, *fakeTransport, *Conversation) {
+		st := newS2SSession(stream, nil, nil)
+		st.inputRate, st.outputRate = rate, 24000
+		stream.owner = st
+		session := &Session{
+			s2s:                     st,
+			TurnDetection:           &types.TurnDetectionUnion{ServerVad: &types.ServerVad{}},
+			InputAudioTranscription: &types.AudioTranscription{},
+			ModelInterface:          m,
+			ModelConfig:             &config.ModelConfig{},
+			InputSampleRate:         rate,
+			OutputSampleRate:        24000,
+			respSink:                newResponseSink(),
+		}
+		session.sessionCtx, session.sessionCancel = context.WithCancel(context.Background())
+		DeferCleanup(func() {
+			session.sessionCancel()
+			session.respSink.shutdown()
+			st.close()
+		})
+		return session, &fakeTransport{}, &Conversation{}
+	}
+	baseModel := func() *fakeModel {
+		return &fakeModel{
+			cfg:             &config.ModelConfig{},
+			transcribeFinal: &schema.TranscriptionResult{Text: "hello there"},
+		}
+	}
+	replyScript := func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+		if isControl(req, "response.create") {
+			f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "hi "})
+			f.push("response.audio.delta", []byte{1, 2, 3, 4}, nil)
+			f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "there"})
+			f.push("response.audio.delta", []byte{5, 6, 7, 8}, nil)
+			f.push("response.done", nil, map[string]any{"status": "completed", "text": "hi there", "usage": map[string]any{"output_tokens": 2}})
+		}
+	}
+
+	It("answers a manual commit and response.create in the documented order", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		session, tr, conv := newHarness(stream, baseModel())
+
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sBeginTurn(0)
+		session.s2sEndTurn()
+		session.issueClientCommit([]byte{1, 2, 3, 4}, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		// The transcript of the input comes on the side, at any point.
+		var inOrder []string
+		for _, n := range fromResponseCreated(tr.events()) {
+			if n != "conversation.item.input_audio_transcription.completed" {
+				inOrder = append(inOrder, n)
+			}
+		}
+		Expect(inOrder).To(Equal([]string{
+			"response.created",
+			"response.output_item.added",
+			"response.content_part.added",
+			"response.output_audio_transcript.delta",
+			"response.output_audio.delta",
+			"response.output_audio_transcript.delta",
+			"response.output_audio.delta",
+			"response.output_audio.done",
+			"response.output_audio_transcript.done",
+			"response.content_part.done",
+			"response.output_item.done",
+			"response.done",
+		}))
+		Expect(tr.transcriptDeltaText()).To(Equal("hi there"))
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "response.create"}))
+
+		// A client commit does not start a response on its own.
+		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
+		// The user item is added and its transcript reported.
+		Expect(eventTypeNames(tr.events())).To(ContainElement("conversation.item.added"))
+		Eventually(func() []string { return eventTypeNames(tr.events()) }, 2*time.Second).
+			Should(ContainElement("conversation.item.input_audio_transcription.completed"))
+	})
+
+	It("does not hold the response back while the input is transcribed", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		m := baseModel()
+		m.transcribeBlock = make(chan struct{})
+		session, tr, conv := newHarness(stream, m)
+
+		session.s2sEndTurn()
+		session.issueClientCommit([]byte{1, 2, 3, 4}, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+
+		Eventually(func() int { return tr.countEvents(types.ServerEventTypeResponseDone) }, 2*time.Second).Should(Equal(1))
+		Expect(tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)).To(BeZero())
+
+		// The transcript still arrives once the ASR is done.
+		close(m.transcribeBlock)
+		Eventually(func() int {
+			return tr.countEvents(types.ServerEventTypeConversationItemInputAudioTranscriptionCompleted)
+		}, 2*time.Second).Should(Equal(1))
+	})
+
+	It("reports the transcript of an input transcribed on the stream model before the reply", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		m := baseModel()
+		m.transcribeBlock = make(chan struct{})
+		session, tr, conv := newHarness(stream, m)
+		// pipeline.transcription names the model of the stream: one llama.cpp context
+		session.ModelConfig = &config.ModelConfig{Name: "s2s", Pipeline: config.Pipeline{Transcription: "s2s"}}
+
+		session.s2sEndTurn()
+		session.issueClientCommit([]byte{1, 2, 3, 4}, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+
+		// The reply does not run next to the transcript: they would make llama.cpp
+		// rebuild its buffers on every step.
+		Consistently(func() int { return tr.countEvents(types.ServerEventTypeResponseOutputAudioDelta) }, 300*time.Millisecond).Should(BeZero())
+		Expect(stream.controls()).ToNot(ContainElement("response.create"))
+
+		close(m.transcribeBlock)
+		session.respSink.wait()
+
+		// A client reads up to response.done of its reply. The transcript must be in
+		// that window, ahead of the output of the reply.
+		names := eventTypeNames(tr.events())
+		completed := slices.Index(names, "conversation.item.input_audio_transcription.completed")
+		Expect(completed).To(BeNumerically(">=", 0), "no transcript: %v", names)
+		Expect(completed).To(BeNumerically("<", slices.Index(names, "response.output_audio.delta")))
+		Expect(completed).To(BeNumerically("<", slices.Index(names, "response.done")))
+	})
+
+	// The WAV the transcription gets must hold the whole turn and say the rate it
+	// was recorded at: a client commit is at the session rate, a VAD turn at 16 kHz.
+	DescribeTable("hands the whole turn to the input transcription with its own rate",
+		func(vad bool, sessionRate, wantRate int) {
+			stream := newFakeS2SStream()
+			stream.script = replyScript
+			m := baseModel()
+			session, tr, conv := newHarness(stream, m)
+			session.InputSampleRate = sessionRate
+			utt := make([]byte, 2*sessionRate) // one second
+			for i := range utt {
+				utt[i] = byte(i)
+			}
+
+			session.s2sEndTurn()
+			if vad {
+				slot := &commitSlot{done: make(chan struct{}), source: respcoord.SourceVAD}
+				s2sCommitTurn(context.Background(), utt, "", session, conv, tr, slot)
+			} else {
+				session.issueClientCommit(utt, conv, tr)
+			}
+			session.respSink.wait()
+			Eventually(func() int { m.transcribedMu.Lock(); defer m.transcribedMu.Unlock(); return len(m.transcribedWAV) }, 2*time.Second).Should(Equal(1))
+
+			m.transcribedMu.Lock()
+			wav := m.transcribedWAV[0]
+			m.transcribedMu.Unlock()
+			Expect(len(wav)).To(BeNumerically(">", 44))
+			Expect(binary.LittleEndian.Uint32(wav[24:28])).To(Equal(uint32(wantRate)), "sample rate in the WAV header")
+			Expect(wav[44:]).To(Equal(utt), "the transcription sees the whole turn")
+		},
+		Entry("a client commit, at the session rate", false, 24000, 24000),
+		Entry("a VAD turn, at 16 kHz", true, 24000, 16000),
+	)
+
+	It("reports a failed input transcription without breaking the response", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		m := baseModel()
+		m.transcribeFinal = nil
+		m.transcribeErr = errors.New("asr down")
+		session, tr, conv := newHarness(stream, m)
+
+		session.s2sEndTurn()
+		session.issueClientCommit([]byte{1, 2, 3, 4}, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		// The transcript runs detached from the response.
+		Eventually(func() []string { return eventTypeNames(tr.events()) }, 2*time.Second).
+			Should(ContainElement("conversation.item.input_audio_transcription.failed"))
+		names := eventTypeNames(tr.events())
+		Expect(names).ToNot(ContainElement("conversation.item.input_audio_transcription.completed"))
+		Expect(names).To(ContainElement("response.done"))
+		Expect(tr.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDone)).To(Equal(1))
+	})
+
+	It("round-trips a tool call and its output", func() {
+		stream := newFakeS2SStream()
+		creates := 0
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			if !isControl(req, "response.create") {
+				return
+			}
+			creates++
+			if creates == 1 {
+				f.push("response.function_call_arguments.done", nil, map[string]any{"call_id": "x", "name": "get_weather", "arguments": `{"city":"Paris"}`})
+				f.push("response.done", nil, map[string]any{"status": "completed"})
+				return
+			}
+			replyScript(f, req)
+		}
+		session, tr, conv := newHarness(stream, baseModel())
+
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		Expect(fromResponseCreated(tr.events())).To(Equal([]string{
+			"response.created",
+			"response.output_item.added",
+			"response.function_call_arguments.delta",
+			"response.function_call_arguments.done",
+			"response.output_item.done",
+			"response.done",
+		}))
+		var callID string
+		for _, e := range tr.events() {
+			if d, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
+				Expect(d.Name).To(Equal("get_weather"))
+				Expect(d.Arguments).To(Equal(`{"city":"Paris"}`))
+				callID = d.CallID
+			}
+		}
+		Expect(callID).ToNot(BeEmpty())
+
+		// What the item.create handler does for the client's tool result.
+		conv.Lock.Lock()
+		conv.Items = append(conv.Items, &types.MessageItemUnion{FunctionCallOutput: &types.MessageItemFunctionCallOutput{
+			ID: generateItemID(), CallID: callID, Output: `{"temperature_c":21}`,
+		}})
+		conv.Lock.Unlock()
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		var outputCtl *proto.AudioToAudioControl
+		reqs := stream.requests()
+		for i, r := range reqs {
+			if isControl(r, "conversation.item.create") {
+				outputCtl = r.GetControl()
+				Expect(isControl(reqs[i+1], "response.create")).To(BeTrue(), "the result precedes the response")
+			}
+		}
+		Expect(outputCtl).ToNot(BeNil())
+		var payload map[string]string
+		Expect(json.Unmarshal(outputCtl.GetPayload(), &payload)).To(Succeed())
+		Expect(payload).To(HaveKeyWithValue("type", "function_call_output"))
+		Expect(payload).To(HaveKeyWithValue("call_id", callID))
+		Expect(tr.countEvents(types.ServerEventTypeResponseDone)).To(Equal(2))
+		Expect(tr.countEvents(types.ServerEventTypeResponseOutputAudioDelta)).To(Equal(2))
+	})
+
+	It("finishes a response whose tool call runs on the server", func() {
+		stream := newFakeS2SStream()
+		creates := 0
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			if !isControl(req, "response.create") {
+				return
+			}
+			creates++
+			if creates == 1 {
+				f.push("response.function_call_arguments.done", nil, map[string]any{"name": "list_models", "arguments": `{}`})
+				f.push("response.done", nil, map[string]any{"status": "completed"})
+				return
+			}
+			replyScript(f, req)
+		}
+		session, tr, conv := newHarness(stream, baseModel())
+		session.AssistantExecutor = &fakeToolExecutor{names: map[string]bool{"list_models": true}, output: "[]"}
+
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		// The follow-up response needs the stream the first one used. A hang
+		// here means the first response still held it.
+		Eventually(func() int { return tr.countEvents(types.ServerEventTypeResponseDone) }, 3*time.Second).Should(Equal(1))
+		session.respSink.wait()
+
+		Expect(creates).To(Equal(2))
+		Expect(tr.countEvents(types.ServerEventTypeResponseCreated)).To(Equal(1))
+		Expect(tr.countEvents(types.ServerEventTypeResponseOutputAudioTranscriptDone)).To(Equal(1))
+		names := eventTypeNames(tr.events())
+		Expect(names[len(names)-1]).To(Equal("response.done"))
+	})
+
+	Describe("tool calls in the raw text of a response", func() {
+		const rawCall = `{"name":"get_time","arguments":{"tz":"UTC"}}`
+		weather := []types.ToolUnion{{Function: &types.ToolFunction{Name: "get_weather"}}, {Function: &types.ToolFunction{Name: "get_time"}}}
+
+		type scenario struct {
+			tools     []types.ToolUnion
+			choice    *types.ToolChoiceUnion // of the session
+			params    types.ResponseCreateParams
+			preset    string
+			delta     string
+			callEvent map[string]any
+			done      map[string]any
+		}
+		// play answers the first response with the given events and returns
+		// what the client saw and the conversation.
+		play := func(sc scenario) (names []string, tr *fakeTransport, conv *Conversation) {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if !isControl(req, "response.create") {
+					return
+				}
+				f.push("response.audio_transcript.delta", nil, map[string]any{"delta": sc.delta})
+				if sc.callEvent != nil {
+					f.push("response.function_call_arguments.done", nil, sc.callEvent)
+				}
+				f.push("response.done", nil, sc.done)
+			}
+			m := baseModel()
+			m.cfg.FunctionsConfig.XMLFormatPreset = sc.preset
+			var session *Session
+			session, tr, conv = newHarness(stream, m)
+			session.Tools = sc.tools
+			session.ToolChoice = sc.choice
+			session.issueClientResponse(sc.params, conv, tr)
+			session.respSink.wait()
+			for _, e := range tr.events() {
+				if d, ok := e.(types.ResponseFunctionCallArgumentsDoneEvent); ok {
+					names = append(names, d.Name)
+				}
+			}
+			return names, tr, conv
+		}
+		run := func(tools []types.ToolUnion, callEvent map[string]any, done map[string]any) (names []string) {
+			names, _, _ = play(scenario{tools: tools, delta: "One moment. ", callEvent: callEvent, done: done})
+			return names
+		}
+
+		It("prefers the calls the backend parsed", func() {
+			names := run(weather,
+				map[string]any{"call_id": "x", "name": "get_weather", "arguments": `{"city":"Paris"}`},
+				map[string]any{"status": "completed", "text": "One moment. ", "raw_text": "One moment. " + rawCall})
+			Expect(names).To(Equal([]string{"get_weather"}))
+		})
+
+		It("parses the raw text when the backend found no call", func() {
+			names := run(weather, nil,
+				map[string]any{"status": "completed", "text": "One moment. " + rawCall, "raw_text": "One moment. " + rawCall})
+			Expect(names).To(Equal([]string{"get_time"}))
+		})
+
+		It("does not parse the raw text when tool_choice is none", func() {
+			none := &types.ToolChoiceUnion{Mode: types.ToolChoiceModeNone}
+			done := map[string]any{"status": "completed", "text": "One moment. " + rawCall, "raw_text": "One moment. " + rawCall}
+
+			names, _, _ := play(scenario{tools: weather, choice: none, delta: "One moment. ", done: done})
+			Expect(names).To(BeEmpty(), "none on the session")
+
+			// the value of the response wins over the one of the session
+			required := &types.ToolChoiceUnion{Mode: types.ToolChoiceModeRequired}
+			names, _, _ = play(scenario{tools: weather, choice: required, params: types.ResponseCreateParams{ToolChoice: none}, delta: "One moment. ", done: done})
+			Expect(names).To(BeEmpty(), "none on the response")
+
+			names, _, _ = play(scenario{tools: weather, choice: none, params: types.ResponseCreateParams{ToolChoice: required}, delta: "One moment. ", done: done})
+			Expect(names).To(Equal([]string{"get_time"}), "required on the response")
+		})
+
+		It("uses the tools of the session when a response lists none", func() {
+			done := map[string]any{"status": "completed", "text": "One moment. " + rawCall, "raw_text": "One moment. " + rawCall}
+			names, _, _ := play(scenario{tools: weather, params: types.ResponseCreateParams{Tools: []types.ToolUnion{}}, delta: "One moment. ", done: done})
+			Expect(names).To(Equal([]string{"get_time"}))
+		})
+
+		Context("with the lfm3 preset and no capture regex", func() {
+			const call = "<tool_call>\n<function=get_time>\n</function>\n</tool_call>"
+
+			transcriptDone := func(tr *fakeTransport) (texts []string) {
+				for _, e := range tr.events() {
+					if d, ok := e.(types.ResponseOutputAudioTranscriptDoneEvent); ok {
+						texts = append(texts, d.Transcript)
+					}
+				}
+				return texts
+			}
+
+			It("keeps the call out of the transcript of a reply that is only a call", func() {
+				names, tr, _ := play(scenario{tools: weather, preset: "lfm3", delta: call,
+					done: map[string]any{"status": "completed", "text": call, "raw_text": call}})
+				Expect(names).To(Equal([]string{"get_time"}))
+				Expect(transcriptDone(tr)).To(Equal([]string{""}))
+			})
+
+			It("keeps the text around the call", func() {
+				raw := "One moment.\n" + call
+				names, tr, _ := play(scenario{tools: weather, preset: "lfm3", delta: raw,
+					done: map[string]any{"status": "completed", "text": raw, "raw_text": raw}})
+				Expect(names).To(Equal([]string{"get_time"}))
+				Expect(transcriptDone(tr)).To(Equal([]string{"One moment."}))
+			})
+		})
+
+		It("does not look for calls when the request had no tools", func() {
+			names := run(nil, nil,
+				map[string]any{"status": "completed", "text": "One moment. " + rawCall, "raw_text": "One moment. " + rawCall})
+			Expect(names).To(BeEmpty())
+		})
+	})
+
+	Describe("s2sResponseToolCalls", func() {
+		parsed := []functions.FuncCallResults{{Name: "a", Arguments: "{}"}}
+
+		It("returns the parsed calls whatever the text says", func() {
+			calls, content, _, fromText := s2sResponseToolCalls(parsed, `{"name":"b","arguments":{}}`, true, functions.FunctionsConfig{})
+			Expect(calls).To(Equal(parsed))
+			Expect(content).To(BeEmpty())
+			Expect(fromText).To(BeFalse())
+		})
+
+		It("finds a call in the text and returns the content around it", func() {
+			fc := functions.FunctionsConfig{CaptureLLMResult: []string{`(?s)^(.*?)\s*\{"name"`}}
+			calls, content, known, fromText := s2sResponseToolCalls(nil, `Sure. {"name":"b","arguments":{"x":1}}`, true, fc)
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].Name).To(Equal("b"))
+			Expect(content).To(Equal("Sure."))
+			Expect(known).To(BeTrue())
+			Expect(fromText).To(BeTrue())
+
+			// without a capture regex the content is unknown, as in the chained pipeline
+			calls, content, known, fromText = s2sResponseToolCalls(nil, `Sure. {"name":"b","arguments":{"x":1}}`, true, functions.FunctionsConfig{})
+			Expect(calls).To(HaveLen(1))
+			Expect(content).To(BeEmpty())
+			Expect(known).To(BeFalse())
+			Expect(fromText).To(BeTrue())
+		})
+
+		It("cuts the lfm3 call markup out of the content without a capture regex", func() {
+			fc := functions.FunctionsConfig{XMLFormatPreset: "lfm3"}
+			const call = "<tool_call>\n<function=get_time>\n</function>\n</tool_call>"
+
+			calls, content, known, fromText := s2sResponseToolCalls(nil, call, true, fc)
+			Expect(calls).To(HaveLen(1))
+			Expect(fromText).To(BeTrue())
+			Expect(known).To(BeTrue())
+			Expect(content).To(BeEmpty())
+
+			calls, content, known, _ = s2sResponseToolCalls(nil, "One moment.\n"+call, true, fc)
+			Expect(calls).To(HaveLen(1))
+			Expect(known).To(BeTrue())
+			Expect(content).To(Equal("One moment."))
+		})
+
+		It("finds nothing in plain text or without tools", func() {
+			calls, _, _, fromText := s2sResponseToolCalls(nil, "just words", true, functions.FunctionsConfig{})
+			Expect(calls).To(BeEmpty())
+			Expect(fromText).To(BeFalse())
+			calls, _, _, fromText = s2sResponseToolCalls(nil, `{"name":"b","arguments":{}}`, false, functions.FunctionsConfig{})
+			Expect(calls).To(BeEmpty())
+			Expect(fromText).To(BeFalse())
+		})
+	})
+
+	Describe("a named function as tool_choice", func() {
+		named := &types.ToolChoiceUnion{Function: &types.ToolChoiceFunction{Name: "f"}}
+
+		It("is refused in session.update", func() {
+			err := checkS2SUpdate(&Session{}, &types.RealtimeSession{ToolChoice: named})
+			Expect(err).To(HaveOccurred())
+			Expect(checkS2SUpdate(&Session{}, &types.RealtimeSession{ToolChoice: &types.ToolChoiceUnion{Mode: types.ToolChoiceModeRequired}})).To(Succeed())
+		})
+
+		It("is refused in response.create without a request to the backend", func() {
+			stream := newFakeS2SStream()
+			creates := 0
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if isControl(req, "response.create") {
+					creates++
+				}
+			}
+			session, tr, conv := newHarness(stream, baseModel())
+			session.issueClientResponse(types.ResponseCreateParams{ToolChoice: named}, conv, tr)
+			session.respSink.wait()
+			Expect(creates).To(Equal(0))
+			Expect(tr.countEvents(types.ServerEventTypeError)).To(BeNumerically(">=", 1))
+		})
+	})
+
+	Describe("tool_choice on the wire", func() {
+		It("maps a mode and drops a named function", func() {
+			Expect(s2sToolChoiceMode(nil)).To(BeEmpty())
+			Expect(s2sToolChoiceMode(&types.ToolChoiceUnion{Mode: types.ToolChoiceModeRequired})).To(Equal("required"))
+			Expect(s2sToolChoiceMode(&types.ToolChoiceUnion{Mode: types.ToolChoiceModeNone})).To(Equal("none"))
+			Expect(s2sToolChoiceMode(&types.ToolChoiceUnion{Function: &types.ToolChoiceFunction{Name: "f"}})).To(BeEmpty())
+		})
+
+		It("sends the session mode in the config and a response mode with response.create", func() {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if req.GetConfig() != nil {
+					f.push("session.created", nil, map[string]any{"input_sample_rate": rate, "output_sample_rate": 24000})
+				}
+				if isControl(req, "response.create") {
+					f.push("response.done", nil, map[string]any{"status": "completed"})
+				}
+			}
+			session := &Session{ToolChoice: &types.ToolChoiceUnion{Mode: types.ToolChoiceModeRequired}}
+			Expect(openS2SForSession(session, openerFunc(func(context.Context) (S2SStream, error) { return stream, nil }), &fakeTransport{})).To(Succeed())
+			stream.owner = session.s2s
+			DeferCleanup(session.closeS2S)
+			Expect(stream.requests()[0].GetConfig().GetParams()).To(HaveKeyWithValue("tool_choice", "required"))
+		})
+	})
+
+	It("cancels on barge-in before the new speech and forwards no audio after it", func() {
+		stream := newFakeS2SStream()
+		cancelled := make(chan struct{})
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			switch {
+			case isControl(req, "response.create"):
+				go func() {
+					for {
+						select {
+						case <-cancelled:
+							return
+						case <-time.After(5 * time.Millisecond):
+							f.push("response.audio.delta", []byte{1, 1}, nil)
+						}
+					}
+				}()
+			case isControl(req, "response.cancel"):
+				close(cancelled)
+				// In-flight audio the backend had already produced.
+				for range 3 {
+					f.push("response.audio.delta", []byte{0xEE, 0xEE}, nil)
+				}
+				f.push("response.done", nil, map[string]any{"status": "cancelled"})
+			}
+		}
+		session, tr, conv := newHarness(stream, baseModel())
+		session.InputAudioBuffer = make([]byte, rate*2) // one second of the new speech
+
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		Eventually(func() int { return tr.countEvents(types.ServerEventTypeResponseOutputAudioDelta) }, 2*time.Second).Should(BeNumerically(">=", 2))
+
+		// What the VAD does on speech onset: start the turn, then cancel.
+		session.s2sBeginTurn(0)
+		session.respSink.cancel(respcoord.SourceVAD)
+		session.respSink.wait()
+
+		reqs := stream.requests()
+		cancelAt, frameAt := -1, -1
+		for i, r := range reqs {
+			if isControl(r, "response.cancel") && cancelAt < 0 {
+				cancelAt = i
+			}
+			if r.GetFrame() != nil && frameAt < 0 {
+				frameAt = i
+			}
+		}
+		Expect(cancelAt).To(BeNumerically(">=", 0))
+		Expect(frameAt).To(BeNumerically(">", cancelAt), "the cancel goes before the first frame")
+		Expect(stream.controls()).To(ContainElement("response.cancel"))
+		Expect(countCancels(stream)).To(Equal(1))
+
+		for _, e := range tr.events() {
+			if d, ok := e.(types.ResponseOutputAudioDeltaEvent); ok {
+				Expect(d.Delta).ToNot(Equal("7u4="), "audio produced after the cancel reached the client")
+			}
+		}
+		names := eventTypeNames(tr.events())
+		Expect(names[len(names)-1]).To(Equal("response.done"))
+		var done types.ResponseDoneEvent
+		for _, e := range tr.events() {
+			if d, ok := e.(types.ResponseDoneEvent); ok {
+				done = d
+			}
+		}
+		Expect(done.Response.Status).To(Equal(types.ResponseStatusCancelled))
+	})
+
+	It("forwards a VAD turn from speech start minus the pre-roll", func() {
+		stream := newFakeS2SStream()
+		session, _, _ := newHarness(stream, baseModel())
+		session.InputAudioBuffer = make([]byte, 3*rate*2) // 3 s
+
+		// Before the turn opens nothing goes out.
+		session.s2sOnAppendLocked(make([]byte, 640))
+		Expect(stream.requests()).To(BeEmpty())
+
+		session.s2sBeginTurn(2.0) // forwards from 1.7 s: 1.3 s of the buffer
+		Expect(framesBytes(stream)).To(Equal(int(1.3 * rate * 2)))
+
+		session.s2sOnAppendLocked(make([]byte, 640))
+		Expect(framesBytes(stream)).To(Equal(int(1.3*rate*2) + 640))
+
+		session.s2sEndTurn()
+		Expect(isControl(stream.requests()[len(stream.requests())-1], "input_audio_buffer.commit")).To(BeTrue())
+		session.s2sOnAppendLocked(make([]byte, 640))
+		Expect(framesBytes(stream)).To(Equal(int(1.3*rate*2)+640), "forwarding stops at the commit")
+	})
+
+	It("holds manual-commit audio back until the commit", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		chunk := make([]byte, 640)
+		session.AudioBufferLock.Lock()
+		session.InputAudioBuffer = append(session.InputAudioBuffer, chunk...)
+		session.s2sOnAppendLocked(chunk)
+		session.AudioBufferLock.Unlock()
+		Expect(stream.requests()).To(BeEmpty(), "idle audio must not reach the model's context")
+
+		session.s2sCommitAudio(chunk, conv)
+		Expect(framesBytes(stream)).To(Equal(640))
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit"}))
+	})
+
+	It("discards cleared manual-commit audio for good", func() {
+		stream := newFakeS2SStream()
+		session, tr, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		session.AudioBufferLock.Lock()
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sOnAppendLocked(make([]byte, 640))
+		session.AudioBufferLock.Unlock()
+
+		clearInputAudio(session)
+		commitClientAudio(session, conv, tr)
+		session.respSink.wait()
+		Expect(framesBytes(stream)).To(BeZero())
+	})
+
+	It("commits uncommitted audio before a response.create asks for an answer", func() {
+		stream := newFakeS2SStream()
+		stream.script = replyScript
+		session, tr, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		session.InputAudioBuffer = make([]byte, 640)
+		Expect(session.hasBufferedInput()).To(BeTrue())
+
+		commitClientAudio(session, conv, tr)
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		Expect(session.hasBufferedInput()).To(BeFalse())
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "response.create"}))
+	})
+
+	It("keeps a text item ahead of the audio committed after it", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		session.TurnDetection = nil
+		conv.Items = append(conv.Items, &types.MessageItemUnion{User: &types.MessageItemUser{
+			ID:      "t1",
+			Content: []types.MessageContentInput{{Type: types.MessageContentTypeInputText, Text: "hello"}},
+		}})
+
+		session.s2sCommitAudio(make([]byte, 640), conv)
+
+		var kinds []string
+		for _, r := range stream.requests() {
+			switch {
+			case r.GetFrame() != nil:
+				kinds = append(kinds, "frame")
+			case r.GetControl() != nil:
+				kinds = append(kinds, r.GetControl().GetEvent())
+			}
+		}
+		Expect(kinds).To(Equal([]string{"conversation.item.create", "frame", "input_audio_buffer.commit"}))
+	})
+
+	It("ends the open VAD turn when turn detection is switched off", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sBeginTurn(0)
+		Expect(session.s2sUserTurnOpen()).To(BeTrue())
+
+		session.s2sStopVAD()
+		Expect(session.s2sUserTurnOpen()).To(BeFalse())
+
+		// Manual mode: new audio is buffered, not forwarded, and a commit
+		// sends only that.
+		session.TurnDetection = nil
+		chunk := make([]byte, 320)
+		session.InputAudioBuffer = append(session.InputAudioBuffer, chunk...)
+		session.s2sOnAppendLocked(chunk)
+		session.s2sCommitAudio(session.InputAudioBuffer, conv)
+
+		pcm := 0
+		for _, r := range stream.requests() {
+			if f := r.GetFrame(); f != nil {
+				pcm += len(f.GetPcm())
+			}
+		}
+		Expect(pcm).To(Equal(640+320), "each sample reaches the backend once")
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "input_audio_buffer.commit"}))
+	})
+
+	It("holds a tool result back while a user turn is open and sends it after", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		conv.Items = append(conv.Items, &types.MessageItemUnion{FunctionCallOutput: &types.MessageItemFunctionCallOutput{
+			ID: "fo1", CallID: "call_1", Output: "{}",
+		}})
+		session.InputAudioBuffer = make([]byte, 640)
+		session.s2sBeginTurn(0)
+
+		// The user speaks before the result is forwarded: the backend would
+		// refuse it, so it must stay pending and not be marked as sent.
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		Expect(stream.controls()).To(BeEmpty())
+
+		// A turn that was dropped after audio went out is still open.
+		session.s2sAbortTurn()
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		Expect(stream.controls()).To(BeEmpty())
+
+		session.s2sEndTurn()
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		session.s2s.forwardPendingItems(conv, &session.AudioBufferLock)
+		Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit", "conversation.item.create"}))
+	})
+
+	It("resamples a committed turn to the backend input rate", func() {
+		stream := newFakeS2SStream()
+		session, _, conv := newHarness(stream, baseModel())
+		session.InputSampleRate = 24000
+		session.s2sCommitAudio(make([]byte, 24000*2/10), conv) // 100 ms at 24 kHz
+		Expect(framesBytes(stream)).To(BeNumerically("~", rate*2/10, 8))
+	})
+
+	It("reports an open VAD turn so a tool result can be refused", func() {
+		stream := newFakeS2SStream()
+		session, _, _ := newHarness(stream, baseModel())
+		Expect(session.s2sUserTurnOpen()).To(BeFalse())
+		session.s2sBeginTurn(0)
+		Expect(session.s2sUserTurnOpen()).To(BeTrue())
+		session.s2sEndTurn()
+		Expect(session.s2sUserTurnOpen()).To(BeFalse())
+	})
+
+	It("ends the session when the stream dies during a response", func() {
+		stream := newFakeS2SStream()
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			if isControl(req, "response.create") {
+				_ = f.Close() // the backend goes away mid-response
+			}
+		}
+		session, tr, conv := newHarness(stream, baseModel())
+		var fatal atomic.Int32
+		session.s2s.setOnFatal(func() { fatal.Add(1) })
+
+		session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+		session.respSink.wait()
+
+		Eventually(fatal.Load, 2*time.Second).Should(Equal(int32(1)))
+		Expect(tr.countEvents(types.ServerEventTypeError)).To(Equal(1))
+		// Nothing more is accepted or queued for the dead stream.
+		Expect(session.s2s.forwardPCM(make([]byte, 640), rate)).To(BeZero())
+		Expect(session.s2s.control("input_audio_buffer.commit", nil)).To(MatchError(errS2SClosed))
+		session.s2s.outMu.Lock()
+		queued := len(session.s2s.outQ)
+		session.s2s.outMu.Unlock()
+		Expect(queued).To(BeZero())
+	})
+
+	It("drops what is queued after the session is closed", func() {
+		stream := newFakeS2SStream()
+		session, _, _ := newHarness(stream, baseModel())
+		session.s2s.close()
+		for range 50 {
+			session.s2s.sendAsync(&proto.AudioToAudioRequest{})
+		}
+		session.s2s.outMu.Lock()
+		queued := len(session.s2s.outQ)
+		session.s2s.outMu.Unlock()
+		Expect(queued).To(BeZero())
+	})
+
+	It("closes the stream only when no write is in progress", func() {
+		stream := &overlapStream{fakeS2SStream: fakeS2SStream{recv: make(chan *proto.AudioToAudioResponse, 8), closing: make(chan struct{})}}
+		st := newS2SSession(stream, nil, nil)
+		for range 5 {
+			st.sendAsync(&proto.AudioToAudioRequest{})
+		}
+		time.Sleep(30 * time.Millisecond) // a Send is under way
+		st.close()
+		Eventually(func() bool {
+			select {
+			case _, ok := <-stream.recv:
+				return !ok
+			default:
+				return false
+			}
+		}, 2*time.Second).Should(BeTrue())
+		Expect(stream.overlap.Load()).To(BeFalse())
+	})
+
+	It("calls onDead when the stream ends outside a response", func() {
+		stream := newFakeS2SStream()
+		st := newS2SSession(stream, nil, nil)
+		got := make(chan error, 1)
+		st.setOnDead(func(err error) { got <- err })
+		_ = stream.Close()
+		Eventually(got).Should(Receive())
+		st.close()
+	})
+
+	It("does not call onDead for a deliberate close", func() {
+		stream := newFakeS2SStream()
+		st := newS2SSession(stream, nil, nil)
+		got := make(chan error, 1)
+		st.setOnDead(func(err error) { got <- err })
+		st.close()
+		Consistently(got, 200*time.Millisecond).ShouldNot(Receive())
+	})
+
+	It("surfaces the real status when Send fails with a bare EOF", func() {
+		stream := &eofStream{status: status.Error(codes.Unimplemented, "no such method"), failed: make(chan struct{})}
+		st := newS2SSession(stream, nil, nil)
+		DeferCleanup(st.close)
+		err := st.open(context.Background(), s2sConfig{})
+		Expect(err).To(HaveOccurred())
+		Expect(status.Code(errors.Unwrap(err))).To(Equal(codes.Unimplemented))
+	})
+
+	It("reports a backend error outside a response", func() {
+		stream := newFakeS2SStream()
+		got := make(chan string, 1)
+		st := newS2SSession(stream, nil, func(typ, msg string) { got <- typ + ": " + msg })
+		DeferCleanup(st.close)
+		stream.push("error", nil, map[string]any{"type": "invalid_request_error", "message": "instructions cannot change"})
+		Eventually(got).Should(Receive(Equal("invalid_request_error: instructions cannot change")))
+	})
+
+	Describe("backend errors during a response", func() {
+		errorCodes := func(tr *fakeTransport) []string {
+			var out []string
+			for _, e := range tr.events() {
+				if ev, ok := e.(types.ErrorEvent); ok {
+					out = append(out, ev.Error.Code)
+				}
+			}
+			return out
+		}
+
+		It("keeps the response going after an error that is not about it", func() {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if isControl(req, "response.create") {
+					f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "hi "})
+					f.push("error", nil, map[string]any{"type": "invalid_request_error", "message": "session.update: voice cannot change after the first audio or message"})
+					f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "there"})
+					f.push("response.done", nil, map[string]any{"status": "completed", "text": "hi there"})
+				}
+			}
+			session, tr, conv := newHarness(stream, baseModel())
+
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			session.respSink.wait()
+
+			Expect(tr.transcriptDeltaText()).To(Equal("hi there"))
+			names := eventTypeNames(tr.events())
+			Expect(names[len(names)-1]).To(Equal("response.done"))
+			Expect(errorCodes(tr)).To(Equal([]string{"invalid_request_error"}), "the client still hears about the error")
+		})
+
+		It("ends the response on an error that answers its response.create", func() {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if isControl(req, "response.create") {
+					f.push("error", nil, map[string]any{"type": "conversation_empty", "message": "commit audio or create a message first", "response_scoped": true})
+				}
+			}
+			session, tr, conv := newHarness(stream, baseModel())
+
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			session.respSink.wait()
+
+			Expect(errorCodes(tr)).To(Equal([]string{"conversation_empty"}))
+			Expect(fromResponseCreated(tr.events())).To(Equal([]string{"response.created", "error"}))
+		})
+
+		It("does not take events of an earlier response for the next one", func() {
+			stream := newFakeS2SStream()
+			stream.script = replyScript
+			session, tr, conv := newHarness(stream, baseModel())
+			// What an earlier response left in the buffer.
+			session.s2s.events <- &proto.AudioToAudioResponse{Event: "response.audio_transcript.delta", Meta: []byte(`{"delta":"stale "}`)}
+			session.s2s.events <- &proto.AudioToAudioResponse{Event: "response.done", Meta: []byte(`{"status":"completed","text":"stale"}`)}
+
+			session.issueClientResponse(types.ResponseCreateParams{}, conv, tr)
+			session.respSink.wait()
+
+			Expect(tr.transcriptDeltaText()).To(Equal("hi there"))
+		})
+
+		It("sends no commit when no audio was forwarded for the turn", func() {
+			stream := newFakeS2SStream()
+			session, _, _ := newHarness(stream, baseModel())
+
+			session.s2sEndTurn()
+			Expect(stream.controls()).To(BeEmpty())
+
+			session.InputAudioBuffer = make([]byte, 640)
+			session.s2sBeginTurn(0)
+			session.s2sEndTurn()
+			Expect(stream.controls()).To(Equal([]string{"input_audio_buffer.commit"}))
+		})
+	})
+
+	It("ends the reader when nobody reads the events and the session closes", func() {
+		stream := newFakeS2SStream()
+		st := newS2SSession(stream, nil, nil)
+		st.active.Store(true)
+		for range 100 {
+			stream.push("response.audio.delta", []byte{1, 2}, nil)
+		}
+		Eventually(func() int { return len(st.events) }).Should(Equal(cap(st.events)))
+
+		st.close()
+		Eventually(st.dead, 2*time.Second).Should(BeClosed())
+	})
+
+	It("gives up on a cancel the backend never takes, even when the write queue is stuck", func() {
+		old := s2sCancelGrace
+		s2sCancelGrace = 100 * time.Millisecond
+		DeferCleanup(func() { s2sCancelGrace = old })
+
+		stream := newFakeS2SStream()
+		release := make(chan struct{})
+		stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+			switch {
+			case isControl(req, "response.create"):
+				f.push("response.audio_transcript.delta", nil, map[string]any{"delta": "hi"})
+			case isControl(req, "response.cancel"):
+				<-release // backpressure: the write never completes
+			}
+		}
+		DeferCleanup(func() { close(release) })
+		session, tr, conv := newHarness(stream, baseModel())
+
+		ctx, cancel := context.WithCancel(context.Background())
+		r := &liveResponse{id: "resp_1"}
+		finished := make(chan struct{})
+		go func() {
+			defer close(finished)
+			s2sResponseTurn(ctx, session, conv, tr, nil, 0, r)
+		}()
+		Eventually(func() string { return tr.transcriptDeltaText() }).Should(Equal("hi"))
+
+		cancel()
+		Eventually(finished, 3*time.Second).Should(BeClosed())
+		Expect(r.outcome).To(Equal(outcomeFailed))
+	})
+
+	Describe("the model that transcribes the input of an any-to-any session", func() {
+		It("is none by default, another model, or the model itself when named", func() {
+			yes := true
+			for name, tc := range map[string]struct{ transcription, want string }{
+				"default":     {"", ""},
+				"other model": {"asr", "asr"},
+				"own model":   {"s2s", "s2s"},
+			} {
+				cfg := &config.ModelConfig{Name: "s2s", Pipeline: config.Pipeline{AnyToAny: &yes, Transcription: tc.transcription}}
+				_, _, ok := prepareRealtimeConfig(cfg)
+				Expect(ok).To(BeTrue(), name)
+				Expect(s2sInputTranscriptionModel(cfg)).To(Equal(tc.want), name)
+			}
+		})
+	})
+
+	Describe("the input transcription on the model of the stream", func() {
+		sessionOn := func(name, transcription string) *Session {
+			st := newS2SSession(newFakeS2SStream(), nil, nil)
+			DeferCleanup(st.close)
+			return &Session{s2s: st, ModelConfig: &config.ModelConfig{Name: name, Pipeline: config.Pipeline{Transcription: transcription}}}
+		}
+
+		It("is told apart from a transcription model of its own", func() {
+			Expect(s2sTranscribesOnStreamModel(sessionOn("s2s", "s2s"))).To(BeTrue())
+			Expect(s2sTranscribesOnStreamModel(sessionOn("s2s", "asr"))).To(BeFalse())
+			Expect(s2sTranscribesOnStreamModel(&Session{ModelConfig: &config.ModelConfig{Name: "s2s"}})).To(BeFalse())
+		})
+
+		It("runs only while no response holds the stream, and keeps responses out meanwhile", func() {
+			st := sessionOn("s2s", "s2s").s2s
+			st.sem <- struct{}{} // a response is running
+
+			ran := make(chan struct{})
+			release := make(chan struct{})
+			done := make(chan bool, 1)
+			go func() {
+				done <- st.exclusive(context.Background(), func() {
+					close(ran)
+					<-release
+				})
+			}()
+			Consistently(ran, 100*time.Millisecond).ShouldNot(BeClosed())
+
+			<-st.sem // the response ends
+			Eventually(ran).Should(BeClosed())
+			select {
+			case st.sem <- struct{}{}:
+				Fail("a response took the stream while the transcription ran")
+			case <-time.After(50 * time.Millisecond):
+			}
+			close(release)
+			Eventually(done).Should(Receive(BeTrue()))
+			Expect(st.sem).To(BeEmpty())
+		})
+
+		It("gives up when its context ends before the stream is free", func() {
+			st := sessionOn("s2s", "s2s").s2s
+			st.sem <- struct{}{}
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			Expect(st.exclusive(ctx, func() { Fail("ran") })).To(BeFalse())
+		})
+	})
+
+	Describe("the output mode on the wire", func() {
+		openSession := func(tools []types.ToolUnion, mods []types.Modality) (*Session, *fakeS2SStream) {
+			stream := newFakeS2SStream()
+			stream.script = func(f *fakeS2SStream, req *proto.AudioToAudioRequest) {
+				if req.GetConfig() != nil {
+					f.push("session.created", nil, map[string]any{"input_sample_rate": rate, "output_sample_rate": 24000})
+				}
+			}
+			session := &Session{Tools: tools, OutputModalities: mods}
+			Expect(openS2SForSession(session, openerFunc(func(context.Context) (S2SStream, error) { return stream, nil }), &fakeTransport{})).To(Succeed())
+			stream.owner = session.s2s
+			DeferCleanup(session.closeS2S)
+			return session, stream
+		}
+
+		It("leaves the mode to the backend when the client chose none", func() {
+			session, stream := openSession(nil, nil)
+			cfg := stream.requests()[0].GetConfig()
+			Expect(cfg.GetParams()).ToNot(HaveKey("output_modalities"))
+
+			// Tools added before the first turn must not meet a mode fixed at open.
+			session.Tools = []types.ToolUnion{{Function: &types.ToolFunction{Name: "get_time"}}}
+			session.s2sSyncConfig()
+			var update map[string]any
+			for _, r := range stream.requests() {
+				if isControl(r, "session.update") {
+					Expect(json.Unmarshal(r.GetControl().GetPayload(), &update)).To(Succeed())
+				}
+			}
+			Expect(update).To(HaveKey("tools"))
+			Expect(update).ToNot(HaveKey("output_modalities"))
+		})
+
+		It("forwards the flat tools of a client session.update to the backend in the nested form", func() {
+			session, stream := openSession(nil, nil)
+			// The event as the real-weights e2e spec sends it: the Responses
+			// API tool shape, no session type, tools before the first audio.
+			var update types.SessionUpdateEvent
+			Expect(json.Unmarshal([]byte(`{"type":"session.update","session":{"tools":[{"type":"function","name":"get_weather","description":"Current weather for a city.","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}]}}`), &update)).To(Succeed())
+			Expect(updateSession(session, &update.Session, nil, nil, nil, nil, nil, nil)).To(Succeed())
+			session.s2sSyncConfig()
+
+			var payload struct {
+				Tools []struct {
+					Type     string `json:"type"`
+					Function struct {
+						Name       string         `json:"name"`
+						Parameters map[string]any `json:"parameters"`
+					} `json:"function"`
+				} `json:"tools"`
+			}
+			var seen bool
+			for _, r := range stream.requests() {
+				if isControl(r, "session.update") {
+					seen = true
+					Expect(json.Unmarshal(r.GetControl().GetPayload(), &payload)).To(Succeed())
+				}
+			}
+			Expect(seen).To(BeTrue(), "no session.update control reached the backend")
+			Expect(payload.Tools).To(HaveLen(1))
+			Expect(payload.Tools[0].Type).To(Equal("function"))
+			Expect(payload.Tools[0].Function.Name).To(Equal("get_weather"))
+			Expect(payload.Tools[0].Function.Parameters).To(HaveKey("properties"))
+		})
+
+		It("sends the modalities the client chose", func() {
+			_, stream := openSession(nil, []types.Modality{types.ModalityText})
+			Expect(stream.requests()[0].GetConfig().GetParams()).To(HaveKeyWithValue("output_modalities", `["text"]`))
+		})
+	})
+
+	Describe("prepareRealtimeConfig for any-to-any models", func() {
+		yes := true
+		newCfg := func() *config.ModelConfig {
+			return &config.ModelConfig{Name: "s2s", Pipeline: config.Pipeline{AnyToAny: &yes}}
+		}
+		It("fills llm, leaves transcription, VAD and TTS empty", func() {
+			cfg := newCfg()
+			_, _, ok := prepareRealtimeConfig(cfg)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Pipeline.LLM).To(Equal("s2s"))
+			// no input transcription unless the config asks for one
+			Expect(cfg.Pipeline.Transcription).To(BeEmpty())
+			Expect(s2sInputTranscriptionModel(cfg)).To(BeEmpty())
+			Expect(cfg.Pipeline.VAD).To(BeEmpty())
+			Expect(cfg.Pipeline.TTS).To(BeEmpty())
+		})
+		It("keeps a configured VAD and transcription model", func() {
+			cfg := newCfg()
+			cfg.Pipeline.VAD, cfg.Pipeline.Transcription = "silero", "asr"
+			_, _, ok := prepareRealtimeConfig(cfg)
+			Expect(ok).To(BeTrue())
+			Expect(cfg.Pipeline.VAD).To(Equal("silero"))
+			Expect(cfg.Pipeline.Transcription).To(Equal("asr"))
+		})
+		DescribeTable("rejects features that need a separate LLM call",
+			func(mutate func(*config.ModelConfig), want string) {
+				cfg := newCfg()
+				mutate(cfg)
+				code, msg, ok := prepareRealtimeConfig(cfg)
+				Expect(ok).To(BeFalse())
+				Expect(code).To(Equal("invalid_pipeline"))
+				Expect(msg).To(ContainSubstring(want))
+			},
+			Entry("classifier", func(c *config.ModelConfig) { c.Pipeline.Classifier = &config.PipelineClassifier{Enabled: true} }, "classifier"),
+			Entry("compaction", func(c *config.ModelConfig) { c.Pipeline.Compaction = &config.PipelineCompaction{Enabled: true} }, "compaction"),
+			Entry("streaming llm", func(c *config.ModelConfig) { c.Pipeline.Streaming.LLM = &yes }, "streaming.llm"),
+			Entry("voice recognition", func(c *config.ModelConfig) {
+				c.Pipeline.VoiceRecognition = &config.PipelineVoiceRecognition{Model: "spk"}
+			}, "voice_recognition"),
+			Entry("sound detection", func(c *config.ModelConfig) { c.Pipeline.SoundDetection = "ced" }, "sound_detection"),
+		)
+	})
+
+	It("returns errS2SOnly for chained-pipeline operations", func() {
+		m := &anyToAnyModel{}
+		_, err := m.Predict(context.Background(), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		Expect(errors.Is(err, errS2SOnly)).To(BeTrue())
+		_, _, err = m.TTS(context.Background(), "x", "", "")
+		Expect(errors.Is(err, errS2SOnly)).To(BeTrue())
+		_, err = m.VAD(context.Background(), &schema.VADRequest{})
+		Expect(err).To(HaveOccurred(), "no VAD model configured")
+	})
+})
+
+type openerFunc func(ctx context.Context) (S2SStream, error)
+
+func (f openerFunc) OpenS2S(ctx context.Context) (S2SStream, error) { return f(ctx) }
+
+func countCancels(f *fakeS2SStream) int {
+	n := 0
+	for _, c := range f.controls() {
+		if c == "response.cancel" {
+			n++
+		}
+	}
+	return n
+}
+
+// framesBytes totals the PCM bytes of the frames sent so far.
+func framesBytes(f *fakeS2SStream) int {
+	n := 0
+	for _, r := range f.requests() {
+		if fr := r.GetFrame(); fr != nil {
+			n += len(fr.GetPcm())
+		}
+	}
+	return n
+}

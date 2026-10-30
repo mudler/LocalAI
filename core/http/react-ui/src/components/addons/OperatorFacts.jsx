@@ -3,20 +3,20 @@ import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
 import { StateChip, Fact, UnknownNotice } from './AddonBits'
 import { formatBytes, rangeText, shortDigest } from './addonState'
-import { describeError, describeOutcome } from './errors'
-import { updateView, formatWhen, UPDATE_TYPES } from './updateState'
+import { describeError } from './errors'
+import { updateView, formatWhen, upgradeAvailability } from './updateState'
+import { upgradeFailureWords } from './updateReview'
 import RecoveryPanel from './RecoveryPanel'
 import { reasonText } from './UpgradeControls'
 import { UpgradeReason } from '../upgrade/UpgradeBits'
-import { upgradeAvailability } from './updateState'
 
 // What an administrator needs to run an add-on, shown in the preview pane under
 // Details: health, trust, compatibility, storage, data recovery and updates.
 // It reads the installed record of the add-on, which the host serves to
 // administrators only; the host checks that again on every call.
-export function OperatorFacts({ addon, api, language, actions, check, upgraded, onCheck, onUpgrade }) {
+export function OperatorFacts({ addon, api, language, actions, check, upgraded, upgradeOp, onCheck, onUpgrade }) {
   const { t } = useTranslation('addons')
-  const working = busy(actions, addon, ['start', 'stop', 'enable', 'disable', 'upgrade', 'uninstall'])
+  const working = busy(actions, addon, ['start', 'stop', 'enable', 'disable', 'uninstall']) || isUpgrading(upgradeOp)
   const compat = addon.compatibility || {}
   return (
     <div className="ad-facts-body" data-testid="addon-manage">
@@ -43,7 +43,7 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
 
       <section className="ad-section" aria-labelledby="manage-updates" data-testid="manage-updates">
         <h3 id="manage-updates" className="ad-section__title">{t('updates.title')}</h3>
-        <UpdatePanel addon={addon} t={t} language={language} actions={actions} check={check} upgraded={upgraded} working={working} onCheck={onCheck} onUpgrade={onUpgrade} />
+        <UpdatePanel addon={addon} t={t} language={language} actions={actions} check={check} upgraded={upgraded} upgradeOp={upgradeOp} working={working} onCheck={onCheck} onUpgrade={onUpgrade} />
       </section>
 
       <section className="ad-section" aria-labelledby="manage-compat">
@@ -80,34 +80,24 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
   )
 }
 
+// An upgrade of this add-on that is running or being canceled. It is kept by
+// the upgrade store, so it goes on when this panel is closed.
+function isUpgrading(op) {
+  return Boolean(op) && (op.state === 'running' || op.state === 'cancelling')
+}
+
 function busy(actions, addon, verbs) {
   if (actions.unknown[addon.id]) return true
   return verbs.some(v => actions.state[`${v}:${addon.id}:${addon.generation}`]?.phase === 'working')
 }
 
-function latest(actions, addon, verbs) {
-  for (const v of verbs) {
-    const s = actions.state[`${v}:${addon.id}:${addon.generation}`]
-    if (s && s.phase !== 'working' && s.outcome) return s
-  }
-  return null
-}
-
-// The words for the outcome of an action. A typed refusal of the update
-// routes has its own words; everything else is the shared description.
-export function outcomeText(result, t) {
-  const type = result && result.error && result.error.type
-  if (type && UPDATE_TYPES.has(type)) return t(`updates.errors.${type}`)
-  return describeOutcome(result.outcome, t, result.error)
-}
-
 // The owner's update check of one add-on: what it says, how old it is, and the
 // two actions. Check only reads; Upgrade opens a confirmation first.
-function UpdatePanel({ addon, t, language, actions, check, upgraded, working, onCheck, onUpgrade }) {
+function UpdatePanel({ addon, t, language, actions, check, upgraded, upgradeOp, working, onCheck, onUpgrade }) {
   const view = updateView(addon.update)
   const checking = check && check.phase === 'working'
-  const upgrading = actions.state[`upgrade:${addon.id}:${addon.generation}`]?.phase === 'working'
-  const result = latest(actions, addon, ['upgrade'])
+  const upgrading = isUpgrading(upgradeOp)
+  const failedUpgrade = upgradeOp && upgradeOp.state === 'failed' ? upgradeOp : null
   const checkedAt = formatWhen(view.checkedAt, language)
   const lastSuccess = formatWhen(view.lastSuccess, language)
   return (
@@ -143,9 +133,8 @@ function UpdatePanel({ addon, t, language, actions, check, upgraded, working, on
       {check && check.phase === 'error' && <p className="ad-entry__note" data-tone="error" role="alert">{describeError(check.error, t)}</p>}
       {upgrading && <p className="ad-entry__note" role="status" data-testid="upgrade-progress">{t('updates.progress', { name: addon.title })}</p>}
       {upgraded && !working && <p className="ad-entry__note" data-tone="ok" role="status">{t('updates.done', { version: addon.version })}</p>}
-      {actions.unknown[addon.id]
-        ? <UnknownNotice addonId={addon.id} actions={actions} />
-        : result && result.outcome !== 'completed' && <p className="ad-entry__note" data-tone="error" role="alert">{outcomeText(result, t)}</p>}
+      {actions.unknown[addon.id] && <UnknownNotice addonId={addon.id} actions={actions} />}
+      {failedUpgrade && <p className="ad-entry__note" data-tone="error" role="alert" data-testid="upgrade-error">{upgradeFailureWords(failedUpgrade.errorKey, t)}</p>}
       <div className="ad-section__acts">
         <Button size="sm" icon="refresh" busy={checking} disabled={checking || working} onClick={onCheck} data-testid="update-check">
           {checking ? t('updates.checking') : t('updates.checkNow')}

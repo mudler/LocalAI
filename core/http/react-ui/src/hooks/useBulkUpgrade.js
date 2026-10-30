@@ -54,9 +54,20 @@ export function useBulkUpgrade({ items, runOne }) {
     setPicked(null)
   }, [])
 
+  // Opens the dialog. With `ids` (a row's own Upgrade) only those are
+  // checked; a finished run is put away first. A running one is only shown.
+  const show = useCallback((ids) => {
+    if (Array.isArray(ids) && !(runRef.current && runRef.current.phase === 'running')) {
+      runRef.current = null
+      setRun(null)
+      setPicked(new Set(ids))
+    }
+    setOpen(true)
+  }, [])
+
   return {
     open,
-    show: () => setOpen(true),
+    show,
     hide: () => setOpen(false),
     items,
     selected,

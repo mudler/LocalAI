@@ -1,10 +1,10 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { Button, Callout, EmptyState, LoadError, SkeletonRows } from '../ui'
-import { pollDelay } from '../catalog/catalogState'
+import { newOperationId, pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
 import { useAuth } from '../../context/AuthContext'
@@ -18,12 +18,13 @@ import ConfirmDialog from '../ConfirmDialog'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
 import { UnknownNotice } from './AddonBits'
-import { OperatorFacts, outcomeText } from './OperatorFacts'
+import { OperatorFacts } from './OperatorFacts'
 import { AddonUpgradeAction, UpgradeConfirm, reasonText } from './UpgradeControls'
 import { useAddonUpgrade } from './useAddonUpgrade'
 import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../upgrade/BulkUpgradeDialog'
 import { useBulkUpgrade } from '../../hooks/useBulkUpgrade'
 import { updateView, upgradeAvailability } from './updateState'
+import { upgradeFailureWords } from './updateReview'
 import FirstRun from './FirstRun'
 import { addedByAddon, attentionOf, filterByState, listState, sortByAttention, STATE_FILTERS } from './addonState'
 import { describeError, describeOutcome } from './errors'
@@ -92,20 +93,13 @@ export default function AppsView({ api, adapter, onSummary }) {
   // pane. A change reads it again.
   const [installedInfo, setInstalledInfo] = useState({})
   const [installedReload, setInstalledReload] = useState(0)
-  const [upgraded, setUpgraded] = useState({})
   const actions = useAddonActions(api, {
-    onSettled: (key, result) => {
+    onSettled: () => {
       reloadRef.current()
       setInstalledReload(n => n + 1)
-      // The key names the generation the click saw, which the list moves past
-      // on success, so the outcome of an upgrade is kept by add-on.
-      const [verb, id] = String(key).split(':')
-      if (verb === 'upgrade' && result && result.outcome === 'completed') setUpgraded(u => ({ ...u, [id]: true }))
-      if (verb === 'upgrade' && result && result.outcome !== 'completed') setUpgraded(u => { const n = { ...u }; delete n[id]; return n })
     },
     adapter,
   })
-
   const startStop = useCallback((app, verb) => {
     actions.run(`${verb}:${app.id}:${app.generation}`, {
       addonId: app.id,
@@ -130,8 +124,48 @@ export default function AppsView({ api, adapter, onSummary }) {
     })
   }, [actions, adapter, api])
 
-  const upgrade = useAddonUpgrade(api, actions, { onChecked: () => { setInstalledReload(n => n + 1); reloadRef.current() } })
+  const upgrade = useAddonUpgrade(api, { onChanged: () => { setInstalledReload(n => n + 1); reloadRef.current() } })
   const checks = upgrade.checks
+  const upgradedIds = useMemo(() => new Set(upgrade.records.filter(r => r.outcome === 'completed').map(r => r.addonId)), [upgrade.records])
+  // An upgrade runs in the upgrade store and may end after this page was left
+  // and opened again, or from Activity: the lists are read again whenever one
+  // ends.
+  const endedCount = upgrade.records.length
+  useEffect(() => {
+    if (endedCount === 0) return
+    reloadRef.current()
+    setInstalledReload(n => n + 1)
+  }, [endedCount])
+  const aborter = useRef(null)
+  useEffect(() => {
+    aborter.current = new AbortController()
+    return () => aborter.current.abort()
+  }, [])
+
+  const outlet = useOutletContext()
+  const addToast = outlet?.addToast
+  const installedList = useMemo(() => Object.values(installedInfo), [installedInfo])
+
+  // Reads the library of every installed add-on again. Only reads: it never
+  // applies anything, and one add-on that cannot be checked does not stop the
+  // rest.
+  const [checkingAll, setCheckingAll] = useState(false)
+  const checkAll = useCallback(async () => {
+    const signal = aborter.current.signal
+    setCheckingAll(true)
+    let failed = 0
+    for (const addon of installedList) {
+      try {
+        await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
+      } catch (error) {
+        if (error && error.name === 'AbortError') return
+        failed += 1
+      }
+    }
+    setCheckingAll(false)
+    setInstalledReload(n => n + 1)
+    addToast?.(failed > 0 ? t('updates.checkAllFailed', { count: failed }) : t('updates.checkAllDone', { count: installedList.length }), failed > 0 ? 'error' : 'info')
+  }, [api, installedList, addToast, t])
 
   const nav = useNavigation()
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
@@ -187,10 +221,9 @@ export default function AppsView({ api, adapter, onSummary }) {
   const bulk = useBulkUpgrade({
     items: upgradeItems,
     runOne: async (item) => {
-      const result = await upgrade.upgrade(item.addon)
-      if (!result) return { ok: false, skipped: true }
-      if (result.outcome === 'completed') return { ok: true }
-      return { ok: false, message: outcomeText(result, t) }
+      if (!item.addon) return { ok: false, message: upgradeFailureWords('stale_installed', t) }
+      const out = await upgrade.upgrade(item.addon)
+      return out.ok ? { ok: true } : { ok: false, message: upgradeFailureWords(out.message, t) }
     },
   })
 
@@ -283,7 +316,7 @@ export default function AppsView({ api, adapter, onSummary }) {
                 )
               })}
               {attention.updates.map(({ tile, rec, version }) => {
-                const working = Boolean(actions.unknown[tile.id]) || actions.state[`upgrade:${tile.id}:${tile.app.generation}`]?.phase === 'working'
+                const working = Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id)
                 return (
                   <Callout
                     key={tile.id}
@@ -324,6 +357,11 @@ export default function AppsView({ api, adapter, onSummary }) {
                   <button key={id} type="button" className="ad-seg__item" aria-pressed={stateFilter === id} onClick={() => setStateFilter(id)}>{t(`filter.${id}`)}</button>
                 ))}
               </div>
+              {isAdmin && installedList.length > 0 && (
+                <Button size="sm" variant="ghost" icon="refresh" busy={checkingAll} disabled={checkingAll} onClick={checkAll} data-testid="addons-check-all">
+                  {checkingAll ? t('updates.checkingAll') : t('updates.checkAll')}
+                </Button>
+              )}
               {isAdmin && <BulkUpgradeTrigger bulk={bulk} className="dk-btn dk-btn--sm" />}
             </div>
           )}
@@ -370,7 +408,7 @@ export default function AppsView({ api, adapter, onSummary }) {
                         isAdmin={isAdmin}
                         upgrade={upgrade}
                         variant="secondary"
-                        working={Boolean(actions.unknown[tile.id]) || actions.state[`upgrade:${tile.id}:${tile.app.generation}`]?.phase === 'working'}
+                        working={Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id)}
                       />
                     ) : null}
                   />
@@ -405,7 +443,8 @@ export default function AppsView({ api, adapter, onSummary }) {
                   language={i18n.language}
                   actions={actions}
                   check={checks[detail.id]}
-                  upgraded={Boolean(upgraded[detail.id])}
+                  upgraded={upgradedIds.has(detail.id)}
+                  upgradeOp={upgrade.opOf(detail.id)}
                   onCheck={() => upgrade.check(installedInfo[detail.id])}
                   onUpgrade={() => upgrade.ask(installedInfo[detail.id])}
                 />

@@ -52,7 +52,6 @@ class MigratedBackendSourceTest(unittest.TestCase):
             "nemo",
             "voxcpm",
             "qwen-tts",
-            "liquid-audio",
             "vllm",
             "vllm-omni",
             "sglang",

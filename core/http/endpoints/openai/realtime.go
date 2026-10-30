@@ -152,8 +152,7 @@ type Session struct {
 	// TTS so the client receives only response.output_text.* events.
 	OutputModalities []types.Modality
 	// MaxHistoryItems caps the number of MessageItems passed to the LLM each
-	// turn (0 = unlimited). Small models — especially the LFM2.5-Audio 1.5B
-	// served via the liquid-audio backend — degrade quickly past a handful
+	// turn (0 = unlimited). Small speech models degrade quickly past a handful
 	// of turns. Counted from the tail; FunctionCall + FunctionCallOutput
 	// pairs are kept together so we never feed an orphaned tool result.
 	MaxHistoryItems int
@@ -216,6 +215,9 @@ type Session struct {
 	// commitOrderMu guards commitTail AND is the shared ordering boundary
 	// between the two commit producers (see issueCommit).
 	commitOrderMu sync.Mutex
+	// s2s is the backend stream of an any-to-any session (pipeline.any_to_any);
+	// nil for chained pipelines. Set before the read loop starts.
+	s2s *s2sSession
 	// commitTail is the newest commit slot. Slots form a chain that orders
 	// user-item appends in speech order, not transcription-completion order
 	// (see commitSlot).
@@ -247,6 +249,9 @@ type commitSlot struct {
 	// conversation. It is written by the commit goroutine before done closes
 	// and must only be read after done is closed.
 	appended bool
+	// source is who issued the commit. An any-to-any session answers a VAD
+	// commit itself and waits for response.create after a client commit.
+	source respcoord.Source
 }
 
 // nextCommitSlot claims the next position in the commit order. It is called
@@ -290,6 +295,7 @@ func (session *Session) issueCommit(parent context.Context, source respcoord.Sou
 	session.commitOrderMu.Lock()
 	defer session.commitOrderMu.Unlock()
 	slot := session.nextCommitSlotLocked()
+	slot.source = source
 	// A non-interrupting VAD commit must not supersede a response at speech end.
 	ifIdle := source == respcoord.SourceVAD && !session.interruptResponseEnabled()
 	session.respSink.issueWithPolicy(parent, source, ifIdle, func(ctx context.Context) {
@@ -644,12 +650,20 @@ func prepareRealtimeConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok 
 		return "invalid_model", "Model is not a pipeline model", false
 	}
 
-	// Self-contained any-to-any models (e.g. liquid-audio) own the whole
+	// Self-contained any-to-any models own the whole
 	// loop in one engine — surface them by populating empty pipeline slots
 	// with the model's own name so newModel can resolve a config for each
 	// role. The user can still pin individual slots (e.g. Pipeline.VAD =
 	// silero-vad) and those wins.
+	if cfg.Pipeline.IsAnyToAny() {
+		return prepareAnyToAnyConfig(cfg)
+	}
 	if cfg.HasUsecases(config.FLAG_REALTIME_AUDIO) {
+		// llama.cpp has no VAD, transcription or TTS RPCs, so a model that
+		// names no pipeline would fail later with UNIMPLEMENTED on every slot.
+		if config.IsLlamaCppBackend(cfg.Backend) {
+			return "invalid_pipeline", "a llama-cpp realtime_audio model must set pipeline.any_to_any: true", false
+		}
 		if cfg.Pipeline.VAD == "" {
 			cfg.Pipeline.VAD = cfg.Name
 		}
@@ -744,8 +758,13 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// defaultTurnDetection seeds server_vad by default, or semantic_vad when the
 	// pipeline opts in (turn_detection.type: semantic_vad); clients can still
 	// override per session via session.update.
-	turnDetection := defaultTurnDetection(cfg)
+	// Without a VAD model nothing detects turns, so the client commits them.
+	turnDetection := defaultSessionTurnDetection(cfg)
 	inputAudioTranscription := &types.AudioTranscription{Model: sttModel}
+	anyToAny := cfg.Pipeline.IsAnyToAny()
+	if anyToAny && s2sInputTranscriptionModel(cfg) == "" {
+		inputAudioTranscription = nil // the stream answers from the audio; see s2sInputTranscriptionModel
+	}
 	if soundOnly {
 		turnDetection = nil           // turn_detection none: no VAD
 		inputAudioTranscription = nil // no transcription stage
@@ -756,8 +775,11 @@ func runRealtimeSession(application *application.Application, t Transport, model
 	// session's default voice instructions. Order matches chat.go's
 	// hasSystemMessage check — assistant prompt comes first.
 	instructions := defaultInstructions
+	if anyToAny {
+		instructions = s2sDefaultInstructions
+	}
 	if assistantSystemPrompt != "" {
-		instructions = assistantSystemPrompt + "\n\n" + defaultInstructions
+		instructions = assistantSystemPrompt + "\n\n" + instructions
 	}
 
 	sessionID := generateSessionID()
@@ -784,6 +806,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 		SoundDetectionHopMs:     cfg.Pipeline.SoundDetectionHopMs,
 	}
 	session.CompactionEnabled, session.CompactionTrigger, session.MaxSummaryTokens, session.SummaryModel = resolveCompaction(cfg, session.MaxHistoryItems)
+	if anyToAny {
+		// The context lives in the backend; there is nothing to summarize here.
+		session.CompactionEnabled = false
+	}
 	classifier, err := classifierConfigFromPipeline(cfg.Pipeline.Classifier)
 	if err != nil {
 		sendError(t, "invalid_pipeline", "pipeline classifier: "+err.Error(), "", "")
@@ -907,6 +933,15 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			sendError(t, "model_load_error", "Failed to load pipeline models: "+err.Error(), "", "")
 			return
 		}
+	}
+
+	if opener, ok := m.(s2sOpener); ok {
+		if err := openS2SForSession(session, opener, t); err != nil {
+			xlog.Error("failed to open the speech-to-speech stream", "error", err)
+			sendError(t, "model_load_error", "Failed to open the speech-to-speech stream: "+err.Error(), "", "")
+			return
+		}
+		defer session.closeS2S()
 	}
 
 	if session.SummaryModel != "" {
@@ -1070,6 +1105,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				}
 
 				toggleVAD()
+				session.s2sSyncConfig()
 
 				sendEvent(t, types.SessionUpdatedEvent{
 					ServerEventBase: types.ServerEventBase{
@@ -1107,6 +1143,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 			// Append to InputAudioBuffer
 			session.InputAudioBuffer = append(session.InputAudioBuffer, decodedAudio...)
+			session.s2sOnAppendLocked(decodedAudio)
 			session.AudioBufferLock.Unlock()
 
 		case types.InputAudioBufferCommitEvent:
@@ -1122,21 +1159,7 @@ func runRealtimeSession(application *application.Application, t Transport, model
 				continue
 			}
 
-			session.AudioBufferLock.Lock()
-			allAudio := make([]byte, len(session.InputAudioBuffer))
-			copy(allAudio, session.InputAudioBuffer)
-			session.InputAudioBuffer = nil
-			session.AudioBufferLock.Unlock()
-
-			sendEvent(t, types.InputAudioBufferCommittedEvent{
-				ServerEventBase: types.ServerEventBase{},
-				ItemID:          generateItemID(),
-			})
-
-			// Issue through the shared commit-ordering boundary and record the
-			// in-flight commit so the back-to-back response.create waits for the
-			// STT before the LLM starts (client-commit LLM/STT race).
-			session.issueClientCommit(allAudio, conversation, t)
+			commitClientAudio(session, conversation, t)
 
 		case types.InputAudioBufferClearEvent:
 			xlog.Debug("recv", "message", string(msg))
@@ -1151,6 +1174,14 @@ func runRealtimeSession(application *application.Application, t Transport, model
 			xlog.Debug("recv", "message", string(msg))
 			// Add the item to the conversation
 			item := e.Item
+			if session.s2s != nil && !s2sItemSupported(item) {
+				sendError(t, "invalid_request_error", "this conversation item is "+s2sUnsupportedMessage, "", e.EventID)
+				continue
+			}
+			if item.FunctionCallOutput != nil && session.s2sUserTurnOpen() {
+				sendError(t, "invalid_request_error", "a tool result cannot be added while the user is speaking; send it after the turn ends", "", e.EventID)
+				continue
+			}
 			// Ensure IDs are present
 			if item.User != nil && item.User.ID == "" {
 				item.User.ID = generateItemID()
@@ -1182,6 +1213,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 		case types.ConversationItemDeleteEvent:
 			xlog.Debug("recv", "message", string(msg))
+			if session.s2s != nil {
+				sendError(t, "invalid_request_error", "conversation.item.delete is "+s2sUnsupportedMessage, "", e.EventID)
+				continue
+			}
 			if e.ItemID == "" {
 				sendError(t, "invalid_item_id", "Need item_id, but none specified", "", "event_TODO")
 				continue
@@ -1201,6 +1236,10 @@ func runRealtimeSession(application *application.Application, t Transport, model
 
 		case types.ConversationItemTruncateEvent:
 			xlog.Debug("recv", "message", string(msg))
+			if session.s2s != nil {
+				sendError(t, "invalid_request_error", "conversation.item.truncate is "+s2sUnsupportedMessage, "", e.EventID)
+				continue
+			}
 			conversation.Lock.Lock()
 			ok := truncateAssistantText(conversation.Items, e.ItemID, e.ContentIndex)
 			conversation.Lock.Unlock()
@@ -1271,6 +1310,13 @@ func runRealtimeSession(application *application.Application, t Transport, model
 					conversation.Items = append(conversation.Items, &item)
 				}
 				conversation.Lock.Unlock()
+			}
+
+			// A speech-to-speech session with client-driven turns holds the audio
+			// back until a commit; a response.create over uncommitted audio
+			// commits it first, so the model hears what the client sent.
+			if session.s2s != nil && session.s2sManualTurns() && session.hasBufferedInput() {
+				commitClientAudio(session, conversation, t)
 			}
 
 			// With client-driven turns the commit and this response.create are
@@ -1415,19 +1461,33 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 	}
 
 	rt := update.Realtime
+	if session.s2s != nil {
+		if err := checkS2SUpdate(session, rt); err != nil {
+			return err
+		}
+	}
 	explicitVoice := rt.Audio != nil && rt.Audio.Output != nil && rt.Audio.Output.Voice != ""
 	rebuild := rt.Model != "" || explicitVoice || (rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.Transcription != nil)
+
+	if session.s2s != nil {
+		// The model is fixed for the session: a voice or transcription
+		// language change needs no rebuild.
+		rebuild = false
+		if explicitVoice {
+			session.Voice = string(rt.Audio.Output.Voice)
+		}
+	}
 
 	candidateModelName := session.Model
 	candidateConfig := session.ModelConfig
 	candidateTranscription := session.InputAudioTranscription
 
-	if rt.Model != "" {
+	if rt.Model != "" && session.s2s == nil {
 		cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(rt.Model, appConfig)
 		if err != nil {
 			return err
 		}
-		if cfg == nil || (cfg.Pipeline.VAD == "" || cfg.Pipeline.Transcription == "" || cfg.Pipeline.TTS == "" || cfg.Pipeline.LLM == "") {
+		if cfg == nil || (cfg.Pipeline.Transcription == "" || cfg.Pipeline.TTS == "" || cfg.Pipeline.LLM == "") {
 			return fmt.Errorf("model is not a valid pipeline model: %s", rt.Model)
 		}
 
@@ -1453,11 +1513,18 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		}
 	}
 
+	// A pipeline without a VAD model cannot detect turns: refuse to turn
+	// detection on, and drop it when the update moves to such a pipeline.
+	noVAD := session.s2s == nil && candidateConfig.Pipeline.VAD == ""
+	if noVAD && rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.TurnDetectionSet && turnDetectionActive(rt.Audio.Input.TurnDetection) {
+		return errors.New("turn detection needs a VAD model; set pipeline.vad on the model, or commit turns manually")
+	}
+
 	candidateModel := session.ModelInterface
 	candidateVoice := session.Voice
 	candidateParams := maps.Clone(session.ttsParams)
 	var candidateRelease func()
-	selectVoice := rt.Model != "" || explicitVoice
+	selectVoice := (rt.Model != "" || explicitVoice) && session.s2s == nil
 	if rebuild {
 		m, err := newModel(&candidateConfig.Pipeline, cl, ml, appConfig, evaluator, routing)
 		if err != nil {
@@ -1520,6 +1587,9 @@ func updateSession(session *Session, update *types.SessionUnion, cl *config.Mode
 		}
 	}
 
+	if noVAD {
+		session.TurnDetection = nil
+	}
 	if rt.Audio != nil && rt.Audio.Input != nil && rt.Audio.Input.TurnDetectionSet {
 		session.TurnDetection = rt.Audio.Input.TurnDetection
 	}
@@ -1634,12 +1704,35 @@ func decodeOpusLoop(session *Session, opusBackend grpc.Backend, done chan struct
 			newSize := len(session.InputAudioBuffer) + len(pcmBytes)
 			if newSize <= maxAudioBufferSize {
 				session.InputAudioBuffer = append(session.InputAudioBuffer, pcmBytes...)
+				session.s2sOnAppendLocked(pcmBytes)
 			}
 			session.AudioBufferLock.Unlock()
 		case <-done:
 			return
 		}
 	}
+}
+
+// commitClientAudio commits the buffered input audio on a client's request. On
+// a speech-to-speech session the audio goes to the backend only now, ahead of
+// the commit, so a cleared buffer never reaches it.
+func commitClientAudio(session *Session, conversation *Conversation, t Transport) {
+	session.AudioBufferLock.Lock()
+	allAudio := make([]byte, len(session.InputAudioBuffer))
+	copy(allAudio, session.InputAudioBuffer)
+	session.InputAudioBuffer = nil
+	session.AudioBufferLock.Unlock()
+	session.s2sCommitAudio(allAudio, conversation)
+
+	sendEvent(t, types.InputAudioBufferCommittedEvent{
+		ServerEventBase: types.ServerEventBase{},
+		ItemID:          generateItemID(),
+	})
+
+	// Issue through the shared commit-ordering boundary and record the
+	// in-flight commit so the back-to-back response.create waits for the
+	// STT before the LLM starts (client-commit LLM/STT race).
+	session.issueClientCommit(allAudio, conversation, t)
 }
 
 // noSpeechHoldbackSec is how much of the tail of an inspected, segment-free
@@ -1873,6 +1966,7 @@ func vadTick(sink *turnSink, silenceThreshold float64) {
 			if err := sink.coord.Apply(turncoord.Abort{Reason: turncoord.AbortNoSpeech}); err != nil {
 				xlog.Error("turncoord: abort(no_speech) failed", "error", err)
 			}
+			session.s2sAbortTurn()
 		}
 		return
 	}
@@ -1885,6 +1979,11 @@ func vadTick(sink *turnSink, silenceThreshold float64) {
 	// open" and "speech started" can never disagree. The turn id is minted
 	// here and carried by the coordinator through to the committed event.
 	sink.onsetAudio = aints
+	if session.s2s != nil {
+		if _, speaking := sink.coord.State().(turncoord.Speaking); !speaking {
+			session.s2sBeginTurn(float64(segments[0].Start))
+		}
+	}
 	if err := sink.coord.Apply(turncoord.Onset{Turn: turncoord.TurnID(generateItemID())}); err != nil {
 		xlog.Error("turncoord: onset failed", "error", err)
 	}
@@ -1977,6 +2076,7 @@ func vadCommit(sink *turnSink, retranscribe bool, aints []int16, inspectedBytes 
 	// of an utterance started right after a commit).
 	session.InputAudioBuffer = dropInspectedPrefix(session.InputAudioBuffer, inspectedBytes, 0)
 	session.AudioBufferLock.Unlock()
+	session.s2sEndTurn()
 
 	// Commit the turn through the coordinator: it emits speech_stopped
 	// (EmitSpeechStopped) then the committed event, finalizes the live
@@ -2054,6 +2154,14 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		close(slot.done)
 	}()
 	if len(utt) == 0 {
+		return
+	}
+
+	// An any-to-any session needs no transcript to answer: the audio is
+	// already with the backend. The speaker gate is refused for these models
+	// at session setup (prepareAnyToAnyConfig).
+	if session.s2s != nil {
+		s2sCommitTurn(ctx, utt, itemID, session, conv, t, slot)
 		return
 	}
 
@@ -2660,6 +2768,10 @@ func triggerResponse(ctx context.Context, session *Session, conv *Conversation, 
 }
 
 func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int, r *liveResponse) {
+	if session.s2s != nil {
+		s2sResponseTurn(ctx, session, conv, t, overrides, toolTurn, r)
+		return
+	}
 	config := session.ModelInterface.PredictConfig()
 
 	// Default values
@@ -2857,6 +2969,12 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 
 	predFunc, err := session.ModelInterface.Predict(ctx, conversationHistory, images, nil, nil, nil, tools, toolChoice, nil, nil, nil)
 	if err != nil {
+		if ctx.Err() != nil {
+			// A barge-in cancelled the response: a cancel has its own terminal.
+			xlog.Debug("Response cancelled before LLM inference (barge-in)")
+			r.outcome = outcomeCancelled
+			return
+		}
 		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "") // item.Assistant.ID is unknown here
 		r.outcome = outcomeFailed
 		return
@@ -2864,6 +2982,14 @@ func triggerResponseAtTurn(ctx context.Context, session *Session, conv *Conversa
 
 	pred, err := predFunc()
 	if err != nil {
+		if ctx.Err() != nil {
+			// The barge-in landed while the model was generating: the call fails
+			// with the context error. Without this the response ended as failed,
+			// with an error and no response.done, and the client waited for it.
+			xlog.Debug("Response cancelled during LLM inference (barge-in)")
+			r.outcome = outcomeCancelled
+			return
+		}
 		sendError(t, "prediction_failed", fmt.Sprintf("backend error: %v", err), "", "")
 		r.outcome = outcomeFailed
 		return

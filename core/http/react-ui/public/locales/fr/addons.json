@@ -614,7 +614,11 @@
       "integrity": "La bibliothèque liste cette version avec un contenu différent. Elle n'est pas proposée comme mise à jour.",
       "recovery": "Les données de cet module doivent d'abord être récupérées. Restaurez une sauvegarde dans Détails, puis mettez à jour.",
       "current": "La dernière vérification n'a trouvé aucune mise à jour. L'avis est peut-être périmé. Vérifiez à nouveau."
-    }
+    },
+    "checkAll": "Rechercher des mises à jour",
+    "checkingAll": "Vérification...",
+    "checkAllDone": "{{count}} modules vérifiés.",
+    "checkAllFailed": "{{count}} n’ont pas pu être vérifiés."
   },
   "install": {
     "stepsLabel": "Install steps",

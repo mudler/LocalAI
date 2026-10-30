@@ -110,12 +110,21 @@ func PrepareTarget(cfg *config.ModelConfig) {
 }
 
 func (p *DefaultProber) authorize(req *http.Request, cfg config.ModelConfig) error {
-	if cfg.Proxy.APIKeyEnv != "" && p.EnvLookup == nil {
+	_, hasModelEnv := cfg.Environment[cfg.Proxy.APIKeyEnv]
+	if cfg.Proxy.APIKeyEnv != "" && !hasModelEnv && p.EnvLookup == nil {
 		if _, warned := p.unresolvableEnvWarned.LoadOrStore(cfg.Proxy.APIKeyEnv, struct{}{}); !warned {
 			xlog.Warn("failover: remote target has api_key_env set but no credential lookup is configured; liveness and requests will fail authorization", "target", cfg.Name, "api_key_env", cfg.Proxy.APIKeyEnv)
 		}
 	}
-	key, err := cfg.Proxy.ResolveAPIKey(p.EnvLookup)
+	key, err := cfg.Proxy.ResolveAPIKey(func(name string) string {
+		if value, ok := cfg.Environment[name]; ok {
+			return value
+		}
+		if p.EnvLookup != nil {
+			return p.EnvLookup(name)
+		}
+		return ""
+	})
 	if err != nil || key == "" {
 		return err
 	}

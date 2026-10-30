@@ -591,8 +591,6 @@ export function createFineTune(ctx, api, shared) {
     const [seed, setSeed] = useState(0)
     const [mixedPrecision, setMixedPrecision] = useState('')
     const [extraOptions, setExtraOptions] = useState([])
-    const [liquidAudioVoice, setLiquidAudioVoice] = useState('')
-    const [liquidAudioValDataset, setLiquidAudioValDataset] = useState('')
     const [hfToken, setHfToken] = useState('')
     const [showAdvanced, setShowAdvanced] = useState(false)
     const [resumeFromCheckpoint, setResumeFromCheckpoint] = useState('')
@@ -666,11 +664,6 @@ export function createFineTune(ctx, api, shared) {
           extra.eval_strategy = 'no'
         }
         for (const { key, value } of extraOptions) if (key.trim()) extra[key.trim()] = value
-        // The Python backend reads `voice` and `val_dataset` from extra_options.
-        if (backend === 'liquid-audio') {
-          if (liquidAudioVoice) extra.voice = liquidAudioVoice
-          if (liquidAudioValDataset.trim()) extra.val_dataset = liquidAudioValDataset.trim()
-        }
 
         const req = {
           model,
@@ -740,10 +733,6 @@ export function createFineTune(ctx, api, shared) {
     const getFormConfig = () => {
       const extra = {}
       for (const { key, value } of extraOptions) if (key.trim()) extra[key.trim()] = value
-      if (backend === 'liquid-audio') {
-        if (liquidAudioVoice) extra.voice = liquidAudioVoice
-        if (liquidAudioValDataset.trim()) extra.val_dataset = liquidAudioValDataset.trim()
-      }
       return {
         model, backend,
         training_method: trainingMethod,
@@ -827,10 +816,6 @@ export function createFineTune(ctx, api, shared) {
       const eo = config.extra_options
       if (eo) restoreEval(eo.eval_strategy, eo.eval_steps, eo.eval_split, eo.eval_dataset_source, eo.eval_split_ratio)
       if (eo?.save_total_limit != null) setSaveTotalLimit(Number(eo.save_total_limit))
-
-      // liquid-audio extras; they are also kept out of the free-form list below.
-      if (eo?.voice != null) setLiquidAudioVoice(String(eo.voice))
-      if (eo?.val_dataset != null) setLiquidAudioValDataset(String(eo.val_dataset))
 
       if (config.extra_options && typeof config.extra_options === 'object') {
         setExtraOptions(Object.entries(config.extra_options)
@@ -1226,24 +1211,6 @@ export function createFineTune(ctx, api, shared) {
                           <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => setResumeFromCheckpoint('')} aria-label={t('form.clearCheckpoint')}><Icon name="close" /></button>
                         </div>
                       </Field>
-                    )}
-
-                    {backend === 'liquid-audio' && (
-                      <div className="bt-liquid">
-                        <h3 className="bt-h3">Liquid Audio</h3>
-                        <p className="dk-hint">{t('form.liquidHint')}</p>
-                        <div className="bt-pair">
-                          <Field id="ft-la-voice" label={t('form.liquidVoice')}>
-                            <Select id="ft-la-voice" value={liquidAudioVoice} onChange={e => setLiquidAudioVoice(e.target.value)}>
-                              <option value="">{t('form.liquidInherit')}</option>
-                              {['us_male', 'us_female', 'uk_male', 'uk_female'].map(v => <option key={v} value={v}>{v}</option>)}
-                            </Select>
-                          </Field>
-                          <Field id="ft-la-val" label={t('form.liquidVal')}>
-                            <input id="ft-la-val" type="text" className="dk-input dk-input--mono" value={liquidAudioValDataset} onChange={e => setLiquidAudioValDataset(e.target.value)} placeholder="/data/jenny_tts/val" />
-                          </Field>
-                        </div>
-                      </div>
                     )}
 
                     <div>

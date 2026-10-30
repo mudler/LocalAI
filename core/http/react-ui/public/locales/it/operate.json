@@ -7,5 +7,21 @@
   },
   "capacity": {
     "diskChip": "Disco quasi pieno"
+  },
+  "activity": {
+    "kind": {
+      "addon": "add-on"
+    },
+    "verb": {
+      "upgrading": "Aggiornamento {{kind}}",
+      "failedUpgrade": "Impossibile aggiornare {{kind}}"
+    },
+    "filter": {
+      "addons": "Add-on"
+    },
+    "upgradeVersions": "da {{from}} a {{to}}",
+    "rowUpgraded": "Aggiornato in {{duration}}",
+    "rowUpgradedPlain": "Aggiornato",
+    "viewInAddons": "Vedi in Add-on"
   }
 }

@@ -610,7 +610,11 @@
       "integrity": "La libreria elenca questa versione con contenuto diverso. Non è proposta come aggiornamento.",
       "recovery": "I dati di questo componente aggiuntivo richiedono prima il ripristino. Ripristina un backup nei Dettagli, poi aggiorna.",
       "current": "L'ultimo controllo non ha trovato aggiornamenti. L'avviso potrebbe essere obsoleto. Controlla di nuovo."
-    }
+    },
+    "checkAll": "Cerca aggiornamenti",
+    "checkingAll": "Controllo...",
+    "checkAllDone": "Controllati {{count}} componenti.",
+    "checkAllFailed": "{{count}} non controllabili."
   },
   "install": {
     "stepsLabel": "Install steps",

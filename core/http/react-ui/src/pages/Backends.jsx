@@ -487,18 +487,9 @@ export default function Backends() {
       .map(n => n.id)
   }
 
-  const handleUpgrade = async (name) => {
-    setError(name, '')
-    markPending(name, true)
-    try {
-      await backendsApi.upgrade(name)
-      addToast(t('backends.updateStarted', { name }), 'info')
-    } catch (err) {
-      setError(name, t('backends.updateFailed', { message: err.message }))
-    } finally {
-      markPending(name, false)
-    }
-  }
+  // An Upgrade button opens the "Update all" dialog with only its backend
+  // checked; it starts nothing by itself.
+  const handleUpgrade = (name) => bulk.show([name])
 
   // Installs the newer build the library lists. It is the administrator's own
   // action; nothing here runs on its own. The host pins the image by the digest

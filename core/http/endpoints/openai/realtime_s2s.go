@@ -1,0 +1,1570 @@
+package openai
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/respcoord"
+	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/LocalAI/pkg/grpc/proto"
+	"github.com/mudler/LocalAI/pkg/sound"
+	"github.com/mudler/xlog"
+)
+
+// Speech-to-speech (S2S) sessions.
+//
+// A model with pipeline.any_to_any serves the whole speech loop itself. The
+// session opens one AudioToAudioStream to the backend and keeps it for its
+// whole life. The backend owns the conversation context (the audio rows are
+// prefilled as they arrive), so the endpoint sends only what is new: input
+// audio frames, turn boundaries, text and tool-result items, and response
+// controls. Everything OpenAI-facing (event names, item ids, VAD, barge-in,
+// WebRTC audio) stays in this package.
+//
+// Event flow of one turn, manual commit:
+//
+//	client input_audio_buffer.append*   -> held in the input buffer
+//	                                       (input_audio_buffer.clear drops it)
+//	client input_audio_buffer.commit    -> backend frames (resampled), then
+//	                                       input_audio_buffer.commit,
+//	                                       committed + conversation.item.added
+//	                                       (+ input transcription, see below)
+//	client response.create              -> backend response.create, then
+//	  response.created, output_item.added, content_part.added,
+//	  response.output_audio.delta* / response.output_audio_transcript.delta*,
+//	  response.output_audio.done, response.output_audio_transcript.done,
+//	  response.content_part.done, response.output_item.done, response.done
+//
+// With server VAD (only when a VAD model is configured) the VAD goroutine
+// drives the same steps: input is forwarded from speech start minus the
+// pre-roll, the commit and the response follow speech end.
+//
+// A tool call arrives as response.function_call_arguments.done and is emitted
+// through emitToolCallItems, so its events match the chained path. The client
+// answers with conversation.item.create (function_call_output) and
+// response.create; the output is forwarded to the backend just before that
+// response.
+//
+// The user's own words are transcribed on the side: the committed audio goes to
+// pipeline.transcription and is reported as
+// conversation.item.input_audio_transcription.* on the user item. A transcription
+// model other than the stream's runs in parallel with the response. The default,
+// the same model on a second slot, runs before the response of its turn: both
+// share one llama.cpp context, and together they make it rebuild its compute
+// buffers on every step. A failure there emits ...failed and never affects the response.
+
+const (
+	// s2sDefaultInstructions is what the model card prescribes for interleaved
+	// text and audio output; a client's own instructions replace it.
+	s2sDefaultInstructions = "Respond with interleaved text and audio."
+
+	// s2sDefaultPrerollMs is the audio kept before the VAD's speech start
+	// when the session does not set prefix_padding_ms.
+	s2sDefaultPrerollMs = 300
+
+	s2sOpenTimeout = 60 * time.Second
+	// s2sFrameChunkMs splits a long forward (the pre-roll plus the buffered
+	// speech at onset) into messages of this size.
+	s2sFrameChunkMs = 500
+
+	// s2sUnsupportedMessage is the answer to editing operations that cannot be
+	// applied to a context that lives in the backend.
+	s2sUnsupportedMessage = "not supported for any-to-any models"
+)
+
+// S2SStream is the duplex stream to a speech-to-speech backend.
+type S2SStream interface {
+	Send(*proto.AudioToAudioRequest) error
+	Recv() (*proto.AudioToAudioResponse, error)
+	// Close ends the send side and releases the stream.
+	Close() error
+}
+
+// s2sOpener is implemented by models that can open an S2SStream.
+type s2sOpener interface {
+	OpenS2S(ctx context.Context) (S2SStream, error)
+}
+
+// s2sConfig is the first message of the stream.
+type s2sConfig struct {
+	Instructions     string
+	Voice            string
+	ToolsJSON        string
+	ToolChoice       string   // "auto", "none" or "required"; empty: the backend default
+	OutputModalities []string // nil: the model chooses
+}
+
+// s2sWireModalities maps the OpenAI output modalities to what the backend
+// takes. "audio" is sent as text plus audio, so a spoken reply has a
+// transcript (the OpenAI audio modality includes one). With no explicit choice
+// it returns nil and the backend picks the mode of each response from the tools
+// it has when the response starts: text plus audio without tools, and with
+// tools the model switches between text and audio itself, so it can write a
+// tool call instead of speaking it. A mode sent at open would be fixed for the
+// whole session and stay in force when tools are added later.
+func s2sWireModalities(explicit []types.Modality) []string {
+	if len(explicit) == 0 {
+		return nil
+	}
+	if modalitiesContainAudio(explicit) {
+		return []string{"text", "audio"}
+	}
+	return []string{"text"}
+}
+
+// s2sSession is the per-session state of the stream. Fields marked
+// "AudioBufferLock" are guarded by Session.AudioBufferLock, which also orders
+// every frame and the commit on the wire.
+type s2sSession struct {
+	stream S2SStream
+	cancel context.CancelFunc
+
+	// outbound is the ordered write queue. Frames and controls are written
+	// by one goroutine, so a caller holding AudioBufferLock never blocks on
+	// gRPC flow control and the wire order is the enqueue order.
+	outMu   sync.Mutex
+	outQ    []s2sOutbound
+	outWake chan struct{}
+	quit    chan struct{}
+	closed  atomic.Bool
+
+	// events carries response-scoped events from the reader goroutine to the
+	// response in flight. dead closes when the stream fails or ends.
+	events  chan *proto.AudioToAudioResponse
+	created chan struct{}
+	dead    chan struct{}
+	deadErr error
+
+	// sem allows one response on the stream at a time. A superseded response
+	// keeps it until the backend acknowledges its cancel.
+	sem chan struct{}
+	// active is true from response.create until the backend's response.done;
+	// the reader drops response-scoped events outside that window.
+	active atomic.Bool
+	// cancelSent makes the cancel control idempotent per response.
+	cancelSent atomic.Bool
+
+	inputRate  int
+	outputRate int
+
+	// forwarding is true while speech of a VAD turn is being forwarded
+	// (AudioBufferLock). turnHasAudio is true once the turn queued any audio:
+	// the backend refuses a commit of an empty buffer (AudioBufferLock).
+	forwarding   bool
+	turnHasAudio bool
+
+	mu        sync.Mutex
+	sentItems map[string]struct{}
+	last      s2sSentConfig
+
+	onError func(errType, message string)
+	// onDead is called when the stream ends outside a response and the
+	// session was not closed on purpose (guarded by mu).
+	onDead    func(err error)
+	closeOnce sync.Once
+	// onFatal closes the client transport (guarded by mu); fatalOnce runs it
+	// once.
+	onFatal   func()
+	fatalOnce sync.Once
+}
+
+func (s *s2sSession) setOnDead(f func(err error)) {
+	s.mu.Lock()
+	s.onDead = f
+	s.mu.Unlock()
+}
+
+func (s *s2sSession) setOnFatal(f func()) {
+	s.mu.Lock()
+	s.onFatal = f
+	s.mu.Unlock()
+}
+
+// s2sOutbound is one queued request. done is nil for a frame, whose failure
+// is only logged; a control waits on it.
+type s2sOutbound struct {
+	req  *proto.AudioToAudioRequest
+	done chan error
+}
+
+// s2sCancelGrace bounds the wait for the backend to acknowledge a cancel with
+// response.done. Past it the stream is considered stuck. A variable so a spec
+// can shorten it.
+var s2sCancelGrace = 15 * time.Second
+
+// s2sEOFGrace bounds the wait for the real status when a Send fails with a
+// bare EOF.
+const s2sEOFGrace = 2 * time.Second
+
+// s2sSentConfig remembers what the backend already has, so a session.update
+// sends only what changed.
+type s2sSentConfig struct {
+	instructions string
+	voice        string
+	tools        string
+	toolChoice   string
+	modalities   string
+}
+
+func newS2SSession(stream S2SStream, cancel context.CancelFunc, onError func(errType, message string)) *s2sSession {
+	s := &s2sSession{
+		stream:    stream,
+		cancel:    cancel,
+		events:    make(chan *proto.AudioToAudioResponse, 64),
+		created:   make(chan struct{}),
+		dead:      make(chan struct{}),
+		sem:       make(chan struct{}, 1),
+		sentItems: map[string]struct{}{},
+		onError:   onError,
+		outWake:   make(chan struct{}, 1),
+		quit:      make(chan struct{}),
+	}
+	go s.pump()
+	go s.writer()
+	return s
+}
+
+// writer is the only caller of stream.Send and of stream.Close (CloseSend):
+// gRPC does not allow them to run at the same time. close() cancels the
+// stream context, which unblocks a Send that waits on flow control, and the
+// writer closes the stream when it exits.
+func (s *s2sSession) writer() {
+	defer func() { _ = s.stream.Close() }()
+	for {
+		s.outMu.Lock()
+		batch := s.outQ
+		s.outQ = nil
+		s.outMu.Unlock()
+		if len(batch) == 0 {
+			select {
+			case <-s.outWake:
+				continue
+			case <-s.quit:
+				return
+			}
+		}
+		for i, o := range batch {
+			if s.closed.Load() {
+				for _, rest := range batch[i:] {
+					if rest.done != nil {
+						rest.done <- errS2SClosed
+					}
+				}
+				break
+			}
+			var err error
+			if o.req != nil {
+				err = s.sendErr(s.stream.Send(o.req))
+			}
+			if o.done != nil {
+				o.done <- err
+			} else if err != nil {
+				xlog.Warn("s2s: sending to the backend failed", "error", err)
+			}
+		}
+	}
+}
+
+var errS2SClosed = errors.New("the speech-to-speech session is closed")
+
+// sendErr replaces a bare EOF from Send with the stream's real status. gRPC
+// reports a failed call (UNIMPLEMENTED, a full context) as io.EOF on Send and
+// puts the status on Recv, which only the pump reads.
+func (s *s2sSession) sendErr(err error) error {
+	if err == nil || !errors.Is(err, io.EOF) {
+		return err
+	}
+	select {
+	case <-s.dead:
+		if s.deadErr != nil && !errors.Is(s.deadErr, io.EOF) {
+			return s.deadErr
+		}
+	case <-time.After(s2sEOFGrace):
+	}
+	return err
+}
+
+func (s *s2sSession) enqueue(o s2sOutbound) {
+	s.outMu.Lock()
+	if s.closed.Load() {
+		// Nobody writes any more: do not let the queue grow.
+		s.outMu.Unlock()
+		if o.done != nil {
+			o.done <- errS2SClosed
+		}
+		return
+	}
+	s.outQ = append(s.outQ, o)
+	s.outMu.Unlock()
+	select {
+	case s.outWake <- struct{}{}:
+	default:
+	}
+}
+
+// flush waits until everything queued so far has been written.
+func (s *s2sSession) flush() {
+	_ = s.send(nil)
+}
+
+// pump is the only reader of the stream. Setup events are consumed here,
+// response events go to the response in flight, and a backend error outside a
+// response is reported to the client.
+func (s *s2sSession) pump() {
+	defer close(s.dead)
+	createdOnce := sync.Once{}
+	for {
+		resp, err := s.stream.Recv()
+		if err != nil {
+			s.deadErr = err
+			s.mu.Lock()
+			onDead := s.onDead
+			s.mu.Unlock()
+			if onDead != nil && !s.closed.Load() && !s.active.Load() {
+				go onDead(err)
+			}
+			// A response in flight sees s.dead itself and ends the session.
+			return
+		}
+		switch resp.GetEvent() {
+		case "session.created":
+			var meta struct {
+				InputRate  int `json:"input_sample_rate"`
+				OutputRate int `json:"output_sample_rate"`
+			}
+			_ = json.Unmarshal(resp.GetMeta(), &meta)
+			createdOnce.Do(func() {
+				s.inputRate, s.outputRate = meta.InputRate, meta.OutputRate
+				close(s.created)
+			})
+		case "input_audio_buffer.committed":
+			xlog.Debug("s2s: backend committed the input audio")
+		default:
+			if s.active.Load() {
+				select {
+				case s.events <- resp:
+				case <-s.quit:
+					// Nobody reads the events any more (the turn ended on an
+					// error or gave up): do not outlive the session.
+					return
+				}
+				continue
+			}
+			if resp.GetEvent() == "error" {
+				typ, msg, _ := s2sErrorMeta(resp.GetMeta())
+				if typ == "response_cancel_not_active" {
+					continue
+				}
+				if s.onError != nil {
+					s.onError(typ, msg)
+				}
+				continue
+			}
+			xlog.Debug("s2s: dropping an event outside a response", "event", resp.GetEvent())
+		}
+	}
+}
+
+// s2sErrorMeta reads an error event. responseScoped is true when the error
+// answers the response.create (or ends the stream) and no response.done follows
+// it. Any other error is about something else, such as a refused session.update,
+// and a running response goes on.
+func s2sErrorMeta(meta []byte) (errType, message string, responseScoped bool) {
+	var m struct {
+		Type           string `json:"type"`
+		Message        string `json:"message"`
+		ResponseScoped bool   `json:"response_scoped"`
+	}
+	_ = json.Unmarshal(meta, &m)
+	if m.Type == "" {
+		m.Type = "server_error"
+	}
+	if m.Message == "" {
+		m.Message = "the speech-to-speech backend reported an error"
+	}
+	return m.Type, m.Message, m.ResponseScoped
+}
+
+// open sends the config and waits for session.created, which carries the
+// sample rates the backend expects and produces.
+func (s *s2sSession) open(ctx context.Context, cfg s2sConfig) error {
+	params := map[string]string{}
+	if len(cfg.OutputModalities) > 0 {
+		b, _ := json.Marshal(cfg.OutputModalities)
+		params["output_modalities"] = string(b)
+	}
+	if cfg.ToolChoice != "" {
+		params["tool_choice"] = cfg.ToolChoice
+	}
+	if err := s.send(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Config{Config: &proto.AudioToAudioConfig{
+		SystemPrompt: cfg.Instructions,
+		Voice:        cfg.Voice,
+		Tools:        cfg.ToolsJSON,
+		Params:       params,
+	}}}); err != nil {
+		return fmt.Errorf("send the stream config: %w", err)
+	}
+	select {
+	case <-s.created:
+	case <-s.dead:
+		return fmt.Errorf("the stream ended before session.created: %w", s.deadErr)
+	case <-ctx.Done():
+		return fmt.Errorf("waiting for session.created: %w", ctx.Err())
+	}
+	s.mu.Lock()
+	s.last = s2sSentConfig{
+		instructions: cfg.Instructions,
+		voice:        cfg.Voice,
+		tools:        cfg.ToolsJSON,
+		toolChoice:   cfg.ToolChoice,
+		modalities:   strings.Join(cfg.OutputModalities, ","),
+	}
+	s.mu.Unlock()
+	return nil
+}
+
+// close ends the stream. Safe to call more than once.
+func (s *s2sSession) close() {
+	s.closeOnce.Do(func() {
+		s.closed.Store(true)
+		close(s.quit)
+		if s.cancel != nil {
+			s.cancel()
+		}
+		// Drop what is still queued. The writer closes the stream once it has
+		// stopped sending.
+		s.outMu.Lock()
+		rest := s.outQ
+		s.outQ = nil
+		s.outMu.Unlock()
+		for _, o := range rest {
+			if o.done != nil {
+				o.done <- errS2SClosed
+			}
+		}
+	})
+}
+
+// fatal ends the session after the stream failed during a response: it closes
+// the stream and, once, the client transport, so later requests are not
+// accepted and no more audio is forwarded to a dead stream.
+func (s *s2sSession) fatal() {
+	s.close()
+	s.mu.Lock()
+	f := s.onFatal
+	s.mu.Unlock()
+	if f != nil {
+		s.fatalOnce.Do(f)
+	}
+}
+
+// send queues req behind everything already queued and waits for the write. A
+// nil req only waits for the queue to drain.
+func (s *s2sSession) send(req *proto.AudioToAudioRequest) error {
+	done := make(chan error, 1)
+	s.enqueue(s2sOutbound{req: req, done: done})
+	select {
+	case err := <-done:
+		return err
+	case <-s.quit:
+		return errS2SClosed
+	}
+}
+
+// sendAsync queues req without waiting. The caller may hold AudioBufferLock.
+func (s *s2sSession) sendAsync(req *proto.AudioToAudioRequest) {
+	s.enqueue(s2sOutbound{req: req})
+}
+
+// control sends one control message; payload is JSON-encoded when not nil.
+func (s *s2sSession) control(event string, payload any) error {
+	var raw []byte
+	if payload != nil {
+		b, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		raw = b
+	}
+	return s.send(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+		Control: &proto.AudioToAudioControl{Event: event, Payload: raw},
+	}})
+}
+
+// sendCancel asks the backend to stop the response in flight. It acts at once
+// on the backend and is sent at most once per response. It only queues the
+// message: with backpressure on the stream the write can take long, and the
+// caller has to go on reading events and watching its grace timer.
+func (s *s2sSession) sendCancel() {
+	if !s.cancelSent.CompareAndSwap(false, true) {
+		return
+	}
+	s.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+		Control: &proto.AudioToAudioControl{Event: "response.cancel"},
+	}})
+}
+
+// forwardPCM resamples session-rate PCM to the backend input rate and queues it
+// as frames of at most s2sFrameChunkMs. It never blocks on the stream. It
+// returns the number of bytes queued.
+func (s *s2sSession) forwardPCM(pcm []byte, rate int) int {
+	if len(pcm) < 2 || s.closed.Load() {
+		return 0
+	}
+	pcm = pcm[:len(pcm)&^1]
+	if s.inputRate > 0 && rate > 0 && rate != s.inputRate {
+		pcm = sound.Int16toBytesLE(sound.ResampleInt16(sound.BytesToInt16sLE(pcm), rate, s.inputRate))
+	}
+	outRate := s.inputRate
+	if outRate == 0 {
+		outRate = rate
+	}
+	chunk := max(2, outRate*s2sFrameChunkMs/1000*2)
+	for off := 0; off < len(pcm); off += chunk {
+		end := min(off+chunk, len(pcm))
+		// The slice is not retained past Send, but copy anyway: gRPC may keep
+		// the message until it is written.
+		frame := append([]byte(nil), pcm[off:end]...)
+		s.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Frame{
+			Frame: &proto.AudioToAudioFrame{Pcm: frame},
+		}})
+	}
+	return len(pcm)
+}
+
+func (s *s2sSession) markSent(id string) {
+	s.mu.Lock()
+	s.sentItems[id] = struct{}{}
+	s.mu.Unlock()
+}
+
+// claim marks id as sent and reports whether the caller is the first to do so.
+// The commit handler and a response can both forward pending items.
+func (s *s2sSession) claim(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.sentItems[id]; ok {
+		return false
+	}
+	s.sentItems[id] = struct{}{}
+	return true
+}
+
+// forwardToolResult queues one tool result unless a user turn is open or the
+// result was already sent. It reports whether the result was queued.
+func (s *s2sSession) forwardToolResult(out *types.MessageItemFunctionCallOutput, id string, audioLock sync.Locker) bool {
+	audioLock.Lock()
+	defer audioLock.Unlock()
+	if s.forwarding || s.turnHasAudio {
+		return false
+	}
+	if !s.claim(id) {
+		return false
+	}
+	payload, err := json.Marshal(map[string]any{
+		"type":    "function_call_output",
+		"call_id": out.CallID,
+		"output":  out.Output,
+	})
+	if err != nil {
+		return false
+	}
+	s.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+		Control: &proto.AudioToAudioControl{Event: "conversation.item.create", Payload: payload},
+	}})
+	return true
+}
+
+// forwardPendingItems sends the client's text messages and tool results that
+// the backend has not seen yet. Audio turns are not here: their audio is
+// already forwarded and they are marked sent when committed.
+//
+// The backend refuses a tool result while a user turn is open, so a result
+// stays pending until the turn is closed: it is claimed and queued under
+// audioLock, the lock that orders the turn's frames, so no turn can open
+// between the check and the write. Whatever is still pending goes with the
+// next commit or response.
+func (s *s2sSession) forwardPendingItems(conv *Conversation, audioLock sync.Locker) {
+	conv.Lock.Lock()
+	items := append([]*types.MessageItemUnion(nil), conv.Items...)
+	conv.Lock.Unlock()
+
+	for _, item := range items {
+		id := itemID(item)
+		if id == "" {
+			continue
+		}
+		switch {
+		case item.FunctionCallOutput != nil:
+			if !s.forwardToolResult(item.FunctionCallOutput, id, audioLock) {
+				continue
+			}
+		case item.User != nil:
+			if !s.claim(id) {
+				continue
+			}
+			var text strings.Builder
+			for _, c := range item.User.Content {
+				if c.Type == types.MessageContentTypeInputText {
+					text.WriteString(c.Text)
+				}
+			}
+			if text.Len() == 0 {
+				continue
+			}
+			if err := s.control("conversation.item.create", map[string]any{
+				"type": "message",
+				"role": "user",
+				"content": []map[string]any{
+					{"type": "input_text", "text": text.String()},
+				},
+			}); err != nil {
+				xlog.Warn("s2s: forwarding a text message failed", "error", err)
+			}
+		}
+	}
+}
+
+// s2sItemSupported reports whether a client-created conversation item can be
+// handed to a speech-to-speech backend: user text and tool results.
+func s2sItemSupported(item types.MessageItemUnion) bool {
+	switch {
+	case item.FunctionCallOutput != nil:
+		return true
+	case item.User != nil:
+		for _, c := range item.User.Content {
+			if c.Type == types.MessageContentTypeInputText {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// openS2SForSession opens the backend stream for a new session and attaches it.
+// The stream lives until the session ends (closeS2S).
+func openS2SForSession(session *Session, opener s2sOpener, t Transport) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	stream, err := opener.OpenS2S(ctx)
+	if err != nil {
+		cancel()
+		return err
+	}
+	st := newS2SSession(stream, cancel, func(errType, message string) {
+		sendError(t, errType, message, "", "")
+	})
+	toolsJSON, _ := realtimeToolsJSON(session.Tools, nil)
+	octx, ocancel := context.WithTimeout(ctx, s2sOpenTimeout)
+	defer ocancel()
+	if err := st.open(octx, s2sConfig{
+		Instructions:     session.Instructions,
+		Voice:            session.Voice,
+		ToolsJSON:        toolsJSON,
+		ToolChoice:       s2sToolChoiceMode(session.ToolChoice),
+		OutputModalities: s2sWireModalities(session.OutputModalities),
+	}); err != nil {
+		st.close()
+		return err
+	}
+	if toolsJSON != "" {
+		xlog.Debug("s2s: opened the stream with session tools", "count", s2sToolCount(toolsJSON))
+	}
+	st.setOnDead(func(err error) {
+		// The stream is gone and every later response would fail the same
+		// way: tell the client and end the session.
+		xlog.Error("s2s: the stream ended outside a response", "error", err)
+		sendError(t, "server_error", fmt.Sprintf("the speech-to-speech stream ended: %v", err), "", "")
+		_ = t.Close()
+	})
+	st.setOnFatal(func() { _ = t.Close() })
+	session.s2s = st
+	return nil
+}
+
+// closeS2S ends the backend stream.
+func (s *Session) closeS2S() {
+	if s.s2s != nil {
+		s.s2s.close()
+	}
+}
+
+// s2sSyncConfig sends the parts of the session config that changed since the
+// last send. Before the first turn the backend re-derives its prompt; after it,
+// the backend rejects changes it cannot apply and the error reaches the client.
+func (s *Session) s2sSyncConfig() {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	sessionLock.Lock()
+	wireMods := s2sWireModalities(s.OutputModalities)
+	cur := s2sSentConfig{
+		instructions: s.Instructions,
+		voice:        s.Voice,
+		modalities:   strings.Join(wireMods, ","),
+	}
+	toolsJSON, _ := realtimeToolsJSON(s.Tools, nil)
+	cur.tools = toolsJSON
+	cur.toolChoice = s2sToolChoiceMode(s.ToolChoice)
+	sessionLock.Unlock()
+
+	st.mu.Lock()
+	prev := st.last
+	st.last = cur
+	st.mu.Unlock()
+
+	payload := map[string]any{}
+	if cur.instructions != prev.instructions {
+		payload["instructions"] = cur.instructions
+	}
+	if cur.voice != prev.voice {
+		payload["voice"] = cur.voice
+	}
+	if cur.tools != prev.tools {
+		if cur.tools == "" {
+			payload["tools"] = json.RawMessage("[]")
+		} else {
+			payload["tools"] = json.RawMessage(cur.tools)
+		}
+	}
+	if cur.toolChoice != prev.toolChoice && cur.toolChoice != "" {
+		payload["tool_choice"] = cur.toolChoice
+	}
+	if cur.modalities != prev.modalities && wireMods != nil {
+		payload["output_modalities"] = wireMods
+	}
+	if len(payload) == 0 {
+		return
+	}
+	if _, ok := payload["tools"]; ok {
+		xlog.Debug("s2s: forwarding the session tools to the backend", "count", s2sToolCount(cur.tools))
+	}
+	if err := st.control("session.update", payload); err != nil {
+		xlog.Warn("s2s: forwarding session.update failed", "error", err)
+	}
+}
+
+// s2sToolCount counts the tools of a tools JSON array, for the log.
+func s2sToolCount(toolsJSON string) int {
+	var tools []json.RawMessage
+	_ = json.Unmarshal([]byte(toolsJSON), &tools)
+	return len(tools)
+}
+
+// s2sManualTurns reports whether the client, not a VAD, decides when a turn
+// ends. Call it before taking AudioBufferLock.
+func (s *Session) s2sManualTurns() bool {
+	sessionLock.Lock()
+	defer sessionLock.Unlock()
+	return !turnDetectionActive(s.TurnDetection)
+}
+
+// s2sOnAppendLocked forwards a chunk that was just appended to the input
+// buffer while a VAD turn is open. Without a VAD (manual commit) nothing is
+// forwarded: the audio stays in the input buffer until the client commits it,
+// so input_audio_buffer.clear really discards it and idle audio never reaches
+// the model's context. The caller holds AudioBufferLock, which keeps the chunk
+// ordered after the pre-roll and before the commit; the write itself is queued
+// and does not block.
+func (s *Session) s2sOnAppendLocked(chunk []byte) {
+	st := s.s2s
+	if st == nil || len(chunk) == 0 {
+		return
+	}
+	if st.forwarding && st.forwardPCM(chunk, s.InputSampleRate) > 0 {
+		st.turnHasAudio = true
+	}
+}
+
+// s2sCommitAudio sends a client-committed turn to the backend: first the text
+// and tool-result items created so far, so a text item keeps its place before
+// the audio committed after it, then the audio, then the commit. Call it
+// without AudioBufferLock.
+func (s *Session) s2sCommitAudio(audio []byte, conv *Conversation) {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	st.forwardPendingItems(conv, &s.AudioBufferLock)
+	if st.forwardPCM(audio, s.InputSampleRate) == 0 {
+		return
+	}
+	if err := st.control("input_audio_buffer.commit", nil); err != nil {
+		xlog.Warn("s2s: committing the input audio failed", "error", err)
+	}
+}
+
+// hasBufferedInput reports whether uncommitted input audio is waiting.
+func (s *Session) hasBufferedInput() bool {
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	return len(s.InputAudioBuffer) > 0
+}
+
+// s2sUserTurnOpen reports whether a VAD turn is being streamed to the backend.
+func (s *Session) s2sUserTurnOpen() bool {
+	if s.s2s == nil {
+		return false
+	}
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	return s.s2s.forwarding
+}
+
+// s2sBeginTurn starts forwarding a VAD turn. speechStartSec is where speech
+// begins in the current input buffer. Forwarding starts one pre-roll earlier,
+// so the model gets the onset of the first word and not the silence before it.
+// When the session interrupts responses and one is running, the cancel control
+// goes first: the backend then applies it before the new speech.
+func (s *Session) s2sBeginTurn(speechStartSec float64) {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	prerollMs := int64(s2sDefaultPrerollMs)
+	sessionLock.Lock()
+	if td := s.TurnDetection; td != nil && td.ServerVad != nil && td.ServerVad.PrefixPaddingMs > 0 {
+		prerollMs = td.ServerVad.PrefixPaddingMs
+	}
+	sessionLock.Unlock()
+	if s.interruptResponseEnabled() && st.active.Load() {
+		st.sendCancel()
+	}
+
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	if st.forwarding {
+		return
+	}
+	startSample := int((speechStartSec - float64(prerollMs)/1000) * float64(s.InputSampleRate))
+	startByte := max(0, startSample) * 2
+	if startByte > len(s.InputAudioBuffer) {
+		startByte = len(s.InputAudioBuffer)
+	}
+	st.turnHasAudio = st.forwardPCM(s.InputAudioBuffer[startByte:], s.InputSampleRate) > 0
+	st.forwarding = true
+}
+
+// s2sEndTurn stops forwarding and commits the input audio on the backend.
+func (s *Session) s2sEndTurn() {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	st.forwarding = false
+	if !st.turnHasAudio {
+		// A turn that forwarded nothing has nothing to commit.
+		return
+	}
+	st.turnHasAudio = false
+	// Queued, not awaited: the lock is held and the queue keeps the order.
+	st.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+		Control: &proto.AudioToAudioControl{Event: "input_audio_buffer.commit"},
+	}})
+}
+
+// s2sStopVAD ends the turn that was open when the VAD stopped (turn detection
+// switched to manual). Without it forwarding would go on and a later client
+// commit would send the same audio again. The forwarded audio is committed on
+// the backend and dropped from the input buffer, so the manual commit that
+// follows carries only audio that arrives after this point.
+func (s *Session) s2sStopVAD() {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	s.AudioBufferLock.Lock()
+	defer s.AudioBufferLock.Unlock()
+	if !st.forwarding {
+		return
+	}
+	st.forwarding = false
+	if st.turnHasAudio {
+		st.turnHasAudio = false
+		st.sendAsync(&proto.AudioToAudioRequest{Payload: &proto.AudioToAudioRequest_Control{
+			Control: &proto.AudioToAudioControl{Event: "input_audio_buffer.commit"},
+		}})
+	}
+	s.InputAudioBuffer = nil
+}
+
+// s2sAbortTurn stops forwarding a turn the VAD dropped as noise. Audio already
+// forwarded stays in the backend's context.
+func (s *Session) s2sAbortTurn() {
+	st := s.s2s
+	if st == nil {
+		return
+	}
+	s.AudioBufferLock.Lock()
+	st.forwarding = false
+	s.AudioBufferLock.Unlock()
+}
+
+// s2sCommitTurn records a committed user turn: the user item, the input
+// transcription on the side, and, for a VAD turn, the response. A client commit
+// does not respond; the client sends response.create. The backend commit
+// control was already sent in order with the audio (s2sEndTurn).
+func s2sCommitTurn(ctx context.Context, utt []byte, itemID string, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
+	sctx := session.sessionCtx
+	if sctx == nil {
+		sctx = context.Background()
+	}
+	// Append in speech order, like the chained path.
+	if slot.prevDone != nil {
+		select {
+		case <-slot.prevDone:
+		case <-sctx.Done():
+			return
+		}
+	}
+	if itemID == "" {
+		itemID = generateItemID()
+	}
+	rate := session.InputSampleRate
+	if slot.source == respcoord.SourceVAD {
+		rate = localSampleRate
+	}
+
+	session.s2s.markSent(itemID)
+	item := types.MessageItemUnion{
+		User: &types.MessageItemUser{
+			ID:     itemID,
+			Status: types.ItemStatusCompleted,
+			Content: []types.MessageContentInput{{
+				Type:  types.MessageContentTypeInputAudio,
+				Audio: base64.StdEncoding.EncodeToString(utt),
+			}},
+		},
+	}
+	conv.Lock.Lock()
+	conv.Items = append(conv.Items, &item)
+	conv.Lock.Unlock()
+	slot.appended = true
+	sendEvent(t, types.ConversationItemAddedEvent{Item: item})
+
+	// The transcript is for the client only: the model already has the audio.
+	// It runs detached under the session context, so the commit slot is
+	// released at once. Waiting for it would put the ASR latency in front of
+	// every reply, and on a backend with few slots a busy ASR could block it.
+	//
+	// On the model that holds the stream the transcript must not run while a
+	// response does: llama.cpp keeps one context for both, and a normal slot and
+	// the realtime slot ask for different output modes of it, so each loop
+	// iteration re-reserves the compute buffers (about 175 ms twice per step on
+	// a GB10) and the reply slows to a few tokens per second. So it runs first
+	// and in line with the commit: the response of this turn (a VAD turn here, a
+	// client response.create waits for the commit slot) starts once the
+	// transcript is out. The transcript event therefore comes before any output
+	// of that response. A transcription model of its own runs in parallel.
+	transcribe := session.InputAudioTranscription != nil && !session.TranscriptionOnly
+	if transcribe {
+		if s2sTranscribesOnStreamModel(session) {
+			s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
+		} else {
+			go s2sTranscribeInput(sctx, session, conv, t, itemID, utt, rate)
+		}
+	}
+	// A turn whose response context is already cancelled (a newer turn, or a
+	// response that is not interrupted) commits its item only.
+	if slot.source == respcoord.SourceVAD && ctx.Err() == nil {
+		triggerResponse(ctx, session, conv, t, nil)
+	}
+}
+
+// s2sInputTranscriptionModel is the model that transcribes the input audio of
+// an any-to-any session, or "" for none. The stream already holds the audio and
+// answers from it, so the transcript is only for the client, and on the model of
+// the stream it is costly: llama.cpp serves the transcript request and the
+// realtime stream from one context and rebuilds its compute buffers on every
+// step while both are active (a GB10 run: 26 to 29 reserves of 175 ms per
+// turn, against 0 to 1 on the llama.cpp server). So an any-to-any model
+// transcribes the input only when pipeline.transcription asks for it: another
+// model runs in parallel with the reply, the model itself (named explicitly)
+// runs before the reply. The output transcript always comes from the stream.
+func s2sInputTranscriptionModel(cfg *config.ModelConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	return cfg.Pipeline.Transcription
+}
+
+// s2sTranscribesOnStreamModel tells if the input transcription of the session
+// runs on the same model as the speech-to-speech stream, so on the same
+// llama.cpp context.
+func s2sTranscribesOnStreamModel(session *Session) bool {
+	cfg := session.ModelConfig
+	return session.s2s != nil && cfg != nil && cfg.Pipeline.Transcription != "" && cfg.Pipeline.Transcription == cfg.Name
+}
+
+// exclusive runs fn while no response runs on the stream and none starts, and
+// reports false when ctx ended first.
+func (s *s2sSession) exclusive(ctx context.Context, fn func()) bool {
+	select {
+	case s.sem <- struct{}{}:
+	case <-ctx.Done():
+		return false
+	case <-s.dead:
+		return false
+	}
+	defer func() { <-s.sem }()
+	fn()
+	return true
+}
+
+// s2sTranscribeInput transcribes the committed audio of a user turn on the
+// side and reports it on the user item. It runs under the session context, so a
+// barge-in does not lose it. A failure is reported on the item and never
+// reaches the response.
+func s2sTranscribeInput(ctx context.Context, session *Session, conv *Conversation, t Transport, itemID string, utt []byte, rate int) {
+	if s2sTranscribesOnStreamModel(session) {
+		// One response at a time on the stream, and none while this runs.
+		session.s2s.exclusive(ctx, func() { s2sTranscribeInputNow(ctx, session, conv, t, itemID, utt, rate) })
+		return
+	}
+	s2sTranscribeInputNow(ctx, session, conv, t, itemID, utt, rate)
+}
+
+func s2sTranscribeInputNow(ctx context.Context, session *Session, conv *Conversation, t Transport, itemID string, utt []byte, rate int) {
+	path, err := writeWindowWAV(utt, rate)
+	if err == nil {
+		defer func() { _ = os.Remove(path) }()
+		var transcript string
+		transcript, err = emitTranscription(ctx, t, session, itemID, path, nil)
+		if err == nil {
+			conv.Lock.Lock()
+			for _, it := range conv.Items {
+				if it.User != nil && it.User.ID == itemID && len(it.User.Content) > 0 {
+					it.User.Content[0].Transcript = transcript
+				}
+			}
+			conv.Lock.Unlock()
+			return
+		}
+	}
+	if ctx.Err() != nil {
+		return
+	}
+	xlog.Warn("s2s: input transcription failed", "error", err)
+	sendEvent(t, types.ConversationItemInputAudioTranscriptionFailedEvent{
+		ServerEventBase: types.ServerEventBase{EventID: "event_TODO"},
+		ItemID:          itemID,
+		ContentIndex:    0,
+		Error: types.Error{
+			Type:    "server_error",
+			Code:    "transcription_failed",
+			Message: err.Error(),
+		},
+	})
+}
+
+const s2sNamedToolChoiceMessage = "an any-to-any model cannot be forced to call one function; use tool_choice auto, none or required"
+
+// s2sNamedToolChoice tells if tc names a function. The backend knows only the
+// modes, so a named function is refused instead of silently keeping the
+// previous mode.
+func s2sNamedToolChoice(tc *types.ToolChoiceUnion) bool {
+	return tc != nil && tc.Mode == "" && tc.Function != nil
+}
+
+// s2sToolChoiceMode is the tool_choice the backend understands: the mode. A
+// named function cannot be forced on a response, so it maps to nothing.
+func s2sToolChoiceMode(tc *types.ToolChoiceUnion) string {
+	if tc == nil {
+		return ""
+	}
+	switch tc.Mode {
+	case types.ToolChoiceModeAuto, types.ToolChoiceModeNone, types.ToolChoiceModeRequired:
+		return string(tc.Mode)
+	}
+	return ""
+}
+
+// s2sResponseToolCalls picks the tool calls of a finished response. The calls
+// the backend parsed win. Without any, and only if the request had tools, the
+// raw text of the response is parsed the way the chained pipeline parses the
+// text of its LLM, so a model whose call format the backend does not know still
+// works. content is the text around the calls and is meaningful only when
+// contentKnown is set: the config captures it, or the call was XML markup that
+// could be cut out. content may then be empty (the reply was only a call).
+func s2sResponseToolCalls(parsed []functions.FuncCallResults, rawText string, hasTools bool, fc functions.FunctionsConfig) (calls []functions.FuncCallResults, content string, contentKnown, fromText bool) {
+	if len(parsed) > 0 {
+		return parsed, "", false, false
+	}
+	if !hasTools || rawText == "" {
+		return nil, "", false, false
+	}
+	calls = functions.ParseFunctionCall(functions.CleanupLLMResult(rawText, fc), fc)
+	if len(calls) == 0 {
+		return nil, "", false, false
+	}
+	if captured := functions.ParseTextContent(rawText, fc); captured != "" {
+		return calls, captured, true, true
+	}
+	// No capture regex (none of the LFM3-Audio gallery entries set one): the
+	// text left after the call markup is cut out is the content.
+	if stripped := functions.StripToolCallMarkup(rawText); stripped != strings.TrimSpace(rawText) {
+		return calls, stripped, true, true
+	}
+	return calls, "", false, true
+}
+
+// s2sFallbackToolsAllowed tells if the raw text of a response may be parsed
+// for tool calls. The backend knows only the tools of the session, so those are
+// the tools of every response. With tool_choice "none" (the response value wins
+// over the session value) the backend builds no tool parser and a call the
+// model writes anyway is plain text.
+func s2sFallbackToolsAllowed(session *Session, overrides *types.ResponseCreateParams) bool {
+	if len(session.Tools) == 0 {
+		return false
+	}
+	choice := session.ToolChoice
+	if overrides != nil && overrides.ToolChoice != nil {
+		choice = overrides.ToolChoice
+	}
+	return s2sToolChoiceMode(choice) != string(types.ToolChoiceModeNone)
+}
+
+// s2sTurn is the state of one response while its events arrive.
+type s2sTurn struct {
+	ctx      context.Context
+	session  *Session
+	conv     *Conversation
+	t        Transport
+	r        *liveResponse
+	st       *s2sSession
+	textOnly bool
+	isWebRTC bool
+	// hasTools is true if the request had tools; funcCfg is how the model
+	// writes a call, for parsing the raw text of a response.
+	hasTools bool
+	funcCfg  functions.FunctionsConfig
+
+	item      *types.MessageItemUnion
+	text      strings.Builder
+	audio     []byte
+	toolCalls []functions.FuncCallResults
+	// stopped is true once the response is cancelled: nothing more reaches the
+	// client except the closing events.
+	stopped bool
+	// after runs once the response has released the stream (tool calls).
+	after func()
+}
+
+// ensureItem opens the assistant item on the first audio or text event, so a
+// response that is only a tool call has no empty message.
+func (tn *s2sTurn) ensureItem() {
+	if tn.item != nil {
+		return
+	}
+	part := types.MessageContentOutput{Type: types.MessageContentTypeOutputAudio}
+	if tn.textOnly {
+		part.Type = types.MessageContentTypeOutputText
+	}
+	tn.item = &types.MessageItemUnion{Assistant: &types.MessageItemAssistant{
+		ID:      generateItemID(),
+		Status:  types.ItemStatusInProgress,
+		Content: []types.MessageContentOutput{part},
+	}}
+	tn.conv.Lock.Lock()
+	tn.conv.Items = append(tn.conv.Items, tn.item)
+	tn.conv.Lock.Unlock()
+	sendEvent(tn.t, types.ResponseOutputItemAddedEvent{
+		ResponseID: tn.r.id, OutputIndex: 0, Item: *tn.item,
+	})
+	sendEvent(tn.t, types.ResponseContentPartAddedEvent{
+		ResponseID: tn.r.id, ItemID: tn.item.Assistant.ID, OutputIndex: 0, ContentIndex: 0, Part: part,
+	})
+}
+
+func (tn *s2sTurn) onAudio(pcm []byte, rate int) {
+	// A cancel sent by the VAD at speech onset precedes the context
+	// cancellation; audio behind it must not reach the client either.
+	if tn.stopped || tn.st.cancelSent.Load() || len(pcm) == 0 || tn.textOnly {
+		return
+	}
+	tn.ensureItem()
+	if rate == 0 {
+		rate = tn.st.outputRate
+	}
+	if err := tn.t.SendAudio(tn.ctx, pcm, rate); err != nil {
+		return
+	}
+	if tn.isWebRTC {
+		return
+	}
+	out := pcm
+	if rate != 0 && rate != tn.session.OutputSampleRate {
+		out = sound.Int16toBytesLE(sound.ResampleInt16(sound.BytesToInt16sLE(pcm), rate, tn.session.OutputSampleRate))
+	}
+	tn.audio = append(tn.audio, out...)
+	sendEvent(tn.t, types.ResponseOutputAudioDeltaEvent{
+		ResponseID: tn.r.id, ItemID: tn.item.Assistant.ID, OutputIndex: 0, ContentIndex: 0,
+		Delta: base64.StdEncoding.EncodeToString(out),
+	})
+}
+
+func (tn *s2sTurn) onText(delta string) {
+	if tn.stopped || tn.st.cancelSent.Load() || delta == "" {
+		return
+	}
+	tn.ensureItem()
+	tn.text.WriteString(delta)
+	if tn.textOnly {
+		sendEvent(tn.t, types.ResponseOutputTextDeltaEvent{
+			ResponseID: tn.r.id, ItemID: tn.item.Assistant.ID, OutputIndex: 0, ContentIndex: 0, Delta: delta,
+		})
+		return
+	}
+	sendEvent(tn.t, types.ResponseOutputAudioTranscriptDeltaEvent{
+		ResponseID: tn.r.id, ItemID: tn.item.Assistant.ID, OutputIndex: 0, ContentIndex: 0, Delta: delta,
+	})
+}
+
+// closeItem emits the closing events of the assistant item. fallbackText is
+// the full text from response.done, used when no delta carried any. A non-nil
+// override replaces the streamed text: it is the content once the calls were
+// cut out of the raw text.
+func (tn *s2sTurn) closeItem(fallbackText string, override *string, incomplete bool) {
+	if tn.item == nil {
+		return
+	}
+	text := tn.text.String()
+	if text == "" {
+		text = fallbackText
+	}
+	if override != nil {
+		text = *override
+	}
+	id := tn.item.Assistant.ID
+	if tn.textOnly {
+		sendEvent(tn.t, types.ResponseOutputTextDoneEvent{
+			ResponseID: tn.r.id, ItemID: id, OutputIndex: 0, ContentIndex: 0, Text: text,
+		})
+	} else {
+		if !tn.isWebRTC {
+			sendEvent(tn.t, types.ResponseOutputAudioDoneEvent{
+				ResponseID: tn.r.id, ItemID: id, OutputIndex: 0, ContentIndex: 0,
+			})
+		}
+		sendEvent(tn.t, types.ResponseOutputAudioTranscriptDoneEvent{
+			ResponseID: tn.r.id, ItemID: id, OutputIndex: 0, ContentIndex: 0, Transcript: text,
+		})
+	}
+
+	tn.conv.Lock.Lock()
+	part := &tn.item.Assistant.Content[0]
+	if tn.textOnly {
+		part.Text = text
+	} else {
+		part.Transcript = text
+		if !tn.isWebRTC {
+			part.Audio = base64.StdEncoding.EncodeToString(tn.audio)
+		}
+	}
+	tn.item.Assistant.Status = types.ItemStatusCompleted
+	if incomplete {
+		tn.item.Assistant.Status = types.ItemStatusIncomplete
+	}
+	partCopy := *part
+	tn.conv.Lock.Unlock()
+
+	sendEvent(tn.t, types.ResponseContentPartDoneEvent{
+		ResponseID: tn.r.id, ItemID: id, OutputIndex: 0, ContentIndex: 0, Part: partCopy,
+	})
+	sendEvent(tn.t, types.ResponseOutputItemDoneEvent{
+		ResponseID: tn.r.id, OutputIndex: 0, Item: *tn.item,
+	})
+	tn.r.addItem(*tn.item)
+}
+
+// s2sResponseTurn runs one response on the stream. It is the speech-to-speech
+// counterpart of the generation step of triggerResponseAtTurn: it sends
+// response.create, turns the backend's events into the realtime events, and
+// records the outcome on r. triggerResponse emits response.created and the
+// single response.done.
+func s2sResponseTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int, r *liveResponse) {
+	// The tool calls run after the stream is released: a server-side tool
+	// triggers a follow-up response on this same stream, which would wait on
+	// the slot this response still held.
+	if after := s2sRunTurn(ctx, session, conv, t, overrides, toolTurn, r); after != nil {
+		after()
+	}
+}
+
+// s2sRunTurn runs the response while it holds the stream. It returns what is
+// left to do once the stream is free again, or nil.
+func s2sRunTurn(ctx context.Context, session *Session, conv *Conversation, t Transport, overrides *types.ResponseCreateParams, toolTurn int, r *liveResponse) (after func()) {
+	st := session.s2s
+
+	if overrides != nil && s2sNamedToolChoice(overrides.ToolChoice) {
+		sendError(t, "invalid_request_error", s2sNamedToolChoiceMessage, "tool_choice", "")
+		r.outcome = outcomeFailed
+		return nil
+	}
+
+	// One response at a time on the stream. A superseded response holds it
+	// until the backend acknowledges the cancel.
+	select {
+	case st.sem <- struct{}{}:
+	case <-ctx.Done():
+		r.outcome = outcomeCancelled
+		return nil
+	}
+	defer func() { <-st.sem }()
+	if ctx.Err() != nil {
+		r.outcome = outcomeCancelled
+		return nil
+	}
+
+	st.forwardPendingItems(conv, &session.AudioBufferLock)
+
+	var respMods []types.Modality
+	maxOutputTokens := session.MaxOutputTokens
+	if overrides != nil {
+		respMods = modalitiesWithAlias(overrides.OutputModalities, overrides.Modalities)
+		if overrides.MaxOutputTokens != 0 {
+			maxOutputTokens = overrides.MaxOutputTokens
+		}
+	}
+	modalities := resolveOutputModalities(session.OutputModalities, respMods)
+	explicit := respMods
+	if len(explicit) == 0 {
+		explicit = session.OutputModalities
+	}
+	payload := map[string]any{}
+	if wire := s2sWireModalities(explicit); wire != nil {
+		payload["output_modalities"] = wire
+	}
+	if maxOutputTokens != 0 && !maxOutputTokens.IsInf() {
+		payload["max_output_tokens"] = int(maxOutputTokens)
+	}
+	// The mode of the session travels with the config; only an override of the
+	// response is sent here.
+	if overrides != nil {
+		if mode := s2sToolChoiceMode(overrides.ToolChoice); mode != "" {
+			payload["tool_choice"] = mode
+		}
+	}
+
+	_, isWebRTC := t.(*WebRTCTransport)
+	tn := &s2sTurn{
+		ctx: ctx, session: session, conv: conv, t: t, r: r, st: st,
+		textOnly: !modalitiesContainAudio(modalities),
+		isWebRTC: isWebRTC,
+	}
+	// A response cannot carry tools of its own on this path: the backend has
+	// the tools of the session and nothing else, so Go and the backend agree.
+	tn.hasTools = s2sFallbackToolsAllowed(session, overrides)
+	if session.ModelInterface == nil {
+		// no model interface, no function config
+	} else if mc := session.ModelInterface.PredictConfig(); mc != nil {
+		tn.funcCfg = mc.FunctionsConfig
+	}
+
+	// Events left over from an earlier response must not reach this one.
+	for drained := false; !drained; {
+		select {
+		case <-st.events:
+		default:
+			drained = true
+		}
+	}
+	st.cancelSent.Store(false)
+	st.active.Store(true)
+	defer st.active.Store(false)
+	if err := st.control("response.create", payload); err != nil {
+		sendError(t, "inference_failed", fmt.Sprintf("backend error: %v", err), "", "")
+		r.outcome = outcomeFailed
+		return nil
+	}
+
+	done := ctx.Done()
+	var grace <-chan time.Time
+	stop := func() {
+		tn.stopped = true
+		done = nil
+		// The timer starts first: queuing the cancel must not delay it.
+		grace = time.After(s2sCancelGrace)
+		st.sendCancel()
+	}
+	for {
+		select {
+		case <-done:
+			stop()
+		case <-grace:
+			sendError(t, "server_error", "the speech-to-speech backend did not acknowledge the cancel", "", "")
+			r.outcome = outcomeFailed
+			st.fatal()
+			return nil
+		case <-st.dead:
+			sendError(t, "server_error", fmt.Sprintf("the speech-to-speech stream ended: %v", st.deadErr), "", "")
+			r.outcome = outcomeFailed
+			st.fatal()
+			return nil
+		case ev := <-st.events:
+			// A cancel may land between the select above and this event:
+			// check it before anything is forwarded.
+			if !tn.stopped && ctx.Err() != nil {
+				stop()
+			}
+			if finished := tn.handle(ev, toolTurn); finished {
+				return tn.after
+			}
+		}
+	}
+}
+
+// handle processes one backend event and reports whether the response is over.
+func (tn *s2sTurn) handle(ev *proto.AudioToAudioResponse, toolTurn int) bool {
+	switch ev.GetEvent() {
+	case "response.audio.delta":
+		tn.onAudio(ev.GetPcm(), int(ev.GetSampleRate()))
+	case "response.audio_transcript.delta", "response.text.delta":
+		var m struct {
+			Delta string `json:"delta"`
+		}
+		_ = json.Unmarshal(ev.GetMeta(), &m)
+		tn.onText(m.Delta)
+	case "response.function_call_arguments.done":
+		var m struct {
+			Name      string          `json:"name"`
+			Arguments json.RawMessage `json:"arguments"`
+		}
+		_ = json.Unmarshal(ev.GetMeta(), &m)
+		args := string(m.Arguments)
+		var asString string
+		if json.Unmarshal(m.Arguments, &asString) == nil {
+			args = asString
+		}
+		if m.Name != "" && !tn.stopped {
+			tn.toolCalls = append(tn.toolCalls, functions.FuncCallResults{Name: m.Name, Arguments: args})
+		}
+	case "error":
+		typ, msg, scoped := s2sErrorMeta(ev.GetMeta())
+		if typ == "response_cancel_not_active" {
+			// The response ended just as the cancel went out; its own
+			// response.done is on the way.
+			return false
+		}
+		sendError(tn.t, typ, msg, "", "")
+		if !scoped {
+			// The backend reports problems that are not about this response
+			// (a refused session.update, an empty commit) and goes on
+			// generating. Its response.done still comes.
+			return false
+		}
+		tn.r.outcome = outcomeFailed
+		return true
+	case "response.done":
+		var m struct {
+			Status string `json:"status"`
+			Text   string `json:"text"`
+			// RawText is what the model wrote, tool-call markup included.
+			RawText string `json:"raw_text"`
+			Usage   struct {
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+		}
+		_ = json.Unmarshal(ev.GetMeta(), &m)
+		tn.r.addUsage(backend.TokenUsage{Completion: m.Usage.OutputTokens})
+		cancelled := tn.stopped || m.Status == "cancelled"
+		var override *string
+		if !cancelled {
+			calls, content, contentKnown, fromText := s2sResponseToolCalls(tn.toolCalls, m.RawText, tn.hasTools, tn.funcCfg)
+			tn.toolCalls = calls
+			if fromText && contentKnown {
+				override = &content
+			}
+		}
+		tn.closeItem(m.Text, override, cancelled)
+		if cancelled {
+			tn.r.outcome = outcomeCancelled
+			return true
+		}
+		if len(tn.toolCalls) > 0 {
+			hasContent := tn.item != nil
+			tn.after = func() {
+				emitToolCallItems(tn.ctx, tn.session, tn.conv, tn.t, tn.r, tn.toolCalls, hasContent, toolTurn)
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// checkS2SUpdate rejects session.update fields that an any-to-any session
+// cannot honour: switching the model, a classifier, and turn detection modes
+// that need other models.
+func checkS2SUpdate(session *Session, rt *types.RealtimeSession) error {
+	if rt.Model != "" && rt.Model != session.Model {
+		return fmt.Errorf("the model of an any-to-any session cannot change: %w", errS2SOnly)
+	}
+	if rt.LocalAIClassifier != nil {
+		return fmt.Errorf("classifier mode: %w", errS2SOnly)
+	}
+	if s2sNamedToolChoice(rt.ToolChoice) {
+		return errors.New(s2sNamedToolChoiceMessage)
+	}
+	if rt.Audio != nil && rt.Audio.Input != nil {
+		if tr := rt.Audio.Input.Transcription; tr != nil && tr.Model != "" && session.InputAudioTranscription != nil && tr.Model != session.InputAudioTranscription.Model {
+			return errors.New("the transcription model of an any-to-any session cannot change")
+		}
+		if rt.Audio.Input.TurnDetectionSet && rt.Audio.Input.TurnDetection != nil {
+			td := rt.Audio.Input.TurnDetection
+			if td.SemanticVad != nil {
+				return errors.New("semantic_vad is not supported for any-to-any models")
+			}
+			if td.ServerVad != nil {
+				if m, ok := session.ModelInterface.(*anyToAnyModel); ok && m.VADConfig == nil {
+					return errors.New("server_vad needs a VAD model; set pipeline.vad on the model, or commit turns manually")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// prepareAnyToAnyConfig validates a model that runs on one speech-to-speech
+// stream and fills the slots it uses. The VAD slot stays empty: server VAD is
+// on only when the model names one. Features that need a separate LLM call
+// cannot work on this path and are refused up front.
+func prepareAnyToAnyConfig(cfg *config.ModelConfig) (errCode, errMsg string, ok bool) {
+	p := &cfg.Pipeline
+	reject := func(what string) (string, string, bool) {
+		return "invalid_pipeline", what + " is not supported for any-to-any models", false
+	}
+	switch {
+	case p.Classifier != nil && p.Classifier.Enabled:
+		return reject("pipeline.classifier")
+	case p.Compaction != nil && p.Compaction.Enabled:
+		return reject("pipeline.compaction")
+	case p.StreamLLM():
+		return reject("pipeline.streaming.llm")
+	case p.VoiceGateEnabled():
+		return reject("pipeline.voice_recognition")
+	case p.SoundDetection != "":
+		return reject("pipeline.sound_detection")
+	case p.TurnDetectionSemantic():
+		return reject("pipeline.turn_detection semantic_vad")
+	}
+	if p.LLM == "" {
+		p.LLM = cfg.Name
+	}
+	// pipeline.transcription is left as the config has it: empty means the
+	// session does not transcribe the input (see s2sInputTranscriptionModel).
+	return "", "", true
+}

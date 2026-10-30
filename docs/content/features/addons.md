@@ -693,7 +693,7 @@ again from the same library is a reinstall.
 
 The Backends page marks a backend that came from a library with the library ID, and the
 detail view shows the digest that `metadata.json` pinned. A backend of a gallery has no
-mark, and the gallery upgrade check and the Update all button are unchanged.
+mark, and the gallery upgrade check and the review of updates are unchanged.
 
 When the cached index of the library lists a different build than the one installed, the
 backend shows "Update available" and an Update button. The check is
@@ -3225,6 +3225,15 @@ upgrading, done, failed (with the reason the owner gave) or skipped. A failure d
 the others. You can close the dialog while it runs: the upgrades continue and the bar shows
 the progress and then a summary. **Retry failed** runs the failed add-ons again as new
 operations.
+
+**Check for updates** in the bar of the list reads the library of every installed add-on
+again; it applies nothing, and an add-on that cannot be checked does not stop the others.
+
+An upgrade started from the list, the details, **Find add-ons** or **Upgrade all** keeps
+running when you leave the page. It appears in the Activity page under the **Add-ons**
+filter, with progress, **Cancel** and **Retry**. Cancel stops the request, and the page then
+reads the operation to report what the owner did. The list of upgrades is kept by the
+browser that started them, so it is lost on a page reload.
 
 ## Add-on pages
 
