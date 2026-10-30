@@ -1,6 +1,7 @@
 ---
 name: pptx
 description: Work with Microsoft PowerPoint `.pptx` files using the installed `paper-pptx` distribution, which imports as `pptx` and extends `python-pptx` with inspection, guarded edits, composition, diffs, and package-preserving saves.
+requires: [exec]
 ---
 
 # PPTX with paper-pptx

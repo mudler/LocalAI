@@ -62,3 +62,17 @@ var _ = Describe("ValidName", func() {
 		}
 	})
 })
+
+var _ = Describe("Requires", func() {
+	DescribeTable("reads the capabilities a skill needs",
+		func(in string, want []string) {
+			Expect(Requires([]byte(in))).To(Equal(want))
+		},
+		Entry("a flow list", "---\nname: xlsx\ndescription: D.\nrequires: [exec]\n---\n", []string{"exec"}),
+		Entry("words split by commas", "---\nname: x\ndescription: D.\nrequires: exec, net\n---\n", []string{"exec", "net"}),
+		Entry("quoted values and repeats", "---\nname: x\ndescription: D.\nrequires: [\"exec\", 'exec']\n---\n", []string{"exec"}),
+		Entry("a value that is not a capability word is dropped", "---\nname: x\ndescription: D.\nrequires: [exec, ../x, EXEC!]\n---\n", []string{"exec"}),
+		Entry("no key", "---\nname: x\ndescription: D.\n---\n", nil),
+		Entry("no frontmatter", "Body only.\n", nil),
+	)
+})
