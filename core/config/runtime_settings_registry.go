@@ -458,6 +458,13 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return o.MCPConnectorsAllowPrivate },
 		func(o *ApplicationConfig, v bool) { o.MCPConnectorsAllowPrivate = v }),
 
+	// Offers from the assistant: stored as the negation for UI clarity. Read
+	// at each turn, so no restart.
+	field("chats_suggestions",
+		func(s *RuntimeSettings) **bool { return &s.ChatsSuggestions },
+		func(o *ApplicationConfig) bool { return !o.DisableChatSuggestions },
+		func(o *ApplicationConfig, v bool) { o.DisableChatSuggestions = !v }),
+
 	// LocalAI Assistant: stored as the negation for UI clarity.
 	field("localai_assistant_enabled",
 		func(s *RuntimeSettings) **bool { return &s.LocalAIAssistantEnabled },

@@ -343,6 +343,12 @@ type ApplicationConfig struct {
 	// through the server. Runtime-toggleable via /api/settings.
 	MCPConnectorsAllowPrivate bool
 
+	// DisableChatSuggestions stops the assistant from offering things (to
+	// remember a name, to make a shortcut, to update a widget on a schedule)
+	// to users who did not choose for themselves. Runtime-toggleable via
+	// /api/settings as chats_suggestions (stored as the negation).
+	DisableChatSuggestions bool
+
 	// LegacyNavigation shows the previous sidebar. See WithLegacyNavigation.
 	LegacyNavigation bool
 
