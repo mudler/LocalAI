@@ -267,5 +267,59 @@
     "emptyTitle": "Belum ada obrolan",
     "emptyBody": "Obrolan dimulai di Beranda: ketik pesan lalu kirim. Setelah itu obrolan Anda tercantum di sini.",
     "start": "Mulai obrolan"
+  },
+  "foot": {
+    "state": {
+      "ready": "Siap",
+      "nomodel": "Tidak ada model",
+      "sending": "Mengirim",
+      "loading": "Memuat model",
+      "thinking": "Berpikir",
+      "tool": "Menjalankan {{tool}}",
+      "answering": "Menjawab",
+      "waiting": "Menunggu Anda",
+      "stopped": "Dihentikan",
+      "failed": "Gagal",
+      "interrupted": "Terputus"
+    },
+    "tool": {
+      "search": "Mencari",
+      "list": "Mendaftar",
+      "read": "Membaca",
+      "create": "Membuat",
+      "write": "Menulis",
+      "change": "Mengubah",
+      "move": "Memindahkan",
+      "delete": "Menghapus",
+      "run": "Menjalankan perintah",
+      "fetch": "Mengambil",
+      "delegate": "Bertanya ke sub-agen"
+    },
+    "hint": "Enter untuk mengirim · Shift+Enter untuk baris baru",
+    "meter": {
+      "label": "Konteks terisi {{pct}}%. Tampilkan konteks dan kecepatan",
+      "labelNoLimit": "Konteks {{used}} token. Tampilkan konteks dan kecepatan"
+    },
+    "details": {
+      "title": "Konteks dan kecepatan",
+      "context": "Konteks",
+      "contextOf": "{{used}} dari {{limit}} token ({{pct}}%)",
+      "contextUsed": "{{used}} token",
+      "contextHelp": "Konteks adalah apa yang dibaca model pada setiap permintaan: instruksi, obrolan ini sejauh ini, dan hasil alat.",
+      "nearFull": "Obrolan ini mendekati batas. Server memadatkan bagian yang lebih lama agar model bisa melanjutkan. Transkrip menyimpan setiap pesan.",
+      "limitUnknown": "Server tidak menyebutkan seberapa besar jendela konteksnya.",
+      "lastRequest": "Permintaan terakhir",
+      "model": "Model",
+      "backend": "Backend",
+      "node": "Node",
+      "tokensIn": "Token masuk",
+      "tokensOut": "Token keluar",
+      "firstToken": "Waktu hingga token pertama",
+      "promptTime": "Pemrosesan prompt",
+      "speed": "Kecepatan",
+      "speedLive": "Kecepatan, perkiraan saat streaming",
+      "average": "Rata-rata {{count}} permintaan terakhir",
+      "note": "Angka ini berasal dari permintaan yang dilihat halaman ini. Server tidak menyimpannya, jadi memuat ulang akan menghapusnya."
+    }
   }
 }

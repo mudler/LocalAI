@@ -3,6 +3,7 @@ import { chatsApi } from '../utils/api'
 import { eventPayload, retryDelay } from '../utils/streamRetry'
 import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
+import { pushUsage } from '../utils/chatFoot'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -41,6 +42,13 @@ export function useServerChat() {
   // tokens_per_second }). The server does not keep it: a reload has none until
   // the next request.
   const [usage, setUsage] = useState(null)
+  // The usage of the requests seen since the chat was opened (the last 10),
+  // for the average speed of the status line.
+  const [usageHistory, setUsageHistory] = useState([])
+  // How long the turn the page saw start waited for its first streamed piece,
+  // in ms. Null until then, and for a turn that started before the page
+  // connected.
+  const [firstTokenMs, setFirstTokenMs] = useState(null)
   // Counts the sub-agent starts and ends, the trigger proposals and the
   // changes to the chat's files, so the panels that list them read the server
   // again.
@@ -64,6 +72,28 @@ export function useServerChat() {
   // Counts the turns started, so that the end of one turn does not clear the
   // live view of the next.
   const epochRef = useRef(0)
+  // The pace of the streamed pieces, read by the status line at its own rate
+  // so a fast stream does not render it for every piece. Times in ms:
+  //   turnAt     the turn_start the page saw
+  //   firstAt    the first piece of that turn
+  //   reqAt      the first piece of the current model request
+  //   lastAt     the latest piece
+  //   reqChunks  the pieces of the current request
+  const paceRef = useRef({ turnAt: 0, firstAt: 0, reqAt: 0, lastAt: 0, reqChunks: 0 })
+  const piece = useCallback(() => {
+    const p = paceRef.current
+    const now = Date.now()
+    if (p.turnAt && !p.firstAt) {
+      p.firstAt = now
+      setFirstTokenMs(now - p.turnAt)
+    }
+    if (!p.reqAt) { p.reqAt = now; p.reqChunks = 0 }
+    p.lastAt = now
+    p.reqChunks++
+  }, [])
+  // A tool call or the end of a request starts a new request: its pace
+  // starts again.
+  const newRequest = () => { const p = paceRef.current; p.reqAt = 0; p.lastAt = 0; p.reqChunks = 0 }
 
   const refreshList = useCallback(async () => {
     try {
@@ -130,15 +160,17 @@ export function useServerChat() {
       turn_start: () => {
         epochRef.current++
         setError('')
+        paceRef.current = { turnAt: Date.now(), firstAt: 0, reqAt: 0, lastAt: 0, reqChunks: 0 }
+        setFirstTokenMs(null)
         setLive(emptyLive())
         setDetail(d => (d ? { ...d, running: true } : d))
         refreshChat(id)
       },
-      text: (e) => setLive(l => ({ ...l, text: l.text + (e.text || '') })),
-      reasoning: (e) => setLive(l => ({ ...l, reasoning: l.reasoning + (e.text || '') })),
-      tool_start: (e) => setLive(l => toolStart(l, e.tool)),
+      text: (e) => { piece(); setLive(l => ({ ...l, text: l.text + (e.text || ''), phase: 'text' })) },
+      reasoning: (e) => { piece(); setLive(l => ({ ...l, reasoning: l.reasoning + (e.text || ''), phase: 'reasoning' })) },
+      tool_start: (e) => { newRequest(); setLive(l => ({ ...toolStart(l, e.tool), phase: 'tool' })) },
       tool_end: (e) => {
-        setLive(l => toolEnd(l, e.tool))
+        setLive(l => ({ ...toolEnd(l, e.tool), phase: 'after-tool' }))
         if (!liveCardWanted(e.tool)) return
         // The event holds the reference of the app only. The line of the call has
         // the input and the result: read that one line, then show the app.
@@ -154,7 +186,12 @@ export function useServerChat() {
         setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }])
         setTicks(t => ({ ...t, subAgents: t.subAgents + 1 }))
       },
-      usage: (e) => { if (e.usage) setUsage(e.usage) },
+      usage: (e) => {
+        if (!e.usage) return
+        newRequest()
+        setUsage(e.usage)
+        setUsageHistory(h => pushUsage(h, e.usage))
+      },
       trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
       error: (e) => {
@@ -200,7 +237,9 @@ export function useServerChat() {
         connect(id)
       }, retryDelay(attemptRef.current++, RECONNECT_MS))
     }
-  }, [closeStream, refreshChat, refreshList, setError])
+  }, [closeStream, refreshChat, refreshList, setError, piece])
+
+  const readPace = useCallback(() => ({ ...paceRef.current }), [])
 
   const select = useCallback(async (id) => {
     activeRef.current = id
@@ -209,6 +248,9 @@ export function useServerChat() {
     setLive(emptyLive())
     setNotes([])
     setUsage(null)
+    setUsageHistory([])
+    setFirstTokenMs(null)
+    paceRef.current = { turnAt: 0, firstAt: 0, reqAt: 0, lastAt: 0, reqChunks: 0 }
     setError('')
     setDetail(null)
     setMessages([])
@@ -310,7 +352,7 @@ export function useServerChat() {
   }, [refreshList, select])
 
   return {
-    chats, persistent, files, activeId, detail, messages, live, notes, error, failure, loading, usage, ticks,
+    chats, persistent, files, activeId, detail, messages, live, notes, error, failure, loading, usage, usageHistory, firstTokenMs, readPace, ticks,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],

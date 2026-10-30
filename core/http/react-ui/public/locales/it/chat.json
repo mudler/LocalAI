@@ -267,5 +267,59 @@
     "emptyTitle": "Ancora nessuna chat",
     "emptyBody": "Una chat inizia dalla Home: scrivi un messaggio e invialo. Poi le tue chat sono elencate qui.",
     "start": "Inizia una chat"
+  },
+  "foot": {
+    "state": {
+      "ready": "Pronto",
+      "nomodel": "Nessun modello",
+      "sending": "Invio",
+      "loading": "Caricamento del modello",
+      "thinking": "Sta pensando",
+      "tool": "Esegue {{tool}}",
+      "answering": "Sta rispondendo",
+      "waiting": "In attesa di te",
+      "stopped": "Fermato",
+      "failed": "Non riuscito",
+      "interrupted": "Interrotto"
+    },
+    "tool": {
+      "search": "Cerca",
+      "list": "Elenca",
+      "read": "Legge",
+      "create": "Crea",
+      "write": "Scrive",
+      "change": "Modifica",
+      "move": "Sposta",
+      "delete": "Elimina",
+      "run": "Esegue un comando",
+      "fetch": "Scarica",
+      "delegate": "Chiede a un sotto-agente"
+    },
+    "hint": "Invio per inviare · Maiusc+Invio per una nuova riga",
+    "meter": {
+      "label": "Contesto pieno al {{pct}}%. Mostra contesto e velocità",
+      "labelNoLimit": "Contesto di {{used}} token. Mostra contesto e velocità"
+    },
+    "details": {
+      "title": "Contesto e velocità",
+      "context": "Contesto",
+      "contextOf": "{{used}} di {{limit}} token ({{pct}}%)",
+      "contextUsed": "{{used}} token",
+      "contextHelp": "Il contesto è ciò che il modello legge a ogni richiesta: le istruzioni, questa chat finora e i risultati degli strumenti.",
+      "nearFull": "Questa chat è vicina al limite. Il server compatta la parte più vecchia perché il modello possa continuare. La trascrizione conserva ogni messaggio.",
+      "limitUnknown": "Il server non ha indicato quanto è grande la finestra di contesto.",
+      "lastRequest": "Ultima richiesta",
+      "model": "Modello",
+      "backend": "Backend",
+      "node": "Nodo",
+      "tokensIn": "Token in ingresso",
+      "tokensOut": "Token in uscita",
+      "firstToken": "Tempo al primo token",
+      "promptTime": "Elaborazione del prompt",
+      "speed": "Velocità",
+      "speedLive": "Velocità stimata durante lo streaming",
+      "average": "Media delle ultime {{count}} richieste",
+      "note": "Questi valori vengono dalle richieste viste da questa pagina. Il server non li conserva, quindi un ricaricamento li cancella."
+    }
   }
 }

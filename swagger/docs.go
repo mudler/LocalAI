@@ -18836,6 +18836,18 @@ const docTemplate = `{
                     "description": "Limit is the context window the loop plans with, 0 when it is not known.",
                     "type": "integer"
                 },
+                "model": {
+                    "description": "Model is the model the request used.",
+                    "type": "string"
+                },
+                "node": {
+                    "description": "Node is the worker node that served the request. It is set only when\nthe server exposes the node header (--expose-node-header).",
+                    "type": "string"
+                },
+                "prompt_ms": {
+                    "description": "PromptMs is the time the backend took to read the prompt, in\nmilliseconds, when the backend reports it.",
+                    "type": "number"
+                },
                 "tokens_per_second": {
                     "description": "TokensPerSecond is the generation speed, 0 when the backend gave no timing.",
                     "type": "number"

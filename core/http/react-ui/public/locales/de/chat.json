@@ -267,5 +267,59 @@
     "emptyTitle": "Noch keine Chats",
     "emptyBody": "Ein Chat beginnt auf der Startseite: Nachricht eingeben und senden. Danach stehen deine Chats hier.",
     "start": "Chat beginnen"
+  },
+  "foot": {
+    "state": {
+      "ready": "Bereit",
+      "nomodel": "Kein Modell",
+      "sending": "Wird gesendet",
+      "loading": "Modell wird geladen",
+      "thinking": "Denkt nach",
+      "tool": "{{tool}} läuft",
+      "answering": "Antwortet",
+      "waiting": "Wartet auf dich",
+      "stopped": "Gestoppt",
+      "failed": "Fehlgeschlagen",
+      "interrupted": "Unterbrochen"
+    },
+    "tool": {
+      "search": "Sucht",
+      "list": "Listet auf",
+      "read": "Liest",
+      "create": "Erstellt",
+      "write": "Schreibt",
+      "change": "Ändert",
+      "move": "Verschiebt",
+      "delete": "Löscht",
+      "run": "Führt einen Befehl aus",
+      "fetch": "Lädt ab",
+      "delegate": "Fragt einen Sub-Agenten"
+    },
+    "hint": "Enter zum Senden · Umschalt+Enter für eine neue Zeile",
+    "meter": {
+      "label": "Kontext zu {{pct}} % voll. Kontext und Tempo anzeigen",
+      "labelNoLimit": "Kontext {{used}} Tokens. Kontext und Tempo anzeigen"
+    },
+    "details": {
+      "title": "Kontext und Tempo",
+      "context": "Kontext",
+      "contextOf": "{{used}} von {{limit}} Tokens ({{pct}} %)",
+      "contextUsed": "{{used}} Tokens",
+      "contextHelp": "Der Kontext ist das, was das Modell bei jeder Anfrage liest: die Anweisungen, diesen Chat bis jetzt und die Ergebnisse der Tools.",
+      "nearFull": "Dieser Chat ist nahe am Limit. Der Server fasst den älteren Teil zusammen, damit das Modell weitermachen kann. Das Protokoll behält jede Nachricht.",
+      "limitUnknown": "Der Server hat nicht gesagt, wie groß das Kontextfenster ist.",
+      "lastRequest": "Letzte Anfrage",
+      "model": "Modell",
+      "backend": "Backend",
+      "node": "Knoten",
+      "tokensIn": "Tokens rein",
+      "tokensOut": "Tokens raus",
+      "firstToken": "Zeit bis zum ersten Token",
+      "promptTime": "Prompt-Verarbeitung",
+      "speed": "Tempo",
+      "speedLive": "Tempo, geschätzt während des Streamens",
+      "average": "Durchschnitt der letzten {{count}} Anfragen",
+      "note": "Diese Werte stammen aus den Anfragen, die diese Seite gesehen hat. Der Server speichert sie nicht, ein Neuladen löscht sie."
+    }
   }
 }

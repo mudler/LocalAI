@@ -25,6 +25,10 @@ const maxRewriteBody = 512 << 20
 // JSON body.
 const usageTail = 16 << 10
 
+// nodeHeader is middleware.NodeHeaderName. The middleware package is not
+// imported here: the provider sits below the HTTP layer.
+const nodeHeader = "X-LocalAI-Node"
+
 // Params are the sampling fields and the usage hook of one chat's model
 // client. A nil pointer or an empty string leaves the model's own default.
 type Params struct {
@@ -50,6 +54,13 @@ type Usage struct {
 	CompletionTokens int
 	// TokensPerSecond is the generation speed, or 0 when the backend gave no timing.
 	TokensPerSecond float64
+	// PromptMillis is the time the backend took to read the prompt, or 0 when
+	// it gave no timing.
+	PromptMillis float64
+	// Node is the worker that served the request in distributed mode. It is
+	// set only when the server exposes the node header, which an
+	// administrator turns on.
+	Node string
 }
 
 // LLMWith is LLM with the chat's own settings added to every request.
@@ -103,7 +114,12 @@ func (t *paramsTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if err != nil || t.params.OnUsage == nil || resp.StatusCode/100 != 2 {
 		return resp, err
 	}
-	resp.Body = &usageBody{rc: resp.Body, start: start, report: t.params.OnUsage}
+	node := resp.Header.Get(nodeHeader)
+	report := t.params.OnUsage
+	resp.Body = &usageBody{rc: resp.Body, start: start, report: func(u Usage) {
+		u.Node = node
+		report(u)
+	}}
 	return resp, nil
 }
 
@@ -252,12 +268,13 @@ func parseUsage(tail []byte, elapsed time.Duration) (Usage, bool) {
 		Prompt     int     `json:"prompt_tokens"`
 		Completion int     `json:"completion_tokens"`
 		GenMillis  float64 `json:"timing_token_generation"`
+		PromptMs   float64 `json:"timing_prompt_processing"`
 	}
 	dec := json.NewDecoder(bytes.NewReader(tail[i+len(`"usage":`):]))
 	if err := dec.Decode(&u); err != nil || (u.Prompt == 0 && u.Completion == 0) {
 		return Usage{}, false
 	}
-	out := Usage{PromptTokens: u.Prompt, CompletionTokens: u.Completion}
+	out := Usage{PromptTokens: u.Prompt, CompletionTokens: u.Completion, PromptMillis: u.PromptMs}
 	switch {
 	case u.GenMillis > 0:
 		out.TokensPerSecond = float64(u.Completion) / (u.GenMillis / 1000)
