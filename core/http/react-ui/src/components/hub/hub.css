@@ -26,12 +26,33 @@
 
 /* ---- Header -------------------------------------------------------------- */
 
-.hub-head.page-header { margin: 0 0 var(--sp-6); }
+/* The same frame as PageHeader (components/ui): a 28/34 title, a supporting
+   line up to 64 characters, the actions at the bottom right, 24 px to the
+   tabs. Its own classes, so a page's .page-title stays the only one. */
+.hub-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4) var(--sp-6);
+  margin: 0 0 var(--sp-6);
+}
+.hub-head__lead { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.hub-title {
+  margin: 0;
+  font: 600 var(--fs-title) / var(--lh-title) var(--font-sans);
+  letter-spacing: -0.02em;
+  color: var(--dk-text);
+}
+.hub-head__supporting {
+  max-width: 64ch;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--color-text-secondary, var(--dk-muted));
+}
 .hub-head__slot { display: contents; }
-.hub-head .page-header__meta:empty { display: none; }
-/* A page's supporting line can carry a status sentence and a scope word. */
-.hub-head .page-header__supporting > * { margin: 0; }
-.hub-title { margin: 0; }
+.hub-head__slot > * { margin: 0; }
+.hub-head__actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
+.hub-head__actions:empty { display: none; }
 
 /* ---- Tabs: one underline row -------------------------------------------- */
 
@@ -53,7 +74,7 @@
   background: transparent;
   color: var(--dk-muted);
   font: 500 var(--fs-small) / 1 var(--font-sans);
-  transition: color var(--dur-instant) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-instant) var(--ease-out);
 }
 .hub-bar .dk-hubtab:hover { background: transparent; color: var(--dk-text); }
 .hub-bar .dk-hubtab[aria-current="page"] {
@@ -160,7 +181,7 @@
 
 @media (max-width: 768px) {
   .hub-layout { padding-top: var(--sp-4); }
-  .hub-head.page-header { margin-bottom: var(--sp-4); }
+  .hub-head { flex-direction: column; align-items: stretch; margin-bottom: var(--sp-4); }
   .hub-bar .dk-hubtabs { gap: var(--sp-5); }
   /* The row runs to the screen edge so a half-visible tab says "scroll". */
   .hub-bar .dk-hubtabs { margin-right: calc(-1 * var(--page-gutter)); }

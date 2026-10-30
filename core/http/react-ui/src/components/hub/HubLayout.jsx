@@ -152,18 +152,18 @@ function HubLayoutInner({ config }) {
   const { tabs, current } = resolveTabs(config, auth, location.pathname)
   const external = (config.external || []).filter(item => !item.adminOnly || auth.isAdmin)
   const header = config.header ? (
-    <header className="page-header page-header--editorial hub-head">
-      <div className="page-header__lead">
+    <header className="hub-head">
+      <div className="hub-head__lead">
         {/* Not a heading: the page under the tabs owns the one h1. The tab
             row is labelled with the same name for assistive technology. */}
-        <p className="page-title hub-title">{t(config.titleKey)}</p>
-        <div className="page-header__supporting" data-testid="hub-supporting">
+        <p className="hub-title">{t(config.titleKey)}</p>
+        <div className="hub-head__supporting" data-testid="hub-supporting">
           {slots.filled === 0 && config.header.supportingKey ? t(config.header.supportingKey) : null}
           {/* The page's line is portalled here; the node has no React children. */}
           <div className="hub-head__slot" ref={slots.setSupporting} />
         </div>
       </div>
-      <div className="page-header__meta" ref={slots.setActions} />
+      <div className="hub-head__actions" ref={slots.setActions} />
     </header>
   ) : null
 

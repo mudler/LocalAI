@@ -50,7 +50,7 @@
   background: transparent;
   color: var(--dk-muted);
   font: 500 var(--fs-small) / 1 var(--font-sans);
-  transition: color var(--dur-instant) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-instant) var(--ease-out);
 }
 .models-page .models-tabs .dk-hubtab:hover { background: transparent; color: var(--dk-text); }
 .models-page .models-tabs .dk-hubtab[aria-current="page"] {
