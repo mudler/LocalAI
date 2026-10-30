@@ -2,6 +2,7 @@ package studio
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -37,6 +38,16 @@ func folderID(c echo.Context) int64 {
 		return 0
 	}
 	return id
+}
+
+// memberParam reads the member of the route. Echo leaves a path parameter
+// escaped, and a client escapes the "@" of @everyone or an email.
+func memberParam(c echo.Context) string {
+	p := c.Param("principal")
+	if u, err := url.PathUnescape(p); err == nil {
+		return u
+	}
+	return p
 }
 
 // by is the audit actor of an administrator's change.
@@ -215,7 +226,7 @@ func (h *Handlers) AdminSetSharedFolderMember(c echo.Context) error {
 	if !ok {
 		return nil
 	}
-	f, err := h.svc.SharedFolders().SetMember(c.Request().Context(), h.by(c), folderID(c), c.Param("principal"), sharedfolders.ParseMode(req.Mode))
+	f, err := h.svc.SharedFolders().SetMember(c.Request().Context(), h.by(c), folderID(c), memberParam(c), sharedfolders.ParseMode(req.Mode))
 	if err != nil {
 		return failFolder(c, err)
 	}
@@ -232,7 +243,7 @@ func (h *Handlers) AdminSetSharedFolderMember(c echo.Context) error {
 // @Failure 404 {object} schema.ErrorResponse "No such folder"
 // @Router /api/chats/admin/shared-folders/{id}/members/{principal} [delete]
 func (h *Handlers) AdminRemoveSharedFolderMember(c echo.Context) error {
-	f, err := h.svc.SharedFolders().RemoveMember(c.Request().Context(), h.by(c), folderID(c), c.Param("principal"))
+	f, err := h.svc.SharedFolders().RemoveMember(c.Request().Context(), h.by(c), folderID(c), memberParam(c))
 	if err != nil {
 		return failFolder(c, err)
 	}

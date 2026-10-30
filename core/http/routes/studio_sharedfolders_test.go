@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -51,7 +50,7 @@ var _ = Describe("Chats shared folders endpoints", func() {
 	idOf := func(folder map[string]any) string { return fmt.Sprint(int64(folder["id"].(float64))) }
 	member := func(id, who, mode string) map[string]any {
 		GinkgoHelper()
-		rec := s.do("root", http.MethodPut, admin+"/"+id+"/members/"+url.PathEscape(who), map[string]any{"mode": mode})
+		rec := s.do("root", http.MethodPut, admin+"/"+id+"/members/"+who, map[string]any{"mode": mode})
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		return decodeJSON(rec)
 	}
@@ -120,7 +119,8 @@ var _ = Describe("Chats shared folders endpoints", func() {
 	It("shares with everyone, renames, removes with an undo and validates", func() {
 		team := create("Team")
 		id := idOf(team)
-		got := member(id, "@everyone", "write")
+		// A client escapes the "@" of the member in the path.
+		got := member(id, "%40everyone", "write")
 		Expect(got["members"].([]any)[0]).To(And(HaveKeyWithValue("principal", "@everyone"), HaveKeyWithValue("everyone", true)))
 		Expect(decodeJSON(s.do("dave", http.MethodGet, "/api/chats/shared-folders", nil))["folders"]).To(ConsistOf(HaveKeyWithValue("mode", "write")))
 
