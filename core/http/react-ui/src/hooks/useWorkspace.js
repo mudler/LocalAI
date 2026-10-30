@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { filesApi } from '../utils/api'
+import { invalidate, useWorkspaceFeed } from './useWorkspaceFeed'
 
 // The parent of a path inside the home: "/a/b" -> "/a", "/a" -> "/".
 export const parentOf = (path) => {
@@ -35,8 +36,10 @@ export function useWorkspace(initialPath = '/') {
     setError(e?.message || 'The request failed.')
   }, [])
 
-  const refresh = useCallback(async (at = pathRef.current) => {
-    setLoading(true)
+  // quiet skips the loading state: a refresh that the change feed starts must
+  // not blank the list the user is looking at.
+  const refresh = useCallback(async (at = pathRef.current, { quiet = false } = {}) => {
+    if (!quiet) setLoading(true)
     try {
       const [list, tr] = await Promise.all([filesApi.list(at), filesApi.trash()])
       if (pathRef.current !== at) return
@@ -69,6 +72,11 @@ export function useWorkspace(initialPath = '/') {
 
   useEffect(() => { refresh(initialPath) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A change to the open folder, from another tab, a chat, a trigger or another
+  // client, reads it again. The feed's paths have no leading slash.
+  const folderGlob = path === '/' ? '*' : `${path.slice(1)}/*`
+  useWorkspaceFeed([folderGlob], () => { refresh(pathRef.current, { quiet: true }) })
+
   // Runs a change, then reads the folder and the Trash again.
   const act = useCallback(async (fn) => {
     setBusy(true)
@@ -88,7 +96,10 @@ export function useWorkspace(initialPath = '/') {
   const upload = useCallback((fileList) => act(async () => {
     const results = []
     for (const f of Array.from(fileList)) {
-      results.push(await filesApi.upload(joinPath(pathRef.current, f.name), f))
+      const node = await filesApi.upload(joinPath(pathRef.current, f.name), f)
+      // The list is read again below; the feed's echo of this upload is not needed.
+      if (node?.path) invalidate(node.path, node.rev)
+      results.push(node)
     }
     return results
   }), [act])

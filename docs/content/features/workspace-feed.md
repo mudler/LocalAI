@@ -100,4 +100,6 @@ That server runs alone, so the feed is local too.
 
 Pages of the React UI listen through one shared stream per tab
 (`useWorkspaceFeed`). They also refresh when the window gets the focus again
-and when a chat turn ends, in case the stream was down.
+and when a chat turn ends, in case the stream was down. The **Files** page
+reads the open folder again when something in it changes, so a file that a
+chat or another tab writes shows up without a reload.
