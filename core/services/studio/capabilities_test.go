@@ -15,7 +15,7 @@ import (
 // runAddon is the Sandbox add-on as the broker lists it: bash runs commands.
 func runAddon() []studio.AddonTool {
 	bash := addonTool("sandbox", "bash")
-	bash.Action, bash.Runs = true, true
+	bash.Action, bash.Shadows = true, "bash"
 	read := addonTool("sandbox", "read")
 	read.Action = true
 	return []studio.AddonTool{bash, read}
@@ -101,18 +101,18 @@ var _ = Describe("capabilities", func() {
 		id := create(svc, alice)
 		prompt := turnPrompt(svc, h, id)
 
-		Expect(prompt).To(ContainSubstring("Commands: addon__sandbox__bash runs commands and code in an isolated sandbox."))
+		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated sandbox."))
 		Expect(prompt).NotTo(ContainSubstring("nothing in this chat runs code"))
 		Expect(prompt).To(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"))
 		Expect(prompt).NotTo(ContainSubstring("unavailable here"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "addon__sandbox__bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox"}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox"}))
 	})
 
 	It("warns when commands run on the server with no isolation", func() {
 		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}
 		svc, h, _ := newCapsChat(isolatedAddons{fakeAddons: fa, mode: "host"}, nil)
 		id := create(svc, alice)
-		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: addon__sandbox__bash runs commands directly on the server, with no isolation."))
+		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: bash runs commands directly on the server, with no isolation."))
 	})
 
 	It("says the Sandbox is off when the chat switched it off", func() {

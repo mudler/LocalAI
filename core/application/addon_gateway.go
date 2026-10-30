@@ -633,9 +633,6 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 // sandboxAddonID is the add-on that runs commands and code.
 const sandboxAddonID = "sandbox"
 
-// sandboxRunTool is the tool of the Sandbox add-on that runs commands.
-var sandboxRunTool = addontools.ToolName(sandboxAddonID, "bash")
-
 // needsWorkspace says whether the add-on works on the files of the user.
 func (s *studioAddons) needsWorkspace(addonID string) bool {
 	for _, p := range s.hostOps[addonID] {
@@ -745,7 +742,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Runs: d.Name == sandboxRunTool, Shadows: d.Shadows, InstalledAt: d.InstalledAt})
+			Shadows: d.Shadows, InstalledAt: d.InstalledAt})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }

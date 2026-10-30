@@ -524,7 +524,11 @@ host:port`) when a card asks and `egress_card` when the chat's network changes,
 so every open tab reads it again. Administrators read the settings in force
 and the audit with `GET /api/chats/admin/egress` and `GET
 /api/chats/admin/egress/events?limit=&user=&chat=&verdict=&host=`, and see
-both in Settings > Tools > Sandbox network.
+both in Settings > Tools > Sandbox network. Its `sandbox` field names the
+add-on that runs the commands now: of the running add-ons that replace `bash`,
+the one chosen in `chats_tool_providers` or the one installed first, and none
+when the chosen one is stopped. It is read from the add-on host each time, so
+it is right after a restart and the same on every frontend of a cluster.
 
 ### Commands on this machine
 
@@ -1026,7 +1030,9 @@ authentication on, and the other way round. Copy them with the files API.
 
 When files are off, every files route and every attachment answers `409` with
 the reason, the list endpoint returns `"files": false` and `files_reason`, and
-everything else in the chats works.
+everything else in the chats works. A chat then has no skills either, not even
+the built-in ones: the model reads a skill with the file tools, and every
+built-in skill works on files or runs commands.
 
 In a cluster the bytes go to the object store, so a file written through one
 frontend is read through another. That needs S3 (the storage URL setting); `docker-compose.distributed.yaml` sets it up with Garage.

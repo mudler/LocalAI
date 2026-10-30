@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -101,81 +101,79 @@ func (s *Service) withHostBash(c Commands, tools []session.Tool) Commands {
 // runs commands when the chat has none.
 const skillNeedsExec = "needs command execution"
 
-// runners remembers which add-on tools run commands, by tool name, and which
-// add-ons have one. Tool names are the same for every user, so the cache is
-// shared; it only grows with the set of installed add-ons, and every frontend
-// fills its own from the broker at the first turn that lists the tools.
-type runners struct {
-	tools  sync.Map // tool name -> add-on ID
-	addons sync.Map // add-on ID -> tool name
-}
+// commandTool is the tool name of the commands: the built-in bash, or the
+// add-on tool that replaces it (contract.ToolDefinition shadows "bash").
+const commandTool = "bash"
 
-func (r *runners) mark(t AddonTool) {
-	if t.Runs {
-		r.tools.Store(t.Name, t.AddonID)
-		r.addons.Store(t.AddonID, t.Name)
-		if t.Shadows != "" {
-			// In a chat the tool has the built-in's name: it is known by the
-			// pair of its add-on and that name, never by the name alone,
-			// which the built-in tool has too.
-			r.tools.Store(shadowKey(t.AddonID, t.Shadows), t.AddonID)
+// addonRunner returns the add-on that serves the commands in the tool list:
+// the provider of a bash that an add-on serves, or "". The built-in bash is
+// not an add-on's: see providerOf.
+func addonRunner(tools []session.Tool) string {
+	for _, t := range tools {
+		if t.Name == commandTool && t.Provider != "" && t.Provider != BuiltinProvider {
+			return t.Provider
 		}
 	}
+	return ""
 }
 
-func shadowKey(addon, name string) string { return addon + "\x00" + name }
-
-// in returns the first tool of the list that an add-on serves and that runs
-// commands, and its add-on. The built-in bash is not an add-on's: see
-// builtinRunner.
-func (r *runners) in(tools []session.Tool) (name, addon string) {
+// standInRunner returns the add-on whose stand-in tool (the add-on cannot
+// work) is in the list, when that add-on replaces bash.
+func standInRunner(tools []session.Tool) string {
 	for _, t := range tools {
-		key := t.Name
-		switch t.Provider {
-		case BuiltinProvider:
+		if !slices.Contains(t.StandInFor, commandTool) {
 			continue
-		case "":
-		default:
-			key = shadowKey(t.Provider, t.Name)
 		}
-		if id, ok := r.tools.Load(key); ok {
-			return t.Name, id.(string)
-		}
-	}
-	return "", ""
-}
-
-// standIn returns the add-on whose stand-in tool (the add-on cannot work) is in
-// the list, when that add-on runs commands.
-func (r *runners) standIn(tools []session.Tool) string {
-	for _, t := range tools {
 		id, ok := strings.CutPrefix(t.Name, "addon__")
 		if !ok {
 			continue
 		}
-		id, ok = strings.CutSuffix(id, "__unavailable")
-		if !ok {
-			continue
-		}
-		if _, runs := r.addons.Load(id); runs {
+		if id, ok = strings.CutSuffix(id, "__unavailable"); ok {
 			return id
 		}
 	}
 	return ""
 }
 
+// commandAddons lists the installed add-ons that replace bash and that the
+// user can see, oldest install first. With a broker that lists add-ons in any
+// state it is every such add-on; else the running ones. It reads the broker
+// each time, so every frontend answers the same, also after a restart.
+func (s *Service) commandAddons(ctx context.Context, user string) []string {
+	if s.d.AddonTools == nil {
+		return nil
+	}
+	if _, ok := s.d.AddonTools.(ShadowLister); ok {
+		sh := s.shadowersFor(ctx, user)
+		return OrderProviders(sh.byName[commandTool], sh.when)
+	}
+	defs, err := s.d.AddonTools.Tools(ctx, user)
+	if err != nil {
+		return nil
+	}
+	var ids []string
+	installed := map[string]string{}
+	for _, d := range defs {
+		if d.Shadows == commandTool && !slices.Contains(ids, d.AddonID) {
+			ids = append(ids, d.AddonID)
+			installed[d.AddonID] = d.InstalledAt
+		}
+	}
+	return OrderProviders(ids, installed)
+}
+
 // commandsOf says whether the tools of a chat can run commands. addonsOff are
 // the add-ons the chat switched off and sc the agent's scope, for a chat that
 // cannot: they tell an add-on that is installed but off from none at all.
 func (s *Service) commandsOf(ctx context.Context, user string, tools []session.Tool, addonsOff []string, sc *scope) Commands {
-	if name, addon := s.runners.in(tools); name != "" {
-		c := Commands{State: CommandsAvailable, Tool: name, Addon: addon}
+	if addon := addonRunner(tools); addon != "" {
+		c := Commands{State: CommandsAvailable, Tool: commandTool, Addon: addon}
 		if iso, ok := s.d.AddonTools.(CommandIsolation); ok {
 			c.Isolation = iso.Isolation(ctx, user, addon)
 		}
 		return c
 	}
-	if addon := s.runners.standIn(tools); addon != "" {
+	if addon := standInRunner(tools); addon != "" {
 		c := Commands{State: CommandsUnavailable, Addon: addon}
 		if gate, ok := s.d.AddonTools.(AddonGate); ok {
 			c.Reason = gate.Unavailable(ctx, user, addon, s.d.Files.Available())
@@ -183,38 +181,12 @@ func (s *Service) commandsOf(ctx context.Context, user string, tools []session.T
 		return c
 	}
 	off := set(addonsOff)
-	found, which := CommandsNone, ""
-	s.runners.addons.Range(func(k, _ any) bool {
-		id := k.(string)
+	for _, id := range s.commandAddons(ctx, user) {
 		if off[id] || (sc != nil && !sc.addons[id]) {
-			found, which = CommandsOff, id
-			return false
-		}
-		return true
-	})
-	if found == CommandsOff && !s.userHasRunner(ctx, user) {
-		// Another user has the add-on; this one may not use it.
-		found, which = CommandsNone, ""
-	}
-	return Commands{State: found, Addon: which}
-}
-
-// userHasRunner asks the broker whether the user may use an add-on that runs
-// commands at all, whatever the chat switched.
-func (s *Service) userHasRunner(ctx context.Context, user string) bool {
-	if s.d.AddonTools == nil {
-		return false
-	}
-	defs, err := s.d.AddonTools.Tools(ctx, user)
-	if err != nil {
-		return false
-	}
-	for _, d := range defs {
-		if d.Runs {
-			return true
+			return Commands{State: CommandsOff, Addon: id}
 		}
 	}
-	return false
+	return Commands{State: CommandsNone}
 }
 
 // CommandRunner says whether a chat can run commands at its next turn, as the

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -21,11 +22,9 @@ type AddonTool struct {
 	// Action is true for a tool that acts at once as the user (runs code, edits
 	// files, changes data) instead of only reading.
 	Action bool
-	// Runs is true for the tool that runs shell commands and code. A chat
-	// without such a tool is told that it cannot run anything.
-	Runs bool
 	// Shadows is the built-in chat tool this tool replaces (see shadow.go), or
-	// empty: the tool keeps its add-on name.
+	// empty: the tool keeps its add-on name. A tool that shadows bash is the
+	// add-on's tool that runs shell commands and code.
 	Shadows string
 	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
 	// empty. It decides the default provider of a shadowed name.
@@ -148,19 +147,28 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 		off[id] = true
 	}
 	have := map[string]bool{}
+	// replaces maps an add-on to the built-in tools it replaces, for the
+	// stand-in of one that cannot work.
+	replaces := map[string][]string{}
+	for _, d := range defs {
+		if d.Shadows != "" && !slices.Contains(replaces[d.AddonID], d.Shadows) {
+			replaces[d.AddonID] = append(replaces[d.AddonID], d.Shadows)
+		}
+	}
 	var tools []session.Tool
 	gate, _ := s.d.AddonTools.(AddonGate)
 	reasons := map[string]string{}
 	for _, d := range defs {
 		have[d.AddonID] = true
-		s.runners.mark(d)
 		if gate != nil && !off[d.AddonID] && (sc == nil || sc.addons[d.AddonID]) {
 			reason, known := reasons[d.AddonID]
 			if !known {
 				reason = gate.Unavailable(ctx, a.Principal, d.AddonID, s.d.Files.Available())
 				reasons[d.AddonID] = reason
 				if reason != "" {
-					tools = append(tools, unavailableTool(d.AddonID, reason))
+					stand := unavailableTool(d.AddonID, reason)
+					stand.StandInFor = replaces[d.AddonID]
+					tools = append(tools, stand)
 				}
 			}
 			if reason != "" {
