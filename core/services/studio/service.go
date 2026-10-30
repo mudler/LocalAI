@@ -532,6 +532,10 @@ func (s *Service) RemoteModel(model string) bool {
 // Persistent reports whether conversations survive a restart of the server.
 func (s *Service) Persistent() bool { return s.d.Persistent }
 
+// ImageModel names the model that describes images for a chat whose own model
+// cannot look at them, or "" when there is none.
+func (s *Service) ImageModel() string { return s.d.Media.VisionModel("") }
+
 // Pending lists the messages waiting for the model.
 func (s *Service) Pending(ctx context.Context, user, conv string) ([]store.Pending, error) {
 	return s.d.Store.Pending(ctx, principal(user), conv)
