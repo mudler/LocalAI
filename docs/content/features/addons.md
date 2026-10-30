@@ -2791,9 +2791,11 @@ the caller and is sent with `Cache-Control: private, no-store`.
   never expire. A sweep that cannot read the add-on owner changes nothing.
 - **Upgrade seed.** A read or a save never pins anything. Once, at the upgrade that adds
   this feature, the accounts that exist then get Studio and Talk pinned. Both are
-  add-ons, so a pin is drawn once the add-on is installed, and an add-on that is not
-  installed within the retention window loses its seeded pin. An account created
-  later starts with no pins. An unpin stays after a restart.
+  add-ons, so a pin is drawn once the add-on is installed. A seeded pin does not
+  expire while its add-on was never installed, however long that takes; once the
+  add-on was installed, its pin follows the retention rule like any other (the sweep
+  records the first install in the table of seed runs, `addon_pin_seed_runs`, or in
+  the pins file). An account created later starts with no pins. An unpin stays after a restart.
 - **Startup.** If the pins file cannot be read (it is corrupt), the server does not start
   and logs the error. It does not fall back to memory, because that would lose every unpin
   at the next restart.
