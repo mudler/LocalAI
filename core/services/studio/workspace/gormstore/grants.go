@@ -152,3 +152,33 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 	}
 	return out, nil
 }
+
+// Grants returns the grants on the live folder p itself, sorted by principal.
+func (s *Workspace) Grants(ctx context.Context, admin Actor, p string) ([]Grant, error) {
+	if !s.isAdmin(admin) {
+		return nil, ErrNotAdmin
+	}
+	n, err := lookupPath(ctx, s.db, p)
+	if err != nil {
+		return nil, err
+	}
+	if n.kind != KindDir {
+		return nil, ErrInvalid
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT principal, mode FROM studio_ws_grants WHERE node_id = ? ORDER BY principal`, n.id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Grant{}
+	for rows.Next() {
+		var g Grant
+		var m int
+		if err := rows.Scan(&g.Principal, &m); err != nil {
+			return nil, err
+		}
+		g.Mode = Mode(m)
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}

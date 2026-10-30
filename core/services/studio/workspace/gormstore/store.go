@@ -49,7 +49,10 @@ type Workspace struct {
 	now     func() time.Time
 }
 
-var _ Store = (*Workspace)(nil)
+var (
+	_ Store       = (*Workspace)(nil)
+	_ GrantLister = (*Workspace)(nil)
+)
 
 // New returns a Store on db and creates its tables. db must be SQLite or
 // PostgreSQL.

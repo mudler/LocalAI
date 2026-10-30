@@ -37,6 +37,7 @@ func RunStoreSuite(newStore NewStore) {
 	describeTx(newStore)
 	describeAccess(newStore)
 	describeReadablePrefixes(newStore)
+	describeGrants(newStore)
 	describeMoves(newStore)
 	describeHistory(newStore)
 	describeProperty(newStore)
