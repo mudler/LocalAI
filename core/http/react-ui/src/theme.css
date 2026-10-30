@@ -136,8 +136,10 @@
   --radius-full: 9999px;
 
   /* Typography — Geist Variable + Geist Mono Variable */
-  --font-sans: "Geist", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* The packages register the faces as "Geist Variable" and "Geist Mono
+     Variable", so those names come first. */
+  --font-sans: "Geist Variable", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
   /* The kit's type scale: 12 / 13 / 15 / 17 / 21 / 32 / 44. Body and list
      text is 15; 13 is for secondary lines and button labels. */
@@ -204,4 +206,13 @@
   --color-data-3: var(--dk-series-3);
   --color-data-6: var(--dk-series-2);
   --color-data-7: var(--dk-series-1);
+}
+
+/* The kit's font roles ship OS stacks ("System fallbacks only. A product may
+   prepend its own face."). Point them at the product fonts: Geist for every
+   role, Geist Mono only for code. */
+:root {
+  --dk-font-body: var(--font-sans);
+  --dk-font-display: var(--font-sans);
+  --dk-font-mono: var(--font-mono);
 }
