@@ -1,3 +1,5 @@
+import { expect } from '@playwright/test'
+
 // Helpers of the journey specs that run against the real test server: the
 // mock model is offered to the model picker, and every console error, page
 // error and failed request of a journey is collected so a spec can assert the
@@ -33,11 +35,33 @@ export function watchProblems(page, { ignore = [] } = {}) {
 export const composer = (page) => page.getByTestId('chat-input')
 export const transcript = (page) => page.getByRole('region', { name: 'Conversation' })
 
+// Home is where a chat starts: its message box sends the first message, and
+// the chat opens at /app/chats/<id>.
+export const homeBox = (page) => page.locator('.home-textarea')
+
+export async function sendFromHome(page, text) {
+  await page.goto('/app')
+  await homeBox(page).fill(text)
+  // Send waits for the model picker to choose a model.
+  await expect(page.locator('.home-send-btn')).toBeEnabled({ timeout: 15_000 })
+  await page.locator('.home-send-btn').click()
+}
+
+// The empty chat, before its first message: /new on Home. /app/chats as an
+// address opens Home, so this is how a spec reaches the empty chat's message
+// box (to attach a file first, or to read its notices and shortcuts).
+export async function openNewChat(page) {
+  await page.goto('/app')
+  await expect(homeBox(page)).toBeVisible({ timeout: 15_000 })
+  await homeBox(page).fill('/new')
+  await homeBox(page).press('Enter')
+  await page.waitForURL(/\/app\/chats(\?|$)/)
+  await expect(page.getByTestId('chats-page')).toBeVisible()
+}
+
 export async function startChat(page, text) {
   await offerMockModel(page)
-  await page.goto('/app/chats')
-  await composer(page).fill(text)
-  await page.getByRole('button', { name: 'Send' }).click()
+  await sendFromHome(page, text)
   await page.waitForURL(/\/app\/chats\/[0-9a-f]+$/)
   return page.url().split('/').pop()
 }

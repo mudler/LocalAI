@@ -158,14 +158,15 @@ test.describe('Chats page with a stubbed API', () => {
   test('says that history will not survive a restart when chats live in memory', async ({ page }) => {
     const api = newChatsApi(page, { persistent: false })
     await api.install()
-    await page.goto('/app/chats')
+    // /app/chats as an address opens Home; the notice is on every chat page.
+    await page.goto('/app/chats/c1')
     await expect(page.getByRole('note').filter({ hasText: 'restart' })).toBeVisible()
   })
 
   test('says nothing about restarts when chats are kept', async ({ page }) => {
     const api = newChatsApi(page)
     await api.install()
-    await page.goto('/app/chats')
+    await page.goto('/app/chats/c1')
     await expect(page.getByTestId('chats-page')).toBeVisible()
     await expect(page.getByRole('note').filter({ hasText: 'restart' })).toHaveCount(0)
   })

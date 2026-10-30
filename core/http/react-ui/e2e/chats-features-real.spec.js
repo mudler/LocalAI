@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { readFileSync } from 'node:fs'
-import { startChat, transcript, composer, offerMockModel, b64 } from './journey-fixtures.js'
+import { startChat, transcript, composer, offerMockModel, openNewChat, b64 } from './journey-fixtures.js'
 
 // The chat features of the API, driven from the chat page against the real
 // test server and the mock model. After each step the spec reads the API, so
@@ -90,7 +90,8 @@ test('the chats menu finds a chat by a word of its messages', async ({ page }) =
   await page.request.patch(`/api/chats/${id}`, { data: { title: 'Unrelated title' } })
   const hits = await api(page.request, `/api/chats/search?q=${word}`)
   expect(hits.hits.map(h => h.chat.id)).toContain(id)
-  await page.goto('/app/chats')
+  // The menu is in the header of a transcript; /app/chats as an address opens Home.
+  await page.goto(`/app/chats/${id}`)
   await page.getByTestId('chats-trigger').click()
   await page.getByRole('combobox', { name: /search/i }).fill(word)
   const row = page.getByTestId('chats-row').filter({ hasText: 'Unrelated title' })
@@ -126,7 +127,7 @@ test('the chats the old page left in this browser are offered once and imported'
     localStorage.setItem('localai_chats_data', JSON.stringify({ chats: [{ id: 'x1', name: t, model: 'mock-model', createdAt: c, updatedAt: c, history: [{ role: 'user', content: 'hi from before' }, { role: 'assistant', content: 'hello' }] }] }))
   }, [title, created])
   await offerMockModel(page)
-  await page.goto('/app/chats')
+  await openNewChat(page)
   const note = page.getByTestId('browser-import')
   await expect(note).toContainText('1 chat from the old chat page')
   await page.screenshot({ path: 'test-results/wiring-browser-import.png' })

@@ -28,8 +28,8 @@ test.describe('404', () => {
 
   test('the links go where they say', async ({ page }) => {
     await page.goto('/app/no-such-page')
-    await page.getByTestId('not-found').getByRole('link', { name: 'Chats' }).click()
-    await expect(page).toHaveURL(/\/app\/chats$/)
+    await page.getByTestId('not-found').getByRole('link', { name: 'All chats' }).click()
+    await expect(page).toHaveURL(/\/app\/chats\/all$/)
     await page.goto('/app/no-such-page')
     await page.getByTestId('not-found').getByRole('link', { name: 'Go home' }).click()
     await expect(page).toHaveURL(/\/app\/?$/)

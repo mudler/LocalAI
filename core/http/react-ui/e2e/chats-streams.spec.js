@@ -26,7 +26,8 @@ test.describe('Chat event streams', () => {
   test('a server without an inbox is not asked for its events again', async ({ page }) => {
     const hits = { inboxEvents: 0, chatEvents: 0, chatGets: 0 }
     await stub(page, hits, { inbox: 409 })
-    await page.goto('/app/chats')
+    // /app/chats as an address opens Home now; a transcript opens the same inbox stream.
+    await page.goto('/app/chats/c1')
     await expect(page.getByTestId('chats-page')).toBeVisible()
     await page.waitForTimeout(5000)
     expect(hits.inboxEvents).toBeLessThanOrEqual(1)

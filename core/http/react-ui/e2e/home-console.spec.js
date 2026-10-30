@@ -560,10 +560,11 @@ test.describe('Home send hand-off', () => {
     await expect(page.locator('.home-send-btn')).toBeEnabled()
   })
 
-  test('the old chat address opens the chats page and keeps the model as a hint', async ({ page }) => {
+  test('the old chat address opens Home and keeps the model as a hint', async ({ page }) => {
     await page.route('**/api/chats?limit=1&kind=chat', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
     await page.goto('/app/chat/qwen3-8b-instruct')
-    await expect(page).toHaveURL(/\/app\/chats\?model=qwen3-8b-instruct$/)
+    await expect(page).toHaveURL(/\/app\?model=qwen3-8b-instruct$/)
+    await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-8b-instruct')
   })
 })
 

@@ -1,5 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
-import { offerMockModel, composer } from './journey-fixtures.js'
+import { offerMockModel, composer, openNewChat } from './journey-fixtures.js'
 
 // The well-known files of the home (persona.json, user.json, shortcuts.json,
 // home.json, ui.json) and their editors: the Account tabs, the shortcuts row of
@@ -124,7 +124,8 @@ test('appearance: a pin made elsewhere while the form holds an edit is kept by t
 
 test('shortcuts: the starters are the default shortcuts, a click fills the composer, and the editor writes shortcuts.json', async ({ page, request }) => {
   await offerMockModel(page)
-  await page.goto('/app/chats')
+  // The shortcuts row is over the message box of a chat; /new on Home opens an empty one.
+  await openNewChat(page)
   const row = page.getByTestId('chat-shortcuts')
   await expect(row.getByTestId('chat-shortcut')).toHaveCount(4)
   await expect(row).toContainText('Default shortcuts')
@@ -150,7 +151,7 @@ test('shortcuts: the starters are the default shortcuts, a click fills the compo
 
   // A file the assistant writes shows at the next read.
   await write(request, 'shortcuts', { shortcuts: [{ label: 'Summarise my inbox', prompt: 'Summarise my inbox', icon: 'mail' }] })
-  await page.goto('/app/chats')
+  await openNewChat(page)
   await expect(row.getByTestId('chat-shortcut')).toHaveText(['Summarise my inbox'])
 
   await row.getByTestId('chat-shortcuts-assistant').click()
@@ -205,7 +206,9 @@ test('the editors fit a phone screen without a sideways scroll', async ({ page, 
   await upload(request, '/data/tasks.json', { items: [{ label: 'A task with a long, long label that does not fit a narrow card at all', meta: 'Wed' }] })
   await page.setViewportSize({ width: 390, height: 844 })
   for (const [path, ready] of [['/app/account?tab=about', 'wk-card-user'], ['/app/account?tab=appearance', 'wk-card-ui'], ['/app', 'home-widget-tasks'], ['/app/chats', 'chat-shortcuts']]) {
-    await page.goto(path)
+    // /app/chats as an address opens Home; the empty chat is /new on Home.
+    if (path === '/app/chats') await openNewChat(page)
+    else await page.goto(path)
     await expect(page.getByTestId(ready)).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow, path).toBeLessThanOrEqual(1)

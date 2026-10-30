@@ -121,11 +121,15 @@ test.describe('Chat journeys', () => {
     await expect(page.getByTestId('chats-row').filter({ hasText: 'Lisbon' }).first()).toBeVisible()
   })
 
-  test('the old chat addresses open the chats page and keep the model', async ({ page }) => {
+  test('the old chat addresses open Home, where a chat starts, and keep the model', async ({ page }) => {
     await offerMockModel(page)
     await page.goto('/app/chat')
-    await expect(page).toHaveURL(/\/app\/chats$/)
+    await expect(page).toHaveURL(/\/app$/)
     await page.goto('/app/chat/mock-model')
-    await expect(page).toHaveURL(/\/app\/chats\?model=mock-model$/)
+    await expect(page).toHaveURL(/\/app\?model=mock-model$/)
+    await expect(page.getByTestId('home-model-chip')).toContainText('mock-model')
+    await page.goto('/app/chats?model=mock-model')
+    await expect(page).toHaveURL(/\/app\?model=mock-model$/)
+    await expect(page.getByTestId('home-model-chip')).toContainText('mock-model')
   })
 })

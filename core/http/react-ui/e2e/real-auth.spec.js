@@ -70,8 +70,8 @@ test('the first account is the administrator and signs in through the form', asy
   await signIn(page, ADMIN)
   await expect(page).toHaveURL(/\/app/)
   await expect(page.getByRole('link', { name: 'Administration' })).toBeVisible()
-  await page.goto(`${server.url}/app/chats`)
-  await expect(page.getByTestId('chats-page')).toBeVisible()
+  await page.goto(`${server.url}/app/chats/all`)
+  await expect(page.getByTestId('all-chats-page')).toBeVisible()
 })
 
 test('a wrong password is refused with a message and stays on the login page', async ({ page }) => {
@@ -116,21 +116,22 @@ async function carolPage(browser) {
   return { context, page: await context.newPage() }
 }
 
-test('a user whose chats feature is off loses the Chats page, the Files page and the chats API', async ({ browser, request }) => {
+test('a user whose chats feature is off loses All chats, the recent chats, the Files page and the chats API', async ({ browser, request }) => {
   await setPerms(request, { chats: false })
   const { context, page } = await carolPage(browser)
   await page.goto(`${server.url}/app`)
   const nav = page.getByRole('complementary', { name: 'Primary navigation' })
   await expect(nav.getByRole('link', { name: 'Home' })).toBeVisible()
-  await expect(nav.getByRole('link', { name: 'Chats' })).toHaveCount(0)
+  await expect(nav.getByRole('link', { name: 'All chats' })).toHaveCount(0)
+  await expect(page.getByTestId('sidebar-chats')).toHaveCount(0)
   await expect(nav.getByRole('link', { name: 'Files' })).toHaveCount(0)
   expect((await page.request.get(`${server.url}/api/chats`)).status()).toBe(403)
-  await page.goto(`${server.url}/app/chats`)
-  await expect(page.getByTestId('chats-page')).toHaveCount(0)
+  await page.goto(`${server.url}/app/chats/all`)
+  await expect(page.getByTestId('all-chats-page')).toHaveCount(0)
 
   await setPerms(request, { chats: true })
-  await page.goto(`${server.url}/app/chats`)
-  await expect(page.getByTestId('chats-page')).toBeVisible()
+  await page.goto(`${server.url}/app/chats/all`)
+  await expect(page.getByTestId('all-chats-page')).toBeVisible()
   await context.close()
 })
 
