@@ -10,21 +10,56 @@
 
 /* --- Header -------------------------------------------------------------- */
 
-.models-bar {
-  align-items: center;
-  gap: var(--dk-space-3);
-  padding-bottom: var(--dk-space-3);
-}
-
-.models-bar .view-bar__title { line-height: 1.1; }
-
-.models-tabs { flex: none; }
-
+/* PageHeader: the title, one line, the disk and the add actions. Then one
+   underline row of tabs, the same as Administration's. */
+.models-head.page-header { flex: none; margin-bottom: var(--sp-6); }
 .models-bar__actions {
+  display: flex;
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
+  gap: var(--sp-2);
 }
+
+.models-tabsrow {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+  box-shadow: inset 0 -1px 0 var(--dk-edge);
+}
+.models-tabsrow__count {
+  margin-left: auto;
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--dk-muted);
+}
+.models-page .models-tabs {
+  flex: none;
+  gap: var(--sp-6);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.models-page .models-tabs .dk-hubtab {
+  height: 40px;
+  padding: 0;
+  gap: var(--sp-2);
+  border-radius: 0;
+  background: transparent;
+  color: var(--dk-muted);
+  font: 500 var(--fs-small) / 1 var(--font-sans);
+  transition: color var(--dur-instant) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.models-page .models-tabs .dk-hubtab:hover { background: transparent; color: var(--dk-text); }
+.models-page .models-tabs .dk-hubtab[aria-current="page"] {
+  background: transparent;
+  color: var(--dk-text);
+  box-shadow: inset 0 -2px 0 currentColor;
+}
+.models-page .models-tabs .dk-hubtab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.models-page .models-tabs .dk-hubtab-count { background: var(--dk-inset); font-family: var(--font-sans); }
 
 /* --- Disk strip ---------------------------------------------------------- */
 
@@ -72,10 +107,20 @@
 .ledger-controls {
   flex: none;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--dk-space-3);
   margin-bottom: var(--dk-space-3);
 }
+
+/* On a desk the filters sit in the row; the sheet wrapper is transparent and
+   its phone-only parts are hidden. The facet row takes a line of its own. */
+.models-filters__sheet { display: contents; }
+.models-filters__sheet > .ledger-controls__row--facets { flex: 1 1 100%; min-width: 0; }
+.models-filters__toggle,
+.models-filters__scrim,
+.models-filters__sheet-head { display: none; }
+.models-filters__sheet-title { margin: 0; font: 600 var(--fs-section) / var(--lh-section) var(--font-sans); }
 
 .ledger-controls__row {
   display: flex;
@@ -160,7 +205,7 @@
 .ledger-facet { flex: none; }
 .ledger-facet__icon { display: none; }
 .ledger-facet__count {
-  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono);
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--font-sans);
   font-variant-numeric: tabular-nums;
   color: var(--dk-muted);
 }
@@ -176,9 +221,7 @@
   margin-left: auto;
 }
 .models-filters__context label {
-  font: var(--dk-weight-semibold) var(--dk-text-12) / 1 var(--dk-font-body);
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  font: 500 var(--fs-meta) / 1 var(--font-sans);
   color: var(--dk-muted);
 }
 .models-filters__context .dk-range-wrap { flex: 1; min-width: 0; }
@@ -241,7 +284,7 @@
 .ledger-bar { flex: none; justify-content: space-between; flex-wrap: nowrap; margin-bottom: var(--dk-space-2); min-height: 28px; }
 .ledger-bar__basis { font-size: var(--dk-text-12); color: var(--dk-muted); }
 .ledger-bar__count {
-  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono);
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--font-sans);
   font-variant-numeric: tabular-nums;
   color: var(--dk-muted);
 }
@@ -349,7 +392,7 @@ tr[data-selected="true"] .ledger-mark {
 }
 .ledger-group__toggle:hover { color: var(--dk-text); }
 .ledger-group__toggle:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: -2px; }
-.ledger-group__count { margin-left: auto; font-family: var(--dk-font-mono); font-weight: var(--dk-weight-regular); }
+.ledger-group__count { margin-left: auto; font-family: var(--font-sans); font-weight: var(--dk-weight-regular); font-variant-numeric: tabular-nums; }
 
 /* Skeleton rows keep the table's own shape while the gallery loads. */
 .ledger-skeleton .dk-skeleton, .zero-pane__hero .dk-skeleton { display: block; height: 12px; border-radius: 6px; background: var(--dk-hover); }
@@ -384,7 +427,7 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-fit[data-fit="spill"] .ledger-fit__fill { background: var(--dk-warn); }
 .ledger-fit[data-fit="over"] .ledger-fit__fill { background: var(--dk-error); }
 .ledger-fit__need {
-  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono);
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--font-sans);
   font-variant-numeric: tabular-nums;
   color: var(--dk-muted);
   white-space: nowrap;
@@ -393,7 +436,7 @@ tr[data-selected="true"] .ledger-mark {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font: var(--dk-weight-semibold) var(--dk-text-12) / 1.2 var(--dk-font-mono);
+  font: var(--dk-weight-semibold) var(--dk-text-12) / 1.2 var(--font-sans);
   font-variant-numeric: tabular-nums;
   color: var(--dk-ok-text);
 }
@@ -425,7 +468,7 @@ tr[data-selected="true"] .ledger-mark {
 
 .ledger-leaves {
   margin: 0;
-  font: var(--dk-weight-regular) var(--dk-text-13) / 1.4 var(--dk-font-mono);
+  font: var(--dk-weight-regular) var(--dk-text-13) / 1.4 var(--font-sans); font-variant-numeric: tabular-nums;
   color: var(--dk-muted);
 }
 .ledger-leaves--short { color: var(--dk-error-text); }
@@ -446,7 +489,7 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-fitblock__rows { display: grid; gap: 6px; }
 .ledger-fitblock__row { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: var(--dk-space-3); }
 .ledger-fitblock__dev { font: var(--dk-weight-semibold) var(--dk-text-12) / 1 var(--dk-font-body); letter-spacing: .06em; color: var(--dk-muted); }
-.ledger-fitblock__fig { font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono); font-variant-numeric: tabular-nums; color: var(--dk-text); }
+.ledger-fitblock__fig { font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--font-sans); font-variant-numeric: tabular-nums; color: var(--dk-text); }
 .ledger-fitblock .ledger-fit__bar { max-width: none; background: var(--dk-card); }
 .ledger-fitblock[data-fit="spill"] .ledger-fit__fill { background: var(--dk-accent); }
 .ledger-fitblock[data-fit="over"] .ledger-fit__fill { background: var(--dk-accent); }
@@ -464,7 +507,7 @@ tr[data-selected="true"] .ledger-mark {
   gap: 8px;
   padding: 0;
   background: none;
-  font: var(--dk-weight-regular) var(--dk-text-12) / 1.4 var(--dk-font-mono);
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1.4 var(--font-sans);
   letter-spacing: 0;
   color: var(--dk-muted);
 }
@@ -655,7 +698,7 @@ tr[data-selected="true"] .ledger-mark {
 .ledger-confirm__table th, .ledger-confirm__table td { display: block; padding: 0; text-align: left; }
 .ledger-confirm__table th { grid-column: 1; font-family: var(--dk-font-mono); font-weight: var(--dk-weight-semibold); overflow-wrap: anywhere; color: var(--dk-text); }
 .ledger-confirm__table td { grid-column: 1 / -1; grid-row: 2; color: var(--dk-muted); }
-.ledger-confirm__table td.dk-num { grid-column: 2; grid-row: 1; color: var(--dk-text); text-align: right; font-family: var(--dk-font-mono); white-space: nowrap; }
+.ledger-confirm__table td.dk-num { grid-column: 2; grid-row: 1; color: var(--dk-text); text-align: right; font-family: var(--font-sans); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ledger-confirm__ok { display: flex; gap: var(--dk-space-2); align-items: center; color: var(--dk-ok-text); font-weight: var(--dk-weight-semibold); }
 .ledger-confirm__warn { color: var(--dk-warn-text); }
 
@@ -664,21 +707,9 @@ tr[data-selected="true"] .ledger-mark {
    control; filters narrow what the view shows and stay a step smaller. Every
    control here has a hit area of at least 36px, tabs 40px. */
 
-.models-page .models-bar { row-gap: var(--dk-space-3); padding-bottom: var(--dk-space-4); }
-.models-page .models-bar .view-bar__count { margin-inline-start: var(--dk-space-1); }
-
-.models-page .models-tabs { gap: var(--dk-space-1); padding: 4px; margin-inline-start: var(--dk-space-3); }
-.models-page .models-tabs .dk-hubtab { height: 40px; padding: 0 var(--dk-space-4); gap: var(--dk-space-2); }
-/* The current view lifts onto a card and carries an accent underline, so it
-   reads as selected without relying on the surface step alone. */
-.models-page .models-tabs .dk-hubtab[aria-current="page"] {
-  box-shadow: var(--dk-shadow-rest), inset 0 0 0 1px var(--dk-edge), inset 0 -2px 0 var(--dk-accent);
-}
-.models-page .models-tabs .dk-hubtab:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
-
 .models-page .cat-bar { margin-bottom: var(--dk-space-3); }
 
-.models-page .ledger-controls { gap: var(--dk-space-4); margin-bottom: var(--dk-space-4); }
+.models-page .ledger-controls { gap: var(--dk-space-3) var(--dk-space-4); margin-bottom: var(--dk-space-4); }
 .models-page .ledger-controls__row { gap: var(--dk-space-3) var(--dk-space-4); }
 
 /* Toggles: the label is part of the target. */
@@ -704,9 +735,8 @@ tr[data-selected="true"] .ledger-mark {
 .models-page .ledger-bar { margin-bottom: var(--dk-space-3); min-height: 32px; }
 
 @media (max-width: 640px) {
-  /* Thumb-sized targets, and the tabs take the full width as two halves. */
-  .models-page .models-tabs { width: 100%; margin-inline-start: 0; }
-  .models-page .models-tabs .dk-hubtab { flex: 1 1 0; justify-content: center; height: 44px; }
+  /* Thumb-sized targets. */
+  .models-page .models-tabs .dk-hubtab { height: 44px; }
   .models-page .ledger-refine .filter-bar-group__toggle { min-height: 44px; }
   .models-page .ledger-facets .dk-chip { height: 40px; }
   .models-page .ledger-density .dk-seg { width: 44px; height: 40px; }
@@ -741,13 +771,54 @@ tr[data-selected="true"] .ledger-mark {
 }
 
 @media (max-width: 640px) {
-  .models-bar { gap: var(--dk-space-2); }
-  .models-bar .view-bar__count { display: none; }
-  .models-bar__actions { width: 100%; margin-left: 0; }
+  .models-tabsrow__count { display: none; }
+  .models-head.page-header { margin-bottom: var(--sp-4); }
+  .models-tabsrow { margin-bottom: var(--sp-4); }
+  .models-bar__actions { width: 100%; margin-left: 0; justify-content: flex-start; }
   .ledger-disk { flex: 1 1 100%; min-height: 44px; }
   .ledger-disk__bar { flex: 1; width: auto; }
-  .ledger-search { flex-basis: 100%; max-width: none; }
+  .ledger-search { flex: 1 1 0; min-width: 0; max-width: none; }
   .ledger-controls__end { width: 100%; justify-content: flex-end; }
+
+  /* Filters: nine rows of controls stood before the first model. Now the
+     search and one "Filters (n)" button do; the rest opens as a bottom
+     sheet. */
+  .models-filters__toggle { display: inline-flex; flex: none; }
+  .models-filters__sheet { display: none; }
+  .models-filters__sheet[data-open="true"] {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: var(--dk-z-dialog);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    max-height: 85dvh;
+    overflow-y: auto;
+    padding: var(--sp-4) var(--sp-4) calc(var(--sp-6) + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    background: var(--dk-card);
+    box-shadow: var(--dk-shadow-float);
+    animation: dk-sheet-up-in var(--dur-slow) var(--ease-out-strong) both;
+  }
+  .models-filters__sheet[data-open="true"]:focus { outline: none; }
+  .models-filters__sheet[data-open="true"] .models-filters__sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+  }
+  .models-filters__sheet[data-open="true"] .models-filters__backend > div { width: 100%; }
+  .models-filters__sheet[data-open="true"] .ledger-refine { flex-direction: column; align-items: stretch; }
+  .models-filters__sheet[data-open="true"] .ledger-density { margin-left: 0; align-self: flex-start; }
+  .models-filters__sheet[data-open="true"] .ledger-facets { flex-wrap: wrap; overflow: visible; padding: 0; mask-image: none; }
+  .models-filters__scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: var(--dk-z-veil);
+    background: var(--dk-scrim, rgb(0 0 0 / .4));
+    animation: dk-veil-in var(--dur-base) var(--ease-out) both;
+  }
 
   /* Rows: name over fit, with the action at the end. The size column goes.
      The table, its header and its body stop being a table so a row can be a
@@ -819,3 +890,23 @@ tr[data-selected="true"] .ledger-mark {
 .models-host[hidden] { display: none; }
 .ledger-open { color: var(--dk-muted); }
 .ledger-open:hover { color: var(--dk-text); }
+
+/* Tables on this page: a sentence-case header, and numbers in the sans face
+   with tabular figures (mono stays on model names). The kit's defaults are
+   uppercase headers and mono numbers. */
+.models-page .dk-table thead th { text-transform: none; letter-spacing: 0; }
+.models-page .dk-table td.dk-num { font-family: var(--font-sans); }
+
+/* The inspector with nothing selected: a sans eyebrow, a section-size
+   statement, and use-case lanes named in sentence case. */
+.models-page .zero-pane__eyebrow {
+  font: 600 var(--fs-meta) / var(--lh-meta) var(--font-sans);
+  letter-spacing: .06em;
+  color: var(--dk-muted);
+}
+.models-page .zero-pane__title { font-size: var(--fs-section); line-height: var(--lh-section); letter-spacing: 0; font-weight: 600; }
+.models-page .zero-pane__shelf-meta { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+.models-page .lane__tag { font-size: var(--fs-small); font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+/* Sizes in the cleanup legend: sans, tabular figures. */
+.ledger-space__fig { font-variant-numeric: tabular-nums; }

@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "supporting": "이 컴퓨터에 맞는 모델을 찾아 설치하고, 설치된 모델을 관리합니다.",
     "title": "Models",
     "navLabel": "Model lifecycle",
     "views": { "explore": "Explore", "installed": "Installed" },
@@ -81,6 +82,10 @@
     "delete": "삭제"
   },
   "filters": {
+    "sheetDone": "모델 보기",
+    "sheetTitle": "필터",
+    "sheetButtonCount": "필터 ({{count}})",
+    "sheetButton": "필터",
     "all": "전체",
     "llm": "채팅",
     "image": "이미지",

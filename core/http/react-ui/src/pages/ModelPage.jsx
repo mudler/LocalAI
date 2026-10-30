@@ -429,8 +429,8 @@ export default function ModelPage() {
           <h1 className="modelpage-name dk-mono" data-testid="model-page-name">{id}</h1>
           <div className="modelpage-chips">
             <span className="dk-chip dk-chip--sm modelpage-chip">{t(group.labelKey)}</span>
-            {backend && <span className="dk-chip dk-chip--sm modelpage-chip dk-mono">{backend}</span>}
-            {license && <span className="dk-chip dk-chip--sm modelpage-chip dk-mono">{license}</span>}
+            {backend && <span className="dk-chip dk-chip--sm modelpage-chip">{backend}</span>}
+            {license && <span className="dk-chip dk-chip--sm modelpage-chip">{license}</span>}
             {stateLabel && (
               <span className="dk-status modelpage-state" data-state={stateLabel.key} data-testid="model-page-state">
                 <span className={`dk-dot${stateLabel.key === 'running' ? ' dk-dot--ok' : ''}`} />
