@@ -217,6 +217,24 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 	return b.String()
 }
 
+// imagesBlock tells the model whether it sees the images the user attaches.
+// A model that sees them must not send them to describe_image, which costs a
+// second model call; a model that cannot must say so instead of guessing what
+// a picture shows. describer is the model that describe_image would use, ""
+// when there is none.
+func imagesBlock(sees bool, describer string) string {
+	switch {
+	case sees:
+		return "Images: you see the images attached to the user's message, with the message. " +
+			"Answer about them directly. Use describe_image only for an image in the user's files that is not in the message."
+	case describer != "":
+		return "Images: you cannot see images. " +
+			"To look at an image the user attached or has in their files, call describe_image with its path."
+	}
+	return "Images: you cannot see images, and no model here can describe them. " +
+		"When the user shares an image, tell them plainly and suggest that they choose a model that can look at images for this chat."
+}
+
 // subAgentCommandsBlock is the block of a sub-agent that cannot run commands.
 // Its parent decides what to tell the user.
 const subAgentCommandsBlock = "Commands: nothing here runs code or commands. Never claim or imply that you ran anything; say plainly what you could not do."
