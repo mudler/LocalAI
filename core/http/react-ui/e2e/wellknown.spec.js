@@ -107,6 +107,21 @@ test('appearance: the theme applies at once and is kept in ui.json', async ({ pa
   await expect(page.locator('html')).not.toHaveAttribute('data-density', 'compact')
 })
 
+test('appearance: a pin made elsewhere while the form holds an edit is kept by the save', async ({ page, request }) => {
+  await write(request, 'ui', { theme: 'dark' })
+  await page.goto('/app/account?tab=appearance')
+  const card = page.getByTestId('wk-card-ui')
+  await expect(card.getByTestId('wk-field-ui-theme')).toHaveValue('dark')
+  await card.getByTestId('wk-field-ui-density').selectOption('compact')
+  // Another tab pins a page: only pinnedPages changes.
+  const reread = page.waitForResponse(r => /\/api\/chats\/wellknown\/ui$/.test(r.url()) && r.request().method() === 'GET')
+  expect((await request.put('/api/chats/wellknown/ui', { data: { values: { pinnedPages: ['tasks'] } } })).ok()).toBeTruthy()
+  await reread
+  await card.getByTestId('wk-save-ui').click()
+  await expect.poll(async () => (await read(request, 'ui')).data).toEqual({ theme: 'dark', density: 'compact', pinnedPages: ['tasks'] })
+  await expect(card.getByTestId('wk-conflict-ui')).toHaveCount(0)
+})
+
 test('shortcuts: the starters are the default shortcuts, a click fills the composer, and the editor writes shortcuts.json', async ({ page, request }) => {
   await offerMockModel(page)
   await page.goto('/app/chats')
