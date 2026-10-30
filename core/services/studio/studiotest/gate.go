@@ -65,6 +65,9 @@ func (g *GateHarness) Boundaries() int { g.mu.Lock(); defer g.mu.Unlock(); retur
 // Starts returns how many times the host started a session.
 func (g *GateHarness) Starts() int { g.mu.Lock(); defer g.mu.Unlock(); return g.starts }
 
+// Env returns what the host gave the last session it started.
+func (g *GateHarness) Env() session.HarnessEnv { g.mu.Lock(); defer g.mu.Unlock(); return g.env }
+
 // Start implements session.Harness.
 func (g *GateHarness) Start(_ context.Context, env session.HarnessEnv) (session.HarnessSession, error) {
 	g.mu.Lock()

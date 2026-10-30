@@ -26,6 +26,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/wsfeed"
@@ -146,6 +147,13 @@ type Deps struct {
 	// PageConsents keeps the consents of the viewers of shared pages. Nil: an
 	// in-memory store, for a single process and tests.
 	PageConsents pages.ConsentStore
+	// SharedFolderAudit keeps the audit of the shared folders. Nil: an
+	// in-memory audit, for a single process and tests.
+	SharedFolderAudit sharedfolders.AuditStore
+	// FindUser returns the user that ref names (an ID, an email or a name),
+	// whatever their status, for the members of a shared folder. Nil: Users
+	// looks members up by ID, and with no Users any principal is a member.
+	FindUser func(ctx context.Context, ref string) (*auth.User, error)
 	// SharedPagesOn says whether the pages of shared folders are on; an
 	// administrator switches them at run time. Nil: on.
 	SharedPagesOn func() bool
@@ -222,6 +230,8 @@ type Service struct {
 	closed   chan struct{}
 
 	feed *wsfeed.Feed // changes of the home folders; nil without files
+
+	shared *sharedfolders.Service // the folders an administrator shares
 }
 
 type run struct {
@@ -274,7 +284,10 @@ func New(d Deps) (*Service, error) {
 		d.Files = files.Disabled("")
 		s.d.Files = d.Files
 	}
-	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools, Logger: log})
+	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
+	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
+	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
+		Shared: s.shared.Roots, Logger: log})
 	if err != nil {
 		return nil, err
 	}
@@ -283,6 +296,38 @@ func New(d Deps) (*Service, error) {
 		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: workspace.Actor{Principal: files.AdminPrincipal}, Logger: log})
 	}
 	return s, nil
+}
+
+// SharedFolders returns the service of the shared folders.
+func (s *Service) SharedFolders() *sharedfolders.Service { return s.shared }
+
+// folderUsers finds the members of a shared folder in the user database.
+func (s *Service) folderUsers() sharedfolders.Users {
+	find := s.d.FindUser
+	if find == nil && s.d.Users != nil {
+		find = func(ctx context.Context, ref string) (*auth.User, error) { return s.d.Users(ctx, ref) }
+	}
+	if find == nil {
+		return nil
+	}
+	return folderUsers(find)
+}
+
+type folderUsers func(ctx context.Context, ref string) (*auth.User, error)
+
+func (f folderUsers) Find(ctx context.Context, ref string) (sharedfolders.User, error) {
+	u, err := f(ctx, ref)
+	if errors.Is(err, ErrNoUser) || (err == nil && u == nil) {
+		return sharedfolders.User{}, sharedfolders.ErrUnknownUser
+	}
+	if err != nil {
+		return sharedfolders.User{}, err
+	}
+	name := u.Name
+	if name == "" {
+		name = u.Email
+	}
+	return sharedfolders.User{ID: u.ID, Name: name}, nil
 }
 
 // isClosed says whether Close has been called.
