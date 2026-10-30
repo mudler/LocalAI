@@ -6,7 +6,7 @@ import LoadingSpinner from '../LoadingSpinner'
 import SchemaFields from './SchemaFields'
 import Versions from './Versions'
 import { useWellKnown, loadSchema } from '../../hooks/useWellKnown'
-import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText } from '../../utils/wellKnown'
+import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import './wellKnown.css'
 
 function timeLabel(d, locale) {
@@ -23,7 +23,7 @@ export function StoredIn({ file, onRevert, canRevert, busy, versionsOf, onRevert
       {badge}
       {versionsOf && <Versions name={versionsOf} onReverted={onReverted} disabled={busy} />}
       {!versionsOf && onRevert && (
-        <button type="button" className="wk-linkbtn" onClick={onRevert} disabled={!canRevert || busy} data-testid={`wk-revert-${file}`}>
+        <button type="button" className="wk-linkbtn" onClick={onRevert} disabled={!canRevert || busy} data-testid={`wk-revert-${file.split('/').pop()}`}>
           <Icon name="undo" /> {t('wellKnown.revert')}
         </button>
       )}
@@ -174,7 +174,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
     try { done(await wk.revert()) } catch (e) { setProblem({ message: e.message, errors: [] }) } finally { setBusy(false) }
   }
 
-  const file = `${name}.json`
+  const file = WELL_KNOWN_FILES[name] || `${name}.json`
   const status = (() => {
     if (savedAt) return t('wellKnown.savedAt', { time: timeLabel(savedAt, i18n.language) })
     if (doc && !doc.exists && Object.keys(filled.values).length > 0) return t('wellKnown.notSavedPrefilled')
@@ -212,7 +212,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
             <ul>{(doc.errors || []).map(e => <li key={e}><code>{e}</code></li>)}</ul>
             {doc.fallback && (
               <div className="wk-actions">
-                <button type="button" className="wk-linkbtn" onClick={revert} disabled={busy} data-testid={`wk-revert-${file}`}>
+                <button type="button" className="wk-linkbtn" onClick={revert} disabled={busy} data-testid={`wk-revert-${file.split('/').pop()}`}>
                   <Icon name="undo" /> {t('discovery.versions.revertGood')}
                 </button>
               </div>

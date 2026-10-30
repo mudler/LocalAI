@@ -53,12 +53,12 @@ const note = (page) => page.getByTestId('workspace-change')
 
 test('a turn that saved the persona and the profile shows one note with Undo and Open in Account, and no toast', async ({ page }) => {
   const state = newState({
-    messages: [user(1, 1, 'Call me Marta and keep answers short'), write(2, 1, '10:/persona.json'), write(3, 1, '11:/user.json'), answer(4, 1, 'Done, Marta. Short answers from now on.')],
+    messages: [user(1, 1, 'Call me Marta and keep answers short'), write(2, 1, '10:/LocalAI/persona.json'), write(3, 1, '11:/LocalAI/user.json'), answer(4, 1, 'Done, Marta. Short answers from now on.')],
   })
   await mockDiscovery(page, state)
   await stubChat(page, state)
   await page.goto('/app/chats/c1')
-  await expect(note(page)).toContainText('Saved your name in user.json and your instructions in persona.json', { timeout: 15_000 })
+  await expect(note(page)).toContainText('Saved your name in LocalAI/user.json and your instructions in LocalAI/persona.json', { timeout: 15_000 })
   await expect(note(page).getByRole('button', { name: 'Open in Account' })).toBeVisible()
   // A reload is not a change made now: nothing pops up.
   await expect(page.locator('[data-testid^="change-toast"]')).toHaveCount(0)
@@ -77,9 +77,9 @@ test('a shortcut added in this turn: the note in the transcript and a toast abov
   await page.goto('/app/chats/c1')
   await expect(page.getByText('Hi.')).toBeVisible({ timeout: 15_000 })
 
-  state.messages = [...state.messages, user(3, 2, 'Make that a shortcut'), write(4, 2, '20:/shortcuts.json'), answer(5, 2, 'Added a shortcut called Plan my day.')]
+  state.messages = [...state.messages, user(3, 2, 'Make that a shortcut'), write(4, 2, '20:/LocalAI/shortcuts.json'), answer(5, 2, 'Added a shortcut called Plan my day.')]
   endTurn(2)
-  await expect(note(page)).toContainText('Saved shortcuts.json.')
+  await expect(note(page)).toContainText('Saved LocalAI/shortcuts.json.')
   const toast = page.getByTestId('change-toast-shortcut')
   await expect(toast).toContainText('Added to your composer: Plan my day')
   const composer = await page.locator('.cx-dock__in').boundingBox()
@@ -114,8 +114,8 @@ test('the first page: the note says where it is, and a toast opens it', async ({
 
 test('suggestions switched off by the assistant: the note says so and links to Account; a change of the hint record alone has no note', async ({ page }) => {
   const state = newState({
-    messages: [user(1, 1, "Don't suggest things like that"), write(2, 1, '40:/user.json'), answer(3, 1, 'Understood. I will not offer to save things again.'),
-      user(4, 2, 'no thanks'), write(5, 2, '41:/user.json'), answer(6, 2, 'Fine.')],
+    messages: [user(1, 1, "Don't suggest things like that"), write(2, 1, '40:/LocalAI/user.json'), answer(3, 1, 'Understood. I will not offer to save things again.'),
+      user(4, 2, 'no thanks'), write(5, 2, '41:/LocalAI/user.json'), answer(6, 2, 'Fine.')],
   })
   state.versionsOf = { user: [
     { rev: 41, valid: true, kind: 'agent', data: { seen: { offers_off: true, offers: { profile: { state: 'declined' } } } } },
@@ -133,9 +133,9 @@ test('suggestions switched off by the assistant: the note says so and links to A
 
 test('the Files pane tags the settings files and says what they do', async ({ page }) => {
   const state = newState({
-    messages: [user(1, 1, 'Call me Marta'), write(2, 1, '10:/user.json'), answer(3, 1, 'Done.')],
+    messages: [user(1, 1, 'Call me Marta'), write(2, 1, '10:/LocalAI/user.json'), answer(3, 1, 'Done.')],
     chatFiles: [
-      { path: '/user.json', name: 'user.json', size: 200, origin: 'agent', changed: true, turn: 1 },
+      { path: '/LocalAI/user.json', name: 'user.json', size: 200, origin: 'agent', changed: true, turn: 1 },
       { path: '/notes.md', name: 'notes.md', size: 20, origin: 'agent', turn: 1 },
     ],
   })

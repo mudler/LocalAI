@@ -23,7 +23,7 @@ export async function setPin(name, pinned) {
       doc = e.current
     }
   }
-  throw new Error('ui.json keeps changing; try again')
+  throw new Error('LocalAI/ui.json keeps changing; try again')
 }
 
 export function usePinnedPages(enabled = true) {

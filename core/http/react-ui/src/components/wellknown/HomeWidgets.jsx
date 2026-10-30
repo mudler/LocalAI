@@ -6,7 +6,7 @@ import Skeleton from '../Skeleton'
 import { StoredIn } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { filesApi } from '../../utils/api'
-import { widgetList, widgetData, cleanWidgets, move, sparkPath, formatMetric, WIDGET_TYPES } from '../../utils/wellKnown'
+import { widgetList, widgetData, cleanWidgets, move, sparkPath, formatMetric, WIDGET_TYPES, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import { cadenceOf, footerState, linkedTrigger, scheduledCount } from '../../utils/widgetTrigger'
 import { useHomeTriggers } from '../../hooks/useHomeTriggers'
 import WidgetFooter from './WidgetFooter'
@@ -137,6 +137,8 @@ function LayoutEditor({ wk, onDone }) {
     let live = true
     const json = (list, prefix) => (list?.entries || []).filter(e => e.kind === 'file' && e.name.endsWith('.json')).map(e => prefix + e.name)
     Promise.all([filesApi.list('/').catch(() => null), filesApi.list('/data').catch(() => null)]).then(([root, data]) => {
+      // The settings files are in LocalAI/; one still at the top of the home is
+      // one LocalAI is about to move there, not a data file.
       const known = new Set(['persona.json', 'user.json', 'shortcuts.json', 'home.json', 'ui.json'])
       if (live) setFiles([...json(data, 'data/'), ...json(root, '').filter(f => !known.has(f))])
     })
@@ -154,7 +156,7 @@ function LayoutEditor({ wk, onDone }) {
       await wk.save({ widgets: cleanWidgets(rows) }, { version: baseVersion.current })
       onDone()
     } catch (e) {
-      setProblem(e.conflict ? t('wellKnown.conflict', { file: 'home.json' }) : `${e.message}${e.errors?.length ? `: ${e.errors.join('; ')}` : ''}`)
+      setProblem(e.conflict ? t('wellKnown.conflict', { file: WELL_KNOWN_FILES.home }) : `${e.message}${e.errors?.length ? `: ${e.errors.join('; ')}` : ''}`)
       if (e.conflict) {
         baseVersion.current = e.current?.version ?? baseVersion.current
         await wk.reload()
@@ -165,7 +167,7 @@ function LayoutEditor({ wk, onDone }) {
   return (
     <div className="wk-layout" data-testid="home-layout-editor">
       <h3>{t('wellKnown.home.editLayout')}</h3>
-      <StoredIn file="home.json" />
+      <StoredIn file={WELL_KNOWN_FILES.home} />
       <datalist id="wk-data-files">{files.map(f => <option key={f} value={f} />)}</datalist>
       {rows.length === 0 && <p className="wk-widget__empty">{t('wellKnown.home.noWidgets')}</p>}
       {rows.map((r, i) => (
@@ -223,7 +225,7 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRe
   return (
     <div className="wk-home" data-testid="home-widgets" ref={box}>
       {wk.doc.exists && !wk.doc.valid && (
-        <p className="wk-note wk-note--warn" role="status"><Icon name="warning" /> {t(wk.doc.fallback ? 'wellKnown.invalidFallback' : 'wellKnown.invalid', { file: 'home.json' })}</p>
+        <p className="wk-note wk-note--warn" role="status"><Icon name="warning" /> {t(wk.doc.fallback ? 'wellKnown.invalidFallback' : 'wellKnown.invalid', { file: WELL_KNOWN_FILES.home })}</p>
       )}
       {widgets.length > 0 && (
         <div className="wk-widgets">
@@ -238,7 +240,7 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRe
         <div className="wk-layoutbar">
           <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setEditing(true)} data-testid="home-edit-layout"><Icon name="pencil" /> {t('wellKnown.home.editLayout')}</button>
           <button type="button" className="wk-linkbtn" onClick={onAsk} data-testid="home-ask-layout"><Icon name="sparkles" /> {t('wellKnown.home.ask')}</button>
-          <span className="wk-src"><Icon name="file" /> {t('wellKnown.home.layoutIn')} <code>home.json</code></span>
+          <span className="wk-src"><Icon name="file" /> {t('wellKnown.home.layoutIn')} <code>{WELL_KNOWN_FILES.home}</code></span>
           {scheduled > 0 && <span className="wk-src" data-testid="home-schedule-note"><Icon name="clock" /> {t('wellKnown.home.footer.scheduleNote', { count: scheduled })}</span>}
         </div>
       )}
