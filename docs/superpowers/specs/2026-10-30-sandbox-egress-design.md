@@ -77,9 +77,11 @@ consent, the audit and the settings.
    chat: allow once, allow for this chat, deny. The ceiling bounds it.
 5. The proxy **reuses the `web_fetch` SSRF guard**. DNS rebinding and
    redirects are handled by the same code path; there is no second guard.
-6. Settings live in the visible `LocalAI/` workspace folder (per user) and in
-   runtime settings like the other `chats_*` settings (administrator).
-   Settings > Tools is where administrators configure.
+6. Network settings are NOT workspace files: the sandbox can write the home,
+   so a file there could be edited by the code it is meant to confine. The
+   limits are runtime settings like the other `chats_*` settings
+   (administrator, Settings > Tools); the choice of a chat lives in its chat
+   record on the server. The `LocalAI/` folder holds no network file.
 7. Card state persists, stored with the chat.
 8. Distributed mode follows `.agents/distributed-state.md`; the mode is stated
    below.
@@ -137,7 +139,7 @@ the person's browser session or the administrator's settings.
 | **Domain fronting** | `CONNECT pypi.org:443`, then TLS SNI or `Host` of another tenant of the same CDN | On port 443 the proxy reads the TLS ClientHello (no decryption) and refuses a tunnel whose SNI is missing or differs from the CONNECT host. The inner `Host` header is encrypted and cannot be checked; residual risk, stated. |
 | **Proxy abuse** | non-TLS bytes in a 443 tunnel; CONNECT to port 22 or 25; scanning third parties under "Allow all"; smuggling a second request after CONNECT | Ports 80 and 443 only by default (`chats_egress_ports`). Port 443 tunnels must start with a TLS ClientHello. Plain HTTP: each request on a kept-alive connection is checked on its own; `Proxy-*` and hop-by-hop headers are dropped; a request whose `Host` differs from its absolute URI is refused. Rate limits per sandbox. |
 | **Resource exhaustion** | thousands of CONNECTs, slow-loris, a 50 GiB download, card floods | Limits table below; cards deduplicated per host and capped per chat; verdicts cached per call to keep host-operation traffic bounded. |
-| **Policy tampering** | the guest edits `LocalAI/network.json` (the home is mounted writable) | The file sets only the default for **new** chats, capped by the ceiling, and a raise written by an agent change set is ignored (Open Q3). The chat's own preset lives in the chat record and changes only through the person's API call. |
+| **Policy tampering** | the guest edits files in the home (mounted writable) to widen its own access | No network setting is a workspace file. Limits are administrator settings and the chat's preset lives in the chat record; both change only through an authenticated API call, never through the filesystem. |
 | **Card spoofing** | a host name made to look like a sentence or a URL | The card shows the host and port as plain text, max 253 bytes, punycode form. |
 | **Idle background processes** | `nohup curl ... &` that runs after the call ended | No call in progress means no live host operation, so every connection is blocked (reason `idle`) and counted; open tunnels are closed when the call ends. |
 
@@ -462,16 +464,11 @@ Lowering the ceiling applies at the next check (at most 30 s on a cached
 allow); pending cards above the new ceiling become `refused`; stored rules
 above it stay but do not apply (they show "above the limit").
 
-**Per-user file** `LocalAI/network.json` (well-known name `network`, with a
-JSON Schema, read and written through `/api/chats/wellknown/network` like
-the other files of the folder):
-
-```json
-{"default_preset": "off"}
-```
-
-It sets the preset of a **new** chat, capped by the ceiling at creation.
-Nothing else in phase 1 (**Open Q2**: a personal always-allow list).
+**No per-user file.** The preset of a **new** chat is the instance default
+`chats_egress_default` (an administrator setting, capped by the ceiling, `off`
+unless set). A person changes the preset of one chat in that chat's network
+panel; nothing about network access is kept in the workspace. A personal
+always-allow list is not part of phase 1 (**Open Q2**).
 
 **Per chat**: `ChatRecord.Egress {Preset, Rules, Cards}`, set by store
 methods `SetEgressPreset`, `PutEgressRule`, `DeleteEgressRule`,
@@ -549,7 +546,6 @@ paragraph, docs pages below.
   list (read-only, from the API), the private switch with its warning and
   typed phrase, the audit retention, and a link to the audit table.
 - **Settings > Tools > Network audit**: a table with filters.
-- **Files**: `LocalAI/network.json` shows with the other managed files.
 - Locale keys under `chat.egress.*` and `settings.egress.*` in the 9
   locales.
 
@@ -566,9 +562,9 @@ Docs ship with each phase (docs-with-code rule):
   limits)**. The Host operations section lists `egress.check` and
   `egress.audit` and the new `--addon-host-ops` default.
 - `docs/content/features/chats.md`, Running commands: the Network row, the
-  card, `LocalAI/network.json`; the routes; "Commands on this machine"
+  card; the routes; "Commands on this machine"
   says the network settings do not apply there.
-- The settings reference: the five `chats_egress_*` keys.
+- The settings reference: the six `chats_egress_*` keys (`chats_egress_default` added).
 - `addons/sandbox/internal/sandbox/README.md`, Network section: port 3128
   is now always registered by the add-on.
 
@@ -620,8 +616,7 @@ under 500 lines, M 500 to 1,500, L over 1,500 (code and tests).
    Open Q7 is accepted (then a docs line for `web_fetch`).
 2. **Policy, storage, settings (M).** `core/services/studio/egress`
    (`Decide`, registries file), chat record fields and store methods in both
-   stores, the five runtime settings with validation, `LocalAI/network.json`
-   schema, the audit store. Docs: settings reference.
+   stores, the six runtime settings with validation, the audit store. Docs: settings reference.
 3. **Proxy and host ops (L).** `egress.check` (allow and block only, no
    card yet), `egress.audit`, `Call.ResourceID`, the `--addon-host-ops`
    default, the add-on proxy handler, port 3128 always registered, live call
@@ -641,9 +636,9 @@ under 500 lines, M 500 to 1,500, L over 1,500 (code and tests).
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q1 | Put GitHub release and archive hosts (`github.com`, `codeload.github.com`, `objects.githubusercontent.com`) on the registries list? Many packages fetch binaries from them. | No. They take pushes and serve any content. The card covers the case with one click; revisit after usage data from the audit. |
-| Q2 | A personal always-allow list in `LocalAI/network.json`? | Not in phase 1. Rules per chat plus the preset cover it; a personal list is a file the guest can write (see Q3). |
-| Q3 | `LocalAI/network.json` is in the home, which the sandbox mounts writable. How to stop sandbox code from raising the default? | Read the newest version written by the person (the history knows the writer); a version written by an agent or sandbox change set may lower the default but not raise it, and Settings shows a notice. Alternative: mount `LocalAI/` read-only in the sandbox (also protects persona and UI files; likely worth doing anyway). |
+| Q1 | Put GitHub release and archive hosts (`github.com`, `codeload.github.com`, `objects.githubusercontent.com`) on the registries list? Many packages fetch binaries from them. | **Decided: yes (owner).** `github.com`, `codeload.github.com`, `objects.githubusercontent.com` and `raw.githubusercontent.com`see Owner decisions. |
+| Q2 | A personal always-allow list? | Not in phase 1. Rules per chat plus the preset cover it. |
+| Q3 | Sandbox code could edit a network file in the home. | **Decided (owner): no network file in the workspace.** Defaults are an administrator setting and the chat record. No read-only mount needed for this reason. |
 | Q4 | With the private switch on, may a preset alone reach private addresses, or only explicit rules? | Only rules and card answers by an administrator. A preset never reaches the private network. |
 | Q5 | Unattended runs and sub-agents: what policy? | Sub-agent: the parent chat's preset and rules, no cards (the block is in its output). Trigger and connector runs: a saved agent gets a `network` preset field (default off, capped by the ceiling); a run with no agent is off. |
 | Q6 | Upload cap per call: 64 MiB, or configurable? | 64 MiB constant in phase 1; a setting later if the audit shows real need. It bounds exfiltration volume, not the risk. |
@@ -651,3 +646,15 @@ under 500 lines, M 500 to 1,500, L over 1,500 (code and tests).
 | Q8 | "Allow once" scope: one connection, or the rest of the command? | The rest of the command in progress (one `bash` call). One connection would ask again for every retry of pip. |
 | Q9 | Remember a deny for the chat, or ask again next time? | Remember it; it is removable in the network panel. Re-asking is a nag vector. |
 | Q10 | Should the card wait inside the open connection (60 s) or block at once and let the model retry? | Wait. `pip` continues by itself after the click; a timeout gives the 403 line and the late answer still applies. |
+
+
+## Owner decisions (2026-10-30)
+
+- Q1 yes: the registries list includes GitHub release and download hosts
+  (`github.com`, `codeload.github.com`, `objects.githubusercontent.com`);
+  `raw.githubusercontent.com` stays on the card because it serves any user
+  content. Exact HTTPS hosts only, like the rest of the list.
+- Q2/Q3: network settings are not workspace files (see Constraints, item 6).
+- Q5: sub-agents follow the parent chat with no cards; saved agents get a
+  `network` field, default off.
+- Q4 and Q6 to Q10 accepted as recommended.
