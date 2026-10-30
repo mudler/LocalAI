@@ -50,6 +50,8 @@ import SubAgentsMenu from '../components/chat/SubAgentsMenu'
 // eslint-disable-next-line no-unused-vars
 import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
+import ShortcutsRow from '../components/wellknown/ShortcutsRow'
+// eslint-disable-next-line no-unused-vars
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
 import { AppRow } from '../components/chat/ActivityFold'
@@ -110,6 +112,7 @@ function ChatPage() {
   const [searchParams] = useSearchParams()
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
+  const { t: tw } = useTranslation('workspace')
   const { isAdmin, hasFeature } = useAuth()
   const canAgents = hasFeature('agents')
   const { operations } = useOperations()
@@ -522,10 +525,13 @@ function ChatPage() {
   }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, chat, select, navigate, addToast, t, tc])
 
   // The Home page hands over the first message in the location state. It goes
-  // once, when a model is known; without one the text waits in the box.
+  // once, when a model is known; without one the text waits in the box. A
+  // draft only fills the box.
   const startRef = useRef(location.state?.start || '')
+  const draftRef = useRef(location.state?.draft || '')
   useEffect(() => {
     if (startRef.current) setInput(startRef.current)
+    else if (draftRef.current) { setInput(draftRef.current); textareaRef.current?.focus() }
   }, [])
   useEffect(() => {
     const start = startRef.current
@@ -535,6 +541,17 @@ function ChatPage() {
     navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
     handleSend()
   }, [input, activeId, busy, effectiveModel, handleSend, navigate, location.pathname, location.search])
+
+  // A shortcut fills the composer, as the starters did; one marked send goes
+  // at once when the chat can take a message.
+  const pickShortcut = useCallback((s) => {
+    if (s.send && effectiveModel && !(!activeId && busy)) {
+      handleSend(s.prompt)
+      return
+    }
+    setInput(s.prompt)
+    textareaRef.current?.focus()
+  }, [effectiveModel, activeId, busy, handleSend])
 
   // Regenerate answers the last message again: the server removes what the
   // model said after it and starts a new turn.
@@ -1055,6 +1072,14 @@ function ChatPage() {
                 t={tc}
               />
             )}
+            {!noModel && (
+              <ShortcutsRow
+                starters={manage ? t('empty.suggestionsManage', { returnObjects: true }) : undefined}
+                filesOn={chat.files.on && !manage}
+                onPick={pickShortcut}
+                onEditWithAssistant={manage ? undefined : () => { setInput(tw('wellKnown.shortcuts.assistantPrompt')); textareaRef.current?.focus() }}
+              />
+            )}
             <HomeComposer
               onDictateError={(m) => addToast(m, 'error')}
               message={input}
@@ -1124,8 +1149,6 @@ function ChatPage() {
               manage={manage}
               model={effectiveModel}
               warm={modelWarm}
-              starters={t(manage ? 'empty.suggestionsManage' : 'empty.suggestionsChat', { returnObjects: true })}
-              onStarter={(prompt) => { setInput(prompt); textareaRef.current?.focus() }}
               conversations={conversations}
               onResume={(conv) => navigate(`/app/chats/${conv.id}`)}
             />
