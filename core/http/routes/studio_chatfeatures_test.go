@@ -620,11 +620,15 @@ func featureOfChatsRoute(path string) string {
 }
 
 var _ = Describe("Chats route contract", func() {
-	It("gates and documents every route that is registered under /api/chats", func() {
+	// The change feed of the files (/api/workspace) is part of the chats surface.
+	chatsSurface := func(p string) bool {
+		return strings.HasPrefix(p, "/api/chats") || strings.HasPrefix(p, "/api/workspace")
+	}
+	It("gates and documents every route that is registered under /api/chats and /api/workspace", func() {
 		s := newStudioServer()
 		gated := map[string]string{}
 		for _, entry := range auth.RouteFeatureRegistry {
-			if strings.HasPrefix(entry.Pattern, "/api/chats") {
+			if chatsSurface(entry.Pattern) {
 				gated[entry.Method+" "+entry.Pattern] = entry.Feature
 			}
 		}
@@ -632,7 +636,7 @@ var _ = Describe("Chats route contract", func() {
 		param := regexp.MustCompile(`:([A-Za-z_]+)`)
 		count := 0
 		for _, r := range s.e.Routes() {
-			if !strings.HasPrefix(r.Path, "/api/chats") {
+			if !chatsSurface(r.Path) {
 				continue
 			}
 			// The administrator views have no feature: they need the admin role

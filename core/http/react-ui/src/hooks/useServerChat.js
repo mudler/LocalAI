@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatsApi } from '../utils/api'
 import { eventPayload, retryDelay } from '../utils/streamRetry'
 import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted } from '../utils/chatLive'
+import { notifyTurnEnd } from './useWorkspaceFeed'
 
 // Every event kind the server sends. EventSource needs one listener per name.
 const EVENT_KINDS = [
@@ -150,6 +151,7 @@ export function useServerChat() {
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
       error: (e) => { if (e.text) setError(e.text) },
       turn_end: async () => {
+        notifyTurnEnd()
         // The server publishes the end of a turn just before it records it, so
         // a read at once can still say running. Read again, a few times, until
         // the record agrees, unless a new turn started meanwhile.

@@ -22,7 +22,7 @@ var _ = Describe("Chats feature registration", func() {
 		Expect(routes).To(ContainElements("POST /api/chats", "GET /api/chats/:id/events"))
 		seen := map[string]bool{}
 		for _, r := range routes {
-			Expect(r).To(ContainSubstring(" /api/chats"), "a route gated by the chats feature is under /api/chats")
+			Expect(r).To(Or(ContainSubstring(" /api/chats"), ContainSubstring(" /api/workspace")), "a route gated by the chats feature is under /api/chats or /api/workspace")
 			Expect(seen).NotTo(HaveKey(r), "a duplicate registry entry")
 			seen[r] = true
 		}

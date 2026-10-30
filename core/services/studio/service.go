@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/wsfeed"
 )
 
 // AnonymousPrincipal is the owner of conversations when auth is off. The loop
@@ -202,6 +203,8 @@ type Service struct {
 	allowed  map[string][]session.Tool          // the tools of a sub-agent conversation
 	waiters  map[string][]chan store.TurnStatus // callers waiting for a turn to end
 	closed   chan struct{}
+
+	feed *wsfeed.Feed // changes of the home folders; nil without files
 }
 
 type run struct {
@@ -259,6 +262,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	s.mgr = mgr
+	if d.Files.Available() {
+		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: workspace.Actor{Principal: files.AdminPrincipal}, Logger: log})
+	}
 	return s, nil
 }
 
@@ -278,6 +284,9 @@ func (s *Service) Close(ctx context.Context) error {
 	case <-s.closed:
 	default:
 		close(s.closed)
+	}
+	if s.feed != nil {
+		s.feed.Close()
 	}
 	return s.mgr.Close(ctx)
 }

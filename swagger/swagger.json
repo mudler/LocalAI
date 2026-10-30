@@ -9318,6 +9318,58 @@
                 }
             }
         },
+        "/api/workspace/events": {
+            "get": {
+                "description": "Server-sent events: a \"change\" event when files in your home folder change, whoever changed them (you in another tab, a chat, a trigger, a connector, an API client, on any frontend), with the paths inside your home and the revision as the event id. Changes that arrive close together come as one event. A \"resync\" event means changes were left out (the client fell behind, or the resume point is too far back): read again what you show. Send the last id back as the Last-Event-ID header or the after query parameter to resume; without it the stream starts from now. A comment line is sent every 25 seconds. At most 8 streams per user.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "workspace"
+                ],
+                "summary": "Stream the changes to your files.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "resume after this revision",
+                        "name": "after",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "resume after this revision (sent by a browser when it reconnects)",
+                        "name": "Last-Event-ID",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An event stream",
+                        "schema": {
+                            "$ref": "#/definitions/schema.WorkspaceChange"
+                        }
+                    },
+                    "400": {
+                        "description": "The resume point is not a number",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many streams for this user",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/audio/transform": {
             "post": {
                 "description": "Runs an audio-in / audio-out transform conditioned on an optional auxiliary reference signal. Concrete transforms include AEC + noise suppression + dereverberation (LocalVQE), voice conversion (reference = target speaker), and pitch shifting. The backend determines the operation; pass model-specific tuning via repeated `params[\u003ckey\u003e]=\u003cvalue\u003e` form fields.",
@@ -21600,6 +21652,28 @@
                 "url": {
                     "description": "Webhook endpoint URL",
                     "type": "string"
+                }
+            }
+        },
+        "schema.WorkspaceChange": {
+            "type": "object",
+            "properties": {
+                "kinds": {
+                    "description": "Kinds are the kinds of the change sets: user, agent, upload or undo.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "paths": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "revision": {
+                    "description": "Revision is the newest revision of the changes; it is also the event id,\nwhich a client sends back (Last-Event-ID or ?after=) to resume.",
+                    "type": "integer"
                 }
             }
         },

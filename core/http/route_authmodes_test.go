@@ -46,7 +46,7 @@ func (s *authModesServer) routesUnderTest() []*echo.Route {
 	seen := map[string]bool{}
 	found := []*echo.Route{}
 	for _, r := range s.e.Routes() {
-		if !strings.HasPrefix(r.Path, "/api/chats") && !strings.HasPrefix(r.Path, "/api/addons") {
+		if !isChatsRoute(r.Path) && !strings.HasPrefix(r.Path, "/api/addons") {
 			continue
 		}
 		key := r.Method + " " + r.Path
@@ -60,6 +60,12 @@ func (s *authModesServer) routesUnderTest() []*echo.Route {
 		return found[i].Path+" "+found[i].Method < found[j].Path+" "+found[j].Method
 	})
 	return found
+}
+
+// isChatsRoute says whether a path belongs to the chats surface: the chats and
+// the change feed of their files.
+func isChatsRoute(p string) bool {
+	return strings.HasPrefix(p, "/api/chats") || strings.HasPrefix(p, "/api/workspace")
 }
 
 func authModesConcretize(pattern string) string {
@@ -265,7 +271,7 @@ var _ = Describe("Route auth modes", func() {
 			problems := []string{}
 			count := 0
 			for _, r := range server.routesUnderTest() {
-				if !strings.HasPrefix(r.Path, "/api/chats") {
+				if !isChatsRoute(r.Path) {
 					continue
 				}
 				count++
@@ -294,7 +300,7 @@ var _ = Describe("Route auth modes", func() {
 		It("closes every chats route to a user whose chats feature was revoked", func() {
 			problems := []string{}
 			for _, r := range server.routesUnderTest() {
-				if !strings.HasPrefix(r.Path, "/api/chats") {
+				if !isChatsRoute(r.Path) {
 					continue
 				}
 				for _, cred := range []string{"carol", "carol-key"} {

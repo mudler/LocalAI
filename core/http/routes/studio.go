@@ -42,6 +42,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 		}
 		e.Any("/api/chats", off)
 		e.Any("/api/chats/*", off)
+		e.Any("/api/workspace/*", off)
 		return
 	}
 	h := studioendpoint.New(svc, models)
@@ -98,6 +99,9 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/notifications/count", h.CountNotifications)
 	e.POST(base+"/notifications/read", h.ReadNotifications)
 	e.GET(base+"/notifications/events", h.NotificationEvents)
+	// The change feed of the user's files belongs to the chats feature: the
+	// files are the chats' workspace.
+	e.GET("/api/workspace/events", h.WorkspaceEvents)
 	e.GET(base+"/triggers", h.ListTriggers)
 	e.POST(base+"/triggers", h.CreateTrigger)
 	e.GET(base+"/triggers/preview", h.PreviewTrigger)
