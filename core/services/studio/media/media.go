@@ -3,7 +3,8 @@
 // through LocalAI's own API as that user, so the helper's allowlist and quota
 // apply like for any request. A voice note attached to a message is
 // transcribed on the way in. The helper models come from the instance
-// settings, or are the first installed model with the capability.
+// settings, or are the first installed model with the capability; a chat
+// whose own model can look at images describes them with that model.
 package media
 
 import (
@@ -54,16 +55,41 @@ type UserLookup func(ctx context.Context, principal string) (*auth.User, error)
 // Resolver names the helper model for a job, or "" when none is installed.
 type Resolver func(Capability) string
 
+// VisionChooser names the model that describe_image uses in a chat whose own
+// model is chatModel, or "" when no model can look at images.
+type VisionChooser func(chatModel string) string
+
 // Service runs the media tools.
 type Service struct {
 	p       *provider.Provider
 	users   UserLookup
 	resolve Resolver
+	vision  VisionChooser
 }
 
 // New returns a Service. users may be nil when authentication is off.
 func New(p *provider.Provider, users UserLookup, resolve Resolver) *Service {
 	return &Service{p: p, users: users, resolve: resolve}
+}
+
+// WithVisionChooser makes describe_image choose its model with v, which knows
+// the chat's own model: a chat model that can look at images can describe
+// one itself. Without it, describe_image uses the Resolver's vision model.
+func (s *Service) WithVisionChooser(v VisionChooser) *Service {
+	s.vision = v
+	return s
+}
+
+// VisionModel names the model that describes images in a chat whose own model
+// is chatModel, or "" when there is none.
+func (s *Service) VisionModel(chatModel string) string {
+	if s == nil {
+		return ""
+	}
+	if s.vision != nil {
+		return s.vision(chatModel)
+	}
+	return s.resolve(Vision)
 }
 
 func (s *Service) client(ctx context.Context, principal string) (*http.Client, error) {
@@ -80,7 +106,10 @@ func (s *Service) client(ctx context.Context, principal string) (*http.Client, e
 func noModel(c Capability) error {
 	switch c {
 	case Vision:
-		return errors.New("No model that can describe images is installed. Install one from the model gallery, or choose one in the settings under Chat image model.")
+		// The model passes this on to the person, who can act on the first half;
+		// the second half tells an administrator which setting to use.
+		return errors.New("No vision model: choose a model that can look at images for this chat, " +
+			"or an administrator can install one from the model gallery and choose it in Settings under Chat image model.")
 	}
 	return errors.New("No model that can transcribe audio is installed. Install one from the model gallery, or choose one in the settings under Chat transcription model.")
 }
@@ -121,7 +150,10 @@ func (s *Service) post(ctx context.Context, principal, route, contentType string
 
 // DescribeImage asks the vision model about an image.
 func (s *Service) DescribeImage(ctx context.Context, principal, name string, img []byte, question string) (string, error) {
-	model := s.resolve(Vision)
+	return s.describeWith(ctx, s.resolve(Vision), principal, name, img, question)
+}
+
+func (s *Service) describeWith(ctx context.Context, model, principal, name string, img []byte, question string) (string, error) {
 	if model == "" {
 		return "", noModel(Vision)
 	}
@@ -250,9 +282,10 @@ func (s *Service) PrepareUploads(ctx context.Context, principal, text string, up
 	return text + notes.String(), out, nil
 }
 
-// Tools returns the media tools of one chat. They read files of the user's
-// workspace through f and are not given to sub-agents.
-func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
+// Tools returns the media tools of one chat, whose own model is chatModel.
+// They read files of the user's workspace through f and are not given to
+// sub-agents.
+func (s *Service) Tools(f *files.Service, a workspace.Actor, chatModel string) []session.Tool {
 	if !f.Available() {
 		return nil
 	}
@@ -281,14 +314,15 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				if s.resolve(Vision) == "" {
+				model := s.VisionModel(chatModel)
+				if model == "" {
 					return "", noModel(Vision)
 				}
 				name, img, err := read(ctx, in.Path, maxImageBytes)
 				if err != nil {
 					return "", err
 				}
-				return s.DescribeImage(ctx, a.Principal, name, img, in.Question)
+				return s.describeWith(ctx, model, a.Principal, name, img, in.Question)
 			}},
 		{Name: "read_document", Description: "Read the text of a PDF, Word, Excel, PowerPoint or EPUB file in the user's files. Long documents come in parts: pass offset to read on.",
 			Schema: json.RawMessage(`{"type":"object","properties":{` + pathProp + `,"offset":{"type":"integer","description":"Character to start at. 0 is the start."},"limit":{"type":"integer","description":"Most characters to return (default 20000)."}},"required":["path"]}`),

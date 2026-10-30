@@ -106,7 +106,7 @@ func (a *Application) initStudioService() {
 		AgentOptions:       a.studioAgentOptions,
 		Persistent:         a.studioStoreKind != "memory",
 		Files:              a.StudioFiles(),
-		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel),
+		Media:              media.New(a.studioProvider, media.UserLookup(a.studioUsers()), a.studioHelperModel).WithVisionChooser(a.studioVisionModel),
 	}
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns

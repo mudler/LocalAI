@@ -87,6 +87,9 @@ type ChatsConversationList struct {
 	// Files is false when the workspace is off; FilesReason then says why.
 	Files       bool   `json:"files"`
 	FilesReason string `json:"files_reason,omitempty"`
+	// ImageModel is the model that describes the images of a chat whose own
+	// model cannot look at them. It is empty when no model can.
+	ImageModel string `json:"image_model,omitempty"`
 }
 
 // ChatsConversationDetail is a conversation with the messages waiting for the model.

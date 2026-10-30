@@ -17359,6 +17359,10 @@ const docTemplate = `{
                 "files_reason": {
                     "type": "string"
                 },
+                "image_model": {
+                    "description": "ImageModel is the model that describes the images of a chat whose own\nmodel cannot look at them. It is empty when no model can.",
+                    "type": "string"
+                },
                 "persistent": {
                     "description": "Persistent is false when conversations live in memory and are lost when\nthe server restarts.",
                     "type": "boolean"

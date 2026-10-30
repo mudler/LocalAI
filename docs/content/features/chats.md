@@ -260,11 +260,14 @@ curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
 Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
 (see above). What the model gets depends on the file and the model:
 
-- **Images.** When the chat's model takes images (a multimodal projector, or
-  `known_input_modalities` with `image` in its configuration) the image goes
-  to the model inside the message, as an `image_url` part. With a model that
-  does not, the model gets the file path and the `describe_image` tool, which
-  needs a helper vision model.
+- **Images.** When the chat's model can look at images (a multimodal
+  projector, `vision` in `known_usecases`, or `image` in
+  `known_input_modalities`) the image goes to the model inside the message,
+  as an `image_url` part, and the model answers about it directly. A model
+  behind a cloud proxy cannot be asked what it accepts: declare `vision` in
+  its configuration (see [Cloud passthrough proxy]({{% relref "operations/cloud-proxy#images" %}})).
+  With a model that cannot look at images, the model gets the file path and
+  the `describe_image` tool.
 - **Video.** `mp4`, `webm`, `mov`, `mkv` and `avi` files go to a model that
   declares video input as a `video_url` part, with the next request after the
   message and for that turn only. Other models get the path only.
@@ -278,6 +281,34 @@ Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
 
 The files are always kept in the chat's folder too. Images over 20 MB, videos
 over 100 MB and more than 128 MB of media in one message stay files only.
+
+### Images and vision
+
+- **Size.** An image whose longest side is more than 2048 pixels is scaled
+  down to 2048 before it goes in the message. An opaque image goes as a JPEG,
+  an image with transparency as a PNG. The file in the chat's folder is not
+  changed.
+- **Only with its own message.** The images of a message go to the model with
+  every request of that turn, tool calls included. The next messages do not
+  send them again: in the history, each earlier image becomes a short note
+  that says so. To look at an earlier image again, the model uses
+  `describe_image` on its file. This keeps a few photos from filling the
+  context, and a cloud model from billing them on every turn.
+- **What the model is told.** A chat with files gets an `Images:` block in its
+  instructions, after the `Commands:` block. It says that the model sees the
+  attached images and answers about them directly, or that it cannot see
+  images and uses `describe_image`, or that no model here can look at images:
+  then the model tells the user so and suggests choosing a model that can.
+- **`describe_image`.** The tool uses the first model of this list: the
+  **Chat image model** setting, the chat's own model when it can look at
+  images, and the first installed model that can. With none, it fails with
+  "No vision model: choose a model that can look at images for this chat, or
+  an administrator can install one from the model gallery and choose it in
+  Settings under Chat image model."
+- **In the chat page.** When you attach an image and the chat's model cannot
+  look at it, a notice over the message box says so and names the model that
+  will describe the image, or says that no model can. `GET /api/chats` returns
+  that model as `image_model`; the field is left out when there is none.
 
 ## The files of a chat
 
@@ -625,7 +656,7 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **Attachments in the transcript.** The transcript keeps your text and your files apart. In `GET /api/chats/{id}/messages` a user line has `text`, the words you typed, and `attachments`: `path` (inside your home, for the files API), `name`, `size`, `mime`, `version`, and `missing` when the file is no longer in your files. A file whose chat folder was renamed gets its new path. A waiting message has the same two fields. The list of paths and the text read from the files go to the model only: the chat shows an image as a thumbnail and any other file as a chip with its size and a download link, and a click or Enter opens the file in the chat's files pane. Messages sent before this change are shown the same way.
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
 - **The model can use your files.** A chat with files on gives the model `list_files`, `read_file`, `write_file`, `move_file`, `delete_file` and `search_files`, for your home folder only. What it changes is listed in the history as an agent change of that chat, and you can undo it; a delete goes to the Trash. Sub-agents do not get these tools.
-- **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, the first installed model that can see images, or transcribe, is used. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
+- **Pictures and recordings.** `describe_image` lets the model look at an image in your files and `transcribe_audio` turns a recording into text. A voice note attached to a message is transcribed on the way in and its transcript goes with your message; the file is kept as it is. They use helper models, which you choose in the settings (Chat image model, Chat transcription model). Left empty, `describe_image` uses the chat's own model when it can see images, and otherwise the first installed model that can see images, or transcribe. With none installed the tool says what to install. The helpers run as you, so your model access and quota apply.
 - **A file is at most 256 MiB.** A message with attachments is limited to 1 GiB in all.
 
 The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of text and images.

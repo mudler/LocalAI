@@ -226,7 +226,7 @@ func (h *Handlers) List(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	out := schema.ChatsConversationList{Conversations: make([]schema.ChatsConversation, 0, len(recs)), Persistent: h.svc.Persistent(), Files: h.svc.Files().Available(), FilesReason: h.svc.Files().Unavailable()}
+	out := schema.ChatsConversationList{Conversations: make([]schema.ChatsConversation, 0, len(recs)), Persistent: h.svc.Persistent(), Files: h.svc.Files().Available(), FilesReason: h.svc.Files().Unavailable(), ImageModel: h.svc.ImageModel()}
 	for _, rec := range recs {
 		conv, err := h.describe(c, user, rec)
 		if err != nil {

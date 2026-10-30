@@ -3,10 +3,18 @@ package studio
 import (
 	"bytes"
 	"encoding/base64"
+	"image"
+	_ "image/gif" // decoders for fitImage
+	"image/jpeg"
+	"image/png"
 	"io"
 	"net/http"
 	"path"
 	"strings"
+
+	_ "golang.org/x/image/bmp"
+	"golang.org/x/image/draw"
+	_ "golang.org/x/image/webp"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
@@ -16,6 +24,14 @@ const (
 	maxNativeImage = 20 << 20
 	maxNativeVideo = 100 << 20
 	maxNativeTotal = 128 << 20
+	// maxImageSide is the longest side of an image in the message. Vision
+	// models scale an image down to about this size anyway, and a cloud model
+	// bills the pixels and refuses a request that is too large, so a photo
+	// from a phone is scaled down before it goes.
+	maxImageSide = 2048
+	// maxImagePixels caps what fitImage decodes, so a small file that claims
+	// a huge size cannot take the memory of the server.
+	maxImagePixels = 100_000_000
 )
 
 var (
@@ -72,10 +88,48 @@ func (s *Service) nativeMedia(model string, up []session.Upload) ([]session.Uplo
 				continue // the name says image, the bytes do not: leave it a file
 			}
 		}
-		total += int64(len(data))
-		parts = append(parts, session.Media{Kind: kind, DataURI: "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)})
+		sent := data
+		if kind == session.MediaImage {
+			sent, mime = fitImage(data, mime)
+		}
+		total += int64(len(sent))
+		parts = append(parts, session.Media{Kind: kind, DataURI: "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(sent)})
 	}
 	return out, parts, nil
+}
+
+// fitImage scales an image down so that its longest side is maxImageSide,
+// and returns it with its media type. An image that is small enough or that
+// cannot be decoded is returned as it is. An opaque image becomes a JPEG; one
+// with transparency stays a PNG. The pixels count, not only the bytes: a
+// model bills and scales by the size of the image.
+func fitImage(data []byte, mime string) ([]byte, string) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil || max(cfg.Width, cfg.Height) <= maxImageSide || cfg.Width*cfg.Height > maxImagePixels {
+		return data, mime
+	}
+	src, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return data, mime
+	}
+	w, h := maxImageSide, cfg.Height*maxImageSide/cfg.Width
+	if cfg.Height > cfg.Width {
+		w, h = cfg.Width*maxImageSide/cfg.Height, maxImageSide
+	}
+	dst := image.NewNRGBA(image.Rect(0, 0, max(w, 1), max(h, 1)))
+	draw.BiLinear.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Src, nil)
+	var out bytes.Buffer
+	outType := "image/png"
+	if dst.Opaque() {
+		outType = "image/jpeg"
+		err = jpeg.Encode(&out, dst, &jpeg.Options{Quality: 85})
+	} else {
+		err = png.Encode(&out, dst)
+	}
+	if err != nil {
+		return data, mime
+	}
+	return out.Bytes(), outType
 }
 
 // keepVideos holds the videos of a message for the first model request of the

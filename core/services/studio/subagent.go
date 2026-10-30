@@ -60,7 +60,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// because its tools come from hostTools, which does not include them.
 	tools = append(tools, s.announceFileChanges(a, s.d.Files.Tools(a))...)
 	if s.d.Media != nil {
-		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
+		tools = append(tools, s.d.Media.Tools(s.d.Files, a, rec.Model)...)
 	}
 	skillsOff := 0
 	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff, sc, execGate(cmds, &skillsOff))
@@ -111,7 +111,14 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	}
 	// What the chat can run comes before the other blocks: the prompt is cut at
 	// its end, and this block must reach the model.
-	prompt = strings.TrimSpace(commandsBlock(cmds, hasTool(tools, "write_file"), skillsOff > 0) + "\n\n" + prompt)
+	// What the chat can see follows it, for the same reason. Images reach a
+	// chat only as files, so a chat without files has no such block.
+	head := commandsBlock(cmds, hasTool(tools, "write_file"), skillsOff > 0)
+	if s.d.Files.Available() {
+		sees := s.d.Modalities != nil && s.d.Modalities(rec.Model).Vision
+		head += "\n\n" + imagesBlock(sees, s.d.Media.VisionModel(rec.Model))
+	}
+	prompt = strings.TrimSpace(head + "\n\n" + prompt)
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)

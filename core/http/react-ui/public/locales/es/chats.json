@@ -93,5 +93,9 @@
       "hideLabel": "Ocultar este aviso",
       "chipTitle": "Este chat no puede ejecutar código ni comandos. Selecciona para ver detalles."
     }
+  },
+  "vision": {
+    "describedBy": "Este modelo no puede ver imágenes. Elige otro modelo o la imagen la describirá {{model}}.",
+    "none": "Este modelo no puede ver imágenes y ningún modelo aquí puede describirlas. Elige un modelo que pueda ver imágenes."
   }
 }

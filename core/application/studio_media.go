@@ -31,6 +31,45 @@ func chooseHelperModel(setting string, all []config.ModelConfig, flag config.Mod
 	return names[0]
 }
 
+// chooseVisionModel returns the model describe_image uses in a chat whose own
+// model is chatModel: the one the setting names when it is installed, then the
+// chat's own model when it can look at images, then the first installed model
+// that can. The chat's model comes before any other model because the person
+// chose it, and it may be the only one they may use. It returns "" when no
+// model can look at images.
+func chooseVisionModel(setting, chatModel string, all []config.ModelConfig) string {
+	if setting != "" {
+		for _, m := range all {
+			if m.Name == setting {
+				return setting
+			}
+		}
+	}
+	// VisionSupported as well as the flag: a declared flag does not make an
+	// image reach a cloud model in translate mode.
+	var names []string
+	for i := range all {
+		if !all[i].HasUsecases(config.FLAG_VISION) || !all[i].VisionSupported() {
+			continue
+		}
+		if all[i].Name == chatModel {
+			return chatModel
+		}
+		names = append(names, all[i].Name)
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	sort.Strings(names)
+	return names[0]
+}
+
+// studioVisionModel is describe_image's chooser, read when the tool runs, so
+// a change of the setting or of a model applies at once.
+func (a *Application) studioVisionModel(chatModel string) string {
+	return chooseVisionModel(a.applicationConfig.ChatsVisionModel, chatModel, a.ModelConfigLoader().GetAllModelsConfigs())
+}
+
 // studioHelperModel is the media tools' resolver: the instance settings, read
 // when a tool runs, so a change applies at once.
 func (a *Application) studioHelperModel(c media.Capability) string {

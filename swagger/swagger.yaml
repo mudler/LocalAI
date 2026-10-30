@@ -3208,6 +3208,11 @@ definitions:
         type: boolean
       files_reason:
         type: string
+      image_model:
+        description: |-
+          ImageModel is the model that describes the images of a chat whose own
+          model cannot look at them. It is empty when no model can.
+        type: string
       persistent:
         description: |-
           Persistent is false when conversations live in memory and are lost when

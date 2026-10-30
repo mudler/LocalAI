@@ -488,5 +488,9 @@
     "empty": "Nothing yet.",
     "task": "Task",
     "answer": "Answer"
+  },
+  "vision": {
+    "describedBy": "This model can't look at images. Pick another model, or the image will be described by {{model}}.",
+    "none": "This model can't look at images, and no model here can describe them. Pick a model that can look at images."
   }
 }
