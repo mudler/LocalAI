@@ -33,10 +33,10 @@ test.describe('Add-ons: apps', () => {
     await page.goto('/app/addons')
     const notes = page.locator('[data-app="notes"]')
     await expect(notes.locator('.ad-tile__title')).toHaveText('Notes')
-    await expect(notes.locator('.ad-tile__state')).toHaveText('On')
+    await expect(notes.locator('.ad-tile__state')).toHaveText('Running')
     await expect(notes.getByRole('link')).toHaveAttribute('href', '/app/addons/notes/home')
     await expect(notes.locator('img.ad-icon')).toHaveAttribute('src', '/api/addons/apps/notes/icon?generation=3')
-    await expect(page.locator('[data-app="broken"] .ad-tile__state')).toHaveText('Off, failed')
+    await expect(page.locator('[data-app="broken"] .ad-tile__state')).toHaveText('Failed')
     await expect(page.locator('[data-app="broken"]').getByRole('link')).toHaveCount(0)
     await expect(page.locator('[data-app="indexer"]').getByRole('link')).toHaveCount(0)
     // Every image is served by the host itself, never from another origin.
@@ -79,7 +79,7 @@ test.describe('Add-ons: apps', () => {
     const card = detail(page, 'indexer')
     await expect(card.getByRole('img', { name: 'State: Off' })).toBeVisible()
     await card.getByRole('button', { name: 'Turn on' }).click()
-    await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
     expect(state.log.start).toHaveLength(1)
     expect(state.log.start[0].generation).toBe(4)
     expect(state.log.start[0].operationId).toMatch(UUID)
@@ -173,7 +173,7 @@ test.describe('Add-ons: apps', () => {
     await card.getByRole('button', { name: 'Turn on' }).click()
     await expect.poll(() => state.log.start.length).toBe(2)
     expect(state.log.start[1].operationId).not.toBe(firstId)
-    await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
     await expect(card.getByRole('alert')).toHaveCount(0)
     expect(state.apps[0].enabled).toBe(true)
   })
@@ -349,7 +349,7 @@ test.describe('Add-ons: browse', () => {
     await expect(row.getByTestId('entry-adds')).toHaveText('Adds a page')
     // One button on the entry, and Details is folded into it.
     await expect(row.getByRole('button')).toHaveCount(1)
-    await row.getByRole('button', { name: 'Install and turn on' }).click()
+    await row.getByRole('button', { name: /^Install / }).click()
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toContainText('Install and turn on Tables?')
     await expect(dialog).toContainText('sha256:aaaaaaaaaaaa')
@@ -388,7 +388,7 @@ test.describe('Add-ons: browse', () => {
     })
     await page.goto('/app/addons?tab=browse')
     const row = page.locator('.cat-item', { hasText: 'Tables' })
-    await row.getByRole('button', { name: 'Install and turn on' }).click()
+    await row.getByRole('button', { name: /^Install / }).click()
     const dialog = page.getByRole('alertdialog')
     await dialog.getByRole('button', { name: 'Install and turn on' }).click()
     await expect(dialog.getByTestId('install-dialog-failed')).toContainText('Tables is installed but did not turn on.')
@@ -413,7 +413,7 @@ test.describe('Add-ons: browse', () => {
   })
 })
 
-// What the Installed tab used to show is the Details of an add-on in My add-ons:
+// What the old Installed tab showed is the Details of an add-on in Installed:
 // the list read for an administrator and its installed record go together.
 const details = (id, over = {}, installedOver = {}) => ({
   apps: [app({ id, title: installedOver.title || id, admin: { canStart: false, canStop: true, managementUrl: `/app/addons?manage=${id}` }, ...over })],
@@ -455,7 +455,7 @@ test.describe('Add-ons: installed', () => {
       ],
     })
     await page.goto('/app/addons')
-    await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('update-chip')).toHaveText('Update pending')
+    await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('update-chip')).toHaveText('Update 1.3.0')
     await expect(page.locator('[data-testid="addon-tile"][data-app="plain"]').getByTestId('update-chip')).toHaveCount(0)
     await page.goto('/app/addons?manage=notes')
     await page.getByTestId('addon-manage').getByRole('button', { name: 'Upgrade' }).click()
@@ -526,7 +526,7 @@ test.describe('Add-ons: installed', () => {
     const sheet = page.getByTestId('addon-manage')
     await expect(sheet.getByText('Headless, no pages')).toBeVisible()
     await expect(sheet.getByText('2: query, export')).toBeVisible()
-    await expect(sheet.getByRole('img', { name: 'State: On' })).toBeVisible()
+    await expect(sheet.getByRole('img', { name: 'State: Running' })).toBeVisible()
     await expect(sheet.getByRole('link', { name: 'Open' })).toHaveCount(0)
   })
 
@@ -536,18 +536,18 @@ test.describe('Add-ons: installed', () => {
     await page.goto('/app/addons?detail=notes')
     await expect(page.getByTestId('addon-detail').getByRole('heading', { name: 'Notes' })).toBeVisible()
     await expect(page.getByTestId('preview-source')).toHaveText('Not known')
-    await expect(page.getByTestId('addon-more')).toHaveCount(0)
+    await expect(page.getByTestId('addon-manage')).toHaveCount(0)
   })
 
-  test('installed: an old Installed address lands on My add-ons and the management link opens the details', async ({ page }) => {
+  test('installed: an old Installed address lands on Installed and the management link opens the details', async ({ page }) => {
     await signIn(page, ADMIN)
     await mockAddons(page, details('notes', {}, { title: 'Notes' }))
     await page.goto('/app/addons?tab=installed')
-    await expect(tab(page, 'My add-ons')).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('tab', { name: 'Installed' })).toHaveCount(0)
+    await expect(tab(page, 'Installed')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Installed/ })).toHaveCount(1)
     await expect(page.getByTestId('addon-tile')).toHaveCount(1)
     await page.goto('/app/addons?manage=notes')
-    await expect(page.getByTestId('addon-more')).toHaveAttribute('open', '')
+    await expect(page.getByTestId('addon-detail').getByTestId('addon-manage')).toBeVisible()
   })
 })
 
@@ -589,7 +589,7 @@ test.describe('Add-ons: libraries', () => {
     // A removal goes through the library route, the same one the other kinds use.
     const removal = state.log.library.find(c => c.method === 'DELETE')
     expect(removal.id).toBe('main')
-    await tab(page, 'My add-ons').click()
+    await tab(page, 'Installed').click()
     await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]')).toBeVisible()
     expect(state.installed).toHaveLength(1)
   })
@@ -617,7 +617,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await signIn(page, ADMIN)
     const state = await mockAddons(page, { apps: [app({ admin })] })
     await page.goto('/app/addons')
-    await tab(page, 'My add-ons').focus()
+    await tab(page, 'Installed').focus()
     await page.keyboard.press('ArrowRight')
     await expect(tab(page, 'Find add-ons')).toBeFocused()
     await expect(tab(page, 'Find add-ons')).toHaveAttribute('aria-selected', 'true')
@@ -625,7 +625,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.keyboard.press('End')
     await expect(tab(page, 'Sources')).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Home')
-    await expect(tab(page, 'My add-ons')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab(page, 'Installed')).toHaveAttribute('aria-selected', 'true')
     // The selected tab is the only one in the tab order.
     await expect(tab(page, 'Find add-ons')).toHaveAttribute('tabindex', '-1')
     // Stop is reachable and operable with the keyboard alone, in the detail sheet.
@@ -663,7 +663,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.goto('/app/addons?detail=notes')
     const read = () => page.locator('.ad-pane').first().evaluate(el => {
       const css = getComputedStyle(el)
-      const chip = getComputedStyle(el.querySelector('.ad-chip'))
+      const chip = getComputedStyle(el.querySelector('.ad-state .ui-chip'))
       return { card: css.backgroundColor, chip: chip.color, chipBg: chip.backgroundColor }
     })
     const light = await read()
@@ -684,7 +684,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await expect(page.getByRole('tab', { name: 'Trova componenti' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Fonti' })).toBeVisible()
     await page.goto('/app/addons?detail=notes')
-    await expect(detail(page, 'notes').getByRole('img', { name: 'Stato: Attivo' })).toBeVisible()
+    await expect(detail(page, 'notes').getByRole('img', { name: 'Stato: In esecuzione' }).first()).toBeVisible()
   })
 
   test('hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature', async ({ page }) => {

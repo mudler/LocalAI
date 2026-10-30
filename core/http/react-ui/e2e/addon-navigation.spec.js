@@ -160,7 +160,8 @@ test.describe('Add-on navigation', () => {
     await expect(pane).toBeVisible()
     await expect(page).toHaveURL(/detail=indexer/)
     await expect(pane.getByRole('heading', { name: 'Indexer' })).toBeVisible()
-    await expect(pane.getByRole('img', { name: 'State: Off' })).toBeVisible()
+    // The header chip; the operator facts below repeat it under Health.
+    await expect(pane.getByRole('img', { name: 'State: Off' }).first()).toBeVisible()
     await expect(pane).toContainText('Indexes your files.')
     await expect(pane.getByTestId('app-tools')).toContainText('2 chat tools')
     await expect(pane.getByTestId('app-tools')).toContainText('query, export')
@@ -208,12 +209,12 @@ test.describe('Add-on navigation', () => {
     await page.goto('/app/addons')
     const card = page.getByTestId('addons-first-run')
     await expect(card).toBeVisible()
-    await expect(card.getByRole('heading', { name: 'Add your first add-on' })).toBeVisible()
+    await expect(card.getByRole('heading', { name: 'No add-ons yet' })).toBeVisible()
     const featured = card.getByTestId('featured').getByRole('listitem')
     await expect(featured).toHaveCount(3)
     await expect(featured.first()).toContainText('does a thing.')
     await expect(featured.first()).toContainText('Adds a page')
-    await expect(card.getByRole('button', { name: 'Install and turn on' })).toHaveCount(3)
+    await expect(card.getByRole('button', { name: /^Install / })).toHaveCount(3)
     // One way into Find add-ons while the card shows: the bar's button waits.
     await expect(page.getByRole('link', { name: 'Find add-ons' })).toHaveCount(1)
     await expect(page.getByTestId('addons-add')).toHaveCount(0)
@@ -226,7 +227,7 @@ test.describe('Add-on navigation', () => {
   test('Install and turn on asks once, installs, then turns the add-on on', async ({ page }) => {
     const state = await setup(page, { user: ADMIN, studio: false, pins: [], releases: [release('notes', { name: 'Notes' })] })
     await page.goto('/app/addons')
-    await page.getByRole('button', { name: 'Install and turn on' }).click()
+    await page.getByRole('button', { name: 'Install Notes' }).click()
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'))
     await expect(dialog).toContainText('Install and turn on Notes?')
     await dialog.getByRole('button', { name: 'Install and turn on' }).click()
@@ -298,7 +299,7 @@ test.describe('Add-on navigation', () => {
     expect(appsCalled).toBe(false)
   })
 
-  // The icon of a built-in tile sat in the top-left corner of its 40px box, at the
+  // The icon of a built-in tile sat in the top-left corner of its 36px box, at the
   // size of the page text, because only the empty-icon box was laid out as a grid.
   test('a built-in tile draws its icon centred in the icon box', async ({ page }) => {
     await setup(page, { builtin: [{ id: 'guide', kind: 'page', titleKey: 'items.chat', icon: 'palette', mainPath: '/app/chat' }], studio: false })
@@ -313,7 +314,7 @@ test.describe('Add-on navigation', () => {
     expect(Math.abs(offsets.dx)).toBeLessThan(1)
     expect(Math.abs(offsets.dy)).toBeLessThan(1)
     expect(offsets.width).toBeGreaterThan(16)
-    expect(offsets.box).toBe(40)
+    expect(offsets.box).toBe(36)
   })
 
   test('member without the add-ons feature and with no built-in tile goes home, and Studio and Talk are not built in', async ({ page }) => {
