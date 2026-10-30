@@ -27,6 +27,7 @@ type pending struct {
 	path     string
 	deadline time.Time
 	rev      int64     // revision of the last change; the cursor stays below it
+	changed  time.Time // the pass that saw the last change
 	failed   int       // settle attempts in a row that could not read the file
 	failedAt time.Time // the first of them
 }
@@ -215,7 +216,7 @@ func (r *Runner) applyOp(t Trigger, op workspace.Op, rev int64, ownRun bool, now
 				p.path = op.NewPath // keep the arrival revision: the cursor stays below it
 			}
 		default:
-			f.pend[key] = &pending{path: op.NewPath, deadline: now.Add(t.QuietOrDefault()), rev: rev}
+			f.pend[key] = &pending{path: op.NewPath, deadline: now.Add(t.QuietOrDefault()), rev: rev, changed: now}
 		}
 	}
 }
@@ -237,6 +238,7 @@ func (r *Runner) settle(ctx context.Context, files map[string]Trigger, now time.
 		return due[i].node < due[j].node
 	})
 	var errs []error
+	lastDue := map[string]time.Time{}
 	for _, k := range due {
 		p := f.pend[k]
 		t := files[k.trigger]
@@ -270,6 +272,24 @@ func (r *Runner) settle(ctx context.Context, files map[string]Trigger, now time.
 			delete(f.pend, k)
 			continue
 		}
+		last, seen := lastDue[t.ID]
+		if !seen {
+			// Read once a pass, before this pass claims anything.
+			var err error
+			if last, err = r.lastClaim(ctx, t); err != nil {
+				return err
+			}
+			lastDue[t.ID] = last
+		}
+		// A file that changed after the last run began, such as the data of a
+		// page that saves after each change it sees, waits for the gap. Files
+		// that were already waiting then (a batch) run without it.
+		if wait := last.Add(t.GapOrDefault()).Sub(now); !last.IsZero() && !p.changed.Before(last) && wait > 0 {
+			// Too soon after the last run: the file waits, and further changes
+			// to it while it waits start no extra run.
+			p.deadline = now.Add(wait)
+			continue
+		}
 		run := Run{ID: newID(), TriggerID: t.ID, DueKey: fmt.Sprintf("%d@%s", n.ID, n.Blob), Due: now.UTC(), File: n.Path}
 		if err := r.admit(ctx, t, &run, now, false, false); err != nil {
 			return err
@@ -280,6 +300,15 @@ func (r *Runner) settle(ctx context.Context, files map[string]Trigger, now time.
 		delete(f.pend, k)
 	}
 	return errors.Join(errs...)
+}
+
+// lastClaim is the due time of the newest run of t, zero when it has none.
+func (r *Runner) lastClaim(ctx context.Context, t Trigger) (time.Time, error) {
+	runs, err := r.o.Store.ListRuns(ctx, t.ID, 1)
+	if err != nil || len(runs) == 0 {
+		return time.Time{}, err
+	}
+	return runs[0].Due, nil
 }
 
 // saveCursor saves the revision up to which nothing is waiting: below the

@@ -583,3 +583,55 @@ var _ = Describe("Folder triggers", func() {
 	})
 
 })
+
+var _ = Describe("Folder triggers: the time between runs", func() {
+	It("a file that settles soon after a run waits for the gap, and its rewrites start one run", func() {
+		r := armed()
+		r.write(folder+"/data.json", "v1")
+		r.sync()
+		r.after(31 * time.Second)
+		Expect(r.runs("t1")).To(HaveLen(1))
+		r.finish(r.latest("t1"), triggers.StatusDone, "")
+		// A page that saves after each change it sees writes the file again
+		// and again: the writes settle before the gap of one minute is over.
+		for _, v := range []string{"v2", "v3", "v4"} {
+			r.write(folder+"/data.json", v)
+			r.sync()
+			r.after(10 * time.Second)
+		}
+		r.after(21 * time.Second) // 61 s after the first run: the quiet period is over, the gap is not
+		Expect(r.runs("t1")).To(HaveLen(1), "a run started inside the gap")
+		r.after(10 * time.Second)
+		Expect(r.runs("t1")).To(HaveLen(2), "the waiting file never ran")
+		n, _ := r.ws.Stat(ctx, wstest.AdminActor, folder+"/data.json")
+		Expect(r.latest("t1").DueKey).To(Equal(fmt.Sprintf("%d@%s", n.ID, n.Blob)), "the run is not for the last version")
+	})
+
+	It("a trigger with a longer gap of its own", func() {
+		r := newRig()
+		tr := fileTrigger("t1", folder)
+		tr.MinGap = 10 * time.Minute
+		r.put(tr)
+		r.sync()
+		r.write(folder+"/a.txt", "a")
+		r.sync()
+		r.after(31 * time.Second)
+		r.finish(r.latest("t1"), triggers.StatusDone, "")
+		r.write(folder+"/b.txt", "b")
+		r.sync()
+		r.after(5 * time.Minute)
+		Expect(r.runs("t1")).To(HaveLen(1), "the second file did not wait for the trigger's gap")
+		r.after(5 * time.Minute)
+		Expect(r.runs("t1")).To(HaveLen(2))
+	})
+
+	It("files that settle in one pass all run", func() {
+		r := armed()
+		for _, n := range []string{"a", "b"} {
+			r.write(folder+"/"+n+".txt", n)
+		}
+		r.sync()
+		r.after(31 * time.Second)
+		Expect(r.runs("t1")).To(HaveLen(2))
+	})
+})

@@ -188,3 +188,32 @@ var _ = Describe("Schedule", func() {
 		Expect(n).To(Equal(7*24*60), "a week of minutes")
 	})
 })
+
+var _ = Describe("Schedule gaps", func() {
+	from := time.Date(2026, 10, 30, 7, 0, 0, 0, time.UTC)
+	It("finds the shortest time between runs", func() {
+		for _, c := range []struct {
+			text string
+			want time.Duration
+		}{
+			{"daily 08:00", 24 * time.Hour},
+			{"weekdays 09:30", 24 * time.Hour},
+			{"weekly mon,thu 09:30", 72 * time.Hour},
+			{"*/15 * * * *", 15 * time.Minute},
+			{"0 * * * *", time.Hour},
+			{"0,30 9 * * *", 30 * time.Minute},
+			// a burst on one day of the week, between quiet days
+			{"*/10 3 * * 1", 10 * time.Minute},
+			{"once 2026-12-24 18:00", 0},
+			{"once 2020-01-01 18:00", 0},
+		} {
+			Expect(mustParse(c.text).MinGap(from, time.UTC)).To(Equal(c.want), c.text)
+		}
+	})
+
+	It("counts the hour a clock change takes away", func() {
+		// Rome leaves summer time on 25 October 2026: that day is 25 hours long.
+		got := mustParse("daily 08:00").MinGap(time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC), mustLoc("Europe/Rome"))
+		Expect(got).To(Equal(24 * time.Hour))
+	})
+})

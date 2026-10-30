@@ -566,6 +566,12 @@ func (r *Runner) begin(ctx context.Context, t Trigger, run Run, now time.Time) (
 // that no longer exists, does nothing. A host calls it when the work of a run
 // has ended, and never from Options.Start.
 func (r *Runner) Finish(ctx context.Context, runID string, status Status, reason string) error {
+	return r.FinishRun(ctx, runID, status, reason, 0)
+}
+
+// FinishRun is Finish that also records the tokens the run used; 0 keeps
+// what the run has.
+func (r *Runner) FinishRun(ctx context.Context, runID string, status Status, reason string, tokens int) error {
 	if !status.Final() {
 		return fmt.Errorf("triggers: %q is not an end state", status)
 	}
@@ -576,6 +582,9 @@ func (r *Runner) Finish(ctx context.Context, runID string, status Status, reason
 		r.endChat(ctx, run.ID)
 		if reason != "" {
 			run.Reason = CutReason(reason)
+		}
+		if tokens > 0 {
+			run.Tokens = tokens
 		}
 		if err = r.o.Store.SetRunStatus(ctx, run); err == nil {
 			r.prune(ctx, run.TriggerID, run.Ended)

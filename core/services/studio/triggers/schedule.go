@@ -451,3 +451,29 @@ func (s Schedule) lastDue(after, upTo time.Time, loc *time.Location, limit int) 
 	}
 	return last, n
 }
+
+// gapSamples is how many next times MinGap looks at: enough to see a burst of
+// a cron schedule (minutes or hours of one day) between sparse days.
+const gapSamples = 120
+
+// MinGap is the shortest time between two runs of the schedule, looking at
+// the next runs after from in loc. A schedule that runs once, or not at all
+// any more, has no gap: MinGap returns 0.
+func (s Schedule) MinGap(from time.Time, loc *time.Location) time.Duration {
+	prev, ok := s.Next(from, loc)
+	if !ok {
+		return 0
+	}
+	var gap time.Duration
+	for i := 1; i < gapSamples; i++ {
+		next, ok := s.Next(prev, loc)
+		if !ok {
+			break
+		}
+		if d := next.Sub(prev); gap == 0 || d < gap {
+			gap = d
+		}
+		prev = next
+	}
+	return gap
+}
