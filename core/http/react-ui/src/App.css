@@ -777,26 +777,7 @@
   font-size: 0.75rem;
 }
 
-/* App boot fallback (rendered while initial i18n namespaces load) */
-.app-boot-spinner {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-primary);
-}
-.app-boot-spinner-dot {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid var(--color-border-subtle);
-  border-top-color: var(--color-primary);
-  animation: app-boot-spin 0.8s linear infinite;
-}
-@keyframes app-boot-spin {
-  to { transform: rotate(360deg); }
-}
+/* The boot screen is the app shell: ShellFallback in components/RouteFallback.jsx. */
 
 /* Operations strip: always exactly one line. Anything that does not fit here
    belongs on /app/activity. */
@@ -987,85 +968,7 @@
   white-space: nowrap;
 }
 
-/* Toast — a pill on the inverse surface; success and error are solid fills.
-   The stack sits at the bottom centre and rises in 16px. */
-.toast-container {
-  position: fixed;
-  left: 50%;
-  bottom: var(--spacing-md);
-  transform: translateX(-50%);
-  width: min(440px, calc(100vw - 32px));
-  z-index: 1100;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-sm);
-  pointer-events: none;
-}
-
-.toast {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  width: 100%;
-  min-height: 48px;
-  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
-  background: var(--dk-inverse);
-  border: 0;
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
-  color: var(--dk-on-inverse);
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  animation: dk-toast-in var(--dk-dur-2) var(--dk-ease-out) both;
-}
-
-.toast-enter {
-  opacity: 0;
-  transform: translateY(16px);
-}
-
-.toast-exit {
-  animation: dk-toast-out var(--dk-dur-1) ease-in both;
-}
-
-.toast-success { background: var(--dk-ok); color: var(--dk-on-ok); }
-.toast-error { background: var(--dk-error); color: var(--dk-on-error); }
-.toast-warning { background: var(--dk-warn); color: var(--dk-on-warn); }
-.toast-info { background: var(--dk-inverse); color: var(--dk-on-inverse); }
-
-.toast > span { flex: 1 1 auto; min-width: 0; }
-
-.toast-close {
-  margin-left: auto;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: inherit;
-  opacity: 0.8;
-  cursor: pointer;
-  min-width: 32px;
-  height: 32px;
-  display: inline-grid;
-  place-items: center;
-  transition: background-color var(--dk-dur-1) ease, opacity var(--dk-dur-1) ease,
-              transform var(--dk-dur-1) var(--dk-ease-out);
-}
-.toast-close:hover { opacity: 1; background: color-mix(in srgb, currentColor 16%, transparent); }
-.toast-close:active { transform: scale(var(--dk-press-scale)); }
-.toast :focus-visible { outline-color: currentColor; }
-.toast-link {
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
-  color: inherit;
-  opacity: 0.9;
-  text-decoration: underline;
-  white-space: nowrap;
-  margin-left: var(--spacing-xs);
-}
-.toast-link:hover { opacity: 1; }
+/* Toast: moved to components/ui/ui.css. */
 
 /* Chat error trace link */
 .chat-error-trace-link {
@@ -1082,36 +985,7 @@
   text-decoration: underline;
 }
 
-/* Spinner */
-.spinner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.spinner-ring {
-  border: 3px solid var(--color-border-subtle);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-.spinner-sm .spinner-ring { width: 16px; height: 16px; }
-.spinner-md .spinner-ring { width: 24px; height: 24px; }
-.spinner-lg .spinner-ring { width: 40px; height: 40px; }
-
-/* Skeleton shimmer placeholders */
-.skeleton {
-  display: block;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(90deg, var(--dk-inset) 0%, var(--dk-hover) 50%, var(--dk-inset) 100%);
-  background-size: 200% 100%;
-  animation: skeletonShimmer 1.3s linear infinite;
-}
-.skeleton--line { height: 0.85em; margin: 0.35em 0; width: 100%; }
-.skeleton--block { height: 100%; width: 100%; border-radius: var(--radius-md); }
-@keyframes skeletonShimmer {
-  from { background-position: 200% 0; }
-  to   { background-position: -200% 0; }
-}
+/* Spinner and skeleton: moved to components/ui/ui.css. */
 
 /* Model selector */
 .model-selector {
@@ -1147,25 +1021,7 @@
 .page--medium { --page-max: var(--page-max-medium); }
 .page--wide   { --page-max: var(--page-max-wide); }
 
-.page-header {
-  margin-bottom: var(--spacing-xl);
-}
-
-/* The editorial title scale from the site: larger, set tighter, and on a line
-   height near 1 so a two-word title reads as a statement rather than a label.
-   The typeface is unchanged — DESIGN.md keeps the existing type system — so the
-   whole difference is scale, tracking and leading, which is where the site gets
-   its voice from in the first place. */
-.page-title {
-  font-family: var(--font-sans);
-  font-size: var(--text-3xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  margin-bottom: var(--spacing-xs);
-  color: var(--color-text-primary);
-  text-wrap: balance;
-}
+/* .page-header and .page-title: moved to components/ui/ui.css. */
 
 /* Mid hierarchy tier — between page title and the xs uppercase group labels */
 .section-heading {
@@ -1177,18 +1033,6 @@
   color: var(--color-text-primary);
   margin: 0;
 }
-
-.page-header--editorial {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--spacing-lg);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-section, var(--spacing-xl));
-}
-.page-header__lead { display: flex; flex-direction: column; gap: var(--spacing-xs); min-width: 0; }
-.page-header__supporting { color: var(--color-text-secondary); font-size: var(--text-base); margin: 0; max-width: 60ch; }
-.page-header__meta { display: flex; align-items: center; gap: var(--spacing-sm); flex-wrap: wrap; }
 
 .page-subtitle {
   font-size: var(--text-sm);
@@ -1448,36 +1292,8 @@ button.card:active {
   accent-color: var(--color-primary);
   cursor: pointer;
 }
-/* Buttons — flat. Hover swaps the surface, press scales to .97, focus is a
-   2px ring with a 2px offset. Danger is a tinted wash, never a solid fill. */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-xs);
-  padding: 0 14px;
-  min-height: var(--control-h);
-  min-width: var(--control-h);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-family: inherit;
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: background-color var(--dk-dur-1) ease,
-              color var(--dk-dur-1) ease,
-              border-color var(--dk-dur-1) ease,
-              transform var(--dk-dur-1) var(--dk-ease-out);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.btn:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
-  box-shadow: none;
-}
+/* Buttons (.btn and its variants): moved to components/ui/ui.css, where
+   they are aliases of the kit button. */
 
 /* Global focus ring for any interactive that is not a .btn: a 2px outline in
    the accent with a 2px offset. It is wrapped in :where() so component rules
@@ -1486,61 +1302,6 @@ button.card:active {
 :where(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
-}
-
-.btn-primary {
-  background: var(--color-primary);
-  color: var(--color-primary-text);
-}
-.btn-primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-}
-
-.btn-secondary {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  border-color: transparent;
-}
-.btn-secondary:hover:not(:disabled) {
-  background: var(--color-bg-hover);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--color-text-secondary);
-  border-color: transparent;
-}
-.btn-ghost:hover:not(:disabled) {
-  background: var(--color-bg-hover);
-  color: var(--color-text-primary);
-}
-
-.btn-danger {
-  background: var(--color-error-light);
-  color: var(--dk-error-text);
-  border-color: transparent;
-}
-.btn-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--dk-error-wash) 82%, var(--dk-error));
-  color: var(--dk-error-text);
-}
-
-.btn-sm {
-  padding: 0 var(--spacing-sm);
-  min-height: var(--control-h-sm);
-  min-width: var(--control-h-sm);
-  font-size: var(--text-xs);
-  letter-spacing: 0;
-}
-
-.btn:active:not(:disabled) {
-  transform: scale(var(--dk-press-scale));
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
 }
 
 /* Native checkboxes, radios and sliders take the accent. */
@@ -1812,20 +1573,6 @@ select.input {
   gap: var(--spacing-xs);
   justify-content: flex-end;
   align-items: center;
-}
-
-/* Softer delete button for dense tables — the destructive confirm dialog
-   already owns the "are you sure" affordance, so the button itself doesn't
-   need to scream. Keeps the delete red readable without dominating rows. */
-.btn.btn-danger-ghost {
-  background: transparent;
-  color: var(--dk-error-text);
-  border-color: transparent;
-}
-.btn.btn-danger-ghost:hover:not(:disabled) {
-  background: var(--color-error-light);
-  color: var(--dk-error-text);
-  border-color: transparent;
 }
 
 /* Small count pill used inside tabs ("(3) ↑ 2") so update counts are
@@ -2668,85 +2415,7 @@ button.collapsible-header:focus-visible {
   margin-top: var(--spacing-sm);
 }
 
-/* Empty state */
-/* Empty state — editorial: eyebrow rule + large mono headline + lede.
-   Existing pages pass `icon`, `title`, `text` children into .empty-state as
-   nested elements; the rules below re-style each without JSX changes. */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--spacing-md);
-  text-align: left;
-  padding: var(--spacing-3xl) var(--spacing-xl);
-  max-width: 640px;
-  margin: 0 auto;
-  animation: fadeIn var(--duration-slow) var(--ease-spring);
-}
-
-/* Center the column within its parent without shrinking type. */
-.empty-state > * { max-width: 100%; }
-
-.empty-state-icon {
-  font-size: 1.5rem;
-  color: var(--color-primary);
-  opacity: 0.7;
-  margin: 0;
-}
-
-.empty-state-title {
-  font-family: var(--font-sans);
-  font-size: clamp(1.5rem, 3vw, var(--text-3xl));
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.02em;
-  color: var(--color-text-primary);
-  margin: 0;
-  line-height: 1.15;
-}
-
-.empty-state-text {
-  color: var(--color-text-secondary);
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  max-width: 52ch;
-  margin: 0;
-}
-
-/* Secondary to .empty-state-text: a hint about a default that may be narrowing
-   the result, so it must not compete with the reason stated above it. */
-.empty-state-hint {
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  line-height: var(--leading-normal);
-  max-width: 52ch;
-  margin: 0;
-}
-
-/* Opt-in editorial sub-parts — pages can adopt these class names over time */
-.empty-state__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-family: var(--font-mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
-}
-.empty-state__eyebrow::before {
-  content: "";
-  display: block;
-  width: 24px;
-  height: 1px;
-  background: var(--color-border-strong);
-}
-
-.empty-state__actions {
-  display: flex;
-  gap: var(--spacing-sm);
-  flex-wrap: wrap;
-  margin-top: var(--spacing-xs);
-}
+/* Empty state: moved to components/ui/ui.css. */
 
 /* Animations */
 @keyframes spin {
@@ -4169,12 +3838,7 @@ button.collapsible-header:focus-visible {
 /* Mobile reflow polish — phone-only (<640) layout adjustments for
    page chrome that was designed flex-row on desktop. */
 @media (max-width: 639px) {
-  /* Page header: stack title block + inline-action cluster vertically */
-  .page-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--spacing-md);
-  }
+  /* Page header on a phone: components/ui/ui.css. */
 
   /* Filter chip rows scroll horizontally instead of wrapping into walls */
   .filter-bar {
@@ -7513,20 +7177,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   }
 }
 
-/* Lazy-route loading fallback. Delayed ~150ms so fast chunk loads don't flash. */
-.route-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 40vh;
-  opacity: 0;
-  animation: route-fallback-in var(--duration-normal) var(--ease-out, ease-out) 150ms forwards;
-}
-@keyframes route-fallback-in { to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .route-fallback { opacity: 1; animation: none; }
-}
+/* Route fallback: moved to components/ui/ui.css. */
 
 /* Hub layout: a page-level tab bar (the kit's dk-hubtabs) above the page body.
    Build and Operate use it in place of a second navigation rail. */
@@ -7596,19 +7247,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   .hub-bar .dk-hubtabs { align-self: stretch; }
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-}
-.status-pill__dot { width: 7px; height: 7px; border-radius: var(--radius-full); background: var(--color-text-muted); flex-shrink: 0; }
-.status-pill--success .status-pill__dot { background: var(--color-success); }
-.status-pill--warning .status-pill__dot { background: var(--color-warning); }
-.status-pill--error   .status-pill__dot { background: var(--color-error); }
-.status-pill--info    .status-pill__dot { background: var(--color-info); }
-.status-pill--muted   .status-pill__dot { background: var(--color-text-muted); }
+/* .status-pill is a StatusChip now: components/ui/ui.css. */
 
 /* ──────────────────── Voice Library ──────────────────── */
 
@@ -8072,13 +7711,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
 .text-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
 .text-mono { font-family: var(--font-mono); }
 
-/* The "waiting for the first response" wrapper, previously repeated inline in
-   25 places with identical values. */
-.loading-center {
-  display: flex;
-  justify-content: center;
-  padding: var(--spacing-xl);
-}
+/* .loading-center: moved to components/ui/ui.css. */
 
 /* Grow-to-fill inside a .hstack. Named rather than inline because "which child
    absorbs the slack" is a layout decision worth being able to grep for. */
@@ -9212,7 +8845,7 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   padding-block: var(--spacing-3xl);
 }
 
-.empty-state--page .empty-state-icon { font-size: 2rem; }
+.empty-state--page .empty-state-icon { font-size: var(--fs-title); }
 .empty-state--page .empty-state-text { text-wrap: balance; }
 
 /* ==========================================================================

@@ -43,7 +43,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem(COLLAPSED_KEY) === 'true' } catch (_) { return false }
   })
-  const { toasts, addToast, removeToast } = useToast()
+  const { toasts, addToast, removeToast, dropToast } = useToast()
   const [version, setVersion] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
@@ -194,7 +194,8 @@ export default function App() {
           </footer>
         )}
       </main>
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      {/* On a chat page the stack rises above the composer. */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} dropToast={dropToast} lift={isChatRoute} />
     </div>
   )
 }
