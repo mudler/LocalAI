@@ -92,8 +92,9 @@ Until the next minor release:
   access, as in the table above.
 
 The whole window is one file, `core/services/studio/wellknown/legacy.go`, with
-one entry point, `adoptTopLevelFiles`, and the legacy-path read. Removing the
-window means deleting that file and its call sites (`grep adoptTopLevelFiles`).
+one entry point, `AdoptTopLevelFiles` (and `legacyRead`, which the service
+calls before each access). Removing the window means deleting that file and
+its call sites (`grep -n 'AdoptTopLevelFiles\|legacyRead\|s.adopt'`).
 The UI keeps the old paths in its change-note map so the notes of old chats
 still read well; that map entry is marked the same way.
 

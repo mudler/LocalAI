@@ -233,7 +233,7 @@ On the Triggers page you can still choose a shorter schedule yourself.
 
 A proposal also carries a plan, so you see what it does before you create it:
 what a run reads (`reads`), the file in your home it rewrites (`writes`), the
-Home widget that shows that file (`widget`, the widget's `id` in `home.json`)
+Home widget that shows that file (`widget`, the widget's `id` in `LocalAI/home.json`)
 and about how many tokens one run uses (`estimated_tokens`). The card lists
 them with when it runs and its first run, that it runs as you with the chat's
 model, the cost (and whether the tokens leave the server) and how to stop it.

@@ -28,7 +28,7 @@ The answer is a stream of
 ```text
 id: 42
 event: change
-data: {"revision":42,"paths":["home.json","pages/tasks/index.html"],"kinds":["agent"]}
+data: {"revision":42,"paths":["LocalAI/home.json","pages/tasks/index.html"],"kinds":["agent"]}
 
 : ping
 
