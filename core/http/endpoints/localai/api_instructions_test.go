@@ -39,13 +39,17 @@ var _ = Describe("API Instructions Endpoints", func() {
 
 			instructions, ok := resp["instructions"].([]any)
 			Expect(ok).To(BeTrue())
-			Expect(instructions).To(HaveLen(30))
+			Expect(instructions).To(HaveLen(31))
 
 			// Verify each instruction has required fields and correct URL format
+			seen := map[string]bool{}
 			for _, s := range instructions {
 				inst, ok := s.(map[string]any)
 				Expect(ok).To(BeTrue())
 				Expect(inst["name"]).NotTo(BeEmpty())
+				// Two entries of one name hide each other from GET /api/instructions/:name.
+				Expect(seen).NotTo(HaveKey(inst["name"]), "instruction %v is listed twice", inst["name"])
+				seen[inst["name"].(string)] = true
 				Expect(inst["description"]).NotTo(BeEmpty())
 				Expect(inst["tags"]).NotTo(BeNil())
 				Expect(inst["url"]).To(HavePrefix("/api/instructions/"))
