@@ -267,5 +267,11 @@
     "emptyTitle": "Noch keine Chats",
     "emptyBody": "Ein Chat beginnt auf der Startseite: Nachricht eingeben und senden. Danach stehen deine Chats hier.",
     "start": "Chat beginnen"
+  },
+  "attachments": {
+    "label": "Angehängte Dateien",
+    "open": "{{name}} öffnen",
+    "showMore": "{{count}} weitere anzeigen",
+    "missing": "Datei nicht mehr verfügbar"
   }
 }

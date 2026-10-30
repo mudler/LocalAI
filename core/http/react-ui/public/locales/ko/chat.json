@@ -267,5 +267,11 @@
     "emptyTitle": "아직 채팅이 없습니다",
     "emptyBody": "채팅은 홈에서 시작합니다. 메시지를 입력하고 보내세요. 그 후 채팅이 여기에 표시됩니다.",
     "start": "채팅 시작"
+  },
+  "attachments": {
+    "label": "첨부 파일",
+    "open": "{{name}} 열기",
+    "showMore": "{{count}}개 더 보기",
+    "missing": "더 이상 없는 파일"
   }
 }

@@ -267,5 +267,11 @@
     "emptyTitle": "还没有对话",
     "emptyBody": "对话从首页开始：输入消息并发送。之后你的对话会列在这里。",
     "start": "开始对话"
+  },
+  "attachments": {
+    "label": "附件",
+    "open": "打开 {{name}}",
+    "showMore": "再显示 {{count}} 个",
+    "missing": "文件已不可用"
   }
 }

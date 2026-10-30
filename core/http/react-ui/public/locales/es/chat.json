@@ -267,5 +267,11 @@
     "emptyTitle": "Aún no hay chats",
     "emptyBody": "Un chat empieza en Inicio: escribe un mensaje y envíalo. Después, tus chats aparecen aquí.",
     "start": "Empezar un chat"
+  },
+  "attachments": {
+    "label": "Archivos adjuntos",
+    "open": "Abrir {{name}}",
+    "showMore": "Mostrar {{count}} más",
+    "missing": "El archivo ya no está disponible"
   }
 }

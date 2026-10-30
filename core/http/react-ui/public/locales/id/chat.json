@@ -267,5 +267,11 @@
     "emptyTitle": "Belum ada obrolan",
     "emptyBody": "Obrolan dimulai di Beranda: ketik pesan lalu kirim. Setelah itu obrolan Anda tercantum di sini.",
     "start": "Mulai obrolan"
+  },
+  "attachments": {
+    "label": "File terlampir",
+    "open": "Buka {{name}}",
+    "showMore": "Tampilkan {{count}} lagi",
+    "missing": "File tidak lagi tersedia"
   }
 }

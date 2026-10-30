@@ -441,5 +441,11 @@
     "emptyTitle": "No chats yet",
     "emptyBody": "A chat starts on Home: type a message and send it. Your chats are listed here after that.",
     "start": "Start a chat"
+  },
+  "attachments": {
+    "label": "Attached files",
+    "open": "Open {{name}}",
+    "showMore": "Show {{count}} more",
+    "missing": "File no longer available"
   }
 }

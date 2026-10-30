@@ -270,5 +270,11 @@
     "emptyTitle": "Nenhum chat ainda",
     "emptyBody": "Um chat começa no Início: digite uma mensagem e envie. Depois disso, seus chats aparecem aqui.",
     "start": "Começar um chat"
+  },
+  "attachments": {
+    "label": "Arquivos anexados",
+    "open": "Abrir {{name}}",
+    "showMore": "Mostrar mais {{count}}",
+    "missing": "Arquivo não está mais disponível"
   }
 }

@@ -267,5 +267,11 @@
     "emptyTitle": "Ancora nessuna chat",
     "emptyBody": "Una chat inizia dalla Home: scrivi un messaggio e invialo. Poi le tue chat sono elencate qui.",
     "start": "Inizia una chat"
+  },
+  "attachments": {
+    "label": "File allegati",
+    "open": "Apri {{name}}",
+    "showMore": "Mostra altri {{count}}",
+    "missing": "File non più disponibile"
   }
 }

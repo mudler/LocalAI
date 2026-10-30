@@ -74,36 +74,6 @@
   overflow-wrap: anywhere;
 }
 .cx-text { white-space: pre-wrap; }
-.cx-atts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
-.cx-atts:last-child { margin-bottom: 0; }
-.cx-thumb {
-  display: block;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dk-radius-2);
-  overflow: hidden;
-  background: var(--dk-inset);
-  box-shadow: inset 0 0 0 1px var(--dk-edge);
-  cursor: zoom-in;
-  max-width: 100%;
-}
-.cx-thumb img { display: block; max-width: min(260px, 100%); max-height: 180px; object-fit: cover; }
-.cx-video { max-width: min(320px, 100%); border-radius: var(--dk-radius-2); }
-.cx-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: var(--dk-radius-1);
-  background: var(--dk-inset);
-  box-shadow: inset 0 0 0 1px var(--dk-edge);
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.cx-chip__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The model's turn: its name, then plain prose. */
 .cx-who { display: flex; align-items: center; gap: 10px; color: var(--dk-muted); font-size: var(--fs-small); min-height: 22px; }

@@ -265,5 +265,11 @@
     "emptyTitle": "Aucune conversation",
     "emptyBody": "Une conversation commence sur l'accueil : écrivez un message et envoyez-le. Vos conversations s'affichent ensuite ici.",
     "start": "Commencer une conversation"
+  },
+  "attachments": {
+    "label": "Fichiers joints",
+    "open": "Ouvrir {{name}}",
+    "showMore": "Afficher {{count}} de plus",
+    "missing": "Fichier plus disponible"
   }
 }

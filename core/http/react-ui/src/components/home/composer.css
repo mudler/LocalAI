@@ -162,31 +162,6 @@
 }
 .home-textarea::placeholder { color: var(--dk-muted); }
 .home-file-tags { display: flex; flex-wrap: wrap; gap: 6px; padding-top: var(--sp-3); }
-.home-file-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  height: var(--ctl-h-sm);
-  padding: 0 var(--sp-1) 0 var(--sp-2);
-  border-radius: var(--r-sm);
-  background: var(--dk-hover);
-  color: var(--color-text-secondary);
-  font-size: var(--fs-meta);
-}
-.home-file-tag__thumb { width: 20px; height: 20px; border-radius: var(--r-xs); object-fit: cover; }
-.home-file-tag__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.home-file-tag button {
-  display: inline-grid;
-  place-items: center;
-  padding: 2px;
-  border: 0;
-  border-radius: var(--r-xs);
-  background: none;
-  color: var(--dk-muted);
-  cursor: pointer;
-}
-.home-file-tag button:hover { background: var(--dk-hover); color: var(--dk-text); }
 .home-cmd__foot { display: flex; align-items: center; gap: var(--sp-1); }
 .home-attach-buttons { display: flex; align-items: center; gap: 2px; }
 .home-attach-btn.dk-btn--ghost { color: var(--color-text-secondary); }

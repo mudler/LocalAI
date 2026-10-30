@@ -8,6 +8,8 @@ import Button from '../ui/Button'
 import './composer.css'
 // eslint-disable-next-line no-unused-vars
 import DictateButton from './DictateButton'
+// eslint-disable-next-line no-unused-vars
+import { StagedAttachment } from '../chat/Attachments'
 
 // The Enter glyph is not in the kit sprite. A return arrow in a darker cell
 // teaches the shortcut next to the label.
@@ -140,15 +142,7 @@ export default function HomeComposer({
       {files.length > 0 && (
         <div className="home-file-tags">
           {files.map((f, i) => (
-            <span key={i} className="home-file-tag" data-testid="attachment">
-              {f.base64 && f.type?.startsWith('image/')
-                ? <img className="home-file-tag__thumb" src={`data:${f.type};base64,${f.base64}`} alt="" />
-                : <Icon name={f.type?.startsWith('image/') ? 'image' : f.type?.startsWith('audio/') ? 'mic' : 'file'} />}
-              <span className="home-file-tag__name">{f.name}</span>
-              <button type="button" onClick={() => onRemoveFile(f)} aria-label={t('input.removeFile', { name: f.name })}>
-                <Icon name="close" />
-              </button>
-            </span>
+            <StagedAttachment key={i} file={f} onRemove={() => onRemoveFile(f)} removeLabel={t('input.removeFile', { name: f.name })} />
           ))}
         </div>
       )}
