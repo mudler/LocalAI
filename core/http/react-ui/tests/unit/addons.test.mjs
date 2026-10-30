@@ -12,6 +12,7 @@ import {
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
   shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
+  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
@@ -444,7 +445,7 @@ test('the add-on labels use one name and one verb pair', () => {
   const en = JSON.parse(readFileSync(join(localesDir, 'en', 'addons.json'), 'utf8'))
   const nav = JSON.parse(readFileSync(join(localesDir, 'en', 'nav.json'), 'utf8'))
   assert.equal(nav.items.addons, 'Add-ons')
-  assert.deepEqual([en.tabs.apps, en.tabs.browse, en.tabs.libraries], ['My add-ons', 'Find add-ons', 'Sources'])
+  assert.deepEqual([en.tabs.apps, en.tabs.browse, en.tabs.libraries], ['Installed', 'Find add-ons', 'Sources'])
   assert.deepEqual([en.apps.start, en.apps.stop], ['Turn on', 'Turn off'])
   assert.ok(!/owner/i.test(en.supporting), 'the subtitle does not name the owner')
   assert.ok(!/\bapps?\b/i.test(JSON.stringify([...Object.values(en.tabs), en.supporting, nav.items.addons])), 'no label says Apps')
@@ -555,4 +556,40 @@ test('the English wording is "Adds 16 tools" and "Adds 1 tool"', async () => {
   await i18n.init({ lng: 'en', resources: { en: { addons: en } }, ns: ['addons'], defaultNS: 'addons', interpolation: { escapeValue: false } })
   assert.equal(i18n.t('card.addsTools', { count: 16 }), 'Adds 16 tools')
   assert.equal(i18n.t('card.addsTools', { count: 1 }), 'Adds 1 tool')
+})
+
+test('the installed list puts what needs a person first and filters by state', () => {
+  const app = (id, over = {}) => ({ id, enabled: true, state: 'running', ...over })
+  assert.equal(attentionOf(app('a', { state: 'failed' })), 'failed')
+  // Turned off on purpose is not a problem, even when the last run failed.
+  assert.equal(attentionOf(app('a', { state: 'failed', enabled: false })), '')
+  assert.equal(attentionOf(app('a', { update: 'update-pending' })), 'update')
+  assert.equal(attentionOf(app('a'), { update: { state: 'update-available', available: true, version: '2.0.0' } }), 'update')
+  assert.equal(attentionOf(app('a', { state: 'starting' })), 'starting')
+  assert.equal(attentionOf(app('a')), '')
+  const tiles = [
+    { id: 'ok1', state: 'running', app: app('ok1') },
+    { id: 'start', state: 'stopped', app: app('start', { state: 'starting' }) },
+    { id: 'ok2', state: 'running', app: app('ok2') },
+    { id: 'upd', state: 'running', app: app('upd', { update: 'update-pending' }) },
+    { id: 'bad', state: 'stopped', app: app('bad', { state: 'failed' }) },
+    { id: 'builtin', state: 'running', app: null },
+  ]
+  // Failed, update, starting; the rest keep the order they came in.
+  assert.deepEqual(sortByAttention(tiles).map(t => t.id), ['bad', 'upd', 'start', 'ok1', 'ok2', 'builtin'])
+  assert.deepEqual(filterByState(tiles, 'running').map(t => t.id), ['ok1', 'ok2', 'upd', 'builtin'])
+  assert.deepEqual(filterByState(tiles, 'off').map(t => t.id), ['start', 'bad'])
+  assert.equal(filterByState(tiles, 'all').length, tiles.length)
+})
+
+test('an add-on without an icon gets a stable letter and hue, and a dev build says so', () => {
+  assert.equal(hueOf('notes'), hueOf('notes'))
+  assert.ok(hueOf('notes') >= 0 && hueOf('notes') < 12)
+  assert.notEqual(new Set(['notes', 'tables', 'office', 'face', 'sandbox'].map(hueOf)).size, 1)
+  assert.equal(monogram('tables'), 'T')
+  assert.equal(monogram(''), '?')
+  assert.deepEqual(versionLabel('0.0.0-development'), { dev: true, text: '0.0.0-development' })
+  assert.deepEqual(versionLabel('1.2.0'), { dev: false, text: 'v1.2.0' })
+  assert.deepEqual(versionLabel('v1.2.0'), { dev: false, text: 'v1.2.0' })
+  assert.deepEqual(versionLabel(''), { dev: false, text: '' })
 })

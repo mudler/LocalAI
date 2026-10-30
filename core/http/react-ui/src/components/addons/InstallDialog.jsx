@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import Button from '../ui/Button'
 import { pushLayer } from '../../utils/modalLayers'
 import { EntryAdds, UnknownNotice } from './AddonBits'
 import { shortDigest } from './addonState'
@@ -103,12 +104,12 @@ export default function InstallDialog({ entry, flow, actions, onClose }) {
           {step === 'failed' && actions.unknown[entry.id] && <UnknownNotice addonId={entry.id} actions={actions} />}
         </div>
         <div className="confirm-dialog-actions">
-          {step === 'ask' && <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>{t('catalog.cancel')}</button>}
-          {step === 'ask' && <button type="button" className="btn btn-primary btn-sm" onClick={start}>{t('flow.installAndTurnOn')}</button>}
-          {running && <button type="button" className="btn btn-primary btn-sm" disabled>{step === 'install' ? t('flow.installing', { name: entry.title }) : t('flow.turningOn', { name: entry.title })}</button>}
-          {step === 'failed' && <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>{t('catalog.close')}</button>}
-          {step === 'failed' && !actions.unknown[entry.id] && <button type="button" className="btn btn-primary btn-sm" onClick={retry}>{t('catalog.retry')}</button>}
-          {step === 'done' && <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>{t('catalog.close')}</button>}
+          {step === 'ask' && <Button onClick={onClose}>{t('catalog.cancel')}</Button>}
+          {step === 'ask' && <Button variant="primary" onClick={start}>{t('flow.installAndTurnOn')}</Button>}
+          {running && <Button variant="primary" icon="download" busy disabled>{step === 'install' ? t('flow.installing', { name: entry.title }) : t('flow.turningOn', { name: entry.title })}</Button>}
+          {step === 'failed' && <Button onClick={onClose}>{t('catalog.close')}</Button>}
+          {step === 'failed' && !actions.unknown[entry.id] && <Button variant="primary" icon="refresh" onClick={retry}>{t('catalog.retry')}</Button>}
+          {step === 'done' && <Button variant="primary" onClick={onClose}>{t('catalog.close')}</Button>}
         </div>
       </div>
     </div>

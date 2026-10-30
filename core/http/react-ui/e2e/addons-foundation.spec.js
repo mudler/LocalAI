@@ -65,7 +65,7 @@ test.describe('Add-ons foundation through real servers', () => {
       const { context, page } = await browserAs(browser, node, 'member')
       await page.goto('/app/addons')
       await expect(card(page)).toBeVisible({ timeout: 30_000 })
-      await expect(card(page).locator('.ad-tile__state')).toHaveText('On')
+      await expect(card(page).locator('.ad-tile__state')).toHaveText('Running')
       await context.close()
     }
   })
@@ -133,7 +133,7 @@ test.describe('Add-ons foundation through real servers', () => {
       await member.context.close()
     }
     await sheetCard(page).getByRole('button', { name: 'Turn on' }).click()
-    await expect(sheetCard(page).getByRole('img', { name: 'State: On' })).toBeVisible({ timeout: 30_000 })
+    await expect(sheetCard(page).getByRole('img', { name: 'State: Running' })).toBeVisible({ timeout: 30_000 })
     await context.close()
   })
 

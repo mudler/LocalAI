@@ -1,10 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import LoadingSpinner from '../LoadingSpinner'
-import CatalogEmpty from '../catalog/CatalogEmpty'
+import { Button, Callout, EmptyState, LoadError, SkeletonRows } from '../ui'
 import { pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
@@ -14,7 +13,7 @@ import SideSheet from '../SideSheet'
 import AddonPreview from './AddonPreview'
 import AddonSlot from '../../addons/AddonSlot'
 import { useHubAuth } from '../hub/useHubAuth'
-import AddonTile from './AddonTile'
+import AddonRow from './AddonRow'
 import ConfirmDialog from '../ConfirmDialog'
 import { useNavigation } from '../../context/NavigationContext'
 import { buildTiles, filterTiles, resolvePins } from '../../utils/addonTiles'
@@ -26,7 +25,7 @@ import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../upgrade/BulkUpgradeDia
 import { useBulkUpgrade } from '../../hooks/useBulkUpgrade'
 import { updateView, upgradeAvailability } from './updateState'
 import FirstRun from './FirstRun'
-import { listState } from './addonState'
+import { addedByAddon, attentionOf, filterByState, listState, sortByAttention, STATE_FILTERS } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 
@@ -35,7 +34,7 @@ import { useAddonActions } from './useAddonActions'
 // cadence, slower in a hidden tab and backing off while the owner is
 // unreachable. Start and stop are offered to administrators and the server
 // refuses everyone else whatever this view shows.
-export default function AppsView({ api, adapter }) {
+export default function AppsView({ api, adapter, onSummary }) {
   const { t, i18n } = useTranslation('addons')
   const [state, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
@@ -138,6 +137,7 @@ export default function AppsView({ api, adapter }) {
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
   const legacy = useHubAuth().features.addon_navigation === false
   const [query, setQuery] = useState('')
+  const [stateFilter, setStateFilter] = useState('all')
   const [params, setParams] = useSearchParams()
   const [limit, setLimit] = useState(false)
   // The management link of an add-on (?manage=id) opens its Details.
@@ -156,6 +156,9 @@ export default function AppsView({ api, adapter }) {
     return [...found.filter(x => rank.has(x.id)).sort((a, b) => rank.get(a.id) - rank.get(b.id)), ...found.filter(x => !rank.has(x.id))]
   }, [tiles, query, titleOf, pinOrder])
   const detail = tiles.find(x => x.id === detailId) || null
+  // What needs a person goes first (failed, update, starting); the filter
+  // narrows the rows but never the attention callouts above them.
+  const rows = useMemo(() => filterByState(sortByAttention(shown, installedInfo), stateFilter), [shown, installedInfo, stateFilter])
 
   // The installed records, for the administrator: Details and the upgrade
   // action on the list both read them. A change of any add-on (generation,
@@ -191,6 +194,30 @@ export default function AppsView({ api, adapter }) {
     },
   })
 
+  const firstRunNow = state.status === 'ready' && listState({ apps: state.apps, shownCount: tiles.length, query: '', isAdmin, canList }) === 'first-run'
+  useEffect(() => {
+    if (!onSummary) return
+    onSummary(state.status === 'ready' ? { count: tiles.length, firstRun: firstRunNow } : null)
+  }, [onSummary, state.status, tiles.length, firstRunNow])
+
+  // The rows that need a person, for the callouts over the list: failures
+  // first, then updates an administrator can start.
+  const attention = useMemo(() => {
+    const failed = []
+    const updates = []
+    for (const tile of tiles) {
+      if (!tile.app) continue
+      const kind = attentionOf(tile.app, installedInfo[tile.id])
+      if (kind === 'failed') failed.push(tile)
+      else if (kind === 'update' && isAdmin) {
+        const rec = installedInfo[tile.id]
+        const view = updateView(rec && rec.update)
+        if (rec && view.state === 'update-available' && upgradeAvailability(rec, { isAdmin, pending: true }).startable) updates.push({ tile, rec, version: view.version })
+      }
+    }
+    return { failed, updates }
+  }, [tiles, installedInfo, isAdmin])
+
   const onPin = async (id) => {
     if (pinnedIds.has(id)) { await nav.unpin(id); return }
     const result = await nav.pin(id)
@@ -200,84 +227,160 @@ export default function AppsView({ api, adapter }) {
   const closeDetail = () => setParams(prev => { const out = new URLSearchParams(prev); out.delete('detail'); out.delete('manage'); return out }, { replace: true })
 
   if (state.status === 'loading') {
-    return <div className="op-loading" role="status" aria-label={t('apps.loading')}><LoadingSpinner size="lg" /></div>
+    return <SkeletonRows count={3} label={t('apps.loading')} className="ad-skeleton" />
   }
   if (state.status === 'error') {
+    const kind = state.error && state.error.kind
     return (
-      <div className="op-error" role="alert">
-        <Icon name="alert-circle" />
-        <span>{describeError(state.error, t)}</span>
-        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => { setState({ status: 'loading', apps: [], error: null, stale: false }); setReload(n => n + 1) }}>
-          <Icon name="refresh" /> {t('catalog.retry')}
-        </button>
-      </div>
+      <LoadError
+        title={t('apps.loadError.title')}
+        testId="addons-load-error"
+        nothingChanged={false}
+        onRetry={() => { setState({ status: 'loading', apps: [], error: null, stale: false }); setReload(n => n + 1) }}
+      >
+        {[
+          describeError(state.error, t),
+          kind !== 'auth' && kind !== 'denied' && kind !== 'invalid' ? t('apps.loadError.paused') : '',
+          t('common:ui.loadError.nothingChanged'),
+        ].filter(Boolean).join(' ')}
+      </LoadError>
     )
   }
 
   const view = listState({ apps: state.apps, shownCount: shown.length, query, isAdmin, canList })
   const firstRun = view === 'first-run'
+  const showAttention = !firstRun && (attention.failed.length > 0 || attention.updates.length > 0)
   return (
     <div className="ad-apps">
       {state.stale && (
-        <div className="op-notice" role="status">
-          <Icon name="alert-circle" />
-          <span>{t('apps.stale')}</span>
-        </div>
+        <Callout tone="info" role="status" className="ad-callout">{t('apps.stale')}</Callout>
       )}
       {Object.entries(actions.state).filter(([key, r]) => key.startsWith('uninstall:') && r.outcome && r.outcome !== 'completed' && !actions.unknown[key.split(':')[1]]).map(([key, r]) => (
-        <p key={key} className="ad-card__note" data-tone="error" role="alert" data-testid="remove-error">{describeOutcome(r.outcome, t, r.error)}</p>
+        <Callout key={key} tone="error" role="alert" className="ad-callout" testId="remove-error">{describeOutcome(r.outcome, t, r.error)}</Callout>
       ))}
       {Object.keys(actions.unknown).filter(id => actions.unknown[id].key.startsWith('uninstall:')).map(id => (
         <UnknownNotice key={id} addonId={id} actions={actions} className="ad-card__note" />
       ))}
       <div className="ad-split" data-open={detail ? 'true' : 'false'}>
         <div className="ad-split__list">
-        <div className="ad-drawer__bar">
-          <input
-            type="search"
-            className="dk-input ad-drawer__search"
-            data-testid="addon-search"
-            aria-label={t('drawer.search')}
-            placeholder={t('drawer.search')}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-          />
-          {/* One way into Browse per screen: the first-run card carries it while
-              nothing is installed, and the bar carries it afterwards. */}
-          {isAdmin && !firstRun && <BulkUpgradeTrigger bulk={bulk} className="dk-btn dk-btn--sm" />}
-          {isAdmin && !firstRun && (
-            <Link className="dk-btn dk-btn--primary dk-btn--sm" to="/app/addons?tab=browse" data-testid="addons-add"><Icon name="plus" /> {t('drawer.add')}</Link>
+          {showAttention && (
+            <section className="ad-attention" aria-label={t('attention.label')} data-testid="addons-attention">
+              {attention.failed.map(tile => {
+                const added = addedByAddon(tile.app)
+                const restarts = Number(installedInfo[tile.id]?.restarts) || 0
+                return (
+                  <Callout
+                    key={tile.id}
+                    tone="error"
+                    title={t('attention.failedTitle', { name: titleOf(tile) })}
+                    testId="attention-failed"
+                    data-app={tile.id}
+                    actions={<Button size="sm" variant="ghost" onClick={() => openDetail(tile.id)}>{t('card.details')}</Button>}
+                  >
+                    {restarts > 0 ? t('attention.failedRestarts', { count: restarts }) : t('attention.failedOnce')}{' '}
+                    {added.tools > 0 ? t('attention.toolsOff', { count: added.tools }) : added.page ? t('attention.pageOff') : ''}
+                  </Callout>
+                )
+              })}
+              {attention.updates.map(({ tile, rec, version }) => {
+                const working = Boolean(actions.unknown[tile.id]) || actions.state[`upgrade:${tile.id}:${tile.app.generation}`]?.phase === 'working'
+                return (
+                  <Callout
+                    key={tile.id}
+                    tone="warn"
+                    icon="arrow-up"
+                    title={t('attention.updateTitle', { name: titleOf(tile), version })}
+                    testId="attention-update"
+                    data-app={tile.id}
+                    actions={(
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => openDetail(tile.id)}>{t('card.details')}</Button>
+                        <Button size="sm" busy={working} disabled={working} onClick={() => upgrade.ask(rec)} aria-label={t('updates.upgradeNamed', { name: titleOf(tile) })}>{t('updates.upgrade')}</Button>
+                      </>
+                    )}
+                  >
+                    {t('attention.updateBody', { current: rec.version })}
+                  </Callout>
+                )
+              })}
+            </section>
           )}
-        </div>
+          {!firstRun && (
+            <div className="ad-toolbar">
+              <span className="ad-search">
+                <Icon name="search" aria-hidden="true" />
+                <input
+                  type="search"
+                  className="dk-input ad-search__input"
+                  data-testid="addon-search"
+                  aria-label={t('drawer.search')}
+                  placeholder={t('drawer.search')}
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                />
+              </span>
+              <div className="ad-seg" role="group" aria-label={t('filter.label')}>
+                {STATE_FILTERS.map(id => (
+                  <button key={id} type="button" className="ad-seg__item" aria-pressed={stateFilter === id} onClick={() => setStateFilter(id)}>{t(`filter.${id}`)}</button>
+                ))}
+              </div>
+              {isAdmin && <BulkUpgradeTrigger bulk={bulk} className="dk-btn dk-btn--sm" />}
+            </div>
+          )}
           {view === 'first-run' ? (
             <FirstRun adapter={adapter} actions={actions} />
           ) : view === 'no-match' ? (
-            <CatalogEmpty icon="search" title={t('apps.noMatchTitle')} text={t('apps.noMatchBody', { query: query.trim() })} role="status">
-              <div className="ad-section__acts">
-                <button type="button" className="dk-btn dk-btn--sm" onClick={() => setQuery('')}>{t('apps.clearSearch')}</button>
-                {isAdmin && <Link className="dk-btn dk-btn--ghost dk-btn--sm" to="/app/addons?tab=browse">{t('drawer.browse')}</Link>}
-              </div>
-            </CatalogEmpty>
+            <EmptyState
+              variant="no-results"
+              title={t('apps.noMatchTitle')}
+              body={t('apps.noMatchBody', { query: query.trim() })}
+              actions={<Button size="sm" variant="ghost" onClick={() => setQuery('')}>{t('apps.clearSearch')}</Button>}
+            />
           ) : view === 'none' ? (
-            <CatalogEmpty icon="puzzle" title={t('apps.emptyTitle')} text={t('apps.emptyBody')} />
+            <EmptyState variant="unavailable" title={t('apps.emptyTitle')} body={t('apps.emptyBody')} />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              variant="no-results"
+              title={t(`filter.none.${stateFilter}`)}
+              actions={<Button size="sm" variant="ghost" onClick={() => setStateFilter('all')}>{t('filter.showAll')}</Button>}
+            />
           ) : (
-          <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
-            {shown.map(tile => (
-              <AddonTile key={tile.id} tile={tile} pinned={pinnedIds.has(tile.id)} selected={tile.id === detailId} onPin={onPin} onMove={nav.move} onOpenDetail={openDetail} onRemove={isAdmin ? setRemoving : undefined}
-                upgrade={tile.app ? (
-                  <AddonUpgradeAction
-                    addon={installedInfo[tile.id]}
-                    pending={tile.app.update === 'update-pending'}
-                    isAdmin={isAdmin}
-                    upgrade={upgrade}
-                    working={Boolean(actions.unknown[tile.id]) || actions.state[`upgrade:${tile.id}:${tile.app.generation}`]?.phase === 'working'}
+            <ul className="ad-tiles" aria-label={t('apps.listLabel')}>
+              {rows.map(tile => {
+                const rec = installedInfo[tile.id]
+                const uv = isAdmin && rec ? updateView(rec.update) : null
+                return (
+                  <AddonRow
+                    key={tile.id}
+                    tile={tile}
+                    pinned={pinnedIds.has(tile.id)}
+                    selected={tile.id === detailId}
+                    attention={tile.app ? attentionOf(tile.app, rec) : ''}
+                    source={isAdmin ? rec : undefined}
+                    updateVersion={uv && uv.state === 'update-available' ? uv.version : ''}
+                    onPin={onPin}
+                    onMove={nav.move}
+                    onOpenDetail={openDetail}
+                    onRemove={isAdmin ? setRemoving : undefined}
+                    upgradeInline={Boolean(tile.app) && upgradeAvailability(rec, { isAdmin, pending: tile.app.update === 'update-pending' }).startable}
+                    upgrade={tile.app ? (
+                      <AddonUpgradeAction
+                        addon={rec}
+                        pending={tile.app.update === 'update-pending'}
+                        isAdmin={isAdmin}
+                        upgrade={upgrade}
+                        variant="secondary"
+                        working={Boolean(actions.unknown[tile.id]) || actions.state[`upgrade:${tile.id}:${tile.app.generation}`]?.phase === 'working'}
+                      />
+                    ) : null}
                   />
-                ) : null}
-              />
-            ))}
-          </ul>
-        )}
+                )
+              })}
+            </ul>
+          )}
         </div>
+        {/* Below 1280 px the pane covers the page; the scrim closes it. */}
+        {detail && <div className="ad-scrim" aria-hidden="true" onClick={closeDetail} />}
         {detail && (
           <AddonPreview
             tile={detail}
@@ -293,10 +396,9 @@ export default function AppsView({ api, adapter }) {
             isAdmin={isAdmin}
             source={installedInfo[detail.id]}
             links={detail.app ? navigationItems([detail.app], { language: i18n.language }) : []}
+            upgrade={upgrade}
           >
             {isAdmin && installedInfo[detail.id] && (
-              <details className="ad-pane__more" open={manageId === detail.id} data-testid="addon-more">
-                <summary>{t('preview.moreDetails')}</summary>
                 <OperatorFacts
                   addon={installedInfo[detail.id]}
                   api={api}
@@ -307,7 +409,6 @@ export default function AppsView({ api, adapter }) {
                   onCheck={() => upgrade.check(installedInfo[detail.id])}
                   onUpgrade={() => upgrade.ask(installedInfo[detail.id])}
                 />
-              </details>
             )}
           </AddonPreview>
         )}
@@ -316,14 +417,14 @@ export default function AppsView({ api, adapter }) {
       <ConfirmDialog
         open={Boolean(removing)}
         danger
-        title={removing ? t('card.removeTitle', { name: removing.title }) : ''}
+        title={removing ? t('card.removeTitle', { name: titleOf(removing) }) : ''}
         message={removing ? <p>{t('card.removeBody', { name: removing.title })}</p> : null}
         confirmLabel={t('card.remove')}
         onConfirm={() => { const x = removing; setRemoving(null); closeDetail(); remove(x) }}
         onCancel={() => setRemoving(null)}
       />
       {manageId && state.status === 'ready' && !detail && (
-        <div className="op-notice" role="status"><Icon name="info" /><span>{t('installed.missing', { id: manageId })}</span></div>
+        <Callout tone="info" role="status" className="ad-callout">{t('installed.missing', { id: manageId })}</Callout>
       )}
       <UpgradeConfirm upgrade={upgrade} />
       <BulkUpgradeDialog bulk={bulk} />

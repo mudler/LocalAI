@@ -37,14 +37,16 @@
     "emptyTitle": "还没有应用",
     "firstRun": {
       "browse": "Browse add-ons",
-      "title": "Welcome to Apps",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "还没有附加组件",
+      "lead": "附加组件为 LocalAI 增加新页面和聊天工具。它们独立运行,只请求列出的权限。",
+      "featuredLabel": "从其中一个开始",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "运行前会对照你的来源进行校验",
+      "factRemove": "随时可以关闭或移除"
     },
     "headless": "在后台运行,没有自己的页面。",
-    "listLabel": "应用",
+    "listLabel": "已安装的附加组件",
     "loading": "正在加载应用",
     "manage": "管理",
     "open": "打开",
@@ -58,8 +60,12 @@
     "version": "版本 {{version}}",
     "working": "正在等待所有者确认。",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "没有已安装的项目匹配“{{query}}”。请换个词试试。",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "附加组件暂时不可用。",
+      "paused": "在它恢复之前,附加组件的页面和工具会暂停。"
+    }
   },
   "browse": {
     "confirmTitle": "安装 {{name}}?",
@@ -69,7 +75,7 @@
     "fromLibrary": "来自 {{library}}",
     "install": "安装",
     "installedDetail": "版本 {{version}},第 {{generation}} 代",
-    "installedOther": "已安装 {{version}}(其他版本)",
+    "installedOther": "你当前是 {{version}}",
     "installedSame": "已安装 {{version}}",
     "installedState": "已安装",
     "installing": "正在安装",
@@ -85,7 +91,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "已安装"
   },
   "catalog": {
     "allLibraries": "所有库",
@@ -115,8 +122,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "已打开",
-    "search": "Search add-ons",
+    "running": "运行中",
+    "search": "搜索已安装的附加组件",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -338,14 +345,15 @@
   "state": {
     "failed": "失败",
     "label": "状态:{{state}}",
-    "running": "已打开",
+    "running": "运行中",
     "starting": "启动中",
     "stopped": "已关闭",
-    "update-pending": "等待更新"
+    "update-pending": "等待更新",
+    "updateTo": "更新 {{version}}"
   },
-  "supporting": "所有者为你运行的应用,以及它们的来源库。",
+  "supporting": "你安装的软件,为 LocalAI 增加新页面和聊天工具。每个都独立运行,只请求它列出的权限。",
   "tabs": {
-    "apps": "我的附加组件",
+    "apps": "已安装",
     "browse": "查找附加组件",
     "label": "附加组件分区",
     "libraries": "来源"
@@ -639,17 +647,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "移除 {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "它能做什么",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "更新到 {{version}}"
   },
   "flow": {
     "installAndTurnOn": "安装并打开",
@@ -663,6 +673,43 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "在“已安装”中查看",
+    "install": "安装",
+    "installNamed": "安装 {{name}}"
+  },
+  "family": {
+    "pages": "在找你或智能体创建的页面?它们在<go>页面</go>中。"
+  },
+  "filter": {
+    "label": "显示",
+    "all": "全部",
+    "running": "运行中",
+    "off": "已关闭",
+    "showAll": "显示全部",
+    "none": {
+      "all": "没有可显示的附加组件。",
+      "running": "没有正在运行的附加组件。",
+      "off": "所有附加组件都在运行。"
+    }
+  },
+  "attention": {
+    "label": "需要处理",
+    "failedTitle": "{{name}} 已停止。",
+    "failedRestarts_one": "连续 {{count}} 次启动失败。",
+    "failedRestarts_other": "连续 {{count}} 次启动失败。",
+    "failedOnce": "它没有启动。",
+    "toolsOff_one": "在它重新运行前,它的 {{count}} 个聊天工具不可用。",
+    "toolsOff_other": "在它重新运行前,它的 {{count}} 个聊天工具不可用。",
+    "pageOff": "在它重新运行前,它的页面不可用。",
+    "updateTitle": "{{name}} {{version}} 已可用。",
+    "updateBody": "你当前是 {{current}}。替换前你会看到变更并进行确认。"
+  },
+  "meta": {
+    "builtin": "内置",
+    "builtinLong": "随 LocalAI 提供",
+    "signed": "已签名 · {{library}}",
+    "checked": "已校验 · {{library}}",
+    "devBuild": "开发版本",
+    "library": "{{library}} 库"
   }
 }

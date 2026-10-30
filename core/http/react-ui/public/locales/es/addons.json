@@ -37,14 +37,16 @@
     "emptyTitle": "Aún no hay apps",
     "firstRun": {
       "browse": "Browse add-ons",
-      "title": "Welcome to Apps",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "Aún no hay complementos",
+      "lead": "Los complementos dan a LocalAI nuevas páginas y herramientas de chat. Se ejecutan por separado y solo piden lo que declaran.",
+      "featuredLabel": "Empieza con uno de estos",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "Se comprueban con tus fuentes antes de ejecutarse",
+      "factRemove": "Apágalos o quítalos cuando quieras"
     },
     "headless": "Se ejecuta en segundo plano y no tiene página propia.",
-    "listLabel": "Apps",
+    "listLabel": "Complementos instalados",
     "loading": "Cargando apps",
     "manage": "Gestionar",
     "open": "Abrir",
@@ -58,8 +60,12 @@
     "version": "Versión {{version}}",
     "working": "Esperando la confirmación del propietario.",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "Nada instalado coincide con «{{query}}». Prueba con otras palabras.",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "Los complementos no están disponibles ahora.",
+      "paused": "Las páginas y herramientas de los complementos quedan en pausa hasta que vuelva."
+    }
   },
   "browse": {
     "confirmTitle": "¿Instalar {{name}}?",
@@ -69,7 +75,7 @@
     "fromLibrary": "de {{library}}",
     "install": "Instalar",
     "installedDetail": "Versión {{version}}, generación {{generation}}",
-    "installedOther": "Instalado {{version}} (otra versión)",
+    "installedOther": "Tienes {{version}}",
     "installedSame": "Instalado {{version}}",
     "installedState": "Instalado",
     "installing": "Instalando",
@@ -85,7 +91,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "Instalado"
   },
   "catalog": {
     "allLibraries": "Todas las bibliotecas",
@@ -115,8 +122,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Activado",
-    "search": "Search add-ons",
+    "running": "En ejecución",
+    "search": "Buscar complementos instalados",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -338,14 +345,15 @@
   "state": {
     "failed": "Con error",
     "label": "Estado: {{state}}",
-    "running": "Activado",
+    "running": "En ejecución",
     "starting": "Iniciando",
     "stopped": "Desactivado",
-    "update-pending": "Actualización pendiente"
+    "update-pending": "Actualización pendiente",
+    "updateTo": "Actualización {{version}}"
   },
-  "supporting": "Las apps que tu propietario ejecuta por ti y las bibliotecas de las que provienen.",
+  "supporting": "Software que instalas para dar a LocalAI nuevas páginas y herramientas de chat. Cada una se ejecuta por separado y solo pide lo que declara.",
   "tabs": {
-    "apps": "Mis complementos",
+    "apps": "Instalados",
     "browse": "Buscar complementos",
     "label": "Secciones de complementos",
     "libraries": "Fuentes"
@@ -639,17 +647,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "Quitar {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "Qué puede hacer",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "Actualizar a {{version}}"
   },
   "flow": {
     "installAndTurnOn": "Instalar y activar",
@@ -663,6 +673,43 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "Verlo en Instalados",
+    "install": "Instalar",
+    "installNamed": "Instalar {{name}}"
+  },
+  "family": {
+    "pages": "¿Buscas páginas que creaste tú o un agente? Están en <go>Páginas</go>."
+  },
+  "filter": {
+    "label": "Mostrar",
+    "all": "Todos",
+    "running": "En ejecución",
+    "off": "Apagados",
+    "showAll": "Mostrar todos",
+    "none": {
+      "all": "No hay complementos que mostrar.",
+      "running": "Ningún complemento está en ejecución.",
+      "off": "Todos los complementos están en ejecución."
+    }
+  },
+  "attention": {
+    "label": "Requiere atención",
+    "failedTitle": "{{name}} se detuvo.",
+    "failedRestarts_one": "No pudo iniciarse {{count}} vez seguida.",
+    "failedRestarts_other": "No pudo iniciarse {{count}} veces seguidas.",
+    "failedOnce": "No se inició.",
+    "toolsOff_one": "Su {{count}} herramienta de chat está apagada hasta que vuelva a ejecutarse.",
+    "toolsOff_other": "Sus {{count}} herramientas de chat están apagadas hasta que vuelva a ejecutarse.",
+    "pageOff": "Su página no está disponible hasta que vuelva a ejecutarse.",
+    "updateTitle": "{{name}} {{version}} está disponible.",
+    "updateBody": "Tienes {{current}}. Verás qué cambia y confirmarás antes de reemplazar nada."
+  },
+  "meta": {
+    "builtin": "Integrado",
+    "builtinLong": "Viene con LocalAI",
+    "signed": "Firmado · {{library}}",
+    "checked": "Comprobado · {{library}}",
+    "devBuild": "Compilación de desarrollo",
+    "library": "biblioteca {{library}}"
   }
 }
