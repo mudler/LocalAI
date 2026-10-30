@@ -136,8 +136,11 @@ They apply at the next turn of every chat.
 Turn `chats_web_allow_private` on only if you trust every user of chats: a user
 can then read any internal web service the server can reach, through a model.
 
-To check the search provider, an administrator runs a test search with the
-saved settings:
+To check the search provider, an administrator clicks **Test search** on the
+`web_search` row of **Settings > Tools**. It runs one search for "LocalAI" with
+the applied settings (apply a change first) and shows the provider that
+answered with its first results, or the error a chat would read. The same test
+from the API:
 
 ```bash
 curl -X POST .../api/chats/admin/web/test -d '{"query": "LocalAI"}'

@@ -345,6 +345,8 @@ export const chatEgressApi = {
 export const chatBuiltinToolsApi = {
   list: () => fetchJSON('/api/chats/admin/tools'),
   events: (limit = 100) => fetchJSON(`/api/chats/admin/host-exec/events?limit=${limit}`),
+  // One web search with the applied settings, as a chat would run it.
+  testWeb: (query) => fetchJSON('/api/chats/admin/web/test', { method: 'POST', body: JSON.stringify({ query }) }),
 }
 
 // The MCP servers that a model's own configuration names (it connects to them to

@@ -179,6 +179,14 @@
     "skillLabel": "Compétence {{skill}}",
     "skillNotRunning": "Le module choisi ne tourne pas : la compétence intégrée est utilisée.",
     "toolNotRunning": "Le module qui remplace cet outil ne tourne pas : l'outil intégré est utilisé.",
-    "stopped": "arrêté"
+    "stopped": "arrêté",
+    "webTest": {
+      "run": "Tester la recherche",
+      "running": "Recherche...",
+      "hint": "Lance une recherche de LocalAI avec les réglages appliqués, comme le ferait une discussion.",
+      "ok_one": "{{provider}} a répondu avec {{count}} résultat.",
+      "ok_other": "{{provider}} a répondu avec {{count}} résultats.",
+      "failed": "La recherche a échoué : {{error}}"
+    }
   }
 }

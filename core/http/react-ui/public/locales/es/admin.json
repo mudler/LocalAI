@@ -335,6 +335,14 @@
     "skillLabel": "Habilidad {{skill}}",
     "skillNotRunning": "El complemento elegido no se ejecuta: se usa la habilidad integrada.",
     "toolNotRunning": "El complemento que reemplaza esta herramienta no se ejecuta: se usa la herramienta integrada.",
-    "stopped": "detenido"
+    "stopped": "detenido",
+    "webTest": {
+      "run": "Probar búsqueda",
+      "running": "Buscando...",
+      "hint": "Hace una búsqueda de LocalAI con los ajustes aplicados, como lo haría un chat.",
+      "ok_one": "{{provider}} respondió con {{count}} resultado.",
+      "ok_other": "{{provider}} respondió con {{count}} resultados.",
+      "failed": "La búsqueda falló: {{error}}"
+    }
   }
 }

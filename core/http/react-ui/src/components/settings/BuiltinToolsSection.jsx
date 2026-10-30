@@ -3,7 +3,7 @@ import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatWhen } from '../addons/updateState'
 import { Link } from 'react-router-dom'
-import { Callout, LoadError, SkeletonRows, Switch } from '../ui'
+import { Button, Callout, LoadError, SkeletonRows, Switch } from '../ui'
 import { chatBuiltinToolsApi } from '../../utils/api'
 import { FIELD_BY_KEY, getValue, setValue } from '../../utils/settingsSchema'
 import { SANDBOX_INSTALL_LINK } from '../../utils/chatCommands'
@@ -158,6 +158,7 @@ export default function BuiltinToolsSection({ settings, onChange }) {
                 : <BoolControls tool={tool} settings={settings} onChange={onChange} />}
               {tool.note && <p className="st-row__desc" data-tone="warn" data-testid={`settings-tools-${tool.id}-note`}>{t('settingsTools.toolNotRunning')}</p>}
               {tool.candidates.length > 1 && <ProviderChoice tool={tool} settings={settings} onChange={onChange} titles={tool.titles} />}
+              {tool.id === 'web_search' && tool.enabled && <WebSearchTest />}
               {tool.id === 'bash' && tool.candidates.length === 0 && (
                 <p className="st-row__desc"><Link to={SANDBOX_INSTALL_LINK} data-testid="settings-tools-install-sandbox">{t('settingsTools.installSandbox')}</Link></p>
               )}
@@ -166,6 +167,43 @@ export default function BuiltinToolsSection({ settings, onChange }) {
         )
       })}
       {state.skills.length > 0 && <SkillRows skills={state.skills} settings={settings} onChange={onChange} />}
+    </div>
+  )
+}
+
+// One test search with the applied settings, so an administrator sees which
+// provider answers and what a chat would get, or the error a chat would read.
+function WebSearchTest() {
+  const { t } = useTranslation('admin')
+  const [state, setState] = useState({ busy: false, res: null, error: '' })
+  const run = async () => {
+    setState({ busy: true, res: null, error: '' })
+    try {
+      const res = await chatBuiltinToolsApi.testWeb('LocalAI')
+      setState({ busy: false, res, error: '' })
+    } catch (e) {
+      setState({ busy: false, res: null, error: e.message || 'error' })
+    }
+  }
+  const { res } = state
+  return (
+    <div className="st-tools__controls" data-testid="settings-tools-web-test">
+      <div>
+        <Button size="sm" onClick={run} disabled={state.busy} data-testid="settings-tools-web-test-run">
+          {state.busy ? t('settingsTools.webTest.running') : t('settingsTools.webTest.run')}
+        </Button>
+        <span className="st-row__desc"> {t('settingsTools.webTest.hint')}</span>
+      </div>
+      {state.error && <p className="st-row__desc" data-tone="warn" role="alert" data-testid="settings-tools-web-test-error">{state.error}</p>}
+      {res && !res.ok && <p className="st-row__desc" data-tone="warn" role="alert" data-testid="settings-tools-web-test-error">{t('settingsTools.webTest.failed', { error: res.error || '' })}</p>}
+      {res?.ok && (
+        <div data-testid="settings-tools-web-test-result">
+          <p className="st-row__desc">{t('settingsTools.webTest.ok', { provider: res.provider, count: (res.results || []).length })}</p>
+          <ul className="st-row__desc">
+            {(res.results || []).slice(0, 3).map(r => <li key={r.url}>{r.title} <code className="st-key">{r.url}</code></li>)}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

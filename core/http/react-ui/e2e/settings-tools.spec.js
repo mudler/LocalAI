@@ -69,6 +69,27 @@ test.describe('Settings > Tools', () => {
     await expect(page.getByTestId('settings-tools-bash-other-stopped')).toHaveCount(0)
     await expect(page.getByTestId('settings-tools-bash-providers').getByRole('radio', { name: /Other runner/ })).toBeVisible()
   })
+
+  test('the web_search row runs a test search and shows the provider and the results, or the error', async ({ page }) => {
+    const web = { id: 'web_search', label: 'Web search', description: 'x', group: 'web', setting: 'chats_web_search', enabled: true, read_only: true, replaceable: true, provider: 'builtin', candidates: [] }
+    const answers = [
+      { ok: true, provider: 'duckduckgo', host: 'duckduckgo.com', results: [{ title: 'LocalAI', url: 'https://localai.io/', snippet: 'x' }] },
+      { ok: false, provider: 'searxng', host: 'searx.example.org', results: [], error: 'no search provider works' },
+    ]
+    const bodies = []
+    await page.route('**/api/chats/admin/web/test', route => {
+      bodies.push(route.request().postDataJSON())
+      return route.fulfill({ json: answers[bodies.length - 1] })
+    })
+    await openTools(page, [web])
+    await page.getByTestId('settings-tools-web-test-run').click()
+    await expect(page.getByTestId('settings-tools-web-test-result')).toContainText('duckduckgo answered with 1 result.')
+    await expect(page.getByTestId('settings-tools-web-test-result')).toContainText('https://localai.io/')
+    expect(bodies[0]).toEqual({ query: 'LocalAI' })
+    await page.getByTestId('settings-tools-web-test-run').click()
+    await expect(page.getByTestId('settings-tools-web-test-error')).toHaveText('The search failed: no search provider works')
+    await shot(page, 'settings-tools-web-test')
+  })
 })
 
 test.describe('Install of an add-on that replaces a built-in tool', () => {
@@ -162,4 +183,5 @@ test.describe('The skills of an add-on in its details', () => {
     await expect.poll(() => settings.posts).toEqual([{ chats_tool_providers: { bash: 'sandbox', xlsx: 'office' } }])
     await expect(sw).toBeChecked()
   })
+
 })

@@ -335,6 +335,14 @@
     "skillLabel": "技能 {{skill}}",
     "skillNotRunning": "所选插件未运行：使用内置技能。",
     "toolNotRunning": "替代此工具的插件未运行：使用内置工具。",
-    "stopped": "已停止"
+    "stopped": "已停止",
+    "webTest": {
+      "run": "测试搜索",
+      "running": "正在搜索...",
+      "hint": "使用已应用的设置搜索一次 LocalAI，与聊天中的方式相同。",
+      "ok_one": "{{provider}} 返回了 {{count}} 条结果。",
+      "ok_other": "{{provider}} 返回了 {{count}} 条结果。",
+      "failed": "搜索失败：{{error}}"
+    }
   }
 }

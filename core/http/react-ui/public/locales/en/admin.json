@@ -185,6 +185,14 @@
     "skillLabel": "Skill {{skill}}",
     "skillNotRunning": "The chosen add-on is not running: the built-in skill serves.",
     "toolNotRunning": "The add-on that replaces this tool is not running: the built-in tool serves.",
-    "stopped": "stopped"
+    "stopped": "stopped",
+    "webTest": {
+      "run": "Test search",
+      "running": "Searching...",
+      "hint": "Runs one search for LocalAI with the applied settings, as a chat would.",
+      "ok_one": "{{provider}} answered with {{count}} result.",
+      "ok_other": "{{provider}} answered with {{count}} results.",
+      "failed": "The search failed: {{error}}"
+    }
   }
 }

@@ -335,6 +335,14 @@
     "skillLabel": "Skill {{skill}}",
     "skillNotRunning": "Das gewählte Add-on läuft nicht: der integrierte Skill wird verwendet.",
     "toolNotRunning": "Das Add-on, das dieses Werkzeug ersetzt, läuft nicht: das eingebaute Werkzeug wird verwendet.",
-    "stopped": "gestoppt"
+    "stopped": "gestoppt",
+    "webTest": {
+      "run": "Suche testen",
+      "running": "Suche läuft...",
+      "hint": "Führt mit den übernommenen Einstellungen eine Suche nach LocalAI aus, wie ein Chat es täte.",
+      "ok_one": "{{provider}} hat {{count}} Ergebnis geliefert.",
+      "ok_other": "{{provider}} hat {{count}} Ergebnisse geliefert.",
+      "failed": "Die Suche ist fehlgeschlagen: {{error}}"
+    }
   }
 }

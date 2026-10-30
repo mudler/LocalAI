@@ -335,6 +335,14 @@
     "skillLabel": "Skill {{skill}}",
     "skillNotRunning": "Il componente scelto non è in esecuzione: si usa la skill integrata.",
     "toolNotRunning": "Il componente che sostituisce questo strumento non è in esecuzione: si usa lo strumento integrato.",
-    "stopped": "fermo"
+    "stopped": "fermo",
+    "webTest": {
+      "run": "Prova la ricerca",
+      "running": "Ricerca in corso...",
+      "hint": "Esegue una ricerca di LocalAI con le impostazioni applicate, come farebbe una chat.",
+      "ok_one": "{{provider}} ha risposto con {{count}} risultato.",
+      "ok_other": "{{provider}} ha risposto con {{count}} risultati.",
+      "failed": "La ricerca non è riuscita: {{error}}"
+    }
   }
 }

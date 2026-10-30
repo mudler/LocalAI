@@ -358,6 +358,14 @@
     "skillLabel": "스킬 {{skill}}",
     "skillNotRunning": "선택한 애드온이 실행 중이 아닙니다. 기본 제공 스킬이 사용됩니다.",
     "toolNotRunning": "이 도구를 대체하는 애드온이 실행 중이 아닙니다. 기본 제공 도구가 사용됩니다.",
-    "stopped": "중지됨"
+    "stopped": "중지됨",
+    "webTest": {
+      "run": "검색 테스트",
+      "running": "검색 중...",
+      "hint": "적용된 설정으로 채팅처럼 LocalAI를 한 번 검색합니다.",
+      "ok_one": "{{provider}}에서 결과 {{count}}개를 반환했습니다.",
+      "ok_other": "{{provider}}에서 결과 {{count}}개를 반환했습니다.",
+      "failed": "검색에 실패했습니다: {{error}}"
+    }
   }
 }

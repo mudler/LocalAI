@@ -358,6 +358,14 @@
     "skillLabel": "Skill {{skill}}",
     "skillNotRunning": "Add-on yang dipilih tidak berjalan: skill bawaan yang dipakai.",
     "toolNotRunning": "Add-on yang menggantikan alat ini tidak berjalan: alat bawaan yang dipakai.",
-    "stopped": "berhenti"
+    "stopped": "berhenti",
+    "webTest": {
+      "run": "Uji pencarian",
+      "running": "Mencari...",
+      "hint": "Menjalankan satu pencarian LocalAI dengan pengaturan yang diterapkan, seperti yang dilakukan chat.",
+      "ok_one": "{{provider}} menjawab dengan {{count}} hasil.",
+      "ok_other": "{{provider}} menjawab dengan {{count}} hasil.",
+      "failed": "Pencarian gagal: {{error}}"
+    }
   }
 }
