@@ -129,6 +129,36 @@ var _ = Describe("subagent", func() {
 		}
 	})
 
+	It("a sub-agent gets the parent's built-in file tools, or the ones the parent names", func() {
+		f := newFiles()
+		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			switch text {
+			case "inherit":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"a","wait":true}`}}
+			case "narrow":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"b","tools":["read_file","edit_file"],"wait":true}`}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files = f })
+		id := create(svc, alice)
+
+		sent(svc, alice, id, "inherit")
+		idle(svc, alice, id)
+		kids := childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(1))
+		Expect(h.ToolNames(kids[0].ID)).To(ContainElements("list_files", "read_file", "write_file", "edit_file", "move_file", "delete_file", "search_files"))
+
+		sent(svc, alice, id, "narrow")
+		idle(svc, alice, id)
+		kids = childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(2))
+		var lists [][]string
+		for _, k := range kids {
+			lists = append(lists, h.ToolNames(k.ID))
+		}
+		Expect(lists).To(ContainElement(ConsistOf("read_file", "edit_file")), "tool lists: %v", lists)
+	})
+
 	It("a sub agent cannot spawn and gets the parents tools unless narrowed", func() {
 		svc, h := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
 			switch text {

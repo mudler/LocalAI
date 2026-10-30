@@ -287,6 +287,9 @@ func New(d Deps) (*Service, error) {
 		s.d.Files = d.Files
 	}
 	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
+	// The file tools reach the shared folders at the paths the chat's view
+	// gives them, /workspace/shared-<name>.
+	d.Files.SetSharedRoots(s.shared.Roots)
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
 	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
 		Shared: s.shared.Roots, Logger: log})

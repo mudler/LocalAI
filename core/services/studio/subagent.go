@@ -56,8 +56,8 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	}
 	sc := s.scopeOf(ctx, rec)
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
-	// The file tools belong to the chat itself: a sub-agent never gets them,
-	// because its tools come from hostTools, which does not include them.
+	// The file tools are the one file toolset of the chat. A sub-agent gets
+	// them from subset, built for the parent chat.
 	tools = append(tools, s.announceFileChanges(a, s.d.Files.Tools(a))...)
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
@@ -214,13 +214,17 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	}
 }
 
-// subset picks the tools a sub-agent gets from the parent's host tools. Nil
+// subset picks the tools a sub-agent gets from the parent's host tools and
+// file tools. Nil
 // asks for all of them but the named-only ones; a name the parent does not have is an error.
 func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string) ([]session.Tool, error) {
 	have, err := s.hostTools(ctx, a)
 	if err != nil {
 		return nil, fmt.Errorf("could not list your tools: %w", err)
 	}
+	// The built-in file tools act for the parent chat: what a sub-agent changes
+	// is an agent change of the parent, and the parent's Files pane refreshes.
+	have = append(have, s.announceFileChanges(a, s.d.Files.Tools(a))...)
 	if names == nil {
 		kept := have[:0:0]
 		for _, t := range have {

@@ -84,7 +84,7 @@ func (s *Service) filesPrompt(ctx context.Context, a workspace.Actor) string {
 }
 
 // fileWriteTools are the file tools that change files.
-var fileWriteTools = map[string]bool{"write_file": true, "move_file": true, "delete_file": true}
+var fileWriteTools = map[string]bool{"write_file": true, "edit_file": true, "move_file": true, "delete_file": true}
 
 // announceFileChanges wraps the file tools that change files so that a
 // successful call tells the chat's clients that its files changed.

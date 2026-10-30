@@ -3,7 +3,9 @@ package files
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 
@@ -35,10 +37,6 @@ func (s *Service) Search(ctx context.Context, principal, query, dir string, limi
 	if !s.Available() {
 		return nil, ErrUnavailable
 	}
-	query = strings.TrimSpace(query)
-	if query == "" {
-		return nil, workspace.ErrInvalid
-	}
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
@@ -49,11 +47,65 @@ func (s *Service) Search(ctx context.Context, principal, query, dir string, limi
 	if err != nil {
 		return nil, err
 	}
-	a := s.Actor(principal)
-	needle := strings.ToLower(query)
+	q, err := newQuery(query, false, true)
+	if err != nil {
+		return nil, err
+	}
+	q.limit = limit
+	return s.search(ctx, s.Actor(principal), root, func(abs string) string { return s.Rel(principal, abs) }, q)
+}
+
+// query is what one search looks for.
+type query struct {
+	match   func(string) bool
+	names   bool // match file names too (plain text only)
+	limit   int
+	perFile int // content hits shown for one file
+}
+
+// newQuery builds a search: plain text, or a regular expression matched
+// against each line.
+func newQuery(text string, regex, ignoreCase bool) (query, error) {
+	if strings.TrimSpace(text) == "" {
+		return query{}, workspace.ErrInvalid
+	}
+	if len(text) > maxPatternLen {
+		return query{}, fmt.Errorf("the query must be at most %d characters", maxPatternLen)
+	}
+	if regex {
+		expr := text
+		if ignoreCase {
+			expr = "(?i)" + expr
+		}
+		re, err := regexp.Compile(expr)
+		if err != nil {
+			return query{}, fmt.Errorf("the query is not a valid regular expression: %w", err)
+		}
+		return query{match: re.MatchString, limit: grepMax, perFile: grepMax}, nil
+	}
+	needle := strings.TrimSpace(text)
+	match := func(s string) bool { return strings.Contains(s, needle) }
+	if ignoreCase {
+		needle = strings.ToLower(needle)
+		match = func(s string) bool { return strings.Contains(strings.ToLower(s), needle) }
+	}
+	return query{match: match, names: true, limit: searchPlainMax, perFile: searchPerFile}, nil
+}
+
+// search runs q below root, a folder or one file, as a. show turns a
+// workspace path into the path a hit names.
+func (s *Service) search(ctx context.Context, a workspace.Actor, root string, show func(string) string, q query) ([]Hit, error) {
 	var names, texts []Hit
 	visited, scanned := 0, int64(0)
+	full := func() bool { return len(names)+len(texts) >= q.limit*2 }
 
+	look := func(k workspace.Node) {
+		if full() || k.Size > searchMaxFileBytes || scanned+k.Size > searchMaxTotal {
+			return
+		}
+		scanned += k.Size
+		texts = append(texts, s.scanFile(ctx, a, k, show(k.Path), q)...)
+	}
 	var walk func(p string) error
 	walk = func(p string) error {
 		kids, err := s.ws.List(ctx, a, p)
@@ -64,36 +116,42 @@ func (s *Service) Search(ctx context.Context, principal, query, dir string, limi
 			if visited++; visited > searchMaxNodes || ctx.Err() != nil {
 				return ctx.Err()
 			}
-			rel := s.Rel(principal, k.Path)
-			if strings.Contains(strings.ToLower(k.Name), needle) {
-				names = append(names, Hit{Path: rel, Kind: k.Kind})
+			if q.names && q.match(k.Name) {
+				names = append(names, Hit{Path: show(k.Path), Kind: k.Kind})
 			}
 			if k.Kind == workspace.KindDir {
+				if k.Name == ".git" {
+					continue
+				}
 				if err := walk(k.Path); err != nil {
 					return err
 				}
 				continue
 			}
-			if len(names)+len(texts) >= limit*2 || k.Size > searchMaxFileBytes || scanned+k.Size > searchMaxTotal {
-				continue
-			}
-			scanned += k.Size
-			texts = append(texts, s.scanFile(ctx, a, k, rel, needle)...)
+			look(k)
 		}
 		return nil
 	}
-	if err := walk(root); err != nil {
+	n, err := s.ws.Stat(ctx, a, root)
+	if err != nil {
 		return nil, err
 	}
+	if n.Kind == workspace.KindDir {
+		if err := walk(root); err != nil {
+			return nil, err
+		}
+	} else {
+		look(n)
+	}
 	out := append(names, texts...)
-	if len(out) > limit {
-		out = out[:limit]
+	if len(out) > q.limit {
+		out = out[:q.limit]
 	}
 	return out, nil
 }
 
-// scanFile returns the lines of a text file that contain needle.
-func (s *Service) scanFile(ctx context.Context, a workspace.Actor, n workspace.Node, rel, needle string) []Hit {
+// scanFile returns the lines of a text file that match q.
+func (s *Service) scanFile(ctx context.Context, a workspace.Actor, n workspace.Node, rel string, q query) []Hit {
 	r, _, err := s.ws.Open(ctx, a, n.Path)
 	if err != nil {
 		return nil
@@ -111,9 +169,9 @@ func (s *Service) scanFile(ctx context.Context, a workspace.Actor, n workspace.N
 	var hits []Hit
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 64*1024), searchMaxFileBytes)
-	for line := 1; sc.Scan() && len(hits) < searchPerFile; line++ {
+	for line := 1; sc.Scan() && len(hits) < q.perFile; line++ {
 		text := sc.Text()
-		if strings.Contains(strings.ToLower(text), needle) {
+		if q.match(text) {
 			hits = append(hits, Hit{Path: rel, Kind: workspace.KindFile, Line: line, Snippet: clip(text)})
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 
@@ -38,7 +39,28 @@ type Service struct {
 	sharedReady bool // the folders of shared and built-in skills exist
 
 	blobs BlobOpener // nil: earlier versions cannot be read
+
+	// sharedRoots lists the shared folders of a user, for the file tools'
+	// /workspace/shared-<name> paths. Nil: the tools see no shared folder.
+	sharedRoots SharedRootsFunc
 }
+
+// SharedRootsFunc lists the shared folders a user may use, with the mode of
+// each.
+type SharedRootsFunc func(ctx context.Context, a workspace.Actor) ([]session.SharedRoot, error)
+
+// SetSharedRoots tells the file tools where the user's shared folders are. The
+// shared folders are built on this service, so they are set after it. Call it
+// once at start; nil removes them.
+func (s *Service) SetSharedRoots(fn SharedRootsFunc) {
+	s.mu.Lock()
+	s.sharedRoots = fn
+	s.mu.Unlock()
+}
+
+// quietLog drops what session.BuildView logs about a shared folder that is
+// gone: the file tools answer "not found" for it.
+var quietLog = slog.New(slog.DiscardHandler)
 
 // New returns a Service on ws. The store must have been opened with
 // AdminPrincipal as its admin.
