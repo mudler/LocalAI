@@ -5,16 +5,42 @@ weight = 23
 url = "/features/make-localai-yours/"
 +++
 
-A few JSON files in your home folder change how LocalAI looks and behaves for
-you: the name and instructions of the assistant, what it knows about you, the
-prompts above the message box, the widgets on Home and the theme. LocalAI reads
-these files. You can change them in the settings pages, or ask the assistant in
-a [chat](/features/chats/) to change them for you. Both write the same file, so
-every change has a history and can be undone, like any other file.
+You can change how LocalAI looks and behaves for you by asking for it in a
+[chat](/features/chats/): the name and the instructions of the assistant, what
+it knows about you, the shortcuts of the message box, the widgets on Home, the
+look, and small tools of your own (pages). Every change is a file in your home
+folder, so it has a history, it can be undone, and the settings pages edit the
+same files.
 
 The files need the chats and files of the server (see [Chats](/features/chats/)).
 
-## Examples on Home
+## What you can change
+
+| What | Say, for example | File |
+|---|---|---|
+| The assistant's name and how it answers | "Call yourself Ada and keep answers short" | `persona.json` |
+| What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `user.json` |
+| Shortcuts in the message box | "Make this a shortcut" | `shortcuts.json` |
+| The widgets on Home | "Show my open tasks on Home" | `home.json` and a data file |
+| The look | "Use the light theme and a compact layout" | `ui.json` |
+| A small tool of your own | "Make me a task board" | `pages/<name>/` |
+| Updates on a schedule | "Every morning, update this widget" | a trigger you confirm |
+
+## Change it by talking
+
+1. "Call me Marta and keep answers short": the assistant saves your name in
+   `user.json` and the rule in `persona.json`. Every chat uses them from your
+   next message.
+2. "Make that a shortcut": it adds the request to `shortcuts.json`; the
+   shortcut shows above the message box of every chat.
+3. "Make me a task board": it writes a page in `pages/task-board/`, which shows
+   under **Pages** in the sidebar.
+4. "Show my open tasks on Home": it writes `data/tasks.json` and adds a list
+   widget to `home.json`.
+5. "Every morning, summarise my inbox here": it adds a widget and proposes a
+   schedule trigger that you confirm on its card before anything runs.
+
+### Examples on Home
 
 A user with a chat model and none of these files sees **Make LocalAI yours**
 under the Home message box: three example cards ("Call me <your first name>
@@ -23,22 +49,30 @@ yesterday's chats here", or "summarise my inbox" when a mail connector is set
 up), and links to the ready pages. A card puts its sentence into the message
 box and sends nothing; you send it when you are ready. A card goes away once
 its result exists (your persona or profile is saved, a page exists, Home has a
-widget that reads a data file). **Hide these** hides the whole block and is
-kept under `seen` in `user.json`. A user who already has `shortcuts.json` or
-`ui.json` and another of these files never sees the examples.
+widget that reads a data file). **Hide these** hides the whole block, with
+Undo, and is kept under `seen` in `user.json`. A user who already has
+`shortcuts.json` or `ui.json` and another of these files never sees the
+examples; the library line under Home then offers **Customise Home**.
 
-## The files
+### What a change shows
 
-| File | What it does | Where you edit it |
-|---|---|---|
-| `persona.json` | `name` and `system_prompt` of the assistant, in every chat of yours | **Account > About you and the assistant** |
-| `user.json` | your `name`, `bio`, `language` and `timezone`; a short block of it reaches the model in every chat | **Account > About you and the assistant** |
-| `shortcuts.json` | the prompts above the message box | **Edit shortcuts** over the message box, and the Account page |
-| `home.json` | the widgets of the Home page | **Edit layout** on Home |
-| `ui.json` | `theme`, `accent`, `density` and `defaultModel` | **Account > Appearance** |
+When the assistant changes one of these files or a page in a chat, the answer
+ends with a short note: what it saved and where ("Saved to your profile in
+`user.json`", "Created the page Task board in `pages/tasks/`"), with **Undo**
+and a link to where you see it (Account, the page, Home). **Undo** undoes the
+change sets of that turn in your file history. A toast appears only when the
+effect is outside the chat: a new shortcut ("Added to your composer", and the
+shortcuts row is outlined for a moment), the first page ("Task board is in
+Pages, in the sidebar"), Home or the theme. Every toast action is also on the
+note. A change made in another tab or by a trigger refreshes the screens
+quietly, without a toast. The **Files** pane of the chat tags these files
+("Your profile", "Assistant") and links here.
 
-Without accounts (no authentication), the Account page shows these two tabs
-only, and the sidebar links to it as **Your settings**.
+## You and the assistant
+
+**Account > About you and the assistant** edits both files. Without accounts
+(no authentication), the Account page shows its two tabs of these files only,
+and the sidebar links to it as **Your settings**.
 
 ### persona.json
 
@@ -68,14 +102,21 @@ from the next message.
 The model gets a short "About the user" block with these four fields, at most
 1 KiB. The settings page fills in your name from your account and the language
 and time zone from your browser; they are saved when you press **Save**.
-`seen` is a record the assistant keeps of the hints it offered (see below); it
-is not sent to the model.
+`seen` is the record of what LocalAI showed you and what you answered (see
+[Turning suggestions off](#turning-suggestions-off)); it is not sent to the model.
 
 When neither file exists, nothing is added to the prompt. Each block costs
 about 25 tokens of framing plus the text of its fields: with the examples on
 this page, about 40 tokens for the persona and 50 for the user.
 
-### shortcuts.json
+The **You** card says what reaches the model: your name, your bio, your
+language and your time zone, at the start of every chat. Leave a field empty
+to keep it out. With a remote model (a cloud proxy or a remote endpoint), this
+text leaves the server with every chat.
+
+## Shortcuts
+
+`shortcuts.json`:
 
 ```json
 {
@@ -91,7 +132,14 @@ prompt in the box; with `"send": true` it sends it at once. Without the file
 the chat shows its default shortcuts (the starters of an empty chat). An
 empty list hides them.
 
-### home.json and widget data
+Edit them with **Edit shortcuts** over the message box, in the Account page, or
+by asking the assistant.
+
+## Home
+
+`home.json` and the data files of its widgets. **Edit layout** on Home adds,
+removes and orders the widgets.
+
 
 ```json
 {
@@ -126,7 +174,35 @@ adds the widget, and proposes a schedule trigger that you confirm on its card
 (see [triggers](/features/chats-agents/)). Each run is one chat turn; keep at
 least an hour between runs.
 
-### ui.json
+## Pages
+
+A page is a small tool, such as a task board or a reading list: an
+`index.html` in `pages/<name>/` with its data files next to it. It runs in a
+sandbox, as you, cannot reach the network, and reads and writes only its own
+folder. The **Pages** entry of the sidebar shows once you have a page, with a
+one-time **New** label; pinned pages show under it. Two ready pages ship with
+LocalAI (a task board and a reading list). See [Pages](/features/pages/) for
+the folder, the bridge and the limits.
+
+## Updates on a schedule
+
+Ask "every morning, update this" and the assistant writes the data file of a
+widget, adds the widget, and proposes a schedule trigger with
+`propose_trigger`. Nothing runs until you confirm the trigger on its card. Each
+run is one chat turn on your model, so it uses your models and counts toward
+your usage; keep at least an hour between runs. Pause, resume or delete the
+trigger on the Triggers page (see [triggers](/features/chats-agents/)). A
+failed run keeps the last good data, marked as stale.
+
+## Sharing pages
+
+A page in a shared folder runs as the person who opens it, so it never runs
+before they allow it, and a change by its author asks again. See
+[Pages](/features/pages/).
+
+## Look
+
+`ui.json`, edited in **Account > Appearance**:
 
 ```json
 { "theme": "light", "accent": "#3b82f6", "density": "compact", "defaultModel": "qwen3-8b" }
@@ -134,21 +210,9 @@ least an hour between runs.
 
 `theme` is `dark`, `light` or `system`. The Appearance tab applies a change at
 once and keeps it when you save. `defaultModel` is the model a new chat starts
-with. `pinnedPages` is reserved for a later release.
+with. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
 
-## What a change shows
-
-When the assistant changes one of these files or a page in a chat, the answer
-ends with a short note: what it saved and where ("Saved to your profile in
-`user.json`", "Created the page Task board in `pages/tasks/`"), with **Undo**
-and a link to where you see it (Account, the page, Home). **Undo** undoes the
-change sets of that turn in your file history. A toast appears only when the
-effect is outside the chat: a new shortcut ("Added to your composer"), the
-first page ("Task board is in Pages, in the sidebar"), Home or the theme. Every
-toast action is also on the note. A change made in another tab or by a
-trigger refreshes the screens quietly, without a toast. The **Files** pane of
-the chat tags these files ("Your profile", "Assistant") and links here.
-
+## Undo, versions and broken files
 
 Each file has a JSON Schema (draft 2020-12). LocalAI validates every read and
 every write against it, and refuses a file over 64 KiB.
@@ -176,15 +240,7 @@ the built-in skill folder (below), so the settings pages, the server and the
 assistant read the same text. Properties can carry an `x-ui` hint for the
 settings pages (`widget`, `hidden`).
 
-## The assistant's skill
-
-The built-in skill `localai-workspace` tells the assistant what each file does,
-where the schemas are (`/workspace/shared-builtin-skills/localai-workspace/schemas/`
-in the chat's files) and how to change a file without losing other keys. It has
-recipes for "add a shortcut", "show my open tasks on Home", "call me X and
-keep answers short" and "every morning update this". Its line in the index of
-skills costs about 44 tokens a turn; like any skill, you can switch it off for
-a chat in the **Skills** menu.
+## Turning suggestions off
 
 ### Offers from the assistant
 
@@ -211,7 +267,51 @@ after 14 days (a second "not now" counts as no), and "stop suggesting things"
 turns all offers off. You can turn them back on, and forget your answers, in
 **Account > About you and the assistant > Help and suggestions**.
 
-Pages (your own HTML shown inside LocalAI) are planned for a later release.
+The assistant also stops when you say "stop suggesting things" in any chat:
+the note under its answer says "Suggestions from the assistant are off", with
+Undo and a link to Account.
+
+### Help and suggestions
+
+**Account > About you and the assistant** has a card **Help and
+suggestions**, stored under `seen` in `user.json`:
+
+- **Offers from the assistant**: on or off for you. Until you choose, the
+  server's default applies.
+- **Notes about new things**: the one-time **New** label of a sidebar entry.
+- **Examples on Home**: **Show the examples again** brings back the cards you
+  hid.
+- **What the assistant learned**: **Forget what the assistant learned about my
+  hints** clears your answers to offers and the day and chat limits, so the
+  assistant may offer again. The switches stay as they are.
+
+## For administrators
+
+- The whole feature follows the chats and their files: with the chats or the
+  files off, none of these screens or files is used.
+- Pages need the `pages` feature of a user (see [Pages](/features/pages/)).
+- The runtime setting `chats_suggestions` (**Offers from the assistant** in the
+  settings, on by default) is the default for users who did not choose. It
+  applies at once. See [Runtime settings]({{%relref "features/runtime-settings" %}}).
+- The hint record lives in each user's `user.json`, in the shared workspace,
+  so the limits hold when several frontends serve the chats.
+
+## File reference
+
+Each file has a JSON Schema (draft 2020-12), served at
+`GET /api/chats/wellknown/{name}/schema` and shipped in the built-in skill
+folder, so the settings pages, the server and the assistant read the same
+text.
+
+### The assistant's skill
+
+The built-in skill `localai-workspace` tells the assistant what each file does,
+where the schemas are (`/workspace/shared-builtin-skills/localai-workspace/schemas/`
+in the chat's files) and how to change a file without losing other keys. It has
+recipes for "add a shortcut", "show my open tasks on Home", "call me X and
+keep answers short" and "every morning update this". Its line in the index of
+skills costs about 44 tokens a turn; like any skill, you can switch it off for
+a chat in the **Skills** menu.
 
 ## API
 
