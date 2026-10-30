@@ -5115,6 +5115,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/files/preview": {
+            "get": {
+                "description": "Reads the values of a .xlsx, .xlsm, .csv or .tsv file (kind \"table\": every sheet, at most the first 200 rows and 30 columns, with the size of the whole sheet), the headings and paragraphs of a .docx (kind \"document\") or the slide titles, text and speaker notes of a .pptx (kind \"slides\"). The formatting is not kept. The same path rules as the download apply. Files over 20 MiB are not read.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Preview a spreadsheet, document or presentation.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "file inside your home",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The content of the file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsFilePreview"
+                        }
+                    },
+                    "400": {
+                        "description": "The path is not valid or is a folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The file is over 20 MiB",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "This type of file has no preview",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "The file could not be read",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/files/search": {
             "get": {
                 "description": "Finds files by name and lines inside text files that contain the query, ignoring case. Only what you can read is searched. Large and binary files are found by name only.",
@@ -17524,6 +17583,104 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsFilePreview": {
+            "type": "object",
+            "properties": {
+                "blocks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsFilePreviewBlock"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "sheets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsFilePreviewSheet"
+                    }
+                },
+                "slides": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsFilePreviewSlide"
+                    }
+                },
+                "truncated": {
+                    "description": "Truncated is set when a document or presentation had more text than\nthe preview keeps.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsFilePreviewBlock": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsFilePreviewLine": {
+            "type": "object",
+            "properties": {
+                "level": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsFilePreviewSheet": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "total_cols": {
+                    "type": "integer"
+                },
+                "total_rows": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsFilePreviewSlide": {
+            "type": "object",
+            "properties": {
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsFilePreviewLine"
+                    }
+                },
+                "n": {
+                    "type": "integer"
+                },
+                "notes": {
+                    "type": "string"
+                },
+                "title": {
                     "type": "string"
                 }
             }

@@ -88,6 +88,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/files", h.ListFiles)
 	e.DELETE(base+"/files", h.DeleteFile)
 	e.GET(base+"/files/content", h.GetFileContent)
+	e.GET(base+"/files/preview", h.PreviewFile)
 	e.PUT(base+"/files/content", h.PutFileContent)
 	e.POST(base+"/files/folders", h.CreateFolder)
 	e.POST(base+"/files/move", h.MoveFile)

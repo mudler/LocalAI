@@ -108,10 +108,11 @@ and the Office add-on's internals stay private to it).
   (`.agents/distributed-state.md`, mode 4), documented in `chats.md`.
 
 PDF: the content endpoint sends `Content-Security-Policy: sandbox;
-default-src 'none'`, and a sandboxed document cannot host the browser's PDF
-viewer. For `inline=1` on `application/pdf` only, the policy drops the
-`sandbox` token and keeps `default-src 'none'`, adds `frame-ancestors 'self'`,
-so only LocalAI can frame it. Every other type keeps the sandbox.
+default-src 'none'`. Checked in Chrome: its PDF viewer renders such a
+response inside an `iframe`, so the policy stays as it is. The pane's
+`iframe` has no `sandbox` attribute of its own (that one would block the
+viewer); the response's policy already sandboxes the document. A browser
+that cannot show it gets the fallback text and Download.
 
 ## Not in scope
 
