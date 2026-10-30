@@ -7,6 +7,9 @@ import { StoredIn } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { filesApi } from '../../utils/api'
 import { widgetList, widgetData, cleanWidgets, move, sparkPath, formatMetric, WIDGET_TYPES } from '../../utils/wellKnown'
+import { cadenceOf, footerState, linkedTrigger, scheduledCount } from '../../utils/widgetTrigger'
+import { useHomeTriggers } from '../../hooks/useHomeTriggers'
+import WidgetFooter from './WidgetFooter'
 import './wellKnown.css'
 
 function shortTime(ts, locale) {
@@ -23,17 +26,22 @@ function shortTime(ts, locale) {
 
 // DataWidget draws a list or a metric from its data file. A file that is
 // missing, broken or unreadable shows a line that says so; the page never breaks.
-function DataWidget({ w }) {
-  const { t, i18n } = useTranslation('workspace')
+// A widget that a trigger feeds says when it runs, and its footer pauses,
+// resumes or retries the trigger.
+function DataWidget({ w, triggers }) {
+  const { t } = useTranslation('workspace')
   const wk = useWellKnown('widget-data', { file: w.source, enabled: !!w.source })
-  const d = useMemo(() => (wk.error ? { state: 'error', errors: [wk.error.message], items: [], series: [] } : widgetData(wk.doc)), [wk.doc, wk.error])
+  const d = useMemo(() => (wk.error ? { state: 'error', errors: [wk.error.message], items: [], series: [], value: null } : widgetData(wk.doc)), [wk.doc, wk.error])
   const left = d.items?.filter(it => !it.done).length || 0
+  const { trigger, proposal } = linkedTrigger(w, triggers.triggers, triggers.proposals)
+  const state = d.state === 'loading' || !w.source ? '' : footerState({ data: d, trigger, proposal })
+  const footId = `wk-foot-${w.id}`
 
   let body
   if (!w.source) body = <p className="wk-widget__empty">{t('wellKnown.home.noSource')}</p>
   else if (d.state === 'loading') body = <Skeleton variant="line" width="80%" />
   else if (d.state === 'empty' || (d.state === 'error' && !d.items.length && d.value === null)) {
-    body = <p className="wk-widget__empty">{d.state === 'empty' ? <>{t('wellKnown.home.noData')} <code>{w.source}</code></> : t('wellKnown.home.broken', { file: w.source })}</p>
+    body = <p className="wk-widget__empty">{d.state === 'empty' ? t('wellKnown.home.footer.noData') : t('wellKnown.home.broken', { file: w.source })}</p>
   } else if (w.type === 'metric') {
     const path = sparkPath(d.series, 240, 56)
     body = (
@@ -64,16 +72,24 @@ function DataWidget({ w }) {
     )
   }
 
-  const aside = w.type === 'metric' ? t('wellKnown.home.types.metric') : (d.state === 'ok' || d.state === 'stale') && d.items.length ? t('wellKnown.home.left', { count: left }) : ''
+  const cadence = cadenceOf(trigger)
+  let aside = ''
+  if (cadence) aside = <span className="wk-widget__aside wk-widget__tag"><Icon name={cadence === 'paused' ? 'pause' : 'clock'} /> {t(`wellKnown.home.footer.cadence.${cadence}`)}</span>
+  else if (w.type === 'metric') aside = <span className="wk-widget__aside">{t('wellKnown.home.types.metric')}</span>
+  else if ((d.state === 'ok' || d.state === 'stale') && d.items.length) aside = <span className="wk-widget__aside">{t('wellKnown.home.left', { count: left })}</span>
+  const dim = state === 'stale' || state === 'invalid'
   return (
-    <section className="wk-widget" data-testid={`home-widget-${w.id}`} data-state={d.state} aria-label={w.title}>
-      <h2><span>{w.title}</span>{aside && <span className="wk-widget__aside">{aside}</span>}</h2>
-      {body}
-      {(d.state === 'stale' || (d.state === 'error' && (d.items.length || d.value !== null))) && (
-        <p className="wk-widget__state wk-widget__state--warn" role="status"><Icon name="warning" /> {t('wellKnown.home.stale', { file: w.source })}</p>
-      )}
-      {d.state === 'ok' && d.updatedAt && (
-        <p className="wk-widget__state"><Icon name="clock" /> {t('wellKnown.home.updated', { when: shortTime(d.updatedAt, i18n.language) })}</p>
+    <section
+      className={`wk-widget${dim ? ' wk-widget--dim' : ''}`} data-testid={`home-widget-${w.id}`} data-state={d.state}
+      aria-label={w.title} aria-describedby={state ? footId : undefined}
+    >
+      <h2><span>{w.title}</span>{aside}</h2>
+      <div className="wk-widget__body">{body}</div>
+      {state && (
+        <WidgetFooter
+          id={footId} state={state} w={w} d={d} trigger={trigger} proposal={proposal} act={triggers.act}
+          onRevert={wk.doc?.fallback ? () => wk.revert().catch(() => {}) : null}
+        />
       )}
     </section>
   )
@@ -192,7 +208,9 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk }) {
   const { t } = useTranslation('workspace')
   const [editing, setEditing] = useState(false)
   const widgets = useMemo(() => widgetList(wk.doc), [wk.doc])
+  const triggers = useHomeTriggers(widgets.some(w => w.type !== 'chats' && w.source))
   if (!wk.doc) return null
+  const scheduled = scheduledCount(widgets.filter(w => w.type !== 'chats'), triggers.triggers)
 
   return (
     <div className="wk-home" data-testid="home-widgets">
@@ -203,7 +221,7 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk }) {
         <div className="wk-widgets">
           {widgets.map(w => (w.type === 'chats'
             ? <ChatsWidget key={w.id} w={w} conversations={conversations} onResume={onResume} />
-            : <DataWidget key={w.id} w={w} />))}
+            : <DataWidget key={w.id} w={w} triggers={triggers} />))}
         </div>
       )}
       {editing ? (
@@ -213,6 +231,7 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk }) {
           <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setEditing(true)} data-testid="home-edit-layout"><Icon name="pencil" /> {t('wellKnown.home.editLayout')}</button>
           <button type="button" className="wk-linkbtn" onClick={onAsk} data-testid="home-ask-layout"><Icon name="sparkles" /> {t('wellKnown.home.ask')}</button>
           <span className="wk-src"><Icon name="file" /> {t('wellKnown.home.layoutIn')} <code>home.json</code></span>
+          {scheduled > 0 && <span className="wk-src" data-testid="home-schedule-note"><Icon name="clock" /> {t('wellKnown.home.footer.scheduleNote', { count: scheduled })}</span>}
         </div>
       )}
     </div>

@@ -120,3 +120,25 @@
 /* Density from ui.json: compact shrinks the rem scale and the spacing tokens. */
 :root[data-density="compact"] { font-size: 93.75%; --spacing-sm: 0.375rem; --spacing-md: 0.75rem; --spacing-lg: 1.125rem; }
 .wk-gap { margin-top: 20px; }
+
+/* The footer of a widget a file or a trigger feeds (mockup 18). One line of
+   state with its actions, and a quieter line with the next run and the cost.
+   Every tone has an icon and words, never colour alone. */
+.wk-widget__body { min-width: 0; }
+.wk-widget--dim .wk-widget__body { opacity: 0.55; }
+.wk-widget__tag { display: inline-flex; align-items: center; gap: 4px; }
+.wk-widget__tag .lai-icon { width: 12px; height: 12px; }
+.wk-foot { margin: auto -18px -14px; margin-top: auto; padding: 10px 18px 12px; border-top: 1px solid var(--color-border-card); font-size: var(--text-xs); color: var(--color-text-muted); border-radius: 0 0 var(--radius-xl) var(--radius-xl); }
+.wk-widget__body + .wk-foot { margin-top: auto; }
+.wk-foot__line { margin: 0; display: flex; align-items: flex-start; gap: 6px; line-height: 1.4; }
+.wk-foot__line > .lai-icon { width: 13px; height: 13px; flex: none; margin-top: 2px; }
+.wk-foot__text { flex: 1 1 auto; min-width: 0; }
+.wk-foot__acts { display: inline-flex; gap: 10px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.wk-foot__act { background: none; border: 0; padding: 0; font: inherit; font-weight: var(--font-weight-semibold); color: var(--color-text-primary); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; white-space: nowrap; }
+.wk-foot__act:hover { color: var(--dk-accent); }
+.wk-foot__act:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+.wk-foot__extra { margin: 4px 0 0 19px; color: var(--color-text-muted); opacity: 0.85; }
+.wk-foot--warn { background: var(--color-warning-light); color: var(--dk-warn-text); border-top-color: var(--color-warning-border); }
+.wk-foot--warn .wk-foot__act { color: var(--dk-warn-text); }
+.wk-foot--err { background: var(--color-error-light); color: var(--dk-error-text); border-top-color: var(--color-error-border); }
+.wk-foot--err .wk-foot__act { color: var(--dk-error-text); }
