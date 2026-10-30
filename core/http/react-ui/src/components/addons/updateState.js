@@ -96,8 +96,10 @@ export function formatWhen(iso, language) {
 // shows the reason next to the notice instead of hiding the action. `pending`
 // is true when the list already carries the "update available" notice, so a
 // record that disagrees (or is missing) is explained rather than ignored.
-// `canCheck` says a new check could change the answer.
-export function upgradeAvailability(addon, { isAdmin, pending = false } = {}) {
+// `canCheck` says a new check could change the answer. `checked` is true when
+// a check this page ran has answered: a candidate that still has no digest is
+// then explained, not sent back to another check that gives the same answer.
+export function upgradeAvailability(addon, { isAdmin, pending = false, checked = false } = {}) {
   const view = updateView(addon && addon.update)
   const notice = pending || view.state === 'update-available'
   const no = (reason, extra = {}) => ({ startable: false, reason, reasons: [], canCheck: false, ...extra })
@@ -106,11 +108,40 @@ export function upgradeAvailability(addon, { isAdmin, pending = false } = {}) {
   if (addon && addon.recovery) return no('recovery')
   switch (view.state) {
     case 'update-available':
-      return view.canUpgrade ? { startable: true, reason: '', reasons: [], canCheck: false } : no('needs-check', { canCheck: true })
+      if (view.canUpgrade) return { startable: true, reason: '', reasons: [], canCheck: false }
+      return checked ? no('unpinned', { canCheck: true }) : no('needs-check', { canCheck: true })
     case 'incompatible': return no('incompatible', { reasons: view.reasons })
     case 'integrity-error': return no('integrity')
     case 'check-failed': return no('check-failed', { canCheck: true })
     case 'up-to-date': return no('current', { canCheck: true })
     default: return no('needs-check', { canCheck: true })
+  }
+}
+
+// How long after a check its answer is "just now".
+const JUST_NOW_MS = 60 * 1000
+
+// What the page says after the "Check again" or "Check for updates" it ran:
+// the state the owner answered, with its time, or why the check failed. The
+// check route answers the owner's status, whose candidate fields are named
+// candidateVersion and candidateDigest. `entry` is the check record of
+// useAddonUpgrade; null means there is nothing to say yet.
+export function checkFeedback(entry, now = Date.now()) {
+  if (!entry || entry.phase === 'working') return null
+  if (entry.phase === 'error') {
+    return { tone: 'error', state: '', version: '', justNow: false, checkedAt: '', throttled: false, unpinned: false, errorKey: updateErrorKey(entry.error) }
+  }
+  const raw = entry.status && typeof entry.status === 'object' ? entry.status : null
+  const view = updateView(raw ? { ...raw, version: raw.version ?? raw.candidateVersion, digest: raw.digest ?? raw.candidateDigest } : null)
+  const at = Date.parse(view.checkedAt || '')
+  return {
+    tone: view.tone,
+    state: view.state,
+    version: view.version || '',
+    justNow: !Number.isNaN(at) && Math.abs(now - at) < JUST_NOW_MS,
+    checkedAt: view.checkedAt || '',
+    throttled: Boolean(entry.throttled),
+    unpinned: view.state === 'update-available' && !view.canUpgrade,
+    errorKey: '',
   }
 }

@@ -609,12 +609,18 @@
       "incompatible": "Ada pembaruan, tetapi tidak dapat berjalan di sini:",
       "integrity": "Pustaka mencantumkan versi ini dengan isi berbeda. Versi ini tidak ditawarkan sebagai pembaruan.",
       "recovery": "Data add-on ini perlu dipulihkan dulu. Pulihkan cadangan di Detail, lalu perbarui.",
-      "current": "Pemeriksaan terakhir tidak menemukan pembaruan. Pemberitahuan mungkin sudah usang. Periksa lagi."
+      "current": "Pemeriksaan terakhir tidak menemukan pembaruan. Pemberitahuan mungkin sudah usang. Periksa lagi.",
+      "unpinned": "Pustaka melaporkan pembaruan tetapi tidak menyebutkan build yang akan dipasang, jadi tidak dapat ditingkatkan dari sini. Periksa lagi nanti."
     },
     "checkAll": "Periksa pembaruan",
     "checkingAll": "Memeriksa...",
     "checkAllDone": "{{count}} add-on diperiksa.",
-    "checkAllFailed": "{{count}} tidak dapat diperiksa."
+    "checkAllFailed": "{{count}} tidak dapat diperiksa.",
+    "checkResult": {
+      "done": "Sudah diperiksa.",
+      "failed": "Pemeriksaan tidak selesai.",
+      "justNow": "Baru saja diperiksa."
+    }
   },
   "install": {
     "stepsLabel": "Install steps",

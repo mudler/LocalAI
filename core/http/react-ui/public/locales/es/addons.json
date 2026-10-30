@@ -609,12 +609,18 @@
       "incompatible": "Existe una actualización, pero no puede ejecutarse aquí:",
       "integrity": "La biblioteca lista esta versión con contenido distinto. No se ofrece como actualización.",
       "recovery": "Los datos de este complemento necesitan recuperación primero. Restaure una copia en Detalles y luego actualice.",
-      "current": "La última comprobación no encontró actualizaciones. El aviso puede estar desfasado. Compruebe de nuevo."
+      "current": "La última comprobación no encontró actualizaciones. El aviso puede estar desfasado. Compruebe de nuevo.",
+      "unpinned": "La biblioteca indica una actualización pero no nombra ninguna compilación para instalar, así que no se puede actualizar desde aquí. Vuelve a comprobarlo más tarde."
     },
     "checkAll": "Buscar actualizaciones",
     "checkingAll": "Comprobando...",
     "checkAllDone": "{{count}} complementos comprobados.",
-    "checkAllFailed": "No se pudieron comprobar {{count}}."
+    "checkAllFailed": "No se pudieron comprobar {{count}}.",
+    "checkResult": {
+      "done": "Comprobado.",
+      "failed": "La comprobación no se completó.",
+      "justNow": "Comprobado ahora mismo."
+    }
   },
   "install": {
     "stepsLabel": "Install steps",

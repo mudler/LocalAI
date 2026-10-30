@@ -609,12 +609,18 @@
       "incompatible": "Ein Update existiert, läuft hier aber nicht:",
       "integrity": "Die Bibliothek listet diese Version mit anderem Inhalt. Sie wird nicht als Update angeboten.",
       "recovery": "Die Daten dieses Add-ons müssen zuerst wiederhergestellt werden. Stellen Sie in den Details ein Backup wieder her und aktualisieren Sie dann.",
-      "current": "Die letzte Prüfung hat kein Update gefunden. Der Hinweis ist möglicherweise veraltet. Erneut prüfen."
+      "current": "Die letzte Prüfung hat kein Update gefunden. Der Hinweis ist möglicherweise veraltet. Erneut prüfen.",
+      "unpinned": "Die Bibliothek meldet ein Update, nennt aber keinen Build zum Installieren. Daher kann es hier nicht aktualisiert werden. Prüfen Sie später erneut."
     },
     "checkAll": "Nach Updates suchen",
     "checkingAll": "Prüfe...",
     "checkAllDone": "{{count}} Add-ons geprüft.",
-    "checkAllFailed": "{{count}} konnten nicht geprüft werden."
+    "checkAllFailed": "{{count}} konnten nicht geprüft werden.",
+    "checkResult": {
+      "done": "Geprüft.",
+      "failed": "Die Prüfung wurde nicht abgeschlossen.",
+      "justNow": "Gerade eben geprüft."
+    }
   },
   "install": {
     "stepsLabel": "Install steps",

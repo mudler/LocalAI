@@ -4,7 +4,7 @@ import Button from '../ui/Button'
 import ConfirmDialog from '../ConfirmDialog'
 import { UpgradeReason } from '../upgrade/UpgradeBits'
 import { shortDigest } from './addonState'
-import { updateView, upgradeAvailability } from './updateState'
+import { checkFeedback, formatWhen, updateView, upgradeAvailability } from './updateState'
 
 // What the confirmation shows before an upgrade: which library and channel,
 // which version and digest goes to which, and that the data is backed up.
@@ -34,13 +34,28 @@ export function reasonText(availability, t) {
   return base
 }
 
+// The words for the answer of a check the page ran: when it ran and what it
+// found, or why it failed. Empty when there is nothing to say.
+export function checkFeedbackText(feedback, t, language) {
+  if (!feedback) return ''
+  if (feedback.tone === 'error' && feedback.errorKey) {
+    return `${t('updates.checkResult.failed')} ${t(`updates.errors.${feedback.errorKey}`)}`
+  }
+  const when = feedback.justNow ? t('updates.checkResult.justNow') : (formatWhen(feedback.checkedAt, language) ? `${t('updates.checkedAt', { when: formatWhen(feedback.checkedAt, language) })}.` : t('updates.checkResult.done'))
+  const parts = [when]
+  if (!feedback.unpinned) parts.push(t(`updates.state.${feedback.state}`, { version: feedback.version }))
+  if (feedback.throttled) parts.push(t('updates.throttled'))
+  return parts.join(' ')
+}
+
 // The Upgrade action of one installed add-on where its notice is seen, or the
 // reason it cannot start with a way to check again. `upgrade` is the
 // useAddonUpgrade of the view; the confirmation is <UpgradeConfirm>.
 export function AddonUpgradeAction({ addon, pending, isAdmin, upgrade, working, variant = 'primary' }) {
-  const { t } = useTranslation('addons')
+  const { t, i18n } = useTranslation('addons')
   if (!addon && !pending) return null
-  const availability = upgradeAvailability(addon, { isAdmin, pending })
+  const entry = addon ? upgrade.checks[addon.id] : null
+  const availability = upgradeAvailability(addon, { isAdmin, pending, checked: entry?.phase === 'done' })
   if (availability.startable) {
     return (
       <Button variant={variant} size="sm" icon="arrow-up" busy={working} disabled={working} onClick={() => upgrade.ask(addon)} data-testid="update-upgrade-card" aria-label={t('updates.upgradeNamed', { name: addon.title })}>
@@ -48,13 +63,19 @@ export function AddonUpgradeAction({ addon, pending, isAdmin, upgrade, working, 
       </Button>
     )
   }
-  if (!availability.reason) return null
-  const checking = Boolean(addon) && upgrade.checks[addon.id]?.phase === 'working'
+  // After a check, its answer stays on the card: a check that changes
+  // nothing is never silent, and a failed one says why.
+  const feedback = checkFeedback(entry)
+  const result = checkFeedbackText(feedback, t, i18n?.language)
+  if (!availability.reason && !result) return null
+  const checking = entry?.phase === 'working'
   return (
     <UpgradeReason
       text={reasonText(availability, t)}
       onCheck={availability.canCheck && addon ? () => upgrade.check(addon) : undefined}
       checking={checking}
+      result={result}
+      resultTone={feedback ? feedback.tone : ''}
     />
   )
 }

@@ -3096,6 +3096,16 @@ The status also carries `installedVersion`, `installedDigest`, `candidateVersion
 
 - A moving channel (`development`, a `branch-*` channel, `latest`) compares resolved
   digests. A different digest is an update even when the version label is the same.
+- A development build installed from a mutable entry (a moving tag such as
+  `0.0.0-development`, with no digest in the library) is compared by the digest that its tag
+  names. Its label is not compared as a version. An explicit check (**Check for updates**,
+  **Check again** or the automatic upgrade) resolves the tag in the registry and keeps the
+  digest, so a later status read compares against it and does not use the network. Before
+  the first explicit check the state is `unknown`. When the tag names another build, the
+  state is `update-available` with that digest as `candidateDigest` and the label with the
+  first 12 hex digits of the digest as `candidateVersion`. A tag that cannot be resolved is
+  `check-failed` with `refresh-failed`. The upgrade resolves the tag again and refuses with
+  `candidate_changed` when the tag moved after the check.
 - An add-on installed from a version label is immutable. The owner offers the highest
   greater version of the same major version, and never a pre-release to a stable
   install. The catalog entry of the installed version with another digest is an
@@ -3208,11 +3218,17 @@ action:
 |---|---|---|
 | Only an administrator can upgrade it | Your account is not an administrator. | Ask an administrator. |
 | The update is not confirmed yet | The check did not resolve a candidate to pin (no digest). | Select **Check again**. |
+| The library names no build to install | A check ran and the owner still reports an update without a digest to pin. | Check again later. |
 | The last check failed | The library could not be read. | Select **Check again**. |
 | The update cannot run here, with the reasons | The state is `incompatible`. | None until the host or the platform fits. |
 | The library lists this version with different contents | The state is `integrity-error`. It is never an update. | None. |
 | The data needs recovery first | The add-on is in the recovery state. | Restore a backup in the details, then upgrade. |
 | The latest check found no update | The list showed a cached notice that a newer evaluation no longer supports. | Select **Check again**. |
+
+After **Check again**, the card shows the answer of the check: "Checked just now" (or the
+time of the check) and what the check found, for example that the add-on is up to date. When
+the check found an update with a digest, **Upgrade** replaces the reason. A check that fails
+shows why, and you can run it again.
 
 **Upgrade all (N)** shows in the bar of the list for administrators when at least one add-on
 has an update. It opens a dialog that lists every add-on with an update: the name, the
@@ -3630,7 +3646,8 @@ mutable, as a development backend is: it names the moving tag
 (`oci://quay.io/go-skynet/local-ai-addons:fine-tuning-development`), sets `mutable: true`
 and has no digest. At install LocalAI resolves the tag to a digest, verifies the signature
 against that digest, installs by it and records it in the receipt. A mutable entry must be
-an OCI artifact. The update check does not compare a mutable entry yet.
+an OCI artifact. The update check compares a mutable entry by the digest its tag names (see
+[How the candidate is chosen](#how-the-candidate-is-chosen)).
 
 Set `ADDON_OCI_REPOSITORY` to `quay.io/go-skynet/local-ai-addons`. The value has no tag
 and no digest. A value that is a backend image repository makes the add-on tools refuse

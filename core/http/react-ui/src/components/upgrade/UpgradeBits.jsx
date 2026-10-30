@@ -17,13 +17,15 @@ export function UpdateBadge({ version }) {
 
 // Why an upgrade cannot start, in plain words, next to the notice that says one
 // exists. `text` is already worded by the page. With `onCheck` it offers a
-// check, because a new check can change the answer.
-export function UpgradeReason({ text, onCheck, checking = false, testId = 'upgrade-reason' }) {
+// check, because a new check can change the answer. `result` is the answer of
+// the last check the page ran, already worded, shown in its tone.
+export function UpgradeReason({ text, onCheck, checking = false, result = '', resultTone = '', testId = 'upgrade-reason' }) {
   const { t } = useTranslation('upgrade')
-  if (!text) return null
+  if (!text && !result) return null
   return (
     <p className="up-reason" role="status" data-testid={testId}>
-      <span>{text}</span>
+      {text && <span>{text}</span>}
+      {result && !checking && <span className="up-reason__result" data-tone={resultTone || undefined} data-testid="upgrade-check-result">{result}</span>}
       {onCheck && (
         <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={checking} onClick={onCheck} data-testid="upgrade-reason-check">
           <Icon name={checking ? 'spinner' : 'refresh'} spin={checking} aria-hidden="true" /> {checking ? t('reason.checking') : t('reason.checkAgain')}

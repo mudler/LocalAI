@@ -42,7 +42,9 @@ export function useAddonUpgrade(api, { onChanged } = {}) {
     setChecks(c => ({ ...c, [addon.id]: { phase: 'working' } }))
     try {
       const status = await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
-      setChecks(c => ({ ...c, [addon.id]: { phase: 'done', throttled: Boolean(status && status.throttled) } }))
+      // The answer is kept so the card can say what the check found and
+      // when, even when the records read again show no notice any more.
+      setChecks(c => ({ ...c, [addon.id]: { phase: 'done', throttled: Boolean(status && status.throttled), status: status && typeof status === 'object' ? status : null } }))
       if (changed.current) changed.current(addon)
     } catch (error) {
       if (error && error.name === 'AbortError') return
