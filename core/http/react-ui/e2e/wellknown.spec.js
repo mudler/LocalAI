@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { holdHomeFiles, unlockHomeFiles } from './home-files-lock.js'
 import { offerMockModel, composer, openNewChat } from './journey-fixtures.js'
 
 // The well-known files of the home (persona.json, user.json, shortcuts.json,
@@ -7,6 +8,9 @@ import { offerMockModel, composer, openNewChat } from './journey-fixtures.js'
 // checked against the file the server keeps.
 
 test.describe.configure({ mode: 'serial', timeout: 60_000 })
+
+// Other spec files write the same Home files: hold them while this file runs.
+holdHomeFiles(test)
 
 const FILES = ['/persona.json', '/user.json', '/shortcuts.json', '/home.json', '/ui.json', '/data/tasks.json', '/data/tokens.json', '/data/broken.json']
 
@@ -21,6 +25,7 @@ const upload = (request, path, body) => request.put(`/api/chats/files/content?pa
 
 test.beforeEach(async ({ request }) => { await clean(request) })
 test.afterAll(async ({ request }) => { await clean(request) })
+test.afterAll(() => unlockHomeFiles())
 
 test('about you: the assistant and the user cards save their files, fill in from the browser and keep unknown keys', async ({ page, request }) => {
   await upload(request, '/persona.json', { name: 'Ada', x_mood: 'calm' })

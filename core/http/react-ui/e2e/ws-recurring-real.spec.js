@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { holdHomeFiles, unlockHomeFiles } from './home-files-lock.js'
 import { startChat, b64 } from './journey-fixtures.js'
 
 // Recurring updates against the real test server and the mock model: the
@@ -9,6 +10,9 @@ import { startChat, b64 } from './journey-fixtures.js'
 // broken file next to a good one) are drawn by ws-widgets.spec.js.
 
 test.describe.configure({ mode: 'serial', timeout: 120_000 })
+
+// Other spec files write the same Home files: hold them while this file runs.
+holdHomeFiles(test)
 
 const api = (request, path) => request.get(path).then(r => r.json())
 const upload = (request, path, body) => request.put(`/api/chats/files/content?path=${encodeURIComponent(path)}&overwrite=1`, {
@@ -32,6 +36,7 @@ async function clean(request) {
 
 test.beforeAll(async ({ request }) => { await clean(request) })
 test.afterAll(async ({ request }) => { await clean(request) })
+test.afterAll(() => unlockHomeFiles())
 
 let proposalId = ''
 

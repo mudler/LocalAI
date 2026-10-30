@@ -1,4 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
+import { holdHomeFiles, unlockHomeFiles } from './home-files-lock.js'
 
 // The footer of every state of a Home widget fed by a trigger (fresh, from a
 // page, stale after a failed run, paused, running, first run, failed with no
@@ -7,6 +8,9 @@ import { test, expect } from './coverage-fixtures.js'
 // the server cannot be made to fail a run or hold one running on demand.
 
 test.describe.configure({ mode: 'serial', timeout: 60_000 })
+
+// Other spec files write the same Home files: hold them while this file runs.
+holdHomeFiles(test)
 
 const upload = (request, path, body) => request.put(`/api/chats/files/content?path=${encodeURIComponent(path)}&overwrite=1`, {
   data: typeof body === 'string' ? body : JSON.stringify(body), headers: { 'Content-Type': 'application/octet-stream' },
@@ -70,6 +74,7 @@ test.beforeAll(async ({ request }) => {
 test.afterAll(async ({ request }) => {
   for (const p of ['/home.json', ...Object.keys(data).map(p => `/${p}`), '/data/w-broken.json']) await request.delete(`/api/chats/files?path=${encodeURIComponent(p)}`)
 })
+test.afterAll(() => unlockHomeFiles())
 
 test('every footer state says what happens and offers the action that fits', async ({ page }) => {
   const calls = await mockTriggers(page)
