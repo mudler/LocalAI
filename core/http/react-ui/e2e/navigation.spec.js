@@ -43,10 +43,21 @@ test.describe('Navigation', () => {
     }
   })
 
-  test('Operate sits under a Workspace label and there is no Build entry', async ({ page }) => {
+  test('Administration is pinned at the bottom, outside any section, and there is no Build entry', async ({ page }) => {
     await page.goto('/app')
-    await expect(page.locator('.sidebar-section-title', { hasText: 'Workspace' })).toBeVisible()
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toBeVisible()
+    // It is no longer an item of the Workspace section.
+    await expect(page.locator('.sidebar-section-title', { hasText: 'Workspace' })).toHaveCount(0)
+    const admin = page.locator('.sidebar-nav--pinned a.nav-item', { hasText: 'Administration' })
+    await expect(admin).toBeVisible()
+    await expect(page.locator('.sidebar-section a.nav-item', { hasText: 'Administration' })).toHaveCount(0)
+    // It sits below the scrolling nav and above the footer controls.
+    const [adminBox, homeBox, footerBox] = await Promise.all([
+      admin.boundingBox(),
+      page.locator('.sidebar-nav a.nav-item', { hasText: 'Home' }).boundingBox(),
+      page.locator('.sidebar-footer').boundingBox(),
+    ])
+    expect(adminBox.y).toBeGreaterThan(homeBox.y)
+    expect(adminBox.y + adminBox.height).toBeLessThanOrEqual(footerBox.y)
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveCount(0)
   })
 

@@ -273,6 +273,13 @@
   overflow-y: auto;
 }
 
+/* A short nav pinned under the scrolling one (Administration). It keeps the
+   .sidebar-nav item treatment but does not grow or scroll. */
+.sidebar-nav--pinned {
+  flex: none;
+  overflow: visible;
+}
+
 .sidebar-section {
   padding: var(--spacing-xs) 0;
 }
