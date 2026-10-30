@@ -11,6 +11,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"golang.org/x/net/idna"
 )
 
 // Errors of an address that the guard refuses for a reason more precise than
@@ -114,10 +116,20 @@ func (g *Guard) portAllowed(port int) bool {
 // name or a canonical IP literal, no zone, no numeric tricks, no localhost, an
 // allowed port and, for a literal, an allowed address. It does not resolve.
 // The canonical form is in lower case, without a trailing dot and without
-// brackets.
+// brackets. An international name is returned in its ASCII (punycode) form,
+// so a look-alike such as "pаypal.com" with a Cyrillic "а" reads
+// "xn--pypal-4ve.com" wherever the host is shown, a consent card included; a
+// name that has no valid ASCII form is refused.
 func (g *Guard) CheckHost(host string, port int) (string, error) {
 	host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
 	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	if !isASCII(host) {
+		a, err := idna.Lookup.ToASCII(host)
+		if err != nil || !isASCII(a) {
+			return "", fmt.Errorf("%w: the host is not a valid international name", ErrURL)
+		}
+		host = strings.ToLower(a)
+	}
 	if host == "" || len(host) > 253 {
 		return "", fmt.Errorf("%w: it has no host, or the host is too long", ErrURL)
 	}
@@ -307,4 +319,13 @@ func ParsePort(s string) (int, error) {
 		return 0, errors.New("the port is not a number from 1 to 65535")
 	}
 	return n, nil
+}
+
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
 }
