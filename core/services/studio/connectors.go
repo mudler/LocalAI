@@ -228,11 +228,9 @@ func (c *Connectors) goLocked(fn func()) bool {
 	if c.shut {
 		return false
 	}
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
+	c.wg.Go(func() {
 		fn()
-	}()
+	})
 	return true
 }
 

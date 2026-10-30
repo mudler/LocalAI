@@ -77,11 +77,9 @@ var _ = Describe("resume", func() {
 		out := make([]result, 2)
 		var wg sync.WaitGroup
 		for i := range out {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				out[i].sb, out[i].err = b.Resume(ctx, ref, resumeEnvFor(st))
-			}()
+			})
 		}
 		wg.Wait()
 		var live sandbox.Sandbox

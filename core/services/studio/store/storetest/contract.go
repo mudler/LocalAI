@@ -496,9 +496,7 @@ func Run(newStore New) {
 		var errs []error
 		var wg sync.WaitGroup
 		for range 6 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				defer GinkgoRecover()
 				got, err := s.TakePending(c, "alice", "c1")
 				mu.Lock()
@@ -510,7 +508,7 @@ func Run(newStore New) {
 				for _, p := range got {
 					seen[p.ID]++
 				}
-			}()
+			})
 		}
 		wg.Wait()
 		Expect(errs).To(BeEmpty(), "TakePending failed")

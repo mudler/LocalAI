@@ -468,8 +468,7 @@ var _ = Describe("triggersvc", func() {
 		// Both frontends pass at the same time (a split brain): the claim is unique.
 		var wg sync.WaitGroup
 		for _, r := range []*trigRig{a, b} {
-			wg.Add(1)
-			go func() { defer wg.Done(); _ = r.host.Pass(context.Background()) }()
+			wg.Go(func() { ; _ = r.host.Pass(context.Background()) })
 		}
 		wg.Wait()
 		ctx := context.Background()

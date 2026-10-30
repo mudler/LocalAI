@@ -613,11 +613,9 @@ func (s *Service) Resolve(ctx context.Context, user string, refs []string, all b
 	res := make([]outcome, len(list))
 	var wg sync.WaitGroup
 	for i, c := range list {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			res[i].tools, res[i].missing = s.toolsOf(ctx, user, c)
-		}()
+		})
 	}
 	wg.Wait()
 	var tools []Tool

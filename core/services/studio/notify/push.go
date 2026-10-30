@@ -123,14 +123,12 @@ func (p *Pusher) SendAsync(n Notification) {
 		p.o.Logger.Warn("notify: too many pushes in flight; one is dropped")
 		return
 	}
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
+	p.wg.Go(func() {
 		defer func() { <-p.slots }()
 		ctx, cancel := context.WithTimeout(p.ctx, pushTimeout)
 		defer cancel()
 		p.Send(ctx, n)
-	}()
+	})
 }
 
 // Close cancels the pushes in flight and waits for them. Later SendAsync calls

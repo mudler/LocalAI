@@ -255,12 +255,10 @@ var _ = Describe("image conversion", func() {
 		roots := make([]string, 2)
 		errs := make([]error, 2)
 		for i := range roots {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				gi, err := b.image(context.Background(), ref)
 				roots[i], errs[i] = gi.Root, err
-			}()
+			})
 		}
 		wg.Wait()
 		for i := range roots {

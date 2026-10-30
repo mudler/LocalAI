@@ -83,11 +83,9 @@ func newToolServer(tools []session.Tool) (*toolServer, mcp.Transport, []string, 
 
 func (s *toolServer) start(ctx context.Context) {
 	ctx, s.cancel = context.WithCancel(ctx)
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		_ = s.srv.Run(ctx, s.t)
-	}()
+	})
 }
 
 func (s *toolServer) stop() {

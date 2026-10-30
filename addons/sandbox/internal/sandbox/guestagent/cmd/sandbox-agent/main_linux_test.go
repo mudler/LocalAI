@@ -77,9 +77,7 @@ var _ = Describe("agent process", func() {
 		bad := make(chan string, 60)
 		var wg sync.WaitGroup
 		for range 60 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				p, err := sp.Spawn(guestagent.ExecRequest{Args: []string{"sh", "-c", "grep NoNewPrivs /proc/$$/status"}})
 				if err != nil {
 					bad <- err.Error()
@@ -91,7 +89,7 @@ var _ = Describe("agent process", func() {
 				if !strings.Contains(string(out), "NoNewPrivs:\t1") {
 					bad <- strings.TrimSpace(string(out))
 				}
-			}()
+			})
 		}
 		wg.Wait()
 		close(bad)

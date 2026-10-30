@@ -135,16 +135,13 @@ var _ = Describe("service review", func() {
 			sent(svc, alice, id, "hi")
 			until("the harness to get the message", func() bool { return len(g.Sent()) >= i })
 			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() { defer wg.Done(); g.Gate <- struct{}{} }()
+			wg.Go(func() { ; g.Gate <- struct{}{} })
 			for range 4 {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					for range 5 {
 						_ = svc.Stop(context.Background(), alice, id)
 					}
-				}()
+				})
 			}
 			wg.Wait()
 			until("the turn to end", func() bool { return !turn(svc, alice, id).Running })

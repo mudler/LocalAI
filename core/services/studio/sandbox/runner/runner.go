@@ -520,14 +520,12 @@ func (m *Manager) Close(ctx context.Context) error {
 	m.mu.Unlock()
 	var wg sync.WaitGroup
 	for _, e := range list {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			e.mu.Lock()
 			defer e.mu.Unlock()
 			e.gone = true
 			m.destroy(ctx, e)
-		}()
+		})
 	}
 	done := make(chan struct{})
 	go func() { wg.Wait(); close(done) }()

@@ -721,9 +721,7 @@ var _ = Describe("connectors", func() {
 		var wg sync.WaitGroup
 		stop := make(chan struct{})
 		for range 8 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				for {
 					select {
 					case <-stop:
@@ -732,7 +730,7 @@ var _ = Describe("connectors", func() {
 						r.conns.Forward(ctx, notify.Notification{Principal: alice, Title: "T", Body: "B"})
 					}
 				}
-			}()
+			})
 		}
 		time.Sleep(20 * time.Millisecond)
 		r.conns.Close()
