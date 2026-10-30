@@ -106,6 +106,14 @@ type RuntimeSettings struct {
 	// request, so switching them off stops open pages at their next call.
 	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
 
+	// Built-in chat tools (Settings > Tools) — read live at every turn.
+	// ChatsHostExec is who gets the built-in bash that runs commands on this
+	// machine with no isolation: off, ask or on; empty is the default (off
+	// with accounts, ask without). ChatsToolProviders pins, for a built-in tool
+	// that several add-ons replace, the add-on that serves it.
+	ChatsHostExec      *string            `json:"chats_host_exec,omitempty"`
+	ChatsToolProviders *map[string]string `json:"chats_tool_providers,omitempty"`
+
 	// Branding / whitelabeling. Text fields are user-facing; *File fields hold
 	// just the basename of an uploaded asset under {DynamicConfigsDir}/branding/.
 	// All optional — empty values fall back to bundled LocalAI defaults.

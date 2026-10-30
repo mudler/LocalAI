@@ -105,7 +105,7 @@ var _ = Describe("capabilities", func() {
 		Expect(prompt).NotTo(ContainSubstring("nothing in this chat runs code"))
 		Expect(prompt).To(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"))
 		Expect(prompt).NotTo(ContainSubstring("unavailable here"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "addon__sandbox__bash", Isolation: "isolated"}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "addon__sandbox__bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox"}))
 	})
 
 	It("warns when commands run on the server with no isolation", func() {
@@ -123,7 +123,7 @@ var _ = Describe("capabilities", func() {
 		prompt := turnPrompt(svc, h, id)
 		Expect(prompt).To(ContainSubstring("nothing in this chat runs code or commands"))
 		Expect(prompt).To(ContainSubstring("they can switch the Sandbox add-on on in the Tools menu of this chat"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsOff}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsOff, Addon: "sandbox"}))
 	})
 
 	It("says the Sandbox cannot run when no backend works", func() {
@@ -133,7 +133,7 @@ var _ = Describe("capabilities", func() {
 		id := create(svc, alice)
 		prompt := turnPrompt(svc, h, id)
 		Expect(prompt).To(ContainSubstring("the Sandbox add-on cannot run commands on this server"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsUnavailable, Reason: "no sandbox backend works on this host"}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsUnavailable, Reason: "no sandbox backend works on this host", Addon: "sandbox"}))
 	})
 
 	It("does not call the add-on off for a user who cannot use it", func() {

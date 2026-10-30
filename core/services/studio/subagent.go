@@ -45,7 +45,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		tools := s.allowed[key(a.Principal, a.ChatID)]
 		s.mu.Unlock()
 		var prompt string
-		if s.commandsOf(ctx, a.Principal, tools, nil, nil).State != CommandsAvailable {
+		if s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools).State != CommandsAvailable {
 			prompt = subAgentCommandsBlock
 		}
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
@@ -56,6 +56,10 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	}
 	sc := s.scopeOf(ctx, rec)
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
+	// The built-in tools no add-on serves: bash on this machine when the
+	// Sandbox does not serve it and the setting allows it.
+	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
+	cmds = s.withHostBash(cmds, tools)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
 	// them from subset, built for the parent chat.
 	tools = append(tools, s.announceFileChanges(a, s.d.Files.Tools(a))...)
@@ -160,7 +164,7 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	// A sub-agent has the parent's tools or fewer: when none of them runs
 	// commands, a task that asks to run something cannot work. Say so now
 	// instead of spending a turn of the sub-agent on it.
-	if name, _ := s.runners.in(subset); name == "" && asksToRun(task) {
+	if !s.runsCommands(subset) && asksToRun(task) {
 		return "", ErrSubAgentCannotRun
 	}
 	if again, err := s.repeatedTask(ctx, a, task); err != nil {
@@ -225,6 +229,11 @@ func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
 	have = append(have, s.announceFileChanges(a, s.d.Files.Tools(a))...)
+	if parent, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID); err == nil {
+		// Built for a sub-agent: bash on this machine only when no card is
+		// needed, since nobody watches the sub-agent's chat.
+		have = s.applyBuiltins(have, s.builtinsFor(ctx, a, parent, true))
+	}
 	if names == nil {
 		kept := have[:0:0]
 		for _, t := range have {

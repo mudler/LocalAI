@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -24,7 +25,7 @@ import (
 // the same call as before.
 
 // BuiltinProvider is the Provider of a built-in tool that an add-on may shadow.
-const BuiltinProvider = "builtin"
+const BuiltinProvider = builtins.BuiltinProvider
 
 // ProviderCardKind is the card of a call of a shadowed tool that an add-on
 // served: its ID is the add-on's ID. The interface shows who served the call

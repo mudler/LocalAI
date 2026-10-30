@@ -18,11 +18,16 @@ import (
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -33,6 +38,16 @@ const legacyAPIKeyUserID = "legacy-api-key"
 // when it could not be built.
 func (a *Application) StudioService() *studio.Service {
 	return a.studioService
+}
+
+// StudioBuiltins is the registry of the built-in chat tools an add-on may
+// replace (bash; web_search and web_fetch register here too). It is nil when
+// the chats are off. Settings > Tools lists what it holds.
+func (a *Application) StudioBuiltins() *builtins.Registry {
+	if a.studioService == nil {
+		return nil
+	}
+	return a.studioService.Builtins()
 }
 
 // initStudioService builds the conversation service. It needs the store and the
@@ -111,6 +126,32 @@ func (a *Application) initStudioService() {
 	if a.studioMCPConns != nil {
 		deps.MCPConnectors = a.studioMCPConns
 	}
+	// The built-in bash runs commands on this machine when no Sandbox serves
+	// bash. Its scratch folders are per process; the files are the truth.
+	var svcRef *studio.Service
+	if f := a.StudioFiles(); f.Available() {
+		hxDir := filepath.Join(stateDir, "host-exec")
+		if dp := a.applicationConfig.DataPath; dp != "" {
+			hxDir = filepath.Join(dp, "chats", "host-exec")
+		}
+		a.studioHostExec = hostexec.New(hostexec.Options{
+			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid,
+			Actor: func(user, chat string) workspace.Actor { act := files.UserActor(user); act.ChatID = chat; return act },
+			Shared: func(ctx context.Context, act workspace.Actor) ([]session.SharedRoot, error) {
+				if svcRef == nil {
+					return nil, nil
+				}
+				return svcRef.SharedRoots(ctx, act)
+			},
+		})
+		if r := a.studioHostExec.Unavailable(); r != "" {
+			xlog.Info("Chats: the built-in bash cannot run commands on this machine", "reason", r)
+		}
+		deps.HostExec = a.studioHostExec
+	}
+	deps.HostExecMode = a.studioHostExecMode
+	deps.IsAdmin = a.studioIsAdmin
+	deps.ToolPins = func() map[string]string { return a.applicationConfig.ChatsToolProviders }
 	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
 		deps.Workers = nodes.NewNATSChatStarter(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout))
 	}
@@ -124,6 +165,7 @@ func (a *Application) initStudioService() {
 		return
 	}
 	a.studioService = svc
+	svcRef = svc
 	a.startStudioReaper(svc)
 	if a.applicationConfig.Distributed.ChatWorker {
 		// The hosts that start unattended runs keep their leader locks on the
@@ -330,6 +372,40 @@ func (a *Application) studioMCP(ctx context.Context, user, model string, only []
 func (a *Application) studioRemoteModel(model string) bool {
 	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
 	return ok && cfg.IsRemoteProxy()
+}
+
+// studioHostExecMode is chats_host_exec as it applies now. Empty is the
+// default: off on a server with accounts (several people), ask without.
+func (a *Application) studioHostExecMode() string {
+	if m := a.applicationConfig.ChatsHostExec; m != "" {
+		return m
+	}
+	if a.authDB != nil {
+		return hostexec.ModeOff
+	}
+	return hostexec.ModeAsk
+}
+
+// studioHostExecAudit opens the audit of the commands run on this machine,
+// beside the audit of the shared folders.
+func (a *Application) studioHostExecAudit() hostexec.AuditStore {
+	var (
+		st  hostexec.AuditStore
+		err error
+	)
+	switch {
+	case a.authDB != nil:
+		st, err = hostexec.NewGORMAudit(a.authDB)
+	case a.applicationConfig.DataPath != "":
+		st, err = hostexec.NewJSONAudit(filepath.Join(a.applicationConfig.DataPath, "chats", "host-exec-audit"))
+	default:
+		st, err = hostexec.NewJSONAudit("")
+	}
+	if err != nil {
+		xlog.Warn("Chats: the audit of the commands on this machine is kept in memory", "error", err)
+		st, _ = hostexec.NewJSONAudit("")
+	}
+	return st
 }
 
 // studioSharedFolderAudit opens the audit of the shared folders, beside the

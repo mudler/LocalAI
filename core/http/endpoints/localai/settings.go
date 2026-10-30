@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -14,6 +15,8 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/studio/hostexec"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
@@ -107,6 +110,25 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 					Success: false,
 					Error:   "Invalid vram_budget format: " + err.Error(),
 				})
+			}
+		}
+
+		// The built-in chat tools: a mode the chats understand, and pins only for
+		// tools an add-on may replace.
+		if settings.ChatsHostExec != nil && !hostexec.ValidMode(*settings.ChatsHostExec) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid chats_host_exec: use off, ask or on",
+			})
+		}
+		if settings.ChatsToolProviders != nil {
+			for tool, addon := range *settings.ChatsToolProviders {
+				if !contract.Replaceable(tool) || !validAddonID(addon) {
+					return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+						Success: false,
+						Error:   "Invalid chats_tool_providers: map a replaceable tool (bash, web_search, web_fetch) to an add-on ID",
+					})
+				}
 			}
 		}
 
@@ -347,3 +369,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		})
 	}
 }
+
+var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
+
+func validAddonID(id string) bool { return addonIDShape.MatchString(id) }

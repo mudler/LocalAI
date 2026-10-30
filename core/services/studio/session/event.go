@@ -44,6 +44,10 @@ const (
 	// for the person to confirm, edit or dismiss it. Event.IDs holds the
 	// proposal id and Text the trigger's name.
 	KindTriggerProposed EventKind = "trigger_proposed"
+	// KindHostExecConsent asks the person to allow one command of the built-in
+	// bash on this machine: IDs holds the ID to answer with, Text the command.
+	// It is live only; the call ends with "no answer" after a while.
+	KindHostExecConsent EventKind = "host_exec_consent"
 	// KindFiles says that the files of the chat may have changed: files were
 	// attached, a turn or a tool changed files, or the chat folder was renamed.
 	// It carries nothing; read the file index again.

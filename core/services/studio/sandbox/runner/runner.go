@@ -56,6 +56,12 @@ type Options struct {
 	// Prepare, when set, gives a call the context its store needs (the add-on
 	// names the host operation of the call).
 	Prepare func(ctx context.Context, r Request) context.Context
+	// Actor returns the actor a sandbox of a user and a conversation reads and
+	// commits as. Nil: the user with the conversation, and no group.
+	Actor func(user, conversation string) workspace.Actor
+	// Title starts the title of the change set of a call, before the tool
+	// name. Empty: "Sandbox: ".
+	Title string
 	// StateDir is the folder the backend keeps its sandboxes in. Whatever an
 	// earlier run left in it is removed at start.
 	StateDir string
@@ -118,6 +124,12 @@ func New(o Options) (*Manager, error) {
 	}
 	if o.Mounts == nil {
 		o.Mounts = HomeMounts
+	}
+	if o.Actor == nil {
+		o.Actor = func(user, conv string) workspace.Actor { return workspace.Actor{Principal: user, ChatID: conv} }
+	}
+	if o.Title == "" {
+		o.Title = "Sandbox: "
 	}
 	if o.Tools == nil {
 		o.Tools = func(acquire Acquire) []Tool { return []Tool{Bash(acquire, BashOptions{})} }
@@ -301,9 +313,7 @@ func (m *Manager) destroy(ctx context.Context, e *entry) {
 	}
 }
 
-func (e *entry) actor() workspace.Actor {
-	return workspace.Actor{Principal: e.user, ChatID: e.conv}
-}
+func (m *Manager) actorOf(e *entry) workspace.Actor { return m.o.Actor(e.user, e.conv) }
 
 // ready makes sure the entry has a running sandbox that matches the user's
 // files. The entry's lock is held.
@@ -315,10 +325,10 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 	if e.trk == nil {
 		e.trk = &tracker{Store: m.o.Store}
 	}
-	env := sandbox.Env{Store: e.trk, Actor: e.actor()}
+	env := sandbox.Env{Store: e.trk, Actor: m.actorOf(e)}
 	switch {
 	case e.sb != nil:
-		if e.trk.stale(ctx, e.actor()) {
+		if e.trk.stale(ctx, m.actorOf(e)) {
 			if err := e.sb.Refresh(ctx); err != nil {
 				return fmt.Errorf("could not bring the sandbox up to date with your files: %w", err)
 			}
@@ -335,11 +345,11 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 		xlog.Warn("sandbox: resume failed, starting a fresh one", "error", err)
 		m.destroy(ctx, e)
 	}
-	reqs, err := m.o.Mounts(ctx, e.actor())
+	reqs, err := m.o.Mounts(ctx, m.actorOf(e))
 	if err != nil {
 		return err
 	}
-	v, err := m.o.Store.View(ctx, e.actor(), reqs)
+	v, err := m.o.Store.View(ctx, m.actorOf(e), reqs)
 	if err != nil {
 		return err
 	}
@@ -405,7 +415,7 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	out, runErr := tool.Run(ctx, r.Args)
 	// The call's changes become one change set, whether or not the command
 	// succeeded: a failing script may still have written files.
-	cs, conflicts, cerr := e.sb.Checkpoint(ctx, "Sandbox: "+r.Tool)
+	cs, conflicts, cerr := e.sb.Checkpoint(ctx, m.o.Title+r.Tool)
 	_ = cs
 	switch {
 	case cerr != nil && !errors.Is(cerr, workspace.ErrCommitted):

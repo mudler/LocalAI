@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/media"
@@ -154,6 +155,18 @@ type Deps struct {
 	// whatever their status, for the members of a shared folder. Nil: Users
 	// looks members up by ID, and with no Users any principal is a member.
 	FindUser func(ctx context.Context, ref string) (*auth.User, error)
+	// Builtins is the registry of the built-in chat tools an add-on may
+	// replace. Nil: the service makes one. The service registers bash in it
+	// when HostExec is set.
+	Builtins *builtins.Registry
+	// HostExec runs the built-in bash on this machine. Nil: there is none.
+	HostExec HostExec
+	// HostExecMode is the setting chats_host_exec as it applies now: off, ask
+	// or on. Nil: off.
+	HostExecMode func() string
+	// IsAdmin says whether a user is an administrator. Nil: everyone is (a
+	// server without accounts).
+	IsAdmin func(ctx context.Context, user string) bool
 	// ToolPins names, for a built-in tool that several add-ons replace, the
 	// add-on an administrator chose to serve it (runtime setting
 	// chats_tool_providers). Nil: no pins.
@@ -209,8 +222,10 @@ type SendResult struct {
 type Service struct {
 	d   Deps
 	mgr *session.Manager
-	bus Bus
-	log *slog.Logger
+	// builtins holds the built-in chat tools an add-on may replace.
+	builtins *builtins.Registry
+	bus      Bus
+	log      *slog.Logger
 
 	mu    sync.Mutex
 	runs  map[string]*run                 // the turn this process runs, by conversation
@@ -279,6 +294,13 @@ func New(d Deps) (*Service, error) {
 	}
 	s := &Service{d: d, bus: bus, log: log, runs: map[string]*run{}, pumps: map[string]<-chan session.Event{}, locks: map[string]*keyLock{},
 		videos: map[string][]string{}, children: map[string]map[string]*child{}, allowed: map[string][]session.Tool{}, waiters: map[string][]chan store.TurnStatus{}, closed: make(chan struct{})}
+	s.builtins = d.Builtins
+	if s.builtins == nil {
+		s.builtins = builtins.NewRegistry()
+	}
+	if err := s.registerHostBash(); err != nil {
+		return nil, err
+	}
 	h := d.Harness
 	if h == nil {
 		if d.Provider == nil {

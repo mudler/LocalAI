@@ -55,6 +55,46 @@ type Commands struct {
 	Isolation string
 	// Reason is why the add-on cannot run commands, when State is unavailable.
 	Reason string
+	// Addon is the add-on that runs commands, or that would (off,
+	// unavailable).
+	Addon string
+	// Provider serves the tool when State is available: the add-on's ID, or
+	// BuiltinProvider for the built-in bash on this machine.
+	Provider string
+	// Consent is "ask" when each command of the built-in bash waits for the
+	// person's yes.
+	Consent string
+	// Fallback is set when the built-in bash serves although an add-on that
+	// runs commands is installed for the user: the add-on's ID, with
+	// FallbackReason "off" (switched off for the chat or not named by its
+	// agent) or why it cannot run.
+	Fallback, FallbackReason string
+}
+
+// withHostBash is the state of a chat whose tools may hold the built-in bash:
+// c is what the add-on tools alone gave.
+func (s *Service) withHostBash(c Commands, tools []session.Tool) Commands {
+	if c.State == CommandsAvailable {
+		c.Provider = c.Addon
+		return c
+	}
+	if providerOf(tools, "bash") != BuiltinProvider {
+		return c
+	}
+	out := Commands{State: CommandsAvailable, Tool: "bash", Isolation: "host", Provider: BuiltinProvider}
+	if s.hostExecMode() == "ask" {
+		out.Consent = "ask"
+	}
+	switch c.State {
+	case CommandsOff:
+		out.Fallback, out.FallbackReason = c.Addon, "off"
+	case CommandsUnavailable:
+		out.Fallback, out.FallbackReason = c.Addon, c.Reason
+		if out.FallbackReason == "" {
+			out.FallbackReason = "it cannot run commands on this server now"
+		}
+	}
+	return out
 }
 
 // skillNeedsExec is the reason Index gives for a skill that needs a tool that
@@ -129,34 +169,34 @@ func (r *runners) standIn(tools []session.Tool) string {
 // cannot: they tell an add-on that is installed but off from none at all.
 func (s *Service) commandsOf(ctx context.Context, user string, tools []session.Tool, addonsOff []string, sc *scope) Commands {
 	if name, addon := s.runners.in(tools); name != "" {
-		c := Commands{State: CommandsAvailable, Tool: name}
+		c := Commands{State: CommandsAvailable, Tool: name, Addon: addon}
 		if iso, ok := s.d.AddonTools.(CommandIsolation); ok {
 			c.Isolation = iso.Isolation(ctx, user, addon)
 		}
 		return c
 	}
 	if addon := s.runners.standIn(tools); addon != "" {
-		c := Commands{State: CommandsUnavailable}
+		c := Commands{State: CommandsUnavailable, Addon: addon}
 		if gate, ok := s.d.AddonTools.(AddonGate); ok {
 			c.Reason = gate.Unavailable(ctx, user, addon, s.d.Files.Available())
 		}
 		return c
 	}
 	off := set(addonsOff)
-	found := CommandsNone
+	found, which := CommandsNone, ""
 	s.runners.addons.Range(func(k, _ any) bool {
 		id := k.(string)
 		if off[id] || (sc != nil && !sc.addons[id]) {
-			found = CommandsOff
+			found, which = CommandsOff, id
 			return false
 		}
 		return true
 	})
 	if found == CommandsOff && !s.userHasRunner(ctx, user) {
 		// Another user has the add-on; this one may not use it.
-		found = CommandsNone
+		found, which = CommandsNone, ""
 	}
-	return Commands{State: found}
+	return Commands{State: found, Addon: which}
 }
 
 // userHasRunner asks the broker whether the user may use an add-on that runs
@@ -198,7 +238,9 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 	if sc == nil || !sc.deleted {
 		tools, _ = s.addonTools(ctx, a, rec, sc)
 	}
-	return s.commandsOf(ctx, p, tools, rec.AddonsOff, sc), nil
+	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
+	return s.withHostBash(c, tools), nil
 }
 
 // commandsBlock is the block of the system prompt that states whether the chat
@@ -207,10 +249,18 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 // way to run commands. It is short on purpose: it goes into every turn.
 func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 	if c.State == CommandsAvailable {
-		switch c.Isolation {
-		case "isolated":
+		switch {
+		case c.Provider == BuiltinProvider:
+			b := "Commands: " + c.Tool + " runs commands directly on this machine, with no isolation, in a scratch folder that holds the user's files: home/ there is /workspace/home of the file tools, shared-<name>/ is /workspace/shared-<name>. " +
+				"It can read what the server can read and reach the internet, the local network and the LocalAI API. " +
+				"Be careful: never delete or change anything outside the task, and never send the user's data anywhere, unless they asked."
+			if c.Consent == "ask" {
+				b += " Each command waits for the user's yes in the chat; if bash says it was not run, stop and ask them."
+			}
+			return b
+		case c.Isolation == "isolated":
 			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox."
-		case "host":
+		case c.Isolation == "host":
 			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task."
 		}
 		return "Commands: " + c.Tool + " runs commands and code."

@@ -453,6 +453,68 @@ type ChatsAddonList struct {
 	Commands string `json:"commands"`
 	// CommandsReason is why commands cannot run, when Commands is unavailable.
 	CommandsReason string `json:"commands_reason,omitempty"`
+	// CommandsIsolation is isolated (a sandbox) or host (directly on this
+	// machine, with its files and network), when Commands is available.
+	CommandsIsolation string `json:"commands_isolation,omitempty"`
+	// CommandsProvider serves bash, when Commands is available: builtin (the
+	// built-in bash on this machine) or the ID of the add-on.
+	CommandsProvider string `json:"commands_provider,omitempty"`
+	// CommandsConsent is ask when each command of the built-in bash waits for
+	// a yes in the chat.
+	CommandsConsent string `json:"commands_consent,omitempty"`
+	// CommandsFallback is the add-on that would serve bash but does not (it is
+	// off for this chat, or cannot run), when the built-in serves instead;
+	// CommandsFallbackReason says why: off, or the add-on's reason.
+	CommandsFallback       string `json:"commands_fallback,omitempty"`
+	CommandsFallbackReason string `json:"commands_fallback_reason,omitempty"`
+}
+
+// ChatsHostExecConsent answers the card that asks to run one command on this
+// machine: decision is once (administrators only) or deny.
+type ChatsHostExecConsent struct {
+	ID       string `json:"id"`
+	Decision string `json:"decision" enums:"once,deny"`
+}
+
+// ChatsHostExecEvent is one command the built-in bash ran on this machine.
+type ChatsHostExecEvent struct {
+	User       string    `json:"user"`
+	UserName   string    `json:"user_name,omitempty"`
+	Chat       string    `json:"chat"`
+	Command    string    `json:"command"`
+	Exit       int       `json:"exit"`
+	DurationMS int64     `json:"duration_ms"`
+	TimedOut   bool      `json:"timed_out,omitempty"`
+	At         time.Time `json:"at"`
+}
+
+// ChatsHostExecEventList is the audit of the commands, newest first.
+type ChatsHostExecEventList struct {
+	Events []ChatsHostExecEvent `json:"events"`
+}
+
+// ChatsBuiltinTool is one built-in chat tool in Settings > Tools.
+type ChatsBuiltinTool struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	// Setting is the runtime setting that switches it off.
+	Setting string `json:"setting"`
+	Enabled bool   `json:"enabled"`
+	// Provider serves it now: builtin, an add-on's ID, or empty for nothing.
+	Provider string `json:"provider"`
+	// Candidates are the add-ons that replace it; Pinned the one chosen.
+	Candidates []string `json:"candidates"`
+	Pinned     string   `json:"pinned,omitempty"`
+	// Mode is chats_host_exec as it applies (bash only): off, ask or on.
+	Mode string `json:"mode,omitempty"`
+	// Unavailable says why this server cannot run the built-in, or is empty.
+	Unavailable string `json:"unavailable,omitempty"`
+}
+
+// ChatsBuiltinToolList lists the built-in chat tools.
+type ChatsBuiltinToolList struct {
+	Tools []ChatsBuiltinTool `json:"tools"`
 }
 
 // ChatsNotification is one item of the inbox. Kind is run_ended, run_failed or

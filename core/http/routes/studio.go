@@ -65,6 +65,10 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/admin/shared-folders", h.AdminCreateSharedFolder, adminMw)
 	e.POST(base+"/admin/shared-folders/restore", h.AdminRestoreSharedFolder, adminMw)
 	e.GET(base+"/admin/shared-folders/events", h.AdminSharedFolderEvents, adminMw)
+	// The built-in chat tools (Settings > Tools) and the audit of the commands
+	// the built-in bash ran on this machine.
+	e.GET(base+"/admin/tools", h.AdminBuiltinTools, adminMw)
+	e.GET(base+"/admin/host-exec/events", h.AdminHostExecEvents, adminMw)
 	e.GET(base+"/admin/shared-folders/:id", h.AdminGetSharedFolder, adminMw)
 	e.PATCH(base+"/admin/shared-folders/:id", h.AdminRenameSharedFolder, adminMw)
 	e.DELETE(base+"/admin/shared-folders/:id", h.AdminDeleteSharedFolder, adminMw)
@@ -107,6 +111,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/:id/skills", h.SetChatSkills)
 	e.GET(base+"/:id/addons", h.ListChatAddons)
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
+	e.POST(base+"/:id/host-exec/consent", h.HostExecConsent)
 	e.GET(base+"/files/search", h.SearchFiles)
 	// The pages of the workspace: the chats feature lets the request in, and
 	// the handlers check the pages feature too.
