@@ -484,7 +484,9 @@ curl -X PUT .../api/chats/3f1c.../skills -d '{"off": ["review"]}'   # switch one
 
 A chat keeps its own switches. Turning a skill off takes it out of the index at the next turn. A switch with the plain name turns off the skill that wins, so a skill of the same name further away shows through, as the list says. A switch with the id `layer:name` (the `id` in the skill list, for example `personal:review`) turns off the skill of that layer only. A deleted skill goes to the Trash like any file. Only an administrator writes shared skills, and everyone reads them. Your personal skills are as private as your files.
 
-The **Skills** page lists them by layer and edits personal skills, and the **Skills** menu over the message box switches them per chat.
+The **Skills** page lists them by layer and edits personal skills, and the **Skills** menu over the message box switches them per chat. The menu has one switch for each skill, with its name and a line of its description (the full text shows as a tooltip), the count of skills that are on ("12 of 20 on"), and **Select all** and **Disable all**. From nine skills on it also has a search field; while a search is on, the two buttons read **Select shown** and **Disable shown** and change only the skills in the list. Every change is one request, and a change the server refuses goes back with a message under the list.
+
+A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
 The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills` and `localai-workspace`. The last one tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox. For most edits the Office add-on's tools are simpler: they read, edit and create Word, Excel and PowerPoint files, and read PDF files, in your files.
 
@@ -750,7 +752,7 @@ there keeps running when you close the tab and opens again from any browser.
   the last model request (from the `usage` events). It turns amber above 80
   percent of the window and red above 90.
 - **Tools, Skills and Sub-agents** menus over the message box switch tools and
-  skills for this chat (see above; a skill is switched by its `id`), and list
+  skills for this chat (see above; a skill is switched by its `id`, and the Skills menu has Select all, Disable all and a search), and list
   the sub-agents of the chat with their transcript and a **Stop** for a
   running one. The Tools menu says whether the Sandbox add-on runs commands
   isolated, directly on this machine, or not at all. Changes an add-on tool
