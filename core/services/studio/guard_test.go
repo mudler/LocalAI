@@ -64,7 +64,9 @@ var _ = Describe("guard", func() {
 	})
 
 	// The core does not know the add-ons. An add-on may use the workspace packages
-	// of the core, which are its public face, and nothing else of core.
+	// of the core, which are its public face, and the sandbox packages, which
+	// run commands over that workspace and are shared by the Sandbox add-on and
+	// the chats' built-in bash, and nothing else of core.
 	It("core and addons stay apart", func() {
 		const module = "github.com/mudler/LocalAI/"
 		imports := func(path string, src []byte) []string {
@@ -83,10 +85,22 @@ var _ = Describe("guard", func() {
 				Expect(p).NotTo(HavePrefix(module+"addons/"), "%s imports the add-on package %s: the core must not depend on an add-on", path, p)
 			}
 		})
+		// The sandbox packages stay a narrow face: they use the workspace and
+		// nothing else of the core, so an add-on that imports them does not
+		// reach further.
+		goFiles([]string{"core/services/studio/sandbox"}, func(path string, src []byte) {
+			for _, p := range imports(path, src) {
+				if strings.HasPrefix(p, module+"core/") && !strings.HasPrefix(p, module+"core/services/studio/workspace") &&
+					!strings.HasPrefix(p, module+"core/services/studio/sandbox") {
+					Fail(fmt.Sprintf("%s imports %s: the sandbox packages may use only the workspace packages of the core", path, p))
+				}
+			}
+		})
 		goFiles([]string{"addons"}, func(path string, src []byte) {
 			for _, p := range imports(path, src) {
-				if strings.HasPrefix(p, module+"core/") && !strings.HasPrefix(p, module+"core/services/studio/workspace") {
-					Fail(fmt.Sprintf("%s imports %s: an add-on may use only the workspace packages of the core", path, p))
+				if strings.HasPrefix(p, module+"core/") && !strings.HasPrefix(p, module+"core/services/studio/workspace") &&
+					!strings.HasPrefix(p, module+"core/services/studio/sandbox") {
+					Fail(fmt.Sprintf("%s imports %s: an add-on may use only the workspace and sandbox packages of the core", path, p))
 				}
 			}
 		})

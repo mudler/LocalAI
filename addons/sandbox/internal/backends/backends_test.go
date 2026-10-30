@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,7 +64,7 @@ func open(k kinds, dir string) *backends.Selector {
 func name(s *backends.Selector) string {
 	b, err := s.Backend()
 	if err != nil {
-		if errors.Is(err, codetools.ErrNoSandbox) {
+		if errors.Is(err, runner.ErrNoSandbox) {
 			return ""
 		}
 		Expect(err).NotTo(HaveOccurred())

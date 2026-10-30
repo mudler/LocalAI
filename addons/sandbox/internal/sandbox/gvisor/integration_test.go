@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/sbtest"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/sbtest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 

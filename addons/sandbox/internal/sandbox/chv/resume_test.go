@@ -13,7 +13,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/sbtest"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/sbtest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

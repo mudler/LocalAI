@@ -180,7 +180,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 	pathProp := `"path":{"type":"string","description":"A path in the user's files. / is their home folder (also /workspace/home); a shared folder is /workspace/shared-<name>."}`
 	return []session.Tool{
 		{Name: "list_files", Description: "List a folder of the user's files. With pattern, list every file and folder below path whose path matches it: * matches any characters including /, ? one character. At most 500 results.",
-			Schema: obj(pathProp+`,"pattern":{"type":"string","description":"For example *.md or reports/*.xlsx"}`),
+			Schema: obj(pathProp + `,"pattern":{"type":"string","description":"For example *.md or reports/*.xlsx"}`),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
 				in, err := session.DecodeArgs[struct{ Path, Pattern string }](raw)
 				if err != nil {

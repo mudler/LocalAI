@@ -11,21 +11,20 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 type fakeRunner struct {
-	got []manager.Request
+	got []runner.Request
 	out string
 	err error
 }
 
-func (f *fakeRunner) Run(_ context.Context, r manager.Request) (string, error) {
+func (f *fakeRunner) Run(_ context.Context, r runner.Request) (string, error) {
 	f.got = append(f.got, r)
 	return f.out, f.err
 }
@@ -123,11 +122,11 @@ var _ = Describe("Sandbox tools", func() {
 
 	It("answers what the model can fix and reports an outage as an error", func() {
 		for name, err := range map[string]error{
-			"invalid":   codetools.ErrInvalid,
-			"busy":      manager.ErrBusy,
+			"invalid":   runner.ErrInvalid,
+			"busy":      runner.ErrBusy,
 			"tool said": errors.New("not a file: nope.txt"),
 		} {
-			out, e := act(&fakeRunner{err: err}, env("read", "alice", "conv1", map[string]any{"path": "nope.txt"}))
+			out, e := act(&fakeRunner{err: err}, env("bash", "alice", "conv1", map[string]any{"command": "cat nope.txt"}))
 			Expect(e).NotTo(HaveOccurred(), name)
 			Expect(out["ok"]).To(Equal(false), "%s: want an ok:false answer with the reason: %v", name, out)
 			Expect(out["error"]).NotTo(BeEmpty(), name)
@@ -153,6 +152,31 @@ var _ = Describe("Sandbox tools", func() {
 		Expect(err).NotTo(HaveOccurred())
 		s, _ := out["output"].(string)
 		Expect(len(s)).To(BeNumerically("<=", 70<<10))
+	})
+
+	// The Sandbox isolates execution only: reading and changing files are the
+	// chat's own file tools. Its bash replaces the chat's built-in bash.
+	It("offers bash and the settings tools only, and bash shadows the built-in", func() {
+		Expect(tools.Tools).To(Equal([]string{"bash"}))
+		Expect(tools.Declared()).To(Equal([]string{"bash", "status", "set-backend", "confirm-host"}))
+		for _, d := range tools.Definitions() {
+			if d.Name == "bash" {
+				Expect(d.Shadows).To(Equal("bash"))
+				Expect(contract.Replaceable(d.Shadows)).To(BeTrue())
+			} else {
+				Expect(d.Shadows).To(BeEmpty(), "%s keeps its add-on name", d.Name)
+			}
+		}
+		for _, gone := range []string{"read", "write", "edit", "glob", "grep"} {
+			_, err := act(&fakeRunner{}, env(gone, "alice", "conv1", map[string]any{"path": "a"}))
+			Expect(err).To(HaveOccurred(), "%s is still served", gone)
+		}
+	})
+
+	// The host stops an action call at ActTimeout. A bash call that may run as
+	// long must still leave time to commit its files and to answer.
+	It("ends a bash call before the action call does", func() {
+		Expect(tools.MaxTimeout + time.Minute).To(BeNumerically("<=", contract.ActTimeout))
 	})
 
 	It("declares the tools of the runtime in the manifest", func() {
@@ -184,6 +208,7 @@ var _ = Describe("Sandbox tools", func() {
 			Expect(d.Kind).To(Equal(want[i].Kind), "definition %s differs from the runtime", d.Name)
 			Expect(d.Description).To(Equal(want[i].Description), "definition %s differs from the runtime", d.Name)
 			Expect(d.UIOnly).To(Equal(want[i].UIOnly), "definition %s differs from the runtime", d.Name)
+			Expect(d.Shadows).To(Equal(want[i].Shadows), "definition %s differs from the runtime", d.Name)
 			Expect(a).To(Equal(b), "definition %s differs from the runtime", d.Name)
 			Expect(contract.ValidateToolSchema(d.InputSchema, d.Kind)).To(Succeed(), "schema of %s", d.Name)
 		}

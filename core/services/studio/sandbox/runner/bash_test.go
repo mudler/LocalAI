@@ -1,21 +1,18 @@
 //go:build linux || darwin
 
-package codetools_test
+package runner_test
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/sbtest"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/sbtest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +24,7 @@ type toolEnv struct {
 	store workspace.Store
 	root  string // the fake backend's root folder
 	sb    sandbox.Sandbox
-	tools map[string]codetools.Tool
+	tools map[string]runner.Tool
 	gets  int
 	done  int
 }
@@ -50,13 +47,12 @@ func newToolEnv() *toolEnv {
 	sb, err := b.Create(ctx, sandbox.Spec{Env: sandbox.Env{Store: st, Actor: alice}, View: v})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = sb.Destroy(context.Background()) })
-	e := &toolEnv{store: st, root: root, sb: sb, tools: map[string]codetools.Tool{}}
-	for _, tl := range codetools.NewTools(func(context.Context) (sandbox.Sandbox, func(), error) {
+	e := &toolEnv{store: st, root: root, sb: sb, tools: map[string]runner.Tool{}}
+	tl := runner.Bash(func(context.Context) (sandbox.Sandbox, func(), error) {
 		e.gets++
 		return sb, func() { e.done++ }, nil
-	}) {
-		e.tools[tl.Name] = tl
-	}
+	}, runner.BashOptions{MaxTimeout: time.Minute})
+	e.tools[tl.Name] = tl
 	return e
 }
 
@@ -92,54 +88,15 @@ func m(kv ...any) map[string]any {
 	return out
 }
 
-func TestCodetools(t *testing.T) {
+func TestRunner(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Sandbox Codetools Suite")
+	RunSpecs(t, "Sandbox Runner Suite")
 }
 
-// tempFiles lists the files under root that are temporary files of writeFile.
-func tempFiles(root string) []string {
-	var out []string
-	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err == nil && strings.HasPrefix(d.Name(), ".sbx-w.") {
-			out = append(out, p)
-		}
-		return err
-	})
-	Expect(err).NotTo(HaveOccurred())
-	return out
-}
-
-func pwnedFiles(root string) []string {
-	var out []string
-	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-		if err == nil && strings.HasPrefix(d.Name(), "PWN") {
-			out = append(out, p)
-		}
-		return nil
-	})
-	return out
-}
-
-// stalledSandbox passes every Exec on to the real sandbox, with the stdin of
-// the command replaced by a pipe that holds a first part and then stays open.
-// A pipe is an *os.File, so the kill of the command does not wait for a copy.
-type stalledSandbox struct {
-	sandbox.Sandbox
-	stdin *os.File
-}
-
-func (s stalledSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process, error) {
-	if c.Stdin != nil {
-		c.Stdin = s.stdin
-	}
-	return s.Sandbox.Exec(ctx, c)
-}
-
-var _ = Describe("Sandbox code tools", func() {
+var _ = Describe("bash", func() {
 	It("provides every tool with a description, a runner and an object schema", func() {
 		e := newToolEnv()
-		for _, n := range []string{"bash", "read", "write", "edit", "glob", "grep"} {
+		for _, n := range []string{"bash"} {
 			tl, ok := e.tools[n]
 			Expect(ok).To(BeTrue(), "tool %s is missing", n)
 			Expect(tl.Description).NotTo(BeEmpty(), "tool %s", n)
@@ -161,7 +118,7 @@ var _ = Describe("Sandbox code tools", func() {
 	It("caps the output of bash", func() {
 		e := newToolEnv()
 		got := e.must("bash", m("command", "head -c 200000 /dev/zero | tr '\\0' x"))
-		Expect(len(got)).To(BeNumerically("<=", codetools.MaxOutput+64))
+		Expect(len(got)).To(BeNumerically("<=", runner.MaxOutput+64))
 		Expect(got).To(ContainSubstring("[output cut: "))
 	})
 
@@ -185,193 +142,11 @@ var _ = Describe("Sandbox code tools", func() {
 		Expect(time.Since(start)).To(BeNumerically("<=", 10*time.Second))
 	})
 
-	It("reads with an offset and a limit", func() {
-		e := newToolEnv()
-		Expect(e.must("read", m("path", "home/notes.txt"))).To(Equal("one\ntwo\nthree\nfour\n"))
-		Expect(e.must("read", m("path", "/workspace/home/notes.txt", "offset", 2, "limit", 2))).To(Equal("two\nthree\n"))
-		_, err := e.call("read", m("path", "home/missing.txt"))
-		Expect(err).To(MatchError(ContainSubstring("not a file")))
-	})
-
-	It("writes a file and reads it back", func() {
-		e := newToolEnv()
-		content := "line 1\n  \"quoted\" $HOME `x` 'y'\nunicode é世\n"
-		Expect(e.must("write", m("path", "home/new/dir/a.txt", "content", content))).To(ContainSubstring("home/new/dir/a.txt"))
-		Expect(e.must("read", m("path", "home/new/dir/a.txt"))).To(Equal(content))
-		e.must("write", m("path", "home/new/dir/a.txt", "content", "short"))
-		Expect(e.must("read", m("path", "home/new/dir/a.txt"))).To(Equal("short"))
-	})
-
-	It("edits a file", func() {
-		e := newToolEnv()
-		e.must("write", m("path", "home/e.txt", "content", "a b a c a\n"))
-		_, err := e.call("edit", m("path", "home/e.txt", "oldString", "a", "newString", "X"))
-		Expect(err).To(MatchError(ContainSubstring("3 times")))
-		_, err = e.call("edit", m("path", "home/e.txt", "oldString", "zzz", "newString", "X"))
-		Expect(err).To(MatchError(ContainSubstring("not found")))
-		Expect(e.must("edit", m("path", "home/e.txt", "oldString", "b", "newString", "B"))).To(ContainSubstring("1 occurrence"))
-		e.must("edit", m("path", "home/e.txt", "oldString", "a", "newString", "X", "replaceAll", true))
-		Expect(e.must("read", m("path", "home/e.txt"))).To(Equal("X B X c X\n"))
-		_, err = e.call("edit", m("path", "home/e.txt", "oldString", "", "newString", "X"))
-		Expect(err).To(HaveOccurred(), "an empty oldString must fail")
-	})
-
-	It("edits an existing workspace file", func() {
-		e := newToolEnv()
-		e.must("edit", m("path", "/workspace/home/notes.txt", "oldString", "two", "newString", "2"))
-		Expect(e.must("read", m("path", "home/notes.txt", "limit", 2))).To(Equal("one\n2\n"))
-	})
-
-	// edit never rewrites a file it could not read exactly: a Latin-1 byte
-	// must survive, and the call must fail.
-	It("refuses to edit invalid UTF-8", func() {
-		e := newToolEnv()
-		want := "caf\xe9 au lait\n"
-		e.guest(`printf 'caf\351 au lait\n' > home/latin.txt`)
-		Expect(string(e.guest("cat home/latin.txt"))).To(Equal(want), "setup")
-		_, err := e.call("edit", m("path", "home/latin.txt", "oldString", "au", "newString", "AU"))
-		Expect(err).To(MatchError(ContainSubstring("UTF-8")))
-		Expect(string(e.guest("cat home/latin.txt"))).To(Equal(want), "the file changed")
-	})
-
-	It("finds files with glob and lines with grep", func() {
-		e := newToolEnv()
-		e.must("write", m("path", "home/docs/a.md", "content", "Alpha\nbeta\n"))
-		e.must("write", m("path", "home/docs/sub/b.md", "content", "alpha again\n"))
-		e.must("write", m("path", "home/docs/c.txt", "content", "gamma\n"))
-		Expect(e.must("glob", m("pattern", "*.md", "path", "home"))).To(Equal("docs/a.md\ndocs/sub/b.md\n"))
-		Expect(e.must("glob", m("pattern", "*.zzz"))).To(Equal("no files match"))
-		got := e.must("grep", m("pattern", "^alpha", "path", "home/docs", "ignoreCase", true))
-		Expect(got).To(ContainSubstring("a.md:1:Alpha"))
-		Expect(got).To(ContainSubstring("b.md:1:alpha again"))
-		Expect(got).NotTo(ContainSubstring("gamma"))
-		Expect(e.must("grep", m("pattern", "nothing-like-this", "path", "home"))).To(Equal("no matches"))
-		// A pattern that starts with a dash is a pattern, not a flag.
-		Expect(e.must("grep", m("pattern", "-x", "path", "home"))).To(Equal("no matches"))
-	})
-
-	It("refuses paths outside the workspace", func() {
-		e := newToolEnv()
-		for _, p := range []string{"/etc/passwd", "../x", "home/../../x", "/workspacefoo/a", ""} {
-			for _, tl := range []string{"read", "write", "edit", "glob", "grep"} {
-				if p == "" && (tl == "glob" || tl == "grep") {
-					continue // an empty path means the working directory
-				}
-				args := m("path", p, "content", "x", "oldString", "a", "newString", "b", "pattern", "x")
-				_, err := e.call(tl, args)
-				Expect(err).To(HaveOccurred(), "%s %q", tl, p)
-			}
-		}
-		for in, want := range map[string]string{
-			"/workspace": ".", "/workspace/": ".", "/workspace/home/a": "home/a", "home//a/./b": "home/a/b", "./a": "a",
-		} {
-			got, err := codetools.GuestPath(in)
-			Expect(err).NotTo(HaveOccurred(), "GuestPath(%q)", in)
-			Expect(got).To(Equal(want), "GuestPath(%q)", in)
-		}
-	})
-
-	// The paths of an attacker go to read, write and edit. The first three must
-	// be refused as invalid. The last one is a plain file name: it must be taken
-	// as a name and never run as a command.
-	It("never runs a command named by a hostile path", func() {
-		e := newToolEnv()
-		for _, p := range []string{"../x", "/etc/passwd", "a\x00b", "$(touch pwned)"} {
-			for _, tl := range []string{"read", "write", "edit"} {
-				args := m("path", p, "content", "x", "oldString", "a", "newString", "b")
-				_, err := e.call(tl, args)
-				if p != "$(touch pwned)" {
-					Expect(err).To(MatchError(codetools.ErrInvalid), "%s %q", tl, p)
-				}
-			}
-		}
-		err := filepath.WalkDir(e.root, func(path string, d fs.DirEntry, err error) error {
-			Expect(err == nil && d.Name() == "pwned").To(BeFalse(), "a command ran: %s exists", path)
-			return err
-		})
-		Expect(err).NotTo(HaveOccurred())
-		_, err = os.Stat("pwned")
-		Expect(err).To(HaveOccurred(), "a command ran in the test folder")
-	})
-
 	It("gives a fixed result when there is no sandbox", func() {
-		tools := codetools.NewTools(func(context.Context) (sandbox.Sandbox, func(), error) { return nil, nil, codetools.ErrNoSandbox })
-		for _, tl := range tools {
-			got, err := tl.Run(context.Background(), json.RawMessage(`{"command":"x","path":"x","content":"x","pattern":"x","oldString":"x","newString":"y"}`))
-			Expect(err).NotTo(HaveOccurred(), tl.Name)
-			Expect(got).To(Equal(codetools.NoSandboxText), tl.Name)
-		}
-	})
-
-	// A write stopped while its data is still arriving leaves the file as it
-	// was, and no temporary file behind.
-	It("keeps the original when a write is cancelled mid-write", func() {
-		e := newToolEnv()
-		e.must("write", m("path", "home/keep.txt", "content", "ORIGINAL"))
-		pr, pw, err := os.Pipe()
+		tl := runner.Bash(func(context.Context) (sandbox.Sandbox, func(), error) { return nil, nil, runner.ErrNoSandbox }, runner.BashOptions{})
+		got, err := tl.Run(context.Background(), json.RawMessage(`{"command":"x"}`))
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { _ = pw.Close(); _ = pr.Close() })
-		_, err = pw.WriteString("partial")
-		Expect(err).NotTo(HaveOccurred())
-		stalled := stalledSandbox{Sandbox: e.sb, stdin: pr}
-		var write codetools.Tool
-		for _, tl := range codetools.NewTools(func(context.Context) (sandbox.Sandbox, func(), error) {
-			return stalled, func() {}, nil
-		}) {
-			if tl.Name == "write" {
-				write = tl
-			}
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		time.AfterFunc(300*time.Millisecond, cancel)
-		raw, _ := json.Marshal(m("path", "home/keep.txt", "content", "NEW CONTENT"))
-		_, err = write.Run(ctx, raw)
-		Expect(err).To(MatchError(context.Canceled))
-		Expect(e.must("read", m("path", "home/keep.txt"))).To(Equal("ORIGINAL"))
-		Expect(tempFiles(e.root)).To(BeEmpty(), "temporary files left")
+		Expect(got).To(Equal(runner.NoSandboxText))
 	})
 
-	// Patterns that look like options or shell syntax go to glob and grep. None
-	// may run a command or be read as an option.
-	It("runs nothing for hostile patterns", func() {
-		e := newToolEnv()
-		e.must("write", m("path", "home/docs/a.md", "content", "hello\n"))
-		pats := []string{"-e", "--help", "-f /etc/passwd", "-delete", "$(touch PWN)", "`touch PWN`", strings.Repeat("a", 300), "-", "-name", "-x"}
-		for _, p := range pats {
-			out, err := e.call("glob", m("pattern", p, "path", "home"))
-			Expect(err).NotTo(HaveOccurred(), "glob %q", p)
-			Expect(out).NotTo(ContainSubstring("Usage"), "glob %q", p)
-			out, err = e.call("grep", m("pattern", p, "path", "home"))
-			Expect(err).NotTo(HaveOccurred(), "grep %q", p)
-			Expect(out).NotTo(ContainSubstring("Usage"), "grep %q", p)
-			Expect(out).NotTo(ContainSubstring("root:"), "grep %q", p)
-		}
-		Expect(e.must("read", m("path", "home/docs/a.md"))).To(Equal("hello\n"))
-		Expect(tempFiles(e.root)).To(BeEmpty(), "temporary files left")
-		for _, dir := range []string{e.root, "."} {
-			_, err := os.Stat(filepath.Join(dir, "PWN"))
-			Expect(err).To(HaveOccurred(), "a command ran in %s", dir)
-		}
-		Expect(pwnedFiles(e.root)).To(BeEmpty(), "a command ran")
-	})
-
-	// A name that starts with a dash is never read as an option of a command.
-	It("makes names that start with a dash relative", func() {
-		for in, want := range map[string]string{"-": "./-", "-x": "./-x", "/workspace/-n": "./-n", "a/-b": "a/-b"} {
-			got, err := codetools.GuestPath(in)
-			Expect(err).NotTo(HaveOccurred(), "GuestPath(%q)", in)
-			Expect(got).To(Equal(want), "GuestPath(%q)", in)
-		}
-	})
-
-	// A file name of 255 bytes is the longest that a Linux file system takes:
-	// its temporary file must still fit.
-	It("writes and edits a file with a 255-byte name", func() {
-		e := newToolEnv()
-		p := "home/" + strings.Repeat("n", 255)
-		e.must("write", m("path", p, "content", "zzz\n"))
-		e.must("edit", m("path", p, "oldString", "zzz", "newString", "yyy"))
-		Expect(e.must("read", m("path", p))).To(Equal("yyy\n"))
-		Expect(tempFiles(e.root)).To(BeEmpty(), "temporary files left")
-	})
 })

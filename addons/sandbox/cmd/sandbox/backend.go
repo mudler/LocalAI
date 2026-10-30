@@ -16,11 +16,11 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/chv"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/gvisor"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/host"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/host"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 
 	"github.com/mudler/LocalAI/addons/internal/atomicfile"
 )
@@ -228,7 +228,7 @@ func newSelector(dataDir string) (*backends.Selector, error) {
 // sandboxes that a change makes useless.
 type settingsAdapter struct {
 	*backends.Selector
-	m *manager.Manager
+	m *runner.Manager
 }
 
 func (s settingsAdapter) Reset() { s.m.Reset(context.Background()) }
@@ -236,6 +236,6 @@ func (s settingsAdapter) Reset() { s.m.Reset(context.Background()) }
 // unavailable is the runner of an add-on whose manager did not start.
 type unavailable struct{}
 
-func (unavailable) Run(context.Context, manager.Request) (string, error) {
+func (unavailable) Run(context.Context, runner.Request) (string, error) {
 	return "This host cannot run commands.", nil
 }

@@ -1,11 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-// Package manager keeps the sandboxes of the add-on. A sandbox belongs to one
-// user and one conversation, and nobody else reaches it: the key is the pair,
-// and the user comes from the host, never from the model. Every call commits
-// what the code changed as one change set, so the sandbox itself holds no work
-// that is not in the user's files.
-package manager
+package runner
 
 import (
 	"context"
@@ -21,9 +14,7 @@ import (
 
 	"github.com/mudler/xlog"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -35,15 +26,36 @@ const (
 	DefaultMaxAge    = 24 * time.Hour
 )
 
-// ErrBusy says the add-on holds as many sandboxes as it may.
-var ErrBusy = errors.New("the add-on is running as many sandboxes as it may; try again later")
+// ErrBusy says the runner holds as many sandboxes as it may.
+var ErrBusy = errors.New("as many sandboxes run as may; try again later")
+
+// Store is the workspace of the sandboxes: the store itself in the server,
+// or the host operations in the add-on (workspace.materialize,
+// workspace.commit, workspace.changes). A sandbox reads the files with
+// Materialize, commits with CommitUpper and asks ChangesSince whether somebody
+// else changed them.
+type Store = workspace.Store
+
+// HomeMounts is the view the add-on asks for: the user's files, writable,
+// under home.
+func HomeMounts(context.Context, workspace.Actor) ([]workspace.MountRequest, error) {
+	return []workspace.MountRequest{{Path: "/", At: "home", Mode: workspace.ModeWrite}}, nil
+}
 
 // Options configures a Manager.
 type Options struct {
 	// Backend returns the backend to use now. It may change between calls (the
-	// administrator can switch it). codetools.ErrNoSandbox means there is none.
+	// administrator can switch it). ErrNoSandbox means there is none.
 	Backend func() (sandbox.Backend, error)
-	Store   *remote.Store
+	Store   Store
+	// Mounts returns the mounts of a new sandbox of a user, given to
+	// Store.View. Nil: HomeMounts.
+	Mounts func(ctx context.Context, a workspace.Actor) ([]workspace.MountRequest, error)
+	// Tools returns the tools a sandbox runs. Nil: bash with its defaults.
+	Tools func(acquire Acquire) []Tool
+	// Prepare, when set, gives a call the context its store needs (the add-on
+	// names the host operation of the call).
+	Prepare func(ctx context.Context, r Request) context.Context
 	// StateDir is the folder the backend keeps its sandboxes in. Whatever an
 	// earlier run left in it is removed at start.
 	StateDir string
@@ -87,7 +99,7 @@ type entry struct {
 // New returns a manager. It removes what an earlier run left in StateDir.
 func New(o Options) (*Manager, error) {
 	if o.Backend == nil || o.Store == nil {
-		return nil, errors.New("manager: a backend and a store are required")
+		return nil, errors.New("runner: a backend and a store are required")
 	}
 	if o.PerUser <= 0 {
 		o.PerUser = DefaultPerUser
@@ -104,6 +116,12 @@ func New(o Options) (*Manager, error) {
 	if o.Now == nil {
 		o.Now = time.Now
 	}
+	if o.Mounts == nil {
+		o.Mounts = HomeMounts
+	}
+	if o.Tools == nil {
+		o.Tools = func(acquire Acquire) []Tool { return []Tool{Bash(acquire, BashOptions{})} }
+	}
 	if o.StateDir != "" && !o.KeepStateDir {
 		if err := clearDir(o.StateDir); err != nil {
 			return nil, err
@@ -117,7 +135,7 @@ func New(o Options) (*Manager, error) {
 func clearDir(dir string) error {
 	dir = filepath.Clean(dir)
 	if !filepath.IsAbs(dir) || dir == string(filepath.Separator) || dir == filepath.Dir(dir) {
-		return fmt.Errorf("manager: %q is not a folder the add-on may empty", dir)
+		return fmt.Errorf("runner: %q is not a folder the runner may empty", dir)
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -287,9 +305,6 @@ func (e *entry) actor() workspace.Actor {
 	return workspace.Actor{Principal: e.user, ChatID: e.conv}
 }
 
-// mounts is what a sandbox sees: the user's files, writable, under home.
-var mounts = []workspace.MountRequest{{Path: "/", At: "home", Mode: workspace.ModeWrite}}
-
 // ready makes sure the entry has a running sandbox that matches the user's
 // files. The entry's lock is held.
 func (m *Manager) ready(ctx context.Context, e *entry) error {
@@ -320,7 +335,11 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 		xlog.Warn("sandbox: resume failed, starting a fresh one", "error", err)
 		m.destroy(ctx, e)
 	}
-	v, err := m.o.Store.View(ctx, e.actor(), mounts)
+	reqs, err := m.o.Mounts(ctx, e.actor())
+	if err != nil {
+		return err
+	}
+	v, err := m.o.Store.View(ctx, e.actor(), reqs)
 	if err != nil {
 		return err
 	}
@@ -336,13 +355,13 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 // user's files is committed before it returns.
 func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	if r.User == "" || r.Conversation == "" || r.Operation == "" {
-		return "", fmt.Errorf("%w: a call needs a user, a conversation and an operation", codetools.ErrInvalid)
+		return "", fmt.Errorf("%w: a call needs a user, a conversation and an operation", ErrInvalid)
 	}
-	var tool *codetools.Tool
+	var tool *Tool
 	var runWith *sandbox.Sandbox
 	var current sandbox.Sandbox
 	runWith = &current
-	for _, t := range codetools.NewTools(func(context.Context) (sandbox.Sandbox, func(), error) {
+	for _, t := range m.o.Tools(func(context.Context) (sandbox.Sandbox, func(), error) {
 		return *runWith, func() {}, nil
 	}) {
 		if t.Name == r.Tool {
@@ -351,12 +370,12 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 		}
 	}
 	if tool == nil {
-		return "", fmt.Errorf("%w: %q is not a sandbox tool", codetools.ErrInvalid, r.Tool)
+		return "", fmt.Errorf("%w: %q is not a sandbox tool", ErrInvalid, r.Tool)
 	}
 	// Refuse early when the host cannot run sandboxes: nothing is made.
 	if _, err := m.o.Backend(); err != nil {
-		if errors.Is(err, codetools.ErrNoSandbox) {
-			return codetools.NoSandboxText, nil
+		if errors.Is(err, ErrNoSandbox) {
+			return NoSandboxText, nil
 		}
 		return "", err
 	}
@@ -369,13 +388,16 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	if e.gone {
 		return "", ErrBusy
 	}
-	ctx = remote.WithOperation(ctx, r.Operation)
+	ctx = context.WithValue(ctx, requestKey{}, r)
+	if m.o.Prepare != nil {
+		ctx = m.o.Prepare(ctx, r)
+	}
 	if err := m.ready(ctx, e); err != nil {
 		if e.sb == nil && e.snap == nil {
 			m.forget(e)
 		}
-		if errors.Is(err, codetools.ErrNoSandbox) {
-			return codetools.NoSandboxText, nil
+		if errors.Is(err, ErrNoSandbox) {
+			return NoSandboxText, nil
 		}
 		return "", err
 	}
@@ -491,7 +513,7 @@ func (m *Manager) Close(ctx context.Context) error {
 // were read at and the revisions the sandbox committed itself, so that only
 // changes made by somebody else make the sandbox stale.
 type tracker struct {
-	*remote.Store
+	Store
 	mu   sync.Mutex
 	base int64
 	own  map[int64]bool
@@ -539,4 +561,12 @@ func (t *tracker) stale(ctx context.Context, a workspace.Actor) bool {
 		}
 	}
 	return false
+}
+
+type requestKey struct{}
+
+// RequestFrom returns the request of the call that ctx belongs to.
+func RequestFrom(ctx context.Context) (Request, bool) {
+	r, ok := ctx.Value(requestKey{}).(Request)
+	return r, ok
 }

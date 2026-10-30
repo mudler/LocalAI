@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 

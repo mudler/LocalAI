@@ -1,6 +1,6 @@
 //go:build linux || darwin
 
-package codetools
+package runner
 
 import (
 	"bytes"
@@ -9,8 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -36,61 +35,28 @@ func (p blockProc) Wait() (int, error)        { <-p.ctx.Done(); return -1, p.ctx
 func (blockProc) Signal(syscall.Signal) error { return nil }
 func (blockProc) Resize(uint16, uint16) error { return nil }
 
-func toolsOver(sb sandbox.Sandbox) map[string]Tool {
-	out := map[string]Tool{}
-	for _, tl := range NewTools(func(context.Context) (sandbox.Sandbox, func(), error) { return sb, func() {}, nil }) {
-		out[tl.Name] = tl
-	}
-	return out
-}
-
-func callTool(tl Tool, args string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	return tl.Run(ctx, json.RawMessage(args))
-}
-
-var _ = Describe("Sandbox code tool limits", func() {
-	// read, glob and grep stop at their timeout and say so in their result.
-	It("stops the file tools at their timeout", func() {
-		old := fileToolTimeout
-		fileToolTimeout = 50 * time.Millisecond
-		DeferCleanup(func() { fileToolTimeout = old })
-		tools := toolsOver(limitSandbox{})
-		for name, args := range map[string]string{
-			"read": `{"path":"home/a"}`,
-			"glob": `{"pattern":"*"}`,
-			"grep": `{"pattern":"x"}`,
-		} {
-			got, err := callTool(tools[name], args)
-			Expect(err).NotTo(HaveOccurred(), name)
-			Expect(got).To(Equal("timed out after 50ms"), name)
-		}
-	})
-
+var _ = Describe("bash limits", func() {
 	// A process that writes more than the cap is stopped at the cap, and does
 	// not run until its timeout.
 	It("stops a process at the output cap", func() {
-		old := fileToolTimeout
-		fileToolTimeout = 20 * time.Second
-		DeferCleanup(func() { fileToolTimeout = old })
-		tools := toolsOver(limitSandbox{out: bytes.Repeat([]byte("x"), 100000)})
-		for _, c := range []struct{ name, args string }{
-			{"read", `{"path":"home/a"}`},
-			{"bash", `{"command":"x","timeoutSeconds":20}`},
-		} {
-			start := time.Now()
-			got, err := callTool(tools[c.name], c.args)
-			Expect(err).NotTo(HaveOccurred(), c.name)
-			Expect(got).To(ContainSubstring("[output cut: "), c.name)
-			Expect(len(got)).To(BeNumerically("<=", MaxOutput+64), c.name)
-			Expect(time.Since(start)).To(BeNumerically("<=", 5*time.Second), "%s: the process was not stopped at the cap", c.name)
-		}
+		var got BashResult
+		tl := Bash(func(context.Context) (sandbox.Sandbox, func(), error) {
+			return limitSandbox{out: bytes.Repeat([]byte("x"), 100000)}, func() {}, nil
+		}, BashOptions{MaxTimeout: 30 * time.Second, Done: func(_ context.Context, r BashResult) { got = r }})
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		start := time.Now()
+		out, err := tl.Run(ctx, json.RawMessage(`{"command":"x","timeoutSeconds":20}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("[output cut: "))
+		Expect(len(out)).To(BeNumerically("<=", MaxOutput+64))
+		Expect(time.Since(start)).To(BeNumerically("<=", 5*time.Second), "the process was not stopped at the cap")
+		Expect(got.Command).To(Equal("x"))
 	})
 
-	// The host stops an action call at ActTimeout. A bash call that may run as
-	// long must still leave time to commit its files and to answer.
-	It("ends a bash call before the action call does", func() {
-		Expect(MaxTimeout + time.Minute).To(BeNumerically("<=", contract.ActTimeout))
+	It("caps the timeout a model asks for at the maximum and says it in the schema", func() {
+		tl := Bash(nil, BashOptions{MaxTimeout: 1800 * time.Second})
+		Expect(string(tl.Schema)).To(ContainSubstring(`"maximum":1800`))
+		Expect(tl.Description).To(ContainSubstring("at most 1800"))
 	})
 })

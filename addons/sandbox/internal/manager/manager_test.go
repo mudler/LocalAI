@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT
+
+// Package manager_test runs the shared sandbox runner
+// (core/services/studio/sandbox/runner) the way the add-on does: over the
+// host operations of the remote store.
 package manager_test
 
 import (
@@ -12,11 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/codetools"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/manager"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/remote"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/sbtest"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/sbtest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -141,29 +144,32 @@ func (c *counting) Resume(ctx context.Context, r sandbox.SnapshotRef, e sandbox.
 }
 
 type fixture struct {
-	m    *manager.Manager
+	m    *runner.Manager
 	h    *host
 	b    *counting
 	now  *time.Time
 	data string
 }
 
-func setup(tweak func(*manager.Options)) *fixture {
+func setup(tweak func(*runner.Options)) *fixture {
 	data := GinkgoT().TempDir()
 	h := &host{dataDir: data, commits: map[string]map[string]string{}}
 	b := &counting{Backend: sbtest.NewFakeBackend(filepath.Join(data, "backend"))}
 	now := time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 	f := &fixture{h: h, b: b, now: &now, data: data}
-	o := manager.Options{
+	o := runner.Options{
 		Backend:  func() (sandbox.Backend, error) { return b, nil },
 		Store:    remote.New(h, data),
 		StateDir: filepath.Join(data, "backend"),
 		Now:      func() time.Time { return *f.now },
+		Prepare: func(ctx context.Context, r runner.Request) context.Context {
+			return remote.WithOperation(ctx, r.Operation)
+		},
 	}
 	if tweak != nil {
 		tweak(&o)
 	}
-	m, err := manager.New(o)
+	m, err := runner.New(o)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = m.Close(context.Background()) })
 	f.m = m
@@ -175,7 +181,7 @@ var seq int
 func (f *fixture) run(user, conv, tool string, args string) (string, string, error) {
 	seq++
 	op := fmt.Sprintf("op%d", seq)
-	out, err := f.m.Run(context.Background(), manager.Request{User: user, Conversation: conv, Operation: op, Tool: tool, Args: json.RawMessage(args)})
+	out, err := f.m.Run(context.Background(), runner.Request{User: user, Conversation: conv, Operation: op, Tool: tool, Args: json.RawMessage(args)})
 	return out, op, err
 }
 
@@ -204,7 +210,7 @@ func (b slowBackend) Create(ctx context.Context, s sandbox.Spec) (sandbox.Sandbo
 }
 
 func slowFixture(d time.Duration, n int) *fixture {
-	f := setup(func(o *manager.Options) {
+	f := setup(func(o *runner.Options) {
 		inner := o.Backend
 		o.Backend = func() (sandbox.Backend, error) {
 			b, err := inner()
@@ -269,12 +275,12 @@ var _ = Describe("Sandbox manager", func() {
 	})
 
 	It("bounds all sandboxes together", func() {
-		f := setup(func(o *manager.Options) { o.PerUser, o.Total = 4, 3 })
+		f := setup(func(o *runner.Options) { o.PerUser, o.Total = 4, 3 })
 		for i := 1; i <= 3; i++ {
 			f.run(fmt.Sprintf("u%d", i), "c", "bash", `{"command":"true"}`)
 		}
 		_, _, err := f.run("u4", "c", "bash", `{"command":"true"}`)
-		Expect(err).To(MatchError(manager.ErrBusy))
+		Expect(err).To(MatchError(runner.ErrBusy))
 		Expect(f.m.Count("")).To(Equal(3))
 	})
 
@@ -312,12 +318,12 @@ var _ = Describe("Sandbox manager", func() {
 	})
 
 	It("tells the tools they cannot run when there is no backend", func() {
-		f := setup(func(o *manager.Options) {
-			o.Backend = func() (sandbox.Backend, error) { return nil, codetools.ErrNoSandbox }
+		f := setup(func(o *runner.Options) {
+			o.Backend = func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }
 		})
 		out, _, err := f.run("alice", "c1", "bash", `{"command":"touch home/x"}`)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(out).To(Equal(codetools.NoSandboxText), "want the fixed text")
+		Expect(out).To(Equal(runner.NoSandboxText), "want the fixed text")
 		Expect(f.m.Count("")).To(BeZero(), "a sandbox exists although there is no backend")
 	})
 
@@ -326,7 +332,7 @@ var _ = Describe("Sandbox manager", func() {
 		state := filepath.Join(data, "backend")
 		Expect(os.MkdirAll(filepath.Join(state, "old-session", "lower"), 0o700)).To(Succeed())
 		h := &host{dataDir: data, commits: map[string]map[string]string{}}
-		m, err := manager.New(manager.Options{Backend: func() (sandbox.Backend, error) { return nil, codetools.ErrNoSandbox }, Store: remote.New(h, data), StateDir: state})
+		m, err := runner.New(runner.Options{Backend: func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }, Store: remote.New(h, data), StateDir: state})
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { _ = m.Close(context.Background()) }()
 		entries, _ := os.ReadDir(state)
@@ -371,7 +377,7 @@ var _ = Describe("Sandbox manager", func() {
 	})
 
 	It("does not let suspended sandboxes use up the total for other users", func() {
-		f := setup(func(o *manager.Options) { o.PerUser, o.Total = 4, 3 })
+		f := setup(func(o *runner.Options) { o.PerUser, o.Total = 4, 3 })
 		for i := 1; i <= 3; i++ {
 			*f.now = f.now.Add(time.Minute)
 			f.run(fmt.Sprintf("u%d", i), "c", "bash", `{"command":"true"}`)
@@ -389,7 +395,7 @@ var _ = Describe("Sandbox manager", func() {
 		state := filepath.Join(data, "run")
 		Expect(os.MkdirAll(filepath.Join(state, "gvisor", "sess"), 0o700)).To(Succeed())
 		h := &host{dataDir: data, commits: map[string]map[string]string{}}
-		m, err := manager.New(manager.Options{Backend: func() (sandbox.Backend, error) { return nil, codetools.ErrNoSandbox }, Store: remote.New(h, data), StateDir: state, KeepStateDir: true})
+		m, err := runner.New(runner.Options{Backend: func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }, Store: remote.New(h, data), StateDir: state, KeepStateDir: true})
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { _ = m.Close(context.Background()) }()
 		_, err = os.Stat(filepath.Join(state, "gvisor", "sess"))

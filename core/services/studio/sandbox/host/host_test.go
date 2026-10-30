@@ -16,9 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/host"
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox/sbtest"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/host"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/sbtest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 

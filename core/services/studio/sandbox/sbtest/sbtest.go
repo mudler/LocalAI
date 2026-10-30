@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/mudler/LocalAI/addons/sandbox/internal/sandbox"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
