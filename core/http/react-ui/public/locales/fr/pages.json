@@ -33,5 +33,94 @@
   },
   "askNew": "Demander une nouvelle page",
   "yours": "Les vôtres",
-  "filter": "Filtrer les pages"
+  "filter": "Filtrer les pages",
+  "shared": {
+    "yours": "Les vôtres",
+    "group": "Partagées avec vous",
+    "note": "Une page partagée ne s’exécute qu’après votre autorisation. Si son auteur la modifie, la question vous est reposée.",
+    "offNotice": "Les pages partagées sont désactivées sur ce serveur. Un administrateur les a désactivées.",
+    "off": "Les pages partagées sont désactivées sur ce serveur. Un administrateur les a désactivées.",
+    "gone": "Cette page n’est plus dans le dossier partagé, ou vous n’y avez plus accès.",
+    "review": "Examiner",
+    "from": "De {{author}}",
+    "menu": "Menu de la page",
+    "badge": {
+      "notAllowed": "Pas encore autorisée",
+      "changed": "Modifiée depuis votre autorisation",
+      "allowed": "Autorisée"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "Ne plus autoriser cette page",
+    "authorChanged": "{{author}} a modifié cette page. La version autorisée continue jusqu’à ce que vous examiniez la modification.",
+    "sandboxShared": "Isolée. S’exécute en votre nom, uniquement dans {{folder}}, sans accès au réseau."
+  },
+  "trust": {
+    "title": "Ouvrir « {{title}} » ?",
+    "desc": "Cette page vient d’un dossier partagé. Les pages s’exécutent en votre nom, vérifiez-la donc avant qu’elle ne s’exécute.",
+    "who": "Écrite par {{author}}",
+    "whereLabel": "Dossier partagé",
+    "whereWhen": ", modifiée {{when}}",
+    "someone": "quelqu’un",
+    "close": "Fermer",
+    "canTitle": "Elle peut",
+    "canStillTitle": "Elle peut toujours",
+    "cannotTitle": "Elle ne peut pas",
+    "items": {
+      "files": "Lire et écrire des fichiers dans son propre dossier",
+      "readOnly": "Vous ne pouvez que lire ce dossier partagé, la page ne peut donc pas enregistrer ses modifications.",
+      "chat": "Écrire un message dans un chat",
+      "chatNote": "Vous voyez le message dans le chat avant que l’assistant n’y réponde.",
+      "noFiles": "Lire vos autres fichiers ou chats",
+      "noNet": "Accéder au réseau ou à d’autres sites",
+      "noNetNote": "Une limite : elle peut charger une autre adresse dans son propre cadre. Cela envoie une requête vers l’extérieur, puis la page s’arrête.",
+      "noTools": "Utiliser des outils ou modifier vos réglages"
+    },
+    "warn": "Elle agit en votre nom dans son dossier. Si {{author}} la modifie, la question vous est reposée.",
+    "viewSource": "Voir la source",
+    "cancel": "Annuler",
+    "allowOnce": "Autoriser une fois",
+    "allow": "Autoriser",
+    "changed": {
+      "title": "« {{title}} » a été modifiée",
+      "desc": "Vous avez autorisé une version précédente. Vérifiez ce qui a changé avant qu’elle ne s’exécute à nouveau.",
+      "who": "Modifiée par {{author}} {{when}}",
+      "allowed": "Vous avez autorisé la version du {{date}}",
+      "what": "Ce qui a changé",
+      "same": "Ce qu’elle peut faire est inchangé.",
+      "warn": "Si vous l’autorisez, cette version s’exécute à chaque ouverture, jusqu’à ce que {{author}} la modifie à nouveau.",
+      "view": "Voir les modifications",
+      "lines": "{{before}} → {{after}} lignes"
+    },
+    "pill": {
+      "notYet": "Pas encore autorisée",
+      "not": "Non autorisée",
+      "once": "Autorisée pour cette visite",
+      "allowed": "Autorisée",
+      "changed": "Modifiée depuis votre autorisation"
+    },
+    "from": "De {{author}}",
+    "frame": {
+      "chrome": "Page partagée de {{folder}}. Elle ne s’est pas exécutée."
+    },
+    "blocked": {
+      "title": "Cette page ne s’est pas exécutée",
+      "body": "Vous avez choisi de ne pas l’exécuter. Elle vient du dossier partagé {{folder}} de {{author}}. Rien ne s’y est exécuté et rien n’a été enregistré.",
+      "review": "Examiner et autoriser"
+    },
+    "waiting": {
+      "title": "En attente de vous",
+      "body": "Rien dans cette page ne s’exécute avant votre autorisation."
+    },
+    "stopped": {
+      "revoked": "Vous n’autorisez plus cette page. Elle s’est arrêtée et rien ne s’y exécute jusqu’à une nouvelle autorisation.",
+      "refused": "Cette page n’est plus autorisée et a été arrêtée. Examinez-la pour l’autoriser à nouveau.",
+      "off": "Les pages partagées ont été désactivées sur ce serveur, cette page a donc été arrêtée."
+    },
+    "changedMeanwhile": "La page a changé pendant votre examen. Voici la nouvelle version.",
+    "sourceTitle": "Source de « {{title}} »",
+    "sourceLines_one": "{{count}} ligne",
+    "sourceLines_other": "{{count}} lignes",
+    "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici."
+  }
 }

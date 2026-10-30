@@ -483,6 +483,16 @@
 .cx-proposal__when { color: var(--dk-muted); font-family: var(--font-mono); font-size: 12.5px; }
 .cx-proposal .cx-help { margin: 4px 0 10px; }
 .cx-proposal__edit { display: grid; gap: 6px; margin-bottom: 4px; }
+/* What a proposed trigger will do, before Create trigger (mockup 20). */
+.cx-plan { margin: 0 0 12px; display: grid; font-size: var(--text-sm); }
+.cx-plan__row { display: grid; grid-template-columns: minmax(84px, 118px) 1fr; gap: 4px 12px; padding: 7px 0; border-top: 1px solid var(--dk-edge); }
+.cx-plan__row:last-child { border-bottom: 1px solid var(--dk-edge); }
+.cx-plan dt { color: var(--dk-muted); }
+.cx-plan dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--dk-text); }
+.cx-plan code { font-family: var(--font-mono); font-size: var(--text-xs); }
+@media (max-width: 420px) {
+  .cx-plan__row { grid-template-columns: 1fr; gap: 2px; }
+}
 .cx-proposal__edit .cx-pending__acts { margin-top: 6px; }
 .cx-bubble--edit { width: min(600px, 88%); }
 .cx-bubble--edit .cx-help { margin: 6px 0 8px; }

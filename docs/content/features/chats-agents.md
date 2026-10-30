@@ -131,7 +131,7 @@ and undo what it changed, and it is marked with its trigger. There are two kinds
 | Kind | Runs | Fields |
 |---|---|---|
 | `schedule` | At a time | `schedule`, `time_zone` (an IANA name; UTC when empty) |
-| `file` | When a file arrives in a folder of your files | `folder` (a path inside your files, such as `/Contracts`), `quiet_seconds` (default 30) |
+| `file` | When a file arrives in a folder of your files | `folder` (a path inside your files, such as `/Contracts`), `quiet_seconds` (default 30), `min_gap_seconds` (default 60) |
 
 A schedule is one of `daily 08:00`, `weekdays 09:30`, `weekly mon,thu 09:30`,
 `monthly 15 08:00`, `once 2026-12-24 18:00` or five cron fields. The cron fields are numbers, lists, ranges and steps (`*/15`, `1-5`, `1,15`); names such as `mon` or `jan` are not read, and `weekly` takes day names. A time that
@@ -142,7 +142,13 @@ shows the next times and says what the text means.
 A file trigger waits until the file has not changed for the quiet period, then
 starts one run for that version of the file. The first message of the run says
 `A new file arrived: /Contracts/a.txt`. A run's own writes never start the same
-trigger. An `AGENTS.md` file in a folder, or above it, is added to the first
+trigger. A file that changes again after a run of the trigger began waits for
+the trigger's minimum gap (`min_gap_seconds`, 60 by default, at most a day)
+before it starts another run, and further changes while it waits start nothing
+extra. Files that were already waiting when the run began still run. With the
+daily limit, this keeps a writer that reacts to the run's output, such as a
+page that saves after each change it sees, from starting runs in a loop: at
+most one run a minute and 24 a day by default. An `AGENTS.md` file in a folder, or above it, is added to the first
 message as rules for the run. Treat it as text from whoever can write there.
 
 ### What a run gets
@@ -159,6 +165,11 @@ message as rules for the run. Treat it as text from whoever can write there.
 - **Limits.** A run has 15 minutes. At most 2 runs go at once, one per trigger,
   and a trigger has a daily limit (`daily_cap`, default 24). A run that is skipped
   or fails shows its reason on the trigger.
+- **Cost.** A run is a chat turn on the trigger's model, so it uses tokens. A run
+  records the prompt and completion tokens of its model requests (`tokens` on the
+  run), and a trigger reports the average of its last runs, the most runs one day
+  can have, and whether the model is a remote service (`cost` on the trigger).
+  LocalAI keeps no price list, so the cost is in tokens only.
 - **History.** A trigger keeps its last 200 finished runs, and every run of
   the last two days. A finished run older than 30 days is removed, whatever the
   count. A run that is queued or running is never removed. Set
@@ -189,6 +200,21 @@ and in the transcript, so it shows again after a reload, and a
 has an agent, the trigger keeps that agent. At most 10 proposals wait at a time,
 and you can have 50 triggers.
 
+A schedule proposed in a chat runs at most once an hour. A shorter one (for
+example `*/15 * * * *`) is refused with the reason, and the model is told to
+propose an hourly or slower one. An edit of the proposal keeps the same floor.
+On the Triggers page you can still choose a shorter schedule yourself.
+
+A proposal also carries a plan, so you see what it does before you create it:
+what a run reads (`reads`), the file in your home it rewrites (`writes`), the
+Home widget that shows that file (`widget`, the widget's `id` in `home.json`)
+and about how many tokens one run uses (`estimated_tokens`). The card lists
+them with when it runs and its first run, that it runs as you with the chat's
+model, the cost (and whether the tokens leave the server) and how to stop it.
+When you create a trigger whose plan names a widget, LocalAI writes the
+trigger's id into that widget as `trigger`, so the widget can show when it runs.
+A form that edits a trigger and does not send the plan keeps it.
+
 ### Clusters
 
 In a cluster, one frontend runs the triggers at a time: the one that holds an
@@ -215,6 +241,12 @@ curl .../api/chats/triggers
 curl -X POST .../api/chats/triggers/<id>/run      # start a run now
 curl .../api/chats/triggers/<id>/runs
 ```
+
+A trigger in a response also has `plan` (`reads`, `writes`, `widget`), `cost`
+(`estimated_tokens`, `average_tokens` and `runs`, `max_runs_per_day`, `remote`),
+`last_done` (the end of the newest run that ended well), `min_gap_seconds` for a
+file trigger, and each run its `tokens`. A create or replace takes `plan`,
+`estimated_tokens` and `min_gap_seconds`; an empty one keeps the stored value.
 
 `GET`, `PUT` and `DELETE /api/chats/triggers/{id}` read, replace and delete one,
 and `POST .../enable` and `.../disable` switch it. Deleting a trigger stops its

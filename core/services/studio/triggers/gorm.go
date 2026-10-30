@@ -28,6 +28,11 @@ type triggerRow struct {
 	SourceChatID string `gorm:"size:255"`
 	Model        string `gorm:"size:255"`
 	Proposed     bool
+	MinGapNs     int64
+	Reads        string `gorm:"size:1024"`
+	Writes       string `gorm:"size:1024"`
+	Widget       string `gorm:"size:64"`
+	EstTokens    int
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -47,6 +52,7 @@ type runRow struct {
 	File      string `gorm:"size:1024"`
 	Started   time.Time
 	Ended     time.Time
+	Tokens    int
 }
 
 func (runRow) TableName() string { return "studio_trigger_runs" }
@@ -80,13 +86,15 @@ const (
 func (r triggerRow) trigger() Trigger {
 	return Trigger{ID: r.ID, Owner: r.Owner, Name: r.Name, Prompt: r.Prompt, Enabled: r.Enabled, Kind: Kind(r.Kind),
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap,
-		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed}
+		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
+		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens}
 }
 
 func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 	row := triggerRow{ID: t.ID, Owner: t.Owner, Name: t.Name, Prompt: t.Prompt, Enabled: t.Enabled, Kind: string(t.Kind),
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap,
-		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed}
+		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed,
+		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens}
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 
@@ -140,7 +148,7 @@ func (s *gormStore) EnabledTriggers(ctx context.Context) ([]Trigger, error) {
 
 func (r runRow) run() Run {
 	return Run{ID: r.ID, TriggerID: r.TriggerID, DueKey: r.DueKey, Due: utc(r.Due), Status: Status(r.Status),
-		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended)}
+		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens}
 }
 
 func isUniqueViolation(err error) bool {
@@ -167,7 +175,7 @@ func (s *gormStore) Claim(ctx context.Context, r Run) (bool, error) {
 		return false, fmt.Errorf("triggers: run %s already exists", r.ID)
 	}
 	row := runRow{ID: r.ID, TriggerID: r.TriggerID, DueKey: r.DueKey, Due: utc(r.Due), Status: string(r.Status),
-		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended)}
+		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens}
 	err := s.db.WithContext(ctx).Create(&row).Error
 	if err == nil {
 		return true, nil
@@ -195,7 +203,8 @@ func (s *gormStore) GetRun(ctx context.Context, id string) (Run, error) {
 
 func (s *gormStore) SetRunStatus(ctx context.Context, r Run) error {
 	res := s.db.WithContext(ctx).Model(&runRow{}).Where("id = ?", r.ID).Updates(map[string]any{
-		"status": string(r.Status), "reason": r.Reason, "chat_id": r.ChatID, "started": utc(r.Started), "ended": utc(r.Ended)})
+		"status": string(r.Status), "reason": r.Reason, "chat_id": r.ChatID, "started": utc(r.Started), "ended": utc(r.Ended),
+		"tokens": r.Tokens})
 	if res.Error != nil {
 		return res.Error
 	}

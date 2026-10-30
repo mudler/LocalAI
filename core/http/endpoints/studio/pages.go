@@ -37,6 +37,9 @@ var pageRules = []errRule{
 	sentinelText(http.StatusUnsupportedMediaType, typeInvalid, pages.ErrNotText),
 	sentinelText(http.StatusForbidden, typeAuthz, pages.ErrReadOnly),
 	sentinelText(http.StatusTooManyRequests, "rate_limit_error", pages.ErrRateLimited),
+	verbatim(http.StatusForbidden, typeAuthz, "pages: ", pages.ErrFolderReadOnly),
+	verbatim(http.StatusForbidden, typePageNotAllowed, "pages: ", pages.ErrNoConsent),
+	verbatim(http.StatusConflict, typeConflict, "pages: ", pages.ErrChanged),
 }
 
 func failPage(c echo.Context, err error) error {
@@ -229,7 +232,7 @@ func (h *Handlers) SendFromPage(c echo.Context) error {
 	if req.ChatID != "" {
 		rec, err = h.svc.Get(ctx, user, req.ChatID)
 	} else {
-		rec, err = h.pageChat(c, user, page, req.Model)
+		rec, err = h.pageChat(c, user, page.Name, page.Title, req.Model)
 	}
 	if err != nil {
 		if errors.Is(err, errNoPageModel) {
@@ -247,14 +250,15 @@ func (h *Handlers) SendFromPage(c echo.Context) error {
 var errNoPageModel = errors.New("choose a model: there is no chat to take one from")
 
 // pageChat finds the page's own chat among the recent chats, or creates it.
-func (h *Handlers) pageChat(c echo.Context, user string, page pages.Page, model string) (session.ChatRecord, error) {
+// originID names the page: its name for an own page.
+func (h *Handlers) pageChat(c echo.Context, user, originID, title, model string) (session.ChatRecord, error) {
 	ctx := c.Request().Context()
 	recent, err := h.svc.ListChats(ctx, user, pageChatScan)
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
 	for _, r := range recent {
-		if r.Origin == session.OriginPage && r.OriginID == page.Name {
+		if r.Origin == session.OriginPage && r.OriginID == originID {
 			return r, nil
 		}
 	}
@@ -274,8 +278,8 @@ func (h *Handlers) pageChat(c echo.Context, user string, page pages.Page, model 
 			return session.ChatRecord{}, errNoPageModel
 		}
 	}
-	return h.svc.CreateAs(ctx, user, studiosvc.CreateInput{Title: "Page: " + page.Title, Model: model},
-		studiosvc.Origin{Kind: session.OriginPage, ID: page.Name})
+	return h.svc.CreateAs(ctx, user, studiosvc.CreateInput{Title: "Page: " + title, Model: model},
+		studiosvc.Origin{Kind: session.OriginPage, ID: originID})
 }
 
 // ListPageStarters lists the starter pages.

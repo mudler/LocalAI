@@ -50,6 +50,7 @@ type Handlers struct {
 	svc    *studiosvc.Service
 	models ModelChecker
 	pages  *pages.Service
+	trust  *pages.Trust
 }
 
 // New returns the handlers. A nil models skips the model check.
@@ -57,6 +58,11 @@ func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	h := &Handlers{svc: svc, models: models}
 	if svc != nil {
 		h.pages = pages.New(svc.Files())
+		store := svc.PageConsents()
+		if store == nil {
+			store, _ = pages.NewJSONConsents("")
+		}
+		h.trust = pages.NewTrust(h.pages, store)
 	}
 	return h
 }

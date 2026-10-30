@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "时间",
+      "runsAsLabel": "运行身份",
+      "readsLabel": "读取",
+      "writesLabel": "写入",
+      "costLabel": "成本",
+      "stopLabel": "如何停止",
+      "when": "{{schedule}}，{{zone}}。首次运行 {{when}}。",
+      "whenNoFirst": "{{schedule}}，{{zone}}。",
+      "whenFile": "当有文件进入 {{folder}} 时。",
+      "runsAs": "你",
+      "runsAsModel": "你，使用 {{model}}",
+      "writesWidget": "，显示在主页的“{{widget}}”小组件中",
+      "costLocal_other": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costRemote_other": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costUnknown_other": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
+      "costLocal_one": "在本地模型上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costRemote_one": "在远程服务 {{model}} 上每次运行约 {{tokens}} 个 token。每天最多 {{count}} 次。",
+      "costUnknown_one": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
+      "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
+      "stopWidget": "在小组件中暂停，或在触发器中删除",
+      "stop": "在触发器中关闭或删除"
+    }
+  }
+}

@@ -33,6 +33,14 @@ var _ = Describe("Trigger types", func() {
 		Expect(err.Error()).To(ContainSubstring(`time zone "Mars/Base" is not known`))
 	})
 
+	It("keeps a plan and a gap", func() {
+		tr := goodFile()
+		tr.Reads, tr.Writes, tr.Widget, tr.EstTokens, tr.MinGap = "Mail from the last day", "inbox/summary.json", "inbox", 1500, time.Hour
+		Expect(tr.Validate()).To(Succeed())
+		Expect(tr.GapOrDefault()).To(Equal(time.Hour))
+		Expect(goodFile().GapOrDefault()).To(Equal(DefaultFileGap))
+	})
+
 	It("names the field on a validation error", func() {
 		for _, c := range []struct {
 			name string
@@ -52,6 +60,13 @@ var _ = Describe("Trigger types", func() {
 			{"long agent", func(t *Trigger) { t.AgentID = strings.Repeat("a", 201) }, "agent can have at most 200 characters"},
 			{"long model", func(t *Trigger) { t.Model = strings.Repeat("m", 201) }, "model can have at most 200 characters"},
 			{"long source chat", func(t *Trigger) { t.SourceChatID = strings.Repeat("c", 201) }, "source chat can have at most 200 characters"},
+			{"negative gap", func(t *Trigger) { t.MinGap = -time.Second }, "the time between runs must be 0 to"},
+			{"huge gap", func(t *Trigger) { t.MinGap = 25 * time.Hour }, "the time between runs must be 0 to"},
+			{"long reads", func(t *Trigger) { t.Reads = strings.Repeat("r", 201) }, "reads is one line"},
+			{"reads with a line break", func(t *Trigger) { t.Reads = "mail\nand more" }, "reads is one line"},
+			{"long writes", func(t *Trigger) { t.Writes = "/" + strings.Repeat("w", 256) }, "writes is a path"},
+			{"bad widget", func(t *Trigger) { t.Widget = "Inbox" }, "widget is the id of a Home widget"},
+			{"negative tokens", func(t *Trigger) { t.EstTokens = -1 }, "estimated tokens must be"},
 		} {
 			tr := goodSchedule()
 			c.edit(&tr)

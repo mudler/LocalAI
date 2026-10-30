@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
+	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -38,7 +39,42 @@ type TriggerInput struct {
 	// names one. SourceChatID is the chat the trigger was made from.
 	AgentID, Model, SourceChatID string
 	Enabled                      bool
+	// MinGap is the shortest time between two runs of a file trigger; zero
+	// is the default of one minute.
+	MinGap time.Duration
+	// The plan of a run (see triggers.Trigger): what it reads, the file it
+	// writes (a path in the user's home), the Home widget that shows that
+	// file, and about how many tokens one run uses. All optional.
+	Reads, Writes, Widget string
+	EstTokens             int
 }
+
+// keepPlan fills the fields of the plan and the gap that in leaves empty from
+// old: the forms that edit a trigger do not show them, and a save from a form
+// must not drop what the model described.
+func keepPlan(old triggers.Trigger, in TriggerInput) TriggerInput {
+	if in.Reads == "" {
+		in.Reads = old.Reads
+	}
+	if in.Writes == "" {
+		in.Writes = old.Writes
+	}
+	if in.Widget == "" {
+		in.Widget = old.Widget
+	}
+	if in.EstTokens == 0 {
+		in.EstTokens = old.EstTokens
+	}
+	if in.MinGap == 0 {
+		in.MinGap = old.MinGap
+	}
+	return in
+}
+
+// MinChatCadence is the shortest time between two runs of a schedule that a
+// model proposes in a chat. A person can choose a shorter one on the Triggers
+// page; a model cannot, so a chat cannot quietly set up a costly loop.
+const MinChatCadence = time.Hour
 
 func bad(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrBadTrigger, fmt.Sprintf(format, args...))
@@ -71,7 +107,16 @@ func (h *Triggers) ownedProposal(ctx context.Context, user, id string) (triggers
 // be checked now. It does not set Since.
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
-		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID}
+		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
+		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens}
+	if w := strings.TrimSpace(in.Writes); w != "" {
+		// A path of the home as the person writes it, stored as they see it:
+		// the widget footer and the proposal card show it back.
+		if _, err := h.svc.d.Files.Abs(owner, w); err != nil {
+			return t, bad("writes is not a path in your files")
+		}
+		t.Writes = strings.TrimPrefix(w, "/")
+	}
 	switch in.Kind {
 	case triggers.KindSchedule:
 		sch, err := triggers.ParseSchedule(in.Schedule)
@@ -151,7 +196,7 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	t, err := h.build(ctx, old.Owner, in)
+	t, err := h.build(ctx, old.Owner, keepPlan(old, in))
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
@@ -231,6 +276,9 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	if err := h.checkCadence(t); err != nil {
+		return triggers.Trigger{}, err
+	}
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	mine, err := h.o.Store.ListTriggers(ctx, owner)
@@ -263,6 +311,42 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	return t, nil
 }
 
+// checkCadence refuses a schedule that runs more often than MinChatCadence.
+// The zone does not change the gap enough to matter, so UTC is used when the
+// proposal names none.
+func (h *Triggers) checkCadence(t triggers.Trigger) error {
+	if t.Kind != triggers.KindSchedule {
+		return nil
+	}
+	sch, err := triggers.ParseSchedule(t.Schedule)
+	if err != nil {
+		return bad("%v", err)
+	}
+	loc, err := t.Location()
+	if err != nil {
+		return bad("%v", err)
+	}
+	if gap := sch.MinGap(h.o.Clock(), loc); gap > 0 && gap < MinChatCadence {
+		return bad("a trigger proposed in a chat runs at most once an hour, and %q runs every %s. "+
+			"Propose an hourly or slower schedule; the person can choose a shorter one on the Triggers page",
+			t.Schedule, gapText(gap))
+	}
+	return nil
+}
+
+func gapText(d time.Duration) string {
+	if d < time.Minute {
+		return d.Round(time.Second).String()
+	}
+	if m := int(d / time.Minute); m < 60 {
+		if m == 1 {
+			return "minute"
+		}
+		return fmt.Sprintf("%d minutes", m)
+	}
+	return d.Round(time.Minute).String()
+}
+
 // ConfirmProposal turns a proposal into a trigger that is on. A schedule
 // proposal that names no time zone takes tz (the zone of the person who
 // confirms); without one it runs in UTC.
@@ -292,7 +376,20 @@ func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (tr
 		return triggers.Trigger{}, err
 	}
 	h.Notify()
+	h.linkWidget(ctx, t)
 	return t, nil
+}
+
+// linkWidget names the confirmed trigger in the Home widget its plan names, so
+// the widget shows when it runs. A missing widget or file is not an error: the
+// widget can be added later and still finds its trigger by the plan.
+func (h *Triggers) linkWidget(ctx context.Context, t triggers.Trigger) {
+	if t.Widget == "" || !h.svc.d.Files.Available() {
+		return
+	}
+	if _, err := wellknown.New(h.svc.d.Files).LinkWidget(ctx, t.Owner, t.Widget, t.ID); err != nil {
+		h.log.Warn("studio: could not link a Home widget to its trigger", "trigger", t.ID, "error", err)
+	}
 }
 
 // EditProposal replaces the fields of a proposal that waits for an answer. It
@@ -305,8 +402,11 @@ func (h *Triggers) EditProposal(ctx context.Context, user, id string, in Trigger
 		return triggers.Trigger{}, err
 	}
 	in.Enabled = false
-	t, err := h.build(ctx, old.Owner, in)
+	t, err := h.build(ctx, old.Owner, keepPlan(old, in))
 	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	if err := h.checkCadence(t); err != nil {
 		return triggers.Trigger{}, err
 	}
 	t.ID, t.Proposed = old.ID, true
@@ -442,6 +542,35 @@ func (h *Triggers) NextRun(t triggers.Trigger) (time.Time, bool) {
 	}
 	return sch.Next(h.o.Clock(), loc)
 }
+
+// MaxRunsPerDay is the most runs one day of t can have: its daily limit, or
+// fewer for a schedule that runs less often. A run started by hand is not
+// counted.
+func (h *Triggers) MaxRunsPerDay(t triggers.Trigger) int {
+	limit := t.CapOrDefault()
+	if t.Kind != triggers.KindSchedule {
+		return limit
+	}
+	sch, err := triggers.ParseSchedule(t.Schedule)
+	if err != nil {
+		return limit
+	}
+	loc, err := t.Location()
+	if err != nil {
+		return limit
+	}
+	gap := sch.MinGap(h.o.Clock(), loc)
+	if gap <= 0 {
+		return 1 // runs once
+	}
+	if per := int((24*time.Hour + gap - 1) / gap); per < limit {
+		return per
+	}
+	return limit
+}
+
+// RemoteModel says whether the model of a trigger runs on a remote service.
+func (h *Triggers) RemoteModel(model string) bool { return h.svc.RemoteModel(model) }
 
 // RelPath returns a path of the owner's home as the owner sees it ("/Inbox/a.txt"),
 // or the path itself when it is outside the home.

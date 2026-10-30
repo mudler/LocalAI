@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/pages"
 )
 
 // legacyAPIKeyUserID is the synthetic user the auth middleware gives a request
@@ -93,6 +94,9 @@ func (a *Application) initStudioService() {
 		Assistant:          studioAssistant{a},
 		Collections:        studioCollections{a},
 		ContextTokens:      a.studioContextTokens,
+		RemoteModel:        a.studioRemoteModel,
+		PageConsents:       a.studioPageConsents(),
+		SharedPagesOn:      func() bool { return !a.applicationConfig.DisableSharedPages },
 		Modalities:         a.studioModalities,
 		MCPContent:         studioMCPContent{a: a},
 		AgentOptions:       a.studioAgentOptions,
@@ -315,4 +319,34 @@ func (a *Application) studioMCP(ctx context.Context, user, model string, only []
 		control = d.AgentControl
 	}
 	return mcpendpoint.NewToolExecutor(ctx, control, cfg.MCPSessionKey(), remote, stdio, servers), missing
+}
+
+// studioRemoteModel says whether a model is served by a remote proxy, so the
+// cost of a trigger run can say that its tokens leave this server.
+func (a *Application) studioRemoteModel(model string) bool {
+	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	return ok && cfg.IsRemoteProxy()
+}
+
+// studioPageConsents opens the store of the consents to shared pages, beside
+// the triggers: the auth database (shared by the frontends of a cluster), a
+// file under the data path, or memory.
+func (a *Application) studioPageConsents() pages.ConsentStore {
+	var (
+		st  pages.ConsentStore
+		err error
+	)
+	switch {
+	case a.authDB != nil:
+		st, err = pages.NewGORMConsents(a.authDB)
+	case a.applicationConfig.DataPath != "":
+		st, err = pages.NewJSONConsents(filepath.Join(a.applicationConfig.DataPath, "chats", "pages"))
+	default:
+		st, err = pages.NewJSONConsents("")
+	}
+	if err != nil {
+		xlog.Warn("Chats: the consents to shared pages are kept in memory", "error", err)
+		st, _ = pages.NewJSONConsents("")
+	}
+	return st
 }

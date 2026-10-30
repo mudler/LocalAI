@@ -205,3 +205,13 @@ test('well-known conflict: a newer file that changed none of the edited keys can
   assert.equal(editMeetsChange({ theme: 'light' }, { later: { x: 1 } }, { later: { x: 1 } }), false)
   assert.equal(editMeetsChange({ later: { x: 2 } }, { later: { x: 1 } }, { later: { x: 3 } }), true)
 })
+
+test('the layout editor keeps the keys it does not show, such as the trigger of a widget', () => {
+  const list = widgetList({ data: { widgets: [{ id: 'inbox', type: 'list', title: 'Inbox', source: 'data/i.json', trigger: 't1', note: 'kept' }] } })
+  assert.equal(list[0].trigger, 't1')
+  const out = cleanWidgets([{ ...list[0], title: 'Inbox this morning' }, { type: 'chats', title: 'Chats', trigger: 't2' }])
+  assert.deepEqual(out[0], { id: 'inbox', type: 'list', title: 'Inbox this morning', source: 'data/i.json', trigger: 't1', note: 'kept' })
+  assert.equal(out[1].trigger, undefined, 'a chats widget has no data file to feed')
+  assert.deepEqual(widgetData({ exists: true, valid: true, data: { items: [], source: { kind: 'page', page: 'tasks' } } }).source, { kind: 'page', page: 'tasks' })
+  assert.equal(widgetData({ exists: true, valid: true, data: { items: [], source: 'x' } }).source, null)
+})

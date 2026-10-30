@@ -20,6 +20,12 @@
             "description": "A file in your home that follows widget-data.schema.json, such as data/tasks.json.",
             "maxLength": 200,
             "pattern": "^/?([A-Za-z0-9 ._-]+/)*[A-Za-z0-9 ._-]+\\.json$"
+          },
+          "trigger": {
+            "type": "string",
+            "title": "Trigger",
+            "description": "The id of the trigger that rewrites the data file. The widget shows when it runs, its last run, and Pause.",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
           }
         },
         "required": ["id", "type", "title"],

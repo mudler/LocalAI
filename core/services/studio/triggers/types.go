@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 	_ "time/tzdata" // zone data in the binary: the image and a plain host may have none
@@ -51,7 +52,23 @@ const (
 	MaxRefLen = 200
 	// ReasonLen is the longest Reason, in characters.
 	ReasonLen = 200
+	// DefaultFileGap is the shortest time between two runs that a file
+	// trigger starts, when its MinGap is zero. Files that arrive meanwhile wait
+	// for it, so a writer that reacts to the run's own output, such as a page
+	// that saves after each change it sees, cannot start runs in a loop.
+	DefaultFileGap = time.Minute
+	// MaxFileGap bounds MinGap.
+	MaxFileGap = 24 * time.Hour
+	// MaxPlanText is the longest Reads, in characters, and MaxPlanPath the
+	// longest Writes, in bytes.
+	MaxPlanText = 200
+	MaxPlanPath = 256
+	// MaxEstTokens bounds EstTokens.
+	MaxEstTokens = 10_000_000
 )
+
+// widgetRE is the id of a Home widget, as home.json allows it.
+var widgetRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`)
 
 // Trigger starts runs for its owner.
 type Trigger struct {
@@ -92,6 +109,26 @@ type Trigger struct {
 	// Since is when the trigger began to watch. Times and changes before it
 	// start no run. Arm sets it.
 	Since time.Time
+	// MinGap is the shortest time between two runs of a file trigger (zero
+	// means DefaultFileGap). A file that settles sooner waits for it.
+	MinGap time.Duration
+	// The plan of a run, shown to the person before they confirm and on the
+	// Home widget the run feeds: what a run reads (free text), the file it
+	// writes (a path in the owner's home), the id of the Home widget that shows
+	// that file, and about how many tokens one run uses. All are optional; the
+	// package only stores them.
+	Reads     string
+	Writes    string
+	Widget    string
+	EstTokens int
+}
+
+// GapOrDefault gives MinGap, or DefaultFileGap when it is zero.
+func (t Trigger) GapOrDefault() time.Duration {
+	if t.MinGap <= 0 {
+		return DefaultFileGap
+	}
+	return t.MinGap
 }
 
 // QuietOrDefault gives Quiet, or DefaultQuiet when it is zero.
@@ -151,6 +188,16 @@ func (t Trigger) Validate() error {
 		return fmt.Errorf("source chat can have at most %d characters", MaxRefLen)
 	case t.DailyCap < 0 || t.DailyCap > MaxDailyCap:
 		return fmt.Errorf("daily limit must be 0 to %d", MaxDailyCap)
+	case t.MinGap < 0 || t.MinGap > MaxFileGap:
+		return fmt.Errorf("the time between runs must be 0 to %s", MaxFileGap)
+	case hasControl(t.Reads, false) || utf8.RuneCountInString(t.Reads) > MaxPlanText:
+		return fmt.Errorf("reads is one line of at most %d characters", MaxPlanText)
+	case hasControl(t.Writes, false) || len(t.Writes) > MaxPlanPath:
+		return fmt.Errorf("writes is a path of at most %d bytes", MaxPlanPath)
+	case t.Widget != "" && !widgetRE.MatchString(t.Widget):
+		return errors.New("widget is the id of a Home widget: lowercase letters, digits and dashes")
+	case t.EstTokens < 0 || t.EstTokens > MaxEstTokens:
+		return fmt.Errorf("estimated tokens must be 0 to %d", MaxEstTokens)
 	}
 	switch t.Kind {
 	case KindSchedule:
@@ -224,6 +271,9 @@ type Run struct {
 	File    string // workspace path of the file of a file run
 	Started time.Time
 	Ended   time.Time
+	// Tokens is what the run's model requests used, prompt and completion,
+	// when the host counted it; 0 is unknown.
+	Tokens int
 }
 
 // Reasons that the Runner writes, and one that a host writes.

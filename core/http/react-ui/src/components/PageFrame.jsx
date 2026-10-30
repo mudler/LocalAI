@@ -16,11 +16,16 @@ import { buildPageSrcdoc, createPageHost } from '../utils/pagesBridge'
 //
 //   onSend(text)   the page asks to send a message; resolves to {sent, chat_id}
 //   onWrite(path)  a write of the page succeeded (path inside the page folder)
-const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated }, ref) {
+//   files          the bridge's file calls {read(path), write(path, content,
+//                  base), list(dir)}; the default reaches the user's own page
+//   onRefused(err) a bridge call was refused because the page may no longer
+//                  run (a shared page whose consent was revoked): the caller
+//                  takes the frame down
+const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused }, ref) {
   const frameRef = useRef(null)
   const live = useRef({ host: null, channel: null, loads: 0, doc: '' })
-  const handlers = useRef({ onSend, onWrite, onNavigated })
-  handlers.current = { onSend, onWrite, onNavigated }
+  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused })
+  handlers.current = { onSend, onWrite, onNavigated, files, onRefused }
 
   const srcDoc = useMemo(
     () => buildPageSrcdoc(html, { name: page.name, title: page.title, theme }),
@@ -55,16 +60,29 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     }
     const name = page.name
     const channel = new MessageChannel()
+    const own = {
+      read: (path) => pagesApi.read(name, path),
+      write: (path, content, base) => pagesApi.write(name, path, content, base),
+      list: async (dir) => (await pagesApi.files(name, dir)).entries || [],
+    }
+    // A refusal that means the page may not run any more ends the frame at
+    // once; the page sees the error of its call first.
+    const guard = (call) => call().catch((e) => {
+      if (e?.status === 403 && /page_not_allowed|shared_pages_off/.test(e?.body?.error?.type || '')) {
+        setTimeout(() => handlers.current.onRefused?.(e), 0)
+      }
+      throw e
+    })
     const host = createPageHost({
       post: (m) => channel.port1.postMessage(m),
       files: {
-        read: (path) => pagesApi.read(name, path),
+        read: (path) => guard(() => (handlers.current.files || own).read(path)),
         write: async (path, content, base) => {
-          const out = await pagesApi.write(name, path, content, base)
+          const out = await guard(() => (handlers.current.files || own).write(path, content, base))
           handlers.current.onWrite?.(out.path)
           return out
         },
-        list: async (dir) => (await pagesApi.files(name, dir)).entries || [],
+        list: (dir) => guard(() => (handlers.current.files || own).list(dir)),
       },
       chat: { send: (text) => handlers.current.onSend(text) },
     })

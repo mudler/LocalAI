@@ -29,7 +29,10 @@ const proposeTriggerDescription = "Propose a trigger: a task that runs by itself
 	"Give the name and the prompt that the run will get. " +
 	"when is a schedule text (\"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields) " +
 	"or {\"file_arrives_in\": folder} with a folder inside the user's files, such as /Contracts. " +
-	"time_zone is an IANA name such as Europe/Rome; when absent, the person's own zone is used when they confirm."
+	"A schedule runs at most once an hour; a shorter one is refused. " +
+	"time_zone is an IANA name such as Europe/Rome; when absent, the person's own zone is used when they confirm. " +
+	"Fill reads, writes, widget and estimated_tokens so the person sees what a run does and costs before they confirm: " +
+	"writes is the data file a run rewrites and widget the id of the Home widget in home.json that shows it."
 
 const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
@@ -38,7 +41,11 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`{"type":"string"},` +
 	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
 	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, the person's own zone is used when they confirm."},` +
-	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."}},` +
+	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
+	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words: Mail from the last 24 hours."},` +
+	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites, such as data/inbox.json."},` +
+	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget in home.json that shows the file."},` +
+	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses, prompt and answer."}},` +
 	`"required":["name","prompt","when"]}`
 
 const listTriggersDescription = "List the triggers of the user: the name, when it runs or which folder it watches, whether it is on or off, and how its last run ended. " +
@@ -67,12 +74,17 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, rec sessi
 		When     json.RawMessage `json:"when"`
 		TimeZone string          `json:"time_zone"`
 		DailyCap int             `json:"daily_cap"`
+		Reads    string          `json:"reads"`
+		Writes   string          `json:"writes"`
+		Widget   string          `json:"widget"`
+		Tokens   int             `json:"estimated_tokens"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
 	in := TriggerInput{Name: args.Name, Prompt: args.Prompt, DailyCap: args.DailyCap, TZ: args.TimeZone,
-		SourceChatID: a.ChatID, AgentID: rec.AgentID, Model: rec.Model}
+		SourceChatID: a.ChatID, AgentID: rec.AgentID, Model: rec.Model,
+		Reads: args.Reads, Writes: args.Writes, Widget: args.Widget, EstTokens: args.Tokens}
 	var text string
 	var obj struct {
 		FileArrivesIn string `json:"file_arrives_in"`

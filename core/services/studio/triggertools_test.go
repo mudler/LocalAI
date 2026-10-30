@@ -2,6 +2,8 @@ package studio_test
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -185,5 +187,100 @@ var _ = Describe("triggertools", func() {
 		// Once confirmed, a new proposal of the same text may wait again.
 		_, err = r.host.ConfirmProposal(ctx, alice, props[0].ID, "")
 		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("triggertools: cadence and plan", func() {
+	It("a schedule proposed in a chat runs at most once an hour", func() {
+		r := newTrigRig(proposeScript(`{"name":"Every quarter","prompt":"p","when":"*/15 * * * *"}`))
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "propose")
+		idle(r.svc, alice, id)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1), "result = %+v", res)
+		Expect(res[0].Err).NotTo(BeNil(), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("runs at most once an hour"), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("every 15 minutes"), "result = %+v", res)
+		props, _ := r.host.Proposals(context.Background(), alice)
+		Expect(props).To(BeEmpty(), "stored %+v", props)
+	})
+
+	It("an hourly proposal is fine and keeps what a run reads, writes and costs", func() {
+		r := newTrigRig(proposeScript(`{"name":"Inbox","prompt":"Rewrite data/inbox.json.","when":"0 * * * *",` +
+			`"reads":"Mail from the last hour","writes":"/data/inbox.json","widget":"inbox","estimated_tokens":1500}`))
+		ctx := context.Background()
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "propose")
+		idle(r.svc, alice, id)
+		props, err := r.host.Proposals(ctx, alice)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(props).To(HaveLen(1), "proposals = %+v, results = %+v", props, r.h.ResultsFor("propose_trigger"))
+		p := props[0]
+		Expect(p.Reads).To(Equal("Mail from the last hour"))
+		Expect(p.Writes).To(Equal("data/inbox.json"), "the path is kept as the person sees it")
+		Expect(p.Widget).To(Equal("inbox"))
+		Expect(p.EstTokens).To(Equal(1500))
+		Expect(r.host.MaxRunsPerDay(p)).To(Equal(24))
+
+		// An edit of the proposal keeps the plan and the hourly floor.
+		_, err = r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "*/30 * * * *", Model: p.Model})
+		Expect(err).To(MatchError(ContainSubstring("runs at most once an hour")))
+		got, err := r.host.EditProposal(ctx, alice, p.ID, studio.TriggerInput{Name: "Inbox daily", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "daily 08:00", Model: p.Model})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Writes).To(Equal("data/inbox.json"), "an edit dropped the plan: %+v", got)
+		Expect(got.EstTokens).To(Equal(1500), "an edit dropped the estimate: %+v", got)
+		Expect(r.host.MaxRunsPerDay(got)).To(Equal(1))
+
+		// On the Triggers page a person may choose a shorter schedule.
+		on, err := r.host.ConfirmProposal(ctx, alice, p.ID, "UTC")
+		Expect(err).NotTo(HaveOccurred())
+		upd, err := r.host.UpdateTrigger(ctx, alice, on.ID, studio.TriggerInput{Name: "Inbox", Prompt: p.Prompt, Kind: triggers.KindSchedule, Schedule: "*/15 * * * *", Model: "m", Enabled: true})
+		Expect(err).NotTo(HaveOccurred(), "a person could not choose 15 minutes")
+		Expect(upd.Widget).To(Equal("inbox"), "an update from the page dropped the widget: %+v", upd)
+	})
+
+	It("a plan that writes outside the home is refused", func() {
+		r := newTrigRig(proposeScript(`{"name":"x","prompt":"p","when":"daily 08:00","writes":"../bob/data.json"}`))
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "propose")
+		idle(r.svc, alice, id)
+		res := r.h.ResultsFor("propose_trigger")
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).NotTo(BeNil(), "result = %+v", res)
+		Expect(res[0].Err.Error()).To(ContainSubstring("writes is not a path in your files"))
+	})
+})
+
+var _ = Describe("triggertools: the Home widget of a trigger", func() {
+	It("confirming a proposal names the trigger in its widget and keeps the other keys", func() {
+		r := newTrigRig(proposeScript(`{"name":"Inbox","prompt":"Rewrite data/inbox.json.","when":"daily 08:00","writes":"data/inbox.json","widget":"inbox"}`))
+		ctx := context.Background()
+		fs := r.sh.files
+		Expect(fs.EnsureHome(ctx, alice)).To(Succeed())
+		home, _ := fs.Abs(alice, "/home.json")
+		_, err := fs.Store().Put(ctx, fs.Actor(alice), home, strings.NewReader(
+			`{"widgets":[{"id":"inbox","type":"list","title":"Inbox","source":"data/inbox.json","note":"mine"},{"id":"chats","type":"chats","title":"Chats"}],"extra":1}`),
+			workspace.PutOptions{Overwrite: true})
+		Expect(err).NotTo(HaveOccurred())
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "propose")
+		idle(r.svc, alice, id)
+		props, _ := r.host.Proposals(ctx, alice)
+		Expect(props).To(HaveLen(1))
+		on, err := r.host.ConfirmProposal(ctx, alice, props[0].ID, "UTC")
+		Expect(err).NotTo(HaveOccurred())
+		rd, _, err := fs.Store().Open(ctx, fs.Actor(alice), home)
+		Expect(err).NotTo(HaveOccurred())
+		defer rd.Close()
+		var doc struct {
+			Widgets []map[string]any `json:"widgets"`
+			Extra   int              `json:"extra"`
+		}
+		Expect(json.NewDecoder(rd).Decode(&doc)).To(Succeed())
+		Expect(doc.Extra).To(Equal(1), "a key of the file was lost")
+		Expect(doc.Widgets).To(HaveLen(2))
+		Expect(doc.Widgets[0]["trigger"]).To(Equal(on.ID))
+		Expect(doc.Widgets[0]["note"]).To(Equal("mine"), "a key of the widget was lost")
+		Expect(doc.Widgets[1]).NotTo(HaveKey("trigger"))
 	})
 })

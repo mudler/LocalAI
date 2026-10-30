@@ -33,5 +33,94 @@
   },
   "askNew": "Neue Seite anfragen",
   "yours": "Deine",
-  "filter": "Seiten filtern"
+  "filter": "Seiten filtern",
+  "shared": {
+    "yours": "Deine",
+    "group": "Mit dir geteilt",
+    "note": "Eine geteilte Seite läuft erst, wenn du sie erlaubst. Ändert ihr Autor sie, wirst du erneut gefragt.",
+    "offNotice": "Geteilte Seiten sind auf diesem Server ausgeschaltet. Ein Administrator hat sie ausgeschaltet.",
+    "off": "Geteilte Seiten sind auf diesem Server ausgeschaltet. Ein Administrator hat sie ausgeschaltet.",
+    "gone": "Diese Seite ist nicht mehr im geteilten Ordner, oder du hast keinen Zugriff mehr darauf.",
+    "review": "Prüfen",
+    "from": "Von {{author}}",
+    "menu": "Seitenmenü",
+    "badge": {
+      "notAllowed": "Noch nicht erlaubt",
+      "changed": "Geändert, seit du sie erlaubt hast",
+      "allowed": "Erlaubt"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "Diese Seite nicht mehr erlauben",
+    "authorChanged": "{{author}} hat diese Seite geändert. Die erlaubte Version läuft weiter, bis du die Änderung prüfst.",
+    "sandboxShared": "Abgeschottet. Läuft als du, nur in {{folder}}, und erreicht das Netzwerk nicht."
+  },
+  "trust": {
+    "title": "„{{title}}“ öffnen?",
+    "desc": "Diese Seite stammt aus einem geteilten Ordner. Seiten laufen als du, prüfe sie also, bevor sie läuft.",
+    "who": "Geschrieben von {{author}}",
+    "whereLabel": "Geteilter Ordner",
+    "whereWhen": ", geändert {{when}}",
+    "someone": "jemandem",
+    "close": "Schließen",
+    "canTitle": "Sie kann",
+    "canStillTitle": "Sie kann weiterhin",
+    "cannotTitle": "Sie kann nicht",
+    "items": {
+      "files": "Dateien in ihrem eigenen Ordner lesen und schreiben",
+      "readOnly": "Du kannst diesen geteilten Ordner nur lesen, daher kann die Seite ihre Änderungen nicht speichern.",
+      "chat": "Eine Nachricht in einen Chat schreiben",
+      "chatNote": "Du siehst die Nachricht im Chat, bevor der Assistent antwortet.",
+      "noFiles": "Deine anderen Dateien oder Chats lesen",
+      "noNet": "Das Netzwerk oder andere Websites erreichen",
+      "noNetNote": "Eine Grenze: Sie kann in ihrem eigenen Rahmen eine andere Adresse laden. Das sendet eine Anfrage nach außen, danach hält die Seite an.",
+      "noTools": "Werkzeuge nutzen oder deine Einstellungen ändern"
+    },
+    "warn": "Sie handelt in ihrem Ordner als du. Ändert {{author}} sie, wirst du erneut gefragt.",
+    "viewSource": "Quelltext ansehen",
+    "cancel": "Abbrechen",
+    "allowOnce": "Einmal erlauben",
+    "allow": "Erlauben",
+    "changed": {
+      "title": "„{{title}}“ wurde geändert",
+      "desc": "Du hast eine frühere Version erlaubt. Prüfe die Änderungen, bevor sie wieder läuft.",
+      "who": "Geändert von {{author}} {{when}}",
+      "allowed": "Du hast die Version vom {{date}} erlaubt",
+      "what": "Was sich geändert hat",
+      "same": "Was sie tun kann, ist wie vorher.",
+      "warn": "Wenn du sie erlaubst, läuft diese Version bei jedem Öffnen, bis {{author}} sie wieder ändert.",
+      "view": "Änderungen ansehen",
+      "lines": "{{before}} → {{after}} Zeilen"
+    },
+    "pill": {
+      "notYet": "Noch nicht erlaubt",
+      "not": "Nicht erlaubt",
+      "once": "Für diesen Besuch erlaubt",
+      "allowed": "Erlaubt",
+      "changed": "Geändert, seit du sie erlaubt hast"
+    },
+    "from": "Von {{author}}",
+    "frame": {
+      "chrome": "Geteilte Seite aus {{folder}}. Sie ist nicht gelaufen."
+    },
+    "blocked": {
+      "title": "Diese Seite ist nicht gelaufen",
+      "body": "Du hast entschieden, sie nicht auszuführen. Sie stammt aus dem geteilten Ordner {{folder}} von {{author}}. Nichts darin ist gelaufen und nichts wurde gespeichert.",
+      "review": "Prüfen und erlauben"
+    },
+    "waiting": {
+      "title": "Wartet auf dich",
+      "body": "Nichts auf dieser Seite läuft, bevor du sie erlaubst."
+    },
+    "stopped": {
+      "revoked": "Du erlaubst diese Seite nicht mehr. Sie wurde angehalten, und nichts darin läuft, bis du sie wieder erlaubst.",
+      "refused": "Diese Seite ist nicht mehr erlaubt und wurde angehalten. Prüfe sie, um sie wieder zu erlauben.",
+      "off": "Geteilte Seiten wurden auf diesem Server ausgeschaltet, daher wurde diese Seite angehalten."
+    },
+    "changedMeanwhile": "Die Seite hat sich geändert, während du sie geprüft hast. Das ist die neue Version.",
+    "sourceTitle": "Quelltext von „{{title}}“",
+    "sourceLines_one": "{{count}} Zeile",
+    "sourceLines_other": "{{count}} Zeilen",
+    "sourceNote": "Der Quelltext wird als Text gezeigt. Nichts davon läuft hier."
+  }
 }

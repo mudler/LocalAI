@@ -216,7 +216,7 @@ func (s *jsonStore) SetRunStatus(_ context.Context, r Run) error {
 			continue
 		}
 		prev := x
-		x.Status, x.Reason, x.ChatID, x.Started, x.Ended = r.Status, r.Reason, r.ChatID, utc(r.Started), utc(r.Ended)
+		x.Status, x.Reason, x.ChatID, x.Started, x.Ended, x.Tokens = r.Status, r.Reason, r.ChatID, utc(r.Started), utc(r.Ended), r.Tokens
 		s.d.Runs[i] = x
 		if err := s.save(); err != nil {
 			s.d.Runs[i] = prev

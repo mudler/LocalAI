@@ -259,6 +259,33 @@ export const pagesApi = {
   copyStarter: (id) => postJSON(`/api/chats/page-starters/${encodeURIComponent(id)}/copy`, {}),
 }
 
+// The pages of the user's shared folders. A shared page runs only after the
+// user allowed its version; every bridge call names the version that runs
+// (hash) and, for a visit allowed once, the visit token.
+const sharedUrl = (folder, name) => `/api/chats/shared-pages/${encodeURIComponent(folder)}/${encodeURIComponent(name)}`
+const frameHeaders = ({ hash, token }) => ({
+  'Content-Type': 'application/json',
+  'X-LocalAI-Page-Hash': hash || '',
+  ...(token ? { 'X-LocalAI-Page-Visit': token } : {}),
+})
+export const sharedPagesApi = {
+  list: () => fetchJSON('/api/chats/shared-pages'),
+  get: (folder, name) => fetchJSON(sharedUrl(folder, name)),
+  allow: (folder, name, hash, once) => fetchJSON(`${sharedUrl(folder, name)}/consent`, {
+    method: 'PUT', body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }),
+  }),
+  revoke: (folder, name) => fetchJSON(`${sharedUrl(folder, name)}/consent`, { method: 'DELETE' }),
+  // frame is {hash, token}: the version the frame runs and its visit token.
+  read: (folder, name, frame, path) => fetchJSON(`${sharedUrl(folder, name)}/file${q({ path })}`, { headers: frameHeaders(frame) }),
+  write: (folder, name, frame, path, content, base) => fetchJSON(`${sharedUrl(folder, name)}/file`, {
+    method: 'PUT', headers: frameHeaders(frame), body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
+  }),
+  files: (folder, name, frame, dir) => fetchJSON(`${sharedUrl(folder, name)}/files${q({ dir })}`, { headers: frameHeaders(frame) }),
+  send: (folder, name, frame, text, chatId, model) => fetchJSON(`${sharedUrl(folder, name)}/chat`, {
+    method: 'POST', headers: frameHeaders(frame), body: JSON.stringify({ text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}) }),
+  }),
+}
+
 // Chat skills: folders with a SKILL.md in four layers, switched per chat.
 const enc2 = encodeURIComponent
 export const chatSkillsApi = {

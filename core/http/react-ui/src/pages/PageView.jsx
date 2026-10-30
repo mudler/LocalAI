@@ -17,7 +17,7 @@ let nextAsk = 0
 
 // A message the page wants to send. Nothing reaches a chat until the person
 // picks the chat and presses Send; Dismiss answers the page {sent: false}.
-function SendAsk({ ask, chats, onSend, onDismiss, t }) {
+export function SendAsk({ ask, chats, onSend, onDismiss, t }) {
   const [target, setTarget] = useState('')
   if (ask.status === 'sent') {
     return (

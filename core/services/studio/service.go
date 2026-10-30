@@ -23,6 +23,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -142,6 +143,16 @@ type Deps struct {
 	// video does. A model without them gets the file and the describe_image
 	// tool. Nil: no model takes either.
 	Modalities func(model string) Modalities
+	// PageConsents keeps the consents of the viewers of shared pages. Nil: an
+	// in-memory store, for a single process and tests.
+	PageConsents pages.ConsentStore
+	// SharedPagesOn says whether the pages of shared folders are on; an
+	// administrator switches them at run time. Nil: on.
+	SharedPagesOn func() bool
+	// RemoteModel says whether a model runs on a remote service (a cloud
+	// proxy), so a cost shown to the person can say that the tokens leave the
+	// server. Nil: no model is remote.
+	RemoteModel func(model string) bool
 	// Persistent is true when the store keeps conversations across a restart.
 	Persistent bool
 	// SuggestionsDefault says whether the assistant may offer things (to save a
@@ -439,6 +450,29 @@ func (s *Service) Principal(user string) string { return principal(user) }
 
 // Files returns the workspace of the chats. It is never nil.
 func (s *Service) Files() *files.Service { return s.d.Files }
+
+// PageConsents returns the store of the consents to shared pages, or nil.
+func (s *Service) PageConsents() pages.ConsentStore { return s.d.PageConsents }
+
+// SharedPagesOn says whether the pages of shared folders are on now.
+func (s *Service) SharedPagesOn() bool { return s.d.SharedPagesOn == nil || s.d.SharedPagesOn() }
+
+// UserName returns the name of an account to show to another user: its
+// display name when the server has accounts, the principal otherwise.
+func (s *Service) UserName(ctx context.Context, id string) string {
+	if s.d.Users == nil || id == "" {
+		return id
+	}
+	if u, err := s.d.Users(ctx, id); err == nil && u != nil && u.Name != "" {
+		return u.Name
+	}
+	return id
+}
+
+// RemoteModel says whether model runs on a remote service.
+func (s *Service) RemoteModel(model string) bool {
+	return s.d.RemoteModel != nil && model != "" && s.d.RemoteModel(model)
+}
 
 // Persistent reports whether conversations survive a restart of the server.
 func (s *Service) Persistent() bool { return s.d.Persistent }

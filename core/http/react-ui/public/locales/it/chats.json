@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "Quando",
+      "runsAsLabel": "Viene eseguito come",
+      "readsLabel": "Legge",
+      "writesLabel": "Scrive",
+      "costLabel": "Costo",
+      "stopLabel": "Per fermarlo",
+      "when": "{{schedule}}, {{zone}}. Prima esecuzione {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Quando arriva un file in {{folder}}.",
+      "runsAs": "Tu",
+      "runsAsModel": "Tu, con {{model}}",
+      "writesWidget": ", mostrato nel widget \"{{widget}}\" della Home",
+      "costLocal_one": "Circa {{tokens}} token per esecuzione su un modello locale. Al massimo {{count}} esecuzione al giorno.",
+      "costLocal_other": "Circa {{tokens}} token per esecuzione su un modello locale. Al massimo {{count}} esecuzioni al giorno.",
+      "costRemote_one": "Circa {{tokens}} token per esecuzione su {{model}}, un servizio remoto. Al massimo {{count}} esecuzione al giorno.",
+      "costRemote_other": "Circa {{tokens}} token per esecuzione su {{model}}, un servizio remoto. Al massimo {{count}} esecuzioni al giorno.",
+      "costUnknown_one": "I token di un'esecuzione si conoscono dopo la prima. Al massimo {{count}} esecuzione al giorno.",
+      "costUnknown_other": "I token di un'esecuzione si conoscono dopo la prima. Al massimo {{count}} esecuzioni al giorno.",
+      "remoteNote": "{{model}} è un servizio remoto: quello che un'esecuzione legge esce da questo server.",
+      "stopWidget": "Mettilo in pausa dal widget, o eliminalo in Trigger",
+      "stop": "Spegnilo o eliminalo in Trigger"
+    }
+  }
+}

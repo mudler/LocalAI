@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "Quand",
+      "runsAsLabel": "S’exécute en tant que",
+      "readsLabel": "Lit",
+      "writesLabel": "Écrit",
+      "costLabel": "Coût",
+      "stopLabel": "Pour l’arrêter",
+      "when": "{{schedule}}, {{zone}}. Première exécution {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Quand un fichier arrive dans {{folder}}.",
+      "runsAs": "Vous",
+      "runsAsModel": "Vous, avec {{model}}",
+      "writesWidget": ", affiché dans le widget « {{widget}} » de l’accueil",
+      "costLocal_one": "Environ {{tokens}} jetons par exécution sur un modèle local. Au plus {{count}} exécution par jour.",
+      "costLocal_other": "Environ {{tokens}} jetons par exécution sur un modèle local. Au plus {{count}} exécutions par jour.",
+      "costRemote_one": "Environ {{tokens}} jetons par exécution sur {{model}}, un service distant. Au plus {{count}} exécution par jour.",
+      "costRemote_other": "Environ {{tokens}} jetons par exécution sur {{model}}, un service distant. Au plus {{count}} exécutions par jour.",
+      "costUnknown_one": "Les jetons d’une exécution sont connus après la première. Au plus {{count}} exécution par jour.",
+      "costUnknown_other": "Les jetons d’une exécution sont connus après la première. Au plus {{count}} exécutions par jour.",
+      "remoteNote": "{{model}} est un service distant : ce que lit une exécution quitte ce serveur.",
+      "stopWidget": "Mettez-le en pause depuis le widget, ou supprimez-le dans Déclencheurs",
+      "stop": "Désactivez-le ou supprimez-le dans Déclencheurs"
+    }
+  }
+}

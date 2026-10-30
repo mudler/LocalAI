@@ -33,5 +33,94 @@
   },
   "askNew": "Chiedi una nuova pagina",
   "yours": "Tue",
-  "filter": "Filtra le pagine"
+  "filter": "Filtra le pagine",
+  "shared": {
+    "yours": "Tue",
+    "group": "Condivise con te",
+    "note": "Una pagina condivisa si avvia solo dopo che l'hai consentita. Se l'autore la cambia, ti viene chiesto di nuovo.",
+    "offNotice": "Le pagine condivise sono spente su questo server. Un amministratore le ha spente.",
+    "off": "Le pagine condivise sono spente su questo server. Un amministratore le ha spente.",
+    "gone": "Questa pagina non è più nella cartella condivisa, oppure non hai più accesso.",
+    "review": "Esamina",
+    "from": "Da {{author}}",
+    "menu": "Menu della pagina",
+    "badge": {
+      "notAllowed": "Non ancora consentita",
+      "changed": "Cambiata da quando l'hai consentita",
+      "allowed": "Consentita"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "Non consentire più questa pagina",
+    "authorChanged": "{{author}} ha cambiato questa pagina. La versione che hai consentito continua finché non esamini la modifica.",
+    "sandboxShared": "Isolata. Viene eseguita come te, solo in {{folder}}, e non raggiunge la rete."
+  },
+  "trust": {
+    "title": "Aprire \"{{title}}\"?",
+    "desc": "Questa pagina viene da una cartella condivisa. Le pagine vengono eseguite come te, quindi controllala prima che parta.",
+    "who": "Scritta da {{author}}",
+    "whereLabel": "Cartella condivisa",
+    "whereWhen": ", modificata {{when}}",
+    "someone": "qualcuno",
+    "close": "Chiudi",
+    "canTitle": "Può",
+    "canStillTitle": "Può ancora",
+    "cannotTitle": "Non può",
+    "items": {
+      "files": "Leggere e scrivere file nella sua cartella",
+      "readOnly": "Puoi solo leggere questa cartella condivisa, quindi la pagina non può salvare le modifiche.",
+      "chat": "Scrivere un messaggio in una chat",
+      "chatNote": "Vedi il messaggio nella chat prima che l'assistente risponda.",
+      "noFiles": "Leggere gli altri tuoi file o chat",
+      "noNet": "Raggiungere la rete o altri siti",
+      "noNetNote": "Un limite: può caricare un altro indirizzo nel proprio riquadro. Questo invia una richiesta all'esterno, poi la pagina si ferma.",
+      "noTools": "Usare strumenti o cambiare le tue impostazioni"
+    },
+    "warn": "Agisce come te dentro la sua cartella. Se {{author}} la cambia, ti viene chiesto di nuovo.",
+    "viewSource": "Vedi il codice",
+    "cancel": "Annulla",
+    "allowOnce": "Consenti una volta",
+    "allow": "Consenti",
+    "changed": {
+      "title": "\"{{title}}\" è cambiata",
+      "desc": "Hai consentito una versione precedente. Controlla cosa è cambiato prima che riparta.",
+      "who": "Cambiata da {{author}} {{when}}",
+      "allowed": "Hai consentito la versione del {{date}}",
+      "what": "Cosa è cambiato",
+      "same": "Quello che può fare è come prima.",
+      "warn": "Se la consenti, questa versione parte ogni volta che la apri, finché {{author}} non la cambia di nuovo.",
+      "view": "Vedi le modifiche",
+      "lines": "{{before}} → {{after}} righe"
+    },
+    "pill": {
+      "notYet": "Non ancora consentita",
+      "not": "Non consentita",
+      "once": "Consentita per questa visita",
+      "allowed": "Consentita",
+      "changed": "Cambiata da quando l'hai consentita"
+    },
+    "from": "Da {{author}}",
+    "frame": {
+      "chrome": "Pagina condivisa da {{folder}}. Non è stata eseguita."
+    },
+    "blocked": {
+      "title": "Questa pagina non è stata eseguita",
+      "body": "Hai scelto di non eseguirla. Viene dalla cartella condivisa {{folder}} di {{author}}. Non è stato eseguito nulla e non è stato salvato nulla.",
+      "review": "Esamina e consenti"
+    },
+    "waiting": {
+      "title": "In attesa di te",
+      "body": "Nulla in questa pagina viene eseguito finché non la consenti."
+    },
+    "stopped": {
+      "revoked": "Non consenti più questa pagina. Si è fermata e nulla viene eseguito finché non la consenti di nuovo.",
+      "refused": "Questa pagina non è più consentita, quindi è stata fermata. Esaminala per consentirla di nuovo.",
+      "off": "Le pagine condivise sono state spente su questo server, quindi questa pagina è stata fermata."
+    },
+    "changedMeanwhile": "La pagina è cambiata mentre la esaminavi. Questa è la nuova versione.",
+    "sourceTitle": "Codice di \"{{title}}\"",
+    "sourceLines_one": "{{count}} riga",
+    "sourceLines_other": "{{count}} righe",
+    "sourceNote": "Il codice è mostrato come testo. Qui non viene eseguito nulla."
+  }
 }
