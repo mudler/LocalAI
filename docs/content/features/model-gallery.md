@@ -191,6 +191,22 @@ frees. Removal then waits 30 seconds, during which you can undo it; the delete
 request is sent only when that time ends. If you leave the page during the wait,
 nothing is deleted.
 
+## Nanbeige4.3-33B
+
+[Nanbeige4.3-33B](https://huggingface.co/Nanbeige/Nanbeige4.3-33B) is a text model for reasoning, coding, and agent tasks. The gallery offers AtomicChat AD-Q4_K_M and Q8_0 GGUF builds for `llama-cpp`. Both use the embedded chat template with thinking enabled and a default context of 32,768 tokens.
+
+Install the grouped entry to let LocalAI select a build that fits the host:
+
+```bash
+local-ai models install nanbeige4.3-33b-ad-q4
+```
+
+To select Q8_0 explicitly:
+
+```bash
+local-ai models install nanbeige4.3-33b-q8
+```
+
 ## LFM2.5-24B-A2B
 
 [LiquidAI LFM2.5-24B-A2B](https://huggingface.co/LiquidAI/LFM2.5-24B-A2B)
