@@ -434,7 +434,8 @@ func Run(newStore New) {
 // handle on the same storage (a reopened store), which proves persistence.
 func Seed(s store.Store) {
 	Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "seed", Principal: "alice", Title: "Kept", Created: t0, Updated: t0})).To(Succeed())
-	Expect(s.AppendEntry(ctx(), "seed", session.Entry{Role: "user", Text: "hello"})).Error().NotTo(HaveOccurred())
+	Expect(s.AppendEntry(ctx(), "seed", session.Entry{Role: "user", Text: "hello", Note: "\n\n[Text of a.pdf:\nx]",
+		Attachments: []session.Attachment{{Path: "/Chats/c/a.pdf", Name: "a.pdf", Size: 9, Mime: "application/pdf", Version: 1}}})).Error().NotTo(HaveOccurred())
 	Expect(s.AddPending(ctx(), "alice", "seed", "waiting")).Error().NotTo(HaveOccurred())
 	Expect(s.ClaimTurn(ctx(), "alice", "seed", "r1")).To(Succeed())
 	Expect(s.ReleaseTurn(ctx(), "alice", "seed", "r1", store.TurnStopped)).To(Succeed())
@@ -449,6 +450,8 @@ func CheckSeed(s store.Store) {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(es).To(HaveLen(1), "Entries = %+v", es)
 	Expect(es[0].Text).To(Equal("hello"))
+	Expect(es[0].Note).To(Equal("\n\n[Text of a.pdf:\nx]"))
+	Expect(es[0].Attachments).To(Equal([]session.Attachment{{Path: "/Chats/c/a.pdf", Name: "a.pdf", Size: 9, Mime: "application/pdf", Version: 1}}))
 	ps, err := s.Pending(ctx(), "alice", "seed")
 	Expect(err).NotTo(HaveOccurred())
 	Expect(texts(ps)).To(Equal([]string{"waiting"}), "Pending")

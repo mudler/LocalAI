@@ -58,10 +58,35 @@ type entryRow struct {
 	Rev    int64
 	DurMs  int64
 	Card   string `gorm:"type:text"`
-	At     time.Time
+	// Attachments is the JSON list of the files of a user message, Note the
+	// text read from them; both empty for other lines.
+	Attachments string `gorm:"type:text"`
+	Note        string `gorm:"type:text"`
+	At          time.Time
 }
 
 func (entryRow) TableName() string { return "studio_entries" }
+
+// toEntryRow is the row of entry e of chat id with sequence number seq.
+func toEntryRow(id string, seq int64, e session.Entry) (entryRow, error) {
+	r := entryRow{ChatID: id, Seq: seq, Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
+		DurMs: e.Dur.Milliseconds(), Note: e.Note, At: e.At}
+	if e.Card != nil {
+		raw, err := json.Marshal(e.Card)
+		if err != nil {
+			return entryRow{}, err
+		}
+		r.Card = string(raw)
+	}
+	if len(e.Attachments) > 0 {
+		raw, err := json.Marshal(e.Attachments)
+		if err != nil {
+			return entryRow{}, err
+		}
+		r.Attachments = string(raw)
+	}
+	return r, nil
+}
 
 type pendingRow struct {
 	ChatID    string `gorm:"primaryKey;size:128"`
@@ -362,18 +387,11 @@ func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry)
 		if e.At.IsZero() {
 			e.At = time.Now().UTC()
 		}
-		card := ""
-		if e.Card != nil {
-			raw, err := json.Marshal(e.Card)
-			if err != nil {
-				return err
-			}
-			card = string(raw)
+		row, err := toEntryRow(id, seq, e)
+		if err != nil {
+			return err
 		}
-		if err := tx.Create(&entryRow{
-			ChatID: id, Seq: seq, Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
-			DurMs: e.Dur.Milliseconds(), Card: card, At: e.At,
-		}).Error; err != nil {
+		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
 		stored = seq
@@ -405,16 +423,11 @@ func (s *gormStore) AppendEntries(ctx context.Context, id string, entries []sess
 			if e.At.IsZero() {
 				e.At = time.Now().UTC()
 			}
-			card := ""
-			if e.Card != nil {
-				raw, err := json.Marshal(e.Card)
-				if err != nil {
-					return err
-				}
-				card = string(raw)
+			row, err := toEntryRow(id, first+int64(i), e)
+			if err != nil {
+				return err
 			}
-			rows[i] = entryRow{ChatID: id, Seq: first + int64(i), Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
-				DurMs: e.Dur.Milliseconds(), Card: card, At: e.At}
+			rows[i] = row
 		}
 		return tx.CreateInBatches(&rows, 100).Error
 	})
@@ -440,7 +453,12 @@ func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit i
 	for _, r := range rows {
 		e := session.Entry{
 			Seq: r.Seq, Turn: r.Turn, Role: r.Role, Text: r.Text, Rev: r.Rev,
-			Dur: time.Duration(r.DurMs) * time.Millisecond, At: r.At,
+			Dur: time.Duration(r.DurMs) * time.Millisecond, Note: r.Note, At: r.At,
+		}
+		if r.Attachments != "" {
+			if err := json.Unmarshal([]byte(r.Attachments), &e.Attachments); err != nil {
+				return nil, err
+			}
 		}
 		if r.Card != "" {
 			var c session.ToolCard

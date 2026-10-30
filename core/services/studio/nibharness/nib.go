@@ -378,7 +378,7 @@ func TranscriptState(entries []session.Entry) ([]byte, error) {
 	for _, e := range entries {
 		switch e.Role {
 		case session.RoleUser:
-			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: e.Text})
+			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: session.ModelText(e)})
 		case session.RoleAssistant:
 			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, Content: e.Text})
 		}

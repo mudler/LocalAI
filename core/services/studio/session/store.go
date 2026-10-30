@@ -151,7 +151,14 @@ type Entry struct {
 	// every other role and for entries written before cards existed. It is
 	// for the interface: it is never replayed to the model.
 	Card *ToolCard
-	At   time.Time
+	// Attachments are the files of a user message and Note the text read
+	// from them (a voice note's transcript, a document's text). Text holds
+	// only the words the user wrote; ModelText puts the three together for
+	// the model. A user message stored before they were kept apart has the
+	// list in Text and neither field: DisplayEntry splits it.
+	Attachments []Attachment `json:",omitempty"`
+	Note        string       `json:",omitempty"`
+	At          time.Time
 }
 
 // Entry roles.

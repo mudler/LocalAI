@@ -23,8 +23,14 @@ import (
 
 // Message is what the user sends.
 type Message struct {
-	Text  string
-	Files []Upload // stored in the chat folder before the turn starts
+	Text string
+	// Note is the text read from the files, which only the model gets, such
+	// as a voice note's transcript or a document's text.
+	Note string
+	// Attachments are files saved already, such as those of a message that
+	// waited for a turn.
+	Attachments []Attachment
+	Files       []Upload // stored in the chat folder before the turn starts
 	// Media goes to the model as parts of this message when the harness can
 	// take them. It is not stored: the files in Files are.
 	Media []Media
@@ -337,7 +343,7 @@ func (c *Chat) summary(ctx context.Context) string {
 		if es[i].Role == RoleCheckpoint || es[i].Role == RoleReasoning {
 			continue
 		}
-		l := es[i].Role + ": " + CapText(es[i].Text, 1000)
+		l := es[i].Role + ": " + CapText(ModelText(es[i]), 1000)
 		if size += len(l) + 1; size > 8<<10 {
 			break
 		}
@@ -608,9 +614,10 @@ func (c *Chat) Send(ctx context.Context, msg Message) error { return c.send(ctx,
 // send is Send. logged is true when the message is in the transcript already.
 func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	text := strings.TrimSpace(msg.Text)
-	if text == "" && len(msg.Files) == 0 {
+	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
 	}
+	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments}
 	for {
 		c.mu.Lock()
 		if c.closed {
@@ -644,9 +651,10 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				return fmt.Errorf("%w: files can be sent when the turn has ended", ErrTurnRunning)
 			}
 			if !logged {
-				c.appendEntry(ctx, Entry{Turn: turn, Role: RoleUser, Text: text})
+				entry.Turn = turn
+				c.appendEntry(ctx, entry)
 			}
-			return c.queuePending(ctx, msg, text)
+			return c.queuePending(ctx, msg, ModelText(entry))
 		}
 		// Taken under mu, so a swap that starts later waits for this inject.
 		c.injectMu.RLock()
@@ -656,9 +664,10 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 			return fmt.Errorf("%w: files can be sent when the turn has ended", ErrTurnRunning)
 		}
 		if !logged {
-			c.appendEntry(ctx, Entry{Turn: turn, Role: RoleUser, Text: text})
+			entry.Turn = turn
+			c.appendEntry(ctx, entry)
 		}
-		err := hs.Inject(text)
+		err := hs.Inject(ModelText(entry))
 		c.injectMu.RUnlock()
 		if !errors.Is(err, ErrNoTurn) {
 			return err
@@ -671,7 +680,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				c.mu.Unlock()
 				return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
 			}
-			c.pending = append(c.pending, text)
+			c.pending = append(c.pending, ModelText(entry))
 			c.mu.Unlock()
 			return nil
 		}
@@ -684,22 +693,26 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	done := c.done
 	c.mu.Unlock()
 
-	paths, err := c.saveUploads(ctx, msg.Files)
+	saved, err := c.saveUploads(ctx, msg.Files)
 	if err != nil {
 		c.mu.Lock()
 		c.endLoopLocked(done)
 		c.mu.Unlock()
 		return err
 	}
-	if len(paths) > 0 {
+	if len(saved) > 0 {
 		c.emit(Event{Kind: KindFiles})
 	}
-	full := composeMessage(text, paths)
+	// The transcript keeps the words and the files apart; the model gets
+	// them together, as it always has.
+	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
+	full := ModelText(entry)
 	if !logged {
-		c.appendEntry(ctx, Entry{Turn: c.turnNow() + 1, Role: RoleUser, Text: full})
+		entry.Turn = c.turnNow() + 1
+		c.appendEntry(ctx, entry)
 	}
 	c.m.wg.Add(1)
-	go c.loop(full, len(paths) > 0, msg.Media, done)
+	go c.loop(full, len(saved) > 0, msg.Media, done)
 	return nil
 }
 
@@ -720,19 +733,19 @@ func (c *Chat) queuePending(ctx context.Context, msg Message, text string) error
 	return c.send(ctx, msg, true)
 }
 
-// Attach stores files in the chat folder and returns text followed by their
-// guest paths, as a message that carries them. The caller sends the result.
-// It works while a turn runs: the files are in the workspace at once, and the
-// model reads them by path when the message reaches it.
-func (c *Chat) Attach(ctx context.Context, text string, files []Upload) (string, error) {
-	paths, err := c.saveUploads(ctx, files)
+// Attach stores files in the chat folder and returns them as attachments of
+// a message that the caller sends. It works while a turn runs: the files are
+// in the workspace at once, and the model reads them by path when the message
+// reaches it.
+func (c *Chat) Attach(ctx context.Context, files []Upload) ([]Attachment, error) {
+	saved, err := c.saveUploads(ctx, files)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	if len(paths) > 0 {
+	if len(saved) > 0 {
 		c.emit(Event{Kind: KindFiles})
 	}
-	return composeMessage(strings.TrimSpace(text), paths), nil
+	return saved, nil
 }
 
 func (c *Chat) turnNow() int {
@@ -745,21 +758,6 @@ func (c *Chat) turnNow() int {
 func (c *Chat) endLoopLocked(done chan struct{}) {
 	c.running, c.cancel, c.pending = false, nil, nil
 	close(done)
-}
-
-func composeMessage(text string, guestPaths []string) string {
-	if len(guestPaths) == 0 {
-		return text
-	}
-	var b strings.Builder
-	if text != "" {
-		b.WriteString(text + "\n\n")
-	}
-	b.WriteString("The user attached these files:\n")
-	for _, p := range guestPaths {
-		b.WriteString("- " + p + "\n")
-	}
-	return strings.TrimRight(b.String(), "\n")
 }
 
 // loop runs the turn, then the messages that arrived while it was ending.
@@ -965,8 +963,9 @@ func (c *Chat) close(ctx context.Context) error {
 	return errors.Join(stopErr, err)
 }
 
-// saveUploads stores the files in the chat folder and returns their guest paths.
-func (c *Chat) saveUploads(ctx context.Context, files []Upload) ([]string, error) {
+// saveUploads stores the files in the chat folder and returns them as
+// attachments.
+func (c *Chat) saveUploads(ctx context.Context, files []Upload) ([]Attachment, error) {
 	if len(files) == 0 {
 		return nil, nil
 	}
@@ -979,7 +978,7 @@ func (c *Chat) saveUploads(ctx context.Context, files []Upload) ([]string, error
 	}
 	actor, user, _ := c.access()
 	home := HomePath(actor.Principal)
-	var out []string
+	var out []Attachment
 	for _, f := range files {
 		if f.Body == nil {
 			return nil, fmt.Errorf("%w: file %q has no body", ErrInvalid, f.Name)
@@ -992,7 +991,9 @@ func (c *Chat) saveUploads(ctx context.Context, files []Upload) ([]string, error
 		if err != nil {
 			return nil, fmt.Errorf("session: store %q: %w", name, err)
 		}
-		out = append(out, GuestRoot+"/"+GuestHome+strings.TrimPrefix(n.Path, home))
+		out = append(out, Attachment{
+			Path: strings.TrimPrefix(n.Path, home), Name: n.Name, Size: n.Size, Mime: MimeOf(n.Name), Version: n.Version,
+		})
 	}
 	return out, nil
 }
