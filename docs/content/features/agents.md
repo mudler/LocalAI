@@ -10,7 +10,7 @@ LocalAI no longer has a separate agent platform. The agents, the agent jobs and 
 | You used to | Now |
 |---|---|
 | Create an agent on the Agents page | Create a [saved agent](/features/chats-agents/): instructions, a model, and exact lists of the MCP servers, add-ons, collections and skills it may use |
-| Chat with an agent | Start a chat with the agent on the Chats page, or send it a message in Telegram through a [connector](/features/chats-connectors/) |
+| Chat with an agent | Start a chat with the agent from its row on the Agents page, or send it a message in Telegram through a [connector](/features/chats-connectors/) |
 | Run an agent by itself, or a cron task | Make a [trigger](/features/chats-agents/#triggers): a schedule, or a file arriving in a folder |
 | Call a task from a script, with parameters and a webhook | The [agent tasks and jobs](/features/agent-jobs/) API: same paths and JSON as before; a job is a background chat |
 | Read the output of a job | `GET /api/agent/jobs/{id}`, the chat the job or trigger made, or the [inbox](/features/chats-agents/#inbox) |

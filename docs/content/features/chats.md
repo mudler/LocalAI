@@ -667,7 +667,7 @@ own copy.
 | No database, a data path set | JSON files under `<data path>/chats`. They survive a restart. |
 | No database and no data path (`--data-path=-`) | Memory only. They are lost on restart, and files are off. |
 
-When chats live in memory, the chats page says so, and the list endpoint
+When chats live in memory, the chat page says so, and the list endpoint
 returns `"persistent": false`.
 
 If a server stops in the middle of a model request, the turn ends as
@@ -714,22 +714,43 @@ page with `/assistant`, or over the API with `assistant: true` in
 has the tools, never its sub-agents. The `localai_assistant_enabled` setting
 turns the feature on and off. See [LocalAI Assistant](/features/localai-assistant/).
 
+## Chats in the web UI
+
+The web UI talks to this API, so a chat keeps running when you close the tab
+and opens again from any browser.
+
+- **Home starts a chat.** Home (`/app`) is the front door: pick a model in the
+  message box, type and send. The chat opens at `/app/chats/<id>`. Home also
+  lists your newest chats under **Jump back in**.
+- **The sidebar** lists your most recent chats under the main entries, with
+  **New chat** (the `+` beside **Recent chats**, which opens Home) and **All
+  chats**. When the sidebar is collapsed, only the **All chats** icon shows.
+  There is no separate Chats entry: Home is where a chat starts.
+- **All chats** (`/app/chats/all`) is your chat history: open it from the
+  sidebar or from **All chats** next to **Jump back in** on Home. Type to find
+  a chat by its name or by what was said in it (the server search); the line
+  under a match shows where it matched. Open, rename (`F2`), copy, export as
+  Markdown or delete one, clear them all, or import a JSON export. A deleted
+  chat can be brought back for a few seconds with **Undo**; then the server
+  deletes it.
+- **Old addresses.** `/app/chats` with no chat id opens Home. A `?model=` in
+  the address selects that model on Home, so `/app/chats?model=<id>` and the
+  older `/app/chat/<model>` still start a chat on that model.
+
 ## The chat page
 
-The chat page in the web UI (`/app/chats`) talks to this API, so a chat started
-there keeps running when you close the tab and opens again from any browser.
+The chat page (`/app/chats/<id>`) shows one chat.
 
 - **Conversations.** `Ctrl+K` (`Cmd+K` on a Mac), or **Chats** in the header,
-  opens the list of your chats, grouped by day. Type to find a chat by its name
-  or by what was said in it (the server search); the line under a match shows
-  where it matched. Open, rename (`F2`), export as Markdown or delete one. A
-  deleted chat can be brought back for a few seconds with **Undo**; then the
-  server deletes it.
-- **A new chat.** Pick the model and, if you have [saved agents](/features/chats-agents/),
-  an agent in the message box, then send. Picking another model in an open chat
-  moves the chat to it from the next turn (not while a turn runs).
-  `/assistant` starts a chat with the LocalAI management tools (administrators,
-  when the assistant is on).
+  opens the same list as **All chats** over the chat, to move to another chat
+  without leaving the page.
+- **A new chat.** **New chat** in the **More** menu, in the `Ctrl+K` list and
+  `/new` in the message box open Home. A chat with a [saved
+  agent](/features/chats-agents/) starts from the agent's row on the Agents
+  page: the chat page opens empty with the agent chosen. Picking another model
+  in an open chat moves the chat to it from the next turn (not while a turn
+  runs). `/assistant` starts a chat with the LocalAI management tools
+  (administrators, when the assistant is on).
 - **Chat settings** (the sliders icon in the header) holds the settings above:
   a system prompt, temperature, top P, top K, context size and reasoning
   effort. **Save settings** sends them all; they apply from the next turn.

@@ -13,14 +13,14 @@ An agent that uses tools needs a model that can call them. Open **Models**, inst
 
 ## Make the agent
 
-1. Open **Chats**, then **Agents**.
+1. Open **Agents** in the sidebar.
 2. Choose **New agent**. Give it a name and the instructions it should always follow, for example: `Answer in French. Cite the file you used.`
 3. Leave the lists empty for an agent that only talks. Add an MCP server of the model, an add-on, a collection or a skill to give it more. An empty list grants nothing: an agent never has more than you put in it.
 4. Save it.
 
 ## Talk to it
 
-Back on **Chats**, pick the agent in the list of agents and write a message. The chat uses the agent's model when it has one. If you remove something the agent lists, for example by deleting a collection, the chat still starts without it and tells the model what is missing.
+On the Agents page, choose **Chat** on the agent's row and write a message. The chat uses the agent's model when it has one. If you remove something the agent lists, for example by deleting a collection, the chat still starts without it and tells the model what is missing.
 
 ## Let it work by itself
 

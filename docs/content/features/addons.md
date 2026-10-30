@@ -2687,7 +2687,7 @@ A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/imag
 
 The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
 hub only. These redirects do not depend on it: with the switch on, the
-old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, Chats, Agents, MCP connectors, Memory and
+old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, All chats, Agents, MCP connectors, Memory and
 the hubs; Studio and Talk are in My add-ons, as add-ons.
 
 ### The Studio add-on
