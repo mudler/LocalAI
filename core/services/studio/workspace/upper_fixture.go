@@ -7,12 +7,6 @@ import (
 	"strings"
 )
 
-// The overlay attributes that mark a folder opaque.
-const (
-	xattrOpaqueTrusted = "trusted.overlay.opaque"
-	xattrOpaqueUser    = "user.overlay.opaque"
-)
-
 // FixtureSource is an in-memory UpperSource for tests.
 type FixtureSource []UpperEntry
 

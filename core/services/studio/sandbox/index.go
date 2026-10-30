@@ -52,7 +52,7 @@ func (ix UpperIndex) Plan(entries []IndexedEntry) ([]workspace.UpperEntry, Upper
 		}
 		e.Path = p
 		next[p] = IndexRecord{Kind: e.Kind, Key: e.Key}
-		if e.Kind == workspace.EntryDir && isOpaque(e.Xattrs) {
+		if e.Kind == workspace.EntryDir && workspace.IsOpaque(e.Xattrs) {
 			opaque[p] = true
 		}
 		if e.Kind == workspace.EntryFile && e.Key != "" && !belowOpaque(p, opaque) {
@@ -73,10 +73,6 @@ func (ix UpperIndex) Plan(entries []IndexedEntry) ([]workspace.UpperEntry, Upper
 		send = append(send, workspace.FixtureWhiteout(p))
 	}
 	return send, next
-}
-
-func isOpaque(x map[string][]byte) bool {
-	return string(x["trusted.overlay.opaque"]) == "y" || string(x["user.overlay.opaque"]) == "y"
 }
 
 // belowOpaque reports whether a folder above p is opaque.

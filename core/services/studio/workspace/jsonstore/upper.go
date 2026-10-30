@@ -10,15 +10,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-const (
-	xattrOpaqueTrusted = "trusted.overlay.opaque"
-	xattrOpaqueUser    = "user.overlay.opaque"
-)
-
-func isOpaque(x map[string][]byte) bool {
-	return string(x[xattrOpaqueTrusted]) == "y" || string(x[xattrOpaqueUser]) == "y"
-}
-
 func depth(p string) int { return strings.Count(p, "/") }
 
 func sortedKeys[V any](m map[string]V) []string { return slices.Sorted(maps.Keys(m)) }
@@ -124,7 +115,7 @@ func (s *Store) readUpper(ctx context.Context, v workspace.View, pts map[int]str
 		}
 		switch {
 		case e.Kind == workspace.EntryDir:
-			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: workspace.EntryDir, opaque: isOpaque(e.Xattrs)})
+			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: workspace.EntryDir, opaque: workspace.IsOpaque(e.Xattrs)})
 		case rest == "":
 			add(workspace.ReasonUnsupported) // only a folder can stand at a mount root
 		case e.Kind == workspace.EntryFile && gone[mi]:

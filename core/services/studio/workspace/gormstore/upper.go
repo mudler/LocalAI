@@ -11,15 +11,6 @@ import (
 	"strings"
 )
 
-const (
-	xattrOpaqueTrusted = "trusted.overlay.opaque"
-	xattrOpaqueUser    = "user.overlay.opaque"
-)
-
-func isOpaque(x map[string][]byte) bool {
-	return string(x[xattrOpaqueTrusted]) == "y" || string(x[xattrOpaqueUser]) == "y"
-}
-
 func depth(p string) int { return strings.Count(p, "/") }
 
 func sortedKeys[V any](m map[string]V) []string { return slices.Sorted(maps.Keys(m)) }
@@ -125,7 +116,7 @@ func (s *Workspace) readUpper(ctx context.Context, v View, pts map[int]string, g
 		}
 		switch {
 		case e.Kind == EntryDir:
-			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: EntryDir, opaque: isOpaque(e.Xattrs)})
+			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: EntryDir, opaque: IsOpaque(e.Xattrs)})
 		case rest == "":
 			add(ReasonUnsupported) // only a folder can stand at a mount root
 		case e.Kind == EntryFile && gone[mi]:
