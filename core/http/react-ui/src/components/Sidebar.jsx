@@ -13,6 +13,7 @@ import { primaryActive, primaryDestinations, visiblePrimary } from '../utils/nav
 import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
+import './sidebar.css'
 import AppsPinnedLinks from './AppsPinnedLinks'
 import PagesPinnedLinks from './PagesPinnedLinks'
 import { usePages } from '../hooks/usePages'

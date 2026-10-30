@@ -248,35 +248,6 @@
   min-height: 72px;
 }
 
-.sidebar-logo-link {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  /* Line the mark up with the nav icons: row margin plus row padding. */
-  padding-left: var(--spacing-sm);
-  border-radius: var(--radius-md);
-}
-
-.sidebar-logo-img {
-  display: block;
-  width: 136px;
-  max-width: 100%;
-  height: auto;
-  max-height: 64px;
-  object-fit: contain;
-}
-
-.sidebar-logo-icon {
-  display: none;
-}
-
-.sidebar-logo-icon-img {
-  display: block;
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
-}
-
 .sidebar-close-btn {
   display: none;
   background: none;
