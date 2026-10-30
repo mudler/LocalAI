@@ -135,7 +135,7 @@
 .wk-ex__card--picked { border-color: var(--dk-accent-text); box-shadow: 0 0 0 1px var(--dk-accent-text); }
 .wk-ex__card--done { cursor: default; }
 .wk-ex__kicker { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--color-text-muted); }
-.wk-ex__chip { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--color-bg-tertiary); color: var(--dk-accent-text); }
+.wk-ex__chip { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: var(--radius-full); background: var(--color-bg-tertiary); color: var(--dk-accent-text); }
 .wk-ex__chip .lai-icon { width: 14px; height: 14px; }
 .wk-ex__quote { font-size: var(--text-sm); font-weight: var(--font-weight-semibold); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .wk-ex__what { display: inline-flex; align-items: flex-start; gap: 6px; margin-top: auto; font-size: var(--text-xs); color: var(--color-text-muted); }
