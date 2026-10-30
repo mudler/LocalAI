@@ -111,5 +111,27 @@
     "megabytes": "MB",
     "gigabytes": "GB",
     "terabytes": "TB"
+  },
+  "updateReview": {
+    "title": "Tinjau pembaruan",
+    "description": "Tidak ada yang diperbarui sampai Anda memilih di sini.",
+    "close": "Tutup",
+    "done": "Selesai",
+    "selectAll": "Pilih semua",
+    "select": "Pilih {{name}}",
+    "unknownVersion": "tidak diketahui",
+    "latest": "terbaru",
+    "blocked": "Tidak dapat diperbarui di sini:",
+    "upgradeSelected": "Perbarui yang dipilih ({{count}})",
+    "upgradeAll": "Perbarui semua ({{count}})",
+    "running": "Memperbarui...",
+    "queued": "Menunggu",
+    "statusRunning": "Memperbarui",
+    "statusDone": "Diperbarui",
+    "statusFailed": "Gagal",
+    "summary": "{{succeeded}} diperbarui, {{failed}} gagal.",
+    "empty": "Tidak ada yang perlu diperbarui.",
+    "statusStarted": "Dimulai",
+    "summaryStarted": "{{succeeded}} dimulai, {{failed}} gagal."
   }
 }

@@ -592,7 +592,17 @@
       "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
       "network": "Jaringan tidak dapat dijangkau.",
       "unavailable": "Pemilik add-on tidak tersedia. Coba lagi."
-    }
+    },
+    "reviewButton": "Pembaruan ({{count}})",
+    "reviewTitle": "Tinjau pembaruan add-on",
+    "reviewDescription": "Tidak ada yang diperbarui sampai Anda memilih di sini. Setiap pembaruan mencadangkan data add-on terlebih dahulu.",
+    "checkAll": "Periksa pembaruan",
+    "checkingAll": "Memeriksa...",
+    "checkAllDone": "{{count}} add-on diperiksa.",
+    "checkAllFailed": "{{count}} tidak dapat diperiksa.",
+    "upgradeNamed": "Perbarui {{name}}",
+    "toastDone": "{{name}} diperbarui ke {{version}}.",
+    "toastFailed": "{{name}} tidak diperbarui: {{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

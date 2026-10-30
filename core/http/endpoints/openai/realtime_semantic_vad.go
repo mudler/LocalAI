@@ -367,6 +367,16 @@ func turnDetectionActive(td *types.TurnDetectionUnion) bool {
 	return td != nil && (td.ServerVad != nil || td.SemanticVad != nil)
 }
 
+// defaultSessionTurnDetection is the turn detection a new session starts with.
+// A pipeline that names no VAD model has nothing to detect turns with, so the
+// client commits them (turn_detection none).
+func defaultSessionTurnDetection(cfg *config.ModelConfig) *types.TurnDetectionUnion {
+	if cfg == nil || cfg.Pipeline.VAD == "" {
+		return nil
+	}
+	return defaultTurnDetection(cfg)
+}
+
 // defaultTurnDetection seeds a new session's turn detection from the
 // pipeline's server-side default: semantic_vad pipelines start sessions in
 // semantic mode (clients can still override via session.update); everything

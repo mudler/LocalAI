@@ -635,7 +635,7 @@ again from the same library is a reinstall.
 
 The Backends page marks a backend that came from a library with the library ID, and the
 detail view shows the digest that `metadata.json` pinned. A backend of a gallery has no
-mark, and the gallery upgrade check and the Update all button are unchanged.
+mark, and the gallery upgrade check and the review of updates are unchanged.
 
 When the cached index of the library lists a different build than the one installed, the
 backend shows "Update available" and an Update button. The check is
@@ -2866,6 +2866,23 @@ when the state is `update-available`. **Upgrade** opens a confirmation that name
 library, the channel, the installed and the new version and digest, and says that the data
 of the add-on is backed up first. It then shows progress and, on failure, the error and the
 kept version. Anyone else sees the status without actions.
+
+
+### Reviewing updates in the UI
+
+On the Add-ons page an administrator sees an **Updates (N)** button when a check found
+a candidate, and an **Upgrade** action on the card of each such add-on. Both open the
+**Review add-on updates** sheet, which lists each add-on as installed version to
+candidate version with its library and digests. An add-on whose candidate the host
+cannot run is listed with the reasons and cannot be selected. Nothing is sent until you
+press **Upgrade selected** or **Upgrade all** in the sheet. **Check for updates** on the
+page reads the library of every installed add-on; it applies nothing.
+
+When you upgrade several add-ons, one failure does not stop the others: the sheet and a
+toast report the result of each. The upgrades also appear in the Activity page under the
+**Add-ons** filter, with progress, **Cancel** and **Retry**. Cancel stops the request,
+and the page then reads the operation to report what the owner did. The list of
+upgrades is kept by the browser that started them, so it is lost on a page reload.
 
 ## Add-on pages
 

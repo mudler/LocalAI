@@ -1079,6 +1079,10 @@ prose style, so `voice` selects a speaker index or a voice name and `instruction
 equivalent. See the [NeMo-Speech.cpp backend]({{%relref "features/nemo-speech-cpp" %}})
 page for the full option list and the conversion steps.
 
+### LFM3-Audio (llama.cpp, experimental)
+
+[LFM3-Audio-2B](https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF) synthesises speech through the `llama-cpp` backend. Install the gallery entry `lfm3-audio-2b` (or `lfm3-audio-2b-q8`). Its voices are `female` (the default) and `male`. The `language` field takes a language code, and the default is `en`. The model uses the sampling defaults stored in its GGUF files. This needs a llama.cpp build with LFM3-Audio support.
+
 ## Response format
 
 To provide some compatibility with OpenAI API regarding `response_format`, ffmpeg must be installed (or a docker image including ffmpeg used) to leverage converting the generated wav file before the api provide its response.

@@ -281,14 +281,18 @@ type ProxyConfig struct {
 	// wire format there is whatever the client sent.
 	Provider string `yaml:"provider,omitempty" json:"provider,omitempty"`
 
+	// APIKey is a plaintext administrator-managed upstream credential.
+	// Mutually exclusive with APIKeyEnv and APIKeyFile.
+	APIKey string `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+
 	// APIKeyEnv names the environment variable holding the upstream
-	// API key. Mutually exclusive with APIKeyFile. Both empty is
+	// API key. Mutually exclusive with APIKey and APIKeyFile. All empty is
 	// allowed (no-auth upstreams).
 	APIKeyEnv string `yaml:"api_key_env,omitempty" json:"api_key_env,omitempty"`
 
 	// APIKeyFile is a path to a file whose contents are the upstream
 	// API key. Trailing whitespace is trimmed. Mutually exclusive
-	// with APIKeyEnv. The integration point for K8s secret mounts,
+	// with APIKey and APIKeyEnv. The integration point for K8s secret mounts,
 	// Vault agent files, and similar external-secret workflows.
 	APIKeyFile string `yaml:"api_key_file,omitempty" json:"api_key_file,omitempty"`
 
@@ -329,12 +333,40 @@ const (
 	ProxyProviderAnthropic = "anthropic"
 )
 
-// ResolveAPIKey returns the upstream key from api_key_env or api_key_file, or
+// LogValue uses an allowlist so future credential fields cannot leak through config logs.
+func (c ModelConfig) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("name", c.Name), slog.String("backend", c.Backend))
+}
+
+// LogValue deliberately omits credentials and potentially credential-bearing URLs.
+func (p ProxyConfig) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("mode", p.Mode), slog.String("provider", p.Provider))
+}
+
+func (p ProxyConfig) validateCredentialSources() error {
+	sources := 0
+	for _, value := range []string{p.APIKey, p.APIKeyEnv, p.APIKeyFile} {
+		if value != "" {
+			sources++
+		}
+	}
+	if sources > 1 {
+		return fmt.Errorf("proxy: api_key, api_key_env and api_key_file are mutually exclusive")
+	}
+	return nil
+}
+
+// ResolveAPIKey returns the upstream key from api_key, api_key_env or api_key_file, or
 // "" when neither is set. Mirrored (not imported, to keep backends independent
 // of core's package layout) by resolveAPIKey in backend/go/cloud-proxy/proxy.go
-// — keep the two in sync, empty-value handling included.
+// and backend/go/localai-proxy/proxy.go — keep all copies in sync.
 func (p ProxyConfig) ResolveAPIKey(envLookup func(string) string) (string, error) {
+	if err := p.validateCredentialSources(); err != nil {
+		return "", err
+	}
 	switch {
+	case p.APIKey != "":
+		return p.APIKey, nil
 	case p.APIKeyEnv != "":
 		var v string
 		if envLookup != nil {
@@ -1134,6 +1166,12 @@ type Pipeline struct {
 	// a diarize request they cannot serve. Speaker labels are per turn.
 	Diarization bool `yaml:"diarization,omitempty" json:"diarization,omitempty"`
 
+	// AnyToAny marks a realtime_audio model that serves the whole speech loop
+	// itself through AudioToAudioStream (for example LFM3-Audio on llama.cpp).
+	// true routes the session to that single stream; unset or false keeps the
+	// chained VAD, transcription, LLM and TTS pipeline the four slots describe.
+	AnyToAny *bool `yaml:"any_to_any,omitempty" json:"any_to_any,omitempty"`
+
 	// ReasoningEffort sets the reasoning effort (none|minimal|low|medium|high) for
 	// the pipeline's LLM without editing the LLM model config. Overrides the LLM's
 	// own reasoning_effort. Unset leaves the LLM model config in charge.
@@ -1348,6 +1386,10 @@ type PipelineStreaming struct {
 	// retain whole-reply synthesis for engines without native live text input.
 	ClauseChunking *bool `yaml:"clause_chunking,omitempty" json:"clause_chunking,omitempty"`
 }
+
+// IsAnyToAny reports whether the realtime session runs the whole speech loop
+// on one model through AudioToAudioStream (pipeline.any_to_any: true).
+func (p Pipeline) IsAnyToAny() bool { return p.AnyToAny != nil && *p.AnyToAny }
 
 // StreamLLM reports whether LLM tokens should be streamed for this pipeline.
 func (p Pipeline) StreamLLM() bool { return p.Streaming.LLM != nil && *p.Streaming.LLM }
@@ -2058,12 +2100,8 @@ func (c *ModelConfig) Validate() (bool, error) {
 		}
 	}
 
-	// Cloud-proxy: at most one of api_key_env / api_key_file may be
-	// set. Both empty means no Authorization header (no-auth upstream
-	// or a development passthrough). The mode field accepts the empty
-	// string (defaults to passthrough), "passthrough", or "translate".
-	if c.Proxy.APIKeyEnv != "" && c.Proxy.APIKeyFile != "" {
-		return false, fmt.Errorf("proxy: api_key_env and api_key_file are mutually exclusive")
+	if err := c.Proxy.validateCredentialSources(); err != nil {
+		return false, err
 	}
 	switch c.Proxy.Mode {
 	case "", ProxyModePassthrough, ProxyModeTranslate:
@@ -2744,13 +2782,10 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecase) bool {
 	}
 
 	if (u & FLAG_REALTIME_AUDIO) == FLAG_REALTIME_AUDIO {
-		// Backends that own a single any-to-any loop and implement
-		// AudioToAudioStream — listed here so models without an explicit
-		// known_usecases still surface on the Talk page.
-		realtimeAudioBackends := []string{"liquid-audio"}
-		if !slices.Contains(realtimeAudioBackends, c.Backend) {
-			return false
-		}
+		// No heuristic: realtime_audio is a deliberate operator choice. A
+		// plain GGUF must not appear on the Talk page, so HasUsecases(
+		// FLAG_REALTIME_AUDIO) is true only when KnownUsecases declares it.
+		return false
 	}
 
 	if (u & FLAG_SCORE) == FLAG_SCORE {

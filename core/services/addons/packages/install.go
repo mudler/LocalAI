@@ -17,8 +17,10 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/credentials"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/oci/cosignverify"
@@ -141,8 +143,12 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 		if e != nil {
 			return out, ErrPackage
 		}
+		want, e := expectedImageDigest(pinned, r, transport)
+		if e != nil {
+			return out, ErrPackage
+		}
 		digest, e := img.Digest()
-		if e != nil || digest.String() != r.Digest {
+		if e != nil || digest.String() != want {
 			return out, ErrPackage
 		}
 		cfg, e := img.ConfigFile()
@@ -407,4 +413,40 @@ func (t boundTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		next.Header.Set("User-Agent", req.Header.Get("User-Agent"))
 		cur = next
 	}
+}
+
+// expectedImageDigest returns the digest the fetched platform image must have.
+// The pinned digest names what the signature covers. For a single manifest it
+// is the image digest. For an image index it is the index digest, and the image
+// to install is the child the index lists for the release platform. An index
+// that does not list that platform is refused.
+func expectedImageDigest(pinned string, r catalog.Release, rt http.RoundTripper) (string, error) {
+	ref, err := name.ParseReference(pinned)
+	if err != nil {
+		return "", err
+	}
+	desc, err := remote.Get(ref, remote.WithTransport(rt), remote.WithAuthFromKeychain(credentials.Keychain()))
+	if err != nil {
+		return "", err
+	}
+	if desc.Digest.String() != r.Digest {
+		return "", ErrPackage
+	}
+	if !desc.MediaType.IsIndex() {
+		return r.Digest, nil
+	}
+	index, err := desc.ImageIndex()
+	if err != nil {
+		return "", err
+	}
+	manifest, err := index.IndexManifest()
+	if err != nil {
+		return "", err
+	}
+	for _, child := range manifest.Manifests {
+		if child.Platform != nil && child.Platform.OS == r.OS && child.Platform.Architecture == r.Arch {
+			return child.Digest.String(), nil
+		}
+	}
+	return "", ErrPackage
 }

@@ -592,7 +592,17 @@
       "denied": "Only an administrator can do this from their own browser session.",
       "network": "The network is not reachable.",
       "unavailable": "The add-on owner is not available. Try again."
-    }
+    },
+    "reviewButton": "Updates ({{count}})",
+    "reviewTitle": "Review add-on updates",
+    "reviewDescription": "Nothing is upgraded until you choose here. Each upgrade backs up the data of the add-on first.",
+    "checkAll": "Check for updates",
+    "checkingAll": "Checking...",
+    "checkAllDone": "Checked {{count}} add-ons.",
+    "checkAllFailed": "{{count}} could not be checked.",
+    "upgradeNamed": "Upgrade {{name}}",
+    "toastDone": "{{name}} upgraded to {{version}}.",
+    "toastFailed": "{{name}} was not upgraded: {{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

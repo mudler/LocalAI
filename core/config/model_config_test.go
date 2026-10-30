@@ -1039,3 +1039,30 @@ var _ = Describe("decisions usecase", func() {
 		Expect(reservedNonChatModel(&ModelConfig{Backend: "vllm-cpp", KnownUsecases: declared})).To(BeTrue())
 	})
 })
+
+var _ = Describe("realtime_audio and pipeline.any_to_any on llama-cpp", func() {
+	It("is not inferred from the llama-cpp backend alone", func() {
+		cfg := ModelConfig{Name: "plain-gguf", Backend: "llama-cpp"}
+		Expect(cfg.HasUsecases(FLAG_REALTIME_AUDIO)).To(BeFalse())
+	})
+
+	It("is set when known_usecases declares it", func() {
+		cfg := ModelConfig{Name: "lfm3-audio-2b", Backend: "llama-cpp"}
+		cfg.KnownUsecaseStrings = []string{"realtime_audio"}
+		cfg.syncKnownUsecasesFromString()
+		Expect(cfg.HasUsecases(FLAG_REALTIME_AUDIO)).To(BeTrue())
+	})
+
+	It("reads pipeline.any_to_any from YAML", func() {
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal([]byte("name: lfm3-audio-2b\nbackend: llama-cpp\npipeline:\n  any_to_any: true\n"), &cfg)).To(Succeed())
+		Expect(cfg.Pipeline.AnyToAny).NotTo(BeNil())
+		Expect(*cfg.Pipeline.AnyToAny).To(BeTrue())
+	})
+
+	It("leaves pipeline.any_to_any unset when the key is absent", func() {
+		var cfg ModelConfig
+		Expect(yaml.Unmarshal([]byte("name: chained\npipeline:\n  llm: llama\n"), &cfg)).To(Succeed())
+		Expect(cfg.Pipeline.AnyToAny).To(BeNil())
+	})
+})

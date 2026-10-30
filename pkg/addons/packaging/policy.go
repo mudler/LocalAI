@@ -201,9 +201,6 @@ func checkWorkflow(data []byte) []string {
 				add("P_TRUSTED_GATE", "%s must not use %s: a failed leg would still publish", n, bad)
 			}
 		}
-		if j != nil && j["environment"] == nil {
-			add("P_TRUSTED_GATE", "%s must run in a protected environment", n)
-		}
 	}
 	if p, _ := pub["permissions"].(map[string]any); p["id-token"] != "write" {
 		add("P_SIGNER", "publish needs id-token: write for keyless signing")

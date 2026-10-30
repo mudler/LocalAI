@@ -214,6 +214,21 @@ export default function Talk() {
   }, [mcpDisconnect])
 
   const selectedModelInfo = pipelineModels.find(m => m.name === selectedModel)
+  // A model without a VAD model, speech-to-speech or chained, gets no turn
+  // boundaries from the server, so the user ends each turn with Done speaking.
+  const manualTurns = Boolean(selectedModelInfo && !selectedModelInfo.vad)
+  const manualTurnsRef = useRef(false)
+  manualTurnsRef.current = manualTurns
+
+  // Without a VAD the microphone fills the server's input buffer for as long as
+  // the session runs, and Done speaking commits all of it. Emptying the buffer
+  // when a session starts and when a reply ends keeps idle silence and the
+  // reply's own echo out of the next turn.
+  const clearInputBuffer = useCallback(() => {
+    const dc = dcRef.current
+    if (!manualTurnsRef.current || !dc || dc.readyState !== 'open') return
+    dc.send(JSON.stringify({ type: 'input_audio_buffer.clear' }))
+  }, [])
 
   // ── Status helper ──
   const updateStatus = useCallback((state, line) => {
@@ -238,7 +253,7 @@ export default function Talk() {
     }
     // Pass MCP-server-advertised tools straight through. Server-side they
     // get rendered into the model's prompt via the function:/argument_regex
-    // pair on the model config (gallery/lfm.yaml for LFM2.5-Audio).
+    // pair on the model config.
     if (tools.length > 0) session.tools = tools
 
     dc.send(JSON.stringify({ type: 'session.update', session }))
@@ -293,6 +308,7 @@ export default function Talk() {
     switch (event.type) {
       case 'session.created':
         sendSessionUpdate()
+        clearInputBuffer()
         updateStatus('listening')
         break
       case 'session.updated':
@@ -338,6 +354,19 @@ export default function Talk() {
           inProgressIdRef.current = event.item_id
           setTranscript(prev => upsertAssistant(prev, event.item_id, event.delta, 'append'))
         }
+        break
+      case 'response.output_text.delta':
+        // A text-only reply (no audio) streams as text.
+        if (event.delta) {
+          inProgressIdRef.current = event.item_id
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.delta, 'append'))
+        }
+        break
+      case 'response.output_text.done':
+        if (event.text) {
+          setTranscript(prev => upsertAssistant(prev, event.item_id, event.text, 'replace'))
+        }
+        inProgressIdRef.current = null
         break
       case 'response.output_audio_transcript.done':
         if (event.transcript) {
@@ -391,6 +420,7 @@ export default function Talk() {
           })
           setInterrupted(true)
         }
+        clearInputBuffer()
         updateStatus('listening')
         break
       }
@@ -399,7 +429,7 @@ export default function Talk() {
         updateStatus('error', { key: 'server', params: { message: event.error?.message || t('detail.unknown') } })
         break
     }
-  }, [sendSessionUpdate, updateStatus, handleFunctionCall, t])
+  }, [sendSessionUpdate, clearInputBuffer, updateStatus, handleFunctionCall, t])
 
   // ── Connect ──
   const connect = useCallback(async () => {
@@ -517,6 +547,15 @@ export default function Talk() {
       if (pcRef.current) pcRef.current.close()
       if (localStreamRef.current) localStreamRef.current.getTracks().forEach(t => t.stop())
     }
+  }, [])
+
+  // ── End of a turn for a model without VAD ──
+  // The commit does not answer by itself: the reply is asked for next.
+  const endTurn = useCallback(() => {
+    const dc = dcRef.current
+    if (!dc || dc.readyState !== 'open') return
+    dc.send(JSON.stringify({ type: 'input_audio_buffer.commit' }))
+    dc.send(JSON.stringify({ type: 'response.create' }))
   }, [])
 
   // ── Test tone ──
@@ -695,6 +734,7 @@ export default function Talk() {
   const headline = showInterrupted ? t('view.interrupted.title') : t(`view.${view}.title`)
   let sentence = showInterrupted ? t('view.interrupted.body') : t(`view.${view}.body`)
   if (view === 'listening' && hearing && !showInterrupted) sentence = t('view.listening.hearing')
+  else if (view === 'listening' && manualTurns && !showInterrupted) sentence = t('view.listening.manual')
   if (detail) sentence = t(`detail.${detail.key}`, detail.params)
 
   const failed = view === 'blocked' || view === 'lost' || view === 'error'
@@ -839,6 +879,11 @@ export default function Talk() {
                     <button type="button" className="talk-btn talk-btn--end" onClick={disconnect} data-testid="talk-end">
                       <Icon name="plug-off" /> {t('controls.end')}
                     </button>
+                    {manualTurns && !busy && (
+                      <button type="button" className="talk-btn" onClick={endTurn} data-testid="talk-end-turn">
+                        <Icon name="mic" /> {t('controls.endTurn')}
+                      </button>
+                    )}
                     {view !== 'connecting' && (
                       <button type="button" className="talk-btn" onClick={sendTestTone} data-testid="talk-test-tone">
                         <Icon name="waveform" /> {t('controls.testTone')}
@@ -852,7 +897,7 @@ export default function Talk() {
                   </a>
                 )}
               </div>
-              {!isConnected && view === 'idle' && <p className="talk-note">{t('view.idle.note')}</p>}
+              {!isConnected && view === 'idle' && <p className="talk-note">{t(manualTurns ? 'view.idle.noteManual' : 'view.idle.note')}</p>}
 
               {isConnected && diagVisible && (
                 <div className="talk-diag" data-testid="talk-diag">

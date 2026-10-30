@@ -115,10 +115,13 @@ test.describe('Backend updates', () => {
     await page.route('**/api/backends/upgrade/llama-cpp', route => { calls.push('llama-cpp'); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
     await row(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
+    // The row button opens the review sheet; nothing starts until it is confirmed.
+    expect(calls).toEqual([])
+    await page.getByTestId('update-review-selected').click()
     await expect.poll(() => calls).toEqual(['llama-cpp'])
   })
 
-  test('Update all starts every update and counts them', async ({ page }) => {
+  test('Updates reviews every update and starts them on confirm', async ({ page }) => {
     await mockOperate(page, {
       upgrades: {
         ...UPGRADE_LLAMA,
@@ -128,7 +131,9 @@ test.describe('Backend updates', () => {
     const calls = []
     await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
-    await page.getByRole('button', { name: 'Update all (2)' }).click()
+    await page.getByRole('button', { name: 'Updates (2)' }).click()
+    expect(calls).toEqual([])
+    await page.getByTestId('update-review-all').click()
     await expect.poll(() => calls.sort()).toEqual(['llama-cpp', 'whisper'])
   })
 
@@ -139,7 +144,7 @@ test.describe('Backend updates', () => {
     await page.goto('/app/backends?view=installed')
     await page.getByRole('button', { name: 'Check for updates' }).click()
     await expect.poll(() => checks).toBe(1)
-    await expect(page.getByRole('button', { name: 'Update all (1)' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Updates (1)' })).toBeVisible()
   })
 
   test('says when every backend is current', async ({ page }) => {

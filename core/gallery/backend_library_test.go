@@ -17,9 +17,9 @@ const (
 	realBackendLibrary  = "../../gallery/backends/index.yaml"
 	backendLibraryGolds = "testdata/backend_library"
 	// The gallery before the library became the source, kept as the golden
-	// input: 1093 entries, five of them twins of another entry's name.
-	goldenGalleryEntries = 1093
-	goldenGalleryNames   = 1088
+	// input: 1077 entries, five of them twins of another entry's name.
+	goldenGalleryEntries = 1077
+	goldenGalleryNames   = 1072
 )
 
 func loadRealBackendLibrary(t *testing.T) []catalog.Release {

@@ -596,7 +596,17 @@
       "denied": "Seul un administrateur peut le faire depuis sa propre session de navigateur.",
       "network": "Le réseau est injoignable.",
       "unavailable": "Le propriétaire du module n'est pas disponible. Réessayez."
-    }
+    },
+    "reviewButton": "Mises à jour ({{count}})",
+    "reviewTitle": "Vérifier les mises à jour des modules",
+    "reviewDescription": "Rien n'est mis à jour tant que vous ne choisissez pas ici. Chaque mise à jour sauvegarde d'abord les données du module.",
+    "checkAll": "Rechercher des mises à jour",
+    "checkingAll": "Vérification...",
+    "checkAllDone": "{{count}} modules vérifiés.",
+    "checkAllFailed": "{{count}} n’ont pas pu être vérifiés.",
+    "upgradeNamed": "Mettre à jour {{name}}",
+    "toastDone": "{{name}} mis à jour vers {{version}}.",
+    "toastFailed": "{{name}} n’a pas été mis à jour : {{message}}"
   },
   "install": {
     "stepsLabel": "Install steps",

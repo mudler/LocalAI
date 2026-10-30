@@ -89,7 +89,7 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 	Expect(s.Save(context.Background(), contract.Actor{}, src)).To(Succeed())
 	_, e = s.Refresh(context.Background(), "test")
 	Expect(e).NotTo(HaveOccurred())
-	c := catalog.Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
+	c := catalog.Catalog{Sources: s, TargetOS: r.OS, TargetArch: r.Arch}
 	resolved, e := c.Resolve(context.Background(), "test", "sample", "latest")
 	Expect(e).NotTo(HaveOccurred())
 	root := GinkgoT().TempDir()
@@ -101,7 +101,7 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 			return nil
 		})
 	})
-	return &Installer{Root: root, Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}, resolved
+	return &Installer{Root: root, Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: r.OS, Arch: r.Arch}}, resolved
 }
 
 var _ = Describe("immutable packages", func() {
@@ -760,5 +760,125 @@ var _ = Describe("a mutable development add-on", func() {
 		}
 		_, e := i.Stage(context.Background(), r, nil)
 		Expect(e).To(HaveOccurred())
+	})
+})
+
+// An add-on is published as an image index with one child per platform. The
+// digest in the catalog and the signature name the index; the installed image
+// is the child the index lists for the host platform.
+var _ = Describe("multi-platform add-on index", func() {
+	platforms := []v1.Platform{{OS: "linux", Architecture: "amd64"}, {OS: "linux", Architecture: "arm64"}, {OS: "darwin", Architecture: "amd64"}, {OS: "darwin", Architecture: "arm64"}}
+	// The package manifest names its own platform, so each child carries one.
+	child := func(data []byte, p v1.Platform) v1.Image {
+		layer, e := tarball.LayerFromReader(bytes.NewReader(data))
+		Expect(e).NotTo(HaveOccurred())
+		img, e := mutate.AppendLayers(empty.Image, layer)
+		Expect(e).NotTo(HaveOccurred())
+		cfg, e := img.ConfigFile()
+		Expect(e).NotTo(HaveOccurred())
+		cfg.OS, cfg.Architecture = p.OS, p.Architecture
+		img, e = mutate.ConfigFile(img, cfg)
+		Expect(e).NotTo(HaveOccurred())
+		return img
+	}
+	index := func(imgs map[string]v1.Image, order []v1.Platform) v1.ImageIndex {
+		idx := mutate.IndexMediaType(empty.Index, types.OCIImageIndex)
+		for _, p := range order {
+			p := p
+			idx = mutate.AppendManifests(idx, mutate.IndexAddendum{Add: imgs[p.OS+"/"+p.Architecture], Descriptor: v1.Descriptor{Platform: &p}})
+		}
+		return idx
+	}
+	publish := func(idx v1.ImageIndex) (string, string) {
+		server := httptest.NewServer(registry.New())
+		DeferCleanup(server.Close)
+		ref, e := name.ParseReference(strings.TrimPrefix(server.URL, "http://") + "/local-ai-addons:sample-development")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(remote.WriteIndex(ref, idx)).To(Succeed())
+		d, e := idx.Digest()
+		Expect(e).NotTo(HaveOccurred())
+		return "oci://" + ref.Name(), d.String()
+	}
+	manifest := func() []byte {
+		m, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		return m
+	}
+	platformData := func(p v1.Platform, mark byte) []byte {
+		m := strings.NewReplacer(`"os":"linux"`, `"os":"`+p.OS+`"`, `"arch":"amd64"`, `"arch":"`+p.Architecture+`"`).Replace(string(manifest()))
+		return archive([]*tar.Header{{Name: "mark", Mode: 0644, Size: int64(mark)}}, []byte(m))
+	}
+	for _, host := range platforms {
+		host := host
+		It("installs the "+host.OS+"/"+host.Architecture+" child of an index with four platforms", func() {
+			data := archive(nil, manifest())
+			imgs := map[string]v1.Image{}
+			for n, p := range platforms {
+				imgs[p.OS+"/"+p.Architecture] = child(platformData(p, byte(n+1)), p)
+			}
+			artifact, digest := publish(index(imgs, platforms))
+			i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
+				r.Artifact, r.Digest, r.OS, r.Arch = artifact, digest, host.OS, host.Architecture
+			})
+			staged, e := i.Stage(context.Background(), r, nil)
+			Expect(e).NotTo(HaveOccurred())
+			receipt, e := i.Commit(context.Background(), staged)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(receipt.Digest).To(Equal(digest))
+		})
+	}
+	It("refuses an index that does not list the host platform", func() {
+		data := archive(nil, manifest())
+		imgs := map[string]v1.Image{}
+		for n, p := range platforms[1:] {
+			imgs[p.OS+"/"+p.Architecture] = child(platformData(p, byte(n+1)), p)
+		}
+		artifact, digest := publish(index(imgs, platforms[1:]))
+		i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) { r.Artifact, r.Digest = artifact, digest })
+		_, e := i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
+	})
+	It("refuses a child whose digest differs from the one the index lists", func() {
+		data := archive(nil, manifest())
+		listed := child(platformData(platforms[0], 1), platforms[0])
+		served := child(platformData(platforms[0], 2), platforms[0])
+		idx := index(map[string]v1.Image{"linux/amd64": listed}, platforms[:1])
+		server := httptest.NewServer(registry.New())
+		DeferCleanup(server.Close)
+		ref, e := name.ParseReference(strings.TrimPrefix(server.URL, "http://") + "/local-ai-addons:sample-development")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(remote.WriteIndex(ref, idx)).To(Succeed())
+		listedDigest, e := listed.Digest()
+		Expect(e).NotTo(HaveOccurred())
+		servedDigest, e := served.Digest()
+		Expect(e).NotTo(HaveOccurred())
+		Expect(remote.Write(ref.Context().Digest(servedDigest.String()), served)).To(Succeed())
+		// Serve the substitute child wherever the listed child is requested.
+		real := server.Config.Handler
+		swap := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, rq *http.Request) {
+			rq.URL.Path = strings.ReplaceAll(rq.URL.Path, listedDigest.String(), servedDigest.String())
+			real.ServeHTTP(w, rq)
+		}))
+		DeferCleanup(swap.Close)
+		d, e := idx.Digest()
+		Expect(e).NotTo(HaveOccurred())
+		i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) {
+			r.Artifact = "oci://" + strings.TrimPrefix(swap.URL, "http://") + "/local-ai-addons:sample-development"
+			r.Digest = d.String()
+		})
+		_, e = i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
+	})
+	It("still installs a single manifest and refuses a different digest", func() {
+		data := archive(nil, manifest())
+		artifact, digest, _ := localOCI(data)
+		i, r := fixture(data, func(r *catalog.Release, s *catalog.Source) { r.Artifact, r.Digest = artifact, digest })
+		_, e := i.Stage(context.Background(), r, nil)
+		Expect(e).NotTo(HaveOccurred())
+		i, r = fixture(data, func(r *catalog.Release, s *catalog.Source) {
+			r.Artifact, r.Digest = artifact, "sha256:"+strings.Repeat("0", 64)
+		})
+		_, e = i.Stage(context.Background(), r, nil)
+		Expect(e).To(MatchError(ErrPackage))
 	})
 })

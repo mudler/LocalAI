@@ -12,7 +12,7 @@
 # runs 'make -C backend/go/$(BACKEND) build' and then copies package/), so it
 # has to produce the binary and the package, not just the shared libraries.
 
-NEMO_SPEECH_VERSION?=4c101bc7113f49101a3e11d2c994c519f41939f6
+NEMO_SPEECH_VERSION?=c540e21167017d2e34444f2fc2d70649065dc500
 NEMO_SPEECH_REPO?=https://github.com/NVIDIA/NeMo-Speech.cpp
 
 GOCMD?=go
@@ -152,11 +152,8 @@ endif
 # behind NEMO_SPEECH_GGML_PATCHED itself, which guards a Q8_PLANAR flag write
 # that a non-CUDA buffer already throws before reaching.
 #
-# So on macOS the series buys nothing, and it cannot be applied there anyway:
-# upstream's scripts/apply-ggml-patches.sh uses mapfile, a bash 4 builtin, and
-# macOS ships bash 3.2 as the only bash on the runner's PATH. Skip the patch
-# step and tell cmake the linked ggml is stock, which is exactly upstream's own
-# Metal configuration. Linux keeps applying the series unchanged.
+# On macOS keep ggml stock, matching upstream's Metal configuration. Upstream
+# CMake now manages the patch series; Linux keeps enabling it by default.
 ifeq ($(shell uname -s),Darwin)
 	GGML_PATCHED?=OFF
 else
@@ -175,28 +172,16 @@ sources/NeMo-Speech.cpp:
 	# NMT links llama.cpp; ja needs open_jtalk; zh needs cppjieba. flashlight and
 	# kenlm are deliberately not initialized, they are out of scope.
 	cd sources/NeMo-Speech.cpp && git submodule update --init --recursive \
-		ggml llama.cpp third_party/open_jtalk third_party/cppjieba third_party/cpp-httplib
+		llama.cpp third_party/open_jtalk third_party/cppjieba third_party/cpp-httplib
 
-# NEMO_SPEECH_GGML_PATCHED defaults ON and silently assumes the ggml-patches
-# series is applied. An unpatched checkout builds fine and produces wrong CUDA
-# encoder output, so a failure here must stop the build rather than warn.
+# ggml now comes from llama.cpp. Upstream's cmake/llama_cpp.cmake applies
+# patches/series to a build-directory copy when NEMO_SPEECH_GGML_PATCHED=ON
+# and fails configuration if a patch cannot apply.
 #
-# Upstream's own script is the right tool: it applies the series in filename
-# order, exits non-zero when a patch does not apply, and decides "already
-# applied" by comparing the full-series tree hash rather than a timestamp. That
-# makes it safe to run unconditionally, so there is no sentinel file to go stale
-# or to wedge the build when deleted.
-#
-# Both branches keep the order-only clone prerequisite: it is the only thing
-# that pulls sources/ in on a WITH_NORM=OFF tree, where the library rule has no
-# other prerequisite left.
-ifeq ($(GGML_PATCHED),ON)
+# Keep the order-only clone prerequisite so patch-ggml still initializes sources
+# before the runtime's CMake configuration.
 patch-ggml: | sources/NeMo-Speech.cpp
-	cd sources/NeMo-Speech.cpp && bash scripts/apply-ggml-patches.sh
-else
-patch-ggml: | sources/NeMo-Speech.cpp
-	@echo "[ggml-patch] skipped: NEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED), the series is CUDA-only"
-endif
+	@echo "[ggml-patch] managed by upstream CMake (NEMO_SPEECH_GGML_PATCHED=$(GGML_PATCHED))"
 
 # The Sparrowhawk/OpenFST text-normalization stack, as a target in its own right
 # keyed on a file the build script actually produces.
@@ -257,23 +242,29 @@ $(ITN_MARKER): | sources/NeMo-Speech.cpp
 # compiler could ever have emitted it. Only these two lines are affected: gcc 14
 # reports exactly two errors over the whole OpenFST include closure, both here.
 #
-# Guarded on both sides so a pinned-version bump cannot silently no-op it: the
-# first check fails if neither the broken nor the fixed spelling is present, the
-# last fails if the broken one survives.
+# The newer OpenFST pin fixes both assignments with fst::WrapUnique. Accept
+# that form unchanged; otherwise require both legacy assignments to be known
+# before patching, and reject unknown or incomplete forms rather than no-op.
 patch-itn-headers:
 	@test -f $(ITN_FST_HEADER) || { \
 		echo "ERROR: $(ITN_FST_HEADER) missing; the ITN prefix is not installed." >&2; \
 		exit 1; }
-	@grep -q 'isymbols_ = impl.isymbols_' $(ITN_FST_HEADER) || \
-	 grep -q 'isymbols_.reset(impl.isymbols_' $(ITN_FST_HEADER) || { \
-		echo "ERROR: FstImpl::operator= in $(ITN_FST_HEADER) matches neither the" >&2; \
-		echo "       known-broken nor the patched form. OpenFST changed upstream;" >&2; \
-		echo "       re-check whether this patch is still needed before removing it." >&2; \
-		exit 1; }
-	sed -i -E 's|^([[:space:]]*)([io]symbols_) = (impl\.[io]symbols_ \? impl\.[io]symbols_->Copy\(\) : nullptr);$$|\1\2.reset(\3);|' $(ITN_FST_HEADER)
-	@if grep -q 'symbols_ = impl.[io]symbols_' $(ITN_FST_HEADER); then \
-		echo "ERROR: the FstImpl::operator= patch did not apply to $(ITN_FST_HEADER)." >&2; \
-		exit 1; \
+	@if grep -Fq 'isymbols_ = fst::WrapUnique(impl.isymbols_ ? impl.isymbols_->Copy() : nullptr);' $(ITN_FST_HEADER) && \
+	    grep -Fq 'osymbols_ = fst::WrapUnique(impl.osymbols_ ? impl.osymbols_->Copy() : nullptr);' $(ITN_FST_HEADER); then \
+		echo "OpenFST copy assignment already fixed upstream."; \
+	else \
+		for symbol in isymbols_ osymbols_; do \
+			grep -Fq "$$symbol = impl.$$symbol ? impl.$$symbol->Copy() : nullptr;" $(ITN_FST_HEADER) || \
+			grep -Fq "$$symbol.reset(impl.$$symbol ? impl.$$symbol->Copy() : nullptr);" $(ITN_FST_HEADER) || { \
+				echo "ERROR: FstImpl::operator= in $(ITN_FST_HEADER) has an unknown $$symbol assignment." >&2; \
+				echo "       OpenFST changed upstream; re-check whether this patch is still needed." >&2; \
+				exit 1; }; \
+		done; \
+		sed -i -E 's|^([[:space:]]*)([io]symbols_) = (impl\.[io]symbols_ \? impl\.[io]symbols_->Copy\(\) : nullptr);$$|\1\2.reset(\3);|' $(ITN_FST_HEADER) || exit 1; \
+		if grep -q 'symbols_ = impl.[io]symbols_' $(ITN_FST_HEADER); then \
+			echo "ERROR: the FstImpl::operator= patch did not apply to $(ITN_FST_HEADER)." >&2; \
+			exit 1; \
+		fi; \
 	fi
 
 itn: $(ITN_MARKER)
@@ -329,10 +320,9 @@ stage-libs: sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr_c.so
 	# no counterpart, its implementation and ABI live in the same object.
 	cp -af sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr.* .
 	cp -af sources/NeMo-Speech.cpp/build/bin/libnemo_speech_nmt.* .
-	# nemo_speech_text_normalization is STATIC but links sparrowhawk, fstfar and
-	# fst PUBLIC, so those become DT_NEEDED on libnemo_speech_asr.so. They live in
-	# a project-local prefix that nothing else on the system provides, so without
-	# staging them here the packaged backend cannot dlopen at all.
+	# ASR and TTS now share nemo_speech_text_normalization as a separate DSO.
+	# Stage it alongside its Sparrowhawk/OpenFST dependencies from the local
+	# prefix so the packaged backend can resolve the whole normalization stack.
 	#
 	# Keyed on the prefix existing rather than on WITH_NORM, so this stages what
 	# the tree actually built. A WITH_NORM=ON build cannot reach here without the
@@ -340,6 +330,7 @@ stage-libs: sources/NeMo-Speech.cpp/build/bin/libnemo_speech_asr_c.so
 	# library that needs Sparrowhawk somehow arrives unstaged, package.sh's
 	# closure guard fails the build rather than shipping it.
 	@if [ -d "$(ITN_LIB_DIR)" ]; then \
+		cp -af sources/NeMo-Speech.cpp/build/bin/libnemo_speech_text_normalization.* . || exit 1; \
 		echo "cp -af $(ITN_LIB_DIR)/*.so* ."; \
 		cp -af $(ITN_LIB_DIR)/*.so* .; \
 	fi

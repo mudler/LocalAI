@@ -569,6 +569,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "toggle",
 			Order:       67,
 		},
+		"pipeline.any_to_any": {
+			Section:     "pipeline",
+			Label:       "Speech-to-Speech Model",
+			Description: "The model serves the whole speech loop itself (AudioToAudioStream), for example LFM3-Audio on llama.cpp. The Realtime session then uses this one model with no separate VAD, transcription, LLM or TTS slots. Leave off to keep the chained pipeline.",
+			Component:   "toggle",
+			Order:       69,
+		},
 		"pipeline.reasoning_effort": {
 			Section:     "pipeline",
 			Label:       "Reasoning Effort",
@@ -1203,6 +1210,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Description: "Full POST endpoint of the upstream provider (e.g. https://api.openai.com/v1/chat/completions). Only used when Backend is cloud-proxy.",
 			Component:   "input",
 			Order:       210,
+		},
+		"proxy.api_key": {
+			Section:     "proxy",
+			Label:       "Proxy API Key",
+			Description: "Plaintext administrator credential stored in model YAML/JSON. Use only one of api_key, api_key_env or api_key_file. Masking is not encryption.",
+			Component:   "password",
+			Order:       211,
 		},
 		"proxy.api_key_env": {
 			Section:     "proxy",

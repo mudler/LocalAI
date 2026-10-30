@@ -1016,16 +1016,57 @@ func (m *MockBackend) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADRespon
 		return &pb.VADResponse{}, nil
 	}
 
-	// Audio has signal — return a single segment covering the duration.
-	duration := float64(len(in.Audio)) / 16000.0
-	return &pb.VADResponse{
-		Segments: []*pb.VADSegment{
-			{
-				Start: 0.0,
-				End:   float32(duration),
-			},
-		},
-	}, nil
+	// Audio has signal. Report the loud stretches as segments, so audio with
+	// silence after the speech lets the realtime turn detector see the end of
+	// the turn. Audio that is loud throughout is one segment over its whole
+	// duration, as before.
+	return &pb.VADResponse{Segments: mockVADSegments(in.Audio)}, nil
+}
+
+// mockVADSegments finds the loud stretches of 16 kHz float32 audio: 10 ms
+// windows above a small RMS floor, with gaps under 200 ms merged.
+func mockVADSegments(audio []float32) []*pb.VADSegment {
+	const (
+		rate     = 16000
+		window   = rate / 100
+		floor    = 0.01
+		mergeGap = 20 // windows
+	)
+	var segs []*pb.VADSegment
+	start, last := -1, -1 // window indexes of the open segment
+	flush := func() {
+		if start < 0 {
+			return
+		}
+		segs = append(segs, &pb.VADSegment{
+			Start: float32(start*window) / rate,
+			End:   float32(min((last+1)*window, len(audio))) / rate,
+		})
+		start = -1
+	}
+	for w := 0; w*window < len(audio); w++ {
+		chunk := audio[w*window : min((w+1)*window, len(audio))]
+		var sumSq float64
+		for _, v := range chunk {
+			sumSq += float64(v) * float64(v)
+		}
+		if math.Sqrt(sumSq/float64(len(chunk))) < floor {
+			continue
+		}
+		if start >= 0 && w-last > mergeGap {
+			flush()
+		}
+		if start < 0 {
+			start = w
+		}
+		last = w
+	}
+	flush()
+	if len(segs) == 0 {
+		// Faint audio above the overall floor but under the window floor.
+		segs = append(segs, &pb.VADSegment{Start: 0, End: float32(len(audio)) / rate})
+	}
+	return segs
 }
 
 // Diarize returns a deterministic two-speaker layout that exercises the
