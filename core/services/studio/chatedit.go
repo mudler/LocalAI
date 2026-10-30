@@ -40,7 +40,7 @@ func (s *Service) rebuildState(entries []session.Entry) []byte {
 // turn starts. Files that the removed turn changed stay changed.
 func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult, error) {
 	p := principal(user)
-	return s.rerun(ctx, p, conv, func(entries []session.Entry) (int64, string, error) {
+	return s.rerun(ctx, p, conv, func(entries []session.Entry) (int64, session.Message, error) {
 		last := -1
 		for i := len(entries) - 1; i >= 0; i-- {
 			if entries[i].Role == session.RoleUser {
@@ -49,7 +49,7 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 			}
 		}
 		if last < 0 {
-			return 0, "", ErrNothingToRegenerate
+			return 0, session.Message{}, ErrNothingToRegenerate
 		}
 		// A turn can hold several user messages: the first, and those sent
 		// while it ran. They are answered together again, in order.
@@ -61,13 +61,24 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 				}
 			}
 		}
-		var texts []string
+		// The words, the files and the text read from them go again.
+		var (
+			texts []string
+			msg   session.Message
+		)
 		for _, e := range entries[first:] {
-			if e.Role == session.RoleUser {
-				texts = append(texts, e.Text)
+			if e.Role != session.RoleUser {
+				continue
 			}
+			d := session.DisplayEntry(e)
+			if d.Text != "" {
+				texts = append(texts, d.Text)
+			}
+			msg.Note += d.Note
+			msg.Attachments = append(msg.Attachments, d.Attachments...)
 		}
-		return entries[first].Seq - 1, strings.Join(texts, "\n\n"), nil
+		msg.Text = strings.Join(texts, "\n\n")
+		return entries[first].Seq - 1, msg, nil
 	})
 }
 
@@ -77,23 +88,26 @@ func (s *Service) EditAndRerun(ctx context.Context, user, conv string, seq int64
 	if strings.TrimSpace(text) == "" {
 		return SendResult{}, fmt.Errorf("%w: empty message", session.ErrInvalid)
 	}
-	return s.rerun(ctx, principal(user), conv, func(entries []session.Entry) (int64, string, error) {
+	return s.rerun(ctx, principal(user), conv, func(entries []session.Entry) (int64, session.Message, error) {
 		for _, e := range entries {
 			if e.Seq != seq {
 				continue
 			}
 			if e.Role != session.RoleUser {
-				return 0, "", ErrNotUserMessage
+				return 0, session.Message{}, ErrNotUserMessage
 			}
-			return seq - 1, text, nil
+			// The edit replaces the words; the files of the message stay.
+			d := session.DisplayEntry(e)
+			return seq - 1, session.Message{Text: text, Note: d.Note, Attachments: d.Attachments}, nil
 		}
-		return 0, "", session.ErrNotFound
+		return 0, session.Message{}, session.ErrNotFound
 	})
 }
 
-// rerun cuts the transcript where pick says and runs text as a new turn, all
-// under one turn claim so that nothing starts between the cut and the turn.
-func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session.Entry) (keep int64, text string, err error)) (SendResult, error) {
+// rerun cuts the transcript where pick says and runs the message as a new
+// turn, all under one turn claim so that nothing starts between the cut and
+// the turn.
+func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session.Entry) (keep int64, msg session.Message, err error)) (SendResult, error) {
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {
 		return SendResult{}, err
@@ -114,32 +128,32 @@ func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session
 		}
 		return SendResult{}, err
 	}
-	text, err := s.cut(ctx, p, conv, pick)
+	msg, err := s.cut(ctx, p, conv, pick)
 	if err != nil {
 		if rerr := s.releaseTurn(ctx, p, conv, runID, prev.Last); rerr != nil {
 			s.log.Warn("studio: could not release the claim after a failed cut", "chat", conv, "error", rerr)
 		}
 		return SendResult{}, err
 	}
-	if err := s.startTurn(ctx, p, conv, runID, text, nil, nil); err != nil {
+	if err := s.startTurn(ctx, p, conv, runID, msg); err != nil {
 		return SendResult{}, err
 	}
 	return SendResult{Started: true}, nil
 }
 
 // cut removes the entries pick names and rebuilds the model state from those
-// that stay. It returns the text to run.
-func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.Entry) (int64, string, error)) (string, error) {
+// that stay. It returns the message to run.
+func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.Entry) (int64, session.Message, error)) (session.Message, error) {
 	entries, err := s.d.Store.Entries(ctx, conv, 0, 0)
 	if err != nil {
-		return "", err
+		return session.Message{}, err
 	}
-	keep, text, err := pick(entries)
+	keep, msg, err := pick(entries)
 	if err != nil {
-		return "", err
+		return session.Message{}, err
 	}
 	if err := s.d.Store.TruncateEntries(ctx, p, conv, keep); err != nil {
-		return "", err
+		return session.Message{}, err
 	}
 	var kept []session.Entry
 	for _, e := range entries {
@@ -149,13 +163,13 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 	}
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {
-		return "", err
+		return session.Message{}, err
 	}
 	rec.HarnessState, rec.Updated = s.rebuildState(kept), time.Now().UTC()
 	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
-		return "", err
+		return session.Message{}, err
 	}
-	return text, nil
+	return msg, nil
 }
 
 // Fork copies the chat up to and including the entry with sequence number

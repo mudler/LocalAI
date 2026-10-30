@@ -321,5 +321,11 @@
       "average": "Media de las últimas {{count}} solicitudes",
       "note": "Estas cifras vienen de las solicitudes que vio esta página. El servidor no las guarda, así que al recargar se borran."
     }
+  },
+  "attachments": {
+    "label": "Archivos adjuntos",
+    "open": "Abrir {{name}}",
+    "showMore": "Mostrar {{count}} más",
+    "missing": "El archivo ya no está disponible"
   }
 }

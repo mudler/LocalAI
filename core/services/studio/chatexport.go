@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -15,8 +16,9 @@ const ExportVersion = 1
 
 // Limits of an imported chat.
 const (
-	maxImportEntries   = 20000
-	maxImportEntryText = 1 << 20
+	maxImportEntries     = 20000
+	maxImportEntryText   = 1 << 20
+	maxImportAttachments = 1000 // per message
 )
 
 // ErrBadImport means an imported chat is not valid.
@@ -36,11 +38,15 @@ type ChatExport struct {
 }
 
 // ChatExportMessage is one line of an exported transcript. Role is user,
-// assistant, tool or reasoning.
+// assistant, tool or reasoning. A user message carries the files it attached
+// (their paths inside the user's home, not the files themselves) and the text
+// the model read from them, apart from the words.
 type ChatExportMessage struct {
-	Role string    `json:"role"`
-	Text string    `json:"text"`
-	At   time.Time `json:"at"`
+	Role        string               `json:"role"`
+	Text        string               `json:"text"`
+	Attachments []session.Attachment `json:"attachments,omitempty"`
+	Note        string               `json:"note,omitempty"`
+	At          time.Time            `json:"at"`
 }
 
 // Export returns the chat as a ChatExport. Checkpoints are left out.
@@ -60,7 +66,8 @@ func (s *Service) Export(ctx context.Context, user, conv string) (ChatExport, er
 		if e.Role == session.RoleCheckpoint {
 			continue
 		}
-		out.Messages = append(out.Messages, ChatExportMessage{Role: e.Role, Text: e.Text, At: e.At})
+		d := session.DisplayEntry(e)
+		out.Messages = append(out.Messages, ChatExportMessage{Role: d.Role, Text: d.Text, Attachments: d.Attachments, Note: d.Note, At: d.At})
 	}
 	return out, nil
 }
@@ -74,7 +81,20 @@ func (e ChatExport) Markdown() string {
 	for _, m := range e.Messages {
 		switch m.Role {
 		case session.RoleUser:
-			fmt.Fprintf(&b, "\n## You\n\n%s\n", m.Text)
+			b.WriteString("\n## You\n")
+			if m.Text != "" {
+				fmt.Fprintf(&b, "\n%s\n", m.Text)
+			}
+			if len(m.Attachments) > 0 {
+				b.WriteString("\nAttached:\n")
+				for _, a := range m.Attachments {
+					if a.Size > 0 {
+						fmt.Fprintf(&b, "- %s (%s)\n", a.Name, session.SizeLabel(a.Size))
+					} else {
+						fmt.Fprintf(&b, "- %s\n", a.Name)
+					}
+				}
+			}
 		case session.RoleAssistant:
 			fmt.Fprintf(&b, "\n## Assistant\n\n%s\n", m.Text)
 		case session.RoleTool:
@@ -105,12 +125,19 @@ func (s *Service) ImportExport(ctx context.Context, user string, in ChatExport, 
 	}
 	entries := make([]ImportedEntry, 0, len(in.Messages))
 	for _, m := range in.Messages {
-		if !utf8.ValidString(m.Text) || len(m.Text) > maxImportEntryText {
+		if !utf8.ValidString(m.Text) || len(m.Text) > maxImportEntryText || !utf8.ValidString(m.Note) || len(m.Note) > maxImportEntryText {
 			return session.ChatRecord{}, fmt.Errorf("%w: a message is too large or not text", ErrBadImport)
+		}
+		if err := checkImportAttachments(m.Attachments); err != nil {
+			return session.ChatRecord{}, err
 		}
 		switch m.Role {
 		case session.RoleUser, session.RoleAssistant, session.RoleTool, session.RoleReasoning:
-			entries = append(entries, ImportedEntry{Role: m.Role, Text: m.Text, At: m.At})
+			e := ImportedEntry{Role: m.Role, Text: m.Text, At: m.At}
+			if m.Role == session.RoleUser {
+				e.Note, e.Attachments = m.Note, m.Attachments
+			}
+			entries = append(entries, e)
 		default:
 			return session.ChatRecord{}, fmt.Errorf("%w: unknown role %q", ErrBadImport, m.Role)
 		}
@@ -141,6 +168,21 @@ func (s *Service) ImportExport(ctx context.Context, user string, in ChatExport, 
 		}
 	}
 	return s.d.Store.GetChat(ctx, p, rec.ID)
+}
+
+// checkImportAttachments refuses attachments that are not paths inside a home
+// folder. The files themselves are not in an export.
+func checkImportAttachments(atts []session.Attachment) error {
+	if len(atts) > maxImportAttachments {
+		return fmt.Errorf("%w: a message has more than %d files", ErrBadImport, maxImportAttachments)
+	}
+	for _, a := range atts {
+		if !utf8.ValidString(a.Path) || !utf8.ValidString(a.Name) || len(a.Path) > 4096 || len(a.Name) > 1024 ||
+			!strings.HasPrefix(a.Path, "/") || path.Clean(a.Path) != a.Path || strings.ContainsAny(a.Path, "\n\x00") {
+			return fmt.Errorf("%w: an attachment has a path that is not allowed", ErrBadImport)
+		}
+	}
+	return nil
 }
 
 // SearchHit is a chat that matches a search.
@@ -194,8 +236,10 @@ func (s *Service) Search(ctx context.Context, user, query string, limit int) ([]
 				if e.Role != session.RoleUser && e.Role != session.RoleAssistant {
 					continue
 				}
-				if i := strings.Index(strings.ToLower(e.Text), q); i >= 0 {
-					hit.Seq, hit.Snippet = e.Seq, snippet(e.Text, i, len(q))
+				// The words the person reads, not the list of files the model gets.
+				text := session.DisplayEntry(e).Text
+				if i := strings.Index(strings.ToLower(text), q); i >= 0 {
+					hit.Seq, hit.Snippet = e.Seq, snippet(text, i, len(q))
 					break
 				}
 			}

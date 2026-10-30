@@ -319,5 +319,11 @@
       "average": "Moyenne des {{count}} dernières requêtes",
       "note": "Ces chiffres viennent des requêtes vues par cette page. Le serveur ne les garde pas : un rechargement les efface."
     }
+  },
+  "attachments": {
+    "label": "Fichiers joints",
+    "open": "Ouvrir {{name}}",
+    "showMore": "Afficher {{count}} de plus",
+    "missing": "Fichier plus disponible"
   }
 }

@@ -319,4 +319,28 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(es[0].Text).To(Equal("with card"))
 		Expect(es[1].Card).To(BeNil(), "entry without a card = %+v", es[1])
 	})
+	It("keeps the files and the note of a user message apart from its words", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
+		atts := []session.Attachment{
+			{Path: "/Chats/2026-10-30 ci sei?/photo.jpg", Name: "photo.jpg", Size: 2048, Mime: "image/jpeg", Version: 3},
+			{Path: "/Chats/2026-10-30 ci sei?/memo.m4a", Name: "memo.m4a"},
+		}
+		note := "\n\n[Voice note memo.m4a, transcribed: hi]"
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Turn: 1, Role: session.RoleUser, Text: "whats in this photo", Note: note, Attachments: atts})).Error().NotTo(HaveOccurred())
+		Expect(s.AppendEntries(ctx(), "c1", []session.Entry{
+			{Turn: 2, Role: session.RoleUser, Attachments: atts[:1]},
+			{Turn: 2, Role: session.RoleUser, Text: "plain"},
+		})).To(Succeed())
+		es, err := s.Entries(ctx(), "c1", 0, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(3))
+		Expect(es[0].Text).To(Equal("whats in this photo"))
+		Expect(es[0].Note).To(Equal(note))
+		Expect(es[0].Attachments).To(Equal(atts))
+		Expect(es[1].Text).To(BeEmpty())
+		Expect(es[1].Attachments).To(Equal(atts[:1]))
+		Expect(es[2].Attachments).To(BeEmpty())
+		Expect(es[2].Note).To(BeEmpty())
+	})
 }

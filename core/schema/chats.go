@@ -110,11 +110,30 @@ type ChatsSendResponse struct {
 	PendingID string `json:"pending_id,omitempty"`
 }
 
-// ChatsPending is a message that waits for the model's next request.
+// ChatsPending is a message that waits for the model's next request. Text is
+// what you wrote; the files of the message are in Attachments.
 type ChatsPending struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Seq  int64  `json:"seq"`
+	ID          string            `json:"id"`
+	Text        string            `json:"text"`
+	Attachments []ChatsAttachment `json:"attachments,omitempty"`
+	Seq         int64             `json:"seq"`
+}
+
+// ChatsAttachment is a file attached to one of your messages. The model gets
+// its path with the message; the transcript keeps it apart from the text.
+type ChatsAttachment struct {
+	// Path is the file's path inside your home, for the files API
+	// (GET /api/chats/files/content?path=). It follows a rename of the chat's
+	// folder.
+	Path string `json:"path"`
+	Name string `json:"name"`
+	// Size is in bytes.
+	Size int64  `json:"size,omitempty"`
+	Mime string `json:"mime,omitempty"`
+	// Version is the version of the file that the message carried.
+	Version int64 `json:"version,omitempty"`
+	// Missing is true when the file is no longer in your files.
+	Missing bool `json:"missing,omitempty"`
 }
 
 // ChatsPendingEdit changes the text of a waiting message.
@@ -127,7 +146,11 @@ type ChatsMessage struct {
 	Seq  int64  `json:"seq"`
 	Turn int    `json:"turn"`
 	Role string `json:"role"` // user, assistant, tool, checkpoint or reasoning
+	// Text is what was written. For a user line it is the text you typed:
+	// the files you attached are in Attachments.
 	Text string `json:"text"`
+	// Attachments are the files of a user line.
+	Attachments []ChatsAttachment `json:"attachments,omitempty"`
 	// DurMs is how long the model thought, for reasoning lines.
 	DurMs int64 `json:"dur_ms,omitempty"`
 	// App is set on a tool line whose tool has an MCP App: the interactive page

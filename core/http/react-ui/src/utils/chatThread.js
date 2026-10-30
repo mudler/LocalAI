@@ -11,6 +11,8 @@
 // ends and the transcript takes the call over.
 
 import { conversationItems, toolKey } from './chatLive.js'
+import { messageParts } from './chatAttachments.js'
+import { fileSize } from './fileInfo.js'
 
 const isActivity = (role) => role === 'reasoning' || role === 'tool'
 
@@ -90,9 +92,21 @@ export function toolOutput(text) {
 // The text of the last message the person sent, for the composer's Up key.
 export function lastUserText(messages) {
   for (let i = (messages || []).length - 1; i >= 0; i--) {
-    if (messages[i].role === 'user') return messages[i].text || ''
+    if (messages[i].role === 'user') return messageParts(messages[i]).text
   }
   return ''
+}
+
+// A message of the person as Markdown: the words, then the names of the
+// files it carried (never their paths).
+function userMarkdown(m) {
+  const { text, attachments } = messageParts(m)
+  const parts = []
+  if (text) parts.push(text)
+  if (attachments.length > 0) {
+    parts.push(`Attached: ${attachments.map(a => (a.size > 0 ? `${a.name} (${fileSize(a.size)})` : a.name)).join(', ')}`)
+  }
+  return parts.join('\n\n')
 }
 
 // The chat as Markdown: its title, model and date, then every message. Tool
@@ -104,7 +118,7 @@ export function chatMarkdown(chat, messages) {
   if (created && !Number.isNaN(created.getTime())) md += `Date: ${created.toLocaleString()}\n`
   md += '\n---\n\n'
   for (const m of messages || []) {
-    if (m.role === 'user') md += `## User\n\n${m.text || ''}\n\n`
+    if (m.role === 'user') md += `## User\n\n${userMarkdown(m)}\n\n`
     else if (m.role === 'assistant') md += `## Assistant\n\n${m.text || ''}\n\n`
     else if (m.role === 'reasoning') md += `<details><summary>Thinking</summary>\n\n${m.text || ''}\n\n</details>\n\n`
     else if (m.role === 'tool') md += `> Tool: ${String(m.text || '').split('\n')[0]}\n\n`

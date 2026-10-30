@@ -321,5 +321,11 @@
       "average": "最近 {{count}} 次请求的平均值",
       "note": "这些数字来自本页面看到的请求。服务器不保存它们，刷新页面后会清空。"
     }
+  },
+  "attachments": {
+    "label": "附件",
+    "open": "打开 {{name}}",
+    "showMore": "再显示 {{count}} 个",
+    "missing": "文件已不可用"
   }
 }

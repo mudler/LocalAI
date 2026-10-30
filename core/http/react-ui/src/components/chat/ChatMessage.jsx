@@ -6,6 +6,9 @@ import { failureView } from '../../utils/chatFailure'
 import { renderMarkdown } from '../../utils/markdown'
 import { renderMarkdownWithArtifacts } from '../../utils/artifacts'
 import { escapeHtml } from './chatText'
+import { messageParts } from '../../utils/chatAttachments'
+// eslint-disable-next-line no-unused-vars
+import MessageAttachments from './Attachments'
 // eslint-disable-next-line no-unused-vars
 import { ActivityGroup, StreamingActivity } from './ActivityFold'
 import Icon from '../Icon'
@@ -72,7 +75,9 @@ function ChatMessage({
   const { t } = useTranslation('chat')
   const isUser = msg.role === 'user'
   const isAssistant = msg.role === 'assistant'
-  const text = msg.text || ''
+  // The words of a message of the person, without the list of files that an
+  // old message holds in its text: the files show as chips.
+  const { text, attachments } = useMemo(() => messageParts(msg), [msg])
   const index = msg.seq
   // The draft of an edit of your message, or null.
   const [draft, setDraft] = useState(null)
@@ -147,9 +152,14 @@ function ChatMessage({
           </span>
         </div>
       ) : isUser ? (
-        <div className="cx-bubble" data-testid="message-content">
-          {text && <div className="cx-text" dangerouslySetInnerHTML={{ __html: escapeHtml(text) }} />}
-        </div>
+        <>
+          <MessageAttachments attachments={attachments} />
+          {(text || attachments.length === 0) && (
+            <div className="cx-bubble" data-testid="message-content">
+              {text && <div className="cx-text" dangerouslySetInnerHTML={{ __html: escapeHtml(text) }} />}
+            </div>
+          )}
+        </>
       ) : (
         text && <Prose html={html} />
       )}

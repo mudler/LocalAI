@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -539,7 +540,20 @@ func (s *Service) Pending(ctx context.Context, user, conv string) ([]store.Pendi
 
 // EditPending changes a waiting message.
 func (s *Service) EditPending(ctx context.Context, user, conv, id, text string) error {
-	return s.d.Store.EditPending(ctx, principal(user), conv, id, text)
+	p := principal(user)
+	// The person edits the words; the files of the message stay with it.
+	waiting, err := s.d.Store.Pending(ctx, p, conv)
+	if err != nil {
+		return err
+	}
+	for _, w := range waiting {
+		if w.ID == id {
+			_, note, atts := session.SplitMessage(w.Text)
+			text = session.ComposeMessage(text, note, atts)
+			break
+		}
+	}
+	return s.d.Store.EditPending(ctx, p, conv, id, text)
 }
 
 // CancelPending removes a waiting message.
@@ -579,15 +593,17 @@ func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up
 	if len(up) > 0 && !s.d.Files.Available() {
 		return SendResult{}, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
 	}
+	note := ""
 	if len(up) > 0 && s.d.Media != nil {
 		// Voice notes are transcribed and documents are read before the turn
-		// starts, and the text goes with the message; the files are kept as
-		// they are.
+		// starts, and the text goes to the model with the message; the files
+		// are kept as they are. The transcript keeps that text apart from the
+		// user's words.
 		var perr error
-		if text, up, perr = s.d.Media.PrepareUploads(ctx, principal(user), text, up); perr != nil {
+		if note, up, perr = s.d.Media.PrepareUploads(ctx, principal(user), "", up); perr != nil {
 			return SendResult{}, perr
 		}
-		if text, up, perr = s.d.Media.ExtractDocuments(ctx, text, up); perr != nil {
+		if note, up, perr = s.d.Media.ExtractDocuments(ctx, note, up); perr != nil {
 			return SendResult{}, perr
 		}
 	}
@@ -595,12 +611,40 @@ func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up
 	if err != nil {
 		return SendResult{}, err
 	}
-	return s.send(ctx, user, conv, text, up, parts)
+	return s.send(ctx, user, conv, session.Message{Text: text, Note: note, Files: up, Media: parts})
+}
+
+// joinPending puts waiting messages and msg, in that order, into one message:
+// the words are joined by blank lines, the files and the text read from them
+// follow. A waiting message holds the text the model gets (see
+// session.ComposeMessage), so its files are split out of it.
+func joinPending(taken []store.Pending, msg session.Message) session.Message {
+	if len(taken) == 0 {
+		return msg
+	}
+	var (
+		texts, notes []string
+		atts         []session.Attachment
+	)
+	for _, t := range taken {
+		body, note, a := session.SplitMessage(t.Text)
+		if body != "" {
+			texts = append(texts, body)
+		}
+		notes, atts = append(notes, note), append(atts, a...)
+	}
+	if strings.TrimSpace(msg.Text) != "" {
+		texts = append(texts, msg.Text)
+	}
+	msg.Text = strings.Join(texts, "\n\n")
+	msg.Note = strings.Join(notes, "") + msg.Note
+	msg.Attachments = append(atts, msg.Attachments...)
+	return msg
 }
 
 // send is SendWithFiles without the check on the kind: the service itself
 // starts sub-agent conversations through it.
-func (s *Service) send(ctx context.Context, user, conv, text string, up []session.Upload, parts []session.Media) (SendResult, error) {
+func (s *Service) send(ctx context.Context, user, conv string, msg session.Message) (SendResult, error) {
 	p := principal(user)
 	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
 		return SendResult{}, err
@@ -610,20 +654,18 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case err == nil:
-		s.nameAfter(ctx, p, conv, text)
+		s.nameAfter(ctx, p, conv, msg.Text)
 		// Messages that wait go first: the new one must not overtake them.
 		taken, terr := s.d.Store.TakePending(ctx, p, conv)
 		if terr != nil {
 			_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
 			return SendResult{}, terr
 		}
-		texts := make([]string, 0, len(taken)+1)
 		ids := make([]string, len(taken))
 		for i, t := range taken {
-			texts, ids[i] = append(texts, t.Text), t.ID
+			ids[i] = t.ID
 		}
-		texts = append(texts, text)
-		if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), up, parts); err != nil {
+		if err := s.startTurn(ctx, p, conv, runID, joinPending(taken, msg)); err != nil {
 			_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 			return SendResult{}, err
 		}
@@ -633,14 +675,18 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 		}
 		return SendResult{Started: true}, nil
 	case errors.Is(err, store.ErrTurnRunning):
-		if len(up) > 0 {
+		atts := msg.Attachments
+		if len(msg.Files) > 0 {
 			// The files are saved now, so the waiting message can carry their paths.
-			var aerr error
-			if text, aerr = s.attachWhileRunning(ctx, p, conv, text, up); aerr != nil {
+			saved, aerr := s.attachWhileRunning(ctx, p, conv, msg.Files)
+			if aerr != nil {
 				return SendResult{}, aerr
 			}
+			atts = append(slices.Clip(atts), saved...)
 		}
-		pend, err := s.d.Store.AddPending(ctx, p, conv, text)
+		// A waiting message holds the text the model gets; the transcript and
+		// the list of waiting messages split the files out of it again.
+		pend, err := s.d.Store.AddPending(ctx, p, conv, session.ComposeMessage(msg.Text, msg.Note, atts))
 		if err != nil {
 			return SendResult{}, err
 		}
@@ -659,25 +705,25 @@ func (s *Service) send(ctx context.Context, user, conv, text string, up []sessio
 }
 
 // attachWhileRunning saves the files of a message that waits for a running
-// turn and returns the text with their paths. The turn may run on another
-// frontend; the files go to the shared workspace either way.
-func (s *Service) attachWhileRunning(ctx context.Context, p, conv, text string, up []session.Upload) (string, error) {
+// turn and returns them. The turn may run on another frontend; the files go to
+// the shared workspace either way.
+func (s *Service) attachWhileRunning(ctx context.Context, p, conv string, up []session.Upload) ([]session.Attachment, error) {
 	s.mu.Lock()
 	r := s.runs[key(p, conv)]
 	s.mu.Unlock()
 	if r != nil {
-		return r.chat.Attach(ctx, text, up)
+		return r.chat.Attach(ctx, up)
 	}
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	defer func() {
 		if cerr := chat.Close(); cerr != nil {
 			s.log.Warn("studio: could not close the chat after saving attachments", "chat", conv, "error", cerr)
 		}
 	}()
-	return chat.Attach(ctx, text, up)
+	return chat.Attach(ctx, up)
 }
 
 // nameAfter gives a chat that still has the default title one made from its
@@ -773,12 +819,11 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 		}
 		return false, err
 	}
-	texts := make([]string, len(taken))
 	ids := make([]string, len(taken))
 	for i, t := range taken {
-		texts[i], ids[i] = t.Text, t.ID
+		ids[i] = t.ID
 	}
-	if err := s.startTurn(ctx, p, conv, runID, strings.Join(texts, "\n\n"), nil, nil); err != nil {
+	if err := s.startTurn(ctx, p, conv, runID, joinPending(taken, session.Message{})); err != nil {
 		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
 		return false, err
 	}
@@ -787,8 +832,8 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	return true, nil
 }
 
-// startTurn runs text as a turn the claim runID already covers.
-func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up []session.Upload, parts []session.Media) error {
+// startTurn runs msg as a turn the claim runID already covers.
+func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
@@ -810,8 +855,8 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID, text string, up
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
 	s.mu.Unlock()
-	images := s.keepVideos(k, parts)
-	if err := chat.Send(context.WithoutCancel(ctx), session.Message{Text: text, Files: up, Media: images}); err != nil {
+	msg.Media = s.keepVideos(k, msg.Media)
+	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
 		s.mu.Lock()
 		delete(s.runs, k)
 		s.mu.Unlock()
@@ -1061,7 +1106,10 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 				return
 			}
 			for _, t := range texts {
-				if _, aerr := s.d.Store.AppendEntry(ctx, a.ChatID, session.Entry{Turn: turn, Role: session.RoleUser, Text: t}); aerr != nil {
+				// The transcript keeps the words apart from the files.
+				body, note, atts := session.SplitMessage(t)
+				e := session.Entry{Turn: turn, Role: session.RoleUser, Text: body, Note: note, Attachments: atts}
+				if _, aerr := s.d.Store.AppendEntry(ctx, a.ChatID, e); aerr != nil {
 					s.log.Warn("studio: could not record a delivered message", "chat", a.ChatID, "error", aerr)
 				}
 			}

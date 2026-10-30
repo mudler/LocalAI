@@ -19,7 +19,10 @@ const (
 // ImportedEntry is one line of a transcript that comes from outside the loop.
 type ImportedEntry struct {
 	Role, Text string
-	At         time.Time
+	// Attachments and Note belong to a user message (see session.Entry).
+	Attachments []session.Attachment
+	Note        string
+	At          time.Time
 }
 
 // ImportChat stores a finished chat of the user, made elsewhere: the title, the
@@ -71,7 +74,13 @@ func (s *Service) ImportChat(ctx context.Context, user, title, model string, cre
 		if e.Role == session.RoleReasoning && len(text) > session.MaxReasoningBytes {
 			text = strings.ToValidUTF8(text[:session.MaxReasoningBytes], "")
 		}
-		batch = append(batch, session.Entry{Role: e.Role, Text: text, At: e.At.UTC()})
+		entry := session.Entry{Role: e.Role, Text: text, At: e.At.UTC()}
+		if e.Role == session.RoleUser {
+			// An old export holds the list of files in the text.
+			entry.Note, entry.Attachments = e.Note, e.Attachments
+			entry = session.DisplayEntry(entry)
+		}
+		batch = append(batch, entry)
 		if len(batch) == importBatch {
 			if err := flush(); err != nil {
 				return fail(err)

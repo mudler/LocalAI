@@ -99,9 +99,6 @@ func MimeOf(name string) string {
 	return "application/octet-stream"
 }
 
-// attachedHead starts the list of files that composeMessage writes.
-const attachedHead = "The user attached these files:\n"
-
 // staleRe finds the chat folders that a transcript names.
 var staleRe = regexp.MustCompile(regexp.QuoteMeta(GuestRoot+"/"+GuestHome+"/"+ChatsDir+"/") + `([^/\n]+)/`)
 
@@ -277,16 +274,9 @@ func (ix *fileIndex) attachments() map[string]attachment {
 		if e.Role != RoleUser {
 			continue
 		}
-		_, list, ok := strings.Cut(e.Text, attachedHead)
-		if !ok {
-			continue
-		}
-		for _, line := range strings.Split(list, "\n") {
-			g, ok := strings.CutPrefix(line, "- ")
-			if !ok {
-				break
-			}
-			if p := workspacePath(ix.home, g); p != "" {
+		// An old message holds the list in its text.
+		for _, a := range DisplayEntry(e).Attachments {
+			if p := workspacePath(ix.home, a.GuestPath()); p != "" {
 				out[p] = attachment{turn: e.Turn, at: e.At}
 			}
 		}
@@ -380,7 +370,7 @@ func (ix *fileIndex) findStale(ctx context.Context, rec ChatRecord) error {
 		if e.Role == RoleReasoning || e.Role == RoleCheckpoint {
 			continue
 		}
-		for _, m := range staleRe.FindAllStringSubmatch(e.Text, -1) {
+		for _, m := range staleRe.FindAllStringSubmatch(ModelText(e), -1) {
 			name := m[1]
 			if seen[name] {
 				continue

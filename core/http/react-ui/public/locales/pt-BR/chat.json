@@ -324,5 +324,11 @@
       "average": "Média das últimas {{count}} requisições",
       "note": "Estes números vêm das requisições que esta página viu. O servidor não os guarda, então recarregar apaga."
     }
+  },
+  "attachments": {
+    "label": "Arquivos anexados",
+    "open": "Abrir {{name}}",
+    "showMore": "Mostrar mais {{count}}",
+    "missing": "Arquivo não está mais disponível"
   }
 }

@@ -321,5 +321,11 @@
       "average": "Durchschnitt der letzten {{count}} Anfragen",
       "note": "Diese Werte stammen aus den Anfragen, die diese Seite gesehen hat. Der Server speichert sie nicht, ein Neuladen löscht sie."
     }
+  },
+  "attachments": {
+    "label": "Angehängte Dateien",
+    "open": "{{name}} öffnen",
+    "showMore": "{{count}} weitere anzeigen",
+    "missing": "Datei nicht mehr verfügbar"
   }
 }

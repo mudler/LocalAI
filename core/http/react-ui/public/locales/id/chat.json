@@ -321,5 +321,11 @@
       "average": "Rata-rata {{count}} permintaan terakhir",
       "note": "Angka ini berasal dari permintaan yang dilihat halaman ini. Server tidak menyimpannya, jadi memuat ulang akan menghapusnya."
     }
+  },
+  "attachments": {
+    "label": "File terlampir",
+    "open": "Buka {{name}}",
+    "showMore": "Tampilkan {{count}} lagi",
+    "missing": "File tidak lagi tersedia"
   }
 }

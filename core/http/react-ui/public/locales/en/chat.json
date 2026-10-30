@@ -366,7 +366,8 @@
   "meter": {
     "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
     "used": "{{used}} tokens",
-    "speed": "{{speed}} tok/s"
+    "speed": "{{speed}} tok/s",
+    "title": "Context the last model request used"
   },
   "files": {
     "title": "Files in this chat",
@@ -494,5 +495,11 @@
       "average": "Average of the last {{count}} requests",
       "note": "These figures come from the requests this page saw. The server does not keep them, so a reload clears them."
     }
+  },
+  "attachments": {
+    "label": "Attached files",
+    "open": "Open {{name}}",
+    "showMore": "Show {{count}} more",
+    "missing": "File no longer available"
   }
 }

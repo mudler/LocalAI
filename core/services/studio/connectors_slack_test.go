@@ -140,7 +140,8 @@ var _ = Describe("connectors slack", func() {
 		Expect(err).NotTo(HaveOccurred())
 		found := false
 		for _, m := range msgs {
-			found = found || (m.Role == "user" && strings.Contains(m.Text, "notes.txt"))
+			// The transcript keeps the files of a message apart from its words.
+			found = found || (m.Role == "user" && m.Text == "read this" && len(m.Attachments) == 1 && m.Attachments[0].Name == "notes.txt")
 		}
 		Expect(found).To(BeTrue(), "the file is not in the message of the chat: %+v", msgs)
 	})
