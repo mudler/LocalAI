@@ -31,6 +31,8 @@ var _ = Describe("text helpers", func() {
 			{`{"command":"ls -l","path":"x"}`, "ls -l"},
 			{`{"path":"home/a.txt","content":"long"}`, "home/a.txt"},
 			{`{"pattern":"*.md"}`, "*.md"},
+			{`{"url":"https://example.com/a","max_chars":100}`, "https://example.com/a"},
+			{`{"query":"local models","max_results":3}`, "local models"},
 			{`{"content":"x"}`, ""},
 			{`not json`, ""},
 			{``, ""},

@@ -11,7 +11,8 @@ import (
 
 // reservedToolNames are the names the service owns. A tool from another source
 // cannot take one, so the model always gets the real thing.
-var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName: true, listTriggersName: true}
+var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName: true, listTriggersName: true,
+	webSearchName: true, webFetchName: true}
 
 // hostTools returns the tools a conversation has besides the ones the service
 // adds itself: those from Deps.HostTools, the add-on tools of its user, the
@@ -40,6 +41,9 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]ses
 	if sc != nil && sc.deleted {
 		return tools, []string{"the agent of this chat was deleted"}, nil
 	}
+	// The built-in web tools come before the tools of add-ons and MCP
+	// servers, so that their names are taken first.
+	tools = append(tools, s.webTools(a, rec)...)
 	var missing []string
 	t, m := s.addonTools(ctx, a, rec, sc)
 	tools, missing = append(tools, t...), append(missing, m...)

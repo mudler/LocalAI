@@ -48,6 +48,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		if s.commandsOf(ctx, a.Principal, tools, nil, nil).State != CommandsAvailable {
 			prompt = subAgentCommandsBlock
 		}
+		prompt = joinBlocks(prompt, webBlock(tools))
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
@@ -104,7 +105,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	}
 	// What the chat can run comes before the other blocks: the prompt is cut at
 	// its end, and this block must reach the model.
-	prompt = strings.TrimSpace(commandsBlock(cmds, hasTool(tools, "write_file"), skillsOff > 0) + "\n\n" + prompt)
+	prompt = joinBlocks(commandsBlock(cmds, hasTool(tools, "write_file"), skillsOff > 0), webBlock(tools), prompt)
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)

@@ -91,6 +91,8 @@ type ConnectorSwitch struct {
 // chat's switch: add-ons, the MCP servers of the model and the user's
 // connectors. A chat with an agent lists only what the agent grants.
 type ToolsPanel struct {
+	// Builtins are the groups of built-in tools the chat can switch.
+	Builtins   []BuiltinGroup
 	Addons     []AddonInfo
 	Servers    []ModelMCPServerSwitch
 	Connectors []ConnectorSwitch
@@ -104,7 +106,7 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 	if err != nil {
 		return ToolsPanel{}, err
 	}
-	p := ToolsPanel{Off: append([]string{}, rec.McpOff...)}
+	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(rec)}
 	if p.Addons, err = s.Addons(ctx, user, conv); err != nil {
 		return p, err
 	}
