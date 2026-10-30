@@ -609,12 +609,18 @@
       "incompatible": "存在更新,但无法在此运行:",
       "integrity": "库中列出的此版本内容不同,不会作为更新提供。",
       "recovery": "此插件的数据需要先恢复。请在详情中恢复备份,然后再升级。",
-      "current": "上次检查未发现更新,该提示可能已过期。请重新检查。"
+      "current": "上次检查未发现更新,该提示可能已过期。请重新检查。",
+      "unpinned": "库报告有更新，但没有指明要安装的构建，因此无法在此升级。请稍后再检查。"
     },
     "checkAll": "检查更新",
     "checkingAll": "正在检查...",
     "checkAllDone": "已检查 {{count}} 个插件。",
-    "checkAllFailed": "{{count}} 个无法检查。"
+    "checkAllFailed": "{{count}} 个无法检查。",
+    "checkResult": {
+      "done": "已检查。",
+      "failed": "检查未完成。",
+      "justNow": "刚刚检查过。"
+    }
   },
   "install": {
     "stepsLabel": "Install steps",

@@ -609,12 +609,18 @@
       "incompatible": "An update exists but cannot run here:",
       "integrity": "The library lists this version with different contents. It is not offered as an update.",
       "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then upgrade.",
-      "current": "The latest check found no update. The notice may be out of date. Check again."
+      "current": "The latest check found no update. The notice may be out of date. Check again.",
+      "unpinned": "The library reports an update but names no build to install, so it cannot be upgraded from here. Check again later."
     },
     "checkAll": "Check for updates",
     "checkingAll": "Checking...",
     "checkAllDone": "Checked {{count}} add-ons.",
-    "checkAllFailed": "{{count}} could not be checked."
+    "checkAllFailed": "{{count}} could not be checked.",
+    "checkResult": {
+      "done": "Checked.",
+      "failed": "The check did not complete.",
+      "justNow": "Checked just now."
+    }
   },
   "install": {
     "stepsLabel": "Install steps",

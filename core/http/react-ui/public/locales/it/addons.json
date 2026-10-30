@@ -609,12 +609,18 @@
       "incompatible": "Esiste un aggiornamento, ma non può funzionare qui:",
       "integrity": "La libreria elenca questa versione con contenuto diverso. Non è proposta come aggiornamento.",
       "recovery": "I dati di questo componente aggiuntivo richiedono prima il ripristino. Ripristina un backup nei Dettagli, poi aggiorna.",
-      "current": "L'ultimo controllo non ha trovato aggiornamenti. L'avviso potrebbe essere obsoleto. Controlla di nuovo."
+      "current": "L'ultimo controllo non ha trovato aggiornamenti. L'avviso potrebbe essere obsoleto. Controlla di nuovo.",
+      "unpinned": "La libreria segnala un aggiornamento ma non indica quale build installare, quindi non è possibile aggiornarlo da qui. Ricontrolla più tardi."
     },
     "checkAll": "Cerca aggiornamenti",
     "checkingAll": "Controllo...",
     "checkAllDone": "Controllati {{count}} componenti.",
-    "checkAllFailed": "{{count}} non controllabili."
+    "checkAllFailed": "{{count}} non controllabili.",
+    "checkResult": {
+      "done": "Controllato.",
+      "failed": "Il controllo non è stato completato.",
+      "justNow": "Controllato adesso."
+    }
   },
   "install": {
     "stepsLabel": "Install steps",

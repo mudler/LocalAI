@@ -1,5 +1,9 @@
 .up-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px var(--dk-space-2, 8px); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); color: var(--dk-warn-text); font-size: var(--dk-text-12, 0.75rem); }
 .up-reason { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2, 8px); margin: 0; font-size: var(--dk-text-12, 0.75rem); color: var(--dk-muted); overflow-wrap: anywhere; }
+.up-reason__result { flex-basis: 100%; }
+.up-reason__result[data-tone='error'] { color: var(--dk-error-text); }
+.up-reason__result[data-tone='ok'] { color: var(--dk-ok-text); }
+.up-reason__result[data-tone='warn'] { color: var(--dk-warn-text); }
 .up-trigger { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2, 8px); }
 .up-trigger__note { font-size: var(--dk-text-13, 0.8125rem); color: var(--dk-muted); }
 .up-trigger__note[data-tone='error'] { color: var(--dk-error-text); }
