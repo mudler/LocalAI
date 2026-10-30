@@ -29,6 +29,7 @@ import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
 import CatalogEmpty from '../components/catalog/CatalogEmpty'
 import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
+import { UpdateBadge } from '../components/upgrade/UpgradeBits'
 import { useBulkUpgrade } from '../hooks/useBulkUpgrade'
 import './operate.css'
 
@@ -925,7 +926,7 @@ export default function Backends() {
         {catalog?.description && <p className="bk-detail__desc">{stripMarkdown(catalog.description)}</p>}
         <dl className="dk-kv bk-facts">
           <dt>{t('backends.facts.version')}</dt><dd>{versionLabel(version) || '—'}</dd>
-          {upgrade && (<><dt>{t('backends.facts.available')}</dt><dd>{versionLabel(upgrade.available_version) || t('backends.state.update')}</dd></>)}
+          {upgrade && (<><dt>{t('backends.facts.available')}</dt><dd><UpdateBadge version={versionLabel(upgrade.available_version)} /></dd></>)}
           {libraryUpdate && (<><dt>{t('backends.facts.available')}</dt><dd data-testid="library-update-facts">{versionLabel(libraryUpdate.version)} <span className="dk-mono">{shortDigest(libraryUpdate.digest)}</span></dd></>)}
           <dt>{t('backends.facts.managed')}</dt><dd>{b.IsSystem ? t('backends.facts.system') : library ? t('backends.facts.library') : t('backends.facts.gallery')}</dd>
           {library && (<><dt>{t('backends.facts.library')}</dt><dd className="dk-mono" data-testid="library-id">{library.id}</dd></>)}
