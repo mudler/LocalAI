@@ -306,6 +306,7 @@
       "context": "上下文",
       "contextOf": "{{used}} / {{limit}} 个 token（{{pct}}%）",
       "contextUsed": "{{used}} 个 token",
+      "contextLeft": "剩余 {{left}} 个 token",
       "contextHelp": "上下文是模型每次请求时读取的内容：指令、目前为止的对话以及工具结果。",
       "nearFull": "此对话接近上限。服务器会压缩较早的部分，让模型可以继续。对话记录会保留每条消息。",
       "limitUnknown": "服务器没有说明上下文窗口有多大。",
@@ -348,5 +349,13 @@
       "label": "{{verb}} {{name}}，打开预览",
       "row": "本回答的文件"
     }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} 个 token（{{pct}}%）",
+    "used": "{{used}} 个 token",
+    "speed": "{{speed}} token/秒",
+    "title": "上一次模型请求使用的上下文",
+    "ofLimit": "{{used}} / {{limit}} 个 token",
+    "left": "剩余 {{left}}"
   }
 }

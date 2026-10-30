@@ -14,6 +14,10 @@ const usage = (used, extra = {}) => ({ kind: 'usage', usage: { used, limit: 3276
 
 const state = (page) => page.getByTestId('chat-state')
 const meter = (page) => page.getByTestId('chat-context-meter')
+const bar = (page) => meter(page).locator('.cx-meter__bar')
+// The share of the bar that is filled, and where its ticks are, as the page
+// set them.
+const barVar = (page, name) => bar(page).evaluate((el, n) => el.style.getPropertyValue(n), name)
 // The live region of the line (the toast stack is another status region).
 const live = (page) => state(page).getByRole('status')
 const emit = (page, kind, payload) => page.evaluate(([k, p]) => window.__emit(k, p), [kind, payload])
@@ -109,9 +113,19 @@ test.describe('Chat status line', () => {
     await open(page)
     await expect(meter(page)).toHaveCount(0)
     await emit(page, 'usage', usage(12345, { model: 'qwen3-8b', prompt_ms: 240 }))
-    await expect(meter(page)).toContainText('12.3k / 32.8k tokens (38%)')
+    await expect(meter(page).locator('.cx-meter__text')).toHaveText('12.3k / 32.8k tokens')
+    await expect(page.getByTestId('chat-meter-left')).toHaveText('20.4k left')
     await expect(meter(page)).toContainText('41 tok/s')
     await expect(meter(page)).toHaveAttribute('data-tone', 'ok')
+    await expect(meter(page)).toHaveAttribute('aria-label', /^12\.3k \/ 32\.8k tokens \(38%\) · 20\.4k left · 41 tok\/s/)
+    // A bar a reader can see: wide and tall enough, filled to the share, with
+    // ticks where the meter warns and where it is hot.
+    const box = await bar(page).boundingBox()
+    expect(box.width).toBeGreaterThanOrEqual(90)
+    expect(box.height).toBeGreaterThanOrEqual(6)
+    expect(await barVar(page, '--cx-fill')).toBe('0.38')
+    expect(await barVar(page, '--cx-warn')).toBe('0.8')
+    expect(await barVar(page, '--cx-hot')).toBe('0.9')
     // The speed is not in the live region: a new figure is not announced.
     await expect(live(page)).not.toContainText('tok/s')
 
@@ -119,6 +133,7 @@ test.describe('Chat status line', () => {
     await expect(meter(page)).toHaveAttribute('aria-expanded', 'true')
     const details = page.getByRole('dialog', { name: 'Context and speed' })
     await expect(details.getByTestId('chat-meter-context')).toHaveText('12,345 of 32,768 tokens (38%)')
+    await expect(details.getByTestId('chat-meter-left-detail')).toHaveText('20,423 tokens left')
     await expect(details.getByTestId('chat-meter-model')).toContainText('qwen3-8b')
     await expect(details.getByTestId('chat-meter-backend')).toContainText('llama-cpp')
     await expect(details.getByTestId('chat-meter-in')).toContainText('12,345')
@@ -152,6 +167,8 @@ test.describe('Chat status line', () => {
     await emit(page, 'usage', usage(27500, { node: 'worker-2' }))
     await expect(meter(page)).toHaveAttribute('data-tone', 'warn')
     await expect(meter(page).locator('svg[data-icon="warning"]')).toBeVisible()
+    await expect(page.getByTestId('chat-meter-left')).toHaveText('5.3k left')
+    expect(await barVar(page, '--cx-fill')).toBe('0.84')
     await emit(page, 'usage', usage(31900, { node: 'worker-2' }))
     await expect(meter(page)).toHaveAttribute('data-tone', 'err')
     await meter(page).click()
@@ -160,6 +177,28 @@ test.describe('Chat status line', () => {
     await expect(details.getByTestId('chat-meter-node')).toContainText('worker-2')
     // Two requests with a speed: the average shows.
     await expect(details.getByTestId('chat-meter-avg')).toContainText('41 tok/s')
+  })
+
+  test('a full context leaves nothing, not a negative count', async ({ page }) => {
+    await open(page)
+    await emit(page, 'usage', usage(40000))
+    await expect(meter(page)).toHaveAttribute('data-tone', 'err')
+    await expect(page.getByTestId('chat-meter-left')).toHaveText('0 left')
+    expect(await barVar(page, '--cx-fill')).toBe('1')
+  })
+
+  test('with no known limit the meter shows only the count used, without a bar', async ({ page }) => {
+    await open(page)
+    await emit(page, 'usage', usage(900, { limit: 0 }))
+    await expect(meter(page).locator('.cx-meter__text')).toHaveText('900 tokens')
+    await expect(meter(page)).toHaveAttribute('data-limit', 'unknown')
+    await expect(meter(page)).toHaveAttribute('data-tone', 'ok')
+    await expect(bar(page)).toHaveCount(0)
+    await expect(page.getByTestId('chat-meter-left')).toHaveCount(0)
+    await meter(page).click()
+    const details = page.getByRole('dialog', { name: 'Context and speed' })
+    await expect(details.getByTestId('chat-meter-context')).toHaveText('900 tokens')
+    await expect(details.getByTestId('chat-meter-left-detail')).toHaveCount(0)
   })
 
   test('a new chat keeps the line quiet', async ({ page }) => {
@@ -178,13 +217,26 @@ test.describe('Chat status line on a phone', () => {
     await expect(meter(page)).toBeVisible()
     await expect(meter(page).locator('.cx-meter__short')).toHaveText('38%')
     await expect(meter(page).locator('.cx-meter__text')).toBeHidden()
+    // The bar and what is left stay; the speed goes to the sheet.
+    await expect(bar(page)).toBeVisible()
+    await expect(page.getByTestId('chat-meter-left')).toHaveText('20.4k left')
+    await expect(page.getByTestId('chat-speed')).toBeHidden()
     const box = await page.getByTestId('chat-foot').boundingBox()
     expect(box.height).toBeLessThanOrEqual(32)
     await meter(page).click()
     await expect(page.getByTestId('chat-meter-sheet')).toBeVisible()
     await expect(page.getByTestId('chat-meter-context')).toHaveText('12,345 of 32,768 tokens (38%)')
+    await expect(page.getByTestId('chat-meter-left-detail')).toHaveText('20,423 tokens left')
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('chat-meter-sheet')).toHaveCount(0)
     await expect(meter(page)).toBeFocused()
+  })
+
+  test('with no known limit the count keeps its word', async ({ page }) => {
+    await open(page)
+    await emit(page, 'usage', usage(900, { limit: 0 }))
+    await expect(meter(page).locator('.cx-meter__text')).toHaveText('900 tokens')
+    await expect(meter(page).locator('.cx-meter__text')).toBeVisible()
+    await expect(meter(page).locator('.cx-meter__short')).toBeHidden()
   })
 })

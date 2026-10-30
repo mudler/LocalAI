@@ -345,7 +345,9 @@
     "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
     "used": "{{used}} tokens",
     "speed": "{{speed}} tok/s",
-    "title": "Context the last model request used"
+    "title": "Context the last model request used",
+    "ofLimit": "{{used}} / {{limit}} tokens",
+    "left": "{{left}} left"
   },
   "files": {
     "title": "Files in this chat",
@@ -461,6 +463,7 @@
       "context": "Context",
       "contextOf": "{{used}} of {{limit}} tokens ({{pct}}%)",
       "contextUsed": "{{used}} tokens",
+      "contextLeft": "{{left}} tokens left",
       "contextHelp": "The context is what the model reads for each request: the instructions, this chat so far and the tool results.",
       "nearFull": "This chat is close to the limit. The server compacts the older part so the model can go on. The transcript keeps every message.",
       "limitUnknown": "The server did not say how large the context window is.",

@@ -304,6 +304,7 @@
       "context": "Contexte",
       "contextOf": "{{used}} sur {{limit}} jetons ({{pct}} %)",
       "contextUsed": "{{used}} jetons",
+      "contextLeft": "{{left}} jetons restants",
       "contextHelp": "Le contexte est ce que le modèle lit à chaque requête : les instructions, ce chat jusqu’ici et les résultats des outils.",
       "nearFull": "Ce chat approche de la limite. Le serveur condense la partie la plus ancienne pour que le modèle puisse continuer. La transcription garde chaque message.",
       "limitUnknown": "Le serveur n’a pas indiqué la taille de la fenêtre de contexte.",
@@ -346,5 +347,13 @@
       "label": "{{verb}} {{name}}, ouvrir l’aperçu",
       "row": "Fichiers de cette réponse"
     }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} jetons ({{pct}} %)",
+    "used": "{{used}} jetons",
+    "speed": "{{speed}} jetons/s",
+    "title": "Contexte utilisé par la dernière requête au modèle",
+    "ofLimit": "{{used}} / {{limit}} jetons",
+    "left": "{{left}} restants"
   }
 }

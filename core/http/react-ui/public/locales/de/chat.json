@@ -306,6 +306,7 @@
       "context": "Kontext",
       "contextOf": "{{used}} von {{limit}} Tokens ({{pct}} %)",
       "contextUsed": "{{used}} Tokens",
+      "contextLeft": "{{left}} Tokens frei",
       "contextHelp": "Der Kontext ist das, was das Modell bei jeder Anfrage liest: die Anweisungen, diesen Chat bis jetzt und die Ergebnisse der Tools.",
       "nearFull": "Dieser Chat ist nahe am Limit. Der Server fasst den älteren Teil zusammen, damit das Modell weitermachen kann. Das Protokoll behält jede Nachricht.",
       "limitUnknown": "Der Server hat nicht gesagt, wie groß das Kontextfenster ist.",
@@ -348,5 +349,13 @@
       "label": "{{verb}}: {{name}}, Vorschau öffnen",
       "row": "Dateien aus dieser Antwort"
     }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} Tokens ({{pct}} %)",
+    "used": "{{used}} Tokens",
+    "speed": "{{speed}} Tok./s",
+    "title": "Kontext, den die letzte Modellanfrage belegt hat",
+    "ofLimit": "{{used}} / {{limit}} Tokens",
+    "left": "{{left}} frei"
   }
 }

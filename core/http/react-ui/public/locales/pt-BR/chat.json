@@ -309,6 +309,7 @@
       "context": "Contexto",
       "contextOf": "{{used}} de {{limit}} tokens ({{pct}}%)",
       "contextUsed": "{{used}} tokens",
+      "contextLeft": "Restam {{left}} tokens",
       "contextHelp": "O contexto é o que o modelo lê a cada requisição: as instruções, este chat até agora e os resultados das ferramentas.",
       "nearFull": "Este chat está perto do limite. O servidor compacta a parte mais antiga para que o modelo possa continuar. A transcrição mantém todas as mensagens.",
       "limitUnknown": "O servidor não informou o tamanho da janela de contexto.",
@@ -351,5 +352,13 @@
       "label": "{{verb}} {{name}}, abrir prévia",
       "row": "Arquivos desta resposta"
     }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
+    "used": "{{used}} tokens",
+    "speed": "{{speed}} tok/s",
+    "title": "Contexto usado pela última solicitação ao modelo",
+    "ofLimit": "{{used}} / {{limit}} tokens",
+    "left": "restam {{left}}"
   }
 }

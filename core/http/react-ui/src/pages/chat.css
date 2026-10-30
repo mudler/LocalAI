@@ -617,6 +617,9 @@ button.cx-step__head:hover,
   line-height: var(--lh-meta);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  /* The meter fits itself to the width of the line, not of the window: a
+     chat beside an open pane is as narrow as a phone. */
+  container: cx-foot / inline-size;
 }
 .cx-foot__state { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
 .cx-foot__mark { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 14px; height: 14px; }
@@ -661,26 +664,58 @@ button.cx-step__head:hover,
 }
 .cx-meter:hover, .cx-meter[aria-expanded="true"] { background: var(--dk-hover); color: var(--dk-text); }
 .cx-meter:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 1px; }
-.cx-meter__warn { width: 14px; height: 14px; }
-.cx-meter__bar { position: relative; flex: none; width: 40px; height: 4px; border-radius: var(--r-xs); background: var(--dk-hover); overflow: hidden; }
+.cx-meter__warn { flex: none; width: 14px; height: 14px; }
+/* The bar: a rounded track with two ticks, at the share where the meter warns
+   and where it is hot. The fill is a full-width bar slid in from the left, so
+   its rounded end keeps its shape at any fill. The track mixes from the text
+   colour, so it shows on the hover colour of the button too. */
+.cx-meter__bar {
+  --cx-track: color-mix(in srgb, var(--dk-text) 12%, transparent);
+  --cx-tick: color-mix(in srgb, var(--dk-text) 32%, transparent);
+  position: relative;
+  flex: none;
+  width: 96px;
+  height: 6px;
+  border-radius: var(--r-xs);
+  background: var(--cx-track);
+  overflow: hidden;
+  isolation: isolate;
+  transition: background var(--dur-instant) var(--ease-out);
+}
 .cx-meter__bar i {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background: var(--dk-accent);
-  transform: scaleX(var(--cx-fill, 0));
-  transform-origin: left center;
-  transition: transform var(--dur-base) var(--ease-out);
+  transform: translateX(calc((var(--cx-fill, 0) - 1) * 100%));
+  transition: transform var(--dur-slow) var(--ease-out-strong), background var(--dur-base) var(--ease-out);
 }
+.cx-meter__bar::before, .cx-meter__bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 1px;
+  background: var(--cx-tick);
+}
+.cx-meter__bar::before { left: calc(var(--cx-warn, 0.8) * 100%); }
+.cx-meter__bar::after { left: calc(var(--cx-hot, 0.9) * 100%); }
+.cx-meter:hover .cx-meter__bar, .cx-meter[aria-expanded="true"] .cx-meter__bar { --cx-track: color-mix(in srgb, var(--dk-text) 18%, transparent); }
 .cx-meter[data-tone="warn"], .cx-meter-pop__ctx[data-tone="warn"] { color: var(--dk-warn-text); }
 .cx-meter[data-tone="err"], .cx-meter-pop__ctx[data-tone="err"] { color: var(--dk-error-text); }
 .cx-meter[data-tone="warn"] .cx-meter__bar i, .cx-meter-pop__ctx[data-tone="warn"] .cx-meter__bar i { background: var(--dk-warn); }
 .cx-meter[data-tone="err"] .cx-meter__bar i, .cx-meter-pop__ctx[data-tone="err"] .cx-meter__bar i { background: var(--dk-error); }
-.cx-meter__short { display: none; }
+/* Used / limit in text colour, what is left after it in the line colour. */
+.cx-meter__text { color: var(--dk-text); }
+.cx-meter[data-tone="warn"] .cx-meter__text, .cx-meter[data-tone="err"] .cx-meter__text { color: inherit; }
+.cx-meter[data-limit] .cx-meter__text { color: inherit; }
+.cx-meter__short { display: none; color: var(--dk-text); }
+.cx-meter[data-tone="warn"] .cx-meter__short, .cx-meter[data-tone="err"] .cx-meter__short { color: inherit; }
+.cx-meter__left::before, .cx-meter__speed::before { content: "·"; margin-right: var(--sp-2); color: var(--dk-muted); }
 /* Live speed in text colour; the last figure after the turn goes back to the
    muted line colour. A minimum width keeps the line from shifting. */
 .cx-meter__speed { min-width: 8ch; color: var(--dk-text); text-align: right; }
-.cx-meter__speed::before { content: "·"; margin-right: var(--sp-2); color: var(--dk-muted); }
 .cx-meter__speed[data-stale] { color: inherit; }
 /* The keyboard hint lives in the status line here, not in the bar. */
 .cx-dock .home-input-hint { visibility: hidden; }
@@ -691,7 +726,8 @@ button.cx-step__head:hover,
 .cx-meter-pop[data-sheet] { width: auto; padding: 0; }
 .cx-meter-pop__title { margin: 0 0 var(--sp-3); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--dk-text); }
 .cx-meter-pop__ctx { display: grid; gap: var(--sp-1); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--dk-edge); color: var(--dk-text); }
-.cx-meter-pop__ctx .cx-meter__bar--wide { width: 100%; height: 6px; margin: var(--sp-1) 0; }
+.cx-meter-pop__ctx .cx-meter__bar--wide { width: 100%; height: 8px; margin: var(--sp-1) 0; }
+.cx-meter-pop__left { margin: 0; color: var(--dk-muted); font-variant-numeric: tabular-nums; }
 .cx-meter-pop__help { display: flex; gap: 6px; margin: 0; color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
 .cx-meter-pop__help .lai-icon { flex: none; width: 14px; height: 14px; margin-top: 1px; }
 .cx-meter-pop__help--warn { color: var(--dk-warn-text); }
@@ -706,10 +742,24 @@ button.cx-step__head:hover,
 .cx-meter-pop__note { margin: var(--sp-3) 0 0; color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
 .cx-meter-sheet.ui-pane { height: auto; max-height: 90dvh; }
 
-/* Phone: the state word and the percentage. The rest is in the sheet. */
-@media (max-width: 639px) {
-  .cx-foot__detail, .cx-foot__hint, .cx-meter__text, .cx-meter__speed, .cx-meter .cx-meter__bar { display: none; }
+/* A narrow line: the percentage takes the place of used / limit, and the bar
+   gets shorter. Narrower still, the speed goes to the details. */
+@container cx-foot (max-width: 559px) {
+  .cx-meter__text { display: none; }
   .cx-meter__short { display: inline; }
+  .cx-meter .cx-meter__bar { width: 64px; }
+  /* With no known limit there is no percentage: the count keeps its word. */
+  .cx-meter[data-limit] .cx-meter__text { display: inline; }
+  .cx-meter[data-limit] .cx-meter__short { display: none; }
+}
+@container cx-foot (max-width: 439px) {
+  .cx-meter__speed { display: none; }
+  .cx-meter .cx-meter__bar { width: 48px; }
+}
+/* Phone: the state word, the bar, the percentage and what is left. The rest
+   is in the sheet. */
+@media (max-width: 639px) {
+  .cx-foot__detail, .cx-foot__hint { display: none; }
 }
 /* A touch target of at least 44 px without a taller line. */
 @media (pointer: coarse) {

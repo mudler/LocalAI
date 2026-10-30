@@ -208,13 +208,18 @@ running turn, and an icon marks a state that needs your attention. While the
 composer has focus and is empty, the line also shows the keyboard hint.
 
 On the right, the context meter shows how full the model's context was at the
-last request and the speed of that request. While an answer streams, the speed
-is an estimate (shown with `≈`); the measured figure replaces it when the
+last request: a bar, the tokens used and the limit (for example
+`12.3k / 32.8k tokens`), the tokens left (`20.4k left`) and the speed of that
+request. Two ticks on the bar mark 80 % and 90 %. While an answer streams, the
+speed is an estimate (shown with `≈`); the measured figure replaces it when the
 request ends. From 80 % the meter turns amber, from 90 % red, both with a
-warning icon. Select the meter to see:
+warning icon. When the server does not know the limit, the meter shows only
+the tokens used, with no bar. Where the line is narrow, the percentage replaces
+the used and limit figures; narrower still, the speed moves to the details.
+Select the meter to see:
 
-- the context used and the limit, and what happens near the limit (the server
-  compacts the older part of the chat),
+- the context used, the limit and the tokens left, and what happens near the
+  limit (the server compacts the older part of the chat),
 - the model, its backend and, when the server runs with
   `--expose-node-header`, the node that served the request,
 - the tokens in and out, the time to the first token, the prompt processing
@@ -222,8 +227,8 @@ warning icon. Select the meter to see:
 
 The figures come from the `usage` events of the page's event stream. The server
 does not keep them, so they are empty after a reload until the next request.
-On a phone the line shows the word and the percentage, and the details open in
-a sheet.
+On a phone the line shows the word, the bar, the percentage and the tokens
+left, and the details open in a sheet.
 
 ## Regenerate, edit, fork, search, export
 

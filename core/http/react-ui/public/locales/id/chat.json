@@ -306,6 +306,7 @@
       "context": "Konteks",
       "contextOf": "{{used}} dari {{limit}} token ({{pct}}%)",
       "contextUsed": "{{used}} token",
+      "contextLeft": "Sisa {{left}} token",
       "contextHelp": "Konteks adalah apa yang dibaca model pada setiap permintaan: instruksi, obrolan ini sejauh ini, dan hasil alat.",
       "nearFull": "Obrolan ini mendekati batas. Server memadatkan bagian yang lebih lama agar model bisa melanjutkan. Transkrip menyimpan setiap pesan.",
       "limitUnknown": "Server tidak menyebutkan seberapa besar jendela konteksnya.",
@@ -348,5 +349,13 @@
       "label": "{{verb}} {{name}}, buka pratinjau",
       "row": "File dari jawaban ini"
     }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} token ({{pct}}%)",
+    "used": "{{used}} token",
+    "speed": "{{speed}} tok/dtk",
+    "title": "Konteks yang dipakai permintaan model terakhir",
+    "ofLimit": "{{used}} / {{limit}} token",
+    "left": "sisa {{left}}"
   }
 }

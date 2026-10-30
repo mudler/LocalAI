@@ -40,11 +40,14 @@ test('chat settings: the form refuses what the server refuses', () => {
 
 test('chat settings: the context meter reads the usage event and warns near the limit', () => {
   assert.equal(contextReading(null), null)
-  assert.deepEqual(contextReading({ used: 100, limit: 4096, completion: 10, tokens_per_second: 20 }), { used: 100, limit: 4096, pct: 2, tone: 'ok', speed: 20 })
+  assert.deepEqual(contextReading({ used: 100, limit: 4096, completion: 10, tokens_per_second: 20 }), { used: 100, limit: 4096, pct: 2, left: 3996, tone: 'ok', speed: 20 })
   assert.equal(contextReading({ used: 3400, limit: 4096 }).tone, 'warn')
   assert.equal(contextReading({ used: 4000, limit: 4096 }).tone, 'err')
   const unknown = contextReading({ used: 900, completion: 3 })
   assert.equal(unknown.pct, null)
+  assert.equal(unknown.left, null)
+  // Past the window nothing is left, not a negative count.
+  assert.equal(contextReading({ used: 5000, limit: 4096 }).left, 0)
   assert.equal(unknown.speed, null)
   assert.equal(tokenCount(950), '950')
   assert.equal(tokenCount(4096), '4.1k')

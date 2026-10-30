@@ -63,8 +63,13 @@ export function settingsChanged(form, settings) {
   return Object.keys(a).some((k) => a[k] !== form[k])
 }
 
+// The meter warns from CONTEXT_WARN_PCT percent (the next turns compact the
+// chat) and is hot from CONTEXT_HOT_PCT. The bar marks both on its track.
+export const CONTEXT_WARN_PCT = 80
+export const CONTEXT_HOT_PCT = 90
+
 // What the context meter of the composer says, from the last usage event.
-// pct is null when the server does not know the window.
+// pct and left are null when the server does not know the window.
 export function contextReading(usage) {
   if (!usage || !(usage.used >= 0)) return null
   const limit = usage.limit > 0 ? usage.limit : 0
@@ -73,8 +78,8 @@ export function contextReading(usage) {
     used: usage.used,
     limit,
     pct,
-    // The meter warns above about 80 percent: the next turns compact the chat.
-    tone: pct === null ? 'ok' : pct >= 90 ? 'err' : pct >= 80 ? 'warn' : 'ok',
+    left: limit ? Math.max(0, limit - usage.used) : null,
+    tone: pct === null ? 'ok' : pct >= CONTEXT_HOT_PCT ? 'err' : pct >= CONTEXT_WARN_PCT ? 'warn' : 'ok',
     speed: usage.tokens_per_second > 0 ? Math.round(usage.tokens_per_second * 10) / 10 : null,
   }
 }

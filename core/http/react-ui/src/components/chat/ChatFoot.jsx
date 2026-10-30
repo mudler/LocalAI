@@ -6,7 +6,7 @@ import Popover from '../Popover'
 // eslint-disable-next-line no-unused-vars
 import { SidePane } from '../ui'
 import { usePhone } from '../../hooks/useSwarm'
-import { contextReading, tokenCount } from '../../utils/chatSettings'
+import { CONTEXT_HOT_PCT, CONTEXT_WARN_PCT, contextReading, tokenCount } from '../../utils/chatSettings'
 import { averageSpeed, liveRate, speedView, speedValue } from '../../utils/chatFoot'
 import { formatDuration } from '../../utils/toolLabels'
 
@@ -15,8 +15,13 @@ import { formatDuration } from '../../utils/toolLabels'
 const PACE_MS = 500
 const SHEET_QUERY = '(max-width: 639px)'
 
-// The bar of the meter: a scale, so it moves with a transform.
-const fillOf = (pct) => ({ '--cx-fill': Math.max(0, Math.min(100, pct || 0)) / 100 })
+// The bar of the meter: the fill slides in with a transform, and the track
+// marks where the meter warns and where it is hot.
+const barOf = (pct) => ({
+  '--cx-fill': Math.max(0, Math.min(100, pct || 0)) / 100,
+  '--cx-warn': CONTEXT_WARN_PCT / 100,
+  '--cx-hot': CONTEXT_HOT_PCT / 100,
+})
 
 // The status line under the chat composer. On the left one live state (an
 // icon or a dot, a word and a short detail), and the keyboard hint while the
@@ -67,17 +72,23 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
         : (state.key === 'failed' || state.key === 'interrupted') ? status : ''
 
   const n = (v) => new Intl.NumberFormat(i18n.language || undefined).format(v)
+  // The line: used / limit, or the percentage where the line is narrow, and
+  // what is left. With no known limit only the count used.
   const meterText = meter && (meter.limit
-    ? t('meter.usedOf', { used: tokenCount(meter.used), limit: tokenCount(meter.limit), pct: meter.pct })
+    ? t('meter.ofLimit', { used: tokenCount(meter.used), limit: tokenCount(meter.limit) })
     : t('meter.used', { used: tokenCount(meter.used) }))
   const meterShort = meter && (meter.pct !== null ? `${meter.pct}%` : tokenCount(meter.used))
+  const meterLeft = meter && meter.left !== null ? t('meter.left', { left: tokenCount(meter.left) }) : ''
+  const meterFull = meter && (meter.limit
+    ? t('meter.usedOf', { used: tokenCount(meter.used), limit: tokenCount(meter.limit), pct: meter.pct })
+    : meterText)
   const meterName = meter && (meter.pct !== null
     ? t('foot.meter.label', { pct: meter.pct })
     : t('foot.meter.labelNoLimit', { used: n(meter.used) }))
 
   // The name starts with what the button shows, so voice control finds it.
   const speedText = speed ? `${speed.approx ? '≈' : ''}${t('meter.speed', { speed: speed.value })}` : ''
-  const meterAccessible = meter && [phone ? meterShort : meterText, speedText, t('foot.details.title')].filter(Boolean).join(' · ')
+  const meterAccessible = meter && [phone && meter.limit ? meterShort : meterFull, meterLeft, speedText, t('foot.details.title')].filter(Boolean).join(' · ')
 
   const details = meter && (
     <MeterDetails
@@ -116,6 +127,7 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
           className="cx-meter"
           data-testid="chat-context-meter"
           data-tone={meter.tone}
+          data-limit={meter.limit ? undefined : 'unknown'}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={meterAccessible}
@@ -123,9 +135,10 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
           onClick={() => setOpen(v => !v)}
         >
           {meter.tone !== 'ok' && <Icon name="warning" className="cx-meter__warn" />}
-          {meter.pct !== null && <span className="cx-meter__bar" aria-hidden="true"><i style={fillOf(meter.pct)} /></span>}
+          {meter.pct !== null && <MeterBar pct={meter.pct} />}
           <span className="cx-meter__text">{meterText}</span>
           <span className="cx-meter__short">{meterShort}</span>
+          {meterLeft && <span className="cx-meter__left" data-testid="chat-meter-left">{meterLeft}</span>}
           {speed && (
             <span className="cx-meter__speed" data-testid="chat-speed" data-stale={speed.stale || undefined} data-approx={speed.approx || undefined}>
               {speedText}
@@ -144,6 +157,16 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
         </SidePane>
       )}
     </div>
+  )
+}
+
+// The bar of the meter. Decorative: the figures beside it say the same.
+// eslint-disable-next-line no-unused-vars -- used as JSX
+function MeterBar({ pct, wide = false }) {
+  return (
+    <span className={`cx-meter__bar${wide ? ' cx-meter__bar--wide' : ''}`} aria-hidden="true" style={barOf(pct)}>
+      <i />
+    </span>
   )
 }
 
@@ -189,7 +212,10 @@ function MeterDetails({ bodyRef, meter, usage, model, backend, speed, average, f
             ? t('foot.details.contextOf', { used: n(meter.used), limit: n(meter.limit), pct: meter.pct })
             : t('foot.details.contextUsed', { used: n(meter.used) })}
         </p>
-        {meter.pct !== null && <span className="cx-meter__bar cx-meter__bar--wide" aria-hidden="true"><i style={fillOf(meter.pct)} /></span>}
+        {meter.pct !== null && <MeterBar pct={meter.pct} wide />}
+        {meter.left !== null && (
+          <p className="cx-meter-pop__left" data-testid="chat-meter-left-detail">{t('foot.details.contextLeft', { left: n(meter.left) })}</p>
+        )}
         <p className="cx-meter-pop__help">{t('foot.details.contextHelp')}</p>
         {meter.tone !== 'ok' && (
           <p className="cx-meter-pop__help cx-meter-pop__help--warn" data-testid="chat-meter-near-full">

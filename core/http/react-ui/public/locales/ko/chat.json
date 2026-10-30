@@ -306,6 +306,7 @@
       "context": "컨텍스트",
       "contextOf": "{{limit}} 토큰 중 {{used}} ({{pct}}%)",
       "contextUsed": "{{used}} 토큰",
+      "contextLeft": "{{left}} 토큰 남음",
       "contextHelp": "컨텍스트는 모델이 요청마다 읽는 내용입니다: 지침, 지금까지의 이 채팅, 도구 결과.",
       "nearFull": "이 채팅이 한도에 가깝습니다. 모델이 계속할 수 있도록 서버가 오래된 부분을 압축합니다. 대화 기록에는 모든 메시지가 남습니다.",
       "limitUnknown": "서버가 컨텍스트 창의 크기를 알려 주지 않았습니다.",
@@ -348,5 +349,13 @@
       "label": "{{verb}} {{name}}, 미리보기 열기",
       "row": "이 답변의 파일"
     }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} 토큰 ({{pct}}%)",
+    "used": "{{used}} 토큰",
+    "speed": "{{speed}} 토큰/초",
+    "title": "마지막 모델 요청이 사용한 컨텍스트",
+    "ofLimit": "{{used}} / {{limit}} 토큰",
+    "left": "{{left}} 남음"
   }
 }
