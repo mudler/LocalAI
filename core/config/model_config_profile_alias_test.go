@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -172,6 +173,33 @@ mcp:
 		Expect(base.EvidenceCheck().Numbers).To(BeFalse())
 	})
 
+	It("carries evidence_check.urls into the resolved config and nowhere else", func() {
+		dir := GinkgoT().TempDir()
+		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "linked.yaml"), []byte("name: linked\nalias: base-llm\nprofile:\n  evidence_check:\n    urls: true\n    urls_note: \"nicht abgerufen: {urls}\"\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "default-note.yaml"), []byte("name: default-note\nalias: base-llm\nprofile:\n  evidence_check:\n    urls: true\n"), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "gpt-4.yaml"), []byte(plain), 0644)).To(Succeed())
+		cl = config.NewModelConfigLoader(dir)
+		Expect(cl.LoadModelConfigsFromPath(dir)).To(Succeed())
+
+		linked := resolve("linked")
+		Expect(linked.EvidenceCheck().URLs).To(BeTrue())
+		Expect(linked.EvidenceCheck().UnverifiedURLsNote([]string{"https://a.example", "https://b.example"})).
+			To(Equal("nicht abgerufen: https://a.example, https://b.example"))
+		Expect(resolve("default-note").EvidenceCheck().UnverifiedURLsNote([]string{"https://a.example"})).
+			To(Equal(strings.ReplaceAll(config.DefaultURLsNote, config.URLsPlaceholder, "https://a.example")))
+
+		Expect(resolve("gpt-4").EvidenceCheck().URLs).To(BeFalse())
+		base, ok := cl.GetModelConfig("base-llm")
+		Expect(ok).To(BeTrue())
+		Expect(base.EvidenceCheck().URLs).To(BeFalse())
+	})
+
+	It("appends the links to a urls_note without placeholder", func() {
+		Expect(config.EvidenceCheckConfig{URLs: true, URLsNote: "Not retrieved:"}.UnverifiedURLsNote([]string{"https://a.example"})).
+			To(Equal("Not retrieved: https://a.example"))
+	})
+
 	It("carries evidence_check.sources and require_tool into the resolved config and nowhere else", func() {
 		dir := GinkgoT().TempDir()
 		Expect(os.WriteFile(filepath.Join(dir, "base-llm.yaml"), []byte(target+"require_tool: true\n"), 0644)).To(Succeed())
@@ -248,6 +276,19 @@ mcp:
 			Expect(err).To(MatchError(ContainSubstring("profile.evidence_check.sources_label")))
 
 			cfg.Profile.EvidenceCheck.Sources = true
+			ok, err = cfg.Validate()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+		})
+
+		It("rejects an evidence_check urls_note without urls: true", func() {
+			cfg := config.ModelConfig{Name: "p", Alias: "base-llm"}
+			cfg.Profile.EvidenceCheck.URLsNote = "nicht abgerufen: {urls}"
+			ok, err := cfg.Validate()
+			Expect(ok).To(BeFalse())
+			Expect(err).To(MatchError(ContainSubstring("profile.evidence_check.urls_note")))
+
+			cfg.Profile.EvidenceCheck.URLs = true
 			ok, err = cfg.Validate()
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ok).To(BeTrue())
