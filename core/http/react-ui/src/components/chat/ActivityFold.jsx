@@ -4,6 +4,7 @@ import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
 import { addonChange, toolRefusal } from '../../utils/addonChange'
 import { proposalIds } from '../../utils/chatProposal'
+import { toolLabel, formatDuration, runTimes } from '../../utils/toolLabels'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import ChangeNote from './ChangeNote'
@@ -15,21 +16,42 @@ import ProposalCard from './ProposalCard'
 // What the thread says about reasoning and tool use: one quiet line that opens
 // inline into the steps. Everything it shows is in the transcript the server
 // keeps: reasoning lines and tool lines ("name: summary", then a capped output).
+//
+// A step reads as a person would say it ("Read quote-acme.pdf", "Listed
+// /Contracts · 3 files") with its time on the right. The tool id, its input and
+// its output are one click away, for debugging.
 
-// "Thought · read_file", "Thought · 3 tool calls": what happened, in the fewest
-// words that still say it.
-function summarise(items, t) {
-  const parts = []
-  if (items.some(i => i.role === 'reasoning')) parts.push(t('activity.thought'))
+// Output longer than this many lines shows its start and a "Show all" button.
+const OUTPUT_LINES = 12
+
+// The words of a run: "Worked for 1.2 s · 4 steps", "Read quote-acme.pdf",
+// "Thought for 2 s".
+function summarise(items, t, lng) {
   const calls = items.filter(i => i.role === 'tool')
-  if (calls.length === 1) parts.push(toolLine(calls[0].text).name || t('activity.tool'))
-  else if (calls.length > 1) parts.push(t('activity.toolCalls', { count: calls.length }))
-  if (parts.length === 0) parts.push(t('activity.result'))
-  return parts.join(' · ')
+  const { total } = runTimes(items)
+  const duration = total !== null ? formatDuration(total, t, lng) : ''
+  if (calls.length === 0) {
+    if (items.some(i => i.role === 'reasoning')) {
+      return duration ? t('steps.thoughtFor', { duration }) : t('activity.thought')
+    }
+    return t('activity.result')
+  }
+  if (calls.length === 1 && !duration) {
+    const { name, summary } = toolLine(calls[0].text)
+    return labelText(toolLabel(name, summary, ''), t)
+  }
+  const count = t('steps.count', { count: calls.length })
+  return duration ? `${t('steps.worked', { duration })} · ${count}` : count
+}
+
+// A label as plain text, for the fold line.
+function labelText(label, t) {
+  const verb = t(`steps.verb.${label.verb}`)
+  return [verb, label.verb === 'used' ? label.tool : '', label.arg].filter(Boolean).join(' ')
 }
 
 // eslint-disable-next-line no-unused-vars
-function FoldFrame({ summary, open, live, shimmer, onToggle, icon, children, id }) {
+function FoldFrame({ summary, open, live, working, onToggle, icon, children, id }) {
   const bodyId = `${id}-body`
   return (
     <div className="cx-fold" data-open={open || undefined} data-live={live || undefined} data-testid="chat-activity">
@@ -41,7 +63,8 @@ function FoldFrame({ summary, open, live, shimmer, onToggle, icon, children, id 
         onClick={onToggle}
       >
         <Icon name={icon} />
-        <span className={shimmer && !open ? 'cx-shimmer' : undefined}>{summary}</span>
+        <span className="cx-fold__label">{summary}</span>
+        {working && <span className="cx-dots cx-dots--inline" aria-hidden="true"><span /><span /><span /></span>}
         <Icon name="chevron-right" className="cx-fold__chev" />
       </button>
       {open && <div className="cx-fold__body" id={bodyId}>{children}</div>}
@@ -49,20 +72,151 @@ function FoldFrame({ summary, open, live, shimmer, onToggle, icon, children, id 
   )
 }
 
-// One stored tool line as a step: its name, what it was called with and its
-// output. The note of an add-on change (with Undo) is not in the fold: it shows
-// under it, see ActivityGroup.
+// The verb, the argument and what came back, as a person reads them.
 // eslint-disable-next-line no-unused-vars
-function ToolStep({ text }) {
+function ToolText({ label }) {
   const { t } = useTranslation('chat')
+  return (
+    <>
+      <b className="cx-step__verb">{t(`steps.verb.${label.verb}`)}</b>
+      {label.verb === 'used' && <code className="cx-step__tool">{label.tool || t('activity.tool')}</code>}
+      {label.arg && (label.file ? (
+        <span className="cx-step__file" title={label.argTitle}><Icon name="file-text" />{label.arg}</span>
+      ) : (
+        <span className="cx-step__arg" title={label.argTitle}>{label.arg}</span>
+      ))}
+      {label.result && <span className="cx-step__meta">· {t(label.result.key, label.result.values)}</span>}
+    </>
+  )
+}
+
+// A long output shows its first lines; the rest is one click away.
+// eslint-disable-next-line no-unused-vars
+function Output({ text }) {
+  const { t } = useTranslation('chat')
+  const [all, setAll] = useState(false)
+  const lines = String(text).replace(/\n+$/, '').split('\n')
+  const long = lines.length > OUTPUT_LINES
+  return (
+    <div className="cx-step__out">
+      <pre className="cx-out" data-testid="chat-step-output">{long && !all ? lines.slice(0, OUTPUT_LINES).join('\n') : lines.join('\n')}</pre>
+      {long && (
+        <button type="button" className="cx-step__more" onClick={() => setAll(v => !v)} aria-expanded={all}>
+          {all ? t('steps.showLess') : t('steps.showAll', { count: lines.length })}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// The tool as the server knows it: its id, what it was called with and its
+// output.
+// eslint-disable-next-line no-unused-vars
+function ToolDetail({ name, summary, output }) {
+  const { t } = useTranslation('chat')
+  return (
+    <>
+      <dl className="cx-step__facts">
+        <div><dt>{t('steps.tool')}</dt><dd><code>{name || t('activity.tool')}</code></dd></div>
+        {summary && <div><dt>{t('steps.input')}</dt><dd><code>{summary}</code></dd></div>}
+      </dl>
+      {output && <Output text={output} />}
+    </>
+  )
+}
+
+// One step. The line toggles its detail when it has one. state is running,
+// done, failed or thought.
+// eslint-disable-next-line no-unused-vars
+function Step({ state, duration, children, detail, defaultOpen = false, testId }) {
+  const { t } = useTranslation('chat')
+  const [open, setOpen] = useState(defaultOpen)
+  const icon = { running: 'spinner', done: 'check', failed: 'alert-circle', thought: 'lightbulb' }[state]
+  const status = { running: t('steps.running'), failed: t('steps.failed') }[state]
+  const head = (
+    <>
+      <span className="cx-step__icon" key={state}>
+        <Icon name={icon} spin={state === 'running'} />
+        {status && <span className="sr-only">{status}</span>}
+      </span>
+      <span className="cx-step__line">{children}</span>
+      {duration ? <span className="cx-step__dur">{duration}</span> : <span />}
+      {detail ? <Icon name="chevron-right" className="cx-step__chev" /> : <span />}
+    </>
+  )
+  return (
+    <li className="cx-step" data-state={state} data-open={(detail && open) || undefined} data-testid={testId}>
+      {detail ? (
+        <button type="button" className="cx-step__head" aria-expanded={open} onClick={() => setOpen(v => !v)}>{head}</button>
+      ) : (
+        <div className="cx-step__head">{head}</div>
+      )}
+      {detail && open && <div className="cx-step__detail">{detail}</div>}
+    </li>
+  )
+}
+
+// The first line of a reasoning text, without Markdown marks, for the step line.
+function gist(text) {
+  const first = String(text || '').trim().split('\n').find(l => l.trim()) || ''
+  return first.replace(/[#*_`>]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+// Reasoning as Markdown, with its code highlighted.
+// eslint-disable-next-line no-unused-vars
+function Reasoning({ text, live }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!ref.current) return
+    if (live) ref.current.scrollTop = ref.current.scrollHeight
+    else highlightAll(ref.current)
+  }, [text, live])
+  return (
+    <div
+      ref={ref}
+      className={`cx-think${live ? ' cx-think--live' : ''}`}
+      dangerouslySetInnerHTML={{ __html: renderMarkdown(text || '') }}
+    />
+  )
+}
+
+// A reasoning line of the transcript or of the live turn.
+// eslint-disable-next-line no-unused-vars
+function ThoughtStep({ text, duration, live, thinking }) {
+  const { t } = useTranslation('chat')
+  const short = gist(text)
+  const more = live || String(text || '').trim() !== short || short.length > 90
+  return (
+    <Step
+      state="thought"
+      duration={duration}
+      defaultOpen={live}
+      detail={more ? <Reasoning text={text} live={live} /> : null}
+    >
+      <b className="cx-step__verb">{thinking ? t('steps.thinking') : t('activity.thought')}</b>
+      <span className="cx-step__gist">{short}</span>
+    </Step>
+  )
+}
+
+// One stored tool line as a step. The note of an add-on change (with Undo) is
+// not in the fold: it shows under it, see ActivityGroup.
+// eslint-disable-next-line no-unused-vars
+function ToolStep({ text, duration }) {
   const { name, summary } = toolLine(text)
   const out = toolOutput(text)
+  const refused = Boolean(toolRefusal(text))
+  const shownOut = out && !addonChange(text) && !refused ? out : ''
+  const label = toolLabel(name, summary, refused ? '' : out)
   return (
-    <li className="cx-step">
-      <h4>{t('activity.toolCall')} <code>{name || t('activity.tool')}</code></h4>
-      {summary && <div className="cx-think">{summary}</div>}
-      {out && !addonChange(text) && !toolRefusal(text) && <pre className="cx-out">{out}</pre>}
-    </li>
+    <Step
+      state={refused ? 'failed' : 'done'}
+      duration={duration}
+      testId="chat-step"
+      detail={<ToolDetail name={name} summary={summary} output={shownOut} />}
+    >
+      <ToolText label={label} />
+    </Step>
   )
 }
 
@@ -70,36 +224,30 @@ function ToolStep({ text }) {
 // refusals and trigger proposals are listed under the fold, so their buttons
 // and reasons stay in sight.
 export function ActivityGroup({ items, id, proposalTick = 0 }) {
-  const { t } = useTranslation('chat')
+  const { t, i18n } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const [expanded, setExpanded] = useState(false)
-  const contentRef = useRef(null)
-
-  useEffect(() => {
-    if (expanded && contentRef.current) highlightAll(contentRef.current)
-  }, [expanded])
 
   if (!items || items.length === 0) return null
   const changes = items.filter(item => item.role === 'tool' && (addonChange(item.text) || toolRefusal(item.text)))
   const proposals = proposalIds(items)
   const icon = items.some(i => i.role === 'reasoning') ? 'lightbulb' : 'wrench'
+  const { steps } = runTimes(items)
+  const dur = (i) => (steps[i] !== null ? formatDuration(steps[i], t, i18n.language) : '')
 
   return (
     <>
       <FoldFrame
         id={id}
         icon={icon}
-        summary={summarise(items, t)}
+        summary={summarise(items, t, i18n.language)}
         open={expanded}
         onToggle={() => setExpanded(v => !v)}
       >
-        <ol className="cx-steps" ref={contentRef}>
-          {items.map((item, idx) => (item.role === 'reasoning' ? (
-            <li key={idx} className="cx-step">
-              <h4>{t('activity.thought')}{item.dur_ms ? ` · ${Math.max(1, Math.round(item.dur_ms / 1000))} s` : ''}</h4>
-              <div className="cx-think" dangerouslySetInnerHTML={{ __html: renderMarkdown(item.text || '') }} />
-            </li>
-          ) : <ToolStep key={idx} text={item.text} />))}
+        <ol className="cx-steps">
+          {items.map((item, idx) => (item.role === 'reasoning'
+            ? <ThoughtStep key={idx} text={item.text} duration={dur(idx)} />
+            : <ToolStep key={idx} text={item.text} duration={dur(idx)} />))}
         </ol>
       </FoldFrame>
       {changes.map((item) => <ChangeNote key={`c-${item.seq}`} text={item.text} t={tc} />)}
@@ -115,15 +263,14 @@ export function ActivityGroup({ items, id, proposalTick = 0 }) {
 export function AppRow({ chatId, row, onSend }) {
   const { t: tc } = useTranslation('chats')
   const tool = row.live ? row.tool : null
-  const line = row.live
-    ? `${tool.name}${tool.summary ? ` ${tool.summary}` : ''}`
-    : toolLine(row.m.text).name
+  const { name, summary } = row.live ? { name: tool.name, summary: tool.summary } : toolLine(row.m.text)
+  const label = toolLabel(name, summary, '')
   const app = row.live ? (tool.appState === 'ready' ? tool.app : undefined) : row.m.app
   const loading = row.live && tool.appState === 'loading'
   const fallback = row.live && tool.appState === 'failed' ? (tool.output || '') : undefined
   return (
     <div className="cx-row" data-testid="chat-app-row">
-      <div className="cx-who"><Icon name="puzzle" /><b>{line}</b></div>
+      <div className="cx-who cx-who--tool" title={name}><Icon name="puzzle" /><span className="cx-step__line"><ToolText label={label} /></span></div>
       {!row.live && <ChangeNote text={row.m.text} t={tc} />}
       {app ? <ChatAppFrame chatId={chatId} app={app} onSend={onSend} t={tc} /> : null}
       {!app && loading ? <div className="ch-app" data-testid="chat-app"><div className="ch-app__state">{tc('app.loading')}</div></div> : null}
@@ -139,57 +286,102 @@ export function AppRow({ chatId, row, onSend }) {
   )
 }
 
+const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+
+// When each live step started and ended, as seen by this page. A step whose
+// start and end arrive in the same render (a replay after a reconnect) has no
+// time: what the page measured would not be how long it ran.
+function useLiveTimes(reasoning, toolCalls, hasResponse) {
+  const [times, setTimes] = useState({ reasoning: null, tools: [] })
+  const thinking = Boolean(reasoning)
+  const thoughtDone = thinking && (toolCalls.length > 0 || hasResponse)
+  const ended = toolCalls.map(tc => tc.type !== 'tool_call')
+  const key = `${thinking}|${thoughtDone}|${ended.join(',')}`
+  useEffect(() => {
+    const at = now()
+    setTimes(prev => {
+      let changed = false
+      let r = prev.reasoning
+      if (thinking && !r) { r = { start: at, end: thoughtDone ? null : undefined }; changed = true }
+      else if (r && thoughtDone && r.end === undefined) { r = { ...r, end: at }; changed = true }
+      const tools = ended.map((done, i) => {
+        const p = prev.tools[i]
+        if (!p) { changed = true; return { start: at, end: done ? null : undefined } }
+        if (done && p.end === undefined) { changed = true; return { ...p, end: at } }
+        return p
+      })
+      return changed ? { reasoning: r, tools } : prev
+    })
+    // key holds everything the effect reads
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+  const span = (x) => (x && typeof x.end === 'number' ? x.end - x.start : null)
+  const known = [times.reasoning, ...times.tools].filter(Boolean)
+  const first = known[0]
+  const last = known[known.length - 1]
+  const total = first && last && typeof last.end === 'number' && known.every(x => x.end !== null)
+    ? last.end - first.start
+    : null
+  return { reasoning: span(times.reasoning), tools: times.tools.map(span), total }
+}
+
 // The same line while the reply is still coming: open while the model thinks
 // or calls a tool, folded once the answer starts. The reader can override both.
 // toolCalls come from streamingParts (chatThread.js).
 export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
-  const { t } = useTranslation('chat')
-  const contentRef = useRef(null)
+  const { t, i18n } = useTranslation('chat')
   const [manualCollapse, setManualCollapse] = useState(null)
-  const hasTools = !!toolCalls && toolCalls.length > 0
+  const calls = toolCalls || []
+  const hasTools = calls.length > 0
   const autoExpanded = (!!reasoning || hasTools) && !hasResponse
   const expanded = manualCollapse !== null ? !manualCollapse : autoExpanded
-
-  useEffect(() => {
-    if (expanded && contentRef.current) contentRef.current.scrollTop = contentRef.current.scrollHeight
-  }, [reasoning, expanded])
+  const times = useLiveTimes(reasoning, calls, hasResponse)
 
   useEffect(() => { setManualCollapse(null) }, [hasResponse])
 
   if (!reasoning && !hasTools) return null
 
-  const lastTool = hasTools ? toolCalls[toolCalls.length - 1] : null
-  const label = lastTool && (lastTool.type === 'tool_call' || !reasoning)
-    ? (lastTool.type === 'tool_call' ? lastTool.name : t('activity.toolResult', { name: lastTool.name }))
-    : (hasResponse ? t('activity.thought') : t('activity.thinking'))
+  const lng = i18n.language
+  const fmt = (ms) => (ms !== null && ms !== undefined ? formatDuration(ms, t, lng) : '')
+  const running = calls.some(tc => tc.type === 'tool_call')
+  const count = hasTools ? t('steps.count', { count: calls.length }) : ''
+  let summary
+  if (!hasResponse) {
+    summary = hasTools ? `${t('steps.working')} · ${count}` : t('steps.thinking')
+  } else if (times.total !== null) {
+    summary = hasTools ? `${t('steps.worked', { duration: fmt(times.total) })} · ${count}` : t('steps.thoughtFor', { duration: fmt(times.total) })
+  } else {
+    summary = hasTools ? count : t('activity.thought')
+  }
 
   return (
     <FoldFrame
       id="cx-live-fold"
-      icon={reasoning && (!lastTool || lastTool.type !== 'tool_call') ? 'lightbulb' : 'wrench'}
-      summary={label}
+      icon={reasoning && !running ? 'lightbulb' : 'wrench'}
+      summary={summary}
       open={expanded}
       live
-      shimmer={!hasResponse}
+      working={!hasResponse}
       onToggle={() => setManualCollapse(expanded)}
     >
       <ol className="cx-steps">
         {reasoning && (
-          <li className="cx-step">
-            <div className="cx-think cx-think--live" ref={contentRef} dangerouslySetInnerHTML={{ __html: renderMarkdown(reasoning) }} />
-          </li>
+          <ThoughtStep text={reasoning} duration={fmt(times.reasoning)} live thinking={!hasTools && !hasResponse} />
         )}
-        {hasTools && toolCalls.map((tc, idx) => (
-          <li key={idx} className="cx-step" data-failed={tc.failed || undefined}>
-            <h4>
-              {tc.type === 'tool_call'
-                ? <>{t('activity.toolCall')} <code>{tc.name}</code> <Icon name="spinner" spin /></>
-                : t('activity.toolResult', { name: tc.name })}
-            </h4>
-            {tc.summary && <div className="cx-think">{tc.summary}</div>}
-            {tc.result && <pre className="cx-out">{tc.result}</pre>}
-          </li>
-        ))}
+        {calls.map((tc, idx) => {
+          const state = tc.type === 'tool_call' ? 'running' : (tc.failed ? 'failed' : 'done')
+          return (
+            <Step
+              key={idx}
+              state={state}
+              duration={state === 'running' ? '' : fmt(times.tools[idx])}
+              testId="chat-step"
+              detail={<ToolDetail name={tc.name} summary={tc.summary} output={tc.result} />}
+            >
+              <ToolText label={toolLabel(tc.name, tc.summary, tc.failed ? '' : tc.result)} />
+            </Step>
+          )
+        })}
       </ol>
     </FoldFrame>
   )

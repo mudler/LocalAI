@@ -56,18 +56,20 @@
 .cx-msg--user + .cx-msg--model,
 .cx-row + .cx-msg--model { margin-top: 6px; }
 .cx-msg--model + .cx-msg--user { margin-top: 10px; }
+/* A message that arrives (the one you just sent, the answer that replaces the
+   live turn) rises 6 px and fades in. */
 @media (prefers-reduced-motion: no-preference) {
-  .cx-msg { animation: homeRise var(--dk-dur-2) var(--dk-ease-out) both; }
+  .cx-msg { animation: homeRise var(--dur-base) var(--ease-out) both; }
 }
 
-/* The reader's turn: a raised block. */
+/* The reader's turn: a flat block on the card surface. */
 .cx-bubble {
   max-width: min(600px, 88%);
-  padding: 12px 16px;
-  border-radius: 18px 18px 6px 18px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-xl) var(--r-xl) var(--r-sm) var(--r-xl);
   background: var(--dk-card);
-  box-shadow: inset 0 0 0 1px var(--dk-edge), var(--dk-shadow-rest);
-  font-size: 15.5px;
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  font-size: var(--fs-body);
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
@@ -104,8 +106,10 @@
 .cx-chip__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The model's turn: its name, then plain prose. */
-.cx-who { display: flex; align-items: center; gap: 10px; color: var(--dk-muted); font-size: 13px; min-height: 22px; }
-.cx-who b { color: var(--dk-text); font-family: var(--font-mono); font-size: 13px; font-weight: 650; }
+.cx-who { display: flex; align-items: center; gap: 10px; color: var(--dk-muted); font-size: var(--fs-small); min-height: 22px; }
+.cx-who b { color: var(--dk-text); font-family: var(--font-mono); font-size: var(--fs-small); font-weight: 650; }
+.cx-who--tool { gap: var(--sp-2); color: var(--color-text-secondary); }
+.cx-who--tool > .lai-icon { width: 15px; height: 15px; flex: none; }
 .cx-row { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .cx-prose {
   max-width: 720px;
@@ -172,18 +176,19 @@
 .cx-prose--live > :is(ul, ol):last-child > li:last-child::after {
   content: "";
   display: inline-block;
-  width: 7px;
-  height: 1.05em;
+  width: 2px;
+  height: 1.1em;
   margin-left: 2px;
   vertical-align: -3px;
-  border-radius: 1px;
-  background: var(--color-text-secondary);
+  background: var(--dk-text);
 }
+/* "Still writing": a slow opacity blink, 1 s a cycle. Under reduced motion the
+   caret stands still. */
 @media (prefers-reduced-motion: no-preference) {
   .cx-prose--live > p:last-child::after,
-.cx-prose--live > :is(ul, ol):last-child > li:last-child::after { animation: cxCaret 1s steps(2, jump-none) infinite; }
+  .cx-prose--live > :is(ul, ol):last-child > li:last-child::after { animation: cxCaret 500ms var(--ease-in-out) infinite alternate; }
 }
-@keyframes cxCaret { to { opacity: 0; } }
+@keyframes cxCaret { to { opacity: .2; } }
 
 /* Code blocks: language, Copy, Canvas. */
 .cx-page .code-block {
@@ -286,95 +291,165 @@
 .cx-page .artifact-card-actions button { color: var(--color-text-secondary); font-size: 16px; }
 .cx-page .artifact-card-actions button:hover { background: var(--dk-hover); color: var(--dk-text); }
 
-/* ---- Activity: one quiet line that opens inline ----------------------------- */
+/* ---- Activity: one quiet line that opens inline into steps ------------------ */
+/* A step = status icon, a verb and the argument that matters, its time on the
+   right. The tool id, input and output open under the step on a click.
+   Motion: a fold body and a new step fade in from 4 px below; a finished
+   step's spinner gives way to a check that scales in; the time fades in.
+   Transform and opacity only; @starting-style, so no keyframes. */
 .cx-fold { max-width: 720px; }
 .cx-fold__head {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   max-width: 100%;
-  min-height: 28px;
-  margin-left: -4px;
-  padding: 2px 8px 2px 4px;
+  min-height: var(--ctl-h-sm);
+  margin-left: calc(-1 * var(--sp-1));
+  padding: 2px var(--sp-2) 2px var(--sp-1);
   border: 0;
-  border-radius: var(--dk-radius-1);
+  border-radius: var(--r-sm);
   background: none;
   color: var(--dk-muted);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-small);
+  font-weight: 500;
   cursor: pointer;
-  transition: background var(--dk-dur-1) var(--dk-ease-out), color var(--dk-dur-1) var(--dk-ease-out);
+  transition: background var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
 }
 .cx-fold__head:hover { background: var(--dk-hover); color: var(--dk-text); }
-.cx-fold__head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-fold__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cx-fold[data-live] .cx-fold__head { color: var(--color-text-secondary); }
 .cx-fold__head .lai-icon { width: 15px; height: 15px; flex: none; }
-.cx-fold__chev { transition: transform var(--dk-dur-2) var(--dk-ease-out); }
+.cx-fold__chev { transition: transform var(--dur-base) var(--ease-out); }
 .cx-fold[data-open] .cx-fold__chev { transform: rotate(90deg); }
-.cx-shimmer {
-  background: linear-gradient(90deg, var(--dk-muted) 0%, var(--dk-text) 50%, var(--dk-muted) 100%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.cx-dots--inline { gap: 3px; padding: 0; }
+.cx-dots--inline span { width: 4px; height: 4px; background: currentColor; }
+.cx-fold__body {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
-@media (prefers-reduced-motion: no-preference) {
-  .cx-shimmer { animation: cxShimmer 1.8s linear infinite; }
-}
-@keyframes cxShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@starting-style { .cx-fold__body { opacity: 0; transform: translateY(-4px); } }
+
 .cx-steps {
   list-style: none;
-  margin: 6px 0 4px 8px;
-  padding: 2px 0 2px 18px;
+  margin: var(--sp-1) 0 var(--sp-3) 11px;
+  padding: 0 0 0 var(--sp-1);
   border-left: 1px solid var(--dk-edge);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 2px;
 }
-.cx-step { position: relative; color: var(--color-text-secondary); font-size: 13px; }
-.cx-step::before {
-  content: "";
-  position: absolute;
-  left: -23px;
-  top: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--dk-canvas);
-  box-shadow: inset 0 0 0 1.75px var(--dk-control-edge);
+.cx-step {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-small);
+  contain: layout paint;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
-.cx-step h4 {
-  display: flex;
+@starting-style { .cx-step { opacity: 0; transform: translateY(4px); } }
+.cx-step__head {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto 13px;
   align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .02em;
-  color: var(--dk-muted);
+  column-gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--ctl-h-sm);
+  padding: 5px var(--sp-2) 5px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 18px;
+  text-align: left;
 }
-.cx-step h4 code { font-family: var(--font-mono); font-size: 12px; color: var(--dk-text); background: none; padding: 0; }
-.cx-think { margin-top: 4px; line-height: 1.6; color: var(--dk-muted); overflow-wrap: anywhere; }
+button.cx-step__head { cursor: pointer; transition: background var(--dur-instant) var(--ease-out); }
+button.cx-step__head:hover { background: color-mix(in srgb, var(--dk-hover) 60%, transparent); }
+.cx-step[data-state="failed"] > .cx-step__head { background: var(--dk-error-wash); }
+.cx-step__icon { display: grid; place-items: center; color: var(--dk-muted); }
+.cx-step__icon .lai-icon { width: 15px; height: 15px; }
+.cx-step[data-state="done"] .cx-step__icon { color: var(--dk-ok-text); }
+.cx-step[data-state="failed"] .cx-step__icon { color: var(--dk-error-text); }
+.cx-step[data-state="running"] .cx-step__icon { color: var(--dk-accent-text); }
+.cx-step[data-state="done"] .cx-step__icon,
+.cx-step[data-state="failed"] .cx-step__icon {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+@starting-style {
+  .cx-step[data-state="done"] .cx-step__icon,
+  .cx-step[data-state="failed"] .cx-step__icon { opacity: 0; transform: scale(.8); }
+}
+.cx-step__line { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.cx-step__verb { flex: none; color: var(--dk-text); font-weight: 500; }
+.cx-step__arg, .cx-step__tool, .cx-step__gist { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cx-step__arg, .cx-step__tool { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-text); background: none; padding: 0; }
+.cx-step__gist { color: var(--color-text-secondary); }
+.cx-step[data-open] .cx-step__gist { display: none; }
+.cx-step__meta { flex: none; color: var(--dk-muted); }
+.cx-step__file {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  background: var(--dk-accent-wash);
+  line-height: 18px;
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cx-step__file .lai-icon { width: 13px; height: 13px; flex: none; }
+.cx-step__dur {
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+@starting-style { .cx-step__dur { opacity: 0; } }
+.cx-step__chev { width: 13px; height: 13px; color: var(--dk-muted); transition: transform var(--dur-fast) var(--ease-out); }
+.cx-step[data-open] .cx-step__chev { transform: rotate(90deg); }
+.cx-step__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-1) var(--sp-2) var(--sp-2) 36px;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+@starting-style { .cx-step__detail { opacity: 0; transform: translateY(-4px); } }
+.cx-step__facts { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.cx-step__facts > div { display: flex; gap: var(--sp-2); min-width: 0; }
+.cx-step__facts dt { flex: none; min-width: 40px; color: var(--dk-muted); font-size: var(--fs-meta); }
+.cx-step__facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.cx-step__facts code { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-text); background: none; padding: 0; }
+.cx-step__more {
+  align-self: flex-start;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--dk-accent-text);
+  font: inherit;
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  cursor: pointer;
+}
+.cx-step__more:hover { background: var(--dk-hover); }
+.cx-think { line-height: 1.6; color: var(--dk-muted); overflow-wrap: anywhere; }
 .cx-think > * { margin: 0; }
-.cx-think > * + * { margin-top: 8px; }
+.cx-think > * + * { margin-top: var(--sp-2); }
 .cx-think--live { max-height: 220px; overflow: auto; }
-.cx-params { margin: 4px 0 0; display: flex; flex-direction: column; gap: 4px; }
-.cx-param { display: flex; gap: 8px; min-width: 0; }
-.cx-param dt { flex: none; font-family: var(--font-mono); font-size: 12px; color: var(--dk-muted); }
-.cx-param dt::after { content: ":"; }
-.cx-param dd { margin: 0; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--dk-text); white-space: pre-wrap; overflow-wrap: anywhere; }
-.cx-param__long { max-height: 120px; overflow: auto; }
 .cx-out {
-  margin: 6px 0 0;
-  max-height: 120px;
+  margin: 0;
+  max-height: 240px;
   overflow: auto;
-  padding: 8px 10px;
-  border-radius: var(--dk-radius-1);
+  padding: var(--sp-2) 10px;
+  border-radius: var(--r-sm);
   background: var(--dk-inset);
-  box-shadow: inset 0 0 0 1px var(--dk-edge);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 1.55;
   color: var(--color-text-secondary);
   white-space: pre-wrap;
@@ -765,26 +840,26 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 34px;
-  padding: 0 14px 0 10px;
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-3) 0 10px;
   border: 0;
-  border-radius: 99px;
+  border-radius: var(--r-lg);
   background: var(--cx-float);
   box-shadow: inset 0 0 0 1px var(--dk-edge), var(--dk-shadow-float);
   color: var(--dk-text);
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--fs-small);
+  font-weight: 500;
   cursor: pointer;
-  transition: background var(--dk-dur-1) var(--dk-ease-out);
+  transition: background var(--dur-instant) var(--ease-out);
 }
 .cx-jump:hover { background: var(--dk-hover); }
 .cx-jump:active { transform: translateX(-50%) scale(var(--dk-press-scale)); }
 .cx-jump .lai-icon { width: 15px; height: 15px; }
 @media (prefers-reduced-motion: no-preference) {
-  .cx-jump { animation: cxJump var(--dk-dur-2) var(--dk-ease-spring) both; }
+  .cx-jump { animation: cxJump var(--dur-base) var(--ease-out) both; }
 }
-@keyframes cxJump { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes cxJump { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%); } }
 .cx-find {
   flex: none;
   display: flex;
