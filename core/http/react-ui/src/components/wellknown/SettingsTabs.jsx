@@ -7,6 +7,8 @@ import { useTheme } from '../../contexts/ThemeContext'
 import { useModels } from '../../hooks/useModels'
 import { CAP_CHAT } from '../../utils/capabilities'
 import ShortcutsEditor from './ShortcutsEditor'
+import HelpCard from './HelpCard'
+import Icon from '../Icon'
 
 function browserLanguage() {
   try { return navigator.language || '' } catch { return '' }
@@ -33,9 +35,14 @@ export function AboutYouTab() {
     <div className="wk-tab" data-testid="account-about">
       <div className="wk-grid">
         <WellKnownCard name="persona" title={t('wellKnown.persona.title')} lede={t('wellKnown.persona.lede')} />
-        <WellKnownCard name="user" title={t('wellKnown.user.title')} lede={t('wellKnown.user.lede')} prefill={prefillUser} />
+        <WellKnownCard name="user" title={t('wellKnown.user.title')} lede={t('wellKnown.user.lede')} prefill={prefillUser}>
+          <p className="wk-note wk-note--info wk-privacy" data-testid="wk-privacy">
+            <Icon name="info" /> <span>{t('discovery.privacy')}</span>
+          </p>
+        </WellKnownCard>
       </div>
-      <div className="wk-grid wk-grid--one wk-gap">
+      <div className="wk-grid wk-gap">
+        <HelpCard />
         <section className="wk-card" aria-labelledby="wk-shortcuts-title" data-testid="wk-card-shortcuts">
           <header className="wk-card__head">
             <div className="wk-card__titles">

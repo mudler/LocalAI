@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
 import SchemaFields from './SchemaFields'
+import Versions from './Versions'
 import { useWellKnown, loadSchema } from '../../hooks/useWellKnown'
 import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText } from '../../utils/wellKnown'
 import './wellKnown.css'
@@ -12,13 +13,16 @@ function timeLabel(d, locale) {
   try { return d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }) } catch { return '' }
 }
 
-// StoredIn is the line that names the file behind a setting, with the revert.
-export function StoredIn({ file, onRevert, canRevert, busy }) {
+// StoredIn is the line that names the file behind a setting, with its
+// Versions (versionsOf names the file) or a plain revert to the previous one.
+export function StoredIn({ file, onRevert, canRevert, busy, versionsOf, onReverted, badge }) {
   const { t } = useTranslation('workspace')
   return (
     <div className="wk-meta">
       <span className="wk-src"><Icon name="file" /> {t('wellKnown.storedIn')} <code>{file}</code></span>
-      {onRevert && (
+      {badge}
+      {versionsOf && <Versions name={versionsOf} onReverted={onReverted} disabled={busy} />}
+      {!versionsOf && onRevert && (
         <button type="button" className="wk-linkbtn" onClick={onRevert} disabled={!canRevert || busy} data-testid={`wk-revert-${file}`}>
           <Icon name="undo" /> {t('wellKnown.revert')}
         </button>
@@ -190,7 +194,11 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
           <button type="button" role="radio" aria-checked={mode === 'source'} className="dk-seg" data-testid={`wk-source-${name}`} onClick={() => { setSource(dirty && mode === 'form' ? sourceText({ ...fileData, ...values }) : source); setMode('source') }}>{t('wellKnown.source.label')}</button>
         </div>
       </header>
-      <StoredIn file={file} onRevert={revert} canRevert={!!doc?.exists} busy={busy} />
+      <StoredIn
+        file={file} versionsOf={name} busy={busy}
+        onReverted={(d) => { wk.reload(); done(d) }}
+        badge={doc && !doc.valid ? <span className="wk-badge wk-badge--error" data-testid={`wk-badge-invalid-${name}`}>{t('discovery.versions.invalidBadge')}</span> : null}
+      />
 
       {wk.error && !doc && (
         <p className="wk-note wk-note--error" role="alert"><Icon name="alert-circle" /> {t('wellKnown.loadFailed', { message: wk.error.message })}</p>
@@ -202,6 +210,13 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
           <div>
             <p>{doc.fallback ? t('wellKnown.invalidFallback', { file }) : t('wellKnown.invalid', { file })}</p>
             <ul>{(doc.errors || []).map(e => <li key={e}><code>{e}</code></li>)}</ul>
+            {doc.fallback && (
+              <div className="wk-actions">
+                <button type="button" className="wk-linkbtn" onClick={revert} disabled={busy} data-testid={`wk-revert-${file}`}>
+                  <Icon name="undo" /> {t('discovery.versions.revertGood')}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -157,8 +157,13 @@ every write against it, and refuses a file over 64 KiB.
   nothing is written.
 - A file that is broken on disk (for example a bad edit by hand) is not used:
   LocalAI uses its last valid version from the file history and the settings
-  page shows the errors. **Revert to previous version** writes that version
-  back as a new change, which you can undo too.
+  page shows the errors, an **Invalid** badge and **Revert to the last good
+  version**, which writes that version back as a new change.
+- **Versions**, next to the file name of each settings card, lists the last
+  versions of the file: when, and who wrote it ("By the assistant in
+  "Getting started"", "By you"). **Revert** writes the one you pick back as a
+  new change, so the newer version stays in the list and the revert can be
+  reverted too.
 - A save sends only the fields the editor shows. Keys it does not know, such
   as a field the assistant added, stay in the file.
 - Two editors at once: when the file changed since you opened it, the save is

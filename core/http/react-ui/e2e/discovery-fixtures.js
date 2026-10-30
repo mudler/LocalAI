@@ -15,6 +15,19 @@ export const TASK_PAGE = {
   source: 'own', author: 'assistant', updated_at: NOW, updated_by: 'assistant', rev: 7, size: 100,
 }
 
+// Enough of the shipped schemas for the forms of the Account tabs.
+const SCHEMAS = {
+  persona: { type: 'object', properties: {
+    name: { type: 'string', title: 'Name', description: 'What the assistant calls itself.', maxLength: 80 },
+    system_prompt: { type: 'string', title: 'Instructions', description: "Added to every chat, after the chat's own instructions.", maxLength: 8000, 'x-ui': { widget: 'textarea' } },
+  } },
+  user: { type: 'object', properties: {
+    name: { type: 'string', title: 'Name', description: 'How the assistant addresses you.', maxLength: 80 },
+    bio: { type: 'string', title: 'About you', description: 'A few lines the assistant reads in every chat.', maxLength: 1000, 'x-ui': { widget: 'textarea' } },
+    seen: { type: 'object', 'x-ui': { hidden: true } },
+  } },
+}
+
 export function newState(over = {}) {
   return {
     files: {},
@@ -81,7 +94,10 @@ export async function mockDiscovery(page, state, { models = ['qwen3-8b-instruct'
     const p = state.pages.find(x => x.name === name)
     return p ? route.fulfill(json({ page: p, html: '<!doctype html><p>page</p>' })) : route.fulfill(json({ error: { message: 'no page' } }, 404))
   })
-  await page.route(/\/api\/chats\/wellknown\/[a-z-]+\/schema$/, (route) => route.fulfill(json({ type: 'object', properties: {} })))
+  await page.route(/\/api\/chats\/wellknown\/[a-z-]+\/schema$/, (route) => {
+    const name = /wellknown\/([a-z-]+)\/schema/.exec(route.request().url())[1]
+    return route.fulfill(json(SCHEMAS[name] || { type: 'object', properties: {} }))
+  })
   await page.route(/\/api\/chats\/wellknown\/[a-z-]+(\?.*)?$/, (route) => {
     const req = route.request()
     const name = /\/wellknown\/([a-z-]+)/.exec(req.url())[1]
