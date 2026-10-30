@@ -60,7 +60,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// because its tools come from hostTools, which does not include them.
 	tools = append(tools, s.announceFileChanges(a, s.d.Files.Tools(a))...)
 	if s.d.Media != nil {
-		tools = append(tools, s.d.Media.Tools(s.d.Files, a)...)
+		tools = append(tools, s.d.Media.Tools(s.d.Files, a, rec.Model)...)
 	}
 	skillsOff := 0
 	prompt, note, key := s.skillTurn(ctx, a.Principal, rec.SkillsOff, sc, execGate(cmds, &skillsOff))

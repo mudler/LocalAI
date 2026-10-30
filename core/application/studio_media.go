@@ -31,6 +31,36 @@ func chooseHelperModel(setting string, all []config.ModelConfig, flag config.Mod
 	return names[0]
 }
 
+// chooseVisionModel returns the model describe_image uses in a chat whose own
+// model is chatModel: the one the setting names when it is installed, then the
+// chat's own model when it can look at images, then the first installed model
+// that can. The chat's model comes before any other model because the person
+// chose it, and it may be the only one they may use. It returns "" when no
+// model can look at images.
+func chooseVisionModel(setting, chatModel string, all []config.ModelConfig) string {
+	if setting != "" {
+		for _, m := range all {
+			if m.Name == setting {
+				return setting
+			}
+		}
+	}
+	if chatModel != "" {
+		for i := range all {
+			if all[i].Name == chatModel && all[i].HasUsecases(config.FLAG_VISION) {
+				return chatModel
+			}
+		}
+	}
+	return chooseHelperModel("", all, config.FLAG_VISION)
+}
+
+// studioVisionModel is describe_image's chooser, read when the tool runs, so
+// a change of the setting or of a model applies at once.
+func (a *Application) studioVisionModel(chatModel string) string {
+	return chooseVisionModel(a.applicationConfig.ChatsVisionModel, chatModel, a.ModelConfigLoader().GetAllModelsConfigs())
+}
+
 // studioHelperModel is the media tools' resolver: the instance settings, read
 // when a tool runs, so a change applies at once.
 func (a *Application) studioHelperModel(c media.Capability) string {

@@ -119,7 +119,12 @@ func (fx *fixture) put(rel, content string) {
 }
 
 func (fx *fixture) tool(name string) session.Tool {
-	for _, tl := range fx.svc.Tools(fx.f, workspace.Actor{Principal: "alice", ChatID: "c1"}) {
+	return fx.toolIn(name, "chat-model")
+}
+
+// toolIn is a tool of a chat whose own model is chatModel.
+func (fx *fixture) toolIn(name, chatModel string) session.Tool {
+	for _, tl := range fx.svc.Tools(fx.f, workspace.Actor{Principal: "alice", ChatID: "c1"}, chatModel) {
 		if tl.Name == name {
 			return tl
 		}
@@ -186,14 +191,51 @@ var _ = Describe("media tools", func() {
 
 	It("without a model the tool says what to install", func() {
 		fx := newFixture("", "")
-		fx.put("/a.png", png)
 		fx.put("/a.wav", "RIFF")
-		for name, p := range map[string]string{"describe_image": "/a.png", "transcribe_audio": "/a.wav"} {
-			_, err := run(fx.tool(name), map[string]any{"path": p})
-			Expect(err).To(HaveOccurred(), "%s with no model", name)
-			Expect(err.Error()).To(ContainSubstring("Install"), "%s with no model", name)
-		}
+		_, err := run(fx.tool("transcribe_audio"), map[string]any{"path": "/a.wav"})
+		Expect(err).To(HaveOccurred(), "transcribe_audio with no model")
+		Expect(err.Error()).To(ContainSubstring("Install"), "transcribe_audio with no model")
 		Expect(fx.calls).To(BeEmpty(), "a request went out with no model")
+	})
+
+	It("without a vision model describe_image says what the user and an administrator can do", func() {
+		fx := newFixture("", "")
+		fx.put("/a.png", png)
+		_, err := run(fx.tool("describe_image"), map[string]any{"path": "/a.png"})
+		Expect(err).To(MatchError("No vision model: choose a model that can look at images for this chat, " +
+			"or an administrator can install one from the model gallery and choose it in Settings under Chat image model."))
+		Expect(fx.calls).To(BeEmpty(), "a request went out with no model")
+	})
+
+	It("describe_image uses the model the chooser picks for the chat's own model", func() {
+		fx := newFixture("", "")
+		var asked []string
+		fx.svc.WithVisionChooser(func(chatModel string) string {
+			asked = append(asked, chatModel)
+			if chatModel == "cloud-vl" {
+				return chatModel
+			}
+			return ""
+		})
+		fx.put("/a.png", png)
+		out, err := run(fx.toolIn("describe_image", "cloud-vl"), map[string]any{"path": "/a.png"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(out).To(Equal("a red square"))
+		Expect(fx.calls).To(HaveLen(1))
+		Expect(fx.calls[0].json["model"]).To(Equal("cloud-vl"))
+		Expect(asked).To(ContainElement("cloud-vl"))
+		Expect(fx.svc.VisionModel("cloud-vl")).To(Equal("cloud-vl"))
+		Expect(fx.svc.VisionModel("text-only")).To(BeEmpty())
+
+		_, err = run(fx.toolIn("describe_image", "text-only"), map[string]any{"path": "/a.png"})
+		Expect(err).To(MatchError(ContainSubstring("No vision model")))
+		Expect(fx.calls).To(HaveLen(1), "a request went out with no model")
+	})
+
+	It("without a chooser describe_image uses the resolver's vision model", func() {
+		fx := newFixture("vl-model", "")
+		Expect(fx.svc.VisionModel("anything")).To(Equal("vl-model"))
+		Expect(newFixture("", "").svc.VisionModel("anything")).To(BeEmpty())
 	})
 
 	It("the tools refuse what is not the right kind of file", func() {
