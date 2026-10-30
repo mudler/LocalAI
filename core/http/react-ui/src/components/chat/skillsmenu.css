@@ -1,0 +1,108 @@
+/* The skills picker of the composer: a fixed header (title, count, actions,
+   search), a list that scrolls and a status line that always takes its room,
+   so a refused change never moves the rows. Tokens only. */
+.sk-menu {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: min(24rem, calc(100vw - 2 * var(--sp-4)));
+  max-width: none;
+  min-width: 0;
+  max-height: min(30rem, 70dvh);
+  padding: 0;
+}
+/* On a phone the picker is a sheet over the bottom of the screen: the chip is
+   at the left edge, so a menu hung from it would leave the screen. */
+@media (max-width: 640px) {
+  /* The doubled class beats the dock's and the empty chat's placement rules. */
+  .chat-mcp-dropdown .chat-mcp-dropdown-menu.sk-menu.sk-menu {
+    position: fixed;
+    top: auto;
+    left: var(--sp-4);
+    right: var(--sp-4);
+    bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 70dvh;
+  }
+}
+
+.sk-head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--color-border-divider);
+  background: var(--color-surface-float);
+}
+.sk-head__line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.sk-head__title { font-size: var(--fs-small); font-weight: 600; color: var(--color-text-primary); }
+.sk-head__count { font-size: var(--fs-meta); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sk-head__actions { display: flex; gap: var(--sp-1); margin-inline: calc(-1 * var(--sp-2)); }
+.sk-head__note { margin: 0; font-size: var(--fs-meta); color: var(--color-text-muted); }
+
+.sk-search { position: relative; display: flex; align-items: center; }
+.sk-search__icon { position: absolute; left: var(--sp-2); color: var(--color-text-muted); pointer-events: none; }
+.sk-search .sk-search__input { width: 100%; height: var(--ctl-h-sm); padding-left: var(--sp-8); font-size: var(--fs-small); }
+
+.sk-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+.sk-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  height: var(--ctl-h);
+  padding: 0 var(--sp-3);
+  transition: background-color var(--dur-fast) ease;
+}
+.sk-row:hover { background: var(--color-bg-hover); }
+.sk-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  height: 100%;
+  cursor: pointer;
+}
+.sk-row__name {
+  flex: 0 1 auto;
+  align-self: center;
+  max-width: 70%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.sk-row__desc {
+  align-self: center;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+}
+.sk-row[data-on="false"] .sk-row__name { color: var(--color-text-secondary); }
+.sk-row .dk-switch { transform-origin: center; }
+
+.sk-empty { margin: 0; padding: var(--sp-4) var(--sp-3); font-size: var(--fs-small); color: var(--color-text-secondary); }
+
+.sk-status {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--ctl-h-sm);
+  overflow: hidden;
+  padding: 0 var(--sp-3);
+  border-top: 1px solid var(--color-border-divider);
+  font-size: var(--fs-meta);
+  color: var(--color-error);
+}
+.sk-status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sk-status:empty { border-top-color: transparent; }

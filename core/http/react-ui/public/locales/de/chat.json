@@ -120,7 +120,16 @@
   "skills": {
     "label": "Skills",
     "title": "Skills, die dieser Chat nutzen kann",
-    "heading": "Skills für diesen Chat"
+    "heading": "Skills für diesen Chat",
+    "count": "{{on}} von {{total}} an",
+    "selectAll": "Alle auswählen",
+    "disableAll": "Alle ausschalten",
+    "selectShown": "Angezeigte auswählen",
+    "disableShown": "Angezeigte ausschalten",
+    "search": "Skills suchen",
+    "noMatch": "Kein Skill passt zu „{{query}}“.",
+    "later": "Skills, die du später hinzufügst, sind zunächst an.",
+    "failed": "Speichern fehlgeschlagen. Nichts wurde geändert."
   },
   "agent": {
     "label": "Agent",

@@ -123,7 +123,16 @@
   "skills": {
     "label": "Habilidades",
     "title": "Habilidades que este chat pode usar",
-    "heading": "Habilidades deste chat"
+    "heading": "Habilidades deste chat",
+    "count": "{{on}} de {{total}} ativas",
+    "selectAll": "Selecionar todas",
+    "disableAll": "Desativar todas",
+    "selectShown": "Selecionar as exibidas",
+    "disableShown": "Desativar as exibidas",
+    "search": "Buscar habilidades",
+    "noMatch": "Nenhuma habilidade corresponde a “{{query}}”.",
+    "later": "Habilidades que você adicionar depois começam ativas.",
+    "failed": "Não foi possível salvar. Nada mudou."
   },
   "agent": {
     "label": "Agente",

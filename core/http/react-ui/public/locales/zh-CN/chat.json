@@ -120,7 +120,16 @@
   "skills": {
     "label": "技能",
     "title": "此对话可以使用的技能",
-    "heading": "此对话的技能"
+    "heading": "此对话的技能",
+    "count": "已开启 {{on}} / {{total}}",
+    "selectAll": "全选",
+    "disableAll": "全部关闭",
+    "selectShown": "选择当前显示的",
+    "disableShown": "关闭当前显示的",
+    "search": "搜索技能",
+    "noMatch": "没有与“{{query}}”匹配的技能。",
+    "later": "之后添加的技能默认开启。",
+    "failed": "保存失败。未作任何更改。"
   },
   "agent": {
     "label": "智能体",

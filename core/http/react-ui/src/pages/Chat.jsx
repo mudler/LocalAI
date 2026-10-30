@@ -3,7 +3,7 @@ import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams 
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
-import { useChatSwitches, skillKey } from '../hooks/useChatSwitches'
+import { useChatSwitches } from '../hooks/useChatSwitches'
 import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import { extractCodeArtifacts } from '../utils/artifacts'
@@ -42,6 +42,7 @@ import FindBar from '../components/chat/FindBar'
 // eslint-disable-next-line no-unused-vars
 import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
+import SkillsMenu from '../components/chat/SkillsMenu'
 import SwitchMenu from '../components/chat/SwitchMenu'
 // eslint-disable-next-line no-unused-vars
 import AgentPicker from '../components/chat/AgentPicker'
@@ -895,11 +896,7 @@ function ChatPage() {
           ? <button type="button" className="chat-mcp-select-all chat-switch-manage" onClick={() => navigate('/app/mcp-connectors')}>{tc('tools.manage')}</button>
           : null}
       />
-      <SwitchMenu
-        icon="book" label={t('skills.label')} title={t('skills.title')} heading={t('skills.heading')}
-        groups={[{ key: 'skills', title: '', rows: switches.skills.map((s) => ({ key: `${s.layer}-${s.name}`, label: s.name, title: s.description, on: s.enabled, onToggle: (on) => switches.toggleSkill(skillKey(s), on) })) }]}
-        error={switches.error} testId="chat-skills"
-      />
+      <SkillsMenu skills={switches.skills} onSet={switches.setSkillsOn} error={switches.skillsError} />
       <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
     </>
   )

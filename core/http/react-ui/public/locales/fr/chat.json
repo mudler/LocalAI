@@ -118,7 +118,16 @@
   "skills": {
     "label": "Compétences",
     "title": "Compétences que ce chat peut utiliser",
-    "heading": "Compétences de ce chat"
+    "heading": "Compétences de ce chat",
+    "count": "{{on}} sur {{total}} activées",
+    "selectAll": "Tout sélectionner",
+    "disableAll": "Tout désactiver",
+    "selectShown": "Sélectionner celles affichées",
+    "disableShown": "Désactiver celles affichées",
+    "search": "Rechercher des compétences",
+    "noMatch": "Aucune compétence ne correspond à « {{query}} ».",
+    "later": "Les compétences ajoutées plus tard sont activées au départ.",
+    "failed": "Enregistrement impossible. Rien n’a changé."
   },
   "agent": {
     "label": "Agent",

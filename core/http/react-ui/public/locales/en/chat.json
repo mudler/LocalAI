@@ -302,7 +302,16 @@
   "skills": {
     "label": "Skills",
     "title": "Skills this chat can use",
-    "heading": "Skills for this chat"
+    "heading": "Skills for this chat",
+    "count": "{{on}} of {{total}} on",
+    "selectAll": "Select all",
+    "disableAll": "Disable all",
+    "selectShown": "Select shown",
+    "disableShown": "Disable shown",
+    "search": "Search skills",
+    "noMatch": "No skill matches “{{query}}”.",
+    "later": "Skills you add later start on.",
+    "failed": "Could not save. Nothing changed."
   },
   "agent": {
     "label": "Agent",

@@ -120,7 +120,16 @@
   "skills": {
     "label": "Keahlian",
     "title": "Keahlian yang bisa dipakai obrolan ini",
-    "heading": "Keahlian untuk obrolan ini"
+    "heading": "Keahlian untuk obrolan ini",
+    "count": "{{on}} dari {{total}} aktif",
+    "selectAll": "Pilih semua",
+    "disableAll": "Nonaktifkan semua",
+    "selectShown": "Pilih yang ditampilkan",
+    "disableShown": "Nonaktifkan yang ditampilkan",
+    "search": "Cari keahlian",
+    "noMatch": "Tidak ada keahlian yang cocok dengan “{{query}}”.",
+    "later": "Keahlian yang Anda tambahkan nanti mulai dalam keadaan aktif.",
+    "failed": "Gagal menyimpan. Tidak ada yang berubah."
   },
   "agent": {
     "label": "Agen",
