@@ -14,6 +14,19 @@ every change has a history and can be undone, like any other file.
 
 The files need the chats and files of the server (see [Chats](/features/chats/)).
 
+## Examples on Home
+
+A user with a chat model and none of these files sees **Make LocalAI yours**
+under the Home message box: three example cards ("Call me <your first name>
+and keep answers short", "Make me a task board", "Every morning, list
+yesterday's chats here", or "summarise my inbox" when a mail connector is set
+up), and links to the ready pages. A card puts its sentence into the message
+box and sends nothing; you send it when you are ready. A card goes away once
+its result exists (your persona or profile is saved, a page exists, Home has a
+widget that reads a data file). **Hide these** hides the whole block and is
+kept under `seen` in `user.json`. A user who already has `shortcuts.json` or
+`ui.json` and another of these files never sees the examples.
+
 ## The files
 
 | File | What it does | Where you edit it |

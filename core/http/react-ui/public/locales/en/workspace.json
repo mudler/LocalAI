@@ -184,5 +184,47 @@
         }
       }
     }
+  },
+  "discovery": {
+    "ex": {
+      "title": "Make LocalAI yours",
+      "lede": "Say it in a chat. The assistant saves it as a file you can change or undo.",
+      "hide": "Hide these",
+      "hiddenToast": "Examples hidden.",
+      "saveFailed": "Not saved: {{message}}",
+      "card1": {
+        "kicker": "You and the assistant",
+        "prompt": "Call me {{firstName}} and keep answers short",
+        "promptNoName": "Remember my name and keep answers short",
+        "what": "Saves user.json and persona.json"
+      },
+      "card2": {
+        "kicker": "A page",
+        "prompt": "Make me a task board",
+        "what": "Adds a page you open from the sidebar"
+      },
+      "card3": {
+        "kicker": "Every morning",
+        "prompt": "Every morning, summarise my inbox here",
+        "promptNoMail": "Every morning, list yesterday's chats here",
+        "what": "Adds a Home widget and a trigger you confirm"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "Done.",
+      "doneLink": "Change it in Account",
+      "ready": "Or start from a ready page:",
+      "readyTasks": "Task board",
+      "readyReading": "Reading list",
+      "readyFailed": "The page was not copied: {{message}}",
+      "learn": "How this works",
+      "inComposer": "Edit it if you like, then press Enter. Nothing is saved until you send it.",
+      "live": "Prompt added to the message box."
+    },
+    "home": {
+      "customise": "Customise Home"
+    },
+    "action": {
+      "undo": "Undo"
+    }
   }
 }
