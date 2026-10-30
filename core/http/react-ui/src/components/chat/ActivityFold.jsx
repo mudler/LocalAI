@@ -13,6 +13,9 @@ import ChangeNote from './ChangeNote'
 import ChatAppFrame from '../ChatAppFrame'
 // eslint-disable-next-line no-unused-vars
 import ProposalCard from './ProposalCard'
+// eslint-disable-next-line no-unused-vars
+import CommandsConsentCard from './CommandsConsentCard'
+import { providerTag } from '../../utils/chatCommands'
 
 // What the thread says about reasoning and tool use: one quiet line that opens
 // inline into the steps. Everything it shows is in the transcript the server
@@ -220,8 +223,11 @@ function ThoughtStep({ text, duration, live, thinking }) {
 // One stored tool line as a step. The note of an add-on change (with Undo) is
 // not in the fold: it shows under it, see ActivityGroup.
 // eslint-disable-next-line no-unused-vars
-function ToolStep({ text, duration }) {
+function ToolStep({ text, duration, card }) {
+  const { t: tc } = useTranslation('chats')
   const { name, summary } = toolLine(text)
+  // A replaceable tool (bash) says who served it: the Sandbox or this machine.
+  const tag = providerTag(card)
   const out = toolOutput(text)
   const refused = Boolean(toolRefusal(text))
   const shownOut = out && !addonChange(text) && !refused ? out : ''
@@ -235,6 +241,7 @@ function ToolStep({ text, duration }) {
       detail={<ToolDetail name={name} summary={summary} output={shownOut} />}
     >
       <ToolText label={label} />
+      {tag && <span className="cx-step__provider" data-testid="chat-step-provider" data-provider={card.kind}>{tc(`tools.provider.${tag.key}`, tag.values)}</span>}
     </Step>
   )
 }
@@ -266,7 +273,7 @@ export function ActivityGroup({ items, id, proposalTick = 0 }) {
         <ol className="cx-steps">
           {items.map((item, idx) => (item.role === 'reasoning'
             ? <ThoughtStep key={idx} text={item.text} duration={dur(idx)} />
-            : <ToolStep key={idx} text={item.text} duration={dur(idx)} />))}
+            : <ToolStep key={idx} text={item.text} duration={dur(idx)} card={item.card} />))}
         </ol>
       </FoldFrame>
       {changes.map((item) => <ChangeNote key={`c-${item.seq}`} text={item.text} t={tc} />)}
@@ -373,7 +380,11 @@ export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
     summary = hasTools ? count : t('activity.thought')
   }
 
+  // A command that waits for a yes shows its card under the fold, so the
+  // buttons stay in sight when the fold is closed.
+  const consents = calls.filter(tc => tc.type === 'tool_call' && tc.consent?.id).map(tc => tc.consent)
   return (
+    <>
     <FoldFrame
       id="cx-live-fold"
       icon={reasoning && !running ? 'lightbulb' : 'wrench'}
@@ -405,5 +416,7 @@ export function StreamingActivity({ reasoning, toolCalls, hasResponse }) {
         })}
       </ol>
     </FoldFrame>
+    {consents.map(c => <CommandsConsentCard key={c.id} consent={c} />)}
+    </>
   )
 }

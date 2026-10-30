@@ -99,7 +99,16 @@ export function runChecks(changes, initial, draft) {
       const err = vramBudgetError(to)
       checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${String(to).trim() || 'No cap'} is a valid GPU memory budget.` })
     }
-    if (field.kind === 'json') {
+    if (field.key === 'chats_tool_providers') {
+      const text = String(to || '').trim()
+      let parsed = null
+      try { parsed = text ? JSON.parse(text) : {} } catch { /* reported below */ }
+      const ok = parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+        Object.entries(parsed).every(([k, v]) => ['bash', 'web_search', 'web_fetch'].includes(k) && typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(v))
+      checks.push(ok
+        ? { level: 'ok', text: `${field.label}: ${Object.keys(parsed).length} chosen.` }
+        : { level: 'error', text: `${field.label}: map bash, web_search or web_fetch to an add-on ID, for example { "bash": "sandbox" }.` })
+    } else if (field.kind === 'json') {
       const text = String(to || '').trim()
       if (text) {
         let parsed = null
@@ -164,6 +173,11 @@ export function payloadFor(changes, source) {
       case 'api_keys':
         body.api_keys = linesOf(getValue(field, source))
         break
+      case 'chats_tool_providers': {
+        const text = String(getValue(field, source) || '').trim()
+        body.chats_tool_providers = text ? JSON.parse(text) : {}
+        break
+      }
       case 'csrf':
         body.csrf = !!source.csrf
         break

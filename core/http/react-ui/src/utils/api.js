@@ -319,6 +319,19 @@ export const chatAddonsApi = {
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
 
+// The built-in bash on this machine: the answer to the card that asks before a
+// command runs (decision once or deny).
+export const chatHostExecApi = {
+  consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/host-exec/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),
+}
+
+// The built-in chat tools an add-on may replace (Settings > Tools) and the
+// audit of the commands run on this machine. Administrators only.
+export const chatBuiltinToolsApi = {
+  list: () => fetchJSON('/api/chats/admin/tools'),
+  events: (limit = 100) => fetchJSON(`/api/chats/admin/host-exec/events?limit=${limit}`),
+}
+
 // The MCP servers that a model's own configuration names (it connects to them to
 // list their tools, through the sessions the chat reuses).
 export const modelMCPServersApi = {

@@ -689,7 +689,8 @@
     },
     "seeInList": "Le voir dans Installés",
     "install": "Installer",
-    "installNamed": "Installer {{name}}"
+    "installNamed": "Installer {{name}}",
+    "shadowWarning": "Ce module remplace l'outil intégré {{tool}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils."
   },
   "family": {
     "pages": "Vous cherchez des pages créées par vous ou par un agent ? Elles sont dans <go>Pages</go>."

@@ -48,3 +48,38 @@ test('chat commands: hiding remembers the state, and storage that throws is igno
   assert.doesNotThrow(() => writeHidden(broken, 'none'))
   assert.equal(readHidden(null), '')
 })
+
+test('chat commands: the built-in bash on this machine is a state of its own', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  assert.deepEqual(commandsState({ commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' }), { state: 'available', reason: '' })
+  assert.deepEqual(commandsState({ commands: 'available', commands_provider: 'builtin' }), { state: 'host', reason: '' })
+  assert.deepEqual(commandsState({ commands: 'available', commands_provider: 'builtin', commands_fallback: 'sandbox', commands_fallback_reason: 'off' }), { state: 'host-off', reason: '' })
+  assert.deepEqual(commandsState({ commands: 'available', commands_provider: 'builtin', commands_fallback: 'sandbox', commands_fallback_reason: 'no backend works' }), { state: 'host-unavailable', reason: 'no backend works' })
+  assert.deepEqual(commandsState({ commands: 'none' }), { state: 'none', reason: '' })
+  assert.deepEqual(commandsState(undefined), { state: '', reason: '' })
+})
+
+test('chat commands: a chat that runs commands here keeps a warning notice with the install link', async () => {
+  const { SANDBOX_INSTALL_LINK } = await import('../../src/utils/chatCommands.js')
+  const admin = commandsNotice('host', { isAdmin: true })
+  assert.equal(admin.titleKey, 'hostTitle')
+  assert.equal(admin.textKey, 'host')
+  assert.equal(admin.tone, 'warn')
+  assert.deepEqual(admin.link, { to: SANDBOX_INSTALL_LINK, labelKey: 'install' })
+  assert.equal(commandsNotice('host', { isAdmin: false }).askKey, 'askInstall')
+  assert.equal(commandsNotice('host-off', { isAdmin: true }).link, null, 'the person switches the Sandbox on in the menu')
+  const why = commandsNotice('host-unavailable', { isAdmin: true, reason: 'no backend works' })
+  assert.equal(why.textKey, 'hostUnavailableWhy')
+  assert.deepEqual(why.link, { to: '/app/addons?detail=sandbox', labelKey: 'openSandbox' })
+})
+
+test('chat commands: the tool line says who served a call', async () => {
+  const { providerTag } = await import('../../src/utils/chatCommands.js')
+  assert.deepEqual(providerTag({ kind: 'tool_provider', id: 'sandbox' }), { key: 'sandbox' })
+  assert.deepEqual(providerTag({ kind: 'tool_provider', id: 'other' }), { key: 'addon', values: { name: 'other' } })
+  assert.deepEqual(providerTag({ kind: 'host_exec', id: 'ran' }), { key: 'host' })
+  assert.deepEqual(providerTag({ kind: 'host_exec', id: 'once' }), { key: 'hostOnce' })
+  assert.deepEqual(providerTag({ kind: 'host_exec', id: 'denied' }), { key: 'hostDenied' })
+  assert.equal(providerTag({ kind: 'files_change', id: '1:/a' }), null)
+  assert.equal(providerTag(null), null)
+})

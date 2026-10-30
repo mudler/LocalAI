@@ -114,7 +114,7 @@ export default function BrowseView({ api, adapter }) {
         emptyText={t('browse.emptyBody')}
       />
       <UpgradeConfirm upgrade={upgrade} />
-      <InstallDialog entry={dialog} flow={dialog ? actions.flows[`flow:${dialog.key}`] : undefined} actions={actions} onClose={() => setDialog(null)} />
+      <InstallDialog entry={dialog} installed={installed} flow={dialog ? actions.flows[`flow:${dialog.key}`] : undefined} actions={actions} onClose={() => setDialog(null)} />
     </>
   )
 }

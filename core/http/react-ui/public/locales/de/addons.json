@@ -685,7 +685,8 @@
     },
     "seeInList": "In Installiert ansehen",
     "install": "Installieren",
-    "installNamed": "{{name}} installieren"
+    "installNamed": "{{name}} installieren",
+    "shadowWarning": "Dieses Add-on ersetzt das eingebaute {{tool}}. Ein anderes Add-on ({{name}}) tut das bereits. Nur eines kann aktiv sein; welches, wählen Sie unter Einstellungen > Werkzeuge."
   },
   "family": {
     "pages": "Du suchst Seiten, die du oder ein Agent erstellt hast? Sie sind unter <go>Seiten</go>."

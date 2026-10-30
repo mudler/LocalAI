@@ -685,7 +685,8 @@
     },
     "seeInList": "Vedilo in Installati",
     "install": "Installa",
-    "installNamed": "Installa {{name}}"
+    "installNamed": "Installa {{name}}",
+    "shadowWarning": "Questo componente sostituisce lo strumento integrato {{tool}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti."
   },
   "family": {
     "pages": "Cerchi le pagine create da te o da un agente? Sono in <go>Pagine</go>."

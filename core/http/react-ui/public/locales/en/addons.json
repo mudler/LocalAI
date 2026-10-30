@@ -685,7 +685,8 @@
     },
     "seeInList": "See it in Installed",
     "install": "Install",
-    "installNamed": "Install {{name}}"
+    "installNamed": "Install {{name}}",
+    "shadowWarning": "This add-on replaces the built-in {{tool}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools."
   },
   "family": {
     "pages": "Looking for pages you or an agent made? They are in <go>Pages</go>."

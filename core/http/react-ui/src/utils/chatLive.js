@@ -25,6 +25,19 @@ export function toolStart(live, tool) {
 // An app whose card can be read: the call worked, has an app and has a transcript entry.
 export const liveCardWanted = (tool) => Boolean(tool && tool.ok && tool.app && tool.seq > 0)
 
+// Puts the card that asks to run a command on this machine on the latest
+// running bash call. The answer goes to chatId.
+export function consentAsk(live, chatId, id, command) {
+  const tools = [...live.tools]
+  for (let i = tools.length - 1; i >= 0; i--) {
+    if (tools[i].state === 'running' && tools[i].name === 'bash') {
+      tools[i] = { ...tools[i], consent: { chatId, id, command: command || '' } }
+      return { ...live, tools }
+    }
+  }
+  return live
+}
+
 // Marks the latest running call of that name as ended.
 export function toolEnd(live, tool) {
   const tools = [...live.tools]
@@ -34,6 +47,7 @@ export function toolEnd(live, tool) {
       const hasApp = Boolean(tool?.ok && tool?.app)
       tools[i] = {
         ...tools[i],
+        consent: undefined,
         state: tool?.ok ? 'done' : 'failed',
         output: tool?.output || '',
         seq: tool?.seq || 0,

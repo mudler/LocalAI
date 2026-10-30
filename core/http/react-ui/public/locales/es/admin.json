@@ -254,5 +254,40 @@
     "subtitle": "Modelos cargados en esta instancia de LocalAI y la capacidad del host que utilizan.",
     "scaleOut": "Añadir máquinas",
     "hideScaleOut": "Ocultar configuración"
+  },
+  "settingsTools": {
+    "intro": "Los chats tienen algunas herramientas integradas que un complemento puede reemplazar. Cuando el complemento está instalado, en marcha y activado en un chat, el chat usa la herramienta del complemento con el mismo nombre.",
+    "empty": "En este servidor no hay herramientas integradas que gestionar.",
+    "loadFailed": "No se pudieron leer las herramientas integradas",
+    "switch": "Activado",
+    "byBuiltin": "Integrada",
+    "byAddon": "Complemento: {{name}}",
+    "byNone": "Desactivada",
+    "unavailable": "Este servidor no puede ejecutarla: {{reason}}.",
+    "installSandbox": "Instala el Sandbox para ejecutar comandos aislados",
+    "replaceExplain": "Estos complementos reemplazan {{tool}}: el elegido lo sirve en cada chat donde está activado y en marcha, y el integrado se oculta. Solo uno puede estar activo.",
+    "choose_one": "{{count}} complemento reemplaza {{tool}}: elige cuál usar.",
+    "choose_other": "{{count}} complementos reemplazan {{tool}}: elige cuál usar.",
+    "labels": {
+      "bash": "Comandos (bash)"
+    },
+    "descriptions": {
+      "bash": "Ejecuta comandos y código para los chats directamente en esta máquina cuando ningún Sandbox sirve bash. El complemento Sandbox lo reemplaza con comandos aislados."
+    },
+    "bash": {
+      "switch": "Permitir que los chats ejecuten comandos en esta máquina",
+      "modeLegend": "Quién puede ejecutar comandos",
+      "ask": "Preguntar cada vez.",
+      "askHint": "Solo lo reciben los chats de administradores, y cada comando espera su sí en el chat.",
+      "on": "Permitir para todos.",
+      "onHint": "Los chats de todos los usuarios ejecutan comandos aquí sin preguntar, también las ejecuciones programadas y los subagentes.",
+      "default": "Sin definir: se aplica el valor por defecto ({{mode}}).",
+      "warning": "Los comandos se ejecutan como el usuario de LocalAI, sin aislamiento y con la red de esta máquina: pueden leer lo que LocalAI puede leer y llegar a internet, a tu red y a la API de LocalAI. Cada comando queda registrado. Instala el Sandbox para aislarlos."
+    },
+    "modes": {
+      "off": "desactivado",
+      "ask": "preguntar cada vez",
+      "on": "permitido para todos"
+    }
   }
 }

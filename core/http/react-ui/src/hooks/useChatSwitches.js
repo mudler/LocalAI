@@ -2,13 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatAddonsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
 import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
 import { changedIds, offList, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
+import { commandsState } from '../utils/chatCommands'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 const noCommands = { state: '', reason: '' }
-const commandsOf = (res) => ({
-  state: typeof res?.commands === 'string' ? res.commands : '',
-  reason: typeof res?.commands_reason === 'string' ? res.commands_reason : '',
-})
+// The commands state of the list: see commandsState in utils/chatCommands.js.
+const commandsOf = (res) => commandsState(res)
 
 export { skillKey }
 

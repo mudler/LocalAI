@@ -57,7 +57,31 @@
       "askFix": "Bitte eine Administratorin oder einen Administrator, das zu beheben.",
       "hide": "Ausblenden",
       "hideLabel": "Diesen Hinweis ausblenden",
-      "chipTitle": "Dieser Chat kann keinen Code und keine Befehle ausführen. Für Details auswählen."
+      "chipTitle": "Dieser Chat kann keinen Code und keine Befehle ausführen. Für Details auswählen.",
+      "hostTitle": "Befehle laufen auf diesem Rechner",
+      "host": "Befehle laufen auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung. Installieren Sie die Sandbox für Isolierung.",
+      "hostOff": "Die Sandbox ist für diesen Chat aus, daher laufen Befehle auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung. Schalten Sie die Sandbox in diesem Menü ein, um sie zu isolieren.",
+      "hostUnavailable": "Die Sandbox kann hier nicht laufen, daher laufen Befehle auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung.",
+      "hostUnavailableWhy": "Die Sandbox kann hier nicht laufen ({{reason}}), daher laufen Befehle auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung.",
+      "hostChipTitle": "Befehle in diesem Chat laufen auf diesem Rechner, ohne Isolierung. Für Details auswählen."
+    },
+    "consent": {
+      "title": "Diesen Befehl auf diesem Rechner ausführen?",
+      "body": "Befehle laufen auf diesem Rechner ohne Isolierung. Sie können Dateien lesen, die LocalAI lesen kann, und das Internet und Ihr Netzwerk erreichen. Installieren Sie die Sandbox für Isolierung.",
+      "once": "Einmal ausführen",
+      "always": "Immer auf dieser Instanz",
+      "deny": "Nicht ausführen",
+      "alwaysHint": "„Immer auf dieser Instanz“ lässt die Chats aller Benutzer hier ohne Nachfrage Befehle ausführen (Einstellungen > Werkzeuge).",
+      "askAdmin": "Nur ein Administrator kann Befehle auf diesem Rechner erlauben. Fragen Sie einen, oder führen Sie den Befehl selbst aus."
+    },
+    "provider": {
+      "sandbox": "Sandbox",
+      "addon": "Add-on {{name}}",
+      "host": "Dieser Rechner, nicht isoliert",
+      "hostOnce": "Dieser Rechner, einmal erlaubt",
+      "hostDenied": "Nicht ausgeführt: abgelehnt",
+      "hostTimeout": "Nicht ausgeführt: keine Antwort",
+      "hostAdmin": "Nicht ausgeführt: braucht einen Administrator"
     }
   }
 }

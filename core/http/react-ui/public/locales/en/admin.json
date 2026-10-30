@@ -104,5 +104,40 @@
     "users": "Users",
     "invites": "Invites",
     "keys": "API keys"
+  },
+  "settingsTools": {
+    "intro": "The chats have a few built-in tools that an add-on can replace. When the add-on is installed, running and on for a chat, the chat uses the add-on's tool instead, under the same name.",
+    "empty": "No built-in tool can be managed on this server.",
+    "loadFailed": "The built-in tools could not be read",
+    "switch": "On",
+    "byBuiltin": "Built-in",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Off",
+    "unavailable": "This server cannot run it: {{reason}}.",
+    "installSandbox": "Install the Sandbox to run commands isolated",
+    "replaceExplain": "These add-ons replace {{tool}}: the one chosen serves it in every chat where it is on and running, and the built-in is hidden. Only one can be active.",
+    "choose_one": "{{count}} add-on replaces {{tool}}: choose which one to use.",
+    "choose_other": "{{count}} add-ons replace {{tool}}: choose which one to use.",
+    "labels": {
+      "bash": "Commands (bash)"
+    },
+    "descriptions": {
+      "bash": "Runs commands and code for the chats directly on this machine when no Sandbox serves bash. The Sandbox add-on replaces it with isolated commands."
+    },
+    "bash": {
+      "switch": "Let chats run commands on this machine",
+      "modeLegend": "Who can run commands",
+      "ask": "Ask each time.",
+      "askHint": "Only administrators' chats get it, and each command waits for their yes in the chat.",
+      "on": "Allow for everyone.",
+      "onHint": "Every user's chats run commands here without asking, also scheduled runs and sub-agents.",
+      "default": "Not set: the default applies ({{mode}}).",
+      "warning": "Commands run as the user LocalAI runs as, with no isolation and with this machine's network: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. Every command is logged. Install the Sandbox to isolate them."
+    },
+    "modes": {
+      "off": "off",
+      "ask": "ask each time",
+      "on": "allowed for everyone"
+    }
   }
 }

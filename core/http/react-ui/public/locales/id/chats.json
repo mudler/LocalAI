@@ -57,7 +57,31 @@
       "askFix": "Minta administrator memperbaikinya.",
       "hide": "Sembunyikan",
       "hideLabel": "Sembunyikan pemberitahuan ini",
-      "chipTitle": "Chat ini tidak bisa menjalankan kode atau perintah. Pilih untuk detail."
+      "chipTitle": "Chat ini tidak bisa menjalankan kode atau perintah. Pilih untuk detail.",
+      "hostTitle": "Perintah berjalan di mesin ini",
+      "host": "Perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi. Pasang Sandbox untuk isolasi.",
+      "hostOff": "Sandbox mati untuk chat ini, jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi. Nyalakan Sandbox di menu ini untuk mengisolasinya.",
+      "hostUnavailable": "Sandbox tidak bisa berjalan di sini, jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi.",
+      "hostUnavailableWhy": "Sandbox tidak bisa berjalan di sini ({{reason}}), jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi.",
+      "hostChipTitle": "Perintah di chat ini berjalan di mesin ini, tanpa isolasi. Pilih untuk detail."
+    },
+    "consent": {
+      "title": "Jalankan perintah ini di mesin ini?",
+      "body": "Perintah berjalan di mesin ini tanpa isolasi. Perintah dapat membaca berkas yang bisa dibaca LocalAI dan menjangkau internet serta jaringan Anda. Pasang Sandbox untuk isolasi.",
+      "once": "Jalankan sekali",
+      "always": "Selalu di instans ini",
+      "deny": "Jangan jalankan",
+      "alwaysHint": "\"Selalu di instans ini\" membuat chat semua pengguna menjalankan perintah di sini tanpa bertanya (Pengaturan > Alat).",
+      "askAdmin": "Hanya administrator yang dapat mengizinkan perintah di mesin ini. Minta kepada administrator, atau jalankan perintahnya sendiri."
+    },
+    "provider": {
+      "sandbox": "Sandbox",
+      "addon": "Add-on {{name}}",
+      "host": "Mesin ini, tanpa isolasi",
+      "hostOnce": "Mesin ini, diizinkan sekali",
+      "hostDenied": "Tidak dijalankan: ditolak",
+      "hostTimeout": "Tidak dijalankan: tidak ada jawaban",
+      "hostAdmin": "Tidak dijalankan: perlu administrator"
     }
   }
 }

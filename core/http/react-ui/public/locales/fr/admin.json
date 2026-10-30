@@ -98,5 +98,40 @@
   "explorer": {
     "title": "Explorateur",
     "subtitle": "Parcourir les fichiers et la configuration"
+  },
+  "settingsTools": {
+    "intro": "Les chats ont quelques outils intégrés qu'un module peut remplacer. Quand le module est installé, en marche et activé pour un chat, le chat utilise l'outil du module, sous le même nom.",
+    "empty": "Aucun outil intégré n'est gérable sur ce serveur.",
+    "loadFailed": "Impossible de lire les outils intégrés",
+    "switch": "Activé",
+    "byBuiltin": "Intégré",
+    "byAddon": "Module : {{name}}",
+    "byNone": "Désactivé",
+    "unavailable": "Ce serveur ne peut pas l'exécuter : {{reason}}.",
+    "installSandbox": "Installez le Sandbox pour exécuter les commandes isolées",
+    "replaceExplain": "Ces modules remplacent {{tool}} : celui choisi le fournit dans chaque chat où il est activé et en marche, et l'outil intégré est masqué. Un seul peut être actif.",
+    "choose_one": "{{count}} module remplace {{tool}} : choisissez lequel utiliser.",
+    "choose_other": "{{count}} modules remplacent {{tool}} : choisissez lequel utiliser.",
+    "labels": {
+      "bash": "Commandes (bash)"
+    },
+    "descriptions": {
+      "bash": "Exécute des commandes et du code pour les chats directement sur cette machine quand aucun Sandbox ne fournit bash. Le module Sandbox le remplace par des commandes isolées."
+    },
+    "bash": {
+      "switch": "Laisser les chats exécuter des commandes sur cette machine",
+      "modeLegend": "Qui peut exécuter des commandes",
+      "ask": "Demander à chaque fois.",
+      "askHint": "Seuls les chats des administrateurs l'obtiennent, et chaque commande attend leur accord dans le chat.",
+      "on": "Autoriser pour tous.",
+      "onHint": "Les chats de tous les utilisateurs exécutent des commandes ici sans demander, y compris les exécutions planifiées et les sous-agents.",
+      "default": "Non défini : la valeur par défaut s'applique ({{mode}}).",
+      "warning": "Les commandes s'exécutent sous l'utilisateur de LocalAI, sans isolation et avec le réseau de cette machine : elles peuvent lire ce que LocalAI peut lire et joindre Internet, votre réseau et l'API LocalAI. Chaque commande est journalisée. Installez le Sandbox pour les isoler."
+    },
+    "modes": {
+      "off": "désactivé",
+      "ask": "demander à chaque fois",
+      "on": "autorisé pour tous"
+    }
   }
 }

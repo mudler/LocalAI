@@ -254,5 +254,40 @@
     "subtitle": "Auf dieser LocalAI-Instanz geladene Modelle und die Host-Kapazität, die sie nutzen.",
     "scaleOut": "Rechner hinzufügen",
     "hideScaleOut": "Einrichtung ausblenden"
+  },
+  "settingsTools": {
+    "intro": "Die Chats haben einige eingebaute Werkzeuge, die ein Add-on ersetzen kann. Ist das Add-on installiert, läuft es und ist es für einen Chat an, nutzt der Chat das Werkzeug des Add-ons unter demselben Namen.",
+    "empty": "Auf diesem Server lässt sich kein eingebautes Werkzeug verwalten.",
+    "loadFailed": "Die eingebauten Werkzeuge konnten nicht gelesen werden",
+    "switch": "An",
+    "byBuiltin": "Eingebaut",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Aus",
+    "unavailable": "Dieser Server kann es nicht ausführen: {{reason}}.",
+    "installSandbox": "Installieren Sie die Sandbox, um Befehle isoliert auszuführen",
+    "replaceExplain": "Diese Add-ons ersetzen {{tool}}: Das gewählte stellt es in jedem Chat bereit, in dem es an ist und läuft, und das eingebaute wird ausgeblendet. Nur eines kann aktiv sein.",
+    "choose_one": "{{count}} Add-on ersetzt {{tool}}: Wählen Sie, welches verwendet wird.",
+    "choose_other": "{{count}} Add-ons ersetzen {{tool}}: Wählen Sie, welches verwendet wird.",
+    "labels": {
+      "bash": "Befehle (bash)"
+    },
+    "descriptions": {
+      "bash": "Führt Befehle und Code für die Chats direkt auf diesem Rechner aus, wenn keine Sandbox bash bereitstellt. Das Sandbox-Add-on ersetzt es durch isolierte Befehle."
+    },
+    "bash": {
+      "switch": "Chats Befehle auf diesem Rechner ausführen lassen",
+      "modeLegend": "Wer Befehle ausführen kann",
+      "ask": "Jedes Mal fragen.",
+      "askHint": "Nur die Chats von Administratoren erhalten es, und jeder Befehl wartet auf deren Ja im Chat.",
+      "on": "Für alle erlauben.",
+      "onHint": "Die Chats aller Benutzer führen hier ohne Nachfrage Befehle aus, auch geplante Läufe und Sub-Agenten.",
+      "default": "Nicht gesetzt: Es gilt der Standard ({{mode}}).",
+      "warning": "Befehle laufen als der Benutzer, unter dem LocalAI läuft, ohne Isolierung und mit dem Netzwerk dieses Rechners: Sie können lesen, was LocalAI lesen kann, und das Internet, Ihr Netzwerk und die LocalAI-API erreichen. Jeder Befehl wird protokolliert. Installieren Sie die Sandbox, um sie zu isolieren."
+    },
+    "modes": {
+      "off": "aus",
+      "ask": "jedes Mal fragen",
+      "on": "für alle erlaubt"
+    }
   }
 }
