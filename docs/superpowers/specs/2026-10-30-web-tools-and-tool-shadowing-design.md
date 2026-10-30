@@ -256,15 +256,17 @@ body cap. The guard applies to `web_fetch` and to DuckDuckGo.
 
 ### Settings
 
-Runtime settings (`/api/settings`, administrators only), each with an env var:
+Runtime settings (`/api/settings`, administrators only). Like the other
+switches of the chats (`chats_suggestions`, `mcp_connectors_allow_private`)
+they have no environment variable:
 
-| Setting | Env | Default | Meaning |
-|---|---|---|---|
-| `chats_web_search` | `LOCALAI_CHATS_WEB_SEARCH` | `true` | Offer the built-in `web_search`. |
-| `chats_web_fetch` | `LOCALAI_CHATS_WEB_FETCH` | `true` | Offer the built-in `web_fetch`. |
-| `chats_web_searxng_url` | `LOCALAI_CHATS_WEB_SEARXNG_URL` | empty | Use this SearXNG instance; empty means DuckDuckGo. |
-| `chats_web_allow_private` | `LOCALAI_CHATS_WEB_ALLOW_PRIVATE` | `false` | Let `web_fetch` reach private addresses. |
-| `chats_web_ports` | `LOCALAI_CHATS_WEB_PORTS` | `80,443` | Ports `web_fetch` may use. |
+| Setting | Default | Meaning |
+|---|---|---|
+| `chats_web_search` | `true` | Offer the built-in `web_search`. |
+| `chats_web_fetch` | `true` | Offer the built-in `web_fetch`. |
+| `chats_web_searxng_url` | empty | Use this SearXNG instance; empty means DuckDuckGo. |
+| `chats_web_allow_private` | `false` | Let `web_fetch` reach private addresses. |
+| `chats_web_ports` | `80,443` | Ports `web_fetch` may use. |
 
 Both tools are on by default for every user, with and without accounts. An
 administrator switches each off on its own.
@@ -615,7 +617,11 @@ Each step is one PR-sized commit series with its docs.
      list, `runtime-settings.md`.
    - 1e UI: Tools menu row of the chat, transcript verbs, 9 locales. The
      Settings > Tools section is drawn by the built-in `bash` work.
-   - 1f Move `pdfread` to `pkg/pdfread`; `web_fetch` reads PDF.
+   - 1f Not built. PDFium runs as a 5 MiB WebAssembly module under wazero;
+     linking it into the LocalAI binary for one content type is a cost the
+     owner should decide. `web_fetch` answers "unsupported type:
+     application/pdf". The Web add-on of part 3 can read PDF with the same
+     reader (move it to `addons/internal/pdfread`).
 2. **Shadowing**
    - 2a Contract: `shadows`, `ReplaceableTools`, validation, fixtures,
      `addons.md` section.
@@ -627,6 +633,20 @@ Each step is one PR-sized commit series with its docs.
    - 2e Sandbox manifest declares `shadows: bash` (after the host-commands
      work lands, in agreement with that work).
 3. **Web add-on**: the add-on of part 3, its catalog entry and tests.
+
+## Phase 1 as built (2026-10-30)
+
+- Settings have no environment variables (see Settings).
+- PDF is not read (see 1f).
+- A saved agent has no grant field for the web tools: its chats get them
+  unless the chat switches web off. A trigger run does not copy the web switch
+  of the chat that proposed it.
+- The SearXNG client honours the proxy variables of the LocalAI process; the
+  `web_fetch` client and DuckDuckGo do not use any proxy.
+- `session.Summarize` also keeps the `url` and `query` arguments, so the step
+  of a web tool shows what it searched or read. Other tools with a `query`
+  argument now show it too.
+- The error a user reads when no provider works names Settings > Tools.
 
 ## Later
 
