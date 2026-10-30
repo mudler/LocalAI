@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "Kapan",
+      "runsAsLabel": "Berjalan sebagai",
+      "readsLabel": "Membaca",
+      "writesLabel": "Menulis",
+      "costLabel": "Biaya",
+      "stopLabel": "Untuk menghentikannya",
+      "when": "{{schedule}}, {{zone}}. Jalan pertama {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Saat sebuah file masuk ke {{folder}}.",
+      "runsAs": "Anda",
+      "runsAsModel": "Anda, dengan {{model}}",
+      "writesWidget": ", ditampilkan di widget \"{{widget}}\" di Beranda",
+      "costLocal_other": "Sekitar {{tokens}} token per jalan pada model lokal. Paling banyak {{count}} jalan per hari.",
+      "costRemote_other": "Sekitar {{tokens}} token per jalan pada {{model}}, layanan jarak jauh. Paling banyak {{count}} jalan per hari.",
+      "costUnknown_other": "Token per jalan diketahui setelah jalan pertama. Paling banyak {{count}} jalan per hari.",
+      "costLocal_one": "Sekitar {{tokens}} token per jalan pada model lokal. Paling banyak {{count}} jalan per hari.",
+      "costRemote_one": "Sekitar {{tokens}} token per jalan pada {{model}}, layanan jarak jauh. Paling banyak {{count}} jalan per hari.",
+      "costUnknown_one": "Token per jalan diketahui setelah jalan pertama. Paling banyak {{count}} jalan per hari.",
+      "remoteNote": "{{model}} adalah layanan jarak jauh: apa yang dibaca sebuah jalan meninggalkan server ini.",
+      "stopWidget": "Jeda dari widget, atau hapus di Pemicu",
+      "stop": "Matikan atau hapus di Pemicu"
+    }
+  }
+}

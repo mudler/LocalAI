@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "Wann",
+      "runsAsLabel": "Läuft als",
+      "readsLabel": "Liest",
+      "writesLabel": "Schreibt",
+      "costLabel": "Kosten",
+      "stopLabel": "Zum Beenden",
+      "when": "{{schedule}}, {{zone}}. Erster Lauf {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Wenn eine Datei in {{folder}} ankommt.",
+      "runsAs": "Du",
+      "runsAsModel": "Du, mit {{model}}",
+      "writesWidget": ", angezeigt im Widget „{{widget}}“ auf der Startseite",
+      "costLocal_one": "Etwa {{tokens}} Tokens pro Lauf auf einem lokalen Modell. Höchstens {{count}} Lauf pro Tag.",
+      "costLocal_other": "Etwa {{tokens}} Tokens pro Lauf auf einem lokalen Modell. Höchstens {{count}} Läufe pro Tag.",
+      "costRemote_one": "Etwa {{tokens}} Tokens pro Lauf auf {{model}}, einem entfernten Dienst. Höchstens {{count}} Lauf pro Tag.",
+      "costRemote_other": "Etwa {{tokens}} Tokens pro Lauf auf {{model}}, einem entfernten Dienst. Höchstens {{count}} Läufe pro Tag.",
+      "costUnknown_one": "Die Tokens eines Laufs sind nach dem ersten Lauf bekannt. Höchstens {{count}} Lauf pro Tag.",
+      "costUnknown_other": "Die Tokens eines Laufs sind nach dem ersten Lauf bekannt. Höchstens {{count}} Läufe pro Tag.",
+      "remoteNote": "{{model}} ist ein entfernter Dienst: Was ein Lauf liest, verlässt diesen Server.",
+      "stopWidget": "Pausiere ihn im Widget oder lösche ihn unter Trigger",
+      "stop": "Schalte ihn aus oder lösche ihn unter Trigger"
+    }
+  }
+}

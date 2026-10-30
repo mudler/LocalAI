@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "Quando",
+      "runsAsLabel": "Executa como",
+      "readsLabel": "Lê",
+      "writesLabel": "Escreve",
+      "costLabel": "Custo",
+      "stopLabel": "Para parar",
+      "when": "{{schedule}}, {{zone}}. Primeira execução {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Quando um arquivo chega em {{folder}}.",
+      "runsAs": "Você",
+      "runsAsModel": "Você, com {{model}}",
+      "writesWidget": ", mostrado no widget \"{{widget}}\" da Início",
+      "costLocal_one": "Cerca de {{tokens}} tokens por execução em um modelo local. No máximo {{count}} execução por dia.",
+      "costLocal_other": "Cerca de {{tokens}} tokens por execução em um modelo local. No máximo {{count}} execuções por dia.",
+      "costRemote_one": "Cerca de {{tokens}} tokens por execução em {{model}}, um serviço remoto. No máximo {{count}} execução por dia.",
+      "costRemote_other": "Cerca de {{tokens}} tokens por execução em {{model}}, um serviço remoto. No máximo {{count}} execuções por dia.",
+      "costUnknown_one": "Os tokens de uma execução são conhecidos após a primeira. No máximo {{count}} execução por dia.",
+      "costUnknown_other": "Os tokens de uma execução são conhecidos após a primeira. No máximo {{count}} execuções por dia.",
+      "remoteNote": "{{model}} é um serviço remoto: o que uma execução lê sai deste servidor.",
+      "stopWidget": "Pause pelo widget ou exclua em Gatilhos",
+      "stop": "Desligue ou exclua em Gatilhos"
+    }
+  }
+}

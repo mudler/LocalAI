@@ -2,8 +2,66 @@ import { useCallback, useEffect, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
 import { chatTriggersApi } from '../../utils/api'
-import { browserZone } from '../../utils/chatTrigger'
+import { browserZone, formatNext } from '../../utils/chatTrigger'
 import { proposalEdit, proposalState } from '../../utils/chatProposal'
+import { useWellKnown } from '../../hooks/useWellKnown'
+import { widgetList } from '../../utils/wellKnown'
+import { plainSummary } from '../../utils/widgetTrigger'
+
+const fmt = (n) => {
+  try { return new Intl.NumberFormat().format(n) } catch { return String(n) }
+}
+
+// Plan lists what the trigger will do before the person creates it: when it
+// runs, as whom, what it reads and writes, what a run costs and how to stop it.
+// A row the model left empty is left out, except the ones LocalAI knows itself.
+// eslint-disable-next-line no-unused-vars -- used in JSX; this config has no eslint-plugin-react
+function Plan({ p, t }) {
+  const [first, setFirst] = useState('')
+  const zone = p.time_zone || browserZone()
+  useEffect(() => {
+    if (p.kind !== 'schedule' || !p.schedule) return undefined
+    let live = true
+    chatTriggersApi.preview(p.schedule, zone)
+      .then((res) => { if (live) setFirst(res?.times?.[0] ? formatNext(res.times[0], zone) : '') })
+      .catch(() => {})
+    return () => { live = false }
+  }, [p.kind, p.schedule, zone])
+  const home = useWellKnown('home', { enabled: !!p.plan?.widget })
+  const widget = p.plan?.widget ? widgetList(home.doc).find((w) => w.id === p.plan.widget) : null
+  const cost = p.cost || {}
+  const runs = cost.max_runs_per_day || p.daily_cap || 0
+  const tokens = cost.estimated_tokens || 0
+
+  let when
+  if (p.kind === 'file') when = t('proposal.plan.whenFile', { folder: p.folder })
+  else if (first) when = t('proposal.plan.when', { schedule: plainSummary(p), zone, when: first })
+  else when = t('proposal.plan.whenNoFirst', { schedule: plainSummary(p), zone })
+  let costText = tokens > 0
+    ? t(cost.remote ? 'proposal.plan.costRemote' : 'proposal.plan.costLocal', { tokens: fmt(tokens), model: p.model, count: runs })
+    : t('proposal.plan.costUnknown', { count: runs })
+  if (cost.remote && tokens === 0) costText = `${costText} ${t('proposal.plan.remoteNote', { model: p.model })}`
+  const rows = [
+    ['when', when],
+    ['runsAs', p.model ? t('proposal.plan.runsAsModel', { model: p.model }) : t('proposal.plan.runsAs')],
+    p.plan?.reads && ['reads', p.plan.reads],
+    p.plan?.writes && ['writes', widget
+      ? <><code>{p.plan.writes}</code>{t('proposal.plan.writesWidget', { widget: widget.title })}</>
+      : <code>{p.plan.writes}</code>],
+    ['cost', costText],
+    ['stop', t(widget ? 'proposal.plan.stopWidget' : 'proposal.plan.stop')],
+  ].filter(Boolean)
+  return (
+    <dl className="cx-plan" data-testid="trigger-plan">
+      {rows.map(([key, value]) => (
+        <div className="cx-plan__row" key={key} data-row={key}>
+          <dt>{t(`proposal.plan.${key}Label`)}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
 
 // A trigger the model proposed in this chat: a tool line whose card is of kind
 // trigger_proposal (card.id is the proposal's id). A proposal runs nothing until
@@ -60,6 +118,7 @@ export default function ProposalCard({ id, t, tick = 0 }) {
         <span className="cx-proposal__when">{p.summary || p.schedule || p.folder}</span>
       </div>
       <p className="cx-help">{t('proposal.inactive')}</p>
+      {!edit && <Plan p={p} t={t} />}
       {edit ? (
         <form
           className="cx-proposal__edit"

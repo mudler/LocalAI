@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "언제",
+      "runsAsLabel": "실행 주체",
+      "readsLabel": "읽는 것",
+      "writesLabel": "쓰는 것",
+      "costLabel": "비용",
+      "stopLabel": "멈추려면",
+      "when": "{{schedule}}, {{zone}}. 첫 실행 {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "{{folder}}에 파일이 도착하면.",
+      "runsAs": "나",
+      "runsAsModel": "나, {{model}} 사용",
+      "writesWidget": ", 홈의 \"{{widget}}\" 위젯에 표시",
+      "costLocal_other": "로컬 모델에서 실행당 약 {{tokens}} 토큰. 하루 최대 {{count}}회.",
+      "costRemote_other": "원격 서비스인 {{model}}에서 실행당 약 {{tokens}} 토큰. 하루 최대 {{count}}회.",
+      "costUnknown_other": "실행당 토큰은 첫 실행 후에 알 수 있습니다. 하루 최대 {{count}}회.",
+      "costLocal_one": "로컬 모델에서 실행당 약 {{tokens}} 토큰. 하루 최대 {{count}}회.",
+      "costRemote_one": "원격 서비스인 {{model}}에서 실행당 약 {{tokens}} 토큰. 하루 최대 {{count}}회.",
+      "costUnknown_one": "실행당 토큰은 첫 실행 후에 알 수 있습니다. 하루 최대 {{count}}회.",
+      "remoteNote": "{{model}}은(는) 원격 서비스입니다. 실행이 읽는 내용이 이 서버 밖으로 나갑니다.",
+      "stopWidget": "위젯에서 일시 중지하거나 트리거에서 삭제하세요",
+      "stop": "트리거에서 끄거나 삭제하세요"
+    }
+  }
+}

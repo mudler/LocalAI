@@ -1,0 +1,27 @@
+{
+  "proposal": {
+    "plan": {
+      "whenLabel": "Cuándo",
+      "runsAsLabel": "Se ejecuta como",
+      "readsLabel": "Lee",
+      "writesLabel": "Escribe",
+      "costLabel": "Coste",
+      "stopLabel": "Para detenerlo",
+      "when": "{{schedule}}, {{zone}}. Primera ejecución {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "Cuando llega un archivo a {{folder}}.",
+      "runsAs": "Tú",
+      "runsAsModel": "Tú, con {{model}}",
+      "writesWidget": ", que se muestra en el widget «{{widget}}» de Inicio",
+      "costLocal_one": "Unos {{tokens}} tokens por ejecución en un modelo local. Como máximo {{count}} ejecución al día.",
+      "costLocal_other": "Unos {{tokens}} tokens por ejecución en un modelo local. Como máximo {{count}} ejecuciones al día.",
+      "costRemote_one": "Unos {{tokens}} tokens por ejecución en {{model}}, un servicio remoto. Como máximo {{count}} ejecución al día.",
+      "costRemote_other": "Unos {{tokens}} tokens por ejecución en {{model}}, un servicio remoto. Como máximo {{count}} ejecuciones al día.",
+      "costUnknown_one": "Los tokens de una ejecución se conocen tras la primera. Como máximo {{count}} ejecución al día.",
+      "costUnknown_other": "Los tokens de una ejecución se conocen tras la primera. Como máximo {{count}} ejecuciones al día.",
+      "remoteNote": "{{model}} es un servicio remoto: lo que lee una ejecución sale de este servidor.",
+      "stopWidget": "Páusalo desde el widget o elimínalo en Disparadores",
+      "stop": "Apágalo o elimínalo en Disparadores"
+    }
+  }
+}

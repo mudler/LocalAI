@@ -404,7 +404,30 @@
     "cancelEdit": "Cancel",
     "create": "Create trigger",
     "edit": "Edit",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "plan": {
+      "whenLabel": "When",
+      "runsAsLabel": "Runs as",
+      "readsLabel": "Reads",
+      "writesLabel": "Writes",
+      "costLabel": "Cost",
+      "stopLabel": "To stop it",
+      "when": "{{schedule}}, {{zone}}. First run {{when}}.",
+      "whenNoFirst": "{{schedule}}, {{zone}}.",
+      "whenFile": "When a file arrives in {{folder}}.",
+      "runsAs": "You",
+      "runsAsModel": "You, with {{model}}",
+      "writesWidget": ", shown in the \"{{widget}}\" widget on Home",
+      "costLocal_one": "About {{tokens}} tokens a run on a local model. At most {{count}} run a day.",
+      "costLocal_other": "About {{tokens}} tokens a run on a local model. At most {{count}} runs a day.",
+      "costRemote_one": "About {{tokens}} tokens a run on {{model}}, a remote service. At most {{count}} run a day.",
+      "costRemote_other": "About {{tokens}} tokens a run on {{model}}, a remote service. At most {{count}} runs a day.",
+      "costUnknown_one": "The tokens of a run are known after the first run. At most {{count}} run a day.",
+      "costUnknown_other": "The tokens of a run are known after the first run. At most {{count}} runs a day.",
+      "remoteNote": "{{model}} is a remote service: what a run reads leaves this server.",
+      "stopWidget": "Pause it from the widget, or delete it in Triggers",
+      "stop": "Switch it off or delete it in Triggers"
+    }
   },
   "subAgents": {
     "label": "Sub-agents",
