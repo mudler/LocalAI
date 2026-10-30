@@ -166,15 +166,21 @@ func describeFeed(name string, newStore func() workspace.Store) {
 		})
 
 		It("collapses a burst into few events", func() {
-			f := newFeed(s, wsfeed.Options{Interval: 200 * time.Millisecond})
+			// The test starts the reads, so the count does not depend on how
+			// fast the store writes: the first read runs when the loop starts
+			// and may see part of the burst, the second one sees the rest.
+			ticks := make(chan time.Time)
+			f := newFeed(s, wsfeed.Options{})
+			wsfeed.SetTicks(f, ticks)
 			ch := subscribe(f, alice, 0, false)
 			for i := range 20 {
 				put(s, aliceActor, fmt.Sprintf("/users/alice/pages/p/%d.json", i), "x")
 			}
+			ticks <- time.Now()
 			var ev wsfeed.Event
 			Eventually(ch, 3*time.Second).Should(Receive(&ev))
 			evs := append([]wsfeed.Event{ev}, collect(ch, 500*time.Millisecond)...)
-			Expect(len(evs)).To(BeNumerically("<", 5), "a burst of 20 change sets gave %d events", len(evs))
+			Expect(len(evs)).To(BeNumerically("<=", 2), "a burst of 20 change sets gave %d events", len(evs))
 			// The folders the first write created are changes too.
 			Expect(pathsOf(evs)).To(HaveLen(22))
 			Expect(pathsOf(evs)).To(ContainElements("pages", "pages/p", "pages/p/0.json", "pages/p/19.json"))
