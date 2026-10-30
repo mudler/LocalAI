@@ -89,6 +89,18 @@ test.describe('UI primitives', () => {
     expect(ring.color).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/)
   })
 
+  test('switch: a named role=switch that Space toggles and a disabled one that does not', async ({ page }) => {
+    await openCatalog(page)
+    const first = page.getByRole('switch', { name: 'Sample switch' })
+    await expect(first).toHaveAttribute('aria-checked', 'true')
+    await first.focus()
+    await page.keyboard.press('Space')
+    await expect(first).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByRole('switch', { name: 'Opposite switch' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('switch', { name: 'Disabled off' })).toBeDisabled()
+    expect((await first.boundingBox()).height).toBe(26)
+  })
+
   for (const theme of ['light', 'dark']) {
     test(`status chips: words, an icon and 4.5:1 text in ${theme}`, async ({ page }) => {
       await openCatalog(page, { theme })

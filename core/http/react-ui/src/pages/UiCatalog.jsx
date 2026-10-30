@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
   Button, Callout, EmptyState, LoadError, Page, PageHeader, PaneLayout, SidePane,
-  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, StatusChip, STATUS,
+  Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, StatusChip, STATUS, Switch,
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
 import StatusPill from '../components/StatusPill'
@@ -97,6 +97,20 @@ function Chips() {
         <StatusChip tone="accent">New</StatusChip>
         <StatusChip status="healthy" label="healthy (alias)" />
         <span data-testid="legacy-pill"><StatusPill status="degraded" /></span>
+      </div>
+    </Section>
+  )
+}
+
+function Switches() {
+  const [on, setOn] = useState(true)
+  return (
+    <Section id="switch" title="Switch" note="A control that applies at once. Space toggles. Name it with a label.">
+      <div className="ui-cat__cell" data-testid="switches">
+        <Switch checked={on} onChange={setOn} label="Sample switch" />
+        <Switch checked={!on} onChange={() => setOn(v => !v)} label="Opposite switch" />
+        <Switch checked={false} disabled label="Disabled off" />
+        <Switch checked disabled label="Disabled on" />
       </div>
     </Section>
   )
@@ -262,6 +276,7 @@ export default function UiCatalog() {
       <Buttons />
       <Header />
       <Chips />
+      <Switches />
       <Callouts />
       <LoadErrors />
       <Empties />

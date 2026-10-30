@@ -183,6 +183,19 @@ colours for decoration.
 (`status-pill status-pill--success|warning|error|info|muted`) for existing
 selectors. Use `StatusChip` in new code.
 
+## Switch
+
+`<Switch checked onChange label labelledBy describedBy disabled />`
+
+The kit switch (`dk-switch`, 44 x 26 px) as a controlled button with
+`role="switch"` and `aria-checked`. Space and Enter toggle it. `onChange`
+receives the new value. Give it a name with `label`, or with `labelledBy` when
+a visible label is on screen. A switch applies at once; do not pair it with a
+Save button. For a choice that needs Save, use a checkbox.
+
+Do: put it at the end of a 36 px row, name on the left. Don't: use it to run an
+action ("Disable all" is a button).
+
 ## Toast
 
 Pages get `addToast` from the outlet context:
