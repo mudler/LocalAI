@@ -9,9 +9,9 @@ test.describe('Account', () => {
     await expect(page.getByTestId('account-profile')).toBeVisible()
   })
 
-  test('has four tabs, opens on the profile and keeps the tab in the address', async ({ page }) => {
+  test('has its tabs, opens on the profile and keeps the tab in the address', async ({ page }) => {
     const tabs = await page.getByRole('tab').allTextContents()
-    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage'])
+    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage', 'About you and the assistant', 'Appearance'])
     await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true')
     await page.getByRole('tab', { name: 'Usage' }).click()
     await expect(page).toHaveURL(/tab=usage/)
@@ -97,10 +97,12 @@ test.describe('Account: other people and states', () => {
     await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toHaveCount(0)
   })
 
-  test('without authentication there is no account', async ({ page }) => {
+  test('without authentication there is no account, only the settings of the one user', async ({ page }) => {
     await page.route('**/api/auth/status', route => route.fulfill({ json: { authEnabled: false, staticApiKeyRequired: false, providers: [] } }))
     await page.goto('/app/account')
-    await expect(page.getByText('Account unavailable')).toBeVisible()
+    await expect(page.getByTestId('account-about')).toBeVisible()
+    expect(await page.getByRole('tab').allTextContents()).toEqual(['About you and the assistant', 'Appearance'])
+    await expect(page.getByTestId('sidebar-your-settings')).toBeVisible()
   })
 
   test('the usage tab says so when the call fails', async ({ page }) => {

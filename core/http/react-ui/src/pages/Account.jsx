@@ -9,6 +9,7 @@ import { timeUntil, initialOf } from '../utils/access'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
 import Icon from '../components/Icon'
+import { AboutYouTab, AppearanceTab } from '../components/wellknown/SettingsTabs'
 import './access.css'
 
 const TABS = [
@@ -16,7 +17,12 @@ const TABS = [
   { id: 'security', labelKey: 'account.tabs.security' },
   { id: 'keys', labelKey: 'account.tabs.apiKeys' },
   { id: 'usage', labelKey: 'account.tabs.usage' },
+  { id: 'about', labelKey: 'account.tabs.about', files: true },
+  { id: 'appearance', labelKey: 'account.tabs.appearance', files: true },
 ]
+
+// Wide tabs hold two cards side by side.
+const WIDE_TABS = new Set(['about'])
 
 const WINDOW_WORDS = { '1m': 'minute', '5m': '5 minutes', '1h': 'hour', '6h': '6 hours', '1d': 'day', '7d': 'week', '30d': '30 days' }
 
@@ -247,12 +253,17 @@ function UsageTab() {
 export default function Account() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation('auth')
-  const { authEnabled, user } = useAuth()
+  const { authEnabled, user, hasFeature } = useAuth()
   const [params, setParams] = useSearchParams()
-  const tab = TABS.some(x => x.id === params.get('tab')) ? params.get('tab') : 'profile'
+  // Without accounts there is one user: the tabs of the well-known files still
+  // apply, the account tabs do not. Those tabs need the chats, which hold the files.
+  const filesTabs = hasFeature ? hasFeature('chats') : true
+  const tabs = TABS.filter(x => (authEnabled || x.files) && (!x.files || filesTabs))
+  const first = tabs[0]?.id
+  const tab = tabs.some(x => x.id === params.get('tab')) ? params.get('tab') : first
   const refs = useRef({})
 
-  if (!authEnabled) {
+  if (tabs.length === 0) {
     return (
       <div className="page page--narrow">
         <div className="dk-empty">
@@ -265,29 +276,29 @@ export default function Account() {
   }
 
   const select = (id, focus = false) => {
-    setParams(id === 'profile' ? {} : { tab: id }, { replace: true })
+    setParams(id === first ? {} : { tab: id }, { replace: true })
     if (focus) refs.current[id]?.focus()
   }
   const onKey = (e) => {
-    const i = TABS.findIndex(x => x.id === tab)
-    if (e.key === 'ArrowRight') { e.preventDefault(); select(TABS[(i + 1) % TABS.length].id, true) }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); select(TABS[(i + TABS.length - 1) % TABS.length].id, true) }
-    else if (e.key === 'Home') { e.preventDefault(); select(TABS[0].id, true) }
-    else if (e.key === 'End') { e.preventDefault(); select(TABS[TABS.length - 1].id, true) }
+    const i = tabs.findIndex(x => x.id === tab)
+    if (e.key === 'ArrowRight') { e.preventDefault(); select(tabs[(i + 1) % tabs.length].id, true) }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); select(tabs[(i + tabs.length - 1) % tabs.length].id, true) }
+    else if (e.key === 'Home') { e.preventDefault(); select(tabs[0].id, true) }
+    else if (e.key === 'End') { e.preventDefault(); select(tabs[tabs.length - 1].id, true) }
   }
 
   return (
-    <div className="page page--narrow ac-page" data-testid="account-page">
+    <div className={`page ${WIDE_TABS.has(tab) ? 'page--medium' : 'page--narrow'} ac-page`} data-testid="account-page">
       <header className="ac-head">
         <div>
           <h1 className="ac-title">{t('account.title')}</h1>
-          <p className="ac-lede">{t('account.subtitle')}</p>
+          <p className="ac-lede">{t(authEnabled ? 'account.subtitle' : 'account.subtitleLocal')}</p>
         </div>
-        <span className="ac-me">{user?.name || user?.email} · {user?.role}</span>
+        {authEnabled && <span className="ac-me">{user?.name || user?.email} · {user?.role}</span>}
       </header>
 
       <div className="dk-tabs" role="tablist" aria-label={t('account.title')} onKeyDown={onKey}>
-        {TABS.map(x => (
+        {tabs.map(x => (
           <button
             key={x.id} ref={el => { refs.current[x.id] = el }} type="button" role="tab" id={`ac-tab-${x.id}`}
             className="dk-tab" aria-selected={tab === x.id} aria-controls={`ac-panel-${x.id}`} tabIndex={tab === x.id ? 0 : -1}
@@ -303,6 +314,8 @@ export default function Account() {
         {tab === 'security' && <SecurityTab addToast={addToast} />}
         {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={t('keys.accountIntro')} />}
         {tab === 'usage' && <UsageTab />}
+        {tab === 'about' && <AboutYouTab />}
+        {tab === 'appearance' && <AppearanceTab />}
       </div>
     </div>
   )

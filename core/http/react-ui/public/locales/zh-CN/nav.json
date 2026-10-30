@@ -10,6 +10,7 @@
   "changeLanguage": "更改语言",
   "logout": "退出登录",
   "accountSettings": "账户设置",
+  "yourSettings": "你的设置",
   "account": "账户",
   "accountFor": "账户：{{name}}",
   "sections": {

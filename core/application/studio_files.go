@@ -81,7 +81,7 @@ func (a *Application) initStudioFiles() {
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
 		return
 	}
-	f := files.New(ws)
+	f := files.New(ws, files.WithBlobs(blobs))
 	if err := f.EnsureShared(context.Background()); err != nil {
 		xlog.Warn("Files disabled: cannot create the shared folders", "error", err)
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")

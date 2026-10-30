@@ -19,6 +19,10 @@ import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
 import HomeResume from '../components/home/HomeResume'
 // eslint-disable-next-line no-unused-vars
 import HomeFirstRun from '../components/home/HomeFirstRun'
+// eslint-disable-next-line no-unused-vars
+import HomeWidgets from '../components/wellknown/HomeWidgets'
+import { useWellKnown } from '../hooks/useWellKnown'
+import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
@@ -48,6 +52,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t, i18n } = useTranslation('home')
+  const { t: tw } = useTranslation('workspace')
   const { isAdmin, hasFeature } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
@@ -240,6 +245,15 @@ export default function Home() {
   }, [])
 
   const resumeConversation = useCallback((conv) => navigate(`/app/chats/${encodeURIComponent(conv.id)}`), [navigate])
+  // The widgets of home.json. A chats widget takes the place of the list of
+  // recent chats below, so the page does not show them twice.
+  const chatsOn = hasFeature('chats')
+  const homeFile = useWellKnown('home', { enabled: chatsOn })
+  const chatsWidget = useMemo(() => widgetList(homeFile.doc).some(w => w.type === 'chats'), [homeFile.doc])
+  const askLayout = useCallback(() => {
+    const q = selectedModel ? `?model=${encodeURIComponent(selectedModel)}` : ''
+    navigate(`/app/chats${q}`, { state: { draft: tw('wellKnown.home.askPrompt') } })
+  }, [navigate, selectedModel, tw])
 
   // ----- Derived state -----------------------------------------------------
 
@@ -444,6 +458,12 @@ export default function Home() {
 
         </div>
 
+        {chatsOn && !firstRun && (
+          <div style={staggerStyle(3)}>
+            <HomeWidgets wk={homeFile} conversations={conversations} onResume={resumeConversation} onAsk={askLayout} />
+          </div>
+        )}
+
         {firstRun && (
           <div className="home-first" style={staggerStyle(3)}>
             <HomeFirstRun
@@ -455,7 +475,7 @@ export default function Home() {
           </div>
         )}
 
-        <div style={staggerStyle(4)}>
+        {!chatsWidget && <div style={staggerStyle(4)}>
           <HomeResume
             items={conversations}
             onResume={resumeConversation}
@@ -467,7 +487,7 @@ export default function Home() {
               </div>
             )}
           />
-        </div>
+        </div>}
 
         <div className="home-libline" style={staggerStyle(5)} data-testid="home-library">
           <span>{t('library.label')}</span>

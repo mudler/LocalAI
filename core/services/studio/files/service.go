@@ -31,12 +31,18 @@ type Service struct {
 	admin workspace.Actor
 
 	sharedReady bool // the folders of shared and built-in skills exist
+
+	blobs BlobOpener // nil: earlier versions cannot be read
 }
 
 // New returns a Service on ws. The store must have been opened with
 // AdminPrincipal as its admin.
-func New(ws workspace.Store) *Service {
-	return &Service{ws: ws, homes: map[string]bool{}, admin: workspace.Actor{Principal: AdminPrincipal}}
+func New(ws workspace.Store, opts ...Option) *Service {
+	s := &Service{ws: ws, homes: map[string]bool{}, admin: workspace.Actor{Principal: AdminPrincipal}}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 // Disabled returns a Service with no workspace. reason says why, in words for

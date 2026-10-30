@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/shortcuts.json",
+  "title": "shortcuts.json",
+  "description": "The prompts shown above the composer in every chat. Without this file the chat shows its default starters.",
+  "type": "object",
+  "properties": {
+    "shortcuts": {
+      "type": "array",
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string", "title": "Label", "minLength": 1, "maxLength": 40 },
+          "prompt": { "type": "string", "title": "Prompt", "minLength": 1, "maxLength": 2000, "x-ui": { "widget": "textarea" } },
+          "icon": { "type": "string", "title": "Icon", "description": "An icon name such as mail, calendar or file.", "maxLength": 40, "pattern": "^[a-z0-9-]+$" },
+          "send": { "type": "boolean", "title": "Send at once", "description": "true sends the prompt on click; otherwise it fills the composer." }
+        },
+        "required": ["label", "prompt"]
+      }
+    }
+  },
+  "required": ["shortcuts"]
+}

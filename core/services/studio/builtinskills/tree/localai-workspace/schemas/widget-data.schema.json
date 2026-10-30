@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/widget-data.json",
+  "title": "Widget data",
+  "description": "The data file that a Home widget reads (its source in home.json).",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "maxLength": 60 },
+    "updatedAt": { "type": "string", "description": "When the data was written, as an RFC 3339 time.", "maxLength": 40 },
+    "items": {
+      "type": "array",
+      "description": "Rows of a list widget.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "meta": { "type": "string", "description": "A short note on the right, such as a day.", "maxLength": 40 },
+          "done": { "type": "boolean" }
+        },
+        "required": ["label"]
+      }
+    },
+    "value": {
+      "type": ["number", "string"],
+      "description": "The number of a metric widget.",
+      "maxLength": 20
+    },
+    "note": { "type": "string", "description": "One line under the value of a metric widget.", "maxLength": 120 },
+    "series": {
+      "type": "array",
+      "description": "Points of the small line under a metric.",
+      "maxItems": 60,
+      "items": { "type": "number" }
+    }
+  }
+}

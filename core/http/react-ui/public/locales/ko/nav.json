@@ -10,6 +10,7 @@
   "changeLanguage": "언어 변경",
   "logout": "로그아웃",
   "accountSettings": "계정 설정",
+  "yourSettings": "내 설정",
   "account": "계정",
   "accountFor": "계정: {{name}}",
   "sections": {

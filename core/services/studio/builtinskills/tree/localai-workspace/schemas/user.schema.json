@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/user.json",
+  "title": "user.json",
+  "description": "Who the assistant talks to. A short block of it reaches the model in every chat.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Name",
+      "description": "How the assistant addresses you.",
+      "maxLength": 80
+    },
+    "language": {
+      "type": "string",
+      "title": "Language",
+      "description": "A language tag such as en, it or pt-BR.",
+      "maxLength": 35,
+      "pattern": "^$|^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+      "x-ui": { "widget": "language" }
+    },
+    "bio": {
+      "type": "string",
+      "title": "About you",
+      "description": "A few lines the assistant reads in every chat.",
+      "maxLength": 1000,
+      "x-ui": { "widget": "textarea" }
+    },
+    "timezone": {
+      "type": "string",
+      "title": "Time zone",
+      "description": "An IANA time zone such as Europe/Rome.",
+      "maxLength": 64,
+      "pattern": "^$|^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*$",
+      "x-ui": { "widget": "timezone" }
+    },
+    "seen": {
+      "type": "object",
+      "description": "Hints the assistant offered, and what the user answered. The assistant keeps it; the settings page does not show it.",
+      "maxProperties": 50,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "state": { "enum": ["offered", "declined", "accepted"] },
+          "at": { "type": "string", "maxLength": 40 }
+        },
+        "required": ["state"]
+      },
+      "x-ui": { "hidden": true }
+    }
+  }
+}

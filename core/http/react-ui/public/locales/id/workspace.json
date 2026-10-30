@@ -1,0 +1,149 @@
+{
+  "wellKnown": {
+    "storedIn": "Disimpan di",
+    "definedIn": "Didefinisikan di",
+    "revert": "Kembali ke versi sebelumnya",
+    "view": "Lihat",
+    "form": "Formulir",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "notSet": "Belum diatur",
+    "moveUp": "Naik",
+    "moveDown": "Turun",
+    "remove": "Hapus",
+    "savedAt": "Disimpan pada {{time}}",
+    "notSaved": "Belum disimpan.",
+    "notSavedPrefilled": "Belum disimpan. Sebagian nilai sudah diisi untuk Anda; Simpan akan mempertahankannya.",
+    "loadFailed": "Tidak dapat memuat file: {{message}}",
+    "invalid": "{{file}} tidak sesuai dengan formatnya, dan tidak ada versi valid sebelumnya.",
+    "invalidFallback": "{{file}} tidak sesuai dengan formatnya. Ini menampilkan versi valid terakhirnya.",
+    "conflict": "{{file}} berubah saat Anda mengeditnya, kemungkinan oleh asisten atau tab lain. Nilai yang lebih baru adalah:",
+    "useTheirs": "Gunakan nilai yang lebih baru",
+    "keepMine": "Simpan perubahan saya",
+    "editWithAssistant": "Edit dengan asisten",
+    "from": {
+      "account": "Dari akun Anda",
+      "browser": "Dari browser Anda"
+    },
+    "check": {
+      "required": "Wajib diisi.",
+      "tooLong": "Maksimal {{max}} karakter.",
+      "format": "Nilai ini memiliki format yang salah."
+    },
+    "source": {
+      "label": "Sumber",
+      "hint": "File mentah. Saat disimpan, file diperiksa dengan skema yang sama.",
+      "notJson": "Ini bukan JSON yang valid.",
+      "notObject": "File harus berupa objek JSON dalam kurung kurawal."
+    },
+    "persona": {
+      "title": "Asisten",
+      "lede": "Nama dan instruksi yang digunakan asisten di setiap chat."
+    },
+    "user": {
+      "title": "Anda",
+      "lede": "Asisten membaca ini untuk mengetahui siapa lawan bicaranya. Ini dikirim ke model di setiap chat."
+    },
+    "ui": {
+      "title": "Tampilan",
+      "lede": "Tampilan LocalAI untuk Anda. Perubahan langsung terlihat; Simpan akan mempertahankannya."
+    },
+    "shortcuts": {
+      "title": "Pintasan",
+      "lede": "Prompt di atas kolom tulis setiap chat.",
+      "edit": "Edit pintasan",
+      "defaults": "Pintasan bawaan",
+      "none": "Tidak ada pintasan. Tambahkan satu, atau simpan daftar kosong untuk menyembunyikannya.",
+      "label": "Label",
+      "prompt": "Prompt",
+      "send": "Kirim langsung",
+      "add": "Tambah pintasan",
+      "invalid": "shortcuts.json memiliki kesalahan",
+      "assistantPrompt": "Ubah pintasan kolom tulis saya di shortcuts.json: "
+    },
+    "home": {
+      "editLayout": "Edit tata letak",
+      "ask": "Tanya asisten",
+      "layoutIn": "Tata letak ada di",
+      "askPrompt": "Ubah halaman Beranda saya (home.json): ",
+      "add": "Tambah widget",
+      "newTitle": "Widget baru",
+      "noWidgets": "Belum ada widget.",
+      "type": "Jenis",
+      "title": "Judul",
+      "source": "File data",
+      "noSourceNeeded": "Tidak perlu file data",
+      "types": {
+        "list": "Daftar",
+        "metric": "Metrik",
+        "chats": "Chat terakhir"
+      },
+      "left": "{{count}} tersisa",
+      "fromChats": "dari chat",
+      "noChats": "Belum ada chat.",
+      "noData": "Belum ada data. Asisten dapat menulis",
+      "nothing": "Tidak ada apa-apa di sini.",
+      "noSource": "Widget ini tidak memiliki file data. Pilih satu di Edit tata letak.",
+      "broken": "{{file}} memiliki kesalahan dan tidak ada versi valid sebelumnya.",
+      "stale": "Menampilkan data valid terakhir: {{file}} memiliki kesalahan.",
+      "updated": "Diperbarui {{when}}"
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Nama",
+          "help": "Nama yang digunakan asisten untuk dirinya sendiri."
+        },
+        "system_prompt": {
+          "label": "Prompt sistem",
+          "help": "Ditambahkan ke setiap chat, setelah prompt chat dan instruksi agen."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Nama",
+          "help": "Cara asisten menyapa Anda."
+        },
+        "language": {
+          "label": "Bahasa",
+          "help": "Bahasa yang digunakan asisten untuk menjawab."
+        },
+        "bio": {
+          "label": "Tentang Anda",
+          "help": "Beberapa baris yang dibaca asisten di setiap chat."
+        },
+        "timezone": {
+          "label": "Zona waktu",
+          "help": "Untuk tanggal dan waktu dalam jawaban."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Tema",
+          "help": "Sistem mengikuti pengaturan perangkat Anda.",
+          "options": {
+            "dark": "Gelap",
+            "light": "Terang",
+            "system": "Sistem"
+          }
+        },
+        "accent": {
+          "label": "Warna aksen",
+          "help": "Untuk tombol dan tautan. Kosong memakai bawaan."
+        },
+        "density": {
+          "label": "Kepadatan",
+          "help": "Ringkas menampilkan lebih banyak dalam satu layar.",
+          "options": {
+            "comfortable": "Nyaman",
+            "compact": "Ringkas"
+          }
+        },
+        "defaultModel": {
+          "label": "Model bawaan",
+          "help": "Model yang digunakan saat chat baru dimulai."
+        }
+      }
+    }
+  }
+}

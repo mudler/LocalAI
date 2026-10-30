@@ -11,6 +11,8 @@ import { useAuth } from './context/AuthContext'
 import RouteFallback from './components/RouteFallback'
 import { hubs, hubOwnsPath } from './components/hub/hubConfig'
 import Icon from './components/Icon'
+// eslint-disable-next-line no-unused-vars
+import AppearanceSync from './components/wellknown/AppearanceSync'
 import { displayVersion } from './utils/version'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
@@ -109,6 +111,7 @@ export default function App() {
 
   return (
     <div className={layoutClasses}>
+      <AppearanceSync />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="main-content" {...(sidebarOpen ? { 'aria-hidden': 'true', inert: '' } : {})}>
         <OperationsBar />

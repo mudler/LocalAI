@@ -10,6 +10,7 @@
   "changeLanguage": "Ubah bahasa",
   "logout": "Keluar",
   "accountSettings": "Pengaturan akun",
+  "yourSettings": "Pengaturan Anda",
   "account": "Akun",
   "accountFor": "Akun: {{name}}",
   "sections": {

@@ -10,6 +10,7 @@
   "changeLanguage": "Cambiar idioma",
   "logout": "Cerrar sesión",
   "accountSettings": "Configuración de la cuenta",
+  "yourSettings": "Tu configuración",
   "account": "Cuenta",
   "accountFor": "Cuenta: {{name}}",
   "sections": {

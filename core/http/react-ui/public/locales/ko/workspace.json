@@ -1,0 +1,149 @@
+{
+  "wellKnown": {
+    "storedIn": "저장 위치",
+    "definedIn": "정의 위치",
+    "revert": "이전 버전으로 되돌리기",
+    "view": "보기",
+    "form": "양식",
+    "save": "저장",
+    "cancel": "취소",
+    "notSet": "설정되지 않음",
+    "moveUp": "위로 이동",
+    "moveDown": "아래로 이동",
+    "remove": "삭제",
+    "savedAt": "{{time}}에 저장됨",
+    "notSaved": "아직 저장되지 않았습니다.",
+    "notSavedPrefilled": "아직 저장되지 않았습니다. 일부 값은 자동으로 채워졌으며, 저장하면 유지됩니다.",
+    "loadFailed": "파일을 불러올 수 없습니다: {{message}}",
+    "invalid": "{{file}}의 형식이 올바르지 않으며, 이전의 유효한 버전이 없습니다.",
+    "invalidFallback": "{{file}}의 형식이 올바르지 않습니다. 마지막 유효 버전을 표시합니다.",
+    "conflict": "편집하는 동안 {{file}}이(가) 변경되었습니다. 어시스턴트나 다른 탭에서 바뀌었을 가능성이 높습니다. 최신 값은 다음과 같습니다:",
+    "useTheirs": "최신 값 사용",
+    "keepMine": "내 변경 사항 유지",
+    "editWithAssistant": "어시스턴트로 편집",
+    "from": {
+      "account": "계정에서",
+      "browser": "브라우저에서"
+    },
+    "check": {
+      "required": "필수 항목입니다.",
+      "tooLong": "최대 {{max}}자까지 입력할 수 있습니다.",
+      "format": "값의 형식이 올바르지 않습니다."
+    },
+    "source": {
+      "label": "원본",
+      "hint": "원시 파일입니다. 저장할 때 같은 스키마로 검사됩니다.",
+      "notJson": "올바른 JSON이 아닙니다.",
+      "notObject": "파일은 중괄호로 감싼 JSON 객체여야 합니다."
+    },
+    "persona": {
+      "title": "어시스턴트",
+      "lede": "모든 채팅에서 어시스턴트가 사용하는 이름과 지침입니다."
+    },
+    "user": {
+      "title": "나",
+      "lede": "어시스턴트가 대화 상대를 알기 위해 읽습니다. 모든 채팅에서 모델에 전달됩니다."
+    },
+    "ui": {
+      "title": "모양",
+      "lede": "LocalAI가 표시되는 방식입니다. 변경 사항은 바로 반영되며, 저장하면 유지됩니다."
+    },
+    "shortcuts": {
+      "title": "단축 프롬프트",
+      "lede": "모든 채팅의 입력창 위에 표시되는 프롬프트입니다.",
+      "edit": "단축 프롬프트 편집",
+      "defaults": "기본 단축 프롬프트",
+      "none": "단축 프롬프트가 없습니다. 추가하거나, 빈 목록을 저장해 숨기세요.",
+      "label": "라벨",
+      "prompt": "프롬프트",
+      "send": "바로 보내기",
+      "add": "단축 프롬프트 추가",
+      "invalid": "shortcuts.json에 오류가 있습니다",
+      "assistantPrompt": "shortcuts.json에서 내 입력창 단축 프롬프트를 변경해 줘: "
+    },
+    "home": {
+      "editLayout": "레이아웃 편집",
+      "ask": "어시스턴트에게 묻기",
+      "layoutIn": "레이아웃 위치:",
+      "askPrompt": "내 홈 페이지(home.json)를 변경해 줘: ",
+      "add": "위젯 추가",
+      "newTitle": "새 위젯",
+      "noWidgets": "아직 위젯이 없습니다.",
+      "type": "유형",
+      "title": "제목",
+      "source": "데이터 파일",
+      "noSourceNeeded": "데이터 파일이 필요하지 않음",
+      "types": {
+        "list": "목록",
+        "metric": "지표",
+        "chats": "최근 채팅"
+      },
+      "left": "{{count}} 남음",
+      "fromChats": "채팅에서",
+      "noChats": "아직 채팅이 없습니다.",
+      "noData": "아직 데이터가 없습니다. 어시스턴트가 작성할 수 있습니다",
+      "nothing": "표시할 내용이 없습니다.",
+      "noSource": "이 위젯에는 데이터 파일이 없습니다. 레이아웃 편집에서 선택하세요.",
+      "broken": "{{file}}에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
+      "stale": "마지막 유효 데이터를 표시합니다: {{file}}에 오류가 있습니다.",
+      "updated": "{{when}}에 업데이트됨"
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "이름",
+          "help": "어시스턴트가 자신을 부르는 이름입니다."
+        },
+        "system_prompt": {
+          "label": "시스템 프롬프트",
+          "help": "모든 채팅에 추가됩니다. 채팅의 프롬프트와 에이전트 지침 뒤에 붙습니다."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "이름",
+          "help": "어시스턴트가 나를 부르는 이름입니다."
+        },
+        "language": {
+          "label": "언어",
+          "help": "어시스턴트가 답변할 때 사용하는 언어입니다."
+        },
+        "bio": {
+          "label": "나에 대해",
+          "help": "어시스턴트가 모든 채팅에서 읽는 몇 줄입니다."
+        },
+        "timezone": {
+          "label": "시간대",
+          "help": "답변의 날짜와 시간에 사용됩니다."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "테마",
+          "help": "시스템은 기기 설정을 따릅니다.",
+          "options": {
+            "dark": "다크",
+            "light": "라이트",
+            "system": "시스템"
+          }
+        },
+        "accent": {
+          "label": "강조 색상",
+          "help": "버튼과 링크에 사용합니다. 비워 두면 기본값을 사용합니다."
+        },
+        "density": {
+          "label": "밀도",
+          "help": "조밀하게 설정하면 한 화면에 더 많이 표시됩니다.",
+          "options": {
+            "comfortable": "여유 있게",
+            "compact": "조밀하게"
+          }
+        },
+        "defaultModel": {
+          "label": "기본 모델",
+          "help": "새 채팅이 시작될 때 사용하는 모델입니다."
+        }
+      }
+    }
+  }
+}
