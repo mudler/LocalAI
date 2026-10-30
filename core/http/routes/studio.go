@@ -104,6 +104,16 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base+"/pages/:name/file", h.ReadPageFile)
 	e.PUT(base+"/pages/:name/file", h.WritePageFile)
 	e.POST(base+"/pages/:name/chat", h.SendFromPage)
+	// The pages of the caller's shared folders, by folder id and name, and the
+	// caller's consent to the version that runs.
+	e.GET(base+"/shared-pages", h.ListSharedPages)
+	e.GET(base+"/shared-pages/:folder/:name", h.GetSharedPage)
+	e.PUT(base+"/shared-pages/:folder/:name/consent", h.AllowSharedPage)
+	e.DELETE(base+"/shared-pages/:folder/:name/consent", h.RevokeSharedPage)
+	e.GET(base+"/shared-pages/:folder/:name/files", h.ListSharedPageFiles)
+	e.GET(base+"/shared-pages/:folder/:name/file", h.ReadSharedPageFile)
+	e.PUT(base+"/shared-pages/:folder/:name/file", h.WriteSharedPageFile)
+	e.POST(base+"/shared-pages/:folder/:name/chat", h.SendFromSharedPage)
 	e.GET(base+"/page-starters", h.ListPageStarters)
 	e.POST(base+"/page-starters/:id/copy", h.CopyPageStarter)
 	e.GET(base+"/conversion", h.Conversion)

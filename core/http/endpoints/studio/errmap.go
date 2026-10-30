@@ -24,6 +24,11 @@ const (
 	typeNotifyOff    = "notifications_off"
 	typeTriggersOff  = "triggers_off"
 	typeConnectorOff = "connectors_off"
+	// typePageNotAllowed: a shared page called its bridge without your consent
+	// to the version it runs (or after you revoked it).
+	typePageNotAllowed = "page_not_allowed"
+	// typeSharedPagesOff: an administrator switched the shared pages off.
+	typeSharedPagesOff = "shared_pages_off"
 )
 
 // errRule is one row of an error table: the errors that match (errors.Is), the

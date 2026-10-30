@@ -10,11 +10,25 @@ type PagesPage struct {
 	Title       string `json:"title"`
 	Icon        string `json:"icon,omitempty"`
 	Description string `json:"description,omitempty"`
-	// Source is "own" for a page in the user's home ("shared" is reserved for
-	// pages of shared folders).
+	// Source is "own" for a page in the user's home and "shared" for a page of
+	// a shared folder.
 	Source string `json:"source"`
-	// Author is who wrote the current index.html: "you" or "assistant".
-	Author string `json:"author"`
+	// Author is who wrote the current index.html: "you" or "assistant" for an
+	// own page. A shared page also has AuthorID and AuthorName, the account
+	// that last wrote its index.html.
+	Author     string `json:"author"`
+	AuthorID   string `json:"author_id,omitempty"`
+	AuthorName string `json:"author_name,omitempty"`
+	// A shared page has its shared folder (Folder, a workspace path, and
+	// FolderID, the id the shared-pages routes take), whether you may write in
+	// it, the hash of its code (index.html and page.json; a consent is kept
+	// against it) and your consent: none, allowed or changed.
+	Folder   string `json:"folder,omitempty"`
+	FolderID int64  `json:"folder_id,omitempty"`
+	Writable bool   `json:"writable,omitempty"`
+	Hash     string `json:"hash,omitempty"`
+	Consent  string `json:"consent,omitempty"`
+	MetaSize int64  `json:"meta_size,omitempty"`
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time `json:"updated_at"`
 	UpdatedBy string    `json:"updated_by"`
@@ -92,4 +106,50 @@ type PagesStarter struct {
 // PagesStarterList lists the starter pages.
 type PagesStarterList struct {
 	Starters []PagesStarter `json:"starters"`
+}
+
+// PagesSharedList is the pages of your shared folders. Enabled is false when an
+// administrator switched shared pages off: the pages are listed, but none
+// opens.
+type PagesSharedList struct {
+	Enabled bool        `json:"enabled"`
+	Pages   []PagesPage `json:"pages"`
+}
+
+// PagesConsent is your consent to a shared page.
+type PagesConsent struct {
+	// State is none, allowed (this version) or changed (an earlier version).
+	State string `json:"state"`
+	// The version you allowed: when, and the size of its index.html and
+	// page.json and the lines of its index.html, to say what changed.
+	AllowedAt *time.Time `json:"allowed_at,omitempty"`
+	Size      int64      `json:"size,omitempty"`
+	MetaSize  int64      `json:"meta_size,omitempty"`
+	Lines     int        `json:"lines,omitempty"`
+}
+
+// PagesSharedSource is a shared page with the text of its index.html, its
+// lines, and your consent. The UI runs the HTML only after a consent to Hash.
+type PagesSharedSource struct {
+	Page    PagesPage    `json:"page"`
+	HTML    string       `json:"html"`
+	Lines   int          `json:"lines"`
+	Consent PagesConsent `json:"consent"`
+}
+
+// PagesConsentRequest allows the version Hash of a shared page, for good or
+// for one visit (Once).
+type PagesConsentRequest struct {
+	Hash string `json:"hash"`
+	Once bool   `json:"once,omitempty"`
+}
+
+// PagesConsentResponse is the consent you gave. A visit (kind once) has a
+// token that the bridge calls of that visit send in X-LocalAI-Page-Visit.
+type PagesConsentResponse struct {
+	State   string     `json:"state"`
+	Kind    string     `json:"kind"`
+	Hash    string     `json:"hash"`
+	Token   string     `json:"token,omitempty"`
+	Expires *time.Time `json:"expires,omitempty"`
 }

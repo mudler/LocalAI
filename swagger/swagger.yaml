@@ -2604,6 +2604,8 @@ definitions:
     properties:
       agent_id:
         type: string
+      cost:
+        $ref: '#/definitions/schema.ChatsTriggerCost'
       daily_cap:
         type: integer
       enabled:
@@ -2614,10 +2616,18 @@ definitions:
         type: string
       kind:
         type: string
+      last_done:
+        type: string
       last_run:
         allOf:
         - $ref: '#/definitions/schema.ChatsTriggerRun'
-        description: LastRun is the newest run, if any.
+        description: |-
+          LastRun is the newest run, if any, and LastDone the end of the newest
+          run that finished without an error.
+      min_gap_seconds:
+        description: MinGapSeconds is the shortest time between two runs of a file
+          trigger.
+        type: integer
       model:
         type: string
       name:
@@ -2626,6 +2636,12 @@ definitions:
         type: string
       owner:
         type: string
+      plan:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerPlan'
+        description: |-
+          Plan says what a run reads and writes and which Home widget shows the
+          file it writes; Cost what a run costs.
       prompt:
         type: string
       quiet_seconds:
@@ -4032,6 +4048,8 @@ definitions:
     properties:
       agent_id:
         type: string
+      cost:
+        $ref: '#/definitions/schema.ChatsTriggerCost'
       daily_cap:
         type: integer
       enabled:
@@ -4042,16 +4060,30 @@ definitions:
         type: string
       kind:
         type: string
+      last_done:
+        type: string
       last_run:
         allOf:
         - $ref: '#/definitions/schema.ChatsTriggerRun'
-        description: LastRun is the newest run, if any.
+        description: |-
+          LastRun is the newest run, if any, and LastDone the end of the newest
+          run that finished without an error.
+      min_gap_seconds:
+        description: MinGapSeconds is the shortest time between two runs of a file
+          trigger.
+        type: integer
       model:
         type: string
       name:
         type: string
       next_run:
         type: string
+      plan:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerPlan'
+        description: |-
+          Plan says what a run reads and writes and which Home widget shows the
+          file it writes; Cost what a run costs.
       prompt:
         type: string
       quiet_seconds:
@@ -4073,12 +4105,46 @@ definitions:
       time_zone:
         type: string
     type: object
+  schema.ChatsTriggerCost:
+    properties:
+      average_tokens:
+        description: |-
+          AverageTokens is the mean of the last finished runs that reported their
+          tokens, and Runs how many runs that is.
+        type: integer
+      estimated_tokens:
+        description: EstimatedTokens is the estimate of the proposal; 0 is unknown.
+        type: integer
+      max_runs_per_day:
+        description: |-
+          MaxRunsPerDay is the most runs one day can have: the daily limit, or
+          fewer when the schedule runs less often.
+        type: integer
+      remote:
+        description: |-
+          Remote is true when the model runs on a remote service, so the tokens
+          leave this server.
+        type: boolean
+      runs:
+        type: integer
+    type: object
   schema.ChatsTriggerList:
     properties:
       triggers:
         items:
           $ref: '#/definitions/schema.ChatsTrigger'
         type: array
+    type: object
+  schema.ChatsTriggerPlan:
+    properties:
+      reads:
+        type: string
+      widget:
+        description: Widget is the id of the Home widget in home.json that shows Writes.
+        type: string
+      writes:
+        description: Writes is a path in the owner's home, such as data/inbox.json.
+        type: string
     type: object
   schema.ChatsTriggerPreview:
     properties:
@@ -4107,6 +4173,9 @@ definitions:
         type: string
       status:
         type: string
+      tokens:
+        description: Tokens is what the run's model requests used, when it is known.
+        type: integer
     type: object
   schema.ChatsTriggerRunList:
     properties:
@@ -4126,14 +4195,28 @@ definitions:
         type: integer
       enabled:
         type: boolean
+      estimated_tokens:
+        description: |-
+          EstimatedTokens is about how many tokens one run uses; 0 keeps the
+          trigger's value.
+        type: integer
       folder:
         type: string
       kind:
         type: string
+      min_gap_seconds:
+        description: |-
+          MinGapSeconds is the shortest time between two runs of a file trigger;
+          0 keeps the trigger's value (one minute for a new one).
+        type: integer
       model:
         type: string
       name:
         type: string
+      plan:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsTriggerPlan'
+        description: Plan describes the runs. An empty field keeps the trigger's value.
       prompt:
         type: string
       quiet_seconds:
@@ -6387,6 +6470,44 @@ definitions:
       title:
         type: string
     type: object
+  schema.PagesConsent:
+    properties:
+      allowed_at:
+        description: |-
+          The version you allowed: when, and the size of its index.html and
+          page.json and the lines of its index.html, to say what changed.
+        type: string
+      lines:
+        type: integer
+      meta_size:
+        type: integer
+      size:
+        type: integer
+      state:
+        description: State is none, allowed (this version) or changed (an earlier
+          version).
+        type: string
+    type: object
+  schema.PagesConsentRequest:
+    properties:
+      hash:
+        type: string
+      once:
+        type: boolean
+    type: object
+  schema.PagesConsentResponse:
+    properties:
+      expires:
+        type: string
+      hash:
+        type: string
+      kind:
+        type: string
+      state:
+        type: string
+      token:
+        type: string
+    type: object
   schema.PagesFile:
     properties:
       conflict_of:
@@ -6434,12 +6555,34 @@ definitions:
   schema.PagesPage:
     properties:
       author:
-        description: 'Author is who wrote the current index.html: "you" or "assistant".'
+        description: |-
+          Author is who wrote the current index.html: "you" or "assistant" for an
+          own page. A shared page also has AuthorID and AuthorName, the account
+          that last wrote its index.html.
+        type: string
+      author_id:
+        type: string
+      author_name:
+        type: string
+      consent:
         type: string
       description:
         type: string
+      folder:
+        description: |-
+          A shared page has its shared folder (Folder, a workspace path, and
+          FolderID, the id the shared-pages routes take), whether you may write in
+          it, the hash of its code (index.html and page.json; a consent is kept
+          against it) and your consent: none, allowed or changed.
+        type: string
+      folder_id:
+        type: integer
+      hash:
+        type: string
       icon:
         type: string
+      meta_size:
+        type: integer
       name:
         type: string
       path:
@@ -6451,8 +6594,8 @@ definitions:
         type: integer
       source:
         description: |-
-          Source is "own" for a page in the user's home ("shared" is reserved for
-          pages of shared folders).
+          Source is "own" for a page in the user's home and "shared" for a page of
+          a shared folder.
         type: string
       title:
         type: string
@@ -6462,6 +6605,28 @@ definitions:
         type: string
       updated_by:
         type: string
+      writable:
+        type: boolean
+    type: object
+  schema.PagesSharedList:
+    properties:
+      enabled:
+        type: boolean
+      pages:
+        items:
+          $ref: '#/definitions/schema.PagesPage'
+        type: array
+    type: object
+  schema.PagesSharedSource:
+    properties:
+      consent:
+        $ref: '#/definitions/schema.PagesConsent'
+      html:
+        type: string
+      lines:
+        type: integer
+      page:
+        $ref: '#/definitions/schema.PagesPage'
     type: object
   schema.PagesSource:
     properties:
@@ -12641,6 +12806,242 @@ paths:
       summary: Search your chats.
       tags:
       - chats
+  /api/chats/shared-pages:
+    get:
+      description: 'A shared folder is a folder outside your home that an administrator
+        gave you access to. Its pages are the folders pages/<name>/ with an index.html.
+        Each page has its folder, its author (the account that last wrote index.html),
+        the hash of its code and your consent: none, allowed (this version) or changed
+        (you allowed an earlier one). enabled is false when an administrator turned
+        shared pages off.'
+      responses:
+        "200":
+          description: The pages, by folder and name
+          schema:
+            $ref: '#/definitions/schema.PagesSharedList'
+        "403":
+          description: The pages feature is off for your account
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the pages of your shared folders.
+      tags:
+      - pages
+  /api/chats/shared-pages/{folder}/{name}:
+    get:
+      description: The UI shows the trust sheet unless the consent is allowed, and
+        runs the HTML only after you allow its hash. consent has the size and lines
+        of the version you allowed, so a changed page can say what changed.
+      parameters:
+      - description: shared folder id (folder_id of the list)
+        in: path
+        name: folder
+        required: true
+        type: integer
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The page, its HTML and your consent
+          schema:
+            $ref: '#/definitions/schema.PagesSharedSource'
+        "403":
+          description: Shared pages are off on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such page, or no access to its folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read a shared page, its index.html and your consent.
+      tags:
+      - pages
+  /api/chats/shared-pages/{folder}/{name}/chat:
+    post:
+      description: 'As for an own page: the UI calls it after you saw the message
+        and chose Send, and the message says which shared page it comes from.'
+      parameters:
+      - description: shared folder id
+        in: path
+        name: folder
+        required: true
+        type: integer
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: the message
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PagesChatRequest'
+      responses:
+        "200":
+          description: Where the message went
+          schema:
+            $ref: '#/definitions/schema.PagesChatResponse'
+        "403":
+          description: You have not allowed this version (page_not_allowed)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "429":
+          description: Too many messages
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Send a message from a shared page to a chat (bridge chat.send).
+      tags:
+      - pages
+  /api/chats/shared-pages/{folder}/{name}/consent:
+    delete:
+      description: Its open frames stop at their next bridge call; the next open shows
+        the trust sheet again.
+      parameters:
+      - description: shared folder id
+        in: path
+        name: folder
+        required: true
+        type: integer
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Revoked
+      summary: Stop allowing a shared page.
+      tags:
+      - pages
+    put:
+      description: 'hash is the hash you reviewed; a page that changed since is refused
+        with 409. once allows one visit: the answer has a token that the bridge calls
+        of that visit send. Each consent and revoke is audited.'
+      parameters:
+      - description: shared folder id
+        in: path
+        name: folder
+        required: true
+        type: integer
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: the version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PagesConsentRequest'
+      responses:
+        "200":
+          description: The consent
+          schema:
+            $ref: '#/definitions/schema.PagesConsentResponse'
+        "409":
+          description: The page changed while you were reviewing it
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Allow a version of a shared page to run.
+      tags:
+      - pages
+  /api/chats/shared-pages/{folder}/{name}/file:
+    get:
+      parameters:
+      - description: shared folder id
+        in: path
+        name: folder
+        required: true
+        type: integer
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: file inside the page's folder
+        in: query
+        name: path
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The file
+          schema:
+            $ref: '#/definitions/schema.PagesFileContent'
+        "403":
+          description: You have not allowed this version (page_not_allowed)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Read a text file of a shared page (bridge files.read).
+      tags:
+      - pages
+    put:
+      description: 'With your own grant on the folder: a read grant is refused with
+        403. A page cannot write its own index.html or page.json.'
+      parameters:
+      - description: shared folder id
+        in: path
+        name: folder
+        required: true
+        type: integer
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: the file
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.PagesWriteRequest'
+      responses:
+        "200":
+          description: The stored file
+          schema:
+            $ref: '#/definitions/schema.PagesFile'
+        "403":
+          description: Not allowed, or you can only read the folder
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Write a text file of a shared page (bridge files.write).
+      tags:
+      - pages
+  /api/chats/shared-pages/{folder}/{name}/files:
+    get:
+      description: Needs the headers X-LocalAI-Page-Hash (the version that runs) and,
+        for a visit allowed once, X-LocalAI-Page-Visit.
+      parameters:
+      - description: shared folder id
+        in: path
+        name: folder
+        required: true
+        type: integer
+      - description: page name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: folder inside the page's folder
+        in: query
+        name: dir
+        type: string
+      responses:
+        "200":
+          description: The entries
+          schema:
+            $ref: '#/definitions/schema.PagesFileList'
+        "403":
+          description: You have not allowed this version (page_not_allowed)
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List a folder of a shared page (bridge files.list).
+      tags:
+      - pages
   /api/chats/skills:
     get:
       description: 'Skills from every layer: .skills folders of your files, your personal
