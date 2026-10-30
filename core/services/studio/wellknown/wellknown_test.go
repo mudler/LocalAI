@@ -121,6 +121,35 @@ var _ = Describe("well-known files", func() {
 		Expect(err).To(MatchError(workspace.ErrNotFound), "nothing is written")
 	})
 
+	It("keeps the record of what was shown and offered under seen in user.json", func() {
+		s, _ := newService()
+		seen := map[string]any{
+			"home_examples": map[string]any{"hidden": "2026-10-30"},
+			"offers_off":    false,
+			"new_off":       true,
+			"last_offer":    "2026-10-30T09:12:00Z",
+			"offer_chats":   []any{"c1"},
+			"offers":        map[string]any{"profile": map[string]any{"state": "later", "at": "2026-10-30", "count": 1}},
+			"new":           map[string]any{"pages": "2026-10-30"},
+		}
+		doc, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{"seen": seen}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Valid).To(BeTrue())
+
+		By("refusing an answer that is not one of the states")
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{
+			"seen": map[string]any{"offers": map[string]any{"profile": map[string]any{"state": "maybe"}}},
+		}})
+		var inv *wellknown.InvalidError
+		Expect(errors.As(err, &inv)).To(BeTrue(), "%v", err)
+
+		By("keeping a record in the older flat shape valid")
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{
+			"seen": map[string]any{"profile": map[string]any{"state": "declined"}},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("refuses a file over the size cap", func() {
 		s, _ := newService()
 		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{"x_blob": strings.Repeat("x", wellknown.MaxSize)}})
