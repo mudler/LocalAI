@@ -174,3 +174,65 @@ export function parseEntryKey(key) {
   if (parts.length !== 3 || parts.some(p => !p)) return null
   return { sourceId: parts[0], id: parts[1], version: parts[2] }
 }
+
+// ---- Installed list: attention, order, filter, identity --------------------
+
+// What on an installed add-on needs a person: a failure first, then an update,
+// then a start that is still running. An add-on someone turned off is not a
+// problem. `installed` is the owner's record (administrators only); without it
+// an update is known only from the list's own notice.
+export function attentionOf(app, installed) {
+  if (!app) return ''
+  if (app.enabled !== false && app.state === 'failed') return 'failed'
+  if (app.update === 'update-pending' || updateView(installed && installed.update).state === 'update-available') return 'update'
+  if (app.enabled !== false && app.state === 'starting') return 'starting'
+  return ''
+}
+
+const ATTENTION_RANK = { failed: 0, update: 1, starting: 2 }
+
+// The list order: what needs attention first (failed, update, starting), then
+// the order the caller gave (pinned first, then the catalog). The sort is
+// stable, so two add-ons with the same rank keep their place.
+export function sortByAttention(tiles, installedById = {}) {
+  const rank = (tile) => {
+    const a = tile.app ? attentionOf(tile.app, installedById[tile.id]) : ''
+    return a in ATTENTION_RANK ? ATTENTION_RANK[a] : 3
+  }
+  return tiles.map((tile, i) => ({ tile, i, r: rank(tile) }))
+    .sort((x, y) => (x.r - y.r) || (x.i - y.i))
+    .map(x => x.tile)
+}
+
+export const STATE_FILTERS = ['all', 'running', 'off']
+
+// The segmented filter of the installed list. "Running" is a live process;
+// "Off" is everything else (turned off, starting, failed).
+export function filterByState(tiles, filter) {
+  if (filter === 'running') return tiles.filter(t => t.state === 'running')
+  if (filter === 'off') return tiles.filter(t => t.state !== 'running')
+  return tiles
+}
+
+// A hue bucket (0-11) from an add-on id, so an add-on without an icon still
+// has a tile of its own colour, the same on every visit.
+export function hueOf(id) {
+  let h = 0
+  for (const ch of String(id || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0
+  return h % 12
+}
+
+// The first letter of a name, for the identity tile of an add-on with no icon.
+export function monogram(name) {
+  const text = String(name || '').trim()
+  return text ? Array.from(text)[0].toUpperCase() : '?'
+}
+
+// A version as people read it. A development build has no release number, so
+// it says so instead of showing 0.0.0-development.
+export function versionLabel(version) {
+  const v = String(version || '').trim()
+  if (!v) return { dev: false, text: '' }
+  if (/^0\.0\.0([-+].*)?$/.test(v) || /(^|[-+.])dev(elopment)?$/i.test(v)) return { dev: true, text: v }
+  return { dev: false, text: v.startsWith('v') ? v : `v${v}` }
+}
