@@ -186,3 +186,27 @@ var _ = Describe("A tool that shadows a built-in chat tool", func() {
 		Expect(byTool["fetch"].Shadows).To(BeEmpty())
 	})
 })
+
+var _ = Describe("The add-ons that replace a built-in chat tool", func() {
+	ctx := context.Background()
+	bash := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
+	It("are listed in any state, with the names they replace and whether they run", func() {
+		running := apps.App{ID: "sandbox", Title: "Sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, InstalledAt: "2026-01-01T00:00:00Z",
+			ToolDefinitions: []contract.ToolDefinition{{Name: "bash", Kind: contract.ToolKindAction, Description: "Run.", InputSchema: bash, Shadows: "bash"}}}
+		stopped := apps.App{ID: "other", Title: "Other", Generation: 1, Enabled: true, State: "stopped", Tools: []string{"bash", "bad"},
+			ToolDefinitions: []contract.ToolDefinition{
+				{Name: "bash", Kind: contract.ToolKindAction, Description: "Run.", InputSchema: bash, Shadows: "bash"},
+				// A shadow that fails the check replaces nothing.
+				{Name: "bad", Kind: contract.ToolKindAction, Description: "Fetch.", InputSchema: bash, Shadows: "web_fetch"},
+			}}
+		plain := apps.App{ID: "notes", Generation: 1, Enabled: true, State: "running", Tools: []string{"read"},
+			ToolDefinitions: []contract.ToolDefinition{{Name: "read", Kind: contract.ToolKindRead, Description: "Read.", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)}}}
+		f := &fake{list: apps.List{Apps: []apps.App{running, stopped, plain}}}
+		list, err := tools.NewChatToolAdapter(f).Shadowers(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(Equal([]tools.AddonShadows{
+			{AddonID: "other", Title: "Other", Tools: []string{"bash"}, Running: false},
+			{AddonID: "sandbox", Title: "Sandbox", InstalledAt: "2026-01-01T00:00:00Z", Tools: []string{"bash"}, Running: true},
+		}))
+	})
+})

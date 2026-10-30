@@ -201,7 +201,7 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	for _, d := range defs {
 		installed[d.AddonID] = d.InstalledAt
 	}
-	tools = resolveShadows(tools, pins, installed)
+	tools = resolveShadows(tools, pins, installed, s.shadowersFor(ctx, a.Principal))
 	var missing []string
 	if sc != nil {
 		for _, id := range sc.addonNames {

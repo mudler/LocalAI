@@ -1777,9 +1777,12 @@ definition replaces one with `"shadows": "<name>"`:
   model sees one tool under the built-in's name, served by the add-on, and the
   built-in one is hidden. The call still goes to the add-on under its own name
   (`addon__<id>__<tool>`), with the same checks and audit. An add-on that is
-  off for the chat, stopped or unavailable offers nothing, so the built-in tool
-  serves again and the **Tools** menu says so. A tool without `shadows` keeps
-  its add-on name.
+  off for the chat, stopped, not granted by the chat's agent or unavailable
+  offers nothing, so the built-in tool serves again. The chat's **Tools** menu
+  says so in one line ("Sandbox replaces bash but cannot serve this chat now
+  ...: the built-in bash serves", or that the chat has no such tool when the
+  built-in is off too), from `fallbacks` of `GET /api/chats/{id}/tools`. A
+  tool without `shadows` keeps its add-on name.
 - **Who served it.** A call the add-on served carries the card `tool_provider`
   with the add-on's ID, so the chat shows the provider on the tool line.
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it
@@ -1787,9 +1790,16 @@ definition replaces one with `"shadows": "<name>"`:
   tool to the add-on ID; the same map holds the choices for the built-in skills
   an add-on replaces, see [Skills](#skills)); with no choice, the add-on
   installed first serves (ties go by add-on ID, and an add-on installed before
-  the host kept the time sorts last). Settings > Tools lists the add-ons that
-  replace a name oldest install first, with the install time of each, and marks
-  the default as **Default: installed first**. The
+  the host kept the time sorts last). A chosen add-on that is installed but
+  cannot serve the chat (stopped, off for the chat, not granted by its agent)
+  gives the built-in tool, not another add-on; a choice of an add-on that is
+  not installed is ignored. With no choice, the oldest add-on that is running
+  serves. Settings > Tools lists every installed add-on that replaces a name,
+  running or not, oldest install first, with the install time of each, marks
+  a stopped one **(stopped)** and the default as **Default: installed first**,
+  and says "The add-on that replaces this tool is not running: the built-in
+  tool serves" when none serves (`stopped` and `note` in
+  `GET /api/chats/admin/tools`). The
   library entry and the installed view list the names an add-on replaces in
   `shadows`, and the install dialog warns when an installed add-on already
   replaces one: "This add-on replaces the built-in bash. Another add-on

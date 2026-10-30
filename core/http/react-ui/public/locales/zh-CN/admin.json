@@ -333,6 +333,8 @@
     "skillsTitle": "被插件替换的技能",
     "skillsIntro": "插件可以用为其工具编写的技能替换内置技能。如果多个插件替换同一个技能，请选择使用哪一个。",
     "skillLabel": "技能 {{skill}}",
-    "skillNotRunning": "所选插件未运行：使用内置技能。"
+    "skillNotRunning": "所选插件未运行：使用内置技能。",
+    "toolNotRunning": "替代此工具的插件未运行：使用内置工具。",
+    "stopped": "已停止"
   }
 }

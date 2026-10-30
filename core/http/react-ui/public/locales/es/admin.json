@@ -333,6 +333,8 @@
     "skillsTitle": "Habilidades que reemplazan los complementos",
     "skillsIntro": "Un complemento puede reemplazar una habilidad integrada por la suya, escrita para sus herramientas. Si varios reemplazan la misma, elige cuál se usa.",
     "skillLabel": "Habilidad {{skill}}",
-    "skillNotRunning": "El complemento elegido no se ejecuta: se usa la habilidad integrada."
+    "skillNotRunning": "El complemento elegido no se ejecuta: se usa la habilidad integrada.",
+    "toolNotRunning": "El complemento que reemplaza esta herramienta no se ejecuta: se usa la herramienta integrada.",
+    "stopped": "detenido"
   }
 }

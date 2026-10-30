@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"slices"
 
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -32,6 +33,13 @@ type BuiltinToolInfo struct {
 	Default     string
 	Pinned      string
 	InstalledAt map[string]string
+	// Titles maps a candidate to its title. Stopped lists the candidates
+	// that are installed but cannot serve now (stopped or disabled).
+	Titles  map[string]string
+	Stopped []string
+	// Note is "not running" when an installed add-on replaces the tool but
+	// none serves, so the built-in serves (or nothing, when it is off).
+	Note string
 	// Mode is chats_host_exec as it applies now, for bash only.
 	Mode string
 	// Unavailable says why this server cannot run the built-in, or "".
@@ -64,17 +72,56 @@ func (s *Service) AdminBuiltinTools(ctx context.Context, user string) ([]Builtin
 	if s.d.ToolPins != nil {
 		pins = s.d.ToolPins()
 	}
+	// The running candidates come from the tools; the lister adds the
+	// installed add-ons that are stopped, so an administrator can choose one
+	// before it runs and sees why the built-in serves.
+	sh := shadowers{}
+	if s.d.AddonTools != nil {
+		sh = s.shadowersFor(ctx, principal(user))
+	}
+	for id, when := range sh.when {
+		if installed[id] == "" {
+			installed[id] = when
+		}
+	}
 	var out []BuiltinToolInfo
 	for _, t := range s.builtins.Tools() {
-		c := OrderProviders(candidates[t.ID], installed)
+		running := candidates[t.ID]
+		all := slices.Clone(running)
+		for _, id := range sh.byName[t.ID] {
+			if !slices.Contains(all, id) {
+				all = append(all, id)
+			}
+		}
+		c := OrderProviders(all, installed)
 		info := BuiltinToolInfo{ID: t.ID, Label: t.Label, Description: t.Description, Group: t.Group, Setting: t.Setting,
 			Options: t.Options, Enabled: t.On(), ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Candidates: c, Pinned: pins[t.ID], InstalledAt: installTimesOf(c, installed)}
-		switch {
-		case len(c) > 0 && t.Replaceable:
+		for _, id := range c {
+			if !slices.Contains(running, id) {
+				info.Stopped = append(info.Stopped, id)
+			}
+			if title := sh.title[id]; title != "" {
+				if info.Titles == nil {
+					info.Titles = map[string]string{}
+				}
+				info.Titles[id] = title
+			}
+		}
+		// Default is the one that serves with no pin: the oldest running
+		// install, or the oldest install when none runs.
+		if r := OrderProviders(running, installed); len(r) > 0 && t.Replaceable {
+			info.Default = r[0]
+		} else if len(c) > 0 && t.Replaceable {
 			info.Default = c[0]
-			info.Provider = ChooseProvider(c, installed, info.Pinned)
+		}
+		switch {
+		case len(running) > 0 && t.Replaceable && !sh.pinnedButIdle(t.ID, info.Pinned, running):
+			info.Provider = ChooseProvider(running, installed, info.Pinned)
 		case info.Enabled:
 			info.Provider = BuiltinProvider
+		}
+		if len(c) > 0 && t.Replaceable && (info.Provider == BuiltinProvider || info.Provider == "") {
+			info.Note = "not running"
 		}
 		if t.ID == "bash" && s.d.HostExec != nil {
 			info.Mode = s.hostExecMode()

@@ -630,6 +630,14 @@ type ChatsBuiltinTool struct {
 	Default     string            `json:"default,omitempty"`
 	Pinned      string            `json:"pinned,omitempty"`
 	InstalledAt map[string]string `json:"installed_at,omitempty"`
+	// Titles maps a candidate to its title. Stopped lists the candidates that
+	// are installed but stopped or disabled: they can be chosen, and serve
+	// once they run.
+	Titles  map[string]string `json:"titles,omitempty"`
+	Stopped []string          `json:"stopped,omitempty"`
+	// Note is "not running" when an installed add-on replaces the tool but
+	// none serves now, so the built-in serves (or nothing, when it is off).
+	Note string `json:"note,omitempty"`
 	// Mode is chats_host_exec as it applies (bash only): off, ask or on.
 	Mode string `json:"mode,omitempty"`
 	// Unavailable says why this server cannot run the built-in, or is empty.
@@ -1136,6 +1144,24 @@ type ChatsToolsPanel struct {
 	Connectors []ChatsMCPConnectorSwitch `json:"connectors"`
 	// Off is the list of MCP switches in force.
 	Off []string `json:"off"`
+	// Fallbacks are the built-in tools that an installed add-on replaces but
+	// that no add-on serves in this chat now: the add-on is stopped, off for
+	// the chat, not granted by its agent, or cannot run.
+	Fallbacks []ChatsToolFallback `json:"fallbacks,omitempty"`
+}
+
+// ChatsToolFallback is one built-in tool whose replacing add-on cannot serve
+// the chat now.
+type ChatsToolFallback struct {
+	// Tool is the built-in tool, such as bash.
+	Tool string `json:"tool" example:"bash"`
+	// Addon and AddonTitle name the add-on that would serve it: the one an
+	// administrator chose, or the one installed first.
+	Addon      string `json:"addon" example:"sandbox"`
+	AddonTitle string `json:"addon_title" example:"Sandbox"`
+	// Builtin says that the built-in tool serves instead; false when the
+	// built-in is off too, so the chat has no such tool.
+	Builtin bool `json:"builtin"`
 }
 
 // ChatsAdminAgent is a saved agent as an administrator sees it: with its owner,

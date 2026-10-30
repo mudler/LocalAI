@@ -4262,7 +4262,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/tools": {
             "get": {
-                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the add-on installed first) and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
+                "description": "The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note \"not running\" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.",
                 "tags": [
                     "chats"
                 ],
@@ -8875,7 +8875,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/tools": {
             "get": {
-                "description": "The groups of built-in tools (such as web), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants.",
+                "description": "The groups of built-in tools (such as web), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
                 "tags": [
                     "chats"
                 ],
@@ -17628,6 +17628,10 @@ const docTemplate = `{
                     "description": "Mode is chats_host_exec as it applies (bash only): off, ask or on.",
                     "type": "string"
                 },
+                "note": {
+                    "description": "Note is \"not running\" when an installed add-on replaces the tool but\nnone serves now, so the built-in serves (or nothing, when it is off).",
+                    "type": "string"
+                },
                 "options": {
                     "type": "array",
                     "items": {
@@ -17651,6 +17655,19 @@ const docTemplate = `{
                 "setting": {
                     "description": "Setting is the runtime setting that switches it off; Options are the\nother runtime settings that configure it.",
                     "type": "string"
+                },
+                "stopped": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "titles": {
+                    "description": "Titles maps a candidate to its title. Stopped lists the candidates that\nare installed but stopped or disabled: they can be chosen, and serve\nonce they run.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "unavailable": {
                     "description": "Unavailable says why this server cannot run the built-in, or is empty.",
@@ -19778,6 +19795,29 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsToolFallback": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "description": "Addon and AddonTitle name the add-on that would serve it: the one an\nadministrator chose, or the one installed first.",
+                    "type": "string",
+                    "example": "sandbox"
+                },
+                "addon_title": {
+                    "type": "string",
+                    "example": "Sandbox"
+                },
+                "builtin": {
+                    "description": "Builtin says that the built-in tool serves instead; false when the\nbuilt-in is off too, so the chat has no such tool.",
+                    "type": "boolean"
+                },
+                "tool": {
+                    "description": "Tool is the built-in tool, such as bash.",
+                    "type": "string",
+                    "example": "bash"
+                }
+            }
+        },
         "schema.ChatsToolsPanel": {
             "type": "object",
             "properties": {
@@ -19797,6 +19837,13 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.ChatsMCPConnectorSwitch"
+                    }
+                },
+                "fallbacks": {
+                    "description": "Fallbacks are the built-in tools that an installed add-on replaces but\nthat no add-on serves in this chat now: the add-on is stopped, off for\nthe chat, not granted by its agent, or cannot run.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsToolFallback"
                     }
                 },
                 "off": {

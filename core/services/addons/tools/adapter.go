@@ -394,6 +394,50 @@ func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]Addon
 	return out, nil
 }
 
+// AddonShadows is one installed add-on that replaces built-in chat tools, as
+// the actor sees it, running or not.
+type AddonShadows struct {
+	AddonID, Title string
+	// InstalledAt is when the add-on was first installed, or empty.
+	InstalledAt string
+	// Tools are the built-in chat tools it replaces (bash, web_fetch).
+	Tools []string
+	// Running is true when the add-on may serve now: enabled and running, as
+	// Discover requires.
+	Running bool
+}
+
+// Shadowers lists the installed add-ons that replace a built-in chat tool and
+// that the actor can see, in any state. A chat uses it to tell a pinned add-on
+// that is stopped (the built-in serves, with a note) from a pin to an add-on
+// that is not installed (the pin is ignored), and Settings lists every add-on
+// an administrator can choose.
+func (t *ToolAdapter) Shadowers(ctx context.Context, actor contract.Actor) ([]AddonShadows, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonShadows
+	for _, a := range list.Apps {
+		var names []string
+		for _, d := range a.ToolDefinitions {
+			if d.Shadows != "" && slices.Contains(a.Tools, d.Name) && contract.ValidateShadow(d) == nil && !slices.Contains(names, d.Shadows) {
+				names = append(names, d.Shadows)
+			}
+		}
+		if len(names) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonShadows{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Tools: names, Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonShadows) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
 func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if d.UIOnly {
 		return ToolDefinition{}, false // for the add-on's own page, never for a model

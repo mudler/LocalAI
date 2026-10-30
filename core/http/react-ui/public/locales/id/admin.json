@@ -356,6 +356,8 @@
     "skillsTitle": "Skill yang digantikan add-on",
     "skillsIntro": "Add-on dapat menggantikan skill bawaan dengan miliknya sendiri, yang ditulis untuk alatnya. Jika beberapa add-on menggantikan skill yang sama, pilih yang dipakai.",
     "skillLabel": "Skill {{skill}}",
-    "skillNotRunning": "Add-on yang dipilih tidak berjalan: skill bawaan yang dipakai."
+    "skillNotRunning": "Add-on yang dipilih tidak berjalan: skill bawaan yang dipakai.",
+    "toolNotRunning": "Add-on yang menggantikan alat ini tidak berjalan: alat bawaan yang dipakai.",
+    "stopped": "berhenti"
   }
 }

@@ -57,6 +57,18 @@ test.describe('Settings > Tools', () => {
     await page.getByRole('button', { name: 'Apply' }).click()
     await expect.poll(() => state.posts).toEqual([{ chats_tool_providers: { bash: 'sandbox' } }])
   })
+
+  test('a chosen add-on that is stopped is marked, and the row says the built-in serves', async ({ page }) => {
+    await openTools(page, [bash({
+      provider: 'builtin', candidates: ['sandbox', 'other'], default: 'other', pinned: 'sandbox', stopped: ['sandbox'],
+      titles: { sandbox: 'Sandbox', other: 'Other runner' }, note: 'not running',
+    })])
+    await expect(page.getByTestId('settings-tools-bash-provider')).toHaveText('Built-in')
+    await expect(page.getByTestId('settings-tools-bash-note')).toHaveText('The add-on that replaces this tool is not running: the built-in tool serves.')
+    await expect(page.getByTestId('settings-tools-bash-sandbox-stopped')).toHaveText('(stopped)')
+    await expect(page.getByTestId('settings-tools-bash-other-stopped')).toHaveCount(0)
+    await expect(page.getByTestId('settings-tools-bash-providers').getByRole('radio', { name: /Other runner/ })).toBeVisible()
+  })
 })
 
 test.describe('Install of an add-on that replaces a built-in tool', () => {

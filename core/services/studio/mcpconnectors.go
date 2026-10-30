@@ -98,6 +98,9 @@ type ToolsPanel struct {
 	Connectors []ConnectorSwitch
 	// Off is the list of MCP switches in force.
 	Off []string
+	// Fallbacks are the built-in tools an installed add-on replaces but no
+	// add-on serves in this chat now.
+	Fallbacks []ToolFallback
 }
 
 // Tools lists what a chat can use, with its switches.
@@ -112,6 +115,9 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 		shadowing, _ = s.addonTools(ctx, chatActor(principal(user), conv), rec, sc)
 	}
 	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(ctx, rec, shadowing)}
+	if s.d.AddonTools != nil && (sc == nil || !sc.deleted) {
+		p.Fallbacks = s.toolFallbacks(ctx, rec, shadowing, s.shadowersFor(ctx, principal(user)))
+	}
 	if p.Addons, err = s.Addons(ctx, user, conv); err != nil {
 		return p, err
 	}

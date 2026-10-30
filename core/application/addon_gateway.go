@@ -777,6 +777,32 @@ func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.A
 	return out, nil
 }
 
+// AddonShadowers lists the add-ons that replace a built-in chat tool and that
+// the user can see, in any state, less those whose host operations need a
+// feature the user lacks: the same rule as their tools.
+func (s *studioAddons) AddonShadowers(ctx context.Context, user string) ([]studio.AddonShadower, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Shadowers(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	out := make([]studio.AddonShadower, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonShadower{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Tools: a.Tools, Running: a.Running})
+	}
+	return out, nil
+}
+
 func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	actor, err := s.actor(user)
 	if err != nil {

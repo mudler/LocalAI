@@ -27,7 +27,7 @@ var _ = Describe("shadowing a built-in tool", func() {
 	DescribeTable("keeps one add-on per shadowed name",
 		func(pins map[string]string, want []string) {
 			tools := []session.Tool{{Name: "bash", Provider: "zeta"}, {Name: "bash", Provider: "alpha"}, {Name: "web_fetch", Provider: "web"}, {Name: "x"}}
-			Expect(names(resolveShadows(tools, pins, nil))).To(Equal(want))
+			Expect(names(resolveShadows(tools, pins, nil, shadowers{}))).To(Equal(want))
 		},
 		Entry("no pin: the first by ID", nil, []string{"bash@alpha", "web_fetch@web", "x@"}),
 		Entry("a pin wins", map[string]string{"bash": "zeta"}, []string{"bash@zeta", "web_fetch@web", "x@"}),
@@ -52,7 +52,7 @@ var _ = Describe("shadowing a built-in tool", func() {
 	It("keeps the oldest add-on tool of a shadowed name when nothing is pinned", func() {
 		tools := []session.Tool{{Name: "bash", Provider: "alpha"}, {Name: "bash", Provider: "zeta"}, {Name: "x"}}
 		installed := map[string]string{"alpha": "2026-03-01T00:00:00Z", "zeta": "2026-01-01T00:00:00Z"}
-		Expect(names(resolveShadows(tools, nil, installed))).To(Equal([]string{"bash@zeta", "x@"}))
-		Expect(names(resolveShadows(tools, map[string]string{"bash": "alpha"}, installed))).To(Equal([]string{"bash@alpha", "x@"}))
+		Expect(names(resolveShadows(tools, nil, installed, shadowers{}))).To(Equal([]string{"bash@zeta", "x@"}))
+		Expect(names(resolveShadows(tools, map[string]string{"bash": "alpha"}, installed, shadowers{}))).To(Equal([]string{"bash@alpha", "x@"}))
 	})
 })

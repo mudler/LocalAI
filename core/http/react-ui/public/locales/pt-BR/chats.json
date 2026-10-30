@@ -126,7 +126,9 @@
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
     "servedBy": "Servido pelo complemento {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "integrada"
+    "servedByBuiltin": "integrada",
+    "fallbackBuiltin": "{{addon}} substitui {{tool}}, mas agora não pode atender este chat (parado, desligado aqui ou não concedido): {{tool}} integrada é usada.",
+    "fallbackNone": "{{addon}} substitui {{tool}}, mas agora não pode atender este chat, e {{tool}} integrada está desligada: este chat não tem {{tool}}."
   },
   "vision": {
     "describedBy": "Este modelo não consegue ver imagens. Escolha outro modelo, ou a imagem será descrita por {{model}}.",
