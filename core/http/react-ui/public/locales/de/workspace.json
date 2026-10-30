@@ -58,14 +58,14 @@
       "prompt": "Prompt",
       "send": "Sofort senden",
       "add": "Kurzbefehl hinzufügen",
-      "invalid": "shortcuts.json enthält Fehler",
-      "assistantPrompt": "Ändere meine Kurzbefehle im Eingabefeld in shortcuts.json: "
+      "invalid": "LocalAI/shortcuts.json enthält Fehler",
+      "assistantPrompt": "Ändere meine Kurzbefehle im Eingabefeld in LocalAI/shortcuts.json: "
     },
     "home": {
       "editLayout": "Layout bearbeiten",
       "ask": "Den Assistenten fragen",
       "layoutIn": "Das Layout steht in",
-      "askPrompt": "Ändere meine Startseite (home.json): ",
+      "askPrompt": "Ändere meine Startseite (LocalAI/home.json): ",
       "add": "Widget hinzufügen",
       "newTitle": "Neues Widget",
       "noWidgets": "Noch keine Widgets.",
@@ -198,7 +198,7 @@
         "kicker": "Du und der Assistent",
         "prompt": "Nenn mich {{firstName}} und antworte kurz",
         "promptNoName": "Merk dir meinen Namen und antworte kurz",
-        "what": "Speichert user.json und persona.json"
+        "what": "Speichert LocalAI/user.json und LocalAI/persona.json"
       },
       "card2": {
         "kicker": "Eine Seite",
@@ -233,12 +233,12 @@
       "turnBackOn": "In Account wieder einschalten"
     },
     "change": {
-      "profilePersona": "Name in <code>user.json</code> und Anweisungen in <code>persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
-      "profile": "In deinem Profil in <code>user.json</code> gespeichert.",
-      "persona": "<code>persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
-      "shortcuts": "<code>shortcuts.json</code> gespeichert.",
-      "home": "<code>home.json</code> gespeichert. Home zeigt die Änderung.",
-      "ui": "<code>ui.json</code> gespeichert.",
+      "profilePersona": "Name in <code>LocalAI/user.json</code> und Anweisungen in <code>LocalAI/persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
+      "profile": "In deinem Profil in <code>LocalAI/user.json</code> gespeichert.",
+      "persona": "<code>LocalAI/persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
+      "shortcuts": "<code>LocalAI/shortcuts.json</code> gespeichert.",
+      "home": "<code>LocalAI/home.json</code> gespeichert. Home zeigt die Änderung.",
+      "ui": "<code>LocalAI/ui.json</code> gespeichert.",
       "pageCreated": "Seite {{title}} in <code>{{folder}}</code> erstellt.",
       "pageChanged": "<code>{{file}}</code> geändert.",
       "offersOff": "Vorschläge des Assistenten sind aus.",
@@ -393,5 +393,30 @@
     "items_one": "{{count}} Eintrag",
     "items_other": "{{count}} Einträge",
     "textCut": "Die ersten {{size}} werden gezeigt."
+  },
+  "managed": {
+    "group": "Von LocalAI verwaltet",
+    "marker": "von LocalAI verwaltet",
+    "about": {
+      "localai": "Einstellungen, die LocalAI liest: Persona, Profil, Kurzbefehle, Home, Design.",
+      "chats": "Ein Ordner pro Chat, mit den Dateien des Chats."
+    },
+    "confirm": {
+      "deleteTitle": "{{name}} in den Papierkorb verschieben?",
+      "renameTitle": "{{name}} umbenennen?",
+      "delete": "In den Papierkorb",
+      "rename": "Umbenennen",
+      "restore": "Du kannst es aus dem Papierkorb wiederherstellen.",
+      "renameNote": "LocalAI liest es nur unter diesem Namen; nach dem Umbenennen ist es, als wäre es weg."
+    },
+    "loses": {
+      "settings": "LocalAI vergisst deine Persona, dein Profil, deine Kurzbefehle, dein Home-Layout und dein Design.",
+      "chats": "Jeder Chat verliert seine Dateien: was du angehängt hast und was der Assistent dort geschrieben hat.",
+      "persona": "Der Assistent verliert seinen Namen und seine Anweisungen.",
+      "user": "Der Assistent vergisst, was du ihm über dich gesagt hast, und deine Antworten auf seine Angebote.",
+      "shortcuts": "Das Nachrichtenfeld zeigt wieder die Standard-Kurzbefehle.",
+      "home": "Home verliert seine Widgets.",
+      "ui": "Design, Akzentfarbe, Dichte, Standardmodell und angeheftete Seiten kehren zu den Standardwerten zurück."
+    }
   }
 }

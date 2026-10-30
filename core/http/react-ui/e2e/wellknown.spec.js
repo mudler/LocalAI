@@ -12,7 +12,7 @@ test.describe.configure({ mode: 'serial', timeout: 60_000 })
 // Other spec files write the same Home files: hold them while this file runs.
 holdHomeFiles(test)
 
-const FILES = ['/persona.json', '/user.json', '/shortcuts.json', '/home.json', '/ui.json', '/data/tasks.json', '/data/tokens.json', '/data/broken.json']
+const FILES = ['/LocalAI/persona.json', '/LocalAI/user.json', '/LocalAI/shortcuts.json', '/LocalAI/home.json', '/LocalAI/ui.json', '/data/tasks.json', '/data/tokens.json', '/data/broken.json']
 
 async function clean(request) {
   for (const p of FILES) await request.delete(`/api/chats/files?path=${encodeURIComponent(p)}`)
@@ -28,11 +28,11 @@ test.afterAll(async ({ request }) => { await clean(request) })
 test.afterAll(() => unlockHomeFiles())
 
 test('about you: the assistant and the user cards save their files, fill in from the browser and keep unknown keys', async ({ page, request }) => {
-  await upload(request, '/persona.json', { name: 'Ada', x_mood: 'calm' })
+  await upload(request, '/LocalAI/persona.json', { name: 'Ada', x_mood: 'calm' })
   await page.goto('/app/account?tab=about')
   const persona = page.getByTestId('wk-card-persona')
   await expect(persona.getByTestId('wk-field-persona-name')).toHaveValue('Ada')
-  await expect(persona.getByText('persona.json', { exact: true })).toBeVisible()
+  await expect(persona.getByText('LocalAI/persona.json', { exact: true })).toBeVisible()
 
   await persona.getByTestId('wk-field-persona-system_prompt').fill('Keep answers short.')
   await persona.getByTestId('wk-save-persona').click()
@@ -67,7 +67,7 @@ test('about you: the source view is validated, a broken file shows its last good
   expect((await read(request, 'persona')).data.name).toBe('Bea')
 
   // The assistant writes a file that breaks the schema.
-  await upload(request, '/persona.json', '{"name": ["broken"]}')
+  await upload(request, '/LocalAI/persona.json', '{"name": ["broken"]}')
   await page.reload()
   await expect(persona.getByTestId('wk-invalid-persona')).toContainText('last valid version')
   await expect(persona.getByTestId('wk-field-persona-name')).toHaveValue('Bea')
@@ -151,7 +151,7 @@ test('shortcuts: the starters are the default shortcuts, a click fills the compo
 
   const saved = (await read(request, 'shortcuts')).data.shortcuts
   expect(saved.map(s => s.label)).toEqual(['Explain how this works', 'Help me write code', 'Plan my day', 'Summarize a document'])
-  await expect(row).toContainText('shortcuts.json')
+  await expect(row).toContainText('LocalAI/shortcuts.json')
   await expect(row.getByTestId('chat-shortcut').nth(2)).toHaveText('Plan my day')
 
   // A file the assistant writes shows at the next read.

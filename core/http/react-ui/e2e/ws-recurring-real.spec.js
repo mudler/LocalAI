@@ -27,7 +27,7 @@ const VIEWS = [
 ]
 
 async function clean(request) {
-  for (const p of ['/home.json', '/data/inbox.json', '/ui.json']) await request.delete(`/api/chats/files?path=${encodeURIComponent(p)}`)
+  for (const p of ['/LocalAI/home.json', '/data/inbox.json', '/LocalAI/ui.json']) await request.delete(`/api/chats/files?path=${encodeURIComponent(p)}`)
   const all = await api(request, '/api/chats/triggers')
   for (const t of all.triggers || []) if (t.name.startsWith('Morning inbox')) await request.delete(`/api/chats/triggers/${t.id}`)
   const props = await api(request, '/api/chats/triggers/proposals')
@@ -41,7 +41,7 @@ test.afterAll(() => unlockHomeFiles())
 let proposalId = ''
 
 test('a chat proposes a trigger for a widget: the card lists when, as whom, what it reads and writes, its cost and how to stop it', async ({ page }) => {
-  await upload(page.request, '/home.json', { widgets: [{ id: 'inbox', type: 'list', title: 'Inbox this morning', source: 'data/inbox.json', note: 'kept' }] })
+  await upload(page.request, '/LocalAI/home.json', { widgets: [{ id: 'inbox', type: 'list', title: 'Inbox this morning', source: 'data/inbox.json', note: 'kept' }] })
   await upload(page.request, '/data/inbox.json', {
     title: 'Inbox', updatedAt: new Date().toISOString(), source: { kind: 'assistant' },
     items: [{ label: '3 need a reply: the printer quote, Sara, the dentist' }, { label: '9 newsletters and 2 receipts' }],

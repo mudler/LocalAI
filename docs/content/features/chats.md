@@ -772,6 +772,40 @@ curl         ".../api/chats/files/preview?path=/Reports/budget.xlsx" # what a wo
 
 The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of the selected file (the same views as the preview pane of a chat).
 
+LocalAI keeps two folders of your home for itself: `LocalAI/`, the settings it
+reads (persona, profile, shortcuts, Home, theme; see [Make LocalAI
+yours](/features/make-localai-yours/#the-localai-folder)), and `Chats/`, one
+folder per chat. **Files** lists your own files first and these two last,
+under **Managed by LocalAI**; the list API marks them with `managed`
+(`localai` or `chats`). Moving one to the Trash or renaming it asks first and
+says what stops working.
+
+### Your own rules: AGENTS.md
+
+Put an `AGENTS.md` file in a folder to give the assistant rules for that
+folder: how to name files, which language to write in, what not to touch.
+LocalAI never sends the text of the file to the model. It sends one line that
+points at it, and the model reads the file with its file tools:
+
+```
+Rules for this folder are in /workspace/home/Reports/AGENTS.md. Read that file before you start.
+```
+
+- At the start of each turn, the line names the `AGENTS.md` of the chat's own
+  folder (`Chats/<chat>/`), of the folders above it, and of your home, nearest
+  first, two at most. It is part of the note of the turn, not of the system
+  prompt, so it costs about 25 tokens a file and only when such a file exists.
+- The first time in a turn that a file tool (`list_files`, `read_file`,
+  `write_file`, `move_file`) works in a folder whose `AGENTS.md`, or the one
+  of a folder above it, was not named yet, the same line is added to the
+  result of that call. Each file is named once a turn. Reading the
+  `AGENTS.md` itself counts.
+- A [trigger run](/features/chats-agents/) already gets the rules of its
+  folder and the folders above it in its first message, so it gets no line for
+  them.
+- The checks run as you, on the shared workspace, and keep nothing between
+  turns, so they work the same with several frontends.
+
 A folder `pages/<name>/` with an `index.html` is a page: the UI shows it in a
 sandboxed frame under **Pages**. See [Pages]({{%relref "features/pages" %}}).
 
@@ -1040,7 +1074,7 @@ The chat page (`/app/chats/<id>`) shows one chat.
 - **A trigger the model proposes** shows as a card under its tool line with
   **Create trigger**, **Edit** (name and schedule or folder) and **Dismiss**.
 - **Shortcuts** over the message box are the prompts of your
-  `shortcuts.json`, or the default starters without it. A click puts one in the
+  `LocalAI/shortcuts.json`, or the default starters without it. A click puts one in the
   box; **Edit shortcuts** changes the list. See [Make LocalAI
   yours](/features/make-localai-yours/).
 - **Find** (`Ctrl+Shift+F`), focus mode, copying the chat as Markdown and

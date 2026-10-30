@@ -58,14 +58,14 @@
       "prompt": "Prompt",
       "send": "Enviar al momento",
       "add": "Añadir atajo",
-      "invalid": "shortcuts.json tiene errores",
-      "assistantPrompt": "Cambia mis atajos del cuadro de texto en shortcuts.json: "
+      "invalid": "LocalAI/shortcuts.json tiene errores",
+      "assistantPrompt": "Cambia mis atajos del cuadro de texto en LocalAI/shortcuts.json: "
     },
     "home": {
       "editLayout": "Editar diseño",
       "ask": "Preguntar al asistente",
       "layoutIn": "El diseño está en",
-      "askPrompt": "Cambia mi página de inicio (home.json): ",
+      "askPrompt": "Cambia mi página de inicio (LocalAI/home.json): ",
       "add": "Añadir widget",
       "newTitle": "Nuevo widget",
       "noWidgets": "Aún no hay widgets.",
@@ -198,7 +198,7 @@
         "kicker": "Tú y el asistente",
         "prompt": "Llámame {{firstName}} y responde con brevedad",
         "promptNoName": "Recuerda mi nombre y responde con brevedad",
-        "what": "Guarda user.json y persona.json"
+        "what": "Guarda LocalAI/user.json y LocalAI/persona.json"
       },
       "card2": {
         "kicker": "Una página",
@@ -233,12 +233,12 @@
       "turnBackOn": "Vuelve a activarlos en Account"
     },
     "change": {
-      "profilePersona": "Se guardó tu nombre en <code>user.json</code> y tus instrucciones en <code>persona.json</code>. Cada chat los usa desde tu próximo mensaje.",
-      "profile": "Guardado en tu perfil, en <code>user.json</code>.",
-      "persona": "Se guardó <code>persona.json</code>. Cada chat lo usa desde tu próximo mensaje.",
-      "shortcuts": "Se guardó <code>shortcuts.json</code>.",
-      "home": "Se guardó <code>home.json</code>. Home muestra el cambio.",
-      "ui": "Se guardó <code>ui.json</code>.",
+      "profilePersona": "Se guardó tu nombre en <code>LocalAI/user.json</code> y tus instrucciones en <code>LocalAI/persona.json</code>. Cada chat los usa desde tu próximo mensaje.",
+      "profile": "Guardado en tu perfil, en <code>LocalAI/user.json</code>.",
+      "persona": "Se guardó <code>LocalAI/persona.json</code>. Cada chat lo usa desde tu próximo mensaje.",
+      "shortcuts": "Se guardó <code>LocalAI/shortcuts.json</code>.",
+      "home": "Se guardó <code>LocalAI/home.json</code>. Home muestra el cambio.",
+      "ui": "Se guardó <code>LocalAI/ui.json</code>.",
       "pageCreated": "Se creó la página {{title}} en <code>{{folder}}</code>.",
       "pageChanged": "Se cambió <code>{{file}}</code>.",
       "offersOff": "Las sugerencias del asistente están desactivadas.",
@@ -393,5 +393,30 @@
     "items_one": "{{count}} elemento",
     "items_other": "{{count}} elementos",
     "textCut": "Se muestran los primeros {{size}}."
+  },
+  "managed": {
+    "group": "Gestionado por LocalAI",
+    "marker": "gestionado por LocalAI",
+    "about": {
+      "localai": "Ajustes que LocalAI lee: persona, perfil, atajos, Inicio, tema.",
+      "chats": "Una carpeta por chat, con los archivos del chat."
+    },
+    "confirm": {
+      "deleteTitle": "¿Mover {{name}} a la Papelera?",
+      "renameTitle": "¿Cambiar el nombre de {{name}}?",
+      "delete": "Mover a la Papelera",
+      "rename": "Cambiar nombre",
+      "restore": "Puedes restaurarlo desde la Papelera.",
+      "renameNote": "LocalAI solo lo lee con este nombre; después de cambiarlo, es como si no existiera."
+    },
+    "loses": {
+      "settings": "LocalAI olvida tu persona, tu perfil, tus atajos, el diseño de tu Inicio y tu tema.",
+      "chats": "Cada chat pierde sus archivos: lo que adjuntaste y lo que el asistente escribió allí.",
+      "persona": "El asistente pierde su nombre y sus instrucciones.",
+      "user": "El asistente olvida lo que le contaste sobre ti y tus respuestas a sus ofertas.",
+      "shortcuts": "El cuadro de mensaje vuelve a mostrar los atajos predeterminados.",
+      "home": "Inicio pierde sus widgets.",
+      "ui": "Tu tema, color de acento, densidad, modelo predeterminado y páginas fijadas vuelven a los valores predeterminados."
+    }
   }
 }

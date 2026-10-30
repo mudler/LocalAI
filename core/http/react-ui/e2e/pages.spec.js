@@ -39,7 +39,7 @@ async function stub(page, state) {
   // a 409 that carries what the file holds now. state.racer, when set, changes
   // the file once just before the next write lands, as another tab would.
   const uiDoc = () => ({
-    name: 'ui', path: '/ui.json', exists: !!state.ui, version: state.ui ? (state.uiVersion || 1) : 0,
+    name: 'ui', path: '/LocalAI/ui.json', exists: !!state.ui, version: state.ui ? (state.uiVersion || 1) : 0,
     data: state.ui || {}, valid: true, errors: [],
   })
   await page.route(/\/api\/chats\/wellknown\/ui$/, (route) => {

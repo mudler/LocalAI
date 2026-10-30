@@ -23,6 +23,9 @@ const (
 	UsersRoot = "/users"
 	// ChatsDir is the folder of a home folder that holds chat uploads.
 	ChatsDir = "Chats"
+	// SettingsDir is the folder of a home folder that holds the settings
+	// files LocalAI reads (persona, profile, shortcuts, Home, look).
+	SettingsDir = "LocalAI"
 	// GuestRoot is the working directory of every tool in the guest.
 	GuestRoot = "/workspace"
 	// GuestHome is the mount name of the home folder: /workspace/home.

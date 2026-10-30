@@ -10,7 +10,8 @@ You can change how LocalAI looks and behaves for you by asking for it in a
 it knows about you, the shortcuts of the message box, the widgets on Home, the
 look, and small tools of your own (pages). Every change is a file in your home
 folder, so it has a history, it can be undone, and the settings pages edit the
-same files.
+same files. The settings files are in the `LocalAI/` folder of your home;
+pages are in `pages/`.
 
 The files need the chats and files of the server (see [Chats](/features/chats/)).
 
@@ -18,25 +19,25 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 
 | What | Say, for example | File |
 |---|---|---|
-| The assistant's name and how it answers | "Call yourself Ada and keep answers short" | `persona.json` |
-| What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `user.json` |
-| Shortcuts in the message box | "Make this a shortcut" | `shortcuts.json` |
-| The widgets on Home | "Show my open tasks on Home" | `home.json` and a data file |
-| The look | "Use the light theme and a compact layout" | `ui.json` |
+| The assistant's name and how it answers | "Call yourself Ada and keep answers short" | `LocalAI/persona.json` |
+| What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `LocalAI/user.json` |
+| Shortcuts in the message box | "Make this a shortcut" | `LocalAI/shortcuts.json` |
+| The widgets on Home | "Show my open tasks on Home" | `LocalAI/home.json` and a data file |
+| The look | "Use the light theme and a compact layout" | `LocalAI/ui.json` |
 | A small tool of your own | "Make me a task board" | `pages/<name>/` |
 | Updates on a schedule | "Every morning, update this widget" | a trigger you confirm |
 
 ## Change it by talking
 
 1. "Call me Marta and keep answers short": the assistant saves your name in
-   `user.json` and the rule in `persona.json`. Every chat uses them from your
+   `LocalAI/user.json` and the rule in `LocalAI/persona.json`. Every chat uses them from your
    next message.
-2. "Make that a shortcut": it adds the request to `shortcuts.json`; the
+2. "Make that a shortcut": it adds the request to `LocalAI/shortcuts.json`; the
    shortcut shows above the message box of every chat.
 3. "Make me a task board": it writes a page in `pages/task-board/`, which shows
    under **Pages** in the sidebar.
 4. "Show my open tasks on Home": it writes `data/tasks.json` and adds a list
-   widget to `home.json`.
+   widget to `LocalAI/home.json`.
 5. "Every morning, summarise my inbox here": it adds a widget and proposes a
    schedule trigger that you confirm on its card before anything runs.
 
@@ -50,15 +51,15 @@ up), and links to the ready pages. A card puts its sentence into the message
 box and sends nothing; you send it when you are ready. A card goes away once
 its result exists (your persona or profile is saved, a page exists, Home has a
 widget that reads a data file). **Hide these** hides the whole block, with
-Undo, and is kept under `seen` in `user.json`. A user who already has
-`shortcuts.json` or `ui.json` and another of these files never sees the
+Undo, and is kept under `seen` in `LocalAI/user.json`. A user who already has
+`LocalAI/shortcuts.json` or `LocalAI/ui.json` and another of these files never sees the
 examples; the library line under Home then offers **Customise Home**.
 
 ### What a change shows
 
 When the assistant changes one of these files or a page in a chat, the answer
 ends with a short note: what it saved and where ("Saved to your profile in
-`user.json`", "Created the page Task board in `pages/tasks/`"), with **Undo**
+`LocalAI/user.json`", "Created the page Task board in `pages/tasks/`"), with **Undo**
 and a link to where you see it (Account, the page, Home). **Undo** undoes the
 change sets of that turn in your file history. A toast appears only when the
 effect is outside the chat: a new shortcut ("Added to your composer", and the
@@ -74,7 +75,7 @@ quietly, without a toast. The **Files** pane of the chat tags these files
 (no authentication), the Account page shows its two tabs of these files only,
 and the sidebar links to it as **Your settings**.
 
-### persona.json
+### LocalAI/persona.json
 
 ```json
 {
@@ -88,7 +89,7 @@ after the chat's own system prompt and the instructions of its agent, which
 take precedence, and before the server's default prompt text. A change applies
 from the next message.
 
-### user.json
+### LocalAI/user.json
 
 ```json
 {
@@ -116,7 +117,7 @@ text leaves the server with every chat.
 
 ## Shortcuts
 
-`shortcuts.json`:
+`LocalAI/shortcuts.json`:
 
 ```json
 {
@@ -137,7 +138,7 @@ by asking the assistant.
 
 ## Home
 
-`home.json` and the data files of its widgets. **Edit layout** on Home adds,
+`LocalAI/home.json` and the data files of its widgets. **Edit layout** on Home adds,
 removes and orders the widgets.
 
 
@@ -229,7 +230,7 @@ before they allow it, and a change by its author asks again. See
 
 ## Look
 
-`ui.json`, edited in **Account > Appearance**:
+`LocalAI/ui.json`, edited in **Account > Appearance**:
 
 ```json
 { "theme": "light", "accent": "#3b82f6", "density": "compact", "defaultModel": "qwen3-8b" }
@@ -238,6 +239,31 @@ before they allow it, and a change by its author asks again. See
 `theme` is `dark`, `light` or `system`. The Appearance tab applies a change at
 once and keeps it when you save. `defaultModel` is the model a new chat starts
 with. `pinnedPages` lists the pages pinned under **Pages** in the sidebar.
+
+## The LocalAI folder
+
+The five settings files live in one visible folder, `LocalAI/`, at the top of
+your home. Your own files stay at the top; **Files** lists them first and puts
+`LocalAI/` and `Chats/` last, under **Managed by LocalAI**, with a short line
+on what each holds. Moving a managed folder or a settings file to the Trash,
+or renaming it, asks first and says what stops working. You can restore it
+from the Trash.
+
+Before this folder existed, the files were at the top of the home. LocalAI
+moves them into `LocalAI/` the first time it reads your settings (or when you
+open **Files**), one change set per file, so the history and the versions of
+each file stay, and **Undo** of the move puts it back:
+
+- Only the old file exists: it moves.
+- Both exist: LocalAI keeps `LocalAI/` and leaves the old file alone.
+- A file written at the old place after the move (by an old page or script):
+  its content becomes a new version of the file in `LocalAI/`, and the old
+  file goes to the Trash.
+
+Until the next minor release, LocalAI also reads an old file in place when it
+cannot move it; writes always go to `LocalAI/`. The move needs no setup and
+works with several frontends: each step is one atomic change of the shared
+workspace.
 
 ## Undo, versions and broken files
 
@@ -276,7 +302,7 @@ remember something you told it (your name or a short bio), to make a request
 you repeat a shortcut, or to update a Home widget every morning. LocalAI, not
 the model, decides when an offer is allowed:
 
-- at most one a day (by the time zone of `user.json`) and one per chat;
+- at most one a day (by the time zone of `LocalAI/user.json`) and one per chat;
 - never in the first 10 minutes after LocalAI first met you, and never in the
   first two turns of a chat;
 - never while a task runs in the chat (a sub-agent in the background, or a
@@ -288,7 +314,7 @@ the model, decides when an offer is allowed:
 
 When an offer is allowed, the model gets one line at the start of the turn
 (about 45 to 50 tokens); in every other turn nothing is added. LocalAI records
-the day and the chat under `seen` in `user.json`, and the assistant records
+the day and the chat under `seen` in `LocalAI/user.json`, and the assistant records
 your answer there: **no** is never offered again, **not now** may come back
 after 14 days (a second "not now" counts as no), and "stop suggesting things"
 turns all offers off. You can turn them back on, and forget your answers, in
@@ -301,7 +327,7 @@ Undo and a link to Account.
 ### Help and suggestions
 
 **Account > About you and the assistant** has a card **Help and
-suggestions**, stored under `seen` in `user.json`:
+suggestions**, stored under `seen` in `LocalAI/user.json`:
 
 - **Offers from the assistant**: on or off for you. Until you choose, the
   server's default applies.
@@ -320,7 +346,7 @@ suggestions**, stored under `seen` in `user.json`:
 - The runtime setting `chats_suggestions` (**Offers from the assistant** in the
   settings, on by default) is the default for users who did not choose. It
   applies at once. See [Runtime settings]({{%relref "features/runtime-settings" %}}).
-- The hint record lives in each user's `user.json`, in the shared workspace,
+- The hint record lives in each user's `LocalAI/user.json`, in the shared workspace,
   so the limits hold when several frontends serve the chats.
 
 ## File reference

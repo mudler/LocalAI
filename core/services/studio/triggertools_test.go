@@ -257,7 +257,7 @@ var _ = Describe("triggertools: the Home widget of a trigger", func() {
 		ctx := context.Background()
 		fs := r.sh.files
 		Expect(fs.EnsureHome(ctx, alice)).To(Succeed())
-		home, _ := fs.Abs(alice, "/home.json")
+		home, _ := fs.Abs(alice, "/LocalAI/home.json")
 		_, err := fs.Store().Put(ctx, fs.Actor(alice), home, strings.NewReader(
 			`{"widgets":[{"id":"inbox","type":"list","title":"Inbox","source":"data/inbox.json","note":"mine"},{"id":"chats","type":"chats","title":"Chats"}],"extra":1}`),
 			workspace.PutOptions{Overwrite: true})

@@ -74,7 +74,7 @@ pages/
   page gets a `files.changed` event and stays as it is. Switching between the
   light and dark theme reloads the page too: it gets the theme as `data-theme`
   on its `<html>` element.
-- Pins are kept in `ui.json` of your home, under `pinnedPages` (a list of page
+- Pins are kept in `LocalAI/ui.json` of your home, under `pinnedPages` (a list of page
   names). A pin or unpin keeps every other key of the file.
 
 ## How the assistant makes a page

@@ -85,7 +85,7 @@ var _ = Describe("Chats well-known files endpoints", func() {
 
 	It("shows a broken file's last good version and reverts to it", func() {
 		Expect(put("alice", "shortcuts", "", map[string]any{"values": map[string]any{"shortcuts": []any{map[string]any{"label": "Plan", "prompt": "Plan my day"}}}}).Code).To(Equal(http.StatusOK))
-		up := s.do("alice", http.MethodPut, "/api/chats/files/content?path=/shortcuts.json&overwrite=1", `{"shortcuts": "oops"}`)
+		up := s.do("alice", http.MethodPut, "/api/chats/files/content?path=/LocalAI/shortcuts.json&overwrite=1", `{"shortcuts": "oops"}`)
 		Expect(up.Code).To(Equal(http.StatusOK), up.Body.String())
 
 		doc := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/wellknown/shortcuts", nil))

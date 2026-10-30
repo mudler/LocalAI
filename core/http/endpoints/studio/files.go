@@ -73,9 +73,10 @@ func failFile(c echo.Context, err error) error {
 }
 
 func (fc fileCall) node(n workspace.Node) schema.ChatsFile {
+	rel := fc.f.Rel(fc.p, n.Path)
 	return schema.ChatsFile{
-		Path: fc.f.Rel(fc.p, n.Path), Name: n.Name, Kind: string(n.Kind), Size: n.Size, Version: n.Version, Rev: n.Rev,
-		ConflictOf: fc.f.Rel(fc.p, n.ConflictOf),
+		Path: rel, Name: n.Name, Kind: string(n.Kind), Size: n.Size, Version: n.Version, Rev: n.Rev,
+		ConflictOf: fc.f.Rel(fc.p, n.ConflictOf), Managed: files.Managed(rel),
 	}
 }
 
@@ -98,7 +99,7 @@ func (fc fileCall) abs(rel string, allowHome bool) (string, error) {
 // @Summary List a folder of your files.
 // @Tags chats
 // @Param path query string false "folder inside your home; default /"
-// @Success 200 {object} schema.ChatsFileList "The folder's entries, sorted by name"
+// @Success 200 {object} schema.ChatsFileList "The folder's entries, sorted by name; managed marks the folders LocalAI manages"
 // @Failure 409 {object} schema.ErrorResponse "Files are off on this server"
 // @Router /api/chats/files [get]
 func (h *Handlers) ListFiles(c echo.Context) error {
@@ -109,6 +110,11 @@ func (h *Handlers) ListFiles(c echo.Context) error {
 	abs, err := fc.abs(c.QueryParam("path"), true)
 	if err != nil {
 		return failFile(c, err)
+	}
+	if fc.f.Rel(fc.p, abs) == "/" {
+		// The settings files that are still at the top of the home move
+		// into LocalAI/ before the user sees the folder.
+		h.svc.WellKnown().AdoptTopLevelFiles(c.Request().Context(), fc.p)
 	}
 	kids, err := fc.f.Store().List(c.Request().Context(), fc.a, abs)
 	if err != nil {

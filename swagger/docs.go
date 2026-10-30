@@ -4980,7 +4980,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "The folder's entries, sorted by name",
+                        "description": "The folder's entries, sorted by name; managed marks the folders LocalAI manages",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsFileList"
                         }
@@ -17959,6 +17959,10 @@ const docTemplate = `{
                 },
                 "kind": {
                     "description": "file or dir",
+                    "type": "string"
+                },
+                "managed": {
+                    "description": "Managed is set on a path LocalAI manages: \"localai\" for the LocalAI\nfolder and the settings files in it, \"chats\" for the Chats folder.",
                     "type": "string"
                 },
                 "name": {

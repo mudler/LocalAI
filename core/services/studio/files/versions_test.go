@@ -58,6 +58,25 @@ var _ = Describe("earlier versions of a file", func() {
 		Expect(got).To(Equal([]string{"three", "two", "one"}))
 	})
 
+	It("goes on with the versions a file had before it was moved", func() {
+		ctx := context.Background()
+		f := newFilesWithBlobs()
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		put(f, "alice", "/persona.json", "one")
+		put(f, "alice", "/persona.json", "two")
+		from, _ := f.Abs("alice", "/persona.json")
+		to, _ := f.Abs("alice", "/LocalAI/persona.json")
+		_, err := f.Store().Move(ctx, f.Actor("alice"), from, to)
+		Expect(err).NotTo(HaveOccurred())
+		put(f, "alice", "/LocalAI/persona.json", "three")
+		var got []string
+		Expect(f.Versions(ctx, "alice", to, 10, 1024, func(v files.FileVersion) bool {
+			got = append(got, string(v.Data))
+			return true
+		})).To(Succeed())
+		Expect(got).To(Equal([]string{"three", "two", "one"}))
+	})
+
 	It("stops when the callback says so and skips versions over the size cap", func() {
 		ctx := context.Background()
 		f := newFilesWithBlobs()

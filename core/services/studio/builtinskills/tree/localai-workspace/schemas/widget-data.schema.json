@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://localai.io/schemas/workspace/widget-data.json",
   "title": "Widget data",
-  "description": "The data file that a Home widget reads (its source in home.json).",
+  "description": "The data file that a Home widget reads (its source in LocalAI/home.json).",
   "type": "object",
   "properties": {
     "title": { "type": "string", "maxLength": 60 },

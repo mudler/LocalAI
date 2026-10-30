@@ -58,14 +58,14 @@
       "prompt": "Prompt",
       "send": "Invia subito",
       "add": "Aggiungi scorciatoia",
-      "invalid": "shortcuts.json contiene errori",
-      "assistantPrompt": "Modifica le mie scorciatoie del campo di scrittura in shortcuts.json: "
+      "invalid": "LocalAI/shortcuts.json contiene errori",
+      "assistantPrompt": "Modifica le mie scorciatoie del campo di scrittura in LocalAI/shortcuts.json: "
     },
     "home": {
       "editLayout": "Modifica layout",
       "ask": "Chiedi all'assistente",
       "layoutIn": "Il layout si trova in",
-      "askPrompt": "Modifica la mia pagina Home (home.json): ",
+      "askPrompt": "Modifica la mia pagina Home (LocalAI/home.json): ",
       "add": "Aggiungi widget",
       "newTitle": "Nuovo widget",
       "noWidgets": "Nessun widget ancora.",
@@ -198,7 +198,7 @@
         "kicker": "Tu e l'assistente",
         "prompt": "Chiamami {{firstName}} e dammi risposte brevi",
         "promptNoName": "Ricorda il mio nome e dammi risposte brevi",
-        "what": "Salva user.json e persona.json"
+        "what": "Salva LocalAI/user.json e LocalAI/persona.json"
       },
       "card2": {
         "kicker": "Una pagina",
@@ -233,12 +233,12 @@
       "turnBackOn": "Riattivali in Account"
     },
     "change": {
-      "profilePersona": "Nome salvato in <code>user.json</code> e istruzioni salvate in <code>persona.json</code>. Ogni chat li usa dal tuo prossimo messaggio.",
-      "profile": "Salvato nel tuo profilo in <code>user.json</code>.",
-      "persona": "<code>persona.json</code> salvato. Ogni chat lo usa dal tuo prossimo messaggio.",
-      "shortcuts": "<code>shortcuts.json</code> salvato.",
-      "home": "<code>home.json</code> salvato. Home mostra la modifica.",
-      "ui": "<code>ui.json</code> salvato.",
+      "profilePersona": "Nome salvato in <code>LocalAI/user.json</code> e istruzioni salvate in <code>LocalAI/persona.json</code>. Ogni chat li usa dal tuo prossimo messaggio.",
+      "profile": "Salvato nel tuo profilo in <code>LocalAI/user.json</code>.",
+      "persona": "<code>LocalAI/persona.json</code> salvato. Ogni chat lo usa dal tuo prossimo messaggio.",
+      "shortcuts": "<code>LocalAI/shortcuts.json</code> salvato.",
+      "home": "<code>LocalAI/home.json</code> salvato. Home mostra la modifica.",
+      "ui": "<code>LocalAI/ui.json</code> salvato.",
       "pageCreated": "Pagina {{title}} creata in <code>{{folder}}</code>.",
       "pageChanged": "<code>{{file}}</code> modificato.",
       "offersOff": "I suggerimenti dell'assistente sono disattivati.",
@@ -393,5 +393,30 @@
     "items_one": "{{count}} elemento",
     "items_other": "{{count}} elementi",
     "textCut": "Sono mostrati i primi {{size}}."
+  },
+  "managed": {
+    "group": "Gestite da LocalAI",
+    "marker": "gestita da LocalAI",
+    "about": {
+      "localai": "Impostazioni che LocalAI legge: persona, profilo, scorciatoie, Home, tema.",
+      "chats": "Una cartella per chat, con i file della chat."
+    },
+    "confirm": {
+      "deleteTitle": "Spostare {{name}} nel Cestino?",
+      "renameTitle": "Rinominare {{name}}?",
+      "delete": "Sposta nel Cestino",
+      "rename": "Rinomina",
+      "restore": "Puoi ripristinarla dal Cestino.",
+      "renameNote": "LocalAI la legge solo con questo nome: dopo averla rinominata è come se non ci fosse più."
+    },
+    "loses": {
+      "settings": "LocalAI dimentica la tua persona, il tuo profilo, le tue scorciatoie, il layout della Home e il tuo tema.",
+      "chats": "Ogni chat perde i suoi file: quello che hai allegato e quello che l'assistente ha scritto lì.",
+      "persona": "L'assistente perde il suo nome e le sue istruzioni.",
+      "user": "L'assistente dimentica quello che gli hai detto di te e le tue risposte alle sue proposte.",
+      "shortcuts": "Il campo di scrittura mostra di nuovo le scorciatoie predefinite.",
+      "home": "La Home perde i suoi widget.",
+      "ui": "Tema, colore, densità, modello predefinito e pagine fissate tornano ai valori predefiniti."
+    }
   }
 }

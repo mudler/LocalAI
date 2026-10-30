@@ -58,14 +58,14 @@
       "prompt": "프롬프트",
       "send": "바로 보내기",
       "add": "단축 프롬프트 추가",
-      "invalid": "shortcuts.json에 오류가 있습니다",
-      "assistantPrompt": "shortcuts.json에서 내 입력창 단축 프롬프트를 변경해 줘: "
+      "invalid": "LocalAI/shortcuts.json에 오류가 있습니다",
+      "assistantPrompt": "LocalAI/shortcuts.json에서 내 입력창 단축 프롬프트를 변경해 줘: "
     },
     "home": {
       "editLayout": "레이아웃 편집",
       "ask": "어시스턴트에게 묻기",
       "layoutIn": "레이아웃 위치:",
-      "askPrompt": "내 홈 페이지(home.json)를 변경해 줘: ",
+      "askPrompt": "내 홈 페이지(LocalAI/home.json)를 변경해 줘: ",
       "add": "위젯 추가",
       "newTitle": "새 위젯",
       "noWidgets": "아직 위젯이 없습니다.",
@@ -198,7 +198,7 @@
         "kicker": "나와 어시스턴트",
         "prompt": "저를 {{firstName}}(이)라고 부르고 답변은 짧게 해 주세요",
         "promptNoName": "제 이름을 기억하고 답변은 짧게 해 주세요",
-        "what": "user.json과 persona.json을 저장해요"
+        "what": "LocalAI/user.json과 LocalAI/persona.json을 저장해요"
       },
       "card2": {
         "kicker": "페이지",
@@ -233,12 +233,12 @@
       "turnBackOn": "계정에서 다시 켜기"
     },
     "change": {
-      "profilePersona": "이름은 <code>user.json</code>에, 지침은 <code>persona.json</code>에 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
-      "profile": "프로필을 <code>user.json</code>에 저장했어요.",
-      "persona": "<code>persona.json</code>을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
-      "shortcuts": "<code>shortcuts.json</code>을 저장했어요.",
-      "home": "<code>home.json</code>을 저장했어요. 홈에 변경 사항이 보여요.",
-      "ui": "<code>ui.json</code>을 저장했어요.",
+      "profilePersona": "이름은 <code>LocalAI/user.json</code>에, 지침은 <code>LocalAI/persona.json</code>에 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "profile": "프로필을 <code>LocalAI/user.json</code>에 저장했어요.",
+      "persona": "<code>LocalAI/persona.json</code>을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "shortcuts": "<code>LocalAI/shortcuts.json</code>을 저장했어요.",
+      "home": "<code>LocalAI/home.json</code>을 저장했어요. 홈에 변경 사항이 보여요.",
+      "ui": "<code>LocalAI/ui.json</code>을 저장했어요.",
       "pageCreated": "<code>{{folder}}</code>에 {{title}} 페이지를 만들었어요.",
       "pageChanged": "<code>{{file}}</code>을(를) 변경했어요.",
       "offersOff": "어시스턴트의 제안이 꺼져 있어요.",
@@ -393,5 +393,30 @@
     "items_one": "{{count}}개 항목",
     "items_other": "{{count}}개 항목",
     "textCut": "처음 {{size}}만 표시합니다."
+  },
+  "managed": {
+    "group": "LocalAI가 관리",
+    "marker": "LocalAI가 관리",
+    "about": {
+      "localai": "LocalAI가 읽는 설정: 페르소나, 프로필, 바로가기, 홈, 테마.",
+      "chats": "채팅마다 하나의 폴더와 그 채팅의 파일."
+    },
+    "confirm": {
+      "deleteTitle": "{{name}}을(를) 휴지통으로 옮길까요?",
+      "renameTitle": "{{name}}의 이름을 바꿀까요?",
+      "delete": "휴지통으로 이동",
+      "rename": "이름 바꾸기",
+      "restore": "휴지통에서 복원할 수 있습니다.",
+      "renameNote": "LocalAI는 이 이름으로만 읽으므로, 이름을 바꾸면 없어진 것과 같습니다."
+    },
+    "loses": {
+      "settings": "LocalAI가 페르소나, 프로필, 바로가기, 홈 레이아웃, 테마를 잊습니다.",
+      "chats": "모든 채팅이 파일을 잃습니다: 첨부한 파일과 어시스턴트가 그곳에 쓴 파일.",
+      "persona": "어시스턴트가 이름과 지침을 잃습니다.",
+      "user": "어시스턴트가 당신에 대해 들은 내용과 제안에 대한 당신의 답을 잊습니다.",
+      "shortcuts": "메시지 입력란에 기본 바로가기가 다시 표시됩니다.",
+      "home": "홈의 위젯이 사라집니다.",
+      "ui": "테마, 강조 색상, 밀도, 기본 모델, 고정한 페이지가 기본값으로 돌아갑니다."
+    }
   }
 }

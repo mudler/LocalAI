@@ -162,7 +162,7 @@ test('well-known store: every reader of one file shares one copy, so a save show
   assert.deepEqual(calls.at(-1), ['put', 'shortcuts', 1], 'the save starts from the version every reader shows')
   assert.equal(store.snapshot('shortcuts').doc.version, 2)
   assert.ok(seen > before, 'the other readers are told')
-  assert.deepEqual(own, ['shortcuts.json'], 'the feed is told this tab wrote the file, so its echo does not read it again')
+  assert.deepEqual(own, ['LocalAI/shortcuts.json'], 'the feed is told this tab wrote the file, so its echo does not read it again')
   off()
 })
 
@@ -190,7 +190,7 @@ test('well-known store: files of other names and paths are kept apart', async ()
   assert.equal(store.snapshot('home').doc, null)
   assert.equal(store.snapshot('widget-data', '/data/a.json').doc, null)
   assert.equal(wellKnownPath('widget-data', '/data/a.json'), 'data/a.json')
-  assert.equal(wellKnownPath('ui'), 'ui.json')
+  assert.equal(wellKnownPath('ui'), 'LocalAI/ui.json', 'the settings files are in LocalAI/')
 })
 
 test('well-known conflict: a newer file that changed none of the edited keys can take the edit', () => {

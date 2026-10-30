@@ -101,6 +101,25 @@ var _ = Describe("Chats files endpoints", func() {
 		Expect(got.Body.String()).To(Equal("hello"))
 	})
 
+	It("marks the folders LocalAI manages, and moves old settings files into LocalAI/ before listing the home", func() {
+		Expect(s.putFile("alice", "/ui.json", `{"theme":"light"}`).Code).To(Equal(http.StatusOK))
+		Expect(s.putFile("alice", "/Notes/a.txt", "mine").Code).To(Equal(http.StatusOK))
+		managed := func(dir string) map[string]string {
+			rec := s.do("alice", http.MethodGet, "/api/chats/files?path="+q(dir), nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			out := map[string]string{}
+			for _, e := range decodeJSON(rec)["entries"].([]any) {
+				m := e.(map[string]any)
+				v, _ := m["managed"].(string)
+				out[m["name"].(string)] = v
+			}
+			return out
+		}
+		Expect(managed("/")).To(Equal(map[string]string{"Chats": "chats", "LocalAI": "localai", "Notes": ""}))
+		Expect(managed("/LocalAI")).To(Equal(map[string]string{"ui.json": "localai"}))
+		Expect(managed("/Notes")).To(Equal(map[string]string{"a.txt": ""}))
+	})
+
 	It("serves files so that a browser cannot run them", func() {
 		Expect(s.putFile("alice", "/page.html", "<script>alert(1)</script>").Code).To(Equal(http.StatusOK))
 		rec := s.do("alice", http.MethodGet, "/api/chats/files/content?path="+q("/page.html")+"&inline=1", nil)

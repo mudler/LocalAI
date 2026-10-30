@@ -7,7 +7,9 @@ import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { filesApi } from '../utils/api'
 import FilePreview from '../components/files/FilePreview'
 import SharedFolders from '../components/files/SharedFolders'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { fileSize as size } from '../utils/fileInfo'
+import { splitEntries, isSettingsFolder, guardOf } from '../utils/managedFiles'
 import './workspace.css'
 
 function Breadcrumb({ path, onOpen, t }) {
@@ -28,26 +30,41 @@ function Breadcrumb({ path, onOpen, t }) {
   )
 }
 
-function EntryRow({ entry, selected, onSelect, onOpen, ws, t }) {
+// EntryRow is one file or folder. onRename and onRemove go through the
+// page, which asks first for a folder or a file that LocalAI manages.
+function EntryRow({ entry, selected, onSelect, onOpen, onRename, onRemove, t }) {
   const [renaming, setRenaming] = useState(null)
   const isDir = entry.kind === 'dir'
   const finish = async (commit) => {
     const name = (renaming || '').trim()
     setRenaming(null)
-    if (commit && name && name !== entry.name) await ws.rename(entry, name)
+    if (commit && name && name !== entry.name) await onRename(entry, name)
   }
+  const about = isDir && entry.managed ? t(`managed.about.${entry.managed}`, { defaultValue: '' }) : ''
   return (
-    <li className={`ws-row${selected ? ' ws-row--selected' : ''}`} data-testid="ws-row">
+    <li
+      className={`ws-row${selected ? ' ws-row--selected' : ''}${entry.managed ? ' ws-row--managed' : ''}`}
+      data-testid="ws-row" data-managed={entry.managed || undefined}
+    >
       <Icon name={isDir ? 'folder' : 'file'} className="ws-row__icon" />
       {renaming === null ? (
-        <button type="button" className="ws-row__name" onClick={() => (isDir ? onOpen(entry.path) : onSelect(entry))}>
-          {entry.name}{isDir ? '/' : ''}
-        </button>
+        <span className="ws-row__main">
+          <button type="button" className="ws-row__name" onClick={() => (isDir ? onOpen(entry.path) : onSelect(entry))}>
+            {entry.name}{isDir ? '/' : ''}
+          </button>
+          {isDir && entry.managed && <span className="ws-managed-tag" data-testid="ws-managed-tag">{t('managed.marker')}</span>}
+          {about && <span className="ws-row__about">{about}</span>}
+        </span>
       ) : (
         <input
           className="input ws-row__edit" aria-label={t('rename')} value={renaming} autoFocus
           onChange={(e) => setRenaming(e.target.value)} onBlur={() => finish(true)}
-          onKeyDown={(e) => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false) }}
+          // preventDefault: the Enter must not also press the confirmation
+          // that a rename of a managed path opens and focuses.
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true) }
+            if (e.key === 'Escape') finish(false)
+          }}
         />
       )}
       <span className="ws-row__size">{isDir ? '' : size(entry.size)}</span>
@@ -60,7 +77,7 @@ function EntryRow({ entry, selected, onSelect, onOpen, ws, t }) {
         <button type="button" className="ws-icon-btn" aria-label={t('rename')} title={t('rename')} onClick={() => setRenaming(entry.name)}>
           <Icon name="pencil" />
         </button>
-        <button type="button" className="ws-icon-btn" aria-label={t('delete')} title={t('delete')} onClick={() => ws.remove(entry)}>
+        <button type="button" className="ws-icon-btn" aria-label={t('delete')} title={t('delete')} onClick={() => onRemove(entry)}>
           <Icon name="trash" />
         </button>
       </span>
@@ -124,7 +141,35 @@ export default function Workspace() {
   const [dragging, setDragging] = useState(false)
   const [folderName, setFolderName] = useState(null)
   const [query, setQuery] = useState('')
+  // A delete or a rename of a managed path that waits for the confirmation:
+  // { entry, action: 'delete' | 'rename', name, guard }.
+  const [guarded, setGuarded] = useState(null)
   const fileInput = useRef(null)
+
+  const remove = (entry) => {
+    const guard = guardOf(entry)
+    if (guard) setGuarded({ entry, action: 'delete', guard })
+    else ws.remove(entry)
+  }
+  const rename = (entry, name) => {
+    const guard = guardOf(entry)
+    if (guard) setGuarded({ entry, action: 'rename', name, guard })
+    else return ws.rename(entry, name)
+  }
+  const confirmGuarded = async () => {
+    const g = guarded
+    setGuarded(null)
+    if (!g) return
+    if (g.action === 'delete') await ws.remove(g.entry)
+    else await ws.rename(g.entry, g.name)
+  }
+  const { own, managed } = splitEntries(ws.entries, ws.path)
+  const row = (e) => (
+    <EntryRow
+      key={e.path} entry={e} t={t} selected={selected?.path === e.path}
+      onSelect={setSelected} onOpen={openFolder} onRename={rename} onRemove={remove}
+    />
+  )
 
   const onDrop = (e) => {
     e.preventDefault()
@@ -232,17 +277,29 @@ export default function Workspace() {
                     <Icon name="arrow-up" /> {t('up')}
                   </button>
                 )}
+                {isSettingsFolder(ws.path) && (
+                  <p className="ws-folder-about" data-testid="ws-folder-about">
+                    <span className="ws-managed-tag">{t('managed.marker')}</span> {t('managed.about.localai')}
+                  </p>
+                )}
                 {ws.entries.length === 0 && !ws.loading ? (
                   <p className="ws-empty">{t('empty')}</p>
                 ) : (
-                  <ul className="ws-list" aria-label={t('tabs.files')}>
-                    {ws.entries.map((e) => (
-                      <EntryRow
-                        key={e.path} entry={e} ws={ws} t={t} selected={selected?.path === e.path}
-                        onSelect={setSelected} onOpen={openFolder}
-                      />
-                    ))}
-                  </ul>
+                  <>
+                    {own.length > 0 && (
+                      <ul className="ws-list" aria-label={t('tabs.files')}>
+                        {own.map(row)}
+                      </ul>
+                    )}
+                    {managed.length > 0 && (
+                      <section className="ws-managed" aria-labelledby="ws-managed-title" data-testid="ws-managed">
+                        <h2 className="ws-managed__title" id="ws-managed-title">{t('managed.group')}</h2>
+                        <ul className="ws-list" aria-labelledby="ws-managed-title">
+                          {managed.map(row)}
+                        </ul>
+                      </section>
+                    )}
+                  </>
                 )}
                 <p className="ws-hint">{t('dropHint')}</p>
               </section>
@@ -254,6 +311,13 @@ export default function Workspace() {
         )}
       </div>
       {selected && tab === 'files' && ws.hits === null && <FilePreview entry={selected} t={t} />}
+      <ConfirmDialog
+        open={!!guarded} danger
+        title={guarded ? t(guarded.action === 'delete' ? 'managed.confirm.deleteTitle' : 'managed.confirm.renameTitle', { name: guarded.guard.name }) : ''}
+        message={guarded ? `${t(`managed.loses.${guarded.guard.what}`)} ${t(guarded.action === 'delete' ? 'managed.confirm.restore' : 'managed.confirm.renameNote')}` : ''}
+        confirmLabel={guarded ? t(guarded.action === 'delete' ? 'managed.confirm.delete' : 'managed.confirm.rename') : ''}
+        onConfirm={confirmGuarded} onCancel={() => setGuarded(null)}
+      />
     </div>
   )
 }

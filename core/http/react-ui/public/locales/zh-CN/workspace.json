@@ -58,14 +58,14 @@
       "prompt": "提示词",
       "send": "立即发送",
       "add": "添加快捷指令",
-      "invalid": "shortcuts.json 有错误",
-      "assistantPrompt": "请在 shortcuts.json 中修改我的输入框快捷指令："
+      "invalid": "LocalAI/shortcuts.json 有错误",
+      "assistantPrompt": "请在 LocalAI/shortcuts.json 中修改我的输入框快捷指令："
     },
     "home": {
       "editLayout": "编辑布局",
       "ask": "询问助手",
       "layoutIn": "布局位于",
-      "askPrompt": "请修改我的首页 (home.json)：",
+      "askPrompt": "请修改我的首页 (LocalAI/home.json)：",
       "add": "添加小组件",
       "newTitle": "新小组件",
       "noWidgets": "还没有小组件。",
@@ -198,7 +198,7 @@
         "kicker": "你和助手",
         "prompt": "叫我{{firstName}}，回答简短一些",
         "promptNoName": "记住我的名字，回答简短一些",
-        "what": "保存 user.json 和 persona.json"
+        "what": "保存 LocalAI/user.json 和 LocalAI/persona.json"
       },
       "card2": {
         "kicker": "一个页面",
@@ -233,12 +233,12 @@
       "turnBackOn": "在账户中重新开启"
     },
     "change": {
-      "profilePersona": "已将你的名字保存到 <code>user.json</code>，将你的指令保存到 <code>persona.json</code>。从你的下一条消息起，每个聊天都会使用它们。",
-      "profile": "已保存到你的资料 <code>user.json</code>。",
-      "persona": "已保存 <code>persona.json</code>。从你的下一条消息起，每个聊天都会使用它。",
-      "shortcuts": "已保存 <code>shortcuts.json</code>。",
-      "home": "已保存 <code>home.json</code>。主页会显示这项更改。",
-      "ui": "已保存 <code>ui.json</code>。",
+      "profilePersona": "已将你的名字保存到 <code>LocalAI/user.json</code>，将你的指令保存到 <code>LocalAI/persona.json</code>。从你的下一条消息起，每个聊天都会使用它们。",
+      "profile": "已保存到你的资料 <code>LocalAI/user.json</code>。",
+      "persona": "已保存 <code>LocalAI/persona.json</code>。从你的下一条消息起，每个聊天都会使用它。",
+      "shortcuts": "已保存 <code>LocalAI/shortcuts.json</code>。",
+      "home": "已保存 <code>LocalAI/home.json</code>。主页会显示这项更改。",
+      "ui": "已保存 <code>LocalAI/ui.json</code>。",
       "pageCreated": "已在 <code>{{folder}}</code> 中创建页面 {{title}}。",
       "pageChanged": "已修改 <code>{{file}}</code>。",
       "offersOff": "助手的建议已关闭。",
@@ -393,5 +393,30 @@
     "items_one": "{{count}} 项",
     "items_other": "{{count}} 项",
     "textCut": "显示前 {{size}}。"
+  },
+  "managed": {
+    "group": "由 LocalAI 管理",
+    "marker": "由 LocalAI 管理",
+    "about": {
+      "localai": "LocalAI 读取的设置：角色、个人资料、快捷方式、主页、主题。",
+      "chats": "每个对话一个文件夹，存放该对话的文件。"
+    },
+    "confirm": {
+      "deleteTitle": "将 {{name}} 移到回收站？",
+      "renameTitle": "重命名 {{name}}？",
+      "delete": "移到回收站",
+      "rename": "重命名",
+      "restore": "你可以从回收站恢复它。",
+      "renameNote": "LocalAI 只按这个名称读取它，重命名后就像它不存在一样。"
+    },
+    "loses": {
+      "settings": "LocalAI 会忘记你的角色、个人资料、快捷方式、主页布局和主题。",
+      "chats": "每个对话都会失去它的文件：你附加的文件和助手在那里写的文件。",
+      "persona": "助手会失去它的名字和指令。",
+      "user": "助手会忘记你告诉它的关于你的信息，以及你对它的建议的回答。",
+      "shortcuts": "消息框会重新显示默认快捷方式。",
+      "home": "主页会失去它的小组件。",
+      "ui": "你的主题、强调色、密度、默认模型和固定的页面会恢复为默认值。"
+    }
   }
 }

@@ -65,7 +65,7 @@ test('Versions lists who changed the file and where, and reverts the one picked'
   await page.route(/\/api\/chats\/wellknown\/persona\/revert/, (route) => {
     reverts.push(route.request().postDataJSON())
     state.files.persona = { name: 'Ada' }
-    return route.fulfill({ json: { name: 'persona', path: '/persona.json', exists: true, version: 9, data: { name: 'Ada' }, valid: true } })
+    return route.fulfill({ json: { name: 'persona', path: '/LocalAI/persona.json', exists: true, version: 9, data: { name: 'Ada' }, valid: true } })
   })
   await page.goto('/app/account?tab=about')
   await page.getByTestId('wk-versions-persona').click({ timeout: 15_000 })

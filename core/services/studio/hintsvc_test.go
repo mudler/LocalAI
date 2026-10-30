@@ -25,7 +25,7 @@ func newHintChat(on bool) (*studio.Service, *studiotest.ToolHarness, *files.Serv
 		d.SuggestionsDefault = func() bool { return on }
 	})
 	// LocalAI met alice a day ago: the quiet start is over.
-	writeHome(f, alice, "/user.json", `{"seen":{"since":"2026-10-29T09:00:00Z"}}`)
+	writeHome(f, alice, "/LocalAI/user.json", `{"seen":{"since":"2026-10-29T09:00:00Z"}}`)
 	return svc, h, f
 }
 
@@ -80,7 +80,7 @@ var _ = Describe("offers in the turn note", func() {
 			}
 			return []studiotest.ToolStep{{Say: "ok"}}
 		}, func(d *studio.Deps) { d.Files = f; d.Clock = func() time.Time { return now } })
-		writeHome(f, alice, "/user.json", `{"seen":{"since":"2026-10-29T09:00:00Z"}}`)
+		writeHome(f, alice, "/LocalAI/user.json", `{"seen":{"since":"2026-10-29T09:00:00Z"}}`)
 		id := create(svc, alice)
 		for _, m := range []string{"do the bad thing", "b", "c"} {
 			turnWith(svc, id, m)

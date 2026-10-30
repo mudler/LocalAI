@@ -309,6 +309,9 @@ type ChatsFile struct {
 	// ConflictOf is set when an upload kept both files: it is the path the
 	// caller asked for, and Path is where the new content went.
 	ConflictOf string `json:"conflict_of,omitempty"`
+	// Managed is set on a path LocalAI manages: "localai" for the LocalAI
+	// folder and the settings files in it, "chats" for the Chats folder.
+	Managed string `json:"managed,omitempty"`
 }
 
 // ChatsFilePreview is what the server reads out of a file that a browser

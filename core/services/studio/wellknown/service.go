@@ -105,6 +105,7 @@ func (s *Service) Read(ctx context.Context, principal string, n Name, rel string
 	if err != nil {
 		return Doc{}, err
 	}
+	abs, home = s.legacyRead(ctx, principal, n, abs, home)
 	return s.read(ctx, principal, n, abs, home)
 }
 
@@ -182,7 +183,11 @@ func (s *Service) Write(ctx context.Context, principal string, w WriteRequest) (
 	if err != nil {
 		return Doc{}, err
 	}
-	cur, node, err := s.open(ctx, principal, abs)
+	// While the old file cannot be moved, the write starts from it and goes
+	// to the new place.
+	from, fromHome := s.legacyRead(ctx, principal, w.Name, abs, home)
+	legacy := from != abs
+	cur, node, err := s.open(ctx, principal, from)
 	exists := err == nil
 	switch {
 	case errors.Is(err, workspace.ErrNotFound):
@@ -197,7 +202,7 @@ func (s *Service) Write(ctx context.Context, principal string, w WriteRequest) (
 			have = node.Version
 		}
 		if have != *w.Base {
-			doc, rerr := s.read(ctx, principal, w.Name, abs, home)
+			doc, rerr := s.read(ctx, principal, w.Name, from, fromHome)
 			if rerr != nil {
 				return Doc{}, rerr
 			}
@@ -231,7 +236,11 @@ func (s *Service) Write(ctx context.Context, principal string, w WriteRequest) (
 	if _, bad := Validate(w.Name, data); len(bad) > 0 {
 		return Doc{}, &InvalidError{Errors: bad}
 	}
-	if err := s.put(ctx, principal, abs, home, data, exists, node, w.Base != nil); err != nil {
+	if legacy {
+		// The base was checked against the old file; the new one does not exist.
+		exists, node = false, workspace.Node{}
+	}
+	if err := s.put(ctx, principal, abs, home, data, exists, node, w.Base != nil && !legacy); err != nil {
 		return Doc{}, err
 	}
 	return s.read(ctx, principal, w.Name, abs, home)
@@ -262,6 +271,9 @@ func (s *Service) Revert(ctx context.Context, principal string, n Name, rel stri
 	abs, home, err := s.path(principal, n, rel)
 	if err != nil {
 		return Doc{}, err
+	}
+	if File(n) != "" {
+		s.adopt(ctx, principal, n)
 	}
 	cur, node, err := s.open(ctx, principal, abs)
 	exists := err == nil
@@ -310,6 +322,9 @@ func (s *Service) Versions(ctx context.Context, principal string, n Name, rel st
 	if err != nil {
 		return nil, err
 	}
+	if File(n) != "" {
+		s.adopt(ctx, principal, n)
+	}
 	if limit <= 0 || limit > historyDepth {
 		limit = historyDepth
 	}
@@ -336,6 +351,9 @@ func (s *Service) RevertTo(ctx context.Context, principal string, n Name, rel st
 	abs, home, err := s.path(principal, n, rel)
 	if err != nil {
 		return Doc{}, err
+	}
+	if File(n) != "" {
+		s.adopt(ctx, principal, n)
 	}
 	var good map[string]any
 	err = s.f.Versions(ctx, principal, abs, historyDepth, MaxSize, func(v files.FileVersion) bool {

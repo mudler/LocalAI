@@ -58,14 +58,14 @@
       "prompt": "Prompt",
       "send": "Envoyer immédiatement",
       "add": "Ajouter un raccourci",
-      "invalid": "shortcuts.json contient des erreurs",
-      "assistantPrompt": "Modifie mes raccourcis de saisie dans shortcuts.json : "
+      "invalid": "LocalAI/shortcuts.json contient des erreurs",
+      "assistantPrompt": "Modifie mes raccourcis de saisie dans LocalAI/shortcuts.json : "
     },
     "home": {
       "editLayout": "Modifier la mise en page",
       "ask": "Demander à l'assistant",
       "layoutIn": "La mise en page est dans",
-      "askPrompt": "Modifie ma page d'accueil (home.json) : ",
+      "askPrompt": "Modifie ma page d'accueil (LocalAI/home.json) : ",
       "add": "Ajouter un widget",
       "newTitle": "Nouveau widget",
       "noWidgets": "Aucun widget pour l'instant.",
@@ -198,7 +198,7 @@
         "kicker": "Vous et l’assistant",
         "prompt": "Appelez-moi {{firstName}} et gardez des réponses courtes",
         "promptNoName": "Retenez mon prénom et gardez des réponses courtes",
-        "what": "Enregistre user.json et persona.json"
+        "what": "Enregistre LocalAI/user.json et LocalAI/persona.json"
       },
       "card2": {
         "kicker": "Une page",
@@ -233,12 +233,12 @@
       "turnBackOn": "Les réactiver dans Account"
     },
     "change": {
-      "profilePersona": "Votre nom est enregistré dans <code>user.json</code> et vos instructions dans <code>persona.json</code>. Chaque chat les utilise dès votre prochain message.",
-      "profile": "Enregistré dans votre profil, dans <code>user.json</code>.",
-      "persona": "<code>persona.json</code> enregistré. Chaque chat l’utilise dès votre prochain message.",
-      "shortcuts": "<code>shortcuts.json</code> enregistré.",
-      "home": "<code>home.json</code> enregistré. Home affiche le changement.",
-      "ui": "<code>ui.json</code> enregistré.",
+      "profilePersona": "Votre nom est enregistré dans <code>LocalAI/user.json</code> et vos instructions dans <code>LocalAI/persona.json</code>. Chaque chat les utilise dès votre prochain message.",
+      "profile": "Enregistré dans votre profil, dans <code>LocalAI/user.json</code>.",
+      "persona": "<code>LocalAI/persona.json</code> enregistré. Chaque chat l’utilise dès votre prochain message.",
+      "shortcuts": "<code>LocalAI/shortcuts.json</code> enregistré.",
+      "home": "<code>LocalAI/home.json</code> enregistré. Home affiche le changement.",
+      "ui": "<code>LocalAI/ui.json</code> enregistré.",
       "pageCreated": "Page {{title}} créée dans <code>{{folder}}</code>.",
       "pageChanged": "<code>{{file}}</code> modifié.",
       "offersOff": "Les suggestions de l’assistant sont désactivées.",
@@ -393,5 +393,30 @@
     "items_one": "{{count}} élément",
     "items_other": "{{count}} éléments",
     "textCut": "Les premiers {{size}} sont affichés."
+  },
+  "managed": {
+    "group": "Géré par LocalAI",
+    "marker": "géré par LocalAI",
+    "about": {
+      "localai": "Réglages que LocalAI lit : persona, profil, raccourcis, Accueil, thème.",
+      "chats": "Un dossier par discussion, avec les fichiers de la discussion."
+    },
+    "confirm": {
+      "deleteTitle": "Mettre {{name}} à la corbeille ?",
+      "renameTitle": "Renommer {{name}} ?",
+      "delete": "Mettre à la corbeille",
+      "rename": "Renommer",
+      "restore": "Vous pouvez le restaurer depuis la corbeille.",
+      "renameNote": "LocalAI ne le lit que sous ce nom : après un renommage, c'est comme s'il avait disparu."
+    },
+    "loses": {
+      "settings": "LocalAI oublie votre persona, votre profil, vos raccourcis, la disposition de votre Accueil et votre thème.",
+      "chats": "Chaque discussion perd ses fichiers : ce que vous avez joint et ce que l'assistant y a écrit.",
+      "persona": "L'assistant perd son nom et ses instructions.",
+      "user": "L'assistant oublie ce que vous lui avez dit sur vous et vos réponses à ses propositions.",
+      "shortcuts": "La zone de message affiche de nouveau les raccourcis par défaut.",
+      "home": "L'Accueil perd ses widgets.",
+      "ui": "Votre thème, couleur d'accent, densité, modèle par défaut et pages épinglées reviennent aux valeurs par défaut."
+    }
   }
 }

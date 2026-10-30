@@ -438,15 +438,34 @@ func (h *Triggers) runTitle(t triggers.Trigger) string {
 	return title
 }
 
+// runRulesFolder is the workspace folder whose rules, and the rules of the
+// folders above it, the first message of a run holds.
+func runRulesFolder(t triggers.Trigger) string {
+	if t.Kind == triggers.KindFile {
+		return t.Folder
+	}
+	return session.HomePath(t.Owner)
+}
+
+// rulesFolder is runRulesFolder of the trigger id of owner, inside the
+// owner's home, or "" when it is not known.
+func (h *Triggers) rulesFolder(ctx context.Context, owner, id string) string {
+	if id == "" {
+		return ""
+	}
+	t, err := h.o.Store.GetTrigger(ctx, id)
+	if err != nil || t.Owner != owner {
+		return ""
+	}
+	return h.svc.d.Files.Rel(owner, runRulesFolder(t))
+}
+
 // runMessage is the first message of a run: the prompt, the rules of the folder
 // (untrusted text, as the package says), and for a file run the file.
 func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run triggers.Run) (string, error) {
 	parts := []string{strings.TrimSpace(t.Prompt)}
 	if h.svc.d.Files.Available() {
-		folder := session.HomePath(t.Owner)
-		if t.Kind == triggers.KindFile {
-			folder = t.Folder
-		}
+		folder := runRulesFolder(t)
 		rules, err := triggers.RulesAs(ctx, h.svc.d.Files.Store(), h.svc.d.Files.Actor(t.Owner), folder,
 			func(dir string) string { return h.RelPath(t.Owner, dir) })
 		if err != nil {

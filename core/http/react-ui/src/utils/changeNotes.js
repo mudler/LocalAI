@@ -6,13 +6,17 @@
 
 export const CHANGE_CARD = 'files_change'
 
-const WELL_KNOWN = {
-  '/persona.json': 'persona',
-  '/user.json': 'profile',
-  '/shortcuts.json': 'shortcuts',
-  '/home.json': 'home',
-  '/ui.json': 'ui',
+// The settings files live in LocalAI/ of the home. The top-level names are
+// where they were before; a transcript from then still names them. Drop them
+// with the server's compatibility window (wellknown/legacy.go).
+const SETTINGS = {
+  'persona.json': 'persona',
+  'user.json': 'profile',
+  'shortcuts.json': 'shortcuts',
+  'home.json': 'home',
+  'ui.json': 'ui',
 }
+const WELL_KNOWN = Object.fromEntries(Object.entries(SETTINGS).flatMap(([f, tag]) => [[`/LocalAI/${f}`, tag], [`/${f}`, tag]]))
 
 const PAGE_RE = /^\/pages\/([^/]+)\//
 
@@ -57,14 +61,15 @@ export function describeChanges(changes, pagesSeen = new Set()) {
   const paths = new Set()
   for (const c of changes) c.paths.forEach(p => paths.add(p))
   const notes = []
-  const persona = paths.has('/persona.json')
-  const user = paths.has('/user.json')
+  const tags = new Set([...paths].map(p => WELL_KNOWN[p]).filter(Boolean))
+  const persona = tags.has('persona')
+  const user = tags.has('profile')
   if (persona && user) notes.push({ key: 'profilePersona', action: 'account' })
   else if (user) notes.push({ key: 'profile', action: 'account' })
   else if (persona) notes.push({ key: 'persona', action: 'account' })
-  if (paths.has('/shortcuts.json')) notes.push({ key: 'shortcuts', action: '', toast: 'shortcut' })
-  if (paths.has('/home.json')) notes.push({ key: 'home', action: 'home', toast: 'home' })
-  if (paths.has('/ui.json')) notes.push({ key: 'ui', action: 'appearance', toast: 'ui' })
+  if (tags.has('shortcuts')) notes.push({ key: 'shortcuts', action: '', toast: 'shortcut' })
+  if (tags.has('home')) notes.push({ key: 'home', action: 'home', toast: 'home' })
+  if (tags.has('ui')) notes.push({ key: 'ui', action: 'appearance', toast: 'ui' })
   const pages = new Map()
   for (const p of paths) {
     const m = PAGE_RE.exec(p)

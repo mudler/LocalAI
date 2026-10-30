@@ -53,6 +53,26 @@ func (s *Service) Rel(principal, abs string) string {
 	return ""
 }
 
+// What a managed path holds (see Managed).
+const (
+	ManagedSettings = "localai" // LocalAI/ and the settings files in it
+	ManagedChats    = "chats"   // Chats/, one folder per chat
+)
+
+// Managed says whether LocalAI manages a path inside the home: ManagedSettings
+// for LocalAI/ and what is in it, ManagedChats for the Chats folder itself,
+// and "" for the user's own files. The Files page marks these paths and asks
+// before they are deleted or moved.
+func Managed(rel string) string {
+	switch {
+	case rel == "/"+session.SettingsDir || strings.HasPrefix(rel, "/"+session.SettingsDir+"/"):
+		return ManagedSettings
+	case rel == "/"+session.ChatsDir:
+		return ManagedChats
+	}
+	return ""
+}
+
 // TrashEntry is a deletion that can be undone.
 type TrashEntry struct {
 	Rev   int64

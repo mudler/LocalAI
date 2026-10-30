@@ -6,7 +6,7 @@ import LoadingSpinner from '../LoadingSpinner'
 import { StoredIn } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { useSwapMotion } from '../../hooks/useSwapMotion'
-import { shortcutList, cleanShortcuts, move } from '../../utils/wellKnown'
+import { shortcutList, cleanShortcuts, move, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import './wellKnown.css'
 
 export function defaultStarters(t) {
@@ -47,7 +47,7 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
       setDirty(false)
       onDone?.()
     } catch (e) {
-      if (e.conflict) { setProblem({ message: t('wellKnown.conflict', { file: 'shortcuts.json' }), errors: [], conflict: true }) } else setProblem({ message: e.message, errors: e.errors || [] })
+      if (e.conflict) { setProblem({ message: t('wellKnown.conflict', { file: WELL_KNOWN_FILES.shortcuts }), errors: [], conflict: true }) } else setProblem({ message: e.message, errors: e.errors || [] })
     } finally { setBusy(false) }
   }
   const reload = async () => { setDirty(false); setProblem(null); await wk.reload() }
@@ -57,8 +57,8 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
   return (
     <div className={inline ? 'wk-form' : 'wk-pop'} data-testid="wk-shortcuts-editor">
       {!inline && <h3>{t('wellKnown.shortcuts.edit')}</h3>}
-      {inline && <StoredIn file="shortcuts.json" onRevert={async () => { await wk.revert(); setDirty(false) }} canRevert={!!wk.doc?.exists} busy={busy} />}
-      {!inline && <StoredIn file="shortcuts.json" />}
+      {inline && <StoredIn file={WELL_KNOWN_FILES.shortcuts} onRevert={async () => { await wk.revert(); setDirty(false) }} canRevert={!!wk.doc?.exists} busy={busy} />}
+      {!inline && <StoredIn file={WELL_KNOWN_FILES.shortcuts} />}
       <ol className="wk-rows" ref={listRef}>
         {rows.length === 0 && <li className="wk-row--empty">{t('wellKnown.shortcuts.none')}</li>}
         {rows.map((r, i) => (

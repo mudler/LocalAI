@@ -65,14 +65,14 @@ async function mockTriggers(page) {
 }
 
 test.beforeAll(async ({ request }) => {
-  await upload(request, '/home.json', { widgets })
+  await upload(request, '/LocalAI/home.json', { widgets })
   for (const [p, body] of Object.entries(data)) await upload(request, `/${p}`, body)
   await upload(request, '/data/w-broken.json', { items: [{ label: 'Paid: the studio rent' }] })
   await upload(request, '/data/w-broken.json', '{"items": "not a list"}')
   await request.delete(`/api/chats/files?path=${encodeURIComponent('/data/w-none.json')}`)
 })
 test.afterAll(async ({ request }) => {
-  for (const p of ['/home.json', ...Object.keys(data).map(p => `/${p}`), '/data/w-broken.json']) await request.delete(`/api/chats/files?path=${encodeURIComponent(p)}`)
+  for (const p of ['/LocalAI/home.json', ...Object.keys(data).map(p => `/${p}`), '/data/w-broken.json']) await request.delete(`/api/chats/files?path=${encodeURIComponent(p)}`)
 })
 test.afterAll(() => unlockHomeFiles())
 

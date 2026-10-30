@@ -33,8 +33,8 @@ var _ = Describe("persona and user files in the turn prompt", func() {
 	It("puts the persona after the chat's own prompt, and applies a change at the next turn", func() {
 		svc, h, f := newSkillChat()
 		writeSkill(f, alice, "/.skills/review/SKILL.md", "review", "check a change")
-		writeHome(f, alice, "/persona.json", `{"name":"Ada","system_prompt":"Answer in one line."}`)
-		writeHome(f, alice, "/user.json", `{"name":"Marta","timezone":"Europe/Rome"}`)
+		writeHome(f, alice, "/LocalAI/persona.json", `{"name":"Ada","system_prompt":"Answer in one line."}`)
+		writeHome(f, alice, "/LocalAI/user.json", `{"name":"Marta","timezone":"Europe/Rome"}`)
 		id := create(svc, alice)
 		sp := "CHAT PROMPT"
 		_, err := svc.Update(context.Background(), alice, id, studio.UpdateInput{Settings: &session.ChatSettings{SystemPrompt: sp}})
@@ -47,7 +47,7 @@ var _ = Describe("persona and user files in the turn prompt", func() {
 		Expect(strings.Index(p, sp)).To(BeNumerically("<", strings.Index(p, "Answer in one line.")), p)
 		Expect(strings.Index(p, "Answer in one line.")).To(BeNumerically("<", strings.Index(p, "check a change")), p)
 
-		writeHome(f, alice, "/persona.json", `{"name":"Bea","system_prompt":"Use bullet points."}`)
+		writeHome(f, alice, "/LocalAI/persona.json", `{"name":"Bea","system_prompt":"Use bullet points."}`)
 		sent(svc, alice, id, "two")
 		idle(svc, alice, id)
 		p = h.TurnPrompt(id)
@@ -57,7 +57,7 @@ var _ = Describe("persona and user files in the turn prompt", func() {
 
 	It("keeps one user's persona out of another user's chat", func() {
 		svc, h, f := newSkillChat()
-		writeHome(f, alice, "/persona.json", `{"name":"Ada","system_prompt":"ALICE ONLY"}`)
+		writeHome(f, alice, "/LocalAI/persona.json", `{"name":"Ada","system_prompt":"ALICE ONLY"}`)
 		id := create(svc, "bob")
 		sent(svc, "bob", id, "hi")
 		idle(svc, "bob", id)
