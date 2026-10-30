@@ -1,6 +1,6 @@
 {
   "title": "Pages",
-  "subtitle": "Small apps made of files in pages/ of your home. They run in a sandbox, as you, and keep their data next to them.",
+  "subtitle": "Small tools the assistant made for you. They open here, in a sandbox, and keep their data in your files.",
   "loading": "Loading your pages",
   "error": "The pages could not be read: {{message}}",
   "retry": "Try again",
@@ -13,20 +13,40 @@
       "assistant": "by the assistant"
     },
     "open": "Open",
-    "pin": "Pin",
-    "unpin": "Unpin",
+    "pin": "Pin to sidebar",
+    "unpin": "Unpin from sidebar",
     "pinFailed": "The pin was not saved: {{message}}",
     "ask": "Ask the assistant to change this",
-    "list": "Your pages"
+    "list": "Your pages",
+    "changedBy": {
+      "you": "Changed {{when}} by you",
+      "assistant": "Changed {{when}} by the assistant"
+    },
+    "menu": "More for {{title}}",
+    "files": "Show its files",
+    "rename": "Rename",
+    "renameLabel": "New folder name",
+    "renameHint": "Lowercase letters, digits and dashes.",
+    "renameSave": "Save",
+    "renameCancel": "Cancel",
+    "renameFailed": "The page was not renamed: {{message}}",
+    "delete": "Delete page",
+    "deleteTitle": "Delete \"{{title}}\"?",
+    "deleteMessage": "The folder {{folder}} goes to the Trash. You can restore it from Files.",
+    "deleted": "{{title}} is in the Trash.",
+    "deleteFailed": "The page was not deleted: {{message}}"
   },
   "empty": {
     "title": "No pages yet",
-    "text": "A page is an index.html in pages/<name>/ of your files. Ask the assistant for one in a chat (\"make me a reading list page\"), or start from a ready-made page and change it.",
+    "text": "A page is a small tool, like a task board or a reading list. Ask the assistant for one in a chat, or start from a ready page.",
     "starter": "Start from a task board",
-    "starting": "Copying the task board",
-    "starterFailed": "The task board was not copied: {{message}}",
-    "ask": "Ask the assistant for a page",
-    "askPrompt": "Make me a page in pages/ that "
+    "starting": "Copying the page",
+    "starterFailed": "The page was not copied: {{message}}",
+    "ask": "Ask for a page",
+    "askPrompt": "Make me a page that ",
+    "starterReading": "Start from a reading list",
+    "note": "This entry leaves the sidebar when you have no pages. It comes back with your next one.",
+    "learn": "How pages work"
   },
   "view": {
     "runsAsYou": "Runs as you",
@@ -57,5 +77,8 @@
     "sent": "Sent to {{title}}",
     "openChat": "Open chat",
     "failed": "Not sent: {{message}}"
-  }
+  },
+  "askNew": "Ask for a new page",
+  "yours": "Yours",
+  "filter": "Filter pages"
 }

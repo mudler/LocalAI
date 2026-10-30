@@ -209,3 +209,32 @@
   .pg-strip__actions { margin-left: 0; }
   .pg-frame { height: max(360px, calc(100dvh - 260px)); }
 }
+
+/* The list of the redesign: a group heading with its count, an icon pin
+   toggle and a row menu. */
+.pg-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-xs);
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.pg-group__count { color: var(--color-text-muted); font-family: var(--font-mono); }
+.pg-filter { margin-bottom: var(--spacing-sm); max-width: 320px; }
+.pg-pin { color: var(--color-text-muted); }
+.pg-pin--on { color: var(--dk-accent-text); }
+.pg-rename { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-xs); }
+.pg-rename__input { width: min(260px, 100%); font-family: var(--font-mono); }
+.pg-rename .pg-row__meta { flex-basis: 100%; }
+
+/* Empty: centred, one primary action, the ready pages, then what the entry
+   does. */
+.pg-page .pg-empty { align-items: center; margin: var(--spacing-xl) auto 0; text-align: center; }
+.pg-empty__chip { width: 48px; height: 48px; }
+.pg-empty__note { margin: var(--spacing-sm) 0 0; max-width: 46ch; font-size: var(--text-xs); color: var(--color-text-muted); }
+.pg-empty__note a { color: var(--color-text-secondary); }
+.pg-page .pg-empty__actions { justify-content: center; }
