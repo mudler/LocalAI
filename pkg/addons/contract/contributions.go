@@ -54,6 +54,13 @@ var IconNames = []string{
 	"check-circle", "alert-circle", "warning", "info", "edit", "trash", "download", "upload", "refresh",
 	"settings", "list", "grid", "chart-line", "clock", "calendar", "tag", "star", "link", "external-link",
 	"copy", "eye", "lock", "user", "users", "message", "sparkles", "chevron-down", "chevron-up", "chevron-right",
+	"arrow-left", "arrow-right", "chart-bar", "circle-dot", "clipboard", "code", "cube", "filter-off", "gender",
+	"globe", "headphones", "help-circle", "mic", "play", "plug-off", "save", "shield", "smile", "waveform",
+	"camera", "stop", "circle", "image", "spinner", "user-shield", "mask",
+	// Drawn by the Studio and Talk add-ons.
+	"boxes", "compass", "gauge", "ghost", "git-branch", "images", "key", "layers", "maximize", "memory", "music",
+	"pencil", "repeat", "server", "sliders", "square-dashed", "store", "undo", "video", "volume", "palette", "phone",
+	"columns", "chevron-left",
 }
 
 // componentName is the export name of a component of the addon module: a
