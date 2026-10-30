@@ -74039,7 +74039,7 @@
     - ggml
   files:
     - filename: audio-cpp/htdemucs-f16.gguf
-      sha256: f8c54ba35df95aafea7881eac214b58ec18a73cbcb6ff5a90f4b762631a286b6
+      sha256: 27763c59d7e65f64bbb326dc0c15beec952291954b70a813b7f4b83ebe6bd0c9
       uri: huggingface://audio-cpp/audio.cpp-gguf/HTDemucs-GGUF/htdemucs-f16.gguf
   overrides:
     backend: audio-cpp
