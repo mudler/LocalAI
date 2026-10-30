@@ -41,6 +41,8 @@ const (
 	routeSharedFolders          = "/api/chats/admin/shared-folders"
 	routeSharedFolderRestore    = "/api/chats/admin/shared-folders/restore"
 	routeSharedFolderEvents     = "/api/chats/admin/shared-folders/events"
+	routeChatTools              = "/api/chats/admin/tools"
+	routeHostExecEvents         = "/api/chats/admin/host-exec/events"
 )
 
 func routeSharedFolder(id int64) string {

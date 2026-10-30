@@ -117,6 +117,16 @@ type LocalAIClient interface {
 	RemoveSharedFolderMember(ctx context.Context, id int64, member string) (*SharedFolder, error)
 	ListSharedFolderEvents(ctx context.Context, limit int) ([]SharedFolderEvent, error)
 
+	// ---- Built-in chat tools ----
+
+	// ListChatTools lists the built-in chat tools an add-on may replace (bash
+	// on this machine, the web tools): on or off, who serves each, the add-ons
+	// that replace it, and for bash the mode of chats_host_exec.
+	ListChatTools(ctx context.Context) ([]ChatBuiltinTool, error)
+	// ListHostExecEvents reads the audit of the commands the chats' built-in
+	// bash ran on this machine, newest first.
+	ListHostExecEvents(ctx context.Context, limit int) ([]HostExecEvent, error)
+
 	// ---- Usage / billing ----
 
 	// GetUsageStats returns aggregated token usage. In single-user

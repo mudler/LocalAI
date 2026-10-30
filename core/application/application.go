@@ -792,6 +792,7 @@ func (a *Application) start() (startErr error) {
 			}
 			return nil
 		}
+		assistantClient.Chats = a.StudioService
 		if a.backendLibrary != nil {
 			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
 		}

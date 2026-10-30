@@ -30,6 +30,8 @@ const (
 	ToolListVoiceProfiles         = "list_voice_profiles"
 	ToolListSharedFolders         = "list_shared_folders"
 	ToolListSharedFolderEvents    = "list_shared_folder_events"
+	ToolListChatTools             = "list_chat_tools"
+	ToolListHostExecEvents        = "list_host_exec_events"
 
 	// Mutating tools — guarded by Options.DisableMutating and the
 	// LLM-side safety prompt (see prompts/10_safety.md).

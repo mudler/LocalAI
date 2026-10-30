@@ -563,6 +563,30 @@ var _ = Describe("Shared folders", func() {
 		Expect(evs[0].Action).To(Equal("create"))
 	})
 
+	It("lists the built-in chat tools and the audit of the commands on this machine", func() {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer GinkgoRecover()
+			switch r.URL.Path {
+			case "/api/chats/admin/tools":
+				_, _ = w.Write([]byte(`{"tools":[{"id":"bash","label":"Commands (bash)","setting":"chats_host_exec","enabled":true,"provider":"builtin","candidates":[],"mode":"ask"}]}`))
+			case "/api/chats/admin/host-exec/events":
+				Expect(r.URL.Query().Get("limit")).To(Equal("3"))
+				_, _ = w.Write([]byte(`{"events":[{"user":"alice","chat":"c1","command":"ls","exit":0,"duration_ms":4,"at":"2026-10-30T09:00:00Z"}]}`))
+			default:
+				Fail("unexpected path " + r.URL.Path)
+			}
+		}))
+		DeferCleanup(srv.Close)
+		tools, err := New(srv.URL, "").ListChatTools(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tools).To(HaveLen(1))
+		Expect(tools[0].Mode).To(Equal("ask"))
+		evs, err := New(srv.URL, "").ListHostExecEvents(ctx, 3)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(evs).To(HaveLen(1))
+		Expect(evs[0].Command).To(Equal("ls"))
+	})
+
 	It("creates, renames, removes and restores a folder", func() {
 		out, err := New(serve(http.MethodPost, "/api/chats/admin/shared-folders", map[string]any{"name": "Team"}, folder).URL, "").CreateSharedFolder(ctx, "Team")
 		Expect(err).NotTo(HaveOccurred())

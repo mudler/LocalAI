@@ -678,6 +678,14 @@ definitions:
       name:
         description: Name is one of capabilities.tools.
         type: string
+      shadows:
+        description: |-
+          Shadows names a built-in chat tool that this tool replaces. When the
+          add-on is installed, running and on for a chat, the model sees one tool
+          under that name, served by the add-on, and the built-in one is hidden.
+          Only a name in ReplaceableTools may be shadowed. A tool without it keeps
+          its add-on name (addon__<id>__<tool>).
+        type: string
       uiOnly:
         description: |-
           UIOnly marks a tool that only the add-on's own page may call, such as a
@@ -2494,6 +2502,29 @@ definitions:
           them on this server) or none (no add-on that runs them is installed for
           the user).
         type: string
+      commands_consent:
+        description: |-
+          CommandsConsent is ask when each command of the built-in bash waits for
+          a yes in the chat.
+        type: string
+      commands_fallback:
+        description: |-
+          CommandsFallback is the add-on that would serve bash but does not (it is
+          off for this chat, or cannot run), when the built-in serves instead;
+          CommandsFallbackReason says why: off, or the add-on's reason.
+        type: string
+      commands_fallback_reason:
+        type: string
+      commands_isolation:
+        description: |-
+          CommandsIsolation is isolated (a sandbox) or host (directly on this
+          machine, with its files and network), when Commands is available.
+        type: string
+      commands_provider:
+        description: |-
+          CommandsProvider serves bash, when Commands is available: builtin (the
+          built-in bash on this machine) or the ID of the add-on.
+        type: string
       commands_reason:
         description: CommandsReason is why commands cannot run, when Commands is unavailable.
         type: string
@@ -2843,6 +2874,46 @@ definitions:
         type: integer
       skipped:
         type: integer
+    type: object
+  schema.ChatsBuiltinTool:
+    properties:
+      candidates:
+        description: Candidates are the add-ons that replace it; Pinned the one chosen.
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      enabled:
+        type: boolean
+      id:
+        type: string
+      label:
+        type: string
+      mode:
+        description: 'Mode is chats_host_exec as it applies (bash only): off, ask
+          or on.'
+        type: string
+      pinned:
+        type: string
+      provider:
+        description: 'Provider serves it now: builtin, an add-on''s ID, or empty for
+          nothing.'
+        type: string
+      setting:
+        description: Setting is the runtime setting that switches it off.
+        type: string
+      unavailable:
+        description: Unavailable says why this server cannot run the built-in, or
+          is empty.
+        type: string
+    type: object
+  schema.ChatsBuiltinToolList:
+    properties:
+      tools:
+        items:
+          $ref: '#/definitions/schema.ChatsBuiltinTool'
+        type: array
     type: object
   schema.ChatsChatFile:
     properties:
@@ -3421,6 +3492,42 @@ definitions:
         type: integer
       title:
         type: string
+    type: object
+  schema.ChatsHostExecConsent:
+    properties:
+      decision:
+        enum:
+        - once
+        - deny
+        type: string
+      id:
+        type: string
+    type: object
+  schema.ChatsHostExecEvent:
+    properties:
+      at:
+        type: string
+      chat:
+        type: string
+      command:
+        type: string
+      duration_ms:
+        type: integer
+      exit:
+        type: integer
+      timed_out:
+        type: boolean
+      user:
+        type: string
+      user_name:
+        type: string
+    type: object
+  schema.ChatsHostExecEventList:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/schema.ChatsHostExecEvent'
+        type: array
     type: object
   schema.ChatsImportRequest:
     properties:
@@ -10861,8 +10968,13 @@ paths:
     get:
       description: 'The add-ons whose tools the signed-in user may use now, each with
         the chat''s switch, and whether the chat can run commands at its next turn
-        (commands: available, off, unavailable or none). Without the add-on host the
-        list is empty and commands is none.'
+        (commands: available, off, unavailable or none). When commands is available,
+        commands_provider says who serves bash (builtin: directly on this machine
+        with no isolation and with its network, or the add-on''s ID) and commands_isolation
+        says isolated or host; commands_consent is ask when each command waits for
+        a yes in the chat, and commands_fallback names an add-on that would serve
+        but does not (commands_fallback_reason: off, or why it cannot run). Without
+        the add-on host the list is empty.'
       parameters:
       - description: conversation id
         in: path
@@ -11085,6 +11197,43 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConversation'
       summary: Fork a chat from a message.
+      tags:
+      - chats
+  /api/chats/{id}/host-exec/consent:
+    post:
+      description: 'When chats_host_exec is ask, each command of the chat''s built-in
+        bash waits for an answer: a host_exec_consent event carries the id and the
+        command. once runs it (administrators only); deny refuses it (anyone who owns
+        the chat). The command runs with no isolation, as the user LocalAI runs as,
+        with the network of the server. Without an answer the call ends after 5 minutes.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the id of the event and the answer
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsHostExecConsent'
+      responses:
+        "204":
+          description: The answer was sent to the running turn
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Only an administrator can allow a command
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Allow or refuse one command of the built-in bash on this machine.
       tags:
       - chats
   /api/chats/{id}/mcp:
@@ -11659,6 +11808,26 @@ paths:
       summary: Switch off a connector binding of any user (administrators).
       tags:
       - chats
+  /api/chats/admin/host-exec/events:
+    get:
+      description: 'Every command the chats'' built-in bash ran directly on this machine:
+        who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it
+        did not exit by itself), how long it took and whether it timed out. The commands
+        had the network of the server, so this is also the record of what they could
+        reach.'
+      parameters:
+      - description: How many lines, newest first (default 100, at most 500)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The newest commands first
+          schema:
+            $ref: '#/definitions/schema.ChatsHostExecEventList'
+      summary: Read the audit of the commands run on this machine (administrators).
+      tags:
+      - chats
   /api/chats/admin/shared-folders:
     get:
       description: A member is a user, or @everyone for every user, with the mode
@@ -11880,6 +12049,22 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Restore a removed shared folder (administrators).
+      tags:
+      - chats
+  /api/chats/admin/tools:
+    get:
+      description: 'The built-in tools of the chats that an add-on may replace (bash,
+        and the web tools when they are installed): label, the runtime setting that
+        switches each off and whether it is on, who serves it now (builtin, an add-on''s
+        ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers,
+        and for bash the mode of chats_host_exec and why this server cannot run it,
+        if so. Change them with POST /api/settings.'
+      responses:
+        "200":
+          description: The built-in tools, by ID
+          schema:
+            $ref: '#/definitions/schema.ChatsBuiltinToolList'
+      summary: List the built-in chat tools (administrators).
       tags:
       - chats
   /api/chats/admin/triggers:

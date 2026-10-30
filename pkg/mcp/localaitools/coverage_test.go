@@ -49,6 +49,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolListVoiceProfiles:         "GET /api/voice-profiles",
 	ToolListSharedFolders:         "GET /api/chats/admin/shared-folders",
 	ToolListSharedFolderEvents:    "GET /api/chats/admin/shared-folders/events",
+	ToolListChatTools:             "GET /api/chats/admin/tools",
+	ToolListHostExecEvents:        "GET /api/chats/admin/host-exec/events",
 	ToolListFailoverChains:        "GET /api/failover",
 
 	// Mutating tools.

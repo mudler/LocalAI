@@ -3842,6 +3842,31 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/admin/host-exec/events": {
+            "get": {
+                "description": "Every command the chats' built-in bash ran directly on this machine: who, in which chat, the command (cut at 4 KiB), the exit code (-1 when it did not exit by itself), how long it took and whether it timed out. The commands had the network of the server, so this is also the record of what they could reach.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the audit of the commands run on this machine (administrators).",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "How many lines, newest first (default 100, at most 500)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The newest commands first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsHostExecEventList"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/admin/shared-folders": {
             "get": {
                 "description": "A member is a user, or @everyone for every user, with the mode read or write.",
@@ -4164,6 +4189,23 @@ const docTemplate = `{
                         "description": "No such folder",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/admin/tools": {
+            "get": {
+                "description": "The built-in tools of the chats that an add-on may replace (bash, and the web tools when they are installed): label, the runtime setting that switches each off and whether it is on, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. Change them with POST /api/settings.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the built-in chat tools (administrators).",
+                "responses": {
+                    "200": {
+                        "description": "The built-in tools, by ID",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsBuiltinToolList"
                         }
                     }
                 }
@@ -7350,7 +7392,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/addons": {
             "get": {
-                "description": "The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable or none). Without the add-on host the list is empty and commands is none.",
+                "description": "The add-ons whose tools the signed-in user may use now, each with the chat's switch, and whether the chat can run commands at its next turn (commands: available, off, unavailable or none). When commands is available, commands_provider says who serves bash (builtin: directly on this machine with no isolation and with its network, or the add-on's ID) and commands_isolation says isolated or host; commands_consent is ask when each command waits for a yes in the chat, and commands_fallback names an add-on that would serve but does not (commands_fallback_reason: off, or why it cannot run). Without the add-on host the list is empty.",
                 "tags": [
                     "chats"
                 ],
@@ -7663,6 +7705,56 @@ const docTemplate = `{
                         "description": "The new chat",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/host-exec/consent": {
+            "post": {
+                "description": "When chats_host_exec is ask, each command of the chat's built-in bash waits for an answer: a host_exec_consent event carries the id and the command. once runs it (administrators only); deny refuses it (anyone who owns the chat). The command runs with no isolation, as the user LocalAI runs as, with the network of the server. Without an answer the call ends after 5 minutes.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Allow or refuse one command of the built-in bash on this machine.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the id of the event and the answer",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsHostExecConsent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "The answer was sent to the running turn"
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Only an administrator can allow a command",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -13892,6 +13984,10 @@ const docTemplate = `{
                     "description": "Name is one of capabilities.tools.",
                     "type": "string"
                 },
+                "shadows": {
+                    "description": "Shadows names a built-in chat tool that this tool replaces. When the\nadd-on is installed, running and on for a chat, the model sees one tool\nunder that name, served by the add-on, and the built-in one is hidden.\nOnly a name in ReplaceableTools may be shadowed. A tool without it keeps\nits add-on name (addon__\u003cid\u003e__\u003ctool\u003e).",
+                    "type": "string"
+                },
                 "uiOnly": {
                     "description": "UIOnly marks a tool that only the add-on's own page may call, such as a\nsettings change that asks the host whether the caller is an\nadministrator. It is never offered to a model, a chat or an agent. The\npage has no resource to name, so it must be a read tool without one.",
                     "type": "boolean"
@@ -16330,6 +16426,25 @@ const docTemplate = `{
                     "description": "Commands says whether the chat can run commands and code at its next\nturn: available, off (the add-on that runs them is switched off for this\nchat or not named by its agent), unavailable (installed, but it cannot run\nthem on this server) or none (no add-on that runs them is installed for\nthe user).",
                     "type": "string"
                 },
+                "commands_consent": {
+                    "description": "CommandsConsent is ask when each command of the built-in bash waits for\na yes in the chat.",
+                    "type": "string"
+                },
+                "commands_fallback": {
+                    "description": "CommandsFallback is the add-on that would serve bash but does not (it is\noff for this chat, or cannot run), when the built-in serves instead;\nCommandsFallbackReason says why: off, or the add-on's reason.",
+                    "type": "string"
+                },
+                "commands_fallback_reason": {
+                    "type": "string"
+                },
+                "commands_isolation": {
+                    "description": "CommandsIsolation is isolated (a sandbox) or host (directly on this\nmachine, with its files and network), when Commands is available.",
+                    "type": "string"
+                },
+                "commands_provider": {
+                    "description": "CommandsProvider serves bash, when Commands is available: builtin (the\nbuilt-in bash on this machine) or the ID of the add-on.",
+                    "type": "string"
+                },
                 "commands_reason": {
                     "description": "CommandsReason is why commands cannot run, when Commands is unavailable.",
                     "type": "string"
@@ -16815,6 +16930,60 @@ const docTemplate = `{
                 },
                 "skipped": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsBuiltinTool": {
+            "type": "object",
+            "properties": {
+                "candidates": {
+                    "description": "Candidates are the add-ons that replace it; Pinned the one chosen.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "mode": {
+                    "description": "Mode is chats_host_exec as it applies (bash only): off, ask or on.",
+                    "type": "string"
+                },
+                "pinned": {
+                    "type": "string"
+                },
+                "provider": {
+                    "description": "Provider serves it now: builtin, an add-on's ID, or empty for nothing.",
+                    "type": "string"
+                },
+                "setting": {
+                    "description": "Setting is the runtime setting that switches it off.",
+                    "type": "string"
+                },
+                "unavailable": {
+                    "description": "Unavailable says why this server cannot run the built-in, or is empty.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsBuiltinToolList": {
+            "type": "object",
+            "properties": {
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsBuiltinTool"
+                    }
                 }
             }
         },
@@ -17584,6 +17753,61 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsHostExecConsent": {
+            "type": "object",
+            "properties": {
+                "decision": {
+                    "type": "string",
+                    "enum": [
+                        "once",
+                        "deny"
+                    ]
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsHostExecEvent": {
+            "type": "object",
+            "properties": {
+                "at": {
+                    "type": "string"
+                },
+                "chat": {
+                    "type": "string"
+                },
+                "command": {
+                    "type": "string"
+                },
+                "duration_ms": {
+                    "type": "integer"
+                },
+                "exit": {
+                    "type": "integer"
+                },
+                "timed_out": {
+                    "type": "boolean"
+                },
+                "user": {
+                    "type": "string"
+                },
+                "user_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsHostExecEventList": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsHostExecEvent"
+                    }
                 }
             }
         },
