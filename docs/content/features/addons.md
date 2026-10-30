@@ -2483,7 +2483,8 @@ people or conversations, not part of the chat history and not sent to the model.
   header the chat sends), never from the model's arguments, and the owner authorizes the
   reference for the caller on every call. A reference that was revoked, whose resource was
   deleted, that was edited in the store or that belongs to another person gets the denial of
-  an unknown resource; the reference stays and works again if the grant does.
+  an unknown resource: the result of kind `error` with code `resource_unreachable`, from the
+  owner and from every frontend. The reference stays and works again if the grant does.
 - With no selection the tool call returns a result of kind `error` and code
   `select_resource`: no operation runs and the model is told to ask the person to choose.
 - A refusal the model can act on is a result of kind `error`, never a raw error string.

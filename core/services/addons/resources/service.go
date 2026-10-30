@@ -1440,6 +1440,11 @@ func (s *Service) ResolveSelection(ctx context.Context, actor contract.Actor, co
 		return "", gateway.ErrNotSelected
 	}
 	if _, _, err = s.authorizeSelected(ctx, actor, addonID, id); err != nil {
+		if err == gateway.ErrForbidden { //nolint:errorlint // classify returns the plain denial itself
+			// A revoked, deleted or foreign reference is the answer for a
+			// resource ID the tool call named that the person cannot reach.
+			return "", gateway.ErrResourceUnreachable
+		}
 		return "", err
 	}
 	return id, nil

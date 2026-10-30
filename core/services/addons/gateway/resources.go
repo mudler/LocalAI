@@ -581,6 +581,10 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 		status, body.Type = http.StatusForbidden, wireQuota
 	case errors.Is(e, ErrNotSelected):
 		status, body.Type = http.StatusNotFound, wireNotSelected
+	case errors.Is(e, ErrNotPermitted) && !errors.Is(e, ErrUnavailable):
+		status, body.Type = http.StatusForbidden, wireNotPermitted
+	case errors.Is(e, ErrResourceUnreachable) && !errors.Is(e, ErrUnavailable):
+		status, body.Type = http.StatusForbidden, wireUnreachable
 	default:
 		typedError(w, e)
 		return
@@ -633,6 +637,16 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 			return ErrQuotaReached
 		case wireNotSelected:
 			return ErrNotSelected
+		}
+		if status == http.StatusForbidden {
+			// The owner names these denials, so a forwarding frontend tells
+			// the model what the owner decided.
+			switch b.Type {
+			case wireNotPermitted:
+				return ErrNotPermitted
+			case wireUnreachable:
+				return ErrResourceUnreachable
+			}
 		}
 	}
 	if status == http.StatusForbidden {
