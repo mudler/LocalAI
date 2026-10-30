@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path"
 	"strings"
 
@@ -104,4 +105,72 @@ func (s *Service) announceFileChanges(a workspace.Actor, tools []session.Tool) [
 		}
 	}
 	return tools
+}
+
+// ResolveAttachments returns the entries of a conversation's transcript as
+// the person reads them. A user message has its files apart from its words
+// (an old message holds the list of files in its text: it is split), each at
+// its current path: a file whose chat folder was renamed is found under the
+// new name. A file that is no longer there is marked Missing. Without files,
+// or when a file cannot be checked, an attachment is left as stored. It reads
+// the shared workspace, so every frontend gives the same answer.
+func (s *Service) ResolveAttachments(ctx context.Context, user, conv string, entries []session.Entry) []session.Entry {
+	p := principal(user)
+	out := make([]session.Entry, len(entries))
+	var (
+		folder  string
+		lookups = map[string]*workspace.Node{}
+		ws      workspace.Store
+	)
+	if s.d.Files.Available() {
+		ws = s.d.Files.Store()
+		if rec, err := s.d.Store.GetChat(ctx, p, conv); err == nil && rec.Folder != "" {
+			folder = session.ChatsPath(p) + "/" + rec.Folder
+		}
+	}
+	home := session.HomePath(p)
+	actor := workspace.Actor{Principal: p}
+	// stat answers nil for a path that is not a file; ok is false when the
+	// store could not say.
+	stat := func(abs string) (*workspace.Node, bool) {
+		if n, seen := lookups[abs]; seen {
+			return n, true
+		}
+		n, err := ws.Stat(ctx, actor, abs)
+		switch {
+		case err == nil && n.Kind == workspace.KindFile:
+			lookups[abs] = &n
+		case err == nil, errors.Is(err, workspace.ErrNotFound), errors.Is(err, workspace.ErrBadName):
+			lookups[abs] = nil
+		default:
+			return nil, false
+		}
+		return lookups[abs], true
+	}
+	for i, e := range entries {
+		e = session.DisplayEntry(e)
+		if ws != nil && len(e.Attachments) > 0 {
+			atts := make([]session.Attachment, len(e.Attachments))
+			for j, a := range e.Attachments {
+				n, ok := stat(home + a.Path)
+				if ok && n == nil && folder != "" && a.Name != "" {
+					n, ok = stat(folder + "/" + a.Name)
+				}
+				switch {
+				case !ok:
+				case n == nil:
+					a.Missing = true
+				default:
+					a.Path = strings.TrimPrefix(n.Path, home)
+					if a.Size == 0 {
+						a.Size = n.Size
+					}
+				}
+				atts[j] = a
+			}
+			e.Attachments = atts
+		}
+		out[i] = e
+	}
+	return out
 }

@@ -2832,6 +2832,28 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsAttachment:
+    properties:
+      mime:
+        type: string
+      missing:
+        description: Missing is true when the file is no longer in your files.
+        type: boolean
+      name:
+        type: string
+      path:
+        description: |-
+          Path is the file's path inside your home, for the files API
+          (GET /api/chats/files/content?path=). It follows a rename of the chat's
+          folder.
+        type: string
+      size:
+        description: Size is in bytes.
+        type: integer
+      version:
+        description: Version is the version of the file that the message carried.
+        type: integer
+    type: object
   schema.ChatsBrowserImport:
     properties:
       failed:
@@ -3671,6 +3693,11 @@ definitions:
           that goes with the result.
       at:
         type: string
+      attachments:
+        description: Attachments are the files of a user line.
+        items:
+          $ref: '#/definitions/schema.ChatsAttachment'
+        type: array
       card:
         allOf:
         - $ref: '#/definitions/schema.ChatsToolCard'
@@ -3692,6 +3719,9 @@ definitions:
       seq:
         type: integer
       text:
+        description: |-
+          Text is what was written. For a user line it is the text you typed:
+          the files you attached are in Attachments.
         type: string
       turn:
         type: integer
@@ -3761,6 +3791,10 @@ definitions:
     type: object
   schema.ChatsPending:
     properties:
+      attachments:
+        items:
+          $ref: '#/definitions/schema.ChatsAttachment'
+        type: array
       id:
         type: string
       seq:

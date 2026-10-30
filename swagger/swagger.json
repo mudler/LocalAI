@@ -16800,6 +16800,33 @@
                 }
             }
         },
+        "schema.ChatsAttachment": {
+            "type": "object",
+            "properties": {
+                "mime": {
+                    "type": "string"
+                },
+                "missing": {
+                    "description": "Missing is true when the file is no longer in your files.",
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the file's path inside your home, for the files API\n(GET /api/chats/files/content?path=). It follows a rename of the chat's\nfolder.",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Size is in bytes.",
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "Version is the version of the file that the message carried.",
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ChatsBrowserImport": {
             "type": "object",
             "properties": {
@@ -17952,6 +17979,13 @@
                 "at": {
                     "type": "string"
                 },
+                "attachments": {
+                    "description": "Attachments are the files of a user line.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAttachment"
+                    }
+                },
                 "card": {
                     "description": "Card is set on a tool line that points at a record, such as a trigger\nproposal (kind trigger_proposal, id the proposal's id).",
                     "allOf": [
@@ -17976,6 +18010,7 @@
                     "type": "integer"
                 },
                 "text": {
+                    "description": "Text is what was written. For a user line it is the text you typed:\nthe files you attached are in Attachments.",
                     "type": "string"
                 },
                 "turn": {
@@ -18084,6 +18119,12 @@
         "schema.ChatsPending": {
             "type": "object",
             "properties": {
+                "attachments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAttachment"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },

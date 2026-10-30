@@ -262,7 +262,7 @@ func (h *Handlers) Get(c echo.Context) error {
 	h.svc.MarkChatNotificationsRead(c.Request().Context(), user, id)
 	out := schema.ChatsConversationDetail{ChatsConversation: conv, Pending: make([]schema.ChatsPending, 0, len(pend))}
 	for _, p := range pend {
-		out.Pending = append(out.Pending, schema.ChatsPending{ID: p.ID, Text: p.Text, Seq: p.Seq})
+		out.Pending = append(out.Pending, pendingOf(p))
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -296,7 +296,27 @@ func (h *Handlers) Messages(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	entries = h.svc.ResolveAttachments(c.Request().Context(), userID(c), c.Param("id"), entries)
 	return c.JSON(http.StatusOK, messageList(h.svc.Principal(userID(c)), entries))
+}
+
+// attachmentsOf maps the files of a message to the API's shape.
+func attachmentsOf(atts []session.Attachment) []schema.ChatsAttachment {
+	if len(atts) == 0 {
+		return nil
+	}
+	out := make([]schema.ChatsAttachment, len(atts))
+	for i, a := range atts {
+		out[i] = schema.ChatsAttachment{Path: a.Path, Name: a.Name, Size: a.Size, Mime: a.Mime, Version: a.Version, Missing: a.Missing}
+	}
+	return out
+}
+
+// pendingOf is a waiting message as the person reads it. It holds the text
+// the model will get, so the files are split out of it.
+func pendingOf(p store.Pending) schema.ChatsPending {
+	text, _, atts := session.SplitMessage(p.Text)
+	return schema.ChatsPending{ID: p.ID, Text: text, Attachments: attachmentsOf(atts), Seq: p.Seq}
 }
 
 // homePaths turns the workspace paths of a checkpoint line into paths inside
@@ -315,8 +335,12 @@ func homePaths(principal, text string) string {
 func messageList(principal string, entries []session.Entry) schema.ChatsMessageList {
 	out := schema.ChatsMessageList{Messages: make([]schema.ChatsMessage, 0, len(entries))}
 	for _, e := range entries {
+		// A user line shows the words; the files go apart, also for a line
+		// stored with the list of files in its text.
+		e = session.DisplayEntry(e)
 		m := schema.ChatsMessage{
-			Seq: e.Seq, Turn: e.Turn, Role: e.Role, Text: e.Text, DurMs: e.Dur.Milliseconds(), At: e.At,
+			Seq: e.Seq, Turn: e.Turn, Role: e.Role, Text: e.Text, Attachments: attachmentsOf(e.Attachments),
+			DurMs: e.Dur.Milliseconds(), At: e.At,
 		}
 		if e.Card != nil {
 			m.App = appJSON(e.Card.App, true)
