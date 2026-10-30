@@ -106,6 +106,16 @@ type Trigger struct {
 	// not confirmed. It is never enabled, so it never runs; confirming it clears
 	// the mark and switches it on. The package only stores the mark.
 	Proposed bool
+	// Outcome is the answer to a proposal, kept so the chat can show a receipt
+	// after a reload: OutcomeAccepted on the trigger that confirming made (same
+	// id as the proposal), OutcomeDeclined and OutcomeUndone on a row that
+	// stays a Proposed, never enabled record. Empty: a proposal that waits, or a
+	// trigger nobody proposed. OutcomeAt is when it was answered, and Touched
+	// says that the owner edited or switched the accepted trigger since. The
+	// package only stores them.
+	Outcome   string
+	OutcomeAt time.Time
+	Touched   bool
 	// Since is when the trigger began to watch. Times and changes before it
 	// start no run. Arm sets it.
 	Since time.Time
@@ -122,6 +132,20 @@ type Trigger struct {
 	Widget    string
 	EstTokens int
 }
+
+// The answers a proposal can have.
+const (
+	OutcomeAccepted = "accepted"
+	OutcomeDeclined = "declined"
+	OutcomeUndone   = "undone"
+)
+
+// Pending says whether t is a proposal that waits for an answer.
+func (t Trigger) Pending() bool { return t.Proposed && t.Outcome == "" }
+
+// Answered says whether t is a proposal that was declined or undone: a record
+// of the answer, not a trigger and not a waiting proposal.
+func (t Trigger) Answered() bool { return t.Proposed && t.Outcome != "" }
 
 // GapOrDefault gives MinGap, or DefaultFileGap when it is zero.
 func (t Trigger) GapOrDefault() time.Duration {

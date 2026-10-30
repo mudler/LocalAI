@@ -78,7 +78,7 @@ func utc(t time.Time) time.Time {
 	return t.UTC()
 }
 
-func normTrigger(t Trigger) Trigger { t.Since = utc(t.Since); return t }
+func normTrigger(t Trigger) Trigger { t.Since, t.OutcomeAt = utc(t.Since), utc(t.OutcomeAt); return t }
 
 func normRun(r Run) Run {
 	r.Due, r.Started, r.Ended = utc(r.Due), utc(r.Started), utc(r.Ended)

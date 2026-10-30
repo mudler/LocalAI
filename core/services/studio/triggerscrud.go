@@ -20,6 +20,12 @@ var (
 	ErrBadTrigger = errors.New("studio: invalid trigger")
 	// ErrTooManyTriggers means the user has the most triggers they may have.
 	ErrTooManyTriggers = fmt.Errorf("studio: a user can have at most %d triggers", maxTriggersPerUser)
+	// ErrProposalAnswered means the proposal is not waiting: it was accepted,
+	// declined or undone already, maybe from another tab.
+	ErrProposalAnswered = errors.New("studio: this proposal was already answered")
+	// ErrCannotUndo means an accepted trigger cannot be taken back; the text
+	// after it says why, for the person.
+	ErrCannotUndo = errors.New("studio: the trigger cannot be undone")
 	// ErrTriggersOff means the service has no trigger host.
 	ErrTriggersOff = errors.New("studio: triggers are not available")
 )
@@ -103,6 +109,31 @@ func (h *Triggers) ownedProposal(ctx context.Context, user, id string) (triggers
 	return t, nil
 }
 
+// pendingProposal is ownedProposal for a proposal that still waits: one that
+// was declined or undone answers ErrProposalAnswered.
+func (h *Triggers) pendingProposal(ctx context.Context, user, id string) (triggers.Trigger, error) {
+	t, err := h.ownedProposal(ctx, user, id)
+	if err != nil {
+		return t, err
+	}
+	if !t.Pending() {
+		return triggers.Trigger{}, ErrProposalAnswered
+	}
+	return t, nil
+}
+
+// countLive is how many of ts are triggers or waiting proposals: the records
+// of a declined or undone proposal take no place.
+func countLive(ts []triggers.Trigger) int {
+	n := 0
+	for _, t := range ts {
+		if !t.Answered() {
+			n++
+		}
+	}
+	return n
+}
+
 // build turns an input into a trigger of the owner, checking everything that can
 // be checked now. It does not set Since.
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
@@ -175,7 +206,7 @@ func (h *Triggers) CreateTrigger(ctx context.Context, user string, in TriggerInp
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	if len(mine) >= maxTriggersPerUser {
+	if countLive(mine) >= maxTriggersPerUser {
 		return triggers.Trigger{}, ErrTooManyTriggers
 	}
 	t.ID = newID()
@@ -201,6 +232,9 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 		return triggers.Trigger{}, err
 	}
 	t.ID = old.ID
+	// The answer to the proposal stays, and the edit is the reason the card
+	// can no longer undo it.
+	t.Outcome, t.OutcomeAt, t.Touched = old.Outcome, old.OutcomeAt, old.Touched || old.Outcome != ""
 	t = triggers.Arm(&old, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
 		return triggers.Trigger{}, err
@@ -219,6 +253,7 @@ func (h *Triggers) SetTriggerEnabled(ctx context.Context, user, id string, on bo
 	}
 	t := old
 	t.Enabled = on
+	t.Touched = old.Touched || old.Outcome != ""
 	t = triggers.Arm(&old, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
 		return triggers.Trigger{}, err
@@ -248,7 +283,7 @@ func (h *Triggers) HasProposal(ctx context.Context, user, chatID string) bool {
 	if err != nil {
 		return true
 	}
-	return slices.ContainsFunc(all, func(t triggers.Trigger) bool { return t.Proposed && t.SourceChatID == chatID })
+	return slices.ContainsFunc(all, func(t triggers.Trigger) bool { return t.Pending() && t.SourceChatID == chatID })
 }
 
 // maxProposals is how many proposals of a user may wait for an answer.
@@ -264,7 +299,7 @@ func (h *Triggers) Proposals(ctx context.Context, user string) ([]triggers.Trigg
 	if err != nil {
 		return nil, err
 	}
-	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return !t.Proposed }), nil
+	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return !t.Pending() }), nil
 }
 
 // ProposeTrigger stores a trigger that a model proposed. It is never enabled.
@@ -287,7 +322,7 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	}
 	pending := 0
 	for _, m := range mine {
-		if !m.Proposed {
+		if !m.Pending() {
 			continue
 		}
 		// A model that proposes the same thing again, in this chat or the next,
@@ -301,7 +336,7 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	switch {
 	case pending >= maxProposals:
 		return triggers.Trigger{}, ErrTooManyProposals
-	case len(mine) >= maxTriggersPerUser:
+	case countLive(mine) >= maxTriggersPerUser:
 		return triggers.Trigger{}, ErrTooManyTriggers
 	}
 	t.ID, t.Proposed = newID(), true
@@ -353,7 +388,7 @@ func gapText(d time.Duration) string {
 func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (triggers.Trigger, error) {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
-	old, err := h.ownedProposal(ctx, user, id)
+	old, err := h.pendingProposal(ctx, user, id)
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
@@ -362,6 +397,7 @@ func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (tr
 		t.TZ = tz
 	}
 	t.Proposed, t.Enabled = false, true
+	t.Outcome, t.OutcomeAt, t.Touched = triggers.OutcomeAccepted, h.o.Clock().UTC(), false
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
 	}
@@ -397,7 +433,7 @@ func (h *Triggers) linkWidget(ctx context.Context, t triggers.Trigger) {
 func (h *Triggers) EditProposal(ctx context.Context, user, id string, in TriggerInput) (triggers.Trigger, error) {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
-	old, err := h.ownedProposal(ctx, user, id)
+	old, err := h.pendingProposal(ctx, user, id)
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
@@ -419,14 +455,24 @@ func (h *Triggers) EditProposal(ctx context.Context, user, id string, in Trigger
 	return t, nil
 }
 
-// DismissProposal deletes a proposal.
+// DismissProposal declines a proposal. The record stays, hidden from the lists,
+// so the chat can say it was declined and offer to restore it. Declining one
+// twice is not an error.
 func (h *Triggers) DismissProposal(ctx context.Context, user, id string) error {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
-	if _, err := h.ownedProposal(ctx, user, id); err != nil {
+	t, err := h.ownedProposal(ctx, user, id)
+	if err != nil {
 		return err
 	}
-	return h.o.Store.DeleteTrigger(ctx, id)
+	switch t.Outcome {
+	case triggers.OutcomeDeclined:
+		return nil
+	case "":
+		t.Outcome, t.OutcomeAt = triggers.OutcomeDeclined, h.o.Clock().UTC()
+		return h.o.Store.PutTrigger(ctx, t)
+	}
+	return ErrProposalAnswered
 }
 
 // TriggerRuns returns the latest runs of a trigger of the user, newest first.
