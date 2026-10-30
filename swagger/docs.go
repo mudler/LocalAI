@@ -13411,6 +13411,13 @@ const docTemplate = `{
                     "type": "string",
                     "example": "notes"
                 },
+                "shadows": {
+                    "description": "Shadows lists the built-in chat tools the add-on replaces (bash, say).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "state": {
                     "description": "State is running, starting, failed or stopped: the observation of the\nprocess, never an update.",
                     "type": "string",

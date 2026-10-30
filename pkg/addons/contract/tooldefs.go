@@ -321,3 +321,15 @@ func IsResourceless(d ToolDefinition) bool {
 	_, has := root.Properties[ResourceArgument]
 	return !has
 }
+
+// ShadowedTools lists, in definition order, the built-in chat tools that the
+// tool definitions replace.
+func ShadowedTools(defs []ToolDefinition) []string {
+	var out []string
+	for _, d := range defs {
+		if d.Shadows != "" && Replaceable(d.Shadows) && !d.UIOnly {
+			out = append(out, d.Shadows)
+		}
+	}
+	return out
+}

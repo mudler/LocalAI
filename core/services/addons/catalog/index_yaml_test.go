@@ -112,6 +112,17 @@ var _ = Describe("library index document (YAML)", func() {
 		Expect(e).To(MatchError(ErrRefresh))
 	})
 	Context("tool hint", func() {
+		It("carries the built-in tools an add-on replaces, and refuses one that may not be replaced", func() {
+			body := yamlEntry + "  toolCount: 1\n  tools:\n    - bash\n  shadows:\n    - bash\n"
+			_, e, s := refreshBody(body)
+			Expect(e).NotTo(HaveOccurred())
+			page, e := (Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}).Search(ctx, Query{})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(page.Releases).To(HaveLen(1))
+			Expect(page.Releases[0].Shadows).To(Equal([]string{"bash"}))
+			_, e, _ = refreshBody(yamlEntry + "  toolCount: 1\n  tools:\n    - bash\n  shadows:\n    - write_file\n")
+			Expect(e).To(HaveOccurred())
+		})
 		It("carries toolCount and tools from the index to the listing", func() {
 			body := yamlEntry + "  toolCount: 2\n  tools:\n    - resource-exists\n    - tables-create\n"
 			_, e, s := refreshBody(body)

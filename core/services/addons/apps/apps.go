@@ -95,6 +95,8 @@ type App struct {
 	// full number. The manifest carries no tool descriptions.
 	Tools     []string `json:"tools"`
 	ToolCount int      `json:"toolCount"`
+	// Shadows lists the built-in chat tools the add-on replaces (bash, say).
+	Shadows []string `json:"shadows,omitempty"`
 	// ToolDefinitions are the model-facing definitions the manifest declares:
 	// the argument schema and the kind of each tool. The host serves them to
 	// chat from the verified manifest; the add-on process is never asked.
@@ -199,6 +201,7 @@ func build(s Snapshot, admin bool) App {
 	}
 	a.ToolCount = len(m.Capabilities.Tools)
 	a.Tools = append(a.Tools, m.Capabilities.Tools[:min(a.ToolCount, MaxTools)]...)
+	a.Shadows = contract.ShadowedTools(m.Capabilities.ToolDefinitions)
 	for _, d := range m.Capabilities.ToolDefinitions {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)

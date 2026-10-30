@@ -440,17 +440,14 @@
     description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
     mainPage: "sandbox"
     icon: "ui/icon.png"
-  toolCount: 9
+  toolCount: 4
   tools:
     - "bash"
-    - "read"
-    - "write"
-    - "edit"
-    - "glob"
-    - "grep"
     - "status"
     - "set-backend"
     - "confirm-host"
+  shadows:
+    - "bash"
 - id: "sandbox"
   name: Sandbox
   description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
@@ -469,17 +466,14 @@
     description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
     mainPage: "sandbox"
     icon: "ui/icon.png"
-  toolCount: 9
+  toolCount: 4
   tools:
     - "bash"
-    - "read"
-    - "write"
-    - "edit"
-    - "glob"
-    - "grep"
     - "status"
     - "set-backend"
     - "confirm-host"
+  shadows:
+    - "bash"
 - id: "slack"
   name: Slack
   description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."

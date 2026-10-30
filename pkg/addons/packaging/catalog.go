@@ -44,7 +44,10 @@ type catalogRelease struct {
 	// is capped at MaxEntryTools; ToolCount is the full number.
 	ToolCount int      `json:"toolCount,omitempty"`
 	Tools     []string `json:"tools,omitempty"`
-	UI        struct {
+	// Shadows repeats catalog.Release.Shadows: the built-in chat tools the
+	// manifest's tool definitions replace.
+	Shadows []string `json:"shadows,omitempty"`
+	UI      struct {
 		Title       string `json:"title"`
 		Description string `json:"description"`
 		MainPage    string `json:"mainPage"`
@@ -72,7 +75,7 @@ const MaxEntryTools = 32
 // toolFieldsYAML renders the toolCount and tools fields of a catalog entry
 // from the chat tools of a manifest. An add-on without chat tools has neither
 // field. Admin tools are not passed in: they are not chat tools.
-func toolFieldsYAML(tools []string, indent string) string {
+func toolFieldsYAML(tools []string, indent string, shadows ...string) string {
 	if len(tools) == 0 {
 		return ""
 	}
@@ -80,6 +83,12 @@ func toolFieldsYAML(tools []string, indent string) string {
 	fmt.Fprintf(&b, "%stoolCount: %d\n%stools:\n", indent, len(tools), indent)
 	for _, t := range tools[:min(len(tools), MaxEntryTools)] {
 		b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
+	}
+	if len(shadows) > 0 {
+		b.WriteString(indent + "shadows:\n")
+		for _, t := range shadows {
+			b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
+		}
 	}
 	return b.String()
 }
@@ -133,7 +142,7 @@ func cmdCatalogTools(args []string) error {
 			switch {
 			case strings.HasPrefix(line, "  toolCount:"):
 				continue
-			case strings.HasPrefix(line, "  tools:"):
+			case strings.HasPrefix(line, "  tools:"), strings.HasPrefix(line, "  shadows:"):
 				skip = true
 				continue
 			case skip && strings.HasPrefix(line, "    - "):
@@ -143,7 +152,7 @@ func cmdCatalogTools(args []string) error {
 			kept = append(kept, line)
 		}
 		text := strings.TrimRight(strings.Join(kept, ""), "\n") + "\n"
-		blocks[i] = text + toolFieldsYAML(m.Capabilities.Tools, "  ")
+		blocks[i] = text + toolFieldsYAML(m.Capabilities.Tools, "  ", contract.ShadowedTools(m.Capabilities.ToolDefinitions)...)
 	}
 	out := strings.Join(blocks, "")
 	if _, err := readCatalogIndex([]byte(out)); err != nil {
@@ -236,7 +245,7 @@ func cmdCatalog(args []string) error {
 			"title": title, "description": description, "main_page": mainPage, "icon": icon,
 		}
 		text := string(tmpl)
-		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(manifest.Capabilities.Tools, "")
+		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(manifest.Capabilities.Tools, "", contract.ShadowedTools(manifest.Capabilities.ToolDefinitions)...)
 		if mutable {
 			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)
 		}
