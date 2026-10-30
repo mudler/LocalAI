@@ -31,6 +31,7 @@ export function useServerChat() {
   const [chats, setChats] = useState([])
   // Unknown until the list answers; only an explicit false shows the notice.
   const [persistent, setPersistent] = useState(true)
+  const [imageModel, setImageModel] = useState('')
   const [files, setFiles] = useState({ on: true, reason: '' })
   const [activeId, setActiveId] = useState(null)
   const [detail, setDetail] = useState(null)
@@ -74,6 +75,7 @@ export function useServerChat() {
       setChats((data.conversations || []).filter(c => c.kind !== 'subagent'))
       setPersistent(data.persistent !== false)
       setFiles({ on: data.files !== false, reason: data.files_reason || '' })
+      setImageModel(data.image_model || '')
     } catch (e) {
       setError(e.message)
     }
@@ -310,7 +312,7 @@ export function useServerChat() {
   }, [refreshList, select])
 
   return {
-    chats, persistent, files, activeId, detail, messages, live, notes, error, failure, loading, usage, ticks,
+    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, loading, usage, ticks,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],

@@ -21,6 +21,8 @@ import { useChatFiles } from '../hooks/useChatFiles'
 import { chatAgentsApi, chatsApi, modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { CAP_CHAT } from '../utils/capabilities'
+import { seesImages } from '../utils/chatVision'
+import VisionNotice from '../components/chat/VisionNotice'
 // eslint-disable-next-line no-unused-vars
 import HomeComposer from '../components/home/HomeComposer'
 // eslint-disable-next-line no-unused-vars
@@ -823,7 +825,7 @@ function ChatPage() {
   // What a row of the model list says: whether it is loaded, what it can do
   // and, where the server can estimate it, how it fits this machine.
   const describeModel = (name, warm) => {
-    const vision = chatModels.find(m => m.id === name)?.capabilities?.includes('FLAG_VISION')
+    const vision = seesImages(chatModels.find(m => m.id === name))
     const reading = modelFit.reading(name)
     let fit = null
     if (warm) fit = { tone: 'ok', text: t('picker.readyNow') }
@@ -1139,6 +1141,7 @@ function ChatPage() {
                 onEditWithAssistant={manage ? undefined : () => { setInput(tw('wellKnown.shortcuts.assistantPrompt')); textareaRef.current?.focus() }}
               />
             )}
+            <VisionNotice files={files} model={effectiveModel} models={chatModels} imageModel={chat.imageModel} />
             <HomeComposer
               onDictateError={(m) => addToast(m, 'error')}
               message={input}
