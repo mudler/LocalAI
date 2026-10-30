@@ -417,6 +417,8 @@ func (c *Chat) onHarnessEvent(e Event) {
 		// An error event carries one of the fixed reasons, never the text
 		// of an internal error.
 		e.Text = fixedReason(e.Text)
+		// The structured cause is the chat's to set: a harness cannot.
+		e.Code, e.Model, e.Retry, e.Detail = "", "", 0, ""
 		e.Tool = nil
 		// Only the chat knows whether an error ended the turn; a harness
 		// cannot claim it.
@@ -483,32 +485,6 @@ var (
 	numberRe     = regexp.MustCompile(`\d{3,}`)
 	httpStatusRe = regexp.MustCompile(`HTTP (\d{3})`)
 )
-
-// reasonFor picks the reason for an error that ended a turn. It names what the
-// user can act on and never quotes the error: an internal address or a stack
-// would not belong in a chat.
-func reasonFor(err error) string {
-	msg := err.Error()
-	lower := strings.ToLower(msg)
-	switch {
-	case strings.Contains(msg, MarkNotAllowed):
-		return ReasonNotAllowed
-	case strings.Contains(msg, MarkQuota):
-		return ReasonQuota
-	case strings.Contains(lower, "context") && (strings.Contains(lower, "exceed") || strings.Contains(lower, "too long") ||
-		strings.Contains(lower, "too small") || strings.Contains(lower, "too large") || strings.Contains(lower, "overflow")):
-		return contextReason(msg)
-	case strings.Contains(msg, "not found in available tools"):
-		return unknownToolReason(msg)
-	case strings.Contains(msg, "the model failed "):
-		reason := reasonModelFailedPrefix + " several times in a row, so the turn was stopped."
-		if m := httpStatusRe.FindStringSubmatch(msg); m != nil {
-			reason = reasonModelFailedPrefix + " several times in a row (HTTP " + m[1] + "), so the turn was stopped. Check that the model and its backend are running."
-		}
-		return reason
-	}
-	return reasonAgent
-}
 
 var toolNameRe = regexp.MustCompile(`selected tool ([A-Za-z0-9_.:-]{1,64}) not found`)
 
@@ -865,7 +841,8 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		c.mu.Unlock()
 		if err != nil && !(stopped && (errors.Is(err, context.Canceled) || ctx.Err() != nil)) {
 			c.m.log.Error("session: the harness failed", "chat", c.id, "turn", n, "error", err)
-			c.emit(Event{Kind: KindError, Turn: n, Text: reasonFor(err), Fatal: true})
+			f := Classify(err)
+			c.emit(Event{Kind: KindError, Turn: n, Text: f.Reason, Code: f.Code, Model: f.Model, Retry: f.RetryAfter, Detail: f.Detail, Fatal: true})
 		}
 	}
 	c.flushReasoning(context.Background(), n)

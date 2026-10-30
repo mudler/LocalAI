@@ -223,6 +223,14 @@ type ChatsEvent struct {
 	After  int `json:"after,omitempty"`
 	// Usage is set on usage events: what one model request used.
 	Usage *ChatsUsage `json:"usage,omitempty"`
+	// Code, Model, Retry and Detail say why a turn failed (error only). Code
+	// is a stable name of the cause, such as model_backend_missing; Model names
+	// the model it is about; Retry is the seconds until a model in cooldown
+	// loads again; Detail is the error text without addresses and secrets.
+	Code   string `json:"code,omitempty"`
+	Model  string `json:"model,omitempty"`
+	Retry  int    `json:"retry,omitempty"`
+	Detail string `json:"detail,omitempty"`
 }
 
 // ChatsUsage is what one model request used. It feeds the context meter and

@@ -17359,6 +17359,13 @@ const docTemplate = `{
                     "description": "Before and After are context sizes in tokens, for compacted.",
                     "type": "integer"
                 },
+                "code": {
+                    "description": "Code, Model, Retry and Detail say why a turn failed (error only). Code\nis a stable name of the cause, such as model_backend_missing; Model names\nthe model it is about; Retry is the seconds until a model in cooldown\nloads again; Detail is the error text without addresses and secrets.",
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
                 "ids": {
                     "description": "IDs names the messages of pending_delivered, the conversation of\nsub_agent_started and sub_agent_done, or the proposal of trigger_proposed.",
                     "type": "array",
@@ -17368,6 +17375,12 @@ const docTemplate = `{
                 },
                 "kind": {
                     "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "retry": {
+                    "type": "integer"
                 },
                 "text": {
                     "type": "string"
