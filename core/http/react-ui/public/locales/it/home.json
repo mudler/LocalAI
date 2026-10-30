@@ -82,13 +82,17 @@
       "step2Title": "Installa un modello",
       "step2Body": "Clicca installa per scaricarlo e configurarlo automaticamente.",
       "step3Title": "Inizia a chattare",
-      "step3Body": "Chatta con il tuo modello dal browser o usa l'API."
+      "step3Body": "Chatta con il tuo modello dal browser o usa l'API.",
+      "sandboxTitle": "Esegui il codice in sicurezza (facoltativo)",
+      "sandboxBody": "Installa il componente Sandbox perché il modello esegua codice e comandi in isolamento. Senza, il modello può usare solo il fallback bash integrato sull'host, che ha accesso completo alla rete e nessun isolamento."
     },
     "browseGallery": "Sfoglia galleria modelli",
     "importModel": "Importa modello",
     "docs": "Documentazione",
     "noModelsTitle": "Nessun modello disponibile",
-    "noModelsBody": "Non ci sono ancora modelli installati. Chiedi al tuo amministratore di configurare i modelli per iniziare a chattare."
+    "noModelsBody": "Non ci sono ancora modelli installati. Chiedi al tuo amministratore di configurare i modelli per iniziare a chattare.",
+    "sandboxInstall": "Installa Sandbox",
+    "sandboxSkip": "Salta"
   },
   "connect": {
     "title": "Un endpoint, ogni API",

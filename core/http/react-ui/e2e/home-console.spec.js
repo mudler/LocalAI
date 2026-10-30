@@ -1,6 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockHome, mockUser, LOADED } from './home-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
+import { app, mockAddons, stubAddonRoutes } from './addons-fixtures.js'
 
 // The Home console: command bar, slash menu, memory strip, resume list, first
 // run and the phone layout. Data is stubbed the way the other Home specs do it;
@@ -426,6 +427,42 @@ test.describe('Home first run', () => {
     await expect(guide.locator('.home-step').nth(1).locator('.home-starters')).toContainText('tiny-chat')
     await expect(guide.getByRole('button', { name: /browse model gallery/i })).toBeVisible()
     await expect(guide.getByRole('button', { name: /import model/i })).toBeVisible()
+  })
+
+  test('offers to install the Sandbox, says what happens without it, and can be skipped', async ({ page }) => {
+    await mockFirstRun(page)
+    await stubAddonRoutes(page)
+    await mockAddons(page, { apps: [] })
+    await ready(page)
+    const step = page.getByTestId('home-first-run-sandbox')
+    await expect(step).toContainText('Run code safely')
+    await expect(step).toContainText('built-in host bash fallback')
+    await expect(step).toContainText('full network access and no isolation')
+    await step.getByRole('button', { name: 'Skip' }).click()
+    await expect(step).toHaveCount(0)
+    await page.reload()
+    await expect(page.getByTestId('home-first-run')).toBeVisible()
+    await expect(page.getByTestId('home-first-run-sandbox')).toHaveCount(0)
+  })
+
+  test('the Sandbox step opens the add-on browser', async ({ page }) => {
+    await mockFirstRun(page)
+    await stubAddonRoutes(page)
+    await mockAddons(page, { apps: [] })
+    await ready(page)
+    await page.getByTestId('home-first-run-sandbox').getByRole('button', { name: 'Install Sandbox' }).click()
+    await expect(page).toHaveURL(/\/app\/addons\?tab=browse&q=sandbox/)
+  })
+
+  test('the Sandbox step is hidden once the Sandbox is installed', async ({ page }) => {
+    await mockFirstRun(page)
+    await stubAddonRoutes(page)
+    await mockAddons(page, { apps: [app({ id: 'sandbox', name: 'sandbox', title: 'Sandbox', hasUI: false, mainPage: undefined })] })
+    const listed = page.waitForResponse(/\/api\/addons\/apps(\?|$)/)
+    await ready(page)
+    await listed
+    await expect(page.getByTestId('home-first-run')).toBeVisible()
+    await expect(page.getByTestId('home-first-run-sandbox')).toHaveCount(0)
   })
 
   test('the command bar waits for a model and the strip says nothing runs', async ({ page }) => {

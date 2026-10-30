@@ -76,13 +76,17 @@
       "step2Title": "Installer un modèle",
       "step2Body": "Cliquez sur installer pour le télécharger et le configurer automatiquement.",
       "step3Title": "Commencer à discuter",
-      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API."
+      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API.",
+      "sandboxTitle": "Exécuter du code en sécurité (facultatif)",
+      "sandboxBody": "Installez le module Sandbox pour que le modèle exécute code et commandes en isolation. Sans lui, le modèle ne peut utiliser que le bash intégré de l'hôte, qui a un accès réseau complet et aucune isolation."
     },
     "browseGallery": "Parcourir la galerie",
     "importModel": "Importer un modèle",
     "docs": "Docs",
     "noModelsTitle": "Aucun modèle disponible",
-    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter."
+    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter.",
+    "sandboxInstall": "Installer Sandbox",
+    "sandboxSkip": "Ignorer"
   },
   "starters": {
     "title": "Recommandé pour votre matériel",

@@ -82,13 +82,17 @@
       "step2Title": "Modell installieren",
       "step2Body": "Klicken Sie auf Installieren, um es automatisch herunterzuladen und zu konfigurieren.",
       "step3Title": "Chat starten",
-      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API."
+      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API.",
+      "sandboxTitle": "Code sicher ausführen (optional)",
+      "sandboxBody": "Installieren Sie das Sandbox-Add-on, damit das Modell Code und Befehle isoliert ausführt. Ohne es kann das Modell nur den eingebauten Host-bash-Fallback nutzen, der vollen Netzwerkzugriff und keine Isolation hat."
     },
     "browseGallery": "Modellgalerie durchsuchen",
     "importModel": "Modell importieren",
     "docs": "Dokumentation",
     "noModelsTitle": "Keine Modelle verfügbar",
-    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können."
+    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können.",
+    "sandboxInstall": "Sandbox installieren",
+    "sandboxSkip": "Überspringen"
   },
   "connect": {
     "title": "Ein Endpunkt, jede API",

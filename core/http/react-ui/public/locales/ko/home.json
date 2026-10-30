@@ -82,13 +82,17 @@
       "step2Title": "모델 설치",
       "step2Body": "설치를 클릭하면 자동으로 다운로드되고 구성됩니다.",
       "step3Title": "채팅 시작",
-      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요."
+      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요.",
+      "sandboxTitle": "코드를 안전하게 실행 (선택)",
+      "sandboxBody": "Sandbox 애드온을 설치하면 모델이 코드와 명령을 격리된 환경에서 실행합니다. 설치하지 않으면 모델은 내장 호스트 bash 대체 수단만 쓸 수 있으며, 이는 네트워크에 완전히 접근하고 격리가 없습니다."
     },
     "browseGallery": "모델 갤러리 둘러보기",
     "importModel": "모델 가져오기",
     "docs": "문서",
     "noModelsTitle": "사용 가능한 모델 없음",
-    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요."
+    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요.",
+    "sandboxInstall": "Sandbox 설치",
+    "sandboxSkip": "건너뛰기"
   },
   "connect": {
     "title": "하나의 엔드포인트, 모든 API",

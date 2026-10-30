@@ -471,6 +471,14 @@ without the path to its procedure, so the model explains instead of starting.
 The built-in `bash` is for a server that cannot run the Sandbox. Read this
 before you allow it:
 
+**First start.** While no model is installed, the Home page of an
+administrator lists the first steps. The optional last step, **Run code
+safely**, offers to install the Sandbox add-on (it opens the add-on browser at
+the Sandbox) and says what happens without it: the model can only use the
+built-in host `bash` fallback, which has full network access and no isolation.
+Press **Skip** to hide the step (the browser remembers it). The step is not
+shown when the Sandbox is already installed, or when add-ons are off.
+
 - **No isolation, full network.** A command runs as the user LocalAI runs as.
   It can read every file that LocalAI can read and reach the internet, your
   local network, the LocalAI API on the loopback and cloud metadata addresses.

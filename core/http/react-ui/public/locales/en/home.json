@@ -91,14 +91,18 @@
       "step2Title": "Install a Model",
       "step2Body": "Click install to download and configure it automatically.",
       "step3Title": "Start Chatting",
-      "step3Body": "Chat with your model right from the browser or use the API."
+      "step3Body": "Chat with your model right from the browser or use the API.",
+      "sandboxTitle": "Run code safely (optional)",
+      "sandboxBody": "Install the Sandbox add-on so the model runs code and commands isolated. Without it, the model can only use the built-in host bash fallback, which has full network access and no isolation."
     },
     "browseGallery": "Browse Model Gallery",
     "importModel": "Import Model",
     "docs": "Docs",
     "noModelsTitle": "No Models Available",
     "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting.",
-    "guideLabel": "Getting started"
+    "guideLabel": "Getting started",
+    "sandboxInstall": "Install Sandbox",
+    "sandboxSkip": "Skip"
   },
   "starters": {
     "title": "Recommended for your hardware",
