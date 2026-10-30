@@ -82,7 +82,9 @@ export default function WidgetFooter({ id, state, w, d, trigger, proposal, act, 
       break
     case 'paused':
       icon = 'pause'
-      text = k('paused', { schedule })
+      // The summary is the server's English sentence; after "was" it reads
+      // as a clause.
+      text = k('paused', { schedule: schedule.charAt(0).toLowerCase() + schedule.slice(1) })
       acts = btn(k('resume'), () => run(chatTriggersApi.enable), 'widget-resume')
       break
     case 'failedEmpty':
@@ -121,7 +123,7 @@ export default function WidgetFooter({ id, state, w, d, trigger, proposal, act, 
   const tokens = cost?.average_tokens || cost?.estimated_tokens || 0
   const extra = []
   if (trigger?.enabled && trigger.next_run && state !== 'firstRun') extra.push(k('next', { when: formatNext(trigger.next_run, trigger.time_zone) }))
-  if (trigger && tokens > 0) extra.push(k(cost.remote ? 'costRemote' : 'cost', { tokens: fmt(tokens, lang) }))
+  if (trigger?.enabled && tokens > 0) extra.push(k(cost.remote ? 'costRemote' : 'cost', { tokens: fmt(tokens, lang) }))
 
   return (
     <div id={id} className={`wk-foot${tone ? ` wk-foot--${tone}` : ''}`} data-testid="widget-footer" data-state={state} role={tone ? 'status' : undefined}>
