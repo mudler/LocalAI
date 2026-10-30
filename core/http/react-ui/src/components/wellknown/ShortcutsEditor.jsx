@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
@@ -24,9 +24,13 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState(null)
+  // The version the rows came from: a save starts from it, so a change by
+  // someone else while editing is a conflict and not lost.
+  const baseVersion = useRef(0)
 
   useEffect(() => {
     if (!wk.doc || dirty) return
+    baseVersion.current = wk.doc.version ?? 0
     setRows(shortcutList(wk.doc, defaultStarters(tc)).items)
   }, [wk.doc, dirty, tc])
 
@@ -36,7 +40,7 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
   const save = async () => {
     setBusy(true)
     try {
-      await wk.save({ shortcuts: cleanShortcuts(rows) })
+      await wk.save({ shortcuts: cleanShortcuts(rows) }, { version: baseVersion.current })
       setDirty(false)
       onDone?.()
     } catch (e) {

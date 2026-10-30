@@ -79,7 +79,12 @@ test('about you: a change by someone else while editing is a conflict that shows
   const persona = page.getByTestId('wk-card-persona')
   await expect(persona.getByTestId('wk-field-persona-name')).toHaveValue('Ada')
   await persona.getByTestId('wk-field-persona-name').fill('Mine')
+  // The change feed brings the other write to this tab while the form holds
+  // the edit: the save must still start from the version the edit started on.
+  const reread = page.waitForResponse(r => /\/api\/chats\/wellknown\/persona$/.test(r.url()) && r.request().method() === 'GET')
   await write(request, 'persona', { name: 'Theirs' })
+  await reread
+  await expect(persona.getByTestId('wk-field-persona-name')).toHaveValue('Mine')
   await persona.getByTestId('wk-save-persona').click()
   const conflict = persona.getByTestId('wk-conflict-persona')
   await expect(conflict).toContainText('Theirs')

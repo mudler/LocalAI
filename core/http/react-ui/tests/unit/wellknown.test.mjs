@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   createWellKnownApi, WellKnownError, fieldsFromSchema, checkField, changedValues, parseSource,
   shortcutList, cleanShortcuts, move, widgetList, cleanWidgets, widgetId, widgetData, sparkPath, formatMetric,
-  createWellKnownStore, wellKnownPath,
+  createWellKnownStore, wellKnownPath, editMeetsChange,
 } from '../../src/utils/wellKnown.js'
 
 const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -191,4 +191,17 @@ test('well-known store: files of other names and paths are kept apart', async ()
   assert.equal(store.snapshot('widget-data', '/data/a.json').doc, null)
   assert.equal(wellKnownPath('widget-data', '/data/a.json'), 'data/a.json')
   assert.equal(wellKnownPath('ui'), 'ui.json')
+})
+
+test('well-known conflict: a newer file that changed none of the edited keys can take the edit', () => {
+  const base = { theme: 'dark', pinnedPages: [] }
+  // A pin elsewhere changed pinnedPages only; the edit changes the theme.
+  assert.equal(editMeetsChange({ theme: 'light' }, base, { theme: 'dark', pinnedPages: ['tasks'] }), false)
+  // Someone else changed the theme too: the person must choose.
+  assert.equal(editMeetsChange({ theme: 'light' }, base, { theme: 'system', pinnedPages: [] }), true)
+  // A key the edit removes, which the other writer changed.
+  assert.equal(editMeetsChange({ accent: null }, { accent: '#111111' }, { accent: '#222222' }), true)
+  // Values compare by content, not identity.
+  assert.equal(editMeetsChange({ theme: 'light' }, { later: { x: 1 } }, { later: { x: 1 } }), false)
+  assert.equal(editMeetsChange({ later: { x: 2 } }, { later: { x: 1 } }, { later: { x: 3 } }), true)
 })

@@ -196,6 +196,16 @@ export function changedValues(fields, original, edited) {
   return out
 }
 
+// editMeetsChange says whether another writer changed one of the keys an edit
+// changes: pending holds the keys the edit sends (null removes one), base is
+// the file the edit started from and current is the newer file of a 409. When
+// it is false the edit can go on top of the newer file without losing the
+// other change (a pin next to an Appearance edit of ui.json, for example).
+export function editMeetsChange(pending, base, current) {
+  const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+  return Object.keys(pending || {}).some(k => !same(base?.[k], current?.[k]))
+}
+
 // parseSource reads the text of the Source view. It returns {value} for a JSON
 // object and {error} for anything else.
 export function parseSource(text) {

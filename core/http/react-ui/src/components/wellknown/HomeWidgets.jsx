@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Skeleton from '../Skeleton'
@@ -109,6 +109,10 @@ function ChatsWidget({ w, conversations, onResume }) {
 function LayoutEditor({ wk, onDone }) {
   const { t } = useTranslation('workspace')
   const [rows, setRows] = useState(() => widgetList(wk.doc))
+  // The version the rows came from: a save starts from it, so a change by
+  // someone else while editing is a conflict and not lost. After the conflict
+  // is shown, a second Save puts these rows on top of the newer file.
+  const baseVersion = useRef(wk.doc?.version ?? 0)
   const [files, setFiles] = useState([])
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState(null)
@@ -131,11 +135,14 @@ function LayoutEditor({ wk, onDone }) {
   const save = async () => {
     setBusy(true)
     try {
-      await wk.save({ widgets: cleanWidgets(rows) })
+      await wk.save({ widgets: cleanWidgets(rows) }, { version: baseVersion.current })
       onDone()
     } catch (e) {
       setProblem(e.conflict ? t('wellKnown.conflict', { file: 'home.json' }) : `${e.message}${e.errors?.length ? `: ${e.errors.join('; ')}` : ''}`)
-      if (e.conflict) await wk.reload()
+      if (e.conflict) {
+        baseVersion.current = e.current?.version ?? baseVersion.current
+        await wk.reload()
+      }
     } finally { setBusy(false) }
   }
 

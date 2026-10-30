@@ -5,7 +5,7 @@ import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
 import SchemaFields from './SchemaFields'
 import { useWellKnown, loadSchema } from '../../hooks/useWellKnown'
-import { fieldsFromSchema, changedValues, parseSource, sourceText } from '../../utils/wellKnown'
+import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText } from '../../utils/wellKnown'
 import './wellKnown.css'
 
 function timeLabel(d, locale) {
@@ -50,6 +50,10 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
   const [conflict, setConflict] = useState(null)
   const [savedAt, setSavedAt] = useState(null)
   const baseRef = useRef({})
+  // The version the form's values came from. An edit is saved from it, not
+  // from the newest version the change feed brought in meanwhile, so a change
+  // by someone else while editing is a conflict and not lost.
+  const baseVersion = useRef(0)
 
   useEffect(() => {
     let live = true
@@ -85,6 +89,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
   useEffect(() => {
     if (!doc || dirty) return
     baseRef.current = fileData
+    baseVersion.current = doc.version ?? 0
     setValues({ ...fileData, ...filled.values })
     setSource(sourceText(fileData))
   }, [doc, fileData, filled, dirty])
@@ -112,9 +117,9 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
       if (mode === 'source') {
         const parsed = parseSource(source)
         if (parsed.error) { setProblem({ message: t(`wellKnown.source.${parsed.error}`), errors: parsed.detail ? [parsed.detail] : [] }); return }
-        d = await wk.save(parsed.value, { replace: true })
+        d = await wk.save(parsed.value, { replace: true, version: baseVersion.current })
       } else {
-        d = await wk.save(pending)
+        d = await saveOnTop(pending)
       }
       done(d)
     } catch (e) {
@@ -122,6 +127,23 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
       else setProblem({ message: e.message, errors: e.errors || [] })
     } finally {
       setBusy(false)
+    }
+  }
+
+  // saveOnTop saves the form's changes from the version they started on.
+  // When the file changed meanwhile only in keys this edit leaves alone (a
+  // pinned page next to an Appearance edit of ui.json), the edit goes on top
+  // of the newer file once; when the other writer changed one of the same
+  // keys, the conflict is the person's to answer.
+  const saveOnTop = async (values) => {
+    try {
+      return await wk.save(values, { version: baseVersion.current })
+    } catch (e) {
+      if (!e.conflict) throw e
+      const theirs = { ...(e.current.data || {}) }
+      for (const k of Object.keys(e.current.prefilled || {})) delete theirs[k]
+      if (editMeetsChange(values, baseRef.current, theirs)) throw e
+      return wk.save(values, { version: e.current.version ?? 0 })
     }
   }
 
