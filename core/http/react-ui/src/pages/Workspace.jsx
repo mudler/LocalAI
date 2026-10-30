@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { filesApi } from '../utils/api'
@@ -114,7 +115,9 @@ function HistoryList({ ws, t }) {
 
 export default function Workspace() {
   const { t } = useTranslation('workspace')
-  const ws = useWorkspace('/')
+  // ?path= opens a folder, for example from "Show its files" of a page.
+  const [params] = useSearchParams()
+  const ws = useWorkspace(params.get('path') || '/')
   const [tab, setTab] = useState('files')
   const [selected, setSelected] = useState(null)
   const [dragging, setDragging] = useState(false)

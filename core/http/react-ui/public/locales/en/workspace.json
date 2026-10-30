@@ -184,5 +184,122 @@
         }
       }
     }
+  },
+  "discovery": {
+    "ex": {
+      "title": "Make LocalAI yours",
+      "lede": "Say it in a chat. The assistant saves it as a file you can change or undo.",
+      "hide": "Hide these",
+      "hiddenToast": "Examples hidden.",
+      "saveFailed": "Not saved: {{message}}",
+      "card1": {
+        "kicker": "You and the assistant",
+        "prompt": "Call me {{firstName}} and keep answers short",
+        "promptNoName": "Remember my name and keep answers short",
+        "what": "Saves user.json and persona.json"
+      },
+      "card2": {
+        "kicker": "A page",
+        "prompt": "Make me a task board",
+        "what": "Adds a page you open from the sidebar"
+      },
+      "card3": {
+        "kicker": "Every morning",
+        "prompt": "Every morning, summarise my inbox here",
+        "promptNoMail": "Every morning, list yesterday's chats here",
+        "what": "Adds a Home widget and a trigger you confirm"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "Done.",
+      "doneLink": "Change it in Account",
+      "ready": "Or start from a ready page:",
+      "readyTasks": "Task board",
+      "readyReading": "Reading list",
+      "readyFailed": "The page was not copied: {{message}}",
+      "learn": "How this works",
+      "inComposer": "Edit it if you like, then press Enter. Nothing is saved until you send it.",
+      "live": "Prompt added to the message box."
+    },
+    "home": {
+      "customise": "Customise Home"
+    },
+    "action": {
+      "undo": "Undo",
+      "openAccount": "Open in Account",
+      "openPage": "Open page",
+      "openHome": "Open Home",
+      "turnBackOn": "Turn them back on in Account"
+    },
+    "change": {
+      "profilePersona": "Saved your name in <code>user.json</code> and your instructions in <code>persona.json</code>. Every chat uses them from your next message.",
+      "profile": "Saved to your profile in <code>user.json</code>.",
+      "persona": "Saved <code>persona.json</code>. Every chat uses it from your next message.",
+      "shortcuts": "Saved <code>shortcuts.json</code>.",
+      "home": "Saved <code>home.json</code>. Home shows the change.",
+      "ui": "Saved <code>ui.json</code>.",
+      "pageCreated": "Created the page {{title}} in <code>{{folder}}</code>.",
+      "pageChanged": "Changed <code>{{file}}</code>.",
+      "offersOff": "Suggestions from the assistant are off.",
+      "undoing": "Undoing…",
+      "undone": "Undone.",
+      "undoFailed": "Not undone: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Added to your composer: {{label}}",
+      "pageCreated": "{{title}} is in Pages, in the sidebar",
+      "open": "Open",
+      "homeChanged": "Home updated.",
+      "themeChanged": "Theme changed."
+    },
+    "files": {
+      "learn": "These files change how LocalAI works for you.",
+      "tag": {
+        "profile": "Your profile",
+        "persona": "Assistant",
+        "shortcuts": "Shortcuts",
+        "home": "Home layout",
+        "ui": "Look",
+        "page": "Page"
+      }
+    },
+    "privacy": "The assistant receives your name, this text, your language and time zone at the start of every chat. Leave a field empty to keep it out.",
+    "versions": {
+      "label": "Versions",
+      "title": "Versions of {{file}}",
+      "titleBefore": "Versions of",
+      "loading": "Reading the history…",
+      "none": "No earlier version yet.",
+      "current": "current",
+      "invalid": "has an error",
+      "byAssistant": "By the assistant",
+      "byAssistantIn": "By the assistant in \"{{chat}}\"",
+      "byYou": "By you",
+      "undo": "An undo",
+      "upload": "Uploaded",
+      "revert": "Revert",
+      "note": "Revert keeps the newer version in this list.",
+      "invalidBadge": "Invalid",
+      "revertGood": "Revert to the last good version"
+    },
+    "help": {
+      "title": "Help and suggestions",
+      "sub": "Ways LocalAI shows you what it can do. Turn off what you do not need.",
+      "offers": "Offers from the assistant",
+      "offersHint": "At most one a day, never during a task: for example, to remember something you told it.",
+      "new": "Notes about new things",
+      "newHint": "A short \"New\" label in the sidebar the first time something appears.",
+      "examples": "Examples on Home",
+      "examplesShown": "The \"Make LocalAI yours\" cards show on Home while you have something left to try.",
+      "examplesHidden": "You hid the \"Make LocalAI yours\" cards.",
+      "showExamples": "Show the examples again",
+      "examplesBack": "The examples are back on Home.",
+      "dismissed": "What the assistant learned",
+      "dismissedHint_one": "You turned down {{count}} offer. It stays hidden until you reset it.",
+      "dismissedHint_other": "You turned down {{count}} offers. They stay hidden until you reset them.",
+      "forget": "Forget what the assistant learned about my hints",
+      "forgotten": "Done. The assistant may offer again.",
+      "learn": "Learn what you can change:",
+      "dismissedNone": "Nothing yet. When you answer an offer, the assistant remembers it here."
+    }
   }
 }

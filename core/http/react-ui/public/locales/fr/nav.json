@@ -113,5 +113,6 @@
     "expandNavigation": "Développer la navigation {{section}}",
     "collapseNavigation": "Réduire la navigation {{section}}"
   },
-  "pinnedPages": "Pages épinglées"
+  "pinnedPages": "Pages épinglées",
+  "new": "Nouveau"
 }

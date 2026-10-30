@@ -145,5 +145,122 @@
         }
       }
     }
+  },
+  "discovery": {
+    "ex": {
+      "title": "Rendi LocalAI tuo",
+      "lede": "Dillo in una chat. L'assistente lo salva come file che puoi modificare o annullare.",
+      "hide": "Nascondi",
+      "hiddenToast": "Esempi nascosti.",
+      "saveFailed": "Non salvato: {{message}}",
+      "card1": {
+        "kicker": "Tu e l'assistente",
+        "prompt": "Chiamami {{firstName}} e dammi risposte brevi",
+        "promptNoName": "Ricorda il mio nome e dammi risposte brevi",
+        "what": "Salva user.json e persona.json"
+      },
+      "card2": {
+        "kicker": "Una pagina",
+        "prompt": "Crea una bacheca delle attività per me",
+        "what": "Aggiunge una pagina che apri dalla barra laterale"
+      },
+      "card3": {
+        "kicker": "Ogni mattina",
+        "prompt": "Ogni mattina, riassumi qui la mia posta in arrivo",
+        "promptNoMail": "Ogni mattina, elenca qui le chat di ieri",
+        "what": "Aggiunge un widget in Home e un trigger che confermi"
+      },
+      "quote": "«{{text}}»",
+      "donePrefix": "Fatto.",
+      "doneLink": "Modificalo in Account",
+      "ready": "Oppure parti da una pagina pronta:",
+      "readyTasks": "Bacheca attività",
+      "readyReading": "Lista di lettura",
+      "readyFailed": "La pagina non è stata copiata: {{message}}",
+      "learn": "Come funziona",
+      "inComposer": "Modificalo se vuoi, poi premi Invio. Non viene salvato nulla finché non lo invii.",
+      "live": "Testo aggiunto alla casella del messaggio."
+    },
+    "home": {
+      "customise": "Personalizza Home"
+    },
+    "action": {
+      "undo": "Annulla",
+      "openAccount": "Apri in Account",
+      "openPage": "Apri la pagina",
+      "openHome": "Apri Home",
+      "turnBackOn": "Riattivali in Account"
+    },
+    "change": {
+      "profilePersona": "Nome salvato in <code>user.json</code> e istruzioni salvate in <code>persona.json</code>. Ogni chat li usa dal tuo prossimo messaggio.",
+      "profile": "Salvato nel tuo profilo in <code>user.json</code>.",
+      "persona": "<code>persona.json</code> salvato. Ogni chat lo usa dal tuo prossimo messaggio.",
+      "shortcuts": "<code>shortcuts.json</code> salvato.",
+      "home": "<code>home.json</code> salvato. Home mostra la modifica.",
+      "ui": "<code>ui.json</code> salvato.",
+      "pageCreated": "Pagina {{title}} creata in <code>{{folder}}</code>.",
+      "pageChanged": "<code>{{file}}</code> modificato.",
+      "offersOff": "I suggerimenti dell'assistente sono disattivati.",
+      "undoing": "Annullamento…",
+      "undone": "Annullato.",
+      "undoFailed": "Non annullato: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Aggiunto alla tua casella di scrittura: {{label}}",
+      "pageCreated": "{{title}} è in Pages, nella barra laterale",
+      "open": "Apri",
+      "homeChanged": "Home aggiornata.",
+      "themeChanged": "Tema cambiato."
+    },
+    "files": {
+      "learn": "Questi file cambiano il modo in cui LocalAI lavora per te.",
+      "tag": {
+        "profile": "Il tuo profilo",
+        "persona": "Assistente",
+        "shortcuts": "Scorciatoie",
+        "home": "Layout di Home",
+        "ui": "Aspetto",
+        "page": "Pagina"
+      }
+    },
+    "privacy": "L'assistente riceve il tuo nome, questo testo, la tua lingua e il tuo fuso orario all'inizio di ogni chat. Lascia un campo vuoto per tenerlo fuori.",
+    "versions": {
+      "label": "Versioni",
+      "title": "Versioni di {{file}}",
+      "titleBefore": "Versioni di",
+      "loading": "Lettura della cronologia…",
+      "none": "Nessuna versione precedente.",
+      "current": "attuale",
+      "invalid": "contiene un errore",
+      "byAssistant": "Dall'assistente",
+      "byAssistantIn": "Dall'assistente in «{{chat}}»",
+      "byYou": "Da te",
+      "undo": "Un annullamento",
+      "upload": "Caricato",
+      "revert": "Ripristina",
+      "note": "Ripristinare mantiene la versione più recente in questo elenco.",
+      "invalidBadge": "Non valido",
+      "revertGood": "Ripristina l'ultima versione valida"
+    },
+    "help": {
+      "title": "Aiuto e suggerimenti",
+      "sub": "I modi in cui LocalAI ti mostra cosa sa fare. Disattiva ciò che non ti serve.",
+      "offers": "Proposte dell'assistente",
+      "offersHint": "Al massimo una al giorno, mai durante un'attività: per esempio, per ricordare qualcosa che gli hai detto.",
+      "new": "Note sulle novità",
+      "newHint": "Una breve etichetta «Nuovo» nella barra laterale la prima volta che compare qualcosa.",
+      "examples": "Esempi in Home",
+      "examplesShown": "Le schede «Rendi LocalAI tuo» compaiono in Home finché hai ancora qualcosa da provare.",
+      "examplesHidden": "Hai nascosto le schede «Rendi LocalAI tuo».",
+      "showExamples": "Mostra di nuovo gli esempi",
+      "examplesBack": "Gli esempi sono tornati in Home.",
+      "dismissed": "Cosa ha imparato l'assistente",
+      "dismissedHint_one": "Hai rifiutato {{count}} proposta. Resta nascosta finché non la reimposti.",
+      "dismissedHint_other": "Hai rifiutato {{count}} proposte. Restano nascoste finché non le reimposti.",
+      "forget": "Dimentica ciò che l'assistente ha imparato sui miei suggerimenti",
+      "forgotten": "Fatto. L'assistente potrà riproporre.",
+      "learn": "Scopri cosa puoi cambiare:",
+      "dismissedNone": "Ancora niente. Quando rispondi a una proposta, l'assistente la ricorda qui."
+    }
   }
 }

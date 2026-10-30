@@ -94,6 +94,10 @@ type RuntimeSettings struct {
 	// flipping it takes effect without a restart.
 	MCPConnectorsAllowPrivate *bool `json:"mcp_connectors_allow_private,omitempty"` // let them reach private network addresses (default: false)
 
+	// Offers from the assistant in the chats, for users who did not choose.
+	// Read at each turn, so a change applies at once.
+	ChatsSuggestions *bool `json:"chats_suggestions,omitempty"` // negation of DisableChatSuggestions (default: true)
+
 	// LocalAI Assistant settings — read live by the chat handler at request
 	// entry, so flipping the toggle takes effect on the next request.
 	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity

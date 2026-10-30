@@ -110,5 +110,6 @@
       "triggers": "Starte einen Chat von selbst, nach Zeitplan oder wenn eine Datei eintrifft."
     }
   },
-  "pinnedPages": "Angeheftete Seiten"
+  "pinnedPages": "Angeheftete Seiten",
+  "new": "Neu"
 }

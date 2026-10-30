@@ -110,5 +110,6 @@
       "triggers": "Inicia un chat por sí solo, con una programación o cuando llega un archivo."
     }
   },
-  "pinnedPages": "Páginas fijadas"
+  "pinnedPages": "Páginas fijadas",
+  "new": "Nuevo"
 }

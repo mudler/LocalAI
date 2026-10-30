@@ -196,6 +196,16 @@ func (h *Triggers) ListTriggers(ctx context.Context, user string) ([]triggers.Tr
 	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.Proposed }), nil
 }
 
+// HasProposal says whether a trigger the chat proposed waits for an answer.
+// An error counts as yes: the caller holds back what it would add.
+func (h *Triggers) HasProposal(ctx context.Context, user, chatID string) bool {
+	all, err := h.o.Store.ListTriggers(ctx, principal(user))
+	if err != nil {
+		return true
+	}
+	return slices.ContainsFunc(all, func(t triggers.Trigger) bool { return t.Proposed && t.SourceChatID == chatID })
+}
+
 // maxProposals is how many proposals of a user may wait for an answer.
 const maxProposals = 10
 

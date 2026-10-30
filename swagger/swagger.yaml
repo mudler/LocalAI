@@ -3640,6 +3640,12 @@ definitions:
       dur_ms:
         description: DurMs is how long the model thought, for reasoning lines.
         type: integer
+      rev:
+        description: |-
+          Rev is the change set of a checkpoint line, whose text lists the paths
+          it changed inside your home, one a line. POST /api/chats/files/undo
+          {rev} undoes it.
+        type: integer
       role:
         description: user, assistant, tool, checkpoint or reasoning
         type: string
@@ -4240,6 +4246,45 @@ definitions:
           Version is what a write sends back in If-Match. It is 0 when the file
           does not exist.
         type: integer
+    type: object
+  schema.ChatsWellKnownRevert:
+    properties:
+      rev:
+        type: integer
+    type: object
+  schema.ChatsWellKnownVersion:
+    properties:
+      at:
+        type: string
+      chat:
+        description: Chat is the chat that wrote it, and ChatTitle its title when
+          it still exists.
+        type: string
+      chat_title:
+        type: string
+      data:
+        additionalProperties: {}
+        type: object
+      errors:
+        items:
+          type: string
+        type: array
+      kind:
+        description: |-
+          Kind says who made it: user (you, in a form or the Files page), agent
+          (the assistant), upload or undo.
+        type: string
+      rev:
+        type: integer
+      valid:
+        type: boolean
+    type: object
+  schema.ChatsWellKnownVersions:
+    properties:
+      versions:
+        items:
+          $ref: '#/definitions/schema.ChatsWellKnownVersion'
+        type: array
     type: object
   schema.ChatsWellKnownWrite:
     properties:
@@ -13119,8 +13164,10 @@ paths:
       - chats
   /api/chats/wellknown/{name}/revert:
     post:
-      description: 'Writes the newest earlier version that differs from the file and
-        matches its schema, as a new change: the revert itself can be undone.'
+      description: 'Without a body, writes the newest earlier version that differs
+        from the file and matches its schema. With {"rev"}, writes that version from
+        GET .../versions. Either way it is a new change: the revert itself can be
+        undone, and the newer version stays in the list.'
       parameters:
       - description: persona, user, shortcuts, home, ui or widget-data
         in: path
@@ -13131,16 +13178,21 @@ paths:
         in: query
         name: path
         type: string
+      - description: the version to write back
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/schema.ChatsWellKnownRevert'
       responses:
         "200":
           description: The file as written
           schema:
             $ref: '#/definitions/schema.ChatsWellKnownFile'
         "409":
-          description: There is no earlier valid version
+          description: There is no such valid version
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Revert a well-known file to its previous valid version.
+      summary: Revert a well-known file to an earlier valid version.
       tags:
       - chats
   /api/chats/wellknown/{name}/schema:
@@ -13167,6 +13219,37 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Get the JSON Schema of a well-known file.
+      tags:
+      - chats
+  /api/chats/wellknown/{name}/versions:
+    get:
+      description: 'Newest first, from the history of your files: when, who (kind
+        user or agent, and the chat that wrote it), and the content when it matches
+        the schema. POST .../revert {rev} writes one back.'
+      parameters:
+      - description: persona, user, shortcuts, home, ui or widget-data
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: the data file, for widget-data
+        in: query
+        name: path
+        type: string
+      - description: most versions to return (default 10, at most 50)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: The versions, newest first
+          schema:
+            $ref: '#/definitions/schema.ChatsWellKnownVersions'
+        "404":
+          description: Not a well-known file
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the versions of a well-known file.
       tags:
       - chats
   /api/collections:

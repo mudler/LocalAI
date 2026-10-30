@@ -49,12 +49,24 @@ pages/
 ## In the UI
 
 - **Pages** in the sidebar opens the list of your pages. The entry shows only
-  when you have at least one page. Pinned pages show under it.
-- Each card shows the title, when the page changed last and who wrote it (you
-  or the assistant), with **Open**, **Pin** and **Ask the assistant to change
-  this**, which opens a new chat with the page's path in the message box.
-- With no pages, **Start from a task board** copies a starter page into
-  `pages/task-board/`. The copy is yours; ask the assistant to change it.
+  when you have at least one page, and the first time it appears it carries a
+  small **New** label, until you open it or for a week (switch it off with
+  **Notes about new things** in Account). Pinned pages show under it.
+- The list groups your pages under **Yours**. Each row shows the title, the
+  description, the folder and when the page changed last and who wrote it (you
+  or the assistant), with **Open**, a pin toggle (**Pin to sidebar**) and a
+  menu: **Ask the assistant to change this** (a new chat with the page's path
+  in the message box), **Show its files** (the folder in Files), **Rename**
+  (moves the folder) and **Delete page** (moves the folder to the Trash, where
+  Files can restore it). Above eight pages, a filter field shows over the list.
+  **Ask for a new page** opens a chat with "Make me a page that " in the
+  message box.
+- With no pages, the screen offers **Ask for a page**, and **Start from a task
+  board** or **Start from a reading list**, which copy a starter page into
+  `pages/task-board/` or `pages/reading-list/`. The copy is yours; ask the assistant to change it.
+  Two starter pages ship with LocalAI: a task board (`task-board`, data in
+  `tasks.json`) and a reading list (`reading-list`, data in `reading.json`).
+  Home offers both under **Or start from a ready page**.
 - Open a page to see it at `/app/pages/<name>`. The strip above it says that
   the page runs as you, when and by whom it was last updated, and has
   **Reload** and **Ask the assistant to change this**. When the assistant

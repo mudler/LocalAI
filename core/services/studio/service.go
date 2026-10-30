@@ -144,6 +144,12 @@ type Deps struct {
 	Modalities func(model string) Modalities
 	// Persistent is true when the store keeps conversations across a restart.
 	Persistent bool
+	// SuggestionsDefault says whether the assistant may offer things (to save a
+	// name, a shortcut, a schedule) to a user who did not choose. Read at each
+	// turn, so a change applies at once. Nil: on.
+	SuggestionsDefault func() bool
+	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
+	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.
 	Harness session.Harness
 	Logger  *slog.Logger

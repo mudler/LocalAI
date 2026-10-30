@@ -21,6 +21,8 @@ import HomeResume from '../components/home/HomeResume'
 import HomeFirstRun from '../components/home/HomeFirstRun'
 // eslint-disable-next-line no-unused-vars
 import HomeWidgets from '../components/wellknown/HomeWidgets'
+// eslint-disable-next-line no-unused-vars
+import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
 import { useWellKnown } from '../hooks/useWellKnown'
 import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
@@ -53,7 +55,7 @@ export default function Home() {
   const { addToast } = useOutletContext()
   const { t, i18n } = useTranslation('home')
   const { t: tw } = useTranslation('workspace')
-  const { isAdmin, hasFeature } = useAuth()
+  const { isAdmin, hasFeature, user } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
   const { operations } = useOperations()
@@ -250,6 +252,24 @@ export default function Home() {
   const chatsOn = hasFeature('chats')
   const homeFile = useWellKnown('home', { enabled: chatsOn })
   const chatsWidget = useMemo(() => widgetList(homeFile.doc).some(w => w.type === 'chats'), [homeFile.doc])
+  // The "Make LocalAI yours" examples. A card puts its prompt into the
+  // composer and sends nothing; the line under the composer says so.
+  const userFile = useWellKnown('user', { enabled: chatsOn })
+  const [examplePicked, setExamplePicked] = useState(false)
+  const [liveNote, setLiveNote] = useState('')
+  const [editLayout, setEditLayout] = useState(0)
+  const pickExample = useCallback((prompt) => {
+    setMessage(prompt)
+    setExamplePicked(true)
+    setLiveNote(tw('discovery.ex.live'))
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange?.(prompt.length, prompt.length)
+    })
+  }, [tw])
+  useEffect(() => { if (!message.trim()) setExamplePicked(false) }, [message])
   const askLayout = useCallback(() => {
     const q = selectedModel ? `?model=${encodeURIComponent(selectedModel)}` : ''
     navigate(`/app/chats${q}`, { state: { draft: tw('wellKnown.home.askPrompt') } })
@@ -260,6 +280,8 @@ export default function Home() {
   const modelsLoading = configuredModels === null && !modelsFailed
   const hasModels = configuredModels === null || configuredModels.length > 0
   const firstRun = configuredModels !== null && configuredModels.length === 0
+  const examplesOn = chatsOn && configuredModels !== null && !firstRun
+  const examplesGone = useExamplesGone(examplesOn)
   const loadedCount = loadedModels.length
   const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
 
@@ -388,7 +410,22 @@ export default function Home() {
             slashContext={slashContext}
             onRunAction={runAction}
           />
+          {examplePicked && (
+            <p className="wk-ex__hint" data-testid="home-example-hint">
+              <Icon name="info" /> {tw('discovery.ex.inComposer')}
+            </p>
+          )}
+          <span className="sr-only" aria-live="polite">{liveNote}</span>
         </div>
+
+        {examplesOn && (
+          <HomeExamples
+            enabled={examplesOn}
+            name={userFile.doc?.data?.name || user?.name || ''}
+            onPick={pickExample}
+            addToast={addToast}
+          />
+        )}
 
         <div className="home-below" style={staggerStyle(2)}>
           {addonNotice && (
@@ -460,7 +497,7 @@ export default function Home() {
 
         {chatsOn && !firstRun && (
           <div style={staggerStyle(3)}>
-            <HomeWidgets wk={homeFile} conversations={conversations} onResume={resumeConversation} onAsk={askLayout} />
+            <HomeWidgets wk={homeFile} conversations={conversations} onResume={resumeConversation} onAsk={askLayout} editRequest={editLayout} />
           </div>
         )}
 
@@ -491,6 +528,11 @@ export default function Home() {
 
         <div className="home-libline" style={staggerStyle(5)} data-testid="home-library">
           <span>{t('library.label')}</span>
+          {examplesOn && examplesGone && (
+            <button type="button" className="home-ghost" onClick={() => setEditLayout(n => n + 1)} data-testid="home-customise">
+              {tw('discovery.home.customise')}
+            </button>
+          )}
           {isAdmin && (
             <>
               {assistantOn && !firstRun && (

@@ -30,6 +30,9 @@ export function refreshPages() {
   return inflight
 }
 
+// currentPages is the list as the last read left it, outside React.
+export const currentPages = () => state.pages
+
 const subscribe = (fn) => {
   subscribers.add(fn)
   return () => subscribers.delete(fn)

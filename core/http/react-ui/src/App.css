@@ -7656,6 +7656,18 @@ button.home-strip__head:hover:not(:disabled) { background: var(--dk-hover); }
   font-variant-numeric: tabular-nums;
 }
 .nav-badge--error { background: var(--color-error-light); color: var(--dk-error-text); }
+/* The one-time "New" label of an entry: text, not a count, and no motion. */
+.nav-new {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-light);
+  color: var(--dk-accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 18px;
+}
 /* Collapsed, the label is gone and the item centres its icon: an inline badge
    would shove that icon off the rail's axis. Pinning it to the corner keeps the
    count visible without moving anything else. */

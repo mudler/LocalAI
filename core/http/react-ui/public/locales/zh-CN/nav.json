@@ -110,5 +110,6 @@
       "triggers": "按计划或在文件到达时自动开始对话。"
     }
   },
-  "pinnedPages": "已固定的页面"
+  "pinnedPages": "已固定的页面",
+  "new": "新"
 }

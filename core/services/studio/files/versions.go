@@ -31,7 +31,9 @@ type FileVersion struct {
 	Rev  int64
 	At   time.Time
 	Kind workspace.ChangeSetKind
-	Data []byte
+	// ChatID is the chat that made the change, when a chat did.
+	ChatID string
+	Data   []byte
 }
 
 // Versions calls fn with the contents the file abs had, newest first, as the
@@ -60,7 +62,7 @@ func (s *Service) Versions(ctx context.Context, principal, abs string, limit int
 			if err != nil {
 				return err
 			}
-			if !fn(FileVersion{Rev: cs.Rev, At: cs.CreatedAt, Kind: cs.Kind, Data: data}) {
+			if !fn(FileVersion{Rev: cs.Rev, At: cs.CreatedAt, Kind: cs.Kind, ChatID: cs.ChatID, Data: data}) {
 				return nil
 			}
 		}

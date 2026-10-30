@@ -47,6 +47,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"PUT", "/api/chats/wellknown/:name", FeatureChats},
 	{"POST", "/api/chats/wellknown/:name/revert", FeatureChats},
 	{"GET", "/api/chats/wellknown/:name/schema", FeatureChats},
+	{"GET", "/api/chats/wellknown/:name/versions", FeatureChats},
 	{"GET", "/api/chats/skills", FeatureChats},
 	{"POST", "/api/chats/skills", FeatureChats},
 	{"GET", "/api/chats/skills/:layer/:name", FeatureChats},

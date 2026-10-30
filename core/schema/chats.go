@@ -136,7 +136,11 @@ type ChatsMessage struct {
 	// Card is set on a tool line that points at a record, such as a trigger
 	// proposal (kind trigger_proposal, id the proposal's id).
 	Card *ChatsToolCard `json:"card,omitempty"`
-	At   time.Time      `json:"at"`
+	// Rev is the change set of a checkpoint line, whose text lists the paths
+	// it changed inside your home, one a line. POST /api/chats/files/undo
+	// {rev} undoes it.
+	Rev int64     `json:"rev,omitempty"`
+	At  time.Time `json:"at"`
 }
 
 // ChatsToolCard points the interface at a record that belongs to a tool result.
@@ -868,6 +872,32 @@ type ChatsWellKnownFile struct {
 type ChatsWellKnownWrite struct {
 	Values  map[string]any `json:"values"`
 	Replace bool           `json:"replace,omitempty"`
+}
+
+// ChatsWellKnownRevert names the version a revert writes back. Without rev,
+// the previous valid version.
+type ChatsWellKnownRevert struct {
+	Rev int64 `json:"rev,omitempty"`
+}
+
+// ChatsWellKnownVersion is one content a well-known file had.
+type ChatsWellKnownVersion struct {
+	Rev int64     `json:"rev"`
+	At  time.Time `json:"at"`
+	// Kind says who made it: user (you, in a form or the Files page), agent
+	// (the assistant), upload or undo.
+	Kind string `json:"kind"`
+	// Chat is the chat that wrote it, and ChatTitle its title when it still exists.
+	Chat      string         `json:"chat,omitempty"`
+	ChatTitle string         `json:"chat_title,omitempty"`
+	Data      map[string]any `json:"data,omitempty"`
+	Valid     bool           `json:"valid"`
+	Errors    []string       `json:"errors,omitempty"`
+}
+
+// ChatsWellKnownVersions lists the versions of a well-known file, newest first.
+type ChatsWellKnownVersions struct {
+	Versions []ChatsWellKnownVersion `json:"versions"`
 }
 
 // ChatsWellKnownError is the answer to a write that was refused: the errors

@@ -121,6 +121,35 @@ var _ = Describe("well-known files", func() {
 		Expect(err).To(MatchError(workspace.ErrNotFound), "nothing is written")
 	})
 
+	It("keeps the record of what was shown and offered under seen in user.json", func() {
+		s, _ := newService()
+		seen := map[string]any{
+			"home_examples": map[string]any{"hidden": "2026-10-30"},
+			"offers_off":    false,
+			"new_off":       true,
+			"last_offer":    "2026-10-30T09:12:00Z",
+			"offer_chats":   []any{"c1"},
+			"offers":        map[string]any{"profile": map[string]any{"state": "later", "at": "2026-10-30", "count": 1}},
+			"new":           map[string]any{"pages": "2026-10-30"},
+		}
+		doc, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{"seen": seen}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Valid).To(BeTrue())
+
+		By("refusing an answer that is not one of the states")
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{
+			"seen": map[string]any{"offers": map[string]any{"profile": map[string]any{"state": "maybe"}}},
+		}})
+		var inv *wellknown.InvalidError
+		Expect(errors.As(err, &inv)).To(BeTrue(), "%v", err)
+
+		By("keeping a record in the older flat shape valid")
+		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.User, Values: map[string]any{
+			"seen": map[string]any{"profile": map[string]any{"state": "declined"}},
+		}})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("refuses a file over the size cap", func() {
 		s, _ := newService()
 		_, err := s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.UI, Values: map[string]any{"x_blob": strings.Repeat("x", wellknown.MaxSize)}})
@@ -138,6 +167,33 @@ var _ = Describe("well-known files", func() {
 		Expect(cf.Current.Data).To(HaveKeyWithValue("name", "Changed by the assistant"))
 		_, err = s.Write(ctx, alice, wellknown.WriteRequest{Name: wellknown.Persona, Values: map[string]any{"name": "Mine"}, Base: base(0)})
 		Expect(errors.As(err, &cf)).To(BeTrue(), "base 0 means the file must not exist")
+	})
+
+	It("lists the versions of a file, newest first, and reverts to any valid one as a new change", func() {
+		s, f := newService()
+		raw(f, alice, "/persona.json", `{"name":"Ada"}`)
+		raw(f, alice, "/persona.json", `{"name": 42}`)
+		raw(f, alice, "/persona.json", `{"name":"Bea"}`)
+		vs, err := s.Versions(ctx, alice, wellknown.Persona, "", 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vs).To(HaveLen(3))
+		Expect(vs[0].Data).To(HaveKeyWithValue("name", "Bea"))
+		Expect(vs[1].Valid).To(BeFalse())
+		Expect(vs[1].Errors).NotTo(BeEmpty())
+		Expect(vs[2].Data).To(HaveKeyWithValue("name", "Ada"))
+		Expect(vs[0].Rev).To(BeNumerically(">", vs[2].Rev))
+
+		doc, err := s.RevertTo(ctx, alice, wellknown.Persona, "", vs[2].Rev)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(doc.Data).To(HaveKeyWithValue("name", "Ada"))
+		after, err := s.Versions(ctx, alice, wellknown.Persona, "", 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(HaveLen(4), "the revert is a new version; the newer one stays in the list")
+
+		_, err = s.RevertTo(ctx, alice, wellknown.Persona, "", vs[1].Rev)
+		Expect(err).To(MatchError(wellknown.ErrNoPrevious), "an invalid version cannot come back")
+		_, err = s.RevertTo(ctx, alice, wellknown.Persona, "", 999999)
+		Expect(err).To(MatchError(wellknown.ErrNoPrevious))
 	})
 
 	It("shows the last good version when the file on disk is broken", func() {

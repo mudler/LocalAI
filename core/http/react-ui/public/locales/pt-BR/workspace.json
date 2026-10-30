@@ -145,5 +145,122 @@
         }
       }
     }
+  },
+  "discovery": {
+    "ex": {
+      "title": "Faça o LocalAI do seu jeito",
+      "lede": "Diga em um chat. O assistente salva como um arquivo que você pode alterar ou desfazer.",
+      "hide": "Ocultar",
+      "hiddenToast": "Exemplos ocultos.",
+      "saveFailed": "Não salvo: {{message}}",
+      "card1": {
+        "kicker": "Você e o assistente",
+        "prompt": "Me chame de {{firstName}} e mantenha as respostas curtas",
+        "promptNoName": "Lembre meu nome e mantenha as respostas curtas",
+        "what": "Salva user.json e persona.json"
+      },
+      "card2": {
+        "kicker": "Uma página",
+        "prompt": "Crie um quadro de tarefas para mim",
+        "what": "Adiciona uma página que você abre pela barra lateral"
+      },
+      "card3": {
+        "kicker": "Toda manhã",
+        "prompt": "Toda manhã, resuma aqui minha caixa de entrada",
+        "promptNoMail": "Toda manhã, liste aqui os chats de ontem",
+        "what": "Adiciona um widget em Home e um gatilho que você confirma"
+      },
+      "quote": "«{{text}}»",
+      "donePrefix": "Pronto.",
+      "doneLink": "Altere em Account",
+      "ready": "Ou comece com uma página pronta:",
+      "readyTasks": "Quadro de tarefas",
+      "readyReading": "Lista de leitura",
+      "readyFailed": "A página não foi copiada: {{message}}",
+      "learn": "Como isso funciona",
+      "inComposer": "Edite se quiser e pressione Enter. Nada é salvo até você enviar.",
+      "live": "Texto adicionado à caixa de mensagem."
+    },
+    "home": {
+      "customise": "Personalizar Home"
+    },
+    "action": {
+      "undo": "Desfazer",
+      "openAccount": "Abrir em Account",
+      "openPage": "Abrir página",
+      "openHome": "Abrir Home",
+      "turnBackOn": "Ative de novo em Account"
+    },
+    "change": {
+      "profilePersona": "Seu nome foi salvo em <code>user.json</code> e suas instruções em <code>persona.json</code>. Todo chat os usa a partir da sua próxima mensagem.",
+      "profile": "Salvo no seu perfil em <code>user.json</code>.",
+      "persona": "<code>persona.json</code> salvo. Todo chat o usa a partir da sua próxima mensagem.",
+      "shortcuts": "<code>shortcuts.json</code> salvo.",
+      "home": "<code>home.json</code> salvo. Home mostra a mudança.",
+      "ui": "<code>ui.json</code> salvo.",
+      "pageCreated": "Página {{title}} criada em <code>{{folder}}</code>.",
+      "pageChanged": "<code>{{file}}</code> alterado.",
+      "offersOff": "As sugestões do assistente estão desativadas.",
+      "undoing": "Desfazendo…",
+      "undone": "Desfeito.",
+      "undoFailed": "Não desfeito: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Adicionado à sua caixa de mensagem: {{label}}",
+      "pageCreated": "{{title}} está em Pages, na barra lateral",
+      "open": "Abrir",
+      "homeChanged": "Home atualizado.",
+      "themeChanged": "Tema alterado."
+    },
+    "files": {
+      "learn": "Esses arquivos mudam como o LocalAI funciona para você.",
+      "tag": {
+        "profile": "Seu perfil",
+        "persona": "Assistente",
+        "shortcuts": "Atalhos",
+        "home": "Layout de Home",
+        "ui": "Aparência",
+        "page": "Página"
+      }
+    },
+    "privacy": "O assistente recebe seu nome, este texto, seu idioma e seu fuso horário no início de cada chat. Deixe um campo vazio para não enviá-lo.",
+    "versions": {
+      "label": "Versões",
+      "title": "Versões de {{file}}",
+      "titleBefore": "Versões de",
+      "loading": "Lendo o histórico…",
+      "none": "Ainda não há versão anterior.",
+      "current": "atual",
+      "invalid": "tem um erro",
+      "byAssistant": "Pelo assistente",
+      "byAssistantIn": "Pelo assistente em «{{chat}}»",
+      "byYou": "Por você",
+      "undo": "Um desfazer",
+      "upload": "Enviado",
+      "revert": "Reverter",
+      "note": "Reverter mantém a versão mais nova nesta lista.",
+      "invalidBadge": "Inválida",
+      "revertGood": "Reverter para a última versão boa"
+    },
+    "help": {
+      "title": "Ajuda e sugestões",
+      "sub": "Formas de o LocalAI mostrar o que sabe fazer. Desative o que você não precisa.",
+      "offers": "Propostas do assistente",
+      "offersHint": "No máximo uma por dia, nunca durante uma tarefa: por exemplo, para lembrar algo que você disse.",
+      "new": "Avisos sobre novidades",
+      "newHint": "Uma etiqueta curta «Novo» na barra lateral na primeira vez que algo aparece.",
+      "examples": "Exemplos em Home",
+      "examplesShown": "Os cartões «Faça o LocalAI do seu jeito» aparecem em Home enquanto você ainda tem algo para testar.",
+      "examplesHidden": "Você ocultou os cartões «Faça o LocalAI do seu jeito».",
+      "showExamples": "Mostrar os exemplos de novo",
+      "examplesBack": "Os exemplos voltaram para Home.",
+      "dismissed": "O que o assistente aprendeu",
+      "dismissedHint_one": "Você recusou {{count}} proposta. Ela fica oculta até você redefinir.",
+      "dismissedHint_other": "Você recusou {{count}} propostas. Elas ficam ocultas até você redefinir.",
+      "forget": "Esquecer o que o assistente aprendeu sobre minhas sugestões",
+      "forgotten": "Pronto. O assistente pode voltar a propor.",
+      "learn": "Veja o que você pode mudar:",
+      "dismissedNone": "Nada ainda. Quando você responde a uma proposta, o assistente lembra aqui."
+    }
   }
 }

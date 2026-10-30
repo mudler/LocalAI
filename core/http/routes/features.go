@@ -36,6 +36,9 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 			"backend_install":   !appConfig.DisableBackendInstall,
 			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
 			"addon_navigation":  !appConfig.LegacyNavigation,
+			// The server's default for offers from the assistant; a user's own
+			// choice in user.json wins.
+			"chats_suggestions": chats && !appConfig.DisableChatSuggestions,
 		})
 	})
 }

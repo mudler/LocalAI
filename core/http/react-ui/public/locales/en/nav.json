@@ -109,5 +109,6 @@
       "triggers": "Start a chat by itself, on a schedule or when a file arrives."
     }
   },
-  "pinnedPages": "Pinned pages"
+  "pinnedPages": "Pinned pages",
+  "new": "New"
 }

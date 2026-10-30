@@ -123,6 +123,14 @@ curl -N localhost:8080/api/chats/3f1c.../events
 curl -s 'localhost:8080/api/chats/3f1c.../messages?after=0'
 ```
 
+The transcript lists messages, tool lines and one checkpoint line per turn. A
+checkpoint line has `rev`, the change set of the turn, and its `text` lists the
+paths it changed inside your home, one a line. A tool line of `write_file` or
+`move_file` carries a card `{"kind": "files_change", "id": "<rev>:<path>"}`.
+`POST /api/chats/files/undo {"rev": N}` undoes either change set; the chat page
+uses this for the Undo of its change notes (see
+[Make LocalAI yours](/features/make-localai-yours/#what-a-change-shows)).
+
 A chat is named after the first line of its first message, unless you gave it a
 title. To rename it, see [Settings, rename and model change](#settings-rename-and-model-change).
 

@@ -1,0 +1,37 @@
+{
+  "subtitle": "De petits outils créés par l’assistant pour vous. Ils s’ouvrent ici, dans un bac à sable, et gardent leurs données dans vos fichiers.",
+  "card": {
+    "pin": "Épingler à la barre latérale",
+    "unpin": "Détacher de la barre latérale",
+    "changedBy": {
+      "you": "Modifiée {{when}} par vous",
+      "assistant": "Modifiée {{when}} par l’assistant"
+    },
+    "menu": "Plus pour {{title}}",
+    "files": "Afficher ses fichiers",
+    "rename": "Renommer",
+    "renameLabel": "Nouveau nom de dossier",
+    "renameHint": "Minuscules, chiffres et tirets.",
+    "renameSave": "Enregistrer",
+    "renameCancel": "Annuler",
+    "renameFailed": "La page n’a pas été renommée : {{message}}",
+    "delete": "Supprimer la page",
+    "deleteTitle": "Supprimer « {{title}} » ?",
+    "deleteMessage": "Le dossier {{folder}} va dans la corbeille. Vous pouvez le restaurer depuis Fichiers.",
+    "deleted": "{{title}} est dans la corbeille.",
+    "deleteFailed": "La page n’a pas été supprimée : {{message}}"
+  },
+  "empty": {
+    "text": "Une page est un petit outil, comme un tableau de tâches ou une liste de lecture. Demandez-en une à l’assistant dans un chat, ou partez d’une page prête.",
+    "starting": "Copie de la page",
+    "starterFailed": "La page n’a pas été copiée : {{message}}",
+    "ask": "Demander une page",
+    "askPrompt": "Créez-moi une page qui ",
+    "starterReading": "Partir d’une liste de lecture",
+    "note": "Cette entrée quitte la barre latérale quand vous n’avez aucune page. Elle revient avec la suivante.",
+    "learn": "Comment fonctionnent les pages"
+  },
+  "askNew": "Demander une nouvelle page",
+  "yours": "Les vôtres",
+  "filter": "Filtrer les pages"
+}

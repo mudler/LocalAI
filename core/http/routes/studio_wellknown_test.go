@@ -36,6 +36,7 @@ var _ = Describe("Chats well-known files endpoints", func() {
 		Entry("write", http.MethodPut, "/api/chats/wellknown/persona"),
 		Entry("revert", http.MethodPost, "/api/chats/wellknown/persona/revert"),
 		Entry("schema", http.MethodGet, "/api/chats/wellknown/persona/schema"),
+		Entry("versions", http.MethodGet, "/api/chats/wellknown/persona/versions"),
 	)
 
 	It("is closed to a user whose chats feature was revoked", func() {
@@ -96,6 +97,34 @@ var _ = Describe("Chats well-known files endpoints", func() {
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)).To(HaveKeyWithValue("valid", true))
 		Expect(s.do("bob", http.MethodPost, "/api/chats/wellknown/shortcuts/revert", nil).Code).To(Equal(http.StatusConflict))
+	})
+
+	It("lists the versions of a file and reverts to the one named by rev", func() {
+		for _, name := range []string{"Ada", "Bea", "Cy"} {
+			Expect(put("alice", "persona", "", map[string]any{"values": map[string]any{"name": name}}).Code).To(Equal(http.StatusOK))
+		}
+		rec := s.do("alice", http.MethodGet, "/api/chats/wellknown/persona/versions?limit=2", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		var out struct {
+			Versions []struct {
+				Rev   int64          `json:"rev"`
+				Kind  string         `json:"kind"`
+				Data  map[string]any `json:"data"`
+				Valid bool           `json:"valid"`
+			} `json:"versions"`
+		}
+		Expect(json.Unmarshal(rec.Body.Bytes(), &out)).To(Succeed())
+		Expect(out.Versions).To(HaveLen(2))
+		Expect(out.Versions[0].Data).To(HaveKeyWithValue("name", "Cy"))
+		Expect(out.Versions[1].Data).To(HaveKeyWithValue("name", "Bea"))
+		Expect(out.Versions[1].Valid).To(BeTrue())
+
+		rec = s.do("alice", http.MethodPost, "/api/chats/wellknown/persona/revert", map[string]any{"rev": out.Versions[1].Rev})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["data"]).To(HaveKeyWithValue("name", "Bea"))
+
+		Expect(s.do("alice", http.MethodPost, "/api/chats/wellknown/persona/revert", map[string]any{"rev": 999999}).Code).To(Equal(http.StatusConflict))
+		Expect(s.do("bob", http.MethodGet, "/api/chats/wellknown/persona/versions", nil).Body.String()).NotTo(ContainSubstring("Bea"), "another user's history stays apart")
 	})
 
 	It("keeps each user's files apart", func() {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 )
 
@@ -164,25 +165,79 @@ func (h *Handlers) PutWellKnown(c echo.Context) error {
 	return h.answerDoc(c, d)
 }
 
-// RevertWellKnown goes back to the previous version of a well-known file.
-// @Summary Revert a well-known file to its previous valid version.
-// @Description Writes the newest earlier version that differs from the file and matches its schema, as a new change: the revert itself can be undone.
+// RevertWellKnown goes back to an earlier version of a well-known file.
+// @Summary Revert a well-known file to an earlier valid version.
+// @Description Without a body, writes the newest earlier version that differs from the file and matches its schema. With {"rev"}, writes that version from GET .../versions. Either way it is a new change: the revert itself can be undone, and the newer version stays in the list.
 // @Tags chats
 // @Param name path string true "persona, user, shortcuts, home, ui or widget-data"
 // @Param path query string false "the data file, for widget-data"
+// @Param request body schema.ChatsWellKnownRevert false "the version to write back"
 // @Success 200 {object} schema.ChatsWellKnownFile "The file as written"
-// @Failure 409 {object} schema.ErrorResponse "There is no earlier valid version"
+// @Failure 409 {object} schema.ErrorResponse "There is no such valid version"
 // @Router /api/chats/wellknown/{name}/revert [post]
 func (h *Handlers) RevertWellKnown(c echo.Context) error {
 	fc, n, ok := h.wellKnown(c)
 	if !ok {
 		return nil
 	}
-	d, err := h.svc.WellKnown().Revert(c.Request().Context(), fc.p, n, c.QueryParam("path"))
+	var req schema.ChatsWellKnownRevert
+	if c.Request().ContentLength > 0 {
+		if err := c.Bind(&req); err != nil || req.Rev < 0 {
+			return fail(c, http.StatusBadRequest, typeInvalid, msgNotJSON)
+		}
+	}
+	var (
+		d   wellknown.Doc
+		err error
+	)
+	if req.Rev > 0 {
+		d, err = h.svc.WellKnown().RevertTo(c.Request().Context(), fc.p, n, c.QueryParam("path"), req.Rev)
+	} else {
+		d, err = h.svc.WellKnown().Revert(c.Request().Context(), fc.p, n, c.QueryParam("path"))
+	}
 	if err != nil {
 		return failWellKnown(c, err)
 	}
 	return h.answerDoc(c, d)
+}
+
+// WellKnownVersions lists the versions of a well-known file.
+// @Summary List the versions of a well-known file.
+// @Description Newest first, from the history of your files: when, who (kind user or agent, and the chat that wrote it), and the content when it matches the schema. POST .../revert {rev} writes one back.
+// @Tags chats
+// @Param name path string true "persona, user, shortcuts, home, ui or widget-data"
+// @Param path query string false "the data file, for widget-data"
+// @Param limit query int false "most versions to return (default 10, at most 50)"
+// @Success 200 {object} schema.ChatsWellKnownVersions "The versions, newest first"
+// @Failure 404 {object} schema.ErrorResponse "Not a well-known file"
+// @Router /api/chats/wellknown/{name}/versions [get]
+func (h *Handlers) WellKnownVersions(c echo.Context) error {
+	fc, n, ok := h.wellKnown(c)
+	if !ok {
+		return nil
+	}
+	ctx := c.Request().Context()
+	vs, err := h.svc.WellKnown().Versions(ctx, fc.p, n, c.QueryParam("path"), intParam(c, "limit", 10, 50))
+	if err != nil && !errors.Is(err, files.ErrNoVersions) {
+		return failWellKnown(c, err)
+	}
+	out := schema.ChatsWellKnownVersions{Versions: make([]schema.ChatsWellKnownVersion, 0, len(vs))}
+	titles := map[string]string{}
+	for _, v := range vs {
+		o := schema.ChatsWellKnownVersion{Rev: v.Rev, At: v.At, Kind: v.Kind, Chat: v.ChatID, Data: v.Data, Valid: v.Valid, Errors: v.Errors}
+		if v.ChatID != "" {
+			if _, seen := titles[v.ChatID]; !seen {
+				titles[v.ChatID] = ""
+				if rec, gerr := h.svc.Get(ctx, userID(c), v.ChatID); gerr == nil {
+					titles[v.ChatID] = rec.Title
+				}
+			}
+			o.ChatTitle = titles[v.ChatID]
+		}
+		out.Versions = append(out.Versions, o)
+	}
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, out)
 }
 
 // WellKnownSchema returns the JSON Schema of a well-known file.

@@ -36,15 +36,45 @@
     },
     "seen": {
       "type": "object",
-      "description": "Hints the assistant offered, and what the user answered. The assistant keeps it; the settings page does not show it.",
+      "description": "What LocalAI and the assistant showed or offered you, and your answers. The Account page resets it; it is not sent to the model.",
       "maxProperties": 50,
-      "additionalProperties": {
-        "type": "object",
-        "properties": {
-          "state": { "enum": ["offered", "declined", "accepted"] },
-          "at": { "type": "string", "maxLength": 40 }
+      "properties": {
+        "home_examples": {
+          "type": "object",
+          "description": "The \"Make LocalAI yours\" cards on Home: hidden is the date you hid them.",
+          "properties": { "hidden": { "type": "string", "maxLength": 40 } }
         },
-        "required": ["state"]
+        "offers_off": { "type": "boolean", "description": "true: the assistant offers nothing. Absent: the server's default." },
+        "new_off": { "type": "boolean", "description": "true: no \"New\" label in the sidebar." },
+        "since": { "type": "string", "maxLength": 40, "description": "When LocalAI first saw you, for the quiet start." },
+        "last_offer": { "type": "string", "maxLength": 40, "description": "When the server last allowed an offer." },
+        "offer_turn": { "type": "string", "maxLength": 160, "description": "The chat and turn of the last offer allowed." },
+        "offer_chats": {
+          "type": "array",
+          "description": "The last chats where an offer was allowed.",
+          "maxItems": 30,
+          "items": { "type": "string", "maxLength": 128 }
+        },
+        "offers": {
+          "type": "object",
+          "description": "Your answer to each kind of offer: profile, shortcut, schedule.",
+          "maxProperties": 20,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "state": { "enum": ["offered", "declined", "later", "accepted"] },
+              "at": { "type": "string", "maxLength": 40 },
+              "count": { "type": "integer", "minimum": 0, "maximum": 10 }
+            },
+            "required": ["state"]
+          }
+        },
+        "new": {
+          "type": "object",
+          "description": "When each new area (pages) was first labelled New.",
+          "maxProperties": 20,
+          "additionalProperties": { "type": "string", "maxLength": 40 }
+        }
       },
       "x-ui": { "hidden": true }
     }

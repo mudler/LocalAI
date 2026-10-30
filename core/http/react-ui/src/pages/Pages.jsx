@@ -1,52 +1,90 @@
-import { useState } from 'react'
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import PageHeader from '../components/PageHeader'
-import { pagesApi } from '../utils/api'
+import ActionMenu from '../components/ActionMenu'
+import ConfirmDialog from '../components/ConfirmDialog'
+import { filesApi, pagesApi } from '../utils/api'
 import { pageIndexPath } from '../utils/pages'
+import { DOCS_MAKE_YOURS } from '../utils/discovery'
 import { refreshPages, usePageAge, usePages } from '../hooks/usePages'
 import { usePinnedPages } from '../hooks/usePinnedPages'
 import './pages.css'
 
-const STARTER = 'task-board'
+// The ready pages that ship with LocalAI.
+const STARTERS = [
+  { id: 'task-board', icon: 'checklist', key: 'empty.starter' },
+  { id: 'reading-list', icon: 'book', key: 'empty.starterReading' },
+]
+// Above this many pages, a filter field shows over the list.
+const FILTER_FROM = 8
+const NAME_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
-function PageRow({ page, pinned, onPin, age, t }) {
+function PageRow({ page, pinned, onPin, onDelete, onRename, age, t }) {
   const navigate = useNavigate()
+  const [renaming, setRenaming] = useState(false)
+  const [name, setName] = useState(page.name)
   const author = page.author === 'assistant' ? 'assistant' : 'you'
+  const open = `/app/pages/${encodeURIComponent(page.name)}`
   const ask = () => navigate('/app/chats', { state: { draft: t('view.askPrompt', { name: page.name }) } })
+  const saveName = async (e) => {
+    e.preventDefault()
+    if (name === page.name) { setRenaming(false); return }
+    if (await onRename(page.name, name)) setRenaming(false)
+  }
   return (
     <li className="pg-row" data-testid="page-card" data-page={page.name}>
       <span className="icon-chip tone-primary pg-row__chip"><Icon name={page.icon || 'file-code'} /></span>
       <div className="pg-row__main">
-        <Link className="pg-row__title" to={`/app/pages/${encodeURIComponent(page.name)}`}>{page.title}</Link>
-        <span className="pg-row__meta">
-          <code className="pg-row__path">{pageIndexPath(page.name)}</code>
-          <span aria-hidden="true">·</span>
-          <span>{t('card.changed', { when: age(page.updated_at) })}</span>
-          <span aria-hidden="true">·</span>
-          <span data-testid="page-author">{t(`card.author.${author}`)}</span>
-        </span>
+        {renaming ? (
+          <form className="pg-rename" onSubmit={saveName}>
+            <label className="pg-sr" htmlFor={`pg-rename-${page.name}`}>{t('card.renameLabel')}</label>
+            <input
+              id={`pg-rename-${page.name}`} className="dk-input pg-rename__input" value={name} autoFocus spellCheck={false}
+              onChange={(e) => setName(e.target.value.toLowerCase())} data-testid="page-rename-input"
+              aria-invalid={!NAME_RE.test(name)} aria-describedby={`pg-rename-${page.name}-hint`}
+            />
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!NAME_RE.test(name)}>{t('card.renameSave')}</button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setName(page.name); setRenaming(false) }}>{t('card.renameCancel')}</button>
+            <span className="pg-row__meta" id={`pg-rename-${page.name}-hint`}>{t('card.renameHint')}</span>
+          </form>
+        ) : (
+          <Link className="pg-row__title" to={open}>{page.title}</Link>
+        )}
         {page.description && <p className="pg-row__desc">{page.description}</p>}
+        <span className="pg-row__meta">
+          <code className="pg-row__path">{pageIndexPath(page.name).replace(/\/index\.html$/, '')}</code>
+          <span data-testid="page-author">{t(`card.changedBy.${author}`, { when: age(page.updated_at) })}</span>
+        </span>
       </div>
       <div className="pg-row__actions">
-        <Link className="btn btn-primary btn-sm" to={`/app/pages/${encodeURIComponent(page.name)}`}>{t('card.open')}</Link>
+        <Link className="btn btn-secondary btn-sm" to={open}>{t('card.open')}</Link>
         <button
-          type="button" className="btn btn-secondary btn-sm" aria-pressed={pinned}
+          type="button" className={`btn btn-ghost btn-sm pg-pin${pinned ? ' pg-pin--on' : ''}`} aria-pressed={pinned}
+          aria-label={pinned ? t('card.unpin') : t('card.pin')} title={pinned ? t('card.unpin') : t('card.pin')}
           onClick={() => onPin(page.name, !pinned)} data-testid="page-pin"
         >
-          <Icon name="pin" /> {pinned ? t('card.unpin') : t('card.pin')}
+          <Icon name="pin" />
         </button>
-        <button type="button" className="btn btn-ghost btn-sm" onClick={ask} data-testid="page-ask">
-          <Icon name="sparkles" /> {t('card.ask')}
-        </button>
+        <ActionMenu
+          ariaLabel={t('card.menu', { title: page.title })}
+          items={[
+            { key: 'ask', icon: 'sparkles', label: t('card.ask'), onClick: ask },
+            { key: 'files', icon: 'folder', label: t('card.files'), onClick: () => navigate(`/app/files?path=${encodeURIComponent(`/pages/${page.name}`)}`) },
+            { key: 'rename', icon: 'pencil', label: t('card.rename'), onClick: () => setRenaming(true) },
+            { divider: true },
+            { key: 'delete', icon: 'trash', label: t('card.delete'), danger: true, onClick: () => onDelete(page) },
+          ]}
+        />
       </div>
     </li>
   )
 }
 
 // /app/pages: the user's pages, newest change first, or the empty state that
-// starts one.
+// starts one. Shared pages have their own slice.
 export default function Pages() {
   const { t } = useTranslation('pages')
   const navigate = useNavigate()
@@ -54,7 +92,9 @@ export default function Pages() {
   const { pages, loaded, error, off } = usePages(true)
   const { pins, setPin } = usePinnedPages(true)
   const age = usePageAge()
-  const [starting, setStarting] = useState(false)
+  const [starting, setStarting] = useState('')
+  const [filter, setFilter] = useState('')
+  const [deleting, setDeleting] = useState(null)
 
   const pin = async (name, on) => {
     try {
@@ -64,21 +104,52 @@ export default function Pages() {
     }
   }
 
-  const start = async () => {
-    setStarting(true)
+  const start = async (id) => {
+    setStarting(id)
     try {
-      const p = await pagesApi.copyStarter(STARTER)
+      const p = await pagesApi.copyStarter(id)
       await refreshPages()
       navigate(`/app/pages/${encodeURIComponent(p.name)}`)
     } catch (e) {
       addToast?.(t('empty.starterFailed', { message: e.message }), 'error')
     } finally {
-      setStarting(false)
+      setStarting('')
+    }
+  }
+
+  // A page is a folder: renaming moves it, deleting moves it to the Trash
+  // (Files, Trash restores it).
+  const rename = async (from, to) => {
+    try {
+      await filesApi.move(`/pages/${from}`, `/pages/${to}`)
+      if (pins.includes(from)) { await setPin(to, true); await setPin(from, false) }
+      await refreshPages()
+      return true
+    } catch (e) {
+      addToast?.(t('card.renameFailed', { message: e.message }), 'error')
+      return false
+    }
+  }
+  const remove = async () => {
+    const p = deleting
+    setDeleting(null)
+    try {
+      await filesApi.remove(`/pages/${p.name}`)
+      if (pins.includes(p.name)) await setPin(p.name, false).catch(() => {})
+      await refreshPages()
+      addToast?.(t('card.deleted', { title: p.title }), 'success')
+    } catch (e) {
+      addToast?.(t('card.deleteFailed', { message: e.message }), 'error')
     }
   }
 
   const askNew = () => navigate('/app/chats', { state: { draft: t('empty.askPrompt') } })
-  const sorted = [...pages].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
+  const sorted = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    return [...pages]
+      .filter(p => !q || `${p.title} ${p.name} ${p.description || ''}`.toLowerCase().includes(q))
+      .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))
+  }, [pages, filter])
 
   let body
   if (!loaded) {
@@ -95,30 +166,60 @@ export default function Pages() {
   } else if (pages.length === 0) {
     body = (
       <div className="pg-empty" data-testid="pages-empty">
+        <span className="icon-chip pg-empty__chip" aria-hidden="true"><Icon name="layers" /></span>
         <h2 className="pg-empty__title">{t('empty.title')}</h2>
         <p className="pg-empty__text">{t('empty.text')}</p>
+        <button type="button" className="btn btn-primary" onClick={askNew} data-testid="pages-ask">
+          <Icon name="sparkles" /> {t('empty.ask')}
+        </button>
         <div className="pg-empty__actions">
-          <button type="button" className="btn btn-primary" onClick={start} disabled={starting} data-testid="pages-starter">
-            <Icon name={starting ? 'spinner' : 'checklist'} spin={starting} /> {starting ? t('empty.starting') : t('empty.starter')}
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={askNew}>
-            <Icon name="sparkles" /> {t('empty.ask')}
-          </button>
+          {STARTERS.map(s => (
+            <button
+              key={s.id} type="button" className="btn btn-secondary btn-sm" onClick={() => start(s.id)} disabled={!!starting}
+              data-testid={s.id === 'task-board' ? 'pages-starter' : 'pages-starter-reading'}
+            >
+              <Icon name={starting === s.id ? 'spinner' : s.icon} spin={starting === s.id} /> {starting === s.id ? t('empty.starting') : t(s.key)}
+            </button>
+          ))}
         </div>
+        <p className="pg-empty__note">{t('empty.note')} <a href={DOCS_MAKE_YOURS} target="_blank" rel="noopener noreferrer">{t('empty.learn')}</a></p>
       </div>
     )
   } else {
     body = (
-      <ul className="pg-list" aria-label={t('card.list')}>
-        {sorted.map((p) => <PageRow key={p.name} page={p} pinned={pins.includes(p.name)} onPin={pin} age={age} t={t} />)}
-      </ul>
+      <section aria-labelledby="pg-yours">
+        <h2 className="pg-group" id="pg-yours">{t('yours')} <span className="pg-group__count">{pages.length}</span></h2>
+        {pages.length > FILTER_FROM && (
+          <div className="pg-filter">
+            <label className="pg-sr" htmlFor="pg-filter">{t('filter')}</label>
+            <input id="pg-filter" className="dk-input" type="search" placeholder={t('filter')} value={filter} onChange={(e) => setFilter(e.target.value)} data-testid="pages-filter" />
+          </div>
+        )}
+        <ul className="pg-list" aria-label={t('card.list')}>
+          {sorted.map((p) => <PageRow key={p.name} page={p} pinned={pins.includes(p.name)} onPin={pin} onDelete={setDeleting} onRename={rename} age={age} t={t} />)}
+        </ul>
+      </section>
     )
   }
 
   return (
     <div className="page page--medium pg-page" data-testid="pages-page">
-      <PageHeader title={t('title')} supporting={t('subtitle')} />
+      <PageHeader
+        title={t('title')} supporting={t('subtitle')}
+        actions={pages.length > 0 ? (
+          <button type="button" className="btn btn-secondary" onClick={askNew} data-testid="pages-ask-new"><Icon name="sparkles" /> {t('askNew')}</button>
+        ) : undefined}
+      />
       {body}
+      <ConfirmDialog
+        open={!!deleting}
+        title={t('card.deleteTitle', { title: deleting?.title || '' })}
+        message={t('card.deleteMessage', { folder: deleting ? `pages/${deleting.name}/` : '' })}
+        confirmLabel={t('card.delete')}
+        danger
+        onConfirm={remove}
+        onCancel={() => setDeleting(null)}
+      />
     </div>
   )
 }

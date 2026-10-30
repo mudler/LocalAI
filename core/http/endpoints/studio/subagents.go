@@ -47,7 +47,7 @@ func (h *Handlers) SubAgentMessages(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	return c.JSON(http.StatusOK, messageList(entries))
+	return c.JSON(http.StatusOK, messageList(h.svc.Principal(userID(c)), entries))
 }
 
 // StopSubAgent stops a sub-agent run.

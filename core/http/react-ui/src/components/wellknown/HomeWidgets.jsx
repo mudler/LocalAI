@@ -188,14 +188,22 @@ function LayoutEditor({ wk, onDone }) {
 //   conversations  for a chats widget (resumeItems)
 //   onResume       opens a chat
 //   onAsk          opens a chat with a prompt about the layout
-export default function HomeWidgets({ wk, conversations, onResume, onAsk }) {
+//   editRequest    a number that, when it grows, opens Edit layout (the
+//                  "Customise Home" link of the library line)
+export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRequest = 0 }) {
   const { t } = useTranslation('workspace')
   const [editing, setEditing] = useState(false)
+  const box = useRef(null)
+  useEffect(() => {
+    if (editRequest <= 0) return
+    setEditing(true)
+    box.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [editRequest])
   const widgets = useMemo(() => widgetList(wk.doc), [wk.doc])
   if (!wk.doc) return null
 
   return (
-    <div className="wk-home" data-testid="home-widgets">
+    <div className="wk-home" data-testid="home-widgets" ref={box}>
       {wk.doc.exists && !wk.doc.valid && (
         <p className="wk-note wk-note--warn" role="status"><Icon name="warning" /> {t(wk.doc.fallback ? 'wellKnown.invalidFallback' : 'wellKnown.invalid', { file: 'home.json' })}</p>
       )}

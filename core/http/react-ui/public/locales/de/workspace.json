@@ -145,5 +145,122 @@
         }
       }
     }
+  },
+  "discovery": {
+    "ex": {
+      "title": "Mach LocalAI zu deinem",
+      "lede": "Sag es im Chat. Der Assistent speichert es als Datei, die du ändern oder rückgängig machen kannst.",
+      "hide": "Ausblenden",
+      "hiddenToast": "Beispiele ausgeblendet.",
+      "saveFailed": "Nicht gespeichert: {{message}}",
+      "card1": {
+        "kicker": "Du und der Assistent",
+        "prompt": "Nenn mich {{firstName}} und antworte kurz",
+        "promptNoName": "Merk dir meinen Namen und antworte kurz",
+        "what": "Speichert user.json und persona.json"
+      },
+      "card2": {
+        "kicker": "Eine Seite",
+        "prompt": "Erstelle mir ein Aufgabenboard",
+        "what": "Fügt eine Seite hinzu, die du in der Seitenleiste öffnest"
+      },
+      "card3": {
+        "kicker": "Jeden Morgen",
+        "prompt": "Fasse hier jeden Morgen meinen Posteingang zusammen",
+        "promptNoMail": "Liste hier jeden Morgen die Chats von gestern auf",
+        "what": "Fügt ein Home-Widget und einen Trigger hinzu, den du bestätigst"
+      },
+      "quote": "„{{text}}“",
+      "donePrefix": "Fertig.",
+      "doneLink": "In Account ändern",
+      "ready": "Oder starte mit einer fertigen Seite:",
+      "readyTasks": "Aufgabenboard",
+      "readyReading": "Leseliste",
+      "readyFailed": "Die Seite wurde nicht kopiert: {{message}}",
+      "learn": "So funktioniert das",
+      "inComposer": "Bearbeite den Text nach Wunsch und drücke dann Enter. Nichts wird gespeichert, bis du sendest.",
+      "live": "Prompt zum Nachrichtenfeld hinzugefügt."
+    },
+    "home": {
+      "customise": "Home anpassen"
+    },
+    "action": {
+      "undo": "Rückgängig",
+      "openAccount": "In Account öffnen",
+      "openPage": "Seite öffnen",
+      "openHome": "Home öffnen",
+      "turnBackOn": "In Account wieder einschalten"
+    },
+    "change": {
+      "profilePersona": "Name in <code>user.json</code> und Anweisungen in <code>persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
+      "profile": "In deinem Profil in <code>user.json</code> gespeichert.",
+      "persona": "<code>persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
+      "shortcuts": "<code>shortcuts.json</code> gespeichert.",
+      "home": "<code>home.json</code> gespeichert. Home zeigt die Änderung.",
+      "ui": "<code>ui.json</code> gespeichert.",
+      "pageCreated": "Seite {{title}} in <code>{{folder}}</code> erstellt.",
+      "pageChanged": "<code>{{file}}</code> geändert.",
+      "offersOff": "Vorschläge des Assistenten sind aus.",
+      "undoing": "Wird rückgängig gemacht…",
+      "undone": "Rückgängig gemacht.",
+      "undoFailed": "Nicht rückgängig gemacht: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Zu deinem Eingabefeld hinzugefügt: {{label}}",
+      "pageCreated": "{{title}} ist unter Pages in der Seitenleiste",
+      "open": "Öffnen",
+      "homeChanged": "Home aktualisiert.",
+      "themeChanged": "Design geändert."
+    },
+    "files": {
+      "learn": "Diese Dateien ändern, wie LocalAI für dich arbeitet.",
+      "tag": {
+        "profile": "Dein Profil",
+        "persona": "Assistent",
+        "shortcuts": "Kurzbefehle",
+        "home": "Home-Layout",
+        "ui": "Aussehen",
+        "page": "Seite"
+      }
+    },
+    "privacy": "Der Assistent erhält zu Beginn jedes Chats deinen Namen, diesen Text, deine Sprache und Zeitzone. Lass ein Feld leer, um es draußen zu lassen.",
+    "versions": {
+      "label": "Versionen",
+      "title": "Versionen von {{file}}",
+      "titleBefore": "Versionen von",
+      "loading": "Verlauf wird gelesen…",
+      "none": "Noch keine frühere Version.",
+      "current": "aktuell",
+      "invalid": "hat einen Fehler",
+      "byAssistant": "Vom Assistenten",
+      "byAssistantIn": "Vom Assistenten in „{{chat}}“",
+      "byYou": "Von dir",
+      "undo": "Ein Rückgängig",
+      "upload": "Hochgeladen",
+      "revert": "Zurücksetzen",
+      "note": "Beim Zurücksetzen bleibt die neuere Version in dieser Liste.",
+      "invalidBadge": "Ungültig",
+      "revertGood": "Auf die letzte gute Version zurücksetzen"
+    },
+    "help": {
+      "title": "Hilfe und Vorschläge",
+      "sub": "So zeigt dir LocalAI, was es kann. Schalte aus, was du nicht brauchst.",
+      "offers": "Angebote des Assistenten",
+      "offersHint": "Höchstens eines pro Tag, nie während einer Aufgabe: zum Beispiel, um sich etwas zu merken, das du gesagt hast.",
+      "new": "Hinweise auf Neues",
+      "newHint": "Ein kurzes „Neu“-Label in der Seitenleiste, wenn etwas zum ersten Mal erscheint.",
+      "examples": "Beispiele auf Home",
+      "examplesShown": "Die Karten „Mach LocalAI zu deinem“ erscheinen auf Home, solange du noch etwas ausprobieren kannst.",
+      "examplesHidden": "Du hast die Karten „Mach LocalAI zu deinem“ ausgeblendet.",
+      "showExamples": "Beispiele wieder anzeigen",
+      "examplesBack": "Die Beispiele sind wieder auf Home.",
+      "dismissed": "Was der Assistent gelernt hat",
+      "dismissedHint_one": "Du hast {{count}} Angebot abgelehnt. Es bleibt ausgeblendet, bis du es zurücksetzt.",
+      "dismissedHint_other": "Du hast {{count}} Angebote abgelehnt. Sie bleiben ausgeblendet, bis du sie zurücksetzt.",
+      "forget": "Vergessen, was der Assistent über meine Hinweise gelernt hat",
+      "forgotten": "Fertig. Der Assistent darf wieder etwas anbieten.",
+      "learn": "Lerne, was du ändern kannst:",
+      "dismissedNone": "Noch nichts. Wenn du auf ein Angebot antwortest, merkt sich der Assistent das hier."
+    }
   }
 }

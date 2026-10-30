@@ -1,0 +1,37 @@
+{
+  "subtitle": "어시스턴트가 만들어 준 작은 도구예요. 여기 샌드박스에서 열리고 데이터는 내 파일에 저장돼요.",
+  "card": {
+    "pin": "사이드바에 고정",
+    "unpin": "사이드바에서 고정 해제",
+    "changedBy": {
+      "you": "{{when}} 내가 변경",
+      "assistant": "{{when}} 어시스턴트가 변경"
+    },
+    "menu": "{{title}} 더보기",
+    "files": "파일 보기",
+    "rename": "이름 바꾸기",
+    "renameLabel": "새 폴더 이름",
+    "renameHint": "소문자, 숫자, 하이픈만 쓸 수 있어요.",
+    "renameSave": "저장",
+    "renameCancel": "취소",
+    "renameFailed": "페이지 이름을 바꾸지 못했어요: {{message}}",
+    "delete": "페이지 삭제",
+    "deleteTitle": "“{{title}}”을(를) 삭제할까요?",
+    "deleteMessage": "{{folder}} 폴더가 휴지통으로 이동해요. 파일에서 복원할 수 있어요.",
+    "deleted": "{{title}}이(가) 휴지통에 있어요.",
+    "deleteFailed": "페이지를 삭제하지 못했어요: {{message}}"
+  },
+  "empty": {
+    "text": "페이지는 작업 보드나 읽기 목록 같은 작은 도구예요. 채팅에서 어시스턴트에게 요청하거나 준비된 페이지로 시작하세요.",
+    "starting": "페이지를 복사하는 중",
+    "starterFailed": "페이지를 복사하지 못했어요: {{message}}",
+    "ask": "페이지 요청하기",
+    "askPrompt": "다음과 같은 페이지를 만들어 주세요: ",
+    "starterReading": "읽기 목록으로 시작",
+    "note": "페이지가 없으면 이 항목은 사이드바에서 사라져요. 다음 페이지를 만들면 다시 나타나요.",
+    "learn": "페이지 사용 방법"
+  },
+  "askNew": "새 페이지 요청하기",
+  "yours": "내 페이지",
+  "filter": "페이지 필터"
+}
