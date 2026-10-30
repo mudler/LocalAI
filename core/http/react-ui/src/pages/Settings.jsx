@@ -246,8 +246,9 @@ export default function Settings() {
     <div className="page page--wide st-page" data-testid="settings-page">
       <UnsavedChangesGuard when={isDirty} />
 
-      {/* The tab says Settings; the header above says what the page does. */}
-      <h1 className="dk-sr-only">{t('settings.title')}</h1>
+      {/* The header above says what the page does; the title is a section
+          title under it, like every page under the Administration tabs. */}
+      <h1 className="st-title">{t('settings.title')}</h1>
       <HubHeader supporting={<p className="st-lede">{t('settings.subtitle')}. Edits wait here until you apply them.</p>} />
 
       <div className="st-bar">
@@ -261,7 +262,7 @@ export default function Settings() {
           />
         </div>
         <p className="st-bar__count" data-testid="settings-changed-count">
-          <strong>{changedFromDefault}</strong> changed from default
+          <strong className="st-bar__n">{changedFromDefault}</strong> changed from default
         </p>
         <Button size="sm" icon="history" className="st-bar__history" onClick={() => setHistoryOpen(true)}>History</Button>
       </div>

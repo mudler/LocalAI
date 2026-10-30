@@ -14,12 +14,13 @@
 /* ---- Search bar ----------------------------------------------------------- */
 /* The page's line sits in the Administration header (HubHeader). */
 .st-lede { margin: 0; }
+.st-title { margin: 0; font: 600 var(--fs-section) / var(--lh-section) var(--font-sans); color: var(--dk-text); }
 
 .st-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-3) var(--dk-space-4); }
 .st-search { flex: 1 1 260px; max-width: 380px; min-width: 200px; }
 .st-search .dk-input { width: 100%; }
 .st-bar__count { margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
-.st-bar__count strong { color: var(--dk-text); font-weight: var(--dk-weight-semibold); font-variant-numeric: tabular-nums; }
+.st-bar__count .st-bar__n { color: var(--dk-text); font-weight: var(--dk-weight-semibold); font-variant-numeric: tabular-nums; }
 .st-bar__history { margin-left: auto; }
 
 /* ---- Group list and content --------------------------------------------- */
