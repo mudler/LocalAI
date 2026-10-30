@@ -1101,6 +1101,8 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 		Temperature: set.Temperature, TopP: set.TopP, TopK: set.TopK, ReasoningEffort: set.ReasoningEffort,
 		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, limit) },
 		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
+		// An image goes to the model with its message, not with every later one.
+		OnlyLastImages: true,
 	}
 	m := nibharness.Model{
 		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,

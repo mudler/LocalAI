@@ -40,7 +40,18 @@ type Params struct {
 	// harness drops audio and video parts, so videos go in here, once, with
 	// the request that follows the user's message.
 	TakeVideos func() []string
+	// OnlyLastImages sends the images of the last user message only. The
+	// harness keeps the images of a message in the history, so without it
+	// every later request of the chat would carry every image again, and a
+	// few photos would fill the context. The images of an earlier message
+	// become OlderImageNote; the model can look at the file again with
+	// describe_image. The last user message keeps its images for every
+	// request of its turn, tool calls included.
+	OnlyLastImages bool
 }
+
+// OlderImageNote takes the place of the images of an earlier user message.
+const OlderImageNote = "[An image was attached here. It is not sent again: to look at it again, use describe_image on its file.]"
 
 // Usage is what one model request used.
 type Usage struct {
@@ -66,7 +77,7 @@ func (p *Provider) LLMWith(user *auth.User, model string, params Params) cogito.
 }
 
 func (p Params) isZero() bool {
-	return p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil
+	return p.Temperature == nil && p.TopP == nil && p.TopK == nil && p.ReasoningEffort == "" && p.OnUsage == nil && p.TakeVideos == nil && !p.OnlyLastImages
 }
 
 type paramsTransport struct {
@@ -138,6 +149,9 @@ func (t *paramsTransport) rewrite(raw []byte) ([]byte, error) {
 	if err == nil && t.params.OnUsage != nil && string(m["stream"]) == "true" {
 		err = set("stream_options", map[string]bool{"include_usage": true})
 	}
+	if err == nil && t.params.OnlyLastImages {
+		err = dropOlderImages(m)
+	}
 	if err == nil && t.params.TakeVideos != nil {
 		err = addVideos(m, t.params.TakeVideos())
 	}
@@ -192,6 +206,65 @@ func addVideos(m map[string]json.RawMessage, uris []string) error {
 		m["messages"] = raw
 		return nil
 	}
+	return nil
+}
+
+// dropOlderImages replaces the image parts of every user message but the last
+// with one OlderImageNote per message.
+func dropOlderImages(m map[string]json.RawMessage) error {
+	if len(m["messages"]) == 0 {
+		return nil
+	}
+	var msgs []map[string]json.RawMessage
+	if err := json.Unmarshal(m["messages"], &msgs); err != nil {
+		return err
+	}
+	last := -1
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if string(msgs[i]["role"]) == `"user"` {
+			last = i
+			break
+		}
+	}
+	changed := false
+	for i := 0; i < last; i++ {
+		if string(msgs[i]["role"]) != `"user"` {
+			continue
+		}
+		var parts []map[string]any
+		if json.Unmarshal(msgs[i]["content"], &parts) != nil {
+			continue // a string content has no images
+		}
+		kept := make([]map[string]any, 0, len(parts))
+		noted := false
+		for _, p := range parts {
+			if p["type"] != "image_url" {
+				kept = append(kept, p)
+				continue
+			}
+			if !noted {
+				kept = append(kept, map[string]any{"type": "text", "text": OlderImageNote})
+				noted = true
+			}
+		}
+		if !noted {
+			continue
+		}
+		content, err := json.Marshal(kept)
+		if err != nil {
+			return err
+		}
+		msgs[i]["content"] = content
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	raw, err := json.Marshal(msgs)
+	if err != nil {
+		return err
+	}
+	m["messages"] = raw
 	return nil
 }
 

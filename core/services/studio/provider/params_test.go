@@ -84,4 +84,65 @@ var _ = Describe("LLMWith", func() {
 		Expect(u.PromptTokens).To(Equal(50))
 		Expect(u.CompletionTokens).To(Equal(10))
 	})
+
+	It("sends the images of the last user message only", func() {
+		var got map[string]any
+		p := provider.New()
+		p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(raw, &got)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`)
+		}))
+		image := func(text, uri string) openai.ChatCompletionMessage {
+			return openai.ChatCompletionMessage{Role: "user", MultiContent: []openai.ChatMessagePart{
+				{Type: openai.ChatMessagePartTypeText, Text: text},
+				{Type: openai.ChatMessagePartTypeImageURL, ImageURL: &openai.ChatMessageImageURL{URL: uri}},
+			}}
+		}
+		req := openai.ChatCompletionRequest{Messages: []openai.ChatCompletionMessage{
+			{Role: "system", Content: "be brief"},
+			image("what is this?", "data:image/png;base64,T0xE"),
+			{Role: "assistant", Content: "a cat"},
+			image("and this?", "data:image/png;base64,TkVX"),
+			// The tool loop of the turn: the last user message keeps its image.
+			{Role: "assistant", ToolCalls: []openai.ToolCall{{ID: "1", Type: "function", Function: openai.FunctionCall{Name: "search", Arguments: "{}"}}}},
+			{Role: "tool", ToolCallID: "1", Content: "nothing"},
+		}}
+		llm := p.LLMWith(nil, "m", provider.Params{OnlyLastImages: true})
+		_, _, err := llm.CreateChatCompletion(context.Background(), req)
+		Expect(err).ToNot(HaveOccurred())
+
+		msgs := got["messages"].([]any)
+		Expect(msgs).To(HaveLen(6))
+		older, _ := json.Marshal(msgs[1])
+		Expect(string(older)).ToNot(ContainSubstring("image_url"), "an older image was sent again: %s", older)
+		Expect(string(older)).ToNot(ContainSubstring("T0xE"))
+		Expect(msgs[1]).To(HaveKeyWithValue("content", []any{
+			map[string]any{"type": "text", "text": "what is this?"},
+			map[string]any{"type": "text", "text": provider.OlderImageNote},
+		}))
+		last, _ := json.Marshal(msgs[3])
+		Expect(string(last)).To(ContainSubstring(`"url":"data:image/png;base64,TkVX"`))
+	})
+
+	It("leaves every image in place without OnlyLastImages", func() {
+		var raw []byte
+		p := provider.New()
+		p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			raw, _ = io.ReadAll(r.Body)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`)
+		}))
+		part := func(uri string) openai.ChatCompletionMessage {
+			return openai.ChatCompletionMessage{Role: "user", MultiContent: []openai.ChatMessagePart{
+				{Type: openai.ChatMessagePartTypeImageURL, ImageURL: &openai.ChatMessageImageURL{URL: uri}},
+			}}
+		}
+		req := openai.ChatCompletionRequest{Messages: []openai.ChatCompletionMessage{part("data:image/png;base64,T0xE"), part("data:image/png;base64,TkVX")}}
+		_, _, err := p.LLMWith(nil, "m", provider.Params{TopK: intp(1)}).CreateChatCompletion(context.Background(), req)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring("T0xE"))
+		Expect(string(raw)).To(ContainSubstring("TkVX"))
+	})
 })
