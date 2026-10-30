@@ -6557,8 +6557,9 @@ definitions:
       author:
         description: |-
           Author is who wrote the current index.html: "you" or "assistant" for an
-          own page. A shared page also has AuthorID and AuthorName, the account
-          that last wrote its index.html.
+          own page, "other" for a shared page another account wrote. A shared page
+          also has AuthorID and AuthorName, the account that last wrote its
+          index.html.
         type: string
       author_id:
         type: string

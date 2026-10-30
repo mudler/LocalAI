@@ -21617,7 +21617,7 @@
             "type": "object",
             "properties": {
                 "author": {
-                    "description": "Author is who wrote the current index.html: \"you\" or \"assistant\" for an\nown page. A shared page also has AuthorID and AuthorName, the account\nthat last wrote its index.html.",
+                    "description": "Author is who wrote the current index.html: \"you\" or \"assistant\" for an\nown page, \"other\" for a shared page another account wrote. A shared page\nalso has AuthorID and AuthorName, the account that last wrote its\nindex.html.",
                     "type": "string"
                 },
                 "author_id": {

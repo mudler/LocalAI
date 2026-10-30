@@ -24,6 +24,8 @@ import (
 const (
 	headerPageHash  = "X-LocalAI-Page-Hash"
 	headerPageVisit = "X-LocalAI-Page-Visit"
+	// authorShared is the author of a shared page that another account wrote.
+	authorShared = "other"
 )
 
 // sharedOn checks the pages feature, the files and the administrator's switch.
@@ -51,6 +53,10 @@ func sharedRef(c echo.Context) (int64, string, error) {
 
 func (h *Handlers) sharedJSON(c echo.Context, p pages.Page, consent string) schema.PagesPage {
 	out := pageJSON(p)
+	// Another account wrote it: "you" and "assistant" describe own pages only.
+	if out.Author, out.UpdatedBy = authorShared, authorShared; p.AuthorID == userID(c) {
+		out.Author, out.UpdatedBy = pages.AuthorYou, pages.AuthorYou
+	}
 	out.AuthorID, out.AuthorName = p.AuthorID, h.svc.UserName(c.Request().Context(), p.AuthorID)
 	out.Folder, out.FolderID, out.Writable, out.Hash, out.MetaSize, out.Consent = p.Folder, p.FolderID, p.Writable, p.Hash, p.MetaSize, consent
 	return out

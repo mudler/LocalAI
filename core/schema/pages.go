@@ -14,8 +14,9 @@ type PagesPage struct {
 	// a shared folder.
 	Source string `json:"source"`
 	// Author is who wrote the current index.html: "you" or "assistant" for an
-	// own page. A shared page also has AuthorID and AuthorName, the account
-	// that last wrote its index.html.
+	// own page, "other" for a shared page another account wrote. A shared page
+	// also has AuthorID and AuthorName, the account that last wrote its
+	// index.html.
 	Author     string `json:"author"`
 	AuthorID   string `json:"author_id,omitempty"`
 	AuthorName string `json:"author_name,omitempty"`
