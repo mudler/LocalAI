@@ -9,7 +9,6 @@ export const CHAT_SLASH_ACTIONS = [
   { id: 'new', cmd: '/new', icon: 'plus', group: 'chat' },
   { id: 'chats', cmd: '/chats', icon: 'history', group: 'chat' },
   { id: 'assistant', cmd: '/assistant', icon: 'user-shield', group: 'chat', needs: 'assistant' },
-  { id: 'canvas', cmd: '/canvas', icon: 'columns', group: 'view' },
   { id: 'find', cmd: '/find', icon: 'search', group: 'view', needs: 'thread' },
   { id: 'settings', cmd: '/settings', icon: 'sliders', group: 'view' },
   { id: 'export', cmd: '/export', icon: 'export', group: 'view', needs: 'thread' },
@@ -28,7 +27,7 @@ export function availableChatActions(ctx) {
 }
 
 // A file chip in the transcript (a step that saved a file) asks the chat page
-// to open the Files pane at that file. detail: { path }.
+// to open the preview pane at that file. detail: { path }.
 export const OPEN_CHAT_FILE_EVENT = 'localai:open-chat-file'
 
 export function openChatFile(path) {

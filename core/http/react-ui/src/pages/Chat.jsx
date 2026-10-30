@@ -7,18 +7,19 @@ import { useChatDrafts } from '../hooks/useChatDrafts'
 import { useChatSwitches } from '../hooks/useChatSwitches'
 import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
-import { extractCodeArtifacts } from '../utils/artifacts'
 import {
-  threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, artifactSource, downloadFrom, chatFromExport,
+  threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
 import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
 import { connectorRef } from '../utils/chatMCP'
 // eslint-disable-next-line no-unused-vars
-import CanvasPanel from '../components/CanvasPanel'
-// eslint-disable-next-line no-unused-vars
 import ChatFilesPane from '../components/chat/ChatFilesPane'
 import { useChatFiles } from '../hooks/useChatFiles'
+import { useChatPreviewPane } from '../hooks/useChatPreviewPane'
+// eslint-disable-next-line no-unused-vars
+import { FileChipRow } from '../components/chat/FileChips'
+import { codeBlocksOf, extensionForLanguage, isPreviewableBlock, turnFiles } from '../utils/previewPane'
 import { chatAgentsApi, chatsApi, modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -146,13 +147,6 @@ function ChatPage() {
   // only then.
   const [composerFocused, setComposerFocused] = useState(false)
   const [find, setFind] = useState({ open: false, query: '', index: 0, count: 0, token: 0 })
-  const [canvasMode, setCanvasMode] = useState(false)
-  const [canvasOpen, setCanvasOpen] = useState(false)
-  // The files pane and the canvas share the right side: one at a time.
-  const [filesOpen, setFilesOpen] = useState(false)
-  // The file the pane opens at, when a file chip of the transcript asked.
-  const [filesFocus, setFilesFocus] = useState(null)
-  const [selectedArtifactId, setSelectedArtifactId] = useState(null)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [renaming, setRenaming] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
@@ -166,7 +160,6 @@ function ChatPage() {
     return browserChatStores(st)
   })
   const importInputRef = useRef(null)
-  const pendingArtifactRef = useRef(null)
   const { ids: loadedIds, loaded: loadedModels } = useLoadedModels()
   const messagesEndRef = useRef(null)
   const messagesRef = useRef(null)
@@ -205,6 +198,12 @@ function ChatPage() {
   const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
   const switches = useChatSwitches(activeId, chat.files.on)
   const chatFiles = useChatFiles(chat.files.on ? activeId : null, chat.ticks.files)
+  // The preview pane on the right: the chat's files and what its answers
+  // produced. It opens by itself on a new result (useChatPreviewPane).
+  const pane = useChatPreviewPane({
+    chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
+    messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
+  })
   const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), activeId)
   const commands = useCommandsNotice(switches.commands.state, switches.commands.reason, isAdmin)
   // What the Tools picker says under an add-on: the Sandbox's state.
@@ -261,24 +260,6 @@ function ChatPage() {
   // What the composer slot of add-ons is told: the conversation and whether
   // sending is blocked. Never the draft or the history.
   const composerSlotContext = useMemo(() => ({ conversationId: activeId || undefined, disabled: chat.running }), [activeId, chat.running])
-
-  const artifacts = useMemo(
-    () => (canvasMode ? extractCodeArtifacts(artifactSource(messages), 'role', 'assistant') : []),
-    [messages, canvasMode],
-  )
-  const prevArtifactCountRef = useRef(0)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- reset per chat only
-  useEffect(() => { prevArtifactCountRef.current = artifacts.length }, [activeId])
-  useEffect(() => {
-    if (artifacts.length > prevArtifactCountRef.current && artifacts.length > 0) {
-      // A block opened from its own Canvas button is the one to show.
-      setSelectedArtifactId(pendingArtifactRef.current || artifacts[artifacts.length - 1].id)
-      pendingArtifactRef.current = null
-      if (!canvasOpen) { setCanvasOpen(true); setFilesOpen(false) }
-    }
-    prevArtifactCountRef.current = artifacts.length
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artifacts])
 
   useEffect(() => {
     const on = (e) => { if (e.target === textareaRef.current) setComposerFocused(e.type === 'focusin') }
@@ -345,10 +326,10 @@ function ChatPage() {
 
   // Global keys: Cmd/Ctrl+K opens the chats menu and Cmd/Ctrl+Shift+F searches
   // this chat. Esc stops a running turn, else closes the search, else closes
-  // the canvas; it also exits focus mode. None of that fires while a menu or
+  // the preview pane; it also exits focus mode. None of that fires while a menu or
   // dialog is open: those take their own Esc first.
   const escapeRef = useRef({})
-  escapeRef.current = { running: chat.running, stop: () => chat.stop(activeId), findOpen: find.open, canvasOpen, filesOpen }
+  escapeRef.current = { running: chat.running, stop: () => chat.stop(activeId), findOpen: find.open, paneOpen: pane.open, closePane: pane.close }
   useEffect(() => {
     const onKey = (e) => {
       const isMod = e.metaKey || e.ctrlKey
@@ -379,8 +360,7 @@ function ChatPage() {
         const cur = escapeRef.current
         if (cur.running) cur.stop()
         else if (cur.findOpen) setFind(f => ({ ...f, open: false, query: '', index: 0, count: 0 }))
-        else if (cur.canvasOpen) setCanvasOpen(false)
-        else if (cur.filesOpen) setFilesOpen(false)
+        else if (cur.paneOpen) cur.closePane()
       }
       if (e.key === 'Escape' && focusActive) setFocusOverride(true)
     }
@@ -399,7 +379,7 @@ function ChatPage() {
     }
     const marks = applyFind(root, find.query)
     setFind(f => (f.count === marks.length ? f : { ...f, count: marks.length, index: Math.min(f.index, Math.max(0, marks.length - 1)) }))
-  }, [find.open, find.query, messages, canvasMode, chat.running])
+  }, [find.open, find.query, messages, chat.running])
 
   useEffect(() => {
     const root = messagesRef.current
@@ -414,15 +394,31 @@ function ChatPage() {
     })
   }, [find.index, find.count, find.query])
 
-  // Highlight code blocks and add per-block copy and Canvas buttons. The
-  // observer is disconnected while we mutate so our own edits don't retrigger it.
+  // Highlight code blocks and add per-block Copy and Download buttons, and
+  // Open preview on a block that is a result (a page, an SVG, a long block, a
+  // block the answer names as a file). The observer is disconnected while we
+  // mutate so our own edits don't retrigger it.
+  const blockOfRef = useRef(() => null)
+  blockOfRef.current = (pre) => {
+    const seq = Number(pre.closest('[data-index]')?.dataset.index)
+    const msg = messages.find(m => m.seq === seq && m.role === 'assistant')
+    if (!msg) return null
+    const text = (pre.querySelector('code')?.textContent || '').trim()
+    const block = codeBlocksOf(msg.text).find(b => b.code.trim() === text)
+    return block ? { msg, block } : null
+  }
   useEffect(() => {
     const el = messagesRef.current
     if (!el) return undefined
     let obs
     const labels = {
       copyLabel: t('actions.copy'),
-      canvasLabel: canvasMode ? undefined : t('input.canvasLabel'),
+      downloadLabel: t('preview.downloadCode'),
+      previewLabel: t('preview.open'),
+      canPreview: (pre) => {
+        const found = blockOfRef.current(pre)
+        return !!found && isPreviewableBlock(found.block)
+      },
       selector: '.cx-prose pre:not([data-enhanced])',
     }
     const run = () => {
@@ -434,56 +430,34 @@ function ChatPage() {
     obs = new MutationObserver(run)
     run()
     return () => obs.disconnect()
-  }, [activeId, canvasMode, t])
+  }, [activeId, t])
 
-  // Event delegation for artifact cards and the Canvas button on a code block.
+  // The Download and Open preview buttons of a code block.
+  const openBlock = pane.openBlock
   useEffect(() => {
     const el = messagesRef.current
     if (!el) return undefined
     const handler = (e) => {
-      const canvasBtn = e.target.closest('.code-canvas-btn')
-      if (canvasBtn) {
-        const text = canvasBtn.closest('.code-block')?.querySelector('pre code')?.textContent || ''
-        const at = Number(canvasBtn.closest('[data-index]')?.dataset.index)
-        const all = extractCodeArtifacts(artifactSource(messages), 'role', 'assistant')
-        const same = (a) => a.code.trim() === text.trim()
-        const match = all.find(a => a.messageIndex === at && same(a)) || all.find(same)
-        if (!match) return
-        pendingArtifactRef.current = match.id
-        setSelectedArtifactId(match.id)
-        setCanvasMode(true)
-        setCanvasOpen(true)
+      const btn = e.target.closest('.code-preview-btn, .code-download-btn')
+      if (!btn) return
+      const pre = btn.closest('.code-block')?.querySelector('pre')
+      const found = pre && blockOfRef.current(pre)
+      if (btn.classList.contains('code-preview-btn')) {
+        if (found) openBlock(`${found.msg.seq}-${found.block.index}`)
         return
       }
-      if (!canvasMode) return
-      const openBtn = e.target.closest('.artifact-card-open')
-      const downloadBtn = e.target.closest('.artifact-card-download')
-      const card = e.target.closest('.artifact-card')
-      if (downloadBtn) {
-        e.stopPropagation()
-        const artifact = artifacts.find(a => a.id === downloadBtn.dataset.artifactId)
-        if (artifact?.code) {
-          const blob = new Blob([artifact.code], { type: 'text/plain' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = artifact.title || 'download.txt'
-          a.click()
-          URL.revokeObjectURL(url)
-        }
-        return
-      }
-      if (openBtn || card) {
-        const id = (openBtn || card).dataset.artifactId
-        if (id) {
-          setSelectedArtifactId(id)
-          setCanvasOpen(true)
-        }
-      }
+      const code = pre?.querySelector('code')?.textContent || ''
+      const lang = found?.block.lang || ''
+      const url = URL.createObjectURL(new Blob([code], { type: 'text/plain' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `code.${extensionForLanguage(lang)}`
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 0)
     }
     el.addEventListener('click', handler)
     return () => el.removeEventListener('click', handler)
-  }, [canvasMode, artifacts, messages])
+  }, [openBlock])
 
   // Files go to the server with the message that starts a turn and are saved in
   // the chat's folder of the workspace.
@@ -677,7 +651,7 @@ function ChatPage() {
   // is hidden; if it was the open one, the empty chat opens in its place, so
   // the offer stays on screen (leaving the page would end it at once).
   const deletes = useChatDelete({
-    remove: async (id) => { await chat.remove(id); drafts.clear(id) },
+    remove: async (id) => { await chat.remove(id); drafts.clear(id); pane.forget(id) },
     // A chat the server would not delete comes back, with the reason.
     onFailed: (e) => {
       setLocalError(e.message || tc('errors.delete'))
@@ -712,7 +686,7 @@ function ChatPage() {
     onConfirm: async () => {
       setConfirmDialog(null)
       for (const c of visibleChats) {
-        try { await chat.remove(c.id); drafts.clear(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
+        try { await chat.remove(c.id); drafts.clear(c.id); pane.forget(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
       }
       navigate('/app')
     },
@@ -797,21 +771,22 @@ function ChatPage() {
     if (!desc) return null
     return <WorkspaceChangeNote key={`wc-${row.msg.turn}`} desc={desc} live={live.has(row.msg.turn)} addToast={addToast} pageTitle={pageTitle} />
   }
-  // A file chip of a step opens the Files pane at its file.
+  // A file chip of a step, or of an answer, opens the preview pane at its file.
   const filesOn = chat.files.on
+  const openFile = pane.openFile
   useEffect(() => {
     if (!filesOn) return undefined
-    const on = (e) => {
-      const path = e.detail?.path
-      if (!path) return
-      setCanvasOpen(false)
-      setFilesOpen(true)
-      setFilesFocus(f => ({ path, n: (f?.n || 0) + 1 }))
-    }
+    const on = (e) => openFile(e.detail?.path)
     window.addEventListener(OPEN_CHAT_FILE_EVENT, on)
     return () => window.removeEventListener(OPEN_CHAT_FILE_EVENT, on)
-  }, [filesOn])
-  useEffect(() => { setFilesFocus(null) }, [activeId])
+  }, [filesOn, openFile])
+  // The files an answer's turn created or changed: chips under its last answer.
+  const fileChipsFor = (row) => {
+    if (!filesOn || row.kind !== 'msg' || row.msg.role !== 'assistant' || noteKeyByTurn.get(row.msg.turn) !== row.key) return null
+    const list = turnFiles(chatFiles.files, row.msg.turn)
+    if (list.length === 0) return null
+    return <FileChipRow key={`fc-${row.msg.turn}`} files={list} onOpen={openFile} />
+  }
 
   const streaming = streamingParts(chat.live)
   const sendLive = useCallback((text) => activeId && chat.send(activeId, text), [activeId, chat])
@@ -828,12 +803,6 @@ function ChatPage() {
   const noModel = !activeId && !chatModelsLoading && chatModels.length === 0 && !pickedAgent?.model
   const conversations = isEmpty ? resumeItems(chat.chats.filter(c => c.id !== activeId && c.id !== pendingDelete?.id)).slice(0, 8) : []
   const manage = Boolean(activeChat?.assistant)
-
-  const toggleCanvasMode = () => {
-    const next = !canvasMode
-    setCanvasMode(next)
-    if (!next) setCanvasOpen(false)
-  }
 
   // What a row of the model list says: whether it is loaded, what it can do
   // and, where the server can estimate it, how it fits this machine.
@@ -913,37 +882,13 @@ function ChatPage() {
   const composerChips = (
     <>
       <AgentPicker agents={agents} value={activeChat ? activeChat.agent_id : agentId} onChange={setAgentId} readOnly={!!activeId} />
-      <span className="cx-chipset">
-        <button
-          type="button"
-          className="home-chip cx-chip-toggle"
-          aria-pressed={canvasMode}
-          onClick={toggleCanvasMode}
-          title={t('input.canvasTitle')}
-          data-testid="chat-canvas-chip"
-        >
-          <Icon name="columns" />
-          <span className="home-chip__text">{t('input.canvasLabel')}</span>
-        </button>
-        {canvasMode && artifacts.length > 0 && !canvasOpen && (
-          <button
-            type="button"
-            className="home-chip cx-chip-count"
-            title={t('input.openCanvas')}
-            aria-label={t('input.openCanvas')}
-            onClick={() => { setSelectedArtifactId(artifacts[0]?.id); setCanvasOpen(true); setFilesOpen(false) }}
-          >
-            {artifacts.length}
-          </button>
-        )}
-      </span>
       {activeId && chat.files.on && (
         <button
           type="button"
           className="home-chip cx-chip-toggle"
-          aria-pressed={filesOpen}
-          aria-controls={filesOpen ? 'chat-files-pane' : undefined}
-          onClick={() => { const next = !filesOpen; setFilesOpen(next); if (next) setCanvasOpen(false) }}
+          aria-pressed={pane.open}
+          aria-controls={pane.open ? 'chat-files-pane' : undefined}
+          onClick={pane.toggle}
           title={t('files.chipTitle')}
           data-testid="chat-files-chip"
         >
@@ -975,7 +920,6 @@ function ChatPage() {
       case 'new': navigate('/app'); break
       case 'chats': chatsMenuRef.current?.open(); break
       case 'assistant': openAssistant(); break
-      case 'canvas': toggleCanvasMode(); break
       case 'settings': setShowSettings(true); break
       case 'find': openFind(); break
       case 'export': if (activeId) exportChat(activeId); break
@@ -1064,7 +1008,6 @@ function ChatPage() {
                     isLast={i === rows.length - 1}
                     model={model}
                     warm={modelWarm}
-                    canvasMode={canvasMode}
                     busy={chat.running}
                     activityItems={row.activity}
                     actions={messageActions}
@@ -1073,6 +1016,7 @@ function ChatPage() {
                     proposalTick={chat.ticks.proposals}
                   />,
                   changeNoteFor(row),
+                  fileChipsFor(row),
                 ]
               })}
 
@@ -1227,23 +1171,19 @@ function ChatPage() {
           </div>
         )}
       </div>
-      {filesOpen && activeId && chat.files.on && !(canvasOpen && artifacts.length > 0) && (
+      {pane.open && activeId && (
         <ChatFilesPane
           state={chatFiles}
           chatId={activeId}
-          focus={filesFocus}
-          onClose={() => setFilesOpen(false)}
+          focus={pane.focus}
+          blocks={pane.blocks}
+          onClose={pane.close}
           onDropFiles={(list) => attachFiles('file', list)}
         />
       )}
-      {canvasOpen && artifacts.length > 0 && (
-        <CanvasPanel
-          artifacts={artifacts}
-          selectedId={selectedArtifactId}
-          onSelect={setSelectedArtifactId}
-          onClose={() => setCanvasOpen(false)}
-        />
-      )}
+      <p className="sr-only" role="status" data-testid="chat-preview-status">
+        {pane.announcement ? t('preview.opened', { name: pane.announcement }) : ''}
+      </p>
       {showSettings && (
         <ChatSettingsSheet
           chat={activeChat ? { ...activeChat, model } : { model }}

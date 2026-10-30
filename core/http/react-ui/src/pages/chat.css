@@ -220,7 +220,8 @@
   color: var(--dk-muted);
 }
 .cx-page .code-block .code-copy-btn,
-.cx-page .code-block .code-canvas-btn {
+.cx-page .code-block .code-download-btn,
+.cx-page .code-block .code-preview-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -237,8 +238,11 @@
   transition: background var(--dk-dur-1) var(--dk-ease-out), color var(--dk-dur-1) var(--dk-ease-out);
 }
 .cx-page .code-block .code-copy-btn:hover,
-.cx-page .code-block .code-canvas-btn:hover { background: var(--dk-hover); color: var(--dk-text); }
+.cx-page .code-block .code-download-btn:hover,
+.cx-page .code-block .code-preview-btn:hover { background: var(--dk-hover); color: var(--dk-text); }
 .cx-page .code-block .code-copy-btn--ok { color: var(--dk-ok-text); }
+.cx-page .code-block .code-preview-btn { color: var(--dk-accent-text); }
+.cx-page .code-block :is(.code-copy-btn, .code-download-btn, .code-preview-btn):focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .cx-page .code-block .lai-icon { width: 14px; height: 14px; }
 .cx-page .code-block pre,
 .cx-prose pre {
@@ -601,14 +605,12 @@ button.cx-step__head:hover,
 .cx-dock .home-menu,
 .cx-dock .chat-mcp-dropdown-menu { top: auto; bottom: calc(100% + 8px); }
 .cx-dock .dk-cmdlist.home-slash { top: auto; bottom: calc(100% + 6px); }
-.cx-chipset { display: inline-flex; gap: var(--sp-2); }
 .home-chip[aria-pressed="true"] {
   background: var(--dk-accent-wash);
   color: var(--dk-accent-text);
   box-shadow: inset 0 0 0 1px var(--dk-accent-text);
 }
 .home-chip[aria-pressed="true"] .lai-icon { color: var(--dk-accent-text); }
-.cx-chip-count { padding: 0 9px; color: var(--dk-accent-text); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
 .home-stop-btn {
   display: inline-flex;
   align-items: center;
@@ -1184,9 +1186,6 @@ button.cx-step__head:hover,
 .cx-effort-item { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .cx-effort-item:hover,
 .cx-effort-item:focus-visible { background: var(--dk-hover); color: var(--dk-text); outline: none; }
-@media (max-width: 640px) {
-  .cx-chipset .home-chip__text { max-width: 22ch; }
-}
 
 /* Server chats: notices over the composer, the messages that wait for the
    model, notes in the thread and the inbox in the header. */
@@ -1240,13 +1239,14 @@ button.cx-step__head:hover,
 .cx-hdr .ca-inbox__btn .ca-count { position: absolute; top: 2px; right: 0; line-height: 1.25rem; }
 .cx-hdr .ca-inbox__panel { display: flex; flex-direction: column; gap: var(--dk-space-2); }
 
-/* The files pane of a chat: what was attached, created and changed.
-   360 px docked beside the thread from 1280 px, so the composer keeps its
-   width; below that it covers the thread from the right over a scrim, and on
-   a phone it is a bottom sheet. It slides in with transform and opacity; the
-   thread's width changes in one step. */
+/* The preview pane of a chat: the selected file or code block on top, then
+   what was created, changed and attached. 360 to 480 px docked beside the
+   thread from 1280 px, so the composer keeps its width; below that it covers
+   the thread from the right over a scrim, and on a phone it is a bottom
+   sheet. It slides in with transform and opacity; the thread's width changes
+   in one step. */
 .cx-files {
-  --pane-w: 360px;
+  --pane-w: clamp(360px, 30vw, 480px);
   position: relative;
   flex: none;
   width: var(--pane-w);
@@ -1411,14 +1411,46 @@ button.cx-step__head:hover,
 }
 .cx-files__empty .lai-icon { width: 20px; height: 20px; color: var(--color-text-muted); }
 .cx-files__empty-title { margin: 0; color: var(--color-text-primary); font-weight: 600; }
-.cx-files__preview { width: auto; border-top: 1px solid var(--color-border-subtle); }
 .cx-files__hint { padding: 0 var(--sp-4); }
-.cx-files__preview .btn { align-self: flex-start; }
+
+/* The selected item: its name, the actions, then its view. */
+.cx-pv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4) var(--sp-4);
+  border-bottom: 1px solid var(--dk-edge);
+}
+.cx-pv__head { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.cx-pv__icon { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--dk-muted); }
+.cx-pv__title { min-width: 0; flex: 1; }
+.cx-pv__name {
+  margin: 0;
+  color: var(--dk-text);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: var(--lh-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-pv__name:focus { outline: none; }
+.cx-pv__name:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.cx-pv__meta { margin: 0; color: var(--color-text-muted); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.cx-pv__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* A new item settles in: 4 px up and a fade, transform and opacity only. */
+@media (prefers-reduced-motion: no-preference) {
+  .cx-pv { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+  @starting-style {
+    .cx-pv { opacity: 0; transform: translateY(4px); }
+  }
+}
 
 /* Below 1280 px the pane would squeeze the composer under 600 px: it covers
    the thread from the right, over a scrim that closes it. */
 @media (max-width: 1279px) {
   .cx-files {
+    --pane-w: min(480px, 92vw);
     position: absolute;
     z-index: 40;
     top: 0;

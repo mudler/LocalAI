@@ -73,9 +73,6 @@
   },
   "input": {
     "stopGenerating": "Detener generación",
-    "canvasTitle": "Canvas — extrae bloques de código y multimedia en un panel lateral para vista previa, copia y descarga",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Abrir panel canvas",
     "placeholderQueue": "El modelo está trabajando. Un mensaje enviado ahora espera a su siguiente paso."
   },
   "deleteAllDialog": {
@@ -167,9 +164,8 @@
     "emptyBody": "Suelta archivos aquí para adjuntarlos a tu próximo mensaje. Los archivos que el asistente cree o cambie también aparecen aquí.",
     "dropHint": "Suelta archivos aquí para adjuntarlos a tu próximo mensaje.",
     "groups": {
-      "uploaded": "Subidos por ti",
-      "created": "Creados por el asistente",
-      "changed": "Cambiados por el asistente"
+      "uploaded": "Los diste tú",
+      "created": "Creados y modificados"
     },
     "turn": "turno {{n}}",
     "media": "En contexto",
@@ -320,6 +316,26 @@
       "speedLive": "Velocidad estimada durante la transmisión",
       "average": "Media de las últimas {{count}} solicitudes",
       "note": "Estas cifras vienen de las solicitudes que vio esta página. El servidor no las guarda, así que al recargar se borran."
+    }
+  },
+  "preview": {
+    "open": "Abrir vista previa",
+    "created": "Creado por el asistente",
+    "changed": "Modificado por el asistente",
+    "yours": "Lo diste tú",
+    "fromReply": "De la respuesta",
+    "download": "Descargar",
+    "downloadCode": "Descargar código",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "openInFiles": "Abrir en Archivos",
+    "actions": "Acciones del archivo",
+    "opened": "Vista previa abierta: {{name}}",
+    "chip": {
+      "created": "Creado",
+      "changed": "Modificado",
+      "label": "{{verb}} {{name}}, abrir vista previa",
+      "row": "Archivos de esta respuesta"
     }
   }
 }

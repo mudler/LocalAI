@@ -132,18 +132,6 @@ export function menuChats(conversations) {
   }))
 }
 
-// The model's messages in the shape the canvas reads (utils/artifacts.js): a
-// list where a message sits at the index of its seq, so an artifact's
-// messageIndex and the data-index of the message on the page are the same
-// number. forEach skips the holes.
-export function artifactSource(messages) {
-  const out = []
-  for (const m of messages || []) {
-    if (m.role === 'assistant') out[m.seq] = { role: 'assistant', content: m.text || '' }
-  }
-  return out
-}
-
 // The server writes the export file and names it; the link downloads it.
 export function downloadFrom(url) {
   const a = document.createElement('a')

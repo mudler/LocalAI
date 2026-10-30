@@ -74,9 +74,6 @@
   "input": {
     "send": "Enviar mensagem",
     "stopGenerating": "Parar a geração",
-    "canvasTitle": "Canvas — extrai blocos de código e mídia para um painel lateral para visualização, cópia e download",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Abrir painel do canvas",
     "placeholderQueue": "O modelo está trabalhando. Uma mensagem enviada agora espera o próximo passo dele."
   },
   "deleteAllDialog": {
@@ -170,9 +167,8 @@
     "emptyBody": "Solte arquivos aqui para anexá-los à sua próxima mensagem. Arquivos que o assistente criar ou alterar também aparecem aqui.",
     "dropHint": "Solte arquivos aqui para anexá-los à sua próxima mensagem.",
     "groups": {
-      "uploaded": "Enviados por você",
-      "created": "Criados pelo assistente",
-      "changed": "Alterados pelo assistente"
+      "uploaded": "Você enviou",
+      "created": "Criados e alterados"
     },
     "turn": "turno {{n}}",
     "media": "No contexto",
@@ -323,6 +319,26 @@
       "speedLive": "Velocidade estimada durante o streaming",
       "average": "Média das últimas {{count}} requisições",
       "note": "Estes números vêm das requisições que esta página viu. O servidor não os guarda, então recarregar apaga."
+    }
+  },
+  "preview": {
+    "open": "Abrir prévia",
+    "created": "Criado pelo assistente",
+    "changed": "Alterado pelo assistente",
+    "yours": "Você enviou",
+    "fromReply": "Da resposta",
+    "download": "Baixar",
+    "downloadCode": "Baixar código",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "openInFiles": "Abrir em Arquivos",
+    "actions": "Ações do arquivo",
+    "opened": "Prévia aberta: {{name}}",
+    "chip": {
+      "created": "Criado",
+      "changed": "Alterado",
+      "label": "{{verb}} {{name}}, abrir prévia",
+      "row": "Arquivos desta resposta"
     }
   }
 }

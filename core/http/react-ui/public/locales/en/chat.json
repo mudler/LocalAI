@@ -117,9 +117,6 @@
   "input": {
     "send": "Send message",
     "stopGenerating": "Stop generating",
-    "canvasTitle": "Canvas — extract code blocks and media into a side panel for preview, copy, and download",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Open canvas panel",
     "placeholderModel": "Message {{model}}...",
     "placeholderNoModel": "Install a model to start chatting",
     "selectModelFirst": "Select a model first",
@@ -244,10 +241,6 @@
       "label": "Manage mode",
       "desc": "Start a chat that can manage LocalAI"
     },
-    "canvas": {
-      "label": "Canvas",
-      "desc": "Show code blocks and media in a side panel"
-    },
     "find": {
       "label": "Find in chat",
       "desc": "Search this conversation"
@@ -295,21 +288,6 @@
     "previous": "Previous match",
     "next": "Next match",
     "close": "Close search"
-  },
-  "canvas": {
-    "title": "Canvas",
-    "artifact": "Artifact",
-    "artifacts": "Artifacts",
-    "close": "Close canvas",
-    "fullscreen": "Fullscreen",
-    "exitFullscreen": "Exit fullscreen",
-    "resize": "Resize canvas (double-click to reset)",
-    "resizeHint": "Drag to resize, double-click to reset",
-    "view": "View",
-    "code": "Code",
-    "preview": "Preview",
-    "download": "Download",
-    "htmlPreview": "HTML preview"
   },
   "load": {
     "title": "Loading",
@@ -377,9 +355,8 @@
     "emptyBody": "Drop files here to attach them to your next message. Files the assistant creates or changes show up here too.",
     "dropHint": "Drop files here to attach them to your next message.",
     "groups": {
-      "uploaded": "You uploaded",
-      "created": "Created by the assistant",
-      "changed": "Changed by the assistant"
+      "uploaded": "You gave it",
+      "created": "Created and changed"
     },
     "turn": "turn {{n}}",
     "media": "In context",
@@ -493,6 +470,26 @@
       "speedLive": "Speed, estimated while streaming",
       "average": "Average of the last {{count}} requests",
       "note": "These figures come from the requests this page saw. The server does not keep them, so a reload clears them."
+    }
+  },
+  "preview": {
+    "open": "Open preview",
+    "created": "Created by the assistant",
+    "changed": "Changed by the assistant",
+    "yours": "You gave it",
+    "fromReply": "From the answer",
+    "download": "Download",
+    "downloadCode": "Download code",
+    "copy": "Copy",
+    "copied": "Copied",
+    "openInFiles": "Open in Files",
+    "actions": "File actions",
+    "opened": "Preview opened: {{name}}",
+    "chip": {
+      "created": "Created",
+      "changed": "Changed",
+      "label": "{{verb}} {{name}}, open preview",
+      "row": "Files from this answer"
     }
   }
 }

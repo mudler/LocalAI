@@ -69,9 +69,6 @@
   "input": {
     "send": "Envoyer le message",
     "stopGenerating": "Arrêter la génération",
-    "canvasTitle": "Canvas — extrait les blocs de code et les médias dans un panneau latéral pour les prévisualiser, copier et télécharger",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Ouvrir le panneau Canvas",
     "placeholderQueue": "Le modèle travaille. Un message envoyé maintenant attend son étape suivante."
   },
   "deleteAllDialog": {
@@ -165,9 +162,8 @@
     "emptyBody": "Déposez des fichiers ici pour les joindre à votre prochain message. Les fichiers que l'assistant crée ou modifie apparaissent aussi ici.",
     "dropHint": "Déposez des fichiers ici pour les joindre à votre prochain message.",
     "groups": {
-      "uploaded": "Envoyés par vous",
-      "created": "Créés par l'assistant",
-      "changed": "Modifiés par l'assistant"
+      "uploaded": "Fournis par vous",
+      "created": "Créés et modifiés"
     },
     "turn": "tour {{n}}",
     "media": "Dans le contexte",
@@ -318,6 +314,26 @@
       "speedLive": "Vitesse estimée pendant le flux",
       "average": "Moyenne des {{count}} dernières requêtes",
       "note": "Ces chiffres viennent des requêtes vues par cette page. Le serveur ne les garde pas : un rechargement les efface."
+    }
+  },
+  "preview": {
+    "open": "Ouvrir l’aperçu",
+    "created": "Créé par l’assistant",
+    "changed": "Modifié par l’assistant",
+    "yours": "Fourni par vous",
+    "fromReply": "Tiré de la réponse",
+    "download": "Télécharger",
+    "downloadCode": "Télécharger le code",
+    "copy": "Copier",
+    "copied": "Copié",
+    "openInFiles": "Ouvrir dans Fichiers",
+    "actions": "Actions sur le fichier",
+    "opened": "Aperçu ouvert : {{name}}",
+    "chip": {
+      "created": "Créé",
+      "changed": "Modifié",
+      "label": "{{verb}} {{name}}, ouvrir l’aperçu",
+      "row": "Fichiers de cette réponse"
     }
   }
 }

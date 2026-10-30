@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { failureView } from '../../utils/chatFailure'
 import { renderMarkdown } from '../../utils/markdown'
-import { renderMarkdownWithArtifacts } from '../../utils/artifacts'
 import { escapeHtml } from './chatText'
 // eslint-disable-next-line no-unused-vars
 import { ActivityGroup, StreamingActivity } from './ActivityFold'
@@ -67,7 +66,7 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry }) {
 // replaces your message and runs the chat again from it, Regenerate answers the
 // last message again, and Branch copies the chat up to the message into a new one.
 function ChatMessage({
-  msg, isLast, model, warm, canvasMode, busy, activityItems, actions, conversationId, canRegenerate, proposalTick,
+  msg, isLast, model, warm, busy, activityItems, actions, conversationId, canRegenerate, proposalTick,
 }) {
   const { t } = useTranslation('chat')
   const isUser = msg.role === 'user'
@@ -84,8 +83,8 @@ function ChatMessage({
 
   const html = useMemo(() => {
     if (isUser || !text) return ''
-    return canvasMode ? renderMarkdownWithArtifacts(text, index) : renderMarkdown(text)
-  }, [isUser, text, canvasMode, index])
+    return renderMarkdown(text)
+  }, [isUser, text])
 
   const onKeyDown = (e) => {
     if (e.target !== e.currentTarget || e.metaKey || e.ctrlKey || e.altKey) return
