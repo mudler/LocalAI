@@ -5308,6 +5308,318 @@
                 }
             }
         },
+        "/api/chats/page-starters": {
+            "get": {
+                "tags": [
+                    "pages"
+                ],
+                "summary": "List the starter pages that ship with the server.",
+                "responses": {
+                    "200": {
+                        "description": "The starters",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesStarterList"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/page-starters/{id}/copy": {
+            "post": {
+                "description": "The copy is named after the starter, or the starter's name with -2, -3 and so on when that is taken. It is yours to change.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Copy a starter page into pages/.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "starter id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new page",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesPage"
+                        }
+                    },
+                    "404": {
+                        "description": "No such starter",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/pages": {
+            "get": {
+                "description": "A page is a folder pages/\u003cname\u003e/ of your home with an index.html. Folders without one are left out.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "List your pages.",
+                "responses": {
+                    "200": {
+                        "description": "Your pages, sorted by name",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesList"
+                        }
+                    },
+                    "403": {
+                        "description": "The pages feature is off for your account",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Files are off on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/pages/{name}": {
+            "get": {
+                "description": "The UI shows the HTML in a sandboxed frame. An index.html over 1 MiB is refused.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Read a page and its index.html.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The page and its HTML",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesSource"
+                        }
+                    },
+                    "404": {
+                        "description": "No such page",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "index.html is larger than 1 MiB",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/pages/{name}/chat": {
+            "post": {
+                "description": "The UI calls this after the person saw the message and chose Send. The message is added to the chat as a user message that says which page it comes from, so it shows in the chat before the assistant answers. Without chat_id it goes to the page's own chat, created on first use with model (or the model of your most recent chat). Rate limited per page.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Send a message from a page to a chat (bridge chat.send).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the message",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesChatRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Where the message went",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesChatResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such page or chat",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many messages",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/pages/{name}/file": {
+            "get": {
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Read a text file of a page (bridge files.read).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "file inside the page's folder, for example data.json",
+                        "name": "path",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file and its text",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesFileContent"
+                        }
+                    },
+                    "400": {
+                        "description": "The path leaves the page's folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The file is larger than 1 MiB",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "415": {
+                        "description": "The file is not UTF-8 text",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Missing folders are created. A page cannot write its own index.html or page.json. With base, a file that changed since is kept and the content goes to a conflict copy (conflict_of). Writes are rate limited per page.",
+                "tags": [
+                    "pages"
+                ],
+                "summary": "Write a text file of a page (bridge files.write).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the file",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesWriteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The stored file",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesFile"
+                        }
+                    },
+                    "400": {
+                        "description": "The path leaves the page's folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "The page tried to change its own code",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The file is larger than 1 MiB",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many writes",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/pages/{name}/files": {
+            "get": {
+                "tags": [
+                    "pages"
+                ],
+                "summary": "List a folder of a page (bridge files.list).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "page name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "folder inside the page's folder; default the page's folder",
+                        "name": "dir",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The entries, with paths relative to the page's folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.PagesFileList"
+                        }
+                    },
+                    "400": {
+                        "description": "The path leaves the page's folder",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/push/key": {
             "get": {
                 "description": "The VAPID public key a browser needs to subscribe to push for your notifications. 409 when the server cannot keep subscriptions (no database and no data path).",
@@ -20403,6 +20715,202 @@
                     "type": "boolean"
                 },
                 "redacted_text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesChatRequest": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "description": "ChatID is a chat of the user. Empty means the page's own chat, which is\ncreated on first use.",
+                    "type": "string"
+                },
+                "model": {
+                    "description": "Model is the model of a new page chat. Empty takes the model of the\nuser's most recent chat.",
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesChatResponse": {
+            "type": "object",
+            "properties": {
+                "chat_id": {
+                    "type": "string"
+                },
+                "pending_id": {
+                    "type": "string"
+                },
+                "started": {
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesFile": {
+            "type": "object",
+            "properties": {
+                "conflict_of": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "file or dir",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.PagesFileContent": {
+            "type": "object",
+            "properties": {
+                "conflict_of": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "file or dir",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.PagesFileList": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PagesFile"
+                    }
+                }
+            }
+        },
+        "schema.PagesList": {
+            "type": "object",
+            "properties": {
+                "pages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PagesPage"
+                    }
+                }
+            }
+        },
+        "schema.PagesPage": {
+            "type": "object",
+            "properties": {
+                "author": {
+                    "description": "Author is who wrote the current index.html: \"you\" or \"assistant\".",
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "description": "inside the home: /pages/\u003cname\u003e",
+                    "type": "string"
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "Source is \"own\" for a page in the user's home (\"shared\" is reserved for\npages of shared folders).",
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "UpdatedAt and UpdatedBy are the last change to anything in the folder.",
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesSource": {
+            "type": "object",
+            "properties": {
+                "html": {
+                    "type": "string"
+                },
+                "page": {
+                    "$ref": "#/definitions/schema.PagesPage"
+                }
+            }
+        },
+        "schema.PagesStarter": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.PagesStarterList": {
+            "type": "object",
+            "properties": {
+                "starters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.PagesStarter"
+                    }
+                }
+            }
+        },
+        "schema.PagesWriteRequest": {
+            "type": "object",
+            "properties": {
+                "base": {
+                    "description": "Base is the version the page read. A file that changed since is kept and\nthe content goes to a conflict copy. Zero replaces the file.",
+                    "type": "integer"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "path": {
                     "type": "string"
                 }
             }

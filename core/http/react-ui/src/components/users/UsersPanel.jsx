@@ -33,6 +33,7 @@ const FALLBACK_FEATURES = {
     { key: 'triggers', label: 'Scheduled triggers', default: false },
     { key: 'connectors', label: 'Chat connectors (Telegram bots)', default: false },
     { key: 'mcp_jobs', label: 'Agent tasks and jobs', default: false },
+    { key: 'pages', label: 'Pages (HTML pages in the workspace)', default: false },
   ],
   general_features: [{ key: 'fine_tuning', label: 'Fine-Tuning', default: false }],
 }

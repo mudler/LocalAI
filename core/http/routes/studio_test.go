@@ -141,7 +141,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	// alice and bob were granted the features that are off by default: saved
 	// agents, triggers and connectors. dave has none of them.
 	for _, id := range []string{"alice", "bob"} {
-		Expect(auth.UpdateUserPermissions(db, id, auth.PermissionMap{auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true, auth.FeatureMCPJobs: true})).To(Succeed())
+		Expect(auth.UpdateUserPermissions(db, id, auth.PermissionMap{auth.FeatureAgents: true, auth.FeatureTriggers: true, auth.FeatureConnectors: true, auth.FeatureMCPJobs: true, auth.FeaturePages: true})).To(Succeed())
 	}
 	// carol had the default-on feature revoked by an admin.
 	Expect(auth.UpdateUserPermissions(db, "carol", auth.PermissionMap{auth.FeatureChats: false})).To(Succeed())

@@ -113,6 +113,11 @@ const (
 	OriginConnector = "connector"
 	// OriginJob marks a chat that an agent job runs in; OriginID is the task.
 	OriginJob = "job"
+	// OriginPage marks the chat that a page of the workspace sends its messages
+	// to; OriginID is the page's name. Like the other origins, the chat gets no
+	// tool that acts at once and cannot create triggers: its first message was
+	// written by a page, not typed by the person.
+	OriginPage = "page"
 )
 
 // Chat kinds.

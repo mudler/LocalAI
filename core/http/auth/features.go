@@ -57,6 +57,16 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"POST", "/api/chats/import/browser", FeatureChats},
 	{"POST", "/api/chats/notifications/read", FeatureChats},
 	{"GET", "/api/chats/notifications/events", FeatureChats},
+	// The pages need the pages feature as well; the handlers check it, so the
+	// permissions this entry loads are reused without another query.
+	{"GET", "/api/chats/pages", FeatureChats},
+	{"GET", "/api/chats/pages/:name", FeatureChats},
+	{"GET", "/api/chats/pages/:name/files", FeatureChats},
+	{"GET", "/api/chats/pages/:name/file", FeatureChats},
+	{"PUT", "/api/chats/pages/:name/file", FeatureChats},
+	{"POST", "/api/chats/pages/:name/chat", FeatureChats},
+	{"GET", "/api/chats/page-starters", FeatureChats},
+	{"POST", "/api/chats/page-starters/:id/copy", FeatureChats},
 	{"GET", "/api/chats/triggers", FeatureTriggers},
 	{"POST", "/api/chats/triggers", FeatureTriggers},
 	{"GET", "/api/chats/triggers/preview", FeatureTriggers},
@@ -344,6 +354,7 @@ func AgentFeatureMetas() []FeatureMeta {
 		{FeatureTriggers, "Scheduled triggers", false},
 		{FeatureConnectors, "Chat connectors (Telegram bots)", false},
 		{FeatureMCPJobs, "Agent tasks and jobs", false},
+		{FeaturePages, "Pages (HTML pages in the workspace)", false},
 	}
 }
 

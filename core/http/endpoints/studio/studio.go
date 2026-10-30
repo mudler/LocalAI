@@ -18,6 +18,7 @@ import (
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -48,11 +49,16 @@ func (f ModelCheckerFunc) Check(ctx context.Context, user *auth.User, model stri
 type Handlers struct {
 	svc    *studiosvc.Service
 	models ModelChecker
+	pages  *pages.Service
 }
 
 // New returns the handlers. A nil models skips the model check.
 func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
-	return &Handlers{svc: svc, models: models}
+	h := &Handlers{svc: svc, models: models}
+	if svc != nil {
+		h.pages = pages.New(svc.Files())
+	}
+	return h
 }
 
 // maxAttachBytes caps one message with its attachments.

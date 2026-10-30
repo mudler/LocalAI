@@ -36,6 +36,7 @@ administrator always has all of them:
 | `triggers` | off | Scheduled and file triggers (`/api/chats/triggers`): runs that start by themselves. |
 | `connectors` | off | Telegram and Slack bindings (`/api/chats/connectors`): a public door to one of your agents. |
 | `mcp_jobs` | off | The agent tasks and jobs API (`/api/agent/...`). |
+| `pages` | off | The pages of the workspace (`/api/chats/pages...`): HTML pages in `pages/` of the home, shown in a sandboxed frame. See [Pages]({{%relref "features/pages" %}}). |
 
 A command-line MCP server (stdio) in your MCP connectors stays for administrators
 only, whatever the features. A trigger or a connector whose owner loses its feature
@@ -540,6 +541,9 @@ curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
 - **A file is at most 256 MiB.** A message with attachments is limited to 1 GiB in all.
 
 The **Files** page in the sidebar is a file browser for all of this: folders with a breadcrumb, upload by button or drag and drop, rename, delete to the Trash, a Trash tab that restores, a History tab that undoes a change, one search box over names and text, and a preview of text and images.
+
+A folder `pages/<name>/` with an `index.html` is a page: the UI shows it in a
+sandboxed frame under **Pages**. See [Pages]({{%relref "features/pages" %}}).
 
 Files need a place to live. The choice is made at start and is explicit: with a
 database the tree goes there, and without one it goes in a JSON index.
