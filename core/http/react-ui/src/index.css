@@ -32,6 +32,13 @@ body {
 }
 
 /* Global selection + focus */
+/* The default focus ring. Zero specificity, so a component's own
+   :focus-visible rule wins; nothing is left with the browser's ring. */
+:where(:focus-visible) {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
 ::selection {
   background: var(--color-selection-bg);
   color: var(--color-text-primary);
@@ -92,15 +99,20 @@ a:hover {
   color: var(--color-primary-hover);
 }
 
-/* Honor prefers-reduced-motion globally */
+/* Reduced motion: nothing moves, scales or fades. Keyframe animations jump
+   to their end state and transitions finish at once. The kit's motion.css
+   and App.css carry the same rule; this one is scoped under "html" so it
+   still holds wherever the bundler puts those. The press scale is turned
+   off in theme.css, next to the kit's motion tokens. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  html *, html *::before, html *::after {
     animation-duration: 0.01ms !important;
     /* Neutralize per-child stagger delays (e.g. .reveal-stagger) so content
        does not sit at the hidden "from" keyframe before snapping in. */
     animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
