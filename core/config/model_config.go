@@ -60,9 +60,10 @@ type TTSVoice struct {
 type ModelConfig struct {
 	modelConfigFile string `yaml:"-" json:"-"`
 	modelTemplate   string `yaml:"-" json:"-"`
-	// evidenceCheck is set only from a profile alias's block, so a plain
-	// model config cannot switch it on by a top-level key.
+	// evidenceCheck and requireTool are set only from a profile alias's
+	// block, so a plain model config cannot switch them on by a top-level key.
 	evidenceCheck EvidenceCheckConfig `yaml:"-" json:"-"`
+	requireTool   bool                `yaml:"-" json:"-"`
 	// persistedConfigRevision is the revision of this model's persisted
 	// configuration, stamped when the loader materializes it and therefore
 	// before any per-request override is merged in. The request pipeline
@@ -677,12 +678,28 @@ type ProfileConfig struct {
 	MCP MCPConfig `yaml:"mcp,omitempty" json:"mcp,omitempty"`
 	// ClientTools overrides the target's client_tools policy.
 	ClientTools string `yaml:"client_tools,omitempty" json:"client_tools,omitempty"`
-	// EvidenceCheck marks answers whose numbers have no evidence in the request.
+	// EvidenceCheck marks answers whose numbers or links have no evidence in
+	// the request and can cite the URLs the tools returned.
 	EvidenceCheck EvidenceCheckConfig `yaml:"evidence_check,omitempty" json:"evidence_check,omitempty"`
+	// RequireTool makes the first model call of a request with server-side
+	// MCP tools call a tool (tool_choice "required"). Follow-up calls of the
+	// tool loop are made with the client's tool_choice again.
+	RequireTool bool `yaml:"require_tool,omitempty" json:"require_tool,omitempty"`
 }
 
 // DefaultEvidenceNote is appended when evidence_check.note is empty.
 const DefaultEvidenceNote = "_Note: this answer contains numbers that no tool returned in this turn — not verified._"
+
+// DefaultSourcesLabel heads the appended source line when
+// evidence_check.sources_label is empty.
+const DefaultSourcesLabel = "Sources"
+
+// URLsPlaceholder in evidence_check.urls_note is replaced by the links the
+// answer names without evidence.
+const URLsPlaceholder = "{urls}"
+
+// DefaultURLsNote is appended when evidence_check.urls_note is empty.
+const DefaultURLsNote = "_Note: this answer names links that no tool returned in this turn — not retrieved: " + URLsPlaceholder + "_"
 
 // @Description Output check of a profile alias
 type EvidenceCheckConfig struct {
@@ -690,6 +707,16 @@ type EvidenceCheckConfig struct {
 	Numbers bool `yaml:"numbers,omitempty" json:"numbers,omitempty"`
 	// Note replaces DefaultEvidenceNote.
 	Note string `yaml:"note,omitempty" json:"note,omitempty"`
+	// Sources appends the URLs returned by the request's tool calls to an
+	// answer that names no URL itself.
+	Sources bool `yaml:"sources,omitempty" json:"sources,omitempty"`
+	// SourcesLabel replaces DefaultSourcesLabel.
+	SourcesLabel string `yaml:"sources_label,omitempty" json:"sources_label,omitempty"`
+	// URLs marks answers that name an http(s) link found neither in the
+	// request nor in a successful tool result of the request.
+	URLs bool `yaml:"urls,omitempty" json:"urls,omitempty"`
+	// URLsNote replaces DefaultURLsNote.
+	URLsNote string `yaml:"urls_note,omitempty" json:"urls_note,omitempty"`
 }
 
 // EvidenceCheck returns the evidence check a profile alias applied to this
@@ -703,6 +730,34 @@ func (e EvidenceCheckConfig) EvidenceNote() string {
 	}
 	return DefaultEvidenceNote
 }
+
+// SourcesHeading returns the configured label of the source line or the
+// default one.
+func (e EvidenceCheckConfig) SourcesHeading() string {
+	if e.SourcesLabel != "" {
+		return e.SourcesLabel
+	}
+	return DefaultSourcesLabel
+}
+
+// UnverifiedURLsNote returns the note for the given links: the configured or
+// default note with URLsPlaceholder replaced, or with the links appended when
+// the note has no placeholder.
+func (e EvidenceCheckConfig) UnverifiedURLsNote(urls []string) string {
+	note := e.URLsNote
+	if note == "" {
+		note = DefaultURLsNote
+	}
+	list := strings.Join(urls, ", ")
+	if strings.Contains(note, URLsPlaceholder) {
+		return strings.ReplaceAll(note, URLsPlaceholder, list)
+	}
+	return note + " " + list
+}
+
+// RequiresTool reports whether a profile alias asked for a forced tool call on
+// the first model call of a request; it is false for every other config.
+func (c ModelConfig) RequiresTool() bool { return c.requireTool }
 
 // IsZero reports whether the block sets nothing.
 func (p ProfileConfig) IsZero() bool { return p == ProfileConfig{} }
@@ -729,6 +784,7 @@ func (c *ModelConfig) applyProfileOverlay(alias *ModelConfig) {
 		c.ClientTools = p.ClientTools
 	}
 	c.evidenceCheck = p.EvidenceCheck
+	c.requireTool = p.RequireTool
 }
 
 // @Description PII filtering configuration. PII redaction is per-model so
@@ -2326,6 +2382,12 @@ func (c *ModelConfig) validateProfileFields() error {
 	}
 	if ec := c.Profile.EvidenceCheck; ec.Note != "" && !ec.Numbers {
 		return fmt.Errorf("profile.evidence_check.note has no effect without numbers: true")
+	}
+	if ec := c.Profile.EvidenceCheck; ec.SourcesLabel != "" && !ec.Sources {
+		return fmt.Errorf("profile.evidence_check.sources_label has no effect without sources: true")
+	}
+	if ec := c.Profile.EvidenceCheck; ec.URLsNote != "" && !ec.URLs {
+		return fmt.Errorf("profile.evidence_check.urls_note has no effect without urls: true")
 	}
 	return nil
 }

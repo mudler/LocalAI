@@ -471,6 +471,41 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Component:   "input",
 			Order:       7,
 		},
+		"profile.evidence_check.sources": {
+			Section:     "alias",
+			Label:       "Profile: append tool sources",
+			Description: "Alias only. When the answer names no http(s) URL but the request's MCP tool results do, append one line with up to five of those URLs. URLs are only taken from tool results, never invented.",
+			Component:   "toggle",
+			Order:       8,
+		},
+		"profile.evidence_check.sources_label": {
+			Section:     "alias",
+			Label:       "Profile: source line label",
+			Description: "Alias only. Label of the line appended by profile.evidence_check.sources. Empty uses \"Sources\".",
+			Component:   "input",
+			Order:       9,
+		},
+		"profile.evidence_check.urls": {
+			Section:     "alias",
+			Label:       "Profile: mark links not retrieved",
+			Description: "Alias only. When the answer names an http(s) link found neither in the request (system prompt, system, user and tool messages) nor in a successful MCP tool result of the request, append a note listing up to five such links.",
+			Component:   "toggle",
+			Order:       10,
+		},
+		"profile.evidence_check.urls_note": {
+			Section:     "alias",
+			Label:       "Profile: links-not-retrieved note",
+			Description: "Alias only. Text appended by profile.evidence_check.urls; {urls} is replaced by the links. Empty uses the built-in English note.",
+			Component:   "input",
+			Order:       11,
+		},
+		"profile.require_tool": {
+			Section:     "alias",
+			Label:       "Profile: require a tool call first",
+			Description: "Alias only. The first model call of a request with server-side MCP tools is made with tool_choice \"required\"; the follow-up calls of the tool loop use the client's tool_choice again.",
+			Component:   "toggle",
+			Order:       12,
+		},
 
 		// --- Failover ---
 		"failover.targets": {
