@@ -120,7 +120,8 @@
     "builtins": "Alat bawaan",
     "builtin": {
       "web": "Web",
-      "saved_agents": "Agen tersimpan"
+      "saved_agents": "Agen tersimpan",
+      "triggers": "Pemicu"
     },
     "builtinBy": "{{tools}} · bawaan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",

@@ -334,7 +334,8 @@
     "builtins": "Built-in tools",
     "builtin": {
       "web": "Web",
-      "saved_agents": "Saved agents"
+      "saved_agents": "Saved agents",
+      "triggers": "Triggers"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
