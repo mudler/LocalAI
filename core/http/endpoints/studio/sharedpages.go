@@ -59,6 +59,7 @@ func (h *Handlers) sharedJSON(c echo.Context, p pages.Page, consent string) sche
 	}
 	out.AuthorID, out.AuthorName = p.AuthorID, h.svc.UserName(c.Request().Context(), p.AuthorID)
 	out.Folder, out.FolderID, out.Writable, out.Hash, out.MetaSize, out.Consent = p.Folder, p.FolderID, p.Writable, p.Hash, p.MetaSize, consent
+	out.CodeFiles = append([]string{}, p.CodeFiles...)
 	return out
 }
 
@@ -231,7 +232,7 @@ func (h *Handlers) ListSharedPageFiles(c echo.Context) error {
 // ReadSharedPageFile reads a text file of a shared page, or an image with
 // encoding=base64.
 // @Summary Read a text file of a shared page (bridge files.read).
-// @Description With encoding=base64 the file must be an image, as for your own pages.
+// @Description With encoding=base64 the file must be an image, as for your own pages. A file of the page's code (index.html, page.json and the code_files of the page) is read only by a frame of the current version: an older frame gets 409, so a script changed after the consent never runs under it.
 // @Tags pages
 // @Param folder path integer true "shared folder id"
 // @Param name path string true "page name"
@@ -239,6 +240,7 @@ func (h *Handlers) ListSharedPageFiles(c echo.Context) error {
 // @Param encoding query string false "base64 to read an image"
 // @Success 200 {object} schema.PagesFileContent "The file"
 // @Failure 403 {object} schema.ErrorResponse "You have not allowed this version (page_not_allowed)"
+// @Failure 409 {object} schema.ErrorResponse "A file of code changed since the version that runs"
 // @Router /api/chats/shared-pages/{folder}/{name}/file [get]
 func (h *Handlers) ReadSharedPageFile(c echo.Context) error {
 	fc, ok := h.sharedOn(c)
@@ -249,8 +251,10 @@ func (h *Handlers) ReadSharedPageFile(c echo.Context) error {
 	if err != nil {
 		return failPage(c, err)
 	}
-	if !h.bridgeCheck(c, fc, folder, name) {
-		return nil
+	// A file of the page's code is read only by a frame of the current
+	// version, so a script changed after the consent never runs under it.
+	if err := h.trust.CheckRead(c.Request().Context(), fc.p, folder, name, c.Request().Header.Get(headerPageHash), c.Request().Header.Get(headerPageVisit), c.QueryParam("path")); err != nil {
+		return failPage(c, err)
 	}
 	if image, ok := imageRead(c); !ok {
 		return nil

@@ -239,7 +239,10 @@ async function replaceAsync(text, re, fn) {
 
 // inlinePageAssets puts the files that html names into it. reads is
 // {read(path) -> {content}, readImage(path) -> {content (base64), media_type}};
-// a read that fails throws an error with its HTTP status. It resolves to
+// a read that fails throws an error with its HTTP status. allowText(path),
+// when given, says whether a text file may go in: a shared page passes the
+// files of code that its consent covers (code_files of the server), so a file
+// the server did not count never runs under that consent. It resolves to
 //
 //   html     the page with the files in it
 //   head     markup for the head, after the bridge: the loader of the modules
@@ -248,7 +251,7 @@ async function replaceAsync(text, re, fn) {
 //   notes    [{level: 'error' | 'warn', path, message}] for the console; an
 //            error also shows in the page
 //   tooLarge true when the files were more than the budget and some were left out
-export async function inlinePageAssets(html, reads, { maxTotal = MAX_INLINE_TOTAL, maxImages = MAX_INLINE_IMAGES } = {}) {
+export async function inlinePageAssets(html, reads, { maxTotal = MAX_INLINE_TOTAL, maxImages = MAX_INLINE_IMAGES, allowText = null } = {}) {
   const text = typeof html === 'string' ? html : ''
   const tags = scanTags(text)
   const notes = []
@@ -317,6 +320,10 @@ export async function inlinePageAssets(html, reads, { maxTotal = MAX_INLINE_TOTA
   // A text file for code or style. null when it cannot go in; the reason is a
   // note (an error: the page will not work without it).
   async function textFile(path, what) {
+    if (allowText && !allowText(path)) {
+      note('error', path, `the ${what} ${path} did not load: it is not one of the files of code that you allowed for this shared page`)
+      return null
+    }
     const got = await fetchOnce('text', path)
     if (got.error) {
       note('error', path, `the ${what} ${path} ${why(got.error)}, so it did not load`)
@@ -411,7 +418,7 @@ export async function inlinePageAssets(html, reads, { maxTotal = MAX_INLINE_TOTA
       : tag.name === 'link' && relTokens(tag).includes('stylesheet') ? attrOf(tag, 'href')?.value
         : null
     const r = ref ? resolvePagePath(ref) : null
-    if (r?.path) fetchOnce('text', r.path)
+    if (r?.path && (!allowText || allowText(r.path))) fetchOnce('text', r.path)
   }
 
   const edits = [] // {start, end, text}

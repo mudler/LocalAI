@@ -313,18 +313,27 @@ Escape is Cancel. **View source** shows `index.html` as text.
 
 A consent is kept against the page (the node of its folder, so a rename does
 not lose it and a page deleted and made again asks again) and the hash of its
-code: `index.html` and `page.json`. When the author changes either, the next
-open asks again and says what changed: the size of each file and the lines of
-`index.html`, against the version you allowed. A page that is open when its
+code: `index.html`, `page.json` and the files of code that LocalAI puts into
+the page: every `<script src>`, `<link rel="stylesheet">`, relative CSS
+`@import` and ES module import of the folder, followed through the whole
+module graph (the `code_files` of the page in the API). A file of code that
+the page names and that is missing counts too, so adding it later also asks
+again. When the author changes any of them, the next open asks again and says
+what changed: the size of each file and the lines of `index.html`, or which
+files of code there are when only one of them changed. A page that is open when its
 author changes it keeps running the version you allowed, and its strip says
-that it changed, with **Review**. The data files of a page are not in the hash:
-a page saves them all the time. A page whose code reads its data and runs it
-as code does what its data says; you trust its author for that when you allow
-it. The same goes for the scripts, style sheets and modules next to the page
-(`app.js`, `style.css`): they are files of the folder, not in the hash, so a
-change of them does not ask again. A page that you allow trusts its author for
-every file of its folder. The files go into the page only after you allow it,
-with the same consent check as the bridge.
+that it changed, with **Review**; a file of code it then asks for is refused
+(`409`), so new code never runs under the old consent. The UI puts no text file
+into a shared page that is not in its `code_files`.
+
+The data files of a page are not in the hash: a page saves them all the time,
+and images are only pictures. A page whose code reads its data and runs it as
+code does what its data says; you trust its author for that when you allow it.
+The files go into the page only after you allow it, with the same consent
+check as the bridge. To find the files of code, the server reads the page's
+markup and modules; each frontend keeps what it found per file content in a
+small cache, which only saves reads (the same content gives the same files on
+every frontend).
 
 A consent for one page never lets another page run, even one with the same
 code, and it is yours only. **Stop allowing this page** in the page's menu
@@ -369,11 +378,11 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
-| `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
+| `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `code_files`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
 | `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`). |
 | `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. |
 | `DELETE /api/chats/shared-pages/{folder_id}/{name}/consent` | Stop allowing it. |
-| `GET .../files`, `GET` and `PUT .../file`, `POST .../chat` | The bridge of a shared page, as above. Each call sends `X-LocalAI-Page-Hash` (the version that runs) and, for a visit, `X-LocalAI-Page-Visit`. Without a consent: `403 page_not_allowed`. |
+| `GET .../files`, `GET` and `PUT .../file`, `POST .../chat` | The bridge of a shared page, as above. Each call sends `X-LocalAI-Page-Hash` (the version that runs) and, for a visit, `X-LocalAI-Page-Visit`. Without a consent: `403 page_not_allowed`. A read of a file of code by a frame of an older version: `409`. |
 
 With shared pages off, every shared-pages route but the list and the revoke
 answers `403 shared_pages_off`.

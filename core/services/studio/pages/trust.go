@@ -3,6 +3,7 @@ package pages
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,6 +20,11 @@ const (
 // ErrChanged means the page changed between the review and the consent: the
 // viewer must look at the new version first.
 var ErrChanged = errors.New("pages: the page changed while you were reviewing it; review it again")
+
+// ErrCodeChanged means a frame of an earlier version of a shared page read a
+// file of the page's code that changed since: the viewer must review the new
+// version before it runs.
+var ErrCodeChanged = errors.New("pages: the code of this page changed since you allowed it; reload the page to review the change")
 
 // Trust keeps the consents of the viewers of shared pages and checks them on
 // every call of a shared page's bridge, so a consent that is revoked, in this
@@ -105,30 +111,56 @@ func (t *Trust) Revoke(ctx context.Context, principal string, folderID int64, na
 // author changed while it is open goes on until it is reloaded, and a consent
 // for the code of another page, even the same code, never counts.
 func (t *Trust) Check(ctx context.Context, principal string, folderID int64, name, hash, token string) error {
-	p, err := t.pages.GetShared(ctx, principal, folderID, name)
+	_, err := t.check(ctx, principal, folderID, name, hash, token)
+	return err
+}
+
+// CheckRead is Check for a read of the file rel. The code of the page
+// (index.html, page.json and the files of its CodeFiles) is read only by a
+// frame of the current version: a frame that loaded an earlier version and
+// reads a script the author has changed since would run code the viewer never
+// allowed.
+func (t *Trust) CheckRead(ctx context.Context, principal string, folderID int64, name, hash, token, rel string) error {
+	p, err := t.check(ctx, principal, folderID, name, hash, token)
 	if err != nil {
 		return err
 	}
+	if p.Hash != hash && isCode(p, rel) {
+		return ErrCodeChanged
+	}
+	return nil
+}
+
+// isCode says whether rel is a file of the page's code.
+func isCode(p Page, rel string) bool {
+	return rel == IndexFile || rel == MetaFile || slices.Contains(p.CodeFiles, rel)
+}
+
+func (t *Trust) check(ctx context.Context, principal string, folderID int64, name, hash, token string) (Page, error) {
+	p, err := t.pages.GetShared(ctx, principal, folderID, name)
+	if err != nil {
+		return Page{}, err
+	}
 	if hash == "" {
-		return ErrNoConsent
+		return Page{}, ErrNoConsent
 	}
 	if token != "" {
 		c, ok, err := t.store.Once(ctx, principal, token)
 		if err != nil {
-			return err
+			return Page{}, err
 		}
 		if ok && c.PageID == p.PageID && c.Hash == hash && t.now().Before(c.Expires) {
-			return nil
+			return p, nil
 		}
 	}
 	c, ok, err := t.store.Always(ctx, principal, p.PageID)
 	if err != nil {
-		return err
+		return Page{}, err
 	}
 	if ok && c.Hash == hash {
-		return nil
+		return p, nil
 	}
-	return ErrNoConsent
+	return Page{}, ErrNoConsent
 }
 
 // Events returns the audit of a viewer's consents, newest first.

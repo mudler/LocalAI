@@ -24,12 +24,14 @@ import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAsset
 //                  user's own page. readImage is used only to put images in
 //   onLink(target) the page asks to open a link: a checked http(s) target of
 //                  pageLinkTarget; resolves to {opened} after the person chose
+//   codeFiles      a shared page: the files of code its consent covers; no
+//                  other text file goes into the page
 //   onRefused(err) a bridge call was refused because the page may no longer
 //                  run (a shared page whose consent was revoked): the caller
 //                  takes the frame down
 const plain = (html) => ({ html, head: '', modules: false, notes: [], tooLarge: false })
 
-const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink }, ref) {
+const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, codeFiles = null }, ref) {
   const frameRef = useRef(null)
   const live = useRef({ host: null, channel: null, loads: 0, doc: '' })
   const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink })
@@ -59,14 +61,15 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   })
 
   const needsFiles = useMemo(() => pageRefs(html), [html])
-  const base = `${page.name}\u0000${html}`
+  const allowed = useMemo(() => (Array.isArray(codeFiles) ? new Set(codeFiles) : null), [codeFiles?.join('\u0000')]) // eslint-disable-line react-hooks/exhaustive-deps
+  const base = `${page.name}\u0000${html}\u0000${codeFiles ? codeFiles.join('\u0000') : '*'}`
   useEffect(() => {
     if (!needsFiles) {
       deps.current = new Set()
       return undefined
     }
     let gone = false
-    inlinePageAssets(html, reads()).then((result) => {
+    inlinePageAssets(html, reads(), { allowText: allowed ? (path) => allowed.has(path) : null }).then((result) => {
       if (gone) return
       deps.current = new Set(result.deps)
       setAssets({ base, result })

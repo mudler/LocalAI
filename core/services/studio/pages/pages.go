@@ -11,8 +11,6 @@ package pages
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -127,13 +125,17 @@ type Page struct {
 	// A shared page also has its shared folder (Folder, a workspace path, and
 	// FolderID, the folder's node ID), whether the viewer may write in it, the
 	// node ID of the page's own folder (PageID) and the hash of its code
-	// (index.html and page.json), against which a consent is kept.
-	Folder   string
-	FolderID int64
-	Writable bool
-	PageID   int64
-	Hash     string
-	MetaSize int64 // of page.json, 0 when it has none
+	// (index.html, page.json and the files of CodeFiles), against which a
+	// consent is kept. CodeFiles are the scripts, style sheets and modules of
+	// the folder that the UI puts into the page: the UI loads no other text
+	// file into a shared page.
+	CodeFiles []string
+	Folder    string
+	FolderID  int64
+	Writable  bool
+	PageID    int64
+	Hash      string
+	MetaSize  int64 // of page.json, 0 when it has none
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time
 	UpdatedBy string
@@ -162,6 +164,7 @@ type Service struct {
 	now    func() time.Time
 	writes *limiter
 	sends  *limiter
+	refs   refCache
 }
 
 // Option configures a Service.
@@ -195,6 +198,9 @@ type loc struct {
 	folder string // workspace path of pages/<name>
 	name   string
 	key    string // the rate limit bucket
+	// shared pages run only with a consent to their code, so their hash
+	// covers the files of code too.
+	shared bool
 }
 
 // own returns the location of a page of the user's home.
@@ -310,7 +316,18 @@ func (s *Service) getAt(ctx context.Context, l loc) (Page, error) {
 	p := Page{Name: l.name, Title: l.name, Source: SourceOwn, Author: AuthorYou, UpdatedBy: AuthorYou, Rev: index.Rev, Size: index.Size}
 	meta := s.readMeta(ctx, l.a, l.folder, &p)
 	p.MetaSize = meta.Size
-	p.Hash = codeHash(index, meta)
+	var code []codeFile
+	if l.shared {
+		var over bool
+		code, over = s.codeSet(ctx, l, index)
+		for _, f := range code {
+			p.CodeFiles = append(p.CodeFiles, f.path)
+		}
+		if over {
+			code = append(code, codeFile{path: "\x00more", missing: true})
+		}
+	}
+	p.Hash = codeHash(index, meta, code)
 	if dir, err := s.f.Store().Stat(ctx, l.a, l.folder); err == nil {
 		p.PageID = dir.ID
 	}
@@ -321,16 +338,6 @@ func (s *Service) getAt(ctx context.Context, l loc) (Page, error) {
 		p.Author, p.AuthorID = authorOf(cs), cs.Actor
 	}
 	return p, nil
-}
-
-// codeHash is the hash of what a page runs: its index.html and its page.json
-// (the title and icon the trust sheet shows). The data files of the page are
-// not in it: they change at every save and the page's code decides what to do
-// with them.
-func codeHash(index, meta workspace.Node) string {
-	h := sha256.New()
-	_, _ = fmt.Fprintf(h, "index.html\x00%s\x00%d\x00page.json\x00%s\x00%d", index.Blob, index.Size, meta.Blob, meta.Size)
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (s *Service) last(ctx context.Context, a workspace.Actor, p string) (workspace.ChangeSet, bool) {

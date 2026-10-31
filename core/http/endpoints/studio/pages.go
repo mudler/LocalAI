@@ -42,6 +42,7 @@ var pageRules = []errRule{
 	verbatim(http.StatusForbidden, typeAuthz, "pages: ", pages.ErrFolderReadOnly),
 	verbatim(http.StatusForbidden, typePageNotAllowed, "pages: ", pages.ErrNoConsent),
 	verbatim(http.StatusConflict, typeConflict, "pages: ", pages.ErrChanged),
+	verbatim(http.StatusConflict, typeConflict, "pages: ", pages.ErrCodeChanged),
 }
 
 func failPage(c echo.Context, err error) error {

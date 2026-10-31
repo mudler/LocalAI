@@ -96,7 +96,7 @@ func (s *Service) sharedLoc(ctx context.Context, principal string, folderID int6
 	for _, f := range folders {
 		if f.ID == folderID {
 			return loc{a: s.actor(principal), folder: f.Path + "/" + Dir + "/" + name, name: name,
-				key: principal + "/shared/" + f.Path + "/" + name}, f, nil
+				key: principal + "/shared/" + f.Path + "/" + name, shared: true}, f, nil
 		}
 	}
 	return loc{}, SharedFolder{}, ErrNotFound
@@ -118,7 +118,7 @@ func (s *Service) ListShared(ctx context.Context, principal string) ([]Page, err
 	out := []Page{}
 	for _, f := range folders {
 		list, err := s.listIn(ctx, a, f.Path+"/"+Dir, func(name string) (loc, error) {
-			return loc{a: a, folder: f.Path + "/" + Dir + "/" + name, name: name}, nil
+			return loc{a: a, folder: f.Path + "/" + Dir + "/" + name, name: name, shared: true}, nil
 		}, func(p *Page) { sharedPage(p, f) })
 		if err != nil && !errors.Is(err, workspace.ErrNotFound) {
 			return nil, err

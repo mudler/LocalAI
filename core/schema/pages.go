@@ -22,14 +22,18 @@ type PagesPage struct {
 	AuthorName string `json:"author_name,omitempty"`
 	// A shared page has its shared folder (Folder, a workspace path, and
 	// FolderID, the id the shared-pages routes take), whether you may write in
-	// it, the hash of its code (index.html and page.json; a consent is kept
-	// against it) and your consent: none, allowed or changed.
-	Folder   string `json:"folder,omitempty"`
-	FolderID int64  `json:"folder_id,omitempty"`
-	Writable bool   `json:"writable,omitempty"`
-	Hash     string `json:"hash,omitempty"`
-	Consent  string `json:"consent,omitempty"`
-	MetaSize int64  `json:"meta_size,omitempty"`
+	// it, the hash of its code (index.html, page.json and the files of
+	// code_files; a consent is kept against it) and your consent: none,
+	// allowed or changed. code_files are the scripts, style sheets and modules
+	// of the page's folder that the page names: the UI puts no other text
+	// file into a shared page.
+	CodeFiles []string `json:"code_files,omitempty"`
+	Folder    string   `json:"folder,omitempty"`
+	FolderID  int64    `json:"folder_id,omitempty"`
+	Writable  bool     `json:"writable,omitempty"`
+	Hash      string   `json:"hash,omitempty"`
+	Consent   string   `json:"consent,omitempty"`
+	MetaSize  int64    `json:"meta_size,omitempty"`
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time `json:"updated_at"`
 	UpdatedBy string    `json:"updated_by"`

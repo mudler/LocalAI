@@ -297,6 +297,7 @@ export default function SharedPageView() {
             theme={theme}
             title={t('view.frameTitle', { title: run.page.title })}
             files={files}
+            codeFiles={run.page.code_files || []}
             onSend={onPageSend}
             onNavigated={() => setNavigated(true)}
             onLink={links.onLink}

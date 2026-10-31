@@ -181,6 +181,27 @@ var _ = Describe("Chats shared pages endpoints", func() {
 		Expect(get("alice")["consent"]).To(HaveKeyWithValue("state", "changed"), "allow once keeps asking")
 	})
 
+	It("covers the scripts of a page in its consent, and a frame of an old version cannot read changed code", func() {
+		write("/shared/team/pages/standup/index.html", "<p>standup</p>\n<script src=\"app.js\"></script>\n")
+		write("/shared/team/pages/standup/app.js", "console.log(1)")
+		p := get("alice")["page"].(map[string]any)
+		Expect(p["code_files"]).To(Equal([]any{"app.js"}))
+		hash := p["hash"].(string)
+		Expect(s.do("alice", http.MethodPut, base+"/consent", map[string]any{"hash": hash}).Code).To(Equal(http.StatusOK))
+		Expect(bridge("alice", http.MethodGet, base+"/file?path=app.js", hash, "", nil).Code).To(Equal(http.StatusOK))
+
+		write("/shared/team/pages/standup/data.json", `{"n":2}`)
+		Expect(get("alice")["consent"]).To(HaveKeyWithValue("state", "allowed"), "a data file is not code")
+
+		write("/shared/team/pages/standup/app.js", "steal()")
+		got := get("alice")
+		Expect(got["consent"]).To(HaveKeyWithValue("state", "changed"))
+		rec := bridge("alice", http.MethodGet, base+"/file?path=app.js", hash, "", nil)
+		Expect(rec.Code).To(Equal(http.StatusConflict), rec.Body.String())
+		Expect(rec.Body.String()).NotTo(ContainSubstring("steal"))
+		Expect(bridge("alice", http.MethodGet, base+"/file?path=data.json", hash, "", nil).Code).To(Equal(http.StatusOK), "the open version still reads its data")
+	})
+
 	It("a shared page writes with the viewer's own grant", func() {
 		hash := get("alice")["page"].(map[string]any)["hash"].(string)
 		for _, u := range []string{"alice", "bob"} {

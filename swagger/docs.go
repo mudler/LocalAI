@@ -6685,7 +6685,7 @@ const docTemplate = `{
         },
         "/api/chats/shared-pages/{folder}/{name}/file": {
             "get": {
-                "description": "With encoding=base64 the file must be an image, as for your own pages.",
+                "description": "With encoding=base64 the file must be an image, as for your own pages. A file of the page's code (index.html, page.json and the code_files of the page) is read only by a frame of the current version: an older frame gets 409, so a script changed after the consent never runs under it.",
                 "tags": [
                     "pages"
                 ],
@@ -6728,6 +6728,12 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "You have not allowed this version (page_not_allowed)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A file of code changed since the version that runs",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -24122,6 +24128,13 @@ const docTemplate = `{
                 "author_name": {
                     "type": "string"
                 },
+                "code_files": {
+                    "description": "A shared page has its shared folder (Folder, a workspace path, and\nFolderID, the id the shared-pages routes take), whether you may write in\nit, the hash of its code (index.html, page.json and the files of\ncode_files; a consent is kept against it) and your consent: none,\nallowed or changed. code_files are the scripts, style sheets and modules\nof the page's folder that the page names: the UI puts no other text\nfile into a shared page.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "consent": {
                     "type": "string"
                 },
@@ -24129,7 +24142,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "folder": {
-                    "description": "A shared page has its shared folder (Folder, a workspace path, and\nFolderID, the id the shared-pages routes take), whether you may write in\nit, the hash of its code (index.html and page.json; a consent is kept\nagainst it) and your consent: none, allowed or changed.",
                     "type": "string"
                 },
                 "folder_id": {
