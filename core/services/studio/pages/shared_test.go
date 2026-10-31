@@ -115,6 +115,24 @@ var _ = Describe("shared pages", func() {
 		Expect(err).To(MatchError(pages.ErrNotFound))
 	})
 
+	It("reads an image of a shared page with the viewer's rights, inside its folder only", func() {
+		r := newSharedRig()
+		adminPut(r.f, team+"/pages/standup/logo.png", "\x89PNG")
+		adminPut(r.f, team+"/logo.png", "\x89PNG outside")
+		img, err := r.svc.ReadSharedImage(ctx, "marta", r.team, "standup", "logo.png")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(img.Data)).To(Equal("\x89PNG"))
+		Expect(img.MediaType).To(Equal("image/png"))
+		_, err = r.svc.ReadSharedImage(ctx, "bob", r.team, "standup", "logo.png")
+		Expect(err).To(MatchError(pages.ErrNotFound), "no grant")
+		for _, bad := range []string{"../logo.png", "../../logo.png", "/shared/team/logo.png", `..\logo.png`} {
+			_, err := r.svc.ReadSharedImage(ctx, "marta", r.team, "standup", bad)
+			Expect(err).To(MatchError(pages.ErrBadPath), bad)
+		}
+		_, err = r.svc.ReadSharedImage(ctx, "marta", r.team, "standup", "data.json")
+		Expect(err).To(MatchError(pages.ErrNotImage))
+	})
+
 	It("the bridge of a shared page reaches its own folder only, with traversal and case-fold aliases refused", func() {
 		r := newSharedRig()
 		c, err := r.svc.ReadShared(ctx, "marta", r.team, "standup", "data.json")

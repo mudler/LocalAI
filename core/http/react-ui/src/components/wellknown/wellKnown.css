@@ -109,6 +109,13 @@
 .wk-box--done { background: var(--color-accent-light); border-color: var(--color-accent-border); }
 .wk-box--done .lai-icon { width: 12px; height: 12px; color: var(--dk-accent-text); }
 .wk-wlist li.is-done .wk-t { color: var(--color-text-muted); text-decoration: line-through; }
+.wk-wlist .wk-link { display: inline-flex; align-items: center; gap: 4px; color: inherit; text-decoration: none; border-radius: var(--radius-sm); }
+.wk-wlist .wk-link__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-wlist .wk-link .wk-link__ext { width: 12px; height: 12px; }
+.wk-wlist .wk-link:hover .wk-link__text, .wk-wlist .wk-link:focus-visible .wk-link__text { text-decoration: underline; text-underline-offset: 2px; }
+.wk-wlist .wk-link:hover { color: var(--color-accent); }
+.wk-wlist .wk-link:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.wk-wlist li.is-done .wk-link__text { text-decoration: line-through; }
 .wk-metric { display: flex; flex-direction: column; gap: 6px; }
 .wk-metric__v { font-size: var(--fs-title); font-variant-numeric: tabular-nums; font-weight: var(--font-weight-semibold); letter-spacing: -0.02em; line-height: 1.05; }
 .wk-metric__n { font-size: var(--text-xs); color: var(--color-text-muted); }

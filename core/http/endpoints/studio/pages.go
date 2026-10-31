@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"strings"
@@ -35,6 +36,7 @@ var pageRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "page or file not found", pages.ErrNotFound),
 	sentinelText(http.StatusRequestEntityTooLarge, typeInvalid, pages.ErrTooLarge),
 	sentinelText(http.StatusUnsupportedMediaType, typeInvalid, pages.ErrNotText),
+	sentinelText(http.StatusUnsupportedMediaType, typeInvalid, pages.ErrNotImage),
 	sentinelText(http.StatusForbidden, typeAuthz, pages.ErrReadOnly),
 	sentinelText(http.StatusTooManyRequests, "rate_limit_error", pages.ErrRateLimited),
 	verbatim(http.StatusForbidden, typeAuthz, "pages: ", pages.ErrFolderReadOnly),
@@ -137,27 +139,61 @@ func (h *Handlers) ListPageFiles(c echo.Context) error {
 	return c.JSON(http.StatusOK, out)
 }
 
-// ReadPageFile reads a text file of a page.
+// ReadPageFile reads a text file of a page, or an image with encoding=base64.
 // @Summary Read a text file of a page (bridge files.read).
+// @Description With encoding=base64 the file must be an image (png, jpg, gif, webp, avif, bmp, ico or svg, by extension) and content is its bytes in base64. The UI uses it to put the images next to a page into the page as data: URLs; the bridge of a page reads text only.
 // @Tags pages
 // @Param name path string true "page name"
 // @Param path query string true "file inside the page's folder, for example data.json"
+// @Param encoding query string false "base64 to read an image"
 // @Success 200 {object} schema.PagesFileContent "The file and its text"
 // @Failure 400 {object} schema.ErrorResponse "The path leaves the page's folder"
 // @Failure 413 {object} schema.ErrorResponse "The file is larger than 1 MiB"
-// @Failure 415 {object} schema.ErrorResponse "The file is not UTF-8 text"
+// @Failure 415 {object} schema.ErrorResponse "The file is not UTF-8 text, or not an image with encoding=base64"
 // @Router /api/chats/pages/{name}/file [get]
 func (h *Handlers) ReadPageFile(c echo.Context) error {
 	fc, ok := h.pagesOn(c)
 	if !ok {
 		return nil
 	}
-	got, err := h.pages.Read(c.Request().Context(), fc.p, c.Param("name"), c.QueryParam("path"))
+	ctx, name, rel := c.Request().Context(), c.Param("name"), c.QueryParam("path")
+	if image, ok := imageRead(c); !ok {
+		return nil
+	} else if image {
+		img, err := h.pages.ReadImage(ctx, fc.p, name, rel)
+		return sendPageImage(c, img, err)
+	}
+	got, err := h.pages.Read(ctx, fc.p, name, rel)
 	if err != nil {
 		return failPage(c, err)
 	}
 	c.Response().Header().Set("Cache-Control", "no-store")
 	return c.JSON(http.StatusOK, schema.PagesFileContent{PagesFile: pageFileJSON(got.File), Content: got.Content})
+}
+
+// imageRead says whether a read asks for an image (encoding=base64). Any other
+// value of encoding is refused, so a typo does not silently read text; then the
+// response is written and ok is false.
+func imageRead(c echo.Context) (image, ok bool) {
+	if !c.QueryParams().Has("encoding") {
+		return false, true
+	}
+	if c.QueryParam("encoding") != "base64" {
+		_ = fail(c, http.StatusBadRequest, typeInvalid, "invalid params: encoding is base64 or absent")
+		return false, false
+	}
+	return true, true
+}
+
+func sendPageImage(c echo.Context, img pages.Image, err error) error {
+	if err != nil {
+		return failPage(c, err)
+	}
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, schema.PagesFileContent{
+		PagesFile: pageFileJSON(img.File), Content: base64.StdEncoding.EncodeToString(img.Data),
+		Encoding: "base64", MediaType: img.MediaType,
+	})
 }
 
 // WritePageFile writes a text file of a page.

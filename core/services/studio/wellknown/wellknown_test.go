@@ -300,6 +300,47 @@ var _ = Describe("the turn prompt", func() {
 })
 
 var _ = Describe("widget data and home widgets", func() {
+	DescribeTable("takes an item url that is an http(s) address or a path of the app",
+		func(url string, ok bool) {
+			doc, _ := json.Marshal(map[string]any{"items": []any{map[string]any{"label": "a", "url": url}}})
+			_, errs := wellknown.Validate(wellknown.WidgetData, doc)
+			Expect(wellknown.ItemURLOK(url)).To(Equal(ok), "the code and the schema agree")
+			if ok {
+				Expect(errs).To(BeEmpty())
+				return
+			}
+			Expect(errs).NotTo(BeEmpty())
+			Expect(strings.Join(errs, "\n")).To(ContainSubstring("items[0].url: a link is an http or https address"))
+		},
+		Entry("https", "https://news.example.com/a?b=1#c", true),
+		Entry("http with a port", "http://example.com:8080", true),
+		Entry("a page", "/app/pages/news", true),
+		Entry("the chats", "/app/chats", true),
+		Entry("a chat", "/app/chat/model-x?x=1", true),
+		Entry("javascript", "javascript:alert(1)", false),
+		Entry("data", "data:text/html,x", false),
+		Entry("protocol relative", "//example.com/x", false),
+		Entry("credentials", "https://user:pass@example.com/", false),
+		Entry("a backslash in the host", `https://example.com\@evil.test/`, false),
+		Entry("relative", "pages/news", false),
+		Entry("another app path", "/app/users", false),
+		Entry("a prefix that only starts the same", "/app/pagesx", false),
+		Entry("traversal", "/app/pages/../users", false),
+		Entry("a double slash", "/app/pages//evil.example", false),
+		Entry("outside the app", "/api/chats/files", false),
+		Entry("whitespace", "https://example.com/a b", false),
+		Entry("empty", "", false),
+	)
+
+	It("says which item has a bad url, among other errors", func() {
+		_, errs := wellknown.Validate(wellknown.WidgetData, []byte(`{"items":[{"label":"ok","url":"https://example.com"},{"label":"x","url":"ftp://x"},{"label":"y","url":3}]}`))
+		joined := strings.Join(errs, "\n")
+		Expect(joined).To(ContainSubstring(`items[1].url:`))
+		Expect(joined).To(ContainSubstring(`"ftp://x" is neither`))
+		Expect(joined).To(ContainSubstring(`items[2].url:`))
+		Expect(joined).NotTo(ContainSubstring(`items[0]`))
+	})
+
 	It("checks the time and the source of widget data", func() {
 		good := `{"title":"Inbox","updatedAt":"2026-10-30T07:59:00Z","source":{"kind":"trigger","trigger":"a1b2c3","note":"Mail from the last 24 hours"},` +
 			`"items":[{"label":"3 need a reply"}]}`

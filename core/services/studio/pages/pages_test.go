@@ -233,6 +233,40 @@ var _ = Describe("the pages service", func() {
 			Expect(err).To(MatchError(pages.ErrBadPath))
 		})
 
+		It("reads an image of the folder as bytes, and nothing else", func() {
+			png := "\x89PNG\r\n\x1a\n\x00\x00"
+			put(f, "alice", "/pages/tasks/img/logo.png", png)
+			put(f, "alice", "/pages/tasks/icon.SVG", "<svg/>")
+			put(f, "alice", "/pages/tasks/blob.bin", "\xff\xfe\x00")
+			put(f, "alice", "/pages/tasks/logo.png.js", "alert(1)")
+			put(f, "alice", "/secret.png", png)
+
+			img, err := s.ReadImage(ctx, "alice", "tasks", "img/logo.png")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(img.Data)).To(Equal(png))
+			Expect(img.MediaType).To(Equal("image/png"))
+			Expect(img.Path).To(Equal("img/logo.png"))
+			svg, err := s.ReadImage(ctx, "alice", "tasks", "icon.SVG")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(svg.MediaType).To(Equal("image/svg+xml"))
+
+			for _, other := range []string{"blob.bin", "tasks.json", "index.html", "logo.png.js", "logo"} {
+				_, err := s.ReadImage(ctx, "alice", "tasks", other)
+				Expect(err).To(MatchError(pages.ErrNotImage), other)
+			}
+			for _, bad := range []string{"../../secret.png", "/secret.png", "..\\..\\secret.png", "img/../../../secret.png", "", "a//b.png"} {
+				_, err := s.ReadImage(ctx, "alice", "tasks", bad)
+				Expect(err).To(MatchError(pages.ErrBadPath), bad)
+			}
+			_, err = s.ReadImage(ctx, "alice", "tasks", "missing.png")
+			Expect(err).To(MatchError(pages.ErrNotFound))
+			_, err = s.ReadImage(ctx, "bob", "tasks", "img/logo.png")
+			Expect(err).To(MatchError(pages.ErrNotFound), "another user's page")
+			put(f, "alice", "/pages/tasks/big.png", strings.Repeat("x", pages.MaxFileSize+1))
+			_, err = s.ReadImage(ctx, "alice", "tasks", "big.png")
+			Expect(err).To(MatchError(pages.ErrTooLarge))
+		})
+
 		It("keeps both versions when a write starts from an old version", func() {
 			got, err := s.Read(ctx, "alice", "tasks", "tasks.json")
 			Expect(err).NotTo(HaveOccurred())

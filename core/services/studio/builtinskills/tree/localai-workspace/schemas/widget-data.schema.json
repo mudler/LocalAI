@@ -33,7 +33,14 @@
         "properties": {
           "label": { "type": "string", "minLength": 1, "maxLength": 200 },
           "meta": { "type": "string", "description": "A short note on the right, such as a day.", "maxLength": 40 },
-          "done": { "type": "boolean" }
+          "done": { "type": "boolean" },
+          "url": {
+            "type": "string",
+            "description": "Where the label links to: an http or https address without a user name (opens in a new tab), or a path of the app such as /app/pages/news or /app/chats (opens in LocalAI).",
+            "maxLength": 2048,
+            "pattern": "^(https?://[^\\s/?#@\\\\]+([/?#]\\S*)?|/app/(chat|chats|files|pages|agents|skills|triggers|collections|models|account|addons)([/?#]\\S*)?)$",
+            "not": { "pattern": "^/app/.*(\\.\\.|//|\\\\)" }
+          }
         },
         "required": ["label"]
       }

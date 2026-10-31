@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import PageFrame from '../components/PageFrame'
+import PageLinkAsk from '../components/PageLinkAsk'
+import { usePageLinks } from '../hooks/usePageLinks'
 import TrustSheet, { SourceSheet } from '../components/pages/TrustSheet'
 import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, sharedPagesApi } from '../utils/api'
@@ -53,6 +55,7 @@ export default function SharedPageView() {
   const [asks, setAsks] = useState([])
   const [chats, setChats] = useState([])
   const frameRef = useRef(null)
+  const links = usePageLinks()
   const asksRef = useRef(asks)
   asksRef.current = asks
   const runRef = useRef(run)
@@ -161,6 +164,7 @@ export default function SharedPageView() {
   const frame = run ? { hash: run.hash, token: run.token } : null
   const files = useMemo(() => (frame ? {
     read: (path) => sharedPagesApi.read(folder, name, frame, path),
+    readImage: (path) => sharedPagesApi.readImage(folder, name, frame, path),
     write: (path, content, base) => sharedPagesApi.write(folder, name, frame, path, content, base),
     list: async (dir) => (await sharedPagesApi.files(folder, name, frame, dir)).entries || [],
   } : null), [folder, name, frame?.hash, frame?.token]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -272,6 +276,12 @@ export default function SharedPageView() {
         </div>
       )}
 
+      {links.link && (
+        <div className="pg-asks">
+          <PageLinkAsk key={links.link.id} link={links.link} t={t} onOpen={links.open} onCancel={links.cancel} />
+        </div>
+      )}
+
       <section className="pg-stage" aria-label={t('view.frameTitle', { title: page?.title || name })}>
         <div className="pg-stage__bar">
           <Icon name="lock" /> {run ? t('viewer.sandboxShared', { folder: `${folderText}/pages/${name}` }) : t('trust.frame.chrome', { folder: folderText })}
@@ -289,6 +299,7 @@ export default function SharedPageView() {
             files={files}
             onSend={onPageSend}
             onNavigated={() => setNavigated(true)}
+            onLink={links.onLink}
             onRefused={onRefused}
           />
         ) : run && navigated ? (

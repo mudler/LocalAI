@@ -122,5 +122,16 @@
     "sourceLines_one": "{{count}}줄",
     "sourceLines_other": "{{count}}줄",
     "sourceNote": "소스는 텍스트로 표시됩니다. 여기서는 아무것도 실행되지 않습니다."
+  },
+  "frame": {
+    "filesFailed": "이 페이지 옆의 파일을 불러오지 못했습니다: {{files}}. 브라우저 콘솔에 이유가 나옵니다.",
+    "tooLarge": "이 페이지는 폴더의 파일을 {{limit}} 넘게 포함하므로 일부를 제외했습니다. 데이터는 fetch()로 불러오세요.",
+    "dismiss": "닫기"
+  },
+  "link": {
+    "label": "페이지가 링크를 열려고 합니다",
+    "open": "{{site}} 열기",
+    "cancel": "취소",
+    "lookalike": "이 주소는 다른 문자 체계의 글자를 사용하며 {{display}}(으)로 읽힙니다. 다른 사이트를 흉내 낼 수 있으니 열기 전에 확인하세요."
   }
 }

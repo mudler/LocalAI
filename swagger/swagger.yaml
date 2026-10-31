@@ -7501,8 +7501,12 @@ definitions:
         type: string
       content:
         type: string
+      encoding:
+        type: string
       kind:
         description: file or dir
+        type: string
+      media_type:
         type: string
       path:
         type: string
@@ -14461,6 +14465,10 @@ paths:
       - pages
   /api/chats/pages/{name}/file:
     get:
+      description: 'With encoding=base64 the file must be an image (png, jpg, gif,
+        webp, avif, bmp, ico or svg, by extension) and content is its bytes in base64.
+        The UI uses it to put the images next to a page into the page as data: URLs;
+        the bridge of a page reads text only.'
       parameters:
       - description: page name
         in: path
@@ -14471,6 +14479,10 @@ paths:
         in: query
         name: path
         required: true
+        type: string
+      - description: base64 to read an image
+        in: query
+        name: encoding
         type: string
       responses:
         "200":
@@ -14486,7 +14498,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "415":
-          description: The file is not UTF-8 text
+          description: The file is not UTF-8 text, or not an image with encoding=base64
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Read a text file of a page (bridge files.read).
@@ -14815,6 +14827,8 @@ paths:
       - pages
   /api/chats/shared-pages/{folder}/{name}/file:
     get:
+      description: With encoding=base64 the file must be an image, as for your own
+        pages.
       parameters:
       - description: shared folder id
         in: path
@@ -14830,6 +14844,10 @@ paths:
         in: query
         name: path
         required: true
+        type: string
+      - description: base64 to read an image
+        in: query
+        name: encoding
         type: string
       responses:
         "200":

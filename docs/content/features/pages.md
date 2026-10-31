@@ -85,10 +85,11 @@ file with its file tools. The page shows up under **Pages** as soon as the
 change is saved. To change a page, open it and use **Ask the assistant to
 change this**.
 
-Tell the assistant to use `window.localai` for data, never `fetch`, and to keep
-the page in one `index.html` with inline script and style: the sandbox blocks
-everything else. A form cannot be submitted in the sandbox, so a page handles
-the click of a button and the Enter key itself.
+One `index.html` with inline script and style is the simplest page. A page
+can also keep its script, style sheets, modules, small images and data in
+files next to it (see [Files next to the page](#files-next-to-the-page)). A
+form cannot be submitted in the sandbox, so a page handles the click of a
+button and the Enter key itself.
 
 ## The bridge
 
@@ -97,7 +98,7 @@ path is relative to the page's own folder.
 
 | Call | Result |
 |---|---|
-| `localai.files.read(path)` | `{path, content, version, size}`. Text files only (UTF-8), at most 1 MiB. |
+| `localai.files.read(path)` | `{path, content, version, size}`. Text files only (UTF-8), at most 1 MiB. A failed call rejects with an error that has `status` (`404` for a missing file, `413`, `415`). |
 | `localai.files.write(path, content, {base})` | `{path, version, size, conflict_of}`. Creates missing folders. Without `base` the file is replaced. With `base` (the `version` you read), a file that changed since is kept and your content goes to a conflict copy, named in `conflict_of`. |
 | `localai.files.list(dir)` | `[{path, kind, size, version}]`. `dir` is optional; the default is the page's folder. |
 | `localai.chat.send(text)` | `{sent: true, chat_id}` or `{sent: false}`. See below. |
@@ -149,6 +150,61 @@ its first message was written by a page and not by you.
 
 Tool calls through the bridge are not available.
 
+## Files next to the page
+
+A page can name the files of its own folder with relative URLs, as a web page
+does. Before the page runs, LocalAI reads them with your rights and puts them
+into the page; while it runs, `fetch` and `XMLHttpRequest` read the folder.
+
+| In the page | What happens |
+|---|---|
+| `fetch('data.json')`, `fetch('./data/x.json?v=2')` | Reads the file with `files.read`. The answer is a real `Response`: `200` with the text and a `content-type` from the extension, or `404` for a missing file (also `413` and `415`). `GET` and `HEAD` only. |
+| `XMLHttpRequest` | The same, asynchronous only, `responseType` `''`, `text`, `json`, `arraybuffer` or `blob`. |
+| `<script src="app.js">` | The script goes into the page at the same place. With `defer` or `async`, it goes to the end of the body. |
+| `<link rel="stylesheet" href="style.css">` | Goes in as a `<style>`, with its relative `@import` and `url()`. |
+| `<script type="module" src="main.js">`, `import './lib/x.js'`, `import('./x.js')` | The modules of the folder load from `blob:` URLs behind an import map. Cycles work. Only string specifiers that start with `./` or `../`. |
+| `<img src="logo.png">`, `<source>`, `<video poster>`, CSS `url()` | Images (png, jpg, gif, webp, avif, bmp, ico, svg) go in as `data:` URLs. |
+
+What does not work:
+
+- The network: an `http:`, `https:` or `//host` URL. `fetch` rejects with
+  `TypeError: network is off in pages; put the data in a file next to the page`;
+  a script, style sheet or image with such a URL stays blocked by the policy.
+- Files outside the page's folder: `../`, an absolute path, `%2e%2e/`, a
+  backslash. They are never read.
+- Packages (`import 'react'`), fonts from files, audio and video files, and
+  binary files through `fetch` (the bridge reads UTF-8 text only).
+- Writes through `fetch`: save with `localai.files.write`.
+
+The files that go into the page are at most 4 MiB in all, and the images at
+most 2 MiB. A script, style sheet or module that does not load (missing,
+outside the folder, too large) shows a short notice at the bottom of the page
+and a message in the browser console; an image that does not load gives only
+the console message. When one of the files that went in changes, the page
+reloads, as it does when `index.html` changes. Data read with `fetch` does
+not reload the page: listen to `files.changed`.
+
+## Links
+
+A page cannot open a window or leave its frame. A click on a link to an
+`http` or `https` address (also with Ctrl, Cmd or the middle button, or the
+Enter key) and `window.open(url)` ask LocalAI instead: a bar above the page
+shows the site, the whole address and **Open** and **Cancel**. **Open** opens
+the address in a new tab with `noopener` and `noreferrer`; **Cancel** does
+nothing. When the host is in punycode (letters of other alphabets, such as
+`xn--pple-43d.com`), the bar also says how it reads (`аpple.com`), since it
+may imitate another site.
+
+- A link to `#id` scrolls the page to that element.
+- A link to a file of the page (`other.html`) opens nothing; the console says
+  why.
+- `javascript:`, `data:`, `file:`, `blob:` and `//host` links and addresses
+  with a user name or password are refused, with a message in the console.
+- The bar shows one link: a new one replaces it. A page asks at most 5
+  links at once, then one every 3 seconds.
+
+`window.open` returns `null` in a page.
+
 ## A page that starts a run
 
 A page cannot call the assistant on its own, but it can write files, and a
@@ -177,6 +233,7 @@ default), the run's own writes start nothing, and the trigger has a daily limit
 |---|---|
 | `index.html` | 1 MiB |
 | A file that the bridge reads or writes | 1 MiB, UTF-8 text |
+| Files put into the page (scripts, styles, modules, images) | 4 MiB in all, images 2 MiB |
 | Path | 256 bytes, 8 folders deep |
 | Writes | 20 at once, then one every 2 seconds, per page |
 | `chat.send` | 3 at once, then one every 20 seconds, per page; 4000 characters |
@@ -204,8 +261,14 @@ person.
   form-action 'none'; base-uri 'none'; object-src 'none'
   ```
 
-  `fetch`, `XMLHttpRequest`, WebSocket, external scripts, styles, fonts and
-  images, and nested frames are all blocked. Images work as `data:` URLs.
+  The network is blocked for `fetch`, `XMLHttpRequest`, WebSocket, external
+  scripts, styles, fonts and images, and nested frames. Images work as
+  `data:` URLs. Links open only after you confirm them (see [Links](#links)).
+  A page with ES modules of its folder also has `blob:` in
+  `script-src`: its modules load from `blob:` URLs that the frame makes
+  itself, which reach no network. `fetch` and `XMLHttpRequest` of the page
+  are replaced by the bridge reads of [Files next to the
+  page](#files-next-to-the-page).
 - A page can still navigate its own frame to another address. LocalAI sees
   the second load, closes the bridge and shows "The page tried to open another
   address" with **Reload**. The request of that navigation has left the
@@ -257,7 +320,11 @@ author changes it keeps running the version you allowed, and its strip says
 that it changed, with **Review**. The data files of a page are not in the hash:
 a page saves them all the time. A page whose code reads its data and runs it
 as code does what its data says; you trust its author for that when you allow
-it.
+it. The same goes for the scripts, style sheets and modules next to the page
+(`app.js`, `style.css`): they are files of the folder, not in the hash, so a
+change of them does not ask again. A page that you allow trusts its author for
+every file of its folder. The files go into the page only after you allow it,
+with the same consent check as the bridge.
 
 A consent for one page never lets another page run, even one with the same
 code, and it is yours only. **Stop allowing this page** in the page's menu
@@ -296,7 +363,7 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `GET /api/chats/pages` | List your pages. |
 | `GET /api/chats/pages/{name}` | A page with its `index.html` as `html`. |
 | `GET /api/chats/pages/{name}/files?dir=` | `files.list` |
-| `GET /api/chats/pages/{name}/file?path=` | `files.read` |
+| `GET /api/chats/pages/{name}/file?path=` | `files.read`. With `encoding=base64` the file must be an image (by extension) and `content` is its bytes in base64, with `media_type`. The UI uses it to put images into the page; the bridge reads text only. |
 | `PUT /api/chats/pages/{name}/file` | `files.write`, body `{path, content, base}` |
 | `POST /api/chats/pages/{name}/chat` | `chat.send` after you chose Send, body `{text, chat_id, model}` |
 | `GET /api/chats/page-starters` | The starter pages. |

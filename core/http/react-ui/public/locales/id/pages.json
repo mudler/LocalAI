@@ -122,5 +122,16 @@
     "sourceLines_one": "{{count}} baris",
     "sourceLines_other": "{{count}} baris",
     "sourceNote": "Sumber ditampilkan sebagai teks. Tidak ada yang berjalan di sini."
+  },
+  "frame": {
+    "filesFailed": "Berkas di samping halaman ini tidak dimuat: {{files}}. Konsol browser menjelaskan alasannya.",
+    "tooLarge": "Halaman ini memuat lebih dari {{limit}} berkas dari foldernya, jadi sebagian dilewati. Muat data dengan fetch().",
+    "dismiss": "Tutup"
+  },
+  "link": {
+    "label": "Halaman ingin membuka tautan",
+    "open": "Buka {{site}}",
+    "cancel": "Batal",
+    "lookalike": "Alamat ini memakai huruf dari alfabet lain dan terbaca sebagai {{display}}. Alamat ini bisa meniru situs lain: periksa sebelum membukanya."
   }
 }

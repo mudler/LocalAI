@@ -327,7 +327,7 @@ export function cleanWidgets(rows) {
 export function widgetData(doc) {
   if (!doc) return { state: 'loading' }
   const d = doc.data || {}
-  const items = Array.isArray(d.items) ? d.items.filter(it => it && typeof it.label === 'string') : []
+  const items = Array.isArray(d.items) ? d.items.filter(it => it && typeof it.label === 'string').map(it => ({ ...it, link: itemLink(it.url) })) : []
   const series = Array.isArray(d.series) ? d.series.filter(n => typeof n === 'number' && Number.isFinite(n)) : []
   const base = {
     title: typeof d.title === 'string' ? d.title : '',
@@ -342,6 +342,31 @@ export function widgetData(doc) {
   if (!doc.exists) return { state: 'empty', ...base }
   if (!doc.valid) return { state: doc.fallback ? 'stale' : 'error', ...base }
   return { state: 'ok', ...base }
+}
+
+// The in-app screens a widget item may link to; the server checks the same.
+const ITEM_APP_PREFIXES = ['chat', 'chats', 'files', 'pages', 'agents', 'skills', 'triggers', 'collections', 'models', 'account', 'addons']
+
+// itemLink reads the url of a widget item: {external: true, href, host} for an
+// http or https address, {external: false, to} for a path of the app, or null
+// for anything else (the file is then invalid on the server too, so this only
+// guards a file written around it).
+export function itemLink(url) {
+  if (typeof url !== 'string' || url === '' || url.length > 2048 || /\s/.test(url)) return null
+  if (url.startsWith('/app/')) {
+    if (/\.\.|\/\/|\\/.test(url)) return null
+    const rest = url.slice(5)
+    const ok = ITEM_APP_PREFIXES.some((p) => rest.startsWith(p) && (rest.length === p.length || '/?#'.includes(rest[p.length])))
+    return ok ? { external: false, to: url } : null
+  }
+  if (!/^https?:\/\/[^/?#@\\]+([/?#]|$)/.test(url)) return null
+  try {
+    const u = new URL(url)
+    if (u.username || u.password) return null
+    return { external: true, href: u.href, host: u.host }
+  } catch {
+    return null
+  }
 }
 
 // sparkPath draws the points of a series as an SVG path in a w by h box.

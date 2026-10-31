@@ -287,6 +287,8 @@ export const pagesApi = {
   list: () => fetchJSON('/api/chats/pages'),
   get: (name) => fetchJSON(pageUrl(name)),
   read: (name, path) => fetchJSON(`${pageUrl(name)}/file${q({ path })}`),
+  // An image of the page as base64, for the UI to put into the page.
+  readImage: (name, path) => fetchJSON(`${pageUrl(name)}/file${q({ path, encoding: 'base64' })}`),
   write: (name, path, content, base) => fetchJSON(`${pageUrl(name)}/file`, {
     method: 'PUT', body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
   }),
@@ -317,6 +319,7 @@ export const sharedPagesApi = {
   revoke: (folder, name) => fetchJSON(`${sharedUrl(folder, name)}/consent`, { method: 'DELETE' }),
   // frame is {hash, token}: the version the frame runs and its visit token.
   read: (folder, name, frame, path) => fetchJSON(`${sharedUrl(folder, name)}/file${q({ path })}`, { headers: frameHeaders(frame) }),
+  readImage: (folder, name, frame, path) => fetchJSON(`${sharedUrl(folder, name)}/file${q({ path, encoding: 'base64' })}`, { headers: frameHeaders(frame) }),
   write: (folder, name, frame, path, content, base) => fetchJSON(`${sharedUrl(folder, name)}/file`, {
     method: 'PUT', headers: frameHeaders(frame), body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
   }),

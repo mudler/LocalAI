@@ -20,7 +20,7 @@ Rules:
 - Change only the keys the user asked for. Read the file first and keep every other key.
 - Keep files small (at most 64 KiB). Use 2-space indentation.
 - After a change, tell the user in one line what changed and where ("Saved to `LocalAI/shortcuts.json`. It shows above the composer.").
-- A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`. To build one, use the `localai-apps` skill.
+- A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`, and reading files next to the page with `fetch('data.json')` works. To build one, use the `localai-apps` skill.
 
 ## Widget data
 
@@ -35,6 +35,7 @@ A `list` or `metric` widget reads its `source`, a JSON file in the home that fol
 A metric uses `value`, `note` and `series` (numbers for a small line). A `chats` widget needs no source: it lists the user's last chats. Put data files under `data/`.
 
 - `updatedAt` is an RFC 3339 time. Always set it when you write the file: the widget shows it.
+- An item can link: `{"label": "Title", "meta": "source", "url": "https://..."}` opens the site in a new tab; `"url": "/app/pages/<name>"` opens a page of the app (also `/app/chats`, `/app/files`). Other links break the schema.
 - `source` says who wrote the data: `{"kind": "trigger"}` in a trigger run, `{"kind": "page", "page": "<name>"}` for a page's data, `{"kind": "assistant"}` in a chat. `note` is one short line on where the data comes from. Both are fields inside the data file. Never print them as your answer.
 - A file that breaks the schema is not shown: the widget keeps the last good version and says the file has an error. A failed run leaves the file as it was, so never write half a file; write the whole file once at the end.
 

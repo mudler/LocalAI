@@ -167,6 +167,16 @@ func (s *Service) ReadShared(ctx context.Context, principal string, folderID int
 	return s.readAt(ctx, l, rel)
 }
 
+// ReadSharedImage returns an image file of a shared page's folder, with the
+// viewer's rights, as ReadImage does for an own page.
+func (s *Service) ReadSharedImage(ctx context.Context, principal string, folderID int64, name, rel string) (Image, error) {
+	l, _, err := s.sharedLoc(ctx, principal, folderID, name)
+	if err != nil {
+		return Image{}, err
+	}
+	return s.readImageAt(ctx, l, rel)
+}
+
 // WriteShared writes a file of a shared page's folder, with the viewer's
 // rights: a viewer with a read grant gets ErrFolderReadOnly.
 func (s *Service) WriteShared(ctx context.Context, principal string, folderID int64, name, rel string, body []byte, base int64) (File, error) {

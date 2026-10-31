@@ -68,6 +68,24 @@ var _ = Describe("Chats pages endpoints", func() {
 		Expect(decodeJSON(rec)["entries"]).To(HaveLen(3))
 	})
 
+	It("reads an image of the page as base64 for the UI, and only an image", func() {
+		Expect(s.putFile("alice", "/pages/tasks/logo.png", "\x89PNG\r\n").Code).To(Equal(http.StatusOK))
+		rec := s.do("alice", http.MethodGet, "/api/chats/pages/tasks/file?encoding=base64&path=logo.png", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		got := decodeJSON(rec)
+		Expect(got["content"]).To(Equal("iVBORw0K"))
+		Expect(got["encoding"]).To(Equal("base64"))
+		Expect(got["media_type"]).To(Equal("image/png"))
+		Expect(rec.Header().Get("Cache-Control")).To(Equal("no-store"))
+		rec = s.do("alice", http.MethodGet, "/api/chats/pages/tasks/file?encoding=base64&path=tasks.json", nil)
+		Expect(rec.Code).To(Equal(http.StatusUnsupportedMediaType), rec.Body.String())
+		Expect(s.do("alice", http.MethodGet, "/api/chats/pages/tasks/file?encoding=hex&path=logo.png", nil).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodGet, "/api/chats/pages/tasks/file?encoding=base64&path="+q("../../secret.png"), nil).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("bob", http.MethodGet, "/api/chats/pages/tasks/file?encoding=base64&path=logo.png", nil).Code).To(Equal(http.StatusNotFound))
+		// Without encoding the file is read as text, as the bridge does.
+		Expect(s.do("alice", http.MethodGet, "/api/chats/pages/tasks/file?path=logo.png", nil).Code).To(Equal(http.StatusUnsupportedMediaType))
+	})
+
 	DescribeTable("refuses a path outside the page's folder",
 		func(path string) {
 			rec := s.do("alice", http.MethodGet, "/api/chats/pages/tasks/file?path="+q(path), nil)

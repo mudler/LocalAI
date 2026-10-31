@@ -224,7 +224,8 @@
         },
         "scheduleNote_one": "{{count}} widget updates on a schedule. Its runs use your models and count toward your usage.",
         "scheduleNote_other": "{{count}} widgets update on a schedule. Their runs use your models and count toward your usage."
-      }
+      },
+      "opensSite": "{{host}}: opens in a new tab"
     },
     "fields": {
       "persona": {

@@ -161,10 +161,19 @@ A `list` or `metric` widget reads its `source`, a data file in your home:
   "source": { "kind": "trigger", "note": "From the mail of the last day" },
   "items": [
     { "label": "Call the dentist", "meta": "Fri" },
-    { "label": "Send the invoice", "done": true }
+    { "label": "Send the invoice", "done": true },
+    { "label": "Release notes", "meta": "news", "url": "https://example.com/release" }
   ]
 }
 ```
+
+An item with `url` shows its label as a link. An `http` or `https` address
+(without a user name or password) opens in a new tab, and its tooltip names the
+site. A path of the app (`/app/pages/<name>`, `/app/chats`, `/app/files`, and
+the screens `chat`, `agents`, `skills`, `triggers`, `collections`, `models`,
+`account` and `addons` under `/app/`) opens inside LocalAI. Any other `url`
+breaks the schema, and the error says which item and why, so a trigger run
+that writes a bad link gets told.
 
 A metric uses `value`, `note` and `series` (numbers for the small line). A
 `chats` widget lists your last chats and needs no source; it replaces the list
