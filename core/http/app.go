@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 
@@ -60,6 +61,19 @@ func defaultBodyLimitSkipper(c echo.Context) bool {
 	// Remeshing accepts generated GLBs that routinely exceed the default
 	// upload limit. The route has its own tighter, format-specific limit.
 	return c.Request().Method == http.MethodPost && c.Path() == "/3d/remesh"
+}
+
+// bodyLimitSkipper skips the general body limit for the routes that bring
+// their own. The upload of the Files page is one of them unless the operator
+// set --upload-limit: then that value wins, lower or higher. Without it the
+// workspace limits the file to its own cap while it reads the body.
+func bodyLimitSkipper(cfg *config.ApplicationConfig) func(echo.Context) bool {
+	return func(c echo.Context) bool {
+		if defaultBodyLimitSkipper(c) {
+			return true
+		}
+		return !cfg.UploadLimitSet() && c.Request().Method == http.MethodPut && c.Path() == "/api/chats/files/content"
+	}
 }
 
 // applyModelLoadCooldown maps a ModelLoadCooldownError anywhere in err's chain
@@ -200,12 +214,10 @@ func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
 
 	// Set body limit
-	if application.ApplicationConfig().UploadLimitMB > 0 {
-		e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
-			Limit:   fmt.Sprintf("%dM", application.ApplicationConfig().UploadLimitMB),
-			Skipper: defaultBodyLimitSkipper,
-		}))
-	}
+	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
+		Limit:   fmt.Sprintf("%dM", application.ApplicationConfig().GeneralUploadLimitMB()),
+		Skipper: bodyLimitSkipper(application.ApplicationConfig()),
+	}))
 
 	// SPA fallback handler, set later when React UI is available
 	var spaFallback func(echo.Context) error

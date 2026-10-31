@@ -496,7 +496,6 @@ func WithProxyAPIKeyEnvLookup(lookup func(string) string) AppOption {
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
 		Context:                   context.Background(),
-		UploadLimitMB:             15,
 		Debug:                     true,
 		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
 		OfficialLibraries:         true,
@@ -981,6 +980,23 @@ func WithConfigFile(configFile string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ConfigFile = configFile
 	}
+}
+
+// DefaultUploadLimitMB is the body limit, in MB, of every route that has no
+// limit of its own, when the operator sets none.
+const DefaultUploadLimitMB = 15
+
+// UploadLimitSet reports whether the operator chose an upload limit. Zero
+// means "not set", so a route with a larger limit of its own can keep it.
+func (o *ApplicationConfig) UploadLimitSet() bool { return o.UploadLimitMB > 0 }
+
+// GeneralUploadLimitMB is the body limit, in MB, of the routes that have no
+// limit of their own: the operator's value, or the default.
+func (o *ApplicationConfig) GeneralUploadLimitMB() int {
+	if o.UploadLimitSet() {
+		return o.UploadLimitMB
+	}
+	return DefaultUploadLimitMB
 }
 
 func WithUploadLimitMB(limit int) AppOption {
