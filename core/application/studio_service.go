@@ -423,28 +423,36 @@ func (a *Application) studioHostExecAudit() hostexec.AuditStore {
 }
 
 // studioEgressSettings is the chats_egress_* settings as they apply now. A
-// value the settings endpoint would refuse falls back to the safe default.
+// list value that does not parse keeps the last valid one (see lastGood).
 func (a *Application) studioEgressSettings() egress.Settings {
 	cfg := a.applicationConfig
-	ports, err := config.ParseEgressPorts(cfg.ChatsEgressPorts)
-	if err != nil {
-		ports = []int{80, 443}
-	}
-	extra, _ := config.ParseEgressHosts(cfg.ChatsEgressExtraRegistries)
-	var allowed []egress.AllowedHost
-	if hosts, err := config.ParseEgressAllowedHosts(cfg.ChatsEgressAllowedHosts, true); err == nil {
-		for _, h := range hosts {
-			allowed = append(allowed, egress.AllowedHost{Host: h.Host, Port: h.Port})
-		}
-	}
+	a.studioEgressListsOnce.Do(a.initStudioEgressLists)
 	return egress.Settings{
 		Ceiling:         egress.Preset(strings.TrimSpace(cfg.ChatsEgressCeiling)),
 		Default:         egress.Preset(strings.TrimSpace(cfg.ChatsEgressDefault)),
 		AllowPrivate:    cfg.ChatsEgressAllowPrivate,
-		Ports:           ports,
-		ExtraRegistries: extra,
-		AllowedHosts:    allowed,
+		Ports:           a.studioEgressPorts.get(cfg.ChatsEgressPorts),
+		ExtraRegistries: a.studioEgressExtra.get(cfg.ChatsEgressExtraRegistries),
+		AllowedHosts:    a.studioEgressAllowed.get(cfg.ChatsEgressAllowedHosts),
 	}
+}
+
+func (a *Application) initStudioEgressLists() {
+	a.studioEgressPorts = newLastGood("chats_egress_ports", config.ParseEgressPorts, []int{80, 443})
+	a.studioEgressExtra = newLastGood("chats_egress_extra_registries", config.ParseEgressHosts, nil)
+	a.studioEgressAllowed = newLastGood("chats_egress_allowed_hosts", func(raw string) ([]egress.AllowedHost, error) {
+		// The shape is judged here; Decide keeps a private literal away
+		// from the list whatever the private switch says.
+		hosts, err := config.ParseEgressAllowedHosts(raw, true)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]egress.AllowedHost, 0, len(hosts))
+		for _, h := range hosts {
+			out = append(out, egress.AllowedHost{Host: h.Host, Port: h.Port})
+		}
+		return out, nil
+	}, nil)
 }
 
 // studioEgressAudit opens the audit of the Sandbox network requests, beside

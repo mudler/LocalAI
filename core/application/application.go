@@ -50,6 +50,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/convert"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
@@ -140,43 +141,49 @@ type Application struct {
 	// studioSelf lists the addresses of this server that a model's request
 	// never reaches: web_fetch refuses them, and the Sandbox proxy gets them
 	// with each allow of egress.check. One list, built once; see serverSelf.
-	studioSelfOnce       sync.Once
-	studioSelf           func() []netip.Prefix
-	studioMarks          convert.Marks // what the conversion of the old data did
-	studioConvertMu      sync.Mutex    // one conversion at a time in this process
-	studioTriggers       *studio.Triggers
-	studioTriggerStore   triggers.Store
-	studioJobStore       jobs.Store
-	studioJobs           *studio.Jobs
-	studioJobsStop       context.CancelFunc
-	studioTriggersStop   context.CancelFunc
-	studioConnStore      connectors.Store
-	studioMCPStore       mcpconns.Store
-	studioMCPConns       *mcpconns.Service
-	studioConnectors     *studio.Connectors
-	studioConnectorsHook atomic.Pointer[studio.Connectors] // the same manager, for the inbox hook that runs on other goroutines
-	studioPusher         *notify.Pusher
-	studioLocks          []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
-	studioConnectorsStop context.CancelFunc
-	studioProvider       *provider.Provider
-	studioService        *studio.Service
-	studioWorkerSub      messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
-	studioWorkerNode     *chatWorkerNode        // the chat worker's row in the node list; nil otherwise
-	studioTempDir        string                 // removed at shutdown; set only in memory-only mode
-	studioHostExec       *hostexec.Runner       // the chats' built-in bash on this machine
-	studioFiles          *files.Service
-	studioFilesIndex     io.Closer          // the JSON index of the workspace; nil when it uses the database
-	studioFilesTemp      string             // blob cache folder of a cluster with no data path; removed at shutdown
-	studioTextIndex      *textindex.Indexer // the text of the documents in the files; nil when files are off
-	authDB               *gorm.DB
-	metricsService       *monitoring.LocalAIMetricsService
-	statsRecorder        *billing.Recorder
-	fallbackUser         *auth.User
-	piiRedactor          *pii.Redactor
-	piiEvents            pii.EventStore
-	mitmCA               atomic.Pointer[mitm.CA]
-	mitmServer           atomic.Pointer[mitm.Server]
-	mitmMutex            sync.Mutex // serializes Stop+Start; readers use atomic loads
+	studioSelfOnce sync.Once
+	studioSelf     func() []netip.Prefix
+	// The list settings of the Sandbox network, each with its last valid
+	// value; see studioEgressSettings.
+	studioEgressListsOnce sync.Once
+	studioEgressPorts     *lastGood[[]int]
+	studioEgressExtra     *lastGood[[]string]
+	studioEgressAllowed   *lastGood[[]egress.AllowedHost]
+	studioMarks           convert.Marks // what the conversion of the old data did
+	studioConvertMu       sync.Mutex    // one conversion at a time in this process
+	studioTriggers        *studio.Triggers
+	studioTriggerStore    triggers.Store
+	studioJobStore        jobs.Store
+	studioJobs            *studio.Jobs
+	studioJobsStop        context.CancelFunc
+	studioTriggersStop    context.CancelFunc
+	studioConnStore       connectors.Store
+	studioMCPStore        mcpconns.Store
+	studioMCPConns        *mcpconns.Service
+	studioConnectors      *studio.Connectors
+	studioConnectorsHook  atomic.Pointer[studio.Connectors] // the same manager, for the inbox hook that runs on other goroutines
+	studioPusher          *notify.Pusher
+	studioLocks           []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
+	studioConnectorsStop  context.CancelFunc
+	studioProvider        *provider.Provider
+	studioService         *studio.Service
+	studioWorkerSub       messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
+	studioWorkerNode      *chatWorkerNode        // the chat worker's row in the node list; nil otherwise
+	studioTempDir         string                 // removed at shutdown; set only in memory-only mode
+	studioHostExec        *hostexec.Runner       // the chats' built-in bash on this machine
+	studioFiles           *files.Service
+	studioFilesIndex      io.Closer          // the JSON index of the workspace; nil when it uses the database
+	studioFilesTemp       string             // blob cache folder of a cluster with no data path; removed at shutdown
+	studioTextIndex       *textindex.Indexer // the text of the documents in the files; nil when files are off
+	authDB                *gorm.DB
+	metricsService        *monitoring.LocalAIMetricsService
+	statsRecorder         *billing.Recorder
+	fallbackUser          *auth.User
+	piiRedactor           *pii.Redactor
+	piiEvents             pii.EventStore
+	mitmCA                atomic.Pointer[mitm.CA]
+	mitmServer            atomic.Pointer[mitm.Server]
+	mitmMutex             sync.Mutex // serializes Stop+Start; readers use atomic loads
 	// mitmHostConflicts records duplicate-host claims across model configs.
 	// Non-empty disables the MITM listener until resolved — the strict
 	// 1-to-1 host↔model invariant the dispatcher relies on. Read by
