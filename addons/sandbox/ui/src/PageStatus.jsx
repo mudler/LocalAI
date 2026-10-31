@@ -9,27 +9,32 @@ export function createPageStatus(sdk, t) {
   // eslint-disable-next-line no-unused-vars
   const { useEffect, useState } = React
 
+  // eslint-disable-next-line no-unused-vars
+  const { Callout, List, ListRow, Code } = sdk.ui
+
   function SandboxPageStatus({ info }) {
-    if (info.state === 'unknown') return <p data-testid="sandbox-page-unknown">{t('sandbox.unknown')}</p>
+    if (info.state === 'unknown') return <Callout tone="info" testId="sandbox-page-unknown">{t('sandbox.unknown')}</Callout>
     if (info.state === 'host') {
-      return <p className="sandbox-page__notice" role="alert" data-testid="sandbox-page-host">{t('sandbox.host')}</p>
+      return <Callout tone="warn" role="alert" testId="sandbox-page-host">{t('sandbox.host')}</Callout>
     }
     if (info.state === 'cannot') {
       return (
-        <div data-testid="sandbox-page-cannot">
-          <p className="sandbox-page__notice" role="alert">{t('sandbox.cannot')}</p>
+        <div className="sandbox-page__cannot" data-testid="sandbox-page-cannot">
+          <Callout tone="error" role="alert">{t('sandbox.cannot')}</Callout>
           {info.reasons.length > 0 && (
-            <div>
+            <div className="sandbox-page__reasons">
               <h2 className="sandbox-page__subtitle">{t('sandbox.reasons')}</h2>
-              <ul className="sandbox-page__reasons">
-                {info.reasons.map(r => <li key={r.name} data-testid="sandbox-page-reason"><strong>{r.name}</strong>: {r.reason}</li>)}
-              </ul>
+              <List label={t('sandbox.reasons')}>
+                {info.reasons.map(r => (
+                  <ListRow key={r.name} testId="sandbox-page-reason" title={r.name} details={<Code>{r.reason}</Code>} detailsLabel={t('sandbox.settings.details')} />
+                ))}
+              </List>
             </div>
           )}
         </div>
       )
     }
-    return <p data-testid="sandbox-page-isolated">{t('sandbox.isolated').replace('{{backend}}', info.backend)}</p>
+    return <Callout tone="ok" testId="sandbox-page-isolated">{t('sandbox.isolated').replace('{{backend}}', info.backend)}</Callout>
   }
 
   function PageStatus() {

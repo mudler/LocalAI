@@ -93,6 +93,16 @@
         }
       }
     },
+    "addons": {
+      "title": "Add-ons",
+      "hint": "Settings that add-ons bring",
+      "intro": "Each add-on keeps its settings on its own page, on the Settings tab of its details. Open one to change them.",
+      "off": "Turned off. Turn it on to change its settings.",
+      "open": "Open settings",
+      "openNamed": "Open the settings of {{name}}",
+      "count_one": "{{count}} add-on with settings",
+      "count_other": "{{count}} add-ons with settings"
+    },
     "hosts": {
       "add": "Add",
       "listLabel": "Always allowed hosts",

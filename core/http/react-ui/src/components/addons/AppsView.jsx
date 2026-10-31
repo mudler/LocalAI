@@ -7,6 +7,8 @@ import { Button, Callout, EmptyState, LoadError, SkeletonRows } from '../ui'
 import { newOperationId, pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
+import { declaresSlot } from '../../addons/slots'
+import { SETTINGS_VIEW, paneView } from '../../utils/addonSettings'
 import { useAuth } from '../../context/AuthContext'
 import { FEATURE_ADDONS } from '../../utils/capabilities'
 import SideSheet from '../SideSheet'
@@ -256,8 +258,18 @@ export default function AppsView({ api, adapter, onSummary }) {
     const result = await nav.pin(id)
     if (result.needsUnpin) setLimit(true)
   }
-  const openDetail = (id) => setParams(prev => { const out = new URLSearchParams(prev); out.set('detail', id); out.delete('manage'); return out })
-  const closeDetail = () => setParams(prev => { const out = new URLSearchParams(prev); out.delete('detail'); out.delete('manage'); return out }, { replace: true })
+  const openDetail = (id) => setParams(prev => { const out = new URLSearchParams(prev); out.set('detail', id); out.delete('manage'); out.delete('view'); return out })
+  const closeDetail = () => setParams(prev => { const out = new URLSearchParams(prev); out.delete('detail'); out.delete('manage'); out.delete('view'); return out }, { replace: true })
+  // The Settings tab of the details, for an administrator, when the add-on
+  // declares a settings section (or has server settings of its own feature).
+  const detailHasSettings = Boolean(isAdmin && detail && detail.app && declaresSlot(detail.app, 'settings.sections'))
+  const paneTab = paneView(params, detailHasSettings)
+  const setView = (next) => setParams(prev => {
+    const out = new URLSearchParams(prev)
+    if (next === SETTINGS_VIEW) out.set('view', SETTINGS_VIEW)
+    else out.delete('view')
+    return out
+  }, { replace: true })
 
   if (state.status === 'loading') {
     return <SkeletonRows count={3} label={t('apps.loading')} className="ad-skeleton" />
@@ -294,7 +306,7 @@ export default function AppsView({ api, adapter, onSummary }) {
       {Object.keys(actions.unknown).filter(id => actions.unknown[id].key.startsWith('uninstall:')).map(id => (
         <UnknownNotice key={id} addonId={id} actions={actions} className="ad-card__note" />
       ))}
-      <div className="ad-split" data-open={detail ? 'true' : 'false'}>
+      <div className="ad-split" data-open={detail ? 'true' : 'false'} data-view={detail ? paneTab : undefined}>
         <div className="ad-split__list">
           {showAttention && (
             <section className="ad-attention" aria-label={t('attention.label')} data-testid="addons-attention">
@@ -435,6 +447,9 @@ export default function AppsView({ api, adapter, onSummary }) {
             source={installedInfo[detail.id]}
             links={detail.app ? navigationItems([detail.app], { language: i18n.language }) : []}
             upgrade={upgrade}
+            hasSettings={detailHasSettings}
+            view={paneTab}
+            onView={setView}
           >
             {isAdmin && installedInfo[detail.id] && (
                 <OperatorFacts

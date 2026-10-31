@@ -734,5 +734,41 @@
     "notServing": "not serving now",
     "serveIn": "Use for {{skill}} in the chats",
     "saveFailed": "Could not save the choice."
+  },
+  "settingsTab": {
+    "overview": "Overview",
+    "settings": "Settings",
+    "tabsLabel": "Details of {{name}}",
+    "off": "Turn on {{name}} to change its settings.",
+    "serverTitle": "Server settings for this add-on",
+    "serverIntro": "LocalAI keeps these settings of {{name}} on the Settings page, with the other server settings.",
+    "open": "Open",
+    "pageLink": "Settings",
+    "server": {
+      "network": {
+        "title": "Sandbox network",
+        "body": "The network that Sandbox commands may use, its ports and how long the audit keeps a line.",
+        "loading": "Reading the network settings…",
+        "limit": "Limit",
+        "newChat": "A new chat",
+        "ports": "Ports",
+        "audit": "Audit kept",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days",
+        "presets": {
+          "off": "No network",
+          "registries": "Package registries only",
+          "all": "Every public host"
+        }
+      },
+      "bash": {
+        "title": "Commands in chats",
+        "body": "Which add-on runs the chats' bash, and whether commands may run on this machine."
+      },
+      "webTools": {
+        "title": "Web tools in chats",
+        "body": "Whether the chats get web_search and web_fetch, and which add-on serves them."
+      }
+    }
   }
 }

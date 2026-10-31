@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
@@ -14,7 +14,11 @@ import EgressSection from '../components/settings/EgressSection'
 import PendingBar from '../components/settings/PendingBar'
 import HistorySheet from '../components/settings/HistorySheet'
 import Icon from '../components/Icon'
-import AddonSlot from '../addons/AddonSlot'
+import { useAddonsWithSettings } from '../addons/useAddonRegistry'
+import { AppIcon } from '../components/addons/AddonBits'
+import { localizedText } from '../components/addons/addonState'
+import { apiUrl } from '../utils/basePath'
+import { addonSettingsAddress, legacySectionTarget } from '../utils/addonSettings'
 import { formatBytes } from '../utils/format'
 import {
   FIELDS, GROUPS, OLD_SECTIONS, FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, searchFields, normalizeLoaded,
@@ -26,6 +30,38 @@ import {
 import './settings.css'
 
 const UNDO_MS = 10000
+// The Add-ons group is not a group of runtime settings: it lists the add-ons
+// that have settings, each a link to the Settings tab of its details.
+const ADDONS_GROUP = 'addons'
+
+function AddonsGroup({ items }) {
+  const { t, i18n } = useTranslation('admin')
+  return (
+    <section aria-labelledby="st-group-title" data-testid="settings-addons">
+      <h2 className="st-h2" id="st-group-title">{t('settings.addons.title')}<span className="st-sub">{t('settings.addons.hint')}</span></h2>
+      <p className="st-note">{t('settings.addons.intro')}</p>
+      <ul className="st-addons">
+        {items.map(({ app, usable }) => {
+          const title = localizedText(app, 'title', i18n.language) || app.id
+          const description = localizedText(app, 'description', i18n.language)
+          return (
+            <li key={app.id} className="st-addons__item" data-testid="settings-addon" data-app={app.id}>
+              <AppIcon src={app.icon ? apiUrl(app.icon) : ''} id={app.id} name={title} size={32} />
+              <div className="st-addons__words">
+                <span className="st-row__label">{title}</span>
+                {description && <span className="st-row__desc">{description}</span>}
+                {!usable && <span className="st-note st-addons__off">{t('settings.addons.off')}</span>}
+              </div>
+              <Link className="dk-btn dk-btn--secondary dk-btn--sm" to={addonSettingsAddress(app.id)} data-testid="settings-addon-link" aria-label={t('settings.addons.openNamed', { name: title })}>
+                {t('settings.addons.open')} <Icon name="arrow-right" />
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
 
 // How much memory is in use now, from /api/resources, with the threshold the
 // reclaimer would act on. GPU memory when there is a GPU, RAM otherwise.
@@ -78,9 +114,15 @@ export default function Settings() {
   const [loadError, setLoadError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [resources, setResources] = useState(null)
-  // ?group=tools opens that group, so a link can point at one section.
   const [params] = useSearchParams()
-  const [group, setGroup] = useState(() => GROUPS.find(g => g.id === params.get('group'))?.id || GROUPS[0].id)
+  const location = useLocation()
+  const { items: addonSettings, settled: addonsSettled } = useAddonsWithSettings()
+  // ?group=<id> opens a group: the links of an add-on's Settings tab to the
+  // server settings of its feature use it, with the block's id as the hash.
+  const [group, setGroup] = useState(() => {
+    const asked = params.get('group')
+    return asked === ADDONS_GROUP || GROUPS.some(g => g.id === asked) ? asked : GROUPS[0].id
+  })
   const [query, setQuery] = useState('')
   const [showDiff, setShowDiff] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -109,6 +151,15 @@ export default function Settings() {
     fetchResources()
     return () => { liveRef.current = false }
   }, [loadSettings, fetchResources])
+
+  // A hash names a block of the open group (#settings-egress): bring it into
+  // view once the settings are drawn.
+  const ready = Boolean(settings)
+  useEffect(() => {
+    if (!ready || !location.hash || location.hash.startsWith('#ad-section-')) return
+    const id = decodeURIComponent(location.hash.slice(1))
+    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }))
+  }, [ready, location.hash])
 
   const changes = useMemo(() => pendingChanges(initial, settings), [initial, settings])
   const visible = useMemo(() => visibleChanges(changes), [changes])
@@ -218,6 +269,16 @@ export default function Settings() {
 
   const onChange = (next) => setSettings(next)
 
+  // The sections of add-ons were at the end of this page, under the anchor
+  // #ad-section-<addon>-<contribution>. That address opens the add-on's
+  // Settings tab now.
+  const legacy = legacySectionTarget(location.hash, addonSettings.map(x => x.app.id))
+  if (legacy) {
+    // Wait for the list, so an add-on id with a dash is found whole.
+    if (!addonsSettled) return <div className="page page--wide st-page"><SkeletonRows /></div>
+    return <Navigate to={addonSettingsAddress(legacy)} replace />
+  }
+
   if (loading) return <div className="page page--wide st-page"><SkeletonRows /></div>
   if (!settings) {
     return (
@@ -232,8 +293,10 @@ export default function Settings() {
   const results = searching ? searchFields(query, settings) : []
   const withDefaults = FIELDS.filter(hasDefault)
   const changedFromDefault = withDefaults.filter(f => isChanged(f, settings)).length
-  const groupFields = FIELDS.filter(f => f.group === group)
-  const active = GROUPS.find(g => g.id === group)
+  const showAddons = addonSettings.length > 0
+  const onAddons = group === ADDONS_GROUP && showAddons
+  const groupFields = onAddons ? [] : FIELDS.filter(f => f.group === group)
+  const active = GROUPS.find(g => g.id === group) || GROUPS[0]
 
   const countFor = (g) => FIELDS.filter(f => f.group === g.id && isChanged(f, settings)).length
   const draftIn = (g) => FIELDS.some(f => f.group === g.id && pendingKeys.has(f.key))
@@ -288,6 +351,17 @@ export default function Settings() {
               </button>
             )
           })}
+          {showAddons && (
+            <button
+              type="button" className="st-group"
+              aria-current={!searching && onAddons ? 'true' : undefined}
+              data-group={ADDONS_GROUP}
+              onClick={() => { setQuery(''); setGroup(ADDONS_GROUP) }}
+            >
+              <span className="st-group__label">{t('settings.addons.title')}</span>
+              <span className="st-group__count" title={t('settings.addons.count', { count: addonSettings.length })}>{addonSettings.length}<span className="dk-sr-only"> {t('settings.addons.count', { count: addonSettings.length })}</span></span>
+            </button>
+          )}
         </nav>
 
         <div className="st-content">
@@ -307,6 +381,8 @@ export default function Settings() {
                 <div className="st-list" data-testid="settings-results">{results.map(f => renderField(f, true))}</div>
               )}
             </section>
+          ) : onAddons ? (
+            <AddonsGroup items={addonSettings} />
           ) : (
             <section aria-labelledby="st-group-title">
               <h2 className="st-h2" id="st-group-title">{active.label}<span className="st-sub">{active.hint}</span></h2>
@@ -332,8 +408,6 @@ export default function Settings() {
           )}
         </div>
       </div>
-
-      <AddonSlot slot="settings.sections" context={null} />
 
       {isDirty && (
         <PendingBar

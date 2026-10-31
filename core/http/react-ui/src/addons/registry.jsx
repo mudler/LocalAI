@@ -248,6 +248,9 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   }, [])
 
   const value = useMemo(() => ({
+    // Whether the server said if add-ons are on: until then `allowed` is false
+    // only because the answer is not in yet.
+    known: serverOn !== null,
     status: list.status,
     apps: list.apps,
     error: list.error,
@@ -268,7 +271,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     // them leaves the host with no entries, never with a broken render.
     navigationItems: guarded(() => buildNavigation(list.apps, { language: i18n.language })),
     chatActions: guarded(() => availableChatActions(instances, list.apps, { hasFeature: () => allowed })),
-  }), [list, instances, allowed, refresh, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
+  }), [serverOn, list, instances, allowed, refresh, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
 
   const boundaryLabels = { title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }
   return (

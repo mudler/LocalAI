@@ -185,7 +185,7 @@ export default function BuiltinToolsSection({ settings, onChange }) {
   if (state.tools.length === 0) return <p className="st-note" data-testid="settings-tools-empty">{t('settingsTools.empty')}</p>
 
   return (
-    <div className="st-list st-tools" data-testid="settings-tools">
+    <div className="st-list st-tools" id="settings-builtin-tools" data-testid="settings-tools">
       <p className="st-note">{t('settingsTools.intro')}</p>
       {state.tools.map(tool => {
         const by = tool.provider === 'builtin'

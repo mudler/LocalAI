@@ -8,6 +8,7 @@ import { apiUrl } from '../../utils/basePath'
 import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
 import AddonSkills from './AddonSkills'
+import AddonSettings from './AddonSettings'
 import { addedByAddon, appActions, attentionOf, localizedText, screenshotsOf } from './addonState'
 import { updateView, upgradeAvailability } from './updateState'
 import { describeOutcome } from './errors'
@@ -17,7 +18,7 @@ import { describeOutcome } from './errors'
 // (Open, Turn on or off, Pin); what it can do; then, for an administrator, the
 // operator facts in `children` (trust, health, updates, compatibility, storage
 // and data). Remove sits last, apart from everything else.
-export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], upgrade, children }) {
+export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], upgrade, hasSettings = false, view = 'overview', onView, children }) {
   const { t } = useTranslation('addons')
   const ref = useRef(null)
   const app = tile.app
@@ -49,9 +50,43 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
           <AddonMenu name={title} pinned={pinned} onPin={onPin} onMove={pinned ? onMove : undefined} onRemove={onRemove} />
           <Button variant="ghost" size="sm" icon="close" className="ad-pane__close" aria-label={t('drawer.close')} onClick={onClose} />
         </div>
-        {app
-          ? <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>
-          : <p className="ad-pane__text ad-pane__text--pad">{t('drawer.builtinDetail')}</p>}
+        {app && hasSettings && (
+          <div className="ad-pane__tabs" role="tablist" aria-label={t('settingsTab.tabsLabel', { name: title })} onKeyDown={(e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+            e.preventDefault()
+            const next = view === 'settings' ? 'overview' : 'settings'
+            onView?.(next)
+            requestAnimationFrame(() => document.getElementById(`ad-pane-tab-${next}`)?.focus())
+          }}>
+            {['overview', 'settings'].map(id => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`ad-pane-tab-${id}`}
+                className="ad-tab ad-pane__tab"
+                aria-selected={view === id}
+                aria-controls="ad-pane-panel"
+                tabIndex={view === id ? 0 : -1}
+                data-testid={`addon-detail-tab-${id}`}
+                onClick={() => onView?.(id)}
+              >
+                {id === 'settings' && <Icon name="settings" aria-hidden="true" />}
+                {t(`settingsTab.${id}`)}
+              </button>
+            ))}
+          </div>
+        )}
+        {app && hasSettings && view === 'settings' && (
+          <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-settings" className="ad-pane__body"><AddonSettings app={app} title={title} /></div>
+        )}
+        {app && hasSettings && view !== 'settings' && (
+          <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-overview">
+            <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>
+          </div>
+        )}
+        {app && !hasSettings && <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>}
+        {!app && <p className="ad-pane__text ad-pane__text--pad">{t('drawer.builtinDetail')}</p>}
       </div>
     </aside>
   )

@@ -738,5 +738,41 @@
     "notServing": "non utilisée pour l'instant",
     "serveIn": "Utiliser pour {{skill}} dans les discussions",
     "saveFailed": "Impossible d'enregistrer le choix."
+  },
+  "settingsTab": {
+    "overview": "Aperçu",
+    "settings": "Paramètres",
+    "tabsLabel": "Détails de {{name}}",
+    "off": "Activez {{name}} pour modifier ses paramètres.",
+    "serverTitle": "Paramètres du serveur pour ce module",
+    "serverIntro": "LocalAI garde ces paramètres de {{name}} sur la page Paramètres, avec les autres paramètres du serveur.",
+    "open": "Ouvrir",
+    "pageLink": "Paramètres",
+    "server": {
+      "network": {
+        "title": "Réseau du Sandbox",
+        "body": "Le réseau que les commandes du Sandbox peuvent utiliser, ses ports et la durée pendant laquelle le journal garde une ligne.",
+        "loading": "Lecture des paramètres réseau…",
+        "limit": "Limite",
+        "newChat": "Une nouvelle discussion",
+        "ports": "Ports",
+        "audit": "Journal conservé",
+        "days_one": "{{count}} jour",
+        "days_other": "{{count}} jours",
+        "presets": {
+          "off": "Aucun réseau",
+          "registries": "Registres de paquets seulement",
+          "all": "Tout hôte public"
+        }
+      },
+      "bash": {
+        "title": "Commandes dans les discussions",
+        "body": "Quel module exécute le bash des discussions, et si les commandes peuvent s'exécuter sur cette machine."
+      },
+      "webTools": {
+        "title": "Outils web dans les discussions",
+        "body": "Si les discussions disposent de web_search et web_fetch, et quel module les fournit."
+      }
+    }
   }
 }

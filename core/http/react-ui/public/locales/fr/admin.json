@@ -92,6 +92,16 @@
         }
       }
     },
+    "addons": {
+      "title": "Modules",
+      "hint": "Les paramètres apportés par les modules",
+      "intro": "Chaque module garde ses paramètres sur sa propre page, dans l'onglet Paramètres de ses détails. Ouvrez-en un pour les modifier.",
+      "off": "Désactivé. Activez-le pour modifier ses paramètres.",
+      "open": "Ouvrir les paramètres",
+      "openNamed": "Ouvrir les paramètres de {{name}}",
+      "count_one": "{{count}} module avec des paramètres",
+      "count_other": "{{count}} modules avec des paramètres"
+    },
     "hosts": {
       "add": "Ajouter",
       "listLabel": "Hôtes toujours autorisés",

@@ -734,5 +734,41 @@
     "notServing": "当前未使用",
     "serveIn": "在聊天中用于 {{skill}}",
     "saveFailed": "无法保存选择。"
+  },
+  "settingsTab": {
+    "overview": "概览",
+    "settings": "设置",
+    "tabsLabel": "{{name}} 的详情",
+    "off": "启用 {{name}} 后才能更改它的设置。",
+    "serverTitle": "此附加组件的服务器设置",
+    "serverIntro": "LocalAI 把 {{name}} 的这些设置和其他服务器设置一起放在“设置”页面。",
+    "open": "打开",
+    "pageLink": "设置",
+    "server": {
+      "network": {
+        "title": "沙盒网络",
+        "body": "沙盒命令可以使用的网络、端口，以及审计记录保留多久。",
+        "loading": "正在读取网络设置…",
+        "limit": "上限",
+        "newChat": "新聊天",
+        "ports": "端口",
+        "audit": "审计保留",
+        "days_one": "{{count}} 天",
+        "days_other": "{{count}} 天",
+        "presets": {
+          "off": "无网络",
+          "registries": "仅软件包仓库",
+          "all": "所有公共主机"
+        }
+      },
+      "bash": {
+        "title": "聊天中的命令",
+        "body": "哪个附加组件运行聊天的 bash，以及命令能否在这台机器上运行。"
+      },
+      "webTools": {
+        "title": "聊天中的网页工具",
+        "body": "聊天是否有 web_search 和 web_fetch，以及由哪个附加组件提供。"
+      }
+    }
   }
 }

@@ -23,7 +23,8 @@ function ApplyHint({ field }) {
 
 function coerceInt(field, text) {
   const floor = field.min ?? 0
-  return Math.max(floor, parseInt(text, 10) || floor)
+  const n = Math.max(floor, parseInt(text, 10) || floor)
+  return field.max !== undefined ? Math.min(field.max, n) : n
 }
 
 function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
@@ -42,14 +43,17 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
           onClick={() => set(!value)}
         />
       )
-    case 'int':
-      return (
+    case 'int': {
+      const input = (
         <input
-          id={id} type="number" className="dk-input st-num" min={field.min} value={value}
+          id={id} type="number" className="dk-input st-num" min={field.min} max={field.max} value={value}
           placeholder={field.placeholder} disabled={disabled}
           onChange={(e) => set(coerceInt(field, e.target.value))}
         />
       )
+      if (!field.unit) return input
+      return <span className="st-unit">{input}<span className="st-unit__label">{field.unit}</span></span>
+    }
     case 'duration':
       return (
         <input

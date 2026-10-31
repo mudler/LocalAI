@@ -182,6 +182,69 @@ test.describe('Add-on navigation', () => {
     await expect(page.getByTestId('addon-detail').getByTestId('addon-shots').getByRole('listitem')).toHaveCount(1)
   })
 
+  // An add-on that declares a settings.sections contribution: its settings
+  // live on the Settings tab of its details, and the Settings page links there.
+  const withSettings = (over = {}) => app({ id: 'sandbox', name: 'sandbox', title: 'Sandbox', description: 'Run commands.', mainPage: '/app/addons/sandbox/sandbox', ui: { slots: [{ id: 'settings', slot: 'settings.sections', component: 'SandboxSettings' }] }, ...over })
+
+  test('an administrator gets a Settings tab in the details of an add-on with settings, with its server settings linked', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [withSettings(), app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()] })
+    await page.route('**/api/chats/admin/egress', route => route.fulfill({ json: { ceiling: 'registries', default: 'off', ports: [80, 443], audit_days: 14, registries: [], allowed_24h: 0, blocked_24h: 0 } }))
+    await page.goto('/app/addons?detail=sandbox')
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane.getByTestId('addon-detail-tab-overview')).toHaveAttribute('aria-selected', 'true')
+    await pane.getByTestId('addon-detail-tab-settings').click()
+    await expect(page).toHaveURL(/detail=sandbox&view=settings$/)
+    await expect(pane.getByTestId('addon-detail-tab-settings')).toHaveAttribute('aria-selected', 'true')
+    const server = pane.getByTestId('addon-server-settings')
+    await expect(server).toContainText('Server settings for this add-on')
+    await expect(pane.getByTestId('addon-egress-summary')).toContainText('Package registries only')
+    await expect(pane.getByTestId('addon-egress-summary')).toContainText('14 days')
+    await expect(server.locator('[data-setting="network"] a')).toHaveAttribute('href', /\/app\/settings\?group=tools#settings-egress$/)
+    await expect(server.locator('[data-setting="bash"] a')).toHaveAttribute('href', /\/app\/settings\?group=tools#settings-builtin-tools$/)
+    // Arrow keys move between the two tabs.
+    await pane.getByTestId('addon-detail-tab-settings').press('ArrowLeft')
+    await expect(pane.getByTestId('addon-detail-tab-overview')).toHaveAttribute('aria-selected', 'true')
+    // An add-on without settings has no tab.
+    await page.goto('/app/addons?detail=notes&view=settings')
+    await expect(page.getByTestId('addon-detail')).toBeVisible()
+    await expect(page.getByTestId('addon-detail-tab-settings')).toHaveCount(0)
+    await expect(page.getByTestId('preview-facts')).toBeVisible()
+  })
+
+  test('a member gets no Settings tab, even from its address', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [withSettings()] })
+    await page.goto('/app/addons?detail=sandbox&view=settings')
+    await expect(page.getByTestId('addon-detail')).toBeVisible()
+    await expect(page.getByTestId('addon-detail-tab-settings')).toHaveCount(0)
+    await expect(page.getByTestId('addon-settings')).toHaveCount(0)
+  })
+
+  test('the Settings page lists the add-ons with settings in an Add-ons group, and only when there is one', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [withSettings(), app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/settings')
+    const group = page.locator('.st-group[data-group="addons"]')
+    await expect(group).toBeVisible()
+    await expect(group).toContainText('1')
+    await group.click()
+    const rows = page.getByTestId('settings-addon')
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first()).toHaveAttribute('data-app', 'sandbox')
+    await expect(rows.first().getByTestId('settings-addon-link')).toHaveAttribute('href', /\/app\/addons\?detail=sandbox&view=settings$/)
+    // The old anchor of the section opens the Settings tab.
+    await page.goto('/app/settings#ad-section-sandbox-settings')
+    await expect(page).toHaveURL(/\/app\/addons\?detail=sandbox&view=settings$/)
+  })
+
+  test('the Settings page has no Add-ons group when no add-on has settings', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [app({ id: 'notes', title: 'Notes' })] })
+    const listed = page.waitForResponse(r => /\/api\/addons\/apps$/.test(new URL(r.url()).pathname))
+    await page.goto('/app/settings')
+    await listed
+    await expect(page.getByTestId('settings-page')).toBeVisible()
+    await expect(page.locator('.st-group').first()).toBeVisible()
+    await expect(page.locator('.st-group[data-group="addons"]')).toHaveCount(0)
+  })
+
   test('a member sees the pane without Remove and without the source', async ({ page }) => {
     await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes' })] })
     await page.goto('/app/addons?detail=notes')

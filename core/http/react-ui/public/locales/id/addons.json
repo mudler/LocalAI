@@ -734,5 +734,41 @@
     "notServing": "tidak dipakai sekarang",
     "serveIn": "Pakai untuk {{skill}} di obrolan",
     "saveFailed": "Pilihan tidak dapat disimpan."
+  },
+  "settingsTab": {
+    "overview": "Ringkasan",
+    "settings": "Pengaturan",
+    "tabsLabel": "Detail {{name}}",
+    "off": "Aktifkan {{name}} untuk mengubah pengaturannya.",
+    "serverTitle": "Pengaturan server untuk add-on ini",
+    "serverIntro": "LocalAI menyimpan pengaturan {{name}} ini di halaman Pengaturan, bersama pengaturan server lainnya.",
+    "open": "Buka",
+    "pageLink": "Pengaturan",
+    "server": {
+      "network": {
+        "title": "Jaringan Sandbox",
+        "body": "Jaringan yang boleh dipakai perintah Sandbox, port-nya, dan berapa lama audit menyimpan satu baris.",
+        "loading": "Membaca pengaturan jaringan…",
+        "limit": "Batas",
+        "newChat": "Chat baru",
+        "ports": "Port",
+        "audit": "Audit disimpan",
+        "days_one": "{{count}} hari",
+        "days_other": "{{count}} hari",
+        "presets": {
+          "off": "Tanpa jaringan",
+          "registries": "Hanya registri paket",
+          "all": "Semua host publik"
+        }
+      },
+      "bash": {
+        "title": "Perintah di chat",
+        "body": "Add-on mana yang menjalankan bash chat, dan apakah perintah boleh berjalan di mesin ini."
+      },
+      "webTools": {
+        "title": "Alat web di chat",
+        "body": "Apakah chat mendapat web_search dan web_fetch, dan add-on mana yang menyediakannya."
+      }
+    }
   }
 }

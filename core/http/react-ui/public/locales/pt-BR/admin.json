@@ -142,6 +142,16 @@
         }
       }
     },
+    "addons": {
+      "title": "Complementos",
+      "hint": "Configurações que os complementos trazem",
+      "intro": "Cada complemento mantém as configurações na própria página, na aba Configurações dos detalhes. Abra um para mudá-las.",
+      "off": "Desativado. Ative-o para mudar as configurações.",
+      "open": "Abrir configurações",
+      "openNamed": "Abrir as configurações de {{name}}",
+      "count_one": "{{count}} complemento com configurações",
+      "count_other": "{{count}} complementos com configurações"
+    },
     "hosts": {
       "add": "Adicionar",
       "listLabel": "Hosts sempre permitidos",

@@ -1,6 +1,6 @@
 // The entry of the Web add-on. Its work happens in the chats: it serves
 // web_search and web_fetch in place of the built-in tools. This page says so;
-// the settings are a section of the Settings page.
+// the settings are on the Settings tab of the add-on's details.
 import { createSettings } from './Settings.jsx'
 
 export function createAddon(sdk) {
@@ -12,7 +12,7 @@ export function createAddon(sdk) {
     'web.intro': 'Your chats search the web and read web pages through this add-on, in place of the built-in web tools. It can search with Brave Search, Tavily or Google Programmable Search when an administrator sets a key, and it reads the text of PDF files.',
     'web.rules.order': 'The search providers are tried in the order an administrator chose. When one fails, the next one is tried.',
     'web.rules.untrusted': 'What a page says is given to the model as untrusted text. Addresses inside your network are never read.',
-    'web.rules.settings': 'An administrator sets the providers and their keys in Settings, in the Web section.',
+    'web.rules.settings': 'An administrator sets the providers and their keys on the Settings tab of the Web details, under Add-ons.',
     'web.provider.brave': 'Brave Search',
     'web.provider.tavily': 'Tavily',
     'web.provider.google': 'Google Programmable Search',
@@ -22,7 +22,19 @@ export function createAddon(sdk) {
     'web.settings.intro': 'Choose the search providers of web_search and the order they are tried in. A provider without its key or address is skipped. Keys are kept by the add-on and never shown again.',
     'web.settings.serving': 'Searches go to: {{list}}.',
     'web.settings.servingNone': 'No provider is ready: web_search says so in the chats.',
-    'web.settings.ready': 'ready',
+    'web.settings.ready': 'Ready',
+    'web.settings.notReady': 'Not ready',
+    'web.settings.providersTitle': 'Search providers',
+    'web.settings.use': 'Use {{name}}',
+    'web.settings.upShort': 'Up',
+    'web.settings.downShort': 'Down',
+    'web.settings.key': 'API key',
+    'web.settings.keyOf': 'API key of {{name}}',
+    'web.settings.googleEngineHelp': 'The ID of your Programmable Search Engine, from its control panel.',
+    'web.settings.searxngHelp': 'An instance that allows the JSON format.',
+    'web.settings.testsTitle': 'Test results',
+    'web.settings.testPassed': 'Works',
+    'web.settings.testFailed': 'Failed',
     'web.settings.up': 'Move {{name}} up',
     'web.settings.down': 'Move {{name}} down',
     'web.settings.keySet': 'A key is set. Type a new one to replace it.',

@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { build } from '../build.mjs'
+import { kitStubs } from '../../../internal/uibuild/kitstub.mjs'
 
 export const here = dirname(fileURLToPath(import.meta.url))
 export const hostUi = resolve(here, '../../../../core/http/react-ui')
@@ -24,6 +25,7 @@ export async function load(extra = {}) {
   const controller = new AbortController()
   const { viewer, components, layerSpec, fetch, ...rest } = extra
   const stubs = Object.fromEntries(COMPONENTS.map(n => [n, stub('div')]))
+  Object.assign(stubs, kitStubs(React))
   stubs.PageHeader = (p) => React.createElement('header', { 'data-stub': 'header' }, p.title ? React.createElement('h1', null, p.title) : null, p.supporting, p.actions)
   const sdk = createHostSDK({
     addonId: 'sandbox', generation: 1, signal: controller.signal, pages: ['sandbox'],

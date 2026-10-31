@@ -2132,8 +2132,11 @@
       "go: keeps the closed slot list and the icon allowlist equal to the host",
       "go: lists actions, slots and renderers for an enabled addon and keeps the identifiers",
       "go: lists no contribution for a disabled addon, whoever asks",
-      "slots: the settings page ends with a host-owned section for each contributing add-on",
-      "slots: the navigation slot adds its entry after the add-on navigation links of the Build hub"
+      "slots: an add-on's settings sections are drawn on the Settings tab of its own details and nowhere else",
+      "slots: the Settings page lists the add-ons that have settings, each a link to its Settings tab",
+      "slots: the old anchor of a section on the Settings page opens the add-on's Settings tab",
+      "slots: the add-on page and its details offer the settings to an administrator only",
+      "slots: the navigation slot adds its entry below the tile grid of the Add-ons drawer"
     ]
   },
   "foundation-acceptance": {

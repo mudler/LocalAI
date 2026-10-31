@@ -96,3 +96,20 @@ test('render: the main page has one title and the manifest declares the settings
   assert.deepEqual(m.capabilities.ui.sdk, { min: 2, max: 2 })
   assert.deepEqual(m.capabilities.ui.slots, [{ component: 'WebSettings', id: 'settings', slot: 'settings.sections' }])
 })
+
+test('settings: the view is drawn with the host kit, every field has a label and a help line, and no class the host does not define', async () => {
+  const { settingsModel, draftOf } = await lib()
+  const { mod, sdk } = await load()
+  const addon = await mod.createAddon(sdk)
+  const View = addon.components.WebSettingsView
+  const m = settingsModel(status())
+  const tests = [{ name: 'brave', ok: true, results: 3, host: 'api.search.brave.com', error: '' }, { name: 'tavily', ok: false, results: 0, host: '', error: 'no key' }]
+  const html = renderToString(React.createElement(View, { model: m, draft: draftOf(m), busy: false, error: '', saved: false, tests, onDraft() {}, onSave() {}, onTest() {} }))
+  assert.match(html, /data-kit="Section"/)
+  assert.match(html, /data-kit="Switch"[^>]*data-testid="web-use-brave"/)
+  const fields = html.match(/data-kit="Field"/g) || []
+  const helps = html.match(/data-kit-help=""/g) || []
+  assert.ok(fields.length > 0 && fields.length === helps.length, 'every field has its help line')
+  assert.match(html, /data-testid="web-test-row"[\s\S]*data-tone="error"/)
+  assert.ok(!/class="btn\b|page-title/.test(html.replace(/class="page-title web-page__title"/, '')), html)
+})

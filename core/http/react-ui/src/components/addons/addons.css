@@ -479,3 +479,34 @@
 @media (max-width: 480px) {
   .ad-recovery__acts .dk-btn { flex: 1 1 auto; }
 }
+
+/* ---- The Settings tab of the details ---------------------------------------
+   The add-on's own settings section and the server settings of its feature.
+   A settings form needs more room than the facts, so the pane widens. */
+
+.ad-split[data-open="true"][data-view="settings"] { grid-template-columns: minmax(0, 1fr) 560px; }
+.ad-pane__tabs {
+  display: flex;
+  gap: var(--sp-5);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--dk-edge);
+  background: var(--dk-card);
+}
+.ad-pane__tab .lai-icon { width: 14px; height: 14px; }
+.ad-settings { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
+.ad-settings__server { display: flex; flex-direction: column; gap: var(--sp-2); padding-top: var(--sp-4); border-top: 1px solid var(--dk-edge); }
+.ad-settings__links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--dk-edge); border-radius: var(--r-md); }
+.ad-settings__link { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding: var(--sp-3); }
+.ad-settings__link + .ad-settings__link { border-top: 1px solid var(--dk-edge); }
+.ad-settings__words { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1 1 220px; font-size: var(--fs-small); line-height: var(--lh-small); }
+.ad-settings__name { font-weight: 600; }
+.ad-pane .ad-settings__facts { grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--sp-4); row-gap: var(--sp-1); }
+.ad-pane .ad-settings__facts dt { color: var(--dk-muted); font-size: var(--fs-meta); }
+.ad-pane .ad-settings__facts dd { font-size: var(--fs-meta); }
+@media (max-width: 1279px) {
+  .ad-split[data-open="true"][data-view="settings"] { grid-template-columns: minmax(0, 1fr); }
+  .ad-split[data-view="settings"] .ad-pane { width: min(560px, 100vw); }
+}
+@media (max-width: 639px) {
+  .ad-split[data-view="settings"] .ad-pane { width: 100%; }
+}
