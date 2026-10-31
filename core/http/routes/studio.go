@@ -245,5 +245,10 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.DELETE(base+"/:id/pending/:pid", h.CancelPending)
 	e.POST(base+"/:id/send-now", h.SendNow)
 	e.POST(base+"/:id/stop", h.Stop)
+	e.GET(base+"/:id/loops", h.ListLoops)
+	e.POST(base+"/:id/loops", h.StartLoop)
+	e.DELETE(base+"/:id/loops", h.StopLoops)
+	e.PUT(base+"/:id/loops/:loopId", h.SetLoopState)
+	e.DELETE(base+"/:id/loops/:loopId", h.StopLoop)
 	e.GET(base+"/:id/events", h.Events)
 }

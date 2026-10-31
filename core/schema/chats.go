@@ -121,6 +121,62 @@ type ChatsConversationDetail struct {
 	// HostConsent is the card of a command of the built-in bash that waits for
 	// a yes while a turn runs; answer it with POST /api/chats/{id}/host-exec/consent.
 	HostConsent *ChatsHostConsent `json:"host_consent,omitempty"`
+	// Loops are the loops of the chat, oldest first (GET /api/chats/{id}/loops).
+	Loops []ChatsLoop `json:"loops"`
+}
+
+// ChatsLoop is a loop of a chat: a prompt the chat sends to itself again, at
+// an interval or when the model asks for the next run.
+type ChatsLoop struct {
+	ID     string `json:"id"`
+	Prompt string `json:"prompt"`
+	// Interval is the time between runs, such as 5m; empty for a self-paced
+	// loop, which runs again when the model asks.
+	Interval string `json:"interval,omitempty"`
+	// IntervalSeconds is Interval in seconds; 0 for a self-paced loop.
+	IntervalSeconds int64 `json:"interval_seconds"`
+	// State is pending (waits for your yes), active, paused or ended.
+	State string `json:"state"`
+	// Reason says why the loop is paused or ended, or why it waits.
+	Reason string `json:"reason,omitempty"`
+	Runs   int    `json:"runs"`
+	// Failures counts the failed runs in a row; three pause the loop.
+	Failures int `json:"failures,omitempty"`
+	// Next is when the next run is due; absent while a run goes on or the
+	// loop does not run.
+	Next *time.Time `json:"next,omitempty"`
+	// Running is true while a run of the loop goes on in the chat.
+	Running bool `json:"running"`
+	// Wait is what the model of a self-paced loop said it waits for.
+	Wait    string     `json:"wait,omitempty"`
+	Created time.Time  `json:"created"`
+	LastRun *time.Time `json:"last_run,omitempty"`
+}
+
+// ChatsLoopRequest starts a loop in a chat.
+type ChatsLoopRequest struct {
+	// Interval is the time between runs, such as 30s, 5m or 2h. Leave it
+	// empty for a self-paced loop.
+	Interval string `json:"interval,omitempty"`
+	// Prompt is plain text, or a skill: /skill-name and its words.
+	Prompt string `json:"prompt"`
+}
+
+// ChatsLoopStateRequest pauses a loop or makes it active.
+type ChatsLoopStateRequest struct {
+	// State is paused or active. Making a pending loop active confirms it.
+	State string `json:"state"`
+}
+
+// ChatsLoopList is the loops of a chat.
+type ChatsLoopList struct {
+	Loops []ChatsLoop `json:"loops"`
+}
+
+// ChatsLoopMark names the loop run that sent a user line.
+type ChatsLoopMark struct {
+	ID  string `json:"id"`
+	Run int    `json:"run"`
 }
 
 // ChatsHostConsent is a command that waits for the person's answer.
@@ -193,6 +249,8 @@ type ChatsMessage struct {
 	// Card is set on a tool line that points at a record, such as a trigger
 	// proposal (kind trigger_proposal, id the proposal's id).
 	Card *ChatsToolCard `json:"card,omitempty"`
+	// Loop is set on a user line that a loop of the chat sent by itself.
+	Loop *ChatsLoopMark `json:"loop,omitempty"`
 	// Rev is the change set of a checkpoint line, whose text lists the paths
 	// it changed inside your home, one a line. POST /api/chats/files/undo
 	// {rev} undoes it.

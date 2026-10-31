@@ -26,6 +26,8 @@ const loopStartGrace = time.Minute
 var (
 	// ErrLoopsClosed means the loop host has stopped.
 	ErrLoopsClosed = errors.New("studio: the loop host has stopped")
+	// ErrLoopsOff means the server runs no loop host.
+	ErrLoopsOff = errors.New("loops are turned off on this server")
 	// ErrLoopCommand refuses a loop prompt that is a command other than a skill.
 	ErrLoopCommand = errors.New("a loop repeats plain text or a skill (/skill-name and its words); other commands cannot repeat")
 	// ErrLoopChat refuses a loop in a chat that a person did not start.

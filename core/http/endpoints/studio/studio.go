@@ -285,6 +285,14 @@ func (h *Handlers) Get(c echo.Context) error {
 	if rec.HostConsent != nil && conv.Running {
 		out.HostConsent = &schema.ChatsHostConsent{ID: rec.HostConsent.ID, Command: rec.HostConsent.Command}
 	}
+	out.Loops = []schema.ChatsLoop{}
+	if host := h.svc.Loops(); host != nil {
+		list, err := host.List(c.Request().Context(), user, id)
+		if err != nil {
+			return failFor(c, err)
+		}
+		out.Loops = loopsJSON(list)
+	}
 	return c.JSON(http.StatusOK, out)
 }
 
@@ -362,6 +370,9 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		m := schema.ChatsMessage{
 			Seq: e.Seq, Turn: e.Turn, Role: e.Role, Text: e.Text, Attachments: attachmentsOf(e.Attachments),
 			DurMs: e.Dur.Milliseconds(), At: e.At,
+		}
+		if e.Loop != nil {
+			m.Loop = &schema.ChatsLoopMark{ID: e.Loop.ID, Run: e.Loop.Run}
 		}
 		if e.Card != nil {
 			m.App = appJSON(e.Card.App, true)
@@ -506,7 +517,7 @@ func (h *Handlers) Stop(c echo.Context) error {
 
 // Events streams the conversation's live events.
 // @Summary Stream a chat's events.
-// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit) and files. Events are live only; read the transcript for what came before.
+// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Produce text/event-stream
