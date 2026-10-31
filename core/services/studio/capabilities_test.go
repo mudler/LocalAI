@@ -9,6 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -103,6 +104,7 @@ var _ = Describe("capabilities", func() {
 		prompt := turnPrompt(svc, h, id)
 
 		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated sandbox."))
+		Expect(prompt).To(ContainSubstring(sandbox.GuestToolsNote), "the isolated sandbox lists its programs")
 		Expect(prompt).NotTo(ContainSubstring("nothing in this chat runs code"))
 		Expect(prompt).To(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"))
 		Expect(prompt).NotTo(ContainSubstring("unavailable here"))
@@ -114,6 +116,7 @@ var _ = Describe("capabilities", func() {
 		svc, h, _ := newCapsChat(isolatedAddons{fakeAddons: fa, mode: "host"}, nil)
 		id := create(svc, alice)
 		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: bash runs commands directly on the server, with no isolation."))
+		Expect(turnPrompt(svc, h, id)).NotTo(ContainSubstring(sandbox.GuestToolsNote), "the host has its own programs, not the guest's")
 	})
 
 	It("says the Sandbox is off when the chat switched it off", func() {

@@ -76,8 +76,8 @@ LABEL org.opencontainers.image.source="https://github.com/mudler/LocalAI" \
       org.opencontainers.image.description="Guest image of the LocalAI Sandbox add-on"
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends bash ca-certificates curl git poppler-utils python3 python3-pip \
-      python3-pypdf python3-pandas python3-pil; \
+    apt-get install -y --no-install-recommends bash ca-certificates curl file git jq poppler-utils python3 python3-pip \
+      python3-pypdf python3-pandas python3-pil ripgrep sqlite3 tree unzip zip; \
     rm -rf /var/lib/apt/lists/*; \
     groupadd --gid 1000 agent; \
     useradd --uid 1000 --gid 1000 --create-home --home-dir /home/agent --shell /bin/bash agent; \
@@ -87,18 +87,19 @@ RUN set -eux; \
 # python-docx, openpyxl and python-pptx must not be installed next to them.
 # This runs on the build machine's network, before the guest proxy below. The
 # check fails the build when a library is missing or comes from the wrong
-# distribution, and pdftoppm -v fails it when Poppler is not usable. The pip
+# distribution, and check-tools.sh fails it when a command-line tool (Poppler,
+# jq, zip, unzip, file, sqlite3, ripgrep, tree) is missing or not usable. The pip
 # wheels go to /usr/local and shadow the Debian copies of the same libraries,
 # so "pip check" fails the build when the two sets do not fit together. The
 # apt package python3-pil stays on purpose: the pinned Pillow wheel shadows
 # it, and the Debian copy is the fallback if the wheel is ever removed.
-COPY addons/sandbox/images/guest/python-requirements.txt addons/sandbox/images/guest/check-python.py /tmp/guest-python/
+COPY addons/sandbox/images/guest/python-requirements.txt addons/sandbox/images/guest/check-python.py addons/sandbox/images/guest/check-tools.sh /tmp/guest-python/
 RUN set -eux; \
     PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m pip install --no-cache-dir --no-deps --only-binary=:all: --require-hashes \
       -r /tmp/guest-python/python-requirements.txt; \
     python3 -m pip check; \
     python3 /tmp/guest-python/check-python.py; \
-    pdftoppm -v; \
+    sh /tmp/guest-python/check-tools.sh; \
     rm -rf /tmp/guest-python
 # The guest has no network device. Every tool must use the proxy on the
 # loopback interface; the sandbox serves it with a host port handler.

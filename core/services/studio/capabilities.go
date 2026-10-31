@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -240,7 +241,9 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 			}
 			return b
 		case c.Isolation == "isolated":
-			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere
+			// The turn's note is cut at 400 characters and the tool description
+			// is capped, so the list of programs goes here, in the prompt.
+			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere + " " + sandbox.GuestToolsNote
 		case c.Isolation == "host":
 			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere
 		}

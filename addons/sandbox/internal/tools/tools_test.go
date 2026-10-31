@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -184,6 +185,44 @@ var _ = Describe("Sandbox tools", func() {
 		for _, want := range []string{"curl", "pip", "npm", "git", "proxy", "web_fetch", "web_search", "do not get around it"} {
 			Expect(d).To(ContainSubstring(want))
 		}
+	})
+
+	// The cap on a tool description is a hard limit of the manifest. The tool
+	// list of the guest goes into the Commands block of the prompt, not into the description.
+	It("keeps the bash description inside the cap and the tool list out of it", func() {
+		for _, d := range tools.Definitions() {
+			Expect(len(d.Description)).To(BeNumerically("<=", contract.MaxToolDescriptionLen), "%s", d.Name)
+		}
+		Expect(sandbox.GuestToolsNote).To(ContainSubstring(sandbox.GuestTools))
+	})
+
+	// The guest user cannot install packages, so the image, its build check and
+	// the documentation must all name the programs the note promises.
+	It("installs and checks in the guest image what the note names", func() {
+		dockerfile, err := os.ReadFile("../../images/guest/Dockerfile")
+		Expect(err).NotTo(HaveOccurred())
+		check, err := os.ReadFile("../../images/guest/check-tools.sh")
+		Expect(err).NotTo(HaveOccurred())
+		// The apt list of the final stage: from its last "apt-get install" to the cleanup.
+		text := string(dockerfile)
+		from := strings.LastIndex(text, "apt-get install")
+		Expect(from).To(BeNumerically(">", 0))
+		list := text[from:]
+		list = list[:strings.Index(list, "rm -rf")]
+		have := strings.Fields(strings.NewReplacer("\\", " ", ";", " ").Replace(list))
+		for _, pkg := range []string{"jq", "zip", "unzip", "file", "sqlite3", "ripgrep", "tree", "poppler-utils", "git", "curl"} {
+			Expect(have).To(ContainElement(pkg))
+		}
+		for _, no := range []string{"nodejs", "npm", "imagemagick", "ffmpeg", "tesseract-ocr"} {
+			Expect(have).NotTo(ContainElement(no))
+		}
+		for _, cmd := range []string{"jq --version", "zip -v", "unzip -v", "file --version", "sqlite3 --version", "rg --version", "tree --version", "pdftotext -v"} {
+			Expect(string(check)).To(ContainSubstring(cmd))
+		}
+		Expect(text).To(ContainSubstring("check-tools.sh"))
+		doc, err := os.ReadFile("../../../../docs/content/features/addons.md")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(doc)).To(ContainSubstring(sandbox.GuestTools))
 	})
 
 	It("declares the tools of the runtime in the manifest", func() {
