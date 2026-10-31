@@ -4,36 +4,38 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+// OpenSQLiteFile opens a SQLite file with the project settings of
+// pkg/sqlitedb (WAL, busy timeout, immediate write transactions) and creates no tables. Features
+// with their own tables use it when there is no shared database. It needs the
+// "auth" build tag, like InitDB.
+func OpenSQLiteFile(path string) (*gorm.DB, error) {
+	return sqlitedb.Open(path, &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+}
 
 // InitDB initializes the auth database. If databaseURL starts with "postgres://"
 // or "postgresql://", it connects to PostgreSQL; otherwise it treats the value
 // as a SQLite file path (use ":memory:" for in-memory).
 // SQLite support requires building with the "auth" build tag (CGO).
 func InitDB(databaseURL string) (*gorm.DB, error) {
-	var dialector gorm.Dialector
-
+	var db *gorm.DB
+	var err error
+	cfg := &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}
 	if strings.HasPrefix(databaseURL, "postgres://") || strings.HasPrefix(databaseURL, "postgresql://") {
-		dialector = postgres.Open(databaseURL)
+		db, err = gorm.Open(postgres.Open(databaseURL), cfg)
 	} else {
-		d, err := openSQLiteDialector(databaseURL)
-		if err != nil {
-			return nil, err
-		}
-		dialector = d
+		db, err = sqlitedb.Open(databaseURL, cfg)
 	}
-
-	db, err := gorm.Open(dialector, &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open auth database: %w", err)
 	}
 
-	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &QuotaRule{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Session{}, &UserAPIKey{}, &UsageRecord{}, &UserPermission{}, &InviteCode{}, &QuotaRule{}, &DataMigration{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate auth tables: %w", err)
 	}
 

@@ -19,6 +19,27 @@ jobs:
     strategy:
       matrix:
         go-version: ['1.26.x']
+    # The PostgreSQL stores of the chats, agents, connectors, notifications,
+    # workspace and triggers skip without a database, so a regression that only
+    # shows on a cluster passed unseen. The coverage run below sees the URL,
+    # and a separate step fails when any of those tests skipped. The tests
+    # wipe their own tables, so the database is throwaway.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: localai
+          POSTGRES_PASSWORD: localai
+          POSTGRES_DB: localai_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U localai -d localai_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      LOCALAI_TEST_POSTGRES_URL: postgres://localai:localai@localhost:5432/localai_test?sslmode=disable
     steps:
       - name: Clone
         uses: actions/checkout@v7
@@ -65,12 +86,21 @@ jobs:
       - name: Test (with coverage gate)
         run: |
           PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
+      # The coverage run above set the URL, but a skipped test is a passed test
+      # to it. This runs the PostgreSQL stores alone and fails on any skip.
+      - name: Test the PostgreSQL stores (no skips)
+        run: PATH="$PATH:$HOME/go/bin" make test-postgres
       # tests/integration is outside the coverage roots because its store specs
       # need a live backend. test-stores builds and installs local-store before
       # running the complete suite, so new local-store specs are collected
       # automatically without adding another workflow entry.
       - name: Test local-store integration
         run: PATH="$PATH:$HOME/go/bin" make test-stores
+      # Runs the real local-ai binary (MCP connectors and apps, collections,
+      # process flags, route permissions). The suite builds the binary, the
+      # mock backend and an MCP fixture itself and needs no Docker.
+      - name: Test platform e2e
+        run: PATH="$PATH:$HOME/go/bin" make test-e2e-platform
       - name: Upload coverage report
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

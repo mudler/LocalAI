@@ -132,6 +132,22 @@ func AddonToolsHTTPError(err error) error {
 type AddonToolProvider struct {
 	adapter *tools.ToolAdapter
 	mode    string
+	// hidden names the add-ons whose tools an actor is not offered, such as
+	// those of a permission the actor lacks. Nil hides none.
+	hidden func(contract.Actor) map[string]bool
+}
+
+// WithHidden returns the provider with a rule that hides the tools of some
+// add-ons from some actors. The rule decides nothing about authority: a call
+// to a hidden tool is refused as an unknown tool, and the owner still checks
+// every call.
+func (p *AddonToolProvider) WithHidden(hidden func(contract.Actor) map[string]bool) *AddonToolProvider {
+	if p == nil {
+		return nil
+	}
+	out := *p
+	out.hidden = hidden
+	return &out
 }
 
 // NewAddonToolProvider returns a provider over the broker adapter. mode is
@@ -168,7 +184,11 @@ func (p *AddonToolProvider) ExecutorForAddons(c echo.Context, addonIDs []string)
 	if err != nil {
 		return nil, err
 	}
-	return e.Only(addonIDs), nil
+	e = e.Only(addonIDs)
+	if p.hidden != nil {
+		e = e.Without(p.hidden(actor))
+	}
+	return e, nil
 }
 
 // AddonToolExecutor is a ToolExecutor for add-on tools with one immutable
@@ -182,6 +202,26 @@ type AddonToolExecutor struct {
 	defs         []functions.Function
 	// only limits the executor to some add-ons; nil means all of them.
 	only map[string]bool
+	// hidden are add-ons that are neither offered nor callable.
+	hidden map[string]bool
+}
+
+// Without returns the executor without the tools of the named add-ons: they
+// are neither offered nor callable, as if the add-ons were not installed.
+func (e *AddonToolExecutor) Without(addonIDs map[string]bool) *AddonToolExecutor {
+	if len(addonIDs) == 0 {
+		return e
+	}
+	out := *e
+	out.hidden = addonIDs
+	out.defs = nil
+	for _, d := range e.defs {
+		if id, _, ok := tools.ParseToolName(d.Name); ok && addonIDs[id] {
+			continue
+		}
+		out.defs = append(out.defs, d)
+	}
+	return &out
 }
 
 // Only returns the executor limited to the named add-ons: it offers and runs
@@ -246,6 +286,9 @@ func (e *AddonToolExecutor) ExecuteTool(ctx context.Context, toolName, arguments
 		if id, _, ok := tools.ParseToolName(toolName); !ok || !e.only[id] {
 			return "", tools.ErrUnknownTool
 		}
+	}
+	if id, _, ok := tools.ParseToolName(toolName); ok && e.hidden[id] {
+		return "", tools.ErrUnknownTool
 	}
 	res, err := e.adapter.ExecuteIn(ctx, e.actor, e.conversation, toolName, json.RawMessage(arguments))
 	if err != nil {

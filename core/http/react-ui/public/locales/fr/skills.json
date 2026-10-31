@@ -1,79 +1,83 @@
 {
   "title": "Compétences",
-  "subtitle": "Gérez les compétences des agents (instructions et ressources réutilisables)",
+  "subtitle": "Des instructions qu’un chat peut lire quand une tâche correspond. Ajoutez-en une à un agent pour l’utiliser là.",
   "unavailable": {
-    "subtitle": "Le service de compétences est indisponible ou l'index est en cours de reconstruction. Réessayez dans un instant.",
-    "retry": "Réessayer"
+    "subtitle": "Les compétences ont besoin de Fichiers, et Fichiers est désactivé sur ce serveur."
   },
   "actions": {
     "newSkill": "Nouvelle compétence",
     "createSkill": "Créer une compétence",
-    "import": "Importer",
-    "importing": "Importation...",
-    "gitRepos": "Dépôts Git",
     "edit": "Modifier",
-    "delete": "Supprimer",
-    "export": "Exporter",
-    "sync": "Synchroniser",
-    "addRepo": "Ajouter un dépôt",
-    "adding": "Ajout...",
-    "remove": "Retirer",
-    "enable": "Activer",
-    "disable": "Désactiver"
+    "delete": "Supprimer"
   },
   "search": {
     "placeholder": "Rechercher des compétences..."
-  },
-  "git": {
-    "title": "Dépôts Git",
-    "description": "Ajoutez des dépôts Git depuis lesquels récupérer des compétences. Elles apparaîtront dans la liste après synchronisation.",
-    "urlPlaceholder": "https://github.com/utilisateur/depot ou git@github.com:utilisateur/depot.git",
-    "noRepos": "Aucun dépôt Git configuré. Ajoutez-en un ci-dessus.",
-    "disabled": "Désactivé",
-    "removeRepo": "Retirer le dépôt"
   },
   "card": {
     "noDescription": "Aucune description",
     "readOnly": "Lecture seule",
     "editTitle": "Modifier la compétence",
     "deleteTitle": "Supprimer la compétence",
-    "exportTitle": "Exporter en .tar.gz"
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Cette compétence a été ignorée : {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Fournie par {{name}}",
+    "replacedBy": "Remplacée par {{name}}",
+    "notActive": "Inactive : la compétence intégrée est utilisée",
+    "notActiveBy": "Inactive : {{name}} la fournit",
+    "fallback": "Utilisée car la compétence du module {{name}} est désactivée ou ne tourne pas"
   },
   "empty": {
     "title": "Aucune compétence trouvée",
     "text": "Créez une compétence ou importez-en une pour commencer.",
-    "noPersonal": "Vous n'avez encore aucune compétence."
-  },
-  "sections": {
-    "yourSkills": "Vos compétences",
-    "otherUsersSkills": "Compétences des autres utilisateurs"
-  },
-  "deleteDialog": {
-    "title": "Supprimer la compétence",
-    "message": "Supprimer la compétence « {{name}} » ? Cette action est irréversible.",
-    "confirm": "Supprimer"
-  },
-  "removeRepoDialog": {
-    "title": "Retirer le dépôt Git",
-    "message": "Retirer ce dépôt Git ? Les compétences qui en proviennent ne seront plus disponibles.",
-    "confirm": "Retirer"
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
   },
   "toasts": {
     "loadFailed": "Échec du chargement des compétences",
     "deleted": "Compétence « {{name}} » supprimée",
-    "deleteFailed": "Échec de la suppression de la compétence",
-    "exported": "Compétence « {{name}} » exportée",
-    "exportFailed": "Échec de l'export",
-    "imported": "Compétence importée depuis « {{file}} »",
-    "importFailed": "Échec de l'import",
-    "loadReposFailed": "Échec du chargement des dépôts Git",
-    "repoAdded": "Dépôt Git ajouté et en cours de synchronisation",
-    "addRepoFailed": "Échec de l'ajout du dépôt",
-    "synced": "Dépôt synchronisé",
-    "syncFailed": "Échec de la synchronisation",
-    "toggled": "Dépôt basculé",
-    "toggleFailed": "Échec du basculement",
-    "removed": "Dépôt retiré",
-    "removeFailed": "Échec du retrait"
+    "deleteFailed": "Échec de la suppression de la compétence"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Module"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Cette compétence est en lecture seule ici. Une compétence intégrée est fournie avec le serveur, et une compétence de vos fichiers se modifie dans Fichiers."
+  },
+  "load": {
+    "title": "Impossible de charger vos compétences."
   }
 }

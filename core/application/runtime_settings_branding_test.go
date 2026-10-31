@@ -200,83 +200,84 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 
 	// The Agent Pool block has a mix of zero and non-zero defaults
 	// (Enabled=true, EmbeddingModel="granite-...", MaxChunkingSize=400,
-	// VectorEngine="chromem", AgentHubURL="https://agenthub.localai.io").
+	// VectorEngine="chromem").
 	// Each spec seeds the appropriate startup state so the loader's
 	// "at default" check observes what New() would.
 	Describe("agent pool fields", func() {
-		It("loads agent_pool_enabled=false against the default-true", func() {
+		It("loads collections_enabled=false against the default-true", func() {
 			cfg := &config.ApplicationConfig{
-				DynamicConfigsDir: seedSettings(`{"agent_pool_enabled": false}`),
-				AgentPool:         config.AgentPoolConfig{Enabled: true},
+				DynamicConfigsDir: seedSettings(`{"collections_enabled": false}`),
+				Collections:       config.CollectionsConfig{Enabled: true},
 			}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.Enabled).To(BeFalse())
+			Expect(cfg.Collections.Enabled).To(BeFalse())
 		})
 
-		It("loads agent_pool_default_model", func() {
-			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_default_model": "qwen2.5-7b"}`)}
+		It("still loads the old agent_pool_* keys of a file written by an earlier version", func() {
+			cfg := &config.ApplicationConfig{
+				DynamicConfigsDir: seedSettings(`{"agent_pool_enabled": false, "agent_pool_vector_engine": "postgres"}`),
+				Collections:       config.CollectionsConfig{Enabled: true, VectorEngine: "chromem"},
+			}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.DefaultModel).To(Equal("qwen2.5-7b"))
+			Expect(cfg.Collections.Enabled).To(BeFalse())
+			Expect(cfg.Collections.VectorEngine).To(Equal("postgres"))
+		})
+
+		It("loads collections_default_model", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"collections_default_model": "qwen2.5-7b"}`)}
+			loadRuntimeSettingsFromFile(cfg)
+			Expect(cfg.Collections.DefaultModel).To(Equal("qwen2.5-7b"))
 		})
 
 		It("overrides the granite embedding default", func() {
 			cfg := &config.ApplicationConfig{
-				DynamicConfigsDir: seedSettings(`{"agent_pool_embedding_model": "all-minilm"}`),
-				AgentPool:         config.AgentPoolConfig{EmbeddingModel: "granite-embedding-107m-multilingual"},
+				DynamicConfigsDir: seedSettings(`{"collections_embedding_model": "all-minilm"}`),
+				Collections:       config.CollectionsConfig{EmbeddingModel: "granite-embedding-107m-multilingual"},
 			}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.EmbeddingModel).To(Equal("all-minilm"))
+			Expect(cfg.Collections.EmbeddingModel).To(Equal("all-minilm"))
 		})
 
 		It("overrides the 400 max chunking size default", func() {
 			cfg := &config.ApplicationConfig{
-				DynamicConfigsDir: seedSettings(`{"agent_pool_max_chunking_size": 800}`),
-				AgentPool:         config.AgentPoolConfig{MaxChunkingSize: 400},
+				DynamicConfigsDir: seedSettings(`{"collections_max_chunking_size": 800}`),
+				Collections:       config.CollectionsConfig{MaxChunkingSize: 400},
 			}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.MaxChunkingSize).To(Equal(800))
+			Expect(cfg.Collections.MaxChunkingSize).To(Equal(800))
 		})
 
-		It("loads agent_pool_chunk_overlap", func() {
-			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_chunk_overlap": 50}`)}
+		It("loads collections_chunk_overlap", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"collections_chunk_overlap": 50}`)}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.ChunkOverlap).To(Equal(50))
+			Expect(cfg.Collections.ChunkOverlap).To(Equal(50))
 		})
 
-		It("loads agent_pool_enable_logs", func() {
-			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_enable_logs": true}`)}
+		It("ignores the keys of removed settings and still loads the others", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_enable_logs": true, "agent_job_retention_days": 7, "agent_pool_agent_hub_url": "https://hub.acme.io", "collections_default_model": "kept"}`)}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.EnableLogs).To(BeTrue())
+			Expect(cfg.Collections.DefaultModel).To(Equal("kept"))
 		})
 
-		It("loads agent_pool_collection_db_path", func() {
-			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_collection_db_path": "/var/lib/localai/collections.db"}`)}
+		It("loads collections_db_path", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"collections_db_path": "/var/lib/localai/collections.db"}`)}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.CollectionDBPath).To(Equal("/var/lib/localai/collections.db"))
+			Expect(cfg.Collections.CollectionDBPath).To(Equal("/var/lib/localai/collections.db"))
 		})
 
 		It("overrides the chromem vector_engine default", func() {
 			cfg := &config.ApplicationConfig{
-				DynamicConfigsDir: seedSettings(`{"agent_pool_vector_engine": "postgres"}`),
-				AgentPool:         config.AgentPoolConfig{VectorEngine: "chromem"},
+				DynamicConfigsDir: seedSettings(`{"collections_vector_engine": "postgres"}`),
+				Collections:       config.CollectionsConfig{VectorEngine: "chromem"},
 			}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.VectorEngine).To(Equal("postgres"))
+			Expect(cfg.Collections.VectorEngine).To(Equal("postgres"))
 		})
 
-		It("loads agent_pool_database_url", func() {
-			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"agent_pool_database_url": "postgres://user:pass@db:5432/localai"}`)}
+		It("loads collections_database_url", func() {
+			cfg := &config.ApplicationConfig{DynamicConfigsDir: seedSettings(`{"collections_database_url": "postgres://user:pass@db:5432/localai"}`)}
 			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.DatabaseURL).To(Equal("postgres://user:pass@db:5432/localai"))
-		})
-
-		It("overrides the agenthub.localai.io agent_hub_url default", func() {
-			cfg := &config.ApplicationConfig{
-				DynamicConfigsDir: seedSettings(`{"agent_pool_agent_hub_url": "https://hub.acme.io"}`),
-				AgentPool:         config.AgentPoolConfig{AgentHubURL: "https://agenthub.localai.io"},
-			}
-			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentPool.AgentHubURL).To(Equal("https://hub.acme.io"))
+			Expect(cfg.Collections.DatabaseURL).To(Equal("postgres://user:pass@db:5432/localai"))
 		})
 	})
 
@@ -297,13 +298,6 @@ var _ = Describe("loadRuntimeSettingsFromFile", func() {
 			cfg.DynamicConfigsDir = seedSettings(`{"tracing_max_items": 4096}`)
 			loadRuntimeSettingsFromFile(cfg)
 			Expect(cfg.TracingMaxItems).To(Equal(4096))
-		})
-
-		It("loads a persisted agent_job_retention_days over the default 30", func() {
-			cfg := config.NewApplicationConfig()
-			cfg.DynamicConfigsDir = seedSettings(`{"agent_job_retention_days": 7}`)
-			loadRuntimeSettingsFromFile(cfg)
-			Expect(cfg.AgentJobRetentionDays).To(Equal(7))
 		})
 	})
 

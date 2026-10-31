@@ -16,7 +16,7 @@ import (
 var releasePlatforms = map[string]string{
 	"linux/amd64":  "ubuntu-24.04",
 	"linux/arm64":  "ubuntu-24.04-arm",
-	"darwin/arm64": "macos-14",
+	"darwin/arm64": "macos-15",
 	"darwin/amd64": "macos-15-intel",
 }
 
@@ -26,7 +26,11 @@ var releasePlatforms = map[string]string{
 // request. Enabling without this record, or recording without enabling, fails.
 var nativeChecked = map[string]bool{"linux/amd64": true, "linux/arm64": true, "darwin/arm64": true, "darwin/amd64": true}
 
-var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk"}
+// linuxOnly lists the add-ons whose code cannot run on macOS: their macOS
+// platforms stay listed and disabled.
+var linuxOnly = map[string]bool{"sandbox": true}
+
+var packagedAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "office", "sandbox", "web"}
 
 var _ = Describe("the packaged add-ons", func() {
 	for _, id := range packagedAddons {
@@ -58,6 +62,9 @@ var _ = Describe("the packaged add-ons", func() {
 				}
 				var recorded []string
 				for platform := range nativeChecked {
+					if linuxOnly[id] && !strings.HasPrefix(platform, "linux/") {
+						continue
+					}
 					recorded = append(recorded, platform)
 				}
 				sort.Strings(enabled)

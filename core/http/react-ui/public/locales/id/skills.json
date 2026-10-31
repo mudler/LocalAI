@@ -1,79 +1,83 @@
 {
   "title": "Skill",
-  "subtitle": "Kelola skill agen (instruksi dan sumber daya yang dapat digunakan kembali)",
+  "subtitle": "Instruksi yang dapat dibaca chat saat sebuah tugas cocok. Tambahkan ke agen untuk memakainya di sana.",
   "unavailable": {
-    "subtitle": "Layanan Skill tidak tersedia atau indeks sedang dibangun ulang. Coba beberapa saat lagi.",
-    "retry": "Coba lagi"
+    "subtitle": "Skill memerlukan Berkas, dan Berkas dinonaktifkan di server ini."
   },
   "actions": {
     "newSkill": "Skill baru",
     "createSkill": "Buat skill",
-    "import": "Impor",
-    "importing": "Mengimpor...",
-    "gitRepos": "Repo Git",
     "edit": "Edit",
-    "delete": "Hapus",
-    "export": "Ekspor",
-    "sync": "Sinkronisasi",
-    "addRepo": "Tambah repo",
-    "adding": "Menambahkan...",
-    "remove": "Hapus",
-    "enable": "Aktifkan",
-    "disable": "Nonaktifkan"
+    "delete": "Hapus"
   },
   "search": {
     "placeholder": "Cari skill..."
-  },
-  "git": {
-    "title": "Repositori git",
-    "description": "Tambah repositori Git untuk mengambil skill. Skill akan muncul di daftar setelah sinkronisasi.",
-    "urlPlaceholder": "https://github.com/user/repo atau git@github.com:user/repo.git",
-    "noRepos": "Tidak ada repositori Git yang dikonfigurasi. Tambahkan satu di atas.",
-    "disabled": "Dinonaktifkan",
-    "removeRepo": "Hapus repo"
   },
   "card": {
     "noDescription": "Tidak ada deskripsi",
     "readOnly": "Hanya baca",
     "editTitle": "Edit skill",
     "deleteTitle": "Hapus skill",
-    "exportTitle": "Ekspor sebagai .tar.gz"
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Skill ini dilewati: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Disediakan oleh {{name}}",
+    "replacedBy": "Digantikan oleh {{name}}",
+    "notActive": "Tidak aktif: skill bawaan yang dipakai",
+    "notActiveBy": "Tidak aktif: disediakan oleh {{name}}",
+    "fallback": "Dipakai karena skill add-on {{name}} mati atau tidak berjalan"
   },
   "empty": {
     "title": "Tidak ada skill yang ditemukan",
     "text": "Buat atau impor skill untuk memulai.",
-    "noPersonal": "Anda belum memiliki skill."
-  },
-  "sections": {
-    "yourSkills": "Skill Anda",
-    "otherUsersSkills": "Skill Pengguna Lain"
-  },
-  "deleteDialog": {
-    "title": "Hapus Skill",
-    "message": "Hapus skill \"{{name}}\"? Tindakan ini tidak dapat dibatalkan.",
-    "confirm": "Hapus"
-  },
-  "removeRepoDialog": {
-    "title": "Hapus Repositori Git",
-    "message": "Hapus repositori Git ini? Skill dari repo ini tidak akan tersedia lagi.",
-    "confirm": "Hapus"
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
   },
   "toasts": {
     "loadFailed": "Gagal memuat skill",
     "deleted": "Skill \"{{name}}\" berhasil dihapus",
-    "deleteFailed": "Gagal menghapus skill",
-    "exported": "Skill \"{{name}}\" berhasil diekspor",
-    "exportFailed": "Gagal mengekspor",
-    "imported": "Skill berhasil diimpor dari \"{{file}}\" ",
-    "importFailed": "Gagal mengimpor",
-    "loadReposFailed": "Gagal memuat repositori Git",
-    "repoAdded": "Repo Git berhasil ditambahkan dan sedang sinkronisasi",
-    "addRepoFailed": "Gagal menambahkan repo",
-    "synced": "Repo berhasil disinkronisasi",
-    "syncFailed": "Gagal sinkronisasi",
-    "toggled": "Berhasil mengubah status repo",
-    "toggleFailed": "Gagal mengubah status repo",
-    "removed": "Repo berhasil dihapus",
-    "removeFailed": "Gagal menghapus repo"
+    "deleteFailed": "Gagal menghapus skill"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Add-on"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Skill ini hanya-baca di sini. Skill bawaan disertakan dengan server, dan skill dari berkas Anda diubah di Berkas."
+  },
+  "load": {
+    "title": "Keterampilan Anda tidak dapat dimuat."
   }
 }

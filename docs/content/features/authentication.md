@@ -120,50 +120,69 @@ localai run
 
 ### Enabling auth on an existing instance
 
-Enabling user authentication does not assign existing agent data to an account.
-Data created without user auth belongs to the root storage area (an empty user ID).
-Authenticated users get separate storage, including admins. Existing agents,
-collections, skills, tasks, jobs, and outputs can therefore disappear from their
-API and Web UI views while remaining on disk.
+Enabling user authentication does not assign existing data to an account. With
+authentication off, everything the chats made (chats, saved agents, triggers,
+connector bindings, MCP connectors, notifications and the files of the workspace)
+belongs to one anonymous owner, and that owner is not an account. Authenticated
+users, admins included, get separate storage, so the anonymous data stays in the
+database or on disk but no account can see it, in the API or the Web UI.
 
-In standalone (LocalAGI) mode, startup logs a warning when it finds root agents,
-collections, skills, or configured skill repositories. The warning includes counts
-and a link to this section. It checks the configured root collection path and
-excludes user-owned data. It does not inventory tasks, jobs, outputs, or agent state.
-An absent warning is not proof that every resource has an owner.
+What happens to each part when you switch authentication on:
+
+- **Chats, saved agents, notifications and files** stay under the anonymous
+  owner. No user sees them. Copy what you need into the new account first (see
+  the steps below).
+- **Triggers and connector bindings** of the anonymous owner stop. The owner no
+  longer exists as a user, so the trigger runner skips the next run and switches
+  each trigger off with the reason "its owner no longer exists", and a connector
+  bot answers "not available" and is switched off.
+- **Collections** made without a user belong to the root storage area. With
+  authentication on, each user has their own collections (see
+  [Collections](/features/collections/)).
+- **Old agents, tasks, skills, Telegram connectors and saved chats** of the
+  previous agent pool are converted at start and given to the account that owned
+  them (see [Chats migration]({{% relref "chats-migration" %}})). With
+  authentication on, an old item that belongs to no user is not converted: the
+  report at `/app/chats/conversion` lists it as skipped, and you make it again
+  under the intended account.
 
 {{% notice warning %}}
-The warning does not migrate, delete, or pause anything. Root agents still start,
-including their scheduled runs. Their requests to the local API need valid
-credentials after auth is enabled. Admin views do not provide a complete migration
-or export path for root data.
+LocalAI does not migrate, delete or pause anything when you enable
+authentication. Nothing moves the anonymous data to an account.
 {{% /notice %}}
 
 Before switching an existing instance:
 
-1. Pause existing agents and scheduled work while auth is still off.
-2. Stop LocalAI and back up its data, agent state, and any separately configured collection storage or databases.
-3. Test the switch on a copy before changing the production instance.
-4. Restrict access during bootstrap and register the intended administrator first.
-5. Recreate or import agent configurations under the intended user. Recreate collections and skills there as needed.
-6. Verify credentials and required data before resuming agents.
+1. Switch off the triggers and Telegram bindings you want to keep, while auth is still off.
+2. Export what you want to keep. Export each chat as JSON (`GET /api/chats/{id}/export?format=json`)
+   and each saved agent (`GET /api/chats/agents/{id}/export`). Recreate triggers and bindings by hand.
+3. Stop LocalAI and back up its data path and any separately configured collection storage or databases.
+4. Test the switch on a copy before changing the production instance.
+5. Restrict access during bootstrap and register the intended administrator first.
+6. Import the chats and agents under the intended user (`POST /api/chats/import`,
+   `POST /api/chats/agents/import`). Recreate collections there as needed.
+7. Grant the new accounts the features they need. Saved agents, triggers,
+   connectors and agent jobs are off by default for a user (see
+   [Chats permissions](/features/chats/#permissions)); an administrator has all of
+   them.
+8. Open the conversion report and check each item, and verify credentials and required data, before resuming triggers and bots.
 
 The first registered user becomes admin and bypasses approval or invite requirements.
 Setting `LOCALAI_ADMIN_EMAIL` promotes that email address, but does **not** reserve
 the first-admin role for it. Keep registration inaccessible to other users until
 bootstrap is complete.
 
-Recreating an agent configuration does not migrate its character, scheduler state,
-or long-term memory. Keep the backup: LocalAI has no automatic migration of the
-root storage area, and agent configuration export does not include this state.
+An export holds the transcript and the settings of a chat, and the definition of an
+agent. It does not hold files, trigger state, bot tokens or the long-term state of
+the model. Keep the backup: LocalAI has no automatic migration of the anonymous
+owner's data.
 
-With user auth active, creating, importing, or updating an agent without
-`api_key` generates a new key owned by that user. The key inherits the owner's
-permissions; an admin-owned key can therefore grant admin access. Repeated updates
-that omit `api_key` can create additional keys. Supply an explicit key with the
-intended permissions when recreating or updating agents, and review existing keys
-in **Settings → Users and keys**. Existing root agents can use an explicit
-`api_key` or `LOCALAI_AGENT_POOL_API_KEY`; neither setting transfers ownership.
+A trigger or a Telegram bot acts as its owner, with the owner's rights: the agent
+gets only what the owner may use at that moment, under the owner's quota and model
+allowlist. It does not use an API key of its own. An administrator who switches the
+`chats` feature off for a user, or the `triggers` or `connectors` feature, also
+stops what that user's triggers and bots do, at their next run or message; the
+trigger and the binding stay, and work again when the feature is given back.
 
 ### Configuration Reference
 
@@ -182,6 +201,27 @@ in **Settings → Users and keys**. Existing root agents can use an explicit
 | `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
 
 > **Note: network-backed storage.** File-based SQLite relies on POSIX file locking, which is unreliable over network filesystems (SMB/CIFS/NFS, e.g. Azure Files / Azure Container Apps shared volumes). On such storage the auth DB can fail to migrate with `database is locked`. Use PostgreSQL (`LOCALAI_AUTH_DATABASE_URL=postgres://...`) when the data directory lives on shared or network storage, or place `database.db` on a local volume.
+
+### SQLite storage settings
+
+One SQLite file holds the accounts and everything else that LocalAI keeps in the auth database (the chats, their files, the triggers and the notifications). Many parts of the server write to it at the same time, so LocalAI opens it with these settings:
+
+| Setting | Value | Why |
+|---|---|---|
+| Journal mode | `WAL` | A reader never blocks the writer and the writer never blocks readers. In the default rollback journal, a cursor that is still open can make a commit on another connection fail with `database is locked`. |
+| Synchronous | `NORMAL` | The usual pair of WAL. After a power loss the last commits can be lost, but the file stays sound. |
+| Busy timeout | 10 seconds | A writer waits for the one write lock instead of failing at once. |
+| Foreign keys | on | The foreign keys of the schema are enforced. |
+| Write transactions | `BEGIN IMMEDIATE` | A transaction that reads and then writes takes the write lock at its start, so it cannot fail halfway because another connection committed. |
+| Connection pool | at most 16 connections (1 for `:memory:`) | SQLite has one writer, so more connections only wait. |
+
+WAL adds two files beside the database, `database.db-wal` and `database.db-shm`. Copy or back up all three together, or run `PRAGMA wal_checkpoint(TRUNCATE)` first.
+
+You can change a setting in the database URL. A value that you give always wins, for example `LOCALAI_AUTH_DATABASE_URL="/data/database.db?_pragma=journal_mode(DELETE)&_pragma=busy_timeout(30000)"`. Use `journal_mode(DELETE)` on a volume where WAL does not work (see the note above on network storage).
+
+**One process only.** SQLite coordinates writers through file locks on one host. Run one LocalAI process per database file. Two servers on the same file, or on a file that is on a network share, are not supported: use PostgreSQL when more than one instance must share the accounts. The pool and the timeouts bound the waiting inside one process; they do not make a shared file safe.
+
+A part of the code that holds a cursor open (rows that it reads one by one) and also writes needs a second connection for the write. Keep the cursors short, or read the rows into memory first, so the 16 connections cannot all be taken by cursors.
 
 ### Disabling Local Authentication
 
@@ -206,7 +246,7 @@ When disabled:
 
 There are two roles:
 
-- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, agents, and user management.
+- **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, the saved agents, triggers and connectors of every user (read-only, with switch-off and delete), and user management.
 - **User**: Access to inference endpoints only - chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
 
 The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.
@@ -266,10 +306,6 @@ When authentication is enabled, the following endpoints require admin role:
 **P2P:**
 - `GET /api/p2p/*`
 
-**Agents & Jobs:**
-- All `/api/agents/*` endpoints
-- All `/api/agent/tasks/*` and `/api/agent/jobs/*` endpoints
-
 **User-Accessible Endpoints (all authenticated users):**
 - `POST /v1/chat/completions`, `POST /v1/embeddings`, `POST /v1/completions`
 - `POST /v1/images/generations`, `POST /v1/audio/*`, `POST /tts`, `POST /vad`, `POST /video`
@@ -284,7 +320,7 @@ When authentication is enabled, the following endpoints require admin role:
 When auth is enabled, the React UI sidebar dynamically shows/hides sections based on the user's role:
 
 - **All users see**: Home, Chat, Images, Video, TTS, Sound, Talk, Usage, API docs link
-- **Admins also see**: Models, the Build console (Agents, Skills, Memory, Jobs, Training, Recognition), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
+- **Admins also see**: Models, the Build console (Training, Recognition and the other tools that need an administrator), and the Operate console (Backends, Activity, Nodes, Traffic, Settings, and Users and keys)
 
 Admin-only pages are also protected at the router level - navigating directly to an admin URL redirects non-admin users to the home page.
 
@@ -556,14 +592,15 @@ Legacy API keys and user authentication can be used simultaneously. When both ar
 
 ## Build Requirements
 
-The user authentication system requires CGO for SQLite support. It is enabled with the `auth` build tag, which is included by default in Docker builds.
+User authentication needs no build tag and no C compiler. The SQLite database
+is opened with a pure-Go driver, so a binary built with `CGO_ENABLED=0` and no
+tags (the release binaries) can keep accounts in a SQLite file, and the same
+driver serves the chats and their files. PostgreSQL is chosen by the
+`postgres://` form of the database URL, as before.
 
 ```bash
-# Building from source with auth support
-GO_TAGS=auth make build
-
-# Or directly with go build
-go build -tags auth ./...
+go build ./cmd/local-ai
 ```
 
-The default Dockerfile includes `GO_TAGS="auth"`, so all Docker images ship with auth support. When building from source without the `auth` tag, setting `LOCALAI_AUTH=true` has no effect - the system operates without authentication.
+The `auth` build tag is only left on some tests. The pure-Go driver reads and
+writes the file format of SQLite, so an existing `database.db` opens as it is.

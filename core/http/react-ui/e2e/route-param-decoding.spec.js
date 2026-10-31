@@ -1,9 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 
 const MODEL_NAME = 'rate%model'
-const SKILL_NAME = 'cache%skill'
 const encodedModel = encodeURIComponent(MODEL_NAME)
-const encodedSkill = encodeURIComponent(SKILL_NAME)
 
 test.describe('Encoded route parameters', () => {
   test('model editor preserves a literal percent in the model name', async ({ page }) => {
@@ -50,18 +48,4 @@ test.describe('Encoded route parameters', () => {
     await expect(page.locator('.page-title')).toContainText(MODEL_NAME)
   })
 
-  test('skill editor does not decode an already decoded route parameter', async ({ page }) => {
-    await page.route(`**/api/agents/skills/${encodedSkill}`, (route) => route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        name: SKILL_NAME,
-        description: 'A route parameter regression fixture',
-        content: '# Fixture',
-      }),
-    }))
-
-    await page.goto(`/app/skills/edit/${encodedSkill}`)
-
-    await expect(page.locator('.page-title')).toContainText(`Edit: ${SKILL_NAME}`)
-  })
 })

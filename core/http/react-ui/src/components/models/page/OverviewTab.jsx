@@ -134,7 +134,9 @@ function UsedBy({ view }) {
             <li key={`${ref.kind}:${ref.name}`}>
               <span className="modelpage-usedby__name">
                 {ref.kind === 'agent'
-                  ? <Link className="dk-link" to={`/app/agents/${encodeURIComponent(ref.name)}/edit`}>{ref.name}</Link>
+                  ? <Link className="dk-link" to="/app/agents">{ref.name}</Link>
+                  : ref.kind === 'task'
+                    ? <Link className="dk-link" to="/app/triggers">{ref.name}</Link>
                   : ref.kind === 'chain'
                     ? <Link className="dk-link" to="/app/failover">{ref.name}</Link>
                     : ref.name}
@@ -172,7 +174,7 @@ export default function OverviewTab({ view }) {
             <p className="dk-hint">{t('lifecycle.detail.noDescription')}</p>
           )}
           <dl className="dk-kv modelpage-facts">
-            {backend && (<><dt>{t('detail.backend')}</dt><dd><span className="dk-chip dk-chip--sm modelpage-chip dk-mono">{backend}</span></dd></>)}
+            {backend && (<><dt>{t('detail.backend')}</dt><dd><span className="dk-chip dk-chip--sm modelpage-chip">{backend}</span></dd></>)}
             {entry?.gallery && (<><dt>{t('detail.gallery')}</dt><dd>{typeof entry.gallery === 'string' ? entry.gallery : entry.gallery.name}</dd></>)}
             {license && (<><dt>{t('detail.license')}</dt><dd>{license}</dd></>)}
             {maxContext > 0 && (<><dt>{t('page.overview.maxContext')}</dt><dd>{t('page.overview.tokens', { size: contextLabel(maxContext) })}</dd></>)}

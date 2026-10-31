@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"sync"
 
@@ -14,6 +15,12 @@ import (
 )
 
 var ErrUnavailable = errors.New("addon owner unavailable")
+
+// ErrNotSent means the call never reached the add-on: it is not running (it is
+// starting, stopped or restarting) or the request was not written. The tool
+// cannot have run, so unlike an outage after the send this is not an unknown
+// outcome and the caller may try again.
+var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent: %w", ErrUnavailable)
 
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
@@ -88,6 +95,11 @@ type RelayRequest struct {
 }
 
 func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
+	// The act action has its own door, Act. A frontend that forwarded it from
+	// here would let the owner run it for a consumer that was never offered it.
+	if request.Action == "act" {
+		return contract.Result{}, ErrForbidden
+	}
 	if e := g.revalidate(ctx, actor); e != nil {
 		return contract.Result{}, e
 	}

@@ -72,6 +72,30 @@ var _ = Describe("addon account store failures", func() {
 	})
 })
 
+var _ = Describe("the credential of a chat turn", func() {
+	It("lets an active user with the add-ons feature act from a chat, and nobody else", func() {
+		db, e := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
+		Expect(e).NotTo(HaveOccurred())
+		admin := auth.User{ID: "admin", Role: auth.RoleAdmin, Status: auth.StatusActive}
+		plain := auth.User{ID: "plain", Role: auth.RoleUser, Status: auth.StatusActive}
+		off := auth.User{ID: "off", Role: auth.RoleAdmin, Status: "disabled"}
+		for _, u := range []*auth.User{&admin, &plain, &off} {
+			Expect(db.Create(u).Error).To(Succeed())
+		}
+		Expect(db.Create(&auth.UserPermission{UserID: plain.ID, Permissions: auth.PermissionMap{}}).Error).To(Succeed())
+		ctx := context.Background()
+		chat := func(id string) contract.Actor {
+			return contract.Actor{UserID: id, CredentialID: auth.AddonChatsCredential, Mode: "named-user"}
+		}
+		Expect(auth.ValidateAddonActor(ctx, db, chat(admin.ID), false)).To(Succeed())
+		Expect(auth.ValidateAddonActor(ctx, db, chat(plain.ID), false)).NotTo(Succeed())
+		Expect(auth.ValidateAddonActor(ctx, db, chat(off.ID), false)).NotTo(Succeed())
+		Expect(auth.ValidateAddonActor(ctx, db, chat("missing"), false)).NotTo(Succeed())
+		Expect(auth.ValidateAddonActor(ctx, db, chat(plain.ID), true)).NotTo(Succeed())
+		Expect(auth.ValidateAddonActor(ctx, db, contract.Actor{UserID: admin.ID, CredentialID: "chats ", Mode: "named-user"}, false)).NotTo(Succeed())
+	})
+})
+
 var _ = Describe("addon identity denial classification", func() {
 	It("marks every definite account refusal as the shared forbidden sentinel and never as unavailable", func() {
 		db, e := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))

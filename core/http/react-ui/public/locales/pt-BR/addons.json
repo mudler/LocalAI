@@ -3,9 +3,9 @@
     "blocked": "Uma ação anterior neste complemento ainda não foi confirmada. Verifique o estado dela ou descarte-a primeiro.",
     "checkStatus": "Verificar estado",
     "dismiss": "Descartar",
-    "failed": "O proprietário não concluiu a ação. Nada foi alterado. Tente de novo para iniciar uma nova tentativa.",
-    "notApplied": "O proprietário informou a ação como concluída, mas o complemento não mudou. Tente novamente.",
-    "unknown": "O proprietário ainda não confirmou a ação. Ela ainda pode ser aplicada. Verifique o estado ou descarte-a antes de iniciar outra ação."
+    "failed": "A ação não terminou. Nada foi alterado. Tente de novo para iniciar uma nova tentativa.",
+    "notApplied": "A ação foi informada como concluída, mas o complemento não mudou. Tente de novo para iniciar uma nova tentativa.",
+    "unknown": "A ação ainda não foi confirmada. Ela ainda pode ser aplicada. Verifique o estado ou descarte-a antes de iniciar outra ação."
   },
   "approval": {
     "title": "Aprovação necessária",
@@ -37,14 +37,16 @@
     "emptyTitle": "Ainda não há apps",
     "firstRun": {
       "browse": "Browse add-ons",
-      "title": "Welcome to Apps",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "Ainda não há complementos",
+      "lead": "Complementos dão ao LocalAI novas páginas e ferramentas de chat. Eles rodam separados e só pedem o que declaram.",
+      "featuredLabel": "Comece com um destes",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "Verificados nas suas fontes antes de rodar",
+      "factRemove": "Desligue ou remova quando quiser"
     },
     "headless": "Roda em segundo plano e não tem página própria.",
-    "listLabel": "Apps",
+    "listLabel": "Complementos instalados",
     "loading": "Carregando apps",
     "manage": "Gerenciar",
     "open": "Abrir",
@@ -56,10 +58,14 @@
     "tools_one": "{{count}} ferramenta",
     "tools_other": "{{count}} ferramentas",
     "version": "Versão {{version}}",
-    "working": "Aguardando a confirmação do proprietário.",
+    "working": "Aguardando a confirmação.",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "Nada instalado corresponde a \"{{query}}\". Tente outras palavras.",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "Os complementos não estão disponíveis agora.",
+      "paused": "Páginas e ferramentas dos complementos ficam pausadas até ele voltar."
+    }
   },
   "browse": {
     "confirmTitle": "Instalar {{name}}?",
@@ -69,7 +75,7 @@
     "fromLibrary": "de {{library}}",
     "install": "Instalar",
     "installedDetail": "Versão {{version}}, geração {{generation}}",
-    "installedOther": "Instalado {{version}} (outra versão)",
+    "installedOther": "Você tem {{version}}",
     "installedSame": "Instalado {{version}}",
     "installedState": "Instalado",
     "installing": "Instalando",
@@ -85,7 +91,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "Instalado"
   },
   "catalog": {
     "allLibraries": "Todas as bibliotecas",
@@ -115,8 +122,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Ativado",
-    "search": "Search add-ons",
+    "running": "Em execução",
+    "search": "Pesquisar complementos instalados",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -129,7 +136,7 @@
     "denied": "O servidor recusou. Você pode não ter permissão, ou o complemento mudou. A lista foi atualizada.",
     "invalid": "O servidor não pôde aceitar esta solicitação.",
     "network": "Não foi possível alcançar o servidor. Verifique sua conexão.",
-    "unavailable": "O proprietário do complemento não está disponível agora. Tente de novo em instantes.",
+    "unavailable": "Os complementos não estão disponíveis agora. Tente de novo em instantes.",
     "unknownOutcome": "Não foi possível confirmar o resultado. Verifique o estado antes de tentar de novo."
   },
   "installed": {
@@ -174,14 +181,14 @@
     },
     "hints": {
       "id": "Letras minúsculas, dígitos e hifens. Não pode mudar depois.",
-      "reference": "O nome de uma credencial que o proprietário configurou. Nunca cole um token ou senha aqui.",
+      "reference": "O nome de uma credencial que um administrador configurou neste servidor. Nunca cole um token ou senha aqui.",
       "url": "Um endereço https sem credenciais nem string de consulta.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Atualizada {{when}}, {{count}} entradas",
-    "lead": "Uma biblioteca é um documento de catálogo que lista complementos. Credenciais nunca são digitadas aqui: uma biblioteca privada indica uma credencial que o proprietário configurou.",
+    "lead": "Uma biblioteca é um índice que lista complementos, backends ou modelos. Credenciais nunca são digitadas aqui: uma biblioteca privada de complementos indica uma credencial que um administrador configurou neste servidor.",
     "listLabel": "Bibliotecas",
     "loading": "Carregando bibliotecas",
     "notRefreshed": "Ainda não atualizada",
@@ -251,10 +258,11 @@
     "hasUI": "Tem páginas",
     "headless": "Sem interface, sem páginas",
     "health": "Saúde",
+    "installedAt": "Instalado",
     "host": "API do host",
     "interface": "Interface",
     "logs": "Logs",
-    "logsNone": "A saída dos processos dos complementos não é coletada nesta versão. A saúde e as tentativas de reinício acima são o que o proprietário pode informar.",
+    "logsNone": "A saída dos processos dos complementos não é coletada nesta versão. A saúde e as tentativas de reinício acima são tudo o que o LocalAI pode informar.",
     "observed": "Estado observado",
     "protocol": "Protocolo",
     "restarts": "Tentativas de reinício",
@@ -338,14 +346,15 @@
   "state": {
     "failed": "Com falha",
     "label": "Estado: {{state}}",
-    "running": "Ativado",
+    "running": "Em execução",
     "starting": "Iniciando",
     "stopped": "Desativado",
-    "update-pending": "Atualização pendente"
+    "update-pending": "Atualização pendente",
+    "updateTo": "Atualização {{version}}"
   },
-  "supporting": "Apps que o proprietário executa para você e as bibliotecas de onde vêm.",
+  "supporting": "Software que você instala para dar ao LocalAI novas páginas e ferramentas de chat. Cada um roda separado e só pede o que declara.",
   "tabs": {
-    "apps": "Meus complementos",
+    "apps": "Instalados",
     "browse": "Encontrar complementos",
     "label": "Seções de complementos",
     "libraries": "Fontes"
@@ -516,8 +525,8 @@
       "unknownOutcome": "O resultado não é conhecido. Leia o estado de novo: a mesma ação não é enviada duas vezes.",
       "auth": "Entre novamente.",
       "denied": "Somente administradores podem fazer isto, na própria sessão do navegador.",
-      "network": "Não foi possível alcançar o proprietário.",
-      "unavailable": "O proprietário não está disponível."
+      "network": "Não foi possível alcançar o serviço de complementos.",
+      "unavailable": "O serviço de complementos não está disponível."
     }
   },
   "updates": {
@@ -591,18 +600,30 @@
       "auth": "Entre novamente para continuar.",
       "denied": "Somente um administrador pode fazer isso na própria sessão do navegador.",
       "network": "A rede não está acessível.",
-      "unavailable": "O proprietário do complemento não está disponível. Tente novamente."
+      "unavailable": "O serviço de complementos não está disponível. Tente de novo."
     },
-    "reviewButton": "Atualizações ({{count}})",
-    "reviewTitle": "Revisar atualizações de complementos",
-    "reviewDescription": "Nada é atualizado até você escolher aqui. Cada atualização faz antes um backup dos dados do complemento.",
+    "upgradeNamed": "Atualizar {{name}}",
+    "why": {
+      "role": "Há uma atualização disponível. Somente um administrador pode instalá-la.",
+      "needs-check": "Uma atualização foi informada, mas os detalhes ainda não foram confirmados. Verifique novamente para confirmar.",
+      "check-failed": "A última verificação falhou, então a atualização não pode ser confirmada. Verifique novamente.",
+      "incompatible": "Existe uma atualização, mas ela não pode rodar aqui:",
+      "integrity": "A biblioteca lista esta versão com conteúdo diferente. Ela não é oferecida como atualização.",
+      "recovery": "Os dados deste complemento precisam de recuperação primeiro. Restaure um backup em Detalhes e depois atualize.",
+      "current": "A última verificação não encontrou atualização. O aviso pode estar desatualizado. Verifique novamente.",
+      "unpinned": "A biblioteca informa uma atualização, mas não indica qual build instalar, então não é possível atualizar daqui. Verifique novamente mais tarde."
+    },
     "checkAll": "Verificar atualizações",
     "checkingAll": "Verificando...",
     "checkAllDone": "{{count}} complementos verificados.",
     "checkAllFailed": "{{count}} não puderam ser verificados.",
-    "upgradeNamed": "Atualizar {{name}}",
-    "toastDone": "{{name}} atualizado para {{version}}.",
-    "toastFailed": "{{name}} não foi atualizado: {{message}}"
+    "checkResult": {
+      "done": "Verificado.",
+      "failed": "A verificação não foi concluída.",
+      "justNow": "Verificado agora mesmo."
+    },
+    "waitingService": "O serviço de complementos está iniciando. O LocalAI pergunta de novo sobre a atualização em {{seconds}} s.",
+    "checkAgain": "Verificar agora"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -639,17 +660,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "Remover {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "O que ele pode fazer",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "Atualizar para {{version}}"
   },
   "flow": {
     "installAndTurnOn": "Instalar e ativar",
@@ -663,6 +686,91 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "Ver em Instalados",
+    "install": "Instalar",
+    "installNamed": "Instalar {{name}}",
+    "shadowWarning": "Este complemento substitui o {{tool}} integrado. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas. Até você escolher, o que foi instalado primeiro o fornece.",
+    "skillShadow": "Este complemento substitui a habilidade integrada {{skill}}.",
+    "skillShadowWarning": "Este complemento substitui a habilidade integrada {{skill}}. Outro complemento ({{name}}) já faz isso. Só um pode estar ativo; você escolhe qual em Configurações > Ferramentas. Até você escolher, o que foi instalado primeiro o fornece."
+  },
+  "family": {
+    "pages": "Procurando páginas que você ou um agente criou? Elas estão em <go>Páginas</go>."
+  },
+  "filter": {
+    "label": "Mostrar",
+    "all": "Todos",
+    "running": "Em execução",
+    "off": "Desligados",
+    "showAll": "Mostrar todos",
+    "none": {
+      "all": "Nenhum complemento para mostrar.",
+      "running": "Nenhum complemento está em execução.",
+      "off": "Todos os complementos estão em execução."
+    }
+  },
+  "attention": {
+    "label": "Precisa de atenção",
+    "failedTitle": "{{name}} parou.",
+    "failedRestarts_one": "Falhou ao iniciar {{count}} vez seguida.",
+    "failedRestarts_other": "Falhou ao iniciar {{count}} vezes seguidas.",
+    "failedOnce": "Ele não iniciou.",
+    "toolsOff_one": "Sua {{count}} ferramenta de chat fica desligada até ele rodar de novo.",
+    "toolsOff_other": "Suas {{count}} ferramentas de chat ficam desligadas até ele rodar de novo.",
+    "pageOff": "A página dele fica indisponível até ele rodar de novo.",
+    "updateTitle": "{{name}} {{version}} está disponível.",
+    "updateBody": "Você tem {{current}}. Você vê o que muda e confirma antes de qualquer substituição."
+  },
+  "meta": {
+    "builtin": "Integrado",
+    "builtinLong": "Vem com o LocalAI",
+    "signed": "Assinado · {{library}}",
+    "checked": "Verificado · {{library}}",
+    "devBuild": "Build de desenvolvimento",
+    "library": "biblioteca {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} habilidade de chat",
+    "title_other": "{{count}} habilidades de chat",
+    "replaces": "substitui a habilidade integrada",
+    "serves": "usada nos chats",
+    "notServing": "não está em uso agora",
+    "serveIn": "Usar para {{skill}} nos chats",
+    "saveFailed": "Não foi possível salvar a escolha."
+  },
+  "settingsTab": {
+    "overview": "Visão geral",
+    "settings": "Configurações",
+    "tabsLabel": "Detalhes de {{name}}",
+    "off": "Ative {{name}} para mudar as configurações dele.",
+    "serverTitle": "Configurações do servidor para este complemento",
+    "serverIntro": "O LocalAI mantém estas configurações de {{name}} na página Configurações, junto das outras configurações do servidor.",
+    "open": "Abrir",
+    "pageLink": "Configurações",
+    "server": {
+      "network": {
+        "title": "Rede do Sandbox",
+        "body": "A rede que os comandos do Sandbox podem usar, as portas e por quanto tempo a auditoria guarda uma linha.",
+        "loading": "Lendo as configurações de rede…",
+        "limit": "Limite",
+        "newChat": "Um chat novo",
+        "ports": "Portas",
+        "audit": "Auditoria guardada",
+        "days_one": "{{count}} dia",
+        "days_other": "{{count}} dias",
+        "presets": {
+          "off": "Sem rede",
+          "registries": "Só registros de pacotes",
+          "all": "Qualquer host público"
+        }
+      },
+      "bash": {
+        "title": "Comandos nos chats",
+        "body": "Qual complemento executa o bash dos chats e se os comandos podem rodar nesta máquina."
+      },
+      "webTools": {
+        "title": "Ferramentas web nos chats",
+        "body": "Se os chats têm web_search e web_fetch e qual complemento os fornece."
+      }
+    }
   }
 }

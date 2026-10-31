@@ -1,79 +1,83 @@
 {
   "title": "技能",
-  "subtitle": "管理智能体技能（可重用的指令和资源）",
+  "subtitle": "任务匹配时聊天可以读取的指示。把它添加到智能体后即可在那里使用。",
   "unavailable": {
-    "subtitle": "技能服务不可用或索引正在重建。请稍后再试。",
-    "retry": "重试"
+    "subtitle": "技能需要“文件”功能，而此服务器已关闭“文件”。"
   },
   "actions": {
     "newSkill": "新技能",
     "createSkill": "创建技能",
-    "import": "导入",
-    "importing": "正在导入...",
-    "gitRepos": "Git 仓库",
     "edit": "编辑",
-    "delete": "删除",
-    "export": "导出",
-    "sync": "同步",
-    "addRepo": "添加仓库",
-    "adding": "添加中...",
-    "remove": "移除",
-    "enable": "启用",
-    "disable": "禁用"
+    "delete": "删除"
   },
   "search": {
     "placeholder": "搜索技能..."
-  },
-  "git": {
-    "title": "Git 仓库",
-    "description": "添加 Git 仓库以拉取技能。同步后技能将出现在列表中。",
-    "urlPlaceholder": "https://github.com/user/repo 或 git@github.com:user/repo.git",
-    "noRepos": "未配置 Git 仓库。请在上方添加。",
-    "disabled": "已禁用",
-    "removeRepo": "移除仓库"
   },
   "card": {
     "noDescription": "无描述",
     "readOnly": "只读",
     "editTitle": "编辑技能",
     "deleteTitle": "删除技能",
-    "exportTitle": "导出为 .tar.gz"
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "已跳过此技能：{{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "由 {{name}} 提供",
+    "replacedBy": "已被 {{name}} 替换",
+    "notActive": "未生效：使用内置技能",
+    "notActiveBy": "未生效：由 {{name}} 提供",
+    "fallback": "因 {{name}} 插件的技能已关闭或未运行而使用"
   },
   "empty": {
     "title": "未找到技能",
     "text": "创建或导入一个技能以开始。",
-    "noPersonal": "您还没有任何技能。"
-  },
-  "sections": {
-    "yourSkills": "您的技能",
-    "otherUsersSkills": "其他用户的技能"
-  },
-  "deleteDialog": {
-    "title": "删除技能",
-    "message": "删除技能 \"{{name}}\"？此操作无法撤销。",
-    "confirm": "删除"
-  },
-  "removeRepoDialog": {
-    "title": "移除 Git 仓库",
-    "message": "移除此 Git 仓库？其中的技能将不再可用。",
-    "confirm": "移除"
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
   },
   "toasts": {
     "loadFailed": "加载技能失败",
     "deleted": "技能 \"{{name}}\" 已删除",
-    "deleteFailed": "删除技能失败",
-    "exported": "技能 \"{{name}}\" 已导出",
-    "exportFailed": "导出失败",
-    "imported": "已从 \"{{file}}\" 导入技能",
-    "importFailed": "导入失败",
-    "loadReposFailed": "加载 Git 仓库失败",
-    "repoAdded": "Git 仓库已添加并正在同步",
-    "addRepoFailed": "添加仓库失败",
-    "synced": "仓库已同步",
-    "syncFailed": "同步失败",
-    "toggled": "仓库已切换",
-    "toggleFailed": "切换失败",
-    "removed": "仓库已移除",
-    "removeFailed": "移除失败"
+    "deleteFailed": "删除技能失败"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "插件"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "此技能在这里是只读的。内置技能随服务器提供，来自你文件的技能请在“文件”中修改。"
+  },
+  "load": {
+    "title": "无法加载你的技能。"
   }
 }

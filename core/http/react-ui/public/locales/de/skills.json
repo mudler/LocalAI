@@ -1,79 +1,83 @@
 {
   "title": "Fähigkeiten",
-  "subtitle": "Verwalten Sie Agentenfähigkeiten (wiederverwendbare Anweisungen und Ressourcen)",
+  "subtitle": "Anweisungen, die ein Chat liest, wenn eine Aufgabe passt. Füge eine einem Agenten hinzu, um sie dort zu nutzen.",
   "unavailable": {
-    "subtitle": "Der Fähigkeiten-Dienst ist nicht verfügbar oder der Index wird neu erstellt. Versuchen Sie es in einem Moment erneut.",
-    "retry": "Erneut versuchen"
+    "subtitle": "Fähigkeiten brauchen Dateien, und Dateien sind auf diesem Server ausgeschaltet."
   },
   "actions": {
     "newSkill": "Neue Fähigkeit",
     "createSkill": "Fähigkeit erstellen",
-    "import": "Importieren",
-    "importing": "Importieren...",
-    "gitRepos": "Git-Repos",
     "edit": "Bearbeiten",
-    "delete": "Löschen",
-    "export": "Exportieren",
-    "sync": "Synchronisieren",
-    "addRepo": "Repo hinzufügen",
-    "adding": "Hinzufügen...",
-    "remove": "Entfernen",
-    "enable": "Aktivieren",
-    "disable": "Deaktivieren"
+    "delete": "Löschen"
   },
   "search": {
     "placeholder": "Fähigkeiten suchen..."
-  },
-  "git": {
-    "title": "Git-Repositories",
-    "description": "Fügen Sie Git-Repositories hinzu, aus denen Fähigkeiten geladen werden. Fähigkeiten erscheinen nach der Synchronisierung in der Liste.",
-    "urlPlaceholder": "https://github.com/user/repo oder git@github.com:user/repo.git",
-    "noRepos": "Keine Git-Repos konfiguriert. Fügen Sie oben eines hinzu.",
-    "disabled": "Deaktiviert",
-    "removeRepo": "Repo entfernen"
   },
   "card": {
     "noDescription": "Keine Beschreibung",
     "readOnly": "Nur lesen",
     "editTitle": "Fähigkeit bearbeiten",
     "deleteTitle": "Fähigkeit löschen",
-    "exportTitle": "Als .tar.gz exportieren"
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Diese Fähigkeit wurde übersprungen: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Bereitgestellt von {{name}}",
+    "replacedBy": "Ersetzt durch {{name}}",
+    "notActive": "Nicht aktiv: der integrierte Skill wird verwendet",
+    "notActiveBy": "Nicht aktiv: {{name}} stellt ihn bereit",
+    "fallback": "Aktiv, weil der eigene Skill des Add-ons {{name}} aus ist oder nicht läuft"
   },
   "empty": {
     "title": "Keine Fähigkeiten gefunden",
     "text": "Erstellen oder importieren Sie eine Fähigkeit, um loszulegen.",
-    "noPersonal": "Sie haben noch keine Fähigkeiten."
-  },
-  "sections": {
-    "yourSkills": "Ihre Fähigkeiten",
-    "otherUsersSkills": "Fähigkeiten anderer Benutzer"
-  },
-  "deleteDialog": {
-    "title": "Fähigkeit löschen",
-    "message": "Fähigkeit \"{{name}}\" löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
-    "confirm": "Löschen"
-  },
-  "removeRepoDialog": {
-    "title": "Git-Repository entfernen",
-    "message": "Dieses Git-Repository entfernen? Fähigkeiten daraus sind nicht mehr verfügbar.",
-    "confirm": "Entfernen"
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
   },
   "toasts": {
     "loadFailed": "Laden der Fähigkeiten fehlgeschlagen",
     "deleted": "Fähigkeit \"{{name}}\" gelöscht",
-    "deleteFailed": "Löschen der Fähigkeit fehlgeschlagen",
-    "exported": "Fähigkeit \"{{name}}\" exportiert",
-    "exportFailed": "Export fehlgeschlagen",
-    "imported": "Fähigkeit aus \"{{file}}\" importiert",
-    "importFailed": "Import fehlgeschlagen",
-    "loadReposFailed": "Laden der Git-Repos fehlgeschlagen",
-    "repoAdded": "Git-Repo hinzugefügt und synchronisiert",
-    "addRepoFailed": "Hinzufügen des Repos fehlgeschlagen",
-    "synced": "Repo synchronisiert",
-    "syncFailed": "Synchronisierung fehlgeschlagen",
-    "toggled": "Repo umgeschaltet",
-    "toggleFailed": "Umschalten fehlgeschlagen",
-    "removed": "Repo entfernt",
-    "removeFailed": "Entfernen fehlgeschlagen"
+    "deleteFailed": "Löschen der Fähigkeit fehlgeschlagen"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Add-on"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Diese Fähigkeit ist hier schreibgeschützt. Eine eingebaute Fähigkeit gehört zum Server, und eine Fähigkeit aus deinen Dateien änderst du unter Dateien."
+  },
+  "load": {
+    "title": "Ihre Skills konnten nicht geladen werden."
   }
 }

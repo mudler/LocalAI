@@ -1,0 +1,136 @@
+{
+  "api": {
+    "max": 1,
+    "min": 1
+  },
+  "arch": "amd64",
+  "capabilities": {
+    "actions": true,
+    "toolDefinitions": [
+      {
+        "name": "bash",
+        "description": "Run a bash script in /workspace/home, the user's files; only what is saved there stays. Output is cut at 64 KiB; timeoutSeconds is 120 by default, at most 1680. Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages. Put helper scripts and temp files in the chat's work folder if the prompt names one.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "description": "The script to run.",
+              "type": "string"
+            },
+            "timeoutSeconds": {
+              "maximum": 1680,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "type": "object"
+        },
+        "shadows": "bash"
+      },
+      {
+        "name": "status",
+        "description": "Say whether this host can run commands in a sandbox now, and which backend runs them.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "set-backend",
+        "description": "Choose the backend that runs commands. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "backend": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "gvisor",
+                "kvm",
+                "host",
+                "off"
+              ]
+            }
+          },
+          "required": [
+            "backend"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      },
+      {
+        "name": "confirm-host",
+        "description": "Confirm that commands may run on this host without isolation, by typing the phrase. Administrators only. The Settings page calls it; no model does.",
+        "kind": "read",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phrase": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "phrase"
+          ],
+          "additionalProperties": false
+        },
+        "uiOnly": true
+      }
+    ],
+    "tools": [
+      "bash",
+      "status",
+      "set-backend",
+      "confirm-host"
+    ],
+    "ui": {
+      "css": [
+        "ui/sandbox.css"
+      ],
+      "description": "Let your chats run commands and code in an isolated sandbox, with your files mounted.",
+      "entry": "ui/sandbox.js",
+      "icon": "ui/icon.png",
+      "mainPage": "sandbox",
+      "pages": [
+        "sandbox"
+      ],
+      "sdk": {
+        "max": 2,
+        "min": 2
+      },
+      "slots": [
+        {
+          "component": "SandboxSettings",
+          "id": "settings",
+          "slot": "settings.sections"
+        }
+      ],
+      "title": "Sandbox"
+    }
+  },
+  "dataFormat": {
+    "max": 1,
+    "min": 1
+  },
+  "executable": "sandbox",
+  "host": {
+    "max": 1,
+    "min": 1
+  },
+  "id": "sandbox",
+  "os": "linux",
+  "protocol": {
+    "max": 1,
+    "min": 1
+  },
+  "schemaVersion": 1,
+  "version": "0.1.0"
+}

@@ -1,0 +1,671 @@
+{
+  "wellKnown": {
+    "revert": "恢复到上一个版本",
+    "view": "查看",
+    "form": "表单",
+    "save": "保存",
+    "cancel": "取消",
+    "notSet": "未设置",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "remove": "移除",
+    "savedAt": "保存于 {{time}}",
+    "notSaved": "尚未保存。",
+    "notSavedPrefilled": "尚未保存。部分值已为您填好；点击保存即可保留。",
+    "loadFailed": "无法加载这些设置。请刷新页面后重试。",
+    "invalid": "这些设置有错误，且没有更早的有效版本。",
+    "invalidFallback": "这些设置有错误。此处显示的是它们最后一个有效版本。",
+    "conflict": "这些设置在你编辑时发生了变化，可能是助手或其他标签页所改。较新的值如下：",
+    "useTheirs": "使用较新的值",
+    "keepMine": "保留我的更改",
+    "editWithAssistant": "通过助手编辑",
+    "from": {
+      "account": "来自您的账户",
+      "browser": "来自您的浏览器"
+    },
+    "check": {
+      "required": "必填。",
+      "tooLong": "最多 {{max}} 个字符。",
+      "format": "此值的格式不正确。"
+    },
+    "source": {
+      "label": "源文件",
+      "hint": "以文本形式显示的设置。保存时会以同样的方式检查。",
+      "notJson": "文本有语法错误。请检查引号、逗号和花括号。",
+      "notObject": "文本必须以 { 开头、以 } 结尾。"
+    },
+    "persona": {
+      "title": "助手",
+      "lede": "助手在每次聊天中使用的名称和指令。"
+    },
+    "user": {
+      "title": "您",
+      "lede": "助手会读取此内容，以了解对话对象。它会在每次聊天中传递给模型。"
+    },
+    "ui": {
+      "title": "外观",
+      "lede": "LocalAI 对您的显示方式。更改会立即生效；保存即可保留。"
+    },
+    "shortcuts": {
+      "title": "快捷指令",
+      "lede": "每次聊天输入框上方的提示词。",
+      "edit": "编辑快捷指令",
+      "defaults": "默认快捷指令",
+      "none": "没有快捷指令。添加一个，或保存空列表以隐藏。",
+      "label": "标签",
+      "prompt": "提示词",
+      "send": "立即发送",
+      "add": "添加快捷指令",
+      "invalid": "部分快捷指令有错误。",
+      "assistantPrompt": "修改我的快捷指令："
+    },
+    "home": {
+      "editLayout": "编辑布局",
+      "ask": "询问助手",
+      "askPrompt": "修改我的主页：",
+      "add": "添加小组件",
+      "newTitle": "新小组件",
+      "noWidgets": "还没有小组件。",
+      "type": "类型",
+      "title": "标题",
+      "source": "数据文件",
+      "noSourceNeeded": "无需数据文件",
+      "types": {
+        "list": "列表",
+        "metric": "指标",
+        "chats": "最近的聊天",
+        "page": "页面"
+      },
+      "left": "剩余 {{count}}",
+      "fromChats": "来自聊天",
+      "noChats": "还没有聊天。",
+      "noData": "还没有数据。助手可以写入",
+      "nothing": "这里没有内容。",
+      "noSource": "此小组件没有数据文件。请在“编辑布局”中选择一个。",
+      "broken": "此小组件的数据有错误，且没有更早的有效版本。",
+      "stale": "正在显示最后一份有效数据。最新数据有错误。",
+      "updated": "更新于 {{when}}",
+      "footer": {
+        "noData": "暂无数据。",
+        "invalid": "数据有错误。正在显示最后一个正常版本。",
+        "revert": "还原",
+        "missing": "此小组件的数据缺失。",
+        "fix": "请助手修复",
+        "fixPrompt": "主页小组件读取的 {{file}} 缺失或已损坏。请修复：",
+        "waiting": "等待你在聊天中创建它的触发器。",
+        "openChat": "打开聊天",
+        "running": "正在更新…",
+        "openRun": "打开这次运行",
+        "paused": "已暂停 · 原为 {{schedule}}",
+        "resume": "继续",
+        "failedEmpty": "更新失败，目前还没有数据。",
+        "details": "详情",
+        "retry": "重试",
+        "stale": "上次更新失败。正在显示 {{when}} 的数据。",
+        "staleToday": "上次更新失败。正在显示今天较早的数据。",
+        "earlier": "之前",
+        "firstRun": "首次运行 {{when}}",
+        "firstRunFile": "有文件进入时运行",
+        "runNow": "立即运行",
+        "fresh": "{{schedule}} · 更新于 {{time}}",
+        "pause": "暂停",
+        "fromPage": "来自页面 {{title}}",
+        "fromFile": "来自你的文件",
+        "next": "下次运行 {{when}}",
+        "cost": "每次运行约 {{tokens}} 个 token",
+        "costRemote": "在远程模型上每次运行约 {{tokens}} 个 token",
+        "cadence": {
+          "paused": "已暂停",
+          "hourly": "每小时",
+          "daily": "每天",
+          "weekdays": "工作日",
+          "weekly": "每周",
+          "monthly": "每月",
+          "file": "有新文件时"
+        },
+        "scheduleNote_one": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。",
+        "scheduleNote_other": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。"
+      },
+      "opensSite": "{{host}}：在新标签页中打开",
+      "linkAsk": "此小组件想要打开一个链接",
+      "invalid": "你的主页布局有错误，且没有更早的有效版本。",
+      "invalidFallback": "你的主页布局有错误。主页显示的是它最后一个有效版本。",
+      "page": {
+        "gone": "此页面已不可用",
+        "goneHint": "页面“{{name}}”已被移动或删除，或者你已无法打开它。",
+        "noWidget": "此页面没有小组件视图",
+        "noWidgetHint": "请让助手为页面“{{name}}”制作一个用于主页的紧凑视图。",
+        "off": "共享页面已关闭",
+        "offHint": "管理员已在此服务器上关闭共享页面。",
+        "fix": "自定义主页",
+        "failed": "页面未能加载",
+        "retry": "重试",
+        "changed": "此页面在你允许后已更改",
+        "notAllowed": "你尚未允许此页面",
+        "allowHint": "它来自共享文件夹。在它以你的身份运行之前请先检查。",
+        "allow": "允许此页面",
+        "frameTitle": "{{title}}（主页上的页面）",
+        "refresh": "刷新",
+        "open": "打开页面",
+        "add": "添加页面",
+        "limit": "主页最多显示 {{max}} 个页面；请先移除一个再添加。",
+        "noneEligible": "还没有页面具有用于主页的紧凑视图。请让助手为某个页面添加一个。",
+        "pick": "页面",
+        "unavailable": "{{name}}（不可用）",
+        "sharedLabel": "共享",
+        "sizes": {
+          "small": "小",
+          "medium": "中",
+          "large": "大"
+        }
+      }
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "名称",
+          "help": "助手对自己的称呼。"
+        },
+        "system_prompt": {
+          "label": "系统提示词",
+          "help": "会添加到每次聊天中，位于聊天自身的提示词和代理指令之后。"
+        }
+      },
+      "user": {
+        "name": {
+          "label": "名称",
+          "help": "助手如何称呼您。"
+        },
+        "language": {
+          "label": "语言",
+          "help": "助手回答时使用的语言。"
+        },
+        "bio": {
+          "label": "关于您",
+          "help": "助手在每次聊天中阅读的几行内容。"
+        },
+        "timezone": {
+          "label": "时区",
+          "help": "用于回答中的日期和时间。"
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "主题",
+          "help": "“系统”跟随您设备的设置。",
+          "options": {
+            "dark": "深色",
+            "light": "浅色",
+            "system": "系统"
+          }
+        },
+        "accent": {
+          "label": "强调色",
+          "help": "用于按钮和链接。留空则使用默认值。"
+        },
+        "density": {
+          "label": "密度",
+          "help": "紧凑模式可在一屏内显示更多内容。",
+          "options": {
+            "comfortable": "舒适",
+            "compact": "紧凑"
+          }
+        },
+        "defaultModel": {
+          "label": "默认模型",
+          "help": "新聊天开始时使用的模型。"
+        }
+      }
+    },
+    "saveInvalid": "部分值无效。请检查后再次保存。",
+    "saveTooLarge": "这些设置太大，无法保存。请删除一些条目后重试。",
+    "saveFailed": "无法保存。请重试。",
+    "details": "详细信息"
+  },
+  "discovery": {
+    "ex": {
+      "title": "打造你的 LocalAI",
+      "lede": "在聊天中说出来。助手会保存下来，你可以修改或撤销。",
+      "hide": "隐藏这些",
+      "hiddenToast": "示例已隐藏。",
+      "saveFailed": "未保存：{{message}}",
+      "card1": {
+        "kicker": "你和助手",
+        "prompt": "叫我{{firstName}}，回答简短一些",
+        "promptNoName": "记住我的名字，回答简短一些",
+        "what": "保存你的名字和助手的回答方式"
+      },
+      "card2": {
+        "kicker": "一个页面",
+        "prompt": "帮我做一个任务看板",
+        "what": "添加一个可从侧边栏打开的页面"
+      },
+      "card3": {
+        "kicker": "每天早上",
+        "prompt": "每天早上在这里总结我的收件箱",
+        "promptNoMail": "每天早上在这里列出昨天的聊天",
+        "what": "添加一个主页小组件和一个需要你确认的触发器"
+      },
+      "quote": "「{{text}}」",
+      "donePrefix": "完成。",
+      "doneLink": "在账户中修改",
+      "ready": "或从现成的页面开始：",
+      "readyTasks": "任务看板",
+      "readyReading": "阅读清单",
+      "readyFailed": "页面未能复制：{{message}}",
+      "learn": "工作原理",
+      "inComposer": "需要的话可以先修改，然后按 Enter。发送之前不会保存任何内容。",
+      "live": "提示已添加到消息框。"
+    },
+    "home": {
+      "customise": "自定义主页"
+    },
+    "action": {
+      "undo": "撤销",
+      "openAccount": "在账户中打开",
+      "openPage": "打开页面",
+      "openHome": "打开主页",
+      "turnBackOn": "在账户中重新开启"
+    },
+    "change": {
+      "profilePersona": "已保存你的名字和给助手的指示。从你的下一条消息起，每个聊天都会使用它们。",
+      "profile": "已保存到你的个人资料。",
+      "persona": "已保存助手的指示。从你的下一条消息起，每个聊天都会使用它们。",
+      "shortcuts": "已保存你的快捷指令。",
+      "home": "已保存你的主页。主页会显示这项更改。",
+      "ui": "已保存你的外观设置。",
+      "pageCreated": "已创建页面 {{title}}。",
+      "pageChanged": "已修改页面 {{title}}。",
+      "offersOff": "助手的建议已关闭。",
+      "undoing": "正在撤销…",
+      "undone": "已撤销。",
+      "undoFailed": "未能撤销：{{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "已添加到你的输入框：{{label}}",
+      "pageCreated": "{{title}} 已添加到侧边栏的“页面”中",
+      "open": "打开",
+      "homeChanged": "主页已更新。",
+      "themeChanged": "主题已更改。"
+    },
+    "files": {
+      "learn": "这些文件决定 LocalAI 如何为你工作。",
+      "tag": {
+        "profile": "你的资料",
+        "persona": "助手",
+        "shortcuts": "快捷方式",
+        "home": "主页布局",
+        "ui": "外观",
+        "page": "页面"
+      }
+    },
+    "privacy": "每次聊天开始时，助手会收到你的名字、这段文字、你的语言和时区。把某个字段留空，就不会发送它。",
+    "versions": {
+      "label": "版本",
+      "title": "较早的版本",
+      "loading": "正在读取历史记录…",
+      "none": "还没有更早的版本。",
+      "current": "当前",
+      "invalid": "有错误",
+      "byAssistant": "由助手修改",
+      "byAssistantIn": "由助手在“{{chat}}”中修改",
+      "byYou": "由你修改",
+      "undo": "一次撤销",
+      "upload": "已上传",
+      "revert": "还原",
+      "note": "还原后，较新的版本仍保留在此列表中。",
+      "invalidBadge": "无效",
+      "revertGood": "还原到上一个正常版本"
+    },
+    "help": {
+      "title": "帮助和建议",
+      "sub": "LocalAI 向你展示自身功能的方式。不需要的可以关闭。",
+      "offers": "助手的提议",
+      "offersHint": "每天最多一次，绝不在任务进行中出现，例如提议记住你说过的事。",
+      "new": "新功能提示",
+      "newHint": "某项内容首次出现时，侧边栏会显示一个简短的“新”标签。",
+      "examples": "主页上的示例",
+      "examplesShown": "只要还有可尝试的内容，“打造你的 LocalAI”卡片就会显示在主页上。",
+      "examplesHidden": "你已隐藏“打造你的 LocalAI”卡片。",
+      "showExamples": "重新显示示例",
+      "examplesBack": "示例已回到主页。",
+      "dismissed": "助手学到的内容",
+      "dismissedHint_one": "你拒绝了 {{count}} 条提议。在你重置之前，它们会一直隐藏。",
+      "dismissedHint_other": "你拒绝了 {{count}} 条提议。在你重置之前，它们会一直隐藏。",
+      "forget": "忘掉助手从我的提示中学到的内容",
+      "forgotten": "完成。助手可能会再次提议。",
+      "learn": "了解你可以更改什么：",
+      "dismissedNone": "暂无。你回应提议后，助手会记在这里。"
+    }
+  },
+  "tabs": {
+    "shared": "共享",
+    "trashCount_one": "回收站中有 {{count}} 项",
+    "trashCount_other": "回收站中有 {{count}} 项"
+  },
+  "trash": {
+    "empty": "回收站是空的。",
+    "restore": "恢复",
+    "emptyAll": "清空回收站",
+    "purge": "永久删除",
+    "purgeNamed": "永久删除 {{name}}",
+    "files_one": "{{count}} 个文件",
+    "files_other": "{{count}} 个文件",
+    "folders_one": "{{count}} 个文件夹",
+    "folders_other": "{{count}} 个文件夹",
+    "listJoin": "，",
+    "summary": "回收站中有：{{what}}。",
+    "removed": "已永久删除：{{what}}。",
+    "confirmAll": {
+      "title": "清空回收站？",
+      "message": "这将永久删除 {{what}}及其历史版本，且无法撤销。"
+    },
+    "confirmOne": {
+      "title": "永久删除？",
+      "message": "{{path}}：这将永久删除 {{what}}及其历史版本，且无法撤销。"
+    }
+  },
+  "shared": {
+    "adminTitle": "共享文件夹",
+    "adminLede": "多人共用的文件夹。成员可以打开其中的页面，他们的聊天可以读取或编辑这些文件。",
+    "userTitle": "与你共享",
+    "userLede": "管理员与你共享的文件夹。其页面在“页面”中，你的聊天可以使用这些文件。",
+    "new": "新建共享文件夹",
+    "nameLabel": "文件夹名称",
+    "nameHint": "最多 64 个字母、数字、空格、点、短横线或下划线，须以字母或数字开头。",
+    "create": "创建",
+    "cancel": "取消",
+    "rename": "重命名",
+    "renameSave": "保存",
+    "remove": "移除",
+    "manage": "成员",
+    "menu": "{{name}} 的更多操作",
+    "pages_one": "{{count}} 个页面",
+    "pages_other": "{{count}} 个页面",
+    "pagesNone": "没有页面",
+    "people_one": "{{count}} 人",
+    "people_other": "{{count}} 人",
+    "membersNone": "没有成员",
+    "everyone": "所有人",
+    "everyoneOption": "所有人（全部用户）",
+    "everyoneHint": "全部用户，包括以后加入的用户",
+    "everyoneCan": {
+      "read": "所有人可读",
+      "write": "所有人可编辑"
+    },
+    "mode": {
+      "read": "可读",
+      "write": "可编辑"
+    },
+    "addTitle": "添加成员",
+    "person": "用户",
+    "access": "权限",
+    "accessFor": "{{name}} 的权限",
+    "add": "添加",
+    "allAdded": "所有人都已是成员。",
+    "usersUnavailable": "无法加载用户列表。你仍可以添加“所有人”。",
+    "membersTitle": "成员",
+    "noMembers": "还没有人可以使用此文件夹。请添加用户或“所有人”。",
+    "removeMember": "移除 {{name}}",
+    "paneNote": "更改立即生效。已打开的聊天会在下次打开时看到。",
+    "created": "已创建“{{name}}”。请添加可以使用它的人。",
+    "removed": "已移除“{{name}}”。其页面在运行前会再次请求许可。",
+    "restored": "“{{name}}”已恢复，成员保持不变。",
+    "memberAdded": "{{name}}：{{mode}}。",
+    "memberRemoved": "{{name}} 已无法使用“{{folder}}”。",
+    "failed": "未完成：{{message}}",
+    "loadFailed": "无法加载共享文件夹。",
+    "emptyAdminTitle": "还没有共享文件夹",
+    "emptyAdminBody": "共享文件夹存放其他人可以读取或编辑的文件和页面。先创建一个，再添加成员。",
+    "factMembers": "给某个人或所有人读取或编辑权限",
+    "factChats": "成员的聊天可以看到文件夹中的文件",
+    "factUndo": "移除文件夹可以撤销",
+    "emptyUserTitle": "还没有与你共享的内容",
+    "emptyUserBody": "管理员与你共享文件夹后，它会显示在这里，其页面会显示在“页面”中。"
+  },
+  "preview": {
+    "label": "预览",
+    "failed": "无法显示此文件。",
+    "loading": "正在加载 {{name}} 的预览",
+    "failedTitle": "无法显示 {{name}}。",
+    "tooLarge": "此文件太大，无法在这里预览。请下载后打开。",
+    "none": "此类型的文件没有预览。",
+    "typeFile": "{{ext}} 文件",
+    "typeUnknown": "文件",
+    "sheets": "工作表",
+    "sheetLabel": "工作表 {{name}}",
+    "sheetEmpty": "此工作表为空。",
+    "row": "行",
+    "showingRows": "显示 {{total}} 行中的 {{rows}} 行",
+    "showingCols": "以及 {{total}} 列中的 {{cols}} 列。",
+    "downloadRest": "下载文件查看其余内容。",
+    "textOnly": "文本预览，不显示格式。",
+    "truncated": "文本已截断。",
+    "noText": "此文件没有可显示的文本。",
+    "slide": "幻灯片 {{n}}",
+    "notes": "演讲者备注",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "如果 PDF 没有显示，请下载。",
+    "htmlTitle": "{{name}} 的预览",
+    "imageFailed": "无法显示图片。",
+    "zoomIn": "按原始大小显示",
+    "zoomOut": "适应面板",
+    "items_one": "{{count}} 项",
+    "items_other": "{{count}} 项",
+    "textCut": "显示前 {{size}}。",
+    "actions": "文件操作"
+  },
+  "managed": {
+    "group": "由 LocalAI 管理",
+    "marker": "由 LocalAI 管理",
+    "about": {
+      "localai": "LocalAI 读取的设置：角色、个人资料、快捷方式、主页、主题。",
+      "chats": "每个对话一个文件夹，存放该对话的文件。"
+    },
+    "confirm": {
+      "deleteTitle": "将 {{name}} 移到回收站？",
+      "renameTitle": "重命名 {{name}}？",
+      "delete": "移到回收站",
+      "rename": "重命名",
+      "restore": "你可以从回收站恢复它。",
+      "renameNote": "LocalAI 只按这个名称读取它，重命名后就像它不存在一样。"
+    },
+    "loses": {
+      "settings": "LocalAI 会忘记你的角色、个人资料、快捷方式、主页布局和主题。",
+      "chats": "每个对话都会失去它的文件：你附加的文件和助手在那里写的文件。",
+      "persona": "助手会失去它的名字和指令。",
+      "user": "助手会忘记你告诉它的关于你的信息，以及你对它的建议的回答。",
+      "shortcuts": "消息框会重新显示默认快捷方式。",
+      "home": "主页会失去它的小组件。",
+      "ui": "你的主题、强调色、密度、默认模型和固定的页面会恢复为默认值。"
+    }
+  },
+  "newFile": "新建文件",
+  "newFolderName": "新建文件夹",
+  "newFileName": "未命名.md",
+  "fileName": "文件名",
+  "downloadOne": "下载 {{name}}",
+  "moveTo": "移动到…",
+  "uploadMenu": "更多上传选项",
+  "uploadFiles": "上传文件",
+  "uploadFolder": "上传文件夹",
+  "loading": "正在加载文件夹",
+  "loadFailed": "无法打开 {{folder}}。",
+  "types": {
+    "folder": "文件夹",
+    "image": "图片",
+    "pdf": "PDF",
+    "sheet": "电子表格",
+    "doc": "文档",
+    "slides": "演示文稿",
+    "archive": "压缩包",
+    "audio": "音频",
+    "video": "视频",
+    "code": "代码",
+    "text": "文本",
+    "file": "文件"
+  },
+  "columns": {
+    "name": "名称",
+    "modified": "修改时间",
+    "type": "类型",
+    "size": "大小",
+    "actions": "操作"
+  },
+  "view": {
+    "label": "视图",
+    "list": "列表",
+    "grid": "缩略图"
+  },
+  "select": {
+    "one": "选择 {{name}}",
+    "all": "全选",
+    "bar": "已选项目",
+    "clear": "取消选择",
+    "count_one": "已选 {{count}} 项",
+    "count_other": "已选 {{count}} 项",
+    "start": "选择"
+  },
+  "menu": {
+    "label": "{{name}} 的操作",
+    "more": "{{name}} 的更多操作",
+    "openFolder": "打开",
+    "preview": "预览",
+    "downloadMany_one": "下载 {{count}} 个文件",
+    "downloadMany_other": "下载 {{count}} 个文件",
+    "moveMany_one": "将 {{count}} 项移动到…",
+    "moveMany_other": "将 {{count}} 项移动到…",
+    "deleteMany_one": "将 {{count}} 项移到回收站",
+    "deleteMany_other": "将 {{count}} 项移到回收站"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "显示上级文件夹"
+  },
+  "naming": {
+    "empty": "请输入名称。",
+    "slash": "名称不能包含 / 或 \\。",
+    "taken": "此文件夹中已有同名项目。"
+  },
+  "toast": {
+    "undo": "撤销",
+    "deletedOne": "已将 {{name}} 移到回收站。",
+    "deleted_one": "已将 {{count}} 项移到回收站。",
+    "deleted_other": "已将 {{count}} 项移到回收站。",
+    "restored": "已还原。",
+    "renamed": "已重命名为 {{name}}。",
+    "renameUndone": "已恢复原名称。",
+    "movedOne": "已将 {{name}} 移动到 {{folder}}。",
+    "moved_one": "已将 {{count}} 项移动到 {{folder}}。",
+    "moved_other": "已将 {{count}} 项移动到 {{folder}}。",
+    "moveUndone": "已移回原位置。"
+  },
+  "search": {
+    "placeholder": "筛选此文件夹",
+    "resultsFor": "包含“{{query}}”的文件",
+    "back": "返回文件夹",
+    "noneBody": "你的文件中没有匹配的名称或文本。换个词试试。",
+    "page": "第 {{n}} 页",
+    "sheet": "工作表“{{name}}”",
+    "slide": "第 {{n}} 张幻灯片",
+    "indexing_one": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它。",
+    "indexing_other": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它们。",
+    "limited": "结果有限：搜索在查看所有文件之前已达到上限。请在某个文件夹中搜索或换用其他词语以查看其余结果。",
+    "filtering_one": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
+    "filtering_other": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
+    "everywhere": "在所有文件中搜索“{{query}}”",
+    "everywhereShort": "搜索所有文件",
+    "noMatch": "此文件夹中没有与“{{query}}”匹配的项目。",
+    "clear": "清除筛选"
+  },
+  "emptyHome": {
+    "title": "你的文件都在这里"
+  },
+  "emptyFolder": {
+    "title": "此文件夹为空",
+    "body": "将文件或文件夹拖放到此页面任意位置，用 Ctrl+V 粘贴，或从电脑上传。助手也可以在聊天中把文件保存到这里。",
+    "bodyTouch": "从设备上传文件。助手也可以在聊天中把文件保存到这里。",
+    "ask": "询问助手"
+  },
+  "drop": {
+    "title": "松开即可上传到 {{folder}}",
+    "body": "支持文件和整个文件夹。",
+    "limit": "支持文件和整个文件夹，每个最大 {{size}}。"
+  },
+  "conflict": {
+    "title_one": "已存在同名文件",
+    "title_other": "已存在 {{count}} 个同名文件",
+    "body_one": "{{folder}} 中已有同名文件。",
+    "body_other": "{{folder}} 中已有这些同名文件。",
+    "skip_one": "跳过",
+    "skip_other": "全部跳过",
+    "keep": "保留两者",
+    "replace_one": "替换",
+    "replace_other": "全部替换",
+    "more_one": "另有 {{count}} 个",
+    "more_other": "另有 {{count}} 个",
+    "note": "选择“保留两者”会为新文件另起名称。被替换的文件可以从历史记录中找回。",
+    "cancel": "取消上传"
+  },
+  "move": {
+    "title_one": "移动 {{count}} 项",
+    "title_other": "移动 {{count}} 项",
+    "items_one": "{{count}} 项",
+    "items_other": "{{count}} 项",
+    "cancel": "取消",
+    "here": "移动到 {{folder}}",
+    "failed": "无法读取此文件夹。",
+    "noFolders": "这里没有文件夹。可移动到此处，或返回上一级。"
+  },
+  "uploads": {
+    "waiting": "等待中",
+    "progress": "{{loaded}} / {{total}}",
+    "rate": "{{rate}}/秒",
+    "left": "剩余 {{time}}",
+    "renamed": "已另存为 {{name}}",
+    "done": "已上传",
+    "canceled": "已取消",
+    "cancel": "取消",
+    "cancelOne": "取消上传 {{name}}",
+    "retry": "重试",
+    "retryOne": "重试 {{name}}",
+    "dismiss": "关闭",
+    "dismissOne": "关闭 {{name}}",
+    "show": "显示",
+    "showOne": "显示 {{name}}",
+    "meterOne": "{{name}}：{{percent}}%",
+    "meterAll": "全部上传：{{percent}}%",
+    "cancelAll": "全部取消",
+    "retryAll": "全部重试",
+    "fold": "隐藏列表",
+    "unfold": "显示列表",
+    "close": "关闭",
+    "head": {
+      "sending_one": "正在上传 {{count}} 个文件",
+      "sending_other": "正在上传 {{count}} 个文件",
+      "failed_one": "{{count}} 个上传失败",
+      "failed_other": "{{count}} 个上传失败",
+      "done_one": "已上传 {{count}} 个文件",
+      "done_other": "已上传 {{count}} 个文件"
+    },
+    "say": {
+      "start_one": "正在上传 {{count}} 个文件。",
+      "start_other": "正在上传 {{count}} 个文件。",
+      "done_one": "上传完成：{{count}} 个文件。",
+      "done_other": "上传完成：{{count}} 个文件。",
+      "doneFailed": "上传完成：{{count}} 个成功，{{failed}} 个失败。",
+      "failed": "无法上传 {{name}}。"
+    },
+    "errors": {
+      "tooBig": "超过此服务器 {{limit}} 的限制。",
+      "tooLarge": "文件太大，服务器已拒绝。",
+      "off": "此服务器已关闭文件功能。",
+      "invalid": "服务器拒绝了此文件。",
+      "network": "连接已断开。",
+      "server": "服务器无法保存。"
+    },
+    "said": "服务器返回：{{reason}}。"
+  }
+}

@@ -4,20 +4,20 @@
 //
 // A hub is a page-level tab bar. Each tab owns one or more existing routes
 // (`items`). A tab with several routes shows a second, quieter row of links
-// under the bar. Routes stay flat (`/app/agents`, `/app/nodes/:id`); a tab is
+// under the bar. Routes stay flat (`/app/nodes/:id`); a tab is
 // highlighted when the current path is one of its item paths or sits under
 // one, so sub-pages such as `nodes/:id` keep the right tab lit.
 //
 // Gating is per item and decides the tab: a tab shows when at least one of its
 // items is visible to the viewer, so a tab nobody can use is never drawn.
-// `/api/features` only emits: agents, mcp, fine_tuning, quantization,
+// `/api/features` only emits: collections, mcp, fine_tuning, quantization,
 // distributed, backend_install, localai_assistant. Capability-style flags (face_recognition,
 // skills, ...) come from hasFeature(), not the features map.
 //
 // Item and tab fields:
 //   path          route the item links to
 //   labelKey      `nav` i18n key of the item label
-//   adminOnly, authOnly, feature, requiresAgentPool, unlessFeature  gating
+//   adminOnly, authOnly, feature, requiresCollections, unlessFeature  gating
 //   match         extra path prefixes that belong to the tab (sub-pages)
 //   showWhen      tab only: `/api/features` flag that must be on
 //   showWhenOff   tab only: `/api/features` flag that must be off (answered false)
@@ -30,87 +30,28 @@
 
 import { FEATURE_ADDONS } from '../../utils/capabilities.js'
 
-// Fine-tuning and quantization are add-on pages now and have no tab in the Build
-// bar. The Build overview still lists them as cards: their old routes open the
-// add-on while it is usable and the core page otherwise, so a user without the
-// add-on keeps a way in.
-export const buildOverviewTools = [
-  {
-    id: 'fine-tune',
-    labelKey: 'items.fineTune',
-    descriptionKey: 'hub.descriptions.fineTune',
-    icon: 'graduation-cap',
-    items: [{ path: '/app/fine-tune', labelKey: 'items.fineTune', feature: 'fine_tuning' }],
-  },
-  {
-    id: 'quantize',
-    labelKey: 'items.quantize',
-    descriptionKey: 'hub.descriptions.quantize',
-    icon: 'minimize',
-    items: [{ path: '/app/quantize', labelKey: 'items.quantize', feature: 'quantization' }],
-  },
-]
-
-export const buildHub = {
-  id: 'build',
-  titleKey: 'sections.build',
-  icon: 'wrench',
-  overviewPath: '/app/build',
+// The Add-ons drawer of the legacy layout (LOCALAI_LEGACY_NAVIGATION). It is
+// what is left of the Build hub: memory and the agents have sidebar items of
+// their own, Import is part of adding a model and the other tools are add-ons.
+// With the new layout the drawer is a page of its own and this hub has no
+// visible tab, so the sidebar does not list it.
+export const legacyAddonsHub = {
+  id: 'addons',
+  titleKey: 'items.addons',
+  icon: 'puzzle',
+  overviewPath: '/app/addons',
   tabs: [
-    {
-      id: 'overview',
-      labelKey: 'items.overview',
-      icon: 'home',
-      items: [{ path: '/app/build', labelKey: 'items.overview' }],
-    },
-    {
-      id: 'agents',
-      labelKey: 'items.agents',
-      descriptionKey: 'hub.descriptions.agents',
-      icon: 'robot',
-      items: [{ path: '/app/agents', labelKey: 'items.agents', feature: 'agents', requiresAgentPool: true }],
-    },
-    {
-      id: 'skills',
-      labelKey: 'items.skills',
-      descriptionKey: 'hub.descriptions.skills',
-      icon: 'sparkles',
-      items: [{ path: '/app/skills', labelKey: 'items.skills', feature: 'skills', requiresAgentPool: true }],
-    },
-    {
-      id: 'memory',
-      labelKey: 'items.memory',
-      descriptionKey: 'hub.descriptions.memory',
-      icon: 'database',
-      items: [{ path: '/app/collections', labelKey: 'items.memory', feature: 'collections', requiresAgentPool: true }],
-    },
     {
       id: 'addons',
       labelKey: 'items.addons',
       descriptionKey: 'hub.descriptions.addons',
       icon: 'puzzle',
-      // The previous navigation only: with the four-item sidebar the Add-ons
-      // drawer is a page of its own (LOCALAI_LEGACY_NAVIGATION brings this back).
       showWhenOff: 'addon_navigation',
       // The page serves everyone with the feature; the management tabs are
       // administrator-only and checked by the server on every call.
       items: [{ path: '/app/addons', labelKey: 'items.addons', feature: FEATURE_ADDONS, exact: true }],
       // Add-on pages that declare navigation are listed in the second row.
       addonNavigation: true,
-    },
-    {
-      id: 'jobs',
-      labelKey: 'items.jobs',
-      descriptionKey: 'hub.descriptions.jobs',
-      icon: 'checklist',
-      items: [{ path: '/app/agent-jobs', labelKey: 'items.jobs', feature: 'mcp', requiresAgentPool: true }],
-    },
-    {
-      id: 'import',
-      labelKey: 'hub.import',
-      descriptionKey: 'hub.descriptions.import',
-      icon: 'download',
-      items: [{ path: '/app/import-model', labelKey: 'hub.import', adminOnly: true }],
     },
   ],
 }
@@ -123,6 +64,9 @@ export const operateHub = {
   titleKey: 'sections.operate',
   icon: 'sliders',
   overviewPath: '/app/operate',
+  // The hub draws one page header above its tabs. A page fills the supporting
+  // line and the actions with <HubHeader>; this line shows when it does not.
+  header: { supportingKey: 'hub.operateSupporting' },
   tabs: [
     {
       id: 'status',
@@ -195,6 +139,7 @@ export const operateHub = {
       items: [
         { path: '/app/settings', labelKey: 'items.settings', adminOnly: true },
         { path: '/app/users', labelKey: 'items.users', adminOnly: true, authOnly: true },
+        { path: '/app/chats-admin', labelKey: 'items.chatsAdmin', adminOnly: true, feature: 'chats' },
       ],
     },
   ],
@@ -204,13 +149,13 @@ export const operateHub = {
   ],
 }
 
-export const hubs = [buildHub, operateHub]
+export const hubs = [legacyAddonsHub, operateHub]
 
 // Single source of truth for item visibility.
 export function isHubItemVisible(item, { isAdmin, authEnabled, hasFeature, features }) {
   if (item.adminOnly && !isAdmin) return false
   if (item.authOnly && !authEnabled) return false
-  if (item.requiresAgentPool && features.agents === false) return false
+  if (item.requiresCollections && features.collections === false) return false
   if (item.feature && features[item.feature] === false) return false
   if (item.feature && !hasFeature(item.feature)) return false
   // Hidden until /api/features has answered: showing it and then swapping it

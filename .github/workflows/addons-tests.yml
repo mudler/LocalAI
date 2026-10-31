@@ -1,0 +1,130 @@
+---
+name: 'Add-on Tests'
+
+# Runs the suites of scripts/addons/suites.json: the add-on contract, gateway,
+# policy, recovery, upgrade and host-slot suites, the add-on library sources,
+# the Tables suites and the browser specs of the add-on pages. verify.sh checks
+# each suite against its exact case inventory and fails on a skipped, flaky or
+# missing case.
+#
+# The Go tests under addons/ and the tests/addons/actione2e suite run in the
+# main test workflow (make test, make test-coverage-check). The packaging suite
+# runs in addons-package.yml. The UI unit tests of every add-on run in
+# tests-ui-unit.yml.
+on:
+  pull_request:
+    paths:
+      - 'addons/**'
+      - 'tests/addons/**'
+      - 'tests/e2e-ui/**'
+      - 'tests/e2e/mock-backend/**'
+      - 'pkg/addons/**'
+      - 'core/services/addons/**'
+      - 'core/http/endpoints/addons/**'
+      - 'core/http/auth/addons*.go'
+      - 'core/application/**'
+      - 'core/library/**'
+      - 'core/http/react-ui/**'
+      - 'scripts/addons/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/addons-tests.yml'
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-addons-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  suites:
+    name: ${{ matrix.group }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Go suites over the owner, the carrier, the gateway and the policy.
+          - group: contracts and gateway
+            suites: prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps
+          # Browser suites over the host pages of the add-ons.
+          - group: host pages
+            suites: gallery-ui esm-ui host-slots library-sources updates recovery
+          # Two frontends and an owner, with real authentication.
+          - group: foundation
+            suites: foundation-acceptance
+          # The Tables add-on: stores, tools and administration.
+          - group: tables
+            suites: tables-databases tables-schema tables-rows tables-tools tables-admin
+          # The Tables add-on: pages, CSV export and the end-to-end acceptance.
+          - group: tables pages
+            suites: tables-ui tables-csv tables-acceptance
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          # prepare.sh accepts Go 1.26.x only and runs with GOTOOLCHAIN=local.
+          go-version: '1.26.x'
+          cache: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          # prepare.sh accepts Node 22.12 or later within Node 22.
+          node-version: '22'
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libopus-dev unzip curl
+      - name: Install protoc
+        # prepare.sh requires exactly libprotoc 26.1.
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          protoc --version
+      - name: Prepare the toolchain
+        # Downloads the Go modules, installs the pinned protobuf plugins, runs
+        # npm ci and installs the Playwright Chromium. Nothing later reaches
+        # the network.
+        run: sh scripts/addons/prepare.sh --prepare
+      - name: Install the browser's system libraries
+        run: sudo env "PATH=$PATH" core/http/react-ui/node_modules/.bin/playwright install-deps chromium
+      - name: Build the UI, the mock backend and the UI test server
+        run: sh scripts/addons/prepare.sh --integration
+      - name: Run the suites
+        env:
+          SUITES: ${{ matrix.suites }}
+        run: |
+          failed=""
+          for suite in $SUITES; do
+            echo "::group::$suite"
+            if ! sh scripts/addons/verify.sh "$suite"; then
+              failed="$failed $suite"
+              echo "::error::suite $suite failed"
+            fi
+            echo "::endgroup::"
+          done
+          if [ -n "$failed" ]; then
+            echo "failed suites:$failed" >&2
+            exit 1
+          fi
+      - name: Upload the suite logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: addons-suite-logs-${{ strategy.job-index }}
+          path: |
+            .cache/addons/logs/
+            core/http/react-ui/playwright-report/
+            core/http/react-ui/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

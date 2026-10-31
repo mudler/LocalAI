@@ -22,11 +22,8 @@ import { diskEntry, freedBy, ownBytes, sharedWith } from './modelStorage.js'
 // minutes. The server has no hold, so this wait is the whole undo.
 export const UNDO_MS = 30_000
 
-// What can name a model in an agent's configuration.
-const AGENT_MODEL_FIELDS = [
-  'model', 'multimodal_model', 'transcription_model', 'tts_model',
-  'embedding_model', 'plan_reviewer_model',
-]
+// What can name a model in a saved agent.
+const AGENT_MODEL_FIELDS = ['model']
 
 export function agentModels(config) {
   if (!config || typeof config !== 'object') return []

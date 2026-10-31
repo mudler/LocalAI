@@ -10,12 +10,13 @@
   "changeLanguage": "Ubah bahasa",
   "logout": "Keluar",
   "accountSettings": "Pengaturan akun",
+  "yourSettings": "Pengaturan Anda",
   "account": "Akun",
   "accountFor": "Akun: {{name}}",
   "sections": {
     "recognition": "Pengenalan",
     "build": "Bangun",
-    "operate": "Operasikan",
+    "operate": "Administrasi",
     "workspace": "Ruang kerja"
   },
   "operate": {
@@ -66,7 +67,14 @@
     "logs": "Logs",
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
-    "prometheus": "Prometheus"
+    "prometheus": "Prometheus",
+    "chats": "Chats",
+    "files": "Berkas",
+    "triggers": "Pemicu",
+    "mcpConnectors": "Konektor MCP",
+    "chatsAdmin": "Obrolan semua pengguna",
+    "pages": "Halaman",
+    "allChats": "Semua obrolan"
   },
   "footer": {
     "github": "GitHub",
@@ -99,7 +107,15 @@
       "import": "Tambahkan model dari berkas, URL, atau repositori Hugging Face.",
       "voices": "Kenali pembicara dan simpan pustaka profil suara.",
       "faces": "Deteksi, bandingkan, dan cocokkan wajah.",
-      "addons": "Pasang add-on dan buka aplikasi yang disediakannya."
-    }
-  }
+      "addons": "Pasang add-on dan buka aplikasi yang disediakannya.",
+      "triggers": "Mulai obrolan secara otomatis, sesuai jadwal atau saat ada berkas masuk."
+    },
+    "operateSupporting": "Apa yang berjalan di server ini, bagaimana server ini dipakai, dan bagaimana pengaturannya."
+  },
+  "pinnedPages": "Halaman yang disematkan",
+  "new": "Baru",
+  "recentChats": "Obrolan terbaru",
+  "newChat": "Obrolan baru",
+  "untitledChat": "Obrolan tanpa judul",
+  "chatRunning": "Berjalan"
 }

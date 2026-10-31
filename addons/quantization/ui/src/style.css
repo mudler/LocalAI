@@ -80,8 +80,8 @@
 .bt-kv__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--dk-space-2); width: 100%; align-items: center; }
 .bt-banner { display: flex; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-2); background: var(--dk-accent-wash); color: var(--dk-text); font-size: var(--dk-text-13); flex-wrap: wrap; }
 .bt-banner code { overflow-wrap: anywhere; }
-.bt-rewards, .bt-liquid { display: flex; flex-direction: column; gap: var(--dk-space-3); padding-top: var(--dk-space-3); border-top: 1px solid var(--dk-edge); }
-.bt-rewards .dk-hint, .bt-liquid .dk-hint { margin: 0; }
+.bt-rewards { display: flex; flex-direction: column; gap: var(--dk-space-3); padding-top: var(--dk-space-3); border-top: 1px solid var(--dk-edge); }
+.bt-rewards .dk-hint { margin: 0; }
 .bt-reward { display: flex; flex-direction: column; gap: var(--dk-space-2); padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); background: var(--dk-card); min-width: 0; }
 .bt-reward[data-on="true"] { background: var(--dk-accent-wash); border-color: transparent; }
 .bt-reward__name { display: block; font-size: var(--dk-text-13); font-weight: var(--dk-weight-semibold); }

@@ -259,6 +259,10 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 			return out, e
 		}
 	}
+	skillFiles, e := verifySkills(dir, m)
+	if e != nil {
+		return out, e
+	}
 	if _, e = os.Lstat(filepath.Join(dir, "receipt.json")); !os.IsNotExist(e) {
 		return out, ErrPackage
 	}
@@ -268,7 +272,7 @@ func (i *Installer) Stage(ctx context.Context, r catalog.Release, progress func(
 	if progress != nil {
 		progress(Progress{Phase: "verified", Bytes: x.bytes})
 	}
-	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon}}}, nil
+	return StagedPackage{&stagedState{owner: i, dir: dir, receipt: PackageReceipt{Digest: r.Digest, SourceID: r.SourceID, SourceURL: r.SourceURL, Channel: r.Channel, Selection: selection, Reference: r.Artifact, Verification: verification, Manifest: m, Icon: icon, Skills: skillFiles}}}, nil
 }
 
 // verifyIcon opens the declared icon inside the staged package without

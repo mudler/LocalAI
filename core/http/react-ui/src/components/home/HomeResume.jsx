@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { groupConversations } from '../../utils/homeConversations'
-import Icon from '../Icon'
 
 // Rows shown before "Show more". Enough to resume yesterday's work without a
 // wall of history.
@@ -19,10 +18,9 @@ function EnterKey() {
   return <kbd className="dk-kbd">↵</kbd>
 }
 
-// "Jump back in": conversations from this browser, one card per day. A row
-// opens its conversation in Chat. j and k move between rows, Enter resumes,
-// Delete removes with an undo.
-export default function HomeResume({ items, leavingId, onResume, onDelete, emptyHint }) {
+// "Jump back in": the newest chats the server keeps, one card per day. A row
+// opens its chat. j and k move between rows, Enter resumes.
+export default function HomeResume({ items, onResume, onAll, emptyHint }) {
   const { t, i18n } = useTranslation('home')
   const [expanded, setExpanded] = useState(false)
   const listRef = useRef(null)
@@ -37,17 +35,6 @@ export default function HomeResume({ items, leavingId, onResume, onDelete, empty
   const fmtTime = useMemo(() => new Intl.DateTimeFormat(i18n.language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }), [i18n.language])
   const fmtDay = useMemo(() => new Intl.DateTimeFormat(i18n.language, { weekday: 'short', day: 'numeric', month: 'short' }), [i18n.language])
   const fmtDate = useMemo(() => new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'short' }), [i18n.language])
-
-  // The row is about to go, so focus moves to its neighbour. Keyboard users keep
-  // their place in the list.
-  const remove = (conv, li) => {
-    const rows = Array.from(listRef.current?.querySelectorAll('.home-row__open') || [])
-    const mine = li.querySelector('.home-row__open')
-    const at = rows.indexOf(mine)
-    const next = rows[at + 1] || rows[at - 1]
-    if (next && li.contains(document.activeElement)) next.focus()
-    onDelete(conv)
-  }
 
   // j and k from anywhere on the page that is not a text field.
   useEffect(() => {
@@ -85,6 +72,12 @@ export default function HomeResume({ items, leavingId, onResume, onDelete, empty
         <span className="home-resume__keys">
           <kbd className="dk-kbd">j</kbd><kbd className="dk-kbd">k</kbd> {t('jump.move')} <EnterKey /> {t('jump.resume')}
         </span>
+        {/* The whole history, with search and delete: the All chats page. */}
+        {onAll && (
+          <button type="button" className="home-ghost home-resume__all" onClick={onAll} data-testid="home-all-chats">
+            {t('jump.allChats')}
+          </button>
+        )}
       </div>
       <div ref={listRef}>
         {groups.map(g => {
@@ -98,14 +91,8 @@ export default function HomeResume({ items, leavingId, onResume, onDelete, empty
                 {g.items.map(c => (
                   <li
                     key={c.id}
-                    className={`home-row${leavingId === c.id ? ' home-row--leaving' : ''}`}
+                    className="home-row"
                     data-testid="home-conversation"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Delete' && e.target.classList.contains('home-row__open')) {
-                        e.preventDefault()
-                        remove(c, e.currentTarget)
-                      }
-                    }}
                   >
                     <button type="button" className="home-row__open" onClick={() => onResume(c)}>
                       <span className="home-row__time">
@@ -113,27 +100,11 @@ export default function HomeResume({ items, leavingId, onResume, onDelete, empty
                       </span>
                       <span className="home-row__main">
                         <span className="home-row__title">{c.title}</span>
-                        {c.preview && (
-                          <span className="home-row__reply"><Icon name="corner-down-right" /><span>{c.preview}</span></span>
-                        )}
                       </span>
-                      <span className="home-row__model">
-                        {c.hasImage && <Icon name="eye" title={t('jump.hasImage')} />}
-                        {c.model || t('jump.noModel')}
-                      </span>
+                      <span className="home-row__model">{c.model || t('jump.noModel')}</span>
                       <span className="home-row__end">
-                        <span className="home-row__count">{t('jump.messages', { count: c.count })}</span>
                         <span className="home-row__resume">{t('jump.resume')} <EnterKey /></span>
                       </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="home-row__delete"
-                      onClick={(e) => remove(c, e.currentTarget.closest('li'))}
-                      title={t('jump.delete')}
-                      aria-label={t('jump.deleteNamed', { title: c.title })}
-                    >
-                      <Icon name="trash" />
                     </button>
                   </li>
                 ))}

@@ -57,6 +57,68 @@
       "assistant": "Assistant LocalAI",
       "distributed": "Distribué",
       "responses": "Réponses"
+    },
+    "loadFailedTitle": "Impossible de charger les paramètres.",
+    "egress": {
+      "title": "Réseau du Sandbox",
+      "intro": "Les commandes du Sandbox n’atteignent le réseau que par un proxy qui consulte LocalAI pour chaque connexion. Réglez ci-dessous la limite, le préréglage d’un nouveau chat, les ports, les registres supplémentaires et la durée du journal ; chaque personne choisit le préréglage de chaque chat dans son menu Outils, dans la limite, et autorise un hôte bloqué sur une carte.",
+      "serves": "Les commandes s’exécutent isolées dans le module {{name}}",
+      "servesHost": "Les commandes s’exécutent sur cette machine via {{name}}",
+      "servesNone": "Aucun Sandbox n’exécute encore de commandes",
+      "hostNote": "Le backend hôte exécute les commandes sur cette machine avec son réseau : ces réglages ne s’y appliquent pas.",
+      "counts": "Dernières 24 heures : {{allowed}} autorisées, {{blocked}} bloquées.",
+      "private": "Laisser la règle d’un administrateur atteindre les réseaux privés",
+      "privateWarning": "Un hôte autorisé par un administrateur pourra alors atteindre des adresses de votre réseau. Un préréglage seul ne le fait jamais ; les adresses de métadonnées du cloud et du serveur restent refusées.",
+      "typePhrase": "Pour l’activer, tapez : {{phrase}}",
+      "registries": "Registres de paquets ({{count}})",
+      "showAudit": "Afficher le journal",
+      "hideAudit": "Masquer le journal",
+      "loadFailed": "Les réglages réseau du Sandbox n’ont pas pu être lus",
+      "audit": {
+        "verdict": "Verdict",
+        "host": "Hôte",
+        "user": "Utilisateur",
+        "at": "Quand",
+        "reason": "Raison",
+        "bytes": "Octets envoyés / reçus",
+        "refresh": "Actualiser",
+        "empty": "Aucune demande ne correspond.",
+        "loadFailed": "Le journal n’a pas pu être lu",
+        "verdicts": {
+          "any": "Tous les verdicts",
+          "allow": "Autorisée",
+          "block": "Bloquée",
+          "done": "Terminée"
+        }
+      }
+    },
+    "addons": {
+      "title": "Modules",
+      "hint": "Les paramètres apportés par les modules",
+      "intro": "Chaque module garde ses paramètres sur sa propre page, dans l'onglet Paramètres de ses détails. Ouvrez-en un pour les modifier.",
+      "off": "Désactivé. Activez-le pour modifier ses paramètres.",
+      "open": "Ouvrir les paramètres",
+      "openNamed": "Ouvrir les paramètres de {{name}}",
+      "count_one": "{{count}} module avec des paramètres",
+      "count_other": "{{count}} modules avec des paramètres"
+    },
+    "hosts": {
+      "add": "Ajouter",
+      "listLabel": "Hôtes toujours autorisés",
+      "remove": "Retirer {{host}}",
+      "empty": "Aucun hôte pour l'instant. Saisissez un nom d'hôte, ou hôte:port pour fixer le port.",
+      "hint": "Noms exacts uniquement. Ajoutez :port pour n'autoriser qu'un port ; sinon, les ports réseau du Sandbox s'appliquent.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Saisissez un nom d'hôte.",
+        "wildcard": "« {{value}} » : saisissez un nom d'hôte exact, pas un motif.",
+        "shape": "« {{value}} » n'est pas un nom d'hôte. Saisissez seulement l'hôte, sans schéma ni chemin.",
+        "port": "« {{value}} » : le port doit être compris entre 1 et 65535, et 22 et 25 sont toujours refusés.",
+        "private": "« {{value}} » est une adresse privée ou locale. Activez d'abord l'interrupteur du réseau privé.",
+        "numeric": "« {{value}} » : écrivez une adresse IP sous la forme de quatre nombres décimaux.",
+        "duplicate": "« {{value}} » est déjà dans la liste.",
+        "full": "La liste contient au plus {{max}} hôtes."
+      }
     }
   },
   "traces": {
@@ -97,5 +159,74 @@
   "explorer": {
     "title": "Explorateur",
     "subtitle": "Parcourir les fichiers et la configuration"
+  },
+  "settingsTools": {
+    "intro": "Les chats ont quelques outils intégrés qu'un module peut remplacer. Quand le module est installé, en marche et activé pour un chat, le chat utilise l'outil du module, sous le même nom.",
+    "empty": "Aucun outil intégré n'est gérable sur ce serveur.",
+    "loadFailed": "Impossible de lire les outils intégrés",
+    "switch": "Activé",
+    "byBuiltin": "Intégré",
+    "byAddon": "Module : {{name}}",
+    "byNone": "Désactivé",
+    "unavailable": "Ce serveur ne peut pas l'exécuter : {{reason}}.",
+    "installSandbox": "Installez le Sandbox pour exécuter les commandes isolées",
+    "replaceExplain": "Ces modules remplacent {{tool}} : celui choisi le fournit dans chaque chat où il est activé et en marche, et l'outil intégré est masqué. Un seul peut être actif. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit.",
+    "defaultInstalledFirst": "Par défaut : installé en premier",
+    "installedOn": "Installé {{when}}",
+    "choose_one": "{{count}} module remplace {{tool}} : choisissez lequel utiliser.",
+    "choose_other": "{{count}} modules remplacent {{tool}} : choisissez lequel utiliser.",
+    "labels": {
+      "bash": "Commandes (bash)",
+      "web_search": "Recherche web",
+      "web_fetch": "Lire des pages web",
+      "list_agents": "Agents enregistrés"
+    },
+    "descriptions": {
+      "bash": "Exécute des commandes et du code pour les chats directement sur cette machine quand aucun Sandbox ne fournit bash. Le module Sandbox le remplace par des commandes isolées.",
+      "web_search": "Recherche sur le web pour les chats sans clé (DuckDuckGo, puis Brave Search, puis Bing), ou avec votre instance SearXNG si elle est définie.",
+      "web_fetch": "Lit pour les chats une page ou un fichier web public par son adresse. Les adresses de votre réseau sont refusées sauf si vous les autorisez.",
+      "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils."
+    },
+    "bash": {
+      "switch": "Laisser les chats exécuter des commandes sur cette machine",
+      "modeLegend": "Qui peut exécuter des commandes",
+      "ask": "Demander à chaque fois.",
+      "askHint": "Seuls les chats des administrateurs l'obtiennent, et chaque commande attend leur accord dans le chat.",
+      "on": "Autoriser pour tous.",
+      "onHint": "Les chats de tous les utilisateurs exécutent des commandes ici sans demander, y compris les exécutions planifiées et les sous-agents.",
+      "default": "Non défini : la valeur par défaut s'applique ({{mode}}).",
+      "warning": "Les commandes s'exécutent sous l'utilisateur de LocalAI, sans isolation et avec le réseau de cette machine : elles peuvent lire ce que LocalAI peut lire et joindre Internet, votre réseau et l'API LocalAI. Chaque commande est journalisée. Installez le Sandbox pour les isoler."
+    },
+    "modes": {
+      "off": "désactivé",
+      "ask": "demander à chaque fois",
+      "on": "autorisé pour tous"
+    },
+    "skillsTitle": "Compétences remplacées par des modules",
+    "skillsIntro": "Un module peut remplacer une compétence intégrée par la sienne, écrite pour ses outils. Si plusieurs modules remplacent la même, choisissez celui qui est utilisé.",
+    "skillLabel": "Compétence {{skill}}",
+    "skillNotRunning": "Le module choisi ne tourne pas : la compétence intégrée est utilisée.",
+    "toolNotRunning": "Le module qui remplace cet outil ne tourne pas : l'outil intégré est utilisé.",
+    "stopped": "arrêté",
+    "webTest": {
+      "intro": "Lance une recherche avec chaque fournisseur des paramètres enregistrés et montre ce que chacun a fait. Appliquez d’abord vos modifications.",
+      "queryLabel": "Requête",
+      "run": "Tester la recherche",
+      "running": "Test en cours…",
+      "answered": "Les chats reçoivent les résultats de {{host}}.",
+      "noneAnswered": "Aucun fournisseur n’a répondu.",
+      "failed": "Le test n’a pas pu s’exécuter : {{error}}",
+      "results_one": "{{count}} résultat",
+      "results_other": "{{count}} résultats",
+      "outcomes": {
+        "ok": "Fonctionne",
+        "no_results": "Aucun résultat",
+        "challenged": "Contrôle anti-robot",
+        "blocked": "Bloqué",
+        "timeout": "Trop lent",
+        "error": "Erreur",
+        "skipped": "Ignoré"
+      }
+    }
   }
 }

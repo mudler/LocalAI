@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   PIN_CAP, sidebarPinLinks, tileFromApp, tileFromBuiltin, buildTiles, filterTiles, resolvePins, togglePin, movePin,
 } from '../../src/utils/addonTiles.js'
-import { primaryDestinations, visiblePrimary } from '../../src/utils/navigationModel.js'
+import { allChatsDestination, primaryActive, primaryDestinations, visiblePrimary } from '../../src/utils/navigationModel.js'
 import { showFirstRun } from '../../src/components/addons/addonState.js'
 import { createPinsApi } from '../../src/utils/pinsApi.js'
 
@@ -83,11 +83,38 @@ test('movePin moves one place and stops at the ends', () => {
 const user = { isAdmin: false, authEnabled: true, hasFeature: () => false, features: {}, hasBuiltin: false }
 
 test('Settings is not a primary item and Models is an administrator item', () => {
-  assert.deepEqual(primaryDestinations.map(i => i.path), ['/app/chat', '/app/models', '/app/addons'])
-  const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true })
-  assert.equal(admin.length, 3)
+  assert.ok(!primaryDestinations.some(i => i.path === '/app/settings'))
+  const admin = visiblePrimary(primaryDestinations, { ...user, isAdmin: true, hasFeature: () => true, hasPages: true })
+  assert.equal(admin.length, primaryDestinations.length)
   const member = visiblePrimary(primaryDestinations, { ...user, hasBuiltin: true })
-  assert.deepEqual(member.map(i => i.path), ['/app/chat', '/app/addons'])
+  assert.deepEqual(member.map(i => i.path), ['/app/addons'])
+})
+
+test('the pages entry shows only once the user has a page, with the chats and pages features', () => {
+  const paths = (ctx) => visiblePrimary(primaryDestinations, ctx).map(i => i.path)
+  const both = { ...user, hasFeature: (f) => f === 'chats' || f === 'pages' }
+  assert.ok(!paths({ ...both, hasPages: false }).includes('/app/pages'), 'zero pages')
+  assert.ok(paths({ ...both, hasPages: true }).includes('/app/pages'), 'one page')
+  assert.ok(!paths({ ...user, hasFeature: (f) => f === 'chats', hasPages: true }).includes('/app/pages'), 'no pages feature')
+  assert.ok(!paths({ ...user, hasFeature: (f) => f === 'pages', hasPages: true }).includes('/app/pages'), 'no chats feature')
+})
+
+test('the files entry shows with the chats feature, like All chats', () => {
+  const paths = (ctx) => visiblePrimary(primaryDestinations, ctx).map(i => i.path)
+  assert.ok(paths({ ...user, hasFeature: (f) => f === 'chats' }).includes('/app/files'))
+  assert.ok(!paths(user).includes('/app/files'))
+})
+
+test('Chats is not a primary item: Home starts a chat, and All chats shows only with the chats feature', () => {
+  const paths = (a) => visiblePrimary(primaryDestinations, a).map(i => i.path)
+  for (const a of [{ ...user, hasFeature: (f) => f === 'chats' }, user, { ...user, isAdmin: true, hasFeature: () => true }]) {
+    assert.ok(!paths(a).some(p => p === '/app/chats' || p.startsWith('/app/chats/')))
+  }
+  const all = (a) => visiblePrimary([allChatsDestination], a).map(i => i.path)
+  assert.equal(allChatsDestination.path, '/app/chats/all')
+  assert.deepEqual(all({ ...user, hasFeature: (f) => f === 'chats' }), ['/app/chats/all'])
+  assert.deepEqual(all(user), [])
+  assert.deepEqual(all({ ...user, isAdmin: true, hasFeature: () => true }), ['/app/chats/all'])
 })
 
 test('addons entry shows for a built-in tile even without the addons feature, and hides with neither', () => {
@@ -154,34 +181,44 @@ test('the first-run card shows only to an installer when nothing is installed', 
 
 test('sidebar entries own one route each: Apps on /app/addons, never a hub', async () => {
   const { hubs, hubOwnsPath } = await import('../../src/components/hub/hubConfig.js')
-  const [build, operate] = hubs
-  // /api/features has answered and the legacy switch is off: four-item sidebar.
+  // The Build hub went to sidebar items; only the legacy Add-ons hub is left of it.
+  assert.deepEqual(hubs.map(h => h.id), ['addons', 'operate'])
+  const [addons, operate] = hubs
   const auth = { isAdmin: true, authEnabled: true, hasFeature: () => true, features: { addon_navigation: true } }
-  for (const p of ['/app/addons', '/app/addons/voice/voice', '/app/addons/notes/home']) {
-    assert.equal(hubOwnsPath(build, p, auth), false, `Build owns ${p}`)
+  for (const p of ['/app/addons', '/app/addons/voice/voice', '/app/addons/notes/home', '/app/build', '/app/collections']) {
     assert.equal(hubOwnsPath(operate, p, auth), false, `Operate owns ${p}`)
   }
-  // Before /api/features answers the Add-ons tab is also closed.
-  assert.equal(hubOwnsPath(build, '/app/addons', { ...auth, features: {} }), false)
-})
-
-test('sidebar hubs keep their own routes, and Apps does not claim them', async () => {
-  const { hubs, hubOwnsPath } = await import('../../src/components/hub/hubConfig.js')
-  const [build, operate] = hubs
-  const auth = { isAdmin: true, authEnabled: true, hasFeature: () => true, features: { addon_navigation: true } }
   for (const p of ['/app/operate', '/app/settings', '/app/backends', '/app/traces', '/app/nodes']) {
     assert.equal(hubOwnsPath(operate, p, auth), true, `Operate misses ${p}`)
-    assert.equal(hubOwnsPath(build, p, auth), false, `Build owns ${p}`)
   }
-  assert.equal(hubOwnsPath(build, '/app/build', auth), true)
-  assert.equal(hubOwnsPath(build, '/app/agents', auth), true)
-  assert.equal(hubOwnsPath(operate, '/app/build', auth), false)
-  // The primary Apps entry matches /app/addons and its subpaths only.
-  const apps = '/app/addons'
-  const appsActive = p => p === apps || p.startsWith(apps + '/')
-  assert.equal(appsActive('/app/addons/voice/voice'), true)
-  assert.equal(appsActive('/app/operate'), false)
-  // Legacy navigation: the Build hub keeps the Add-ons tab.
-  const legacy = { ...auth, features: { addon_navigation: false } }
-  assert.equal(hubOwnsPath(build, '/app/addons', legacy), true)
+  // The new layout: the drawer is its own page; the legacy hub owns nothing.
+  assert.equal(hubOwnsPath(addons, '/app/addons', auth), false)
+  assert.equal(hubOwnsPath(addons, '/app/addons', { ...auth, features: {} }), false)
+  // Legacy navigation: the Add-ons hub owns the drawer.
+  assert.equal(hubOwnsPath(addons, '/app/addons', { ...auth, features: { addon_navigation: false } }), true)
+})
+
+test('the primary items: files, pages, agents, MCP connectors, memory, models and add-ons', () => {
+  assert.deepEqual(primaryDestinations.map(i => i.path), [
+    '/app/files', '/app/pages', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons',
+  ])
+  const all = { isAdmin: true, hasFeature: () => true, hasBuiltin: false, features: {}, hasPages: true }
+  assert.equal(visiblePrimary(primaryDestinations, all).length, 7)
+  // A server without collections hides Memory; a user without chats sees no chat pages.
+  // Agents have their own feature: an administrator grants it apart from the chats.
+  assert.ok(!visiblePrimary(primaryDestinations, { ...all, features: { collections: false } }).some(i => i.path === '/app/collections'))
+  const noChats = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'chats' }).map(i => i.path)
+  assert.deepEqual(noChats, ['/app/agents', '/app/collections', '/app/models', '/app/addons'])
+  const noAgents = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'agents' }).map(i => i.path)
+  assert.deepEqual(noAgents, ['/app/files', '/app/pages', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons'])
+})
+
+test('an item lights up on its own pages: agents own triggers, skills and messaging connectors', () => {
+  const item = (p) => primaryDestinations.find(i => i.path === p)
+  for (const p of ['/app/agents', '/app/agents/a1/edit', '/app/triggers/t1', '/app/skills', '/app/chats/connectors']) {
+    assert.equal(primaryActive(item('/app/agents'), p), true, p)
+  }
+  assert.equal(primaryActive(item('/app/mcp-connectors'), '/app/mcp-connectors'), true)
+  assert.equal(primaryActive(item('/app/collections'), '/app/collections/docs'), true)
+  assert.equal(primaryActive(item('/app/agents'), '/app/chats/c1'), false)
 })

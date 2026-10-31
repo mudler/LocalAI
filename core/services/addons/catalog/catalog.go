@@ -49,6 +49,20 @@ func validEntryTools(r Release) bool {
 		}
 		seen[t] = true
 	}
+	shadowed := map[string]bool{}
+	for _, t := range r.Shadows {
+		if !contract.Replaceable(t) || shadowed[t] {
+			return false
+		}
+		shadowed[t] = true
+	}
+	skills := map[string]bool{}
+	for _, t := range r.SkillShadows {
+		if !contract.ReplaceableSkill(t) || skills[t] {
+			return false
+		}
+		skills[t] = true
+	}
 	return true
 }
 
@@ -126,6 +140,13 @@ type Release struct {
 	// browsing, never authority: the manifest in the verified package decides.
 	ToolCount int      `json:"toolCount,omitempty"`
 	Tools     []string `json:"tools,omitempty"`
+	// Shadows lists the built-in chat tools the add-on replaces (bash, say),
+	// from the manifest's tool definitions, so the install dialog can warn
+	// when another installed add-on already replaces one. A hint, like Tools.
+	Shadows []string `json:"shadows,omitempty"`
+	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say),
+	// from the manifest's skill definitions, for the same warning. A hint.
+	SkillShadows []string `json:"skillShadows,omitempty"`
 
 	// The fields below describe a backend and are refused on any other kind.
 	// They carry what the backend gallery carries beyond the image, so the

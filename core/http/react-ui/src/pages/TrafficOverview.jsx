@@ -10,7 +10,7 @@ import {
 import TrafficChart from '../components/traffic/TrafficChart'
 import WindowSwitch from '../components/traffic/WindowSwitch'
 import Icon from '../components/Icon'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
 import './traffic.css'
 
 // The hour or the day a trace column starts at, in the viewer's locale.
@@ -75,33 +75,30 @@ export default function TrafficOverview() {
         </div>
         <div className="tf-head__acts">
           <WindowSwitch />
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--icon" aria-label={t('refresh')} onClick={() => { usage.reload(); traces.refetch() }}>
-            <Icon name="refresh" spin={usage.loading} />
-          </button>
+          <Button icon="refresh" aria-label={t('refresh')} busy={usage.loading && usage.rows.length > 0} onClick={() => { usage.reload(); traces.refetch() }} />
         </div>
       </header>
       <p className="tf-source">{t('overview.sources')}{win.capped && ` ${t('overview.capped')}`}</p>
 
       {usage.error && (
-        <div className="tf-error" role="alert">
-          <Icon name="alert-circle" />
-          <span>{t('overview.usageError', { message: String(usage.error.message || usage.error) })}</span>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={usage.reload}>{t('retry')}</button>
-        </div>
+        <LoadError title={t('overview.usageErrorTitle')} error={usage.error} onRetry={usage.reload} />
       )}
 
       {loading ? (
-        <div className="tf-loading" data-testid="traffic-loading"><LoadingSpinner size="lg" /></div>
+        <SkeletonRows testId="traffic-loading" />
       ) : firstRun ? (
-        <div className="dk-empty tf-empty" data-testid="traffic-empty">
-          <Icon name="chart-line" className="dk-empty-icon" />
-          <h2 className="dk-empty-title">{t('overview.emptyTitle')}</h2>
-          <p className="dk-empty-text">{t('overview.emptyText')}</p>
-          <div className="tf-empty__acts">
-            <Link className="dk-btn dk-btn--primary" to="/app/chat">{t('overview.emptyChat')}</Link>
-            <Link className="dk-btn dk-btn--secondary" to="/app/traffic/prometheus">{t('overview.emptyApi')}</Link>
-          </div>
-        </div>
+        <EmptyState
+          testId="traffic-empty"
+          icon="chart-line"
+          title={t('overview.emptyTitle')}
+          body={t('overview.emptyText')}
+          actions={(
+            <>
+              <Button variant="primary" to="/app/chats">{t('overview.emptyChat')}</Button>
+              <Button variant="ghost" to="/app/traffic/prometheus">{t('overview.emptyApi')}</Button>
+            </>
+          )}
+        />
       ) : (
         <>
           <dl className="tf-figures" data-testid="traffic-figures">

@@ -35,6 +35,7 @@ If you ship a REST endpoint without (2) and (3), conversational admins won't see
    - `pkg/mcp/localaitools/server_test.go` adds the tool name to `expectedFullCatalog` and `expectedReadOnlyCatalog` (if read-only).
    - Tool dispatch is added to `TestEachToolDispatchesToClient`.
    - `pkg/mcp/localaitools/httpapi/client_test.go` covers the new HTTP path.
+- [ ] An admin route or setting that deliberately gets no tool goes in `adminRoutesWithoutTool` in `pkg/mcp/localaitools/coverage_test.go`, with the reason. The PR description repeats the reason.
 
 ## Adding a new skill recipe (no new tool)
 

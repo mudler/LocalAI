@@ -3,9 +3,9 @@
     "blocked": "An earlier action on this add-on is not confirmed yet. Check its status or dismiss it first.",
     "checkStatus": "Check status",
     "dismiss": "Dismiss",
-    "failed": "The owner did not complete the action. Nothing was changed. Try again to start a new attempt.",
-    "notApplied": "The owner reported the action as done, but the add-on did not change. Try again to start a new attempt.",
-    "unknown": "The owner did not confirm the action yet. It may still be applied. Check its status, or dismiss it before you start another action."
+    "failed": "The action did not finish. Nothing was changed. Try again to start a new attempt.",
+    "notApplied": "The action was reported as done, but the add-on did not change. Try again to start a new attempt.",
+    "unknown": "The action is not confirmed yet. It may still be applied. Check its status, or dismiss it before you start another action."
   },
   "approval": {
     "title": "Approval needed",
@@ -37,14 +37,16 @@
     "emptyTitle": "No add-ons yet",
     "firstRun": {
       "browse": "Find add-ons",
-      "title": "Add your first add-on",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "No add-ons yet",
+      "lead": "Add-ons give LocalAI new pages and chat tools. They run on their own and ask only for what they list.",
+      "featuredLabel": "Start with one of these",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "Checked against your sources before they run",
+      "factRemove": "Turn off or remove any time"
     },
     "headless": "Runs in the background and has no page of its own.",
-    "listLabel": "My add-ons",
+    "listLabel": "Installed add-ons",
     "loading": "Loading add-ons",
     "manage": "Manage",
     "open": "Open",
@@ -56,10 +58,14 @@
     "tools_one": "{{count}} tool",
     "tools_other": "{{count}} tools",
     "version": "Version {{version}}",
-    "working": "Waiting for the owner to confirm.",
+    "working": "Waiting for confirmation.",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "Nothing installed matches \"{{query}}\". Try other words.",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "Add-ons are not available right now.",
+      "paused": "Add-on pages and tools are paused until it is back."
+    }
   },
   "browse": {
     "confirmTitle": "Install {{name}}?",
@@ -69,7 +75,7 @@
     "fromLibrary": "from {{library}}",
     "install": "Install",
     "installedDetail": "Version {{version}}, generation {{generation}}",
-    "installedOther": "Installed {{version}} (another version)",
+    "installedOther": "You have {{version}}",
     "installedSame": "Installed {{version}}",
     "installedState": "Installed",
     "installing": "Installing",
@@ -85,7 +91,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "Installed"
   },
   "catalog": {
     "allLibraries": "All libraries",
@@ -115,8 +122,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "On",
-    "search": "Search add-ons",
+    "running": "Running",
+    "search": "Search installed add-ons",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -129,7 +136,7 @@
     "denied": "The server refused this. You may not have permission, or the add-on changed. The list was refreshed.",
     "invalid": "The server could not accept this request.",
     "network": "The server could not be reached. Check your connection.",
-    "unavailable": "The add-on owner is not available right now. Try again in a moment.",
+    "unavailable": "Add-ons are not available right now. Try again in a moment.",
     "unknownOutcome": "The result could not be confirmed. Check the status before you try again."
   },
   "installed": {
@@ -182,7 +189,7 @@
     "gallery": "Gallery index",
     "hints": {
       "id": "Lowercase letters, digits and hyphens. It cannot change later.",
-      "reference": "The name of a credential the owner configured. Never paste a token or password here.",
+      "reference": "The name of a credential an administrator configured on this server. Never paste a token or password here.",
       "url": "An https address without credentials or a query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
@@ -201,7 +208,7 @@
       "model": "Models"
     },
     "lastRefresh": "Refreshed {{when}}, {{count}} entries",
-    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential the owner configured.",
+    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential an administrator configured on this server.",
     "listLabel": "Libraries",
     "loading": "Loading libraries",
     "notRefreshed": "Not refreshed yet",
@@ -251,10 +258,11 @@
     "hasUI": "Has pages",
     "headless": "Headless, no pages",
     "health": "Health",
+    "installedAt": "Installed",
     "host": "Host API",
     "interface": "Interface",
     "logs": "Logs",
-    "logsNone": "The output of add-on processes is not collected in this release. Health and restart attempts above are what the owner can report.",
+    "logsNone": "The output of add-on processes is not collected in this release. Health and restart attempts above are all that LocalAI can report.",
     "observed": "Observed state",
     "protocol": "Protocol",
     "restarts": "Restart attempts",
@@ -338,14 +346,15 @@
   "state": {
     "failed": "Failed",
     "label": "State: {{state}}",
-    "running": "On",
+    "running": "Running",
     "starting": "Starting",
     "stopped": "Off",
-    "update-pending": "Update pending"
+    "update-pending": "Update pending",
+    "updateTo": "Update {{version}}"
   },
-  "supporting": "Add-ons extend LocalAI with pages and chat tools. Find one, turn it on, and use it.",
+  "supporting": "Software you install to give LocalAI new pages and chat tools. Each one runs on its own and asks only for what it lists.",
   "tabs": {
-    "apps": "My add-ons",
+    "apps": "Installed",
     "browse": "Find add-ons",
     "label": "Add-ons sections",
     "libraries": "Sources"
@@ -516,8 +525,8 @@
       "unknownOutcome": "The outcome is not known. Read the state again: the same action is not sent twice.",
       "auth": "Sign in again.",
       "denied": "Only administrators can do this, from their own browser session.",
-      "network": "The owner could not be reached.",
-      "unavailable": "The owner is not available."
+      "network": "The add-on service could not be reached.",
+      "unavailable": "The add-on service is not available."
     }
   },
   "updates": {
@@ -591,18 +600,30 @@
       "auth": "Sign in again to continue.",
       "denied": "Only an administrator can do this from their own browser session.",
       "network": "The network is not reachable.",
-      "unavailable": "The add-on owner is not available. Try again."
+      "unavailable": "The add-on service is not available. Try again."
     },
-    "reviewButton": "Updates ({{count}})",
-    "reviewTitle": "Review add-on updates",
-    "reviewDescription": "Nothing is upgraded until you choose here. Each upgrade backs up the data of the add-on first.",
+    "upgradeNamed": "Upgrade {{name}}",
+    "why": {
+      "role": "An update is available. Only an administrator can upgrade it.",
+      "needs-check": "An update is reported, but its details are not confirmed yet. Check again to confirm it.",
+      "check-failed": "The last check failed, so the update cannot be confirmed. Check again.",
+      "incompatible": "An update exists but cannot run here:",
+      "integrity": "The library lists this version with different contents. It is not offered as an update.",
+      "recovery": "The data of this add-on needs recovery first. Restore a backup in Details, then upgrade.",
+      "current": "The latest check found no update. The notice may be out of date. Check again.",
+      "unpinned": "The library reports an update but names no build to install, so it cannot be upgraded from here. Check again later."
+    },
     "checkAll": "Check for updates",
     "checkingAll": "Checking...",
     "checkAllDone": "Checked {{count}} add-ons.",
     "checkAllFailed": "{{count}} could not be checked.",
-    "upgradeNamed": "Upgrade {{name}}",
-    "toastDone": "{{name}} upgraded to {{version}}.",
-    "toastFailed": "{{name}} was not upgraded: {{message}}"
+    "checkResult": {
+      "done": "Checked.",
+      "failed": "The check did not complete.",
+      "justNow": "Checked just now."
+    },
+    "waitingService": "The add-on service is starting. LocalAI asks about the upgrade again in {{seconds}} s.",
+    "checkAgain": "Check now"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -639,17 +660,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "Remove {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "What it can do",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "Update to {{version}}"
   },
   "flow": {
     "installAndTurnOn": "Install and turn on",
@@ -663,6 +686,91 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "See it in Installed",
+    "install": "Install",
+    "installNamed": "Install {{name}}",
+    "shadowWarning": "This add-on replaces the built-in {{tool}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves.",
+    "skillShadow": "This add-on replaces the built-in skill {{skill}}.",
+    "skillShadowWarning": "This add-on replaces the built-in skill {{skill}}. Another add-on ({{name}}) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves."
+  },
+  "family": {
+    "pages": "Looking for pages you or an agent made? They are in <go>Pages</go>."
+  },
+  "filter": {
+    "label": "Show",
+    "all": "All",
+    "running": "Running",
+    "off": "Off",
+    "showAll": "Show all",
+    "none": {
+      "all": "No add-ons to show.",
+      "running": "No add-on is running.",
+      "off": "Every add-on is running."
+    }
+  },
+  "attention": {
+    "label": "Needs attention",
+    "failedTitle": "{{name}} stopped.",
+    "failedRestarts_one": "It failed to start {{count}} time in a row.",
+    "failedRestarts_other": "It failed to start {{count}} times in a row.",
+    "failedOnce": "It did not start.",
+    "toolsOff_one": "Its {{count}} chat tool is off until it runs again.",
+    "toolsOff_other": "Its {{count}} chat tools are off until it runs again.",
+    "pageOff": "Its page is not available until it runs again.",
+    "updateTitle": "{{name}} {{version}} is available.",
+    "updateBody": "You have {{current}}. You see what changes and confirm before anything is replaced."
+  },
+  "meta": {
+    "builtin": "Built in",
+    "builtinLong": "Ships with LocalAI",
+    "signed": "Signed · {{library}}",
+    "checked": "Checked · {{library}}",
+    "devBuild": "Development build",
+    "library": "{{library}} library"
+  },
+  "skills": {
+    "title_one": "{{count}} chat skill",
+    "title_other": "{{count}} chat skills",
+    "replaces": "replaces the built-in skill",
+    "serves": "serves in the chats",
+    "notServing": "not serving now",
+    "serveIn": "Use for {{skill}} in the chats",
+    "saveFailed": "Could not save the choice."
+  },
+  "settingsTab": {
+    "overview": "Overview",
+    "settings": "Settings",
+    "tabsLabel": "Details of {{name}}",
+    "off": "Turn on {{name}} to change its settings.",
+    "serverTitle": "Server settings for this add-on",
+    "serverIntro": "LocalAI keeps these settings of {{name}} on the Settings page, with the other server settings.",
+    "open": "Open",
+    "pageLink": "Settings",
+    "server": {
+      "network": {
+        "title": "Sandbox network",
+        "body": "The network that Sandbox commands may use, its ports and how long the audit keeps a line.",
+        "loading": "Reading the network settings…",
+        "limit": "Limit",
+        "newChat": "A new chat",
+        "ports": "Ports",
+        "audit": "Audit kept",
+        "days_one": "{{count}} day",
+        "days_other": "{{count}} days",
+        "presets": {
+          "off": "No network",
+          "registries": "Package registries only",
+          "all": "Every public host"
+        }
+      },
+      "bash": {
+        "title": "Commands in chats",
+        "body": "Which add-on runs the chats' bash, and whether commands may run on this machine."
+      },
+      "webTools": {
+        "title": "Web tools in chats",
+        "body": "Whether the chats get web_search and web_fetch, and which add-on serves them."
+      }
+    }
   }
 }

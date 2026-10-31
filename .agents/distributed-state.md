@@ -87,6 +87,13 @@ Examples:
 - Sticky: the failover prober (`core/application/failover_distributed.go`),
   via `HeldLock`.
 
+A single runner may hand its work to another process and stay the runner. The
+chat hosts (triggers, connectors, jobs) keep their `HeldLock` on a frontend
+and, with chat workers on, send each turn to a worker (`studio.SendBackground`,
+`.agents/distributed-seams.md`). The turn claim in the database, not the lock,
+keeps one turn per chat, so the frontend and the worker use the same claim,
+heartbeat and reaper.
+
 ### 3. Stateless per request
 
 Nothing to share: the feature re-derives everything it needs from the

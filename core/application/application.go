@@ -4,8 +4,13 @@ import (
 	"cmp"
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/core/services/collections"
+	"github.com/mudler/LocalAI/core/services/messaging"
+	"io"
 	"math/rand/v2"
 	"net/http"
+	"net/netip"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -28,8 +33,6 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
-	"github.com/mudler/LocalAI/core/services/agentpool"
-	"github.com/mudler/LocalAI/core/services/chathistory"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
 	"github.com/mudler/LocalAI/core/services/failover"
@@ -43,6 +46,22 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/convert"
+	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/hostexec"
+	"github.com/mudler/LocalAI/core/services/studio/jobs"
+	"github.com/mudler/LocalAI/core/services/studio/loops"
+	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
+	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
+	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/core/services/studio/textindex"
+	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -88,6 +107,7 @@ type Application struct {
 	backendLibrary  *backendlib.Installer
 	addonManager    *addons.Manager
 	addonHostOps    *addonruntime.HostOps
+	addonDataRoot   string // parent of the private data directory of each add-on; empty when none runs here
 	addonsProbe     addonsProbeState
 	modelsProbe     modelsProbeState
 
@@ -107,21 +127,67 @@ type Application struct {
 	startupConfig        *config.ApplicationConfig // Stores original config from env vars (before file loading)
 	templatesEvaluator   *templates.Evaluator
 	galleryService       *galleryop.GalleryService
-	agentJobService      *agentpool.AgentJobService
-	agentPoolService     atomic.Pointer[agentpool.AgentPoolService]
+	collectionsService   atomic.Pointer[collections.Service]
 	faceRegistry         facerecognition.Registry
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
-	chatHistoryStore     *chathistory.Store
-	authDB               *gorm.DB
-	metricsService       *monitoring.LocalAIMetricsService
-	statsRecorder        *billing.Recorder
-	fallbackUser         *auth.User
-	piiRedactor          *pii.Redactor
-	piiEvents            pii.EventStore
-	mitmCA               atomic.Pointer[mitm.CA]
-	mitmServer           atomic.Pointer[mitm.Server]
-	mitmMutex            sync.Mutex // serializes Stop+Start; readers use atomic loads
+	studioStore          store.Store      // the studio loop's chats; see initStudioStore
+	studioStoreKind      string           // "gorm", "json" or "memory"
+	studioAgents         agents.Store     // saved agents; same kind as the chats store
+	studioNotify         notify.Store     // notifications; same kind as the chats store
+	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
+	studioInbox          *notify.Service
+	// studioWeb serves the built-in web tools of the chats.
+	studioWeb *studioWeb
+	// studioSelf lists the addresses of this server that a model's request
+	// never reaches: web_fetch refuses them, and the Sandbox proxy gets them
+	// with each allow of egress.check. One list, built once; see serverSelf.
+	studioSelfOnce sync.Once
+	studioSelf     func() []netip.Prefix
+	// The list settings of the Sandbox network, each with its last valid
+	// value; see studioEgressSettings.
+	studioEgressListsOnce sync.Once
+	studioEgressPorts     *lastGood[[]int]
+	studioEgressExtra     *lastGood[[]string]
+	studioEgressAllowed   *lastGood[[]egress.AllowedHost]
+	studioMarks           convert.Marks // what the conversion of the old data did
+	studioConvertMu       sync.Mutex    // one conversion at a time in this process
+	studioTriggers        *studio.Triggers
+	studioTriggerStore    triggers.Store
+	studioJobStore        jobs.Store
+	studioJobs            *studio.Jobs
+	studioJobsStop        context.CancelFunc
+	studioTriggersStop    context.CancelFunc
+	studioLoopStore       loops.Store
+	studioLoops           *studio.Loops
+	studioLoopsStop       context.CancelFunc
+	studioConnStore       connectors.Store
+	studioMCPStore        mcpconns.Store
+	studioMCPConns        *mcpconns.Service
+	studioConnectors      *studio.Connectors
+	studioConnectorsHook  atomic.Pointer[studio.Connectors] // the same manager, for the inbox hook that runs on other goroutines
+	studioPusher          *notify.Pusher
+	studioLocks           []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
+	studioConnectorsStop  context.CancelFunc
+	studioProvider        *provider.Provider
+	studioService         *studio.Service
+	studioWorkerSub       messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
+	studioWorkerNode      *chatWorkerNode        // the chat worker's row in the node list; nil otherwise
+	studioTempDir         string                 // removed at shutdown; set only in memory-only mode
+	studioHostExec        *hostexec.Runner       // the chats' built-in bash on this machine
+	studioFiles           *files.Service
+	studioFilesIndex      io.Closer          // the JSON index of the workspace; nil when it uses the database
+	studioFilesTemp       string             // blob cache folder of a cluster with no data path; removed at shutdown
+	studioTextIndex       *textindex.Indexer // the text of the documents in the files; nil when files are off
+	authDB                *gorm.DB
+	metricsService        *monitoring.LocalAIMetricsService
+	statsRecorder         *billing.Recorder
+	fallbackUser          *auth.User
+	piiRedactor           *pii.Redactor
+	piiEvents             pii.EventStore
+	mitmCA                atomic.Pointer[mitm.CA]
+	mitmServer            atomic.Pointer[mitm.Server]
+	mitmMutex             sync.Mutex // serializes Stop+Start; readers use atomic loads
 	// mitmHostConflicts records duplicate-host claims across model configs.
 	// Non-empty disables the MITM listener until resolved — the strict
 	// 1-to-1 host↔model invariant the dispatcher relies on. Read by
@@ -137,7 +203,6 @@ type Application struct {
 	p2pMutex          sync.Mutex
 	p2pCtx            context.Context
 	p2pCancel         context.CancelFunc
-	agentJobMutex     sync.Mutex
 
 	// Distributed mode services (nil when not in distributed mode)
 	distributed *DistributedServices
@@ -174,6 +239,11 @@ type Application struct {
 	// load balancer's rotation.
 	startupComplete atomic.Bool
 
+	// collectionsPending is true from AwaitCollections until StartCollections
+	// returns. The collections start after the server listens, so for a few
+	// seconds /api/collections answers 503; /readyz waits for them.
+	collectionsPending atomic.Bool
+
 	shutdownOnce sync.Once
 }
 
@@ -186,7 +256,18 @@ func (a *Application) WebSocketTickets() *auth.WebSocketTickets {
 // Ready reports whether the application has finished starting up and can serve
 // traffic. It backs the /readyz probe and is safe to call from any goroutine,
 // including while startup is still running.
-func (a *Application) Ready() bool { return a.startupComplete.Load() }
+func (a *Application) Ready() bool {
+	return a.startupComplete.Load() && !a.collectionsPending.Load()
+}
+
+// AwaitCollections makes Ready wait until StartCollections has returned,
+// whether it started the service or failed. The process calls it before the
+// server listens, and only when it will start the collections.
+func (a *Application) AwaitCollections() {
+	if a.applicationConfig.Collections.Enabled {
+		a.collectionsPending.Store(true)
+	}
+}
 
 // markStartupComplete flips the application to ready. Called once, at the very
 // end of New(), so every startup step — model preload included — has finished
@@ -284,10 +365,6 @@ func (a *Application) GalleryService() *galleryop.GalleryService {
 	return a.galleryService
 }
 
-func (a *Application) AgentJobService() *agentpool.AgentJobService {
-	return a.agentJobService
-}
-
 func (a *Application) UpgradeChecker() *UpgradeChecker {
 	return a.upgradeChecker
 }
@@ -306,10 +383,6 @@ func (a *Application) distributedDB() *gorm.DB {
 		return a.authDB
 	}
 	return nil
-}
-
-func (a *Application) AgentPoolService() *agentpool.AgentPoolService {
-	return a.agentPoolService.Load()
 }
 
 // FaceRegistry returns the face-recognition registry used for 1:N
@@ -333,13 +406,6 @@ func (a *Application) VoiceRegistry() voicerecognition.Registry {
 // recognition embeddings rather than synthesis reference audio.
 func (a *Application) VoiceProfileStore() *voiceprofile.Store {
 	return a.voiceProfileStore
-}
-
-// ChatHistoryStore returns the server-side WebUI chat history store, or nil
-// when the feature is disabled (LOCALAI_DISABLE_WEBUI=true or persistence
-// path could not be resolved).
-func (a *Application) ChatHistoryStore() *chathistory.Store {
-	return a.chatHistoryStore
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
@@ -591,6 +657,59 @@ func (a *Application) IsDistributed() bool {
 func (a *Application) Shutdown() error {
 	var err error
 	a.shutdownOnce.Do(func() {
+		// A chat worker stops taking starts first: a start that arrived now
+		// would meet a closing service. Its running turns end as interrupted.
+		a.stopChatWorker()
+		if a.studioMCPConns != nil {
+			a.studioMCPConns.Close()
+		}
+		if a.studioConnectorsStop != nil {
+			a.studioConnectorsStop()
+		}
+		if a.studioConnectors != nil {
+			a.studioConnectors.Close()
+		}
+		if a.studioJobsStop != nil {
+			a.studioJobsStop()
+		}
+		if a.studioJobs != nil {
+			a.studioJobs.Close()
+		}
+		if a.studioTriggersStop != nil {
+			a.studioTriggersStop()
+		}
+		if a.studioTriggers != nil {
+			a.studioTriggers.Close()
+		}
+		if a.studioLoopsStop != nil {
+			a.studioLoopsStop()
+		}
+		if a.studioLoops != nil {
+			a.studioLoops.Close()
+		}
+		if a.studioPusher != nil {
+			a.studioPusher.Close()
+		}
+		a.closeStudioLocks() // after both hosts: a running host would take a released lock back
+		if a.studioHostExec != nil {
+			_ = a.studioHostExec.Close(context.Background())
+		}
+		if a.studioService != nil {
+			_ = a.studioService.Close(context.Background())
+		}
+		// After the studio service: a chat may still search a collection.
+		if svc := a.collectionsService.Load(); svc != nil {
+			svc.Close()
+		}
+		if a.studioTempDir != "" {
+			_ = os.RemoveAll(a.studioTempDir)
+		}
+		if a.studioFilesIndex != nil {
+			_ = a.studioFilesIndex.Close()
+		}
+		if a.studioFilesTemp != "" {
+			_ = os.RemoveAll(a.studioFilesTemp)
+		}
 		if a.addonServer != nil {
 			_ = a.addonServer.Close()
 		}
@@ -692,6 +811,15 @@ func (a *Application) start() (startErr error) {
 		assistantClient.StatsRecorder = a.statsRecorder
 		assistantClient.FallbackUser = a.fallbackUser
 		assistantClient.VoiceProfiles = a.voiceProfileStore
+		// The chats start after the assistant, so the shared folder tools
+		// look the service up at each call.
+		assistantClient.SharedFolders = func() *sharedfolders.Service {
+			if svc := a.StudioService(); svc != nil {
+				return svc.SharedFolders()
+			}
+			return nil
+		}
+		assistantClient.Chats = a.StudioService
 		if a.backendLibrary != nil {
 			assistantClient.BackendLibrary = libraryInstallNoProgress{a.backendLibrary}
 		}
@@ -730,111 +858,48 @@ func (a *Application) start() (startErr error) {
 		}
 	}
 
-	// Initialize agent job service (Start() is deferred to after distributed wiring)
-	agentJobService := agentpool.NewAgentJobService(
-		a.ApplicationConfig(),
-		a.ModelLoader(),
-		a.ModelConfigLoader(),
-		a.TemplatesEvaluator(),
-	)
-
-	a.agentJobService = agentJobService
-
 	return nil
 }
 
-// initChatHistoryStore initializes the chat history store for the WebUI
-// (issue #9432). It reuses the shared auth database so per-user chat history
-// sits alongside agent configs and jobs in one place — mudler's review on
-// #9902 called out the file-based store as inconsistent with the rest of
-// LocalAI's per-user state. When auth is disabled the store stays nil and the
-// React UI falls back to localStorage. It must run after the auth database is
-// opened: start() runs before that, so a store set up there was always nil
-// and the conversation routes were never registered.
-func (a *Application) initChatHistoryStore() {
-	if a.applicationConfig.DisableWebUI || a.authDB == nil {
-		return
-	}
-	store, err := chathistory.New(a.authDB)
-	if err != nil {
-		xlog.Warn("Chat history persistence disabled: failed to initialise store", "error", err)
-		return
-	}
-	a.chatHistoryStore = store
-}
+// CollectionsService returns the knowledge-base collections of the server, or
+// nil while they start or when the feature is off.
+func (a *Application) CollectionsService() *collections.Service { return a.collectionsService.Load() }
 
-// agentPoolOptions builds the agent pool's dependencies. WorkQueue stays a nil
-// interface without distributed services, because the pool reads a non-nil
-// WorkQueue as distributed mode.
-func (a *Application) agentPoolOptions() agentpool.AgentPoolOptions {
-	opts := agentpool.AgentPoolOptions{
-		AuthDB: a.authDB,
+// StartCollections starts the collections service. Like the agent pool it runs
+// after the HTTP server is listening, because the vector engines call the
+// embeddings API while they open a collection.
+func (a *Application) StartCollections() {
+	defer a.collectionsPending.Store(false)
+	if !a.applicationConfig.Collections.Enabled {
+		return
 	}
+	var bus messaging.Broadcaster
 	if d := a.Distributed(); d != nil {
-		if d.DistStores != nil && d.DistStores.Skills != nil {
-			opts.SkillStore = d.DistStores.Skills
-		}
-		opts.WorkQueue = d.WorkQueue
-		opts.EventBridge = d.AgentBridge
-		opts.AgentStore = d.AgentStore
-		if d.Nats != nil {
-			opts.Bus = d.Nats
-		}
-	}
-	return opts
-}
-
-// StartAgentPool initializes and starts the agent pool service (LocalAGI integration).
-// This must be called after the HTTP server is listening, because backends like
-// PostgreSQL need to call the embeddings API during collection initialization.
-func (a *Application) StartAgentPool() {
-	if !a.applicationConfig.AgentPool.Enabled {
-		return
-	}
-	aps, err := agentpool.NewAgentPoolService(a.applicationConfig, a.agentPoolOptions())
-	if err != nil {
-		xlog.Error("Failed to create agent pool service", "error", err)
-		return
-	}
-
-	// Wire distributed mode components
-	if d := a.Distributed(); d != nil {
-		// Wait for at least one healthy backend worker before starting the agent pool.
-		// Collections initialization calls embeddings which require a worker.
 		if d.Registry != nil {
 			a.waitForHealthyWorker()
 		}
+		if d.Nats != nil {
+			bus = d.Nats
+		}
 	}
-
-	if err := aps.Start(a.applicationConfig.Context); err != nil {
-		xlog.Error("Failed to start agent pool", "error", err)
+	svc, err := collections.New(a.applicationConfig, bus, a.collectionsOptions()...)
+	if err != nil {
+		xlog.Error("Failed to start the collections service", "error", err)
 		return
 	}
+	a.collectionsService.Store(svc)
+}
 
-	// Wire per-user scoped services so collections, skills, and jobs are isolated per user
-	usm := agentpool.NewUserServicesManager(
-		aps.UserStorage(),
-		a.applicationConfig,
-		a.modelLoader,
-		a.backendLoader,
-		a.templatesEvaluator,
-	)
-	// Wire distributed backends to per-user job services
-	if a.agentJobService != nil {
-		if d := a.agentJobService.Dispatcher(); d != nil {
-			usm.SetJobDispatcher(d)
-		}
-		if s := a.agentJobService.DBStore(); s != nil {
-			usm.SetJobDBStore(s)
-		}
+// collectionsOptions makes the collections reach the embeddings route inside the
+// process, as a service user, so they work with user accounts and no static API
+// key. Without the studio provider the service calls the API over the network.
+func (a *Application) collectionsOptions() []collections.Option {
+	sp := a.StudioProvider()
+	if sp == nil {
+		return nil
 	}
-	// Keep per-user agent tasks consistent across replicas (nil in standalone).
-	if d := a.Distributed(); d != nil {
-		usm.SetJobSyncNATS(d.Nats)
-	}
-	aps.SetUserServicesManager(usm)
-
-	a.agentPoolService.Store(aps)
+	svcUser := &auth.User{ID: "collections-service", Name: "Collections", Role: auth.RoleAdmin, Status: auth.StatusActive}
+	return []collections.Option{collections.WithHTTPClient(sp.Transport().Client(svcUser))}
 }
 
 // AddonManager is nil unless the deployment explicitly enables addons.
@@ -940,20 +1005,13 @@ func (a *Application) startAddons() error {
 		}
 	}
 	if cat.Sources != nil {
-		if err = cat.Sources.RefreshEnabled(a.applicationConfig.Context); err != nil {
-			if a.applicationConfig.Context.Err() != nil {
-				_ = m.Close()
-				return err
-			}
-			// An unreachable library must not keep LocalAI or the installed
-			// add-ons down. The cache stays empty until an explicit refresh.
-			xlog.Warn("Could not refresh the add-on libraries at startup", "error", err)
-		}
+		startLibraryRefresh(a.applicationConfig.Context, cat.Sources.RefreshEnabled)
 	}
 	if c.InstanceID == c.OwnerID {
 		limits := contract.DefaultLimits()
 		a.writeModelsProbe()
 		a.addonHostOps = a.newAddonHostOps(m, limits)
+		a.addonDataRoot = filepath.Join(c.Root, "data")
 		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
 		if err != nil {
 			_ = m.Close()
@@ -981,6 +1039,19 @@ func (a *Application) startAddons() error {
 		return err
 	}
 	return nil
+}
+
+// startLibraryRefresh fills the owner's library cache in the background. The
+// refresh asks every enabled library over the network, up to 30 seconds in all,
+// and an unreachable library must not keep LocalAI or the installed add-ons
+// down. Until it ends the cache is empty, as it is after any failed refresh;
+// an explicit refresh does the same work again.
+func startLibraryRefresh(ctx context.Context, refresh func(context.Context) error) {
+	go func() {
+		if err := refresh(ctx); err != nil && ctx.Err() == nil {
+			xlog.Warn("Could not refresh the add-on libraries at startup", "error", err)
+		}
+	}()
 }
 
 // libraryInstallNoProgress adapts the library installer to the assistant's

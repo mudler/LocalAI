@@ -12,7 +12,6 @@ import (
 
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	addonsvc "github.com/mudler/LocalAI/core/services/addons"
-	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -211,18 +210,19 @@ var _ = Describe("the database a conversation works on", func() {
 		inspect := "addon__tables__databases-inspect"
 		_, e := h.say("carol", "chat-1", inspect, `{}`)
 		Expect(e).NotTo(HaveOccurred())
-		// The answer for an unknown database, to compare with.
-		_, unknown := h.say("carol", "chat-1", inspect, `{"resourceId":"r0123456789abcdef0123456789abcde"}`)
-		Expect(unknown).To(HaveOccurred())
-		Expect(gateway.StatusFor(unknown)).To(Equal(403))
+		// The answer for an unknown database, to compare with: the model is
+		// told in plain words that the resource cannot be used.
+		unknown, e := h.say("carol", "chat-1", inspect, `{"resourceId":"r0123456789abcdef0123456789abcde"}`)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(unknown.Kind).To(Equal(tools.ResultError))
+		Expect(unknown.Code).To(Equal(tools.CodeResourceUnreachable))
 
 		// Revoked: the same denial. The reference is no authority and stays the
 		// person's own: a new grant by the owner makes it work again.
 		Expect(h.revoke("bob", shared, "carol").code).To(Equal(200))
-		_, e = h.say("carol", "chat-1", inspect, `{}`)
-		Expect(e).To(HaveOccurred())
-		Expect(e.Error()).To(Equal(unknown.Error()))
-		Expect(gateway.StatusFor(e)).To(Equal(403))
+		denied, e := h.say("carol", "chat-1", inspect, `{}`)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(denied).To(Equal(unknown))
 		Expect(h.selection("carol", "chat-1").code).To(Equal(http.StatusNotFound))
 		Expect(h.grant("bob", shared, "carol", "viewer").code).To(Equal(200))
 		got, e := h.say("carol", "chat-1", inspect, `{}`)
@@ -232,10 +232,9 @@ var _ = Describe("the database a conversation works on", func() {
 		// Deleted: the same denial.
 		rev := h.revision("bob", doomed)
 		Expect(h.remove("bob", doomed, "x-del", "Doomed", rev).code).To(Equal(200))
-		_, e = h.say("carol", "chat-2", inspect, `{}`)
-		Expect(e).To(HaveOccurred())
-		Expect(gateway.StatusFor(e)).To(Equal(403))
-		Expect(e.Error()).To(Equal(unknown.Error()))
+		denied, e = h.say("carol", "chat-2", inspect, `{}`)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(denied).To(Equal(unknown))
 		Expect(h.selection("carol", "chat-2").code).To(Equal(http.StatusNotFound))
 
 		// Tampered: the stored file names a database that was never shared.
@@ -263,10 +262,9 @@ var _ = Describe("the database a conversation works on", func() {
 		Expect(os.WriteFile(path, raw, 0o600)).To(Succeed())
 		h.start()
 		h.running()
-		_, e = h.say("carol", "chat-3", inspect, `{}`)
-		Expect(e).To(HaveOccurred())
-		Expect(gateway.StatusFor(e)).To(Equal(403))
-		Expect(e.Error()).To(Equal(unknown.Error()))
+		denied, e = h.say("carol", "chat-3", inspect, `{}`)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(denied).To(Equal(unknown))
 		got2 := h.selection("carol", "chat-3")
 		Expect(got2.code).To(Equal(http.StatusNotFound))
 		// The owner of that database is not affected.

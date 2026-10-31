@@ -1,12 +1,13 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import SearchableModelSelect from '../SearchableModelSelect'
 import Icon from '../Icon'
-import { CAP_CHAT } from '../../utils/capabilities'
+import { CAP_CHAT, CAP_TRANSCRIPT, CAP_VISION } from '../../utils/capabilities'
 import {
   FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, groupOf, OLD_SECTIONS,
 } from '../../utils/settingsSchema'
 import { displayValue } from '../../utils/settingsPending'
 import LibrarySourcesField from './LibrarySourcesField'
+import HostListField from './HostListField'
 
 // What applying the field does, in words. Only a field the code speaks about
 // has a hint (see settingsSchema.js); the others say nothing.
@@ -22,7 +23,8 @@ function ApplyHint({ field }) {
 
 function coerceInt(field, text) {
   const floor = field.min ?? 0
-  return Math.max(floor, parseInt(text, 10) || floor)
+  const n = Math.max(floor, parseInt(text, 10) || floor)
+  return field.max !== undefined ? Math.min(field.max, n) : n
 }
 
 function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
@@ -41,14 +43,17 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
           onClick={() => set(!value)}
         />
       )
-    case 'int':
-      return (
+    case 'int': {
+      const input = (
         <input
-          id={id} type="number" className="dk-input st-num" min={field.min} value={value}
+          id={id} type="number" className="dk-input st-num" min={field.min} max={field.max} value={value}
           placeholder={field.placeholder} disabled={disabled}
           onChange={(e) => set(coerceInt(field, e.target.value))}
         />
       )
+      if (!field.unit) return input
+      return <span className="st-unit">{input}<span className="st-unit__label">{field.unit}</span></span>
+    }
     case 'duration':
       return (
         <input
@@ -83,9 +88,16 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
         <div className="st-model">
           <SearchableModelSelect
             value={value} onChange={set} placeholder={field.placeholder}
-            capability={field.key === 'agent_pool_default_model' ? CAP_CHAT : undefined}
+            capability={MODEL_CAPABILITY[field.key]}
           />
         </div>
+      )
+    case 'hosts':
+      return (
+        <HostListField
+          id={id} value={value} onChange={set} disabled={disabled} placeholder={field.placeholder}
+          allowPrivate={!!getValue(FIELD_BY_KEY.chats_egress_allow_private, settings)}
+        />
       )
     case 'json':
     case 'lines':
@@ -152,6 +164,13 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
   }
 }
 
+// The capability a model setting's picker is limited to.
+const MODEL_CAPABILITY = {
+  collections_default_model: CAP_CHAT,
+  chats_vision_model: CAP_VISION,
+  chats_transcription_model: CAP_TRANSCRIPT,
+}
+
 // One setting: its name and words on the left, its control on the right, and
 // under the words what is worth knowing (where it was, its key, when it
 // applies, whether it differs from the default and how to put that back).
@@ -162,7 +181,7 @@ export default function SettingField({ field, settings, onChange, assets, showWh
   const needsValue = !field.needsValue || getValue(FIELD_BY_KEY[field.needsValue[0]], settings) === field.needsValue[1]
   const disabled = !needsOn || !needsValue
   const changed = isChanged(field, settings)
-  const wide = field.kind === 'json' || field.kind === 'lines'
+  const wide = field.kind === 'json' || field.kind === 'lines' || field.kind === 'hosts'
   const where = groupOf(field.group)?.label
   const was = OLD_SECTIONS[field.was]
 

@@ -58,6 +58,68 @@
       "assistant": "LocalAI Assistant",
       "distributed": "Distributed",
       "responses": "Responses"
+    },
+    "loadFailedTitle": "Could not load the settings.",
+    "egress": {
+      "title": "Sandbox network",
+      "intro": "Commands in the Sandbox reach the network only through a proxy that asks LocalAI about each connection. Set the limit, the preset of a new chat, the ports, the extra registries and the audit retention below; a person chooses the preset of each chat in its Tools menu, up to the limit, and allows a blocked host on a card.",
+      "serves": "Commands run isolated in the {{name}} add-on",
+      "servesHost": "Commands run on this machine through {{name}}",
+      "servesNone": "No Sandbox runs commands yet",
+      "hostNote": "The host backend runs commands on this machine with its network: these settings do not apply to them.",
+      "counts": "Last 24 hours: {{allowed}} allowed, {{blocked}} blocked.",
+      "private": "Let an administrator’s rule reach private networks",
+      "privateWarning": "A host that an administrator allows can then reach addresses inside your network. A preset alone never does, and the cloud metadata and server addresses stay refused.",
+      "typePhrase": "To turn it on, type: {{phrase}}",
+      "registries": "Package registries ({{count}})",
+      "showAudit": "Show the audit",
+      "hideAudit": "Hide the audit",
+      "loadFailed": "The Sandbox network settings could not be read",
+      "audit": {
+        "verdict": "Verdict",
+        "host": "Host",
+        "user": "User",
+        "at": "When",
+        "reason": "Reason",
+        "bytes": "Bytes up / down",
+        "refresh": "Refresh",
+        "empty": "No requests match.",
+        "loadFailed": "The audit could not be read",
+        "verdicts": {
+          "any": "Any verdict",
+          "allow": "Allowed",
+          "block": "Blocked",
+          "done": "Finished"
+        }
+      }
+    },
+    "addons": {
+      "title": "Add-ons",
+      "hint": "Settings that add-ons bring",
+      "intro": "Each add-on keeps its settings on its own page, on the Settings tab of its details. Open one to change them.",
+      "off": "Turned off. Turn it on to change its settings.",
+      "open": "Open settings",
+      "openNamed": "Open the settings of {{name}}",
+      "count_one": "{{count}} add-on with settings",
+      "count_other": "{{count}} add-ons with settings"
+    },
+    "hosts": {
+      "add": "Add",
+      "listLabel": "Always allowed hosts",
+      "remove": "Remove {{host}}",
+      "empty": "No host yet. Write a host name, or host:port to pin the port.",
+      "hint": "Exact names only. Add :port to allow one port; otherwise the Sandbox network ports apply.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Write a host name.",
+        "wildcard": "\"{{value}}\": write an exact host name, not a pattern.",
+        "shape": "\"{{value}}\" is not a host name. Write the host only, with no scheme or path.",
+        "port": "\"{{value}}\": the port must be 1 to 65535, and 22 and 25 are always refused.",
+        "private": "\"{{value}}\" is a private or local address. Turn on the private network switch first.",
+        "numeric": "\"{{value}}\": write an IP address as four decimal numbers.",
+        "duplicate": "\"{{value}}\" is already on the list.",
+        "full": "The list holds at most {{max}} hosts."
+      }
     }
   },
   "traces": {
@@ -103,5 +165,74 @@
     "users": "Users",
     "invites": "Invites",
     "keys": "API keys"
+  },
+  "settingsTools": {
+    "intro": "The chats have a few built-in tools that an add-on can replace. When the add-on is installed, running and on for a chat, the chat uses the add-on's tool instead, under the same name.",
+    "empty": "No built-in tool can be managed on this server.",
+    "loadFailed": "The built-in tools could not be read",
+    "switch": "On",
+    "byBuiltin": "Built-in",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Off",
+    "unavailable": "This server cannot run it: {{reason}}.",
+    "installSandbox": "Install the Sandbox to run commands isolated",
+    "replaceExplain": "These add-ons replace {{tool}}: the one chosen serves it in every chat where it is on and running, and the built-in is hidden. Only one can be active. Until you choose, the one installed first serves.",
+    "defaultInstalledFirst": "Default: installed first",
+    "installedOn": "Installed {{when}}",
+    "choose_one": "{{count}} add-on replaces {{tool}}: choose which one to use.",
+    "choose_other": "{{count}} add-ons replace {{tool}}: choose which one to use.",
+    "labels": {
+      "bash": "Commands (bash)",
+      "web_search": "Web search",
+      "web_fetch": "Read web pages",
+      "list_agents": "Saved agents"
+    },
+    "descriptions": {
+      "bash": "Runs commands and code for the chats directly on this machine when no Sandbox serves bash. The Sandbox add-on replaces it with isolated commands.",
+      "web_search": "Searches the web for the chats without a key (DuckDuckGo, then Brave Search, then Bing), or with your SearXNG instance when one is set.",
+      "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them.",
+      "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu."
+    },
+    "bash": {
+      "switch": "Let chats run commands on this machine",
+      "modeLegend": "Who can run commands",
+      "ask": "Ask each time.",
+      "askHint": "Only administrators' chats get it, and each command waits for their yes in the chat.",
+      "on": "Allow for everyone.",
+      "onHint": "Every user's chats run commands here without asking, also scheduled runs and sub-agents.",
+      "default": "Not set: the default applies ({{mode}}).",
+      "warning": "Commands run as the user LocalAI runs as, with no isolation and with this machine's network: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. Every command is logged. Install the Sandbox to isolate them."
+    },
+    "modes": {
+      "off": "off",
+      "ask": "ask each time",
+      "on": "allowed for everyone"
+    },
+    "skillsTitle": "Skills that add-ons replace",
+    "skillsIntro": "An add-on can replace a built-in skill with its own, written for its tools. When several add-ons replace one, choose the one that serves.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "The chosen add-on is not running: the built-in skill serves.",
+    "toolNotRunning": "The add-on that replaces this tool is not running: the built-in tool serves.",
+    "stopped": "stopped",
+    "webTest": {
+      "intro": "Runs a query with each search provider of the saved settings and shows what each one did. Apply your changes first.",
+      "queryLabel": "Query",
+      "run": "Test search",
+      "running": "Testing…",
+      "answered": "Chats get the results of {{host}}.",
+      "noneAnswered": "No provider answered.",
+      "failed": "The test could not run: {{error}}",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "outcomes": {
+        "ok": "Works",
+        "no_results": "No results",
+        "challenged": "Bot check",
+        "blocked": "Blocked",
+        "timeout": "Too slow",
+        "error": "Error",
+        "skipped": "Skipped"
+      }
+    }
   }
 }

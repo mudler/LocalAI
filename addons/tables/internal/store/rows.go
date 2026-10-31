@@ -290,7 +290,7 @@ func jsonValue(typ string, v any) any { return decodeValue(typ, v) }
 
 // runRows executes a change inside tx and returns what it did. The caller
 // commits or rolls back.
-func (s *Store) runRows(ctx context.Context, tx *sql.Tx, cat []catalogTable, c RowChange) (rowOutcome, error) {
+func (s *Store) runRows(ctx context.Context, tx *sql.Tx, cat []catalogTable, c RowChange, rec *recorder) (rowOutcome, error) {
 	tbl, err := findTable(cat, c.Table)
 	if err != nil {
 		return rowOutcome{}, err
@@ -344,6 +344,8 @@ func (s *Store) runRows(ctx context.Context, tx *sql.Tx, cat []catalogTable, c R
 		sort.Slice(out.inserted, func(i, j int) bool { return out.inserted[i] < out.inserted[j] })
 		out.ids = out.inserted
 		out.hash = idsHash(out.ids)
+		rec.set(inverse{Op: invDeleteRows, Table: tbl.ID, IDs: append([]int64(nil), out.inserted...)},
+			fmt.Sprintf("Delete the %s added to %s", plural(len(out.inserted), "row", "rows"), tbl.Name))
 		for i, in := range c.Rows {
 			if i == sampleRowsLimit {
 				break
@@ -389,6 +391,16 @@ func (s *Store) runRows(ctx context.Context, tx *sql.Tx, cat []catalogTable, c R
 		if err != nil {
 			return out, err
 		}
+		if saved, ok, err := rec.capture(ctx, tx, tbl.ID, colIDs(cols), ids); err != nil {
+			return out, err
+		} else if ok {
+			labels := make([]string, len(cols))
+			for i, c := range cols {
+				labels[i] = c.Name
+			}
+			rec.set(inverse{Op: invRestoreValues, Table: tbl.ID, Cols: colIDs(cols), Rows: saved},
+				fmt.Sprintf("Restore the previous values of %s in %s of %s", strings.Join(labels, ", "), plural(len(ids), "row", "rows"), tbl.Name))
+		}
 		for _, id := range ids {
 			args = append(args, id)
 		}
@@ -414,6 +426,12 @@ func (s *Store) runRows(ctx context.Context, tx *sql.Tx, cat []catalogTable, c R
 		before, err := snapshot(ctx, tx, tbl, ids, allColumns(tbl))
 		if err != nil {
 			return out, err
+		}
+		if saved, ok, err := rec.capture(ctx, tx, tbl.ID, colIDs(tbl.cols), ids); err != nil {
+			return out, err
+		} else if ok {
+			rec.set(inverse{Op: invReinsertRows, Table: tbl.ID, Cols: colIDs(tbl.cols), Rows: saved},
+				fmt.Sprintf("Restore the %s deleted from %s", plural(len(ids), "row", "rows"), tbl.Name))
 		}
 		args := make([]any, len(ids))
 		for i, id := range ids {
@@ -509,7 +527,7 @@ func (s *Store) PreviewRows(ctx context.Context, change RowChange) (contract.Pre
 	if err != nil {
 		return out, err
 	}
-	o, err := s.runRows(ctx, tx, cat, change)
+	o, err := s.runRows(ctx, tx, cat, change, nil)
 	if err != nil {
 		return out, err
 	}
@@ -593,7 +611,8 @@ func (s *Store) ApplyRows(ctx context.Context, change RowChange, expected contra
 	if err != nil {
 		return contract.Receipt{}, err
 	}
-	o, err := s.runRows(ctx, tx, cat, change)
+	rec := s.newRecorder(contract.ChangeClassWrite, change.Kind)
+	o, err := s.runRows(ctx, tx, cat, change, rec)
 	if err != nil {
 		if definiteRowFailure(err) {
 			forget()
@@ -604,7 +623,11 @@ func (s *Store) ApplyRows(ctx context.Context, change RowChange, expected contra
 	if err != nil {
 		return contract.Receipt{}, capacityError(err)
 	}
-	payload := rowPayload(change, o)
+	note, err := s.record(ctx, tx, rec, operationID, m.Revision, next)
+	if err != nil {
+		return contract.Receipt{}, err
+	}
+	payload := withUndo(rowPayload(change, o), note)
 	if err = writeReceipt(ctx, tx, operationID, hash, next, payload); err != nil {
 		return contract.Receipt{}, capacityError(err)
 	}

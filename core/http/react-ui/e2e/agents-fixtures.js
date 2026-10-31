@@ -1,139 +1,218 @@
-// Shared fixtures for the Agents specs: stubbed agent API routes, a fake event
-// stream the test drives by hand, and run records written to the browser
-// storage the pages read.
+// Stubbed API of the saved agents, their chats, the triggers and the skills, for
+// the specs of the agents, skills and triggers pages. Every call is recorded in
+// `s.calls` so a spec can assert what the page sent.
+import { mockChat } from './chat-fixtures.js'
 
-export const RUNS_KEY = (agent, userId) => `localai_agent_runs_${userId ? `${userId}:` : ''}${agent}`
-
-export const RESEARCH_CONFIG = {
-  name: 'research-assistant',
-  description: 'Searches the web, reads sources and writes short briefs.',
-  model: 'qwen3-14b-instruct',
-  system_prompt: 'You are a careful research assistant. Search first, read at least two sources, then summarise in plain language.',
-  actions: [{ name: 'web_search', config: '{}' }, { name: 'read_page', config: '{}' }, { name: 'write_file', config: '{}' }],
-  mcp_stdio_servers: JSON.stringify({ mcpServers: { filesystem: { command: 'npx', args: [], env: {} } } }),
-  enable_kb: true,
-  enable_skills: true,
-  selected_skills: ['citations'],
-}
-
-export const AGENTS = {
-  'research-assistant': { active: true, config: RESEARCH_CONFIG },
-  'code-reviewer': {
-    active: true,
-    config: { name: 'code-reviewer', description: 'Reviews a change and lists what to fix first.', model: 'qwen3-14b-instruct', system_prompt: 'You review code changes.' },
+export const AGENTS = [
+  {
+    id: 'a1', name: 'research-assistant', description: 'Searches the web and writes short briefs.', model: 'qwen3-8b',
+    instructions: 'You are a careful research assistant. Cite every claim.', mcp_servers: ['crm', 'connector:m1'],
+    addons: ['office'], collections: ['handbook'], skills: ['citations'],
+    created: '2026-10-01T10:00:00Z', updated: '2026-10-02T10:00:00Z',
   },
-  'daily-digest': {
-    active: false,
-    config: { name: 'daily-digest', description: 'Collects what is new and summarises it.', model: 'qwen3-8b-instruct', system_prompt: 'You collect news.' },
+  {
+    id: 'a2', name: 'code-reviewer', description: 'Reviews a change and lists what to fix first.', model: '',
+    instructions: 'You review code changes.', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off',
+    created: '2026-10-01T10:00:00Z', updated: '2026-10-02T10:00:00Z',
   },
-}
+]
 
-const META = {
-  Fields: [
-    { name: 'name', label: 'Name', type: 'text', required: true, tags: { section: 'BasicInfo' } },
-    { name: 'description', label: 'Description', type: 'textarea', tags: { section: 'BasicInfo' } },
-    { name: 'model', label: 'Model', type: 'text', required: true, tags: { section: 'ModelSettings' } },
-    { name: 'enable_kb', label: 'Knowledge base', type: 'checkbox', tags: { section: 'MemorySettings' } },
-    { name: 'system_prompt', label: 'System prompt', type: 'textarea', tags: { section: 'PromptsGoals' } },
-    { name: 'enable_skills', label: 'Skills', type: 'checkbox', tags: { section: 'AdvancedSettings' } },
+const iso = (minutesAgo) => new Date(Date.now() - minutesAgo * 60_000).toISOString()
+
+export const CHATS = [
+  { id: 'c1', title: 'Find sources on speculative decoding', model: 'qwen3-8b', kind: 'chat', agent_id: 'a1', running: false, last_turn: 'done', created: iso(300), updated: iso(298) },
+  { id: 'c2', title: 'Digest of the week', model: 'qwen3-8b', kind: 'chat', agent_id: 'a1', origin: 'trigger', origin_id: 't1', running: false, last_turn: 'failed', created: iso(120), updated: iso(118) },
+  { id: 'c3', title: 'Unrelated chat', model: 'qwen3-8b', kind: 'chat', running: false, last_turn: 'done', created: iso(60), updated: iso(59) },
+]
+
+export const TRIGGERS = [
+  {
+    id: 't1', name: 'Morning digest', prompt: 'Summarise yesterday.', kind: 'schedule', schedule: 'weekdays 09:00', time_zone: 'Europe/Rome',
+    daily_cap: 24, enabled: true, agent_id: 'a1', model: '', summary: 'Every weekday at 09:00 (Europe/Rome)', next_run: '2026-10-28T08:00:00Z',
+    last_run: { id: 'r1', status: 'failed', reason: 'the agent was deleted', due: '2026-10-27T08:00:00Z' },
+  },
+  {
+    id: 't2', name: 'New contracts', prompt: 'Read the new file and list its parties.', kind: 'file', folder: '/Contracts', quiet_seconds: 30,
+    daily_cap: 10, enabled: false, agent_id: '', model: 'qwen3-8b', summary: 'When a file arrives in /Contracts',
+  },
+]
+
+export const RUNS = {
+  t1: [
+    { id: 'r1', status: 'failed', reason: 'the agent was deleted', due: iso(120), started: iso(120), ended: iso(119), chat_id: 'c2' },
+    { id: 'r0', status: 'done', due: iso(1560), started: iso(1560), ended: iso(1558), chat_id: 'c7' },
+    { id: 'rs', status: 'skipped', reason: 'daily cap reached', due: iso(3000) },
   ],
-  Connectors: [], Actions: [], Filters: [], DynamicPrompts: [],
+  t2: [{ id: 'rf', status: 'done', due: iso(200), started: iso(200), ended: iso(199), chat_id: 'c8', file: '/Contracts/a.pdf' }],
 }
 
-// Replace EventSource with one the test drives: window.__emit(type, data).
-export async function installFakeStream(page) {
-  await page.addInitScript(() => {
-    const sources = []
-    class FakeES {
-      constructor(url) {
-        this.url = url
-        this.listeners = {}
-        this.readyState = 1
-        sources.push(this)
-        setTimeout(() => this.onopen && this.onopen({}), 0)
-      }
-      addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn) }
-      removeEventListener(type, fn) { this.listeners[type] = (this.listeners[type] || []).filter(f => f !== fn) }
-      close() { this.readyState = 2; const i = sources.indexOf(this); if (i >= 0) sources.splice(i, 1) }
-    }
-    window.EventSource = FakeES
-    window.__emit = (type, data) => {
-      sources.forEach(s => (s.listeners[type] || []).forEach(fn => fn({ data: typeof data === 'string' ? data : JSON.stringify(data) })))
-    }
-    window.__streams = () => sources.length
-  })
-}
+export const SKILLS = [
+  { name: 'citations', description: 'Cite every claim with a numbered source.', layer: 'personal', path: '/skills/citations/SKILL.md', enabled: true, editable: true },
+  { name: 'house-style', description: 'The shared writing rules.', layer: 'shared', path: '/shared/house-style/SKILL.md', enabled: true, editable: false },
+  { name: 'pdf', description: 'Read and fill PDF forms.', layer: 'builtin', path: '/builtin/pdf/SKILL.md', enabled: true, editable: false },
+  { name: 'broken', description: '', layer: 'folder', path: '/Notes/.skills/broken/SKILL.md', enabled: true, editable: false, invalid: 'the description is empty' },
+]
 
-export function emit(page, type, data) {
-  return page.evaluate(([t, d]) => window.__emit(t, d), [type, data])
-}
+const BODIES = { citations: 'Cite every claim.\n\n1. Number the sources.\n2. List them at the end.\n' }
 
-// Stub every agent endpoint the area reads. Returns the requests the page
-// sent, so a spec can assert on them.
-export async function mockAgents(page, {
-  agents = AGENTS,
-  observables = {},
-  chatStatus = 202,
-  chatError = 'agent unavailable',
-  features = { distributed: false, localai_assistant: true, agents: true, mcp: true },
-  skills = [{ name: 'citations', description: 'Cite sources' }],
+export async function installAgents(page, {
+  agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [],
+  collections = ['handbook', 'notes'], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
 } = {}) {
-  const seen = { chats: [], saves: [], deletes: [], pauses: [], resumes: [], clears: [] }
-  await page.route('**/api/features', route => route.fulfill({ json: features }))
-  await page.route('**/api/agents/skills', route => route.fulfill({ json: { skills } }))
-  await page.route('**/api/agents/config/metadata', route => route.fulfill({ json: META }))
-  await page.route('**/api/agents', async route => {
+  await mockChat(page)
+  const s = {
+    agents: structuredClone(agents), triggers: structuredClone(triggers), skills: structuredClone(skills), proposals: structuredClone(proposals),
+    calls: [], createdChats: [],
+  }
+  const rec = (req) => { const u = new URL(req.url()); s.calls.push({ method: req.method(), url: u.pathname, search: u.search, body: req.postData() ? req.postDataJSON() : null }) }
+  const err = (route, status, message) => route.fulfill({ status, json: { error: { message, type: 'invalid_request_error', code: status } } })
+
+  await page.route('**/api/collections*', route => route.fulfill({ json: { collections } }))
+  await page.route('**/v1/mcp/servers/*', route => route.fulfill({ json: { model: 'qwen3-8b', servers: [{ name: 'crm' }, { name: 'mail' }] } }))
+  await page.route('**/api/chats/mcp-connectors*', route => route.fulfill({ json: { connectors } }))
+  await page.route('**/api/chats/files*', route => route.fulfill({ json: { path: '/', entries: [{ path: '/Contracts', name: 'Contracts', kind: 'dir' }] } }))
+  await page.route('**/api/chats/notifications/events', route => route.abort())
+  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0 } }))
+  await page.route('**/api/chats/push/**', route => err(route, 409, 'push off'))
+
+  // Agents.
+  await page.route(/\/api\/chats\/agents\/[^/?]+$/, route => {
+    const req = route.request()
+    rec(req)
+    const id = new URL(req.url()).pathname.split('/').pop()
+    const found = s.agents.find(a => a.id === id)
+    if (!found) return err(route, 404, 'no such agent')
+    if (req.method() === 'DELETE') { s.agents = s.agents.filter(a => a.id !== id); return route.fulfill({ status: 204, body: '' }) }
+    if (req.method() === 'PUT') { Object.assign(found, req.postDataJSON()); return route.fulfill({ json: found }) }
+    return route.fulfill({ json: found })
+  })
+  await page.route(/\/api\/chats\/agents(\?.*)?$/, route => {
     const req = route.request()
     if (req.method() === 'POST') {
-      seen.saves.push({ method: 'POST', body: req.postDataJSON() })
-      return route.fulfill({ json: { status: 'ok' } })
+      rec(req)
+      const b = req.postDataJSON()
+      const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', ...b }
+      s.agents.push(a)
+      return route.fulfill({ status: 201, json: a })
     }
-    const statuses = Object.fromEntries(Object.entries(agents).map(([n, a]) => [n, a.active]))
-    return route.fulfill({ json: { agents: Object.keys(agents), statuses } })
+    return route.fulfill({ json: { agents: s.agents } })
   })
-  await page.route(/\/api\/agents\/[^/?]+(\/[a-z]+)?(\?.*)?$/, async route => {
+
+  // Agent files and run history, as the server answers them: an export is the
+  // definition without id or owner, an import always makes a new agent, and
+  // the runs are the chats that ran with the agent.
+  await page.route(/\/api\/chats\/agents\/import$/, route => {
     const req = route.request()
-    const url = new URL(req.url())
-    const m = url.pathname.match(/\/api\/agents\/([^/]+)(?:\/([a-z]+))?$/)
-    if (!m) return route.fallback()
-    const name = decodeURIComponent(m[1])
-    const tail = m[2]
-    if (['skills', 'collections', 'actions', 'config', 'git-repos', 'import'].includes(name)) return route.fallback()
-    const agent = agents[name]
-    if (!agent) return route.fulfill({ status: 404, json: { error: 'Agent not found' } })
-    if (tail === 'chat' && req.method() === 'POST') {
-      seen.chats.push({ name, ...req.postDataJSON() })
-      if (chatStatus !== 202) return route.fulfill({ status: chatStatus, json: { error: chatError } })
-      return route.fulfill({ status: 202, json: { status: 'message_received', message_id: `m${seen.chats.length}` } })
-    }
-    if (tail === 'config') return route.fulfill({ json: agent.config })
-    if (tail === 'observables') {
-      if (req.method() === 'DELETE') { seen.clears.push(name); return route.fulfill({ json: { cleared: true } }) }
-      return route.fulfill({ json: { Name: name, History: observables[name] || [] } })
-    }
-    if (tail === 'status') return route.fulfill({ json: { Name: name, History: [] } })
-    if (tail === 'pause') { seen.pauses.push(name); return route.fulfill({ json: { status: 'ok' } }) }
-    if (tail === 'resume') { seen.resumes.push(name); return route.fulfill({ json: { status: 'ok' } }) }
-    if (tail === 'export') return route.fulfill({ json: agent.config })
-    if (req.method() === 'PUT') { seen.saves.push({ method: 'PUT', name, body: req.postDataJSON() }); return route.fulfill({ json: { status: 'ok' } }) }
-    if (req.method() === 'DELETE') { seen.deletes.push(name); return route.fulfill({ json: { status: 'ok' } }) }
-    return route.fulfill({ json: { active: agent.active } })
+    rec(req)
+    const b = req.postDataJSON()
+    const def = b && b.kind === 'localai-agent' ? b.agent : b
+    if (!def || typeof def !== 'object' || !def.name) return err(route, 400, 'the body is not a valid agent file')
+    const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], ...def }
+    s.agents.push(a)
+    return route.fulfill({ status: 201, json: { agent: a, ...(importWarnings.length ? { warnings: importWarnings } : {}) } })
   })
-  return seen
-}
+  await page.route(/\/api\/chats\/agents\/[^/?]+\/export$/, route => {
+    rec(route.request())
+    const id = new URL(route.request().url()).pathname.split('/')[4]
+    const found = s.agents.find(a => a.id === id)
+    if (!found) return err(route, 404, 'no such agent')
+    const { name, description, instructions, model, mcp_servers, addons, collections, skills } = found
+    return route.fulfill({ json: { version: 1, kind: 'localai-agent', agent: { name, description, instructions, model, mcp_servers, addons, collections, skills } } })
+  })
+  await page.route(/\/api\/chats\/agents\/[^/?]+\/runs(\?.*)?$/, route => {
+    const id = new URL(route.request().url()).pathname.split('/')[4]
+    const mine = chats.filter(c => c.agent_id === id)
+    return route.fulfill({
+      json: {
+        runs: mine.map(c => ({ chat_id: c.id, title: c.title, model: c.model, origin: c.origin, origin_id: c.origin_id, created: c.created, updated: c.updated, running: c.running, last_turn: c.last_turn })),
+        total: mine.length, failed: mine.filter(c => c.last_turn === 'failed').length, running: mine.filter(c => c.running).length,
+      },
+    })
+  })
 
-// Seed run records. Each run: { id, task, status, outcome, ... } is expanded
-// into the stored shape.
-export function storedRun(agent, { id, task, status = 'done', outcome = '', error = '', steps = [], startedAt, seconds = 30, metadata = null, turns = null }) {
-  const first = {
-    task, startedAt, endedAt: status === 'running' ? null : startedAt + seconds * 1000, status, outcome, error, steps,
-    live: { reasoning: '', content: '' }, metadata,
-  }
-  return { id, agent, startedAt, updatedAt: startedAt + seconds * 1000, turns: turns || [first] }
-}
+  // Chats.
+  await page.route(/\/api\/chats(\?.*)?$/, route => {
+    const req = route.request()
+    if (req.method() === 'POST') {
+      const b = req.postDataJSON()
+      rec(req)
+      s.createdChats.push(b)
+      return route.fulfill({ status: 201, json: { id: 'cnew', title: 'New chat', model: b.model || 'qwen3-8b', kind: 'chat', agent_id: b.agent_id, running: false, created: iso(0), updated: iso(0) } })
+    }
+    return route.fulfill({ json: { conversations: chats, persistent: true, files: true } })
+  })
 
-export async function seedRuns(page, agent, runs, userId) {
-  await page.addInitScript(([key, data]) => {
-    try { localStorage.setItem(key, JSON.stringify(data)) } catch { /* ignore */ }
-  }, [RUNS_KEY(agent, userId), { version: 1, runs }])
+  // Triggers.
+  await page.route('**/api/chats/triggers/preview*', route => {
+    const when = new URL(route.request().url()).searchParams.get('when') || ''
+    if (when.includes('25:00')) return err(route, 400, 'hour must be 0 to 23')
+    return route.fulfill({ json: { summary: 'Every day at 08:00', times: ['2026-10-28T08:00:00Z', '2026-10-29T08:00:00Z', '2026-10-30T08:00:00Z'] } })
+  })
+  await page.route('**/api/chats/triggers/proposals/*/confirm', route => {
+    rec(route.request())
+    s.proposals = []
+    return route.fulfill({ json: { ...TRIGGERS[0], id: 't9', name: 'Proposed digest' } })
+  })
+  await page.route(/\/api\/chats\/triggers\/proposals\/[^/?]+$/, route => {
+    rec(route.request())
+    s.proposals = []
+    return route.fulfill({ status: 204, body: '' })
+  })
+  await page.route(/\/api\/chats\/triggers\/proposals(\?.*)?$/, route => route.fulfill({ json: { triggers: s.proposals } }))
+  await page.route(/\/api\/chats\/triggers\/[^/?]+\/runs$/, route => {
+    const id = new URL(route.request().url()).pathname.split('/')[4]
+    return route.fulfill({ json: { runs: runs[id] || [] } })
+  })
+  await page.route(/\/api\/chats\/triggers\/[^/?]+\/(run|enable|disable)$/, route => {
+    const req = route.request()
+    rec(req)
+    const parts = new URL(req.url()).pathname.split('/')
+    const verb = parts.pop()
+    const id = parts.pop()
+    const found = s.triggers.find(x => x.id === id)
+    if (verb !== 'run' && found) found.enabled = verb === 'enable'
+    return route.fulfill({ status: verb === 'run' ? 202 : 200, json: verb === 'run' ? { id: 'rnew', status: 'queued', due: iso(0) } : found })
+  })
+  await page.route(/\/api\/chats\/triggers\/(?!proposals|preview)[^/?]+$/, route => {
+    const req = route.request()
+    rec(req)
+    const id = new URL(req.url()).pathname.split('/').pop()
+    const found = s.triggers.find(x => x.id === id)
+    if (req.method() === 'DELETE') { s.triggers = s.triggers.filter(x => x.id !== id); return route.fulfill({ status: 204, body: '' }) }
+    Object.assign(found, req.postDataJSON())
+    return route.fulfill({ json: found })
+  })
+  await page.route(/\/api\/chats\/triggers(\?.*)?$/, route => {
+    const req = route.request()
+    if (req.method() === 'POST') {
+      rec(req)
+      const t = { id: `t${s.triggers.length + 5}`, summary: 'Every day at 08:00', ...req.postDataJSON() }
+      s.triggers.push(t)
+      return route.fulfill({ status: 201, json: t })
+    }
+    return route.fulfill({ json: { triggers: s.triggers } })
+  })
+
+  // Skills.
+  await page.route(/\/api\/chats\/skills\/[^/?]+\/[^/?]+$/, route => {
+    const req = route.request()
+    rec(req)
+    const [, , , , layer, name] = new URL(req.url()).pathname.split('/')
+    const found = s.skills.find(x => x.layer === layer && x.name === name)
+    if (!found) return err(route, 404, 'no such skill')
+    if (req.method() === 'DELETE') { s.skills = s.skills.filter(x => x !== found); return route.fulfill({ status: 204, body: '' }) }
+    if (req.method() === 'PUT') { Object.assign(found, { description: req.postDataJSON().description }); return route.fulfill({ json: found }) }
+    return route.fulfill({ json: { name, layer, description: found.description, body: BODIES[name] || `Instructions of ${name}.\n`, editable: found.editable } })
+  })
+  await page.route(/\/api\/chats\/skills(\?.*)?$/, route => {
+    const req = route.request()
+    if (req.method() === 'POST') {
+      rec(req)
+      const b = req.postDataJSON()
+      s.skills.push({ name: b.name, description: b.description, layer: b.layer, path: `/skills/${b.name}/SKILL.md`, enabled: true, editable: true })
+      return route.fulfill({ status: 201, json: b })
+    }
+    return route.fulfill({ json: { skills: s.skills, notes: [] } })
+  })
+  return s
 }

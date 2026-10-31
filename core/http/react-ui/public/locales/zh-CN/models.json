@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "supporting": "找到适合这台机器的模型并安装，管理已有的模型。",
     "title": "Models",
     "navLabel": "Model lifecycle",
     "views": { "explore": "Explore", "installed": "Installed" },
@@ -81,6 +82,10 @@
     "delete": "删除"
   },
   "filters": {
+    "sheetDone": "显示模型",
+    "sheetTitle": "筛选",
+    "sheetButtonCount": "筛选（{{count}}）",
+    "sheetButton": "筛选",
     "all": "全部",
     "llm": "LLM",
     "image": "图像",

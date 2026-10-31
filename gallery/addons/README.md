@@ -3,10 +3,36 @@
 This directory holds the template of the catalog entries of the first-party add-ons.
 It holds no live URL, registry or namespace. The registry and repository are inputs of
 the release workflow (`ADDON_OCI_REPOSITORY`). Each first-party add-on has its own
-template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`, `studio`, `talk`) and its own release
+template (`tables`, `voice`, `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office`, `sandbox`, `web`) and its own release
 platform matrix, `addons/<id>/package/platforms.yaml`. The templates differ in `name:` only.
 
-## Render entries
+## Generate the index
+
+`gallery/addons/index.yaml` is generated from the platform files and the manifests; never edit
+it by hand. It has one development entry (mutable, no digest) for each enabled platform of
+each add-on:
+
+```sh
+sh scripts/addons/catalog.sh --channel development \
+  --repository quay.io/go-skynet/local-ai-addons --out gallery/addons/index.yaml
+```
+
+CI runs `sh scripts/addons/catalog.sh --channel development --check` and fails when the file is stale.
+Run it after you enable a platform in `addons/<id>/package/platforms.yaml`, change a
+manifest (title, description, main page, tools) or add an add-on template.
+
+The release index, pinned by digest and signed by the run of the tag, is rendered by the
+package workflow from the merged layouts it pushed:
+
+```sh
+sh scripts/addons/catalog.sh --channel release --repository <repo> --version <semver> \
+  --signer-ref refs/tags/v<semver> --merged-root <dir with one merged layout for each add-on id> \
+  --out addons-index.yaml
+```
+
+## Render entries of one add-on
+
+With `--from-manifest` in place of `--merged`, the command renders the development channel from the manifest and the enabled platforms, without a built package.
 
 ```sh
 go run ./scripts/addons/cmd/addonpkg catalog \
@@ -31,7 +57,7 @@ go run ./scripts/addons/cmd/addonpkg catalog \
   --merged <merged layout of voice> ... # the other flags as above
 ```
 
-Use `face`, `fine-tuning`, `quantization`, `studio` or `talk` in place of `voice` for the other packages.
+Use `face`, `fine-tuning`, `quantization`, `studio`, `talk`, `office`, `sandbox` or `web` in place of `voice` for the other packages.
 All packages share one repository, so pass the same repository for each. The artifact of an
 entry is `oci://<repository>:<id>-<tag>`, for example `...:voice-sha-50f0f3de26d2`.
 

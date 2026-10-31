@@ -1,96 +1,22 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import {
-  initialSelection, isSelectable, runBatch, selectableKeys, selectedItems, summarize, toggleAll, toggleKey, upgradableItems,
-} from '../../src/utils/updateReview.js'
-import { reviewItems, upgradeFailureWords, upgradeVersionOf } from '../../src/components/addons/updateReview.js'
+import { upgradeFailureWords } from '../../src/components/addons/updateReview.js'
 import { createUpgradeStore } from '../../src/utils/addonUpgrades.js'
 import { AddonsError } from '../../src/utils/addonsApi.js'
 
-const here = dirname(fileURLToPath(import.meta.url))
-const items = [
-  { key: 'a', name: 'A', from: '1', to: '2', blocked: [] },
-  { key: 'b', name: 'B', from: '1', to: '2', blocked: ['The platform is not offered'] },
-  { key: 'c', name: 'C', from: '1', to: '3', blocked: [] },
-]
-
-test('review: an incompatible item is listed but never selectable and never upgraded by "Upgrade all"', () => {
-  assert.equal(isSelectable(items[1]), false)
-  assert.deepEqual(selectableKeys(items), ['a', 'c'])
-  assert.deepEqual(upgradableItems(items).map(i => i.key), ['a', 'c'])
-  // A blocked key cannot be preselected or toggled on.
-  assert.deepEqual([...initialSelection(items, ['b', 'c', 'zzz'])], ['c'])
-  const none = new Set()
-  assert.equal(toggleKey(none, items, 'b'), none)
-  assert.equal(toggleKey(none, items, 'missing'), none)
-})
-
-test('review: selection toggles per item and as a whole, and "Upgrade selected" runs only the checked rows in list order', () => {
-  let sel = new Set()
-  sel = toggleKey(sel, items, 'c')
-  sel = toggleKey(sel, items, 'a')
-  assert.deepEqual(selectedItems(items, sel).map(i => i.key), ['a', 'c'])
-  sel = toggleKey(sel, items, 'a')
-  assert.deepEqual(selectedItems(items, sel).map(i => i.key), ['c'])
-  sel = toggleAll(sel, items)
-  assert.deepEqual([...sel].sort(), ['a', 'c'])
-  assert.equal(toggleAll(sel, items).size, 0)
-  // A stale selection that holds a blocked key still never runs it.
-  assert.deepEqual(selectedItems(items, new Set(['b'])), [])
-})
-
-test('review: one failure does not stop the others, and every item gets its own result', async () => {
-  const ran = []
-  const progress = []
-  const results = await runBatch(items, async (item) => {
-    ran.push(item.key)
-    if (item.key === 'a') throw new Error('boom')
-    if (item.key === 'b') return { ok: false, message: 'refused' }
-    return { ok: true }
-  }, { onProgress: (key, state) => progress.push(`${key}:${state}`) })
-  assert.deepEqual(ran, ['a', 'b', 'c'])
-  assert.deepEqual(results, [
-    { key: 'a', ok: false, message: 'boom' },
-    { key: 'b', ok: false, message: 'refused' },
-    { key: 'c', ok: true, message: '' },
-  ])
-  assert.deepEqual(summarize(results), { total: 3, succeeded: 1, failed: 2 })
-  assert.deepEqual(progress, ['a:running', 'a:failed', 'b:running', 'b:failed', 'c:running', 'c:done'])
-})
+// The add-on upgrade store: upgrades started from the add-ons page run here, so
+// they go on when the page is left and show in Activity. The selection of what
+// to upgrade is the shared "Upgrade all" dialog (bulkupgrade.test.mjs).
 
 const tr = (key, vars) => (vars && vars.version ? `${key}:${vars.version}` : key)
 const digestA = `sha256:${'a'.repeat(64)}`
 const digestB = `sha256:${'b'.repeat(64)}`
 const installed = (id, update, extra = {}) => ({ id, title: id.toUpperCase(), version: '1.0.0', digest: digestA, generation: 1, sourceId: 'lib', channel: 'stable', update, ...extra })
 
-test('add-ons: only a pending candidate is listed; an incompatible one carries its reasons and is blocked', () => {
-  const rows = reviewItems([
-    installed('notes', { state: 'update-available', available: true, version: '1.1.0', digest: digestB }),
-    installed('cal', { state: 'incompatible', version: '2.0.0', digest: digestB, reasons: ['host-version', 'made-up'] }),
-    installed('odd', { state: 'incompatible', version: '2.0.0' }),
-    installed('ok', { state: 'up-to-date' }),
-    installed('failed', { state: 'check-failed', error: 'refresh-failed' }),
-    installed('nodigest', { state: 'update-available', available: true, version: '1.1.0' }),
-    installed('unchecked', undefined),
-  ], tr)
-  assert.deepEqual(rows.map(r => r.key), ['cal', 'notes', 'odd'])
-  const byKey = Object.fromEntries(rows.map(r => [r.key, r]))
-  assert.equal(isSelectable(byKey.notes), true)
-  assert.equal(byKey.notes.from, '1.0.0')
-  assert.equal(byKey.notes.to, '1.1.0')
-  assert.match(byKey.notes.detail, /lib · stable/)
-  assert.deepEqual(byKey.cal.blocked, ['updates.reason.host-version'])
-  assert.equal(isSelectable(byKey.cal), false)
-  // No reason from the owner still blocks, with the generic words.
-  assert.equal(isSelectable(byKey.odd), false)
-  assert.equal(byKey.odd.blocked.length, 1)
-  assert.equal(upgradeVersionOf(installed('notes', { state: 'update-available', available: true, version: '1.1.0', digest: digestB })), '1.1.0')
-  assert.equal(upgradeVersionOf(installed('cal', { state: 'incompatible', version: '2.0.0', digest: digestB })), '')
+test('add-ons: the words of a failed upgrade follow the key the store reports', () => {
   assert.equal(upgradeFailureWords('canceled', tr), 'updates.class.canceled')
   assert.equal(upgradeFailureWords('upgrade_failed', tr), 'updates.errors.upgrade_failed')
+  assert.equal(upgradeFailureWords('', tr), 'updates.errors.unavailable')
 })
 
 // A fake owner: upgrade() decides each add-on's fate; installed() reports the
@@ -125,10 +51,11 @@ test('upgrade store: a batch over three add-ons continues past a failure and rep
   })
   const s = store()
   const batch = ['notes', 'cal', 'wiki'].map(id => ({ key: id, name: id }))
-  const results = await runBatch(batch, async (item) => {
+  const results = []
+  for (const item of batch) {
     const out = await s.start(owner.api, pendingAddon(item.key))
-    return { ok: out.ok, message: out.message }
-  })
+    results.push({ key: item.key, ok: out.ok, message: out.message })
+  }
   assert.deepEqual(results.map(r => [r.key, r.ok]), [['notes', true], ['cal', false], ['wiki', true]])
   assert.equal(results[1].message, 'upgrade_failed')
   assert.deepEqual(owner.calls.map(c => c.id), ['notes', 'cal', 'wiki'])
@@ -230,10 +157,47 @@ test('upgrade store: retry of a refused upgrade starts a new operation from the 
   assert.equal(s2.getSnapshot().records[0].outcome, 'failed')
 })
 
-test('every locale carries the review sheet words of English', () => {
-  const dir = join(here, '../../public/locales')
-  const read = (lang) => JSON.parse(readFileSync(join(dir, lang, 'common.json'), 'utf8')).updateReview
-  const en = Object.keys(read('en')).sort()
-  assert.ok(en.length >= 18)
-  for (const lang of readdirSync(dir)) assert.deepEqual(Object.keys(read(lang) || {}).sort(), en, `${lang}/common.json updateReview differs from English`)
+test('upgrade store: while the add-on service does not answer, the reads back off and the entry says it waits', async () => {
+  let reads = 0
+  const slept = []
+  const owner = fakeOwner({
+    fate: { notes: async () => 'prepared' },
+    status: async () => {
+      reads += 1
+      if (reads <= 3) throw new AddonsError({ kind: 'unavailable', status: 503 })
+      return { phase: 'completed' }
+    },
+  })
+  owner.gens.notes = 2 // the upgrade applied while the service restarted
+  let seen = null
+  const s = createUpgradeStore({
+    waits: [2000, 2000, 2000, 2000, 2000],
+    sleep: async (ms) => { slept.push(ms); seen = s.getSnapshot().live[0]?.waiting || null },
+  })
+  const out = await s.start(owner.api, pendingAddon('notes'))
+  assert.equal(out.ok, true)
+  // 2 s, then 4 s, then 8 s while it is down; the fourth read answers.
+  assert.deepEqual(slept, [2000, 4000, 8000])
+  assert.deepEqual(seen && seen.nextMs, 8000, 'the entry said it waited for the service')
+  assert.equal(s.getSnapshot().live.length, 0)
+})
+
+test('upgrade store: check now ends the wait of a followed upgrade', async () => {
+  let reads = 0
+  const owner = fakeOwner({
+    fate: { notes: async () => 'prepared' },
+    status: async () => { reads += 1; if (reads === 1) throw new AddonsError({ kind: 'unavailable', status: 503 }); return { phase: 'completed' } },
+  })
+  owner.gens.notes = 2
+  const s = createUpgradeStore({ waits: [60000] })
+  const done = s.start(owner.api, pendingAddon('notes'))
+  // Wait until the store sleeps, then wake it.
+  for (let i = 0; i < 50 && !s.getSnapshot().live[0]?.waiting; i++) await new Promise(r => setTimeout(r, 5))
+  const op = s.getSnapshot().live[0]
+  assert.ok(op.waiting, 'the entry says it waits for the service')
+  assert.equal(op.waiting.nextMs, 60000)
+  assert.equal(s.checkNow(op.jobID), true)
+  const out = await done
+  assert.equal(out.ok, true)
+  assert.equal(s.checkNow(op.jobID), false)
 })

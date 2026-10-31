@@ -22,15 +22,11 @@ services:
       # Remove this line or set a positive limit to opt back into cache warming.
       - LOCALAI_VRAM_WARM_LIMIT=0
     #  - DEBUG=true
-    ## Agents (LocalAGI) - https://localai.io/features/agents/
-    #  - LOCALAI_DISABLE_AGENTS=false
-    #  - LOCALAI_AGENT_POOL_DEFAULT_MODEL=hermes-3-llama3.1-8b
-    #  - LOCALAI_AGENT_POOL_ENABLE_SKILLS=true
-    #  - LOCALAI_AGENT_POOL_ENABLE_LOGS=true
-    #  - LOCALAI_AGENT_HUB_URL=https://agenthub.localai.io
+    ## Collections (the knowledge base) - https://localai.io/features/collections/
+    #  - LOCALAI_DISABLE_COLLECTIONS=false
     ## Uncomment to use PostgreSQL for the knowledge base (requires the postgres service below)
-    #  - LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres
-    #  - LOCALAI_AGENT_POOL_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
+    #  - LOCALAI_COLLECTIONS_VECTOR_ENGINE=postgres
+    #  - LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://localrecall:localrecall@postgres:5432/localrecall?sslmode=disable
     volumes:
       - models:/models
       - images:/tmp/generated/images/

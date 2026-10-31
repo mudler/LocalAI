@@ -12,9 +12,10 @@ import {
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
   shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
+  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
-import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
+import { runLifecycle, settleOperation, unavailableWait } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
 import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
@@ -229,6 +230,13 @@ test('a denial is not retried and an exhausted read is reported as unknown', asy
   const out = await settleOperation(silent, { operationId: 'x', waits: [1, 1], sleep: async () => {} })
   assert.equal(out.outcome, 'unknown')
   assert.equal(reads, 3)
+  // An unavailable service is asked less and less often, up to 30 s apart.
+  const slept = []
+  const heard = []
+  await settleOperation(silent, { operationId: 'x', waits: [500, 500, 500, 500, 500, 500], sleep: async (ms) => { slept.push(ms) }, onWait: (w) => heard.push(w.unavailable) })
+  assert.deepEqual(slept, [2000, 4000, 8000, 16000, 30000, 30000])
+  assert.ok(heard.every(Boolean))
+  assert.equal(unavailableWait(1, 5000), 5000, 'never shorter than the planned wait')
   const failed = await runLifecycle({}, { operationId: 'x', submit: async () => ({ phase: 'failed' }) })
   assert.equal(failed.outcome, 'failed')
   await assert.rejects(runLifecycle({}, { operationId: 'x', submit: async () => { throw new AddonsError({ kind: 'denied' }) } }), e => e.kind === 'denied')
@@ -435,21 +443,16 @@ test('every locale carries the add-on and navigation keys of English', () => {
   }
 })
 
-test('every locale carries the chat tools control keys of English, with the one-line note', () => {
-  const read = (lang) => JSON.parse(readFileSync(join(localesDir, lang, 'chat.json'), 'utf8')).addons
-  const en = read('en')
-  assert.ok(en.note && !en.note.includes('\n'))
-  for (const lang of readdirSync(localesDir)) {
-    const have = read(lang)
-    for (const key of Object.keys(en)) assert.ok(have && have[key], `${lang}/chat.json lacks addons.${key}`)
-  }
+test('the chats page has its add-on control strings in English', () => {
+  const en = JSON.parse(readFileSync(join(localesDir, 'en', 'chats.json'), 'utf8')).addons
+  assert.ok(en.summary && en.tools)
 })
 
 test('the add-on labels use one name and one verb pair', () => {
   const en = JSON.parse(readFileSync(join(localesDir, 'en', 'addons.json'), 'utf8'))
   const nav = JSON.parse(readFileSync(join(localesDir, 'en', 'nav.json'), 'utf8'))
   assert.equal(nav.items.addons, 'Add-ons')
-  assert.deepEqual([en.tabs.apps, en.tabs.browse, en.tabs.libraries], ['My add-ons', 'Find add-ons', 'Sources'])
+  assert.deepEqual([en.tabs.apps, en.tabs.browse, en.tabs.libraries], ['Installed', 'Find add-ons', 'Sources'])
   assert.deepEqual([en.apps.start, en.apps.stop], ['Turn on', 'Turn off'])
   assert.ok(!/owner/i.test(en.supporting), 'the subtitle does not name the owner')
   assert.ok(!/\bapps?\b/i.test(JSON.stringify([...Object.values(en.tabs), en.supporting, nav.items.addons])), 'no label says Apps')
@@ -560,4 +563,53 @@ test('the English wording is "Adds 16 tools" and "Adds 1 tool"', async () => {
   await i18n.init({ lng: 'en', resources: { en: { addons: en } }, ns: ['addons'], defaultNS: 'addons', interpolation: { escapeValue: false } })
   assert.equal(i18n.t('card.addsTools', { count: 16 }), 'Adds 16 tools')
   assert.equal(i18n.t('card.addsTools', { count: 1 }), 'Adds 1 tool')
+})
+
+test('the installed list puts what needs a person first and filters by state', () => {
+  const app = (id, over = {}) => ({ id, enabled: true, state: 'running', ...over })
+  assert.equal(attentionOf(app('a', { state: 'failed' })), 'failed')
+  // Turned off on purpose is not a problem, even when the last run failed.
+  assert.equal(attentionOf(app('a', { state: 'failed', enabled: false })), '')
+  assert.equal(attentionOf(app('a', { update: 'update-pending' })), 'update')
+  assert.equal(attentionOf(app('a'), { update: { state: 'update-available', available: true, version: '2.0.0' } }), 'update')
+  assert.equal(attentionOf(app('a', { state: 'starting' })), 'starting')
+  assert.equal(attentionOf(app('a')), '')
+  const tiles = [
+    { id: 'ok1', state: 'running', app: app('ok1') },
+    { id: 'start', state: 'stopped', app: app('start', { state: 'starting' }) },
+    { id: 'ok2', state: 'running', app: app('ok2') },
+    { id: 'upd', state: 'running', app: app('upd', { update: 'update-pending' }) },
+    { id: 'bad', state: 'stopped', app: app('bad', { state: 'failed' }) },
+    { id: 'builtin', state: 'running', app: null },
+  ]
+  // Failed, update, starting; the rest keep the order they came in.
+  assert.deepEqual(sortByAttention(tiles).map(t => t.id), ['bad', 'upd', 'start', 'ok1', 'ok2', 'builtin'])
+  assert.deepEqual(filterByState(tiles, 'running').map(t => t.id), ['ok1', 'ok2', 'upd', 'builtin'])
+  assert.deepEqual(filterByState(tiles, 'off').map(t => t.id), ['start', 'bad'])
+  assert.equal(filterByState(tiles, 'all').length, tiles.length)
+})
+
+test('an add-on without an icon gets a stable letter and hue, and a dev build says so', () => {
+  assert.equal(hueOf('notes'), hueOf('notes'))
+  assert.ok(hueOf('notes') >= 0 && hueOf('notes') < 12)
+  assert.notEqual(new Set(['notes', 'tables', 'office', 'face', 'sandbox'].map(hueOf)).size, 1)
+  assert.equal(monogram('tables'), 'T')
+  assert.equal(monogram(''), '?')
+  assert.deepEqual(versionLabel('0.0.0-development'), { dev: true, text: '0.0.0-development' })
+  assert.deepEqual(versionLabel('1.2.0'), { dev: false, text: 'v1.2.0' })
+  assert.deepEqual(versionLabel('v1.2.0'), { dev: false, text: 'v1.2.0' })
+  assert.deepEqual(versionLabel(''), { dev: false, text: '' })
+})
+
+test('addons: the install dialog names each built-in skill the entry replaces, and who already does', () => {
+  const entry = { id: 'office', skillShadows: ['xlsx', 'docx'] }
+  const installed = { sheets: { id: 'sheets', title: 'Sheets', skillShadows: ['xlsx'] }, office: { id: 'office', skillShadows: ['xlsx'] } }
+  assert.deepEqual(skillShadowNotes(entry, installed), [{ skill: 'xlsx', name: 'Sheets' }, { skill: 'docx', name: '' }])
+  assert.deepEqual(skillShadowNotes({ id: 'x' }, installed), [])
+})
+
+test('addons: the details list the skills of an add-on and which replace a built-in one', () => {
+  assert.deepEqual(skillsOf({ skills: [{ name: 'xlsx', shadows: 'xlsx' }, { name: 'office-tips' }, { bad: true }] }),
+    [{ name: 'xlsx', replaces: true }, { name: 'office-tips', replaces: false }])
+  assert.deepEqual(skillsOf({}), [])
 })

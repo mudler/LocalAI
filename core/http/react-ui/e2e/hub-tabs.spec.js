@@ -1,7 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// The Build and Operate hubs replace the second navigation rail with a tab bar
-// (the kit's dk-hubtabs). Routes stay flat; the tab that owns the current
+// The Operate hub replaces the second navigation rail with a tab bar (the
+// kit's dk-hubtabs). The Build hub is gone: its pages are sidebar items or
+// part of adding a model. Routes stay flat; the tab that owns the current
 // path carries aria-current="page", and a tab nobody can use is not drawn.
 
 const BAR = '.dk-hubtabs'
@@ -24,19 +25,12 @@ async function quietOperate(page) {
 }
 
 test.describe('Hub tabs: the right tab for each route', () => {
-  const build = [
-    ['/app/build', 'overview'],
-    ['/app/agents', 'agents'],
-    ['/app/skills', 'skills'],
-    ['/app/collections', 'memory'],
-    ['/app/agent-jobs', 'jobs'],
-    ['/app/import-model', 'import'],
-  ]
-  for (const [path, id] of build) {
-    test(`Build: ${path} highlights ${id}`, async ({ page }) => {
+  // The pages the Build hub had are pages of their own: no tab bar.
+  for (const path of ['/app/collections', '/app/import-model']) {
+    test(`${path} has no hub tab bar`, async ({ page }) => {
       await page.goto(path)
-      await expect(tab(page, id)).toHaveAttribute('aria-current', 'page')
-      await expect(page.locator(`${BAR} [aria-current="page"]`)).toHaveCount(1)
+      await expect(page.locator('h1').first()).toBeVisible()
+      await expect(page.locator(BAR)).toHaveCount(0)
     })
   }
 
@@ -115,36 +109,26 @@ test.describe('Hub tabs: gating', () => {
     await expect(tab(page, 'machine')).toHaveCount(0)
   })
 
-  test('feature flags hide the tabs they gate', async ({ page }) => {
-    await mockFeatures(page, { agents: false, mcp: false, fine_tuning: false, quantization: false, distributed: false })
-    await page.goto('/app/build')
-    await expect(tab(page, 'overview')).toBeVisible()
-    for (const id of ['agents', 'skills', 'memory', 'jobs']) {
-      await expect(tab(page, id)).toHaveCount(0)
-    }
-    // The overview lists only what the bar lists.
-    await expect(page.getByRole('list', { name: 'Build tools' }).locator('a[href="/app/agents"]')).toHaveCount(0)
-    await expect(page.getByRole('list', { name: 'Build tools' }).locator('a[href="/app/import-model"]')).toBeVisible()
+  test('feature flags hide the sidebar items they gate', async ({ page }) => {
+    await mockFeatures(page, { collections: false, mcp: false, fine_tuning: false, quantization: false, distributed: false })
+    await page.goto('/app')
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/collections"]')).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/agents"]')).toBeVisible()
   })
 
-  test('a user without admin or permissions sees only the tabs they can use', async ({ page }) => {
-    await mockFeatures(page, { agents: true, mcp: true, fine_tuning: true, quantization: true })
-    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { agents: true } })
-    await page.goto('/app/agents')
-    await expect(tab(page, 'agents')).toHaveAttribute('aria-current', 'page')
-    for (const id of ['skills', 'memory', 'jobs', 'import', 'voices', 'faces']) {
-      await expect(tab(page, id)).toHaveCount(0)
-    }
-    // The Build hub no longer lists fine-tuning or quantization at all.
-    await expect(tab(page, 'fine-tune')).toHaveCount(0)
-    await expect(tab(page, 'quantize')).toHaveCount(0)
+  test('a user without admin sees Memory with the collections permission and no Import', async ({ page }) => {
+    await mockFeatures(page, { collections: true, mcp: true, fine_tuning: true, quantization: true })
+    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { collections: true } })
+    await page.goto('/app')
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/collections"]')).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item[href="/app/import-model"]')).toHaveCount(0)
   })
 
   test('a non-admin user gets no Operate entry in the sidebar', async ({ page }) => {
-    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { agents: true } })
+    await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { collections: true } })
     await page.goto('/app')
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toHaveCount(0)
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Build' })).toHaveCount(0)
   })
 
   test('Users appears in the Settings row only with auth on', async ({ page }) => {
@@ -171,39 +155,25 @@ test.describe('Hub tabs: badges', () => {
     await page.goto('/app/operate')
     await expect(tab(page, 'status').locator('.dk-hubtab-attn')).toContainText('1')
   })
-
-  test('the Build bar carries no badges', async ({ page }) => {
-    await page.goto('/app/agents')
-    await expect(tab(page, 'agents')).toBeVisible()
-    await expect(page.locator(`${BAR} .dk-hubtab-attn, ${BAR} .dk-hubtab-count`)).toHaveCount(0)
-  })
 })
 
 test.describe('Hub tabs: phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('the Build bar scrolls inside its own box and the page does not', async ({ page }) => {
-    await page.goto('/app/build')
-    const bar = page.locator(BAR)
-    await expect(bar).toBeVisible()
-    expect((await bar.boundingBox()).width).toBeLessThanOrEqual(390)
-    expect(await bar.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true)
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)
-    await expect(bar).toHaveCSS('overflow-x', 'auto')
-  })
-
   test('scrolling reaches the last tab and keeps it tappable', async ({ page }) => {
-    await page.goto('/app/build')
-    const last = tab(page, 'import')
+    await quietOperate(page)
+    await page.goto('/app/operate')
+    const last = tab(page, 'settings')
     await last.scrollIntoViewIfNeeded()
     await expect(last).toBeInViewport()
     await last.click()
-    await expect(page).toHaveURL(/\/app\/import-model$/)
-    await expect(tab(page, 'import')).toHaveAttribute('aria-current', 'page')
+    await expect(page).toHaveURL(/\/app\/settings$/)
+    await expect(tab(page, 'settings')).toHaveAttribute('aria-current', 'page')
   })
 
   test('every tab is at least 36px tall', async ({ page }) => {
-    await page.goto('/app/build')
+    await quietOperate(page)
+    await page.goto('/app/operate')
     const heights = await page.locator(`${BAR} .dk-hubtab`).evaluateAll(els => els.map(el => el.getBoundingClientRect().height))
     expect(Math.min(...heights)).toBeGreaterThanOrEqual(36)
   })

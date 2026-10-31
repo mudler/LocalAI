@@ -223,7 +223,7 @@ test.describe('Import: running and done', () => {
     const done = page.getByTestId('import-done')
     await expect(done).toContainText('qwen2.5-7b-instruct is imported')
     await expectStep(page, 'done', 'current')
-    await expect(done.getByRole('link', { name: 'Chat with qwen2.5-7b-instruct' })).toHaveAttribute('href', '/app/chat/qwen2.5-7b-instruct')
+    await expect(done.getByRole('link', { name: 'Chat with qwen2.5-7b-instruct' })).toHaveAttribute('href', '/app/chats?model=qwen2.5-7b-instruct')
     await expect(done.getByTestId('import-open-models')).toHaveAttribute('href', '/app/models?view=installed')
     await done.getByRole('button', { name: 'Import another' }).click()
     await expect(source(page)).toHaveValue('')

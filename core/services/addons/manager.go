@@ -10,11 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
@@ -55,6 +58,31 @@ var (
 	// offers, so nothing was started. It is not an unknown outcome.
 	ErrCheckFailed = errors.New("update check failed")
 )
+
+// Codes of the cause of a failed install or upgrade. A cause is typed so that
+// an administrator is told which step failed without reading the server log.
+const (
+	// CauseLibraryUnavailable: the library could not be read.
+	CauseLibraryUnavailable = "library_unavailable"
+	// CauseLibraryConflict: two enabled libraries list the same add-on.
+	CauseLibraryConflict = "library_conflict"
+	// CauseReleaseNotFound: the library does not list the requested release
+	// for this platform.
+	CauseReleaseNotFound = "release_not_found"
+	// CausePackageFetch: the package could not be downloaded or staged.
+	CausePackageFetch = "package_fetch_failed"
+	// CauseInstallStorage: the verified package could not be written to disk.
+	CauseInstallStorage = "install_storage_failed"
+)
+
+// FailureCause is the typed cause of a failed operation. Its text is fixed and
+// safe to show; the underlying error stays in the server log.
+type FailureCause struct {
+	Code   string
+	detail error
+}
+
+func (c *FailureCause) Error() string { return "addon operation failed: " + c.Code }
 
 // These hooks are contracts for the runtime/migration tasks. This manager does
 // not claim to drain processes, back up databases, or execute migrations.
@@ -116,6 +144,72 @@ type Manager struct {
 	// automatic upgrade that failed. In memory only: a restart tries again.
 	autoMu       sync.Mutex
 	autoFailures map[string]string
+	// skillSync keeps the chats' skill layer in step with the installed
+	// packages. Nil until the chats' files exist (see SetSkillSync).
+	skillSync SkillSync
+}
+
+// SkillSync copies the skills of an add-on package into the chats' skill layer
+// (receipt set), or removes them (receipt nil). It runs on the owner only, which
+// holds the verified package. A failure is logged and never fails the lifecycle
+// operation: skills are help for a chat, the add-on works without them.
+type SkillSync func(ctx context.Context, addonID string, receipt *packages.PackageReceipt) error
+
+// SetSkillSync sets the skill copy and runs it once for every add-on the
+// journal knows: the current package of an installed one, a removal for the
+// others. It is how the owner reconciles the skill layer at start.
+func (m *Manager) SetSkillSync(ctx context.Context, sync SkillSync) {
+	m.opMu.Lock()
+	defer m.opMu.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.skillSync = sync
+	if sync == nil || m.check(ctx) != nil {
+		return
+	}
+	ids := make([]string, 0, len(m.journal.Addons))
+	for id := range m.journal.Addons {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		m.syncSkills(ctx, id)
+	}
+}
+
+// InstalledSkillIDs returns the installed add-ons whose current package ships
+// skills, sorted.
+func (m *Manager) InstalledSkillIDs(ctx context.Context) ([]string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e := m.check(ctx); e != nil {
+		return nil, e
+	}
+	var out []string
+	for id, st := range m.journal.Addons {
+		if r, ok := currentReceipt(st); ok && st.Installed && len(r.Skills) > 0 {
+			out = append(out, id)
+		}
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// syncSkills runs the skill copy for one add-on from the journal: its current
+// package while installed, a removal otherwise. The caller holds mu.
+func (m *Manager) syncSkills(ctx context.Context, id string) {
+	if m.skillSync == nil {
+		return
+	}
+	var receipt *packages.PackageReceipt
+	if st := m.journal.Addons[id]; st.Installed {
+		if r, ok := currentReceipt(st); ok {
+			receipt = &r
+		}
+	}
+	if e := m.skillSync(ctx, id, receipt); e != nil {
+		xlog.Warn("Could not copy the skills of an add-on", "addon", id, "error", e)
+	}
 }
 
 func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *packages.Installer, admin catalog.AdminCheck) (*Manager, error) {
@@ -298,6 +392,11 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		if next.Installed && !resumed {
 			return OperationStatus{}, ErrConflict
 		}
+		// Set once, here: the default provider of a shadowed tool or skill is
+		// the oldest install, so an upgrade must not move it.
+		if next.InstalledAt == "" || !next.Installed {
+			next.InstalledAt = time.Now().UTC().Format(time.RFC3339)
+		}
 	case "upgrade", "enable", "disable", "uninstall":
 		if !next.Installed {
 			return OperationStatus{}, ErrConflict
@@ -326,8 +425,12 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 	}
 	// fail ends the operation. A cause that is an SDK refusal keeps its text for
-	// the administrator; the returned error still matches ErrOperationFailed.
+	// the administrator, and so does a package that failed verification; the
+	// returned error still matches ErrOperationFailed.
 	fail := func(cause ...error) (OperationStatus, error) {
+		// The client gets a typed cause or the generic error; the operator
+		// gets the underlying error here, which would otherwise be lost.
+		xlog.Warn("Addon operation failed", "action", cmd.Action, "addonId", cmd.AddonID, "operationId", cmd.OperationID, "causes", describeCauses(cause))
 		op.Status.Phase = "failed"
 		m.journal.Operations[cmd.OperationID] = op
 		if e := m.persist("failed"); e != nil {
@@ -337,6 +440,15 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			var refusal *contract.SDKRefusal
 			if errors.As(c, &refusal) {
 				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, refusal)
+			}
+			if errors.Is(c, packages.ErrPackage) {
+				// The package is not what its library entry says. The text of
+				// ErrPackage is fixed, so it is safe to show.
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, packages.ErrPackage)
+			}
+			var typed *FailureCause
+			if errors.As(c, &typed) {
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, typed)
 			}
 		}
 		return op.Status, ErrOperationFailed
@@ -362,7 +474,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if release != nil {
 				r = *release
 			} else {
-				r, resolveErr = m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+				r, resolveErr = m.resolveRelease(ctx, cmd)
 			}
 			var staged packages.StagedPackage
 			var stageErr error
@@ -371,10 +483,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			m.mu.Lock()
 			if resolveErr != nil {
-				return fail()
+				return fail(resolveErr, &FailureCause{Code: resolveCauseCode(resolveErr), detail: resolveErr})
 			}
 			if stageErr != nil {
-				return fail(stageErr)
+				return fail(stageErr, &FailureCause{Code: CausePackageFetch, detail: stageErr})
 			}
 			if m.uncertain || m.runtimeRecoveryRequired {
 				return op.Status, ErrRecoveryRequired
@@ -408,12 +520,12 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
-				return fail()
+				return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("commit: %w", e)})
 			}
 			// Installer publication alone is not a power-loss durability promise. Flush
 			// every immutable file and directory before journaling its generation.
 			if e = syncPackage(receipt.Directory); e != nil {
-				return fail()
+				return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("sync package: %w", e)})
 			}
 			if m.boundary != nil {
 				if e = m.boundary("published"); e != nil {
@@ -456,7 +568,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		next.DesiredEnabled = false
 	}
 	if e := os.MkdirAll(filepath.Dir(next.GrantsPath), 0700); e != nil {
-		return fail()
+		return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("create the grants folder: %w", e)})
 	}
 	op.Next = &next
 	op.Status.Generation = next.Generation
@@ -473,8 +585,57 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		}
 		return result, e
 	}
+	switch cmd.Action {
+	case "install", "upgrade", "uninstall":
+		m.syncSkills(ctx, cmd.AddonID)
+	}
 	return result, m.syncFor(ctx, cmd.AddonID)
 }
+
+// describeCauses is the text of the errors a failed operation had, for the log.
+func describeCauses(causes []error) string {
+	var parts []string
+	for _, c := range causes {
+		var typed *FailureCause
+		if errors.As(c, &typed) && typed.detail != nil {
+			parts = append(parts, typed.Code+": "+typed.detail.Error())
+		} else if c != nil {
+			parts = append(parts, c.Error())
+		}
+	}
+	if len(parts) == 0 {
+		return "no cause recorded (a check refused the operation)"
+	}
+	return strings.Join(parts, "; ")
+}
+
+// resolveCauseCode is the cause code of a release that could not be resolved.
+func resolveCauseCode(e error) string {
+	switch {
+	case errors.Is(e, catalog.ErrNotFound):
+		return CauseReleaseNotFound
+	case errors.Is(e, catalog.ErrConflict), errors.Is(e, catalog.ErrShadowed):
+		return CauseLibraryConflict
+	}
+	return CauseLibraryUnavailable
+}
+
+// resolveRelease finds the release a command names. The library cache is
+// filled by a refresh at startup, which runs in the background and can fail
+// once (a slow start, a library that is not up yet) and leave the cache empty
+// until someone refreshes. An install must not depend on that: when the cache
+// has nothing for the library, read the library once now and look again.
+func (m *Manager) resolveRelease(ctx context.Context, cmd LifecycleCommand) (catalog.Release, error) {
+	r, e := m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+	if e == nil || !(errors.Is(e, catalog.ErrUnavailable) || errors.Is(e, catalog.ErrRefresh)) || m.catalog.Sources == nil {
+		return r, e
+	}
+	if _, rerr := m.catalog.Sources.Refresh(ctx, cmd.SourceID); rerr != nil {
+		return catalog.Release{}, fmt.Errorf("%w (library read on demand: %w)", e, rerr)
+	}
+	return m.catalog.Resolve(ctx, cmd.SourceID, cmd.AddonID, cmd.Version)
+}
+
 func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	m.journal.Addons[op.Command.AddonID] = copyStatus(*op.Next)
 	op.Status.Phase = "applied"
@@ -746,6 +907,13 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 			delete(m.instances, id)
 		}
 	}
+	type launch struct {
+		id         string
+		generation Generation
+		instance   addonruntime.Instance
+		err        error
+	}
+	var launches []*launch
 	for id, state := range m.journal.Addons {
 		if !state.Installed || !state.DesiredEnabled {
 			delete(m.startFailed, id)
@@ -762,22 +930,46 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 		}
 		for _, generation := range state.Generations {
 			if generation.Number == state.Generation {
-				instance, e := m.runtime.Start(ctx, generation.Receipt, generation.Number)
-				if e != nil {
-					if ctx.Err() != nil {
-						return e
-					}
-					m.startFailed[id] = e
-					break
-				}
-				delete(m.startFailed, id)
-				m.instances[id] = instance
+				launches = append(launches, &launch{id: id, generation: generation})
 				break
 			}
 		}
 	}
-	return nil
+	// Each add-on is a separate process that takes seconds to be ready, so
+	// they start side by side. The bound keeps a host with many add-ons from
+	// forking them all at once. The results are applied below, in the order of
+	// the journal, by this goroutine alone: the workers touch nothing of the
+	// manager.
+	slices.SortFunc(launches, func(a, b *launch) int { return strings.Compare(a.id, b.id) })
+	slots := make(chan struct{}, startConcurrency)
+	var wg sync.WaitGroup
+	for _, l := range launches {
+		wg.Add(1)
+		slots <- struct{}{}
+		go func() {
+			defer func() { <-slots; wg.Done() }()
+			l.instance, l.err = m.runtime.Start(ctx, l.generation.Receipt, l.generation.Number)
+		}()
+	}
+	wg.Wait()
+	var cancelled error
+	for _, l := range launches {
+		if l.err != nil {
+			if ctx.Err() != nil {
+				cancelled = l.err
+				continue
+			}
+			m.startFailed[l.id] = l.err
+			continue
+		}
+		delete(m.startFailed, l.id)
+		m.instances[l.id] = l.instance
+	}
+	return cancelled
 }
+
+// startConcurrency bounds how many add-on processes start at the same time.
+const startConcurrency = 4
 
 // Runtime returns the current ready incarnation, not the lifecycle stop handle
 // retained in instances. Authorization and operation replay decisions remain the
@@ -793,6 +985,51 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 		return addonruntime.Instance{}, addonruntime.ErrRuntime
 	}
 	return m.runtime.Current(ctx, id, state.Generation)
+}
+
+// ConnectorKind is a kind of connector binding that a running add-on serves.
+type ConnectorKind struct {
+	AddonID string
+	contract.ConnectorKind
+}
+
+// ConnectorKinds lists the connector kinds of the add-ons that run now. An
+// add-on that is installed but not ready serves none, and a process that does
+// not own the runtime serves none.
+func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.runtime == nil {
+		return nil, nil
+	}
+	registrations, e := m.runtime.Registry.Snapshot(ctx)
+	if e != nil {
+		return nil, e
+	}
+	var out []ConnectorKind
+	for _, r := range registrations {
+		if r.Capabilities.Connector == nil {
+			continue
+		}
+		for _, k := range r.Capabilities.Connector.Kinds {
+			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].AddonID+"/"+out[i].ID < out[j].AddonID+"/"+out[j].ID })
+	return out, nil
+}
+
+// Connector calls the connector route of a running add-on.
+func (m *Manager) Connector(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	instance, e := m.Runtime(ctx, addonID)
+	if e != nil {
+		return contract.ConnectorResponse{}, e
+	}
+	cr, ok := instance.Client.(contract.ConnectorRuntime)
+	if !ok {
+		return contract.ConnectorResponse{}, addonruntime.ErrRuntime
+	}
+	return cr.Connector(ctx, req)
 }
 
 // OperationStatus only observes lifecycle intent. It never resumes a command or
@@ -853,7 +1090,7 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		if !ok {
 			continue
 		}
-		snap := apps.Snapshot{AddonID: id, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
+		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
 		}
@@ -1015,8 +1252,9 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 		return contract.Capabilities{}, ErrForbidden
 	}
 	c := receipt.Manifest.Capabilities
-	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...)}
+	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Actions: c.Actions, Undo: c.Undo}
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
+	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
 	if c.Resources != nil {
 		r := *c.Resources
 		out.Resources = &r

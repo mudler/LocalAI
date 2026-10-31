@@ -72,6 +72,48 @@ var _ = Describe("Tables tools under the real owner", Label("application"), func
 		Expect(gateway.StatusFor(e)).To(Equal(403))
 	})
 
+	It("applies a change a chat makes at once for the chat's user, leaves no proposal, and still refuses a key", func() {
+		h := newHost()
+		lib := h.library()
+		h.start()
+		DeferCleanup(h.stop)
+		h.seed(lib)
+		chat := h.app.StudioAddonTools()
+		Expect(chat).NotTo(BeNil())
+		ctx := context.Background()
+
+		text, e := chat.Call(ctx, "alice", "conv1", "addon__tables__databases-create", json.RawMessage(`{"name":"Chat ledger"}`))
+		Expect(e).NotTo(HaveOccurred())
+		var made tools.ToolResult
+		Expect(json.Unmarshal([]byte(text), &made)).To(Succeed(), text)
+		Expect(made.Kind).To(Equal(tools.ResultApplied), text)
+		Expect(made.Applied.ResourceID).NotTo(BeEmpty())
+		// The add-on kept a change set for the creation, so the chat can offer an undo.
+		Expect(made.Applied.Undoable).To(BeTrue())
+		Expect(made.Applied.ChangeID).NotTo(BeEmpty())
+		Expect(made.Note).To(ContainSubstring("can undo it"))
+		// The data exists for its owner and nothing waits for a browser.
+		Expect(accessibleTo(h, "alice")).To(ContainElement(made.Applied.ResourceID))
+		Expect(h.pending("alice")).To(BeEmpty())
+		res := made.Applied.ResourceID
+		for _, step := range []struct{ tool, body string }{
+			{"tables-create", fmt.Sprintf(`{"resourceId":%q,"table":"Entries"}`, res)},
+			{"columns-add", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","column":"Memo","type":"text"}`, res)},
+			{"rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{"Memo":"rent"}]}`, res)},
+		} {
+			out, e := chat.Call(ctx, "alice", "conv1", "addon__tables__"+step.tool, json.RawMessage(step.body))
+			Expect(e).NotTo(HaveOccurred(), step.tool)
+			Expect(out).To(ContainSubstring(`"kind":"applied"`), out)
+		}
+		Expect(h.pending("alice")).To(BeEmpty())
+
+		// The same tool through an API key is still a proposal that no tool can confirm.
+		kept, e := h.callTool("alice", "addon__tables__rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{"Memo":"food"}]}`, res))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kept.Kind).To(Equal(tools.ResultProposal))
+		Expect(h.pending("alice")).To(HaveLen(1))
+	})
+
 	It("stores every change as a pending proposal and applies it only on the proposer's own session, exactly once", func() {
 		h := newHost()
 		lib := h.library()
@@ -88,8 +130,10 @@ var _ = Describe("Tables tools under the real owner", Label("application"), func
 		Expect(ref.ResourceID).NotTo(BeEmpty())
 		// Nothing exists yet, for anyone, including a read by the same agent.
 		Expect(accessibleTo(h, "alice")).To(BeEmpty())
-		_, e = h.callTool("alice", "addon__tables__databases-inspect", fmt.Sprintf(`{"resourceId":%q}`, ref.ResourceID))
-		Expect(e).To(HaveOccurred())
+		missing, e := h.callTool("alice", "addon__tables__databases-inspect", fmt.Sprintf(`{"resourceId":%q}`, ref.ResourceID))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(missing.Kind).To(Equal(tools.ResultError))
+		Expect(missing.Code).To(Equal(tools.CodeResourceUnreachable))
 
 		// The proposal waits in the proposer's own list, not in anyone else's.
 		listed := h.pending("alice")
@@ -170,32 +214,39 @@ var _ = Describe("Tables tools under the real owner", Label("application"), func
 		}
 		mk("Entries")
 
-		// A stranger sees nothing: the same denial for every tool.
+		// A stranger sees nothing: the same typed result for every tool, read
+		// or write. The model learns "no such resource or no access" and
+		// nothing that tells the two apart.
+		denied := func(r tools.ToolResult, e error) {
+			GinkgoHelper()
+			Expect(e).NotTo(HaveOccurred())
+			Expect(r.Kind).To(Equal(tools.ResultError))
+			Expect(r.Code).To(Equal(tools.CodeResourceUnreachable))
+			Expect(r.Note).To(Equal(tools.ResourceUnreachableNote))
+			Expect(r.Result).To(BeEmpty())
+			Expect(r.Proposal).To(BeNil())
+		}
 		for _, call := range []struct{ tool, body string }{
 			{"addon__tables__databases-inspect", fmt.Sprintf(`{"resourceId":%q}`, res)},
 			{"addon__tables__rows-query", fmt.Sprintf(`{"resourceId":%q,"table":"Entries"}`, res)},
 			{"addon__tables__rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{}]}`, res)},
 			{"addon__tables__tables-drop", fmt.Sprintf(`{"resourceId":%q,"table":"Entries"}`, res)},
 		} {
-			_, e := h.callTool("bob", call.tool, call.body)
-			Expect(e).To(HaveOccurred(), call.tool)
-			Expect(gateway.StatusFor(e)).To(Equal(403), call.tool)
+			denied(h.callTool("bob", call.tool, call.body))
 		}
 
 		key := policy.ResourceKey{AddonID: "tables", ResourceID: res}
 		Expect(h.app.AddonPolicy().SetGrant(ctx, h.actor("alice"), key, "bob", policy.RoleViewer)).To(Succeed())
 		_, e = h.callTool("bob", "addon__tables__rows-query", fmt.Sprintf(`{"resourceId":%q,"table":"Entries"}`, res))
 		Expect(e).NotTo(HaveOccurred())
-		_, e = h.callTool("bob", "addon__tables__rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{}]}`, res))
-		Expect(gateway.StatusFor(e)).To(Equal(403))
+		denied(h.callTool("bob", "addon__tables__rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{}]}`, res)))
 
 		Expect(h.app.AddonPolicy().SetGrant(ctx, h.actor("alice"), key, "bob", policy.RoleEditor)).To(Succeed())
 		r, e := h.callTool("bob", "addon__tables__rows-insert", fmt.Sprintf(`{"resourceId":%q,"table":"Entries","rows":[{}]}`, res))
 		Expect(e).NotTo(HaveOccurred())
 		Expect(r.Kind).To(Equal(tools.ResultProposal))
 		// An editor never changes the schema, by tool or by any other name.
-		_, e = h.callTool("bob", "addon__tables__tables-drop", fmt.Sprintf(`{"resourceId":%q,"table":"Entries"}`, res))
-		Expect(gateway.StatusFor(e)).To(Equal(403))
+		denied(h.callTool("bob", "addon__tables__tables-drop", fmt.Sprintf(`{"resourceId":%q,"table":"Entries"}`, res)))
 		before := len(h.pending("bob"))
 
 		// Forged identity, role and approval fields and approval aliases never

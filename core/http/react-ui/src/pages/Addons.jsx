@@ -1,9 +1,8 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
-import PageHeader from '../components/PageHeader'
-import Icon from '../components/Icon'
+import { useCallback, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Trans, useTranslation } from 'react-i18next'
+import { Button, Page, PageHeader } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import AppsView from '../components/addons/AppsView'
@@ -12,15 +11,16 @@ import LibrariesView from '../components/addons/LibrariesView'
 import { resolveManage, resolveTab, visibleTabs } from '../components/addons/addonState'
 import '../components/addons/addons.css'
 
-const TAB_ICONS = { apps: 'puzzle', browse: 'store', libraries: 'book' }
-
 // Add-ons. Everyone sees the add-ons they may use. Administrators also find
 // add-ons and edit sources; what is installed, and how it runs, is in the Details
 // of each add-on. Hiding a tab is a convenience: the owner checks administration
 // again on every call.
 export default function Addons() {
   const { t } = useTranslation('addons')
-  const { isAdmin } = useAuth()
+  const { isAdmin, hasFeature } = useAuth()
+  // The installed count for the tab and whether the list is a first run (the
+  // empty state then carries the way to Find add-ons, so the header does not).
+  const [summary, setSummary] = useState(null)
   const [params, setParams] = useSearchParams()
   const manage = resolveManage(params, isAdmin)
   const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin)
@@ -50,9 +50,19 @@ export default function Addons() {
     refs.current[tabs[next]]?.focus()
   }
 
+  // Add-ons and Pages are one family: installed software here, pages a person
+  // or an agent made on the Pages screen. Say where the other kind lives.
+  const pagesNote = hasFeature('chats') && hasFeature('pages')
+    ? <span className="ad-family"><Trans t={t} i18nKey="family.pages" components={{ go: <Link to="/app/pages" /> }} /></span>
+    : null
+  const showFind = isAdmin && tab === 'apps' && Boolean(summary) && !summary.firstRun
   return (
-    <div className="page page--wide ad-page" data-testid="addons">
-      <PageHeader title={t('title')} supporting={t('supporting')} />
+    <Page width="full" className="ad-page" data-testid="addons">
+      <PageHeader
+        title={t('title')}
+        supporting={<>{t('supporting')}{pagesNote && <> {pagesNote}</>}</>}
+        actions={showFind ? <Button variant="primary" icon="store" to="/app/addons?tab=browse" data-testid="addons-add">{t('drawer.add')}</Button> : null}
+      />
 
       {tabs.length > 1 && (
         <div className="ad-tabs" role="tablist" aria-label={t('tabs.label')} onKeyDown={onKeyDown}>
@@ -69,17 +79,18 @@ export default function Addons() {
               tabIndex={tab === id ? 0 : -1}
               onClick={() => select(id)}
             >
-              <Icon name={TAB_ICONS[id]} aria-hidden="true" /> {t(`tabs.${id}`)}
+              {t(`tabs.${id}`)}
+              {id === 'apps' && summary && summary.count > 0 && <span className="ad-tab__count">{summary.count}</span>}
             </button>
           ))}
         </div>
       )}
 
       <div role="tabpanel" id={`ad-panel-${tab}`} aria-labelledby={tabs.length > 1 ? `ad-tab-${tab}` : undefined} aria-label={tabs.length > 1 ? undefined : t('tabs.apps')} className="ad-panel">
-        {tab === 'apps' && <AppsView api={addonsApi} adapter={addonsCatalog} />}
+        {tab === 'apps' && <AppsView api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} />}
         {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}
       </div>
-    </div>
+    </Page>
   )
 }

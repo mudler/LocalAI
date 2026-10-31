@@ -210,7 +210,7 @@ In a split deployment (`--addons-role=owner` and `--addons-role=frontend`), the 
 
 ## Web UI
 
-**Build → Fine-Tune** is one page that follows the job from set-up to result. A line at the top shows where you are: set up, check, run, result.
+The Fine-Tune page is one page that follows the job from set-up to result. A line at the top shows where you are: set up, check, run, result.
 
 1. **Set up** - Choose the base model, the dataset (a Hugging Face id or an uploaded file), the kind of training (an adapter, or the full model) and the epochs, batch size and learning rate. Method, backend, adapter settings, optimizer, evaluation, reward functions (GRPO) and extra options are under **More options**.
 2. **Check before you start** - A list of what is known before the job starts, redrawn as you change the form: whether the model and dataset are set, whether a fine-tuning backend is installed, how much GPU memory (or RAM, when there is no GPU) is free, how much space is free on the models disk, and whether a token is set. LocalAI does not estimate how much memory a job needs or how long it takes, because the server cannot know that before the job starts, so the page says so. A missing model or dataset blocks the start. A warning, such as a missing backend or no GPU, does not.
@@ -223,7 +223,7 @@ A user needs the fine-tuning permission. Without it, the page says the account c
 
 ### Fine-tuning is an add-on
 
-The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar. The Build hub no longer has a Fine-Tune tab.
+The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar. 
 
 The old link `/app/fine-tune` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
 
@@ -231,7 +231,9 @@ The API does not change. The page calls `/api/fine-tuning/*` with the signed-in 
 
 With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/fine-tune` leads back to `/app`, and every path under `/api/fine-tuning` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
 
-The add-on also offers tools to the chat: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or export it. A tool never starts, stops or exports anything by itself: it proposes the action and a person confirms it in an approval card. A model or a dataset given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `finetune.` prefix, and they run with the permissions of the person in the chat.
+The add-on also offers tools to the chat: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or export it. In the chats, and in an agent or a trigger whose agent names the add-on, a tool call that starts a job runs at once, because you turned the add-on on; a trigger with no agent gets no such tool; the result says what an undo does (see below). On the OpenAI-compatible API and other surfaces, a tool only proposes the action and a person confirms it in an approval card. A model or a dataset given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `finetune.` prefix, and they run with the permissions of the person in the chat.
+
+Undo is the safety net for a job a chat started. Starting a job keeps a change set in the add-on, and the chat shows an Undo button on it. An undo stops the job while it still runs; it does not save a checkpoint. If the job already finished, was stopped, or was exported, the answer is `cannot_undo`: a finished job cannot be un-run, and the engine offers no operation that removes its output, so nothing is deleted. A change set can be undone for 7 days and only once. Stopping a job, exporting a checkpoint and storing a dataset cannot be undone, and their results say so with the reason. The undo is the person's own action from a browser tab; no model, agent or API key can call it. The change set lives in the add-on's own data, with the rest of its journal, so it travels with the add-on's backups and goes with its data when that is purged. In a cluster the undo goes through the add-on's owner like every other call.
 
 ## Dataset Formats
 

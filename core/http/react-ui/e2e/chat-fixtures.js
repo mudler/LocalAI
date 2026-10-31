@@ -1,12 +1,8 @@
-// Shared fixtures for the Chat and Talk specs: stubbed API routes, conversations
-// written to the browser storage the Chat page reads, and a completion stream
-// the spec drives by hand.
-import { mockHome, seedChats, CHATS_KEY } from './home-fixtures.js'
+// Shared fixtures for the Chats and Talk specs: stubbed API routes, a completion
+// answer and a faked realtime connection.
+import { mockHome } from './home-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
 
-export { CHATS_KEY, seedChats }
-
-const GB = 1024 * 1024 * 1024
 
 export const MODELS = [
   { id: 'qwen3-8b', capabilities: ['FLAG_CHAT'] },
@@ -14,22 +10,7 @@ export const MODELS = [
   { id: 'phi-4-mini', capabilities: ['FLAG_CHAT'] },
 ]
 
-// A bare conversation in the shape useChat stores.
-export function chatOf(id, name, model, history, extra = {}, updatedAt = Date.now()) {
-  return {
-    id, name, model, history, updatedAt, createdAt: updatedAt - 60_000,
-    systemPrompt: '', mcpMode: false, mcpServers: [], clientMCPServers: [],
-    temperature: null, topP: null, topK: null,
-    tokenUsage: { prompt: 0, completion: 0, total: 0 }, contextSize: null,
-    ...extra,
-  }
-}
-
-export const pair = (q, a) => [{ role: 'user', content: q }, { role: 'assistant', content: a }]
-
-export const GO_BLOCK = 'func main() {\n\tctx, cancel := context.WithCancel(context.Background())\n\tdefer cancel()\n}'
-
-// Stub what Chat reads. Models are the chat models the list offers; `loaded`
+// Stub what the chat pages read. Models are the chat models the list offers; `loaded`
 // the ones the server holds in memory.
 export async function mockChat(page, { models = MODELS, loaded = ['qwen3-8b', 'phi-4-mini'], resources, features } = {}) {
   await mockHome(page, {
@@ -41,13 +22,6 @@ export async function mockChat(page, { models = MODELS, loaded = ['qwen3-8b', 'p
   })
   // Capabilities with the vision flag, which mockHome leaves out.
   await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: models } }))
-}
-
-export const RESOURCES_24GB = {
-  type: 'gpu',
-  gpus: [{ name: 'RTX 4090', vendor: 'nvidia', total_vram: 24 * GB, used_vram: 7.6 * GB }],
-  ram: { total: 64 * GB, used: 20 * GB, available: 40 * GB },
-  aggregate: { total_memory: 24 * GB, used_memory: 7.6 * GB, gpu_count: 1, usage_percent: 31 },
 }
 
 // One answer in the OpenAI stream format.
@@ -65,44 +39,6 @@ export async function answerWith(page, text) {
   })
   return { request: () => body }
 }
-
-// Replace fetch for the completion endpoint with a stream the spec drives:
-//   await page.evaluate(() => window.__sse.push({ choices: [{ delta: { content: 'Hi' } }] }))
-//   await page.evaluate(() => window.__sse.end())
-// Abort is honoured, as the real fetch does.
-export async function controlStream(page) {
-  await page.addInitScript(() => {
-    const orig = window.fetch.bind(window)
-    const enc = new TextEncoder()
-    window.__sse = { ctrl: null, calls: 0 }
-    window.__sse.push = (obj) => window.__sse.ctrl?.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`))
-    window.__sse.end = () => { window.__sse.ctrl?.enqueue(enc.encode('data: [DONE]\n\n')); window.__sse.ctrl?.close() }
-    window.fetch = (url, init) => {
-      if (!String(url).includes('/v1/chat/completions')) return orig(url, init)
-      window.__sse.calls++
-      const stream = new ReadableStream({ start(c) { window.__sse.ctrl = c } })
-      init?.signal?.addEventListener('abort', () => {
-        try { window.__sse.ctrl.error(new DOMException('aborted', 'AbortError')) } catch { /* already closed */ }
-      })
-      return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }))
-    }
-  })
-}
-
-export async function storedChats(page) {
-  return page.evaluate((key) => JSON.parse(localStorage.getItem(key) || '{}'), CHATS_KEY)
-}
-
-// Open Chat with these conversations stored.
-export async function openChat(page, chats, active = chats[0]?.id) {
-  await seedChats(page, chats, active)
-  await page.goto('/app/chat')
-  // Keys and clicks only work once the page has mounted its handlers.
-  await page.getByTestId('chat-composer').waitFor()
-}
-
-// A tiny valid PNG, for a message with an image in it.
-export const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
 // The Talk page's WebRTC, faked: the page connects as it would, and the spec
 // plays the server's events with window.__talk.emit(event).

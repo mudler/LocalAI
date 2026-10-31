@@ -3,9 +3,9 @@
     "blocked": "Un'azione precedente su questo componente non è ancora confermata. Controlla prima il suo stato o ignorala.",
     "checkStatus": "Controlla lo stato",
     "dismiss": "Ignora",
-    "failed": "Il proprietario non ha completato l'azione. Nulla è stato modificato. Riprova per iniziare un nuovo tentativo.",
-    "notApplied": "Il proprietario ha segnalato l'azione come completata, ma il componente non è cambiato. Riprova.",
-    "unknown": "Il proprietario non ha ancora confermato l'azione. Potrebbe ancora essere applicata. Controlla lo stato o ignorala prima di avviare un'altra azione."
+    "failed": "L’azione non è stata completata. Nulla è stato modificato. Riprova per iniziare un nuovo tentativo.",
+    "notApplied": "L’azione è stata segnalata come completata, ma il componente non è cambiato. Riprova per iniziare un nuovo tentativo.",
+    "unknown": "L’azione non è ancora confermata. Potrebbe ancora essere applicata. Controlla lo stato o ignorala prima di avviare un’altra azione."
   },
   "approval": {
     "title": "Serve la tua approvazione",
@@ -37,14 +37,16 @@
     "emptyTitle": "Ancora nessuna app",
     "firstRun": {
       "browse": "Browse add-ons",
-      "title": "Welcome to Apps",
-      "lead": "Add-ons give LocalAI pages and chat tools. Start with one of these, or find more.",
-      "featuredLabel": "Featured add-ons",
+      "title": "Ancora nessun componente",
+      "lead": "I componenti aggiuntivi danno a LocalAI nuove pagine e strumenti per le chat. Girano per conto loro e chiedono solo ciò che dichiarano.",
+      "featuredLabel": "Inizia da uno di questi",
       "featuredFailed": "The list of add-ons could not be read.",
-      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons."
+      "noFeatured": "Your sources do not list an add-on yet. Add a source, then find add-ons.",
+      "factChecked": "Verificati sulle tue fonti prima di partire",
+      "factRemove": "Spegnili o rimuovili quando vuoi"
     },
     "headless": "Gira in background e non ha una pagina propria.",
-    "listLabel": "App",
+    "listLabel": "Componenti installati",
     "loading": "Caricamento delle app",
     "manage": "Gestisci",
     "open": "Apri",
@@ -56,10 +58,14 @@
     "tools_one": "{{count}} strumento",
     "tools_other": "{{count}} strumenti",
     "version": "Versione {{version}}",
-    "working": "In attesa della conferma del proprietario.",
+    "working": "In attesa di conferma.",
     "noMatchTitle": "No add-on matches",
-    "noMatchBody": "Nothing in My add-ons matches \"{{query}}\". Try other words.",
-    "clearSearch": "Clear search"
+    "noMatchBody": "Nessun componente installato corrisponde a \"{{query}}\". Prova altre parole.",
+    "clearSearch": "Clear search",
+    "loadError": {
+      "title": "I componenti aggiuntivi non sono disponibili ora.",
+      "paused": "Pagine e strumenti dei componenti sono in pausa finché non torna."
+    }
   },
   "browse": {
     "confirmTitle": "Installare {{name}}?",
@@ -69,7 +75,7 @@
     "fromLibrary": "da {{library}}",
     "install": "Installa",
     "installedDetail": "Versione {{version}}, generazione {{generation}}",
-    "installedOther": "Installato {{version}} (altra versione)",
+    "installedOther": "Hai la {{version}}",
     "installedSame": "Installato {{version}}",
     "installedState": "Installato",
     "installing": "Installazione",
@@ -85,7 +91,8 @@
     "backendFailed": "The backend was not installed.",
     "alias": "Alias",
     "kindLabel": "Kind",
-    "installedOn": "{{name}} is installed and on."
+    "installedOn": "{{name}} is installed and on.",
+    "installedChip": "Installato"
   },
   "catalog": {
     "allLibraries": "Tutte le librerie",
@@ -115,8 +122,8 @@
     "pin": "Pin {{name}}",
     "pinLabel": "Pin",
     "pinned": "Pinned",
-    "running": "Attivo",
-    "search": "Search add-ons",
+    "running": "In esecuzione",
+    "search": "Cerca tra i componenti installati",
     "status": {
       "failed": "failed",
       "starting": "starting"
@@ -129,7 +136,7 @@
     "denied": "Il server ha rifiutato la richiesta. Potresti non avere il permesso, oppure il componente è cambiato. L'elenco è stato aggiornato.",
     "invalid": "Il server non ha potuto accettare la richiesta.",
     "network": "Impossibile raggiungere il server. Controlla la connessione.",
-    "unavailable": "Il proprietario del componente non è disponibile al momento. Riprova tra poco.",
+    "unavailable": "I componenti non sono disponibili al momento. Riprova tra poco.",
     "unknownOutcome": "Non è stato possibile confermare il risultato. Controlla lo stato prima di riprovare."
   },
   "installed": {
@@ -174,14 +181,14 @@
     },
     "hints": {
       "id": "Lettere minuscole, cifre e trattini. Non può cambiare in seguito.",
-      "reference": "Il nome di una credenziale configurata dal proprietario. Non incollare mai un token o una password qui.",
+      "reference": "Il nome di una credenziale configurata da un amministratore su questo server. Non incollare mai qui un token o una password.",
       "url": "Un indirizzo https senza credenziali né stringa di query.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Aggiornata {{when}}, {{count}} voci",
-    "lead": "Una libreria è un documento di catalogo che elenca componenti. Le credenziali non si digitano mai qui: una libreria privata indica una credenziale configurata dal proprietario.",
+    "lead": "Una libreria è un indice che elenca componenti, backend o modelli. Le credenziali non si digitano mai qui: una libreria privata di componenti indica una credenziale configurata da un amministratore su questo server.",
     "listLabel": "Librerie",
     "loading": "Caricamento delle librerie",
     "notRefreshed": "Non ancora aggiornata",
@@ -251,10 +258,11 @@
     "hasUI": "Ha delle pagine",
     "headless": "Senza interfaccia, nessuna pagina",
     "health": "Stato di salute",
+    "installedAt": "Installato",
     "host": "API dell'host",
     "interface": "Interfaccia",
     "logs": "Log",
-    "logsNone": "L'output dei processi dei componenti non viene raccolto in questa versione. Stato di salute e tentativi di riavvio qui sopra sono ciò che il proprietario può riportare.",
+    "logsNone": "L’output dei processi dei componenti non viene raccolto in questa versione. Stato di salute e tentativi di riavvio qui sopra sono tutto ciò che LocalAI può riportare.",
     "observed": "Stato osservato",
     "protocol": "Protocollo",
     "restarts": "Tentativi di riavvio",
@@ -338,14 +346,15 @@
   "state": {
     "failed": "Errore",
     "label": "Stato: {{state}}",
-    "running": "Attivo",
+    "running": "In esecuzione",
     "starting": "In avvio",
     "stopped": "Disattivato",
-    "update-pending": "Aggiornamento in attesa"
+    "update-pending": "Aggiornamento in attesa",
+    "updateTo": "Aggiornamento {{version}}"
   },
-  "supporting": "Le app che il proprietario esegue per te e le librerie da cui provengono.",
+  "supporting": "Software che installi per dare a LocalAI nuove pagine e strumenti per le chat. Ognuno gira per conto suo e chiede solo ciò che dichiara.",
   "tabs": {
-    "apps": "I miei componenti",
+    "apps": "Installati",
     "browse": "Trova componenti",
     "label": "Sezioni dei componenti aggiuntivi",
     "libraries": "Fonti"
@@ -516,8 +525,8 @@
       "unknownOutcome": "L'esito non è noto. Rileggi lo stato: la stessa azione non viene inviata due volte.",
       "auth": "Accedi di nuovo.",
       "denied": "Solo gli amministratori possono farlo, dalla propria sessione del browser.",
-      "network": "Il proprietario non è raggiungibile.",
-      "unavailable": "Il proprietario non è disponibile."
+      "network": "Il servizio dei componenti non è raggiungibile.",
+      "unavailable": "Il servizio dei componenti non è disponibile."
     }
   },
   "updates": {
@@ -591,18 +600,30 @@
       "auth": "Accedi di nuovo per continuare.",
       "denied": "Solo un amministratore può farlo dalla propria sessione del browser.",
       "network": "La rete non è raggiungibile.",
-      "unavailable": "Il proprietario del componente non è disponibile. Riprova."
+      "unavailable": "Il servizio dei componenti non è disponibile. Riprova."
     },
-    "reviewButton": "Aggiornamenti ({{count}})",
-    "reviewTitle": "Rivedi gli aggiornamenti dei componenti",
-    "reviewDescription": "Niente viene aggiornato finché non scegli qui. Ogni aggiornamento fa prima un backup dei dati del componente.",
+    "upgradeNamed": "Aggiorna {{name}}",
+    "why": {
+      "role": "Un aggiornamento è disponibile. Solo un amministratore può installarlo.",
+      "needs-check": "Viene segnalato un aggiornamento, ma i dettagli non sono ancora confermati. Controlla di nuovo per confermarlo.",
+      "check-failed": "L'ultimo controllo è fallito, quindi l'aggiornamento non può essere confermato. Controlla di nuovo.",
+      "incompatible": "Esiste un aggiornamento, ma non può funzionare qui:",
+      "integrity": "La libreria elenca questa versione con contenuto diverso. Non è proposta come aggiornamento.",
+      "recovery": "I dati di questo componente aggiuntivo richiedono prima il ripristino. Ripristina un backup nei Dettagli, poi aggiorna.",
+      "current": "L'ultimo controllo non ha trovato aggiornamenti. L'avviso potrebbe essere obsoleto. Controlla di nuovo.",
+      "unpinned": "La libreria segnala un aggiornamento ma non indica quale build installare, quindi non è possibile aggiornarlo da qui. Ricontrolla più tardi."
+    },
     "checkAll": "Cerca aggiornamenti",
     "checkingAll": "Controllo...",
     "checkAllDone": "Controllati {{count}} componenti.",
     "checkAllFailed": "{{count}} non controllabili.",
-    "upgradeNamed": "Aggiorna {{name}}",
-    "toastDone": "{{name}} aggiornato alla {{version}}.",
-    "toastFailed": "{{name}} non aggiornato: {{message}}"
+    "checkResult": {
+      "done": "Controllato.",
+      "failed": "Il controllo non è stato completato.",
+      "justNow": "Controllato adesso."
+    },
+    "waitingService": "Il servizio dei componenti aggiuntivi si sta avviando. LocalAI chiede di nuovo dell'aggiornamento tra {{seconds}} s.",
+    "checkAgain": "Controlla ora"
   },
   "install": {
     "stepsLabel": "Install steps",
@@ -639,17 +660,19 @@
     "addsTools_other": "Adds {{count}} tools",
     "openNamed": "Open {{name}}",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted."
+    "removeBody": "{{name}} turns off and is removed from this server. Its data is kept, so installing it again picks it up. Nothing is deleted.",
+    "removeNamed": "Rimuovi {{name}}…"
   },
   "preview": {
     "screenshots": "Screenshots",
-    "adds": "What it adds",
+    "adds": "Cosa può fare",
     "page": "A page of its own in LocalAI",
     "addsNothing": "Nothing you can see. It works in the background.",
     "version": "Version",
     "id": "Identifier",
     "sourceUnknown": "Not known",
-    "moreDetails": "Health, trust and updates"
+    "moreDetails": "Health, trust and updates",
+    "updateTitle": "Aggiorna alla {{version}}"
   },
   "flow": {
     "installAndTurnOn": "Installa e attiva",
@@ -663,6 +686,91 @@
       "install": "Download, verify and install",
       "turn-on": "Turn on"
     },
-    "seeInList": "See it in My add-ons"
+    "seeInList": "Vedilo in Installati",
+    "install": "Installa",
+    "installNamed": "Installa {{name}}",
+    "shadowWarning": "Questo componente sostituisce lo strumento integrato {{tool}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo.",
+    "skillShadow": "Questo componente sostituisce la skill integrata {{skill}}.",
+    "skillShadowWarning": "Questo componente sostituisce la skill integrata {{skill}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo."
+  },
+  "family": {
+    "pages": "Cerchi le pagine create da te o da un agente? Sono in <go>Pagine</go>."
+  },
+  "filter": {
+    "label": "Mostra",
+    "all": "Tutti",
+    "running": "In esecuzione",
+    "off": "Spenti",
+    "showAll": "Mostra tutti",
+    "none": {
+      "all": "Nessun componente da mostrare.",
+      "running": "Nessun componente è in esecuzione.",
+      "off": "Tutti i componenti sono in esecuzione."
+    }
+  },
+  "attention": {
+    "label": "Richiede attenzione",
+    "failedTitle": "{{name}} si è fermato.",
+    "failedRestarts_one": "Non è riuscito ad avviarsi {{count}} volta di seguito.",
+    "failedRestarts_other": "Non è riuscito ad avviarsi {{count}} volte di seguito.",
+    "failedOnce": "Non si è avviato.",
+    "toolsOff_one": "Il suo {{count}} strumento per le chat è spento finché non riparte.",
+    "toolsOff_other": "I suoi {{count}} strumenti per le chat sono spenti finché non riparte.",
+    "pageOff": "La sua pagina non è disponibile finché non riparte.",
+    "updateTitle": "{{name}} {{version}} è disponibile.",
+    "updateBody": "Hai la {{current}}. Vedi cosa cambia e confermi prima che venga sostituito qualcosa."
+  },
+  "meta": {
+    "builtin": "Integrato",
+    "builtinLong": "Incluso in LocalAI",
+    "signed": "Firmato · {{library}}",
+    "checked": "Verificato · {{library}}",
+    "devBuild": "Build di sviluppo",
+    "library": "libreria {{library}}"
+  },
+  "skills": {
+    "title_one": "{{count}} skill della chat",
+    "title_other": "{{count}} skill della chat",
+    "replaces": "sostituisce la skill integrata",
+    "serves": "usata nelle chat",
+    "notServing": "non usata ora",
+    "serveIn": "Usa per {{skill}} nelle chat",
+    "saveFailed": "Impossibile salvare la scelta."
+  },
+  "settingsTab": {
+    "overview": "Panoramica",
+    "settings": "Impostazioni",
+    "tabsLabel": "Dettagli di {{name}}",
+    "off": "Attiva {{name}} per cambiarne le impostazioni.",
+    "serverTitle": "Impostazioni del server per questo add-on",
+    "serverIntro": "LocalAI tiene queste impostazioni di {{name}} nella pagina Impostazioni, con le altre impostazioni del server.",
+    "open": "Apri",
+    "pageLink": "Impostazioni",
+    "server": {
+      "network": {
+        "title": "Rete del Sandbox",
+        "body": "La rete che i comandi del Sandbox possono usare, le sue porte e per quanto tempo il registro conserva una riga.",
+        "loading": "Lettura delle impostazioni di rete…",
+        "limit": "Limite",
+        "newChat": "Una nuova chat",
+        "ports": "Porte",
+        "audit": "Registro conservato",
+        "days_one": "{{count}} giorno",
+        "days_other": "{{count}} giorni",
+        "presets": {
+          "off": "Nessuna rete",
+          "registries": "Solo i registri dei pacchetti",
+          "all": "Ogni host pubblico"
+        }
+      },
+      "bash": {
+        "title": "Comandi nelle chat",
+        "body": "Quale add-on esegue il bash delle chat e se i comandi possono girare su questa macchina."
+      },
+      "webTools": {
+        "title": "Strumenti web nelle chat",
+        "body": "Se le chat hanno web_search e web_fetch e quale add-on li serve."
+      }
+    }
   }
 }

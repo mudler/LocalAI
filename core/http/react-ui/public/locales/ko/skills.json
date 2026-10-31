@@ -1,79 +1,83 @@
 {
   "title": "스킬",
-  "subtitle": "에이전트 스킬(재사용 가능한 지침 및 리소스)을 관리합니다",
+  "subtitle": "작업에 맞을 때 채팅이 읽는 지침입니다. 에이전트에 추가하면 그 에이전트에서 사용합니다.",
   "unavailable": {
-    "subtitle": "스킬 서비스를 사용할 수 없거나 인덱스를 다시 빌드하는 중입니다. 잠시 후 다시 시도하세요.",
-    "retry": "다시 시도"
+    "subtitle": "스킬에는 파일 기능이 필요한데, 이 서버에서는 파일 기능이 꺼져 있습니다."
   },
   "actions": {
     "newSkill": "새 스킬",
     "createSkill": "스킬 만들기",
-    "import": "가져오기",
-    "importing": "가져오는 중...",
-    "gitRepos": "Git 저장소",
     "edit": "편집",
-    "delete": "삭제",
-    "export": "내보내기",
-    "sync": "동기화",
-    "addRepo": "저장소 추가",
-    "adding": "추가 중...",
-    "remove": "제거",
-    "enable": "사용",
-    "disable": "사용 안 함"
+    "delete": "삭제"
   },
   "search": {
     "placeholder": "스킬 검색..."
-  },
-  "git": {
-    "title": "Git 저장소",
-    "description": "스킬을 가져올 Git 저장소를 추가합니다. 동기화 후 스킬이 목록에 표시됩니다.",
-    "urlPlaceholder": "https://github.com/user/repo 또는 git@github.com:user/repo.git",
-    "noRepos": "구성된 Git 저장소가 없습니다. 위에서 추가하세요.",
-    "disabled": "사용 안 함",
-    "removeRepo": "저장소 제거"
   },
   "card": {
     "noDescription": "설명 없음",
     "readOnly": "읽기 전용",
     "editTitle": "스킬 편집",
     "deleteTitle": "스킬 삭제",
-    "exportTitle": ".tar.gz로 내보내기"
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "이 스킬은 건너뛰었습니다: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "{{name}} 제공",
+    "replacedBy": "{{name}}(으)로 대체됨",
+    "notActive": "비활성: 기본 제공 스킬이 사용됩니다",
+    "notActiveBy": "비활성: {{name}}에서 제공합니다",
+    "fallback": "{{name}} 애드온의 스킬이 꺼져 있거나 실행 중이 아니어서 사용 중"
   },
   "empty": {
     "title": "스킬을 찾을 수 없습니다",
     "text": "스킬을 만들거나 가져와서 시작하세요.",
-    "noPersonal": "아직 스킬이 없습니다."
-  },
-  "sections": {
-    "yourSkills": "내 스킬",
-    "otherUsersSkills": "다른 사용자의 스킬"
-  },
-  "deleteDialog": {
-    "title": "스킬 삭제",
-    "message": "스킬 \"{{name}}\"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
-    "confirm": "삭제"
-  },
-  "removeRepoDialog": {
-    "title": "Git 저장소 제거",
-    "message": "이 Git 저장소를 제거하시겠습니까? 해당 저장소의 스킬을 더 이상 사용할 수 없게 됩니다.",
-    "confirm": "제거"
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
   },
   "toasts": {
     "loadFailed": "스킬을 불러오지 못했습니다",
     "deleted": "스킬 \"{{name}}\"이(가) 삭제되었습니다",
-    "deleteFailed": "스킬 삭제 실패",
-    "exported": "스킬 \"{{name}}\"이(가) 내보내졌습니다",
-    "exportFailed": "내보내기 실패",
-    "imported": "\"{{file}}\"에서 스킬을 가져왔습니다",
-    "importFailed": "가져오기 실패",
-    "loadReposFailed": "Git 저장소를 불러오지 못했습니다",
-    "repoAdded": "Git 저장소가 추가되고 동기화 중입니다",
-    "addRepoFailed": "저장소 추가 실패",
-    "synced": "저장소가 동기화되었습니다",
-    "syncFailed": "동기화 실패",
-    "toggled": "저장소가 전환되었습니다",
-    "toggleFailed": "전환 실패",
-    "removed": "저장소가 제거되었습니다",
-    "removeFailed": "제거 실패"
+    "deleteFailed": "스킬 삭제 실패"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "애드온"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "이 스킬은 여기서 읽기 전용입니다. 기본 제공 스킬은 서버에 포함되어 있고, 내 파일의 스킬은 파일에서 바꿉니다."
+  },
+  "load": {
+    "title": "스킬을 불러올 수 없습니다."
   }
 }

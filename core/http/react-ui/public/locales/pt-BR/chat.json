@@ -25,22 +25,15 @@
     "yes": "Sim",
     "gpuLayers": "Camadas GPU"
   },
-  "context": {
-    "label": "Contexto: {{percent}}%",
-    "labelWithTokens": "Contexto: {{percent}}% ({{tokens}} tokens)"
-  },
   "settings": {
     "title": "Configurações do Chat",
     "manageMode": "Modo de gerenciamento",
-    "manageModeDesc": "Permita que este chat instale modelos, alterne backends e edite configurações conversando com o LocalAI.",
-    "systemPrompt": "Instrução do sistema",
-    "systemPromptPlaceholder": "Você é um assistente útil...",
-    "temperature": "Temperatura",
-    "topP": "Top P",
-    "topK": "Top K",
-    "contextSize": "Tamanho do contexto",
-    "contextSizePlaceholder": "2048",
-    "clearHistory": "Limpar histórico do chat"
+    "serverKept": "O servidor guarda este chat. O modelo e o agente são definidos no início.",
+    "manageModeOn": "Este chat tem as ferramentas de gestão do LocalAI. Use /assistant para iniciar outro.",
+    "agent": "Agente",
+    "agentHelp": "Este chat usa o agente {{name}}: as instruções dele e só as ferramentas que ele concede.",
+    "editAgent": "Editar agente",
+    "deleteHelp": "Apagar este chat e as mensagens dele para sempre."
   },
   "empty": {
     "manageTitle": "Gerencie o LocalAI conversando",
@@ -61,7 +54,6 @@
       "Gerar ideias"
     ],
     "recent": "Recente",
-    "noMessages": "Nenhuma mensagem ainda",
     "hintEnter": "Enter para enviar",
     "hintShiftEnter": "Shift+Enter para nova linha",
     "hintAttach": "Anexar arquivos"
@@ -71,31 +63,18 @@
   },
   "actions": {
     "copy": "Copiar",
-    "edit": "Editar",
-    "editMessage": "Editar mensagem",
-    "save": "Salvar",
-    "cancel": "Cancelar",
     "regenerate": "Regenerar",
-    "branch": "Ramificar daqui",
-    "jumpToLatest": "Ir para a mais recente"
+    "jumpToLatest": "Ir para a mais recente",
+    "reuse": "Editar e enviar de novo"
   },
   "streaming": {
     "transferring": "Transferindo modelo...",
     "transferringTo": "Transferindo o modelo para {{node}}..."
   },
-  "tokens": {
-    "perSec": "{{count}} tok/s",
-    "peak": "Pico: {{count}} tok/s",
-    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
-  },
   "input": {
-    "placeholder": "Mensagem...",
-    "attachFile": "Anexar arquivo",
     "send": "Enviar mensagem",
     "stopGenerating": "Parar a geração",
-    "canvasTitle": "Canvas — extrai blocos de código e mídia para um painel lateral para visualização, cópia e download",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Abrir painel do canvas"
+    "placeholderQueue": "O modelo está trabalhando. Uma mensagem enviada agora espera o próximo passo dele."
   },
   "deleteAllDialog": {
     "title": "Excluir Todos os Chats",
@@ -107,8 +86,7 @@
     "copied": "Copiado para a área de transferência",
     "copyFailed": "Não foi possível copiar para a área de transferência",
     "chatCopied": "Chat copiado para a área de transferência",
-    "forked": "Novo chat criado",
-    "pdfScannedAsImages": "{{name}} não tem camada de texto (digitalização). {{count}} de {{total}} páginas anexadas como imagens para um modelo de visão."
+    "newChatForModel": "Um chat mantém o modelo dele. Novo chat iniciado com {{model}}."
   },
   "menu": {
     "trigger": "Chats",
@@ -118,23 +96,492 @@
     "noMatch": "Nenhuma conversa corresponde à sua busca",
     "noConversations": "Nenhuma conversa ainda",
     "rename": "Renomear",
-    "duplicate": "Duplicar chat",
     "copyChat": "Copiar chat",
     "exportMarkdown": "Exportar como Markdown",
     "deleteChat": "Excluir chat",
     "newChat": "Novo chat",
     "clearAll": "Limpar tudo",
-    "deleteAllTitle": "Excluir todas as conversas"
+    "deleteAllTitle": "Excluir todas as conversas",
+    "untitled": "Novo chat",
+    "origin": {
+      "trigger": "Iniciado por um gatilho",
+      "connector": "De um conector"
+    }
   },
   "message": {
-    "you": "Você"
+    "you": "Você",
+    "loopRun": "Loop, execução {{run}}"
   },
-  "addons": {
-    "note": "An add-on that is off here does nothing in this chat.",
-    "label": "Add-ons",
-    "title": "Add-on tools for this chat",
-    "heading": "Add-on tools",
-    "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+  "tools": {
+    "label": "Ferramentas",
+    "title": "Ferramentas que este chat pode usar",
+    "heading": "Ferramentas deste chat",
+    "draftNote": "Um novo chat começa com estas opções. Uma ferramenta desligada não é oferecida ao modelo.",
+    "note": "Uma ferramenta desligada aqui não é oferecida ao modelo neste chat.",
+    "count": "{{on}} de {{total}} ligadas",
+    "selectAll": "Ligar todas",
+    "disableAll": "Desligar todas",
+    "groupOn": "Todas ligadas",
+    "groupOff": "Todas desligadas",
+    "groupOnLabel": "Ligar tudo em {{group}}",
+    "groupOffLabel": "Desligar tudo em {{group}}",
+    "groupCount": "{{on}} de {{total}}",
+    "optIn": "Desligada até você ligar. Ligar todas não a altera.",
+    "empty": "Não há nada para ligar neste chat.",
+    "failed": "Não foi possível salvar. O interruptor voltou ao que era.",
+    "unavailable": "Indisponível neste chat",
+    "toolCount_one": "{{count}} ferramenta",
+    "toolCount_other": "{{count}} ferramentas"
+  },
+  "skills": {
+    "label": "Habilidades",
+    "title": "Habilidades que este chat pode usar",
+    "heading": "Habilidades deste chat",
+    "count": "{{on}} de {{total}} ativas",
+    "selectAll": "Selecionar todas",
+    "disableAll": "Desativar todas",
+    "selectShown": "Selecionar as exibidas",
+    "disableShown": "Desativar as exibidas",
+    "search": "Buscar habilidades",
+    "noMatch": "Nenhuma habilidade corresponde a “{{query}}”.",
+    "later": "Habilidades que você adicionar depois começam ativas.",
+    "failed": "Não foi possível salvar. Nada mudou.",
+    "source": {
+      "builtin": "Integrada",
+      "personal": "Pessoal",
+      "shared": "Compartilhada",
+      "folder": "Espaço de trabalho",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Substituída por {{name}}",
+    "fallback_one": "{{skills}} integrada em uso: a habilidade própria do complemento {{name}} está desligada ou não está em execução aqui.",
+    "fallback_other": "{{skills}} integradas em uso: as habilidades próprias do complemento {{name}} estão desligadas ou não estão em execução aqui."
+  },
+  "agent": {
+    "label": "Agente",
+    "title": "Agente salvo para este chat",
+    "heading": "Começar com um agente",
+    "note": "O agente dá ao chat as instruções dele e exatamente as ferramentas que concede.",
+    "none": "Sem agente",
+    "fixed": "O agente deste chat"
+  },
+  "assistant": {
+    "chatTitle": "Assistente do LocalAI"
+  },
+  "slash": {
+    "delete": {
+      "label": "Apagar chat",
+      "desc": "Apagar esta conversa"
+    },
+    "assistant": {
+      "desc": "Iniciar um chat que pode gerir o LocalAI"
+    },
+    "settings": {
+      "desc": "Modo foco, agente e informações do modelo"
+    },
+    "group": {
+      "context": "Contexto",
+      "skills": "Skills e agentes",
+      "help": "Ajuda"
+    },
+    "models": {
+      "label": "Modelos",
+      "desc": "Abrir a lista de modelos"
+    },
+    "skill": {
+      "label": "Usar uma skill",
+      "desc": "Escolher uma das skills deste chat"
+    },
+    "agent": {
+      "label": "Pedir a um agente salvo",
+      "desc": "Passar uma tarefa para um dos seus agentes",
+      "enable": "Ativar os agentes salvos neste chat",
+      "enableDesc": "Depois escolha o agente"
+    },
+    "compact": {
+      "label": "Compactar o contexto",
+      "desc": "Resumir as mensagens antigas para abrir espaço para o modelo"
+    },
+    "clear": {
+      "label": "Limpar o contexto",
+      "desc": "Recomeçar neste chat; as mensagens ficam"
+    },
+    "attach": {
+      "label": "Anexar arquivos",
+      "desc": "Escolher arquivos para enviar",
+      "clearDesc": "Remover os arquivos que aguardam o envio"
+    },
+    "help": {
+      "label": "Todos os comandos",
+      "desc": "Listar cada comando e o que ele faz"
+    },
+    "about": {
+      "label": "Sobre este chat",
+      "desc": "Modelo, ferramentas, skills e tamanho do contexto"
+    },
+    "args": {
+      "skill": "Skills",
+      "agent": "Agentes salvos",
+      "model": "Modelos",
+      "attach": "Arquivos",
+      "loop": "Loops",
+      "goal": "Objetivo"
+    },
+    "badge": {
+      "builtin": "embutida",
+      "addon": "complemento",
+      "shared": "compartilhada",
+      "yours": "sua"
+    },
+    "collides": "só com /skill",
+    "errors": {
+      "skill": "Este chat não tem uma skill chamada \"{{name}}\".",
+      "agent": "Você não tem um agente salvo chamado \"{{name}}\".",
+      "agentTask": "Escreva a tarefa para {{name}} depois do nome.",
+      "agentsOff": "Os agentes salvos estão desativados neste chat. Ative-os no menu Ferramentas."
+    },
+    "loop": {
+      "label": "Repetir um prompt",
+      "desc": "Execute um prompt várias vezes neste chat: /loop 5m verifique o build",
+      "listDesc": "Mostrar os loops deste chat",
+      "stopDesc": "Parar um loop, ou todos",
+      "stopAll": "Todos os loops",
+      "stopAllDesc": "Parar todos os loops deste chat"
+    },
+    "goal": {
+      "label": "Objetivo",
+      "desc": "Defina um objetivo em que o chat continua trabalhando sozinho",
+      "clearDesc": "Remover o objetivo",
+      "resumeDesc": "Continuar com o objetivo"
+    }
+  },
+  "shortcuts": {
+    "onMessage": "Numa mensagem: copiar, editar, regenerar",
+    "editLast": "Editar a sua última mensagem"
+  },
+  "files": {
+    "title": "Arquivos deste chat",
+    "chip": "Arquivos",
+    "chipTitle": "Arquivos deste chat: o que você anexou e o que o assistente criou ou alterou",
+    "close": "Fechar arquivos",
+    "emptyTitle": "Ainda não há arquivos neste chat",
+    "emptyBody": "Solte arquivos aqui para anexá-los à sua próxima mensagem. Arquivos que o assistente criar ou alterar também aparecem aqui.",
+    "dropHint": "Solte arquivos aqui para anexá-los à sua próxima mensagem.",
+    "groups": {
+      "uploaded": "Você enviou",
+      "created": "Criados e alterados",
+      "working": "Arquivos de trabalho"
+    },
+    "turn": "turno {{n}}",
+    "media": "No contexto",
+    "mediaTitle": "O modelo recebeu este arquivo como imagem ou vídeo com sua mensagem",
+    "changedTag": "Editado",
+    "changedTitle": "O assistente alterou este arquivo",
+    "download": "Baixar {{name}}",
+    "error": "Não foi possível ler os arquivos deste chat.",
+    "workingNote": "Scripts, dados e logs que o assistente criou no caminho. Ficam na pasta de trabalho deste chat."
+  },
+  "steps": {
+    "verb": {
+      "read": "Leu",
+      "list": "Listou",
+      "write": "Salvou",
+      "create": "Criou",
+      "change": "Alterou",
+      "move": "Moveu",
+      "delete": "Excluiu",
+      "search": "Pesquisou",
+      "run": "Executou",
+      "fetch": "Buscou",
+      "websearch": "Pesquisou na web:",
+      "webfetch": "Leu",
+      "delegate": "Consultou um agente",
+      "used": "Usou"
+    },
+    "worked": "Trabalhou por {{duration}}",
+    "thoughtFor": "Pensou por {{duration}}",
+    "working": "Trabalhando",
+    "thinking": "Pensando",
+    "noMatches": "nenhum resultado",
+    "noResults": "nenhum resultado",
+    "emptyFolder": "pasta vazia",
+    "size": "{{size}}",
+    "seconds": "{{value}} s",
+    "minutes": "{{min}} min {{sec}} s",
+    "tool": "Ferramenta",
+    "input": "Entrada",
+    "showLess": "Mostrar menos",
+    "running": "Em execução",
+    "failed": "Falhou",
+    "count_one": "{{count}} etapa",
+    "count_other": "{{count}} etapas",
+    "files_one": "{{count}} arquivo",
+    "files_other": "{{count}} arquivos",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} itens",
+    "matches_one": "{{count}} resultado",
+    "matches_other": "{{count}} resultados",
+    "results_one": "{{count}} resultado",
+    "results_other": "{{count}} resultados",
+    "lines_one": "{{count}} linha",
+    "lines_other": "{{count}} linhas",
+    "showAll_one": "Mostrar todas as {{count}} linhas",
+    "showAll_other": "Mostrar todas as {{count}} linhas",
+    "details": "Mostrar detalhes",
+    "openFile": "Abrir {{path}} em Arquivos",
+    "savedFiles": "Salvo nos seus arquivos:",
+    "fileOp": {
+      "changed": "alterado",
+      "deleted": "excluído"
+    },
+    "moreFiles": "e mais {{count}}",
+    "alsoSavedWorking_one": "Também salvou {{count}} arquivo de trabalho",
+    "alsoSavedWorking_other": "Também salvou {{count}} arquivos de trabalho",
+    "savedWorking_one": "Salvou {{count}} arquivo de trabalho",
+    "savedWorking_other": "Salvou {{count}} arquivos de trabalho",
+    "workingTitle": "Arquivo de trabalho (um script, um log ou um rascunho): abrir {{path}}"
+  },
+  "error": {
+    "title": "A resposta falhou",
+    "kept": "O que foi escrito até agora fica acima.",
+    "retry": "Tentar de novo",
+    "detail": "Detalhe técnico",
+    "reason": {
+      "unknown": "O agente parou por causa de um erro. Tente de novo para executar o turno outra vez.",
+      "model_backend_missing": "Não foi possível iniciar o modelo \"{{model}}\": o backend dele não está instalado.",
+      "model_backend_missing_anon": "Não foi possível iniciar o modelo: o backend dele não está instalado.",
+      "model_cooldown": "O modelo \"{{model}}\" falhou ao iniciar há pouco e está em pausa.",
+      "model_cooldown_anon": "O modelo falhou ao iniciar há pouco e está em pausa.",
+      "model_load_failed": "Não foi possível iniciar o modelo \"{{model}}\".",
+      "model_load_failed_anon": "Não foi possível iniciar o modelo.",
+      "model_not_found": "O modelo \"{{model}}\" não foi encontrado.",
+      "model_not_found_anon": "O modelo não foi encontrado.",
+      "upstream_key": "O upstream recusou a chave.",
+      "upstream_path": "O upstream não aceita esta requisição nesse endereço.",
+      "upstream_unreachable": "Não foi possível alcançar o endereço do upstream.",
+      "upstream": "O provedor por trás do modelo retornou um erro.",
+      "timeout": "O modelo demorou demais para responder.",
+      "cancelled": "O turno foi cancelado antes de o modelo responder."
+    },
+    "hint": {
+      "model_backend_missing": "Escolha outro modelo ou peça a um administrador que instale o backend.",
+      "model_backend_missing_admin": "Escolha outro modelo ou instale o backend pela página Backends.",
+      "model_cooldown": "Tente de novo em {{seconds}} segundos.",
+      "model_load_failed": "Confira a configuração do modelo e o backend dele e tente de novo.",
+      "model_not_found": "Escolha outro modelo ou instale este pela página Modelos.",
+      "upstream_key": "Confira a chave de API nas configurações do modelo.",
+      "upstream_path": "O endereço do upstream deve ser o endpoint completo, por exemplo .../v1/chat/completions.",
+      "upstream_unreachable": "Confira o endereço nas configurações do modelo.",
+      "upstream": "Tente de novo em instantes. Se continuar falhando, confira o endereço e a chave do provedor.",
+      "timeout": "Tente de novo ou use um modelo menor ou mais rápido.",
+      "cancelled": "Tente de novo quando quiser."
+    },
+    "openBackends": "Abrir Backends"
+  },
+  "allChats": {
+    "title": "Todos os chats",
+    "supporting": "Todos os chats salvos. Pesquise, renomeie, exporte ou exclua.",
+    "loadFailed": "Não foi possível carregar seus chats.",
+    "emptyTitle": "Nenhum chat ainda",
+    "emptyBody": "Um chat começa no Início: digite uma mensagem e envie. Depois disso, seus chats aparecem aqui.",
+    "start": "Começar um chat"
+  },
+  "foot": {
+    "state": {
+      "ready": "Pronto",
+      "nomodel": "Nenhum modelo",
+      "sending": "Enviando",
+      "loading": "Carregando o modelo",
+      "thinking": "Pensando",
+      "tool": "Executando {{tool}}",
+      "answering": "Respondendo",
+      "waiting": "Aguardando você",
+      "stopped": "Parado",
+      "failed": "Falhou",
+      "interrupted": "Interrompido",
+      "paused": "Pausado",
+      "compacting": "Compactando o contexto",
+      "clearing": "Limpando o contexto"
+    },
+    "tool": {
+      "search": "Pesquisando",
+      "list": "Listando",
+      "read": "Lendo",
+      "create": "Criando",
+      "write": "Escrevendo",
+      "change": "Alterando",
+      "move": "Movendo",
+      "delete": "Excluindo",
+      "run": "Executando um comando",
+      "fetch": "Buscando",
+      "delegate": "Consultando um subagente"
+    },
+    "hint": "Enter para enviar · Shift+Enter para uma nova linha",
+    "meter": {
+      "label": "Contexto {{pct}}% cheio. Ver contexto e velocidade",
+      "labelNoLimit": "Contexto com {{used}} tokens. Ver contexto e velocidade"
+    },
+    "details": {
+      "title": "Contexto e velocidade",
+      "context": "Contexto",
+      "contextOf": "{{used}} de {{limit}} tokens ({{pct}}%)",
+      "contextUsed": "{{used}} tokens",
+      "contextLeft": "Restam {{left}} tokens",
+      "contextHelp": "O contexto é o que o modelo lê a cada requisição: as instruções, este chat até agora e os resultados das ferramentas.",
+      "nearFull": "Este chat está perto do limite. O servidor compacta a parte mais antiga para que o modelo possa continuar. A transcrição mantém todas as mensagens.",
+      "limitUnknown": "O servidor não informou o tamanho da janela de contexto.",
+      "lastRequest": "Última requisição",
+      "model": "Modelo",
+      "backend": "Backend",
+      "node": "Nó",
+      "tokensIn": "Tokens de entrada",
+      "tokensOut": "Tokens de saída",
+      "firstToken": "Tempo até o primeiro token",
+      "promptTime": "Processamento do prompt",
+      "speed": "Velocidade",
+      "speedLive": "Velocidade estimada durante o streaming",
+      "average": "Média das últimas {{count}} requisições",
+      "note": "Estes números vêm das requisições que esta página viu. O servidor não os guarda, então recarregar apaga."
+    },
+    "paused": {
+      "after": "após {{count}} etapas",
+      "atLimit": "no limite de etapas",
+      "continue": "Continuar",
+      "continueTitle": "O modelo usou todas as etapas de um turno. Deixe-o continuar de onde parou.",
+      "message": "Continue de onde você parou."
+    }
+  },
+  "attachments": {
+    "label": "Arquivos anexados",
+    "open": "Abrir {{name}}",
+    "showMore": "Mostrar mais {{count}}",
+    "missing": "Arquivo não está mais disponível"
+  },
+  "preview": {
+    "open": "Abrir prévia",
+    "created": "Criado pelo assistente",
+    "changed": "Alterado pelo assistente",
+    "yours": "Você enviou",
+    "fromReply": "Da resposta",
+    "download": "Baixar",
+    "downloadCode": "Baixar código",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "openInFiles": "Abrir em Arquivos",
+    "actions": "Ações do arquivo",
+    "opened": "Prévia aberta: {{name}}",
+    "chip": {
+      "created": "Criado",
+      "changed": "Alterado",
+      "label": "{{verb}} {{name}}, abrir prévia",
+      "row": "Arquivos desta resposta"
+    }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
+    "used": "{{used}} tokens",
+    "speed": "{{speed}} tok/s",
+    "title": "Contexto usado pela última solicitação ao modelo",
+    "ofLimit": "{{used}} / {{limit}} tokens",
+    "left": "restam {{left}}"
+  },
+  "goal": {
+    "label": "Objetivo",
+    "states": {
+      "active": "Em andamento",
+      "paused": "Pausado",
+      "done": "Alcançado",
+      "blocked": "Precisa de você"
+    },
+    "pausedBy": {
+      "user": "Você pausou.",
+      "turn_limit": "Usou todos os turnos automáticos. Retome para dar mais.",
+      "step_limit": "Usou todos os passos. Retome para dar mais.",
+      "error": "Um turno falhou. Retome para tentar de novo.",
+      "interrupted": "O servidor parou durante um turno. Retome para continuar."
+    },
+    "blockedNote": "Precisa de você: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Substituído: {{text}}",
+    "pause": "Pausar",
+    "pauseTitle": "Parar o turno em andamento e pausar o objetivo",
+    "resume": "Retomar",
+    "resumeTitle": "Continuar com o objetivo",
+    "clear": "Remover",
+    "clearTitle": "Remover o objetivo",
+    "progress": "Objetivo · turno {{turn}} de {{max}}",
+    "progressStart": "Objetivo · começando",
+    "markers": {
+      "set": "Objetivo definido",
+      "replaced": "Objetivo substituído",
+      "continue": "Continuando rumo ao objetivo · turno {{turn}}",
+      "continueStart": "Continuando rumo ao objetivo",
+      "paused": "Objetivo pausado",
+      "resumed": "Objetivo retomado",
+      "done": "Objetivo alcançado",
+      "blocked": "Objetivo bloqueado",
+      "cleared": "Objetivo removido"
+    },
+    "announce": {
+      "set": "Objetivo definido: {{text}}",
+      "paused": "Objetivo pausado. {{why}}",
+      "resumed": "Objetivo retomado",
+      "done": "Objetivo alcançado: {{note}}",
+      "blocked": "O objetivo precisa de você: {{note}}",
+      "cleared": "Objetivo removido"
+    },
+    "card": {
+      "title": "Objetivo",
+      "none": "Este chat não tem objetivo. Digite /goal e o que você quer que seja feito, e o chat continua trabalhando nisso sozinho.",
+      "turns": "Turno {{turn}} de {{max}}",
+      "steps": "{{steps}} de {{max}} passos",
+      "clear": "/goal clear remove.",
+      "resume": "/goal resume continua.",
+      "turnsLabel": "Turnos automáticos",
+      "stepsLabel": "Passos",
+      "setLabel": "Definido",
+      "stateLabel": "Estado",
+      "noteLabel": "Nota"
+    },
+    "errors": {
+      "empty": "Escreva o objetivo depois de /goal.",
+      "notAllowed": "Só um chat que você iniciou pode ter um objetivo."
+    }
+  },
+  "invoked": {
+    "skill": "Skill: {{name}}",
+    "agent": "Agente: {{name}}"
+  },
+  "marker": {
+    "compacted": "Contexto compactado: de {{before}} para {{after}} tokens",
+    "cleared": "Contexto limpo",
+    "clearedHint": "O modelo não vê as mensagens acima desta linha."
+  },
+  "cmdcard": {
+    "close": "Fechar",
+    "helpTitle": "Comandos",
+    "helpSkills_one": "Skill: {{names}}. Digite / e o nome dela.",
+    "helpSkills_other": "{{count}} skills: {{names}}. Digite / e o nome.",
+    "helpKeys": "Digite / na caixa para abrir a lista. Tab completa, Enter executa, Esc fecha.",
+    "aboutTitle": "Este chat",
+    "model": "Modelo",
+    "state": "Estado",
+    "loaded": "Carregado",
+    "notLoaded": "Não carregado",
+    "backend": "Backend",
+    "tools": "Ferramentas",
+    "toolsOn_one": "{{count}} ativa",
+    "toolsOn_other": "{{count}} ativas",
+    "skills": "Skills",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skills",
+    "commands": "Comandos",
+    "isolated": "Rodam em uma sandbox isolada",
+    "host": "Rodam nesta máquina",
+    "noCommands": "Não podem rodar",
+    "context": "Contexto",
+    "contextOf": "{{used}} de {{limit}} tokens",
+    "contextUsed": "{{used}} tokens",
+    "unknown": "Ainda não se sabe"
   }
 }

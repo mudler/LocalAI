@@ -107,6 +107,68 @@
       "assistant": "LocalAI Assistant",
       "distributed": "分布式",
       "responses": "响应"
+    },
+    "loadFailedTitle": "无法加载设置。",
+    "egress": {
+      "title": "沙盒网络",
+      "intro": "沙盒中的命令只能通过一个代理访问网络，代理对每个连接都会询问 LocalAI。在下方设置限制、新聊天的预设、端口、额外仓库和审计保留时间；每个人在聊天的工具菜单中于限制内选择预设，并在卡片上允许被阻止的主机。",
+      "serves": "命令在 {{name}} 插件中隔离运行",
+      "servesHost": "命令通过 {{name}} 在这台机器上运行",
+      "servesNone": "尚无沙盒运行命令",
+      "hostNote": "主机后端使用这台机器的网络运行命令：这些设置对其不适用。",
+      "counts": "最近 24 小时：允许 {{allowed}}，阻止 {{blocked}}。",
+      "private": "允许管理员的规则访问私有网络",
+      "privateWarning": "管理员允许的主机将可以访问你内部网络中的地址。仅靠预设永远不会；云元数据和服务器地址仍被拒绝。",
+      "typePhrase": "要开启，请输入：{{phrase}}",
+      "registries": "软件包仓库（{{count}}）",
+      "showAudit": "显示审计",
+      "hideAudit": "隐藏审计",
+      "loadFailed": "无法读取沙盒网络设置",
+      "audit": {
+        "verdict": "结果",
+        "host": "主机",
+        "user": "用户",
+        "at": "时间",
+        "reason": "原因",
+        "bytes": "上传 / 下载字节",
+        "refresh": "刷新",
+        "empty": "没有匹配的请求。",
+        "loadFailed": "无法读取审计",
+        "verdicts": {
+          "any": "所有结果",
+          "allow": "已允许",
+          "block": "已阻止",
+          "done": "已结束"
+        }
+      }
+    },
+    "addons": {
+      "title": "附加组件",
+      "hint": "附加组件带来的设置",
+      "intro": "每个附加组件都把设置放在自己的页面上，即详情中的“设置”选项卡。打开一个即可更改。",
+      "off": "已关闭。启用后才能更改它的设置。",
+      "open": "打开设置",
+      "openNamed": "打开 {{name}} 的设置",
+      "count_one": "{{count}} 个有设置的附加组件",
+      "count_other": "{{count}} 个有设置的附加组件"
+    },
+    "hosts": {
+      "add": "添加",
+      "listLabel": "始终允许的主机",
+      "remove": "移除 {{host}}",
+      "empty": "还没有主机。输入主机名，或输入 主机:端口 来固定端口。",
+      "hint": "只接受确切的名称。加上 :端口 只允许一个端口；否则适用沙盒网络端口设置。",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "请输入主机名。",
+        "wildcard": "“{{value}}”：请输入确切的主机名，不要使用通配模式。",
+        "shape": "“{{value}}”不是主机名。只写主机，不要带协议或路径。",
+        "port": "“{{value}}”：端口必须在 1 到 65535 之间，22 和 25 始终被拒绝。",
+        "private": "“{{value}}”是私有或本地地址。请先打开私有网络开关。",
+        "numeric": "“{{value}}”：IP 地址请写成四个十进制数。",
+        "duplicate": "“{{value}}”已在列表中。",
+        "full": "列表最多包含 {{max}} 个主机。"
+      }
     }
   },
   "backends": {
@@ -253,5 +315,74 @@
     "subtitle": "此 LocalAI 实例上已加载的模型及其占用的主机容量。",
     "scaleOut": "添加机器",
     "hideScaleOut": "隐藏设置"
+  },
+  "settingsTools": {
+    "intro": "聊天有一些内置工具，可以由插件替换。插件已安装、正在运行并在某个聊天中开启时，该聊天会以相同的名称使用插件的工具。",
+    "empty": "此服务器上没有可管理的内置工具。",
+    "loadFailed": "无法读取内置工具",
+    "switch": "开启",
+    "byBuiltin": "内置",
+    "byAddon": "插件：{{name}}",
+    "byNone": "关闭",
+    "unavailable": "此服务器无法运行它：{{reason}}。",
+    "installSandbox": "安装 Sandbox 以隔离运行命令",
+    "replaceExplain": "这些插件会替换 {{tool}}：所选插件在其开启并运行的每个聊天中提供该工具，内置工具会被隐藏。只能有一个生效。 在你选择之前，由最先安装的插件提供。",
+    "defaultInstalledFirst": "默认：最先安装",
+    "installedOn": "安装于 {{when}}",
+    "choose_one": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "choose_other": "{{count}} 个插件替换了 {{tool}}：请选择要使用的插件。",
+    "labels": {
+      "bash": "命令（bash）",
+      "web_search": "网页搜索",
+      "web_fetch": "读取网页",
+      "list_agents": "已保存的智能体"
+    },
+    "descriptions": {
+      "bash": "当没有 Sandbox 提供 bash 时，直接在这台机器上为聊天运行命令和代码。Sandbox 插件会将其替换为隔离运行的命令。",
+      "web_search": "无需密钥为聊天搜索网页（依次使用 DuckDuckGo、Brave Search、Bing），设置了 SearXNG 实例时则使用该实例。",
+      "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。",
+      "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。"
+    },
+    "bash": {
+      "switch": "允许聊天在这台机器上运行命令",
+      "modeLegend": "谁可以运行命令",
+      "ask": "每次询问。",
+      "askHint": "只有管理员的聊天可以使用，并且每条命令都要等待其在聊天中确认。",
+      "on": "允许所有人。",
+      "onHint": "所有用户的聊天都可以无需询问在此运行命令，包括计划运行和子代理。",
+      "default": "未设置：使用默认值（{{mode}}）。",
+      "warning": "命令以运行 LocalAI 的用户身份执行，没有隔离，并使用这台机器的网络：它们可以读取 LocalAI 能读取的内容，并访问互联网、你的网络和 LocalAI API。每条命令都会被记录。安装 Sandbox 以隔离运行。"
+    },
+    "modes": {
+      "off": "关闭",
+      "ask": "每次询问",
+      "on": "允许所有人"
+    },
+    "skillsTitle": "被插件替换的技能",
+    "skillsIntro": "插件可以用为其工具编写的技能替换内置技能。如果多个插件替换同一个技能，请选择使用哪一个。",
+    "skillLabel": "技能 {{skill}}",
+    "skillNotRunning": "所选插件未运行：使用内置技能。",
+    "toolNotRunning": "替代此工具的插件未运行：使用内置工具。",
+    "stopped": "已停止",
+    "webTest": {
+      "intro": "用已保存设置中的每个搜索提供方运行一次搜索，并显示每个提供方的结果。请先应用你的更改。",
+      "queryLabel": "查询",
+      "run": "测试搜索",
+      "running": "正在测试…",
+      "answered": "聊天将获得 {{host}} 的结果。",
+      "noneAnswered": "没有提供方作出回应。",
+      "failed": "无法运行测试：{{error}}",
+      "results_one": "{{count}} 条结果",
+      "results_other": "{{count}} 条结果",
+      "outcomes": {
+        "ok": "正常",
+        "no_results": "无结果",
+        "challenged": "机器人验证",
+        "blocked": "已拦截",
+        "timeout": "太慢",
+        "error": "错误",
+        "skipped": "已跳过"
+      }
+    }
   }
 }

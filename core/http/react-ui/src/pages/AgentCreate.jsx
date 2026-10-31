@@ -3,1038 +3,368 @@ import { createPortal } from 'react-dom'
 // eslint-disable-next-line no-unused-vars
 import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { agentsApi, agentCollectionsApi, skillsApi, chatApi } from '../utils/api'
+import { agentCollectionsApi, chatAgentsApi, chatMCPConnectorsApi, chatSkillsApi, modelMCPServersApi } from '../utils/api'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
-import { estimateTokens, skillLoadTokens, skillUsers, sumTokens } from '../utils/library'
-import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
+import { useAddonToolAddons } from '../addons/useAddonRegistry'
+import { AGENT_TEMPLATES, diffConfig, displayValue, exportAgent, maskSecrets, summarise } from '../utils/agentConfigTools'
+import { addEntry, agentPayload, emptyAgent, removeEntry } from '../utils/chatAgents'
+import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
+import { downloadJSON } from '../utils/download'
 import './agents.css'
 import './library.css'
 // eslint-disable-next-line no-unused-vars
 import SearchableModelSelect from '../components/SearchableModelSelect'
 // eslint-disable-next-line no-unused-vars
+import NameList from '../components/ChatNameList'
+// eslint-disable-next-line no-unused-vars
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
-import { CAP_CHAT, CAP_TRANSCRIPT, CAP_TTS } from '../utils/capabilities'
-// eslint-disable-next-line no-unused-vars
-import Toggle from '../components/Toggle'
-// eslint-disable-next-line no-unused-vars
-import SettingRow from '../components/SettingRow'
+import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'
-
-// --- MCP STDIO helpers ---
-
-function parseStdioServers(value) {
-  if (!value) return []
-  if (Array.isArray(value)) {
-    return value.map(s => ({
-      name: s.name || '',
-      command: s.cmd || s.command || '',
-      args: Array.isArray(s.args) ? [...s.args] : [],
-      env: Array.isArray(s.env) ? [...s.env]
-        : (s.env && typeof s.env === 'object') ? Object.entries(s.env).map(([k, v]) => `${k}=${v}`) : [],
-    }))
-  }
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value)
-      if (parsed.mcpServers) {
-        return Object.entries(parsed.mcpServers).map(([name, srv]) => ({
-          name,
-          command: srv.command || '',
-          args: srv.args || [],
-          env: Object.entries(srv.env || {}).map(([k, v]) => `${k}=${v}`),
-        }))
-      }
-      if (Array.isArray(parsed)) return parseStdioServers(parsed)
-    } catch { /* not valid JSON */ }
-  }
-  return []
-}
-
-function buildStdioJson(list) {
-  const mcpServers = {}
-  const usedKeys = new Set()
-  list.forEach((item, index) => {
-    let key = item.name?.trim() || `server${index}`
-    while (usedKeys.has(key)) key = `${key}_${index}`
-    usedKeys.add(key)
-    const envMap = {}
-    for (const e of (item.env || [])) {
-      const eqIdx = e.indexOf('=')
-      if (eqIdx > 0) envMap[e.slice(0, eqIdx)] = e.slice(eqIdx + 1)
-    }
-    mcpServers[key] = { command: item.command || '', args: item.args || [], env: envMap }
-  })
-  return JSON.stringify({ mcpServers }, null, 2)
-}
-
-// --- Form field components ---
-
 // eslint-disable-next-line no-unused-vars
-function FormField({ field, value, onChange, disabled }) {
-  const id = `field-${field.name}`
-  const label = field.required
-    ? <>{field.label} <span className="text-error">*</span></>
-    : field.label
+import { Button, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 
-  switch (field.type) {
-    case 'checkbox':
-      return (
-        <SettingRow label={label} description={field.helpText}>
-          <Toggle
-            checked={value === true || value === 'true'}
-            onChange={(v) => onChange(field.name, v)}
-            disabled={disabled}
-          />
-        </SettingRow>
-      )
-    case 'select':
-      return (
-        <SettingRow label={label} description={field.helpText}>
-          <select id={id} className="input col-w-200" value={value ?? ''} onChange={(e) => onChange(field.name, e.target.value)} disabled={disabled}>
-            <option value="">— Select —</option>
-            {(field.options || []).map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </SettingRow>
-      )
-    case 'textarea':
-      return (
-        <div className="list-row">
-          <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: 4 }}>{label}</div>
-          {field.helpText && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>{field.helpText}</div>}
-          <textarea
-            id={id}
-            className="textarea"
-            value={value ?? ''}
-            onChange={(e) => onChange(field.name, e.target.value)}
-            placeholder={field.placeholder || ''}
-            rows={5}
-            disabled={disabled}
-            style={field.name.includes('prompt') || field.name.includes('template') || field.name.includes('script')
-              ? { fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' } : undefined}
-          />
-        </div>
-      )
-    case 'number':
-      return (
-        <SettingRow label={label} description={field.helpText}>
-          <input
-            id={id} className="input col-w-120" type="number"
-            value={value ?? ''} onChange={(e) => onChange(field.name, e.target.value)}
-            placeholder={field.placeholder || ''} min={field.min} max={field.max} step={field.step}
-            disabled={disabled}
-          />
-        </SettingRow>
-      )
-    default: {
-      const isModelField = /^(model|multimodal_model|transcription_model|tts_model|embedding_model)$/.test(field.name)
-      if (isModelField && !disabled && !field.disabled) {
-        const capabilityMap = {
-          model: CAP_CHAT,
-          multimodal_model: CAP_CHAT,
-          transcription_model: CAP_TRANSCRIPT,
-          tts_model: CAP_TTS,
-          embedding_model: undefined,
-        }
-        return (
-          <SettingRow label={label} description={field.helpText}>
-            <SearchableModelSelect
-              value={value ?? ''}
-              onChange={(v) => onChange(field.name, v)}
-              capability={capabilityMap[field.name]}
-              placeholder={field.placeholder || 'Type or select a model...'}
-              style={{ width: 250 }}
-            />
-          </SettingRow>
-        )
-      }
-      return (
-        <SettingRow label={label} description={field.helpText}>
-          <input
-            id={id} className="input" type={field.type === 'password' ? 'password' : 'text'}
-            style={{ width: field.type === 'password' ? 200 : 250 }}
-            value={value ?? ''} onChange={(e) => onChange(field.name, e.target.value)}
-            placeholder={field.placeholder || ''} required={field.required}
-            disabled={disabled || field.disabled}
-          />
-        </SettingRow>
-      )
-    }
-  }
+// The sections of the form. Each folds; Basic info is open at first.
+const SECTIONS = [
+  { id: 'BasicInfo', icon: 'info' },
+  { id: 'ModelSettings', icon: 'brain' },
+  { id: 'PromptsGoals', icon: 'target' },
+  { id: 'MemorySettings', icon: 'database' },
+  { id: 'Skills', icon: 'sparkles' },
+  { id: 'Addons', icon: 'puzzle' },
+  { id: 'MCP', icon: 'server' },
+]
+
+// The fields each fold summarises on its closed line.
+const SUMMARY_FIELDS = {
+  BasicInfo: [{ name: 'name', type: 'text' }, { name: 'description', type: 'textarea' }],
+  ModelSettings: [{ name: 'model', type: 'text' }],
+  PromptsGoals: [{ name: 'instructions', type: 'textarea' }],
 }
 
-// --- ConfigForm for connectors/actions/filters/dynamic_prompts ---
-
+// One checkbox per name the person may grant. A granted name that the server
+// no longer lists stays visible, marked, so it can be taken away.
 // eslint-disable-next-line no-unused-vars
-function ConfigForm({ items, fieldGroups, onChange, onRemove, onAdd, itemType, typeField, addButtonText }) {
-  const typeOptions = [
-    { value: '', label: `Select a ${itemType} type` },
-    ...(fieldGroups || []).map(g => ({ value: g.name, label: g.label })),
-  ]
-
-  const parseConfig = (item) => {
-    if (!item?.config) return {}
-    try { return typeof item.config === 'string' ? JSON.parse(item.config || '{}') : item.config }
-    catch { return {} }
-  }
-
-  const handleConfigFieldChange = (index, fieldName, fieldValue, fieldType) => {
-    const config = parseConfig(items[index])
-    config[fieldName] = fieldType === 'checkbox' ? (fieldValue ? 'true' : 'false') : String(fieldValue)
-    onChange(index, { ...items[index], config: JSON.stringify(config) })
-  }
-
-  const label = itemType.charAt(0).toUpperCase() + itemType.slice(1).replace('_', ' ')
-
-  if (!fieldGroups?.length) {
-    return <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>No {itemType} types available.</p>
-  }
-
+function GrantList({ testId, options, value, onChange, emptyText, goneLabel, hint }) {
+  const all = [...options, ...value.filter(v => !options.some(o => o.id === v)).map(v => ({ id: v, name: v, gone: true }))]
+  if (all.length === 0) return <p className="ag-note">{emptyText}</p>
   return (
-    <div>
-      {items.map((item, index) => {
-        const typeName = (item || {})[typeField] || ''
-        const fieldGroup = fieldGroups.find(g => g.name === typeName)
-        const config = parseConfig(item)
-        return (
-          <div key={index} className="card pad-md mb-md">
-            <div className="hstack hstack--between mb-md">
-              <h4 style={{ margin: 0, fontWeight: 600 }}>{label} #{index + 1}</h4>
-              <button type="button" className="btn btn-danger btn-sm" onClick={() => onRemove(index)}>
-                <Icon name="close" />
-              </button>
-            </div>
-            <div className="form-group">
-              <label className="form-label">{label} Type</label>
-              <select className="input" value={typeName} onChange={(e) => onChange(index, { ...items[index], [typeField]: e.target.value, config: '{}' })}>
-                {typeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-            {fieldGroup?.fields?.map(f => {
-              const val = config[f.name] ?? ''
-              const fieldLabel = <>{f.label}{f.required && <span className="text-error"> *</span>}</>
-              if (f.type === 'checkbox') {
-                return (
-                  <SettingRow key={f.name} label={fieldLabel} description={f.helpText}>
-                    <Toggle checked={val === 'true' || val === true} onChange={(v) => handleConfigFieldChange(index, f.name, v, 'checkbox')} />
-                  </SettingRow>
-                )
-              }
-              if (f.type === 'textarea') {
-                return (
-                  <div key={f.name} className="list-row">
-                    <div style={{ fontSize: '0.875rem', fontWeight: 500, marginBottom: 4 }}>{fieldLabel}</div>
-                    {f.helpText && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>{f.helpText}</div>}
-                    <textarea className="textarea" value={val} onChange={(e) => handleConfigFieldChange(index, f.name, e.target.value, 'text')} rows={3} placeholder={f.placeholder} />
-                  </div>
-                )
-              }
-              if (f.type === 'select') {
-                return (
-                  <SettingRow key={f.name} label={fieldLabel} description={f.helpText}>
-                    <select className="input col-w-200" value={val} onChange={(e) => handleConfigFieldChange(index, f.name, e.target.value, 'text')}>
-                      <option value="">— Select —</option>
-                      {(f.options || []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
-                  </SettingRow>
-                )
-              }
-              return (
-                <SettingRow key={f.name} label={fieldLabel} description={f.helpText}>
-                  <input
-                    className="input" type={f.type === 'number' ? 'number' : f.type === 'password' ? 'password' : 'text'}
-                    style={{ width: f.type === 'number' ? 120 : 200 }}
-                    value={val} onChange={(e) => handleConfigFieldChange(index, f.name, e.target.value, f.type)}
-                    placeholder={f.placeholder} min={f.min} max={f.max} step={f.step}
-                  />
-                </SettingRow>
-              )
-            })}
-          </div>
-        )
-      })}
-      <button type="button" className="btn btn-secondary" onClick={onAdd}>
-        <Icon name="plus" /> {addButtonText}
-      </button>
+    <div className="ag-grants" data-testid={testId}>
+      {all.map(o => (
+        <label key={o.id} className="ag-grant" data-on={value.includes(o.id) || undefined}>
+          <input
+            type="checkbox"
+            checked={value.includes(o.id)}
+            onChange={(e) => onChange(e.target.checked ? addEntry(value, o.id) : removeEntry(value, o.id))}
+          />
+          <span>
+            <span className="ag-grant__name">{o.name}{o.gone ? ` (${goneLabel})` : ''}</span>
+            {(o.hint || hint?.(o)) && <span className="ag-grant__hint">{o.hint || hint(o)}</span>}
+          </span>
+        </label>
+      ))}
     </div>
   )
 }
 
-// --- Section definitions ---
-
-const SECTIONS = [
-  { id: 'BasicInfo', icon: 'info', label: 'Basic Info' },
-  { id: 'ModelSettings', icon: 'brain', label: 'Model Settings' },
-  { id: 'MemorySettings', icon: 'database', label: 'Memory' },
-  { id: 'PromptsGoals', icon: 'target', label: 'Prompts & Goals' },
-  { id: 'AdvancedSettings', icon: 'settings', label: 'Advanced' },
-  { id: 'MCP', icon: 'server', label: 'MCP Servers' },
-  { id: 'connectors', icon: 'plug', label: 'Connectors' },
-  { id: 'actions', icon: 'bolt', label: 'Actions' },
-  { id: 'filters', icon: 'filter', label: 'Filters' },
-  { id: 'dynamic_prompts', icon: 'sparkles', label: 'Dynamic Prompts' },
-]
-
-// Fields handled by custom editors in the MCP section
-const CUSTOM_FIELDS = new Set(['mcp_stdio_servers'])
-
-// Fields not implemented in the native executor (distributed mode).
-// These are hidden from the form when meta.distributed is true.
-const HIDDEN_IN_DISTRIBUTED = new Set([
-  'mcp_prepare_script',
-  'multimodal_model', 'transcription_model', 'transcription_language', 'tts_model',
-  'plan_reviewer_model',
-  'enable_planning', 'initiate_conversations', 'can_stop_itself',
-  'scheduler_poll_interval', 'scheduler_task_template',
-  'enable_reasoning', 'enable_reasoning_tool', // replaced by enable_reasoning_for_instruct
-  'kb_auto_search', 'kb_as_tools', // replaced by kb_mode select
-  'disable_sink_state', // always disabled in native executor
-  'enable_kb_compaction', 'kb_compaction_interval', 'kb_compaction_summarize',
-  'parallel_jobs', 'cancel_previous_on_new_message',
-])
-
 // --- Main component ---
 
 export default function AgentCreate() {
-  const { name } = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
   const { t } = useTranslation(['agents', 'library'])
   const [searchParams] = useSearchParams()
-  const userId = searchParams.get('user_id') || undefined
   const templateId = searchParams.get('template') || ''
-  const isEdit = !!name
-  const importedConfig = location.state?.importedConfig || null
+  const isEdit = !!id
+  const imported = location.state?.importedConfig || null
 
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [attempt, setAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
   // Sections fold. Basics is open at first; the rest open on demand.
   const [openSections, setOpenSections] = useState(() => new Set(['BasicInfo']))
   const [savedConfig, setSavedConfig] = useState(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewTab, setPreviewTab] = useState('config')
-  const [draftText, setDraftText] = useState('')
-  const [drafting, setDrafting] = useState(false)
-  const [meta, setMeta] = useState(null)
-  const [form, setForm] = useState({})
+  const [form, setForm] = useState(emptyAgent())
   // Snapshot of the form as first loaded, for the unsaved-changes guard.
   const initialFormRef = useRef(null)
+  const [skills, setSkills] = useState([])
+  const [collectionNames, setCollectionNames] = useState([])
   const [connectors, setConnectors] = useState([])
-  const [actions, setActions] = useState([])
-  const [filters, setFilters] = useState([])
-  const [dynamicPrompts, setDynamicPrompts] = useState([])
-  const [mcpHttpServers, setMcpHttpServers] = useState([])
-  const [mcpJsonMode, setMcpJsonMode] = useState(false)
-  const [mcpRawJson, setMcpRawJson] = useState('')
-  const [stdioServers, setStdioServers] = useState([])
-  const [availableSkills, setAvailableSkills] = useState([])
-  const [selectedSkills, setSelectedSkills] = useState([])
-  // Who else uses a skill, and whether this agent's collection exists, so the
-  // pickers can say "not used yet" without sending anyone to another page.
+  const [modelServers, setModelServers] = useState([])
+  const addonList = useAddonToolAddons()
+  // Who else uses a skill, so the picker can say "not used yet".
   const library = useLibraryFacts()
-  const [collectionNames, setCollectionNames] = useState(null)
+
+  // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
+    chatSkillsApi.list().then(r => setSkills(r.skills || [])).catch(() => {})
+    chatMCPConnectorsApi.list().then(r => setConnectors(r.connectors || [])).catch(() => {})
     agentCollectionsApi.list(false)
-      .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name))))
-      .catch(() => setCollectionNames(null))
+      .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name)).filter(Boolean)))
+      .catch(() => {})
   }, [])
 
-  // Group metadata Fields by tags.section
-  const fieldsBySection = useMemo(() => {
-    if (!meta?.Fields) return {}
-    const groups = {}
-    for (const field of meta.Fields) {
-      if (CUSTOM_FIELDS.has(field.name)) continue
-      if (meta?.distributed && HIDDEN_IN_DISTRIBUTED.has(field.name)) continue
-      const section = field.tags?.section || 'BasicInfo'
-      if (!groups[section]) groups[section] = []
-      groups[section].push(field)
-    }
-    return groups
-  }, [meta])
-
-  const visibleSections = useMemo(() => {
-    let items = [...SECTIONS]
-    // In distributed mode, hide LocalAGI-specific sections — use MCP Servers instead
-    if (meta?.distributed) {
-      const hiddenInDistributed = new Set(['actions', 'connectors', 'filters', 'dynamic_prompts'])
-      items = items.filter(s => !hiddenInDistributed.has(s.id))
-    }
-    if (isEdit) items.push({ id: 'export', icon: 'download', label: 'Export' })
-    return items
-  }, [isEdit, meta])
+  // The servers of the fixed model are suggestions; with no fixed model the field is free text.
+  const fixedModel = form.model || ''
+  useEffect(() => {
+    if (!fixedModel) { setModelServers([]); return undefined }
+    let live = true
+    modelMCPServersApi.list(fixedModel).then(r => { if (live) setModelServers((r.servers || []).map(s => s.name).filter(Boolean)) }).catch(() => { if (live) setModelServers([]) })
+    return () => { live = false }
+  }, [fixedModel])
 
   useEffect(() => {
     const init = async () => {
+      setLoadError(null)
       try {
-        const [metaData, config, skillsList] = await Promise.all([
-          agentsApi.configMeta().catch(() => null),
-          isEdit ? agentsApi.getConfig(name, userId).catch(() => null) : Promise.resolve(null),
-          skillsApi.list().catch(() => null),
-        ])
-        if (metaData) setMeta(metaData)
-        if (skillsList?.skills) setAvailableSkills(skillsList.skills)
-
-        // Build defaults from metadata
-        const initialForm = {}
-        if (metaData?.Fields) {
-          for (const field of metaData.Fields) {
-            if (CUSTOM_FIELDS.has(field.name)) continue
-            if (field.type === 'checkbox') {
-              initialForm[field.name] = field.defaultValue != null ? !!field.defaultValue : false
-            } else {
-              initialForm[field.name] = field.defaultValue != null ? field.defaultValue : ''
-            }
-          }
-        }
-
-        // Override with existing config when editing or importing
-        const sourceConfig = config || importedConfig
-        if (sourceConfig) {
-          for (const key of Object.keys(initialForm)) {
-            if (sourceConfig[key] !== undefined && sourceConfig[key] !== null) {
-              initialForm[key] = sourceConfig[key]
-            }
-          }
-          if (!initialForm.name && name) initialForm.name = name
-          setConnectors(Array.isArray(sourceConfig.connectors) ? sourceConfig.connectors : [])
-          setActions(Array.isArray(sourceConfig.actions) ? sourceConfig.actions : [])
-          setFilters(Array.isArray(sourceConfig.filters) ? sourceConfig.filters : [])
-          setDynamicPrompts(Array.isArray(sourceConfig.dynamic_prompts) ? sourceConfig.dynamic_prompts : [])
-          setMcpHttpServers(Array.isArray(sourceConfig.mcp_servers) ? sourceConfig.mcp_servers : [])
-          setStdioServers(parseStdioServers(sourceConfig.mcp_stdio_servers))
-          if (Array.isArray(sourceConfig.selected_skills)) setSelectedSkills(sourceConfig.selected_skills)
-        }
-
-        // A starting point fills the form; nothing is saved until the person saves.
-        if (!sourceConfig && templateId) {
+        let initialForm = emptyAgent()
+        if (isEdit) {
+          const agent = await chatAgentsApi.get(id)
+          initialForm = { ...initialForm, ...agent }
+          setSavedConfig(agent)
+        } else if (imported) {
+          initialForm = { ...initialForm, ...imported.agent }
+        } else if (templateId) {
+          // A starting point fills the form; nothing is saved until the person saves.
           const tpl = AGENT_TEMPLATES.find(x => x.id === templateId)
-          if (tpl) {
-            for (const key of ['name', 'description', 'system_prompt']) {
-              if (key in initialForm && tpl[key]) initialForm[key] = tpl[key]
-            }
-          }
+          if (tpl) initialForm = { ...initialForm, name: tpl.name, description: tpl.description, instructions: tpl.instructions }
         }
-
-        if (config) setSavedConfig(config)
         initialFormRef.current = initialForm
         setForm(initialForm)
+        if (imported) setOpenSections(new Set(SECTIONS.map(s => s.id)))
       } catch (err) {
-        addToast(`Failed to load configuration: ${err.message}`, 'error')
+        // An agent that could not be read is said in place of the form: an
+        // empty form would save over it.
+        setLoadError(err)
       } finally {
         setLoading(false)
       }
     }
     init()
-  }, [name, isEdit, importedConfig, templateId, addToast])
+  }, [id, isEdit, imported, templateId, attempt])
 
-  const updateField = (fieldName, value) => {
-    setForm(prev => ({ ...prev, [fieldName]: value }))
-  }
+  const updateField = (name, value) => setForm(prev => ({ ...prev, [name]: value }))
 
-  // The config exactly as it is saved: the form, the lists and the MCP and
-  // skills choices. The preview shows this object and Save sends it.
-  const buildPayload = () => {
-    const payload = { ...form }
-    // Convert number fields
-    if (meta?.Fields) {
-      for (const field of meta.Fields) {
-        if (field.type === 'number' && payload[field.name] !== '' && payload[field.name] != null) {
-          payload[field.name] = Number(payload[field.name])
-        }
-      }
-    }
-    payload.connectors = connectors
-    payload.actions = actions
-    payload.filters = filters
-    payload.dynamic_prompts = dynamicPrompts
-    payload.mcp_servers = mcpHttpServers.filter(s => s.url)
-    // Send STDIO servers as JSON string in expected format
-    if (mcpJsonMode && mcpRawJson.trim()) {
-      // In JSON editor mode, use the raw JSON directly
-      payload.mcp_stdio_servers = mcpRawJson
-    } else if (stdioServers.length > 0) {
-      payload.mcp_stdio_servers = buildStdioJson(stdioServers)
-    }
-    // Send selected skills
-    if (selectedSkills.length > 0) {
-      payload.selected_skills = selectedSkills
-    }
-    return payload
-  }
+  // The definition exactly as it is saved. The preview shows this object and
+  // Save sends it.
+  const payload = useMemo(() => agentPayload(form), [form])
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
-    if (!form.name?.toString().trim()) {
-      addToast('Agent name is required', 'warning')
-      return
-    }
-    if (!form.model?.toString().trim()) {
-      addToast('Model is required', 'warning')
+    if (!payload.name) {
+      addToast(t('create.needsName'), 'warning')
+      setOpenSections(prev => new Set([...prev, 'BasicInfo']))
       return
     }
     setSaving(true)
     try {
-      const payload = buildPayload()
       if (isEdit) {
-        await agentsApi.update(name, payload, userId)
-        addToast(`Agent "${form.name}" updated`, 'success')
+        await chatAgentsApi.update(id, payload)
+        addToast(t('create.updated', { name: payload.name }), 'success')
       } else {
-        await agentsApi.create(payload)
-        addToast(`Agent "${form.name}" created`, 'success')
+        await chatAgentsApi.create(payload)
+        addToast(t('create.created', { name: payload.name }), 'success')
       }
+      initialFormRef.current = form
       navigate('/app/agents')
     } catch (err) {
-      addToast(`Save failed: ${err.message}`, 'error')
+      addToast(t('create.saveFailed', { message: err.message }), 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  // --- STDIO server handlers ---
-  const addStdioServer = () => setStdioServers(prev => [...prev, { name: '', command: '', args: [], env: [] }])
-  const removeStdioServer = (idx) => setStdioServers(prev => prev.filter((_, i) => i !== idx))
-  const updateStdio = (idx, key, val) => setStdioServers(prev => { const n = [...prev]; n[idx] = { ...n[idx], [key]: val }; return n })
-  const addArg = (si) => setStdioServers(prev => { const n = [...prev]; n[si] = { ...n[si], args: [...(n[si].args || []), ''] }; return n })
-  const updateArg = (si, ai, val) => setStdioServers(prev => { const n = [...prev]; const a = [...(n[si].args || [])]; a[ai] = val; n[si] = { ...n[si], args: a }; return n })
-  const removeArg = (si, ai) => setStdioServers(prev => { const n = [...prev]; n[si] = { ...n[si], args: n[si].args.filter((_, i) => i !== ai) }; return n })
-  const addEnv = (si) => setStdioServers(prev => { const n = [...prev]; n[si] = { ...n[si], env: [...(n[si].env || []), ''] }; return n })
-  const updateEnv = (si, ei, val) => setStdioServers(prev => { const n = [...prev]; const e = [...(n[si].env || [])]; e[ei] = val; n[si] = { ...n[si], env: e }; return n })
-  const removeEnv = (si, ei) => setStdioServers(prev => { const n = [...prev]; n[si] = { ...n[si], env: n[si].env.filter((_, i) => i !== ei) }; return n })
+  const mcp = splitAgentMCP(form.mcp_servers)
+  const connectorOptions = connectors.map(c => ({ id: c.id, name: c.name, hint: c.enabled ? '' : t('create.connectorOff') }))
+  const skillOptions = skills.filter(s => !s.invalid).reduce((all, s) => (all.some(x => x.id === s.name) ? all : [...all, { id: s.name, name: s.name, hint: s.description, layer: s.layer }]), [])
+  const addonOptions = addonList.map(a => ({ id: a.id, name: a.id }))
+  const skillUse = (o) => {
+    if (library.status !== 'ready') return ''
+    const others = library.agents.filter(a => a.id !== id && (a.config?.skills || []).includes(o.id))
+    return others.length === 0 ? t('library:usedBy.none') : t('library:usedBy.line', { name: others.map(x => x.name).join(', ') })
+  }
 
-  // --- HTTP MCP server handlers ---
-  const addMcpHttp = () => setMcpHttpServers(prev => [...prev, { url: '', token: '' }])
-  const removeMcpHttp = (idx) => setMcpHttpServers(prev => prev.filter((_, i) => i !== idx))
-  const updateMcpHttp = (idx, key, val) => setMcpHttpServers(prev => { const n = [...prev]; n[idx] = { ...n[idx], [key]: val }; return n })
+  if (loading || loadError) {
+    return (
+      <Page className="ag-page" data-testid="agent-edit">
+        <div className="ag-home">
+          <button type="button" className="ag-back" onClick={() => navigate('/app/agents')}><Icon name="arrow-left" /> {t('agent.back')}</button>
+          {loadError
+            ? <LoadError title={t('load.agentForm')} error={loadError} onRetry={() => { setLoading(true); setAttempt(n => n + 1) }} />
+            : <SkeletonRows count={4} />}
+        </div>
+      </Page>
+    )
+  }
 
-  // --- Render helpers ---
+  const dirty = initialFormRef.current != null &&
+    JSON.stringify(payload) !== JSON.stringify(agentPayload(initialFormRef.current))
 
-  const renderFieldSection = (sectionId) => {
-    const fields = fieldsBySection[sectionId] || []
-    if (!fields.length) {
-      return <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>No fields available for this section.</p>
+  const leave = () => navigate(isEdit ? `/app/agents/${encodeURIComponent(id)}` : '/app/agents')
+
+  // What each fold says about itself: ready mark, one line, and, when editing,
+  // how many of its fields differ from the saved agent.
+  const baseline = savedConfig ? agentPayload(savedConfig) : {}
+  const diff = diffConfig(baseline, payload)
+  const changedKeys = new Set(savedConfig ? diff.map(d => d.key) : [])
+  const countOf = (n, key) => (n ? t(key, { count: n }) : t('create.noneYet'))
+
+  const foldInfo = (s) => {
+    let summary = ''
+    let state = 'empty'
+    let keys = (SUMMARY_FIELDS[s.id] || []).map(f => f.name)
+    if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
+    else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
+    else if (s.id === 'Addons') { keys = ['addons']; summary = countOf(form.addons.length, 'create.countAddons'); state = form.addons.length ? 'ready' : 'empty' }
+    else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
+    else {
+      summary = summarise(SUMMARY_FIELDS[s.id], form)
+      state = summary ? 'ready' : 'empty'
     }
-    return fields
-      .filter(field => {
-        // Hide fields whose depends_on parent is falsy
-        if (field.tags?.depends_on && !form[field.tags.depends_on]) return false
-        return true
-      })
-      .map(field => (
-        <FormField
-          key={field.name}
-          field={field.name === 'name' && isEdit ? { ...field, disabled: true, helpText: 'Agent name cannot be changed after creation' } : field}
-          value={form[field.name]}
-          onChange={updateField}
-          disabled={field.name === 'name' && isEdit}
-        />
-      ))
+    if (s.id === 'BasicInfo' && !payload.name) { state = 'needs'; summary = t('create.needsName') }
+    if (s.id === 'ModelSettings' && !payload.model) summary = t('create.anyModel')
+    const changed = keys.filter(k => changedKeys.has(k)).length
+    return { summary, state, changed }
   }
 
-  // Used by, from the other agents' saved configs. This agent's own choice is
-  // the checkbox, so it is left out.
-  const allSkillNames = availableSkills.map(sk => sk.name)
-  const skillHint = (skill) => {
-    const others = library.status === 'ready'
-      ? skillUsers(library.agents.filter(a => a.name !== (isEdit ? name : form.name)), skill.name, allSkillNames)
-      : null
-    const use = others === null ? '' : (others.length === 0 ? t('library:usedBy.none') : t('library:usedBy.line', { name: others.map(o => o.name).join(', ') }))
-    const cost = form.skills_mode === 'tools' ? t('library:add.toolsMode') : t('library:add.tokens', { count: estimateTokens(skill.content || '') })
-    return [use, cost].filter(Boolean).join(' · ')
-  }
-  const pickedSkills = selectedSkills.length === 0 ? availableSkills : availableSkills.filter(sk => selectedSkills.includes(sk.name))
-  const skillsBudget = form.skills_mode === 'tools'
-    ? t('library:add.toolsMode')
-    : t('library:agentBudget', { count: sumTokens(pickedSkills.map(sk => skillLoadTokens(sk, form))) })
-  const ownName = (isEdit ? name : form.name) || ''
-  const kbNote = collectionNames === null
-    ? t('library:agentKb.reads', { name: ownName || '...' })
-    : collectionNames.includes(ownName)
-      ? t('library:agentKb.exists', { name: ownName })
-      : t('library:agentKb.created', { name: ownName || '...' })
+  const toggleSection = (sid) => setOpenSections(prev => {
+    const next = new Set(prev)
+    if (next.has(sid)) next.delete(sid)
+    else next.add(sid)
+    return next
+  })
 
-  const renderSection = (activeSection) => {
-    switch (activeSection) {
+  const applyTemplate = (tpl) => {
+    setForm(prev => ({ ...prev, name: tpl.name, description: tpl.description, instructions: tpl.instructions }))
+    setOpenSections(prev => new Set([...prev, 'BasicInfo', 'PromptsGoals']))
+  }
+
+  const renderSection = (sid) => {
+    switch (sid) {
       case 'BasicInfo':
-      case 'ModelSettings':
-      case 'MemorySettings':
-      case 'PromptsGoals':
-      case 'AdvancedSettings':
         return (
           <>
-            {renderFieldSection(activeSection)}
-            {/* Skills picker — shown only in AdvancedSettings when enable_skills is checked */}
-            {activeSection === 'AdvancedSettings' && form.enable_skills && availableSkills.length > 0 && (
-              <div style={{ marginTop: 'var(--spacing-lg)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-lg)' }}>
-                <h4 className="agent-subsection-title">
-                  <Icon name="puzzle" className="text-primary icon-before" />
-                  Select Skills
-                </h4>
-                <p className="agent-section-desc">Choose which skills this agent can use. If none selected, all available skills are included.</p>
-                <div className="mb-sm">
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedSkills.length === 0}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedSkills([])
-                        else setSelectedSkills(availableSkills.map(s => s.name))
-                      }}
-                    />
-                    All Skills (default)
-                  </label>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--spacing-sm)' }}>
-                  {availableSkills.map(skill => (
-                    <label key={skill.name} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-xs)',
-                      padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--color-border)', cursor: 'pointer',
-                      background: selectedSkills.includes(skill.name) || selectedSkills.length === 0 ? 'var(--color-bg-secondary)' : 'transparent',
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedSkills.length === 0 || selectedSkills.includes(skill.name)}
-                        onChange={(e) => {
-                          if (selectedSkills.length === 0) {
-                            // Switching from "all" to specific — select all except this one
-                            setSelectedSkills(availableSkills.filter(s => s.name !== skill.name).map(s => s.name))
-                          } else if (e.target.checked) {
-                            const updated = [...selectedSkills, skill.name]
-                            // If all selected, go back to "all" mode (empty array)
-                            if (updated.length === availableSkills.length) setSelectedSkills([])
-                            else setSelectedSkills(updated)
-                          } else {
-                            setSelectedSkills(selectedSkills.filter(n => n !== skill.name))
-                          }
-                        }}
-                        style={{ marginTop: '2px' }}
-                      />
-                      <div>
-                        <div className="fw-semibold text-base">{skill.name}</div>
-                        {skill.description && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-                            {skill.description.length > 80 ? skill.description.slice(0, 80) + '...' : skill.description}
-                          </div>
-                        )}
-                        <div className="lib-hint" data-testid={`agent-skill-hint-${skill.name}`}>{skillHint(skill)}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                <p className="lib-hint lib-hint--total" data-testid="agent-skills-budget">{skillsBudget}</p>
-              </div>
-            )}
-            {activeSection === 'MemorySettings' && form.enable_kb && (
-              <p className="lib-hint lib-hint--block" data-testid="agent-kb-note">{kbNote}</p>
-            )}
+            <div className="form-group">
+              <label className="form-label" htmlFor="ag-name">{t('create.name')} <span className="text-error">*</span></label>
+              <input id="ag-name" className="input" value={form.name} maxLength={80} placeholder="research-assistant" onChange={(e) => updateField('name', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="ag-description">{t('create.description')}</label>
+              <input id="ag-description" className="input" value={form.description} maxLength={400} onChange={(e) => updateField('description', e.target.value)} />
+              <p className="ag-note">{t('create.descriptionHelp')}</p>
+            </div>
           </>
         )
-
+      case 'ModelSettings':
+        return (
+          <div className="form-group">
+            <label className="form-label">{t('create.model')}</label>
+            <SearchableModelSelect
+              value={form.model}
+              onChange={(v) => updateField('model', v)}
+              capability={CAP_CHAT}
+              placeholder={t('create.modelPlaceholder')}
+            />
+            <p className="ag-note">{t('create.modelHelp')}</p>
+          </div>
+        )
+      case 'PromptsGoals':
+        return (
+          <div className="form-group">
+            <label className="form-label" htmlFor="ag-instructions">{t('create.instructions')}</label>
+            <textarea id="ag-instructions" className="textarea" rows={10} value={form.instructions} onChange={(e) => updateField('instructions', e.target.value)} />
+            <p className="ag-note">{t('create.instructionsHelp')}</p>
+          </div>
+        )
+      case 'MemorySettings':
+        return (
+          <>
+            <p className="ag-note">{t('create.collectionsHelp')}</p>
+            <NameList label={t('create.collections')} hint={t('create.collectionsHint')} value={form.collections}
+              suggestions={collectionNames} onChange={(v) => updateField('collections', v)} testId="agent-collections" />
+          </>
+        )
+      case 'Skills':
+        return (
+          <>
+            <p className="ag-note">{t('create.skillsHelp')}</p>
+            <GrantList testId="agent-skills" options={skillOptions} value={form.skills} onChange={(v) => updateField('skills', v)}
+              emptyText={t('create.noSkills')} goneLabel={t('create.gone')} hint={skillUse} />
+            <p className="ag-note"><Link to="/app/skills">{t('create.manageSkills')}</Link></p>
+          </>
+        )
+      case 'Addons':
+        return (
+          <>
+            <p className="ag-note">{t('create.addonsHelp')}</p>
+            <GrantList testId="agent-addons" options={addonOptions} value={form.addons} onChange={(v) => updateField('addons', v)}
+              emptyText={t('create.noAddons')} goneLabel={t('create.gone')} />
+            <div className="form-group">
+              <label className="form-label" htmlFor="ag-network">{t('create.network')}</label>
+              <select id="ag-network" className="input" value={form.network || 'off'} onChange={(e) => updateField('network', e.target.value)} data-testid="agent-network">
+                {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
+              </select>
+              <p className="ag-note">{t('create.networkHelp')}</p>
+            </div>
+          </>
+        )
       case 'MCP':
         return (
           <>
-            {/* Mode toggle + import buttons */}
-            <div style={{ marginBottom: 'var(--spacing-md)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button type="button" className={`btn btn-sm ${mcpJsonMode ? 'btn-secondary' : 'btn-primary'}`} onClick={() => {
-                if (mcpJsonMode) {
-                  // Switching from JSON to form — parse the JSON back
-                  try {
-                    const parsed = JSON.parse(mcpRawJson)
-                    const servers = parsed.mcpServers || parsed
-                    const newStdio = []
-                    const newHttp = []
-                    for (const [name, srv] of Object.entries(servers)) {
-                      if (srv.command || srv.cmd) {
-                        newStdio.push({
-                          name: name,
-                          command: srv.command || srv.cmd || '',
-                          args: srv.args || [],
-                          env: srv.env ? Object.entries(srv.env).map(([k, v]) => ({ key: k, value: v })) : [],
-                        })
-                      } else if (srv.url) {
-                        newHttp.push({ url: srv.url, token: srv.token || srv.apiKey || '' })
-                      }
-                    }
-                    setStdioServers(newStdio)
-                    setMcpHttpServers(newHttp)
-                  } catch (e) {
-                    addToast(`Invalid JSON: ${e.message}`, 'error')
-                    return
-                  }
-                } else {
-                  // Switching from form to JSON — serialize current config
-                  const mcpServers = {}
-                  for (const s of stdioServers) {
-                    const envObj = {}
-                    for (const e of (s.env || [])) {
-                      if (e.key) envObj[e.key] = e.value || ''
-                    }
-                    mcpServers[s.name || `server-${Object.keys(mcpServers).length + 1}`] = {
-                      command: s.command || '',
-                      args: s.args || [],
-                      ...(Object.keys(envObj).length > 0 ? { env: envObj } : {}),
-                    }
-                  }
-                  for (const h of mcpHttpServers) {
-                    mcpServers[`http-${Object.keys(mcpServers).length + 1}`] = {
-                      url: h.url || '',
-                      ...(h.token ? { token: h.token } : {}),
-                    }
-                  }
-                  setMcpRawJson(JSON.stringify({ mcpServers }, null, 2))
-                }
-                setMcpJsonMode(!mcpJsonMode)
-              }}>
-                <Icon name={mcpJsonMode ? 'list' : 'code'} />
-                {mcpJsonMode ? ' Form Editor' : ' JSON Editor'}
-              </button>
-              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                {mcpJsonMode ? 'Edit as Claude Desktop JSON format' : 'Configure MCP servers visually'}
-              </span>
-            </div>
-
-            {mcpJsonMode ? (
-              <div className="form-group">
-                <label className="form-label">MCP Configuration (Claude Desktop format)</label>
-                <textarea
-                  className="input"
-                  value={mcpRawJson}
-                  onChange={(e) => setMcpRawJson(e.target.value)}
-                  rows={16}
-                  style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', whiteSpace: 'pre' }}
-                  placeholder={'{\n  "mcpServers": {\n    "my-server": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],\n      "env": {}\n    }\n  }\n}'}
-                />
-              </div>
-            ) : (
-              <>
-                {/* Other MCP metadata fields (mcp_prepare_script, etc.) */}
-                {renderFieldSection('MCP')}
-
-            {/* STDIO Servers */}
-            <div className="mt-lg">
-              <h4 className="agent-subsection-title">
-                <Icon name="terminal" className="text-primary icon-before" />
-                STDIO Servers
-              </h4>
-              <p className="agent-section-desc">Local command-based MCP servers (e.g. docker run).</p>
-              {stdioServers.map((server, idx) => (
-                <div key={idx} className="card pad-md mb-md">
-                  <div className="hstack hstack--between mb-sm">
-                    <span className="fw-semibold text-base">Server #{idx + 1}</span>
-                    <button type="button" className="btn btn-danger btn-sm" onClick={() => removeStdioServer(idx)}>
-                      <Icon name="close" />
-                    </button>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
-                    <div className="form-group">
-                      <label className="form-label">Name</label>
-                      <input className="input" value={server.name || ''} onChange={(e) => updateStdio(idx, 'name', e.target.value)} placeholder="server-name" />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Command</label>
-                      <input className="input" value={server.command || ''} onChange={(e) => updateStdio(idx, 'command', e.target.value)} placeholder="/usr/bin/node" />
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      Arguments
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => addArg(idx)} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                        <Icon name="plus" /> Add
-                      </button>
-                    </label>
-                    {(server.args || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No arguments.</p>}
-                    {(server.args || []).map((arg, ai) => (
-                      <div key={ai} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                        <input className="input flex-1" value={arg} onChange={(e) => updateArg(idx, ai, e.target.value)} placeholder="argument" />
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeArg(idx, ai)}><Icon name="close" /></button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      Environment Variables
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => addEnv(idx)} style={{ fontSize: '0.7rem', padding: '2px 8px' }}>
-                        <Icon name="plus" /> Add
-                      </button>
-                    </label>
-                    {(server.env || []).length === 0 && <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No environment variables.</p>}
-                    {(server.env || []).map((env, ei) => (
-                      <div key={ei} style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                        <input className="input flex-1" value={env} onChange={(e) => updateEnv(idx, ei, e.target.value)} placeholder="KEY=VALUE" />
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => removeEnv(idx, ei)}><Icon name="close" /></button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              <button type="button" className="btn btn-secondary" onClick={addStdioServer}>
-                <Icon name="plus" /> Add STDIO Server
-              </button>
-            </div>
-
-            {/* HTTP Servers */}
-            <div className="mt-lg">
-              <h4 className="agent-subsection-title">
-                <Icon name="globe" className="text-primary icon-before" />
-                HTTP Servers
-              </h4>
-              <p className="agent-section-desc">MCP servers connected over HTTP.</p>
-              {mcpHttpServers.map((server, idx) => (
-                <div key={idx} className="card pad-md mb-md">
-                  <div className="hstack hstack--between mb-sm">
-                    <span className="fw-semibold text-base">HTTP Server #{idx + 1}</span>
-                    <button type="button" className="btn btn-danger btn-sm" onClick={() => removeMcpHttp(idx)}>
-                      <Icon name="close" />
-                    </button>
-                  </div>
-                  {(meta?.MCPServers || [{ name: 'url', label: 'URL', type: 'text' }, { name: 'token', label: 'API Key', type: 'password' }]).map(f => (
-                    <div key={f.name} className="form-group">
-                      <label className="form-label">{f.label}{f.required && <span className="text-error"> *</span>}</label>
-                      <input
-                        className="input" type={f.type === 'password' ? 'password' : 'text'}
-                        value={server[f.name] || ''} onChange={(e) => updateMcpHttp(idx, f.name, e.target.value)}
-                        placeholder={f.placeholder}
-                      />
-                    </div>
-                  ))}
-                </div>
-              ))}
-              <button type="button" className="btn btn-secondary" onClick={addMcpHttp}>
-                <Icon name="plus" /> Add HTTP Server
-              </button>
-            </div>
-              </>
-            )}
+            <p className="ag-note">{t('create.mcpHelp')}</p>
+            <NameList label={t('create.mcpServers')} hint={t('create.mcpHint')} value={mcp.servers} suggestions={modelServers}
+              onChange={(v) => updateField('mcp_servers', joinAgentMCP(v, mcp.connectors))} testId="agent-mcp" />
+            <h4 className="agent-subsection-title">{t('create.mcpConnectors')}</h4>
+            <GrantList testId="agent-connectors" options={connectorOptions} value={mcp.connectors}
+              onChange={(v) => updateField('mcp_servers', joinAgentMCP(mcp.servers, v))}
+              emptyText={t('create.noConnectors')} goneLabel={t('create.gone')} />
+            <p className="ag-note"><Link to="/app/mcp-connectors">{t('create.manageConnectors')}</Link></p>
           </>
         )
-
-      case 'connectors':
-        return (
-          <>
-            <p className="agent-section-desc">Configure connectors that this agent uses to communicate with external services.</p>
-            <ConfigForm
-              items={connectors}
-              fieldGroups={meta?.Connectors}
-              onChange={(idx, item) => { const n = [...connectors]; n[idx] = item; setConnectors(n) }}
-              onRemove={(idx) => setConnectors(connectors.filter((_, i) => i !== idx))}
-              onAdd={() => setConnectors([...connectors, { type: '', config: '{}' }])}
-              typeField="type" itemType="connector" addButtonText="Add Connector"
-            />
-          </>
-        )
-
-      case 'actions':
-        return (
-          <>
-            <p className="agent-section-desc">Configure actions the agent can perform.</p>
-            <ConfigForm
-              items={actions}
-              fieldGroups={meta?.Actions}
-              onChange={(idx, item) => { const n = [...actions]; n[idx] = item; setActions(n) }}
-              onRemove={(idx) => setActions(actions.filter((_, i) => i !== idx))}
-              onAdd={() => setActions([...actions, { name: '', config: '{}' }])}
-              typeField="name" itemType="action" addButtonText="Add Action"
-            />
-          </>
-        )
-
-      case 'filters':
-        return (
-          <>
-            <p className="agent-section-desc">Filters and triggers that control which messages the agent processes.</p>
-            <ConfigForm
-              items={filters}
-              fieldGroups={meta?.Filters}
-              onChange={(idx, item) => { const n = [...filters]; n[idx] = item; setFilters(n) }}
-              onRemove={(idx) => setFilters(filters.filter((_, i) => i !== idx))}
-              onAdd={() => setFilters([...filters, { type: '', config: '{}' }])}
-              typeField="type" itemType="filter" addButtonText="Add Filter"
-            />
-          </>
-        )
-
-      case 'dynamic_prompts':
-        return (
-          <>
-            <p className="agent-section-desc">Dynamic prompts that augment agent context at runtime.</p>
-            <ConfigForm
-              items={dynamicPrompts}
-              fieldGroups={meta?.DynamicPrompts}
-              onChange={(idx, item) => { const n = [...dynamicPrompts]; n[idx] = item; setDynamicPrompts(n) }}
-              onRemove={(idx) => setDynamicPrompts(dynamicPrompts.filter((_, i) => i !== idx))}
-              onAdd={() => setDynamicPrompts([...dynamicPrompts, { type: '', config: '{}' }])}
-              typeField="type" itemType="dynamic prompt" addButtonText="Add Dynamic Prompt"
-            />
-          </>
-        )
-
-      case 'export':
-        return (
-          <div>
-            <p className="agent-section-desc">Download the full agent configuration as a JSON file.</p>
-            <a
-              href={`/api/agents/${encodeURIComponent(name)}/export`}
-              className="btn btn-primary"
-              style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}
-            >
-              <Icon name="download" className="icon-before" /> Export Agent
-            </a>
-          </div>
-        )
-
       default:
         return null
     }
   }
 
-  if (loading) {
-    return (
-      <div className="page page--medium loading-center">
-        <Icon name="spinner" spin className="icon-xl text-primary" />
-      </div>
-    )
-  }
-
-  const dirty = initialFormRef.current != null &&
-    JSON.stringify(form) !== JSON.stringify(initialFormRef.current)
-
-  const leave = () => navigate(isEdit ? `/app/agents/${encodeURIComponent(name)}${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}` : '/app/agents')
-
-  // What each fold says about itself: ready mark, one line, and, when editing,
-  // how many of its fields differ from the saved agent.
-  const payload = buildPayload()
-  const baseline = {}
-  if (savedConfig) for (const k of Object.keys(payload)) if (k in savedConfig) baseline[k] = savedConfig[k]
-  const diff = savedConfig ? diffConfig(baseline, payload) : diffConfig({}, payload)
-  const changedKeys = new Set(savedConfig ? diff.map(d => d.key) : [])
-  const listOf = { connectors, actions, filters, dynamic_prompts: dynamicPrompts }
-
-  const foldInfo = (s) => {
-    const fields = fieldsBySection[s.id] || []
-    let keys = fields.map(f => f.name)
-    let summary = ''
-    let state = 'empty'
-    if (s.id in listOf) {
-      const n = listOf[s.id].length
-      keys = [s.id]
-      summary = n ? t('create.countConfigured', { count: n }) : t('create.noneYet')
-      state = n ? 'ready' : 'empty'
-    } else if (s.id === 'MCP') {
-      keys = [...keys, 'mcp_servers', 'mcp_stdio_servers']
-      const n = stdioServers.length + mcpHttpServers.filter(x => x.url).length
-      summary = n ? t('create.countServers', { count: n }) : t('create.noneYet')
-      state = n ? 'ready' : 'empty'
-    } else if (s.id === 'export') {
-      summary = t('create.exportSummary')
-      state = 'ready'
-    } else {
-      summary = summarise(fields, form)
-      if (s.id === 'AdvancedSettings') {
-        keys = [...keys, 'selected_skills']
-        if (form.enable_skills && selectedSkills.length) summary = [summary, t('create.countSkills', { count: selectedSkills.length })].filter(Boolean).join(', ')
-      }
-      state = summary ? 'ready' : 'empty'
-    }
-    if (s.id === 'BasicInfo' && !form.name?.toString().trim()) { state = 'needs'; summary = t('create.needsName') }
-    if (s.id === 'ModelSettings' && !form.model?.toString().trim()) { state = 'needs'; summary = t('create.needsModel') }
-    const changed = keys.filter(k => changedKeys.has(k)).length
-    return { summary, state, changed }
-  }
-
-  const toggleSection = (id) => setOpenSections(prev => {
-    const next = new Set(prev)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
-    return next
-  })
-
-  const applyTemplate = (tpl) => {
-    setForm(prev => {
-      const next = { ...prev }
-      for (const key of ['name', 'description', 'system_prompt']) {
-        if (!(key in prev)) continue
-        if (key === 'name' && isEdit) continue
-        next[key] = tpl[key] || ''
-      }
-      return next
-    })
-    setOpenSections(prev => new Set([...prev, 'BasicInfo']))
-  }
-
-  const draft = async () => {
-    const sentence = draftText.trim()
-    if (!sentence) return
-    if (!form.model?.toString().trim()) {
-      addToast(t('create.draftNeedsModel'), 'warning')
-      setOpenSections(prev => new Set([...prev, 'ModelSettings']))
-      return
-    }
-    setDrafting(true)
-    try {
-      const res = await chatApi.complete({
-        model: form.model,
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: 'You write the configuration of a software agent. Answer with one JSON object and nothing else. Keys: "name" (lowercase words joined by dashes, at most 30 characters), "description" (one sentence), "system_prompt" (the instructions the agent follows, three to six sentences).' },
-          { role: 'user', content: sentence },
-        ],
-      })
-      const text = res?.choices?.[0]?.message?.content || ''
-      const match = text.match(/\{[\s\S]*\}/)
-      const parsed = match ? JSON.parse(match[0]) : null
-      if (!parsed || typeof parsed !== 'object') throw new Error(t('create.draftBad'))
-      setForm(prev => {
-        const next = { ...prev }
-        for (const key of ['name', 'description', 'system_prompt']) {
-          if (key in prev && typeof parsed[key] === 'string' && parsed[key].trim() && !(key === 'name' && isEdit)) next[key] = parsed[key].trim()
-        }
-        return next
-      })
-      setOpenSections(prev => new Set([...prev, 'BasicInfo', 'PromptsGoals']))
-      addToast(t('create.drafted'), 'success')
-    } catch (err) {
-      addToast(t('create.draftFailed', { message: err.message }), 'error')
-    } finally {
-      setDrafting(false)
-    }
-  }
-
-  const title = isEdit ? t('create.titleEdit', { name }) : importedConfig ? t('create.titleImport') : t('create.titleCreate')
-  const saveLabel = isEdit ? t('create.save') : importedConfig ? t('create.titleImport') : t('create.titleCreate')
+  const title = isEdit ? t('create.titleEdit', { name: savedConfig?.name || '' }) : imported ? t('create.titleImport') : t('create.titleCreate')
+  const saveLabel = isEdit ? t('create.save') : imported ? t('create.titleImport') : t('create.titleCreate')
 
   return (
-    <div className="page page--medium ag-page" data-testid="agent-edit">
+    <Page className="ag-page" data-testid="agent-edit">
       <UnsavedChangesGuard when={dirty && !saving} />
       <form onSubmit={handleSubmit} noValidate className="ag-edit">
-        <header className="ag-edit__head">
-          <div>
-            <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? name : t('agent.back')}</button>
-            <h1>{title}</h1>
-            <p className="ag-edit__sub">{isEdit ? t('create.subEdit') : t('create.subCreate')}</p>
-          </div>
-          <div className="ag-edit__acts">
-            <button type="button" className="btn btn-secondary" onClick={() => { setPreviewTab('config'); setPreviewOpen(true) }} data-testid="agent-preview-open">
-              <Icon name="eye" /> {t('create.preview')}
-              {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={leave}>
-              {t('create.discard')}
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving
-                ? <><Icon name="spinner" spin /> {t('create.saving')}</>
-                : <><Icon name="save" /> {saveLabel}</>
-              }
-            </button>
-          </div>
-        </header>
+        <div className="ag-edit__head">
+          <button type="button" className="ag-back" onClick={leave}><Icon name="arrow-left" /> {isEdit ? savedConfig?.name : t('agent.back')}</button>
+          <PageHeader
+            title={title}
+            supporting={isEdit ? t('create.subEdit') : t('create.subCreate')}
+            actions={(
+              <div className="ag-edit__acts">
+                <Button variant="ghost" onClick={leave}>{t('create.discard')}</Button>
+                <Button icon="eye" onClick={() => { setPreviewTab('config'); setPreviewOpen(true) }} data-testid="agent-preview-open">
+                  {t('create.preview')}
+                  {diff.length > 0 && <span className="dk-badge dk-badge--count">{diff.length}</span>}
+                </Button>
+                <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
+              </div>
+            )}
+          />
+        </div>
 
-        {!isEdit && (
+        {imported && (
+          <div className="ag-import-note" role="note" data-testid="agent-import-note">
+            <p>{imported.legacy ? t('create.importLegacy') : t('create.importNew')}</p>
+            {imported.dropped.length > 0 && <p>{t('create.importDropped', { keys: imported.dropped.join(', ') })}</p>}
+          </div>
+        )}
+
+        {!isEdit && !imported && (
           <section className="ag-start" aria-labelledby="ag-start-h" data-testid="agent-start">
-            <h2 id="ag-start-h" className="ag-eyebrow">{t('create.startFrom')}</h2>
+            <h2 id="ag-start-h" className="ag-h3">{t('create.startFrom')}</h2>
             <div className="ag-start__row">
               {AGENT_TEMPLATES.map(tpl => (
                 <button key={tpl.id} type="button" className="dk-chip" onClick={() => applyTemplate(tpl)} data-template={tpl.id}>
@@ -1042,26 +372,11 @@ export default function AgentCreate() {
                 </button>
               ))}
             </div>
-            <div className="ag-draft">
-              <input
-                className="input"
-                type="text"
-                value={draftText}
-                aria-label={t('create.draftLabel')}
-                placeholder={t('create.draftPlaceholder')}
-                onChange={(e) => setDraftText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); draft() } }}
-              />
-              <button type="button" className="btn btn-secondary" disabled={drafting || !draftText.trim()} onClick={draft}>
-                {drafting ? <Icon name="spinner" spin /> : <Icon name="sparkles" />} {t('create.draft')}
-              </button>
-            </div>
-            <p className="ag-note">{t('create.draftNote')}</p>
           </section>
         )}
 
         <div className="ag-folds">
-          {visibleSections.map(s => {
+          {SECTIONS.map(s => {
             const open = openSections.has(s.id)
             const info = foldInfo(s)
             return (
@@ -1075,7 +390,7 @@ export default function AgentCreate() {
                     onClick={() => toggleSection(s.id)}
                   >
                     <span className="ag-ready" data-state={info.state} aria-hidden="true"><Icon name={info.state === 'needs' ? 'warning' : 'check'} /></span>
-                    <span className="ag-fold__title">{s.label}</span>
+                    <span className="ag-fold__title">{t(`create.sections.${s.id}`)}</span>
                     <span className="ag-fold__sum">{info.summary}</span>
                     {info.changed > 0 ? <span className="ag-badge-changed">{t('create.changed', { count: info.changed })}</span> : <span />}
                     <Icon name="chevron-down" className="ag-fold__chev" />
@@ -1089,18 +404,32 @@ export default function AgentCreate() {
               </section>
             )
           })}
+          {isEdit && savedConfig && (
+            <section className="ag-fold" data-open={openSections.has('export') || undefined} data-section="export">
+              <h2 className="ag-fold__h">
+                <button type="button" className="ag-fold__button" aria-expanded={openSections.has('export')} aria-controls="ag-fold-export" onClick={() => toggleSection('export')}>
+                  <span className="ag-ready" data-state="ready" aria-hidden="true"><Icon name="check" /></span>
+                  <span className="ag-fold__title">{t('create.sections.export')}</span>
+                  <span className="ag-fold__sum">{t('create.exportSummary')}</span>
+                  <span />
+                  <Icon name="chevron-down" className="ag-fold__chev" />
+                </button>
+              </h2>
+              {openSections.has('export') && (
+                <div className="ag-fold__body" id="ag-fold-export">
+                  <p className="ag-note">{t('create.exportHelp')}</p>
+                  <Button icon="download" onClick={() => downloadJSON(`${savedConfig.name}.json`, exportAgent(savedConfig))}>
+                    {t('create.exportButton')}
+                  </Button>
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
         <div className="ag-foot">
-          <button type="button" className="btn btn-secondary" onClick={leave}>
-            {t('create.discard')}
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving
-              ? <><Icon name="spinner" spin /> {t('create.saving')}</>
-              : <><Icon name="save" /> {saveLabel}</>
-            }
-          </button>
+          <Button variant="ghost" onClick={leave}>{t('create.discard')}</Button>
+          <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
         </div>
       </form>
 
@@ -1116,7 +445,7 @@ export default function AgentCreate() {
           onClose={() => setPreviewOpen(false)}
         />
       )}
-    </div>
+    </Page>
   )
 }
 

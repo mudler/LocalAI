@@ -1,0 +1,108 @@
+Built-in skills of the chats
+=============================
+
+The skills "docx", "xlsx", "pptx" and "pdf" are adapted from the skills of the
+Feather project.
+
+  Source:  https://github.com/paper-instruments/feather-train
+           (folder feather-harness/src/feather_harness/skills)
+  Commit:  b7463092af862ebbdf4c5920c4bc9ab38ab17ad9
+  Licence: MIT, Copyright (c) 2026 Paper Instruments, Inc.
+
+What was changed: the text about LibreOffice was replaced by a note that
+LibreOffice is not installed, the text about OCR was shortened in the same way,
+and the generated page of the LibreOffice-backed module "openpyxl.oracle" got
+the same note. Each of the four got one line that says to write
+helper scripts in the chat's work folder. The skills "writing-skills" and "localai-workspace" were written
+for the chats.
+
+The MIT licence of the Feather project
+--------------------------------------
+
+MIT License
+
+Copyright (c) 2026 Paper Instruments, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+The generated API pages
+-----------------------
+
+The pages under docx/references/api, xlsx/references/api and
+pptx/references/api are generated from the docstrings of the Paper libraries
+and of the libraries that they extend. The licences of those projects apply to
+that text. All three are MIT licences.
+
+paper-docx extends python-docx, and paper-pptx extends python-pptx. Steve Canny
+wrote both upstream libraries, so the two licence files of the Paper packages
+have the same text. Each applies to its own package.
+
+  paper-docx   https://pypi.org/project/paper-docx/   (python-docx)
+  paper-pptx   https://pypi.org/project/paper-pptx/   (python-pptx)
+
+The MIT License (MIT)
+Copyright (c) 2013 Steve Canny, https://github.com/scanny
+Portions Copyright (c) 2026 Paper Instruments, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+paper-xlsx extends openpyxl.
+
+  paper-xlsx   https://pypi.org/project/paper-xlsx/   (openpyxl)
+
+This software is under the MIT Licence
+======================================
+
+Copyright (c) 2010 openpyxl
+Portions Copyright (c) 2026 Paper Instruments, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

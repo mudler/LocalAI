@@ -4,18 +4,27 @@ import (
 	"time"
 )
 
-// Task represents a reusable agent task definition
+// Task represents a reusable agent task definition: a prompt template run by a
+// model, or by a saved agent (agent_id), as a background chat.
 type Task struct {
-	ID             string            `json:"id"`          // UUID
-	Name           string            `json:"name"`        // User-friendly name
-	Description    string            `json:"description"` // Optional description
-	Model          string            `json:"model"`       // Model name (must have MCP config)
-	Prompt         string            `json:"prompt"`      // Template prompt (supports Go template .param syntax)
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
-	Enabled        bool              `json:"enabled"`                   // Can be disabled without deletion
-	Cron           string            `json:"cron,omitempty"`            // Optional cron expression
-	CronParameters map[string]string `json:"cron_parameters,omitempty"` // Parameters to use when executing cron jobs
+	ID          string `json:"id"`          // UUID
+	Name        string `json:"name"`        // User-friendly name
+	Description string `json:"description"` // Optional description
+	// Model is the model the job talks to. It may be empty when agent_id names a
+	// saved agent that has a model.
+	Model string `json:"model"`
+	// AgentID is optional: a saved agent of the owner. The job gets only the
+	// agent's grants and instructions, as a chat with that agent would.
+	AgentID   string    `json:"agent_id,omitempty"`
+	Prompt    string    `json:"prompt"` // Template prompt (supports Go template .param syntax)
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Enabled   *bool     `json:"enabled,omitempty"` // Can be disabled without deletion; absent means enabled
+
+	// Cron and CronParameters are refused: scheduling is done by the triggers of
+	// the chats, which can run a saved agent on a schedule.
+	Cron           string            `json:"cron,omitempty"`
+	CronParameters map[string]string `json:"cron_parameters,omitempty"`
 
 	// Webhook configuration (for notifications).
 	// Supports multiple webhook endpoints.
@@ -24,10 +33,8 @@ type Task struct {
 	// .Error (if failed), .Status (job status string).
 	Webhooks []WebhookConfig `json:"webhooks,omitempty"` // Webhook configs for job completion notifications
 
-	// Multimedia sources (for cron jobs)
-	// URLs to fetch multimedia content from when cron job executes
-	// Each source can have custom headers for authentication/authorization
-	MultimediaSources []MultimediaSourceConfig `json:"multimedia_sources,omitempty"` // Multimedia sources for cron jobs
+	// MultimediaSources is refused: it fed the cron jobs, which are triggers now.
+	MultimediaSources []MultimediaSourceConfig `json:"multimedia_sources,omitempty"`
 }
 
 // WebhookConfig represents configuration for sending webhook notifications
@@ -87,12 +94,9 @@ type Job struct {
 	// Execution traces (reasoning, tool calls, tool results)
 	Traces []JobTrace `json:"traces,omitempty"`
 
-	// Multimedia content (for manual execution)
-	// Can contain URLs or base64-encoded data URIs
-	Images []string `json:"images,omitempty"` // List of image URLs or base64 strings
-	Videos []string `json:"videos,omitempty"` // List of video URLs or base64 strings
-	Audios []string `json:"audios,omitempty"` // List of audio URLs or base64 strings
-	Files  []string `json:"files,omitempty"`  // List of file URLs or base64 strings
+	// Images, Videos, Audios and Files are the number of attachments the job
+	// was started with; the content is not kept.
+	Attachments int `json:"attachments,omitempty"`
 }
 
 // JobTrace represents a single execution trace entry
@@ -108,12 +112,13 @@ type JobTrace struct {
 type JobExecutionRequest struct {
 	TaskID     string            `json:"task_id"`    // Required
 	Parameters map[string]string `json:"parameters"` // Optional, for templating
-	// Multimedia content (optional, for manual execution)
-	// Can contain URLs or base64-encoded data URIs
-	Images []string `json:"images,omitempty"` // List of image URLs or base64 strings
-	Videos []string `json:"videos,omitempty"` // List of video URLs or base64 strings
-	Audios []string `json:"audios,omitempty"` // List of audio URLs or base64 strings
-	Files  []string `json:"files,omitempty"`  // List of file URLs or base64 strings
+	// Attachments for the job, as data URIs (data:<mime>;base64,<data>). An
+	// address is not fetched: the server never makes a request on behalf of a
+	// job's caller. They are saved in the owner's files for the job to read.
+	Images []string `json:"images,omitempty"`
+	Videos []string `json:"videos,omitempty"`
+	Audios []string `json:"audios,omitempty"`
+	Files  []string `json:"files,omitempty"`
 }
 
 // JobExecutionResponse represents the response after creating a job
@@ -121,15 +126,4 @@ type JobExecutionResponse struct {
 	JobID  string `json:"job_id"` // unique job identifier
 	Status string `json:"status"` // initial status (pending)
 	URL    string `json:"url"`    // URL to poll for job status
-}
-
-// TasksFile represents the structure of agent_tasks.json
-type TasksFile struct {
-	Tasks []Task `json:"tasks"`
-}
-
-// JobsFile represents the structure of agent_jobs.json
-type JobsFile struct {
-	Jobs        []Job     `json:"jobs"`
-	LastCleanup time.Time `json:"last_cleanup,omitempty"`
 }

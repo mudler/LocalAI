@@ -3,7 +3,7 @@ title = "Traffic"
 weight = 3
 +++
 
-The **Traffic** tab of the Operate console answers three questions: how much is
+The **Traffic** tab of the Administration console answers three questions: how much is
 the server used, what failed, and how are the machine and the models doing. It
 opens on an overview and has a second row of links: Overview, Usage, Models,
 GPU and host, Traces, Middleware and Prometheus. One time window (24 hours, 7

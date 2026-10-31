@@ -7,7 +7,6 @@
 package tools
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/hostclient"
+	"github.com/mudler/LocalAI/addons/internal/jobundo"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -99,56 +99,6 @@ type importArgs struct {
 	Name string `json:"name"`
 }
 
-// decode reads the arguments into a closed struct: an unknown field or
-// trailing data is a bad request.
-func decode(raw json.RawMessage, v any) error {
-	if len(raw) == 0 {
-		raw = json.RawMessage(`{}`)
-	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(v); err != nil {
-		return protocol.ErrBadRequest
-	}
-	if _, err := dec.Token(); err != io.EOF {
-		return protocol.ErrBadRequest
-	}
-	return nil
-}
-
-func toolOf(env contract.Envelope) (string, error) {
-	var a struct {
-		Tool string `json:"tool"`
-	}
-	if json.Unmarshal(env.Request.Arguments, &a) != nil || a.Tool == "" {
-		return "", protocol.ErrBadRequest
-	}
-	return a.Tool, nil
-}
-
-func payload(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
-
-// mapErr turns the refusal of a host operation into the protocol error that
-// tells the owner what happened. A failure that does not say the request was
-// wrong stays as it is, and the owner reads it as uncertain.
-func mapErr(err error) error {
-	var he *contract.HostError
-	if !errors.As(err, &he) {
-		return err
-	}
-	switch he.Code {
-	case contract.HostBadRequest, contract.HostTooLarge:
-		return fmt.Errorf("%w: %s", protocol.ErrBadRequest, he.Message)
-	case contract.HostNotFound:
-		return fmt.Errorf("%w: %s", protocol.ErrNotFound, he.Message)
-	case contract.HostConflict:
-		return fmt.Errorf("%w: %s", protocol.ErrConflict, he.Message)
-	case contract.HostFeature, contract.HostScope:
-		return fmt.Errorf("%w: %s", protocol.ErrForbidden, he.Message)
-	}
-	return err
-}
-
 // jobOf is the job of the resource, or not found: a tool cannot control a job
 // it did not start.
 func (r *runtime) jobOf(env contract.Envelope) (job, error) {
@@ -162,25 +112,34 @@ func (r *runtime) jobOf(env contract.Envelope) (job, error) {
 	return j, nil
 }
 
+func (r *runtime) entryOf(env contract.Envelope) (job, bool) {
+	if env.Request.ResourceID == "" {
+		return job{}, false
+	}
+	return r.j.job(env.Request.ResourceID)
+}
+
 func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Result{}, err
 	}
 	op := env.Request.OperationID
 	switch tool {
+	case contract.ToolChangesGet:
+		return r.readChange(ctx, env)
 	case ToolResourceExists:
 		j, ok := r.j.job(env.Request.ResourceID)
 		if !ok {
-			return contract.Result{Payload: payload(map[string]bool{"exists": false})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": false})}, nil
 		}
 		err := r.eng.Do(ctx, op, "quantize.get", map[string]string{"jobId": j.JobID}, nil)
 		var he *contract.HostError
 		switch {
 		case err == nil:
-			return contract.Result{Payload: payload(map[string]bool{"exists": true})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": true})}, nil
 		case errors.As(err, &he) && he.Code == contract.HostNotFound:
-			return contract.Result{Payload: payload(map[string]bool{"exists": false})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": false})}, nil
 		}
 		// The engine could not answer. The host settles a creation only on an
 		// explicit answer, so this is an error and never "does not exist".
@@ -191,12 +150,12 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		var a struct {
 			Tool string `json:"tool"`
 		}
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return contract.Result{}, err
 		}
 		var got json.RawMessage
 		if err := r.eng.Do(ctx, op, "quantize.list", nil, &got); err != nil {
-			return contract.Result{}, mapErr(err)
+			return contract.Result{}, protocol.FromHostError(err)
 		}
 		return contract.Result{Payload: got}, nil
 	case ToolStatus:
@@ -206,7 +165,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		}
 		var got map[string]any
 		if err := r.eng.Do(ctx, op, "quantize.get", map[string]string{"jobId": j.JobID}, &got); err != nil {
-			return contract.Result{}, mapErr(err)
+			return contract.Result{}, protocol.FromHostError(err)
 		}
 		// The engine job ID stays in the add-on. The name and the revision
 		// are what the host reads to label and track the resource.
@@ -216,7 +175,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		delete(got, "id")
 		got["name"] = j.Name
 		got["revision"] = contract.Revision{Schema: schema, Data: j.Revision}
-		return contract.Result{Payload: payload(got)}, nil
+		return contract.Result{Payload: protocol.Payload(got)}, nil
 	}
 	return contract.Result{}, protocol.ErrBadRequest
 }
@@ -243,7 +202,7 @@ func nameOf(a startArgs) string {
 }
 
 func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Preview, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Preview{}, err
 	}
@@ -251,7 +210,7 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 	switch tool {
 	case ToolStart:
 		var a startArgs
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return out, err
 		}
 		if err := checkStart(a); err != nil {
@@ -265,7 +224,7 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 			}
 		}
 		out.Revision = contract.Revision{Schema: schema, Data: 0}
-		out.Summary = payload(map[string]any{"count": 1, "sample": map[string]string{
+		out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": map[string]string{
 			"action": "start quantization job", "name": nameOf(a), "model": a.Model, "quantizationType": a.QuantizationType,
 		}})
 		return out, nil
@@ -277,13 +236,13 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 		sample := map[string]any{"name": j.Name}
 		if tool == ToolStop {
 			var a stopArgs
-			if err := decode(env.Request.Arguments, &a); err != nil {
+			if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 				return out, err
 			}
 			sample["action"] = "stop quantization job"
 		} else {
 			var a importArgs
-			if err := decode(env.Request.Arguments, &a); err != nil {
+			if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 				return out, err
 			}
 			if err := checkImport(a); err != nil {
@@ -292,16 +251,19 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 			sample["action"], sample["modelName"] = "import quantized model", a.Name
 		}
 		out.Revision = contract.Revision{Schema: schema, Data: j.Revision}
-		out.Summary = payload(map[string]any{"count": 1, "sample": sample})
+		out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": sample})
 		return out, nil
 	}
 	return out, protocol.ErrBadRequest
 }
 
 func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Receipt{}, err
+	}
+	if tool == contract.ToolChangesUndo {
+		return r.applyUndo(ctx, env, rev)
 	}
 	// An operation that already committed is answered from its receipt: the
 	// engine ran once and runs no more.
@@ -313,7 +275,7 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		return r.applyStart(ctx, env)
 	case ToolStop:
 		var a stopArgs
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return contract.Receipt{}, err
 		}
 		return r.mutate(ctx, env, rev, "quantize.stop", func(id string) any {
@@ -321,7 +283,7 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		})
 	case ToolImport:
 		var a importArgs
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return contract.Receipt{}, err
 		}
 		if err := checkImport(a); err != nil {
@@ -340,7 +302,7 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 
 func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contract.Receipt, error) {
 	var a startArgs
-	if err := decode(env.Request.Arguments, &a); err != nil {
+	if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 		return contract.Receipt{}, err
 	}
 	if err := checkStart(a); err != nil {
@@ -360,19 +322,20 @@ func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contra
 	}
 	err := r.eng.Do(ctx, op, "quantize.start", engineStart{Model: a.Model, Backend: a.Backend, QuantizationType: a.QuantizationType}, &started)
 	if err != nil {
-		return contract.Receipt{}, mapErr(err)
+		return contract.Receipt{}, protocol.FromHostError(err)
 	}
 	if started.ID == "" {
 		return contract.Receipt{}, errors.New("the engine started a job and returned no ID")
 	}
 	rec := contract.Receipt{
 		OperationID: op, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: schema, Data: 1},
-		Result: contract.Result{Payload: payload(map[string]string{"status": started.Status, "message": started.Message})},
+		Result: contract.Result{Payload: jobundo.Merge(protocol.Payload(map[string]string{"status": started.Status, "message": started.Message}),
+			contract.UndoNote{ID: op, Available: true, Summary: contract.CleanUndoText(fmt.Sprintf("Stop the quantization job %s while it runs", nameOf(a)))})},
 	}
 	// If this write fails the job runs without a mapping. The error is
 	// uncertain, so the host asks again with the same operation ID and the
 	// engine answers it with the same job.
-	if err := r.j.commit(res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1}, rec); err != nil {
+	if err := r.j.commit(res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1, StartOp: op, StartedNS: r.now().UnixNano()}, rec); err != nil {
 		return contract.Receipt{}, err
 	}
 	return rec, nil
@@ -388,11 +351,11 @@ func (r *runtime) mutate(ctx context.Context, env contract.Envelope, rev contrac
 	id := env.Request.OperationID
 	if rev.Schema != schema || rev.Data != j.Revision {
 		return contract.Receipt{OperationID: id, State: contract.ReceiptRejected,
-			Result: contract.Result{Payload: payload(map[string]any{"error": "stale", "revision": contract.Revision{Schema: schema, Data: j.Revision}})}}, nil
+			Result: contract.Result{Payload: protocol.Payload(map[string]any{"error": "stale", "revision": contract.Revision{Schema: schema, Data: j.Revision}})}}, nil
 	}
 	var out json.RawMessage
 	if err := r.eng.Do(ctx, id, op, args(j.JobID), &out); err != nil {
-		return contract.Receipt{}, mapErr(err)
+		return contract.Receipt{}, protocol.FromHostError(err)
 	}
 	next := j
 	next.Revision++
@@ -400,8 +363,13 @@ func (r *runtime) mutate(ctx context.Context, env contract.Envelope, rev contrac
 	if len(out) > 0 && json.Valid(out) {
 		rec.Result.Payload = out
 	} else {
-		rec.Result.Payload = payload(map[string]any{})
+		rec.Result.Payload = protocol.Payload(map[string]any{})
 	}
+	reason := jobundo.ReasonStop
+	if op == "quantize.import" {
+		reason = jobundo.ReasonImport
+	}
+	rec.Result.Payload = jobundo.Merge(rec.Result.Payload, contract.UndoNote{Reason: reason})
 	if err := r.j.commit(env.Request.ResourceID, &next, rec); err != nil {
 		return contract.Receipt{}, err
 	}

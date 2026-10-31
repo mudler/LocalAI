@@ -43,8 +43,10 @@ export function useAddonChatActions() {
 
 // Every contribution of `slot`, with the holds that keep the instances it
 // needs loaded. An instance withdrawn by a disable or a crash is loaded again
-// once the add-on is usable, so a slot comes back with the add-on.
-export function useSlotContributions(slot, enabled = true) {
+// once the add-on is usable, so a slot comes back with the add-on. With
+// `addonId`, only that add-on is held and only its contributions come back:
+// an add-on's own page draws its own settings and no one else's.
+export function useSlotContributions(slot, enabled = true, extension, addonId) {
   const registry = useContext(RegistryContext)
   const acquire = registry ? registry.acquire : null
   const hold = registry ? registry.hold : null
@@ -56,7 +58,7 @@ export function useSlotContributions(slot, enabled = true) {
 
   useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
 
-  const wanted = useMemo(() => apps.filter(a => usable(a) && declaresSlot(a, slot)), [apps, slot])
+  const wanted = useMemo(() => apps.filter(a => usable(a) && declaresSlot(a, slot) && (!addonId || a.id === addonId)), [apps, slot, addonId])
   const key = wanted.map(a => `${a.id}@${a.generation}`).join(',')
   useEffect(() => {
     if (!hold || !allowed) return undefined
@@ -78,10 +80,29 @@ export function useSlotContributions(slot, enabled = true) {
     }
   }, [stale]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return useMemo(
-    () => slotContributions(slot, { apps, instances, language, allowed }),
-    [slot, apps, instances, language, allowed],
+  return useMemo(() => {
+    const all = slotContributions(slot, { apps, instances, language, allowed, extension })
+    return addonId ? all.filter(c => c.addonId === addonId) : all
+  }, [slot, apps, instances, language, allowed, extension, addonId])
+}
+
+// The add-ons that declare a settings section, from the apps list alone (no
+// module is loaded): the Settings page lists them with a link to the Settings
+// tab of each. `usable` says whether the section can be drawn now; `settled`
+// says the list was read (or cannot be), so an empty list means none.
+export function useAddonsWithSettings(enabled = true) {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed && enabled : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  const apps = registry ? registry.apps : EMPTY_LIST
+  const known = registry ? registry.known !== false : true
+  const settled = known && (!allowed || (registry ? registry.status !== 'idle' : true))
+  const items = useMemo(
+    () => (allowed ? apps.filter(a => declaresSlot(a, 'settings.sections')).map(a => ({ app: a, usable: usable(a) })) : EMPTY_LIST),
+    [allowed, apps],
   )
+  return useMemo(() => ({ items, settled }), [items, settled])
 }
 
 // The add-ons that offer tools to a model: enabled, running, with at least one

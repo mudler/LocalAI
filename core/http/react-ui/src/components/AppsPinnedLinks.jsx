@@ -7,6 +7,7 @@ import { useNavigation } from '../context/NavigationContext'
 import { useAddonRegistry } from '../addons/useAddonRegistry'
 import { buildTiles, sidebarPinLinks } from '../utils/addonTiles'
 import { apiUrl } from '../utils/basePath'
+import { useArrivals } from '../hooks/useArrivals'
 
 // The caller's pinned apps, drawn as children of the Apps entry in pin order.
 // The apps come from the add-on registry, which the drawer feeds on every list
@@ -27,11 +28,14 @@ export default function AppsPinnedLinks({ onClose }) {
     [pinIds, registry.apps, builtin, i18n.language],
   )
 
+  // An app pinned while the sidebar is on screen opens into its slot.
+  const fresh = useArrivals(links.map(l => l.id), { ready: !needsApps || registry.apps.length > 0 })
+
   return links.map(link => {
     const title = link.titleKey ? t(link.titleKey) : link.title
     return (
+      <div key={link.id} className="nav-pin" data-fresh={fresh.get(link.id)}>
       <NavLink
-        key={link.id}
         to={link.to}
         onClick={onClose}
         className={({ isActive }) => `nav-item nav-item--sub${isActive ? ' active' : ''}${link.stopped ? ' nav-item--muted' : ''}`}
@@ -43,6 +47,7 @@ export default function AppsPinnedLinks({ onClose }) {
           : <img className="nav-icon" src={apiUrl(link.icon)} alt="" width="18" height="18" />}
         <span className="nav-label">{title}</span>
       </NavLink>
+      </div>
     )
   })
 }

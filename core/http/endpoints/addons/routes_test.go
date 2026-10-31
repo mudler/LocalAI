@@ -139,6 +139,8 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"POST /api/addons/resources/:resourceId/rename": true,
 			"POST /api/addons/resources/:resourceId/delete": true,
 			"POST /api/addons/resources/:resourceId/apply":  true,
+			// The undo of one change a chat made at once: a browser session only.
+			"POST /api/addons/resources/:resourceId/changes/:changeId/undo": true,
 			// The UI-only data recovery: backups, restore and purge.
 			"POST /api/addons/:id/recovery/backup":        true,
 			"POST /api/addons/:id/recovery/verify":        true,

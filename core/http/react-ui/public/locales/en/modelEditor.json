@@ -34,5 +34,9 @@
             "title": "No fields configured",
             "text": "Use the search bar above to find and add configuration fields."
         }
+    },
+    "proxyVision": {
+        "label": "This model can look at images",
+        "hint": "Turn this on when the upstream model accepts images. LocalAI cannot check it. Attached images then go to the model with the message."
     }
 }

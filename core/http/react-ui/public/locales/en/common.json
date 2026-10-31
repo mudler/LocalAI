@@ -112,26 +112,22 @@
     "gigabytes": "GB",
     "terabytes": "TB"
   },
-  "updateReview": {
-    "title": "Review updates",
-    "description": "Nothing is upgraded until you choose here.",
-    "close": "Close",
-    "done": "Done",
-    "selectAll": "Select all",
-    "select": "Select {{name}}",
-    "unknownVersion": "unknown",
-    "latest": "latest",
-    "blocked": "Cannot be upgraded here:",
-    "upgradeSelected": "Upgrade selected ({{count}})",
-    "upgradeAll": "Upgrade all ({{count}})",
-    "running": "Upgrading...",
-    "queued": "Waiting",
-    "statusRunning": "Upgrading",
-    "statusDone": "Upgraded",
-    "statusFailed": "Failed",
-    "summary": "{{succeeded}} upgraded, {{failed}} failed.",
-    "empty": "Nothing to upgrade.",
-    "statusStarted": "Started",
-    "summaryStarted": "{{succeeded}} started, {{failed}} failed."
+  "ui": {
+    "tryAgain": "Try again",
+    "undo": "Undo",
+    "loadError": {
+      "title": "Could not load this.",
+      "serverSaid": "The server answered “{{message}}”.",
+      "nothingChanged": "Nothing was changed."
+    }
+  },
+  "chip": {
+    "running": "Running",
+    "starting": "Starting",
+    "stopped": "Stopped",
+    "failed": "Failed",
+    "updateAvailable": "Update available",
+    "ready": "Ready",
+    "noRunsYet": "No runs yet"
   }
 }

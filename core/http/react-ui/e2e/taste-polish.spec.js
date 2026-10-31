@@ -1,6 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockLedger, mockPlacement } from './ledger-fixtures.js'
-import { mockLibrary } from './library-fixtures.js'
 
 // Selected rows, status strips and empty states keep to the taste guide:
 // no coloured left rail on a selectable or card-like element, and an empty
@@ -53,14 +52,6 @@ test('an install in progress is a plain strip with no status rail', async ({ pag
   expect(await leftBorder(strip)).toBe(0)
 })
 
-test('the skill editor marks its current section without a left rail', async ({ page }) => {
-  await mockLibrary(page)
-  await page.goto('/app/skills/new')
-  const current = page.locator('.skilledit-sidebar-item.active').first()
-  await expect(current).toBeVisible({ timeout: 15_000 })
-  expect(await leftBorder(current)).toBe(0)
-})
-
 test.describe('Add Model', () => {
   test('the templates are a list of rows, and choosing one moves on to its fields', async ({ page }) => {
     await mockLedger(page)
@@ -80,8 +71,7 @@ test.describe('Add Model', () => {
 
 test.describe('Hub pages', () => {
   for (const [name, path, setup] of [
-    ['Build', '/app/build', async page => { const { mockMachine } = await import('./tools-fixtures.js'); await mockMachine(page) }],
-    ['Agents', '/app/agents', async page => { const { mockAgents } = await import('./agents-fixtures.js'); await mockAgents(page) }],
+    ['Administration', '/app/settings', async () => {}],
   ]) {
     test(`${name}: the page title starts at the same edge as the first tab`, async ({ page }) => {
       await page.setViewportSize({ width: 1440, height: 900 })
@@ -111,17 +101,4 @@ test('the Studio voice field shows its whole placeholder and stays inside a phon
     expect(chip.x + chip.width).toBeLessThanOrEqual(viewport)
     if (width === 1440) expect(box.width).toBeGreaterThan(200)
   }
-})
-
-test('on a phone the job schedule line wraps instead of ending in an ellipsis', async ({ page }) => {
-  const { mockJobs } = await import('./jobs-fixtures.js')
-  await page.setViewportSize({ width: 390, height: 844 })
-  await mockJobs(page)
-  await page.goto('/app/agent-jobs')
-  const line = page.locator('.aj-phone-line').first()
-  await expect(line).toBeVisible({ timeout: 15_000 })
-  const style = await line.evaluate(el => getComputedStyle(el))
-  expect(style.textOverflow).not.toBe('ellipsis')
-  expect(style.whiteSpace).not.toBe('nowrap')
-  expect(await line.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true)
 })

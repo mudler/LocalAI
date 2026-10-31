@@ -4,11 +4,13 @@ package application
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -23,6 +25,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/resources"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -38,7 +42,13 @@ func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
 	if a.addonGateway == nil {
 		return nil
 	}
-	return mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+	p := mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
+	if db := a.AuthDB(); db != nil {
+		has := addonFeatureCheck(db)
+		hostOps := a.applicationConfig.AddonHostOps
+		p = p.WithHidden(func(actor contract.Actor) map[string]bool { return addonsWithoutFeature(hostOps, has, actor) })
+	}
+	return p
 }
 
 // AddonHostOps is the host operation channel of the add-on supervisor, or nil
@@ -114,6 +124,48 @@ func (a *Application) RegisterAddonEngineDatasets(ds hostops.DatasetStore) error
 		return nil
 	}
 	return hostops.RegisterEngineDatasets(a.addonHostOps.Broker, ds)
+}
+
+// RegisterAddonWorkspace registers the workspace operations over the files of
+// the chats. It registers nothing when this process has no host operation
+// channel, no add-on runs here, or the files are off.
+func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
+	if a.addonHostOps == nil || a.addonDataRoot == "" || !f.Available() {
+		return nil
+	}
+	root := a.addonDataRoot
+	return hostops.RegisterWorkspace(a.addonHostOps.Broker, &hostops.WorkspaceHost{
+		Store:     f.Store(),
+		Files:     f,
+		Principal: func(actor contract.Actor) string { return addonWorkspacePrincipal(a.authDB != nil)(actor) },
+		DataDir:   func(id string) string { return filepath.Join(root, id) },
+		// The chats service is built after the broker: it is looked up at
+		// each commit.
+		Chat: func(ctx context.Context, principal, rid string) string {
+			if svc := a.StudioService(); svc != nil {
+				return svc.ChatOfAction(ctx, principal, rid)
+			}
+			return ""
+		},
+	})
+}
+
+// addonWorkspacePrincipal maps an add-on actor to the owner of the files.
+// Without accounts the chats and the Files page use the anonymous principal,
+// so the synthetic local-owner actor must land there too, or the add-ons would
+// work in a home the user never sees. With accounts the local-owner actor is
+// no person: it has no files, and the workspace operations refuse it rather
+// than share one account's home. An empty answer means refuse.
+func addonWorkspacePrincipal(hasAccounts bool) func(contract.Actor) string {
+	return func(actor contract.Actor) string {
+		if actor.UserID == "" || actor.UserID == auth.AddonLocalOwnerID {
+			if hasAccounts {
+				return ""
+			}
+			return studio.AnonymousPrincipal
+		}
+		return actor.UserID
+	}
 }
 
 // addonFeatureCheck answers whether an active account holds a feature, with
@@ -196,6 +248,22 @@ func addonCreateAuthority(status addonStatus, revalidate func(context.Context, c
 	}
 }
 
+// confirmCredential says which credentials may confirm a proposal: the
+// browser session or the local owner, as before, and the credential of a chat
+// turn. An API key and an MCP session never can.
+func confirmCredential(mode string) func(contract.Actor) bool {
+	return func(a contract.Actor) bool {
+		if a.CredentialID == auth.AddonChatsCredential {
+			return mode == auth.AddonModeNamedUser && a.Mode == auth.AddonModeNamedUser
+		}
+		if mode == auth.AddonModeLocalOwner {
+			return a.CredentialID == auth.AddonLocalOwnerID
+		}
+		id, ok := strings.CutPrefix(a.CredentialID, "session:")
+		return ok && id != ""
+	}
+}
+
 func (a *Application) startAddonGateway() error {
 	cfg := a.applicationConfig.Addons
 	if cfg.Transport == nil {
@@ -253,6 +321,10 @@ func (a *Application) startAddonGateway() error {
 		exists = a.addonBackingExists(contract.DefaultLimits())
 	}
 	brokerOpts.BackingExists = exists
+	// Enabling an add-on for a chat or an agent is the consent to its changes,
+	// so the chats' own credential may confirm what the chats adapter has just
+	// stored. No request carries it: sessions and API keys build their own.
+	brokerOpts.ConfirmCredential = confirmCredential(mode)
 	// A deletion trusts only an explicit answer of the add-on.
 	confirmed := a.addonResourceExists
 	if confirmed == nil {
@@ -455,3 +527,308 @@ func artifactAddonState(status addonStatus) func(context.Context, string) (artif
 // session in that mode, so the confirmation boundary is the browser headers
 // only and does not stop a script that sets them.
 const localOwnerWarning = "addons: local-owner mode is enabled; unauthenticated callers share one authority over every addon resource and sharing is disabled; any caller that can reach this port can confirm addon proposals"
+
+// StudioAddonTools is the add-on broker as the chats use it, or nil when this
+// host has no add-on gateway. A chat is not a request: its turn runs after the
+// request ended and, in a cluster, can run on another frontend. The actor is
+// therefore built from the chat's user and the credential of a chat turn, and
+// the gateway checks the account and the add-ons feature again on every call.
+// The ownership mode comes from configuration, never from a request.
+func (a *Application) StudioAddonTools() studio.AddonTools {
+	if a.addonGateway == nil {
+		return nil
+	}
+	var has func(userID, feature string) bool
+	if db := a.AuthDB(); db != nil {
+		has = addonFeatureCheck(db)
+	}
+	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode(), hostOps: a.applicationConfig.AddonHostOps, has: has}
+}
+
+// lateStudioAddons asks for the broker at each call: the chats service starts
+// before the add-on gateway does.
+type lateStudioAddons struct{ a *Application }
+
+func (l lateStudioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTool, error) {
+	b := l.a.StudioAddonTools()
+	if b == nil {
+		return nil, nil
+	}
+	return b.Tools(ctx, user)
+}
+
+// Unavailable forwards to the broker when it can say why an add-on cannot work.
+func (l lateStudioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonGate); ok {
+		return g.Unavailable(ctx, user, addonID, workspace)
+	}
+	return ""
+}
+
+// AddonSkills forwards to the broker when it knows the skills of the add-ons.
+func (l lateStudioAddons) AddonSkills(ctx context.Context, user string) ([]studio.AddonSkillSet, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonSkillLister); ok {
+		return g.AddonSkills(ctx, user)
+	}
+	return nil, nil
+}
+
+// Isolation forwards to the broker when it can say how commands are isolated.
+func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
+	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
+		return g.Isolation(ctx, user, addonID)
+	}
+	return ""
+}
+
+func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
+	b := l.a.StudioAddonTools()
+	if b == nil {
+		return "", gateway.ErrUnavailable
+	}
+	return b.Call(ctx, user, conv, name, args)
+}
+
+type studioAddons struct {
+	adapter *addontools.ToolAdapter
+	mode    string
+	// hostOps maps an add-on ID to the host operation prefixes it may call. An
+	// add-on that may call the workspace operations needs the Files workspace.
+	hostOps map[string][]string
+	// has answers whether a user holds a host feature. Nil offers every tool.
+	has func(userID, feature string) bool
+}
+
+// hostOpFeatures maps the prefix of a host operation to the feature the host
+// requires for it (see hostops). An add-on that may call such an operation
+// does nothing for a person without the feature, so its tools are not offered.
+var hostOpFeatures = map[string]string{"finetune.": auth.FeatureFineTuning, "quantize.": auth.FeatureQuantization}
+
+// addonsWithoutFeature names the add-ons whose host operations need a feature
+// the actor does not hold. Local-owner mode has no accounts and hides none.
+func addonsWithoutFeature(hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) map[string]bool {
+	if has == nil || actor.Mode == auth.AddonModeLocalOwner {
+		return nil
+	}
+	denied := map[string]bool{}
+	for addon, prefixes := range hostOps {
+		for _, p := range prefixes {
+			if f, ok := hostOpFeatures[p]; ok && !has(actor.UserID, f) {
+				denied[addon] = true
+			}
+		}
+	}
+	return denied
+}
+
+// filterByFeature drops the tools of the add-ons whose host operations need a
+// feature the actor does not hold, so a model is not offered a tool that can
+// only answer "no permission". Local-owner mode has no accounts and keeps all.
+func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) []studio.AddonTool {
+	denied := addonsWithoutFeature(hostOps, has, actor)
+	if len(denied) == 0 {
+		return tools
+	}
+	out := make([]studio.AddonTool, 0, len(tools))
+	for _, t := range tools {
+		if !denied[t.AddonID] {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// sandboxAddonID is the add-on that runs commands and code.
+const sandboxAddonID = "sandbox"
+
+// needsWorkspace says whether the add-on works on the files of the user.
+func (s *studioAddons) needsWorkspace(addonID string) bool {
+	for _, p := range s.hostOps[addonID] {
+		if strings.HasPrefix(p, "workspace.") {
+			return true
+		}
+	}
+	return false
+}
+
+// Unavailable says why the tools of an add-on cannot work now, or "". An
+// add-on that needs the Files workspace cannot work without it, and the
+// Sandbox cannot run anything on a host where no backend works.
+func (s *studioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
+	if !workspace && s.needsWorkspace(addonID) {
+		return "the Files workspace is off on this server, so there is no place for files or code"
+	}
+	if addonID != sandboxAddonID {
+		return ""
+	}
+	actor, err := s.actor(user)
+	if err != nil {
+		return ""
+	}
+	st, ok := s.sandboxStatus(ctx, actor)
+	if !ok || st.CanRun {
+		return ""
+	}
+	return "no sandbox backend works on this host, so commands cannot run"
+}
+
+// sandboxState is the part of the Sandbox add-on's status read that the chats use.
+type sandboxState struct {
+	OK         bool   `json:"ok"`
+	CanRun     bool   `json:"canRun"`
+	Active     string `json:"active"`
+	HostNotice bool   `json:"hostNotice"`
+}
+
+// sandboxStatus reads the Sandbox add-on's status as the actor. ok is false
+// when the read failed or the add-on did not answer ok.
+func (s *studioAddons) sandboxStatus(ctx context.Context, actor contract.Actor) (sandboxState, bool) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	res, err := s.adapter.Execute(ctx, actor, addontools.ToolName(sandboxAddonID, "status"), json.RawMessage(`{}`))
+	if err != nil || res.Kind != addontools.ResultData {
+		return sandboxState{}, false
+	}
+	var st sandboxState
+	if json.Unmarshal(res.Result, &st) != nil || !st.OK {
+		return sandboxState{}, false
+	}
+	return st, true
+}
+
+// Isolation says how the Sandbox add-on runs commands: "isolated", "host" (on
+// the server, with no isolation) or "" when it cannot tell.
+func (s *studioAddons) Isolation(ctx context.Context, user, addonID string) string {
+	if addonID != sandboxAddonID {
+		return ""
+	}
+	actor, err := s.actor(user)
+	if err != nil {
+		return ""
+	}
+	st, ok := s.sandboxStatus(ctx, actor)
+	switch {
+	case !ok || !st.CanRun:
+		return ""
+	case st.HostNotice || st.Active == "host":
+		return "host"
+	}
+	return "isolated"
+}
+
+func (s *studioAddons) actor(user string) (contract.Actor, error) {
+	switch s.mode {
+	case auth.AddonModeLocalOwner:
+		return contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}, nil
+	case auth.AddonModeNamedUser:
+		if user == "" || user == studio.AnonymousPrincipal || user == auth.AddonLocalOwnerID || user == "legacy-api-key" {
+			return contract.Actor{}, gateway.ErrForbidden
+		}
+		return contract.Actor{UserID: user, CredentialID: auth.AddonChatsCredential, Mode: auth.AddonModeNamedUser}, nil
+	}
+	return contract.Actor{}, gateway.ErrForbidden
+}
+
+func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTool, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	defs, err := s.adapter.Discover(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		// A user without the add-ons feature has no add-on tools. The chat
+		// and its tools panel still work.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make([]studio.AddonTool, 0, len(defs))
+	for _, d := range defs {
+		raw, err := json.Marshal(d.Parameters)
+		if err != nil {
+			continue
+		}
+		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
+			Shadows: d.Shadows, InstalledAt: d.InstalledAt})
+	}
+	return filterByFeature(out, s.hostOps, s.has, actor), nil
+}
+
+// AddonSkills lists the add-ons that ship skills and that the user can see,
+// less those whose host operations need a feature the user lacks: the same
+// rule as their tools.
+func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.AddonSkillSet, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Skills(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	out := make([]studio.AddonSkillSet, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: contract.SkillNames(a.Skills),
+			Shadows: contract.ShadowedSkills(a.Skills), Running: a.Running})
+	}
+	return out, nil
+}
+
+// AddonShadowers lists the add-ons that replace a built-in chat tool and that
+// the user can see, in any state, less those whose host operations need a
+// feature the user lacks: the same rule as their tools.
+func (s *studioAddons) AddonShadowers(ctx context.Context, user string) ([]studio.AddonShadower, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Shadowers(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	out := make([]studio.AddonShadower, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonShadower{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Tools: a.Tools, Running: a.Running})
+	}
+	return out, nil
+}
+
+func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return "", err
+	}
+	res, err := s.adapter.ExecuteIn(ctx, actor, conv, name, args)
+	if err != nil {
+		return "", err
+	}
+	return studioAddonText(res), nil
+}
+
+// studioAddonText is what the model reads for a result. A change the chat made
+// comes as an "applied" document whose note says what was done and whether the
+// person can undo it (undoable, changeId and a one-line undo, or a reason). A change that stays a proposal (the owner could not apply
+// it) is not applied, and the text says who can apply it.
+func studioAddonText(res addontools.ToolResult) string {
+	if res.Kind == addontools.ResultProposal && res.Proposal != nil {
+		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s). Nothing has been changed. "+
+			"Tell the user to review and confirm it on the Add-ons page. Do not say the change was made.",
+			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID)
+	}
+	return res.JSON()
+}

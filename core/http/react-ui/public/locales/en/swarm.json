@@ -71,7 +71,8 @@
     "noGroup": "No grouping",
     "groupType": "Group by type",
     "groupLabel": "Label: {{key}}",
-    "stale": "The node list could not be refreshed. What you see is the last reading."
+    "stale": "The node list could not be refreshed. What you see is the last reading.",
+    "retry": "Try again"
   },
   "first": {
     "title": "No workers registered yet",

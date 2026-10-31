@@ -107,6 +107,68 @@
       "assistant": "LocalAI Assistant",
       "distributed": "Verteilt",
       "responses": "Antworten"
+    },
+    "loadFailedTitle": "Die Einstellungen konnten nicht geladen werden.",
+    "egress": {
+      "title": "Sandbox-Netzwerk",
+      "intro": "Befehle in der Sandbox erreichen das Netzwerk nur über einen Proxy, der LocalAI bei jeder Verbindung fragt. Legen Sie unten das Limit, die Voreinstellung neuer Chats, die Ports, zusätzliche Registries und die Aufbewahrung des Protokolls fest; jede Person wählt die Voreinstellung eines Chats in dessen Tools-Menü bis zum Limit und erlaubt einen blockierten Host über eine Karte.",
+      "serves": "Befehle laufen isoliert im Add-on {{name}}",
+      "servesHost": "Befehle laufen über {{name}} auf diesem Rechner",
+      "servesNone": "Noch führt keine Sandbox Befehle aus",
+      "hostNote": "Das Host-Backend führt Befehle auf diesem Rechner mit dessen Netzwerk aus: Diese Einstellungen gelten dafür nicht.",
+      "counts": "Letzte 24 Stunden: {{allowed}} erlaubt, {{blocked}} blockiert.",
+      "private": "Regeln eines Administrators dürfen private Netzwerke erreichen",
+      "privateWarning": "Ein Host, den ein Administrator erlaubt, kann dann Adressen in Ihrem Netzwerk erreichen. Eine Voreinstellung allein tut das nie; Cloud-Metadaten- und Serveradressen bleiben gesperrt.",
+      "typePhrase": "Zum Einschalten eingeben: {{phrase}}",
+      "registries": "Paket-Registries ({{count}})",
+      "showAudit": "Protokoll zeigen",
+      "hideAudit": "Protokoll ausblenden",
+      "loadFailed": "Die Einstellungen des Sandbox-Netzwerks konnten nicht gelesen werden",
+      "audit": {
+        "verdict": "Ergebnis",
+        "host": "Host",
+        "user": "Benutzer",
+        "at": "Zeitpunkt",
+        "reason": "Grund",
+        "bytes": "Bytes hoch / runter",
+        "refresh": "Aktualisieren",
+        "empty": "Keine passenden Anfragen.",
+        "loadFailed": "Das Protokoll konnte nicht gelesen werden",
+        "verdicts": {
+          "any": "Alle Ergebnisse",
+          "allow": "Erlaubt",
+          "block": "Blockiert",
+          "done": "Beendet"
+        }
+      }
+    },
+    "addons": {
+      "title": "Add-ons",
+      "hint": "Einstellungen, die Add-ons mitbringen",
+      "intro": "Jedes Add-on hat seine Einstellungen auf seiner eigenen Seite, im Tab Einstellungen seiner Details. Öffne eines, um sie zu ändern.",
+      "off": "Ausgeschaltet. Schalte es ein, um seine Einstellungen zu ändern.",
+      "open": "Einstellungen öffnen",
+      "openNamed": "Einstellungen von {{name}} öffnen",
+      "count_one": "{{count}} Add-on mit Einstellungen",
+      "count_other": "{{count}} Add-ons mit Einstellungen"
+    },
+    "hosts": {
+      "add": "Hinzufügen",
+      "listLabel": "Immer erlaubte Hosts",
+      "remove": "{{host}} entfernen",
+      "empty": "Noch kein Host. Geben Sie einen Hostnamen ein, oder Host:Port, um den Port festzulegen.",
+      "hint": "Nur genaue Namen. Mit :Port erlauben Sie nur einen Port; sonst gelten die Netzwerk-Ports der Sandbox.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Geben Sie einen Hostnamen ein.",
+        "wildcard": "\"{{value}}\": Geben Sie einen genauen Hostnamen ein, kein Muster.",
+        "shape": "\"{{value}}\" ist kein Hostname. Geben Sie nur den Host ein, ohne Schema und Pfad.",
+        "port": "\"{{value}}\": Der Port muss zwischen 1 und 65535 liegen; 22 und 25 werden immer abgelehnt.",
+        "private": "\"{{value}}\" ist eine private oder lokale Adresse. Schalten Sie zuerst den Schalter für das private Netzwerk ein.",
+        "numeric": "\"{{value}}\": Schreiben Sie eine IP-Adresse als vier Dezimalzahlen.",
+        "duplicate": "\"{{value}}\" steht schon in der Liste.",
+        "full": "Die Liste enthält höchstens {{max}} Hosts."
+      }
     }
   },
   "backends": {
@@ -253,5 +315,74 @@
     "subtitle": "Auf dieser LocalAI-Instanz geladene Modelle und die Host-Kapazität, die sie nutzen.",
     "scaleOut": "Rechner hinzufügen",
     "hideScaleOut": "Einrichtung ausblenden"
+  },
+  "settingsTools": {
+    "intro": "Die Chats haben einige eingebaute Werkzeuge, die ein Add-on ersetzen kann. Ist das Add-on installiert, läuft es und ist es für einen Chat an, nutzt der Chat das Werkzeug des Add-ons unter demselben Namen.",
+    "empty": "Auf diesem Server lässt sich kein eingebautes Werkzeug verwalten.",
+    "loadFailed": "Die eingebauten Werkzeuge konnten nicht gelesen werden",
+    "switch": "An",
+    "byBuiltin": "Eingebaut",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Aus",
+    "unavailable": "Dieser Server kann es nicht ausführen: {{reason}}.",
+    "installSandbox": "Installieren Sie die Sandbox, um Befehle isoliert auszuführen",
+    "replaceExplain": "Diese Add-ons ersetzen {{tool}}: Das gewählte stellt es in jedem Chat bereit, in dem es an ist und läuft, und das eingebaute wird ausgeblendet. Nur eines kann aktiv sein. Solange Sie nichts wählen, stellt das zuerst installierte es bereit.",
+    "defaultInstalledFirst": "Standard: zuerst installiert",
+    "installedOn": "Installiert {{when}}",
+    "choose_one": "{{count}} Add-on ersetzt {{tool}}: Wählen Sie, welches verwendet wird.",
+    "choose_other": "{{count}} Add-ons ersetzen {{tool}}: Wählen Sie, welches verwendet wird.",
+    "labels": {
+      "bash": "Befehle (bash)",
+      "web_search": "Websuche",
+      "web_fetch": "Webseiten lesen",
+      "list_agents": "Gespeicherte Agenten"
+    },
+    "descriptions": {
+      "bash": "Führt Befehle und Code für die Chats direkt auf diesem Rechner aus, wenn keine Sandbox bash bereitstellt. Das Sandbox-Add-on ersetzt es durch isolierte Befehle.",
+      "web_search": "Durchsucht das Web für die Chats ohne Schlüssel (DuckDuckGo, dann Brave Search, dann Bing) oder mit Ihrer SearXNG-Instanz, wenn eine eingerichtet ist.",
+      "web_fetch": "Liest für die Chats eine öffentliche Webseite oder Datei über ihre Adresse. Adressen in Ihrem Netzwerk werden abgelehnt, außer Sie erlauben sie.",
+      "list_agents": "Erlaubt einem Chat, die gespeicherten Agenten des Benutzers aufzulisten und einen als Sub-Agenten zu starten. Jeder Chat schaltet es in seinem Werkzeugmenü ein."
+    },
+    "bash": {
+      "switch": "Chats Befehle auf diesem Rechner ausführen lassen",
+      "modeLegend": "Wer Befehle ausführen kann",
+      "ask": "Jedes Mal fragen.",
+      "askHint": "Nur die Chats von Administratoren erhalten es, und jeder Befehl wartet auf deren Ja im Chat.",
+      "on": "Für alle erlauben.",
+      "onHint": "Die Chats aller Benutzer führen hier ohne Nachfrage Befehle aus, auch geplante Läufe und Sub-Agenten.",
+      "default": "Nicht gesetzt: Es gilt der Standard ({{mode}}).",
+      "warning": "Befehle laufen als der Benutzer, unter dem LocalAI läuft, ohne Isolierung und mit dem Netzwerk dieses Rechners: Sie können lesen, was LocalAI lesen kann, und das Internet, Ihr Netzwerk und die LocalAI-API erreichen. Jeder Befehl wird protokolliert. Installieren Sie die Sandbox, um sie zu isolieren."
+    },
+    "modes": {
+      "off": "aus",
+      "ask": "jedes Mal fragen",
+      "on": "für alle erlaubt"
+    },
+    "skillsTitle": "Skills, die Add-ons ersetzen",
+    "skillsIntro": "Ein Add-on kann einen integrierten Skill durch einen eigenen ersetzen, der zu seinen Werkzeugen passt. Ersetzen mehrere Add-ons denselben, wählen Sie, welches verwendet wird.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "Das gewählte Add-on läuft nicht: der integrierte Skill wird verwendet.",
+    "toolNotRunning": "Das Add-on, das dieses Werkzeug ersetzt, läuft nicht: das eingebaute Werkzeug wird verwendet.",
+    "stopped": "gestoppt",
+    "webTest": {
+      "intro": "Führt eine Suche mit jedem Suchanbieter der gespeicherten Einstellungen aus und zeigt, was jeder getan hat. Übernehmen Sie zuerst Ihre Änderungen.",
+      "queryLabel": "Suchbegriff",
+      "run": "Suche testen",
+      "running": "Test läuft…",
+      "answered": "Die Chats erhalten die Ergebnisse von {{host}}.",
+      "noneAnswered": "Kein Anbieter hat geantwortet.",
+      "failed": "Der Test konnte nicht laufen: {{error}}",
+      "results_one": "{{count}} Ergebnis",
+      "results_other": "{{count}} Ergebnisse",
+      "outcomes": {
+        "ok": "Funktioniert",
+        "no_results": "Keine Ergebnisse",
+        "challenged": "Bot-Prüfung",
+        "blocked": "Gesperrt",
+        "timeout": "Zu langsam",
+        "error": "Fehler",
+        "skipped": "Übersprungen"
+      }
+    }
   }
 }

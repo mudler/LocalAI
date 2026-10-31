@@ -63,6 +63,11 @@ var (
 var _ = BeforeSuite(func() {
 	var err error
 
+	// The Slack and Telegram connectors talk to fakes of their platforms (see
+	// studio_slack_test.go and studio_connectors_test.go).
+	startFakeSlack()
+	startFakeTelegram()
+
 	// Create temporary directory
 	tmpDir, err = os.MkdirTemp("", "mock-backend-e2e-*")
 	Expect(err).ToNot(HaveOccurred())
@@ -776,11 +781,18 @@ var _ = BeforeSuite(func() {
 		config.WithSystemState(systemState),
 		config.WithDebug(true),
 		config.WithGeneratedContentDir(generatedDir),
+		config.WithDataPath(filepath.Join(tmpDir, "data")), // a workspace needs a data path
 		// Mirrors the CLI boundary (core/cli/run.go): the failover prober
 		// resolves api_key_env upstream credentials through this lookup.
 		// Without it, remote failover targets configured with api_key_env
 		// (e.g. the cloud-proxy chain-remote spec) never pass liveness.
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
+		// Without accounts the chats offer the built-in bash, which asks the
+		// administrator before each command. The mock model calls the first
+		// tool it is offered, and bash sorts first, so every chat turn would
+		// wait for an answer that no spec gives. The bash specs run on their
+		// own server (core/http/routes).
+		config.WithChatsHostExec("off"),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -833,6 +845,8 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	stopFakeTelegram()
+	stopFakeSlack()
 	// Synchronous shutdown — the context-cancel goroutine in application.New
 	// runs the same cleanup asynchronously, which races test-binary exit and
 	// orphans spawned mock-backend children to init.

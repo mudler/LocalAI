@@ -31,38 +31,48 @@
     "yes": "Yes",
     "gpuLayers": "GPU layers"
   },
-  "context": {
-    "label": "Context: {{percent}}%",
-    "labelWithTokens": "Context: {{percent}}% ({{tokens}} tokens)",
-    "title": "Context",
-    "ofSize": "{{percent}}% of {{size}} tokens",
-    "nearlyFull": "The context is nearly full. Start a new chat or raise the size in settings."
-  },
   "settings": {
     "title": "Chat Settings",
     "manageMode": "Manage mode",
-    "manageModeDesc": "Let this chat install models, switch backends, and edit configs by talking to LocalAI.",
     "focusMode": "Focus mode",
     "focusModeDesc": "Collapse the sidebar and slim the header while a conversation is active. Esc restores them temporarily; turn this off to keep the full layout.",
-    "systemPrompt": "System Prompt",
-    "systemPromptPlaceholder": "You are a helpful assistant...",
+    "behaviour": "Behaviour",
+    "conversation": "This conversation",
+    "serverKept": "The server keeps this chat and its settings. A new model or title needs the chat to be idle.",
+    "manageModeOn": "This chat has the LocalAI management tools. Use /assistant to start another one.",
+    "agent": "Agent",
+    "agentHelp": "This chat runs with the agent {{name}}: its instructions and only the tools it grants.",
+    "editAgent": "Edit agent",
+    "deleteHelp": "Delete this chat and its messages for good.",
+    "answers": "Answers",
+    "answersHelp": "These apply from the next turn. Empty fields use the model's own values.",
+    "systemPrompt": "System prompt",
+    "systemPromptPlaceholder": "Added to the instructions of this chat",
     "temperature": "Temperature",
     "topP": "Top P",
     "topK": "Top K",
-    "contextSize": "Context Size",
-    "contextSizePlaceholder": "2048",
-    "clearHistory": "Clear chat history",
-    "appliesNext": "Applies from the next message.",
-    "systemPromptHelp": "Sent before every message in this chat. Leave it empty to use the model's own default.",
-    "sampling": "Sampling",
-    "modelDefault": "model default",
-    "reset": "Reset",
-    "contextWindow": "Context window",
-    "contextUsing": "Using {{used}} of {{size}} tokens ({{percent}}%). The size only drives the meter in the header; it is not sent to the model.",
-    "contextHelp": "Used to show how full the context is. It is not sent to the model.",
-    "behaviour": "Behaviour",
-    "conversation": "This conversation",
-    "clearHelp": "Remove every message. The name, model and settings stay."
+    "contextSize": "Context size (tokens)",
+    "reasoningEffort": "Reasoning effort",
+    "modelDefault": "Model default",
+    "effort": {
+      "default": "Default",
+      "none": "None",
+      "minimal": "Minimal",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "invalid": {
+      "temperature": "Use a number from 0 to 2.",
+      "topP": "Use a number above 0 and at most 1.",
+      "topK": "Use a whole number, 0 or more.",
+      "contextSize": "Use a whole number from 512 to 4194304.",
+      "effort": "Choose one of the listed values."
+    },
+    "save": "Save settings",
+    "saving": "Saving...",
+    "saved": "Saved. The next turn uses these settings.",
+    "saveFailed": "The settings could not be saved."
   },
   "empty": {
     "manageTitle": "Manage LocalAI by chatting",
@@ -79,7 +89,6 @@
       "Summarize a document",
       "Brainstorm ideas"
     ],
-    "noMessages": "No messages yet",
     "title": "What are we working on?",
     "try": "Try",
     "warmReady": "{{model}} is loaded and ready.",
@@ -91,59 +100,28 @@
   },
   "actions": {
     "copy": "Copy",
-    "edit": "Edit",
-    "editMessage": "Edit message",
-    "save": "Save",
-    "cancel": "Cancel",
     "regenerate": "Regenerate",
-    "branch": "Branch from here",
-    "jumpToLatest": "Jump to latest"
+    "jumpToLatest": "Jump to latest",
+    "reuse": "Edit and send again",
+    "editMessage": "Edit message",
+    "editHelp": "Sending the edit removes everything after this message and runs the chat again.",
+    "editSend": "Send edit",
+    "editCancel": "Cancel",
+    "branch": "Branch from here"
   },
   "streaming": {
     "transferring": "Transferring model...",
     "transferringTo": "Transferring model to {{node}}...",
-    "onNode": "on {{node}}",
-    "eta": "~{{value}} left",
-    "modelState": {
-      "pending": "Preparing to load the model...",
-      "installing": "Installing the backend...",
-      "staging": "Staging model files...",
-      "loading": "Loading the model..."
-    },
     "waiting": "Waiting for the reply"
   },
-  "tokens": {
-    "perSec": "{{count}} tok/s",
-    "estimatedPerSec": "{{count}} tok/s · estimated",
-    "averagePerSec": "{{count}} tok/s · end-to-end",
-    "usage": "{{prompt}}p + {{completion}}c = {{total}}",
-    "generating": "generating",
-    "ofContext": "{{used}} / {{size}} tokens"
-  },
   "input": {
-    "placeholder": "Message...",
-    "attachFile": "Attach file",
     "send": "Send message",
     "stopGenerating": "Stop generating",
-    "canvasTitle": "Canvas — extract code blocks and media into a side panel for preview, copy, and download",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Open canvas panel",
     "placeholderModel": "Message {{model}}...",
     "placeholderNoModel": "Install a model to start chatting",
     "selectModelFirst": "Select a model first",
-    "placeholderPick": "Pick a model to start"
-  },
-  "reasoning": {
-    "effortLabel": "Effort",
-    "effortTitle": "Reasoning effort for this chat",
-    "default": "Model default",
-    "level": {
-      "none": "None",
-      "minimal": "Minimal",
-      "low": "Low",
-      "medium": "Medium",
-      "high": "High"
-    }
+    "placeholderPick": "Pick a model to start",
+    "placeholderQueue": "The model is working. A message sent now waits for its next step."
   },
   "deleteAllDialog": {
     "title": "Delete All Chats",
@@ -155,11 +133,12 @@
     "copied": "Copied to clipboard",
     "copyFailed": "Could not copy to clipboard",
     "chatCopied": "Chat copied to clipboard",
-    "forked": "Created a new chat",
-    "pdfReadFailed": "Could not read text from {{name}}. It may be scanned, encrypted or damaged.",
-    "pdfScannedAsImages": "{{name}} has no text layer (scan). Attached {{count}} of {{total}} pages as images for a vision model.",
-    "addonToolsOn": "Add-on tools on for this chat",
-    "addonToolsOff": "Add-on tools off for this chat"
+    "newChatForModel": "A chat keeps its model. Started a new chat with {{model}}.",
+    "branched": "Branched into a new chat.",
+    "notAChat": "This file is not a chat export.",
+    "imported": "Imported \"{{title}}\".",
+    "importFailed": "The chat could not be imported: {{message}}",
+    "modelChanged": "The next turn uses {{model}}."
   },
   "menu": {
     "trigger": "Chats",
@@ -169,7 +148,6 @@
     "noMatch": "No conversations match your search",
     "noConversations": "No conversations yet",
     "rename": "Rename",
-    "duplicate": "Duplicate chat",
     "copyChat": "Copy chat",
     "exportMarkdown": "Export as Markdown",
     "deleteChat": "Delete chat",
@@ -192,30 +170,64 @@
     },
     "deleted": "Deleted \"{{title}}\"",
     "undo": "Undo",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "untitled": "New chat",
+    "origin": {
+      "trigger": "Started by a trigger",
+      "connector": "From a connector"
+    },
+    "exportJson": "Export as JSON",
+    "importChat": "Import a chat"
   },
   "message": {
     "you": "You",
     "assistant": "Assistant",
-    "system": "System",
-    "attachedImage": "Attached image {{n}}",
-    "openImage": "Open image {{n}}"
+    "loopRun": "Loop run {{run}}"
   },
   "error": {
     "title": "The reply failed",
     "kept": "What was written so far is kept above.",
     "retry": "Retry",
-    "detail": "Technical detail"
-  },
-  "clearDialog": {
-    "title": "Clear this conversation",
-    "message": "Remove every message in this chat? Its name, model and settings stay.",
-    "confirm": "Clear conversation"
+    "detail": "Technical detail",
+    "reason": {
+      "unknown": "The agent stopped because of an error. Retry to run the turn again.",
+      "model_backend_missing": "The model \"{{model}}\" could not be started: its backend is not installed.",
+      "model_backend_missing_anon": "The model could not be started: its backend is not installed.",
+      "model_cooldown": "The model \"{{model}}\" failed to start a moment ago and is resting.",
+      "model_cooldown_anon": "The model failed to start a moment ago and is resting.",
+      "model_load_failed": "The model \"{{model}}\" could not be started.",
+      "model_load_failed_anon": "The model could not be started.",
+      "model_not_found": "The model \"{{model}}\" was not found.",
+      "model_not_found_anon": "The model was not found.",
+      "upstream_key": "The upstream refused the key.",
+      "upstream_path": "The upstream does not accept this request at that address.",
+      "upstream_unreachable": "The upstream address could not be reached.",
+      "upstream": "The provider behind the model returned an error.",
+      "timeout": "The model took too long to answer.",
+      "cancelled": "The turn was cancelled before the model answered."
+    },
+    "hint": {
+      "model_backend_missing": "Pick another model, or ask an administrator to install the backend.",
+      "model_backend_missing_admin": "Pick another model, or install the backend from the Backends page.",
+      "model_cooldown": "Try again in {{seconds}} seconds.",
+      "model_load_failed": "Check the model's configuration and its backend, then retry.",
+      "model_not_found": "Pick another model, or install this one from the Models page.",
+      "upstream_key": "Check the API key in the model's settings.",
+      "upstream_path": "The upstream address must be the full endpoint, for example .../v1/chat/completions.",
+      "upstream_unreachable": "Check the address in the model's settings.",
+      "upstream": "Retry in a moment. If it keeps failing, check the provider's address and key.",
+      "timeout": "Retry, or use a smaller or faster model.",
+      "cancelled": "Retry when you are ready."
+    },
+    "openBackends": "Open Backends"
   },
   "slash": {
     "group": {
       "chat": "Chat",
-      "view": "View"
+      "view": "View",
+      "context": "Context",
+      "skills": "Skills and agents",
+      "help": "Help"
     },
     "model": {
       "label": "Switch model",
@@ -229,17 +241,9 @@
       "label": "Conversations",
       "desc": "Open the list of your chats"
     },
-    "effort": {
-      "label": "Reasoning effort",
-      "desc": "Choose how hard the model thinks"
-    },
     "assistant": {
       "label": "Manage mode",
-      "desc": "Let this chat manage LocalAI"
-    },
-    "canvas": {
-      "label": "Canvas",
-      "desc": "Show code blocks and media in a side panel"
+      "desc": "Start a chat that can manage LocalAI"
     },
     "find": {
       "label": "Find in chat",
@@ -247,19 +251,85 @@
     },
     "settings": {
       "label": "Chat settings",
-      "desc": "System prompt, sampling and context"
+      "desc": "Focus mode, agent and model info"
     },
     "export": {
       "label": "Export as Markdown",
       "desc": "Download this conversation"
     },
-    "clear": {
-      "label": "Clear conversation",
-      "desc": "Remove every message in this chat"
+    "delete": {
+      "label": "Delete chat",
+      "desc": "Delete this conversation"
     },
-    "addon-tools": {
-      "label": "Add-on tools",
-      "desc": "Let this chat use the tools of your add-ons"
+    "models": {
+      "label": "Models",
+      "desc": "Open the model list"
+    },
+    "skill": {
+      "label": "Run a skill",
+      "desc": "Pick one of the skills of this chat"
+    },
+    "agent": {
+      "label": "Ask a saved agent",
+      "desc": "Hand a task to one of your agents",
+      "enable": "Turn on saved agents for this chat",
+      "enableDesc": "Then pick the agent"
+    },
+    "compact": {
+      "label": "Compact the context",
+      "desc": "Summarize older messages to free room for the model"
+    },
+    "clear": {
+      "label": "Clear the context",
+      "desc": "Start fresh in this chat; the messages stay"
+    },
+    "attach": {
+      "label": "Attach files",
+      "desc": "Choose files to send",
+      "clearDesc": "Remove the files waiting to be sent"
+    },
+    "help": {
+      "label": "All commands",
+      "desc": "List every command with what it does"
+    },
+    "about": {
+      "label": "About this chat",
+      "desc": "Model, tools, skills and context size"
+    },
+    "args": {
+      "skill": "Skills",
+      "agent": "Saved agents",
+      "model": "Models",
+      "attach": "Files",
+      "loop": "Loops",
+      "goal": "Goal"
+    },
+    "badge": {
+      "builtin": "built-in",
+      "addon": "add-on",
+      "shared": "shared",
+      "yours": "yours"
+    },
+    "collides": "only with /skill",
+    "errors": {
+      "skill": "This chat has no skill named \"{{name}}\".",
+      "agent": "You have no saved agent named \"{{name}}\".",
+      "agentTask": "Write the task for {{name}} after the name.",
+      "agentsOff": "Saved agents are off for this chat. Turn them on in the Tools menu."
+    },
+    "loop": {
+      "label": "Repeat a prompt",
+      "desc": "Run a prompt again and again in this chat: /loop 5m check the build",
+      "listDesc": "Show the loops of this chat",
+      "stopDesc": "Stop one loop, or all of them",
+      "stopAll": "All loops",
+      "stopAllDesc": "Stop every loop of this chat"
+    },
+    "goal": {
+      "label": "Goal",
+      "desc": "Set a goal the chat keeps working on by itself",
+      "clearDesc": "Remove the goal",
+      "resumeDesc": "Go on with the goal"
     }
   },
   "shortcuts": {
@@ -273,7 +343,7 @@
     "inEmptyBox": "in an empty box",
     "stop": "Stop the reply",
     "moveMessages": "Move between messages",
-    "onMessage": "On a message: copy, edit, regenerate, branch",
+    "onMessage": "On a message: copy, edit, branch, regenerate",
     "close": "Close"
   },
   "picker": {
@@ -293,21 +363,6 @@
     "next": "Next match",
     "close": "Close search"
   },
-  "canvas": {
-    "title": "Canvas",
-    "artifact": "Artifact",
-    "artifacts": "Artifacts",
-    "close": "Close canvas",
-    "fullscreen": "Fullscreen",
-    "exitFullscreen": "Exit fullscreen",
-    "resize": "Resize canvas (double-click to reset)",
-    "resizeHint": "Drag to resize, double-click to reset",
-    "view": "View",
-    "code": "Code",
-    "preview": "Preview",
-    "download": "Download",
-    "htmlPreview": "HTML preview"
-  },
   "load": {
     "title": "Loading",
     "bytes": "{{sent}} of {{total}}",
@@ -321,12 +376,356 @@
     "gallery": "Browse the gallery",
     "import": "Import a model"
   },
-  "addons": {
-    "label": "Add-ons",
-    "title": "Add-on tools for this chat",
-    "heading": "Add-on tools",
+  "tools": {
+    "label": "Tools",
+    "title": "Tools this chat can use",
+    "heading": "Tools for this chat",
+    "draftNote": "A new chat starts with these switches. A tool that is off is not offered to the model.",
+    "note": "A tool that is off here is not offered to the model in this chat.",
+    "count": "{{on}} of {{total}} on",
     "selectAll": "Select all",
-    "deselectAll": "Deselect all",
-    "note": "An add-on that is off here does nothing in this chat."
+    "disableAll": "Disable all",
+    "groupOn": "All on",
+    "groupOff": "All off",
+    "groupOnLabel": "Switch on all of {{group}}",
+    "groupOffLabel": "Switch off all of {{group}}",
+    "groupCount": "{{on}} of {{total}}",
+    "optIn": "Off until you switch it on. Select all leaves it off.",
+    "empty": "Nothing to switch in this chat.",
+    "failed": "Could not save. The switch is back as it was.",
+    "unavailable": "Not available in this chat",
+    "toolCount_one": "{{count}} tool",
+    "toolCount_other": "{{count}} tools"
+  },
+  "skills": {
+    "label": "Skills",
+    "title": "Skills this chat can use",
+    "heading": "Skills for this chat",
+    "count": "{{on}} of {{total}} on",
+    "selectAll": "Select all",
+    "disableAll": "Disable all",
+    "selectShown": "Select shown",
+    "disableShown": "Disable shown",
+    "search": "Search skills",
+    "noMatch": "No skill matches “{{query}}”.",
+    "later": "Skills you add later start on.",
+    "failed": "Could not save. Nothing changed.",
+    "source": {
+      "builtin": "Built-in",
+      "personal": "Personal",
+      "shared": "Shared",
+      "folder": "Workspace",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Replaced by {{name}}",
+    "fallback_one": "Built-in {{skills}} in use: the {{name}} add-on's own skill is off or not running here.",
+    "fallback_other": "Built-in {{skills}} in use: the {{name}} add-on's own skills are off or not running here."
+  },
+  "agent": {
+    "label": "Agent",
+    "title": "Saved agent for this chat",
+    "heading": "Start with an agent",
+    "note": "The agent gives the chat its instructions and exactly the tools it grants.",
+    "none": "No agent",
+    "fixed": "The agent of this chat"
+  },
+  "assistant": {
+    "chatTitle": "LocalAI assistant"
+  },
+  "browserImport": {
+    "found_one": "This browser still has {{count}} chat from the old chat page.",
+    "found_other": "This browser still has {{count}} chats from the old chat page.",
+    "import": "Import them",
+    "dismiss": "Not now",
+    "done": "Imported {{imported}}, skipped {{skipped}}, failed {{failed}}.",
+    "failed": "The old chats could not be imported: {{message}}"
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} tokens ({{pct}}%)",
+    "used": "{{used}} tokens",
+    "speed": "{{speed}} tok/s",
+    "title": "Context the last model request used",
+    "ofLimit": "{{used}} / {{limit}} tokens",
+    "left": "{{left}} left"
+  },
+  "files": {
+    "title": "Files in this chat",
+    "chip": "Files",
+    "chipTitle": "Files in this chat: what you attached and what the assistant created or changed",
+    "close": "Close files",
+    "emptyTitle": "No files in this chat yet",
+    "emptyBody": "Drop files here to attach them to your next message. Files the assistant creates or changes show up here too.",
+    "dropHint": "Drop files here to attach them to your next message.",
+    "groups": {
+      "uploaded": "You gave it",
+      "created": "Created and changed",
+      "working": "Working files"
+    },
+    "turn": "turn {{n}}",
+    "media": "In context",
+    "mediaTitle": "The model received this file as an image or video with your message",
+    "changedTag": "Edited",
+    "changedTitle": "The assistant changed this file",
+    "download": "Download {{name}}",
+    "error": "The files of this chat could not be read.",
+    "workingNote": "Scripts, data and logs the assistant made on the way. They are kept in this chat's work folder."
+  },
+  "steps": {
+    "verb": {
+      "read": "Read",
+      "list": "Listed",
+      "write": "Saved",
+      "create": "Created",
+      "change": "Changed",
+      "move": "Moved",
+      "delete": "Deleted",
+      "search": "Searched",
+      "run": "Ran",
+      "fetch": "Fetched",
+      "websearch": "Searched the web for",
+      "webfetch": "Read",
+      "delegate": "Asked an agent",
+      "used": "Used"
+    },
+    "worked": "Worked for {{duration}}",
+    "thoughtFor": "Thought for {{duration}}",
+    "working": "Working",
+    "thinking": "Thinking",
+    "noMatches": "no matches",
+    "noResults": "no results",
+    "emptyFolder": "empty folder",
+    "size": "{{size}}",
+    "seconds": "{{value}} s",
+    "minutes": "{{min}} min {{sec}} s",
+    "tool": "Tool",
+    "input": "Input",
+    "showLess": "Show less",
+    "running": "Running",
+    "failed": "Failed",
+    "count_one": "{{count}} step",
+    "count_other": "{{count}} steps",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "lines_one": "{{count}} line",
+    "lines_other": "{{count}} lines",
+    "showAll_one": "Show all {{count}} lines",
+    "showAll_other": "Show all {{count}} lines",
+    "details": "Show details",
+    "openFile": "Open {{path}} in Files",
+    "savedFiles": "Saved to your files:",
+    "fileOp": {
+      "changed": "changed",
+      "deleted": "deleted"
+    },
+    "moreFiles": "and {{count}} more",
+    "alsoSavedWorking_one": "Also saved {{count}} working file",
+    "alsoSavedWorking_other": "Also saved {{count}} working files",
+    "savedWorking_one": "Saved {{count}} working file",
+    "savedWorking_other": "Saved {{count}} working files",
+    "workingTitle": "Working file (a script, a log or a draft): open {{path}}"
+  },
+  "allChats": {
+    "title": "All chats",
+    "supporting": "Every chat you kept. Search, rename, export or delete them.",
+    "loadFailed": "Could not load your chats.",
+    "emptyTitle": "No chats yet",
+    "emptyBody": "A chat starts on Home: type a message and send it. Your chats are listed here after that.",
+    "start": "Start a chat"
+  },
+  "foot": {
+    "state": {
+      "ready": "Ready",
+      "nomodel": "No model",
+      "sending": "Sending",
+      "loading": "Loading model",
+      "thinking": "Thinking",
+      "tool": "Running {{tool}}",
+      "answering": "Answering",
+      "waiting": "Waiting for you",
+      "stopped": "Stopped",
+      "failed": "Failed",
+      "interrupted": "Interrupted",
+      "paused": "Paused",
+      "compacting": "Compacting the context",
+      "clearing": "Clearing the context"
+    },
+    "tool": {
+      "search": "Searching",
+      "list": "Listing",
+      "read": "Reading",
+      "create": "Creating",
+      "write": "Writing",
+      "change": "Changing",
+      "move": "Moving",
+      "delete": "Deleting",
+      "run": "Running a command",
+      "fetch": "Fetching",
+      "delegate": "Asking a sub-agent"
+    },
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "meter": {
+      "label": "Context {{pct}}% full. Show context and speed",
+      "labelNoLimit": "Context {{used}} tokens. Show context and speed"
+    },
+    "details": {
+      "title": "Context and speed",
+      "context": "Context",
+      "contextOf": "{{used}} of {{limit}} tokens ({{pct}}%)",
+      "contextUsed": "{{used}} tokens",
+      "contextLeft": "{{left}} tokens left",
+      "contextHelp": "The context is what the model reads for each request: the instructions, this chat so far and the tool results.",
+      "nearFull": "This chat is close to the limit. The server compacts the older part so the model can go on. The transcript keeps every message.",
+      "limitUnknown": "The server did not say how large the context window is.",
+      "lastRequest": "Last request",
+      "model": "Model",
+      "backend": "Backend",
+      "node": "Node",
+      "tokensIn": "Tokens in",
+      "tokensOut": "Tokens out",
+      "firstToken": "Time to first token",
+      "promptTime": "Prompt processing",
+      "speed": "Speed",
+      "speedLive": "Speed, estimated while streaming",
+      "average": "Average of the last {{count}} requests",
+      "note": "These figures come from the requests this page saw. The server does not keep them, so a reload clears them."
+    },
+    "paused": {
+      "after": "after {{count}} steps",
+      "atLimit": "at the step limit",
+      "continue": "Continue",
+      "continueTitle": "The model used all the steps of one turn. Let it go on from where it stopped.",
+      "message": "Continue from where you stopped."
+    }
+  },
+  "attachments": {
+    "label": "Attached files",
+    "open": "Open {{name}}",
+    "showMore": "Show {{count}} more",
+    "missing": "File no longer available"
+  },
+  "preview": {
+    "open": "Open preview",
+    "created": "Created by the assistant",
+    "changed": "Changed by the assistant",
+    "yours": "You gave it",
+    "fromReply": "From the answer",
+    "download": "Download",
+    "downloadCode": "Download code",
+    "copy": "Copy",
+    "copied": "Copied",
+    "openInFiles": "Open in Files",
+    "actions": "File actions",
+    "opened": "Preview opened: {{name}}",
+    "chip": {
+      "created": "Created",
+      "changed": "Changed",
+      "label": "{{verb}} {{name}}, open preview",
+      "row": "Files from this answer"
+    }
+  },
+  "goal": {
+    "label": "Goal",
+    "states": {
+      "active": "Working on it",
+      "paused": "Paused",
+      "done": "Reached",
+      "blocked": "Needs you"
+    },
+    "pausedBy": {
+      "user": "You paused it.",
+      "turn_limit": "It used all its automatic turns. Resume to give it more.",
+      "step_limit": "It used all its steps. Resume to give it more.",
+      "error": "A turn failed. Resume to try again.",
+      "interrupted": "The server stopped during a turn. Resume to go on."
+    },
+    "blockedNote": "Needs from you: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Replaced: {{text}}",
+    "pause": "Pause",
+    "pauseTitle": "Stop the running turn and pause the goal",
+    "resume": "Resume",
+    "resumeTitle": "Go on with the goal",
+    "clear": "Clear",
+    "clearTitle": "Remove the goal",
+    "progress": "Goal · turn {{turn}} of {{max}}",
+    "progressStart": "Goal · starting",
+    "markers": {
+      "set": "Goal set",
+      "replaced": "Goal replaced",
+      "continue": "Continuing toward the goal · turn {{turn}}",
+      "continueStart": "Continuing toward the goal",
+      "paused": "Goal paused",
+      "resumed": "Goal resumed",
+      "done": "Goal reached",
+      "blocked": "Goal blocked",
+      "cleared": "Goal cleared"
+    },
+    "announce": {
+      "set": "Goal set: {{text}}",
+      "paused": "Goal paused. {{why}}",
+      "resumed": "Goal resumed",
+      "done": "Goal reached: {{note}}",
+      "blocked": "The goal needs you: {{note}}",
+      "cleared": "Goal cleared"
+    },
+    "card": {
+      "title": "Goal",
+      "none": "This chat has no goal. Type /goal and what you want done, and the chat keeps working on it by itself.",
+      "turns": "Turn {{turn}} of {{max}}",
+      "steps": "{{steps}} of {{max}} steps",
+      "clear": "/goal clear removes it.",
+      "resume": "/goal resume goes on with it.",
+      "turnsLabel": "Automatic turns",
+      "stepsLabel": "Steps",
+      "setLabel": "Set",
+      "stateLabel": "State",
+      "noteLabel": "Note"
+    },
+    "errors": {
+      "empty": "Write what the goal is after /goal.",
+      "notAllowed": "Only a chat that you started can have a goal."
+    }
+  },
+  "invoked": {
+    "skill": "Skill: {{name}}",
+    "agent": "Agent: {{name}}"
+  },
+  "marker": {
+    "compacted": "Context compacted: {{before}} to {{after}} tokens",
+    "cleared": "Context cleared",
+    "clearedHint": "The model does not see the messages above this line."
+  },
+  "cmdcard": {
+    "close": "Close",
+    "helpTitle": "Commands",
+    "helpSkills_one": "Skill: {{names}}. Type / and its name.",
+    "helpSkills_other": "{{count}} skills: {{names}}. Type / and the name.",
+    "helpKeys": "Type / in the box to open the list. Tab completes, Enter runs, Esc closes.",
+    "aboutTitle": "This chat",
+    "model": "Model",
+    "state": "State",
+    "loaded": "Loaded",
+    "notLoaded": "Not loaded",
+    "backend": "Backend",
+    "tools": "Tools",
+    "toolsOn_one": "{{count}} on",
+    "toolsOn_other": "{{count}} on",
+    "skills": "Skills",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skills",
+    "commands": "Commands",
+    "isolated": "Run in an isolated sandbox",
+    "host": "Run on this machine",
+    "noCommands": "Cannot run",
+    "context": "Context",
+    "contextOf": "{{used}} of {{limit}} tokens",
+    "contextUsed": "{{used}} tokens",
+    "unknown": "Not known yet"
   }
 }

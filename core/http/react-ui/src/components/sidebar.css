@@ -1,0 +1,112 @@
+/* The sidebar's own rules that the polish pass touched: the logo and the
+   pinned links. The rest of the sidebar still lives in App.css. */
+
+.sidebar-logo-link {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  /* Line the mark up with the nav icons: row margin plus row padding. */
+  padding-left: var(--spacing-sm);
+  border-radius: var(--r-md);
+}
+
+.sidebar-logo-img {
+  display: block;
+  width: 136px;
+  max-width: 100%;
+  height: auto;
+  max-height: 64px;
+  object-fit: contain;
+}
+
+.sidebar-logo-icon {
+  display: none;
+}
+
+.sidebar-logo-icon-img {
+  display: block;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+/* The logo is drawn for a light page: its dark triangle and badge vanish on
+   the dark sidebar. In dark, a thin light edge follows the shape of the
+   image (any branding image, not only ours), so the mark keeps its outline
+   without a plate behind it. The edge colour is a token of the theme. */
+[data-theme="dark"] .sidebar-logo-img,
+[data-theme="dark"] .sidebar-logo-icon-img {
+  --logo-edge: color-mix(in srgb, var(--dk-text) 34%, transparent);
+  filter: drop-shadow(0 0 0.5px var(--logo-edge)) drop-shadow(0 0 0.5px var(--logo-edge)) drop-shadow(0 0 1px var(--logo-edge));
+}
+
+/* A pinned page or app enters at its slot: the row opens from no height and
+   fades in, and an accent wash fades over 3 s when it arrived while the
+   sidebar was on screen. Opacity and a layer only; the rows below move once,
+   with the height reveal. */
+.nav-pin {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--dur-slow) var(--ease-out), opacity var(--dur-slow) var(--ease-out);
+}
+.nav-pin[data-fresh] > .nav-item { min-height: 0; overflow: hidden; }
+@starting-style {
+  .nav-pin[data-fresh] { grid-template-rows: 0fr; opacity: 0; }
+}
+.nav-pin > .nav-item { position: relative; isolation: isolate; }
+.nav-pin > .nav-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--dk-accent-wash);
+  box-shadow: inset 2px 0 0 var(--dk-accent);
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+.nav-pin[data-fresh="on"] > .nav-item::before { opacity: 1; }
+.nav-pin[data-fresh="fade"] > .nav-item::before { opacity: 0; transition: opacity 3s linear; }
+@media (prefers-reduced-motion: reduce) {
+  .nav-pin[data-fresh] > .nav-item::before { opacity: 1; }
+}
+
+/* Recent chats (SidebarChats.jsx): a title with a New chat button, one row per
+   chat with no icon (its text lines up with the labels above), then All
+   chats. The rows are nav-item--sub, which the collapsed rail already hides. */
+.sidebar-chats__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+  padding-right: var(--spacing-sm);
+}
+.sidebar-chats__head .sidebar-section-title { flex: 1; min-width: 0; }
+.sidebar-chats__new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--ctl-h-sm);
+  height: var(--ctl-h-sm);
+  margin-top: var(--spacing-sm);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.sidebar-chats__new:hover { background: var(--dk-hover); color: var(--dk-text); }
+.sidebar-chats__new:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.nav-chat .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-chat__busy { flex: none; margin-left: auto; color: var(--color-text-muted); }
+
+.sidebar.collapsed .sidebar-chats__head { display: none; }
+@media (max-width: 1023px) and (min-width: 640px) {
+  .sidebar:not(.open) .sidebar-chats__head { display: none; }
+}
+/* The phone drawer always shows the whole list. */
+@media (max-width: 639px) {
+  .sidebar.collapsed .sidebar-chats__head { display: flex; }
+  .sidebar.collapsed .nav-item--sub.nav-chat { display: flex; }
+}

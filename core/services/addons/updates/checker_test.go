@@ -199,6 +199,99 @@ var _ = Describe("Update detection", func() {
 		})
 	})
 
+	// A development entry of the official library names a moving tag: its
+	// version label looks like a version (0.0.0-development), it is mutable and
+	// it carries no digest. The install resolves the tag and records the
+	// digest, and the package's own version (0.0.0-dev.<commit>) is what the
+	// receipt holds.
+	Context("development entries that name a moving tag", func() {
+		const label = "0.0.0-development"
+		devRel := func() catalog.Release {
+			r := rel(label, "development", "")
+			r.Mutable = true
+			r.Artifact = "oci://registry.example/addons:notes-development"
+			return r
+		}
+		devInstall := func(digest string) updates.Installation {
+			return installed("0.0.0-dev.2cadf319a0e1", label, "development", digest)
+		}
+		withTag := func(r *rig, digest string, calls *atomic.Int32) {
+			r.checker = updates.New(updates.Config{Host: host, TTL: time.Hour, MaxEntries: 3, MinRefresh: time.Minute, Now: func() time.Time { return *r.clock },
+				Lookup: func(_ context.Context, image, platform string) (string, error) {
+					if calls != nil {
+						calls.Add(1)
+					}
+					Expect(image).To(Equal("registry.example/addons:notes-development"))
+					Expect(platform).To(Equal(osName + "/" + archName))
+					return digest, nil
+				}}, r.lib, r.inst)
+		}
+
+		It("never reports an update it cannot pin to a digest", func() {
+			r := newRig(devInstall(digestA), devRel())
+			for _, refresh := range []bool{false, true} {
+				st := check(r, refresh)
+				if st.State == updates.UpdateAvailable {
+					Expect(st.CandidateDigest).NotTo(BeEmpty(), "an update without a candidate digest can never be upgraded")
+				}
+			}
+		})
+		It("offers the build the tag names now when it moved, pinned to its digest", func() {
+			r := newRig(devInstall(digestA), devRel())
+			withTag(r, digestB, nil)
+			st := check(r, true)
+			Expect(st.State).To(Equal(updates.UpdateAvailable))
+			Expect(st.Available).To(BeTrue())
+			Expect(st.CandidateDigest).To(Equal(digestB))
+			Expect(st.CandidateVersion).To(Equal(label + ".bbbbbbbbbbbb"))
+		})
+		It("is up to date when the tag still names the installed build", func() {
+			r := newRig(devInstall(digestA), devRel())
+			withTag(r, digestA, nil)
+			st := check(r, true)
+			Expect(st.State).To(Equal(updates.UpToDate))
+			Expect(st.CandidateDigest).To(Equal(digestA))
+		})
+		It("resolves the tag only on an explicit check, and the status read reuses that answer", func() {
+			calls := &atomic.Int32{}
+			r := newRig(devInstall(digestA), devRel())
+			withTag(r, digestB, calls)
+			// Before any explicit check the read cannot tell: unknown, never
+			// an update and never the network.
+			st := check(r, false)
+			Expect(st.State).To(Equal(updates.Unknown))
+			Expect(calls.Load()).To(BeZero())
+			Expect(check(r, true).State).To(Equal(updates.UpdateAvailable))
+			Expect(calls.Load()).To(Equal(int32(1)))
+			// Once the cached answer expires, the read evaluates again from the
+			// tag it resolved last, without the network.
+			*r.clock = r.clock.Add(2 * time.Hour)
+			st = check(r, false)
+			Expect(st.State).To(Equal(updates.UpdateAvailable))
+			Expect(st.CandidateDigest).To(Equal(digestB))
+			Expect(calls.Load()).To(Equal(int32(1)))
+		})
+		It("reports a tag that cannot be resolved as check-failed, never as an update", func() {
+			r := newRig(devInstall(digestA), devRel())
+			r.checker = updates.New(updates.Config{Host: host, TTL: time.Hour, MinRefresh: time.Minute, Now: func() time.Time { return *r.clock },
+				Lookup: func(context.Context, string, string) (string, error) {
+					return "", errors.New("dial tcp 10.0.0.9:443: connection refused")
+				}}, r.lib, r.inst)
+			st := check(r, true)
+			Expect(st.State).To(Equal(updates.CheckFailed))
+			Expect(st.Error).To(Equal(updates.ClassRefresh))
+			Expect(fmt.Sprintf("%+v", st)).NotTo(ContainSubstring("10.0.0.9"))
+		})
+		It("resolves the tag again at execution, so the upgrade pins what the tag names then", func() {
+			r := newRig(devInstall(digestA), devRel())
+			withTag(r, digestC, nil)
+			res := r.checker.Evaluate(context.Background(), devInstall(digestA))
+			Expect(res.Status.State).To(Equal(updates.UpdateAvailable))
+			Expect(res.Status.CandidateDigest).To(Equal(digestC))
+			Expect(res.Release.Mutable).To(BeTrue())
+		})
+	})
+
 	Context("immutable versions", func() {
 		It("selects the highest compatible greater version of the same major", func() {
 			r := newRig(installed("1.2.0", "1.2.0", "", digestA),
@@ -352,6 +445,33 @@ var _ = Describe("Update detection", func() {
 			st := check(r, false)
 			Expect(st.State).To(Equal(updates.UpdateAvailable))
 			Expect(st.Stale).To(BeTrue(), "the library was last fetched longer ago than the time to live")
+		})
+		It("always names the candidate digest of an update, so the upgrade has something to pin", func() {
+			moving := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestB))
+			pinned := newRig(installed("1.2.0", "1.2.0", "", digestA), rel("1.2.0", "", digestA), rel("1.3.0", "", digestB))
+			for _, r := range []*rig{moving, pinned} {
+				st := check(r, false)
+				Expect(st.State).To(Equal(updates.UpdateAvailable))
+				Expect(st.CandidateDigest).To(Equal(digestB))
+				Expect(st.CandidateVersion).NotTo(BeEmpty())
+			}
+		})
+		It("keeps a stale cached notice readable while a plain check says the update is gone", func() {
+			// The apps list reads the cache only (Cached); the installed view
+			// evaluates again when the answer is stale. Both are true at once,
+			// so a page that shows the notice must be ready for a record that
+			// no longer agrees, and offer a new check.
+			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestB))
+			Expect(check(r, false).State).To(Equal(updates.UpdateAvailable))
+			r.lib.mu.Lock()
+			r.lib.cached = []catalog.Release{rel("1.0.0", "development", digestA)}
+			r.lib.mu.Unlock()
+			*r.clock = r.clock.Add(2 * time.Hour)
+			cached, ok := r.checker.Cached("notes", digestA, 1)
+			Expect(ok).To(BeTrue())
+			Expect(cached.State).To(Equal(updates.UpdateAvailable))
+			Expect(cached.Stale).To(BeTrue())
+			Expect(check(r, false).State).To(Equal(updates.UpToDate))
 		})
 		It("marks a cached answer older than the time to live as stale", func() {
 			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))

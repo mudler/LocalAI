@@ -1,0 +1,6 @@
+{
+    "proxyVision": {
+        "label": "Questo modello può guardare le immagini",
+        "hint": "Attivalo se il modello remoto accetta immagini. LocalAI non può verificarlo. Le immagini allegate vanno al modello insieme al messaggio."
+    }
+}

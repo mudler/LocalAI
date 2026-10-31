@@ -56,56 +56,30 @@
 .cx-msg--user + .cx-msg--model,
 .cx-row + .cx-msg--model { margin-top: 6px; }
 .cx-msg--model + .cx-msg--user { margin-top: 10px; }
+/* A message that arrives (the one you just sent, the answer that replaces the
+   live turn) rises 6 px and fades in. */
 @media (prefers-reduced-motion: no-preference) {
-  .cx-msg { animation: homeRise var(--dk-dur-2) var(--dk-ease-out) both; }
+  .cx-msg { animation: homeRise var(--dur-base) var(--ease-out) both; }
 }
 
-/* The reader's turn: a raised block. */
+/* The reader's turn: a flat block on the card surface. */
 .cx-bubble {
   max-width: min(600px, 88%);
-  padding: 12px 16px;
-  border-radius: 18px 18px 6px 18px;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-xl) var(--r-xl) var(--r-sm) var(--r-xl);
   background: var(--dk-card);
-  box-shadow: inset 0 0 0 1px var(--dk-edge), var(--dk-shadow-rest);
-  font-size: 15.5px;
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  font-size: var(--fs-body);
   line-height: 1.55;
   overflow-wrap: anywhere;
 }
 .cx-text { white-space: pre-wrap; }
-.cx-atts { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
-.cx-atts:last-child { margin-bottom: 0; }
-.cx-thumb {
-  display: block;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dk-radius-2);
-  overflow: hidden;
-  background: var(--dk-inset);
-  box-shadow: inset 0 0 0 1px var(--dk-edge);
-  cursor: zoom-in;
-  max-width: 100%;
-}
-.cx-thumb img { display: block; max-width: min(260px, 100%); max-height: 180px; object-fit: cover; }
-.cx-video { max-width: min(320px, 100%); border-radius: var(--dk-radius-2); }
-.cx-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: var(--dk-radius-1);
-  background: var(--dk-inset);
-  box-shadow: inset 0 0 0 1px var(--dk-edge);
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.cx-chip__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* The model's turn: its name, then plain prose. */
-.cx-who { display: flex; align-items: center; gap: 10px; color: var(--dk-muted); font-size: 13px; min-height: 22px; }
-.cx-who b { color: var(--dk-text); font-family: var(--font-mono); font-size: 13px; font-weight: 650; }
+.cx-who { display: flex; align-items: center; gap: 10px; color: var(--dk-muted); font-size: var(--fs-small); min-height: 22px; }
+.cx-who b { color: var(--dk-text); font-family: var(--font-mono); font-size: var(--fs-small); font-weight: 650; }
+.cx-who--tool { gap: var(--sp-2); color: var(--color-text-secondary); }
+.cx-who--tool > .lai-icon { width: 15px; height: 15px; flex: none; }
 .cx-row { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .cx-prose {
   max-width: 720px;
@@ -172,18 +146,19 @@
 .cx-prose--live > :is(ul, ol):last-child > li:last-child::after {
   content: "";
   display: inline-block;
-  width: 7px;
-  height: 1.05em;
+  width: 2px;
+  height: 1.1em;
   margin-left: 2px;
   vertical-align: -3px;
-  border-radius: 1px;
-  background: var(--color-text-secondary);
+  background: var(--dk-text);
 }
+/* "Still writing": a slow opacity blink, 1 s a cycle. Under reduced motion the
+   caret stands still. */
 @media (prefers-reduced-motion: no-preference) {
   .cx-prose--live > p:last-child::after,
-.cx-prose--live > :is(ul, ol):last-child > li:last-child::after { animation: cxCaret 1s steps(2, jump-none) infinite; }
+  .cx-prose--live > :is(ul, ol):last-child > li:last-child::after { animation: cxCaret 500ms var(--ease-in-out) infinite alternate; }
 }
-@keyframes cxCaret { to { opacity: 0; } }
+@keyframes cxCaret { to { opacity: .2; } }
 
 /* Code blocks: language, Copy, Canvas. */
 .cx-page .code-block {
@@ -215,7 +190,8 @@
   color: var(--dk-muted);
 }
 .cx-page .code-block .code-copy-btn,
-.cx-page .code-block .code-canvas-btn {
+.cx-page .code-block .code-download-btn,
+.cx-page .code-block .code-preview-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -232,8 +208,11 @@
   transition: background var(--dk-dur-1) var(--dk-ease-out), color var(--dk-dur-1) var(--dk-ease-out);
 }
 .cx-page .code-block .code-copy-btn:hover,
-.cx-page .code-block .code-canvas-btn:hover { background: var(--dk-hover); color: var(--dk-text); }
+.cx-page .code-block .code-download-btn:hover,
+.cx-page .code-block .code-preview-btn:hover { background: var(--dk-hover); color: var(--dk-text); }
 .cx-page .code-block .code-copy-btn--ok { color: var(--dk-ok-text); }
+.cx-page .code-block .code-preview-btn { color: var(--dk-accent-text); }
+.cx-page .code-block :is(.code-copy-btn, .code-download-btn, .code-preview-btn):focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .cx-page .code-block .lai-icon { width: 14px; height: 14px; }
 .cx-page .code-block pre,
 .cx-prose pre {
@@ -286,95 +265,219 @@
 .cx-page .artifact-card-actions button { color: var(--color-text-secondary); font-size: 16px; }
 .cx-page .artifact-card-actions button:hover { background: var(--dk-hover); color: var(--dk-text); }
 
-/* ---- Activity: one quiet line that opens inline ----------------------------- */
+/* ---- Activity: one quiet line that opens inline into steps ------------------ */
+/* A step = status icon, a verb and the argument that matters, its time on the
+   right. The tool id, input and output open under the step on a click.
+   Motion: a fold body and a new step fade in from 4 px below; a finished
+   step's spinner gives way to a check that scales in; the time fades in.
+   Transform and opacity only; @starting-style, so no keyframes. */
 .cx-fold { max-width: 720px; }
 .cx-fold__head {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-2);
   max-width: 100%;
-  min-height: 28px;
-  margin-left: -4px;
-  padding: 2px 8px 2px 4px;
+  min-height: var(--ctl-h-sm);
+  margin-left: calc(-1 * var(--sp-1));
+  padding: 2px var(--sp-2) 2px var(--sp-1);
   border: 0;
-  border-radius: var(--dk-radius-1);
+  border-radius: var(--r-sm);
   background: none;
   color: var(--dk-muted);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-small);
+  font-weight: 500;
   cursor: pointer;
-  transition: background var(--dk-dur-1) var(--dk-ease-out), color var(--dk-dur-1) var(--dk-ease-out);
+  transition: background var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
 }
 .cx-fold__head:hover { background: var(--dk-hover); color: var(--dk-text); }
-.cx-fold__head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-fold__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cx-fold[data-live] .cx-fold__head { color: var(--color-text-secondary); }
 .cx-fold__head .lai-icon { width: 15px; height: 15px; flex: none; }
-.cx-fold__chev { transition: transform var(--dk-dur-2) var(--dk-ease-out); }
+.cx-fold__chev { transition: transform var(--dur-base) var(--ease-out); }
 .cx-fold[data-open] .cx-fold__chev { transform: rotate(90deg); }
-.cx-shimmer {
-  background: linear-gradient(90deg, var(--dk-muted) 0%, var(--dk-text) 50%, var(--dk-muted) 100%);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.cx-dots--inline { gap: 3px; padding: 0; }
+.cx-dots--inline span { width: 4px; height: 4px; background: currentColor; }
+.cx-fold__body {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
-@media (prefers-reduced-motion: no-preference) {
-  .cx-shimmer { animation: cxShimmer 1.8s linear infinite; }
-}
-@keyframes cxShimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@starting-style { .cx-fold__body { opacity: 0; transform: translateY(-4px); } }
+
 .cx-steps {
   list-style: none;
-  margin: 6px 0 4px 8px;
-  padding: 2px 0 2px 18px;
+  margin: var(--sp-1) 0 var(--sp-3) 11px;
+  padding: 0 0 0 var(--sp-1);
   border-left: 1px solid var(--dk-edge);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 2px;
 }
-.cx-step { position: relative; color: var(--color-text-secondary); font-size: 13px; }
-.cx-step::before {
-  content: "";
-  position: absolute;
-  left: -23px;
-  top: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--dk-canvas);
-  box-shadow: inset 0 0 0 1.75px var(--dk-control-edge);
+.cx-step {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-small);
+  contain: layout paint;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
-.cx-step h4 {
-  display: flex;
+@starting-style { .cx-step { opacity: 0; transform: translateY(4px); } }
+.cx-step__head {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto 13px;
   align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .02em;
-  color: var(--dk-muted);
+  column-gap: var(--sp-2);
+  width: 100%;
+  min-height: var(--ctl-h-sm);
+  padding: 5px var(--sp-2) 5px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 18px;
+  text-align: left;
 }
-.cx-step h4 code { font-family: var(--font-mono); font-size: 12px; color: var(--dk-text); background: none; padding: 0; }
-.cx-think { margin-top: 4px; line-height: 1.6; color: var(--dk-muted); overflow-wrap: anywhere; }
+button.cx-step__head,
+.cx-step__head--split { cursor: pointer; transition: background var(--dur-instant) var(--ease-out); }
+button.cx-step__head:hover,
+.cx-step__head--split:hover { background: color-mix(in srgb, var(--dk-hover) 60%, transparent); }
+/* The chevron of a line that holds a file chip is its own button. */
+.cx-step__toggle {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.cx-step[data-state="failed"] > .cx-step__head { background: var(--dk-error-wash); }
+.cx-step__icon { display: grid; place-items: center; color: var(--dk-muted); }
+.cx-step__icon .lai-icon { width: 15px; height: 15px; }
+.cx-step[data-state="done"] .cx-step__icon { color: var(--dk-ok-text); }
+.cx-step[data-state="failed"] .cx-step__icon { color: var(--dk-error-text); }
+.cx-step[data-state="running"] .cx-step__icon { color: var(--dk-accent-text); }
+.cx-step[data-state="done"] .cx-step__icon,
+.cx-step[data-state="failed"] .cx-step__icon {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+@starting-style {
+  .cx-step[data-state="done"] .cx-step__icon,
+  .cx-step[data-state="failed"] .cx-step__icon { opacity: 0; transform: scale(.8); }
+}
+.cx-step__line { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap; }
+.cx-step__verb { flex: none; color: var(--dk-text); font-weight: 500; }
+.cx-step__arg, .cx-step__tool, .cx-step__gist { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cx-step__arg, .cx-step__tool { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-text); background: none; padding: 0; }
+.cx-step__gist { color: var(--color-text-secondary); }
+.cx-step[data-open] .cx-step__gist { display: none; }
+.cx-step__meta { flex: none; color: var(--dk-muted); }
+.cx-step__file {
+  display: inline-flex;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out);
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  background: var(--dk-accent-wash);
+  line-height: 18px;
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cx-step__file .lai-icon { width: 13px; height: 13px; flex: none; }
+/* The files a command saved, under its step line: chips like the file of a
+   write_file step, which open the preview pane. */
+.cx-step__files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2) var(--sp-1) 36px;
+  font-size: var(--fs-meta);
+}
+.cx-step__files-label { color: var(--dk-muted); }
+.cx-step__files .cx-step__file { max-width: 100%; }
+.cx-step__op { color: var(--dk-muted); }
+.cx-step__gone { color: var(--dk-muted); }
+.cx-step__file:hover { background: color-mix(in srgb, var(--dk-accent) 22%, transparent); text-decoration: underline; }
+/* A working file (a script, a log, a draft the chat made on the way) is a
+   quieter chip than what the chat made for the person; the folded line
+   "Also saved 2 working files" opens to their chips. */
+.cx-step__file--working { background: none; color: var(--dk-muted); }
+.cx-step__file--working:hover { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.cx-step__working {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--dk-muted);
+  cursor: pointer;
+}
+.cx-step__working:hover { color: var(--dk-text); text-decoration: underline; }
+.cx-step__working-chev { transition: transform var(--dur-fast) var(--ease-out); }
+.cx-step__working[aria-expanded="true"] .cx-step__working-chev { transform: rotate(90deg); }
+.cx-step__dur {
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+@starting-style { .cx-step__dur { opacity: 0; } }
+.cx-step__chev { width: 13px; height: 13px; color: var(--dk-muted); transition: transform var(--dur-fast) var(--ease-out); }
+.cx-step[data-open] .cx-step__chev { transform: rotate(90deg); }
+.cx-step__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-1) var(--sp-2) var(--sp-2) 36px;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+@starting-style { .cx-step__detail { opacity: 0; transform: translateY(-4px); } }
+.cx-step__facts { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.cx-step__facts > div { display: flex; gap: var(--sp-2); min-width: 0; }
+.cx-step__facts dt { flex: none; min-width: 40px; color: var(--dk-muted); font-size: var(--fs-meta); }
+.cx-step__facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.cx-step__facts code { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-text); background: none; padding: 0; }
+.cx-step__more {
+  align-self: flex-start;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--dk-accent-text);
+  font: inherit;
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  cursor: pointer;
+}
+.cx-step__more:hover { background: var(--dk-hover); }
+.cx-think { line-height: 1.6; color: var(--dk-muted); overflow-wrap: anywhere; }
 .cx-think > * { margin: 0; }
-.cx-think > * + * { margin-top: 8px; }
+.cx-think > * + * { margin-top: var(--sp-2); }
 .cx-think--live { max-height: 220px; overflow: auto; }
-.cx-params { margin: 4px 0 0; display: flex; flex-direction: column; gap: 4px; }
-.cx-param { display: flex; gap: 8px; min-width: 0; }
-.cx-param dt { flex: none; font-family: var(--font-mono); font-size: 12px; color: var(--dk-muted); }
-.cx-param dt::after { content: ":"; }
-.cx-param dd { margin: 0; min-width: 0; font-family: var(--font-mono); font-size: 12px; color: var(--dk-text); white-space: pre-wrap; overflow-wrap: anywhere; }
-.cx-param__long { max-height: 120px; overflow: auto; }
 .cx-out {
-  margin: 6px 0 0;
-  max-height: 120px;
+  margin: 0;
+  max-height: 240px;
   overflow: auto;
-  padding: 8px 10px;
-  border-radius: var(--dk-radius-1);
+  padding: var(--sp-2) 10px;
+  border-radius: var(--r-sm);
   background: var(--dk-inset);
-  box-shadow: inset 0 0 0 1px var(--dk-edge);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
   line-height: 1.55;
   color: var(--color-text-secondary);
   white-space: pre-wrap;
@@ -499,55 +602,228 @@
 /* ---- The dock: the Home command bar under the thread ------------------------ */
 .cx-dock { flex: none; padding: 6px 24px 10px; }
 .cx-dock__in { max-width: 760px; margin: 0 auto; position: relative; }
-.cx-dock .home-cmd__top { flex-wrap: wrap; padding-bottom: 8px; }
-.cx-dock .home-cmd__foot { padding-top: 8px; }
-.cx-dock .home-textarea { min-height: 56px; max-height: 220px; font-size: 15.5px; }
+.cx-dock .home-cmd__top { flex-wrap: wrap; }
+.cx-dock .home-textarea { min-height: 52px; max-height: 220px; }
 /* The dock sits at the bottom of the page, so its menus open upward. */
 .cx-dock .home-menu,
 .cx-dock .chat-mcp-dropdown-menu { top: auto; bottom: calc(100% + 8px); }
 .cx-dock .dk-cmdlist.home-slash { top: auto; bottom: calc(100% + 6px); }
-.cx-chipset { display: inline-flex; gap: 4px; }
 .home-chip[aria-pressed="true"] {
   background: var(--dk-accent-wash);
   color: var(--dk-accent-text);
   box-shadow: inset 0 0 0 1px var(--dk-accent-text);
 }
 .home-chip[aria-pressed="true"] .lai-icon { color: var(--dk-accent-text); }
-.cx-chip-count { padding: 0 9px; color: var(--dk-accent-text); font-size: 12px; }
 .home-stop-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 40px;
+  gap: var(--sp-2);
+  height: var(--ctl-h);
   margin-left: auto;
-  padding: 0 10px 0 14px;
+  padding: 0 var(--sp-1) 0 var(--sp-3);
   border: 0;
-  border-radius: var(--dk-radius-2);
+  border-radius: var(--r-md);
   background: var(--dk-card);
   box-shadow: inset 0 0 0 1px var(--dk-control-edge);
   color: var(--dk-text);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs-small);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--dk-dur-1) var(--dk-ease-out), transform var(--dk-dur-1) var(--dk-ease-out);
+  transition: background var(--dur-instant) var(--ease-out), transform var(--dur-instant) var(--ease-out);
 }
 .home-stop-btn:hover { background: var(--dk-hover); }
-.home-stop-btn:active { transform: scale(var(--dk-press-scale)); }
+.home-stop-btn:active { transform: scale(0.98); }
 .home-stop-btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+/* The status line under the bar: one live state on the left, the context
+   meter on the right. One line at every width: the state truncates, the meter
+   keeps its width. Sans words, tabular numbers: nothing here is code. */
 .cx-foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 26px;
-  padding: 8px 6px 0;
+  gap: var(--sp-3);
+  min-height: 24px;
+  padding: 6px var(--sp-1) 0;
   color: var(--dk-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  /* The meter fits itself to the width of the line, not of the window: a
+     chat beside an open pane is as narrow as a phone. */
+  container: cx-foot / inline-size;
 }
-.cx-foot__tokens { margin-left: auto; white-space: nowrap; }
+.cx-foot__state { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.cx-foot__mark { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 14px; height: 14px; }
+.cx-foot__mark .lai-icon { width: 14px; height: 14px; }
+.cx-foot__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.7; }
+.cx-foot__live { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+.cx-foot__word { flex: none; font-weight: 500; animation: dk-veil-in var(--dur-fast) var(--ease-out); }
+.cx-foot__detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cx-foot__detail::before { content: "·"; margin-right: 6px; }
+/* A new chat: the state is said by the empty state; the hint can stay. */
+.cx-foot__state[data-quiet] .cx-foot__mark,
+.cx-foot__state[data-quiet] .cx-foot__live { display: none; }
+.cx-foot__state[data-quiet] .cx-foot__hint { margin-left: 0; padding-left: 0; border-left: 0; }
+.cx-foot__hint { flex: none; margin-left: var(--sp-2); padding-left: var(--sp-3); border-left: 1px solid var(--dk-edge); }
+/* Tone: the word and the mark carry it; the icon is the cue that does not
+   depend on colour. */
+.cx-foot__state[data-tone="accent"] .cx-foot__mark { color: var(--dk-accent-text); }
+.cx-foot__state[data-tone="accent"] .cx-foot__word { color: var(--dk-text); }
+.cx-foot__state[data-tone="warn"] .cx-foot__mark,
+.cx-foot__state[data-tone="warn"] .cx-foot__word { color: var(--dk-warn-text); }
+.cx-foot__state[data-tone="error"] .cx-foot__mark,
+.cx-foot__state[data-tone="error"] .cx-foot__word { color: var(--dk-error-text); }
+.cx-foot__state[data-state="ready"] .cx-foot__dot { background: var(--dk-ok); opacity: 1; }
+/* Continue after a pause at the step limit: a small text button that stays
+   on the line, so the person sees at once that the work can go on. */
+.cx-foot__continue {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--ctl-h-sm);
+  margin-left: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-sm);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cx-foot__continue:hover { border-color: var(--dk-accent-text); color: var(--dk-accent-text); }
+.cx-foot__continue:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.cx-foot__continue .lai-icon { width: 12px; height: 12px; }
+/* The progress of an active goal: the automatic turn out of the limit. */
+.cx-foot__goal { display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); margin-left: var(--sp-2); padding-left: var(--sp-3); border-left: 1px solid var(--dk-edge); color: var(--dk-text); }
+.cx-foot__goal .lai-icon { width: 12px; height: 12px; color: var(--dk-accent-text); }
+
+/* The meter: a quiet button. */
+.cx-meter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 24px;
+  margin-left: auto;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dk-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
+}
+.cx-meter:hover, .cx-meter[aria-expanded="true"] { background: var(--dk-hover); color: var(--dk-text); }
+.cx-meter:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 1px; }
+.cx-meter__warn { flex: none; width: 14px; height: 14px; }
+/* The bar: a rounded track with two ticks, at the share where the meter warns
+   and where it is hot. The fill is a full-width bar slid in from the left, so
+   its rounded end keeps its shape at any fill. The track mixes from the text
+   colour, so it shows on the hover colour of the button too. */
+.cx-meter__bar {
+  --cx-track: color-mix(in srgb, var(--dk-text) 12%, transparent);
+  --cx-tick: color-mix(in srgb, var(--dk-text) 32%, transparent);
+  position: relative;
+  flex: none;
+  width: 96px;
+  height: 6px;
+  border-radius: var(--r-xs);
+  background: var(--cx-track);
+  overflow: hidden;
+  isolation: isolate;
+  transition: background var(--dur-instant) var(--ease-out);
+}
+.cx-meter__bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--dk-accent);
+  transform: translateX(calc((var(--cx-fill, 0) - 1) * 100%));
+  transition: transform var(--dur-slow) var(--ease-out-strong), background var(--dur-base) var(--ease-out);
+}
+.cx-meter__bar::before, .cx-meter__bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 1px;
+  background: var(--cx-tick);
+}
+.cx-meter__bar::before { left: calc(var(--cx-warn, 0.8) * 100%); }
+.cx-meter__bar::after { left: calc(var(--cx-hot, 0.9) * 100%); }
+.cx-meter:hover .cx-meter__bar, .cx-meter[aria-expanded="true"] .cx-meter__bar { --cx-track: color-mix(in srgb, var(--dk-text) 18%, transparent); }
+.cx-meter[data-tone="warn"], .cx-meter-pop__ctx[data-tone="warn"] { color: var(--dk-warn-text); }
+.cx-meter[data-tone="err"], .cx-meter-pop__ctx[data-tone="err"] { color: var(--dk-error-text); }
+.cx-meter[data-tone="warn"] .cx-meter__bar i, .cx-meter-pop__ctx[data-tone="warn"] .cx-meter__bar i { background: var(--dk-warn); }
+.cx-meter[data-tone="err"] .cx-meter__bar i, .cx-meter-pop__ctx[data-tone="err"] .cx-meter__bar i { background: var(--dk-error); }
+/* Used / limit in text colour, what is left after it in the line colour. */
+.cx-meter__text { color: var(--dk-text); }
+.cx-meter[data-tone="warn"] .cx-meter__text, .cx-meter[data-tone="err"] .cx-meter__text { color: inherit; }
+.cx-meter[data-limit] .cx-meter__text { color: inherit; }
+.cx-meter__short { display: none; color: var(--dk-text); }
+.cx-meter[data-tone="warn"] .cx-meter__short, .cx-meter[data-tone="err"] .cx-meter__short { color: inherit; }
+.cx-meter__left::before, .cx-meter__speed::before { content: "·"; margin-right: var(--sp-2); color: var(--dk-muted); }
+/* Live speed in text colour; the last figure after the turn goes back to the
+   muted line colour. A minimum width keeps the line from shifting. */
+.cx-meter__speed { min-width: 8ch; color: var(--dk-text); text-align: right; }
+.cx-meter__speed[data-stale] { color: inherit; }
+/* The keyboard hint lives in the status line here, not in the bar. */
+.cx-dock .home-input-hint { visibility: hidden; }
+
+/* The details of the meter: a popover over the composer, a sheet on a phone. */
+.cx-meter-pop { width: 300px; max-width: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--sp-4); font-size: var(--fs-small); line-height: var(--lh-small); white-space: normal; }
+.cx-meter-pop:focus { outline: none; }
+.cx-meter-pop[data-sheet] { width: auto; padding: 0; }
+.cx-meter-pop__title { margin: 0 0 var(--sp-3); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--dk-text); }
+.cx-meter-pop__ctx { display: grid; gap: var(--sp-1); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--dk-edge); color: var(--dk-text); }
+.cx-meter-pop__ctx .cx-meter__bar--wide { width: 100%; height: 8px; margin: var(--sp-1) 0; }
+.cx-meter-pop__left { margin: 0; color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.cx-meter-pop__help { display: flex; gap: 6px; margin: 0; color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.cx-meter-pop__help .lai-icon { flex: none; width: 14px; height: 14px; margin-top: 1px; }
+.cx-meter-pop__help--warn { color: var(--dk-warn-text); }
+.cx-meter-pop__head { margin: var(--sp-3) 0 var(--sp-1); color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); font-weight: 600; }
+.cx-meter-pop__head--first { margin-top: 0; }
+.cx-meter-pop__figure { margin: 0; color: inherit; font-weight: 500; font-variant-numeric: tabular-nums; }
+.cx-meter-pop__list { display: grid; gap: var(--sp-1); margin: 0; }
+.cx-meter-pop__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.cx-meter-pop__label { margin: 0; color: var(--dk-muted); }
+.cx-meter-pop__value { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dk-text); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.cx-meter-pop__value--mono { font-family: var(--font-mono); font-size: var(--fs-meta); }
+.cx-meter-pop__note { margin: var(--sp-3) 0 0; color: var(--dk-muted); font-size: var(--fs-meta); line-height: var(--lh-meta); }
+.cx-meter-sheet.ui-pane { height: auto; max-height: 90dvh; }
+
+/* A narrow line: the percentage takes the place of used / limit, and the bar
+   gets shorter. Narrower still, the speed goes to the details. */
+@container cx-foot (max-width: 559px) {
+  .cx-meter__text { display: none; }
+  .cx-meter__short { display: inline; }
+  .cx-meter .cx-meter__bar { width: 64px; }
+  /* With no known limit there is no percentage: the count keeps its word. */
+  .cx-meter[data-limit] .cx-meter__text { display: inline; }
+  .cx-meter[data-limit] .cx-meter__short { display: none; }
+}
+@container cx-foot (max-width: 439px) {
+  .cx-meter__speed { display: none; }
+  .cx-meter .cx-meter__bar { width: 48px; }
+}
+/* Phone: the state word, the bar, the percentage and what is left. The rest
+   is in the sheet. */
+@media (max-width: 639px) {
+  .cx-foot__detail, .cx-foot__hint { display: none; }
+}
+/* A touch target of at least 44 px without a taller line. */
+@media (pointer: coarse) {
+  .cx-foot__hint { display: none; }
+  .cx-meter { position: relative; }
+  .cx-meter::after { content: ""; position: absolute; inset: -10px -4px; }
+}
 
 /* ---- Header ----------------------------------------------------------------- */
 .cx-page { --cx-float: color-mix(in srgb, var(--dk-card) 94%, var(--dk-text)); }
@@ -615,15 +891,29 @@
   font-size: 12px;
   font-weight: 600;
 }
-.cx-ctx__bar { position: relative; width: 56px; height: 6px; border-radius: 3px; background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-edge); overflow: hidden; }
-.cx-ctx__bar i { position: absolute; inset: 0 auto 0 0; width: var(--home-fill, 0%); border-radius: 2px; background: var(--dk-accent); }
+.cx-ctx__bar { position: relative; width: 48px; height: 4px; border-radius: var(--r-xs); background: var(--dk-hover); overflow: hidden; }
+.cx-ctx__bar i { position: absolute; inset: 0 auto 0 0; width: var(--home-fill, 0%); border-radius: inherit; background: var(--dk-accent); }
 .cx-ctx[data-warn] .cx-ctx__bar i { background: var(--dk-warn); }
 .cx-ctx[data-hot] .cx-ctx__bar i { background: var(--dk-error); }
 .cx-hdr { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
 .cx-icobtn--lg { width: 36px; height: 36px; font-size: 18px; }
 .cx-icobtn[aria-pressed="true"] { background: var(--dk-hover); color: var(--dk-text); }
 .chat-addons-menu { min-width: 21rem; max-width: calc(100vw - 32px); }
-@media (max-width: 640px) { .chat-addons-menu { left: auto; right: 0; min-width: 0; width: max-content; } }
+/* On a phone the Tools and agent menus are a sheet over the bottom of the
+   screen, as the skills picker is: the chips wrap, so a menu hung from one
+   could leave the screen on either side. */
+@media (max-width: 640px) {
+  .chat-mcp-dropdown .chat-mcp-dropdown-menu.chat-addons-menu.chat-addons-menu {
+    position: fixed;
+    top: auto;
+    left: var(--sp-4);
+    right: var(--sp-4);
+    bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+    min-width: 0;
+    width: auto;
+    max-height: 70dvh;
+  }
+}
 .chat-addons-note { margin: 0; padding: var(--spacing-xs, 4px) var(--spacing-md, 12px); font-size: 0.75rem; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-divider); }
 .chat-addons-menu .chat-mcp-server-item { align-items: center; }
 .chat-addons-menu .ad-icon { width: 20px; height: 20px; font-size: 12px; }
@@ -657,6 +947,18 @@
   width: min(680px, calc(100vw - 24px));
   max-height: min(640px, calc(100dvh - 120px));
 }
+/* ChatsList inside a frame: the dialog above, or the All chats page. */
+.cx-menu__body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.cx-menu--inline {
+  position: static;
+  z-index: auto;
+  transform: none;
+  width: auto;
+  max-height: none;
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+  animation: none;
+}
+.cx-menu--inline .cx-menu__list { overflow: visible; }
 .cx-menu__search { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 10px 0 16px; box-shadow: inset 0 -1px 0 var(--dk-edge); flex: none; }
 .cx-menu__search > .lai-icon { color: var(--dk-muted); font-size: 18px; }
 .cx-menu__search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: none; color: var(--dk-text); font: inherit; font-size: 16px; }
@@ -765,26 +1067,26 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 34px;
-  padding: 0 14px 0 10px;
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-3) 0 10px;
   border: 0;
-  border-radius: 99px;
+  border-radius: var(--r-lg);
   background: var(--cx-float);
   box-shadow: inset 0 0 0 1px var(--dk-edge), var(--dk-shadow-float);
   color: var(--dk-text);
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--fs-small);
+  font-weight: 500;
   cursor: pointer;
-  transition: background var(--dk-dur-1) var(--dk-ease-out);
+  transition: background var(--dur-instant) var(--ease-out);
 }
 .cx-jump:hover { background: var(--dk-hover); }
 .cx-jump:active { transform: translateX(-50%) scale(var(--dk-press-scale)); }
 .cx-jump .lai-icon { width: 15px; height: 15px; }
 @media (prefers-reduced-motion: no-preference) {
-  .cx-jump { animation: cxJump var(--dk-dur-2) var(--dk-ease-spring) both; }
+  .cx-jump { animation: cxJump var(--dur-base) var(--ease-out) both; }
 }
-@keyframes cxJump { from { opacity: 0; transform: translateX(-50%) translateY(6px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes cxJump { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%); } }
 .cx-find {
   flex: none;
   display: flex;
@@ -828,6 +1130,7 @@
 .cx-in { height: 38px; padding: 0 12px; }
 .cx-ta:focus, .cx-in:focus { box-shadow: inset 0 0 0 1px var(--dk-accent-text), 0 0 0 1px var(--dk-accent-text); }
 .cx-help { margin: 6px 0 12px; color: var(--dk-muted); font-size: 12.5px; line-height: 1.45; }
+.cx-help--err { margin-bottom: 0; color: var(--dk-error-text); }
 .cx-field { margin: 0 0 16px; }
 .cx-field__label { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
 .cx-field__value { margin-left: auto; font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
@@ -850,7 +1153,6 @@
 .cx-danger { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--dk-radius-2); background: var(--dk-error-wash); font-size: 13px; }
 .cx-danger > span { flex: 1; color: var(--color-text-secondary); }
 .cx-field .dk-range { width: 100%; }
-.cx-foot [data-warn] { color: var(--dk-warn-text); }
 
 /* ---- An empty chat ------------------------------------------------------------- */
 .cx-conv[data-empty] { overflow-y: auto; overflow-x: hidden; overflow: clip auto; }
@@ -858,7 +1160,7 @@
 .cx-conv[data-empty] .cx-stage { flex: none; }
 .cx-conv[data-empty] .cx-body { flex: none; overflow: visible; padding: 7vh 24px 18px; }
 .cx-conv[data-empty] .cx-dock { padding-top: 0; }
-.cx-conv[data-empty] .home-textarea { min-height: 92px; }
+.cx-conv[data-empty] .home-textarea { min-height: 88px; }
 /* The bar is at the top here, so its menus open downward. */
 .cx-conv[data-empty] .home-menu,
 .cx-conv[data-empty] .chat-mcp-dropdown-menu { top: calc(100% + 6px); bottom: auto; }
@@ -944,7 +1246,9 @@
   .cx-msg:not([data-last]):not(:focus-within) .cx-acts .cx-icobtn:nth-child(n+3) { display: none; }
   .cx-dock { padding: 4px 12px 8px; }
   .cx-dock .home-slash-hint, .cx-dock .home-input-hint { display: none; }
-  .cx-dock .home-textarea { font-size: 16px; }
+  .cx-dock .home-cmd__top { flex-wrap: nowrap; }
+  /* An empty chat has the draft menus too: its chips wrap, as on Home. */
+  .cx-conv[data-empty] .cx-dock .home-cmd__top { flex-wrap: wrap; }
   .cx-foot { padding-top: 6px; }
   .cx-find { width: calc(100% - 24px); margin-bottom: 6px; }
   .cx-menu { top: 56px; }
@@ -975,6 +1279,567 @@
 .cx-effort-item { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .cx-effort-item:hover,
 .cx-effort-item:focus-visible { background: var(--dk-hover); color: var(--dk-text); outline: none; }
-@media (max-width: 640px) {
-  .cx-chipset .home-chip__text { max-width: 22ch; }
+
+/* Server chats: notices over the composer, the messages that wait for the
+   model, notes in the thread and the inbox in the header. */
+.cx-notice {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-hover);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.cx-notice--error { background: var(--dk-error-wash); color: var(--dk-error-text); }
+.cx-note { max-width: 720px; margin: 0; color: var(--dk-muted); font-size: 13px; }
+.cx-link--danger { color: var(--dk-error-text); }
+/* The goal of the chat, above the composer: one line with the text, the state
+   and its actions; a second, quieter line says why it paused, what it needs or
+   what it did. Amber only when the goal waits for the person. */
+.cx-goal {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--dk-radius-2);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+}
+.cx-goal[data-tone="warn"] { box-shadow: inset 0 0 0 1px var(--color-warning-border, var(--dk-edge)); background: var(--dk-warn-wash); }
+.cx-goal__main { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.cx-goal__icon { flex: none; width: 14px; height: 14px; color: var(--dk-accent-text); }
+.cx-goal[data-tone="warn"] .cx-goal__icon { color: var(--dk-warn-text); }
+.cx-goal[data-tone="done"] .cx-goal__icon { color: var(--dk-ok-text); }
+.cx-goal__label { flex: none; color: var(--color-text-secondary); font-weight: 600; }
+.cx-goal__text { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.cx-goal__state { flex: none; color: var(--dk-muted); font-size: var(--fs-meta); }
+.cx-goal[data-tone="warn"] .cx-goal__state { color: var(--dk-warn-text); font-weight: 500; }
+.cx-goal__acts { display: flex; flex: none; gap: var(--sp-1); }
+.cx-goal__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-sm);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cx-goal__btn:hover { border-color: var(--dk-accent-text); color: var(--dk-accent-text); }
+.cx-goal__btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.cx-goal__btn--quiet { border-color: transparent; background: transparent; color: var(--dk-muted); }
+.cx-goal__btn .lai-icon { width: 12px; height: 12px; }
+.cx-goal__detail { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin: var(--sp-1) 0 0; padding-left: calc(14px + var(--sp-2)); color: var(--dk-muted); }
+.cx-goal__replaced { color: var(--dk-muted); }
+/* On a phone the labels of the actions go; the icons and their names stay. */
+@media (max-width: 639px) {
+  .cx-goal__label, .cx-goal__state { display: none; }
+  .cx-goal__btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .cx-goal__btn { width: var(--ctl-h-sm); justify-content: center; padding: 0; }
+}
+/* A goal line of the transcript: a quiet row between the messages. */
+.cx-goal-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  max-width: 720px;
+  margin: 0;
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+}
+.cx-goal-line__icon { flex: none; align-self: center; width: 12px; height: 12px; }
+.cx-goal-line__label { flex: none; color: var(--color-text-secondary); font-weight: 600; }
+.cx-goal-line__text { min-width: 0; overflow-wrap: anywhere; }
+.cx-goal-line[data-tone="accent"] .cx-goal-line__icon { color: var(--dk-accent-text); }
+.cx-goal-line[data-tone="ok"] .cx-goal-line__icon { color: var(--dk-ok-text); }
+.cx-goal-line[data-tone="warn"] .cx-goal-line__icon,
+.cx-goal-line[data-tone="warn"] .cx-goal-line__label { color: var(--dk-warn-text); }
+.cx-goal-line[data-kind="continue"] .cx-goal-line__label { color: var(--dk-muted); font-weight: 500; }
+.cx-pending {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--dk-radius-2);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: 13px;
+}
+.cx-pending__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--color-text-secondary); font-weight: 600; }
+.cx-pending__why { margin: 6px 0 0; color: var(--dk-muted); }
+.cx-pending__row { display: flex; align-items: center; gap: 12px; padding: 6px 0 0; }
+/* The words and, under them, the files of one waiting message. */
+.cx-pending__body { flex: 1; min-width: 0; }
+.cx-pending__body .cx-atts { align-items: flex-start; margin-top: var(--sp-2); max-width: none; }
+.cx-pending__text { min-width: 0; overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.cx-pending__edit { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--color-border-divider); border-radius: 6px; background: var(--color-bg-primary); color: var(--dk-text); font: inherit; }
+.cx-pending__acts { display: flex; flex: none; gap: 10px; }
+/* The loops of a chat, over the message box: a card for the first loop,
+   which waits for a yes, and one line for each other loop. Mint marks a loop
+   that runs, amber one that waits for the person or paused itself. */
+.cx-loops { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0 0 var(--sp-2); }
+.cx-loop-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--dk-warn);
+  background: var(--dk-warn-wash);
+  font-size: var(--fs-small);
+}
+.cx-loop-confirm__icon { flex: none; color: var(--dk-warn-text); }
+.cx-loop-confirm__text { display: flex; flex: 1 1 220px; flex-direction: column; min-width: 0; color: var(--dk-text); }
+.cx-loop-confirm__prompt { overflow: hidden; color: var(--dk-muted); text-overflow: ellipsis; white-space: nowrap; }
+.cx-loop-confirm__acts { display: flex; flex: none; gap: var(--sp-2); }
+.cx-loop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+}
+.cx-loop__main { display: flex; flex: 1 1 auto; align-items: center; gap: var(--sp-2); min-width: 0; }
+.cx-loop__icon { flex: none; color: var(--dk-ok); }
+.cx-loop--paused .cx-loop__icon { color: var(--dk-warn-text); }
+.cx-loop--ended .cx-loop__icon { color: var(--dk-muted); }
+.cx-loop__name { flex: none; color: var(--dk-text); font-weight: 600; }
+.cx-loop__meta { min-width: 0; overflow: hidden; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.cx-loop__why { flex: 1 1 100%; order: 3; color: var(--dk-muted); }
+.cx-loop__acts { display: flex; flex: none; gap: var(--sp-3); }
+/* The answer to /loop list. */
+.cx-loop-list {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+}
+.cx-loop-list__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); color: var(--color-text-secondary); }
+.cx-loop-list__rows { display: flex; flex-direction: column; gap: var(--sp-1); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.cx-loop-list__row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 var(--sp-2); }
+.cx-loop-list__id { color: var(--dk-muted); font-family: var(--font-mono); }
+.cx-loop-list__prompt { overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.cx-loop-list__meta { grid-column: 2; color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.cx-loop-list__empty, .cx-loop-list__hint { margin: var(--sp-2) 0 0; color: var(--dk-muted); }
+/* The label of a message that a loop sent by itself. */
+.cx-msg__loop {
+  display: inline-flex;
+  align-self: flex-end;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-1);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+}
+.cx-ttl__btn:disabled { cursor: default; }
+
+/* The preview pane of a chat: the selected file or code block on top, then
+   what was created, changed and attached. 360 to 480 px docked beside the
+   thread from 1280 px, so the composer keeps its width; below that it covers
+   the thread from the right over a scrim, and on a phone it is a bottom
+   sheet. It slides in with transform and opacity; the thread's width changes
+   in one step. */
+.cx-files {
+  --pane-w: clamp(360px, 30vw, 480px);
+  position: relative;
+  flex: none;
+  width: var(--pane-w);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--dk-card);
+  box-shadow: inset 1px 0 0 var(--dk-edge);
+  overflow: hidden;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--dur-slow) var(--ease-out-strong), transform var(--dur-slow) var(--ease-out-strong);
+}
+@starting-style {
+  .cx-files { opacity: 0; transform: translateX(16px); }
+}
+.cx-files:focus-within { outline: none; }
+.cx-files-scrim { display: none; }
+.cx-files__grip { display: none; }
+.cx-files__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+  min-height: 56px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--dk-edge);
+}
+.cx-files__title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-files__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0 var(--sp-4);
+}
+.cx-files--drop .cx-files__body { box-shadow: inset 0 0 0 2px var(--dk-accent); }
+.cx-files__folder {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0 var(--sp-4);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  min-width: 0;
+}
+.cx-files__folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-files__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-1);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.cx-files__count {
+  display: inline-block;
+  margin-left: var(--sp-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.cx-files__heading .cx-files__count { margin-left: 0; }
+/* The working files of the chat: one folded heading under the files the
+   chat made for the person, quieter than they are. */
+.cx-files__fold {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.cx-files__fold:hover { color: var(--color-text-secondary); }
+.cx-files__fold .cx-files__count { margin-left: 0; }
+.cx-files__fold-chev { transition: transform var(--dur-fast) var(--ease-out); }
+.cx-files__fold[aria-expanded="true"] .cx-files__fold-chev { transform: rotate(90deg); }
+.cx-files__fold-note {
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+}
+.cx-files__group--working .cx-files__name,
+.cx-files__group--working .ws-row__icon { color: var(--color-text-secondary); }
+/* The count on the Files chip ticks: the new number rises into place. */
+.home-chip .cx-files__count {
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+@starting-style {
+  .home-chip .cx-files__count { opacity: 0; transform: translateY(4px); }
+}
+.cx-files__row {
+  position: relative;
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-3);
+  contain: layout paint;
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+}
+/* A file the assistant wrote in the last turn keeps a 2 px accent edge. */
+.cx-files__row[data-recent] { box-shadow: inset 2px 0 0 var(--dk-accent); }
+/* A file that arrives while the pane is open slides in from 4 px above, and
+   an accent wash fades over 3 s. The wash is a layer's opacity, so nothing
+   else on the page moves. */
+.cx-files__row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--dk-accent-wash);
+  opacity: 0;
+  pointer-events: none;
+}
+.cx-files__row[data-fresh="on"]::after { opacity: 1; }
+.cx-files__row[data-fresh="fade"]::after { opacity: 0; transition: opacity 3s linear; }
+@starting-style {
+  .cx-files__row[data-fresh] { opacity: 0; transform: translateY(-4px); }
+}
+.cx-files__row > * { position: relative; z-index: 1; }
+.cx-files__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cx-files__name {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cx-files__name:hover { text-decoration: underline; }
+.cx-files__name:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--r-xs); }
+.cx-files__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+.cx-files__tag {
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+.cx-files__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-5) var(--sp-4);
+  padding: var(--sp-5) var(--sp-4);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--r-lg);
+  text-align: center;
+}
+.cx-files__empty .lai-icon { width: 20px; height: 20px; color: var(--color-text-muted); }
+.cx-files__empty-title { margin: 0; color: var(--color-text-primary); font-weight: 600; }
+.cx-files__hint { padding: 0 var(--sp-4); }
+
+/* The selected item: its name, the actions, then its view. */
+.cx-pv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4) var(--sp-4);
+  border-bottom: 1px solid var(--dk-edge);
+}
+.cx-pv__head { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
+.cx-pv__icon { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--dk-muted); }
+.cx-pv__title { min-width: 0; flex: 1; }
+.cx-pv__name {
+  margin: 0;
+  color: var(--dk-text);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: var(--lh-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-pv__name:focus { outline: none; }
+.cx-pv__name:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.cx-pv__meta { margin: 0; color: var(--color-text-muted); font-size: var(--fs-meta); font-variant-numeric: tabular-nums; }
+.cx-pv__acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* A new item settles in: 4 px up and a fade, transform and opacity only. */
+@media (prefers-reduced-motion: no-preference) {
+  .cx-pv { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+  @starting-style {
+    .cx-pv { opacity: 0; transform: translateY(4px); }
+  }
+}
+
+/* Below 1280 px the pane would squeeze the composer under 600 px: it covers
+   the thread from the right, over a scrim that closes it. */
+@media (max-width: 1279px) {
+  .cx-files {
+    --pane-w: min(480px, 92vw);
+    position: absolute;
+    z-index: 40;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    box-shadow: var(--dk-shadow-float);
+    border-left: 1px solid var(--dk-edge);
+  }
+  .cx-files-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 39;
+    background: var(--dk-scrim);
+    opacity: 1;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  @starting-style {
+    .cx-files { opacity: 1; transform: translateX(100%); }
+    .cx-files-scrim { opacity: 0; }
+  }
+}
+/* A phone: a bottom sheet at 90 % of the height. */
+@media (max-width: 639px) {
+  .cx-files,
+  .cx-files-scrim { position: fixed; z-index: var(--dk-z-dialog); }
+  .cx-files-scrim { z-index: var(--dk-z-veil); }
+  .cx-files {
+    top: auto;
+    left: 0;
+    width: auto;
+    height: 90dvh;
+    border-left: 0;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+  }
+  .cx-files__grip {
+    display: block;
+    flex: none;
+    width: 36px;
+    height: 4px;
+    margin: var(--sp-2) auto 0;
+    border-radius: var(--r-xs);
+    background: var(--dk-control-edge);
+  }
+  .cx-files__head { min-height: 48px; }
+  @starting-style {
+    .cx-files { transform: translateY(100%); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No movement, but the wash still says which file is new for 3 s. */
+  .cx-files__row[data-fresh]::after { opacity: 1; }
+}
+
+/* Hand-off from Home (hooks/useComposerTransition.js). While <html> has
+   data-handoff, the layout must not move on its own: the sidebar folding for
+   focus mode and the route's rise are switched off, so what the transition
+   captures is where everything ends. The rises end at once (duration 0)
+   rather than being removed, so they do not start again when the attribute
+   goes. The handed-off message never rises: it arrives from the composer. */
+html[data-handoff] .sidebar,
+html[data-handoff] .main-content { transition: none; }
+html[data-handoff] .page-transition,
+.cx-msg[data-handoff] { animation-duration: 0s; }
+
+/* glide: the parts that travel. The composer goes from Home to the dock, the
+   text from the box to the message, the files from the box to the message,
+   and the sidebar changes width in place; the rest cross-fades. */
+html[data-handoff='glide'] .home-page .home-cmd,
+html[data-handoff='glide'] .cx-dock .home-cmd { view-transition-name: handoff-composer; }
+html[data-handoff='glide'] .home-page .home-textarea,
+html[data-handoff='glide'] .cx-msg[data-handoff] .cx-bubble { view-transition-name: handoff-text; }
+html[data-handoff='glide'] .home-page .home-file-tags,
+html[data-handoff='glide'] .cx-msg[data-handoff] .cx-atts { view-transition-name: handoff-files; }
+html[data-handoff='glide'] .sidebar { view-transition-name: handoff-rail; }
+
+html[data-handoff='glide']::view-transition-group(handoff-composer),
+html[data-handoff='glide']::view-transition-group(handoff-text),
+html[data-handoff='glide']::view-transition-group(handoff-files),
+html[data-handoff='glide']::view-transition-group(handoff-rail) {
+  animation-duration: var(--dur-glide);
+  animation-timing-function: var(--ease-out-strong);
+}
+/* Home leaves quickly, the chat settles in behind the composer. */
+html[data-handoff='glide']::view-transition-old(root) {
+  animation: cxFade var(--dur-fast) var(--ease-in) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(root) {
+  animation: cxFade var(--dur-slow) var(--ease-out) both;
+}
+/* The composer and the sidebar change from Home's to the chat's in the
+   first moment of the move, so the card that travels is the one that lands
+   and two cards are never seen at once. */
+html[data-handoff='glide']::view-transition-old(handoff-composer) {
+  animation: cxFade var(--dur-instant) var(--ease-out-strong) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(handoff-composer) {
+  animation: cxFade var(--dur-instant) var(--ease-out-strong) both;
+}
+html[data-handoff='glide']::view-transition-old(handoff-rail) {
+  animation: cxFade var(--dur-fast) var(--ease-out) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(handoff-rail) {
+  animation: cxFade var(--dur-fast) var(--ease-out) both;
+}
+/* Home's card is taller than the dock (more lines, the files): its picture
+   is cut to the moving card instead of hanging below it, and it is gone in
+   the first frames of the move. */
+html[data-handoff='glide']::view-transition-old(handoff-composer) {
+  block-size: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+/* Text and files keep their size while they travel: the box is not scaled to
+   the message, it is cut to it, so no letter is stretched. The words in the
+   box fade as the message forms around them. */
+html[data-handoff='glide']::view-transition-old(handoff-text),
+html[data-handoff='glide']::view-transition-new(handoff-text),
+html[data-handoff='glide']::view-transition-old(handoff-files),
+html[data-handoff='glide']::view-transition-new(handoff-files),
+html[data-handoff='glide']::view-transition-old(handoff-rail),
+html[data-handoff='glide']::view-transition-new(handoff-rail) {
+  block-size: 100%;
+  object-fit: none;
+  object-position: left top;
+}
+html[data-handoff='glide']::view-transition-old(handoff-text),
+html[data-handoff='glide']::view-transition-old(handoff-files) {
+  animation: cxFade var(--dur-base) var(--ease-in) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(handoff-text),
+html[data-handoff='glide']::view-transition-new(handoff-files) {
+  animation: cxFade var(--dur-glide) var(--ease-out) both;
+}
+/* The dock's empty box says nothing while the words leave it, so the two
+   never cross; its hint comes back once the message has landed. */
+html[data-handoff='glide'] .cx-dock .home-textarea::placeholder { color: transparent; }
+.cx-dock .home-textarea::placeholder { transition: color var(--dur-base) var(--ease-out); }
+/* What the model does next (the dots, a load card) comes in after the
+   message has landed. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-handoff='glide'] .cx-msg:not([data-handoff]) { animation-delay: var(--dur-fast); }
+}
+
+/* fade: less motion. Only a short cross-fade of the whole page. */
+html[data-handoff='fade']::view-transition-old(root),
+html[data-handoff='fade']::view-transition-new(root) {
+  animation-duration: var(--dur-fast);
+}
+
+/* flip (no View Transitions API): the composer and the message slide in from
+   Home (Web Animations); the chrome around them fades in. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-handoff='flip'] .cx-conv > :not(.cx-stage):not(.cx-dock),
+  html[data-handoff='flip'] .cx-dock__in > :not(.home-cmd) {
+    animation: cxFade var(--dur-slow) var(--ease-out) both;
+  }
 }

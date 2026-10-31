@@ -1,157 +1,12 @@
-// Runs of an agent, as this browser knows them.
+// Runs of an agent, as the server knows them.
 //
-// The server keeps no run history for an agent. What exists is the stream the
-// agent page listens to (messages, status lines, tool calls and results) and
-// the chats the older Agent chat page stored in this browser. A run is one
-// task and everything the agent did until it answered. This module keeps a
-// bounded log of runs in browser storage, writes it while the page watches the
-// stream, and reads old stored chats as runs too.
-//
-// Nothing here is measured by the server. Times are the browser's clock
-// between the moment the task was sent and the moment the answer arrived.
-// The log holds task text, step text and answers: no keys, no headers.
+// A run is a chat that ran with the agent: one the owner started from the
+// agent, or one a trigger or a connector started by itself. The server keeps
+// the title, the dates and how the last turn ended; this module turns that into
+// the record the agent pages show (a strip of the last runs, a success line, a
+// row per run). A trigger's own run (a start of the trigger) reads the same way.
 
-const RUNS_PREFIX = 'localai_agent_runs_'
-const CHATS_PREFIX = 'localai_agent_chats_'
-
-export const MAX_RUNS_PER_AGENT = 50
 export const STRIP_LENGTH = 14
-// A run still marked as running this long after its last event was cut off:
-// the page that watched it was closed before the answer was recorded.
-export const STALE_MS = 5 * 60 * 1000
-
-const MAX_TASK = 4000
-const MAX_OUTCOME = 30000
-const MAX_ARGS = 1500
-const MAX_RESULT = 4000
-const MAX_STEPS = 80
-
-function scope(userId) {
-  return userId ? `${userId}:` : ''
-}
-
-export function runsKey(agent, userId) {
-  return `${RUNS_PREFIX}${scope(userId)}${agent}`
-}
-
-function readJSON(key) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : null
-  } catch {
-    return null
-  }
-}
-
-function cut(text, max) {
-  const s = typeof text === 'string' ? text : text == null ? '' : String(text)
-  return s.length > max ? `${s.slice(0, max)}…` : s
-}
-
-export function newRunId() {
-  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let id = ''
-  for (let i = 0; i < 6; i++) id += alphabet[Math.floor(Math.random() * alphabet.length)]
-  return `r_${id}`
-}
-
-export function newTurn(task, now = Date.now()) {
-  return {
-    task: cut(task, MAX_TASK),
-    startedAt: now,
-    endedAt: null,
-    status: 'running',
-    outcome: '',
-    error: '',
-    steps: [],
-    live: { reasoning: '', content: '' },
-    metadata: null,
-  }
-}
-
-export function newRun(agent, task, { userId, now = Date.now(), id = newRunId() } = {}) {
-  return {
-    id,
-    agent,
-    userId: userId || undefined,
-    startedAt: now,
-    updatedAt: now,
-    turns: [newTurn(task, now)],
-  }
-}
-
-// ---- Reading what the stream says ------------------------------------------
-
-function flushThought(turn, now) {
-  const text = (turn.live.reasoning || '').trim()
-  const steps = text ? [...turn.steps, { kind: 'thought', text: cut(text, MAX_RESULT), ts: now }] : turn.steps
-  return { ...turn, steps: steps.slice(-MAX_STEPS), live: { ...turn.live, reasoning: '' } }
-}
-
-// One `stream_event` from the agent's event stream. `done` marks the boundary
-// between the internal generations of one turn, so the text gathered so far is
-// folded into a step and the live text starts again.
-export function applyStreamEvent(turn, data, now = Date.now()) {
-  if (!turn || turn.status !== 'running' || !data) return turn
-  switch (data.type) {
-    case 'reasoning':
-      return { ...turn, live: { ...turn.live, reasoning: turn.live.reasoning + (data.content || '') } }
-    case 'content':
-      return { ...turn, live: { ...turn.live, content: turn.live.content + (data.content || '') } }
-    case 'tool_call': {
-      const name = data.tool_name || ''
-      const args = data.tool_args || ''
-      if (name) {
-        const t = flushThought(turn, now)
-        return { ...t, steps: [...t.steps, { kind: 'tool', name, args: cut(args, MAX_ARGS), ts: now }].slice(-MAX_STEPS) }
-      }
-      const idx = turn.steps.findLastIndex(s => s.kind === 'tool' && s.result === undefined)
-      if (idx < 0) return turn
-      const steps = [...turn.steps]
-      steps[idx] = { ...steps[idx], args: cut(steps[idx].args + args, MAX_ARGS) }
-      return { ...turn, steps }
-    }
-    case 'tool_result': {
-      const name = data.tool_name || ''
-      const idx = turn.steps.findLastIndex(s => s.kind === 'tool' && s.name === name && s.result === undefined)
-      if (idx < 0) return turn
-      const steps = [...turn.steps]
-      steps[idx] = { ...steps[idx], result: cut(data.tool_result || 'done', MAX_RESULT), doneAt: now }
-      return { ...turn, steps }
-    }
-    case 'done': {
-      const t = flushThought(turn, now)
-      return { ...t, live: { reasoning: '', content: '' } }
-    }
-    default:
-      return turn
-  }
-}
-
-// A `status` line ("Thinking...", "Action taken: ...").
-export function applyStatusLine(turn, text, now = Date.now()) {
-  if (!turn || turn.status !== 'running' || !text) return turn
-  return { ...turn, steps: [...turn.steps, { kind: 'status', text: cut(text, 400), ts: now }].slice(-MAX_STEPS) }
-}
-
-export function finishTurn(turn, { content, metadata } = {}, now = Date.now()) {
-  const t = flushThought(turn, now)
-  return {
-    ...t,
-    status: 'done',
-    endedAt: now,
-    outcome: cut(content || t.live.content || '', MAX_OUTCOME),
-    metadata: metadata && Object.keys(metadata).length ? metadata : null,
-    live: { reasoning: '', content: '' },
-  }
-}
-
-// kind says where it broke: 'send' when the task never reached the agent,
-// 'agent' when the agent reported an error after it started.
-export function failTurn(turn, message, now = Date.now(), kind = 'agent') {
-  const t = flushThought(turn, now)
-  return { ...t, status: 'failed', endedAt: now, error: cut(message || '', 600), errorKind: kind, live: { reasoning: '', content: '' } }
-}
 
 // ---- Reading a run -----------------------------------------------------------
 
@@ -159,32 +14,25 @@ export function lastTurn(run) {
   return run?.turns?.[run.turns.length - 1] || null
 }
 
-// The state a reader should see. A run that says running but has not been
-// touched for a while was cut off and reads as stopped.
-export function effectiveStatus(run, now = Date.now()) {
-  const turn = lastTurn(run)
-  if (!turn) return 'stopped'
-  if (turn.status === 'running') return now - (run.updatedAt || turn.startedAt) > STALE_MS ? 'stopped' : 'running'
-  return turn.status
+// The state a reader should see. The server says whether a turn runs, so there
+// is no guessing about a run that was cut off.
+export function effectiveStatus(run) {
+  return lastTurn(run)?.status || 'stopped'
 }
 
 // A finished run's state is its first turn's: later follow-ups do not turn a
 // good run into a failed one in the record strip.
-export function recordStatus(run, now = Date.now()) {
+export function recordStatus(run) {
   const first = run?.turns?.[0]
   if (!first) return 'stopped'
-  if (run.turns.length === 1) return effectiveStatus(run, now)
-  if (first.status === 'running') return effectiveStatus({ ...run, turns: [first] }, now)
+  if (run.turns.length === 1) return effectiveStatus(run)
+  if (first.status === 'running') return effectiveStatus({ ...run, turns: [first] })
   return first.status
 }
 
 export function durationMs(turn) {
   if (!turn || !turn.endedAt || !turn.startedAt) return null
   return Math.max(0, turn.endedAt - turn.startedAt)
-}
-
-export function stepCount(turn) {
-  return (turn?.steps || []).filter(s => s.kind === 'tool').length
 }
 
 export function formatDuration(ms) {
@@ -225,25 +73,13 @@ export function outcomeLine(run, max = 110) {
   return firstLine(plain, max)
 }
 
-// The earlier turns of a run in the shape POST /api/agents/:name/chat takes as
-// `history`, so a follow-up sees the task and the answers before it.
-export function historyForRun(run) {
-  const history = []
-  for (const turn of run?.turns || []) {
-    if (turn.task?.trim()) history.push({ role: 'user', content: turn.task })
-    if (turn.status === 'done' && turn.outcome?.trim()) history.push({ role: 'assistant', content: turn.outcome })
-  }
-  return history
-}
-
-export function recordStats(runs, now = Date.now()) {
-  const statuses = runs.map(r => recordStatus(r, now))
+export function recordStats(runs) {
+  const statuses = runs.map(r => recordStatus(r))
   const finished = statuses.filter(s => s === 'done').length
   const failed = statuses.filter(s => s === 'failed').length
   const stopped = statuses.filter(s => s === 'stopped').length
-  // Old chats carry the timestamps of two messages, not of a run: no timing.
   const times = runs
-    .filter(r => !r.legacy && r.turns?.[0]?.status === 'done')
+    .filter(r => r.turns?.[0]?.status === 'done')
     .map(r => durationMs(r.turns[0]))
     .filter(v => v != null)
     .sort((a, b) => a - b)
@@ -252,108 +88,61 @@ export function recordStats(runs, now = Date.now()) {
 }
 
 // The strip: the last STRIP_LENGTH runs, oldest first.
-export function stripOf(runs, now = Date.now()) {
-  return runs.slice(0, STRIP_LENGTH).map(r => ({ id: r.id, status: recordStatus(r, now) })).reverse()
+export function stripOf(runs) {
+  return runs.slice(0, STRIP_LENGTH).map(r => ({ id: r.id, status: recordStatus(r) })).reverse()
 }
 
-// ---- Old chats as runs -------------------------------------------------------
 
-// The Agent chat page kept conversations in this browser. A user message and
-// the agent's next message are a run: when it started, when it was answered,
-// and the status lines between them as steps. Ids are stable so the same
-// message is the same run on every read.
-export function legacyRunsFromChats(agent, userId, chats) {
-  const runs = []
-  for (const conv of chats?.conversations || []) {
-    const msgs = Array.isArray(conv.messages) ? conv.messages : []
-    for (let i = 0; i < msgs.length; i++) {
-      const m = msgs[i]
-      if (m?.sender !== 'user' || !m.content) continue
-      const steps = []
-      let answer = null
-      let j = i + 1
-      for (; j < msgs.length; j++) {
-        const n = msgs[j]
-        if (n.sender === 'user') break
-        if (n.sender === 'agent') { answer = n; break }
-        if (n.sender === 'system') steps.push({ kind: 'status', text: cut(n.content, 400), ts: n.timestamp })
-      }
-      const startedAt = m.timestamp || conv.createdAt || 0
-      runs.push({
-        id: `c_${String(conv.id).slice(0, 8)}_${i}`,
-        agent,
-        userId: userId || undefined,
-        legacy: true,
-        startedAt,
-        updatedAt: answer?.timestamp || startedAt,
-        turns: [{
-          task: cut(m.content, MAX_TASK),
-          startedAt,
-          endedAt: answer ? (answer.timestamp || startedAt) : null,
-          status: answer ? 'done' : 'stopped',
-          outcome: answer ? cut(answer.content, MAX_OUTCOME) : '',
-          error: '',
-          steps: steps.slice(-MAX_STEPS),
-          live: { reasoning: '', content: '' },
-          metadata: answer?.metadata || null,
-        }],
-      })
-      i = answer ? j : i
-    }
+// ---- Server rows as runs -----------------------------------------------------
+
+// A paused turn reached the step limit and wrote an answer: it counts as done.
+const TURN_STATUS = { done: 'done', paused: 'done', failed: 'failed', interrupted: 'failed', stopped: 'stopped' }
+
+function stamp(v) {
+  const t = v ? Date.parse(v) : NaN
+  return Number.isNaN(t) ? 0 : t
+}
+
+// A chat of the agent (GET /api/chats, `agent_id`) as a run. The title stands in
+// for the task: the list does not carry the messages.
+export function runOfChat(chat) {
+  const status = chat.running ? 'running' : TURN_STATUS[chat.last_turn] || 'stopped'
+  const startedAt = stamp(chat.created)
+  return {
+    id: chat.id,
+    chatId: chat.id,
+    origin: chat.origin || '',
+    startedAt,
+    turns: [{
+      task: chat.title || '',
+      startedAt,
+      endedAt: status === 'running' ? null : stamp(chat.updated) || startedAt,
+      status,
+      outcome: '',
+      error: '',
+    }],
   }
-  return runs
 }
 
-// ---- Storage ----------------------------------------------------------------
+const RUN_STATUS = { queued: 'running', running: 'running', done: 'done', failed: 'failed', skipped: 'stopped' }
 
-function readStored(agent, userId) {
-  const data = readJSON(runsKey(agent, userId))
-  return Array.isArray(data?.runs) ? data.runs : []
-}
-
-// Runs newest first: the stored log and the runs read from old chats.
-export function loadRuns(agent, userId) {
-  const stored = readStored(agent, userId)
-  const ids = new Set(stored.map(r => r.id))
-  const chats = userId ? null : readJSON(`${CHATS_PREFIX}${agent}`)
-  const legacy = legacyRunsFromChats(agent, userId, chats).filter(r => !ids.has(r.id))
-  return [...stored, ...legacy].sort((a, b) => b.startedAt - a.startedAt)
-}
-
-export function loadRun(agent, id, userId) {
-  return loadRuns(agent, userId).find(r => r.id === id) || null
-}
-
-function writeRuns(agent, userId, runs) {
-  let list = runs.slice(0, MAX_RUNS_PER_AGENT)
-  for (let attempt = 0; attempt < 6; attempt++) {
-    try {
-      localStorage.setItem(runsKey(agent, userId), JSON.stringify({ version: 1, runs: list }))
-      return true
-    } catch {
-      // Quota: drop the older half and try again.
-      if (list.length <= 1) return false
-      list = list.slice(0, Math.ceil(list.length / 2))
-    }
-  }
-  return false
-}
-
-export function saveRun(run) {
-  if (!run || run.legacy) return false
-  const others = readStored(run.agent, run.userId).filter(r => r.id !== run.id)
-  const next = [{ ...run, updatedAt: Date.now() }, ...others].sort((a, b) => b.startedAt - a.startedAt)
-  return writeRuns(run.agent, run.userId, next)
-}
-
-// Forget the log of one agent: the stored runs and, so they do not come back
-// as runs, the old chats they were read from.
-export function clearRuns(agent, userId) {
-  try {
-    localStorage.removeItem(runsKey(agent, userId))
-    if (!userId) localStorage.removeItem(`${CHATS_PREFIX}${agent}`)
-    return true
-  } catch {
-    return false
+// One start of a trigger (GET /api/chats/triggers/:id/runs) as a run. `reason`
+// says why a run failed or was skipped.
+export function runOfTriggerRun(run, task = '') {
+  const status = RUN_STATUS[run.status] || 'stopped'
+  const startedAt = stamp(run.started) || stamp(run.due)
+  return {
+    id: run.id,
+    chatId: run.chat_id || '',
+    file: run.file || '',
+    startedAt,
+    turns: [{
+      task,
+      startedAt,
+      endedAt: stamp(run.ended) || null,
+      status,
+      outcome: '',
+      error: run.reason || '',
+    }],
   }
 }

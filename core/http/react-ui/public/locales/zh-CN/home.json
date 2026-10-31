@@ -25,7 +25,10 @@
     "title": "通过聊天管理 LocalAI",
     "description": "通过与 LocalAI 对话来安装模型、切换后端、编辑配置和查看状态。",
     "open": "打开助手",
-    "tooltip": "通过聊天管理 LocalAI"
+    "tooltip": "通过聊天管理 LocalAI",
+    "noModel": "请先选择一个聊天模型。",
+    "startFailed": "无法启动助手聊天：{{message}}",
+    "chatTitle": "LocalAI 助手"
   },
   "input": {
     "placeholder": "消息...",
@@ -79,13 +82,17 @@
       "step2Title": "安装模型",
       "step2Body": "点击安装即可自动下载并配置。",
       "step3Title": "开始聊天",
-      "step3Body": "直接在浏览器中与模型聊天，或使用 API。"
+      "step3Body": "直接在浏览器中与模型聊天，或使用 API。",
+      "sandboxTitle": "安全运行代码（可选）",
+      "sandboxBody": "安装 Sandbox 附加组件，让模型在隔离环境中运行代码和命令。没有它，命令会直接在这台机器上运行，拥有完整的网络访问权限且没有隔离。"
     },
     "browseGallery": "浏览模型库",
     "importModel": "导入模型",
     "docs": "文档",
     "noModelsTitle": "暂无可用模型",
-    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。"
+    "noModelsBody": "尚未安装模型。请联系您的管理员设置模型，以便开始聊天。",
+    "sandboxInstall": "安装 Sandbox",
+    "sandboxSkip": "跳过"
   },
   "connect": {
     "title": "一个端点，所有 API",
@@ -105,7 +112,23 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operate": "管理",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "全部对话"
+  },
+  "slash": {
+    "agents": {
+      "label": "智能体",
+      "desc": "你保存的智能体、触发器和技能"
+    },
+    "mcp": {
+      "label": "MCP 连接器",
+      "desc": "你的对话可以使用的 MCP 服务器"
+    },
+    "memory": {
+      "label": "记忆",
+      "desc": "你的对话可以搜索的集合"
+    },
+    "complete": "补全"
   }
 }

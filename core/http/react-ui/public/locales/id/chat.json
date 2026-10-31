@@ -25,22 +25,15 @@
     "yes": "Ya",
     "gpuLayers": "Layer GPU"
   },
-  "context": {
-    "label": "Konteks: {{percent}}%",
-    "labelWithTokens": "Konteks: {{percent}}% ({{tokens}} tokens)"
-  },
   "settings": {
     "title": "Pengaturan Obrolan",
     "manageMode": "Mode Manajemen",
-    "manageModeDesc": "Izinkan obrolan ini menginstal model, mengganti backend, dan mengedit konfigurasi dengan berbicara melalui LocalAI.",
-    "systemPrompt": "System Prompt",
-    "systemPromptPlaceholder": "Anda adalah asisten yang membantu...",
-    "temperature": "Temperatur",
-    "topP": "Top P",
-    "topK": "Top K",
-    "contextSize": "Ukuran Konteks",
-    "contextSizePlaceholder": "2048",
-    "clearHistory": "Hapus riwayat obrolan"
+    "serverKept": "Server menyimpan obrolan ini. Model dan agennya ditetapkan saat dimulai.",
+    "manageModeOn": "Obrolan ini memiliki alat pengelolaan LocalAI. Gunakan /assistant untuk memulai yang lain.",
+    "agent": "Agen",
+    "agentHelp": "Obrolan ini memakai agen {{name}}: instruksinya dan hanya alat yang diizinkannya.",
+    "editAgent": "Ubah agen",
+    "deleteHelp": "Hapus obrolan ini dan pesannya secara permanen."
   },
   "empty": {
     "manageTitle": "Kelola LocalAI dengan obrolan",
@@ -61,7 +54,6 @@
       "Gali ide"
     ],
     "recent": "Terbaru",
-    "noMessages": "Belum ada pesan",
     "hintEnter": "Enter untuk mengirim",
     "hintShiftEnter": "Shift+Enter untuk baris baru",
     "hintAttach": "Lampirkan file"
@@ -71,29 +63,17 @@
   },
   "actions": {
     "copy": "Salin",
-    "edit": "Edit",
-    "editMessage": "Edit pesan",
-    "save": "Simpan",
-    "cancel": "Batal",
     "regenerate": "Hasilkan ulang",
-    "jumpToLatest": "Lompat ke terbaru"
+    "jumpToLatest": "Lompat ke terbaru",
+    "reuse": "Ubah dan kirim lagi"
   },
   "streaming": {
     "transferring": "Mentransfer model...",
     "transferringTo": "Mentransfer model ke {{node}}..."
   },
-  "tokens": {
-    "perSec": "{{count}} tok/s",
-    "peak": "Puncak: {{count}} tok/s",
-    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
-  },
   "input": {
-    "placeholder": "Pesan...",
-    "attachFile": "Lampirkan file",
     "stopGenerating": "Hentikan pembuatan",
-    "canvasTitle": "Canvas — ekstrak blok kode dan media ke panel samping untuk pratinjau, salin, dan unduh",
-    "canvasLabel": "Canvas",
-    "openCanvas": "Buka panel canvas"
+    "placeholderQueue": "Model sedang bekerja. Pesan yang dikirim sekarang menunggu langkah berikutnya."
   },
   "deleteAllDialog": {
     "title": "Hapus Semua Obrolan",
@@ -104,7 +84,7 @@
     "selectModel": "Silahkan pilih model",
     "copied": "Berhasil disalin ke papan klip",
     "copyFailed": "Gagal menyalin ke papan klip",
-    "pdfScannedAsImages": "{{name}} tidak memiliki lapisan teks (pindaian). {{count}} dari {{total}} halaman dilampirkan sebagai gambar untuk model visi."
+    "newChatForModel": "Obrolan mempertahankan modelnya. Obrolan baru dimulai dengan {{model}}."
   },
   "menu": {
     "trigger": "Obrolan",
@@ -118,17 +98,487 @@
     "deleteChat": "Hapus obrolan",
     "newChat": "Obrolan baru",
     "clearAll": "Hapus semua",
-    "deleteAllTitle": "Hapus semua percakapan"
+    "deleteAllTitle": "Hapus semua percakapan",
+    "untitled": "Obrolan baru",
+    "origin": {
+      "trigger": "Dimulai oleh pemicu",
+      "connector": "Dari konektor"
+    }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "Perulangan, jalan ke-{{run}}"
   },
-  "addons": {
-    "note": "An add-on that is off here does nothing in this chat.",
-    "label": "Add-ons",
-    "title": "Add-on tools for this chat",
-    "heading": "Add-on tools",
-    "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+  "tools": {
+    "label": "Alat",
+    "title": "Alat yang bisa dipakai obrolan ini",
+    "heading": "Alat untuk obrolan ini",
+    "draftNote": "Chat baru dimulai dengan sakelar ini. Alat yang dimatikan tidak ditawarkan ke model.",
+    "note": "Alat yang dimatikan di sini tidak ditawarkan ke model di obrolan ini.",
+    "count": "{{on}} dari {{total}} aktif",
+    "selectAll": "Aktifkan semua",
+    "disableAll": "Matikan semua",
+    "groupOn": "Semua aktif",
+    "groupOff": "Semua mati",
+    "groupOnLabel": "Aktifkan semua di {{group}}",
+    "groupOffLabel": "Matikan semua di {{group}}",
+    "groupCount": "{{on}} dari {{total}}",
+    "optIn": "Mati sampai Anda menyalakannya. Aktifkan semua tidak mengubahnya.",
+    "empty": "Tidak ada yang bisa diubah di obrolan ini.",
+    "failed": "Gagal menyimpan. Sakelar kembali seperti semula.",
+    "unavailable": "Tidak tersedia di obrolan ini",
+    "toolCount_one": "{{count}} alat",
+    "toolCount_other": "{{count}} alat"
+  },
+  "skills": {
+    "label": "Keahlian",
+    "title": "Keahlian yang bisa dipakai obrolan ini",
+    "heading": "Keahlian untuk obrolan ini",
+    "count": "{{on}} dari {{total}} aktif",
+    "selectAll": "Pilih semua",
+    "disableAll": "Nonaktifkan semua",
+    "selectShown": "Pilih yang ditampilkan",
+    "disableShown": "Nonaktifkan yang ditampilkan",
+    "search": "Cari keahlian",
+    "noMatch": "Tidak ada keahlian yang cocok dengan “{{query}}”.",
+    "later": "Keahlian yang Anda tambahkan nanti mulai dalam keadaan aktif.",
+    "failed": "Gagal menyimpan. Tidak ada yang berubah.",
+    "source": {
+      "builtin": "Bawaan",
+      "personal": "Pribadi",
+      "shared": "Bersama",
+      "folder": "Ruang kerja",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "Digantikan oleh {{name}}",
+    "fallback_one": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini.",
+    "fallback_other": "{{skills}} bawaan dipakai: skill milik add-on {{name}} mati atau tidak berjalan di sini."
+  },
+  "agent": {
+    "label": "Agen",
+    "title": "Agen tersimpan untuk obrolan ini",
+    "heading": "Mulai dengan agen",
+    "note": "Agen memberi obrolan instruksinya dan tepat alat yang diizinkannya.",
+    "none": "Tanpa agen",
+    "fixed": "Agen obrolan ini"
+  },
+  "assistant": {
+    "chatTitle": "Asisten LocalAI"
+  },
+  "slash": {
+    "delete": {
+      "label": "Hapus obrolan",
+      "desc": "Hapus percakapan ini"
+    },
+    "assistant": {
+      "desc": "Mulai obrolan yang bisa mengelola LocalAI"
+    },
+    "settings": {
+      "desc": "Mode fokus, agen, dan info model"
+    },
+    "group": {
+      "context": "Konteks",
+      "skills": "Skill dan agen",
+      "help": "Bantuan"
+    },
+    "models": {
+      "label": "Model",
+      "desc": "Buka daftar model"
+    },
+    "skill": {
+      "label": "Jalankan skill",
+      "desc": "Pilih salah satu skill di chat ini"
+    },
+    "agent": {
+      "label": "Tanya agen tersimpan",
+      "desc": "Serahkan tugas ke salah satu agen Anda",
+      "enable": "Aktifkan agen tersimpan untuk chat ini",
+      "enableDesc": "Lalu pilih agennya"
+    },
+    "compact": {
+      "label": "Padatkan konteks",
+      "desc": "Ringkas pesan lama agar model punya ruang"
+    },
+    "clear": {
+      "label": "Kosongkan konteks",
+      "desc": "Mulai dari awal di chat ini; pesan tetap ada"
+    },
+    "attach": {
+      "label": "Lampirkan file",
+      "desc": "Pilih file untuk dikirim",
+      "clearDesc": "Hapus file yang menunggu dikirim"
+    },
+    "help": {
+      "label": "Semua perintah",
+      "desc": "Tampilkan setiap perintah dan fungsinya"
+    },
+    "about": {
+      "label": "Tentang chat ini",
+      "desc": "Model, alat, skill, dan ukuran konteks"
+    },
+    "args": {
+      "skill": "Skill",
+      "agent": "Agen tersimpan",
+      "model": "Model",
+      "attach": "File",
+      "loop": "Perulangan",
+      "goal": "Tujuan"
+    },
+    "badge": {
+      "builtin": "bawaan",
+      "addon": "add-on",
+      "shared": "bersama",
+      "yours": "milik Anda"
+    },
+    "collides": "hanya dengan /skill",
+    "errors": {
+      "skill": "Chat ini tidak punya skill bernama \"{{name}}\".",
+      "agent": "Anda tidak punya agen tersimpan bernama \"{{name}}\".",
+      "agentTask": "Tulis tugas untuk {{name}} setelah namanya.",
+      "agentsOff": "Agen tersimpan nonaktif untuk chat ini. Aktifkan di menu Alat."
+    },
+    "loop": {
+      "label": "Ulangi prompt",
+      "desc": "Jalankan prompt berulang kali di obrolan ini: /loop 5m periksa build",
+      "listDesc": "Tampilkan perulangan obrolan ini",
+      "stopDesc": "Hentikan satu perulangan, atau semuanya",
+      "stopAll": "Semua perulangan",
+      "stopAllDesc": "Hentikan semua perulangan obrolan ini"
+    },
+    "goal": {
+      "label": "Tujuan",
+      "desc": "Tetapkan tujuan yang terus dikerjakan chat sendiri",
+      "clearDesc": "Hapus tujuan",
+      "resumeDesc": "Teruskan tujuan"
+    }
+  },
+  "shortcuts": {
+    "onMessage": "Pada pesan: salin, ubah, buat ulang",
+    "editLast": "Ubah pesan terakhir Anda"
+  },
+  "files": {
+    "title": "File di obrolan ini",
+    "chip": "File",
+    "chipTitle": "File di obrolan ini: yang Anda lampirkan dan yang dibuat atau diubah asisten",
+    "close": "Tutup file",
+    "emptyTitle": "Belum ada file di obrolan ini",
+    "emptyBody": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya. File yang dibuat atau diubah asisten juga muncul di sini.",
+    "dropHint": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya.",
+    "groups": {
+      "uploaded": "Dari Anda",
+      "created": "Dibuat dan diubah",
+      "working": "File kerja"
+    },
+    "turn": "giliran {{n}}",
+    "media": "Dalam konteks",
+    "mediaTitle": "Model menerima file ini sebagai gambar atau video bersama pesan Anda",
+    "changedTag": "Diedit",
+    "changedTitle": "Asisten mengubah file ini",
+    "download": "Unduh {{name}}",
+    "error": "File obrolan ini tidak dapat dibaca.",
+    "workingNote": "Skrip, data, dan log yang dibuat asisten selama bekerja. Semuanya disimpan di folder kerja chat ini."
+  },
+  "steps": {
+    "verb": {
+      "read": "Membaca",
+      "list": "Mendaftar",
+      "write": "Menyimpan",
+      "create": "Membuat",
+      "change": "Mengubah",
+      "move": "Memindahkan",
+      "delete": "Menghapus",
+      "search": "Mencari",
+      "run": "Menjalankan",
+      "fetch": "Mengambil",
+      "websearch": "Mencari di web:",
+      "webfetch": "Membaca",
+      "delegate": "Bertanya ke agen",
+      "used": "Memakai"
+    },
+    "worked": "Bekerja selama {{duration}}",
+    "thoughtFor": "Berpikir selama {{duration}}",
+    "working": "Bekerja",
+    "thinking": "Berpikir",
+    "noMatches": "tidak ada hasil",
+    "noResults": "tidak ada hasil",
+    "emptyFolder": "folder kosong",
+    "size": "{{size}}",
+    "seconds": "{{value}} dtk",
+    "minutes": "{{min}} mnt {{sec}} dtk",
+    "tool": "Alat",
+    "input": "Masukan",
+    "showLess": "Tampilkan lebih sedikit",
+    "running": "Berjalan",
+    "failed": "Gagal",
+    "count_one": "{{count}} langkah",
+    "count_other": "{{count}} langkah",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} file",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} item",
+    "matches_one": "{{count}} hasil",
+    "matches_other": "{{count}} hasil",
+    "results_one": "{{count}} hasil",
+    "results_other": "{{count}} hasil",
+    "lines_one": "{{count}} baris",
+    "lines_other": "{{count}} baris",
+    "showAll_one": "Tampilkan semua {{count}} baris",
+    "showAll_other": "Tampilkan semua {{count}} baris",
+    "details": "Tampilkan detail",
+    "openFile": "Buka {{path}} di File",
+    "savedFiles": "Disimpan di file Anda:",
+    "fileOp": {
+      "changed": "diubah",
+      "deleted": "dihapus"
+    },
+    "moreFiles": "dan {{count}} lainnya",
+    "alsoSavedWorking_one": "Juga menyimpan {{count}} file kerja",
+    "alsoSavedWorking_other": "Juga menyimpan {{count}} file kerja",
+    "savedWorking_one": "Menyimpan {{count}} file kerja",
+    "savedWorking_other": "Menyimpan {{count}} file kerja",
+    "workingTitle": "File kerja (skrip, log, atau draf): buka {{path}}"
+  },
+  "error": {
+    "title": "Balasan gagal",
+    "kept": "Yang sudah tertulis tetap ada di atas.",
+    "retry": "Coba lagi",
+    "detail": "Detail teknis",
+    "reason": {
+      "unknown": "Agen berhenti karena kesalahan. Coba lagi untuk menjalankan giliran ini kembali.",
+      "model_backend_missing": "Model \"{{model}}\" tidak dapat dimulai: backend-nya belum terpasang.",
+      "model_backend_missing_anon": "Model tidak dapat dimulai: backend-nya belum terpasang.",
+      "model_cooldown": "Model \"{{model}}\" gagal dimulai beberapa saat lalu dan sedang beristirahat.",
+      "model_cooldown_anon": "Model gagal dimulai beberapa saat lalu dan sedang beristirahat.",
+      "model_load_failed": "Model \"{{model}}\" tidak dapat dimulai.",
+      "model_load_failed_anon": "Model tidak dapat dimulai.",
+      "model_not_found": "Model \"{{model}}\" tidak ditemukan.",
+      "model_not_found_anon": "Model tidak ditemukan.",
+      "upstream_key": "Upstream menolak kunci.",
+      "upstream_path": "Upstream tidak menerima permintaan ini pada alamat tersebut.",
+      "upstream_unreachable": "Alamat upstream tidak dapat dijangkau.",
+      "upstream": "Penyedia di balik model mengembalikan kesalahan.",
+      "timeout": "Model terlalu lama menjawab.",
+      "cancelled": "Giliran dibatalkan sebelum model menjawab."
+    },
+    "hint": {
+      "model_backend_missing": "Pilih model lain, atau minta administrator memasang backend.",
+      "model_backend_missing_admin": "Pilih model lain, atau pasang backend dari halaman Backend.",
+      "model_cooldown": "Coba lagi dalam {{seconds}} detik.",
+      "model_load_failed": "Periksa konfigurasi model dan backend-nya, lalu coba lagi.",
+      "model_not_found": "Pilih model lain, atau pasang model ini dari halaman Model.",
+      "upstream_key": "Periksa kunci API di pengaturan model.",
+      "upstream_path": "Alamat upstream harus berupa endpoint lengkap, misalnya .../v1/chat/completions.",
+      "upstream_unreachable": "Periksa alamat di pengaturan model.",
+      "upstream": "Coba lagi sebentar lagi. Jika terus gagal, periksa alamat dan kunci penyedia.",
+      "timeout": "Coba lagi, atau gunakan model yang lebih kecil atau lebih cepat.",
+      "cancelled": "Coba lagi saat Anda siap."
+    },
+    "openBackends": "Buka Backend"
+  },
+  "allChats": {
+    "title": "Semua obrolan",
+    "supporting": "Semua obrolan yang disimpan. Cari, ganti nama, ekspor, atau hapus.",
+    "loadFailed": "Tidak dapat memuat obrolan Anda.",
+    "emptyTitle": "Belum ada obrolan",
+    "emptyBody": "Obrolan dimulai di Beranda: ketik pesan lalu kirim. Setelah itu obrolan Anda tercantum di sini.",
+    "start": "Mulai obrolan"
+  },
+  "foot": {
+    "state": {
+      "ready": "Siap",
+      "nomodel": "Tidak ada model",
+      "sending": "Mengirim",
+      "loading": "Memuat model",
+      "thinking": "Berpikir",
+      "tool": "Menjalankan {{tool}}",
+      "answering": "Menjawab",
+      "waiting": "Menunggu Anda",
+      "stopped": "Dihentikan",
+      "failed": "Gagal",
+      "interrupted": "Terputus",
+      "paused": "Dijeda",
+      "compacting": "Memadatkan konteks",
+      "clearing": "Mengosongkan konteks"
+    },
+    "tool": {
+      "search": "Mencari",
+      "list": "Mendaftar",
+      "read": "Membaca",
+      "create": "Membuat",
+      "write": "Menulis",
+      "change": "Mengubah",
+      "move": "Memindahkan",
+      "delete": "Menghapus",
+      "run": "Menjalankan perintah",
+      "fetch": "Mengambil",
+      "delegate": "Bertanya ke sub-agen"
+    },
+    "hint": "Enter untuk mengirim · Shift+Enter untuk baris baru",
+    "meter": {
+      "label": "Konteks terisi {{pct}}%. Tampilkan konteks dan kecepatan",
+      "labelNoLimit": "Konteks {{used}} token. Tampilkan konteks dan kecepatan"
+    },
+    "details": {
+      "title": "Konteks dan kecepatan",
+      "context": "Konteks",
+      "contextOf": "{{used}} dari {{limit}} token ({{pct}}%)",
+      "contextUsed": "{{used}} token",
+      "contextLeft": "Sisa {{left}} token",
+      "contextHelp": "Konteks adalah apa yang dibaca model pada setiap permintaan: instruksi, obrolan ini sejauh ini, dan hasil alat.",
+      "nearFull": "Obrolan ini mendekati batas. Server memadatkan bagian yang lebih lama agar model bisa melanjutkan. Transkrip menyimpan setiap pesan.",
+      "limitUnknown": "Server tidak menyebutkan seberapa besar jendela konteksnya.",
+      "lastRequest": "Permintaan terakhir",
+      "model": "Model",
+      "backend": "Backend",
+      "node": "Node",
+      "tokensIn": "Token masuk",
+      "tokensOut": "Token keluar",
+      "firstToken": "Waktu hingga token pertama",
+      "promptTime": "Pemrosesan prompt",
+      "speed": "Kecepatan",
+      "speedLive": "Kecepatan, perkiraan saat streaming",
+      "average": "Rata-rata {{count}} permintaan terakhir",
+      "note": "Angka ini berasal dari permintaan yang dilihat halaman ini. Server tidak menyimpannya, jadi memuat ulang akan menghapusnya."
+    },
+    "paused": {
+      "after": "setelah {{count}} langkah",
+      "atLimit": "di batas langkah",
+      "continue": "Lanjutkan",
+      "continueTitle": "Model telah memakai semua langkah dalam satu giliran. Biarkan ia melanjutkan dari tempat ia berhenti.",
+      "message": "Lanjutkan dari tempat kamu berhenti."
+    }
+  },
+  "attachments": {
+    "label": "File terlampir",
+    "open": "Buka {{name}}",
+    "showMore": "Tampilkan {{count}} lagi",
+    "missing": "File tidak lagi tersedia"
+  },
+  "preview": {
+    "open": "Buka pratinjau",
+    "created": "Dibuat oleh asisten",
+    "changed": "Diubah oleh asisten",
+    "yours": "Dari Anda",
+    "fromReply": "Dari jawaban",
+    "download": "Unduh",
+    "downloadCode": "Unduh kode",
+    "copy": "Salin",
+    "copied": "Disalin",
+    "openInFiles": "Buka di File",
+    "actions": "Tindakan file",
+    "opened": "Pratinjau dibuka: {{name}}",
+    "chip": {
+      "created": "Dibuat",
+      "changed": "Diubah",
+      "label": "{{verb}} {{name}}, buka pratinjau",
+      "row": "File dari jawaban ini"
+    }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} token ({{pct}}%)",
+    "used": "{{used}} token",
+    "speed": "{{speed}} tok/dtk",
+    "title": "Konteks yang dipakai permintaan model terakhir",
+    "ofLimit": "{{used}} / {{limit}} token",
+    "left": "sisa {{left}}"
+  },
+  "goal": {
+    "label": "Tujuan",
+    "states": {
+      "active": "Sedang dikerjakan",
+      "paused": "Dijeda",
+      "done": "Tercapai",
+      "blocked": "Butuh Anda"
+    },
+    "pausedBy": {
+      "user": "Anda menjedanya.",
+      "turn_limit": "Semua giliran otomatisnya sudah terpakai. Lanjutkan untuk memberi lebih banyak.",
+      "step_limit": "Semua langkahnya sudah terpakai. Lanjutkan untuk memberi lebih banyak.",
+      "error": "Sebuah giliran gagal. Lanjutkan untuk mencoba lagi.",
+      "interrupted": "Server berhenti saat sebuah giliran berjalan. Lanjutkan untuk meneruskan."
+    },
+    "blockedNote": "Butuh dari Anda: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Diganti: {{text}}",
+    "pause": "Jeda",
+    "pauseTitle": "Hentikan giliran yang berjalan dan jeda tujuan",
+    "resume": "Lanjutkan",
+    "resumeTitle": "Teruskan tujuan",
+    "clear": "Hapus",
+    "clearTitle": "Hapus tujuan",
+    "progress": "Tujuan · giliran {{turn}} dari {{max}}",
+    "progressStart": "Tujuan · memulai",
+    "markers": {
+      "set": "Tujuan ditetapkan",
+      "replaced": "Tujuan diganti",
+      "continue": "Melanjutkan menuju tujuan · giliran {{turn}}",
+      "continueStart": "Melanjutkan menuju tujuan",
+      "paused": "Tujuan dijeda",
+      "resumed": "Tujuan dilanjutkan",
+      "done": "Tujuan tercapai",
+      "blocked": "Tujuan terhambat",
+      "cleared": "Tujuan dihapus"
+    },
+    "announce": {
+      "set": "Tujuan ditetapkan: {{text}}",
+      "paused": "Tujuan dijeda. {{why}}",
+      "resumed": "Tujuan dilanjutkan",
+      "done": "Tujuan tercapai: {{note}}",
+      "blocked": "Tujuan membutuhkan Anda: {{note}}",
+      "cleared": "Tujuan dihapus"
+    },
+    "card": {
+      "title": "Tujuan",
+      "none": "Chat ini belum punya tujuan. Ketik /goal lalu apa yang ingin diselesaikan, dan chat akan terus mengerjakannya sendiri.",
+      "turns": "Giliran {{turn}} dari {{max}}",
+      "steps": "{{steps}} dari {{max}} langkah",
+      "clear": "/goal clear menghapusnya.",
+      "resume": "/goal resume melanjutkannya.",
+      "turnsLabel": "Giliran otomatis",
+      "stepsLabel": "Langkah",
+      "setLabel": "Ditetapkan",
+      "stateLabel": "Status",
+      "noteLabel": "Catatan"
+    },
+    "errors": {
+      "empty": "Tulis tujuannya setelah /goal.",
+      "notAllowed": "Hanya chat yang Anda mulai sendiri yang bisa punya tujuan."
+    }
+  },
+  "invoked": {
+    "skill": "Skill: {{name}}",
+    "agent": "Agen: {{name}}"
+  },
+  "marker": {
+    "compacted": "Konteks dipadatkan: {{before}} menjadi {{after}} token",
+    "cleared": "Konteks dikosongkan",
+    "clearedHint": "Model tidak melihat pesan di atas garis ini."
+  },
+  "cmdcard": {
+    "close": "Tutup",
+    "helpTitle": "Perintah",
+    "helpSkills_one": "Skill: {{names}}. Ketik / lalu namanya.",
+    "helpSkills_other": "{{count}} skill: {{names}}. Ketik / lalu namanya.",
+    "helpKeys": "Ketik / di kotak untuk membuka daftar. Tab melengkapi, Enter menjalankan, Esc menutup.",
+    "aboutTitle": "Chat ini",
+    "model": "Model",
+    "state": "Status",
+    "loaded": "Dimuat",
+    "notLoaded": "Belum dimuat",
+    "backend": "Backend",
+    "tools": "Alat",
+    "toolsOn_one": "{{count}} aktif",
+    "toolsOn_other": "{{count}} aktif",
+    "skills": "Skill",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skill",
+    "commands": "Perintah",
+    "isolated": "Berjalan di sandbox terisolasi",
+    "host": "Berjalan di mesin ini",
+    "noCommands": "Tidak bisa dijalankan",
+    "context": "Konteks",
+    "contextOf": "{{used}} dari {{limit}} token",
+    "contextUsed": "{{used}} token",
+    "unknown": "Belum diketahui"
   }
 }

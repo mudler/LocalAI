@@ -24,14 +24,48 @@ func GetCachedUserPermissions(c echo.Context, db *gorm.DB, userID string) (*User
 	return perm, nil
 }
 
+// FeatureAllowed says whether the user of a request may use a feature, for a
+// handler that must decide inside the route (for example when one field of a
+// body needs a feature the route itself does not). It reads the permissions
+// that RequireRouteFeature cached on the request, so it costs no query on a
+// route in RouteFeatureRegistry. With no authenticated user (authentication is
+// off) it allows; a user whose permissions were not loaded is refused.
+func FeatureAllowed(c echo.Context, feature string) bool {
+	user := GetUser(c)
+	if user == nil || user.Role == RoleAdmin {
+		return true
+	}
+	perm, ok := c.Get(contextKeyPermissions).(*UserPermission)
+	if !ok || perm == nil {
+		return false
+	}
+	if val, exists := perm.Permissions[feature]; exists {
+		return val
+	}
+	return isDefaultOnFeature(feature)
+}
+
 // Feature name constants — all code must use these, never bare strings.
 const (
 	// Agent features (default OFF for new users)
-	FeatureAgents           = "agents"
-	FeatureSkills           = "skills"
 	FeatureCollections      = "collections"
-	FeatureMCPJobs          = "mcp_jobs"
 	FeatureLocalAIAssistant = "localai_assistant"
+	// FeatureAgents gates saved agents (/api/chats/agents) and starting a chat
+	// with one. An agent narrows what a chat may use, but a person must still
+	// pick it.
+	FeatureAgents = "agents"
+	// FeatureTriggers gates scheduled and file triggers: unattended runs.
+	FeatureTriggers = "triggers"
+	// FeatureConnectors gates chat connectors (Telegram bots): a public
+	// door to a saved agent.
+	FeatureConnectors = "connectors"
+	// FeatureMCPJobs gates the agent tasks and jobs API (/api/agent/...), the
+	// name master gave it, so a permission stored there still applies.
+	FeatureMCPJobs = "mcp_jobs"
+	// FeaturePages gates the pages of the workspace (/api/chats/pages...): HTML
+	// pages in the user's home, shown in a sandboxed frame. Off for new users
+	// until an administrator grants it; administrators always have it.
+	FeaturePages = "pages"
 
 	// General features (default OFF for new users)
 	FeatureAddons       = "addons"
@@ -50,6 +84,7 @@ const (
 	FeatureVideo               = "video"
 	Feature3D                  = "3d"
 	FeatureMotion              = "motion"
+	FeatureChats               = "chats"
 	FeatureEmbeddings          = "embeddings"
 	FeatureSound               = "sound"
 	FeatureRealtime            = "realtime"
@@ -66,12 +101,11 @@ const (
 	// FeaturePIIFilter gates the synchronous PII analyze/redact service
 	// (POST /api/pii/{analyze,redact}). Default ON like the other API
 	// features; the admin-only events log is gated separately in-handler.
-	FeaturePIIFilter   = "pii_filter"
-	FeatureChatHistory = "chat_history"
+	FeaturePIIFilter = "pii_filter"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
-var AgentFeatures = []string{FeatureAgents, FeatureSkills, FeatureCollections, FeatureMCPJobs, FeatureLocalAIAssistant}
+var AgentFeatures = []string{FeatureCollections, FeatureLocalAIAssistant, FeatureAgents, FeatureTriggers, FeatureConnectors, FeatureMCPJobs, FeaturePages}
 
 // GeneralFeatures lists general features (default OFF).
 var GeneralFeatures = []string{FeatureAddons, FeatureFineTuning, FeatureQuantization}
@@ -84,7 +118,7 @@ var APIFeatures = []string{
 	FeatureRealtime, FeatureModeration, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
 	FeaturePIIFilter, FeatureDecisions, FeatureForecast,
-	FeatureChatHistory,
+	FeatureChats,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

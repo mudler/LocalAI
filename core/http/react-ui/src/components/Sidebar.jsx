@@ -7,24 +7,35 @@ import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
 import { apiUrl } from '../utils/basePath'
 import { preloadRoute } from '../router'
-import { hubs, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
+import { hubs, operateHub, hubEntryPath, hubOwnsPath } from './hub/hubConfig'
 import { topDestinations } from '../utils/destinations'
-import { primaryDestinations, visiblePrimary } from '../utils/navigationModel'
+import { primaryActive, primaryDestinations, visiblePrimary } from '../utils/navigationModel'
 import { useNavigation } from '../context/NavigationContext'
 import { useOperations } from '../hooks/useOperations'
 import Icon from './Icon'
+import './sidebar.css'
 import AppsPinnedLinks from './AppsPinnedLinks'
+import PagesPinnedLinks from './PagesPinnedLinks'
+import SidebarChats from './SidebarChats'
+import { usePages } from '../hooks/usePages'
+import { useSharedPages } from '../hooks/useSharedPages'
+import { usePinnedPages } from '../hooks/usePinnedPages'
+import { useNewLabel } from './wellknown/useNewLabel'
 
 const COLLAPSED_KEY = 'localai_sidebar_collapsed'
 const SECTIONS_KEY = 'localai_sidebar_sections'
 
-// The sidebar has two layouts. The four-item layout shows Home, Chat, Models
-// and Apps (the entry for the add-ons drawer), and Build and Operate under
-// Workspace. Pinned apps are listed under Apps. With the legacy switch on (features.addon_navigation === false)
-// it shows Home, Models and Chat, and Workspace. Build and Operate are single
-// entries; each opens a hub whose tab bar lives in hub/hubConfig.js (shared
-// with HubLayout). The legacy entries are shared with the 404 page, which
-// lists the same destinations.
+// The sidebar has two layouts. The primary layout shows Home, Files, Agents,
+// MCP connectors, Memory, Models and Add-ons (the entry for the add-ons
+// drawer), then the recent chats with New chat and All chats (SidebarChats).
+// Chats is not an entry: Home is where a chat starts. Pinned apps are listed
+// under Add-ons. Administration (the Operate
+// hub) is pinned at the bottom, above the account controls, not in a section.
+// With the legacy switch on (features.addon_navigation === false) it shows the
+// legacy entries of destinations.js, and Workspace. Operate is a single entry
+// that opens a hub whose tab bar lives in hub/hubConfig.js (shared with
+// HubLayout). The legacy entries are shared with the 404 page, which lists
+// the same destinations.
 const topItems = topDestinations
 
 const sections = [
@@ -166,7 +177,23 @@ export default function Sidebar({ isOpen, onClose }) {
   // The previous sidebar returns when the operator sets the legacy switch.
   const legacy = features.addon_navigation === false
   const hasBuiltin = builtin.length > 0
-  const navAuth = { isAdmin, hasFeature, hasBuiltin, features }
+  // The Pages entry shows once the user has a page; the list is read only for
+  // a user who may have pages at all.
+  const pagesOn = !legacy && hasFeature('chats') && hasFeature('pages')
+  const { pages } = usePages(pagesOn)
+  // Pages of shared folders count too: they are reached from the Pages screen.
+  const { pages: shared } = useSharedPages(pagesOn)
+  const hasPages = pagesOn && (pages.length > 0 || shared.length > 0)
+  const { pins } = usePinnedPages(hasPages)
+  // A pinned page lights up its own link under Pages, not the Pages entry too.
+  const pagesActive = (pathname) => {
+    if (pathname === '/app/pages') return true
+    const m = /^\/app\/pages\/([^/]+)/.exec(pathname)
+    return Boolean(m) && !pins.includes(decodeURIComponent(m[1]))
+  }
+  // The one-time "New" label of the Pages entry, kept in user.json.
+  const pagesNew = useNewLabel('pages', { enabled: hasPages, visiting: location.pathname.startsWith('/app/pages') })
+  const navAuth = { isAdmin, hasFeature, hasBuiltin, features, hasPages }
   const primary = visiblePrimary(primaryDestinations, navAuth)
 
   // One badge, on the always-visible sidebar entry. The Operate tab bar only
@@ -177,14 +204,21 @@ export default function Sidebar({ isOpen, onClose }) {
 
   // Workspace lists one entry per hub the viewer can use; its target is the
   // hub's overview.
+  const hubEntry = (hub) => {
+    const path = hubEntryPath(hub, auth)
+    return path ? { path, icon: hub.icon, labelKey: hub.titleKey, hub } : null
+  }
+  // Administration is not part of Workspace: it is pinned at the bottom.
   const getVisibleSectionItems = (section) => {
     if (!section.hubs) return section.items.filter(filterItem)
-    return hubs.flatMap(hub => {
-      const path = hubEntryPath(hub, auth)
-      if (!path) return []
-      return [{ path, icon: hub.icon, labelKey: hub.titleKey, hub }]
-    })
+    return hubs.filter(hub => hub.id !== operateHub.id).flatMap(hub => hubEntry(hub) ?? [])
   }
+  const adminItem = hubEntry(operateHub)
+  const operateBadge = activeOps > 0 ? (
+    <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
+      {failedOps > 0 ? failedOps : activeOps}
+    </span>
+  ) : null
 
   return (
     <>
@@ -219,12 +253,23 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="sidebar-section">
             {(legacy ? visibleTopItems : [...visibleTopItems.filter(i => i.path === '/app'), ...primary]).map(item => (
               <Fragment key={item.path}>
-                <NavItem item={item} onClose={onClose} collapsed={collapsed} />
+                <NavItem
+                  item={item} onClose={onClose} collapsed={collapsed}
+                  active={legacy || item.path === '/app' ? undefined : item.pagesEntry ? pagesActive(location.pathname) : primaryActive(item, location.pathname)}
+                  badge={item.pagesEntry && pagesNew && !collapsed ? <span className="nav-new" data-testid="nav-pages-new">{t('new')}</span> : undefined}
+                />
                 {/* The Apps group: the pinned apps in pin order, under the Apps entry. */}
                 {!legacy && item.addonsEntry && features.addons !== false && !collapsed && <AppsPinnedLinks onClose={onClose} />}
+                {/* Pinned pages, in pin order, under the Pages entry. */}
+                {item.pagesEntry && !collapsed && <PagesPinnedLinks pages={pages} onClose={onClose} />}
               </Fragment>
             ))}
           </div>
+
+          {/* Recent chats, New chat and All chats. */}
+          {!legacy && hasFeature('chats') && features.chats !== false && (
+            <SidebarChats onClose={onClose} collapsed={collapsed} />
+          )}
 
           {/* Collapsible sections */}
           {(legacy ? sections : sections.filter(s => s.hubs)).map(section => {
@@ -254,11 +299,6 @@ export default function Sidebar({ isOpen, onClose }) {
                         onClose={onClose}
                         collapsed={collapsed}
                         active={item.hub ? hubOwnsPath(item.hub, location.pathname, auth) : undefined}
-                        badge={item.hub?.id === 'operate' && activeOps > 0 ? (
-                          <span className={`nav-badge${failedOps > 0 ? ' nav-badge--error' : ''}`}>
-                            {failedOps > 0 ? failedOps : activeOps}
-                          </span>
-                        ) : null}
                       />
                     ))}
                   </div>
@@ -268,6 +308,19 @@ export default function Sidebar({ isOpen, onClose }) {
           })}
 
         </nav>
+
+        {/* Administration: pinned above the footer so it stays in reach when the list scrolls. */}
+        {adminItem && (
+          <nav className="sidebar-nav sidebar-nav--pinned" aria-label={t('sections.operate')}>
+            <NavItem
+              item={adminItem}
+              onClose={onClose}
+              collapsed={collapsed}
+              active={hubOwnsPath(adminItem.hub, location.pathname, auth)}
+              badge={operateBadge}
+            />
+          </nav>
+        )}
 
         {/* Footer */}
         <div className="sidebar-footer">
@@ -290,6 +343,21 @@ export default function Sidebar({ isOpen, onClose }) {
               </button>
               <button className="sidebar-logout-btn" onClick={logout} title={t('logout')}>
                 <Icon name="log-out" />
+              </button>
+            </div>
+          )}
+          {!authEnabled && hasFeature('chats') && (
+            <div className="sidebar-user">
+              <button
+                className="sidebar-user-link"
+                data-testid="sidebar-your-settings"
+                onClick={() => { navigate('/app/account'); onClose?.() }}
+                onMouseEnter={() => preloadRoute('/app/account')}
+                onFocus={() => preloadRoute('/app/account')}
+                title={t('yourSettings')}
+              >
+                <Icon name="user-settings" className="sidebar-user-avatar-icon" />
+                <span className="nav-label sidebar-user-name">{t('yourSettings')}</span>
               </button>
             </div>
           )}

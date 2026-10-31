@@ -1,0 +1,138 @@
+{
+  "subtitle": "助手为你制作的小工具。它们在这里的沙盒中打开，数据保存在你的文件里。",
+  "card": {
+    "pin": "固定到侧边栏",
+    "unpin": "从侧边栏取消固定",
+    "changedBy": {
+      "you": "{{when}}由你修改",
+      "assistant": "{{when}}由助手修改"
+    },
+    "menu": "{{title}} 的更多操作",
+    "files": "显示其文件",
+    "rename": "重命名",
+    "renameLabel": "新文件夹名称",
+    "renameHint": "小写字母、数字和连字符。",
+    "renameSave": "保存",
+    "renameCancel": "取消",
+    "renameFailed": "页面未能重命名：{{message}}",
+    "delete": "删除页面",
+    "deleteTitle": "删除“{{title}}”？",
+    "deleteMessage": "文件夹 {{folder}} 将移到回收站。你可以在“文件”中恢复。",
+    "deleted": "{{title}} 已在回收站中。",
+    "deleteFailed": "页面未能删除：{{message}}"
+  },
+  "empty": {
+    "text": "页面是一个小工具，比如任务看板或阅读清单。可以在聊天中让助手做一个，或从现成的页面开始。",
+    "starting": "正在复制页面",
+    "starterFailed": "页面未能复制：{{message}}",
+    "ask": "请求创建页面",
+    "askPrompt": "帮我做一个页面，",
+    "starterReading": "从阅读清单开始",
+    "note": "没有页面时，此入口会从侧边栏消失。创建下一个页面后会重新出现。",
+    "learn": "页面的工作原理"
+  },
+  "askNew": "请求创建新页面",
+  "yours": "你的页面",
+  "filter": "筛选页面",
+  "shared": {
+    "yours": "你的",
+    "group": "与你共享",
+    "note": "共享页面只有在你允许后才会运行。如果作者修改了它，会再次询问你。",
+    "offNotice": "此服务器已关闭共享页面。管理员关闭了它们。",
+    "off": "此服务器已关闭共享页面。管理员关闭了它们。",
+    "gone": "此页面已不在共享文件夹中，或你已无权访问。",
+    "review": "审核",
+    "from": "来自 {{author}}",
+    "menu": "页面菜单",
+    "badge": {
+      "notAllowed": "尚未允许",
+      "changed": "在你允许后已更改",
+      "allowed": "已允许"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "不再允许此页面",
+    "authorChanged": "{{author}} 修改了此页面。在你审核更改之前，你允许的版本会继续运行。",
+    "sandboxShared": "沙盒中运行。以你的身份运行，仅限 {{folder}}，无法访问网络。"
+  },
+  "trust": {
+    "title": "打开“{{title}}”？",
+    "desc": "此页面来自共享文件夹。页面以你的身份运行，请在运行前检查。",
+    "who": "作者：{{author}}",
+    "whereLabel": "共享文件夹",
+    "whereWhen": "，更改于 {{when}}",
+    "someone": "某人",
+    "close": "关闭",
+    "canTitle": "它可以",
+    "canStillTitle": "它仍然可以",
+    "cannotTitle": "它不能",
+    "items": {
+      "files": "读写它自己文件夹中的文件",
+      "readOnly": "你只能读取此共享文件夹，因此页面无法保存它的更改。",
+      "chat": "向聊天写入消息",
+      "chatNote": "助手回答前，你会在聊天中看到这条消息。",
+      "noFiles": "读取你的其他文件或聊天",
+      "noNet": "访问网络或其他网站",
+      "noNetNote": "一个限制：它可以在自己的框架中加载另一个地址。这会向外发送一个请求，然后页面停止。",
+      "noTools": "使用工具或更改你的设置"
+    },
+    "warn": "它在自己的文件夹中以你的身份行事。如果 {{author}} 修改它，会再次询问你。",
+    "viewSource": "查看源代码",
+    "cancel": "取消",
+    "allowOnce": "允许一次",
+    "allow": "允许",
+    "changed": {
+      "title": "“{{title}}”已更改",
+      "desc": "你允许的是较早的版本。再次运行前，请检查更改的内容。",
+      "who": "由 {{author}} 于 {{when}} 更改",
+      "allowed": "你允许的是 {{date}} 的版本",
+      "what": "更改内容",
+      "same": "它能做的事与之前相同。",
+      "warn": "如果你允许，每次打开都会运行此版本，直到 {{author}} 再次修改它。",
+      "view": "查看更改",
+      "lines": "{{before}} → {{after}} 行",
+      "code": "页面的脚本、样式表或模块已更改：{{files}}"
+    },
+    "pill": {
+      "notYet": "尚未允许",
+      "not": "未允许",
+      "once": "仅本次访问允许",
+      "allowed": "已允许",
+      "changed": "在你允许后已更改"
+    },
+    "from": "来自 {{author}}",
+    "frame": {
+      "chrome": "来自 {{folder}} 的共享页面。它尚未运行。"
+    },
+    "blocked": {
+      "title": "此页面尚未运行",
+      "body": "你选择不运行它。它来自 {{author}} 的共享文件夹 {{folder}}。其中没有任何内容运行，也没有保存任何内容。",
+      "review": "审核并允许"
+    },
+    "waiting": {
+      "title": "等待你的确认",
+      "body": "在你允许之前，此页面中的任何内容都不会运行。"
+    },
+    "stopped": {
+      "revoked": "你已不再允许此页面。它已停止，在你再次允许之前不会运行任何内容。",
+      "refused": "此页面已不再被允许，因此已停止。审核后可再次允许。",
+      "off": "此服务器已关闭共享页面，因此此页面已停止。"
+    },
+    "changedMeanwhile": "你审核时页面已更改。这是新版本。",
+    "sourceTitle": "“{{title}}”的源代码",
+    "sourceLines_one": "{{count}} 行",
+    "sourceLines_other": "{{count}} 行",
+    "sourceNote": "源代码以文本显示。这里不会运行任何内容。"
+  },
+  "frame": {
+    "filesFailed": "此页面旁边的文件未能加载：{{files}}。浏览器控制台会说明原因。",
+    "tooLarge": "此页面从其文件夹嵌入的文件超过 {{limit}}，因此省略了部分文件。请改用 fetch() 加载数据。",
+    "dismiss": "关闭"
+  },
+  "link": {
+    "label": "页面想要打开一个链接",
+    "open": "打开 {{site}}",
+    "cancel": "取消",
+    "lookalike": "此地址使用了其他文字的字母，读作 {{display}}。它可能在模仿其他网站：打开前请先核对。"
+  }
+}

@@ -107,6 +107,68 @@
       "assistant": "Asisten LocalAI",
       "distributed": "Terdistribusi",
       "responses": "Respons"
+    },
+    "loadFailedTitle": "Pengaturan tidak dapat dimuat.",
+    "egress": {
+      "title": "Jaringan Sandbox",
+      "intro": "Perintah di Sandbox menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di bawah; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
+      "serves": "Perintah berjalan terisolasi di add-on {{name}}",
+      "servesHost": "Perintah berjalan di mesin ini melalui {{name}}",
+      "servesNone": "Belum ada Sandbox yang menjalankan perintah",
+      "hostNote": "Backend host menjalankan perintah di mesin ini dengan jaringannya: pengaturan ini tidak berlaku untuknya.",
+      "counts": "24 jam terakhir: {{allowed}} diizinkan, {{blocked}} diblokir.",
+      "private": "Izinkan aturan administrator menjangkau jaringan privat",
+      "privateWarning": "Host yang diizinkan administrator lalu dapat menjangkau alamat di dalam jaringan Anda. Preset saja tidak pernah; alamat metadata cloud dan server tetap ditolak.",
+      "typePhrase": "Untuk menyalakannya, ketik: {{phrase}}",
+      "registries": "Registri paket ({{count}})",
+      "showAudit": "Tampilkan audit",
+      "hideAudit": "Sembunyikan audit",
+      "loadFailed": "Pengaturan jaringan Sandbox tidak dapat dibaca",
+      "audit": {
+        "verdict": "Keputusan",
+        "host": "Host",
+        "user": "Pengguna",
+        "at": "Waktu",
+        "reason": "Alasan",
+        "bytes": "Byte naik / turun",
+        "refresh": "Muat ulang",
+        "empty": "Tidak ada permintaan yang cocok.",
+        "loadFailed": "Audit tidak dapat dibaca",
+        "verdicts": {
+          "any": "Semua keputusan",
+          "allow": "Diizinkan",
+          "block": "Diblokir",
+          "done": "Selesai"
+        }
+      }
+    },
+    "addons": {
+      "title": "Add-on",
+      "hint": "Pengaturan yang dibawa add-on",
+      "intro": "Setiap add-on menyimpan pengaturannya di halamannya sendiri, di tab Pengaturan pada detailnya. Buka salah satu untuk mengubahnya.",
+      "off": "Nonaktif. Aktifkan untuk mengubah pengaturannya.",
+      "open": "Buka pengaturan",
+      "openNamed": "Buka pengaturan {{name}}",
+      "count_one": "{{count}} add-on dengan pengaturan",
+      "count_other": "{{count}} add-on dengan pengaturan"
+    },
+    "hosts": {
+      "add": "Tambah",
+      "listLabel": "Host yang selalu diizinkan",
+      "remove": "Hapus {{host}}",
+      "empty": "Belum ada host. Tulis nama host, atau host:port untuk mengunci port.",
+      "hint": "Hanya nama yang tepat. Tambahkan :port untuk mengizinkan satu port; jika tidak, port jaringan Sandbox yang berlaku.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Tulis nama host.",
+        "wildcard": "\"{{value}}\": tulis nama host yang tepat, bukan pola.",
+        "shape": "\"{{value}}\" bukan nama host. Tulis hanya hostnya, tanpa skema dan path.",
+        "port": "\"{{value}}\": port harus 1 sampai 65535, dan 22 serta 25 selalu ditolak.",
+        "private": "\"{{value}}\" adalah alamat privat atau lokal. Aktifkan dulu sakelar jaringan privat.",
+        "numeric": "\"{{value}}\": tulis alamat IP sebagai empat angka desimal.",
+        "duplicate": "\"{{value}}\" sudah ada di daftar.",
+        "full": "Daftar memuat paling banyak {{max}} host."
+      }
     }
   },
   "backends": {
@@ -276,5 +338,74 @@
     "subtitle": "Model yang dimuat di instans LocalAI ini dan kapasitas host yang digunakannya.",
     "scaleOut": "Tambah mesin",
     "hideScaleOut": "Sembunyikan pengaturan"
+  },
+  "settingsTools": {
+    "intro": "Chat memiliki beberapa alat bawaan yang dapat digantikan add-on. Saat add-on terpasang, berjalan, dan aktif untuk sebuah chat, chat memakai alat add-on itu dengan nama yang sama.",
+    "empty": "Tidak ada alat bawaan yang dapat dikelola di server ini.",
+    "loadFailed": "Alat bawaan tidak dapat dibaca",
+    "switch": "Aktif",
+    "byBuiltin": "Bawaan",
+    "byAddon": "Add-on: {{name}}",
+    "byNone": "Mati",
+    "unavailable": "Server ini tidak dapat menjalankannya: {{reason}}.",
+    "installSandbox": "Pasang Sandbox untuk menjalankan perintah secara terisolasi",
+    "replaceExplain": "Add-on ini menggantikan {{tool}}: yang dipilih melayaninya di setiap chat tempat ia aktif dan berjalan, dan yang bawaan disembunyikan. Hanya satu yang bisa aktif. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
+    "defaultInstalledFirst": "Bawaan: dipasang lebih dulu",
+    "installedOn": "Dipasang {{when}}",
+    "choose_one": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
+    "choose_other": "{{count}} add-on menggantikan {{tool}}: pilih yang akan dipakai.",
+    "labels": {
+      "bash": "Perintah (bash)",
+      "web_search": "Pencarian web",
+      "web_fetch": "Baca halaman web",
+      "list_agents": "Agen tersimpan"
+    },
+    "descriptions": {
+      "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada Sandbox yang melayani bash. Add-on Sandbox menggantinya dengan perintah terisolasi.",
+      "web_search": "Mencari di web untuk chat tanpa kunci (DuckDuckGo, lalu Brave Search, lalu Bing), atau dengan instans SearXNG Anda jika sudah diatur.",
+      "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya.",
+      "list_agents": "Memungkinkan chat menampilkan agen tersimpan milik pengguna dan memulai salah satunya sebagai sub-agen. Setiap chat mengaktifkannya di menu Alat."
+    },
+    "bash": {
+      "switch": "Izinkan chat menjalankan perintah di mesin ini",
+      "modeLegend": "Siapa yang dapat menjalankan perintah",
+      "ask": "Tanya setiap kali.",
+      "askHint": "Hanya chat administrator yang mendapatkannya, dan setiap perintah menunggu persetujuan mereka di chat.",
+      "on": "Izinkan untuk semua.",
+      "onHint": "Chat semua pengguna menjalankan perintah di sini tanpa bertanya, termasuk jalankan terjadwal dan sub-agen.",
+      "default": "Belum diatur: bawaan berlaku ({{mode}}).",
+      "warning": "Perintah berjalan sebagai pengguna LocalAI, tanpa isolasi dan dengan jaringan mesin ini: dapat membaca apa yang bisa dibaca LocalAI dan menjangkau internet, jaringan Anda, dan API LocalAI. Setiap perintah dicatat. Pasang Sandbox untuk mengisolasinya."
+    },
+    "modes": {
+      "off": "mati",
+      "ask": "tanya setiap kali",
+      "on": "diizinkan untuk semua"
+    },
+    "skillsTitle": "Skill yang digantikan add-on",
+    "skillsIntro": "Add-on dapat menggantikan skill bawaan dengan miliknya sendiri, yang ditulis untuk alatnya. Jika beberapa add-on menggantikan skill yang sama, pilih yang dipakai.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "Add-on yang dipilih tidak berjalan: skill bawaan yang dipakai.",
+    "toolNotRunning": "Add-on yang menggantikan alat ini tidak berjalan: alat bawaan yang dipakai.",
+    "stopped": "berhenti",
+    "webTest": {
+      "intro": "Menjalankan pencarian dengan setiap penyedia dari pengaturan yang tersimpan dan menampilkan hasil masing-masing. Terapkan perubahan Anda terlebih dahulu.",
+      "queryLabel": "Kueri",
+      "run": "Uji pencarian",
+      "running": "Menguji…",
+      "answered": "Chat mendapat hasil dari {{host}}.",
+      "noneAnswered": "Tidak ada penyedia yang menjawab.",
+      "failed": "Uji tidak dapat dijalankan: {{error}}",
+      "results_one": "{{count}} hasil",
+      "results_other": "{{count}} hasil",
+      "outcomes": {
+        "ok": "Berfungsi",
+        "no_results": "Tidak ada hasil",
+        "challenged": "Pemeriksaan bot",
+        "blocked": "Diblokir",
+        "timeout": "Terlalu lambat",
+        "error": "Galat",
+        "skipped": "Dilewati"
+      }
+    }
   }
 }

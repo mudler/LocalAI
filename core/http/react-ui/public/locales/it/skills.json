@@ -1,79 +1,83 @@
 {
   "title": "Competenze",
-  "subtitle": "Gestisci le competenze degli agenti (istruzioni e risorse riutilizzabili)",
+  "subtitle": "Istruzioni che una chat può leggere quando un compito corrisponde. Aggiungine una a un agente per usarla lì.",
   "unavailable": {
-    "subtitle": "Il servizio competenze non è disponibile o l'indice è in ricostruzione. Riprova tra un momento.",
-    "retry": "Riprova"
+    "subtitle": "Le competenze richiedono File, e File è disattivato su questo server."
   },
   "actions": {
     "newSkill": "Nuova competenza",
     "createSkill": "Crea competenza",
-    "import": "Importa",
-    "importing": "Importazione...",
-    "gitRepos": "Repo Git",
     "edit": "Modifica",
-    "delete": "Elimina",
-    "export": "Esporta",
-    "sync": "Sincronizza",
-    "addRepo": "Aggiungi repo",
-    "adding": "Aggiunta...",
-    "remove": "Rimuovi",
-    "enable": "Abilita",
-    "disable": "Disabilita"
+    "delete": "Elimina"
   },
   "search": {
     "placeholder": "Cerca competenze..."
-  },
-  "git": {
-    "title": "Repository Git",
-    "description": "Aggiungi repository Git da cui ottenere le competenze. Le competenze appariranno nella lista dopo la sincronizzazione.",
-    "urlPlaceholder": "https://github.com/user/repo o git@github.com:user/repo.git",
-    "noRepos": "Nessun repo Git configurato. Aggiungine uno sopra.",
-    "disabled": "Disabilitato",
-    "removeRepo": "Rimuovi repo"
   },
   "card": {
     "noDescription": "Nessuna descrizione",
     "readOnly": "Sola lettura",
     "editTitle": "Modifica competenza",
     "deleteTitle": "Elimina competenza",
-    "exportTitle": "Esporta come .tar.gz"
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Questa competenza è stata saltata: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Fornita da {{name}}",
+    "replacedBy": "Sostituita da {{name}}",
+    "notActive": "Non attiva: si usa la skill integrata",
+    "notActiveBy": "Non attiva: la fornisce {{name}}",
+    "fallback": "In uso perché la skill del componente {{name}} è disattivata o non in esecuzione"
   },
   "empty": {
     "title": "Nessuna competenza trovata",
     "text": "Crea una competenza o importane una per iniziare.",
-    "noPersonal": "Non hai ancora competenze."
-  },
-  "sections": {
-    "yourSkills": "Le tue competenze",
-    "otherUsersSkills": "Competenze di altri utenti"
-  },
-  "deleteDialog": {
-    "title": "Elimina competenza",
-    "message": "Eliminare la competenza \"{{name}}\"? Questa azione non può essere annullata.",
-    "confirm": "Elimina"
-  },
-  "removeRepoDialog": {
-    "title": "Rimuovi repository Git",
-    "message": "Rimuovere questo repository Git? Le competenze al suo interno non saranno più disponibili.",
-    "confirm": "Rimuovi"
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
   },
   "toasts": {
     "loadFailed": "Caricamento competenze fallito",
     "deleted": "Competenza \"{{name}}\" eliminata",
-    "deleteFailed": "Eliminazione competenza fallita",
-    "exported": "Competenza \"{{name}}\" esportata",
-    "exportFailed": "Esportazione fallita",
-    "imported": "Competenza importata da \"{{file}}\"",
-    "importFailed": "Importazione fallita",
-    "loadReposFailed": "Caricamento repo Git fallito",
-    "repoAdded": "Repo Git aggiunto e in sincronizzazione",
-    "addRepoFailed": "Aggiunta repo fallita",
-    "synced": "Repo sincronizzato",
-    "syncFailed": "Sincronizzazione fallita",
-    "toggled": "Repo modificato",
-    "toggleFailed": "Modifica fallita",
-    "removed": "Repo rimosso",
-    "removeFailed": "Rimozione fallita"
+    "deleteFailed": "Eliminazione competenza fallita"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Componente"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Questa competenza qui è di sola lettura. Una competenza integrata viene con il server, e una competenza dei tuoi file si modifica in File."
+  },
+  "load": {
+    "title": "Impossibile caricare le tue skill."
   }
 }

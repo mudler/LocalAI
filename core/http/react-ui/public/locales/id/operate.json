@@ -1,0 +1,57 @@
+{
+  "backends": {
+    "filterLabel": "Saring backend",
+    "check": "Periksa pembaruan",
+    "reinstallBackend": "Pasang ulang backend",
+    "deleteBackend": "Hapus backend",
+    "updateAllTitle": "Perbarui semua backend",
+    "updateAllIntro": "Pilih backend yang akan diperbarui. Masing-masing diperbarui sendiri, satu per satu. Kegagalan tidak menghentikan yang lain.",
+    "updateSelected": "Perbarui yang dipilih",
+    "loadFailedTitle": "Katalog backend tidak dapat dimuat.",
+    "filtersButton": "Filter",
+    "filtersDone": "Selesai",
+    "filterGroups": {
+      "state": "Status",
+      "type": "Jenis",
+      "show": "Tampilkan",
+      "library": "Pustaka"
+    },
+    "showVariants": "Varian build",
+    "showDevelopment": "Build pengembangan",
+    "allLibraries": "Semua pustaka",
+    "moreActions": "Tindakan backend lainnya",
+    "installFromUrl": "Pasang dari URL…",
+    "manageLibraries": "Kelola pustaka…",
+    "count_one": "{{count}} backend",
+    "count_other": "{{count}} backend",
+    "countOf": "{{shown}} dari {{total}} backend",
+    "activeFilters": "Filter aktif",
+    "removeFilter": "Hapus filter: {{name}}",
+    "checking": "Memeriksa pembaruan…",
+    "updatesAvailable_one": "{{count}} pembaruan tersedia",
+    "updatesAvailable_other": "{{count}} pembaruan tersedia",
+    "reviewUpdates": "Tinjau",
+    "close": "Tutup",
+    "installedLoadFailedTitle": "Backend terpasang tidak dapat dimuat."
+  },
+  "capacity": {
+    "diskChip": "Disk hampir penuh"
+  },
+  "activity": {
+    "kind": {
+      "addon": "add-on"
+    },
+    "verb": {
+      "upgrading": "Memperbarui {{kind}}",
+      "failedUpgrade": "Tidak dapat memperbarui {{kind}}"
+    },
+    "filter": {
+      "addons": "Add-on"
+    },
+    "upgradeVersions": "{{from}} ke {{to}}",
+    "rowUpgraded": "Diperbarui dalam {{duration}}",
+    "rowUpgradedPlain": "Diperbarui",
+    "viewInAddons": "Lihat di Add-on",
+    "upgradeWaiting": "Menunggu layanan add-on dimulai. Pemeriksaan berikutnya dalam {{seconds}} dtk."
+  }
+}

@@ -1,79 +1,83 @@
 {
   "title": "Habilidades",
-  "subtitle": "Gerenciar habilidades de agentes (instruções e recursos reutilizáveis)",
+  "subtitle": "Instruções que um chat pode ler quando uma tarefa corresponde. Adicione uma a um agente para usá-la lá.",
   "unavailable": {
-    "subtitle": "O serviço de habilidades não está disponível ou o índice está sendo reconstruído. Tente novamente em um momento.",
-    "retry": "Tentar novamente"
+    "subtitle": "As habilidades precisam de Arquivos, e Arquivos está desativado neste servidor."
   },
   "actions": {
     "newSkill": "Nova habilidade",
     "createSkill": "Criar habilidade",
-    "import": "Importar",
-    "importing": "Importando...",
-    "gitRepos": "Repositórios Git",
     "edit": "Editar",
-    "delete": "Excluir",
-    "export": "Exportar",
-    "sync": "Sincronizar",
-    "addRepo": "Adicionar repositório",
-    "adding": "Adicionando...",
-    "remove": "Remover",
-    "enable": "Habilitar",
-    "disable": "Desabilitar"
+    "delete": "Excluir"
   },
   "search": {
     "placeholder": "Buscar habilidades..."
-  },
-  "git": {
-    "title": "Repositórios Git",
-    "description": "Adicione repositórios Git para obter habilidades. As habilidades aparecerão na lista após a sincronização.",
-    "urlPlaceholder": "https://github.com/usuário/repo ou git@github.com:usuário/repo.git",
-    "noRepos": "Nenhum repositório Git configurado. Adicione um acima.",
-    "disabled": "Desabilitado",
-    "removeRepo": "Remover repositório"
   },
   "card": {
     "noDescription": "Sem descrição",
     "readOnly": "Somente leitura",
     "editTitle": "Editar habilidade",
     "deleteTitle": "Excluir habilidade",
-    "exportTitle": "Exportar como .tar.gz"
+    "invalid": "Skipped: not a valid skill",
+    "invalidWhy": "Esta habilidade foi ignorada: {{reason}}",
+    "shadowed": "Hidden by a {{layer}} skill",
+    "shadowedLong": "Hidden by a {{layer}} skill of the same name",
+    "providedBy": "Fornecida por {{name}}",
+    "replacedBy": "Substituída por {{name}}",
+    "notActive": "Inativa: a habilidade integrada é usada",
+    "notActiveBy": "Inativa: {{name}} a fornece",
+    "fallback": "Em uso porque a habilidade do complemento {{name}} está desligada ou não está em execução"
   },
   "empty": {
     "title": "Nenhuma habilidade encontrada",
     "text": "Crie uma habilidade ou importe uma para começar.",
-    "noPersonal": "Você ainda não tem habilidades."
-  },
-  "sections": {
-    "yourSkills": "Suas Habilidades",
-    "otherUsersSkills": "Habilidades de Outros Usuários"
-  },
-  "deleteDialog": {
-    "title": "Excluir Habilidade",
-    "message": "Excluir a habilidade \"{{name}}\"? Esta ação não pode ser desfeita.",
-    "confirm": "Excluir"
-  },
-  "removeRepoDialog": {
-    "title": "Remover Repositório Git",
-    "message": "Remover este repositório Git? As habilidades dele não estarão mais disponíveis.",
-    "confirm": "Remover"
+    "stepWrite": "Write a skill: a name, a line that says when to use it, and the instructions.",
+    "stepTry": "Check it in the list: it shows who uses it and what it says.",
+    "stepAdd": "Add it to an agent when you want it used."
   },
   "toasts": {
     "loadFailed": "Falha ao carregar habilidades",
     "deleted": "Habilidade \"{{name}}\" excluída",
-    "deleteFailed": "Falha ao excluir a habilidade",
-    "exported": "Habilidade \"{{name}}\" exportada",
-    "exportFailed": "Falha na exportação",
-    "imported": "Habilidade importada de \"{{file}}\"",
-    "importFailed": "Falha na importação",
-    "loadReposFailed": "Falha ao carregar repositórios Git",
-    "repoAdded": "Repositório Git adicionado e sincronizando",
-    "addRepoFailed": "Falha ao adicionar o repositório",
-    "synced": "Repositório sincronizado",
-    "syncFailed": "Falha na sincronização",
-    "toggled": "Repositório alternado",
-    "toggleFailed": "Falha ao alternar",
-    "removed": "Repositório removido",
-    "removeFailed": "Falha na remoção"
+    "deleteFailed": "Falha ao excluir a habilidade"
+  },
+  "layers": {
+    "label": "Layer",
+    "personal": "Personal",
+    "shared": "Shared",
+    "builtin": "Built-in",
+    "folder": "Workspace",
+    "addon": "Complemento"
+  },
+  "pane": {
+    "loading": "Loading...",
+    "loadFailed": "The skill could not be read.",
+    "tokensExplain": "A chat reads a skill only when a task matches its description, so it adds nothing until then. About {{count}} tokens when read (estimate)."
+  },
+  "edit": {
+    "back": "Back to skills",
+    "titleNew": "New skill",
+    "titleEdit": "Edit: {{name}}",
+    "basic": "Basic information",
+    "content": "Content",
+    "layer": "Layer",
+    "layerHelp": "Personal is yours alone. Shared is read by every user.",
+    "name": "Name (lowercase, hyphens only)",
+    "nameLocked": "Name cannot be changed after creation.",
+    "description": "Description (when to use it)",
+    "descriptionHelp": "A chat reads this line to decide whether the skill fits the task.",
+    "body": "Skill content (markdown)",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "create": "Create skill",
+    "saving": "Saving...",
+    "created": "Skill created",
+    "updated": "Skill updated",
+    "required": "A name and a description are required",
+    "saveFailed": "Save failed",
+    "loadFailed": "Failed to load the skill",
+    "readOnly": "Esta habilidade é somente leitura aqui. Uma habilidade integrada vem com o servidor, e uma dos seus arquivos é alterada em Arquivos."
+  },
+  "load": {
+    "title": "Não foi possível carregar suas habilidades."
   }
 }

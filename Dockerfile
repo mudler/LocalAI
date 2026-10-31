@@ -21,7 +21,7 @@ RUN --mount=type=bind,source=.docker/apt-mirror.sh,target=/usr/local/sbin/apt-mi
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
         ffmpeg libopenblas0 libopenblas-dev libopus0 sox \
-        hwdata && \
+        hwdata e2fsprogs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -297,6 +297,14 @@ ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV LD_FLAGS=${LD_FLAGS}
+# The default model and backend source of the binary. The Makefile picks the
+# gallery on a commit that carries a tag, so a tagged image would read other
+# sources than a release binary, which the release workflow cuts over to the
+# libraries. Pin the libraries here so both read the same sources.
+ARG LOCALAI_MODEL_SOURCE=library
+ARG LOCALAI_BACKEND_SOURCE=library
+ENV LOCALAI_MODEL_SOURCE=${LOCALAI_MODEL_SOURCE}
+ENV LOCALAI_BACKEND_SOURCE=${LOCALAI_BACKEND_SOURCE}
 
 RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 
@@ -419,6 +427,18 @@ RUN --mount=from=builder,src=/build/,dst=/mnt/build \
 
 # Make sure the models directory exists
 RUN mkdir -p /models /backends /data
+
+# The unprivileged user that entrypoint.sh drops to. The image still starts as
+# root so that the entrypoint can hand a volume created by an older image over
+# to this user; the Sandbox add-on refuses to run as root.
+RUN groupadd --gid 10001 localai && \
+    useradd --uid 10001 --gid 10001 --home-dir /home/localai --create-home --shell /usr/sbin/nologin localai && \
+    chown localai:localai /models /backends /data
+
+# The default staging directory sits next to the binary, which is the root
+# directory here, and the unprivileged user cannot write there. Stage the
+# in-flight downloads in the data volume instead of the RAM-backed /tmp.
+ENV LOCALAI_DOWNLOAD_STAGING_PATH=/data/downloading
 
 # Define the health check command.
 #

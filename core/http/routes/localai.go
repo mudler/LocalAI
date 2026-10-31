@@ -9,7 +9,6 @@ import (
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/mudler/LocalAI/core/services/chathistory"
 	compressionservice "github.com/mudler/LocalAI/core/services/compression"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/monitoring"
@@ -62,9 +61,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	evaluator *templates.Evaluator,
 	app *application.Application,
 	adminMiddleware echo.MiddlewareFunc,
-	mcpJobsMw echo.MiddlewareFunc,
-	mcpMw echo.MiddlewareFunc,
-	chatHistoryMw echo.MiddlewareFunc) {
+	mcpMw echo.MiddlewareFunc) {
 
 	// Themed index first, then the library's wildcard for its own assets.
 	RegisterSwaggerTheme(router)
@@ -488,11 +485,6 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"nodes": "/api/p2p",
 					"token": "/api/p2p/token",
 				},
-				"agents": map[string]string{
-					"tasks":   "/api/agent/tasks",
-					"jobs":    "/api/agent/jobs",
-					"execute": "/api/agent/jobs/execute",
-				},
 				"settings": map[string]string{
 					"get":    "/api/settings",
 					"update": "/api/settings",
@@ -502,6 +494,20 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 					"get":    "/stores/get",
 					"find":   "/stores/find",
 					"delete": "/stores/delete",
+				},
+				"chats": map[string]string{
+					"conversations": "/api/chats",
+					"agents":        "/api/chats/agents",
+					"triggers":      "/api/chats/triggers",
+					"connectors":    "/api/chats/connectors",
+				},
+				"agent_jobs": map[string]string{
+					"tasks":   "/api/agent/tasks",
+					"jobs":    "/api/agent/jobs",
+					"execute": "/api/agent/jobs/execute",
+				},
+				"collections": map[string]string{
+					"collections": "/api/collections",
 				},
 				"docs": map[string]string{
 					"swagger":      "/swagger/index.html",
@@ -515,9 +521,11 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 				"model_storage":   true,
 				"backend_install": !appConfig.DisableBackendInstall,
 				"mcp":             !appConfig.DisableMCP,
-				"agents":          appConfig.AgentPool.Enabled,
 				"p2p":             appConfig.P2PToken != "",
 				"tracing":         true,
+				"chats":           app != nil && app.StudioService() != nil,
+				"agent_jobs":      app != nil && app.StudioJobs() != nil,
+				"collections":     appConfig.Collections.Enabled,
 				"voice_profiles":  true,
 				"tts_voices":      true,
 			},
@@ -603,43 +611,4 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.POST("/api/cors-proxy", localai.CORSProxyEndpoint(appConfig), mcpMw)
 		router.OPTIONS("/api/cors-proxy", localai.CORSProxyOptionsEndpoint())
 	}
-
-	// Agent job routes (MCP CI Jobs — requires MCP to be enabled)
-	if app != nil && app.AgentJobService() != nil && !appConfig.DisableMCP {
-		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app), mcpJobsMw)
-		router.PUT("/api/agent/tasks/:id", localai.UpdateTaskEndpoint(app), mcpJobsMw)
-		router.DELETE("/api/agent/tasks/:id", localai.DeleteTaskEndpoint(app), mcpJobsMw)
-		router.GET("/api/agent/tasks", localai.ListTasksEndpoint(app), mcpJobsMw)
-		router.GET("/api/agent/tasks/:id", localai.GetTaskEndpoint(app), mcpJobsMw)
-
-		router.POST("/api/agent/jobs/execute", localai.ExecuteJobEndpoint(app), mcpJobsMw)
-		router.GET("/api/agent/jobs/:id", localai.GetJobEndpoint(app), mcpJobsMw)
-		router.GET("/api/agent/jobs", localai.ListJobsEndpoint(app), mcpJobsMw)
-		router.POST("/api/agent/jobs/:id/cancel", localai.CancelJobEndpoint(app), mcpJobsMw)
-		router.DELETE("/api/agent/jobs/:id", localai.DeleteJobEndpoint(app), mcpJobsMw)
-
-		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app), mcpJobsMw)
-	}
-
-	// Chat history persistence (#9432). Skipped entirely when the store is
-	// nil (WebUI disabled or no auth database) — registering routes that
-	// could only ever fail adds surface area for nothing.
-	if app != nil {
-		RegisterChatHistoryRoutes(router, app.ChatHistoryStore(), chatHistoryMw)
-	}
-}
-
-// RegisterChatHistoryRoutes wires the per-user conversation endpoints. A nil
-// store registers nothing, so the React UI sees 404 and stays on localStorage.
-func RegisterChatHistoryRoutes(router *echo.Echo, store *chathistory.Store, chatHistoryMw echo.MiddlewareFunc) {
-	if store == nil {
-		return
-	}
-	router.GET("/api/conversations", localai.ListConversationsEndpoint(store), chatHistoryMw)
-	router.POST("/api/conversations", localai.SaveConversationEndpoint(store), chatHistoryMw)
-	router.DELETE("/api/conversations", localai.DeleteAllConversationsEndpoint(store), chatHistoryMw)
-	router.PUT("/api/conversations/bulk", localai.BulkReplaceConversationsEndpoint(store), chatHistoryMw)
-	router.GET("/api/conversations/:id", localai.GetConversationEndpoint(store), chatHistoryMw)
-	router.PUT("/api/conversations/:id", localai.SaveConversationByIDEndpoint(store), chatHistoryMw)
-	router.DELETE("/api/conversations/:id", localai.DeleteConversationEndpoint(store), chatHistoryMw)
 }

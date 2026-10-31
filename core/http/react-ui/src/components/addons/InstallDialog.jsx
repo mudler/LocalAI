@@ -3,15 +3,30 @@ import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import Button from '../ui/Button'
 import { pushLayer } from '../../utils/modalLayers'
 import { EntryAdds, UnknownNotice } from './AddonBits'
-import { shortDigest } from './addonState'
+import { shortDigest, skillShadowNotes } from './addonState'
 import { describeOutcome } from './errors'
+import Callout from '../ui/Callout'
+
+// The built-in chat tools that the entry replaces and that an installed add-on
+// already replaces: only one of them can serve the tool, so the dialog says so
+// before the install (which is still allowed).
+export function shadowConflicts(entry, installed) {
+  const want = Array.isArray(entry?.shadows) ? entry.shadows : []
+  const out = []
+  for (const tool of want) {
+    const other = Object.values(installed || {}).find(a => a && a.id !== entry.id && Array.isArray(a.shadows) && a.shadows.includes(tool))
+    if (other) out.push({ tool, name: other.title || other.id })
+  }
+  return out
+}
 
 // The one dialog of Install and turn on. It asks once, then stays open and
 // shows the two steps while they run: the install, then the turn on. It ends
 // on the result, or on the reason a step failed with a way to try again.
-export default function InstallDialog({ entry, flow, actions, onClose }) {
+export default function InstallDialog({ entry, flow, actions, onClose, installed = {} }) {
   const { t } = useTranslation('addons')
   const ref = useRef(null)
   const step = flow ? flow.step : 'ask'
@@ -68,6 +83,16 @@ export default function InstallDialog({ entry, flow, actions, onClose }) {
             <>
               <p>{t('flow.confirmBody', { version: entry.version, library: entry.sourceId })}</p>
               <EntryAdds entry={entry} />
+              {shadowConflicts(entry, installed).map(c => (
+                <Callout key={c.tool} tone="warn" testId="install-shadow-warning" data-tool={c.tool}>
+                  {t('flow.shadowWarning', { tool: c.tool, name: c.name })}
+                </Callout>
+              ))}
+              {skillShadowNotes(entry, installed).map(c => (
+                <Callout key={c.skill} tone={c.name ? 'warn' : 'info'} testId="install-skill-warning" data-skill={c.skill}>
+                  {t(c.name ? 'flow.skillShadowWarning' : 'flow.skillShadow', { skill: c.skill, name: c.name })}
+                </Callout>
+              ))}
               <dl className="dk-kv">
                 <dt>{t('trust.digest')}</dt><dd className="dk-mono">{shortDigest(entry.digest)}</dd>
                 <dt>{t('trust.verification')}</dt><dd>{entry.policy.requireSignature ? t('trust.signatureRequired') : t('trust.digestOnly')}</dd>
@@ -103,12 +128,12 @@ export default function InstallDialog({ entry, flow, actions, onClose }) {
           {step === 'failed' && actions.unknown[entry.id] && <UnknownNotice addonId={entry.id} actions={actions} />}
         </div>
         <div className="confirm-dialog-actions">
-          {step === 'ask' && <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>{t('catalog.cancel')}</button>}
-          {step === 'ask' && <button type="button" className="btn btn-primary btn-sm" onClick={start}>{t('flow.installAndTurnOn')}</button>}
-          {running && <button type="button" className="btn btn-primary btn-sm" disabled>{step === 'install' ? t('flow.installing', { name: entry.title }) : t('flow.turningOn', { name: entry.title })}</button>}
-          {step === 'failed' && <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>{t('catalog.close')}</button>}
-          {step === 'failed' && !actions.unknown[entry.id] && <button type="button" className="btn btn-primary btn-sm" onClick={retry}>{t('catalog.retry')}</button>}
-          {step === 'done' && <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>{t('catalog.close')}</button>}
+          {step === 'ask' && <Button onClick={onClose}>{t('catalog.cancel')}</Button>}
+          {step === 'ask' && <Button variant="primary" onClick={start}>{t('flow.installAndTurnOn')}</Button>}
+          {running && <Button variant="primary" icon="download" busy disabled>{step === 'install' ? t('flow.installing', { name: entry.title }) : t('flow.turningOn', { name: entry.title })}</Button>}
+          {step === 'failed' && <Button onClick={onClose}>{t('catalog.close')}</Button>}
+          {step === 'failed' && !actions.unknown[entry.id] && <Button variant="primary" icon="refresh" onClick={retry}>{t('catalog.retry')}</Button>}
+          {step === 'done' && <Button variant="primary" onClick={onClose}>{t('catalog.close')}</Button>}
         </div>
       </div>
     </div>

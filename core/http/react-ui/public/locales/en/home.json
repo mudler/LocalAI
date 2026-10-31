@@ -26,7 +26,10 @@
     "description": "Install models, switch backends, edit configs and check status by talking to LocalAI.",
     "open": "Open assistant",
     "tooltip": "Manage LocalAI by chatting",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "noModel": "Pick a chat model first.",
+    "startFailed": "Could not start the assistant chat: {{message}}",
+    "chatTitle": "LocalAI Assistant"
   },
   "input": {
     "placeholder": "Message...",
@@ -88,14 +91,18 @@
       "step2Title": "Install a Model",
       "step2Body": "Click install to download and configure it automatically.",
       "step3Title": "Start Chatting",
-      "step3Body": "Chat with your model right from the browser or use the API."
+      "step3Body": "Chat with your model right from the browser or use the API.",
+      "sandboxTitle": "Run code safely (optional)",
+      "sandboxBody": "Install the Sandbox add-on so the model runs code and commands in isolation. Without it, commands run directly on this machine, with full network access and no isolation."
     },
     "browseGallery": "Browse Model Gallery",
     "importModel": "Import Model",
     "docs": "Docs",
     "noModelsTitle": "No Models Available",
     "noModelsBody": "There are no models installed yet. Ask your administrator to set up models so you can start chatting.",
-    "guideLabel": "Getting started"
+    "guideLabel": "Getting started",
+    "sandboxInstall": "Install Sandbox",
+    "sandboxSkip": "Skip"
   },
   "starters": {
     "title": "Recommended for your hardware",
@@ -148,7 +155,8 @@
     "emptyBody": "They are grouped by day, with the model that answered. Move with j and k, resume with Enter.",
     "hasImage": "Includes an image",
     "noModel": "No model",
-    "examples": "Slash actions"
+    "examples": "Slash actions",
+    "allChats": "All chats"
   },
   "picker": {
     "loading": "Loading models",
@@ -183,8 +191,8 @@
       "desc": "Start an empty conversation"
     },
     "chat": {
-      "label": "Open Chat",
-      "desc": "Go to the chat page"
+      "label": "All chats",
+      "desc": "Find, rename and delete your chats"
     },
     "assistant": {
       "label": "Manage by chat",
@@ -217,7 +225,24 @@
     "docs": {
       "label": "Documentation",
       "desc": "Open localai.io in a new tab"
-    }
+    },
+    "agents": {
+      "label": "Agents",
+      "desc": "Your saved agents, triggers and skills"
+    },
+    "mcp": {
+      "label": "MCP connectors",
+      "desc": "MCP servers your chats can use"
+    },
+    "memory": {
+      "label": "Memory",
+      "desc": "Collections your chats can search"
+    },
+    "studioInstall": {
+      "label": "Install Studio",
+      "desc": "Studio makes images, audio and video. It is an add-on"
+    },
+    "complete": "complete"
   },
   "strip": {
     "label": "Memory",
@@ -247,7 +272,13 @@
     "stagingFailedBody": "The model could not be sent to a node. Nothing else was changed.",
     "stagingFailedBodyNode": "The model could not be sent to {{node}}. Nothing else was changed.",
     "openActivity": "Open Activity",
-    "details": "Details"
+    "details": "Details",
+    "addonsOffTitle": "Add-ons are off on this server",
+    "addonsOffAdmin": "{{name}} is an add-on. Start LocalAI with add-ons on, then install it from Add-ons.",
+    "addonsOffReader": "{{name}} is an add-on. Ask an administrator to turn add-ons on.",
+    "thisPage": "That page",
+    "addonsDocs": "How to turn add-ons on",
+    "dismiss": "Dismiss"
   },
   "library": {
     "label": "Library"

@@ -1,0 +1,57 @@
+{
+  "backends": {
+    "filterLabel": "筛选后端",
+    "check": "检查更新",
+    "reinstallBackend": "重新安装后端",
+    "deleteBackend": "删除后端",
+    "updateAllTitle": "更新所有后端",
+    "updateAllIntro": "选择要更新的后端。每个后端会单独、依次更新。某一项失败不会中断其他项。",
+    "updateSelected": "更新所选",
+    "loadFailedTitle": "无法加载后端目录。",
+    "filtersButton": "筛选",
+    "filtersDone": "完成",
+    "filterGroups": {
+      "state": "状态",
+      "type": "类型",
+      "show": "显示",
+      "library": "库"
+    },
+    "showVariants": "变体构建",
+    "showDevelopment": "开发构建",
+    "allLibraries": "所有库",
+    "moreActions": "更多后端操作",
+    "installFromUrl": "从 URL 安装…",
+    "manageLibraries": "管理库…",
+    "count_one": "{{count}} 个后端",
+    "count_other": "{{count}} 个后端",
+    "countOf": "{{shown}} / {{total}} 个后端",
+    "activeFilters": "已启用的筛选",
+    "removeFilter": "移除筛选：{{name}}",
+    "checking": "正在检查更新…",
+    "updatesAvailable_one": "{{count}} 个更新可用",
+    "updatesAvailable_other": "{{count}} 个更新可用",
+    "reviewUpdates": "查看",
+    "close": "关闭",
+    "installedLoadFailedTitle": "无法加载已安装的后端。"
+  },
+  "capacity": {
+    "diskChip": "磁盘快满了"
+  },
+  "activity": {
+    "kind": {
+      "addon": "插件"
+    },
+    "verb": {
+      "upgrading": "正在升级{{kind}}",
+      "failedUpgrade": "无法升级{{kind}}"
+    },
+    "filter": {
+      "addons": "插件"
+    },
+    "upgradeVersions": "{{from}} 到 {{to}}",
+    "rowUpgraded": "已升级，用时 {{duration}}",
+    "rowUpgradedPlain": "已升级",
+    "viewInAddons": "在插件中查看",
+    "upgradeWaiting": "正在等待插件服务启动。{{seconds}} 秒后再次检查。"
+  }
+}

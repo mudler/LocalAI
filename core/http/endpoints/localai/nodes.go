@@ -119,7 +119,7 @@ type RegisterNodeRequest struct {
 // RegisterNodeEndpoint registers a new backend node.
 // expectedToken is the registration token configured on the frontend (may be empty to disable auth).
 // autoApprove controls whether new nodes go directly to "healthy" or require admin approval.
-func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
+func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, autoApprove bool, authDB *gorm.DB, _ string, natsCfg natsauth.Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var req RegisterNodeRequest
 		if err := c.Bind(&req); err != nil {
@@ -232,29 +232,11 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 			"created_at": node.CreatedAt,
 		}
 
-		// Provision API key for agent workers that are approved (not pending).
-		// On re-registration of a previously approved node, revoke old + provision new.
-		if nodeType == nodes.NodeTypeAgent && authDB != nil && node.Status != nodes.StatusPending {
-			// Use a transaction so that if provisioning fails after revoking old creds,
-			// the old credentials are not lost.
-			txErr := authDB.Transaction(func(tx *gorm.DB) error {
-				if node.AuthUserID != "" {
-					if err := tx.Exec("DELETE FROM users WHERE id = ?", node.AuthUserID).Error; err != nil {
-						return fmt.Errorf("revoking old credentials: %w", err)
-					}
-					node.AuthUserID = ""
-					node.APIKeyID = ""
-				}
-				plaintext, err := provisionAgentWorkerKey(ctx, tx, registry, node, hmacSecret)
-				if err != nil {
-					return err
-				}
-				response["api_token"] = plaintext
-				return nil
-			})
-			if txErr != nil {
-				xlog.Warn("Failed to auto-provision API key for agent worker", "node", node.Name, "error", txErr)
-			}
+		// An earlier release gave every agent worker a user and an API key with
+		// the collections grant. The worker no longer calls the HTTP API, so
+		// remove what is left of that account the next time the node registers.
+		if nodeType == nodes.NodeTypeAgent {
+			revokeLegacyAgentWorkerAccount(ctx, authDB, registry, node)
 		}
 
 		attachNatsJWT(response, node, natsCfg)
@@ -264,8 +246,7 @@ func RegisterNodeEndpoint(registry *nodes.NodeRegistry, expectedToken string, au
 }
 
 // ApproveNodeEndpoint approves a pending node, setting its status to healthy.
-// For agent workers, it also provisions an API key so they can call the inference API.
-func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecret string, natsCfg natsauth.Config) echo.HandlerFunc {
+func ApproveNodeEndpoint(registry *nodes.NodeRegistry, _ *gorm.DB, _ string, natsCfg natsauth.Config) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
 		id := c.Param("id")
@@ -284,15 +265,6 @@ func ApproveNodeEndpoint(registry *nodes.NodeRegistry, authDB *gorm.DB, hmacSecr
 			"node_type": node.NodeType,
 			"status":    node.Status,
 			"message":   "node approved",
-		}
-
-		// Provision API key for newly approved agent workers
-		if node.NodeType == nodes.NodeTypeAgent && authDB != nil && node.AuthUserID == "" {
-			if plaintext, err := provisionAgentWorkerKey(ctx, authDB, registry, node, hmacSecret); err != nil {
-				xlog.Warn("Failed to provision API key on approval", "node", node.Name, "error", err)
-			} else {
-				response["api_token"] = plaintext
-			}
 		}
 
 		attachNatsJWT(response, node, natsCfg)
@@ -315,45 +287,35 @@ func attachNatsJWT(response map[string]any, node *nodes.BackendNode, natsCfg nat
 	response["nats_user_seed"] = seed
 }
 
-// provisionAgentWorkerKey creates a dedicated user and API key for an agent worker node.
-// Returns the plaintext API key on success.
-func provisionAgentWorkerKey(ctx context.Context, authDB *gorm.DB, registry *nodes.NodeRegistry, node *nodes.BackendNode, hmacSecret string) (string, error) {
-	workerUser := &auth.User{
-		ID:        uuid.New().String(),
-		Name:      "agent-worker:" + node.Name,
-		Provider:  auth.ProviderAgentWorker,
-		Subject:   node.ID,
-		Role:      "user",
-		Status:    "active",
-		CreatedAt: time.Now(),
+// revokeLegacyAgentWorkerAccount deletes the user and API key an earlier release
+// provisioned for an agent worker, and clears the references on the node. It
+// does nothing when the node has no such account. Failures are logged: the
+// registration itself must not fail because of cleanup.
+func revokeLegacyAgentWorkerAccount(ctx context.Context, authDB *gorm.DB, registry *nodes.NodeRegistry, node *nodes.BackendNode) {
+	if authDB == nil || node.AuthUserID == "" {
+		return
 	}
-	if err := authDB.Create(workerUser).Error; err != nil {
-		return "", fmt.Errorf("creating agent worker user: %w", err)
+	// Delete only the account that was provisioned for a worker, never a
+	// user the reference might point to by mistake.
+	var n int64
+	if err := authDB.Model(&auth.User{}).Where("id = ? AND provider = ?", node.AuthUserID, auth.ProviderAgentWorker).Count(&n).Error; err != nil {
+		xlog.Warn("Failed to look up legacy agent worker account", "node", node.Name, "user", node.AuthUserID, "error", err)
+		return
 	}
-
-	plaintext, apiKey, err := auth.CreateAPIKey(authDB, workerUser.ID, "agent-worker:"+node.Name, "user", hmacSecret, nil)
-	if err != nil {
-		return "", fmt.Errorf("creating API key: %w", err)
+	if n > 0 {
+		// The cascade removes the keys and sessions with the user.
+		if err := auth.DeleteUserCascade(authDB, node.AuthUserID); err != nil {
+			xlog.Warn("Failed to remove legacy agent worker account", "node", node.Name, "user", node.AuthUserID, "error", err)
+			return
+		}
 	}
-
-	node.AuthUserID = workerUser.ID
-	node.APIKeyID = apiKey.ID
-	if err := registry.UpdateAuthRefs(ctx, node.ID, workerUser.ID, apiKey.ID); err != nil {
-		xlog.Warn("Failed to update auth refs on node", "node", node.Name, "error", err)
+	if err := registry.UpdateAuthRefs(ctx, node.ID, "", ""); err != nil {
+		xlog.Warn("Failed to clear legacy agent worker references", "node", node.Name, "error", err)
+		return
 	}
-
-	// Grant collections feature so the worker can store/retrieve KB data on behalf of users.
-	perm := &auth.UserPermission{
-		ID:          uuid.New().String(),
-		UserID:      workerUser.ID,
-		Permissions: auth.PermissionMap{auth.FeatureCollections: true},
-	}
-	if err := authDB.Create(perm).Error; err != nil {
-		xlog.Warn("Failed to grant collections permission to agent worker", "node", node.Name, "error", err)
-	}
-
-	xlog.Info("Provisioned API key for agent worker", "node", node.Name, "user", workerUser.ID)
-	return plaintext, nil
+	node.AuthUserID = ""
+	node.APIKeyID = ""
+	xlog.Info("Removed legacy agent worker account", "node", node.Name)
 }
 
 // loadCancelService builds the cancel path unload, drain and deregister share

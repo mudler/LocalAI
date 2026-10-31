@@ -94,7 +94,9 @@ export default function Activity() {
     ...serverOperations,
     ...upgrades.live.map((op) => ({
       ...op,
-      message: t('activity.upgradeVersions', { from: op.fromVersion || '?', to: op.toVersion || '?' }),
+      message: op.waiting
+        ? t('activity.upgradeWaiting', { seconds: Math.max(1, Math.round(op.waiting.nextMs / 1000)) })
+        : t('activity.upgradeVersions', { from: op.fromVersion || '?', to: op.toVersion || '?' }),
       error: op.state === 'failed' ? upgradeFailureWords(op.errorKey, ta) : undefined,
       isQueued: false,
     })),

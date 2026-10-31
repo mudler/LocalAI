@@ -10,6 +10,7 @@
 import {
   FIELDS, FIELD_BY_KEY, getValue, valuesEqual, parseGoDuration, vramBudgetError, compactDuration,
 } from './settingsSchema.js'
+import { checkHost, hostEntries, MAX_ALLOWED_HOSTS } from './egressHosts.js'
 
 // Fields in the order of the page that differ from `initial`. A field the
 // page saves at once (the logos) never appears.
@@ -72,6 +73,10 @@ export function displayValue(field, v) {
       const n = linesOf(v).length
       return `${n} ${n === 1 ? 'key' : 'keys'}`
     }
+    case 'hosts': {
+      const n = hostEntries(v).length
+      return n ? `${n} ${n === 1 ? 'host' : 'hosts'}` : 'empty'
+    }
     default: {
       const t = String(v ?? '').trim()
       return t ? clip(t) : 'empty'
@@ -99,7 +104,33 @@ export function runChecks(changes, initial, draft) {
       const err = vramBudgetError(to)
       checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${String(to).trim() || 'No cap'} is a valid GPU memory budget.` })
     }
-    if (field.kind === 'json') {
+    if (field.kind === 'hosts') {
+      const entries = hostEntries(to)
+      const allowPrivate = !!draft?.chats_egress_allow_private
+      const bad = entries.find(e => { const r = checkHost(e, { allowPrivate }); return r.error && r.error !== 'duplicate' && r.error !== 'full' })
+      if (bad) checks.push({ level: 'error', text: `${field.label}: "${bad}" is not an exact host name. Write host or host:port, with no pattern, scheme or path.` })
+      else if (entries.length > MAX_ALLOWED_HOSTS) checks.push({ level: 'error', text: `${field.label}: at most ${MAX_ALLOWED_HOSTS} hosts.` })
+      else checks.push({ level: 'ok', text: `${field.label}: ${entries.length} ${entries.length === 1 ? 'host' : 'hosts'}.` })
+    }
+    if (field.key === 'chats_egress_allow_private' && to && !getValue(field, initial)) {
+      checks.push(String(draft?.[EGRESS_CONFIRM_KEY] || '').trim() === EGRESS_PRIVATE_PHRASE
+        ? { level: 'ok', text: `${field.label}: the phrase is typed.` }
+        : { level: 'error', text: `${field.label}: type the phrase "${EGRESS_PRIVATE_PHRASE}" in Settings > Tools to turn it on.` })
+    }
+    if (field.key === 'chats_web_search_providers') {
+      const err = searchProvidersError(to)
+      checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${field.label}: ${String(to || '').trim() || 'the default order'}.` })
+    }
+    if (field.key === 'chats_tool_providers') {
+      const text = String(to || '').trim()
+      let parsed = null
+      try { parsed = text ? JSON.parse(text) : {} } catch { /* reported below */ }
+      const ok = parsed && typeof parsed === 'object' && !Array.isArray(parsed) &&
+        Object.entries(parsed).every(([k, v]) => ['bash', 'web_search', 'web_fetch', 'xlsx', 'docx', 'pptx', 'pdf'].includes(k) && typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(v))
+      checks.push(ok
+        ? { level: 'ok', text: `${field.label}: ${Object.keys(parsed).length} chosen.` }
+        : { level: 'error', text: `${field.label}: map bash, web_search, web_fetch or a skill (xlsx, docx, pptx, pdf) to an add-on ID, for example { "bash": "sandbox" }.` })
+    } else if (field.kind === 'json') {
       const text = String(to || '').trim()
       if (text) {
         let parsed = null
@@ -126,8 +157,8 @@ export function runChecks(changes, initial, draft) {
   if (csrf && !csrf.to) {
     checks.push({ level: 'warn', text: 'With CSRF protection off, forged cross-site browser requests are not blocked.' })
   }
-  const engine = String(draft.agent_pool_vector_engine || 'chromem')
-  if (engine === 'postgres' && (changed('agent_pool_vector_engine') || changed('agent_pool_database_url')) && !String(draft.agent_pool_database_url || '').trim()) {
+  const engine = String(draft.collections_vector_engine || 'chromem')
+  if (engine === 'postgres' && (changed('collections_vector_engine') || changed('collections_database_url')) && !String(draft.collections_database_url || '').trim()) {
     checks.push({ level: 'warn', text: 'The postgres vector engine needs a database URL.' })
   }
   if (changed('api_keys')) {
@@ -164,8 +195,19 @@ export function payloadFor(changes, source) {
       case 'api_keys':
         body.api_keys = linesOf(getValue(field, source))
         break
+      case 'chats_tool_providers': {
+        const text = String(getValue(field, source) || '').trim()
+        body.chats_tool_providers = text ? JSON.parse(text) : {}
+        break
+      }
       case 'csrf':
         body.csrf = !!source.csrf
+        break
+      case 'chats_egress_allow_private':
+        // Turning it on needs the typed phrase in the same request; the
+        // server does not store it.
+        body.chats_egress_allow_private = !!source.chats_egress_allow_private
+        if (source.chats_egress_allow_private && source[EGRESS_CONFIRM_KEY]) body[EGRESS_CONFIRM_KEY] = source[EGRESS_CONFIRM_KEY]
         break
       default:
         body[field.key] = getValue(field, source)
@@ -173,6 +215,11 @@ export function payloadFor(changes, source) {
   }
   return body
 }
+
+// The phrase an administrator types to let Sandbox commands reach private
+// networks (core/config/chats_egress.go), and the draft key that carries it.
+export const EGRESS_PRIVATE_PHRASE = 'I understand that commands can reach my private network'
+export const EGRESS_CONFIRM_KEY = 'chats_egress_private_confirm'
 
 // ---- Change log ---------------------------------------------------------------
 // LocalAI keeps no log of settings changes. This one lives in this browser's
@@ -207,4 +254,22 @@ export function appendHistory(entries) {
 export function clearHistory() {
   try { localStorage.removeItem(HISTORY_KEY) } catch { /* storage may be blocked */ }
   return []
+}
+
+// The names chats_web_search_providers accepts, as ParseSearchProviders in
+// core/config/chats_web.go reads them.
+export const SEARCH_PROVIDERS = ['searxng', 'duckduckgo', 'brave_html', 'bing_html']
+
+// searchProvidersError says what is wrong with a provider list, or '' when
+// the server takes it.
+export function searchProvidersError(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const names = text.split(',').map(n => n.trim().toLowerCase()).filter(Boolean)
+  if (names.length === 0) return 'list at least one provider, or switch web search off.'
+  const unknown = names.find(n => !SEARCH_PROVIDERS.includes(n))
+  if (unknown) return `"${unknown}" is not a search provider. Use ${SEARCH_PROVIDERS.join(', ')}.`
+  const twice = names.find((n, i) => names.indexOf(n) !== i)
+  if (twice) return `"${twice}" is listed twice.`
+  return ''
 }

@@ -9,9 +9,9 @@ test.describe('Account', () => {
     await expect(page.getByTestId('account-profile')).toBeVisible()
   })
 
-  test('has four tabs, opens on the profile and keeps the tab in the address', async ({ page }) => {
+  test('has its tabs, opens on the profile and keeps the tab in the address', async ({ page }) => {
     const tabs = await page.getByRole('tab').allTextContents()
-    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage'])
+    expect(tabs).toEqual(['Profile', 'Security', 'API keys', 'Usage', 'About you and the assistant', 'Appearance'])
     await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true')
     await page.getByRole('tab', { name: 'Usage' }).click()
     await expect(page).toHaveURL(/tab=usage/)
@@ -94,20 +94,24 @@ test.describe('Account: other people and states', () => {
     await page.goto('/app/account?tab=usage')
     await expect(page.getByTestId('account-usage')).toBeVisible()
     await expect(page.getByTestId('account-page')).toContainText('bob · user')
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toHaveCount(0)
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toHaveCount(0)
   })
 
-  test('without authentication there is no account', async ({ page }) => {
+  test('without authentication there is no account, only the settings of the one user', async ({ page }) => {
     await page.route('**/api/auth/status', route => route.fulfill({ json: { authEnabled: false, staticApiKeyRequired: false, providers: [] } }))
     await page.goto('/app/account')
-    await expect(page.getByText('Account unavailable')).toBeVisible()
+    await expect(page.getByTestId('account-about')).toBeVisible()
+    expect(await page.getByRole('tab').allTextContents()).toEqual(['About you and the assistant', 'Appearance'])
+    await expect(page.getByTestId('sidebar-your-settings')).toBeVisible()
   })
 
   test('the usage tab says so when the call fails', async ({ page }) => {
     await mockAccess(page)
     await page.route('**/api/auth/usage?*', route => route.fulfill({ status: 500, json: { error: 'boom' } }))
     await page.goto('/app/account?tab=usage')
-    await expect(page.getByRole('alert')).toContainText('Failed to load your usage')
+    // The load error primitive: what failed, then the server's words.
+    await expect(page.getByRole('alert')).toContainText('Could not load your usage')
+    await expect(page.getByRole('alert')).toContainText('boom')
   })
 
   test('a person with no limits and no requests sees calm empty states', async ({ page }) => {

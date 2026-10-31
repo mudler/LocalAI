@@ -107,6 +107,68 @@
       "assistant": "LocalAI Assistant",
       "distributed": "Distribuito",
       "responses": "Risposte"
+    },
+    "loadFailedTitle": "Impossibile caricare le impostazioni.",
+    "egress": {
+      "title": "Rete del Sandbox",
+      "intro": "I comandi nel Sandbox raggiungono la rete solo tramite un proxy che chiede a LocalAI di ogni connessione. Qui sotto imposti il limite, il preset di una nuova chat, le porte, i registri aggiuntivi e la durata del registro; ogni persona sceglie il preset di ogni chat nel suo menu Strumenti, fino al limite, e consente un host bloccato da una scheda.",
+      "serves": "I comandi girano isolati nell’add-on {{name}}",
+      "servesHost": "I comandi girano su questa macchina tramite {{name}}",
+      "servesNone": "Nessun Sandbox esegue ancora comandi",
+      "hostNote": "Il backend host esegue i comandi su questa macchina con la sua rete: queste impostazioni non si applicano.",
+      "counts": "Ultime 24 ore: {{allowed}} consentite, {{blocked}} bloccate.",
+      "private": "Consenti alle regole di un amministratore di raggiungere reti private",
+      "privateWarning": "Un host consentito da un amministratore può allora raggiungere indirizzi della tua rete. Un preset da solo non lo fa mai; gli indirizzi dei metadati cloud e del server restano rifiutati.",
+      "typePhrase": "Per attivarlo, scrivi: {{phrase}}",
+      "registries": "Registri di pacchetti ({{count}})",
+      "showAudit": "Mostra il registro",
+      "hideAudit": "Nascondi il registro",
+      "loadFailed": "Impossibile leggere le impostazioni di rete del Sandbox",
+      "audit": {
+        "verdict": "Esito",
+        "host": "Host",
+        "user": "Utente",
+        "at": "Quando",
+        "reason": "Motivo",
+        "bytes": "Byte inviati / ricevuti",
+        "refresh": "Aggiorna",
+        "empty": "Nessuna richiesta corrisponde.",
+        "loadFailed": "Impossibile leggere il registro",
+        "verdicts": {
+          "any": "Qualsiasi esito",
+          "allow": "Consentita",
+          "block": "Bloccata",
+          "done": "Conclusa"
+        }
+      }
+    },
+    "addons": {
+      "title": "Add-on",
+      "hint": "Le impostazioni portate dagli add-on",
+      "intro": "Ogni add-on tiene le sue impostazioni nella propria pagina, nella scheda Impostazioni dei suoi dettagli. Aprine uno per cambiarle.",
+      "off": "Disattivato. Attivalo per cambiarne le impostazioni.",
+      "open": "Apri le impostazioni",
+      "openNamed": "Apri le impostazioni di {{name}}",
+      "count_one": "{{count}} add-on con impostazioni",
+      "count_other": "{{count}} add-on con impostazioni"
+    },
+    "hosts": {
+      "add": "Aggiungi",
+      "listLabel": "Host sempre consentiti",
+      "remove": "Rimuovi {{host}}",
+      "empty": "Nessun host. Scrivi un nome host, oppure host:porta per fissare la porta.",
+      "hint": "Solo nomi esatti. Aggiungi :porta per consentire una sola porta; altrimenti valgono le porte di rete della Sandbox.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Scrivi un nome host.",
+        "wildcard": "\"{{value}}\": scrivi un nome host esatto, non un pattern.",
+        "shape": "\"{{value}}\" non è un nome host. Scrivi solo l'host, senza schema né percorso.",
+        "port": "\"{{value}}\": la porta deve essere da 1 a 65535, e 22 e 25 sono sempre rifiutate.",
+        "private": "\"{{value}}\" è un indirizzo privato o locale. Attiva prima l'interruttore della rete privata.",
+        "numeric": "\"{{value}}\": scrivi un indirizzo IP come quattro numeri decimali.",
+        "duplicate": "\"{{value}}\" è già nell'elenco.",
+        "full": "L'elenco contiene al massimo {{max}} host."
+      }
     }
   },
   "backends": {
@@ -253,5 +315,74 @@
     "subtitle": "Modelli caricati su questa istanza di LocalAI e la capacità dell'host che utilizzano.",
     "scaleOut": "Aggiungi macchine",
     "hideScaleOut": "Nascondi configurazione"
+  },
+  "settingsTools": {
+    "intro": "Le chat hanno alcuni strumenti integrati che un componente può sostituire. Quando il componente è installato, in esecuzione e acceso per una chat, la chat usa lo strumento del componente, con lo stesso nome.",
+    "empty": "Su questo server non ci sono strumenti integrati da gestire.",
+    "loadFailed": "Impossibile leggere gli strumenti integrati",
+    "switch": "Attivo",
+    "byBuiltin": "Integrato",
+    "byAddon": "Componente: {{name}}",
+    "byNone": "Spento",
+    "unavailable": "Questo server non può eseguirlo: {{reason}}.",
+    "installSandbox": "Installa il Sandbox per eseguire i comandi isolati",
+    "replaceExplain": "Questi componenti sostituiscono {{tool}}: quello scelto lo fornisce in ogni chat in cui è acceso e in esecuzione, e quello integrato viene nascosto. Solo uno può essere attivo. Finché non scegli, lo fornisce quello installato per primo.",
+    "defaultInstalledFirst": "Predefinito: installato per primo",
+    "installedOn": "Installato {{when}}",
+    "choose_one": "{{count}} componente sostituisce {{tool}}: scegli quale usare.",
+    "choose_other": "{{count}} componenti sostituiscono {{tool}}: scegli quale usare.",
+    "labels": {
+      "bash": "Comandi (bash)",
+      "web_search": "Ricerca web",
+      "web_fetch": "Leggi pagine web",
+      "list_agents": "Agenti salvati"
+    },
+    "descriptions": {
+      "bash": "Esegue comandi e codice per le chat direttamente su questa macchina quando nessun Sandbox fornisce bash. Il componente Sandbox lo sostituisce con comandi isolati.",
+      "web_search": "Cerca sul web per le chat senza chiave (DuckDuckGo, poi Brave Search, poi Bing), oppure con la tua istanza SearXNG se è impostata.",
+      "web_fetch": "Legge per le chat una pagina o un file web pubblico dal suo indirizzo. Gli indirizzi della tua rete sono rifiutati se non li consenti.",
+      "list_agents": "Permette a una chat di elencare gli agenti salvati dell'utente e di avviarne uno come sotto-agente. Ogni chat lo attiva dal suo menu Strumenti."
+    },
+    "bash": {
+      "switch": "Consenti alle chat di eseguire comandi su questa macchina",
+      "modeLegend": "Chi può eseguire comandi",
+      "ask": "Chiedi ogni volta.",
+      "askHint": "Solo le chat degli amministratori lo ricevono, e ogni comando attende il loro sì nella chat.",
+      "on": "Consenti a tutti.",
+      "onHint": "Le chat di tutti gli utenti eseguono comandi qui senza chiedere, anche le esecuzioni pianificate e i sotto-agenti.",
+      "default": "Non impostato: vale il predefinito ({{mode}}).",
+      "warning": "I comandi vengono eseguiti come l'utente di LocalAI, senza isolamento e con la rete di questa macchina: possono leggere ciò che LocalAI può leggere e raggiungere internet, la tua rete e l'API di LocalAI. Ogni comando viene registrato. Installa il Sandbox per isolarli."
+    },
+    "modes": {
+      "off": "spento",
+      "ask": "chiedi ogni volta",
+      "on": "consentito a tutti"
+    },
+    "skillsTitle": "Skill sostituite dai componenti",
+    "skillsIntro": "Un componente può sostituire una skill integrata con la propria, scritta per i suoi strumenti. Se più componenti sostituiscono la stessa, scegli quale usare.",
+    "skillLabel": "Skill {{skill}}",
+    "skillNotRunning": "Il componente scelto non è in esecuzione: si usa la skill integrata.",
+    "toolNotRunning": "Il componente che sostituisce questo strumento non è in esecuzione: si usa lo strumento integrato.",
+    "stopped": "fermo",
+    "webTest": {
+      "intro": "Esegue una ricerca con ogni provider delle impostazioni salvate e mostra cosa ha fatto ciascuno. Applica prima le modifiche.",
+      "queryLabel": "Ricerca",
+      "run": "Prova la ricerca",
+      "running": "Prova in corso…",
+      "answered": "Le chat ricevono i risultati di {{host}}.",
+      "noneAnswered": "Nessun provider ha risposto.",
+      "failed": "Impossibile eseguire la prova: {{error}}",
+      "results_one": "{{count}} risultato",
+      "results_other": "{{count}} risultati",
+      "outcomes": {
+        "ok": "Funziona",
+        "no_results": "Nessun risultato",
+        "challenged": "Controllo anti-bot",
+        "blocked": "Bloccato",
+        "timeout": "Troppo lento",
+        "error": "Errore",
+        "skipped": "Saltato"
+      }
+    }
   }
 }

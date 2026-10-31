@@ -90,6 +90,10 @@ type Capabilities struct {
 	// arguments and the host authority of each. A declared tool without a
 	// definition is not offered to models.
 	ToolDefinitions []ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Actions says that a tool of the kind action is declared. The host starts
+	// no manifest that declares one without it, so reading the capabilities is
+	// enough to know that an add-on can change things without a confirmation.
+	Actions bool `json:"actions,omitempty"`
 	// AdminTools are tools that only the host's own UI-only resource
 	// management endpoints may run. They are never in Tools, never have a
 	// tool definition and never reach a model, a proposal, a typed dispatch
@@ -98,7 +102,17 @@ type Capabilities struct {
 	// Resources says which tools the UI-only resource management endpoints
 	// use for this add-on's resources (create, rename, inspect, delete).
 	Resources *ResourceTools `json:"resources,omitempty"`
-	UI        *UI            `json:"ui,omitempty"`
+	// Undo says that the add-on keeps a change set for the writes a chat
+	// makes at once and answers the host's undo calls (see undo.go). It is a
+	// promise about storage only: the add-on's tools stay as declared.
+	Undo bool `json:"undo,omitempty"`
+	// Connector says that the add-on carries the messages of a messaging
+	// platform (see connector.go). It needs no tool.
+	Connector *ConnectorCapability `json:"connector,omitempty"`
+	// SkillDefinitions are the skills the package ships under skills/ (see
+	// skills.go). The chat's skill index offers them while the add-on runs.
+	SkillDefinitions []SkillDefinition `json:"skillDefinitions,omitempty"`
+	UI               *UI               `json:"ui,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -329,13 +343,24 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return fmt.Errorf("incompatible host, API, protocol or data format")
 	}
 	c := m.Capabilities
-	if (!c.Service && len(c.Tools) == 0 && c.UI == nil) || !uniqueIDs(c.Tools) {
+	if (!c.Service && len(c.Tools) == 0 && c.UI == nil && c.Connector == nil) || !uniqueIDs(c.Tools) {
 		return fmt.Errorf("invalid capabilities")
+	}
+	for _, d := range c.ToolDefinitions {
+		if d.Kind == ToolKindAction && !c.Actions {
+			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
+		}
 	}
 	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {
+		return e
+	}
+	if e := validateConnector(c.Connector, c.UI); e != nil {
+		return e
+	}
+	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {

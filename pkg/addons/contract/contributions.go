@@ -16,10 +16,13 @@ const (
 	SlotChatMessageActions  = "chat.message.actions"
 	SlotAppNav              = "app.nav"
 	SlotSettingsSections    = "settings.sections"
+	// SlotFilesPreview draws a preview of the file selected on the Files page.
+	// A contribution names the extensions it handles.
+	SlotFilesPreview = "files.preview"
 )
 
 // HostSlots are the slot identifiers a manifest may contribute to.
-var HostSlots = []string{SlotChatComposerActions, SlotChatMessageActions, SlotAppNav, SlotSettingsSections}
+var HostSlots = []string{SlotChatComposerActions, SlotChatMessageActions, SlotAppNav, SlotSettingsSections, SlotFilesPreview}
 
 // Chat action placements. Each one is a host slot of its own.
 const (
@@ -39,6 +42,8 @@ const (
 	MaxSlots       = 16
 	MaxRenderers   = 16
 	MaxLabelChars  = 60
+	// MaxPreviewExtensions bounds the extensions of one preview contribution.
+	MaxPreviewExtensions = 16
 )
 
 // IconNames are the semantic icon names of the host Icon allowlist. The host
@@ -49,6 +54,13 @@ var IconNames = []string{
 	"check-circle", "alert-circle", "warning", "info", "edit", "trash", "download", "upload", "refresh",
 	"settings", "list", "grid", "chart-line", "clock", "calendar", "tag", "star", "link", "external-link",
 	"copy", "eye", "lock", "user", "users", "message", "sparkles", "chevron-down", "chevron-up", "chevron-right",
+	"arrow-left", "arrow-right", "chart-bar", "circle-dot", "clipboard", "code", "cube", "filter-off", "gender",
+	"globe", "headphones", "help-circle", "mic", "play", "plug-off", "save", "shield", "smile", "waveform",
+	"camera", "stop", "circle", "image", "spinner", "user-shield", "mask",
+	// Drawn by the Studio and Talk add-ons.
+	"boxes", "compass", "gauge", "ghost", "git-branch", "images", "key", "layers", "maximize", "memory", "music",
+	"pencil", "repeat", "server", "sliders", "square-dashed", "store", "undo", "video", "volume", "palette", "phone",
+	"columns", "chevron-left",
 }
 
 // componentName is the export name of a component of the addon module: a
@@ -121,7 +133,13 @@ type SlotContribution struct {
 	ID        string `json:"id"`
 	Slot      string `json:"slot"`
 	Component string `json:"component"`
+	// Extensions are the file extensions a files.preview contribution handles,
+	// lower case and without a dot. No other slot has them.
+	Extensions []string `json:"extensions,omitempty"`
 }
+
+// previewExtension is one extension: lower case letters and digits.
+var previewExtension = regexp.MustCompile(`^[a-z0-9]{1,8}$`)
 
 // Renderer draws the approval card or the result of one of the addon's own
 // tools. The host owns the frame around it.
@@ -192,6 +210,9 @@ func validateContributions(u *UI, tools []string) error {
 		if !componentName.MatchString(s.Component) {
 			return fmt.Errorf("invalid slot component name")
 		}
+		if err := validatePreviewExtensions(s); err != nil {
+			return err
+		}
 	}
 	renderers := map[string]bool{}
 	for _, r := range u.Renderers {
@@ -209,6 +230,29 @@ func validateContributions(u *UI, tools []string) error {
 			return fmt.Errorf("duplicate renderer")
 		}
 		renderers[key] = true
+	}
+	return nil
+}
+
+// validatePreviewExtensions checks the extension list of a slot: a preview
+// slot has one to MaxPreviewExtensions distinct extensions, and no other slot
+// has any.
+func validatePreviewExtensions(s SlotContribution) error {
+	if s.Slot != SlotFilesPreview {
+		if len(s.Extensions) > 0 {
+			return fmt.Errorf("only a files.preview slot has extensions")
+		}
+		return nil
+	}
+	if len(s.Extensions) == 0 || len(s.Extensions) > MaxPreviewExtensions {
+		return fmt.Errorf("a files.preview slot needs 1 to %d extensions", MaxPreviewExtensions)
+	}
+	seen := map[string]bool{}
+	for _, e := range s.Extensions {
+		if !previewExtension.MatchString(e) || seen[e] {
+			return fmt.Errorf("invalid or repeated preview extension")
+		}
+		seen[e] = true
 	}
 	return nil
 }

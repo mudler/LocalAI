@@ -31,7 +31,7 @@ test.describe('Add-on navigation', () => {
     await setup(page)
     await page.goto('/app')
     const nav = page.getByRole('navigation')
-    await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Home' })).toBeVisible()
     // Apps, then the pinned apps in pin order; Apps is the only add-on entry.
     await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(1)
     const pinned = nav.getByTestId('apps-pinned-link')
@@ -160,7 +160,8 @@ test.describe('Add-on navigation', () => {
     await expect(pane).toBeVisible()
     await expect(page).toHaveURL(/detail=indexer/)
     await expect(pane.getByRole('heading', { name: 'Indexer' })).toBeVisible()
-    await expect(pane.getByRole('img', { name: 'State: Off' })).toBeVisible()
+    // The header chip; the operator facts below repeat it under Health.
+    await expect(pane.getByRole('img', { name: 'State: Off' }).first()).toBeVisible()
     await expect(pane).toContainText('Indexes your files.')
     await expect(pane.getByTestId('app-tools')).toContainText('2 chat tools')
     await expect(pane.getByTestId('app-tools')).toContainText('query, export')
@@ -179,6 +180,69 @@ test.describe('Add-on navigation', () => {
     await setup(page, { pins: [], studio: false, apps: [app({ id: 'notes', title: 'Notes', screenshots: ['/api/addons/apps/notes/icon?generation=3'] })] })
     await page.goto('/app/addons?detail=notes')
     await expect(page.getByTestId('addon-detail').getByTestId('addon-shots').getByRole('listitem')).toHaveCount(1)
+  })
+
+  // An add-on that declares a settings.sections contribution: its settings
+  // live on the Settings tab of its details, and the Settings page links there.
+  const withSettings = (over = {}) => app({ id: 'sandbox', name: 'sandbox', title: 'Sandbox', description: 'Run commands.', mainPage: '/app/addons/sandbox/sandbox', ui: { slots: [{ id: 'settings', slot: 'settings.sections', component: 'SandboxSettings' }] }, ...over })
+
+  test('an administrator gets a Settings tab in the details of an add-on with settings, with its server settings linked', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [withSettings(), app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()] })
+    await page.route('**/api/chats/admin/egress', route => route.fulfill({ json: { ceiling: 'registries', default: 'off', ports: [80, 443], audit_days: 14, registries: [], allowed_24h: 0, blocked_24h: 0 } }))
+    await page.goto('/app/addons?detail=sandbox')
+    const pane = page.getByTestId('addon-detail')
+    await expect(pane.getByTestId('addon-detail-tab-overview')).toHaveAttribute('aria-selected', 'true')
+    await pane.getByTestId('addon-detail-tab-settings').click()
+    await expect(page).toHaveURL(/detail=sandbox&view=settings$/)
+    await expect(pane.getByTestId('addon-detail-tab-settings')).toHaveAttribute('aria-selected', 'true')
+    const server = pane.getByTestId('addon-server-settings')
+    await expect(server).toContainText('Server settings for this add-on')
+    await expect(pane.getByTestId('addon-egress-summary')).toContainText('Package registries only')
+    await expect(pane.getByTestId('addon-egress-summary')).toContainText('14 days')
+    await expect(server.locator('[data-setting="network"] a')).toHaveAttribute('href', /\/app\/settings\?group=tools#settings-egress$/)
+    await expect(server.locator('[data-setting="bash"] a')).toHaveAttribute('href', /\/app\/settings\?group=tools#settings-builtin-tools$/)
+    // Arrow keys move between the two tabs.
+    await pane.getByTestId('addon-detail-tab-settings').press('ArrowLeft')
+    await expect(pane.getByTestId('addon-detail-tab-overview')).toHaveAttribute('aria-selected', 'true')
+    // An add-on without settings has no tab.
+    await page.goto('/app/addons?detail=notes&view=settings')
+    await expect(page.getByTestId('addon-detail')).toBeVisible()
+    await expect(page.getByTestId('addon-detail-tab-settings')).toHaveCount(0)
+    await expect(page.getByTestId('preview-facts')).toBeVisible()
+  })
+
+  test('a member gets no Settings tab, even from its address', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, apps: [withSettings()] })
+    await page.goto('/app/addons?detail=sandbox&view=settings')
+    await expect(page.getByTestId('addon-detail')).toBeVisible()
+    await expect(page.getByTestId('addon-detail-tab-settings')).toHaveCount(0)
+    await expect(page.getByTestId('addon-settings')).toHaveCount(0)
+  })
+
+  test('the Settings page lists the add-ons with settings in an Add-ons group, and only when there is one', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [withSettings(), app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/settings')
+    const group = page.locator('.st-group[data-group="addons"]')
+    await expect(group).toBeVisible()
+    await expect(group).toContainText('1')
+    await group.click()
+    const rows = page.getByTestId('settings-addon')
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first()).toHaveAttribute('data-app', 'sandbox')
+    await expect(rows.first().getByTestId('settings-addon-link')).toHaveAttribute('href', /\/app\/addons\?detail=sandbox&view=settings$/)
+    // The old anchor of the section opens the Settings tab.
+    await page.goto('/app/settings#ad-section-sandbox-settings')
+    await expect(page).toHaveURL(/\/app\/addons\?detail=sandbox&view=settings$/)
+  })
+
+  test('the Settings page has no Add-ons group when no add-on has settings', async ({ page }) => {
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [app({ id: 'notes', title: 'Notes' })] })
+    const listed = page.waitForResponse(r => /\/api\/addons\/apps$/.test(new URL(r.url()).pathname))
+    await page.goto('/app/settings')
+    await listed
+    await expect(page.getByTestId('settings-page')).toBeVisible()
+    await expect(page.locator('.st-group').first()).toBeVisible()
+    await expect(page.locator('.st-group[data-group="addons"]')).toHaveCount(0)
   })
 
   test('a member sees the pane without Remove and without the source', async ({ page }) => {
@@ -208,12 +272,12 @@ test.describe('Add-on navigation', () => {
     await page.goto('/app/addons')
     const card = page.getByTestId('addons-first-run')
     await expect(card).toBeVisible()
-    await expect(card.getByRole('heading', { name: 'Add your first add-on' })).toBeVisible()
+    await expect(card.getByRole('heading', { name: 'No add-ons yet' })).toBeVisible()
     const featured = card.getByTestId('featured').getByRole('listitem')
     await expect(featured).toHaveCount(3)
     await expect(featured.first()).toContainText('does a thing.')
     await expect(featured.first()).toContainText('Adds a page')
-    await expect(card.getByRole('button', { name: 'Install and turn on' })).toHaveCount(3)
+    await expect(card.getByRole('button', { name: /^Install / })).toHaveCount(3)
     // One way into Find add-ons while the card shows: the bar's button waits.
     await expect(page.getByRole('link', { name: 'Find add-ons' })).toHaveCount(1)
     await expect(page.getByTestId('addons-add')).toHaveCount(0)
@@ -226,7 +290,7 @@ test.describe('Add-on navigation', () => {
   test('Install and turn on asks once, installs, then turns the add-on on', async ({ page }) => {
     const state = await setup(page, { user: ADMIN, studio: false, pins: [], releases: [release('notes', { name: 'Notes' })] })
     await page.goto('/app/addons')
-    await page.getByRole('button', { name: 'Install and turn on' }).click()
+    await page.getByRole('button', { name: 'Install Notes' }).click()
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'))
     await expect(dialog).toContainText('Install and turn on Notes?')
     await dialog.getByRole('button', { name: 'Install and turn on' }).click()
@@ -298,7 +362,7 @@ test.describe('Add-on navigation', () => {
     expect(appsCalled).toBe(false)
   })
 
-  // The icon of a built-in tile sat in the top-left corner of its 40px box, at the
+  // The icon of a built-in tile sat in the top-left corner of its 36px box, at the
   // size of the page text, because only the empty-icon box was laid out as a grid.
   test('a built-in tile draws its icon centred in the icon box', async ({ page }) => {
     await setup(page, { builtin: [{ id: 'guide', kind: 'page', titleKey: 'items.chat', icon: 'palette', mainPath: '/app/chat' }], studio: false })
@@ -313,7 +377,7 @@ test.describe('Add-on navigation', () => {
     expect(Math.abs(offsets.dx)).toBeLessThan(1)
     expect(Math.abs(offsets.dy)).toBeLessThan(1)
     expect(offsets.width).toBeGreaterThan(16)
-    expect(offsets.box).toBe(40)
+    expect(offsets.box).toBe(36)
   })
 
   test('member without the add-ons feature and with no built-in tile goes home, and Studio and Talk are not built in', async ({ page }) => {
@@ -329,7 +393,7 @@ test.describe('Add-on navigation', () => {
     await page.goto('/app')
     await expect(page.getByTestId('apps-show-all')).toHaveCount(0)
     // Home, Models and Chat head the old sidebar; Studio and Talk are add-ons and are not in it.
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(page.getByRole('navigation').getByRole('link', { name: 'Home' })).toBeVisible()
     await expect(page.getByRole('navigation').getByRole('link', { name: 'Studio' })).toHaveCount(0)
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
   })
@@ -402,11 +466,9 @@ test.describe('Add-on navigation', () => {
   })
 })
 
-test.describe('Add-on navigation: the Add-ons hub tab and the route in both layouts', () => {
+test.describe('Add-on navigation: the legacy Add-ons hub tab and the route in both layouts', () => {
   test('the new layout has no Add-ons hub tab and serves the drawer at /app/addons', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveCount(0)
     await page.goto('/app/addons')
     await expect(page.getByTestId('addon-tile')).toHaveCount(2)
     await expect(page.locator('.dk-hubtabs')).toHaveCount(0)
@@ -415,7 +477,9 @@ test.describe('Add-on navigation: the Add-ons hub tab and the route in both layo
   test('the legacy flag brings the Add-ons hub tab back and /app/addons opens under it', async ({ page }) => {
     await setup(page, { apps: [app({ id: 'notes', title: 'Notes', state: 'running', mainPage: '/app/addons/notes/home' })] })
     await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
-    await page.goto('/app/build')
+    await page.goto('/app')
+    // The legacy sidebar lists the Add-ons hub, which opens the drawer.
+    await page.locator('.sidebar-nav a.nav-item[href="/app/addons"]').click()
     const hubTab = page.locator('.dk-hubtabs [data-hub-tab="addons"]')
     await expect(hubTab).toHaveAttribute('href', '/app/addons')
     await hubTab.click()
@@ -680,13 +744,12 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     }
   })
 
-  test('the Build hub has no Voices tab', async ({ page }) => {
+  test('there is no Build hub to hold a Voices tab: its address opens the models', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
     await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs')).toBeVisible()
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"]')).toHaveCount(0)
-    await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/app\/models/)
+    await expect(page.locator('.dk-hubtabs [data-hub-tab="voices"], .dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
   })
 
   test('the add-on page identifies, enrols from a side panel and holds a removal behind Undo', async ({ page }) => {
@@ -899,21 +962,21 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page).toHaveURL(/\/app\/addons\/quantization\/jobs$/)
   })
 
-  test('the Build hub has no fine-tuning or quantization tab', async ({ page }) => {
+  test('there is no Build hub with a fine-tuning or quantization tab', async ({ page }) => {
     await setup(page)
     await asFaceAdmin(page)
     await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/models/)
     await expect(page.getByRole('tab', { name: /Fine-tun/ })).toHaveCount(0)
     await expect(page.getByRole('tab', { name: /Quantiz/ })).toHaveCount(0)
     await expect(page.locator('.dk-hubtabs [data-hub-tab="fine-tune"], .dk-hubtabs [data-hub-tab="quantize"]')).toHaveCount(0)
   })
 
-  test('the Build hub shows no Faces tab', async ({ page }) => {
+  test('there is no Build hub to hold a Faces tab', async ({ page }) => {
     await setup(page, { apps: [] })
     await asFaceAdmin(page)
     await page.goto('/app/build')
-    await expect(page.locator('.dk-hubtabs')).toBeVisible()
+    await expect(page).toHaveURL(/\/app\/models/)
     await expect(page.locator('.dk-hubtabs [data-hub-tab="faces"]')).toHaveCount(0)
   })
 
@@ -988,7 +1051,7 @@ test.describe('Add-on navigation: the addons feature gate', () => {
     await setup(page, { features: OFF, user: ADMIN })
     await page.goto('/app')
     const nav = page.getByRole('navigation')
-    await expect(nav.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Home' })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Add-ons', exact: true })).toHaveCount(0)
     await expect(nav.getByTestId('apps-pinned-link')).toHaveCount(0)
     await expect(nav.getByRole('link', { name: /Fine-?tun/i })).toHaveCount(0)
@@ -996,11 +1059,12 @@ test.describe('Add-on navigation: the addons feature gate', () => {
     expect(calls).toEqual([])
   })
 
-  test('with add-ons off the Build hub has no Add-ons, fine-tuning or quantization tab, in either layout', async ({ page }) => {
+  test('with add-ons off there is no Add-ons, fine-tuning or quantization entry, in either layout', async ({ page }) => {
     for (const addon_navigation of [true, false]) {
       await setup(page, { features: { ...OFF, addon_navigation }, user: ADMIN })
-      await page.goto('/app/build')
-      await expect(page.getByRole('tab', { name: 'Agents' }).or(page.getByRole('link', { name: 'Agents' })).first()).toBeVisible()
+      await page.goto('/app')
+      await expect(page.locator('.sidebar-nav a.nav-item[href="/app/agents"]')).toBeVisible()
+      await expect(page.locator('.sidebar-nav a.nav-item[href="/app/addons"]')).toHaveCount(0)
       for (const name of [/^Add-ons$/, /Fine-?tun/i, /Quantiz/i]) {
         await expect(page.getByRole('tab', { name })).toHaveCount(0)
         await expect(page.locator('.hub-tabs, [role="tablist"]').getByRole('link', { name })).toHaveCount(0)
@@ -1015,7 +1079,7 @@ test.describe('Add-on navigation: the addons feature gate', () => {
       await setup(page, { features: OFF, user: ADMIN })
       await page.goto(address)
       await expect(page).toHaveURL(/\/app\/?$/)
-      await expect(page.getByRole('navigation').getByRole('link', { name: 'Chat' })).toBeVisible()
+      await expect(page.getByRole('navigation').getByRole('link', { name: 'Home' })).toBeVisible()
       expect(calls).toEqual([])
     })
   }

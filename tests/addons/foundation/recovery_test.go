@@ -59,13 +59,27 @@ var _ = Describe("owner failure and recovery", func() {
 		ownerPID := owner.PID()
 		owner.Kill()
 		settle("the add-on processes ending with the owner", 20*time.Second, func() bool { return fixtureChildren(ownerPID) == 0 })
+		// A frontend keeps its last answer about the owner for a few seconds,
+		// so right after the kill one frontend can still pass the add-on gate
+		// (and answer the outage from the dispatch) while the other already
+		// answers from the gate. Wait until both have seen the owner down:
+		// then the documented answer is the gate's, from every frontend.
+		settle("every frontend seeing the owner down", 30*time.Second, func() bool {
+			for _, n := range []string{cluster.FrontA, cluster.FrontB} {
+				if addonsOn(c.Token(n, "member")) {
+					return false
+				}
+			}
+			return true
+		})
 
 		var bodies []string
 		for _, n := range []string{cluster.FrontA, cluster.FrontB} {
 			cl := c.Token(n, "member")
 			r := read(cl, "found-tool", res["found-tool"], 1, map[string]any{"tool": "echo"})
 			Expect(r.Status).To(Equal(503), n+": "+r.String())
-			Expect(errorType(r)).To(Equal("addon_error"))
+			Expect(errorType(r)).To(Equal("server_error"), n+": "+r.String())
+			Expect(r.String()).To(ContainSubstring("the add-on owner is not reachable"), n)
 			bodies = append(bodies, r.String())
 			status, _ := apps(cl)
 			Expect(status).To(Equal(503), n+" apps")
@@ -84,10 +98,21 @@ var _ = Describe("owner failure and recovery", func() {
 		Expect(fixtureChildren(ownerPID)).To(BeZero())
 
 		restartOwner(c)
-		settle("the add-ons running again", 30*time.Second, func() bool {
-			a := appOf(c.Token(cluster.FrontB, "admin"), "found-tool")
-			b := appOf(c.Token(cluster.FrontB, "admin"), "found-ui")
-			return a != nil && b != nil && a.State == "running" && b.State == "running"
+		// Each frontend answers from the gate until it sees the owner again.
+		settle("the add-ons running again on every frontend", 30*time.Second, func() bool {
+			for _, n := range []string{cluster.FrontA, cluster.FrontB} {
+				status, list := apps(c.Token(n, "admin"))
+				running := 0
+				for _, a := range list {
+					if (a.ID == "found-tool" || a.ID == "found-ui") && a.State == "running" {
+						running++
+					}
+				}
+				if status != 200 || running != 2 {
+					return false
+				}
+			}
+			return true
 		})
 		a := appOf(c.Token(cluster.FrontA, "admin"), "found-tool")
 		Expect(a.Generation).To(Equal(uint64(1)), "the last good generation is the one that runs")

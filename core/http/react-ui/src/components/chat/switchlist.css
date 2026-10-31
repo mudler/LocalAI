@@ -1,0 +1,169 @@
+/* The switch lists of the composer (Tools menu, Skills picker): a fixed header
+   (title, count, actions, notes), a list that scrolls and a status line that
+   always takes its room, so a refused change never moves the rows. Tokens
+   only. */
+.swl-menu {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: min(24rem, calc(100vw - 2 * var(--sp-4)));
+  max-width: none;
+  min-width: 0;
+  max-height: min(30rem, 70dvh);
+  padding: 0;
+}
+.swl-menu--wide { width: min(26rem, calc(100vw - 2 * var(--sp-4))); max-height: min(34rem, 75dvh); }
+/* On a phone the list is a sheet over the bottom of the screen: the chip is
+   at the left edge, so a menu hung from it would leave the screen. */
+@media (max-width: 640px) {
+  /* The doubled class beats the dock's and the empty chat's placement rules. */
+  .chat-mcp-dropdown .chat-mcp-dropdown-menu.swl-menu.swl-menu {
+    position: fixed;
+    top: auto;
+    left: var(--sp-4);
+    right: var(--sp-4);
+    bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 70dvh;
+  }
+}
+
+.swl-head {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--color-border-divider);
+  background: var(--color-surface-float);
+}
+.swl-head__line { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.swl-head__title { font-size: var(--fs-small); font-weight: 600; color: var(--color-text-primary); }
+.swl-head__count { font-size: var(--fs-meta); color: var(--color-text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.swl-head__actions { display: flex; gap: var(--sp-1); margin-inline: calc(-1 * var(--sp-2)); }
+.swl-head__note { margin: 0; font-size: var(--fs-meta); color: var(--color-text-muted); }
+.swl-head__note--warn { color: var(--color-warning); }
+
+.swl-search { position: relative; display: flex; align-items: center; }
+.swl-search__icon { position: absolute; left: var(--sp-2); color: var(--color-text-muted); pointer-events: none; }
+.swl-search .swl-search__input { width: 100%; height: var(--ctl-h-sm); padding-left: var(--sp-8); font-size: var(--fs-small); }
+
+.swl-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+/* A block over the groups, for what holds for the whole chat (commands,
+   network). */
+.swl-notice { display: flex; flex-direction: column; border-bottom: 1px solid var(--color-border-divider); }
+.swl-notice > .chat-network:first-child { border-top: 0; }
+.swl-notice .chat-network,
+.swl-notice .cmd-notice__line { padding-inline: var(--sp-3); }
+.swl-notice .cmd-notice__line:only-child { padding-block: var(--sp-2); }
+.swl-notice:empty { display: none; }
+
+.swl-group + .swl-group { border-top: 1px solid var(--color-border-divider); }
+.swl-group__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-h-sm);
+  padding: var(--sp-1) var(--sp-3) 0;
+  background: var(--color-surface-float);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.swl-group__icon { flex: none; color: var(--color-text-muted); }
+.swl-group__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swl-group__count { flex: none; font-weight: 400; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.swl-bulk { display: flex; gap: 0; margin-left: auto; margin-right: calc(-1 * var(--sp-2)); }
+.swl-bulk--compact .dk-btn { height: var(--ctl-h-sm); padding-inline: var(--sp-2); font-size: var(--fs-meta); font-weight: 500; }
+
+.swl-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  height: var(--ctl-h);
+  padding: 0 var(--sp-3);
+  transition: background-color var(--dur-fast) ease;
+}
+.swl-row:hover { background: var(--color-bg-hover); }
+.swl-row:focus-within { background: var(--color-bg-hover); }
+.swl-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  height: 100%;
+  cursor: pointer;
+}
+.swl-row__top {
+  flex: 0 1 auto;
+  align-self: center;
+  min-width: 0;
+  max-width: 70%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.swl-row__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.swl-row__chip { flex: 0 1000 auto; min-width: 0; max-width: 12rem; overflow: hidden; }
+.swl-row__chip .ui-chip__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swl-row__desc {
+  align-self: center;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-meta);
+  color: var(--color-text-muted);
+}
+.swl-row__desc--reason { color: var(--color-text-secondary); }
+.swl-row__desc--warn { color: var(--color-warning); }
+.swl-row__why { margin-right: var(--sp-1); vertical-align: -0.125em; color: var(--color-text-muted); }
+.swl-row[data-on="false"] .swl-row__name { color: var(--color-text-secondary); }
+.swl-row[data-disabled="true"] .swl-row__text { cursor: not-allowed; }
+.swl-row[data-disabled="true"] .swl-row__name { color: var(--color-text-muted); }
+.swl-row__src { flex: 0 0 auto; align-self: center; white-space: nowrap; font-size: var(--fs-meta); color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.swl-row[data-replaced="true"] { opacity: 0.6; }
+.swl-row[data-replaced="true"]:hover { background: none; }
+.swl-row .dk-switch { transform-origin: center; }
+
+/* A stacked row: the name and its chip, the line of text under them. It wraps
+   instead of cutting, since a reason has to be read in full. */
+.swl-row--stacked { height: auto; min-height: var(--ctl-h); padding-block: var(--sp-2); }
+.swl-row--stacked .swl-row__text { flex-direction: column; align-items: stretch; gap: 2px; height: auto; }
+.swl-row--stacked .swl-row__top { align-self: stretch; max-width: 100%; }
+.swl-row--stacked .swl-row__desc { flex: none; align-self: stretch; white-space: normal; overflow-wrap: anywhere; }
+
+.swl-empty { margin: 0; padding: var(--sp-4) var(--sp-3); font-size: var(--fs-small); color: var(--color-text-secondary); }
+
+.swl-foot { flex: none; display: flex; flex-direction: column; }
+.swl-foot > .dk-btn { justify-content: flex-start; margin: 0 var(--sp-1) var(--sp-1); }
+.swl-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--ctl-h-sm);
+  overflow: hidden;
+  padding: 0 var(--sp-3);
+  border-top: 1px solid var(--color-border-divider);
+  font-size: var(--fs-meta);
+  color: var(--color-error);
+}
+.swl-status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swl-status:empty { border-top-color: transparent; }
+.swl-status:empty:has(+ *) { height: 0; }

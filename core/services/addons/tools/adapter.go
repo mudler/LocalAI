@@ -32,6 +32,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -49,6 +50,10 @@ const (
 	// MaxResultBytes bounds a read result handed to a model. A larger result
 	// is refused: a truncated JSON document would read as a complete one.
 	MaxResultBytes = 128 << 10
+	// MaxAppliedBytes bounds each excerpt copied into the result of a change
+	// made at once. The chat keeps a tool result capped at 2 KiB, so the whole
+	// document must stay well under it to remain valid JSON there.
+	MaxAppliedBytes = 512
 	// MaxTools bounds the tools one discovery returns.
 	MaxTools = 64
 	// MaxSummaryBytes bounds the effect sample copied into a proposal
@@ -104,6 +109,13 @@ type ToolDefinition struct {
 	Kind        string         `json:"kind"`
 	Description string         `json:"description"`
 	Parameters  map[string]any `json:"parameters"`
+	// Shadows is the built-in chat tool this tool replaces in a chat (see
+	// contract.ToolDefinition.Shadows), or empty. Only the chat consumer acts
+	// on it; every other consumer keeps the namespaced Name.
+	Shadows string `json:"shadows,omitempty"`
+	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
+	// empty. The chat consumer ranks the add-ons that shadow one name by it.
+	InstalledAt string `json:"installedAt,omitempty"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -114,6 +126,8 @@ const (
 	ResultData ResultKind = "result"
 	// ResultProposal is a reference to a stored proposal. Nothing is applied.
 	ResultProposal ResultKind = "proposal"
+	// ResultApplied says a change tool ran for a chat and the change is made.
+	ResultApplied ResultKind = "applied"
 	// ResultArtifact is a reference to a private file the add-on produced.
 	ResultArtifact ResultKind = "artifact"
 	// ResultError is a typed answer that asks the person to act: no resource
@@ -134,6 +148,29 @@ const CodeInvalidRequest = "invalid_request"
 // InvalidNote is what the model is told when the add-on refused a call.
 const InvalidNote = "The add-on refused this request as invalid. Nothing was changed. Check the arguments against the tool description and correct them; do not repeat the same call and do not report an outage."
 
+// ReasonedNote is what the model is told when the add-on refused and said why.
+const ReasonedNote = "The add-on cannot do this now, and says why in message. Nothing was changed. Tell the person what it said in plain words; do not repeat the same call and do not report an outage."
+
+// CodeNotRunning is the Code of a ResultError for a call that found the add-on
+// not running. Nothing was sent.
+const CodeNotRunning = "not_running"
+
+// NotRunningNote is what the model is told when the add-on is not running.
+const NotRunningNote = "The add-on is starting or stopped, so nothing was sent and nothing was changed. Tell the person to try again in a moment; you may try the same call once more later."
+
+// CodeNotPermitted is the Code of a ResultError for a call the person is not
+// allowed to make, for example without the fine-tuning permission.
+const CodeNotPermitted = "not_permitted"
+
+// NotPermittedNote is what the model is told when the person lacks a permission.
+const NotPermittedNote = "The person does not have the permission this tool needs. Nothing was changed. Tell them an administrator must grant it; do not repeat the call and do not report an outage."
+
+// CodeResourceUnreachable is the Code of a ResultError for a resource the person cannot reach.
+const CodeResourceUnreachable = "resource_unreachable"
+
+// ResourceUnreachableNote is what the model is told when a resource cannot be used.
+const ResourceUnreachableNote = "That resource does not exist or the person has no access to it. Nothing was changed. Ask which resource to use, or ask them to choose one; do not guess an ID and do not repeat the call."
+
 // SelectNote is what the model is told when no resource is selected.
 const SelectNote = "No resource is selected for this conversation. Ask the person to choose one with the Select action of the add-on in the chat, or to give its ID. Do not guess an ID."
 
@@ -152,6 +189,32 @@ type ProposalRef struct {
 	ExpiresAt  time.Time       `json:"expiresAt"`
 }
 
+// AppliedRef is what a chat learns of a change it made. The person enabled the
+// add-on for the chat or the agent, which is the consent, so the change is made
+// at once. The safety net is undo: when the add-on kept a change set for the
+// change, Undoable is true and ChangeID names it; the person undoes it from the
+// chat with a button, and the model cannot, because the undo route accepts the
+// person's own browser session only. When it kept none, Reason says why.
+type AppliedRef struct {
+	// ID is the operation ID of the change.
+	ID         string          `json:"id"`
+	AddonID    string          `json:"addonId"`
+	ResourceID string          `json:"resourceId,omitempty"`
+	Action     string          `json:"action"`
+	Count      uint64          `json:"count"`
+	Summary    json.RawMessage `json:"summary,omitempty"`
+	// Result is what the add-on's receipt reported.
+	Result json.RawMessage `json:"result,omitempty"`
+	// Undoable says whether the person can roll the change back.
+	Undoable bool `json:"undoable"`
+	// ChangeID is the change set to undo, when Undoable.
+	ChangeID string `json:"changeId,omitempty"`
+	// Undo says in one line what the undo will do, when Undoable.
+	Undo string `json:"undo,omitempty"`
+	// Reason says why the change cannot be undone, when it cannot.
+	Reason string `json:"reason,omitempty"`
+}
+
 // ArtifactRef points at a private artifact. The bytes are fetched by the
 // person's authenticated session, never through a tool result.
 type ArtifactRef struct {
@@ -168,9 +231,13 @@ type ToolResult struct {
 	Tool      string          `json:"tool"`
 	Result    json.RawMessage `json:"result,omitempty"`
 	Proposal  *ProposalRef    `json:"proposal,omitempty"`
+	Applied   *AppliedRef     `json:"applied,omitempty"`
 	Artifacts []ArtifactRef   `json:"artifacts,omitempty"`
 	// Code says what the person is asked to do, for a ResultError.
 	Code string `json:"code,omitempty"`
+	// Message is the reason the add-on gave for refusing, in a short fixed
+	// sentence such as a missing engine. It is empty when the add-on gave none.
+	Message string `json:"message,omitempty"`
 	// Note is host text for the model: a proposal is not applied.
 	Note string `json:"note,omitempty"`
 }
@@ -178,8 +245,38 @@ type ToolResult struct {
 // ProposalNote is what the model is told after a proposal.
 const ProposalNote = "Nothing has been changed. A person must review and confirm this proposal in the approval card. Do not say the change was made."
 
+// AppliedNote is what the model is told after a change it made in a chat that
+// cannot be undone. The reason follows it in the result.
+const AppliedNote = "The change was made. It cannot be undone: see the reason. Tell the person plainly what changed and that it cannot be undone."
+
+// UndoableNote is what the model is told after a change it made in a chat that
+// the person can undo. Only the person can: the button is theirs.
+const UndoableNote = "The change was made. The person can undo it with the Undo button on this change in the chat; you cannot undo it. Tell the person plainly what changed and that they can undo it."
+
+// noUndoReason is the reason when the add-on kept no change set and said
+// nothing more.
+const noUndoReason = "the add-on keeps no change set for it"
+
+// Applier is the owner side of a change the chats consumer makes at once. It is
+// separate from Backend so that no consumer that holds only a Backend can apply
+// a change, and the adapter has no method that confirms anything: the chats
+// adapter confirms only the proposal it has just stored for the same actor.
+type Applier interface {
+	// ConfirmProposal applies the stored proposal once.
+	ConfirmProposal(ctx context.Context, actor contract.Actor, id, digest string) (gateway.Proposal, error)
+	// CancelProposal withdraws a pending proposal.
+	CancelProposal(ctx context.Context, actor contract.Actor, id string) (gateway.Proposal, error)
+}
+
+var _ Applier = (*gateway.Gateway)(nil)
+
 // ToolAdapter exposes add-on tools to model consumers.
 type ToolAdapter struct {
+	// actions says that this adapter serves action tools. Only the adapter of
+	// the chats consumer is built with it; every other consumer neither lists
+	// nor runs an action tool.
+	actions bool
+	apply   Applier
 	backend Backend
 	newID   func() (string, error)
 }
@@ -187,6 +284,28 @@ type ToolAdapter struct {
 // NewToolAdapter returns an adapter over the owner.
 func NewToolAdapter(b Backend) *ToolAdapter {
 	return &ToolAdapter{backend: b, newID: randomOperationID}
+}
+
+// ActBackend is the owner side of action tools. It is separate from Backend so
+// that no consumer that holds only a Backend can run one.
+type ActBackend interface {
+	// Act runs an action tool for the actor and returns its answer. It never
+	// proposes and never repeats a call.
+	Act(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error)
+}
+
+var _ ActBackend = (*gateway.Gateway)(nil)
+
+// NewChatToolAdapter returns an adapter for the chats consumer: besides what
+// NewToolAdapter serves, it lists and runs action tools, as the chat's user,
+// with no confirmation. The owner it is given must be an ActBackend. A write,
+// schema or create tool is made at once, not left as a proposal, when the owner
+// is also an Applier: enabling the add-on for the chat is the consent, and the
+// same preview, revision and receipt rules apply.
+func NewChatToolAdapter(b Backend) *ToolAdapter {
+	t := &ToolAdapter{backend: b, newID: randomOperationID, actions: true}
+	t.apply, _ = b.(Applier)
+	return t
 }
 
 func randomOperationID() (string, error) {
@@ -240,7 +359,89 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 	return out, nil
 }
 
+// AddonSkills is the skills of one add-on the actor can see.
+type AddonSkills struct {
+	AddonID, Title string
+	// InstalledAt is when the add-on was first installed, or empty.
+	InstalledAt string
+	Skills      []contract.SkillDefinition
+	// Running is true when the add-on may serve now: enabled and running, as
+	// Discover requires for tools.
+	Running bool
+}
+
+// Skills lists the installed add-ons that ship skills and that the actor can
+// see, running or not. A chat offers the skills of a running one from the copy
+// in its skill layer, and says when a built-in skill serves because the
+// add-on that replaces it is not running.
+func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]AddonSkills, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonSkills
+	for _, a := range list.Apps {
+		if len(a.Skills) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: slices.Clone(a.Skills), Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonSkills) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
+// AddonShadows is one installed add-on that replaces built-in chat tools, as
+// the actor sees it, running or not.
+type AddonShadows struct {
+	AddonID, Title string
+	// InstalledAt is when the add-on was first installed, or empty.
+	InstalledAt string
+	// Tools are the built-in chat tools it replaces (bash, web_fetch).
+	Tools []string
+	// Running is true when the add-on may serve now: enabled and running, as
+	// Discover requires.
+	Running bool
+}
+
+// Shadowers lists the installed add-ons that replace a built-in chat tool and
+// that the actor can see, in any state. A chat uses it to tell a pinned add-on
+// that is stopped (the built-in serves, with a note) from a pin to an add-on
+// that is not installed (the pin is ignored), and Settings lists every add-on
+// an administrator can choose.
+func (t *ToolAdapter) Shadowers(ctx context.Context, actor contract.Actor) ([]AddonShadows, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonShadows
+	for _, a := range list.Apps {
+		var names []string
+		for _, d := range a.ToolDefinitions {
+			if d.Shadows != "" && slices.Contains(a.Tools, d.Name) && contract.ValidateShadow(d) == nil && !slices.Contains(names, d.Shadows) {
+				names = append(names, d.Shadows)
+			}
+		}
+		if len(names) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonShadows{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Tools: names, Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonShadows) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
 func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
+	if d.UIOnly {
+		return ToolDefinition{}, false // for the add-on's own page, never for a model
+	}
 	name := ToolName(a.ID, d.Name)
 	if _, _, ok := ParseToolName(name); !ok || !slices.Contains(a.Tools, d.Name) {
 		return ToolDefinition{}, false
@@ -254,7 +455,14 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	return ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params}, true
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt}
+	// Checked again for the same reason as the schema: a manifest that names a
+	// tool outside the list, or a shadow of the wrong kind or schema, never
+	// shadows it.
+	if d.Shadows != "" && contract.ValidateShadow(d) == nil {
+		def.Shadows = d.Shadows
+	}
+	return def, true
 }
 
 // Discover returns the tools the actor may offer a model now, in a stable
@@ -267,6 +475,9 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 	var out []ToolDefinition
 	for _, a := range list {
 		for _, d := range a.ToolDefinitions {
+			if d.Kind == contract.ToolKindAction && !t.actions {
+				continue
+			}
 			if def, ok := definition(a, d); ok && len(out) < MaxTools {
 				out = append(out, def)
 			}
@@ -309,6 +520,9 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 			if d.Name != tool {
 				continue
 			}
+			if d.Kind == contract.ToolKindAction && !t.actions {
+				continue // not offered to this consumer, so not there
+			}
 			if x, ok := definition(a, d); ok {
 				app, def, found = a, x, true
 			}
@@ -332,8 +546,10 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 			return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectResource, Note: SelectNote}, nil
 		case err != nil:
 			// A revoked, deleted or foreign reference is the denial of an
-			// unknown resource, and an outage stays an outage.
-			return ToolResult{}, err
+			// unknown resource, so the model reads the same words as for a
+			// resource it named that does not exist. An outage stays an
+			// outage.
+			return refusedResult(name, err)
 		case !toolargs.ValidResourceID(id):
 			return ToolResult{}, gateway.ErrForbidden
 		}
@@ -344,6 +560,26 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 		return ToolResult{}, gateway.ErrUnavailable
 	}
 	request := contract.Request{AddonID: app.ID, ResourceID: resource, OperationID: op, Generation: app.Generation, Arguments: body}
+	if def.Kind == contract.ToolKindAction {
+		ab, ok := t.backend.(ActBackend)
+		if !ok {
+			return ToolResult{}, gateway.ErrUnavailable
+		}
+		request.Action = "act"
+		// An action works for one chat. The conversation comes from the chat's
+		// own authenticated turn and rides in ResourceID, mapped to a valid resource ID; the model cannot name
+		// it, because no action schema has that property. It scopes the
+		// add-on's state and is never authority.
+		if conversationID == "" {
+			return ToolResult{}, ErrInvalidArguments
+		}
+		request.ResourceID = toolargs.ActionResourceID(conversationID)
+		out, err := ab.Act(ctx, actor, request)
+		if err != nil {
+			return refusedResult(name, err)
+		}
+		return readResult(name, out)
+	}
 	if def.Kind == contract.ToolKindRead {
 		request.Action = "read"
 		out, err := t.backend.Dispatch(ctx, actor, request)
@@ -357,6 +593,9 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 	if err != nil {
 		return refusedResult(name, err)
 	}
+	if t.apply != nil {
+		return t.applyNow(ctx, actor, name, p)
+	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
 		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt}
 	if len(p.Effects.Sample) <= MaxSummaryBytes {
@@ -365,14 +604,84 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 	return ToolResult{Kind: ResultProposal, Tool: name, Proposal: &ref, Note: ProposalNote}, nil
 }
 
-// refusedResult turns the add-on's own refusal into a result the model can act
+// applyNow confirms the proposal the adapter has just stored for the actor. A
+// failure that is certain withdraws the proposal, so nothing waits for a
+// browser; an unknown outcome is left alone and reported, never repeated.
+func (t *ToolAdapter) applyNow(ctx context.Context, actor contract.Actor, name string, p gateway.Proposal) (ToolResult, error) {
+	done, err := t.apply.ConfirmProposal(ctx, actor, p.ID, p.Digest)
+	if err != nil {
+		var unknown *gateway.OutcomeUnknown
+		var unavailable *gateway.ProposalUnavailable
+		if !errors.As(err, &unknown) && !errors.As(err, &unavailable) {
+			// The caller's context may be over; the withdrawal must still run.
+			_, _ = t.apply.CancelProposal(context.WithoutCancel(ctx), actor, p.ID)
+		}
+		return refusedResult(name, err)
+	}
+	if done.State != gateway.ProposalApplied {
+		// The add-on rejected it at the apply: the data moved or it cannot do
+		// this. Nothing changed, so the model corrects or asks again.
+		return ToolResult{}, gateway.ErrStale
+	}
+	ref := AppliedRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Count: p.Effects.Count}
+	if len(p.Effects.Sample) <= MaxAppliedBytes {
+		ref.Summary = p.Effects.Sample
+	}
+	if done.Receipt != nil && len(done.Receipt.Result.Payload) <= MaxAppliedBytes {
+		ref.Result = done.Receipt.Result.Payload
+	}
+	note := AppliedNote
+	n, _ := contract.ParseUndoNote(receiptPayload(done))
+	switch {
+	case n.Available:
+		ref.Undoable, ref.ChangeID, ref.Undo = true, n.ID, n.Summary
+		note = UndoableNote
+	case n.Reason != "":
+		ref.Reason = n.Reason
+	default:
+		ref.Reason = noUndoReason
+	}
+	return ToolResult{Kind: ResultApplied, Tool: name, Applied: &ref, Note: note}, nil
+}
+
+func receiptPayload(p gateway.Proposal) json.RawMessage {
+	if p.Receipt == nil {
+		return nil
+	}
+	return p.Receipt.Result.Payload
+}
+
+// refusedResult turns the add-on's own refusal, a missing permission and an
+// unreachable resource into a result the model can act
 // on. Every other error, an outage and an unknown outcome included, passes
 // through unchanged.
 func refusedResult(name string, err error) (ToolResult, error) {
+	switch {
+	case errors.Is(err, gateway.ErrNotPermitted):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotPermitted, Note: NotPermittedNote}, nil
+	case errors.Is(err, gateway.ErrNotSent):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotRunning, Note: NotRunningNote}, nil
+	case errors.Is(err, gateway.ErrResourceUnreachable):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceUnreachable, Note: ResourceUnreachableNote}, nil
+	}
 	if errors.Is(err, gateway.ErrInvalidRequest) || errors.Is(err, contract.ErrRefused) {
-		return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote}, nil
+		res := ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Note: InvalidNote, Message: refusalMessage(err)}
+		if res.Message != "" {
+			res.Note = ReasonedNote
+		}
+		return res, nil
 	}
 	return ToolResult{}, err
+}
+
+// refusalMessage is the reason in the add-on's refusal, unless it is only the
+// class every refusal has.
+func refusalMessage(err error) string {
+	var r *addonruntime.Refusal
+	if errors.As(err, &r) && r.Reason != "" && r.Reason != "invalid request" {
+		return r.Reason
+	}
+	return ""
 }
 
 // requiresResource reports a tool whose schema requires the resource.

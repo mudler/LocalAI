@@ -21,15 +21,17 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import NodeDistributionChip from '../components/NodeDistributionChip'
 import NodeInstallPicker from '../components/NodeInstallPicker'
 import BackendsTable from '../components/operate/BackendsTable'
+import BackendFilters from '../components/operate/BackendFilters'
+import SideSheet from '../components/SideSheet'
 import { InstallSteps } from '../components/addons/AddonBits'
 import HomeUndoToast from '../components/home/HomeUndoToast'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
 import Icon from '../components/Icon'
-import UpdateReviewSheet from '../components/UpdateReviewSheet'
-import { runBatch } from '../utils/updateReview'
 import CatalogSearchBox from '../components/catalog/CatalogSearchBox'
 import CatalogPager from '../components/catalog/CatalogPager'
-import CatalogEmpty from '../components/catalog/CatalogEmpty'
+import { BulkUpgradeTrigger, BulkUpgradeDialog } from '../components/upgrade/BulkUpgradeDialog'
+import { UpdateBadge } from '../components/upgrade/UpgradeBits'
+import { useBulkUpgrade } from '../hooks/useBulkUpgrade'
 import './operate.css'
 
 const CATALOG_FILTERS = [
@@ -48,7 +50,13 @@ const ITEMS_PER_PAGE = 60
 // Runtime, Backends: what can run models on this machine. One list of
 // backends with two views, Installed and Catalog. A row says what the backend
 // is doing now (installing with a bar, updating, current), carries the one
-// button that matters, and opens into everything else.
+// button that matters and a menu for the rare ones, and opens into everything
+// else.
+//
+// Above the list there is one row of controls (the views, search, Filters and
+// a More menu) and one line of text (the count, the active filters and the
+// updates). Rare actions live in More, refinements in Filters, so the list is
+// what the eye lands on.
 //
 // What the API answers is what is shown. It returns a version and an update
 // check, but no size per backend, no earlier version to roll back to and no
@@ -67,11 +75,15 @@ export default function Backends() {
   // Variants and development builds are told apart by the catalog, so the
   // Installed list waits for it rather than flashing rows it then hides.
   const [catalogReady, setCatalogReady] = useState(false)
+  const [loadError, setLoadError] = useState(null)
   const [search, setSearch] = useState(() => searchParams.get('q') || '')
   const [sortBy, setSortBy] = useState('name')
   const [sortOrder, setSortOrder] = useState('asc')
   const [page, setPage] = useState(1)
   const [showManualInstall, setShowManualInstall] = useState(false)
+  // Settings links here with ?libraries=1 to land on the open panel.
+  const [librariesOpen, setLibrariesOpen] = useState(() => searchParams.get('libraries') === '1')
+  const [librarySources, setLibrarySources] = useState([])
   // Servers run with --disable-backend-install answer 403 to every install
   // and upgrade; the page shows that up front instead of after the click.
   const [installEnabled, setInstallEnabled] = useState(true)
@@ -116,15 +128,13 @@ export default function Backends() {
   const [libUpdates, setLibUpdates] = useState({})
   const [libWork, setLibWork] = useState({})
   const [libReload, setLibReload] = useState(0)
-  // The review sheet for pending updates: { preselect } while open. Nothing is
-  // upgraded until the administrator confirms in it.
-  const [review, setReview] = useState(null)
   const [checking, setChecking] = useState(false)
   const [preferDevLoaded, setPreferDevLoaded] = useState(false)
   const [preferDev, setPreferDev] = useState(false)
   const [pending, setPending] = useState(() => new Set())
   const [errors, setErrors] = useState({})
   const [globalError, setGlobalError] = useState('')
+  const [installedError, setInstalledError] = useState(null)
   const [pickerBackend, setPickerBackend] = useState(null)
   const [pickerInitialSelection, setPickerInitialSelection] = useState([])
   // True once any catalog listing has come back. Distinguishes a cold start,
@@ -192,6 +202,7 @@ export default function Backends() {
       const data = await backendsApi.list(params)
       const list = Array.isArray(data?.backends) ? data.backends : Array.isArray(data) ? data : []
       setAllBackends(list)
+      setLoadError(null)
       // On first load, use the server's preference for development builds.
       if (!preferDevLoaded && data?.preferDevelopmentBackends) {
         setPreferDev(true)
@@ -199,14 +210,15 @@ export default function Backends() {
       }
       return true
     } catch (err) {
-      addToast(t('backends.loadFailed', { message: err.message }), 'error')
+      // A failed read replaces the list with the error; it never looks empty.
+      setLoadError(err)
       return false
     } finally {
       loadedOnce.current = true
       setCatalogReady(true)
       setLoading(false)
     }
-  }, [activeView, search, sortBy, sortOrder, addToast, t, preferDevLoaded])
+  }, [activeView, search, sortBy, sortOrder, preferDevLoaded])
 
   const debouncedFetch = useDebouncedCallback(fetchBackends)
   useEffect(() => { debouncedFetch() }, [debouncedFetch, fetchBackends])
@@ -218,6 +230,7 @@ export default function Backends() {
       setInstalled(Array.isArray(data) ? data : [])
       installedOnce.current = true
       setGlobalError('')
+      setInstalledError(null)
       setSearchParams(prev => {
         const selected = prev.get('backend')
         if (prev.get('view') !== 'installed' || !selected || data.some(b => b.Name === selected)) return prev
@@ -228,6 +241,7 @@ export default function Backends() {
       return true
     } catch (err) {
       setGlobalError(t('backends.installedLoadFailed', { message: err.message }))
+      setInstalledError(err)
       return false
     } finally {
       setInstalledLoading(false)
@@ -261,6 +275,24 @@ export default function Backends() {
     [allBackends],
   )
   const updateNames = Object.keys(upgrades)
+  // "Update all": each backend is updated on its own, one after another, and a
+  // failure does not stop the rest. The run lives here so closing the dialog
+  // keeps it going.
+  const bulkItems = useMemo(() => updateNames.map(name => ({
+    id: name, name, from: upgrades[name].installed_version || '', to: upgrades[name].available_version || '', startable: true,
+  })), [upgrades]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bulk = useBulkUpgrade({
+    items: bulkItems,
+    runOne: async (item) => {
+      try {
+        await backendsApi.upgrade(item.id)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, message: t('backends.updateAllFailed', { name: item.name, message: err.message }) }
+      }
+    },
+  })
+  const upgradingAll = bulk.running
   const installedCount = installed.length
   const recommended = activeView === 'catalog' && !search && !catalogFilter && installedOnce.current && installedCount === 0
     ? recommendedBackend(allBackends)
@@ -366,7 +398,7 @@ export default function Backends() {
   }
   const rowConflict = (name) => {
     const state = backendState({ installed: true, op: opForBackend(operations, name) })
-    return pending.has(name) || ['installing', 'queued', 'removing'].includes(state.kind)
+    return pending.has(name) || upgradingAll || ['installing', 'queued', 'removing'].includes(state.kind)
   }
   // Async confirmation must use current operation state, not the dialog's closure.
   const currentRowConflict = useRef(rowConflict)
@@ -469,38 +501,9 @@ export default function Backends() {
       .map(n => n.id)
   }
 
-  // An Upgrade button opens the review sheet with its backend checked; it
-  // starts nothing by itself.
-  const handleUpgrade = (name) => setReview({ preselect: [name] })
-
-  const reviewItems = useMemo(() => Object.keys(upgrades).sort().map(name => ({
-    key: name,
-    name,
-    from: versionLabel(upgrades[name].installed_version),
-    to: versionLabel(upgrades[name].available_version),
-    blocked: [],
-  })), [upgrades])
-
-  // One backend upgrade is a request that queues the job; the job itself runs
-  // as an operation (see Activity). A request that fails does not stop the
-  // others in the batch.
-  const runReview = (chosen, onProgress) => runBatch(chosen, async (item) => {
-    markPending(item.key, true)
-    try {
-      await backendsApi.upgrade(item.key)
-      return { ok: true }
-    } catch (err) {
-      return { ok: false, message: err.message }
-    } finally {
-      markPending(item.key, false)
-    }
-  }, { onProgress })
-  const reviewSettled = (results) => {
-    for (const r of results) {
-      if (r.ok) addToast(t('backends.reviewDone', { name: r.key }), 'info')
-      else addToast(t('backends.reviewFailed', { name: r.key, message: r.message }), 'error')
-    }
-  }
+  // An Upgrade button opens the "Update all" dialog with only its backend
+  // checked; it starts nothing by itself.
+  const handleUpgrade = (name) => bulk.show([name])
 
   // Installs the newer build the library lists. It is the administrator's own
   // action; nothing here runs on its own. The host pins the image by the digest
@@ -720,6 +723,20 @@ export default function Backends() {
     const isNodeScoped = Boolean(targetNode)
     const onTarget = isNodeScoped && (b.nodes || []).some(n => (n.node_id ?? n.NodeID) === targetNode.id)
 
+    // An installed backend has the same menu here as in the Installed view:
+    // Reinstall (which acquires, so only when installs are on) and Delete.
+    const catalogMenu = b.installed && !isNodeScoped ? (
+      <ActionMenu
+        compact
+        ariaLabel={t('backends.actionsFor', { name })}
+        triggerLabel={t('backends.actionsFor', { name })}
+        items={[
+          ...(installEnabled ? [{ key: 'reinstall', icon: 'refresh', label: t('backends.reinstallBackend'), onClick: () => handleInstall(name), disabled: busy }, { divider: true }] : []),
+          { key: 'delete', icon: 'trash', label: t('backends.deleteBackend'), danger: true, disabled: busy || !!deletionBlocked(name), onClick: () => handleDelete(name, 'catalog') },
+        ]}
+      />
+    ) : null
+
     let action = null
     if (state.kind === 'installing' || state.kind === 'queued') {
       action = state.cancellable
@@ -729,7 +746,7 @@ export default function Backends() {
       action = null
     } else if (!installEnabled) {
       action = b.installed
-        ? null
+        ? catalogMenu
         : <span className="dk-badge" title={t('backends.installDisabledTitle')}><Icon name="lock" /> {t('backends.installDisabledShort')}</span>
     } else if (state.kind === 'failed') {
       action = <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={isNodeScoped ? targetBusy(targetNode.id, name) : busy} onClick={() => isNodeScoped ? handleInstallOnTarget(name) : handleInstall(name)} aria-label={t('backends.retryLabel', { name })}>{t('backends.retry')}</button>
@@ -738,9 +755,12 @@ export default function Backends() {
         ? null
         : <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="backends-install" disabled={targetBusy(targetNode.id, name)} onClick={() => handleInstallOnTarget(name)}><Icon name="download" /> {t('backends.installOnNode', { node: targetNode.name })}</button>
     } else if (b.installed) {
-      action = upgrade
-        ? <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={() => handleUpgrade(name)} aria-label={t('backends.updateLabel', { name })}>{t('backends.update')}</button>
-        : null
+      action = (
+        <>
+          {upgrade && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={() => handleUpgrade(name)} aria-label={t('backends.updateLabel', { name })}>{t('backends.update')}</button>}
+          {catalogMenu}
+        </>
+      )
     } else if (distributedEnabled && !b.isMeta) {
       // A hardware-specific build goes straight to the picker, because fanning
       // a CPU build out to every node is the silent footgun the guard stops.
@@ -792,21 +812,6 @@ export default function Backends() {
                 <Icon name="refresh" /> {t('backends.reinstall')}
               </button>
               {nodeControls(name, b.nodes || [])}
-            </>
-          )}
-          {!isNodeScoped && b.installed && state.kind !== 'installing' && state.kind !== 'removing' && (
-            <>
-              {upgrade && (
-                <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={busy} onClick={() => handleUpgrade(name)} title={t('backends.updateToTitle', { version: upgrade.available_version ? `v${upgrade.available_version}` : t('backends.latest') })}>
-                  <Icon name="arrow-up" /> {t('backends.update')}
-                </button>
-              )}
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" disabled={busy} onClick={() => handleInstall(name)} title={t('backends.reinstall')}>
-                <Icon name="refresh" /> {t('backends.reinstall')}
-              </button>
-              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm bk-remove" disabled={busy || !!deletionBlocked(name)} onClick={() => handleDelete(name, 'catalog')} title={t('backends.delete')}>
-                <Icon name="trash" /> {t('backends.remove')}
-              </button>
             </>
           )}
           <Link className="dk-link bk-logs" to="/app/backend-logs">{t('backends.logs')}</Link>
@@ -930,7 +935,7 @@ export default function Backends() {
         {catalog?.description && <p className="bk-detail__desc">{stripMarkdown(catalog.description)}</p>}
         <dl className="dk-kv bk-facts">
           <dt>{t('backends.facts.version')}</dt><dd>{versionLabel(version) || '—'}</dd>
-          {upgrade && (<><dt>{t('backends.facts.available')}</dt><dd>{versionLabel(upgrade.available_version) || t('backends.state.update')}</dd></>)}
+          {upgrade && (<><dt>{t('backends.facts.available')}</dt><dd><UpdateBadge version={versionLabel(upgrade.available_version)} /></dd></>)}
           {libraryUpdate && (<><dt>{t('backends.facts.available')}</dt><dd data-testid="library-update-facts">{versionLabel(libraryUpdate.version)} <span className="dk-mono">{shortDigest(libraryUpdate.digest)}</span></dd></>)}
           <dt>{t('backends.facts.managed')}</dt><dd>{b.IsSystem ? t('backends.facts.system') : library ? t('backends.facts.library') : t('backends.facts.gallery')}</dd>
           {library && (<><dt>{t('backends.facts.library')}</dt><dd className="dk-mono" data-testid="library-id">{library.id}</dd></>)}
@@ -947,11 +952,6 @@ export default function Backends() {
         )}
         {usedBy(name)}
         <div className="bk-detail__acts">
-          {installEnabled && !b.IsSystem && upgrade && (
-            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" disabled={busy} onClick={() => handleUpgrade(name)}>
-              <Icon name="arrow-up" /> {upgrade.available_version ? t('backends.updateTo', { version: upgrade.available_version }) : t('backends.update')}
-            </button>
-          )}
           <Link className="dk-link bk-logs" to="/app/backend-logs">{t('backends.logs')}</Link>
         </div>
       </div>
@@ -980,105 +980,233 @@ export default function Backends() {
   const showCatalogCold = activeView === 'catalog' && loading && !loadedOnce.current
   const showInstalledCold = activeView === 'installed' && ((installedLoading && !installedOnce.current) || !catalogReady)
 
+  // ---- Toolbar ----------------------------------------------------------
+
+  const installedLoadFailed = activeView === 'installed' && installed.length === 0 && !!installedError
+  // Nothing installed: the empty state says what to do, and there is nothing
+  // to search or filter.
+  const installedEmpty = activeView === 'installed' && installedOnce.current && installed.length === 0 && !installedError
+  const noList = installedEmpty || installedLoadFailed
+
+  const STATE_LABELS = {
+    user: t('backends.installedFilters.user'),
+    system: t('backends.installedFilters.system'),
+    upgradable: t('backends.installedFilters.updates'),
+    offline: t('backends.installedFilters.offline'),
+  }
+  const libraryGroup = librarySources.length > 0 ? {
+    id: 'library',
+    legend: t('backends.filterGroups.library'),
+    kind: 'radio',
+    value: librarySource?.id || '',
+    onChange: id => { setLibrarySource(librarySources.find(src => src.id === id) || null); setPage(1) },
+    options: [{ value: '', label: t('backends.allLibraries') }, ...librarySources.map(src => ({ value: src.id, label: src.name }))],
+  } : null
+  const filterGroups = [
+    activeView === 'catalog'
+      ? {
+        id: 'type',
+        legend: t('backends.filterGroups.type'),
+        kind: 'radio',
+        value: catalogFilter,
+        onChange: key => { updateUrlParam('state', key); setPage(1) },
+        options: CATALOG_FILTERS.map(f => ({ value: f.key, label: t(f.labelKey) })),
+      }
+      : {
+        id: 'state',
+        legend: t('backends.filterGroups.state'),
+        kind: 'radio',
+        value: installedState,
+        onChange: key => updateUrlParam('state', key, 'all'),
+        options: installedFilters.map(f => ({ value: f.key, label: f.label, count: f.count })),
+      },
+    {
+      id: 'show',
+      legend: t('backends.filterGroups.show'),
+      kind: 'check',
+      options: [
+        {
+          key: 'variants',
+          label: t('backends.showVariants'),
+          count: activeView === 'installed' && hiddenVariants > 0 ? hiddenVariants : undefined,
+          checked: showAll,
+          onChange: on => { updateUrlParam('show_all', on ? '1' : ''); setPage(1) },
+        },
+        {
+          key: 'development',
+          label: t('backends.showDevelopment'),
+          count: activeView === 'installed' && hiddenDevelopment > 0 ? hiddenDevelopment : undefined,
+          checked: showDevelopment,
+          onChange: on => { updateUrlParam('development', on ? '1' : '0'); setPage(1) },
+        },
+      ],
+    },
+    libraryGroup,
+  ].filter(Boolean)
+
+  // Every refinement that differs from the default, as a chip that removes it.
+  const activeFilters = []
+  if (activeView === 'catalog' && catalogFilter) {
+    const f = CATALOG_FILTERS.find(x => x.key === catalogFilter)
+    activeFilters.push({ key: 'type', label: t(f.labelKey), clear: () => { updateUrlParam('state', ''); setPage(1) } })
+  }
+  if (activeView === 'installed' && installedState !== 'all') {
+    activeFilters.push({ key: 'state', label: STATE_LABELS[installedState] || installedState, clear: () => updateUrlParam('state', '') })
+  }
+  if (showAll) activeFilters.push({ key: 'variants', label: t('backends.showVariants'), clear: () => { updateUrlParam('show_all', ''); setPage(1) } })
+  if (showDevelopment) activeFilters.push({ key: 'development', label: t('backends.showDevelopment'), clear: () => { updateUrlParam('development', '0'); setPage(1) } })
+  if (librarySource) activeFilters.push({ key: 'library', label: librarySource.name, clear: () => { setLibrarySource(null); setPage(1) } })
+
+  // Rare actions. The opener gets focus first, so a sheet opened from the menu
+  // returns focus to it when it closes.
+  const moreItems = [
+    ...(installEnabled ? [
+      { key: 'check', icon: 'refresh', label: t('backends.check'), disabled: checking, onClick: handleCheck },
+      { key: 'url', icon: 'plus', label: t('backends.installFromUrl'), onClick: (trigger) => { trigger?.focus(); setShowManualInstall(true) } },
+      { divider: true },
+    ] : []),
+    { key: 'libraries', icon: 'store', label: t('backends.manageLibraries'), onClick: (trigger) => { trigger?.focus(); setLibrariesOpen(true) } },
+  ]
+
+  const listReady = activeView === 'installed'
+    ? !showInstalledCold && installed.length > 0
+    : !showCatalogCold && allBackends.length > 0
+  const showCount = listReady
+  const shownCount = activeView === 'installed' ? installedVisible.length : catalogList.length
+  const totalCount = activeView === 'installed' ? installed.length : allBackends.length
+  const showUpdates = installEnabled && (updateNames.length > 0 || Boolean(bulk.run))
+
+  // The way out of a filtered list that shows nothing, in both views. Every
+  // filter goes, the library one too: it is what the empty state names when
+  // it is set.
+  const clearFiltersButton = (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => {
+        setLibrarySource(null)
+        setPage(1)
+        setSearchParams(prev => {
+          const next = new URLSearchParams(prev)
+          next.delete('q')
+          next.delete('state')
+          return next
+        }, { replace: true })
+      }}
+      data-testid="backends-clear-filters"
+    >
+      {t('backends.clearFilters')}
+    </Button>
+  )
+
   return (
     <div className="page page--wide op-page op-runtime" data-testid="backends">
       <h1 className="dk-sr-only">{t('backends.title')}</h1>
 
-      <KindLibraries kind="backend" onSelect={setLibrarySource} />
+      <KindLibraries
+        kind="backend"
+        bare
+        onSelect={setLibrarySource}
+        onSources={setLibrarySources}
+        panelOpen={librariesOpen}
+        onPanelOpen={setLibrariesOpen}
+      />
 
-      <div className="bk-bar">
-        <div className="dk-segmented" role="group" aria-label={t('backends.lifecycle')}>
-          <Link
-            className="dk-seg bk-seg"
-            to={hrefForView('installed')}
-            aria-current={activeView === 'installed' ? 'page' : undefined}
-          >
-            {t('backends.installedView')} <span className="bk-seg__count" aria-hidden="true">{installedCount}</span>
-          </Link>
-          <Link
-            className="dk-seg bk-seg"
-            to={hrefForView('catalog')}
-            aria-current={activeView === 'catalog' ? 'page' : undefined}
-          >
-            {t('backends.catalogView')} <span className="bk-seg__count" aria-hidden="true">{allBackends.length}</span>
-          </Link>
-        </div>
-
-        <CatalogSearchBox
-          className="bk-search"
-          label={activeView === 'installed' ? t('backends.searchInstalled') : t('backends.searchCatalog')}
-          value={activeView === 'installed' ? query : search}
-          onChange={value => (activeView === 'installed' ? updateUrlParam('q', value) : handleSearch(value))}
-        />
-
-        <div className="bk-bar__acts">
-          {installEnabled && updateNames.length > 0 && (
-            <button type="button" className="dk-btn dk-btn--primary" onClick={() => setReview({ preselect: [] })} data-testid="backends-updates">
-              <Icon name="arrow-up" /> {t('backends.reviewButton', { count: updateNames.length })}
-            </button>
-          )}
-          {installEnabled && (
-            <button type="button" className="dk-btn dk-btn--ghost" onClick={handleCheck} disabled={checking}>
-              <Icon name="refresh" spin={checking} /> {t('backends.check')}
-            </button>
-          )}
-          {installEnabled && (
-            <button type="button" className="dk-btn dk-btn--ghost" aria-expanded={showManualInstall} onClick={() => setShowManualInstall(v => !v)}>
-              <Icon name={showManualInstall ? 'chevron-up' : 'plus'} /> {t('backends.fromUrl')}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="bk-filters">
-        {activeView === 'catalog' ? (
-          <div className="bk-chips" role="group" aria-label={t('backends.filterLabel')}>
-            {CATALOG_FILTERS.map(f => (
-              <button
-                key={f.key}
-                type="button"
-                className="dk-chip"
-                aria-pressed={catalogFilter === f.key}
-                onClick={() => { updateUrlParam('state', f.key); setPage(1) }}
-              >
-                {t(f.labelKey)}
-              </button>
-            ))}
+      {/* One row of controls and one line of text, kept in reach on a long list. */}
+      <div className="bk-head" data-testid="backends-toolbar">
+        <div className="bk-bar">
+          <div className="dk-segmented bk-views" role="group" aria-label={t('backends.lifecycle')}>
+            <Link
+              className="dk-seg bk-seg"
+              to={hrefForView('installed')}
+              aria-current={activeView === 'installed' ? 'page' : undefined}
+            >
+              {t('backends.installedView')} <span className="bk-seg__count" aria-hidden="true">{installedCount}</span>
+            </Link>
+            <Link
+              className="dk-seg bk-seg"
+              to={hrefForView('catalog')}
+              aria-current={activeView === 'catalog' ? 'page' : undefined}
+            >
+              {t('backends.catalogView')} <span className="bk-seg__count" aria-hidden="true">{allBackends.length}</span>
+            </Link>
           </div>
-        ) : (
-          <div className="dk-segmented bk-states" role="tablist" aria-label={t('backends.filterLabel')}>
-            {installedFilters.map(f => (
-              <button
-                key={f.key}
-                type="button"
-                role="tab"
-                className="dk-seg"
-                aria-selected={installedState === f.key}
-                onClick={() => updateUrlParam('state', f.key, 'all')}
-              >
-                {f.label} <span className="bk-seg__count" aria-hidden="true">{f.count}</span>
-              </button>
-            ))}
+
+          {!noList && (
+            <CatalogSearchBox
+              className="bk-search"
+              label={activeView === 'installed' ? t('backends.searchInstalled') : t('backends.searchCatalog')}
+              value={activeView === 'installed' ? query : search}
+              onChange={value => (activeView === 'installed' ? updateUrlParam('q', value) : handleSearch(value))}
+            />
+          )}
+
+          {!noList && (
+            <BackendFilters
+              groups={filterGroups}
+              active={activeFilters.length}
+              testId="backends-filters"
+              labels={{ button: t('backends.filtersButton'), title: t('backends.filterLabel'), done: t('backends.filtersDone') }}
+            />
+          )}
+
+          <span className="bk-more">
+            <ActionMenu
+              items={moreItems}
+              ariaLabel={t('backends.moreActions')}
+              triggerLabel={t('backends.moreActions')}
+            />
+          </span>
+        </div>
+
+        {(showCount || activeFilters.length > 0 || checking || showUpdates) && (
+          <div className="bk-status">
+            {showCount && (
+              <span className="bk-count" aria-live="polite" data-testid="backends-count">
+                {shownCount === totalCount
+                  ? t('backends.count', { count: totalCount })
+                  : t('backends.countOf', { shown: shownCount, total: totalCount })}
+              </span>
+            )}
+            {activeFilters.length > 0 && (
+              <ul className="bk-active" aria-label={t('backends.activeFilters')}>
+                {activeFilters.map(f => (
+                  <li key={f.key} className="dk-chip bk-active__chip">
+                    <span>{f.label}</span>
+                    <button
+                      type="button"
+                      className="bk-active__remove"
+                      aria-label={t('backends.removeFilter', { name: f.label })}
+                      onClick={f.clear}
+                    >
+                      <Icon name="close" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {checking && (
+              <span className="bk-status__note" role="status">
+                <Icon name="spinner" spin /> {t('backends.checking')}
+              </span>
+            )}
+            {showUpdates && (
+              <span className="bk-updates" data-testid="backends-updates">
+                {updateNames.length > 0 && (
+                  <span className="bk-updates__text">
+                    <Icon name="arrow-up" /> {t('backends.updatesAvailable', { count: updateNames.length })}
+                  </span>
+                )}
+                <BulkUpgradeTrigger
+                  bulk={bulk}
+                  className="dk-btn dk-btn--ghost dk-btn--sm"
+                  quiet
+                  labels={{ trigger: t('backends.reviewUpdates') }}
+                />
+              </span>
+            )}
           </div>
         )}
-        <div className="bk-chips">
-          <button
-            type="button"
-            className="dk-chip"
-            aria-pressed={showAll}
-            onClick={() => { updateUrlParam('show_all', showAll ? '' : '1'); setPage(1) }}
-          >
-            {activeView === 'installed' && hiddenVariants > 0 ? t('backends.variantsCount', { count: hiddenVariants }) : t('backends.variants')}
-          </button>
-          <button
-            type="button"
-            className="dk-chip"
-            aria-pressed={showDevelopment}
-            onClick={() => { updateUrlParam('development', showDevelopment ? '0' : '1'); setPage(1) }}
-          >
-            {activeView === 'installed' && hiddenDevelopment > 0 ? t('backends.developmentCount', { count: hiddenDevelopment }) : t('backends.development')}
-          </button>
-        </div>
       </div>
 
       {!installEnabled && (
@@ -1098,16 +1226,27 @@ export default function Backends() {
         </div>
       )}
 
-      {(refreshError || globalError) && (
+      {(refreshError || (globalError && !installedLoadFailed)) && (
         <div className="op-error" role="alert">
           <span>{refreshError ? t(refreshError === 'deletion' ? 'backends.nodeRemoval.stale' : 'backends.nodeRemoval.refreshFailed') : globalError}</span>
           <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" aria-label={t('backends.nodeRemoval.refresh')} onClick={() => refreshBackendData()}>{t('backends.retry')}</button>
         </div>
       )}
       {showManualInstall && (
-        <form onSubmit={handleManualInstall} className="bk-manual dk-card">
-          <h2 className="bk-manual__title">{t('backends.manualTitle')}</h2>
-          <div className="bk-manual__grid">
+        <SideSheet
+          title={t('backends.manualTitle')}
+          onClose={() => setShowManualInstall(false)}
+          closeLabel={t('backends.close')}
+          labelId="bk-manual-title"
+          testId="backends-manual"
+          footer={(
+            <>
+              <Button variant="ghost" onClick={() => setShowManualInstall(false)}>{t('backends.cancel')}</Button>
+              <Button type="submit" form="bk-manual-form" variant="primary" icon="download">{t('backends.install')}</Button>
+            </>
+          )}
+        >
+          <form id="bk-manual-form" onSubmit={handleManualInstall} className="bk-manual">
             <div className="dk-field">
               <label className="dk-label" htmlFor="bk-uri">{t('backends.manualUri')}</label>
               <input id="bk-uri" className="dk-input dk-input--mono" value={manualUri} onChange={e => setManualUri(e.target.value)} placeholder="oci://quay.io/example/backend:latest" />
@@ -1120,10 +1259,9 @@ export default function Backends() {
               <label className="dk-label" htmlFor="bk-alias">{t('backends.manualAlias')}</label>
               <input id="bk-alias" className="dk-input" value={manualAlias} onChange={e => setManualAlias(e.target.value)} placeholder="alias" />
             </div>
-            <button type="submit" className="dk-btn dk-btn--primary"><Icon name="download" /> {t('backends.install')}</button>
-          </div>
-          {manualError && <p className="dk-field-error" role="alert">{manualError}</p>}
-        </form>
+            {manualError && <p className="dk-field-error" role="alert">{manualError}</p>}
+          </form>
+        </SideSheet>
       )}
 
       {installEnabled && recommended && (
@@ -1139,27 +1277,23 @@ export default function Backends() {
       )}
 
       {showCatalogCold || showInstalledCold ? (
-        <div className="op-loading"><LoadingSpinner size="lg" /></div>
+        <SkeletonRows />
       ) : activeView === 'installed' ? (
-        installed.length === 0 && globalError ? null : installed.length === 0 ? (
-          <CatalogEmpty icon="server" title={t('backends.emptyTitle')} text={t('backends.emptyBody')}>
-            <Link className="dk-btn dk-btn--primary" to={hrefForView('catalog')}>{t('backends.openCatalog')}</Link>
-          </CatalogEmpty>
+        installedLoadFailed ? (
+          <LoadError title={t('backends.installedLoadFailedTitle')} error={installedError} onRetry={fetchInstalled} />
+        ) : installed.length === 0 ? (
+          <EmptyState
+            icon="server"
+            title={t('backends.emptyTitle')}
+            body={t('backends.emptyBody')}
+            actions={<Button variant="primary" to={hrefForView('catalog')}>{t('backends.openCatalog')}</Button>}
+          />
         ) : installedRows.length === 0 ? (
-          <CatalogEmpty icon="filter" text={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : t('backends.noMatches')}>
-            <button
-              type="button"
-              className="dk-btn dk-btn--ghost"
-              onClick={() => setSearchParams(prev => {
-                const next = new URLSearchParams(prev)
-                next.delete('q')
-                next.delete('state')
-                return next
-              }, { replace: true })}
-            >
-              {t('backends.clearFilters')}
-            </button>
-          </CatalogEmpty>
+          <EmptyState
+            variant="no-results"
+            body={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : t('backends.noMatches')}
+            actions={clearFiltersButton}
+          />
         ) : (
           <BackendsTable
             rows={installedRows}
@@ -1169,8 +1303,16 @@ export default function Backends() {
             caption={t('backends.installedAria')}
           />
         )
+      ) : activeView === 'catalog' && loadError && allBackends.length === 0 ? (
+        <LoadError title={t('backends.loadFailedTitle')} error={loadError} onRetry={fetchBackends} />
       ) : catalogRows.length === 0 ? (
-        <CatalogEmpty icon="server" title={t('backends.noneFound')} text={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')} />
+        <EmptyState
+          variant={search || catalogFilter || librarySource ? 'no-results' : 'first-run'}
+          icon="server"
+          title={t('backends.noneFound')}
+          body={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')}
+          actions={search || catalogFilter || librarySource ? clearFiltersButton : undefined}
+        />
       ) : (
         <>
           <BackendsTable
@@ -1184,7 +1326,6 @@ export default function Backends() {
             busy={loading}
             caption={t('backends.catalogAria')}
           />
-          <p className="bk-count">{t('backends.shown', { shown: catalogPage.length, total: allBackends.length })}</p>
           <CatalogPager
             className="bk-pager"
             page={page}
@@ -1195,6 +1336,7 @@ export default function Backends() {
         </>
       )}
 
+      <BulkUpgradeDialog bulk={bulk} labels={{ title: t('backends.updateAllTitle'), intro: t('backends.updateAllIntro'), action: t('backends.updateSelected') }} />
       <ConfirmDialog
         open={!!confirmDialog}
         title={confirmDialog?.title}
@@ -1205,19 +1347,6 @@ export default function Backends() {
         onConfirm={confirmDialog?.onConfirm}
         onCancel={() => { if (!removalLock.current) setConfirmDialog(null) }}
       />
-
-      {review && (
-        <UpdateReviewSheet
-          title={t('backends.reviewTitle')}
-          description={t('backends.reviewDescription')}
-          items={reviewItems}
-          preselect={review.preselect}
-          run={runReview}
-          onSettled={reviewSettled}
-          onClose={() => setReview(null)}
-          started
-        />
-      )}
 
       <NodeInstallPicker
         open={!!pickerBackend}

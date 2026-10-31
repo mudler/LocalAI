@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -183,4 +184,33 @@ func (s *FileStore) DeleteMissingBefore(_ context.Context, cutoff time.Time) (in
 		s.st.Pins[u] = kept
 	}
 	return n, s.save()
+}
+
+func (s *FileStore) MarkInstalled(_ context.Context, ids []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	changed := false
+	for _, id := range ids {
+		if _, done := s.st.SeedRuns[installedPrefix+id]; !done {
+			s.st.SeedRuns[installedPrefix+id] = time.Now().UTC()
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return s.save()
+}
+
+func (s *FileStore) Installed(_ context.Context) ([]string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []string
+	for name := range s.st.SeedRuns {
+		if id, ok := strings.CutPrefix(name, installedPrefix); ok {
+			out = append(out, id)
+		}
+	}
+	slices.Sort(out)
+	return out, nil
 }

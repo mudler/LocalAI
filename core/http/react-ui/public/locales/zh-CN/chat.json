@@ -25,22 +25,15 @@
     "yes": "是",
     "gpuLayers": "GPU 层数"
   },
-  "context": {
-    "label": "上下文：{{percent}}%",
-    "labelWithTokens": "上下文：{{percent}}% （{{tokens}} 个 token）"
-  },
   "settings": {
     "title": "聊天设置",
     "manageMode": "管理模式",
-    "manageModeDesc": "允许此聊天通过与 LocalAI 对话来安装模型、切换后端和编辑配置。",
-    "systemPrompt": "系统提示",
-    "systemPromptPlaceholder": "你是一个有用的助手...",
-    "temperature": "温度",
-    "topP": "Top P",
-    "topK": "Top K",
-    "contextSize": "上下文大小",
-    "contextSizePlaceholder": "2048",
-    "clearHistory": "清除聊天记录"
+    "serverKept": "服务器保存此对话。模型和智能体在开始时确定。",
+    "manageModeOn": "此对话拥有 LocalAI 管理工具。使用 /assistant 开始新的对话。",
+    "agent": "智能体",
+    "agentHelp": "此对话使用智能体 {{name}}：它的指令以及它授予的工具。",
+    "editAgent": "编辑智能体",
+    "deleteHelp": "永久删除此对话及其消息。"
   },
   "empty": {
     "manageTitle": "通过聊天管理 LocalAI",
@@ -61,7 +54,6 @@
       "头脑风暴"
     ],
     "recent": "最近",
-    "noMessages": "暂无消息",
     "hintEnter": "回车发送",
     "hintShiftEnter": "Shift+回车换行",
     "hintAttach": "附加文件"
@@ -71,29 +63,17 @@
   },
   "actions": {
     "copy": "复制",
-    "edit": "编辑",
-    "editMessage": "编辑消息",
-    "save": "保存",
-    "cancel": "取消",
     "regenerate": "重新生成",
-    "jumpToLatest": "Jump to latest"
+    "jumpToLatest": "Jump to latest",
+    "reuse": "编辑后重新发送"
   },
   "streaming": {
     "transferring": "正在传输模型...",
     "transferringTo": "正在传输模型到 {{node}}..."
   },
-  "tokens": {
-    "perSec": "{{count}} tok/s",
-    "peak": "峰值：{{count}} tok/s",
-    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
-  },
   "input": {
-    "placeholder": "消息...",
-    "attachFile": "附加文件",
     "stopGenerating": "停止生成",
-    "canvasTitle": "Canvas — 将代码块和媒体提取到侧边栏以便预览、复制和下载",
-    "canvasLabel": "Canvas",
-    "openCanvas": "打开 Canvas 面板"
+    "placeholderQueue": "模型正在工作。现在发送的消息会等待它的下一步。"
   },
   "deleteAllDialog": {
     "title": "删除所有聊天",
@@ -104,7 +84,7 @@
     "selectModel": "请选择一个模型",
     "copied": "已复制到剪贴板",
     "copyFailed": "无法复制到剪贴板",
-    "pdfScannedAsImages": "{{name}} 没有文本层（扫描件）。已将 {{total}} 页中的 {{count}} 页作为图片附加，供视觉模型使用。"
+    "newChatForModel": "对话会保留其模型。已使用 {{model}} 开始新对话。"
   },
   "menu": {
     "trigger": "聊天",
@@ -118,17 +98,487 @@
     "deleteChat": "删除聊天",
     "newChat": "新对话",
     "clearAll": "清除全部",
-    "deleteAllTitle": "删除所有对话"
+    "deleteAllTitle": "删除所有对话",
+    "untitled": "新对话",
+    "origin": {
+      "trigger": "由触发器启动",
+      "connector": "来自连接器"
+    }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "循环第 {{run}} 次"
   },
-  "addons": {
-    "note": "An add-on that is off here does nothing in this chat.",
-    "label": "Add-ons",
-    "title": "Add-on tools for this chat",
-    "heading": "Add-on tools",
-    "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+  "tools": {
+    "label": "工具",
+    "title": "此对话可以使用的工具",
+    "heading": "此对话的工具",
+    "draftNote": "新聊天将按这些开关开始。关闭的工具不会提供给模型。",
+    "note": "在此关闭的工具不会在此对话中提供给模型。",
+    "count": "已开启 {{on}}/{{total}}",
+    "selectAll": "全部开启",
+    "disableAll": "全部关闭",
+    "groupOn": "全开",
+    "groupOff": "全关",
+    "groupOnLabel": "开启{{group}}中的全部",
+    "groupOffLabel": "关闭{{group}}中的全部",
+    "groupCount": "{{on}}/{{total}}",
+    "optIn": "需手动开启。“全部开启”不会开启它。",
+    "empty": "此对话中没有可切换的项。",
+    "failed": "无法保存。开关已恢复原状。",
+    "unavailable": "此对话中不可用",
+    "toolCount_one": "{{count}} 个工具",
+    "toolCount_other": "{{count}} 个工具"
+  },
+  "skills": {
+    "label": "技能",
+    "title": "此对话可以使用的技能",
+    "heading": "此对话的技能",
+    "count": "已开启 {{on}} / {{total}}",
+    "selectAll": "全选",
+    "disableAll": "全部关闭",
+    "selectShown": "选择当前显示的",
+    "disableShown": "关闭当前显示的",
+    "search": "搜索技能",
+    "noMatch": "没有与“{{query}}”匹配的技能。",
+    "later": "之后添加的技能默认开启。",
+    "failed": "保存失败。未作任何更改。",
+    "source": {
+      "builtin": "内置",
+      "personal": "个人",
+      "shared": "共享",
+      "folder": "工作区",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "已被 {{name}} 替换",
+    "fallback_one": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。",
+    "fallback_other": "正在使用内置 {{skills}}：{{name}} 插件自己的技能在此处已关闭或未运行。"
+  },
+  "agent": {
+    "label": "智能体",
+    "title": "此对话的已保存智能体",
+    "heading": "使用智能体开始",
+    "note": "智能体为对话提供其指令以及它授予的工具。",
+    "none": "不使用智能体",
+    "fixed": "此对话的智能体"
+  },
+  "assistant": {
+    "chatTitle": "LocalAI 助手"
+  },
+  "slash": {
+    "delete": {
+      "label": "删除对话",
+      "desc": "删除此对话"
+    },
+    "assistant": {
+      "desc": "开始一个可以管理 LocalAI 的对话"
+    },
+    "settings": {
+      "desc": "专注模式、智能体和模型信息"
+    },
+    "group": {
+      "context": "上下文",
+      "skills": "技能和智能体",
+      "help": "帮助"
+    },
+    "models": {
+      "label": "模型",
+      "desc": "打开模型列表"
+    },
+    "skill": {
+      "label": "运行技能",
+      "desc": "选择此对话的一个技能"
+    },
+    "agent": {
+      "label": "交给已保存的智能体",
+      "desc": "把任务交给你的一个智能体",
+      "enable": "为此对话开启已保存的智能体",
+      "enableDesc": "然后选择智能体"
+    },
+    "compact": {
+      "label": "压缩上下文",
+      "desc": "总结较早的消息，为模型腾出空间"
+    },
+    "clear": {
+      "label": "清空上下文",
+      "desc": "在此对话中重新开始，消息保留"
+    },
+    "attach": {
+      "label": "添加附件",
+      "desc": "选择要发送的文件",
+      "clearDesc": "移除等待发送的文件"
+    },
+    "help": {
+      "label": "全部命令",
+      "desc": "列出每个命令及其作用"
+    },
+    "about": {
+      "label": "关于此对话",
+      "desc": "模型、工具、技能和上下文大小"
+    },
+    "args": {
+      "skill": "技能",
+      "agent": "已保存的智能体",
+      "model": "模型",
+      "attach": "文件",
+      "loop": "循环",
+      "goal": "目标"
+    },
+    "badge": {
+      "builtin": "内置",
+      "addon": "附加组件",
+      "shared": "共享",
+      "yours": "你的"
+    },
+    "collides": "仅通过 /skill",
+    "errors": {
+      "skill": "此对话没有名为“{{name}}”的技能。",
+      "agent": "你没有名为“{{name}}”的已保存智能体。",
+      "agentTask": "请在 {{name}} 名称后写下任务。",
+      "agentsOff": "此对话已关闭已保存的智能体。请在“工具”菜单中开启。"
+    },
+    "loop": {
+      "label": "重复提示词",
+      "desc": "在此聊天中反复运行一个提示词：/loop 5m 检查构建",
+      "listDesc": "显示此聊天的循环",
+      "stopDesc": "停止一个循环或全部循环",
+      "stopAll": "所有循环",
+      "stopAllDesc": "停止此聊天的所有循环"
+    },
+    "goal": {
+      "label": "目标",
+      "desc": "设定一个聊天会自己持续推进的目标",
+      "clearDesc": "清除目标",
+      "resumeDesc": "继续推进目标"
+    }
+  },
+  "shortcuts": {
+    "onMessage": "在消息上：复制、编辑、重新生成",
+    "editLast": "编辑你的最后一条消息"
+  },
+  "files": {
+    "title": "此对话中的文件",
+    "chip": "文件",
+    "chipTitle": "此对话中的文件：你附加的文件，以及助手创建或修改的文件",
+    "close": "关闭文件",
+    "emptyTitle": "此对话中还没有文件",
+    "emptyBody": "将文件拖到这里，即可附加到下一条消息。助手创建或修改的文件也会显示在这里。",
+    "dropHint": "将文件拖到这里，即可附加到下一条消息。",
+    "groups": {
+      "uploaded": "你提供的文件",
+      "created": "创建和修改的文件",
+      "working": "工作文件"
+    },
+    "turn": "第 {{n}} 轮",
+    "media": "在上下文中",
+    "mediaTitle": "模型已随你的消息以图片或视频形式收到此文件",
+    "changedTag": "已编辑",
+    "changedTitle": "助手修改了此文件",
+    "download": "下载 {{name}}",
+    "error": "无法读取此对话的文件。",
+    "workingNote": "助手在处理过程中生成的脚本、数据和日志，保存在此对话的工作文件夹中。"
+  },
+  "steps": {
+    "verb": {
+      "read": "已读取",
+      "list": "已列出",
+      "write": "已保存",
+      "create": "已创建",
+      "change": "已修改",
+      "move": "已移动",
+      "delete": "已删除",
+      "search": "已搜索",
+      "run": "已运行",
+      "fetch": "已获取",
+      "websearch": "已在网上搜索",
+      "webfetch": "已读取",
+      "delegate": "已询问智能体",
+      "used": "已使用"
+    },
+    "worked": "工作了 {{duration}}",
+    "thoughtFor": "思考了 {{duration}}",
+    "working": "工作中",
+    "thinking": "思考中",
+    "noMatches": "无结果",
+    "noResults": "无结果",
+    "emptyFolder": "空文件夹",
+    "size": "{{size}}",
+    "seconds": "{{value}} 秒",
+    "minutes": "{{min}} 分 {{sec}} 秒",
+    "tool": "工具",
+    "input": "输入",
+    "showLess": "收起",
+    "running": "运行中",
+    "failed": "失败",
+    "count_one": "{{count}} 步",
+    "count_other": "{{count}} 步",
+    "files_one": "{{count}} 个文件",
+    "files_other": "{{count}} 个文件",
+    "items_one": "{{count}} 项",
+    "items_other": "{{count}} 项",
+    "matches_one": "{{count}} 个结果",
+    "matches_other": "{{count}} 个结果",
+    "results_one": "{{count}} 个结果",
+    "results_other": "{{count}} 个结果",
+    "lines_one": "{{count}} 行",
+    "lines_other": "{{count}} 行",
+    "showAll_one": "显示全部 {{count}} 行",
+    "showAll_other": "显示全部 {{count}} 行",
+    "details": "显示详情",
+    "openFile": "在文件中打开 {{path}}",
+    "savedFiles": "已保存到你的文件：",
+    "fileOp": {
+      "changed": "已更改",
+      "deleted": "已删除"
+    },
+    "moreFiles": "还有 {{count}} 个",
+    "alsoSavedWorking_one": "另外保存了 {{count}} 个工作文件",
+    "alsoSavedWorking_other": "另外保存了 {{count}} 个工作文件",
+    "savedWorking_one": "保存了 {{count}} 个工作文件",
+    "savedWorking_other": "保存了 {{count}} 个工作文件",
+    "workingTitle": "工作文件（脚本、日志或草稿）：打开 {{path}}"
+  },
+  "error": {
+    "title": "回复失败",
+    "kept": "到目前为止写下的内容保留在上方。",
+    "retry": "重试",
+    "detail": "技术详情",
+    "reason": {
+      "unknown": "智能体因错误而停止。请重试以再次运行该轮。",
+      "model_backend_missing": "无法启动模型“{{model}}”:其后端未安装。",
+      "model_backend_missing_anon": "无法启动模型:其后端未安装。",
+      "model_cooldown": "模型“{{model}}”刚才启动失败,正在冷却。",
+      "model_cooldown_anon": "模型刚才启动失败,正在冷却。",
+      "model_load_failed": "无法启动模型“{{model}}”。",
+      "model_load_failed_anon": "无法启动模型。",
+      "model_not_found": "找不到模型“{{model}}”。",
+      "model_not_found_anon": "找不到该模型。",
+      "upstream_key": "上游拒绝了该密钥。",
+      "upstream_path": "上游在该地址不接受此请求。",
+      "upstream_unreachable": "无法连接到上游地址。",
+      "upstream": "模型背后的提供方返回了错误。",
+      "timeout": "模型响应时间过长。",
+      "cancelled": "在模型回答之前,该轮已被取消。"
+    },
+    "hint": {
+      "model_backend_missing": "请选择其他模型,或请管理员安装该后端。",
+      "model_backend_missing_admin": "请选择其他模型,或在“后端”页面安装该后端。",
+      "model_cooldown": "请在 {{seconds}} 秒后重试。",
+      "model_load_failed": "请检查模型的配置及其后端,然后重试。",
+      "model_not_found": "请选择其他模型,或在“模型”页面安装此模型。",
+      "upstream_key": "请检查模型设置中的 API 密钥。",
+      "upstream_path": "上游地址必须是完整的端点,例如 .../v1/chat/completions。",
+      "upstream_unreachable": "请检查模型设置中的地址。",
+      "upstream": "请稍后重试。如果持续失败,请检查提供方的地址和密钥。",
+      "timeout": "请重试,或使用更小或更快的模型。",
+      "cancelled": "准备好后请重试。"
+    },
+    "openBackends": "打开后端"
+  },
+  "allChats": {
+    "title": "全部对话",
+    "supporting": "你保存的所有对话。可以搜索、重命名、导出或删除。",
+    "loadFailed": "无法加载你的对话。",
+    "emptyTitle": "还没有对话",
+    "emptyBody": "对话从首页开始：输入消息并发送。之后你的对话会列在这里。",
+    "start": "开始对话"
+  },
+  "foot": {
+    "state": {
+      "ready": "就绪",
+      "nomodel": "没有模型",
+      "sending": "发送中",
+      "loading": "正在加载模型",
+      "thinking": "思考中",
+      "tool": "正在运行 {{tool}}",
+      "answering": "回答中",
+      "waiting": "等待你操作",
+      "stopped": "已停止",
+      "failed": "失败",
+      "interrupted": "已中断",
+      "paused": "已暂停",
+      "compacting": "正在压缩上下文",
+      "clearing": "正在清空上下文"
+    },
+    "tool": {
+      "search": "正在搜索",
+      "list": "正在列出",
+      "read": "正在读取",
+      "create": "正在创建",
+      "write": "正在写入",
+      "change": "正在修改",
+      "move": "正在移动",
+      "delete": "正在删除",
+      "run": "正在运行命令",
+      "fetch": "正在获取",
+      "delegate": "正在询问子代理"
+    },
+    "hint": "Enter 发送 · Shift+Enter 换行",
+    "meter": {
+      "label": "上下文已用 {{pct}}%。查看上下文和速度",
+      "labelNoLimit": "上下文 {{used}} 个 token。查看上下文和速度"
+    },
+    "details": {
+      "title": "上下文和速度",
+      "context": "上下文",
+      "contextOf": "{{used}} / {{limit}} 个 token（{{pct}}%）",
+      "contextUsed": "{{used}} 个 token",
+      "contextLeft": "剩余 {{left}} 个 token",
+      "contextHelp": "上下文是模型每次请求时读取的内容：指令、目前为止的对话以及工具结果。",
+      "nearFull": "此对话接近上限。服务器会压缩较早的部分，让模型可以继续。对话记录会保留每条消息。",
+      "limitUnknown": "服务器没有说明上下文窗口有多大。",
+      "lastRequest": "上一次请求",
+      "model": "模型",
+      "backend": "后端",
+      "node": "节点",
+      "tokensIn": "输入 token",
+      "tokensOut": "输出 token",
+      "firstToken": "首个 token 用时",
+      "promptTime": "提示词处理",
+      "speed": "速度",
+      "speedLive": "速度（流式输出时估算）",
+      "average": "最近 {{count}} 次请求的平均值",
+      "note": "这些数字来自本页面看到的请求。服务器不保存它们，刷新页面后会清空。"
+    },
+    "paused": {
+      "after": "已执行 {{count}} 步",
+      "atLimit": "已达步数上限",
+      "continue": "继续",
+      "continueTitle": "模型已用完一轮的全部步数。让它从停下的地方继续。",
+      "message": "请从你停下的地方继续。"
+    }
+  },
+  "attachments": {
+    "label": "附件",
+    "open": "打开 {{name}}",
+    "showMore": "再显示 {{count}} 个",
+    "missing": "文件已不可用"
+  },
+  "preview": {
+    "open": "打开预览",
+    "created": "由助手创建",
+    "changed": "由助手修改",
+    "yours": "你提供的",
+    "fromReply": "来自回答",
+    "download": "下载",
+    "downloadCode": "下载代码",
+    "copy": "复制",
+    "copied": "已复制",
+    "openInFiles": "在文件中打开",
+    "actions": "文件操作",
+    "opened": "已打开预览：{{name}}",
+    "chip": {
+      "created": "已创建",
+      "changed": "已修改",
+      "label": "{{verb}} {{name}}，打开预览",
+      "row": "本回答的文件"
+    }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} 个 token（{{pct}}%）",
+    "used": "{{used}} 个 token",
+    "speed": "{{speed}} token/秒",
+    "title": "上一次模型请求使用的上下文",
+    "ofLimit": "{{used}} / {{limit}} 个 token",
+    "left": "剩余 {{left}}"
+  },
+  "goal": {
+    "label": "目标",
+    "states": {
+      "active": "进行中",
+      "paused": "已暂停",
+      "done": "已达成",
+      "blocked": "需要你"
+    },
+    "pausedBy": {
+      "user": "你暂停了它。",
+      "turn_limit": "已用完所有自动轮次。继续可获得更多轮次。",
+      "step_limit": "已用完所有步骤。继续可获得更多步骤。",
+      "error": "某一轮失败了。继续即可重试。",
+      "interrupted": "服务器在某一轮中停止了。继续即可接着进行。"
+    },
+    "blockedNote": "需要你提供：{{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "已替换：{{text}}",
+    "pause": "暂停",
+    "pauseTitle": "停止当前这一轮并暂停目标",
+    "resume": "继续",
+    "resumeTitle": "继续推进目标",
+    "clear": "清除",
+    "clearTitle": "清除目标",
+    "progress": "目标 · 第 {{turn}} 轮，共 {{max}} 轮",
+    "progressStart": "目标 · 正在开始",
+    "markers": {
+      "set": "已设定目标",
+      "replaced": "已替换目标",
+      "continue": "继续推进目标 · 第 {{turn}} 轮",
+      "continueStart": "继续推进目标",
+      "paused": "目标已暂停",
+      "resumed": "目标已继续",
+      "done": "目标已达成",
+      "blocked": "目标受阻",
+      "cleared": "目标已清除"
+    },
+    "announce": {
+      "set": "已设定目标：{{text}}",
+      "paused": "目标已暂停。{{why}}",
+      "resumed": "目标已继续",
+      "done": "目标已达成：{{note}}",
+      "blocked": "目标需要你：{{note}}",
+      "cleared": "目标已清除"
+    },
+    "card": {
+      "title": "目标",
+      "none": "这个聊天还没有目标。输入 /goal 和你想完成的事，聊天会自己持续推进。",
+      "turns": "第 {{turn}} 轮，共 {{max}} 轮",
+      "steps": "{{steps}} / {{max}} 步",
+      "clear": "/goal clear 可清除它。",
+      "resume": "/goal resume 可继续它。",
+      "turnsLabel": "自动轮次",
+      "stepsLabel": "步骤",
+      "setLabel": "设定时间",
+      "stateLabel": "状态",
+      "noteLabel": "说明"
+    },
+    "errors": {
+      "empty": "请在 /goal 后写下目标。",
+      "notAllowed": "只有你自己开始的聊天才能设定目标。"
+    }
+  },
+  "invoked": {
+    "skill": "技能：{{name}}",
+    "agent": "智能体：{{name}}"
+  },
+  "marker": {
+    "compacted": "上下文已压缩：从 {{before}} 到 {{after}} 个 token",
+    "cleared": "上下文已清空",
+    "clearedHint": "模型看不到此线以上的消息。"
+  },
+  "cmdcard": {
+    "close": "关闭",
+    "helpTitle": "命令",
+    "helpSkills_one": "技能：{{names}}。输入 / 和名称。",
+    "helpSkills_other": "{{count}} 个技能：{{names}}。输入 / 和名称。",
+    "helpKeys": "在输入框中输入 / 打开列表。Tab 补全，Enter 运行，Esc 关闭。",
+    "aboutTitle": "此对话",
+    "model": "模型",
+    "state": "状态",
+    "loaded": "已加载",
+    "notLoaded": "未加载",
+    "backend": "后端",
+    "tools": "工具",
+    "toolsOn_one": "已开启 {{count}} 个",
+    "toolsOn_other": "已开启 {{count}} 个",
+    "skills": "技能",
+    "skillsOn_one": "{{count}} 个技能",
+    "skillsOn_other": "{{count}} 个技能",
+    "commands": "命令",
+    "isolated": "在隔离的沙箱中运行",
+    "host": "在本机上运行",
+    "noCommands": "无法运行",
+    "context": "上下文",
+    "contextOf": "{{used}} / {{limit}} 个 token",
+    "contextUsed": "{{used}} 个 token",
+    "unknown": "尚不清楚"
   }
 }

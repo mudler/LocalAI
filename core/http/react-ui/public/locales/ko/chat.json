@@ -25,22 +25,15 @@
     "yes": "예",
     "gpuLayers": "GPU 레이어"
   },
-  "context": {
-    "label": "컨텍스트: {{percent}}%",
-    "labelWithTokens": "컨텍스트: {{percent}}% ({{tokens}} 토큰)"
-  },
   "settings": {
     "title": "채팅 설정",
     "manageMode": "관리 모드",
-    "manageModeDesc": "이 채팅이 LocalAI와 대화하여 모델을 설치하고, 백엔드를 전환하고, 구성을 편집할 수 있게 합니다.",
-    "systemPrompt": "시스템 프롬프트",
-    "systemPromptPlaceholder": "당신은 도움이 되는 어시스턴트입니다...",
-    "temperature": "Temperature",
-    "topP": "Top P",
-    "topK": "Top K",
-    "contextSize": "컨텍스트 크기",
-    "contextSizePlaceholder": "2048",
-    "clearHistory": "채팅 기록 지우기"
+    "serverKept": "서버가 이 채팅을 보관합니다. 모델과 에이전트는 시작할 때 정해집니다.",
+    "manageModeOn": "이 채팅에는 LocalAI 관리 도구가 있습니다. 다른 채팅은 /assistant로 시작하세요.",
+    "agent": "에이전트",
+    "agentHelp": "이 채팅은 에이전트 {{name}}의 지침과 허용된 도구만으로 실행됩니다.",
+    "editAgent": "에이전트 편집",
+    "deleteHelp": "이 채팅과 메시지를 영구히 삭제합니다."
   },
   "empty": {
     "manageTitle": "채팅으로 LocalAI 관리",
@@ -61,7 +54,6 @@
       "아이디어를 브레인스토밍해 줘"
     ],
     "recent": "최근",
-    "noMessages": "아직 메시지가 없습니다",
     "hintEnter": "Enter로 전송",
     "hintShiftEnter": "Shift+Enter로 줄바꿈",
     "hintAttach": "파일 첨부"
@@ -71,29 +63,17 @@
   },
   "actions": {
     "copy": "복사",
-    "edit": "편집",
-    "editMessage": "메시지 편집",
-    "save": "저장",
-    "cancel": "취소",
     "regenerate": "다시 생성",
-    "jumpToLatest": "Jump to latest"
+    "jumpToLatest": "Jump to latest",
+    "reuse": "편집해서 다시 보내기"
   },
   "streaming": {
     "transferring": "모델 전송 중...",
     "transferringTo": "{{node}}(으)로 모델 전송 중..."
   },
-  "tokens": {
-    "perSec": "{{count}} tok/s",
-    "peak": "최고: {{count}} tok/s",
-    "usage": "{{prompt}}p + {{completion}}c = {{total}}"
-  },
   "input": {
-    "placeholder": "메시지...",
-    "attachFile": "파일 첨부",
     "stopGenerating": "생성 중지",
-    "canvasTitle": "캔버스 — 코드 블록과 미디어를 사이드 패널로 추출해 미리보기, 복사, 다운로드할 수 있습니다",
-    "canvasLabel": "캔버스",
-    "openCanvas": "캔버스 패널 열기"
+    "placeholderQueue": "모델이 작업 중입니다. 지금 보낸 메시지는 다음 단계까지 기다립니다."
   },
   "deleteAllDialog": {
     "title": "모든 채팅 삭제",
@@ -104,7 +84,7 @@
     "selectModel": "모델을 선택해 주세요",
     "copied": "클립보드에 복사되었습니다",
     "copyFailed": "클립보드에 복사할 수 없습니다",
-    "pdfScannedAsImages": "{{name}}에 텍스트 레이어가 없습니다(스캔). 비전 모델용으로 {{total}}페이지 중 {{count}}페이지를 이미지로 첨부했습니다."
+    "newChatForModel": "채팅은 모델을 유지합니다. {{model}}로 새 채팅을 시작했습니다."
   },
   "menu": {
     "trigger": "채팅",
@@ -118,17 +98,487 @@
     "deleteChat": "채팅 삭제",
     "newChat": "새 채팅",
     "clearAll": "모두 지우기",
-    "deleteAllTitle": "모든 대화 삭제"
+    "deleteAllTitle": "모든 대화 삭제",
+    "untitled": "새 채팅",
+    "origin": {
+      "trigger": "트리거로 시작됨",
+      "connector": "커넥터에서"
+    }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "반복 {{run}}번째 실행"
   },
-  "addons": {
-    "note": "An add-on that is off here does nothing in this chat.",
-    "label": "Add-ons",
-    "title": "Add-on tools for this chat",
-    "heading": "Add-on tools",
-    "selectAll": "Select all",
-    "deselectAll": "Deselect all"
+  "tools": {
+    "label": "도구",
+    "title": "이 채팅이 쓸 수 있는 도구",
+    "heading": "이 채팅의 도구",
+    "draftNote": "새 채팅은 이 스위치 설정으로 시작합니다. 꺼진 도구는 모델에 제공되지 않습니다.",
+    "note": "여기서 끈 도구는 이 채팅에서 모델에 제공되지 않습니다.",
+    "count": "{{total}}개 중 {{on}}개 켜짐",
+    "selectAll": "모두 켜기",
+    "disableAll": "모두 끄기",
+    "groupOn": "모두 켜기",
+    "groupOff": "모두 끄기",
+    "groupOnLabel": "{{group}} 모두 켜기",
+    "groupOffLabel": "{{group}} 모두 끄기",
+    "groupCount": "{{total}}개 중 {{on}}개",
+    "optIn": "직접 켜기 전까지 꺼져 있습니다. 모두 켜기로는 켜지지 않습니다.",
+    "empty": "이 채팅에서 바꿀 항목이 없습니다.",
+    "failed": "저장하지 못했습니다. 스위치가 이전 상태로 돌아갔습니다.",
+    "unavailable": "이 채팅에서 사용할 수 없음",
+    "toolCount_one": "도구 {{count}}개",
+    "toolCount_other": "도구 {{count}}개"
+  },
+  "skills": {
+    "label": "스킬",
+    "title": "이 채팅이 쓸 수 있는 스킬",
+    "heading": "이 채팅의 스킬",
+    "count": "{{total}}개 중 {{on}}개 켜짐",
+    "selectAll": "모두 선택",
+    "disableAll": "모두 끄기",
+    "selectShown": "표시된 항목 선택",
+    "disableShown": "표시된 항목 끄기",
+    "search": "스킬 검색",
+    "noMatch": "“{{query}}”와 일치하는 스킬이 없습니다.",
+    "later": "나중에 추가하는 스킬은 켜진 상태로 시작합니다.",
+    "failed": "저장하지 못했습니다. 변경되지 않았습니다.",
+    "source": {
+      "builtin": "기본 제공",
+      "personal": "개인",
+      "shared": "공유",
+      "folder": "작업 공간",
+      "addon": "{{name}}"
+    },
+    "replacedBy": "{{name}}(으)로 대체됨",
+    "fallback_one": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다.",
+    "fallback_other": "기본 제공 {{skills}} 사용 중: {{name}} 애드온의 자체 스킬이 여기서 꺼져 있거나 실행 중이 아닙니다."
+  },
+  "agent": {
+    "label": "에이전트",
+    "title": "이 채팅의 저장된 에이전트",
+    "heading": "에이전트로 시작",
+    "note": "에이전트는 채팅에 지침과 허용한 도구만 제공합니다.",
+    "none": "에이전트 없음",
+    "fixed": "이 채팅의 에이전트"
+  },
+  "assistant": {
+    "chatTitle": "LocalAI 어시스턴트"
+  },
+  "slash": {
+    "delete": {
+      "label": "채팅 삭제",
+      "desc": "이 대화를 삭제합니다"
+    },
+    "assistant": {
+      "desc": "LocalAI를 관리할 수 있는 채팅 시작"
+    },
+    "settings": {
+      "desc": "집중 모드, 에이전트, 모델 정보"
+    },
+    "group": {
+      "context": "컨텍스트",
+      "skills": "스킬과 에이전트",
+      "help": "도움말"
+    },
+    "models": {
+      "label": "모델",
+      "desc": "모델 목록 열기"
+    },
+    "skill": {
+      "label": "스킬 실행",
+      "desc": "이 채팅의 스킬 중 하나 선택"
+    },
+    "agent": {
+      "label": "저장된 에이전트에게 요청",
+      "desc": "내 에이전트 중 하나에게 작업 맡기기",
+      "enable": "이 채팅에서 저장된 에이전트 켜기",
+      "enableDesc": "그다음 에이전트 선택"
+    },
+    "compact": {
+      "label": "컨텍스트 압축",
+      "desc": "오래된 메시지를 요약해 모델의 공간 확보"
+    },
+    "clear": {
+      "label": "컨텍스트 비우기",
+      "desc": "이 채팅에서 새로 시작, 메시지는 남음"
+    },
+    "attach": {
+      "label": "파일 첨부",
+      "desc": "보낼 파일 선택",
+      "clearDesc": "보내기를 기다리는 파일 제거"
+    },
+    "help": {
+      "label": "모든 명령",
+      "desc": "각 명령과 그 기능 보기"
+    },
+    "about": {
+      "label": "이 채팅 정보",
+      "desc": "모델, 도구, 스킬, 컨텍스트 크기"
+    },
+    "args": {
+      "skill": "스킬",
+      "agent": "저장된 에이전트",
+      "model": "모델",
+      "attach": "파일",
+      "loop": "반복",
+      "goal": "목표"
+    },
+    "badge": {
+      "builtin": "기본 제공",
+      "addon": "애드온",
+      "shared": "공유",
+      "yours": "내 것"
+    },
+    "collides": "/skill로만",
+    "errors": {
+      "skill": "이 채팅에는 \"{{name}}\" 스킬이 없습니다.",
+      "agent": "\"{{name}}\"(이)라는 저장된 에이전트가 없습니다.",
+      "agentTask": "{{name}} 이름 뒤에 작업을 적어 주세요.",
+      "agentsOff": "이 채팅에서는 저장된 에이전트가 꺼져 있습니다. 도구 메뉴에서 켜세요."
+    },
+    "loop": {
+      "label": "프롬프트 반복",
+      "desc": "이 채팅에서 프롬프트를 반복 실행: /loop 5m 빌드 확인",
+      "listDesc": "이 채팅의 반복 보기",
+      "stopDesc": "반복 하나 또는 모두 중지",
+      "stopAll": "모든 반복",
+      "stopAllDesc": "이 채팅의 모든 반복 중지"
+    },
+    "goal": {
+      "label": "목표",
+      "desc": "채팅이 알아서 계속 작업할 목표 설정",
+      "clearDesc": "목표 지우기",
+      "resumeDesc": "목표를 계속 진행"
+    }
+  },
+  "shortcuts": {
+    "onMessage": "메시지에서: 복사, 편집, 다시 생성",
+    "editLast": "마지막 메시지 편집"
+  },
+  "files": {
+    "title": "이 채팅의 파일",
+    "chip": "파일",
+    "chipTitle": "이 채팅의 파일: 첨부한 파일과 어시스턴트가 만들거나 변경한 파일",
+    "close": "파일 닫기",
+    "emptyTitle": "아직 이 채팅에 파일이 없습니다",
+    "emptyBody": "파일을 여기에 놓으면 다음 메시지에 첨부됩니다. 어시스턴트가 만들거나 변경한 파일도 여기에 표시됩니다.",
+    "dropHint": "파일을 여기에 놓으면 다음 메시지에 첨부됩니다.",
+    "groups": {
+      "uploaded": "내가 준 파일",
+      "created": "만들고 바꾼 파일",
+      "working": "작업 파일"
+    },
+    "turn": "{{n}}번째 턴",
+    "media": "컨텍스트에 포함",
+    "mediaTitle": "모델이 메시지와 함께 이 파일을 이미지나 동영상으로 받았습니다",
+    "changedTag": "편집됨",
+    "changedTitle": "어시스턴트가 이 파일을 변경했습니다",
+    "download": "{{name}} 다운로드",
+    "error": "이 채팅의 파일을 읽을 수 없습니다.",
+    "workingNote": "어시스턴트가 작업 중에 만든 스크립트, 데이터, 로그입니다. 이 채팅의 작업 폴더에 보관됩니다."
+  },
+  "steps": {
+    "verb": {
+      "read": "읽음",
+      "list": "목록 확인",
+      "write": "저장함",
+      "create": "만듦",
+      "change": "변경함",
+      "move": "이동함",
+      "delete": "삭제함",
+      "search": "검색함",
+      "run": "실행함",
+      "fetch": "가져옴",
+      "websearch": "웹 검색함:",
+      "webfetch": "읽음",
+      "delegate": "에이전트에게 요청함",
+      "used": "사용함"
+    },
+    "worked": "{{duration}} 동안 작업함",
+    "thoughtFor": "{{duration}} 동안 생각함",
+    "working": "작업 중",
+    "thinking": "생각 중",
+    "noMatches": "결과 없음",
+    "noResults": "결과 없음",
+    "emptyFolder": "빈 폴더",
+    "size": "{{size}}",
+    "seconds": "{{value}}초",
+    "minutes": "{{min}}분 {{sec}}초",
+    "tool": "도구",
+    "input": "입력",
+    "showLess": "간단히 보기",
+    "running": "실행 중",
+    "failed": "실패",
+    "count_one": "{{count}}단계",
+    "count_other": "{{count}}단계",
+    "files_one": "파일 {{count}}개",
+    "files_other": "파일 {{count}}개",
+    "items_one": "항목 {{count}}개",
+    "items_other": "항목 {{count}}개",
+    "matches_one": "결과 {{count}}개",
+    "matches_other": "결과 {{count}}개",
+    "results_one": "결과 {{count}}개",
+    "results_other": "결과 {{count}}개",
+    "lines_one": "{{count}}줄",
+    "lines_other": "{{count}}줄",
+    "showAll_one": "{{count}}줄 모두 보기",
+    "showAll_other": "{{count}}줄 모두 보기",
+    "details": "세부 정보 보기",
+    "openFile": "파일에서 {{path}} 열기",
+    "savedFiles": "내 파일에 저장됨:",
+    "fileOp": {
+      "changed": "변경됨",
+      "deleted": "삭제됨"
+    },
+    "moreFiles": "외 {{count}}개",
+    "alsoSavedWorking_one": "작업 파일 {{count}}개도 저장함",
+    "alsoSavedWorking_other": "작업 파일 {{count}}개도 저장함",
+    "savedWorking_one": "작업 파일 {{count}}개 저장함",
+    "savedWorking_other": "작업 파일 {{count}}개 저장함",
+    "workingTitle": "작업 파일(스크립트, 로그 또는 초안): {{path}} 열기"
+  },
+  "error": {
+    "title": "답변에 실패했습니다",
+    "kept": "지금까지 작성된 내용은 위에 그대로 있습니다.",
+    "retry": "다시 시도",
+    "detail": "기술 세부 정보",
+    "reason": {
+      "unknown": "오류로 에이전트가 멈췄습니다. 다시 시도하여 턴을 다시 실행하세요.",
+      "model_backend_missing": "모델 \"{{model}}\"을(를) 시작할 수 없습니다: 백엔드가 설치되어 있지 않습니다.",
+      "model_backend_missing_anon": "모델을 시작할 수 없습니다: 백엔드가 설치되어 있지 않습니다.",
+      "model_cooldown": "모델 \"{{model}}\"이(가) 방금 시작에 실패하여 잠시 쉬는 중입니다.",
+      "model_cooldown_anon": "모델이 방금 시작에 실패하여 잠시 쉬는 중입니다.",
+      "model_load_failed": "모델 \"{{model}}\"을(를) 시작할 수 없습니다.",
+      "model_load_failed_anon": "모델을 시작할 수 없습니다.",
+      "model_not_found": "모델 \"{{model}}\"을(를) 찾을 수 없습니다.",
+      "model_not_found_anon": "모델을 찾을 수 없습니다.",
+      "upstream_key": "업스트림이 키를 거부했습니다.",
+      "upstream_path": "업스트림이 해당 주소에서 이 요청을 받지 않습니다.",
+      "upstream_unreachable": "업스트림 주소에 연결할 수 없습니다.",
+      "upstream": "모델 뒤의 제공자가 오류를 반환했습니다.",
+      "timeout": "모델이 응답하는 데 너무 오래 걸렸습니다.",
+      "cancelled": "모델이 응답하기 전에 턴이 취소되었습니다."
+    },
+    "hint": {
+      "model_backend_missing": "다른 모델을 고르거나 관리자에게 백엔드 설치를 요청하세요.",
+      "model_backend_missing_admin": "다른 모델을 고르거나 백엔드 페이지에서 백엔드를 설치하세요.",
+      "model_cooldown": "{{seconds}}초 후에 다시 시도하세요.",
+      "model_load_failed": "모델 설정과 백엔드를 확인한 뒤 다시 시도하세요.",
+      "model_not_found": "다른 모델을 고르거나 모델 페이지에서 이 모델을 설치하세요.",
+      "upstream_key": "모델 설정에서 API 키를 확인하세요.",
+      "upstream_path": "업스트림 주소는 전체 엔드포인트여야 합니다. 예: .../v1/chat/completions",
+      "upstream_unreachable": "모델 설정에서 주소를 확인하세요.",
+      "upstream": "잠시 후 다시 시도하세요. 계속 실패하면 제공자의 주소와 키를 확인하세요.",
+      "timeout": "다시 시도하거나 더 작거나 빠른 모델을 사용하세요.",
+      "cancelled": "준비되면 다시 시도하세요."
+    },
+    "openBackends": "백엔드 열기"
+  },
+  "allChats": {
+    "title": "모든 채팅",
+    "supporting": "저장된 모든 채팅입니다. 검색, 이름 변경, 내보내기, 삭제를 할 수 있습니다.",
+    "loadFailed": "채팅을 불러오지 못했습니다.",
+    "emptyTitle": "아직 채팅이 없습니다",
+    "emptyBody": "채팅은 홈에서 시작합니다. 메시지를 입력하고 보내세요. 그 후 채팅이 여기에 표시됩니다.",
+    "start": "채팅 시작"
+  },
+  "foot": {
+    "state": {
+      "ready": "준비됨",
+      "nomodel": "모델 없음",
+      "sending": "보내는 중",
+      "loading": "모델 불러오는 중",
+      "thinking": "생각하는 중",
+      "tool": "{{tool}} 실행 중",
+      "answering": "답변하는 중",
+      "waiting": "입력을 기다리는 중",
+      "stopped": "중지됨",
+      "failed": "실패",
+      "interrupted": "중단됨",
+      "paused": "일시 중지됨",
+      "compacting": "컨텍스트 압축 중",
+      "clearing": "컨텍스트 비우는 중"
+    },
+    "tool": {
+      "search": "검색 중",
+      "list": "목록 보는 중",
+      "read": "읽는 중",
+      "create": "만드는 중",
+      "write": "쓰는 중",
+      "change": "바꾸는 중",
+      "move": "옮기는 중",
+      "delete": "삭제하는 중",
+      "run": "명령 실행 중",
+      "fetch": "가져오는 중",
+      "delegate": "하위 에이전트에 묻는 중"
+    },
+    "hint": "Enter로 보내기 · Shift+Enter로 줄바꿈",
+    "meter": {
+      "label": "컨텍스트 {{pct}}% 사용. 컨텍스트와 속도 보기",
+      "labelNoLimit": "컨텍스트 {{used}} 토큰. 컨텍스트와 속도 보기"
+    },
+    "details": {
+      "title": "컨텍스트와 속도",
+      "context": "컨텍스트",
+      "contextOf": "{{limit}} 토큰 중 {{used}} ({{pct}}%)",
+      "contextUsed": "{{used}} 토큰",
+      "contextLeft": "{{left}} 토큰 남음",
+      "contextHelp": "컨텍스트는 모델이 요청마다 읽는 내용입니다: 지침, 지금까지의 이 채팅, 도구 결과.",
+      "nearFull": "이 채팅이 한도에 가깝습니다. 모델이 계속할 수 있도록 서버가 오래된 부분을 압축합니다. 대화 기록에는 모든 메시지가 남습니다.",
+      "limitUnknown": "서버가 컨텍스트 창의 크기를 알려 주지 않았습니다.",
+      "lastRequest": "마지막 요청",
+      "model": "모델",
+      "backend": "백엔드",
+      "node": "노드",
+      "tokensIn": "입력 토큰",
+      "tokensOut": "출력 토큰",
+      "firstToken": "첫 토큰까지 걸린 시간",
+      "promptTime": "프롬프트 처리",
+      "speed": "속도",
+      "speedLive": "스트리밍 중 추정 속도",
+      "average": "최근 {{count}}개 요청의 평균",
+      "note": "이 수치는 이 페이지가 본 요청에서 나옵니다. 서버는 이를 보관하지 않으므로 새로고침하면 사라집니다."
+    },
+    "paused": {
+      "after": "{{count}}단계 후",
+      "atLimit": "단계 한도에 도달",
+      "continue": "계속",
+      "continueTitle": "모델이 한 턴의 단계를 모두 사용했습니다. 멈춘 곳부터 계속하게 하세요.",
+      "message": "멈춘 곳부터 계속해 주세요."
+    }
+  },
+  "attachments": {
+    "label": "첨부 파일",
+    "open": "{{name}} 열기",
+    "showMore": "{{count}}개 더 보기",
+    "missing": "더 이상 없는 파일"
+  },
+  "preview": {
+    "open": "미리보기 열기",
+    "created": "어시스턴트가 만든 파일",
+    "changed": "어시스턴트가 바꾼 파일",
+    "yours": "내가 준 파일",
+    "fromReply": "답변에서",
+    "download": "다운로드",
+    "downloadCode": "코드 다운로드",
+    "copy": "복사",
+    "copied": "복사됨",
+    "openInFiles": "파일에서 열기",
+    "actions": "파일 작업",
+    "opened": "미리보기 열림: {{name}}",
+    "chip": {
+      "created": "만듦",
+      "changed": "바꿈",
+      "label": "{{verb}} {{name}}, 미리보기 열기",
+      "row": "이 답변의 파일"
+    }
+  },
+  "meter": {
+    "usedOf": "{{used}} / {{limit}} 토큰 ({{pct}}%)",
+    "used": "{{used}} 토큰",
+    "speed": "{{speed}} 토큰/초",
+    "title": "마지막 모델 요청이 사용한 컨텍스트",
+    "ofLimit": "{{used}} / {{limit}} 토큰",
+    "left": "{{left}} 남음"
+  },
+  "goal": {
+    "label": "목표",
+    "states": {
+      "active": "진행 중",
+      "paused": "일시 정지됨",
+      "done": "달성",
+      "blocked": "도움 필요"
+    },
+    "pausedBy": {
+      "user": "직접 일시 정지했습니다.",
+      "turn_limit": "자동 턴을 모두 사용했습니다. 계속하면 더 받을 수 있습니다.",
+      "step_limit": "단계를 모두 사용했습니다. 계속하면 더 받을 수 있습니다.",
+      "error": "턴 하나가 실패했습니다. 계속하면 다시 시도합니다.",
+      "interrupted": "턴 도중 서버가 멈췄습니다. 계속하면 이어서 진행합니다."
+    },
+    "blockedNote": "필요한 것: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "바뀐 목표: {{text}}",
+    "pause": "일시 정지",
+    "pauseTitle": "진행 중인 턴을 멈추고 목표를 일시 정지",
+    "resume": "계속",
+    "resumeTitle": "목표를 계속 진행",
+    "clear": "지우기",
+    "clearTitle": "목표 지우기",
+    "progress": "목표 · {{max}}턴 중 {{turn}}턴",
+    "progressStart": "목표 · 시작 중",
+    "markers": {
+      "set": "목표 설정됨",
+      "replaced": "목표 바뀜",
+      "continue": "목표를 향해 계속 진행 · {{turn}}턴",
+      "continueStart": "목표를 향해 계속 진행",
+      "paused": "목표 일시 정지됨",
+      "resumed": "목표 다시 진행",
+      "done": "목표 달성",
+      "blocked": "목표 막힘",
+      "cleared": "목표 지워짐"
+    },
+    "announce": {
+      "set": "목표 설정됨: {{text}}",
+      "paused": "목표가 일시 정지되었습니다. {{why}}",
+      "resumed": "목표를 다시 진행합니다",
+      "done": "목표 달성: {{note}}",
+      "blocked": "목표에 도움이 필요합니다: {{note}}",
+      "cleared": "목표가 지워졌습니다"
+    },
+    "card": {
+      "title": "목표",
+      "none": "이 채팅에는 목표가 없습니다. /goal 뒤에 원하는 일을 입력하면 채팅이 알아서 계속 작업합니다.",
+      "turns": "{{max}}턴 중 {{turn}}턴",
+      "steps": "{{max}}단계 중 {{steps}}단계",
+      "clear": "/goal clear로 지웁니다.",
+      "resume": "/goal resume으로 계속합니다.",
+      "turnsLabel": "자동 턴",
+      "stepsLabel": "단계",
+      "setLabel": "설정 시각",
+      "stateLabel": "상태",
+      "noteLabel": "메모"
+    },
+    "errors": {
+      "empty": "/goal 뒤에 목표를 적어 주세요.",
+      "notAllowed": "직접 시작한 채팅만 목표를 가질 수 있습니다."
+    }
+  },
+  "invoked": {
+    "skill": "스킬: {{name}}",
+    "agent": "에이전트: {{name}}"
+  },
+  "marker": {
+    "compacted": "컨텍스트 압축됨: {{before}}에서 {{after}} 토큰으로",
+    "cleared": "컨텍스트 비워짐",
+    "clearedHint": "모델은 이 선 위의 메시지를 보지 않습니다."
+  },
+  "cmdcard": {
+    "close": "닫기",
+    "helpTitle": "명령",
+    "helpSkills_one": "스킬: {{names}}. /와 이름을 입력하세요.",
+    "helpSkills_other": "스킬 {{count}}개: {{names}}. /와 이름을 입력하세요.",
+    "helpKeys": "입력란에 /를 입력하면 목록이 열립니다. Tab은 완성, Enter는 실행, Esc는 닫기.",
+    "aboutTitle": "이 채팅",
+    "model": "모델",
+    "state": "상태",
+    "loaded": "로드됨",
+    "notLoaded": "로드 안 됨",
+    "backend": "백엔드",
+    "tools": "도구",
+    "toolsOn_one": "{{count}}개 켜짐",
+    "toolsOn_other": "{{count}}개 켜짐",
+    "skills": "스킬",
+    "skillsOn_one": "스킬 {{count}}개",
+    "skillsOn_other": "스킬 {{count}}개",
+    "commands": "명령 실행",
+    "isolated": "격리된 샌드박스에서 실행",
+    "host": "이 컴퓨터에서 실행",
+    "noCommands": "실행 불가",
+    "context": "컨텍스트",
+    "contextOf": "{{limit}} 토큰 중 {{used}}",
+    "contextUsed": "{{used}} 토큰",
+    "unknown": "아직 알 수 없음"
   }
 }

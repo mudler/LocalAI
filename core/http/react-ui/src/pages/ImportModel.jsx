@@ -846,7 +846,7 @@ export default function ImportModel() {
                   <h2 className="bt-h2">{done.name ? t('done.titleNamed', { name: done.name }) : t('done.title')}</h2>
                   <p className="dk-hint">{t('done.text')}</p>
                   <div className="bt-next__acts">
-                    {done.name && <Link className="dk-btn dk-btn--primary" to={`/app/chat/${encodeURIComponent(done.name)}`}><Icon name="chat" /> {t('done.chat', { name: done.name })}</Link>}
+                    {done.name && <Link className="dk-btn dk-btn--primary" to={`/app/chats?model=${encodeURIComponent(done.name)}`}><Icon name="chat" /> {t('done.chat', { name: done.name })}</Link>}
                     <Link className={`dk-btn ${done.name ? 'dk-btn--secondary' : 'dk-btn--primary'}`} to="/app/models?view=installed" data-testid="import-open-models"><Icon name="cube" /> {t('done.models')}</Link>
                     <button type="button" className="dk-btn dk-btn--ghost" onClick={resetForAnother}>{t('done.another')}</button>
                   </div>

@@ -11,9 +11,11 @@ test.describe('404', () => {
     await expect(nf).toContainText('/app/no-such-page')
     await expect(nf.getByRole('link', { name: 'Go home' })).toHaveAttribute('href', '/app')
     const places = nf.getByRole('navigation', { name: 'Where to go' })
-    for (const name of ['Home', 'Models', 'Chat', 'Add-ons', 'Build', 'Operate']) {
+    for (const name of ['Home', 'Models', 'Chat', 'Agents', 'MCP connectors', 'Memory', 'Add-ons', 'Administration']) {
       await expect(places.getByRole('link', { name })).toBeVisible()
     }
+    // The Build hub is gone.
+    await expect(places.getByRole('link', { name: 'Build' })).toHaveCount(0)
     // Settings is a tab of the Operate hub, so the places do not list it.
     await expect(places.getByRole('link', { name: 'Settings' })).toHaveCount(0)
   })
@@ -26,8 +28,8 @@ test.describe('404', () => {
 
   test('the links go where they say', async ({ page }) => {
     await page.goto('/app/no-such-page')
-    await page.getByTestId('not-found').getByRole('link', { name: 'Chat' }).click()
-    await expect(page).toHaveURL(/\/app\/chat$/)
+    await page.getByTestId('not-found').getByRole('link', { name: 'All chats' }).click()
+    await expect(page).toHaveURL(/\/app\/chats\/all$/)
     await page.goto('/app/no-such-page')
     await page.getByTestId('not-found').getByRole('link', { name: 'Go home' }).click()
     await expect(page).toHaveURL(/\/app\/?$/)
@@ -37,9 +39,9 @@ test.describe('404', () => {
     await mockAccess(page, { status: 'member' })
     await page.goto('/app/no-such-page')
     const places = page.getByTestId('not-found').getByRole('navigation', { name: 'Where to go' })
-    await expect(places.getByRole('link', { name: 'Chat' })).toBeVisible()
+    await expect(places.getByRole('link', { name: 'Home' })).toBeVisible()
     await expect(places.getByRole('link', { name: 'Models' })).toHaveCount(0)
-    await expect(places.getByRole('link', { name: 'Operate' })).toHaveCount(0)
+    await expect(places.getByRole('link', { name: 'Administration' })).toHaveCount(0)
   })
 
   test('an address outside the app gets the same page', async ({ page }) => {

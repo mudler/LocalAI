@@ -1,20 +1,24 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
+import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
-import { CAP_CHAT } from '../utils/capabilities'
-// eslint-disable-next-line no-unused-vars
-import UnifiedMCPDropdown from '../components/UnifiedMCPDropdown'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
-import HomeComposer from '../components/home/HomeComposer'
+import ChatComposer from '../components/chat/ChatComposer'
 // eslint-disable-next-line no-unused-vars
-import HomeModelPicker from '../components/home/HomeModelPicker'
+import { SlashHelpCard } from '../components/chat/CommandCards'
+import { parseInvocation } from '../utils/slashCommands'
+// eslint-disable-next-line no-unused-vars
+import { ReadyLine } from '../components/chat/EmptyChat'
+// eslint-disable-next-line no-unused-vars
+import ShortcutsRow from '../components/wellknown/ShortcutsRow'
+import { useChatComposer } from '../hooks/useChatComposer'
+import { useComposerDeparture } from '../hooks/useComposerTransition'
 // eslint-disable-next-line no-unused-vars
 import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
 // eslint-disable-next-line no-unused-vars
@@ -22,33 +26,37 @@ import HomeResume from '../components/home/HomeResume'
 // eslint-disable-next-line no-unused-vars
 import HomeFirstRun from '../components/home/HomeFirstRun'
 // eslint-disable-next-line no-unused-vars
-import HomeUndoToast from '../components/home/HomeUndoToast'
+import HomeWidgets from '../components/wellknown/HomeWidgets'
+// eslint-disable-next-line no-unused-vars
+import HomeExamples, { useExamplesGone } from '../components/wellknown/HomeExamples'
+import { useWellKnown } from '../hooks/useWellKnown'
+import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
 import { useAddonPage } from '../addons/useAddonPage'
-import { fileToBase64, backendControlApi, systemApi, modelsApi, mcpApi, nodesApi } from '../utils/api'
-import { readAttachmentText, renderPdfPages, PdfNoTextError } from '../utils/pdf'
+import { backendControlApi, chatsApi, modelsApi, systemApi, nodesApi } from '../utils/api'
 import { greetingKey } from '../utils/greeting'
-import {
-  listConversations, setActiveConversation, removeConversation,
-} from '../utils/homeConversations'
-import { chatsStorageKey } from '../utils/chatStore'
+import { resumeItems } from '../utils/homeConversations'
 // eslint-disable-next-line no-unused-vars
 import Skeleton from '../components/Skeleton'
-import { staggerStyle } from '../hooks/useStagger'
+// eslint-disable-next-line no-unused-vars
+import { Button, Callout, LoadError } from '../components/ui'
+import './home.css'
 import Icon from '../components/Icon'
 
 const DOCS_URL = 'https://localai.io'
-const ASSISTANT_TIP_KEY = 'localai_assistant_tip_dismissed'
-// How long a row stays visible while it leaves, before the undo toast takes over.
-const LEAVE_MS = 180
+const ADDONS_DOCS_URL = 'https://localai.io/features/addons/#turning-the-owner-on-or-off'
 
 function isTyping(el) {
   if (!el) return false
   const tag = el.tagName
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
 }
+
+// The key the draft of Home is kept under (useChatDrafts): its text survives
+// a reload. Chat ids are hex, so it is never one.
+const HOME_DRAFT = 'home'
 
 function reducedMotion() {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false }
@@ -58,9 +66,12 @@ export default function Home() {
   const navigate = useNavigate()
   const { addToast } = useOutletContext()
   const { t, i18n } = useTranslation('home')
-  const { isAdmin, user } = useAuth()
-  // The signed-in account's own chat cache (see chatStore).
-  const chatsKey = chatsStorageKey(user?.id)
+  const { t: tw } = useTranslation('workspace')
+  const { t: tc } = useTranslation('chats')
+  const { t: tch } = useTranslation('chat')
+  // The command list that /help drew under the composer, or null.
+  const [help, setHelp] = useState(null)
+  const { isAdmin, hasFeature, user } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
   const { operations } = useOperations()
@@ -69,49 +80,50 @@ export default function Home() {
   const configuredModelsRef = useRef(configuredModels)
   configuredModelsRef.current = configuredModels
   const [loadedModels, setLoadedModels] = useState([])
-  const [selectedModel, setSelectedModel] = useState('')
-  const [message, setMessage] = useState('')
+  // An old chat address names a model (/app/chats?model=…, /app/chat/<model>)
+  // and lands here: the picker starts on it.
+  const [searchParams] = useSearchParams()
+  // What the chat server says about chats here: whether files (attachments,
+  // skills) work, whether chats are kept, the model that reads images.
+  const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '' })
+  // The composer is the chat page's (useChatComposer): the draft is Home's,
+  // the switches are a draft that goes with the new chat.
+  const composer = useChatComposer({
+    draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
+    initialModel: searchParams.get('model') || '',
+  })
+  const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
+  const { text: message, setText: setMessage, files } = drafts
   const [sending, setSending] = useState(false)
-  const [imageFiles, setImageFiles] = useState([])
-  const [audioFiles, setAudioFiles] = useState([])
-  const [textFiles, setTextFiles] = useState([])
-  const [mcpMode, setMcpMode] = useState(false)
-  const [mcpAvailable, setMcpAvailable] = useState(false)
-  const [mcpServerList, setMcpServerList] = useState([])
-  const [mcpServersLoading, setMcpServersLoading] = useState(false)
-  const [mcpServerListError, setMcpServerListError] = useState('')
-  const [mcpSelectedServers, setMcpSelectedServers] = useState([])
-  const [clientMCPSelectedIds, setClientMCPSelectedIds] = useState([])
-  const [assistantAvailable, setAssistantAvailable] = useState(false)
-  // Progressive disclosure: the assistant line is a first-run affordance. Once
-  // the admin has used it, or dismissed the line, it moves into the Library row
-  // and the /assistant action.
-  const [assistantUsed, setAssistantUsed] = useState(() => {
-    try { return localStorage.getItem('localai_assistant_used') === '1' } catch { return false }
-  })
-  const [tipDismissed, setTipDismissed] = useState(() => {
-    try { return localStorage.getItem(ASSISTANT_TIP_KEY) === '1' } catch { return false }
-  })
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
+  const [assistantOn, setAssistantOn] = useState(false)
+  const [collectionsOn, setCollectionsOn] = useState(false)
   const [clusterData, setClusterData] = useState(null)
   const [stripOpen, setStripOpen] = useState(false)
-  const [conversations, setConversations] = useState(() => listConversations(chatsKey))
-  const [leavingId, setLeavingId] = useState(null)
-  const [pendingDelete, setPendingDelete] = useState(null)
+  const [conversations, setConversations] = useState([])
   const textareaRef = useRef(null)
+  const composeRef = useRef(null)
+  // Send moves the composer into the new chat (useComposerTransition).
+  const { depart, begin: beginSend, fail: failSend, handOff } = useComposerDeparture(composeRef)
   const pickerRef = useRef(null)
   const stripRef = useRef(null)
-  const pendingRef = useRef(null)
-  const leaveTimer = useRef(null)
+  const location = useLocation()
+  const [addonsOn, setAddonsOn] = useState(true)
+  // An add-on address opened while add-ons are off on the server lands here
+  // (see AddonsShell); so does /studio without Studio installed. The notice
+  // says why, and how to get the add-on.
+  const [addonNotice, setAddonNotice] = useState(() => location.state?.addonsOff || '')
 
-  // Detect distributed mode + assistant feature availability in one fetch.
+  // Detect distributed mode.
   useEffect(() => {
     fetch(apiUrl('/api/features'))
       .then(r => r.json())
       .then(data => {
         setDistributedMode(!!data.distributed)
-        setAssistantAvailable(!!data.localai_assistant)
+        setAssistantOn(!!data.localai_assistant)
+        setCollectionsOn(data.collections !== false)
+        setAddonsOn(data.addons !== false)
       })
       .catch(() => {})
   }, [])
@@ -185,150 +197,89 @@ export default function Home() {
 
   usePolling(fetchSystemInfo, 5000)
 
-  // Check MCP availability when selected model changes
+  // A message sent here creates the chat with the chosen model, agent and
+  // switches, sends the message with its files and opens the chat. When the
+  // message cannot go, the new chat is removed and the draft stays here.
+  // A shortcut that sends passes its prompt and leaves the draft as it is.
+  // What a message that left for its chat clears on Home, run as Home closes.
+  // A reload or a closed tab can come first while the chat page still loads,
+  // so leaving the page runs it too: the sent text must not come back.
+  const sentRef = useRef(null)
   useEffect(() => {
-    if (!selectedModel) {
-      setMcpAvailable(false)
-      setMcpMode(false)
-      setMcpSelectedServers([])
+    const run = () => {
+      sentRef.current?.()
+      sentRef.current = null
+    }
+    window.addEventListener('pagehide', run)
+    return () => {
+      window.removeEventListener('pagehide', run)
+      run()
+    }
+  }, [])
+  const doSubmit = useCallback(async (override) => {
+    const own = typeof override !== 'string'
+    let text = (own ? message : override).trim()
+    const attached = own ? files : []
+    if ((!text && attached.length === 0) || sending) return
+    // A message typed as a command goes with its skill or saved agent (the
+    // drafted switches of the new chat decide which it has).
+    const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
+    const inv = own ? parseInvocation(text, { skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off }) : null
+    if (inv?.error) {
+      addToast(tch(`slash.errors.${inv.error}`, { name: inv.name }), 'warning')
       return
     }
-    let cancelled = false
-    modelsApi.getConfigJson(selectedModel).then(cfg => {
-      if (cancelled) return
-      const hasMcp = !!(cfg?.mcp?.remote || cfg?.mcp?.stdio)
-      setMcpAvailable(hasMcp)
-      if (!hasMcp) {
-        setMcpMode(false)
-        setMcpSelectedServers([])
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setMcpAvailable(false)
-        setMcpMode(false)
-        setMcpSelectedServers([])
-      }
-    })
-    return () => { cancelled = true }
-  }, [selectedModel])
-
-  const allFiles = useMemo(
-    () => [...imageFiles, ...audioFiles, ...textFiles],
-    [imageFiles, audioFiles, textFiles],
-  )
-
-  const addFiles = useCallback(async (fileList, setter) => {
-    const newFiles = []
-    for (const file of fileList) {
-      const base64 = await fileToBase64(file)
-      const entry = { name: file.name, type: file.type, base64 }
-      if (!file.type.startsWith('image/') && !file.type.startsWith('audio/')) {
-        try {
-          entry.textContent = await readAttachmentText(file)
-        } catch (err) {
-          // A scan has no text layer: send its pages as images for a vision model.
-          if (err instanceof PdfNoTextError) {
-            try {
-              const { pages, total } = await renderPdfPages(file)
-              setImageFiles(prev => [...prev, ...pages])
-              addToast(t('input.pdfScannedAsImages', { name: file.name, count: pages.length, total }), 'info')
-              continue
-            } catch {
-              // fall through to the read error below
-            }
-          }
-          addToast(t('input.pdfReadFailed', { name: file.name }), 'error')
-          continue
-        }
-      }
-      newFiles.push(entry)
-    }
-    setter(prev => [...prev, ...newFiles])
-  }, [addToast, t])
-
-  const attach = useCallback((kind, files) => {
-    addFiles(files, kind === 'image' ? setImageFiles : kind === 'audio' ? setAudioFiles : setTextFiles)
-  }, [addFiles])
-
-  const removeFile = useCallback((file) => {
-    const removeFn = (prev) => prev.filter(f => f !== file)
-    if (file.type?.startsWith('image/')) setImageFiles(removeFn)
-    else if (file.type?.startsWith('audio/')) setAudioFiles(removeFn)
-    else setTextFiles(removeFn)
-  }, [])
-
-  const fetchMcpServers = useCallback(async () => {
-    if (!selectedModel) return
-    setMcpServersLoading(true)
-    setMcpServerListError('')
-    try {
-      const data = await mcpApi.listServers(selectedModel)
-      const servers = data?.servers || []
-      setMcpServerList(servers)
-      const unavailable = new Set(servers.filter(server => server.error).map(server => server.name))
-      setMcpSelectedServers(prev => prev.filter(name => !unavailable.has(name)))
-    } catch (e) {
-      setMcpServerList([])
-      setMcpServerListError(e.body?.message || e.message || 'Failed to discover MCP servers')
-    } finally {
-      setMcpServersLoading(false)
-    }
-  }, [selectedModel])
-
-  const toggleMcpServer = useCallback((serverName) => {
-    setMcpSelectedServers(prev =>
-      prev.includes(serverName) ? prev.filter(s => s !== serverName) : [...prev, serverName]
-    )
-  }, [])
-
-  const doSubmit = useCallback(() => {
-    const text = message.trim()
-    if (!text && allFiles.length === 0) return
+    const command = inv ? { skill: inv.skill, agent: inv.agent } : undefined
+    const invoked = inv ? (inv.skill ? { kind: 'skill', name: inv.skill } : { kind: 'agent', name: inv.agent.name, id: inv.agent.id }) : undefined
+    if (inv) text = inv.text
     if (!selectedModel) {
       addToast(t('input.selectModelToast'), 'warning')
       return
     }
-
-    const chatData = {
-      message: text,
-      model: selectedModel,
-      files: allFiles,
-      mcpMode,
-      mcpServers: mcpSelectedServers,
-      clientMCPServers: clientMCPSelectedIds,
-      newChat: true,
-    }
-    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
+    // One send at a time, even for two Enters in the same frame.
+    if (!beginSend()) return
     setSending(true)
-    navigate(`/app/chat/${encodeURIComponent(selectedModel)}`)
-  }, [message, allFiles, selectedModel, mcpMode, mcpSelectedServers, clientMCPSelectedIds, addToast, navigate, t])
-
-  // Quick-launch: open a fresh chat already in assistant mode without
-  // requiring an initial message or model selection. Useful when an admin
-  // wants to start the assistant from a cold home page.
-  const openAssistantChat = useCallback(() => {
-    const chatData = {
-      model: selectedModel || '',
-      mcpMode: false,
-      localaiAssistant: true,
-      newChat: true,
+    let id = ''
+    try {
+      const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+      id = chat.id
+      const res = await chatsApi.send(id, text, attached, command)
+      // The chat page draws the message from what is known here, so it opens
+      // with the message in it. The draft goes when Home closes: emptied
+      // earlier, the box would show its placeholder for a frame on the way.
+      sentRef.current = () => {
+        if (own) drafts.clear(HOME_DRAFT)
+        switches.resetDraft()
+      }
+      handOff({ chat, text, files: attached, invoked, started: Boolean(res?.started) }, () => navigate(`/app/chats/${encodeURIComponent(id)}`))
+    } catch (err) {
+      if (id) chatsApi.delete(id).catch(() => {})
+      failSend()
+      addToast(err.message || tc('errors.send'), 'error')
+      setSending(false)
     }
-    localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData))
-    try { localStorage.setItem('localai_assistant_used', '1') } catch { /* ignore */ }
-    setAssistantUsed(true)
-    navigate('/app/chat')
-  }, [navigate, selectedModel])
+  }, [message, files, sending, selectedModel, draftModel, agentId, switches, composer.agents, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff])
 
-  // An empty new chat: Chat opens a fresh conversation on the chosen model.
+  // An empty new chat on the chosen model. The state marks it as a hand-off:
+  // /app/chats opened as a bare address comes back here.
   const openNewChat = useCallback(() => {
-    localStorage.setItem('localai_index_chat_data', JSON.stringify({ model: selectedModel || '', mcpMode: false, newChat: true }))
-    navigate('/app/chat')
+    navigate(selectedModel ? `/app/chats?model=${encodeURIComponent(selectedModel)}` : '/app/chats', { state: { newChat: true } })
   }, [navigate, selectedModel])
 
-  const dismissTip = useCallback(() => {
-    try { localStorage.setItem(ASSISTANT_TIP_KEY, '1') } catch { /* ignore */ }
-    setTipDismissed(true)
-  }, [])
+  // The LocalAI assistant is a chat like any other, started with the management
+  // tools. It needs a model; the server refuses anyone but an admin.
+  const openAssistantChat = useCallback(async () => {
+    if (!selectedModel) {
+      addToast(t('assistant.noModel'), 'warning')
+      return
+    }
+    try {
+      const conv = await chatsApi.create(selectedModel, t('assistant.chatTitle'), '', true)
+      navigate(`/app/chats/${encodeURIComponent(conv.id)}`)
+    } catch (err) {
+      addToast(t('assistant.startFailed', { message: err.message }), 'error')
+    }
+  }, [selectedModel, addToast, navigate, t])
 
   const handleStopModel = async (modelName) => {
     setConfirmDialog({
@@ -370,80 +321,66 @@ export default function Home() {
 
   // ----- Conversations -----------------------------------------------------
 
-  const refreshConversations = useCallback(() => setConversations(listConversations(chatsKey)), [chatsKey])
-
-  // Another tab can write chats, and Chat writes them after a short delay. Read
-  // again when the tab changes or comes back into focus.
+  // The newest chat the server keeps. The list is best effort: a server without
+  // chats leaves the strip empty.
   useEffect(() => {
-    const onStorage = (e) => { if (!e.key || e.key === chatsKey) refreshConversations() }
-    window.addEventListener('storage', onStorage)
-    window.addEventListener('focus', refreshConversations)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener('focus', refreshConversations)
-    }
-  }, [chatsKey, refreshConversations])
-
-  // A delete is final when its undo time ends. Until then the chat stays in
-  // storage and only the row is hidden.
-  const commitDelete = useCallback(() => {
-    const id = pendingRef.current
-    if (!id) return
-    pendingRef.current = null
-    removeConversation(id, chatsKey)
-    setPendingDelete(null)
-    refreshConversations()
-  }, [chatsKey, refreshConversations])
-
-  const commitRef = useRef(commitDelete)
-  commitRef.current = commitDelete
-  useEffect(() => () => {
-    clearTimeout(leaveTimer.current)
-    commitRef.current()
+    let live = true
+    chatsApi.list(1, 'chat').then(r => {
+      if (!live) return
+      setConversations(resumeItems(r.conversations))
+      setChatServer({ files: r.files !== false, filesReason: r.files_reason || '', persistent: r.persistent !== false, imageModel: r.image_model || '' })
+    }).catch(() => { if (live) setConversations([]) })
+    return () => { live = false }
   }, [])
 
-  const requestDelete = useCallback((conv) => {
-    commitDelete()
-    clearTimeout(leaveTimer.current)
-    const hide = () => {
-      pendingRef.current = conv.id
-      setLeavingId(null)
-      setPendingDelete({ id: conv.id, title: conv.title })
-    }
-    if (reducedMotion()) {
-      hide()
-    } else {
-      setLeavingId(conv.id)
-      leaveTimer.current = setTimeout(hide, LEAVE_MS)
-    }
-  }, [commitDelete])
-
-  const undoDelete = useCallback(() => {
-    pendingRef.current = null
-    setPendingDelete(null)
-  }, [])
-
-  const resumeConversation = useCallback((conv) => {
-    commitDelete()
-    if (setActiveConversation(conv.id, chatsKey)) navigate('/app/chat')
-    else refreshConversations()
-  }, [chatsKey, commitDelete, navigate, refreshConversations])
-
-  const visibleConversations = useMemo(
-    () => conversations.filter(c => c.id !== pendingDelete?.id),
-    [conversations, pendingDelete],
-  )
+  const resumeConversation = useCallback((conv) => navigate(`/app/chats/${encodeURIComponent(conv.id)}`), [navigate])
+  // The widgets of home.json. A chats widget takes the place of the list of
+  // recent chats below, so the page does not show them twice.
+  const chatsOn = hasFeature('chats')
+  const homeFile = useWellKnown('home', { enabled: chatsOn })
+  const chatsWidget = useMemo(() => widgetList(homeFile.doc).some(w => w.type === 'chats'), [homeFile.doc])
+  // The "Make LocalAI yours" examples. A card puts its prompt into the
+  // composer and sends nothing; the line under the composer says so.
+  const userFile = useWellKnown('user', { enabled: chatsOn })
+  const [examplePicked, setExamplePicked] = useState(false)
+  const [liveNote, setLiveNote] = useState('')
+  const [editLayout, setEditLayout] = useState(0)
+  const pickExample = useCallback((prompt) => {
+    setMessage(prompt)
+    setExamplePicked(true)
+    setLiveNote(tw('discovery.ex.live'))
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange?.(prompt.length, prompt.length)
+    })
+  }, [tw, setMessage])
+  useEffect(() => { if (!message.trim()) setExamplePicked(false) }, [message])
+  // A shortcut fills the composer, as on the chat page; one marked send goes
+  // at once when a model is chosen.
+  const pickShortcut = useCallback((sc) => {
+    if (sc.send && selectedModel) { doSubmit(sc.prompt); return }
+    setMessage(sc.prompt)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }, [setMessage, selectedModel, doSubmit])
+  const askLayout = useCallback(() => {
+    const q = selectedModel ? `?model=${encodeURIComponent(selectedModel)}` : ''
+    navigate(`/app/chats${q}`, { state: { draft: tw('wellKnown.home.askPrompt') } })
+  }, [navigate, selectedModel, tw])
 
   // ----- Derived state -----------------------------------------------------
 
   const modelsLoading = configuredModels === null && !modelsFailed
   const hasModels = configuredModels === null || configuredModels.length > 0
   const firstRun = configuredModels !== null && configuredModels.length === 0
+  const examplesOn = chatsOn && configuredModels !== null && !firstRun
+  const examplesGone = useExamplesGone(examplesOn)
   const loadedCount = loadedModels.length
   const loadedIds = useMemo(() => new Set(loadedModels.map(m => m.id)), [loadedModels])
 
   // Staging a model onto a worker is the one load this page can see: the
-  // operations list reports it. An OOM on a single host surfaces in Chat.
+  // operations list reports it. An OOM on a single host surfaces in the chat.
   const stagingOp = operations.find(op => op.taskType === 'staging' && !op.error && !op.isQueued && !op.isDeletion)
   const failedOp = operations.find(op => op.taskType === 'staging' && op.error)
   const stripBusy = !!stagingOp || !!failedOp
@@ -452,15 +389,18 @@ export default function Home() {
   // Studio is an add-on: its command is offered only while it is installed.
   const studioPage = useAddonPage('studio', 'studio')
   const slashContext = useMemo(
-    () => ({ isAdmin, assistantAvailable, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage) }),
-    [isAdmin, assistantAvailable, hasModels, firstRun, loadedCount, studioPage],
+    () => ({
+      isAdmin, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage), assistantAvailable: assistantOn,
+      hasChats: hasFeature('chats'), hasCollections: hasFeature('collections') && collectionsOn,
+    }),
+    [isAdmin, hasModels, firstRun, loadedCount, studioPage, assistantOn, hasFeature, collectionsOn],
   )
 
-  const runAction = useCallback((id) => {
+  const runAction = useCallback((id, item) => {
     switch (id) {
       case 'model': pickerRef.current?.open(); break
       case 'new': openNewChat(); break
-      case 'chat': navigate('/app/chat'); break
+      case 'chat': navigate('/app/chats/all'); break
       case 'assistant': openAssistantChat(); break
       case 'gallery': navigate('/app/models'); break
       case 'installed': navigate('/app/models?view=installed'); break
@@ -469,12 +409,20 @@ export default function Home() {
         setStripOpen(true)
         stripRef.current?.scrollIntoView?.({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' })
         break
+      case 'agents': navigate('/app/agents'); break
+      case 'mcp': navigate('/app/mcp-connectors'); break
+      case 'memory': navigate('/app/collections'); break
       case 'studio': if (studioPage) navigate(studioPage); break
+      case 'studioInstall':
+        if (addonsOn) navigate('/app/addons?tab=browse&q=studio')
+        else setAddonNotice('studio')
+        break
       case 'settings': navigate('/app/settings'); break
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
+      case 'help': setHelp(item || { entries: [], skills: [] }); break
       default: break
     }
-  }, [navigate, openNewChat, openAssistantChat, studioPage])
+  }, [navigate, openNewChat, openAssistantChat, studioPage, addonsOn])
 
   // "/" from anywhere that is not a text field starts a command.
   useEffect(() => {
@@ -489,7 +437,7 @@ export default function Home() {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [])
+  }, [setMessage])
 
   const dateLabel = useMemo(
     () => new Intl.DateTimeFormat(i18n.language, { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date()),
@@ -497,7 +445,7 @@ export default function Home() {
   )
 
   const cluster = distributedMode && clusterData ? clusterData : null
-  const hasInput = message.trim().length > 0 || allFiles.length > 0
+  const hasInput = message.trim().length > 0 || files.length > 0
   const canSend = !!selectedModel && hasInput && !sending
   const sendTitle = !selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')
 
@@ -523,95 +471,99 @@ export default function Home() {
     )
   }
 
-  const showTip = isAdmin && assistantAvailable && !assistantUsed && !tipDismissed && !firstRun
-  const picker = (
-    <HomeModelPicker
-      ref={pickerRef}
-      value={selectedModel}
-      onChange={setSelectedModel}
-      capability={CAP_CHAT}
-      loadedIds={loadedIds}
-      disabled={firstRun}
-      placeholder={firstRun ? t('picker.noneSelected') : undefined}
-    />
-  )
-  const mcp = (
-    <UnifiedMCPDropdown
-      serverMCPAvailable={mcpAvailable}
-      mcpServerList={mcpServerList}
-      mcpServersLoading={mcpServersLoading}
-      serverListError={mcpServerListError}
-      selectedServers={mcpSelectedServers}
-      onToggleServer={toggleMcpServer}
-      onSelectAllServers={() => {
-        const allNames = mcpServerList.filter(s => !s.error).map(s => s.name)
-        const allSelected = allNames.every(n => mcpSelectedServers.includes(n))
-        setMcpSelectedServers(allSelected ? [] : allNames)
-      }}
-      onFetchServers={fetchMcpServers}
-      clientMCPActiveIds={clientMCPSelectedIds}
-      onClientToggle={(id) => setClientMCPSelectedIds(prev =>
-        prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
-      )}
-      onClientAdded={(server) => setClientMCPSelectedIds(prev => [...prev, server.id])}
-      onClientRemoved={(id) => setClientMCPSelectedIds(prev => prev.filter(s => s !== id))}
-    />
-  )
-
   return (
-    <div className="home-page">
-      <div className="home-col reveal-stagger">
-        <header className="home-header" style={staggerStyle(0)}>
+    <div className="home-page" data-depart={depart || undefined}>
+      <div className="home-col">
+        <header className="home-header">
           <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
           <span className="home-date">{dateLabel}</span>
         </header>
 
-        <div style={staggerStyle(1)}>
-          <HomeComposer
-          onDictateError={(m) => addToast(m, 'error')}
-            message={message}
-            onMessage={setMessage}
+        <div className="home-compose" ref={composeRef}>
+          {chatsOn && !firstRun && (
+            <ShortcutsRow
+              filesOn={chatServer.files}
+              onPick={pickShortcut}
+              onEditWithAssistant={() => { setMessage(tw('wellKnown.shortcuts.assistantPrompt')); textareaRef.current?.focus() }}
+            />
+          )}
+          {!chatServer.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
+          {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
+          <ChatComposer
+            composer={composer}
+            filesOn={chatServer.files}
+            loadedIds={loadedIds}
+            imageModel={chatServer.imageModel}
+            pickerRef={pickerRef}
+            pickerDisabled={firstRun}
+            pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
+            onDictateError={(m) => addToast(m, 'error')}
             onSubmit={doSubmit}
             canSend={canSend}
             sending={sending}
             sendTitle={sendTitle}
             textareaRef={textareaRef}
-            picker={picker}
-            mcp={mcp}
-            files={allFiles}
-            onRemoveFile={removeFile}
-            onAttach={attach}
             placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
+            slashSurface="home"
             slashContext={slashContext}
             onRunAction={runAction}
+            strictEnter
+            textareaTestId="home-input"
+            sendTestId="home-send"
           />
+          {help && <SlashHelpCard entries={help.entries} skills={help.skills} onClose={() => setHelp(null)} />}
+          {!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />}
+          {examplePicked && (
+            <p className="wk-ex__hint" data-testid="home-example-hint">
+              <Icon name="info" /> {tw('discovery.ex.inComposer')}
+            </p>
+          )}
+          <span className="sr-only" aria-live="polite">{liveNote}</span>
         </div>
 
-        <div className="home-below" style={staggerStyle(2)}>
+        {examplesOn && (
+          <HomeExamples
+            enabled={examplesOn}
+            name={userFile.doc?.data?.name || user?.name || ''}
+            onPick={pickExample}
+            addToast={addToast}
+          />
+        )}
+
+        <div className="home-below">
+          {addonNotice && (
+            <Callout
+              tone="info" icon="puzzle" role="note" testId="home-addons-off"
+              title={t('notice.addonsOffTitle')}
+              actions={(
+                <>
+                  <Button size="sm" href={ADDONS_DOCS_URL} target="_blank" rel="noopener noreferrer">{t('notice.addonsDocs')}</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setAddonNotice('')}>{t('notice.dismiss')}</Button>
+                </>
+              )}
+            >
+              {t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: addonNotice === 'studio' ? 'Studio' : addonNotice === 'addons' ? t('notice.thisPage') : addonNotice })}
+            </Callout>
+          )}
+
           {modelsFailed && configuredModels === null && (
-            <div className="home-notice home-notice--error" role="alert" data-testid="home-load-error">
-              <Icon name="alert-circle" />
-              <h3>{t('notice.loadFailedTitle')}</h3>
-              <p>{t('notice.loadFailedBody')}</p>
-              <div className="home-notice__acts">
-                <button type="button" className="home-primary home-primary--sm" onClick={fetchSystemInfo}>{t('notice.retry')}</button>
-              </div>
-            </div>
+            <LoadError title={`${t('notice.loadFailedTitle')}.`} nothingChanged={false} onRetry={fetchSystemInfo} testId="home-load-error">
+              {t('notice.loadFailedBody')}
+            </LoadError>
           )}
 
           {failedOp && (
-            <div className="home-notice home-notice--error" role="alert" data-testid="home-staging-error">
-              <Icon name="alert-circle" />
-              <h3>{t('notice.stagingFailedTitle', { name: failedOp.name || failedOp.id })}</h3>
-              <p>{failedOp.nodeName ? t('notice.stagingFailedBodyNode', { node: failedOp.nodeName }) : t('notice.stagingFailedBody')}</p>
-              <div className="home-notice__acts">
-                <button type="button" className="home-secondary home-secondary--sm" onClick={() => navigate('/app/activity')}>{t('notice.openActivity')}</button>
-              </div>
-              <details>
+            <Callout
+              tone="error" role="alert" testId="home-staging-error" className="home-staging"
+              title={t('notice.stagingFailedTitle', { name: failedOp.name || failedOp.id })}
+              actions={<Button size="sm" onClick={() => navigate('/app/activity')}>{t('notice.openActivity')}</Button>}
+            >
+              {failedOp.nodeName ? t('notice.stagingFailedBodyNode', { node: failedOp.nodeName }) : t('notice.stagingFailedBody')}
+              <details className="home-staging__details">
                 <summary>{t('notice.details')}</summary>
                 <pre>{failedOp.error}</pre>
               </details>
-            </div>
+            </Callout>
           )}
 
           <div ref={stripRef}>
@@ -641,22 +593,16 @@ export default function Home() {
             ) : null}
           </div>
 
-          {showTip && (
-            <div className="home-tip" data-testid="home-assistant-tip">
-              <Icon name="sparkles" />
-              <span><b>{t('assistant.title')}.</b> {t('assistant.description')}</span>
-              <button type="button" className="home-link" onClick={openAssistantChat} title={t('assistant.tooltip')}>
-                {t('assistant.open')}
-              </button>
-              <button type="button" className="home-tip__close" onClick={dismissTip} aria-label={t('assistant.dismiss')} title={t('assistant.dismiss')}>
-                <Icon name="close" />
-              </button>
-            </div>
-          )}
         </div>
 
+        {chatsOn && !firstRun && (
+          <div>
+            <HomeWidgets wk={homeFile} conversations={conversations} onResume={resumeConversation} onAsk={askLayout} editRequest={editLayout} />
+          </div>
+        )}
+
         {firstRun && (
-          <div className="home-first" style={staggerStyle(3)}>
+          <div className="home-first">
             <HomeFirstRun
               addToast={addToast}
               onInstallStarted={fetchSystemInfo}
@@ -666,26 +612,40 @@ export default function Home() {
           </div>
         )}
 
-        <div style={staggerStyle(4)}>
+        {!chatsWidget && <div>
           <HomeResume
-            items={visibleConversations}
-            leavingId={leavingId}
+            items={conversations}
             onResume={resumeConversation}
-            onDelete={requestDelete}
+            onAll={() => navigate('/app/chats/all')}
             emptyHint={(
               <div className="home-examples" aria-label={t('jump.examples')}>
-                {(isAdmin ? ['/gallery', '/import'] : []).concat(isAdmin && assistantAvailable ? ['/assistant'] : [], studioPage ? ['/studio'] : []).map(c => (
+                {(isAdmin ? ['/gallery', '/import'] : []).concat(studioPage ? ['/studio'] : []).map(c => (
                   <code key={c}>{c}</code>
                 ))}
               </div>
             )}
           />
-        </div>
+        </div>}
 
-        <div className="home-libline" style={staggerStyle(5)} data-testid="home-library">
+        <div className="home-libline" data-testid="home-library">
           <span>{t('library.label')}</span>
+          {chatsOn && chatsWidget && (
+            <button type="button" className="home-ghost" onClick={() => navigate('/app/chats/all')} data-testid="home-all-chats">
+              {t('jump.allChats')}
+            </button>
+          )}
+          {examplesOn && examplesGone && (
+            <button type="button" className="home-ghost" onClick={() => setEditLayout(n => n + 1)} data-testid="home-customise">
+              {tw('discovery.home.customise')}
+            </button>
+          )}
           {isAdmin && (
             <>
+              {assistantOn && !firstRun && (
+                <button type="button" className="home-ghost" data-testid="home-assistant" title={t('assistant.description')} onClick={openAssistantChat}>
+                  {t('assistant.title')} <code>/assistant</code>
+                </button>
+              )}
               <button type="button" className="home-ghost" onClick={() => navigate('/app/models')}>
                 {t('quickLinks.browseGallery')} <code>/gallery</code>
               </button>
@@ -696,11 +656,6 @@ export default function Home() {
               <button type="button" className="home-ghost" onClick={() => navigate('/app/import-model')}>
                 {t('quickLinks.importModel')} <code>/import</code>
               </button>
-              {assistantAvailable && !showTip && (
-                <button type="button" className="home-ghost" onClick={openAssistantChat} title={t('assistant.tooltip')}>
-                  {t('quickLinks.manageByChat')} <code>/assistant</code>
-                </button>
-              )}
             </>
           )}
           <a className="home-ghost" href={DOCS_URL} target="_blank" rel="noopener noreferrer">
@@ -710,15 +665,6 @@ export default function Home() {
 
         <HomeConnect />
       </div>
-
-      {pendingDelete && (
-        <HomeUndoToast
-          key={pendingDelete.id}
-          message={t('jump.deleted', { title: pendingDelete.title })}
-          onUndo={undoDelete}
-          onExpire={commitDelete}
-        />
-      )}
 
       <ConfirmDialog
         open={!!confirmDialog}

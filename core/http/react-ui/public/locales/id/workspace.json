@@ -1,0 +1,671 @@
+{
+  "wellKnown": {
+    "revert": "Kembali ke versi sebelumnya",
+    "view": "Lihat",
+    "form": "Formulir",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "notSet": "Belum diatur",
+    "moveUp": "Naik",
+    "moveDown": "Turun",
+    "remove": "Hapus",
+    "savedAt": "Disimpan pada {{time}}",
+    "notSaved": "Belum disimpan.",
+    "notSavedPrefilled": "Belum disimpan. Sebagian nilai sudah diisi untuk Anda; Simpan akan mempertahankannya.",
+    "loadFailed": "Pengaturan ini tidak dapat dimuat. Muat ulang halaman untuk mencoba lagi.",
+    "invalid": "Pengaturan ini memiliki kesalahan, dan tidak ada versi valid sebelumnya.",
+    "invalidFallback": "Pengaturan ini memiliki kesalahan. Yang ditampilkan adalah versi valid terakhirnya.",
+    "conflict": "Pengaturan ini berubah saat Anda mengeditnya, kemungkinan oleh asisten atau di tab lain. Nilai yang lebih baru adalah:",
+    "useTheirs": "Gunakan nilai yang lebih baru",
+    "keepMine": "Simpan perubahan saya",
+    "editWithAssistant": "Edit dengan asisten",
+    "from": {
+      "account": "Dari akun Anda",
+      "browser": "Dari browser Anda"
+    },
+    "check": {
+      "required": "Wajib diisi.",
+      "tooLong": "Maksimal {{max}} karakter.",
+      "format": "Nilai ini memiliki format yang salah."
+    },
+    "source": {
+      "label": "Sumber",
+      "hint": "Pengaturan dalam bentuk teks. Saat disimpan, pengaturan diperiksa dengan cara yang sama.",
+      "notJson": "Teks memiliki kesalahan sintaksis. Periksa tanda kutip, koma, dan kurung kurawal.",
+      "notObject": "Teks harus diawali dengan { dan diakhiri dengan }."
+    },
+    "persona": {
+      "title": "Asisten",
+      "lede": "Nama dan instruksi yang digunakan asisten di setiap chat."
+    },
+    "user": {
+      "title": "Anda",
+      "lede": "Asisten membaca ini untuk mengetahui siapa lawan bicaranya. Ini dikirim ke model di setiap chat."
+    },
+    "ui": {
+      "title": "Tampilan",
+      "lede": "Tampilan LocalAI untuk Anda. Perubahan langsung terlihat; Simpan akan mempertahankannya."
+    },
+    "shortcuts": {
+      "title": "Pintasan",
+      "lede": "Prompt di atas kolom tulis setiap chat.",
+      "edit": "Edit pintasan",
+      "defaults": "Pintasan bawaan",
+      "none": "Tidak ada pintasan. Tambahkan satu, atau simpan daftar kosong untuk menyembunyikannya.",
+      "label": "Label",
+      "prompt": "Prompt",
+      "send": "Kirim langsung",
+      "add": "Tambah pintasan",
+      "invalid": "Beberapa pintasan memiliki kesalahan.",
+      "assistantPrompt": "Ubah pintasan saya: "
+    },
+    "home": {
+      "editLayout": "Edit tata letak",
+      "ask": "Tanya asisten",
+      "askPrompt": "Ubah halaman Home saya: ",
+      "add": "Tambah widget",
+      "newTitle": "Widget baru",
+      "noWidgets": "Belum ada widget.",
+      "type": "Jenis",
+      "title": "Judul",
+      "source": "File data",
+      "noSourceNeeded": "Tidak perlu file data",
+      "types": {
+        "list": "Daftar",
+        "metric": "Metrik",
+        "chats": "Chat terakhir",
+        "page": "Halaman"
+      },
+      "left": "{{count}} tersisa",
+      "fromChats": "dari chat",
+      "noChats": "Belum ada chat.",
+      "noData": "Belum ada data. Asisten dapat menulis",
+      "nothing": "Tidak ada apa-apa di sini.",
+      "noSource": "Widget ini tidak memiliki file data. Pilih satu di Edit tata letak.",
+      "broken": "Data widget ini memiliki kesalahan, dan tidak ada versi valid sebelumnya.",
+      "stale": "Menampilkan data valid terakhir. Data terbaru memiliki kesalahan.",
+      "updated": "Diperbarui {{when}}",
+      "footer": {
+        "noData": "Belum ada data.",
+        "invalid": "Data memiliki kesalahan. Menampilkan versi baik terakhir.",
+        "revert": "Kembalikan",
+        "missing": "Data widget ini tidak ada.",
+        "fix": "Minta asisten memperbaikinya",
+        "fixPrompt": "Widget Beranda membaca {{file}}, yang hilang atau rusak. Perbaiki: ",
+        "waiting": "Menunggu Anda membuat pemicunya di obrolan.",
+        "openChat": "Buka obrolan",
+        "running": "Sedang diperbarui…",
+        "openRun": "Buka jalannya",
+        "paused": "Dijeda · sebelumnya {{schedule}}",
+        "resume": "Lanjutkan",
+        "failedEmpty": "Pembaruan gagal dan belum ada data.",
+        "details": "Detail",
+        "retry": "Coba lagi",
+        "stale": "Pembaruan terakhir gagal. Menampilkan data {{when}}.",
+        "staleToday": "Pembaruan terakhir gagal. Menampilkan data sebelumnya dari hari ini.",
+        "earlier": "sebelumnya",
+        "firstRun": "Jalan pertama {{when}}",
+        "firstRunFile": "Berjalan saat sebuah file masuk",
+        "runNow": "Jalankan sekarang",
+        "fresh": "{{schedule}} · diperbarui {{time}}",
+        "pause": "Jeda",
+        "fromPage": "Dari halaman {{title}}",
+        "fromFile": "Dari berkas Anda",
+        "next": "Jalan berikutnya {{when}}",
+        "cost": "sekitar {{tokens}} token per jalan",
+        "costRemote": "sekitar {{tokens}} token per jalan pada model jarak jauh",
+        "cadence": {
+          "paused": "Dijeda",
+          "hourly": "Tiap jam",
+          "daily": "Harian",
+          "weekdays": "Hari kerja",
+          "weekly": "Mingguan",
+          "monthly": "Bulanan",
+          "file": "Saat ada file baru"
+        },
+        "scheduleNote_one": "{{count}} widget diperbarui sesuai jadwal. Jalannya memakai model Anda dan dihitung dalam penggunaan Anda.",
+        "scheduleNote_other": "{{count}} widget diperbarui sesuai jadwal. Jalannya memakai model Anda dan dihitung dalam penggunaan Anda."
+      },
+      "opensSite": "{{host}}: terbuka di tab baru",
+      "linkAsk": "Widget ini ingin membuka tautan",
+      "invalid": "Tata letak Home Anda memiliki kesalahan, dan tidak ada versi valid sebelumnya.",
+      "invalidFallback": "Tata letak Home Anda memiliki kesalahan. Home menampilkan versi valid terakhirnya.",
+      "page": {
+        "gone": "Halaman ini tidak tersedia lagi",
+        "goneHint": "Halaman \"{{name}}\" dipindahkan atau dihapus, atau Anda tidak dapat membukanya lagi.",
+        "noWidget": "Halaman ini tidak punya tampilan widget",
+        "noWidgetHint": "Minta asisten memberi halaman \"{{name}}\" tampilan ringkas untuk Beranda.",
+        "off": "Halaman bersama dimatikan",
+        "offHint": "Administrator mematikan halaman bersama di server ini.",
+        "fix": "Sesuaikan Beranda",
+        "failed": "Halaman tidak dimuat",
+        "retry": "Coba lagi",
+        "changed": "Halaman ini berubah sejak Anda mengizinkannya",
+        "notAllowed": "Anda belum mengizinkan halaman ini",
+        "allowHint": "Halaman ini berasal dari folder bersama. Periksa sebelum berjalan atas nama Anda.",
+        "allow": "Izinkan halaman ini",
+        "frameTitle": "{{title}} (halaman di Beranda)",
+        "refresh": "Muat ulang",
+        "open": "Buka halaman",
+        "add": "Tambah halaman",
+        "limit": "Beranda menampilkan paling banyak {{max}} halaman; hapus satu untuk menambah yang lain.",
+        "noneEligible": "Belum ada halaman dengan tampilan ringkas untuk Beranda. Minta asisten menambahkannya ke sebuah halaman.",
+        "pick": "Halaman",
+        "unavailable": "{{name}} (tidak tersedia)",
+        "sharedLabel": "bersama",
+        "sizes": {
+          "small": "Kecil",
+          "medium": "Sedang",
+          "large": "Besar"
+        }
+      }
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Nama",
+          "help": "Nama yang digunakan asisten untuk dirinya sendiri."
+        },
+        "system_prompt": {
+          "label": "Prompt sistem",
+          "help": "Ditambahkan ke setiap chat, setelah prompt chat dan instruksi agen."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Nama",
+          "help": "Cara asisten menyapa Anda."
+        },
+        "language": {
+          "label": "Bahasa",
+          "help": "Bahasa yang digunakan asisten untuk menjawab."
+        },
+        "bio": {
+          "label": "Tentang Anda",
+          "help": "Beberapa baris yang dibaca asisten di setiap chat."
+        },
+        "timezone": {
+          "label": "Zona waktu",
+          "help": "Untuk tanggal dan waktu dalam jawaban."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Tema",
+          "help": "Sistem mengikuti pengaturan perangkat Anda.",
+          "options": {
+            "dark": "Gelap",
+            "light": "Terang",
+            "system": "Sistem"
+          }
+        },
+        "accent": {
+          "label": "Warna aksen",
+          "help": "Untuk tombol dan tautan. Kosong memakai bawaan."
+        },
+        "density": {
+          "label": "Kepadatan",
+          "help": "Ringkas menampilkan lebih banyak dalam satu layar.",
+          "options": {
+            "comfortable": "Nyaman",
+            "compact": "Ringkas"
+          }
+        },
+        "defaultModel": {
+          "label": "Model bawaan",
+          "help": "Model yang digunakan saat chat baru dimulai."
+        }
+      }
+    },
+    "saveInvalid": "Beberapa nilai tidak valid. Periksa lalu simpan lagi.",
+    "saveTooLarge": "Pengaturan ini terlalu besar untuk disimpan. Hapus beberapa entri lalu coba lagi.",
+    "saveFailed": "Tidak dapat menyimpan. Coba lagi.",
+    "details": "Detail"
+  },
+  "discovery": {
+    "ex": {
+      "title": "Buat LocalAI jadi milikmu",
+      "lede": "Katakan di chat. Asisten menyimpannya, dan Anda bisa mengubah atau membatalkannya.",
+      "hide": "Sembunyikan",
+      "hiddenToast": "Contoh disembunyikan.",
+      "saveFailed": "Tidak tersimpan: {{message}}",
+      "card1": {
+        "kicker": "Kamu dan asisten",
+        "prompt": "Panggil aku {{firstName}} dan jawab singkat saja",
+        "promptNoName": "Ingat namaku dan jawab singkat saja",
+        "what": "Menyimpan nama Anda dan cara asisten menjawab"
+      },
+      "card2": {
+        "kicker": "Sebuah halaman",
+        "prompt": "Buatkan aku papan tugas",
+        "what": "Menambah halaman yang kamu buka dari bilah sisi"
+      },
+      "card3": {
+        "kicker": "Setiap pagi",
+        "prompt": "Setiap pagi, ringkas kotak masukku di sini",
+        "promptNoMail": "Setiap pagi, daftarkan chat kemarin di sini",
+        "what": "Menambah widget Home dan pemicu yang kamu konfirmasi"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "Selesai.",
+      "doneLink": "Ubah di Account",
+      "ready": "Atau mulai dari halaman siap pakai:",
+      "readyTasks": "Papan tugas",
+      "readyReading": "Daftar bacaan",
+      "readyFailed": "Halaman tidak disalin: {{message}}",
+      "learn": "Cara kerjanya",
+      "inComposer": "Ubah jika perlu, lalu tekan Enter. Tidak ada yang disimpan sampai kamu mengirimnya.",
+      "live": "Prompt ditambahkan ke kotak pesan."
+    },
+    "home": {
+      "customise": "Sesuaikan Home"
+    },
+    "action": {
+      "undo": "Urungkan",
+      "openAccount": "Buka di Account",
+      "openPage": "Buka halaman",
+      "openHome": "Buka Home",
+      "turnBackOn": "Aktifkan lagi di Account"
+    },
+    "change": {
+      "profilePersona": "Nama Anda dan instruksi Anda untuk asisten disimpan. Setiap chat memakainya mulai pesan berikutnya.",
+      "profile": "Disimpan ke profil Anda.",
+      "persona": "Instruksi asisten disimpan. Setiap chat memakainya mulai pesan berikutnya.",
+      "shortcuts": "Pintasan Anda disimpan.",
+      "home": "Halaman Home Anda disimpan. Home menampilkan perubahannya.",
+      "ui": "Pengaturan tampilan Anda disimpan.",
+      "pageCreated": "Halaman {{title}} dibuat.",
+      "pageChanged": "Halaman {{title}} diubah.",
+      "offersOff": "Saran dari asisten dimatikan.",
+      "undoing": "Mengurungkan…",
+      "undone": "Diurungkan.",
+      "undoFailed": "Tidak diurungkan: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Ditambahkan ke kotak pesanmu: {{label}}",
+      "pageCreated": "{{title}} ada di Pages, di bilah sisi",
+      "open": "Buka",
+      "homeChanged": "Home diperbarui.",
+      "themeChanged": "Tema diubah."
+    },
+    "files": {
+      "learn": "File ini mengubah cara LocalAI bekerja untukmu.",
+      "tag": {
+        "profile": "Profilmu",
+        "persona": "Asisten",
+        "shortcuts": "Pintasan",
+        "home": "Tata letak Home",
+        "ui": "Tampilan",
+        "page": "Halaman"
+      }
+    },
+    "privacy": "Asisten menerima namamu, teks ini, bahasa dan zona waktumu di awal setiap chat. Kosongkan kolom agar tidak dikirim.",
+    "versions": {
+      "label": "Versi",
+      "title": "Versi sebelumnya",
+      "loading": "Membaca riwayat…",
+      "none": "Belum ada versi sebelumnya.",
+      "current": "saat ini",
+      "invalid": "ada kesalahan",
+      "byAssistant": "Oleh asisten",
+      "byAssistantIn": "Oleh asisten di “{{chat}}”",
+      "byYou": "Oleh kamu",
+      "undo": "Sebuah urungan",
+      "upload": "Diunggah",
+      "revert": "Pulihkan",
+      "note": "Memulihkan menyimpan versi yang lebih baru di daftar ini.",
+      "invalidBadge": "Tidak valid",
+      "revertGood": "Pulihkan ke versi bagus terakhir"
+    },
+    "help": {
+      "title": "Bantuan dan saran",
+      "sub": "Cara LocalAI menunjukkan apa yang bisa dilakukannya. Matikan yang tidak kamu perlukan.",
+      "offers": "Tawaran dari asisten",
+      "offersHint": "Paling banyak satu per hari, tidak pernah saat tugas berjalan: misalnya, untuk mengingat sesuatu yang kamu katakan.",
+      "new": "Catatan tentang hal baru",
+      "newHint": "Label “Baru” singkat di bilah sisi saat sesuatu pertama kali muncul.",
+      "examples": "Contoh di Home",
+      "examplesShown": "Kartu “Buat LocalAI jadi milikmu” tampil di Home selama masih ada yang bisa dicoba.",
+      "examplesHidden": "Kamu menyembunyikan kartu “Buat LocalAI jadi milikmu”.",
+      "showExamples": "Tampilkan contoh lagi",
+      "examplesBack": "Contoh kembali di Home.",
+      "dismissed": "Yang dipelajari asisten",
+      "dismissedHint_one": "Kamu menolak {{count}} tawaran. Tawaran itu tetap tersembunyi sampai kamu mengatur ulang.",
+      "dismissedHint_other": "Kamu menolak {{count}} tawaran. Semuanya tetap tersembunyi sampai kamu mengatur ulang.",
+      "forget": "Lupakan yang dipelajari asisten dari petunjukku",
+      "forgotten": "Selesai. Asisten boleh menawarkan lagi.",
+      "learn": "Pelajari apa yang bisa kamu ubah:",
+      "dismissedNone": "Belum ada. Saat kamu menjawab tawaran, asisten mengingatnya di sini."
+    }
+  },
+  "tabs": {
+    "shared": "Dibagikan",
+    "trashCount_one": "{{count}} item di Sampah",
+    "trashCount_other": "{{count}} item di Sampah"
+  },
+  "trash": {
+    "empty": "Tempat sampah kosong.",
+    "restore": "Pulihkan",
+    "emptyAll": "Kosongkan tempat sampah",
+    "purge": "Hapus permanen",
+    "purgeNamed": "Hapus {{name}} secara permanen",
+    "files_one": "{{count}} berkas",
+    "files_other": "{{count}} berkas",
+    "folders_one": "{{count}} folder",
+    "folders_other": "{{count}} folder",
+    "listJoin": ", ",
+    "summary": "Di tempat sampah: {{what}}.",
+    "removed": "Dihapus permanen: {{what}}.",
+    "confirmAll": {
+      "title": "Kosongkan tempat sampah?",
+      "message": "Ini menghapus permanen {{what}} beserta versi sebelumnya. Tindakan ini tidak dapat dibatalkan."
+    },
+    "confirmOne": {
+      "title": "Hapus permanen?",
+      "message": "{{path}}: ini menghapus permanen {{what}} beserta versi sebelumnya. Tindakan ini tidak dapat dibatalkan."
+    }
+  },
+  "shared": {
+    "adminTitle": "Folder bersama",
+    "adminLede": "Folder yang dipakai beberapa orang. Anggota membuka halamannya, dan chat mereka bisa membaca atau mengubah filenya.",
+    "userTitle": "Dibagikan kepada Anda",
+    "userLede": "Folder yang dibagikan administrator kepada Anda. Halamannya ada di Halaman, dan chat Anda bisa memakai filenya.",
+    "new": "Folder bersama baru",
+    "nameLabel": "Nama folder",
+    "nameHint": "Hingga 64 huruf, angka, spasi, titik, tanda hubung, atau garis bawah. Mulai dengan huruf atau angka.",
+    "create": "Buat",
+    "cancel": "Batal",
+    "rename": "Ganti nama",
+    "renameSave": "Simpan",
+    "remove": "Hapus",
+    "manage": "Anggota",
+    "menu": "Tindakan lain untuk {{name}}",
+    "pages_one": "{{count}} halaman",
+    "pages_other": "{{count}} halaman",
+    "pagesNone": "Tidak ada halaman",
+    "people_one": "{{count}} orang",
+    "people_other": "{{count}} orang",
+    "membersNone": "Tidak ada anggota",
+    "everyone": "Semua orang",
+    "everyoneOption": "Semua orang (semua pengguna)",
+    "everyoneHint": "Semua pengguna, termasuk yang bergabung nanti",
+    "everyoneCan": {
+      "read": "Semua orang bisa membaca",
+      "write": "Semua orang bisa mengubah"
+    },
+    "mode": {
+      "read": "Bisa membaca",
+      "write": "Bisa mengubah"
+    },
+    "addTitle": "Tambah anggota",
+    "person": "Orang",
+    "access": "Akses",
+    "accessFor": "Akses untuk {{name}}",
+    "add": "Tambah",
+    "allAdded": "Semua orang sudah menjadi anggota.",
+    "usersUnavailable": "Daftar pengguna tidak dapat dimuat. Anda tetap bisa menambahkan Semua orang.",
+    "membersTitle": "Anggota",
+    "noMembers": "Belum ada yang bisa memakai folder ini. Tambahkan seseorang atau Semua orang.",
+    "removeMember": "Hapus {{name}}",
+    "paneNote": "Perubahan langsung berlaku. Chat yang terbuka melihatnya saat dibuka lagi.",
+    "created": "“{{name}}” dibuat. Tambahkan orang yang boleh memakainya.",
+    "removed": "“{{name}}” dihapus. Halamannya meminta izin lagi sebelum berjalan.",
+    "restored": "“{{name}}” kembali, bersama anggotanya.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} tidak bisa lagi memakai “{{folder}}”.",
+    "failed": "Tidak berhasil: {{message}}",
+    "loadFailed": "Folder bersama tidak dapat dimuat.",
+    "emptyAdminTitle": "Belum ada folder bersama",
+    "emptyAdminBody": "Folder bersama menyimpan file dan halaman yang bisa dibaca atau diubah orang lain. Buat satu, lalu tambahkan anggota.",
+    "factMembers": "Beri seseorang atau semua orang akses baca atau ubah",
+    "factChats": "Chat anggota melihat file folder itu",
+    "factUndo": "Menghapus folder bisa dibatalkan",
+    "emptyUserTitle": "Belum ada yang dibagikan kepada Anda",
+    "emptyUserBody": "Saat administrator membagikan folder kepada Anda, folder itu muncul di sini dan halamannya di Halaman."
+  },
+  "preview": {
+    "label": "Pratinjau",
+    "failed": "File ini tidak dapat ditampilkan.",
+    "loading": "Memuat pratinjau {{name}}",
+    "failedTitle": "Tidak dapat menampilkan {{name}}.",
+    "tooLarge": "File ini terlalu besar untuk dipratinjau. Unduh untuk membukanya.",
+    "none": "Tidak ada pratinjau untuk jenis file ini.",
+    "typeFile": "File {{ext}}",
+    "typeUnknown": "File",
+    "sheets": "Lembar",
+    "sheetLabel": "Lembar {{name}}",
+    "sheetEmpty": "Lembar ini kosong.",
+    "row": "Baris",
+    "showingRows": "Menampilkan {{rows}} dari {{total}} baris",
+    "showingCols": "dan {{cols}} dari {{total}} kolom.",
+    "downloadRest": "Unduh file untuk sisanya.",
+    "textOnly": "Pratinjau teks, format tidak ditampilkan.",
+    "truncated": "Teksnya dipotong.",
+    "noText": "File ini tidak berisi teks.",
+    "slide": "Slide {{n}}",
+    "notes": "Catatan pembicara",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "Jika PDF tidak tampil di sini, unduh file-nya.",
+    "htmlTitle": "Pratinjau {{name}}",
+    "imageFailed": "Gambar tidak dapat ditampilkan.",
+    "zoomIn": "Tampilkan ukuran penuh",
+    "zoomOut": "Sesuaikan dengan panel",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} item",
+    "textCut": "Menampilkan {{size}} pertama.",
+    "actions": "Tindakan file"
+  },
+  "managed": {
+    "group": "Dikelola oleh LocalAI",
+    "marker": "dikelola oleh LocalAI",
+    "about": {
+      "localai": "Pengaturan yang dibaca LocalAI: persona, profil, pintasan, Beranda, tema.",
+      "chats": "Satu folder per obrolan, berisi file obrolan itu."
+    },
+    "confirm": {
+      "deleteTitle": "Pindahkan {{name}} ke Tempat Sampah?",
+      "renameTitle": "Ganti nama {{name}}?",
+      "delete": "Pindahkan ke Tempat Sampah",
+      "rename": "Ganti nama",
+      "restore": "Anda dapat memulihkannya dari Tempat Sampah.",
+      "renameNote": "LocalAI hanya membacanya dengan nama ini; setelah diganti namanya, seolah-olah hilang."
+    },
+    "loses": {
+      "settings": "LocalAI melupakan persona, profil, pintasan, tata letak Beranda, dan tema Anda.",
+      "chats": "Setiap obrolan kehilangan filenya: yang Anda lampirkan dan yang ditulis asisten di sana.",
+      "persona": "Asisten kehilangan nama dan instruksinya.",
+      "user": "Asisten melupakan apa yang Anda ceritakan tentang diri Anda, dan jawaban Anda atas tawarannya.",
+      "shortcuts": "Kotak pesan kembali menampilkan pintasan bawaan.",
+      "home": "Beranda kehilangan widgetnya.",
+      "ui": "Tema, warna aksen, kepadatan, model bawaan, dan halaman yang disematkan kembali ke bawaan."
+    }
+  },
+  "newFile": "File baru",
+  "newFolderName": "Folder baru",
+  "newFileName": "Tanpa judul.md",
+  "fileName": "Nama file",
+  "downloadOne": "Unduh {{name}}",
+  "moveTo": "Pindahkan ke…",
+  "uploadMenu": "Opsi unggah lainnya",
+  "uploadFiles": "Unggah file",
+  "uploadFolder": "Unggah folder",
+  "loading": "Memuat folder",
+  "loadFailed": "Tidak dapat membuka {{folder}}.",
+  "types": {
+    "folder": "Folder",
+    "image": "Gambar",
+    "pdf": "PDF",
+    "sheet": "Spreadsheet",
+    "doc": "Dokumen",
+    "slides": "Presentasi",
+    "archive": "Arsip",
+    "audio": "Audio",
+    "video": "Video",
+    "code": "Kode",
+    "text": "Teks",
+    "file": "File"
+  },
+  "columns": {
+    "name": "Nama",
+    "modified": "Diubah",
+    "type": "Jenis",
+    "size": "Ukuran",
+    "actions": "Tindakan"
+  },
+  "view": {
+    "label": "Tampilan",
+    "list": "Daftar",
+    "grid": "Gambar mini"
+  },
+  "select": {
+    "one": "Pilih {{name}}",
+    "all": "Pilih semua",
+    "bar": "Item yang dipilih",
+    "clear": "Hapus pilihan",
+    "count_one": "{{count}} dipilih",
+    "count_other": "{{count}} dipilih",
+    "start": "Pilih"
+  },
+  "menu": {
+    "label": "Tindakan untuk {{name}}",
+    "more": "Tindakan lainnya untuk {{name}}",
+    "openFolder": "Buka",
+    "preview": "Pratinjau",
+    "downloadMany_one": "Unduh {{count}} file",
+    "downloadMany_other": "Unduh {{count}} file",
+    "moveMany_one": "Pindahkan {{count}} item ke…",
+    "moveMany_other": "Pindahkan {{count}} item ke…",
+    "deleteMany_one": "Pindahkan {{count}} item ke Sampah",
+    "deleteMany_other": "Pindahkan {{count}} item ke Sampah"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "Tampilkan folder di atasnya"
+  },
+  "naming": {
+    "empty": "Ketik nama.",
+    "slash": "Nama tidak boleh berisi / atau \\.",
+    "taken": "Sudah ada item dengan nama itu di folder ini."
+  },
+  "toast": {
+    "undo": "Urungkan",
+    "deletedOne": "{{name}} dipindahkan ke Sampah.",
+    "deleted_one": "{{count}} item dipindahkan ke Sampah.",
+    "deleted_other": "{{count}} item dipindahkan ke Sampah.",
+    "restored": "Dipulihkan.",
+    "renamed": "Diganti namanya menjadi {{name}}.",
+    "renameUndone": "Nama dikembalikan.",
+    "movedOne": "{{name}} dipindahkan ke {{folder}}.",
+    "moved_one": "{{count}} item dipindahkan ke {{folder}}.",
+    "moved_other": "{{count}} item dipindahkan ke {{folder}}.",
+    "moveUndone": "Dikembalikan."
+  },
+  "search": {
+    "placeholder": "Saring folder ini",
+    "resultsFor": "File yang berisi “{{query}}”",
+    "back": "Kembali ke folder",
+    "noneBody": "Tidak ada nama atau teks di file Anda yang cocok. Coba kata lain.",
+    "page": "halaman {{n}}",
+    "sheet": "lembar “{{name}}”",
+    "slide": "slide {{n}}",
+    "indexing_one": "{{count}} dokumen masih diindeks: cari lagi sebentar lagi untuk menyertakannya.",
+    "indexing_other": "{{count}} dokumen masih diindeks: cari lagi sebentar lagi untuk menyertakannya.",
+    "limited": "Hasil dibatasi: pencarian berhenti pada batasnya sebelum memeriksa setiap file. Cari di dalam folder atau gunakan kata lain untuk melihat sisanya.",
+    "filtering_one": "{{count}} item di folder ini cocok dengan “{{query}}”.",
+    "filtering_other": "{{count}} item di folder ini cocok dengan “{{query}}”.",
+    "everywhere": "Cari “{{query}}” di semua file",
+    "everywhereShort": "Cari di semua file",
+    "noMatch": "Tidak ada yang cocok dengan “{{query}}” di folder ini.",
+    "clear": "Hapus saringan"
+  },
+  "emptyHome": {
+    "title": "File Anda ada di sini"
+  },
+  "emptyFolder": {
+    "title": "Folder ini kosong",
+    "body": "Jatuhkan file atau folder di mana saja pada halaman ini, tempel dengan Ctrl+V, atau unggah dari komputer Anda. Asisten juga dapat menyimpan file di sini dari obrolan.",
+    "bodyTouch": "Unggah file dari perangkat Anda. Asisten juga dapat menyimpan file di sini dari obrolan.",
+    "ask": "Tanya asisten"
+  },
+  "drop": {
+    "title": "Lepas untuk mengunggah ke {{folder}}",
+    "body": "File dan folder utuh diterima.",
+    "limit": "File dan folder utuh, hingga {{size}} per file."
+  },
+  "conflict": {
+    "title_one": "File dengan nama ini sudah ada",
+    "title_other": "{{count}} file dengan nama ini sudah ada",
+    "body_one": "{{folder}} sudah memiliki file dengan nama ini.",
+    "body_other": "{{folder}} sudah memiliki file dengan nama-nama ini.",
+    "skip_one": "Lewati",
+    "skip_other": "Lewati semua",
+    "keep": "Simpan keduanya",
+    "replace_one": "Ganti",
+    "replace_other": "Ganti semua",
+    "more_one": "dan {{count}} lagi",
+    "more_other": "dan {{count}} lagi",
+    "note": "Simpan keduanya memberi nama baru pada file yang baru. File yang diganti dapat dikembalikan dari Riwayat.",
+    "cancel": "Batalkan unggahan"
+  },
+  "move": {
+    "title_one": "Pindahkan {{count}} item",
+    "title_other": "Pindahkan {{count}} item",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} item",
+    "cancel": "Batal",
+    "here": "Pindahkan ke {{folder}}",
+    "failed": "Tidak dapat membaca folder ini.",
+    "noFolders": "Tidak ada folder di sini. Pindahkan ke sini, atau naik satu tingkat."
+  },
+  "uploads": {
+    "waiting": "Menunggu",
+    "progress": "{{loaded}} dari {{total}}",
+    "rate": "{{rate}}/dtk",
+    "left": "{{time}} lagi",
+    "renamed": "Disimpan sebagai {{name}}",
+    "done": "Terunggah",
+    "canceled": "Dibatalkan",
+    "cancel": "Batal",
+    "cancelOne": "Batalkan unggahan {{name}}",
+    "retry": "Coba lagi",
+    "retryOne": "Coba {{name}} lagi",
+    "dismiss": "Tutup",
+    "dismissOne": "Tutup {{name}}",
+    "show": "Tampilkan",
+    "showOne": "Tampilkan {{name}}",
+    "meterOne": "{{name}}: {{percent}}%",
+    "meterAll": "Semua unggahan: {{percent}}%",
+    "cancelAll": "Batalkan semua",
+    "retryAll": "Coba semua lagi",
+    "fold": "Sembunyikan daftar",
+    "unfold": "Tampilkan daftar",
+    "close": "Tutup",
+    "head": {
+      "sending_one": "Mengunggah {{count}} file",
+      "sending_other": "Mengunggah {{count}} file",
+      "failed_one": "{{count}} unggahan gagal",
+      "failed_other": "{{count}} unggahan gagal",
+      "done_one": "{{count}} file terunggah",
+      "done_other": "{{count}} file terunggah"
+    },
+    "say": {
+      "start_one": "Mengunggah {{count}} file.",
+      "start_other": "Mengunggah {{count}} file.",
+      "done_one": "Unggahan selesai: {{count}} file.",
+      "done_other": "Unggahan selesai: {{count}} file.",
+      "doneFailed": "Unggahan selesai: {{count}} berhasil, {{failed}} gagal.",
+      "failed": "Tidak dapat mengunggah {{name}}."
+    },
+    "errors": {
+      "tooBig": "Melebihi batas {{limit}} di server ini.",
+      "tooLarge": "Server menolaknya karena terlalu besar.",
+      "off": "File dinonaktifkan di server ini.",
+      "invalid": "Server menolak file ini.",
+      "network": "Koneksi terputus.",
+      "server": "Server tidak dapat menyimpannya."
+    },
+    "said": "Server menjawab: {{reason}}."
+  }
+}

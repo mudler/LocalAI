@@ -1,0 +1,12 @@
+{
+  "overview": {
+    "usageErrorTitle": "L'utilisation n'a pas pu être lue."
+  },
+  "host": {
+    "errorTitle": "L'hôte n'a pas pu être lu."
+  },
+  "models": {
+    "noMatch": "Aucun modèle ne correspond à « {{query}} »."
+  },
+  "clearSearch": "Effacer la recherche"
+}

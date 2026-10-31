@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "supporting": "Find a model that fits this machine, install it, and look after the ones you have.",
     "title": "Models",
     "navLabel": "Model lifecycle",
     "views": { "explore": "Explore", "installed": "Installed" },
@@ -92,13 +93,17 @@
     "installed": "Installed"
   },
   "actions": {
-    "addModel": "Add Model",
-    "importModel": "Import Model",
+    "addModel": "Add model",
+    "importModel": "Import model",
     "install": "Install",
     "reinstall": "Reinstall",
     "delete": "Delete"
   },
   "filters": {
+    "sheetDone": "Show models",
+    "sheetTitle": "Filters",
+    "sheetButtonCount": "Filters ({{count}})",
+    "sheetButton": "Filters",
     "motion": "Motion Capture",
     "forecast": "Forecasting",
     "all": "All",

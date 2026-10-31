@@ -108,7 +108,8 @@ func (a *Application) startWatchdog() error {
 		// Create new stop channel BEFORE setting up any goroutines
 		// This prevents race conditions where the old shutdown handler might
 		// receive the closed channel and try to shut down the new watchdog
-		a.watchdogStop = make(chan bool, 1)
+		stop := make(chan bool, 1)
+		a.watchdogStop = stop
 
 		// Set the watchdog on the model loader
 		a.modelLoader.SetWatchDog(wd)
@@ -126,12 +127,13 @@ func (a *Application) startWatchdog() error {
 
 		// Setup shutdown handler - this goroutine will wait on a.watchdogStop
 		// which is now a fresh channel, so it won't receive any stale signals
-		// Note: We capture wd in a local variable to ensure this handler operates
-		// on the correct watchdog instance (not a later one that gets assigned to wd)
+		// Note: We capture wd and the stop channel in local variables. The
+		// handler must not read a.watchdogStop: RestartWatchdog and StopWatchdog
+		// set it to nil under watchdogMutex, which this goroutine does not hold.
 		wdForShutdown := wd
 		go func() {
 			select {
-			case <-a.watchdogStop:
+			case <-stop:
 				xlog.Debug("Watchdog stop signal received")
 				wdForShutdown.Shutdown()
 			case <-appConfig.Context.Done():

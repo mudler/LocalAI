@@ -26,6 +26,9 @@ type Snapshot struct {
 	// State is the supervisor's observation of the process.
 	State   string
 	Receipt packages.PackageReceipt
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC, or
+	// "" for a record that predates the field.
+	InstalledAt string
 	// UpdatePending is true when the owner's cached update check says an
 	// update is available for exactly this installed package.
 	UpdatePending bool
@@ -70,6 +73,11 @@ type App struct {
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`
 	Version string `json:"version" example:"1.2.3"`
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC. It
+	// is absent for an add-on installed before the host kept the time. The
+	// oldest install is the default provider of a tool or skill name that
+	// several add-ons replace.
+	InstalledAt string `json:"installedAt,omitempty" example:"2026-10-30T09:15:00Z"`
 	// Generation is the installed generation. A Start or Stop request must
 	// carry the value that was listed; a stale value is denied.
 	Generation uint64 `json:"generation" example:"3"`
@@ -95,10 +103,17 @@ type App struct {
 	// full number. The manifest carries no tool descriptions.
 	Tools     []string `json:"tools"`
 	ToolCount int      `json:"toolCount"`
+	// Shadows lists the built-in chat tools the add-on replaces (bash, say).
+	Shadows []string `json:"shadows,omitempty"`
 	// ToolDefinitions are the model-facing definitions the manifest declares:
 	// the argument schema and the kind of each tool. The host serves them to
 	// chat from the verified manifest; the add-on process is never asked.
 	ToolDefinitions []contract.ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Skills are the skills the package ships, from the verified manifest.
+	// The owner copies their files into the chats' skill layer.
+	Skills []contract.SkillDefinition `json:"skills,omitempty"`
+	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say).
+	SkillShadows []string `json:"skillShadows,omitempty"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
@@ -159,8 +174,10 @@ type ChatActionView struct {
 // SlotView is a component the manifest places in a host slot.
 type SlotView struct {
 	ID        string `json:"id" example:"notes-nav"`
-	Slot      string `json:"slot" enums:"chat.composer.actions,chat.message.actions,app.nav,settings.sections" example:"settings.sections"`
+	Slot      string `json:"slot" enums:"chat.composer.actions,chat.message.actions,app.nav,settings.sections,files.preview" example:"settings.sections"`
 	Component string `json:"component" example:"NotesSettings"`
+	// Extensions are set for a files.preview slot: the file extensions it handles.
+	Extensions []string `json:"extensions,omitempty" example:"docx,xlsx"`
 }
 
 // AdminView carries the controls only an administrator is shown. The server
@@ -191,16 +208,19 @@ func Build(snaps []Snapshot, admin bool) []App {
 func build(s Snapshot, admin bool) App {
 	m := s.Receipt.Manifest
 	id := s.AddonID
-	a := App{ID: id, Name: id, Title: id, Version: m.Version, Generation: s.Generation, Enabled: s.Enabled, State: state(s), LaunchMode: contract.LaunchModeAlways, Tools: []string{}}
+	a := App{ID: id, Name: id, Title: id, Version: m.Version, InstalledAt: s.InstalledAt, Generation: s.Generation, Enabled: s.Enabled, State: state(s), LaunchMode: contract.LaunchModeAlways, Tools: []string{}}
 	if m.LaunchMode != "" {
 		a.LaunchMode = m.LaunchMode
 	}
 	a.ToolCount = len(m.Capabilities.Tools)
 	a.Tools = append(a.Tools, m.Capabilities.Tools[:min(a.ToolCount, MaxTools)]...)
+	a.Shadows = contract.ShadowedTools(m.Capabilities.ToolDefinitions)
 	for _, d := range m.Capabilities.ToolDefinitions {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
+	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
+	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
 		if u.Title != nil {
@@ -287,7 +307,7 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 	}
 	var slots []SlotView
 	for _, s := range u.Slots {
-		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component})
+		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
 }

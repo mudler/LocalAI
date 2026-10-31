@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/home.json",
+  "title": "LocalAI/home.json",
+  "description": "The widgets of the Home page, in order.",
+  "type": "object",
+  "properties": {
+    "widgets": {
+      "type": "array",
+      "maxItems": 12,
+      "description": "At most 12 widgets, and at most 3 of type page: each page widget runs its page.",
+      "contains": { "type": "object", "properties": { "type": { "const": "page" } }, "required": ["type"] },
+      "minContains": 0,
+      "maxContains": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+          "type": { "enum": ["list", "metric", "chats", "page"], "title": "Type" },
+          "title": { "type": "string", "title": "Title", "minLength": 1, "maxLength": 60 },
+          "source": {
+            "type": "string",
+            "title": "Data file",
+            "description": "A file in your home that follows widget-data.schema.json, such as data/tasks.json.",
+            "maxLength": 200,
+            "pattern": "^/?([A-Za-z0-9 ._-]+/)*[A-Za-z0-9 ._-]+\\.json$"
+          },
+          "trigger": {
+            "type": "string",
+            "title": "Trigger",
+            "description": "The id of the trigger that rewrites the data file. The widget shows when it runs, its last run, and Pause.",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "page": {
+            "type": "string",
+            "title": "Page",
+            "description": "For a page widget: the name of a page, the folder pages/<name>/ of your home. Its page.json must have a widget block.",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+          },
+          "folder": {
+            "type": "integer",
+            "title": "Shared folder",
+            "description": "For a page widget of a shared folder: the folder_id of the shared pages list. Leave it out for a page of your home.",
+            "minimum": 1
+          }
+        },
+        "required": ["id", "type"],
+        "allOf": [
+          {
+            "if": { "properties": { "type": { "enum": ["list", "metric"] } } },
+            "then": { "required": ["source"] }
+          },
+          {
+            "if": { "properties": { "type": { "const": "page" } } },
+            "then": { "required": ["page"] },
+            "else": { "required": ["title"] }
+          }
+        ]
+      }
+    }
+  },
+  "required": ["widgets"]
+}

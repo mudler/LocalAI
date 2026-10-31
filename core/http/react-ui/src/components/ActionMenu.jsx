@@ -19,11 +19,30 @@ import Icon from './Icon'
 //   ArrowUp / ArrowDown  — move highlight (skipping dividers + badges)
 //   Enter / Space        — activate
 //   Escape               — close, return focus to trigger
-export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel, compact = false }) {
+//
+// icon and triggerClassName restyle the kebab, for example as the chevron of
+// a split button.
+//
+// A context menu: pass `at` ({ x, y, returnFocus }) instead of using the
+// kebab. The menu opens at that point with no trigger while `at` is set, and
+// onClose clears it; focus goes back to returnFocus.
+export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel, compact = false, at, onClose, icon = 'more-vertical', triggerClassName = '' }) {
   const triggerRef = useRef(null)
+  const pointRef = useRef(null)
   const menuId = useId()
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(-1)
+  const controlled = at !== undefined
+  const open = controlled ? !!at : ownOpen
+  if (at) {
+    pointRef.current = {
+      getBoundingClientRect: () => ({ left: at.x, right: at.x, top: at.y, bottom: at.y, width: 0, height: 0 }),
+      contains: () => false,
+      focus: (opts) => at.returnFocus?.focus?.(opts),
+    }
+  }
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   const interactive = (Array.isArray(items) ? items : []).filter(it => it && !it.divider && it.type !== 'badge' && !it.hidden)
   const visible = (Array.isArray(items) ? items : []).filter(it => it && !it.hidden)
@@ -31,7 +50,8 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
   const close = useCallback(() => {
     setOpen(false)
     setActiveIdx(-1)
-  }, [])
+    if (controlled) onCloseRef.current?.()
+  }, [controlled])
 
   // Move highlight to the first interactive item when opening, so keyboard
   // users land somewhere meaningful instead of having to arrow into the menu.
@@ -83,19 +103,19 @@ export default function ActionMenu({ items, ariaLabel = 'Actions', triggerLabel,
 
   return (
     <>
-      <button
+      {!controlled && <button
         ref={triggerRef}
         type="button"
-        className={`action-menu__trigger${compact ? ' action-menu__trigger--compact' : ''}${open ? ' is-open' : ''}`}
+        className={`action-menu__trigger${compact ? ' action-menu__trigger--compact' : ''}${open ? ' is-open' : ''}${triggerClassName ? ` ${triggerClassName}` : ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={triggerLabel || ariaLabel}
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}
         onKeyDown={handleTriggerKeyDown}
       >
-        <Icon name="more-vertical" />
-      </button>
-      <Popover anchor={triggerRef} open={open} onClose={close} ariaLabel={ariaLabel}>
+        <Icon name={icon} />
+      </button>}
+      <Popover anchor={controlled ? pointRef : triggerRef} open={open} onClose={close} ariaLabel={ariaLabel}>
         <div
           role="menu"
           aria-label={ariaLabel}
