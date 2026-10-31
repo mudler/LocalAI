@@ -28,6 +28,10 @@ The groups reorganise the fields the page used to show under fifteen sections. T
 
 Search at the top of the page matches a setting's name, description and key, the group, and the old section name, so a search for "Watchdog" still finds the watchdog settings and each result says where it used to be.
 
+`/app/settings?group=<id>` opens a group (`memory`, `speed`, `backends`, `access`, `debug`, `agents`, `tools`, `swarm`, `look` or `addons`), and a hash after it brings a block of the group into view: `#settings-egress` (the Sandbox network) and `#settings-builtin-tools` (the built-in chat tools) on the Tools group.
+
+The settings of an add-on are not on this page: each add-on keeps them on the **Settings** tab of its details on the Add-ons page. When at least one add-on has settings, an **Add-ons** group at the end of the list names those add-ons, each with a link to its Settings tab. See [Host slots]({{%relref "features/addons#host-slots" %}}). The settings below that belong to an add-on's feature, such as the Sandbox network, stay here; the add-on's Settings tab links to them.
+
 ### Editing, applying and undoing
 
 Edits are not sent as you type. A bar at the bottom of the page counts them and offers **Discard**, **Show diff** and **Apply**. The diff lists each old and new value, and runs the checks the browser can make: a duration parses the way the server parses it, a GPU memory budget is one the server accepts, a gallery list is valid JSON with a `url` in each entry, and warnings repeat what the server says (a restart is needed, an empty P2P token stops P2P, evicting while busy can interrupt requests, CSRF protection off). A check that would make the server refuse the value stops **Apply**.
@@ -148,7 +152,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - `chats_egress_allow_private` (default off): let a host that an administrator allowed, by a rule or a card answer, reach addresses inside your network. A preset alone never does, and the cloud metadata addresses and the server's own addresses stay refused. Turning it on needs `chats_egress_private_confirm` in the same request, with the phrase *I understand that commands can reach my private network*; the phrase is not stored. Settings > Tools asks for it.
   - `chats_egress_ports` (default `80,443`): the ports a command may reach, comma separated. Ports 22 and 25 are refused.
   - `chats_egress_extra_registries` (default empty): exact host names added to the package registries, comma separated, at most 64; for example an internal mirror (which also needs the private switch, since its address is private). No patterns.
-  - `chats_egress_audit_days` (1 to 365, default 30): how long the audit of the network requests keeps a line.
+  - `chats_egress_audit_days` (1 to 365, default 30): how long the audit of the network requests keeps a line. A value of 0 means a setting never set, and the page shows 30 days.
 - **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox"}`, applies at once): when several add-ons replace one tool, the one that serves it. With none chosen, the add-on installed first serves (ties go by add-on ID), and the tab marks it as the default and says that you should choose. See [Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
 
 > **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.

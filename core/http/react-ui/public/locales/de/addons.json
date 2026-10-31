@@ -734,5 +734,41 @@
     "notServing": "derzeit nicht verwendet",
     "serveIn": "Für {{skill}} in den Chats verwenden",
     "saveFailed": "Die Auswahl konnte nicht gespeichert werden."
+  },
+  "settingsTab": {
+    "overview": "Übersicht",
+    "settings": "Einstellungen",
+    "tabsLabel": "Details zu {{name}}",
+    "off": "Schalte {{name}} ein, um seine Einstellungen zu ändern.",
+    "serverTitle": "Servereinstellungen für dieses Add-on",
+    "serverIntro": "LocalAI führt diese Einstellungen von {{name}} auf der Seite Einstellungen, bei den anderen Servereinstellungen.",
+    "open": "Öffnen",
+    "pageLink": "Einstellungen",
+    "server": {
+      "network": {
+        "title": "Sandbox-Netzwerk",
+        "body": "Das Netzwerk, das Sandbox-Befehle nutzen dürfen, seine Ports und wie lange das Protokoll eine Zeile behält.",
+        "loading": "Netzwerkeinstellungen werden gelesen…",
+        "limit": "Grenze",
+        "newChat": "Ein neuer Chat",
+        "ports": "Ports",
+        "audit": "Protokoll behalten",
+        "days_one": "{{count}} Tag",
+        "days_other": "{{count}} Tage",
+        "presets": {
+          "off": "Kein Netzwerk",
+          "registries": "Nur Paket-Registries",
+          "all": "Jeder öffentliche Host"
+        }
+      },
+      "bash": {
+        "title": "Befehle in Chats",
+        "body": "Welches Add-on das bash der Chats ausführt und ob Befehle auf diesem Rechner laufen dürfen."
+      },
+      "webTools": {
+        "title": "Web-Werkzeuge in Chats",
+        "body": "Ob die Chats web_search und web_fetch bekommen und welches Add-on sie bereitstellt."
+      }
+    }
   }
 }

@@ -180,9 +180,10 @@ dialog says so for each tool ("This add-on replaces the built-in web_search. Ano
 
 ### Providers
 
-An administrator sets the providers in the **Web** section of the Settings page. The
-section lists the five providers in the order they are tried; a checkbox takes a provider
-in or out of the order, and the arrows move it. A provider without what it needs is
+An administrator sets the providers on the **Settings** tab of the Web add-on's details
+on the Add-ons page (the Web page links to it). The tab lists the five providers in the
+order they are tried; a switch takes a provider in or out of the order, and Up and Down
+move it. A provider without what it needs is
 skipped.
 
 | Provider | Needs | Key sent as |

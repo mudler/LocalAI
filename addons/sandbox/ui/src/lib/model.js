@@ -4,11 +4,24 @@ const OPTIONS = ['auto', 'gvisor', 'kvm', 'off', 'host']
 
 const text = (v) => (typeof v === 'string' ? v : '')
 
+// The gVisor failure of a host or a container that does not let runsc make
+// user namespaces: runsc starts, its child dies at once, and the sync file
+// reads EOF. Only this family gets the AppArmor hint; any other reason is
+// shown as it is, with no guess.
+export function namespaceFailure(reason) {
+  const r = text(reason)
+  return /exit status 128/.test(r) && /cannot read client sync file/i.test(r)
+}
+
+// The documentation of the AppArmor profile and the container settings that
+// gVisor needs.
+export const GVISOR_DOCS = 'https://localai.io/features/addons/#the-sandbox-in-the-localai-container'
+
 export function settingsModel(status) {
   if (!status || typeof status !== 'object' || status.ok !== true || status.admin !== true) return { hidden: true }
   const backends = (Array.isArray(status.backends) ? status.backends : [])
     .filter(b => b && typeof b === 'object')
-    .map(b => ({ name: text(b.name), usable: b.usable === true, reason: text(b.reason) }))
+    .map(b => ({ name: text(b.name), usable: b.usable === true, reason: text(b.reason), namespaceHint: b.usable !== true && b.name === 'gvisor' && namespaceFailure(b.reason) }))
   const setting = OPTIONS.includes(status.setting) ? status.setting : 'auto'
   const hostNotice = status.hostNotice === true
   return {

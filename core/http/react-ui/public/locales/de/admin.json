@@ -141,6 +141,16 @@
           "done": "Beendet"
         }
       }
+    },
+    "addons": {
+      "title": "Add-ons",
+      "hint": "Einstellungen, die Add-ons mitbringen",
+      "intro": "Jedes Add-on hat seine Einstellungen auf seiner eigenen Seite, im Tab Einstellungen seiner Details. Öffne eines, um sie zu ändern.",
+      "off": "Ausgeschaltet. Schalte es ein, um seine Einstellungen zu ändern.",
+      "open": "Einstellungen öffnen",
+      "openNamed": "Einstellungen von {{name}} öffnen",
+      "count_one": "{{count}} Add-on mit Einstellungen",
+      "count_other": "{{count}} Add-ons mit Einstellungen"
     }
   },
   "backends": {

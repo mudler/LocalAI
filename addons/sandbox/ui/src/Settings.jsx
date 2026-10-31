@@ -1,51 +1,89 @@
-import { settingsModel } from './lib/model.js'
+import { settingsModel, GVISOR_DOCS } from './lib/model.js'
 
-// The settings section of the Sandbox add-on, drawn at the end of the Settings
-// page for an administrator. It shows which backend runs the code, why the
-// others do not, the choice, and, for the host backend, the plain warning and
-// the phrase that has to be typed.
+// The settings section of the Sandbox add-on, drawn on the Settings tab of the
+// add-on's details for an administrator. It shows each backend with its state
+// (the reason a backend does not work is collapsed under Details), the choice
+// with a line for each option, and, for the host backend, the plain warning
+// and the phrase that has to be typed. It is drawn with the host's settings
+// kit (sdk.ui), so it looks like the host's own settings in both themes.
 export function createSettings(sdk, t) {
   const { React } = sdk
   const h = React.createElement
   // eslint-disable-next-line no-unused-vars
   const { useEffect, useState, useCallback } = React
+  // eslint-disable-next-line no-unused-vars
+  const { Section, List, ListRow, StatusChip, Callout, Code, Choice, Field, TextInput, Button, Actions, ExternalLink } = sdk.ui
 
   const call = (args, options) => sdk.api.read({ arguments: args }, options)
+  const fill = (key, vars) => Object.entries(vars).reduce((s, [k, v]) => s.replace(`{{${k}}}`, v), t(key))
+
+  function BackendRow({ b, active }) {
+    const inUse = b.usable && b.name === active
+    return (
+      <ListRow
+        testId="sandbox-backend"
+        title={b.name}
+        status={(
+          <StatusChip tone={inUse ? 'accent' : b.usable ? 'ok' : 'idle'} testId="sandbox-backend-state">
+            {inUse ? t('sandbox.settings.inUse') : b.usable ? t('sandbox.settings.usable') : t('sandbox.settings.unavailable')}
+          </StatusChip>
+        )}
+        meta={t(`sandbox.settings.about.${['kvm', 'gvisor', 'host'].includes(b.name) ? b.name : 'other'}`)}
+        details={!b.usable && b.reason ? <Code testId="sandbox-backend-reason">{b.reason}</Code> : null}
+        detailsLabel={t('sandbox.settings.details')}
+      >
+        {b.namespaceHint && (
+          <p className="sandbox-settings__hint" data-testid="sandbox-gvisor-hint">
+            {t('sandbox.settings.gvisorHint')}{' '}
+            <ExternalLink href={GVISOR_DOCS} testId="sandbox-gvisor-docs">{t('sandbox.settings.gvisorDocs')}</ExternalLink>
+          </p>
+        )}
+      </ListRow>
+    )
+  }
 
   function SandboxSettingsView({ model, draft, phrase, busy, error, onDraft, onPhrase, onSave }) {
     if (model.hidden) return null
+    const usable = new Map(model.backends.map(b => [b.name, b.usable]))
+    const options = model.options.map(o => ({
+      value: o.value,
+      label: t(`sandbox.settings.option.${o.value}`),
+      description: t(`sandbox.settings.explain.${o.value}`),
+      chip: o.value === model.setting
+        ? <StatusChip tone="accent">{t('sandbox.settings.saved')}</StatusChip>
+        : usable.get(o.value) === false ? <StatusChip tone="idle">{t('sandbox.settings.unavailable')}</StatusChip> : null,
+    }))
     return (
       <div className="sandbox-settings" data-testid="sandbox-settings">
         {model.hostNotice && (
-          <p className="sandbox-settings__notice" role="alert" data-testid="sandbox-host-notice">{t('sandbox.settings.hostNotice')}</p>
+          <Callout tone="warn" role="alert" testId="sandbox-host-notice">{t('sandbox.settings.hostNotice')}</Callout>
         )}
-        <p>{model.canRun ? t('sandbox.settings.runsOn').replace('{{backend}}', model.active) : t('sandbox.settings.cannotRun')}</p>
-        <ul className="sandbox-settings__backends">
-          {model.backends.map(b => (
-            <li key={b.name} data-testid="sandbox-backend">
-              <strong>{b.name}</strong>: {b.usable ? t('sandbox.settings.usable') : b.reason}
-            </li>
-          ))}
-        </ul>
-        <label className="sandbox-settings__field">
-          <span>{t('sandbox.settings.choice')}</span>
-          <select value={draft} onChange={e => onDraft(e.target.value)} data-testid="sandbox-choice" disabled={busy}>
-            {model.options.map(o => <option key={o.value} value={o.value}>{t(`sandbox.settings.option.${o.value}`)}</option>)}
-          </select>
-        </label>
-        {draft === 'host' && (
-          <div className="sandbox-settings__warning" data-testid="sandbox-host-warning">
-            <p>{t('sandbox.settings.hostWarning')}</p>
-            {model.needsHostConfirmation && (
-              <label className="sandbox-settings__field">
-                <span>{t('sandbox.settings.hostPhrase')}</span>
-                <input type="text" value={phrase} onChange={e => onPhrase(e.target.value)} data-testid="sandbox-host-phrase" autoComplete="off" disabled={busy} />
-              </label>
-            )}
-          </div>
-        )}
-        {error && <p className="sandbox-settings__error" role="alert" data-testid="sandbox-error">{error}</p>}
-        <button type="button" className="btn btn-primary btn-sm" onClick={onSave} disabled={busy || draft === model.setting} data-testid="sandbox-save">{t('sandbox.settings.save')}</button>
+        <Section
+          title={t('sandbox.settings.backendsTitle')}
+          description={model.canRun ? fill('sandbox.settings.runsOn', { backend: model.active }) : t('sandbox.settings.cannotRun')}
+          testId="sandbox-backends"
+        >
+          <List label={t('sandbox.settings.backendsTitle')}>
+            {model.backends.map(b => <BackendRow key={b.name} b={b} active={model.active} />)}
+          </List>
+        </Section>
+        <Section title={t('sandbox.settings.choice')} description={t('sandbox.settings.choiceIntro')}>
+          <Choice legend={t('sandbox.settings.choice')} hideLegend value={draft} onChange={onDraft} options={options} disabled={busy} testId="sandbox-choice" />
+          {draft === 'host' && (
+            <Callout tone="warn" title={t('sandbox.settings.hostTitle')} testId="sandbox-host-warning">
+              {t('sandbox.settings.hostWarning')}
+            </Callout>
+          )}
+          {draft === 'host' && model.needsHostConfirmation && (
+            <Field label={t('sandbox.settings.hostPhraseLabel')} help={t('sandbox.settings.hostPhrase')}>
+              <TextInput value={phrase} onChange={onPhrase} disabled={busy} testId="sandbox-host-phrase" />
+            </Field>
+          )}
+          {error && <Callout tone="error" role="alert" testId="sandbox-error">{error}</Callout>}
+          <Actions>
+            <Button variant="primary" size="sm" busy={busy} disabled={busy || draft === model.setting} onClick={onSave} testId="sandbox-save">{t('sandbox.settings.save')}</Button>
+          </Actions>
+        </Section>
       </div>
     )
   }
@@ -66,7 +104,7 @@ export function createSettings(sdk, t) {
       }
     }, [])
     useEffect(() => { refresh() }, [refresh])
-    if (model === null) return <p aria-busy="true" data-testid="sandbox-loading">{t('sandbox.settings.loading')}</p>
+    if (model === null) return <p className="sandbox-settings__loading" aria-busy="true" data-testid="sandbox-loading">{t('sandbox.settings.loading')}</p>
     const save = async () => {
       setBusy(true)
       setError('')

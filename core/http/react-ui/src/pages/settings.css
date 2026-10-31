@@ -187,3 +187,18 @@
 .st-tools__radio input { margin-top: 3px; }
 .st-tools .st-row__desc[data-tone="warn"] { color: var(--dk-warn-text); }
 .st-tools__skills { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-top: var(--dk-space-4); }
+
+/* ---- Add-ons: the add-ons that have settings, each a link to its own
+   Settings tab. The settings themselves live with the add-on. ------------- */
+.st-group[data-group="addons"] { margin-top: var(--dk-space-3); }
+.st-addons { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--dk-edge); }
+.st-addons__item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-3) 0; border-bottom: 1px solid var(--dk-edge); }
+.st-addons__words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.st-addons__off { margin: 0; }
+@media (max-width: 640px) {
+  .st-addons__item { grid-template-columns: auto minmax(0, 1fr); }
+  .st-addons__item > .dk-btn { grid-column: 2; justify-self: start; }
+}
+/* A number with its unit after it ("30 days"). */
+.st-unit { display: inline-flex; align-items: center; gap: var(--dk-space-2); }
+.st-unit__label { font-size: var(--dk-text-13); color: var(--dk-muted); }

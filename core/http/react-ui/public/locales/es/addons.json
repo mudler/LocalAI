@@ -734,5 +734,41 @@
     "notServing": "no se usa ahora",
     "serveIn": "Usar para {{skill}} en los chats",
     "saveFailed": "No se pudo guardar la elección."
+  },
+  "settingsTab": {
+    "overview": "Resumen",
+    "settings": "Ajustes",
+    "tabsLabel": "Detalles de {{name}}",
+    "off": "Activa {{name}} para cambiar sus ajustes.",
+    "serverTitle": "Ajustes del servidor para este complemento",
+    "serverIntro": "LocalAI guarda estos ajustes de {{name}} en la página Ajustes, con los demás ajustes del servidor.",
+    "open": "Abrir",
+    "pageLink": "Ajustes",
+    "server": {
+      "network": {
+        "title": "Red del Sandbox",
+        "body": "La red que pueden usar los comandos del Sandbox, sus puertos y cuánto tiempo el registro guarda una línea.",
+        "loading": "Leyendo los ajustes de red…",
+        "limit": "Límite",
+        "newChat": "Un chat nuevo",
+        "ports": "Puertos",
+        "audit": "Registro guardado",
+        "days_one": "{{count}} día",
+        "days_other": "{{count}} días",
+        "presets": {
+          "off": "Sin red",
+          "registries": "Solo registros de paquetes",
+          "all": "Cualquier host público"
+        }
+      },
+      "bash": {
+        "title": "Comandos en los chats",
+        "body": "Qué complemento ejecuta el bash de los chats y si los comandos pueden ejecutarse en esta máquina."
+      },
+      "webTools": {
+        "title": "Herramientas web en los chats",
+        "body": "Si los chats tienen web_search y web_fetch y qué complemento los sirve."
+      }
+    }
   }
 }

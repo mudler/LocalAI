@@ -734,5 +734,41 @@
     "notServing": "현재 사용 안 함",
     "serveIn": "채팅의 {{skill}}에 사용",
     "saveFailed": "선택을 저장하지 못했습니다."
+  },
+  "settingsTab": {
+    "overview": "개요",
+    "settings": "설정",
+    "tabsLabel": "{{name}} 세부 정보",
+    "off": "설정을 바꾸려면 {{name}}을(를) 켜세요.",
+    "serverTitle": "이 애드온의 서버 설정",
+    "serverIntro": "LocalAI는 {{name}}의 이 설정을 다른 서버 설정과 함께 설정 페이지에 둡니다.",
+    "open": "열기",
+    "pageLink": "설정",
+    "server": {
+      "network": {
+        "title": "샌드박스 네트워크",
+        "body": "샌드박스 명령이 쓸 수 있는 네트워크, 포트, 감사 기록을 보관하는 기간입니다.",
+        "loading": "네트워크 설정을 읽는 중…",
+        "limit": "한도",
+        "newChat": "새 채팅",
+        "ports": "포트",
+        "audit": "감사 보관",
+        "days_one": "{{count}}일",
+        "days_other": "{{count}}일",
+        "presets": {
+          "off": "네트워크 없음",
+          "registries": "패키지 레지스트리만",
+          "all": "모든 공개 호스트"
+        }
+      },
+      "bash": {
+        "title": "채팅의 명령",
+        "body": "채팅의 bash를 실행하는 애드온과 이 컴퓨터에서 명령을 실행할 수 있는지 여부입니다."
+      },
+      "webTools": {
+        "title": "채팅의 웹 도구",
+        "body": "채팅이 web_search와 web_fetch를 쓰는지, 어떤 애드온이 제공하는지입니다."
+      }
+    }
   }
 }

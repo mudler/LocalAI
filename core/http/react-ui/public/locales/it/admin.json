@@ -141,6 +141,16 @@
           "done": "Conclusa"
         }
       }
+    },
+    "addons": {
+      "title": "Add-on",
+      "hint": "Le impostazioni portate dagli add-on",
+      "intro": "Ogni add-on tiene le sue impostazioni nella propria pagina, nella scheda Impostazioni dei suoi dettagli. Aprine uno per cambiarle.",
+      "off": "Disattivato. Attivalo per cambiarne le impostazioni.",
+      "open": "Apri le impostazioni",
+      "openNamed": "Apri le impostazioni di {{name}}",
+      "count_one": "{{count}} add-on con impostazioni",
+      "count_other": "{{count}} add-on con impostazioni"
     }
   },
   "backends": {

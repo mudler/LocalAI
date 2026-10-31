@@ -734,5 +734,41 @@
     "notServing": "non usata ora",
     "serveIn": "Usa per {{skill}} nelle chat",
     "saveFailed": "Impossibile salvare la scelta."
+  },
+  "settingsTab": {
+    "overview": "Panoramica",
+    "settings": "Impostazioni",
+    "tabsLabel": "Dettagli di {{name}}",
+    "off": "Attiva {{name}} per cambiarne le impostazioni.",
+    "serverTitle": "Impostazioni del server per questo add-on",
+    "serverIntro": "LocalAI tiene queste impostazioni di {{name}} nella pagina Impostazioni, con le altre impostazioni del server.",
+    "open": "Apri",
+    "pageLink": "Impostazioni",
+    "server": {
+      "network": {
+        "title": "Rete del Sandbox",
+        "body": "La rete che i comandi del Sandbox possono usare, le sue porte e per quanto tempo il registro conserva una riga.",
+        "loading": "Lettura delle impostazioni di rete…",
+        "limit": "Limite",
+        "newChat": "Una nuova chat",
+        "ports": "Porte",
+        "audit": "Registro conservato",
+        "days_one": "{{count}} giorno",
+        "days_other": "{{count}} giorni",
+        "presets": {
+          "off": "Nessuna rete",
+          "registries": "Solo i registri dei pacchetti",
+          "all": "Ogni host pubblico"
+        }
+      },
+      "bash": {
+        "title": "Comandi nelle chat",
+        "body": "Quale add-on esegue il bash delle chat e se i comandi possono girare su questa macchina."
+      },
+      "webTools": {
+        "title": "Strumenti web nelle chat",
+        "body": "Se le chat hanno web_search e web_fetch e quale add-on li serve."
+      }
+    }
   }
 }

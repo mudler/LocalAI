@@ -131,7 +131,7 @@ export default function EgressSection({ settings, initial, onChange }) {
     ? t(info.isolation === 'host' ? 'settings.egress.servesHost' : 'settings.egress.serves', { name: info.sandbox })
     : t('settings.egress.servesNone')
   return (
-    <div className="st-list st-tools" data-testid="settings-egress">
+    <div className="st-list st-tools" id="settings-egress" data-testid="settings-egress">
       <div className="st-row st-tools__row" data-wide data-testid="settings-egress-row">
         <div className="st-row__main">
           <div className="st-row__title">

@@ -224,27 +224,29 @@ export const FIELDS = [
   { key: 'chats_web_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Web pages may be on private networks',
     desc: 'Let web_fetch reach addresses inside your network. Any user of the chats can then read an internal web service the server can reach. The cloud metadata addresses stay refused.',
     default: false, fallback: false, apply: 'live' },
-  { key: 'chats_web_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Ports for web pages',
+  { key: 'chats_web_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Ports for web pages', emptyIsDefault: true,
     desc: 'The ports web_fetch may use, comma separated.',
     placeholder: '80,443', default: '80,443', apply: 'live' },
   // The network of the Sandbox commands (core/config/runtime_settings_registry.go;
   // read at each check of the proxy, so live). The Tools tab draws the
-  // private switch itself, with its typed phrase.
-  { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network limit',
+  // private switch itself, with its typed phrase. emptyIsDefault: the server
+  // stores '' (or 0) for a setting never set and reads it as the default, so
+  // that value is not "changed" and a select or number shows the default.
+  { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network limit', fallback: 'off', emptyIsDefault: true,
     desc: 'The widest network any chat\'s Sandbox commands may use: off, the package registries only, or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
     default: 'off', apply: 'live' },
-  { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network of a new chat',
+  { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network of a new chat', fallback: 'off', emptyIsDefault: true,
     desc: 'The network preset a new chat starts with, capped by the limit above.',
     default: 'off', apply: 'live' },
-  { key: 'chats_egress_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Sandbox network ports',
+  { key: 'chats_egress_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Sandbox network ports', emptyIsDefault: true,
     desc: 'The ports Sandbox commands may reach, comma separated. 22 and 25 are always refused.',
     placeholder: '80,443', default: '80,443', apply: 'live' },
   { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
     desc: 'Exact host names added to the package registries, comma separated, for example an internal mirror. No patterns.',
     placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Sandbox network audit retention',
-    desc: 'How many days the audit of the Sandbox network requests keeps a line (1 to 365).',
-    default: 30, apply: 'live' },
+    desc: 'How many days the audit of the Sandbox network requests keeps a line, from 1 to 365.',
+    default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },
   { key: 'chats_egress_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Sandbox commands may reach private networks',
     desc: 'Let a host that an administrator allowed reach addresses inside your network. A preset alone never does; the metadata and server addresses stay refused.',
     default: false, fallback: false, apply: 'live', custom: 'tools' },
@@ -309,7 +311,7 @@ export function getValue(field, s) {
       return s.memory_reclaimer_threshold || field.fallback
     default: {
       const v = s[field.key]
-      if (v === undefined || v === null) return 'fallback' in field ? field.fallback : emptyOf(field)
+      if (v === undefined || v === null || (field.emptyIsDefault && field.kind !== 'text' && (v === 0 || v === ''))) return 'fallback' in field ? field.fallback : emptyOf(field)
       return v
     }
   }
@@ -461,6 +463,7 @@ export function hasDefault(field) { return Object.prototype.hasOwnProperty.call(
 
 export function isChanged(field, s) {
   if (!hasDefault(field)) return false
+  if (field.emptyIsDefault && [undefined, null, '', 0].includes(s?.[field.key])) return false
   return !sameValue(field, getValue(field, s), field.default)
 }
 

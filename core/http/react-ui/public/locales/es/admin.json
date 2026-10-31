@@ -141,6 +141,16 @@
           "done": "Terminada"
         }
       }
+    },
+    "addons": {
+      "title": "Complementos",
+      "hint": "Ajustes que traen los complementos",
+      "intro": "Cada complemento guarda sus ajustes en su propia página, en la pestaña Ajustes de sus detalles. Abre uno para cambiarlos.",
+      "off": "Desactivado. Actívalo para cambiar sus ajustes.",
+      "open": "Abrir ajustes",
+      "openNamed": "Abrir los ajustes de {{name}}",
+      "count_one": "{{count}} complemento con ajustes",
+      "count_other": "{{count}} complementos con ajustes"
     }
   },
   "backends": {

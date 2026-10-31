@@ -952,6 +952,15 @@ draw the same thing.
   `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector`,
   `TabSwitch`, `LoadingSpinner`, `Modal`, `Lightbox` and `HomeModelPicker`. A `ref`
   reaches the host component, so `HomeModelPicker` keeps its handle.
+- `sdk.ui` also has the settings kit, for a settings section or any form: see
+  [The settings kit](#the-settings-kit).
+- `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
+  add-on's own scoped style sheet: `text`, `muted`, `surface`, `inset`, `edge`, `hover`,
+  `accent`, `accentText`, `accentWash`, `onAccent`, `okText`, `okWash`, `warnText`,
+  `warnWash`, `errorText`, `errorWash`, `space1` to `space6`, `radius`, `radiusSmall`,
+  `radiusMedium`, `textMeta`, `textSmall`, `textBody`, `fontBody` and `fontMono`. Every
+  value is a custom property the host theme defines, in both themes. The same custom
+  properties can be written in the style sheet directly.
 - `sdk.hooks`: `useMediaCapture`, `useObjectUrl`, `useDelayedAction`,
   `audioBufferToWavBlob`, `useModels`, `useResources`, `useVoiceProfiles`,
   `useOperations` and `useMCPClient`. They run in the host React, so call them like
@@ -1014,6 +1023,34 @@ schema revision. Result has optional `payload` and `outputs`; each output has
 opaque `handle`, safe basename `name`, MIME `mediaType`, and nonnegative `size`.
 Handles are not URLs or filesystem paths. OpenOutput returns an authenticated
 stream; callers close it. DTOs do not create artifacts or authorize downloads.
+
+
+### The settings kit
+
+`sdk.ui` carries the host components a settings section, or any form of an add-on, is
+made of. They use only the host's classes and tokens, so an add-on draws its settings the
+way the host draws its own, in the light and the dark theme and at phone width, without a
+style sheet of its own. Use them instead of plain `<input>`, `<select>` and class names of
+your own: a class the host does not define has no style.
+
+| Component | Props | What it draws |
+|---|---|---|
+| `Section` | `title`, `description`, `actions`, `testId` | A titled block with a line under the title. Sections that follow each other are separated by a rule. |
+| `Field` | `label`, `help`, `unit`, `error`, `testId` | A label, the control (the children), its unit after it and a help line under it. The label names the control. |
+| `Select` | `value`, `onChange(value)`, `options: [{value, label, disabled}]`, `label`, `disabled`, `testId` | The host select. |
+| `TextInput` | `value`, `onChange(value)`, `type` (`text`, `password`, `number`, `url`, `search`), `placeholder`, `min`, `max`, `mono`, `label`, `disabled`, `testId` | The host text input. |
+| `Switch` | `checked`, `onChange(next)`, `label`, `disabled`, `testId` | The host switch. |
+| `Choice` | `legend`, `hideLegend`, `value`, `onChange(value)`, `options: [{value, label, description, chip, disabled}]`, `disabled`, `testId` | One choice of a few, each option with a line that says what it does. |
+| `StatusChip` | `tone` (`ok`, `warn`, `error`, `idle`, `accent`), `title`, `testId` | A state in colour, icon and words. |
+| `Callout` | `tone` (`info`, `ok`, `warn`, `error`), `title`, `actions`, `role` (`alert`), `testId` | A notice inside the page. |
+| `List`, `ListRow` | `List`: `label`, `testId`. `ListRow`: `title`, `meta`, `status`, `details`, `detailsLabel`, `testId` | Rows in one bordered list: a name, a line under it, a chip on the right, and details collapsed under a toggle. |
+| `Code` | `testId` | A monospace block for a raw error or a command, wrapped and scrolled. |
+| `Actions` | none | A row of buttons that wraps. |
+| `Table` | `caption`, `columns: [{key, label}]`, `rows`, `testId` | The host table. |
+| `ExternalLink` | `href` (https only), `testId` | A link out, in a new tab. |
+
+The Sandbox and Web sections are made of these components only (`addons/sandbox/ui/src/Settings.jsx`,
+`addons/web/ui/src/Settings.jsx`).
 
 ### Operation IDs and errors
 
@@ -3641,8 +3678,21 @@ text, history, the model or any host state.
 | `chat.composer.actions` | In an overflow menu next to the attach buttons of the composer. Actions of placement `composer` are menu items. Components are drawn in the menu. | `conversationId`, `disabled` |
 | `chat.message.actions` | In the action row of each message. Actions of placement `message` are icon buttons. | `conversationId`, `messageId`, `role` |
 | `app.nav` | On the Add-ons page, below the tile grid. Under the legacy switch: at the end of the second navigation row of the Add-ons hub, after the links of `ui.navigation`. | none |
-| `settings.sections` | At the end of the Settings page, one section for each component, under a heading with the title and icon of the add-on. | none |
+| `settings.sections` | On the add-on's own page: the **Settings** tab of its details on the Add-ons page (`/app/addons?detail=<id>&view=settings`), one section for each component. Only the add-on's own sections are drawn there, and only for an administrator. | none |
 | `files.preview` | On the Files page, in the preview of the selected file, between its size and its download link. The first component that handles the file's extension is drawn; the host's own view stays. | `path`, `name`, `extension` |
+
+A `settings.sections` component is drawn on the Settings tab of its add-on's details, not
+on the Settings page. The Settings page has an **Add-ons** group, shown when at least one
+add-on declares a section, that lists those add-ons, each with a link to its Settings tab.
+An add-on that has a page of its own gets a **Settings** link from the host above that
+page. The tab and the link are for administrators; a section is never drawn for anyone
+else, so a section does not need to hide itself from other users. The old address of a
+section, `/app/settings#ad-section-<add-on>-<contribution>`, opens the add-on's Settings
+tab. Some settings of an add-on's feature are LocalAI's own runtime settings (the network
+of the Sandbox commands, which add-on serves a built-in tool): they stay on the Settings
+page, and the add-on's Settings tab shows them under **Server settings for this add-on**
+with a link to each (for example `/app/settings?group=tools#settings-egress`). Draw the
+section with [the settings kit](#the-settings-kit).
 
 `messageId` is the position of the message in the conversation. `role` is `user`,
 `assistant`, `system` or `tool`.
@@ -3978,7 +4028,7 @@ chat and how to set it up.
 |---|---|---|
 | `search` | read | Replaces `web_search`. Arguments `query`, `maxResults`, `freshness`, `site`. |
 | `fetch` | read | Replaces `web_fetch`. Arguments `url`, `maxChars`, `format`. Reads PDF too. |
-| `status`, `set-settings`, `test-search` | read, page only (`uiOnly`) | The **Web** section of the Settings page: the providers, their order and keys, and a test of each provider. A change and a test need an administrator, which the add-on asks the host with `workspace.admin`. |
+| `status`, `set-settings`, `test-search` | read, page only (`uiOnly`) | The settings of the add-on, on the Settings tab of its details on the Add-ons page: the providers, their order and keys, and a test of each provider. A change and a test need an administrator, which the add-on asks the host with `workspace.admin`. |
 
 The contract allows no underscore in an argument name, so the add-on's tools name
 `max_results` and `max_chars` of the built-in tools `maxResults` and `maxChars`. The model
@@ -3986,7 +4036,7 @@ reads the add-on's schema.
 
 The keys are kept in `settings.json` in the add-on's data folder (mode 0600). They are never
 returned by a tool, written to a log or put in a model's prompt or a tool result: the
-Settings page shows only whether a key is set. A key reaches its provider in a request header
+Settings tab shows only whether a key is set. A key reaches its provider in a request header
 (`X-Subscription-Token`, `Authorization` or `X-Goog-Api-Key`), never in a URL, and the clients
 of the keyed providers follow no redirect, so a key is never sent to another host.
 
@@ -4011,7 +4061,7 @@ An older package of the add-on also served `read`, `write`, `edit`, `glob` and `
 
 ### Sandbox backends and settings
 
-The add-on runs commands in one of these backends, chosen on the Settings page by an administrator:
+The add-on runs commands in one of these backends, chosen by an administrator on the Settings tab of the Sandbox details on the Add-ons page (the Sandbox page links to it):
 
 | Choice | What it is |
 |---|---|
@@ -4021,9 +4071,9 @@ The add-on runs commands in one of these backends, chosen on the Settings page b
 | Off | No sandbox. Every tool answers that the host cannot run commands. |
 | Host | Runs commands on the host as the user LocalAI runs as, with no isolation. |
 
-The page shows which backend runs now, and for each other backend the one thing that is missing and how to fix it. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
+The Settings tab lists the backends of the host, each with its state (in use, ready or unavailable); the reason a backend does not work is under **Details**. When gVisor fails with `exit status 128` and `cannot read client sync file`, the row also says that gVisor needs an AppArmor profile that allows user namespaces and a container that may create them, and links to [The Sandbox in the LocalAI container](#the-sandbox-in-the-localai-container). The tab also shows, read-only, the network of the Sandbox commands (its limit, the preset of a new chat, the ports and how long the audit keeps a line) with a link to the server setting. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
 
-The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the sandbox settings page (for administrators) shows a notice for as long as the host backend is the one in use. The model sees it in the answer of the status tool. Treat the machine as one that code can harm.
+The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the Settings tab of the Sandbox details (for administrators) shows a notice for as long as the host backend is the one in use. The model sees it in the answer of the status tool. Treat the machine as one that code can harm.
 
 The choice is kept in the add-on's data directory. Changing it removes the running sandboxes; what they did is already in the users' files.
 
@@ -4131,7 +4181,7 @@ gVisor, KVM and the host backend refuse to run as root, so the sandbox needs the
 - **Another user.** Set `LOCALAI_UID` and `LOCALAI_GID` to use another id. A container that already starts as a non-root user (`docker run --user`, Kubernetes `runAsUser`) is left as it is; the data folders must then be writable by that user.
 - **Keep root.** Set `LOCALAI_RUN_AS_ROOT=true` to run as root as before. The sandbox is then unavailable, and the page says why.
 - **Devices.** Pass `/dev/kvm` to the container (`--device /dev/kvm`); the entrypoint adds the group that owns it. In Kubernetes, request the device through your device plugin and give the pod a `fsGroup` or `supplementalGroups` entry for it.
-- **User namespaces.** gVisor needs the container to be allowed to create user namespaces. Docker's default seccomp profile blocks this: use a profile that allows it, or `--security-opt seccomp=unconfined` on a host you trust. KVM needs `/dev/kvm` and no extra privileges.
+- **User namespaces.** gVisor needs the container to be allowed to create user namespaces, and on an Ubuntu 24.04 or later host an AppArmor profile that allows them (see **AppArmor** in [Packaging and setting up the Sandbox add-on](#packaging-and-setting-up-the-sandbox-add-on)). Without them `runsc` stops at once, and the backend's reason ends with `exit status 128` and `cannot read client sync file ... EOF`. Docker's default seccomp profile blocks this: use a profile that allows it, or `--security-opt seccomp=unconfined` on a host you trust. KVM needs `/dev/kvm` and no extra privileges.
 - **Cluster.** The add-on runs on the add-on owner node only. In Kubernetes, give that pod the settings above; a node pool dedicated to it is the way to keep the isolation requirements off the other nodes.
 
 What the source tree does not prove: the images and the `runsc` download are not built in the test suite, and the gVisor and KVM backends need a host that allows them. Their tests skip with the reason on a host that does not. The host backend and the whole path from a chat to a file in the user's files run in the tests.

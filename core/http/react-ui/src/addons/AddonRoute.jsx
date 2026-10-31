@@ -16,6 +16,8 @@ import AddonErrorBoundary from './AddonErrorBoundary'
 import { useAddonRegistry } from './useAddonRegistry'
 import { appStatus } from './registryState'
 import { resolveSubpath } from './sdk'
+import { declaresSlot } from './slots'
+import { addonSettingsAddress } from '../utils/addonSettings'
 import '../components/addons/addons.css'
 
 // The shell route of an add-on page: /app/addons/:addonId/<page>[/...].
@@ -264,7 +266,15 @@ export default function AddonRoute() {
   // survives the moment it is withdrawn.
   return (
     <div className="page ad-page" data-testid={isStale ? 'addon-stale' : 'addon-page'}>
-      {/* The add-on draws its own title; the shell adds none. */}
+      {/* The add-on draws its own title; the shell adds none. Its settings
+          live on the Settings tab of its details, and the shell links there. */}
+      {!isStale && isAdmin && app && declaresSlot(app, 'settings.sections') && (
+        <div className="ad-shellbar">
+          <Link className="dk-btn dk-btn--ghost dk-btn--sm" to={addonSettingsAddress(addonId)} data-testid="addon-page-settings">
+            <Icon name="settings" /> {t('settingsTab.pageLink')}
+          </Link>
+        </div>
+      )}
       {isStale && (
         <div className="ad-banner" role="alert">
           <span>{t('shell.stale', { title })}</span>

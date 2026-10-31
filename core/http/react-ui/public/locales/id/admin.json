@@ -141,6 +141,16 @@
           "done": "Selesai"
         }
       }
+    },
+    "addons": {
+      "title": "Add-on",
+      "hint": "Pengaturan yang dibawa add-on",
+      "intro": "Setiap add-on menyimpan pengaturannya di halamannya sendiri, di tab Pengaturan pada detailnya. Buka salah satu untuk mengubahnya.",
+      "off": "Nonaktif. Aktifkan untuk mengubah pengaturannya.",
+      "open": "Buka pengaturan",
+      "openNamed": "Buka pengaturan {{name}}",
+      "count_one": "{{count}} add-on dengan pengaturan",
+      "count_other": "{{count}} add-on dengan pengaturan"
     }
   },
   "backends": {

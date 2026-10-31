@@ -32,20 +32,36 @@ export const ICON_NAMES = Object.freeze([
 // the host theme, valid in the add-on's own scoped style sheet.
 export const THEME_TOKENS = Object.freeze({
   text: 'var(--dk-text)',
-  muted: 'var(--dk-text-muted, var(--dk-text))',
-  surface: 'var(--dk-surface, transparent)',
+  // --dk-text-muted never existed: the muted text of the host is --dk-muted.
+  muted: 'var(--dk-muted)',
+  surface: 'var(--dk-card)',
   inset: 'var(--dk-inset)',
   edge: 'var(--dk-edge)',
   hover: 'var(--dk-hover)',
   accent: 'var(--dk-accent)',
+  accentText: 'var(--dk-accent-text)',
+  accentWash: 'var(--dk-accent-wash)',
   onAccent: 'var(--dk-on-accent)',
+  okText: 'var(--dk-ok-text)',
+  okWash: 'var(--dk-ok-wash)',
+  warnText: 'var(--dk-warn-text)',
+  warnWash: 'var(--dk-warn-wash)',
   errorText: 'var(--dk-error-text)',
   errorWash: 'var(--dk-error-wash)',
   space1: 'var(--dk-space-1, 4px)',
   space2: 'var(--dk-space-2, 8px)',
   space3: 'var(--dk-space-3, 12px)',
   space4: 'var(--dk-space-4, 16px)',
+  space5: 'var(--dk-space-5, 20px)',
+  space6: 'var(--dk-space-6, 24px)',
   radius: 'var(--dk-radius-1)',
+  radiusSmall: 'var(--dk-radius-1)',
+  radiusMedium: 'var(--dk-radius-2)',
+  textMeta: 'var(--dk-text-12)',
+  textSmall: 'var(--dk-text-13)',
+  textBody: 'var(--dk-text-15)',
+  fontBody: 'var(--dk-font-body)',
+  fontMono: 'var(--dk-font-mono)',
 })
 
 export class AddonSdkError extends Error {
