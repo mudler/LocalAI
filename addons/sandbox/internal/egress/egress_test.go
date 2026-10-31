@@ -117,20 +117,31 @@ func (f fixture) advance(d time.Duration) {
 // The pair is a TCP connection on loopback, buffered like the vsock or Unix
 // socket of a real guest (net.Pipe is not, and a 403 written before the
 // request is read would block).
+//
+// The listener is closed only after Accept has returned. A connection still
+// in the accept queue when the listener closes gets a reset, and the guest
+// then reads EOF instead of the proxy's answer.
 func (f fixture) dial() net.Conn {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	Expect(err).NotTo(HaveOccurred())
 	defer func() { _ = ln.Close() }()
 	h := f.proxy.Ports("alice", "c1")[egress.Port]
+	accepted := make(chan net.Conn, 1)
 	go func() {
 		side, err := ln.Accept()
-		if err == nil {
-			h(context.Background(), side)
+		if err != nil {
+			close(accepted)
+			return
 		}
+		accepted <- side
 	}()
 	guest, err := net.Dial("tcp", ln.Addr().String())
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = guest.Close() })
+	var side net.Conn
+	Eventually(accepted).WithTimeout(10 * time.Second).Should(Receive(&side))
+	Expect(side).NotTo(BeNil(), "the listener accepted no connection")
+	go h(context.Background(), side)
 	return guest
 }
 
