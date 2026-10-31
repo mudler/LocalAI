@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"testing/fstest"
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -140,5 +141,54 @@ var _ = Describe("skillsvc", func() {
 		Expect(p).NotTo(ContainSubstring("private"), "alice's index:\n%s", p)
 		Expect(p).NotTo(ContainSubstring("secret"), "alice's index:\n%s", p)
 		Expect(p).To(ContainSubstring("mine"), "alice's index:\n%s", p)
+	})
+})
+
+var _ = Describe("skill path hints", func() {
+	// readAll runs each tool call in a chat and returns the error text of each.
+	readAll := func(calls []studiotest.ToolStep) []string {
+		f := newFiles()
+		svc, h := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			if text == "go" {
+				return append(calls, studiotest.ToolStep{Say: "done"})
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files = f })
+		Expect(f.SyncBuiltin(context.Background(), fstest.MapFS{
+			"docx/SKILL.md": {Data: []byte("---\nname: docx\ndescription: Word files.\n---\nBody.\n")},
+		})).To(Succeed())
+		writeSkill(f, alice, "/.skills/review/SKILL.md", "review", "check a change")
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		var out []string
+		for _, r := range h.Results() {
+			if r.Err != nil {
+				out = append(out, r.Tool+": "+r.Err.Error())
+			}
+		}
+		return out
+	}
+
+	It("says where a built-in skill is when read_file or list_files guess the wrong folder", func() {
+		got := readAll([]studiotest.ToolStep{
+			{Tool: "read_file", Args: `{"path":"/workspace/home/.skills/docx/SKILL.md"}`},
+			{Tool: "list_files", Args: `{"path":"/workspace/home/skills/docx"}`},
+		})
+		want := "not found. The skill docx is at /workspace/shared-builtin-skills/docx/SKILL.md; read it with read_file."
+		Expect(got).To(Equal([]string{"read_file: " + want, "list_files: " + want}))
+	})
+
+	It("points to a user skill that was asked for in the wrong place", func() {
+		got := readAll([]studiotest.ToolStep{{Tool: "read_file", Args: `{"path":"review/SKILL.md"}`}})
+		Expect(got).To(Equal([]string{"read_file: not found. The skill review is at /workspace/home/.skills/review/SKILL.md; read it with read_file."}))
+	})
+
+	It("gives no suggestion for a name that is not a listed skill", func() {
+		got := readAll([]studiotest.ToolStep{
+			{Tool: "read_file", Args: `{"path":"/workspace/home/.skills/nope/SKILL.md"}`},
+			{Tool: "read_file", Args: `{"path":"/workspace/home/missing.txt"}`},
+		})
+		Expect(got).To(Equal([]string{"read_file: not found", "read_file: not found"}))
 	})
 })

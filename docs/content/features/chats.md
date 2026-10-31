@@ -975,7 +975,7 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 ## Skills
 
-A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. A `SKILL.md` over 64 KiB is refused.
+A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. The model reads a skill with `read_file`, not with the Sandbox, which does not see the skill folders; when a read of a skill fails because the path is wrong, the error names the right path. A `SKILL.md` over 64 KiB is refused.
 
 Skills come from five places, nearest first, and the nearest wins when two have the same name:
 

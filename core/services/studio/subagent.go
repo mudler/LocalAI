@@ -74,9 +74,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		fa.ChatID = rec.ParentID
 	}
 	nudge := s.newRulesNudge(ctx, a, rec)
-	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.d.Files.Tools(fa))))...)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.skillHintTools(fa, s.d.Files.Tools(fa)))))...)
 	if s.d.Media != nil {
-		tools = append(tools, s.d.Media.Tools(s.d.Files, a, rec.Model)...)
+		tools = append(tools, s.skillHintTools(fa, s.d.Media.Tools(s.d.Files, a, rec.Model))...)
 	}
 	skillsOff := 0
 	prompt, note, key, fallback := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
@@ -314,7 +314,7 @@ func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string
 	}
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
-	have = append(have, s.fileNudgeTools(a, s.announceFileChanges(a, s.d.Files.Tools(a)))...)
+	have = append(have, s.fileNudgeTools(a, s.announceFileChanges(a, s.skillHintTools(a, s.d.Files.Tools(a))))...)
 	if parent, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID); err == nil {
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.
