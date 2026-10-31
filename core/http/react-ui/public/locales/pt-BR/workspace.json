@@ -127,7 +127,8 @@
         },
         "scheduleNote_one": "{{count}} widget é atualizado por agendamento. As execuções usam seus modelos e contam no seu uso.",
         "scheduleNote_other": "{{count}} widgets são atualizados por agendamento. As execuções usam seus modelos e contam no seu uso."
-      }
+      },
+      "opensSite": "{{host}}: abre em uma nova aba"
     },
     "fields": {
       "persona": {

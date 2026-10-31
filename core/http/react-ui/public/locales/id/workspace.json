@@ -127,7 +127,8 @@
         },
         "scheduleNote_one": "{{count}} widget diperbarui sesuai jadwal. Jalannya memakai model Anda dan dihitung dalam penggunaan Anda.",
         "scheduleNote_other": "{{count}} widget diperbarui sesuai jadwal. Jalannya memakai model Anda dan dihitung dalam penggunaan Anda."
-      }
+      },
+      "opensSite": "{{host}}: terbuka di tab baru"
     },
     "fields": {
       "persona": {

@@ -151,9 +151,71 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 		return nil, []string{"the file is not a JSON object"}
 	}
 	if errs := check(c, obj); len(errs) > 0 {
+		if n == WidgetData {
+			errs = append(errs, itemURLErrors(obj)...)
+			sort.Strings(errs)
+		}
 		return nil, errs
 	}
 	return obj, nil
+}
+
+// itemURLErrors says, in words, which item url of widget data breaks the
+// schema: its pattern alone tells a trigger run nothing it can fix.
+func itemURLErrors(obj map[string]any) []string {
+	items, _ := obj["items"].([]any)
+	var out []string
+	for i, it := range items {
+		m, _ := it.(map[string]any)
+		raw, ok := m["url"]
+		if !ok {
+			continue
+		}
+		u, isString := raw.(string)
+		if isString && ItemURLOK(u) {
+			continue
+		}
+		out = append(out, fmt.Sprintf("items[%d].url: a link is an http or https address without a user name (https://example.com/a) or a path of the app such as /app/pages/news; %q is neither", i, clip(fmt.Sprint(raw), 80)))
+	}
+	return out
+}
+
+// The in-app paths an item may link to: the screens a person reads.
+var appPrefixes = []string{"chat", "chats", "files", "pages", "agents", "skills", "triggers", "collections", "models", "account", "addons"}
+
+// ItemURLOK says whether u may be the url of a widget item. It is the rule of
+// the schema in code, for the error message and the tests.
+func ItemURLOK(u string) bool {
+	if u == "" || len(u) > 2048 || strings.ContainsAny(u, " \t\n\r\f\v") {
+		return false
+	}
+	if rest, ok := strings.CutPrefix(u, "/app/"); ok {
+		if strings.Contains(u, "..") || strings.Contains(u, "//") || strings.Contains(u, `\`) {
+			return false
+		}
+		for _, p := range appPrefixes {
+			if r, ok := strings.CutPrefix(rest, p); ok && (r == "" || strings.ContainsAny(r[:1], "/?#")) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, scheme := range []string{"https://", "http://"} {
+		if rest, ok := strings.CutPrefix(u, scheme); ok {
+			host, _, _ := strings.Cut(rest, "/")
+			host, _, _ = strings.Cut(host, "?")
+			host, _, _ = strings.Cut(host, "#")
+			return host != "" && !strings.ContainsAny(host, `@\`)
+		}
+	}
+	return false
+}
+
+func clip(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
 }
 
 // check validates obj, and when it fails, each top-level property on its own,

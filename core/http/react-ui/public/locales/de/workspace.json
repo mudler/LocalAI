@@ -127,7 +127,8 @@
         },
         "scheduleNote_one": "{{count}} Widget wird nach Zeitplan aktualisiert. Seine Läufe nutzen deine Modelle und zählen zu deiner Nutzung.",
         "scheduleNote_other": "{{count}} Widgets werden nach Zeitplan aktualisiert. Ihre Läufe nutzen deine Modelle und zählen zu deiner Nutzung."
-      }
+      },
+      "opensSite": "{{host}}: öffnet in einem neuen Tab"
     },
     "fields": {
       "persona": {

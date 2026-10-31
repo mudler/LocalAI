@@ -127,7 +127,8 @@
         },
         "scheduleNote_one": "위젯 {{count}}개가 일정에 따라 업데이트됩니다. 실행에는 내 모델이 쓰이고 사용량에 포함됩니다.",
         "scheduleNote_other": "위젯 {{count}}개가 일정에 따라 업데이트됩니다. 실행에는 내 모델이 쓰이고 사용량에 포함됩니다."
-      }
+      },
+      "opensSite": "{{host}}: 새 탭에서 열립니다"
     },
     "fields": {
       "persona": {

@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import Icon from '../Icon'
 import Skeleton from '../Skeleton'
 import { StoredIn } from './WellKnownCard'
@@ -64,7 +65,17 @@ function DataWidget({ w, triggers }) {
         {d.items.slice(0, 8).map((it, i) => (
           <li key={i} className={it.done ? 'is-done' : undefined}>
             <span className={`wk-box${it.done ? ' wk-box--done' : ''}`} aria-hidden="true">{it.done && <Icon name="check" />}</span>
-            <span className="wk-t" title={it.label}>{it.label}</span>
+            {it.link?.external ? (
+              <a className="wk-t wk-link" href={it.link.href} target="_blank" rel="noopener noreferrer" title={t('wellKnown.home.opensSite', { host: it.link.host })} data-testid="widget-item-link">
+                <span className="wk-link__text">{it.label}</span><Icon name="external-link" className="wk-link__ext" />
+              </a>
+            ) : it.link ? (
+              <Link className="wk-t wk-link" to={it.link.to} title={it.label} data-testid="widget-item-link">
+                <span className="wk-link__text">{it.label}</span>
+              </Link>
+            ) : (
+              <span className="wk-t" title={it.label}>{it.label}</span>
+            )}
             {it.meta && <span className="wk-m">{it.meta}</span>}
           </li>
         ))}

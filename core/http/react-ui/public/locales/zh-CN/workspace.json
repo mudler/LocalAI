@@ -127,7 +127,8 @@
         },
         "scheduleNote_one": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。",
         "scheduleNote_other": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。"
-      }
+      },
+      "opensSite": "{{host}}：在新标签页中打开"
     },
     "fields": {
       "persona": {

@@ -35,6 +35,7 @@ A `list` or `metric` widget reads its `source`, a JSON file in the home that fol
 A metric uses `value`, `note` and `series` (numbers for a small line). A `chats` widget needs no source: it lists the user's last chats. Put data files under `data/`.
 
 - `updatedAt` is an RFC 3339 time. Always set it when you write the file: the widget shows it.
+- An item can link: `{"label": "Title", "meta": "source", "url": "https://..."}` opens the site in a new tab; `"url": "/app/pages/<name>"` opens a page of the app (also `/app/chats`, `/app/files`). Other links break the schema.
 - `source` says who wrote the data: `{"kind": "trigger"}` in a trigger run, `{"kind": "page", "page": "<name>"}` for a page's data, `{"kind": "assistant"}` in a chat. `note` is one short line on where the data comes from.
 - A file that breaks the schema is not shown: the widget keeps the last good version and says the file has an error. A failed run leaves the file as it was, so never write half a file; write the whole file once at the end.
 

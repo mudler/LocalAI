@@ -127,7 +127,8 @@
         },
         "scheduleNote_one": "{{count}} widget se actualiza según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso.",
         "scheduleNote_other": "{{count}} widgets se actualizan según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso."
-      }
+      },
+      "opensSite": "{{host}}: se abre en una pestaña nueva"
     },
     "fields": {
       "persona": {
