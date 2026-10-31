@@ -24,13 +24,29 @@ turns the jobs off with the rest of the chats.
 
 ## The Tasks page
 
-**Agents > Tasks** (`/app/agent-tasks`) lists your tasks and their jobs. It
-creates and edits a task (name, description, a model or one of your saved
-agents, the prompt, on or off), runs one (it asks for each parameter the
-prompt names), and shows each job's status, result, traces and webhook
-outcome, with **Cancel**, **Run again** and **Delete**. Webhooks are set over
-the API; the page keeps a task's webhooks as they are. An administrator can
-tick **All users** to see the tasks and jobs of every user, read-only.
+**Agents > Tasks** (`/app/agent-tasks`) lists your tasks with who runs them,
+the values their prompt asks for, and how the last run went. Search the list,
+or show only the tasks that are on or off. Each row has an **On** switch,
+**Run** and a menu with **Open**, **Edit** and **Delete**.
+
+- **New task** opens a side sheet: a name, a description, a model or one of
+  your saved agents, the prompt, and on or off. The sheet lists the parameters
+  the prompt names as you type, and says which required field is missing when
+  you save.
+- **Run** starts a task at once when its prompt names no parameter. Otherwise a
+  sheet asks for each value and shows the prompt as the task receives it.
+- **Open** shows the task in a pane with three tabs: **Overview** (the prompt,
+  the values it asks for and a `curl` call that runs it by name), **Runs** (its
+  jobs) and **Settings** (on or off, its webhooks, delete).
+- **Run history** lists every job by day. Filter it by state (in progress,
+  done, failed, cancelled) and by task. Open a job to see the values it ran
+  with, its answer or error (with **Copy**), its steps, the webhook outcome and
+  a link to the chat that holds it. **Cancel** stops a job in progress; **Run
+  again** and **Delete run** act on a finished one.
+
+Webhooks are set over the API; the page keeps a task's webhooks as they are.
+An administrator can switch on **All users** to see the tasks and jobs of
+every user, read-only.
 
 ## A task
 

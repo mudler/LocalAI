@@ -11,7 +11,6 @@
 /* ---- Jobs page ----------------------------------------------------------- */
 .aj-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .aj-title { margin: 0; font: 600 var(--fs-title)/var(--lh-title) var(--font-sans); letter-spacing: -0.02em; }
-.aj-head__acts { display: flex; align-items: center; gap: 8px; }
 .aj-sum { margin: 0; max-width: 64ch; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--color-text-secondary); }
 .aj-sum strong { color: var(--dk-text); font-weight: 600; }
 .aj-sec { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
@@ -70,8 +69,6 @@
 .aj-steps { margin: 0 0 18px; padding-left: 22px; display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body); line-height: var(--lh-body); }
 .aj-steps li::marker { color: var(--dk-muted); font-variant-numeric: tabular-nums; }
 
-/* ---- Run dialog ---------------------------------------------------------- */
-
 /* ---- A task -------------------------------------------------------------- */
 .aj-prompt {
   margin: 0;
@@ -86,7 +83,6 @@
   overflow-wrap: anywhere;
 }
 .aj-context { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-.aj-api .ag-pre { max-height: none; }
 
 /* ---- The task form ------------------------------------------------------- */
 .aj-form { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -98,9 +94,6 @@
 .aj-words { margin: 0; max-width: 64ch; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); }
 .aj-words strong { color: var(--dk-text); font-weight: 600; }
 
-/* ---- A job run ----------------------------------------------------------- */
-.aj-trace__body .ag-pre { max-height: 320px; }
-
 /* ---- Phone ---------------------------------------------------------------- */
 @media (max-width: 760px) {
 /* Wraps: "Every day at 07:00. Last run failed" is the one line that says when and how it went, and an ellipsis cut it mid-sentence. */
@@ -109,11 +102,6 @@
   .aj-taskfilter { margin-left: 0; flex: 1 1 100%; }
   .aj-what { max-width: 30ch; }
   .aj-sub__text { max-width: 21ch; }
-  .aj-trace__head { grid-template-columns: 32px minmax(0, 1fr) 18px; }
-  .aj-trace__head .ag-time { display: none; }
-  .aj-trace__body { padding-left: 6px; }
-  .aj-item__type { flex: 1 1 100%; }
-  .aj-dialog__body { max-height: 56vh; }
 }
 
 /* ---- Triggers: proposals and the schedule form ------------------------------ */
@@ -128,3 +116,203 @@
 /* Column heads are labels: sentence case, 12/600, muted. */
 .aj-table thead th { text-transform: none; letter-spacing: 0; font-family: var(--font-sans); font-size: var(--fs-meta); font-weight: 600; }
 .aj-table .aj-acts .lai-icon { width: 14px; height: 14px; }
+
+/* ---- Lists: the toolbar, task rows, the run history ------------------------- */
+.aj-layout { align-items: flex-start; }
+.aj-main { display: flex; flex-direction: column; gap: var(--sp-8); min-width: 0; }
+.aj-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.aj-toolbar .aj-taskfilter { margin-left: 0; }
+.aj-inline-switch { display: inline-flex; align-items: center; gap: var(--sp-2); margin-left: auto; font-size: var(--fs-small); color: var(--color-text-secondary); }
+
+/* A task row is an agent row (ag-row) whose name opens the details. */
+.aj-task__open { padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+.aj-task__open:hover { text-decoration: underline; text-underline-offset: 3px; }
+.aj-task__open:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.aj-task__desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 72ch;
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.aj-task[data-selected] { background: color-mix(in srgb, var(--dk-hover) 55%, transparent); }
+.aj-task[data-off] .ag-row__name, .aj-task[data-off] .ag-tile { color: var(--dk-muted); }
+.aj-last { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.aj-strip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: -2px -4px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.aj-strip-link:hover { background: var(--dk-hover); }
+.aj-strip-link:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Run history: a card per day, one row per run; an open row shows its output. */
+.aj-runs { display: flex; flex-direction: column; gap: var(--sp-2); }
+.aj-day-head {
+  margin: var(--sp-3) 0 0;
+  font: 600 var(--fs-meta)/var(--lh-meta) var(--font-sans);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.aj-day-head:first-child { margin-top: 0; }
+.aj-runs__list, .aj-runs--pane {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+  overflow: hidden;
+}
+.aj-run { border-top: 1px solid var(--dk-edge); }
+.aj-run:first-child { border-top: 0; }
+.aj-run__head {
+  display: grid;
+  grid-template-columns: 28px 104px minmax(0, 1fr) minmax(96px, auto) 64px auto;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  min-height: 52px;
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-2);
+  transition: background-color var(--dur-instant) var(--ease-out);
+}
+.aj-run__head:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transparent); }
+.aj-run[data-open] > .aj-run__head { background: var(--dk-hover); }
+.aj-run__toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--dk-muted);
+  cursor: pointer;
+}
+.aj-run__toggle:hover { background: var(--dk-hover); color: var(--dk-text); }
+.aj-run__toggle:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.aj-run__toggle .lai-icon { width: 16px; height: 16px; transition: transform var(--dur-base) var(--ease-out); }
+.aj-run[data-open] .aj-run__toggle .lai-icon { transform: rotate(90deg); }
+.aj-run__state { min-width: 0; }
+.aj-run__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aj-run__title { font-weight: 600; font-size: var(--fs-body); line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aj-run__title a { color: inherit; text-decoration: none; }
+.aj-run__title a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.aj-run__line { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aj-run[data-error] .aj-run__line { color: var(--dk-error-text); }
+.aj-run__meta { color: var(--dk-muted); }
+.aj-run__when, .aj-run__took { font-size: var(--fs-small); font-variant-numeric: tabular-nums; color: var(--dk-muted); white-space: nowrap; text-align: right; }
+.aj-run__acts { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-1); }
+.aj-run__body { padding: var(--sp-2) var(--sp-4) var(--sp-4) calc(28px + var(--sp-2) + var(--sp-3)); }
+.aj-more { display: flex; justify-content: center; padding-top: var(--sp-2); }
+
+/* Output: mono text a person may copy, with Copy on its head. */
+.aj-out { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.aj-out__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.aj-out__text {
+  margin: 0;
+  padding: var(--sp-3) 14px;
+  max-height: 320px;
+  overflow: auto;
+  border-radius: var(--r-md);
+  background: var(--dk-inset);
+  border: 1px solid var(--dk-edge);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.aj-out[data-tone="error"] .aj-out__text { background: var(--dk-error-wash); border-color: color-mix(in srgb, var(--dk-error) 25%, var(--dk-edge)); }
+.aj-out[data-tone="error"] .ag-eyebrow { color: var(--dk-error-text); }
+.aj-params { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; }
+.aj-param { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; padding: 2px var(--sp-2); border-radius: var(--r-sm); background: var(--dk-inset); font-size: var(--fs-small); }
+.aj-param dt { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-muted); }
+.aj-param dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.aj-steps-fold summary { cursor: pointer; font-size: var(--fs-small); font-weight: 500; color: var(--color-text-secondary); }
+.aj-steps-fold summary:hover { color: var(--dk-text); }
+.aj-trace { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.aj-trace__item { display: grid; grid-template-columns: minmax(80px, max-content) minmax(0, 1fr); gap: var(--sp-3); font-size: var(--fs-small); line-height: var(--lh-small); }
+.aj-trace__kind { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-muted); }
+.aj-trace__text { overflow-wrap: anywhere; white-space: pre-wrap; }
+.ag-note[data-tone="error"] { color: var(--dk-error-text); }
+
+/* ---- Task sheets: create, edit and run ---------------------------------------- */
+.aj-sheet { display: flex; flex-direction: column; gap: var(--sp-6); }
+.aj-group { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; margin: 0; padding: 0; border: 0; }
+.aj-group__title { display: block; padding: 0; margin: 0 0 var(--sp-3); font: 600 var(--fs-meta)/var(--lh-meta) var(--font-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--dk-muted); }
+.aj-optional { font-weight: 400; color: var(--dk-muted); }
+.aj-prompt-input { min-height: 132px; resize: vertical; font-family: var(--font-sans); line-height: var(--lh-body); }
+.aj-inputs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: calc(-1 * var(--sp-2)) 0 0; font-size: var(--fs-small); }
+.aj-input-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 var(--sp-2); border-radius: var(--r-sm); background: var(--dk-accent-wash); color: var(--dk-accent-text); font-family: var(--font-mono); font-size: var(--fs-meta); }
+.aj-switch-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: var(--sp-3) 0; border-top: 1px solid var(--dk-edge); }
+.aj-switch-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aj-switch-row__text .dk-hint { margin: 0; }
+.aj-switch-row__label { font-weight: 600; font-size: var(--fs-small); }
+.aj-mono-label { font-family: var(--font-mono); }
+.aj-preview {
+  margin: 0;
+  padding: var(--sp-3) 14px;
+  border-radius: var(--r-md);
+  background: var(--dk-inset);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Task details pane ---------------------------------------------------- */
+.aj-pane-meta { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.aj-pane-foot { display: flex; justify-content: flex-end; gap: var(--sp-2); width: 100%; }
+.aj-pane-tabs { margin: 0 0 var(--sp-4); }
+.aj-pane-tabs .ag-view { gap: 6px; border: 0; background: none; padding: 0; cursor: pointer; }
+.aj-pane-tabs .ag-view[aria-selected="true"] { color: var(--dk-text); }
+.aj-pane-tabs .ag-view[aria-selected="true"]::after { transform: scaleX(1); }
+.aj-pane-tabs .ag-view:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--r-xs); }
+.aj-tab-count { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
+.aj-pane-panel { display: flex; flex-direction: column; gap: var(--sp-5); }
+.aj-pane-lede { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); }
+.aj-pane-facts dt { padding-right: var(--sp-4); }
+.aj-pane-facts dd { font-size: var(--fs-small); }
+.aj-runs--pane .aj-run__head { grid-template-columns: 28px minmax(0, 1fr) auto; grid-template-rows: auto auto; padding-right: var(--sp-3); }
+.aj-runs--pane .aj-run__state { grid-column: 2; grid-row: 1; }
+.aj-runs--pane .aj-run__main { grid-column: 2 / -1; grid-row: 2; }
+.aj-runs--pane .aj-run__when { grid-column: 3; grid-row: 1; }
+.aj-runs--pane .aj-run__took, .aj-runs--pane .aj-run__acts { display: none; }
+.aj-runs--pane .aj-run__body { padding-left: var(--sp-4); }
+.aj-settings { display: flex; flex-direction: column; }
+.aj-settings .aj-switch-row:first-child { border-top: 0; padding-top: 0; }
+
+/* ---- Phone: rows stack, controls grow to 44 px ---------------------------- */
+@media (max-width: 760px) {
+  .aj-inline-switch { margin-left: 0; }
+  .aj-toolbar .ui-seg { width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .aj-toolbar .ui-seg__item { flex: 1 0 auto; justify-content: center; height: 40px; }
+  .aj-toolbar .aj-taskfilter { flex: 1 1 100%; }
+  .aj-run__head { grid-template-columns: 44px minmax(0, 1fr) auto auto; grid-template-rows: auto auto; padding: var(--sp-2) var(--sp-2) var(--sp-2) 0; }
+  .aj-run__toggle { width: 44px; height: 44px; grid-row: 1 / 3; }
+  .aj-run__state { grid-column: 2; grid-row: 1; }
+  .aj-run__when { grid-column: 3; grid-row: 1; }
+  .aj-run__acts { grid-column: 4; grid-row: 1 / 3; }
+  .aj-run__main { grid-column: 2 / 4; grid-row: 2; }
+  .aj-run__took { display: none; }
+  .aj-run__line { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .aj-run__body { padding: var(--sp-2) var(--sp-3) var(--sp-4); }
+  .aj-page .ag-row__end .dk-btn, .aj-page .aj-run__acts .dk-btn { min-height: 44px; min-width: 44px; }
+  .aj-page .ag-row__end { gap: var(--sp-2); }
+  .aj-task__run { display: none; }
+}

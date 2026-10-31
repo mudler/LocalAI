@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -5,19 +6,31 @@ import { agentJobsApi, chatAgentsApi } from '../utils/api'
 import { useAuth } from '../context/AuthContext'
 import { useModels } from '../hooks/useModels'
 import { CAP_CHAT } from '../utils/capabilities'
-import { jobActive, jobState, promptParams, taskBody, taskForm, taskMissing, withOwners } from '../utils/agentTasks'
-import { jobDurationMs } from '../utils/agentJobs'
-import { formatDuration } from '../utils/agentRuns'
-// eslint-disable-next-line no-unused-vars
-import { AgentViews, StatusMark, formatWhen } from '../components/agents/AgentBits'
-// eslint-disable-next-line no-unused-vars
+import {
+  JOB_FILTERS, TASK_FILTERS, jobActive, jobFilterCounts, jobInFilter, jobsOfTask, jobState,
+  promptParams, taskBody, taskForm, taskInFilter, taskMatches, withOwners,
+} from '../utils/agentTasks'
+import { groupByDay } from '../utils/agentJobs'
+import { AgentViews, StatusMark } from '../components/agents/AgentBits'
+import { JobStrip } from '../components/agents/JobBits'
+import { RelTime } from '../components/agents/RunBits'
+import { JobRow } from '../components/agents/TaskJobs'
+import { RunSheet, TaskSheet } from '../components/agents/TaskSheets'
+import { TaskPane } from '../components/agents/TaskPane'
+import ActionMenu from '../components/ActionMenu'
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
-// eslint-disable-next-line no-unused-vars
-import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import ConfirmDialog from '../components/ConfirmDialog'
+import Icon from '../components/Icon'
+import {
+  Button, EmptyState, LoadError, Page, PageHeader, PaneLayout, SearchField, Segmented, SkeletonRows, Switch,
+} from '../components/ui'
 import './agents.css'
 import './agent-jobs.css'
 
 const POLL_MS = 3000
+// The run strip speaks the trigger states; a job's states map onto them.
+const STRIP_STATE = { completed: 'done', failed: 'failed', running: 'running', pending: 'queued', cancelled: 'skipped' }
+const PAGE = 30
 
 // Agent tasks: a prompt template that a model or a saved agent runs in the
 // background, from this page or over the API (POST /api/agent/jobs/execute or
@@ -26,7 +39,7 @@ const POLL_MS = 3000
 // are set over the API; the page keeps them as they are.
 export default function AgentTasks() {
   const { addToast } = useOutletContext()
-  const { t } = useTranslation('agents')
+  const { t } = useTranslation(['agents', 'common'])
   const { isAdmin } = useAuth()
   const { models } = useModels(CAP_CHAT)
   const [tasks, setTasks] = useState([])
@@ -36,9 +49,18 @@ export default function AgentTasks() {
   const [error, setError] = useState(null)
   const [allUsers, setAllUsers] = useState(false)
   const [editing, setEditing] = useState(null) // { task, form } or null
+  const [saving, setSaving] = useState(false)
   const [running, setRunning] = useState(null) // { task, params }
   const [open, setOpen] = useState(() => new Set())
   const [toDelete, setToDelete] = useState(null)
+  const [jobToDelete, setJobToDelete] = useState(null)
+  const [query, setQuery] = useState('')
+  const [taskFilter, setTaskFilter] = useState('all')
+  const [jobFilter, setJobFilter] = useState('all')
+  const [jobTask, setJobTask] = useState('all')
+  const [limit, setLimit] = useState(PAGE)
+  const [selected, setSelected] = useState(null) // { id, owner }
+  const [paneTab, setPaneTab] = useState('overview')
 
   const load = useCallback(async () => {
     try {
@@ -69,24 +91,26 @@ export default function AgentTasks() {
     const m = new Map(tasks.map(({ item }) => [item.id, item.name]))
     return (id) => m.get(id) || id
   }, [tasks])
+  const runnerName = useCallback((task) => (task.agent_id ? agents.find(a => a.id === task.agent_id)?.name || task.agent_id : task.model), [agents])
 
   const act = async (fn, done) => {
     try {
       const out = await fn()
       if (done) addToast(done, 'success')
       await load()
-      return out
+      return out ?? true
     } catch (err) {
       addToast(t('tasks.actionFailed', { message: err.message }), 'error')
       return null
     }
   }
 
-  const save = async (e) => {
-    e.preventDefault()
+  const save = async () => {
     const { task, form } = editing
     const body = taskBody(form, task)
+    setSaving(true)
     const ok = await act(() => (task ? agentJobsApi.updateTask(task.id, body) : agentJobsApi.createTask(body)), t('tasks.saved', { name: body.name }))
+    setSaving(false)
     if (ok) setEditing(null)
   }
 
@@ -96,6 +120,18 @@ export default function AgentTasks() {
     setRunning(null)
     await act(() => agentJobsApi.run(task.id, params), t('tasks.started', { name: task.name }))
   }
+  // A task that asks for nothing starts at once; one with inputs asks first.
+  const startRun = (task) => {
+    if (promptParams(task.prompt).length === 0) act(() => agentJobsApi.run(task.id, {}), t('tasks.started', { name: task.name }))
+    else setRunning({ task, params: {} })
+  }
+
+  // On and off is the enabled field of an update; the rest goes back as is.
+  const toggleTask = async (task, enabled) => {
+    setTasks(prev => prev.map(r => (r.item.id === task.id ? { ...r, item: { ...r.item, enabled } } : r)))
+    const ok = await act(() => agentJobsApi.updateTask(task.id, taskBody({ ...taskForm(task), enabled }, task)), t(enabled ? 'tasks.turnedOn' : 'tasks.turnedOff', { name: task.name }))
+    if (!ok) setTasks(prev => prev.map(r => (r.item.id === task.id ? { ...r, item: { ...r.item, enabled: !enabled } } : r)))
+  }
 
   const toggle = (id) => setOpen(prev => {
     const next = new Set(prev)
@@ -104,229 +140,262 @@ export default function AgentTasks() {
     return next
   })
 
-  const form = editing?.form
   const setForm = (patch) => setEditing(ed => ({ ...ed, form: { ...ed.form, ...patch } }))
-  const missing = form ? taskMissing(form) : []
-  const runnerName = (task) => (task.agent_id ? agents.find(a => a.id === task.agent_id)?.name || task.agent_id : task.model)
+
+  const visibleTasks = tasks.filter(({ item }) => taskInFilter(item, taskFilter) && taskMatches(item, query, runnerName(item)))
+  const taskCounts = Object.fromEntries(TASK_FILTERS.map(f => [f, tasks.filter(({ item }) => taskInFilter(item, f)).length]))
+  const plainJobs = jobs.map(j => j.item)
+  const byTask = jobTask === 'all' ? jobs : jobs.filter(j => j.item.task_id === jobTask)
+  const jobCounts = jobFilterCounts(byTask.map(j => j.item))
+  const shownJobs = byTask.filter(j => jobInFilter(j.item, jobFilter))
+  const ownerOf = new Map(jobs.map(j => [j.item.id, j.owner]))
+  const groups = groupByDay(shownJobs.slice(0, limit).map(j => j.item))
+  const jobsFiltered = jobFilter !== 'all' || jobTask !== 'all'
+  const tasksFiltered = taskFilter !== 'all' || query.trim() !== ''
+  const empty = !loading && !error && tasks.length === 0
+  const sel = selected && tasks.find(r => r.item.id === selected.id)
+  const newTask = () => setEditing({ task: null, form: taskForm(null) })
+  const open1 = (row, tab = 'overview') => { setSelected({ id: row.item.id, owner: row.owner }); setPaneTab(tab) }
+
+  const jobProps = (job) => ({
+    open: open.has(job.id),
+    onToggle: () => toggle(job.id),
+    onCancel: () => act(() => agentJobsApi.cancel(job.id), t('tasks.cancelled')),
+    onRerun: () => act(() => agentJobsApi.rerun(job.id), t('tasks.rerunStarted')),
+    onDelete: () => setJobToDelete(job),
+  })
 
   return (
     <Page width="full" className="ag-page aj-page" data-testid="agent-tasks-page">
       <PageHeader
         title={t('tasks.title')}
         supporting={t('tasks.lede')}
-        actions={(
-          <div className="aj-head__acts">
-            {isAdmin && (
-              <label className="aj-filters">
-                <input type="checkbox" checked={allUsers} onChange={(e) => setAllUsers(e.target.checked)} />
-                {t('tasks.allUsers')}
-              </label>
-            )}
-            <Button variant="primary" icon="plus" onClick={() => setEditing({ task: null, form: taskForm(null) })}>{t('tasks.new')}</Button>
-          </div>
-        )}
+        actions={!empty && <Button variant="primary" icon="plus" onClick={newTask}>{t('tasks.new')}</Button>}
       />
       <AgentViews />
 
-      {editing && (
-        <form className="aj-form aj-sec" onSubmit={save} data-testid="agent-task-form" aria-label={editing.task ? t('tasks.editTitle') : t('tasks.newTitle')}>
-          <h2 className="ag-h2">{editing.task ? t('tasks.editTitle') : t('tasks.newTitle')}</h2>
-          <div className="dk-field">
-            <label className="dk-label" htmlFor="at-name">{t('tasks.name')}</label>
-            <input id="at-name" className="dk-input" value={form.name} onChange={(e) => setForm({ name: e.target.value })} />
-          </div>
-          <div className="dk-field">
-            <label className="dk-label" htmlFor="at-desc">{t('tasks.description')}</label>
-            <input id="at-desc" className="dk-input" value={form.description} onChange={(e) => setForm({ description: e.target.value })} />
-          </div>
-          <div className="aj-row2">
-            <div className="dk-field">
-              <label className="dk-label" htmlFor="at-runner">{t('tasks.runner')}</label>
-              <span className="dk-select-wrap">
-                <select id="at-runner" className="dk-select" value={form.runner} onChange={(e) => setForm({ runner: e.target.value })}>
-                  <option value="model">{t('tasks.byModel')}</option>
-                  <option value="agent" disabled={agents.length === 0}>{t('tasks.byAgent')}</option>
-                </select>
-              </span>
-            </div>
-            {form.runner === 'model' ? (
-              <div className="dk-field">
-                <label className="dk-label" htmlFor="at-model">{t('tasks.model')}</label>
-                <span className="dk-select-wrap">
-                  <select id="at-model" className="dk-select" value={form.model} onChange={(e) => setForm({ model: e.target.value })}>
-                    <option value="">{t('tasks.pick')}</option>
-                    {models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
-                  </select>
-                </span>
-              </div>
-            ) : (
-              <div className="dk-field">
-                <label className="dk-label" htmlFor="at-agent">{t('tasks.agent')}</label>
-                <span className="dk-select-wrap">
-                  <select id="at-agent" className="dk-select" value={form.agent_id} onChange={(e) => setForm({ agent_id: e.target.value })}>
-                    <option value="">{t('tasks.pick')}</option>
-                    {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </span>
-              </div>
-            )}
-          </div>
-          <div className="dk-field">
-            <label className="dk-label" htmlFor="at-prompt">{t('tasks.prompt')}</label>
-            <textarea id="at-prompt" className="dk-input aj-prompt" rows={5} value={form.prompt} onChange={(e) => setForm({ prompt: e.target.value })} />
-            <p className="dk-hint">{t('tasks.promptHint', { example: '{{.name}}' })}</p>
-          </div>
-          <label className="aj-enabled">
-            <input type="checkbox" checked={form.enabled} onChange={(e) => setForm({ enabled: e.target.checked })} />
-            <span>{t('tasks.enabled')}</span>
-          </label>
-          {editing.task?.webhooks?.length > 0 && <p className="ag-note">{t('tasks.webhooksKept', { count: editing.task.webhooks.length })}</p>}
-          <div className="aj-head__acts">
-            <Button type="submit" variant="primary" disabled={missing.length > 0}>{t('tasks.save')}</Button>
-            <Button variant="ghost" onClick={() => setEditing(null)}>{t('tasks.cancel')}</Button>
-          </div>
-        </form>
-      )}
-
-      {running && (
-        <form className="aj-form aj-sec" onSubmit={run} data-testid="agent-task-run" aria-label={t('tasks.runTitle', { name: running.task.name })}>
-          <h2 className="ag-h2">{t('tasks.runTitle', { name: running.task.name })}</h2>
-          {promptParams(running.task.prompt).map(p => (
-            <div className="dk-field" key={p}>
-              <label className="dk-label" htmlFor={`at-p-${p}`}>{p}</label>
-              <input id={`at-p-${p}`} className="dk-input" value={running.params[p] || ''} onChange={(e) => setRunning(r => ({ ...r, params: { ...r.params, [p]: e.target.value } }))} />
-            </div>
-          ))}
-          <div className="aj-head__acts">
-            <Button type="submit" variant="primary" icon="play">{t('tasks.runNow')}</Button>
-            <Button variant="ghost" onClick={() => setRunning(null)}>{t('tasks.cancel')}</Button>
-          </div>
-        </form>
-      )}
-
       {loading ? (
-        <SkeletonRows count={3} />
+        <SkeletonRows count={4} />
       ) : error && tasks.length === 0 && jobs.length === 0 ? (
         <LoadError title={t('load.tasks')} error={error} onRetry={load} />
+      ) : empty ? (
+        <EmptyState
+          testId="agent-tasks-empty"
+          icon="bolt"
+          title={t('tasks.empty.title')}
+          body={t('tasks.empty.body', { example: '{{.ticket}}' })}
+          facts={[{ text: t('tasks.empty.fact1') }, { text: t('tasks.empty.fact2') }, { text: t('tasks.empty.fact3') }]}
+          actions={<Button variant="primary" icon="plus" onClick={newTask}>{t('tasks.new')}</Button>}
+        />
       ) : (
-        <>
-          {error && <LoadError title={t('load.tasksStale')} error={error} onRetry={load} />}
-          <section className="aj-sec" aria-labelledby="at-tasks-h">
-            <div className="aj-sec__head"><h2 className="ag-eyebrow" id="at-tasks-h">{t('tasks.tasks')}</h2></div>
-            {tasks.length === 0 ? (
-              <EmptyState testId="agent-tasks-empty" level={3} body={t('tasks.none')} />
-            ) : (
-              <div className="dk-table-wrap aj-wrap" role="region" aria-label={t('tasks.tasks')} tabIndex={0}>
-                <table className="dk-table aj-table" data-testid="agent-tasks">
-                  <thead>
-                    <tr>
-                      <th scope="col">{t('tasks.name')}</th>
-                      <th scope="col">{t('tasks.runner')}</th>
-                      {allUsers && <th scope="col">{t('tasks.owner')}</th>}
-                      <th scope="col" className="dk-table-actions"><span className="dk-sr-only">{t('tasks.actions')}</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tasks.map(({ owner, item: task }) => (
-                      <tr key={task.id} data-testid="agent-task-row">
-                        <td>
-                          <span className="aj-name">{task.name}</span>
-                          <span className="aj-sub"><span className="aj-sub__text">{task.description || task.prompt}</span>{task.enabled === false && <span>{t('tasks.off')}</span>}</span>
-                        </td>
-                        <td className="aj-mono">{runnerName(task)}</td>
-                        {allUsers && <td>{owner || t('tasks.you')}</td>}
-                        <td className="dk-table-actions">
-                          {!owner && (
-                            <span className="aj-acts">
-                              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setRunning({ task, params: {} })}>{t('tasks.run')}</button>
-                              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setEditing({ task, form: taskForm(task) })}>{t('tasks.edit')}</button>
-                              <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setToDelete(task)}>{t('tasks.delete')}</button>
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        <PaneLayout className="aj-layout">
+          <div className="aj-main">
+            {error && <LoadError title={t('load.tasksStale')} error={error} onRetry={load} />}
+            <section className="aj-sec" aria-labelledby="at-tasks-h">
+              <h2 className="dk-sr-only" id="at-tasks-h">{t('tasks.tasks')}</h2>
+              <div className="aj-toolbar">
+                <SearchField value={query} onChange={setQuery} label={t('tasks.searchLabel')} />
+                <Segmented
+                  label={t('tasks.filter.label')}
+                  value={taskFilter}
+                  onChange={setTaskFilter}
+                  options={TASK_FILTERS.map(f => ({ id: f, label: t(`tasks.filter.${f}`), count: taskCounts[f] }))}
+                />
+                {isAdmin && (
+                  <span className="aj-inline-switch">
+                    <span id="at-all-users">{t('tasks.allUsers')}</span>
+                    <Switch checked={allUsers} onChange={setAllUsers} labelledBy="at-all-users" />
+                  </span>
+                )}
               </div>
-            )}
-          </section>
+              {visibleTasks.length === 0 ? (
+                <EmptyState
+                  variant="no-results"
+                  level={3}
+                  title={t('tasks.noMatch')}
+                  actions={tasksFiltered && <Button variant="ghost" size="sm" onClick={() => { setQuery(''); setTaskFilter('all') }}>{t('jobs.history.clearFilters')}</Button>}
+                />
+              ) : (
+                <ul className="ag-list aj-tasks" data-testid="agent-tasks">
+                  {visibleTasks.map(row => (
+                    <TaskRow
+                      key={`${row.owner}/${row.item.id}`}
+                      row={row}
+                      runner={runnerName(row.item)}
+                      jobs={jobsOfTask(plainJobs, row.item.id)}
+                      selected={sel?.item.id === row.item.id}
+                      onOpen={(tab) => open1(row, tab)}
+                      onRun={() => startRun(row.item)}
+                      onEdit={() => setEditing({ task: row.item, form: taskForm(row.item) })}
+                      onToggle={(v) => toggleTask(row.item, v)}
+                      onDelete={() => setToDelete(row.item)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
 
-          <section className="aj-sec" aria-labelledby="at-jobs-h">
-            <div className="aj-sec__head"><h2 className="ag-eyebrow" id="at-jobs-h">{t('tasks.jobs')}</h2></div>
-            {jobs.length === 0 ? (
-              <p className="ag-note">{t('tasks.noJobs')}</p>
-            ) : (
-              <div className="dk-table-wrap aj-wrap" role="region" aria-label={t('tasks.jobs')} tabIndex={0}>
-                <table className="dk-table aj-table" data-testid="agent-jobs">
-                  <thead>
-                    <tr>
-                      <th scope="col">{t('tasks.status')}</th>
-                      <th scope="col">{t('tasks.task')}</th>
-                      <th scope="col">{t('tasks.when')}</th>
-                      <th scope="col" className="dk-table-actions"><span className="dk-sr-only">{t('tasks.actions')}</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jobs.map(({ owner, item: job }) => {
-                      const ms = jobDurationMs(job)
-                      return (
-                        <Fragment key={job.id}>
-                          <tr data-testid="agent-job-row" data-status={job.status}>
-                            <td><StatusMark status={jobState(job.status)} label={t(`tasks.state.${job.status}`, { defaultValue: job.status })} /></td>
-                            <td>
-                              <span className="aj-name">{nameOf(job.task_id)}</span>
-                              <span className="aj-sub">{job.triggered_by && <span>{t('tasks.by', { who: job.triggered_by })}</span>}{owner && <span>{owner}</span>}</span>
-                            </td>
-                            <td className="aj-mono">{formatWhen(job.created_at)}{ms !== null ? ` · ${formatDuration(ms)}` : ''}</td>
-                            <td className="dk-table-actions">
-                              <span className="aj-acts">
-                                <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" aria-expanded={open.has(job.id)} onClick={() => toggle(job.id)}>{open.has(job.id) ? t('tasks.hide') : t('tasks.details')}</button>
-                                {!owner && jobActive(job) && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => act(() => agentJobsApi.cancel(job.id))}>{t('tasks.cancelJob')}</button>}
-                                {!owner && !jobActive(job) && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => act(() => agentJobsApi.rerun(job.id), t('tasks.rerunStarted'))}>{t('tasks.rerun')}</button>}
-                                {!owner && <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => act(() => agentJobsApi.deleteJob(job.id))}>{t('tasks.delete')}</button>}
-                              </span>
-                            </td>
-                          </tr>
-                          {open.has(job.id) && (
-                            <tr className="dk-table-detail">
-                              <td colSpan={4}>
-                                <div className="dk-table-detail-body">
-                                <div className={`aj-detail${job.status === 'failed' ? ' aj-detail--failed' : ''}`} data-testid="agent-job-detail">
-                                  {Object.keys(job.parameters || {}).length > 0 && <p className="ag-note">{t('tasks.params', { list: Object.entries(job.parameters).map(([k, v]) => `${k}=${v}`).join(', ') })}</p>}
-                                  {job.error && <pre className="aj-excerpt">{job.error}</pre>}
-                                  {job.result && <pre className="aj-excerpt">{job.result}</pre>}
-                                  {!job.result && !job.error && <p className="ag-note">{jobActive(job) ? t('tasks.stillRunning') : t('tasks.noResult')}</p>}
-                                  {(job.traces || []).length > 0 && (
-                                    <details>
-                                      <summary>{t('tasks.traces', { count: job.traces.length })}</summary>
-                                      <pre className="aj-excerpt">{job.traces.map(tr => `[${tr.type}${tr.tool_name ? ` ${tr.tool_name}` : ''}] ${tr.content}`).join('\n')}</pre>
-                                    </details>
-                                  )}
-                                  {job.webhook_sent && <p className="ag-note">{t('tasks.webhookSent')}</p>}
-                                  {job.webhook_error && <p className="ag-note">{t('tasks.webhookFailed', { message: job.webhook_error })}</p>}
-                                </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      )
-                    })}
-                  </tbody>
-                </table>
+            <section className="aj-sec" aria-labelledby="at-jobs-h">
+              <div className="aj-sec__head">
+                <h2 className="ag-h2" id="at-jobs-h">{t('tasks.history.title')}</h2>
               </div>
-            )}
-          </section>
-        </>
+              {jobs.length > 0 && (
+                <div className="aj-toolbar">
+                  <Segmented
+                    label={t('tasks.history.filterLabel')}
+                    value={jobFilter}
+                    onChange={(f) => { setJobFilter(f); setLimit(PAGE) }}
+                    options={JOB_FILTERS.filter(f => f === 'all' || jobCounts[f] > 0 || jobFilter === f).map(f => ({ id: f, label: t(`tasks.history.${f}`), count: jobCounts[f] }))}
+                  />
+                  <span className="dk-select-wrap aj-taskfilter">
+                    <select className="dk-select" value={jobTask} onChange={(e) => { setJobTask(e.target.value); setLimit(PAGE) }} aria-label={t('tasks.task')}>
+                      <option value="all">{t('tasks.history.allTasks')}</option>
+                      {tasks.map(({ item }) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                  </span>
+                </div>
+              )}
+              {shownJobs.length === 0 ? (
+                <EmptyState
+                  level={3}
+                  variant={jobsFiltered ? 'no-results' : 'first-run'}
+                  title={jobsFiltered ? t('jobs.history.emptyFiltered') : t('jobs.history.emptyTitle')}
+                  body={jobsFiltered ? undefined : t('tasks.history.emptyBody')}
+                  actions={jobsFiltered && <Button variant="ghost" size="sm" onClick={() => { setJobFilter('all'); setJobTask('all') }}>{t('jobs.history.clearFilters')}</Button>}
+                />
+              ) : (
+                <div className="aj-runs" data-testid="agent-jobs">
+                  {groups.map(g => (
+                    <Fragment key={g.key}>
+                      <h3 className="aj-day-head">{g.day ? t(`jobs.history.${g.day}`) : new Date(g.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</h3>
+                      <ul className="aj-runs__list">
+                        {g.jobs.map(job => (
+                          <JobRow key={job.id} job={job} taskName={nameOf(job.task_id)} owner={ownerOf.get(job.id)} {...jobProps(job)} />
+                        ))}
+                      </ul>
+                    </Fragment>
+                  ))}
+                  {shownJobs.length > limit && (
+                    <div className="aj-more">
+                      <Button variant="ghost" size="sm" icon="chevron-down" onClick={() => setLimit(l => l + PAGE)}>
+                        {t('tasks.history.more', { count: Math.min(PAGE, shownJobs.length - limit) })}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <TaskPane
+            task={sel?.item}
+            owner={sel?.owner}
+            runner={sel ? runnerName(sel.item) : ''}
+            jobs={sel ? jobsOfTask(plainJobs, sel.item.id) : []}
+            tab={paneTab}
+            onTab={setPaneTab}
+            onClose={() => setSelected(null)}
+            onRun={() => startRun(sel.item)}
+            onEdit={() => setEditing({ task: sel.item, form: taskForm(sel.item) })}
+            onToggle={(v) => toggleTask(sel.item, v)}
+            onDelete={() => setToDelete(sel.item)}
+            jobProps={jobProps}
+          />
+        </PaneLayout>
+      )}
+
+      {editing && (
+        <TaskSheet editing={editing} setForm={setForm} agents={agents} models={models} saving={saving} onSave={save} onClose={() => setEditing(null)} />
+      )}
+      {running && (
+        <RunSheet running={running} setParams={(p) => setRunning(r => ({ ...r, params: { ...r.params, ...p } }))} onRun={run} onClose={() => setRunning(null)} />
       )}
 
       <ChatDeleteConfirm
         item={toDelete}
         kind="task"
-        onConfirm={(task) => { setToDelete(null); act(() => agentJobsApi.deleteTask(task.id), t('tasks.deleted', { name: task.name })) }}
+        onConfirm={(task) => {
+          setToDelete(null)
+          if (selected?.id === task.id) setSelected(null)
+          act(() => agentJobsApi.deleteTask(task.id), t('tasks.deleted', { name: task.name }))
+        }}
         onCancel={() => setToDelete(null)}
       />
+      <ConfirmDialog
+        open={Boolean(jobToDelete)}
+        title={t('tasks.confirmJob.title')}
+        message={t('tasks.confirmJob.message')}
+        confirmLabel={t('tasks.delete')}
+        danger
+        onConfirm={() => { const job = jobToDelete; setJobToDelete(null); act(() => agentJobsApi.deleteJob(job.id), t('tasks.jobDeleted')) }}
+        onCancel={() => setJobToDelete(null)}
+      />
     </Page>
+  )
+}
+
+// One task: a tile, its name and what it does in two lines, who runs it and
+// what it asks for, how its last runs went, and on/off, Run and a menu.
+function TaskRow({ row, runner, jobs, selected, onOpen, onRun, onEdit, onToggle, onDelete }) {
+  const { t } = useTranslation('agents')
+  const { owner, item: task } = row
+  const params = promptParams(task.prompt)
+  const last = jobs[0]
+  const off = task.enabled === false
+  const mine = !owner
+  return (
+    <li className="ag-row aj-task" data-testid="agent-task-row" data-task={task.name} data-off={off || undefined} data-selected={selected || undefined}>
+      <span className="ag-tile" aria-hidden="true"><Icon name="bolt" /></span>
+      <div className="ag-row__main">
+        <button type="button" className="ag-row__name aj-task__open" onClick={() => onOpen('overview')} aria-label={t('tasks.openTask', { name: task.name })}>{task.name}</button>
+        <span className="aj-task__desc">{task.description || task.prompt}</span>
+        <span className="ag-meta">
+          {task.agent_id
+            ? <span title={t('tasks.agent')}><Icon name="robot" />{runner}</span>
+            : <span className="ag-mono" title={t('tasks.model')}><Icon name="cube" />{runner || t('jobs.tasks.noModel')}</span>}
+          <span><Icon name="play-circle" />{t('tasks.onDemand')}</span>
+          {params.length > 0 && <span>{t('tasks.asksFor', { list: params.join(', ') })}</span>}
+          {task.webhooks?.length > 0 && <span><Icon name="send" />{t('tasks.webhooks', { count: task.webhooks.length })}</span>}
+          {owner && <span><Icon name="user" />{owner}</span>}
+        </span>
+      </div>
+      <div className="ag-row__record">
+        {last ? (
+          <>
+            <span className="aj-last">
+              <StatusMark status={jobState(last.status)} label={t(`tasks.state.${last.status}`, { defaultValue: last.status })} />
+              <RelTime className="ag-muted" iso={last.started_at || last.created_at} />
+            </span>
+            <button type="button" className="aj-strip-link" onClick={() => onOpen('runs')} aria-label={t('tasks.runsOf', { name: task.name, count: jobs.length })}>
+              <JobStrip jobs={jobs.map(j => ({ ...j, status: STRIP_STATE[j.status] }))} />
+              <span className="ag-muted">{t('tasks.runsCount', { count: jobs.length })}</span>
+            </button>
+          </>
+        ) : (
+          <span className="ag-muted">{off ? t('tasks.offLine') : t('jobs.tasks.neverRun')}</span>
+        )}
+      </div>
+      <div className="ag-row__end">
+        {mine ? (
+          <>
+            <Switch checked={!off} onChange={onToggle} label={t('tasks.toggleLabel', { name: task.name })} />
+            <Button size="sm" icon="play" className="aj-task__run" onClick={onRun} disabled={off} aria-label={t('tasks.runFor', { name: task.name })}><span className="aj-acts__word">{t('tasks.run')}</span></Button>
+            <ActionMenu
+              ariaLabel={t('tasks.moreFor', { name: task.name })}
+              items={[
+                { key: 'run', icon: 'play', label: t('tasks.run'), disabled: off, onClick: onRun },
+                { key: 'open', icon: 'eye', label: t('tasks.open'), onClick: () => onOpen('overview') },
+                { key: 'runs', icon: 'history', label: t('tasks.pane.runs'), onClick: () => onOpen('runs') },
+                { key: 'edit', icon: 'edit', label: t('tasks.edit'), onClick: onEdit },
+                { divider: true },
+                { key: 'delete', icon: 'trash', label: t('tasks.delete'), danger: true, onClick: onDelete },
+              ]}
+            />
+          </>
+        ) : (
+          <Button size="sm" variant="ghost" onClick={() => onOpen('overview')}>{t('tasks.open')}</Button>
+        )}
+      </div>
+    </li>
   )
 }
