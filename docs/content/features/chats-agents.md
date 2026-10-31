@@ -52,7 +52,8 @@ moment. If an add-on is disabled, a collection is deleted or you lose the MCP
 feature, the chat still starts. The thing is absent, and the model gets one
 line at the start of the turn, for example `unavailable this turn: add-on
 office, collection docs`. A sub-agent of the chat can only get tools the chat
-has.
+has, and the groups of built-in tools that the chat switched off in its Tools
+menu (for example **Your files**) stay off for the sub-agent too.
 
 A chat can also start a saved agent as a sub-agent, when you switch **Saved
 agents** on in its Tools menu. See [Saved agents as
