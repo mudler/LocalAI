@@ -1,4 +1,4 @@
-import { settingsModel, draftOf, rows, toggle, move, setKey, clearKey, change, testRows } from './lib/model.js'
+import { settingsModel, draftOf, rows, toggle, move, setKey, clearKey, change, testRows, KEYLESS, KEYLESS_ENTRY } from './lib/model.js'
 
 // The settings section of the Web add-on, drawn on the Settings tab of the
 // add-on's details for an administrator: the search providers in the order
@@ -15,6 +15,8 @@ export function createSettings(sdk, t) {
 
   const call = (args, options) => sdk.api.read({ arguments: args }, options)
   const name = (n) => t(`web.provider.${n}`)
+  // A page of the keyless chain, in a test row or a cool-down note.
+  const pageName = (n) => (KEYLESS.includes(n) ? t(`web.keyless.${n}`) : name(n))
 
   function ProviderRow({ p, draft, busy, onDraft }) {
     const keyShown = p.keySet && !draft.clear.includes(p.name)
@@ -28,7 +30,7 @@ export function createSettings(sdk, t) {
           </span>
         )}
         status={<StatusChip tone={p.ready ? 'ok' : 'idle'}>{p.ready ? t('web.settings.ready') : t('web.settings.notReady')}</StatusChip>}
-        meta={!p.ready && p.missing ? p.missing : null}
+        meta={!p.ready && p.missing ? p.missing : (p.name === KEYLESS_ENTRY ? t('web.settings.keylessChain') : null)}
       >
         {p.on && (
           <Actions>
@@ -71,6 +73,13 @@ export function createSettings(sdk, t) {
               ? t('web.settings.serving').replace('{{list}}', model.serving.map(name).join(', '))
               : t('web.settings.servingNone')}
           </p>
+          {model.cooling.length > 0 && (
+            <ul className="web-settings__cooling" data-testid="web-cooling">
+              {model.cooling.map(c => (
+                <li key={c.name}>{t('web.settings.cooling').replace('{{name}}', pageName(c.name)).replace('{{reason}}', c.reason)}</li>
+              ))}
+            </ul>
+          )}
           <List label={t('web.settings.providersTitle')}>
             {list.map(p => <ProviderRow key={p.name} p={p} draft={draft} busy={busy} onDraft={onDraft} />)}
           </List>
@@ -88,7 +97,7 @@ export function createSettings(sdk, t) {
                 <ListRow
                   key={r.name}
                   testId="web-test-row"
-                  title={name(r.name)}
+                  title={pageName(r.name)}
                   status={<StatusChip tone={r.ok ? 'ok' : 'error'}>{r.ok ? t('web.settings.testPassed') : t('web.settings.testFailed')}</StatusChip>}
                   meta={r.ok ? t('web.settings.testOk').replace('{{count}}', String(r.results)).replace('{{host}}', r.host) : r.error}
                 />

@@ -228,7 +228,7 @@ The Web add-on is an optional add-on of the official library (`web`). It replace
 `web_search` and `web_fetch` while it is installed, running and on for the chat. It adds:
 
 - search providers that need a key: Brave Search, Tavily and Google Programmable Search,
-  next to SearXNG and DuckDuckGo;
+  next to SearXNG and the keyless pages of the built-in tool;
 - an order of providers: when one fails (it refuses the key, its key reached its limit, it
   is down or does not answer in 8 seconds), the next one is tried;
 - the text of PDF files in `web_fetch`.
@@ -253,11 +253,20 @@ skipped.
 | Tavily | An API key | `Authorization: Bearer` header |
 | Google Programmable Search | An API key of the Custom Search JSON API and the search engine ID (`cx`) | `X-Goog-Api-Key` header |
 | SearXNG | The address of your instance (it must allow the JSON format) | no key |
-| DuckDuckGo | nothing | no key |
+| Search without a key | nothing | no key |
 
-The default order is Brave Search, Tavily, Google, SearXNG, DuckDuckGo, so with no key set
-the add-on searches with DuckDuckGo only. Take DuckDuckGo out of the order to never use it.
-The add-on does not use the Brave Search and Bing pages of the built-in tool.
+**Search without a key** is the keyless chain of the built-in tool: the result pages of
+DuckDuckGo, then Brave Search, then Bing, with the same cool-down (an engine that answers
+with a bot check or refuses this server is skipped for 5 minutes). Its saved name in the
+order is `duckduckgo`. The default order is Brave Search, Tavily, Google, SearXNG, Search
+without a key, so with no key set the add-on searches like the built-in tool does.
+Installing the add-on only to read PDF files does not make search worse. Take Search
+without a key out of the order to never use the keyless pages.
+
+The Settings tab says which providers serve and lists each page of the chain that is in
+its cool-down, with the reason ("Bing page is skipped for a few minutes: it answered with a
+bot check."). The cool-down is kept in the memory of the add-on process (per-instance state, like
+the built-in's) and starts again when the settings are saved.
 
 A key is a secret of the add-on. It is saved in the add-on's data folder (`settings.json`,
 mode 0600) and sent only to its provider, in a header, never in a URL. The add-on's clients
@@ -267,7 +276,7 @@ No tool result, error, log line or prompt holds a key.
 
 **Test the providers** runs one search with each provider of the order and shows, for
 each, how many results came back from which host, or why it failed ("Brave Search refused
-the key (401)", "no key").
+the key (401)", "no key"). Search without a key gives one row for each of its pages.
 
 When no provider answers, the chat reads "no search provider works", followed by each
 provider and its reason, and that an administrator can set the providers in Settings.

@@ -212,6 +212,10 @@ func (f *Fallback) ask(ctx context.Context, p Provider, q Query) ([]Result, Prov
 	return res, p, err
 }
 
+// Cooling returns the providers in their cool-down, by name, with what put
+// them there, for a settings page that shows the state of the chain.
+func (f *Fallback) Cooling() map[string]string { return f.cooling() }
+
 // cooling returns the providers in their cool-down, with what put them there.
 func (f *Fallback) cooling() map[string]string {
 	out := map[string]string{}

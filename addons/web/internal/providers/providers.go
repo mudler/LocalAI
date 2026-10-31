@@ -31,15 +31,18 @@ import (
 
 // The provider names. They are the values of the add-on's order setting.
 const (
-	Brave      = "brave"
-	Tavily     = "tavily"
-	Google     = "google"
-	SearXNG    = "searxng"
+	Brave   = "brave"
+	Tavily  = "tavily"
+	Google  = "google"
+	SearXNG = "searxng"
+	// DuckDuckGo is the keyless entry. Its name stays for the saved
+	// settings; it stands for the whole keyless chain of the built-in
+	// search (DuckDuckGo, then the Brave Search and Bing pages).
 	DuckDuckGo = "duckduckgo"
 )
 
 // Names lists every provider, in the default order: the keyed ones first,
-// then SearXNG, then DuckDuckGo, which needs nothing.
+// then SearXNG, then the keyless chain, which needs nothing.
 var Names = []string{Brave, Tavily, Google, SearXNG, DuckDuckGo}
 
 // Keyed reports whether the provider needs a key.
