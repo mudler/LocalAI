@@ -305,7 +305,9 @@
     }
   },
   "tabs": {
-    "shared": "Compartilhado"
+    "shared": "Compartilhado",
+    "trashCount_one": "{{count}} item na Lixeira",
+    "trashCount_other": "{{count}} itens na Lixeira"
   },
   "shared": {
     "adminTitle": "Pastas compartilhadas",
@@ -392,7 +394,8 @@
     "zoomOut": "Ajustar ao painel",
     "items_one": "{{count}} item",
     "items_other": "{{count}} itens",
-    "textCut": "Mostrando os primeiros {{size}}."
+    "textCut": "Mostrando os primeiros {{size}}.",
+    "actions": "Ações do arquivo"
   },
   "managed": {
     "group": "Gerenciado pelo LocalAI",
@@ -418,5 +421,187 @@
       "home": "O Início perde seus widgets.",
       "ui": "Tema, cor de destaque, densidade, modelo padrão e páginas fixadas voltam ao padrão."
     }
+  },
+  "newFile": "Novo arquivo",
+  "newFolderName": "Nova pasta",
+  "newFileName": "Sem título.md",
+  "fileName": "Nome do arquivo",
+  "downloadOne": "Baixar {{name}}",
+  "moveTo": "Mover para…",
+  "uploadMenu": "Mais opções de envio",
+  "uploadFiles": "Enviar arquivos",
+  "uploadFolder": "Enviar uma pasta",
+  "loading": "Carregando a pasta",
+  "loadFailed": "Não foi possível abrir {{folder}}.",
+  "types": {
+    "folder": "Pasta",
+    "image": "Imagem",
+    "pdf": "PDF",
+    "sheet": "Planilha",
+    "doc": "Documento",
+    "slides": "Apresentação",
+    "archive": "Arquivo compactado",
+    "audio": "Áudio",
+    "video": "Vídeo",
+    "code": "Código",
+    "text": "Texto",
+    "file": "Arquivo"
+  },
+  "columns": {
+    "name": "Nome",
+    "modified": "Modificado",
+    "type": "Tipo",
+    "size": "Tamanho",
+    "actions": "Ações"
+  },
+  "view": {
+    "label": "Visualização",
+    "list": "Lista",
+    "grid": "Miniaturas"
+  },
+  "select": {
+    "one": "Selecionar {{name}}",
+    "all": "Selecionar tudo",
+    "bar": "Itens selecionados",
+    "clear": "Limpar a seleção",
+    "count_one": "{{count}} selecionado",
+    "count_other": "{{count}} selecionados",
+    "start": "Selecionar"
+  },
+  "menu": {
+    "label": "Ações para {{name}}",
+    "more": "Mais ações para {{name}}",
+    "openFolder": "Abrir",
+    "preview": "Visualizar",
+    "downloadMany_one": "Baixar {{count}} arquivo",
+    "downloadMany_other": "Baixar {{count}} arquivos",
+    "moveMany_one": "Mover {{count}} item para…",
+    "moveMany_other": "Mover {{count}} itens para…",
+    "deleteMany_one": "Mover {{count}} item para a Lixeira",
+    "deleteMany_other": "Mover {{count}} itens para a Lixeira"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "Mostrar as pastas acima"
+  },
+  "naming": {
+    "empty": "Digite um nome.",
+    "slash": "Um nome não pode conter / nem \\.",
+    "taken": "Já existe algo com esse nome nesta pasta."
+  },
+  "toast": {
+    "undo": "Desfazer",
+    "deletedOne": "{{name}} foi movido para a Lixeira.",
+    "deleted_one": "{{count}} item foi movido para a Lixeira.",
+    "deleted_other": "{{count}} itens foram movidos para a Lixeira.",
+    "restored": "Restaurado.",
+    "renamed": "Renomeado para {{name}}.",
+    "renameUndone": "Nome restaurado.",
+    "movedOne": "{{name}} foi movido para {{folder}}.",
+    "moved_one": "{{count}} item foi movido para {{folder}}.",
+    "moved_other": "{{count}} itens foram movidos para {{folder}}.",
+    "moveUndone": "Devolvido ao lugar."
+  },
+  "search": {
+    "placeholder": "Filtrar esta pasta",
+    "resultsFor": "Arquivos que contêm “{{query}}”",
+    "back": "Voltar à pasta",
+    "noneBody": "Nenhum nome ou texto nos seus arquivos corresponde. Tente outras palavras.",
+    "filtering_one": "{{count}} item desta pasta corresponde a “{{query}}”.",
+    "filtering_other": "{{count}} itens desta pasta correspondem a “{{query}}”.",
+    "everywhere": "Pesquisar “{{query}}” em todos os arquivos",
+    "everywhereShort": "Pesquisar em todos os arquivos",
+    "noMatch": "Nada nesta pasta corresponde a “{{query}}”.",
+    "clear": "Limpar o filtro"
+  },
+  "emptyHome": {
+    "title": "Seus arquivos ficam aqui"
+  },
+  "emptyFolder": {
+    "title": "Esta pasta está vazia",
+    "body": "Solte arquivos ou pastas em qualquer lugar desta página, cole com Ctrl+V ou envie do seu computador. O assistente também pode salvar arquivos aqui a partir de uma conversa.",
+    "bodyTouch": "Envie arquivos do seu dispositivo. O assistente também pode salvar arquivos aqui a partir de uma conversa.",
+    "ask": "Pedir ao assistente"
+  },
+  "drop": {
+    "title": "Solte para enviar para {{folder}}",
+    "body": "Arquivos e pastas inteiras são bem-vindos.",
+    "limit": "Arquivos e pastas inteiras, de até {{size}} cada."
+  },
+  "conflict": {
+    "title_one": "Já existe um arquivo com este nome",
+    "title_other": "Já existem {{count}} arquivos com estes nomes",
+    "body_one": "{{folder}} já tem um arquivo com este nome.",
+    "body_other": "{{folder}} já tem arquivos com estes nomes.",
+    "skip_one": "Ignorar",
+    "skip_other": "Ignorar todos",
+    "keep": "Manter ambos",
+    "replace_one": "Substituir",
+    "replace_other": "Substituir todos",
+    "more_one": "e mais {{count}}",
+    "more_other": "e mais {{count}}",
+    "note": "Manter ambos dá um novo nome ao arquivo novo. Um arquivo substituído pode ser recuperado pelo Histórico.",
+    "cancel": "Cancelar o envio"
+  },
+  "move": {
+    "title_one": "Mover {{count}} item",
+    "title_other": "Mover {{count}} itens",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} itens",
+    "cancel": "Cancelar",
+    "here": "Mover para {{folder}}",
+    "failed": "Não foi possível ler esta pasta.",
+    "noFolders": "Não há pastas aqui. Mova para cá ou volte um nível."
+  },
+  "uploads": {
+    "waiting": "Aguardando",
+    "progress": "{{loaded}} de {{total}}",
+    "rate": "{{rate}}/s",
+    "left": "faltam {{time}}",
+    "renamed": "Salvo como {{name}}",
+    "done": "Enviado",
+    "canceled": "Cancelado",
+    "cancel": "Cancelar",
+    "cancelOne": "Cancelar o envio de {{name}}",
+    "retry": "Tentar de novo",
+    "retryOne": "Tentar {{name}} de novo",
+    "dismiss": "Dispensar",
+    "dismissOne": "Dispensar {{name}}",
+    "show": "Mostrar",
+    "showOne": "Mostrar {{name}}",
+    "meterOne": "{{name}}: {{percent}}%",
+    "meterAll": "Todos os envios: {{percent}}%",
+    "cancelAll": "Cancelar tudo",
+    "retryAll": "Tentar tudo de novo",
+    "fold": "Ocultar a lista",
+    "unfold": "Mostrar a lista",
+    "close": "Fechar",
+    "head": {
+      "sending_one": "Enviando {{count}} arquivo",
+      "sending_other": "Enviando {{count}} arquivos",
+      "failed_one": "{{count}} envio falhou",
+      "failed_other": "{{count}} envios falharam",
+      "done_one": "{{count}} arquivo enviado",
+      "done_other": "{{count}} arquivos enviados"
+    },
+    "say": {
+      "start_one": "Enviando {{count}} arquivo.",
+      "start_other": "Enviando {{count}} arquivos.",
+      "done_one": "Envio concluído: {{count}} arquivo.",
+      "done_other": "Envios concluídos: {{count}} arquivos.",
+      "doneFailed": "Envios concluídos: {{count}} enviados, {{failed}} com falha.",
+      "failed": "Não foi possível enviar {{name}}."
+    },
+    "errors": {
+      "tooBig": "Maior que o limite de {{limit}} deste servidor.",
+      "tooLarge": "O servidor recusou por ser grande demais.",
+      "off": "Os arquivos estão desativados neste servidor.",
+      "invalid": "O servidor recusou este arquivo.",
+      "network": "A conexão foi interrompida.",
+      "server": "O servidor não conseguiu salvar."
+    },
+    "said": "O servidor respondeu: {{reason}}."
   }
 }

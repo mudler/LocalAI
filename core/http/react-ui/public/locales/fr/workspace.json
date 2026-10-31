@@ -305,7 +305,9 @@
     }
   },
   "tabs": {
-    "shared": "Partagé"
+    "shared": "Partagé",
+    "trashCount_one": "{{count}} élément dans la Corbeille",
+    "trashCount_other": "{{count}} éléments dans la Corbeille"
   },
   "shared": {
     "adminTitle": "Dossiers partagés",
@@ -392,7 +394,8 @@
     "zoomOut": "Ajuster au panneau",
     "items_one": "{{count}} élément",
     "items_other": "{{count}} éléments",
-    "textCut": "Les premiers {{size}} sont affichés."
+    "textCut": "Les premiers {{size}} sont affichés.",
+    "actions": "Actions du fichier"
   },
   "managed": {
     "group": "Géré par LocalAI",
@@ -418,5 +421,187 @@
       "home": "L'Accueil perd ses widgets.",
       "ui": "Votre thème, couleur d'accent, densité, modèle par défaut et pages épinglées reviennent aux valeurs par défaut."
     }
+  },
+  "newFile": "Nouveau fichier",
+  "newFolderName": "Nouveau dossier",
+  "newFileName": "Sans titre.md",
+  "fileName": "Nom du fichier",
+  "downloadOne": "Télécharger {{name}}",
+  "moveTo": "Déplacer vers…",
+  "uploadMenu": "Autres options d’import",
+  "uploadFiles": "Importer des fichiers",
+  "uploadFolder": "Importer un dossier",
+  "loading": "Chargement du dossier",
+  "loadFailed": "Impossible d’ouvrir {{folder}}.",
+  "types": {
+    "folder": "Dossier",
+    "image": "Image",
+    "pdf": "PDF",
+    "sheet": "Feuille de calcul",
+    "doc": "Document",
+    "slides": "Présentation",
+    "archive": "Archive",
+    "audio": "Audio",
+    "video": "Vidéo",
+    "code": "Code",
+    "text": "Texte",
+    "file": "Fichier"
+  },
+  "columns": {
+    "name": "Nom",
+    "modified": "Modifié",
+    "type": "Type",
+    "size": "Taille",
+    "actions": "Actions"
+  },
+  "view": {
+    "label": "Affichage",
+    "list": "Liste",
+    "grid": "Miniatures"
+  },
+  "select": {
+    "one": "Sélectionner {{name}}",
+    "all": "Tout sélectionner",
+    "bar": "Éléments sélectionnés",
+    "clear": "Effacer la sélection",
+    "count_one": "{{count}} sélectionné",
+    "count_other": "{{count}} sélectionnés",
+    "start": "Sélectionner"
+  },
+  "menu": {
+    "label": "Actions pour {{name}}",
+    "more": "Plus d’actions pour {{name}}",
+    "openFolder": "Ouvrir",
+    "preview": "Aperçu",
+    "downloadMany_one": "Télécharger {{count}} fichier",
+    "downloadMany_other": "Télécharger {{count}} fichiers",
+    "moveMany_one": "Déplacer {{count}} élément vers…",
+    "moveMany_other": "Déplacer {{count}} éléments vers…",
+    "deleteMany_one": "Déplacer {{count}} élément vers la Corbeille",
+    "deleteMany_other": "Déplacer {{count}} éléments vers la Corbeille"
+  },
+  "keys": {
+    "delete": "Suppr"
+  },
+  "crumbs": {
+    "hidden": "Afficher les dossiers parents"
+  },
+  "naming": {
+    "empty": "Saisissez un nom.",
+    "slash": "Un nom ne peut pas contenir / ni \\.",
+    "taken": "Un élément porte déjà ce nom dans ce dossier."
+  },
+  "toast": {
+    "undo": "Annuler",
+    "deletedOne": "{{name}} a été déplacé vers la Corbeille.",
+    "deleted_one": "{{count}} élément a été déplacé vers la Corbeille.",
+    "deleted_other": "{{count}} éléments ont été déplacés vers la Corbeille.",
+    "restored": "Restauré.",
+    "renamed": "Renommé en {{name}}.",
+    "renameUndone": "Nom d’origine rétabli.",
+    "movedOne": "{{name}} a été déplacé vers {{folder}}.",
+    "moved_one": "{{count}} élément a été déplacé vers {{folder}}.",
+    "moved_other": "{{count}} éléments ont été déplacés vers {{folder}}.",
+    "moveUndone": "Remis à sa place."
+  },
+  "search": {
+    "placeholder": "Filtrer ce dossier",
+    "resultsFor": "Fichiers contenant « {{query}} »",
+    "back": "Retour au dossier",
+    "noneBody": "Aucun nom ni texte de vos fichiers ne correspond. Essayez d’autres mots.",
+    "filtering_one": "{{count}} élément de ce dossier correspond à « {{query}} ».",
+    "filtering_other": "{{count}} éléments de ce dossier correspondent à « {{query}} ».",
+    "everywhere": "Rechercher « {{query}} » dans tous les fichiers",
+    "everywhereShort": "Rechercher dans tous les fichiers",
+    "noMatch": "Rien dans ce dossier ne correspond à « {{query}} ».",
+    "clear": "Effacer le filtre"
+  },
+  "emptyHome": {
+    "title": "Vos fichiers sont ici"
+  },
+  "emptyFolder": {
+    "title": "Ce dossier est vide",
+    "body": "Déposez des fichiers ou des dossiers n’importe où sur cette page, collez-les avec Ctrl+V ou importez-les depuis votre ordinateur. L’assistant peut aussi enregistrer des fichiers ici depuis une discussion.",
+    "bodyTouch": "Importez des fichiers depuis votre appareil. L’assistant peut aussi enregistrer des fichiers ici depuis une discussion.",
+    "ask": "Demander à l’assistant"
+  },
+  "drop": {
+    "title": "Déposez pour importer dans {{folder}}",
+    "body": "Fichiers et dossiers entiers acceptés.",
+    "limit": "Fichiers et dossiers entiers, jusqu’à {{size}} chacun."
+  },
+  "conflict": {
+    "title_one": "Un fichier portant ce nom existe déjà",
+    "title_other": "{{count}} fichiers portant ces noms existent déjà",
+    "body_one": "{{folder}} contient déjà un fichier portant ce nom.",
+    "body_other": "{{folder}} contient déjà des fichiers portant ces noms.",
+    "skip_one": "Ignorer",
+    "skip_other": "Tout ignorer",
+    "keep": "Conserver les deux",
+    "replace_one": "Remplacer",
+    "replace_other": "Tout remplacer",
+    "more_one": "et {{count}} autre",
+    "more_other": "et {{count}} autres",
+    "note": "« Conserver les deux » donne un nouveau nom au nouveau fichier. Un fichier remplacé peut être récupéré depuis l’historique.",
+    "cancel": "Annuler l’import"
+  },
+  "move": {
+    "title_one": "Déplacer {{count}} élément",
+    "title_other": "Déplacer {{count}} éléments",
+    "items_one": "{{count}} élément",
+    "items_other": "{{count}} éléments",
+    "cancel": "Annuler",
+    "here": "Déplacer vers {{folder}}",
+    "failed": "Impossible de lire ce dossier.",
+    "noFolders": "Aucun dossier ici. Déplacez ici ou remontez d’un niveau."
+  },
+  "uploads": {
+    "waiting": "En attente",
+    "progress": "{{loaded}} sur {{total}}",
+    "rate": "{{rate}}/s",
+    "left": "{{time}} restantes",
+    "renamed": "Enregistré sous {{name}}",
+    "done": "Importé",
+    "canceled": "Annulé",
+    "cancel": "Annuler",
+    "cancelOne": "Annuler l’import de {{name}}",
+    "retry": "Réessayer",
+    "retryOne": "Réessayer {{name}}",
+    "dismiss": "Fermer",
+    "dismissOne": "Fermer {{name}}",
+    "show": "Afficher",
+    "showOne": "Afficher {{name}}",
+    "meterOne": "{{name}} : {{percent}} %",
+    "meterAll": "Tous les imports : {{percent}} %",
+    "cancelAll": "Tout annuler",
+    "retryAll": "Tout réessayer",
+    "fold": "Masquer la liste",
+    "unfold": "Afficher la liste",
+    "close": "Fermer",
+    "head": {
+      "sending_one": "Import de {{count}} fichier",
+      "sending_other": "Import de {{count}} fichiers",
+      "failed_one": "{{count}} import a échoué",
+      "failed_other": "{{count}} imports ont échoué",
+      "done_one": "{{count}} fichier importé",
+      "done_other": "{{count}} fichiers importés"
+    },
+    "say": {
+      "start_one": "Import de {{count}} fichier.",
+      "start_other": "Import de {{count}} fichiers.",
+      "done_one": "Import terminé : {{count}} fichier.",
+      "done_other": "Imports terminés : {{count}} fichiers.",
+      "doneFailed": "Imports terminés : {{count}} réussis, {{failed}} échoués.",
+      "failed": "Impossible d’importer {{name}}."
+    },
+    "errors": {
+      "tooBig": "Dépasse la limite de {{limit}} de ce serveur.",
+      "tooLarge": "Le serveur l’a refusé car il est trop volumineux.",
+      "off": "Les fichiers sont désactivés sur ce serveur.",
+      "invalid": "Le serveur a refusé ce fichier.",
+      "network": "La connexion a été interrompue.",
+      "server": "Le serveur n’a pas pu l’enregistrer."
+    },
+    "said": "Réponse du serveur : {{reason}}."
   }
 }

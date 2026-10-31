@@ -18,6 +18,9 @@ export function useWorkspace(initialPath = '/') {
   const [path, setPath] = useState(initialPath)
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loaded, setLoaded] = useState(false) // the open folder was read at least once
+  const [loadError, setLoadError] = useState(null) // the read of the folder failed
+  const [maxFileSize, setMaxFileSize] = useState(0)
   const [error, setError] = useState('')
   const [off, setOff] = useState('')
   const [trash, setTrash] = useState([])
@@ -44,13 +47,18 @@ export function useWorkspace(initialPath = '/') {
       const [list, tr] = await Promise.all([filesApi.list(at), filesApi.trash()])
       if (pathRef.current !== at) return
       setEntries(list.entries || [])
+      setMaxFileSize(list.max_file_size || 0)
       setTrash(tr.entries || [])
       setOff('')
-      setError('')
+      setLoadError(null)
+      setLoaded(true)
     } catch (e) {
-      fail(e)
+      if (pathRef.current !== at) return
+      if (e?.status === 409 && e.body?.error?.type === 'files_off') fail(e)
+      // A quiet refresh that fails keeps the list on screen.
+      else if (!quiet) setLoadError(e)
     } finally {
-      setLoading(false)
+      if (pathRef.current === at) setLoading(false)
     }
   }, [fail])
 
@@ -64,6 +72,10 @@ export function useWorkspace(initialPath = '/') {
   }, [fail])
 
   const open = useCallback((next) => {
+    if (next !== pathRef.current) {
+      setEntries([])
+      setLoaded(false)
+    }
     setPath(next)
     pathRef.current = next
     setHits(null)
@@ -93,20 +105,51 @@ export function useWorkspace(initialPath = '/') {
     }
   }, [refresh, fail])
 
-  const upload = useCallback((fileList) => act(async () => {
-    const results = []
-    for (const f of Array.from(fileList)) {
-      const node = await filesApi.upload(joinPath(pathRef.current, f.name), f)
-      // The list is read again below; the feed's echo of this upload is not needed.
-      if (node?.path) invalidate(node.path, node.rev)
-      results.push(node)
-    }
-    return results
+  // A new empty file, which the page then opens.
+  const touch = useCallback((name) => act(async () => {
+    const node = await filesApi.upload(joinPath(pathRef.current, name), new Blob([]))
+    if (node?.path) invalidate(node.path, node.rev)
+    return node
   }), [act])
 
   const mkdir = useCallback((name) => act(() => filesApi.mkdir(joinPath(pathRef.current, name))), [act])
   const rename = useCallback((entry, name) => act(() => filesApi.move(entry.path, joinPath(parentOf(entry.path), name))), [act])
   const remove = useCallback((entry) => act(() => filesApi.remove(entry.path)), [act])
+
+  // move sends entries into the folder dest. It returns the revision of each
+  // move, for Undo, or null when one failed (the error shows; the moves before
+  // it stay).
+  const move = useCallback((list, dest) => act(async () => {
+    const revs = []
+    for (const e of list) {
+      const node = await filesApi.move(e.path, joinPath(dest, e.name))
+      if (node?.rev) revs.push(node.rev)
+    }
+    return revs
+  }), [act])
+
+  // removeMany moves entries to the Trash and returns the revisions that undo
+  // restores, newest first.
+  const removeMany = useCallback((list) => act(async () => {
+    for (const e of list) await filesApi.remove(e.path)
+    const tr = await filesApi.trash()
+    const gone = new Set(list.map(e => e.path))
+    const revs = []
+    for (const entry of tr.entries || []) {
+      if ((entry.paths || []).some(p => gone.has(p))) {
+        revs.push(entry.rev)
+        for (const p of entry.paths || []) gone.delete(p)
+      }
+      if (gone.size === 0) break
+    }
+    return revs
+  }), [act])
+
+  // undoRevs reverts change sets, newest first, as Undo of a toast does.
+  const undoRevs = useCallback((revs) => act(async () => {
+    for (const rev of [...revs].sort((a, b) => b - a)) await filesApi.undo(rev)
+    return true
+  }), [act])
   const restore = useCallback((rev) => act(async () => {
     const res = await filesApi.undo(rev)
     return res
@@ -123,8 +166,8 @@ export function useWorkspace(initialPath = '/') {
   }, [fail])
 
   return {
-    path, entries, loading, error, off, trash, history, hits, busy,
-    open, refresh, loadHistory, upload, mkdir, rename, remove, restore, search,
+    path, entries, loading, loaded, loadError, maxFileSize, error, off, trash, history, hits, busy,
+    open, refresh, loadHistory, touch, mkdir, rename, remove, move, removeMany, undoRevs, restore, search,
     clearError: () => setError(''), clearSearch: () => setHits(null),
   }
 }
