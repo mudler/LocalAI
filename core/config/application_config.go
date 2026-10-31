@@ -1538,6 +1538,18 @@ func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
 	return DefaultChatsIndexMaxTextBytes
 }
 
+// DefaultChatsEgressAuditDays is how long the Sandbox network audit keeps a
+// line while chats_egress_audit_days is unset.
+const DefaultChatsEgressAuditDays = 30
+
+// EffectiveChatsEgressAuditDays is chats_egress_audit_days as it applies now.
+func (o *ApplicationConfig) EffectiveChatsEgressAuditDays() int {
+	if o.ChatsEgressAuditDays < 1 || o.ChatsEgressAuditDays > 365 {
+		return DefaultChatsEgressAuditDays
+	}
+	return o.ChatsEgressAuditDays
+}
+
 // EffectiveChatsMaxIterations is chats_max_iterations as it applies now.
 func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 	if o.ChatsMaxIterations < 1 || o.ChatsMaxIterations > MaxChatsMaxIterations {

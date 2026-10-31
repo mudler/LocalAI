@@ -120,7 +120,7 @@ func (a *Application) initStudioService() {
 		SharedFolderAudit:  a.studioSharedFolderAudit(),
 		EgressSettings:     a.studioEgressSettings,
 		EgressAudit:        a.studioEgressAudit(),
-		EgressAuditDays:    func() int { return a.applicationConfig.ChatsEgressAuditDays },
+		EgressAuditDays:    func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },
 		FindUser:           a.studioFindUser(),
 		SharedPagesOn:      func() bool { return !a.applicationConfig.DisableSharedPages },
 		Modalities:         a.studioModalities,
