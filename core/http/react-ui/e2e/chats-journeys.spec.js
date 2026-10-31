@@ -41,6 +41,10 @@ test.describe('Chat journeys', () => {
   test('a waiting message can be edited, then Send now delivers the edited text as the next turn', async ({ page }) => {
     await startChat(page, 'MOCK_LONG_STREAM go')
     await expect(working(page)).toBeVisible()
+    // The turn is busy before its first model request starts, and that
+    // request takes every message that waits. Once the answer streams, the
+    // request runs, so a message sent now waits for the next step.
+    await expect(transcript(page)).toContainText('tick', { timeout: 15_000 })
     await composer(page).fill('first draft')
     await composer(page).press('Enter')
     const row = page.getByTestId('pending-row')
