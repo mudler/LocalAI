@@ -405,10 +405,7 @@
     "showMore": "Tampilkan lebih banyak",
     "cleared_one": "{{count}} notifikasi dihapus.",
     "confirmAll_one": "Hapus semua {{count}} notifikasi? Tindakan ini tidak dapat dibatalkan.",
-    "confirmRead_one": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada.",
-    "allowedHosts": "Selalu diizinkan oleh administrator Anda:",
-    "allowedHostsOff": "Berlaku saat jaringan aktif.",
-    "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda."
+    "confirmRead_one": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada."
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",

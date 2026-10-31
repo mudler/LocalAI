@@ -405,10 +405,7 @@
     "confirmRead_other": "Supprimer {{count}} notifications lues ? Les non lues restent.",
     "onlyRead": "Seulement les {{count}} lues",
     "showing": "{{shown}} sur {{total}} affichées",
-    "showMore": "Afficher plus",
-    "allowedHosts": "Toujours autorisés par votre administrateur :",
-    "allowedHostsOff": "Ils s'appliquent quand le réseau est activé.",
-    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur."
+    "showMore": "Afficher plus"
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",
