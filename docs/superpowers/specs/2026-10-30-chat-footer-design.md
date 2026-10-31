@@ -156,7 +156,13 @@ in the first after-shots. A turn that runs always wins. The state is derived by 
 ### 3.2 The meter
 
 A compact button (`data-testid="chat-context-meter"`), ghost, 24 px, with a
-focus ring: a 40 px bar and `12.3k / 32.8k tokens`, then the speed.
+focus ring: a 96 x 6 px bar with ticks at the warn and hot thresholds,
+`12.3k / 32.8k` and the tokens left (`20.4k left`), then the speed. A
+container query fits it to the line: a narrow line shows the percentage in
+place of used / limit, and a narrower one moves the speed to the details.
+With no known limit it shows the count used and no bar. (Amended
+2026-10-31: the first version had a 40 px bar and no tokens left, which was
+hard to read.)
 
 - Above 80 %: amber bar, amber text and a `warning` icon before the bar.
   Above 90 %: red bar, red text and the same icon. The icon is the non-colour
@@ -197,10 +203,11 @@ Details (only what the server gives; a row without data is left out):
 
 ### 3.3 Phone (below 640 px)
 
-`[icon] Word …` on the left; on the right the meter shows the percentage only
-(`38%`, or the token count when the limit is unknown) with its icon at 80 %
-and above. No speed, no hint, no detail text on the line: all of it is in the
-bottom sheet. One line at 390 px in every state.
+`[icon] Word …` on the left; on the right the meter keeps its bar and the
+tokens left (or the token count when the limit is unknown), with its icon at
+80 % and above. No speed, no hint, no detail text on the line: all of it is
+in the bottom sheet. One line at 390 px in every state. (Amended 2026-10-31:
+the first version showed the percentage only.)
 
 ### 3.4 Payload change (minimal, additive)
 

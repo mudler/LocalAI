@@ -2,6 +2,23 @@
 
 Date: 2026-10-30. Status: decided by the owner, implemented on `feat/home-front-door`.
 
+## Amendments (2026-10-31)
+
+Later work changed two points of the text below; the code and
+`docs/content/` describe what shipped.
+
+- **Home starts the chat itself.** Home's composer creates the chat and
+  sends the first message, then opens `/app/chats/:id`. It does not open
+  `/app/chats?model=…` with the message in the navigation state any more
+  (flow 1). The chat page draws the message from a short-lived hand-off
+  (`utils/composerHandoff.js`: the chat record, the text and the files) and
+  the composer glides to the chat's dock. The hand-offs of flow 6 still use
+  navigation state.
+- **Home's composer takes attachments.** It is the chat page's composer
+  (`ChatComposer`, `useChatComposer`): files, the agent picker, the Tools and
+  Skills menus, paste to attach. "Attachments on Home's composer" is no
+  longer out of scope.
+
 ## Problem
 
 Home and the Chats page are two doors to the same room. The Home composer
@@ -31,9 +48,9 @@ their chat history except the Ctrl+K menu inside a transcript.
 
 ## User flows
 
-1. **Start a chat.** Home → type → Send. The page opens
-   `/app/chats?model=…` with the message in the navigation state, the chat is
-   created and the address becomes `/app/chats/:id` (as before).
+1. **Start a chat.** Home → type → Send. Home creates the chat, sends the
+   message and opens `/app/chats/:id` (see the amendments; the first version
+   opened `/app/chats?model=…` with the message in the navigation state).
 2. **Resume a chat.** Home "Jump back in", or a row of the sidebar's recent
    chats, or a row of All chats, or Ctrl+K inside a transcript.
 3. **New chat.** The sidebar's **New chat** (a `+` beside "Recent chats"), the
@@ -85,4 +102,4 @@ their chat history except the Ctrl+K menu inside a transcript.
 
 - Pinned and archived chats: the server has neither today, and the current
   list has neither.
-- Attachments on Home's composer.
+- ~~Attachments on Home's composer.~~ Shipped later, see the amendments.

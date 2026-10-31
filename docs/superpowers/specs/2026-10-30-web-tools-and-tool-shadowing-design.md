@@ -1,7 +1,8 @@
 # Built-in web tools and add-on tool shadowing
 
-Status: approved 2026-10-30 with the owner decisions below. Phase 1 is being
-built; phase 2 waits for the built-in `bash` work.
+Status: approved 2026-10-30 with the owner decisions below. Both phases
+shipped: the built-in web tools (phase 1) and the shadowing of a built-in
+tool by an add-on (phase 2), with the built-in `bash`.
 
 ## Amendments (2026-10-31)
 
@@ -27,6 +28,11 @@ the shipped behaviour.
   > Tools marks a stopped add-on.
 - **`sandboxRunTool` and the `runners` cache are gone**: the tool that runs
   commands is the one that shadows `bash`.
+- **The Web add-on searches without a key like the built-in.** Its keyless
+  entry (saved name `duckduckgo`) is the keyless chain of `pkg/web/search`:
+  the DuckDuckGo page, then the Brave Search page, then the Bing page, with
+  the same cool-down. Installing the add-on without a key does not make
+  search worse.
 
 ## Problem
 
@@ -298,7 +304,7 @@ administrator switches each off on its own.
 
 The settings page is the **Tools** section of Settings, which the built-in
 `bash` work creates. It lists every built-in tool with its switch, its
-provider and, in phase 2, the choice between add-ons that replace it. This
+provider and the choice between add-ons that replace it. This
 work does not draw that section. It gives it:
 
 - the registry `core/services/studio/builtintools` (below);
@@ -327,7 +333,7 @@ type Tool struct {
     Description string // one line for the settings row
     // Setting is the /api/settings key of the on/off switch, "" if none.
     Setting string
-    // Replaceable says whether an add-on may shadow it (phase 2).
+    // Replaceable says whether an add-on may shadow it.
     Replaceable bool
     // Enabled reads the switch from the live configuration.
     Enabled func(*config.ApplicationConfig) bool
