@@ -103,8 +103,11 @@ func (s *gormPush) EnsureVAPID(ctx context.Context, generate func() (string, str
 		return "", "", err
 	}
 	r, ok, err := read()
-	if err != nil || !ok {
+	if err != nil {
 		return "", "", fmt.Errorf("notify: the VAPID keys were not stored: %v", err)
+	}
+	if !ok {
+		return "", "", errors.New("notify: the VAPID keys were not stored")
 	}
 	return r.Private, r.Public, nil
 }

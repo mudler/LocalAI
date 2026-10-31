@@ -6,10 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
 )
 
 type triggerRow struct {
@@ -176,11 +177,6 @@ func (r runRow) run() Run {
 		Reason: r.Reason, ChatID: r.ChatID, File: r.File, Started: utc(r.Started), Ended: utc(r.Ended), Tokens: r.Tokens}
 }
 
-func isUniqueViolation(err error) bool {
-	s := strings.ToLower(err.Error())
-	return strings.Contains(s, "unique") || strings.Contains(s, "duplicate key")
-}
-
 // Claim inserts the run. The unique index on (trigger, due key) refuses a
 // second run for the same time or file version, whoever asks and whenever, so
 // two frontends cannot both start it.
@@ -205,7 +201,7 @@ func (s *gormStore) Claim(ctx context.Context, r Run) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if isUniqueViolation(err) {
+	if dberr.IsUniqueViolation(err) {
 		var same int64
 		if cerr := s.db.WithContext(ctx).Model(&runRow{}).Where("trigger_id = ? AND due_key = ?", r.TriggerID, r.DueKey).Count(&same).Error; cerr == nil && same > 0 {
 			return false, nil

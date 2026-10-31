@@ -30,7 +30,7 @@ var codeExt = map[string]bool{
 // both run testdata/code-files.json so they cannot drift.
 func IsCodeFile(rel string) bool {
 	s := rel
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		d, err := url.PathUnescape(s)
 		if err != nil || d == s || !utf8.ValidString(d) {
 			break

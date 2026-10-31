@@ -55,11 +55,7 @@ func (s *jsonPush) change(f func(*pushData)) error {
 	next := pushData{Subs: slices.Clone(s.d.Subs), Private: s.d.Private, Public: s.d.Public}
 	f(&next)
 	if s.path != "" {
-		raw, err := json.Marshal(next)
-		if err != nil {
-			return err
-		}
-		if err := atomicfile.Write(s.path, raw, 0o600); err != nil {
+		if err := atomicfile.WriteJSON(s.path, next, 0o600); err != nil {
 			return err
 		}
 	}

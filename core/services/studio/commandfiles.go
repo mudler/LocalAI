@@ -58,9 +58,9 @@ func (s *Service) commandFiles(ctx context.Context, a workspace.Actor, mark int6
 		rev     int64
 		created bool
 		gone    bool
-		order   int
 	}
 	byID := map[int64]*node{}
+	var list []*node // in the order of the first change
 	for _, cs := range sets {
 		if cs.Rev <= mark {
 			continue
@@ -68,8 +68,9 @@ func (s *Service) commandFiles(ctx context.Context, a workspace.Actor, mark int6
 		for _, op := range cs.Ops {
 			n := byID[op.NodeID]
 			if n == nil {
-				n = &node{created: op.Kind == workspace.OpCreate, order: len(byID)}
+				n = &node{created: op.Kind == workspace.OpCreate}
 				byID[op.NodeID] = n
+				list = append(list, n)
 			}
 			n.path, n.rev, n.gone = op.NewPath, cs.Rev, op.Kind == workspace.OpDelete
 			if n.gone && op.NewPath == "" {
@@ -77,11 +78,6 @@ func (s *Service) commandFiles(ctx context.Context, a workspace.Actor, mark int6
 			}
 		}
 	}
-	list := make([]*node, 0, len(byID))
-	for _, n := range byID {
-		list = append(list, n)
-	}
-	slices.SortFunc(list, func(x, y *node) int { return x.order - y.order })
 	var out []session.ToolFile
 	for _, n := range list {
 		rel := s.d.Files.Rel(a.Principal, n.path)

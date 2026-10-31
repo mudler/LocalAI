@@ -88,14 +88,7 @@ func (sh shadowers) pinnedButIdle(name, pin string, serving []string) bool {
 // one when it is installed, else the oldest install. It is "" when no
 // installed add-on replaces name.
 func (sh shadowers) expected(name, pin string) string {
-	ids := sh.byName[name]
-	if pin != "" && slices.Contains(ids, pin) {
-		return pin
-	}
-	if o := OrderProviders(ids, sh.when); len(o) > 0 {
-		return o[0]
-	}
-	return ""
+	return ChooseProvider(sh.byName[name], sh.when, pin)
 }
 
 // ToolFallback says that an installed add-on replaces a built-in chat tool

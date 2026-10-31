@@ -132,6 +132,13 @@ func moved(p, from, to string) (string, bool) {
 	return p, false
 }
 
+// The limits of Pending and Search, and of List, when the caller gives none.
+// Both stores use them, so they answer the same.
+const (
+	defaultLimit     = 20
+	defaultListLimit = 100
+)
+
 func limitOr(n, def int) int {
 	if n <= 0 {
 		return def

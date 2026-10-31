@@ -153,6 +153,22 @@ type Remover interface {
 	Remove(ctx context.Context, sha string) error
 }
 
+// DefaultGrace is how long a purge waits before it removes a blob that no row
+// refers to, when the store sets no wait of its own.
+const DefaultGrace = 2 * time.Minute
+
+// Grace turns the BlobGrace option of a workspace store into the wait of
+// RemoveLater: zero means DefaultGrace, a negative value means at once.
+func Grace(d time.Duration) time.Duration {
+	switch {
+	case d == 0:
+		return DefaultGrace
+	case d < 0:
+		return 0
+	}
+	return d
+}
+
 // RemoveLater removes the blobs in shas from st after grace, but only those
 // that inUse still reports as free at that moment. The wait covers a Put that
 // found the blob already stored and has not yet written the row that refers to

@@ -6,6 +6,7 @@ package ooxml
 import (
 	"bytes"
 	"encoding/xml"
+	"slices"
 	"strings"
 )
 
@@ -20,10 +21,5 @@ func Escape(s string) string {
 // as the separator. A package that names such a part could write or read
 // outside its folder once it is unpacked.
 func HasDotDot(name string) bool {
-	for _, s := range strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if s == ".." {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' }), "..")
 }

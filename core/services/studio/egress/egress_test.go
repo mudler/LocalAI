@@ -288,3 +288,16 @@ var _ = Describe("the registries list", func() {
 		})
 	})
 })
+
+var _ = Describe("PrivateLiteral", func() {
+	DescribeTable("says whether a host is an IP literal outside the public internet",
+		func(host string, want bool) {
+			Expect(egress.PrivateLiteral(host)).To(Equal(want))
+		},
+		Entry("loopback", "127.0.0.1", true),
+		Entry("private range", "10.1.2.3", true),
+		Entry("IPv6 unique local", "fd00::1", true),
+		Entry("public address", "93.184.216.34", false),
+		Entry("a name is not a literal", "localhost", false),
+	)
+})

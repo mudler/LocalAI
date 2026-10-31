@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -37,12 +38,7 @@ func DefaultKeylessEndpoints() KeylessEndpoints {
 
 // IsKeyless says whether name is a keyless provider.
 func IsKeyless(name string) bool {
-	for _, n := range KeylessOrder {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(KeylessOrder, name)
 }
 
 // NewKeyless returns the keyless provider of that name, reached through g.
@@ -91,53 +87,19 @@ var challengeMarkers = []string{"captcha", "anomaly", "challenge"}
 
 // hasChallenge says whether doc looks like a bot check.
 func hasChallenge(doc *html.Node) bool {
-	found := false
-	var walk func(*html.Node)
-	walk = func(n *html.Node) {
-		if found {
-			return
-		}
-		if n.Type == html.ElementNode {
-			v := strings.ToLower(attrOf(n, "id") + " " + attrOf(n, "class") + " " + attrOf(n, "action") + " " + attrOf(n, "src"))
-			for _, m := range challengeMarkers {
-				if strings.Contains(v, m) {
-					found = true
-					return
-				}
-			}
-		}
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
-		}
-	}
-	walk(doc)
-	return found
+	return firstElement(doc, func(n *html.Node) bool {
+		v := strings.ToLower(attrOf(n, "id") + " " + attrOf(n, "class") + " " + attrOf(n, "action") + " " + attrOf(n, "src"))
+		return slices.ContainsFunc(challengeMarkers, func(m string) bool { return strings.Contains(v, m) })
+	}) != nil
 }
 
 // firstByClass returns the first element under n that has one of the
 // classes, depth first.
 func firstByClass(n *html.Node, names ...string) *html.Node {
-	var found *html.Node
-	var walk func(*html.Node)
-	walk = func(n *html.Node) {
-		if found != nil {
-			return
-		}
-		if n.Type == html.ElementNode {
-			cls := classes(n)
-			for _, c := range names {
-				if cls[c] {
-					found = n
-					return
-				}
-			}
-		}
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
-		}
-	}
-	walk(n)
-	return found
+	return firstElement(n, func(e *html.Node) bool {
+		cls := classes(e)
+		return slices.ContainsFunc(names, func(c string) bool { return cls[c] })
+	})
 }
 
 // firstElement returns the first element under n for which match holds.

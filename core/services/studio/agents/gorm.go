@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
 )
 
 // agentRow is the table of saved agents. The lists are JSON text so one schema
@@ -83,10 +85,10 @@ func (r agentRow) agent() (Agent, error) {
 // primary key is a unique violation too, but it is not a name that is taken.
 // SQLite names the columns of the index and PostgreSQL names the index.
 func isNameTaken(err error) bool {
-	s := strings.ToLower(err.Error())
-	if !strings.Contains(s, "unique") && !strings.Contains(s, "duplicate key") {
+	if !dberr.IsUniqueViolation(err) {
 		return false
 	}
+	s := strings.ToLower(err.Error())
 	return strings.Contains(s, "name_key") || strings.Contains(s, "idx_studio_agents_name")
 }
 

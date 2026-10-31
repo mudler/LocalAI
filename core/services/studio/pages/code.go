@@ -262,7 +262,7 @@ func resolveRef(ref, from string) string {
 	if from != "" {
 		out = strings.Split(from, "/")
 	}
-	for _, seg := range strings.Split(dec, "/") {
+	for seg := range strings.SplitSeq(dec, "/") {
 		switch seg {
 		case "":
 			return ""

@@ -98,10 +98,7 @@ func (h EgressAllowedHost) String() string {
 	if h.Port == 0 {
 		return h.Host
 	}
-	if strings.Contains(h.Host, ":") {
-		return "[" + h.Host + "]:" + strconv.Itoa(h.Port)
-	}
-	return h.Host + ":" + strconv.Itoa(h.Port)
+	return net.JoinHostPort(h.Host, strconv.Itoa(h.Port))
 }
 
 // splitAllowedHost cuts "host" or "host:port" (also "[v6]:port"). A bare IPv6

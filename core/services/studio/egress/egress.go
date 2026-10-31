@@ -8,6 +8,7 @@
 package egress
 
 import (
+	"net"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -309,10 +310,7 @@ func (h AllowedHost) String() string {
 	if h.Port == 0 {
 		return h.Host
 	}
-	if strings.Contains(h.Host, ":") {
-		return "[" + h.Host + "]:" + strconv.Itoa(h.Port)
-	}
-	return h.Host + ":" + strconv.Itoa(h.Port)
+	return net.JoinHostPort(h.Host, strconv.Itoa(h.Port))
 }
 
 // AllowedHostList is the list as canonical entries, never nil.
@@ -402,8 +400,10 @@ type Chat struct {
 	Pending []Card
 }
 
-// privateLiteral says whether host is an IP literal outside the public internet.
-func privateLiteral(host string) bool {
+// PrivateLiteral says whether host is an IP literal outside the public
+// internet. A name is not a literal: its addresses are checked when it is
+// dialled.
+func PrivateLiteral(host string) bool {
 	a, err := netip.ParseAddr(host)
 	return err == nil && !safehttp.Allowed(a, false)
 }
@@ -428,7 +428,7 @@ func Decide(s Settings, c Chat, r Request, reg *Registries) Verdict {
 	}
 	ceiling := normal(s.Ceiling)
 	eff := Min(c.Preset, ceiling)
-	private := r.Private || privateLiteral(r.Host)
+	private := r.Private || PrivateLiteral(r.Host)
 	// The list comes before a chat's deny rule: the administrator's word wins
 	// over a rule stored earlier. It never reaches a private address; that
 	// stays with the private switch and an administrator's rule or answer.
@@ -488,7 +488,7 @@ func Decide(s Settings, c Chat, r Request, reg *Registries) Verdict {
 // the check a card answer makes again, since the ceiling may have changed
 // while the card waited.
 func Admits(s Settings, r Request, reg *Registries) bool {
-	private := r.Private || privateLiteral(r.Host)
+	private := r.Private || PrivateLiteral(r.Host)
 	need := needs(r, reg, s.ExtraRegistries)
 	if private {
 		need = PresetAll

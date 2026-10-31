@@ -175,7 +175,7 @@ func TextPDF(pages ...string) []byte {
 	pdf.SetFont("Helvetica", "", 12)
 	for _, p := range pages {
 		pdf.AddPage()
-		for _, line := range strings.Split(p, "\n") {
+		for line := range strings.SplitSeq(p, "\n") {
 			pdf.Cell(0, 8, line)
 			pdf.Ln(8)
 		}

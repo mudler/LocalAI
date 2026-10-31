@@ -245,8 +245,11 @@ func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, erro
 		return nil, err
 	}
 	got, ok, err := read()
-	if err != nil || !ok {
+	if err != nil {
 		return nil, fmt.Errorf("connectors: the sealing key was not stored: %v", err)
+	}
+	if !ok {
+		return nil, errors.New("connectors: the sealing key was not stored")
 	}
 	return got, nil
 }

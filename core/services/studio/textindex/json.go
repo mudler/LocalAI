@@ -4,7 +4,9 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -72,7 +74,7 @@ func NewJSON(dir string) (Store, error) {
 			return nil, fmt.Errorf("textindex: read the cursor: %w", err)
 		}
 		s.cursor = c.Rev
-	case !os.IsNotExist(err):
+	case !errors.Is(err, fs.ErrNotExist):
 		return nil, err
 	}
 	return s, nil
@@ -103,7 +105,7 @@ func (s *jsonStore) readText(id int64) (string, error) {
 		return s.texts[id], nil
 	}
 	raw, err := os.ReadFile(s.textPath(id))
-	if os.IsNotExist(err) {
+	if errors.Is(err, fs.ErrNotExist) {
 		return "", nil
 	}
 	return string(raw), err
@@ -119,7 +121,7 @@ func (s *jsonStore) Put(_ context.Context, e Entry) error {
 		// points at a newer text of the same node, which the hash check of a
 		// search turns away.
 		if e.Text == "" {
-			if err := os.Remove(s.textPath(e.NodeID)); err != nil && !os.IsNotExist(err) {
+			if err := os.Remove(s.textPath(e.NodeID)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return err
 			}
 		} else if err := atomicfile.Write(s.textPath(e.NodeID), []byte(e.Text), 0o600); err != nil {
@@ -178,7 +180,7 @@ func (s *jsonStore) Delete(_ context.Context, ids ...int64) error {
 		}
 		if s.dir != "" {
 			for _, p := range []string{s.metaPath(id), s.textPath(id)} {
-				if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+				if err := os.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
 					return err
 				}
 			}
@@ -227,7 +229,7 @@ func (s *jsonStore) Pending(_ context.Context, prefix string, limit int) ([]Entr
 		}
 		return cmp.Compare(a.NodeID, b.NodeID)
 	})
-	if limit = limitOr(limit, 20); len(out) > limit {
+	if limit = limitOr(limit, defaultLimit); len(out) > limit {
 		out = out[:limit]
 	}
 	return out, nil
@@ -236,7 +238,7 @@ func (s *jsonStore) Pending(_ context.Context, prefix string, limit int) ([]Entr
 func (s *jsonStore) List(_ context.Context, prefix string, afterID int64, limit int) ([]Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	limit = limitOr(limit, 100)
+	limit = limitOr(limit, defaultListLimit)
 	var out []Entry
 	for _, id := range s.sortedIDs() {
 		if e := s.meta[id]; id > afterID && Under(e.Path, prefix) {
@@ -252,7 +254,7 @@ func (s *jsonStore) List(_ context.Context, prefix string, afterID int64, limit 
 func (s *jsonStore) Search(ctx context.Context, q Query) ([]Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	limit := limitOr(q.Limit, 20)
+	limit := limitOr(q.Limit, defaultLimit)
 	var out []Entry
 	for _, id := range s.sortedIDs() {
 		if err := ctx.Err(); err != nil {

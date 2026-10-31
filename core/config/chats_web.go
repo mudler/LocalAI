@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -83,18 +84,12 @@ func ParseSearchProviders(s string, searxngSet bool) ([]string, error) {
 	}
 	var out []string
 	seen := map[string]bool{}
-	for _, f := range strings.Split(s, ",") {
+	for f := range strings.SplitSeq(s, ",") {
 		f = strings.ToLower(strings.TrimSpace(f))
 		if f == "" {
 			continue
 		}
-		known := false
-		for _, n := range SearchProviderNames {
-			if n == f {
-				known = true
-			}
-		}
-		if !known {
+		if !slices.Contains(SearchProviderNames, f) {
 			return nil, fmt.Errorf("%q is not a search provider (use %s)", f, strings.Join(SearchProviderNames, ", "))
 		}
 		if seen[f] {

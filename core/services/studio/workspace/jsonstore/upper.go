@@ -3,151 +3,11 @@ package jsonstore
 import (
 	"context"
 	"errors"
-	"maps"
 	"slices"
-	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/internal/upperset"
 )
-
-func depth(p string) int { return strings.Count(p, "/") }
-
-func sortedKeys[V any](m map[string]V) []string { return slices.Sorted(maps.Keys(m)) }
-
-type upperFile struct {
-	sum  string
-	size int64
-}
-
-// upEntry is a usable overlay entry, mapped to a mount and a path below it.
-type upEntry struct {
-	mount  int
-	rel    []string
-	kind   workspace.EntryKind
-	opaque bool
-	file   upperFile
-}
-
-// rawConflict is a conflict whose path depends on where the mount stands now.
-// mount is -1 when path is already final.
-type rawConflict struct {
-	path   string
-	mount  int
-	rel    []string
-	reason string
-}
-
-// upperSet is an upper layer mapped to workspace paths.
-type upperSet struct {
-	entries []upEntry
-	raw     []rawConflict
-
-	files     map[string]upperFile
-	dirs      map[string]bool // path to opaque
-	whiteouts []string
-	conflicts []workspace.Conflict
-
-	where map[string]upLoc // workspace path to mount and path below it
-	shown map[string]bool  // paths of entries that became conflicts
-}
-
-// upLoc says where a workspace path stands in its mount.
-type upLoc struct {
-	mount int
-	rel   []string
-}
-
-func joinRel(base string, rel []string) string {
-	for _, sg := range rel {
-		base = workspace.JoinChild(base, sg)
-	}
-	return base
-}
-
-// readUpper walks the layer, stores the files of write mounts as blobs and
-// maps every entry to a mount. Entries it cannot use become conflicts. pts
-// holds the mount points by mount index.
-func (s *Store) readUpper(ctx context.Context, v workspace.View, pts map[int]string, gone map[int]bool, src workspace.UpperSource) (*upperSet, error) {
-	u := &upperSet{}
-	lit := func(up, reason string) {
-		u.raw = append(u.raw, rawConflict{path: "/" + up, mount: -1, reason: reason})
-	}
-	err := src.Walk(ctx, func(e workspace.UpperEntry) error {
-		up := strings.Trim(e.Path, "/")
-		if up == "" {
-			return nil
-		}
-		mi := -1
-		for i, pt := range pts {
-			if up == pt || strings.HasPrefix(up, pt+"/") {
-				mi = i
-				break
-			}
-		}
-		if mi < 0 {
-			if e.Kind == workspace.EntryDir {
-				for _, pt := range pts {
-					if strings.HasPrefix(pt, up+"/") {
-						return nil // overlayfs makes the parents of a mount point
-					}
-				}
-			}
-			lit(up, workspace.ReasonOutsideView)
-			return nil
-		}
-		rest := strings.TrimPrefix(strings.TrimPrefix(up, pts[mi]), "/")
-		if v.Mounts[mi].Mode < workspace.ModeWrite {
-			// A folder alone changes nothing: the host backend lists every
-			// folder of its work tree, and overlayfs makes the parents of a
-			// changed file. A file, a whiteout or an opaque folder is a
-			// change that a read-only mount refuses.
-			if e.Kind != workspace.EntryDir || (rest != "" && workspace.IsOpaque(e.Xattrs)) {
-				lit(up, workspace.ReasonReadOnly)
-			}
-			return nil
-		}
-		var rel []string
-		if rest != "" {
-			var err error
-			if rel, err = workspace.SplitPath(rest); err != nil {
-				lit(up, workspace.ReasonBadName)
-				return nil
-			}
-		}
-		add := func(reason string) {
-			u.raw = append(u.raw, rawConflict{mount: mi, rel: rel, reason: reason})
-		}
-		switch {
-		case e.Kind == workspace.EntryDir:
-			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: workspace.EntryDir, opaque: workspace.IsOpaque(e.Xattrs)})
-		case rest == "":
-			add(workspace.ReasonUnsupported) // only a folder can stand at a mount root
-		case e.Kind == workspace.EntryFile && gone[mi]:
-			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: workspace.EntryFile})
-		case e.Kind == workspace.EntryFile:
-			rc, err := e.Open()
-			if err != nil {
-				return err
-			}
-			sum, size, err := s.blobs.Put(ctx, rc, s.maxSize)
-			_ = rc.Close()
-			if errors.Is(err, workspace.ErrTooLarge) {
-				add(workspace.ReasonTooLarge)
-				return nil
-			}
-			if err != nil {
-				return err
-			}
-			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: workspace.EntryFile, file: upperFile{sum: sum, size: size}})
-		case e.Kind == workspace.EntryWhiteout:
-			u.entries = append(u.entries, upEntry{mount: mi, rel: rel, kind: workspace.EntryWhiteout})
-		default:
-			add(workspace.ReasonUnsupported)
-		}
-		return nil
-	})
-	return u, err
-}
 
 // resolveMounts finds, by node ID, where each write mount stands now and
 // requires write access on it. A mount whose folder is deleted is in gone.
@@ -178,43 +38,6 @@ func (s *Store) resolveMounts(d *data, a workspace.Actor, v workspace.View) (map
 	return paths, gone, nil
 }
 
-// place maps the entries to the current paths of their mounts.
-func (u *upperSet) place(v workspace.View, paths map[int]string, gone map[int]bool) {
-	u.files, u.dirs = map[string]upperFile{}, map[string]bool{}
-	u.where, u.shown = map[string]upLoc{}, map[string]bool{}
-	for _, r := range u.raw {
-		p := r.path
-		if r.mount >= 0 {
-			base, ok := paths[r.mount]
-			if !ok {
-				base = v.Mounts[r.mount].Path
-			} else {
-				u.shown[joinRel(base, r.rel)] = true
-			}
-			p = joinRel(base, r.rel)
-		}
-		u.conflicts = append(u.conflicts, workspace.Conflict{Path: p, Reason: r.reason})
-	}
-	for _, e := range u.entries {
-		if gone[e.mount] {
-			if len(e.rel) > 0 {
-				u.conflicts = append(u.conflicts, workspace.Conflict{Path: joinRel(v.Mounts[e.mount].Path, e.rel), Reason: workspace.ReasonParentDeleted})
-			}
-			continue
-		}
-		wp := joinRel(paths[e.mount], e.rel)
-		u.where[wp] = upLoc{mount: e.mount, rel: e.rel}
-		switch e.kind {
-		case workspace.EntryDir:
-			u.dirs[wp] = e.opaque
-		case workspace.EntryFile:
-			u.files[wp] = e.file
-		case workspace.EntryWhiteout:
-			u.whiteouts = append(u.whiteouts, wp)
-		}
-	}
-}
-
 // CommitUpper commits an overlay upper layer as one change set of kind
 // agent. base is the revision the layer started from (the result of
 // Materialize). A node changed after base is a conflict: the store keeps both
@@ -240,7 +63,7 @@ func (s *Store) CommitUpper(ctx context.Context, v workspace.View, a workspace.A
 	if err != nil {
 		return workspace.ChangeSet{}, nil, err
 	}
-	u, err := s.readUpper(ctx, v, pts, gone0, src)
+	u, err := upperset.Read(ctx, v, pts, gone0, src, s.blobs, s.maxSize)
 	if err != nil {
 		return workspace.ChangeSet{}, nil, err
 	}
@@ -257,7 +80,7 @@ func (s *Store) CommitUpper(ctx context.Context, v workspace.View, a workspace.A
 	for i := range gone0 {
 		gone[i] = true // its files have no blobs, even if the folder is back
 	}
-	u.place(v, paths, gone)
+	u.Place(v, paths, gone)
 	open := map[int]string{}
 	for i, p := range paths {
 		if !gone[i] {
@@ -272,12 +95,12 @@ func (s *Store) CommitUpper(ctx context.Context, v workspace.View, a workspace.A
 	if err != nil {
 		return workspace.ChangeSet{}, nil, err
 	}
-	return cs, u.conflicts, nil
+	return cs, u.Conflicts, nil
 }
 
 type upperCommit struct {
 	w    *writer
-	u    *upperSet
+	u    *upperset.Set
 	v    workspace.View
 	base int64
 	own  map[int64]bool // revisions of the caller's own change sets
@@ -285,7 +108,7 @@ type upperCommit struct {
 }
 
 func (c *upperCommit) conflict(p, reason, kept string) {
-	c.u.conflicts = append(c.u.conflicts, workspace.Conflict{Path: p, Reason: reason, Kept: kept})
+	c.u.Conflicts = append(c.u.Conflicts, workspace.Conflict{Path: p, Reason: reason, Kept: kept})
 }
 
 // denied reports whether err means the actor may not change a node.
@@ -322,12 +145,12 @@ func (c *upperCommit) nodeAtBase(mount int, rel []string, depth int) (int64, boo
 // deleted, moved or changed after it. depth counts the path segments below
 // the mount that lead to that node.
 func (c *upperCommit) goneAt(p string) (depth int, id int64, ok bool, err error) {
-	loc, found := c.u.where[p]
+	loc, found := c.u.Where[p]
 	if !found {
 		return 0, 0, false, nil
 	}
-	for d := 1; d <= len(loc.rel); d++ {
-		id, found, err := c.nodeAtBase(loc.mount, loc.rel, d)
+	for d := 1; d <= len(loc.Rel); d++ {
+		id, found, err := c.nodeAtBase(loc.Mount, loc.Rel, d)
 		if err != nil {
 			return 0, 0, false, err
 		}
@@ -372,8 +195,8 @@ func (c *upperCommit) live(id int64) (bool, error) {
 // copy beside it, or at the same relative path inside the moved folder. A
 // node that was deleted keeps its copy in the nearest live folder above it.
 func (c *upperCommit) copyTarget(f string, depth int, id int64) (dir []string, name string, err error) {
-	loc := c.u.where[f]
-	name = loc.rel[len(loc.rel)-1]
+	loc := c.u.Where[f]
+	name = loc.Rel[len(loc.Rel)-1]
 	x, err := c.w.d.get(id)
 	if err != nil {
 		return nil, "", err
@@ -383,7 +206,7 @@ func (c *upperCommit) copyTarget(f string, depth int, id int64) (dir []string, n
 		return nil, "", err
 	}
 	switch {
-	case alive && depth == len(loc.rel):
+	case alive && depth == len(loc.Rel):
 		name = x.Name
 		dir, err = workspace.SplitPath(c.w.d.pathOf(x.Parent))
 		return dir, name, err
@@ -392,7 +215,7 @@ func (c *upperCommit) copyTarget(f string, depth int, id int64) (dir []string, n
 		if err != nil {
 			return nil, "", err
 		}
-		return append(segs, loc.rel[depth:len(loc.rel)-1]...), name, nil
+		return append(segs, loc.Rel[depth:len(loc.Rel)-1]...), name, nil
 	default:
 		dir, _, err = c.fallbackDir(loc, depth)
 		return dir, name, err
@@ -403,13 +226,13 @@ func (c *upperCommit) copyTarget(f string, depth int, id int64) (dir []string, n
 // own: the nearest folder above the node, as it stood at the base, that is
 // still live and still inside the original write mount, or the mount folder
 // itself. ok is false when the mount is gone.
-func (c *upperCommit) fallbackDir(loc upLoc, depth int) (dir []string, ok bool, err error) {
-	if _, open := c.open[loc.mount]; !open {
+func (c *upperCommit) fallbackDir(loc upperset.Loc, depth int) (dir []string, ok bool, err error) {
+	if _, open := c.open[loc.Mount]; !open {
 		return nil, false, nil
 	}
 	cands := []int64{}
 	for k := depth - 1; k >= 1; k-- {
-		aid, found, err := c.nodeAtBase(loc.mount, loc.rel, k)
+		aid, found, err := c.nodeAtBase(loc.Mount, loc.Rel, k)
 		if err != nil {
 			return nil, false, err
 		}
@@ -417,7 +240,7 @@ func (c *upperCommit) fallbackDir(loc upLoc, depth int) (dir []string, ok bool, 
 			cands = append(cands, aid)
 		}
 	}
-	cands = append(cands, c.v.Mounts[loc.mount].NodeID)
+	cands = append(cands, c.v.Mounts[loc.Mount].NodeID)
 	for _, aid := range cands {
 		if live, err := c.live(aid); err != nil {
 			return nil, false, err
@@ -428,7 +251,7 @@ func (c *upperCommit) fallbackDir(loc upLoc, depth int) (dir []string, ok bool, 
 		if err != nil {
 			return nil, false, err
 		}
-		if c.inMount(segs, loc.mount) {
+		if c.inMount(segs, loc.Mount) {
 			return segs, true, nil
 		}
 	}
@@ -461,13 +284,13 @@ func (c *upperCommit) inWriteMount(dir []string) bool {
 // A copy lands only inside a write mount of the view: when the node now
 // stands elsewhere, the copy goes to the nearest live folder above it in its
 // original mount, and when there is none, no copy is kept.
-func (c *upperCommit) keepGone(f string, uf upperFile, depth int, id int64) error {
+func (c *upperCommit) keepGone(f string, uf upperset.File, depth int, id int64) error {
 	dir, name, err := c.copyTarget(f, depth, id)
 	if err != nil {
 		return err
 	}
 	if !c.inWriteMount(dir) {
-		loc := c.u.where[f]
+		loc := c.u.Where[f]
 		var ok bool
 		if dir, ok, err = c.fallbackDir(loc, depth); err != nil {
 			return err
@@ -476,7 +299,7 @@ func (c *upperCommit) keepGone(f string, uf upperFile, depth int, id int64) erro
 			c.conflict(f, workspace.ReasonChanged, "")
 			return nil
 		}
-		name = loc.rel[len(loc.rel)-1]
+		name = loc.Rel[len(loc.Rel)-1]
 	}
 	kept := ""
 	err = c.w.step(func() error {
@@ -484,7 +307,7 @@ func (c *upperCommit) keepGone(f string, uf upperFile, depth int, id int64) erro
 		if err != nil {
 			return err
 		}
-		cp, err := c.w.conflictCopy(parent.ID, name, uf.sum, uf.size)
+		cp, err := c.w.conflictCopy(parent.ID, name, uf.Sum, uf.Size)
 		if err != nil {
 			return err
 		}
@@ -504,11 +327,11 @@ func (c *upperCommit) keepGone(f string, uf upperFile, depth int, id int64) erro
 
 func (c *upperCommit) run() error {
 	deletes := map[string]bool{}
-	for _, p := range c.u.whiteouts {
+	for _, p := range c.u.Whiteouts {
 		deletes[p] = true
 	}
-	for _, d := range sortedKeys(c.u.dirs) {
-		if c.u.dirs[d] {
+	for _, d := range upperset.SortedKeys(c.u.Dirs) {
+		if c.u.Dirs[d] {
 			if err := c.hiddenUnder(d, deletes); err != nil {
 				return err
 			}
@@ -542,9 +365,9 @@ func (c *upperCommit) hiddenUnder(d string, out map[string]bool) error {
 	}
 	for _, k := range c.w.d.children(n.ID) {
 		p := workspace.JoinChild(d, k.Name)
-		_, inFiles := c.u.files[p]
-		_, inDirs := c.u.dirs[p]
-		inFiles = inFiles || c.u.shown[p]
+		_, inFiles := c.u.Files[p]
+		_, inDirs := c.u.Dirs[p]
+		inFiles = inFiles || c.u.Shown[p]
 		switch {
 		case !inFiles && !inDirs:
 			out[p] = true
@@ -561,7 +384,7 @@ func (c *upperCommit) hiddenUnder(d string, out map[string]bool) error {
 func (c *upperCommit) moves(deletes map[string]bool) error {
 	d := c.w.d
 	used := map[string]bool{}
-	for _, p := range sortedKeys(deletes) {
+	for _, p := range upperset.SortedKeys(deletes) {
 		n, err := d.lookupPath(p)
 		if errors.Is(err, workspace.ErrNotFound) {
 			continue
@@ -577,8 +400,8 @@ func (c *upperCommit) moves(deletes map[string]bool) error {
 		} else if changed {
 			continue
 		}
-		for _, f := range sortedKeys(c.u.files) {
-			if used[f] || c.u.files[f].sum != n.Blob {
+		for _, f := range upperset.SortedKeys(c.u.Files) {
+			if used[f] || c.u.Files[f].Sum != n.Blob {
 				continue
 			}
 			if _, err := d.lookupPath(f); err == nil {
@@ -607,7 +430,7 @@ func (c *upperCommit) moves(deletes map[string]bool) error {
 			}
 			used[f] = true
 			delete(deletes, p)
-			delete(c.u.files, f)
+			delete(c.u.Files, f)
 			break
 		}
 	}
@@ -616,8 +439,8 @@ func (c *upperCommit) moves(deletes map[string]bool) error {
 
 func (c *upperCommit) deletes(deletes map[string]bool) error {
 	d := c.w.d
-	paths := sortedKeys(deletes)
-	slices.SortStableFunc(paths, func(a, b string) int { return depth(b) - depth(a) })
+	paths := upperset.SortedKeys(deletes)
+	slices.SortStableFunc(paths, func(a, b string) int { return upperset.Depth(b) - upperset.Depth(a) })
 	for _, p := range paths {
 		n, err := d.lookupPath(p)
 		if errors.Is(err, workspace.ErrNotFound) {
@@ -648,8 +471,8 @@ func (c *upperCommit) deletes(deletes map[string]bool) error {
 }
 
 func (c *upperCommit) folders() error {
-	dirs := sortedKeys(c.u.dirs)
-	slices.SortStableFunc(dirs, func(a, b string) int { return depth(a) - depth(b) })
+	dirs := upperset.SortedKeys(c.u.Dirs)
+	slices.SortStableFunc(dirs, func(a, b string) int { return upperset.Depth(a) - upperset.Depth(b) })
 	for _, d := range dirs {
 		n, err := c.w.d.lookupPath(d)
 		switch {
@@ -703,9 +526,9 @@ func (c *upperCommit) folders() error {
 
 func (c *upperCommit) writeFiles() error {
 	d := c.w.d
-	for _, f := range sortedKeys(c.u.files) {
-		uf := c.u.files[f]
-		if uf.sum == "" {
+	for _, f := range upperset.SortedKeys(c.u.Files) {
+		uf := c.u.Files[f]
+		if uf.Sum == "" {
 			return workspace.ErrInvalid // never write a file node without a blob
 		}
 		n, err := d.lookupPath(f)
@@ -747,7 +570,7 @@ func (c *upperCommit) writeFiles() error {
 			if err := c.create(f, uf); err != nil {
 				return err
 			}
-		case n.Blob == uf.sum:
+		case n.Blob == uf.Sum:
 			// not a change
 		default:
 			if changed, err := c.changedAfter(n.ID, true); err != nil {
@@ -765,7 +588,7 @@ func (c *upperCommit) writeFiles() error {
 				return err
 			}
 			ns := n.state
-			ns.Blob, ns.Size = uf.sum, uf.size
+			ns.Blob, ns.Size = uf.Sum, uf.Size
 			if _, err := c.w.apply(n.ID, workspace.KindFile, workspace.OpWrite, ns); err != nil {
 				return err
 			}
@@ -776,14 +599,14 @@ func (c *upperCommit) writeFiles() error {
 
 // keepCopy stores the layer's version of f beside n, which another writer
 // changed after the base, and reports the conflict.
-func (c *upperCommit) keepCopy(f string, n nodeRow, uf upperFile) error {
+func (c *upperCommit) keepCopy(f string, n nodeRow, uf upperset.File) error {
 	if err := c.w.checkParentWrite(n); denied(err) {
 		c.conflict(f, workspace.ReasonReadOnly, "")
 		return nil
 	} else if err != nil {
 		return err
 	}
-	cp, err := c.w.conflictCopy(n.Parent, n.Name, uf.sum, uf.size)
+	cp, err := c.w.conflictCopy(n.Parent, n.Name, uf.Sum, uf.Size)
 	if err != nil {
 		return err
 	}
@@ -793,8 +616,8 @@ func (c *upperCommit) keepCopy(f string, n nodeRow, uf upperFile) error {
 
 // create adds a new file at f. A sibling with the same folded name makes it a
 // conflict copy.
-func (c *upperCommit) create(f string, uf upperFile) error {
-	if uf.sum == "" {
+func (c *upperCommit) create(f string, uf upperset.File) error {
+	if uf.Sum == "" {
 		return workspace.ErrInvalid
 	}
 	segs, err := workspace.SplitPath(f)
@@ -808,14 +631,14 @@ func (c *upperCommit) create(f string, uf upperFile) error {
 			return err
 		}
 		if _, taken := c.w.d.childByFold(parent.ID, name); taken {
-			cp, err := c.w.conflictCopy(parent.ID, name, uf.sum, uf.size)
+			cp, err := c.w.conflictCopy(parent.ID, name, uf.Sum, uf.Size)
 			if err != nil {
 				return err
 			}
 			c.conflict(f, workspace.ReasonNameTaken, c.w.d.pathOf(cp.ID))
 			return nil
 		}
-		_, err = c.w.apply(0, workspace.KindFile, workspace.OpCreate, state{Parent: parent.ID, Name: name, Blob: uf.sum, Size: uf.size})
+		_, err = c.w.apply(0, workspace.KindFile, workspace.OpCreate, state{Parent: parent.ID, Name: name, Blob: uf.Sum, Size: uf.Size})
 		return err
 	})
 	if errors.Is(err, workspace.ErrExists) {

@@ -51,11 +51,7 @@ func (s *jsonStore) save() error {
 	if s.path == "" {
 		return nil
 	}
-	raw, err := json.Marshal(s.all)
-	if err != nil {
-		return err
-	}
-	return atomicfile.Write(s.path, raw, 0o600)
+	return atomicfile.WriteJSON(s.path, s.all, 0o600)
 }
 
 func (s *jsonStore) Put(_ context.Context, c Connector) error {

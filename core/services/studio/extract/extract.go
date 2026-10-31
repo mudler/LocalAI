@@ -302,6 +302,10 @@ func pages(ctx context.Context, name string, data []byte, l Limits) (string, Str
 		cut      string
 		err      error
 	}
+	// The reader stops at the next page once this call has returned, so a
+	// timeout does not leave it reading the rest of the document.
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
 	done := make(chan result, 1)
 	go func() {
 		defer func() {
