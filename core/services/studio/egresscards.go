@@ -98,7 +98,7 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 			return errEgressCardsFull
 		}
 		st.PutCard(egress.Card{ID: want.Load().(string), Host: r.Host, Port: r.Port, Kind: r.Kind, State: egress.CardPending,
-			Private: r.Private || isPrivateLiteral(r.Host), Op: op, AskedAt: now})
+			Private: r.Private || egress.PrivateLiteral(r.Host), Op: op, AskedAt: now})
 		created = true
 		return nil
 	})
@@ -188,10 +188,6 @@ func (s *Service) refuseCard(ctx context.Context, owner session.ChatRecord, id s
 		return nil
 	})
 	s.publishEgress(owner.Principal, owner.ID, id)
-}
-
-func isPrivateLiteral(host string) bool {
-	return !egress.Admits(egress.Settings{Ceiling: egress.PresetAll}, egress.Request{Host: host}, egress.BuiltinRegistries())
 }
 
 // EgressDecide answers a card of the user's chat: once (the rest of the
