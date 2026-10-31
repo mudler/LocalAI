@@ -134,6 +134,9 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, "already_answered", "the network card was answered already with another answer", studiosvc.ErrEgressAnswered),
 	fixed(http.StatusBadRequest, "egress_above_ceiling", "the limit an administrator set for the Sandbox network does not admit this host; an administrator can raise it in Settings > Tools > Sandbox network", studiosvc.ErrEgressHostAboveCeiling),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow a host inside your network; anyone can deny it", studiosvc.ErrEgressDecision),
+	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrGoalNotAllowed, studiosvc.ErrGoalReached),
+	verbatim(http.StatusNotFound, typeNotFound, "", studiosvc.ErrNoGoal),
+	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrGoalText),
 }
 
 // failFor maps a service error to a response.
@@ -158,7 +161,9 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 	if err != nil {
 		return schema.ChatsConversation{}, err
 	}
-	return conversation(rec, info), nil
+	conv := conversation(rec, info)
+	conv.Goal = h.goalJSON(rec.Goal)
+	return conv, nil
 }
 
 // Create starts a conversation.
@@ -370,6 +375,9 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		if e.Role == session.RoleCheckpoint {
 			m.Rev, m.Text = e.Rev, homePaths(principal, e.Text)
 		}
+		if e.Role == session.RoleGoal {
+			m.GoalEvent, m.GoalTurn = e.Note, e.Rev
+		}
 		out.Messages = append(out.Messages, m)
 	}
 	return out
@@ -506,7 +514,7 @@ func (h *Handlers) Stop(c echo.Context) error {
 
 // Events streams the conversation's live events.
 // @Summary Stream a chat's events.
-// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit) and files. Events are live only; read the transcript for what came before.
+// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again) and files. Events are live only; read the transcript for what came before.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Produce text/event-stream

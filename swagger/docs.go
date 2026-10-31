@@ -8341,7 +8341,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/events": {
             "get": {
-                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit) and files. Events are live only; read the transcript for what came before.",
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again) and files. Events are live only; read the transcript for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -8465,6 +8465,156 @@ const docTemplate = `{
                         "description": "The new chat",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversation"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/goal": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get a chat's goal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The goal, or null",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsGoalResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Sets the goal, replacing the one the chat had (replaced). With no turn running a turn starts on it at once. While the goal is active the server starts the next turn by itself when one ends, until the model calls goal_done or goal_blocked, you stop or clear it, or the limits chats_goal_max_turns and chats_goal_max_steps pause it. A chat that a trigger, a connector, a job or a page started, and a sub-agent run, cannot have a goal (409).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Set a chat's goal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the goal",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsGoalRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The new goal and the one it replaced",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsGoalResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The text is empty or longer than 2000 characters",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "This chat cannot have a goal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "A running turn goes on; nothing follows it by itself. Clearing a chat with no goal is not an error.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Clear a chat's goal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "goal null, replaced the goal that was removed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsGoalResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/goal/resume": {
+            "post": {
+                "description": "Makes a paused or blocked goal active again with new turn and step counts, and starts a turn on it when none runs. A reached goal does not resume (409): set a new one.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Resume a chat's goal.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The goal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsGoalResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or the chat has no goal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The goal is reached, or this chat cannot have a goal",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -18298,6 +18448,14 @@ const docTemplate = `{
                 "created": {
                     "type": "string"
                 },
+                "goal": {
+                    "description": "Goal is the chat's goal, when it has one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsGoal"
+                        }
+                    ]
+                },
                 "id": {
                     "type": "string"
                 },
@@ -18353,6 +18511,14 @@ const docTemplate = `{
                 },
                 "created": {
                     "type": "string"
+                },
+                "goal": {
+                    "description": "Goal is the chat's goal, when it has one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsGoal"
+                        }
+                    ]
                 },
                 "host_consent": {
                     "description": "HostConsent is the card of a command of the built-in bash that waits for\na yes while a turn runs; answer it with POST /api/chats/{id}/host-exec/consent.",
@@ -19116,6 +19282,65 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsGoal": {
+            "type": "object",
+            "properties": {
+                "max_steps": {
+                    "type": "integer"
+                },
+                "max_turns": {
+                    "type": "integer"
+                },
+                "note": {
+                    "description": "Note is the model's summary of a done goal, or the reason of a blocked\none.",
+                    "type": "string"
+                },
+                "paused_by": {
+                    "description": "PausedBy says why a paused goal paused: user, turn_limit, step_limit,\nerror or interrupted.",
+                    "type": "string"
+                },
+                "set": {
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is active, paused, done or blocked.",
+                    "type": "string"
+                },
+                "steps": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "turns": {
+                    "description": "Turns and Steps count the automatic turns and the model steps since the\ngoal was set or last resumed; MaxTurns and MaxSteps are the limits that\napply now (chats_goal_max_turns, chats_goal_max_steps).",
+                    "type": "integer"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsGoalRequest": {
+            "type": "object",
+            "properties": {
+                "text": {
+                    "description": "Text is the goal, 1 to 2000 characters.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsGoalResponse": {
+            "type": "object",
+            "properties": {
+                "goal": {
+                    "$ref": "#/definitions/schema.ChatsGoal"
+                },
+                "replaced": {
+                    "$ref": "#/definitions/schema.ChatsGoal"
+                }
+            }
+        },
         "schema.ChatsHistory": {
             "type": "object",
             "properties": {
@@ -19627,12 +19852,19 @@ const docTemplate = `{
                     "description": "DurMs is how long the model thought, for reasoning lines.",
                     "type": "integer"
                 },
+                "goal_event": {
+                    "description": "GoalEvent is set on a goal line: set, replaced, continue (a message the\nserver sent by itself to go on; Text is that message and GoalTurn its\nautomatic turn), paused (Text is the reason), resumed, done (Text is the\nsummary), blocked (Text is the reason) or cleared.",
+                    "type": "string"
+                },
+                "goal_turn": {
+                    "type": "integer"
+                },
                 "rev": {
                     "description": "Rev is the change set of a checkpoint line, whose text lists the paths\nit changed inside your home, one a line. POST /api/chats/files/undo\n{rev} undoes it.",
                     "type": "integer"
                 },
                 "role": {
-                    "description": "user, assistant, tool, checkpoint or reasoning",
+                    "description": "user, assistant, tool, checkpoint, reasoning or goal",
                     "type": "string"
                 },
                 "seq": {
