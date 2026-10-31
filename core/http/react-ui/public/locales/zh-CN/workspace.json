@@ -76,7 +76,8 @@
       "types": {
         "list": "列表",
         "metric": "指标",
-        "chats": "最近的聊天"
+        "chats": "最近的聊天",
+        "page": "页面"
       },
       "left": "剩余 {{count}}",
       "fromChats": "来自聊天",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。",
         "scheduleNote_other": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。"
       },
-      "opensSite": "{{host}}：在新标签页中打开"
+      "opensSite": "{{host}}：在新标签页中打开",
+      "page": {
+        "gone": "此页面已不可用",
+        "goneHint": "页面“{{name}}”已被移动或删除，或者你已无法打开它。",
+        "noWidget": "此页面没有小组件视图",
+        "noWidgetHint": "在 pages/{{name}}/page.json 中添加 \"widget\" 块，或让助手制作一个紧凑视图。",
+        "off": "共享页面已关闭",
+        "offHint": "管理员已在此服务器上关闭共享页面。",
+        "fix": "自定义主页",
+        "failed": "页面未能加载",
+        "retry": "重试",
+        "changed": "此页面在你允许后已更改",
+        "notAllowed": "你尚未允许此页面",
+        "allowHint": "它来自共享文件夹。在它以你的身份运行之前请先检查。",
+        "allow": "允许此页面",
+        "frameTitle": "{{title}}（主页上的页面）",
+        "refresh": "刷新",
+        "open": "打开页面",
+        "add": "添加页面",
+        "limit": "主页最多显示 {{max}} 个页面；请先移除一个再添加。",
+        "noneEligible": "要在此显示页面，请在其 page.json 中添加 \"widget\" 块。",
+        "pick": "页面",
+        "unavailable": "{{name}}（不可用）",
+        "sharedLabel": "共享",
+        "sizes": {
+          "small": "小",
+          "medium": "中",
+          "large": "大"
+        }
+      }
     },
     "fields": {
       "persona": {

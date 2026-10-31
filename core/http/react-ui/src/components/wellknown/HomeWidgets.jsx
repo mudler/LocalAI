@@ -11,6 +11,10 @@ import { widgetList, widgetData, cleanWidgets, move, sparkPath, formatMetric, WI
 import { cadenceOf, footerState, linkedTrigger, scheduledCount } from '../../utils/widgetTrigger'
 import { useHomeTriggers } from '../../hooks/useHomeTriggers'
 import WidgetFooter from './WidgetFooter'
+import PageTile from './PageTile'
+import { usePages } from '../../hooks/usePages'
+import { useSharedPages } from '../../hooks/useSharedPages'
+import { MAX_PAGE_TILES, eligiblePages, refKey, tileRef, tileSize } from '../../utils/pageTiles'
 import './wellKnown.css'
 
 function shortTime(ts, locale) {
@@ -130,12 +134,47 @@ function ChatsWidget({ w, conversations, onResume }) {
   )
 }
 
+// PagePick chooses the page of a page widget among the pages with a widget
+// block, and shows the size of its tile. A page the widget names that is no
+// longer eligible stays in the list, marked, so a save does not drop it.
+function PagePick({ r, eligible, byKey, onPick, t }) {
+  const key = refKey(tileRef(r))
+  const current = byKey.get(key)
+  const size = current ? tileSize(current.page) : ''
+  return (
+    <span className="wk-wrow__page">
+      <span className="dk-select-wrap">
+        <select className="dk-select" aria-label={t('wellKnown.home.page.pick')} value={key} onChange={e => onPick(e.target.value)} data-testid="home-layout-page">
+          {!current && <option value={key}>{t('wellKnown.home.page.unavailable', { name: r.page || '' })}</option>}
+          {eligible.map(e => (
+            <option key={e.key} value={e.key}>
+              {e.page.title || e.page.name}{e.ref.folder ? ` (${t('wellKnown.home.page.sharedLabel')})` : ''}
+            </option>
+          ))}
+        </select>
+      </span>
+      {size && (
+        <span className="wk-sizechip" data-size={size} title={t(`wellKnown.home.page.sizes.${size}`)} data-testid="home-layout-page-size">
+          <span className="wk-sizechip__box" aria-hidden="true" />
+          {t(`wellKnown.home.page.sizes.${size}`)}
+        </span>
+      )}
+    </span>
+  )
+}
+
 // LayoutEditor edits home.json: add, remove and reorder widgets, and pick the
 // data file of each. The data files offered are the .json files of the home
 // and of its data folder; any other path can be typed.
 function LayoutEditor({ wk, onDone }) {
   const { t } = useTranslation('workspace')
   const [rows, setRows] = useState(() => widgetList(wk.doc))
+  // The pages that can be a tile: the ones whose page.json has a widget block.
+  const own = usePages()
+  const shared = useSharedPages()
+  const eligible = useMemo(() => eligiblePages(own.pages, shared.pages), [own.pages, shared.pages])
+  const byKey = useMemo(() => new Map(eligible.map(e => [e.key, e])), [eligible])
+  const pageRows = rows.filter(r => r.type === 'page').length
   // The version the rows came from: a save starts from it, so a change by
   // someone else while editing is a conflict and not lost. After the conflict
   // is shown, a second Save puts these rows on top of the newer file.
@@ -161,6 +200,26 @@ function LayoutEditor({ wk, onDone }) {
     // No id yet: the save makes one from the title the user gives it.
     setRows([...rows, { id: '', type: 'list', title: t('wellKnown.home.newTitle'), source: '' }])
   }
+  const used = new Set(rows.filter(r => r.type === 'page').map(r => refKey(tileRef(r))))
+  const addPage = () => {
+    const pick = eligible.find(e => !used.has(e.key)) || eligible[0]
+    if (!pick) return
+    setRows([...rows, { id: '', type: 'page', title: '', source: '', page: pick.ref.name, ...(pick.ref.folder ? { folder: pick.ref.folder } : {}) }])
+  }
+  const setType = (i, type) => {
+    setRows(rows.map((r, j) => {
+      if (j !== i) return r
+      if (type !== 'page') return { ...r, type }
+      const pick = r.page ? null : eligible.find(e => !used.has(e.key)) || eligible[0]
+      return { ...r, type, ...(pick ? { page: pick.ref.name, folder: pick.ref.folder || undefined } : {}) }
+    }))
+    setProblem(null)
+  }
+  const setPage = (i, key) => {
+    const e = byKey.get(key)
+    setRows(rows.map((r, j) => (j === i && e ? { ...r, page: e.ref.name, folder: e.ref.folder || undefined } : r)))
+    setProblem(null)
+  }
   const save = async () => {
     setBusy(true)
     try {
@@ -184,15 +243,24 @@ function LayoutEditor({ wk, onDone }) {
       {rows.map((r, i) => (
         <div key={i} className="wk-wrow" data-testid="home-layout-row">
           <span className="dk-select-wrap">
-            <select className="dk-select" aria-label={t('wellKnown.home.type')} value={r.type} onChange={e => set(i, 'type', e.target.value)}>
-              {WIDGET_TYPES.map(ty => <option key={ty} value={ty}>{t(`wellKnown.home.types.${ty}`)}</option>)}
+            <select className="dk-select" aria-label={t('wellKnown.home.type')} value={r.type} onChange={e => setType(i, e.target.value)} data-testid="home-layout-type">
+              {WIDGET_TYPES.map(ty => (
+                <option key={ty} value={ty} disabled={ty === 'page' && r.type !== 'page' && (pageRows >= MAX_PAGE_TILES || eligible.length === 0)}>{t(`wellKnown.home.types.${ty}`)}</option>
+              ))}
             </select>
           </span>
-          <input className="dk-input" aria-label={t('wellKnown.home.title')} placeholder={t('wellKnown.home.title')} value={r.title} maxLength={60} onChange={e => set(i, 'title', e.target.value)} />
           <input
-            className="dk-input dk-mono" list="wk-data-files" aria-label={t('wellKnown.home.source')} placeholder={r.type === 'chats' ? t('wellKnown.home.noSourceNeeded') : 'data/tasks.json'}
-            value={r.type === 'chats' ? '' : r.source} disabled={r.type === 'chats'} onChange={e => set(i, 'source', e.target.value)}
+            className="dk-input" aria-label={t('wellKnown.home.title')} maxLength={60} value={r.title} onChange={e => set(i, 'title', e.target.value)}
+            placeholder={r.type === 'page' ? (byKey.get(refKey(tileRef(r)))?.page?.widget?.title || byKey.get(refKey(tileRef(r)))?.page?.title || t('wellKnown.home.title')) : t('wellKnown.home.title')}
           />
+          {r.type === 'page' ? (
+            <PagePick r={r} eligible={eligible} byKey={byKey} onPick={key => setPage(i, key)} t={t} />
+          ) : (
+            <input
+              className="dk-input dk-mono" list="wk-data-files" aria-label={t('wellKnown.home.source')} placeholder={r.type === 'chats' ? t('wellKnown.home.noSourceNeeded') : 'data/tasks.json'}
+              value={r.type === 'chats' ? '' : r.source} disabled={r.type === 'chats'} onChange={e => set(i, 'source', e.target.value)}
+            />
+          )}
           <span className="wk-wrow__tools">
             <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveUp')} disabled={i === 0} onClick={() => setRows(move(rows, i, i - 1))}><Icon name="arrow-up" /></button>
             <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm dk-btn--icon" aria-label={t('wellKnown.moveDown')} disabled={i === rows.length - 1} onClick={() => setRows(move(rows, i, i + 1))}><Icon name="arrow-down" /></button>
@@ -200,9 +268,14 @@ function LayoutEditor({ wk, onDone }) {
           </span>
         </div>
       ))}
+      {pageRows >= MAX_PAGE_TILES && <p className="wk-note" data-testid="home-layout-page-limit"><Icon name="info" /> {t('wellKnown.home.page.limit', { max: MAX_PAGE_TILES })}</p>}
+      {eligible.length === 0 && <p className="wk-note" data-testid="home-layout-no-pages"><Icon name="info" /> {t('wellKnown.home.page.noneEligible')}</p>}
       {problem && <p className="wk-note wk-note--error" role="alert"><Icon name="alert-circle" /> {problem}</p>}
       <div className="wk-actions">
         <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={add} disabled={rows.length >= 12} data-testid="home-layout-add"><Icon name="plus" /> {t('wellKnown.home.add')}</button>
+        {eligible.length > 0 && (
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={addPage} disabled={rows.length >= 12 || pageRows >= MAX_PAGE_TILES} data-testid="home-layout-add-page"><Icon name="file-code" /> {t('wellKnown.home.page.add')}</button>
+        )}
         <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" onClick={save} disabled={busy} data-testid="home-layout-save"><Icon name="save" /> {t('wellKnown.save')}</button>
         <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={onDone}>{t('wellKnown.cancel')}</button>
       </div>
@@ -222,16 +295,26 @@ function LayoutEditor({ wk, onDone }) {
 export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRequest = 0 }) {
   const { t } = useTranslation('workspace')
   const [editing, setEditing] = useState(false)
+  const own = usePages()
+  const listedPage = (w) => {
+    const ref = tileRef(w)
+    return ref && !ref.folder ? own.pages.find(p => p.name === ref.name) : undefined
+  }
+
   const box = useRef(null)
+  const fix = () => {
+    setEditing(true)
+    box.current?.scrollIntoView?.({ block: 'nearest' })
+  }
   useEffect(() => {
     if (editRequest <= 0) return
     setEditing(true)
     box.current?.scrollIntoView?.({ block: 'nearest' })
   }, [editRequest])
   const widgets = useMemo(() => widgetList(wk.doc), [wk.doc])
-  const triggers = useHomeTriggers(widgets.some(w => w.type !== 'chats' && w.source))
+  const triggers = useHomeTriggers(widgets.some(w => w.type !== 'chats' && w.type !== 'page' && w.source))
   if (!wk.doc) return null
-  const scheduled = scheduledCount(widgets.filter(w => w.type !== 'chats'), triggers.triggers)
+  const scheduled = scheduledCount(widgets.filter(w => w.type !== 'chats' && w.type !== 'page'), triggers.triggers)
 
   return (
     <div className="wk-home" data-testid="home-widgets" ref={box}>
@@ -242,7 +325,9 @@ export default function HomeWidgets({ wk, conversations, onResume, onAsk, editRe
         <div className="wk-widgets">
           {widgets.map(w => (w.type === 'chats'
             ? <ChatsWidget key={w.id} w={w} conversations={conversations} onResume={onResume} />
-            : <DataWidget key={w.id} w={w} triggers={triggers} />))}
+            : w.type === 'page'
+              ? <PageTile key={w.id} w={w} listed={listedPage(w)} onFix={fix} />
+              : <DataWidget key={w.id} w={w} triggers={triggers} />))}
         </div>
       )}
       {editing ? (

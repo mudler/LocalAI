@@ -30,7 +30,7 @@ A page is a folder of your home:
 pages/
   tasks/
     index.html     the page (required, at most 1 MiB)
-    page.json      title, icon and description (optional)
+    page.json      title, icon, description and widget (optional)
     tasks.json     data files of the page, any name, any subfolder
 ```
 
@@ -45,6 +45,12 @@ pages/
 
   A missing or broken `page.json` does not stop the page; the folder name is
   then the title.
+- A `widget` block in `page.json` lets the page be a tile on Home (see
+  [A page on Home](#a-page-on-home)):
+
+  ```json
+  { "title": "Clock", "widget": { "size": "small", "title": "Now" } }
+  ```
 
 ## In the UI
 
@@ -103,7 +109,8 @@ path is relative to the page's own folder.
 | `localai.files.list(dir)` | `[{path, kind, size, version}]`. `dir` is optional; the default is the page's folder. |
 | `localai.chat.send(text)` | `{sent: true, chat_id}` or `{sent: false}`. See below. |
 | `localai.on('files.changed', fn)` | Calls `fn({paths})` when files of the page's folder change. `paths` are relative to the folder. When LocalAI cannot tell what changed (for example after the window was in the background), `fn` gets `{paths: [], resync: true}`: read again what you show. Returns a function that removes the listener. |
-| `localai.page` | `{name, title}` of the page. |
+| `localai.on('visibility', fn)` | Calls `fn({visible})` when the page goes out of sight (the tab is hidden, or its tile on Home scrolled away) and when it comes back. Pause timers and animations while `visible` is `false`. |
+| `localai.page` | `{name, title, mode, size}` of the page. `mode` is `page` in the full view and `widget` in a tile on Home; `size` is the tile's size (`small`, `medium`, `large`), empty in the full view. |
 
 Example: a counter that keeps its value in `count.json`.
 
@@ -227,6 +234,66 @@ again after a run began waits for the trigger's minimum gap (one minute by
 default), the run's own writes start nothing, and the trigger has a daily limit
 (24 runs by default). The bridge also limits writes (below).
 
+## A page on Home
+
+A page with a `widget` block in its `page.json` can also be a tile on Home.
+The tile runs the same page, in the same sandbox and with the same bridge, but
+in its compact mode: `localai.page.mode` is `widget`, and `<html>` has
+`data-mode="widget"` and `data-size="small|medium|large"`, so a style sheet can
+switch layout without script. The page decides how its tile looks; LocalAI
+does not shrink the full page.
+
+| Field | Meaning |
+|---|---|
+| `widget.size` | The height of the tile: `small` (one line or a number), `medium` (a short list) or `large` (a table or a chart; two columns wide when Home has room). Any other value is `medium`. |
+| `widget.title` | The title of the tile, when it should be shorter than the page's. |
+
+A page without a `widget` block cannot be a tile. To put a page on Home, add
+the block and a widget `{"id": "clock", "type": "page", "page": "clock"}` to
+`LocalAI/home.json` (or pick the page in **Customise Home**, or ask the
+assistant to "put it on Home"). A page of a shared folder also has
+`"folder": <folder_id>`. Home shows at most three page tiles.
+
+A small clock that is a full page in its own view and one line on Home:
+
+```html
+<!doctype html>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 0; padding: 24px; }
+  #time { font-size: 64px; }
+  :root[data-mode="widget"] body { padding: 12px 16px; }
+  :root[data-mode="widget"] #time { font-size: 28px; }
+  :root[data-mode="widget"] .more { display: none; }
+</style>
+<div id="time"></div>
+<p class="more">The time where you are. On Home, only the time shows.</p>
+<script>
+  const el = document.getElementById('time')
+  let timer = 0
+  const tick = () => { el.textContent = new Date().toLocaleTimeString() }
+  const start = () => { tick(); timer = setInterval(tick, 1000) }
+  start()
+  localai.on('visibility', ({ visible }) => {
+    clearInterval(timer)
+    if (visible) start()
+  })
+</script>
+```
+
+The tile has a bar with the page's icon and title, **Open page** and a refresh
+button. Its frame is made only when the tile scrolls into view, and it is taken
+down when the tile is far off screen; nearer, or in a hidden tab, the page gets
+`visibility` `false` and should pause. Home keeps at most three frames alive.
+The height of each tile is fixed by its size, so nothing moves when a page
+loads. A tile reads its data as the full page does, with `fetch` or
+`localai.files.read`, and `files.changed` keeps it live.
+
+In a tile, a link of the page asks before it opens, as in the full view.
+`chat.send` is refused: open the page to send a message. When a page is gone,
+cannot be read, or has no `widget` block, the tile says so with a link to
+**Customise Home**. A shared page needs your consent first: the tile shows
+**Allow this page**, which opens the same trust sheet as the full view.
+
 ## Limits
 
 | Limit | Value |
@@ -313,18 +380,27 @@ Escape is Cancel. **View source** shows `index.html` as text.
 
 A consent is kept against the page (the node of its folder, so a rename does
 not lose it and a page deleted and made again asks again) and the hash of its
-code: `index.html` and `page.json`. When the author changes either, the next
-open asks again and says what changed: the size of each file and the lines of
-`index.html`, against the version you allowed. A page that is open when its
+code: `index.html`, `page.json` and the files of code that LocalAI puts into
+the page: every `<script src>`, `<link rel="stylesheet">`, relative CSS
+`@import` and ES module import of the folder, followed through the whole
+module graph (the `code_files` of the page in the API). A file of code that
+the page names and that is missing counts too, so adding it later also asks
+again. When the author changes any of them, the next open asks again and says
+what changed: the size of each file and the lines of `index.html`, or which
+files of code there are when only one of them changed. A page that is open when its
 author changes it keeps running the version you allowed, and its strip says
-that it changed, with **Review**. The data files of a page are not in the hash:
-a page saves them all the time. A page whose code reads its data and runs it
-as code does what its data says; you trust its author for that when you allow
-it. The same goes for the scripts, style sheets and modules next to the page
-(`app.js`, `style.css`): they are files of the folder, not in the hash, so a
-change of them does not ask again. A page that you allow trusts its author for
-every file of its folder. The files go into the page only after you allow it,
-with the same consent check as the bridge.
+that it changed, with **Review**; a file of code it then asks for is refused
+(`409`), so new code never runs under the old consent. The UI puts no text file
+into a shared page that is not in its `code_files`.
+
+The data files of a page are not in the hash: a page saves them all the time,
+and images are only pictures. A page whose code reads its data and runs it as
+code does what its data says; you trust its author for that when you allow it.
+The files go into the page only after you allow it, with the same consent
+check as the bridge. To find the files of code, the server reads the page's
+markup and modules; each frontend keeps what it found per file content in a
+small cache, which only saves reads (the same content gives the same files on
+every frontend).
 
 A consent for one page never lets another page run, even one with the same
 code, and it is yours only. **Stop allowing this page** in the page's menu
@@ -360,7 +436,7 @@ The UI uses these routes. They need the `chats` and `pages` features.
 
 | Route | Use |
 |---|---|
-| `GET /api/chats/pages` | List your pages. |
+| `GET /api/chats/pages` | List your pages, each with its `widget` block when it has one. |
 | `GET /api/chats/pages/{name}` | A page with its `index.html` as `html`. |
 | `GET /api/chats/pages/{name}/files?dir=` | `files.list` |
 | `GET /api/chats/pages/{name}/file?path=` | `files.read`. With `encoding=base64` the file must be an image (by extension) and `content` is its bytes in base64, with `media_type`. The UI uses it to put images into the page; the bridge reads text only. |
@@ -369,11 +445,11 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
-| `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
+| `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `code_files`, `widget`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
 | `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`). |
 | `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. |
 | `DELETE /api/chats/shared-pages/{folder_id}/{name}/consent` | Stop allowing it. |
-| `GET .../files`, `GET` and `PUT .../file`, `POST .../chat` | The bridge of a shared page, as above. Each call sends `X-LocalAI-Page-Hash` (the version that runs) and, for a visit, `X-LocalAI-Page-Visit`. Without a consent: `403 page_not_allowed`. |
+| `GET .../files`, `GET` and `PUT .../file`, `POST .../chat` | The bridge of a shared page, as above. Each call sends `X-LocalAI-Page-Hash` (the version that runs) and, for a visit, `X-LocalAI-Page-Visit`. Without a consent: `403 page_not_allowed`. A read of a file of code by a frame of an older version: `409`. |
 
 With shared pages off, every shared-pages route but the list and the revoke
 answers `403 shared_pages_off`.

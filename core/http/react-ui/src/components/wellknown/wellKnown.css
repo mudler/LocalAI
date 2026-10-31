@@ -245,3 +245,43 @@
 .wk-foot--warn .wk-foot__act { color: var(--dk-warn-text); }
 .wk-foot--err { background: var(--color-error-light); color: var(--dk-error-text); border-top-color: var(--color-error-border); }
 .wk-foot--err .wk-foot__act { color: var(--dk-error-text); }
+
+/* Page tiles: a page of the workspace in its compact mode. The body has the
+   height of the tile's size from the start, so nothing moves when the frame
+   loads; a large tile spans two columns where the grid has them. */
+.wk-widgets { container-type: inline-size; }
+.wk-ptile { --wk-ptile-h: 240px; padding: 0; overflow: hidden; align-self: start; }
+.wk-ptile--small { --wk-ptile-h: 132px; }
+.wk-ptile--large { --wk-ptile-h: 380px; }
+@container (min-width: 520px) {
+  .wk-ptile--large { grid-column: span 2; }
+}
+.wk-widget h2.wk-ptile__bar { margin: 0; padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4); align-items: center; min-height: 40px; border-bottom: 1px solid var(--color-border-card); }
+.wk-ptile__name { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.wk-ptile__icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--dk-accent-text); }
+.wk-ptile__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wk-ptile__tools { display: inline-flex; align-items: center; gap: var(--sp-1); flex-shrink: 0; font-weight: var(--font-weight-regular); }
+.wk-ptile__open { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-2); font-size: var(--text-xs); color: var(--dk-accent-text); text-decoration: none; white-space: nowrap; border-radius: var(--r-sm); }
+.wk-ptile__open:hover { text-decoration: underline; }
+.wk-ptile__open:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.wk-ptile__open .lai-icon { width: 12px; height: 12px; }
+.wk-ptile__body { position: relative; height: var(--wk-ptile-h); min-width: 0; }
+.wk-ptile .pg-frame.wk-ptile__frame { display: block; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; background: var(--color-bg-secondary); }
+.wk-ptile__fill { position: absolute; inset: var(--sp-3); width: auto; height: auto; }
+.wk-ptile__idle { border-radius: var(--r-md); background: var(--color-bg-tertiary); opacity: 0.5; }
+.wk-ptile__calm { height: 100%; box-sizing: border-box; padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: var(--sp-1); overflow: auto; }
+.wk-ptile__calm-icon { width: 18px; height: 18px; color: var(--color-text-muted); margin-bottom: var(--sp-1); }
+.wk-ptile__calm-title { margin: 0; font-size: var(--text-sm); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.wk-ptile__calm-text { margin: 0 0 var(--sp-2); font-size: var(--text-xs); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.wk-ptile--small .wk-ptile__calm-icon { display: none; }
+.wk-ptile--small .wk-ptile__calm-text { margin-bottom: var(--sp-1); }
+.wk-ptile__ask { position: absolute; inset: 0; overflow: auto; padding: var(--sp-2); background: color-mix(in srgb, var(--color-bg-secondary) 94%, transparent); }
+.wk-ptile__ask .pg-ask { margin: 0; }
+
+/* The size of a page's tile, in the layout editor. */
+.wk-wrow__page { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.wk-wrow__page .dk-select-wrap { flex: 1 1 auto; min-width: 0; }
+.wk-sizechip { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; font-size: var(--text-xs); color: var(--color-text-muted); white-space: nowrap; }
+.wk-sizechip__box { width: 14px; height: 8px; border: 1.5px solid var(--color-border-strong); border-radius: var(--r-xs); }
+.wk-sizechip[data-size="medium"] .wk-sizechip__box { height: 12px; }
+.wk-sizechip[data-size="large"] .wk-sizechip__box { width: 22px; height: 16px; }

@@ -147,10 +147,13 @@ removes and orders the widgets.
   "widgets": [
     { "id": "tasks", "type": "list", "title": "Open tasks", "source": "data/tasks.json", "trigger": "6f1c0e2a9b" },
     { "id": "tokens", "type": "metric", "title": "Tokens this week", "source": "data/tokens.json" },
-    { "id": "chats", "type": "chats", "title": "Last chats" }
+    { "id": "chats", "type": "chats", "title": "Last chats" },
+    { "id": "board", "type": "page", "page": "task-board" }
   ]
 }
 ```
+
+Home has at most 12 widgets.
 
 A `list` or `metric` widget reads its `source`, a data file in your home:
 
@@ -179,6 +182,17 @@ A metric uses `value`, `note` and `series` (numbers for the small line). A
 `chats` widget lists your last chats and needs no source; it replaces the list
 of recent chats under it. A missing data file shows as empty. A data file that
 breaks its schema shows its last valid data, marked as stale.
+
+A `page` widget shows one of your [pages](/features/pages/#a-page-on-home) as
+a tile, in the page's compact mode. It names the page (`page`, the folder name
+under `pages/`) and, for a page of a shared folder, `folder` (the folder id).
+Its `title` is optional: without it, the tile shows the title of the page's
+`widget` block, or the page's own title. Only a page whose `page.json` has a
+`widget` block can be a tile, and Home shows at most three page widgets; the
+server refuses a layout with more, and says so. **Customise Home** lists the
+pages that can be a tile, with their size. A tile whose page is gone, or has no
+`widget` block, says so calmly and links to **Customise Home**; a shared page
+you have not allowed shows **Allow this page**.
 
 `updatedAt` is an RFC 3339 time. `source` says who wrote the data: `kind` is
 `trigger`, `page` (with `page`, the page's name), `assistant` or `you`, and

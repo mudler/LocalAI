@@ -274,7 +274,7 @@ export function move(list, from, to) {
   return next
 }
 
-export const WIDGET_TYPES = ['list', 'metric', 'chats']
+export const WIDGET_TYPES = ['list', 'metric', 'chats', 'page']
 
 // widgetList reads home.json: the widgets in order, each with a usable id.
 export function widgetList(doc) {
@@ -282,14 +282,15 @@ export function widgetList(doc) {
   if (!Array.isArray(list)) return []
   const seen = new Set()
   return list
-    .filter(w => w && WIDGET_TYPES.includes(w.type) && typeof w.title === 'string')
+    // A page widget may leave its title out: the tile shows the page's.
+    .filter(w => w && WIDGET_TYPES.includes(w.type) && (typeof w.title === 'string' || w.type === 'page'))
     .map((w, i) => {
       let id = typeof w.id === 'string' && w.id ? w.id : `w${i}`
       while (seen.has(id)) id += '-x'
       seen.add(id)
       // The other keys stay (for example trigger, or a key the assistant
       // added), so a save from the layout editor does not drop them.
-      return { ...w, id, type: w.type, title: w.title, source: typeof w.source === 'string' ? w.source : '' }
+      return { ...w, id, type: w.type, title: typeof w.title === 'string' ? w.title : '', source: typeof w.source === 'string' ? w.source : '' }
     })
 }
 
@@ -307,12 +308,29 @@ export function cleanWidgets(rows) {
   const ids = []
   for (const r of rows) {
     const title = (r.title || '').trim()
-    if (!title || !WIDGET_TYPES.includes(r.type)) continue
+    if (!WIDGET_TYPES.includes(r.type)) continue
+    if (r.type === 'page') {
+      // A page widget names its page; its title is optional.
+      if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(r.page || '')) continue
+      const id = /^[a-z0-9][a-z0-9-]{0,39}$/.test(r.id || '') && !ids.includes(r.id) ? r.id : widgetId(title || r.page, ids)
+      ids.push(id)
+      const w = { ...r, id, type: 'page', page: r.page }
+      delete w.source
+      delete w.trigger
+      if (title) w.title = title
+      else delete w.title
+      if (!(Number.isInteger(r.folder) && r.folder > 0)) delete w.folder
+      out.push(w)
+      continue
+    }
+    if (!title) continue
     const id = /^[a-z0-9][a-z0-9-]{0,39}$/.test(r.id || '') && !ids.includes(r.id) ? r.id : widgetId(title, ids)
     ids.push(id)
     // Keys the editor does not show are kept as they were.
     const w = { ...r, id, type: r.type, title }
     delete w.source
+    delete w.page
+    delete w.folder
     const source = (r.source || '').trim().replace(/^\/+/, '')
     if (r.type !== 'chats' && source) w.source = source
     if (r.type === 'chats') delete w.trigger

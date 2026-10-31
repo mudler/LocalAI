@@ -10,6 +10,10 @@ type PagesPage struct {
 	Title       string `json:"title"`
 	Icon        string `json:"icon,omitempty"`
 	Description string `json:"description,omitempty"`
+	// Widget is the widget block of page.json: the page can be a tile on Home
+	// (a widget of type page in LocalAI/home.json). Absent when the page has
+	// none.
+	Widget *PagesWidget `json:"widget,omitempty"`
 	// Source is "own" for a page in the user's home and "shared" for a page of
 	// a shared folder.
 	Source string `json:"source"`
@@ -22,19 +26,31 @@ type PagesPage struct {
 	AuthorName string `json:"author_name,omitempty"`
 	// A shared page has its shared folder (Folder, a workspace path, and
 	// FolderID, the id the shared-pages routes take), whether you may write in
-	// it, the hash of its code (index.html and page.json; a consent is kept
-	// against it) and your consent: none, allowed or changed.
-	Folder   string `json:"folder,omitempty"`
-	FolderID int64  `json:"folder_id,omitempty"`
-	Writable bool   `json:"writable,omitempty"`
-	Hash     string `json:"hash,omitempty"`
-	Consent  string `json:"consent,omitempty"`
-	MetaSize int64  `json:"meta_size,omitempty"`
+	// it, the hash of its code (index.html, page.json and the files of
+	// code_files; a consent is kept against it) and your consent: none,
+	// allowed or changed. code_files are the scripts, style sheets and modules
+	// of the page's folder that the page names: the UI puts no other text
+	// file into a shared page.
+	CodeFiles []string `json:"code_files,omitempty"`
+	Folder    string   `json:"folder,omitempty"`
+	FolderID  int64    `json:"folder_id,omitempty"`
+	Writable  bool     `json:"writable,omitempty"`
+	Hash      string   `json:"hash,omitempty"`
+	Consent   string   `json:"consent,omitempty"`
+	MetaSize  int64    `json:"meta_size,omitempty"`
 	// UpdatedAt and UpdatedBy are the last change to anything in the folder.
 	UpdatedAt time.Time `json:"updated_at"`
 	UpdatedBy string    `json:"updated_by"`
 	Rev       int64     `json:"rev"`
 	Size      int64     `json:"size"`
+}
+
+// PagesWidget is the widget block of a page.json: the page's tile on Home.
+type PagesWidget struct {
+	// Size is the height of the tile: small, medium or large.
+	Size string `json:"size"`
+	// Title is the tile's title when it should differ from the page's.
+	Title string `json:"title,omitempty"`
 }
 
 // PagesList is the user's pages, sorted by name.

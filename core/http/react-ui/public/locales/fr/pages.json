@@ -90,7 +90,8 @@
       "same": "Ce qu’elle peut faire est inchangé.",
       "warn": "Si vous l’autorisez, cette version s’exécute à chaque ouverture, jusqu’à ce que {{author}} la modifie à nouveau.",
       "view": "Voir les modifications",
-      "lines": "{{before}} → {{after}} lignes"
+      "lines": "{{before}} → {{after}} lignes",
+      "code": "Un script, une feuille de style ou un module de la page a changé : {{files}}"
     },
     "pill": {
       "notYet": "Pas encore autorisée",

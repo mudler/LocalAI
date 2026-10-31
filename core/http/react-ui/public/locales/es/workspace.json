@@ -76,7 +76,8 @@
       "types": {
         "list": "Lista",
         "metric": "Métrica",
-        "chats": "Últimos chats"
+        "chats": "Últimos chats",
+        "page": "Página"
       },
       "left": "{{count}} restantes",
       "fromChats": "de los chats",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "{{count}} widget se actualiza según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso.",
         "scheduleNote_other": "{{count}} widgets se actualizan según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso."
       },
-      "opensSite": "{{host}}: se abre en una pestaña nueva"
+      "opensSite": "{{host}}: se abre en una pestaña nueva",
+      "page": {
+        "gone": "Esta página ya no está disponible",
+        "goneHint": "La página \"{{name}}\" se movió o se eliminó, o ya no puedes abrirla.",
+        "noWidget": "Esta página no tiene vista de widget",
+        "noWidgetHint": "Añade un bloque \"widget\" a pages/{{name}}/page.json o pide al asistente una vista compacta.",
+        "off": "Las páginas compartidas están desactivadas",
+        "offHint": "Un administrador desactivó las páginas compartidas en este servidor.",
+        "fix": "Personalizar Inicio",
+        "failed": "La página no se cargó",
+        "retry": "Reintentar",
+        "changed": "Esta página cambió desde que la permitiste",
+        "notAllowed": "Aún no has permitido esta página",
+        "allowHint": "Viene de una carpeta compartida. Revísala antes de que se ejecute en tu nombre.",
+        "allow": "Permitir esta página",
+        "frameTitle": "{{title}} (página en Inicio)",
+        "refresh": "Actualizar",
+        "open": "Abrir página",
+        "add": "Añadir una página",
+        "limit": "Inicio muestra como máximo {{max}} páginas; quita una para añadir otra.",
+        "noneEligible": "Para mostrar aquí una página, añade un bloque \"widget\" a su page.json.",
+        "pick": "Página",
+        "unavailable": "{{name}} (no disponible)",
+        "sharedLabel": "compartida",
+        "sizes": {
+          "small": "Pequeño",
+          "medium": "Mediano",
+          "large": "Grande"
+        }
+      }
     },
     "fields": {
       "persona": {

@@ -90,7 +90,8 @@
       "same": "Was sie tun kann, ist wie vorher.",
       "warn": "Wenn du sie erlaubst, läuft diese Version bei jedem Öffnen, bis {{author}} sie wieder ändert.",
       "view": "Änderungen ansehen",
-      "lines": "{{before}} → {{after}} Zeilen"
+      "lines": "{{before}} → {{after}} Zeilen",
+      "code": "Ein Skript, Stylesheet oder Modul der Seite hat sich geändert: {{files}}"
     },
     "pill": {
       "notYet": "Noch nicht erlaubt",

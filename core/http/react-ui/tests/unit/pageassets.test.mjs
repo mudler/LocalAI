@@ -299,3 +299,23 @@ test('shim and inliner resolve a URL the same way', async () => {
     if (want) assert.equal(reads[before], want, ref)
   }
 })
+
+test('inliner: a shared page gets only the files of code its consent covers', async () => {
+  const reads = []
+  const files = { 'app.js': 'console.log(1)', 'extra.js': 'steal()', 'style.css': 'b{}', 'm.js': "import './n.js'", 'n.js': 'x' }
+  const io = {
+    read: async (p) => { reads.push(p); if (!(p in files)) throw Object.assign(new Error('nf'), { status: 404 }); return { content: files[p] } },
+    readImage: async () => { throw Object.assign(new Error('nf'), { status: 404 }) },
+  }
+  const html = '<link rel="stylesheet" href="style.css"><script src="app.js"></script><script src="extra.js"></script><script type="module" src="m.js"></script>'
+  const allowed = new Set(['app.js', 'style.css', 'm.js'])
+  const out = await inlinePageAssets(html, io, { allowText: (p) => allowed.has(p) })
+  assert.ok(!reads.includes('extra.js'), 'a file outside the set is never read')
+  assert.ok(!reads.includes('n.js'))
+  assert.match(out.html, /console\.log\(1\)/)
+  assert.doesNotMatch(out.html, /steal/)
+  assert.ok(out.notes.some((n) => n.path === 'extra.js' && n.level === 'error' && /not one of the files of code/.test(n.message)))
+  assert.ok(out.notes.some((n) => n.path === 'n.js'))
+  const own = await inlinePageAssets(html, io)
+  assert.match(own.html, /steal/, 'an own page has no such limit')
+})

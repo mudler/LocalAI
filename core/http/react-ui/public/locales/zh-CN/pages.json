@@ -90,7 +90,8 @@
       "same": "它能做的事与之前相同。",
       "warn": "如果你允许，每次打开都会运行此版本，直到 {{author}} 再次修改它。",
       "view": "查看更改",
-      "lines": "{{before}} → {{after}} 行"
+      "lines": "{{before}} → {{after}} 行",
+      "code": "页面的脚本、样式表或模块已更改：{{files}}"
     },
     "pill": {
       "notYet": "尚未允许",

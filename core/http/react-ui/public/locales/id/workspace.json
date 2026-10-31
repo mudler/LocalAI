@@ -76,7 +76,8 @@
       "types": {
         "list": "Daftar",
         "metric": "Metrik",
-        "chats": "Chat terakhir"
+        "chats": "Chat terakhir",
+        "page": "Halaman"
       },
       "left": "{{count}} tersisa",
       "fromChats": "dari chat",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "{{count}} widget diperbarui sesuai jadwal. Jalannya memakai model Anda dan dihitung dalam penggunaan Anda.",
         "scheduleNote_other": "{{count}} widget diperbarui sesuai jadwal. Jalannya memakai model Anda dan dihitung dalam penggunaan Anda."
       },
-      "opensSite": "{{host}}: terbuka di tab baru"
+      "opensSite": "{{host}}: terbuka di tab baru",
+      "page": {
+        "gone": "Halaman ini tidak tersedia lagi",
+        "goneHint": "Halaman \"{{name}}\" dipindahkan atau dihapus, atau Anda tidak dapat membukanya lagi.",
+        "noWidget": "Halaman ini tidak punya tampilan widget",
+        "noWidgetHint": "Tambahkan blok \"widget\" ke pages/{{name}}/page.json, atau minta asisten membuat tampilan ringkas.",
+        "off": "Halaman bersama dimatikan",
+        "offHint": "Administrator mematikan halaman bersama di server ini.",
+        "fix": "Sesuaikan Beranda",
+        "failed": "Halaman tidak dimuat",
+        "retry": "Coba lagi",
+        "changed": "Halaman ini berubah sejak Anda mengizinkannya",
+        "notAllowed": "Anda belum mengizinkan halaman ini",
+        "allowHint": "Halaman ini berasal dari folder bersama. Periksa sebelum berjalan atas nama Anda.",
+        "allow": "Izinkan halaman ini",
+        "frameTitle": "{{title}} (halaman di Beranda)",
+        "refresh": "Muat ulang",
+        "open": "Buka halaman",
+        "add": "Tambah halaman",
+        "limit": "Beranda menampilkan paling banyak {{max}} halaman; hapus satu untuk menambah yang lain.",
+        "noneEligible": "Untuk menampilkan halaman di sini, beri page.json-nya blok \"widget\".",
+        "pick": "Halaman",
+        "unavailable": "{{name}} (tidak tersedia)",
+        "sharedLabel": "bersama",
+        "sizes": {
+          "small": "Kecil",
+          "medium": "Sedang",
+          "large": "Besar"
+        }
+      }
     },
     "fields": {
       "persona": {

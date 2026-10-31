@@ -76,7 +76,8 @@
       "types": {
         "list": "Liste",
         "metric": "Indicateur",
-        "chats": "Derniers chats"
+        "chats": "Derniers chats",
+        "page": "Page"
       },
       "left": "{{count}} restant(s)",
       "fromChats": "des chats",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "{{count}} widget se met à jour selon un horaire. Ses exécutions utilisent vos modèles et comptent dans votre utilisation.",
         "scheduleNote_other": "{{count}} widgets se mettent à jour selon un horaire. Leurs exécutions utilisent vos modèles et comptent dans votre utilisation."
       },
-      "opensSite": "{{host}} : s'ouvre dans un nouvel onglet"
+      "opensSite": "{{host}} : s'ouvre dans un nouvel onglet",
+      "page": {
+        "gone": "Cette page n'est plus disponible",
+        "goneHint": "La page \"{{name}}\" a été déplacée ou supprimée, ou vous ne pouvez plus l'ouvrir.",
+        "noWidget": "Cette page n'a pas de vue widget",
+        "noWidgetHint": "Ajoutez un bloc \"widget\" à pages/{{name}}/page.json, ou demandez à l'assistant une vue compacte.",
+        "off": "Les pages partagées sont désactivées",
+        "offHint": "Un administrateur a désactivé les pages partagées sur ce serveur.",
+        "fix": "Personnaliser l'accueil",
+        "failed": "La page ne s'est pas chargée",
+        "retry": "Réessayer",
+        "changed": "Cette page a changé depuis que vous l'avez autorisée",
+        "notAllowed": "Vous n'avez pas encore autorisé cette page",
+        "allowHint": "Elle vient d'un dossier partagé. Vérifiez-la avant qu'elle s'exécute en votre nom.",
+        "allow": "Autoriser cette page",
+        "frameTitle": "{{title}} (page sur l'accueil)",
+        "refresh": "Actualiser",
+        "open": "Ouvrir la page",
+        "add": "Ajouter une page",
+        "limit": "L'accueil affiche au plus {{max}} pages ; retirez-en une pour en ajouter une autre.",
+        "noneEligible": "Pour afficher une page ici, ajoutez un bloc \"widget\" à son page.json.",
+        "pick": "Page",
+        "unavailable": "{{name}} (indisponible)",
+        "sharedLabel": "partagée",
+        "sizes": {
+          "small": "Petit",
+          "medium": "Moyen",
+          "large": "Grand"
+        }
+      }
     },
     "fields": {
       "persona": {

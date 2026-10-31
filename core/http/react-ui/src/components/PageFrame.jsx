@@ -24,12 +24,19 @@ import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAsset
 //                  user's own page. readImage is used only to put images in
 //   onLink(target) the page asks to open a link: a checked http(s) target of
 //                  pageLinkTarget; resolves to {opened} after the person chose
+//   codeFiles      a shared page: the files of code its consent covers; no
+//                  other text file goes into the page
+//   mode, size     'page' (the default) or 'widget', and the size of a tile:
+//                  the page reads them as localai.page.mode and .size
+//   visible        false while the frame is out of sight (a tile scrolled
+//                  away): with a hidden tab, the page gets a visibility event
+//                  ({visible}) so it can pause its timers
 //   onRefused(err) a bridge call was refused because the page may no longer
 //                  run (a shared page whose consent was revoked): the caller
 //                  takes the frame down
 const plain = (html) => ({ html, head: '', modules: false, notes: [], tooLarge: false })
 
-const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink }, ref) {
+const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink, codeFiles = null, mode = 'page', size = '', className = '', visible = true }, ref) {
   const frameRef = useRef(null)
   const live = useRef({ host: null, channel: null, loads: 0, doc: '' })
   const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink })
@@ -59,14 +66,15 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   })
 
   const needsFiles = useMemo(() => pageRefs(html), [html])
-  const base = `${page.name}\u0000${html}`
+  const allowed = useMemo(() => (Array.isArray(codeFiles) ? new Set(codeFiles) : null), [codeFiles?.join('\u0000')]) // eslint-disable-line react-hooks/exhaustive-deps
+  const base = `${page.name}\u0000${html}\u0000${codeFiles ? codeFiles.join('\u0000') : '*'}`
   useEffect(() => {
     if (!needsFiles) {
       deps.current = new Set()
       return undefined
     }
     let gone = false
-    inlinePageAssets(html, reads()).then((result) => {
+    inlinePageAssets(html, reads(), { allowText: allowed ? (path) => allowed.has(path) : null }).then((result) => {
       if (gone) return
       deps.current = new Set(result.deps)
       setAssets({ base, result })
@@ -83,9 +91,9 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
       : failed.length ? t('frame.filesFailed', { files: failed.slice(0, 5).join(', '), count: failed.length }) : ''
     return buildPageSrcdoc(ready.html, {
       name: page.name, title: page.title, theme, head: ready.head, modules: ready.modules,
-      notes: ready.notes, banner, dismiss: t('frame.dismiss'),
+      notes: ready.notes, banner, dismiss: t('frame.dismiss'), mode, size,
     })
-  }, [ready, page.name, page.title, theme, t])
+  }, [ready, page.name, page.title, theme, t, mode, size])
 
   useImperativeHandle(ref, () => ({
     emit: (event, data) => {
@@ -106,6 +114,23 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
   }
 
   useEffect(() => shut, [])
+
+  // The page hears when it goes out of sight and back: the tab is hidden, or
+  // its tile scrolled away.
+  const seen = useRef(true)
+  const visibleRef = useRef(visible)
+  visibleRef.current = visible
+  const tell = () => {
+    const now = visibleRef.current && !document.hidden
+    if (now === seen.current) return
+    seen.current = now
+    live.current.host?.emit('visibility', { visible: now })
+  }
+  useEffect(() => {
+    tell()
+    document.addEventListener('visibilitychange', tell)
+    return () => document.removeEventListener('visibilitychange', tell)
+  }, [visible])
 
   const onLoad = () => {
     const frame = frameRef.current
@@ -148,16 +173,19 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
     // The frame's origin is opaque, so "*" is the only target that reaches it;
     // the port is what carries the trust, and only this frame gets it.
     frame?.contentWindow?.postMessage({ type: 'localai:init' }, '*', [channel.port2])
+    seen.current = true
+    tell()
   }
 
   if (srcDoc === null) {
+    if (mode === 'widget') return <div className="skeleton skeleton--block wk-ptile__fill" role="status" aria-label={t('view.loading')} data-testid="page-frame-loading" />
     return <div className="pg-stage__state" role="status" data-testid="page-frame-loading"><Icon name="spinner" spin /> {t('view.loading')}</div>
   }
 
   return (
     <iframe
       ref={frameRef}
-      className="pg-frame"
+      className={`pg-frame${className ? ` ${className}` : ''}`}
       title={title}
       sandbox="allow-scripts"
       referrerPolicy="no-referrer"

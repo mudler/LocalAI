@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"strings"
@@ -358,6 +359,48 @@ var _ = Describe("widget data and home widgets", func() {
 			_, errs := wellknown.Validate(wellknown.WidgetData, []byte(bad))
 			Expect(errs).NotTo(BeEmpty(), name)
 		}
+	})
+
+	It("takes a page widget with a page name, a title it may leave out and a shared folder", func() {
+		_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"clock","type":"page","page":"clock"},`+
+			`{"id":"news","type":"page","page":"news-ticker","title":"News","folder":42},{"id":"t","type":"list","title":"Tasks","source":"data/t.json"}]}`))
+		Expect(errs).To(BeEmpty())
+	})
+
+	It("keeps the title required for the other widgets", func() {
+		_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"c","type":"chats"}]}`))
+		Expect(errs).NotTo(BeEmpty())
+	})
+
+	It("takes at most three page widgets and says why in words", func() {
+		w := func(n int) string {
+			var parts []string
+			for i := range n {
+				parts = append(parts, fmt.Sprintf(`{"id":"p%d","type":"page","page":"p%d"}`, i, i))
+			}
+			return `{"widgets":[` + strings.Join(parts, ",") + `,{"id":"c","type":"chats","title":"Chats"}]}`
+		}
+		_, errs := wellknown.Validate(wellknown.Home, []byte(w(3)))
+		Expect(errs).To(BeEmpty())
+		_, errs = wellknown.Validate(wellknown.Home, []byte(w(4)))
+		Expect(strings.Join(errs, "\n")).To(ContainSubstring("widgets: Home shows at most 3 page widgets, because each one runs its page; this layout has 4, so remove 1"))
+	})
+
+	DescribeTable("refuses a page widget without a page name, in words",
+		func(widget, want string) {
+			_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"ok","type":"chats","title":"Chats"},`+widget+`]}`))
+			Expect(strings.Join(errs, "\n")).To(ContainSubstring(want))
+		},
+		Entry("no page", `{"id":"p","type":"page"}`, `widgets[1].page: a page widget names its page`),
+		Entry("an empty page", `{"id":"p","type":"page","page":""}`, `widgets[1].page: a page widget names its page`),
+		Entry("a path", `{"id":"p","type":"page","page":"../x"}`, `widgets[1].page: "../x" is not a page name`),
+		Entry("capitals", `{"id":"p","type":"page","page":"News"}`, `widgets[1].page: "News" is not a page name`),
+		Entry("a number", `{"id":"p","type":"page","page":7}`, `widgets[1].page: "7" is not a page name`),
+	)
+
+	It("refuses a shared folder that is not a folder id", func() {
+		_, errs := wellknown.Validate(wellknown.Home, []byte(`{"widgets":[{"id":"p","type":"page","page":"news","folder":"team"}]}`))
+		Expect(errs).NotTo(BeEmpty())
 	})
 
 	It("lets a home widget name the trigger that feeds it and keeps other keys", func() {

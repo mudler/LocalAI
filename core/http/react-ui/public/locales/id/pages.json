@@ -90,7 +90,8 @@
       "same": "Yang dapat dilakukannya sama seperti sebelumnya.",
       "warn": "Jika Anda mengizinkannya, versi ini berjalan setiap kali Anda membukanya, sampai {{author}} mengubahnya lagi.",
       "view": "Lihat perubahan",
-      "lines": "{{before}} → {{after}} baris"
+      "lines": "{{before}} → {{after}} baris",
+      "code": "Sebuah skrip, lembar gaya, atau modul halaman berubah: {{files}}"
     },
     "pill": {
       "notYet": "Belum diizinkan",

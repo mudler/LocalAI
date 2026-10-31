@@ -13,15 +13,23 @@ function kb(n) {
 }
 
 // What changed between the version the viewer allowed and this one, from the
-// sizes and lines the server kept: index.html and page.json.
+// sizes and lines the server kept: index.html and page.json. The consent also
+// covers the scripts, style sheets and modules of the page (code_files); when
+// only one of those changed, the sheet names them.
 function Changes({ src, t }) {
   const c = src.consent || {}
   const rows = [
     { file: 'index.html', before: c.size || 0, after: src.page.size || 0, lines: [c.lines || 0, src.lines || 0] },
     { file: 'page.json', before: c.meta_size || 0, after: src.page.meta_size || 0 },
   ].filter(r => r.before !== r.after || (r.lines && r.lines[0] !== r.lines[1]))
+  const code = Array.isArray(src.page.code_files) ? src.page.code_files : []
   return (
     <ul className="pg-trust__changes" data-testid="trust-changes">
+      {rows.length === 0 && code.length > 0 && (
+        <li data-testid="trust-changes-code">
+          <span className="pg-trust__delta">{t('trust.changed.code', { files: code.slice(0, 6).join(', ') })}</span>
+        </li>
+      )}
       {rows.map(r => {
         const d = r.after - r.before
         return (

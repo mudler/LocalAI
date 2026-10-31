@@ -31,6 +31,15 @@ var _ = Describe("Chats pages endpoints", func() {
 		Expect(p["title"]).To(Equal("Tasks board"))
 		Expect(p["source"]).To(Equal("own"))
 		Expect(p["author"]).To(Equal("you"))
+		Expect(p).NotTo(HaveKey("widget"), "a page without a widget block is no tile")
+		Expect(p).NotTo(HaveKey("code_files"), "an own page needs no consent")
+
+		Expect(s.putFile("alice", "/pages/clock/index.html", `<p>clock</p>`).Code).To(Equal(http.StatusOK))
+		Expect(s.putFile("alice", "/pages/clock/page.json", `{"title":"Clock","widget":{"size":"small"}}`).Code).To(Equal(http.StatusOK))
+		p = decodeJSON(s.do("alice", http.MethodGet, "/api/chats/pages", nil))["pages"].([]any)[0].(map[string]any)
+		Expect(p["name"]).To(Equal("clock"))
+		Expect(p["widget"]).To(Equal(map[string]any{"size": "small"}))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/pages/clock", nil))["page"]).To(HaveKeyWithValue("widget", map[string]any{"size": "small"}))
 
 		rec = s.do("alice", http.MethodGet, "/api/chats/pages/tasks", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())

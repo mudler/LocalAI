@@ -14,6 +14,7 @@ LocalAI has its own app format: a Page. It is one HTML file in the user's home t
 | An interactive thing to use here: tracker, to-do list, dashboard, form, game, calculator, planner, converter, timer | A Page (this skill) |
 | The same, refreshed on a schedule or when a file arrives | A Page plus a trigger: read the `localai-workspace` skill, section "Updates on a schedule" |
 | A Home widget (a list or a number) | The `localai-workspace` skill, not a Page |
+| A page that should also show on Home | A Page with a `widget` block and a compact mode (section "On Home"), then the `localai-workspace` skill to add the tile |
 | A real program: a script, a service, a CLI, something to install or deploy | Write that program as asked. First check the `Commands:` line of this chat: if nothing here runs commands, say so and give the files to run elsewhere |
 | Data from the web | A Page cannot reach the network. Get the data with your web tools and write it to a file next to the page; the page reads it with `fetch('data.json')` |
 
@@ -49,7 +50,8 @@ The page runs in a frame with no network and no access to LocalAI or other files
 - `localai.files.list(dir)` gives `[{path, kind, size, version}]`.
 - `localai.on('files.changed', fn)` calls `fn({paths})` when a file of the folder changes, and `fn({paths: [], resync: true})` when it cannot tell what: read again. It returns a function that removes the listener. Your own writes come back too.
 - `localai.chat.send(text)` offers a message to the user, who must press Send. Use it for "Ask the assistant" buttons, never as a way to run the assistant on its own.
-- `localai.page` is `{name, title}`.
+- `localai.on('visibility', fn)` calls `fn({visible})` when the page goes out of sight (hidden tab, or its tile on Home scrolled away) and back. Stop timers while `visible` is false.
+- `localai.page` is `{name, title, mode, size}`: `mode` is `page`, or `widget` in a tile on Home, where `size` is `small`, `medium` or `large`.
 
 The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`. Define colours as CSS variables and override them under `:root[data-theme="dark"]`.
 
@@ -61,6 +63,41 @@ The theme is the `data-theme` attribute (`light` or `dark`) on `<html>`. Define 
 - On start, show an empty state and not an error when the data file does not exist yet.
 - Show a short "Saved" or "Not saved: ..." status.
 - Write the whole data file at once, never half of it.
+
+## On Home
+
+A page can also be a tile on Home. Add `"widget": {"size": "small"}` to `page.json` (`small`: one line or a number; `medium`: a short list; `large`: a table or a chart; an optional `"title"` for the tile). In a tile the same page runs with `localai.page.mode === 'widget'` and `<html data-mode="widget" data-size="...">`. Give it a compact layout: the few facts that matter, no inputs, no scroll. Do not shrink the full page. The tile has its own bar with the title and an "Open page" link, so leave out the page's header. `chat.send` does not work in a tile.
+
+A news ticker that is a list in its own view and one rotating line on Home:
+
+```html
+<!doctype html>
+<style>
+  body { margin: 0; padding: 16px; font: 14px/1.45 system-ui, sans-serif; }
+  :root[data-mode="widget"] body { padding: 10px 14px; }
+  :root[data-mode="widget"] li:not(.now) { display: none; }
+</style>
+<ul id="news"></ul>
+<script>
+  const list = document.getElementById('news')
+  const compact = localai.page.mode === 'widget'
+  let items = [], i = 0, timer = 0
+  const show = () => {
+    list.textContent = ''
+    items.forEach((it, k) => {
+      const li = document.createElement('li')
+      li.textContent = it.title
+      if (!compact || k === i % items.length) li.className = 'now'
+      list.appendChild(li)
+    })
+  }
+  const load = () => fetch('news.json').then(r => r.json()).then(d => { items = d.items || []; show() }).catch(() => {})
+  const rotate = () => { clearInterval(timer); if (compact) timer = setInterval(() => { i++; show() }, 5000) }
+  localai.on('files.changed', ev => { if (ev.resync || ev.paths.includes('news.json')) load() })
+  localai.on('visibility', ({ visible }) => { if (visible) rotate(); else clearInterval(timer) })
+  load().then(rotate)
+</script>
+```
 
 ## Example: reading tracker
 

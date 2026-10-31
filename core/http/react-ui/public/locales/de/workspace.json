@@ -76,7 +76,8 @@
       "types": {
         "list": "Liste",
         "metric": "Kennzahl",
-        "chats": "Letzte Chats"
+        "chats": "Letzte Chats",
+        "page": "Seite"
       },
       "left": "{{count}} übrig",
       "fromChats": "aus Chats",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "{{count}} Widget wird nach Zeitplan aktualisiert. Seine Läufe nutzen deine Modelle und zählen zu deiner Nutzung.",
         "scheduleNote_other": "{{count}} Widgets werden nach Zeitplan aktualisiert. Ihre Läufe nutzen deine Modelle und zählen zu deiner Nutzung."
       },
-      "opensSite": "{{host}}: öffnet in einem neuen Tab"
+      "opensSite": "{{host}}: öffnet in einem neuen Tab",
+      "page": {
+        "gone": "Diese Seite ist nicht mehr verfügbar",
+        "goneHint": "Die Seite \"{{name}}\" wurde verschoben oder gelöscht, oder du kannst sie nicht mehr öffnen.",
+        "noWidget": "Diese Seite hat keine Widget-Ansicht",
+        "noWidgetHint": "Füge pages/{{name}}/page.json einen \"widget\"-Block hinzu oder bitte den Assistenten um eine kompakte Ansicht.",
+        "off": "Geteilte Seiten sind ausgeschaltet",
+        "offHint": "Ein Administrator hat geteilte Seiten auf diesem Server ausgeschaltet.",
+        "fix": "Startseite anpassen",
+        "failed": "Die Seite wurde nicht geladen",
+        "retry": "Erneut versuchen",
+        "changed": "Diese Seite hat sich geändert, seit du sie erlaubt hast",
+        "notAllowed": "Du hast diese Seite noch nicht erlaubt",
+        "allowHint": "Sie stammt aus einem geteilten Ordner. Prüfe sie, bevor sie in deinem Namen läuft.",
+        "allow": "Diese Seite erlauben",
+        "frameTitle": "{{title}} (Seite auf der Startseite)",
+        "refresh": "Aktualisieren",
+        "open": "Seite öffnen",
+        "add": "Seite hinzufügen",
+        "limit": "Die Startseite zeigt höchstens {{max}} Seiten; entferne eine, um eine weitere hinzuzufügen.",
+        "noneEligible": "Damit eine Seite hier erscheint, gib ihrer page.json einen \"widget\"-Block.",
+        "pick": "Seite",
+        "unavailable": "{{name}} (nicht verfügbar)",
+        "sharedLabel": "geteilt",
+        "sizes": {
+          "small": "Klein",
+          "medium": "Mittel",
+          "large": "Groß"
+        }
+      }
     },
     "fields": {
       "persona": {

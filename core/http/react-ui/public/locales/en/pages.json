@@ -137,7 +137,8 @@
       "same": "What it can do is the same as before.",
       "warn": "If you allow it, this version runs each time you open it, until {{author}} changes it again.",
       "view": "View changes",
-      "lines": "{{before}} → {{after}} lines"
+      "lines": "{{before}} → {{after}} lines",
+      "code": "A script, style sheet or module of the page changed: {{files}}"
     },
     "pill": {
       "notYet": "Not allowed yet",
