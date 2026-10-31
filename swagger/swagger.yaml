@@ -3865,6 +3865,12 @@ definitions:
     properties:
       level:
         type: integer
+      rows:
+        items:
+          items:
+            type: string
+          type: array
+        type: array
       text:
         type: string
       type:

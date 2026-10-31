@@ -355,12 +355,14 @@ type ChatsFilePreviewSheet struct {
 	TotalCols int        `json:"total_cols"`
 }
 
-// ChatsFilePreviewBlock is one paragraph of a document. Type is "heading"
-// (Level 1 to 9), "item" (a list item, Level 0 and up) or "paragraph".
+// ChatsFilePreviewBlock is one paragraph or table of a document. Type is
+// "heading" (Level 1 to 9), "item" (a list item, Level 0 and up), "paragraph"
+// or "table" (Rows holds the cells; Text is the rows as tab-separated lines).
 type ChatsFilePreviewBlock struct {
-	Type  string `json:"type"`
-	Level int    `json:"level,omitempty"`
-	Text  string `json:"text"`
+	Type  string     `json:"type"`
+	Level int        `json:"level,omitempty"`
+	Text  string     `json:"text"`
+	Rows  [][]string `json:"rows,omitempty"`
 }
 
 // ChatsFilePreviewSlide is one slide: its title, its other text one line per

@@ -124,6 +124,7 @@
 .pv-doc__h1 { font-size: var(--fs-section); }
 .pv-doc__h2 { font-size: var(--fs-body); }
 .pv-doc__h3 { font-size: var(--fs-body); color: var(--color-text-secondary); }
+.pv-doc__table { margin: var(--sp-2) 0; }
 .pv-doc__p,
 .pv-doc__item { margin: 0; color: var(--dk-text); font-size: var(--fs-body); line-height: var(--lh-body); white-space: pre-wrap; }
 .pv-doc__item { position: relative; padding-left: var(--sp-4); }

@@ -292,8 +292,13 @@ Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
 - **PDF, Word, Excel, PowerPoint and EPUB.** The text of the file is added to
   the message, the first 20,000 characters of each document, and the model
   reads the rest with the `read_document` tool (`offset` and `limit`). No
-  helper model is needed. A scanned PDF with no text layer is reported as
-  such.
+  helper model is needed. A workbook (`.xlsx`, `.xlsm`) comes sheet by sheet,
+  each sheet as a heading and its rows as tab-separated lines, up to 2,000
+  rows and 50 columns per sheet; a note says what a cut sheet leaves out. A
+  Word document gives its headings (`#`), list items, paragraphs and tables
+  (one tab-separated line per row), and a presentation its slides, each with
+  its title, text and speaker notes. A PDF with no text layer is reported as
+  a probable scan; an Office file with no text is reported as empty.
 - **Audio.** A voice note is transcribed when a transcription model is set,
   as before.
 

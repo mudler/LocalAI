@@ -18686,6 +18686,15 @@ const docTemplate = `{
                 "level": {
                     "type": "integer"
                 },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "text": {
                     "type": "string"
                 },

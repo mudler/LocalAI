@@ -40,7 +40,7 @@ const TABLE = {
   ],
 }
 const CSV = { kind: 'table', sheets: [{ name: 'q1.csv', rows: [['month', 'revenue'], ['Jan', '1200'], ['Feb', '1350']], total_rows: 3, total_cols: 2 }] }
-const DOC = { kind: 'document', blocks: [{ type: 'heading', level: 1, text: 'Quarterly report' }, { type: 'paragraph', text: 'Revenue grew 12% over the quarter.' }, { type: 'item', text: 'Hardware costs' }] }
+const DOC = { kind: 'document', blocks: [{ type: 'heading', level: 1, text: 'Quarterly report' }, { type: 'paragraph', text: 'Revenue grew 12% over the quarter.' }, { type: 'item', text: 'Hardware costs' }, { type: 'table', text: 'Region\tSales\nNorth\t42', rows: [['Region', 'Sales'], ['North', '42']] }] }
 const SLIDES = { kind: 'slides', slides: [{ n: 1, title: 'Launch plan', lines: [{ text: 'October 2026' }] }, { n: 2, title: 'Timeline', lines: [{ text: 'Design review' }, { text: 'Pilot with two teams', level: 1 }], notes: 'Mention the dates.' }] }
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
 
@@ -250,6 +250,7 @@ test('an old chat opens nothing, and every type of file has its view', async ({ 
   await expect(p.getByTestId('preview-text-note')).toHaveText(/Text preview, formatting not shown/)
   await expect(p.getByRole('heading', { name: 'Quarterly report' })).toBeVisible()
   await expect(p.getByTestId('preview-document')).toContainText('Hardware costs')
+  await expect(p.getByTestId('preview-doc-table').getByRole('cell', { name: 'North' })).toBeVisible()
   await shot(page, 'pane-docx')
 
   p = await pick('deck.pptx')
