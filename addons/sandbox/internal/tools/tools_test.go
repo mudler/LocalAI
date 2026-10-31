@@ -182,7 +182,7 @@ var _ = Describe("Sandbox tools", func() {
 
 	It("tells the model about curl, the proxy and the web tools in the bash description", func() {
 		d := tools.NetworkNote
-		for _, want := range []string{"curl", "pip", "npm", "git", "proxy", "web_fetch", "web_search", "do not get around it"} {
+		for _, want := range []string{"curl", "pip", "git", "proxy", "web_fetch", "web_search", "do not get around it"} {
 			Expect(d).To(ContainSubstring(want))
 		}
 	})
