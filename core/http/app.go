@@ -540,6 +540,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
 	chatHistoryMw := auth.RequireFeature(application.AuthDB(), auth.FeatureChatHistory)
 	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw, chatHistoryMw)
+	// Studio history persistence: the store is nil when the WebUI is disabled
+	// or auth is off, and the list then only answers enabled: false.
+	routes.RegisterStudioHistoryRoutes(e, application.StudioHistoryStore(), auth.RequireFeature(application.AuthDB(), auth.FeatureStudioHistory))
 	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
 	if addonsOn {
 		// Fine-tuning routes

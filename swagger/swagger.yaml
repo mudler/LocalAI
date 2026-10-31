@@ -4797,6 +4797,71 @@ definitions:
       include_usage:
         type: boolean
     type: object
+  schema.StudioHistoryEntry:
+    properties:
+      createdAt:
+        description: Unix milliseconds, client-managed
+        type: integer
+      entry:
+        type: object
+      id:
+        type: string
+      type:
+        type: string
+      updatedAt:
+        description: Unix milliseconds, client-managed
+        type: integer
+      version:
+        description: |-
+          Version is assigned by the server: 1 on the first save, +1 on every
+          later write including the delete. Ignored on input.
+        type: integer
+    type: object
+  schema.StudioHistoryImportRequest:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/schema.StudioHistoryEntry'
+        type: array
+    type: object
+  schema.StudioHistoryImportResponse:
+    properties:
+      count:
+        type: integer
+      skipped:
+        items:
+          type: string
+        type: array
+      status:
+        type: string
+    type: object
+  schema.StudioHistoryList:
+    properties:
+      cacheKey:
+        type: string
+      deleted:
+        items:
+          $ref: '#/definitions/schema.StudioHistoryTombstone'
+        type: array
+      enabled:
+        type: boolean
+      entries:
+        items:
+          $ref: '#/definitions/schema.StudioHistoryEntry'
+        type: array
+    type: object
+  schema.StudioHistoryTombstone:
+    properties:
+      deletedAt:
+        description: Unix milliseconds
+        type: integer
+      id:
+        type: string
+      type:
+        type: string
+      version:
+        type: integer
+    type: object
   schema.SysInfoModel:
     properties:
       backend:
@@ -9519,6 +9584,187 @@ paths:
       summary: Classify a prompt against a router model's policies (decision oracle)
       tags:
       - router
+  /api/studio/history:
+    delete:
+      parameters:
+      - description: Studio workspace to clear; all when omitted
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Unknown type
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Clear Studio history
+      tags:
+      - studio-history
+    get:
+      description: Returns the live Studio entries, newest first, and in `deleted`
+        the entries the user deleted. A client must drop any local copy whose id appears
+        in `deleted` instead of uploading it again. `cacheKey` is an opaque per-account
+        tag for the client's local cache.
+      parameters:
+      - description: Studio workspace (image, video, tts, sound, audio-transform,
+          diarization, threed); all when omitted
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.StudioHistoryList'
+        "400":
+          description: Unknown type
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List Studio history
+      tags:
+      - studio-history
+  /api/studio/history/{id}:
+    delete:
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: The entry's workspace, recorded when the server has not seen
+          the entry yet
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid id or type
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a Studio history entry
+      tags:
+      - studio-history
+    get:
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.StudioHistoryEntry'
+        "404":
+          description: Not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "410":
+          description: Deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a Studio history entry
+      tags:
+      - studio-history
+    put:
+      consumes:
+      - application/json
+      description: The path id overrides the body id. The returned version is assigned
+        by the server. An entry the user deleted is never written again (410). The
+        oldest entries beyond the per-workspace cap become tombstones.
+      parameters:
+      - description: Entry ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Entry
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.StudioHistoryEntry'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.StudioHistoryEntry'
+        "400":
+          description: Invalid id, type or entry
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "410":
+          description: Deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Save a Studio history entry (upsert)
+      tags:
+      - studio-history
+  /api/studio/history/import:
+    post:
+      consumes:
+      - application/json
+      description: Upserts every entry in the payload. Entries the user deleted earlier
+        are not written and are listed in `skipped`. Nothing else is deleted.
+      parameters:
+      - description: Entries
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/schema.StudioHistoryImportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.StudioHistoryImportResponse'
+        "400":
+          description: Invalid id, type or entry
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Import Studio history
+      tags:
+      - studio-history
   /api/traces:
     get:
       description: Returns a bounded, newest-first page of captured API exchange traces.

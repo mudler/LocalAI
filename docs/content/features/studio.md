@@ -39,11 +39,11 @@ Results made from each other stack into one project tile. Open a tile to see the
 
 ### Where the history is kept
 
-The history lives in your browser, not on the server. Each workspace writes its own list when a result is produced: images, video, TTS, sound and audio transform in browser storage (up to 100 entries each), 3D in IndexedDB (up to 20 entries, with the model file), and diarization in browser storage with the file name, the model and the speaker count only. It never keeps the recording or the transcript. A prompt longer than 2000 characters is cut when it is stored. Favourites are a list of up to 500 ids.
+With [user authentication]({{%relref "features/authentication" %}}) enabled, the history is kept on the server for each user and follows you to other browsers and devices; see [Studio History]({{%relref "features/studio-history" %}}). Without it, the history lives in your browser. Each workspace writes its own list when a result is produced: images, video, TTS, sound and audio transform in browser storage (up to 100 entries each), 3D in IndexedDB (up to 20 entries, with the model file), and diarization in browser storage with the file name, the model and the speaker count only. It never keeps the recording or the transcript. A prompt longer than 2000 characters is cut when it is stored. Favourites are a list of up to 500 ids.
 
 Results made before this version have no link to the result they came from, so they appear as single tiles. The files themselves are on the server; if the server has cleaned its output folder, the tile shows the type icon instead of a picture.
 
-**Clear history** removes all of these lists and the favourites from this browser after a confirmation. It does not delete files on the server.
+**Clear history** removes all of these lists and the favourites from this browser after a confirmation, and the server's copy of the history too when it keeps one. It does not delete files on the server.
 
 ## Lineage
 

@@ -165,6 +165,12 @@ var instructionDefs = []instructionDef{
 		Tags:        []string{"chat-history"},
 		Intro:       "Per-user CRUD over chat conversations; only registered when user auth is enabled, and gated by the `chat_history` feature. POST /api/conversations and PUT /api/conversations/{id} upsert and return the conversation with a server-assigned `version` (1 on the first save, +1 per write). createdAt/updatedAt are client Unix milliseconds stored as sent, so clients compare updatedAt to pick the newer copy. Deletes are final: DELETE leaves a tombstone (idempotent, also for ids never saved), any later write of that id returns 410 Gone, and GET /api/conversations returns tombstones under `deleted` so a client drops stale local copies instead of re-uploading them. PUT /api/conversations/bulk makes the payload the live set (others are tombstoned) and reports refused deleted ids in `skipped`.",
 	},
+	{
+		Name:        "studio-history",
+		Description: "Server-side persistence of the Studio's generation history",
+		Tags:        []string{"studio-history"},
+		Intro:       "Per-user records of Studio generations (image, video, tts, sound, audio-transform, diarization, threed); only registered when user auth is enabled, and gated by the `studio_history` feature. The generated files stay where the generation endpoints wrote them; these endpoints keep the records. PUT /api/studio/history/{id} upserts `{type, entry, createdAt, updatedAt}` where `entry` is the Studio's record stored as sent (prompt, model, params, results with the file URLs, parentId/edge lineage), and returns a server-assigned `version`. An entry keeps the type of its first save. GET /api/studio/history[?type=] lists entries newest first, tombstones under `deleted`, and an opaque per-account `cacheKey`. Deletes are final: DELETE /api/studio/history/{id} leaves a tombstone, later writes return 410 Gone; DELETE /api/studio/history[?type=] clears a workspace or all. POST /api/studio/history/import upserts a browser's earlier entries without deleting anything and lists refused deleted ids in `skipped`. Each user keeps up to 1000 entries per type; older ones become tombstones. Scripts that generate through the API can PUT an entry so the result shows up in the Studio.",
+	},
 }
 
 // swaggerState holds parsed swagger spec data, initialised once.
