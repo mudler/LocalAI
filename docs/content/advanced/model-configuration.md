@@ -1024,7 +1024,7 @@ Configure how reasoning tags are extracted and processed from model output. Reas
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `reasoning.disable` | bool | `false` | When `true`, disables reasoning extraction entirely. The original content is returned without any processing. |
+| `reasoning.disable` | bool | `false` | When `true`, disables reasoning extraction entirely. The original content is returned without any processing. If the backend's parser still classifies part of the reply as reasoning (some chat templates open a thinking channel even with `enable_thinking=false`), the chat, completion, Anthropic, Ollama and Open Responses endpoints return that text as `content` instead of `reasoning_content`. |
 | `reasoning.disable_reasoning_tag_prefill` | bool | `false` | When `true`, disables automatic prepending of thinking start tokens. Use this when your model already includes reasoning tags in its output format. |
 | `reasoning.strip_reasoning_only` | bool | `false` | When `true`, extracts and removes reasoning tags from content but discards the reasoning text. Useful when you want to clean reasoning tags from output without storing the reasoning content. |
 | `reasoning.thinking_start_tokens` | array | `[]` | List of custom thinking start tokens to detect in prompts. Custom tokens are checked before default tokens. |
