@@ -10,7 +10,7 @@ const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused',
+  'paused', 'goal',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -197,6 +197,9 @@ export function useServerChat({ seed = null } = {}) {
       pending_delivered: () => refreshChat(id),
       compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
       paused: (e) => setPausedSteps(e.steps || 0),
+      // The goal changed, here or in another tab: the chat carries it and the
+      // transcript its line.
+      goal: () => refreshChat(id),
       sub_agent_started: () => setTicks(t => ({ ...t, subAgents: t.subAgents + 1 })),
       sub_agent_done: (e) => {
         setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }])
@@ -343,6 +346,25 @@ export function useServerChat({ seed = null } = {}) {
   const stop = useCallback((id) => act(id, () => chatsApi.stop(id)), [act])
   const sendNow = useCallback((id) => act(id, () => chatsApi.sendNow(id)), [act])
 
+  // The goal. setGoal answers { goal, replaced } so the page can say what a
+  // new goal replaced; the others read the chat again. A failure shows like
+  // any other.
+  const goalCall = useCallback(async (id, call) => {
+    setError('')
+    try {
+      const res = await call()
+      await refreshChat(id)
+      return res
+    } catch (e) {
+      if (activeRef.current === id) setError(e.message)
+      return null
+    }
+  }, [refreshChat, setError])
+  const setGoal = useCallback((id, text) => goalCall(id, () => chatsApi.setGoal(id, text)), [goalCall])
+  const clearGoal = useCallback((id) => goalCall(id, () => chatsApi.clearGoal(id)), [goalCall])
+  const resumeGoal = useCallback((id) => goalCall(id, () => chatsApi.resumeGoal(id)), [goalCall])
+  const pauseGoal = useCallback((id) => goalCall(id, () => chatsApi.stop(id)), [goalCall])
+
   // A title or a model answers 409 while a turn runs; settings apply from the
   // next turn. The caller gets the error to show where the change was made.
   const update = useCallback(async (id, fields) => {
@@ -388,10 +410,12 @@ export function useServerChat({ seed = null } = {}) {
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],
+    goal: detail?.goal || null,
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
     hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
     select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, update, regenerate, editMessage, refreshList,
+    setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),
   }
 }

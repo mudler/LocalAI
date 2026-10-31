@@ -403,5 +403,64 @@
     "title": "上一次模型请求使用的上下文",
     "ofLimit": "{{used}} / {{limit}} 个 token",
     "left": "剩余 {{left}}"
+  },
+  "goal": {
+    "label": "目标",
+    "states": {
+      "active": "进行中",
+      "paused": "已暂停",
+      "done": "已达成",
+      "blocked": "需要你"
+    },
+    "pausedBy": {
+      "user": "你暂停了它。",
+      "turn_limit": "已用完所有自动轮次。继续可获得更多轮次。",
+      "step_limit": "已用完所有步骤。继续可获得更多步骤。",
+      "error": "某一轮失败了。继续即可重试。",
+      "interrupted": "服务器在某一轮中停止了。继续即可接着进行。"
+    },
+    "blockedNote": "需要你提供：{{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "已替换：{{text}}",
+    "pause": "暂停",
+    "pauseTitle": "停止当前这一轮并暂停目标",
+    "resume": "继续",
+    "resumeTitle": "继续推进目标",
+    "clear": "清除",
+    "clearTitle": "清除目标",
+    "progress": "目标 · 第 {{turn}} 轮，共 {{max}} 轮",
+    "progressStart": "目标 · 正在开始",
+    "markers": {
+      "set": "已设定目标",
+      "replaced": "已替换目标",
+      "continue": "继续推进目标 · 第 {{turn}} 轮",
+      "continueStart": "继续推进目标",
+      "paused": "目标已暂停",
+      "resumed": "目标已继续",
+      "done": "目标已达成",
+      "blocked": "目标受阻",
+      "cleared": "目标已清除"
+    },
+    "announce": {
+      "set": "已设定目标：{{text}}",
+      "paused": "目标已暂停。{{why}}",
+      "resumed": "目标已继续",
+      "done": "目标已达成：{{note}}",
+      "blocked": "目标需要你：{{note}}",
+      "cleared": "目标已清除"
+    },
+    "card": {
+      "title": "目标",
+      "none": "这个聊天还没有目标。输入 /goal 和你想完成的事，聊天会自己持续推进。",
+      "turns": "第 {{turn}} 轮，共 {{max}} 轮",
+      "steps": "{{steps}} / {{max}} 步",
+      "set": "设定于 {{when}}",
+      "clear": "/goal clear 可清除它。",
+      "resume": "/goal resume 可继续它。"
+    },
+    "errors": {
+      "empty": "请在 /goal 后写下目标。",
+      "notAllowed": "只有你自己开始的聊天才能设定目标。"
+    }
   }
 }

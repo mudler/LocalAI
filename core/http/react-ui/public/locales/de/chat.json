@@ -403,5 +403,64 @@
     "title": "Kontext, den die letzte Modellanfrage belegt hat",
     "ofLimit": "{{used}} / {{limit}} Tokens",
     "left": "{{left}} frei"
+  },
+  "goal": {
+    "label": "Ziel",
+    "states": {
+      "active": "In Arbeit",
+      "paused": "Pausiert",
+      "done": "Erreicht",
+      "blocked": "Braucht dich"
+    },
+    "pausedBy": {
+      "user": "Du hast es pausiert.",
+      "turn_limit": "Alle automatischen Runden sind aufgebraucht. Setze fort, um weitere zu geben.",
+      "step_limit": "Alle Schritte sind aufgebraucht. Setze fort, um weitere zu geben.",
+      "error": "Eine Runde ist fehlgeschlagen. Setze fort, um es erneut zu versuchen.",
+      "interrupted": "Der Server wurde während einer Runde beendet. Setze fort, um weiterzumachen."
+    },
+    "blockedNote": "Braucht von dir: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Ersetzt: {{text}}",
+    "pause": "Pausieren",
+    "pauseTitle": "Die laufende Runde stoppen und das Ziel pausieren",
+    "resume": "Fortsetzen",
+    "resumeTitle": "Mit dem Ziel weitermachen",
+    "clear": "Entfernen",
+    "clearTitle": "Das Ziel entfernen",
+    "progress": "Ziel · Runde {{turn}} von {{max}}",
+    "progressStart": "Ziel · startet",
+    "markers": {
+      "set": "Ziel gesetzt",
+      "replaced": "Ziel ersetzt",
+      "continue": "Arbeitet weiter am Ziel · Runde {{turn}}",
+      "continueStart": "Arbeitet weiter am Ziel",
+      "paused": "Ziel pausiert",
+      "resumed": "Ziel fortgesetzt",
+      "done": "Ziel erreicht",
+      "blocked": "Ziel blockiert",
+      "cleared": "Ziel entfernt"
+    },
+    "announce": {
+      "set": "Ziel gesetzt: {{text}}",
+      "paused": "Ziel pausiert. {{why}}",
+      "resumed": "Ziel fortgesetzt",
+      "done": "Ziel erreicht: {{note}}",
+      "blocked": "Das Ziel braucht dich: {{note}}",
+      "cleared": "Ziel entfernt"
+    },
+    "card": {
+      "title": "Ziel",
+      "none": "Dieser Chat hat kein Ziel. Gib /goal und das ein, was erledigt werden soll, und der Chat arbeitet selbstständig daran weiter.",
+      "turns": "Runde {{turn}} von {{max}}",
+      "steps": "{{steps}} von {{max}} Schritten",
+      "set": "Gesetzt {{when}}",
+      "clear": "/goal clear entfernt es.",
+      "resume": "/goal resume macht damit weiter."
+    },
+    "errors": {
+      "empty": "Schreibe nach /goal, was das Ziel ist.",
+      "notAllowed": "Nur ein Chat, den du selbst gestartet hast, kann ein Ziel haben."
+    }
   }
 }

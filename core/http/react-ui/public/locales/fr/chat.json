@@ -401,5 +401,64 @@
     "title": "Contexte utilisé par la dernière requête au modèle",
     "ofLimit": "{{used}} / {{limit}} jetons",
     "left": "{{left}} restants"
+  },
+  "goal": {
+    "label": "Objectif",
+    "states": {
+      "active": "En cours",
+      "paused": "En pause",
+      "done": "Atteint",
+      "blocked": "A besoin de vous"
+    },
+    "pausedBy": {
+      "user": "Vous l'avez mis en pause.",
+      "turn_limit": "Il a utilisé tous ses tours automatiques. Reprenez pour lui en donner d'autres.",
+      "step_limit": "Il a utilisé toutes ses étapes. Reprenez pour lui en donner d'autres.",
+      "error": "Un tour a échoué. Reprenez pour réessayer.",
+      "interrupted": "Le serveur s'est arrêté pendant un tour. Reprenez pour continuer."
+    },
+    "blockedNote": "Ce qu'il attend de vous : {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Remplacé : {{text}}",
+    "pause": "Pause",
+    "pauseTitle": "Arrêter le tour en cours et mettre l'objectif en pause",
+    "resume": "Reprendre",
+    "resumeTitle": "Continuer vers l'objectif",
+    "clear": "Retirer",
+    "clearTitle": "Retirer l'objectif",
+    "progress": "Objectif · tour {{turn}} sur {{max}}",
+    "progressStart": "Objectif · démarrage",
+    "markers": {
+      "set": "Objectif fixé",
+      "replaced": "Objectif remplacé",
+      "continue": "Poursuite de l'objectif · tour {{turn}}",
+      "continueStart": "Poursuite de l'objectif",
+      "paused": "Objectif en pause",
+      "resumed": "Objectif repris",
+      "done": "Objectif atteint",
+      "blocked": "Objectif bloqué",
+      "cleared": "Objectif retiré"
+    },
+    "announce": {
+      "set": "Objectif fixé : {{text}}",
+      "paused": "Objectif en pause. {{why}}",
+      "resumed": "Objectif repris",
+      "done": "Objectif atteint : {{note}}",
+      "blocked": "L'objectif a besoin de vous : {{note}}",
+      "cleared": "Objectif retiré"
+    },
+    "card": {
+      "title": "Objectif",
+      "none": "Ce chat n'a pas d'objectif. Tapez /goal suivi de ce que vous voulez obtenir, et le chat continue d'y travailler tout seul.",
+      "turns": "Tour {{turn}} sur {{max}}",
+      "steps": "{{steps}} étapes sur {{max}}",
+      "set": "Fixé {{when}}",
+      "clear": "/goal clear le retire.",
+      "resume": "/goal resume le reprend."
+    },
+    "errors": {
+      "empty": "Écrivez l'objectif après /goal.",
+      "notAllowed": "Seul un chat que vous avez lancé peut avoir un objectif."
+    }
   }
 }

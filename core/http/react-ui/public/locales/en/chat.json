@@ -552,5 +552,64 @@
       "label": "{{verb}} {{name}}, open preview",
       "row": "Files from this answer"
     }
+  },
+  "goal": {
+    "label": "Goal",
+    "states": {
+      "active": "Working on it",
+      "paused": "Paused",
+      "done": "Reached",
+      "blocked": "Needs you"
+    },
+    "pausedBy": {
+      "user": "You paused it.",
+      "turn_limit": "It used all its automatic turns. Resume to give it more.",
+      "step_limit": "It used all its steps. Resume to give it more.",
+      "error": "A turn failed. Resume to try again.",
+      "interrupted": "The server stopped during a turn. Resume to go on."
+    },
+    "blockedNote": "Needs from you: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Replaced: {{text}}",
+    "pause": "Pause",
+    "pauseTitle": "Stop the running turn and pause the goal",
+    "resume": "Resume",
+    "resumeTitle": "Go on with the goal",
+    "clear": "Clear",
+    "clearTitle": "Remove the goal",
+    "progress": "Goal · turn {{turn}} of {{max}}",
+    "progressStart": "Goal · starting",
+    "markers": {
+      "set": "Goal set",
+      "replaced": "Goal replaced",
+      "continue": "Continuing toward the goal · turn {{turn}}",
+      "continueStart": "Continuing toward the goal",
+      "paused": "Goal paused",
+      "resumed": "Goal resumed",
+      "done": "Goal reached",
+      "blocked": "Goal blocked",
+      "cleared": "Goal cleared"
+    },
+    "announce": {
+      "set": "Goal set: {{text}}",
+      "paused": "Goal paused. {{why}}",
+      "resumed": "Goal resumed",
+      "done": "Goal reached: {{note}}",
+      "blocked": "The goal needs you: {{note}}",
+      "cleared": "Goal cleared"
+    },
+    "card": {
+      "title": "Goal",
+      "none": "This chat has no goal. Type /goal and what you want done, and the chat keeps working on it by itself.",
+      "turns": "Turn {{turn}} of {{max}}",
+      "steps": "{{steps}} of {{max}} steps",
+      "set": "Set {{when}}",
+      "clear": "/goal clear removes it.",
+      "resume": "/goal resume goes on with it."
+    },
+    "errors": {
+      "empty": "Write what the goal is after /goal.",
+      "notAllowed": "Only a chat that you started can have a goal."
+    }
   }
 }

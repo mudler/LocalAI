@@ -39,6 +39,8 @@ import FindBar from '../components/chat/FindBar'
 import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
 import ChatFoot from '../components/chat/ChatFoot'
+import GoalBar from '../components/chat/GoalBar'
+import GoalMarker from '../components/chat/GoalMarker'
 // eslint-disable-next-line no-unused-vars
 import SubAgentsMenu from '../components/chat/SubAgentsMenu'
 // eslint-disable-next-line no-unused-vars
@@ -146,6 +148,9 @@ function ChatPage() {
   const [renaming, setRenaming] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [editingPending, setEditingPending] = useState(null) // { id, text }
+  // The goal that the last /goal of this chat replaced ({ id, text }): the goal
+  // bar says it once, until the goal changes again.
+  const [goalReplaced, setGoalReplaced] = useState(null)
   // An error of this page (a send or a delete that failed); the hook has its own.
   const [localError, setLocalError] = useState('')
   // The chats the old chat page left in this browser, offered for import once.
@@ -888,6 +893,7 @@ function ChatPage() {
               {rows.map((row, i) => {
                 if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
+                if (row.kind === 'goal') return <GoalMarker key={row.key} msg={row.msg} />
                 return [
                   <ChatMessage
                     key={row.key}
@@ -991,6 +997,15 @@ function ChatPage() {
                 t={tc}
               />
             )}
+            {activeId && (
+              <GoalBar
+                goal={chat.goal}
+                replaced={goalReplaced?.id === activeId ? goalReplaced.text : ''}
+                onPause={() => chat.pauseGoal(activeId)}
+                onResume={() => chat.resumeGoal(activeId)}
+                onClear={() => { setGoalReplaced(null); chat.clearGoal(activeId) }}
+              />
+            )}
             {!noModel && (
               <ShortcutsRow
                 starters={manage ? t('empty.suggestionsManage', { returnObjects: true }) : undefined}
@@ -1043,7 +1058,8 @@ function ChatPage() {
               chat={chat}
               showMeter={!!activeId}
               quiet={!activeId}
-              onContinue={footState.key === 'paused' ? () => handleSend(t('foot.paused.message')) : undefined}
+              onContinue={footState.key === 'paused' && chat.goal?.state !== 'active' ? () => handleSend(t('foot.paused.message')) : undefined}
+              goal={activeId ? chat.goal : null}
             />
           </div>
         </div>

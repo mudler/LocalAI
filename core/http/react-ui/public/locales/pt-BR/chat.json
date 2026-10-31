@@ -406,5 +406,64 @@
     "title": "Contexto usado pela última solicitação ao modelo",
     "ofLimit": "{{used}} / {{limit}} tokens",
     "left": "restam {{left}}"
+  },
+  "goal": {
+    "label": "Objetivo",
+    "states": {
+      "active": "Em andamento",
+      "paused": "Pausado",
+      "done": "Alcançado",
+      "blocked": "Precisa de você"
+    },
+    "pausedBy": {
+      "user": "Você pausou.",
+      "turn_limit": "Usou todos os turnos automáticos. Retome para dar mais.",
+      "step_limit": "Usou todos os passos. Retome para dar mais.",
+      "error": "Um turno falhou. Retome para tentar de novo.",
+      "interrupted": "O servidor parou durante um turno. Retome para continuar."
+    },
+    "blockedNote": "Precisa de você: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Substituído: {{text}}",
+    "pause": "Pausar",
+    "pauseTitle": "Parar o turno em andamento e pausar o objetivo",
+    "resume": "Retomar",
+    "resumeTitle": "Continuar com o objetivo",
+    "clear": "Remover",
+    "clearTitle": "Remover o objetivo",
+    "progress": "Objetivo · turno {{turn}} de {{max}}",
+    "progressStart": "Objetivo · começando",
+    "markers": {
+      "set": "Objetivo definido",
+      "replaced": "Objetivo substituído",
+      "continue": "Continuando rumo ao objetivo · turno {{turn}}",
+      "continueStart": "Continuando rumo ao objetivo",
+      "paused": "Objetivo pausado",
+      "resumed": "Objetivo retomado",
+      "done": "Objetivo alcançado",
+      "blocked": "Objetivo bloqueado",
+      "cleared": "Objetivo removido"
+    },
+    "announce": {
+      "set": "Objetivo definido: {{text}}",
+      "paused": "Objetivo pausado. {{why}}",
+      "resumed": "Objetivo retomado",
+      "done": "Objetivo alcançado: {{note}}",
+      "blocked": "O objetivo precisa de você: {{note}}",
+      "cleared": "Objetivo removido"
+    },
+    "card": {
+      "title": "Objetivo",
+      "none": "Este chat não tem objetivo. Digite /goal e o que você quer que seja feito, e o chat continua trabalhando nisso sozinho.",
+      "turns": "Turno {{turn}} de {{max}}",
+      "steps": "{{steps}} de {{max}} passos",
+      "set": "Definido {{when}}",
+      "clear": "/goal clear remove.",
+      "resume": "/goal resume continua."
+    },
+    "errors": {
+      "empty": "Escreva o objetivo depois de /goal.",
+      "notAllowed": "Só um chat que você iniciou pode ter um objetivo."
+    }
   }
 }

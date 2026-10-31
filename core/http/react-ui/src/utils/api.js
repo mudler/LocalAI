@@ -197,6 +197,11 @@ export const chatsApi = {
   cancelPending: (id, pid) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'DELETE' }),
   sendNow: (id) => postJSON(API_CONFIG.endpoints.chatSendNow(id), {}),
   stop: (id) => postJSON(API_CONFIG.endpoints.chatStop(id), {}),
+  // The chat's goal: { goal, replaced }. Stop pauses it.
+  goal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id)),
+  setGoal: (id, text) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'PUT', body: JSON.stringify({ text }) }),
+  clearGoal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'DELETE' }),
+  resumeGoal: (id) => postJSON(API_CONFIG.endpoints.chatGoalResume(id), {}),
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 
