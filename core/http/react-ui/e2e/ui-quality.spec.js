@@ -12,6 +12,12 @@ const EXPECTED = [
   /Failed to load resource/, // the browser line has no address; the response check below names it
   /\/api\/addons\//, /\/api\/nodes/, /\/api\/collections/, /\/api\/(fine-tuning|quantization)\//,
   /notifications\/events/, /\/backends\/known/,
+  // The sidebar notes the first day it labels Pages as new in the seen record
+  // of user.json, from the version it read. Every spec of the run shares the
+  // test server's one user, so another tab can write first: the save answers
+  // 409 and useSeen reads the file again and retries. A conflict it resolves
+  // is not a problem of the page.
+  /^409 \/api\/chats\/wellknown\/user$/,
 ]
 
 const ROUTES = [

@@ -41,6 +41,10 @@ test.describe('Chat journeys', () => {
   test('a waiting message can be edited, then Send now delivers the edited text as the next turn', async ({ page }) => {
     await startChat(page, 'MOCK_LONG_STREAM go')
     await expect(working(page)).toBeVisible()
+    // The turn is busy before its first model request starts, and that
+    // request takes every message that waits. Once the answer streams, the
+    // request runs, so a message sent now waits for the next step.
+    await expect(transcript(page)).toContainText('tick', { timeout: 15_000 })
     await composer(page).fill('first draft')
     await composer(page).press('Enter')
     const row = page.getByTestId('pending-row')
@@ -59,7 +63,11 @@ test.describe('Chat journeys', () => {
   })
 
   test('a reload in the middle of a turn shows the same turn still running, then its end', async ({ page }) => {
-    await startChat(page, 'MOCK_LONG_STREAM MOCK_LONG_STREAM_SHORT reload me')
+    // The turn lasts about 10 seconds: a reload of the coverage build on a
+    // busy runner takes 4 to 5, longer than the 3 of a short turn, which then
+    // ended before the page could show it running.
+    test.setTimeout(60_000)
+    await startChat(page, 'MOCK_LONG_STREAM MOCK_LONG_STREAM_MEDIUM reload me')
     await expect(working(page)).toBeVisible()
     await page.reload()
     await expect(transcript(page).getByText('reload me')).toBeVisible()
@@ -119,6 +127,11 @@ test.describe('Chat journeys', () => {
   test('a chat gets a title from its first message', async ({ page }) => {
     const id = await startChat(page, 'plan my trip to Lisbon')
     await expect.poll(async () => (await (await page.request.get(`/api/chats/${id}`)).json()).title, { timeout: 20_000 }).toContain('Lisbon')
+    // The server names the chat as the message arrives, so the poll can end
+    // while the address is the chat's but Home has not yet given way to the
+    // chat page, whose Ctrl+K would then not be listening. The page shows the
+    // title once it has read the chat.
+    await expect(page.getByTestId('chat-title')).toContainText('Lisbon')
     await page.keyboard.press('Control+k')
     await expect(page.getByTestId('chats-row').filter({ hasText: 'Lisbon' }).first()).toBeVisible()
   })
