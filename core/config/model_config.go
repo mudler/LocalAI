@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -1334,6 +1335,28 @@ func (c *ModelConfig) ApplyReasoningEffort(requestEffort string) {
 			c.ReasoningConfig.DisableReasoning = &enable
 		}
 	}
+}
+
+// ReasoningDisabled reports whether this request asks the model not to think.
+//
+// Two levers disable thinking: the operator's reasoning config (also set by
+// reasoning_effort=none through ApplyReasoningEffort) and the client's
+// metadata.enable_thinking=false. The latter only reaches the backend as a
+// chat-template kwarg, so it never touches DisableReasoning and callers that
+// inspect the extracted reasoning have to consult it explicitly.
+func (c *ModelConfig) ReasoningDisabled() bool {
+	if c == nil {
+		return false
+	}
+	if c.ReasoningConfig.DisableReasoning != nil && *c.ReasoningConfig.DisableReasoning {
+		return true
+	}
+	if raw, ok := c.RequestMetadata["enable_thinking"]; ok {
+		if enabled, err := strconv.ParseBool(strings.TrimSpace(raw)); err == nil {
+			return !enabled
+		}
+	}
+	return false
 }
 
 // coerceChatTemplateKwarg coerces a request-metadata string value for use as a
