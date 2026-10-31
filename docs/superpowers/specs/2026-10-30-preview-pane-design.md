@@ -102,9 +102,11 @@ and the Office add-on's internals stay private to it).
   for `.docx`, `{kind:"slides", slides:[{n, title, lines:[{text, level}], notes}]}`
   for `.pptx`. Both cap the text at 200 000 characters and set `truncated`.
 - 415 for any other type.
-- Cache: an in-process LRU of 64 entries keyed by owner, path and the file's
-  revision. A revision never changes its content, so frontends of a cluster
-  can each keep their own copy: per-instance by design
+- Cache: an in-process LRU of 64 entries keyed by the content of the file
+  (the SHA-256 of its blob) and its extension (amended 2026-10-31: the spec
+  said owner, path and revision; the content key is as safe and shares one
+  entry between copies). A key never changes its content, so frontends of a
+  cluster can each keep their own copy: per-instance by design
   (`.agents/distributed-state.md`, mode 4), documented in `chats.md`.
 
 PDF: the content endpoint sends `Content-Security-Policy: sandbox;

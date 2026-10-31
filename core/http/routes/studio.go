@@ -30,8 +30,8 @@ func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChe
 }
 
 // RegisterStudioRoutes registers the chats API. Without a service (the chats
-// are switched off or could not start) every /api/chats path answers 404 with
-// the reason, so a client sees "off" and not a missing route. Authentication and
+// are switched off or could not start) every /api/chats, /api/workspace and
+// /api/agent path answers 404 with the reason, so a client sees "off" and not a missing route. Authentication and
 // the feature gates come from the global middleware and the route-feature
 // registry, so no route carries its own; the administrator routes take adminMw.
 func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioendpoint.ModelChecker, adminMw echo.MiddlewareFunc) {
@@ -43,6 +43,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 		e.Any("/api/chats", off)
 		e.Any("/api/chats/*", off)
 		e.Any("/api/workspace/*", off)
+		// The jobs API of the saved agents is part of the chats too.
+		e.Any("/api/agent/*", off)
 		return
 	}
 	h := studioendpoint.New(svc, models)

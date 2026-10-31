@@ -242,8 +242,9 @@ the docs and the audit (which logs every command) say so.
    allowed. A tool line keeps a card `host_exec` with the outcome (`once`,
    `denied`, `timeout`, `admin`), so a reload shows what happened.
 
-The card lives in the running frontend's memory: after a reload during the
-wait the card is gone and the call ends after 5 minutes with "no answer".
+Amended 2026-10-31: the card is stored with the chat, not kept in the
+running frontend's memory, so a reload during the wait shows it again and it
+can still be answered until the call times out after 5 minutes.
 
 ### Guardrails
 

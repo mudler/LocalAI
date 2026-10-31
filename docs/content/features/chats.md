@@ -84,7 +84,7 @@ what runs (`chats`, `agents`, `triggers`, `connectors`).
 
 | Setting | Default | Effect |
 |---|---|---|
-| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API (it answers `404` with the type `chats_off`), saved agents, triggers, connectors, notifications and the agent jobs. The files workspace of the add-ons is not affected. |
+| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API, saved agents, triggers, connectors, notifications and the agent jobs (`/api/chats/*`, `/api/workspace/*` and `/api/agent/*` answer `404` with the type `chats_off`). The files workspace of the add-ons is not affected. |
 | `LOCALAI_DISABLE_TRIGGERS` | `false` | Turns off the trigger runner. Trigger routes answer `409 triggers_off`. |
 | `LOCALAI_DISABLE_CONNECTORS` | `false` | Turns off the connector bots. Connector routes answer `409 connectors_off`. |
 | `LOCALAI_DISABLE_AGENTS` | `false` | Deprecated. It kept the meaning it had in the old agent pool, which also held the knowledge base: it sets `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`, and logs a warning. |
@@ -872,6 +872,7 @@ a history with undo. Paths in the API are inside your own home folder, which is
 `/`. You cannot name another user's files, and a path with `..` is refused.
 
 ```bash
+curl -X POST ".../api/chats/files/folders" -d '{"path": "/Reports"}'  # make a folder
 curl -X PUT  ".../api/chats/files/content?path=/Reports/q1.txt" --data-binary @q1.txt
 curl         ".../api/chats/files?path=/Reports"                    # list a folder
 curl         ".../api/chats/files/content?path=/Reports/q1.txt"     # download
@@ -879,6 +880,7 @@ curl -X POST ".../api/chats/files/move" -d '{"from": "/Reports/q1.txt", "to": "/
 curl -X DELETE ".../api/chats/files?path=/Archive"                  # to the Trash
 curl         ".../api/chats/files/trash"                            # what can be restored
 curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
+curl         ".../api/chats/files/history?path=/Reports&limit=50"   # the changes, newest first (at most 200)
 curl         ".../api/chats/files/preview?path=/Reports/budget.xlsx" # what a workbook holds
 ```
 

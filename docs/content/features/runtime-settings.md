@@ -125,7 +125,8 @@ Configure the collections (the knowledge base) and the models the [chats]({{%rel
 
 - **Collections**: Enable or disable the collections service
 - **Default model for collections**: Default LLM model of the collections service
-- **Chat image model** and **Chat transcription model**: the models the chats use to describe images and to transcribe audio
+- **Chat image model** (`chats_vision_model`, default empty, applies at once): the model the chats use to describe an image (`describe_image`). Empty, or a model that is not installed: the chat's own model when it can look at images, else the first installed model, by name, that can.
+- **Chat transcription model** (`chats_transcription_model`, default empty, applies at once): the model the chats use to transcribe audio. Empty, or a model that is not installed: the first installed model, by name, that can transcribe.
 - **Embedding Model**: Model used for knowledge base embeddings (default: `granite-embedding-107m-multilingual`)
 - **Max Chunking Size**: Maximum chunk size for document ingestion (default: `400`)
 - **Chunk Overlap**: Overlap between document chunks (default: `0`)
@@ -149,7 +150,7 @@ The **Tools** tab lists the built-in chat tools, from `GET /api/chats/admin/tool
   - `chats_egress_ports` (default `80,443`): the ports a command may reach, comma separated. Ports 22 and 25 are refused.
   - `chats_egress_extra_registries` (default empty): exact host names added to the package registries, comma separated, at most 64; for example an internal mirror (which also needs the private switch, since its address is private). No patterns.
   - `chats_egress_audit_days` (1 to 365, default 30): how long the audit of the network requests keeps a line.
-- **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox"}`, applies at once): when several add-ons replace one tool, the one that serves it. With none chosen, the add-on installed first serves (ties go by add-on ID), and the tab marks it as the default and says that you should choose. See [Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
+- **Add-ons that replace a built-in tool** (`chats_tool_providers`, a map such as `{"bash": "sandbox", "xlsx": "office"}`, applies at once): when several add-ons replace one tool, the one that serves it. The keys are the replaceable tools (`bash`, `web_search`, `web_fetch`) and the replaceable built-in skills (`xlsx`, `docx`, `pptx`, `pdf`). A chosen add-on that cannot serve a chat (stopped, off for the chat) leaves the name to the built-in, not to another add-on. With none chosen, the add-on installed first serves (ties go by add-on ID), and the tab marks it as the default and says that you should choose. See [Tools that replace a built-in tool]({{%relref "features/addons#tools-that-replace-a-built-in-tool" %}}).
 
 > **Note:** Most collection settings require a restart to take effect. The settings of the removed agent pool, agent jobs and agent hub (`agent_job_retention_days`, `agent_pool_enable_logs`, `agent_pool_agent_hub_url` and the like) are ignored when found in `runtime_settings.json`.
 

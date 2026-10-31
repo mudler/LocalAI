@@ -651,7 +651,9 @@ under 500 lines, M 500 to 1,500, L over 1,500 (code and tests).
 ## Owner decisions (2026-10-30)
 
 - Q1 yes: the registries list includes GitHub release and download hosts
-  (`github.com`, `codeload.github.com`, `objects.githubusercontent.com`);
+  (`github.com`, `codeload.github.com`, `objects.githubusercontent.com`, and
+  since 2026-10-31 `release-assets.githubusercontent.com`, where release
+  downloads redirect);
   `raw.githubusercontent.com` stays on the card because it serves any user
   content. Exact HTTPS hosts only, like the rest of the list.
 - Q2/Q3: network settings are not workspace files (see Constraints, item 6).

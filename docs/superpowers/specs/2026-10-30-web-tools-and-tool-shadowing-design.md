@@ -3,6 +3,31 @@
 Status: approved 2026-10-30 with the owner decisions below. Phase 1 is being
 built; phase 2 waits for the built-in `bash` work.
 
+## Amendments (2026-10-31)
+
+What shipped differs from the text below in these points; the user docs
+(`docs/content/features/addons.md`, `web.md`, `runtime-settings.md`) describe
+the shipped behaviour.
+
+- **One pin map for tools and skills.** `chats_tool_providers` holds the
+  choices for the replaceable tools and for the replaceable built-in skills
+  (`xlsx`, `docx`, `pptx`, `pdf`). There is no `Skill.Provider`, and no
+  `LOCALAI_CHATS_TOOL_PROVIDERS`: the map is a runtime setting only.
+- **No `Entry.Provider` column.** A call that an add-on served carries a tool
+  card of kind `tool_provider` with the add-on ID; the transcript shows the
+  provider from it.
+- **No PDF in `web_fetch`.** The built-in `web_fetch` answers that it cannot
+  read `application/pdf`; the Web add-on reads PDF.
+- **`ReplaceableTools` is the map with `Kind` and `Required`** as written in
+  "Contract" (named `contract.ReplaceableTool` in code), checked at install
+  and again by the tool adapter.
+- **A pin to a stopped add-on gives the built-in**, as owner decision 3 says.
+  The host lists the add-ons that replace a tool in any state
+  (`ToolAdapter.Shadowers`); the tools panel carries `fallbacks` and Settings
+  > Tools marks a stopped add-on.
+- **`sandboxRunTool` and the `runners` cache are gone**: the tool that runs
+  commands is the one that shadows `bash`.
+
 ## Problem
 
 A chat cannot reach the web. A model that is asked about a page or a recent

@@ -455,6 +455,47 @@ changed. To start without it, set `--addons-official-library=false` before the f
 start. To get it back, add a source with the URL above, or enable it again (see
 [Library sources](#library-sources)).
 
+### Upgrading: Studio and Talk are add-ons now
+
+Studio (image, video, 3D, speech, sound and audio) and Talk (realtime voice) used
+to be pages of LocalAI. They are add-ons now, and two things change at the upgrade:
+
+- **Nothing is installed for you.** No add-on is preinstalled. Studio and Talk
+  appear only after an administrator installs them from the library (see
+  [Add-ons that are not built in](#add-ons-that-are-not-built-in)). Until then the
+  old links open a page that says the add-on is not available.
+- **Users need the `addons` feature.** With authentication on, every add-on page is
+  behind the `addons` feature, which is off by default for a user. A user who had
+  the image, speech or realtime features but not `addons` loses Studio and Talk at
+  the upgrade. The upgrade does not grant `addons` to anyone. An administrator
+  always has it.
+
+To restore access:
+
+1. Install Studio and Talk: **Add-ons**, **Find add-ons**, then **Install and turn
+   on** for each. A machine with no access to the network installs them from a
+   private library that mirrors the packages (see
+   [Private catalog service](#private-catalog-service) and
+   [Library sources](#library-sources)).
+2. Grant the `addons` feature to each user who should keep them, in
+   **Settings → Users and keys** (see [Chats permissions](/features/chats/#permissions)
+   for the same screen). The calls the pages make still need the user's own
+   features: `images` for an image, `audio_speech` for speech, and so on.
+
+With authentication off there are no user features: the one person is an
+administrator and sees every installed add-on.
+
+**Release notes.** The paragraph below is ready to copy into the release notes:
+
+> **Studio and Talk are add-ons.** Studio (image, video, 3D, speech, sound and
+> audio) and Talk (realtime voice) moved out of LocalAI into add-ons. Nothing is
+> preinstalled: after the upgrade an administrator installs them from **Add-ons →
+> Find add-ons** (an air-gapped host uses a private library that mirrors the
+> packages). With authentication on, the add-on pages need the `addons` feature,
+> which is off by default and is not granted at the upgrade, so users who used
+> Studio or Talk lose access until an administrator grants `addons` to them in
+> **Settings → Users and keys**.
+
 ## Library sources
 
 A library source is a place LocalAI reads entries from. There are three kinds:
