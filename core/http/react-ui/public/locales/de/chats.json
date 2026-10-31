@@ -385,7 +385,6 @@
     "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt."
   },
   "inbox": {
-    "empty": "Noch nichts hier.",
     "unread": "{{count}} ungelesen",
     "markAll": "Alle als gelesen markieren",
     "delete": "Löschen",
@@ -408,7 +407,38 @@
     "showMore": "Mehr anzeigen",
     "allowedHosts": "Von Ihrem Administrator immer erlaubt:",
     "allowedHostsOff": "Sie gelten, sobald das Netzwerk eingeschaltet ist.",
-    "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt."
+    "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt.",
+    "title": "Benachrichtigungen",
+    "buttonUnread_one": "Benachrichtigungen, {{count}} ungelesen",
+    "buttonUnread_other": "Benachrichtigungen, {{count}} ungelesen",
+    "filterLabel": "Benachrichtigungen anzeigen",
+    "filterAll": "Alle",
+    "filterUnread": "Ungelesen",
+    "filterFailed": "Fehlgeschlagen",
+    "more": "Weitere Aktionen",
+    "close": "Schließen",
+    "day": {
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "earlier": "Früher"
+    },
+    "emptyTitle": "Noch keine Benachrichtigungen",
+    "emptyBody": "Hier erscheinen die Ergebnisse deiner Trigger und Connectors, auch für Arbeit, die fertig wurde, während du weg warst.",
+    "caughtUp": "Du bist auf dem neuesten Stand.",
+    "caughtUpTitle": "Du bist auf dem neuesten Stand",
+    "caughtUpBody": "Es gibt keine ungelesenen Benachrichtigungen.",
+    "noFailedTitle": "Nichts ist fehlgeschlagen",
+    "noFailedBody": "Läufe und Connectors, die fehlschlagen, erscheinen hier.",
+    "loadError": "Deine Benachrichtigungen konnten nicht geladen werden.",
+    "source": {
+      "trigger": "Trigger",
+      "connector": "Connector",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, ungelesen",
+    "arrived": "Neue Benachrichtigung: {{title}}",
+    "arrivedMany_one": "{{count}} neue Benachrichtigung",
+    "arrivedMany_other": "{{count}} neue Benachrichtigungen"
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",

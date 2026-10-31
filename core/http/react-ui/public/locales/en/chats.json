@@ -255,7 +255,6 @@
     }
   },
   "inbox": {
-    "empty": "Nothing here yet.",
     "unread": "{{count}} unread",
     "markAll": "Mark all read",
     "delete": "Delete",
@@ -275,7 +274,38 @@
     "confirmRead_other": "Remove {{count}} read notifications? Unread ones stay.",
     "onlyRead": "Only the {{count}} read",
     "showing": "Showing {{shown}} of {{total}}",
-    "showMore": "Show more"
+    "showMore": "Show more",
+    "title": "Notifications",
+    "buttonUnread_one": "Notifications, {{count}} unread",
+    "buttonUnread_other": "Notifications, {{count}} unread",
+    "filterLabel": "Show notifications",
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "filterFailed": "Failed",
+    "more": "More actions",
+    "close": "Close",
+    "day": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "earlier": "Earlier"
+    },
+    "emptyTitle": "No notifications yet",
+    "emptyBody": "Results of your triggers and connectors appear here, also for work that finished while you were away.",
+    "caughtUp": "You're all caught up.",
+    "caughtUpTitle": "You're all caught up",
+    "caughtUpBody": "There are no unread notifications.",
+    "noFailedTitle": "Nothing failed",
+    "noFailedBody": "Runs and connectors that fail show up here.",
+    "loadError": "Could not load your notifications.",
+    "source": {
+      "trigger": "Trigger",
+      "connector": "Connector",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, unread",
+    "arrived": "New notification: {{title}}",
+    "arrivedMany_one": "{{count}} new notification",
+    "arrivedMany_other": "{{count}} new notifications"
   },
   "connectorsPage": {
     "title": "Connectors",

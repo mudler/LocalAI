@@ -385,7 +385,6 @@
     "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur."
   },
   "inbox": {
-    "empty": "Rien ici pour l'instant.",
     "unread": "{{count}} non lues",
     "markAll": "Tout marquer comme lu",
     "delete": "Supprimer",
@@ -408,7 +407,38 @@
     "showMore": "Afficher plus",
     "allowedHosts": "Toujours autorisés par votre administrateur :",
     "allowedHostsOff": "Ils s'appliquent quand le réseau est activé.",
-    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur."
+    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur.",
+    "title": "Notifications",
+    "buttonUnread_one": "Notifications, {{count}} non lue",
+    "buttonUnread_other": "Notifications, {{count}} non lues",
+    "filterLabel": "Afficher les notifications",
+    "filterAll": "Toutes",
+    "filterUnread": "Non lues",
+    "filterFailed": "En échec",
+    "more": "Plus d'actions",
+    "close": "Fermer",
+    "day": {
+      "today": "Aujourd'hui",
+      "yesterday": "Hier",
+      "earlier": "Plus tôt"
+    },
+    "emptyTitle": "Aucune notification pour l'instant",
+    "emptyBody": "Les résultats de vos déclencheurs et connecteurs apparaissent ici, y compris le travail terminé pendant votre absence.",
+    "caughtUp": "Vous êtes à jour.",
+    "caughtUpTitle": "Vous êtes à jour",
+    "caughtUpBody": "Aucune notification non lue.",
+    "noFailedTitle": "Aucun échec",
+    "noFailedBody": "Les exécutions et les connecteurs en échec apparaissent ici.",
+    "loadError": "Impossible de charger vos notifications.",
+    "source": {
+      "trigger": "Déclencheur",
+      "connector": "Connecteur",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, non lue",
+    "arrived": "Nouvelle notification : {{title}}",
+    "arrivedMany_one": "{{count}} nouvelle notification",
+    "arrivedMany_other": "{{count}} nouvelles notifications"
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",

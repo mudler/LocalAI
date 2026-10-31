@@ -361,9 +361,30 @@ administration tools.
 
 The inbox lists what ended while you were elsewhere: a trigger run that
 finished or failed, or something that needs you. Each item has a kind
-(`run_ended`, `run_failed` or `needs_attention`), a status, a short title and
-text, and a link to the chat it is about. A chat that a run started is unread
-until you open it: opening the chat marks its notifications read.
+(`run_ended`, `run_failed` or `needs_attention`), a status (`ok` or `failed`),
+a source (`trigger`, `connector` or `system`; empty on items stored before
+sources existed), a short title and text, and a link to the chat it is about.
+A chat that a run started is unread until you open it: opening the chat marks
+its notifications read.
+
+In the chat page, the **Notifications** button in the header shows the unread
+count (99+ above 99) and opens the panel (a sheet over the bottom of the
+screen on a phone):
+
+- **All**, **Unread** and **Failed** filter the list. **Failed** shows every
+  failed run and every trigger or connector that was switched off.
+- Items are grouped under **Today**, **Yesterday** and **Earlier**. Each one
+  shows what sent it, when (the exact time on hover) and, for a failure, the
+  reason.
+- A click on an item marks it read and opens its chat. A connector that was
+  switched off opens the connectors page.
+- Hover an item (or focus it) to mark it read or delete it. With the keyboard,
+  the arrow keys, Home and End move between items, Enter opens one, Delete
+  removes it and Esc closes the panel.
+- **Mark all read** is in the panel header; **Clear read** and **Clear all**
+  are in its menu.
+- A notification that arrives while the panel is open slides in at the top
+  and is highlighted for a few seconds.
 
 You keep at most 500 notifications, none older than 90 days. The age limit applies when you read: an older notification is not listed or counted, and it is deleted the next time one is added.
 
@@ -377,7 +398,7 @@ curl -X DELETE .../api/chats/notifications -d '{"all": true, "read_only": true}'
 curl -N .../api/chats/notifications/events            # new ones as server-sent events
 ```
 
-The chat page has a **Clear all** button in the inbox. It asks first, in the
+**Clear all** asks first, in the
 panel, and says how many notifications it removes. **Clear read** keeps the
 unread ones. A removed notification cannot be restored. The list answers with
 `total`, everything you keep, because it returns at most `limit` items (50 by

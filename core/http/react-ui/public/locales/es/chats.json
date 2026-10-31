@@ -385,7 +385,6 @@
     "allowedHostsNote": "Tu administrador permite siempre {{count}} hosts."
   },
   "inbox": {
-    "empty": "Todavía no hay nada.",
     "unread": "{{count}} sin leer",
     "markAll": "Marcar todo como leído",
     "delete": "Eliminar",
@@ -408,7 +407,38 @@
     "showMore": "Mostrar más",
     "allowedHosts": "Siempre permitidos por tu administrador:",
     "allowedHostsOff": "Se aplican cuando la red está activada.",
-    "allowedHostsNote": "{{count}} hosts están siempre permitidos por tu administrador."
+    "allowedHostsNote": "{{count}} hosts están siempre permitidos por tu administrador.",
+    "title": "Notificaciones",
+    "buttonUnread_one": "Notificaciones, {{count}} sin leer",
+    "buttonUnread_other": "Notificaciones, {{count}} sin leer",
+    "filterLabel": "Mostrar notificaciones",
+    "filterAll": "Todas",
+    "filterUnread": "Sin leer",
+    "filterFailed": "Con error",
+    "more": "Más acciones",
+    "close": "Cerrar",
+    "day": {
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "earlier": "Antes"
+    },
+    "emptyTitle": "Aún no hay notificaciones",
+    "emptyBody": "Aquí aparecen los resultados de tus disparadores y conectores, también del trabajo que terminó mientras no estabas.",
+    "caughtUp": "Estás al día.",
+    "caughtUpTitle": "Estás al día",
+    "caughtUpBody": "No hay notificaciones sin leer.",
+    "noFailedTitle": "Nada ha fallado",
+    "noFailedBody": "Aquí aparecen las ejecuciones y los conectores que fallan.",
+    "loadError": "No se pudieron cargar tus notificaciones.",
+    "source": {
+      "trigger": "Disparador",
+      "connector": "Conector",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, sin leer",
+    "arrived": "Nueva notificación: {{title}}",
+    "arrivedMany_one": "{{count}} notificación nueva",
+    "arrivedMany_other": "{{count}} notificaciones nuevas"
   },
   "change": {
     "loading": "Leyendo el cambio del disparador...",

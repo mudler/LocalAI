@@ -385,7 +385,6 @@
     "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador."
   },
   "inbox": {
-    "empty": "Nada por aqui ainda.",
     "unread": "{{count}} não lidas",
     "markAll": "Marcar tudo como lido",
     "delete": "Excluir",
@@ -408,7 +407,38 @@
     "showMore": "Mostrar mais",
     "allowedHosts": "Sempre permitidos pelo seu administrador:",
     "allowedHostsOff": "Valem quando a rede está ativada.",
-    "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador."
+    "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador.",
+    "title": "Notificações",
+    "buttonUnread_one": "Notificações, {{count}} não lida",
+    "buttonUnread_other": "Notificações, {{count}} não lidas",
+    "filterLabel": "Mostrar notificações",
+    "filterAll": "Todas",
+    "filterUnread": "Não lidas",
+    "filterFailed": "Com falha",
+    "more": "Mais ações",
+    "close": "Fechar",
+    "day": {
+      "today": "Hoje",
+      "yesterday": "Ontem",
+      "earlier": "Antes"
+    },
+    "emptyTitle": "Nenhuma notificação ainda",
+    "emptyBody": "Os resultados dos seus gatilhos e conectores aparecem aqui, inclusive do trabalho que terminou enquanto você estava fora.",
+    "caughtUp": "Você está em dia.",
+    "caughtUpTitle": "Você está em dia",
+    "caughtUpBody": "Não há notificações não lidas.",
+    "noFailedTitle": "Nada falhou",
+    "noFailedBody": "Execuções e conectores que falham aparecem aqui.",
+    "loadError": "Não foi possível carregar suas notificações.",
+    "source": {
+      "trigger": "Gatilho",
+      "connector": "Conector",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, não lida",
+    "arrived": "Nova notificação: {{title}}",
+    "arrivedMany_one": "{{count}} nova notificação",
+    "arrivedMany_other": "{{count}} novas notificações"
   },
   "change": {
     "loading": "Lendo a alteração do gatilho...",

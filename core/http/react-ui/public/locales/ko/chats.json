@@ -385,7 +385,6 @@
     "allowedHostsNote": "관리자가 호스트 {{count}}개를 항상 허용합니다."
   },
   "inbox": {
-    "empty": "아직 아무것도 없습니다.",
     "unread": "읽지 않음 {{count}}개",
     "markAll": "모두 읽음으로 표시",
     "delete": "삭제",
@@ -408,7 +407,38 @@
     "confirmRead_one": "읽은 알림 {{count}}개를 삭제할까요? 읽지 않은 알림은 유지됩니다.",
     "allowedHosts": "관리자가 항상 허용한 호스트:",
     "allowedHostsOff": "네트워크가 켜져 있을 때 적용됩니다.",
-    "allowedHostsNote": "관리자가 항상 허용한 호스트가 {{count}}개 있습니다."
+    "allowedHostsNote": "관리자가 항상 허용한 호스트가 {{count}}개 있습니다.",
+    "title": "알림",
+    "buttonUnread_one": "알림, 읽지 않음 {{count}}개",
+    "buttonUnread_other": "알림, 읽지 않음 {{count}}개",
+    "filterLabel": "알림 보기",
+    "filterAll": "전체",
+    "filterUnread": "읽지 않음",
+    "filterFailed": "실패",
+    "more": "추가 작업",
+    "close": "닫기",
+    "day": {
+      "today": "오늘",
+      "yesterday": "어제",
+      "earlier": "이전"
+    },
+    "emptyTitle": "아직 알림이 없습니다",
+    "emptyBody": "트리거와 커넥터의 결과가 여기에 표시됩니다. 자리를 비운 사이에 끝난 작업도 포함됩니다.",
+    "caughtUp": "모두 확인했습니다.",
+    "caughtUpTitle": "모두 확인했습니다",
+    "caughtUpBody": "읽지 않은 알림이 없습니다.",
+    "noFailedTitle": "실패한 항목이 없습니다",
+    "noFailedBody": "실패한 실행과 커넥터가 여기에 표시됩니다.",
+    "loadError": "알림을 불러오지 못했습니다.",
+    "source": {
+      "trigger": "트리거",
+      "connector": "커넥터",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, 읽지 않음",
+    "arrived": "새 알림: {{title}}",
+    "arrivedMany_one": "새 알림 {{count}}개",
+    "arrivedMany_other": "새 알림 {{count}}개"
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",

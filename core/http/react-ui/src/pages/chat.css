@@ -1311,24 +1311,7 @@ button.cx-step__head:hover,
 .cx-pending__text { min-width: 0; overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
 .cx-pending__edit { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--color-border-divider); border-radius: 6px; background: var(--color-bg-primary); color: var(--dk-text); font: inherit; }
 .cx-pending__acts { display: flex; flex: none; gap: 10px; }
-.cx-hdr .ca-inbox__panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 40;
-  width: min(360px, calc(100vw - 32px));
-  max-height: 60vh;
-  overflow: auto;
-  padding: 10px 12px;
-  border-radius: var(--dk-radius-2);
-  background: var(--color-bg-primary);
-  box-shadow: var(--dk-shadow-float);
-}
 .cx-ttl__btn:disabled { cursor: default; }
-.cx-hdr .ca-inbox { position: relative; padding: 0; border: 0; gap: 0; }
-.cx-hdr .ca-inbox__btn { position: relative; }
-.cx-hdr .ca-inbox__btn .ca-count { position: absolute; top: 2px; right: 0; line-height: 1.25rem; }
-.cx-hdr .ca-inbox__panel { display: flex; flex-direction: column; gap: var(--dk-space-2); }
 
 /* The preview pane of a chat: the selected file or code block on top, then
    what was created, changed and attached. 360 to 480 px docked beside the
