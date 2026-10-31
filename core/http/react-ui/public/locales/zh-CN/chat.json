@@ -112,7 +112,21 @@
     "label": "工具",
     "title": "此对话可以使用的工具",
     "heading": "此对话的工具",
-    "note": "在此关闭的工具不会在此对话中提供给模型。"
+    "note": "在此关闭的工具不会在此对话中提供给模型。",
+    "count": "已开启 {{on}}/{{total}}",
+    "selectAll": "全部开启",
+    "disableAll": "全部关闭",
+    "groupOn": "全开",
+    "groupOff": "全关",
+    "groupOnLabel": "开启{{group}}中的全部",
+    "groupOffLabel": "关闭{{group}}中的全部",
+    "groupCount": "{{on}}/{{total}}",
+    "optIn": "需手动开启。“全部开启”不会开启它。",
+    "empty": "此对话中没有可切换的项。",
+    "failed": "无法保存。开关已恢复原状。",
+    "unavailable": "此对话中不可用",
+    "toolCount_one": "{{count}} 个工具",
+    "toolCount_other": "{{count}} 个工具"
   },
   "skills": {
     "label": "技能",

@@ -1,83 +1,121 @@
-import { useState, useEffect, useRef, useId } from 'react'
-import Icon from '../Icon'
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
+import { useId, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { BulkActions, SwitchGroup, SwitchHead, SwitchPopover, SwitchRow, SwitchStatus } from './SwitchList'
+import { bulkIds, bulkable, rowOn, switchCounts } from '../../utils/chatSwitchRows'
 
-// A chip of the composer that opens a list of switches for this chat, in
-// groups: the tools (add-ons, MCP servers of the model, your MCP connectors)
-// or the skills. It reuses the MCP dropdown's button, badge and menu. A row the
-// chat cannot use now is shown off, with the reason. The control renders
-// nothing when there is nothing to switch.
+// The Tools chip of the composer: one switch per tool source of this chat, in
+// groups (built-in tools, add-ons, MCP servers of the model, your
+// connectors), with "Select all" and "Disable all" for the whole menu and for
+// each group of two or more. A row the chat cannot use now is shown off, with
+// the reason, and no bulk action changes it. An opt-in row (saved agents) is
+// switched on by hand only. The control renders nothing when there is nothing
+// to switch and no notice.
 //
-// groups: [{ key, title, rows: [{ key, label, title, on, usable, reason, note, warn, onToggle }] }]
-// note is a line under the name (warn draws it as a warning).
+// groups: [{ key, title, icon, onSet(ids, on), rows: [{ key, id, label, title,
+//   on, usable, reason, note, warn, chip, meta, optIn, onToggle }] }]
+// note is a line under the name (warn draws it as a warning); chip is a short
+// label next to it (who serves the tool); meta is a muted text on the right.
 // notice is a block over the groups, for something that holds for the whole
-// chat (the chat cannot run commands); the menu shows for it even with no rows.
+// chat (the chat cannot run commands, its network); the menu shows for it even
+// with no rows.
 export default function SwitchMenu({ icon, label, title, heading, note, notice, groups, error, footer, testId }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const { t } = useTranslation('chat')
   const noteId = useId()
+  const [busy, setBusy] = useState(false)
 
-  useEffect(() => {
-    if (!open) return undefined
-    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
-  const rows = groups.flatMap((g) => g.rows)
+  const shown = groups.filter((g) => g.rows.length > 0)
+  const rows = shown.flatMap((g) => g.rows)
   if (rows.length === 0 && !notice) return null
-  const count = rows.filter((r) => r.usable !== false && r.on).length
-  const titled = groups.filter((g) => g.rows.length > 0).length > 1
+  const { on, total } = switchCounts(rows)
+  const titled = shown.length > 1
+
+  // One request per setter, one after the other: two groups can share one
+  // (the MCP servers and the connectors), and their ids go together.
+  const setGroups = async (list, value) => {
+    const bySetter = new Map()
+    for (const g of list) {
+      const ids = bulkIds(g.rows, value)
+      if (g.onSet && ids.length > 0) bySetter.set(g.onSet, [...(bySetter.get(g.onSet) || []), ...ids])
+    }
+    setBusy(true)
+    try {
+      for (const [onSet, ids] of bySetter) await onSet(ids, value)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const actionsFor = (list, compact, name) => (
+    <BulkActions
+      compact={compact}
+      testId={compact ? `${testId}-group` : testId}
+      allLabel={t(compact ? 'tools.groupOn' : 'tools.selectAll')}
+      noneLabel={t(compact ? 'tools.groupOff' : 'tools.disableAll')}
+      allAria={compact ? t('tools.groupOnLabel', { group: name }) : undefined}
+      noneAria={compact ? t('tools.groupOffLabel', { group: name }) : undefined}
+      allDisabled={busy || list.every((g) => bulkIds(g.rows, true).length === 0)}
+      noneDisabled={busy || list.every((g) => bulkIds(g.rows, false).length === 0)}
+      onAll={() => setGroups(list, true)}
+      onNone={() => setGroups(list, false)}
+    />
+  )
 
   return (
-    <div className="chat-mcp-dropdown chat-addons-dropdown" ref={ref} data-testid={testId}>
-      <button
-        type="button"
-        className={`btn btn-sm ${count > 0 ? 'btn-primary' : 'btn-secondary'}`}
-        title={title}
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-describedby={open && note ? noteId : undefined}
-        data-testid={`${testId}-button`}
-        onClick={() => setOpen(v => !v)}
+    <SwitchPopover icon={icon} label={label} title={title} count={on} describedBy={note ? noteId : undefined} testId={testId} menuClassName="swl-menu--wide">
+      <SwitchHead
+        title={heading}
+        summary={rows.length > 0 ? t('tools.count', { on, total }) : null}
+        summaryTestId={`${testId}-summary`}
+        actions={bulkable(rows) > 1 ? actionsFor(shown, false) : null}
       >
-        <Icon name={icon} /> {label}
-        {count > 0 && <span className="chat-mcp-badge" data-testid={`${testId}-count`}>{count}</span>}
-      </button>
-      {open && (
-        <div className="chat-mcp-dropdown-menu chat-addons-menu" role="group" aria-label={title} data-testid={`${testId}-menu`}>
-          <div className="chat-mcp-dropdown-header"><span>{heading}</span></div>
-          {note && <p className="chat-addons-note" id={noteId}>{note}</p>}
-          {notice}
-          {groups.filter((g) => g.rows.length > 0).map((g) => (
-            <div key={g.key} role="group" aria-label={g.title}>
-              {titled && <div className="chat-mcp-dropdown-header chat-switch-group"><span>{g.title}</span></div>}
-              {g.rows.map((r) => (
-                <label key={r.key} className={`chat-mcp-server-item${r.usable === false ? ' chat-mcp-server-item--error' : ''}`} title={r.title} data-testid={`${testId}-item`}>
-                  <input
-                    type="checkbox"
-                    checked={r.usable !== false && r.on}
-                    disabled={r.usable === false}
-                    onChange={(e) => r.onToggle(e.target.checked)}
-                    aria-label={r.label}
-                  />
-                  <span className="chat-mcp-server-info">
-                    <span className="chat-mcp-server-name">{r.label}</span>
-                    {r.usable === false && r.reason && <span className="chat-mcp-server-error">{r.reason}</span>}
-                    {r.note && <span className={r.warn ? 'chat-mcp-server-error' : 'chat-mcp-server-tools'} data-testid={`${testId}-note`}>{r.note}</span>}
-                  </span>
-                </label>
-              ))}
-            </div>
-          ))}
-          {error && <div className="chat-mcp-dropdown-error" role="alert">{error}</div>}
-          {footer}
-        </div>
-      )}
-    </div>
+        {note && <p className="swl-head__note" id={noteId}>{note}</p>}
+      </SwitchHead>
+      <div className="swl-list" data-testid={`${testId}-list`}>
+        {notice && <div className="swl-notice">{notice}</div>}
+        {rows.length === 0 && <p className="swl-empty" data-testid={`${testId}-empty`}>{t('tools.empty')}</p>}
+        {shown.map((g) => {
+          const c = switchCounts(g.rows)
+          return (
+            <SwitchGroup
+              key={g.key}
+              title={g.title}
+              icon={g.icon}
+              count={titled ? t('tools.groupCount', { on: c.on, total: c.total }) : null}
+              actions={titled && g.onSet && bulkable(g.rows) > 1 ? actionsFor([g], true, g.title) : null}
+              testId={`${testId}-group-${g.key}`}
+            >
+              {g.rows.map((r) => <ToolRow key={r.key} row={r} testId={testId} />)}
+            </SwitchGroup>
+          )
+        })}
+      </div>
+      <SwitchStatus error={error} failed={t('tools.failed')} testId={`${testId}-error`}>{footer}</SwitchStatus>
+    </SwitchPopover>
+  )
+}
+
+function ToolRow({ row: r, testId }) {
+  const { t } = useTranslation('chat')
+  const usable = r.usable !== false
+  const reason = !usable ? (r.reason || t('tools.unavailable')) : ''
+  const desc = r.note || (r.optIn && usable ? t('tools.optIn') : '')
+  return (
+    <SwitchRow
+      name={r.label}
+      desc={desc}
+      tone={r.warn ? 'warn' : undefined}
+      chip={r.chip}
+      chipTestId={`${testId}-note`}
+      meta={r.meta}
+      reason={reason}
+      title={r.title}
+      checked={rowOn(r)}
+      disabled={!usable}
+      onChange={(next) => r.onToggle(next)}
+      stacked={!!(reason || desc)}
+      testId={`${testId}-item`}
+      descTestId={r.note ? `${testId}-note` : undefined}
+      data={{ optin: r.optIn ? 'true' : undefined }}
+    />
   )
 }

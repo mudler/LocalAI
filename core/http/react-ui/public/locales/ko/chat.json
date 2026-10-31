@@ -112,7 +112,21 @@
     "label": "도구",
     "title": "이 채팅이 쓸 수 있는 도구",
     "heading": "이 채팅의 도구",
-    "note": "여기서 끈 도구는 이 채팅에서 모델에 제공되지 않습니다."
+    "note": "여기서 끈 도구는 이 채팅에서 모델에 제공되지 않습니다.",
+    "count": "{{total}}개 중 {{on}}개 켜짐",
+    "selectAll": "모두 켜기",
+    "disableAll": "모두 끄기",
+    "groupOn": "모두 켜기",
+    "groupOff": "모두 끄기",
+    "groupOnLabel": "{{group}} 모두 켜기",
+    "groupOffLabel": "{{group}} 모두 끄기",
+    "groupCount": "{{total}}개 중 {{on}}개",
+    "optIn": "직접 켜기 전까지 꺼져 있습니다. 모두 켜기로는 켜지지 않습니다.",
+    "empty": "이 채팅에서 바꿀 항목이 없습니다.",
+    "failed": "저장하지 못했습니다. 스위치가 이전 상태로 돌아갔습니다.",
+    "unavailable": "이 채팅에서 사용할 수 없음",
+    "toolCount_one": "도구 {{count}}개",
+    "toolCount_other": "도구 {{count}}개"
   },
   "skills": {
     "label": "스킬",

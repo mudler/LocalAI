@@ -112,7 +112,21 @@
     "label": "Strumenti",
     "title": "Strumenti che questa chat può usare",
     "heading": "Strumenti di questa chat",
-    "note": "Uno strumento spento qui non viene offerto al modello in questa chat."
+    "note": "Uno strumento spento qui non viene offerto al modello in questa chat.",
+    "count": "{{on}} di {{total}} attivi",
+    "selectAll": "Attiva tutti",
+    "disableAll": "Disattiva tutti",
+    "groupOn": "Tutti sì",
+    "groupOff": "Tutti no",
+    "groupOnLabel": "Attiva tutto in {{group}}",
+    "groupOffLabel": "Disattiva tutto in {{group}}",
+    "groupCount": "{{on}} di {{total}}",
+    "optIn": "Spento finché non lo accendi. Attiva tutti lo lascia spento.",
+    "empty": "In questa chat non c'è niente da attivare.",
+    "failed": "Salvataggio non riuscito. L'interruttore è tornato com'era.",
+    "unavailable": "Non disponibile in questa chat",
+    "toolCount_one": "{{count}} strumento",
+    "toolCount_other": "{{count}} strumenti"
   },
   "skills": {
     "label": "Skill",

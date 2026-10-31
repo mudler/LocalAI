@@ -505,9 +505,9 @@ test.describe('Chat tools menu: add-ons', () => {
     })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'sandbox' })).not.toBeChecked()
-    await page.getByRole('checkbox', { name: 'office' }).uncheck()
+    await expect(page.getByRole('switch', { name: 'office' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'sandbox' })).not.toBeChecked()
+    await page.getByRole('switch', { name: 'office' }).uncheck()
     await expect.poll(() => calls.at(-1)).toEqual(['office', 'sandbox'])
   })
 
@@ -529,9 +529,10 @@ test.describe('Chat tools menu: add-ons', () => {
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     // A click, not uncheck(): the switch goes back as soon as the server refuses.
-    await page.getByRole('checkbox', { name: 'office' }).click()
-    await expect(page.getByRole('alert')).toBeVisible()
-    await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
+    await page.getByRole('switch', { name: 'office' }).click()
+    await expect(page.getByRole('alert')).toHaveText('Could not save. The switch is back as it was.')
+    await expect(page.getByRole('alert').locator('span')).toHaveAttribute('title', 'no')
+    await expect(page.getByRole('switch', { name: 'office' })).toBeChecked()
   })
 })
 
@@ -561,15 +562,15 @@ test.describe('Chat tools menu: MCP', () => {
     await page.goto('/app/chats/c1')
     await expect(page.getByTestId('chat-tools-count')).toHaveText('3')
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByRole('checkbox', { name: 'office' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'crm' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'manual' })).toBeDisabled()
-    await expect(page.getByRole('checkbox', { name: 'Parked' })).toBeDisabled()
+    await expect(page.getByRole('switch', { name: 'office' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'crm' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'Docs' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'manual' })).toBeDisabled()
+    await expect(page.getByRole('switch', { name: 'Parked' })).toBeDisabled()
     await expect(page.getByText('switched off on the Connectors page')).toBeVisible()
-    await page.getByRole('checkbox', { name: 'Docs' }).uncheck()
+    await page.getByRole('switch', { name: 'Docs' }).uncheck()
     await expect.poll(() => calls.at(-1)).toEqual(['connector:c1'])
-    await page.getByRole('checkbox', { name: 'crm' }).uncheck()
+    await page.getByRole('switch', { name: 'crm' }).uncheck()
     await expect.poll(() => calls.at(-1)).toEqual(['connector:c1', 'crm'])
     await expect(page.getByTestId('chat-tools-count')).toHaveText('1')
   })
@@ -582,9 +583,9 @@ test.describe('Chat tools menu: MCP', () => {
     await page.route('**/api/chats/c1/mcp', route => route.fulfill({ status: 400, json: { error: { message: 'no' } } }))
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
-    await page.getByRole('checkbox', { name: 'Docs' }).click()
+    await page.getByRole('switch', { name: 'Docs' }).click()
     await expect(page.getByRole('alert')).toBeVisible()
-    await expect(page.getByRole('checkbox', { name: 'Docs' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'Docs' })).toBeChecked()
   })
 
   test('the Web row says who serves the web tools: the built-in, an add-on, or each by name', async ({ page }) => {
@@ -593,7 +594,7 @@ test.describe('Chat tools menu: MCP', () => {
     let web = { group: 'web', tools: ['web_search', 'web_fetch'], off: false, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' } }
     await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
     await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { builtins: [web], addons: [], servers: [], connectors: [], off: [] } }))
-    const row = () => page.getByTestId('chat-tools-item').filter({ has: page.getByRole('checkbox', { name: 'Web' }) })
+    const row = () => page.getByTestId('chat-tools-item').filter({ has: page.getByRole('switch', { name: 'Web' }) })
     const open = async () => {
       await page.goto('/app/chats/c1')
       await page.getByTestId('chat-tools-button').click()
@@ -647,12 +648,12 @@ test.describe('Chat tools menu: built-in groups', () => {
     })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByRole('checkbox', { name: 'Web' })).toBeChecked()
-    await expect(page.getByRole('checkbox', { name: 'Saved agents' })).not.toBeChecked()
-    await page.getByRole('checkbox', { name: 'Saved agents' }).check()
+    await expect(page.getByRole('switch', { name: 'Web' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'Saved agents' })).not.toBeChecked()
+    await page.getByRole('switch', { name: 'Saved agents' }).check()
     await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: ['saved_agents'] })
-    await expect(page.getByRole('checkbox', { name: 'Saved agents' })).toBeChecked()
-    await page.getByRole('checkbox', { name: 'Saved agents' }).uncheck()
+    await expect(page.getByRole('switch', { name: 'Saved agents' })).toBeChecked()
+    await page.getByRole('switch', { name: 'Saved agents' }).uncheck()
     await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: [] })
   })
 
@@ -665,7 +666,165 @@ test.describe('Chat tools menu: built-in groups', () => {
     ] } }))
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByRole('checkbox', { name: 'Saved agents' })).toBeDisabled()
+    await expect(page.getByRole('switch', { name: 'Saved agents' })).toBeDisabled()
     await expect(page.getByText('saved agents are not enabled for this account')).toBeVisible()
+  })
+})
+
+// The whole menu at once: one header with the count and Select all / Disable
+// all, a heading per group with its own pair, and rows the bulk actions leave
+// alone (one that cannot be used, the opt-in saved agents on Select all).
+test.describe('Chat tools menu: switches and bulk actions', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  async function stubTools(page) {
+    const state = {
+      addons: [{ id: 'office', tools: 4, off: false }, { id: 'sandbox', tools: 1, off: true }],
+      builtins: [
+        { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'searx', providers: { web_search: 'searx', web_fetch: 'searx' } },
+        { group: 'saved_agents', tools: ['list_agents'], off: true, opt_in: true, usable: true, provider: 'builtin' },
+      ],
+      servers: [{ name: 'crm', off: true, usable: true }, { name: 'manual', off: false, usable: false, reason: 'the model does not use this server unless a saved agent names it' }],
+      connectors: [{ id: 'c1', name: 'Docs', off: false, usable: true }, { id: 'c2', name: 'A connector with a name far too long to fit on one line of the menu', off: false, usable: true }],
+      off: ['crm'], puts: [],
+    }
+    const tools = () => ({
+      addons: [], builtins: state.builtins, off: state.off,
+      servers: state.servers.map(x => ({ ...x, off: state.off.includes(x.name) })),
+      connectors: state.connectors.map(c => ({ ...c, off: state.off.includes(`connector:${c.id}`) })),
+    })
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => {
+      if (route.request().method() === 'PUT') {
+        const off = route.request().postDataJSON().off
+        state.puts.push({ addons: off })
+        state.addons = state.addons.map(a => ({ ...a, off: off.includes(a.id) }))
+      }
+      return route.fulfill({ json: { addons: state.addons } })
+    })
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: tools() }))
+    await page.route('**/api/chats/c1/mcp', route => {
+      state.off = route.request().postDataJSON().off
+      state.puts.push({ mcp: state.off })
+      return route.fulfill({ json: tools() })
+    })
+    await page.route('**/api/chats/c1/builtins', route => {
+      const body = route.request().postDataJSON()
+      state.puts.push({ builtins: body })
+      state.builtins = state.builtins.map(b => ({ ...b, off: b.opt_in ? !(body.on || []).includes(b.group) : body.off.includes(b.group) }))
+      return route.fulfill({ json: tools() })
+    })
+    return state
+  }
+  const open = async (page) => {
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-tools-menu')).toBeVisible()
+  }
+  const sw = (page, name) => page.getByRole('switch', { name, exact: true })
+  const summary = (page) => page.getByTestId('chat-tools-summary')
+
+  test('every row is a switch, and the header counts what can be used', async ({ page }) => {
+    await stubTools(page)
+    await open(page)
+    // 8 rows; manual cannot be used, so 7 count. On: web, office, Docs, long.
+    await expect(page.getByTestId('chat-tools-menu').getByRole('switch')).toHaveCount(8)
+    await expect(page.getByTestId('chat-tools-menu').getByRole('checkbox')).toHaveCount(0)
+    await expect(summary(page)).toHaveText('4 of 7 on')
+    await expect(page.getByTestId('chat-tools-count')).toHaveText('4')
+    // A row that cannot be used: disabled, described by its reason.
+    const manual = sw(page, 'manual')
+    await expect(manual).toBeDisabled()
+    await expect(manual).toHaveAttribute('aria-checked', 'false')
+    await expect(manual).toHaveAccessibleDescription('the model does not use this server unless a saved agent names it')
+    // The add-on that serves the web tools is a chip next to the name.
+    const web = page.getByTestId('chat-tools-item').filter({ has: sw(page, 'Web') })
+    await expect(web.getByTestId('chat-tools-note')).toHaveText('Served by add-on searx')
+    await expect(web.locator('.ui-chip')).toBeVisible()
+    // The opt-in row says that Select all leaves it.
+    await expect(sw(page, 'Saved agents')).toHaveAccessibleDescription('Off until you switch it on. Select all leaves it off.')
+    // A long name is cut, with the full name in its tooltip.
+    const long = page.getByTestId('chat-tools-item').filter({ has: sw(page, /far too long/) })
+    await expect(long.locator('label')).toHaveAttribute('title', /far too long/)
+    const name = long.locator('.swl-row__name')
+    expect(await name.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true)
+    // The add-on rows give their number of tools.
+    await expect(page.getByTestId('chat-tools-item').filter({ has: sw(page, 'office') })).toContainText('4 tools')
+    await expect(page.getByTestId('chat-tools-item').filter({ has: sw(page, 'sandbox') })).toContainText('1 tool')
+  })
+
+  test('Select all switches on what can be used, but not the saved agents; Disable all switches everything off', async ({ page }) => {
+    const state = await stubTools(page)
+    await open(page)
+    await page.getByTestId('chat-tools-all').click()
+    await expect(summary(page)).toHaveText('6 of 7 on')
+    await expect(page.getByTestId('chat-tools-all')).toBeDisabled()
+    await expect(sw(page, 'Saved agents')).toHaveAttribute('aria-checked', 'false')
+    await expect(sw(page, 'manual')).toHaveAttribute('aria-checked', 'false')
+    // One request per kind: the add-ons and the MCP servers. Web was on already.
+    await expect.poll(() => state.puts).toEqual([{ addons: [] }, { mcp: [] }])
+
+    // Saved agents on by hand, then Disable all switches it off too.
+    await sw(page, 'Saved agents').click()
+    await expect(summary(page)).toHaveText('7 of 7 on')
+    state.puts.length = 0
+    await page.getByTestId('chat-tools-none').click()
+    await expect(summary(page)).toHaveText('0 of 7 on')
+    await expect(page.getByTestId('chat-tools-count')).toHaveCount(0)
+    await expect(page.getByTestId('chat-tools-none')).toBeDisabled()
+    await expect.poll(() => state.puts.length).toBe(3)
+    expect(state.puts[0]).toEqual({ builtins: { off: ['web'], on: [] } })
+    expect(state.puts[1]).toEqual({ addons: ['office', 'sandbox'] })
+    // The server that cannot be used is left as it was stored.
+    expect(state.puts[2].mcp.sort()).toEqual(['connector:c1', 'connector:c2', 'crm'])
+  })
+
+  test('a group has its own count and actions, which change that group only', async ({ page }) => {
+    const state = await stubTools(page)
+    await open(page)
+    const group = page.getByTestId('chat-tools-group-connectors')
+    await expect(group).toContainText('Your connectors')
+    await expect(group).toContainText('2 of 2')
+    await group.getByRole('button', { name: 'Switch off all of Your connectors' }).click()
+    await expect(group).toContainText('0 of 2')
+    await expect.poll(() => state.puts).toEqual([{ mcp: ['crm', 'connector:c1', 'connector:c2'] }])
+    await expect(sw(page, 'office')).toHaveAttribute('aria-checked', 'true')
+    await expect(group.getByRole('button', { name: 'Switch off all of Your connectors' })).toBeDisabled()
+    // A group with one switch that can be used has no actions of its own.
+    await expect(page.getByTestId('chat-tools-group-servers').getByRole('button')).toHaveCount(0)
+  })
+
+  test('Space on a focused switch toggles it, and Escape closes the menu back to the chip', async ({ page }) => {
+    const state = await stubTools(page)
+    await open(page)
+    await sw(page, 'office').focus()
+    await page.keyboard.press('Space')
+    await expect(sw(page, 'office')).toHaveAttribute('aria-checked', 'false')
+    await expect.poll(() => state.puts.at(-1)).toEqual({ addons: ['office', 'sandbox'] })
+    // A click on the name toggles the switch too.
+    await page.getByTestId('chat-tools-item').filter({ has: sw(page, 'Docs') }).locator('.swl-row__name').click()
+    await expect(sw(page, 'Docs')).toHaveAttribute('aria-checked', 'false')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('chat-tools-menu')).toHaveCount(0)
+    await expect(page.getByTestId('chat-tools-button')).toBeFocused()
+  })
+
+  test('on a phone the menu is a sheet on the screen and its list scrolls under a fixed header', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 640 })
+    await stubTools(page)
+    await open(page)
+    const menu = page.getByTestId('chat-tools-menu')
+    await menu.evaluate(el => Promise.all(el.getAnimations().map(a => a.finished)))
+    const box = await menu.boundingBox()
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(390)
+    expect(box.y + box.height).toBeLessThanOrEqual(640)
+    const list = page.getByTestId('chat-tools-list')
+    expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true)
+    const head = await summary(page).boundingBox()
+    await list.evaluate(el => { el.scrollTop = el.scrollHeight })
+    expect((await summary(page).boundingBox()).y).toBe(head.y)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   })
 })

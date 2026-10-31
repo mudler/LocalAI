@@ -112,7 +112,21 @@
     "label": "Werkzeuge",
     "title": "Werkzeuge, die dieser Chat nutzen kann",
     "heading": "Werkzeuge für diesen Chat",
-    "note": "Ein hier ausgeschaltetes Werkzeug wird dem Modell in diesem Chat nicht angeboten."
+    "note": "Ein hier ausgeschaltetes Werkzeug wird dem Modell in diesem Chat nicht angeboten.",
+    "count": "{{on}} von {{total}} an",
+    "selectAll": "Alle einschalten",
+    "disableAll": "Alle ausschalten",
+    "groupOn": "Alle an",
+    "groupOff": "Alle aus",
+    "groupOnLabel": "Alle von {{group}} einschalten",
+    "groupOffLabel": "Alle von {{group}} ausschalten",
+    "groupCount": "{{on}} von {{total}}",
+    "optIn": "Aus, bis Sie es einschalten. „Alle einschalten“ lässt es aus.",
+    "empty": "In diesem Chat gibt es nichts zu schalten.",
+    "failed": "Nicht gespeichert. Der Schalter steht wieder wie vorher.",
+    "unavailable": "In diesem Chat nicht verfügbar",
+    "toolCount_one": "{{count}} Werkzeug",
+    "toolCount_other": "{{count}} Werkzeuge"
   },
   "skills": {
     "label": "Skills",
