@@ -47,6 +47,7 @@
     "upgradeVersions": "{{from}} ke {{to}}",
     "rowUpgraded": "Diperbarui dalam {{duration}}",
     "rowUpgradedPlain": "Diperbarui",
-    "viewInAddons": "Lihat di Add-on"
+    "viewInAddons": "Lihat di Add-on",
+    "upgradeWaiting": "Menunggu layanan add-on dimulai. Pemeriksaan berikutnya dalam {{seconds}} dtk."
   }
 }

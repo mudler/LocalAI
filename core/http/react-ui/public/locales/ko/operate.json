@@ -47,6 +47,7 @@
     "upgradeVersions": "{{from}} → {{to}}",
     "rowUpgraded": "{{duration}} 만에 업그레이드됨",
     "rowUpgradedPlain": "업그레이드됨",
-    "viewInAddons": "애드온에서 보기"
+    "viewInAddons": "애드온에서 보기",
+    "upgradeWaiting": "애드온 서비스가 시작되기를 기다리는 중입니다. {{seconds}}초 후 다시 확인합니다."
   }
 }

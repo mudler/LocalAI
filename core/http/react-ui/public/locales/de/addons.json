@@ -621,7 +621,9 @@
       "done": "Geprüft.",
       "failed": "Die Prüfung wurde nicht abgeschlossen.",
       "justNow": "Gerade eben geprüft."
-    }
+    },
+    "waitingService": "Der Add-on-Dienst startet. LocalAI fragt in {{seconds}} s erneut nach dem Upgrade.",
+    "checkAgain": "Jetzt prüfen"
   },
   "install": {
     "stepsLabel": "Install steps",

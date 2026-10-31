@@ -47,6 +47,7 @@
     "upgradeVersions": "{{from}} 到 {{to}}",
     "rowUpgraded": "已升级，用时 {{duration}}",
     "rowUpgradedPlain": "已升级",
-    "viewInAddons": "在插件中查看"
+    "viewInAddons": "在插件中查看",
+    "upgradeWaiting": "正在等待插件服务启动。{{seconds}} 秒后再次检查。"
   }
 }

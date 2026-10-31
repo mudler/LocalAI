@@ -47,6 +47,7 @@
     "upgradeVersions": "{{from}} a {{to}}",
     "rowUpgraded": "Actualizado en {{duration}}",
     "rowUpgradedPlain": "Actualizado",
-    "viewInAddons": "Ver en Complementos"
+    "viewInAddons": "Ver en Complementos",
+    "upgradeWaiting": "Esperando a que se inicie el servicio de complementos. Próxima comprobación en {{seconds}} s."
   }
 }

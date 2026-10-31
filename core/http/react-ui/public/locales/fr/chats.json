@@ -126,7 +126,10 @@
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
     "servedBy": "Fourni par l'extension {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "intégré"
+    "servedByBuiltin": "intégré",
+    "sandbox": {
+      "starting": "Le Sandbox démarre. LocalAI vérifie à nouveau dans {{seconds}} s."
+    }
   },
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",

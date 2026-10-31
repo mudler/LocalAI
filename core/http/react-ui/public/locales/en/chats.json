@@ -337,7 +337,8 @@
       "isolated": "Runs commands isolated ({{backend}})",
       "host": "Commands run directly on this machine, with no isolation",
       "cannot": "Sandbox unavailable: this host cannot run commands",
-      "cannotWhy": "Sandbox unavailable: {{reason}}"
+      "cannotWhy": "Sandbox unavailable: {{reason}}",
+      "starting": "The Sandbox is starting. LocalAI checks again in {{seconds}} s."
     },
     "commands": {
       "title": "Commands can't run here",

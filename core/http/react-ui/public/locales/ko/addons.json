@@ -621,7 +621,9 @@
       "done": "확인했습니다.",
       "failed": "확인을 완료하지 못했습니다.",
       "justNow": "방금 확인했습니다."
-    }
+    },
+    "waitingService": "애드온 서비스가 시작되는 중입니다. LocalAI가 {{seconds}}초 후 업그레이드 상태를 다시 확인합니다.",
+    "checkAgain": "지금 확인"
   },
   "install": {
     "stepsLabel": "Install steps",

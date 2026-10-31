@@ -126,7 +126,10 @@
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
     "servedBy": "Bedient vom Add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "eingebaut"
+    "servedByBuiltin": "eingebaut",
+    "sandbox": {
+      "starting": "Die Sandbox startet. LocalAI prüft in {{seconds}} s erneut."
+    }
   },
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",

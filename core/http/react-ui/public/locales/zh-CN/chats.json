@@ -126,7 +126,10 @@
     "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",
     "servedBy": "由附加组件 {{provider}} 提供",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "内置"
+    "servedByBuiltin": "内置",
+    "sandbox": {
+      "starting": "Sandbox 正在启动。LocalAI 将在 {{seconds}} 秒后再次检查。"
+    }
   },
   "vision": {
     "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",

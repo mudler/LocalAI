@@ -126,7 +126,10 @@
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
     "servedBy": "Dilayani oleh add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "bawaan"
+    "servedByBuiltin": "bawaan",
+    "sandbox": {
+      "starting": "Sandbox sedang dimulai. LocalAI memeriksa lagi dalam {{seconds}} dtk."
+    }
   },
   "vision": {
     "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",

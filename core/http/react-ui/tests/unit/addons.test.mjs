@@ -15,7 +15,7 @@ import {
   attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
-import { runLifecycle, settleOperation } from '../../src/components/addons/lifecycleFlow.js'
+import { runLifecycle, settleOperation, unavailableWait } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
 import { describeError, describeOutcome } from '../../src/components/addons/errors.js'
 import { backendState, libraryOrigin, shortDigest as shortBackendDigest } from '../../src/utils/backendRows.js'
@@ -230,6 +230,13 @@ test('a denial is not retried and an exhausted read is reported as unknown', asy
   const out = await settleOperation(silent, { operationId: 'x', waits: [1, 1], sleep: async () => {} })
   assert.equal(out.outcome, 'unknown')
   assert.equal(reads, 3)
+  // An unavailable service is asked less and less often, up to 30 s apart.
+  const slept = []
+  const heard = []
+  await settleOperation(silent, { operationId: 'x', waits: [500, 500, 500, 500, 500, 500], sleep: async (ms) => { slept.push(ms) }, onWait: (w) => heard.push(w.unavailable) })
+  assert.deepEqual(slept, [2000, 4000, 8000, 16000, 30000, 30000])
+  assert.ok(heard.every(Boolean))
+  assert.equal(unavailableWait(1, 5000), 5000, 'never shorter than the planned wait')
   const failed = await runLifecycle({}, { operationId: 'x', submit: async () => ({ phase: 'failed' }) })
   assert.equal(failed.outcome, 'failed')
   await assert.rejects(runLifecycle({}, { operationId: 'x', submit: async () => { throw new AddonsError({ kind: 'denied' }) } }), e => e.kind === 'denied')

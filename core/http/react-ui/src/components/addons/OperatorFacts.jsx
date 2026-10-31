@@ -7,6 +7,7 @@ import { describeError } from './errors'
 import { updateView, formatWhen, upgradeAvailability } from './updateState'
 import { upgradeFailureWords } from './updateReview'
 import RecoveryPanel from './RecoveryPanel'
+import { addonUpgrades } from '../../utils/addonUpgrades'
 import { reasonText } from './UpgradeControls'
 import { UpgradeReason } from '../upgrade/UpgradeBits'
 
@@ -134,7 +135,13 @@ function UpdatePanel({ addon, t, language, actions, check, upgraded, upgradeOp, 
       {view.stale && <p className="ad-quiet" data-testid="update-stale">{t('updates.stale')}</p>}
       {check && check.phase === 'done' && check.throttled && <p className="ad-quiet" role="status">{t('updates.throttled')}</p>}
       {check && check.phase === 'error' && <p className="ad-entry__note" data-tone="error" role="alert">{describeError(check.error, t)}</p>}
-      {upgrading && <p className="ad-entry__note" role="status" data-testid="upgrade-progress">{t('updates.progress', { name: addon.title })}</p>}
+      {upgrading && !upgradeOp.waiting && <p className="ad-entry__note" role="status" data-testid="upgrade-progress">{t('updates.progress', { name: addon.title })}</p>}
+      {upgrading && upgradeOp.waiting && (
+        <p className="ad-entry__note" role="status" data-testid="upgrade-waiting">
+          {t('updates.waitingService', { seconds: Math.max(1, Math.round(upgradeOp.waiting.nextMs / 1000)) })}{' '}
+          <Button size="sm" variant="ghost" icon="refresh" onClick={() => addonUpgrades.checkNow(upgradeOp.jobID)} data-testid="upgrade-check-now">{t('updates.checkAgain')}</Button>
+        </p>
+      )}
       {upgraded && !working && <p className="ad-entry__note" data-tone="ok" role="status">{t('updates.done', { version: addon.version })}</p>}
       {actions.unknown[addon.id] && <UnknownNotice addonId={addon.id} actions={actions} />}
       {failedUpgrade && <p className="ad-entry__note" data-tone="error" role="alert" data-testid="upgrade-error">{upgradeFailureWords(failedUpgrade.errorKey, t)}</p>}

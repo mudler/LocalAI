@@ -621,7 +621,9 @@
       "done": "Comprobado.",
       "failed": "La comprobación no se completó.",
       "justNow": "Comprobado ahora mismo."
-    }
+    },
+    "waitingService": "El servicio de complementos se está iniciando. LocalAI vuelve a preguntar por la actualización en {{seconds}} s.",
+    "checkAgain": "Comprobar ahora"
   },
   "install": {
     "stepsLabel": "Install steps",

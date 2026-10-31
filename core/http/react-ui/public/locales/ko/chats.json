@@ -126,7 +126,10 @@
     "builtinByAddon": "{{tools}} · {{provider}}이(가) 제공",
     "servedBy": "애드온 {{provider}}이(가) 제공",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "기본 제공"
+    "servedByBuiltin": "기본 제공",
+    "sandbox": {
+      "starting": "Sandbox가 시작되는 중입니다. LocalAI가 {{seconds}}초 후 다시 확인합니다."
+    }
   },
   "vision": {
     "describedBy": "이 모델은 이미지를 볼 수 없습니다. 다른 모델을 선택하지 않으면 {{model}}이(가) 이미지를 설명합니다.",

@@ -226,6 +226,7 @@ function ChatPage() {
   // What the Tools picker says under an add-on: the Sandbox's state.
   const addonNote = (a) => {
     if (a.id !== SANDBOX_ADDON || !sandbox || sandbox.state === 'unknown') return {}
+    if (sandbox.state === 'starting') return { note: tc('tools.sandbox.starting', { seconds: Math.max(1, Math.round(sandbox.retryMs / 1000)) }) }
     if (sandbox.state === 'cannot') return { usable: false, reason: sandbox.reason ? tc('tools.sandbox.cannotWhy', { reason: sandbox.reason }) : tc('tools.sandbox.cannot') }
     if (sandbox.state === 'host') return { note: tc('tools.sandbox.host'), warn: true }
     return { note: tc('tools.sandbox.isolated', { backend: sandbox.backend }) }
