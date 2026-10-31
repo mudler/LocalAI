@@ -35,6 +35,17 @@ var _ = Describe("the built-in skills", func() {
 		}
 	})
 
+	It("keeps source and note out of the answer of a trigger run", func() {
+		data, err := fs.ReadFile(builtinskills.FS(), "localai-workspace/SKILL.md")
+		Expect(err).NotTo(HaveOccurred())
+		text := string(data)
+		Expect(text).NotTo(ContainSubstring(`and `+"`"+`"source": {"kind": "trigger"}`+"`"), "the prompt advice asks for source in the prompt")
+		Expect(text).To(ContainSubstring("Never print them as your answer"))
+		Expect(text).To(ContainSubstring("one short plain sentence"))
+		Expect(text).To(ContainSubstring("Never ask the run for JSON"))
+		Expect(len(data)).To(BeNumerically("<", 16*1024), "the skill grew past its size budget")
+	})
+
 	It("marks the office skills as needing command execution, and only them", func() {
 		for _, n := range names {
 			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")

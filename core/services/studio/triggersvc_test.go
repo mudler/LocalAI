@@ -199,6 +199,19 @@ var _ = Describe("triggersvc", func() {
 		Expect(err).To(MatchError(triggers.ErrNotFound), "bob read alice's trigger: %v", err)
 	})
 
+	It("a run ends its first message with the closing instruction, once", func() {
+		r := newTrigRig(saySummary)
+		tr := r.schedule(studio.TriggerInput{Prompt: "Refresh data/news.json. Finish with one sentence."})
+		r.due()
+		run := r.waitEnded(tr.ID)
+		sent := r.h.Sent(r.chatOf(run).ID)
+		Expect(sent).To(HaveLen(1), "first message = %q", sent)
+		const closing = "Do not print JSON or code unless the task asks the user for it."
+		Expect(sent[0]).To(HaveSuffix(closing), "first message = %q", sent)
+		Expect(strings.Count(sent[0], closing)).To(Equal(1), "first message = %q", sent)
+		Expect(sent[0]).To(HavePrefix("Refresh data/news.json."), "first message = %q", sent)
+	})
+
 	It("a file arrival starts one run that names the file and its own writes start none", func() {
 		sh := newShared()
 		ctx := context.Background()

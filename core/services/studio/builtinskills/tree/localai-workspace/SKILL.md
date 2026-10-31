@@ -35,7 +35,7 @@ A `list` or `metric` widget reads its `source`, a JSON file in the home that fol
 A metric uses `value`, `note` and `series` (numbers for a small line). A `chats` widget needs no source: it lists the user's last chats. Put data files under `data/`.
 
 - `updatedAt` is an RFC 3339 time. Always set it when you write the file: the widget shows it.
-- `source` says who wrote the data: `{"kind": "trigger"}` in a trigger run, `{"kind": "page", "page": "<name>"}` for a page's data, `{"kind": "assistant"}` in a chat. `note` is one short line on where the data comes from.
+- `source` says who wrote the data: `{"kind": "trigger"}` in a trigger run, `{"kind": "page", "page": "<name>"}` for a page's data, `{"kind": "assistant"}` in a chat. `note` is one short line on where the data comes from. Both are fields inside the data file. Never print them as your answer.
 - A file that breaks the schema is not shown: the widget keeps the last good version and says the file has an error. A failed run leaves the file as it was, so never write half a file; write the whole file once at the end.
 
 ## Recipes
@@ -54,11 +54,11 @@ Every proposal fills `reads` (a few words), `writes` (the data file), `widget` (
 
 Costs: every run is a chat turn on the user's model, so it uses tokens and, on a remote model, sends data out. A schedule from a chat runs at most once an hour: a shorter one is refused. Suggest the slowest schedule that does the job (once a day is usually enough), and say what one run costs.
 
-The prompt of a run is all the run knows. Write it so it stands alone: what to read, which file to rewrite, the widget-data shape, and `"source": {"kind": "trigger"}`.
+The prompt of a run is all the run knows. Write it so it stands alone: what to read, which file to rewrite, and the widget-data shape (the run puts `source` and `note` inside that file). End it by telling the run to finish with one short plain sentence about what changed: the user reads it in the inbox and in the chat. Never ask the run for JSON as its answer; LocalAI adds the closing sentence rule to every run anyway.
 
 **Every morning update this.**
 1. Pick the data file: the `source` of the widget the user means. With no widget, write `data/<name>.json` with today's data and add the widget to `LocalAI/home.json` (`{"id": "inbox", "type": "list", "title": "Inbox this morning", "source": "data/inbox.json"}`).
-2. Propose: `{"name": "Morning inbox", "when": "daily 08:00", "prompt": "Read the mail of the last 24 hours. Rewrite data/inbox.json as widget data: items with the mails that need a reply (label: sender and subject, meta: the time), updatedAt now, source {\"kind\": \"trigger\", \"note\": \"Mail from the last 24 hours\"}.", "reads": "Mail from the last 24 hours", "writes": "data/inbox.json", "widget": "inbox", "estimated_tokens": 1500}`.
+2. Propose: `{"name": "Morning inbox", "when": "daily 08:00", "prompt": "Read the mail of the last 24 hours. Rewrite data/inbox.json as widget data: items with the mails that need a reply (label: sender and subject, meta: the time), updatedAt now, source {\"kind\": \"trigger\", \"note\": \"Mail from the last 24 hours\"}, all inside the file. Finish with one short sentence about what changed.", "reads": "Mail from the last 24 hours", "writes": "data/inbox.json", "widget": "inbox", "estimated_tokens": 1500}`.
 3. Tell the user to check the card. One line.
 
 **When I drop a file in `inbox/`, summarise it.**

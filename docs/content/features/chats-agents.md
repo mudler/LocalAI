@@ -158,6 +158,13 @@ message as rules for the run. Treat it as text from whoever can write there.
 
 ### What a run gets
 
+- **Its message.** The first message is the prompt of the trigger, the folder
+  rules and, for a file trigger, the file. LocalAI adds one closing line to every
+  trigger run: "When you are done, answer with one short plain sentence about what
+  changed. Do not print JSON or code unless the task asks the user for it." The
+  answer is what you read in the chat and the inbox, so write the prompt without
+  a request for JSON output. A connector chat is a talk with a person and does not
+  get the line.
 - **Who it is.** The run is a chat of the trigger's owner, with the owner's
   grants. If the owner is over quota, the run fails with that reason and the
   owner gets a notification.

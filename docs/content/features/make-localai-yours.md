@@ -173,14 +173,16 @@ breaks its schema shows its last valid data, marked as stale.
 
 `updatedAt` is an RFC 3339 time. `source` says who wrote the data: `kind` is
 `trigger`, `page` (with `page`, the page's name), `assistant` or `you`, and
-`note` is one short line. Both are checked by the schema, and the editors keep
+`note` is one short line. They are fields inside the data file, never part of
+a run's answer. Both are checked by the schema, and the editors keep
 every key they do not show, so a save from Edit layout keeps a widget's
 `trigger` and any key the assistant added.
 
 To update a widget every morning, ask the assistant: it writes the data file,
 adds the widget, and proposes a schedule trigger that you confirm on its card
 (see [triggers](/features/chats-agents/#proposals)). Each run is one chat turn,
-and a schedule proposed in a chat runs at most once an hour.
+and a schedule proposed in a chat runs at most once an hour. A run ends with one
+short sentence about what changed, which you read in the chat and the inbox.
 
 A widget that a trigger feeds (named by `trigger`, or by the `widget` in the
 trigger's plan) shows a footer:

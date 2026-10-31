@@ -460,8 +460,16 @@ func (h *Triggers) rulesFolder(ctx context.Context, owner, id string) string {
 	return h.svc.d.Files.Rel(owner, runRulesFolder(t))
 }
 
+// runClosing ends the first message of every trigger run. A trigger prompt is
+// written for a run nobody watches, and a model that proposes one tends to ask
+// for a JSON answer; the user reads the answer in the chat and the inbox, so it
+// must be a plain sentence. Connector chats are talks with people and do not get it.
+const runClosing = "When you are done, answer with one short plain sentence about what changed. " +
+	"Do not print JSON or code unless the task asks the user for it."
+
 // runMessage is the first message of a run: the prompt, the rules of the folder
-// (untrusted text, as the package says), and for a file run the file.
+// (untrusted text, as the package says), for a file run the file, and the
+// closing instruction. It is built once, when the chat is made.
 func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run triggers.Run) (string, error) {
 	parts := []string{strings.TrimSpace(t.Prompt)}
 	if h.svc.d.Files.Available() {
@@ -481,6 +489,7 @@ func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run trigg
 		}
 		parts = append(parts, "A new file arrived: "+p)
 	}
+	parts = append(parts, runClosing)
 	return strings.Join(parts, "\n\n"), nil
 }
 

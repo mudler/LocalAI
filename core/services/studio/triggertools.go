@@ -28,7 +28,8 @@ const (
 const proposeTriggerDescription = "Propose a trigger: a task that runs by itself, at a time or when a file arrives in a folder. " +
 	"Propose only when the user asks for something that repeats or that must happen at a given time or when a file arrives. " +
 	"A proposal does nothing by itself: the user must confirm it in the chat or on the Triggers page, and until then it is not active, so never say that the trigger is active or will run. " +
-	"Give the name and the prompt that the run will get. " +
+	"Give the name and the prompt that the run will get. The prompt must stand alone (the run knows nothing else): what to read, what to write. " +
+	"It must not ask the run to print JSON or any other output: LocalAI already tells the run to finish with one short plain sentence, which the user reads. " +
 	"when is a schedule text (\"daily 08:00\", \"weekdays 09:30\", \"weekly mon,thu 09:30\", \"monthly 15 08:00\", \"once 2026-12-24 18:00\" or five cron fields) " +
 	"or {\"file_arrives_in\": folder} with a folder inside the user's files, such as /Contracts. " +
 	"A schedule runs at most once an hour; a shorter one is refused. " +
@@ -62,7 +63,7 @@ const updateTriggerDescription = "Change a trigger of the user, named by its ref
 	"enabled false pauses the trigger and enabled true resumes it. " +
 	"A change that only pauses or resumes applies at once, and the user can undo it on the card in the chat: then say that it is paused or resumed. " +
 	"Any other change does nothing by itself: a card shows the user the fields before and after, and nothing changes until they press Apply, so never say that the change is made until they do. " +
-	"The same rules as propose_trigger apply: when is a schedule text or {\"file_arrives_in\": folder}, a schedule runs at most once an hour, and writes is a path inside the user's files."
+	"The same rules as propose_trigger apply: the prompt must stand alone and must not ask the run to print JSON; when is a schedule text or {\"file_arrives_in\": folder}; a schedule runs at most once an hour, and writes is a path inside the user's files."
 
 const updateTriggerSchema = `{"type":"object","properties":{` +
 	`"ref":{"type":"string","minLength":1,"description":"The ref of the trigger, from list_triggers."},` +
