@@ -132,6 +132,7 @@ var chatRules = []errRule{
 	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
 	verbatim(http.StatusConflict, typeAgentsOff, "", studiosvc.ErrAgentsOff),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow commands on this machine; anyone can refuse them", studiosvc.ErrHostExecDecision),
+	fixed(http.StatusBadRequest, typeInvalid, "the body must be {id, decision} with decision once or deny", studiosvc.ErrHostExecBadDecision),
 	fixed(http.StatusGone, "consent_expired", "the card expired: the turn that asked has ended, so the command did not run", studiosvc.ErrHostExecExpired),
 	fixed(http.StatusConflict, "already_answered", "the card was answered already with the other answer", studiosvc.ErrHostExecAnswered),
 	fixed(http.StatusBadRequest, "egress_above_ceiling", "the preset is above the limit an administrator set", studiosvc.ErrEgressAboveCeiling),

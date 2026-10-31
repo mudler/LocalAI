@@ -52,10 +52,22 @@ func (a *api) newChat(extra obj) string {
 }
 
 // turn sends a message and waits for the turn to end.
+//
+// Without accounts the one person is an administrator and the chat has the
+// built-in bash in ask mode: each command waits up to five minutes for a yes
+// on its card. The mock model calls the first tool it is offered, which can
+// be bash, so the wait refuses every card it sees: the command does not run
+// and the turn goes on, as when a person clicks deny.
 func (a *api) turn(chat, text string) []chatMsg {
 	a.mustJSON(http.MethodPost, "/api/chats/"+chat+"/messages", obj{"text": text}, http.StatusOK)
 	Eventually(func() bool {
 		c := a.mustJSON(http.MethodGet, "/api/chats/"+chat, nil, http.StatusOK)
+		if card, ok := c["host_consent"].(obj); ok {
+			if id, _ := card["id"].(string); id != "" {
+				// 204, or 410 when the turn ended first: either way nothing waits.
+				_, _ = a.do(http.MethodPost, "/api/chats/"+chat+"/host-exec/consent", obj{"id": id, "decision": "deny"})
+			}
+		}
 		running, _ := c["running"].(bool)
 		last, _ := c["last_turn"].(string)
 		return !running && last != ""
