@@ -23,6 +23,18 @@ import (
 var names = []string{"docx", "xlsx", "pptx", "pdf", "writing-skills", "localai-workspace", "localai-apps"}
 
 var _ = Describe("the built-in skills", func() {
+	It("sends the model to another skill by its name, never by a path", func() {
+		readOther := regexp.MustCompile("(?i)\\bread (the )?`?(" + strings.Join(names, "|") + ")`? skill")
+		for _, n := range names {
+			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")
+			Expect(err).NotTo(HaveOccurred(), n)
+			Expect(readOther.FindString(string(data))).To(BeEmpty(), n)
+			for _, other := range names {
+				Expect(string(data)).NotTo(ContainSubstring("shared-builtin-skills/"+other+"/SKILL.md"), n)
+			}
+		}
+	})
+
 	It("parses every built-in skill", func() {
 		fsys := builtinskills.FS()
 		for _, n := range names {

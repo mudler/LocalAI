@@ -6,9 +6,9 @@ decides which workspace folders are the roots of the layers, which skills a
 chat switched off, and how the user sees them.
 
 A skill is a folder with a `SKILL.md` file. The frontmatter has a `name` and a
-`description`. The body is a procedure that the agent reads when a task
-matches. Other files in the folder (references, scripts) are read by the agent
-with its normal file tools. The package never reads them.
+`description`. The body is a procedure that the agent loads by the skill's
+name when a task matches. Other files in the folder (references, scripts) are
+read by the agent with its normal file tools. The package never reads them.
 
 ```go
 roots := []skills.Root{
@@ -34,6 +34,18 @@ that only removes lines from the index needs no refresh, so it must not
 change the key.
 
 `session` does not import `skills`. The product joins them.
+
+## Loading a skill
+
+The index names no path. Its first line tells the model to call the product's
+load tool (`LoadTool`, `load_skill`) with a skill's name. `Usable` returns the
+skills that the index lists, in its order, so the tool and the index never
+disagree: the product resolves once, `Find` picks the skill of a name and
+`Body` returns the text of its `SKILL.md` after the frontmatter. For a name
+that `Find` does not match, `Suggest` returns up to three near names: the same
+name in other case, the name with a `<prefix>-` or `<layer>:` part added or
+taken away, or a name one or two edits away. `Names` lists every usable name
+for the error.
 
 ## Layers
 

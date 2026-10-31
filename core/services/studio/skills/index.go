@@ -14,22 +14,24 @@ const (
 	MaxIndexBytes = 16 << 10
 )
 
-// indexHeader is the first line of the index.
-const indexHeader = "Skills: read a skill's SKILL.md before you do a task that matches it. " +
-	"Your own skills go in /workspace/home/.skills/<name>/SKILL.md; read the writing-skills skill first."
+// LoadTool is the name of the tool that returns the instructions of a skill
+// by its name. The index tells the model to call it.
+const LoadTool = "load_skill"
+
+// indexHeader is the first line of the index. It names the tool that loads a
+// skill, so the model never needs the path of a SKILL.md.
+const indexHeader = "Skills: before a task that matches one, call the " + LoadTool + " tool with its name to read its full instructions, then follow them. " +
+	"Skills you write yourself go in /workspace/home/.skills/<name>/SKILL.md; read the writing-skills skill first (" + LoadTool + " writing-skills)."
 
 // moreReserve is the room kept for the last line, "N more skills not listed".
 const moreReserve = 64
 
-// Index renders the skills that are valid, not shadowed and not off, for the
-// system prompt: a fixed first line, then one line per skill with its name,
-// its description and the guest path of its SKILL.md (or, for a skill the
-// product marked Unavailable, the reason instead of the path). Nearer layers come
-// first, then names. At most MaxIndexEntries skills and MaxIndexBytes bytes
-// are listed; a last line says how many were left out. It returns "" when no
-// skill is listed. Name and Description are cleaned, so a caller that builds
-// a Skill by hand cannot break the block with a control character.
-func Index(skills []Skill) string {
+// Usable returns the skills that are valid, not shadowed and not off, nearer
+// layers first, then names: the skills a chat offers. Name and Description are
+// cleaned, so a caller that builds a Skill by hand cannot break a prompt with a
+// control character. Index lists them and the load tool finds a skill among
+// them, so the two never disagree.
+func Usable(skills []Skill) []Skill {
 	var list []Skill
 	for _, s := range skills {
 		if s.Invalid != "" || s.Shadowed != "" || s.Off {
@@ -39,10 +41,22 @@ func Index(skills []Skill) string {
 		s.Description = Clean(s.Description)
 		list = append(list, s)
 	}
+	sort.SliceStable(list, func(i, j int) bool { return less(list[i], list[j]) })
+	return list
+}
+
+// Index renders the skills that Usable keeps, for the system prompt: a fixed
+// first line that names the load tool, then one line per skill with its name
+// and its description (and, for a skill the product marked Unavailable, the
+// reason). It names no path: the model loads a skill by its name. Nearer
+// layers come first, then names. At most MaxIndexEntries skills and
+// MaxIndexBytes bytes are listed; a last line says how many were left out. It
+// returns "" when no skill is listed.
+func Index(skills []Skill) string {
+	list := Usable(skills)
 	if len(list) == 0 {
 		return ""
 	}
-	sort.SliceStable(list, func(i, j int) bool { return less(list[i], list[j]) })
 
 	var b strings.Builder
 	b.WriteString(indexHeader)
@@ -51,8 +65,6 @@ func Index(skills []Skill) string {
 		line := "\n- " + s.Name + ": " + s.Description
 		if why := Clean(s.Unavailable); why != "" {
 			line += " (unavailable here: " + why + ")"
-		} else if gp := Clean(s.GuestPath); gp != "" {
-			line += " (read " + gp + ")"
 		}
 		if listed >= MaxIndexEntries || b.Len()+len(line)+moreReserve > MaxIndexBytes {
 			break

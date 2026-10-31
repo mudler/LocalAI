@@ -74,8 +74,9 @@ type Root struct {
 	// and personal: the folder that holds one subfolder per skill), or, for the
 	// folder layer, a folder to walk for ".skills" folders.
 	Path string
-	// Guest is the same place as the guest sees it. The index shows guest
-	// paths, so the agent can read a skill with its file tools.
+	// Guest is the same place as the guest sees it. The load tool names the
+	// guest folder of a skill, so the agent can read the skill's other files
+	// with its file tools.
 	Guest string
 	// Skip lists workspace paths that the folder walk of this root does not
 	// enter, for example a folder that holds many chat uploads. It is read
@@ -108,8 +109,7 @@ type Skill struct {
 	Requires []string
 	// Unavailable, set by the product, says why the skill cannot be used in
 	// this chat, for example "needs command execution". Index lists such a
-	// skill with the reason and without the path of its SKILL.md, so the
-	// model explains instead of starting it.
+	// skill with the reason, so the model explains instead of starting it.
 	Unavailable string
 	// Addon and AddonTitle name the add-on that ships a skill of the add-on
 	// layer.

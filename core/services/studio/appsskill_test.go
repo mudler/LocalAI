@@ -42,6 +42,7 @@ var _ = Describe("the localai-apps skill in a chat", func() {
 				return []studiotest.ToolStep{{Say: "ok"}}
 			}
 			return []studiotest.ToolStep{
+				{Tool: "load_skill", Args: `{"name":"localai-apps"}`},
 				{Tool: "write_file", Args: args("/workspace/home/pages/reading-tracker/index.html", parts["index.html"])},
 				{Tool: "write_file", Args: args("/workspace/home/pages/reading-tracker/page.json", parts["page.json"])},
 				{Say: "Done. It is under Pages in the sidebar."},
@@ -53,7 +54,11 @@ var _ = Describe("the localai-apps skill in a chat", func() {
 
 		prompt := h.TurnPrompt(id)
 		Expect(prompt).To(ContainSubstring("- localai-apps: Use when the user asks for an app, a tool, a tracker"), "the index:\n%s", prompt)
-		Expect(prompt).To(ContainSubstring("/localai-apps"), "the index gives no path to the skill:\n%s", prompt)
+		loaded := h.ResultsFor("load_skill")
+		Expect(loaded).To(HaveLen(1))
+		Expect(loaded[0].Err).NotTo(HaveOccurred())
+		Expect(loaded[0].Out).To(ContainSubstring(strings.TrimSpace(parts["page.json"])), "load_skill gives the skill's instructions")
+		Expect(loaded[0].Out).NotTo(HavePrefix("---"), "without the frontmatter")
 
 		for name, want := range map[string]string{"index.html": parts["index.html"], "page.json": parts["page.json"]} {
 			abs, err := f.Abs(alice, "/pages/reading-tracker/"+name)

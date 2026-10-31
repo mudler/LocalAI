@@ -105,8 +105,10 @@ var _ = Describe("capabilities", func() {
 
 		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated sandbox."))
 		Expect(prompt).To(ContainSubstring(sandbox.GuestToolsNote), "the isolated sandbox lists its programs")
+		Expect(prompt).To(ContainSubstring("Skill folders are not visible in the Sandbox: load skills with load_skill."))
 		Expect(prompt).NotTo(ContainSubstring("nothing in this chat runs code"))
-		Expect(prompt).To(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"))
+		Expect(prompt).To(ContainSubstring("\n- xlsx: "))
+		Expect(prompt).NotTo(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"), "the index names no path")
 		Expect(prompt).NotTo(ContainSubstring("unavailable here"))
 		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox"}))
 	})
@@ -117,6 +119,7 @@ var _ = Describe("capabilities", func() {
 		id := create(svc, alice)
 		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: bash runs commands directly on the server, with no isolation."))
 		Expect(turnPrompt(svc, h, id)).NotTo(ContainSubstring(sandbox.GuestToolsNote), "the host has its own programs, not the guest's")
+		Expect(turnPrompt(svc, h, id)).NotTo(ContainSubstring("Skill folders are not visible"), "only an isolated chat has the hint")
 	})
 
 	It("says the Sandbox is off when the chat switched it off", func() {

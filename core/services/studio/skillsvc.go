@@ -98,7 +98,7 @@ func skillOff(off []string) func(skills.Skill) bool {
 // A skill the chat switched off is not in the index and does not change the key.
 //
 // gate, when set, returns why a skill cannot be used in this chat ("" when it
-// can); Index lists such a skill with the reason instead of its path.
+// can); Index lists such a skill with the reason.
 // addonsOff are the add-ons the chat switched off: their skills are not
 // offered, and a built-in skill of the same name serves again. fallback is
 // one line for the turn note when a built-in skill serves because the add-on
@@ -107,17 +107,11 @@ func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []stri
 	if !s.d.Files.Available() {
 		return "", "", "", ""
 	}
-	skip := skillOff(off)
-	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
-		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
-		Logger: s.log,
-	}))
+	list, notes, fallback, err := s.chatSkillSet(ctx, p, off, addonsOff, sc)
 	if err != nil {
 		s.log.Warn("studio: skills unavailable", "user", p, "error", err)
 		return "", "", "", ""
 	}
-	fallback = ad.markFallbacks(list)
 	// The key covers every valid skill file, switched off or not: a switch takes
 	// a line out of the index without changing a file, and must not refresh the
 	// sandbox. A shadowed skill is left out, because it is never read.
@@ -154,6 +148,23 @@ func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []stri
 		return "", strings.Join(notes, "; "), "", fallback
 	}
 	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback
+}
+
+// chatSkillSet resolves the skills of one chat: the user's layers, the skills
+// of the add-ons the chat may use now, the chat's switches and the grants of
+// its agent. The index of the turn and load_skill both read it, so the model
+// can load exactly the skills the index lists.
+func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []string, sc *scope) ([]skills.Skill, []string, string, error) {
+	skip := skillOff(off)
+	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
+		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
+		Logger: s.log,
+	}))
+	if err != nil {
+		return nil, nil, "", err
+	}
+	return list, notes, ad.markFallbacks(list), nil
 }
 
 // Skills lists the skills the user has: every layer, with shadowed and skipped

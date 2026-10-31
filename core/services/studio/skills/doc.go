@@ -6,9 +6,11 @@
 // five layers: built-in, add-on, shared, personal and folder. [Resolve] reads them
 // through the actor, so a folder that the actor cannot read gives no skill. It
 // applies the precedence rule (the nearest layer wins) and marks the skills it
-// skipped. [Index] renders the skills that remain as a short list of names,
-// descriptions and guest paths. The agent reads the full SKILL.md with its
-// normal file tools, and writes its own skills the same way.
+// skipped. [Usable] keeps the skills that remain and [Index] renders them as a
+// short list of names and descriptions. The agent loads the full instructions
+// of a skill by its name with the product's load tool ([LoadTool]), which finds
+// the skill with [Find] and returns its [Body]. The agent writes its own skills
+// with its normal file tools.
 //
 // The package imports the standard library and workspace only. It does not
 // name a product, a sandbox or a harness: the product tells it which folders
