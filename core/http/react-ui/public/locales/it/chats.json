@@ -308,7 +308,8 @@
     "builtins": "Strumenti integrati",
     "builtin": {
       "web": "Web",
-      "saved_agents": "Agenti salvati"
+      "saved_agents": "Agenti salvati",
+      "triggers": "Trigger"
     },
     "builtinBy": "{{tools}} · integrati",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",

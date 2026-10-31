@@ -215,20 +215,25 @@ var _ = Describe("the one registry of built-in tools", func() {
 		names := runtimeSettingNames()
 		for _, t := range tools {
 			ids = append(ids, t.ID)
+			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch
+				Expect(t.Group).To(Equal(builtins.GroupTriggers), t.ID)
+				Expect(t.Setting).To(BeEmpty(), t.ID)
+				continue
+			}
 			Expect(names).To(HaveKey(t.Setting), t.ID)
 			for _, o := range t.Options {
 				Expect(names).To(HaveKey(o), t.ID)
 			}
 			Expect(t.Replaceable).To(BeTrue(), t.ID)
 		}
-		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch"}))
+		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger"}))
 		for _, id := range []string{"web_search", "web_fetch"} {
 			t, ok := svc.Builtins().Lookup(id)
 			Expect(ok).To(BeTrue(), id)
 			Expect(t.Group).To(Equal(builtins.GroupWeb))
 			Expect(t.ReadOnly).To(BeTrue())
 		}
-		Expect(svc.Builtins().Groups()).To(Equal([]string{"web"}))
+		Expect(svc.Builtins().Groups()).To(Equal([]string{"web", "triggers"}))
 	})
 
 	It("lists the web tools in Settings > Tools with their settings", func() {

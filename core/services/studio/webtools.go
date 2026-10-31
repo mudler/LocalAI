@@ -165,7 +165,7 @@ const MixedProvider = "mixed"
 func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, tools []session.Tool) []BuiltinGroup {
 	off, on := set(rec.BuiltinsOff), set(rec.BuiltinsOn)
 	a := chatActor(rec.Principal, rec.ID)
-	c := builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", SubAgent: rec.Kind == session.KindSubAgent,
+	c := builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: rec.Kind == session.KindSubAgent,
 		Admin: s.isAdmin(ctx, rec.Principal)}
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
@@ -193,12 +193,10 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		case g.Provider != provider:
 			g.Provider = MixedProvider
 		}
-		// Only an opt-in tool is built here: it may depend on the user (the
-		// saved agents need the agents feature), the others serve any chat.
-		usable, reason := true, ""
-		if t.OptIn {
-			_, usable, reason = t.Build(ctx, c)
-		}
+		// The tool is built to learn whether it can serve this chat: it may
+		// depend on the user (saved agents and triggers need their feature)
+		// or on how the chat started.
+		_, usable, reason := t.Build(ctx, c)
 		if usable {
 			out[i].Usable, out[i].Reason = true, ""
 		} else if !out[i].Usable && out[i].Reason == "" {

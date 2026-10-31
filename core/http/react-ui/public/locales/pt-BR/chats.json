@@ -308,7 +308,8 @@
     "builtins": "Ferramentas integradas",
     "builtin": {
       "web": "Web",
-      "saved_agents": "Agentes salvos"
+      "saved_agents": "Agentes salvos",
+      "triggers": "Gatilhos"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",

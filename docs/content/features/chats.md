@@ -886,6 +886,17 @@ The built-in web tools have their own switch, by group:
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web"]}'
 ```
 
+The trigger tools have a group too, `triggers`: `propose_trigger`,
+`list_triggers`, `update_trigger` and `delete_trigger` switch together, and the
+menu shows them as one **Triggers** row. It is on by default; `{"off":["triggers"]}`
+takes the four tools away from that chat. A chat started by a trigger or a
+connector and a sub-agent never have them, and the row then shows as not usable
+with the reason. The row also shows as not usable when you do not have the
+`triggers` feature, and it is not listed at all when the server runs no
+triggers (`LOCALAI_DISABLE_TRIGGERS`). The group has no runtime setting: the
+start-up switch governs it. See
+[Proposals](/features/chats-agents/#proposals).
+
 The saved agents group (`saved_agents`) is opt-in: it is off until `on` names
 it. See [Saved agents as sub-agents](#saved-agents-as-sub-agents).
 

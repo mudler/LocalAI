@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -87,27 +89,91 @@ const deleteTriggerDescription = "Ask to delete a trigger of the user, named by 
 
 const deleteTriggerSchema = `{"type":"object","properties":{"ref":{"type":"string","minLength":1,"description":"The ref of the trigger, from list_triggers."}},"required":["ref"]}`
 
-// triggerTools returns the trigger tools of a chat started by a person. A
-// run that a trigger or a connector started never gets them, and neither does a
-// sub-agent: they are not part of hostTools.
-func (s *Service) triggerTools(a workspace.Actor, rec session.ChatRecord) []session.Tool {
-	h := s.triggers
-	if h == nil || rec.Origin != "" || rec.Kind == session.KindSubAgent {
-		return nil
+// registerTriggerTools adds the four trigger tools to the registry of built-in
+// tools, as one switch group: a chat started by a person has them until it
+// switches the group off. A run that a trigger or a connector started never
+// gets them, and neither does a sub-agent. The operator's start-up switch
+// (LOCALAI_DISABLE_TRIGGERS) governs them, so they have no runtime setting and
+// Settings > Tools does not list them.
+func (s *Service) registerTriggerTools() error {
+	type def struct {
+		id, label, desc, schema string
+		readOnly                bool
+		run                     func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error)
 	}
-	return []session.Tool{
-		{Name: proposeTriggerName, Description: proposeTriggerDescription, Schema: json.RawMessage(proposeTriggerSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.proposeTool(ctx, a, rec, raw) }},
-		{Name: listTriggersName, Description: listTriggersDescription, Schema: json.RawMessage(listTriggersSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.listTool(ctx, a, raw) }},
-		{Name: updateTriggerName, Description: updateTriggerDescription, Schema: json.RawMessage(updateTriggerSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.updateTool(ctx, a, raw) }},
-		{Name: deleteTriggerName, Description: deleteTriggerDescription, Schema: json.RawMessage(deleteTriggerSchema),
-			Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return h.deleteTool(ctx, a, raw) }},
+	defs := []def{
+		{proposeTriggerName, "Propose a trigger", proposeTriggerDescription, proposeTriggerSchema, false,
+			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, raw json.RawMessage) (string, error) {
+					return h.proposeTool(ctx, a, c.AgentID, c.Model, raw)
+				}
+			}},
+		{listTriggersName, "List triggers", listTriggersDescription, listTriggersSchema, true,
+			func(h *Triggers, a workspace.Actor, _ builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, raw json.RawMessage) (string, error) { return h.listTool(ctx, a, raw) }
+			}},
+		{updateTriggerName, "Change a trigger", updateTriggerDescription, updateTriggerSchema, false,
+			func(h *Triggers, a workspace.Actor, _ builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, raw json.RawMessage) (string, error) { return h.updateTool(ctx, a, raw) }
+			}},
+		{deleteTriggerName, "Delete a trigger", deleteTriggerDescription, deleteTriggerSchema, false,
+			func(h *Triggers, a workspace.Actor, _ builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, raw json.RawMessage) (string, error) { return h.deleteTool(ctx, a, raw) }
+			}},
 	}
+	for _, d := range defs {
+		err := s.builtins.Register(builtins.Tool{
+			ID: d.id, Group: builtins.GroupTriggers, Label: d.label, Description: d.desc, Unlisted: true, ReadOnly: d.readOnly,
+			// The trigger host is set after the service is built, and only
+			// when the operator left the triggers on.
+			Enabled: func() bool { return s.triggers != nil },
+			Build: func(ctx context.Context, c builtins.Chat) (session.Tool, bool, string) {
+				h := s.triggers
+				switch {
+				case h == nil:
+					return session.Tool{}, false, "triggers are off on this server"
+				case c.SubAgent:
+					return session.Tool{}, false, "a sub-agent cannot set triggers"
+				case c.Origin != "":
+					return session.Tool{}, false, "a run that started by itself cannot set triggers"
+				}
+				if err := s.mayUseTriggers(ctx, c.Actor.Principal); err != nil {
+					return session.Tool{}, false, err.Error()
+				}
+				return session.Tool{Description: d.desc, Schema: json.RawMessage(d.schema), Run: d.run(h, c.Actor, c)}, true, ""
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, rec session.ChatRecord, raw json.RawMessage) (string, error) {
+// ErrTriggersForbidden means the user does not have the triggers feature.
+var ErrTriggersForbidden = errors.New("triggers are not enabled for this account")
+
+// mayUseTriggers checks that the user may use triggers now: with accounts, the
+// user has the triggers feature. It is checked at each turn, because a chat
+// can outlive a permission.
+func (s *Service) mayUseTriggers(ctx context.Context, p string) error {
+	if s.d.Users == nil {
+		return nil
+	}
+	u, err := s.d.Users(ctx, p)
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return ErrTriggersForbidden
+	}
+	if s.d.Allowed != nil && !s.d.Allowed(u, auth.FeatureTriggers) {
+		return ErrTriggersForbidden
+	}
+	return nil
+}
+
+func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, agentID, model string, raw json.RawMessage) (string, error) {
 	var args struct {
 		Name     string          `json:"name"`
 		Prompt   string          `json:"prompt"`
@@ -123,7 +189,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, rec sessi
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
 	in := TriggerInput{Name: args.Name, Prompt: args.Prompt, DailyCap: args.DailyCap, TZ: args.TimeZone,
-		SourceChatID: a.ChatID, AgentID: rec.AgentID, Model: rec.Model,
+		SourceChatID: a.ChatID, AgentID: agentID, Model: model,
 		Reads: args.Reads, Writes: args.Writes, Widget: args.Widget, EstTokens: args.Tokens}
 	var text string
 	var obj struct {

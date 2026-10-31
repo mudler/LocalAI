@@ -308,7 +308,8 @@
     "builtins": "Herramientas integradas",
     "builtin": {
       "web": "Web",
-      "saved_agents": "Agentes guardados"
+      "saved_agents": "Agentes guardados",
+      "triggers": "Disparadores"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",

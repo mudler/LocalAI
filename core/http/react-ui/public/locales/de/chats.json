@@ -308,7 +308,8 @@
     "builtins": "Eingebaute Werkzeuge",
     "builtin": {
       "web": "Web",
-      "saved_agents": "Gespeicherte Agenten"
+      "saved_agents": "Gespeicherte Agenten",
+      "triggers": "Trigger"
     },
     "builtinBy": "{{tools}} · eingebaut",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",

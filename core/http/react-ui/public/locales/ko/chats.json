@@ -308,7 +308,8 @@
     "builtins": "기본 제공 도구",
     "builtin": {
       "web": "웹",
-      "saved_agents": "저장된 에이전트"
+      "saved_agents": "저장된 에이전트",
+      "triggers": "트리거"
     },
     "builtinBy": "{{tools}} · 기본 제공",
     "builtinByAddon": "{{tools}} · {{provider}}이(가) 제공",
