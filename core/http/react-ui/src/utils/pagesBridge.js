@@ -41,7 +41,7 @@ export function pageCsp(modules) {
 }
 
 // The bridge inside the frame. INFO is replaced with the page's name, title,
-// theme, the notes of the files that did not go in (written to the console)
+// theme, mode ('page', or 'widget' in a tile on Home) and tile size, the notes of the files that did not go in (written to the console)
 // and the banner that says so in the page. It is plain ES5 and must never
 // contain a closing script tag.
 //
@@ -55,8 +55,10 @@ const BOOTSTRAP = `(function () {
   'use strict'
   var info = INFO
   document.documentElement.setAttribute('data-theme', info.theme)
+  document.documentElement.setAttribute('data-mode', info.mode)
+  if (info.size) document.documentElement.setAttribute('data-size', info.size)
   document.documentElement.style.colorScheme = info.theme
-  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [] }
+  var port = null, queue = [], seq = 0, waiting = {}, listeners = { 'files.changed': [], 'visibility': [] }
   function deliver(ev) {
     var m = ev.data
     if (!m || typeof m !== 'object') return
@@ -94,7 +96,7 @@ const BOOTSTRAP = `(function () {
     })
   }
   var api = {
-    page: Object.freeze({ name: info.name, title: info.title }),
+    page: Object.freeze({ name: info.name, title: info.title, mode: info.mode, size: info.size }),
     files: Object.freeze({
       read: function (path) { return call('files.read', { path: path }) },
       write: function (path, content, opts) { return call('files.write', { path: path, content: content, base: opts && opts.base }) },
@@ -337,9 +339,14 @@ const BOOTSTRAP = `(function () {
 // the page's modules (head, from inlinePageAssets), then the page. All go
 // before the page's own markup, so nothing the page wrote runs first or can
 // hide the policy.
-export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '' } = {}) {
+export const PAGE_MODES = ['page', 'widget']
+export const WIDGET_SIZES = ['small', 'medium', 'large']
+
+export function buildPageSrcdoc(html, { name, title, theme, head = '', modules = false, notes = [], banner = '', dismiss = '', mode = 'page', size = '' } = {}) {
+  const widget = mode === 'widget'
   const info = scriptJSON({
     name: String(name || ''), title: String(title || name || ''), theme: theme === 'dark' ? 'dark' : 'light',
+    mode: widget ? 'widget' : 'page', size: widget ? (WIDGET_SIZES.includes(size) ? size : 'medium') : '',
     notes: (Array.isArray(notes) ? notes : []).slice(0, 50).map((n) => ({ level: n.level === 'error' ? 'error' : 'warn', message: String(n.message || '').slice(0, 500) })),
     banner: String(banner || '').slice(0, 1000), dismiss: String(dismiss || ''),
   })
@@ -428,9 +435,11 @@ export function createPageHost({ post, files, chat, links, now = Date.now }) {
       }
       return undefined
     },
-    // Sends an event to the page: only files.changed exists.
+    // Sends an event to the page: files.changed ({paths}) and visibility
+    // ({visible}: the tab or the tile went out of sight, or came back).
     emit(event, payload) {
       if (event === 'files.changed') answer({ event, data: payload })
+      else if (event === 'visibility') answer({ event, data: { visible: Boolean(payload?.visible) } })
     },
     close() { closed = true },
   }

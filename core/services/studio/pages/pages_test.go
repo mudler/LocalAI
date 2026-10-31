@@ -318,6 +318,7 @@ var _ = Describe("the pages service", func() {
 			p, err := s.CopyStarter(ctx, "alice", "task-board")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(p.Name).To(Equal("task-board"))
+			Expect(p.Widget).To(Equal(&pages.Widget{Size: "medium", Title: "Tasks"}), "the board is also a tile on Home")
 			_, html, err := s.Source(ctx, "alice", "task-board")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(html).To(ContainSubstring("localai.files"))

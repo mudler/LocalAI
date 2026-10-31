@@ -24183,6 +24183,14 @@ const docTemplate = `{
                 "updated_by": {
                     "type": "string"
                 },
+                "widget": {
+                    "description": "Widget is the widget block of page.json: the page can be a tile on Home\n(a widget of type page in LocalAI/home.json). Absent when the page has\nnone.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.PagesWidget"
+                        }
+                    ]
+                },
                 "writable": {
                     "type": "boolean"
                 }
@@ -24255,6 +24263,19 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.PagesStarter"
                     }
+                }
+            }
+        },
+        "schema.PagesWidget": {
+            "type": "object",
+            "properties": {
+                "size": {
+                    "description": "Size is the height of the tile: small, medium or large.",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Title is the tile's title when it should differ from the page's.",
+                    "type": "string"
                 }
             }
         },

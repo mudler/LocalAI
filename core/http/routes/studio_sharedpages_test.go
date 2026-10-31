@@ -202,6 +202,12 @@ var _ = Describe("Chats shared pages endpoints", func() {
 		Expect(bridge("alice", http.MethodGet, base+"/file?path=data.json", hash, "", nil).Code).To(Equal(http.StatusOK), "the open version still reads its data")
 	})
 
+	It("lists the widget block of a shared page", func() {
+		write("/shared/team/pages/standup/page.json", `{"title":"Team standup","widget":{"size":"large","title":"Standup"}}`)
+		p := get("alice")["page"].(map[string]any)
+		Expect(p["widget"]).To(Equal(map[string]any{"size": "large", "title": "Standup"}))
+	})
+
 	It("a shared page writes with the viewer's own grant", func() {
 		hash := get("alice")["page"].(map[string]any)["hash"].(string)
 		for _, u := range []string{"alice", "bob"} {

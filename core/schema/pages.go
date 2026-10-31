@@ -10,6 +10,10 @@ type PagesPage struct {
 	Title       string `json:"title"`
 	Icon        string `json:"icon,omitempty"`
 	Description string `json:"description,omitempty"`
+	// Widget is the widget block of page.json: the page can be a tile on Home
+	// (a widget of type page in LocalAI/home.json). Absent when the page has
+	// none.
+	Widget *PagesWidget `json:"widget,omitempty"`
 	// Source is "own" for a page in the user's home and "shared" for a page of
 	// a shared folder.
 	Source string `json:"source"`
@@ -39,6 +43,14 @@ type PagesPage struct {
 	UpdatedBy string    `json:"updated_by"`
 	Rev       int64     `json:"rev"`
 	Size      int64     `json:"size"`
+}
+
+// PagesWidget is the widget block of a page.json: the page's tile on Home.
+type PagesWidget struct {
+	// Size is the height of the tile: small, medium or large.
+	Size string `json:"size"`
+	// Title is the tile's title when it should differ from the page's.
+	Title string `json:"title,omitempty"`
 }
 
 // PagesList is the user's pages, sorted by name.

@@ -7590,6 +7590,13 @@ definitions:
         type: string
       updated_by:
         type: string
+      widget:
+        allOf:
+        - $ref: '#/definitions/schema.PagesWidget'
+        description: |-
+          Widget is the widget block of page.json: the page can be a tile on Home
+          (a widget of type page in LocalAI/home.json). Absent when the page has
+          none.
       writable:
         type: boolean
     type: object
@@ -7637,6 +7644,15 @@ definitions:
         items:
           $ref: '#/definitions/schema.PagesStarter'
         type: array
+    type: object
+  schema.PagesWidget:
+    properties:
+      size:
+        description: 'Size is the height of the tile: small, medium or large.'
+        type: string
+      title:
+        description: Title is the tile's title when it should differ from the page's.
+        type: string
     type: object
   schema.PagesWriteRequest:
     properties:

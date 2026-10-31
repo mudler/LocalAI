@@ -76,7 +76,8 @@
       "types": {
         "list": "Elenco",
         "metric": "Metrica",
-        "chats": "Ultime chat"
+        "chats": "Ultime chat",
+        "page": "Pagina"
       },
       "left": "{{count}} rimanenti",
       "fromChats": "dalle chat",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "{{count}} widget si aggiorna secondo un orario. Le sue esecuzioni usano i tuoi modelli e contano nel tuo utilizzo.",
         "scheduleNote_other": "{{count}} widget si aggiornano secondo un orario. Le loro esecuzioni usano i tuoi modelli e contano nel tuo utilizzo."
       },
-      "opensSite": "{{host}}: si apre in una nuova scheda"
+      "opensSite": "{{host}}: si apre in una nuova scheda",
+      "page": {
+        "gone": "Questa pagina non è più disponibile",
+        "goneHint": "La pagina \"{{name}}\" è stata spostata o eliminata, oppure non puoi più aprirla.",
+        "noWidget": "Questa pagina non ha una vista widget",
+        "noWidgetHint": "Aggiungi un blocco \"widget\" a pages/{{name}}/page.json, oppure chiedi all'assistente una vista compatta.",
+        "off": "Le pagine condivise sono disattivate",
+        "offHint": "Un amministratore ha disattivato le pagine condivise su questo server.",
+        "fix": "Personalizza la Home",
+        "failed": "La pagina non si è caricata",
+        "retry": "Riprova",
+        "changed": "Questa pagina è cambiata da quando l'hai consentita",
+        "notAllowed": "Non hai ancora consentito questa pagina",
+        "allowHint": "Viene da una cartella condivisa. Controllala prima che venga eseguita a tuo nome.",
+        "allow": "Consenti questa pagina",
+        "frameTitle": "{{title}} (pagina nella Home)",
+        "refresh": "Aggiorna",
+        "open": "Apri la pagina",
+        "add": "Aggiungi una pagina",
+        "limit": "La Home mostra al massimo {{max}} pagine; rimuovine una per aggiungerne un'altra.",
+        "noneEligible": "Per mostrare qui una pagina, aggiungi un blocco \"widget\" al suo page.json.",
+        "pick": "Pagina",
+        "unavailable": "{{name}} (non disponibile)",
+        "sharedLabel": "condivisa",
+        "sizes": {
+          "small": "Piccolo",
+          "medium": "Medio",
+          "large": "Grande"
+        }
+      }
     },
     "fields": {
       "persona": {

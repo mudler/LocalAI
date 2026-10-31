@@ -173,7 +173,8 @@
       "types": {
         "list": "List",
         "metric": "Metric",
-        "chats": "Last chats"
+        "chats": "Last chats",
+        "page": "Page"
       },
       "left": "{{count}} left",
       "fromChats": "from chats",
@@ -225,7 +226,36 @@
         "scheduleNote_one": "{{count}} widget updates on a schedule. Its runs use your models and count toward your usage.",
         "scheduleNote_other": "{{count}} widgets update on a schedule. Their runs use your models and count toward your usage."
       },
-      "opensSite": "{{host}}: opens in a new tab"
+      "opensSite": "{{host}}: opens in a new tab",
+      "page": {
+        "gone": "This page is no longer available",
+        "goneHint": "The page \"{{name}}\" was moved or deleted, or you can no longer open it.",
+        "noWidget": "This page has no widget view",
+        "noWidgetHint": "Add a \"widget\" block to pages/{{name}}/page.json, or ask the assistant to make a compact view.",
+        "off": "Shared pages are off",
+        "offHint": "An administrator turned shared pages off on this server.",
+        "fix": "Customise Home",
+        "failed": "The page did not load",
+        "retry": "Retry",
+        "changed": "This page changed since you allowed it",
+        "notAllowed": "You have not allowed this page yet",
+        "allowHint": "It comes from a shared folder. Review it before it runs as you.",
+        "allow": "Allow this page",
+        "frameTitle": "{{title}} (page on Home)",
+        "refresh": "Refresh",
+        "open": "Open page",
+        "add": "Add a page",
+        "limit": "Home shows at most {{max}} pages; remove one to add another.",
+        "noneEligible": "To show a page here, give its page.json a \"widget\" block.",
+        "pick": "Page",
+        "unavailable": "{{name}} (not available)",
+        "sharedLabel": "shared",
+        "sizes": {
+          "small": "Small",
+          "medium": "Medium",
+          "large": "Large"
+        }
+      }
     },
     "fields": {
       "persona": {

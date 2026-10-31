@@ -76,7 +76,8 @@
       "types": {
         "list": "Lista",
         "metric": "Métrica",
-        "chats": "Últimos chats"
+        "chats": "Últimos chats",
+        "page": "Página"
       },
       "left": "{{count}} restantes",
       "fromChats": "dos chats",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "{{count}} widget é atualizado por agendamento. As execuções usam seus modelos e contam no seu uso.",
         "scheduleNote_other": "{{count}} widgets são atualizados por agendamento. As execuções usam seus modelos e contam no seu uso."
       },
-      "opensSite": "{{host}}: abre em uma nova aba"
+      "opensSite": "{{host}}: abre em uma nova aba",
+      "page": {
+        "gone": "Esta página não está mais disponível",
+        "goneHint": "A página \"{{name}}\" foi movida ou excluída, ou você não pode mais abri-la.",
+        "noWidget": "Esta página não tem visualização de widget",
+        "noWidgetHint": "Adicione um bloco \"widget\" em pages/{{name}}/page.json ou peça ao assistente uma visualização compacta.",
+        "off": "As páginas compartilhadas estão desativadas",
+        "offHint": "Um administrador desativou as páginas compartilhadas neste servidor.",
+        "fix": "Personalizar Início",
+        "failed": "A página não carregou",
+        "retry": "Tentar novamente",
+        "changed": "Esta página mudou desde que você a permitiu",
+        "notAllowed": "Você ainda não permitiu esta página",
+        "allowHint": "Ela vem de uma pasta compartilhada. Revise-a antes que seja executada em seu nome.",
+        "allow": "Permitir esta página",
+        "frameTitle": "{{title}} (página no Início)",
+        "refresh": "Atualizar",
+        "open": "Abrir página",
+        "add": "Adicionar uma página",
+        "limit": "O Início mostra no máximo {{max}} páginas; remova uma para adicionar outra.",
+        "noneEligible": "Para mostrar uma página aqui, adicione um bloco \"widget\" ao page.json dela.",
+        "pick": "Página",
+        "unavailable": "{{name}} (indisponível)",
+        "sharedLabel": "compartilhada",
+        "sizes": {
+          "small": "Pequeno",
+          "medium": "Médio",
+          "large": "Grande"
+        }
+      }
     },
     "fields": {
       "persona": {

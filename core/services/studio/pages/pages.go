@@ -122,6 +122,9 @@ type Page struct {
 	// author is another account).
 	Author   string
 	AuthorID string
+	// Widget is the page's tile on Home, from the widget block of page.json;
+	// nil when the page has none, and then it cannot be a tile.
+	Widget *Widget
 	// A shared page also has its shared folder (Folder, a workspace path, and
 	// FolderID, the folder's node ID), whether the viewer may write in it, the
 	// node ID of the page's own folder (PageID) and the hash of its code
@@ -141,6 +144,27 @@ type Page struct {
 	UpdatedBy string
 	Rev       int64
 	Size      int64 // of index.html
+}
+
+// Widget sizes: the height of a page's tile on Home.
+const (
+	WidgetSmall  = "small"
+	WidgetMedium = "medium"
+	WidgetLarge  = "large"
+
+	maxWidgetTitle = 60
+)
+
+// Widget is the "widget" block of page.json: the page can be a tile on Home,
+// where it runs in its compact mode at Size.
+type Widget struct {
+	Size  string // WidgetSmall, WidgetMedium or WidgetLarge
+	Title string // optional short title of the tile
+}
+
+// ValidWidgetSize says whether s is a widget size.
+func ValidWidgetSize(s string) bool {
+	return s == WidgetSmall || s == WidgetMedium || s == WidgetLarge
 }
 
 // File is an entry of a page's folder, with its path relative to the folder.
@@ -373,9 +397,10 @@ func (s *Service) readMeta(ctx context.Context, a workspace.Actor, folder string
 		return n
 	}
 	var m struct {
-		Title       string `json:"title"`
-		Icon        string `json:"icon"`
-		Description string `json:"description"`
+		Title       string          `json:"title"`
+		Icon        string          `json:"icon"`
+		Description string          `json:"description"`
+		Widget      json.RawMessage `json:"widget"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r, maxMetaBytes)).Decode(&m); err != nil {
 		return n
@@ -387,7 +412,32 @@ func (s *Service) readMeta(ctx context.Context, a workspace.Actor, folder string
 		p.Icon = m.Icon
 	}
 	p.Description = clip(m.Description, maxDesc)
+	p.Widget = parseWidget(m.Widget)
 	return n
+}
+
+// parseWidget reads the widget block of page.json. An object makes the page
+// a tile; a size it does not know is medium, so a typo shows a tile and not a
+// message. Anything that is not an object (false, null, a string) is no tile.
+func parseWidget(raw json.RawMessage) *Widget {
+	if len(raw) == 0 {
+		return nil
+	}
+	var w struct {
+		Size  any `json:"size"`
+		Title any `json:"title"`
+	}
+	if raw[0] != '{' || json.Unmarshal(raw, &w) != nil {
+		return nil
+	}
+	out := &Widget{Size: WidgetMedium}
+	if size, ok := w.Size.(string); ok && ValidWidgetSize(strings.ToLower(strings.TrimSpace(size))) {
+		out.Size = strings.ToLower(strings.TrimSpace(size))
+	}
+	if title, ok := w.Title.(string); ok {
+		out.Title = clip(title, maxWidgetTitle)
+	}
+	return out
 }
 
 // clip trims white space, drops control characters and cuts s to max bytes on

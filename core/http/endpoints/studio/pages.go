@@ -63,7 +63,15 @@ func pageJSON(p pages.Page) schema.PagesPage {
 	return schema.PagesPage{
 		Name: p.Name, Path: p.Path, Title: p.Title, Icon: p.Icon, Description: p.Description,
 		Source: p.Source, Author: p.Author, UpdatedAt: p.UpdatedAt, UpdatedBy: p.UpdatedBy, Rev: p.Rev, Size: p.Size,
+		Widget: widgetJSON(p.Widget),
 	}
+}
+
+func widgetJSON(w *pages.Widget) *schema.PagesWidget {
+	if w == nil {
+		return nil
+	}
+	return &schema.PagesWidget{Size: w.Size, Title: w.Title}
 }
 
 func pageFileJSON(f pages.File) schema.PagesFile {

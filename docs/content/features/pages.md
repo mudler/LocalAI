@@ -30,7 +30,7 @@ A page is a folder of your home:
 pages/
   tasks/
     index.html     the page (required, at most 1 MiB)
-    page.json      title, icon and description (optional)
+    page.json      title, icon, description and widget (optional)
     tasks.json     data files of the page, any name, any subfolder
 ```
 
@@ -45,6 +45,12 @@ pages/
 
   A missing or broken `page.json` does not stop the page; the folder name is
   then the title.
+- A `widget` block in `page.json` lets the page be a tile on Home (see
+  [A page on Home](#a-page-on-home)):
+
+  ```json
+  { "title": "Clock", "widget": { "size": "small", "title": "Now" } }
+  ```
 
 ## In the UI
 
@@ -103,7 +109,8 @@ path is relative to the page's own folder.
 | `localai.files.list(dir)` | `[{path, kind, size, version}]`. `dir` is optional; the default is the page's folder. |
 | `localai.chat.send(text)` | `{sent: true, chat_id}` or `{sent: false}`. See below. |
 | `localai.on('files.changed', fn)` | Calls `fn({paths})` when files of the page's folder change. `paths` are relative to the folder. When LocalAI cannot tell what changed (for example after the window was in the background), `fn` gets `{paths: [], resync: true}`: read again what you show. Returns a function that removes the listener. |
-| `localai.page` | `{name, title}` of the page. |
+| `localai.on('visibility', fn)` | Calls `fn({visible})` when the page goes out of sight (the tab is hidden, or its tile on Home scrolled away) and when it comes back. Pause timers and animations while `visible` is `false`. |
+| `localai.page` | `{name, title, mode, size}` of the page. `mode` is `page` in the full view and `widget` in a tile on Home; `size` is the tile's size (`small`, `medium`, `large`), empty in the full view. |
 
 Example: a counter that keeps its value in `count.json`.
 
@@ -226,6 +233,66 @@ loop: a file waits until it has not changed for 30 seconds, a file that changes
 again after a run began waits for the trigger's minimum gap (one minute by
 default), the run's own writes start nothing, and the trigger has a daily limit
 (24 runs by default). The bridge also limits writes (below).
+
+## A page on Home
+
+A page with a `widget` block in its `page.json` can also be a tile on Home.
+The tile runs the same page, in the same sandbox and with the same bridge, but
+in its compact mode: `localai.page.mode` is `widget`, and `<html>` has
+`data-mode="widget"` and `data-size="small|medium|large"`, so a style sheet can
+switch layout without script. The page decides how its tile looks; LocalAI
+does not shrink the full page.
+
+| Field | Meaning |
+|---|---|
+| `widget.size` | The height of the tile: `small` (one line or a number), `medium` (a short list) or `large` (a table or a chart; two columns wide when Home has room). Any other value is `medium`. |
+| `widget.title` | The title of the tile, when it should be shorter than the page's. |
+
+A page without a `widget` block cannot be a tile. To put a page on Home, add
+the block and a widget `{"id": "clock", "type": "page", "page": "clock"}` to
+`LocalAI/home.json` (or pick the page in **Customise Home**, or ask the
+assistant to "put it on Home"). A page of a shared folder also has
+`"folder": <folder_id>`. Home shows at most three page tiles.
+
+A small clock that is a full page in its own view and one line on Home:
+
+```html
+<!doctype html>
+<style>
+  body { font: 15px system-ui, sans-serif; margin: 0; padding: 24px; }
+  #time { font-size: 64px; }
+  :root[data-mode="widget"] body { padding: 12px 16px; }
+  :root[data-mode="widget"] #time { font-size: 28px; }
+  :root[data-mode="widget"] .more { display: none; }
+</style>
+<div id="time"></div>
+<p class="more">The time where you are. On Home, only the time shows.</p>
+<script>
+  const el = document.getElementById('time')
+  let timer = 0
+  const tick = () => { el.textContent = new Date().toLocaleTimeString() }
+  const start = () => { tick(); timer = setInterval(tick, 1000) }
+  start()
+  localai.on('visibility', ({ visible }) => {
+    clearInterval(timer)
+    if (visible) start()
+  })
+</script>
+```
+
+The tile has a bar with the page's icon and title, **Open page** and a refresh
+button. Its frame is made only when the tile scrolls into view, and it is taken
+down when the tile is far off screen; nearer, or in a hidden tab, the page gets
+`visibility` `false` and should pause. Home keeps at most three frames alive.
+The height of each tile is fixed by its size, so nothing moves when a page
+loads. A tile reads its data as the full page does, with `fetch` or
+`localai.files.read`, and `files.changed` keeps it live.
+
+In a tile, a link of the page asks before it opens, as in the full view.
+`chat.send` is refused: open the page to send a message. When a page is gone,
+cannot be read, or has no `widget` block, the tile says so with a link to
+**Customise Home**. A shared page needs your consent first: the tile shows
+**Allow this page**, which opens the same trust sheet as the full view.
 
 ## Limits
 
@@ -369,7 +436,7 @@ The UI uses these routes. They need the `chats` and `pages` features.
 
 | Route | Use |
 |---|---|
-| `GET /api/chats/pages` | List your pages. |
+| `GET /api/chats/pages` | List your pages, each with its `widget` block when it has one. |
 | `GET /api/chats/pages/{name}` | A page with its `index.html` as `html`. |
 | `GET /api/chats/pages/{name}/files?dir=` | `files.list` |
 | `GET /api/chats/pages/{name}/file?path=` | `files.read`. With `encoding=base64` the file must be an image (by extension) and `content` is its bytes in base64, with `media_type`. The UI uses it to put images into the page; the bridge reads text only. |
@@ -378,7 +445,7 @@ The UI uses these routes. They need the `chats` and `pages` features.
 | `GET /api/chats/page-starters` | The starter pages. |
 | `POST /api/chats/page-starters/{id}/copy` | Copy a starter into `pages/`. |
 | `GET /api/chats/shared-folders` | Your shared folders, with your `mode` and how many `pages` each has. `folder_id` of a shared page is the `id` of its folder. |
-| `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `code_files`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
+| `GET /api/chats/shared-pages` | The pages of your shared folders: `folder`, `folder_id`, `author_id`, `author_name`, `writable`, `hash`, `code_files`, `widget`, `consent` (`none`, `allowed`, `changed`), and `enabled`. |
 | `GET /api/chats/shared-pages/{folder_id}/{name}` | A shared page with `html`, `lines` and `consent` (`state`, and for the version you allowed `allowed_at`, `size`, `meta_size`, `lines`). |
 | `PUT /api/chats/shared-pages/{folder_id}/{name}/consent` | Allow a version, body `{hash, once}`. `409` when the page changed since you read it. A visit (`once`) answers with a `token`. |
 | `DELETE /api/chats/shared-pages/{folder_id}/{name}/consent` | Stop allowing it. |

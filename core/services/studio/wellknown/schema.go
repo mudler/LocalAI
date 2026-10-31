@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -150,14 +151,53 @@ func Validate(n Name, data []byte) (map[string]any, []string) {
 	if obj == nil {
 		return nil, []string{"the file is not a JSON object"}
 	}
-	if errs := check(c, obj); len(errs) > 0 {
+	errs := check(c, obj)
+	if n == Home {
+		// The schema says the same, but its message names a keyword; these
+		// say what to change. They are checked even when the schema passes.
+		errs = append(errs, pageWidgetErrors(obj)...)
+	}
+	if len(errs) > 0 {
 		if n == WidgetData {
 			errs = append(errs, itemURLErrors(obj)...)
-			sort.Strings(errs)
 		}
+		sort.Strings(errs)
 		return nil, errs
 	}
 	return obj, nil
+}
+
+// MaxPageWidgets bounds the page widgets of home.json: each one runs its page
+// in a frame of its own.
+const MaxPageWidgets = 3
+
+var pageNameRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
+
+// pageWidgetErrors says, in words, what is wrong with the page widgets of
+// home.json: too many of them, or a page that is not a page name.
+func pageWidgetErrors(obj map[string]any) []string {
+	widgets, _ := obj["widgets"].([]any)
+	var out []string
+	count := 0
+	for i, it := range widgets {
+		m, _ := it.(map[string]any)
+		if m["type"] != "page" {
+			continue
+		}
+		count++
+		raw, ok := m["page"]
+		name, isString := raw.(string)
+		switch {
+		case !ok || (isString && name == ""):
+			out = append(out, fmt.Sprintf("widgets[%d].page: a page widget names its page, such as \"news\" for the folder pages/news/ of your home", i))
+		case !isString || !pageNameRE.MatchString(name):
+			out = append(out, fmt.Sprintf("widgets[%d].page: %q is not a page name; a page name is the folder name under pages/: lowercase letters, digits and dashes, at most 64", i, clip(fmt.Sprint(raw), 80)))
+		}
+	}
+	if count > MaxPageWidgets {
+		out = append(out, fmt.Sprintf("widgets: Home shows at most %d page widgets, because each one runs its page; this layout has %d, so remove %d", MaxPageWidgets, count, count-MaxPageWidgets))
+	}
+	return out
 }
 
 // itemURLErrors says, in words, which item url of widget data breaks the

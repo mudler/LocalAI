@@ -117,7 +117,7 @@ var _ = Describe("the built-in skills", func() {
 // The calls that the Pages bridge offers to a page, from
 // core/http/react-ui/src/utils/pagesBridge.js (the object api in BOOTSTRAP).
 // The test below reads that file, so a change of the bridge fails here.
-var bridgeCalls = []string{"files.read", "files.write", "files.list", "chat.send", "on", "page"}
+var bridgeCalls = []string{"files.read", "files.write", "files.list", "chat.send", "on", "page", "page.name", "page.title", "page.mode", "page.size"}
 
 var apiRE = regexp.MustCompile(`localai\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)`)
 
@@ -160,6 +160,8 @@ var _ = Describe("the localai-apps skill", func() {
 			switch c {
 			case "on", "page":
 				Expect(bridge).To(MatchRegexp(`\b`+c+`:`), "the bridge has no %q", c)
+			case "page.name", "page.title", "page.mode", "page.size":
+				Expect(bridge).To(MatchRegexp(`page: Object\.freeze\(\{[^}]*\b`+strings.TrimPrefix(c, "page.")+`:`), "the bridge has no %q", c)
 			default:
 				parent, name, _ := strings.Cut(c, ".")
 				Expect(bridge).To(MatchRegexp(`\b`+name+`: function`), "the bridge has no %q", c)

@@ -76,7 +76,8 @@
       "types": {
         "list": "목록",
         "metric": "지표",
-        "chats": "최근 채팅"
+        "chats": "최근 채팅",
+        "page": "페이지"
       },
       "left": "{{count}} 남음",
       "fromChats": "채팅에서",
@@ -128,7 +129,36 @@
         "scheduleNote_one": "위젯 {{count}}개가 일정에 따라 업데이트됩니다. 실행에는 내 모델이 쓰이고 사용량에 포함됩니다.",
         "scheduleNote_other": "위젯 {{count}}개가 일정에 따라 업데이트됩니다. 실행에는 내 모델이 쓰이고 사용량에 포함됩니다."
       },
-      "opensSite": "{{host}}: 새 탭에서 열립니다"
+      "opensSite": "{{host}}: 새 탭에서 열립니다",
+      "page": {
+        "gone": "이 페이지를 더 이상 사용할 수 없습니다",
+        "goneHint": "\"{{name}}\" 페이지가 이동되었거나 삭제되었거나 더 이상 열 수 없습니다.",
+        "noWidget": "이 페이지에는 위젯 보기가 없습니다",
+        "noWidgetHint": "pages/{{name}}/page.json에 \"widget\" 블록을 추가하거나 어시스턴트에게 간단한 보기를 요청하세요.",
+        "off": "공유 페이지가 꺼져 있습니다",
+        "offHint": "관리자가 이 서버의 공유 페이지를 껐습니다.",
+        "fix": "홈 사용자 지정",
+        "failed": "페이지를 불러오지 못했습니다",
+        "retry": "다시 시도",
+        "changed": "허용한 뒤 이 페이지가 바뀌었습니다",
+        "notAllowed": "아직 이 페이지를 허용하지 않았습니다",
+        "allowHint": "공유 폴더의 페이지입니다. 내 권한으로 실행되기 전에 검토하세요.",
+        "allow": "이 페이지 허용",
+        "frameTitle": "{{title}} (홈의 페이지)",
+        "refresh": "새로 고침",
+        "open": "페이지 열기",
+        "add": "페이지 추가",
+        "limit": "홈에는 페이지를 최대 {{max}}개까지 표시합니다. 다른 페이지를 추가하려면 하나를 제거하세요.",
+        "noneEligible": "여기에 페이지를 표시하려면 해당 page.json에 \"widget\" 블록을 추가하세요.",
+        "pick": "페이지",
+        "unavailable": "{{name}} (사용할 수 없음)",
+        "sharedLabel": "공유",
+        "sizes": {
+          "small": "작게",
+          "medium": "보통",
+          "large": "크게"
+        }
+      }
     },
     "fields": {
       "persona": {

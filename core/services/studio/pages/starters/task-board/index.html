@@ -22,6 +22,17 @@
   .card div { display: flex; gap: 4px; }
   .card div button { padding: 2px 8px; }
   .status { color: var(--muted); font-size: 12px; margin-top: 12px; min-height: 1em; }
+  /* On Home the board is a tile (localai.page.mode is "widget"): counts and
+     the next tasks only. Open the page to change them. */
+  .compact { display: none; }
+  :root[data-mode="widget"] body { padding: 10px 14px; background: var(--col); }
+  :root[data-mode="widget"] .add, :root[data-mode="widget"] .board { display: none; }
+  :root[data-mode="widget"] .compact { display: block; }
+  .counts { display: flex; gap: 14px; margin: 0 0 8px; padding: 0; list-style: none; color: var(--muted); font-size: 12px; }
+  .counts b { display: block; color: var(--text); font-size: 20px; line-height: 1.2; }
+  .next { margin: 0; padding: 0; list-style: none; }
+  .next li { display: flex; gap: 8px; padding: 4px 0; border-top: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .next li span { color: var(--accent); flex: none; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -32,6 +43,7 @@
   <button id="ask" type="button">Ask the assistant</button>
 </div>
 <div class="board" id="board"></div>
+<div class="compact"><ul class="counts" id="counts"></ul><ul class="next" id="next"></ul></div>
 <div class="status" id="status"></div>
 <script>
 (function () {
@@ -52,7 +64,36 @@
     return e
   }
 
+  var compact = localai.page.mode === 'widget'
+  var shown = { small: 1, medium: 4, large: 9 }[localai.page.size] || 4
+
+  // The tile: how many tasks each column has, then what is in progress and
+  // what comes next.
+  function renderCompact() {
+    var counts = document.getElementById('counts')
+    var next = document.getElementById('next')
+    counts.textContent = ''
+    next.textContent = ''
+    data.columns.forEach(function (name, ci) {
+      var li = el('li')
+      li.appendChild(el('b', String(data.tasks.filter(function (t) { return t.column === ci }).length)))
+      li.appendChild(document.createTextNode(name))
+      counts.appendChild(li)
+    })
+    var last = data.columns.length - 1
+    data.tasks.filter(function (t) { return t.column < last })
+      .sort(function (a, b) { return b.column - a.column })
+      .slice(0, shown)
+      .forEach(function (t) {
+        var li = el('li')
+        li.appendChild(el('span', data.columns[t.column]))
+        li.appendChild(document.createTextNode(t.title))
+        next.appendChild(li)
+      })
+  }
+
   function render() {
+    if (compact) return renderCompact()
     board.textContent = ''
     data.columns.forEach(function (name, ci) {
       var col = el('section')
