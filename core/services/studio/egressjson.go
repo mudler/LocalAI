@@ -34,7 +34,7 @@ func EgressCardJSON(c egress.Card) schema.ChatsEgressCard {
 // JSON is the answer of GET /api/chats/{id}/egress.
 func (v EgressView) JSON() schema.ChatsEgress {
 	out := schema.ChatsEgress{Preset: string(v.Preset), Ceiling: string(v.Ceiling), Effective: string(v.Effective), Applies: v.Applies,
-		AppliesReason: v.AppliesReason, Registries: registriesJSON(v.Registries), Rules: []schema.ChatsEgressRule{}, Cards: []schema.ChatsEgressCard{}}
+		AppliesReason: v.AppliesReason, Registries: registriesJSON(v.Registries), AllowedHosts: v.AllowedHosts, Rules: []schema.ChatsEgressRule{}, Cards: []schema.ChatsEgressCard{}}
 	for _, r := range v.Rules {
 		out.Rules = append(out.Rules, schema.ChatsEgressRule{Host: r.Host, Port: r.Port, Allow: r.Allow, By: r.By, Admin: r.Admin, At: r.At, AboveLimit: r.AboveLimit})
 	}
@@ -52,7 +52,7 @@ func (a EgressAdmin) JSON() schema.ChatsEgressAdmin {
 	}
 	return schema.ChatsEgressAdmin{
 		Ceiling: string(a.Settings.Ceiling), Default: string(a.Settings.Default), AllowPrivate: a.Settings.AllowPrivate,
-		Ports: a.Settings.Ports, ExtraRegistries: extra, AuditDays: a.AuditDays, Registries: registriesJSON(a.Registries),
+		Ports: a.Settings.Ports, ExtraRegistries: extra, AllowedHosts: a.Settings.AllowedHostList(), AuditDays: a.AuditDays, Registries: registriesJSON(a.Registries),
 		Sandbox: a.Sandbox, Isolation: a.Isolation, Allowed: a.Last24h.Allowed, Blocked: a.Last24h.Blocked,
 	}
 }

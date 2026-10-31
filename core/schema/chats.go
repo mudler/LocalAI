@@ -1291,8 +1291,12 @@ type ChatsEgress struct {
 	Applies       bool                  `json:"applies"`
 	AppliesReason string                `json:"applies_reason,omitempty"`
 	Registries    []ChatsEgressRegistry `json:"registries"`
-	Rules         []ChatsEgressRule     `json:"rules"`
-	Cards         []ChatsEgressCard     `json:"cards"`
+	// AllowedHosts is the administrator's always-allowed list (host or
+	// host:port), read only here: it applies when the effective preset is
+	// registries or all.
+	AllowedHosts []string          `json:"allowed_hosts"`
+	Rules        []ChatsEgressRule `json:"rules"`
+	Cards        []ChatsEgressCard `json:"cards"`
 }
 
 // ChatsEgressPreset sets the preset of a chat.
@@ -1314,6 +1318,7 @@ type ChatsEgressAdmin struct {
 	AllowPrivate    bool                  `json:"allow_private"`
 	Ports           []int                 `json:"ports"`
 	ExtraRegistries []string              `json:"extra_registries"`
+	AllowedHosts    []string              `json:"allowed_hosts"`
 	AuditDays       int                   `json:"audit_days"`
 	Registries      []ChatsEgressRegistry `json:"registries"`
 	// Sandbox is the add-on that runs commands, empty when none serves;

@@ -111,6 +111,27 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 		Expect(v).To(Equal(egress.Verdict{Action: egress.Block, Reason: "chat"}))
 	})
 
+	It("allows a host of the always-allowed list, audits it as allowed_host, and a change applies at the next check", func() {
+		id := create(svc, alice)
+		rid := toolargs.ActionResourceID(id)
+		v, _ := svc.EgressCheck(ctx, alice, rid, "op1", req("Api.Example.com"))
+		Expect(v.Action).To(Equal(egress.Block))
+		settings.AllowedHosts = []egress.AllowedHost{{Host: "api.example.com"}}
+		v, _ = svc.EgressCheck(ctx, alice, rid, "op1", req("Api.Example.com"))
+		Expect(v).To(Equal(egress.Verdict{Action: egress.Allow, Reason: egress.ReasonAllowedHost}))
+		lines, _ := a.Events(ctx, audit.Query{})
+		Expect(lines[0]).To(SatisfyAll(HaveField("Host", "api.example.com"), HaveField("Verdict", "allow"), HaveField("Reason", "allowed_host")))
+		view, err := svc.Egress(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(view.JSON().AllowedHosts).To(Equal([]string{"api.example.com"}))
+		settings.AllowedHosts = nil
+		v, _ = svc.EgressCheck(ctx, alice, rid, "op1", req("api.example.com"))
+		Expect(v.Action).To(Equal(egress.Block))
+		view, _ = svc.Egress(ctx, alice, id)
+		Expect(view.JSON().AllowedHosts).To(BeEmpty())
+		Expect(view.JSON().AllowedHosts).NotTo(BeNil(), "the wire form is a list, never null")
+	})
+
 	It("lowering the ceiling applies at the next check", func() {
 		id := create(svc, alice)
 		settings.Ceiling = egress.PresetOff

@@ -88,6 +88,10 @@ var toolToHTTPRoute = map[string]string{
 	// chats_egress_allow_private is deliberately not a tool (uiOnly): turning
 	// it on needs the typed phrase in chats_egress_private_confirm, a
 	// person's act in Settings > Tools, like confirm-host of the Sandbox.
+	// chats_egress_extra_registries and chats_egress_allowed_hosts are read by
+	// get_chat_egress and deliberately have no write tool: opening a host to
+	// every chat is a decision made on the Settings > Tools list editor, like
+	// the private switch. The admin changes them there (POST /api/settings).
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
 }
 

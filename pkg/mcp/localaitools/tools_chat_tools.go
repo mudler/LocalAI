@@ -45,12 +45,14 @@ func registerChatToolTools(s *mcp.Server, client LocalAIClient, _ Options) {
 
 // registerChatEgressTools exposes the settings and the audit of the network of
 // the chats' Sandbox commands. Only the ceiling can be changed here; the
-// private-network switch needs a typed confirmation in Settings > Tools.
+// private-network switch needs a typed confirmation in Settings > Tools, and
+// the lists of hosts (extra registries, always-allowed hosts) are edited there
+// too: get_chat_egress reads them, no tool writes them.
 func registerChatEgressTools(s *mcp.Server, client LocalAIClient, opts Options) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: ToolGetChatEgress,
 		Description: "Read the network settings of the chats' Sandbox commands: the ceiling (off, registries, all), the default of a new chat, " +
-			"whether private addresses may be reached, the ports, the extra registries, the audit retention, the package registries list, " +
+			"whether private addresses may be reached, the ports, the extra registries, the always-allowed hosts (allowed_hosts), the audit retention, the package registries list, " +
 			"which add-on runs commands and how, and the allowed and blocked requests of the last 24 hours.",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		out, err := client.GetChatEgress(ctx)

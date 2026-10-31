@@ -155,6 +155,10 @@ var _ = Describe("Settings endpoints", func() {
 			`{"chats_egress_ports":"443,25"}`:                                          "Invalid chats_egress_ports",
 			`{"chats_egress_extra_registries":"*.example.com"}`:                        "Invalid chats_egress_extra_registries",
 			`{"chats_egress_extra_registries":"0x7f.1"}`:                               "Invalid chats_egress_extra_registries",
+			`{"chats_egress_allowed_hosts":"*.example.com"}`:                           "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"https://example.com"}`:                     "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"example.com:22"}`:                          "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"10.0.0.5"}`:                                "Invalid chats_egress_allowed_hosts",
 			`{"chats_egress_audit_days":0}`:                                            "Invalid chats_egress_audit_days",
 			`{"chats_egress_audit_days":366}`:                                          "Invalid chats_egress_audit_days",
 			`{"chats_egress_allow_private":true}`:                                      "chats_egress_private_confirm",
@@ -166,12 +170,13 @@ var _ = Describe("Settings endpoints", func() {
 		}
 		cfg := app.ApplicationConfig()
 		Expect(cfg.ChatsEgressAllowPrivate).To(BeFalse())
-		rec := post(`{"chats_egress_ceiling":"registries","chats_egress_default":"registries","chats_egress_ports":"443","chats_egress_extra_registries":"Mirror.Example.org, pypi.internal.example","chats_egress_audit_days":7,` +
+		rec := post(`{"chats_egress_ceiling":"registries","chats_egress_default":"registries","chats_egress_ports":"443","chats_egress_extra_registries":"Mirror.Example.org, pypi.internal.example","chats_egress_allowed_hosts":"API.example.com, git.example.org:8443, 10.0.0.5","chats_egress_audit_days":7,` +
 			`"chats_egress_allow_private":true,"chats_egress_private_confirm":"` + config.EgressPrivatePhrase + `"}`)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(cfg.ChatsEgressCeiling).To(Equal("registries"))
 		Expect(cfg.ChatsEgressDefault).To(Equal("registries"))
 		Expect(cfg.ChatsEgressPorts).To(Equal("443"))
+		Expect(cfg.ChatsEgressAllowedHosts).To(Equal("API.example.com, git.example.org:8443, 10.0.0.5"), "an IP literal is accepted in the same request that turns the private switch on")
 		Expect(cfg.ChatsEgressAuditDays).To(Equal(7))
 		Expect(cfg.ChatsEgressAllowPrivate).To(BeTrue())
 		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))

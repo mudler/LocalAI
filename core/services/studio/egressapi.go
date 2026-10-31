@@ -37,8 +37,10 @@ type EgressView struct {
 	Applies       bool
 	AppliesReason string
 	Registries    []egress.Registry
-	Rules         []EgressRuleView
-	Cards         []egress.Card
+	// AllowedHosts is the administrator's always-allowed list, canonical.
+	AllowedHosts []string
+	Rules        []EgressRuleView
+	Cards        []egress.Card
 }
 
 // EgressRuleView is a rule with whether the ceiling still admits it.
@@ -72,10 +74,11 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	}
 	v := EgressView{
 		Preset: pol.chat.Preset, Ceiling: egress.Min(set.Ceiling, egress.PresetAll),
-		Effective:  egress.Min(pol.chat.Preset, set.Ceiling),
-		Registries: registriesView(set),
-		Rules:      []EgressRuleView{},
-		Cards:      append([]egress.Card{}, pol.rec.Egress.Cards...),
+		Effective:    egress.Min(pol.chat.Preset, set.Ceiling),
+		Registries:   registriesView(set),
+		AllowedHosts: set.AllowedHostList(),
+		Rules:        []EgressRuleView{},
+		Cards:        append([]egress.Card{}, pol.rec.Egress.Cards...),
 	}
 	for _, r := range pol.rec.Egress.Rules {
 		above := r.Allow && !egress.Admits(set, egress.Request{Host: r.Host, Port: r.Port, TLS: r.Port == 443}, egress.BuiltinRegistries())

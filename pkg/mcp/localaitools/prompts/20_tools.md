@@ -22,7 +22,7 @@ The MCP `tools/list` endpoint also exposes the full input schema for each of the
 - `list_shared_folder_events` — Read the audit of the shared folders, newest first.
 - `list_chat_tools` — List the built-in chat tools (bash on this machine, the web tools): on or off, who serves each, and the host-commands mode.
 - `list_host_exec_events` — Read the audit of the commands the chats' built-in bash ran directly on this machine, newest first.
-- `get_chat_egress` — Read the network settings of the chats' Sandbox commands (ceiling, default, ports, registries) and the requests of the last 24 hours.
+- `get_chat_egress` — Read the network settings of the chats' Sandbox commands (ceiling, default, ports, registries, always-allowed hosts) and the requests of the last 24 hours.
 - `list_egress_events` — Read the audit of the Sandbox network requests, newest first, with filters.
 - `get_branding` — Read the resolved instance name, tagline, and branding asset URLs.
 - `get_usage_stats` — Read token/request usage aggregates when usage tracking is enabled.

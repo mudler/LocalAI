@@ -3844,7 +3844,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/egress": {
             "get": {
-                "description": "The chats_egress_* settings in force (ceiling, default, allow_private, ports, extra_registries, audit_days), the package registries with the extra hosts, the add-on that runs commands and how (isolated or host; the settings do not apply to commands on this machine), and the allowed and blocked requests of the last 24 hours. Change the settings with POST /api/settings.",
+                "description": "The chats_egress_* settings in force (ceiling, default, allow_private, ports, extra_registries, allowed_hosts, audit_days), the package registries with the extra hosts, the add-on that runs commands and how (isolated or host; the settings do not apply to commands on this machine), and the allowed and blocked requests of the last 24 hours. Change the settings with POST /api/settings.",
                 "tags": [
                     "chats"
                 ],
@@ -18229,6 +18229,13 @@ const docTemplate = `{
         "schema.ChatsEgress": {
             "type": "object",
             "properties": {
+                "allowed_hosts": {
+                    "description": "AllowedHosts is the administrator's always-allowed list (host or\nhost:port), read only here: it applies when the effective preset is\nregistries or all.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "applies": {
                     "description": "Applies is false when commands run on this machine (applies_reason\nhost) or no Sandbox serves bash (none).",
                     "type": "boolean"
@@ -18276,6 +18283,12 @@ const docTemplate = `{
                 },
                 "allowed_24h": {
                     "type": "integer"
+                },
+                "allowed_hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "audit_days": {
                     "type": "integer"

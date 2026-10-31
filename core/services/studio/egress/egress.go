@@ -10,6 +10,7 @@ package egress
 import (
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -288,6 +289,50 @@ type Settings struct {
 	Ports []int
 	// ExtraRegistries are host names added to the registries list.
 	ExtraRegistries []string
+	// AllowedHosts are the exact hosts an administrator always allows: any
+	// chat whose effective preset is registries or all may reach them, on any
+	// request kind. They pass the same guard as everything else.
+	AllowedHosts []AllowedHost
+}
+
+// AllowedHost is one entry of the administrator's always-allowed list: a
+// canonical host and, when pinned, the only port it is allowed on (0: the
+// ports setting decides).
+type AllowedHost struct {
+	Host string
+	Port int
+}
+
+// String is the canonical entry: host, then ":port" when pinned (an IPv6
+// literal in brackets).
+func (h AllowedHost) String() string {
+	if h.Port == 0 {
+		return h.Host
+	}
+	if strings.Contains(h.Host, ":") {
+		return "[" + h.Host + "]:" + strconv.Itoa(h.Port)
+	}
+	return h.Host + ":" + strconv.Itoa(h.Port)
+}
+
+// AllowedHostList is the list as canonical entries, never nil.
+func (s Settings) AllowedHostList() []string {
+	out := make([]string, 0, len(s.AllowedHosts))
+	for _, h := range s.AllowedHosts {
+		out = append(out, h.String())
+	}
+	return out
+}
+
+// AllowsHost says whether the always-allowed list admits host on port. The
+// ports setting still applies; Decide checks it first.
+func (s Settings) AllowsHost(host string, port int) bool {
+	for _, h := range s.AllowedHosts {
+		if h.Host == host && (h.Port == 0 || h.Port == port) {
+			return true
+		}
+	}
+	return false
 }
 
 // PortAllowed says whether port is one of the settings' ports.
@@ -313,6 +358,7 @@ const (
 const (
 	ReasonPreset        = "preset"
 	ReasonRule          = "rule"
+	ReasonAllowedHost   = "allowed_host" // on the administrator's always-allowed list
 	ReasonOnce          = "once"
 	ReasonCard          = "card" // ask: a card was shown
 	ReasonDenied        = "denied"
@@ -371,22 +417,29 @@ func needs(r Request, reg *Registries, extra []string) Preset {
 	return PresetAll
 }
 
-// Decide decides one request. The first match wins: the port, a deny rule,
-// the effective preset (the chat's preset under the ceiling), an allow rule or
-// a "once" grant the ceiling still admits, then a card when one can ask, else
-// a block.
+// Decide decides one request. The first match wins: the port, a host on the
+// administrator's always-allowed list (when the effective preset has the
+// network on and the address is public), a deny rule, the effective preset (the
+// chat's preset under the ceiling), an allow rule or a "once" grant the
+// ceiling still admits, then a card when one can ask, else a block.
 func Decide(s Settings, c Chat, r Request, reg *Registries) Verdict {
 	if !s.PortAllowed(r.Port) {
 		return Verdict{Action: Block, Reason: ReasonPort}
+	}
+	ceiling := normal(s.Ceiling)
+	eff := Min(c.Preset, ceiling)
+	private := r.Private || privateLiteral(r.Host)
+	// The list comes before a chat's deny rule: the administrator's word wins
+	// over a rule stored earlier. It never reaches a private address; that
+	// stays with the private switch and an administrator's rule or answer.
+	if !private && eff.Rank() >= PresetRegistries.Rank() && s.AllowsHost(r.Host, r.Port) {
+		return Verdict{Action: Allow, Reason: ReasonAllowedHost}
 	}
 	for _, x := range c.Rules {
 		if x.Host == r.Host && x.Port == r.Port && !x.Allow {
 			return Verdict{Action: Block, Reason: ReasonDenied}
 		}
 	}
-	ceiling := normal(s.Ceiling)
-	eff := Min(c.Preset, ceiling)
-	private := r.Private || privateLiteral(r.Host)
 	registry := reg.Has(r.Host, s.ExtraRegistries)
 	if !private {
 		if registry && eff.Rank() >= PresetRegistries.Rank() {

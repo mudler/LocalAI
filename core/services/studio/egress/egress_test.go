@@ -114,6 +114,78 @@ var _ = Describe("Decide", func() {
 		Expect(egress.Decide(s, egress.Chat{Preset: egress.PresetRegistries}, tlsReq("pypi.mirror.example"), reg).Action).To(Equal(egress.Allow))
 	})
 
+	Describe("the always-allowed hosts", func() {
+		type hrow struct {
+			ceiling, preset egress.Preset
+			list            []egress.AllowedHost
+			req             egress.Request
+			attended        bool
+			action, reason  string
+		}
+		listed := []egress.AllowedHost{{Host: "api.example.com"}, {Host: "git.example.org", Port: 8443}}
+		DescribeTable("ceiling x preset x host x port",
+			func(r hrow) {
+				s := egress.Settings{Ceiling: r.ceiling, Ports: []int{80, 443, 8443}, AllowedHosts: r.list}
+				v := egress.Decide(s, egress.Chat{Preset: r.preset, Attended: r.attended}, r.req, reg)
+				Expect(v.Action).To(Equal(r.action))
+				Expect(v.Reason).To(Equal(r.reason))
+				Expect(v.AllowPrivate).To(BeFalse())
+			},
+			Entry("preset off: nothing", hrow{egress.PresetAll, egress.PresetOff, listed, tlsReq("api.example.com"), true, egress.Ask, egress.ReasonCard}),
+			Entry("preset off, unattended", hrow{egress.PresetAll, egress.PresetOff, listed, tlsReq("api.example.com"), false, egress.Block, egress.ReasonUnattended}),
+			Entry("preset registries allows a listed host", hrow{egress.PresetAll, egress.PresetRegistries, listed, tlsReq("api.example.com"), true, egress.Allow, egress.ReasonAllowedHost}),
+			Entry("preset registries allows plain HTTP to it", hrow{egress.PresetAll, egress.PresetRegistries, listed, httpReq("api.example.com"), true, egress.Allow, egress.ReasonAllowedHost}),
+			Entry("preset registries still blocks an unlisted host", hrow{egress.PresetRegistries, egress.PresetRegistries, listed, tlsReq("other.example.com"), true, egress.Block, egress.ReasonCeiling}),
+			Entry("preset all allows a listed host", hrow{egress.PresetAll, egress.PresetAll, listed, tlsReq("api.example.com"), true, egress.Allow, egress.ReasonAllowedHost}),
+			Entry("ceiling off: the list does nothing", hrow{egress.PresetOff, egress.PresetAll, listed, tlsReq("api.example.com"), true, egress.Block, egress.ReasonCeiling}),
+			Entry("ceiling registries caps an all chat but not the list", hrow{egress.PresetRegistries, egress.PresetAll, listed, tlsReq("api.example.com"), true, egress.Allow, egress.ReasonAllowedHost}),
+			Entry("a pinned port allows that port", hrow{egress.PresetAll, egress.PresetRegistries, listed, egress.Request{Host: "git.example.org", Port: 8443, Kind: egress.KindConnect, TLS: true}, true, egress.Allow, egress.ReasonAllowedHost}),
+			Entry("a pinned host is not allowed on another port", hrow{egress.PresetRegistries, egress.PresetRegistries, listed, tlsReq("git.example.org"), true, egress.Block, egress.ReasonCeiling}),
+			Entry("a subdomain is not the host", hrow{egress.PresetRegistries, egress.PresetRegistries, listed, tlsReq("x.api.example.com"), true, egress.Block, egress.ReasonCeiling}),
+			Entry("a private literal on the list stays with the private rules", hrow{egress.PresetAll, egress.PresetAll, []egress.AllowedHost{{Host: "10.0.0.5"}}, tlsReq("10.0.0.5"), true, egress.Block, egress.ReasonPrivate}),
+		)
+
+		It("does not reach a host found to be private, and the card keeps its admin rule", func() {
+			s := egress.Settings{Ceiling: egress.PresetAll, AllowedHosts: listed}
+			r := tlsReq("api.example.com")
+			r.Private = true
+			Expect(egress.Decide(s, egress.Chat{Preset: egress.PresetAll, Attended: true}, r, reg).Reason).To(Equal(egress.ReasonPrivate))
+			s.AllowPrivate = true
+			Expect(egress.Decide(s, egress.Chat{Preset: egress.PresetAll, Attended: true}, r, reg).Action).To(Equal(egress.Ask))
+			admin := egress.Chat{Rules: []egress.Rule{{Host: "api.example.com", Port: 443, Allow: true, Admin: true}}}
+			v := egress.Decide(s, admin, r, reg)
+			Expect(v).To(Equal(egress.Verdict{Action: egress.Allow, Reason: egress.ReasonRule, AllowPrivate: true}))
+		})
+
+		It("still honours the ports setting", func() {
+			s := egress.Settings{Ceiling: egress.PresetAll, AllowedHosts: []egress.AllowedHost{{Host: "api.example.com", Port: 8443}}}
+			v := egress.Decide(s, egress.Chat{Preset: egress.PresetAll}, egress.Request{Host: "api.example.com", Port: 8443, TLS: true}, reg)
+			Expect(v).To(Equal(egress.Verdict{Action: egress.Block, Reason: egress.ReasonPort}))
+		})
+
+		It("wins over a deny rule the person stored earlier", func() {
+			s := egress.Settings{Ceiling: egress.PresetAll, AllowedHosts: listed}
+			c := egress.Chat{Preset: egress.PresetRegistries, Rules: []egress.Rule{{Host: "api.example.com", Port: 443}}}
+			Expect(egress.Decide(s, c, tlsReq("api.example.com"), reg).Reason).To(Equal(egress.ReasonAllowedHost))
+		})
+
+		It("changes at the next check, with no state of its own", func() {
+			c := egress.Chat{Preset: egress.PresetRegistries}
+			s := egress.Settings{Ceiling: egress.PresetAll}
+			Expect(egress.Decide(s, c, tlsReq("api.example.com"), reg).Action).To(Equal(egress.Block))
+			s.AllowedHosts = listed
+			Expect(egress.Decide(s, c, tlsReq("api.example.com"), reg).Action).To(Equal(egress.Allow))
+			s.AllowedHosts = nil
+			Expect(egress.Decide(s, c, tlsReq("api.example.com"), reg).Action).To(Equal(egress.Block))
+		})
+
+		It("writes the entries as the setting does", func() {
+			s := egress.Settings{AllowedHosts: []egress.AllowedHost{{Host: "a.example"}, {Host: "b.example", Port: 8443}, {Host: "::1", Port: 80}}}
+			Expect(s.AllowedHostList()).To(Equal([]string{"a.example", "b.example:8443", "[::1]:80"}))
+			Expect(egress.Settings{}.AllowedHostList()).To(BeEmpty())
+		})
+	})
+
 	It("caps the default preset by the ceiling", func() {
 		Expect(egress.Settings{Ceiling: egress.PresetRegistries, Default: egress.PresetAll}.DefaultPreset()).To(Equal(egress.PresetRegistries))
 		Expect(egress.Settings{Ceiling: egress.PresetAll}.DefaultPreset()).To(Equal(egress.PresetOff))

@@ -109,6 +109,7 @@ type RuntimeSettings struct {
 	ChatsEgressAllowPrivate    *bool   `json:"chats_egress_allow_private,omitempty"`    // let an administrator's rule reach private addresses (default: false)
 	ChatsEgressPorts           *string `json:"chats_egress_ports,omitempty"`            // ports a command may reach, comma separated (default: 80,443)
 	ChatsEgressExtraRegistries *string `json:"chats_egress_extra_registries,omitempty"` // host names added to the package registries, comma separated
+	ChatsEgressAllowedHosts    *string `json:"chats_egress_allowed_hosts,omitempty"`    // exact hosts (host or host:port) always allowed with the network on, comma separated
 	ChatsEgressAuditDays       *int    `json:"chats_egress_audit_days,omitempty"`       // days the audit keeps a line, 1 to 365 (default: 30)
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.

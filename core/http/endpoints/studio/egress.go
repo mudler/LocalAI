@@ -76,7 +76,7 @@ func (h *Handlers) DeleteEgressRule(c echo.Context) error {
 
 // AdminEgress returns the administrator's view of the Sandbox network.
 // @Summary Read the settings of the Sandbox network (administrators).
-// @Description The chats_egress_* settings in force (ceiling, default, allow_private, ports, extra_registries, audit_days), the package registries with the extra hosts, the add-on that runs commands and how (isolated or host; the settings do not apply to commands on this machine), and the allowed and blocked requests of the last 24 hours. Change the settings with POST /api/settings.
+// @Description The chats_egress_* settings in force (ceiling, default, allow_private, ports, extra_registries, allowed_hosts, audit_days), the package registries with the extra hosts, the add-on that runs commands and how (isolated or host; the settings do not apply to commands on this machine), and the allowed and blocked requests of the last 24 hours. Change the settings with POST /api/settings.
 // @Tags chats
 // @Success 200 {object} schema.ChatsEgressAdmin "The settings in force"
 // @Router /api/chats/admin/egress [get]

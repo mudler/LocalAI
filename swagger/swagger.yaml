@@ -3543,6 +3543,14 @@ definitions:
     type: object
   schema.ChatsEgress:
     properties:
+      allowed_hosts:
+        description: |-
+          AllowedHosts is the administrator's always-allowed list (host or
+          host:port), read only here: it applies when the effective preset is
+          registries or all.
+        items:
+          type: string
+        type: array
       applies:
         description: |-
           Applies is false when commands run on this machine (applies_reason
@@ -3578,6 +3586,10 @@ definitions:
         type: boolean
       allowed_24h:
         type: integer
+      allowed_hosts:
+        items:
+          type: string
+        type: array
       audit_days:
         type: integer
       blocked_24h:
@@ -12532,10 +12544,10 @@ paths:
   /api/chats/admin/egress:
     get:
       description: The chats_egress_* settings in force (ceiling, default, allow_private,
-        ports, extra_registries, audit_days), the package registries with the extra
-        hosts, the add-on that runs commands and how (isolated or host; the settings
-        do not apply to commands on this machine), and the allowed and blocked requests
-        of the last 24 hours. Change the settings with POST /api/settings.
+        ports, extra_registries, allowed_hosts, audit_days), the package registries
+        with the extra hosts, the add-on that runs commands and how (isolated or host;
+        the settings do not apply to commands on this machine), and the allowed and
+        blocked requests of the last 24 hours. Change the settings with POST /api/settings.
       responses:
         "200":
           description: The settings in force

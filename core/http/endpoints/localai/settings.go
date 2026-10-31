@@ -418,6 +418,17 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 			return "Invalid chats_egress_extra_registries: " + err.Error()
 		}
 	}
+	if s.ChatsEgressAllowedHosts != nil {
+		// An IP literal is judged with the private switch as this request
+		// leaves it.
+		priv := privateOn
+		if s.ChatsEgressAllowPrivate != nil {
+			priv = *s.ChatsEgressAllowPrivate
+		}
+		if _, err := config.ParseEgressAllowedHosts(*s.ChatsEgressAllowedHosts, priv); err != nil {
+			return "Invalid chats_egress_allowed_hosts: " + err.Error()
+		}
+	}
 	if s.ChatsEgressAuditDays != nil && (*s.ChatsEgressAuditDays < 1 || *s.ChatsEgressAuditDays > 365) {
 		return "Invalid chats_egress_audit_days: use 1 to 365"
 	}
