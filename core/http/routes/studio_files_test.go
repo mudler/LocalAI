@@ -5,6 +5,7 @@ package routes_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -84,6 +85,8 @@ var _ = Describe("Chats files endpoints", func() {
 		Entry("move", http.MethodPost, "/api/chats/files/move"),
 		Entry("delete", http.MethodDelete, "/api/chats/files?path=/a"),
 		Entry("trash", http.MethodGet, "/api/chats/files/trash"),
+		Entry("empty the trash", http.MethodDelete, "/api/chats/files/trash"),
+		Entry("purge one trash entry", http.MethodDelete, "/api/chats/files/trash/3"),
 		Entry("undo", http.MethodPost, "/api/chats/files/undo"),
 		Entry("history", http.MethodGet, "/api/chats/files/history"),
 		Entry("search", http.MethodGet, "/api/chats/files/search?q=a"),
@@ -204,6 +207,87 @@ var _ = Describe("Chats files endpoints", func() {
 		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/files/trash", nil))["entries"].([]any)).To(BeEmpty())
 	})
 
+	Describe("emptying the Trash", func() {
+		trashOf := func(user string) map[string]any {
+			rec := s.do(user, http.MethodGet, "/api/chats/files/trash", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			return decodeJSON(rec)
+		}
+
+		It("counts what the Trash holds, per entry and in total", func() {
+			Expect(s.putFile("alice", "/Docs/a.txt", "12345").Code).To(Equal(http.StatusOK))
+			Expect(s.putFile("alice", "/Docs/b.txt", "123").Code).To(Equal(http.StatusOK))
+			Expect(s.putFile("alice", "/c.txt", "1").Code).To(Equal(http.StatusOK))
+			Expect(s.do("alice", http.MethodDelete, "/api/chats/files?path="+q("/Docs"), nil).Code).To(Equal(http.StatusOK))
+			Expect(s.do("alice", http.MethodDelete, "/api/chats/files?path="+q("/c.txt"), nil).Code).To(Equal(http.StatusOK))
+
+			tr := trashOf("alice")
+			Expect(tr["totals"]).To(Equal(map[string]any{"files": 3.0, "folders": 1.0, "bytes": 9.0}))
+			byPath := map[string]map[string]any{}
+			for _, e := range tr["entries"].([]any) {
+				m := e.(map[string]any)
+				byPath[m["paths"].([]any)[0].(string)] = m
+			}
+			Expect(byPath["/Docs"]).To(HaveKeyWithValue("files", BeNumerically("==", 2)))
+			Expect(byPath["/Docs"]).To(HaveKeyWithValue("folders", BeNumerically("==", 1)))
+			Expect(byPath["/Docs"]).To(HaveKeyWithValue("bytes", BeNumerically("==", 8)))
+			Expect(byPath["/c.txt"]).To(HaveKeyWithValue("bytes", BeNumerically("==", 1)))
+		})
+
+		It("deletes one entry for good and leaves the rest restorable", func() {
+			Expect(s.putFile("alice", "/a.txt", "aaaa").Code).To(Equal(http.StatusOK))
+			Expect(s.putFile("alice", "/b.txt", "bb").Code).To(Equal(http.StatusOK))
+			s.do("alice", http.MethodDelete, "/api/chats/files?path="+q("/a.txt"), nil)
+			s.do("alice", http.MethodDelete, "/api/chats/files?path="+q("/b.txt"), nil)
+			var aRev, bRev any
+			for _, e := range trashOf("alice")["entries"].([]any) {
+				m := e.(map[string]any)
+				if m["paths"].([]any)[0] == "/a.txt" {
+					aRev = m["rev"]
+				} else {
+					bRev = m["rev"]
+				}
+			}
+
+			rec := s.do("alice", http.MethodDelete, "/api/chats/files/trash/"+fmt.Sprint(int64(aRev.(float64))), nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(decodeJSON(rec)).To(Equal(map[string]any{"files": 1.0, "folders": 0.0, "bytes": 4.0}))
+			Expect(trashOf("alice")["entries"].([]any)).To(HaveLen(1))
+			// The purged deletion cannot be restored; the other one can.
+			Expect(s.do("alice", http.MethodPost, "/api/chats/files/undo", map[string]any{"rev": aRev}).Code).To(Equal(http.StatusNotFound))
+			Expect(s.do("alice", http.MethodPost, "/api/chats/files/undo", map[string]any{"rev": bRev}).Code).To(Equal(http.StatusOK))
+			Expect(s.names("alice", "/")).To(ContainElement("b.txt"))
+			Expect(s.names("alice", "/")).NotTo(ContainElement("a.txt"))
+		})
+
+		It("empties the Trash and keeps live files", func() {
+			Expect(s.putFile("alice", "/keep.txt", "keep").Code).To(Equal(http.StatusOK))
+			Expect(s.putFile("alice", "/gone.txt", "gone").Code).To(Equal(http.StatusOK))
+			s.do("alice", http.MethodDelete, "/api/chats/files?path="+q("/gone.txt"), nil)
+
+			rec := s.do("alice", http.MethodDelete, "/api/chats/files/trash", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			Expect(decodeJSON(rec)).To(HaveKeyWithValue("files", BeNumerically("==", 1)))
+			tr := trashOf("alice")
+			Expect(tr["entries"].([]any)).To(BeEmpty())
+			Expect(tr["totals"]).To(Equal(map[string]any{"files": 0.0, "folders": 0.0, "bytes": 0.0}))
+			Expect(s.names("alice", "/")).To(ContainElement("keep.txt"))
+			// Emptying an empty Trash is fine.
+			Expect(s.do("alice", http.MethodDelete, "/api/chats/files/trash", nil).Code).To(Equal(http.StatusOK))
+		})
+
+		It("never touches the Trash of another user", func() {
+			Expect(s.putFile("alice", "/a.txt", "alice").Code).To(Equal(http.StatusOK))
+			s.do("alice", http.MethodDelete, "/api/chats/files?path="+q("/a.txt"), nil)
+			rev := trashOf("alice")["entries"].([]any)[0].(map[string]any)["rev"]
+
+			Expect(s.do("bob", http.MethodDelete, "/api/chats/files/trash/"+fmt.Sprint(int64(rev.(float64))), nil).Code).To(Equal(http.StatusNotFound))
+			Expect(decodeJSON(s.do("bob", http.MethodDelete, "/api/chats/files/trash", nil))).To(HaveKeyWithValue("files", BeNumerically("==", 0)))
+			Expect(trashOf("alice")["entries"].([]any)).To(HaveLen(1), "bob emptied alice's Trash")
+			Expect(s.do("alice", http.MethodDelete, "/api/chats/files/trash/abc", nil).Code).To(Equal(http.StatusBadRequest))
+		})
+	})
+
 	It("searches the user's own files by name and by text", func() {
 		Expect(s.putFile("alice", "/Notes/budget.txt", "we discussed the Budget\nand hiring").Code).To(Equal(http.StatusOK))
 		Expect(s.putFile("bob", "/Notes/other.txt", "budget of bob").Code).To(Equal(http.StatusOK))
@@ -232,6 +316,7 @@ var _ = Describe("Chats files endpoints", func() {
 			{http.MethodGet, "/api/chats/files"},
 			{http.MethodGet, "/api/chats/files/content?path=/a"},
 			{http.MethodGet, "/api/chats/files/trash"},
+			{http.MethodDelete, "/api/chats/files/trash"},
 			{http.MethodGet, "/api/chats/files/history"},
 		} {
 			rec := off.do("alice", c.method, c.path, nil)

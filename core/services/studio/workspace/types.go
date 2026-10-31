@@ -293,3 +293,37 @@ type Tx interface {
 	Commit() (ChangeSet, error)
 	Rollback() error
 }
+
+// PurgeCount counts what a purge removes, or would remove.
+type PurgeCount struct {
+	Files int   // files
+	Dirs  int   // folders
+	Bytes int64 // size of the files
+}
+
+// PurgeResult is the outcome of a purge.
+type PurgeResult struct {
+	PurgeCount
+	// ByRev counts the removed nodes by the revision that deleted them. A
+	// folder that goes with its parent is counted under the revision that
+	// deleted it, which can be one the call did not name.
+	ByRev map[int64]PurgeCount
+}
+
+// Purger is a Store that can erase deleted nodes for good. A delete only sets
+// a tombstone, so the Trash can restore it; a purge removes the tombstoned
+// nodes, their journal rows and the change sets that no operation is left in,
+// and then the blobs that nothing refers to any more. A purged deletion
+// cannot be undone. Both stores of this package implement it, and the
+// conformance suite checks it.
+type Purger interface {
+	// Purge erases the nodes at or under the folder p that the change sets
+	// revs deleted, with everything below them. A node that is live again, or that a later
+	// change set changed, is kept. The actor needs write access to a node, or
+	// the node is kept. With dryRun the result says what would go and nothing
+	// changes.
+	Purge(ctx context.Context, a Actor, p string, revs []int64, dryRun bool) (PurgeResult, error)
+	// PurgeAll erases every deleted node at or under the folder p, the same
+	// way. A deleted node that sits above p is not touched.
+	PurgeAll(ctx context.Context, a Actor, p string, dryRun bool) (PurgeResult, error)
+}

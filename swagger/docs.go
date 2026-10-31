@@ -5386,6 +5386,59 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "delete": {
+                "description": "Permanently deletes every file and folder in your Trash, with their older versions, and frees the space. It cannot be undone. It touches only your own Trash. The agent tools cannot do this; it is an action of the person.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Empty the Trash.",
+                "responses": {
+                    "200": {
+                        "description": "What was removed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrashTotals"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/files/trash/{rev}": {
+            "delete": {
+                "description": "Permanently deletes the files and folders that one change set deleted, by the revision that the Trash lists. It cannot be undone. A revision that is not in your Trash is 404.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Delete one item of the Trash permanently.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "revision of the Trash entry",
+                        "name": "rev",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "What was removed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsTrashTotals"
+                        }
+                    },
+                    "400": {
+                        "description": "The revision is not a number",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not in your Trash",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/chats/files/undo": {
@@ -19822,6 +19875,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsTrashEntry"
                     }
+                },
+                "totals": {
+                    "description": "Totals counts everything in the Trash, also what a long list leaves out.\nIt is what \"empty the Trash\" removes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsTrashTotals"
+                        }
+                    ]
                 }
             }
         },
@@ -19830,6 +19891,16 @@ const docTemplate = `{
             "properties": {
                 "at": {
                     "type": "string"
+                },
+                "bytes": {
+                    "type": "integer"
+                },
+                "files": {
+                    "description": "Files, Folders and Bytes say what deleting the entry for good removes.",
+                    "type": "integer"
+                },
+                "folders": {
+                    "type": "integer"
                 },
                 "paths": {
                     "type": "array",
@@ -19842,6 +19913,20 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsTrashTotals": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "integer"
+                },
+                "files": {
+                    "type": "integer"
+                },
+                "folders": {
+                    "type": "integer"
                 }
             }
         },

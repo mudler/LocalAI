@@ -89,6 +89,12 @@ var toolToHTTPRoute = map[string]string{
 	// it on needs the typed phrase in chats_egress_private_confirm, a
 	// person's act in Settings > Tools, like confirm-host of the Sandbox.
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
+	// DELETE /api/chats/files/trash and DELETE /api/chats/files/trash/:rev are
+	// deliberately not tools. They delete a user's own files for good and
+	// touch only that user's Trash, so they are the user's act, not
+	// administration, and an assistant must not be able to make a deletion
+	// permanent. The file tools of a chat stop at the Trash for the same
+	// reason.
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in

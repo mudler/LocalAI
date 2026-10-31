@@ -70,3 +70,15 @@ func (s *fsStore) LinkTo(_ context.Context, sha string, dir *os.Root, name strin
 	}
 	return err
 }
+
+// Remove deletes the blob file. The file may be read-only; its folder is not.
+func (s *fsStore) Remove(_ context.Context, sha string) error {
+	if !validSHA(sha) {
+		return nil
+	}
+	err := os.Remove(shaPath(s.root, sha))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}

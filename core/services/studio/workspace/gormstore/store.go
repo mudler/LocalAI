@@ -34,6 +34,10 @@ type Options struct {
 	// Admin is the principal that manages grants. It has write access to
 	// every node. Empty means no admin: Grant and Revoke always fail.
 	Admin string
+	// BlobGrace is how long a purge waits before it removes a blob that
+	// nothing refers to, so that an upload of the same bytes in flight keeps
+	// them. Zero means two minutes; a negative value removes at once.
+	BlobGrace time.Duration
 	// MaxFileSize limits each file in bytes. Zero means no limit.
 	MaxFileSize int64
 	// Now returns the time recorded in change sets. Nil means time.Now.
@@ -47,11 +51,13 @@ type Workspace struct {
 	admin   string
 	maxSize int64
 	now     func() time.Time
+	grace   time.Duration
 }
 
 var (
 	_ Store       = (*Workspace)(nil)
 	_ GrantLister = (*Workspace)(nil)
+	_ Purger      = (*Workspace)(nil)
 )
 
 // New returns a Store on db and creates its tables. db must be SQLite or
@@ -81,7 +87,7 @@ func New(db *gorm.DB, blobs blob.Store, o Options) (*Workspace, error) {
 	if now == nil {
 		now = time.Now
 	}
-	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now}, nil
+	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace}, nil
 }
 
 // limit returns the smaller non-zero of the store limit and a per-call limit.

@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
@@ -49,6 +50,53 @@ var _ = Describe("The JSON store", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return s
 		})
+	})
+
+	Describe("purge frees blob bytes", func() {
+		for _, kind := range []string{"fs", "objectstore"} {
+			Describe("on the "+kind+" blob store", func() {
+				newBlobs := func() blob.Store {
+					if kind == "fs" {
+						b, err := blob.NewFS(GinkgoT().TempDir())
+						Expect(err).ToNot(HaveOccurred())
+						return b
+					}
+					objects, err := storage.NewFilesystemStore(GinkgoT().TempDir())
+					Expect(err).ToNot(HaveOccurred())
+					return blob.NewObjectStore(objects, GinkgoT().TempDir())
+				}
+				wstest.RunPurgeBlobs(func() (workspace.Store, blob.Store) {
+					blobs := newBlobs()
+					s, err := jsonstore.New(filepath.Join(GinkgoT().TempDir(), "index"), blobs, jsonstore.Options{Admin: wstest.Admin, BlobGrace: -1})
+					Expect(err).ToNot(HaveOccurred())
+					DeferCleanup(func() { _ = s.Close() })
+					return s, blobs
+				})
+			})
+		}
+	})
+
+	It("a purge survives a restart and keeps the log usable", func() {
+		dir := GinkgoT().TempDir()
+		ctx := context.Background()
+		s := openStore(dir, jsonstore.Options{BlobGrace: -1})
+		for _, p := range []string{"/a.txt", "/b.txt"} {
+			_, err := s.Put(ctx, wstest.AdminActor, p, strings.NewReader(p), workspace.PutOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+		Expect(s.Delete(ctx, wstest.AdminActor, "/a.txt")).To(Succeed())
+		res, err := s.PurgeAll(ctx, wstest.AdminActor, "/", false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(res.Files).To(Equal(1))
+		_, err = s.Put(ctx, wstest.AdminActor, "/c.txt", strings.NewReader("c"), workspace.PutOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(s.Close()).To(Succeed())
+
+		again := openStore(dir, jsonstore.Options{BlobGrace: -1})
+		Expect(wstest.Tree(again)).To(Equal(map[string]string{"/b.txt": "/b.txt", "/c.txt": "c"}))
+		hist, err := again.History(ctx, wstest.AdminActor, workspace.HistoryQuery{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(hist).To(HaveLen(2), "the purged file left its change sets behind or the others were lost")
 	})
 
 	It("a file over the limit is refused and leaves nothing", func() {
