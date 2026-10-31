@@ -39,7 +39,9 @@ func (v EgressView) JSON() schema.ChatsEgress {
 		out.Rules = append(out.Rules, schema.ChatsEgressRule{Host: r.Host, Port: r.Port, Allow: r.Allow, By: r.By, Admin: r.Admin, At: r.At, AboveLimit: r.AboveLimit})
 	}
 	for _, c := range v.Cards {
-		out.Cards = append(out.Cards, EgressCardJSON(c))
+		card := EgressCardJSON(c)
+		card.AboveCeiling = v.CardAbove[c.ID]
+		out.Cards = append(out.Cards, card)
 	}
 	return out
 }

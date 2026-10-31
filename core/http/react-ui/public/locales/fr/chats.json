@@ -161,7 +161,7 @@
       "allowedChat": "Autorisé pour ce chat",
       "denied": "Refusé",
       "expired": "Sans réponse",
-      "refused": "Refusé : au-dessus de la limite"
+      "refused": "Refusé : la limite réseau du serveur ne l’autorise pas"
     },
     "consent": {
       "title": "Accès au réseau",
@@ -174,6 +174,17 @@
       "answered": "{{state}} par {{who}}, {{time}}",
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "vous"
+    },
+    "blocked": {
+      "titleOff": "L’accès au réseau est désactivé",
+      "titleCapped": "L’accès au réseau est limité",
+      "bodyOff": "L’accès au réseau du Sandbox est désactivé sur ce serveur. Une commande a demandé à joindre",
+      "bodyCapped": "Ce serveur n’autorise que {{limit}} pour le réseau du Sandbox. Une commande a demandé à joindre",
+      "adminOff": "Un administrateur peut l’activer dans Paramètres > Tools > Réseau du Sandbox.",
+      "adminCapped": "Un administrateur peut relever la limite dans Paramètres > Tools > Réseau du Sandbox.",
+      "adminLink": "Ouvrir les paramètres du réseau du Sandbox",
+      "askAdmin": "Demandez à un administrateur de ce serveur de le modifier (Paramètres > Tools > Réseau du Sandbox).",
+      "rowOff": "Désactivé : l’administrateur n’a pas autorisé l’accès au réseau."
     }
   },
   "inbox": {

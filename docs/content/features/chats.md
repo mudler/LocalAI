@@ -486,7 +486,11 @@ access]({{%relref "features/addons#network-access" %}})). Each chat has a
 - **All public sites**: commands reach every public host.
 
 A choice above the limit an administrator set (`chats_egress_ceiling`) is
-greyed out with *Limited by your administrator*. A new chat starts with the
+greyed out with *Limited by your administrator*. When the limit is `off` (the
+default), the row says *Off: the administrator has not allowed network access*
+and gives an administrator a link to **Settings > Tools > Sandbox network**;
+anyone else is told to ask one. The model is told the same, so it reports that
+the server's setting blocks the network instead of waiting for an approval. A new chat starts with the
 administrator's default. A fork keeps the choice and the allow rules of the
 chat it copies. The choice and the rules live with the chat on the server,
 never in your files, so the code that runs in the Sandbox cannot change them.
@@ -502,7 +506,10 @@ and **Deny**. The command waits up to 60 seconds for your answer and goes on
 by itself after it. The card stays with the chat, so a reload shows it; once
 answered it becomes one line under the `bash` call that asked, such as
 *Allowed for this chat by you, 14:02*. A host inside your network needs an
-administrator to allow it. A trigger, a connector run or a sub-agent never
+administrator to allow it. If the limit was lowered while the card waited, the
+card has no buttons: it explains that network access is off (or limited) on this
+server and who can change it, and it ends as *Refused: the server's network
+limit does not allow it*. A trigger, a connector run or a sub-agent never
 shows a card.
 
 When commands run on this machine instead, the row is one line, *Commands run
@@ -515,7 +522,7 @@ The routes, for the chat's owner (another user's chat is 404):
 | `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, registries, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
-| `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). A card already answered is 409; a host the ceiling no longer admits refuses the card (400). |
+| `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). The same answer sent twice is one answer (204, nothing changes). Another answer to a card already answered is 409 `already_answered`. A host the ceiling does not admit refuses the card and gives 400 `egress_above_ceiling` on this answer and on every later one, so a stale card never ends in a conflict loop. In `GET /api/chats/{id}/egress` such a card has `above_ceiling`: no answer can make it work. |
 
 The chat's event stream carries `egress_consent` (`ids: [card id]`, `text:
 host:port`) when a card asks and `egress_card` when the chat's network changes,

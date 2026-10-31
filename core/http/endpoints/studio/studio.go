@@ -131,7 +131,8 @@ var chatRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "no such network rule", studiosvc.ErrEgressNoRule),
 	fixed(http.StatusNotFound, typeNotFound, "no such network card", studiosvc.ErrEgressNoCard),
 	fixed(http.StatusBadRequest, typeInvalid, "the answer must be once, chat or deny", studiosvc.ErrEgressBadDecision),
-	fixed(http.StatusConflict, typeConflict, "the network card was answered already", studiosvc.ErrEgressAnswered),
+	fixed(http.StatusConflict, "already_answered", "the network card was answered already with another answer", studiosvc.ErrEgressAnswered),
+	fixed(http.StatusBadRequest, "egress_above_ceiling", "the limit an administrator set for the Sandbox network does not admit this host; an administrator can raise it in Settings > Tools > Sandbox network", studiosvc.ErrEgressHostAboveCeiling),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow a host inside your network; anyone can deny it", studiosvc.ErrEgressDecision),
 }
 

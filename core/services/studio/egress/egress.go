@@ -455,6 +455,19 @@ func Describe(p Preset, reg *Registries) string {
 	return "Network for commands: off. A blocked host asks the user; do not try to get around the proxy."
 }
 
+// DescribeLimit is the line of the turn's note when the server's own setting,
+// not the chat, keeps the network narrower than the chat asked: the
+// administrator's ceiling. Nobody can approve a host then, so the line says
+// not to ask for one and not to retry; only an administrator can change it.
+func DescribeLimit(eff, ceiling Preset, reg *Registries) string {
+	const where = "An administrator can change it in Settings > Tools > Sandbox network."
+	if normal(ceiling) == PresetOff {
+		return "Network for commands: off. The server's setting for the Sandbox network does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
+			"Tell the user the network is off by the server's setting. " + where
+	}
+	return Describe(eff, reg) + " The server's setting for the Sandbox network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
+}
+
 // Hint is the sentence after Describe in the turn's note: which tool to use
 // for what. With the network off, curl and the installers cannot reach
 // anything, so the sentence says that instead. web says whether the chat has

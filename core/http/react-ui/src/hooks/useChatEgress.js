@@ -10,6 +10,7 @@ export function useChatEgress(chatId, tick) {
   const [state, setState] = useState(empty)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
+  const [own, setOwn] = useState(0)
 
   useEffect(() => {
     if (!chatId) { setState(empty); setLoaded(false); return undefined }
@@ -18,7 +19,7 @@ export function useChatEgress(chatId, tick) {
       .then((res) => { if (live) { setState({ ...empty, ...res }); setLoaded(true); setError('') } })
       .catch(() => { if (live) { setState(empty); setLoaded(true) } })
     return () => { live = false }
-  }, [chatId, tick])
+  }, [chatId, tick, own])
 
   const setPreset = useCallback(async (preset) => {
     setError('')
@@ -40,5 +41,9 @@ export function useChatEgress(chatId, tick) {
     }
   }, [chatId])
 
-  return { ...state, loaded, error, setPreset, removeRule }
+  // Read the view again, for a card that was answered from somewhere else or
+  // refused while the page showed it pending.
+  const refresh = useCallback(() => setOwn(n => n + 1), [])
+
+  return { ...state, loaded, error, setPreset, removeRule, refresh }
 }

@@ -161,7 +161,7 @@
       "allowedChat": "Consentito per questa chat",
       "denied": "Negato",
       "expired": "Senza risposta",
-      "refused": "Rifiutato: oltre il limite"
+      "refused": "Rifiutato: il limite di rete del server non lo consente"
     },
     "consent": {
       "title": "Accesso alla rete",
@@ -174,6 +174,17 @@
       "answered": "{{state}} da {{who}}, {{time}}",
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "te"
+    },
+    "blocked": {
+      "titleOff": "L’accesso alla rete è disattivato",
+      "titleCapped": "L’accesso alla rete è limitato",
+      "bodyOff": "L’accesso alla rete del Sandbox è disattivato su questo server. Un comando ha chiesto di raggiungere",
+      "bodyCapped": "Questo server consente solo {{limit}} per la rete del Sandbox. Un comando ha chiesto di raggiungere",
+      "adminOff": "Un amministratore può attivarlo in Impostazioni > Tools > Rete del Sandbox.",
+      "adminCapped": "Un amministratore può alzare il limite in Impostazioni > Tools > Rete del Sandbox.",
+      "adminLink": "Apri le impostazioni della rete del Sandbox",
+      "askAdmin": "Chiedi a un amministratore di questo server di cambiarlo (Impostazioni > Tools > Rete del Sandbox).",
+      "rowOff": "Disattivata: l’amministratore non ha consentito l’accesso alla rete."
     }
   },
   "inbox": {

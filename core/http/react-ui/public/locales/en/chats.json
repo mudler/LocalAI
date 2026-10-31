@@ -569,7 +569,7 @@
       "allowedChat": "Allowed for this chat",
       "denied": "Denied",
       "expired": "Not answered",
-      "refused": "Refused: above the limit"
+      "refused": "Refused: the server's network limit does not allow it"
     },
     "consent": {
       "title": "Network access",
@@ -582,6 +582,17 @@
       "answered": "{{state}} by {{who}}, {{time}}",
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "you"
+    },
+    "blocked": {
+      "titleOff": "Network access is off",
+      "titleCapped": "Network access is limited",
+      "bodyOff": "Network access is off for the Sandbox on this server. A command asked for",
+      "bodyCapped": "This server only allows {{limit}} for the Sandbox network. A command asked for",
+      "adminOff": "An administrator can turn it on in Settings > Tools > Sandbox network.",
+      "adminCapped": "An administrator can raise the limit in Settings > Tools > Sandbox network.",
+      "adminLink": "Open Sandbox network settings",
+      "askAdmin": "Ask an administrator of this server to change it (Settings > Tools > Sandbox network).",
+      "rowOff": "Off: the administrator has not allowed network access."
     }
   }
 }

@@ -161,7 +161,7 @@
       "allowedChat": "Für diesen Chat erlaubt",
       "denied": "Abgelehnt",
       "expired": "Nicht beantwortet",
-      "refused": "Abgelehnt: über dem Limit"
+      "refused": "Abgelehnt: Das Netzwerklimit des Servers erlaubt es nicht"
     },
     "consent": {
       "title": "Netzwerkzugriff",
@@ -174,6 +174,17 @@
       "answered": "{{state}} von {{who}}, {{time}}",
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "Ihnen"
+    },
+    "blocked": {
+      "titleOff": "Netzwerkzugriff ist aus",
+      "titleCapped": "Netzwerkzugriff ist begrenzt",
+      "bodyOff": "Der Netzwerkzugriff der Sandbox ist auf diesem Server ausgeschaltet. Ein Befehl wollte erreichen:",
+      "bodyCapped": "Dieser Server erlaubt für das Sandbox-Netzwerk nur: {{limit}}. Ein Befehl wollte erreichen:",
+      "adminOff": "Ein Administrator kann ihn unter Einstellungen > Tools > Sandbox-Netzwerk einschalten.",
+      "adminCapped": "Ein Administrator kann das Limit unter Einstellungen > Tools > Sandbox-Netzwerk anheben.",
+      "adminLink": "Sandbox-Netzwerk-Einstellungen öffnen",
+      "askAdmin": "Bitten Sie einen Administrator dieses Servers, das zu ändern (Einstellungen > Tools > Sandbox-Netzwerk).",
+      "rowOff": "Aus: Der Administrator hat keinen Netzwerkzugriff erlaubt."
     }
   },
   "inbox": {

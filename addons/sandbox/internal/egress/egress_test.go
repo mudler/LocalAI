@@ -252,6 +252,17 @@ var _ = Describe("the proxy", func() {
 		Expect(f.host.nChecks()).To(Equal(2), "a block is not cached")
 	})
 
+	It("tells the model a block by the server's setting is not a missing approval", func() {
+		f := newFixture(0, func(egress.CheckArgs) egress.Verdict { return egress.Verdict{Action: "block", Reason: "ceiling"} }, egress.Limits{})
+		end := f.proxy.Begin(context.Background(), "alice", "c1", "op1")
+		defer end()
+		_, _, resp := connect(f, "evil.example:443")
+		Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
+		text := body(resp)
+		Expect(text).To(SatisfyAll(ContainSubstring("server's setting"), ContainSubstring("not by a missing approval"), ContainSubstring("will not help")))
+		Expect(text).NotTo(ContainSubstring("Ask the user to allow it"))
+	})
+
 	It("refuses a host the guard refuses without asking or resolving", func() {
 		f := newFixture(0, allow, egress.Limits{})
 		end := f.proxy.Begin(context.Background(), "alice", "c1", "op1")

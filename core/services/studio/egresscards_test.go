@@ -39,6 +39,13 @@ func waitCard(st store.Store, user, chat string) egress.Card {
 	return card
 }
 
+// waitCardAfter starts a check that raises a card and returns the card. The
+// check goes on in the background and ends with the test's wait.
+func waitCardAfter(svc *studio.Service, st store.Store, user, rid, chat string) egress.Card {
+	_ = checkAsync(svc, user, rid, "op1", tlsTo("example.com"))
+	return waitCard(st, user, chat)
+}
+
 type checkResult struct {
 	v   egress.Verdict
 	err error
@@ -196,6 +203,37 @@ var _ = Describe("the network cards of a chat", func() {
 		rec, _ := st.GetChat(ctx, alice, id)
 		c, _ := rec.Egress.Card(card.ID)
 		Expect(c.State).To(Equal(egress.CardRefused))
+	})
+
+	Describe("an answer to a card the limit no longer admits", func() {
+		// The root of the 409 loop: the limit goes down while the card waits,
+		// the click finds the card refused, and every later click used to be a
+		// bare conflict. Now each answer gets the same precise reason.
+		It("gives egress_above_ceiling on every answer, not a conflict, and the view says no answer can work", func() {
+			card := waitCardAfter(svc, st, alice, rid, id)
+			settings.Ceiling = egress.PresetOff
+			v, err := svc.Egress(ctx, alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(v.CardAbove).To(HaveKeyWithValue(card.ID, true))
+			Expect(svc.EgressDecide(ctx, alice, id, card.ID, studio.EgressOnce)).To(MatchError(studio.ErrEgressHostAboveCeiling))
+			Expect(svc.EgressDecide(ctx, alice, id, card.ID, studio.EgressOnce)).To(MatchError(studio.ErrEgressHostAboveCeiling))
+			Expect(svc.EgressDecide(ctx, alice, id, card.ID, studio.EgressChat)).To(MatchError(studio.ErrEgressHostAboveCeiling))
+			rec, _ := st.GetChat(ctx, alice, id)
+			rules := rec.Egress.Rules
+			Expect(rules).To(BeEmpty(), "no rule was stored")
+			Expect(rec.Egress.Grants("", time.Now())).To(BeEmpty(), "no grant either")
+		})
+
+		It("treats the same answer twice as one: the second click changes nothing and succeeds", func() {
+			got := checkAsync(svc, alice, rid, "op1", tlsTo("example.com"))
+			card := waitCard(st, alice, id)
+			Expect(svc.EgressDecide(ctx, alice, id, card.ID, studio.EgressChat)).To(Succeed())
+			Expect(svc.EgressDecide(ctx, alice, id, card.ID, studio.EgressChat)).To(Succeed())
+			Expect((<-got).v.Reason).To(Equal(egress.ReasonRule))
+			rec, _ := st.GetChat(ctx, alice, id)
+			Expect(rec.Egress.Rules).To(HaveLen(1))
+			Expect(svc.EgressDecide(ctx, alice, id, card.ID, studio.EgressDeny)).To(MatchError(studio.ErrEgressAnswered), "another answer is still a conflict")
+		})
 	})
 
 	Describe("two frontends", func() {

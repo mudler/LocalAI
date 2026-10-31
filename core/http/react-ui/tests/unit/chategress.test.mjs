@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { aboveCeiling, cardAnswers, cardStateKey, cardsByTool, networkMode, presetChoices, sortedCards } from '../../src/utils/chatEgress.js'
+import { aboveCeiling, ceilingKind, cardAnswers, cardStateKey, cardsByTool, networkMode, presetChoices, sortedCards } from '../../src/utils/chatEgress.js'
 import { payloadFor, runChecks, EGRESS_CONFIRM_KEY, EGRESS_PRIVATE_PHRASE } from '../../src/utils/settingsPending.js'
 import { FIELD_BY_KEY } from '../../src/utils/settingsSchema.js'
 
@@ -43,6 +43,14 @@ test('chat egress: a card offers once, chat and deny; a private one only deny to
   assert.equal(cardStateKey({ state: 'once' }), 'allowedOnce')
   assert.equal(cardStateKey({ state: 'refused' }), 'refused')
   assert.equal(cardStateKey({ state: 'pending' }), 'pending')
+})
+
+test('chat egress: a card the limit cannot admit offers no answer, and the limit says what it is', () => {
+  assert.deepEqual(cardAnswers({ state: 'pending', above_ceiling: true }, true), [])
+  assert.equal(ceilingKind({ ceiling: 'off' }), 'off')
+  assert.equal(ceilingKind({}), 'off')
+  assert.equal(ceilingKind({ ceiling: 'registries' }), 'capped')
+  assert.equal(ceilingKind({ ceiling: 'all' }), '')
 })
 
 test('settings: the private network switch sends the typed phrase and needs it to turn on', () => {

@@ -1270,16 +1270,19 @@ type ChatsEgressRule struct {
 
 // ChatsEgressCard is a card that asked whether a command may reach a host.
 type ChatsEgressCard struct {
-	ID         string     `json:"id"`
-	Host       string     `json:"host"`
-	Port       int        `json:"port"`
-	Kind       string     `json:"kind"`
-	State      string     `json:"state"` // pending, once, chat, denied, expired, refused
-	Private    bool       `json:"private,omitempty"`
-	ToolSeq    int64      `json:"tool_seq,omitempty"`
-	AskedAt    time.Time  `json:"asked_at"`
-	AnsweredAt *time.Time `json:"answered_at,omitempty"`
-	AnsweredBy string     `json:"answered_by,omitempty"`
+	ID      string `json:"id"`
+	Host    string `json:"host"`
+	Port    int    `json:"port"`
+	Kind    string `json:"kind"`
+	State   string `json:"state"` // pending, once, chat, denied, expired, refused
+	Private bool   `json:"private,omitempty"`
+	// AboveCeiling says the administrator's limit does not admit this host,
+	// so no answer can make it work; only a higher limit does.
+	AboveCeiling bool       `json:"above_ceiling,omitempty"`
+	ToolSeq      int64      `json:"tool_seq,omitempty"`
+	AskedAt      time.Time  `json:"asked_at"`
+	AnsweredAt   *time.Time `json:"answered_at,omitempty"`
+	AnsweredBy   string     `json:"answered_by,omitempty"`
 }
 
 // ChatsEgressRegistry is one package registry the preset registries admits.

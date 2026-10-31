@@ -118,6 +118,14 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 		Expect(v).To(Equal(egress.Verdict{Action: egress.Block, Reason: egress.ReasonCeiling}))
 	})
 
+	It("tells the model that the server's setting, not an approval, keeps the network off", func() {
+		off := egress.DescribeLimit(egress.PresetOff, egress.PresetOff, egress.BuiltinRegistries())
+		Expect(off).To(SatisfyAll(ContainSubstring("server's setting"), ContainSubstring("do not wait"), ContainSubstring("Settings > Tools > Sandbox network")))
+		Expect(off).NotTo(ContainSubstring("asks the user"))
+		capped := egress.DescribeLimit(egress.PresetRegistries, egress.PresetRegistries, egress.BuiltinRegistries())
+		Expect(capped).To(SatisfyAll(ContainSubstring("package registries only"), ContainSubstring("not by a missing approval")))
+	})
+
 	It("tells the model the network of its commands", func() {
 		Expect(egress.Describe(egress.PresetRegistries, egress.BuiltinRegistries())).To(ContainSubstring("package registries only"))
 	})

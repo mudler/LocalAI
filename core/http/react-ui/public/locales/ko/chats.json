@@ -161,7 +161,7 @@
       "allowedChat": "이 채팅에서 허용됨",
       "denied": "거부됨",
       "expired": "응답 없음",
-      "refused": "거부됨: 제한 초과"
+      "refused": "거부됨: 서버의 네트워크 제한이 허용하지 않습니다"
     },
     "consent": {
       "title": "네트워크 접근",
@@ -174,6 +174,17 @@
       "answered": "{{who}}: {{state}}, {{time}}",
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "나"
+    },
+    "blocked": {
+      "titleOff": "네트워크 접근이 꺼져 있습니다",
+      "titleCapped": "네트워크 접근이 제한되어 있습니다",
+      "bodyOff": "이 서버에서는 샌드박스의 네트워크 접근이 꺼져 있습니다. 명령이 다음에 접속하려 했습니다:",
+      "bodyCapped": "이 서버는 샌드박스 네트워크에 {{limit}}만 허용합니다. 명령이 다음에 접속하려 했습니다:",
+      "adminOff": "관리자가 설정 > Tools > 샌드박스 네트워크에서 켤 수 있습니다.",
+      "adminCapped": "관리자가 설정 > Tools > 샌드박스 네트워크에서 제한을 높일 수 있습니다.",
+      "adminLink": "샌드박스 네트워크 설정 열기",
+      "askAdmin": "이 서버의 관리자에게 변경을 요청하세요 (설정 > Tools > 샌드박스 네트워크).",
+      "rowOff": "꺼짐: 관리자가 네트워크 접근을 허용하지 않았습니다."
     }
   },
   "inbox": {

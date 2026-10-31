@@ -42,6 +42,7 @@ async function stubChat(page, { egress, running = false, messages = [] }) {
   })
   await page.route('**/api/chats/c1/egress/consent', route => {
     state.answers.push(route.request().postDataJSON())
+    if (state.consent) return state.consent(route)
     return route.fulfill({ status: 204, body: '' })
   })
   const queue = []
@@ -127,7 +128,65 @@ test.describe('Network of the Sandbox commands', () => {
   })
 })
 
+test.describe('A card the administrator\'s limit cannot admit', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+  const card = { id: 'k9', host: 'example.com', port: 443, kind: 'connect', state: 'pending', asked_at: '2026-10-30T10:01:00Z' }
+
+  test('with the limit off the card explains instead of offering buttons that cannot work, and the row says why', async ({ page }) => {
+    await stubChat(page, { egress: view({ ceiling: 'off', cards: [{ ...card, above_ceiling: true }] }), running: true })
+    await page.goto('/app/chats/c1')
+    const blocked = page.getByTestId('chat-network-blocked')
+    await expect(blocked).toContainText('Network access is off for the Sandbox on this server.', { timeout: 15_000 })
+    await expect(blocked.getByTestId('chat-network-consent-host')).toHaveText('example.com:443')
+    await expect(blocked.getByTestId('chat-network-blocked-admin')).toContainText('An administrator can turn it on in Settings > Tools > Sandbox network.')
+    await expect(blocked.getByTestId('chat-network-blocked-admin-link')).toHaveAttribute('href', '/app/settings?group=tools')
+    await expect(page.getByTestId('chat-network-consent')).toHaveCount(0)
+    await expect(page.getByTestId('chat-network-consent-once')).toHaveCount(0)
+    await shot(page, 'network-card-ceiling-off-dark')
+    if (SHOTS) {
+      await page.evaluate(() => { localStorage.setItem('localai-theme', 'light'); document.documentElement.setAttribute('data-theme', 'light') })
+      await shot(page, 'network-card-ceiling-off-light')
+      await page.evaluate(() => { localStorage.setItem('localai-theme', 'dark'); document.documentElement.setAttribute('data-theme', 'dark') })
+    }
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network')).toContainText('Off: the administrator has not allowed network access.')
+    await expect(page.getByTestId('chat-network-limit-admin-link')).toHaveAttribute('href', '/app/settings?group=tools')
+    await expect(page.getByTestId('chat-network-all')).toBeDisabled()
+  })
+
+  test('a double click sends one answer, and a refusal by the limit swaps the card for the explanation', async ({ page }) => {
+    const { state } = await stubChat(page, { egress: view({ ceiling: 'registries', cards: [card] }), running: true })
+    state.consent = async (route) => {
+      state.egress = view({ ceiling: 'off', cards: [{ ...card, state: 'refused', above_ceiling: true }] })
+      await new Promise(r => setTimeout(r, 300))
+      return route.fulfill({ status: 400, json: { error: { code: 400, type: 'egress_above_ceiling', message: 'the limit an administrator set for the Sandbox network does not admit this host' } } })
+    }
+    await page.goto('/app/chats/c1')
+    const once = page.getByTestId('chat-network-consent-once')
+    await expect(once).toBeVisible({ timeout: 15_000 })
+    await once.dblclick()
+    await expect(page.getByTestId('chat-network-consent-chat')).toBeDisabled()
+    await expect(page.getByTestId('chat-network-consent-deny')).toBeDisabled()
+    await expect.poll(() => state.answers.length).toBe(1)
+    // The failure reads the card again: the buttons give way to the refusal line.
+    await expect(page.getByTestId('chat-network-card-line')).toContainText("Refused: the server's network limit does not allow it")
+    await expect(page.getByTestId('chat-network-consent-once')).toHaveCount(0)
+    expect(state.answers).toHaveLength(1)
+  })
+})
+
 test.describe('Settings > Tools > Sandbox network', () => {
+  test('?group=tools opens the Tools group', async ({ page }) => {
+    await mockSettings(page, { chats_egress_ceiling: 'off' })
+    await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [] } }))
+    await page.route('**/api/chats/admin/egress', route => route.fulfill({
+      json: { ceiling: 'off', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], audit_days: 30, registries: [], sandbox: 'sandbox', isolation: 'isolated', allowed_24h: 0, blocked_24h: 0 },
+    }))
+    await page.route(/\/api\/chats\/admin\/egress\/events(\?.*)?$/, route => route.fulfill({ json: { events: [] } }))
+    await page.goto('/app/settings?group=tools')
+    await expect(page.getByTestId('settings-egress')).toBeVisible({ timeout: 15_000 })
+  })
+
   test('shows who runs commands, the registries and the audit, and turns the private switch on only with the phrase', async ({ page }) => {
     const settings = await mockSettings(page, { chats_egress_allow_private: false, chats_egress_ceiling: 'off' })
     await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [] } }))
