@@ -25,11 +25,12 @@ import (
 const studioMaxFileSize int64 = 256 << 20
 
 // studioUploadLimit is the largest file an upload of the Files page can
-// send: the workspace limit, or the server's body limit when that is lower.
+// send: the workspace limit, or the operator's --upload-limit when that is
+// set and lower. Without it the general 15 MB limit does not apply here.
 func (a *Application) studioUploadLimit() int64 {
 	limit := studioMaxFileSize
-	if mb := a.ApplicationConfig().UploadLimitMB; mb > 0 && int64(mb)<<20 < limit {
-		limit = int64(mb) << 20
+	if cfg := a.ApplicationConfig(); cfg.UploadLimitSet() && int64(cfg.UploadLimitMB)<<20 < limit {
+		limit = int64(cfg.UploadLimitMB) << 20
 	}
 	return limit
 }

@@ -99,7 +99,7 @@ type RunCMD struct {
 	DisableCSRF                        bool     `env:"LOCALAI_DISABLE_CSRF" help:"Disable CSRF middleware (enabled by default)" group:"api"`
 	DisableHTTPCompression             bool     `env:"LOCALAI_DISABLE_HTTP_COMPRESSION" default:"false" help:"Disable gzip compression of HTTP responses (enabled by default). Streaming endpoints are never compressed" group:"api"`
 	HTTPCompressionMinLength           int      `env:"LOCALAI_HTTP_COMPRESSION_MIN_LENGTH" default:"1024" help:"Minimum response size in bytes before gzip compression is applied" group:"api"`
-	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"15" help:"Default upload-limit in MB" group:"api"`
+	UploadLimit                        int      `env:"LOCALAI_UPLOAD_LIMIT,UPLOAD_LIMIT" default:"0" help:"Upload limit in MB for request bodies (15 when not set). When set, it also applies to uploads of the Files page, which are otherwise limited only by the 256 MiB workspace file size" group:"api"`
 	APIKeys                            []string `env:"LOCALAI_API_KEY,API_KEY" help:"List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys" group:"api"`
 	DisableWebUI                       bool     `env:"LOCALAI_DISABLE_WEBUI,DISABLE_WEBUI" default:"false" help:"Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface" group:"api"`
 	OllamaAPIRootEndpoint              bool     `env:"LOCALAI_OLLAMA_API_ROOT_ENDPOINT" default:"false" help:"Register Ollama-compatible health check on / (replaces web UI on root path). The /api/* Ollama endpoints are always available regardless of this flag" group:"api"`
