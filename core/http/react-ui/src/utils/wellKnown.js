@@ -229,6 +229,17 @@ export function parseSource(text) {
   }
 }
 
+// wellKnownProblem turns a failed save into what the editor shows: a plain
+// sentence, and the server's own words (field errors, or the raw message) for
+// a collapsed Details. The caller answers a conflict itself. t is the
+// translator of the workspace namespace.
+export function wellKnownProblem(e, t) {
+  if (e?.status === 413) return { message: t('wellKnown.saveTooLarge'), errors: [] }
+  const errors = Array.isArray(e?.errors) ? e.errors : []
+  if (e?.status === 400 && errors.length > 0) return { message: t('wellKnown.saveInvalid'), errors }
+  return { message: t('wellKnown.saveFailed'), errors: e?.message ? [e.message] : [] }
+}
+
 export function sourceText(data) {
   return `${JSON.stringify(data || {}, null, 2)}\n`
 }

@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "Enregistré dans",
-    "definedIn": "Défini dans",
     "revert": "Revenir à la version précédente",
     "view": "Affichage",
     "form": "Formulaire",
@@ -14,10 +12,10 @@
     "savedAt": "Enregistré à {{time}}",
     "notSaved": "Pas encore enregistré.",
     "notSavedPrefilled": "Pas encore enregistré. Certaines valeurs sont déjà remplies ; Enregistrer les conserve.",
-    "loadFailed": "Impossible de charger le fichier : {{message}}",
-    "invalid": "{{file}} ne respecte pas son format, et il n'existe aucune version valide antérieure.",
-    "invalidFallback": "{{file}} ne respecte pas son format. Affichage de sa dernière version valide.",
-    "conflict": "{{file}} a changé pendant votre modification, probablement par l'assistant ou un autre onglet. Les valeurs les plus récentes sont :",
+    "loadFailed": "Impossible de charger ces réglages. Rechargez la page pour réessayer.",
+    "invalid": "Ces réglages contiennent des erreurs, et il n’existe pas de version valide antérieure.",
+    "invalidFallback": "Ces réglages contiennent des erreurs. Leur dernière version valide est affichée.",
+    "conflict": "Ces réglages ont changé pendant votre modification, probablement par l’assistant ou dans un autre onglet. Les valeurs les plus récentes sont :",
     "useTheirs": "Utiliser les valeurs les plus récentes",
     "keepMine": "Garder mes modifications",
     "editWithAssistant": "Modifier avec l'assistant",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "Source",
-      "hint": "Le fichier brut. Il est vérifié avec le même schéma à l'enregistrement.",
-      "notJson": "Ce n'est pas du JSON valide.",
-      "notObject": "Le fichier doit être un objet JSON entre accolades."
+      "hint": "Les réglages sous forme de texte. Ils sont vérifiés de la même façon à l’enregistrement.",
+      "notJson": "Le texte contient une erreur de syntaxe. Vérifiez les guillemets, les virgules et les accolades.",
+      "notObject": "Le texte doit commencer par { et se terminer par }."
     },
     "persona": {
       "title": "Assistant",
@@ -58,14 +56,13 @@
       "prompt": "Prompt",
       "send": "Envoyer immédiatement",
       "add": "Ajouter un raccourci",
-      "invalid": "LocalAI/shortcuts.json contient des erreurs",
-      "assistantPrompt": "Modifie mes raccourcis de saisie dans LocalAI/shortcuts.json : "
+      "invalid": "Certains raccourcis contiennent des erreurs.",
+      "assistantPrompt": "Modifie mes raccourcis : "
     },
     "home": {
       "editLayout": "Modifier la mise en page",
       "ask": "Demander à l'assistant",
-      "layoutIn": "La mise en page est dans",
-      "askPrompt": "Modifie ma page d'accueil (LocalAI/home.json) : ",
+      "askPrompt": "Modifie ma page Home : ",
       "add": "Ajouter un widget",
       "newTitle": "Nouveau widget",
       "noWidgets": "Aucun widget pour l'instant.",
@@ -84,14 +81,14 @@
       "noData": "Pas encore de données. L'assistant peut écrire",
       "nothing": "Rien ici.",
       "noSource": "Ce widget n'a pas de fichier de données. Choisissez-en un dans Modifier la mise en page.",
-      "broken": "{{file}} contient des erreurs et n'a pas de version valide antérieure.",
-      "stale": "Affichage des dernières données valides : {{file}} contient des erreurs.",
+      "broken": "Les données de ce widget contiennent des erreurs, et il n’existe pas de version valide antérieure.",
+      "stale": "Les dernières données valides sont affichées. Les données les plus récentes contiennent des erreurs.",
       "updated": "Mis à jour {{when}}",
       "footer": {
         "noData": "Pas encore de données.",
-        "invalid": "{{file}} contient une erreur. La dernière version valide est affichée.",
+        "invalid": "Les données contiennent une erreur. La dernière bonne version est affichée.",
         "revert": "Rétablir",
-        "missing": "Le fichier {{file}} est manquant.",
+        "missing": "Les données de ce widget sont manquantes.",
         "fix": "Demander à l’assistant de le corriger",
         "fixPrompt": "Le widget de l’accueil lit {{file}}, qui est manquant ou cassé. Corrige-le : ",
         "waiting": "En attente que vous créiez son déclencheur dans le chat.",
@@ -112,7 +109,7 @@
         "fresh": "{{schedule}} · mis à jour {{time}}",
         "pause": "Pause",
         "fromPage": "De la page {{title}}",
-        "fromFile": "De {{file}}",
+        "fromFile": "De vos fichiers",
         "next": "Prochaine exécution {{when}}",
         "cost": "environ {{tokens}} jetons par exécution",
         "costRemote": "environ {{tokens}} jetons par exécution sur un modèle distant",
@@ -128,7 +125,9 @@
         "scheduleNote_one": "{{count}} widget se met à jour selon un horaire. Ses exécutions utilisent vos modèles et comptent dans votre utilisation.",
         "scheduleNote_other": "{{count}} widgets se mettent à jour selon un horaire. Leurs exécutions utilisent vos modèles et comptent dans votre utilisation."
       },
-      "opensSite": "{{host}} : s'ouvre dans un nouvel onglet"
+      "opensSite": "{{host}} : s'ouvre dans un nouvel onglet",
+      "invalid": "La disposition de votre Home contient des erreurs, et il n’existe pas de version valide antérieure.",
+      "invalidFallback": "La disposition de votre Home contient des erreurs. Home affiche sa dernière version valide."
     },
     "fields": {
       "persona": {
@@ -186,12 +185,16 @@
           "help": "Le modèle avec lequel un nouveau chat démarre."
         }
       }
-    }
+    },
+    "saveInvalid": "Certaines valeurs ne sont pas valides. Vérifiez-les et enregistrez à nouveau.",
+    "saveTooLarge": "Ces réglages sont trop volumineux pour être enregistrés. Supprimez quelques entrées et réessayez.",
+    "saveFailed": "Impossible d’enregistrer. Réessayez.",
+    "details": "Détails"
   },
   "discovery": {
     "ex": {
       "title": "Faites de LocalAI le vôtre",
-      "lede": "Dites-le dans un chat. L’assistant l’enregistre dans un fichier que vous pouvez modifier ou annuler.",
+      "lede": "Dites-le dans un chat. L’assistant l’enregistre, et vous pouvez le modifier ou l’annuler.",
       "hide": "Masquer",
       "hiddenToast": "Exemples masqués.",
       "saveFailed": "Non enregistré : {{message}}",
@@ -199,7 +202,7 @@
         "kicker": "Vous et l’assistant",
         "prompt": "Appelez-moi {{firstName}} et gardez des réponses courtes",
         "promptNoName": "Retenez mon prénom et gardez des réponses courtes",
-        "what": "Enregistre LocalAI/user.json et LocalAI/persona.json"
+        "what": "Enregistre votre nom et la façon dont l’assistant répond"
       },
       "card2": {
         "kicker": "Une page",
@@ -234,14 +237,14 @@
       "turnBackOn": "Les réactiver dans Account"
     },
     "change": {
-      "profilePersona": "Votre nom est enregistré dans <code>LocalAI/user.json</code> et vos instructions dans <code>LocalAI/persona.json</code>. Chaque chat les utilise dès votre prochain message.",
-      "profile": "Enregistré dans votre profil, dans <code>LocalAI/user.json</code>.",
-      "persona": "<code>LocalAI/persona.json</code> enregistré. Chaque chat l’utilise dès votre prochain message.",
-      "shortcuts": "<code>LocalAI/shortcuts.json</code> enregistré.",
-      "home": "<code>LocalAI/home.json</code> enregistré. Home affiche le changement.",
-      "ui": "<code>LocalAI/ui.json</code> enregistré.",
-      "pageCreated": "Page {{title}} créée dans <code>{{folder}}</code>.",
-      "pageChanged": "<code>{{file}}</code> modifié.",
+      "profilePersona": "Votre nom et vos instructions pour l’assistant sont enregistrés. Chaque chat les utilise dès votre prochain message.",
+      "profile": "Enregistré dans votre profil.",
+      "persona": "Les instructions de l’assistant sont enregistrées. Chaque chat les utilise dès votre prochain message.",
+      "shortcuts": "Vos raccourcis sont enregistrés.",
+      "home": "Votre page Home est enregistrée. Home affiche le changement.",
+      "ui": "Vos réglages d’apparence sont enregistrés.",
+      "pageCreated": "La page {{title}} a été créée.",
+      "pageChanged": "La page {{title}} a été modifiée.",
       "offersOff": "Les suggestions de l’assistant sont désactivées.",
       "undoing": "Annulation…",
       "undone": "Annulé.",
@@ -268,8 +271,7 @@
     "privacy": "L’assistant reçoit votre nom, ce texte, votre langue et votre fuseau horaire au début de chaque chat. Laissez un champ vide pour le garder privé.",
     "versions": {
       "label": "Versions",
-      "title": "Versions de {{file}}",
-      "titleBefore": "Versions de",
+      "title": "Versions précédentes",
       "loading": "Lecture de l’historique…",
       "none": "Aucune version antérieure pour l’instant.",
       "current": "actuelle",

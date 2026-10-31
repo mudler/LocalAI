@@ -7,7 +7,7 @@ import { useSeen } from '../../hooks/useSeen'
 import {
   DOCS_MAKE_YOURS, dismissedCount, examplesHidden, forgetHints, showExamples, suggestionsOn, withSeen,
 } from '../../utils/discovery'
-import { WELL_KNOWN_FILES } from '../../utils/wellKnown'
+import { wellKnownProblem } from '../../utils/wellKnown'
 import './wellKnown.css'
 
 // The server's default for offers, for users who did not choose.
@@ -51,7 +51,7 @@ export default function HelpCard() {
       await update(fn)
       if (note) setDone(note)
     } catch (e) {
-      setProblem(e.message)
+      setProblem(wellKnownProblem(e, t).message)
     }
   }
   const offers = suggestionsOn(seen, serverOn)
@@ -72,7 +72,6 @@ export default function HelpCard() {
           <p>{t('discovery.help.sub')}</p>
         </div>
       </header>
-      <div className="wk-meta"><span className="wk-src"><Icon name="file" /> {t('wellKnown.storedIn')} <code>{WELL_KNOWN_FILES.user}</code></span></div>
       {!loaded ? null : (
         <div className="wk-help__rows">
           <Row id="wk-help-offers" title={t('discovery.help.offers')} hint={t('discovery.help.offersHint')}>

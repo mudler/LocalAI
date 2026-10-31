@@ -18,7 +18,7 @@
 .wk-card__head h2 { margin: 0; font-size: var(--fs-section); line-height: var(--lh-section); font-weight: var(--font-weight-semibold); }
 .wk-card__head p { margin: 2px 0 0; font-size: var(--text-sm); color: var(--color-text-muted); }
 .wk-modes { flex-shrink: 0; }
-.wk-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 14px 0 16px; padding-top: 10px; border-top: 1px solid var(--color-border-divider); }
+.wk-meta { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin: 14px 0 16px; padding-top: 10px; border-top: 1px solid var(--color-border-divider); }
 .wk-form { display: flex; flex-direction: column; gap: 14px; }
 .wk-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .wk-field .dk-hint { margin: 0; }
@@ -245,3 +245,9 @@
 .wk-foot--warn .wk-foot__act { color: var(--dk-warn-text); }
 .wk-foot--err { background: var(--color-error-light); color: var(--dk-error-text); border-top-color: var(--color-error-border); }
 .wk-foot--err .wk-foot__act { color: var(--dk-error-text); }
+
+/* The server's own words about a failed save or a broken setting, folded
+   away under the plain sentence of the note. */
+.wk-details { margin-top: 6px; }
+.wk-details summary { width: max-content; cursor: pointer; }
+.wk-details ul { margin-top: 4px; }

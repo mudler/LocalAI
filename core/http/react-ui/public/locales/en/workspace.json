@@ -97,8 +97,6 @@
     "actions": "File actions"
   },
   "wellKnown": {
-    "storedIn": "Stored in",
-    "definedIn": "Defined in",
     "revert": "Revert to previous version",
     "view": "View",
     "form": "Form",
@@ -111,10 +109,10 @@
     "savedAt": "Saved at {{time}}",
     "notSaved": "Not saved yet.",
     "notSavedPrefilled": "Not saved yet. Some values are filled in for you; Save keeps them.",
-    "loadFailed": "Could not load the file: {{message}}",
-    "invalid": "{{file}} does not match its format, and there is no earlier valid version.",
-    "invalidFallback": "{{file}} does not match its format. This shows its last valid version.",
-    "conflict": "{{file}} changed while you were editing it, probably by the assistant or another tab. The newer values are:",
+    "loadFailed": "Could not load these settings. Reload the page to try again.",
+    "invalid": "These settings have errors, and there is no earlier valid version.",
+    "invalidFallback": "These settings have errors. This shows their last valid version.",
+    "conflict": "These settings changed while you were editing them, probably by the assistant or in another tab. The newer values are:",
     "useTheirs": "Use the newer values",
     "keepMine": "Keep my changes",
     "editWithAssistant": "Edit with the assistant",
@@ -129,9 +127,9 @@
     },
     "source": {
       "label": "Source",
-      "hint": "The raw file. It is checked against the same schema when you save.",
-      "notJson": "This is not valid JSON.",
-      "notObject": "The file must be a JSON object, in braces."
+      "hint": "The settings as text. They are checked in the same way when you save.",
+      "notJson": "The text has a syntax error. Check the quotes, commas and braces.",
+      "notObject": "The text must start with { and end with }."
     },
     "persona": {
       "title": "Assistant",
@@ -155,14 +153,13 @@
       "prompt": "Prompt",
       "send": "Send at once",
       "add": "Add shortcut",
-      "invalid": "LocalAI/shortcuts.json has errors",
-      "assistantPrompt": "Change my composer shortcuts in LocalAI/shortcuts.json: "
+      "invalid": "Some shortcuts have errors.",
+      "assistantPrompt": "Change my shortcuts: "
     },
     "home": {
       "editLayout": "Edit layout",
       "ask": "Ask the assistant",
-      "layoutIn": "Layout is in",
-      "askPrompt": "Change my Home page (LocalAI/home.json): ",
+      "askPrompt": "Change my Home page: ",
       "add": "Add widget",
       "newTitle": "New widget",
       "noWidgets": "No widgets yet.",
@@ -181,14 +178,14 @@
       "noData": "No data yet. The assistant can write",
       "nothing": "Nothing here.",
       "noSource": "This widget has no data file. Pick one in Edit layout.",
-      "broken": "{{file}} has errors and no earlier valid version.",
-      "stale": "Showing the last valid data: {{file}} has errors.",
+      "broken": "The data of this widget has errors, and there is no earlier valid version.",
+      "stale": "Showing the last valid data. The newest data has errors.",
       "updated": "Updated {{when}}",
       "footer": {
         "noData": "No data yet.",
-        "invalid": "{{file}} has an error. Showing the last good version.",
+        "invalid": "The data has an error. Showing the last good version.",
         "revert": "Revert",
-        "missing": "The file {{file}} is missing.",
+        "missing": "The data of this widget is missing.",
         "fix": "Ask the assistant to fix it",
         "fixPrompt": "The Home widget reads {{file}}, which is missing or broken. Fix it: ",
         "waiting": "Waiting for you to create its trigger in the chat.",
@@ -209,7 +206,7 @@
         "fresh": "{{schedule}} · updated {{time}}",
         "pause": "Pause",
         "fromPage": "From the page {{title}}",
-        "fromFile": "From {{file}}",
+        "fromFile": "From your files",
         "next": "Next run {{when}}",
         "cost": "about {{tokens}} tokens a run",
         "costRemote": "about {{tokens}} tokens a run on a remote model",
@@ -225,7 +222,9 @@
         "scheduleNote_one": "{{count}} widget updates on a schedule. Its runs use your models and count toward your usage.",
         "scheduleNote_other": "{{count}} widgets update on a schedule. Their runs use your models and count toward your usage."
       },
-      "opensSite": "{{host}}: opens in a new tab"
+      "opensSite": "{{host}}: opens in a new tab",
+      "invalid": "Your Home layout has errors, and there is no earlier valid version.",
+      "invalidFallback": "Your Home layout has errors. Home shows its last valid version."
     },
     "fields": {
       "persona": {
@@ -283,12 +282,16 @@
           "help": "The model a new chat starts with."
         }
       }
-    }
+    },
+    "saveInvalid": "Some values are not valid. Check them and save again.",
+    "saveTooLarge": "These settings are too large to save. Remove some entries and try again.",
+    "saveFailed": "Could not save. Try again.",
+    "details": "Details"
   },
   "discovery": {
     "ex": {
       "title": "Make LocalAI yours",
-      "lede": "Say it in a chat. The assistant saves it as a file you can change or undo.",
+      "lede": "Say it in a chat. The assistant saves it, and you can change or undo it.",
       "hide": "Hide these",
       "hiddenToast": "Examples hidden.",
       "saveFailed": "Not saved: {{message}}",
@@ -296,7 +299,7 @@
         "kicker": "You and the assistant",
         "prompt": "Call me {{firstName}} and keep answers short",
         "promptNoName": "Remember my name and keep answers short",
-        "what": "Saves LocalAI/user.json and LocalAI/persona.json"
+        "what": "Saves your name and how the assistant answers"
       },
       "card2": {
         "kicker": "A page",
@@ -331,14 +334,14 @@
       "turnBackOn": "Turn them back on in Account"
     },
     "change": {
-      "profilePersona": "Saved your name in <code>LocalAI/user.json</code> and your instructions in <code>LocalAI/persona.json</code>. Every chat uses them from your next message.",
-      "profile": "Saved to your profile in <code>LocalAI/user.json</code>.",
-      "persona": "Saved <code>LocalAI/persona.json</code>. Every chat uses it from your next message.",
-      "shortcuts": "Saved <code>LocalAI/shortcuts.json</code>.",
-      "home": "Saved <code>LocalAI/home.json</code>. Home shows the change.",
-      "ui": "Saved <code>LocalAI/ui.json</code>.",
-      "pageCreated": "Created the page {{title}} in <code>{{folder}}</code>.",
-      "pageChanged": "Changed <code>{{file}}</code>.",
+      "profilePersona": "Saved your name and your instructions for the assistant. Every chat uses them from your next message.",
+      "profile": "Saved to your profile.",
+      "persona": "Saved the assistant’s instructions. Every chat uses them from your next message.",
+      "shortcuts": "Saved your shortcuts.",
+      "home": "Saved your Home page. Home shows the change.",
+      "ui": "Saved your appearance settings.",
+      "pageCreated": "Created the page {{title}}.",
+      "pageChanged": "Changed the page {{title}}.",
       "offersOff": "Suggestions from the assistant are off.",
       "undoing": "Undoing…",
       "undone": "Undone.",
@@ -365,8 +368,7 @@
     "privacy": "The assistant receives your name, this text, your language and time zone at the start of every chat. Leave a field empty to keep it out.",
     "versions": {
       "label": "Versions",
-      "title": "Versions of {{file}}",
-      "titleBefore": "Versions of",
+      "title": "Earlier versions",
       "loading": "Reading the history…",
       "none": "No earlier version yet.",
       "current": "current",

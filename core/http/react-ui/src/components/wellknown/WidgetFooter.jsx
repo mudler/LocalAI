@@ -60,12 +60,12 @@ export default function WidgetFooter({ id, state, w, d, trigger, proposal, act, 
   switch (state) {
     case 'invalid':
       tone = 'err'; icon = 'alert-circle'
-      text = k('invalid', { file: w.source })
+      text = k('invalid')
       acts = onRevert && btn(k('revert'), onRevert, 'widget-revert')
       break
     case 'missing':
       icon = 'file'
-      text = k('missing', { file: w.source })
+      text = k('missing')
       acts = btn(k('fix'), fix, 'widget-fix')
       break
     case 'waiting':
@@ -114,7 +114,7 @@ export default function WidgetFooter({ id, state, w, d, trigger, proposal, act, 
       break
     default:
       icon = 'file'
-      text = k('fromFile', { file: w.source })
+      text = k('fromFile')
   }
 
   // The next run and what a run costs, under the line, for a trigger that is

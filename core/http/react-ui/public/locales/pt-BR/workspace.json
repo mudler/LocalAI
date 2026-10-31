@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "Salvo em",
-    "definedIn": "Definido em",
     "revert": "Reverter para a versão anterior",
     "view": "Visualizar",
     "form": "Formulário",
@@ -14,10 +12,10 @@
     "savedAt": "Salvo às {{time}}",
     "notSaved": "Ainda não salvo.",
     "notSavedPrefilled": "Ainda não salvo. Alguns valores já foram preenchidos para você; Salvar os mantém.",
-    "loadFailed": "Não foi possível carregar o arquivo: {{message}}",
-    "invalid": "{{file}} não corresponde ao formato dele, e não há uma versão válida anterior.",
-    "invalidFallback": "{{file}} não corresponde ao formato dele. Esta tela mostra a última versão válida.",
-    "conflict": "{{file}} mudou enquanto você editava, provavelmente pelo assistente ou por outra aba. Os valores mais recentes são:",
+    "loadFailed": "Não foi possível carregar estas configurações. Recarregue a página para tentar de novo.",
+    "invalid": "Estas configurações têm erros, e não há uma versão válida anterior.",
+    "invalidFallback": "Estas configurações têm erros. Aqui aparece a última versão válida delas.",
+    "conflict": "Estas configurações mudaram enquanto você as editava, provavelmente pelo assistente ou em outra aba. Os valores mais recentes são:",
     "useTheirs": "Usar os valores mais recentes",
     "keepMine": "Manter minhas alterações",
     "editWithAssistant": "Editar com o assistente",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "Origem",
-      "hint": "O arquivo bruto. Ao salvar, ele é validado com o mesmo esquema.",
-      "notJson": "Não é um JSON válido.",
-      "notObject": "O arquivo precisa ser um objeto JSON entre chaves."
+      "hint": "As configurações como texto. Elas são verificadas do mesmo jeito ao salvar.",
+      "notJson": "O texto tem um erro de sintaxe. Confira as aspas, as vírgulas e as chaves.",
+      "notObject": "O texto deve começar com { e terminar com }."
     },
     "persona": {
       "title": "Assistente",
@@ -58,14 +56,13 @@
       "prompt": "Prompt",
       "send": "Enviar na hora",
       "add": "Adicionar atalho",
-      "invalid": "LocalAI/shortcuts.json tem erros",
-      "assistantPrompt": "Altere meus atalhos do campo de mensagem em LocalAI/shortcuts.json: "
+      "invalid": "Alguns atalhos têm erros.",
+      "assistantPrompt": "Altere meus atalhos: "
     },
     "home": {
       "editLayout": "Editar layout",
       "ask": "Perguntar ao assistente",
-      "layoutIn": "O layout está em",
-      "askPrompt": "Altere minha página inicial (LocalAI/home.json): ",
+      "askPrompt": "Altere minha página Home: ",
       "add": "Adicionar widget",
       "newTitle": "Novo widget",
       "noWidgets": "Nenhum widget ainda.",
@@ -84,14 +81,14 @@
       "noData": "Ainda não há dados. O assistente pode escrever",
       "nothing": "Nada aqui.",
       "noSource": "Este widget não tem arquivo de dados. Escolha um em Editar layout.",
-      "broken": "{{file}} tem erros e não há uma versão válida anterior.",
-      "stale": "Mostrando os últimos dados válidos: {{file}} tem erros.",
+      "broken": "Os dados deste widget têm erros, e não há uma versão válida anterior.",
+      "stale": "Mostrando os últimos dados válidos. Os dados mais recentes têm erros.",
       "updated": "Atualizado {{when}}",
       "footer": {
         "noData": "Ainda sem dados.",
-        "invalid": "{{file}} tem um erro. Mostrando a última versão válida.",
+        "invalid": "Os dados têm um erro. Mostrando a última versão boa.",
         "revert": "Reverter",
-        "missing": "O arquivo {{file}} está faltando.",
+        "missing": "Os dados deste widget estão faltando.",
         "fix": "Pedir ao assistente para corrigir",
         "fixPrompt": "O widget da Início lê {{file}}, que está faltando ou quebrado. Corrija: ",
         "waiting": "Aguardando você criar o gatilho dele no chat.",
@@ -112,7 +109,7 @@
         "fresh": "{{schedule}} · atualizado {{time}}",
         "pause": "Pausar",
         "fromPage": "Da página {{title}}",
-        "fromFile": "De {{file}}",
+        "fromFile": "Dos seus arquivos",
         "next": "Próxima execução {{when}}",
         "cost": "cerca de {{tokens}} tokens por execução",
         "costRemote": "cerca de {{tokens}} tokens por execução em um modelo remoto",
@@ -128,7 +125,9 @@
         "scheduleNote_one": "{{count}} widget é atualizado por agendamento. As execuções usam seus modelos e contam no seu uso.",
         "scheduleNote_other": "{{count}} widgets são atualizados por agendamento. As execuções usam seus modelos e contam no seu uso."
       },
-      "opensSite": "{{host}}: abre em uma nova aba"
+      "opensSite": "{{host}}: abre em uma nova aba",
+      "invalid": "O layout da sua Home tem erros, e não há uma versão válida anterior.",
+      "invalidFallback": "O layout da sua Home tem erros. Home mostra a última versão válida dele."
     },
     "fields": {
       "persona": {
@@ -186,12 +185,16 @@
           "help": "O modelo com que um novo chat começa."
         }
       }
-    }
+    },
+    "saveInvalid": "Alguns valores não são válidos. Confira e salve de novo.",
+    "saveTooLarge": "Estas configurações são grandes demais para salvar. Remova algumas entradas e tente de novo.",
+    "saveFailed": "Não foi possível salvar. Tente de novo.",
+    "details": "Detalhes"
   },
   "discovery": {
     "ex": {
       "title": "Faça o LocalAI do seu jeito",
-      "lede": "Diga em um chat. O assistente salva como um arquivo que você pode alterar ou desfazer.",
+      "lede": "Diga em um chat. O assistente salva, e você pode alterar ou desfazer.",
       "hide": "Ocultar",
       "hiddenToast": "Exemplos ocultos.",
       "saveFailed": "Não salvo: {{message}}",
@@ -199,7 +202,7 @@
         "kicker": "Você e o assistente",
         "prompt": "Me chame de {{firstName}} e mantenha as respostas curtas",
         "promptNoName": "Lembre meu nome e mantenha as respostas curtas",
-        "what": "Salva LocalAI/user.json e LocalAI/persona.json"
+        "what": "Salva seu nome e como o assistente responde"
       },
       "card2": {
         "kicker": "Uma página",
@@ -234,14 +237,14 @@
       "turnBackOn": "Ative de novo em Account"
     },
     "change": {
-      "profilePersona": "Seu nome foi salvo em <code>LocalAI/user.json</code> e suas instruções em <code>LocalAI/persona.json</code>. Todo chat os usa a partir da sua próxima mensagem.",
-      "profile": "Salvo no seu perfil em <code>LocalAI/user.json</code>.",
-      "persona": "<code>LocalAI/persona.json</code> salvo. Todo chat o usa a partir da sua próxima mensagem.",
-      "shortcuts": "<code>LocalAI/shortcuts.json</code> salvo.",
-      "home": "<code>LocalAI/home.json</code> salvo. Home mostra a mudança.",
-      "ui": "<code>LocalAI/ui.json</code> salvo.",
-      "pageCreated": "Página {{title}} criada em <code>{{folder}}</code>.",
-      "pageChanged": "<code>{{file}}</code> alterado.",
+      "profilePersona": "Seu nome e suas instruções para o assistente foram salvos. Todo chat os usa a partir da sua próxima mensagem.",
+      "profile": "Salvo no seu perfil.",
+      "persona": "As instruções do assistente foram salvas. Todo chat as usa a partir da sua próxima mensagem.",
+      "shortcuts": "Seus atalhos foram salvos.",
+      "home": "Sua página Home foi salva. Home mostra a mudança.",
+      "ui": "Suas configurações de aparência foram salvas.",
+      "pageCreated": "A página {{title}} foi criada.",
+      "pageChanged": "A página {{title}} foi alterada.",
       "offersOff": "As sugestões do assistente estão desativadas.",
       "undoing": "Desfazendo…",
       "undone": "Desfeito.",
@@ -268,8 +271,7 @@
     "privacy": "O assistente recebe seu nome, este texto, seu idioma e seu fuso horário no início de cada chat. Deixe um campo vazio para não enviá-lo.",
     "versions": {
       "label": "Versões",
-      "title": "Versões de {{file}}",
-      "titleBefore": "Versões de",
+      "title": "Versões anteriores",
       "loading": "Lendo o histórico…",
       "none": "Ainda não há versão anterior.",
       "current": "atual",

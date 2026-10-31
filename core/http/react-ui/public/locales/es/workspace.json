@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "Guardado en",
-    "definedIn": "Definido en",
     "revert": "Volver a la versión anterior",
     "view": "Vista",
     "form": "Formulario",
@@ -14,10 +12,10 @@
     "savedAt": "Guardado a las {{time}}",
     "notSaved": "Aún no guardado.",
     "notSavedPrefilled": "Aún no guardado. Algunos valores ya están rellenados; Guardar los conserva.",
-    "loadFailed": "No se pudo cargar el archivo: {{message}}",
-    "invalid": "{{file}} no coincide con su formato y no hay una versión válida anterior.",
-    "invalidFallback": "{{file}} no coincide con su formato. Se muestra su última versión válida.",
-    "conflict": "{{file}} cambió mientras lo editabas, probablemente por el asistente u otra pestaña. Los valores más recientes son:",
+    "loadFailed": "No se pudieron cargar estos ajustes. Recarga la página para intentarlo de nuevo.",
+    "invalid": "Estos ajustes tienen errores y no hay una versión válida anterior.",
+    "invalidFallback": "Estos ajustes tienen errores. Aquí se muestra su última versión válida.",
+    "conflict": "Estos ajustes cambiaron mientras los editabas, probablemente por el asistente o en otra pestaña. Los valores más recientes son:",
     "useTheirs": "Usar los valores más recientes",
     "keepMine": "Mantener mis cambios",
     "editWithAssistant": "Editar con el asistente",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "Fuente",
-      "hint": "El archivo sin procesar. Al guardar se comprueba con el mismo esquema.",
-      "notJson": "No es JSON válido.",
-      "notObject": "El archivo debe ser un objeto JSON entre llaves."
+      "hint": "Los ajustes como texto. Se comprueban de la misma forma al guardar.",
+      "notJson": "El texto tiene un error de sintaxis. Revisa las comillas, las comas y las llaves.",
+      "notObject": "El texto debe empezar con { y terminar con }."
     },
     "persona": {
       "title": "Asistente",
@@ -58,14 +56,13 @@
       "prompt": "Prompt",
       "send": "Enviar al momento",
       "add": "Añadir atajo",
-      "invalid": "LocalAI/shortcuts.json tiene errores",
-      "assistantPrompt": "Cambia mis atajos del cuadro de texto en LocalAI/shortcuts.json: "
+      "invalid": "Algunos atajos tienen errores.",
+      "assistantPrompt": "Cambia mis atajos: "
     },
     "home": {
       "editLayout": "Editar diseño",
       "ask": "Preguntar al asistente",
-      "layoutIn": "El diseño está en",
-      "askPrompt": "Cambia mi página de inicio (LocalAI/home.json): ",
+      "askPrompt": "Cambia mi página Home: ",
       "add": "Añadir widget",
       "newTitle": "Nuevo widget",
       "noWidgets": "Aún no hay widgets.",
@@ -84,14 +81,14 @@
       "noData": "Aún no hay datos. El asistente puede escribir",
       "nothing": "No hay nada aquí.",
       "noSource": "Este widget no tiene archivo de datos. Elige uno en Editar diseño.",
-      "broken": "{{file}} tiene errores y no hay una versión válida anterior.",
-      "stale": "Se muestran los últimos datos válidos: {{file}} tiene errores.",
+      "broken": "Los datos de este widget tienen errores y no hay una versión válida anterior.",
+      "stale": "Se muestran los últimos datos válidos. Los datos más recientes tienen errores.",
       "updated": "Actualizado {{when}}",
       "footer": {
         "noData": "Aún no hay datos.",
-        "invalid": "{{file}} tiene un error. Se muestra la última versión válida.",
+        "invalid": "Los datos tienen un error. Se muestra la última versión correcta.",
         "revert": "Revertir",
-        "missing": "Falta el archivo {{file}}.",
+        "missing": "Faltan los datos de este widget.",
         "fix": "Pedir al asistente que lo arregle",
         "fixPrompt": "El widget de Inicio lee {{file}}, que falta o está dañado. Arréglalo: ",
         "waiting": "Esperando a que crees su disparador en el chat.",
@@ -112,7 +109,7 @@
         "fresh": "{{schedule}} · actualizado {{time}}",
         "pause": "Pausar",
         "fromPage": "De la página {{title}}",
-        "fromFile": "De {{file}}",
+        "fromFile": "De tus archivos",
         "next": "Próxima ejecución {{when}}",
         "cost": "unos {{tokens}} tokens por ejecución",
         "costRemote": "unos {{tokens}} tokens por ejecución en un modelo remoto",
@@ -128,7 +125,9 @@
         "scheduleNote_one": "{{count}} widget se actualiza según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso.",
         "scheduleNote_other": "{{count}} widgets se actualizan según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso."
       },
-      "opensSite": "{{host}}: se abre en una pestaña nueva"
+      "opensSite": "{{host}}: se abre en una pestaña nueva",
+      "invalid": "El diseño de tu Home tiene errores y no hay una versión válida anterior.",
+      "invalidFallback": "El diseño de tu Home tiene errores. Home muestra su última versión válida."
     },
     "fields": {
       "persona": {
@@ -186,12 +185,16 @@
           "help": "El modelo con el que empieza un chat nuevo."
         }
       }
-    }
+    },
+    "saveInvalid": "Algunos valores no son válidos. Revísalos y guarda de nuevo.",
+    "saveTooLarge": "Estos ajustes son demasiado grandes para guardarlos. Quita algunas entradas e inténtalo de nuevo.",
+    "saveFailed": "No se pudo guardar. Inténtalo de nuevo.",
+    "details": "Detalles"
   },
   "discovery": {
     "ex": {
       "title": "Haz LocalAI tuyo",
-      "lede": "Dilo en un chat. El asistente lo guarda como un archivo que puedes cambiar o deshacer.",
+      "lede": "Dilo en un chat. El asistente lo guarda, y puedes cambiarlo o deshacerlo.",
       "hide": "Ocultar",
       "hiddenToast": "Ejemplos ocultos.",
       "saveFailed": "No guardado: {{message}}",
@@ -199,7 +202,7 @@
         "kicker": "Tú y el asistente",
         "prompt": "Llámame {{firstName}} y responde con brevedad",
         "promptNoName": "Recuerda mi nombre y responde con brevedad",
-        "what": "Guarda LocalAI/user.json y LocalAI/persona.json"
+        "what": "Guarda tu nombre y cómo responde el asistente"
       },
       "card2": {
         "kicker": "Una página",
@@ -234,14 +237,14 @@
       "turnBackOn": "Vuelve a activarlos en Account"
     },
     "change": {
-      "profilePersona": "Se guardó tu nombre en <code>LocalAI/user.json</code> y tus instrucciones en <code>LocalAI/persona.json</code>. Cada chat los usa desde tu próximo mensaje.",
-      "profile": "Guardado en tu perfil, en <code>LocalAI/user.json</code>.",
-      "persona": "Se guardó <code>LocalAI/persona.json</code>. Cada chat lo usa desde tu próximo mensaje.",
-      "shortcuts": "Se guardó <code>LocalAI/shortcuts.json</code>.",
-      "home": "Se guardó <code>LocalAI/home.json</code>. Home muestra el cambio.",
-      "ui": "Se guardó <code>LocalAI/ui.json</code>.",
-      "pageCreated": "Se creó la página {{title}} en <code>{{folder}}</code>.",
-      "pageChanged": "Se cambió <code>{{file}}</code>.",
+      "profilePersona": "Se guardaron tu nombre y tus instrucciones para el asistente. Cada chat los usa desde tu próximo mensaje.",
+      "profile": "Se guardó en tu perfil.",
+      "persona": "Se guardaron las instrucciones del asistente. Cada chat las usa desde tu próximo mensaje.",
+      "shortcuts": "Se guardaron tus atajos.",
+      "home": "Se guardó tu página Home. Home muestra el cambio.",
+      "ui": "Se guardaron tus ajustes de apariencia.",
+      "pageCreated": "Se creó la página {{title}}.",
+      "pageChanged": "Se cambió la página {{title}}.",
       "offersOff": "Las sugerencias del asistente están desactivadas.",
       "undoing": "Deshaciendo…",
       "undone": "Deshecho.",
@@ -268,8 +271,7 @@
     "privacy": "El asistente recibe tu nombre, este texto, tu idioma y tu zona horaria al inicio de cada chat. Deja un campo vacío para no enviarlo.",
     "versions": {
       "label": "Versiones",
-      "title": "Versiones de {{file}}",
-      "titleBefore": "Versiones de",
+      "title": "Versiones anteriores",
       "loading": "Leyendo el historial…",
       "none": "Aún no hay versiones anteriores.",
       "current": "actual",

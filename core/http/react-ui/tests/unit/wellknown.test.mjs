@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   createWellKnownApi, WellKnownError, fieldsFromSchema, checkField, changedValues, parseSource,
   shortcutList, cleanShortcuts, move, widgetList, cleanWidgets, widgetId, widgetData, sparkPath, formatMetric,
-  createWellKnownStore, wellKnownPath, editMeetsChange,
+  createWellKnownStore, wellKnownPath, editMeetsChange, wellKnownProblem,
 } from '../../src/utils/wellKnown.js'
 
 const reply = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body })
@@ -214,4 +214,14 @@ test('the layout editor keeps the keys it does not show, such as the trigger of 
   assert.equal(out[1].trigger, undefined, 'a chats widget has no data file to feed')
   assert.deepEqual(widgetData({ exists: true, valid: true, data: { items: [], source: { kind: 'page', page: 'tasks' } } }).source, { kind: 'page', page: 'tasks' })
   assert.equal(widgetData({ exists: true, valid: true, data: { items: [], source: 'x' } }).source, null)
+})
+
+test('wellKnownProblem: a failed save is a plain sentence, with the server\'s words kept for Details', () => {
+  const t = (k) => k
+  assert.deepEqual(wellKnownProblem(new WellKnownError(400, { error: { message: 'the file does not match its schema: name: expected string' }, errors: ['name: expected string'] }), t),
+    { message: 'wellKnown.saveInvalid', errors: ['name: expected string'] }, 'field errors go to Details, the schema wording does not reach the note')
+  assert.deepEqual(wellKnownProblem(new WellKnownError(413, { error: { message: 'the file would be larger than 64 KiB' } }), t), { message: 'wellKnown.saveTooLarge', errors: [] })
+  assert.deepEqual(wellKnownProblem(new WellKnownError(500, null), t), { message: 'wellKnown.saveFailed', errors: ['HTTP 500'] }, 'the raw message is a detail, not the sentence')
+  assert.deepEqual(wellKnownProblem(new Error('network down'), t), { message: 'wellKnown.saveFailed', errors: ['network down'] })
+  assert.deepEqual(wellKnownProblem(undefined, t), { message: 'wellKnown.saveFailed', errors: [] })
 })
