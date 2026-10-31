@@ -52,6 +52,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
+	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
@@ -144,6 +145,9 @@ type Application struct {
 	studioJobs           *studio.Jobs
 	studioJobsStop       context.CancelFunc
 	studioTriggersStop   context.CancelFunc
+	studioLoopStore      loops.Store
+	studioLoops          *studio.Loops
+	studioLoopsStop      context.CancelFunc
 	studioConnStore      connectors.Store
 	studioMCPStore       mcpconns.Store
 	studioMCPConns       *mcpconns.Service
@@ -663,6 +667,12 @@ func (a *Application) Shutdown() error {
 		}
 		if a.studioTriggers != nil {
 			a.studioTriggers.Close()
+		}
+		if a.studioLoopsStop != nil {
+			a.studioLoopsStop()
+		}
+		if a.studioLoops != nil {
+			a.studioLoops.Close()
 		}
 		if a.studioPusher != nil {
 			a.studioPusher.Close()

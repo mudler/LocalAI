@@ -186,6 +186,7 @@ func (a *Application) initStudioService() {
 	}
 	a.startStudioConnectors(svc)
 	a.startStudioTriggers(svc)
+	a.startStudioLoops(svc)
 	a.startStudioJobs(svc)
 	a.prepareStudioConversion(svc)
 }

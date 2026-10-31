@@ -39,4 +39,7 @@ const (
 	// KeyChatsFileIndex elects the one frontend that reads the text of new
 	// and changed documents in the chats' files. It is held for one pass.
 	KeyChatsFileIndex int64 = 115
+	// KeyChatsLoops elects the one frontend that fires the loops of the
+	// chats. It is held for as long as the frontend lives.
+	KeyChatsLoops int64 = 116
 )

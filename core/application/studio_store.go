@@ -97,6 +97,9 @@ func (a *Application) initStudioStore() {
 	if err := a.initStudioTriggerStore(); err != nil {
 		xlog.Warn("Triggers disabled: failed to initialise their store", "error", err)
 	}
+	if err := a.initStudioLoopStore(); err != nil {
+		xlog.Warn("Loops disabled: failed to initialise their store", "error", err)
+	}
 	a.initStudioJobStore()
 	a.migrateStudioPermissions()
 }

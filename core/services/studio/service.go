@@ -304,6 +304,7 @@ type Service struct {
 
 	// Sub-agents; see subagent.go.
 	triggers   *Triggers        // set once by SetTriggers
+	loops      *Loops           // set once by SetLoops
 	jobs       *Jobs            // set once by SetJobs
 	connectors *Connectors      // set once by SetConnectors
 	conversion ConversionSource // set once by SetConversion
@@ -789,23 +790,8 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case err == nil:
 		s.nameAfter(ctx, p, conv, msg.Text)
-		// Messages that wait go first: the new one must not overtake them.
-		taken, terr := s.d.Store.TakePending(ctx, p, conv)
-		if terr != nil {
-			_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
-			return SendResult{}, terr
-		}
-		ids := make([]string, len(taken))
-		for i, t := range taken {
-			ids[i] = t.ID
-		}
-		if err := s.startTurn(ctx, p, conv, runID, joinPending(taken, msg)); err != nil {
-			_ = s.d.Store.RestorePending(ctx, p, conv, ids)
+		if err := s.startClaimed(ctx, p, conv, runID, msg); err != nil {
 			return SendResult{}, err
-		}
-		if len(ids) > 0 {
-			s.confirm(p, conv, ids)
-			s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 		}
 		return SendResult{Started: true}, nil
 	case errors.Is(err, store.ErrTurnRunning):
@@ -836,6 +822,50 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 	default:
 		return SendResult{}, err
 	}
+}
+
+// startClaimed runs msg as the turn that the claim runID holds, after the
+// messages that wait: the new one must not overtake them. The caller holds the
+// lock of the chat.
+func (s *Service) startClaimed(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	taken, err := s.d.Store.TakePending(ctx, p, conv)
+	if err != nil {
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
+		return err
+	}
+	ids := make([]string, len(taken))
+	for i, t := range taken {
+		ids[i] = t.ID
+	}
+	if err := s.startTurn(ctx, p, conv, runID, joinPending(taken, msg)); err != nil {
+		_ = s.d.Store.RestorePending(ctx, p, conv, ids)
+		return err
+	}
+	if len(ids) > 0 {
+		s.confirm(p, conv, ids)
+		s.bus.Publish(key(p, conv), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
+	}
+	return nil
+}
+
+// startIdle starts a turn with msg only when the chat is idle: unlike send, it
+// never queues the message behind a running turn. It reports whether the turn
+// started. A loop uses it, so that a busy chat skips the run instead of
+// piling runs up.
+func (s *Service) startIdle(ctx context.Context, p, conv string, msg session.Message) (bool, error) {
+	unlock := s.lock(key(p, conv))
+	defer unlock()
+	runID := newID()
+	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
+	case errors.Is(err, store.ErrTurnRunning):
+		return false, nil
+	case err != nil:
+		return false, err
+	}
+	if err := s.startClaimed(ctx, p, conv, runID, msg); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // attachWhileRunning saves the files of a message that waits for a running
@@ -1333,7 +1363,13 @@ func (s *Service) Delete(ctx context.Context, user, conv string) error {
 		return err
 	}
 	s.stopChildren(p, conv)
-	return s.mgr.Delete(ctx, chatActor(p, conv), conv)
+	if err := s.mgr.Delete(ctx, chatActor(p, conv), conv); err != nil {
+		return err
+	}
+	if s.loops != nil {
+		s.loops.forgetChat(ctx, p, conv)
+	}
+	return nil
 }
 
 // MCPConnectors returns the service that keeps the users' MCP connectors, or

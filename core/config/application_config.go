@@ -404,6 +404,16 @@ type ApplicationConfig struct {
 	// Runtime-settable via /api/settings (chats_max_iterations).
 	ChatsMaxIterations int
 
+	// The limits of the loops of the chats (a prompt a chat repeats by
+	// itself). Zero means the default. Runtime-settable via /api/settings
+	// (chats_loop_min_interval, chats_loop_max_runs, chats_loop_max_per_chat,
+	// chats_loop_max_per_user, chats_loop_daily_runs); read at each use.
+	ChatsLoopMinInterval time.Duration
+	ChatsLoopMaxRuns     int
+	ChatsLoopMaxPerChat  int
+	ChatsLoopMaxPerUser  int
+	ChatsLoopDailyRuns   int
+
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents
 	// as sub-agents (list_agents and the agent argument of spawn_agent).
 	// Stored as the negation (chats_saved_agents), so it is on by default;
@@ -1521,6 +1531,57 @@ const DefaultChatsMaxIterations = 40
 
 // MaxChatsMaxIterations is the highest step limit chats_max_iterations takes.
 const MaxChatsMaxIterations = 500
+
+// Bounds and defaults of the loop settings of the chats.
+const (
+	MinChatsLoopInterval        = 30 * time.Second
+	MaxChatsLoopInterval        = 24 * time.Hour
+	DefaultChatsLoopMinInterval = time.Minute
+	DefaultChatsLoopMaxRuns     = 100
+	MaxChatsLoopMaxRuns         = 10000
+	DefaultChatsLoopMaxPerChat  = 3
+	MaxChatsLoopMaxPerChat      = 20
+	DefaultChatsLoopMaxPerUser  = 10
+	MaxChatsLoopMaxPerUser      = 200
+	DefaultChatsLoopDailyRuns   = 200
+	MaxChatsLoopDailyRuns       = 100000
+)
+
+// EffectiveChatsLoopMinInterval is chats_loop_min_interval as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMinInterval() time.Duration {
+	if d := o.ChatsLoopMinInterval; d >= MinChatsLoopInterval && d <= MaxChatsLoopInterval {
+		return d
+	}
+	return DefaultChatsLoopMinInterval
+}
+
+// inRange is n when it is from 1 to hi, else def.
+func inRange(n, hi, def int) int {
+	if n >= 1 && n <= hi {
+		return n
+	}
+	return def
+}
+
+// EffectiveChatsLoopMaxRuns is chats_loop_max_runs as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMaxRuns() int {
+	return inRange(o.ChatsLoopMaxRuns, MaxChatsLoopMaxRuns, DefaultChatsLoopMaxRuns)
+}
+
+// EffectiveChatsLoopMaxPerChat is chats_loop_max_per_chat as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMaxPerChat() int {
+	return inRange(o.ChatsLoopMaxPerChat, MaxChatsLoopMaxPerChat, DefaultChatsLoopMaxPerChat)
+}
+
+// EffectiveChatsLoopMaxPerUser is chats_loop_max_per_user as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMaxPerUser() int {
+	return inRange(o.ChatsLoopMaxPerUser, MaxChatsLoopMaxPerUser, DefaultChatsLoopMaxPerUser)
+}
+
+// EffectiveChatsLoopDailyRuns is chats_loop_daily_runs as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopDailyRuns() int {
+	return inRange(o.ChatsLoopDailyRuns, MaxChatsLoopDailyRuns, DefaultChatsLoopDailyRuns)
+}
 
 // Bounds of chats_index_max_text_bytes.
 const (
