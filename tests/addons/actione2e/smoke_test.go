@@ -40,7 +40,7 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 		_, _ = fmt.Fprintf(GinkgoWriter, "status for an administrator: %v\n", adminStatus)
 		Expect(st["hostNotice"]).NotTo(Equal(true), "the default settings run commands on the host with no isolation: %v", st)
 
-		got := w.act("bash", "alice", "convsmoke", map[string]any{"command": "echo smoke-ok; cat home/smoke.txt; echo written > home/smoke-out.txt"})
+		got := w.act("bash", "alice", "convsmoke", map[string]any{"command": "echo smoke-ok; cat smoke.txt; echo written > smoke-out.txt"})
 		out, _ := got["output"].(string)
 		if st["canRun"] != true {
 			if os.Getenv("SANDBOX_SMOKE_REQUIRE") == "isolated" {
