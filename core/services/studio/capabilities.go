@@ -225,6 +225,10 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 // sandboxWhere is where a command of the Sandbox starts and what it keeps.
 const sandboxWhere = "It starts in /workspace/home, the user's home, the same files as the file tools; only what it saves under /workspace/home or a writable shared folder is kept."
 
+// skillsNotInSandbox is the sentence that keeps a model from looking for a
+// skill folder in the Sandbox, which sees the user's home only.
+const skillsNotInSandbox = "Skill folders are not visible in the Sandbox: read skills with read_file."
+
 // commandsBlock is the block of the system prompt that states whether the chat
 // can run commands. writeFile says whether the chat has write_file, and
 // skillsOff whether the skill index lists a skill as unavailable for want of a
@@ -243,7 +247,7 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 		case c.Isolation == "isolated":
 			// The turn's note is cut at 400 characters and the tool description
 			// is capped, so the list of programs goes here, in the prompt.
-			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere + " " + sandbox.GuestToolsNote
+			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
 		case c.Isolation == "host":
 			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere
 		}
