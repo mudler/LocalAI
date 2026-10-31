@@ -33,7 +33,7 @@ description: Use when the user asks for the monthly sales report. It says which 
 | Part | Rule |
 |---|---|
 | `name` | Lower case letters, digits and hyphens. It starts with a letter or a digit and has at most 64 characters. |
-| `description` | One or two sentences. It is not empty and has at most 1,024 bytes. It says when to read the skill ("Use when ..."), because it is the only text the agent sees before it opens the file. |
+| `description` | One or two sentences. It is not empty and has at most 1,024 bytes. It says when to load the skill ("Use when ..."), because it is the only text the agent sees before it loads the skill with load_skill. |
 | `SKILL.md` | At most 64 KiB. Keep it short. Put long reference text in separate files in the same folder and link to them. |
 
 A skill that breaks a rule is skipped. The user sees why in the Skills page.

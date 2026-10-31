@@ -7,7 +7,7 @@ description: Use to personalise LocalAI for the user - persona, profile, shortcu
 
 Do the work with files, but talk to the user in plain words: say what changed ("I saved your shortcuts", "I added a Reading list page", "Home now shows your open tasks"), not file names, folders, formats or JSON. Name a file only if the user named it or asks where something is, or when you give them a file as a result (a document they asked for).
 
-A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/LocalAI/`) change LocalAI for this user. LocalAI reads them; the settings pages edit the same files. Use these paths: a settings file at the top of the home is in the old place, and LocalAI moves it into `LocalAI/`. Write them with your file tools. Each has a JSON Schema in `/workspace/shared-builtin-skills/localai-workspace/schemas/`: read it before you write, and keep to it. A file that breaks its schema is ignored and LocalAI uses its last good version, so check your JSON.
+A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/LocalAI/`) change LocalAI for this user. LocalAI reads them; the settings pages edit the same files. Use these paths: a settings file at the top of the home is in the old place, and LocalAI moves it into `LocalAI/`. Write them with your file tools. Each has a JSON Schema in the `schemas/` folder of this skill, `/workspace/shared-builtin-skills/localai-workspace/schemas/`: read it with read_file before you write, and keep to it. A file that breaks its schema is ignored and LocalAI uses its last good version, so check your JSON.
 
 | File | What it does |
 |---|---|

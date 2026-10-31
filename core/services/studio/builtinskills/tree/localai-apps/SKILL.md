@@ -14,7 +14,7 @@ LocalAI has its own app format: a Page. It is one HTML file in the user's home t
 | The user wants | Do |
 |---|---|
 | An interactive thing to use here: tracker, to-do list, dashboard, form, game, calculator, planner, converter, timer | A Page (this skill) |
-| The same, refreshed on a schedule or when a file arrives | A Page plus a trigger: read the `localai-workspace` skill, section "Updates on a schedule" |
+| The same, refreshed on a schedule or when a file arrives | A Page plus a trigger: load the `localai-workspace` skill, section "Updates on a schedule" |
 | A Home widget (a list or a number) | The `localai-workspace` skill, not a Page |
 | A page that should also show on Home | A Page with a `widget` block and a compact mode (section "On Home"), then the `localai-workspace` skill to add the tile |
 | A real program: a script, a service, a CLI, something to install or deploy | Write that program as asked. First check the `Commands:` line of this chat: if nothing here runs commands, say so and give the files to run elsewhere |
