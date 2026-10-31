@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
 )
 
 // taskRow is the table of tasks. The webhooks are JSON text so one schema works
@@ -88,11 +89,6 @@ func (r jobRow) job() (Job, error) {
 	return j, nil
 }
 
-func isUniqueViolation(err error) bool {
-	s := strings.ToLower(err.Error())
-	return strings.Contains(s, "unique") || strings.Contains(s, "duplicate key")
-}
-
 func (s *gormStore) PutTask(ctx context.Context, t Task) error {
 	hooks, err := json.Marshal(t.Webhooks)
 	if err != nil {
@@ -116,7 +112,7 @@ func (s *gormStore) PutTask(ctx context.Context, t Task) error {
 		} else {
 			err = tx.Create(&row).Error
 		}
-		if err != nil && isUniqueViolation(err) {
+		if err != nil && dberr.IsUniqueViolation(err) {
 			return ErrNameTaken
 		}
 		return err
