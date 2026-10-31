@@ -27,9 +27,12 @@ import {
 } from '../utils/chatTrigger'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { Button, LoadError, Page, PageHeader, SkeletonRows, Switch } from '../components/ui'
 import './agents.css'
 import './agent-jobs.css'
+
+// The runs a trigger page shows before Show more.
+const RUNS_PAGE = 10
 
 export default function AgentTaskDetails() {
   const { id } = useParams()
@@ -54,6 +57,7 @@ function TaskView({ id }) {
   const [error, setError] = useState(null)
   const [missing, setMissing] = useState(false)
   const [toDelete, setToDelete] = useState(null)
+  const [shownRuns, setShownRuns] = useState(RUNS_PAGE)
 
   const load = async () => {
     try {
@@ -178,17 +182,14 @@ function TaskView({ id }) {
           <dd className="ag-facts__model">{task.daily_cap || '-'}</dd>
           <dt>{t('jobs.task.enabledSwitch')}</dt>
           <dd>
-            <button
-              type="button"
-              className="dk-switch"
-              role="switch"
-              aria-checked={!off}
-              aria-label={t('jobs.tasks.toggleLabel', { name: task.name })}
-              onClick={toggle}
-            />
+            <Switch checked={!off} onChange={toggle} label={t('jobs.tasks.toggleLabel', { name: task.name })} />
           </dd>
         </dl>
 
+        <section className="ag-sec" aria-labelledby="aj-prompt-h">
+          <div className="ag-section-head"><h2 className="ag-h2" id="aj-prompt-h">{t('jobs.task.prompt')}</h2></div>
+          {task.prompt ? <p className="aj-preview aj-preview--doc" data-testid="task-prompt">{task.prompt}</p> : <p className="ag-note">{t('jobs.edit.summary.promptEmpty')}</p>}
+        </section>
         <section className="ag-group" aria-labelledby="aj-recent-h">
           <div className="ag-section-head">
             <h2 className="ag-h2" id="aj-recent-h">{t('jobs.task.recent')}</h2>
@@ -203,7 +204,7 @@ function TaskView({ id }) {
             <p className="ag-note">{t('jobs.task.noRuns')}</p>
           ) : (
             <div className="ag-runs" data-testid="task-runs">
-              {mine.map(job => {
+              {mine.slice(0, shownRuns).map(job => {
                 const took = jobDurationMs(job)
                 // eslint-disable-next-line no-unused-vars
                 const Row = job.chat_id ? Link : 'div'
@@ -221,12 +222,15 @@ function TaskView({ id }) {
               })}
             </div>
           )}
+          {mine.length > shownRuns && (
+            <div className="aj-more">
+              <Button variant="ghost" size="sm" icon="chevron-down" onClick={() => setShownRuns(n => n + RUNS_PAGE)}>
+                {t('tasks.history.more', { count: Math.min(RUNS_PAGE, mine.length - shownRuns) })}
+              </Button>
+            </div>
+          )}
         </section>
 
-        <section className="ag-sec" aria-labelledby="aj-prompt-h">
-          <div className="ag-section-head"><h2 className="ag-h2" id="aj-prompt-h">{t('jobs.task.prompt')}</h2></div>
-          {task.prompt ? <pre className="aj-prompt">{task.prompt}</pre> : <p className="ag-note">{t('jobs.edit.summary.promptEmpty')}</p>}
-        </section>
       </div>
       <ChatDeleteConfirm item={toDelete} kind="trigger" onConfirm={remove} onCancel={() => setToDelete(null)} />
     </Page>

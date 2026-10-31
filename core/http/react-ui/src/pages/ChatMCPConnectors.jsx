@@ -3,8 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
-import Icon from '../components/Icon'
-import { Button, Callout, EmptyState, LoadError, PageHeader, PaneLayout, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, PageHeader, PaneLayout, SearchField, Segmented, SkeletonRows } from '../components/ui'
 import ConnectorRow from '../components/mcp/ConnectorRow'
 import ConnectorDetails from '../components/mcp/ConnectorDetails'
 import ConnectorSheet from '../components/mcp/ConnectorSheet'
@@ -303,20 +302,14 @@ export default function ChatMCPConnectors() {
           <div className="mcp-list-col">
             {items.length >= TOOLBAR_FROM && (
               <div className="ad-toolbar mcp-toolbar" data-testid="mcp-toolbar">
-                <span className="ad-search">
-                  <Icon name="search" aria-hidden="true" />
-                  <input type="search" className="dk-input ad-search__input" data-testid="mcp-search" aria-label={t('mcpPage.toolbar.search')}
-                    placeholder={t('mcpPage.toolbar.search')} value={query} onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery('') } }} />
-                </span>
-                <div className="ad-seg" role="group" aria-label={t('mcpPage.filter.label')}>
-                  {STATE_FILTERS.map(id => (
-                    <button key={id} type="button" className="ad-seg__item" aria-pressed={filter === id} onClick={() => setFilter(id)} data-testid={`mcp-filter-${id}`}>
-                      {t(`mcpPage.filter.${id}`)}
-                      <span className="mcp-seg__count">{view.counts[id]}</span>
-                    </button>
-                  ))}
-                </div>
+                <SearchField
+                  value={query} onChange={setQuery} label={t('mcpPage.toolbar.search')} testId="mcp-search"
+                  onKeyDown={(e) => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery('') } }}
+                />
+                <Segmented
+                  label={t('mcpPage.filter.label')} value={filter} onChange={setFilter} itemTestId="mcp-filter-"
+                  options={STATE_FILTERS.map(id => ({ id, label: t(`mcpPage.filter.${id}`), count: view.counts[id] }))}
+                />
                 {enabledCount > 0 && (
                   <Button size="sm" variant="ghost" icon="refresh" busy={testingAll} disabled={testingAll} onClick={testAll} data-testid="mcp-test-all">
                     {testingAll ? t('mcpPage.toolbar.testingAll') : t('mcpPage.toolbar.testAll')}

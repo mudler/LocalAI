@@ -15,13 +15,8 @@
 .mcp-mono { font-family: var(--font-mono); font-size: var(--fs-meta); }
 .mcp-quiet { color: var(--dk-muted); }
 
-/* ---- Toolbar: a count in each filter -------------------------------------- */
-.mcp-seg__count {
-  margin-left: var(--sp-1);
-  color: var(--dk-muted);
-  font-variant-numeric: tabular-nums;
-}
-.ad-seg__item[aria-pressed="true"] .mcp-seg__count { color: var(--dk-text); }
+/* ---- Toolbar: the kit's SearchField and Segmented (ui.css) ---------------- */
+.mcp-toolbar .ui-seg__item[aria-pressed="true"] .ui-seg__count { color: var(--dk-text); }
 
 /* ---- Rows ------------------------------------------------------------------ */
 .mcp-row { transition: background-color var(--dur-instant) var(--ease-out), opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
@@ -97,7 +92,7 @@
   color: var(--dk-muted);
 }
 .mcp-note .lai-icon { flex: none; width: 13px; height: 13px; margin-top: 2px; }
-.mcp-tools-search { display: block; }
+.mcp-tools-search { flex: none; width: 100%; }
 
 /* ---- Tools ----------------------------------------------------------------- */
 .mcp-tools {
@@ -194,8 +189,8 @@
   .mcp-row__act .dk-btn { position: relative; }
   .mcp-row__act .dk-btn::before { content: ""; position: absolute; inset: -6px 0; }
   .mcp-row__side { justify-content: flex-start; }
-  .ad-seg__item { min-height: 44px; }
-  .mcp-toolbar .ad-seg { align-self: stretch; overflow-x: auto; scrollbar-width: none; }
+  .mcp-toolbar .ui-seg__item { min-height: 44px; }
+  .mcp-toolbar .ui-seg { align-self: stretch; overflow-x: auto; scrollbar-width: none; }
   .mcp-kinds { grid-template-columns: minmax(0, 1fr); }
   .mcp-pair { grid-template-columns: minmax(0, 1fr) auto; }
   .mcp-pair > .mcp-secret { grid-column: 1; grid-row: 2; }

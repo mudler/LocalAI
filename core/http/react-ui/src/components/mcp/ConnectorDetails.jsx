@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { Button, Callout, SidePane, Switch } from '../ui'
+import { Button, Callout, SearchField, SidePane, Switch } from '../ui'
 import { filterTools, mcpAddress, mcpTarget, sentence, testedWhen as when } from '../../utils/chatMCP'
 import { StateChip, ToolList } from './ConnectorBits'
 
@@ -81,11 +81,7 @@ export default function ConnectorDetails({ c, state, check, testing, busy, onClo
           {!tools && <p className="mcp-section__text">{t('mcpPage.details.toolsUnknown')}</p>}
           {tools && tools.length === 0 && <p className="mcp-section__text">{t('mcpPage.details.toolsNone')}</p>}
           {tools && tools.length > 5 && (
-            <span className="dk-input-icon mcp-tools-search">
-              <Icon name="search" className="dk-icon" />
-              <input type="search" className="dk-input" value={query} onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('mcpPage.details.toolsSearch')} aria-label={t('mcpPage.details.toolsSearch')} data-testid="mcp-tools-search" />
-            </span>
+            <SearchField value={query} onChange={setQuery} label={t('mcpPage.details.toolsSearch')} className="mcp-tools-search" testId="mcp-tools-search" />
           )}
           {tools && tools.length > 0 && shown.length === 0 && (
             <p className="mcp-section__text">{t('mcpPage.details.noToolMatch', { query: query.trim() })}</p>

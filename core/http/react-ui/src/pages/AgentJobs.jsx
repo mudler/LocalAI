@@ -1,34 +1,28 @@
-// eslint-disable-next-line no-unused-vars
+/* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { Fragment, useState, useEffect, useCallback, useMemo } from 'react'
-// eslint-disable-next-line no-unused-vars
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatAgentsApi, chatTriggersApi } from '../utils/api'
 import { browserZone } from '../utils/chatTrigger'
 import {
-  failingTasks, groupByDay, isActive, jobDurationMs, jobOfRun, jobsOf, statusCounts, weekSummary,
+  failingTasks, groupByDay, jobDurationMs, jobOfRun, jobsOf, statusCounts, weekSummary,
 } from '../utils/agentJobs'
 import { formatDuration } from '../utils/agentRuns'
-// eslint-disable-next-line no-unused-vars
 import ChatDeleteConfirm from '../components/ChatDeleteConfirm'
-// eslint-disable-next-line no-unused-vars
 import ActionMenu from '../components/ActionMenu'
-// eslint-disable-next-line no-unused-vars
-import { JobMark, JobStrip, ScheduleText } from '../components/agents/JobBits'
+import { JobMark, JobStrip } from '../components/agents/JobBits'
 import { jobSentence } from '../utils/agentJobText'
-import { formatWhen } from '../components/agents/AgentBits'
+import { AgentViews, StatusMark } from '../components/agents/AgentBits'
+import { ClockTime, OutputBlock, RelTime, RunItem } from '../components/agents/RunBits'
 import Icon from '../components/Icon'
-// eslint-disable-next-line no-unused-vars
-import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
-// eslint-disable-next-line no-unused-vars
-import { AgentViews } from '../components/agents/AgentBits'
+import { Button, EmptyState, LoadError, Page, PageHeader, Segmented, SkeletonRows, Switch } from '../components/ui'
 import './agents.css'
 import './agent-jobs.css'
 
 const STATUS_ORDER = ['done', 'failed', 'running', 'queued', 'skipped']
+const PAGE = 30
 
 // One sentence about the week, built from the jobs the server returned.
-// eslint-disable-next-line no-unused-vars
 function WeekSentence({ jobs, tasks }) {
   const { t } = useTranslation('agents')
   if (jobs.length === 0) return <p className="aj-sum" data-testid="jobs-summary">{t('jobs.summary.none')}</p>
@@ -52,11 +46,6 @@ function WeekSentence({ jobs, tasks }) {
   )
 }
 
-function clockOf(iso) {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
 export default function AgentJobs() {
   const { addToast } = useOutletContext()
   const { t } = useTranslation(['agents', 'chats'])
@@ -70,8 +59,8 @@ export default function AgentJobs() {
   const [off, setOff] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [taskFilter, setTaskFilter] = useState('all')
-  const [tasksOpen, setTasksOpen] = useState(true)
   const [expanded, setExpanded] = useState(() => new Set())
+  const [limit, setLimit] = useState(PAGE)
   const [toDelete, setToDelete] = useState(null)
 
   const fetchData = useCallback(async () => {
@@ -150,7 +139,7 @@ export default function AgentJobs() {
   const byTask = taskFilter === 'all' ? jobs : jobs.filter(j => j.task_id === taskFilter)
   const counts = statusCounts(byTask)
   const shown = statusFilter === 'all' ? byTask : byTask.filter(j => j.status === statusFilter)
-  const groups = groupByDay(shown)
+  const visibleGroups = groupByDay(shown.slice(0, limit))
   const filtered = statusFilter !== 'all' || taskFilter !== 'all'
 
   const emptyTasks = !loading && !error && tasks.length === 0 && proposals.length === 0
@@ -220,110 +209,41 @@ export default function AgentJobs() {
             />
           ) : (
             <>
-              <WeekSentence jobs={jobs} tasks={tasks} />
-
               <section className="aj-sec" aria-labelledby="aj-tasks-h">
-                <div className="aj-sec__head">
-                  <h2 className="ag-eyebrow" id="aj-tasks-h">{t('jobs.tasks.title', { count: tasks.length })}</h2>
-                  <Button variant="ghost" size="sm" icon={tasksOpen ? 'chevron-up' : 'chevron-down'} aria-expanded={tasksOpen} aria-controls="aj-tasks" onClick={() => setTasksOpen(v => !v)}>
-                    {tasksOpen ? t('jobs.tasks.hide') : t('jobs.tasks.show')}
-                  </Button>
-                </div>
-                {tasksOpen && (tasks.length === 0 ? (
-                  <p className="ag-note" id="aj-tasks">{t('jobs.tasks.noneYet')}</p>
+                <h2 className="dk-sr-only" id="aj-tasks-h">{t('jobs.tasks.title', { count: tasks.length })}</h2>
+                {tasks.length === 0 ? (
+                  <p className="ag-note">{t('jobs.tasks.noneYet')}</p>
                 ) : (
-                  <div className="dk-table-wrap aj-wrap" role="region" aria-label={t('jobs.tasks.caption')} tabIndex={0} id="aj-tasks">
-                    <table className="dk-table aj-table" data-testid="jobs-tasks">
-                      <caption className="dk-sr-only">{t('jobs.tasks.caption')}</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col">{t('jobs.tasks.task')}</th>
-                          <th scope="col" className="dk-hide-phone">{t('jobs.tasks.schedule')}</th>
-                          <th scope="col" className="dk-hide-phone">{t('jobs.tasks.lastRuns')}</th>
-                          <th scope="col"><span className="dk-sr-only">{t('jobs.tasks.enabled')}</span></th>
-                          <th scope="col" className="dk-table-actions"><span className="dk-sr-only">{t('jobs.tasks.actions')}</span></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tasks.map(task => {
-                          const mine = jobsOf(jobs, task.id)
-                          const last = mine[0]
-                          const off = !task.enabled
-                          const label = task.name || task.id
-                          const who = agentName(task.agent_id)
-                          return (
-                            <tr key={task.id} data-row data-task={label}>
-                              <td>
-                                <Link className="aj-name" to={`/app/triggers/${encodeURIComponent(task.id)}`}>{label}</Link>
-                                <span className="aj-sub">
-                                  {who
-                                    ? <Link className="aj-model" to={`/app/agents/${encodeURIComponent(task.agent_id)}`}>{who}</Link>
-                                    : <span className="ag-muted">{task.model || t('jobs.tasks.noAgent')}</span>}
-                                  {task.kind === 'file' && <span className="ag-muted">{t('jobs.tasks.fileKind')}</span>}
-                                </span>
-                                <span className="aj-phone-line">{task.summary}{last ? `. ${last.status === 'failed' ? t('jobs.tasks.lastRunFailedSentence') : t('jobs.tasks.lastRun', { when: formatWhen(Date.parse(last.created_at)) })}` : ''}</span>
-                              </td>
-                              <td className="dk-hide-phone"><ScheduleText trigger={task} off={off} /></td>
-                              <td className="dk-hide-phone">
-                                <div className="aj-record">
-                                  <JobStrip jobs={mine} />
-                                  <span className="ag-muted ag-small">
-                                    {last
-                                      ? (last.status === 'failed'
-                                        ? <>{t('jobs.tasks.lastRun', { when: formatWhen(Date.parse(last.created_at)) })}, {t('jobs.tasks.lastRunFailed')}</>
-                                        : t('jobs.tasks.lastRun', { when: formatWhen(Date.parse(last.created_at)) }))
-                                      : t('jobs.tasks.neverRun')}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="dk-table-toggle-cell">
-                                <button
-                                  type="button"
-                                  className="dk-switch"
-                                  role="switch"
-                                  aria-checked={!off}
-                                  aria-label={t('jobs.tasks.toggleLabel', { name: label })}
-                                  onClick={() => toggleEnabled(task)}
-                                />
-                              </td>
-                              <td className="dk-table-actions">
-                                <div className="aj-acts">
-                                  <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => act(() => chatTriggersApi.run(task.id), t('jobs.tasks.started', { name: label }))} title={t('jobs.tasks.runNow')}>
-                                    <Icon name="play" className="ui-btn__icon" /><span className="aj-acts__word">{t('jobs.tasks.runNow')}</span>
-                                  </button>
-                                  <ActionMenu
-                                    ariaLabel={t('jobs.tasks.moreFor', { name: label })}
-                                    items={[
-                                      { key: 'open', icon: 'eye', label: t('jobs.tasks.open'), onClick: () => navigate(`/app/triggers/${encodeURIComponent(task.id)}`) },
-                                      { key: 'edit', icon: 'edit', label: t('jobs.tasks.edit'), onClick: () => navigate(`/app/triggers/${encodeURIComponent(task.id)}/edit`) },
-                                      { divider: true },
-                                      { key: 'delete', icon: 'trash', label: t('jobs.tasks.delete'), danger: true, onClick: () => setToDelete(task) },
-                                    ]}
-                                  />
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
+                  <ul className="ag-list aj-tasks" data-testid="jobs-tasks" aria-label={t('jobs.tasks.caption')}>
+                    {tasks.map(task => (
+                      <TriggerRow
+                        key={task.id}
+                        task={task}
+                        jobs={jobsOf(jobs, task.id)}
+                        agent={agentName(task.agent_id)}
+                        onToggle={() => toggleEnabled(task)}
+                        onRun={() => act(() => chatTriggersApi.run(task.id), t('jobs.tasks.started', { name: task.name || task.id }))}
+                        onOpen={() => navigate(`/app/triggers/${encodeURIComponent(task.id)}`)}
+                        onEdit={() => navigate(`/app/triggers/${encodeURIComponent(task.id)}/edit`)}
+                        onDelete={() => setToDelete(task)}
+                      />
+                    ))}
+                  </ul>
+                )}
               </section>
 
               <section className="aj-sec" aria-labelledby="aj-hist-h">
-                <div className="aj-sec__head">
-                  <h2 className="ag-eyebrow" id="aj-hist-h">{t('jobs.history.title')}</h2>
+                <div className="aj-sec__head aj-sec__head--stack">
+                  <h2 className="ag-h2" id="aj-hist-h">{t('jobs.history.title')}</h2>
+                  <WeekSentence jobs={jobs} tasks={tasks} />
                 </div>
-                <div className="aj-filters" role="group" aria-label={t('jobs.history.filterStatus')}>
-                  <button type="button" className="dk-chip" aria-pressed={statusFilter === 'all'} onClick={() => setStatusFilter('all')} data-filter="all">
-                    {t('jobs.history.all')} <span className="aj-count">{counts.all}</span>
-                  </button>
-                  {STATUS_ORDER.filter(s => counts[s] || statusFilter === s).map(s => (
-                    <button key={s} type="button" className="dk-chip" aria-pressed={statusFilter === s} onClick={() => setStatusFilter(statusFilter === s ? 'all' : s)} data-filter={s}>
-                      {t(`jobs.status.${s}`)} <span className="aj-count">{counts[s] || 0}</span>
-                    </button>
-                  ))}
+                <div className="aj-toolbar">
+                  <Segmented
+                    label={t('jobs.history.filterStatus')}
+                    value={statusFilter}
+                    onChange={(s) => setStatusFilter(s)}
+                    options={[{ id: 'all', label: t('jobs.history.all'), count: counts.all }, ...STATUS_ORDER.filter(s => counts[s] || statusFilter === s).map(s => ({ id: s, label: t(`jobs.status.${s}`), count: counts[s] || 0 }))]}
+                  />
                   <span className="dk-select-wrap aj-taskfilter">
                     <select className="dk-select" value={taskFilter} onChange={(e) => setTaskFilter(e.target.value)} aria-label={t('jobs.history.filterTask')}>
                       <option value="all">{t('jobs.history.allTasks')}</option>
@@ -346,74 +266,44 @@ export default function AgentJobs() {
                     )}
                   />
                 ) : (
-                  <div className="dk-table-wrap aj-wrap" role="region" aria-label={t('jobs.history.caption')} tabIndex={0}>
-                    <table className="dk-table aj-table aj-table--history" data-testid="jobs-history">
-                      <caption className="dk-sr-only">{t('jobs.history.caption')}</caption>
-                      <thead>
-                        <tr>
-                          <th scope="col" className="dk-table-toggle-cell"><span className="dk-sr-only">{t('jobs.history.details', { name: '' })}</span></th>
-                          <th scope="col">{t('jobs.history.outcome')}</th>
-                          <th scope="col">{t('jobs.history.task')}</th>
-                          <th scope="col" className="dk-hide-phone">{t('jobs.history.what')}</th>
-                          <th scope="col" className="dk-num dk-hide-phone">{t('jobs.history.started')}</th>
-                          <th scope="col" className="dk-num dk-hide-phone">{t('jobs.history.took')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groups.map(g => (
-                          <Fragment key={g.key}>
-                            <tr className="aj-day" data-day={g.key}>
-                              <th scope="colgroup" colSpan={6}>
-                                {g.day ? t(`jobs.history.${g.day}`) : (g.date ? new Date(g.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: new Date(g.date).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) : '')}
-                              </th>
-                            </tr>
-                            {g.jobs.map(job => {
-                              const open = expanded.has(job.id)
-                              const name = nameOf(job)
-                              const took = jobDurationMs(job)
-                              const failed = job.status === 'failed'
-                              return (
-                                <Fragment key={job.id}>
-                                  <tr data-row data-job={job.id} data-status={job.status} data-error={failed || undefined}>
-                                    <td className="dk-table-toggle-cell">
-                                      <button
-                                        type="button"
-                                        className="dk-table-toggle"
-                                        aria-expanded={open}
-                                        aria-controls={`aj-d-${job.id}`}
-                                        aria-label={t('jobs.history.details', { name })}
-                                        onClick={() => toggleRow(job.id)}
-                                      >
-                                        <Icon name="chevron-right" />
-                                      </button>
-                                    </td>
-                                    <td><JobMark status={job.status} /></td>
-                                    <td className="dk-table-name">
-                                      <Link className="aj-name" to={`/app/triggers/${encodeURIComponent(job.task_id)}`}>{name}</Link>
-                                      <span className="aj-phone-line">{jobSentence(job, t, 70)}{(job.started_at || job.created_at) && !isActive(job) ? `, ${clockOf(job.started_at || job.created_at)}` : ''}</span>
-                                    </td>
-                                    <td className="dk-hide-phone"><span className="aj-what">{jobSentence(job, t)}</span></td>
-                                    <td className="dk-num dk-hide-phone">{clockOf(job.started_at || job.created_at)}</td>
-                                    <td className="dk-num dk-hide-phone">{took != null ? formatDuration(took) : ''}</td>
-                                  </tr>
-                                  <tr className="dk-table-detail" id={`aj-d-${job.id}`}>
-                                    <td colSpan={6}>
-                                      <div className="dk-collapse" data-open={open}>
-                                        <div className="aj-collapse-in">
-                                          <div className="dk-table-detail-body">
-                                            {open && <JobDetail job={job} t={t} />}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                </Fragment>
-                              )
-                            })}
-                          </Fragment>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="aj-runs" data-testid="jobs-history" aria-label={t('jobs.history.caption')}>
+                    {visibleGroups.map(g => (
+                      <Fragment key={g.key}>
+                        <h3 className="aj-day-head" data-day={g.key}>
+                          {g.day ? t(`jobs.history.${g.day}`) : (g.date ? new Date(g.date).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: new Date(g.date).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }) : '')}
+                        </h3>
+                        <ul className="aj-runs__list">
+                          {g.jobs.map(job => {
+                            const name = nameOf(job)
+                            const took = jobDurationMs(job)
+                            return (
+                              <RunItem
+                                key={job.id}
+                                open={expanded.has(job.id)}
+                                onToggle={() => toggleRow(job.id)}
+                                toggleLabel={t('jobs.history.details', { name })}
+                                error={job.status === 'failed'}
+                                data={{ 'data-job': job.id, 'data-status': job.status }}
+                                status={<JobMark status={job.status} />}
+                                title={<Link to={`/app/triggers/${encodeURIComponent(job.task_id)}`}>{name}</Link>}
+                                line={jobSentence(job, t)}
+                                when={<ClockTime iso={job.started_at || job.created_at} />}
+                                took={took != null ? formatDuration(took) : ''}
+                              >
+                                <JobDetail job={job} t={t} />
+                              </RunItem>
+                            )
+                          })}
+                        </ul>
+                      </Fragment>
+                    ))}
+                    {shown.length > limit && (
+                      <div className="aj-more">
+                        <Button variant="ghost" size="sm" icon="chevron-down" onClick={() => setLimit(l => l + PAGE)}>
+                          {t('tasks.history.more', { count: Math.min(PAGE, shown.length - limit) })}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </section>
@@ -429,17 +319,13 @@ export default function AgentJobs() {
 
 // The open row of the history: why it failed or was skipped, the file that
 // started it, and the way into the chat it started.
-// eslint-disable-next-line no-unused-vars
 function JobDetail({ job, t }) {
   const failed = job.status === 'failed'
   const why = job.reason || job.error
   return (
     <div className={`aj-detail${failed ? ' aj-detail--failed' : ''}`} data-testid="job-detail">
       {why ? (
-        <>
-          <span className="ag-eyebrow">{failed ? t('jobs.history.error') : t('jobs.history.reason')}</span>
-          <pre className="aj-excerpt" data-testid="job-excerpt">{why}</pre>
-        </>
+        <OutputBlock label={failed ? t('jobs.history.error') : t('jobs.history.reason')} text={why} tone={failed ? 'error' : undefined} testId="job-excerpt" />
       ) : (
         <p className="ag-note">{jobSentence(job, t)}</p>
       )}
@@ -450,5 +336,60 @@ function JobDetail({ job, t }) {
         </div>
       )}
     </div>
+  )
+}
+
+// One trigger: a tile for its kind, its name, the agent or model that runs
+// it and when it runs in words, how its last runs went, and on/off, Run now
+// and a menu. The words of the schedule are the server's ("Every weekday at
+// 08:00").
+function TriggerRow({ task, jobs, agent, onToggle, onRun, onOpen, onEdit, onDelete }) {
+  const { t } = useTranslation('agents')
+  const last = jobs[0]
+  const off = !task.enabled
+  const label = task.name || task.id
+  const file = task.kind === 'file'
+  return (
+    <li className="ag-row aj-task" data-row data-task={label} data-off={off || undefined}>
+      <span className="ag-tile" aria-hidden="true"><Icon name={file ? 'folder' : 'clock'} /></span>
+      <div className="ag-row__main">
+        <Link className="ag-row__name" to={`/app/triggers/${encodeURIComponent(task.id)}`}>{label}</Link>
+        <span className="aj-task__desc aj-task__when">{task.summary || t('jobs.tasks.noSchedule')}</span>
+        <span className="ag-meta">
+          {agent
+            ? <Link to={`/app/agents/${encodeURIComponent(task.agent_id)}`}><Icon name="robot" />{agent}</Link>
+            : <span className="ag-mono"><Icon name="cube" />{task.model || t('jobs.tasks.noAgent')}</span>}
+          {!off && Date.parse(task.next_run || '') > Date.now() && <span><Icon name="calendar" />{t('jobs.tasks.next')} <RelTime iso={task.next_run} /></span>}
+          {off && <span>{t('jobs.task.disabled')}</span>}
+        </span>
+      </div>
+      <div className="ag-row__record">
+        {last ? (
+          <>
+            <span className="aj-last">
+              {last.status === 'failed'
+                ? <StatusMark status="failed" label={t('jobs.tasks.lastRunFailedSentence')} />
+                : <JobMark status={last.status} />}
+              <RelTime className="ag-muted" iso={last.started_at || last.created_at} />
+            </span>
+            <JobStrip jobs={jobs} />
+          </>
+        ) : <span className="ag-muted">{t('jobs.tasks.neverRun')}</span>}
+      </div>
+      <div className="ag-row__end">
+        <Switch checked={!off} onChange={onToggle} label={t('jobs.tasks.toggleLabel', { name: label })} />
+        <Button size="sm" icon="play" className="aj-task__run" onClick={onRun} aria-label={t('jobs.tasks.runNow')}><span className="aj-acts__word">{t('jobs.tasks.runNow')}</span></Button>
+        <ActionMenu
+          ariaLabel={t('jobs.tasks.moreFor', { name: label })}
+          items={[
+            { key: 'run', icon: 'play', label: t('jobs.tasks.runNow'), onClick: onRun },
+            { key: 'open', icon: 'eye', label: t('jobs.tasks.open'), onClick: onOpen },
+            { key: 'edit', icon: 'edit', label: t('jobs.tasks.edit'), onClick: onEdit },
+            { divider: true },
+            { key: 'delete', icon: 'trash', label: t('jobs.tasks.delete'), danger: true, onClick: onDelete },
+          ]}
+        />
+      </div>
+    </li>
   )
 }
