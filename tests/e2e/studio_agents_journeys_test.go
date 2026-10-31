@@ -217,12 +217,14 @@ var _ = Describe("Chats saved agents", Label("Chats"), func() {
 		Expect(dup).To(BeEmpty())
 	})
 
-	It("keeps the prompt free of nib's own skill and its load_skill tool", func() {
+	It("keeps the agent engine's own skill and command text out of the prompt and offers the chat's load_skill tool", func() {
 		system, tools := agUpstreamRequest(agObj{"model": "cp-passthrough-openai"}, "hello")
 		Expect(system).NotTo(ContainSubstring("about-nib"))
-		Expect(system).NotTo(ContainSubstring("load_skill"))
+		Expect(system).NotTo(ContainSubstring("AI terminal assistant"))
 		Expect(system).NotTo(ContainSubstring("mcp add"))
-		Expect(tools).NotTo(ContainElement("load_skill"))
+		// load_skill is the chat's own tool now: the skills index points at it.
+		Expect(system).To(ContainSubstring("call the load_skill tool"))
+		Expect(tools).To(ContainElement("load_skill"))
 	})
 })
 
