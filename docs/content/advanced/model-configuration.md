@@ -739,6 +739,19 @@ and (for `enable_thinking` / `reasoning_effort`) takes effect across every backe
 reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
 model YAML `chat_template_kwargs`, where YAML preserves the type.
 
+Clients written for llama.cpp's `llama-server`, vLLM or SGLang send the same switches as a
+top-level `chat_template_kwargs` object. LocalAI accepts that too and folds its scalar values
+into `metadata` (booleans become `"true"` / `"false"`, numbers become strings; nested objects
+and arrays are ignored). If a key appears in both, `metadata` wins:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "chat_template_kwargs": { "enable_thinking": false }
+}
+```
+
 ### Multimodal Backend Options
 
 | Option | Type | Default | Description |
@@ -1123,8 +1136,9 @@ curl http://localhost:8080/v1/chat/completions \
 
 **Priority order:**
 1. Request-level `metadata.enable_thinking` (highest priority)
-2. Model config `reasoning.disable` (fallback)
-3. Auto-detected from model template (default)
+2. Request-level `chat_template_kwargs.enable_thinking` (the llama-server / vLLM form)
+3. Model config `reasoning.disable` (fallback)
+4. Auto-detected from model template (default)
 
 ## Pipeline Configuration
 
