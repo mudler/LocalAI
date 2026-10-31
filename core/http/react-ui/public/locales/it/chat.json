@@ -112,6 +112,7 @@
     "label": "Strumenti",
     "title": "Strumenti che questa chat può usare",
     "heading": "Strumenti di questa chat",
+    "draftNote": "Una nuova chat parte con queste impostazioni. Uno strumento spento non viene offerto al modello.",
     "note": "Uno strumento spento qui non viene offerto al modello in questa chat."
   },
   "skills": {

@@ -110,6 +110,7 @@
     "label": "Outils",
     "title": "Outils que ce chat peut utiliser",
     "heading": "Outils de ce chat",
+    "draftNote": "Une nouvelle discussion démarre avec ces réglages. Un outil désactivé n'est pas proposé au modèle.",
     "note": "Un outil désactivé ici n'est pas proposé au modèle dans ce chat."
   },
   "skills": {

@@ -284,9 +284,10 @@ export function useServerChat() {
     }
   }, [refreshList, closeStream])
 
-  const createChat = useCallback(async (model, agentId) => {
+  // switches are the drafted switches of the new chat (useChatSwitches).
+  const createChat = useCallback(async (model, agentId, switches) => {
     setError('')
-    const created = await chatsApi.create(model, undefined, agentId)
+    const created = await chatsApi.create(model, undefined, agentId, false, switches || undefined)
     await refreshList()
     return created.id
   }, [refreshList, setError])

@@ -1120,9 +1120,26 @@ turns the feature on and off. See [LocalAI Assistant](/features/localai-assistan
 The web UI talks to this API, so a chat keeps running when you close the tab
 and opens again from any browser.
 
-- **Home starts a chat.** Home (`/app`) is the front door: pick a model in the
-  message box, type and send. The chat opens at `/app/chats/<id>`. Home also
-  lists your newest chats under **Jump back in**.
+- **Home starts a chat.** Home (`/app`) is the front door. Its message box is
+  the one of the chat page, so everything a new chat offers works there before
+  the chat exists:
+  - pick the model (each row says whether it is loaded, what it can do and how
+    it fits this machine) and a [saved agent](/features/chats-agents/);
+  - switch tools, add-ons and skills in the **Tools** and **Skills** menus.
+    They are a draft: the chat starts with them (`switches` in
+    `POST /api/chats`);
+  - attach images, audio and other files with the buttons, or paste an image.
+    They go with the first message;
+  - dictate, use the shortcuts row above the box, and type `/` for the Home
+    actions;
+  - `Enter` sends and `Shift+Enter` adds a line.
+
+  The text you type on Home stays in the browser across a reload until you
+  send it (staged files stay only until the page closes). **Send** creates the
+  chat, sends the message with its files and opens the chat at
+  `/app/chats/<id>`. If the message cannot be sent, the new chat is removed and
+  the text and files stay on Home. Home also lists your newest chats under
+  **Jump back in**.
 - **The sidebar** lists your most recent chats under the main entries, with
   **New chat** (the `+` beside **Recent chats**, which opens Home) and **All
   chats**. When the sidebar is collapsed, only the **All chats** icon shows.
@@ -1148,7 +1165,8 @@ The chat page (`/app/chats/<id>`) shows one chat.
 - **A new chat.** **New chat** in the **More** menu, in the `Ctrl+K` list and
   `/new` in the message box open Home. A chat with a [saved
   agent](/features/chats-agents/) starts from the agent's row on the Agents
-  page: the chat page opens empty with the agent chosen. Picking another model
+  page: the chat page opens empty with the agent chosen, and its **Tools** and
+  **Skills** menus are a draft for the new chat, as on Home. Picking another model
   in an open chat moves the chat to it from the next turn (not while a turn
   runs). `/assistant` starts a chat with the LocalAI management tools
   (administrators, when the assistant is on).

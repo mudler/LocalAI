@@ -842,7 +842,21 @@ button.cx-step__head:hover,
 .cx-icobtn--lg { width: 36px; height: 36px; font-size: 18px; }
 .cx-icobtn[aria-pressed="true"] { background: var(--dk-hover); color: var(--dk-text); }
 .chat-addons-menu { min-width: 21rem; max-width: calc(100vw - 32px); }
-@media (max-width: 640px) { .chat-addons-menu { left: auto; right: 0; min-width: 0; width: max-content; } }
+/* On a phone the Tools and agent menus are a sheet over the bottom of the
+   screen, as the skills picker is: the chips wrap, so a menu hung from one
+   could leave the screen on either side. */
+@media (max-width: 640px) {
+  .chat-mcp-dropdown .chat-mcp-dropdown-menu.chat-addons-menu.chat-addons-menu {
+    position: fixed;
+    top: auto;
+    left: var(--sp-4);
+    right: var(--sp-4);
+    bottom: calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+    min-width: 0;
+    width: auto;
+    max-height: 70dvh;
+  }
+}
 .chat-addons-note { margin: 0; padding: var(--spacing-xs, 4px) var(--spacing-md, 12px); font-size: 0.75rem; color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-divider); }
 .chat-addons-menu .chat-mcp-server-item { align-items: center; }
 .chat-addons-menu .ad-icon { width: 20px; height: 20px; font-size: 12px; }
@@ -1176,6 +1190,8 @@ button.cx-step__head:hover,
   .cx-dock { padding: 4px 12px 8px; }
   .cx-dock .home-slash-hint, .cx-dock .home-input-hint { display: none; }
   .cx-dock .home-cmd__top { flex-wrap: nowrap; }
+  /* An empty chat has the draft menus too: its chips wrap, as on Home. */
+  .cx-conv[data-empty] .cx-dock .home-cmd__top { flex-wrap: wrap; }
   .cx-foot { padding-top: 6px; }
   .cx-find { width: calc(100% - 24px); margin-bottom: 6px; }
   .cx-menu { top: 56px; }

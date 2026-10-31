@@ -137,9 +137,11 @@ export const chatsApi = {
   list: (limit, kind) => fetchJSON(chatsListPath(API_CONFIG.endpoints.chats, limit, kind)),
   // With an agent, its model (when it has one) replaces model. With assistant,
   // the chat gets the LocalAI management tools (admin only, setting on).
-  create: (model, title, agentId, assistant) => postJSON(API_CONFIG.endpoints.chats, {
+  // switches are the drafted switches of a new chat (useChatSwitches): the
+  // chat is stored with them.
+  create: (model, title, agentId, assistant, switches) => postJSON(API_CONFIG.endpoints.chats, {
     ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),
-    ...(assistant ? { assistant: true } : {}),
+    ...(assistant ? { assistant: true } : {}), ...(switches ? { switches } : {}),
   }),
   get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
   delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
@@ -307,6 +309,15 @@ export const sharedFoldersApi = {
 
 // Chat skills: folders with a SKILL.md in four layers, switched per chat.
 const enc2 = encodeURIComponent
+// The query of the draft lists: the model and the agent of the new chat.
+function draftQuery(model, agentId) {
+  const q = new URLSearchParams()
+  if (model) q.set('model', model)
+  if (agentId) q.set('agent_id', agentId)
+  const s = q.toString()
+  return s ? `?${s}` : ''
+}
+
 export const chatSkillsApi = {
   list: (chat) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : ''}`),
   // addon names the add-on of a skill of the addon layer.
@@ -320,6 +331,8 @@ export const chatSkillsApi = {
 // Chat add-ons: the add-ons whose tools a chat may use, switched per chat.
 export const chatAddonsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/addons`),
+  // The add-ons of a chat that does not exist yet, on model with the agent.
+  draft: (model, agentId) => fetchJSON(`/api/chats/draft/addons${draftQuery(model, agentId)}`),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
 
@@ -369,6 +382,8 @@ export const chatMCPConnectorsApi = {
 // a chat, with their switches. The add-ons have their own calls above.
 export const chatToolsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/tools`),
+  // The tools of a chat that does not exist yet, on model with the agent.
+  draft: (model, agentId) => fetchJSON(`/api/chats/draft/tools${draftQuery(model, agentId)}`),
   setMcpOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/mcp`, { method: 'PUT', body: JSON.stringify({ off }) }),
   // on lists the opt-in groups that are on (saved_agents); omit it to keep them.
   setBuiltinsOff: (chat, off, on) => fetchJSON(`/api/chats/${enc2(chat)}/builtins`, { method: 'PUT', body: JSON.stringify(on ? { off, on } : { off }) }),

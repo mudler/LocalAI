@@ -112,6 +112,7 @@
     "label": "Herramientas",
     "title": "Herramientas que puede usar este chat",
     "heading": "Herramientas de este chat",
+    "draftNote": "Un chat nuevo empieza con estos interruptores. Una herramienta desactivada no se ofrece al modelo.",
     "note": "Una herramienta apagada aquí no se ofrece al modelo en este chat."
   },
   "skills": {

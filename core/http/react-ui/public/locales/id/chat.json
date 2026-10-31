@@ -112,6 +112,7 @@
     "label": "Alat",
     "title": "Alat yang bisa dipakai obrolan ini",
     "heading": "Alat untuk obrolan ini",
+    "draftNote": "Chat baru dimulai dengan sakelar ini. Alat yang dimatikan tidak ditawarkan ke model.",
     "note": "Alat yang dimatikan di sini tidak ditawarkan ke model di obrolan ini."
   },
   "skills": {

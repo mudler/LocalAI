@@ -3,10 +3,9 @@ import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams 
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
-import { useChatDrafts } from '../hooks/useChatDrafts'
-import { useChatSwitches } from '../hooks/useChatSwitches'
+import { useChatComposer } from '../hooks/useChatComposer'
 import { useChatEgress } from '../hooks/useChatEgress'
-import { cardsByTool, networkMode } from '../utils/chatEgress'
+import { cardsByTool } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
@@ -14,7 +13,6 @@ import {
 } from '../utils/chatThread'
 import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
-import { connectorRef } from '../utils/chatMCP'
 // eslint-disable-next-line no-unused-vars
 import ChatFilesPane from '../components/chat/ChatFilesPane'
 import { useChatFiles } from '../hooks/useChatFiles'
@@ -22,19 +20,10 @@ import { useChatPreviewPane } from '../hooks/useChatPreviewPane'
 // eslint-disable-next-line no-unused-vars
 import { FileChipRow } from '../components/chat/FileChips'
 import { codeBlocksOf, extensionForLanguage, isPreviewableBlock, turnFiles } from '../utils/previewPane'
-import { chatAgentsApi, chatsApi, modelsApi } from '../utils/api'
+import { chatsApi, modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
-import { CAP_CHAT } from '../utils/capabilities'
-import { seesImages } from '../utils/chatVision'
-import VisionNotice from '../components/chat/VisionNotice'
 // eslint-disable-next-line no-unused-vars
-import HomeComposer from '../components/home/HomeComposer'
-// eslint-disable-next-line no-unused-vars
-import HomeModelPicker from '../components/home/HomeModelPicker'
-import { useModels } from '../hooks/useModels'
-import { useModelFit } from '../hooks/useModelFit'
-import { fillStyle, hostMemory, memoryFigure } from '../components/home/memory'
-import { gbLabel, gbNumber } from '../utils/modelLedger'
+import ChatComposer from '../components/chat/ChatComposer'
 import { CHAT_SLASH_GROUPS, OPEN_CHAT_FILE_EVENT, availableChatActions } from '../components/chat/chatActions'
 import { isTyping } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
@@ -48,15 +37,7 @@ import FindBar from '../components/chat/FindBar'
 // eslint-disable-next-line no-unused-vars
 import LoadCard from '../components/chat/LoadCard'
 // eslint-disable-next-line no-unused-vars
-import SkillsMenu from '../components/chat/SkillsMenu'
-// eslint-disable-next-line no-unused-vars
 import ChatFoot from '../components/chat/ChatFoot'
-// eslint-disable-next-line no-unused-vars
-import SwitchMenu from '../components/chat/SwitchMenu'
-import { CommandsChip, CommandsNotice } from '../components/chat/CommandsNotice'
-import { useCommandsNotice } from '../hooks/useCommandsNotice'
-// eslint-disable-next-line no-unused-vars
-import AgentPicker from '../components/chat/AgentPicker'
 // eslint-disable-next-line no-unused-vars
 import SubAgentsMenu from '../components/chat/SubAgentsMenu'
 // eslint-disable-next-line no-unused-vars
@@ -66,7 +47,6 @@ import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
-import NetworkRow from '../components/chat/NetworkRow'
 import NetworkConsentCard from '../components/chat/NetworkConsentCard'
 import { EgressCardsContext } from '../components/chat/egressCardsContext'
 import MessageAttachments from '../components/chat/Attachments'
@@ -84,12 +64,8 @@ import ChatsMenu from '../components/ChatsMenu'
 // eslint-disable-next-line no-unused-vars
 import ChatInbox from '../components/ChatInbox'
 import { useAuth } from '../context/AuthContext'
-// eslint-disable-next-line no-unused-vars
-import AddonSlot from '../addons/AddonSlot'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
-import { useSandboxStatus } from '../hooks/useSandboxStatus'
-import { SANDBOX_ADDON } from '../utils/sandboxStatus'
 import { copyToClipboard } from '../utils/clipboard'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
@@ -142,13 +118,17 @@ function ChatPage() {
 
   // An old chat link or the Home page names a model with ?model=; it is a hint
   // for a new chat. An agent chosen on the agents page arrives in the state.
-  const [draftModel, setDraftModel] = useState(searchParams.get('model') || '')
-  const [agentId, setAgentId] = useState(location.state?.agentId || '')
-  const [agents, setAgents] = useState([])
   const [assistantOn, setAssistantOn] = useState(false)
-  // The text and files of the composer belong to the open chat (useChatDrafts).
-  const drafts = useChatDrafts(activeId, user?.id)
-  const { text: input, setText: setInput, files, setFiles } = drafts
+  // The composer: the text and files belong to the open chat (useChatDrafts);
+  // a new chat has a model, an agent and drafted switches (useChatComposer).
+  const activeChat = activeId ? (chat.detail || chat.chats.find(c => c.id === activeId) || null) : null
+  const composer = useChatComposer({
+    chatId: activeId, userId: user?.id, activeChat, filesOn: chat.files.on, canAgents,
+    initialModel: searchParams.get('model') || '', initialAgent: location.state?.agentId || '',
+  })
+  const { drafts, draftModel, agentId, pickedAgent, effectiveModel, switches } = composer
+  const { models: chatModels, modelsLoading: chatModelsLoading } = composer
+  const { text: input, setText: setInput, files } = drafts
   const [busy, setBusy] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [modelInfo, setModelInfo] = useState(null)
@@ -177,11 +157,6 @@ function ChatPage() {
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
   const pickerRef = useRef(null)
-  const { models: chatModels, loading: chatModelsLoading } = useModels(CAP_CHAT)
-  const [fitOpenCount, setFitOpenCount] = useState(0)
-  const modelNames = useMemo(() => chatModels.map(m => m.id), [chatModels])
-  const modelFit = useModelFit({ openCount: fitOpenCount, names: modelNames })
-  const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
 
   // The address names the open chat. Opening one by id selects it, unless it is
   // already open (creating a chat selects it before the address changes).
@@ -193,19 +168,15 @@ function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId])
 
-  // Agents and the assistant switch are best effort: a server without them
-  // leaves the picker and the /assistant action out.
+  // The assistant switch is best effort: a server without it leaves the
+  // /assistant action out.
   useEffect(() => {
     let live = true
-    if (canAgents) chatAgentsApi.list().then((r) => { if (live) setAgents(r.agents || []) }).catch(() => { if (live) setAgents([]) })
     fetch(apiUrl('/api/features')).then(r => r.json()).then(d => { if (live) setAssistantOn(!!d.localai_assistant) }).catch(() => {})
     return () => { live = false }
-  }, [canAgents])
+  }, [])
 
-  const activeChat = activeId ? (chat.detail || chat.chats.find(c => c.id === activeId) || null) : null
   const model = activeChat ? activeChat.model : draftModel
-  const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
-  const switches = useChatSwitches(activeId, chat.files.on)
   // The network of the chat's Sandbox commands, read again on its events.
   const egress = useChatEgress(activeId, chat.ticks.egress)
   // The cards of the chat by their tool line; the ones that wait are drawn
@@ -221,34 +192,10 @@ function ChatPage() {
     chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
   })
-  const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), activeId)
-  const commands = useCommandsNotice(switches.commands.state, switches.commands.reason, isAdmin)
-  // What the Tools picker says under an add-on: the Sandbox's state.
-  const addonNote = (a) => {
-    if (a.id !== SANDBOX_ADDON || !sandbox || sandbox.state === 'unknown') return {}
-    if (sandbox.state === 'cannot') return { usable: false, reason: sandbox.reason ? tc('tools.sandbox.cannotWhy', { reason: sandbox.reason }) : tc('tools.sandbox.cannot') }
-    if (sandbox.state === 'host') return { note: tc('tools.sandbox.host'), warn: true }
-    return { note: tc('tools.sandbox.isolated', { backend: sandbox.backend }) }
-  }
-  // Who serves a group of built-in tools in this chat: the built-in itself, or
-  // an add-on that shadows a tool of the group (the server resolves it).
-  const builtinNote = (b) => {
-    const by = b.providers || {}
-    const shadowed = Object.entries(by).filter(([, p]) => p && p !== 'builtin')
-    if (shadowed.length === 0) return {}
-    const provider = (p) => (p === 'builtin' ? tc('tools.servedByBuiltin') : p)
-    const note = b.provider === 'mixed'
-      ? Object.entries(by).map(([tool, p]) => tc('tools.servedByTool', { tool, provider: provider(p) })).join(' · ')
-      : tc('tools.servedBy', { provider: b.provider })
-    return { note, title: tc('tools.builtinByAddon', { tools: (b.tools || []).join(', '), provider: b.provider === 'mixed' ? note : b.provider }) }
-  }
   const messages = chat.messages
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
   const modelWarm = !!model && loadedIds.has(model)
   const title = activeChat?.title || tc('list.untitled')
-
-  // The model of a new chat comes from the agent when it names one.
-  const effectiveModel = activeChat ? activeChat.model : (pickedAgent?.model || draftModel)
 
   const slashConfig = useMemo(() => ({
     actions: availableChatActions({ assistant: isAdmin && assistantOn, hasModels: chatModels.length > 0, hasThread, hasChat: !!activeId }),
@@ -488,34 +435,6 @@ function ChatPage() {
     return () => el.removeEventListener('click', handler)
   }, [openBlock])
 
-  // Files go to the server with the message that starts a turn and are saved in
-  // the chat's folder of the workspace.
-  const attachFiles = useCallback((_kind, list) => {
-    setFiles(prev => [...prev, ...list])
-  }, [setFiles])
-
-  const handlePaste = useCallback((e) => {
-    if (!chat.files.on) return
-    const items = e.clipboardData?.items
-    if (!items) return
-    const images = Array.from(items)
-      .filter(item => item.kind === 'file' && item.type.startsWith('image/'))
-      .map(item => item.getAsFile())
-      .filter(Boolean)
-    if (images.length === 0) return
-    // A pasted image attaches as a file rather than inserting into the text.
-    // Clipboard images arrive unnamed or as "image.png"; give each a unique name.
-    e.preventDefault()
-    const stamp = Date.now()
-    const named = images.map((file, i) => {
-      const name = (file.name && file.name !== 'image.png')
-        ? file.name
-        : `pasted-image-${stamp}-${i + 1}.${(file.type.split('/')[1] || 'png').replace('+xml', '')}`
-      return new File([file], name, { type: file.type })
-    })
-    setFiles(prev => [...prev, ...named])
-  }, [chat.files.on, setFiles])
-
   // Sends the composer. The message that starts a chat creates it first. In a
   // chat that exists a message always goes: while a turn runs it waits and
   // reaches the model at its next step.
@@ -533,7 +452,9 @@ function ChatPage() {
     try {
       if (!target) {
         setBusy(true)
-        target = await chat.createChat(draftModel, agentId)
+        // The chat is created with the switches drafted in its menus.
+        target = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+        switches.resetDraft()
         await select(target)
         navigate(`/app/chats/${target}`)
       }
@@ -548,7 +469,7 @@ function ChatPage() {
     } finally {
       setBusy(false)
     }
-  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, chat, select, navigate, addToast, t, tc, drafts])
+  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, chat, select, navigate, addToast, t, tc, drafts])
 
   // The Home page hands over the first message in the location state. It goes
   // once, when a model is known; without one the text waits in the box. A
@@ -726,7 +647,6 @@ function ChatPage() {
   // Picking another model in a chat moves the chat to it from the next turn.
   // The server refuses while a turn runs (409) and says why.
   const pickModel = async (next) => {
-    if (!activeId) { setDraftModel(next); return }
     if (!next || next === activeChat?.model) return
     try {
       await chat.update(activeId, { model: next })
@@ -833,97 +753,11 @@ function ChatPage() {
   const conversations = isEmpty ? resumeItems(chat.chats.filter(c => c.id !== activeId && c.id !== pendingDelete?.id)).slice(0, 8) : []
   const manage = Boolean(activeChat?.assistant)
 
-  // What a row of the model list says: whether it is loaded, what it can do
-  // and, where the server can estimate it, how it fits this machine.
-  const describeModel = (name, warm) => {
-    const vision = seesImages(chatModels.find(m => m.id === name))
-    const reading = modelFit.reading(name)
-    let fit = null
-    if (warm) fit = { tone: 'ok', text: t('picker.readyNow') }
-    else if (reading?.fit) {
-      const f = reading.fit
-      fit = f.state === 'fits'
-        ? { tone: 'ok', text: t('picker.fits', { amount: gbNumber(f.amount) }) }
-        : f.state === 'spill'
-          ? { tone: 'warn', text: t('picker.spill', { amount: gbNumber(f.amount) }) }
-          : { tone: 'err', text: t('picker.over', { amount: gbNumber(f.amount) }) }
-    }
-    return { vision: !!vision, size: reading?.bytes ? gbLabel(reading.bytes) : null, fit }
-  }
-  const memory = hostMemory(modelFit.resources)
-  const memoryNumbers = memory ? memoryFigure(memory.used, memory.total) : null
-  const picker = (
-    <HomeModelPicker
-      ref={pickerRef}
-      value={effectiveModel}
-      onChange={pickModel}
-      capability={CAP_CHAT}
-      models={chatModels}
-      loading={chatModelsLoading}
-      loadedIds={loadedIds}
-      grouped
-      describe={describeModel}
-      onOpen={onPickerOpen}
-      disabled={!activeId && !!pickedAgent?.model}
-      autoSelect={!activeId && !pickedAgent?.model}
-      rememberSelection={!activeId}
-      footer={memoryNumbers && (
-        <div className="home-menu__foot" data-testid="chat-model-memory">
-          <span>{memory.isGpu ? t('picker.gpuMemory') : t('picker.memory')}</span>
-          <span className="cx-ctx__bar" aria-hidden="true"><i style={fillStyle(memory.pct)} /></span>
-          <span>{t('picker.memoryUsed', { used: memoryNumbers.used, total: memoryNumbers.total, unit: memoryNumbers.unit })}</span>
-        </div>
-      )}
-    />
-  )
-
-  // The tools and skills of an open chat, each with its switch. A new chat gets
-  // them when it starts; an agent's chat lists only what the agent grants.
-  const toolGroups = [
-    {
-      // The tools LocalAI serves itself, such as web search: one switch per group.
-      key: 'builtins', title: tc('tools.builtins'),
-      rows: switches.builtins.map((b) => ({
-        key: `b-${b.group}`, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
-        title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
-        on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
-        ...builtinNote(b),
-      })),
-    },
-    {
-      key: 'addons', title: tc('tools.addons'),
-      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, label: a.id, title: tc('addons.tools', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on), ...addonNote(a) })),
-    },
-    {
-      key: 'servers', title: tc('tools.servers'),
-      rows: switches.servers.map((s) => ({ key: `s-${s.name}`, label: s.name, on: !s.off, usable: s.usable, reason: s.reason, onToggle: (on) => switches.toggleMCP(s.name, on) })),
-    },
-    {
-      key: 'connectors', title: tc('tools.connectors'),
-      rows: switches.connectors.map((c) => ({ key: `c-${c.id}`, label: c.name, on: !c.off, usable: c.usable, reason: c.reason, onToggle: (on) => switches.toggleMCP(connectorRef(c.id), on) })),
-    },
-  ]
-  const tools = activeId && (
-    <>
-      <SwitchMenu
-        icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')} note={t('tools.note')}
-        groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={commands.info || networkMode(egress) !== 'hidden'
-          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<NetworkRow egress={egress} /></>
-          : null}
-        footer={switches.connectors.length > 0 || switches.servers.length > 0
-          ? <button type="button" className="chat-mcp-select-all chat-switch-manage" onClick={() => navigate('/app/mcp-connectors')}>{tc('tools.manage')}</button>
-          : null}
-      />
-      <CommandsChip notice={commands} />
-      <SkillsMenu skills={switches.skills} replaced={switches.replacedSkills} onSet={switches.setSkillsOn} error={switches.skillsError} />
-      <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
-    </>
-  )
+  // The sub-agents of a chat: a chip after Skills.
+  const subAgents = activeId && <SubAgentsMenu chatId={activeId} tick={chat.ticks.subAgents} />
 
   const composerChips = (
     <>
-      <AgentPicker agents={agents} value={activeChat ? activeChat.agent_id : agentId} onChange={setAgentId} readOnly={!!activeId} />
       {activeId && chat.files.on && (
         <button
           type="button"
@@ -1155,26 +989,26 @@ function ChatPage() {
                 onEditWithAssistant={manage ? undefined : () => { setInput(tw('wellKnown.shortcuts.assistantPrompt')); textareaRef.current?.focus() }}
               />
             )}
-            <VisionNotice files={files} model={effectiveModel} models={chatModels} imageModel={chat.imageModel} />
-            <HomeComposer
+            <ChatComposer
+              composer={composer}
+              chatId={activeId}
+              activeChat={activeChat}
+              filesOn={chat.files.on}
+              loadedIds={loadedIds}
+              imageModel={chat.imageModel}
+              onPickModel={pickModel}
+              pickerRef={pickerRef}
+              egress={activeId ? egress : null}
+              toolsExtra={subAgents}
+              chips={composerChips}
+              slotContext={composerSlotContext}
               onDictateError={(m) => addToast(m, 'error')}
-              onDictate={(text) => drafts.append(activeId, text)}
-              message={input}
-              onMessage={setInput}
               onSubmit={handleSend}
               canSend={!!effectiveModel && !(!activeId && busy) && (input.trim().length > 0 || files.length > 0)}
               sending={busy}
               sendTitle={effectiveModel ? t('input.send') : t('input.selectModelFirst')}
               textareaRef={textareaRef}
-              picker={picker}
-              mcp={tools}
-              chips={composerChips}
-              extras={<AddonSlot slot="chat.composer.actions" context={composerSlotContext} />}
-              files={files}
-              onRemoveFile={(f) => setFiles(prev => prev.filter(x => x !== f))}
-              onAttach={chat.files.on ? attachFiles : undefined}
               attachTitle={chat.running ? tc('attach.queued') : undefined}
-              fileTestId="chat-file-input"
               placeholder={placeholder}
               slash={slashConfig}
               onRunAction={runSlash}
@@ -1182,9 +1016,7 @@ function ChatPage() {
               queueWhileStreaming
               onStop={() => chat.stop(activeId)}
               stopTitle={t('input.stopGenerating')}
-              onPaste={handlePaste}
               onKeyDownExtra={onComposerKey}
-              fileAccept="*/*"
               rows={1}
               strictEnter
               testId="chat-composer"
@@ -1210,7 +1042,7 @@ function ChatPage() {
               noModel={noModel}
               isAdmin={isAdmin}
               addToast={addToast}
-              onInstallStarted={() => setFitOpenCount(n => n)}
+              onInstallStarted={() => {}}
               manage={manage}
               model={effectiveModel}
               warm={modelWarm}
@@ -1227,7 +1059,7 @@ function ChatPage() {
           focus={pane.focus}
           blocks={pane.blocks}
           onClose={pane.close}
-          onDropFiles={(list) => attachFiles('file', list)}
+          onDropFiles={(list) => composer.attach('file', list)}
         />
       )}
       <p className="sr-only" role="status" data-testid="chat-preview-status">
