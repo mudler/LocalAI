@@ -829,6 +829,26 @@ The fields below come from upstream llama.cpp's **CLI completion tool** and are 
 |-------|------|-------------|
 | `system_prompt` | string | Default system prompt for the model |
 
+A system prompt is static text, so a model has no way to know the current date and answers
+from its training cutoff. LocalAI expands these placeholders on every request, using the
+server's local time zone (set `TZ` in the container):
+
+| Placeholder | Example |
+|-------------|---------|
+| `{{CURRENT_DATE}}` | `2026-10-31` |
+| `{{CURRENT_TIME}}` | `19:05:07` |
+| `{{CURRENT_DATETIME}}` | `2026-10-31 19:05:07` |
+| `{{CURRENT_WEEKDAY}}` | `Saturday` |
+| `{{CURRENT_TIMEZONE}}` | `Europe/Berlin` |
+
+```yaml
+system_prompt: |
+  Today is {{CURRENT_WEEKDAY}}, {{CURRENT_DATE}}.
+```
+
+The names match Open WebUI's prompt variables. They are expanded in `system_prompt` and in
+`profile.system_prompt` of an alias; text without placeholders is passed through unchanged.
+
 ## vLLM-Specific Configuration
 
 These options apply when using the `vllm` backend:

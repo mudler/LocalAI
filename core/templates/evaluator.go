@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
@@ -125,7 +126,7 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 		// First attempt to populate content via a chat message specific template
 		if config.TemplateConfig.ChatMessage != "" {
 			chatMessageData := ChatMessageTemplateData{
-				SystemPrompt: config.SystemPrompt,
+				SystemPrompt: config.RenderedSystemPrompt(time.Now()),
 				Role:         r,
 				RoleName:     role,
 				Content:      i.StringContent,
@@ -218,7 +219,7 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 	}
 
 	templatedInput, err := e.EvaluateTemplateForPrompt(promptTemplate, *config, PromptTemplateData{
-		SystemPrompt:         config.SystemPrompt,
+		SystemPrompt:         config.RenderedSystemPrompt(time.Now()),
 		SuppressSystemPrompt: suppressConfigSystemPrompt,
 		Input:                predInput,
 		Functions:            funcs,
