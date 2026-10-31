@@ -209,6 +209,11 @@ type Deps struct {
 	// EgressCardWait is how long a connection waits for the answer of a
 	// network card. Zero: 60 seconds. Tests set it shorter.
 	EgressCardWait time.Duration
+	// GoalLimits returns chats_goal_max_turns and chats_goal_max_steps: the
+	// most turns the server starts by itself for one goal, and the most model
+	// requests the goal's turns make, before the goal pauses. Read when a turn
+	// ends. Nil or a value below 1: DefaultGoalMaxTurns, DefaultGoalMaxSteps.
+	GoalLimits func() (turns, steps int)
 	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
 	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.
@@ -332,6 +337,9 @@ type run struct {
 	// paused is set when the tool loop reached its step limit: the turn ends
 	// as paused, so the person sees that the work is not finished.
 	paused bool
+	// steps counts the model requests of the turn (see inputs), for the
+	// chat's goal.
+	steps int
 	// chat is the chat the turn runs on. Stop goes through it and never opens
 	// the chat again: a turn that ended has closed it, and a chat left open by
 	// a late Stop would hold stale state while another frontend runs the next turn.
@@ -387,6 +395,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerLoadSkill(); err != nil {
+		return nil, err
+	}
+	if err := s.registerGoalTools(); err != nil {
 		return nil, err
 	}
 	h := d.Harness
@@ -922,6 +933,9 @@ func (s *Service) Stop(ctx context.Context, user, conv string) error {
 	// The sub-agents of a conversation stop with it, even when the parent has
 	// no turn left to stop: a background sub-agent can outlive the turn.
 	s.stopChildren(p, conv)
+	// Stop pauses the chat's goal, also between two of its turns: nothing
+	// goes on by itself after a Stop.
+	s.pauseGoal(ctx, p, conv, session.GoalPausedByUser)
 	if !local {
 		s.bus.Control(k, ControlMsg{Stop: true})
 		return nil
@@ -1073,6 +1087,9 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 		s.expireConsents(ctx, r.Principal, r.ChatID, r.RunID)
 		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
 		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
+		// The goal of a turn that died does not go on by itself: the frontend
+		// that would have continued it is gone, and the person resumes it.
+		s.pauseGoal(ctx, r.Principal, r.ChatID, session.GoalPausedByInterrupted)
 	}
 	return len(reaped), err
 }
@@ -1195,6 +1212,7 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		// this one only cleans up after itself and reports a terminal status.
 		status = store.TurnInterrupted
 	}
+	s.settleGoal(ctx, p, conv, status, r.steps)
 	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
 	s.notifyWaiters(k, status)
 	if !status.Finished() {
@@ -1209,7 +1227,12 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		go func() {
 			unlock := s.lock(k)
 			defer unlock()
+			// The person's waiting messages go first; with none, an active
+			// goal goes on by itself.
 			started, err := s.startFromPending(ctx, p, conv)
+			if err == nil && !started {
+				started, err = s.continueGoal(ctx, p, conv, goalContinue)
+			}
 			if err != nil {
 				s.log.Warn("studio: could not start the next turn", "chat", conv, "error", err)
 				return
@@ -1254,6 +1277,13 @@ func (s *Service) releaseTurn(ctx context.Context, p, conv, runID string, status
 func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 	return func() ([]string, func(error)) {
 		ctx := context.Background()
+		// The harness asks before each model request: that is one step of the
+		// turn, which the chat's goal counts.
+		s.mu.Lock()
+		if r := s.runs[key(a.Principal, a.ChatID)]; r != nil {
+			r.steps++
+		}
+		s.mu.Unlock()
 		taken, err := s.d.Store.TakePending(ctx, a.Principal, a.ChatID)
 		if err != nil || len(taken) == 0 {
 			return nil, nil

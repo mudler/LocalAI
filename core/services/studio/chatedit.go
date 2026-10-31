@@ -212,7 +212,7 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 	}
 	var kept []session.Entry
 	for _, e := range entries {
-		if (upTo == 0 || e.Seq <= upTo) && e.Role != session.RoleCheckpoint {
+		if (upTo == 0 || e.Seq <= upTo) && e.Role != session.RoleCheckpoint && e.Role != session.RoleGoal {
 			kept = append(kept, e)
 		}
 	}

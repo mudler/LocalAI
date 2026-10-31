@@ -77,4 +77,21 @@ var _ = Describe("TranscriptState", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(raw).To(BeNil(), "nothing after the marker: no state")
 	})
+
+	It("keeps the messages sent to go on with a goal and leaves the other goal lines out", func() {
+		entries := []session.Entry{
+			{Role: session.RoleGoal, Note: session.GoalLineSet, Text: "ship it"},
+			{Role: session.RoleGoal, Note: session.GoalLineContinue, Text: "Work toward this goal now", Rev: 1},
+			{Role: session.RoleAssistant, Text: "step one"},
+			{Role: session.RoleGoal, Note: session.GoalLineDone, Text: "shipped"},
+		}
+		raw, err := nibharness.TranscriptState(entries)
+		Expect(err).NotTo(HaveOccurred())
+		var st resumeDoc
+		Expect(json.Unmarshal(raw, &st)).To(Succeed())
+		Expect(st.History).To(HaveLen(2))
+		Expect(st.History[0].Role).To(Equal("user"))
+		Expect(st.History[0].Content).To(Equal("Work toward this goal now"))
+		Expect(st.History[1].Content).To(Equal("step one"))
+	})
 })

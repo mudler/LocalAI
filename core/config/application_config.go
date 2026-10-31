@@ -404,6 +404,13 @@ type ApplicationConfig struct {
 	// Runtime-settable via /api/settings (chats_max_iterations).
 	ChatsMaxIterations int
 
+	// ChatsGoalMaxTurns is the most turns the server starts by itself for one
+	// goal of a chat, and ChatsGoalMaxSteps the most model requests the turns
+	// of one goal make, before the goal pauses. 0: the defaults. Runtime-settable
+	// via /api/settings (chats_goal_max_turns, chats_goal_max_steps).
+	ChatsGoalMaxTurns int
+	ChatsGoalMaxSteps int
+
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents
 	// as sub-agents (list_agents and the agent argument of spawn_agent).
 	// Stored as the negation (chats_saved_agents), so it is on by default;
@@ -1548,6 +1555,30 @@ func (o *ApplicationConfig) EffectiveChatsEgressAuditDays() int {
 		return DefaultChatsEgressAuditDays
 	}
 	return o.ChatsEgressAuditDays
+}
+
+// Defaults and bounds of chats_goal_max_turns and chats_goal_max_steps.
+const (
+	DefaultChatsGoalMaxTurns = 20
+	MaxChatsGoalMaxTurns     = 200
+	DefaultChatsGoalMaxSteps = 400
+	MaxChatsGoalMaxSteps     = 10000
+)
+
+// EffectiveChatsGoalMaxTurns is chats_goal_max_turns as it applies now.
+func (o *ApplicationConfig) EffectiveChatsGoalMaxTurns() int {
+	if o.ChatsGoalMaxTurns < 1 || o.ChatsGoalMaxTurns > MaxChatsGoalMaxTurns {
+		return DefaultChatsGoalMaxTurns
+	}
+	return o.ChatsGoalMaxTurns
+}
+
+// EffectiveChatsGoalMaxSteps is chats_goal_max_steps as it applies now.
+func (o *ApplicationConfig) EffectiveChatsGoalMaxSteps() int {
+	if o.ChatsGoalMaxSteps < 1 || o.ChatsGoalMaxSteps > MaxChatsGoalMaxSteps {
+		return DefaultChatsGoalMaxSteps
+	}
+	return o.ChatsGoalMaxSteps
 }
 
 // EffectiveChatsMaxIterations is chats_max_iterations as it applies now.

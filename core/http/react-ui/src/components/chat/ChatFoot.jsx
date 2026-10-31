@@ -9,6 +9,7 @@ import { usePhone } from '../../hooks/useSwarm'
 import { CONTEXT_HOT_PCT, CONTEXT_WARN_PCT, contextReading, tokenCount } from '../../utils/chatSettings'
 import { averageSpeed, liveRate, speedView, speedValue } from '../../utils/chatFoot'
 import { formatDuration } from '../../utils/toolLabels'
+import { goalProgress } from '../../utils/chatGoal'
 
 // How often the line reads the pace of a stream: at most twice a second, so
 // the speed does not jitter with every piece.
@@ -38,7 +39,9 @@ const barOf = (pct) => ({
 //              says whether the model is ready, so only a busy state shows
 //   onContinue set when the last turn paused at the step limit: the line
 //              shows a Continue button that sends a message to go on
-export default function ChatFoot({ state, status, model, backend, hint, chat, showMeter, quiet = false, onContinue }) {
+//   goal       the chat's goal: while it is active the line shows its
+//              automatic turn ("Goal · turn 3 of 20")
+export default function ChatFoot({ state, status, model, backend, hint, chat, showMeter, quiet = false, onContinue, goal = null }) {
   const { t, i18n } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const phone = usePhone(SHEET_QUERY)
@@ -46,6 +49,7 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
   const anchor = useRef(null)
   const bodyRef = useRef(null)
   const running = state.busy && state.key !== 'sending'
+  const progress = goalProgress(goal)
   const live = useLiveRate(running, chat.readPace)
   const meter = contextReading(chat.usage)
   const speed = meter ? speedView({ live, measured: chat.usage?.tokens_per_second, running }) : null
@@ -125,6 +129,12 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
             <Icon name="play" />
             <span>{t('foot.paused.continue')}</span>
           </button>
+        )}
+        {progress && (
+          <span className="cx-foot__goal" data-testid="chat-goal-progress" title={goal.text}>
+            <Icon name="target" />
+            <span>{t(progress.key, { turn: progress.turn, max: progress.max })}</span>
+          </span>
         )}
         {hint && <span className="cx-foot__hint" data-testid="chat-foot-hint">{t('foot.hint')}</span>}
       </span>

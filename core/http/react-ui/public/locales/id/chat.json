@@ -219,7 +219,8 @@
       "skill": "Skill",
       "agent": "Agen tersimpan",
       "model": "Model",
-      "attach": "File"
+      "attach": "File",
+      "goal": "Tujuan"
     },
     "badge": {
       "builtin": "bawaan",
@@ -233,6 +234,12 @@
       "agent": "Anda tidak punya agen tersimpan bernama \"{{name}}\".",
       "agentTask": "Tulis tugas untuk {{name}} setelah namanya.",
       "agentsOff": "Agen tersimpan nonaktif untuk chat ini. Aktifkan di menu Alat."
+    },
+    "goal": {
+      "label": "Tujuan",
+      "desc": "Tetapkan tujuan yang terus dikerjakan chat sendiri",
+      "clearDesc": "Hapus tujuan",
+      "resumeDesc": "Teruskan tujuan"
     }
   },
   "shortcuts": {
@@ -464,6 +471,69 @@
     "title": "Konteks yang dipakai permintaan model terakhir",
     "ofLimit": "{{used}} / {{limit}} token",
     "left": "sisa {{left}}"
+  },
+  "goal": {
+    "label": "Tujuan",
+    "states": {
+      "active": "Sedang dikerjakan",
+      "paused": "Dijeda",
+      "done": "Tercapai",
+      "blocked": "Butuh Anda"
+    },
+    "pausedBy": {
+      "user": "Anda menjedanya.",
+      "turn_limit": "Semua giliran otomatisnya sudah terpakai. Lanjutkan untuk memberi lebih banyak.",
+      "step_limit": "Semua langkahnya sudah terpakai. Lanjutkan untuk memberi lebih banyak.",
+      "error": "Sebuah giliran gagal. Lanjutkan untuk mencoba lagi.",
+      "interrupted": "Server berhenti saat sebuah giliran berjalan. Lanjutkan untuk meneruskan."
+    },
+    "blockedNote": "Butuh dari Anda: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Diganti: {{text}}",
+    "pause": "Jeda",
+    "pauseTitle": "Hentikan giliran yang berjalan dan jeda tujuan",
+    "resume": "Lanjutkan",
+    "resumeTitle": "Teruskan tujuan",
+    "clear": "Hapus",
+    "clearTitle": "Hapus tujuan",
+    "progress": "Tujuan · giliran {{turn}} dari {{max}}",
+    "progressStart": "Tujuan · memulai",
+    "markers": {
+      "set": "Tujuan ditetapkan",
+      "replaced": "Tujuan diganti",
+      "continue": "Melanjutkan menuju tujuan · giliran {{turn}}",
+      "continueStart": "Melanjutkan menuju tujuan",
+      "paused": "Tujuan dijeda",
+      "resumed": "Tujuan dilanjutkan",
+      "done": "Tujuan tercapai",
+      "blocked": "Tujuan terhambat",
+      "cleared": "Tujuan dihapus"
+    },
+    "announce": {
+      "set": "Tujuan ditetapkan: {{text}}",
+      "paused": "Tujuan dijeda. {{why}}",
+      "resumed": "Tujuan dilanjutkan",
+      "done": "Tujuan tercapai: {{note}}",
+      "blocked": "Tujuan membutuhkan Anda: {{note}}",
+      "cleared": "Tujuan dihapus"
+    },
+    "card": {
+      "title": "Tujuan",
+      "none": "Chat ini belum punya tujuan. Ketik /goal lalu apa yang ingin diselesaikan, dan chat akan terus mengerjakannya sendiri.",
+      "turns": "Giliran {{turn}} dari {{max}}",
+      "steps": "{{steps}} dari {{max}} langkah",
+      "clear": "/goal clear menghapusnya.",
+      "resume": "/goal resume melanjutkannya.",
+      "turnsLabel": "Giliran otomatis",
+      "stepsLabel": "Langkah",
+      "setLabel": "Ditetapkan",
+      "stateLabel": "Status",
+      "noteLabel": "Catatan"
+    },
+    "errors": {
+      "empty": "Tulis tujuannya setelah /goal.",
+      "notAllowed": "Hanya chat yang Anda mulai sendiri yang bisa punya tujuan."
+    }
   },
   "invoked": {
     "skill": "Skill: {{name}}",

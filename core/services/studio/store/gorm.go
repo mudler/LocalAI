@@ -51,6 +51,10 @@ type chatRow struct {
 	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
 	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
 	EgressRev    int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
+	// Goal and GoalRev came after the table existed: the defaults fill the
+	// rows of chats made before, so AutoMigrate is their migration.
+	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
+	GoalRev int64  `gorm:"not null;default:0"`            // bumped by UpdateGoal; its row lock
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -171,6 +175,13 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.Goal != "" {
+		var g session.Goal
+		if err := json.Unmarshal([]byte(r.Goal), &g); err != nil {
+			return rec, err
+		}
+		rec.Goal = &g
+	}
 	if r.HostConsent != "" {
 		var c session.HostConsent
 		if err := json.Unmarshal([]byte(r.HostConsent), &c); err != nil {
@@ -235,6 +246,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		row.Egress = string(raw)
+	}
+	if rec.Goal != nil {
+		raw, err := json.Marshal(rec.Goal)
+		if err != nil {
+			return err
+		}
+		row.Goal = string(raw)
 	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		var n int64
@@ -476,6 +494,40 @@ func (s *gormStore) UpdateEgress(ctx context.Context, principal, id string, chan
 			out = string(b)
 		}
 		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("egress", out).Error
+	})
+}
+
+func (s *gormStore) UpdateGoal(ctx context.Context, principal, id string, change func(*session.Goal) (*session.Goal, error)) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// As in UpdateEgress: the bump takes the row lock, so a second
+		// frontend's change waits and then reads what this one wrote.
+		if _, err := lock(tx, principal, id, "goal_rev"); err != nil {
+			return err
+		}
+		var raw string
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("goal").Row().Scan(&raw); err != nil {
+			return err
+		}
+		var cur *session.Goal
+		if raw != "" {
+			cur = &session.Goal{}
+			if err := json.Unmarshal([]byte(raw), cur); err != nil {
+				return err
+			}
+		}
+		next, err := change(cur)
+		if err != nil {
+			return err
+		}
+		out := ""
+		if next != nil {
+			b, err := json.Marshal(next)
+			if err != nil {
+				return err
+			}
+			out = string(b)
+		}
+		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("goal", out).Error
 	})
 }
 

@@ -99,6 +99,9 @@ type ChatRecord struct {
 	// chat, never in the workspace, so the code it confines cannot change it.
 	// UpdateEgress changes it; UpdateChat leaves it alone, like the switches.
 	Egress egress.ChatState
+	// Goal is the chat's persistent objective, or nil. The store's UpdateGoal
+	// changes it; UpdateChat leaves it alone, like the switches.
+	Goal *Goal
 }
 
 // HostConsent is a consent card that waits for an answer: ID is what the
@@ -175,7 +178,7 @@ type Entry struct {
 	// entry is for display: it is not replayed to the model.
 	Role string
 	Text string // tool entries hold the summary and the capped output
-	Rev  int64  // checkpoint entries
+	Rev  int64  // checkpoint entries; the goal turn of a goal continue line
 	// Dur is how long the model thought, for reasoning entries (0 when
 	// unknown). It is 0 for every other role. Stores keep it to the
 	// millisecond.
@@ -229,6 +232,11 @@ const (
 	// RoleCleared marks where the person cleared the model's context: the
 	// model sees nothing of the transcript before the last such entry.
 	RoleCleared = "cleared"
+	// RoleGoal marks a change of the chat's goal, or the message the server
+	// sent by itself to go on with it. Note holds the kind (GoalLine*), Rev
+	// the turn of the goal for a GoalLineContinue line. It is for display:
+	// the model got only the text of a GoalLineContinue line, with its turn.
+	RoleGoal = "goal"
 )
 
 // MaxReasoningBytes is the size limit of a stored reasoning entry, including

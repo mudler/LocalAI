@@ -219,7 +219,8 @@
       "skill": "Skill",
       "agent": "Agenti salvati",
       "model": "Modelli",
-      "attach": "File"
+      "attach": "File",
+      "goal": "Obiettivo"
     },
     "badge": {
       "builtin": "integrata",
@@ -233,6 +234,12 @@
       "agent": "Non hai un agente salvato chiamato \"{{name}}\".",
       "agentTask": "Scrivi il compito per {{name}} dopo il nome.",
       "agentsOff": "Gli agenti salvati sono disattivati per questa chat. Attivali dal menu Strumenti."
+    },
+    "goal": {
+      "label": "Obiettivo",
+      "desc": "Imposta un obiettivo su cui la chat continua a lavorare da sola",
+      "clearDesc": "Rimuovi l'obiettivo",
+      "resumeDesc": "Continua verso l'obiettivo"
     }
   },
   "shortcuts": {
@@ -464,6 +471,69 @@
     "title": "Contesto usato dall'ultima richiesta al modello",
     "ofLimit": "{{used}} / {{limit}} token",
     "left": "{{left}} liberi"
+  },
+  "goal": {
+    "label": "Obiettivo",
+    "states": {
+      "active": "In corso",
+      "paused": "In pausa",
+      "done": "Raggiunto",
+      "blocked": "Serve il tuo aiuto"
+    },
+    "pausedBy": {
+      "user": "L'hai messo in pausa tu.",
+      "turn_limit": "Ha usato tutti i turni automatici. Riprendi per dargliene altri.",
+      "step_limit": "Ha usato tutti i passi. Riprendi per dargliene altri.",
+      "error": "Un turno non è riuscito. Riprendi per riprovare.",
+      "interrupted": "Il server si è fermato durante un turno. Riprendi per continuare."
+    },
+    "blockedNote": "Ha bisogno da te: {{note}}",
+    "doneNote": "{{note}}",
+    "replaced": "Sostituito: {{text}}",
+    "pause": "Pausa",
+    "pauseTitle": "Ferma il turno in corso e metti in pausa l'obiettivo",
+    "resume": "Riprendi",
+    "resumeTitle": "Continua verso l'obiettivo",
+    "clear": "Rimuovi",
+    "clearTitle": "Rimuovi l'obiettivo",
+    "progress": "Obiettivo · turno {{turn}} di {{max}}",
+    "progressStart": "Obiettivo · in avvio",
+    "markers": {
+      "set": "Obiettivo impostato",
+      "replaced": "Obiettivo sostituito",
+      "continue": "Prosegue verso l'obiettivo · turno {{turn}}",
+      "continueStart": "Prosegue verso l'obiettivo",
+      "paused": "Obiettivo in pausa",
+      "resumed": "Obiettivo ripreso",
+      "done": "Obiettivo raggiunto",
+      "blocked": "Obiettivo bloccato",
+      "cleared": "Obiettivo rimosso"
+    },
+    "announce": {
+      "set": "Obiettivo impostato: {{text}}",
+      "paused": "Obiettivo in pausa. {{why}}",
+      "resumed": "Obiettivo ripreso",
+      "done": "Obiettivo raggiunto: {{note}}",
+      "blocked": "L'obiettivo ha bisogno di te: {{note}}",
+      "cleared": "Obiettivo rimosso"
+    },
+    "card": {
+      "title": "Obiettivo",
+      "none": "Questa chat non ha un obiettivo. Scrivi /goal e cosa vuoi ottenere, e la chat ci lavora da sola.",
+      "turns": "Turno {{turn}} di {{max}}",
+      "steps": "{{steps}} passi su {{max}}",
+      "clear": "/goal clear lo rimuove.",
+      "resume": "/goal resume lo riprende.",
+      "turnsLabel": "Turni automatici",
+      "stepsLabel": "Passi",
+      "setLabel": "Impostato",
+      "stateLabel": "Stato",
+      "noteLabel": "Nota"
+    },
+    "errors": {
+      "empty": "Scrivi l'obiettivo dopo /goal.",
+      "notAllowed": "Solo una chat che hai avviato tu può avere un obiettivo."
+    }
   },
   "invoked": {
     "skill": "Skill: {{name}}",

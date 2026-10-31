@@ -3396,6 +3396,10 @@ definitions:
         type: boolean
       created:
         type: string
+      goal:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsGoal'
+        description: Goal is the chat's goal, when it has one.
       id:
         type: string
       kind:
@@ -3440,6 +3444,10 @@ definitions:
         type: boolean
       created:
         type: string
+      goal:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsGoal'
+        description: Goal is the chat's goal, when it has one.
       host_consent:
         allOf:
         - $ref: '#/definitions/schema.ChatsHostConsent'
@@ -3991,6 +3999,53 @@ definitions:
         description: Title names the new chat; it defaults to the old title and "(fork)".
         type: string
     type: object
+  schema.ChatsGoal:
+    properties:
+      max_steps:
+        type: integer
+      max_turns:
+        type: integer
+      note:
+        description: |-
+          Note is the model's summary of a done goal, or the reason of a blocked
+          one.
+        type: string
+      paused_by:
+        description: |-
+          PausedBy says why a paused goal paused: user, turn_limit, step_limit,
+          error or interrupted.
+        type: string
+      set:
+        type: string
+      state:
+        description: State is active, paused, done or blocked.
+        type: string
+      steps:
+        type: integer
+      text:
+        type: string
+      turns:
+        description: |-
+          Turns and Steps count the automatic turns and the model steps since the
+          goal was set or last resumed; MaxTurns and MaxSteps are the limits that
+          apply now (chats_goal_max_turns, chats_goal_max_steps).
+        type: integer
+      updated:
+        type: string
+    type: object
+  schema.ChatsGoalRequest:
+    properties:
+      text:
+        description: Text is the goal, 1 to 2000 characters.
+        type: string
+    type: object
+  schema.ChatsGoalResponse:
+    properties:
+      goal:
+        $ref: '#/definitions/schema.ChatsGoal'
+      replaced:
+        $ref: '#/definitions/schema.ChatsGoal'
+    type: object
   schema.ChatsHistory:
     properties:
       entries:
@@ -4356,6 +4411,15 @@ definitions:
       dur_ms:
         description: DurMs is how long the model thought, for reasoning lines.
         type: integer
+      goal_event:
+        description: |-
+          GoalEvent is set on a goal line: set, replaced, continue (a message the
+          server sent by itself to go on; Text is that message and GoalTurn its
+          automatic turn), paused (Text is the reason), resumed, done (Text is the
+          summary), blocked (Text is the reason) or cleared.
+        type: string
+      goal_turn:
+        type: integer
       invoked:
         allOf:
         - $ref: '#/definitions/schema.ChatsInvocation'
@@ -4367,7 +4431,8 @@ definitions:
           {rev} undoes it.
         type: integer
       role:
-        description: user, assistant, tool, checkpoint, reasoning, compacted or cleared
+        description: user, assistant, tool, checkpoint, reasoning, compacted, cleared
+          or goal
         type: string
       seq:
         type: integer
@@ -12263,8 +12328,9 @@ paths:
         (the context was compacted, by the chat or by POST compact; before and after
         are token counts), cleared (the context was cleared; read the transcript again),
         paused (the tool loop reached its step limit, chats_max_iterations; steps
-        is the limit) and files. Events are live only; read the transcript for what
-        came before.'
+        is the limit), goal (the chat''s goal changed; text is its state, empty when
+        cleared: read the chat again) and files. Events are live only; read the transcript
+        for what came before.'
       parameters:
       - description: conversation id
         in: path
@@ -12357,6 +12423,113 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConversation'
       summary: Fork a chat from a message.
+      tags:
+      - chats
+  /api/chats/{id}/goal:
+    delete:
+      description: A running turn goes on; nothing follows it by itself. Clearing
+        a chat with no goal is not an error.
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: goal null, replaced the goal that was removed
+          schema:
+            $ref: '#/definitions/schema.ChatsGoalResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Clear a chat's goal.
+      tags:
+      - chats
+    get:
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The goal, or null
+          schema:
+            $ref: '#/definitions/schema.ChatsGoalResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get a chat's goal.
+      tags:
+      - chats
+    put:
+      description: Sets the goal, replacing the one the chat had (replaced). With
+        no turn running a turn starts on it at once. While the goal is active the
+        server starts the next turn by itself when one ends, until the model calls
+        goal_done or goal_blocked, you stop or clear it, or the limits chats_goal_max_turns
+        and chats_goal_max_steps pause it. A chat that a trigger, a connector, a job
+        or a page started, and a sub-agent run, cannot have a goal (409).
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the goal
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsGoalRequest'
+      responses:
+        "200":
+          description: The new goal and the one it replaced
+          schema:
+            $ref: '#/definitions/schema.ChatsGoalResponse'
+        "400":
+          description: The text is empty or longer than 2000 characters
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: This chat cannot have a goal
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Set a chat's goal.
+      tags:
+      - chats
+  /api/chats/{id}/goal/resume:
+    post:
+      description: 'Makes a paused or blocked goal active again with new turn and
+        step counts, and starts a turn on it when none runs. A reached goal does not
+        resume (409): set a new one.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The goal
+          schema:
+            $ref: '#/definitions/schema.ChatsGoalResponse'
+        "404":
+          description: No such conversation, or the chat has no goal
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The goal is reached, or this chat cannot have a goal
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Resume a chat's goal.
       tags:
       - chats
   /api/chats/{id}/host-exec/consent:

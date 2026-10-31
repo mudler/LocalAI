@@ -98,6 +98,46 @@ type ChatsConversation struct {
 	LastTurn string `json:"last_turn,omitempty"`
 	// Settings are the chat's own model settings, when it has any.
 	Settings *ChatsSettings `json:"settings,omitempty"`
+	// Goal is the chat's goal, when it has one.
+	Goal *ChatsGoal `json:"goal,omitempty"`
+}
+
+// ChatsGoal is the persistent objective of a chat. While State is active the
+// server starts the next turn by itself when one ends, up to MaxTurns
+// automatic turns and MaxSteps model steps.
+type ChatsGoal struct {
+	Text string `json:"text"`
+	// State is active, paused, done or blocked.
+	State string `json:"state"`
+	// PausedBy says why a paused goal paused: user, turn_limit, step_limit,
+	// error or interrupted.
+	PausedBy string `json:"paused_by,omitempty"`
+	// Note is the model's summary of a done goal, or the reason of a blocked
+	// one.
+	Note string `json:"note,omitempty"`
+	// Turns and Steps count the automatic turns and the model steps since the
+	// goal was set or last resumed; MaxTurns and MaxSteps are the limits that
+	// apply now (chats_goal_max_turns, chats_goal_max_steps).
+	Turns    int       `json:"turns"`
+	MaxTurns int       `json:"max_turns"`
+	Steps    int       `json:"steps"`
+	MaxSteps int       `json:"max_steps"`
+	Set      time.Time `json:"set"`
+	Updated  time.Time `json:"updated"`
+}
+
+// ChatsGoalRequest sets the goal of a chat.
+type ChatsGoalRequest struct {
+	// Text is the goal, 1 to 2000 characters.
+	Text string `json:"text"`
+}
+
+// ChatsGoalResponse is the goal of a chat after a request. Goal is null when
+// the chat has none. Replaced is the goal that a PUT replaced, or that a DELETE
+// removed.
+type ChatsGoalResponse struct {
+	Goal     *ChatsGoal `json:"goal"`
+	Replaced *ChatsGoal `json:"replaced,omitempty"`
 }
 
 // ChatsConversationList is the response of the list endpoint.
@@ -201,7 +241,7 @@ type ChatsPendingEdit struct {
 type ChatsMessage struct {
 	Seq  int64  `json:"seq"`
 	Turn int    `json:"turn"`
-	Role string `json:"role"` // user, assistant, tool, checkpoint, reasoning, compacted or cleared
+	Role string `json:"role"` // user, assistant, tool, checkpoint, reasoning, compacted, cleared or goal
 	// Text is what was written. For a user line it is the text you typed:
 	// the files you attached are in Attachments.
 	Text string `json:"text"`
@@ -223,9 +263,15 @@ type ChatsMessage struct {
 	Invoked *ChatsInvocation `json:"invoked,omitempty"`
 	// Before and After are the size of the model's context, in tokens, on a
 	// compacted line.
-	Before int       `json:"before,omitempty"`
-	After  int       `json:"after,omitempty"`
-	At     time.Time `json:"at"`
+	Before int `json:"before,omitempty"`
+	After  int `json:"after,omitempty"`
+	// GoalEvent is set on a goal line: set, replaced, continue (a message the
+	// server sent by itself to go on; Text is that message and GoalTurn its
+	// automatic turn), paused (Text is the reason), resumed, done (Text is the
+	// summary), blocked (Text is the reason) or cleared.
+	GoalEvent string    `json:"goal_event,omitempty"`
+	GoalTurn  int64     `json:"goal_turn,omitempty"`
+	At        time.Time `json:"at"`
 }
 
 // ChatsToolCard points the interface at a record that belongs to a tool result.

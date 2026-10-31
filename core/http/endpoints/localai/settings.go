@@ -448,6 +448,12 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 	if s.ChatsMaxIterations != nil && (*s.ChatsMaxIterations < 1 || *s.ChatsMaxIterations > config.MaxChatsMaxIterations) {
 		return fmt.Sprintf("Invalid chats_max_iterations: use 1 to %d", config.MaxChatsMaxIterations)
 	}
+	if s.ChatsGoalMaxTurns != nil && (*s.ChatsGoalMaxTurns < 1 || *s.ChatsGoalMaxTurns > config.MaxChatsGoalMaxTurns) {
+		return fmt.Sprintf("Invalid chats_goal_max_turns: use 1 to %d", config.MaxChatsGoalMaxTurns)
+	}
+	if s.ChatsGoalMaxSteps != nil && (*s.ChatsGoalMaxSteps < 1 || *s.ChatsGoalMaxSteps > config.MaxChatsGoalMaxSteps) {
+		return fmt.Sprintf("Invalid chats_goal_max_steps: use 1 to %d", config.MaxChatsGoalMaxSteps)
+	}
 	if s.ChatsEgressAllowPrivate != nil && *s.ChatsEgressAllowPrivate && !privateOn {
 		var confirm struct {
 			Phrase string `json:"chats_egress_private_confirm"`

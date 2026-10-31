@@ -414,6 +414,11 @@ func TranscriptState(entries []session.Entry) ([]byte, error) {
 			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: session.ModelText(e)})
 		case session.RoleAssistant:
 			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, Content: e.Text})
+		case session.RoleGoal:
+			// The model got the message the server sent to go on with a goal.
+			if e.Note == session.GoalLineContinue {
+				msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: e.Text})
+			}
 		}
 	}
 	if len(msgs) == 0 {

@@ -69,6 +69,10 @@ const (
 	// transcript has a new marker and the next turn starts fresh. Read the
 	// transcript again.
 	KindCleared EventKind = "cleared"
+	// KindGoal says that the chat's goal changed: it was set, replaced,
+	// cleared, paused, resumed, reached or blocked, or it counted a turn.
+	// Text is the state ("" when cleared). Read the chat again.
+	KindGoal EventKind = "goal"
 )
 
 // Event is one thing that happened in a chat.

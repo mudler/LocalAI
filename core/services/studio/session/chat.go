@@ -42,6 +42,12 @@ type Message struct {
 	// Invoked is the command the person used, kept with the message in the
 	// transcript (Entry.Invoked).
 	Invoked *Invocation
+	// Goal marks a message the server sends by itself to go on with the
+	// chat's goal. The transcript keeps it as a RoleGoal line of kind
+	// GoalLineContinue whose Rev is GoalTurn, so it never reads as typed by
+	// the person; the model gets Text as a user message.
+	Goal     bool
+	GoalTurn int
 }
 
 // withDirective puts the directive of a message before the text the model gets.
@@ -361,7 +367,7 @@ func (c *Chat) summary(ctx context.Context) string {
 	var lines []string
 	size := 0
 	for _, e := range slices.Backward(es) {
-		if !ModelRole(e.Role) {
+		if !ModelRole(e.Role) && (e.Role != RoleGoal || e.Note != GoalLineContinue) {
 			continue
 		}
 		l := e.Role + ": " + CapText(ModelText(e), 1000)
@@ -643,6 +649,9 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
 	}
 	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Invoked: msg.Invoked}
+	if msg.Goal {
+		entry = Entry{Role: RoleGoal, Text: text, Note: GoalLineContinue, Rev: int64(msg.GoalTurn)}
+	}
 	for {
 		c.mu.Lock()
 		if c.closed {

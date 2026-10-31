@@ -153,7 +153,13 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		sees := s.d.Modalities != nil && s.d.Modalities(rec.Model).Vision
 		head += "\n\n" + imagesBlock(sees, s.d.Media.VisionModel(rec.Model))
 	}
-	prompt = joinBlocks(head, webBlock(tools), prompt)
+	var goal string
+	if !sub && goalActive(rec) {
+		// The goal comes right after what the chat can run: the prompt is cut
+		// at its end, and the model must not lose the goal.
+		goal = goalBlock(rec.Goal)
+	}
+	prompt = joinBlocks(head, goal, webBlock(tools), prompt)
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)

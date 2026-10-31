@@ -13,6 +13,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -276,6 +277,69 @@ func Run(newStore New) {
 		wg.Wait()
 		rec, _ = s.GetChat(ctx(), "alice", "c1")
 		Expect(rec.Egress.Rules).To(HaveLen(9), "no change was lost")
+	})
+
+	It("keeps the goal, survives a chat update, belongs to the owner and loses no concurrent change", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal).To(BeNil(), "a new chat has no goal")
+		Expect(s.UpdateGoal(ctx(), "alice", "c1", func(cur *session.Goal) (*session.Goal, error) {
+			Expect(cur).To(BeNil())
+			return &session.Goal{Text: "ship the report", State: session.GoalActive, Set: t0, Updated: t0}, nil
+		})).To(Succeed())
+		stale := rec
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal).NotTo(BeNil(), "UpdateChat keeps the goal")
+		Expect(rec.Goal.Text).To(Equal("ship the report"))
+		Expect(rec.Goal.State).To(Equal(session.GoalActive))
+		Expect(rec.Goal.Set.Equal(t0)).To(BeTrue())
+		rec.Goal.Text = "changed on the copy"
+		again, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(again.Goal.Text).To(Equal("ship the report"), "GetChat returns a copy")
+
+		Expect(s.UpdateGoal(ctx(), "bob", "c1", func(g *session.Goal) (*session.Goal, error) { return g, nil })).To(MatchError(session.ErrNotFound))
+		boom := errors.New("refused")
+		Expect(s.UpdateGoal(ctx(), "alice", "c1", func(g *session.Goal) (*session.Goal, error) {
+			g.State = session.GoalDone
+			return g, boom
+		})).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal.State).To(Equal(session.GoalActive), "a failed change leaves the goal")
+
+		var wg sync.WaitGroup
+		for range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				Expect(s.UpdateGoal(ctx(), "alice", "c1", func(g *session.Goal) (*session.Goal, error) {
+					g.Turns++
+					return g, nil
+				})).To(Succeed())
+			}()
+		}
+		wg.Wait()
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal.Turns).To(Equal(8), "no change was lost")
+
+		Expect(s.UpdateGoal(ctx(), "alice", "c1", func(*session.Goal) (*session.Goal, error) { return nil, nil })).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Goal).To(BeNil(), "a nil goal clears it")
+	})
+
+	It("creates a chat with its goal", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "c1", Principal: "alice", Title: "New chat", Created: t0, Updated: t0,
+			Goal: &session.Goal{Text: "g", State: session.GoalPaused, PausedBy: session.GoalPausedByUser, Turns: 2, Steps: 9}})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal).NotTo(BeNil())
+		Expect(*rec.Goal).To(MatchFields(IgnoreExtras, Fields{"Text": Equal("g"), "State": Equal(session.GoalPaused),
+			"PausedBy": Equal(session.GoalPausedByUser), "Turns": Equal(2), "Steps": Equal(9)}))
 	})
 
 	It("add-on switches round-trip, survive a chat update and belong to the owner", func() {

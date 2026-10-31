@@ -697,6 +697,9 @@ button.cx-step__head:hover,
 .cx-foot__continue:hover { border-color: var(--dk-accent-text); color: var(--dk-accent-text); }
 .cx-foot__continue:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
 .cx-foot__continue .lai-icon { width: 12px; height: 12px; }
+/* The progress of an active goal: the automatic turn out of the limit. */
+.cx-foot__goal { display: inline-flex; flex: none; align-items: center; gap: var(--sp-1); margin-left: var(--sp-2); padding-left: var(--sp-3); border-left: 1px solid var(--dk-edge); color: var(--dk-text); }
+.cx-foot__goal .lai-icon { width: 12px; height: 12px; color: var(--dk-accent-text); }
 
 /* The meter: a quiet button. */
 .cx-meter {
@@ -1294,6 +1297,71 @@ button.cx-step__head:hover,
 .cx-notice--error { background: var(--dk-error-wash); color: var(--dk-error-text); }
 .cx-note { max-width: 720px; margin: 0; color: var(--dk-muted); font-size: 13px; }
 .cx-link--danger { color: var(--dk-error-text); }
+/* The goal of the chat, above the composer: one line with the text, the state
+   and its actions; a second, quieter line says why it paused, what it needs or
+   what it did. Amber only when the goal waits for the person. */
+.cx-goal {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--dk-radius-2);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+}
+.cx-goal[data-tone="warn"] { box-shadow: inset 0 0 0 1px var(--color-warning-border, var(--dk-edge)); background: var(--dk-warn-wash); }
+.cx-goal__main { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.cx-goal__icon { flex: none; width: 14px; height: 14px; color: var(--dk-accent-text); }
+.cx-goal[data-tone="warn"] .cx-goal__icon { color: var(--dk-warn-text); }
+.cx-goal[data-tone="done"] .cx-goal__icon { color: var(--dk-ok-text); }
+.cx-goal__label { flex: none; color: var(--color-text-secondary); font-weight: 600; }
+.cx-goal__text { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.cx-goal__state { flex: none; color: var(--dk-muted); font-size: var(--fs-meta); }
+.cx-goal[data-tone="warn"] .cx-goal__state { color: var(--dk-warn-text); font-weight: 500; }
+.cx-goal__acts { display: flex; flex: none; gap: var(--sp-1); }
+.cx-goal__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-sm);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cx-goal__btn:hover { border-color: var(--dk-accent-text); color: var(--dk-accent-text); }
+.cx-goal__btn:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.cx-goal__btn--quiet { border-color: transparent; background: transparent; color: var(--dk-muted); }
+.cx-goal__btn .lai-icon { width: 12px; height: 12px; }
+.cx-goal__detail { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin: var(--sp-1) 0 0; padding-left: calc(14px + var(--sp-2)); color: var(--dk-muted); }
+.cx-goal__replaced { color: var(--dk-muted); }
+/* On a phone the labels of the actions go; the icons and their names stay. */
+@media (max-width: 639px) {
+  .cx-goal__label, .cx-goal__state { display: none; }
+  .cx-goal__btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .cx-goal__btn { width: var(--ctl-h-sm); justify-content: center; padding: 0; }
+}
+/* A goal line of the transcript: a quiet row between the messages. */
+.cx-goal-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  max-width: 720px;
+  margin: 0;
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+}
+.cx-goal-line__icon { flex: none; align-self: center; width: 12px; height: 12px; }
+.cx-goal-line__label { flex: none; color: var(--color-text-secondary); font-weight: 600; }
+.cx-goal-line__text { min-width: 0; overflow-wrap: anywhere; }
+.cx-goal-line[data-tone="accent"] .cx-goal-line__icon { color: var(--dk-accent-text); }
+.cx-goal-line[data-tone="ok"] .cx-goal-line__icon { color: var(--dk-ok-text); }
+.cx-goal-line[data-tone="warn"] .cx-goal-line__icon,
+.cx-goal-line[data-tone="warn"] .cx-goal-line__label { color: var(--dk-warn-text); }
+.cx-goal-line[data-kind="continue"] .cx-goal-line__label { color: var(--dk-muted); font-weight: 500; }
 .cx-pending {
   margin: 0 0 8px;
   padding: 10px 12px;

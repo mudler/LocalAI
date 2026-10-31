@@ -205,6 +205,11 @@ export const chatsApi = {
   // The context commands: compact answers the sizes { before, after } in tokens.
   compact: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/compact`, {}),
   clear: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/clear`, {}),
+  // The chat's goal: { goal, replaced }. Stop pauses it.
+  goal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id)),
+  setGoal: (id, text) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'PUT', body: JSON.stringify({ text }) }),
+  clearGoal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'DELETE' }),
+  resumeGoal: (id) => postJSON(API_CONFIG.endpoints.chatGoalResume(id), {}),
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 

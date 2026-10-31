@@ -267,6 +267,14 @@ export const FIELDS = [
   { key: 'chats_max_iterations', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per chat turn',
     desc: 'How many rounds of tool calls the model may make in one turn before it must answer (1 to 500). A turn that reaches the limit shows as paused, with a Continue button. A model whose configuration sets agent.max_iterations uses its own limit.',
     placeholder: '40', default: 40, min: 1, max: 500, apply: 'live' },
+  // The limits of a chat's goal (core/config/runtime_settings_registry.go;
+  // read when a turn ends, so live).
+  { key: 'chats_goal_max_turns', group: 'tools', was: 'chats', kind: 'int', label: 'Automatic turns per goal',
+    desc: 'How many turns a chat with a goal may start by itself before the goal pauses (1 to 200). The person can resume it, which starts a new count.',
+    placeholder: '20', default: 20, min: 1, max: 200, apply: 'live' },
+  { key: 'chats_goal_max_steps', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per goal',
+    desc: 'How many rounds of tool calls all the turns of one goal may make together before the goal pauses (1 to 10000).',
+    placeholder: '400', default: 400, min: 1, max: 10000, apply: 'live' },
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
     desc: 'How many days the audit of the Sandbox network requests and the audit of the commands run on this machine keep a line, from 1 to 365.',
     default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },

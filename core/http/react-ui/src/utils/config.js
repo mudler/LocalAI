@@ -64,6 +64,8 @@ export const API_CONFIG = {
     chatPending: (id, pid) => `/api/chats/${encodeURIComponent(id)}/pending/${encodeURIComponent(pid)}`,
     chatSendNow: (id) => `/api/chats/${encodeURIComponent(id)}/send-now`,
     chatStop: (id) => `/api/chats/${encodeURIComponent(id)}/stop`,
+    chatGoal: (id) => `/api/chats/${encodeURIComponent(id)}/goal`,
+    chatGoalResume: (id) => `/api/chats/${encodeURIComponent(id)}/goal/resume`,
     chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
     files: '/api/chats/files',
     filesContent: '/api/chats/files/content',

@@ -7,6 +7,7 @@
 //   app       a tool call that has an MCP App, on a row of its own
 //   marker    where the person compacted (marker 'compacted', with before
 //             and after) or cleared (marker 'cleared') the model's context
+//   goal      a goal line: the goal changed, or the chat went on with it
 //
 // A tool call with an app keeps the key chatLive gives it (tool-<seq>) in the
 // transcript and in the live turn, so its frame is not reloaded when the turn
@@ -53,6 +54,11 @@ export function threadRows(messages, live) {
     if (m.role === 'compacted' || m.role === 'cleared') {
       flush(m.seq)
       rows.push({ kind: 'marker', key: `k-${m.seq}`, marker: m.role, before: m.before || 0, after: m.after || 0 })
+      continue
+    }
+    if (m.role === 'goal') {
+      flush(m.seq)
+      rows.push({ kind: 'goal', key: `g-${m.seq}`, msg: m })
       continue
     }
     if (m.role === 'user') {

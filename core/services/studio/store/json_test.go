@@ -57,6 +57,34 @@ var _ = Describe("the JSON store", func() {
 		storetest.CheckSeed(second)
 	})
 
+	// A goal whose turn was running when the process died does not go on by
+	// itself after the restart: it reads paused, and a goal of a chat with no
+	// turn running stays as it was.
+	It("pauses the active goal of a turn the restart interrupted", func() {
+		ctx := context.Background()
+		dir := GinkgoT().TempDir()
+		first, err := store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		active := func(*session.Goal) (*session.Goal, error) {
+			return &session.Goal{Text: "g", State: session.GoalActive}, nil
+		}
+		newChat(first, "running")
+		newChat(first, "idle")
+		Expect(first.UpdateGoal(ctx, "alice", "running", active)).To(Succeed())
+		Expect(first.UpdateGoal(ctx, "alice", "idle", active)).To(Succeed())
+		Expect(first.ClaimTurn(ctx, "alice", "running", "r1")).To(Succeed())
+
+		second, err := store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		rec, err := second.GetChat(ctx, "alice", "running")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal.State).To(Equal(session.GoalPaused))
+		Expect(rec.Goal.PausedBy).To(Equal(session.GoalPausedByInterrupted))
+		rec, err = second.GetChat(ctx, "alice", "idle")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal.State).To(Equal(session.GoalActive))
+	})
+
 	// A crash can leave half a line at the end of a transcript. The store must
 	// still open, drop the half line, and append on a clean line.
 	It("opens with a torn transcript line", func() {

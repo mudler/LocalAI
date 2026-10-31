@@ -225,6 +225,10 @@ var _ = Describe("Chats endpoints", func() {
 		Entry("send now", http.MethodPost, "/api/chats/c1/send-now"),
 		Entry("stop", http.MethodPost, "/api/chats/c1/stop"),
 		Entry("events", http.MethodGet, "/api/chats/c1/events"),
+		Entry("get goal", http.MethodGet, "/api/chats/c1/goal"),
+		Entry("set goal", http.MethodPut, "/api/chats/c1/goal"),
+		Entry("clear goal", http.MethodDelete, "/api/chats/c1/goal"),
+		Entry("resume goal", http.MethodPost, "/api/chats/c1/goal/resume"),
 	)
 
 	It("renames a chat, refuses a bad title and another user's chat", func() {

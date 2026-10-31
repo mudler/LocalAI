@@ -649,6 +649,33 @@ var runtimeSettingsFields = []fieldSpec{
 			return true
 		}),
 
+	// The limits of a chat's goal: read when a turn ends, so no restart. The
+	// snapshot is the limit that applies.
+	withApply(field("chats_goal_max_turns",
+		func(s *RuntimeSettings) **int { return &s.ChatsGoalMaxTurns },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsGoalMaxTurns() },
+		func(o *ApplicationConfig, v int) { o.ChatsGoalMaxTurns = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsGoalMaxTurns; v < 1 || v > MaxChatsGoalMaxTurns {
+				xlog.Warn("invalid chats_goal_max_turns in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsGoalMaxTurns = *s.ChatsGoalMaxTurns
+			return true
+		}),
+	withApply(field("chats_goal_max_steps",
+		func(s *RuntimeSettings) **int { return &s.ChatsGoalMaxSteps },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsGoalMaxSteps() },
+		func(o *ApplicationConfig, v int) { o.ChatsGoalMaxSteps = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsGoalMaxSteps; v < 1 || v > MaxChatsGoalMaxSteps {
+				xlog.Warn("invalid chats_goal_max_steps in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsGoalMaxSteps = *s.ChatsGoalMaxSteps
+			return true
+		}),
+
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
 	field("chats_suggestions",
