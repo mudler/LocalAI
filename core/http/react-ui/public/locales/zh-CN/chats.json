@@ -212,5 +212,71 @@
     "allowedHosts": "管理员始终允许：",
     "allowedHostsOff": "网络开启后生效。",
     "allowedHostsNote": "管理员始终允许 {{count}} 个主机。"
+  },
+  "change": {
+    "loading": "正在读取触发器更改...",
+    "unread": "无法读取触发器更改：{{message}}",
+    "removed": "此更改已不再保留。",
+    "none": "无",
+    "on": "开启",
+    "off": "关闭（已暂停）",
+    "becomes": "变为",
+    "neverRan": "尚未运行",
+    "lastRun": "上次运行",
+    "lastRunValue": "{{status}}，{{when}}",
+    "runStatus": {
+      "queued": "排队中",
+      "running": "运行中",
+      "done": "已完成",
+      "failed": "失败",
+      "skipped": "已跳过"
+    },
+    "updateTitle": "更改 {{name}}",
+    "deleteTitle": "删除 {{name}}？",
+    "updateHelp": "建议的更改。在你应用之前不会有任何变化。",
+    "deleteHelp": "在你点击删除之前不会删除任何内容。你可以在一天内撤销。",
+    "stale": "此建议提出后触发器已被更改或删除，因此无法应用。请重新请求更改。",
+    "apply": "应用",
+    "delete": "删除",
+    "keep": "保留",
+    "field": {
+      "name": "名称",
+      "prompt": "提示词",
+      "when": "运行时间",
+      "time_zone": "时区",
+      "daily_cap": "每日上限",
+      "enabled": "状态",
+      "reads": "读取",
+      "writes": "写入",
+      "widget": "主页小组件",
+      "estimated_tokens": "每次运行的令牌数",
+      "agent": "智能体",
+      "model": "模型"
+    },
+    "receipt": {
+      "update": "已更改：",
+      "pause": "已暂停：",
+      "resume": "已恢复：",
+      "delete": "已删除：",
+      "fields": "更改内容：{{fields}}",
+      "dismissed": "已忽略更改：",
+      "kept": "已保留：",
+      "undone": "已撤销：",
+      "restored": "已恢复："
+    },
+    "blocked": {
+      "expired": "撤销时限已过；请在触发器页面更改。",
+      "edited": "此后触发器已被更改；请在触发器页面更改。",
+      "removed": "此后触发器已被删除。",
+      "full": "你的触发器已达上限；请先在触发器页面删除一个。"
+    },
+    "announce": {
+      "applied": "已更改 {{name}}。",
+      "deleted": "已删除 {{name}}。",
+      "dismissed": "已忽略对 {{name}} 的更改。",
+      "kept": "已保留 {{name}}。",
+      "undone": "已撤销对 {{name}} 的更改。",
+      "restored": "已恢复 {{name}}。"
+    }
   }
 }

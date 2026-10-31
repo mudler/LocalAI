@@ -54,7 +54,7 @@ func same(a, b triggers.Trigger) bool {
 		a.Enabled == b.Enabled && a.Kind == b.Kind && a.Schedule == b.Schedule && a.TZ == b.TZ &&
 		a.Folder == b.Folder && a.Quiet == b.Quiet && a.DailyCap == b.DailyCap && a.Since.Equal(b.Since) &&
 		a.AgentID == b.AgentID && a.SourceChatID == b.SourceChatID && a.Model == b.Model && a.Proposed == b.Proposed &&
-		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched
+		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Change == b.Change
 }
 
 func sameRun(a, b triggers.Run) bool {
@@ -82,6 +82,20 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(same(got, tr)).To(BeTrue(), "GetTrigger(%s) = %+v; want %+v", tr.ID, got, tr)
 		}
+	})
+	It("stores a change record with its change", func() {
+		s := newStore()
+		tr := sample("c1", "1", "Morning")
+		tr.Enabled, tr.Proposed = false, true
+		tr.Change = triggers.Change{Op: triggers.ChangeUpdate, Target: "t1", Stamp: "abc", On: true, Chat: "chat-1"}
+		Expect(s.PutTrigger(ctx, tr)).To(Succeed())
+		got, err := s.GetTrigger(ctx, tr.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(same(got, tr)).To(BeTrue(), "GetTrigger = %+v; want %+v", got, tr)
+		Expect(got.IsChange()).To(BeTrue())
+		Expect(got.Pending()).To(BeFalse(), "a change record is not a proposal")
+		en, _ := s.EnabledTriggers(ctx)
+		Expect(en).To(BeEmpty(), "a change record is never enabled")
 	})
 	It("does not find an unknown trigger", func() {
 		s := newStore()

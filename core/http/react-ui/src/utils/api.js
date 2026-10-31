@@ -454,6 +454,11 @@ export const chatTriggersApi = {
   confirm: (id, timeZone) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/confirm`, timeZone ? { time_zone: timeZone } : {}),
   dismiss: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`, { method: 'DELETE' }),
   editProposal: (id, body) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  // A change a model asked for in a chat and what became of it: { id, op, state, before, after, fields, can_undo, undo_blocked, stale, last_run }.
+  change: (id) => fetchJSON(`/api/chats/triggers/changes/${enc2(id)}`),
+  applyChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/apply`, {}),
+  undoChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/undo`, {}),
+  dismissChange: (id) => fetchJSON(`/api/chats/triggers/changes/${enc2(id)}`, { method: 'DELETE' }),
 }
 
 // The inbox: what ended while the user was elsewhere.

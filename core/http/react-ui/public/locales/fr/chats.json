@@ -212,5 +212,71 @@
     "allowedHosts": "Toujours autorisés par votre administrateur :",
     "allowedHostsOff": "Ils s'appliquent quand le réseau est activé.",
     "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur."
+  },
+  "change": {
+    "loading": "Lecture de la modification du déclencheur...",
+    "unread": "Impossible de lire la modification du déclencheur : {{message}}",
+    "removed": "Cette modification n'est plus conservée.",
+    "none": "aucun",
+    "on": "Activé",
+    "off": "Désactivé (en pause)",
+    "becomes": "devient",
+    "neverRan": "Pas encore exécuté",
+    "lastRun": "Dernière exécution",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "En attente",
+      "running": "En cours",
+      "done": "Terminée",
+      "failed": "Échouée",
+      "skipped": "Ignorée"
+    },
+    "updateTitle": "Modifier {{name}}",
+    "deleteTitle": "Supprimer {{name}} ?",
+    "updateHelp": "Modification proposée. Rien ne change tant que vous ne l'appliquez pas.",
+    "deleteHelp": "Rien n'est supprimé tant que vous n'appuyez pas sur Supprimer. Vous pouvez annuler pendant un jour.",
+    "stale": "Le déclencheur a été modifié ou supprimé après la proposition : la modification ne peut plus s'appliquer. Redemandez la modification.",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "keep": "Conserver",
+    "field": {
+      "name": "Nom",
+      "prompt": "Prompt",
+      "when": "Quand",
+      "time_zone": "Fuseau horaire",
+      "daily_cap": "Limite quotidienne",
+      "enabled": "État",
+      "reads": "Lit",
+      "writes": "Écrit",
+      "widget": "Widget d'accueil",
+      "estimated_tokens": "Jetons par exécution",
+      "agent": "Agent",
+      "model": "Modèle"
+    },
+    "receipt": {
+      "update": "Modifié :",
+      "pause": "En pause :",
+      "resume": "Repris :",
+      "delete": "Supprimé :",
+      "fields": "Ce qui a changé : {{fields}}",
+      "dismissed": "Modification ignorée :",
+      "kept": "Conservé :",
+      "undone": "Annulé :",
+      "restored": "Restauré :"
+    },
+    "blocked": {
+      "expired": "Le délai pour annuler est passé ; modifiez le déclencheur sur la page Déclencheurs.",
+      "edited": "Le déclencheur a été modifié depuis ; modifiez-le sur la page Déclencheurs.",
+      "removed": "Le déclencheur a été supprimé depuis.",
+      "full": "Vous avez le nombre maximal de déclencheurs ; supprimez-en un sur la page Déclencheurs d'abord."
+    },
+    "announce": {
+      "applied": "{{name}} modifié.",
+      "deleted": "{{name}} supprimé.",
+      "dismissed": "Modification de {{name}} ignorée.",
+      "kept": "{{name}} conservé.",
+      "undone": "Modification de {{name}} annulée.",
+      "restored": "{{name}} restauré."
+    }
   }
 }

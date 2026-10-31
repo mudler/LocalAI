@@ -212,5 +212,71 @@
     "allowedHosts": "Sempre permitidos pelo seu administrador:",
     "allowedHostsOff": "Valem quando a rede está ativada.",
     "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador."
+  },
+  "change": {
+    "loading": "Lendo a alteração do gatilho...",
+    "unread": "Não foi possível ler a alteração do gatilho: {{message}}",
+    "removed": "Esta alteração não está mais guardada.",
+    "none": "nenhum",
+    "on": "Ligado",
+    "off": "Desligado (pausado)",
+    "becomes": "passa a",
+    "neverRan": "Ainda não foi executado",
+    "lastRun": "Última execução",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "Na fila",
+      "running": "Em execução",
+      "done": "Concluída",
+      "failed": "Falhou",
+      "skipped": "Pulada"
+    },
+    "updateTitle": "Alterar {{name}}",
+    "deleteTitle": "Excluir {{name}}?",
+    "updateHelp": "Alteração proposta. Nada muda até você aplicá-la.",
+    "deleteHelp": "Nada é excluído até você clicar em Excluir. Você pode desfazer por um dia.",
+    "stale": "O gatilho foi alterado ou removido depois da proposta, então a alteração não pode ser aplicada. Peça a alteração de novo.",
+    "apply": "Aplicar",
+    "delete": "Excluir",
+    "keep": "Manter",
+    "field": {
+      "name": "Nome",
+      "prompt": "Prompt",
+      "when": "Quando",
+      "time_zone": "Fuso horário",
+      "daily_cap": "Limite diário",
+      "enabled": "Estado",
+      "reads": "Lê",
+      "writes": "Escreve",
+      "widget": "Widget da Início",
+      "estimated_tokens": "Tokens por execução",
+      "agent": "Agente",
+      "model": "Modelo"
+    },
+    "receipt": {
+      "update": "Alterado:",
+      "pause": "Pausado:",
+      "resume": "Retomado:",
+      "delete": "Excluído:",
+      "fields": "O que mudou: {{fields}}",
+      "dismissed": "Alteração descartada:",
+      "kept": "Mantido:",
+      "undone": "Desfeito:",
+      "restored": "Restaurado:"
+    },
+    "blocked": {
+      "expired": "O prazo para desfazer acabou; altere o gatilho na página Gatilhos.",
+      "edited": "O gatilho foi alterado desde então; altere-o na página Gatilhos.",
+      "removed": "O gatilho foi removido desde então.",
+      "full": "Você já tem o máximo de gatilhos; remova um na página Gatilhos primeiro."
+    },
+    "announce": {
+      "applied": "{{name}} alterado.",
+      "deleted": "{{name}} excluído.",
+      "dismissed": "Alteração de {{name}} descartada.",
+      "kept": "{{name}} mantido.",
+      "undone": "Alteração de {{name}} desfeita.",
+      "restored": "{{name}} restaurado."
+    }
   }
 }

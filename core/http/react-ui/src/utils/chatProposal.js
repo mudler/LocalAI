@@ -57,3 +57,55 @@ export function proposalEdit(p, { name, when }) {
 export function proposalIds(items) {
   return (items || []).filter((m) => m.role === 'tool' && m.card?.kind === PROPOSAL_CARD && m.card.id).map((m) => m.card.id)
 }
+
+// The changes of a trigger that a model asks for in a chat (tool card
+// trigger_change): an edit or a delete waits for the person, a pause or a
+// resume is applied at once and the card is a receipt with Undo.
+export const CHANGE_CARD = 'trigger_change'
+
+// What the card of a change shows, from the server's answer to
+// GET /api/chats/triggers/changes/{id} (or the error of that call): pending,
+// applied, dismissed or undone, removed once the server no longer keeps it
+// (404), and error otherwise. A state this code does not know is an error.
+export function changeView(res, err) {
+  if (err) return err.status === 404 ? { kind: 'removed' } : { kind: 'error', message: err.message }
+  const known = ['pending', 'applied', 'dismissed', 'undone']
+  if (!known.includes(res?.state)) return { kind: 'error', message: `unknown change state ${res?.state}` }
+  return {
+    kind: res.state,
+    op: res.op,
+    before: res.before || {},
+    after: res.after || null,
+    fields: res.fields || [],
+    at: res.answered_at || '',
+    stale: !!res.stale,
+    canUndo: !!res.can_undo,
+    blocked: res.undo_blocked || '',
+    lastRun: res.last_run || null,
+  }
+}
+
+// The text of one field of a trigger, as the before/after rows show it. A
+// field the trigger leaves empty is ''; the card says "none" for it.
+export function changeValue(field, t) {
+  if (!t) return ''
+  switch (field) {
+    case 'when': return String(t.summary || t.schedule || t.folder || '')
+    case 'enabled': return t.enabled ? 'on' : 'off'
+    case 'reads': return t.plan?.reads || ''
+    case 'writes': return t.plan?.writes || ''
+    case 'widget': return t.plan?.widget || ''
+    case 'estimated_tokens': return t.cost?.estimated_tokens ? String(t.cost.estimated_tokens) : ''
+    case 'agent': return t.agent_id || ''
+    case 'daily_cap': return t.daily_cap ? String(t.daily_cap) : ''
+    default: return t[field] == null ? '' : String(t[field])
+  }
+}
+
+// The trigger cards of a run of transcript lines, in order: proposals and
+// changes, each { kind, id }.
+export function triggerCards(items) {
+  return (items || [])
+    .filter((m) => m.role === 'tool' && (m.card?.kind === PROPOSAL_CARD || m.card?.kind === CHANGE_CARD) && m.card.id)
+    .map((m) => ({ kind: m.card.kind, id: m.card.id }))
+}

@@ -521,6 +521,13 @@
 @media (max-width: 520px) {
   .cx-receipt__acts { margin-left: 0; width: 100%; }
 }
+/* A change of a trigger the model asked for: the fields before and after,
+   on the plan rows of a proposal, before Apply (or the trigger, before Delete). */
+.cx-change-card__diff { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.cx-change-card__before { color: var(--dk-muted); text-decoration: line-through; overflow-wrap: anywhere; }
+.cx-change-card__after { color: var(--dk-text); font-weight: 600; overflow-wrap: anywhere; }
+.cx-change-card__arrow { flex: none; color: var(--dk-muted); align-self: center; }
+.cx-change-card__none { font-style: italic; text-decoration: none; }
 .cx-bubble--edit { width: min(600px, 88%); }
 .cx-bubble--edit .cx-help { margin: 6px 0 8px; }
 

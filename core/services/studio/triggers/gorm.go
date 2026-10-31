@@ -2,6 +2,7 @@ package triggers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -36,6 +37,9 @@ type triggerRow struct {
 	Outcome      string `gorm:"size:16"`
 	OutcomeAt    time.Time
 	Touched      bool
+	// Change is the JSON of Trigger.Change, empty on a record that is not a
+	// change.
+	Change string `gorm:"size:1024"`
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -91,7 +95,23 @@ func (r triggerRow) trigger() Trigger {
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap,
 		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
 		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
-		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched}
+		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change)}
+}
+
+func changeOf(raw string) Change {
+	var c Change
+	if raw != "" {
+		_ = json.Unmarshal([]byte(raw), &c) // a broken value reads as no change; the record stays off
+	}
+	return c
+}
+
+func changeText(c Change) string {
+	if c.Op == "" {
+		return ""
+	}
+	raw, _ := json.Marshal(c)
+	return string(raw)
 }
 
 func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
@@ -99,7 +119,7 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap,
 		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed,
 		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens,
-		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched}
+		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change)}
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 

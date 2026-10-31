@@ -212,5 +212,71 @@
     "allowedHosts": "Von Ihrem Administrator immer erlaubt:",
     "allowedHostsOff": "Sie gelten, sobald das Netzwerk eingeschaltet ist.",
     "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt."
+  },
+  "change": {
+    "loading": "Die Trigger-Änderung wird gelesen...",
+    "unread": "Die Trigger-Änderung konnte nicht gelesen werden: {{message}}",
+    "removed": "Diese Änderung wird nicht mehr aufbewahrt.",
+    "none": "keine",
+    "on": "An",
+    "off": "Aus (pausiert)",
+    "becomes": "wird zu",
+    "neverRan": "Noch nicht ausgeführt",
+    "lastRun": "Letzte Ausführung",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "Wartet",
+      "running": "Läuft",
+      "done": "Fertig",
+      "failed": "Fehlgeschlagen",
+      "skipped": "Übersprungen"
+    },
+    "updateTitle": "{{name}} ändern",
+    "deleteTitle": "{{name}} löschen?",
+    "updateHelp": "Vorgeschlagene Änderung. Nichts ändert sich, bis du sie übernimmst.",
+    "deleteHelp": "Nichts wird gelöscht, bis du auf Löschen drückst. Du kannst es einen Tag lang rückgängig machen.",
+    "stale": "Der Trigger wurde nach dem Vorschlag geändert oder entfernt, daher kann die Änderung nicht übernommen werden. Bitte erneut um die Änderung.",
+    "apply": "Übernehmen",
+    "delete": "Löschen",
+    "keep": "Behalten",
+    "field": {
+      "name": "Name",
+      "prompt": "Prompt",
+      "when": "Wann",
+      "time_zone": "Zeitzone",
+      "daily_cap": "Tageslimit",
+      "enabled": "Status",
+      "reads": "Liest",
+      "writes": "Schreibt",
+      "widget": "Home-Widget",
+      "estimated_tokens": "Tokens pro Lauf",
+      "agent": "Agent",
+      "model": "Modell"
+    },
+    "receipt": {
+      "update": "Geändert:",
+      "pause": "Pausiert:",
+      "resume": "Fortgesetzt:",
+      "delete": "Gelöscht:",
+      "fields": "Was sich geändert hat: {{fields}}",
+      "dismissed": "Änderung verworfen:",
+      "kept": "Behalten:",
+      "undone": "Rückgängig gemacht:",
+      "restored": "Wiederhergestellt:"
+    },
+    "blocked": {
+      "expired": "Die Zeit zum Rückgängigmachen ist vorbei; ändere den Trigger auf der Seite Trigger.",
+      "edited": "Der Trigger wurde seitdem geändert; ändere ihn auf der Seite Trigger.",
+      "removed": "Der Trigger wurde seitdem entfernt.",
+      "full": "Du hast so viele Trigger wie erlaubt; entferne zuerst einen auf der Seite Trigger."
+    },
+    "announce": {
+      "applied": "{{name}} geändert.",
+      "deleted": "{{name}} gelöscht.",
+      "dismissed": "Änderung an {{name}} verworfen.",
+      "kept": "{{name}} behalten.",
+      "undone": "Änderung an {{name}} rückgängig gemacht.",
+      "restored": "{{name}} wiederhergestellt."
+    }
   }
 }

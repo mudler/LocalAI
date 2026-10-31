@@ -62,10 +62,10 @@ func stateOf(t triggers.Trigger) ProposalState {
 }
 
 // ownedAny returns a record of the user, whether it is a proposal, an answered
-// one or a trigger.
+// one or a trigger, but not a change record.
 func (h *Triggers) ownedAny(ctx context.Context, user, id string) (triggers.Trigger, error) {
 	t, err := h.o.Store.GetTrigger(ctx, id)
-	if err != nil || t.Owner != principal(user) {
+	if err != nil || t.Owner != principal(user) || t.IsChange() {
 		return triggers.Trigger{}, triggers.ErrNotFound
 	}
 	return t, nil
@@ -202,7 +202,10 @@ func (h *Triggers) ProposalNote(ctx context.Context, user, chatID string) string
 	}
 	var mine []triggers.Trigger
 	for _, t := range all {
-		if t.SourceChatID == chatID && t.Outcome != "" {
+		if t.Outcome == "" {
+			continue
+		}
+		if (t.IsChange() && t.Change.Chat == chatID) || (!t.IsChange() && t.SourceChatID == chatID) {
 			mine = append(mine, t)
 		}
 	}
@@ -220,6 +223,12 @@ func (h *Triggers) ProposalNote(ctx context.Context, user, chatID string) string
 		if len(name) > 60 {
 			name = name[:60]
 		}
+		if t.IsChange() {
+			if line := changeNote(t, name); line != "" {
+				parts = append(parts, line)
+			}
+			continue
+		}
 		switch t.Outcome {
 		case triggers.OutcomeAccepted:
 			parts = append(parts, fmt.Sprintf("%q accepted by the user and active (%s)", name, h.summary(t)))
@@ -231,7 +240,7 @@ func (h *Triggers) ProposalNote(ctx context.Context, user, chatID string) string
 			again = true
 		}
 	}
-	line := "Trigger proposals in this chat: " + strings.Join(parts, "; ") + "."
+	line := "Trigger proposals and changes in this chat: " + strings.Join(parts, "; ") + "."
 	if again {
 		line += " Do not propose a declined or undone trigger again unless the user asks."
 	}
