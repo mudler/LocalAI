@@ -21,6 +21,14 @@ const (
 	KindNeedsAttention = "needs_attention" // something needs the owner, such as a trigger switched off
 )
 
+// Sources of a notification: what sent it. The inbox draws a different icon
+// for each one. A row stored before sources existed has none.
+const (
+	SourceTrigger   = "trigger"   // a trigger and its runs
+	SourceConnector = "connector" // a connector, such as a mail or chat account
+	SourceSystem    = "system"    // LocalAI itself, such as the conversion of old data
+)
+
 // Statuses of a notification.
 const (
 	StatusOK     = "ok"
@@ -47,8 +55,10 @@ type Notification struct {
 	Principal string `json:"-"`
 	Kind      string `json:"kind"`
 	Status    string `json:"status"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
+	// Source is what sent it: SourceTrigger, SourceConnector or SourceSystem.
+	Source string `json:"source,omitempty"`
+	Title  string `json:"title"`
+	Body   string `json:"body"`
 	// Link is the in-app path that opens the thing, for example /app/chats/<id>.
 	Link    string    `json:"link"`
 	Read    bool      `json:"read"`

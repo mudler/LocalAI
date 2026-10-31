@@ -18,7 +18,7 @@ type NewStore func() notify.Store
 var t0 = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 
 func note(p, title string, at time.Time) notify.Notification {
-	return notify.Notification{Principal: p, Kind: notify.KindRunEnded, Status: notify.StatusOK, Title: title, Link: "/app/chats/" + title, Created: at}
+	return notify.Notification{Principal: p, Kind: notify.KindRunEnded, Status: notify.StatusOK, Source: notify.SourceTrigger, Title: title, Link: "/app/chats/" + title, Created: at}
 }
 
 func titles(ns []notify.Notification) []string {
@@ -47,6 +47,7 @@ func Run(newStore NewStore) {
 		Expect(titles(got)).To(Equal([]string{"c", "b", "a"}))
 		Expect(got[0].Kind).To(Equal(notify.KindRunEnded))
 		Expect(got[0].Status).To(Equal(notify.StatusOK))
+		Expect(got[0].Source).To(Equal(notify.SourceTrigger))
 		Expect(got[0].Link).To(Equal("/app/chats/c"))
 		Expect(got[0].Created.Equal(t0)).To(BeTrue())
 		Expect(got[0].Read).To(BeFalse())

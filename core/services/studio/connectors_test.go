@@ -519,7 +519,7 @@ var _ = Describe("connectors", func() {
 		waitFor("the binding to be disabled", func() bool { got, _ := st.GetBinding(context.Background(), b.ID); return !got.Enabled })
 		waitFor("the notification", func() bool {
 			for _, n := range r.notes() {
-				if n.Kind == notify.KindNeedsAttention && strings.Contains(n.Body, "agent") {
+				if n.Kind == notify.KindNeedsAttention && n.Source == notify.SourceConnector && strings.Contains(n.Body, "agent") {
 					return true
 				}
 			}

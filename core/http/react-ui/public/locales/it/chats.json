@@ -386,7 +386,6 @@
     "allowedHostsNote": "{{count}} host sono sempre consentiti dal tuo amministratore."
   },
   "inbox": {
-    "empty": "Ancora niente qui.",
     "unread": "{{count}} non lette",
     "markAll": "Segna tutto come letto",
     "delete": "Elimina",
@@ -406,7 +405,38 @@
     "confirmRead_other": "Eliminare {{count}} notifiche lette? Quelle non lette restano.",
     "onlyRead": "Solo le {{count}} lette",
     "showing": "{{shown}} di {{total}} mostrate",
-    "showMore": "Mostra altre"
+    "showMore": "Mostra altre",
+    "title": "Notifiche",
+    "buttonUnread_one": "Notifiche, {{count}} da leggere",
+    "buttonUnread_other": "Notifiche, {{count}} da leggere",
+    "filterLabel": "Mostra notifiche",
+    "filterAll": "Tutte",
+    "filterUnread": "Da leggere",
+    "filterFailed": "Non riuscite",
+    "more": "Altre azioni",
+    "close": "Chiudi",
+    "day": {
+      "today": "Oggi",
+      "yesterday": "Ieri",
+      "earlier": "Prima"
+    },
+    "emptyTitle": "Ancora nessuna notifica",
+    "emptyBody": "Qui compaiono i risultati dei tuoi trigger e connettori, anche del lavoro finito mentre eri via.",
+    "caughtUp": "Sei in pari.",
+    "caughtUpTitle": "Sei in pari",
+    "caughtUpBody": "Non ci sono notifiche da leggere.",
+    "noFailedTitle": "Niente è andato storto",
+    "noFailedBody": "Qui compaiono le esecuzioni e i connettori che non riescono.",
+    "loadError": "Impossibile caricare le tue notifiche.",
+    "source": {
+      "trigger": "Trigger",
+      "connector": "Connettore",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, da leggere",
+    "arrived": "Nuova notifica: {{title}}",
+    "arrivedMany_one": "{{count}} nuova notifica",
+    "arrivedMany_other": "{{count}} nuove notifiche"
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",

@@ -748,12 +748,14 @@ type ChatsBuiltinToolList struct {
 }
 
 // ChatsNotification is one item of the inbox. Kind is run_ended, run_failed or
-// needs_attention; Status is ok or failed. Link is the in-app path that opens
-// what it is about.
+// needs_attention; Status is ok or failed. Source is what sent it: trigger,
+// connector or system (empty on items stored before sources existed). Link is
+// the in-app path that opens what it is about.
 type ChatsNotification struct {
 	ID      int64     `json:"id"`
 	Kind    string    `json:"kind"`
 	Status  string    `json:"status"`
+	Source  string    `json:"source,omitempty"`
 	Title   string    `json:"title"`
 	Body    string    `json:"body"`
 	Link    string    `json:"link"`

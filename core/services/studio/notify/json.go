@@ -32,6 +32,7 @@ type jsonRow struct {
 	Principal string    `json:"principal"`
 	Kind      string    `json:"kind"`
 	Status    string    `json:"status"`
+	Source    string    `json:"source,omitempty"`
 	Title     string    `json:"title"`
 	Body      string    `json:"body"`
 	Link      string    `json:"link"`
@@ -89,7 +90,7 @@ func (s *jsonStore) Add(_ context.Context, n Notification) (int64, error) {
 	err := s.change(func(f *jsonFile) {
 		f.Next++
 		id = f.Next
-		f.Rows = append(f.Rows, jsonRow{ID: id, Principal: n.Principal, Kind: n.Kind, Status: n.Status,
+		f.Rows = append(f.Rows, jsonRow{ID: id, Principal: n.Principal, Kind: n.Kind, Status: n.Status, Source: n.Source,
 			Title: n.Title, Body: n.Body, Link: n.Link, Created: n.Created})
 		cutoff := n.Created.Add(-MaxAge)
 		kept := 0
@@ -118,7 +119,7 @@ func (s *jsonStore) Add(_ context.Context, n Notification) (int64, error) {
 }
 
 func toNotification(r jsonRow) Notification {
-	return Notification{ID: r.ID, Principal: r.Principal, Kind: r.Kind, Status: r.Status, Title: r.Title,
+	return Notification{ID: r.ID, Principal: r.Principal, Kind: r.Kind, Status: r.Status, Source: r.Source, Title: r.Title,
 		Body: r.Body, Link: r.Link, Read: r.Read, Created: r.Created}
 }
 

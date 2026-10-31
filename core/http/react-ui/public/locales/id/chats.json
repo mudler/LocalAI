@@ -386,7 +386,6 @@
     "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda."
   },
   "inbox": {
-    "empty": "Belum ada apa pun.",
     "unread": "{{count}} belum dibaca",
     "markAll": "Tandai semua dibaca",
     "delete": "Hapus",
@@ -406,7 +405,38 @@
     "showMore": "Tampilkan lebih banyak",
     "cleared_one": "{{count}} notifikasi dihapus.",
     "confirmAll_one": "Hapus semua {{count}} notifikasi? Tindakan ini tidak dapat dibatalkan.",
-    "confirmRead_one": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada."
+    "confirmRead_one": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada.",
+    "title": "Notifikasi",
+    "buttonUnread_one": "Notifikasi, {{count}} belum dibaca",
+    "buttonUnread_other": "Notifikasi, {{count}} belum dibaca",
+    "filterLabel": "Tampilkan notifikasi",
+    "filterAll": "Semua",
+    "filterUnread": "Belum dibaca",
+    "filterFailed": "Gagal",
+    "more": "Tindakan lain",
+    "close": "Tutup",
+    "day": {
+      "today": "Hari ini",
+      "yesterday": "Kemarin",
+      "earlier": "Sebelumnya"
+    },
+    "emptyTitle": "Belum ada notifikasi",
+    "emptyBody": "Hasil pemicu dan konektor Anda muncul di sini, termasuk pekerjaan yang selesai saat Anda pergi.",
+    "caughtUp": "Semua sudah Anda baca.",
+    "caughtUpTitle": "Semua sudah Anda baca",
+    "caughtUpBody": "Tidak ada notifikasi yang belum dibaca.",
+    "noFailedTitle": "Tidak ada yang gagal",
+    "noFailedBody": "Proses dan konektor yang gagal muncul di sini.",
+    "loadError": "Notifikasi Anda tidak dapat dimuat.",
+    "source": {
+      "trigger": "Pemicu",
+      "connector": "Konektor",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}, belum dibaca",
+    "arrived": "Notifikasi baru: {{title}}",
+    "arrivedMany_one": "{{count}} notifikasi baru",
+    "arrivedMany_other": "{{count}} notifikasi baru"
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",

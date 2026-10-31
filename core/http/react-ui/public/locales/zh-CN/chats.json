@@ -386,7 +386,6 @@
     "allowedHostsNote": "管理员始终允许 {{count}} 个主机。"
   },
   "inbox": {
-    "empty": "这里还没有内容。",
     "unread": "{{count}} 条未读",
     "markAll": "全部标为已读",
     "delete": "删除",
@@ -406,7 +405,38 @@
     "showMore": "显示更多",
     "cleared_one": "已删除 {{count}} 条通知。",
     "confirmAll_one": "删除全部 {{count}} 条通知？此操作无法撤销。",
-    "confirmRead_one": "删除 {{count}} 条已读通知？未读通知会保留。"
+    "confirmRead_one": "删除 {{count}} 条已读通知？未读通知会保留。",
+    "title": "通知",
+    "buttonUnread_one": "通知，{{count}} 条未读",
+    "buttonUnread_other": "通知，{{count}} 条未读",
+    "filterLabel": "显示通知",
+    "filterAll": "全部",
+    "filterUnread": "未读",
+    "filterFailed": "失败",
+    "more": "更多操作",
+    "close": "关闭",
+    "day": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "earlier": "更早"
+    },
+    "emptyTitle": "还没有通知",
+    "emptyBody": "触发器和连接器的结果会显示在这里，包括你不在时完成的工作。",
+    "caughtUp": "你已全部看完。",
+    "caughtUpTitle": "你已全部看完",
+    "caughtUpBody": "没有未读通知。",
+    "noFailedTitle": "没有失败的项目",
+    "noFailedBody": "失败的运行和连接器会显示在这里。",
+    "loadError": "无法加载你的通知。",
+    "source": {
+      "trigger": "触发器",
+      "connector": "连接器",
+      "system": "LocalAI"
+    },
+    "itemUnread": "{{title}}，未读",
+    "arrived": "新通知：{{title}}",
+    "arrivedMany_one": "{{count}} 条新通知",
+    "arrivedMany_other": "{{count}} 条新通知"
   },
   "change": {
     "loading": "正在读取触发器更改...",

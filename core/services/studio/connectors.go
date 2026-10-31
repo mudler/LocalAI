@@ -445,7 +445,7 @@ func (c *Connectors) disable(b connectors.Binding, why string) {
 		return
 	}
 	if c.svc.d.Notify != nil {
-		_, _ = c.svc.d.Notify.Add(context.Background(), notify.Notification{Principal: b.Owner, Kind: notify.KindNeedsAttention, Status: notify.StatusFailed,
+		_, _ = c.svc.d.Notify.Add(context.Background(), notify.Notification{Principal: b.Owner, Kind: notify.KindNeedsAttention, Status: notify.StatusFailed, Source: notify.SourceConnector,
 			Title: b.Name + " was switched off", Body: "The connector was switched off because " + why + "."})
 	}
 }

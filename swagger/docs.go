@@ -19702,6 +19702,9 @@ const docTemplate = `{
                 "read": {
                     "type": "boolean"
                 },
+                "source": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
