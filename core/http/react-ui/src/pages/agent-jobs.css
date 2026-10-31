@@ -22,50 +22,13 @@
 .aj-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .aj-sub { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 10px; margin-top: 2px; font-size: var(--fs-small); color: var(--dk-muted); }
 .aj-sub__text { max-width: 42ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.aj-model { font-size: var(--fs-small); color: var(--dk-muted); text-decoration: none; }
-.aj-model:hover { color: var(--dk-text); text-decoration: underline; text-underline-offset: 3px; }
 .aj-record { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-small); }
 .ag-section-head .aj-record { flex-direction: row; align-items: center; gap: 12px; }
 .aj-acts { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
-.aj-sched { display: flex; flex-direction: column; gap: 2px; }
-.aj-sched[data-off] .aj-sched__words { color: var(--dk-muted); }
-.aj-sched__words { font-size: var(--fs-small); }
-.aj-sched__cron { font-family: var(--font-mono); font-size: var(--fs-meta); color: var(--dk-muted); background: none; padding: 0; }
-.aj-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.aj-count { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dk-muted); }
 .aj-taskfilter { width: auto; min-width: 170px; margin-left: auto; }
 .aj-taskfilter .dk-select { height: var(--ctl-h); }
-.aj-table--history th.dk-table-toggle-cell, .aj-table--history td.dk-table-toggle-cell { padding-left: var(--dk-space-3); }
-.aj-day th {
-  height: 36px;
-  padding-top: 10px;
-  background: var(--dk-card);
-  font: 600 var(--fs-meta)/1 var(--font-sans);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--dk-muted);
-  text-align: left;
-}
-.aj-phone-line { display: none; }
-.aj-what { display: block; max-width: 56ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); }
-.aj-table tbody tr[data-error] .aj-what { color: var(--dk-error-text); }
 .aj-detail { display: flex; flex-direction: column; gap: 8px; max-width: 80ch; }
-.aj-detail--failed .aj-excerpt { background: var(--dk-error-wash); color: var(--dk-text); }
 .aj-detail__acts { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 4px; }
-.aj-excerpt {
-  margin: 0;
-  padding: 10px 12px;
-  max-height: 200px;
-  overflow: auto;
-  border-radius: var(--r-md);
-  background: var(--dk-card);
-  border: 1px solid var(--dk-edge);
-  font-family: var(--font-mono);
-  font-size: var(--fs-meta);
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 .aj-steps { margin: 0 0 18px; padding-left: 22px; display: flex; flex-direction: column; gap: var(--sp-2); font-size: var(--fs-body); line-height: var(--lh-body); }
 .aj-steps li::marker { color: var(--dk-muted); font-variant-numeric: tabular-nums; }
 
@@ -96,11 +59,7 @@
 
 /* ---- Phone ---------------------------------------------------------------- */
 @media (max-width: 760px) {
-/* Wraps: "Every day at 07:00. Last run failed" is the one line that says when and how it went, and an ellipsis cut it mid-sentence. */
-  .aj-phone-line { display: block; margin-top: 2px; max-width: 28ch; overflow-wrap: anywhere; font-size: var(--fs-small); font-weight: 400; color: var(--dk-muted); }
   .aj-acts__word { display: none; }
-  .aj-taskfilter { margin-left: 0; flex: 1 1 100%; }
-  .aj-what { max-width: 30ch; }
   .aj-sub__text { max-width: 21ch; }
 }
 
@@ -316,3 +275,9 @@
   .aj-page .ag-row__end { gap: var(--sp-2); }
   .aj-task__run { display: none; }
 }
+
+/* ---- Triggers: the schedule line and the week under the history title ------ */
+.aj-sec__head--stack { flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
+.aj-sec__head--stack .aj-sum { font-size: var(--fs-small); line-height: var(--lh-small); }
+.aj-task__when { color: var(--dk-text); }
+.aj-preview--doc { padding: var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); }

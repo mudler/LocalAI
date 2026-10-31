@@ -322,7 +322,8 @@
       "noAgent": "No agent",
       "fileKind": "When a file arrives",
       "open": "Open",
-      "started": "Trigger \"{{name}}\" started"
+      "started": "Trigger \"{{name}}\" started",
+      "next": "Next"
     },
     "history": {
       "title": "Run history",

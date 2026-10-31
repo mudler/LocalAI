@@ -9,19 +9,6 @@ export function JobMark({ status }) {
   return <StatusMark status={jobMark(status)} label={t(`jobs.status.${status}`, { defaultValue: status || '?' })} />
 }
 
-// The schedule of a trigger in the words the server wrote ("Every weekday at
-// 08:00"), or the folder it watches.
-export function ScheduleText({ trigger, off = false }) {
-  const { t } = useTranslation('agents')
-  if (!trigger?.summary) return <span className="ag-muted">{t('jobs.tasks.noSchedule')}</span>
-  return (
-    <span className="aj-sched" data-off={off || undefined}>
-      <span className="aj-sched__words">{trigger.summary}</span>
-      {trigger.kind === 'schedule' && trigger.time_zone && <code className="aj-sched__cron">{trigger.time_zone}</code>}
-    </span>
-  )
-}
-
 // The last 14 jobs of a task, oldest first: round finished, square failed,
 // hollow cancelled. Empty places keep every task's strip the same width.
 export function JobStrip({ jobs }) {

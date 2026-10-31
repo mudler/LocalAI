@@ -3,7 +3,7 @@ import { installAgents } from './agents-fixtures.js'
 
 // The triggers pages: the list with its history, a trigger, and the form.
 
-const row = (page, name) => page.locator(`tr[data-task="${name}"]`)
+const row = (page, name) => page.locator(`[data-task="${name}"]`)
 
 test.describe('Triggers list', () => {
   test('lists the triggers with their schedule, agent and last runs, and the history of every run', async ({ page }) => {
@@ -14,14 +14,14 @@ test.describe('Triggers list', () => {
 
     await expect(row(page, 'Morning digest')).toContainText('Every weekday at 09:00 (Europe/Rome)')
     await expect(row(page, 'Morning digest')).toContainText('research-assistant')
-    await expect(row(page, 'Morning digest')).toContainText('last run failed')
+    await expect(row(page, 'Morning digest')).toContainText('Last run failed')
     await expect(row(page, 'New contracts')).toContainText('When a file arrives in /Contracts')
     await expect(row(page, 'New contracts').getByRole('switch')).toHaveAttribute('aria-checked', 'false')
 
     const history = page.getByTestId('jobs-history')
-    await expect(history.locator('tr[data-job]')).toHaveCount(4)
-    await expect(history.locator('tr[data-job="r1"]')).toContainText('the agent was deleted')
-    await expect(history.locator('tr[data-job="rs"]')).toContainText('daily cap reached')
+    await expect(history.locator('[data-job]')).toHaveCount(4)
+    await expect(history.locator('[data-job="r1"]')).toContainText('the agent was deleted')
+    await expect(history.locator('[data-job="rs"]')).toContainText('daily cap reached')
     await expect(page.getByTestId('jobs-summary')).toContainText('runs in the last 7 days')
   })
 
@@ -30,11 +30,11 @@ test.describe('Triggers list', () => {
     await page.goto('/app/triggers')
     const history = page.getByTestId('jobs-history')
     await page.locator('[data-filter="failed"]').click()
-    await expect(history.locator('tr[data-job]')).toHaveCount(1)
+    await expect(history.locator('[data-job]')).toHaveCount(1)
     await page.locator('[data-filter="all"]').click()
     await page.getByLabel('Trigger', { exact: true }).selectOption('t2')
-    await expect(history.locator('tr[data-job]')).toHaveCount(1)
-    await expect(history.locator('tr[data-job="rf"]')).toBeVisible()
+    await expect(history.locator('[data-job]')).toHaveCount(1)
+    await expect(history.locator('[data-job="rf"]')).toBeVisible()
   })
 
   test('a history row opens to the reason and a link to the chat it started', async ({ page }) => {
@@ -120,7 +120,7 @@ test.describe('A trigger', () => {
     const facts = page.getByTestId('task-facts')
     await expect(facts).toContainText('research-assistant')
     await expect(facts).toContainText('Every weekday at 09:00')
-    await expect(page.locator('.aj-prompt')).toContainText('Summarise yesterday.')
+    await expect(page.getByTestId('task-prompt')).toContainText('Summarise yesterday.')
     const runs = page.getByTestId('task-runs')
     await expect(runs.locator('[data-job]')).toHaveCount(3)
     await runs.locator('[data-job="r0"]').click()

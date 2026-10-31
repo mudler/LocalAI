@@ -160,7 +160,8 @@
       "toggleFailed": "Could not change the trigger: {{message}}",
       "deleted": "Trigger deleted",
       "noneYet": "You have no triggers yet.",
-      "noModel": "No model"
+      "noModel": "No model",
+      "next": "下次运行"
     },
     "history": {
       "filterTask": "Trigger",
