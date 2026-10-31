@@ -34,12 +34,34 @@ type ToolResult struct {
 type ToolHarness struct {
 	// Script returns the steps of the turn for this chat and message.
 	Script func(a workspace.Actor, text string) []ToolStep
+	// Compact, when set, makes the sessions compact on request
+	// (session.Compactor): it returns the sizes, and the session then exports
+	// the state {"compacted":true}. Nil: the sessions cannot compact.
+	Compact func(chat string) (before, after int, err error)
 
 	mu      sync.Mutex
 	results []ToolResult
 	sent    map[string][]string
 	tools   map[string][]string
 	prompts map[string]string
+	systems map[string]string
+	resumes map[string][]byte
+}
+
+// SystemPrompt returns the system prompt the chat's session was last started
+// with. A chat started without a saved state carries the end of its
+// transcript there.
+func (h *ToolHarness) SystemPrompt(chat string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.systems[chat]
+}
+
+// Resume returns the saved state the chat's session was last started from.
+func (h *ToolHarness) Resume(chat string) []byte {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]byte(nil), h.resumes[chat]...)
 }
 
 // Results returns every tool call so far.
@@ -97,8 +119,37 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 		h.prompts = map[string]string{}
 	}
 	h.prompts[env.Actor.ChatID] = env.TurnPrompt
+	if h.systems == nil {
+		h.systems, h.resumes = map[string]string{}, map[string][]byte{}
+	}
+	h.systems[env.Actor.ChatID] = env.SystemPrompt
+	h.resumes[env.Actor.ChatID] = append([]byte(nil), env.Resume...)
 	h.mu.Unlock()
+	if h.Compact != nil {
+		return &compactingToolSession{toolSession: &toolSession{h: h, env: env}}, nil
+	}
 	return &toolSession{h: h, env: env}, nil
+}
+
+// compactingToolSession is a toolSession that implements session.Compactor.
+type compactingToolSession struct {
+	*toolSession
+	compacted bool
+}
+
+func (s *compactingToolSession) Compact(context.Context) (int, int, error) {
+	before, after, err := s.h.Compact(s.env.Actor.ChatID)
+	if err == nil && after < before {
+		s.compacted = true
+	}
+	return before, after, err
+}
+
+func (s *compactingToolSession) Export() ([]byte, error) {
+	if s.compacted {
+		return []byte(`{"compacted":true}`), nil
+	}
+	return s.toolSession.Export()
 }
 
 type toolSession struct {

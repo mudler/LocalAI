@@ -343,4 +343,27 @@ func RunStoreSuite(newStore NewStore) {
 		Expect(es[2].Attachments).To(BeEmpty())
 		Expect(es[2].Note).To(BeEmpty())
 	})
+	It("keeps the command of a message and the markers of the context commands", func() {
+		s := newStore()
+		Expect(s.CreateChat(ctx(), rec("c1", "alice", t0))).To(Succeed())
+		skill := &session.Invocation{Kind: session.InvokeSkill, Name: "review"}
+		agent := &session.Invocation{Kind: session.InvokeAgent, Name: "Reviewer", ID: "rev1"}
+		Expect(s.AppendEntry(ctx(), "c1", session.Entry{Turn: 1, Role: session.RoleUser, Text: "check", Invoked: skill})).Error().NotTo(HaveOccurred())
+		Expect(s.AppendEntries(ctx(), "c1", []session.Entry{
+			{Turn: 1, Role: session.RoleCompacted, Text: session.CompactedText(9000, 3000)},
+			{Turn: 1, Role: session.RoleCleared},
+			{Turn: 2, Role: session.RoleUser, Text: "draft", Invoked: agent},
+		})).To(Succeed())
+		es, err := s.Entries(ctx(), "c1", 0, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(es).To(HaveLen(4))
+		Expect(es[0].Invoked).To(Equal(skill))
+		Expect(es[1].Role).To(Equal(session.RoleCompacted))
+		b, a, ok := session.ParseCompacted(es[1].Text)
+		Expect(ok).To(BeTrue())
+		Expect([]int{b, a}).To(Equal([]int{9000, 3000}))
+		Expect(es[1].Invoked).To(BeNil())
+		Expect(es[2].Role).To(Equal(session.RoleCleared))
+		Expect(es[3].Invoked).To(Equal(agent))
+	})
 }

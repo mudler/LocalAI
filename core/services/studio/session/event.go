@@ -65,6 +65,10 @@ const (
 	// The model was asked for an answer from what it had, and the turn ends
 	// as paused; another message lets the work go on. Event.Steps is the limit.
 	KindPaused EventKind = "paused"
+	// KindCleared says that the person cleared the model's context: the
+	// transcript has a new marker and the next turn starts fresh. Read the
+	// transcript again.
+	KindCleared EventKind = "cleared"
 )
 
 // Event is one thing that happened in a chat.
