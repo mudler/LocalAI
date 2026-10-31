@@ -127,5 +127,11 @@
     "filesFailed": "No se cargaron archivos junto a esta página: {{files}}. La consola del navegador indica el motivo.",
     "tooLarge": "Esta página incluye más de {{limit}} de archivos de su carpeta, así que algunos se omitieron. Cargue los datos con fetch().",
     "dismiss": "Cerrar"
+  },
+  "link": {
+    "label": "La página quiere abrir un enlace",
+    "open": "Abrir {{site}}",
+    "cancel": "Cancelar",
+    "lookalike": "Esta dirección usa letras de otros alfabetos y se lee como {{display}}. Puede imitar otro sitio: revísela antes de abrirla."
   }
 }

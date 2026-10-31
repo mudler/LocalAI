@@ -184,6 +184,27 @@ the console message. When one of the files that went in changes, the page
 reloads, as it does when `index.html` changes. Data read with `fetch` does
 not reload the page: listen to `files.changed`.
 
+## Links
+
+A page cannot open a window or leave its frame. A click on a link to an
+`http` or `https` address (also with Ctrl, Cmd or the middle button, or the
+Enter key) and `window.open(url)` ask LocalAI instead: a bar above the page
+shows the site, the whole address and **Open** and **Cancel**. **Open** opens
+the address in a new tab with `noopener` and `noreferrer`; **Cancel** does
+nothing. When the host is in punycode (letters of other alphabets, such as
+`xn--pple-43d.com`), the bar also says how it reads (`аpple.com`), since it
+may imitate another site.
+
+- A link to `#id` scrolls the page to that element.
+- A link to a file of the page (`other.html`) opens nothing; the console says
+  why.
+- `javascript:`, `data:`, `file:`, `blob:` and `//host` links and addresses
+  with a user name or password are refused, with a message in the console.
+- The bar shows one link: a new one replaces it. A page asks at most 5
+  links at once, then one every 3 seconds.
+
+`window.open` returns `null` in a page.
+
 ## A page that starts a run
 
 A page cannot call the assistant on its own, but it can write files, and a
@@ -242,7 +263,8 @@ person.
 
   The network is blocked for `fetch`, `XMLHttpRequest`, WebSocket, external
   scripts, styles, fonts and images, and nested frames. Images work as
-  `data:` URLs. A page with ES modules of its folder also has `blob:` in
+  `data:` URLs. Links open only after you confirm them (see [Links](#links)).
+  A page with ES modules of its folder also has `blob:` in
   `script-src`: its modules load from `blob:` URLs that the frame makes
   itself, which reach no network. `fetch` and `XMLHttpRequest` of the page
   are replaced by the bridge reads of [Files next to the

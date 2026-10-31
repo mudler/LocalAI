@@ -127,5 +127,11 @@
     "filesFailed": "Alcuni file accanto a questa pagina non sono stati caricati: {{files}}. La console del browser spiega il motivo.",
     "tooLarge": "Questa pagina include più di {{limit}} di file dalla sua cartella, quindi alcuni sono stati esclusi. Carica i dati con fetch().",
     "dismiss": "Chiudi"
+  },
+  "link": {
+    "label": "La pagina vuole aprire un link",
+    "open": "Apri {{site}}",
+    "cancel": "Annulla",
+    "lookalike": "Questo indirizzo usa lettere di altri alfabeti e si legge come {{display}}. Potrebbe imitare un altro sito: controllalo prima di aprirlo."
   }
 }

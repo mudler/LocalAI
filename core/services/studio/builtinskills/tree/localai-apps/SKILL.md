@@ -34,6 +34,7 @@ The page runs in a frame with no network and no access to LocalAI or other files
 - Nothing else is reachable: no `https://` URL, no CDN, no packages (`import 'react'`), no WebSocket, no file outside the page's folder (`../`), no fonts from files. A remote `fetch` fails with "network is off in pages". Write plain JavaScript with no build step.
 - To save, use `localai.files.write`; `fetch` only reads.
 - No `<form>` submit (it does nothing). Handle the button click and the Enter key.
+- A link to an `https://` address works: LocalAI asks the user, then opens it in a new tab. Use plain `<a href="https://...">`; `window.open` returns `null`. A link to another file of the page opens nothing.
 - No `localStorage` as the only copy of the data. Save to a file with `localai.files.write`; that is the copy the user and you can see.
 - A page cannot write its own `index.html` or `page.json`.
 

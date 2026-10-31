@@ -174,5 +174,11 @@
     "filesFailed": "Files next to this page did not load: {{files}}. The browser console says why.",
     "tooLarge": "This page puts more than {{limit}} of files from its folder into itself, so some were left out. Load data with fetch() instead.",
     "dismiss": "Dismiss"
+  },
+  "link": {
+    "label": "The page wants to open a link",
+    "open": "Open {{site}}",
+    "cancel": "Cancel",
+    "lookalike": "This address uses letters from other alphabets and reads as {{display}}. It may imitate another site: check it before you open it."
   }
 }

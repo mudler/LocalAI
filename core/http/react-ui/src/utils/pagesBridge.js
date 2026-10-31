@@ -6,6 +6,7 @@
 
 import { withHead } from './chatApps.js'
 import { scriptJSON } from './pageAssets.js'
+import { LINK_ERRORS, pageLinkTarget } from './pageLinks.js'
 
 export const MAX_TEXT = 4000
 export const MAX_PATH = 256
@@ -13,6 +14,10 @@ export const MAX_PATH = 256
 // many bytes, and the server checks the bytes.
 export const MAX_CONTENT = 1 << 20
 const MAX_IN_FLIGHT = 8
+// Link opens of one page: a burst, then one every few seconds, so a page
+// cannot bury the person in questions.
+const LINK_BURST = 5
+const LINK_EVERY_MS = 3000
 
 // The policy of every page: inline script and style, images and fonts as data:
 // URLs, and nothing that reaches out. A page with ES modules of its folder
@@ -256,6 +261,44 @@ const BOOTSTRAP = `(function () {
   }
   window.XMLHttpRequest = PageXHR
 
+  // Links: the sandbox opens no window and cannot leave the frame, so a link
+  // to another site is asked to the host, which asks the person. A link to a
+  // place in the page (#id) scrolls to it.
+  function openLink(href) {
+    var s = String(href == null ? '' : href).trim()
+    if (s === '' || s[0] === '#') return false
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(s) && s.slice(0, 2) !== '//') {
+      console.warn('[LocalAI page] the link ' + s.slice(0, 80) + ' opens nothing: a page has no other pages; use an http or https address')
+      return true
+    }
+    call('link.open', { url: s }).then(null, function (e) { console.error('[LocalAI page] the link was not opened: ' + e.message) })
+    return true
+  }
+  function onLinkClick(e) {
+    if (e.defaultPrevented || (e.type === 'click' && e.button !== 0) || (e.type === 'auxclick' && e.button !== 1)) return
+    var a = e.target && e.target.closest ? e.target.closest('a[href], area[href]') : null
+    if (!a) return
+    var href = String(a.getAttribute('href')).trim()
+    e.preventDefault()
+    // A srcdoc resolves #id against LocalAI's address, so the browser would
+    // load that address in the frame: scroll to the element here instead.
+    if (href[0] === '#') {
+      var id = href.slice(1)
+      try { id = decodeURIComponent(id) } catch (err) { /* keep it as written */ }
+      var el = id ? document.getElementById(id) || document.getElementsByName(id)[0] : null
+      if (el) el.scrollIntoView()
+      else if (id === '' || id.toLowerCase() === 'top') window.scrollTo(0, 0)
+      return
+    }
+    openLink(href)
+  }
+  document.addEventListener('click', onLinkClick)
+  document.addEventListener('auxclick', onLinkClick)
+  window.open = function (url) {
+    openLink(url)
+    return null
+  }
+
   var notes = info.notes || []
   for (var ni = 0; ni < notes.length; ni++) (notes[ni].level === 'error' ? console.error : console.warn)('[LocalAI page] ' + notes[ni].message)
   if (info.banner) {
@@ -314,12 +357,16 @@ const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (
 //
 //   files.read(path), files.write(path, content, base), files.list(dir)
 //   chat.send(text)   resolves to {sent, chat_id}; the host asks the person first
+//   link.open(url)    resolves to {opened}; only http and https, and the host
+//                     asks the person first (links.open gets the checked target)
 //
 // The server checks every path again with the user's rights; the checks here
 // only refuse a malformed call early.
-export function createPageHost({ post, files, chat }) {
+export function createPageHost({ post, files, chat, links, now = Date.now }) {
   let closed = false
   let inFlight = 0
+  let linkTokens = LINK_BURST
+  let linkAt = now()
 
   const answer = (msg) => { if (!closed) post(msg) }
 
@@ -341,6 +388,19 @@ export function createPageHost({ post, files, chat }) {
         const text = typeof p.text === 'string' ? p.text.trim() : ''
         if (text === '' || text.length > MAX_TEXT) throw bad('text is empty or longer than 4000 characters')
         return chat.send(text)
+      }
+      case 'link.open': {
+        const target = pageLinkTarget(p.url)
+        if (target.error) throw { code: 'invalid', message: LINK_ERRORS[target.error] }
+        if (!links) throw { code: 'unavailable', message: 'links do not open here' }
+        const t = now()
+        linkTokens = Math.min(LINK_BURST, linkTokens + Math.floor((t - linkAt) / LINK_EVERY_MS))
+        if (t - linkAt >= LINK_EVERY_MS) linkAt = t
+        if (linkTokens < 1) throw { code: 'busy', message: 'too many links at once; wait a moment' }
+        linkTokens--
+        // The host shows one question: a new link replaces the one before,
+        // which answers {opened: false}.
+        return { opened: Boolean((await links.open(target))?.opened) }
       }
       default:
         throw { code: 'unknown', message: `unknown method: ${method}` }

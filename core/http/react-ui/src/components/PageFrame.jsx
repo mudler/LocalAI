@@ -22,16 +22,18 @@ import { MAX_INLINE_TOTAL, inlinePageAssets, pageRefs } from '../utils/pageAsset
 //   files          the bridge's file calls {read(path), write(path, content,
 //                  base), list(dir), readImage(path)}; the default reaches the
 //                  user's own page. readImage is used only to put images in
+//   onLink(target) the page asks to open a link: a checked http(s) target of
+//                  pageLinkTarget; resolves to {opened} after the person chose
 //   onRefused(err) a bridge call was refused because the page may no longer
 //                  run (a shared page whose consent was revoked): the caller
 //                  takes the frame down
 const plain = (html) => ({ html, head: '', modules: false, notes: [], tooLarge: false })
 
-const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused }, ref) {
+const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSend, onWrite, onNavigated, files, onRefused, onLink }, ref) {
   const frameRef = useRef(null)
   const live = useRef({ host: null, channel: null, loads: 0, doc: '' })
-  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused })
-  handlers.current = { onSend, onWrite, onNavigated, files, onRefused }
+  const handlers = useRef({ onSend, onWrite, onNavigated, files, onRefused, onLink })
+  handlers.current = { onSend, onWrite, onNavigated, files, onRefused, onLink }
 
   const { t } = useTranslation('pages')
   const [build, setBuild] = useState(0)
@@ -138,6 +140,7 @@ const PageFrame = forwardRef(function PageFrame({ page, html, theme, title, onSe
         list: (dir) => guard(() => (handlers.current.files || own).list(dir)),
       },
       chat: { send: (text) => handlers.current.onSend(text) },
+      links: { open: (target) => (handlers.current.onLink ? handlers.current.onLink(target) : { opened: false }) },
     })
     channel.port1.onmessage = (e) => { host.receive(e.data) }
     live.current.host = host

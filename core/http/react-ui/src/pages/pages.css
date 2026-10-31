@@ -203,6 +203,28 @@
 .pg-ask__to { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--color-text-secondary); }
 .pg-ask__to .input { max-width: 220px; height: 30px; padding-block: 0; font-size: var(--text-sm); }
 .pg-ask__error { flex-basis: 100%; font-size: var(--text-xs); color: var(--color-error); }
+.pg-link__target { display: inline-flex; align-items: center; gap: var(--spacing-xs); min-width: 0; flex: 0 1 auto; }
+.pg-link__icon { color: var(--color-text-secondary); flex: none; }
+.pg-link__host { font-size: var(--text-base); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.pg-link__site { color: var(--color-text-primary); font-weight: 600; }
+.pg-link__url {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+.pg-link__warn {
+  flex-basis: 100%;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--color-warning);
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 720px) {
   .pg-view { padding: var(--spacing-sm); }

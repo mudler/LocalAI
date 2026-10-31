@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import PageFrame from '../components/PageFrame'
+import PageLinkAsk from '../components/PageLinkAsk'
+import { usePageLinks } from '../hooks/usePageLinks'
 import { useTheme } from '../contexts/ThemeContext'
 import { chatsApi, pagesApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
@@ -68,6 +70,7 @@ export default function PageView() {
   const [asks, setAsks] = useState([])
   const [chats, setChats] = useState([])
   const frameRef = useRef(null)
+  const links = usePageLinks()
   const age = usePageAge()
   const asksRef = useRef(asks)
   asksRef.current = asks
@@ -196,6 +199,12 @@ export default function PageView() {
         </div>
       )}
 
+      {links.link && (
+        <div className="pg-asks">
+          <PageLinkAsk key={links.link.id} link={links.link} t={t} onOpen={links.open} onCancel={links.cancel} />
+        </div>
+      )}
+
       <section className="pg-stage" aria-label={t('view.frameTitle', { title: page?.title || name })}>
         <div className="pg-stage__bar"><Icon name="lock" /> {t('view.sandbox')}</div>
         {status === 'loading' || !source ? (
@@ -217,6 +226,7 @@ export default function PageView() {
             title={t('view.frameTitle', { title: page.title })}
             onSend={onPageSend}
             onNavigated={() => setNavigated(true)}
+            onLink={links.onLink}
           />
         )}
       </section>
