@@ -5721,7 +5721,7 @@ const docTemplate = `{
         },
         "/api/chats/notifications": {
             "get": {
-                "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread.",
+                "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept.",
                 "tags": [
                     "chats"
                 ],
@@ -5735,7 +5735,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "most items to return (default 50, at most 200)",
+                        "description": "most items to return (default 50, at most 500)",
                         "name": "limit",
                         "in": "query"
                     }
@@ -5750,13 +5750,14 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "description": "Name the ids, or pass all to empty your inbox; with all, read_only keeps the unread ones. Only your own notifications are touched.",
                 "tags": [
                     "chats"
                 ],
                 "summary": "Delete notifications.",
                 "parameters": [
                     {
-                        "description": "the ids",
+                        "description": "ids, or all",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -5767,7 +5768,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "The number still unread",
+                        "description": "The number still unread and how many were deleted",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsNotificationCount"
                         }
@@ -5799,7 +5800,7 @@ const docTemplate = `{
         },
         "/api/chats/notifications/events": {
             "get": {
-                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list. Live only; list the inbox for what came before.",
+                "description": "Server-sent events: one notification event for each new inbox item, with the same fields as the list, and a notifications_changed event when notifications were read or deleted, so a client reads the list again. Live only; list the inbox for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -19330,6 +19331,9 @@ const docTemplate = `{
         "schema.ChatsNotificationCount": {
             "type": "object",
             "properties": {
+                "deleted": {
+                    "type": "integer"
+                },
                 "unread": {
                     "type": "integer"
                 }
@@ -19344,6 +19348,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.ChatsNotification"
                     }
                 },
+                "total": {
+                    "description": "Total is how many notifications the user keeps, more than the list when a limit cut it.",
+                    "type": "integer"
+                },
                 "unread": {
                     "type": "integer"
                 }
@@ -19352,11 +19360,17 @@ const docTemplate = `{
         "schema.ChatsNotificationsDelete": {
             "type": "object",
             "properties": {
+                "all": {
+                    "type": "boolean"
+                },
                 "ids": {
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
+                },
+                "read_only": {
+                    "type": "boolean"
                 }
             }
         },

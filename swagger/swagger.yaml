@@ -4299,6 +4299,8 @@ definitions:
     type: object
   schema.ChatsNotificationCount:
     properties:
+      deleted:
+        type: integer
       unread:
         type: integer
     type: object
@@ -4308,15 +4310,23 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsNotification'
         type: array
+      total:
+        description: Total is how many notifications the user keeps, more than the
+          list when a limit cut it.
+        type: integer
       unread:
         type: integer
     type: object
   schema.ChatsNotificationsDelete:
     properties:
+      all:
+        type: boolean
       ids:
         items:
           type: integer
         type: array
+      read_only:
+        type: boolean
     type: object
   schema.ChatsNotificationsRead:
     properties:
@@ -13872,8 +13882,10 @@ paths:
       - chats
   /api/chats/notifications:
     delete:
+      description: Name the ids, or pass all to empty your inbox; with all, read_only
+        keeps the unread ones. Only your own notifications are touched.
       parameters:
-      - description: the ids
+      - description: ids, or all
         in: body
         name: request
         required: true
@@ -13881,7 +13893,7 @@ paths:
           $ref: '#/definitions/schema.ChatsNotificationsDelete'
       responses:
         "200":
-          description: The number still unread
+          description: The number still unread and how many were deleted
           schema:
             $ref: '#/definitions/schema.ChatsNotificationCount'
         "400":
@@ -13893,13 +13905,14 @@ paths:
       - chats
     get:
       description: 'The inbox: one item for each run of a trigger that finished, failed
-        or needs you. Newest first. It also returns the number unread.'
+        or needs you. Newest first. It also returns the number unread and the total
+        kept.'
       parameters:
       - description: only the unread ones
         in: query
         name: unread
         type: boolean
-      - description: most items to return (default 50, at most 200)
+      - description: most items to return (default 50, at most 500)
         in: query
         name: limit
         type: integer
@@ -13924,8 +13937,9 @@ paths:
   /api/chats/notifications/events:
     get:
       description: 'Server-sent events: one notification event for each new inbox
-        item, with the same fields as the list. Live only; list the inbox for what
-        came before.'
+        item, with the same fields as the list, and a notifications_changed event
+        when notifications were read or deleted, so a client reads the list again.
+        Live only; list the inbox for what came before.'
       produces:
       - text/event-stream
       responses:

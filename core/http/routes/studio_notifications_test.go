@@ -68,6 +68,60 @@ var _ = Describe("Chats notifications endpoints", func() {
 		Expect(s.do("alice", http.MethodDelete, "/api/chats/notifications", map[string]any{"ids": []int64{}}).Code).To(Equal(http.StatusBadRequest))
 	})
 
+	It("empties the inbox of the caller only, all or just the read ones", func() {
+		a := add("alice", "one", "/app/chats/c1")
+		add("alice", "two", "/app/chats/c2")
+		add("bob", "bobs", "/app/chats/c3")
+		Expect(s.do("alice", http.MethodPost, "/api/chats/notifications/read", map[string]any{"ids": []int64{a}}).Code).To(Equal(http.StatusOK))
+
+		list := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/notifications?limit=1", nil))
+		Expect(list["notifications"]).To(HaveLen(1))
+		Expect(list).To(HaveKeyWithValue("total", BeNumerically("==", 2)), "total counts what the limit cut")
+
+		rec := s.do("alice", http.MethodDelete, "/api/chats/notifications", map[string]any{"all": true, "read_only": true})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("deleted", BeNumerically("==", 1)), HaveKeyWithValue("unread", BeNumerically("==", 1))))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/notifications", nil))["notifications"]).To(HaveLen(1))
+
+		rec = s.do("alice", http.MethodDelete, "/api/chats/notifications", map[string]any{"all": true})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("deleted", BeNumerically("==", 1)), HaveKeyWithValue("unread", BeNumerically("==", 0))))
+		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/notifications", nil))["notifications"]).To(BeEmpty())
+		Expect(decodeJSON(s.do("bob", http.MethodGet, "/api/chats/notifications", nil))["notifications"]).To(HaveLen(1), "alice emptied bob's inbox")
+	})
+
+	It("refuses a delete that mixes ids with all, or read_only without all", func() {
+		Expect(s.do("alice", http.MethodDelete, "/api/chats/notifications", map[string]any{"ids": []int64{1}, "all": true}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodDelete, "/api/chats/notifications", map[string]any{"ids": []int64{1}, "read_only": true}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodDelete, "/api/chats/notifications", map[string]any{"read_only": true}).Code).To(Equal(http.StatusBadRequest))
+	})
+
+	It("tells the open streams of the caller that the inbox changed", func() {
+		srv := httptest.NewServer(s.e)
+		DeferCleanup(srv.Close)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		DeferCleanup(cancel)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/api/chats/notifications/events", nil)
+		Expect(err).NotTo(HaveOccurred())
+		req.AddCookie(&http.Cookie{Name: "session", Value: s.sessions["alice"]})
+		resp, err := http.DefaultClient.Do(req)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = resp.Body.Close() })
+		add("alice", "x", "/app/chats/c1")
+		Expect(s.do("alice", http.MethodDelete, "/api/chats/notifications", map[string]any{"all": true}).Code).To(Equal(http.StatusOK))
+		events := make(chan string, 4)
+		go func() {
+			sc := bufio.NewScanner(resp.Body)
+			for sc.Scan() {
+				if strings.HasPrefix(sc.Text(), "event: ") {
+					events <- strings.TrimPrefix(sc.Text(), "event: ")
+				}
+			}
+		}()
+		Eventually(events, 5*time.Second).Should(Receive(Equal("notification")))
+		Eventually(events, 5*time.Second).Should(Receive(Equal("notifications_changed")))
+	})
+
 	It("clears the notification of a chat when the chat is opened", func() {
 		id := s.create("alice")
 		add("alice", "run done", "/app/chats/"+id)

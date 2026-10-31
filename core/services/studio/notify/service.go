@@ -88,22 +88,39 @@ func (s *Service) Count(ctx context.Context, principal string) (int, error) {
 
 // MarkRead marks notifications read.
 func (s *Service) MarkRead(ctx context.Context, principal string, ids []int64) error {
-	return s.st.MarkRead(ctx, principal, ids)
+	return s.changed(principal, s.st.MarkRead(ctx, principal, ids))
 }
 
 // MarkChatRead marks the notifications about one chat read.
 func (s *Service) MarkChatRead(ctx context.Context, principal, chatID string) error {
-	return s.st.MarkChatRead(ctx, principal, ChatLink(chatID))
+	return s.changed(principal, s.st.MarkChatRead(ctx, principal, ChatLink(chatID)))
 }
 
 // MarkAllRead marks every notification read.
 func (s *Service) MarkAllRead(ctx context.Context, principal string) error {
-	return s.st.MarkAllRead(ctx, principal)
+	return s.changed(principal, s.st.MarkAllRead(ctx, principal))
 }
 
 // Delete removes notifications.
 func (s *Service) Delete(ctx context.Context, principal string, ids []int64) error {
-	return s.st.Delete(ctx, principal, ids)
+	return s.changed(principal, s.st.Delete(ctx, principal, ids))
+}
+
+// DeleteAll removes every notification of the principal, or with readOnly the
+// read ones, and returns how many it removed. The store is shared by every
+// frontend, so one call clears the inbox for all of them.
+func (s *Service) DeleteAll(ctx context.Context, principal string, readOnly bool) (int, error) {
+	n, err := s.st.DeleteAll(ctx, principal, readOnly)
+	return n, s.changed(principal, err)
+}
+
+// changed tells the live clients of the principal, on every frontend, to read
+// the list again, so other open tabs follow a read or a delete. It passes err on.
+func (s *Service) changed(principal string, err error) error {
+	if err == nil {
+		s.fan.Publish(principal, Notification{Principal: principal, Op: OpChanged})
+	}
+	return err
 }
 
 // ChatLink is the link of a notification about a chat.

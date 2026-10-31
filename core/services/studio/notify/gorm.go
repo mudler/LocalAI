@@ -110,3 +110,12 @@ func (s *gormStore) Delete(ctx context.Context, principal string, ids []int64) e
 	}
 	return s.db.WithContext(ctx).Where("principal = ? AND id IN ?", principal, ids).Delete(&notificationRow{}).Error
 }
+
+func (s *gormStore) DeleteAll(ctx context.Context, principal string, readOnly bool) (int, error) {
+	q := s.db.WithContext(ctx).Where("principal = ?", principal)
+	if readOnly {
+		q = q.Where("is_read = ?", true)
+	}
+	res := q.Delete(&notificationRow{})
+	return int(res.RowsAffected), res.Error
+}

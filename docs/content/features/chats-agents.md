@@ -305,11 +305,25 @@ curl ".../api/chats/notifications?unread=1"          # the unread ones, and the 
 curl .../api/chats/notifications/count
 curl -X POST .../api/chats/notifications/read -d '{"all": true}'
 curl -X DELETE .../api/chats/notifications -d '{"ids": [12, 13]}'
+curl -X DELETE .../api/chats/notifications -d '{"all": true}'                    # empty the inbox
+curl -X DELETE .../api/chats/notifications -d '{"all": true, "read_only": true}' # remove only the read ones
 curl -N .../api/chats/notifications/events            # new ones as server-sent events
 ```
 
+The chat page has a **Clear all** button in the inbox. It asks first, in the
+panel, and says how many notifications it removes. **Clear read** keeps the
+unread ones. A removed notification cannot be restored. The list answers with
+`total`, everything you keep, because it returns at most `limit` items (50 by
+default, 500 at most); the panel loads more on request. A delete answers with
+the number removed in `deleted` and the unread count left. You can only ever
+remove your own notifications.
+
 Events are live only. A client that was away lists the inbox. In a cluster, a
 notification added on one frontend reaches the clients connected to any other.
+When notifications are read or deleted, the stream sends a
+`notifications_changed` event, so your other open tabs read the list again and
+their unread badge follows. The notifications are rows in the shared database,
+so clearing the inbox on one frontend clears it for all of them.
 
 ### Browser notifications
 
@@ -351,6 +365,6 @@ behaves with several frontends:
 | Which frontend runs the triggers | Single runner | The frontend that holds the advisory lock (`KeyChatsTriggers`) runs the Runner. When it stops, another takes the lock. |
 | A due time or a file version | Shared | One unique row for each trigger and due key. Two frontends cannot start the same run. |
 | Quiet periods of waiting files, the memory of a run's own writes | Per leader | Kept by the Runner of the current leader. A new leader reads the change feed again from its saved position, which stays below the oldest waiting file, so a file that was waiting is found again. |
-| Live notifications | Shared, live only | Sent over the message bus to every frontend. A client that missed one lists the inbox, which is the record. |
+| Live notifications | Shared, live only | Sent over the message bus to every frontend, with the "read or deleted" signal. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |
 | Where the turn of a run runs | Stateless | On the frontend that started it, or on a chat worker when the frontends send unattended turns there. The turn claim, its heartbeat and the waiting messages are in the database, so either one can run it and only one does. |

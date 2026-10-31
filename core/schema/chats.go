@@ -682,11 +682,15 @@ type ChatsNotification struct {
 type ChatsNotificationList struct {
 	Notifications []ChatsNotification `json:"notifications"`
 	Unread        int                 `json:"unread"`
+	// Total is how many notifications the user keeps, more than the list when a limit cut it.
+	Total int `json:"total"`
 }
 
-// ChatsNotificationCount is the number of unread notifications.
+// ChatsNotificationCount is the number of unread notifications. After a
+// delete, Deleted is how many it removed.
 type ChatsNotificationCount struct {
-	Unread int `json:"unread"`
+	Unread  int `json:"unread"`
+	Deleted int `json:"deleted,omitempty"`
 }
 
 // ChatsNotificationsRead marks notifications read: the named ones, or all.
@@ -695,9 +699,13 @@ type ChatsNotificationsRead struct {
 	All bool    `json:"all,omitempty"`
 }
 
-// ChatsNotificationsDelete names the notifications to delete.
+// ChatsNotificationsDelete names the notifications to delete: the ids, or all
+// of them. With all, read_only keeps the unread ones. Ids and all together are
+// refused.
 type ChatsNotificationsDelete struct {
-	IDs []int64 `json:"ids"`
+	IDs      []int64 `json:"ids,omitempty"`
+	All      bool    `json:"all,omitempty"`
+	ReadOnly bool    `json:"read_only,omitempty"`
 }
 
 // ChatsTrigger is a trigger: work that starts by itself, as you, in a new chat.

@@ -89,6 +89,46 @@ var _ = Describe("the notification service", func() {
 		Expect(n).To(BeEquivalentTo(1), "unread")
 	})
 
+	It("clears an inbox and tells the clients of that user, on every frontend, to read again", func() {
+		net := testutil.NewFakeBus()
+		st, err := notify.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		one := newService(notify.NewBroadcastFanout(net, nil), st)
+		two := newService(notify.NewBroadcastFanout(net, nil), st)
+		ctx := context.Background()
+		_, _ = one.Add(ctx, notify.Notification{Principal: "u1", Title: "a"})
+		_, _ = one.Add(ctx, notify.Notification{Principal: "u1", Title: "b"})
+		_, _ = one.Add(ctx, notify.Notification{Principal: "u2", Title: "c"})
+		mine, cancel := two.Subscribe("u1")
+		defer cancel()
+		other, cancelOther := two.Subscribe("u2")
+		defer cancelOther()
+		n, err := one.DeleteAll(ctx, "u1", false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(2))
+		Expect(recv(mine).Op).To(Equal(notify.OpChanged))
+		none(other)
+		left, _ := two.List(ctx, "u1", false, 0)
+		Expect(left).To(BeEmpty(), "the store is shared by both frontends")
+		kept, _ := two.List(ctx, "u2", false, 0)
+		Expect(kept).To(HaveLen(1))
+	})
+
+	It("signals a change after a read or a delete, and calls no hook for it", func() {
+		svc := newService(nil, nil)
+		hooked := 0
+		svc.OnAdd(func(notify.Notification) { hooked++ })
+		ctx := context.Background()
+		a, _ := svc.Add(ctx, notify.Notification{Principal: "u1", Title: "a"})
+		ch, cancel := svc.Subscribe("u1")
+		defer cancel()
+		Expect(svc.MarkRead(ctx, "u1", []int64{a.ID})).To(Succeed())
+		Expect(recv(ch).Op).To(Equal(notify.OpChanged))
+		Expect(svc.Delete(ctx, "u1", []int64{a.ID})).To(Succeed())
+		Expect(recv(ch).Op).To(Equal(notify.OpChanged))
+		Expect(hooked).To(Equal(1), "only the Add calls the hook")
+	})
+
 	It("calls a hook for every stored notification", func() {
 		svc := newService(nil, nil)
 		var seen []string

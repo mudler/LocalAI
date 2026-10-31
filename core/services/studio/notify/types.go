@@ -53,7 +53,13 @@ type Notification struct {
 	Link    string    `json:"link"`
 	Read    bool      `json:"read"`
 	Created time.Time `json:"created"`
+	// Op is set only on a live signal that the inbox changed (OpChanged), not
+	// on a stored row. Clients that hear it read the list again.
+	Op string `json:"op,omitempty"`
 }
+
+// OpChanged is the live signal that notifications were read or removed.
+const OpChanged = "changed"
 
 // Store is the storage of notifications.
 type Store interface {
@@ -73,6 +79,9 @@ type Store interface {
 	MarkAllRead(ctx context.Context, principal string) error
 	// Delete removes the named notifications. Another user's ids are ignored.
 	Delete(ctx context.Context, principal string, ids []int64) error
+	// DeleteAll removes every notification of the principal, or with readOnly
+	// only the read ones. It returns how many it removed.
+	DeleteAll(ctx context.Context, principal string, readOnly bool) (int, error)
 }
 
 func cutRunes(s string, n int) string {

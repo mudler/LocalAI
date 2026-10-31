@@ -45,6 +45,24 @@ func (s *Service) DeleteNotifications(ctx context.Context, user string, ids []in
 	return s.d.Notify.Delete(ctx, principal(user), ids)
 }
 
+// ClearNotifications removes every notification of the user, or with readOnly
+// the read ones, and returns how many it removed.
+func (s *Service) ClearNotifications(ctx context.Context, user string, readOnly bool) (int, error) {
+	if s.d.Notify == nil {
+		return 0, ErrNotificationsOff
+	}
+	return s.d.Notify.DeleteAll(ctx, principal(user), readOnly)
+}
+
+// TotalNotifications returns how many notifications the user keeps, read or not.
+func (s *Service) TotalNotifications(ctx context.Context, user string) (int, error) {
+	if s.d.Notify == nil {
+		return 0, ErrNotificationsOff
+	}
+	all, err := s.d.Notify.List(ctx, principal(user), false, 0)
+	return len(all), err
+}
+
 // SubscribeNotifications returns the user's new notifications as they arrive.
 func (s *Service) SubscribeNotifications(user string) (<-chan notify.Notification, func(), error) {
 	if s.d.Notify == nil {

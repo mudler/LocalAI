@@ -186,3 +186,19 @@ func (s *jsonStore) Delete(_ context.Context, principal string, ids []int64) err
 		f.Rows = slices.DeleteFunc(f.Rows, func(r jsonRow) bool { return r.Principal == principal && slices.Contains(ids, r.ID) })
 	})
 }
+
+func (s *jsonStore) DeleteAll(_ context.Context, principal string, readOnly bool) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	removed := 0
+	err := s.change(func(f *jsonFile) {
+		f.Rows = slices.DeleteFunc(f.Rows, func(r jsonRow) bool {
+			gone := r.Principal == principal && (!readOnly || r.Read)
+			if gone {
+				removed++
+			}
+			return gone
+		})
+	})
+	return removed, err
+}
