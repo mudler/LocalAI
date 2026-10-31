@@ -68,6 +68,9 @@ const (
 	// features; the admin-only events log is gated separately in-handler.
 	FeaturePIIFilter   = "pii_filter"
 	FeatureChatHistory = "chat_history"
+	// FeatureStudioHistory gates server-side persistence of the Studio
+	// add-on's generation history (/api/studio/history).
+	FeatureStudioHistory = "studio_history"
 )
 
 // AgentFeatures lists agent-related features (default OFF).
@@ -84,7 +87,7 @@ var APIFeatures = []string{
 	FeatureRealtime, FeatureModeration, FeatureRerank, FeatureTokenize, FeatureMCP, FeatureStores,
 	FeatureFaceRecognition, FeatureVoiceRecognition, FeatureAudioTransform,
 	FeaturePIIFilter, FeatureDecisions, FeatureForecast,
-	FeatureChatHistory,
+	FeatureChatHistory, FeatureStudioHistory,
 }
 
 // AllFeatures lists all known features (used by UI and validation).

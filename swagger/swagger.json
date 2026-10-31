@@ -5283,6 +5283,270 @@
                 }
             }
         },
+        "/api/studio/history": {
+            "get": {
+                "description": "Returns the live Studio entries, newest first, and in `deleted` the entries the user deleted. A client must drop any local copy whose id appears in `deleted` instead of uploading it again. `cacheKey` is an opaque per-account tag for the client's local cache.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "studio-history"
+                ],
+                "summary": "List Studio history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Studio workspace (image, video, tts, sound, audio-transform, diarization, threed); all when omitted",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.StudioHistoryList"
+                        }
+                    },
+                    "400": {
+                        "description": "Unknown type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "studio-history"
+                ],
+                "summary": "Clear Studio history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Studio workspace to clear; all when omitted",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Unknown type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/studio/history/import": {
+            "post": {
+                "description": "Upserts every entry in the payload. Entries the user deleted earlier are not written and are listed in `skipped`. Nothing else is deleted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "studio-history"
+                ],
+                "summary": "Import Studio history",
+                "parameters": [
+                    {
+                        "description": "Entries",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.StudioHistoryImportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.StudioHistoryImportResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id, type or entry",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/studio/history/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "studio-history"
+                ],
+                "summary": "Get a Studio history entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Entry ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.StudioHistoryEntry"
+                        }
+                    },
+                    "404": {
+                        "description": "Not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "The path id overrides the body id. The returned version is assigned by the server. An entry the user deleted is never written again (410). The oldest entries beyond the per-workspace cap become tombstones.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "studio-history"
+                ],
+                "summary": "Save a Studio history entry (upsert)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Entry ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Entry",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.StudioHistoryEntry"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.StudioHistoryEntry"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id, type or entry",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "410": {
+                        "description": "Deleted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "studio-history"
+                ],
+                "summary": "Delete a Studio history entry",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Entry ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The entry's workspace, recorded when the server has not seen the entry yet",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid id or type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/traces": {
             "get": {
                 "description": "Returns a bounded, newest-first page of captured API exchange traces. Request and response bodies plus headers are omitted unless full=true; fetch them per-trace from /api/traces/{id}. Paging metadata is returned in the X-Total-Count, X-Trace-Offset and X-Trace-Limit headers.",
@@ -14511,6 +14775,101 @@
             "properties": {
                 "include_usage": {
                     "type": "boolean"
+                }
+            }
+        },
+        "schema.StudioHistoryEntry": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "description": "Unix milliseconds, client-managed",
+                    "type": "integer"
+                },
+                "entry": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "description": "Unix milliseconds, client-managed",
+                    "type": "integer"
+                },
+                "version": {
+                    "description": "Version is assigned by the server: 1 on the first save, +1 on every\nlater write including the delete. Ignored on input.",
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.StudioHistoryImportRequest": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.StudioHistoryEntry"
+                    }
+                }
+            }
+        },
+        "schema.StudioHistoryImportResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "skipped": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.StudioHistoryList": {
+            "type": "object",
+            "properties": {
+                "cacheKey": {
+                    "type": "string"
+                },
+                "deleted": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.StudioHistoryTombstone"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.StudioHistoryEntry"
+                    }
+                }
+            }
+        },
+        "schema.StudioHistoryTombstone": {
+            "type": "object",
+            "properties": {
+                "deletedAt": {
+                    "description": "Unix milliseconds",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
                 }
             }
         },

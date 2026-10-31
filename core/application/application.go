@@ -43,6 +43,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piidetector"
 	"github.com/mudler/LocalAI/core/services/routing/router"
+	"github.com/mudler/LocalAI/core/services/studiohistory"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
 	"github.com/mudler/LocalAI/core/templates"
@@ -113,6 +114,7 @@ type Application struct {
 	voiceRegistry        voicerecognition.Registry
 	voiceProfileStore    *voiceprofile.Store
 	chatHistoryStore     *chathistory.Store
+	studioHistoryStore   *studiohistory.Store
 	authDB               *gorm.DB
 	metricsService       *monitoring.LocalAIMetricsService
 	statsRecorder        *billing.Recorder
@@ -340,6 +342,12 @@ func (a *Application) VoiceProfileStore() *voiceprofile.Store {
 // path could not be resolved).
 func (a *Application) ChatHistoryStore() *chathistory.Store {
 	return a.chatHistoryStore
+}
+
+// StudioHistoryStore returns the server-side Studio history store, or nil
+// when the WebUI is disabled or there is no auth database.
+func (a *Application) StudioHistoryStore() *studiohistory.Store {
+	return a.studioHistoryStore
 }
 
 // AuthDB returns the auth database connection, or nil if auth is not enabled.
@@ -761,6 +769,22 @@ func (a *Application) initChatHistoryStore() {
 		return
 	}
 	a.chatHistoryStore = store
+}
+
+// initStudioHistoryStore initializes the Studio history store, on the same
+// terms as the chat history store: the shared auth database, after it is
+// opened, and nil (the Studio stays on localStorage) when the WebUI is
+// disabled or auth is off.
+func (a *Application) initStudioHistoryStore() {
+	if a.applicationConfig.DisableWebUI || a.authDB == nil {
+		return
+	}
+	store, err := studiohistory.New(a.authDB)
+	if err != nil {
+		xlog.Warn("Studio history persistence disabled: failed to initialise store", "error", err)
+		return
+	}
+	a.studioHistoryStore = store
 }
 
 // agentPoolOptions builds the agent pool's dependencies. WorkQueue stays a nil
