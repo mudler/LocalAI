@@ -1076,6 +1076,29 @@ export default function Backends() {
   const totalCount = activeView === 'installed' ? installed.length : allBackends.length
   const showUpdates = installEnabled && (updateNames.length > 0 || Boolean(bulk.run))
 
+  // The way out of a filtered list that shows nothing, in both views. Every
+  // filter goes, the library one too: it is what the empty state names when
+  // it is set.
+  const clearFiltersButton = (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => {
+        setLibrarySource(null)
+        setPage(1)
+        setSearchParams(prev => {
+          const next = new URLSearchParams(prev)
+          next.delete('q')
+          next.delete('state')
+          return next
+        }, { replace: true })
+      }}
+      data-testid="backends-clear-filters"
+    >
+      {t('backends.clearFilters')}
+    </Button>
+  )
+
   return (
     <div className="page page--wide op-page op-runtime" data-testid="backends">
       <h1 className="dk-sr-only">{t('backends.title')}</h1>
@@ -1269,27 +1292,7 @@ export default function Backends() {
           <EmptyState
             variant="no-results"
             body={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : t('backends.noMatches')}
-            actions={(
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                // Every filter goes, the library one too: it is what the
-                // empty state names when it is set.
-                setLibrarySource(null)
-                setPage(1)
-                setSearchParams(prev => {
-                  const next = new URLSearchParams(prev)
-                  next.delete('q')
-                  next.delete('state')
-                  return next
-                }, { replace: true })
-              }}
-              data-testid="backends-clear-filters"
-            >
-              {t('backends.clearFilters')}
-            </Button>
-            )}
+            actions={clearFiltersButton}
           />
         ) : (
           <BackendsTable
@@ -1308,6 +1311,7 @@ export default function Backends() {
           icon="server"
           title={t('backends.noneFound')}
           body={librarySource ? t('backends.libraryEmpty', { name: librarySource.name }) : search || catalogFilter ? t('backends.noneFoundFiltered') : t('backends.noneFoundBody')}
+          actions={search || catalogFilter || librarySource ? clearFiltersButton : undefined}
         />
       ) : (
         <>
