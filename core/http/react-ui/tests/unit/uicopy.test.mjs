@@ -1,6 +1,8 @@
 // The copy of the UI speaks about what a person can do and see, not about the
 // files, formats, routes and setting names behind it. This test reads every
-// string of every locale and fails when one names an implementation detail,
+// string of every locale, the English labels and descriptions of the Settings
+// page (src/utils/settingsSchema.js) and the English text the add-ons carry,
+// and fails when one names an implementation detail,
 // unless its key is in ui-copy-allowlist.json with the reason it may (an
 // operator page that names a setting the docs name, an export format the
 // person picks). The allow-list only shrinks: an entry whose string no longer
@@ -9,9 +11,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { FIELDS, GROUPS } from '../../src/utils/settingsSchema.js'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+const ADDONS = join(root, '..', '..', '..', 'addons')
 const LOCALES = join(root, 'public/locales')
 const allow = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'ui-copy-allowlist.json'), 'utf8'))
 
@@ -55,6 +59,50 @@ function strings(locale) {
 
 const leak = (text, locale = 'en') => DENY.find(([re, , only]) => (!only || only === locale) && re.test(text))
 
+// The English text of the Settings page, which is in its schema, not in the
+// locale files: the label, description and note of each field and the label
+// and hint of each group, as settings:<key>.<what>.
+function settingsStrings() {
+  const out = []
+  for (const g of GROUPS) for (const what of ['label', 'hint']) if (typeof g[what] === 'string') out.push([`settings:group.${g.id}.${what}`, g[what]])
+  for (const f of FIELDS) for (const what of ['label', 'desc', 'note']) if (typeof f[what] === 'string') out.push([`settings:${f.key}.${what}`, f[what]])
+  return out
+}
+
+// The English text of the add-ons that carry their own (an en.js module or
+// an English JSON bundle), as addon:<add-on>:<key>.
+const ADDON_BUNDLES = [
+  ['face', 'ui/src/i18n/en.js', 'default'],
+  ['fine-tuning', 'ui/src/i18n/en.js', 'default'],
+  ['quantization', 'ui/src/i18n/en.js', 'default'],
+  ['tables', 'ui/src/i18n/en.js', 'EN'],
+  ['voice', 'ui/src/i18n/en.js', 'default'],
+  ['slack', 'ui/src/i18n/slack.en.json'],
+  ['talk', 'ui/src/i18n/talk.en.json'],
+  ['telegram', 'ui/src/i18n/telegram.en.json'],
+  ['studio', 'ui/src/i18n/media.en.json'],
+]
+
+async function addonStrings() {
+  const out = []
+  for (const [id, file, name] of ADDON_BUNDLES) {
+    const path = join(ADDONS, id, file)
+    const bundle = name ? (await import(pathToFileURL(path).href))[name] : JSON.parse(readFileSync(path, 'utf8'))
+    for (const [k, v] of leaves(bundle, '', [])) out.push([`addon:${id}:${k}`, v])
+  }
+  return out
+}
+
+function findLeaks(list) {
+  const found = []
+  for (const [key, text] of list) {
+    if (allow[key]) continue
+    const hit = leak(text)
+    if (hit) found.push(`${key}: ${hit[1]}: ${JSON.stringify(text)}`)
+  }
+  return found
+}
+
 test('ui copy: no string of any locale names files, formats, routes or setting keys outside the allow-list', () => {
   const found = []
   for (const locale of readdirSync(LOCALES).sort()) {
@@ -67,8 +115,16 @@ test('ui copy: no string of any locale names files, formats, routes or setting k
   assert.deepEqual(found, [], 'say what the person can do or see instead, or add the key to ui-copy-allowlist.json with the reason an operator needs it')
 })
 
-test('ui copy: every allow-list entry has a reason and still needs it in English', () => {
-  const en = new Map(strings('en'))
+test('ui copy: the labels and descriptions of the Settings page name no file, format, route or setting key outside the allow-list', () => {
+  assert.deepEqual(findLeaks(settingsStrings()), [], 'say it in plain words in src/utils/settingsSchema.js, or add the key to ui-copy-allowlist.json with the reason an operator needs it')
+})
+
+test('ui copy: the English text of the add-ons names no file, format, route or setting key outside the allow-list', async () => {
+  assert.deepEqual(findLeaks(await addonStrings()), [], 'say it in plain words in the add-on bundle, or add the key to ui-copy-allowlist.json with the reason')
+})
+
+test('ui copy: every allow-list entry has a reason and still needs it in English', async () => {
+  const en = new Map([...strings('en'), ...settingsStrings(), ...(await addonStrings())])
   const stale = []
   for (const [key, reason] of Object.entries(allow)) {
     assert.ok(typeof reason === 'string' && reason.trim().length > 0, `${key} has no reason`)

@@ -605,7 +605,7 @@
     "api": {
       "title": "API usage and compatible models",
       "summary": "Use this voice outside the browser or check model support",
-      "body": "Send the profile’s stable voice URI with each speech request. LocalAI resolves the private reference audio and transcript at generation time; model YAML is not modified.",
+      "body": "Send the profile’s stable voice URI with each speech request. LocalAI resolves the private reference audio and transcript at generation time; the settings of your models are not changed.",
       "compatibleModels": "Compatible installed models",
       "noInstalledModels": "None yet. Install one of the server-verified models above before sending this request.",
       "curlExample": "cURL example",
@@ -624,7 +624,7 @@
     },
     "deleteDialog": {
       "title": "Delete this voice?",
-      "message": "“{{name}}” and its reference audio will be permanently removed. Existing model YAML is not changed.",
+      "message": "“{{name}}” and its reference audio will be permanently removed. Models set up with this voice are not changed.",
       "deleting": "Deleting…"
     },
     "toasts": {
