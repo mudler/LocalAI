@@ -190,7 +190,8 @@
     "dropHint": "Suelta archivos aquí para adjuntarlos a tu próximo mensaje.",
     "groups": {
       "uploaded": "Los diste tú",
-      "created": "Creados y modificados"
+      "created": "Creados y modificados",
+      "working": "Archivos de trabajo"
     },
     "turn": "turno {{n}}",
     "media": "En contexto",
@@ -198,7 +199,8 @@
     "changedTag": "Editado",
     "changedTitle": "El asistente cambió este archivo",
     "download": "Descargar {{name}}",
-    "error": "No se pudieron leer los archivos de este chat."
+    "error": "No se pudieron leer los archivos de este chat.",
+    "workingNote": "Scripts, datos y registros que el asistente creó por el camino. Se guardan en la carpeta de trabajo de este chat."
   },
   "steps": {
     "verb": {
@@ -253,7 +255,12 @@
       "changed": "cambiado",
       "deleted": "eliminado"
     },
-    "moreFiles": "y {{count}} más"
+    "moreFiles": "y {{count}} más",
+    "alsoSavedWorking_one": "También guardó {{count}} archivo de trabajo",
+    "alsoSavedWorking_other": "También guardó {{count}} archivos de trabajo",
+    "savedWorking_one": "Guardó {{count}} archivo de trabajo",
+    "savedWorking_other": "Guardó {{count}} archivos de trabajo",
+    "workingTitle": "Archivo de trabajo (un script, un registro o un borrador): abrir {{path}}"
   },
   "error": {
     "title": "La respuesta falló",

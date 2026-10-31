@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // Message is what the user sends.
@@ -1002,8 +1003,29 @@ func (c *Chat) saveUploads(ctx context.Context, files []Upload) ([]Attachment, e
 	return out, nil
 }
 
-// ensureFolder creates the chat folder on first use and returns its name.
+// ensureFolder creates the chat folder on first use and returns its name. A
+// chat whose folder name was taken for its work folder (reserveFolder) gets
+// the folder under that name.
 func (c *Chat) ensureFolder(ctx context.Context) (string, error) {
+	name, err := c.reserveFolder(ctx)
+	if err != nil {
+		return "", err
+	}
+	actor, user, _ := c.access()
+	dir := ChatsPath(actor.Principal) + "/" + name
+	c.m.layoutMu.Lock()
+	defer c.m.layoutMu.Unlock()
+	if err := mkdirOnce(ctx, c.m.o.Workspace, user, dir); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// reserveFolder gives the chat the name of its folder, without making the
+// folder, and returns it: the work folder that the prompt names lives in it,
+// and is made when something is saved there. A name that a folder or another
+// recent chat of the user has is taken.
+func (c *Chat) reserveFolder(ctx context.Context) (string, error) {
 	c.m.layoutMu.Lock()
 	defer c.m.layoutMu.Unlock()
 	c.mu.Lock()
@@ -1012,19 +1034,12 @@ func (c *Chat) ensureFolder(ctx context.Context) (string, error) {
 	if rec.Folder != "" {
 		return rec.Folder, nil
 	}
-	actor, user, _ := c.access()
-	chats := ChatsPath(actor.Principal)
-	name, err := uniqueName(FolderName(rec.Created, rec.Title), func(n string) (bool, error) {
-		_, err := c.m.o.Workspace.Stat(ctx, user, chats+"/"+n)
-		if errors.Is(err, workspace.ErrNotFound) {
-			return false, nil
-		}
-		return err == nil, err
-	})
+	taken, err := c.folderTaken(ctx, "")
 	if err != nil {
 		return "", err
 	}
-	if _, err := c.m.o.Workspace.Mkdir(ctx, user, chats+"/"+name); err != nil {
+	name, err := uniqueName(FolderName(rec.Created, rec.Title), taken)
+	if err != nil {
 		return "", err
 	}
 	c.mu.Lock()
@@ -1034,6 +1049,96 @@ func (c *Chat) ensureFolder(ctx context.Context) (string, error) {
 	// of the turn stores it.
 	_ = c.persist(ctx)
 	return name, nil
+}
+
+// maxFolderPeers is how many recent chats of the user a new folder name is
+// checked against. A chat takes its name at its first turn, so a chat that
+// could have the same name (same day, same title) is a recent one.
+const maxFolderPeers = 200
+
+// folderTaken returns the check of uniqueName for a chat folder name: a
+// folder of that name exists, or another recent chat of the user holds the
+// name for a folder it has not made yet. keep is a name that is free anyway
+// (the chat's own name, on a rename).
+func (c *Chat) folderTaken(ctx context.Context, keep string) (func(string) (bool, error), error) {
+	actor, user, _ := c.access()
+	chats := ChatsPath(actor.Principal)
+	peers, err := c.m.o.Store.ListChats(ctx, actor.Principal, ChatCursor{}, maxFolderPeers)
+	if err != nil {
+		return nil, err
+	}
+	held := map[string]bool{}
+	for _, p := range peers {
+		if p.ID != c.id && p.Folder != "" {
+			held[workspace.FoldName(p.Folder)] = true
+		}
+	}
+	return func(n string) (bool, error) {
+		if n == keep {
+			return false, nil
+		}
+		if held[workspace.FoldName(n)] {
+			return true, nil
+		}
+		_, err := c.m.o.Workspace.Stat(ctx, user, chats+"/"+n)
+		if errors.Is(err, workspace.ErrNotFound) {
+			return false, nil
+		}
+		return err == nil, err
+	}, nil
+}
+
+// mkdirOnce makes the folder dir and its parents when dir is missing. A
+// folder that is there is left as it is, so a second call changes nothing.
+func mkdirOnce(ctx context.Context, ws workspace.Store, a workspace.Actor, dir string) error {
+	n, err := ws.Stat(ctx, a, dir)
+	switch {
+	case err == nil && n.Kind == workspace.KindDir:
+		return nil
+	case err == nil:
+		return fmt.Errorf("%w: %s is not a folder", workspace.ErrExists, dir)
+	case !errors.Is(err, workspace.ErrNotFound):
+		return err
+	}
+	if _, err := ws.Mkdir(ctx, a, dir); err != nil && !errors.Is(err, workspace.ErrExists) {
+		return err
+	}
+	return nil
+}
+
+// EnsureWorkFolder makes the work folder of a chat (workfiles.Folder) of
+// principal when it is missing, as the user a: a tool calls it before the
+// chat saves its first working file. It does nothing for a chat with no
+// folder name, and nothing the second time.
+func EnsureWorkFolder(ctx context.Context, ws workspace.Store, a workspace.Actor, principal, chatFolder string) error {
+	if ws == nil || chatFolder == "" || !validPrincipal(principal) {
+		return nil
+	}
+	return mkdirOnce(ctx, ws, a, HomePath(principal)+workfiles.Folder(chatFolder))
+}
+
+// workFolderBlock names the work folder of the chat for the prompt. It is ""
+// when the chat has no files, or its folder cannot be named this turn, or it
+// has no folder name and reserve is false.
+func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) string {
+	if c.m.o.Workspace == nil {
+		return ""
+	}
+	if !reserve {
+		c.mu.Lock()
+		name := c.rec.Folder
+		c.mu.Unlock()
+		if name == "" {
+			return ""
+		}
+		return workfiles.Prompt(workfiles.GuestFolder(name))
+	}
+	name, err := c.reserveFolder(ctx)
+	if err != nil {
+		c.m.log.Warn("session: no work folder this turn", "chat", c.id, "error", err)
+		return ""
+	}
+	return workfiles.Prompt(workfiles.GuestFolder(name))
 }
 
 // SetTitle renames the chat and, when the chat folder exists, the folder. It
@@ -1099,18 +1204,17 @@ func (c *Chat) renameFolder(ctx context.Context, old, base string) error {
 	actor, user, _ := c.access()
 	chats := ChatsPath(actor.Principal)
 	c.m.layoutMu.Lock()
-	name, err := uniqueName(base, func(n string) (bool, error) {
-		if n == old {
-			return false, nil
-		}
-		_, err := c.m.o.Workspace.Stat(ctx, user, chats+"/"+n)
-		if errors.Is(err, workspace.ErrNotFound) {
-			return false, nil
-		}
-		return err == nil, err
-	})
+	taken, err := c.folderTaken(ctx, old)
+	var name string
+	if err == nil {
+		name, err = uniqueName(base, taken)
+	}
 	if err == nil && name != old {
 		_, err = c.m.o.Workspace.Move(ctx, user, chats+"/"+old, chats+"/"+name)
+		// A name kept for a work folder that was never made moves by itself.
+		if errors.Is(err, workspace.ErrNotFound) {
+			err = nil
+		}
 	}
 	c.m.layoutMu.Unlock()
 	if err != nil {

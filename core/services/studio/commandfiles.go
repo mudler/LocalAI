@@ -108,11 +108,14 @@ func (s *Service) commandFiles(ctx context.Context, a workspace.Actor, mark int6
 	return out
 }
 
-// withCommandFiles wraps the run of a command tool: after a successful call it
-// puts the files the call changed on its card and, when there are any, tells
-// the chat's clients that the chat's files changed.
+// withCommandFiles wraps the run of a command tool. Before the call it makes
+// the chat's work folder; after a successful call it puts the files the call
+// changed on its card and, when there are any, tells the chat's clients that
+// the chat's files changed, and nudges the model when it left a helper file
+// outside the work folder.
 func (s *Service) withCommandFiles(a workspace.Actor, run func(context.Context, json.RawMessage) (string, error)) func(context.Context, json.RawMessage) (string, error) {
 	return func(ctx context.Context, args json.RawMessage) (string, error) {
+		s.ensureWorkFolder(ctx, a)
 		mark := s.commandMark(ctx, a)
 		out, err := run(ctx, args)
 		if err != nil {
@@ -121,6 +124,13 @@ func (s *Service) withCommandFiles(a workspace.Actor, run func(context.Context, 
 		if changed := s.commandFiles(ctx, a, mark); len(changed) > 0 {
 			session.SetToolFiles(ctx, changed)
 			s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindFiles})
+			var created []string
+			for _, f := range changed {
+				if f.Op == session.ToolFileCreated {
+					created = append(created, f.Path)
+				}
+			}
+			out = withNudge(out, s.nudgeLine(ctx, a, created))
 		}
 		return out, nil
 	}

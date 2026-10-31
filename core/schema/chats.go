@@ -209,6 +209,9 @@ type ChatsToolCard struct {
 	// home, which is "/". FilesMore counts the files the card does not list.
 	Files     []ChatsToolFile `json:"files,omitempty"`
 	FilesMore int             `json:"files_more,omitempty"`
+	// FileKind is the kind, "deliverable" or "working", of the file that a
+	// files_change card names in its id (see ChatsChatFile.Kind).
+	FileKind string `json:"file_kind,omitempty"`
 }
 
 // ChatsToolFile is one file that a tool call changed.
@@ -218,6 +221,8 @@ type ChatsToolFile struct {
 	Rev int64 `json:"rev"`
 	// Op is created, changed or deleted.
 	Op string `json:"op"`
+	// Kind is "deliverable" or "working" (see ChatsChatFile.Kind).
+	Kind string `json:"kind,omitempty"`
 }
 
 // ChatsToolApp tells the interface which MCP App belongs to a tool result. The

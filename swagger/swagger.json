@@ -8403,7 +8403,7 @@
         },
         "/api/chats/{id}/files": {
             "get": {
-                "description": "The files that belong to one conversation: the files in its folder under Chats (attached by the user, or written there), and the files its turns created or changed elsewhere in the user's home folder. Paths are the current ones, so they follow a rename of the chat. The model gets the same list in its prompt at every turn. A files event on the chat's event stream says that the list may have changed.",
+                "description": "The files that belong to one conversation: the files in its folder under Chats (attached by the user, or written there), and the files its turns created or changed elsewhere in the user's home folder. Paths are the current ones, so they follow a rename of the chat. Each file has a kind: deliverable, or working for a script, a log or a draft the chat made on the way (in its work folder Chats/\u003cchat\u003e/work, or a helper file elsewhere). The model gets the same list in its prompt at every turn. A files event on the chat's event stream says that the list may have changed.",
                 "tags": [
                     "chats"
                 ],
@@ -17980,6 +17980,10 @@
                 "guest_path": {
                     "type": "string"
                 },
+                "kind": {
+                    "description": "Kind is \"deliverable\" or \"working\". A working file is one the chat\nmade on the way: anything in a chat's work folder (Chats/\u003cchat\u003e/work),\nor a script, a log or a temporary file elsewhere (by extension, or in\na folder named scripts, tmp or scratch). Pages, the LocalAI folder,\nthe shared folders and the files you attached are deliverables.",
+                    "type": "string"
+                },
                 "media": {
                     "description": "Media is true for an attachment that the model received as an image\nor a video inside its message.",
                     "type": "boolean"
@@ -20137,6 +20141,10 @@
         "schema.ChatsToolCard": {
             "type": "object",
             "properties": {
+                "file_kind": {
+                    "description": "FileKind is the kind, \"deliverable\" or \"working\", of the file that a\nfiles_change card names in its id (see ChatsChatFile.Kind).",
+                    "type": "string"
+                },
                 "files": {
                     "description": "Files are the files in your home that a command (bash) created,\nchanged or deleted, on the card of that call. Paths are inside your\nhome, which is \"/\". FilesMore counts the files the card does not list.",
                     "type": "array",
@@ -20218,6 +20226,10 @@
         "schema.ChatsToolFile": {
             "type": "object",
             "properties": {
+                "kind": {
+                    "description": "Kind is \"deliverable\" or \"working\" (see ChatsChatFile.Kind).",
+                    "type": "string"
+                },
                 "op": {
                     "description": "Op is created, changed or deleted.",
                     "type": "string"

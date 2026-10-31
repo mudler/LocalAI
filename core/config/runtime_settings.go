@@ -121,6 +121,10 @@ type RuntimeSettings struct {
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`
+	// Name each chat's work folder in its prompt, so scripts, logs and drafts
+	// go there and not next to the user's files (default: true). Read at
+	// each turn.
+	ChatsWorkFolder *bool `json:"chats_work_folder,omitempty"`
 	// Read the text of PDF and Office files in the chats' files so that
 	// search finds them by what they say (default: true), and the most text
 	// kept for one file, 65536 to 16777216 bytes (default: 2097152).

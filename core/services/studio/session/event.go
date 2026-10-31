@@ -148,7 +148,16 @@ type ToolCard struct {
 	// its own card. At most MaxToolFiles; FilesMore counts the rest.
 	Files     []ToolFile `json:",omitempty"`
 	FilesMore int        `json:",omitempty"`
+	// FileKind is the kind (workfiles.Deliverable or workfiles.Working) of
+	// the file of a ChangeCardKind card, which names it in its ID. The chat
+	// sets it when it keeps the card.
+	FileKind string `json:",omitempty"`
 }
+
+// ChangeCardKind is the card of a file tool call that changed a file: its ID
+// is "<rev>:<path>", the path in the home or, for a shared folder, the path
+// the model used.
+const ChangeCardKind = "files_change"
 
 // ToolFile is one file of a tool call's card.
 type ToolFile struct {
@@ -160,6 +169,9 @@ type ToolFile struct {
 	Rev int64
 	// Op is ToolFileCreated, ToolFileChanged or ToolFileDeleted.
 	Op string
+	// Kind is workfiles.Deliverable or workfiles.Working, set by the chat
+	// when it keeps the card.
+	Kind string `json:",omitempty"`
 }
 
 // The operations of a ToolFile.

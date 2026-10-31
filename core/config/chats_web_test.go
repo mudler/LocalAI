@@ -65,6 +65,15 @@ var _ = Describe("the chats' web tool settings", func() {
 		Expect(o.ToRuntimeSettings().ChatsSavedAgents).To(HaveValue(BeFalse()))
 	})
 
+	It("keeps the work folder of the chats on until an administrator turns it off", func() {
+		o := &config.ApplicationConfig{}
+		Expect(o.ToRuntimeSettings().ChatsWorkFolder).To(HaveValue(BeTrue()))
+		off := false
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsWorkFolder: &off})
+		Expect(o.DisableChatsWorkFolder).To(BeTrue())
+		Expect(o.ToRuntimeSettings().ChatsWorkFolder).To(HaveValue(BeFalse()))
+	})
+
 	It("keeps the file text index on with a 2 MiB cap until an administrator changes them", func() {
 		o := &config.ApplicationConfig{}
 		rs := o.ToRuntimeSettings()

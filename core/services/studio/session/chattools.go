@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // TurnTools are the host-side tools a product adds to a chat for one turn.
@@ -42,6 +43,11 @@ type TurnTools struct {
 	// returned an empty key keeps the previous key. The first turn of a chat
 	// that was opened again never refreshes.
 	RefreshKey string
+	// WorkFolder asks the chat to name its work folder in the prompt
+	// (workfiles.Prompt): the chat takes the name of its chat folder for it
+	// when it has none yet. The folders are made when something is saved
+	// there, so a chat that saves nothing leaves no folder behind.
+	WorkFolder bool
 }
 
 const (
@@ -78,10 +84,31 @@ type hostTools struct {
 // capPrompt cuts a prompt block to maxPromptLen bytes on a line boundary. A
 // block whose first line is longer than the limit is cut on a rune boundary.
 func capPrompt(s string, log *slog.Logger, chat string) string {
-	if len(s) <= maxPromptLen {
+	return capPromptAt(s, maxPromptLen, log, chat)
+}
+
+// turnPrompt is the prompt block of tt, capped, with the block that names the
+// work folder last when tt asks for it. reserve takes a folder name for a
+// chat that has none; without it such a chat gets no block (opening a chat
+// must not name its folder: only a turn does).
+func (c *Chat) turnPrompt(ctx context.Context, tt TurnTools, reserve bool) string {
+	if !tt.WorkFolder {
+		return capPrompt(tt.Prompt, c.m.log, c.id)
+	}
+	block := c.workFolderBlock(ctx, reserve)
+	if block == "" {
+		return capPrompt(tt.Prompt, c.m.log, c.id)
+	}
+	// The block goes last and is never the part that is cut.
+	return strings.TrimSpace(capPromptAt(tt.Prompt, maxPromptLen-len(block)-2, c.m.log, c.id) + "\n\n" + block)
+}
+
+// capPromptAt is capPrompt with a limit of n bytes.
+func capPromptAt(s string, n int, log *slog.Logger, chat string) string {
+	if len(s) <= n {
 		return s
 	}
-	cut := s[:maxPromptLen]
+	cut := s[:n]
 	if i := strings.LastIndexByte(cut, '\n'); i > 0 {
 		cut = cut[:i]
 	}
@@ -208,7 +235,7 @@ func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool) {
 		note = noteChatToolsFailed
 	} else {
 		tools = acceptHostTools(tt.Tools, c.m.log, c.id, c.m.o.Sandbox != nil)
-		prompt = capPrompt(tt.Prompt, c.m.log, c.id)
+		prompt = c.turnPrompt(ctx, tt, true)
 	}
 	fp := fingerprint(tools, prompt)
 	cur := make(map[string]Tool, len(tools))
@@ -381,6 +408,7 @@ func cleanCard(c ToolCard) (ToolCard, bool) {
 		return ToolCard{}, false
 	}
 	c.Files, c.FilesMore = cleanFiles(c.Files, c.FilesMore)
+	classifyCard(&c)
 	if c.App == nil {
 		return c, true
 	}
@@ -403,6 +431,21 @@ func cleanCard(c ToolCard) (ToolCard, bool) {
 	}
 	c.App = &a
 	return c, true
+}
+
+// classifyCard puts the kind of each file on a card: the interface shows a
+// working file apart from what the user asked for, and reads the kind from
+// the card instead of guessing it from the path.
+func classifyCard(c *ToolCard) {
+	for i := range c.Files {
+		c.Files[i].Kind = workfiles.Kind(c.Files[i].Path)
+	}
+	c.FileKind = ""
+	if c.Kind == ChangeCardKind {
+		if _, p, ok := strings.Cut(c.ID, ":"); ok && p != "" {
+			c.FileKind = workfiles.Kind(p)
+		}
+	}
 }
 
 // cleanFiles keeps the files of a card that have a usable path and op, at most
@@ -511,7 +554,7 @@ func (c *Chat) primeChatTools(ctx context.Context) {
 		return
 	}
 	tools := acceptHostTools(tt.Tools, c.m.log, c.id, c.m.o.Sandbox != nil)
-	prompt := capPrompt(tt.Prompt, c.m.log, c.id)
+	prompt := c.turnPrompt(ctx, tt, false)
 	cur := make(map[string]Tool, len(tools))
 	defs := make([]Tool, len(tools))
 	for i, t := range tools {

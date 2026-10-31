@@ -190,7 +190,8 @@
     "dropHint": "Zieh Dateien hierher, um sie an deine nächste Nachricht anzuhängen.",
     "groups": {
       "uploaded": "Von dir",
-      "created": "Erstellt und geändert"
+      "created": "Erstellt und geändert",
+      "working": "Arbeitsdateien"
     },
     "turn": "Runde {{n}}",
     "media": "Im Kontext",
@@ -198,7 +199,8 @@
     "changedTag": "Bearbeitet",
     "changedTitle": "Der Assistent hat diese Datei geändert",
     "download": "{{name}} herunterladen",
-    "error": "Die Dateien dieses Chats konnten nicht gelesen werden."
+    "error": "Die Dateien dieses Chats konnten nicht gelesen werden.",
+    "workingNote": "Skripte, Daten und Protokolle, die der Assistent unterwegs erstellt hat. Sie liegen im Arbeitsordner dieses Chats."
   },
   "steps": {
     "verb": {
@@ -253,7 +255,12 @@
       "changed": "geändert",
       "deleted": "gelöscht"
     },
-    "moreFiles": "und {{count}} weitere"
+    "moreFiles": "und {{count}} weitere",
+    "alsoSavedWorking_one": "Außerdem {{count}} Arbeitsdatei gespeichert",
+    "alsoSavedWorking_other": "Außerdem {{count}} Arbeitsdateien gespeichert",
+    "savedWorking_one": "{{count}} Arbeitsdatei gespeichert",
+    "savedWorking_other": "{{count}} Arbeitsdateien gespeichert",
+    "workingTitle": "Arbeitsdatei (ein Skript, ein Protokoll oder ein Entwurf): {{path}} öffnen"
   },
   "error": {
     "title": "Die Antwort ist fehlgeschlagen",

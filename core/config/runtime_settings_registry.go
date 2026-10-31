@@ -484,6 +484,12 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsSavedAgents },
 		func(o *ApplicationConfig) bool { return !o.DisableChatsSavedAgents },
 		func(o *ApplicationConfig, v bool) { o.DisableChatsSavedAgents = !v }),
+	// The work folder of each chat for its scripts, logs and drafts: read at
+	// each turn, so no restart. Stored as the negation, so it is on by default.
+	field("chats_work_folder",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWorkFolder },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsWorkFolder },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsWorkFolder = !v }),
 	// The text index of the documents in the chats' files: read at each pass
 	// of the indexer, so no restart. The switch is stored as the negation, so
 	// it is on by default; the snapshot of the cap is the cap that applies.

@@ -19,6 +19,8 @@ LocalAI has its own app format: a Page. It is one HTML file in the user's home t
 
 If the user asked explicitly for Python, Node or another language, do that and skip this skill.
 
+A script, test data or a draft that you make on the way goes in the chat's work folder that the prompt names (`/workspace/home/Chats/<chat>/work/`); the page folder holds only the page and its data.
+
 ## What a Page is
 
 - Folder `/workspace/home/pages/<name>/`. The name is lowercase letters, digits and dashes, starting with a letter or digit, at most 64 characters (`reading-tracker`).

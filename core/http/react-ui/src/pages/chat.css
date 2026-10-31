@@ -409,6 +409,25 @@ button.cx-step__head:hover,
 .cx-step__op { color: var(--dk-muted); }
 .cx-step__gone { color: var(--dk-muted); }
 .cx-step__file:hover { background: color-mix(in srgb, var(--dk-accent) 22%, transparent); text-decoration: underline; }
+/* A working file (a script, a log, a draft the chat made on the way) is a
+   quieter chip than what the chat made for the person; the folded line
+   "Also saved 2 working files" opens to their chips. */
+.cx-step__file--working { background: none; color: var(--dk-muted); }
+.cx-step__file--working:hover { background: var(--dk-accent-wash); color: var(--dk-accent-text); }
+.cx-step__working {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--dk-muted);
+  cursor: pointer;
+}
+.cx-step__working:hover { color: var(--dk-text); text-decoration: underline; }
+.cx-step__working-chev { transition: transform var(--dur-fast) var(--ease-out); }
+.cx-step__working[aria-expanded="true"] .cx-step__working-chev { transform: rotate(90deg); }
 .cx-step__dur {
   color: var(--dk-muted);
   font-size: var(--fs-meta);
@@ -1406,6 +1425,34 @@ button.cx-step__head:hover,
   font-variant-numeric: tabular-nums;
 }
 .cx-files__heading .cx-files__count { margin-left: 0; }
+/* The working files of the chat: one folded heading under the files the
+   chat made for the person, quieter than they are. */
+.cx-files__fold {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.cx-files__fold:hover { color: var(--color-text-secondary); }
+.cx-files__fold .cx-files__count { margin-left: 0; }
+.cx-files__fold-chev { transition: transform var(--dur-fast) var(--ease-out); }
+.cx-files__fold[aria-expanded="true"] .cx-files__fold-chev { transform: rotate(90deg); }
+.cx-files__fold-note {
+  margin: 0;
+  padding: 0 var(--sp-4) var(--sp-2);
+  color: var(--color-text-muted);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+}
+.cx-files__group--working .cx-files__name,
+.cx-files__group--working .ws-row__icon { color: var(--color-text-secondary); }
 /* The count on the Files chip ticks: the new number rises into place. */
 .home-chip .cx-files__count {
   transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);

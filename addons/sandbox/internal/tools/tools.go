@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -37,12 +38,12 @@ const ShadowedTool = "bash"
 
 // NetworkNote ends the description of bash: the guest reaches the network
 // only through the proxy, and only the hosts the chat allows.
-const NetworkNote = " Network: curl, pip and git use the proxy, within the chat's network setting; a blocked host asks the user, do not get around it. To read or search web pages, prefer web_fetch or web_search if you have them."
+const NetworkNote = " Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages."
 
 // Runs returns the tools a sandbox runs.
 func Runs(acquire runner.Acquire) []runner.Tool {
-	desc := fmt.Sprintf("Run a shell script with bash in %s, the user's files (only what is saved there stays). Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most %d).",
-		runner.GuestHome, int(MaxTimeout/time.Second)) + NetworkNote
+	desc := fmt.Sprintf("Run a bash script in %s, the user's files; only what is saved there stays. Output is cut at 64 KiB; timeoutSeconds is 120 by default, at most %d.",
+		runner.GuestHome, int(MaxTimeout/time.Second)) + NetworkNote + " " + workfiles.ToolHint
 	return []runner.Tool{runner.Bash(acquire, runner.BashOptions{MaxTimeout: MaxTimeout, Description: desc})}
 }
 

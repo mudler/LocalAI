@@ -218,6 +218,10 @@ export const FIELDS = [
   { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
     desc: 'Let a chat list the user\'s saved agents and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the agents feature.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The work folder of each chat (read at each turn, so live).
+  { key: 'chats_work_folder', group: 'tools', was: 'chats', kind: 'bool', label: 'Work folder for helper files',
+    desc: 'Tell the chats to put the scripts, logs and drafts they make in a work folder of each chat (Chats/<chat>/work in the user\'s files), so they do not mix with the user\'s own files. The Files pane of a chat lists them apart in either case.',
+    default: true, fallback: true, apply: 'live' },
   // The text index of the documents in the files (read at each pass of the
   // indexer, so live).
   { key: 'chats_index_files', group: 'tools', was: 'chats', kind: 'bool', label: 'Search inside documents',

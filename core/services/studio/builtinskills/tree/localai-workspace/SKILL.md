@@ -19,6 +19,7 @@ Rules:
 
 - Change only the keys the user asked for. Read the file first and keep every other key.
 - Keep files small (at most 64 KiB). Use 2-space indentation.
+- A script, a draft or test data that you make on the way goes in the chat's work folder that the prompt names (`/workspace/home/Chats/<chat>/work/`), not in `LocalAI/` or at the top of the home.
 - After a change, tell the user in one line what changed and where ("Saved to `LocalAI/shortcuts.json`. It shows above the composer.").
 - A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`, and reading files next to the page with `fetch('data.json')` works. To build one, use the `localai-apps` skill.
 

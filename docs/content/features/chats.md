@@ -402,7 +402,8 @@ every turn, so it knows which files exist and where they are now.
   The model is told at its next turn that the folder was renamed and which
   path is current.
 - **Delete.** Deleting a chat removes its transcript and its sandbox. Its
-  folder and every file the model wrote stay in your files.
+  folder (with its work folder) and every file the model wrote stay in your
+  files.
 - **Fork.** A fork has no folder of its own until you attach a file. The files
   that the copied messages attached stay in the original chat's folder; the
   fork lists them while they are there.
@@ -469,6 +470,69 @@ The list that the model gets has the newest 50 files, one line each with the
 path, size, type, origin and turn, and a count of the rest. A chat with no
 files gets no list. The list is built from the stored history when a turn
 starts, so every frontend of a cluster gives the same one.
+
+### Working files and the work folder
+
+A chat that makes a document often writes a script, some intermediate data or
+a log on the way. These working files must not mix with your own files, so
+every chat has a work folder: `/Chats/<date> <title>/work/` in your files
+(`/workspace/home/Chats/<date> <title>/work/` for the model), next to the
+chat's attachments. It is a normal, visible folder.
+
+- **What the model is told.** At every turn the prompt names the chat's work
+  folder and says: scripts, helper code, intermediate data, logs, drafts and
+  anything else you did not ask for go there; the file you asked for (the
+  document, the spreadsheet, the image) goes where you said, or at the top of
+  your home, and nowhere else; no new top-level folders for scripts; a command
+  that runs once needs no file (`python3 -c`, a heredoc). The descriptions of
+  `bash` and `write_file` and the built-in `docx`, `xlsx`, `pptx`, `pdf`,
+  `localai-apps` and `localai-workspace` skills say the same. Pages
+  (`pages/<name>/`) and the `LocalAI/` settings folder are not working files.
+- **When the folder is made.** The chat takes the name of its folder at its
+  first turn, but makes the folder only when it is used: before a `bash`
+  command runs, or when a file is saved there. A chat that saves nothing
+  leaves no folder behind. `bash` still starts in `/workspace/home`.
+- **A gentle nudge, no refusal.** When `write_file`, `move_file` or a command
+  leaves a helper file (see below) outside the work folder, its result gets
+  one line that suggests moving it there, at most once a turn. Nothing is
+  refused or moved: you may have asked for that script.
+- **Delete.** Deleting a chat keeps its folder, with the work folder and the
+  attachments in it, like every other file the chat wrote.
+
+Each file of the chat's list has a `kind`: `deliverable` or `working`. A file
+is `working` when it is in the work folder of any chat
+(`/Chats/<chat>/work/...`), or when it looks like a helper: the extension
+`.py`, `.sh`, `.js`, `.ts`, `.mjs`, `.rb`, `.pl`, `.ps1`, `.bat`, `.log` or
+`.tmp`, or a folder named `scripts`, `tmp` or `scratch` on its path. Files of
+a page, of the `LocalAI/` folder or of a shared folder, and the files you
+attached, are always `deliverable`. The server decides the kind in one place
+and puts it on the file list (`kind`), on the files of a command's card
+(`files[].kind`) and on the card of a file tool (`file_kind`).
+
+```bash
+curl .../api/chats/3f1c.../files
+# {"files":[{"name":"summary.docx","path":"/summary.docx","kind":"deliverable",...},
+#  {"name":"build_document.py","path":"/Chats/2026-10-31 Summary/work/build_document.py",
+#   "kind":"working",...}], ...}
+```
+
+In the chat:
+
+- **The Files pane** lists what the chat made for you first. The working
+  files are in a group of their own under it, **Working files · N**, folded
+  and quieter; open it to see and preview them. The files you attached are
+  listed as before.
+- **The preview** that opens by itself after a turn shows the newest file
+  that is not a working file. A working file never opens it by itself.
+- **The chips under the answer** name only what the chat made for you.
+- **A step** that saved working files says so in one line ("Also saved 2
+  working files"); click it to see their chips.
+
+An administrator can turn the steering off with **Work folder for helper
+files** (`chats_work_folder`, Settings > Tools). The prompt then names no
+work folder and no nudge is added; the pane still shows working files apart.
+The nudge is counted per process: a turn runs on one process, so nothing is
+shared, and a restart only lets the line come once more.
 
 ## Sub-agents
 

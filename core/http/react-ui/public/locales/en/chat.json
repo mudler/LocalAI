@@ -384,7 +384,8 @@
     "dropHint": "Drop files here to attach them to your next message.",
     "groups": {
       "uploaded": "You gave it",
-      "created": "Created and changed"
+      "created": "Created and changed",
+      "working": "Working files"
     },
     "turn": "turn {{n}}",
     "media": "In context",
@@ -392,7 +393,8 @@
     "changedTag": "Edited",
     "changedTitle": "The assistant changed this file",
     "download": "Download {{name}}",
-    "error": "The files of this chat could not be read."
+    "error": "The files of this chat could not be read.",
+    "workingNote": "Scripts, data and logs the assistant made on the way. They are kept in this chat's work folder."
   },
   "steps": {
     "verb": {
@@ -447,7 +449,12 @@
       "changed": "changed",
       "deleted": "deleted"
     },
-    "moreFiles": "and {{count}} more"
+    "moreFiles": "and {{count}} more",
+    "alsoSavedWorking_one": "Also saved {{count}} working file",
+    "alsoSavedWorking_other": "Also saved {{count}} working files",
+    "savedWorking_one": "Saved {{count}} working file",
+    "savedWorking_other": "Saved {{count}} working files",
+    "workingTitle": "Working file (a script, a log or a draft): open {{path}}"
   },
   "allChats": {
     "title": "All chats",

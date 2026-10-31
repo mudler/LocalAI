@@ -190,7 +190,8 @@
     "dropHint": "파일을 여기에 놓으면 다음 메시지에 첨부됩니다.",
     "groups": {
       "uploaded": "내가 준 파일",
-      "created": "만들고 바꾼 파일"
+      "created": "만들고 바꾼 파일",
+      "working": "작업 파일"
     },
     "turn": "{{n}}번째 턴",
     "media": "컨텍스트에 포함",
@@ -198,7 +199,8 @@
     "changedTag": "편집됨",
     "changedTitle": "어시스턴트가 이 파일을 변경했습니다",
     "download": "{{name}} 다운로드",
-    "error": "이 채팅의 파일을 읽을 수 없습니다."
+    "error": "이 채팅의 파일을 읽을 수 없습니다.",
+    "workingNote": "어시스턴트가 작업 중에 만든 스크립트, 데이터, 로그입니다. 이 채팅의 작업 폴더에 보관됩니다."
   },
   "steps": {
     "verb": {
@@ -253,7 +255,12 @@
       "changed": "변경됨",
       "deleted": "삭제됨"
     },
-    "moreFiles": "외 {{count}}개"
+    "moreFiles": "외 {{count}}개",
+    "alsoSavedWorking_one": "작업 파일 {{count}}개도 저장함",
+    "alsoSavedWorking_other": "작업 파일 {{count}}개도 저장함",
+    "savedWorking_one": "작업 파일 {{count}}개 저장함",
+    "savedWorking_other": "작업 파일 {{count}}개 저장함",
+    "workingTitle": "작업 파일(스크립트, 로그 또는 초안): {{path}} 열기"
   },
   "error": {
     "title": "답변에 실패했습니다",

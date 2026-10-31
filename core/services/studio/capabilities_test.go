@@ -184,7 +184,10 @@ var _ = Describe("capabilities", func() {
 		Expect(res[0].Out).To(ContainSubstring("built"))
 		kids := childrenOf(svc, alice, id)
 		Expect(kids).To(HaveLen(1))
-		Expect(h.TurnPrompt(kids[0].ID)).To(BeEmpty(), "a sub-agent that can run commands needs no block")
+		// A sub-agent that can run commands needs no commands block; it is told
+		// where its parent keeps working files.
+		Expect(h.TurnPrompt(kids[0].ID)).NotTo(ContainSubstring("Commands:"), "a sub-agent that can run commands needs no block")
+		Expect(h.TurnPrompt(kids[0].ID)).To(HavePrefix("Working files:"))
 	})
 
 	It("tells a sub-agent without a way to run commands not to pretend", func() {

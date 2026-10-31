@@ -52,7 +52,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		if s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools).State != CommandsAvailable {
 			prompt = subAgentCommandsBlock
 		}
-		prompt = joinBlocks(prompt, webBlock(tools))
+		prompt = joinBlocks(prompt, webBlock(tools), s.subWorkBlock(ctx, rec))
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
@@ -74,7 +74,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		fa.ChatID = rec.ParentID
 	}
 	nudge := s.newRulesNudge(ctx, a, rec)
-	tools = append(tools, nudge.wrap(s.announceFileChanges(fa, s.d.Files.Tools(fa)))...)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.d.Files.Tools(fa))))...)
 	if s.d.Media != nil {
 		tools = append(tools, s.d.Media.Tools(s.d.Files, a, rec.Model)...)
 	}
@@ -164,7 +164,13 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if fp := s.filesPrompt(ctx, a); fp != "" {
 		prompt = strings.TrimSpace(prompt + "\n\n" + fp)
 	}
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
+	// A conversation names its own work folder (the session takes the folder
+	// name); a sub-agent saves in its parent's files, so it names the parent's.
+	work := !sub && s.workFolderOn() && s.d.Files.Available()
+	if sub {
+		prompt = joinBlocks(prompt, s.subWorkBlock(ctx, rec))
+	}
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
 }
 
 func (s *Service) spawnTool(a workspace.Actor, savedAgents bool) session.Tool {
@@ -309,7 +315,7 @@ func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string
 	}
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
-	have = append(have, s.announceFileChanges(a, s.d.Files.Tools(a))...)
+	have = append(have, s.fileNudgeTools(a, s.announceFileChanges(a, s.d.Files.Tools(a)))...)
 	if parent, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID); err == nil {
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.

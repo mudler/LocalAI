@@ -9,7 +9,7 @@
     "toolDefinitions": [
       {
         "name": "bash",
-        "description": "Run a shell script with bash in /workspace/home, the user's files (only what is saved there stays). Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1680). Network: curl, pip and git use the proxy, within the chat's network setting; a blocked host asks the user, do not get around it. To read or search web pages, prefer web_fetch or web_search if you have them.",
+        "description": "Run a bash script in /workspace/home, the user's files; only what is saved there stays. Output is cut at 64 KiB; timeoutSeconds is 120 by default, at most 1680. Network: curl, pip and git use the proxy; a blocked host asks the user, do not get around it. Prefer web_fetch or web_search for web pages. Put helper scripts and temp files in the chat's work folder if the prompt names one.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,

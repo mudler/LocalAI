@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // Limits of what one file tool call reads, changes and returns to the model.
@@ -285,7 +286,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				}
 				return pageLines(data, in.Offset, in.Limit)
 			})},
-		{Name: "write_file", Description: "Write a text file in the user's files, creating folders as needed. An existing file is replaced; the user can undo it.",
+		{Name: "write_file", Description: "Write a text file in the user's files, creating folders as needed. An existing file is replaced; the user can undo it. " + workfiles.ToolHint,
 			Schema: obj(pathProp+`,"content":{"type":"string"}`, "path", "content"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
 				in, err := session.DecodeArgs[struct{ Path, Content string }](raw)
@@ -693,7 +694,7 @@ func (s *Service) glob(ctx context.Context, a workspace.Actor, t target, pattern
 // "<rev>:<path>", the path in the home or, for a shared folder, the path the
 // model used. The chat shows a note with Undo under the call, and the Undo
 // undoes that change set. The model never sees the card.
-const ChangeCardKind = "files_change"
+const ChangeCardKind = session.ChangeCardKind
 
 func changeCard(ctx context.Context, rev int64, rel string) {
 	if rev > 0 && rel != "" {

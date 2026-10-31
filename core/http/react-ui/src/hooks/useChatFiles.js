@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { chatsApi } from '../utils/api'
+import { isWorkingFile } from '../utils/previewPane'
 
 const EMPTY = { files: [], folder: '', folderPath: '', loaded: false, error: '' }
 
@@ -28,12 +29,14 @@ export function useChatFiles(chatId, tick) {
   return state
 }
 
-// The groups the files pane shows, in order: what the user attached, what the
-// assistant created, and the files it changed that it did not create.
+// The groups of the files pane: what the user attached, what the assistant
+// created, the files it changed that it did not create, and its working files
+// (scripts, logs, drafts), which the pane folds away under the rest.
 export function groupChatFiles(files) {
-  const groups = { uploaded: [], created: [], changed: [] }
+  const groups = { uploaded: [], created: [], changed: [], working: [] }
   for (const f of files) {
     if (f.origin === 'user') groups.uploaded.push(f)
+    else if (isWorkingFile(f)) groups.working.push(f)
     else if (f.changed) groups.changed.push(f)
     else groups.created.push(f)
   }

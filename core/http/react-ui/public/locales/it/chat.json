@@ -190,7 +190,8 @@
     "dropHint": "Trascina qui i file per allegarli al prossimo messaggio.",
     "groups": {
       "uploaded": "Forniti da te",
-      "created": "Creati e modificati"
+      "created": "Creati e modificati",
+      "working": "File di lavoro"
     },
     "turn": "turno {{n}}",
     "media": "Nel contesto",
@@ -198,7 +199,8 @@
     "changedTag": "Modificato",
     "changedTitle": "L'assistente ha modificato questo file",
     "download": "Scarica {{name}}",
-    "error": "Impossibile leggere i file di questa chat."
+    "error": "Impossibile leggere i file di questa chat.",
+    "workingNote": "Script, dati e log che l'assistente ha creato lungo il percorso. Stanno nella cartella di lavoro di questa chat."
   },
   "steps": {
     "verb": {
@@ -253,7 +255,12 @@
       "changed": "modificato",
       "deleted": "eliminato"
     },
-    "moreFiles": "e altri {{count}}"
+    "moreFiles": "e altri {{count}}",
+    "alsoSavedWorking_one": "Ha salvato anche {{count}} file di lavoro",
+    "alsoSavedWorking_other": "Ha salvato anche {{count}} file di lavoro",
+    "savedWorking_one": "Ha salvato {{count}} file di lavoro",
+    "savedWorking_other": "Ha salvato {{count}} file di lavoro",
+    "workingTitle": "File di lavoro (uno script, un log o una bozza): apri {{path}}"
   },
   "error": {
     "title": "La risposta non è riuscita",

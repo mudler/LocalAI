@@ -193,7 +193,8 @@
     "dropHint": "Solte arquivos aqui para anexá-los à sua próxima mensagem.",
     "groups": {
       "uploaded": "Você enviou",
-      "created": "Criados e alterados"
+      "created": "Criados e alterados",
+      "working": "Arquivos de trabalho"
     },
     "turn": "turno {{n}}",
     "media": "No contexto",
@@ -201,7 +202,8 @@
     "changedTag": "Editado",
     "changedTitle": "O assistente alterou este arquivo",
     "download": "Baixar {{name}}",
-    "error": "Não foi possível ler os arquivos deste chat."
+    "error": "Não foi possível ler os arquivos deste chat.",
+    "workingNote": "Scripts, dados e logs que o assistente criou no caminho. Ficam na pasta de trabalho deste chat."
   },
   "steps": {
     "verb": {
@@ -256,7 +258,12 @@
       "changed": "alterado",
       "deleted": "excluído"
     },
-    "moreFiles": "e mais {{count}}"
+    "moreFiles": "e mais {{count}}",
+    "alsoSavedWorking_one": "Também salvou {{count}} arquivo de trabalho",
+    "alsoSavedWorking_other": "Também salvou {{count}} arquivos de trabalho",
+    "savedWorking_one": "Salvou {{count}} arquivo de trabalho",
+    "savedWorking_other": "Salvou {{count}} arquivos de trabalho",
+    "workingTitle": "Arquivo de trabalho (um script, um log ou um rascunho): abrir {{path}}"
   },
   "error": {
     "title": "A resposta falhou",

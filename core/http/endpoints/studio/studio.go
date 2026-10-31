@@ -555,9 +555,9 @@ func intParam(c echo.Context, name string, def, max int) int {
 
 // toolCardJSON is the card of a tool line as the API gives it.
 func toolCardJSON(c *session.ToolCard) *schema.ChatsToolCard {
-	out := &schema.ChatsToolCard{Kind: c.Kind, ID: c.ID, FilesMore: c.FilesMore}
+	out := &schema.ChatsToolCard{Kind: c.Kind, ID: c.ID, FilesMore: c.FilesMore, FileKind: c.FileKind}
 	for _, f := range c.Files {
-		out.Files = append(out.Files, schema.ChatsToolFile{Path: f.Path, Rev: f.Rev, Op: f.Op})
+		out.Files = append(out.Files, schema.ChatsToolFile{Path: f.Path, Rev: f.Rev, Op: f.Op, Kind: f.Kind})
 	}
 	return out
 }

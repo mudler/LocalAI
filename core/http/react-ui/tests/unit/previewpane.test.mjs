@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   viewOf, languageOf, isPreviewableBlock, blockTitle, presentedName, codeBlocksOf, previewableBlocks,
-  autoOpenTarget, targetKey, turnFiles, isPhoneWidth, closedKey, readClosed, isClosed, setClosed, MAX_CLOSED,
+  autoOpenTarget, targetKey, turnFiles, isWorkingFile, isPhoneWidth, closedKey, readClosed, isClosed, setClosed, MAX_CLOSED,
   MIN_BLOCK_LINES, blockView,
 } from '../../src/utils/previewPane.js'
 
@@ -94,6 +94,21 @@ test('preview pane: the chips of a turn list its created files before its change
     { path: '/b.md', name: 'b.md', size: 2, kind: 'changed' },
   ])
   assert.deepEqual(turnFiles(files, 0), [])
+})
+
+test('preview pane: a working file gets no chip under the answer and never opens the pane', () => {
+  const since = { turn: 1, seq: 2 }
+  const files = [
+    { path: '/summary.docx', name: 'summary.docx', origin: 'model', turn: 2, kind: 'deliverable', at: '2026-10-30T10:00:01Z', size: 5 },
+    { path: '/Chats/x/work/build.py', name: 'build.py', origin: 'tool', turn: 2, kind: 'working', at: '2026-10-30T10:00:09Z', size: 6 },
+  ]
+  assert.equal(isWorkingFile(files[1]), true)
+  assert.equal(isWorkingFile(files[0]), false)
+  assert.equal(isWorkingFile({ kind: 'working', origin: 'user' }), false, 'a file the user attached is theirs')
+  assert.equal(isWorkingFile({ path: '/old.py' }), false, 'a list without kinds shows every file as before')
+  assert.deepEqual(turnFiles(files, 2), [{ path: '/summary.docx', name: 'summary.docx', size: 5, kind: 'created' }])
+  assert.deepEqual(autoOpenTarget({ files, messages: [], since }), { type: 'file', path: '/summary.docx', name: 'summary.docx' })
+  assert.equal(autoOpenTarget({ files: files.slice(1), messages: [], since }), null)
 })
 
 test('preview pane: a new file of the assistant opens the pane, the newest first, and wins over a block', () => {

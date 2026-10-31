@@ -8,6 +8,8 @@ requires: [exec]
 
 > The tools named here are installed in the guest image of the sandbox add-on (gVisor or a virtual machine). The host backend does not have them: check that the import works before you rely on it.
 
+> Write the scripts you use to build or check a file in the chat's work folder that the prompt names (`/workspace/home/Chats/<chat>/work/`), for example `python3 /workspace/home/Chats/<chat>/work/build.py`, or run a one-off script inline with `python3 - <<'EOF'`. Save only the file the user asked for, where they asked or in their home, and nowhere else.
+
 A PDF is a fixed-page package rather than a flow document. Existing PDFs generally expose pages,
 regions, form fields, annotations, overlays, and redactions rather than semantic paragraph reflow.
 A retained source such as DOCX, PPTX, a build script, or structured data may contain the editable
