@@ -471,7 +471,7 @@
   },
   "tasks": {
     "title": "Agent tasks",
-    "lede": "A task is a prompt that a model or one of your agents runs in the background, from here or over the API (POST /api/agent/tasks/{name}/execute). Each run is a job with its result.",
+    "lede": "A task is a prompt that a model or one of your agents runs in the background, from here or over the API. Each run is a job with its result.",
     "allUsers": "All users",
     "new": "New task",
     "newTitle": "New task",

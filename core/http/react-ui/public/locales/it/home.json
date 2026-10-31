@@ -84,7 +84,7 @@
       "step3Title": "Inizia a chattare",
       "step3Body": "Chatta con il tuo modello dal browser o usa l'API.",
       "sandboxTitle": "Esegui il codice in sicurezza (facoltativo)",
-      "sandboxBody": "Installa il componente Sandbox perché il modello esegua codice e comandi in isolamento. Senza, il modello può usare solo il fallback bash integrato sull'host, che ha accesso completo alla rete e nessun isolamento."
+      "sandboxBody": "Installa il componente Sandbox perché il modello esegua codice e comandi in isolamento. Senza, i comandi vengono eseguiti direttamente su questa macchina, con accesso completo alla rete e nessun isolamento."
     },
     "browseGallery": "Sfoglia galleria modelli",
     "importModel": "Importa modello",

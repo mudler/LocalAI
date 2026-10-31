@@ -3,9 +3,9 @@
     "blocked": "An earlier action on this add-on is not confirmed yet. Check its status or dismiss it first.",
     "checkStatus": "Check status",
     "dismiss": "Dismiss",
-    "failed": "The owner did not complete the action. Nothing was changed. Try again to start a new attempt.",
-    "notApplied": "The owner reported the action as done, but the add-on did not change. Try again to start a new attempt.",
-    "unknown": "The owner did not confirm the action yet. It may still be applied. Check its status, or dismiss it before you start another action."
+    "failed": "The action did not finish. Nothing was changed. Try again to start a new attempt.",
+    "notApplied": "The action was reported as done, but the add-on did not change. Try again to start a new attempt.",
+    "unknown": "The action is not confirmed yet. It may still be applied. Check its status, or dismiss it before you start another action."
   },
   "approval": {
     "title": "Approval needed",
@@ -58,7 +58,7 @@
     "tools_one": "{{count}} tool",
     "tools_other": "{{count}} tools",
     "version": "Version {{version}}",
-    "working": "Waiting for the owner to confirm.",
+    "working": "Waiting for confirmation.",
     "noMatchTitle": "No add-on matches",
     "noMatchBody": "Nothing installed matches \"{{query}}\". Try other words.",
     "clearSearch": "Clear search",
@@ -136,7 +136,7 @@
     "denied": "The server refused this. You may not have permission, or the add-on changed. The list was refreshed.",
     "invalid": "The server could not accept this request.",
     "network": "The server could not be reached. Check your connection.",
-    "unavailable": "The add-on owner is not available right now. Try again in a moment.",
+    "unavailable": "Add-ons are not available right now. Try again in a moment.",
     "unknownOutcome": "The result could not be confirmed. Check the status before you try again."
   },
   "installed": {
@@ -189,7 +189,7 @@
     "gallery": "Gallery index",
     "hints": {
       "id": "Lowercase letters, digits and hyphens. It cannot change later.",
-      "reference": "The name of a credential the owner configured. Never paste a token or password here.",
+      "reference": "The name of a credential an administrator configured on this server. Never paste a token or password here.",
       "url": "An https address without credentials or a query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
@@ -208,7 +208,7 @@
       "model": "Models"
     },
     "lastRefresh": "Refreshed {{when}}, {{count}} entries",
-    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential the owner configured.",
+    "lead": "A library is an index that lists add-ons, backends or models. Credentials are never typed here: a private add-on library names a credential an administrator configured on this server.",
     "listLabel": "Libraries",
     "loading": "Loading libraries",
     "notRefreshed": "Not refreshed yet",
@@ -262,7 +262,7 @@
     "host": "Host API",
     "interface": "Interface",
     "logs": "Logs",
-    "logsNone": "The output of add-on processes is not collected in this release. Health and restart attempts above are what the owner can report.",
+    "logsNone": "The output of add-on processes is not collected in this release. Health and restart attempts above are all that LocalAI can report.",
     "observed": "Observed state",
     "protocol": "Protocol",
     "restarts": "Restart attempts",
@@ -525,8 +525,8 @@
       "unknownOutcome": "The outcome is not known. Read the state again: the same action is not sent twice.",
       "auth": "Sign in again.",
       "denied": "Only administrators can do this, from their own browser session.",
-      "network": "The owner could not be reached.",
-      "unavailable": "The owner is not available."
+      "network": "The add-on service could not be reached.",
+      "unavailable": "The add-on service is not available."
     }
   },
   "updates": {
@@ -600,7 +600,7 @@
       "auth": "Sign in again to continue.",
       "denied": "Only an administrator can do this from their own browser session.",
       "network": "The network is not reachable.",
-      "unavailable": "The add-on owner is not available. Try again."
+      "unavailable": "The add-on service is not available. Try again."
     },
     "upgradeNamed": "Upgrade {{name}}",
     "why": {

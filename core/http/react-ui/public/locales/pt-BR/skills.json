@@ -1,8 +1,8 @@
 {
   "title": "Habilidades",
-  "subtitle": "Gerenciar habilidades de agentes (instruções e recursos reutilizáveis)",
+  "subtitle": "Instruções que um chat pode ler quando uma tarefa corresponde. Adicione uma a um agente para usá-la lá.",
   "unavailable": {
-    "subtitle": "O serviço de habilidades não está disponível ou o índice está sendo reconstruído. Tente novamente em um momento."
+    "subtitle": "As habilidades precisam de Arquivos, e Arquivos está desativado neste servidor."
   },
   "actions": {
     "newSkill": "Nova habilidade",
@@ -19,7 +19,7 @@
     "editTitle": "Editar habilidade",
     "deleteTitle": "Excluir habilidade",
     "invalid": "Skipped: not a valid skill",
-    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "invalidWhy": "Esta habilidade foi ignorada: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "Fornecida por {{name}}",
@@ -75,7 +75,7 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+    "readOnly": "Esta habilidade é somente leitura aqui. Uma habilidade integrada vem com o servidor, e uma dos seus arquivos é alterada em Arquivos."
   },
   "load": {
     "title": "Não foi possível carregar suas habilidades."

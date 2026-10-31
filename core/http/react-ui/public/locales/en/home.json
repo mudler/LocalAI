@@ -93,7 +93,7 @@
       "step3Title": "Start Chatting",
       "step3Body": "Chat with your model right from the browser or use the API.",
       "sandboxTitle": "Run code safely (optional)",
-      "sandboxBody": "Install the Sandbox add-on so the model runs code and commands isolated. Without it, the model can only use the built-in host bash fallback, which has full network access and no isolation."
+      "sandboxBody": "Install the Sandbox add-on so the model runs code and commands in isolation. Without it, commands run directly on this machine, with full network access and no isolation."
     },
     "browseGallery": "Browse Model Gallery",
     "importModel": "Import Model",

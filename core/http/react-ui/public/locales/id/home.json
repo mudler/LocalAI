@@ -84,7 +84,7 @@
       "step3Title": "Mulai Mengobrol",
       "step3Body": "Mengobrol dengan model Anda langsung dari peramban atau gunakan API.",
       "sandboxTitle": "Jalankan kode dengan aman (opsional)",
-      "sandboxBody": "Pasang add-on Sandbox agar model menjalankan kode dan perintah secara terisolasi. Tanpanya, model hanya bisa memakai bash host bawaan, yang punya akses jaringan penuh dan tanpa isolasi."
+      "sandboxBody": "Pasang add-on Sandbox agar model menjalankan kode dan perintah secara terisolasi. Tanpanya, perintah berjalan langsung di mesin ini, dengan akses jaringan penuh dan tanpa isolasi."
     },
     "browseGallery": "Jelajahi Galeri Model",
     "importModel": "Impor Model",

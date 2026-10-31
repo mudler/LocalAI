@@ -1,8 +1,8 @@
 {
   "title": "Skills",
-  "subtitle": "Folders with a SKILL.md that a chat can read when a task matches. Add one to an agent to use it there.",
+  "subtitle": "Instructions a chat can read when a task matches. Add one to an agent to use it there.",
   "unavailable": {
-    "subtitle": "Skills need the file workspace, and it is off on this server."
+    "subtitle": "Skills need Files, and Files are off on this server."
   },
   "actions": {
     "newSkill": "New skill",
@@ -20,7 +20,7 @@
     "editTitle": "Edit skill",
     "deleteTitle": "Delete skill",
     "invalid": "Skipped: not a valid skill",
-    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "invalidWhy": "This skill was skipped: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "Provided by {{name}}",
@@ -98,7 +98,7 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a skill from your files is changed in Files."
   },
   "load": {
     "title": "Could not load your skills."

@@ -3,9 +3,9 @@
     "blocked": "이 애드온에 대한 이전 작업이 아직 확인되지 않았습니다. 먼저 상태를 확인하거나 무시하세요.",
     "checkStatus": "상태 확인",
     "dismiss": "무시",
-    "failed": "소유자가 작업을 완료하지 못했습니다. 아무것도 변경되지 않았습니다. 다시 시도하면 새 시도를 시작합니다.",
-    "notApplied": "소유자가 작업을 완료했다고 알렸지만 애드온은 바뀌지 않았습니다. 다시 시도하세요.",
-    "unknown": "소유자가 아직 작업을 확인하지 않았습니다. 여전히 적용될 수 있습니다. 다른 작업을 시작하기 전에 상태를 확인하거나 무시하세요."
+    "failed": "작업이 완료되지 않았습니다. 아무것도 변경되지 않았습니다. 다시 시도하면 새 시도를 시작합니다.",
+    "notApplied": "작업이 완료되었다고 보고되었지만 애드온은 바뀌지 않았습니다. 다시 시도하면 새 시도를 시작합니다.",
+    "unknown": "작업이 아직 확인되지 않았습니다. 여전히 적용될 수 있습니다. 다른 작업을 시작하기 전에 상태를 확인하거나 무시하세요."
   },
   "approval": {
     "title": "승인이 필요합니다",
@@ -58,7 +58,7 @@
     "tools_one": "{{count}} tool",
     "tools_other": "도구 {{count}}개",
     "version": "버전 {{version}}",
-    "working": "소유자의 확인을 기다리는 중입니다.",
+    "working": "확인을 기다리는 중입니다.",
     "noMatchTitle": "No add-on matches",
     "noMatchBody": "\"{{query}}\"와 일치하는 설치된 항목이 없습니다. 다른 단어로 찾아 보세요.",
     "clearSearch": "Clear search",
@@ -136,7 +136,7 @@
     "denied": "서버가 거부했습니다. 권한이 없거나 애드온이 변경되었을 수 있습니다. 목록을 새로 고쳤습니다.",
     "invalid": "서버가 이 요청을 받아들일 수 없습니다.",
     "network": "서버에 연결할 수 없습니다. 연결을 확인하세요.",
-    "unavailable": "애드온 소유자를 지금은 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
+    "unavailable": "지금은 애드온을 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
     "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요."
   },
   "installed": {
@@ -181,14 +181,14 @@
     },
     "hints": {
       "id": "소문자, 숫자, 하이픈. 나중에 변경할 수 없습니다.",
-      "reference": "소유자가 구성한 자격 증명의 이름. 토큰이나 비밀번호를 여기에 붙여넣지 마세요.",
+      "reference": "관리자가 이 서버에 구성한 자격 증명의 이름입니다. 여기에 토큰이나 비밀번호를 붙여 넣지 마세요.",
       "url": "자격 증명과 쿼리 문자열이 없는 https 주소.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "{{when}}에 새로 고침, 항목 {{count}}개",
-    "lead": "라이브러리는 애드온을 나열하는 카탈로그 문서입니다. 자격 증명은 여기에 입력하지 않습니다. 비공개 라이브러리는 소유자가 구성한 자격 증명을 이름으로 가리킵니다.",
+    "lead": "라이브러리는 애드온, 백엔드 또는 모델을 나열하는 색인입니다. 자격 증명은 여기에 입력하지 않습니다. 비공개 애드온 라이브러리는 관리자가 이 서버에 구성한 자격 증명을 이름으로 가리킵니다.",
     "listLabel": "라이브러리",
     "loading": "라이브러리를 불러오는 중",
     "notRefreshed": "아직 새로 고치지 않음",
@@ -262,7 +262,7 @@
     "host": "호스트 API",
     "interface": "인터페이스",
     "logs": "로그",
-    "logsNone": "이 릴리스에서는 애드온 프로세스의 출력을 수집하지 않습니다. 위의 상태와 재시작 시도가 소유자가 보고할 수 있는 정보입니다.",
+    "logsNone": "이 릴리스에서는 애드온 프로세스의 출력을 수집하지 않습니다. 위의 상태와 재시작 시도가 LocalAI가 보고할 수 있는 전부입니다.",
     "observed": "관찰된 상태",
     "protocol": "프로토콜",
     "restarts": "재시작 시도",
@@ -525,8 +525,8 @@
       "unknownOutcome": "결과를 알 수 없습니다. 상태를 다시 읽으세요. 같은 작업은 두 번 전송되지 않습니다.",
       "auth": "다시 로그인하세요.",
       "denied": "관리자만 자신의 브라우저 세션에서 할 수 있습니다.",
-      "network": "소유자에 연결할 수 없습니다.",
-      "unavailable": "소유자를 사용할 수 없습니다."
+      "network": "애드온 서비스에 연결할 수 없습니다.",
+      "unavailable": "애드온 서비스를 사용할 수 없습니다."
     }
   },
   "updates": {
@@ -600,7 +600,7 @@
       "auth": "계속하려면 다시 로그인하세요.",
       "denied": "관리자만 자신의 브라우저 세션에서 할 수 있습니다.",
       "network": "네트워크에 연결할 수 없습니다.",
-      "unavailable": "애드온 소유자를 사용할 수 없습니다. 다시 시도하세요."
+      "unavailable": "애드온 서비스를 사용할 수 없습니다. 다시 시도하세요."
     },
     "upgradeNamed": "{{name}} 업그레이드",
     "why": {

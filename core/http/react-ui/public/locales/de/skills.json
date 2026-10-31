@@ -1,8 +1,8 @@
 {
   "title": "Fähigkeiten",
-  "subtitle": "Verwalten Sie Agentenfähigkeiten (wiederverwendbare Anweisungen und Ressourcen)",
+  "subtitle": "Anweisungen, die ein Chat liest, wenn eine Aufgabe passt. Füge eine einem Agenten hinzu, um sie dort zu nutzen.",
   "unavailable": {
-    "subtitle": "Der Fähigkeiten-Dienst ist nicht verfügbar oder der Index wird neu erstellt. Versuchen Sie es in einem Moment erneut."
+    "subtitle": "Fähigkeiten brauchen Dateien, und Dateien sind auf diesem Server ausgeschaltet."
   },
   "actions": {
     "newSkill": "Neue Fähigkeit",
@@ -19,7 +19,7 @@
     "editTitle": "Fähigkeit bearbeiten",
     "deleteTitle": "Fähigkeit löschen",
     "invalid": "Skipped: not a valid skill",
-    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "invalidWhy": "Diese Fähigkeit wurde übersprungen: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "Bereitgestellt von {{name}}",
@@ -75,7 +75,7 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+    "readOnly": "Diese Fähigkeit ist hier schreibgeschützt. Eine eingebaute Fähigkeit gehört zum Server, und eine Fähigkeit aus deinen Dateien änderst du unter Dateien."
   },
   "load": {
     "title": "Ihre Skills konnten nicht geladen werden."

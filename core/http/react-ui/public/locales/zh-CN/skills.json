@@ -1,8 +1,8 @@
 {
   "title": "技能",
-  "subtitle": "管理智能体技能（可重用的指令和资源）",
+  "subtitle": "任务匹配时聊天可以读取的指示。把它添加到智能体后即可在那里使用。",
   "unavailable": {
-    "subtitle": "技能服务不可用或索引正在重建。请稍后再试。"
+    "subtitle": "技能需要“文件”功能，而此服务器已关闭“文件”。"
   },
   "actions": {
     "newSkill": "新技能",
@@ -19,7 +19,7 @@
     "editTitle": "编辑技能",
     "deleteTitle": "删除技能",
     "invalid": "Skipped: not a valid skill",
-    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "invalidWhy": "已跳过此技能：{{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "由 {{name}} 提供",
@@ -75,7 +75,7 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+    "readOnly": "此技能在这里是只读的。内置技能随服务器提供，来自你文件的技能请在“文件”中修改。"
   },
   "load": {
     "title": "无法加载你的技能。"
