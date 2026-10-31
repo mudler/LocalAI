@@ -112,7 +112,21 @@
     "label": "Herramientas",
     "title": "Herramientas que puede usar este chat",
     "heading": "Herramientas de este chat",
-    "note": "Una herramienta apagada aquí no se ofrece al modelo en este chat."
+    "note": "Una herramienta apagada aquí no se ofrece al modelo en este chat.",
+    "count": "{{on}} de {{total}} activadas",
+    "selectAll": "Activar todas",
+    "disableAll": "Desactivar todas",
+    "groupOn": "Todas sí",
+    "groupOff": "Todas no",
+    "groupOnLabel": "Activar todo en {{group}}",
+    "groupOffLabel": "Desactivar todo en {{group}}",
+    "groupCount": "{{on}} de {{total}}",
+    "optIn": "Apagada hasta que la actives. Activar todas no la cambia.",
+    "empty": "No hay nada que activar en este chat.",
+    "failed": "No se pudo guardar. El interruptor vuelve a como estaba.",
+    "unavailable": "No disponible en este chat",
+    "toolCount_one": "{{count}} herramienta",
+    "toolCount_other": "{{count}} herramientas"
   },
   "skills": {
     "label": "Habilidades",

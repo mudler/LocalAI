@@ -306,7 +306,21 @@
     "label": "Tools",
     "title": "Tools this chat can use",
     "heading": "Tools for this chat",
-    "note": "A tool that is off here is not offered to the model in this chat."
+    "note": "A tool that is off here is not offered to the model in this chat.",
+    "count": "{{on}} of {{total}} on",
+    "selectAll": "Select all",
+    "disableAll": "Disable all",
+    "groupOn": "All on",
+    "groupOff": "All off",
+    "groupOnLabel": "Switch on all of {{group}}",
+    "groupOffLabel": "Switch off all of {{group}}",
+    "groupCount": "{{on}} of {{total}}",
+    "optIn": "Off until you switch it on. Select all leaves it off.",
+    "empty": "Nothing to switch in this chat.",
+    "failed": "Could not save. The switch is back as it was.",
+    "unavailable": "Not available in this chat",
+    "toolCount_one": "{{count}} tool",
+    "toolCount_other": "{{count}} tools"
   },
   "skills": {
     "label": "Skills",

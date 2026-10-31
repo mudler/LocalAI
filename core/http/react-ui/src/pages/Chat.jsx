@@ -53,6 +53,7 @@ import SkillsMenu from '../components/chat/SkillsMenu'
 import ChatFoot from '../components/chat/ChatFoot'
 // eslint-disable-next-line no-unused-vars
 import SwitchMenu from '../components/chat/SwitchMenu'
+import Button from '../components/ui/Button'
 import { CommandsChip, CommandsNotice } from '../components/chat/CommandsNotice'
 import { useCommandsNotice } from '../hooks/useCommandsNotice'
 // eslint-disable-next-line no-unused-vars
@@ -237,10 +238,12 @@ function ChatPage() {
     const shadowed = Object.entries(by).filter(([, p]) => p && p !== 'builtin')
     if (shadowed.length === 0) return {}
     const provider = (p) => (p === 'builtin' ? tc('tools.servedByBuiltin') : p)
-    const note = b.provider === 'mixed'
+    const mixed = b.provider === 'mixed'
+    const note = mixed
       ? Object.entries(by).map(([tool, p]) => tc('tools.servedByTool', { tool, provider: provider(p) })).join(' · ')
       : tc('tools.servedBy', { provider: b.provider })
-    return { note, title: tc('tools.builtinByAddon', { tools: (b.tools || []).join(', '), provider: b.provider === 'mixed' ? note : b.provider }) }
+    // One provider fits a chip next to the name; one per tool is a line under it.
+    return { [mixed ? 'note' : 'chip']: note, title: tc('tools.builtinByAddon', { tools: (b.tools || []).join(', '), provider: mixed ? note : b.provider }) }
   }
   const messages = chat.messages
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
@@ -882,25 +885,25 @@ function ChatPage() {
   const toolGroups = [
     {
       // The tools LocalAI serves itself, such as web search: one switch per group.
-      key: 'builtins', title: tc('tools.builtins'),
+      key: 'builtins', title: tc('tools.builtins'), icon: 'globe', onSet: switches.setBuiltinsOn,
       rows: switches.builtins.map((b) => ({
-        key: `b-${b.group}`, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
+        key: `b-${b.group}`, id: b.group, optIn: !!b.opt_in, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
         title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
         on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
         ...builtinNote(b),
       })),
     },
     {
-      key: 'addons', title: tc('tools.addons'),
-      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, label: a.id, title: tc('addons.tools', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on), ...addonNote(a) })),
+      key: 'addons', title: tc('tools.addons'), icon: 'puzzle', onSet: switches.setAddonsOn,
+      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, id: a.id, label: a.id, meta: t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on), ...addonNote(a) })),
     },
     {
-      key: 'servers', title: tc('tools.servers'),
-      rows: switches.servers.map((s) => ({ key: `s-${s.name}`, label: s.name, on: !s.off, usable: s.usable, reason: s.reason, onToggle: (on) => switches.toggleMCP(s.name, on) })),
+      key: 'servers', title: tc('tools.servers'), icon: 'server', onSet: switches.setMCPOn,
+      rows: switches.servers.map((s) => ({ key: `s-${s.name}`, id: s.name, label: s.name, on: !s.off, usable: s.usable, reason: s.reason, onToggle: (on) => switches.toggleMCP(s.name, on) })),
     },
     {
-      key: 'connectors', title: tc('tools.connectors'),
-      rows: switches.connectors.map((c) => ({ key: `c-${c.id}`, label: c.name, on: !c.off, usable: c.usable, reason: c.reason, onToggle: (on) => switches.toggleMCP(connectorRef(c.id), on) })),
+      key: 'connectors', title: tc('tools.connectors'), icon: 'plug', onSet: switches.setMCPOn,
+      rows: switches.connectors.map((c) => ({ key: `c-${c.id}`, id: connectorRef(c.id), label: c.name, on: !c.off, usable: c.usable, reason: c.reason, onToggle: (on) => switches.toggleMCP(connectorRef(c.id), on) })),
     },
   ]
   const tools = activeId && (
@@ -912,7 +915,7 @@ function ChatPage() {
           ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<NetworkRow egress={egress} /></>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
-          ? <button type="button" className="chat-mcp-select-all chat-switch-manage" onClick={() => navigate('/app/mcp-connectors')}>{tc('tools.manage')}</button>
+          ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>
           : null}
       />
       <CommandsChip notice={commands} />

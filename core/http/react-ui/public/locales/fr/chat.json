@@ -110,7 +110,21 @@
     "label": "Outils",
     "title": "Outils que ce chat peut utiliser",
     "heading": "Outils de ce chat",
-    "note": "Un outil désactivé ici n'est pas proposé au modèle dans ce chat."
+    "note": "Un outil désactivé ici n'est pas proposé au modèle dans ce chat.",
+    "count": "{{on}} sur {{total}} activés",
+    "selectAll": "Tout activer",
+    "disableAll": "Tout désactiver",
+    "groupOn": "Tout activer",
+    "groupOff": "Tout désactiver",
+    "groupOnLabel": "Activer tout {{group}}",
+    "groupOffLabel": "Désactiver tout {{group}}",
+    "groupCount": "{{on}} sur {{total}}",
+    "optIn": "Désactivé tant que vous ne l'activez pas. Tout activer le laisse désactivé.",
+    "empty": "Rien à activer dans ce chat.",
+    "failed": "Enregistrement impossible. L'interrupteur revient à son état précédent.",
+    "unavailable": "Indisponible dans ce chat",
+    "toolCount_one": "{{count}} outil",
+    "toolCount_other": "{{count}} outils"
   },
   "skills": {
     "label": "Compétences",

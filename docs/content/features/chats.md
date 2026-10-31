@@ -675,6 +675,21 @@ Switches only take away: a chat with a [saved agent](/features/chats-agents/)
 lists only what the agent grants and never gets more than that. A trigger run with no
 agent copies the switches of the chat that proposed it.
 
+The menu groups the rows under **Built-in tools**, **Add-ons**, **MCP servers
+of the model** and **Your connectors**. Each row has the name, a line of text
+when there is something to say (why it cannot be used, how the Sandbox runs
+commands), a chip with the add-on that serves a built-in tool ("Served by
+add-on searx"), the number of tools of an add-on, and the switch. A click on
+the name also toggles the switch, and Space toggles a focused switch. The
+header gives the count of what is on among what can be used ("4 of 7 on"),
+with **Select all** and **Disable all**. A group with two or more switches has
+**All on** and **All off** for that group only. These buttons never change a
+row that cannot be used, and **Select all** leaves **Saved agents** off: you
+switch it on by hand. They send one request for each kind of switch (built-in
+tools, add-ons, MCP servers and connectors). A change that the server refuses
+goes back, and a line at the bottom of the menu says so. On a phone the menu
+opens as a sheet at the bottom of the screen.
+
 ```bash
 curl -s localhost:8080/api/chats/$ID/tools
 # {"addons":[...],"servers":[{"name":"crm","off":false,"usable":true}],

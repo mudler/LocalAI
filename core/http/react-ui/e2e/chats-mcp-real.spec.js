@@ -66,7 +66,7 @@ test('an enabled connector is in the tools panel, its app shows live under the t
 
   const panel = page.getByTestId('chat-tools')
   await panel.getByTestId('chat-tools-button').click()
-  const sw = panel.getByRole('checkbox', { name: new RegExp(name) })
+  const sw = panel.getByRole('switch', { name: new RegExp(name) })
   await expect(sw).toBeChecked()
   const chatId = page.url().split('/').pop()
   await sw.uncheck()

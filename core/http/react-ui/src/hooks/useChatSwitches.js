@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { chatAddonsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
-import { connectorRef, toggleOff, toolsCounts } from '../utils/chatMCP'
+import { connectorRef, toolsCounts } from '../utils/chatMCP'
+import { offWith, withOn } from '../utils/chatSwitchRows'
 import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 import { commandsState } from '../utils/chatCommands'
 
@@ -66,64 +67,84 @@ export function useChatSwitches(chatId, filesOn) {
     return () => { live = false }
   }, [chatId, filesOn, skillsRev])
 
-  const toggleAddon = useCallback(async (id, on) => {
-    const before = addons
-    const next = addons.map((a) => (a.id === id ? { ...a, off: !on } : a))
-    setAddons(next)
+  // The lists as the screen shows them now, for a change that starts before a
+  // render: "Select all" in the Tools menu sends one request per kind in a row.
+  const addonsRef = useRef(addons)
+  const mcpRef = useRef(mcp)
+  const builtinsRef = useRef(builtins)
+  addonsRef.current = addons
+  mcpRef.current = mcp
+  builtinsRef.current = builtins
+  const putAddons = (v) => { addonsRef.current = v; setAddons(v) }
+  const putMcp = (v) => { mcpRef.current = v; setMcp(v) }
+  const putBuiltins = (v) => { builtinsRef.current = v; setBuiltins(v) }
+
+  // Switches the add-ons with these ids (an array) on or off with one request.
+  const setAddonsOn = useCallback(async (ids, on) => {
+    const before = addonsRef.current
+    const next = withOn(before, (a) => a.id, new Set(ids), on)
+    if (ids.length === 0) return
+    putAddons(next)
     setError('')
     try {
       const res = await chatAddonsApi.setOff(chatId, next.filter((a) => a.off).map((a) => a.id).sort())
       if (res?.addons) {
-        setAddons(res.addons)
+        putAddons(res.addons)
         setCommands(commandsOf(res))
       }
       setSkillsRev((n) => n + 1)
     } catch (e) {
-      setAddons(before)
+      putAddons(before)
       setError(e.message || 'error')
     }
-  }, [addons, chatId])
+  }, [chatId])
 
-  // key is a server name of the model or connector:<id>.
-  const toggleMCP = useCallback(async (key, on) => {
-    const before = mcp
-    const off = toggleOff(mcp.off, key, on)
-    setMcp({
-      servers: mcp.servers.map((s) => (s.name === key ? { ...s, off: !on } : s)),
-      connectors: mcp.connectors.map((c) => (connectorRef(c.id) === key ? { ...c, off: !on } : c)),
+  // keys: server names of the model or connector:<id>, switched with one request.
+  const setMCPOn = useCallback(async (keys, on) => {
+    const before = mcpRef.current
+    if (keys.length === 0) return
+    const off = offWith(before.off, keys, on)
+    putMcp({
+      servers: before.servers.map((s) => (keys.includes(s.name) ? { ...s, off: !on } : s)),
+      connectors: before.connectors.map((c) => (keys.includes(connectorRef(c.id)) ? { ...c, off: !on } : c)),
       off,
     })
     setError('')
     try {
       const res = await chatToolsApi.setMcpOff(chatId, off)
-      setMcp(mcpOf(res))
-      setBuiltins(res.builtins || [])
+      putMcp(mcpOf(res))
+      putBuiltins(res.builtins || [])
     } catch (e) {
-      setMcp(before)
+      putMcp(before)
       setError(e.message || 'error')
     }
-  }, [mcp, chatId])
+  }, [chatId])
 
-  // group is a group of built-in tools, such as web. An opt-in group
-  // (saved_agents) is off until the chat switches it on, so it goes in the
-  // list of groups that are on instead.
-  const toggleBuiltin = useCallback(async (group, on) => {
-    const before = builtins
-    const next = builtins.map((b) => (b.group === group ? { ...b, off: !on } : b))
-    setBuiltins(next)
+  // groups of built-in tools, such as web. An opt-in group (saved_agents) is
+  // off until the chat switches it on, so it goes in the list of groups that
+  // are on instead.
+  const setBuiltinsOn = useCallback(async (groups, on) => {
+    const before = builtinsRef.current
+    if (groups.length === 0) return
+    const next = withOn(before, (b) => b.group, new Set(groups), on)
+    putBuiltins(next)
     setError('')
     try {
       const off = next.filter((b) => b.off && !b.opt_in).map((b) => b.group).sort()
       const optIn = next.filter((b) => b.opt_in)
       const onList = optIn.length ? optIn.filter((b) => !b.off).map((b) => b.group).sort() : undefined
       const res = await chatToolsApi.setBuiltinsOff(chatId, off, onList)
-      setBuiltins(res.builtins || [])
-      setMcp(mcpOf(res))
+      putBuiltins(res.builtins || [])
+      putMcp(mcpOf(res))
     } catch (e) {
-      setBuiltins(before)
+      putBuiltins(before)
       setError(e.message || 'error')
     }
-  }, [builtins, chatId])
+  }, [chatId])
+
+  const toggleAddon = useCallback((id, on) => setAddonsOn([id], on), [setAddonsOn])
+  const toggleMCP = useCallback((key, on) => setMCPOn([key], on), [setMCPOn])
+  const toggleBuiltin = useCallback((group, on) => setBuiltinsOn([group], on), [setBuiltinsOn])
 
   // Switches the skills with these ids (a Set) on or off with one request: the
   // server stores the full list of skills that are off. The screen changes at
@@ -159,6 +180,6 @@ export function useChatSwitches(chatId, filesOn) {
   return {
     addons, builtins, commands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
-    toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn,
+    toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn,
   }
 }

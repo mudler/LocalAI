@@ -115,7 +115,21 @@
     "label": "Ferramentas",
     "title": "Ferramentas que este chat pode usar",
     "heading": "Ferramentas deste chat",
-    "note": "Uma ferramenta desligada aqui não é oferecida ao modelo neste chat."
+    "note": "Uma ferramenta desligada aqui não é oferecida ao modelo neste chat.",
+    "count": "{{on}} de {{total}} ligadas",
+    "selectAll": "Ligar todas",
+    "disableAll": "Desligar todas",
+    "groupOn": "Todas ligadas",
+    "groupOff": "Todas desligadas",
+    "groupOnLabel": "Ligar tudo em {{group}}",
+    "groupOffLabel": "Desligar tudo em {{group}}",
+    "groupCount": "{{on}} de {{total}}",
+    "optIn": "Desligada até você ligar. Ligar todas não a altera.",
+    "empty": "Não há nada para ligar neste chat.",
+    "failed": "Não foi possível salvar. O interruptor voltou ao que era.",
+    "unavailable": "Indisponível neste chat",
+    "toolCount_one": "{{count}} ferramenta",
+    "toolCount_other": "{{count}} ferramentas"
   },
   "skills": {
     "label": "Habilidades",

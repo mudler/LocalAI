@@ -112,7 +112,21 @@
     "label": "Alat",
     "title": "Alat yang bisa dipakai obrolan ini",
     "heading": "Alat untuk obrolan ini",
-    "note": "Alat yang dimatikan di sini tidak ditawarkan ke model di obrolan ini."
+    "note": "Alat yang dimatikan di sini tidak ditawarkan ke model di obrolan ini.",
+    "count": "{{on}} dari {{total}} aktif",
+    "selectAll": "Aktifkan semua",
+    "disableAll": "Matikan semua",
+    "groupOn": "Semua aktif",
+    "groupOff": "Semua mati",
+    "groupOnLabel": "Aktifkan semua di {{group}}",
+    "groupOffLabel": "Matikan semua di {{group}}",
+    "groupCount": "{{on}} dari {{total}}",
+    "optIn": "Mati sampai Anda menyalakannya. Aktifkan semua tidak mengubahnya.",
+    "empty": "Tidak ada yang bisa diubah di obrolan ini.",
+    "failed": "Gagal menyimpan. Sakelar kembali seperti semula.",
+    "unavailable": "Tidak tersedia di obrolan ini",
+    "toolCount_one": "{{count}} alat",
+    "toolCount_other": "{{count}} alat"
   },
   "skills": {
     "label": "Keahlian",

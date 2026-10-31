@@ -1254,8 +1254,6 @@ button.cx-step__head:hover,
   background: var(--color-bg-primary);
   box-shadow: var(--dk-shadow-float);
 }
-.chat-switch-group { border-top: 1px solid var(--color-border-divider); }
-.chat-switch-manage { display: block; width: 100%; padding: 8px 12px; text-align: left; border-top: 1px solid var(--color-border-divider); }
 .cx-ttl__btn:disabled { cursor: default; }
 .cx-hdr .ca-inbox { position: relative; padding: 0; border: 0; gap: 0; }
 .cx-hdr .ca-inbox__btn { position: relative; }
