@@ -88,7 +88,20 @@ var _ = Describe("Chats built-in bash routes", func() {
 		Expect(s.do("bob", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"id": "x1", "decision": "deny"}).Code).To(Equal(http.StatusNotFound))
 		own := s.create("root")
 		Expect(s.do("root", http.MethodPost, "/api/chats/"+own+"/host-exec/consent", map[string]any{"id": "x1", "decision": "once"}).Code).To(Equal(http.StatusGone))
-		Expect(s.do("root", http.MethodPost, "/api/chats/"+own+"/host-exec/consent", map[string]any{"id": "x1", "decision": "always"}).Code).To(Equal(http.StatusForbidden))
+	})
+
+	It("answers a malformed answer with 400 for anyone, before it asks who is asking", func() {
+		id := s.create("alice")
+		for _, user := range []string{"alice", "root"} {
+			// Each one answers in their own chat: another user's chat is 404.
+			path := "/api/chats/" + s.create(user) + "/host-exec/consent"
+			// Only once and deny exist: always is not a decision, also for an administrator.
+			Expect(s.do(user, http.MethodPost, path, map[string]any{"id": "x1", "decision": "always"}).Code).To(Equal(http.StatusBadRequest), user+" always")
+			Expect(s.do(user, http.MethodPost, path, map[string]any{"id": "x1"}).Code).To(Equal(http.StatusBadRequest), user+" no decision")
+			Expect(s.do(user, http.MethodPost, path, map[string]any{"decision": "deny"}).Code).To(Equal(http.StatusBadRequest), user+" no card id")
+		}
+		// A chat that is not yours stays 404, whatever the body says.
+		Expect(s.do("bob", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"decision": "always"}).Code).To(Equal(http.StatusNotFound))
 	})
 
 	It("shows the consent card that waits in the chat while a turn runs, so a reload finds it", func() {

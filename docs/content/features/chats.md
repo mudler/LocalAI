@@ -960,7 +960,8 @@ curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_
 ```
 
 Only an administrator may send `once`; anyone who owns the chat may send
-`deny`. The first answer counts: the same answer again is `204`, the other one
+`deny`. An answer without the card `id`, or with any other decision, is
+`400` for everyone, also for an administrator. The first answer counts: the same answer again is `204`, the other one
 `409 already_answered`. The call's line in the chat then says what happened: run on this
 machine, allowed once, refused or not answered (card `host_exec`). A call that
 the Sandbox served carries the card `tool_provider` with the add-on's ID.
