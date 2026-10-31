@@ -146,7 +146,7 @@ var _ = Describe("the file tools that replace the Sandbox's", func() {
 		It("searches one file when the path is a file", func() {
 			out, err := b.run("search_files", map[string]any{"query": "func (Main|Util)", "regex": true, "path": "/workspace/home/src/util.go"})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(out)).To(Equal("/src/util.go:1: func Util() {}"))
+			Expect(strings.TrimSpace(out)).To(Equal("/workspace/home/src/util.go:1: func Util() {}"), "a hit names the path the model uses")
 		})
 
 		It("refuses a pattern that is not a regular expression", func() {

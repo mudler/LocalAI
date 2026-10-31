@@ -104,9 +104,13 @@ type target struct {
 	// root is the top of the place (the home, a skill layer or a shared
 	// folder), which a move or a delete must never take away.
 	root string
-	// show turns a workspace path inside the place into the path the model
-	// uses for it.
+	// show turns a workspace path inside the place into the path the cards
+	// and the change notes use: inside the home, the path in the home
+	// ("/a.txt"); elsewhere the path the model uses.
 	show func(abs string) string
+	// say turns it into the path the model uses (/workspace/home/a.txt), for
+	// the tool results, so the model never sees a second spelling of a path.
+	say func(abs string) string
 }
 
 // locate resolves a path a tool was given: in the home, in a skill layer or in
@@ -124,7 +128,7 @@ func (s *Service) locate(ctx context.Context, a workspace.Actor, p string) (targ
 			return target{}, err
 		}
 		abs := workspace.JoinPath(segs)
-		return target{abs: abs, readErr: errSharedReadOnly, root: layer, show: rebase(layer, guest)}, nil
+		return target{abs: abs, readErr: errSharedReadOnly, root: layer, show: rebase(layer, guest), say: rebase(layer, guest)}, nil
 	}
 	if err := strayGuestPath(p); err != nil {
 		return target{}, err
@@ -140,7 +144,8 @@ func (s *Service) locate(ctx context.Context, a workspace.Actor, p string) (targ
 		return target{}, err
 	}
 	rel := func(abs string) string { return s.Rel(a.Principal, abs) }
-	return target{abs: abs, write: true, root: session.HomePath(a.Principal), show: rel}, nil
+	home := session.HomePath(a.Principal)
+	return target{abs: abs, write: true, root: home, show: rel, say: rebase(home, session.GuestRoot+"/"+session.GuestHome)}, nil
 }
 
 // locateShared resolves /workspace/shared-<name>/... with the names the
@@ -175,7 +180,7 @@ func (s *Service) locateShared(ctx context.Context, a workspace.Actor, p string)
 			abs = strings.TrimSuffix(m.Path, "/") + strings.TrimSuffix(workspace.JoinPath(segs), "/")
 		}
 		return target{abs: abs, write: m.Mode >= workspace.ModeWrite, readErr: errFolderReadOnly, root: m.Path,
-			show: rebase(m.Path, session.GuestRoot+"/"+m.At)}, nil
+			show: rebase(m.Path, session.GuestRoot+"/"+m.At), say: rebase(m.Path, session.GuestRoot+"/"+m.At)}, nil
 	}
 	return target{}, workspace.ErrNotFound
 }
@@ -296,7 +301,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 					return "", err
 				}
 				changeCard(ctx, n.Rev, t.show(t.abs))
-				return fmt.Sprintf("Wrote %d bytes to %s.", len(in.Content), t.show(t.abs)), nil
+				return fmt.Sprintf("Wrote %d bytes to %s.", len(in.Content), t.say(t.abs)), nil
 			})},
 		{Name: "edit_file", Description: "Replace text in a text file of the user's. old_string must match the file exactly once, with its spaces and line breaks; add lines around it to make it unique, or set replace_all to replace every match. The user can undo it.",
 			Schema: obj(pathProp+`,"old_string":{"type":"string","description":"The exact text to replace."},"new_string":{"type":"string","description":"The text to put in its place."},"replace_all":{"type":"boolean","description":"Replace every match instead of exactly one."}`, "path", "old_string", "new_string"),
@@ -341,10 +346,10 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				}
 				if n.ConflictOf != "" {
 					changeCard(ctx, n.Rev, t.show(n.Path))
-					return fmt.Sprintf("The file changed while it was edited: the edited version was saved as %s and the file was left as it is.", t.show(n.Path)), nil
+					return fmt.Sprintf("The file changed while it was edited: the edited version was saved as %s and %s was left as it is.", t.say(n.Path), t.say(t.abs)), nil
 				}
 				changeCard(ctx, n.Rev, t.show(t.abs))
-				return fmt.Sprintf("Replaced %d occurrence(s) in %s.", count, t.show(t.abs)), nil
+				return fmt.Sprintf("Replaced %d occurrence(s) in %s.", count, t.say(t.abs)), nil
 			})},
 		{Name: "move_file", Description: "Move or rename a file or folder of the user's.",
 			Schema: obj(`"from":{"type":"string"},"to":{"type":"string"}`, "from", "to"),
@@ -369,7 +374,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 					return "", err
 				}
 				changeCard(ctx, n.Rev, to.show(to.abs))
-				return "Moved.", nil
+				return "Moved to " + to.say(to.abs) + ".", nil
 			})},
 		{Name: "delete_file", Description: "Delete a file or folder of the user's. It goes to the Trash, so the user can restore it.",
 			Schema: obj(pathProp, "path"),
@@ -410,7 +415,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				res, err := s.search(ctx, a, t.abs, t.show, q)
+				res, err := s.search(ctx, a, t.abs, t.say, q)
 				if err != nil {
 					return "", err
 				}

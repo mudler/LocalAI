@@ -80,6 +80,26 @@ var _ = Describe("the file tools of the model", func() {
 		Expect(trash[0].Paths[0]).To(Equal("/Archive"))
 	})
 
+	It("names a file in its results with the path the model uses, never a second spelling", func() {
+		f := newFiles()
+		b := newToolBox(f, "alice", "chat1")
+		for _, p := range []string{"/workspace/home/scripts/build.py", "/scripts/build.py", "home/scripts/build.py"} {
+			out, err := b.run("write_file", map[string]any{"path": p, "content": "print(1)\n"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(Equal("Wrote 9 bytes to /workspace/home/scripts/build.py."), "path %s", p)
+		}
+		out, err := b.run("edit_file", map[string]any{"path": "/workspace/home/scripts/build.py", "old_string": "1", "new_string": "2"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal("Replaced 1 occurrence(s) in /workspace/home/scripts/build.py."))
+		out, err = b.run("move_file", map[string]any{"from": "/workspace/home/scripts/build.py", "to": "/workspace/home/tools/build.py"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal("Moved to /workspace/home/tools/build.py."))
+		out, err = b.run("search_files", map[string]any{"query": "print"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("/workspace/home/tools/build.py"))
+		Expect(out).NotTo(MatchRegexp(`(^|\s)/tools/build\.py`))
+	})
+
 	It("makes the model's changes agent changes of its chat", func() {
 		f := newFiles()
 		b := newToolBox(f, "alice", "chat7")
