@@ -181,30 +181,48 @@ function HistoryList({ ws, t }) {
   )
 }
 
-// The results of a search across every file: the path, the line and the
-// text around the match. A hit opens its folder with the file in preview.
-function SearchHits({ hits, query, onOpenHit, onClear, t }) {
+// Where a hit inside a document is: its page, sheet or slide. The line of a
+// document hit counts lines of the extracted text, which means nothing on the
+// page, so it is not shown.
+function hitPlace(h, t) {
+  if (h.page) return t('search.page', { n: h.page })
+  if (h.sheet) return t('search.sheet', { name: h.sheet })
+  if (h.slide) return t('search.slide', { n: h.slide })
+  return h.document ? '' : null
+}
+
+// The results of a search across every file: the path, the line (or the page,
+// sheet or slide of a document) and the text around the match. A hit opens
+// its folder with the file in preview.
+function SearchHits({ hits, indexing, query, onOpenHit, onClear, t }) {
   return (
     <section className="ws-hits" aria-labelledby="ws-hits-title">
       <div className="ws-hits__head">
         <h2 className="ws-sub" id="ws-hits-title">{t('search.resultsFor', { query })}</h2>
         <Button size="sm" variant="ghost" icon="close" onClick={onClear}>{t('search.back')}</Button>
       </div>
+      {indexing > 0 && <p className="text-note" role="status" data-testid="ws-hits-indexing">{t('search.indexing', { count: indexing })}</p>}
       {hits.length === 0 ? (
         <EmptyState variant="no-results" title={t('search.none')} body={t('search.noneBody')} level={3} />
       ) : (
         <ul className="ws-hits__list">
-          {hits.map((h, i) => (
-            <li key={`${h.path}:${h.line}:${i}`} data-testid="ws-hit">
-              <button type="button" className="ws-hit" onClick={() => onOpenHit(h)}>
-                <EntryIcon entry={{ kind: 'file', name: h.path.split('/').pop(), path: h.path, size: Infinity }} />
-                <span className="ws-hit__main">
-                  <span className="ws-hit__path">{h.path}{h.line ? <span className="ws-hit__line">:{h.line}</span> : null}</span>
-                  {h.snippet && <span className="ws-hit__snippet">{h.snippet}</span>}
-                </span>
-              </button>
-            </li>
-          ))}
+          {hits.map((h, i) => {
+            const place = hitPlace(h, t)
+            let where = null
+            if (place) where = <span className="ws-hit__line" data-testid="ws-hit-place"> · {place}</span>
+            else if (place === null && h.line) where = <span className="ws-hit__line">:{h.line}</span>
+            return (
+              <li key={`${h.path}:${h.line}:${i}`} data-testid="ws-hit">
+                <button type="button" className="ws-hit" onClick={() => onOpenHit(h)}>
+                  <EntryIcon entry={{ kind: 'file', name: h.path.split('/').pop(), path: h.path, size: Infinity }} />
+                  <span className="ws-hit__main">
+                    <span className="ws-hit__path">{h.path}{where}</span>
+                    {h.snippet && <span className="ws-hit__snippet">{h.snippet}</span>}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </section>
@@ -743,7 +761,7 @@ export default function Workspace() {
 
             {searching ? (
               <SearchHits
-                hits={ws.hits} query={searched} t={t}
+                hits={ws.hits} indexing={ws.indexing} query={searched} t={t}
                 onClear={() => { ws.clearSearch(); setSearched('') }}
                 onOpenHit={(h) => {
                   ws.clearSearch()

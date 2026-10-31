@@ -140,6 +140,32 @@ test.describe('Files: browsing, selection and actions', () => {
     await expect(page.getByTestId('ws-row')).toHaveCount(7)
   })
 
+  test('names the page, sheet or slide of a hit inside a document and says when documents are still being indexed', async ({ page }) => {
+    await stubFs(page)
+    await page.route('**/api/chats/files/search*', route => route.fulfill({ json: {
+      indexing: 2,
+      hits: [
+        { path: '/notes.md', kind: 'file', line: 4, snippet: 'the lease ends in May' },
+        { path: '/inbox/7c9e6679.pdf', kind: 'file', line: 12, snippet: 'The lease deposit is returned', document: true, page: 2 },
+        { path: '/book.xlsx', kind: 'file', line: 3, snippet: 'lease\t900', document: true, sheet: 'Costs' },
+        { path: '/plan.docx', kind: 'file', line: 7, snippet: 'sign the lease', document: true },
+      ],
+    } }))
+    await page.goto('/app/files')
+    const box = page.getByRole('searchbox', { name: 'Search your files' })
+    await box.fill('lease')
+    await box.press('Enter')
+    await expect(page.getByTestId('ws-hits-indexing')).toHaveText('2 documents are still being indexed: search again in a moment to include them.')
+    const hits = page.getByTestId('ws-hit')
+    await expect(hits).toHaveCount(4)
+    await expect(hits.nth(0)).toContainText('/notes.md:4')
+    await expect(hits.nth(1).getByTestId('ws-hit-place')).toHaveText(' · page 2')
+    await expect(hits.nth(2).getByTestId('ws-hit-place')).toHaveText(' · sheet “Costs”')
+    // A document with no pages shows neither a page nor a line of its text.
+    await expect(hits.nth(3)).not.toContainText(':7')
+    await expect(hits.nth(3).getByTestId('ws-hit-place')).toHaveCount(0)
+  })
+
   test('switches to thumbnails and keeps the choice for the next visit', async ({ page }) => {
     await stubFs(page)
     await page.goto('/app/files')
