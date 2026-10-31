@@ -104,7 +104,8 @@ var _ = Describe("Chats MCP connectors endpoints", func() {
 
 		test := s.do("alice", http.MethodPost, "/api/chats/mcp-connectors/"+id+"/test", nil)
 		Expect(test.Code).To(Equal(http.StatusOK), test.Body.String())
-		Expect(decodeJSON(test)).To(And(HaveKeyWithValue("ok", true), HaveKeyWithValue("tools", ConsistOf("echo"))))
+		Expect(decodeJSON(test)).To(And(HaveKeyWithValue("ok", true), HaveKeyWithValue("tools", ConsistOf("echo")),
+			HaveKeyWithValue("tool_details", ConsistOf(And(HaveKeyWithValue("name", "echo"), HaveKeyWithValue("description", "echoes"))))))
 
 		Expect(decodeJSON(s.do("alice", http.MethodPost, "/api/chats/mcp-connectors/"+id+"/disable", nil))).To(HaveKeyWithValue("enabled", false))
 		Expect(decodeJSON(s.do("alice", http.MethodPost, "/api/chats/mcp-connectors/"+id+"/enable", nil))).To(HaveKeyWithValue("enabled", true))

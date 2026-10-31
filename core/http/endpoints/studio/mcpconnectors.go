@@ -176,7 +176,7 @@ func (h *Handlers) DisableMCPConnector(c echo.Context) error { return h.setMCPEn
 
 // TestMCPConnector connects to an MCP connector and lists its tools.
 // @Summary Test an MCP connector.
-// @Description Connects with the stored definition, with the same address and credential checks as a chat, and lists the tool names. It works for a connector that is switched off. A server that cannot be used is a 200 with ok false and the reason, which never holds a header value.
+// @Description Connects with the stored definition, with the same address and credential checks as a chat, and lists the tools, with the description each one has in tool_details. It works for a connector that is switched off. A server that cannot be used is a 200 with ok false and the reason, which never holds a header value.
 // @Tags chats
 // @Param id path string true "the connector's id"
 // @Success 200 {object} schema.ChatsMCPConnectorTest "The tools, or the reason"
@@ -194,7 +194,11 @@ func (h *Handlers) TestMCPConnector(c echo.Context) error {
 	if tools == nil {
 		tools = []string{}
 	}
-	return c.JSON(http.StatusOK, schema.ChatsMCPConnectorTest{OK: p.Error == "", Tools: tools, Error: p.Error})
+	details := make([]schema.ChatsMCPConnectorTool, 0, len(p.Details))
+	for _, d := range p.Details {
+		details = append(details, schema.ChatsMCPConnectorTool{Name: d.Name, Description: d.Description})
+	}
+	return c.JSON(http.StatusOK, schema.ChatsMCPConnectorTest{OK: p.Error == "", Tools: tools, ToolDetails: details, Error: p.Error})
 }
 
 func toolsPanel(c echo.Context, h *Handlers) error {

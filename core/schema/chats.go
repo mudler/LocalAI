@@ -1153,7 +1153,16 @@ type ChatsMCPConnectorList struct {
 type ChatsMCPConnectorTest struct {
 	OK    bool     `json:"ok"`
 	Tools []string `json:"tools"`
-	Error string   `json:"error,omitempty"`
+	// ToolDetails is each tool with the description its server gives, in the
+	// order of tools.
+	ToolDetails []ChatsMCPConnectorTool `json:"tool_details"`
+	Error       string                  `json:"error,omitempty"`
+}
+
+// ChatsMCPConnectorTool is one tool of an MCP connector.
+type ChatsMCPConnectorTool struct {
+	Name        string `json:"name" example:"search"`
+	Description string `json:"description,omitempty" example:"Search the documentation."`
 }
 
 // ChatsMCPSwitches sets the MCP servers and connectors a chat has switched off:

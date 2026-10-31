@@ -71,7 +71,15 @@ type Input struct {
 // Probe is the outcome of a connection test. Error is empty when it worked.
 type Probe struct {
 	Tools []string
-	Error string
+	// Details holds the name and the description of each tool, in the order
+	// of Tools, so a person can see what a tool does before switching it on.
+	Details []ToolInfo
+	Error   string
+}
+
+// ToolInfo is a tool as a connection test lists it.
+type ToolInfo struct {
+	Name, Description string
 }
 
 // Tool is a tool of a connector, ready to run.
@@ -487,9 +495,10 @@ func (s *Service) Test(ctx context.Context, user, id string) (Probe, error) {
 		return Probe{Error: redact(reason(err), c, sec)}, nil
 	}
 	defer cn.close()
-	p := Probe{Tools: make([]string, 0, len(cn.tools))}
+	p := Probe{Tools: make([]string, 0, len(cn.tools)), Details: make([]ToolInfo, 0, len(cn.tools))}
 	for _, t := range cn.tools {
 		p.Tools = append(p.Tools, t.Name)
+		p.Details = append(p.Details, ToolInfo{Name: t.Name, Description: t.Description})
 	}
 	return p, nil
 }
