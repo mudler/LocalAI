@@ -27,6 +27,7 @@ import { apiUrl } from '../utils/basePath'
 import ChatComposer from '../components/chat/ChatComposer'
 import { OPEN_CHAT_FILE_EVENT } from '../components/chat/chatActions'
 import { contextSinceClear, parseGoalCommand, parseInvocation } from '../utils/slashCommands'
+import { findLoop, parseLoopCommand } from '../utils/chatLoops'
 // eslint-disable-next-line no-unused-vars
 import { ChatAboutCard, ContextMarker, GoalCard, SlashHelpCard } from '../components/chat/CommandCards'
 import { isTyping } from '../components/chat/chatText'
@@ -54,6 +55,7 @@ import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
 import NetworkConsentCard from '../components/chat/NetworkConsentCard'
+import LoopBar, { LoopList } from '../components/chat/LoopBar'
 import { EgressCardsContext } from '../components/chat/egressCardsContext'
 import MessageAttachments from '../components/chat/Attachments'
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
@@ -156,6 +158,8 @@ function ChatPage() {
   const [goalReplaced, setGoalReplaced] = useState(null)
   // What /goal does, for the send path, which is set up before it.
   const runGoalRef = useRef(null)
+  // The chat whose answer to /loop list is open over the message box.
+  const [loopListFor, setLoopListFor] = useState('')
   // An error of this page (a send or a delete that failed); the hook has its own.
   const [localError, setLocalError] = useState('')
   // The chats the old chat page left in this browser, offered for import once.
@@ -217,11 +221,11 @@ function ChatPage() {
   // composer adds the skills, the agents, the models and the staged files.
   const slashCtx = useMemo(() => ({
     assistant: isAdmin && assistantOn, hasModels: chatModels.length > 0, hasThread, hasChat: !!activeId, running: chat.running,
-    hasContext: contextSinceClear(messages),
+    hasContext: contextSinceClear(messages), loops: chat.loops,
     // A goal belongs to a chat a person started; /goal lists clear and resume
     // for the goal the chat has.
     canGoal: !chat.detail?.origin && chat.detail?.kind !== 'subagent', goalState: chat.goal?.state || '',
-  }), [isAdmin, assistantOn, chatModels.length, hasThread, activeId, chat.running, messages, chat.detail, chat.goal])
+  }), [isAdmin, assistantOn, chatModels.length, hasThread, activeId, chat.running, messages, chat.detail, chat.goal, chat.loops])
   // The card a command drew under the thread (/help, /about): never stored.
   const [cmdCard, setCmdCard] = useState(null)
   // The context command on its way to the server: 'compacting' or 'clearing'.
@@ -472,6 +476,10 @@ function ChatPage() {
     if (goalCmd) {
       drafts.clear(activeId)
       runGoalRef.current(goalCmd)
+      return
+    }
+    if (typeof override !== 'string' && /^\/loop(\s|$)/.test(text)) {
+      runLoopCommand(text.slice(5))
       return
     }
     // A message typed as a command (/review fix this, /agent Name task) goes
@@ -891,10 +899,49 @@ function ChatPage() {
   }
   runGoalRef.current = runGoal
 
+  // /loop typed in full: list, stop or start a loop of this chat. The prompt
+  // of a loop is plain text or a skill (/review the diff, or /skill review the
+  // diff); the server refuses other commands.
+  const runLoopCommand = async (rest) => {
+    if (!activeId) { setLocalError(tc('loops.slash.noChat')); return }
+    const c = parseLoopCommand(rest)
+    if (c.kind === 'usage') { setLocalError(tc('loops.slash.usage')); return }
+    const done = () => { drafts.clear(activeId); setLocalError('') }
+    if (c.kind === 'list') { done(); setLoopListFor(activeId); return }
+    if (c.kind === 'stop') {
+      if (!c.id) {
+        done()
+        const n = chat.loops.length
+        await chat.stopLoops(activeId)
+        addToast(tc('loops.slash.stopped', { count: n }), 'success')
+        return
+      }
+      const l = findLoop(chat.loops, c.id)
+      if (!l) { setLocalError(tc('loops.slash.notFound', { id: c.id })); return }
+      done()
+      await chat.stopLoop(activeId, l.id)
+      return
+    }
+    let prompt = c.prompt
+    const inv = parseInvocation(prompt, { skills: switches.skills, agents: [], savedAgentsOn: false })
+    if (inv?.skill) prompt = `/${inv.skill}${inv.text ? ` ${inv.text}` : ''}`
+    try {
+      await chat.startLoop(activeId, c.interval, prompt)
+      done()
+    } catch (e) {
+      setLocalError(e.message || tc('errors.send'))
+    }
+  }
+
   const runSlash = (id, item) => {
     switch (id) {
       case 'goal':
         runGoal({ action: item?.action === 'goalClear' ? 'clear' : item?.action === 'goalResume' ? 'resume' : 'show' })
+        break
+      case 'loop':
+        if (item?.action === 'loopList') setLoopListFor(activeId)
+        else if (item?.action === 'loopStop') chat.stopLoop(activeId, item.loopId)
+        else if (item?.action === 'loopStopAll') chat.stopLoops(activeId)
         break
       case 'compact': runContext('compact'); break
       case 'clear': runContext('clear'); break
@@ -1111,6 +1158,8 @@ function ChatPage() {
                 onClear={() => { setGoalReplaced(null); chat.clearGoal(activeId) }}
               />
             )}
+            {activeId && loopListFor === activeId && <LoopList loops={chat.loops} onClose={() => setLoopListFor('')} />}
+            <LoopBar loops={chat.loops} chatId={activeId} chat={chat} />
             {!noModel && (
               <ShortcutsRow
                 starters={manage ? t('empty.suggestionsManage', { returnObjects: true }) : undefined}

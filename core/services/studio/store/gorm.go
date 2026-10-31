@@ -72,6 +72,9 @@ type entryRow struct {
 	// text read from them; both empty for other lines.
 	Attachments string `gorm:"type:text"`
 	Note        string `gorm:"type:text"`
+	// Loop is the JSON of the loop run that sent a user message; empty for
+	// every other line.
+	Loop string `gorm:"type:text"`
 	// Invoked is the JSON of the command of a user message; empty otherwise.
 	Invoked string `gorm:"type:text"`
 	At      time.Time
@@ -96,6 +99,13 @@ func toEntryRow(id string, seq int64, e session.Entry) (entryRow, error) {
 			return entryRow{}, err
 		}
 		r.Attachments = string(raw)
+	}
+	if e.Loop != nil {
+		raw, err := json.Marshal(e.Loop)
+		if err != nil {
+			return entryRow{}, err
+		}
+		r.Loop = string(raw)
 	}
 	if e.Invoked != nil {
 		raw, err := json.Marshal(e.Invoked)
@@ -664,6 +674,13 @@ func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit i
 			if err := json.Unmarshal([]byte(r.Attachments), &e.Attachments); err != nil {
 				return nil, err
 			}
+		}
+		if r.Loop != "" {
+			var l session.LoopMark
+			if err := json.Unmarshal([]byte(r.Loop), &l); err != nil {
+				return nil, err
+			}
+			e.Loop = &l
 		}
 		if r.Card != "" {
 			var c session.ToolCard

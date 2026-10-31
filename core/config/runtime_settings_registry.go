@@ -105,6 +105,19 @@ func durationField(name string, sel func(*RuntimeSettings) **string, dur func(*A
 	return f
 }
 
+// loopIntField is a loop limit from 1 to hi; a value outside is refused.
+func loopIntField(name string, hi int, sel func(*RuntimeSettings) **int, get func(*ApplicationConfig) int, set func(*ApplicationConfig, int)) fieldSpec {
+	return withApply(field(name, sel, get, set), func(o *ApplicationConfig, s *RuntimeSettings) bool {
+		v := **sel(s)
+		if v < 1 || v > hi {
+			xlog.Warn("invalid "+name+" in runtime settings", "value", v)
+			return false
+		}
+		set(o, v)
+		return true
+	})
+}
+
 // runtimeSettingsFields is THE per-field description of every runtime
 // setting. ToRuntimeSettings, ApplyRuntimeSettings, and
 // ApplyRuntimeSettingsAtStartup are loops over this table; adding a setting
@@ -675,6 +688,42 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsGoalMaxSteps = *s.ChatsGoalMaxSteps
 			return true
 		}),
+	// The loops of the chats: read at each use, so no restart. The snapshot
+	// is the value that applies.
+	withApply(fieldEq("chats_loop_min_interval",
+		func(s *RuntimeSettings) **string { return &s.ChatsLoopMinInterval },
+		func(o *ApplicationConfig) string { return o.EffectiveChatsLoopMinInterval().String() },
+		func(o *ApplicationConfig, v string) {
+			if d, err := time.ParseDuration(v); err == nil {
+				o.ChatsLoopMinInterval = d
+			}
+		},
+		func(a, b string) bool { return a == b }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsLoopMinInterval))
+			if err != nil || d < MinChatsLoopInterval || d > MaxChatsLoopInterval {
+				xlog.Warn("invalid chats_loop_min_interval in runtime settings", "value", *s.ChatsLoopMinInterval)
+				return false
+			}
+			o.ChatsLoopMinInterval = d
+			return true
+		}),
+	loopIntField("chats_loop_max_runs", MaxChatsLoopMaxRuns,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxRuns },
+		(*ApplicationConfig).EffectiveChatsLoopMaxRuns,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxRuns = v }),
+	loopIntField("chats_loop_max_per_chat", MaxChatsLoopMaxPerChat,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxPerChat },
+		(*ApplicationConfig).EffectiveChatsLoopMaxPerChat,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxPerChat = v }),
+	loopIntField("chats_loop_max_per_user", MaxChatsLoopMaxPerUser,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxPerUser },
+		(*ApplicationConfig).EffectiveChatsLoopMaxPerUser,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxPerUser = v }),
+	loopIntField("chats_loop_daily_runs", MaxChatsLoopDailyRuns,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopDailyRuns },
+		(*ApplicationConfig).EffectiveChatsLoopDailyRuns,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopDailyRuns = v }),
 
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.

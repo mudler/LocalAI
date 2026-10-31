@@ -155,6 +155,11 @@ function ChatMessage({
         </div>
       ) : isUser ? (
         <>
+          {msg.loop && (
+            <span className="cx-msg__loop" data-testid="message-loop-label">
+              <Icon name="repeat" /> {t('message.loopRun', { run: msg.loop.run })}
+            </span>
+          )}
           <InvokedChip invoked={msg.invoked} />
           <MessageAttachments attachments={attachments} />
           {(text || (attachments.length === 0 && !msg.invoked)) && (

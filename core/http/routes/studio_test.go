@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
+	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -104,6 +105,12 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	host, err := studio.NewTriggers(svc, trgOpts)
 	Expect(err).NotTo(HaveOccurred())
 	svc.SetTriggers(host)
+	lstore, err := loops.NewJSON("")
+	Expect(err).NotTo(HaveOccurred())
+	loopHost, err := studio.NewLoops(svc, studio.LoopOptions{Store: lstore, Tick: time.Hour})
+	Expect(err).NotTo(HaveOccurred())
+	svc.SetLoops(loopHost)
+	DeferCleanup(loopHost.Close)
 	js, err := jobs.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	jobHost, err := studio.NewJobs(svc, studio.JobOptions{Store: js, Webhooks: studioWebhooks})
@@ -229,6 +236,11 @@ var _ = Describe("Chats endpoints", func() {
 		Entry("set goal", http.MethodPut, "/api/chats/c1/goal"),
 		Entry("clear goal", http.MethodDelete, "/api/chats/c1/goal"),
 		Entry("resume goal", http.MethodPost, "/api/chats/c1/goal/resume"),
+		Entry("list loops", http.MethodGet, "/api/chats/c1/loops"),
+		Entry("start a loop", http.MethodPost, "/api/chats/c1/loops"),
+		Entry("stop the loops", http.MethodDelete, "/api/chats/c1/loops"),
+		Entry("pause a loop", http.MethodPut, "/api/chats/c1/loops/l1"),
+		Entry("stop a loop", http.MethodDelete, "/api/chats/c1/loops/l1"),
 	)
 
 	It("renames a chat, refuses a bad title and another user's chat", func() {

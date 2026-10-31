@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "Schleife, Lauf {{run}}"
   },
   "tools": {
     "label": "Werkzeuge",
@@ -220,6 +221,7 @@
       "agent": "Gespeicherte Agenten",
       "model": "Modelle",
       "attach": "Dateien",
+      "loop": "Schleifen",
       "goal": "Ziel"
     },
     "badge": {
@@ -234,6 +236,14 @@
       "agent": "Du hast keinen gespeicherten Agenten namens „{{name}}“.",
       "agentTask": "Schreib die Aufgabe für {{name}} hinter den Namen.",
       "agentsOff": "Gespeicherte Agenten sind für diesen Chat aus. Schalte sie im Menü Werkzeuge ein."
+    },
+    "loop": {
+      "label": "Prompt wiederholen",
+      "desc": "Einen Prompt in diesem Chat immer wieder ausführen: /loop 5m prüfe den Build",
+      "listDesc": "Die Schleifen dieses Chats zeigen",
+      "stopDesc": "Eine Schleife oder alle stoppen",
+      "stopAll": "Alle Schleifen",
+      "stopAllDesc": "Alle Schleifen dieses Chats stoppen"
     },
     "goal": {
       "label": "Ziel",

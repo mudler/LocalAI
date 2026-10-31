@@ -8432,7 +8432,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/events": {
             "get": {
-                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again) and files. Events are live only; read the transcript for what came before.",
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), goal (the chat's goal changed; text is its state, empty when cleared: read the chat again), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -8766,6 +8766,215 @@ const docTemplate = `{
                     },
                     "410": {
                         "description": "The card expired (consent_expired): the turn that asked has ended, its frontend stopped, or a newer card replaced it; the command did not run",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/loops": {
+            "get": {
+                "description": "A loop sends a prompt to its chat again and again, as a new message, at an interval or, when it has none, whenever the model asks for the next run. Ended loops stay listed with the reason until you remove them.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the loops of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The loops of the chat, oldest first",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsLoopList"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or loops are off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "With an interval (30s, 5m, 2h; at least chats_loop_min_interval, at most 24h) the prompt is sent every interval. Without one the loop is self-paced: after each run the model calls schedule_next to say when to run again, or loop_done to stop, and a run that does neither ends the loop. The prompt is plain text or a skill (/skill-name and its words). The first loop of a chat is pending until you confirm it with PUT .../loops/{loopId} {\"state\":\"active\"}; later ones run at once. A run starts only when the chat is idle.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Start a loop in a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the interval and the prompt",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsLoopRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "The new loop",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsLoop"
+                        }
+                    },
+                    "400": {
+                        "description": "The interval or the prompt is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or loops are off",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The chat or you have as many loops as allowed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop every loop of a chat.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "the number of loops stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/loops/{loopId}": {
+            "put": {
+                "description": "state paused stops the runs until you make it active again; a run that goes on finishes. state active resumes a paused loop (it runs at once) or confirms a pending one. An ended loop cannot go on.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Pause, resume or confirm a loop.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "loop id",
+                        "name": "loopId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the new state",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsLoopStateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The loop",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsLoop"
+                        }
+                    },
+                    "400": {
+                        "description": "The state is not paused or active, or the loop has ended",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation or loop",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "The loop is removed and runs no more. A run that goes on is not stopped: stop the chat's turn for that.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Stop a loop.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "loop id",
+                        "name": "loopId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "stopped",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation or loop",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -18652,6 +18861,13 @@ const docTemplate = `{
                 "last_turn": {
                     "type": "string"
                 },
+                "loops": {
+                    "description": "Loops are the loops of the chat, oldest first (GET /api/chats/{id}/loops).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsLoop"
+                    }
+                },
                 "model": {
                     "type": "string"
                 },
@@ -19587,6 +19803,102 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsLoop": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "failures": {
+                    "description": "Failures counts the failed runs in a row; three pause the loop.",
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "interval": {
+                    "description": "Interval is the time between runs, such as 5m; empty for a self-paced\nloop, which runs again when the model asks.",
+                    "type": "string"
+                },
+                "interval_seconds": {
+                    "description": "IntervalSeconds is Interval in seconds; 0 for a self-paced loop.",
+                    "type": "integer"
+                },
+                "last_run": {
+                    "type": "string"
+                },
+                "next": {
+                    "description": "Next is when the next run is due; absent while a run goes on or the\nloop does not run.",
+                    "type": "string"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "reason": {
+                    "description": "Reason says why the loop is paused or ended, or why it waits.",
+                    "type": "string"
+                },
+                "running": {
+                    "description": "Running is true while a run of the loop goes on in the chat.",
+                    "type": "boolean"
+                },
+                "runs": {
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "State is pending (waits for your yes), active, paused or ended.",
+                    "type": "string"
+                },
+                "wait": {
+                    "description": "Wait is what the model of a self-paced loop said it waits for.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsLoopList": {
+            "type": "object",
+            "properties": {
+                "loops": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsLoop"
+                    }
+                }
+            }
+        },
+        "schema.ChatsLoopMark": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "run": {
+                    "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsLoopRequest": {
+            "type": "object",
+            "properties": {
+                "interval": {
+                    "description": "Interval is the time between runs, such as 30s, 5m or 2h. Leave it\nempty for a self-paced loop.",
+                    "type": "string"
+                },
+                "prompt": {
+                    "description": "Prompt is plain text, or a skill: /skill-name and its words.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsLoopStateRequest": {
+            "type": "object",
+            "properties": {
+                "state": {
+                    "description": "State is paused or active. Making a pending loop active confirms it.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsMCPAppCall": {
             "type": "object",
             "properties": {
@@ -20001,6 +20313,14 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsInvocation"
+                        }
+                    ]
+                },
+                "loop": {
+                    "description": "Loop is set on a user line that a loop of the chat sent by itself.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsLoopMark"
                         }
                     ]
                 },

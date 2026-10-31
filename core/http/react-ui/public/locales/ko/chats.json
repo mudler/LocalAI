@@ -503,5 +503,67 @@
       "undone": "{{name}} 변경을 실행 취소했습니다.",
       "restored": "{{name}}을(를) 복원했습니다."
     }
+  },
+  "loops": {
+    "region": "이 채팅의 반복",
+    "unit": {
+      "seconds_one": "{{count}}초",
+      "seconds_other": "{{count}}초",
+      "minutes_one": "{{count}}분",
+      "minutes_other": "{{count}}분",
+      "hours_one": "{{count}}시간",
+      "hours_other": "{{count}}시간"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}}초",
+      "seconds_other": "{{count}}초",
+      "minutes_one": "{{count}}분",
+      "minutes_other": "{{count}}분",
+      "hours_one": "{{count}}시간",
+      "hours_other": "{{count}}시간"
+    },
+    "confirm": {
+      "every": "멈출 때까지 {{every}}마다 이것을 실행할까요?",
+      "selfPaced": "멈출 때까지 모델이 요청할 때마다 이것을 다시 실행할까요?",
+      "start": "시작",
+      "cancel": "취소"
+    },
+    "chip": {
+      "name": "반복",
+      "every": "{{every}}마다",
+      "selfPaced": "모델이 시점 결정",
+      "run_one": "{{count}}번째 실행",
+      "run_other": "{{count}}번째 실행",
+      "paused": "일시 중지됨",
+      "running": "지금 실행 중",
+      "next": "다음 실행 {{time}}",
+      "ended": "종료됨",
+      "wait": "기다리는 중: {{wait}}"
+    },
+    "actions": {
+      "pause": "일시 중지",
+      "resume": "다시 시작",
+      "stop": "중지",
+      "dismiss": "닫기"
+    },
+    "state": {
+      "pending": "승인을 기다리는 중",
+      "active": "활성",
+      "paused": "일시 중지됨",
+      "ended": "종료됨"
+    },
+    "list": {
+      "title": "이 채팅의 반복",
+      "close": "닫기",
+      "empty": "이 채팅에는 반복이 없습니다.",
+      "hint": "하나를 멈추려면 /loop stop 과 그 줄 앞의 코드를 입력하세요."
+    },
+    "slash": {
+      "usage": "/loop, 원하면 간격, 그리고 반복할 내용을 입력하세요. 예: /loop 5m 빌드 확인.",
+      "notFound": "이 채팅에 {{id}}와 맞는 반복이 없습니다.",
+      "noChat": "먼저 메시지를 보낸 다음 이 채팅에서 반복을 시작하세요.",
+      "stopped_one": "반복 {{count}}개를 멈췄습니다.",
+      "stopped_other": "반복 {{count}}개를 멈췄습니다."
+    }
   }
 }

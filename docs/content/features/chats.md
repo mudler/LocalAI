@@ -203,6 +203,102 @@ curl -X POST .../api/chats/3f1c.../stop       # end the running turn
 curl -X POST .../api/chats/3f1c.../send-now   # start a turn from the waiting messages
 ```
 
+## Loops: repeat a prompt in a chat
+
+A loop sends a prompt to its chat again and again, as a new message, until you
+stop it. Type `/loop` in the message box, or use the API.
+
+```text
+/loop 5m Check the build and tell me when it is green.   every 5 minutes
+/loop Watch the deploy and tell me when it is done.      self-paced
+/loop list                                               the loops of this chat
+/loop stop                                               stop every loop of this chat
+/loop stop 3f9a01                                        stop one loop (the code that /loop list shows)
+```
+
+- **With an interval** (`30s`, `5m`, `2h`, `1h30m`) the prompt is sent at each
+  interval. The shortest interval is one minute unless an administrator
+  changes it (`chats_loop_min_interval`, never below 30 seconds); the longest
+  is 24 hours.
+- **Without an interval** the loop is *self-paced*: after each run the model
+  calls `schedule_next` with how long to wait (from the minimum interval to
+  24 hours) and a short reason, or `loop_done` when the task is complete. A
+  run in which the model calls neither ends the loop with a note, so a loop
+  never goes on silently. The chat has these two tools only while it has a
+  self-paced loop.
+- **The prompt** is plain text, or a skill: `/<skill-name>` (or
+  `/skill <name>`) and its words. Each run sends it as that skill command
+  would: the transcript shows the words and the skill's chip. Other slash
+  commands cannot repeat. A skill that is gone or switched off at a run makes
+  that run fail.
+- **The first time in a chat** a card asks *Run this every 5 minutes until you
+  stop it?* with **Start** and **Cancel**, because every run costs tokens.
+  The card stays with the chat, so it is still there after a reload. Once you
+  start one loop in a chat, later loops there start at once.
+- **What you see.** Each loop shows as a line above the message box, such as
+  *Loop · every 5 min · run 4*, with **Pause** and **Stop**. A message that a
+  loop sent has a small *Loop run 4* label, so you can tell it from one you
+  typed. A loop that ended by itself stays as a line with the reason until
+  you dismiss it.
+- **Busy chats.** A run starts only when the chat is idle. When you or
+  another run keeps the chat busy at the due time, that run is skipped, and
+  the loop waits for its next interval instead of piling runs up. A
+  self-paced loop runs as soon as the chat is free.
+- **Limits.** A chat has at most 3 loops and a user at most 10
+  (`chats_loop_max_per_chat`, `chats_loop_max_per_user`; ended loops do not
+  count). A loop ends after 100 runs (`chats_loop_max_runs`). One user starts
+  at most 200 loop runs a day, over all loops (`chats_loop_daily_runs`, UTC
+  days); after that the loops wait for the next day. A loop pauses itself
+  after 3 failed runs in a row; **Resume** starts it again. A run has the same
+  time limit as a trigger run (15 minutes).
+- **Stop** removes a loop. It does not stop a run that goes on; the chat's
+  stop button does that. Deleting a chat removes its loops.
+
+```bash
+# Start a loop (no interval: self-paced). The first loop of a chat is pending.
+curl -X POST .../api/chats/3f1c.../loops -d '{"interval": "5m", "prompt": "Check the build."}'
+# {"id":"9b2e...","prompt":"Check the build.","interval":"5m","interval_seconds":300,
+#  "state":"pending","runs":0,"running":false,"created":"..."}
+
+# Confirm it (state active), pause it, or resume it.
+curl -X PUT .../api/chats/3f1c.../loops/9b2e... -d '{"state": "active"}'
+curl -X PUT .../api/chats/3f1c.../loops/9b2e... -d '{"state": "paused"}'
+
+# List, stop one, stop all.
+curl .../api/chats/3f1c.../loops
+curl -X DELETE .../api/chats/3f1c.../loops/9b2e...
+curl -X DELETE .../api/chats/3f1c.../loops
+```
+
+A loop's `state` is `pending` (waits for your yes), `active`, `paused` or
+`ended`; `reason` says why it paused, ended or waits, `next` when it runs
+next, and `wait` what the model of a self-paced loop waits for.
+`GET /api/chats/{id}` carries the same list as `loops`, a `loops` event tells
+every open tab that the list changed, and a user line that a loop sent carries
+`loop: {id, run}` in the transcript.
+
+### Loop or trigger?
+
+Both run a prompt without you typing it. Choose by where the answers should go
+and how often:
+
+| | Loop | [Trigger](/features/chats-agents/) |
+|---|---|---|
+| Where it runs | In the chat where you started it, which keeps its history | A new chat for each run |
+| How often | From every minute (or as the model decides) | At most once an hour, on a schedule, or when a file arrives |
+| How long | Until you stop it, it reaches its run limit, or the model says it is done | Until you switch it off |
+| Good for | Watching something now: a build, a deploy, a long job | Routine work: a morning summary, filing new documents |
+
+**In a cluster.** State mode: single-runner. The loops live in the shared
+store with the chats (the auth database). One frontend at a time fires them:
+the one that holds a PostgreSQL advisory lock, as for triggers. A run is
+claimed in the store before it starts, and the turn claim of the chat keeps
+one turn per chat, so two frontends never start the same run. After a
+restart, or when another frontend takes over, the loops go on from the store,
+and a run that a dead frontend left behind is finished and counted as failed.
+A loop run starts on the frontend that fires it; it is not sent to a chat
+worker.
+
 ## Settings, rename and model change
 
 A chat keeps its own model settings. They apply from the next turn, and they
@@ -967,7 +1063,7 @@ Type `/` in the message box of a chat, or on Home, for the list of commands.
 Typing filters it; arrows move, Enter runs the command, Tab completes it, and
 Esc closes the list. A command that takes an argument lists the choices as you
 type it: `/agent ` lists your saved agents, `/skill ` the skills of the chat
-and `/model ` the chat models.
+and `/model ` the chat models, `/loop stop ` the loops of the chat.
 
 | Command | What it does |
 |---------|--------------|
@@ -979,11 +1075,12 @@ and `/model ` the chat models.
 | `/compact` | Compact the context now (see above). |
 | `/clear` | Clear the context: a fresh start in the same chat (see above). |
 | `/goal`, `/goal <text>`, `/goal clear`, `/goal resume` | Show, set, remove or resume the goal of the chat (see [Goals](#goals)). `/goal ` lists `resume` and `clear` for the goal the chat has. |
+| `/loop [interval] <prompt>`, `/loop list`, `/loop stop [id]` | Repeat a prompt in this chat, list its loops, stop one or all (see [Loops](#loops-repeat-a-prompt-in-a-chat)). |
 | `/attach`, `/attach clear` | Choose files to send, or remove the files waiting to be sent. |
 | `/help` | List every command with what it does. |
 | `/about` | Show the model, whether it is loaded, how many tools and skills the chat has, where its commands run and the size of its context. |
 
-Home offers the same commands, less `/compact`, `/clear`, `/goal` and `/about`: a chat
+Home offers the same commands, less `/compact`, `/clear`, `/goal`, `/loop` and `/about`: a chat
 that does not exist yet has no context. `/<skill>` and `/agent` work there
 because the chat is created with the switches you chose first.
 

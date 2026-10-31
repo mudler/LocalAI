@@ -65,6 +65,9 @@ const (
 	// The model was asked for an answer from what it had, and the turn ends
 	// as paused; another message lets the work go on. Event.Steps is the limit.
 	KindPaused EventKind = "paused"
+	// KindLoops says that the loops of the chat changed: one started, ran,
+	// paused or ended. A client reads the list of loops again.
+	KindLoops EventKind = "loops"
 	// KindCleared says that the person cleared the model's context: the
 	// transcript has a new marker and the next turn starts fresh. Read the
 	// transcript again.

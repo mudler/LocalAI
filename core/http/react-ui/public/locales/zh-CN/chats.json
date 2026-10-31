@@ -503,5 +503,67 @@
       "undone": "已撤销对 {{name}} 的更改。",
       "restored": "已恢复 {{name}}。"
     }
+  },
+  "loops": {
+    "region": "此聊天的循环",
+    "unit": {
+      "seconds_one": "{{count}} 秒",
+      "seconds_other": "{{count}} 秒",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} 秒",
+      "seconds_other": "{{count}} 秒",
+      "minutes_one": "{{count}} 分钟",
+      "minutes_other": "{{count}} 分钟",
+      "hours_one": "{{count}} 小时",
+      "hours_other": "{{count}} 小时"
+    },
+    "confirm": {
+      "every": "每 {{every}} 运行一次，直到你停止？",
+      "selfPaced": "每当模型要求时再次运行，直到你停止？",
+      "start": "开始",
+      "cancel": "取消"
+    },
+    "chip": {
+      "name": "循环",
+      "every": "每 {{every}}",
+      "selfPaced": "由模型决定节奏",
+      "run_one": "第 {{count}} 次",
+      "run_other": "第 {{count}} 次",
+      "paused": "已暂停",
+      "running": "正在运行",
+      "next": "下次 {{time}}",
+      "ended": "已结束",
+      "wait": "正在等待：{{wait}}"
+    },
+    "actions": {
+      "pause": "暂停",
+      "resume": "继续",
+      "stop": "停止",
+      "dismiss": "关闭"
+    },
+    "state": {
+      "pending": "等待你的确认",
+      "active": "运行中",
+      "paused": "已暂停",
+      "ended": "已结束"
+    },
+    "list": {
+      "title": "此聊天的循环",
+      "close": "关闭",
+      "empty": "此聊天没有循环。",
+      "hint": "要停止一个循环，输入 /loop stop 加上该行开头的代码。"
+    },
+    "slash": {
+      "usage": "输入 /loop、可选的间隔和要重复的内容。例如：/loop 5m 检查构建。",
+      "notFound": "此聊天中没有与 {{id}} 匹配的循环。",
+      "noChat": "先发送第一条消息，然后在此聊天中启动循环。",
+      "stopped_one": "已停止 {{count}} 个循环。",
+      "stopped_other": "已停止 {{count}} 个循环。"
+    }
   }
 }

@@ -194,11 +194,22 @@ type Entry struct {
 	// list in Text and neither field: DisplayEntry splits it.
 	Attachments []Attachment `json:",omitempty"`
 	Note        string       `json:",omitempty"`
+	// Loop is set on a user message that a loop of the chat sent by itself,
+	// not the person. The interface labels the message with it.
+	Loop *LoopMark `json:",omitempty"`
 	// Invoked is the command of a user message: the skill or the saved agent
 	// the person asked for with a slash command. The interface shows it as a
 	// chip; the instructions it gave the model are not stored.
 	Invoked *Invocation `json:",omitempty"`
 	At      time.Time
+}
+
+// LoopMark names the loop run that sent a user message.
+type LoopMark struct {
+	ID  string `json:"id"`
+	Run int    `json:"run"`
+	// SelfPaced is true when the model decides when the loop runs again.
+	SelfPaced bool `json:"self_paced,omitempty"`
 }
 
 // Invocation is the command a user message carried.

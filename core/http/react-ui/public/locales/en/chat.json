@@ -181,7 +181,8 @@
   },
   "message": {
     "you": "You",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "loopRun": "Loop run {{run}}"
   },
   "error": {
     "title": "The reply failed",
@@ -300,6 +301,7 @@
       "agent": "Saved agents",
       "model": "Models",
       "attach": "Files",
+      "loop": "Loops",
       "goal": "Goal"
     },
     "badge": {
@@ -314,6 +316,14 @@
       "agent": "You have no saved agent named \"{{name}}\".",
       "agentTask": "Write the task for {{name}} after the name.",
       "agentsOff": "Saved agents are off for this chat. Turn them on in the Tools menu."
+    },
+    "loop": {
+      "label": "Repeat a prompt",
+      "desc": "Run a prompt again and again in this chat: /loop 5m check the build",
+      "listDesc": "Show the loops of this chat",
+      "stopDesc": "Stop one loop, or all of them",
+      "stopAll": "All loops",
+      "stopAllDesc": "Stop every loop of this chat"
     },
     "goal": {
       "label": "Goal",

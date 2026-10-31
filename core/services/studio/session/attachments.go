@@ -1,6 +1,7 @@
 package session
 
 import (
+	"fmt"
 	"path"
 	"strings"
 )
@@ -174,8 +175,23 @@ func DisplayEntry(e Entry) Entry {
 // ModelText is the text the model gets for an entry: for a user message, the
 // words, the text read from the files and the list of the files.
 func ModelText(e Entry) string {
+	text := e.Text
 	if e.Role == RoleUser && (len(e.Attachments) > 0 || e.Note != "") {
-		return ComposeMessage(e.Text, e.Note, e.Attachments)
+		text = ComposeMessage(e.Text, e.Note, e.Attachments)
 	}
-	return e.Text
+	if e.Role == RoleUser && e.Loop != nil {
+		text = LoopPreamble(*e.Loop) + "\n\n" + text
+	}
+	return text
+}
+
+// LoopPreamble is the line the model reads before the prompt of a loop run,
+// so that it knows nobody typed the message just now. A self-paced run also
+// learns how to ask for the next run.
+func LoopPreamble(m LoopMark) string {
+	s := fmt.Sprintf("[Loop run %d: this message repeats by itself; the person did not type it now.", m.Run)
+	if m.SelfPaced {
+		s += " When this run is done, call schedule_next to say when to run again, or loop_done when the task is complete. If you call neither, the loop stops."
+	}
+	return s + "]"
 }

@@ -131,7 +131,10 @@ A [connector](/features/chats-connectors/) binds a Telegram bot or a Slack app t
 
 A trigger starts a chat as you, by itself. Each run is an ordinary chat of
 yours: it uses your files, your quota and your model allowlist, you can open it
-and undo what it changed, and it is marked with its trigger. There are two kinds.
+and undo what it changed, and it is marked with its trigger. To repeat a
+prompt inside one chat, every few minutes, use a
+[loop]({{%relref "features/chats#loops-repeat-a-prompt-in-a-chat" %}}) instead
+(see *Loop or trigger?* there). There are two kinds.
 
 | Kind | Runs | Fields |
 |---|---|---|

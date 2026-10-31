@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "Perulangan, jalan ke-{{run}}"
   },
   "tools": {
     "label": "Alat",
@@ -220,6 +221,7 @@
       "agent": "Agen tersimpan",
       "model": "Model",
       "attach": "File",
+      "loop": "Perulangan",
       "goal": "Tujuan"
     },
     "badge": {
@@ -234,6 +236,14 @@
       "agent": "Anda tidak punya agen tersimpan bernama \"{{name}}\".",
       "agentTask": "Tulis tugas untuk {{name}} setelah namanya.",
       "agentsOff": "Agen tersimpan nonaktif untuk chat ini. Aktifkan di menu Alat."
+    },
+    "loop": {
+      "label": "Ulangi prompt",
+      "desc": "Jalankan prompt berulang kali di obrolan ini: /loop 5m periksa build",
+      "listDesc": "Tampilkan perulangan obrolan ini",
+      "stopDesc": "Hentikan satu perulangan, atau semuanya",
+      "stopAll": "Semua perulangan",
+      "stopAllDesc": "Hentikan semua perulangan obrolan ini"
     },
     "goal": {
       "label": "Tujuan",

@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "Ciclo, esecuzione {{run}}"
   },
   "tools": {
     "label": "Strumenti",
@@ -220,6 +221,7 @@
       "agent": "Agenti salvati",
       "model": "Modelli",
       "attach": "File",
+      "loop": "Cicli",
       "goal": "Obiettivo"
     },
     "badge": {
@@ -234,6 +236,14 @@
       "agent": "Non hai un agente salvato chiamato \"{{name}}\".",
       "agentTask": "Scrivi il compito per {{name}} dopo il nome.",
       "agentsOff": "Gli agenti salvati sono disattivati per questa chat. Attivali dal menu Strumenti."
+    },
+    "loop": {
+      "label": "Ripeti un prompt",
+      "desc": "Esegui un prompt più volte in questa chat: /loop 5m controlla la build",
+      "listDesc": "Mostra i cicli di questa chat",
+      "stopDesc": "Ferma un ciclo, o tutti",
+      "stopAll": "Tutti i cicli",
+      "stopAllDesc": "Ferma tutti i cicli di questa chat"
     },
     "goal": {
       "label": "Obiettivo",

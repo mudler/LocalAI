@@ -109,7 +109,8 @@
     }
   },
   "message": {
-    "you": "Você"
+    "you": "Você",
+    "loopRun": "Loop, execução {{run}}"
   },
   "tools": {
     "label": "Ferramentas",
@@ -223,6 +224,7 @@
       "agent": "Agentes salvos",
       "model": "Modelos",
       "attach": "Arquivos",
+      "loop": "Loops",
       "goal": "Objetivo"
     },
     "badge": {
@@ -237,6 +239,14 @@
       "agent": "Você não tem um agente salvo chamado \"{{name}}\".",
       "agentTask": "Escreva a tarefa para {{name}} depois do nome.",
       "agentsOff": "Os agentes salvos estão desativados neste chat. Ative-os no menu Ferramentas."
+    },
+    "loop": {
+      "label": "Repetir um prompt",
+      "desc": "Execute um prompt várias vezes neste chat: /loop 5m verifique o build",
+      "listDesc": "Mostrar os loops deste chat",
+      "stopDesc": "Parar um loop, ou todos",
+      "stopAll": "Todos os loops",
+      "stopAllDesc": "Parar todos os loops deste chat"
     },
     "goal": {
       "label": "Objetivo",

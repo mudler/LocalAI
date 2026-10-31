@@ -454,6 +454,26 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 	if s.ChatsGoalMaxSteps != nil && (*s.ChatsGoalMaxSteps < 1 || *s.ChatsGoalMaxSteps > config.MaxChatsGoalMaxSteps) {
 		return fmt.Sprintf("Invalid chats_goal_max_steps: use 1 to %d", config.MaxChatsGoalMaxSteps)
 	}
+	if s.ChatsLoopMinInterval != nil {
+		d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsLoopMinInterval))
+		if err != nil || d < config.MinChatsLoopInterval || d > config.MaxChatsLoopInterval {
+			return "Invalid chats_loop_min_interval: use a duration from 30s to 24h, such as 1m"
+		}
+	}
+	for _, c := range []struct {
+		name string
+		v    *int
+		hi   int
+	}{
+		{"chats_loop_max_runs", s.ChatsLoopMaxRuns, config.MaxChatsLoopMaxRuns},
+		{"chats_loop_max_per_chat", s.ChatsLoopMaxPerChat, config.MaxChatsLoopMaxPerChat},
+		{"chats_loop_max_per_user", s.ChatsLoopMaxPerUser, config.MaxChatsLoopMaxPerUser},
+		{"chats_loop_daily_runs", s.ChatsLoopDailyRuns, config.MaxChatsLoopDailyRuns},
+	} {
+		if c.v != nil && (*c.v < 1 || *c.v > c.hi) {
+			return fmt.Sprintf("Invalid %s: use 1 to %d", c.name, c.hi)
+		}
+	}
 	if s.ChatsEgressAllowPrivate != nil && *s.ChatsEgressAllowPrivate && !privateOn {
 		var confirm struct {
 			Phrase string `json:"chats_egress_private_confirm"`

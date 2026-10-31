@@ -116,6 +116,8 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// them, whatever its parent names.
 	aTools, aPrompt, aNote := s.assistantTurn(ctx, rec)
 	tools = append(tools, aTools...)
+	// The tools of a self-paced loop, while the chat has one.
+	tools = append(tools, s.loopTools(ctx, a, rec)...)
 	if aPrompt != "" {
 		prompt = strings.TrimSpace(aPrompt + "\n\n" + prompt)
 	}

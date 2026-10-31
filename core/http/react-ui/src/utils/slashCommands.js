@@ -32,6 +32,7 @@
 
 import { CHAT_SLASH_ACTIONS, CHAT_SLASH_GROUPS } from '../components/chat/chatActions.js'
 import { SLASH_ACTIONS, SLASH_GROUPS, availableActions } from '../components/home/homeActions.js'
+import { shortId } from './chatLoops.js'
 
 // The groups of the new commands, after the page's own.
 export const COMMAND_GROUPS = ['context', 'skills', 'help']
@@ -56,6 +57,10 @@ export const SHARED_COMMANDS = [
   {
     id: 'goal', cmd: '/goal', icon: 'target', group: 'context', kind: 'navigate', where: ['chat'], needs: (c) => c.canGoal !== false,
     args: (query, ctx) => filterArgs(goalItems(ctx), query),
+  },
+  {
+    id: 'loop', cmd: '/loop', icon: 'repeat', group: 'context', kind: 'insert', insert: '/loop ', where: ['chat'],
+    needs: (c) => !!c.hasChat, args: (query, ctx) => loopArgs(query, ctx),
   },
   { id: 'compact', cmd: '/compact', icon: 'minimize', group: 'context', kind: 'server', where: ['chat'], needs: (c) => !!(c.hasContext ?? c.hasThread) && !c.running },
   { id: 'clear', cmd: '/clear', icon: 'eraser', group: 'context', kind: 'server', where: ['chat'], needs: (c) => !!(c.hasContext ?? c.hasThread) && !c.running },
@@ -89,6 +94,25 @@ export function parseGoalCommand(text) {
   const word = rest.toLowerCase()
   if (word === 'clear' || word === 'resume') return { action: word }
   return { action: 'set', text: rest }
+}
+
+// The arguments of /loop: list and stop, and after "stop " the loops of the
+// chat (by the start of their ID, which /loop stop takes) and "all of them".
+// Anything else is the interval and the prompt of a new loop: no menu.
+export function loopArgs(query, ctx = {}) {
+  const loops = ctx.loops || []
+  const q = (query || '').toLowerCase()
+  if (q.startsWith('stop ')) {
+    const items = loops.map((l) => ({ key: `loop-stop-${l.id}`, name: shortId(l.id), desc: l.prompt, icon: 'stop', action: 'loopStop', loopId: l.id }))
+    const rest = q.slice(5).trim()
+    // "All of them" has no name, so it would match any text: offer it only
+    // before an ID is typed.
+    if (loops.length > 1 && !rest) items.unshift({ key: 'loop-stop-all', name: '', icon: 'stop', action: 'loopStopAll' })
+    return filterArgs(items, rest)
+  }
+  const base = [{ key: 'loop-list', name: 'list', icon: 'repeat', action: 'loopList' }]
+  if (loops.length > 0) base.push({ key: 'loop-stop', name: 'stop', icon: 'stop', insert: '/loop stop ' })
+  return filterArgs(base, q).filter((it) => it.name)
 }
 
 // The source of a skill, for its badge: built-in, add-on, shared or yours.

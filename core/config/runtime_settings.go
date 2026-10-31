@@ -123,6 +123,15 @@ type RuntimeSettings struct {
 	// 10000 (default: 400). Read when a turn ends.
 	ChatsGoalMaxTurns *int `json:"chats_goal_max_turns,omitempty"`
 	ChatsGoalMaxSteps *int `json:"chats_goal_max_steps,omitempty"`
+	// The loops of the chats: the shortest interval (a duration, 30s to 24h,
+	// default 1m), the runs after which a loop ends (default 100), the loops
+	// one chat and one user may have (defaults 3 and 10), and the loop runs
+	// one user may start in a UTC day (default 200). Read at each use.
+	ChatsLoopMinInterval *string `json:"chats_loop_min_interval,omitempty"`
+	ChatsLoopMaxRuns     *int    `json:"chats_loop_max_runs,omitempty"`
+	ChatsLoopMaxPerChat  *int    `json:"chats_loop_max_per_chat,omitempty"`
+	ChatsLoopMaxPerUser  *int    `json:"chats_loop_max_per_user,omitempty"`
+	ChatsLoopDailyRuns   *int    `json:"chats_loop_daily_runs,omitempty"`
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`

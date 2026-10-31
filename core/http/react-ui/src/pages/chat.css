@@ -1379,6 +1379,70 @@ button.cx-step__head:hover,
 .cx-pending__text { min-width: 0; overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
 .cx-pending__edit { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--color-border-divider); border-radius: 6px; background: var(--color-bg-primary); color: var(--dk-text); font: inherit; }
 .cx-pending__acts { display: flex; flex: none; gap: 10px; }
+/* The loops of a chat, over the message box: a card for the first loop,
+   which waits for a yes, and one line for each other loop. Mint marks a loop
+   that runs, amber one that waits for the person or paused itself. */
+.cx-loops { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0 0 var(--sp-2); }
+.cx-loop-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--dk-warn);
+  background: var(--dk-warn-wash);
+  font-size: var(--fs-small);
+}
+.cx-loop-confirm__icon { flex: none; color: var(--dk-warn-text); }
+.cx-loop-confirm__text { display: flex; flex: 1 1 220px; flex-direction: column; min-width: 0; color: var(--dk-text); }
+.cx-loop-confirm__prompt { overflow: hidden; color: var(--dk-muted); text-overflow: ellipsis; white-space: nowrap; }
+.cx-loop-confirm__acts { display: flex; flex: none; gap: var(--sp-2); }
+.cx-loop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+}
+.cx-loop__main { display: flex; flex: 1 1 auto; align-items: center; gap: var(--sp-2); min-width: 0; }
+.cx-loop__icon { flex: none; color: var(--dk-ok); }
+.cx-loop--paused .cx-loop__icon { color: var(--dk-warn-text); }
+.cx-loop--ended .cx-loop__icon { color: var(--dk-muted); }
+.cx-loop__name { flex: none; color: var(--dk-text); font-weight: 600; }
+.cx-loop__meta { min-width: 0; overflow: hidden; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.cx-loop__why { flex: 1 1 100%; order: 3; color: var(--dk-muted); }
+.cx-loop__acts { display: flex; flex: none; gap: var(--sp-3); }
+/* The answer to /loop list. */
+.cx-loop-list {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--color-bg-secondary);
+  font-size: var(--fs-small);
+}
+.cx-loop-list__head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); color: var(--color-text-secondary); }
+.cx-loop-list__rows { display: flex; flex-direction: column; gap: var(--sp-1); margin: var(--sp-2) 0 0; padding: 0; list-style: none; }
+.cx-loop-list__row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 var(--sp-2); }
+.cx-loop-list__id { color: var(--dk-muted); font-family: var(--font-mono); }
+.cx-loop-list__prompt { overflow: hidden; color: var(--dk-text); text-overflow: ellipsis; white-space: nowrap; }
+.cx-loop-list__meta { grid-column: 2; color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.cx-loop-list__empty, .cx-loop-list__hint { margin: var(--sp-2) 0 0; color: var(--dk-muted); }
+/* The label of a message that a loop sent by itself. */
+.cx-msg__loop {
+  display: inline-flex;
+  align-self: flex-end;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: 0 0 var(--sp-1);
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+}
 .cx-ttl__btn:disabled { cursor: default; }
 
 /* The preview pane of a chat: the selected file or code block on top, then

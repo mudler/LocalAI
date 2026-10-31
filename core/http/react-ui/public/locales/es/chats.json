@@ -503,5 +503,67 @@
       "undone": "Cambio de {{name}} deshecho.",
       "restored": "{{name}} restaurado."
     }
+  },
+  "loops": {
+    "region": "Bucles de este chat",
+    "unit": {
+      "seconds_one": "{{count}} segundo",
+      "seconds_other": "{{count}} segundos",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "confirm": {
+      "every": "¿Ejecutar esto cada {{every}} hasta que lo detengas?",
+      "selfPaced": "¿Ejecutar esto de nuevo cada vez que el modelo lo pida, hasta que lo detengas?",
+      "start": "Iniciar",
+      "cancel": "Cancelar"
+    },
+    "chip": {
+      "name": "Bucle",
+      "every": "cada {{every}}",
+      "selfPaced": "al ritmo del modelo",
+      "run_one": "ejecución {{count}}",
+      "run_other": "ejecución {{count}}",
+      "paused": "en pausa",
+      "running": "en curso",
+      "next": "próxima a las {{time}}",
+      "ended": "terminado",
+      "wait": "Esperando: {{wait}}"
+    },
+    "actions": {
+      "pause": "Pausar",
+      "resume": "Reanudar",
+      "stop": "Detener",
+      "dismiss": "Descartar"
+    },
+    "state": {
+      "pending": "espera tu confirmación",
+      "active": "activo",
+      "paused": "en pausa",
+      "ended": "terminado"
+    },
+    "list": {
+      "title": "Bucles de este chat",
+      "close": "Cerrar",
+      "empty": "Este chat no tiene bucles.",
+      "hint": "Para detener uno, escribe /loop stop y el código del inicio de su línea."
+    },
+    "slash": {
+      "usage": "Escribe /loop, un intervalo si quieres uno y lo que se debe repetir. Por ejemplo: /loop 5m revisa la compilación.",
+      "notFound": "Ningún bucle de este chat coincide con {{id}}.",
+      "noChat": "Envía un primer mensaje y luego inicia un bucle en este chat.",
+      "stopped_one": "Se detuvo {{count}} bucle.",
+      "stopped_other": "Se detuvieron {{count}} bucles."
+    }
   }
 }

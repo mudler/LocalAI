@@ -35,6 +35,8 @@ type Message struct {
 	// Media goes to the model as parts of this message when the harness can
 	// take them. It is not stored: the files in Files are.
 	Media []Media
+	// Loop is set when a loop of the chat sends the message by itself.
+	Loop *LoopMark
 	// Directive is an instruction for the model that comes with this message
 	// only, such as the text of a skill the person invoked. The model gets it
 	// before the message; the transcript does not keep it.
@@ -648,7 +650,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
 	}
-	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Invoked: msg.Invoked}
+	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Loop: msg.Loop, Invoked: msg.Invoked}
 	if msg.Goal {
 		entry = Entry{Role: RoleGoal, Text: text, Note: GoalLineContinue, Rev: int64(msg.GoalTurn)}
 	}

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
@@ -231,6 +232,28 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(raw)).To(ContainSubstring(`"chats_goal_max_turns": 5`))
 		Expect(string(raw)).To(ContainSubstring(`"chats_goal_max_steps": 90`))
+	})
+
+	It("checks and saves the limits of the loops of the chats", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsLoopMinInterval()).To(Equal(config.DefaultChatsLoopMinInterval), "unset: the default")
+		Expect(cfg.EffectiveChatsLoopMaxPerChat()).To(Equal(config.DefaultChatsLoopMaxPerChat))
+		for _, body := range []string{`{"chats_loop_min_interval":"10s"}`, `{"chats_loop_min_interval":"soon"}`,
+			`{"chats_loop_max_runs":0}`, `{"chats_loop_max_per_chat":21}`, `{"chats_loop_max_per_user":0}`, `{"chats_loop_daily_runs":100001}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_loop_"), body)
+		}
+		rec := post(`{"chats_loop_min_interval":"2m","chats_loop_max_runs":50,"chats_loop_max_per_chat":2,"chats_loop_max_per_user":5,"chats_loop_daily_runs":40}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsLoopMinInterval()).To(Equal(2 * time.Minute))
+		Expect(cfg.EffectiveChatsLoopMaxRuns()).To(Equal(50))
+		Expect(cfg.EffectiveChatsLoopMaxPerChat()).To(Equal(2))
+		Expect(cfg.EffectiveChatsLoopMaxPerUser()).To(Equal(5))
+		Expect(cfg.EffectiveChatsLoopDailyRuns()).To(Equal(40))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_loop_min_interval": "2m`))
 	})
 
 	It("errors when DynamicConfigsDir is unset", func() {

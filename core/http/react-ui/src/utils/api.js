@@ -213,6 +213,16 @@ export const chatsApi = {
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 
+// The loops of a chat: a prompt the chat sends to itself again, at an interval
+// (interval such as "5m") or, with no interval, when the model asks.
+export const chatLoopsApi = {
+  list: (chat) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops`),
+  start: (chat, interval, prompt) => postJSON(`/api/chats/${encodeURIComponent(chat)}/loops`, { ...(interval ? { interval } : {}), prompt }),
+  setState: (chat, id, state) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ state }) }),
+  stop: (chat, id) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  stopAll: (chat) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops`, { method: 'DELETE' }),
+}
+
 // MCP Apps of a chat: the page that a tool's MCP server offers, and the tool
 // calls of that page. The server holds the MCP connection and checks that the
 // chat may use the server on every call.
