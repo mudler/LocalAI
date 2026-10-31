@@ -7,7 +7,7 @@ import { chatAgentsApi, chatsApi } from '../utils/api'
 import ActionMenu from '../components/ActionMenu'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, SkeletonRows, StatusChip } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { AgentViews, RunStrip, RecordLine, agentPath } from '../components/agents/AgentBits'
 import { deleteAgentWithUndo, usePendingAgentDeletes } from '../components/agents/agentUndo'
@@ -134,7 +134,7 @@ export default function Agents() {
   const empty = loaded && !error && rows.length === 0 && agents.length === 0
 
   return (
-    <Page className="ag-page">
+    <Page width="full" className="ag-page">
       <PageHeader
         title={t('title')}
         supporting={t('subtitle')}
@@ -217,17 +217,7 @@ export default function Agents() {
 
           <section className="ag-group" aria-label={t('sections.agents')}>
             <div className="ag-tools">
-              <div className="ag-search">
-                <Icon name="search" />
-                <input
-                  className="dk-input"
-                  type="search"
-                  aria-label={t('search.placeholder')}
-                  placeholder={t('search.placeholder')}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
+              <SearchField value={search} onChange={setSearch} label={t('search.placeholder')} />
               <span className="ag-muted ag-small ag-count">
                 {t('search.summary', { shown: filtered.length, total: rows.length, count: rows.length })}
               </span>

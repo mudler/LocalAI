@@ -118,9 +118,6 @@
 .ag-now { display: flex; flex-direction: column; gap: var(--sp-2); }
 .ag-tools { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-3); }
 .ag-count { font-variant-numeric: tabular-nums; }
-.ag-search { position: relative; flex: 1 1 220px; max-width: 320px; }
-.ag-search .lai-icon { position: absolute; left: 10px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); color: var(--dk-muted); pointer-events: none; }
-.ag-search input { width: 100%; padding-left: 34px; }
 
 /* One row list: a card with hairlines between rows. */
 .ag-list {
