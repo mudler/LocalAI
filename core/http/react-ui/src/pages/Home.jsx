@@ -413,6 +413,7 @@ export default function Home() {
       case 'agents': navigate('/app/agents'); break
       case 'mcp': navigate('/app/mcp-connectors'); break
       case 'memory': navigate('/app/collections'); break
+      case 'skills': navigate('/app/skills'); break
       case 'studio': if (studioPage) navigate(studioPage); break
       case 'studioInstall':
         if (addonsOn) navigate('/app/addons?tab=browse&q=studio')

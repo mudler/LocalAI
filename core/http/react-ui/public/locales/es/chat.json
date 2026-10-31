@@ -132,6 +132,7 @@
   },
   "skills": {
     "label": "Habilidades",
+    "manage": "Gestionar habilidades",
     "title": "Habilidades que puede usar este chat",
     "heading": "Habilidades de este chat",
     "count": "{{on}} de {{total}} activadas",
@@ -188,6 +189,10 @@
     "skill": {
       "label": "Usar una skill",
       "desc": "Elegir una de las skills de este chat"
+    },
+    "skills": {
+      "label": "Gestionar habilidades",
+      "desc": "Abrir la página de habilidades para escribirlas y cambiarlas"
     },
     "agent": {
       "label": "Preguntar a un agente guardado",

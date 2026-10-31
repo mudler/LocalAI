@@ -167,3 +167,4 @@
 .swl-status > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .swl-status:empty { border-top-color: transparent; }
 .swl-status:empty:has(+ *) { height: 0; }
+.swl-foot--reserve > .swl-status:empty:has(+ *) { height: var(--ctl-h-sm); }

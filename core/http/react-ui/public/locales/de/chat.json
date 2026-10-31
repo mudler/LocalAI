@@ -132,6 +132,7 @@
   },
   "skills": {
     "label": "Skills",
+    "manage": "Skills verwalten",
     "title": "Skills, die dieser Chat nutzen kann",
     "heading": "Skills für diesen Chat",
     "count": "{{on}} von {{total}} an",
@@ -188,6 +189,10 @@
     "skill": {
       "label": "Skill ausführen",
       "desc": "Einen der Skills dieses Chats wählen"
+    },
+    "skills": {
+      "label": "Skills verwalten",
+      "desc": "Die Skills-Seite öffnen, um Skills zu schreiben und zu ändern"
     },
     "agent": {
       "label": "Gespeicherten Agenten fragen",

@@ -45,6 +45,9 @@ export const SHARED_COMMANDS = [
     needs: (c) => (c.skills || []).length > 0,
     args: (query, ctx) => filterArgs(skillItems(ctx), query),
   },
+  // Opens the Skills page, where skills are written and managed. Offered
+  // wherever the viewer may open that page, with or without a skill yet.
+  { id: 'skills', cmd: '/skills', icon: 'sparkles', group: 'skills', kind: 'navigate', needs: (c) => c.hasChats !== false },
   {
     id: 'agent', cmd: '/agent', icon: 'robot', group: 'skills', kind: 'insert', insert: '/agent ',
     needs: (c) => !!c.canAgents && (c.agents || []).length > 0,

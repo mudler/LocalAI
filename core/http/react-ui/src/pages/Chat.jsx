@@ -960,6 +960,7 @@ function ChatPage() {
       case 'assistant': openAssistant(); break
       case 'settings': setShowSettings(true); break
       case 'find': openFind(); break
+      case 'skills': navigate('/app/skills'); break
       case 'export': if (activeId) exportChat(activeId); break
       case 'delete': promptDelete(); break
       default: break

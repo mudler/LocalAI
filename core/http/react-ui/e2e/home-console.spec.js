@@ -36,14 +36,14 @@ test.describe('Home slash menu', () => {
     // The administrator gets /studio while Studio is not installed: it
     // opens the add-on in the library.
     // Home's own commands first; the commands it shares with a chat follow:
-    // /attach, /skill and one per skill of the server, then /help.
+    // /attach, /skill, /skills and one per skill of the server, then /help.
     expect(names.slice(0, 15)).toEqual([
       '/model', '/new', '/chat', '/assistant', '/models',
       '/gallery', '/installed', '/import', '/stop',
       // An admin without Studio is offered /studio to install it.
       '/agents', '/mcp', '/memory', '/studio', '/settings', '/docs',
     ])
-    expect(names.slice(15, 17)).toEqual(['/attach', '/skill'])
+    expect(names.slice(15, 18)).toEqual(['/attach', '/skill', '/skills'])
     expect(names[names.length - 1]).toBe('/help')
     // A chat that does not exist yet has nothing to compact or clear.
     expect(names).not.toContain('/compact')
@@ -59,6 +59,13 @@ test.describe('Home slash menu', () => {
       await page.getByTestId(`home-slash-${cmd}`).click()
       await expect(page).toHaveURL(url)
     }
+  })
+
+  test('the /skills command opens the Skills page', async ({ page }) => {
+    await ready(page)
+    await page.locator('.home-textarea').fill('/skills')
+    await page.getByTestId('home-slash-skills').click()
+    await expect(page).toHaveURL(/\/app\/skills$/)
   })
 
   // Studio is an add-on: its command is offered only while it is installed.

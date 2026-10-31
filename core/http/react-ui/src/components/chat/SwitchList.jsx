@@ -178,11 +178,13 @@ export function SwitchRowStatic({ name, desc, title, testId }) {
 }
 
 // The bottom line: a refused change, said in a few words with the server's
-// message in the tooltip, and what goes after it (a link to manage).
-export function SwitchStatus({ error, failed, testId, children }) {
+// message in the tooltip, and what goes after it (a link to manage). With
+// `reserve` the line keeps its height when it is empty, so a message that
+// appears does not move the rows above it.
+export function SwitchStatus({ error, failed, testId, reserve = false, children }) {
   const { t } = useTranslation('chat')
   return (
-    <div className="swl-foot">
+    <div className={`swl-foot${reserve ? ' swl-foot--reserve' : ''}`}>
       <div className="swl-status" role="alert" data-testid={testId}>
         {error && (
           <>

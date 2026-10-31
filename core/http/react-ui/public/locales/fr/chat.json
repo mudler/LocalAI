@@ -130,6 +130,7 @@
   },
   "skills": {
     "label": "Compétences",
+    "manage": "Gérer les compétences",
     "title": "Compétences que ce chat peut utiliser",
     "heading": "Compétences de ce chat",
     "count": "{{on}} sur {{total}} activées",
@@ -186,6 +187,10 @@
     "skill": {
       "label": "Lancer une skill",
       "desc": "Choisir une des skills de cette conversation"
+    },
+    "skills": {
+      "label": "Gérer les compétences",
+      "desc": "Ouvrir la page des compétences pour les écrire et les modifier"
     },
     "agent": {
       "label": "Demander à un agent enregistré",
