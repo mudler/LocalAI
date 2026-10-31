@@ -135,6 +135,41 @@ uses this for the Undo of its change notes (see
 A chat is named after the first line of its first message, unless you gave it a
 title. To rename it, see [Settings, rename and model change](#settings-rename-and-model-change).
 
+### Start a chat with its switches
+
+A chat can start with tools, add-ons and skills already switched off, and with
+opt-in tools switched on. `switches` in `POST /api/chats` takes each list in the
+form its own endpoint takes (see [Switch tools off for one
+chat](#switch-tools-off-for-one-chat) and [Skills](#skills)). The chat is
+stored with them, so its first turn already has them. A bad entry refuses the
+whole request with `400`, and no chat is created.
+
+```bash
+curl -s localhost:8080/api/chats -H 'Content-Type: application/json' -d '{
+  "model": "my-model",
+  "switches": {
+    "addons_off": ["office"],
+    "mcp_off": ["crm", "connector:c1"],
+    "builtins_off": ["web"],
+    "builtins_on": ["saved_agents"],
+    "skills_off": ["builtin:pdf"]
+  }
+}'
+```
+
+To show these switches before the chat exists, read what a chat on a model
+(and a saved agent of yours) could use. Each switch is in its default state:
+
+```bash
+curl -s 'localhost:8080/api/chats/draft/tools?model=my-model'
+curl -s 'localhost:8080/api/chats/draft/addons?model=my-model&agent_id=<agent>'
+curl -s localhost:8080/api/chats/skills
+```
+
+The answers have the shapes of `GET /api/chats/{id}/tools` and `GET
+/api/chats/{id}/addons`. A model you may not use is `403`, a model the server
+does not have is `400`, and another user's agent is `404`.
+
 ## Keep typing while the model works
 
 Send another message while a turn runs and it waits. The response says so:

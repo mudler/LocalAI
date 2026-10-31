@@ -5,6 +5,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
+	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 )
 
 func addonList(c echo.Context, h *Handlers) error {
@@ -16,6 +17,10 @@ func addonList(c echo.Context, h *Handlers) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	return writeAddonList(c, list, cmds)
+}
+
+func writeAddonList(c echo.Context, list []studiosvc.AddonInfo, cmds studiosvc.Commands) error {
 	out := schema.ChatsAddonList{Addons: make([]schema.ChatsAddon, 0, len(list)), Commands: string(cmds.State), CommandsReason: cmds.Reason,
 		CommandsIsolation: cmds.Isolation, CommandsProvider: cmds.Provider, CommandsConsent: cmds.Consent,
 		CommandsFallback: cmds.Fallback, CommandsFallbackReason: cmds.FallbackReason}

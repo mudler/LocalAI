@@ -163,7 +163,8 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 // Create starts a conversation.
 // @Summary Start a chat.
 // @Tags chats
-// @Param request body schema.ChatsCreateRequest true "model and optional title"
+// @Description With switches, the chat starts with those tools, add-ons and skills switched off (and those opt-in tools on), as GET /api/chats/draft/tools and GET /api/chats/skills list them for a chat that does not exist yet. A bad switch refuses the request and no chat is created.
+// @Param request body schema.ChatsCreateRequest true "model and optional title, agent and switches"
 // @Success 201 {object} schema.ChatsConversation "The new conversation"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 403 {object} schema.ErrorResponse "Refused"
@@ -207,7 +208,11 @@ func (h *Handlers) Create(c echo.Context) error {
 		}
 	}
 	user := userID(c)
-	rec, err := h.svc.Create(c.Request().Context(), user, studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID, Assistant: req.Assistant})
+	in := studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID, Assistant: req.Assistant}
+	if sw := req.Switches; sw != nil {
+		in.Switches = studiosvc.Switches{AddonsOff: sw.AddonsOff, McpOff: sw.McpOff, BuiltinsOff: sw.BuiltinsOff, BuiltinsOn: sw.BuiltinsOn, SkillsOff: sw.SkillsOff}
+	}
+	rec, err := h.svc.Create(c.Request().Context(), user, in)
 	if err != nil {
 		return failFor(c, err)
 	}

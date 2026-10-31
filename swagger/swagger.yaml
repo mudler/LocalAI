@@ -3531,6 +3531,14 @@ definitions:
         description: Model is the model the conversation talks to. It cannot change
           later.
         type: string
+      switches:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsSwitches'
+        description: |-
+          Switches are the tools, add-ons and skills the chat starts with
+          switched off (and the opt-in tools switched on), as the composer of a
+          new chat drafts them. They are stored with the chat: the chat never
+          exists without them. A bad entry refuses the whole request.
       title:
         description: Title is optional; the conversation is named after its first
           message otherwise.
@@ -4560,6 +4568,29 @@ definitions:
       sub_agents:
         items:
           $ref: '#/definitions/schema.ChatsSubAgent'
+        type: array
+    type: object
+  schema.ChatsSwitches:
+    properties:
+      addons_off:
+        items:
+          type: string
+        type: array
+      builtins_off:
+        items:
+          type: string
+        type: array
+      builtins_on:
+        items:
+          type: string
+        type: array
+      mcp_off:
+        items:
+          type: string
+        type: array
+      skills_off:
+        items:
+          type: string
         type: array
     type: object
   schema.ChatsToolApp:
@@ -11422,8 +11453,12 @@ paths:
       tags:
       - chats
     post:
+      description: With switches, the chat starts with those tools, add-ons and skills
+        switched off (and those opt-in tools on), as GET /api/chats/draft/tools and
+        GET /api/chats/skills list them for a chat that does not exist yet. A bad
+        switch refuses the request and no chat is created.
       parameters:
-      - description: model and optional title
+      - description: model and optional title, agent and switches
         in: body
         name: request
         required: true
@@ -13379,6 +13414,76 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConversion'
       summary: Report the conversion of your old agents, skills and chats.
+      tags:
+      - chats
+  /api/chats/draft/addons:
+    get:
+      description: 'What GET /api/chats/{id}/addons lists, for a chat that does not
+        exist yet, as GET /api/chats/draft/tools takes it: the add-ons with their
+        default switch and whether the chat could run commands at its first turn.'
+      parameters:
+      - description: the model of the new chat
+        in: query
+        name: model
+        type: string
+      - description: a saved agent of yours
+        in: query
+        name: agent_id
+        type: string
+      responses:
+        "200":
+          description: The add-ons and their default switches
+          schema:
+            $ref: '#/definitions/schema.ChatsAddonList'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Refused
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the add-ons a new chat could use.
+      tags:
+      - chats
+  /api/chats/draft/tools:
+    get:
+      description: 'What GET /api/chats/{id}/tools lists, for a chat that does not
+        exist yet: a chat on model, with the saved agent agent_id when it is set (the
+        agent''s model, when it has one, replaces model). Every switch is in its default
+        state. The composer of a new chat shows it and sends the person''s choices
+        in the switches of POST /api/chats.'
+      parameters:
+      - description: the model of the new chat
+        in: query
+        name: model
+        type: string
+      - description: a saved agent of yours
+        in: query
+        name: agent_id
+        type: string
+      responses:
+        "200":
+          description: The tools and their default switches
+          schema:
+            $ref: '#/definitions/schema.ChatsToolsPanel'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "403":
+          description: Refused
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such agent
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the tools a new chat could switch on and off.
       tags:
       - chats
   /api/chats/files:

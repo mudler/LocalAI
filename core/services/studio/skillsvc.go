@@ -23,21 +23,30 @@ const maxSkillSwitches = 200
 // SetSkillsOff sets the skills a chat has switched off, replacing the earlier
 // list. A name appears once. The chat of another user is session.ErrNotFound.
 func (s *Service) SetSkillsOff(ctx context.Context, user, conv string, off []string) error {
+	clean, err := cleanSkillSwitches(off)
+	if err != nil {
+		return err
+	}
+	return s.d.Store.SetSkillsOff(ctx, principal(user), conv, clean)
+}
+
+// cleanSkillSwitches checks and dedups a list of skill switches.
+func cleanSkillSwitches(off []string) ([]string, error) {
 	if len(off) > maxSkillSwitches {
-		return fmt.Errorf("%w: at most %d switches", ErrBadSkillName, maxSkillSwitches)
+		return nil, fmt.Errorf("%w: at most %d switches", ErrBadSkillName, maxSkillSwitches)
 	}
 	seen := make(map[string]bool, len(off))
 	clean := make([]string, 0, len(off))
 	for _, n := range off {
 		if !validSwitch(n) {
-			return fmt.Errorf("%w: %q", ErrBadSkillName, n)
+			return nil, fmt.Errorf("%w: %q", ErrBadSkillName, n)
 		}
 		if !seen[n] {
 			seen[n] = true
 			clean = append(clean, n)
 		}
 	}
-	return s.d.Store.SetSkillsOff(ctx, principal(user), conv, clean)
+	return clean, nil
 }
 
 // validSwitch says whether n names a skill switch: a skill name, or

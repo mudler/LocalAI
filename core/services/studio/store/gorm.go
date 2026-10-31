@@ -198,6 +198,21 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
 	}
+	// A chat can start with its switches (the composer of a new chat drafts
+	// them), so they are written with the row.
+	for _, l := range []struct {
+		to   *string
+		list []string
+	}{{&row.SkillsOff, rec.SkillsOff}, {&row.AddonsOff, rec.AddonsOff}, {&row.McpOff, rec.McpOff}, {&row.BuiltinsOff, rec.BuiltinsOff}, {&row.BuiltinsOn, rec.BuiltinsOn}} {
+		if len(l.list) == 0 {
+			continue
+		}
+		raw, err := json.Marshal(l.list)
+		if err != nil {
+			return err
+		}
+		*l.to = string(raw)
+	}
 	if rec.Settings != (session.ChatSettings{}) {
 		raw, err := json.Marshal(rec.Settings)
 		if err != nil {
