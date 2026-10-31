@@ -57,7 +57,9 @@ test('about you: the assistant and the user cards save their files, fill in from
   const u = (await read(request, 'user')).data
   expect(u.bio).toBe('Product designer in Milan.')
   expect(u.timezone).toBeTruthy()
-  expect(u.seen).toEqual(seen)
+  // The sidebar adds its own date under seen.new when the user has pages, so
+  // the saved record holds the uploaded one and may hold more.
+  expect(u.seen).toMatchObject(seen)
 })
 
 test('about you: the source view is validated, a broken file shows its last good version, and revert restores it', async ({ page, request }) => {
