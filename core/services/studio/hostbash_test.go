@@ -8,8 +8,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/testutil"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -214,7 +216,9 @@ var _ = Describe("the built-in bash on this machine", func() {
 			// A reader that did not see the event (a reload, another frontend) finds the card in the record.
 			rec, err := c.svc.Get(context.Background(), alice, id)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rec.HostConsent).To(Equal(&session.HostConsent{ID: cardID, Command: "ls"}))
+			Expect(rec.HostConsent).NotTo(BeNil())
+			Expect(*rec.HostConsent).To(SatisfyAll(HaveField("ID", cardID), HaveField("Command", "ls"), HaveField("Turn", turn(c.svc, alice, id).RunID),
+				HaveField("AskedAt", Not(BeZero()))), "the card names the turn that asked")
 			Expect(c.svc.HostExecDecide(context.Background(), alice, id, cardID, studio.HostExecOnce)).To(Succeed())
 			idle(c.svc, alice, id)
 			rec, err = c.svc.Get(context.Background(), alice, id)
@@ -240,7 +244,7 @@ var _ = Describe("the built-in bash on this machine", func() {
 			idle(c.svc, bob, id)
 			Expect(c.h.ToolNames(id)).NotTo(ContainElement("bash"))
 			Expect(c.svc.HostExecDecide(context.Background(), bob, id, "x", studio.HostExecOnce)).To(MatchError(studio.ErrHostExecDecision))
-			Expect(c.svc.HostExecDecide(context.Background(), bob, id, "x", studio.HostExecDeny)).To(Succeed())
+			Expect(c.svc.HostExecDecide(context.Background(), bob, id, "x", studio.HostExecDeny)).To(MatchError(studio.ErrHostExecExpired), "no card waits")
 			Expect(c.svc.HostExecDecide(context.Background(), alice, id, "x", studio.HostExecOnce)).NotTo(Succeed(), "another user's chat")
 		})
 
@@ -263,6 +267,72 @@ var _ = Describe("the built-in bash on this machine", func() {
 				lists = append(lists, c.h.ToolNames(k.ID))
 			}
 			Expect(lists).To(ContainElement(ContainElement("bash")))
+		})
+	})
+
+	Describe("the answer across frontends", func() {
+		// twoFrontends runs the turn on A and answers through B; both share
+		// the chat store. linked says whether their buses talk.
+		twoFrontends := func(linked bool) {
+			st, err := store.NewJSON("")
+			Expect(err).NotTo(HaveOccurred())
+			busA, busB := studio.Bus(studio.NewLocalBus()), studio.Bus(studio.NewLocalBus())
+			if linked {
+				net := testutil.NewFakeBus()
+				busA, busB = studio.NewBroadcastBus(net, nil), studio.NewBroadcastBus(net, nil)
+			}
+			fx := &fakeHostExec{}
+			f := newFiles()
+			a, _ := newToolService(runBash, func(d *studio.Deps) {
+				d.Store, d.Bus, d.Files, d.HostExec = st, busA, f, fx
+				d.HostExecMode = func() string { return "ask" }
+				d.IsAdmin = func(_ context.Context, user string) bool { return user == alice }
+			})
+			b := newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
+				d.Bus, d.Files = busB, f
+				d.IsAdmin = func(_ context.Context, user string) bool { return user == alice }
+			})
+			id := create(a, alice)
+			sent(a, alice, id, "run")
+			var card *session.HostConsent
+			Eventually(func() *session.HostConsent {
+				rec, _ := st.GetChat(context.Background(), alice, id)
+				card = rec.HostConsent
+				return card
+			}, 20*time.Second, 10*time.Millisecond).ShouldNot(BeNil())
+			start := time.Now()
+			Expect(b.HostExecDecide(context.Background(), alice, id, card.ID, studio.HostExecOnce)).To(Succeed())
+			idle(a, alice, id)
+			Expect(fx.commands()).To(HaveLen(1), "the command ran on A")
+			Expect(toolOf(a, alice, id).ID).To(Equal("once"))
+			if linked {
+				Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second), "the bus message woke it")
+			} else {
+				Expect(time.Since(start)).To(BeNumerically("<", 5*time.Second), "the re-read of the card found the answer")
+			}
+			rec, _ := st.GetChat(context.Background(), alice, id)
+			Expect(rec.HostConsent).To(BeNil(), "the call cleared its card")
+		}
+
+		It("an answer through frontend B reaches the call on frontend A over the bus", func() { twoFrontends(true) })
+		It("an answer whose bus message is lost reaches the call within the re-read", func() { twoFrontends(false) })
+
+		It("keeps the first answer: the same answer again is fine, the other one is a conflict", func() {
+			st, err := store.NewJSON("")
+			Expect(err).NotTo(HaveOccurred())
+			svc := newServiceOn(st, studiotest.NewGateHarness())
+			id := create(svc, alice)
+			sent(svc, alice, id, "hi")
+			until("the turn to start", func() bool { return turn(svc, alice, id).Running })
+			ctx := context.Background()
+			Expect(st.SetHostConsent(ctx, alice, id, &session.HostConsent{ID: "k1", Command: "ls", Turn: turn(svc, alice, id).RunID, AskedAt: time.Now()})).To(Succeed())
+			Expect(svc.HostExecDecide(ctx, alice, id, "k1", studio.HostExecOnce)).To(Succeed())
+			Expect(svc.HostExecDecide(ctx, alice, id, "k1", studio.HostExecOnce)).To(Succeed())
+			Expect(svc.HostExecDecide(ctx, alice, id, "k1", studio.HostExecDeny)).To(MatchError(studio.ErrHostExecAnswered))
+			rec, _ := st.GetChat(ctx, alice, id)
+			Expect(rec.HostConsent.Decision).To(Equal(studio.HostExecOnce), "the answer is in the record")
+			info := turn(svc, alice, id)
+			Expect(svc.HostConsent(ctx, alice, rec, info)).To(BeNil(), "an answered card is not shown as waiting")
 		})
 	})
 

@@ -42,13 +42,24 @@ type studioWeb struct {
 	skipped []search.Attempt
 }
 
-func newStudioWeb(cfg *config.ApplicationConfig) *studioWeb {
-	return &studioWeb{cfg: cfg, self: selfAddrs(cfg), endpoints: search.DefaultKeylessEndpoints()}
+func newStudioWeb(cfg *config.ApplicationConfig, self func() []netip.Prefix) *studioWeb {
+	if self == nil {
+		self = selfAddrs(cfg)
+	}
+	return &studioWeb{cfg: cfg, self: self, endpoints: search.DefaultKeylessEndpoints()}
+}
+
+// serverSelf is the one list of this server's own addresses, shared by
+// web_fetch and the Sandbox proxy (egress.check sends it to the add-on).
+func (a *Application) serverSelf() func() []netip.Prefix {
+	a.studioSelfOnce.Do(func() { a.studioSelf = selfAddrs(a.applicationConfig) })
+	return a.studioSelf
 }
 
 // selfAddrs lists the addresses of this server: its interfaces, loopback and
 // the host of the external base URL. A model's request must not reach the
-// server's own API through any of them.
+// server's own API through any of them: neither web_fetch nor a command in
+// the Sandbox, whose proxy gets this list from egress.check.
 func selfAddrs(cfg *config.ApplicationConfig) func() []netip.Prefix {
 	return safehttp.SelfAddrs(func() []string {
 		u, err := url.Parse(strings.TrimSpace(cfg.ExternalBaseURL))

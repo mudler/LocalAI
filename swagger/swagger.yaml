@@ -12245,7 +12245,9 @@ paths:
         bash waits for an answer: a host_exec_consent event carries the id and the
         command. once runs it (administrators only); deny refuses it (anyone who owns
         the chat). The command runs with no isolation, as the user LocalAI runs as,
-        with the network of the server. Without an answer the call ends after 5 minutes.'
+        with the network of the server. Without an answer the call ends after 5 minutes.
+        A card waits only while the turn that asked runs; an answer to one whose turn
+        has ended is 410 consent_expired.'
       parameters:
       - description: conversation id
         in: path
@@ -12260,7 +12262,8 @@ paths:
           $ref: '#/definitions/schema.ChatsHostExecConsent'
       responses:
         "204":
-          description: The answer was sent to the running turn
+          description: The answer was stored with the card and sent to the running
+            turn
         "400":
           description: The request is not valid
           schema:
@@ -12271,6 +12274,17 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: The card was answered already with the other answer (already_answered);
+            the same answer again is 204
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "410":
+          description: 'The card expired (consent_expired): the turn that asked has
+            ended, its frontend stopped, or a newer card replaced it; the command
+            did not run'
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Allow or refuse one command of the built-in bash on this machine.

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { commandsNotice, readHidden, writeHidden, DISMISS_KEY } from '../../src/utils/chatCommands.js'
+import { commandsNotice, readHidden, writeHidden, DISMISS_KEY, consentExpired } from '../../src/utils/chatCommands.js'
 
 test('chat commands: no notice when commands run or the server does not say', () => {
   assert.equal(commandsNotice('available', { isAdmin: true }), null)
@@ -82,4 +82,12 @@ test('chat commands: the tool line says who served a call', async () => {
   assert.deepEqual(providerTag({ kind: 'host_exec', id: 'denied' }), { key: 'hostDenied' })
   assert.equal(providerTag({ kind: 'files_change', id: '1:/a' }), null)
   assert.equal(providerTag(null), null)
+})
+
+test('chat commands: a refused answer reads as an expired card only for 410 consent_expired', () => {
+  assert.equal(consentExpired({ status: 410 }), true)
+  assert.equal(consentExpired({ status: 500, body: { error: { type: 'consent_expired' } } }), true)
+  assert.equal(consentExpired({ status: 403, body: { error: { type: 'authorization_error' } } }), false)
+  assert.equal(consentExpired(new Error('network')), false)
+  assert.equal(consentExpired(undefined), false)
 })

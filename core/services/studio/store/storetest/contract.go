@@ -207,6 +207,30 @@ func Run(newStore New) {
 		Expect(rec.HostConsent).To(BeNil(), "after clearing")
 	})
 
+	It("changes the consent card in one step, keeps it from another principal and leaves it on an error", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		asked := t0.Add(time.Minute)
+		Expect(s.UpdateHostConsent(ctx(), "alice", "c1", func(cur *session.HostConsent) (*session.HostConsent, error) {
+			Expect(cur).To(BeNil())
+			return &session.HostConsent{ID: "k1", Command: "ls", Turn: "r1", AskedAt: asked}, nil
+		})).To(Succeed())
+		rec, _ := s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).NotTo(BeNil())
+		Expect(*rec.HostConsent).To(SatisfyAll(HaveField("ID", "k1"), HaveField("Turn", "r1"), HaveField("AskedAt", BeTemporally("==", asked))))
+		boom := errors.New("boom")
+		Expect(s.UpdateHostConsent(ctx(), "alice", "c1", func(*session.HostConsent) (*session.HostConsent, error) { return nil, boom })).To(MatchError(boom))
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).NotTo(BeNil(), "an error changes nothing")
+		Expect(s.UpdateHostConsent(ctx(), "bob", "c1", func(cur *session.HostConsent) (*session.HostConsent, error) { return nil, nil })).To(MatchError(session.ErrNotFound))
+		Expect(s.UpdateHostConsent(ctx(), "alice", "c1", func(cur *session.HostConsent) (*session.HostConsent, error) {
+			Expect(cur.ID).To(Equal("k1"))
+			return nil, nil
+		})).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.HostConsent).To(BeNil())
+	})
+
 	It("keeps the network state, survives a chat update, belongs to the owner and loses no concurrent change", func() {
 		s := newStore()
 		Expect(s.CreateChat(ctx(), session.ChatRecord{ID: "c1", Principal: "alice", Title: "New chat", Created: t0, Updated: t0,

@@ -294,7 +294,8 @@
       "always": "Siempre en esta instancia",
       "deny": "No ejecutar",
       "alwaysHint": "«Siempre en esta instancia» deja que los chats de todos los usuarios ejecuten comandos aquí sin preguntar (Ajustes > Herramientas).",
-      "askAdmin": "Solo un administrador puede permitir comandos en esta máquina. Pídeselo a uno o ejecuta tú el comando."
+      "askAdmin": "Solo un administrador puede permitir comandos en esta máquina. Pídeselo a uno o ejecuta tú el comando.",
+      "expired": "Sin respuesta: el turno que lo pidió ha terminado, así que el comando no se ejecutó."
     },
     "provider": {
       "sandbox": "Sandbox",

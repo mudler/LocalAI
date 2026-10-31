@@ -83,10 +83,11 @@ var _ = Describe("Chats built-in bash routes", func() {
 		rec := s.do("alice", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"id": "x1", "decision": "once"})
 		Expect(rec.Code).To(Equal(http.StatusForbidden), rec.Body.String())
 		rec = s.do("alice", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"id": "x1", "decision": "deny"})
-		Expect(rec.Code).To(Equal(http.StatusNoContent), rec.Body.String())
+		Expect(rec.Code).To(Equal(http.StatusGone), "no card waits: "+rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("consent_expired"))
 		Expect(s.do("bob", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"id": "x1", "decision": "deny"}).Code).To(Equal(http.StatusNotFound))
 		own := s.create("root")
-		Expect(s.do("root", http.MethodPost, "/api/chats/"+own+"/host-exec/consent", map[string]any{"id": "x1", "decision": "once"}).Code).To(Equal(http.StatusNoContent))
+		Expect(s.do("root", http.MethodPost, "/api/chats/"+own+"/host-exec/consent", map[string]any{"id": "x1", "decision": "once"}).Code).To(Equal(http.StatusGone))
 		Expect(s.do("root", http.MethodPost, "/api/chats/"+own+"/host-exec/consent", map[string]any{"id": "x1", "decision": "always"}).Code).To(Equal(http.StatusForbidden))
 	})
 
@@ -102,5 +103,30 @@ var _ = Describe("Chats built-in bash routes", func() {
 		s.harness.Gate <- struct{}{}
 		Eventually(func() bool { return s.detail("root", id)["running"].(bool) }, 10*time.Second).Should(BeFalse())
 		Expect(s.detail("root", id)).NotTo(HaveKey("host_consent"))
+	})
+
+	It("does not bring a card of an earlier turn back in the next one, and answers it with 410 consent_expired", func() {
+		ctx := context.Background()
+		id := s.create("root")
+		s.do("root", http.MethodPost, "/api/chats/"+id+"/messages", map[string]any{"text": "run it"})
+		Eventually(func() bool { return s.detail("root", id)["running"].(bool) }, 10*time.Second).Should(BeTrue())
+		// The card of a turn whose frontend died, found by the next turn.
+		Expect(chats.SetHostConsent(ctx, "root", id, &session.HostConsent{ID: "old", Command: "rm -rf x", Turn: "dead-turn", AskedAt: time.Now()})).To(Succeed())
+		Expect(s.detail("root", id)).NotTo(HaveKey("host_consent"))
+		rec := s.do("root", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"id": "old", "decision": "once"})
+		Expect(rec.Code).To(Equal(http.StatusGone), rec.Body.String())
+		Expect(rec.Body.String()).To(ContainSubstring("consent_expired"))
+
+		// A card of the turn that runs is shown and answered.
+		info, err := chats.Turn(ctx, "root", id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(chats.SetHostConsent(ctx, "root", id, &session.HostConsent{ID: "now", Command: "ls", Turn: info.RunID, AskedAt: time.Now()})).To(Succeed())
+		Expect(s.detail("root", id)["host_consent"]).To(Equal(map[string]any{"id": "now", "command": "ls"}))
+		Expect(s.do("root", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"id": "now", "decision": "deny"}).Code).To(Equal(http.StatusNoContent))
+
+		// Once the turn ends, the same card has nobody waiting on it.
+		s.harness.Gate <- struct{}{}
+		Eventually(func() bool { return s.detail("root", id)["running"].(bool) }, 10*time.Second).Should(BeFalse())
+		Expect(s.do("root", http.MethodPost, "/api/chats/"+id+"/host-exec/consent", map[string]any{"id": "now", "decision": "deny"}).Code).To(Equal(http.StatusGone))
 	})
 })

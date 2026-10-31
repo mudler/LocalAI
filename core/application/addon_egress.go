@@ -3,10 +3,12 @@ package application
 import (
 	"context"
 	"fmt"
+	"net/netip"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/pkg/web/safehttp"
 )
 
 // RegisterAddonEgress registers the network operations of the Sandbox proxy
@@ -44,7 +46,19 @@ func (e addonEgress) Check(ctx context.Context, c hostops.EgressCall, in hostops
 	if err != nil {
 		return hostops.EgressVerdict{}, err
 	}
-	return hostops.EgressVerdict{Action: v.Action, Reason: v.Reason, AllowPrivate: v.AllowPrivate}, nil
+	return hostVerdict(v, e.a.serverSelf()), nil
+}
+
+// hostVerdict is the answer of egress.check. An allow carries the server's
+// own addresses: the add-on dials and sees only its own interfaces, so the
+// public address of this server (the external base URL, a NAT or a proxy in
+// front) comes from the same list web_fetch refuses.
+func hostVerdict(v egress.Verdict, self func() []netip.Prefix) hostops.EgressVerdict {
+	out := hostops.EgressVerdict{Action: v.Action, Reason: v.Reason, AllowPrivate: v.AllowPrivate}
+	if v.Action == egress.Allow && self != nil {
+		out.Self = safehttp.FormatDenyList(self())
+	}
+	return out
 }
 
 func (e addonEgress) Audit(ctx context.Context, c hostops.EgressCall, evs []hostops.EgressEvent) error {

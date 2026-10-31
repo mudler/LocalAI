@@ -106,6 +106,15 @@ type ChatRecord struct {
 type HostConsent struct {
 	ID      string `json:"id"`
 	Command string `json:"command"`
+	// Turn is the turn that asked and AskedAt when. The card waits only while
+	// that turn holds the chat; one left by a frontend that died is expired.
+	Turn    string    `json:"turn,omitempty"`
+	AskedAt time.Time `json:"asked_at,omitzero"`
+	// Decision is the answer (once or deny), written before it is sent on
+	// the chat bus, so the waiting call finds it by reading the record when
+	// the bus message is lost. Empty while the card waits.
+	Decision   string    `json:"decision,omitempty"`
+	AnsweredAt time.Time `json:"answered_at,omitzero"`
 }
 
 // ChatSettings are the model settings of one chat. A nil pointer or a zero

@@ -47,6 +47,12 @@ type EgressVerdict struct {
 	Reason       string `json:"reason"`
 	AllowPrivate bool   `json:"allowPrivate,omitempty"`
 	Card         string `json:"card,omitempty"`
+	// Self lists the addresses of the server as CIDR strings (see
+	// safehttp.FormatDenyList): its interfaces, loopback and the addresses of
+	// the external base URL host. The add-on refuses them on every dial, as
+	// web_fetch does, since it cannot read the server's public address itself.
+	// It is set on an allow.
+	Self []string `json:"self,omitempty"`
 }
 
 // EgressEvent is one line of egress.audit.

@@ -543,6 +543,26 @@ func (s *jsonStore) SetHostConsent(_ context.Context, principal, id string, c *s
 	})
 }
 
+func (s *jsonStore) UpdateHostConsent(_ context.Context, principal, id string, change func(*session.HostConsent) (*session.HostConsent, error)) error {
+	return s.edit(principal, id, func(next *chatState) error {
+		var cur *session.HostConsent
+		if next.Rec.HostConsent != nil {
+			cp := *next.Rec.HostConsent
+			cur = &cp
+		}
+		out, err := change(cur)
+		if err != nil {
+			return err
+		}
+		if out != nil {
+			cp := *out
+			out = &cp
+		}
+		next.Rec.HostConsent = out
+		return nil
+	})
+}
+
 func (s *jsonStore) UpdateEgress(_ context.Context, principal, id string, change func(*egress.ChatState) error) error {
 	return s.edit(principal, id, func(next *chatState) error {
 		st := next.Rec.Egress.Clone()

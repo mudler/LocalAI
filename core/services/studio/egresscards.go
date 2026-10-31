@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -30,9 +31,6 @@ const (
 
 // DefaultEgressCardWait is how long a connection waits for a card's answer.
 const DefaultEgressCardWait = 60 * time.Second
-
-// egressReread is how often a waiting check reads the card again.
-const egressReread = 2 * time.Second
 
 var (
 	// ErrEgressDecision means the person may not give the answer: a private
@@ -74,34 +72,43 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 	k := key(owner.Principal, owner.ID)
 	var want atomic.Value
 	want.Store(newID())
-	answer := make(chan string, 1)
-	cancel := s.bus.OnControl(k, func(m ControlMsg) {
-		if m.Egress != nil && m.Egress.ID == want.Load().(string) {
-			select {
-			case answer <- m.Egress.Decision:
-			default:
-			}
-		}
+	wake, cancel := s.listenConsent(k, func(m ControlMsg) bool {
+		return m.Egress != nil && m.Egress.ID == want.Load().(string)
 	})
 	defer cancel()
 
 	now := s.now().UTC()
-	created := false
+	info := s.chatTurn(ctx, owner.Principal, owner.ID)
+	created, stale := false, false
 	err := s.d.Store.UpdateEgress(ctx, owner.Principal, owner.ID, func(st *egress.ChatState) error {
+		// A pending card nobody waits on (its turn is over, or a frontend
+		// that died left it) expires here: it neither takes a place of the
+		// cap nor gets a second connection to wait on it.
+		_, live := s.liveEgress(*st, info)
 		for _, c := range st.Pending() {
+			if !slices.ContainsFunc(live, func(l egress.Card) bool { return l.ID == c.ID }) {
+				c.State, c.AnsweredAt = egress.CardExpired, now
+				st.PutCard(c)
+				stale = true
+			}
+		}
+		for _, c := range live {
 			if c.Host == r.Host && c.Port == r.Port {
 				want.Store(c.ID)
 				return nil
 			}
 		}
-		if len(st.Pending()) >= egress.MaxPendingCards {
+		if len(live) >= egress.MaxPendingCards {
 			return errEgressCardsFull
 		}
 		st.PutCard(egress.Card{ID: want.Load().(string), Host: r.Host, Port: r.Port, Kind: r.Kind, State: egress.CardPending,
-			Private: r.Private || egress.PrivateLiteral(r.Host), Op: op, AskedAt: now})
+			Private: r.Private || egress.PrivateLiteral(r.Host), Op: op, Turn: consentTurn(info), AskedAt: now})
 		created = true
 		return nil
 	})
+	if stale {
+		s.publishEgress(owner.Principal, owner.ID, "")
+	}
 	switch {
 	case errors.Is(err, errEgressCardsFull):
 		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCardsFull}
@@ -121,23 +128,15 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 			wait = max(left, 0)
 		}
 	}
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
-	tick := time.NewTicker(egressReread)
-	defer tick.Stop()
-	for {
-		select {
-		case <-answer:
-		case <-tick.C:
-		case <-timer.C:
-			return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
-		case <-ctx.Done():
-			return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
-		}
-		if v, done := s.cardVerdict(ctx, owner, id, op, r); done {
-			return v
-		}
+	var v egress.Verdict
+	if !s.waitConsent(ctx, wake, wait, func() bool {
+		var done bool
+		v, done = s.cardVerdict(ctx, owner, id, op, r)
+		return done
+	}) {
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
 	}
+	return v
 }
 
 var errEgressCardsFull = errors.New("studio: the chat has as many network cards waiting as it may")

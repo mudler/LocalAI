@@ -21,7 +21,7 @@ import (
 var _ = Describe("the chats' built-in web tools", func() {
 	It("follows the runtime settings at each call", func() {
 		cfg := &config.ApplicationConfig{}
-		w := newStudioWeb(cfg)
+		w := newStudioWeb(cfg, nil)
 		Expect(w.Enabled(webtools.SearchName)).To(BeTrue())
 		Expect(w.Enabled(webtools.FetchName)).To(BeTrue())
 		Expect(w.Enabled("bash")).To(BeFalse())
@@ -34,7 +34,7 @@ var _ = Describe("the chats' built-in web tools", func() {
 
 	It("searches with the keyless chain by default and with SearXNG alone when one is set", func() {
 		cfg := &config.ApplicationConfig{}
-		w := newStudioWeb(cfg)
+		w := newStudioWeb(cfg, nil)
 		Expect(w.current().Search.Provider().Name()).To(Equal("duckduckgo+brave_html+bing_html"))
 		cfg.ChatsWebSearXNGURL = "https://searx.example.org"
 		Expect(w.current().Search.Provider().Name()).To(Equal("searxng"))
@@ -43,7 +43,7 @@ var _ = Describe("the chats' built-in web tools", func() {
 
 	It("follows the order of chats_web_search_providers, and leaves out SearXNG without an address", func() {
 		cfg := &config.ApplicationConfig{ChatsWebSearchProviders: "bing_html, duckduckgo"}
-		w := newStudioWeb(cfg)
+		w := newStudioWeb(cfg, nil)
 		Expect(w.current().Search.Provider().Name()).To(Equal("bing_html+duckduckgo"))
 		cfg.ChatsWebSearchProviders = "searxng,brave_html"
 		Expect(w.current().Search.Provider().Name()).To(Equal("brave_html"))
@@ -81,7 +81,7 @@ var _ = Describe("the chats' built-in web tools", func() {
 			DeferCleanup(srv.Close)
 			u, _ := url.Parse(srv.URL)
 			cfg = &config.ApplicationConfig{ChatsWebAllowPrivate: true, ChatsWebPorts: u.Port(), ChatsWebSearchProviders: "duckduckgo,bing_html,brave_html"}
-			w = newStudioWeb(cfg)
+			w = newStudioWeb(cfg, nil)
 			// The test server is on this machine, which web tools never reach.
 			w.self = func() []netip.Prefix { return nil }
 			w.endpoints = search.KeylessEndpoints{DuckDuckGo: srv.URL + "/ddg", Brave: srv.URL + "/brave", Bing: srv.URL + "/bing"}
@@ -131,7 +131,7 @@ var _ = Describe("the chats' built-in web tools", func() {
 
 	It("refuses private addresses unless allowed, and keeps the ports of the setting", func() {
 		cfg := &config.ApplicationConfig{}
-		w := newStudioWeb(cfg)
+		w := newStudioWeb(cfg, nil)
 		_, err := w.Fetch(context.Background(), json.RawMessage(`{"url":"http://127.0.0.1/"}`))
 		Expect(err).To(MatchError(ContainSubstring("private network")))
 		_, err = w.Fetch(context.Background(), json.RawMessage(`{"url":"http://example.com:8080/"}`))

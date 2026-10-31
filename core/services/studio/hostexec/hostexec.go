@@ -220,3 +220,8 @@ func (r *Runner) audit(ctx context.Context, res runner.BashResult) {
 func (r *Runner) Events(ctx context.Context, limit int) ([]Event, error) {
 	return r.o.Audit.Events(ctx, limit)
 }
+
+// Prune removes the audit lines older than before.
+func (r *Runner) Prune(ctx context.Context, before time.Time) (int64, error) {
+	return r.o.Audit.Prune(ctx, before)
+}

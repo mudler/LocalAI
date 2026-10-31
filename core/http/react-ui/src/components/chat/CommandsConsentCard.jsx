@@ -6,7 +6,7 @@ import Button from '../ui/Button'
 import Callout from '../ui/Callout'
 import { useAuth } from '../../context/AuthContext'
 import { chatHostExecApi, settingsApi } from '../../utils/api'
-import { SANDBOX_INSTALL_LINK } from '../../utils/chatCommands'
+import { SANDBOX_INSTALL_LINK, consentExpired } from '../../utils/chatCommands'
 
 // The card a command of the built-in bash waits on, when the server asks before
 // each command (chats_host_exec ask). The command runs directly on this
@@ -19,6 +19,7 @@ export default function CommandsConsentCard({ consent }) {
   const { isAdmin } = useAuth()
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [expired, setExpired] = useState(false)
   if (!consent?.id) return null
 
   const answer = async (decision, always = false) => {
@@ -31,9 +32,25 @@ export default function CommandsConsentCard({ consent }) {
       }
       await chatHostExecApi.consent(consent.chatId, consent.id, decision)
     } catch (e) {
-      setError(e.message || 'error')
       setBusy('')
+      // The turn that asked has ended (or its server stopped): nobody waits
+      // on the card, so it shows as not answered, as an expired network card
+      // does, instead of buttons that reach no one.
+      if (consentExpired(e)) {
+        setExpired(true)
+        return
+      }
+      setError(e.message || 'error')
     }
+  }
+
+  if (expired) {
+    return (
+      <div className="cmd-consent" data-testid="chat-host-consent-expired" data-state="expired">
+        <pre className="cmd-consent__command">{consent.command}</pre>
+        <p className="cmd-consent__hint" role="status">{t('tools.consent.expired')}</p>
+      </div>
+    )
   }
 
   return (

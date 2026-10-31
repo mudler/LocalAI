@@ -119,3 +119,10 @@ export function providerTag(card) {
   }
   return null
 }
+
+// consentExpired says whether the answer to the card of a command was refused
+// because the card expired (410 consent_expired): the turn that asked has
+// ended, so nobody waits on the answer and the command did not run.
+export function consentExpired(e) {
+  return e?.status === 410 || e?.body?.error?.type === 'consent_expired'
+}

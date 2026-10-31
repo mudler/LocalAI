@@ -18,6 +18,7 @@ import (
 	"net/netip"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
@@ -73,6 +74,9 @@ type Verdict struct {
 	Reason       string `json:"reason"`
 	AllowPrivate bool   `json:"allowPrivate,omitempty"`
 	Card         string `json:"card,omitempty"`
+	// Self lists the server's own addresses as CIDR strings, sent with an
+	// allow. The proxy refuses them on every dial, besides its own.
+	Self []string `json:"self,omitempty"`
 }
 
 // Event is one line of egress.audit.
@@ -105,6 +109,8 @@ type Options struct {
 	// Resolver resolves host names for the guard. Nil: the system resolver.
 	Resolver safehttp.Resolver
 	// DenyAddrs lists the addresses of this machine. Nil: safehttp.SelfAddrs.
+	// The server's own addresses, which the host sends with each allow, are
+	// refused as well.
 	DenyAddrs func() []netip.Prefix
 	// TreatAsPublic are addresses the guard lets through as public. Tests
 	// only.
@@ -119,11 +125,15 @@ type Options struct {
 
 // Proxy serves port 3128 of every sandbox of the add-on process.
 type Proxy struct {
-	o     Options
-	deny  func() []netip.Prefix
-	mu    sync.Mutex
-	boxes map[string]*box
-	open  int // tunnels of the process
+	o    Options
+	deny func() []netip.Prefix
+	// server holds the server's own addresses as the host sent them last
+	// ([]netip.Prefix). The host owns the list (web_fetch refuses the same
+	// one); the add-on cannot see the server's public address itself.
+	server atomic.Value
+	mu     sync.Mutex
+	boxes  map[string]*box
+	open   int // tunnels of the process
 }
 
 // New returns a proxy. Zero limits take the defaults.
@@ -176,11 +186,26 @@ func New(o Options) *Proxy {
 		o.TLSPort = 443
 	}
 	p := &Proxy{o: o, boxes: map[string]*box{}}
-	p.deny = o.DenyAddrs
-	if p.deny == nil {
-		p.deny = safehttp.SelfAddrs(nil)
+	local := o.DenyAddrs
+	if local == nil {
+		local = safehttp.SelfAddrs(nil)
 	}
+	p.server.Store([]netip.Prefix(nil))
+	p.deny = safehttp.JoinDeny(local, p.serverAddrs)
 	return p
+}
+
+// serverAddrs returns the server's own addresses the host sent last.
+func (p *Proxy) serverAddrs() []netip.Prefix {
+	return p.server.Load().([]netip.Prefix)
+}
+
+// learn keeps the server's own addresses of a verdict. A verdict without
+// them (a host before this field) leaves the last list in force.
+func (p *Proxy) learn(v Verdict) {
+	if len(v.Self) > 0 {
+		p.server.Store(safehttp.ParseDenyList(v.Self))
+	}
 }
 
 // Key names the sandbox of a user and a conversation.
@@ -365,6 +390,7 @@ func (p *Proxy) verdict(ctx context.Context, b *box, op string, a CheckArgs) Ver
 	if err != nil {
 		return Verdict{Action: "block", Reason: "unavailable"}
 	}
+	p.learn(v)
 	if v.Action == "allow" && !a.Private && !v.AllowPrivate {
 		p.cache(b, k)
 	}

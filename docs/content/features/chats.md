@@ -743,7 +743,10 @@ shown when the Sandbox is already installed, or when add-ons are off.
   shared by every frontend), in a file under the data path, or in memory. The
   server log has one line per command with the prefix `[host-exec]`.
   Administrators read the audit with `GET /api/chats/admin/host-exec/events`
-  or the assistant tool `list_host_exec_events`.
+  or the assistant tool `list_host_exec_events`. Lines older than
+  `chats_egress_audit_days` (default 30, the retention of the Sandbox network
+  audit) are removed daily; in a cluster one frontend does it, under an
+  advisory lock. The file store also keeps at most 10000 lines.
 
 The runtime setting `chats_host_exec` (Settings, **Tools**, the `bash` row;
 `LOCALAI_CHATS_HOST_EXEC`) decides who gets it:
@@ -763,14 +766,20 @@ minutes. The server keeps it with the chat, so a reload, or another browser
 or frontend, shows it again and it can still be answered; once the call ends
 the card is gone and the call's line says how it ended. `GET /api/chats/{id}`
 carries the waiting card as `host_consent` (`id` and `command`) while the turn
-runs. The answer is sent with:
+that asked runs. The card names that turn: a card of an earlier turn is not
+shown, also while a later turn runs, and is cleared when the next turn starts.
+An answer to a card with nobody waiting on it (its turn has ended, its
+frontend stopped, or a newer card replaced it) is `410 consent_expired`, and
+the chat shows the card as not answered: the command did not run. The answer
+is sent with:
 
 ```bash
 curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_exec_consent event>","decision":"once"}'
 ```
 
 Only an administrator may send `once`; anyone who owns the chat may send
-`deny`. The call's line in the chat then says what happened: run on this
+`deny`. The first answer counts: the same answer again is `204`, the other one
+`409 already_answered`. The call's line in the chat then says what happened: run on this
 machine, allowed once, refused or not answered (card `host_exec`). A call that
 the Sandbox served carries the card `tool_provider` with the add-on's ID.
 
@@ -778,9 +787,14 @@ the Sandbox served carries the card `tool_provider` with the add-on's ID.
 turn, like the Sandbox's sandboxes: your files are the record, and a chat whose
 next turn runs on another frontend gets a new folder there. The waiting card is
 stored in the chat record (state mode: shared), so any frontend can show it;
-its answer travels on the chat bus to the frontend that runs the turn. A card
-left by a frontend that died is not shown, because no turn runs. The setting
-is a runtime setting like the others.
+its answer is written to the card in the record first and then sent on the
+chat bus to the frontend that runs the turn, which also reads the card again
+every two seconds, so an answer given through any frontend reaches it within
+two seconds even when the bus message is lost, as for the network cards. A card
+left by a frontend that died is not shown and cannot be answered: its turn no
+longer holds the chat, and the reaper, or the next turn, clears it. The
+network cards of the Sandbox follow the same rule. The setting is a runtime
+setting like the others.
 
 ### What the web interface is told
 

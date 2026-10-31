@@ -113,8 +113,15 @@ func (s *Service) egressPolicyOf(ctx context.Context, rec session.ChatRecord, op
 	}
 	now := s.now()
 	st := owner.Egress
+	var live []egress.Card
+	if len(st.Pending()) > 0 {
+		// Only the cards of the turn that runs now count toward the cap and
+		// read as pending; a frontend that died leaves its cards behind.
+		st, live = s.liveEgress(st, s.chatTurn(ctx, owner.Principal, owner.ID))
+		owner.Egress = st
+	}
 	return egressPolicy{rec: owner, attended: attended, chat: egress.Chat{
-		Preset: preset, Rules: st.Rules, Once: st.Grants(op, now), Attended: attended, Pending: st.Pending(),
+		Preset: preset, Rules: st.Rules, Once: st.Grants(op, now), Attended: attended, Pending: live,
 	}}, nil
 }
 

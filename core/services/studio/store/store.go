@@ -122,6 +122,12 @@ type Store interface {
 	// an answer, or clears it with nil. UpdateChat leaves it alone, like the
 	// switches above.
 	SetHostConsent(ctx context.Context, principal, chatID string, c *session.HostConsent) error
+	// UpdateHostConsent changes the consent card in one atomic step: change
+	// gets the card in the record (nil when none) and returns the card to keep
+	// (nil clears it); an error from change leaves the chat as it was and is
+	// returned. Two frontends that answer or clear the same card at once see
+	// each other's change.
+	UpdateHostConsent(ctx context.Context, principal, chatID string, change func(cur *session.HostConsent) (*session.HostConsent, error)) error
 
 	// UpdateEgress changes the network state of a chat (preset, rules, cards,
 	// grants) in one atomic step: change gets the current state and edits it;

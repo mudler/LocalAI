@@ -383,7 +383,8 @@
       "always": "Always on this instance",
       "deny": "Don't run",
       "alwaysHint": "Always on this instance lets every user's chats run commands here without asking (Settings > Tools).",
-      "askAdmin": "Only an administrator can allow commands on this machine. Ask one, or run the command yourself."
+      "askAdmin": "Only an administrator can allow commands on this machine. Ask one, or run the command yourself.",
+      "expired": "Not answered: the turn that asked has ended, so the command did not run."
     },
     "provider": {
       "sandbox": "Sandbox",
