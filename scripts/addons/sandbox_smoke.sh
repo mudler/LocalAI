@@ -53,9 +53,15 @@ dest=$work/package
 mkdir -p "$dest"
 go run ./scripts/addons/cmd/addonpkg extract --config "$config" --layout "$layout" --platform "$platform" --version "$version" --dest "$dest"
 # A release package carries the guest image: without it neither isolated
-# backend can start.
+# backend can start. The build info cannot show it: with -trimpath, Go leaves
+# -ldflags out of it. So look for the reference in the executable itself: the
+# one of SANDBOX_GUEST_IMAGE when it is set, any digest reference otherwise.
 if [ -z "$local_check" ]; then
-    go version -m "$dest/sandbox" | grep -F -- '-X main.guestImage=' >/dev/null || {
+    if [ -n "${SANDBOX_GUEST_IMAGE-}" ]; then
+        grep -aqF -- "$SANDBOX_GUEST_IMAGE" "$dest/sandbox"
+    else
+        grep -aqE -- '[A-Za-z0-9._/:-]+@sha256:[0-9a-f]{64}' "$dest/sandbox"
+    fi || {
         echo 'sandbox_smoke.sh: the packaged executable has no guest image (-X main.guestImage)' >&2
         exit 1
     }

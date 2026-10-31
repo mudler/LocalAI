@@ -130,7 +130,16 @@ var _ = Describe("Tables staleness, replay and races across the owner and two fr
 				// retries with the revision it reads, under the same ID.
 				for attempt := 0; attempt < 40; attempt++ {
 					n := nodes[(i+attempt)%len(nodes)]
-					rev := d.revision(n, "member", res)
+					// The add-on admits four calls at once, and a read it
+					// did not take answers 503 with nothing done. A read is
+					// safe to repeat, so the caller reads again.
+					read := d.read(d.c.Token(n, "member"), res, map[string]any{"tool": "databases-inspect"})
+					if read.Status == http.StatusServiceUnavailable {
+						continue
+					}
+					Expect(read.Status).To(Equal(200), read.String())
+					rev, _ := payload(read)["revision"].(map[string]any)
+					Expect(rev).NotTo(BeNil(), read.String())
 					r := d.apply(n, "member", res, ops[i], "rows-insert", rev, map[string]any{"table": "Entries", "rows": []any{map[string]any{"Item": fmt.Sprintf("b%d", i), "Qty": i}}})
 					// A stale answer retries with the revision just read. A
 					// busy owner (the add-on admits four calls at once) answers

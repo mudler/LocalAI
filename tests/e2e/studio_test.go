@@ -27,6 +27,10 @@ type chatMessage struct {
 	Seq  int64  `json:"seq"`
 	Role string `json:"role"`
 	Text string `json:"text"`
+	// Attachments are the files of a user line; Text holds only its words.
+	Attachments []struct {
+		Name string `json:"name"`
+	} `json:"attachments"`
 }
 
 func chatsBase() string { return strings.TrimSuffix(apiURL, "/v1") + "/api/chats" }

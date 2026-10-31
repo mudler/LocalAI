@@ -249,7 +249,7 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 
 func readModelConfigsFromFileMeasured(file string, timing *loaderTimings, opts ...ConfigLoaderOption) (_ []*ModelConfig, resultErr error) {
 	start := timing.start()
-	f, err := os.ReadFile(file)
+	f, err := os.ReadFile(file) // #nosec G304 -- the path is a model config file the operator configured or one of the models directory
 	timing.add(diagnostics.PhaseReloadYAMLRead, start, err, 1)
 	if err != nil {
 		return nil, fmt.Errorf("readModelConfigsFromFile cannot read config file %q: %w", file, err)

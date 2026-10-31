@@ -63,7 +63,7 @@ func (c *configFileHandler) Register(filename string, handler fileHandler, runNo
 func (c *configFileHandler) callHandler(filename string, handler fileHandler) {
 	rootedFilePath := filepath.Join(c.appConfig.DynamicConfigsDir, filepath.Clean(filename))
 	xlog.Debug("reading file for dynamic config update", "filename", rootedFilePath)
-	fileContent, err := os.ReadFile(rootedFilePath)
+	fileContent, err := os.ReadFile(rootedFilePath) // #nosec G304 -- filename is a registered handler name or the base name of a watch event, inside the configured dynamic config directory
 	if err != nil && !os.IsNotExist(err) {
 		xlog.Error("could not read file", "error", err, "filename", rootedFilePath)
 	}

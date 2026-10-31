@@ -18,7 +18,7 @@ import (
 const (
 	contextKeyUser                = "auth_user"
 	contextKeyRole                = "auth_role"
-	contextKeyAPIKey              = "auth_apikey"
+	contextKeyAPIKey              = "auth_apikey" // #nosec G101 -- the name of a request context key, not a credential
 	contextKeySource              = "auth_source"
 	contextKeyHeaderAuthenticated = "auth_header_authenticated"
 )

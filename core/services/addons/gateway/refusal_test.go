@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -158,6 +159,18 @@ var _ = Describe("a denial that says which denial it is", func() {
 		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
 		_, e = frontend(g).Dispatch(context.Background(), actor, read)
 		Expect(e).To(MatchError(ErrResourceUnreachable))
+	})
+	It("crosses the wire of a resource call typed, so a forwarding frontend answers like the owner", func() {
+		for _, typed := range []error{ErrResourceUnreachable, ErrNotPermitted} {
+			w := httptest.NewRecorder()
+			resourceFailure(w, ResourceCall{Op: resourceSelResolve}, "op-1", typed)
+			Expect(w.Code).To(Equal(http.StatusForbidden))
+			got := resourceReplyError(strings.NewReader(w.Body.String()), w.Code, "op-1")
+			Expect(got).To(MatchError(typed))
+		}
+		// A type that names a denial is no denial without the 403.
+		got := resourceReplyError(strings.NewReader(`{"type":"resource_unreachable"}`), http.StatusServiceUnavailable, "op-1")
+		Expect(errors.Is(got, ErrResourceUnreachable)).To(BeFalse())
 	})
 	It("keeps any other failure to resolve a resource a plain denial, so nothing more is told", func() {
 		for _, cause := range []error{errors.New("record store: row 7 is held by another user"), ErrUnavailable, ErrQuotaReached} {

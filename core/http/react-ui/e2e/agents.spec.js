@@ -83,18 +83,20 @@ test.describe('Agents list', () => {
     await expect(page.locator('[data-agent="code-reviewer"]')).toHaveCount(0)
   })
 
-  test('exports an agent as a file without id, dates or secrets', async ({ page }) => {
-    await installAgents(page)
+  test('exports an agent as the file the server writes, without id, dates or secrets', async ({ page }) => {
+    const s = await installAgents(page)
     await page.goto('/app/agents')
     await page.locator('[data-agent="research-assistant"]').getByRole('button', { name: /More actions/ }).click()
     const download = page.waitForEvent('download')
     await page.getByRole('menuitem', { name: 'Export' }).click()
     const file = await download
     expect(file.suggestedFilename()).toBe('research-assistant.json')
+    expect(s.calls.some(c => c.method === 'GET' && c.url === '/api/chats/agents/a1/export')).toBe(true)
     const body = JSON.parse(await readFile(await file.path(), 'utf8'))
-    expect(body).toMatchObject({ kind: 'localai.chats.agent', name: 'research-assistant', skills: ['citations'], collections: ['handbook'], addons: ['office'] })
-    expect(body.id).toBeUndefined()
-    expect(body.created).toBeUndefined()
+    expect(body).toMatchObject({ version: 1, kind: 'localai-agent' })
+    expect(body.agent).toMatchObject({ name: 'research-assistant', skills: ['citations'], collections: ['handbook'], addons: ['office'] })
+    expect(body.agent.id).toBeUndefined()
+    expect(body.agent.created).toBeUndefined()
   })
 
   test('says why the list is unavailable when agents are off', async ({ page }) => {

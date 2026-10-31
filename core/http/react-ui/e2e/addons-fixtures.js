@@ -53,7 +53,14 @@ const fail = (status, type, extra = {}) => ({ status, contentType: 'application/
 export async function stubAddonRoutes(page) {
   // The real flags, with add-ons on: the other switches keep what the server says.
   await page.context().route('**/api/features', async route => {
-    const real = await (await route.fetch()).json()
+    let real
+    try {
+      real = await (await route.fetch()).json()
+    } catch {
+      // The page closed while the request was in flight (a spec that ends
+      // during a poll): nothing waits for the answer any more.
+      return route.abort().catch(() => {})
+    }
     return route.fulfill({ json: { ...real, addons: true } })
   })
   await page.context().route('**/api/addons/builtin', route => route.fulfill({ json: { builtin: [] } }))

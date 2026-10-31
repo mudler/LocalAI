@@ -98,6 +98,10 @@ type Feed struct {
 	// Only the loop goroutine uses these.
 	cur      int64
 	curKnown bool
+
+	// ticks, when set, replaces the interval ticker: each value starts one
+	// read. Only tests set it, so they decide which writes one read sees.
+	ticks <-chan time.Time
 }
 
 type sub struct {
@@ -201,14 +205,18 @@ func (f *Feed) Close() {
 // loop polls the journal until the last subscriber leaves or the feed closes.
 func (f *Feed) loop() {
 	defer f.wg.Done()
-	t := time.NewTicker(f.o.Interval)
-	defer t.Stop()
+	ticks := f.ticks
+	if ticks == nil {
+		t := time.NewTicker(f.o.Interval)
+		defer t.Stop()
+		ticks = t.C
+	}
 	for {
 		f.pass(f.ctx)
 		select {
 		case <-f.ctx.Done():
 			return
-		case <-t.C:
+		case <-ticks:
 		}
 		f.mu.Lock()
 		if len(f.subs) == 0 {

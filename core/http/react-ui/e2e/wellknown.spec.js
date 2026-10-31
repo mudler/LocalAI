@@ -40,7 +40,12 @@ test('about you: the assistant and the user cards save their files, fill in from
   const saved = await read(request, 'persona')
   expect(saved.data).toEqual({ name: 'Ada', system_prompt: 'Keep answers short.', x_mood: 'calm' })
 
-  // The language and the time zone come from the browser until saved.
+  // The language and the time zone come from the browser until saved. A
+  // user.json that holds only LocalAI's seen record (the pages and the server
+  // write it on their own) is not saved yet either.
+  const seen = { home_examples: { hidden: '2026-10-29' } }
+  await upload(request, '/LocalAI/user.json', { seen })
+  await page.reload()
   const user = page.getByTestId('wk-card-user')
   await expect(user.getByText('From your browser').first()).toBeVisible()
   await expect(user.getByText('Not saved yet.', { exact: false })).toBeVisible()
@@ -51,6 +56,7 @@ test('about you: the assistant and the user cards save their files, fill in from
   const u = (await read(request, 'user')).data
   expect(u.bio).toBe('Product designer in Milan.')
   expect(u.timezone).toBeTruthy()
+  expect(u.seen).toEqual(seen)
 })
 
 test('about you: the source view is validated, a broken file shows its last good version, and revert restores it', async ({ page, request }) => {

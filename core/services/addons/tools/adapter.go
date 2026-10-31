@@ -546,8 +546,10 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 			return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectResource, Note: SelectNote}, nil
 		case err != nil:
 			// A revoked, deleted or foreign reference is the denial of an
-			// unknown resource, and an outage stays an outage.
-			return ToolResult{}, err
+			// unknown resource, so the model reads the same words as for a
+			// resource it named that does not exist. An outage stays an
+			// outage.
+			return refusedResult(name, err)
 		case !toolargs.ValidResourceID(id):
 			return ToolResult{}, gateway.ErrForbidden
 		}
