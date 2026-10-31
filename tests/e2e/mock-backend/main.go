@@ -378,11 +378,16 @@ func (m *MockBackend) PredictStream(in *pb.PredictOptions, stream pb.Backend_Pre
 	// MOCK_LONG_STREAM keeps a turn open for a UI spec that stops it, reloads
 	// the page or types while it runs: a word every 200 ms for at most 30
 	// seconds, and the end of the request ends it at once. A prompt that also
-	// holds MOCK_LONG_STREAM_SHORT lasts about 3 seconds.
+	// holds MOCK_LONG_STREAM_SHORT lasts about 3 seconds, one with
+	// MOCK_LONG_STREAM_MEDIUM about 10: long enough to outlast a page load on
+	// a busy machine, short enough for a spec to wait for its end.
 	if strings.Contains(in.Prompt, "MOCK_LONG_STREAM") {
 		words := 150
-		if strings.Contains(in.Prompt, "MOCK_LONG_STREAM_SHORT") {
+		switch {
+		case strings.Contains(in.Prompt, "MOCK_LONG_STREAM_SHORT"):
 			words = 15
+		case strings.Contains(in.Prompt, "MOCK_LONG_STREAM_MEDIUM"):
+			words = 50
 		}
 		for i := 0; i < words; i++ {
 			select {

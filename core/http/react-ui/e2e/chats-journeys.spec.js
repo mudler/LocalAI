@@ -63,7 +63,11 @@ test.describe('Chat journeys', () => {
   })
 
   test('a reload in the middle of a turn shows the same turn still running, then its end', async ({ page }) => {
-    await startChat(page, 'MOCK_LONG_STREAM MOCK_LONG_STREAM_SHORT reload me')
+    // The turn lasts about 10 seconds: a reload of the coverage build on a
+    // busy runner takes 4 to 5, longer than the 3 of a short turn, which then
+    // ended before the page could show it running.
+    test.setTimeout(60_000)
+    await startChat(page, 'MOCK_LONG_STREAM MOCK_LONG_STREAM_MEDIUM reload me')
     await expect(working(page)).toBeVisible()
     await page.reload()
     await expect(transcript(page).getByText('reload me')).toBeVisible()
