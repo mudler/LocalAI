@@ -35,6 +35,12 @@ type Message struct {
 	// Media goes to the model as parts of this message when the harness can
 	// take them. It is not stored: the files in Files are.
 	Media []Media
+	// Goal marks a message the server sends by itself to go on with the
+	// chat's goal. The transcript keeps it as a RoleGoal line of kind
+	// GoalLineContinue whose Rev is GoalTurn, so it never reads as typed by
+	// the person; the model gets Text as a user message.
+	Goal     bool
+	GoalTurn int
 }
 
 // Upload is one file that came with a message.
@@ -341,7 +347,7 @@ func (c *Chat) summary(ctx context.Context) string {
 	var lines []string
 	size := 0
 	for _, e := range slices.Backward(es) {
-		if e.Role == RoleCheckpoint || e.Role == RoleReasoning {
+		if e.Role == RoleCheckpoint || e.Role == RoleReasoning || (e.Role == RoleGoal && e.Note != GoalLineContinue) {
 			continue
 		}
 		l := e.Role + ": " + CapText(ModelText(e), 1000)
@@ -623,6 +629,9 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
 	}
 	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments}
+	if msg.Goal {
+		entry = Entry{Role: RoleGoal, Text: text, Note: GoalLineContinue, Rev: int64(msg.GoalTurn)}
+	}
 	for {
 		c.mu.Lock()
 		if c.closed {

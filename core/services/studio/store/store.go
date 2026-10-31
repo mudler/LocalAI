@@ -130,6 +130,13 @@ type Store interface {
 	// UpdateChat leaves the state alone.
 	UpdateEgress(ctx context.Context, principal, chatID string, change func(*egress.ChatState) error) error
 
+	// UpdateGoal changes the goal of a chat in one atomic step: change gets a
+	// copy of the current goal (nil when the chat has none) and returns the
+	// goal to keep (nil clears it). An error from change leaves the chat as it
+	// was and is returned. Two frontends that change the same goal at once do
+	// not lose either change. UpdateChat leaves the goal alone.
+	UpdateGoal(ctx context.Context, principal, chatID string, change func(cur *session.Goal) (*session.Goal, error)) error
+
 	// ListChildren returns the sub-agent chats of a parent chat, oldest first.
 	ListChildren(ctx context.Context, principal, parentID string) ([]session.ChatRecord, error)
 

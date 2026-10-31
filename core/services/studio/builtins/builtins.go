@@ -65,6 +65,8 @@ type Chat struct {
 	GroupsOff []string
 	// GroupsOn are the opt-in switch groups the chat switched on.
 	GroupsOn []string
+	// GoalActive is true while the chat works toward an active goal.
+	GoalActive bool
 }
 
 // Tool is one built-in chat tool.

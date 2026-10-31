@@ -95,6 +95,11 @@ func NewJSON(dir string) (Store, error) {
 		if c.Run != "" {
 			// The process that held the claim is gone; the turn did not finish.
 			c.Run, c.Last = "", TurnInterrupted
+			// Nothing goes on with the goal of that turn by itself: the
+			// person sees it paused and resumes it.
+			if g := c.Rec.Goal; g != nil && g.State == session.GoalActive {
+				g.State, g.PausedBy = session.GoalPaused, session.GoalPausedByInterrupted
+			}
 		}
 		// What a request took and nobody confirmed was lost with the process,
 		// the same reset ReapTurns applies.
@@ -419,6 +424,7 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 	c := chatState{Rec: rec}
 	c.Rec.HarnessState = nil
 	c.Rec.Egress = rec.Egress.Clone()
+	c.Rec.Goal = rec.Goal.Clone()
 	if len(rec.HarnessState) > 0 {
 		if err := s.writeState(&c, rec.HarnessState); err != nil {
 			return err
@@ -446,6 +452,7 @@ func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.Ch
 func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.HarnessState = append([]byte(nil), r.HarnessState...)
 	r.Egress = r.Egress.Clone()
+	r.Goal = r.Goal.Clone()
 	return r
 }
 
@@ -550,6 +557,17 @@ func (s *jsonStore) UpdateEgress(_ context.Context, principal, id string, change
 			return err
 		}
 		next.Rec.Egress = st
+		return nil
+	})
+}
+
+func (s *jsonStore) UpdateGoal(_ context.Context, principal, id string, change func(*session.Goal) (*session.Goal, error)) error {
+	return s.edit(principal, id, func(next *chatState) error {
+		g, err := change(next.Rec.Goal.Clone())
+		if err != nil {
+			return err
+		}
+		next.Rec.Goal = g.Clone()
 		return nil
 	})
 }

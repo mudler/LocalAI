@@ -215,8 +215,12 @@ var _ = Describe("the one registry of built-in tools", func() {
 		names := runtimeSettingNames()
 		for _, t := range tools {
 			ids = append(ids, t.ID)
-			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch
-				Expect(t.Group).To(Equal(builtins.GroupTriggers), t.ID)
+			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch; the goal tools: by the goal
+				if t.ID == "goal_done" || t.ID == "goal_blocked" {
+					Expect(t.Group).To(BeEmpty(), t.ID)
+				} else {
+					Expect(t.Group).To(Equal(builtins.GroupTriggers), t.ID)
+				}
 				Expect(t.Setting).To(BeEmpty(), t.ID)
 				continue
 			}
@@ -226,7 +230,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 			}
 			Expect(t.Replaceable).To(BeTrue(), t.ID)
 		}
-		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger"}))
+		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "goal_done", "goal_blocked"}))
 		for _, id := range []string{"web_search", "web_fetch"} {
 			t, ok := svc.Builtins().Lookup(id)
 			Expect(ok).To(BeTrue(), id)

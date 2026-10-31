@@ -65,6 +65,10 @@ const (
 	// The model was asked for an answer from what it had, and the turn ends
 	// as paused; another message lets the work go on. Event.Steps is the limit.
 	KindPaused EventKind = "paused"
+	// KindGoal says that the chat's goal changed: it was set, replaced,
+	// cleared, paused, resumed, reached or blocked, or it counted a turn.
+	// Text is the state ("" when cleared). Read the chat again.
+	KindGoal EventKind = "goal"
 )
 
 // Event is one thing that happened in a chat.

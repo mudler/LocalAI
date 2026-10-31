@@ -65,4 +65,27 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(info.Running).To(BeTrue(), "turn after failed reap = %+v; want still running", info)
 	})
+
+	// A database made before goals existed: AutoMigrate adds the columns and
+	// fills the old rows, so their chats read with no goal and take one.
+	It("migrates a table made before goals", func() {
+		ctx := context.Background()
+		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
+		_, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(db.Exec(`ALTER TABLE studio_chats DROP COLUMN goal`).Error).NotTo(HaveOccurred())
+		Expect(db.Exec(`ALTER TABLE studio_chats DROP COLUMN goal_rev`).Error).NotTo(HaveOccurred())
+		Expect(db.Exec(`INSERT INTO studio_chats (id, principal, title) VALUES ('old', 'alice', 'Old chat')`).Error).NotTo(HaveOccurred())
+		s, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		rec, err := s.GetChat(ctx, "alice", "old")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal).To(BeNil())
+		Expect(s.UpdateGoal(ctx, "alice", "old", func(*session.Goal) (*session.Goal, error) {
+			return &session.Goal{Text: "g", State: session.GoalActive}, nil
+		})).To(Succeed())
+		rec, err = s.GetChat(ctx, "alice", "old")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Goal.Text).To(Equal("g"))
+	})
 })
