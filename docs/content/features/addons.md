@@ -4213,7 +4213,7 @@ The preset of a chat is the lower of its own choice and the ceiling (`chats_egre
 | Bytes from the guest, per call | 64 MiB |
 | Bytes to the guest, per call | 4 GiB |
 
-**Audit.** Every verdict is a line of the audit (who, which chat, host, port, kind, verdict, reason), and every allowed connection adds a `done` line with the address it reached, the bytes each way and how long it lasted. The reason names the rule that decided: `preset`, `allowed_host` (the administrator's always-allowed list), `rule`, `once`, `denied`, `ceiling`, `port`, `private` and the others the proxy adds, such as `idle` and `sni`. Lines older than `chats_egress_audit_days` (default 30) are removed daily.
+**Audit.** Every verdict is a line of the audit (who, which chat, host, port, kind, verdict, reason), and every allowed connection adds a `done` line with the address it reached, the bytes each way and how long it lasted. The reason names the rule that decided: `preset`, `allowed_host` (the administrator's always-allowed list), `rule`, `once`, `denied`, `ceiling`, `port`, `private` and the others the proxy adds, such as `idle` and `sni`. Lines older than `chats_egress_audit_days` (default 30) are removed daily, with the lines of the audit of the commands run on this machine.
 
 **What fails.** Tools that ignore the proxy variables, SSH remotes (`git@...`), raw TCP and UDP, ICMP and DNS from the guest fail, as before.
 

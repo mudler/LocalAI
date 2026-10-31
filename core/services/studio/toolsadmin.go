@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -139,6 +140,24 @@ func (s *Service) AdminBuiltinTools(ctx context.Context, user string) ([]Builtin
 // *hostexec.Runner implements it.
 type HostExecAudit interface {
 	Events(ctx context.Context, limit int) ([]hostexec.Event, error)
+}
+
+// hostExecPruner removes old lines of the audit of the commands.
+// *hostexec.Runner implements it.
+type hostExecPruner interface {
+	Prune(ctx context.Context, before time.Time) (int64, error)
+}
+
+// PruneHostExecAudit removes the lines of the audit of the commands run on
+// this machine older than the retention of the network audit
+// (chats_egress_audit_days): both record what the commands of the chats did.
+// It runs with PruneEgressAudit, on one frontend of a cluster.
+func (s *Service) PruneHostExecAudit(ctx context.Context) (int64, error) {
+	a, ok := s.d.HostExec.(hostExecPruner)
+	if !ok {
+		return 0, nil
+	}
+	return a.Prune(ctx, s.now().Add(-s.auditRetention()))
 }
 
 // HostExecEvents returns the newest lines of the audit of the commands, newest

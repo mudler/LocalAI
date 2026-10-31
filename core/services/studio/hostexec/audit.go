@@ -18,7 +18,9 @@ import (
 
 // The audit is kept like the audit of the shared folders: the auth database in
 // a cluster, so every frontend writes the same audit, or a file under the data
-// path, or memory.
+// path, or memory. Lines older than chats_egress_audit_days are pruned daily,
+// with the audit of the Sandbox network (one frontend of a cluster, under an
+// advisory lock).
 
 // MaxEventsPage bounds one page of the audit.
 const MaxEventsPage = 500
@@ -42,6 +44,8 @@ type AuditStore interface {
 	Add(ctx context.Context, ev Event) error
 	// Events returns the newest lines, newest first.
 	Events(ctx context.Context, limit int) ([]Event, error)
+	// Prune removes the lines older than before and says how many.
+	Prune(ctx context.Context, before time.Time) (int64, error)
 }
 
 type eventRow struct {
@@ -91,6 +95,11 @@ func (g *gormAudit) Events(ctx context.Context, limit int) ([]Event, error) {
 	return out, nil
 }
 
+func (g *gormAudit) Prune(ctx context.Context, before time.Time) (int64, error) {
+	res := g.db.WithContext(ctx).Where("at < ?", before.UTC()).Delete(&eventRow{})
+	return res.RowsAffected, res.Error
+}
+
 type fileAudit struct {
 	mu     sync.Mutex
 	path   string // empty: memory only
@@ -137,6 +146,30 @@ func (s *fileAudit) Add(_ context.Context, ev Event) error {
 		return err
 	}
 	return atomicfile.Write(s.path, raw, 0o600)
+}
+
+func (s *fileAudit) Prune(_ context.Context, before time.Time) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	keep := s.events[:0:0]
+	for _, e := range s.events {
+		if !e.At.Before(before) {
+			keep = append(keep, e)
+		}
+	}
+	n := int64(len(s.events) - len(keep))
+	if n == 0 {
+		return 0, nil
+	}
+	s.events = keep
+	if s.path == "" {
+		return n, nil
+	}
+	raw, err := json.Marshal(s.events)
+	if err != nil {
+		return n, err
+	}
+	return n, atomicfile.Write(s.path, raw, 0o600)
 }
 
 func (s *fileAudit) Events(_ context.Context, limit int) ([]Event, error) {

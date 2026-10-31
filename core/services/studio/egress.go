@@ -54,13 +54,18 @@ func forkEgress(src egress.ChatState) egress.ChatState {
 // an advisory lock; it is safe to run on several, since removing old lines
 // twice changes nothing.
 func (s *Service) PruneEgressAudit(ctx context.Context) (int64, error) {
+	return s.egressAudit().Prune(ctx, s.now().Add(-s.auditRetention()))
+}
+
+// auditRetention is how long the audits of the commands keep a line.
+func (s *Service) auditRetention() time.Duration {
 	days := DefaultEgressAuditDays
 	if s.d.EgressAuditDays != nil {
 		if d := s.d.EgressAuditDays(); d >= 1 && d <= 365 {
 			days = d
 		}
 	}
-	return s.egressAudit().Prune(ctx, s.now().Add(-time.Duration(days)*24*time.Hour))
+	return time.Duration(days) * 24 * time.Hour
 }
 
 // now is the clock of the network decisions.

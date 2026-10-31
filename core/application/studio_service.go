@@ -480,8 +480,8 @@ func (a *Application) studioEgressAudit() audit.Store {
 // studioEgressPruneEvery is how often the network audit loses its old lines.
 const studioEgressPruneEvery = 24 * time.Hour
 
-// startStudioEgressPrune removes the old lines of the network audit once at
-// start and then daily. With a database one frontend does it at each tick,
+// startStudioEgressPrune removes the old lines of the network audit and of the
+// audit of the commands on this machine once at start and then daily. With a database one frontend does it at each tick,
 // under an advisory lock; a standalone process does it alone.
 func (a *Application) startStudioEgressPrune(svc *studio.Service) {
 	ctx := a.backgroundContext()
@@ -491,6 +491,12 @@ func (a *Application) startStudioEgressPrune(svc *studio.Service) {
 			xlog.Warn("Chats: could not prune the Sandbox network audit", "error", err)
 		} else if n > 0 {
 			xlog.Info("Chats: pruned the Sandbox network audit", "lines", n)
+		}
+		n, err = svc.PruneHostExecAudit(ctx)
+		if err != nil {
+			xlog.Warn("Chats: could not prune the audit of the commands on this machine", "error", err)
+		} else if n > 0 {
+			xlog.Info("Chats: pruned the audit of the commands on this machine", "lines", n)
 		}
 	}
 	if a.authDB != nil && a.Distributed() != nil {

@@ -65,7 +65,33 @@ var _ = Describe("the Sandbox network state of a chat", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(n).To(Equal(int64(1)))
 	})
+
+	It("prunes the audit of the commands on this machine with the same retention", func() {
+		st, _ := store.NewJSON("")
+		now := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
+		fx := &prunedHostExec{}
+		svc := newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
+			d.HostExec = fx
+			d.EgressAuditDays = func() int { return 2 }
+			d.Clock = func() time.Time { return now }
+		})
+		n, err := svc.PruneHostExecAudit(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(int64(3)))
+		Expect(fx.before).To(Equal(now.Add(-48 * time.Hour)))
+	})
 })
+
+// prunedHostExec is a built-in bash whose audit records the prune cut-off.
+type prunedHostExec struct {
+	fakeHostExec
+	before time.Time
+}
+
+func (p *prunedHostExec) Prune(_ context.Context, before time.Time) (int64, error) {
+	p.before = before
+	return 3, nil
+}
 
 var _ = Describe("egress.check and egress.audit on the chats service", func() {
 	ctx := context.Background()
