@@ -190,7 +190,8 @@
     "dropHint": "将文件拖到这里，即可附加到下一条消息。",
     "groups": {
       "uploaded": "你提供的文件",
-      "created": "创建和修改的文件"
+      "created": "创建和修改的文件",
+      "working": "工作文件"
     },
     "turn": "第 {{n}} 轮",
     "media": "在上下文中",
@@ -198,7 +199,8 @@
     "changedTag": "已编辑",
     "changedTitle": "助手修改了此文件",
     "download": "下载 {{name}}",
-    "error": "无法读取此对话的文件。"
+    "error": "无法读取此对话的文件。",
+    "workingNote": "助手在处理过程中生成的脚本、数据和日志，保存在此对话的工作文件夹中。"
   },
   "steps": {
     "verb": {
@@ -253,7 +255,12 @@
       "changed": "已更改",
       "deleted": "已删除"
     },
-    "moreFiles": "还有 {{count}} 个"
+    "moreFiles": "还有 {{count}} 个",
+    "alsoSavedWorking_one": "另外保存了 {{count}} 个工作文件",
+    "alsoSavedWorking_other": "另外保存了 {{count}} 个工作文件",
+    "savedWorking_one": "保存了 {{count}} 个工作文件",
+    "savedWorking_other": "保存了 {{count}} 个工作文件",
+    "workingTitle": "工作文件（脚本、日志或草稿）：打开 {{path}}"
   },
   "error": {
     "title": "回复失败",

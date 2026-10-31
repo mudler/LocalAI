@@ -190,7 +190,8 @@
     "dropHint": "Letakkan file di sini untuk melampirkannya ke pesan berikutnya.",
     "groups": {
       "uploaded": "Dari Anda",
-      "created": "Dibuat dan diubah"
+      "created": "Dibuat dan diubah",
+      "working": "File kerja"
     },
     "turn": "giliran {{n}}",
     "media": "Dalam konteks",
@@ -198,7 +199,8 @@
     "changedTag": "Diedit",
     "changedTitle": "Asisten mengubah file ini",
     "download": "Unduh {{name}}",
-    "error": "File obrolan ini tidak dapat dibaca."
+    "error": "File obrolan ini tidak dapat dibaca.",
+    "workingNote": "Skrip, data, dan log yang dibuat asisten selama bekerja. Semuanya disimpan di folder kerja chat ini."
   },
   "steps": {
     "verb": {
@@ -253,7 +255,12 @@
       "changed": "diubah",
       "deleted": "dihapus"
     },
-    "moreFiles": "dan {{count}} lainnya"
+    "moreFiles": "dan {{count}} lainnya",
+    "alsoSavedWorking_one": "Juga menyimpan {{count}} file kerja",
+    "alsoSavedWorking_other": "Juga menyimpan {{count}} file kerja",
+    "savedWorking_one": "Menyimpan {{count}} file kerja",
+    "savedWorking_other": "Menyimpan {{count}} file kerja",
+    "workingTitle": "File kerja (skrip, log, atau draf): buka {{path}}"
   },
   "error": {
     "title": "Balasan gagal",

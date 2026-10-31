@@ -161,22 +161,30 @@ export function previewableBlocks(messages) {
   return out
 }
 
+// A working file: a script, a log or a draft the chat made on the way. The
+// server decides (kind 'working' on the chat's files and on the files of a
+// step's card); a file the user attached is never one.
+export function isWorkingFile(f) {
+  return f?.kind === 'working' && f.origin !== 'user'
+}
+
 // The files a turn created or changed, for the chips under its answer:
-// { path, name, size, kind: 'created' | 'changed' }, created first.
+// { path, name, size, kind: 'created' | 'changed' }, created first. Working
+// files are not listed: the chips name what the chat made for the person.
 export function turnFiles(files, turn) {
   if (!turn) return []
-  const mine = (files || []).filter(f => f.origin !== 'user' && f.turn === turn)
+  const mine = (files || []).filter(f => f.origin !== 'user' && f.turn === turn && !isWorkingFile(f))
   return [...mine.filter(f => !f.changed), ...mine.filter(f => f.changed)]
     .map(f => ({ path: f.path, name: f.name, size: f.size, kind: f.changed ? 'changed' : 'created' }))
 }
 
 // What should open the pane now: the newest file that the assistant created or
-// changed after the watermark, else the newest previewable block of a message
+// changed after the watermark (a working file never opens it), else the newest previewable block of a message
 // after it. since is { turn, seq }: what the chat had when it was opened, so a
 // reload or an old chat opens nothing. null when nothing new qualifies.
 export function autoOpenTarget({ files = [], messages = [], since }) {
   if (!since) return null
-  const fresh = files.filter(f => f.origin !== 'user' && (f.turn || 0) > (since.turn || 0))
+  const fresh = files.filter(f => f.origin !== 'user' && !isWorkingFile(f) && (f.turn || 0) > (since.turn || 0))
   if (fresh.length > 0) {
     const newest = fresh.reduce((a, b) => {
       if ((b.turn || 0) !== (a.turn || 0)) return (b.turn || 0) > (a.turn || 0) ? b : a

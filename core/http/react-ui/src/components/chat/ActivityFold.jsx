@@ -81,7 +81,7 @@ function FoldFrame({ summary, open, live, working, onToggle, icon, children, id 
 
 // The verb, the argument and what came back, as a person reads them.
 // eslint-disable-next-line no-unused-vars
-function ToolText({ label }) {
+function ToolText({ label, working = false }) {
   const { t } = useTranslation('chat')
   return (
     <>
@@ -91,11 +91,12 @@ function ToolText({ label }) {
         // The file a step saved opens in the Files pane. The step line is not
         // a button when it holds this one (see Step), so they do not nest.
         <button
-          type="button" className="cx-step__file" title={t('steps.openFile', { path: label.argTitle })}
-          data-testid="chat-step-file"
+          type="button" className={`cx-step__file${working ? ' cx-step__file--working' : ''}`}
+          title={working ? t('steps.workingTitle', { path: label.argTitle }) : t('steps.openFile', { path: label.argTitle })}
+          data-testid="chat-step-file" data-kind={working ? 'working' : undefined}
           onClick={(e) => { e.stopPropagation(); openChatFile(label.argTitle) }}
         >
-          <Icon name="file-text" />{label.arg}
+          <Icon name={working ? 'file-code' : 'file-text'} />{label.arg}
         </button>
       ) : (
         <span className="cx-step__arg" title={label.argTitle}>{label.arg}</span>
@@ -226,30 +227,55 @@ function ThoughtStep({ text, duration, live, thinking }) {
 
 const baseName = (p) => String(p || '').split('/').pop()
 
+// One file a command saved: a chip that opens it in the preview pane, or, for
+// a deleted file, its name struck out.
+// eslint-disable-next-line no-unused-vars
+function SavedFile({ file: f, t }) {
+  if (f.op === 'deleted') {
+    return (
+      <span className="cx-step__gone" title={f.path} data-op="deleted">
+        <del>{baseName(f.path)}</del> <span className="cx-step__meta">{t('steps.fileOp.deleted')}</span>
+      </span>
+    )
+  }
+  const working = f.kind === 'working'
+  return (
+    <button
+      type="button" className={`cx-step__file${working ? ' cx-step__file--working' : ''}`} title={t('steps.openFile', { path: f.path })}
+      data-testid="chat-step-saved-file" data-op={f.op} data-kind={f.kind || undefined}
+      onClick={(e) => { e.stopPropagation(); openChatFile(f.path) }}
+    >
+      <Icon name={working ? 'file-code' : 'file-text'} />{baseName(f.path)}
+      {f.op === 'changed' && <span className="cx-step__op">{t('steps.fileOp.changed')}</span>}
+    </button>
+  )
+}
+
 // The files a command saved in the user's files (card.files of its step): one
 // chip a file, which opens it in the preview pane like the file of a
-// write_file step. A deleted file has no chip, only its name.
+// write_file step. The working files (kind working, set by the server) fold
+// into one quiet line, "Also saved 2 working files", that opens to their chips.
 // eslint-disable-next-line no-unused-vars
 function StepFiles({ files, more }) {
   const { t } = useTranslation('chat')
+  const [open, setOpen] = useState(false)
   if (!files?.length) return null
+  const main = files.filter(f => f.kind !== 'working')
+  const working = files.filter(f => f.kind === 'working')
   return (
     <div className="cx-step__files" data-testid="chat-step-files">
-      <span className="cx-step__files-label">{t('steps.savedFiles')}</span>
-      {files.map((f) => (f.op === 'deleted' ? (
-        <span key={f.path} className="cx-step__gone" title={f.path} data-op="deleted">
-          <del>{baseName(f.path)}</del> <span className="cx-step__meta">{t('steps.fileOp.deleted')}</span>
-        </span>
-      ) : (
+      {main.length > 0 && <span className="cx-step__files-label">{t('steps.savedFiles')}</span>}
+      {main.map(f => <SavedFile key={f.path} file={f} t={t} />)}
+      {working.length > 0 && (
         <button
-          key={f.path} type="button" className="cx-step__file" title={t('steps.openFile', { path: f.path })}
-          data-testid="chat-step-saved-file" data-op={f.op}
-          onClick={(e) => { e.stopPropagation(); openChatFile(f.path) }}
+          type="button" className="cx-step__working" aria-expanded={open} data-testid="chat-step-working"
+          onClick={(e) => { e.stopPropagation(); setOpen(v => !v) }}
         >
-          <Icon name="file-text" />{baseName(f.path)}
-          {f.op === 'changed' && <span className="cx-step__op">{t('steps.fileOp.changed')}</span>}
+          {t(main.length > 0 ? 'steps.alsoSavedWorking' : 'steps.savedWorking', { count: working.length })}
+          <Icon name="chevron-right" className="cx-step__working-chev" />
         </button>
-      )))}
+      )}
+      {open && working.map(f => <SavedFile key={f.path} file={f} t={t} />)}
       {more > 0 && <span className="cx-step__meta">{t('steps.moreFiles', { count: more })}</span>}
     </div>
   )
@@ -276,7 +302,7 @@ function ToolStep({ text, duration, card }) {
       detail={<ToolDetail name={name} summary={summary} output={shownOut} />}
       after={<StepFiles files={card?.files} more={card?.files_more || 0} />}
     >
-      <ToolText label={label} />
+      <ToolText label={label} working={card?.file_kind === 'working'} />
       {tag && <span className="cx-step__provider" data-testid="chat-step-provider" data-provider={card.kind}>{tc(`tools.provider.${tag.key}`, tag.values)}</span>}
     </Step>
   )

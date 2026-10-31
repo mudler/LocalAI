@@ -220,7 +220,7 @@ export const FIELDS = [
     default: true, fallback: true, apply: 'live', custom: 'tools' },
   // The work folder of each chat (read at each turn, so live).
   { key: 'chats_work_folder', group: 'tools', was: 'chats', kind: 'bool', label: 'Work folder for helper files',
-    desc: 'Tell the chats to put the scripts, logs and drafts they make in a work folder of each chat (Chats/<chat>/work in the user\'s files), so they do not mix with the user\'s own files. The chats mark working files in either case.',
+    desc: 'Tell the chats to put the scripts, logs and drafts they make in a work folder of each chat (Chats/<chat>/work in the user\'s files), so they do not mix with the user\'s own files. The Files pane of a chat lists them apart in either case.',
     default: true, fallback: true, apply: 'live' },
   // The text index of the documents in the files (read at each pass of the
   // indexer, so live).

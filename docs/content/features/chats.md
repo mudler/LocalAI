@@ -513,10 +513,21 @@ curl .../api/chats/3f1c.../files
 #   "kind":"working",...}], ...}
 ```
 
+In the chat:
+
+- **The Files pane** lists what the chat made for you first. The working
+  files are in a group of their own under it, **Working files · N**, folded
+  and quieter; open it to see and preview them. The files you attached are
+  listed as before.
+- **The preview** that opens by itself after a turn shows the newest file
+  that is not a working file. A working file never opens it by itself.
+- **The chips under the answer** name only what the chat made for you.
+- **A step** that saved working files says so in one line ("Also saved 2
+  working files"); click it to see their chips.
+
 An administrator can turn the steering off with **Work folder for helper
 files** (`chats_work_folder`, Settings > Tools). The prompt then names no
-work folder and no nudge is added; the file list still gives each file its
-`kind`.
+work folder and no nudge is added; the pane still shows working files apart.
 The nudge is counted per process: a turn runs on one process, so nothing is
 shared, and a restart only lets the line come once more.
 

@@ -22,7 +22,7 @@ function FileRow({ file, selected, fresh, recent, onSelect, t, tw }) {
   return (
     <li
       className={`ws-row cx-files__row${selected ? ' ws-row--selected' : ''}`}
-      data-testid="chat-file-row" data-origin={file.origin} data-path={file.path}
+      data-testid="chat-file-row" data-origin={file.origin} data-path={file.path} data-kind={file.kind || undefined}
       data-fresh={fresh} data-recent={recent || undefined}
     >
       <Icon name={fileIcon(file.name, file.mime)} className="ws-row__icon" />
@@ -137,7 +137,9 @@ function SelectedPreview({ item, file, focusToken, t }) {
 
 // The preview pane of a chat: the selected file or code block on top, then
 // the chat's files in two groups, what the assistant created or changed and
-// what the person gave it, each with its turn. Files dropped on it are added
+// what the person gave it, each with its turn. The working files (scripts,
+// logs, drafts the assistant made on the way; the server marks them) come
+// last, folded into one quiet line until the person opens it. Files dropped on it are added
 // to the message being written.
 //
 // 360 to 480 px docked beside the thread from 1280 px; below that it covers
@@ -154,6 +156,7 @@ export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], 
   const [dragging, setDragging] = useState(false)
   const bodyRef = useRef(null)
   const [focusToken, setFocusToken] = useState(0)
+  const [showWorking, setShowWorking] = useState(false)
   const groups = groupChatFiles(state.files)
   const sections = [
     { key: 'created', files: [...groups.created, ...groups.changed] },
@@ -169,6 +172,11 @@ export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], 
   useEffect(() => {
     if (selected?.type === 'file' && state.loaded && !currentFile) setSelected(null)
   }, [selected, currentFile, state.loaded])
+  // A working file opened from a step shows its row: the group unfolds.
+  const selectedWorking = groups.working.some(f => f.path === currentFile?.path)
+  useEffect(() => {
+    if (selectedWorking) setShowWorking(true)
+  }, [selectedWorking])
 
   const focusPath = focus?.path
   const focusBlock = focus?.block
@@ -246,6 +254,33 @@ export default function ChatFilesPane({ state, chatId = '', focus, blocks = [], 
             </ul>
           </section>
         ))}
+        {groups.working.length > 0 && (
+          <section className="cx-files__group cx-files__group--working" aria-labelledby="cx-files-working" data-testid="chat-files-working" data-open={showWorking || undefined}>
+            <h3 className="cx-files__heading" id="cx-files-working">
+              <button
+                type="button" className="cx-files__fold" aria-expanded={showWorking} aria-controls={showWorking ? 'cx-files-working-list' : undefined}
+                onClick={() => setShowWorking(v => !v)} data-testid="chat-files-working-toggle"
+              >
+                <Icon name="chevron-right" className="cx-files__fold-chev" />
+                {t('files.groups.working')}
+                <span className="cx-files__count">· {groups.working.length}</span>
+              </button>
+            </h3>
+            {showWorking && (
+              <>
+                <p className="cx-files__fold-note">{t('files.workingNote')}</p>
+                <ul className="ws-list" id="cx-files-working-list">
+                  {groups.working.map(f => (
+                    <FileRow
+                      key={f.path} file={f} selected={currentFile?.path === f.path} onSelect={select} t={t} tw={tw}
+                      fresh={fresh.get(f.path)} recent={false}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
         {state.files.some(f => wellKnownTag(f.path)) && (
           <p className="ws-hint cx-files__hint wk-files-note" data-testid="chat-files-wellknown-note">
             <Icon name="info" /> {tw('discovery.files.learn')}{' '}

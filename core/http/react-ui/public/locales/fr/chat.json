@@ -188,7 +188,8 @@
     "dropHint": "Déposez des fichiers ici pour les joindre à votre prochain message.",
     "groups": {
       "uploaded": "Fournis par vous",
-      "created": "Créés et modifiés"
+      "created": "Créés et modifiés",
+      "working": "Fichiers de travail"
     },
     "turn": "tour {{n}}",
     "media": "Dans le contexte",
@@ -196,7 +197,8 @@
     "changedTag": "Modifié",
     "changedTitle": "L'assistant a modifié ce fichier",
     "download": "Télécharger {{name}}",
-    "error": "Impossible de lire les fichiers de cette conversation."
+    "error": "Impossible de lire les fichiers de cette conversation.",
+    "workingNote": "Scripts, données et journaux créés en cours de route par l'assistant. Ils sont rangés dans le dossier de travail de cette discussion."
   },
   "steps": {
     "verb": {
@@ -251,7 +253,12 @@
       "changed": "modifié",
       "deleted": "supprimé"
     },
-    "moreFiles": "et {{count}} de plus"
+    "moreFiles": "et {{count}} de plus",
+    "alsoSavedWorking_one": "A aussi enregistré {{count}} fichier de travail",
+    "alsoSavedWorking_other": "A aussi enregistré {{count}} fichiers de travail",
+    "savedWorking_one": "A enregistré {{count}} fichier de travail",
+    "savedWorking_other": "A enregistré {{count}} fichiers de travail",
+    "workingTitle": "Fichier de travail (un script, un journal ou un brouillon) : ouvrir {{path}}"
   },
   "error": {
     "title": "La réponse a échoué",
