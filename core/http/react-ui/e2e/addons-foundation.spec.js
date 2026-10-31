@@ -36,6 +36,9 @@ const isAddonAsset = (url) => /\/api\/addons\/[^/]+\/assets\//.test(url)
 // the card of the detail sheet (/app/addons?detail=ID).
 const card = (page) => page.locator(`[data-testid="addon-tile"][data-app="${ID}"]`)
 const sheetCard = (page) => page.getByTestId('addon-detail').locator(`[data-app="${ID}"]`)
+// The state as the sheet's header shows it. The Details area repeats the
+// observed state under Health, so a bare role query would match both.
+const sheetState = (page, name) => sheetCard(page).locator('.ad-pane__meta').getByRole('img', { name: `State: ${name}` })
 
 test.describe.configure({ mode: 'serial' })
 
@@ -117,14 +120,14 @@ test.describe('Add-ons foundation through real servers', () => {
     await expect(page.getByRole('tablist')).toBeVisible()
     await page.goto(`/app/addons?detail=${ID}`)
     await sheetCard(page).getByRole('button', { name: 'Turn off' }).click()
-    await expect(sheetCard(page).getByRole('img', { name: 'State: Off' })).toBeVisible({ timeout: 30_000 })
+    await expect(sheetState(page, 'Off')).toBeVisible({ timeout: 30_000 })
     // The other frontend and the owner see the same stopped add-on: the
     // administrator in the list with its state, a member not at all, because
     // the owner lists a disabled add-on to administrators only.
     for (const node of ['front-a', 'owner']) {
       const other = await browserAs(browser, node, 'admin')
       await other.page.goto(`/app/addons?detail=${ID}`)
-      await expect(sheetCard(other.page).getByRole('img', { name: 'State: Off' })).toBeVisible({ timeout: 30_000 })
+      await expect(sheetState(other.page, 'Off')).toBeVisible({ timeout: 30_000 })
       await other.context.close()
       const member = await browserAs(browser, node, 'member')
       await member.page.goto('/app/addons')
@@ -133,7 +136,7 @@ test.describe('Add-ons foundation through real servers', () => {
       await member.context.close()
     }
     await sheetCard(page).getByRole('button', { name: 'Turn on' }).click()
-    await expect(sheetCard(page).getByRole('img', { name: 'State: Running' })).toBeVisible({ timeout: 30_000 })
+    await expect(sheetState(page, 'Running')).toBeVisible({ timeout: 30_000 })
     await context.close()
   })
 
