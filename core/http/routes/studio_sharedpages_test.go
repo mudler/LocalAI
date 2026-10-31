@@ -141,8 +141,17 @@ var _ = Describe("Chats shared pages endpoints", func() {
 		// Nor bob's frame.
 		Expect(bridge("bob", http.MethodGet, base+"/file?path=data.json", hash, "", nil).Code).To(Equal(http.StatusForbidden))
 
+		// An image read for the frame needs the same consent.
+		write("/shared/team/pages/standup/logo.png", "\x89PNG")
+		rec = bridge("alice", http.MethodGet, base+"/file?encoding=base64&path=logo.png", hash, "", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["media_type"]).To(Equal("image/png"))
+		Expect(bridge("alice", http.MethodGet, base+"/file?encoding=base64&path=logo.png", "", "", nil).Code).To(Equal(http.StatusForbidden))
+		Expect(bridge("alice", http.MethodGet, base+"/file?encoding=base64&path="+q("../../notes.txt"), hash, "", nil).Code).To(Equal(http.StatusBadRequest))
+
 		Expect(s.do("alice", http.MethodDelete, base+"/consent", nil).Code).To(Equal(http.StatusNoContent))
 		Expect(bridge("alice", http.MethodGet, base+"/file?path=data.json", hash, "", nil).Code).To(Equal(http.StatusForbidden), "a revoked consent")
+		Expect(bridge("alice", http.MethodGet, base+"/file?encoding=base64&path=logo.png", hash, "", nil).Code).To(Equal(http.StatusForbidden), "a revoked consent")
 		Expect(get("alice")["consent"]).To(HaveKeyWithValue("state", "none"))
 	})
 

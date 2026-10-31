@@ -62,10 +62,14 @@ type PagesFileList struct {
 	Entries []PagesFile `json:"entries"`
 }
 
-// PagesFileContent is a text file of a page's folder.
+// PagesFileContent is a text file of a page's folder. Read with
+// encoding=base64, it is an image: Content is the bytes in base64, Encoding is
+// "base64" and MediaType the image type of the file's extension.
 type PagesFileContent struct {
 	PagesFile
-	Content string `json:"content"`
+	Content   string `json:"content"`
+	Encoding  string `json:"encoding,omitempty"`
+	MediaType string `json:"media_type,omitempty"`
 }
 
 // PagesWriteRequest writes a text file of a page's folder.

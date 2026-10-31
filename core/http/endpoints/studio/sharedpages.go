@@ -228,12 +228,15 @@ func (h *Handlers) ListSharedPageFiles(c echo.Context) error {
 	return c.JSON(http.StatusOK, out)
 }
 
-// ReadSharedPageFile reads a text file of a shared page.
+// ReadSharedPageFile reads a text file of a shared page, or an image with
+// encoding=base64.
 // @Summary Read a text file of a shared page (bridge files.read).
+// @Description With encoding=base64 the file must be an image, as for your own pages.
 // @Tags pages
 // @Param folder path integer true "shared folder id"
 // @Param name path string true "page name"
 // @Param path query string true "file inside the page's folder"
+// @Param encoding query string false "base64 to read an image"
 // @Success 200 {object} schema.PagesFileContent "The file"
 // @Failure 403 {object} schema.ErrorResponse "You have not allowed this version (page_not_allowed)"
 // @Router /api/chats/shared-pages/{folder}/{name}/file [get]
@@ -248,6 +251,12 @@ func (h *Handlers) ReadSharedPageFile(c echo.Context) error {
 	}
 	if !h.bridgeCheck(c, fc, folder, name) {
 		return nil
+	}
+	if image, ok := imageRead(c); !ok {
+		return nil
+	} else if image {
+		img, err := h.pages.ReadSharedImage(c.Request().Context(), fc.p, folder, name, c.QueryParam("path"))
+		return sendPageImage(c, img, err)
 	}
 	got, err := h.pages.ReadShared(c.Request().Context(), fc.p, folder, name, c.QueryParam("path"))
 	if err != nil {

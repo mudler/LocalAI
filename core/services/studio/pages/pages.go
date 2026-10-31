@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -65,6 +66,7 @@ var (
 	ErrNotFound    = errors.New("pages: not found")
 	ErrTooLarge    = errors.New("pages: the file is larger than 1 MiB")
 	ErrNotText     = errors.New("pages: the file is not UTF-8 text")
+	ErrNotImage    = errors.New("pages: only a png, jpg, gif, webp, avif, bmp, ico or svg file can be read as an image")
 	ErrReadOnly    = errors.New("pages: a page cannot change its own index.html or page.json")
 	ErrRateLimited = errors.New("pages: too many changes; wait a moment")
 	// ErrFolderReadOnly means the viewer may only read the shared folder of the
@@ -420,35 +422,92 @@ func (s *Service) Read(ctx context.Context, principal, name, rel string) (Conten
 }
 
 func (s *Service) readAt(ctx context.Context, l loc, rel string) (Content, error) {
-	rel, err := CleanPath(rel)
+	f, body, err := s.bytesAt(ctx, l, rel)
 	if err != nil {
 		return Content{}, err
-	}
-	if err := s.existsAt(ctx, l); err != nil {
-		return Content{}, err
-	}
-	r, n, err := s.f.Store().Open(ctx, l.a, l.path(rel))
-	if err != nil {
-		return Content{}, mapNotFound(err)
-	}
-	defer func() { _ = r.Close() }()
-	if n.Kind != workspace.KindFile {
-		return Content{}, ErrNotFound
-	}
-	if n.Size > MaxFileSize {
-		return Content{}, ErrTooLarge
-	}
-	body, err := io.ReadAll(io.LimitReader(r, MaxFileSize+1))
-	if err != nil {
-		return Content{}, fmt.Errorf("pages: read %s: %w", rel, err)
-	}
-	if len(body) > MaxFileSize {
-		return Content{}, ErrTooLarge
 	}
 	if !utf8.Valid(body) || bytes.IndexByte(body, 0) >= 0 {
 		return Content{}, ErrNotText
 	}
-	return Content{File: File{Path: rel, Kind: string(n.Kind), Size: n.Size, Version: n.Version}, Content: string(body)}, nil
+	return Content{File: f, Content: string(body)}, nil
+}
+
+// bytesAt reads a file of the page's folder, at most MaxFileSize.
+func (s *Service) bytesAt(ctx context.Context, l loc, rel string) (File, []byte, error) {
+	rel, err := CleanPath(rel)
+	if err != nil {
+		return File{}, nil, err
+	}
+	if err := s.existsAt(ctx, l); err != nil {
+		return File{}, nil, err
+	}
+	r, n, err := s.f.Store().Open(ctx, l.a, l.path(rel))
+	if err != nil {
+		return File{}, nil, mapNotFound(err)
+	}
+	defer func() { _ = r.Close() }()
+	if n.Kind != workspace.KindFile {
+		return File{}, nil, ErrNotFound
+	}
+	if n.Size > MaxFileSize {
+		return File{}, nil, ErrTooLarge
+	}
+	body, err := io.ReadAll(io.LimitReader(r, MaxFileSize+1))
+	if err != nil {
+		return File{}, nil, fmt.Errorf("pages: read %s: %w", rel, err)
+	}
+	if len(body) > MaxFileSize {
+		return File{}, nil, ErrTooLarge
+	}
+	return File{Path: rel, Kind: string(n.Kind), Size: n.Size, Version: n.Version}, body, nil
+}
+
+// The images that the UI may put into a page as data: URLs, by extension. The
+// bridge of a page reads only text; the UI reads these for an <img>, a
+// <source> or a CSS url() of the page before the page runs.
+var imageTypes = map[string]string{
+	".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif",
+	".webp": "image/webp", ".avif": "image/avif", ".bmp": "image/bmp", ".ico": "image/x-icon",
+	".svg": "image/svg+xml",
+}
+
+// ImageType is the media type of an image path, by its extension.
+func ImageType(rel string) (string, bool) {
+	t, ok := imageTypes[strings.ToLower(path.Ext(rel))]
+	return t, ok
+}
+
+// Image is an image file of a page's folder.
+type Image struct {
+	File
+	MediaType string // from the extension, never from the content
+	Data      []byte
+}
+
+// ReadImage returns an image file of the page's folder as bytes. Only the
+// extensions of ImageType are read; anything else is ErrNotImage, so this is
+// no way to read an arbitrary binary file.
+func (s *Service) ReadImage(ctx context.Context, principal, name, rel string) (Image, error) {
+	l, err := s.own(principal, name)
+	if err != nil {
+		return Image{}, err
+	}
+	return s.readImageAt(ctx, l, rel)
+}
+
+func (s *Service) readImageAt(ctx context.Context, l loc, rel string) (Image, error) {
+	if _, err := CleanPath(rel); err != nil {
+		return Image{}, err
+	}
+	t, ok := ImageType(rel)
+	if !ok {
+		return Image{}, ErrNotImage
+	}
+	f, body, err := s.bytesAt(ctx, l, rel)
+	if err != nil {
+		return Image{}, err
+	}
+	return Image{File: f, MediaType: t, Data: body}, nil
 }
 
 // Write stores a file in the page's folder and creates missing folders. With

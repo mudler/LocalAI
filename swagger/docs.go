@@ -6174,6 +6174,7 @@ const docTemplate = `{
         },
         "/api/chats/pages/{name}/file": {
             "get": {
+                "description": "With encoding=base64 the file must be an image (png, jpg, gif, webp, avif, bmp, ico or svg, by extension) and content is its bytes in base64. The UI uses it to put the images next to a page into the page as data: URLs; the bridge of a page reads text only.",
                 "tags": [
                     "pages"
                 ],
@@ -6192,6 +6193,12 @@ const docTemplate = `{
                         "name": "path",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "base64 to read an image",
+                        "name": "encoding",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6214,7 +6221,7 @@ const docTemplate = `{
                         }
                     },
                     "415": {
-                        "description": "The file is not UTF-8 text",
+                        "description": "The file is not UTF-8 text, or not an image with encoding=base64",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -6678,6 +6685,7 @@ const docTemplate = `{
         },
         "/api/chats/shared-pages/{folder}/{name}/file": {
             "get": {
+                "description": "With encoding=base64 the file must be an image, as for your own pages.",
                 "tags": [
                     "pages"
                 ],
@@ -6703,6 +6711,12 @@ const docTemplate = `{
                         "name": "path",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "base64 to read an image",
+                        "name": "encoding",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -24026,8 +24040,14 @@ const docTemplate = `{
                 "content": {
                     "type": "string"
                 },
+                "encoding": {
+                    "type": "string"
+                },
                 "kind": {
                     "description": "file or dir",
+                    "type": "string"
+                },
+                "media_type": {
                     "type": "string"
                 },
                 "path": {
