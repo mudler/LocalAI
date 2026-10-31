@@ -85,11 +85,19 @@ test.describe('Deleting from the Trash for good', () => {
     await expect(page.getByTestId('ws-trash-summary')).toHaveText('The Trash is empty.')
     await expect(empty).toBeDisabled()
     await expect(page.getByTestId('ws-trash-done')).toContainText('Deleted permanently:')
-    // The count in the tab is gone too, and nothing comes back after a reload.
+    // Nothing comes back after a reload: not in the Trash, not in Files. The
+    // Trash itself is the one of the test server's single user, which the
+    // specs of the other workers fill meanwhile, so it is not asked to be
+    // empty here.
+    const trashText = await (await page.request.get('/api/chats/files/trash')).text()
+    expect(trashText).not.toContain(`bulk-${stamp}-`)
     await page.reload()
     await openTrash(page)
-    await expect(page.getByTestId('ws-trash-summary')).toHaveText('The Trash is empty.')
-    await expect(page.getByTestId('ws-empty-trash')).toBeDisabled()
+    await expect(trashRows(page).filter({ hasText: `bulk-${stamp}-` })).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Files' }).click()
+    // The home always holds the LocalAI settings folder: the list has loaded.
+    await expect(page.getByTestId('ws-row').filter({ hasText: 'LocalAI' }).first()).toBeVisible()
+    await expect(page.getByTestId('ws-row').filter({ hasText: `bulk-${stamp}-` })).toHaveCount(0)
   })
 
   test('a deleted folder counts its files and folders', async ({ page }) => {
