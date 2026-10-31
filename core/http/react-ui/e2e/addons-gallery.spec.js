@@ -260,41 +260,105 @@ test.describe('Add-ons: apps', () => {
   })
 })
 
+// The stand-in counts a read when the request arrives, before the page has its
+// answer. The page sets its next timer only once it has read the answer, so a
+// spec that moves the clock as soon as a request arrives can move it past a
+// timer that does not exist yet. This counts the answers the page has read.
+async function countAppsAnswers(page) {
+  await page.addInitScript(() => {
+    window.__appsAnswers = 0
+    const original = window.fetch
+    window.fetch = async (...args) => {
+      const response = await original(...args)
+      const target = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || ''
+      if (!/\/api\/addons\/apps$/.test(new URL(target, window.location.href).pathname)) return response
+      const json = response.json.bind(response)
+      response.json = async () => {
+        try { return await json() } finally { window.__appsAnswers += 1 }
+      }
+      return response
+    }
+  })
+}
+
+// Lets the page finish the work it has queued (the render of a new list and
+// its effects). A message channel is not under the page clock.
+const settle = (page) => page.evaluate(async () => {
+  for (let i = 0; i < 10; i++) {
+    await new Promise(resolve => {
+      const channel = new MessageChannel()
+      channel.port1.onmessage = () => resolve()
+      channel.port2.postMessage(null)
+    })
+  }
+})
+
+// Pauses the page clock a moment ahead of its own time. On a slow machine that
+// moment can pass before the pause arrives, so a pause in the past is retried.
+async function pauseClock(page) {
+  for (let attempt = 0; ; attempt++) {
+    const now = await page.evaluate(() => Date.now())
+    try {
+      await page.clock.pauseAt(now + 500)
+      return
+    } catch (error) {
+      if (attempt >= 4 || !String(error).includes('to the past')) throw error
+    }
+  }
+}
+
+// Waits until read `n` has arrived and the page has read its answer.
+async function appsAnswered(page, state, n) {
+  await expect.poll(() => state.log.appsList).toBe(n)
+  await expect.poll(() => page.evaluate(() => window.__appsAnswers)).toBe(n)
+  await settle(page)
+}
+
 test.describe('Add-ons: registry polling', () => {
   const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chats'); window.dispatchEvent(new PopStateEvent('popstate')) })
   const contributing = (over = {}) => app({ ui: { entry: '/api/addons/notes/assets/' + 'c'.repeat(64) + '/ui.js', css: [], sdk: { min: 1, max: 2 }, pages: ['home'], navigation: ['home'] }, ...over })
 
   test('apps: an add-on that contributes UI keeps the list current off the page and its disable stops the reads', async ({ page }) => {
     await signIn(page, MEMBER, { addons: true })
+    await countAppsAnswers(page)
     await page.clock.install()
     const state = await mockAddons(page, { apps: [contributing()] })
     await page.goto('/app/addons')
     await expect(page.locator('[data-app="notes"]')).toBeVisible()
+    // The clock is paused before the registry takes over, so from here only
+    // runFor moves it and a slow machine cannot make a read come early.
+    await pauseClock(page)
+    await page.waitForTimeout(150)
+    await settle(page)
+    const onPage = state.log.appsList
+    await expect.poll(() => page.evaluate(() => window.__appsAnswers)).toBe(onPage)
     await leave(page)
     await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
-    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50)
-    await expect.poll(() => state.log.appsList).toBeGreaterThanOrEqual(1)
-    // Reads continue, one per interval and no faster. The clock only moves
-    // by runFor, and each step waits for its answer before the next one.
+    // Off the page the registry reads the list at once. Each step waits until
+    // the page has read the answer, and so has set its next timer, before the
+    // clock moves again.
+    await appsAnswered(page, state, onPage + 1)
     const before = state.log.appsList
+    // Reads continue, one per interval and no faster.
     await page.clock.runFor(4_000)
     await page.waitForTimeout(150)
+    await settle(page)
     expect(state.log.appsList).toBe(before)
     await page.clock.runFor(1_100)
-    await expect.poll(() => state.log.appsList).toBe(before + 1)
+    await appsAnswered(page, state, before + 1)
     for (let n = 2; n <= 4; n++) {
       await page.clock.runFor(5_100)
-      await expect.poll(() => state.log.appsList).toBe(before + n)
+      await appsAnswered(page, state, before + n)
     }
     // The owner disables it: the next list withdraws the contribution, and
     // with nothing left to keep current the reads stop.
     state.apps[0].enabled = false
     state.apps[0].state = 'stopped'
     await page.clock.runFor(5_100)
-    await expect.poll(() => state.log.appsList).toBe(before + 5)
-    await page.waitForTimeout(150)
+    await appsAnswered(page, state, before + 5)
     await page.clock.runFor(180_000)
     await page.waitForTimeout(300)
+    await settle(page)
     expect(state.log.appsList).toBe(before + 5)
   })
 
