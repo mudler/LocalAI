@@ -20,6 +20,7 @@ layout model for an authored PDF.
 - pdf2image uses Poppler to render pages; Pillow handles the resulting images.
 - pdfplumber and pypdf extract text and tables.
 - Scanned pages without a usable text layer need OCR. No OCR tool is installed here, so say that a scanned page could not be read.
+- To find a PDF by its words, or to read its text, `search_files` and `read_file` work without running anything: the server reads the text of PDF, Word, Excel and PowerPoint files when they are written.
 
 A visible rectangle does not remove underlying PDF content. Redaction changes the protected page
 content; overlays and annotations do not.
