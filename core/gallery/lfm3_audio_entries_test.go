@@ -17,9 +17,9 @@ import (
 // cleanly and fails at the first session.
 var _ = Describe("gallery/index.yaml LFM3-Audio entries", func() {
 	const (
-		repoResolve = "https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/"
+		repoResolve = "https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/main/"
 		mmprojQ8    = "mmproj-LFM3-Audio-2B-Q8_0.gguf"
-		mmprojSHA   = "26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e"
+		mmprojSHA   = "2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365"
 	)
 
 	byName := func() map[string]gallery.GalleryModel {
