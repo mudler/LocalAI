@@ -182,7 +182,18 @@ type Entry struct {
 	// list in Text and neither field: DisplayEntry splits it.
 	Attachments []Attachment `json:",omitempty"`
 	Note        string       `json:",omitempty"`
-	At          time.Time
+	// Loop is set on a user message that a loop of the chat sent by itself,
+	// not the person. The interface labels the message with it.
+	Loop *LoopMark `json:",omitempty"`
+	At   time.Time
+}
+
+// LoopMark names the loop run that sent a user message.
+type LoopMark struct {
+	ID  string `json:"id"`
+	Run int    `json:"run"`
+	// SelfPaced is true when the model decides when the loop runs again.
+	SelfPaced bool `json:"self_paced,omitempty"`
 }
 
 // Entry roles.
