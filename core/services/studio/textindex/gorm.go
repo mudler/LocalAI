@@ -227,7 +227,7 @@ func (s *gormStore) Move(ctx context.Context, from, to string) error {
 func (s *gormStore) Pending(ctx context.Context, prefix string, limit int) ([]Entry, error) {
 	var rows []textRow
 	q := under(s.db.WithContext(ctx).Select(metaColumns).Where("status = ?", string(StatusPending)), prefix)
-	if err := q.Order("updated, node_id").Limit(limitOr(limit, 20)).Find(&rows).Error; err != nil {
+	if err := q.Order("updated, node_id").Limit(limitOr(limit, defaultLimit)).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return fromRows(rows), nil
@@ -236,7 +236,7 @@ func (s *gormStore) Pending(ctx context.Context, prefix string, limit int) ([]En
 func (s *gormStore) List(ctx context.Context, prefix string, afterID int64, limit int) ([]Entry, error) {
 	var rows []textRow
 	q := under(s.db.WithContext(ctx).Select(metaColumns).Where("node_id > ?", afterID), prefix)
-	if err := q.Order("node_id").Limit(limitOr(limit, 100)).Find(&rows).Error; err != nil {
+	if err := q.Order("node_id").Limit(limitOr(limit, defaultListLimit)).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return fromRows(rows), nil
@@ -248,7 +248,7 @@ func (s *gormStore) Search(ctx context.Context, q Query) ([]Entry, error) {
 		db = s.contains(db, q.Contains)
 	}
 	var rows []textRow
-	if err := db.Order("node_id").Limit(limitOr(q.Limit, 20)).Find(&rows).Error; err != nil {
+	if err := db.Order("node_id").Limit(limitOr(q.Limit, defaultLimit)).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	return fromRows(rows), nil

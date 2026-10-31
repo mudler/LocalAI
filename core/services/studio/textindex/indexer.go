@@ -325,15 +325,16 @@ func (ix *Indexer) readPending(ctx context.Context) error {
 		var firstErr error
 		for _, e := range list {
 			sem <- struct{}{}
-			wg.Add(1)
-			go func(e Entry) {
-				defer func() { <-sem; wg.Done() }()
+			wg.Go(func() {
+				defer func() { <-sem }()
 				if err := ix.read(ctx, e); err != nil {
 					mu.Lock()
-					firstErr = cmpErr(firstErr, err)
+					if firstErr == nil {
+						firstErr = err
+					}
 					mu.Unlock()
 				}
-			}(e)
+			})
 		}
 		wg.Wait()
 		if firstErr != nil {
@@ -345,13 +346,6 @@ func (ix *Indexer) readPending(ctx context.Context) error {
 		done += len(list)
 	}
 	return nil
-}
-
-func cmpErr(a, b error) error {
-	if a != nil {
-		return a
-	}
-	return b
 }
 
 // read reads one pending file and stores what came of it. An error is
