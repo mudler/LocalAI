@@ -23,7 +23,7 @@ An agent has:
 | `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors](/features/chats-connectors/#mcp-servers) as `connector:<id>`. The form lists both. |
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
-| `skills` | Names of skills. |
+| `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
 | `network` | The network of the [Sandbox]({{%relref "features/addons#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
 
 Each list is an exact grant. An empty list grants nothing: a chat with an agent

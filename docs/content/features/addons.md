@@ -843,7 +843,9 @@ needs none of them.
 ### Skills
 
 An add-on can ship skills, the procedures a chat model reads before a task
-(see [Skills]({{%relref "features/chats#skills" %}})). The manifest declares
+(see [Skills]({{%relref "features/chats#skills" %}})). The model loads one by
+its name with the chat's `load_skill` tool, which also names the files of the
+skill's folder, such as `references/`, for `read_file`. The manifest declares
 them in `capabilities.skillDefinitions` and the package holds the files:
 
 ```json
@@ -912,7 +914,7 @@ tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
 
 - **In a chat.** While the add-on can serve (installed, running, usable by the
   user and on for the chat), the model sees one `xlsx` skill, the add-on's,
-  and the built-in one is hidden. The index grows by nothing: one line
+  and the built-in one is hidden: `load_skill xlsx` returns the add-on's. The index grows by nothing: one line
   replaces another. A skill a person writes (folder, personal or shared) still
   wins over the add-on's.
 - **The built-in comes back.** When the add-on is stopped, off for the chat or

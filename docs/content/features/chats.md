@@ -975,7 +975,9 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 ## Skills
 
-A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, with the path of each, and the model reads a skill with its file tools when it needs it. Other files in the skill's folder, such as references and scripts, are read the same way. The model reads a skill with `read_file`, not with the Sandbox, which does not see the skill folders; when a read of a skill fails because the path is wrong, the error names the right path. A `SKILL.md` over 64 KiB is refused.
+A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, by name and description only, and tells the model to call the `load_skill` tool with a skill's name before a task that matches it. `load_skill` returns the instructions of the skill, the text after its frontmatter. It offers exactly the skills of that list: for each name the nearest skill, not switched off, and the skills of the add-ons the chat can use now. Any other name is refused with the names of the chat's skills and the near ones first (for example `Did you mean pdf?` for `PDF`).
+
+When the folder of a skill holds other files, such as references and scripts, the answer starts with `Base directory for this skill:` and the folder, and names up to 20 of the files, relative to it, so the model reads them with `read_file`. A sub-agent that has no `read_file` gets the instructions only. A skill with `requires: [exec]` in a chat that cannot run commands answers that it cannot be used there. Every chat with at least one skill has `load_skill`, and a sub-agent gets it with its parent's other tools. It has no switch and Settings > Tools does not list it; the Skills menu chooses what it offers. The Sandbox does not see the skill folders (the built-in `bash` does, see [Commands on this machine](#commands-on-this-machine)). When the model reads a `SKILL.md` with `read_file` at a wrong path, the error names the right path and `load_skill`. A `SKILL.md` over 64 KiB is refused.
 
 Skills come from five places, nearest first, and the nearest wins when two have the same name:
 
@@ -987,7 +989,7 @@ Skills come from five places, nearest first, and the nearest wins when two have 
 | Add-on | ships with an installed add-on | the add-on owner |
 | Built-in | ships with the server | the server |
 
-The add-on layer holds the skills of the add-ons that the chat can use now: installed, running, usable by you and on for the chat (see [Add-on tools](#add-on-tools)). A chat with a saved agent gets them only for the add-ons the agent grants. The model reads one at `/workspace/shared-addon-skills/<add-on>/<skill>/SKILL.md`; the add-on ID in the path says where it comes from. Switching the add-on off for a chat takes its skills out of that chat's index, and the skill list shows each one with `addon` and `addon_title`. Its switch id is `addon:<name>`.
+The add-on layer holds the skills of the add-ons that the chat can use now: installed, running, usable by you and on for the chat (see [Add-on tools](#add-on-tools)). A chat with a saved agent gets them only for the add-ons the agent grants. The model loads one by its name with `load_skill`; its files are in `/workspace/shared-addon-skills/<add-on>/<skill>/`, where the add-on ID says where it comes from. Switching the add-on off for a chat takes its skills out of that chat's index, and the skill list shows each one with `addon` and `addon_title`. Its switch id is `addon:<name>`.
 
 An add-on can also replace a built-in skill of the same name, for example the Office add-on's own `xlsx`, written for its tools. The add-on's skill then serves and the built-in one shows `shadowed: "addon"` with `shadowed_by`, the add-on's ID. When the add-on is off for the chat or not running, or you switch its skill off (`addon:xlsx`), the built-in skill serves again: the model is told in one line, and the built-in skill in the skill list carries `fallback`, the add-on's title. When several add-ons replace one skill, the one installed first serves until an administrator chooses another in Settings > Tools, under **Skills that add-ons replace**, or with the switch in the add-on's details on the Add-ons page.
 
@@ -1255,8 +1257,8 @@ authentication on, and the other way round. Copy them with the files API.
 When files are off, every files route and every attachment answers `409` with
 the reason, the list endpoint returns `"files": false` and `files_reason`, and
 everything else in the chats works. A chat then has no skills either, not even
-the built-in ones: the model reads a skill with the file tools, and every
-built-in skill works on files or runs commands.
+the built-in ones, and no `load_skill`: skills are files, and every built-in
+skill works on files or runs commands.
 
 In a cluster the bytes go to the object store, so a file written through one
 frontend is read through another. That needs S3 (the storage URL setting); `docker-compose.distributed.yaml` sets it up with Garage.
