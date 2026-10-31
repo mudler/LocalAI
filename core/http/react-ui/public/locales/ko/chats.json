@@ -187,7 +187,10 @@
       "adminLink": "샌드박스 네트워크 설정 열기",
       "askAdmin": "이 서버의 관리자에게 변경을 요청하세요 (설정 > Tools > 샌드박스 네트워크).",
       "rowOff": "꺼짐: 관리자가 네트워크 접근을 허용하지 않았습니다."
-    }
+    },
+    "allowedHosts": "관리자가 항상 허용함:",
+    "allowedHostsOff": "네트워크가 켜져 있을 때 적용됩니다.",
+    "allowedHostsNote": "관리자가 호스트 {{count}}개를 항상 허용합니다."
   },
   "inbox": {
     "empty": "아직 아무것도 없습니다.",

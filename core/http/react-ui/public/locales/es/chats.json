@@ -187,7 +187,10 @@
       "adminLink": "Abrir los ajustes de la red del Sandbox",
       "askAdmin": "Pide a un administrador de este servidor que lo cambie (Ajustes > Tools > Red del Sandbox).",
       "rowOff": "Desactivada: el administrador no ha permitido el acceso a la red."
-    }
+    },
+    "allowedHosts": "Siempre permitidos por tu administrador:",
+    "allowedHostsOff": "Se aplican cuando la red está activada.",
+    "allowedHostsNote": "Tu administrador permite siempre {{count}} hosts."
   },
   "inbox": {
     "empty": "Todavía no hay nada.",

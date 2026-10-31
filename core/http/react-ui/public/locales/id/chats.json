@@ -187,7 +187,10 @@
       "adminLink": "Buka pengaturan jaringan Sandbox",
       "askAdmin": "Minta administrator server ini untuk mengubahnya (Pengaturan > Tools > Jaringan Sandbox).",
       "rowOff": "Mati: administrator belum mengizinkan akses jaringan."
-    }
+    },
+    "allowedHosts": "Selalu diizinkan oleh administrator Anda:",
+    "allowedHostsOff": "Berlaku saat jaringan aktif.",
+    "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda."
   },
   "inbox": {
     "empty": "Belum ada apa pun.",

@@ -187,7 +187,10 @@
       "adminLink": "Apri le impostazioni della rete del Sandbox",
       "askAdmin": "Chiedi a un amministratore di questo server di cambiarlo (Impostazioni > Tools > Rete del Sandbox).",
       "rowOff": "Disattivata: l’amministratore non ha consentito l’accesso alla rete."
-    }
+    },
+    "allowedHosts": "Sempre consentiti dal tuo amministratore:",
+    "allowedHostsOff": "Valgono quando la rete è attiva.",
+    "allowedHostsNote": "{{count}} host sono sempre consentiti dal tuo amministratore."
   },
   "inbox": {
     "empty": "Ancora niente qui.",

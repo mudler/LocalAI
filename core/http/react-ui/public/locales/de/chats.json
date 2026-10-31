@@ -187,7 +187,10 @@
       "adminLink": "Sandbox-Netzwerk-Einstellungen öffnen",
       "askAdmin": "Bitten Sie einen Administrator dieses Servers, das zu ändern (Einstellungen > Tools > Sandbox-Netzwerk).",
       "rowOff": "Aus: Der Administrator hat keinen Netzwerkzugriff erlaubt."
-    }
+    },
+    "allowedHosts": "Von Ihrem Administrator immer erlaubt:",
+    "allowedHostsOff": "Sie gelten, wenn das Netzwerk eingeschaltet ist.",
+    "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt."
   },
   "inbox": {
     "empty": "Noch nichts hier.",

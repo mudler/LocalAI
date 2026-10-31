@@ -187,7 +187,10 @@
       "adminLink": "Ouvrir les paramètres du réseau du Sandbox",
       "askAdmin": "Demandez à un administrateur de ce serveur de le modifier (Paramètres > Tools > Réseau du Sandbox).",
       "rowOff": "Désactivé : l’administrateur n’a pas autorisé l’accès au réseau."
-    }
+    },
+    "allowedHosts": "Toujours autorisés par votre administrateur :",
+    "allowedHostsOff": "Ils s’appliquent quand le réseau est activé.",
+    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur."
   },
   "inbox": {
     "empty": "Rien ici pour l'instant.",

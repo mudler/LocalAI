@@ -187,7 +187,10 @@
       "adminLink": "打开沙盒网络设置",
       "askAdmin": "请让此服务器的管理员更改（设置 > Tools > 沙盒网络）。",
       "rowOff": "关闭：管理员尚未允许网络访问。"
-    }
+    },
+    "allowedHosts": "管理员始终允许：",
+    "allowedHostsOff": "网络开启时生效。",
+    "allowedHostsNote": "管理员始终允许 {{count}} 个主机。"
   },
   "inbox": {
     "empty": "这里还没有内容。",

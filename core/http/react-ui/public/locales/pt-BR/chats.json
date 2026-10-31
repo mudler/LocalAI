@@ -187,7 +187,10 @@
       "adminLink": "Abrir as configurações da rede do Sandbox",
       "askAdmin": "Peça a um administrador deste servidor para alterá-lo (Configurações > Tools > Rede do Sandbox).",
       "rowOff": "Desligada: o administrador não permitiu o acesso à rede."
-    }
+    },
+    "allowedHosts": "Sempre permitidos pelo seu administrador:",
+    "allowedHostsOff": "Eles valem quando a rede está ligada.",
+    "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador."
   },
   "inbox": {
     "empty": "Nada por aqui ainda.",
