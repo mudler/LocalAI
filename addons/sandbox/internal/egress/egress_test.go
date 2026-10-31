@@ -238,6 +238,45 @@ var _ = Describe("the proxy", func() {
 		Expect(sni).To(Equal(2))
 	})
 
+	It("checks the TLS server name on a port other than the TLS port, and lets other protocols through", func() {
+		port := portOf(tlsSrv.URL)
+		f := newFixture(0, allow, egress.Limits{}) // the TLS port stays 443
+		end := f.proxy.Begin(context.Background(), "alice", "c1", "op1")
+
+		c, br, resp := connect(f, fmt.Sprintf("public.test:%d", port))
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		tc := tls.Client(&bufConn{Conn: c, r: br}, &tls.Config{ServerName: "other.test", InsecureSkipVerify: true}) //nolint:gosec // a test server
+		_ = tc.SetDeadline(time.Now().Add(5 * time.Second))
+		Expect(tc.Handshake()).NotTo(Succeed(), "a ClientHello for another name is cut")
+
+		c2, br2, resp2 := connect(f, fmt.Sprintf("public.test:%d", port))
+		Expect(resp2.StatusCode).To(Equal(http.StatusOK))
+		tc2 := tls.Client(&bufConn{Conn: c2, r: br2}, &tls.Config{ServerName: "public.test", InsecureSkipVerify: true}) //nolint:gosec // a test server
+		_ = tc2.SetDeadline(time.Now().Add(5 * time.Second))
+		Expect(tc2.Handshake()).To(Succeed())
+		_, _ = io.WriteString(tc2, "GET / HTTP/1.1\r\nHost: public.test\r\nConnection: close\r\n\r\n")
+		r2, err := http.ReadResponse(bufio.NewReader(tc2), nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(body(r2)).To(Equal("secure"))
+		_ = tc2.Close()
+
+		plainPort := portOf(plainSrv.URL)
+		c3, br3, resp3 := connect(f, fmt.Sprintf("public.test:%d", plainPort))
+		Expect(resp3.StatusCode).To(Equal(http.StatusOK))
+		_, _ = io.WriteString(c3, "GET / HTTP/1.1\r\nHost: public.test\r\nConnection: close\r\n\r\n")
+		r3 := readResponse(c3, br3, nil)
+		Expect(body(r3)).To(Equal("plain"), "bytes that are not TLS pass unchanged")
+		end()
+		reasons := map[string]int{}
+		for _, e := range f.host.audit() {
+			reasons[e.Verdict]++
+			if e.Reason == "sni" {
+				reasons["sni"]++
+			}
+		}
+		Expect(reasons).To(Equal(map[string]int{"block": 1, "sni": 1, "done": 2}))
+	})
+
 	It("answers a block with 403 and the line the model reads, and does not cache it", func() {
 		var mu sync.Mutex
 		verdict := egress.Verdict{Action: "block", Reason: "off"}

@@ -228,19 +228,33 @@ func (p *Proxy) connect(ctx context.Context, b *box, op string, conn net.Conn, b
 		return
 	}
 	var first []byte
+	var guestR io.Reader = br
+	var sniff *tlsSniff
 	if a.TLS {
 		_ = conn.SetReadDeadline(p.o.Now().Add(p.o.Limits.Hello))
 		rec, sni, err := readClientHello(br)
 		_ = conn.SetReadDeadline(time.Time{})
-		if err != nil || !strings.EqualFold(strings.TrimSuffix(sni, "."), host) {
+		if err != nil || !sniMatches(sni, host) {
 			// Not TLS, no name, or the name of another tenant of the same
 			// front (domain fronting).
 			b.record(Event{Host: host, Port: port, Kind: a.Kind, Verdict: "block", Reason: "sni", Addr: addr, At: start}, false)
 			return
 		}
 		first = rec
+	} else {
+		// Another port may carry anything, and the server may speak first,
+		// so nothing is awaited. But a tunnel whose first bytes are TLS must
+		// name the host, as on the TLS port: an always-allowed host:8443 is
+		// not a front for other names.
+		sniff = &tlsSniff{r: br, host: host}
+		guestR = sniff
 	}
-	upN, downN := p.pipe(ctx, b, conn, br, up, first)
+	upN, downN := p.pipe(ctx, b, conn, guestR, up, first)
+	if sniff != nil && sniff.refused.Load() {
+		b.record(Event{Host: host, Port: port, Kind: a.Kind, Verdict: "block", Reason: "sni", Addr: addr, BytesUp: upN, BytesDown: downN,
+			DurationMS: p.o.Now().Sub(start).Milliseconds(), At: start}, false)
+		return
+	}
 	b.record(Event{Host: host, Port: port, Kind: a.Kind, Verdict: "done", Reason: v.Reason, Addr: addr, BytesUp: upN, BytesDown: downN,
 		DurationMS: p.o.Now().Sub(start).Milliseconds(), At: start}, false)
 }
@@ -478,4 +492,49 @@ func (p *Proxy) forward(ctx context.Context, b *box, op string, conn net.Conn, r
 	b.record(Event{Host: host, Port: port, Kind: a.Kind, Verdict: "done", Reason: v.Reason, Addr: addr, BytesUp: upN, BytesDown: body.n,
 		DurationMS: p.o.Now().Sub(start).Milliseconds(), At: start}, false)
 	return keep && werr == nil && !body.fail
+}
+
+// sniMatches says whether the server name of a ClientHello is the host of
+// the CONNECT.
+func sniMatches(sni, host string) bool {
+	return strings.EqualFold(strings.TrimSuffix(sni, "."), host)
+}
+
+// errSNI says a tunnel started with a TLS ClientHello for another host.
+var errSNI = errors.New("the TLS server name is not the host of the tunnel")
+
+// tlsSniff reads the guest side of a tunnel on a port other than the TLS
+// port. When the first byte is a TLS handshake record, it reads the whole
+// ClientHello and passes it on only when its server name is the host;
+// otherwise the bytes pass unchanged.
+type tlsSniff struct {
+	r       *bufio.Reader
+	host    string
+	checked bool
+	pending []byte
+	refused atomic.Bool
+}
+
+func (t *tlsSniff) Read(p []byte) (int, error) {
+	if !t.checked {
+		t.checked = true
+		b, err := t.r.Peek(1)
+		if err != nil {
+			return 0, err
+		}
+		if b[0] == 0x16 {
+			rec, sni, err := readClientHello(t.r)
+			if err != nil || !sniMatches(sni, t.host) {
+				t.refused.Store(true)
+				return 0, errSNI
+			}
+			t.pending = rec
+		}
+	}
+	if len(t.pending) > 0 {
+		n := copy(p, t.pending)
+		t.pending = t.pending[n:]
+		return n, nil
+	}
+	return t.r.Read(p)
 }
