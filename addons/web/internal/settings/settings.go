@@ -40,7 +40,7 @@ type Settings struct {
 }
 
 // Defaults are the settings before any choice: every provider in the default
-// order, so only DuckDuckGo is ready.
+// order, so only the keyless entry is ready.
 func Defaults() Settings { return Settings{Order: slices.Clone(providers.Names)} }
 
 func (s Settings) clone() Settings {

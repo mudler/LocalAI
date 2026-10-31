@@ -493,7 +493,7 @@ func (h *Handlers) SearchFiles(c echo.Context) error {
 	if err != nil {
 		return failFile(c, err)
 	}
-	out := schema.ChatsSearchResult{Hits: make([]schema.ChatsSearchHit, 0, len(res.Hits)), Indexing: res.Indexing}
+	out := schema.ChatsSearchResult{Hits: make([]schema.ChatsSearchHit, 0, len(res.Hits)), Indexing: res.Indexing, Limited: res.Limited}
 	for _, hit := range res.Hits {
 		h := schema.ChatsSearchHit{Path: hit.Path, Kind: string(hit.Kind), Line: hit.Line, Snippet: hit.Snippet, Document: hit.Document}
 		switch hit.Section.Kind {

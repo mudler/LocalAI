@@ -8,3 +8,4 @@
 .web-settings { display: flex; flex-direction: column; gap: var(--dk-space-5, 1.25rem); min-width: 0; }
 .web-settings__serving { margin: 0; font-size: var(--dk-text-13, 13px); }
 .web-settings__name { display: inline-flex; align-items: center; gap: var(--dk-space-3, 0.75rem); font-family: var(--dk-font-body); }
+.web-settings__cooling { margin: 0; padding-left: var(--dk-space-5, 1.25rem); font-size: var(--dk-text-13, 13px); color: var(--dk-muted); }

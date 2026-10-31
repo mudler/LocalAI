@@ -36,6 +36,8 @@ const (
 	defaultBatch        = 200
 	defaultSetsPerPass  = 5000
 	defaultFilesPerPass = 200
+	defaultSweepEvery   = 30 * time.Second
+	defaultSweepBatch   = 200
 )
 
 // Reasons of skipped and failed entries.
@@ -86,6 +88,10 @@ type Options struct {
 	// SetsPerPass bounds the journal change sets one pass applies, and
 	// FilesPerPass the files one pass reads, so a backfill goes in steps.
 	SetsPerPass, FilesPerPass int
+	// SweepEvery is how often a pass checks a batch of SweepBatch entries
+	// for nodes that are gone; 0: 30 s and 200.
+	SweepEvery time.Duration
+	SweepBatch int
 	// Extract replaces the reader, for tests.
 	Extract ExtractFunc
 	// Now replaces the clock, for tests.
@@ -101,6 +107,13 @@ type Indexer struct {
 	o    Options
 	kick chan struct{}
 	solo sync.Mutex // a pass at a time when there is no database lock
+
+	// The sweep goes through the entries a batch at a time. Where it is and
+	// when it runs next are in the memory of this process: another frontend
+	// that wins the lock sweeps from its own place, which only repeats work.
+	sweepMu    sync.Mutex
+	sweepAfter int64
+	sweepNext  time.Time
 }
 
 // New returns an Indexer. Start it with Run.
@@ -125,6 +138,12 @@ func New(o Options) *Indexer {
 	}
 	if o.FilesPerPass <= 0 {
 		o.FilesPerPass = defaultFilesPerPass
+	}
+	if o.SweepEvery <= 0 {
+		o.SweepEvery = defaultSweepEvery
+	}
+	if o.SweepBatch <= 0 {
+		o.SweepBatch = defaultSweepBatch
 	}
 	if o.Extract == nil {
 		o.Extract = extract.ExtractWith
@@ -188,6 +207,9 @@ func (ix *Indexer) Pass(ctx context.Context) error {
 		if err := ix.catchUp(ctx); err != nil {
 			return err
 		}
+		if err := ix.sweep(ctx); err != nil {
+			return err
+		}
 		return ix.readPending(ctx)
 	}
 	if ix.o.DB != nil {
@@ -216,26 +238,72 @@ func (ix *Indexer) Enqueue(ctx context.Context, n workspace.Node, owner string) 
 
 // Forget removes the entries at or below prefix whose node is gone, after a
 // purge erased nodes for good (their journal rows go with them, so a pass
-// would not see the delete).
+// would not see the delete), and the whole texts that no entry needs any
+// more. When it cannot finish (the process stops, the store fails), the
+// sweep of the passes removes what is left.
 func (ix *Indexer) Forget(ctx context.Context, prefix string) error {
 	var after int64
 	for {
 		list, err := ix.o.Store.List(ctx, prefix, after, 200)
-		if err != nil || len(list) == 0 {
+		if err != nil {
 			return err
 		}
-		var gone []int64
-		for _, e := range list {
-			n, err := ix.o.Workspace.Stat(ctx, ix.o.Admin, e.Path)
-			if errors.Is(err, workspace.ErrNotFound) || (err == nil && n.ID != e.NodeID) {
-				gone = append(gone, e.NodeID)
-			}
-			after = e.NodeID
+		if len(list) == 0 {
+			return ix.o.Store.PruneDocuments(ctx)
 		}
-		if err := ix.o.Store.Delete(ctx, gone...); err != nil {
+		if err := ix.dropGone(ctx, list); err != nil {
 			return err
+		}
+		after = list[len(list)-1].NodeID
+	}
+}
+
+// dropGone deletes the entries of list whose node is gone: no node at the
+// path, or another node there.
+func (ix *Indexer) dropGone(ctx context.Context, list []Entry) error {
+	var gone []int64
+	for _, e := range list {
+		n, err := ix.o.Workspace.Stat(ctx, ix.o.Admin, e.Path)
+		if errors.Is(err, workspace.ErrNotFound) || (err == nil && n.ID != e.NodeID) {
+			gone = append(gone, e.NodeID)
 		}
 	}
+	return ix.o.Store.Delete(ctx, gone...)
+}
+
+// sweep checks one batch of entries, at most every SweepEvery, and deletes
+// those whose node is gone. A purge erases the journal rows of what it
+// erases, so only this finds the entries a Forget left behind; it goes
+// round all the entries, then prunes the whole texts and starts again. It
+// runs after catchUp, so a move the journal holds is applied first.
+func (ix *Indexer) sweep(ctx context.Context) error {
+	ix.sweepMu.Lock()
+	now := ix.o.Now()
+	if now.Before(ix.sweepNext) {
+		ix.sweepMu.Unlock()
+		return nil
+	}
+	ix.sweepNext = now.Add(ix.o.SweepEvery)
+	after := ix.sweepAfter
+	ix.sweepMu.Unlock()
+
+	list, err := ix.o.Store.List(ctx, "/", after, ix.o.SweepBatch)
+	if err != nil {
+		return err
+	}
+	if err := ix.dropGone(ctx, list); err != nil {
+		return err
+	}
+	next := int64(0)
+	if len(list) == ix.o.SweepBatch {
+		next = list[len(list)-1].NodeID
+	} else if err := ix.o.Store.PruneDocuments(ctx); err != nil {
+		return err
+	}
+	ix.sweepMu.Lock()
+	ix.sweepAfter = next
+	ix.sweepMu.Unlock()
+	return nil
 }
 
 // catchUp applies the journal after the cursor, a batch at a time, and

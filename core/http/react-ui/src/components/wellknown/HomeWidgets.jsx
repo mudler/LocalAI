@@ -7,7 +7,9 @@ import Skeleton from '../Skeleton'
 import { ProblemDetails } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { filesApi } from '../../utils/api'
-import { widgetList, widgetData, cleanWidgets, move, sparkPath, formatMetric, wellKnownProblem, WIDGET_TYPES } from '../../utils/wellKnown'
+import { widgetList, widgetData, cleanWidgets, move, sparkPath, formatMetric, wellKnownProblem, itemLinkTarget, WIDGET_TYPES } from '../../utils/wellKnown'
+import PageLinkAsk from '../PageLinkAsk'
+import { usePageLinks } from '../../hooks/usePageLinks'
 import { cadenceOf, footerState, linkedTrigger, scheduledCount } from '../../utils/widgetTrigger'
 import { useHomeTriggers } from '../../hooks/useHomeTriggers'
 import WidgetFooter from './WidgetFooter'
@@ -15,6 +17,7 @@ import PageTile from './PageTile'
 import { usePages } from '../../hooks/usePages'
 import { useSharedPages } from '../../hooks/useSharedPages'
 import { MAX_PAGE_TILES, eligiblePages, refKey, tileRef, tileSize } from '../../utils/pageTiles'
+import '../../pages/pages.css'
 import './wellKnown.css'
 
 function shortTime(ts, locale) {
@@ -35,6 +38,10 @@ function shortTime(ts, locale) {
 // resumes or retries the trigger.
 function DataWidget({ w, triggers }) {
   const { t } = useTranslation('workspace')
+  const { t: tp } = useTranslation('pages')
+  // An external item link asks first, like a link of a page: the data file is
+  // written by trigger runs and the assistant, which read web text.
+  const links = usePageLinks()
   const wk = useWellKnown('widget-data', { file: w.source, enabled: !!w.source })
   const d = useMemo(() => (wk.error ? { state: 'error', errors: [wk.error.message], items: [], series: [], value: null } : widgetData(wk.doc)), [wk.doc, wk.error])
   const left = d.items?.filter(it => !it.done).length || 0
@@ -69,11 +76,14 @@ function DataWidget({ w, triggers }) {
         {d.items.slice(0, 8).map((it, i) => (
           <li key={i} className={it.done ? 'is-done' : undefined}>
             <span className={`wk-box${it.done ? ' wk-box--done' : ''}`} aria-hidden="true">{it.done && <Icon name="check" />}</span>
-            {it.link?.external ? (
-              <a className="wk-t wk-link" href={it.link.href} target="_blank" rel="noopener noreferrer" title={t('wellKnown.home.opensSite', { host: it.link.host })} data-testid="widget-item-link">
+            {itemLinkTarget(it.link) ? (
+              <button
+                type="button" className="wk-t wk-link" data-href={it.link.href} title={t('wellKnown.home.opensSite', { host: it.link.host })} data-testid="widget-item-link"
+                onClick={() => { links.onLink(itemLinkTarget(it.link)) }}
+              >
                 <span className="wk-link__text">{it.label}</span><Icon name="external-link" className="wk-link__ext" />
-              </a>
-            ) : it.link ? (
+              </button>
+            ) : it.link && !it.link.external ? (
               <Link className="wk-t wk-link" to={it.link.to} title={it.label} data-testid="widget-item-link">
                 <span className="wk-link__text">{it.label}</span>
               </Link>
@@ -100,6 +110,11 @@ function DataWidget({ w, triggers }) {
     >
       <h2><span>{w.title}</span>{aside}</h2>
       <div className="wk-widget__body">{body}</div>
+      {links.link && (
+        <div className="wk-widget__ask">
+          <PageLinkAsk key={links.link.id} link={links.link} t={tp} label={t('wellKnown.home.linkAsk')} onOpen={links.open} onCancel={links.cancel} />
+        </div>
+      )}
       {state && (
         <WidgetFooter
           id={footId} state={state} w={w} d={d} trigger={trigger} proposal={proposal} act={triggers.act}

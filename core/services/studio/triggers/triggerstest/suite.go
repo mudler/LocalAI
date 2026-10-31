@@ -97,6 +97,44 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		en, _ := s.EnabledTriggers(ctx)
 		Expect(en).To(BeEmpty(), "a change record is never enabled")
 	})
+	It("sets the outcome of a change record only from the outcome it names, once for concurrent callers", func() {
+		s := newStore()
+		tr := sample("c2", "1", "Morning")
+		tr.Enabled, tr.Proposed, tr.Outcome = false, true, ""
+		tr.Change = triggers.Change{Op: triggers.ChangeUpdate, Target: "t1", Stamp: "abc", On: true}
+		Expect(s.PutTrigger(ctx, tr)).To(Succeed())
+		at := base.Add(3 * time.Hour)
+		var wg sync.WaitGroup
+		var won atomic.Int32
+		for range 8 {
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				ok, err := s.SetOutcome(ctx, "c2", "", triggers.OutcomeAccepted, at)
+				Expect(err).NotTo(HaveOccurred())
+				if ok {
+					won.Add(1)
+				}
+			}()
+		}
+		wg.Wait()
+		Expect(won.Load()).To(Equal(int32(1)))
+		got, err := s.GetTrigger(ctx, "c2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Outcome).To(Equal(triggers.OutcomeAccepted))
+		Expect(got.OutcomeAt.Sub(at).Abs()).To(BeNumerically("<", res+time.Microsecond))
+		Expect(got.Change).To(Equal(tr.Change), "the rest of the record stays")
+		ok, err := s.SetOutcome(ctx, "c2", "", triggers.OutcomeDeclined, at)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		ok, err = s.SetOutcome(ctx, "c2", triggers.OutcomeAccepted, triggers.OutcomeUndone, at)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		ok, err = s.SetOutcome(ctx, "nope", "", triggers.OutcomeAccepted, at)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+	})
 	It("does not find an unknown trigger", func() {
 		s := newStore()
 		_, err := s.GetTrigger(ctx, "nope")

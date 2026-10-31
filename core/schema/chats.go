@@ -541,6 +541,10 @@ type ChatsSearchResult struct {
 	// Indexing counts the documents below the path whose text is not read
 	// yet: the same search a moment later may find more.
 	Indexing int `json:"indexing,omitempty"`
+	// Limited is set when the search stopped at one of its limits before it
+	// looked at every file below the path: a file that matches may be
+	// missing, so narrow the path or the query.
+	Limited bool `json:"limited,omitempty"`
 }
 
 // ChatsSkill is a skill a chat can use.

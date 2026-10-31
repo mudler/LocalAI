@@ -159,3 +159,51 @@ test.describe('Backends gallery - list', () => {
     await expect(row(page, 'diffusers')).toContainText('Not installed')
   })
 })
+
+// A filtered list that shows nothing offers Clear filters in both views, and
+// the button brings the full list back.
+test.describe('Backends - Clear filters', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/backends*', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          backends: [
+            { name: 'llama-cpp', description: 'GGUF inference', installed: true, version: '1.52.0', tags: ['chat'] },
+            { name: 'whisper', description: 'Speech to text', installed: true, version: '1.8.2', tags: ['transcript'] },
+          ],
+        }),
+      })
+    })
+    // The installed list is GET /backends; the page itself is /app/backends.
+    await page.route((url) => url.pathname === '/backends', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { Name: 'llama-cpp', Metadata: { version: '1.52.0' } },
+          { Name: 'whisper', Metadata: { version: '1.8.2' } },
+        ]),
+      })
+    })
+  })
+
+  test('the Catalog with a filter that matches nothing clears it', async ({ page }) => {
+    await page.goto('/app/backends?state=video')
+    const clear = page.getByTestId('backends-clear-filters')
+    await expect(clear).toBeVisible({ timeout: 10_000 })
+    await expect(row(page, 'llama-cpp')).toHaveCount(0)
+    await clear.click()
+    await expect(row(page, 'llama-cpp')).toBeVisible()
+    await expect(row(page, 'whisper')).toBeVisible()
+    await expect(page).not.toHaveURL(/state=/)
+  })
+
+  test('the Installed view with a search that matches nothing clears it', async ({ page }) => {
+    await page.goto('/app/backends?view=installed&q=no-such-backend')
+    const clear = page.getByTestId('backends-clear-filters')
+    await expect(clear).toBeVisible({ timeout: 10_000 })
+    await clear.click()
+    await expect(row(page, 'llama-cpp')).toBeVisible()
+    await expect(page).not.toHaveURL(/q=/)
+  })
+})

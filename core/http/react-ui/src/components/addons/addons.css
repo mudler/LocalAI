@@ -84,26 +84,7 @@
 .ad-apps { display: flex; flex-direction: column; gap: var(--sp-4); }
 .ad-attention { display: grid; gap: var(--sp-2); }
 .ad-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
-.ad-search { position: relative; flex: 1 1 16rem; min-width: 0; display: flex; align-items: center; }
-.ad-search > .lai-icon { position: absolute; left: 10px; width: 16px; height: 16px; color: var(--dk-muted); pointer-events: none; }
-.ad-search__input { width: 100%; padding-left: 34px; }
-.ad-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-md); background: var(--dk-inset); }
-.ad-seg__item {
-  height: calc(var(--ctl-h) - 4px);
-  padding: 0 var(--sp-3);
-  border: 0;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--dk-muted);
-  font: inherit;
-  font-size: var(--fs-small);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--dur-instant) var(--ease-out), color var(--dur-instant) var(--ease-out);
-}
-.ad-seg__item:hover { color: var(--dk-text); }
-.ad-seg__item[aria-pressed="true"] { background: var(--dk-card); color: var(--dk-text); box-shadow: var(--shadow-subtle); }
-.ad-seg__item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* The search box and the state filter are the kit's SearchField and Segmented. */
 
 .ad-tiles {
   list-style: none;
@@ -464,8 +445,8 @@
 @media (max-width: 639px) {
   .ad-tabs { gap: var(--sp-4); }
   .ad-toolbar { flex-direction: column; align-items: stretch; }
-  .ad-search { flex: none; }
-  .ad-seg { align-self: flex-start; }
+  .ad-toolbar .ui-search { flex: none; }
+  .ad-toolbar .ui-seg { align-self: flex-start; }
   .ad-tile { grid-template-columns: minmax(0, 1fr); padding-right: 0; }
   .ad-tile__open { padding-right: var(--sp-4); }
   .ad-tile__desc { white-space: normal; }

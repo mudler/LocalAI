@@ -127,6 +127,7 @@
         "scheduleNote_other": "{{count}} widgets se mettent à jour selon un horaire. Leurs exécutions utilisent vos modèles et comptent dans votre utilisation."
       },
       "opensSite": "{{host}} : s'ouvre dans un nouvel onglet",
+      "linkAsk": "Ce widget veut ouvrir un lien",
       "invalid": "La disposition de votre Home contient des erreurs, et il n’existe pas de version valide antérieure.",
       "invalidFallback": "La disposition de votre Home contient des erreurs. Home affiche sa dernière version valide.",
       "page": {
@@ -571,6 +572,7 @@
     "slide": "diapositive {{n}}",
     "indexing_one": "{{count}} document est encore en cours d’indexation : relancez la recherche dans un instant pour l’inclure.",
     "indexing_other": "{{count}} documents sont encore en cours d’indexation : relancez la recherche dans un instant pour les inclure.",
+    "limited": "Résultats limités : la recherche s’est arrêtée à ses limites avant de parcourir tous les fichiers. Cherchez dans un dossier ou avec d’autres mots pour voir le reste.",
     "filtering_one": "{{count}} élément de ce dossier correspond à « {{query}} ».",
     "filtering_other": "{{count}} éléments de ce dossier correspondent à « {{query}} ».",
     "everywhere": "Rechercher « {{query}} » dans tous les fichiers",

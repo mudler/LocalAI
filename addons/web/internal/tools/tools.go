@@ -10,7 +10,10 @@
 // (pkg/web/safehttp, in this process: the add-on is trusted code with its own
 // network access, and the guard is what keeps a model's URL away from
 // internal addresses), the same text extraction and the same untrusted-content
-// framing. What the add-on adds is the providers that need a key, tried in the
+// framing. The keyless entry of the order is the built-in's keyless chain
+// (DuckDuckGo, then the Brave Search and Bing result pages, with the same
+// cool-down), so installing the add-on without a key does not make search
+// worse. What the add-on adds is the providers that need a key, tried in the
 // administrator's order, and the text of PDF files.
 package tools
 
@@ -64,12 +67,14 @@ type Admin interface {
 
 // Endpoints are the addresses of the providers. Tests point them at fakes.
 type Endpoints struct {
-	Brave, Tavily, Google, DuckDuckGo string
+	Brave, Tavily, Google string
+	// Keyless are the result pages of the keyless chain.
+	Keyless search.KeylessEndpoints
 }
 
 // DefaultEndpoints are the documented addresses.
 func DefaultEndpoints() Endpoints {
-	return Endpoints{Brave: providers.BraveEndpoint, Tavily: providers.TavilyEndpoint, Google: providers.GoogleEndpoint, DuckDuckGo: search.DuckDuckGoEndpoint}
+	return Endpoints{Brave: providers.BraveEndpoint, Tavily: providers.TavilyEndpoint, Google: providers.GoogleEndpoint, Keyless: search.DefaultKeylessEndpoints()}
 }
 
 // Options configure the runtime.
@@ -77,7 +82,7 @@ type Options struct {
 	Settings *settings.Store
 	// Admin may be nil: the settings tools then refuse every change.
 	Admin Admin
-	// Fetch reads a URL for fetch and for DuckDuckGo. Nil: the guarded
+	// Fetch reads a URL for fetch and for the keyless pages. Nil: the guarded
 	// client of pkg/web/safehttp with the built-in's policy.
 	Fetch webtools.Fetcher
 	// Endpoints zero: DefaultEndpoints.
@@ -100,11 +105,12 @@ func NewFetcher() *safehttp.Client {
 type runtime struct {
 	o Options
 
-	mu    sync.Mutex
-	rev   int
-	built bool
-	tools webtools.Tools
-	chain []search.Provider
+	mu       sync.Mutex
+	rev      int
+	built    bool
+	tools    webtools.Tools
+	chain    []search.Provider
+	fallback *search.Fallback
 }
 
 // New returns the runtime of the executable.
@@ -141,11 +147,24 @@ func (r *runtime) build(s settings.Settings) []search.Provider {
 		case providers.SearXNG:
 			p, err = search.NewSearXNG(s.SearXNGURL)
 		case providers.DuckDuckGo:
-			// Reached through the guarded client: its address is fixed, the
-			// redirects it answers with are not.
-			p = search.NewDuckDuckGo(r.o.Fetch, r.o.Endpoints.DuckDuckGo)
+			// The keyless entry is the built-in's keyless chain, each page
+			// reached through the guarded client: their addresses are fixed,
+			// the redirects they answer with are not.
+			out = append(out, r.keyless()...)
+			continue
 		}
 		if err == nil && p != nil {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// keyless returns the providers of the built-in keyless chain, in its order.
+func (r *runtime) keyless() []search.Provider {
+	var out []search.Provider
+	for _, n := range search.KeylessOrder {
+		if p, err := search.NewKeyless(n, r.o.Fetch, r.o.Endpoints.Keyless); err == nil {
 			out = append(out, p)
 		}
 	}
@@ -166,11 +185,27 @@ func (r *runtime) current() (webtools.Tools, []search.Provider) {
 	}
 	chain := r.build(s)
 	t := webtools.Tools{Fetch: pdfGuard{r.o.Fetch}, PDF: r.o.PDF, SettingsHint: settingsHint}
+	r.fallback = nil
 	if len(chain) > 0 {
-		t.Search = search.NewSearcher(search.NewFallback(0, chain...), r.o.Limits)
+		// Like the built-in: a provider that answers with a bot check or
+		// refuses this server is skipped for a few minutes. The cool-down is
+		// in the memory of this process and starts again with a save.
+		r.fallback = search.NewFallback(0, chain...).WithCooldown(search.DefaultCooldown)
+		t.Search = search.NewSearcher(r.fallback, r.o.Limits)
 	}
 	r.tools, r.chain, r.rev, r.built = t, chain, rev, true
 	return t, chain
+}
+
+// cooling returns the providers of the chain in their cool-down, with why.
+func (r *runtime) cooling() map[string]string {
+	r.mu.Lock()
+	f := r.fallback
+	r.mu.Unlock()
+	if f == nil {
+		return map[string]string{}
+	}
+	return f.Cooling()
 }
 
 // pdfGuard refuses a PDF that the download cap cut: the rest of the file is
@@ -321,7 +356,7 @@ func (r *runtime) settingsTool(ctx context.Context, env contract.Envelope, tool,
 		for _, p := range chain {
 			serving = append(serving, p.Name())
 		}
-		out := map[string]any{"ok": true, "admin": admin, "serving": serving}
+		out := map[string]any{"ok": true, "admin": admin, "serving": serving, "cooling": r.cooling()}
 		if admin {
 			out["settings"] = r.o.Settings.View()
 		}
@@ -387,13 +422,18 @@ func (r *runtime) test(ctx context.Context, query string) []ProviderTest {
 			out = append(out, pt)
 			continue
 		}
-		res, from, serr := search.NewFallback(0, built[0]).SearchFrom(ctx, q)
-		if serr != nil {
-			pt.Error = webtools.Sanitize(strings.TrimPrefix(serr.Error(), search.ErrProvider.Error()+": "+n+": "))
-		} else {
-			pt.OK, pt.Results, pt.Host = true, len(res), from.Host()
+		// The keyless entry is several providers: one row each, so the page
+		// shows which pages of the chain answer this server.
+		for _, p := range built {
+			one := ProviderTest{Name: p.Name(), Ready: true}
+			res, from, serr := search.NewFallback(0, p).SearchFrom(ctx, q)
+			if serr != nil {
+				one.Error = webtools.Sanitize(strings.TrimPrefix(serr.Error(), search.ErrProvider.Error()+": "+p.Name()+": "))
+			} else {
+				one.OK, one.Results, one.Host = true, len(res), from.Host()
+			}
+			out = append(out, one)
 		}
-		out = append(out, pt)
 	}
 	return out
 }

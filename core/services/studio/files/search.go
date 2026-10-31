@@ -43,6 +43,10 @@ type SearchResult struct {
 	// Indexing counts the documents below the path, readable by the user,
 	// whose text is not read yet: a search a moment later may find more.
 	Indexing int
+	// Limited is set when the search stopped at one of its limits (the
+	// files it looks at, the bytes it reads) before it looked at everything
+	// below the path, so a file that matches may be missing.
+	Limited bool
 }
 
 // Search finds files by name and by the text inside them, among what the user
@@ -117,10 +121,15 @@ func newQuery(text string, regex, ignoreCase bool) (query, error) {
 func (s *Service) search(ctx context.Context, a workspace.Actor, root string, show func(string) string, q query) (SearchResult, error) {
 	var names, texts []Hit
 	visited, scanned := 0, int64(0)
+	limited := false
 	full := func() bool { return len(names)+len(texts) >= q.limit*2 }
 
 	look := func(k workspace.Node) {
-		if full() || k.Size > searchMaxFileBytes || scanned+k.Size > searchMaxTotal {
+		if full() || k.Size > searchMaxFileBytes {
+			return
+		}
+		if scanned+k.Size > searchMaxTotal {
+			limited = true
 			return
 		}
 		scanned += k.Size
@@ -134,6 +143,7 @@ func (s *Service) search(ctx context.Context, a workspace.Actor, root string, sh
 		}
 		for _, k := range kids {
 			if visited++; visited > searchMaxNodes || ctx.Err() != nil {
+				limited = limited || visited > searchMaxNodes
 				return ctx.Err()
 			}
 			if q.names && q.match(k.Name) {
@@ -166,32 +176,44 @@ func (s *Service) search(ctx context.Context, a workspace.Actor, root string, sh
 	out := append(names, texts...)
 	// Documents come last but keep up to a third of the hits, so many
 	// matching text files do not hide every document.
-	docs, indexing := s.searchIndex(ctx, a, root, show, q, q.limit)
+	docs, indexing, docsLimited := s.searchIndex(ctx, a, root, show, q, q.limit)
 	nd := min(len(docs), max(q.limit-len(out), q.limit/3))
 	if len(out) > q.limit-nd {
 		out = out[:q.limit-nd]
 	}
 	out = append(out, docs[:nd]...)
-	return SearchResult{Hits: out, Indexing: indexing}, nil
+	return SearchResult{Hits: out, Indexing: indexing, Limited: limited || docsLimited}, nil
 }
 
-// indexPage is how many index entries one read of the store returns.
-const indexPage = 20
+// indexPage is how many index entries one read of the store returns, and
+// pendingCheck how many pending entries a search checks one by one.
+const (
+	indexPage    = 20
+	pendingCheck = 50
+)
 
 // searchIndex returns up to room lines of the documents below root that
-// match q, from the text index, and how many documents there are still
-// being read. Each entry is shown only when a may read its file now and the
-// file still has the content the text was read from.
-func (s *Service) searchIndex(ctx context.Context, a workspace.Actor, root string, show func(string) string, q query, room int) ([]Hit, int) {
+// match q, from the text index, how many documents there are still being
+// read, and whether it stopped at a limit before the last entry. Each entry
+// is shown only when a may read its file now and the file still has the
+// content the text was read from.
+func (s *Service) searchIndex(ctx context.Context, a workspace.Actor, root string, show func(string) string, q query, room int) ([]Hit, int, bool) {
 	ix := s.textIndex()
 	if ix == nil {
-		return nil, 0
+		return nil, 0, false
 	}
 	st := ix.Store()
 	var hits []Hit
 	var after int64
 	visited, scanned := 0, 0
-	for room > 0 && visited < searchMaxNodes && scanned < searchMaxTotal && ctx.Err() == nil {
+	limited := false
+	for room > 0 && ctx.Err() == nil {
+		if visited >= searchMaxNodes || scanned >= searchMaxTotal {
+			// Stopped with entries possibly left: say so if there are.
+			more, err := st.Search(ctx, textindex.Query{Prefix: root, Contains: q.contains, AfterID: after, Limit: 1})
+			limited = err == nil && len(more) > 0
+			break
+		}
 		page, err := st.Search(ctx, textindex.Query{Prefix: root, Contains: q.contains, AfterID: after, Limit: indexPage})
 		if err != nil || len(page) == 0 {
 			break
@@ -212,7 +234,7 @@ func (s *Service) searchIndex(ctx context.Context, a workspace.Actor, root strin
 	}
 	indexing := 0
 	if ix.On() {
-		pending, err := st.Pending(ctx, root, 50)
+		pending, err := st.Pending(ctx, root, pendingCheck)
 		if err == nil {
 			for _, e := range pending {
 				if s.mayReadEntry(ctx, a, e, false) {
@@ -220,8 +242,16 @@ func (s *Service) searchIndex(ctx context.Context, a workspace.Actor, root strin
 				}
 			}
 		}
+		// Past the ones checked, count the rest without a check each: they
+		// are below root, which a may read, so the count is the true one
+		// rather than a cap.
+		if len(pending) == pendingCheck {
+			if total, err := st.CountPending(ctx, root); err == nil && total > len(pending) {
+				indexing += total - len(pending)
+			}
+		}
 	}
-	return hits, indexing
+	return hits, indexing, limited
 }
 
 // mayReadEntry reports whether a may read the file of an index entry: the

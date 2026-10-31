@@ -64,15 +64,29 @@ func defaultBodyLimitSkipper(c echo.Context) bool {
 }
 
 // bodyLimitSkipper skips the general body limit for the routes that bring
-// their own. The upload of the Files page is one of them unless the operator
-// set --upload-limit: then that value wins, lower or higher. Without it the
-// workspace limits the file to its own cap while it reads the body.
+// their own. The upload of the Files page and a chat message with attachments
+// are two of them unless the operator set --upload-limit: then that value
+// wins, lower or higher. Without it the workspace limits each file to its own
+// cap, and the message handler limits the whole message, while they read the
+// body.
 func bodyLimitSkipper(cfg *config.ApplicationConfig) func(echo.Context) bool {
 	return func(c echo.Context) bool {
 		if defaultBodyLimitSkipper(c) {
 			return true
 		}
-		return !cfg.UploadLimitSet() && c.Request().Method == http.MethodPut && c.Path() == "/api/chats/files/content"
+		if cfg.UploadLimitSet() {
+			return false
+		}
+		r := c.Request()
+		switch {
+		case r.Method == http.MethodPut && c.Path() == "/api/chats/files/content":
+			return true
+		case r.Method == http.MethodPost && c.Path() == "/api/chats/:id/messages":
+			// Only the multipart form carries files; a JSON message keeps the
+			// general limit.
+			return strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
+		}
+		return false
 	}
 }
 

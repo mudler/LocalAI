@@ -105,6 +105,30 @@ var _ = Describe("Files upload limit", func() {
 		app.ServeHTTP(response, request)
 		return response
 	}
+	attach := func(app *echo.Echo, size int) *httptest.ResponseRecorder {
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+		Expect(writer.WriteField("text", "see the file")).To(Succeed())
+		part, err := writer.CreateFormFile("files", "big.bin")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = part.Write(make([]byte, size))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(writer.Close()).To(Succeed())
+		request := httptest.NewRequest(http.MethodPost, "/api/chats/no-such-chat/messages", body)
+		request.Header.Set("Content-Type", writer.FormDataContentType())
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, request)
+		return response
+	}
+	jsonMessage := func(app *echo.Echo, size int) *httptest.ResponseRecorder {
+		payload, err := json.Marshal(map[string]string{"text": string(bytes.Repeat([]byte{'a'}, size))})
+		Expect(err).NotTo(HaveOccurred())
+		request := httptest.NewRequest(http.MethodPost, "/api/chats/no-such-chat/messages", bytes.NewReader(payload))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, request)
+		return response
+	}
 	maxFileSize := func(app *echo.Echo) float64 {
 		request := httptest.NewRequest(http.MethodGet, "/api/chats/files?path=/", nil)
 		response := httptest.NewRecorder()
@@ -121,6 +145,20 @@ var _ = Describe("Files upload limit", func() {
 		Expect(upload(app, "huge.bin", 257*mb).Code).To(Equal(http.StatusRequestEntityTooLarge))
 		Expect(general(app, 16*mb).Code).To(Equal(http.StatusRequestEntityTooLarge))
 		Expect(maxFileSize(app)).To(BeNumerically("==", 256*mb))
+	})
+
+	// The chat does not exist, so a body the limits let through ends as 404
+	// after the handler read it; a body they stop ends as 413 before.
+	It("lets a message carry attachments above 15 MB when the operator set nothing, but not a JSON message", func() {
+		app := newAPI()
+		Expect(attach(app, 16*mb).Code).To(Equal(http.StatusNotFound))
+		Expect(jsonMessage(app, 16*mb).Code).To(Equal(http.StatusRequestEntityTooLarge))
+	})
+
+	It("holds a message with attachments to an explicit --upload-limit", func() {
+		app := newAPI(config.WithUploadLimitMB(2))
+		Expect(attach(app, 1*mb).Code).To(Equal(http.StatusNotFound))
+		Expect(attach(app, 3*mb).Code).To(Equal(http.StatusRequestEntityTooLarge))
 	})
 
 	It("refuses uploads above an explicit lower limit and reports it", func() {

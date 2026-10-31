@@ -57,6 +57,7 @@
     "slide": "slide {{n}}",
     "indexing_one": "{{count}} document is still being indexed: search again in a moment to include it.",
     "indexing_other": "{{count}} documents are still being indexed: search again in a moment to include them.",
+    "limited": "Results limited: the search stopped at its limits before it looked at every file. Search in a folder or use other words to see the rest.",
     "filtering_one": "{{count}} item in this folder matches “{{query}}”.",
     "filtering_other": "{{count}} items in this folder match “{{query}}”.",
     "everywhere": "Search all files for “{{query}}”",
@@ -224,6 +225,7 @@
         "scheduleNote_other": "{{count}} widgets update on a schedule. Their runs use your models and count toward your usage."
       },
       "opensSite": "{{host}}: opens in a new tab",
+      "linkAsk": "This widget wants to open a link",
       "invalid": "Your Home layout has errors, and there is no earlier valid version.",
       "invalidFallback": "Your Home layout has errors. Home shows its last valid version.",
       "page": {

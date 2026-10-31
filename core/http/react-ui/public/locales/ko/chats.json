@@ -406,10 +406,7 @@
     "showMore": "더 보기",
     "cleared_one": "알림 {{count}}개를 삭제했습니다.",
     "confirmAll_one": "알림 {{count}}개를 모두 삭제할까요? 되돌릴 수 없습니다.",
-    "confirmRead_one": "읽은 알림 {{count}}개를 삭제할까요? 읽지 않은 알림은 유지됩니다.",
-    "allowedHosts": "관리자가 항상 허용한 호스트:",
-    "allowedHostsOff": "네트워크가 켜져 있을 때 적용됩니다.",
-    "allowedHostsNote": "관리자가 항상 허용한 호스트가 {{count}}개 있습니다."
+    "confirmRead_one": "읽은 알림 {{count}}개를 삭제할까요? 읽지 않은 알림은 유지됩니다."
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",

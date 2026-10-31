@@ -13,6 +13,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/mudler/xlog"
+
 	"github.com/mudler/LocalAI/core/services/studio/extract"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/textindex"
@@ -440,16 +442,26 @@ func searchAnswer(res SearchResult) string {
 			fmt.Fprintf(&b, "%s:%d: %s\n", h.Path, h.Line, h.Snippet)
 		}
 	}
+	limited := ""
+	if res.Limited {
+		limited = searchLimitedNote + "\n"
+	}
 	switch {
 	case res.Indexing > 0 && len(res.Hits) == 0:
-		return fmt.Sprintf("Nothing found yet: %s still being indexed. Search again in a moment before you conclude that nothing matches.", filesCount(res.Indexing))
+		return limited + fmt.Sprintf("Nothing found yet: %s still being indexed. Search again in a moment before you conclude that nothing matches.", filesCount(res.Indexing))
 	case res.Indexing > 0:
 		fmt.Fprintf(&b, "[%s still being indexed; search again in a moment to include them.]\n", filesCount(res.Indexing))
+	case len(res.Hits) == 0 && res.Limited:
+		return "Nothing found in the part searched. " + searchLimitedNote
 	case len(res.Hits) == 0:
 		return "Nothing found."
 	}
-	return b.String()
+	return b.String() + limited
 }
+
+// searchLimitedNote says that a search stopped before it looked at every
+// file, so a missing match is no proof.
+const searchLimitedNote = "[results limited: the search stopped at its limits before it looked at every file; narrow the path or the query]"
 
 func filesCount(n int) string {
 	if n == 1 {
@@ -496,13 +508,16 @@ func pageLines(text string, offset, limit int) (string, error) {
 
 // documentText returns the text of a PDF or Office file a may read: the
 // indexed text when it was read from the file as it is now, else the text
-// read on the spot.
+// read on the spot. The index keeps only the first part of a long document;
+// its whole text, once read, is kept in the index store by content hash, so
+// paging through it with read_file reads the file once, not once per page.
 func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs string) (string, error) {
 	r, n, err := s.ws.Open(ctx, a, abs)
 	if err != nil {
 		return "", err
 	}
 	defer r.Close()
+	var keep textindex.Store // where to keep the whole text once read
 	if ix := s.textIndex(); ix != nil {
 		if e, err := ix.Store().Get(ctx, n.ID); err == nil && e.Hash == n.Blob {
 			switch e.Status {
@@ -510,7 +525,13 @@ func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs strin
 				if !e.Truncated {
 					return e.Text, nil
 				}
-				// The index keeps part of a long document: read it all.
+				// The index keeps part of a long document. The open above
+				// proved that a may read this content, and the whole text is
+				// keyed by it.
+				if text, ok, err := ix.Store().Document(ctx, n.Blob, textindex.ExtractorVersion); err == nil && ok {
+					return text, nil
+				}
+				keep = ix.Store()
 			case textindex.StatusSkipped:
 				if e.Reason == textindex.ReasonNoText {
 					return "", fmt.Errorf("%s is a PDF with no text layer: it is probably a scan, so its words are pictures and there is no text to read", n.Name)
@@ -542,6 +563,13 @@ func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs strin
 	}
 	if text == "" {
 		return "", fmt.Errorf("%s contains no text", n.Name)
+	}
+	if keep != nil {
+		// Only for a file the index has an entry of, so a purge or a delete
+		// prunes it with the entry.
+		if err := keep.PutDocument(ctx, n.Blob, textindex.ExtractorVersion, text); err != nil {
+			xlog.Debug("File text index: could not keep the whole text of a document", "error", err)
+		}
 	}
 	return text, nil
 }

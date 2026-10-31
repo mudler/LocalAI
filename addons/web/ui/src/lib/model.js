@@ -4,6 +4,31 @@
 
 export const PROVIDERS = ['brave', 'tavily', 'google', 'searxng', 'duckduckgo']
 export const KEYED = ['brave', 'tavily', 'google']
+// The keyless entry of the order ('duckduckgo', its saved name) is the chain
+// of the built-in search: these result pages, tried in turn.
+export const KEYLESS_ENTRY = 'duckduckgo'
+export const KEYLESS = ['duckduckgo', 'brave_html', 'bing_html']
+
+// servingEntries turns the providers that serve, as the add-on names them,
+// into the entries of the order: the pages of the keyless chain are one entry.
+function servingEntries(list) {
+  const out = []
+  for (const n of Array.isArray(list) ? list : []) {
+    const entry = KEYLESS.includes(n) ? KEYLESS_ENTRY : n
+    if (PROVIDERS.includes(entry) && !out.includes(entry)) out.push(entry)
+  }
+  return out
+}
+
+// coolingRows lists the providers the add-on skips for a few minutes, with
+// why: a bot check or a refusal of this server.
+function coolingRows(cooling) {
+  if (!cooling || typeof cooling !== 'object' || Array.isArray(cooling)) return []
+  return Object.keys(cooling)
+    .filter(n => KEYLESS.includes(n) || PROVIDERS.includes(n))
+    .sort((a, b) => KEYLESS.indexOf(a) - KEYLESS.indexOf(b))
+    .map(n => ({ name: n, reason: text(cooling[n]) }))
+}
 
 const text = (v) => (typeof v === 'string' ? v : '')
 
@@ -25,7 +50,8 @@ export function settingsModel(status) {
     providers,
     googleEngine: text(s.googleEngine),
     searxngUrl: text(s.searxngUrl),
-    serving: (Array.isArray(status.serving) ? status.serving : []).filter(n => PROVIDERS.includes(n)),
+    serving: servingEntries(status.serving),
+    cooling: coolingRows(status.cooling),
     note: text(s.note),
   }
 }
@@ -89,6 +115,6 @@ export function change(draft) {
 export function testRows(answer) {
   if (!answer || answer.ok !== true || !Array.isArray(answer.providers)) return []
   return answer.providers
-    .filter(p => p && PROVIDERS.includes(p.name))
+    .filter(p => p && (PROVIDERS.includes(p.name) || KEYLESS.includes(p.name)))
     .map(p => ({ name: p.name, ok: p.ok === true, ready: p.ready === true, results: Number.isInteger(p.results) ? p.results : 0, host: text(p.host), error: text(p.error) }))
 }

@@ -127,6 +127,7 @@
         "scheduleNote_other": "{{count}} widgets são atualizados por agendamento. As execuções usam seus modelos e contam no seu uso."
       },
       "opensSite": "{{host}}: abre em uma nova aba",
+      "linkAsk": "Este widget quer abrir um link",
       "invalid": "O layout da sua Home tem erros, e não há uma versão válida anterior.",
       "invalidFallback": "O layout da sua Home tem erros. Home mostra a última versão válida dele.",
       "page": {
@@ -571,6 +572,7 @@
     "slide": "slide {{n}}",
     "indexing_one": "{{count}} documento ainda está sendo indexado: pesquise de novo em instantes para incluí-lo.",
     "indexing_other": "{{count}} documentos ainda estão sendo indexados: pesquise de novo em instantes para incluí-los.",
+    "limited": "Resultados limitados: a busca parou nos seus limites antes de examinar todos os arquivos. Pesquise em uma pasta ou use outras palavras para ver o restante.",
     "filtering_one": "{{count}} item desta pasta corresponde a “{{query}}”.",
     "filtering_other": "{{count}} itens desta pasta correspondem a “{{query}}”.",
     "everywhere": "Pesquisar “{{query}}” em todos os arquivos",

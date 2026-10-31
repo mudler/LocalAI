@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -42,6 +43,17 @@ type cursorRow struct {
 
 func (cursorRow) TableName() string { return "studio_file_text_cursor" }
 
+// documentRow is the whole text read from one content hash, for a document
+// whose entry keeps only the first part (read_file pages through it).
+type documentRow struct {
+	Hash      string `gorm:"primaryKey;size:64"`
+	Extractor int    `gorm:"primaryKey;autoIncrement:false"`
+	Body      string
+	Updated   time.Time
+}
+
+func (documentRow) TableName() string { return "studio_file_documents" }
+
 // search engines of the GORM store.
 const (
 	engineScan    = "scan"    // instr/strpos over the folded column
@@ -69,7 +81,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("textindex: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&textRow{}, &cursorRow{}); err != nil {
+	if err := db.AutoMigrate(&textRow{}, &cursorRow{}, &documentRow{}); err != nil {
 		return nil, fmt.Errorf("textindex: migrate: %w", err)
 	}
 	s := &gormStore{db: db, postgres: strings.Contains(db.Dialector.Name(), "postgres"), engine: engineScan}
@@ -160,6 +172,10 @@ func fromRow(r textRow) Entry {
 // metaColumns are the columns of a list that leaves the text out.
 var metaColumns = []string{"node_id", "path", "owner", "hash", "extractor", "status", "reason", "kind", "sections", "truncated", "updated"}
 
+// textColumns are the columns of a search: the text without its folded copy,
+// which only the database needs.
+var textColumns = append(slices.Clone(metaColumns), "body")
+
 func (s *gormStore) Put(ctx context.Context, e Entry) error {
 	row, err := toRow(e)
 	if err != nil {
@@ -243,7 +259,7 @@ func (s *gormStore) List(ctx context.Context, prefix string, afterID int64, limi
 }
 
 func (s *gormStore) Search(ctx context.Context, q Query) ([]Entry, error) {
-	db := under(s.db.WithContext(ctx).Where("status = ? AND node_id > ?", string(StatusReady), q.AfterID), q.Prefix)
+	db := under(s.db.WithContext(ctx).Select(textColumns).Where("status = ? AND node_id > ?", string(StatusReady), q.AfterID), q.Prefix)
 	if q.Contains != "" {
 		db = s.contains(db, q.Contains)
 	}
@@ -273,6 +289,30 @@ func fromRows(rows []textRow) []Entry {
 		out[i] = fromRow(r)
 	}
 	return out
+}
+
+func (s *gormStore) CountPending(ctx context.Context, prefix string) (int, error) {
+	var n int64
+	err := under(s.db.WithContext(ctx).Model(&textRow{}).Where("status = ?", string(StatusPending)), prefix).Count(&n).Error
+	return int(n), err
+}
+
+func (s *gormStore) PutDocument(ctx context.Context, hash string, extractor int, text string) error {
+	return s.db.WithContext(ctx).Save(&documentRow{Hash: hash, Extractor: extractor, Body: text, Updated: time.Now().UTC()}).Error
+}
+
+func (s *gormStore) Document(ctx context.Context, hash string, extractor int) (string, bool, error) {
+	var rows []documentRow
+	if err := s.db.WithContext(ctx).Where("hash = ? AND extractor = ?", hash, extractor).Limit(1).Find(&rows).Error; err != nil || len(rows) == 0 {
+		return "", false, err
+	}
+	return rows[0].Body, true, nil
+}
+
+func (s *gormStore) PruneDocuments(ctx context.Context) error {
+	return s.db.WithContext(ctx).
+		Where("NOT EXISTS (SELECT 1 FROM studio_file_texts t WHERE t.hash = studio_file_documents.hash)").
+		Delete(&documentRow{}).Error
 }
 
 func (s *gormStore) Cursor(ctx context.Context) (int64, error) {

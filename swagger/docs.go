@@ -19876,6 +19876,10 @@ const docTemplate = `{
                 "indexing": {
                     "description": "Indexing counts the documents below the path whose text is not read\nyet: the same search a moment later may find more.",
                     "type": "integer"
+                },
+                "limited": {
+                    "description": "Limited is set when the search stopped at one of its limits before it\nlooked at every file below the path: a file that matches may be\nmissing, so narrow the path or the query.",
+                    "type": "boolean"
                 }
             }
         },

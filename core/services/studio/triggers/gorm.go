@@ -124,6 +124,12 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 
+func (s *gormStore) SetOutcome(ctx context.Context, id, from, to string, at time.Time) (bool, error) {
+	res := s.db.WithContext(ctx).Model(&triggerRow{}).Where("id = ? AND outcome = ?", id, from).
+		Updates(map[string]any{"outcome": to, "outcome_at": utc(at)})
+	return res.RowsAffected == 1, res.Error
+}
+
 func (s *gormStore) DeleteTrigger(ctx context.Context, id string) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("trigger_id = ?", id).Delete(&runRow{}).Error; err != nil {

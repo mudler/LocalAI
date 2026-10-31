@@ -173,8 +173,12 @@ A `list` or `metric` widget reads its `source`, a data file in your home:
 ```
 
 An item with `url` shows its label as a link. An `http` or `https` address
-(without a user name or password) opens in a new tab, and its tooltip names the
-site. A path of the app (`/app/pages/<name>`, `/app/chats`, `/app/files`, and
+(without a user name or password) asks first, with the same bar as a link of a
+page: it shows the site, the full address and a warning for a host in
+punycode, and the site opens in a new tab only after you choose **Open**. The
+data file is often written by a trigger run or the assistant from web text,
+so a planted link does not open with one click. The tooltip of the link names
+the site. A path of the app (`/app/pages/<name>`, `/app/chats`, `/app/files`, and
 the screens `chat`, `agents`, `skills`, `triggers`, `collections`, `models`,
 `account` and `addons` under `/app/`) opens inside LocalAI. Any other `url`
 breaks the schema, and the error says which item and why, so a trigger run

@@ -4,12 +4,15 @@ import Icon from './Icon'
 // last two labels of the host) is what to look at, so it is the large part;
 // a host in punycode also says how it reads, since it may imitate another
 // site. Nothing has the focus: a page cannot make Enter open a link.
-export default function PageLinkAsk({ link, onOpen, onCancel, t }) {
+//
+// A Home widget uses the same bar for its item links, with its own label.
+export default function PageLinkAsk({ link, onOpen, onCancel, t, label }) {
   const { href, host, display, site, lookalike } = link.target
   const sub = host.length > site.length ? host.slice(0, host.length - site.length) : ''
+  const title = label || t('link.label')
   return (
-    <div className="pg-ask pg-link" role="group" aria-label={t('link.label')} aria-live="polite" data-testid="page-link-ask">
-      <span className="pg-ask__label">{t('link.label')}</span>
+    <div className="pg-ask pg-link" role="group" aria-label={title} aria-live="polite" data-testid="page-link-ask">
+      <span className="pg-ask__label">{title}</span>
       <span className="pg-link__target">
         <Icon name="external-link" className="pg-link__icon" />
         <span className="pg-link__host" data-testid="page-link-host">

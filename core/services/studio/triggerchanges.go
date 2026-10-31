@@ -481,7 +481,8 @@ var changeUndoText = map[string]string{
 // ApplyChange applies a waiting change of the user: the edit, or the delete.
 // It is refused with ErrChangeStale when the trigger changed or was removed
 // since the change was asked for, and with ErrProposalAnswered when the change
-// was answered already.
+// was answered already. The answer is decided in the store (claimChange), so
+// two frontends that apply the same change at once apply it once.
 func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.Trigger, error) {
 	h.wmu.Lock()
 	rec, err := h.ownedChange(ctx, user, id)
@@ -502,18 +503,29 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		h.wmu.Unlock()
 		return triggers.Trigger{}, err
 	}
+	if rec.Change.Op != triggers.ChangeDelete && stamp(live) != rec.Change.Stamp {
+		h.wmu.Unlock()
+		return triggers.Trigger{}, fmt.Errorf("%w: ask for the change again", ErrChangeStale)
+	}
+	at := h.o.Clock().UTC()
+	if err := h.claimChange(ctx, rec, "", triggers.OutcomeAccepted, at); err != nil {
+		h.wmu.Unlock()
+		return triggers.Trigger{}, err
+	}
 	if rec.Change.Op == triggers.ChangeDelete {
 		// The copy that Undo restores is the trigger as it is now. It is kept
 		// before the delete, so a failure cannot lose the trigger.
 		kept := withDefinition(rec, live)
 		kept.SourceChatID = live.SourceChatID
 		kept.Change.On, kept.Change.Stamp = live.Enabled, stamp(live)
-		kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, h.o.Clock().UTC()
+		kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, at
 		err := h.o.Store.PutTrigger(ctx, kept)
-		h.wmu.Unlock()
 		if err != nil {
+			h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
+			h.wmu.Unlock()
 			return triggers.Trigger{}, err
 		}
+		h.wmu.Unlock()
 		if err := h.DeleteTrigger(ctx, user, live.ID); err != nil {
 			h.wmu.Lock()
 			if perr := h.o.Store.PutTrigger(ctx, rec); perr != nil {
@@ -525,24 +537,23 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 		return kept, nil
 	}
 	defer h.wmu.Unlock()
-	if stamp(live) != rec.Change.Stamp {
-		return triggers.Trigger{}, fmt.Errorf("%w: ask for the change again", ErrChangeStale)
-	}
 	in := h.inputOf(rec)
 	in.Enabled, in.SourceChatID = rec.Change.On, live.SourceChatID
 	t, err := h.build(ctx, live.Owner, in)
 	if err != nil {
+		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
 		return triggers.Trigger{}, err
 	}
 	t.ID = live.ID
 	t.Outcome, t.OutcomeAt, t.Touched = live.Outcome, live.OutcomeAt, live.Touched || live.Outcome != ""
 	t = triggers.Arm(&live, t, h.o.Clock())
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
+		h.releaseChange(ctx, rec, triggers.OutcomeAccepted)
 		return triggers.Trigger{}, err
 	}
 	kept := withDefinition(rec, live)
 	kept.Change.On, kept.Change.Stamp = live.Enabled, stamp(t)
-	kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, h.o.Clock().UTC()
+	kept.Outcome, kept.OutcomeAt = triggers.OutcomeAccepted, at
 	if err := h.o.Store.PutTrigger(ctx, kept); err != nil {
 		// The edit stays; only Undo is lost.
 		h.log.Warn("studio: could not keep the copy that undoes a trigger change", "change", rec.ID, "error", err)
@@ -550,6 +561,29 @@ func (h *Triggers) ApplyChange(ctx context.Context, user, id string) (triggers.T
 	h.Notify()
 	h.linkWidget(ctx, t)
 	return t, nil
+}
+
+// claimChange moves the outcome of a change record from from to to in the
+// store, or answers ErrProposalAnswered when another request (on this or
+// another frontend) answered it first. The mutex of the host covers one
+// process; this covers the cluster.
+func (h *Triggers) claimChange(ctx context.Context, rec triggers.Trigger, from, to string, at time.Time) error {
+	ok, err := h.o.Store.SetOutcome(ctx, rec.ID, from, to, at)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrProposalAnswered
+	}
+	return nil
+}
+
+// releaseChange gives a claimed change record its outcome back after the
+// change itself failed, so it can be answered again.
+func (h *Triggers) releaseChange(ctx context.Context, rec triggers.Trigger, claimed string) {
+	if _, err := h.o.Store.SetOutcome(ctx, rec.ID, claimed, rec.Outcome, rec.OutcomeAt); err != nil {
+		h.log.Warn("studio: could not give a trigger change its answer back", "change", rec.ID, "error", err)
+	}
 }
 
 // DismissChange declines a waiting change: the trigger stays as it is.
@@ -565,8 +599,14 @@ func (h *Triggers) DismissChange(ctx context.Context, user, id string) error {
 	case triggers.OutcomeDeclined:
 		return nil
 	case "":
-		rec.Outcome, rec.OutcomeAt = triggers.OutcomeDeclined, h.o.Clock().UTC()
-		return h.o.Store.PutTrigger(ctx, rec)
+		err := h.claimChange(ctx, rec, "", triggers.OutcomeDeclined, h.o.Clock().UTC())
+		if !errors.Is(err, ErrProposalAnswered) {
+			return err
+		}
+		// Answered meanwhile, maybe declined by another frontend.
+		if again, gerr := h.ownedChange(ctx, user, id); gerr == nil && again.Outcome == triggers.OutcomeDeclined {
+			return nil
+		}
 	}
 	return ErrProposalAnswered
 }
@@ -574,7 +614,8 @@ func (h *Triggers) DismissChange(ctx context.Context, user, id string) error {
 // UndoChange takes back an applied change within ChangeUndoWindow: an edit,
 // a pause or a resume puts the trigger back as it was, and a delete restores
 // the trigger with its ID (its run history is not restored). It is refused with
-// ErrCannotUndo once the time is over or the trigger changed since.
+// ErrCannotUndo once the time is over or the trigger changed since, and with
+// ErrProposalAnswered when it was undone already, on any frontend.
 func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Trigger, error) {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
@@ -606,14 +647,19 @@ func (h *Triggers) UndoChange(ctx context.Context, user, id string) (triggers.Tr
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
 	}
+	at := h.o.Clock().UTC()
+	if err := h.claimChange(ctx, rec, triggers.OutcomeAccepted, triggers.OutcomeUndone, at); err != nil {
+		return triggers.Trigger{}, err
+	}
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
+		h.releaseChange(ctx, rec, triggers.OutcomeUndone)
 		return triggers.Trigger{}, err
 	}
 	if rec.Change.Op != triggers.ChangeDelete {
 		rec = withDefinition(rec, live)
 		rec.Change.On = live.Enabled
 	}
-	rec.Outcome, rec.OutcomeAt = triggers.OutcomeUndone, h.o.Clock().UTC()
+	rec.Outcome, rec.OutcomeAt = triggers.OutcomeUndone, at
 	if err := h.o.Store.PutTrigger(ctx, rec); err != nil {
 		h.log.Warn("studio: could not mark a trigger change undone", "change", rec.ID, "error", err)
 	}

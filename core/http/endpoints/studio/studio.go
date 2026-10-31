@@ -69,7 +69,10 @@ func New(svc *studiosvc.Service, models ModelChecker) *Handlers {
 	return h
 }
 
-// maxAttachBytes caps one message with its attachments.
+// maxAttachBytes caps one message with its attachments. It applies when the
+// operator set no --upload-limit; with one, the general body limit is lower
+// and wins (see bodyLimitSkipper in core/http). Each file is also held to the
+// workspace file size.
 const maxAttachBytes = 1 << 30
 
 const (
@@ -401,6 +404,9 @@ func (h *Handlers) Send(c echo.Context) error {
 		c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxAttachBytes)
 		form, err := c.MultipartForm()
 		if err != nil {
+			if tooLarge := (*http.MaxBytesError)(nil); errors.As(err, &tooLarge) {
+				return fail(c, http.StatusRequestEntityTooLarge, "invalid_request_error", "a message with attachments is at most 1 GiB")
+			}
 			return fail(c, http.StatusBadRequest, "invalid_request_error", "the attachments could not be read")
 		}
 		defer func() { _ = form.RemoveAll() }()

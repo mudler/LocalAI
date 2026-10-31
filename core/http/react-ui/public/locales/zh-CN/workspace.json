@@ -127,6 +127,7 @@
         "scheduleNote_other": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。"
       },
       "opensSite": "{{host}}：在新标签页中打开",
+      "linkAsk": "此小组件想要打开一个链接",
       "invalid": "你的主页布局有错误，且没有更早的有效版本。",
       "invalidFallback": "你的主页布局有错误。主页显示的是它最后一个有效版本。",
       "page": {
@@ -571,6 +572,7 @@
     "slide": "第 {{n}} 张幻灯片",
     "indexing_one": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它。",
     "indexing_other": "还有 {{count}} 个文档正在建立索引，请稍后再搜索以包含它们。",
+    "limited": "结果有限：搜索在查看所有文件之前已达到上限。请在某个文件夹中搜索或换用其他词语以查看其余结果。",
     "filtering_one": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
     "filtering_other": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
     "everywhere": "在所有文件中搜索“{{query}}”",

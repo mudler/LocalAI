@@ -278,6 +278,9 @@
 .wk-ptile__ask { position: absolute; inset: 0; overflow: auto; padding: var(--sp-2); background: color-mix(in srgb, var(--color-bg-secondary) 94%, transparent); }
 .wk-ptile__ask .pg-ask { margin: 0; }
 
+/* The question before an item link of a data widget opens another site. */
+.wk-widget__ask .pg-ask { margin: 0; }
+
 /* The size of a page's tile, in the layout editor. */
 .wk-wrow__page { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .wk-wrow__page .dk-select-wrap { flex: 1 1 auto; min-width: 0; }

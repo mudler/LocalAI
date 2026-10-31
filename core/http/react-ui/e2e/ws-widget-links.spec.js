@@ -1,9 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
 import { holdHomeFiles, unlockHomeFiles } from './home-files-lock.js'
 
-// A list widget whose items link: an http(s) address opens a new tab without
-// an opener, a path of the app navigates inside LocalAI, and a file with a
-// bad link is refused with an error that names the item. PAGES_SHOTS names a
+// A list widget whose items link: an http(s) address asks first, with the
+// confirmation bar of page links, then opens a new tab without an opener; a
+// path of the app navigates inside LocalAI directly; and a file with a bad
+// link is refused with an error that names the item. PAGES_SHOTS names a
 // folder for screenshots.
 
 test.describe.configure({ mode: 'serial', timeout: 60_000 })
@@ -32,7 +33,7 @@ test.afterAll(async ({ request }) => {
 })
 test.afterAll(() => unlockHomeFiles())
 
-test('widget items link out in a new tab or inside the app', async ({ page, context }) => {
+test('widget items ask before they open another site, and link inside the app directly', async ({ page, context }) => {
   await page.route('**/api/chats/triggers*', (r) => r.fulfill({ json: { triggers: [] } }))
   await context.route('https://news.example.com/**', (r) => r.fulfill({ contentType: 'text/html', body: '<title>news</title><p>article</p>' }))
   await page.addInitScript(() => { try { localStorage.setItem('localai-theme', 'light') } catch { /* private mode */ } })
@@ -41,17 +42,26 @@ test('widget items link out in a new tab or inside the app', async ({ page, cont
   const links = w.getByTestId('widget-item-link')
   await expect(links).toHaveCount(2)
   const ext = links.first()
-  await expect(ext).toHaveAttribute('href', 'https://news.example.com/small-boards')
-  await expect(ext).toHaveAttribute('target', '_blank')
-  await expect(ext).toHaveAttribute('rel', 'noopener noreferrer')
+  await expect(ext).toHaveAttribute('data-href', 'https://news.example.com/small-boards')
+  await expect(ext).not.toHaveAttribute('href', /.*/)
   await expect(ext).toHaveAttribute('title', 'news.example.com: opens in a new tab')
   await expect(w.locator('li').nth(2).getByTestId('widget-item-link')).toHaveCount(0)
   // Keyboard: the link takes the focus and shows its ring.
   await ext.focus()
   await expect(ext).toBeFocused()
   expect(await ext.evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('solid')
+  // A click asks first; Cancel opens nothing.
+  await ext.click()
+  const ask = w.getByTestId('page-link-ask')
+  await expect(ask).toBeVisible()
+  await expect(ask).toContainText('This widget wants to open a link')
+  await expect(ask.getByTestId('page-link-host')).toHaveText('news.example.com')
   if (shots) await page.screenshot({ path: `${shots}/widget-links-light.png` })
-  const [tab] = await Promise.all([context.waitForEvent('page'), ext.click()])
+  await ask.getByTestId('page-link-cancel').click()
+  await expect(ask).toHaveCount(0)
+  expect(context.pages()).toHaveLength(1)
+  await ext.click()
+  const [tab] = await Promise.all([context.waitForEvent('page'), w.getByTestId('page-link-open').click()])
   await tab.waitForLoadState()
   expect(tab.url()).toBe('https://news.example.com/small-boards')
   expect(await tab.evaluate(() => window.opener)).toBeNull()
