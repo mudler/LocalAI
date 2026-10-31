@@ -218,6 +218,14 @@ export const FIELDS = [
   { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
     desc: 'Let a chat list the user\'s saved agents and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the agents feature.',
     default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The text index of the documents in the files (read at each pass of the
+  // indexer, so live).
+  { key: 'chats_index_files', group: 'tools', was: 'chats', kind: 'bool', label: 'Search inside documents',
+    desc: 'Read the text of PDF, Word, Excel and PowerPoint files when they are uploaded or written, so file search and the chats find a document by what it says. The text stays on this server, in its own store, and only users who can read a file find it. Scanned PDFs have no text to read.',
+    default: true, fallback: true, apply: 'live' },
+  { key: 'chats_index_max_text_bytes', group: 'tools', was: 'chats', kind: 'int', label: 'Text kept per document',
+    desc: 'The most text kept for one document, from 65536 to 16777216 bytes. Text past it is not searched; reading the document in a chat still reads past it.',
+    default: 2097152, fallback: 2097152, emptyIsDefault: true, min: 65536, max: 16777216, unit: 'bytes', apply: 'live' },
   { key: 'chats_web_searxng_url', group: 'tools', was: 'chats', kind: 'text', label: 'SearXNG instance',
     desc: 'The address of your SearXNG instance (it must allow the JSON format). When it is set and the provider order is empty, web search uses SearXNG alone.',
     placeholder: 'https://searx.example.org', default: '', apply: 'live' },

@@ -410,6 +410,15 @@ type ApplicationConfig struct {
 	// each chat still has to switch it on. Read at each turn.
 	DisableChatsSavedAgents bool
 
+	// DisableChatsIndexFiles stops the reading of the text of PDF, Word,
+	// Excel and PowerPoint files in the chats' files, which search_files and
+	// the Files page search. Stored as the negation (chats_index_files), so
+	// it is on by default. ChatsIndexMaxTextBytes is the most text kept for
+	// one file (chats_index_max_text_bytes; 0: 2 MiB). Both are read at each
+	// pass of the indexer, so no restart.
+	DisableChatsIndexFiles bool
+	ChatsIndexMaxTextBytes int
+
 	// DisableChatSuggestions stops the assistant from offering things (to
 	// remember a name, to make a shortcut, to update a widget on a schedule)
 	// to users who did not choose for themselves. Runtime-toggleable via
@@ -1489,6 +1498,22 @@ const DefaultChatsMaxIterations = 40
 
 // MaxChatsMaxIterations is the highest step limit chats_max_iterations takes.
 const MaxChatsMaxIterations = 500
+
+// Bounds of chats_index_max_text_bytes.
+const (
+	MinChatsIndexMaxTextBytes     = 64 << 10
+	MaxChatsIndexMaxTextBytes     = 16 << 20
+	DefaultChatsIndexMaxTextBytes = 2 << 20
+)
+
+// EffectiveChatsIndexMaxTextBytes is the text cap of one indexed file that
+// applies: the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
+	if n := o.ChatsIndexMaxTextBytes; n >= MinChatsIndexMaxTextBytes && n <= MaxChatsIndexMaxTextBytes {
+		return n
+	}
+	return DefaultChatsIndexMaxTextBytes
+}
 
 // EffectiveChatsMaxIterations is chats_max_iterations as it applies now.
 func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {

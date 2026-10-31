@@ -484,6 +484,25 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **bool { return &s.ChatsSavedAgents },
 		func(o *ApplicationConfig) bool { return !o.DisableChatsSavedAgents },
 		func(o *ApplicationConfig, v bool) { o.DisableChatsSavedAgents = !v }),
+	// The text index of the documents in the chats' files: read at each pass
+	// of the indexer, so no restart. The switch is stored as the negation, so
+	// it is on by default; the snapshot of the cap is the cap that applies.
+	field("chats_index_files",
+		func(s *RuntimeSettings) **bool { return &s.ChatsIndexFiles },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsIndexFiles },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsIndexFiles = !v }),
+	withApply(field("chats_index_max_text_bytes",
+		func(s *RuntimeSettings) **int { return &s.ChatsIndexMaxTextBytes },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsIndexMaxTextBytes() },
+		func(o *ApplicationConfig, v int) { o.ChatsIndexMaxTextBytes = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsIndexMaxTextBytes; v < MinChatsIndexMaxTextBytes || v > MaxChatsIndexMaxTextBytes {
+				xlog.Warn("invalid chats_index_max_text_bytes in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsIndexMaxTextBytes = *s.ChatsIndexMaxTextBytes
+			return true
+		}),
 	field("chats_web_searxng_url",
 		func(s *RuntimeSettings) **string { return &s.ChatsWebSearXNGURL },
 		func(o *ApplicationConfig) string { return o.ChatsWebSearXNGURL },

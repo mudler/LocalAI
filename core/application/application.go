@@ -57,6 +57,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/voiceprofile"
 	"github.com/mudler/LocalAI/core/services/voicerecognition"
@@ -158,8 +159,9 @@ type Application struct {
 	studioTempDir        string                 // removed at shutdown; set only in memory-only mode
 	studioHostExec       *hostexec.Runner       // the chats' built-in bash on this machine
 	studioFiles          *files.Service
-	studioFilesIndex     io.Closer // the JSON index of the workspace; nil when it uses the database
-	studioFilesTemp      string    // blob cache folder of a cluster with no data path; removed at shutdown
+	studioFilesIndex     io.Closer          // the JSON index of the workspace; nil when it uses the database
+	studioFilesTemp      string             // blob cache folder of a cluster with no data path; removed at shutdown
+	studioTextIndex      *textindex.Indexer // the text of the documents in the files; nil when files are off
 	authDB               *gorm.DB
 	metricsService       *monitoring.LocalAIMetricsService
 	statsRecorder        *billing.Recorder

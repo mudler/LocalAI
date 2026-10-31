@@ -64,4 +64,18 @@ var _ = Describe("the chats' web tool settings", func() {
 		Expect(o.DisableChatsSavedAgents).To(BeTrue())
 		Expect(o.ToRuntimeSettings().ChatsSavedAgents).To(HaveValue(BeFalse()))
 	})
+
+	It("keeps the file text index on with a 2 MiB cap until an administrator changes them", func() {
+		o := &config.ApplicationConfig{}
+		rs := o.ToRuntimeSettings()
+		Expect(rs.ChatsIndexFiles).To(HaveValue(BeTrue()))
+		Expect(rs.ChatsIndexMaxTextBytes).To(HaveValue(Equal(2 << 20)))
+		off, limit := false, 1<<20
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsIndexFiles: &off, ChatsIndexMaxTextBytes: &limit})
+		Expect(o.DisableChatsIndexFiles).To(BeTrue())
+		Expect(o.EffectiveChatsIndexMaxTextBytes()).To(Equal(1 << 20))
+		tiny := 10
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsIndexMaxTextBytes: &tiny})
+		Expect(o.ChatsIndexMaxTextBytes).To(Equal(1<<20), "a cap out of range is not taken")
+	})
 })

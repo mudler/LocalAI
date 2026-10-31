@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
@@ -109,7 +110,40 @@ func (a *Application) initStudioFiles() {
 		xlog.Warn("Could not write the built-in skills", "error", err)
 	}
 	a.studioFiles, a.studioFilesIndex = f, closer
+	a.initStudioTextIndex(f, root)
 	a.syncAddonSkills(f)
+}
+
+// initStudioTextIndex builds the text index of the documents in the files and
+// starts its indexer. The text lives with the workspace index: in the auth
+// database when there is one, otherwise in a folder under root, never among
+// the users' files. In a cluster each pass of the indexer runs under an
+// advisory lock, so one frontend reads the files and every frontend searches
+// the shared text. A chat worker searches it but never runs the indexer.
+func (a *Application) initStudioTextIndex(f *files.Service, root string) {
+	var st textindex.Store
+	var err error
+	if a.authDB != nil {
+		st, err = textindex.NewGORM(a.authDB)
+	} else {
+		st, err = textindex.NewJSON(filepath.Join(root, "textindex"))
+	}
+	if err != nil {
+		xlog.Warn("File text index disabled: cannot open its store; documents are found by name only", "error", err)
+		return
+	}
+	cfg := a.applicationConfig
+	ix := textindex.New(textindex.Options{
+		Store: st, Workspace: f.Store(), Admin: workspace.Actor{Principal: files.AdminPrincipal}, DB: a.authDB,
+		Enabled:      func() bool { return !cfg.DisableChatsIndexFiles },
+		MaxTextBytes: cfg.EffectiveChatsIndexMaxTextBytes,
+	})
+	f.SetTextIndex(ix)
+	a.studioTextIndex = ix
+	if cfg.Distributed.ChatWorker {
+		return
+	}
+	go ix.Run(a.backgroundContext())
 }
 
 // syncAddonSkills lets the add-on owner keep the add-on skill layer in step
