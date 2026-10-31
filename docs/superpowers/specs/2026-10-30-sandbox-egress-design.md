@@ -636,7 +636,7 @@ under 500 lines, M 500 to 1,500, L over 1,500 (code and tests).
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q1 | Put GitHub release and archive hosts (`github.com`, `codeload.github.com`, `objects.githubusercontent.com`) on the registries list? Many packages fetch binaries from them. | **Decided: yes (owner).** `github.com`, `codeload.github.com`, `objects.githubusercontent.com` and `raw.githubusercontent.com`see Owner decisions. |
+| Q1 | Put GitHub release and archive hosts (`github.com`, `codeload.github.com`, `objects.githubusercontent.com`) on the registries list? Many packages fetch binaries from them. | **Decided: yes (owner).** `github.com`, `codeload.github.com`, `objects.githubusercontent.com` and `release-assets.githubusercontent.com`; `raw.githubusercontent.com` is not on the list and stays on the card, because it serves any user content. See Owner decisions. |
 | Q2 | A personal always-allow list? | Not in phase 1. Rules per chat plus the preset cover it. |
 | Q3 | Sandbox code could edit a network file in the home. | **Decided (owner): no network file in the workspace.** Defaults are an administrator setting and the chat record. No read-only mount needed for this reason. |
 | Q4 | With the private switch on, may a preset alone reach private addresses, or only explicit rules? | Only rules and card answers by an administrator. A preset never reaches the private network. |
