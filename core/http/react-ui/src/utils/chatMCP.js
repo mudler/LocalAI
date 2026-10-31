@@ -2,6 +2,8 @@
 // React, so a node test drives them. A secret (token, header value, variable)
 // only goes in: nothing here reads one back from the server.
 
+import { relativeDate } from './fileBrowser.js'
+
 export const PREFIX = 'connector:'
 
 export function emptyMCP() {
@@ -44,10 +46,10 @@ export function mcpPayload(form) {
   return body
 }
 
-export function canSaveMCP(form) {
-  if (!(form.name || '').trim()) return false
+export function canSaveMCP(form, taken = []) {
+  if (nameProblem(form.name, taken)) return false
   if (form.transport === 'stdio') return Boolean((form.command || '').trim())
-  return Boolean((form.url || '').trim())
+  return !urlProblem(form.url)
 }
 
 // Where a connector points, for the list: the host of an address (never its path
@@ -55,6 +57,168 @@ export function canSaveMCP(form) {
 export function mcpTarget(c) {
   if (c.transport === 'stdio') return (c.command || '').split('/').filter(Boolean).pop() || ''
   try { return new URL(c.url).hostname || c.url } catch { return c.url || '' }
+}
+
+// The address for the details pane: scheme, host and path. The query is
+// replaced by "?…" because it may hold a key.
+export function mcpAddress(c) {
+  if (c.transport === 'stdio') return [c.command || '', ...(c.args || [])].filter(Boolean).join(' ')
+  try {
+    const u = new URL(c.url)
+    return `${u.protocol}//${u.host}${u.pathname === '/' ? '' : u.pathname}${u.search ? '?…' : ''}`
+  } catch { return c.url || '' }
+}
+
+// Why an address cannot be saved, as a key of mcpPage.errors, or '' when it is
+// fine. The server checks again (private networks, credentials in the address).
+export function urlProblem(value) {
+  const v = (value || '').trim()
+  if (!v) return 'urlRequired'
+  let u
+  try { u = new URL(v) } catch { return 'urlInvalid' }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return 'urlScheme'
+  if (u.username || u.password) return 'urlCredentials'
+  return ''
+}
+
+// Why a name cannot be saved, as a key of mcpPage.errors, or ''. taken is the
+// list of the other connectors' names.
+export function nameProblem(value, taken = []) {
+  const v = (value || '').trim()
+  if (!v) return 'nameRequired'
+  if (taken.some(x => x.trim().toLowerCase() === v.toLowerCase())) return 'nameTaken'
+  return ''
+}
+
+// What a form holds that the server would store, to tell whether it changed.
+export function formFingerprint(form) {
+  if (!form) return ''
+  const rows = (list) => (list || []).filter(r => (r.name || '').trim() || (r.value || '')).map(r => [r.name, r.value])
+  return JSON.stringify([form.name, form.transport, form.url, form.command, form.argsText, form.token,
+    rows(form.headers), rows(form.env), form.clearToken, form.clearHeaders, form.clearEnv])
+}
+
+// The form of an existing connector: secrets are never read back, so they start
+// empty.
+export function formOf(c) {
+  return { ...emptyMCP(), ...c, argsText: (c.args || []).join('\n'), token: '', headers: [], env: [] }
+}
+
+// --- the last connection test of each connector, kept in this browser ---
+
+export const CHECKS_KEY = 'localai_mcp_checks'
+
+// A test answered 401 or 403, or named the token: the server wants a (new)
+// credential rather than being down.
+// A server's reason as a sentence: the errors of the MCP client start in lower
+// case and have no full stop ("the server answered 503").
+export function sentence(text) {
+  const v = (text || '').trim()
+  if (!v) return ''
+  const s = v.charAt(0).toUpperCase() + v.slice(1)
+  return /[.!?…]$/.test(s) ? s : `${s}.`
+}
+
+export function isAuthError(text) {
+  return /\b(401|403)\b|unauthori[sz]ed|forbidden|invalid[_ ]token|access token|authenticat/i.test(text || '')
+}
+
+// What a test depends on: where the connector points and what is saved for it.
+// Switching it on or off changes its update time but not this, so the last test
+// still holds.
+// It is a hash: the address may hold a key in its query, and browser storage
+// must not keep it.
+export function connectorSig(c) {
+  const text = JSON.stringify([c.transport, c.url || '', c.command || '', c.args || [], Boolean(c.has_token), Boolean(c.has_headers), Boolean(c.has_env)])
+  // FNV-1a, 32 bits twice with two seeds: enough to tell a change, not a secret.
+  let a = 0x811c9dc5
+  let b = 0x01000193 ^ text.length
+  for (let i = 0; i < text.length; i++) {
+    const ch = text.charCodeAt(i)
+    a = Math.imul(a ^ ch, 0x01000193)
+    b = Math.imul(b ^ ch, 0x5bd1e995)
+  }
+  return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0')
+}
+
+// The record kept for a test result, with the signature of the connector it
+// tested: a later change of the address or the secrets makes it stale.
+export function checkRecord(c, res, at = Date.now()) {
+  const details = Array.isArray(res.tool_details) && res.tool_details.length
+    ? res.tool_details.map(d => ({ name: d.name, description: d.description || '' }))
+    : (res.tools || []).map(name => ({ name, description: '' }))
+  return { at, ok: Boolean(res.ok), tools: res.ok ? details : [], error: res.ok ? '' : (res.error || ''), sig: connectorSig(c) }
+}
+
+export function readChecks(storage) {
+  try {
+    const data = JSON.parse(storage.getItem(CHECKS_KEY) || '{}')
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : {}
+  } catch { return {} }
+}
+
+export function writeChecks(storage, checks) {
+  try { storage.setItem(CHECKS_KEY, JSON.stringify(checks)) } catch { /* storage blocked: the page keeps them in memory */ }
+}
+
+// When a test ran, in words and in full (for a tooltip).
+export function testedWhen(at, locale) {
+  if (!at) return { label: '', exact: '' }
+  return relativeDate(new Date(at).toISOString(), { locale })
+}
+
+// The check of a connector, unless the connector changed since.
+export function currentCheck(c, checks) {
+  const k = checks?.[c.id]
+  if (!k || k.sig !== connectorSig(c)) return null
+  return k
+}
+
+// The checks without the given connector: an edit saved from this page may
+// replace a secret without changing the signature.
+export function dropCheck(checks, id) {
+  const rest = { ...(checks || {}) }
+  delete rest[id]
+  return rest
+}
+
+// One state per connector, for the chip and the filter:
+//   off        switched off
+//   unchecked  on, never tested in this browser (or changed since)
+//   ok         the last test connected
+//   auth       the last test was refused for its credential
+//   error      the last test could not connect
+export function connectorState(c, check) {
+  if (!c.enabled) return 'off'
+  if (!check) return 'unchecked'
+  if (check.ok) return 'ok'
+  return isAuthError(check.error) ? 'auth' : 'error'
+}
+
+export const STATE_FILTERS = ['all', 'on', 'attention', 'off']
+
+export function matchesFilter(state, filter) {
+  if (filter === 'on') return state !== 'off'
+  if (filter === 'attention') return state === 'auth' || state === 'error'
+  if (filter === 'off') return state === 'off'
+  return true
+}
+
+// The connectors a search and a state filter leave, with the count of each
+// filter for its label. A search matches the name and the host or command.
+export function filterConnectors(items, { query = '', filter = 'all', checks = {} } = {}) {
+  const q = query.trim().toLowerCase()
+  const found = (items || []).filter(c => !q || c.name.toLowerCase().includes(q) || mcpTarget(c).toLowerCase().includes(q))
+  const states = new Map(found.map(c => [c.id, connectorState(c, currentCheck(c, checks))]))
+  const counts = Object.fromEntries(STATE_FILTERS.map(f => [f, found.filter(c => matchesFilter(states.get(c.id), f)).length]))
+  return { rows: found.filter(c => matchesFilter(states.get(c.id), filter)), counts, states }
+}
+
+// Tools that match a search of the details pane, by name or description.
+export function filterTools(tools, query) {
+  const q = (query || '').trim().toLowerCase()
+  if (!q) return tools || []
+  return (tools || []).filter(x => x.name.toLowerCase().includes(q) || (x.description || '').toLowerCase().includes(q))
 }
 
 export const connectorRef = (id) => PREFIX + id

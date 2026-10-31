@@ -1,6 +1,6 @@
-/* Connectors: the MCP servers page and the messaging connectors page. One row
-   list, kit form controls and the page frame of components/ui. Everything is
-   named cn-*. Sizes, radii and motion come from the tokens in theme.css; the
+/* Connectors: the messaging connectors page. One row list, kit form controls
+   and the page frame of components/ui. Everything is named cn-*. (The MCP
+   connectors page has its own styles in components/mcp/mcp.css.) Sizes, radii and motion come from the tokens in theme.css; the
    only motion is transform and opacity, entering through @starting-style. */
 
 .cn-page { display: flex; flex-direction: column; }
@@ -68,16 +68,10 @@
 .cn-row__meta > span { overflow-wrap: anywhere; }
 .cn-row__meta > span:not(:last-child)::after { content: "·"; margin-left: var(--sp-2); }
 .cn-row__actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; justify-content: flex-end; }
-.cn-row__more { display: inline-flex; gap: var(--sp-1); transition: opacity var(--dur-fast) var(--ease-out); }
-/* Edit and Delete show on hover and focus where there is a pointer that
-   hovers; on touch they always show. */
-@media (hover: hover) and (pointer: fine) {
-  .cn-row:not(:hover):not(:focus-within) .cn-row__more { opacity: 0; }
-}
 .cn-choice { font-size: var(--fs-small); min-height: var(--ctl-h-sm); }
 .cn-none { margin: 0; font-size: var(--fs-small); color: var(--dk-muted); }
 
-/* The answer of Test connection, and a binding that is not running. */
+/* A binding that is not running. */
 .cn-result {
   display: inline-flex;
   align-items: flex-start;
@@ -93,35 +87,6 @@
 .cn-result--ok { color: var(--dk-ok-text); }
 .cn-result--error { color: var(--dk-error-text); }
 .cn-result--warn { color: var(--dk-warn-text); }
-
-.cn-rules { margin: var(--sp-3) 0 0; max-width: 72ch; }
-
-/* ---- Form ------------------------------------------------------------------ */
-.cn-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-  max-width: 640px;
-  margin-bottom: var(--sp-6);
-  padding: var(--sp-6);
-  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
-}
-@starting-style { .cn-form { opacity: 0; transform: translateY(4px); } }
-.cn-form__title {
-  margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
-  font-weight: var(--font-weight-semibold);
-}
-.cn-form__actions { display: flex; gap: var(--sp-2); padding-top: var(--sp-1); }
-.cn-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--sp-2); }
-.cn-form .cn-choice { align-self: flex-start; }
-
-/* ---- Import banner ---------------------------------------------------------- */
-.cn-import { margin-bottom: var(--sp-6); }
-.cn-import__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.cn-import__list li { display: flex; flex-wrap: wrap; gap: 0 var(--sp-2); color: var(--color-text-secondary); }
-.cn-import__name { font-weight: var(--font-weight-semibold); color: var(--dk-text); }
 
 /* ---- Groups of the messaging connectors -------------------------------------- */
 .cn-group { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -150,11 +115,4 @@
 
 @media (max-width: 639px) {
   .cn-row { padding: var(--sp-3); }
-  /* A row with more than its switch puts the actions on a line of their own. */
-  .cn-row--tools { grid-template-columns: 36px minmax(0, 1fr); }
-  .cn-row--tools .cn-row__actions { grid-column: 1 / -1; justify-content: flex-start; }
-  .cn-form { padding: var(--sp-4); }
-  .cn-pair { grid-template-columns: minmax(0, 1fr) auto; }
-  .cn-pair > .dk-input:nth-child(2) { grid-column: 1; grid-row: 2; }
-  .cn-pair > .dk-btn { grid-row: 1 / span 2; align-self: center; }
 }
