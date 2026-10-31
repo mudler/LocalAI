@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -37,12 +38,7 @@ func DefaultKeylessEndpoints() KeylessEndpoints {
 
 // IsKeyless says whether name is a keyless provider.
 func IsKeyless(name string) bool {
-	for _, n := range KeylessOrder {
-		if n == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(KeylessOrder, name)
 }
 
 // NewKeyless returns the keyless provider of that name, reached through g.
