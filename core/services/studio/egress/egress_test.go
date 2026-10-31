@@ -274,7 +274,7 @@ var _ = Describe("the registries list", func() {
 
 		It("does not name the web tools when they are off", func() {
 			off := egress.Hint(egress.PresetRegistries, false)
-			Expect(off).To(ContainSubstring("curl, pip, npm and git work"))
+			Expect(off).To(ContainSubstring("curl, pip and git work"))
 			Expect(off).NotTo(ContainSubstring("web_"))
 		})
 

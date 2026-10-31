@@ -37,7 +37,7 @@ const ShadowedTool = "bash"
 
 // NetworkNote ends the description of bash: the guest reaches the network
 // only through the proxy, and only the hosts the chat allows.
-const NetworkNote = " Network: curl, pip, npm and git use the proxy, within the chat's network setting; a blocked host asks the user, do not get around it. To read or search web pages, prefer web_fetch or web_search if you have them."
+const NetworkNote = " Network: curl, pip and git use the proxy, within the chat's network setting; a blocked host asks the user, do not get around it. To read or search web pages, prefer web_fetch or web_search if you have them."
 
 // Runs returns the tools a sandbox runs.
 func Runs(acquire runner.Acquire) []runner.Tool {

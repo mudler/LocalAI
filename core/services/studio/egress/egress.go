@@ -536,10 +536,10 @@ func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool) string {
 // they named.
 func Hint(p Preset, web bool) string {
 	if normal(p) == PresetOff {
-		return "curl, pip, npm and git cannot reach anything now; ask the user to turn the network on if a task needs it."
+		return "curl, pip and git cannot reach anything now; ask the user to turn the network on if a task needs it."
 	}
 	if web {
-		return "curl, pip, npm and git work in the sandbox through the proxy. To read or search web pages use web_fetch or web_search; use curl for APIs, downloads and installs."
+		return "curl, pip and git work in the sandbox through the proxy. To read or search web pages use web_fetch or web_search; use curl for APIs, downloads and installs."
 	}
-	return "curl, pip, npm and git work in the sandbox through the proxy."
+	return "curl, pip and git work in the sandbox through the proxy."
 }
