@@ -175,5 +175,71 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "Anda"
     }
+  },
+  "change": {
+    "loading": "Membaca perubahan pemicu...",
+    "unread": "Perubahan pemicu tidak dapat dibaca: {{message}}",
+    "removed": "Perubahan ini tidak lagi disimpan.",
+    "none": "tidak ada",
+    "on": "Aktif",
+    "off": "Nonaktif (dijeda)",
+    "becomes": "menjadi",
+    "neverRan": "Belum pernah berjalan",
+    "lastRun": "Jalan terakhir",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "Mengantre",
+      "running": "Berjalan",
+      "done": "Selesai",
+      "failed": "Gagal",
+      "skipped": "Dilewati"
+    },
+    "updateTitle": "Ubah {{name}}",
+    "deleteTitle": "Hapus {{name}}?",
+    "updateHelp": "Perubahan yang diusulkan. Tidak ada yang berubah sampai Anda menerapkannya.",
+    "deleteHelp": "Tidak ada yang dihapus sampai Anda menekan Hapus. Anda dapat membatalkannya selama satu hari.",
+    "stale": "Pemicu diubah atau dihapus setelah usulan ini, jadi perubahan tidak dapat diterapkan. Minta perubahannya lagi.",
+    "apply": "Terapkan",
+    "delete": "Hapus",
+    "keep": "Simpan",
+    "field": {
+      "name": "Nama",
+      "prompt": "Prompt",
+      "when": "Kapan",
+      "time_zone": "Zona waktu",
+      "daily_cap": "Batas harian",
+      "enabled": "Status",
+      "reads": "Membaca",
+      "writes": "Menulis",
+      "widget": "Widget Beranda",
+      "estimated_tokens": "Token per jalan",
+      "agent": "Agen",
+      "model": "Model"
+    },
+    "receipt": {
+      "update": "Diubah:",
+      "pause": "Dijeda:",
+      "resume": "Dilanjutkan:",
+      "delete": "Dihapus:",
+      "fields": "Yang berubah: {{fields}}",
+      "dismissed": "Perubahan diabaikan:",
+      "kept": "Disimpan:",
+      "undone": "Dibatalkan:",
+      "restored": "Dipulihkan:"
+    },
+    "blocked": {
+      "expired": "Waktu untuk membatalkan sudah habis; ubah pemicu di halaman Pemicu.",
+      "edited": "Pemicu sudah diubah sejak itu; ubah di halaman Pemicu.",
+      "removed": "Pemicu sudah dihapus sejak itu.",
+      "full": "Anda sudah memiliki jumlah pemicu maksimum; hapus satu di halaman Pemicu terlebih dahulu."
+    },
+    "announce": {
+      "applied": "{{name}} diubah.",
+      "deleted": "{{name}} dihapus.",
+      "dismissed": "Perubahan pada {{name}} diabaikan.",
+      "kept": "{{name}} disimpan.",
+      "undone": "Perubahan pada {{name}} dibatalkan.",
+      "restored": "{{name}} dipulihkan."
+    }
   }
 }

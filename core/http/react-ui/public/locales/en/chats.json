@@ -570,5 +570,71 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "you"
     }
+  },
+  "change": {
+    "loading": "Reading the trigger change...",
+    "unread": "The trigger change could not be read: {{message}}",
+    "removed": "This change is no longer kept.",
+    "none": "none",
+    "on": "On",
+    "off": "Off (paused)",
+    "becomes": "becomes",
+    "neverRan": "It has not run yet",
+    "lastRun": "Last run",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "Queued",
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "skipped": "Skipped"
+    },
+    "updateTitle": "Change {{name}}",
+    "deleteTitle": "Delete {{name}}?",
+    "updateHelp": "Proposed change. Nothing changes until you apply it.",
+    "deleteHelp": "Nothing is deleted until you press Delete. You can undo it for a day.",
+    "stale": "The trigger was changed or removed after this was proposed, so it cannot apply. Ask for the change again.",
+    "apply": "Apply",
+    "delete": "Delete",
+    "keep": "Keep",
+    "field": {
+      "name": "Name",
+      "prompt": "Prompt",
+      "when": "When",
+      "time_zone": "Time zone",
+      "daily_cap": "Daily limit",
+      "enabled": "State",
+      "reads": "Reads",
+      "writes": "Writes",
+      "widget": "Home widget",
+      "estimated_tokens": "Tokens a run",
+      "agent": "Agent",
+      "model": "Model"
+    },
+    "receipt": {
+      "update": "Changed:",
+      "pause": "Paused:",
+      "resume": "Resumed:",
+      "delete": "Deleted:",
+      "fields": "What changed: {{fields}}",
+      "dismissed": "Change dismissed:",
+      "kept": "Kept:",
+      "undone": "Undone:",
+      "restored": "Restored:"
+    },
+    "blocked": {
+      "expired": "The time to undo it is over; change the trigger on the Triggers page.",
+      "edited": "The trigger was changed since; change it on the Triggers page.",
+      "removed": "The trigger was removed since.",
+      "full": "You have as many triggers as you may; remove one on the Triggers page first."
+    },
+    "announce": {
+      "applied": "Changed {{name}}.",
+      "deleted": "Deleted {{name}}.",
+      "dismissed": "Dismissed the change to {{name}}.",
+      "kept": "Kept {{name}}.",
+      "undone": "Undid the change to {{name}}.",
+      "restored": "Restored {{name}}."
+    }
   }
 }

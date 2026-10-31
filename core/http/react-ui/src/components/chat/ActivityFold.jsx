@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
 import { addonChange, toolRefusal } from '../../utils/addonChange'
-import { proposalIds } from '../../utils/chatProposal'
+import { CHANGE_CARD, triggerCards } from '../../utils/chatProposal'
 import { toolLabel, formatDuration, runTimes } from '../../utils/toolLabels'
 import Icon from '../Icon'
 import { openChatFile } from './chatActions'
@@ -13,6 +13,7 @@ import ChangeNote from './ChangeNote'
 import ChatAppFrame from '../ChatAppFrame'
 // eslint-disable-next-line no-unused-vars
 import ProposalCard from './ProposalCard'
+import TriggerChangeCard from './TriggerChangeCard'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from './CommandsConsentCard'
 import NetworkConsentCard from './NetworkConsentCard'
@@ -292,12 +293,14 @@ function NetworkCards({ items }) {
   return cards.map(c => <NetworkConsentCard key={c.id} card={c} chatId={chatId} egress={egress} />)
 }
 
-// The trigger proposals of a run of tool lines, as cards. A message draws them
-// below its text, because the proposal is where the message ends; a run with no
-// message after it (ActivityRow) draws them with the fold.
+// The trigger proposals and trigger changes of a run of tool lines, as cards. A
+// message draws them below its text, because the card is where the message
+// ends; a run with no message after it (ActivityRow) draws them with the fold.
 export function ActivityProposals({ items, proposalTick = 0 }) {
   const { t: tc } = useTranslation('chats')
-  return proposalIds(items).map((pid) => <ProposalCard key={`p-${pid}`} id={pid} t={tc} tick={proposalTick} />)
+  return triggerCards(items).map(({ kind, id }) => (kind === CHANGE_CARD
+    ? <TriggerChangeCard key={`tc-${id}`} id={id} t={tc} tick={proposalTick} />
+    : <ProposalCard key={`p-${id}`} id={id} t={tc} tick={proposalTick} />))
 }
 
 // A tool call that has an MCP App: the tool line, then the app in its frame.

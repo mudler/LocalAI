@@ -175,5 +175,71 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "ti"
     }
+  },
+  "change": {
+    "loading": "Leyendo el cambio del disparador...",
+    "unread": "No se pudo leer el cambio del disparador: {{message}}",
+    "removed": "Este cambio ya no se conserva.",
+    "none": "ninguno",
+    "on": "Activado",
+    "off": "Desactivado (en pausa)",
+    "becomes": "pasa a",
+    "neverRan": "Aún no se ha ejecutado",
+    "lastRun": "Última ejecución",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "En cola",
+      "running": "En ejecución",
+      "done": "Terminada",
+      "failed": "Fallida",
+      "skipped": "Omitida"
+    },
+    "updateTitle": "Cambiar {{name}}",
+    "deleteTitle": "¿Eliminar {{name}}?",
+    "updateHelp": "Cambio propuesto. No cambia nada hasta que lo apliques.",
+    "deleteHelp": "No se elimina nada hasta que pulses Eliminar. Puedes deshacerlo durante un día.",
+    "stale": "El disparador se cambió o se eliminó después de la propuesta, así que el cambio no se puede aplicar. Pide el cambio de nuevo.",
+    "apply": "Aplicar",
+    "delete": "Eliminar",
+    "keep": "Conservar",
+    "field": {
+      "name": "Nombre",
+      "prompt": "Prompt",
+      "when": "Cuándo",
+      "time_zone": "Zona horaria",
+      "daily_cap": "Límite diario",
+      "enabled": "Estado",
+      "reads": "Lee",
+      "writes": "Escribe",
+      "widget": "Widget de Inicio",
+      "estimated_tokens": "Tokens por ejecución",
+      "agent": "Agente",
+      "model": "Modelo"
+    },
+    "receipt": {
+      "update": "Cambiado:",
+      "pause": "En pausa:",
+      "resume": "Reanudado:",
+      "delete": "Eliminado:",
+      "fields": "Qué cambió: {{fields}}",
+      "dismissed": "Cambio descartado:",
+      "kept": "Conservado:",
+      "undone": "Deshecho:",
+      "restored": "Restaurado:"
+    },
+    "blocked": {
+      "expired": "Se acabó el tiempo para deshacerlo; cambia el disparador en la página Disparadores.",
+      "edited": "El disparador se cambió desde entonces; cámbialo en la página Disparadores.",
+      "removed": "El disparador se eliminó desde entonces.",
+      "full": "Tienes el máximo de disparadores permitido; elimina uno en la página Disparadores primero."
+    },
+    "announce": {
+      "applied": "{{name}} cambiado.",
+      "deleted": "{{name}} eliminado.",
+      "dismissed": "Cambio de {{name}} descartado.",
+      "kept": "{{name}} conservado.",
+      "undone": "Cambio de {{name}} deshecho.",
+      "restored": "{{name}} restaurado."
+    }
   }
 }

@@ -175,5 +175,71 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "te"
     }
+  },
+  "change": {
+    "loading": "Lettura della modifica del trigger...",
+    "unread": "Impossibile leggere la modifica del trigger: {{message}}",
+    "removed": "Questa modifica non è più conservata.",
+    "none": "nessuno",
+    "on": "Attivo",
+    "off": "Disattivo (in pausa)",
+    "becomes": "diventa",
+    "neverRan": "Non è ancora stato eseguito",
+    "lastRun": "Ultima esecuzione",
+    "lastRunValue": "{{status}}, {{when}}",
+    "runStatus": {
+      "queued": "In coda",
+      "running": "In esecuzione",
+      "done": "Completata",
+      "failed": "Non riuscita",
+      "skipped": "Saltata"
+    },
+    "updateTitle": "Modifica {{name}}",
+    "deleteTitle": "Eliminare {{name}}?",
+    "updateHelp": "Modifica proposta. Non cambia nulla finché non la applichi.",
+    "deleteHelp": "Non viene eliminato nulla finché non premi Elimina. Puoi annullare per un giorno.",
+    "stale": "Il trigger è stato modificato o rimosso dopo la proposta, quindi la modifica non si può applicare. Chiedi di nuovo la modifica.",
+    "apply": "Applica",
+    "delete": "Elimina",
+    "keep": "Mantieni",
+    "field": {
+      "name": "Nome",
+      "prompt": "Prompt",
+      "when": "Quando",
+      "time_zone": "Fuso orario",
+      "daily_cap": "Limite giornaliero",
+      "enabled": "Stato",
+      "reads": "Legge",
+      "writes": "Scrive",
+      "widget": "Widget della Home",
+      "estimated_tokens": "Token per esecuzione",
+      "agent": "Agente",
+      "model": "Modello"
+    },
+    "receipt": {
+      "update": "Modificato:",
+      "pause": "In pausa:",
+      "resume": "Ripreso:",
+      "delete": "Eliminato:",
+      "fields": "Cosa è cambiato: {{fields}}",
+      "dismissed": "Modifica scartata:",
+      "kept": "Mantenuto:",
+      "undone": "Annullato:",
+      "restored": "Ripristinato:"
+    },
+    "blocked": {
+      "expired": "Il tempo per annullare è scaduto; modifica il trigger nella pagina Trigger.",
+      "edited": "Il trigger è stato modificato nel frattempo; cambialo nella pagina Trigger.",
+      "removed": "Il trigger è stato rimosso nel frattempo.",
+      "full": "Hai già il numero massimo di trigger; rimuovine uno nella pagina Trigger."
+    },
+    "announce": {
+      "applied": "{{name}} modificato.",
+      "deleted": "{{name}} eliminato.",
+      "dismissed": "Modifica a {{name}} scartata.",
+      "kept": "{{name}} mantenuto.",
+      "undone": "Modifica a {{name}} annullata.",
+      "restored": "{{name}} ripristinato."
+    }
   }
 }

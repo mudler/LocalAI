@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { contextReading, settingsBody, settingsChanged, settingsErrors, settingsForm, tokenCount } from '../../src/utils/chatSettings.js'
-import { proposalEdit, proposalIds, proposalView, receiptWhen } from '../../src/utils/chatProposal.js'
+import { changeValue, changeView, proposalEdit, proposalIds, proposalView, receiptWhen, triggerCards } from '../../src/utils/chatProposal.js'
 import { BROWSER_CHATS_KEY, browserChatStores, importBrowserChats } from '../../src/utils/browserChats.js'
 import { toolRefusal } from '../../src/utils/addonChange.js'
 
@@ -84,6 +84,28 @@ test('trigger proposals: the card says proposed, created (same id) or gone, and 
     { role: 'tool', card: { kind: 'mcp_app', id: 'x' } },
     { role: 'reasoning' },
   ]), ['p1'])
+})
+
+test('trigger changes: the card reads the state the server keeps and the cards keep their order', () => {
+  assert.deepEqual(changeView(null, { status: 404, message: 'x' }), { kind: 'removed' })
+  assert.equal(changeView(null, { status: 500, message: 'boom' }).message, 'boom')
+  assert.equal(changeView({ state: 'odd' }).kind, 'error')
+  const v = changeView({ state: 'applied', op: 'pause', before: { name: 'N', enabled: true }, after: { name: 'N', enabled: false }, fields: ['enabled'], can_undo: true })
+  assert.equal(v.kind, 'applied')
+  assert.equal(v.op, 'pause')
+  assert.equal(v.canUndo, true)
+  assert.deepEqual(v.fields, ['enabled'])
+  assert.equal(changeView({ state: 'pending', op: 'delete', before: {} }).after, null)
+  assert.equal(changeValue('when', { summary: 'Every day at 08:00' }), 'Every day at 08:00')
+  assert.equal(changeValue('enabled', { enabled: false }), 'off')
+  assert.equal(changeValue('writes', { plan: { writes: 'data/a.json' } }), 'data/a.json')
+  assert.equal(changeValue('estimated_tokens', { cost: {} }), '')
+  assert.equal(changeValue('name', { name: 'X' }), 'X')
+  assert.deepEqual(triggerCards([
+    { role: 'tool', card: { kind: 'trigger_change', id: 'c1' } },
+    { role: 'tool', card: { kind: 'mcp_app', id: 'x' } },
+    { role: 'tool', card: { kind: 'trigger_proposal', id: 'p1' } },
+  ]), [{ kind: 'trigger_change', id: 'c1' }, { kind: 'trigger_proposal', id: 'p1' }])
 })
 
 test('browser chats: every store of the old page is found, and one is cleared only when nothing failed', async () => {
