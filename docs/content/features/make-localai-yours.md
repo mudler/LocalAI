@@ -57,6 +57,8 @@ examples; the library line under Home then offers **Customise Home**.
 
 ### What a change shows
 
+The assistant explains a change in plain words ("I saved your shortcuts", "I added a Reading list page"). It does not name files, folders or formats unless you do, or you ask where something is.
+
 When the assistant changes one of these files or a page in a chat, the answer
 ends with a short note: what it saved and where ("Saved to your profile in
 `LocalAI/user.json`", "Created the page Task board in `pages/tasks/`"), with **Undo**

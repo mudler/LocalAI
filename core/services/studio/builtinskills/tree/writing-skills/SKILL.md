@@ -5,7 +5,7 @@ description: Use when the user asks you to remember a procedure, keep a conventi
 
 # Writing skills
 
-A skill is a short written procedure that you read before a task. Write one when the user asks for it ("remember how we do this", "make a skill for it"). Do not write a skill on your own. After you write one, tell the user its name and its path.
+A skill is a short written procedure that you read before a task. Write one when the user asks for it ("remember how we do this", "make a skill for it"). Do not write a skill on your own. After you write one, tell the user its name.
 
 ## Where a skill goes
 
