@@ -59,6 +59,9 @@ type Node struct {
 	// ConflictOf is set only in the result of Put, when the store kept the
 	// content as a conflict copy. It holds the path the caller asked for.
 	ConflictOf string
+	// Modified is when the change of Rev was made. List fills it; other calls
+	// may leave it zero.
+	Modified time.Time
 }
 
 // OpKind is the kind of one journal operation.

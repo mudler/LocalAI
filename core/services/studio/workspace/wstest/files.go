@@ -50,6 +50,26 @@ func describeFiles(newStore NewStore) {
 			}
 			Expect(names).To(Equal([]string{"a.txt", "b", "c.txt"}))
 		})
+		It("list says when each entry last changed: the time of the change set of its rev", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/m/a.txt", "one")
+			MustPut(s, AdminActor, "/m/b.txt", "two")
+			MustPut(s, AdminActor, "/m/a.txt", "three")
+			kids, err := s.List(Ctx(), AdminActor, "/m")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kids).To(HaveLen(2))
+			hist, err := s.History(Ctx(), AdminActor, workspace.HistoryQuery{Path: "/m"})
+			Expect(err).ToNot(HaveOccurred())
+			at := map[int64]int64{}
+			for _, cs := range hist {
+				at[cs.Rev] = cs.CreatedAt.UnixMilli()
+			}
+			for _, k := range kids {
+				Expect(k.Modified.IsZero()).To(BeFalse(), "%s has no time", k.Name)
+				Expect(k.Modified.UnixMilli()).To(Equal(at[k.Rev]), "%s", k.Name)
+			}
+			Expect(kids[0].Rev).To(BeNumerically(">", kids[1].Rev), "a.txt changed last")
+		})
 		It("NFD and NFC are one name", func() {
 			s := newStore()
 			MustPut(s, AdminActor, "/café.txt", "one")

@@ -305,7 +305,9 @@
     }
   },
   "tabs": {
-    "shared": "Compartido"
+    "shared": "Compartido",
+    "trashCount_one": "{{count}} elemento en la papelera",
+    "trashCount_other": "{{count}} elementos en la papelera"
   },
   "trash": {
     "empty": "La papelera está vacía.",
@@ -416,7 +418,8 @@
     "zoomOut": "Ajustar al panel",
     "items_one": "{{count}} elemento",
     "items_other": "{{count}} elementos",
-    "textCut": "Se muestran los primeros {{size}}."
+    "textCut": "Se muestran los primeros {{size}}.",
+    "actions": "Acciones del archivo"
   },
   "managed": {
     "group": "Gestionado por LocalAI",
@@ -442,5 +445,187 @@
       "home": "Inicio pierde sus widgets.",
       "ui": "Tu tema, color de acento, densidad, modelo predeterminado y páginas fijadas vuelven a los valores predeterminados."
     }
+  },
+  "newFile": "Archivo nuevo",
+  "newFolderName": "Carpeta nueva",
+  "newFileName": "Sin título.md",
+  "fileName": "Nombre del archivo",
+  "downloadOne": "Descargar {{name}}",
+  "moveTo": "Mover a…",
+  "uploadMenu": "Más opciones de subida",
+  "uploadFiles": "Subir archivos",
+  "uploadFolder": "Subir una carpeta",
+  "loading": "Cargando la carpeta",
+  "loadFailed": "No se pudo abrir {{folder}}.",
+  "types": {
+    "folder": "Carpeta",
+    "image": "Imagen",
+    "pdf": "PDF",
+    "sheet": "Hoja de cálculo",
+    "doc": "Documento",
+    "slides": "Presentación",
+    "archive": "Archivo comprimido",
+    "audio": "Audio",
+    "video": "Vídeo",
+    "code": "Código",
+    "text": "Texto",
+    "file": "Archivo"
+  },
+  "columns": {
+    "name": "Nombre",
+    "modified": "Modificado",
+    "type": "Tipo",
+    "size": "Tamaño",
+    "actions": "Acciones"
+  },
+  "view": {
+    "label": "Vista",
+    "list": "Lista",
+    "grid": "Miniaturas"
+  },
+  "select": {
+    "one": "Seleccionar {{name}}",
+    "all": "Seleccionar todo",
+    "bar": "Elementos seleccionados",
+    "clear": "Borrar la selección",
+    "count_one": "{{count}} seleccionado",
+    "count_other": "{{count}} seleccionados",
+    "start": "Seleccionar"
+  },
+  "menu": {
+    "label": "Acciones para {{name}}",
+    "more": "Más acciones para {{name}}",
+    "openFolder": "Abrir",
+    "preview": "Vista previa",
+    "downloadMany_one": "Descargar {{count}} archivo",
+    "downloadMany_other": "Descargar {{count}} archivos",
+    "moveMany_one": "Mover {{count}} elemento a…",
+    "moveMany_other": "Mover {{count}} elementos a…",
+    "deleteMany_one": "Mover {{count}} elemento a la papelera",
+    "deleteMany_other": "Mover {{count}} elementos a la papelera"
+  },
+  "keys": {
+    "delete": "Supr"
+  },
+  "crumbs": {
+    "hidden": "Mostrar las carpetas superiores"
+  },
+  "naming": {
+    "empty": "Escribe un nombre.",
+    "slash": "Un nombre no puede contener / ni \\.",
+    "taken": "Ya hay algo con ese nombre en esta carpeta."
+  },
+  "toast": {
+    "undo": "Deshacer",
+    "deletedOne": "{{name}} se movió a la papelera.",
+    "deleted_one": "{{count}} elemento se movió a la papelera.",
+    "deleted_other": "{{count}} elementos se movieron a la papelera.",
+    "restored": "Restaurado.",
+    "renamed": "Renombrado a {{name}}.",
+    "renameUndone": "Se restauró el nombre anterior.",
+    "movedOne": "{{name}} se movió a {{folder}}.",
+    "moved_one": "{{count}} elemento se movió a {{folder}}.",
+    "moved_other": "{{count}} elementos se movieron a {{folder}}.",
+    "moveUndone": "Devuelto a su sitio."
+  },
+  "search": {
+    "placeholder": "Filtrar esta carpeta",
+    "resultsFor": "Archivos que contienen “{{query}}”",
+    "back": "Volver a la carpeta",
+    "noneBody": "Ningún nombre ni texto de tus archivos coincide. Prueba con otras palabras.",
+    "filtering_one": "{{count}} elemento de esta carpeta coincide con “{{query}}”.",
+    "filtering_other": "{{count}} elementos de esta carpeta coinciden con “{{query}}”.",
+    "everywhere": "Buscar “{{query}}” en todos los archivos",
+    "everywhereShort": "Buscar en todos los archivos",
+    "noMatch": "Nada en esta carpeta coincide con “{{query}}”.",
+    "clear": "Borrar el filtro"
+  },
+  "emptyHome": {
+    "title": "Tus archivos están aquí"
+  },
+  "emptyFolder": {
+    "title": "Esta carpeta está vacía",
+    "body": "Suelta archivos o carpetas en cualquier parte de esta página, pégalos con Ctrl+V o súbelos desde tu ordenador. El asistente también puede guardar archivos aquí desde un chat.",
+    "bodyTouch": "Sube archivos desde tu dispositivo. El asistente también puede guardar archivos aquí desde un chat.",
+    "ask": "Pedírselo al asistente"
+  },
+  "drop": {
+    "title": "Suelta para subir a {{folder}}",
+    "body": "Se admiten archivos y carpetas completas.",
+    "limit": "Archivos y carpetas completas, de hasta {{size}} cada uno."
+  },
+  "conflict": {
+    "title_one": "Ya existe un archivo con este nombre",
+    "title_other": "Ya existen {{count}} archivos con estos nombres",
+    "body_one": "{{folder}} ya tiene un archivo con este nombre.",
+    "body_other": "{{folder}} ya tiene archivos con estos nombres.",
+    "skip_one": "Omitir",
+    "skip_other": "Omitir todos",
+    "keep": "Conservar ambos",
+    "replace_one": "Reemplazar",
+    "replace_other": "Reemplazar todos",
+    "more_one": "y {{count}} más",
+    "more_other": "y {{count}} más",
+    "note": "Conservar ambos le da un nombre nuevo al archivo nuevo. Un archivo reemplazado se puede recuperar desde el historial.",
+    "cancel": "Cancelar la subida"
+  },
+  "move": {
+    "title_one": "Mover {{count}} elemento",
+    "title_other": "Mover {{count}} elementos",
+    "items_one": "{{count}} elemento",
+    "items_other": "{{count}} elementos",
+    "cancel": "Cancelar",
+    "here": "Mover a {{folder}}",
+    "failed": "No se pudo leer esta carpeta.",
+    "noFolders": "No hay carpetas aquí. Mueve aquí o sube un nivel."
+  },
+  "uploads": {
+    "waiting": "En espera",
+    "progress": "{{loaded}} de {{total}}",
+    "rate": "{{rate}}/s",
+    "left": "quedan {{time}}",
+    "renamed": "Guardado como {{name}}",
+    "done": "Subido",
+    "canceled": "Cancelado",
+    "cancel": "Cancelar",
+    "cancelOne": "Cancelar la subida de {{name}}",
+    "retry": "Reintentar",
+    "retryOne": "Reintentar {{name}}",
+    "dismiss": "Descartar",
+    "dismissOne": "Descartar {{name}}",
+    "show": "Mostrar",
+    "showOne": "Mostrar {{name}}",
+    "meterOne": "{{name}}: {{percent}} %",
+    "meterAll": "Todas las subidas: {{percent}} %",
+    "cancelAll": "Cancelar todo",
+    "retryAll": "Reintentar todo",
+    "fold": "Ocultar la lista",
+    "unfold": "Mostrar la lista",
+    "close": "Cerrar",
+    "head": {
+      "sending_one": "Subiendo {{count}} archivo",
+      "sending_other": "Subiendo {{count}} archivos",
+      "failed_one": "Falló {{count}} subida",
+      "failed_other": "Fallaron {{count}} subidas",
+      "done_one": "{{count}} archivo subido",
+      "done_other": "{{count}} archivos subidos"
+    },
+    "say": {
+      "start_one": "Subiendo {{count}} archivo.",
+      "start_other": "Subiendo {{count}} archivos.",
+      "done_one": "Subida completada: {{count}} archivo.",
+      "done_other": "Subidas completadas: {{count}} archivos.",
+      "doneFailed": "Subidas completadas: {{count}} subidos, {{failed}} con error.",
+      "failed": "No se pudo subir {{name}}."
+    },
+    "errors": {
+      "tooBig": "Supera el límite de {{limit}} de este servidor.",
+      "tooLarge": "El servidor lo rechazó por ser demasiado grande.",
+      "off": "Los archivos están desactivados en este servidor.",
+      "invalid": "El servidor rechazó este archivo.",
+      "network": "Se perdió la conexión.",
+      "server": "El servidor no pudo guardarlo."
+    },
+    "said": "El servidor respondió: {{reason}}."
   }
 }

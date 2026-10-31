@@ -2,23 +2,21 @@
   "title": "Files",
   "home": "Home",
   "breadcrumb": "Folder path",
-  "up": "Up one folder",
   "upload": "Upload",
   "newFolder": "New folder",
   "folderName": "Folder name",
-  "create": "Create",
   "download": "Download",
   "rename": "Rename",
   "delete": "Move to Trash",
   "dismiss": "Dismiss",
-  "empty": "This folder is empty. Drop files here or use Upload.",
-  "dropHint": "Drop files anywhere on this list to upload them here. Deleted files go to the Trash.",
   "tabs": {
     "label": "Views",
     "files": "Files",
     "trash": "Trash",
     "history": "History",
-    "shared": "Shared"
+    "shared": "Shared",
+    "trashCount_one": "{{count}} item in the Trash",
+    "trashCount_other": "{{count}} items in the Trash"
   },
   "trash": {
     "empty": "The Trash is empty.",
@@ -49,9 +47,17 @@
   },
   "search": {
     "label": "Search your files",
-    "placeholder": "Search names and text",
-    "results": "Search results",
-    "none": "Nothing found."
+    "placeholder": "Filter this folder",
+    "none": "Nothing found.",
+    "resultsFor": "Files that contain “{{query}}”",
+    "back": "Back to the folder",
+    "noneBody": "No name or text in your files matches. Try other words.",
+    "filtering_one": "{{count}} item in this folder matches “{{query}}”.",
+    "filtering_other": "{{count}} items in this folder match “{{query}}”.",
+    "everywhere": "Search all files for “{{query}}”",
+    "everywhereShort": "Search all files",
+    "noMatch": "Nothing in this folder matches “{{query}}”.",
+    "clear": "Clear the filter"
   },
   "preview": {
     "label": "Preview",
@@ -82,7 +88,8 @@
     "zoomOut": "Fit to the pane",
     "items_one": "{{count}} item",
     "items_other": "{{count}} items",
-    "textCut": "Showing the first {{size}}."
+    "textCut": "Showing the first {{size}}.",
+    "actions": "File actions"
   },
   "wellKnown": {
     "storedIn": "Stored in",
@@ -471,5 +478,175 @@
       "home": "Home loses its widgets.",
       "ui": "Your theme, accent, density, default model and pinned pages go back to the defaults."
     }
+  },
+  "newFile": "New file",
+  "newFolderName": "New folder",
+  "newFileName": "Untitled.md",
+  "fileName": "File name",
+  "downloadOne": "Download {{name}}",
+  "moveTo": "Move to…",
+  "uploadMenu": "More upload options",
+  "uploadFiles": "Upload files",
+  "uploadFolder": "Upload a folder",
+  "loading": "Loading the folder",
+  "loadFailed": "Could not open {{folder}}.",
+  "types": {
+    "folder": "Folder",
+    "image": "Image",
+    "pdf": "PDF",
+    "sheet": "Spreadsheet",
+    "doc": "Document",
+    "slides": "Presentation",
+    "archive": "Archive",
+    "audio": "Audio",
+    "video": "Video",
+    "code": "Code",
+    "text": "Text",
+    "file": "File"
+  },
+  "columns": {
+    "name": "Name",
+    "modified": "Modified",
+    "type": "Type",
+    "size": "Size",
+    "actions": "Actions"
+  },
+  "view": {
+    "label": "View",
+    "list": "List",
+    "grid": "Thumbnails"
+  },
+  "select": {
+    "one": "Select {{name}}",
+    "all": "Select all",
+    "bar": "Selected items",
+    "clear": "Clear the selection",
+    "count_one": "{{count}} selected",
+    "count_other": "{{count}} selected",
+    "start": "Select"
+  },
+  "menu": {
+    "label": "Actions for {{name}}",
+    "more": "More actions for {{name}}",
+    "openFolder": "Open",
+    "preview": "Preview",
+    "downloadMany_one": "Download {{count}} file",
+    "downloadMany_other": "Download {{count}} files",
+    "moveMany_one": "Move {{count}} item to…",
+    "moveMany_other": "Move {{count}} items to…",
+    "deleteMany_one": "Move {{count}} item to Trash",
+    "deleteMany_other": "Move {{count}} items to Trash"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "Show the folders above"
+  },
+  "naming": {
+    "empty": "Type a name.",
+    "slash": "A name cannot contain / or \\.",
+    "taken": "Something in this folder already has that name."
+  },
+  "toast": {
+    "undo": "Undo",
+    "deletedOne": "{{name}} moved to the Trash.",
+    "deleted_one": "{{count}} item moved to the Trash.",
+    "deleted_other": "{{count}} items moved to the Trash.",
+    "restored": "Restored.",
+    "renamed": "Renamed to {{name}}.",
+    "renameUndone": "Name changed back.",
+    "movedOne": "{{name}} moved to {{folder}}.",
+    "moved_one": "{{count}} item moved to {{folder}}.",
+    "moved_other": "{{count}} items moved to {{folder}}.",
+    "moveUndone": "Moved back."
+  },
+  "emptyHome": {
+    "title": "Your files live here"
+  },
+  "emptyFolder": {
+    "title": "This folder is empty",
+    "body": "Drop files or folders anywhere on this page, paste them with Ctrl+V, or upload them from your computer. The assistant can also save files here from a chat.",
+    "bodyTouch": "Upload files from your device. The assistant can also save files here from a chat.",
+    "ask": "Ask the assistant"
+  },
+  "drop": {
+    "title": "Drop to upload to {{folder}}",
+    "body": "Files and whole folders are welcome.",
+    "limit": "Files and whole folders, up to {{size}} each."
+  },
+  "conflict": {
+    "title_one": "A file with this name already exists",
+    "title_other": "{{count}} files with these names already exist",
+    "body_one": "{{folder}} already has a file with this name.",
+    "body_other": "{{folder}} already has files with these names.",
+    "skip_one": "Skip it",
+    "skip_other": "Skip them",
+    "keep": "Keep both",
+    "replace_one": "Replace",
+    "replace_other": "Replace all",
+    "more_one": "and {{count}} more",
+    "more_other": "and {{count}} more",
+    "note": "Keep both gives the new file a new name. A replaced file can be brought back from History.",
+    "cancel": "Cancel the upload"
+  },
+  "move": {
+    "title_one": "Move {{count}} item",
+    "title_other": "Move {{count}} items",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "cancel": "Cancel",
+    "here": "Move to {{folder}}",
+    "failed": "Could not read this folder.",
+    "noFolders": "No folders here. Move here, or go back up."
+  },
+  "uploads": {
+    "waiting": "Waiting",
+    "progress": "{{loaded}} of {{total}}",
+    "rate": "{{rate}}/s",
+    "left": "{{time}} left",
+    "renamed": "Saved as {{name}}",
+    "done": "Uploaded",
+    "canceled": "Canceled",
+    "cancel": "Cancel",
+    "cancelOne": "Cancel the upload of {{name}}",
+    "retry": "Try again",
+    "retryOne": "Try {{name}} again",
+    "dismiss": "Dismiss",
+    "dismissOne": "Dismiss {{name}}",
+    "show": "Show",
+    "showOne": "Show {{name}}",
+    "meterOne": "{{name}}: {{percent}}%",
+    "meterAll": "All uploads: {{percent}}%",
+    "cancelAll": "Cancel all",
+    "retryAll": "Try all again",
+    "fold": "Hide the list",
+    "unfold": "Show the list",
+    "close": "Close",
+    "head": {
+      "sending_one": "Uploading {{count}} file",
+      "sending_other": "Uploading {{count}} files",
+      "failed_one": "{{count}} upload failed",
+      "failed_other": "{{count}} uploads failed",
+      "done_one": "{{count}} file uploaded",
+      "done_other": "{{count}} files uploaded"
+    },
+    "say": {
+      "start_one": "Uploading {{count}} file.",
+      "start_other": "Uploading {{count}} files.",
+      "done_one": "Upload done: {{count}} file.",
+      "done_other": "Uploads done: {{count}} files.",
+      "doneFailed": "Uploads done: {{count}} uploaded, {{failed}} failed.",
+      "failed": "Could not upload {{name}}."
+    },
+    "errors": {
+      "tooBig": "Larger than the {{limit}} limit of this server.",
+      "tooLarge": "The server refused it as too large.",
+      "off": "Files are off on this server.",
+      "invalid": "The server refused this file.",
+      "network": "The connection dropped.",
+      "server": "The server could not save it."
+    },
+    "said": "The server said: {{reason}}."
   }
 }

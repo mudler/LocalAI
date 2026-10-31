@@ -23,6 +23,16 @@ import (
 // studioMaxFileSize limits one file of a workspace.
 const studioMaxFileSize int64 = 256 << 20
 
+// studioUploadLimit is the largest file an upload of the Files page can
+// send: the workspace limit, or the server's body limit when that is lower.
+func (a *Application) studioUploadLimit() int64 {
+	limit := studioMaxFileSize
+	if mb := a.ApplicationConfig().UploadLimitMB; mb > 0 && int64(mb)<<20 < limit {
+		limit = int64(mb) << 20
+	}
+	return limit
+}
+
 // StudioFiles returns the files service of the chats. It is never nil: when
 // files are off, it says why.
 func (a *Application) StudioFiles() *files.Service {
@@ -84,7 +94,7 @@ func (a *Application) initStudioFiles() {
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
 		return
 	}
-	f := files.New(ws, files.WithBlobs(blobs))
+	f := files.New(ws, files.WithBlobs(blobs), files.WithMaxFileSize(a.studioUploadLimit()))
 	if err := f.EnsureShared(context.Background()); err != nil {
 		xlog.Warn("Files disabled: cannot create the shared folders", "error", err)
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")

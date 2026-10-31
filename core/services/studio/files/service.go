@@ -43,6 +43,21 @@ type Service struct {
 	// sharedRoots lists the shared folders of a user, for the file tools'
 	// /workspace/shared-<name> paths. Nil: the tools see no shared folder.
 	sharedRoots SharedRootsFunc
+
+	maxFileSize int64 // the largest upload the server takes, in bytes; 0: no limit known
+}
+
+// WithMaxFileSize records the largest file an upload may send, so a client
+// can refuse a larger file before it sends any byte.
+func WithMaxFileSize(n int64) Option { return func(s *Service) { s.maxFileSize = n } }
+
+// MaxFileSize is the largest file an upload may send, in bytes, or 0 when the
+// server sets no limit.
+func (s *Service) MaxFileSize() int64 {
+	if s == nil {
+		return 0
+	}
+	return s.maxFileSize
 }
 
 // SharedRootsFunc lists the shared folders a user may use, with the mode of

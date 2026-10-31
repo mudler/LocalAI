@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
+	"time"
 )
 
 // precheckPut refuses a Put before any bytes are stored, when the actor has
@@ -148,5 +150,46 @@ func (s *Workspace) List(ctx context.Context, a Actor, p string) ([]Node, error)
 		}
 		out = append(out, node)
 	}
+	if err := fillModified(ctx, s.db, out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// fillModified sets Modified on each node from the change set of its Rev, in
+// one query per batch of revisions instead of one per node.
+func fillModified(ctx context.Context, q querier, nodes []Node) error {
+	idx := map[int64][]int{}
+	revs := make([]any, 0, len(nodes))
+	for i, n := range nodes {
+		if _, seen := idx[n.Rev]; !seen {
+			revs = append(revs, n.Rev)
+		}
+		idx[n.Rev] = append(idx[n.Rev], i)
+	}
+	const batch = 500
+	for start := 0; start < len(revs); start += batch {
+		part := revs[start:min(start+batch, len(revs))]
+		rows, err := q.QueryContext(ctx, `SELECT rev, created_at FROM studio_ws_changesets WHERE rev IN (?`+strings.Repeat(", ?", len(part)-1)+`)`, part...)
+		if err != nil {
+			return err
+		}
+		for rows.Next() {
+			var rev, ms int64
+			if err := rows.Scan(&rev, &ms); err != nil {
+				_ = rows.Close()
+				return err
+			}
+			for _, i := range idx[rev] {
+				nodes[i].Modified = time.UnixMilli(ms).UTC()
+			}
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

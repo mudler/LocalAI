@@ -5145,7 +5145,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "The folder's entries, sorted by name; managed marks the folders LocalAI manages",
+                        "description": "The folder's entries, sorted by name, each with when it last changed; managed marks the folders LocalAI manages; max_file_size is the largest upload the server takes",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsFileList"
                         }
@@ -18899,6 +18899,10 @@ const docTemplate = `{
                     "description": "Managed is set on a path LocalAI manages: \"localai\" for the LocalAI\nfolder and the settings files in it, \"chats\" for the Chats folder.",
                     "type": "string"
                 },
+                "modified": {
+                    "description": "Modified is when the entry last changed. A folder listing sets it.",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -18935,6 +18939,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsFile"
                     }
+                },
+                "max_file_size": {
+                    "description": "MaxFileSize is the largest file an upload may send, in bytes. Zero or\nabsent: the server reports no limit.",
+                    "type": "integer"
                 },
                 "path": {
                     "type": "string"

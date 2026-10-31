@@ -305,7 +305,9 @@
     }
   },
   "tabs": {
-    "shared": "Dibagikan"
+    "shared": "Dibagikan",
+    "trashCount_one": "{{count}} item di Sampah",
+    "trashCount_other": "{{count}} item di Sampah"
   },
   "trash": {
     "empty": "Tempat sampah kosong.",
@@ -416,7 +418,8 @@
     "zoomOut": "Sesuaikan dengan panel",
     "items_one": "{{count}} item",
     "items_other": "{{count}} item",
-    "textCut": "Menampilkan {{size}} pertama."
+    "textCut": "Menampilkan {{size}} pertama.",
+    "actions": "Tindakan file"
   },
   "managed": {
     "group": "Dikelola oleh LocalAI",
@@ -442,5 +445,187 @@
       "home": "Beranda kehilangan widgetnya.",
       "ui": "Tema, warna aksen, kepadatan, model bawaan, dan halaman yang disematkan kembali ke bawaan."
     }
+  },
+  "newFile": "File baru",
+  "newFolderName": "Folder baru",
+  "newFileName": "Tanpa judul.md",
+  "fileName": "Nama file",
+  "downloadOne": "Unduh {{name}}",
+  "moveTo": "Pindahkan ke…",
+  "uploadMenu": "Opsi unggah lainnya",
+  "uploadFiles": "Unggah file",
+  "uploadFolder": "Unggah folder",
+  "loading": "Memuat folder",
+  "loadFailed": "Tidak dapat membuka {{folder}}.",
+  "types": {
+    "folder": "Folder",
+    "image": "Gambar",
+    "pdf": "PDF",
+    "sheet": "Spreadsheet",
+    "doc": "Dokumen",
+    "slides": "Presentasi",
+    "archive": "Arsip",
+    "audio": "Audio",
+    "video": "Video",
+    "code": "Kode",
+    "text": "Teks",
+    "file": "File"
+  },
+  "columns": {
+    "name": "Nama",
+    "modified": "Diubah",
+    "type": "Jenis",
+    "size": "Ukuran",
+    "actions": "Tindakan"
+  },
+  "view": {
+    "label": "Tampilan",
+    "list": "Daftar",
+    "grid": "Gambar mini"
+  },
+  "select": {
+    "one": "Pilih {{name}}",
+    "all": "Pilih semua",
+    "bar": "Item yang dipilih",
+    "clear": "Hapus pilihan",
+    "count_one": "{{count}} dipilih",
+    "count_other": "{{count}} dipilih",
+    "start": "Pilih"
+  },
+  "menu": {
+    "label": "Tindakan untuk {{name}}",
+    "more": "Tindakan lainnya untuk {{name}}",
+    "openFolder": "Buka",
+    "preview": "Pratinjau",
+    "downloadMany_one": "Unduh {{count}} file",
+    "downloadMany_other": "Unduh {{count}} file",
+    "moveMany_one": "Pindahkan {{count}} item ke…",
+    "moveMany_other": "Pindahkan {{count}} item ke…",
+    "deleteMany_one": "Pindahkan {{count}} item ke Sampah",
+    "deleteMany_other": "Pindahkan {{count}} item ke Sampah"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "Tampilkan folder di atasnya"
+  },
+  "naming": {
+    "empty": "Ketik nama.",
+    "slash": "Nama tidak boleh berisi / atau \\.",
+    "taken": "Sudah ada item dengan nama itu di folder ini."
+  },
+  "toast": {
+    "undo": "Urungkan",
+    "deletedOne": "{{name}} dipindahkan ke Sampah.",
+    "deleted_one": "{{count}} item dipindahkan ke Sampah.",
+    "deleted_other": "{{count}} item dipindahkan ke Sampah.",
+    "restored": "Dipulihkan.",
+    "renamed": "Diganti namanya menjadi {{name}}.",
+    "renameUndone": "Nama dikembalikan.",
+    "movedOne": "{{name}} dipindahkan ke {{folder}}.",
+    "moved_one": "{{count}} item dipindahkan ke {{folder}}.",
+    "moved_other": "{{count}} item dipindahkan ke {{folder}}.",
+    "moveUndone": "Dikembalikan."
+  },
+  "search": {
+    "placeholder": "Saring folder ini",
+    "resultsFor": "File yang berisi “{{query}}”",
+    "back": "Kembali ke folder",
+    "noneBody": "Tidak ada nama atau teks di file Anda yang cocok. Coba kata lain.",
+    "filtering_one": "{{count}} item di folder ini cocok dengan “{{query}}”.",
+    "filtering_other": "{{count}} item di folder ini cocok dengan “{{query}}”.",
+    "everywhere": "Cari “{{query}}” di semua file",
+    "everywhereShort": "Cari di semua file",
+    "noMatch": "Tidak ada yang cocok dengan “{{query}}” di folder ini.",
+    "clear": "Hapus saringan"
+  },
+  "emptyHome": {
+    "title": "File Anda ada di sini"
+  },
+  "emptyFolder": {
+    "title": "Folder ini kosong",
+    "body": "Jatuhkan file atau folder di mana saja pada halaman ini, tempel dengan Ctrl+V, atau unggah dari komputer Anda. Asisten juga dapat menyimpan file di sini dari obrolan.",
+    "bodyTouch": "Unggah file dari perangkat Anda. Asisten juga dapat menyimpan file di sini dari obrolan.",
+    "ask": "Tanya asisten"
+  },
+  "drop": {
+    "title": "Lepas untuk mengunggah ke {{folder}}",
+    "body": "File dan folder utuh diterima.",
+    "limit": "File dan folder utuh, hingga {{size}} per file."
+  },
+  "conflict": {
+    "title_one": "File dengan nama ini sudah ada",
+    "title_other": "{{count}} file dengan nama ini sudah ada",
+    "body_one": "{{folder}} sudah memiliki file dengan nama ini.",
+    "body_other": "{{folder}} sudah memiliki file dengan nama-nama ini.",
+    "skip_one": "Lewati",
+    "skip_other": "Lewati semua",
+    "keep": "Simpan keduanya",
+    "replace_one": "Ganti",
+    "replace_other": "Ganti semua",
+    "more_one": "dan {{count}} lagi",
+    "more_other": "dan {{count}} lagi",
+    "note": "Simpan keduanya memberi nama baru pada file yang baru. File yang diganti dapat dikembalikan dari Riwayat.",
+    "cancel": "Batalkan unggahan"
+  },
+  "move": {
+    "title_one": "Pindahkan {{count}} item",
+    "title_other": "Pindahkan {{count}} item",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} item",
+    "cancel": "Batal",
+    "here": "Pindahkan ke {{folder}}",
+    "failed": "Tidak dapat membaca folder ini.",
+    "noFolders": "Tidak ada folder di sini. Pindahkan ke sini, atau naik satu tingkat."
+  },
+  "uploads": {
+    "waiting": "Menunggu",
+    "progress": "{{loaded}} dari {{total}}",
+    "rate": "{{rate}}/dtk",
+    "left": "{{time}} lagi",
+    "renamed": "Disimpan sebagai {{name}}",
+    "done": "Terunggah",
+    "canceled": "Dibatalkan",
+    "cancel": "Batal",
+    "cancelOne": "Batalkan unggahan {{name}}",
+    "retry": "Coba lagi",
+    "retryOne": "Coba {{name}} lagi",
+    "dismiss": "Tutup",
+    "dismissOne": "Tutup {{name}}",
+    "show": "Tampilkan",
+    "showOne": "Tampilkan {{name}}",
+    "meterOne": "{{name}}: {{percent}}%",
+    "meterAll": "Semua unggahan: {{percent}}%",
+    "cancelAll": "Batalkan semua",
+    "retryAll": "Coba semua lagi",
+    "fold": "Sembunyikan daftar",
+    "unfold": "Tampilkan daftar",
+    "close": "Tutup",
+    "head": {
+      "sending_one": "Mengunggah {{count}} file",
+      "sending_other": "Mengunggah {{count}} file",
+      "failed_one": "{{count}} unggahan gagal",
+      "failed_other": "{{count}} unggahan gagal",
+      "done_one": "{{count}} file terunggah",
+      "done_other": "{{count}} file terunggah"
+    },
+    "say": {
+      "start_one": "Mengunggah {{count}} file.",
+      "start_other": "Mengunggah {{count}} file.",
+      "done_one": "Unggahan selesai: {{count}} file.",
+      "done_other": "Unggahan selesai: {{count}} file.",
+      "doneFailed": "Unggahan selesai: {{count}} berhasil, {{failed}} gagal.",
+      "failed": "Tidak dapat mengunggah {{name}}."
+    },
+    "errors": {
+      "tooBig": "Melebihi batas {{limit}} di server ini.",
+      "tooLarge": "Server menolaknya karena terlalu besar.",
+      "off": "File dinonaktifkan di server ini.",
+      "invalid": "Server menolak file ini.",
+      "network": "Koneksi terputus.",
+      "server": "Server tidak dapat menyimpannya."
+    },
+    "said": "Server menjawab: {{reason}}."
   }
 }

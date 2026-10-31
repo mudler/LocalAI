@@ -305,7 +305,9 @@
     }
   },
   "tabs": {
-    "shared": "共享"
+    "shared": "共享",
+    "trashCount_one": "回收站中有 {{count}} 项",
+    "trashCount_other": "回收站中有 {{count}} 项"
   },
   "trash": {
     "empty": "回收站是空的。",
@@ -416,7 +418,8 @@
     "zoomOut": "适应面板",
     "items_one": "{{count}} 项",
     "items_other": "{{count}} 项",
-    "textCut": "显示前 {{size}}。"
+    "textCut": "显示前 {{size}}。",
+    "actions": "文件操作"
   },
   "managed": {
     "group": "由 LocalAI 管理",
@@ -442,5 +445,187 @@
       "home": "主页会失去它的小组件。",
       "ui": "你的主题、强调色、密度、默认模型和固定的页面会恢复为默认值。"
     }
+  },
+  "newFile": "新建文件",
+  "newFolderName": "新建文件夹",
+  "newFileName": "未命名.md",
+  "fileName": "文件名",
+  "downloadOne": "下载 {{name}}",
+  "moveTo": "移动到…",
+  "uploadMenu": "更多上传选项",
+  "uploadFiles": "上传文件",
+  "uploadFolder": "上传文件夹",
+  "loading": "正在加载文件夹",
+  "loadFailed": "无法打开 {{folder}}。",
+  "types": {
+    "folder": "文件夹",
+    "image": "图片",
+    "pdf": "PDF",
+    "sheet": "电子表格",
+    "doc": "文档",
+    "slides": "演示文稿",
+    "archive": "压缩包",
+    "audio": "音频",
+    "video": "视频",
+    "code": "代码",
+    "text": "文本",
+    "file": "文件"
+  },
+  "columns": {
+    "name": "名称",
+    "modified": "修改时间",
+    "type": "类型",
+    "size": "大小",
+    "actions": "操作"
+  },
+  "view": {
+    "label": "视图",
+    "list": "列表",
+    "grid": "缩略图"
+  },
+  "select": {
+    "one": "选择 {{name}}",
+    "all": "全选",
+    "bar": "已选项目",
+    "clear": "取消选择",
+    "count_one": "已选 {{count}} 项",
+    "count_other": "已选 {{count}} 项",
+    "start": "选择"
+  },
+  "menu": {
+    "label": "{{name}} 的操作",
+    "more": "{{name}} 的更多操作",
+    "openFolder": "打开",
+    "preview": "预览",
+    "downloadMany_one": "下载 {{count}} 个文件",
+    "downloadMany_other": "下载 {{count}} 个文件",
+    "moveMany_one": "将 {{count}} 项移动到…",
+    "moveMany_other": "将 {{count}} 项移动到…",
+    "deleteMany_one": "将 {{count}} 项移到回收站",
+    "deleteMany_other": "将 {{count}} 项移到回收站"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "显示上级文件夹"
+  },
+  "naming": {
+    "empty": "请输入名称。",
+    "slash": "名称不能包含 / 或 \\。",
+    "taken": "此文件夹中已有同名项目。"
+  },
+  "toast": {
+    "undo": "撤销",
+    "deletedOne": "已将 {{name}} 移到回收站。",
+    "deleted_one": "已将 {{count}} 项移到回收站。",
+    "deleted_other": "已将 {{count}} 项移到回收站。",
+    "restored": "已还原。",
+    "renamed": "已重命名为 {{name}}。",
+    "renameUndone": "已恢复原名称。",
+    "movedOne": "已将 {{name}} 移动到 {{folder}}。",
+    "moved_one": "已将 {{count}} 项移动到 {{folder}}。",
+    "moved_other": "已将 {{count}} 项移动到 {{folder}}。",
+    "moveUndone": "已移回原位置。"
+  },
+  "search": {
+    "placeholder": "筛选此文件夹",
+    "resultsFor": "包含“{{query}}”的文件",
+    "back": "返回文件夹",
+    "noneBody": "你的文件中没有匹配的名称或文本。换个词试试。",
+    "filtering_one": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
+    "filtering_other": "此文件夹中有 {{count}} 项与“{{query}}”匹配。",
+    "everywhere": "在所有文件中搜索“{{query}}”",
+    "everywhereShort": "搜索所有文件",
+    "noMatch": "此文件夹中没有与“{{query}}”匹配的项目。",
+    "clear": "清除筛选"
+  },
+  "emptyHome": {
+    "title": "你的文件都在这里"
+  },
+  "emptyFolder": {
+    "title": "此文件夹为空",
+    "body": "将文件或文件夹拖放到此页面任意位置，用 Ctrl+V 粘贴，或从电脑上传。助手也可以在聊天中把文件保存到这里。",
+    "bodyTouch": "从设备上传文件。助手也可以在聊天中把文件保存到这里。",
+    "ask": "询问助手"
+  },
+  "drop": {
+    "title": "松开即可上传到 {{folder}}",
+    "body": "支持文件和整个文件夹。",
+    "limit": "支持文件和整个文件夹，每个最大 {{size}}。"
+  },
+  "conflict": {
+    "title_one": "已存在同名文件",
+    "title_other": "已存在 {{count}} 个同名文件",
+    "body_one": "{{folder}} 中已有同名文件。",
+    "body_other": "{{folder}} 中已有这些同名文件。",
+    "skip_one": "跳过",
+    "skip_other": "全部跳过",
+    "keep": "保留两者",
+    "replace_one": "替换",
+    "replace_other": "全部替换",
+    "more_one": "另有 {{count}} 个",
+    "more_other": "另有 {{count}} 个",
+    "note": "选择“保留两者”会为新文件另起名称。被替换的文件可以从历史记录中找回。",
+    "cancel": "取消上传"
+  },
+  "move": {
+    "title_one": "移动 {{count}} 项",
+    "title_other": "移动 {{count}} 项",
+    "items_one": "{{count}} 项",
+    "items_other": "{{count}} 项",
+    "cancel": "取消",
+    "here": "移动到 {{folder}}",
+    "failed": "无法读取此文件夹。",
+    "noFolders": "这里没有文件夹。可移动到此处，或返回上一级。"
+  },
+  "uploads": {
+    "waiting": "等待中",
+    "progress": "{{loaded}} / {{total}}",
+    "rate": "{{rate}}/秒",
+    "left": "剩余 {{time}}",
+    "renamed": "已另存为 {{name}}",
+    "done": "已上传",
+    "canceled": "已取消",
+    "cancel": "取消",
+    "cancelOne": "取消上传 {{name}}",
+    "retry": "重试",
+    "retryOne": "重试 {{name}}",
+    "dismiss": "关闭",
+    "dismissOne": "关闭 {{name}}",
+    "show": "显示",
+    "showOne": "显示 {{name}}",
+    "meterOne": "{{name}}：{{percent}}%",
+    "meterAll": "全部上传：{{percent}}%",
+    "cancelAll": "全部取消",
+    "retryAll": "全部重试",
+    "fold": "隐藏列表",
+    "unfold": "显示列表",
+    "close": "关闭",
+    "head": {
+      "sending_one": "正在上传 {{count}} 个文件",
+      "sending_other": "正在上传 {{count}} 个文件",
+      "failed_one": "{{count}} 个上传失败",
+      "failed_other": "{{count}} 个上传失败",
+      "done_one": "已上传 {{count}} 个文件",
+      "done_other": "已上传 {{count}} 个文件"
+    },
+    "say": {
+      "start_one": "正在上传 {{count}} 个文件。",
+      "start_other": "正在上传 {{count}} 个文件。",
+      "done_one": "上传完成：{{count}} 个文件。",
+      "done_other": "上传完成：{{count}} 个文件。",
+      "doneFailed": "上传完成：{{count}} 个成功，{{failed}} 个失败。",
+      "failed": "无法上传 {{name}}。"
+    },
+    "errors": {
+      "tooBig": "超过此服务器 {{limit}} 的限制。",
+      "tooLarge": "文件太大，服务器已拒绝。",
+      "off": "此服务器已关闭文件功能。",
+      "invalid": "服务器拒绝了此文件。",
+      "network": "连接已断开。",
+      "server": "服务器无法保存。"
+    },
+    "said": "服务器返回：{{reason}}。"
   }
 }

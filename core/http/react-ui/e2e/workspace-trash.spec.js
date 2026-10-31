@@ -13,7 +13,8 @@ async function upload(page, name, content) {
 }
 
 async function trash(page, name) {
-  await page.getByTestId('ws-row').filter({ hasText: name }).getByRole('button', { name: 'Move to Trash' }).click()
+  await page.getByTestId('ws-row').filter({ hasText: name }).getByRole('button', { name: `More actions for ${name}` }).click()
+  await page.getByRole('menuitem', { name: 'Move to Trash' }).click()
   await expect(page.getByTestId('ws-row').filter({ hasText: name })).toHaveCount(0)
 }
 
@@ -96,9 +97,11 @@ test.describe('Deleting from the Trash for good', () => {
     await page.getByRole('button', { name: 'New folder' }).click()
     await page.getByRole('textbox', { name: 'Folder name' }).fill(folder)
     await page.getByRole('textbox', { name: 'Folder name' }).press('Enter')
-    await page.getByTestId('ws-row').filter({ hasText: folder }).getByRole('button', { name: `${folder}/` }).click()
+    await page.getByTestId('ws-row').filter({ hasText: folder }).getByRole('button', { name: folder, exact: true }).click()
+    // Upload only once the new folder is open, so the file lands inside it.
+    await expect(page.getByTestId('ws-empty')).toContainText('This folder is empty')
     await upload(page, 'inside.txt', '12345')
-    await page.getByRole('button', { name: 'Up one folder' }).click()
+    await page.getByTestId('ws-crumbs').getByRole('button', { name: 'Home' }).click()
     await trash(page, folder)
     await openTrash(page)
     await expect(trashRows(page).filter({ hasText: folder }).getByTestId('ws-trash-size')).toHaveText('1 file, 1 folder, 5 B')

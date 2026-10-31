@@ -305,7 +305,9 @@
     }
   },
   "tabs": {
-    "shared": "공유"
+    "shared": "공유",
+    "trashCount_one": "휴지통에 항목 {{count}}개",
+    "trashCount_other": "휴지통에 항목 {{count}}개"
   },
   "trash": {
     "empty": "휴지통이 비어 있습니다.",
@@ -416,7 +418,8 @@
     "zoomOut": "창에 맞추기",
     "items_one": "{{count}}개 항목",
     "items_other": "{{count}}개 항목",
-    "textCut": "처음 {{size}}만 표시합니다."
+    "textCut": "처음 {{size}}만 표시합니다.",
+    "actions": "파일 작업"
   },
   "managed": {
     "group": "LocalAI가 관리",
@@ -442,5 +445,187 @@
       "home": "홈의 위젯이 사라집니다.",
       "ui": "테마, 강조 색상, 밀도, 기본 모델, 고정한 페이지가 기본값으로 돌아갑니다."
     }
+  },
+  "newFile": "새 파일",
+  "newFolderName": "새 폴더",
+  "newFileName": "제목 없음.md",
+  "fileName": "파일 이름",
+  "downloadOne": "{{name}} 다운로드",
+  "moveTo": "이동…",
+  "uploadMenu": "업로드 옵션 더보기",
+  "uploadFiles": "파일 업로드",
+  "uploadFolder": "폴더 업로드",
+  "loading": "폴더를 불러오는 중",
+  "loadFailed": "{{folder}}을(를) 열 수 없습니다.",
+  "types": {
+    "folder": "폴더",
+    "image": "이미지",
+    "pdf": "PDF",
+    "sheet": "스프레드시트",
+    "doc": "문서",
+    "slides": "프레젠테이션",
+    "archive": "압축 파일",
+    "audio": "오디오",
+    "video": "동영상",
+    "code": "코드",
+    "text": "텍스트",
+    "file": "파일"
+  },
+  "columns": {
+    "name": "이름",
+    "modified": "수정한 날짜",
+    "type": "유형",
+    "size": "크기",
+    "actions": "작업"
+  },
+  "view": {
+    "label": "보기",
+    "list": "목록",
+    "grid": "미리보기"
+  },
+  "select": {
+    "one": "{{name}} 선택",
+    "all": "모두 선택",
+    "bar": "선택한 항목",
+    "clear": "선택 해제",
+    "count_one": "{{count}}개 선택됨",
+    "count_other": "{{count}}개 선택됨",
+    "start": "선택"
+  },
+  "menu": {
+    "label": "{{name}} 작업",
+    "more": "{{name}} 추가 작업",
+    "openFolder": "열기",
+    "preview": "미리보기",
+    "downloadMany_one": "파일 {{count}}개 다운로드",
+    "downloadMany_other": "파일 {{count}}개 다운로드",
+    "moveMany_one": "항목 {{count}}개 이동…",
+    "moveMany_other": "항목 {{count}}개 이동…",
+    "deleteMany_one": "항목 {{count}}개를 휴지통으로 이동",
+    "deleteMany_other": "항목 {{count}}개를 휴지통으로 이동"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "상위 폴더 보기"
+  },
+  "naming": {
+    "empty": "이름을 입력하세요.",
+    "slash": "이름에는 / 또는 \\를 사용할 수 없습니다.",
+    "taken": "이 폴더에 같은 이름이 이미 있습니다."
+  },
+  "toast": {
+    "undo": "실행 취소",
+    "deletedOne": "{{name}}을(를) 휴지통으로 이동했습니다.",
+    "deleted_one": "항목 {{count}}개를 휴지통으로 이동했습니다.",
+    "deleted_other": "항목 {{count}}개를 휴지통으로 이동했습니다.",
+    "restored": "복원했습니다.",
+    "renamed": "이름을 {{name}}(으)로 변경했습니다.",
+    "renameUndone": "이름을 되돌렸습니다.",
+    "movedOne": "{{name}}을(를) {{folder}}(으)로 이동했습니다.",
+    "moved_one": "항목 {{count}}개를 {{folder}}(으)로 이동했습니다.",
+    "moved_other": "항목 {{count}}개를 {{folder}}(으)로 이동했습니다.",
+    "moveUndone": "원래 위치로 되돌렸습니다."
+  },
+  "search": {
+    "placeholder": "이 폴더에서 필터링",
+    "resultsFor": "“{{query}}”이(가) 포함된 파일",
+    "back": "폴더로 돌아가기",
+    "noneBody": "파일의 이름이나 내용에 일치하는 항목이 없습니다. 다른 단어로 검색해 보세요.",
+    "filtering_one": "이 폴더에서 “{{query}}”와(과) 일치하는 항목 {{count}}개",
+    "filtering_other": "이 폴더에서 “{{query}}”와(과) 일치하는 항목 {{count}}개",
+    "everywhere": "모든 파일에서 “{{query}}” 검색",
+    "everywhereShort": "모든 파일에서 검색",
+    "noMatch": "이 폴더에는 “{{query}}”와(과) 일치하는 항목이 없습니다.",
+    "clear": "필터 지우기"
+  },
+  "emptyHome": {
+    "title": "내 파일이 여기에 있습니다"
+  },
+  "emptyFolder": {
+    "title": "이 폴더는 비어 있습니다",
+    "body": "이 페이지 아무 곳에나 파일이나 폴더를 끌어다 놓거나, Ctrl+V로 붙여넣거나, 컴퓨터에서 업로드하세요. 어시스턴트도 채팅에서 이곳에 파일을 저장할 수 있습니다.",
+    "bodyTouch": "기기에서 파일을 업로드하세요. 어시스턴트도 채팅에서 이곳에 파일을 저장할 수 있습니다.",
+    "ask": "어시스턴트에게 요청"
+  },
+  "drop": {
+    "title": "놓으면 {{folder}}에 업로드됩니다",
+    "body": "파일과 폴더 전체를 올릴 수 있습니다.",
+    "limit": "파일과 폴더 전체, 각각 최대 {{size}}."
+  },
+  "conflict": {
+    "title_one": "같은 이름의 파일이 이미 있습니다",
+    "title_other": "같은 이름의 파일 {{count}}개가 이미 있습니다",
+    "body_one": "{{folder}}에 같은 이름의 파일이 이미 있습니다.",
+    "body_other": "{{folder}}에 같은 이름의 파일이 이미 있습니다.",
+    "skip_one": "건너뛰기",
+    "skip_other": "모두 건너뛰기",
+    "keep": "둘 다 유지",
+    "replace_one": "바꾸기",
+    "replace_other": "모두 바꾸기",
+    "more_one": "외 {{count}}개",
+    "more_other": "외 {{count}}개",
+    "note": "둘 다 유지하면 새 파일에 다른 이름이 붙습니다. 바꾼 파일은 기록에서 되돌릴 수 있습니다.",
+    "cancel": "업로드 취소"
+  },
+  "move": {
+    "title_one": "항목 {{count}}개 이동",
+    "title_other": "항목 {{count}}개 이동",
+    "items_one": "항목 {{count}}개",
+    "items_other": "항목 {{count}}개",
+    "cancel": "취소",
+    "here": "{{folder}}(으)로 이동",
+    "failed": "이 폴더를 읽을 수 없습니다.",
+    "noFolders": "여기에는 폴더가 없습니다. 여기로 이동하거나 위로 올라가세요."
+  },
+  "uploads": {
+    "waiting": "대기 중",
+    "progress": "{{loaded}} / {{total}}",
+    "rate": "{{rate}}/초",
+    "left": "{{time}} 남음",
+    "renamed": "{{name}}(으)로 저장됨",
+    "done": "업로드 완료",
+    "canceled": "취소됨",
+    "cancel": "취소",
+    "cancelOne": "{{name}} 업로드 취소",
+    "retry": "다시 시도",
+    "retryOne": "{{name}} 다시 시도",
+    "dismiss": "닫기",
+    "dismissOne": "{{name}} 닫기",
+    "show": "보기",
+    "showOne": "{{name}} 보기",
+    "meterOne": "{{name}}: {{percent}}%",
+    "meterAll": "전체 업로드: {{percent}}%",
+    "cancelAll": "모두 취소",
+    "retryAll": "모두 다시 시도",
+    "fold": "목록 숨기기",
+    "unfold": "목록 보기",
+    "close": "닫기",
+    "head": {
+      "sending_one": "파일 {{count}}개 업로드 중",
+      "sending_other": "파일 {{count}}개 업로드 중",
+      "failed_one": "업로드 {{count}}개 실패",
+      "failed_other": "업로드 {{count}}개 실패",
+      "done_one": "파일 {{count}}개 업로드 완료",
+      "done_other": "파일 {{count}}개 업로드 완료"
+    },
+    "say": {
+      "start_one": "파일 {{count}}개를 업로드하는 중입니다.",
+      "start_other": "파일 {{count}}개를 업로드하는 중입니다.",
+      "done_one": "업로드 완료: 파일 {{count}}개.",
+      "done_other": "업로드 완료: 파일 {{count}}개.",
+      "doneFailed": "업로드 완료: {{count}}개 성공, {{failed}}개 실패.",
+      "failed": "{{name}}을(를) 업로드할 수 없습니다."
+    },
+    "errors": {
+      "tooBig": "이 서버의 제한({{limit}})보다 큽니다.",
+      "tooLarge": "파일이 너무 커서 서버가 거부했습니다.",
+      "off": "이 서버에서는 파일 기능이 꺼져 있습니다.",
+      "invalid": "서버가 이 파일을 거부했습니다.",
+      "network": "연결이 끊어졌습니다.",
+      "server": "서버가 저장할 수 없었습니다."
+    },
+    "said": "서버 응답: {{reason}}."
   }
 }

@@ -100,7 +100,7 @@ func (fc fileCall) abs(rel string, allowHome bool) (string, error) {
 // @Summary List a folder of your files.
 // @Tags chats
 // @Param path query string false "folder inside your home; default /"
-// @Success 200 {object} schema.ChatsFileList "The folder's entries, sorted by name; managed marks the folders LocalAI manages"
+// @Success 200 {object} schema.ChatsFileList "The folder's entries, sorted by name, each with when it last changed; managed marks the folders LocalAI manages; max_file_size is the largest upload the server takes"
 // @Failure 409 {object} schema.ErrorResponse "Files are off on this server"
 // @Router /api/chats/files [get]
 func (h *Handlers) ListFiles(c echo.Context) error {
@@ -121,9 +121,14 @@ func (h *Handlers) ListFiles(c echo.Context) error {
 	if err != nil {
 		return failFile(c, err)
 	}
-	out := schema.ChatsFileList{Path: fc.f.Rel(fc.p, abs), Entries: make([]schema.ChatsFile, 0, len(kids))}
+	out := schema.ChatsFileList{Path: fc.f.Rel(fc.p, abs), Entries: make([]schema.ChatsFile, 0, len(kids)), MaxFileSize: fc.f.MaxFileSize()}
 	for _, k := range kids {
-		out.Entries = append(out.Entries, fc.node(k))
+		e := fc.node(k)
+		if !k.Modified.IsZero() {
+			m := k.Modified
+			e.Modified = &m
+		}
+		out.Entries = append(out.Entries, e)
 	}
 	return c.JSON(http.StatusOK, out)
 }
