@@ -4,6 +4,8 @@
 // the client of /api/chats/wellknown and the pure helpers the editors share.
 // No browser globals at import time, so the node unit tests load it.
 
+import { pageLinkTarget } from './pageLinks.js'
+
 // SETTINGS_DIR is the folder of the home that holds the settings files.
 export const SETTINGS_DIR = 'LocalAI'
 
@@ -396,6 +398,16 @@ export function itemLink(url) {
   } catch {
     return null
   }
+}
+
+// itemLinkTarget is what the confirmation bar shows before an external item
+// link opens: the same check as a link of a page (pageLinkTarget), so a widget
+// that a trigger or the assistant wrote from web text cannot open a site with
+// one click. Null for an in-app link (it navigates directly) or no link.
+export function itemLinkTarget(link) {
+  if (!link || !link.external) return null
+  const target = pageLinkTarget(link.href)
+  return target.error ? null : target
 }
 
 // sparkPath draws the points of a series as an SVG path in a w by h box.

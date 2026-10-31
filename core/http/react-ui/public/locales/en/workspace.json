@@ -224,6 +224,7 @@
         "scheduleNote_other": "{{count}} widgets update on a schedule. Their runs use your models and count toward your usage."
       },
       "opensSite": "{{host}}: opens in a new tab",
+      "linkAsk": "This widget wants to open a link",
       "invalid": "Your Home layout has errors, and there is no earlier valid version.",
       "invalidFallback": "Your Home layout has errors. Home shows its last valid version.",
       "page": {

@@ -127,6 +127,7 @@
         "scheduleNote_other": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。"
       },
       "opensSite": "{{host}}：在新标签页中打开",
+      "linkAsk": "此小组件想要打开一个链接",
       "invalid": "你的主页布局有错误，且没有更早的有效版本。",
       "invalidFallback": "你的主页布局有错误。主页显示的是它最后一个有效版本。",
       "page": {

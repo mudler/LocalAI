@@ -127,6 +127,7 @@
         "scheduleNote_other": "{{count}} Widgets werden nach Zeitplan aktualisiert. Ihre Läufe nutzen deine Modelle und zählen zu deiner Nutzung."
       },
       "opensSite": "{{host}}: öffnet in einem neuen Tab",
+      "linkAsk": "Dieses Widget möchte einen Link öffnen",
       "invalid": "Dein Home-Layout enthält Fehler, und es gibt keine frühere gültige Version.",
       "invalidFallback": "Dein Home-Layout enthält Fehler. Home zeigt seine letzte gültige Version.",
       "page": {

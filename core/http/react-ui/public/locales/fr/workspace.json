@@ -127,6 +127,7 @@
         "scheduleNote_other": "{{count}} widgets se mettent à jour selon un horaire. Leurs exécutions utilisent vos modèles et comptent dans votre utilisation."
       },
       "opensSite": "{{host}} : s'ouvre dans un nouvel onglet",
+      "linkAsk": "Ce widget veut ouvrir un lien",
       "invalid": "La disposition de votre Home contient des erreurs, et il n’existe pas de version valide antérieure.",
       "invalidFallback": "La disposition de votre Home contient des erreurs. Home affiche sa dernière version valide.",
       "page": {
