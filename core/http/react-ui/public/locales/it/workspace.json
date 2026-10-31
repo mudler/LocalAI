@@ -572,6 +572,7 @@
     "slide": "diapositiva {{n}}",
     "indexing_one": "{{count}} documento è ancora in indicizzazione: ripeti la ricerca tra poco per includerlo.",
     "indexing_other": "{{count}} documenti sono ancora in indicizzazione: ripeti la ricerca tra poco per includerli.",
+    "limited": "Risultati limitati: la ricerca si è fermata ai suoi limiti prima di esaminare tutti i file. Cerca in una cartella o usa altre parole per vedere il resto.",
     "filtering_one": "{{count}} elemento in questa cartella corrisponde a “{{query}}”.",
     "filtering_other": "{{count}} elementi in questa cartella corrispondono a “{{query}}”.",
     "everywhere": "Cerca “{{query}}” in tutti i file",

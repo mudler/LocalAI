@@ -3,7 +3,10 @@ package files_test
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -185,6 +188,85 @@ var _ = Describe("the file tools on indexed documents", func() {
 		got, err = b.run("read_file", map[string]any{"path": "/long.pdf"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(ContainSubstring("the closing words are here"))
+	})
+
+	It("reads a long document once and serves the next read_file pages from the whole text it kept", func() {
+		f, ix = newIndexedFilesWith(textindex.Options{MaxTextBytes: func() int { return 64 }})
+		b = newToolBox(f, "alice", "c1")
+		n := upload(f, "alice", "/long.pdf", extracttest.TextPDF("the opening page of the report", "the closing words are here"))
+		Expect(ix.Pass(ctx)).To(Succeed())
+		_, ok, err := ix.Store().Document(ctx, n.Blob, textindex.ExtractorVersion)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		got, err := b.run("read_file", map[string]any{"path": "/long.pdf", "offset": 1, "limit": 1})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HavePrefix("## Page 1"))
+		text, ok, err := ix.Store().Document(ctx, n.Blob, textindex.ExtractorVersion)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue(), "the first read kept the whole text")
+		Expect(text).To(ContainSubstring("the closing words are here"))
+
+		// The next page comes from what was kept, not from the file.
+		Expect(ix.Store().PutDocument(ctx, n.Blob, textindex.ExtractorVersion, "kept line one\nkept line two")).To(Succeed())
+		got, err = b.run("read_file", map[string]any{"path": "/long.pdf", "offset": 2, "limit": 1})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal("kept line two"))
+
+		// Emptying the Trash drops the whole text with the entry.
+		abs, _ := f.Abs("alice", "/long.pdf")
+		Expect(f.Store().Delete(ctx, f.Actor("alice"), abs)).To(Succeed())
+		_, err = f.EmptyTrash(ctx, "alice", false)
+		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() bool {
+			_, ok, _ := ix.Store().Document(ctx, n.Blob, textindex.ExtractorVersion)
+			return ok
+		}).Should(BeFalse())
+	})
+
+	It("drops the text of a purged file in a later pass when the purge could not", func() {
+		f, ix = newIndexedFilesWith(textindex.Options{SweepBatch: 1})
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		n := upload(f, "alice", "/kept.pdf", extracttest.TextPDF("kept words"))
+		Expect(ix.Pass(ctx)).To(Succeed())
+		// The entry of a node a purge erased while no Forget ran (the
+		// process stopped, the store failed): no journal row tells of it.
+		orphan := textindex.Entry{NodeID: 99999, Path: session.HomePath("alice") + "/purged.pdf", Owner: "alice", Hash: "ab12",
+			Extractor: textindex.ExtractorVersion, Status: textindex.StatusReady, Text: "secret words of a purged file", Truncated: true}
+		Expect(ix.Store().Put(ctx, orphan)).To(Succeed())
+		Expect(ix.Store().PutDocument(ctx, "ab12", textindex.ExtractorVersion, "the whole secret text")).To(Succeed())
+
+		swept := func() bool {
+			_, err := ix.Store().Get(ctx, orphan.NodeID)
+			_, ok, _ := ix.Store().Document(ctx, "ab12", textindex.ExtractorVersion)
+			return errors.Is(err, textindex.ErrNotFound) && !ok
+		}
+		ix2 := textindex.New(textindex.Options{Store: ix.Store(), Workspace: f.Store(), Admin: workspace.Actor{Principal: files.AdminPrincipal},
+			SweepBatch: 1, SweepEvery: time.Nanosecond})
+		for i := 0; i < 5 && !swept(); i++ {
+			Expect(ix2.Pass(ctx)).To(Succeed())
+		}
+		Expect(swept()).To(BeTrue())
+		_, err := ix.Store().Get(ctx, n.ID)
+		Expect(err).NotTo(HaveOccurred(), "the entry of a live file stays")
+	})
+
+	It("counts every document still being indexed, not only the first 50", func() {
+		for i := range 60 {
+			upload(f, "alice", fmt.Sprintf("/pending/doc-%02d.pdf", i), extracttest.TextPDF(fmt.Sprintf("draft %d", i)))
+		}
+		res, err := f.Search(ctx, "alice", "nothing like this", "/", 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Indexing).To(Equal(60))
+		got, err := b.run("search_files", map[string]any{"query": "nothing like this"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HavePrefix("Nothing found yet: 60 files are still being indexed."))
+	})
+
+	It("says when a search stopped at its limits", func() {
+		Expect(files.SearchAnswer(files.SearchResult{Limited: true})).To(Equal("Nothing found in the part searched. [results limited: the search stopped at its limits before it looked at every file; narrow the path or the query]"))
+		got := files.SearchAnswer(files.SearchResult{Limited: true, Hits: []files.Hit{{Path: "/a.txt", Kind: workspace.KindFile, Line: 3, Snippet: "x"}}})
+		Expect(got).To(Equal("/a.txt:3: x\n[results limited: the search stopped at its limits before it looked at every file; narrow the path or the query]\n"))
+		Expect(files.SearchAnswer(files.SearchResult{})).To(Equal("Nothing found."))
 	})
 
 	It("shows a shared document to the users of the folder only, and drops purged files", func() {

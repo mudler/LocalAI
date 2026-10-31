@@ -194,7 +194,7 @@ function hitPlace(h, t) {
 // The results of a search across every file: the path, the line (or the page,
 // sheet or slide of a document) and the text around the match. A hit opens
 // its folder with the file in preview.
-function SearchHits({ hits, indexing, query, onOpenHit, onClear, t }) {
+function SearchHits({ hits, indexing, limited, query, onOpenHit, onClear, t }) {
   return (
     <section className="ws-hits" aria-labelledby="ws-hits-title">
       <div className="ws-hits__head">
@@ -202,6 +202,7 @@ function SearchHits({ hits, indexing, query, onOpenHit, onClear, t }) {
         <Button size="sm" variant="ghost" icon="close" onClick={onClear}>{t('search.back')}</Button>
       </div>
       {indexing > 0 && <p className="text-note" role="status" data-testid="ws-hits-indexing">{t('search.indexing', { count: indexing })}</p>}
+      {limited && <p className="text-note" role="status" data-testid="ws-hits-limited">{t('search.limited')}</p>}
       {hits.length === 0 ? (
         <EmptyState variant="no-results" title={t('search.none')} body={t('search.noneBody')} level={3} />
       ) : (
@@ -761,7 +762,7 @@ export default function Workspace() {
 
             {searching ? (
               <SearchHits
-                hits={ws.hits} indexing={ws.indexing} query={searched} t={t}
+                hits={ws.hits} indexing={ws.indexing} limited={ws.limited} query={searched} t={t}
                 onClear={() => { ws.clearSearch(); setSearched('') }}
                 onOpenHit={(h) => {
                   ws.clearSearch()

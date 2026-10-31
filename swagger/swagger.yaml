@@ -4499,6 +4499,12 @@ definitions:
           Indexing counts the documents below the path whose text is not read
           yet: the same search a moment later may find more.
         type: integer
+      limited:
+        description: |-
+          Limited is set when the search stopped at one of its limits before it
+          looked at every file below the path: a file that matches may be
+          missing, so narrow the path or the query.
+        type: boolean
     type: object
   schema.ChatsSendRequest:
     properties:

@@ -32,6 +32,7 @@ export function useWorkspace(initialPath = '/') {
   // How many documents the last search could not look into yet: their text is
   // still being read on the server.
   const [indexing, setIndexing] = useState(0)
+  const [limited, setLimited] = useState(false)
   const [busy, setBusy] = useState(false)
   const pathRef = useRef(path)
   pathRef.current = path
@@ -180,13 +181,14 @@ export function useWorkspace(initialPath = '/') {
       const res = await filesApi.search(text.trim())
       setHits(res.hits || [])
       setIndexing(res.indexing || 0)
+      setLimited(res.limited === true)
     } catch (e) {
       fail(e)
     }
   }, [fail])
 
   return {
-    path, entries, loading, loaded, loadError, maxFileSize, error, off, trash, trashTotals, purged, history, hits, indexing, busy,
+    path, entries, loading, loaded, loadError, maxFileSize, error, off, trash, trashTotals, purged, history, hits, indexing, limited, busy,
     open, refresh, loadHistory, touch, mkdir, rename, remove, move, removeMany, undoRevs, restore, purge, emptyTrash, search,
     clearPurged: () => setPurged(null),
     clearError: () => setError(''), clearSearch: () => setHits(null),

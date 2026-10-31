@@ -572,6 +572,7 @@
     "slide": "diapositive {{n}}",
     "indexing_one": "{{count}} document est encore en cours d’indexation : relancez la recherche dans un instant pour l’inclure.",
     "indexing_other": "{{count}} documents sont encore en cours d’indexation : relancez la recherche dans un instant pour les inclure.",
+    "limited": "Résultats limités : la recherche s’est arrêtée à ses limites avant de parcourir tous les fichiers. Cherchez dans un dossier ou avec d’autres mots pour voir le reste.",
     "filtering_one": "{{count}} élément de ce dossier correspond à « {{query}} ».",
     "filtering_other": "{{count}} éléments de ce dossier correspondent à « {{query}} ».",
     "everywhere": "Rechercher « {{query}} » dans tous les fichiers",

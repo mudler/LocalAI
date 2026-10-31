@@ -83,7 +83,9 @@ func (s *Service) Written(ctx context.Context, n workspace.Node, principal strin
 }
 
 // purged drops the index entries of what a purge below prefix erased. The
-// purge has already happened, so this runs on after the request ends.
+// purge has already happened, so this runs on after the request ends. It is
+// the quick path: when it fails or the process stops first, the sweep of the
+// indexer's passes finds the entries whose node is gone and drops them.
 func (s *Service) purged(ctx context.Context, prefix string) {
 	ix := s.textIndex()
 	if ix == nil {
@@ -93,7 +95,7 @@ func (s *Service) purged(ctx context.Context, prefix string) {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
 		defer cancel()
 		if err := ix.Forget(ctx, prefix); err != nil {
-			xlog.Warn("File text index: could not drop the entries of purged files", "error", err)
+			xlog.Warn("File text index: could not drop the entries of purged files; the next sweep drops them", "error", err)
 		}
 	}()
 }

@@ -572,6 +572,7 @@
     "slide": "Folie {{n}}",
     "indexing_one": "{{count}} Dokument wird noch indexiert: Suche gleich noch einmal, um es einzuschließen.",
     "indexing_other": "{{count}} Dokumente werden noch indexiert: Suche gleich noch einmal, um sie einzuschließen.",
+    "limited": "Ergebnisse begrenzt: Die Suche hat an ihren Grenzen angehalten, bevor sie jede Datei durchsucht hat. Suche in einem Ordner oder mit anderen Wörtern, um den Rest zu sehen.",
     "filtering_one": "{{count}} Element in diesem Ordner passt zu „{{query}}“.",
     "filtering_other": "{{count}} Elemente in diesem Ordner passen zu „{{query}}“.",
     "everywhere": "Alle Dateien nach „{{query}}“ durchsuchen",

@@ -572,6 +572,7 @@
     "slide": "slide {{n}}",
     "indexing_one": "{{count}} dokumen masih diindeks: cari lagi sebentar lagi untuk menyertakannya.",
     "indexing_other": "{{count}} dokumen masih diindeks: cari lagi sebentar lagi untuk menyertakannya.",
+    "limited": "Hasil dibatasi: pencarian berhenti pada batasnya sebelum memeriksa setiap file. Cari di dalam folder atau gunakan kata lain untuk melihat sisanya.",
     "filtering_one": "{{count}} item di folder ini cocok dengan “{{query}}”.",
     "filtering_other": "{{count}} item di folder ini cocok dengan “{{query}}”.",
     "everywhere": "Cari “{{query}}” di semua file",

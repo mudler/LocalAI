@@ -21,13 +21,19 @@ import (
 // (texts/<id>.txt) and cursor.json. The metadata is held in memory, the texts
 // are not. Search reads the texts under the prefix one by one and matches
 // them in memory: a scan, not an index, which is fine for the one process
-// that owns the folder. A cluster uses the GORM store.
+// that owns the folder. A cluster uses the GORM store. The whole texts of
+// long documents are files too (documents/<hash>-<extractor>.txt).
 type jsonStore struct {
 	mu     sync.Mutex
 	dir    string // empty: memory only
 	meta   map[int64]Entry
-	texts  map[int64]string // memory only
+	texts  map[int64]string  // memory only
+	docs   map[string]string // memory only, by documentKey
 	cursor int64
+}
+
+func documentKey(hash string, extractor int) string {
+	return hash + "-" + strconv.Itoa(extractor)
 }
 
 type jsonCursor struct {
@@ -37,11 +43,11 @@ type jsonCursor struct {
 // NewJSON returns a Store in dir. With an empty dir it keeps everything in
 // memory.
 func NewJSON(dir string) (Store, error) {
-	s := &jsonStore{dir: dir, meta: map[int64]Entry{}, texts: map[int64]string{}}
+	s := &jsonStore{dir: dir, meta: map[int64]Entry{}, texts: map[int64]string{}, docs: map[string]string{}}
 	if dir == "" {
 		return s, nil
 	}
-	for _, d := range []string{"meta", "texts"} {
+	for _, d := range []string{"meta", "texts", "documents"} {
 		if err := os.MkdirAll(filepath.Join(dir, d), 0o700); err != nil {
 			return nil, err
 		}
@@ -276,6 +282,98 @@ func (s *jsonStore) Search(ctx context.Context, q Query) ([]Entry, error) {
 		}
 	}
 	return out, nil
+}
+
+func (s *jsonStore) CountPending(_ context.Context, prefix string) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, e := range s.meta {
+		if e.Status == StatusPending && Under(e.Path, prefix) {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// documentPath is the file of a whole text. A hash is a blob hash (hex), and
+// one that is not is refused, so a key never leaves the folder.
+func (s *jsonStore) documentPath(hash string, extractor int) (string, error) {
+	if hash == "" || strings.ContainsAny(hash, `/\.`) {
+		return "", fmt.Errorf("textindex: invalid hash %q", hash)
+	}
+	return filepath.Join(s.dir, "documents", documentKey(hash, extractor)+".txt"), nil
+}
+
+func (s *jsonStore) PutDocument(_ context.Context, hash string, extractor int, text string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.dir == "" {
+		s.docs[documentKey(hash, extractor)] = text
+		return nil
+	}
+	p, err := s.documentPath(hash, extractor)
+	if err != nil {
+		return err
+	}
+	return atomicfile.Write(p, []byte(text), 0o600)
+}
+
+func (s *jsonStore) Document(_ context.Context, hash string, extractor int) (string, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.dir == "" {
+		text, ok := s.docs[documentKey(hash, extractor)]
+		return text, ok, nil
+	}
+	p, err := s.documentPath(hash, extractor)
+	if err != nil {
+		return "", false, err
+	}
+	raw, err := os.ReadFile(p)
+	if os.IsNotExist(err) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return string(raw), true, nil
+}
+
+func (s *jsonStore) PruneDocuments(context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	live := map[string]bool{}
+	for _, e := range s.meta {
+		live[e.Hash] = true
+	}
+	// A key is <hash>-<extractor>; the hash has no dash.
+	hashOf := func(key string) string {
+		h, _, _ := strings.Cut(key, "-")
+		return h
+	}
+	if s.dir == "" {
+		for k := range s.docs {
+			if !live[hashOf(k)] {
+				delete(s.docs, k)
+			}
+		}
+		return nil
+	}
+	files, err := os.ReadDir(filepath.Join(s.dir, "documents"))
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		key, ok := strings.CutSuffix(f.Name(), ".txt")
+		if !ok || live[hashOf(key)] {
+			continue
+		}
+		if err := os.Remove(filepath.Join(s.dir, "documents", f.Name())); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *jsonStore) Cursor(context.Context) (int64, error) {

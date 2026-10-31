@@ -104,6 +104,18 @@ type Store interface {
 	// node ID order. It may return an entry whose text holds q.Contains only
 	// across a line break: the caller matches each line.
 	Search(ctx context.Context, q Query) ([]Entry, error)
+	// CountPending counts the pending entries at or below prefix.
+	CountPending(ctx context.Context, prefix string) (int, error)
+	// PutDocument keeps the whole text read from a content hash by that
+	// extractor version, for a document whose entry keeps only part of it
+	// (Truncated). It replaces an earlier one of the same hash.
+	PutDocument(ctx context.Context, hash string, extractor int, text string) error
+	// Document returns the whole text kept for the content hash by that
+	// extractor version, and whether there is one.
+	Document(ctx context.Context, hash string, extractor int) (string, bool, error)
+	// PruneDocuments removes the whole texts whose hash no entry has, so the
+	// text of a deleted or purged file does not stay behind.
+	PruneDocuments(ctx context.Context) error
 	// Cursor is the last journal revision the indexer applied, 0 at first.
 	Cursor(ctx context.Context) (int64, error)
 	// SetCursor records the last journal revision the indexer applied.

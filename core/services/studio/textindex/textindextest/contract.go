@@ -192,6 +192,55 @@ func Run(open func() textindex.Store) {
 		Expect(ids(got)).To(Equal([]int64{1}))
 	})
 
+	It("counts the pending entries below a path", func() {
+		for _, id := range []int64{1, 2, 3} {
+			e := ready(id, "/home/alice/p"+string(rune('0'+id))+".pdf", "")
+			e.Status = textindex.StatusPending
+			Expect(s.Put(ctx, e)).To(Succeed())
+		}
+		e := ready(4, "/home/bob/q.pdf", "")
+		e.Status = textindex.StatusPending
+		Expect(s.Put(ctx, e)).To(Succeed())
+		Expect(s.Put(ctx, ready(5, "/home/alice/done.pdf", "done"))).To(Succeed())
+		n, err := s.CountPending(ctx, "/home/alice")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(3))
+		n, err = s.CountPending(ctx, "/")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(4))
+	})
+
+	It("keeps the whole text of a document by hash and prunes the texts no entry has", func() {
+		const kept, orphan = "aaaa1111", "bbbb2222"
+		e := ready(1, "/home/alice/long.pdf", "the first part")
+		e.Hash, e.Truncated = kept, true
+		Expect(s.Put(ctx, e)).To(Succeed())
+		Expect(s.PutDocument(ctx, kept, 1, "the first part and the rest")).To(Succeed())
+		Expect(s.PutDocument(ctx, kept, 1, "the whole text")).To(Succeed())
+		Expect(s.PutDocument(ctx, orphan, 1, "a purged file")).To(Succeed())
+		text, ok, err := s.Document(ctx, kept, 1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		Expect(text).To(Equal("the whole text"))
+		_, ok, err = s.Document(ctx, kept, 2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse(), "another extractor version reads again")
+
+		Expect(s.PruneDocuments(ctx)).To(Succeed())
+		_, ok, err = s.Document(ctx, orphan, 1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		_, ok, err = s.Document(ctx, kept, 1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+
+		Expect(s.Delete(ctx, 1)).To(Succeed())
+		Expect(s.PruneDocuments(ctx)).To(Succeed())
+		_, ok, err = s.Document(ctx, kept, 1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse(), "the text of a deleted file goes with its entry")
+	})
+
 	It("keeps the journal cursor", func() {
 		rev, err := s.Cursor(ctx)
 		Expect(err).NotTo(HaveOccurred())
