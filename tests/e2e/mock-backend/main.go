@@ -219,6 +219,16 @@ func (m *MockBackend) Predict(ctx context.Context, in *pb.PredictOptions) (*pb.R
 		}, nil
 	}
 
+	// ECHO_TOOL_CHOICE returns the tool_choice the REST layer forwarded to
+	// the backend, so tests can pin the API -> gRPC translation.
+	if strings.Contains(in.Prompt, "ECHO_TOOL_CHOICE") {
+		return &pb.Reply{
+			Message:      []byte("TOOL_CHOICE=" + in.ToolChoice),
+			Tokens:       1,
+			PromptTokens: 1,
+		}, nil
+	}
+
 	// ECHO_SERVED_MODEL returns the loaded model file path so router e2e
 	// tests can verify which candidate actually served the request without
 	// adding a new RPC. The router fans out to a single backend process per

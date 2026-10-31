@@ -1,9 +1,11 @@
 package anthropic
 
 import (
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 )
 
 var _ = Describe("Anthropic thinking inbound", func() {
@@ -121,4 +123,39 @@ var _ = Describe("Typed inbound conversion", func() {
 		Expect(msgs[0].StringImages).To(Equal([]string{"data:image/png;base64,AA==", "data:image/jpeg;base64,AQ=="}))
 		Expect(req.Messages[0].Content).To(Equal(blocks))
 	})
+})
+
+var _ = Describe("Anthropic tool_choice", func() {
+	tools := []schema.AnthropicTool{{Name: "get_weather"}}
+
+	DescribeTable("convertAnthropicTools",
+		func(toolChoice any, expectTools bool, expectCall string) {
+			cfg := &config.ModelConfig{}
+			funcs, useFn := convertAnthropicTools(&schema.AnthropicRequest{Tools: tools, ToolChoice: toolChoice}, cfg)
+			Expect(useFn).To(Equal(expectTools))
+			Expect(funcs != nil).To(Equal(expectTools))
+			Expect(cfg.FunctionToCall()).To(Equal(expectCall))
+		},
+		Entry("absent", nil, true, ""),
+		Entry("auto object", map[string]any{"type": "auto"}, true, ""),
+		Entry("any object", map[string]any{"type": "any"}, true, "required"),
+		Entry("none object", map[string]any{"type": "none"}, false, ""),
+		Entry("tool object", map[string]any{"type": "tool", "name": "get_weather"}, true, "get_weather"),
+		Entry("any string", "any", true, "required"),
+		Entry("none string", "none", false, ""),
+	)
+
+	DescribeTable("openAIToolChoice",
+		func(toolChoice any, expected types.GomegaMatcher) {
+			Expect(openAIToolChoice(toolChoice)).To(expected)
+		},
+		Entry("absent", nil, BeNil()),
+		Entry("auto", map[string]any{"type": "auto"}, Equal("auto")),
+		Entry("any", map[string]any{"type": "any", "disable_parallel_tool_use": true}, Equal("required")),
+		Entry("none", map[string]any{"type": "none"}, Equal("none")),
+		Entry("tool", map[string]any{"type": "tool", "name": "get_weather"},
+			Equal(map[string]any{"type": "function", "function": map[string]any{"name": "get_weather"}})),
+		Entry("tool without a name", map[string]any{"type": "tool"}, BeNil()),
+		Entry("any string", "any", Equal("required")),
+	)
 })
