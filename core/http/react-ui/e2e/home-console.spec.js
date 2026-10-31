@@ -35,12 +35,19 @@ test.describe('Home slash menu', () => {
     const names = await page.locator('.dk-cmd-name').allTextContents()
     // The administrator gets /studio while Studio is not installed: it
     // opens the add-on in the library.
-    expect(names).toEqual([
-      '/model', '/new', '/chat', '/assistant',
+    // Home's own commands first; the commands it shares with a chat follow:
+    // /attach, /skill and one per skill of the server, then /help.
+    expect(names.slice(0, 15)).toEqual([
+      '/model', '/new', '/chat', '/assistant', '/models',
       '/gallery', '/installed', '/import', '/stop',
       // An admin without Studio is offered /studio to install it.
       '/agents', '/mcp', '/memory', '/studio', '/settings', '/docs',
     ])
+    expect(names.slice(15, 17)).toEqual(['/attach', '/skill'])
+    expect(names[names.length - 1]).toBe('/help')
+    // A chat that does not exist yet has nothing to compact or clear.
+    expect(names).not.toContain('/compact')
+    expect(names).not.toContain('/clear')
     await expect(page.getByTestId('home-slash-studioInstall')).toBeVisible()
     await expect(page.getByTestId('home-slash-studio')).toHaveCount(0)
   })
@@ -182,7 +189,9 @@ test.describe('Home slash menu', () => {
     await ready(page)
     await page.locator('.home-textarea').fill('/')
     const names = await page.locator('.dk-cmd-name').allTextContents()
-    expect(names).toEqual(['/model', '/new', '/chat', '/docs'])
+    expect(names.slice(0, 5)).toEqual(['/model', '/new', '/chat', '/models', '/docs'])
+    expect(names).not.toContain('/gallery')
+    expect(names[names.length - 1]).toBe('/help')
   })
 
   test('and the library row keeps only the documentation link', async ({ page }) => {

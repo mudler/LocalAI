@@ -175,6 +175,65 @@
     },
     "settings": {
       "desc": "专注模式、智能体和模型信息"
+    },
+    "group": {
+      "context": "上下文",
+      "skills": "技能和智能体",
+      "help": "帮助"
+    },
+    "models": {
+      "label": "模型",
+      "desc": "打开模型列表"
+    },
+    "skill": {
+      "label": "运行技能",
+      "desc": "选择此对话的一个技能"
+    },
+    "agent": {
+      "label": "交给已保存的智能体",
+      "desc": "把任务交给你的一个智能体",
+      "enable": "为此对话开启已保存的智能体",
+      "enableDesc": "然后选择智能体"
+    },
+    "compact": {
+      "label": "压缩上下文",
+      "desc": "总结较早的消息，为模型腾出空间"
+    },
+    "clear": {
+      "label": "清空上下文",
+      "desc": "在此对话中重新开始，消息保留"
+    },
+    "attach": {
+      "label": "添加附件",
+      "desc": "选择要发送的文件",
+      "clearDesc": "移除等待发送的文件"
+    },
+    "help": {
+      "label": "全部命令",
+      "desc": "列出每个命令及其作用"
+    },
+    "about": {
+      "label": "关于此对话",
+      "desc": "模型、工具、技能和上下文大小"
+    },
+    "args": {
+      "skill": "技能",
+      "agent": "已保存的智能体",
+      "model": "模型",
+      "attach": "文件"
+    },
+    "badge": {
+      "builtin": "内置",
+      "addon": "附加组件",
+      "shared": "共享",
+      "yours": "你的"
+    },
+    "collides": "仅通过 /skill",
+    "errors": {
+      "skill": "此对话没有名为“{{name}}”的技能。",
+      "agent": "你没有名为“{{name}}”的已保存智能体。",
+      "agentTask": "请在 {{name}} 名称后写下任务。",
+      "agentsOff": "此对话已关闭已保存的智能体。请在“工具”菜单中开启。"
     }
   },
   "shortcuts": {
@@ -321,7 +380,9 @@
       "stopped": "已停止",
       "failed": "失败",
       "interrupted": "已中断",
-      "paused": "已暂停"
+      "paused": "已暂停",
+      "compacting": "正在压缩上下文",
+      "clearing": "正在清空上下文"
     },
     "tool": {
       "search": "正在搜索",
@@ -404,5 +465,41 @@
     "title": "上一次模型请求使用的上下文",
     "ofLimit": "{{used}} / {{limit}} 个 token",
     "left": "剩余 {{left}}"
+  },
+  "invoked": {
+    "skill": "技能：{{name}}",
+    "agent": "智能体：{{name}}"
+  },
+  "marker": {
+    "compacted": "上下文已压缩：从 {{before}} 到 {{after}} 个 token",
+    "cleared": "上下文已清空",
+    "clearedHint": "模型看不到此线以上的消息。"
+  },
+  "cmdcard": {
+    "close": "关闭",
+    "helpTitle": "命令",
+    "helpSkills_one": "技能：{{names}}。输入 / 和名称。",
+    "helpSkills_other": "{{count}} 个技能：{{names}}。输入 / 和名称。",
+    "helpKeys": "在输入框中输入 / 打开列表。Tab 补全，Enter 运行，Esc 关闭。",
+    "aboutTitle": "此对话",
+    "model": "模型",
+    "state": "状态",
+    "loaded": "已加载",
+    "notLoaded": "未加载",
+    "backend": "后端",
+    "tools": "工具",
+    "toolsOn_one": "已开启 {{count}} 个",
+    "toolsOn_other": "已开启 {{count}} 个",
+    "skills": "技能",
+    "skillsOn_one": "{{count}} 个技能",
+    "skillsOn_other": "{{count}} 个技能",
+    "commands": "命令",
+    "isolated": "在隔离的沙箱中运行",
+    "host": "在本机上运行",
+    "noCommands": "无法运行",
+    "context": "上下文",
+    "contextOf": "{{used}} / {{limit}} 个 token",
+    "contextUsed": "{{used}} 个 token",
+    "unknown": "尚不清楚"
   }
 }

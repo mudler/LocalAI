@@ -64,6 +64,7 @@ export function handoffMessage(handoff) {
     role: 'user',
     text: handoff.text,
     attachments: (handoff.files || []).map(f => ({ path: '', name: f.name, size: f.size || 0, mime: f.type || '', url: f.url })),
+    ...(handoff.invoked ? { invoked: handoff.invoked } : {}),
     rowKey: HANDOFF_ROW,
     handoff: true,
   }

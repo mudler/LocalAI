@@ -191,6 +191,28 @@ type ChatsSendRequest struct {
 	// Context adds MCP prompts and resources to this message as context. Each
 	// is expanded on the server, as you, from a server the chat can use.
 	Context []ChatsMCPRef `json:"context,omitempty"`
+	// Skill runs the message with one of the chat's skills: the model gets the
+	// skill's instructions with this message, and the transcript shows the
+	// skill's name next to the text. An unknown skill is refused with the names
+	// the chat has. Text may then be empty.
+	Skill string `json:"skill,omitempty"`
+	// Agent hands the task in Text to one of your saved agents (its id or
+	// name). The chat must have the saved agents switched on.
+	Agent string `json:"agent,omitempty"`
+}
+
+// ChatsInvocation is the command a message was sent with.
+type ChatsInvocation struct {
+	Kind string `json:"kind"` // skill or agent
+	Name string `json:"name"`
+	ID   string `json:"id,omitempty"` // the saved agent's id
+}
+
+// ChatsContextResult says how a context command changed what the model sees:
+// its size in tokens before and after.
+type ChatsContextResult struct {
+	Before int `json:"before"`
+	After  int `json:"after"`
 }
 
 // ChatsSendResponse says what happened to a message. With a turn running the
@@ -235,7 +257,7 @@ type ChatsPendingEdit struct {
 type ChatsMessage struct {
 	Seq  int64  `json:"seq"`
 	Turn int    `json:"turn"`
-	Role string `json:"role"` // user, assistant, tool, checkpoint or reasoning
+	Role string `json:"role"` // user, assistant, tool, checkpoint, reasoning, compacted or cleared
 	// Text is what was written. For a user line it is the text you typed:
 	// the files you attached are in Attachments.
 	Text string `json:"text"`
@@ -254,8 +276,14 @@ type ChatsMessage struct {
 	// Rev is the change set of a checkpoint line, whose text lists the paths
 	// it changed inside your home, one a line. POST /api/chats/files/undo
 	// {rev} undoes it.
-	Rev int64     `json:"rev,omitempty"`
-	At  time.Time `json:"at"`
+	Rev int64 `json:"rev,omitempty"`
+	// Invoked is the skill or saved agent a user line was sent with.
+	Invoked *ChatsInvocation `json:"invoked,omitempty"`
+	// Before and After are the size of the model's context, in tokens, on a
+	// compacted line.
+	Before int       `json:"before,omitempty"`
+	After  int       `json:"after,omitempty"`
+	At     time.Time `json:"at"`
 }
 
 // ChatsToolCard points the interface at a record that belongs to a tool result.

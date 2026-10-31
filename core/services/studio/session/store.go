@@ -185,7 +185,11 @@ type Entry struct {
 	// Loop is set on a user message that a loop of the chat sent by itself,
 	// not the person. The interface labels the message with it.
 	Loop *LoopMark `json:",omitempty"`
-	At   time.Time
+	// Invoked is the command of a user message: the skill or the saved agent
+	// the person asked for with a slash command. The interface shows it as a
+	// chip; the instructions it gave the model are not stored.
+	Invoked *Invocation `json:",omitempty"`
+	At      time.Time
 }
 
 // LoopMark names the loop run that sent a user message.
@@ -196,6 +200,22 @@ type LoopMark struct {
 	SelfPaced bool `json:"self_paced,omitempty"`
 }
 
+// Invocation is the command a user message carried.
+type Invocation struct {
+	// Kind is InvokeSkill or InvokeAgent.
+	Kind string `json:"kind"`
+	// Name is the skill's name, or the saved agent's name.
+	Name string `json:"name"`
+	// ID is the saved agent's id; empty for a skill.
+	ID string `json:"id,omitempty"`
+}
+
+// Invocation kinds.
+const (
+	InvokeSkill = "skill"
+	InvokeAgent = "agent"
+)
+
 // Entry roles.
 const (
 	RoleUser       = "user"
@@ -204,6 +224,13 @@ const (
 	RoleCheckpoint = "checkpoint"
 	// RoleReasoning is the reasoning of one step, at most MaxReasoningBytes.
 	RoleReasoning = "reasoning"
+	// RoleCompacted marks where the person compacted the model's context.
+	// Text says the sizes (CompactedText). It is for display: the model never
+	// sees it.
+	RoleCompacted = "compacted"
+	// RoleCleared marks where the person cleared the model's context: the
+	// model sees nothing of the transcript before the last such entry.
+	RoleCleared = "cleared"
 )
 
 // MaxReasoningBytes is the size limit of a stored reasoning entry, including

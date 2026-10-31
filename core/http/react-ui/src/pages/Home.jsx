@@ -11,6 +11,9 @@ import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
 // eslint-disable-next-line no-unused-vars
+import { SlashHelpCard } from '../components/chat/CommandCards'
+import { parseInvocation } from '../utils/slashCommands'
+// eslint-disable-next-line no-unused-vars
 import { ReadyLine } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
@@ -65,6 +68,9 @@ export default function Home() {
   const { t, i18n } = useTranslation('home')
   const { t: tw } = useTranslation('workspace')
   const { t: tc } = useTranslation('chats')
+  const { t: tch } = useTranslation('chat')
+  // The command list that /help drew under the composer, or null.
+  const [help, setHelp] = useState(null)
   const { isAdmin, hasFeature, user } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
@@ -203,9 +209,20 @@ export default function Home() {
   }, [])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
-    const text = (own ? message : override).trim()
+    let text = (own ? message : override).trim()
     const attached = own ? files : []
     if ((!text && attached.length === 0) || sending) return
+    // A message typed as a command goes with its skill or saved agent (the
+    // drafted switches of the new chat decide which it has).
+    const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
+    const inv = own ? parseInvocation(text, { skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off }) : null
+    if (inv?.error) {
+      addToast(tch(`slash.errors.${inv.error}`, { name: inv.name }), 'warning')
+      return
+    }
+    const command = inv ? { skill: inv.skill, agent: inv.agent } : undefined
+    const invoked = inv ? (inv.skill ? { kind: 'skill', name: inv.skill } : { kind: 'agent', name: inv.agent.name, id: inv.agent.id }) : undefined
+    if (inv) text = inv.text
     if (!selectedModel) {
       addToast(t('input.selectModelToast'), 'warning')
       return
@@ -217,7 +234,7 @@ export default function Home() {
     try {
       const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
       id = chat.id
-      const res = await chatsApi.send(id, text, attached)
+      const res = await chatsApi.send(id, text, attached, command)
       // The chat page draws the message from what is known here, so it opens
       // with the message in it. The draft goes when Home closes: emptied
       // earlier, the box would show its placeholder for a frame on the way.
@@ -225,14 +242,14 @@ export default function Home() {
         if (own) drafts.clear(HOME_DRAFT)
         switches.resetDraft()
       }
-      handOff({ chat, text, files: attached, started: Boolean(res?.started) }, () => navigate(`/app/chats/${encodeURIComponent(id)}`))
+      handOff({ chat, text, files: attached, invoked, started: Boolean(res?.started) }, () => navigate(`/app/chats/${encodeURIComponent(id)}`))
     } catch (err) {
       if (id) chatsApi.delete(id).catch(() => {})
       failSend()
       addToast(err.message || tc('errors.send'), 'error')
       setSending(false)
     }
-  }, [message, files, sending, selectedModel, draftModel, agentId, switches, drafts, addToast, navigate, t, tc, beginSend, failSend, handOff])
+  }, [message, files, sending, selectedModel, draftModel, agentId, switches, composer.agents, drafts, addToast, navigate, t, tc, tch, beginSend, failSend, handOff])
 
   // An empty new chat on the chosen model. The state marks it as a hand-off:
   // /app/chats opened as a bare address comes back here.
@@ -370,7 +387,7 @@ export default function Home() {
     [isAdmin, hasModels, firstRun, loadedCount, studioPage, assistantOn, hasFeature, collectionsOn],
   )
 
-  const runAction = useCallback((id) => {
+  const runAction = useCallback((id, item) => {
     switch (id) {
       case 'model': pickerRef.current?.open(); break
       case 'new': openNewChat(); break
@@ -393,6 +410,7 @@ export default function Home() {
         break
       case 'settings': navigate('/app/settings'); break
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
+      case 'help': setHelp(item || { entries: [], skills: [] }); break
       default: break
     }
   }, [navigate, openNewChat, openAssistantChat, studioPage, addonsOn])
@@ -477,12 +495,14 @@ export default function Home() {
             sendTitle={sendTitle}
             textareaRef={textareaRef}
             placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
+            slashSurface="home"
             slashContext={slashContext}
             onRunAction={runAction}
             strictEnter
             textareaTestId="home-input"
             sendTestId="home-send"
           />
+          {help && <SlashHelpCard entries={help.entries} skills={help.skills} onClose={() => setHelp(null)} />}
           {!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />}
           {examplePicked && (
             <p className="wk-ex__hint" data-testid="home-example-hint">

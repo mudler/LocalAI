@@ -131,6 +131,7 @@
     "memory": {
       "label": "Mémoire",
       "desc": "Collections que vos chats peuvent consulter"
-    }
+    },
+    "complete": "compléter"
   }
 }

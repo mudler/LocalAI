@@ -7,6 +7,8 @@ import { renderMarkdown } from '../../utils/markdown'
 import { escapeHtml } from './chatText'
 import { messageParts } from '../../utils/chatAttachments'
 // eslint-disable-next-line no-unused-vars
+import { InvokedChip } from './CommandCards'
+// eslint-disable-next-line no-unused-vars
 import MessageAttachments from './Attachments'
 // eslint-disable-next-line no-unused-vars
 import { ActivityGroup, ActivityProposals, StreamingActivity } from './ActivityFold'
@@ -158,8 +160,9 @@ function ChatMessage({
               <Icon name="repeat" /> {t('message.loopRun', { run: msg.loop.run })}
             </span>
           )}
+          <InvokedChip invoked={msg.invoked} />
           <MessageAttachments attachments={attachments} />
-          {(text || attachments.length === 0) && (
+          {(text || (attachments.length === 0 && !msg.invoked)) && (
             <div className="cx-bubble" data-testid="message-content">
               {text && <div className="cx-text" dangerouslySetInnerHTML={{ __html: escapeHtml(text) }} />}
             </div>

@@ -22,7 +22,9 @@ type ImportedEntry struct {
 	// Attachments and Note belong to a user message (see session.Entry).
 	Attachments []session.Attachment
 	Note        string
-	At          time.Time
+	// Invoked is the command of a user message.
+	Invoked *session.Invocation
+	At      time.Time
 }
 
 // ImportChat stores a finished chat of the user, made elsewhere: the title, the
@@ -66,7 +68,7 @@ func (s *Service) ImportChat(ctx context.Context, user, title, model string, cre
 	}
 	for _, e := range entries {
 		switch e.Role {
-		case session.RoleUser, session.RoleAssistant, session.RoleTool, session.RoleReasoning:
+		case session.RoleUser, session.RoleAssistant, session.RoleTool, session.RoleReasoning, session.RoleCompacted, session.RoleCleared:
 		default:
 			continue
 		}
@@ -77,7 +79,7 @@ func (s *Service) ImportChat(ctx context.Context, user, title, model string, cre
 		entry := session.Entry{Role: e.Role, Text: text, At: e.At.UTC()}
 		if e.Role == session.RoleUser {
 			// An old export holds the list of files in the text.
-			entry.Note, entry.Attachments = e.Note, e.Attachments
+			entry.Note, entry.Attachments, entry.Invoked = e.Note, e.Attachments, e.Invoked
 			entry = session.DisplayEntry(entry)
 		}
 		batch = append(batch, entry)

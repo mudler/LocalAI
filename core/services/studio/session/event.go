@@ -68,6 +68,10 @@ const (
 	// KindLoops says that the loops of the chat changed: one started, ran,
 	// paused or ended. A client reads the list of loops again.
 	KindLoops EventKind = "loops"
+	// KindCleared says that the person cleared the model's context: the
+	// transcript has a new marker and the next turn starts fresh. Read the
+	// transcript again.
+	KindCleared EventKind = "cleared"
 )
 
 // Event is one thing that happened in a chat.

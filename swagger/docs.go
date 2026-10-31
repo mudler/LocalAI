@@ -8163,6 +8163,97 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/clear": {
+            "post": {
+                "description": "The transcript gets a cleared line, and from the next turn on the model sees nothing before it. The messages stay readable, and the chat keeps its files, title and switches. A branch made from a message above the line keeps what the model saw there. 409 while a turn runs; 400 when there is nothing to clear.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Clear a chat's context.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "cleared",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "boolean"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Nothing to clear",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A turn is running",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/compact": {
+            "post": {
+                "description": "The older part of the conversation becomes a summary for the model, the way the chat does by itself when its context fills up; the last messages stay as they are. The transcript keeps every message and gets a compacted line with the sizes, and the next turn starts from the compacted context. It takes a while: the model writes the summary. 409 while a turn runs; 400 when the conversation is too short.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Compact a chat's context now.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The size of the context, in tokens, before and after",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsContextResult"
+                        }
+                    },
+                    "400": {
+                        "description": "The conversation is too short",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A turn is running",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/egress": {
             "get": {
                 "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
@@ -8341,7 +8432,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/events": {
             "get": {
-                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.",
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit), files and loops (the loops of the chat changed; read GET /api/chats/{id}/loops). Events are live only; read the transcript for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -9032,7 +9123,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.\nSend JSON {\"text\"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace. With a turn running the files are saved at once and the message waits like any other, with their paths in its text.",
+                "description": "With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.\nSend JSON {\"text\"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace. With a turn running the files are saved at once and the message waits like any other, with their paths in its text. With skill (a skill of the chat) or agent (a saved agent, when the chat has saved agents on) the message runs with that command; such a message does not wait for a running turn (409). An unknown skill or agent is a 400 that lists what the chat has.",
                 "consumes": [
                     "application/json",
                     "multipart/form-data"
@@ -18493,6 +18584,17 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsContextResult": {
+            "type": "object",
+            "properties": {
+                "after": {
+                    "type": "integer"
+                },
+                "before": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ChatsConversation": {
             "type": "object",
             "properties": {
@@ -19448,6 +19550,22 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsInvocation": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "description": "the saved agent's id",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "skill or agent",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsLoop": {
             "type": "object",
             "properties": {
@@ -19909,6 +20027,9 @@ const docTemplate = `{
         "schema.ChatsMessage": {
             "type": "object",
             "properties": {
+                "after": {
+                    "type": "integer"
+                },
                 "app": {
                     "description": "App is set on a tool line whose tool has an MCP App: the interactive page\nthat goes with the result.",
                     "allOf": [
@@ -19927,6 +20048,10 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.ChatsAttachment"
                     }
                 },
+                "before": {
+                    "description": "Before and After are the size of the model's context, in tokens, on a\ncompacted line.",
+                    "type": "integer"
+                },
                 "card": {
                     "description": "Card is set on a tool line that points at a record, such as a trigger\nproposal (kind trigger_proposal, id the proposal's id).",
                     "allOf": [
@@ -19938,6 +20063,14 @@ const docTemplate = `{
                 "dur_ms": {
                     "description": "DurMs is how long the model thought, for reasoning lines.",
                     "type": "integer"
+                },
+                "invoked": {
+                    "description": "Invoked is the skill or saved agent a user line was sent with.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsInvocation"
+                        }
+                    ]
                 },
                 "loop": {
                     "description": "Loop is set on a user line that a loop of the chat sent by itself.",
@@ -19952,7 +20085,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "role": {
-                    "description": "user, assistant, tool, checkpoint or reasoning",
+                    "description": "user, assistant, tool, checkpoint, reasoning, compacted or cleared",
                     "type": "string"
                 },
                 "seq": {
@@ -20190,12 +20323,20 @@ const docTemplate = `{
         "schema.ChatsSendRequest": {
             "type": "object",
             "properties": {
+                "agent": {
+                    "description": "Agent hands the task in Text to one of your saved agents (its id or\nname). The chat must have the saved agents switched on.",
+                    "type": "string"
+                },
                 "context": {
                     "description": "Context adds MCP prompts and resources to this message as context. Each\nis expanded on the server, as you, from a server the chat can use.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.ChatsMCPRef"
                     }
+                },
+                "skill": {
+                    "description": "Skill runs the message with one of the chat's skills: the model gets the\nskill's instructions with this message, and the transcript shows the\nskill's name next to the text. An unknown skill is refused with the names\nthe chat has. Text may then be empty.",
+                    "type": "string"
                 },
                 "text": {
                     "type": "string"

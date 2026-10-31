@@ -902,6 +902,108 @@ compacted so the model can go on. The transcript keeps every message; only what
 the model sees shrinks. A `compacted` event reports the size before and after.
 The window comes from `context_size` in the model's configuration.
 
+### Compact or clear the context yourself
+
+You do not have to wait for the window to fill. Two calls change what the model
+sees from the next turn on; both answer 409 while a turn runs, and the
+transcript keeps every message either way.
+
+```bash
+# Summarize the older part now, as the chat does when the window fills. It
+# takes a while: the model writes the summary.
+curl -X POST .../api/chats/3f1c.../compact
+# {"before":18250,"after":4120}
+
+# Start fresh in the same chat. Its files, title and switches stay.
+curl -X POST .../api/chats/3f1c.../clear
+# {"cleared":true}
+```
+
+- Compact keeps the last messages as they are and puts a summary in place of
+  the ones before. It answers 400 when the conversation is too short to
+  compact. The transcript gets a line with `role` `compacted` and the sizes in
+  `before` and `after` (tokens, the same estimate as the `compacted` event).
+- Clear writes a line with `role` `cleared`. From then on the model sees
+  nothing above it. It answers 400 when the model sees no message to clear. A
+  `cleared` event tells the other open pages to read the transcript again.
+- A fork from a line above a `cleared` line keeps what the model saw there. A
+  regenerate or an edit rebuilds what the model sees from the transcript after
+  the last `cleared` line. The JSON export and the Markdown export show both
+  lines, and an import keeps them.
+- Both calls hold the chat the way a turn does, so in a cluster no frontend
+  starts a turn on the chat while they run. Messages sent meanwhile wait and go
+  when the call ends. Nothing is kept outside the chat store.
+
+### Messages sent with a skill or a saved agent
+
+A message can carry `skill`, a skill of the chat, or `agent`, the id or the
+name of one of your saved agents. With a skill, the model gets the text of the
+skill's `SKILL.md` before your message, for this turn only; the transcript
+keeps your words, and the line has `"invoked":{"kind":"skill","name":"review"}`.
+With an agent, the model is asked to start that saved agent as a sub-agent
+with the task (the chat must have **Saved agents** switched on). A regenerate
+runs the skill again.
+
+```bash
+curl -X POST .../api/chats/3f1c.../messages -d '{"text":"check the diff","skill":"review"}'
+curl -X POST .../api/chats/3f1c.../messages -d '{"text":"check the draft","agent":"rev1"}'
+# An unknown skill: 400 with the names of the skills of the chat. An unknown
+# agent, another user's, or saved agents off for this chat: 400.
+```
+
+Such a message starts a turn. While a turn runs it does not wait like other
+messages: it answers 409, and you send it again when the model has answered.
+
+## Slash commands
+
+Type `/` in the message box of a chat, or on Home, for the list of commands.
+Typing filters it; arrows move, Enter runs the command, Tab completes it, and
+Esc closes the list. A command that takes an argument lists the choices as you
+type it: `/agent ` lists your saved agents, `/skill ` the skills of the chat
+and `/model ` the chat models.
+
+| Command | What it does |
+|---------|--------------|
+| `/model`, `/models` | Open the model list; with a name, switch to that model. |
+| `/new`, `/chats` | Start a new chat, or open the list of your chats. |
+| `/find`, `/settings`, `/export`, `/delete` | Search this chat, open its settings, download it as Markdown, delete it. |
+| `/<skill>`, `/skill <name>` | Run the message with one of the skills of this chat (see below). |
+| `/agent <name> <task>` | Hand the task to one of your saved agents (see below). |
+| `/compact` | Compact the context now (see above). |
+| `/clear` | Clear the context: a fresh start in the same chat (see above). |
+| `/attach`, `/attach clear` | Choose files to send, or remove the files waiting to be sent. |
+| `/help` | List every command with what it does. |
+| `/about` | Show the model, whether it is loaded, how many tools and skills the chat has, where its commands run and the size of its context. |
+
+Home offers the same commands, less `/compact`, `/clear` and `/about`: a chat
+that does not exist yet has no context. `/<skill>` and `/agent` work there
+because the chat is created with the switches you chose first.
+
+### Run a skill
+
+Every skill the chat can use is a command of its own: `/review check the
+diff` sends "check the diff" with the `review` skill. The list marks where each
+skill comes from (built-in, add-on, shared or yours). A skill whose name is a
+command, such as a skill named `new`, is reached with `/skill new`. A skill
+that is switched off, replaced or for another user is not offered.
+
+The message goes with the name of the skill. The model gets the text of the
+skill's `SKILL.md` before your message, for this turn only; the transcript
+keeps your words and shows the skill as a chip. A regenerate runs the skill
+again.
+
+### Hand a task to a saved agent
+
+`/agent Reviewer check the draft` asks the model to start the saved agent
+`Reviewer` as a sub-agent with the task (see
+[Saved agents as sub-agents](#saved-agents-as-sub-agents)). The chat must have
+**Saved agents** switched on in its Tools menu; while it is off, the list offers
+to switch it on.
+
+A command message starts a turn: while a turn runs, send it again when the
+model has answered. The API of these messages is in
+[Messages sent with a skill or a saved agent](#messages-sent-with-a-skill-or-a-saved-agent).
+
 ## MCP tools
 
 A model that has MCP servers and sets `mcp.auto: true` offers all of them to its

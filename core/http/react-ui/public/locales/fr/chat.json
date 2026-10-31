@@ -173,6 +173,65 @@
     },
     "settings": {
       "desc": "Mode focus, agent et infos du modèle"
+    },
+    "group": {
+      "context": "Contexte",
+      "skills": "Skills et agents",
+      "help": "Aide"
+    },
+    "models": {
+      "label": "Modèles",
+      "desc": "Ouvrir la liste des modèles"
+    },
+    "skill": {
+      "label": "Lancer une skill",
+      "desc": "Choisir une des skills de cette conversation"
+    },
+    "agent": {
+      "label": "Demander à un agent enregistré",
+      "desc": "Confier une tâche à l'un de vos agents",
+      "enable": "Activer les agents enregistrés pour cette conversation",
+      "enableDesc": "Puis choisissez l'agent"
+    },
+    "compact": {
+      "label": "Compacter le contexte",
+      "desc": "Résumer les anciens messages pour laisser de la place au modèle"
+    },
+    "clear": {
+      "label": "Vider le contexte",
+      "desc": "Repartir de zéro dans cette conversation ; les messages restent"
+    },
+    "attach": {
+      "label": "Joindre des fichiers",
+      "desc": "Choisir des fichiers à envoyer",
+      "clearDesc": "Retirer les fichiers en attente d'envoi"
+    },
+    "help": {
+      "label": "Toutes les commandes",
+      "desc": "Lister chaque commande et ce qu'elle fait"
+    },
+    "about": {
+      "label": "À propos de cette conversation",
+      "desc": "Modèle, outils, skills et taille du contexte"
+    },
+    "args": {
+      "skill": "Skills",
+      "agent": "Agents enregistrés",
+      "model": "Modèles",
+      "attach": "Fichiers"
+    },
+    "badge": {
+      "builtin": "intégrée",
+      "addon": "module",
+      "shared": "partagée",
+      "yours": "la vôtre"
+    },
+    "collides": "seulement avec /skill",
+    "errors": {
+      "skill": "Cette conversation n'a pas de skill nommée « {{name}} ».",
+      "agent": "Vous n'avez pas d'agent enregistré nommé « {{name}} ».",
+      "agentTask": "Écrivez la tâche pour {{name}} après son nom.",
+      "agentsOff": "Les agents enregistrés sont désactivés pour cette conversation. Activez-les dans le menu Outils."
     }
   },
   "shortcuts": {
@@ -319,7 +378,9 @@
       "stopped": "Arrêté",
       "failed": "Échec",
       "interrupted": "Interrompu",
-      "paused": "En pause"
+      "paused": "En pause",
+      "compacting": "Compactage du contexte",
+      "clearing": "Vidage du contexte"
     },
     "tool": {
       "search": "Recherche",
@@ -402,5 +463,41 @@
     "title": "Contexte utilisé par la dernière requête au modèle",
     "ofLimit": "{{used}} / {{limit}} jetons",
     "left": "{{left}} restants"
+  },
+  "invoked": {
+    "skill": "Skill : {{name}}",
+    "agent": "Agent : {{name}}"
+  },
+  "marker": {
+    "compacted": "Contexte compacté : de {{before}} à {{after}} tokens",
+    "cleared": "Contexte vidé",
+    "clearedHint": "Le modèle ne voit pas les messages au-dessus de cette ligne."
+  },
+  "cmdcard": {
+    "close": "Fermer",
+    "helpTitle": "Commandes",
+    "helpSkills_one": "Skill : {{names}}. Tapez / et son nom.",
+    "helpSkills_other": "{{count}} skills : {{names}}. Tapez / et le nom.",
+    "helpKeys": "Tapez / dans la zone pour ouvrir la liste. Tab complète, Entrée lance, Échap ferme.",
+    "aboutTitle": "Cette conversation",
+    "model": "Modèle",
+    "state": "État",
+    "loaded": "Chargé",
+    "notLoaded": "Non chargé",
+    "backend": "Backend",
+    "tools": "Outils",
+    "toolsOn_one": "{{count}} actif",
+    "toolsOn_other": "{{count}} actifs",
+    "skills": "Skills",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skills",
+    "commands": "Commandes",
+    "isolated": "Exécutées dans un bac à sable isolé",
+    "host": "Exécutées sur cette machine",
+    "noCommands": "Impossible",
+    "context": "Contexte",
+    "contextOf": "{{used}} sur {{limit}} tokens",
+    "contextUsed": "{{used}} tokens",
+    "unknown": "Pas encore connu"
   }
 }
