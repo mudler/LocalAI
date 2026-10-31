@@ -34,6 +34,17 @@ var geteuid = os.Geteuid
 // commandPath is the PATH of every command.
 const commandPath = "/usr/local/bin:/usr/bin:/bin"
 
+// noLogin turns the login shell of a bash call ("bash", "-lc", script) into a
+// plain one that reads no startup file. The command must get exactly the fixed
+// environment: a login shell reads /etc/profile and the dotfiles of the user,
+// and on macOS path_helper rewrites PATH there. Any other command is as it was.
+func noLogin(args []string) []string {
+	if len(args) == 3 && args[0] == "bash" && args[1] == "-lc" {
+		return []string{"bash", "--noprofile", "--norc", "-c", args[2]}
+	}
+	return args
+}
+
 // lookPath finds a program in commandPath. A name with a slash is used as it is.
 func lookPath(name string) (string, error) {
 	if strings.Contains(name, "/") {
@@ -254,7 +265,7 @@ func (s *hostSandbox) Exec(ctx context.Context, c sandbox.Cmd) (sandbox.Process,
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(prog, c.Args[1:]...) // #nosec G204 -- the host backend runs the command of the user by design
+	cmd := exec.Command(prog, noLogin(c.Args)[1:]...) // #nosec G204 -- the host backend runs the command of the user by design
 	cmd.Dir = filepath.Join(s.work(), filepath.FromSlash(rel))
 	// A fixed environment: nothing of the add-on's own reaches the command.
 	cmd.Env = append([]string{"PATH=" + commandPath, "HOME=" + s.home(), "LANG=C", "TZ=UTC"}, c.Env...)
