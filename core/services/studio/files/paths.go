@@ -180,6 +180,9 @@ func (s *Service) EmptyTrash(ctx context.Context, principal string, dryRun bool)
 		return workspace.PurgeCount{}, err
 	}
 	res, err := pg.PurgeAll(ctx, s.Actor(principal), session.HomePath(principal), dryRun)
+	if err == nil && !dryRun {
+		s.purged(ctx, session.HomePath(principal))
+	}
 	return res.PurgeCount, err
 }
 
@@ -199,6 +202,9 @@ func (s *Service) PurgeTrashEntry(ctx context.Context, principal string, rev int
 		return workspace.PurgeCount{}, workspace.ErrNotFound
 	}
 	res, err := pg.Purge(ctx, s.Actor(principal), session.HomePath(principal), []int64{rev}, false)
+	if err == nil {
+		s.purged(ctx, session.HomePath(principal))
+	}
 	return res.PurgeCount, err
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/studio/extract"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -243,6 +244,7 @@ func (h *Handlers) PutFileContent(c echo.Context) error {
 	if err != nil && !errors.Is(err, workspace.ErrCommitted) {
 		return failFile(c, err)
 	}
+	fc.f.Written(c.Request().Context(), n, fc.p)
 	return c.JSON(http.StatusOK, fc.node(n))
 }
 
@@ -470,7 +472,7 @@ func (h *Handlers) FileHistory(c echo.Context) error {
 
 // SearchFiles searches your files.
 // @Summary Search your files.
-// @Description Finds files by name and lines inside text files that contain the query, ignoring case. Only what you can read is searched. Large and binary files are found by name only.
+// @Description Finds files by name, lines inside text files and lines of the text of PDF, Word, Excel and PowerPoint files that contain the query, ignoring case. Only what you can read is searched. A document hit has document true and its page, sheet or slide; indexing counts the documents whose text is still being read. Text files over 1 MiB and other binary files are found by name only.
 // @Tags chats
 // @Param q query string true "text to find"
 // @Param path query string false "search only below this folder; default /"
@@ -487,13 +489,22 @@ func (h *Handlers) SearchFiles(c echo.Context) error {
 	if q == "" {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "q is required")
 	}
-	hits, err := fc.f.Search(c.Request().Context(), fc.p, q, c.QueryParam("path"), intParam(c, "limit", 50, 200))
+	res, err := fc.f.Search(c.Request().Context(), fc.p, q, c.QueryParam("path"), intParam(c, "limit", 50, 200))
 	if err != nil {
 		return failFile(c, err)
 	}
-	out := schema.ChatsSearchResult{Hits: make([]schema.ChatsSearchHit, 0, len(hits))}
-	for _, hit := range hits {
-		out.Hits = append(out.Hits, schema.ChatsSearchHit{Path: hit.Path, Kind: string(hit.Kind), Line: hit.Line, Snippet: hit.Snippet})
+	out := schema.ChatsSearchResult{Hits: make([]schema.ChatsSearchHit, 0, len(res.Hits)), Indexing: res.Indexing}
+	for _, hit := range res.Hits {
+		h := schema.ChatsSearchHit{Path: hit.Path, Kind: string(hit.Kind), Line: hit.Line, Snippet: hit.Snippet, Document: hit.Document}
+		switch hit.Section.Kind {
+		case extract.SectionPage:
+			h.Page, _ = strconv.Atoi(hit.Section.Name)
+		case extract.SectionSlide:
+			h.Slide, _ = strconv.Atoi(hit.Section.Name)
+		case extract.SectionSheet:
+			h.Sheet = hit.Section.Name
+		}
+		out.Hits = append(out.Hits, h)
 	}
 	return c.JSON(http.StatusOK, out)
 }

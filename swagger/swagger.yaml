@@ -4441,12 +4441,26 @@ definitions:
     type: object
   schema.ChatsSearchHit:
     properties:
+      document:
+        description: |-
+          Document is true for a line of the text read from a PDF, Word, Excel or
+          PowerPoint file. Line is then a line of that text.
+        type: boolean
       kind:
         type: string
       line:
         type: integer
+      page:
+        description: |-
+          Page, Sheet and Slide say where a document hit is, when the document has
+          pages, sheets or slides.
+        type: integer
       path:
         type: string
+      sheet:
+        type: string
+      slide:
+        type: integer
       snippet:
         type: string
     type: object
@@ -4456,6 +4470,11 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsSearchHit'
         type: array
+      indexing:
+        description: |-
+          Indexing counts the documents below the path whose text is not read
+          yet: the same search a moment later may find more.
+        type: integer
     type: object
   schema.ChatsSendRequest:
     properties:
@@ -13885,9 +13904,12 @@ paths:
       - chats
   /api/chats/files/search:
     get:
-      description: Finds files by name and lines inside text files that contain the
-        query, ignoring case. Only what you can read is searched. Large and binary
-        files are found by name only.
+      description: Finds files by name, lines inside text files and lines of the text
+        of PDF, Word, Excel and PowerPoint files that contain the query, ignoring
+        case. Only what you can read is searched. A document hit has document true
+        and its page, sheet or slide; indexing counts the documents whose text is
+        still being read. Text files over 1 MiB and other binary files are found by
+        name only.
       parameters:
       - description: text to find
         in: query

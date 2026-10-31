@@ -10,8 +10,12 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -45,6 +49,53 @@ type Service struct {
 	sharedRoots SharedRootsFunc
 
 	maxFileSize int64 // the largest upload the server takes, in bytes; 0: no limit known
+
+	// index holds the text of the documents, for search and read_file. Nil:
+	// documents are found by name only.
+	index *textindex.Indexer
+}
+
+// SetTextIndex gives the service the text index of the documents. Call it
+// once at start; nil removes it.
+func (s *Service) SetTextIndex(ix *textindex.Indexer) {
+	s.mu.Lock()
+	s.index = ix
+	s.mu.Unlock()
+}
+
+func (s *Service) textIndex() *textindex.Indexer {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.index
+}
+
+// Written tells the text index that a user wrote a file, so that it is
+// indexed at once rather than at the next read of the journal. Callers that
+// write through the store directly (an upload) call it; the file tools do
+// it themselves.
+func (s *Service) Written(ctx context.Context, n workspace.Node, principal string) {
+	if ix := s.textIndex(); ix != nil {
+		ix.Enqueue(ctx, n, principal)
+	}
+}
+
+// purged drops the index entries of what a purge below prefix erased. The
+// purge has already happened, so this runs on after the request ends.
+func (s *Service) purged(ctx context.Context, prefix string) {
+	ix := s.textIndex()
+	if ix == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+		defer cancel()
+		if err := ix.Forget(ctx, prefix); err != nil {
+			xlog.Warn("File text index: could not drop the entries of purged files", "error", err)
+		}
+	}()
 }
 
 // WithMaxFileSize records the largest file an upload may send, so a client

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/core/services/studio/extract"
+	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -27,15 +29,30 @@ type Hit struct {
 	Kind    workspace.Kind
 	Line    int
 	Snippet string
+	// Document is set for a line of the text read from a PDF or an Office
+	// file; Line is then a line of that text, as read_file numbers it.
+	Document bool
+	// Section is the page, sheet or slide of a Document hit, when the
+	// document has them.
+	Section extract.Section
+}
+
+// SearchResult is what a search found.
+type SearchResult struct {
+	Hits []Hit
+	// Indexing counts the documents below the path, readable by the user,
+	// whose text is not read yet: a search a moment later may find more.
+	Indexing int
 }
 
 // Search finds files by name and by the text inside them, among what the user
-// may read below dir (default "/"). Name matches come first. Text is searched
-// only in files that are valid UTF-8 text and small enough; there is no index,
-// so a big workspace is scanned up to the limits above. The match ignores case.
-func (s *Service) Search(ctx context.Context, principal, query, dir string, limit int) ([]Hit, error) {
+// may read below dir (default "/"). Name matches come first, then lines of
+// text files, then lines of documents. Text files are read on the spot when
+// they are valid UTF-8 and small enough, up to the limits above; PDF and
+// Office files are searched in the text index. The match ignores case.
+func (s *Service) Search(ctx context.Context, principal, query, dir string, limit int) (SearchResult, error) {
 	if !s.Available() {
-		return nil, ErrUnavailable
+		return SearchResult{}, ErrUnavailable
 	}
 	if limit <= 0 || limit > 200 {
 		limit = 50
@@ -45,11 +62,11 @@ func (s *Service) Search(ctx context.Context, principal, query, dir string, limi
 	}
 	root, err := s.Abs(principal, dir)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	q, err := newQuery(query, false, true)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	q.limit = limit
 	return s.search(ctx, s.Actor(principal), root, func(abs string) string { return s.Rel(principal, abs) }, q)
@@ -61,6 +78,9 @@ type query struct {
 	names   bool // match file names too (plain text only)
 	limit   int
 	perFile int // content hits shown for one file
+	// contains is the plain text in lower case, which a text that matches
+	// must hold; empty for a regular expression.
+	contains string
 }
 
 // newQuery builds a search: plain text, or a regular expression matched
@@ -89,12 +109,12 @@ func newQuery(text string, regex, ignoreCase bool) (query, error) {
 		needle = strings.ToLower(needle)
 		match = func(s string) bool { return strings.Contains(strings.ToLower(s), needle) }
 	}
-	return query{match: match, names: true, limit: searchPlainMax, perFile: searchPerFile}, nil
+	return query{match: match, names: true, limit: searchPlainMax, perFile: searchPerFile, contains: strings.ToLower(needle)}, nil
 }
 
 // search runs q below root, a folder or one file, as a. show turns a
 // workspace path into the path a hit names.
-func (s *Service) search(ctx context.Context, a workspace.Actor, root string, show func(string) string, q query) ([]Hit, error) {
+func (s *Service) search(ctx context.Context, a workspace.Actor, root string, show func(string) string, q query) (SearchResult, error) {
 	var names, texts []Hit
 	visited, scanned := 0, int64(0)
 	full := func() bool { return len(names)+len(texts) >= q.limit*2 }
@@ -134,20 +154,101 @@ func (s *Service) search(ctx context.Context, a workspace.Actor, root string, sh
 	}
 	n, err := s.ws.Stat(ctx, a, root)
 	if err != nil {
-		return nil, err
+		return SearchResult{}, err
 	}
 	if n.Kind == workspace.KindDir {
 		if err := walk(root); err != nil {
-			return nil, err
+			return SearchResult{}, err
 		}
 	} else {
 		look(n)
 	}
 	out := append(names, texts...)
-	if len(out) > q.limit {
-		out = out[:q.limit]
+	// Documents come last but keep up to a third of the hits, so many
+	// matching text files do not hide every document.
+	docs, indexing := s.searchIndex(ctx, a, root, show, q, q.limit)
+	nd := min(len(docs), max(q.limit-len(out), q.limit/3))
+	if len(out) > q.limit-nd {
+		out = out[:q.limit-nd]
 	}
-	return out, nil
+	out = append(out, docs[:nd]...)
+	return SearchResult{Hits: out, Indexing: indexing}, nil
+}
+
+// indexPage is how many index entries one read of the store returns.
+const indexPage = 20
+
+// searchIndex returns up to room lines of the documents below root that
+// match q, from the text index, and how many documents there are still
+// being read. Each entry is shown only when a may read its file now and the
+// file still has the content the text was read from.
+func (s *Service) searchIndex(ctx context.Context, a workspace.Actor, root string, show func(string) string, q query, room int) ([]Hit, int) {
+	ix := s.textIndex()
+	if ix == nil {
+		return nil, 0
+	}
+	st := ix.Store()
+	var hits []Hit
+	var after int64
+	visited, scanned := 0, 0
+	for room > 0 && visited < searchMaxNodes && scanned < searchMaxTotal && ctx.Err() == nil {
+		page, err := st.Search(ctx, textindex.Query{Prefix: root, Contains: q.contains, AfterID: after, Limit: indexPage})
+		if err != nil || len(page) == 0 {
+			break
+		}
+		for _, e := range page {
+			after = e.NodeID
+			visited++
+			scanned += len(e.Text)
+			if !s.mayReadEntry(ctx, a, e, true) {
+				continue
+			}
+			found := matchText(e, show(e.Path), q, min(q.perFile, room))
+			hits = append(hits, found...)
+			if room -= len(found); room <= 0 {
+				break
+			}
+		}
+	}
+	indexing := 0
+	if ix.On() {
+		pending, err := st.Pending(ctx, root, 50)
+		if err == nil {
+			for _, e := range pending {
+				if s.mayReadEntry(ctx, a, e, false) {
+					indexing++
+				}
+			}
+		}
+	}
+	return hits, indexing
+}
+
+// mayReadEntry reports whether a may read the file of an index entry: the
+// path names the same node, and with sameContent, the node still holds the
+// content the entry was made from.
+func (s *Service) mayReadEntry(ctx context.Context, a workspace.Actor, e textindex.Entry, sameContent bool) bool {
+	n, err := s.ws.Stat(ctx, a, e.Path)
+	return err == nil && n.Kind == workspace.KindFile && n.ID == e.NodeID && (!sameContent || n.Blob == e.Hash)
+}
+
+// matchText returns the lines of an entry's text that match q, at most max.
+func matchText(e textindex.Entry, rel string, q query, max int) []Hit {
+	var hits []Hit
+	for i, line := range strings.Split(e.Text, "\n") {
+		if len(hits) >= max {
+			break
+		}
+		if !q.match(line) {
+			continue
+		}
+		h := Hit{Path: rel, Kind: workspace.KindFile, Line: i + 1, Snippet: clip(line), Document: true}
+		if sec, ok := extract.SectionAt(e.Sections, i+1); ok {
+			h.Section = sec
+		}
+		hits = append(hits, h)
+	}
+	return hits
 }
 
 // scanFile returns the lines of a text file that match q.

@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/core/services/studio/extract"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -251,7 +255,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				}
 				return b.String(), nil
 			})},
-		{Name: "read_file", Description: "Read a text file of the user's. Long files are read in parts with offset (first line, 1-based) and limit (number of lines, at most 2000).",
+		{Name: "read_file", Description: "Read a file of the user's: a text file, or the text of a PDF, Word, Excel or PowerPoint file (pages, sheets and slides start with a ## heading). Long files are read in parts with offset (first line, 1-based) and limit (number of lines, at most 2000).",
 			Schema: obj(pathProp+`,"offset":{"type":"integer","minimum":1},"limit":{"type":"integer","minimum":1}`, "path"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
 				in, err := session.DecodeArgs[struct {
@@ -265,29 +269,16 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				data, _, err := s.readText(ctx, a, t.abs, readMaxBytes)
+				var data string
+				if extract.Supported(t.abs) {
+					data, err = s.documentText(ctx, a, t.abs)
+				} else {
+					data, _, err = s.readText(ctx, a, t.abs, readMaxBytes)
+				}
 				if err != nil {
 					return "", err
 				}
-				lines := strings.Split(data, "\n")
-				start, limit := in.Offset, in.Limit
-				if start < 1 {
-					start = 1
-				}
-				if limit < 1 || limit > readMaxLines {
-					limit = readMaxLines
-				}
-				if start > len(lines) {
-					return "", fmt.Errorf("the file has %d lines", len(lines))
-				}
-				end := start - 1 + limit
-				more := ""
-				if end < len(lines) {
-					more = fmt.Sprintf("\n[%d more lines; continue with offset %d]", len(lines)-end, end+1)
-				} else {
-					end = len(lines)
-				}
-				return strings.Join(lines[start-1:end], "\n") + more, nil
+				return pageLines(data, in.Offset, in.Limit)
 			})},
 		{Name: "write_file", Description: "Write a text file in the user's files, creating folders as needed. An existing file is replaced; the user can undo it.",
 			Schema: obj(pathProp+`,"content":{"type":"string"}`, "path", "content"),
@@ -399,7 +390,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				}
 				return "Moved to the Trash.", nil
 			})},
-		{Name: "search_files", Description: "Search the user's files. By default query is plain text, found in file names and inside text files (at most 30 hits). With regex true, query is a regular expression (extended syntax, as grep -E) matched against each line of the text files (at most 200 lines). Case does not matter unless ignore_case is false.",
+		{Name: "search_files", Description: "Search the user's files, by name and by the words inside them: text files, and the text of PDF, Word, Excel and PowerPoint files, so a document with a meaningless name is found by what it says. By default query is plain text (at most 30 hits). With regex true, query is a regular expression (extended syntax, as grep -E) matched against each line (at most 200 lines). Case does not matter unless ignore_case is false. A hit in a document names its page, sheet or slide and the line to pass to read_file as offset. When the answer says files are still being indexed, search again shortly before you conclude that nothing matches.",
 			Schema: obj(`"query":{"type":"string"},"path":{"type":"string","description":"Search only this file, or below this folder."},"regex":{"type":"boolean"},"ignore_case":{"type":"boolean","description":"Default true."}`, "query"),
 			Run: call(func(ctx context.Context, raw json.RawMessage) (string, error) {
 				in, err := session.DecodeArgs[struct {
@@ -419,25 +410,135 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				hits, err := s.search(ctx, a, t.abs, t.show, q)
+				res, err := s.search(ctx, a, t.abs, t.show, q)
 				if err != nil {
 					return "", err
 				}
-				if len(hits) == 0 {
-					return "Nothing found.", nil
-				}
-				var b strings.Builder
-				for _, h := range hits {
-					if h.Line == 0 {
-						fmt.Fprintf(&b, "%s\n", h.Path)
-					} else {
-						fmt.Fprintf(&b, "%s:%d: %s\n", h.Path, h.Line, h.Snippet)
-					}
-				}
-				return b.String(), nil
+				return searchAnswer(res), nil
 			})},
 	}
 }
+
+// searchAnswer writes the hits of search_files: a name per line, then
+// path:line: text for a text file and path (page N, line L): text for a
+// document, and a note when documents are still being indexed.
+func searchAnswer(res SearchResult) string {
+	var b strings.Builder
+	for _, h := range res.Hits {
+		switch {
+		case h.Line == 0:
+			fmt.Fprintf(&b, "%s\n", h.Path)
+		case h.Document:
+			fmt.Fprintf(&b, "%s (%s): %s\n", h.Path, hitPlace(h), h.Snippet)
+		default:
+			fmt.Fprintf(&b, "%s:%d: %s\n", h.Path, h.Line, h.Snippet)
+		}
+	}
+	switch {
+	case res.Indexing > 0 && len(res.Hits) == 0:
+		return fmt.Sprintf("Nothing found yet: %s still being indexed. Search again in a moment before you conclude that nothing matches.", filesCount(res.Indexing))
+	case res.Indexing > 0:
+		fmt.Fprintf(&b, "[%s still being indexed; search again in a moment to include them.]\n", filesCount(res.Indexing))
+	case len(res.Hits) == 0:
+		return "Nothing found."
+	}
+	return b.String()
+}
+
+func filesCount(n int) string {
+	if n == 1 {
+		return "1 file is"
+	}
+	return fmt.Sprintf("%d files are", n)
+}
+
+// hitPlace says where a document hit is: "page 3, line 40".
+func hitPlace(h Hit) string {
+	line := fmt.Sprintf("line %d", h.Line)
+	switch h.Section.Kind {
+	case extract.SectionSheet:
+		return fmt.Sprintf("sheet %q, %s", h.Section.Name, line)
+	case "":
+		return line
+	}
+	return h.Section.Kind + " " + h.Section.Name + ", " + line
+}
+
+// pageLines returns lines offset to offset+limit-1 of text (1-based, at most
+// readMaxLines), with a note on how to read on.
+func pageLines(text string, offset, limit int) (string, error) {
+	lines := strings.Split(text, "\n")
+	start := offset
+	if start < 1 {
+		start = 1
+	}
+	if limit < 1 || limit > readMaxLines {
+		limit = readMaxLines
+	}
+	if start > len(lines) {
+		return "", fmt.Errorf("the file has %d lines", len(lines))
+	}
+	end := start - 1 + limit
+	more := ""
+	if end < len(lines) {
+		more = fmt.Sprintf("\n[%d more lines; continue with offset %d]", len(lines)-end, end+1)
+	} else {
+		end = len(lines)
+	}
+	return strings.Join(lines[start-1:end], "\n") + more, nil
+}
+
+// documentText returns the text of a PDF or Office file a may read: the
+// indexed text when it was read from the file as it is now, else the text
+// read on the spot.
+func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs string) (string, error) {
+	r, n, err := s.ws.Open(ctx, a, abs)
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+	if ix := s.textIndex(); ix != nil {
+		if e, err := ix.Store().Get(ctx, n.ID); err == nil && e.Hash == n.Blob {
+			switch e.Status {
+			case textindex.StatusReady:
+				return e.Text, nil
+			case textindex.StatusSkipped:
+				if e.Reason == textindex.ReasonNoText {
+					return "", fmt.Errorf("%s is a PDF with no text layer: it is probably a scan, so its words are pictures and there is no text to read", n.Name)
+				}
+			}
+		}
+	}
+	if n.Size > textindex.DefaultMaxFileBytes {
+		return "", fmt.Errorf("%s is %d bytes, which is too large to read as text", n.Name, n.Size)
+	}
+	data, err := io.ReadAll(io.LimitReader(r, textindex.DefaultMaxFileBytes+1))
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(ctx, documentTimeout)
+	defer cancel()
+	l := extract.DefaultLimits
+	l.Text = textindex.DefaultMaxTextBytes
+	text, _, err := extract.ExtractWith(ctx, n.Name, data, l)
+	switch {
+	case errors.Is(err, extract.ErrNoText):
+		return "", fmt.Errorf("%s is a PDF with no text layer: it is probably a scan, so its words are pictures and there is no text to read", n.Name)
+	case errors.Is(err, extract.ErrInvalid):
+		return "", fmt.Errorf("%s could not be read as a %s file", n.Name, strings.TrimPrefix(strings.ToLower(path.Ext(n.Name)), "."))
+	case errors.Is(err, context.DeadlineExceeded):
+		return "", fmt.Errorf("reading %s took too long", n.Name)
+	case err != nil:
+		return "", err
+	}
+	if text == "" {
+		return "", fmt.Errorf("%s contains no text", n.Name)
+	}
+	return text, nil
+}
+
+// documentTimeout bounds reading one document for read_file.
+const documentTimeout = 60 * time.Second
 
 // readText reads a text file of at most max bytes.
 func (s *Service) readText(ctx context.Context, a workspace.Actor, abs string, max int64) (string, workspace.Node, error) {
@@ -475,6 +576,7 @@ func (s *Service) put(ctx context.Context, a workspace.Actor, abs, content strin
 		return workspace.Node{}, err
 	}
 	n.Rev = cs.Rev
+	s.Written(ctx, n, a.Principal)
 	return n, nil
 }
 

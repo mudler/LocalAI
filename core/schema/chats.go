@@ -505,11 +505,23 @@ type ChatsSearchHit struct {
 	Kind    string `json:"kind"`
 	Line    int    `json:"line,omitempty"`
 	Snippet string `json:"snippet,omitempty"`
+	// Document is true for a line of the text read from a PDF, Word, Excel or
+	// PowerPoint file. Line is then a line of that text.
+	Document bool `json:"document,omitempty"`
+	// Page, Sheet and Slide say where a document hit is, when the document has
+	// pages, sheets or slides.
+	Page  int    `json:"page,omitempty"`
+	Sheet string `json:"sheet,omitempty"`
+	Slide int    `json:"slide,omitempty"`
 }
 
-// ChatsSearchResult lists name matches first, then lines.
+// ChatsSearchResult lists name matches first, then lines of text files, then
+// lines of documents.
 type ChatsSearchResult struct {
 	Hits []ChatsSearchHit `json:"hits"`
+	// Indexing counts the documents below the path whose text is not read
+	// yet: the same search a moment later may find more.
+	Indexing int `json:"indexing,omitempty"`
 }
 
 // ChatsSkill is a skill a chat can use.
