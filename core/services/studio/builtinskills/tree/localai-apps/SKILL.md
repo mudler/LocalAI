@@ -5,6 +5,8 @@ description: Use when the user asks for an app, a tool, a tracker, a dashboard, 
 
 # Apps in LocalAI are Pages
 
+Do the work with files, but talk to the user in plain words: say what changed ("I saved your shortcuts", "I added a Reading list page", "Home now shows your open tasks"), not file names, folders, formats or JSON. Name a file only if the user named it or asks where something is, or when you give them a file as a result (a document they asked for).
+
 LocalAI has its own app format: a Page. It is one HTML file in the user's home that LocalAI shows under **Pages** in the sidebar. The user can pin it and (with a shared folder) share it. Unless the user names a language or a runtime, "make me an app" means a Page. Do not start a Python, Node or desktop program for it.
 
 ## Decide
@@ -225,7 +227,7 @@ Seed `books.json` only if the user gave you data: `{"books": [{"id": "b1", "titl
 
 ## After you write it
 
-Tell the user in one or two lines: the Page is called "<title>" and is under **Pages** in the sidebar (files in `pages/<name>/`, data in `<file>.json`), that they can pin it there, and what it cannot do. To change it later, they can open it and use **Ask the assistant to change this**.
+Tell the user in one or two lines: the Page is called "<title>" and is under **Pages** in the sidebar, that they can pin it there, and what it cannot do. To change it later, they can open it and use **Ask the assistant to change this**.
 
 Say what a Page cannot do when it matters for the request: it has no server process, no packages and no network. For work that must happen by itself, offer a trigger (never say one is on until the user confirms its card). For outside data, offer to fetch it with your web tools into a data file. If the idea needs a real program and commands run in this chat, offer the Sandbox.
 

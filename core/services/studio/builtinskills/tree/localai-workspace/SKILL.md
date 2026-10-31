@@ -5,6 +5,8 @@ description: Use to personalise LocalAI for the user - persona, profile, shortcu
 
 # Make LocalAI theirs
 
+Do the work with files, but talk to the user in plain words: say what changed ("I saved your shortcuts", "I added a Reading list page", "Home now shows your open tasks"), not file names, folders, formats or JSON. Name a file only if the user named it or asks where something is, or when you give them a file as a result (a document they asked for).
+
 A few JSON files in the `LocalAI/` folder of the user's home (`/workspace/home/LocalAI/`) change LocalAI for this user. LocalAI reads them; the settings pages edit the same files. Use these paths: a settings file at the top of the home is in the old place, and LocalAI moves it into `LocalAI/`. Write them with your file tools. Each has a JSON Schema in `/workspace/shared-builtin-skills/localai-workspace/schemas/`: read it before you write, and keep to it. A file that breaks its schema is ignored and LocalAI uses its last good version, so check your JSON.
 
 | File | What it does |
@@ -20,7 +22,7 @@ Rules:
 - Change only the keys the user asked for. Read the file first and keep every other key.
 - Keep files small (at most 64 KiB). Use 2-space indentation.
 - A script, a draft or test data that you make on the way goes in the chat's work folder that the prompt names (`/workspace/home/Chats/<chat>/work/`), not in `LocalAI/` or at the top of the home.
-- After a change, tell the user in one line what changed and where ("Saved to `LocalAI/shortcuts.json`. It shows above the composer.").
+- After a change, tell the user in one line what changed and where they see it ("I saved your shortcut. It shows above the message box.").
 - A page is `pages/<name>/index.html` (a lowercase name, at most 1 MiB) with an optional `page.json` (`title`, `icon`, `description`) and its data files next to it. It runs sandboxed, as the user, with no network; it reads and writes its own folder through `window.localai.files`, and reading files next to the page with `fetch('data.json')` works. To build one, use the `localai-apps` skill.
 
 ## Widget data
@@ -63,7 +65,7 @@ The prompt of a run is all the run knows. Write it so it stands alone: what to r
 **Every morning update this.**
 1. Pick the data file: the `source` of the widget the user means. With no widget, write `data/<name>.json` with today's data and add the widget to `LocalAI/home.json` (`{"id": "inbox", "type": "list", "title": "Inbox this morning", "source": "data/inbox.json"}`).
 2. Propose: `{"name": "Morning inbox", "when": "daily 08:00", "prompt": "Read the mail of the last 24 hours. Rewrite data/inbox.json as widget data: items with the mails that need a reply (label: sender and subject, meta: the time), updatedAt now, source {\"kind\": \"trigger\", \"note\": \"Mail from the last 24 hours\"}, all inside the file. Finish with one short sentence about what changed.", "reads": "Mail from the last 24 hours", "writes": "data/inbox.json", "widget": "inbox", "estimated_tokens": 1500}`.
-3. Tell the user to check the card. One line.
+3. Tell the user to check the card. One line, in plain words.
 
 **When I drop a file in `inbox/`, summarise it.**
 1. Make sure the folder exists (write `inbox/README.md` with one line if it does not).
@@ -84,7 +86,7 @@ The prompt of a run is all the run knows. Write it so it stands alone: what to r
 
 An offer is a suggestion the user did not ask for. LocalAI decides when one is allowed and tells you in a system note at the start of the turn ("Offer allowed this turn (profile, shortcut) ..."). Without that note, never offer anything. With it, offer at most one of the kinds it names, and only when the user's message is casual (thanks, small talk, a fact about themselves) and you used no tool. Skip it when the user is in the middle of something, when you refused or something failed in this chat, or when nothing in the conversation fits.
 
-Put the offer as the last paragraph of a normal reply, in plain words. No buttons, no list, no pressure. Say what you would save, where, and that it can be undone. Use these sentences (reword to fit, keep the meaning):
+Put the offer as the last paragraph of a normal reply, in plain words. No buttons, no list, no pressure. Say what you would save and that it can be undone. Use these sentences (reword to fit, keep the meaning):
 
 | Kind | Sentence |
 |---|---|
