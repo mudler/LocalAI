@@ -13,6 +13,14 @@ func sk(layer Layer, name, desc string) Skill {
 }
 
 var _ = Describe("Index", func() {
+	It("starts with a header that names the tool and the path to use, once", func() {
+		got := Index([]Skill{sk(LayerBuiltin, "docx", "Word files.")})
+		Expect(strings.Count(got, "read_file")).To(Equal(1))
+		Expect(strings.Count(got, "the Sandbox does not see skill folders")).To(Equal(1))
+		Expect(strings.HasPrefix(got, "Skills: before a task that matches one, read its SKILL.md with the read_file tool")).To(BeTrue(), got)
+		Expect(strings.Index(got, "read_file")).To(BeNumerically("<", strings.Index(got, ".skills")), "the read path comes before the write path")
+	})
+
 	It("is empty without listable skills", func() {
 		Expect(Index(nil)).To(BeEmpty())
 		none := []Skill{

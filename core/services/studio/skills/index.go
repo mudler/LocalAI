@@ -15,8 +15,8 @@ const (
 )
 
 // indexHeader is the first line of the index.
-const indexHeader = "Skills: read a skill's SKILL.md before you do a task that matches it. " +
-	"Your own skills go in /workspace/home/.skills/<name>/SKILL.md; read the writing-skills skill first."
+const indexHeader = "Skills: before a task that matches one, read its SKILL.md with the read_file tool at the path shown (the Sandbox does not see skill folders). " +
+	"Skills you write yourself go in /workspace/home/.skills/<name>/SKILL.md; read the writing-skills skill first."
 
 // moreReserve is the room kept for the last line, "N more skills not listed".
 const moreReserve = 64
