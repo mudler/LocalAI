@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -135,7 +136,12 @@ type Application struct {
 	studioPush           notify.PushStore // nil in memory-only mode: push needs somewhere to keep subscriptions
 	studioInbox          *notify.Service
 	// studioWeb serves the built-in web tools of the chats.
-	studioWeb            *studioWeb
+	studioWeb *studioWeb
+	// studioSelf lists the addresses of this server that a model's request
+	// never reaches: web_fetch refuses them, and the Sandbox proxy gets them
+	// with each allow of egress.check. One list, built once; see serverSelf.
+	studioSelfOnce       sync.Once
+	studioSelf           func() []netip.Prefix
 	studioMarks          convert.Marks // what the conversion of the old data did
 	studioConvertMu      sync.Mutex    // one conversion at a time in this process
 	studioTriggers       *studio.Triggers

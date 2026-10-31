@@ -96,7 +96,7 @@ func (a *Application) initStudioService() {
 		a.studioPusher = pusher
 	}
 	a.initStudioMCPConnectors()
-	a.studioWeb = newStudioWeb(a.applicationConfig)
+	a.studioWeb = newStudioWeb(a.applicationConfig, a.serverSelf())
 	deps := studio.Deps{
 		Bus:      bus,
 		Store:    a.studioStore,

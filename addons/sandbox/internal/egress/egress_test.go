@@ -93,7 +93,7 @@ func newFixture(tlsPort int, decide func(egress.CheckArgs) egress.Verdict, limit
 	mu := &sync.Mutex{}
 	p := egress.New(egress.Options{
 		Host:          h,
-		Resolver:      stubResolver{"public.test": {loopback}, "other.test": {loopback}, "private.test": {netip.MustParseAddr("10.1.2.3")}},
+		Resolver:      stubResolver{"public.test": {loopback}, "other.test": {loopback}, "private.test": {netip.MustParseAddr("10.1.2.3")}, "self.test": {netip.MustParseAddr("8.8.4.4")}},
 		DenyAddrs:     func() []netip.Prefix { return nil },
 		TreatAsPublic: []netip.Addr{loopback},
 		Limits:        limits,
@@ -396,6 +396,31 @@ var _ = Describe("the proxy", func() {
 		end()
 		Expect(f.host.checks).To(HaveLen(2))
 		Expect(f.host.checks[1].Private).To(BeTrue())
+	})
+
+	It("refuses the server's own public address that the host sends with an allow, also from the cache", func() {
+		// 8.8.4.4 stands for the public address of the server (the host of
+		// its external base URL): not an interface of the add-on's machine,
+		// so only the host's list can name it. The guard refuses it before
+		// any dial.
+		f := newFixture(0, func(egress.CheckArgs) egress.Verdict {
+			return egress.Verdict{Action: "allow", Reason: "preset", Self: []string{"8.8.4.4/32", "bogus"}}
+		}, egress.Limits{})
+		end := f.proxy.Begin(context.Background(), "alice", "c1", "op1")
+		for range 2 {
+			_, _, resp := connect(f, "self.test:443")
+			Expect(resp.StatusCode).To(Equal(http.StatusBadGateway))
+			Expect(body(resp)).To(ContainSubstring("(self)"))
+		}
+		end()
+		Expect(f.host.nChecks()).To(Equal(1), "the second connection used the cached allow and was still refused")
+		self := 0
+		for _, e := range f.host.audit() {
+			if e.Reason == "self" {
+				self++
+			}
+		}
+		Expect(self).To(Equal(2))
 	})
 })
 

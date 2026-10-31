@@ -260,6 +260,60 @@ func SelfAddrs(extra func() []string) func() []netip.Prefix {
 	}
 }
 
+// MaxDenyList bounds a list of addresses that ParseDenyList reads.
+const MaxDenyList = 1024
+
+// FormatDenyList writes a DenyAddrs list as CIDR strings, for a process that
+// dials on behalf of this server and cannot read its addresses itself (the
+// Sandbox add-on learns them from the host this way).
+func FormatDenyList(list []netip.Prefix) []string {
+	out := make([]string, 0, len(list))
+	for _, p := range list {
+		if p.IsValid() {
+			out = append(out, p.Masked().String())
+		}
+	}
+	return out
+}
+
+// ParseDenyList reads the CIDR strings of FormatDenyList. An entry that is
+// not a prefix is skipped, and the list is cut at MaxDenyList.
+func ParseDenyList(list []string) []netip.Prefix {
+	out := make([]netip.Prefix, 0, min(len(list), MaxDenyList))
+	for _, s := range list {
+		if len(out) >= MaxDenyList {
+			break
+		}
+		p, err := netip.ParsePrefix(strings.TrimSpace(s))
+		if err != nil {
+			continue
+		}
+		if p.Addr().Is4In6() {
+			// The guard compares unmapped addresses.
+			if p.Bits() < 96 {
+				continue
+			}
+			p = netip.PrefixFrom(p.Addr().Unmap(), p.Bits()-96)
+		}
+		out = append(out, p.Masked())
+	}
+	return out
+}
+
+// JoinDeny returns a DenyAddrs function that refuses the addresses of every
+// function of lists. A nil function is skipped.
+func JoinDeny(lists ...func() []netip.Prefix) func() []netip.Prefix {
+	return func() []netip.Prefix {
+		var out []netip.Prefix
+		for _, l := range lists {
+			if l != nil {
+				out = append(out, l()...)
+			}
+		}
+		return out
+	}
+}
+
 func readSelfAddrs(extra func() []string) []netip.Prefix {
 	out := []netip.Prefix{
 		netip.MustParsePrefix("127.0.0.0/8"),

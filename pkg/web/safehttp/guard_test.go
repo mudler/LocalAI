@@ -167,3 +167,26 @@ var _ = Describe("Client with DenyAddrs", func() {
 		Expect(err).To(MatchError(safehttp.ErrBlockedAddress))
 	})
 })
+
+var _ = Describe("the deny list of another process", func() {
+	It("carries the server's addresses as CIDR strings and refuses them in the guard", func() {
+		self := []netip.Prefix{netip.MustParsePrefix("8.8.4.4/32"), netip.MustParsePrefix("2001:db8::7/128")}
+		wire := safehttp.FormatDenyList(self)
+		Expect(wire).To(Equal([]string{"8.8.4.4/32", "2001:db8::7/128"}))
+		back := safehttp.ParseDenyList(append(wire, "not a prefix", "::ffff:9.9.9.9/128"))
+		Expect(back).To(ConsistOf(netip.MustParsePrefix("8.8.4.4/32"), netip.MustParsePrefix("2001:db8::7/128"), netip.MustParsePrefix("9.9.9.9/32")))
+
+		g := safehttp.NewGuard(safehttp.GuardPolicy{DenyAddrs: safehttp.JoinDeny(nil, func() []netip.Prefix { return back })}, newStub())
+		Expect(g.AllowedAddr(netip.MustParseAddr("8.8.4.4"))).To(MatchError(safehttp.ErrSelfAddress))
+		Expect(g.AllowedAddr(netip.MustParseAddr("9.9.9.9"))).To(MatchError(safehttp.ErrSelfAddress))
+		Expect(g.AllowedAddr(netip.MustParseAddr("8.8.8.8"))).To(Succeed())
+	})
+
+	It("reads at most MaxDenyList entries", func() {
+		in := make([]string, safehttp.MaxDenyList+10)
+		for i := range in {
+			in[i] = fmt.Sprintf("10.%d.%d.1/32", i/256, i%256)
+		}
+		Expect(safehttp.ParseDenyList(in)).To(HaveLen(safehttp.MaxDenyList))
+	})
+})
