@@ -5847,7 +5847,7 @@ const docTemplate = `{
         },
         "/api/chats/mcp-connectors/{id}/test": {
             "post": {
-                "description": "Connects with the stored definition, with the same address and credential checks as a chat, and lists the tool names. It works for a connector that is switched off. A server that cannot be used is a 200 with ok false and the reason, which never holds a header value.",
+                "description": "Connects with the stored definition, with the same address and credential checks as a chat, and lists the tools, with the description each one has in tool_details. It works for a connector that is switched off. A server that cannot be used is a 200 with ok false and the reason, which never holds a header value.",
                 "tags": [
                     "chats"
                 ],
@@ -19356,11 +19356,31 @@ const docTemplate = `{
                 "ok": {
                     "type": "boolean"
                 },
+                "tool_details": {
+                    "description": "ToolDetails is each tool with the description its server gives, in the\norder of tools.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsMCPConnectorTool"
+                    }
+                },
                 "tools": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "schema.ChatsMCPConnectorTool": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "Search the documentation."
+                },
+                "name": {
+                    "type": "string",
+                    "example": "search"
                 }
             }
         },

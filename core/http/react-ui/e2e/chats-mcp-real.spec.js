@@ -22,31 +22,37 @@ async function setAllowPrivate(request, on) {
   expect(r.ok()).toBe(true)
 }
 
+// Adds a connector in the sheet. Save comes before the test, so the sheet
+// shows the test of what was saved; Keep it off closes it.
 async function addConnector(page, name, url) {
   await page.goto('/app/mcp-connectors')
-  await page.getByRole('button', { name: 'Add MCP server' }).click()
-  await page.getByLabel('Name', { exact: true }).fill(name)
-  await page.getByLabel('Address').fill(url)
-  await page.getByRole('button', { name: 'Save' }).click()
-  return page.getByTestId('mcp-row').filter({ hasText: name })
+  await page.getByTestId('mcp-add').first().click()
+  const sheet = page.getByTestId('mcp-sheet')
+  await sheet.getByLabel('Name', { exact: true }).fill(name)
+  await sheet.getByLabel('Address').fill(url)
+  await sheet.getByTestId('mcp-save').click()
+  return sheet
 }
 
 test('a connector on a private address is refused until an administrator allows it, then connects', async ({ page, request }) => {
   allowedBefore = (await (await request.get('/api/settings')).json())?.mcp_connectors_allow_private
   await setAllowPrivate(request, false)
   const name = `blocked-${Date.now().toString(36)}`
-  const row = await addConnector(page, name, mcp.url)
+  const sheet = await addConnector(page, name, mcp.url)
+  await expect(sheet.getByTestId('mcp-sheet-fail')).toContainText(/private|internal/i)
+  await sheet.getByTestId('mcp-sheet-keep-off').click()
+  const row = page.getByTestId('mcp-row').filter({ hasText: name })
   await expect(row).toBeVisible()
-  await row.getByRole('button', { name: 'Test connection' }).click()
-  await expect(row.getByTestId('mcp-test-result')).toContainText(/private|internal/i)
 
   await setAllowPrivate(request, true)
-  await row.getByRole('button', { name: 'Test connection' }).click()
-  await expect(row.getByTestId('mcp-test-result')).toContainText('Connected')
-  await expect(row.getByTestId('mcp-test-result')).toContainText('echo')
+  await row.locator('.ad-tile__open').click()
+  const pane = page.getByTestId('mcp-details')
+  await pane.getByTestId('mcp-details-test').click()
+  await expect(pane).toContainText('Connected')
+  await expect(pane.getByTestId('mcp-tools')).toContainText('echo')
 
-  await row.getByRole('button', { name: 'Delete' }).click()
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
+  await pane.getByTestId('mcp-details-remove').click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click()
   await expect(row).toHaveCount(0)
 })
 

@@ -4154,10 +4154,26 @@ definitions:
         type: string
       ok:
         type: boolean
+      tool_details:
+        description: |-
+          ToolDetails is each tool with the description its server gives, in the
+          order of tools.
+        items:
+          $ref: '#/definitions/schema.ChatsMCPConnectorTool'
+        type: array
       tools:
         items:
           type: string
         type: array
+    type: object
+  schema.ChatsMCPConnectorTool:
+    properties:
+      description:
+        example: Search the documentation.
+        type: string
+      name:
+        example: search
+        type: string
     type: object
   schema.ChatsMCPConnectorWrite:
     properties:
@@ -14254,9 +14270,10 @@ paths:
   /api/chats/mcp-connectors/{id}/test:
     post:
       description: Connects with the stored definition, with the same address and
-        credential checks as a chat, and lists the tool names. It works for a connector
-        that is switched off. A server that cannot be used is a 200 with ok false
-        and the reason, which never holds a header value.
+        credential checks as a chat, and lists the tools, with the description each
+        one has in tool_details. It works for a connector that is switched off. A
+        server that cannot be used is a 200 with ok false and the reason, which never
+        holds a header value.
       parameters:
       - description: the connector's id
         in: path

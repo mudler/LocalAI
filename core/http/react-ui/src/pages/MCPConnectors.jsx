@@ -4,11 +4,13 @@ import { Page } from '../components/ui'
 import ChatMCPConnectors from './ChatMCPConnectors'
 
 // The user's MCP connectors: MCP servers that chats and saved agents can use.
-// It is its own sidebar item, apart from the messaging connectors. The header
-// lives in ChatMCPConnectors, because its primary action depends on the list.
+// It is its own sidebar item, apart from the messaging connectors. The full
+// width matches Add-ons, Files and Models, so the title does not move between
+// them. The header lives in ChatMCPConnectors, because its primary action
+// depends on the list.
 export default function MCPConnectors() {
   return (
-    <Page className="cn-page" data-testid="mcp-connectors-page">
+    <Page width="full" className="mcp-page" data-testid="mcp-connectors-page">
       <ChatMCPConnectors />
     </Page>
   )

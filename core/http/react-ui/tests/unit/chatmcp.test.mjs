@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   BROWSER_KEY, browserImportBody, browserImportName, canSaveMCP, connectorRef, emptyMCP, forgetBrowserServers, joinAgentMCP,
   mcpPayload, mcpTarget, readBrowserServers, splitAgentMCP, toggleOff, toolsCounts,
+  CHECKS_KEY, checkRecord, connectorSig, connectorState, currentCheck, dropCheck, filterConnectors, filterTools, formFingerprint,
+  formOf, isAuthError, mcpAddress, nameProblem, readChecks, sentence, urlProblem, writeChecks,
 } from '../../src/utils/chatMCP.js'
 
 function storage(initial) {
@@ -106,4 +108,85 @@ test('browser import: only the servers that were created are removed from the br
   assert.deepEqual(JSON.parse(s.data.get(BROWSER_KEY)).map(x => x.id), ['x2'])
   forgetBrowserServers(s, ['x2'])
   assert.equal(s.data.has(BROWSER_KEY), false)
+})
+
+test('chat MCP: an address is checked before it is sent, and a name must be new', () => {
+  assert.equal(urlProblem(''), 'urlRequired')
+  assert.equal(urlProblem('not a url'), 'urlInvalid')
+  assert.equal(urlProblem('ftp://x.example'), 'urlScheme')
+  assert.equal(urlProblem('https://u:p@x.example/mcp'), 'urlCredentials')
+  assert.equal(urlProblem(' https://x.example/mcp '), '')
+  assert.equal(nameProblem(' '), 'nameRequired')
+  assert.equal(nameProblem('Docs ', ['docs']), 'nameTaken')
+  assert.equal(nameProblem('Docs', ['Wiki']), '')
+  assert.equal(canSaveMCP({ ...emptyMCP(), name: 'a', url: 'ftp://x' }), false)
+  assert.equal(canSaveMCP({ ...emptyMCP(), name: 'Docs', url: 'https://x.example' }, ['docs']), false)
+})
+
+test('chat MCP: the details show the address without its query, and a command with its arguments', () => {
+  assert.equal(mcpAddress({ transport: 'http', url: 'https://mcp.example/a/b?key=secret' }), 'https://mcp.example/a/b?…')
+  assert.equal(mcpAddress({ transport: 'http', url: 'https://mcp.example/' }), 'https://mcp.example')
+  assert.equal(mcpAddress({ transport: 'stdio', command: 'npx', args: ['-y', 'server'] }), 'npx -y server')
+})
+
+test('chat MCP: a test result becomes a state, and a 401 asks for sign-in', () => {
+  const c = { id: 'c1', transport: 'http', url: 'https://x.example', has_token: true, enabled: true }
+  assert.equal(connectorState({ ...c, enabled: false }, null), 'off')
+  assert.equal(connectorState(c, null), 'unchecked')
+  const ok = checkRecord(c, { ok: true, tools: ['a'], tool_details: [{ name: 'a', description: 'does a' }] }, 5)
+  assert.deepEqual(ok.tools, [{ name: 'a', description: 'does a' }])
+  assert.equal(ok.at, 5)
+  assert.equal(connectorState(c, ok), 'ok')
+  // An older server sends names only.
+  assert.deepEqual(checkRecord(c, { ok: true, tools: ['b'] }).tools, [{ name: 'b', description: '' }])
+  assert.equal(connectorState(c, checkRecord(c, { ok: false, error: 'the server answered 503' })), 'error')
+  assert.equal(connectorState(c, checkRecord(c, { ok: false, error: 'the server answered 401 Unauthorized' })), 'auth')
+  assert.equal(isAuthError('invalid_token'), true)
+  assert.equal(isAuthError('connection refused'), false)
+  assert.equal(sentence('the server answered 503'), 'The server answered 503.')
+  assert.equal(sentence('Done!'), 'Done!')
+})
+
+test('chat MCP: a kept test holds until the address or the secrets change, and never stores the address', () => {
+  const c = { id: 'c1', transport: 'http', url: 'https://x.example/mcp?key=SPEC-secret', has_token: true, enabled: true }
+  const checks = { c1: checkRecord(c, { ok: true, tools: [] }) }
+  assert.equal(JSON.stringify(checks).includes('SPEC-secret'), false)
+  assert.ok(currentCheck({ ...c, enabled: false, updated: 'later' }, checks), 'switching does not make it stale')
+  assert.equal(currentCheck({ ...c, url: 'https://y.example/mcp' }, checks), null)
+  assert.equal(currentCheck({ ...c, has_token: false }, checks), null)
+  assert.notEqual(connectorSig(c), connectorSig({ ...c, has_headers: true }))
+  assert.deepEqual(dropCheck(checks, 'c1'), {})
+  const data = new Map()
+  const st = { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, v) }
+  writeChecks(st, checks)
+  assert.deepEqual(readChecks(st), checks)
+  data.set(CHECKS_KEY, 'not json')
+  assert.deepEqual(readChecks(st), {})
+})
+
+test('chat MCP: search and the state filter narrow the list and count each filter', () => {
+  const mk = (id, name, enabled, url = `https://${id}.example`) => ({ id, name, enabled, transport: 'http', url })
+  const items = [mk('a', 'Docs', true), mk('b', 'Weather', false), mk('c', 'Calendar', true), mk('d', 'Wiki', true)]
+  const checks = { c: checkRecord(items[2], { ok: false, error: 'the server answered 401' }), d: checkRecord(items[3], { ok: true, tools: [] }) }
+  const all = filterConnectors(items, { checks })
+  assert.deepEqual(all.counts, { all: 4, on: 3, attention: 1, off: 1 })
+  assert.deepEqual(filterConnectors(items, { filter: 'attention', checks }).rows.map(x => x.id), ['c'])
+  assert.deepEqual(filterConnectors(items, { filter: 'off', checks }).rows.map(x => x.id), ['b'])
+  assert.deepEqual(filterConnectors(items, { query: 'd.example', checks }).rows.map(x => x.id), ['d'])
+  assert.equal(filterConnectors(items, { query: 'nothing' }).counts.all, 0)
+  assert.equal(all.states.get('a'), 'unchecked')
+  const tools = [{ name: 'search', description: 'Find pages' }, { name: 'read', description: 'Reads a calendar' }]
+  assert.deepEqual(filterTools(tools, 'calendar').map(x => x.name), ['read'])
+  assert.equal(filterTools(tools, '').length, 2)
+})
+
+test('chat MCP: the edit form starts with empty secrets, and only a real change makes it dirty', () => {
+  const f = formOf({ id: 'c1', name: 'Docs', transport: 'http', url: 'https://x.example', args: ['a'], has_token: true })
+  assert.equal(f.token, '')
+  assert.deepEqual(f.headers, [])
+  assert.equal(f.argsText, 'a')
+  const start = formFingerprint(f)
+  assert.equal(formFingerprint({ ...f, headers: [{ name: '', value: '' }] }), start, 'an empty row is no change')
+  assert.notEqual(formFingerprint({ ...f, name: 'Other' }), start)
+  assert.notEqual(formFingerprint({ ...f, token: 'x' }), start)
 })

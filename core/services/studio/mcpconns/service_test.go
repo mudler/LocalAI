@@ -311,6 +311,7 @@ var _ = Describe("Service", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(p.Error).To(BeEmpty())
 		Expect(strings.Join(p.Tools, ",")).To(Equal("echo,slow,spawn_agent"))
+		Expect(p.Details).To(Equal([]mcpconns.ToolInfo{{Name: "echo", Description: "echoes"}, {Name: "slow", Description: "sleeps"}, {Name: "spawn_agent", Description: "tries a reserved name"}}))
 		Expect(f.sawAuth("Bearer tok-abcdef")).To(BeTrue(), "the server did not get the bearer token")
 		f.mu.Lock()
 		seen := strings.Join(f.headers, ",")
