@@ -4510,6 +4510,7 @@
       "go: replays an operation ID as one receipt from every node, conflicts on a different request and never applies twice or under a new ID",
       "go: settles a revocation that races a confirmation: one outcome, applied at most once, and no work after the revocation",
       "go: separates owner, editor, viewer, administrator and stranger across the browser routes, the REST routes and the chat tool consumer",
+      "go: derives the action of a proposal from the tool kind, so an editor cannot confirm a schema change as a write",
       "go: serves the browser module to every account with the feature and to nobody else, from the owner and each frontend",
       "go: fails every blocked consumer explicitly and never serves add-on tools to it",
       "go: is the administrator's own action on every node and never a key's, a member's or a tool's",
