@@ -126,7 +126,9 @@
     "builtinByAddon": "{{tools}} · {{provider}}이(가) 제공",
     "servedBy": "애드온 {{provider}}이(가) 제공",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "기본 제공"
+    "servedByBuiltin": "기본 제공",
+    "fallbackBuiltin": "{{addon}}이(가) {{tool}}을(를) 대체하지만 지금은 이 채팅에서 사용할 수 없습니다(중지됨, 여기서 꺼짐 또는 허용되지 않음). 기본 제공 {{tool}}이(가) 사용됩니다.",
+    "fallbackNone": "{{addon}}이(가) {{tool}}을(를) 대체하지만 지금은 이 채팅에서 사용할 수 없고, 기본 제공 {{tool}}도 꺼져 있습니다. 이 채팅에는 {{tool}}이(가) 없습니다."
   },
   "vision": {
     "describedBy": "이 모델은 이미지를 볼 수 없습니다. 다른 모델을 선택하지 않으면 {{model}}이(가) 이미지를 설명합니다.",

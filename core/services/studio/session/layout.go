@@ -139,6 +139,38 @@ func uniqueName(base string, taken func(name string) (bool, error)) (string, err
 	return "", fmt.Errorf("session: no free folder name for %q", base)
 }
 
+// SkillLayer is a folder of skills that every user reads and none writes, by
+// workspace path, with its mount name in a chat's view (/workspace/<At>).
+type SkillLayer struct{ Path, At string }
+
+// SkillLayers are the read-only skill layers: the shared skills an
+// administrator gives to everyone, the built-in skills and the skills of the
+// installed add-ons. The file tools read them at these names, and the
+// commands see them at the same names, so a skill's scripts run in place.
+var SkillLayers = []SkillLayer{
+	{Path: "/skills", At: GuestSharedPrefix + "skills"},
+	{Path: "/builtin-skills", At: GuestSharedPrefix + "builtin-skills"},
+	{Path: "/addon-skills", At: GuestSharedPrefix + "addon-skills"},
+}
+
+// SkillLayerMounts returns read-only mounts of the skill layers the actor can
+// read. A layer that is missing or not granted is skipped: the commands then
+// see no such folder, as before the layer existed.
+func SkillLayerMounts(ctx context.Context, st workspace.Store, a workspace.Actor) ([]workspace.MountRequest, error) {
+	var out []workspace.MountRequest
+	for _, l := range SkillLayers {
+		req := workspace.MountRequest{Path: l.Path, At: l.At, Mode: workspace.ModeRead}
+		if _, err := st.View(ctx, a, []workspace.MountRequest{req}); err != nil {
+			if missingFolder(err) {
+				continue
+			}
+			return nil, err
+		}
+		out = append(out, req)
+	}
+	return out, nil
+}
+
 // SharedRoot is a folder outside the home folder that the user may use.
 type SharedRoot struct {
 	Path string
@@ -159,7 +191,12 @@ func BuildView(ctx context.Context, st workspace.Store, a workspace.Actor, share
 		}
 		return workspace.View{}, err
 	}
+	// The names of the skill layers are reserved: the file tools read the
+	// layers there, so a shared folder named skills gets "shared-skills 2".
 	used := map[string]bool{workspace.FoldName(GuestHome): true}
+	for _, l := range SkillLayers {
+		used[workspace.FoldName(l.At)] = true
+	}
 	for _, s := range shared {
 		p := path.Clean("/" + strings.Trim(s.Path, "/"))
 		// Skip the home folder, a folder inside it, the root and every

@@ -352,6 +352,8 @@
     "skillsIntro": "Un componente può sostituire una skill integrata con la propria, scritta per i suoi strumenti. Se più componenti sostituiscono la stessa, scegli quale usare.",
     "skillLabel": "Skill {{skill}}",
     "skillNotRunning": "Il componente scelto non è in esecuzione: si usa la skill integrata.",
+    "toolNotRunning": "Il componente che sostituisce questo strumento non è in esecuzione: si usa lo strumento integrato.",
+    "stopped": "fermo",
     "webTest": {
       "intro": "Esegue una ricerca con ogni provider delle impostazioni salvate e mostra cosa ha fatto ciascuno. Applica prima le modifiche.",
       "queryLabel": "Ricerca",

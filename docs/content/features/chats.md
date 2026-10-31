@@ -84,7 +84,7 @@ what runs (`chats`, `agents`, `triggers`, `connectors`).
 
 | Setting | Default | Effect |
 |---|---|---|
-| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API (it answers `404` with the type `chats_off`), saved agents, triggers, connectors, notifications and the agent jobs. The files workspace of the add-ons is not affected. |
+| `LOCALAI_DISABLE_CHATS` | `false` | Turns off the chats: the `/api/chats` API, saved agents, triggers, connectors, notifications and the agent jobs (`/api/chats/*`, `/api/workspace/*` and `/api/agent/*` answer `404` with the type `chats_off`). The files workspace of the add-ons is not affected. |
 | `LOCALAI_DISABLE_TRIGGERS` | `false` | Turns off the trigger runner. Trigger routes answer `409 triggers_off`. |
 | `LOCALAI_DISABLE_CONNECTORS` | `false` | Turns off the connector bots. Connector routes answer `409 connectors_off`. |
 | `LOCALAI_DISABLE_AGENTS` | `false` | Deprecated. It kept the meaning it had in the old agent pool, which also held the knowledge base: it sets `LOCALAI_DISABLE_CHATS` and `LOCALAI_DISABLE_COLLECTIONS`, and logs a warning. |
@@ -124,13 +124,17 @@ curl -N localhost:8080/api/chats/3f1c.../events
 curl -s 'localhost:8080/api/chats/3f1c.../messages?after=0'
 ```
 
-The transcript lists messages, tool lines and one checkpoint line per turn. A
-checkpoint line has `rev`, the change set of the turn, and its `text` lists the
-paths it changed inside your home, one a line. A tool line of `write_file` or
-`move_file` carries a card `{"kind": "files_change", "id": "<rev>:<path>"}`.
-`POST /api/chats/files/undo {"rev": N}` undoes either change set; the chat page
+The transcript lists messages, tool lines and one checkpoint line per turn.
+Undo works per tool call, not per turn: each `write_file`, `edit_file` or
+`move_file` call is its own change set in your files, and its tool line carries
+a card `{"kind": "files_change", "id": "<rev>:<path>"}` (`delete_file` moves to
+the Trash, where you restore it).
+`POST /api/chats/files/undo {"rev": N}` undoes that change set; the chat page
 uses this for the Undo of its change notes (see
-[Make LocalAI yours](/features/make-localai-yours/#what-a-change-shows)).
+[Make LocalAI yours](/features/make-localai-yours/#what-a-change-shows)). To
+undo a whole turn, undo the changes of its tool lines, newest first. The
+checkpoint line marks the end of the turn; its `rev` is `0` and its `text` is
+empty, because the turn's changes are already kept call by call.
 
 A chat is named after the first line of its first message, unless you gave it a
 title. To rename it, see [Settings, rename and model change](#settings-rename-and-model-change).
@@ -534,7 +538,11 @@ host:port`) when a card asks and `egress_card` when the chat's network changes,
 so every open tab reads it again. Administrators read the settings in force
 and the audit with `GET /api/chats/admin/egress` and `GET
 /api/chats/admin/egress/events?limit=&user=&chat=&verdict=&host=`, and see
-both in Settings > Tools > Sandbox network.
+both in Settings > Tools > Sandbox network. Its `sandbox` field names the
+add-on that runs the commands now: of the running add-ons that replace `bash`,
+the one chosen in `chats_tool_providers` or the one installed first, and none
+when the chosen one is stopped. It is read from the add-on host each time, so
+it is right after a restart and the same on every frontend of a cluster.
 
 ### Commands on this machine
 
@@ -559,7 +567,12 @@ shown when the Sandbox is already installed, or when add-ons are off.
   offered.
 - **Your files.** Each chat gets a scratch folder with your files: `home/`
   there is `/workspace/home` of the file tools, and `shared-<name>/` is a
-  shared folder. After each call, what the command changed is saved to your
+  shared folder. The skills are there too, read-only, at the names the file
+  tools use: `shared-skills/` (shared by an administrator),
+  `shared-builtin-skills/` (built in) and `shared-addon-skills/` (from
+  add-ons), so a skill's scripts run in place, for example
+  `python3 shared-builtin-skills/pdf/scripts/verify_pdf.py home/report.pdf`. A
+  shared folder named `skills` is at `shared-skills 2/`. After each call, what the command changed is saved to your
   files as one change of the chat, which you can undo in Files, History; a
   file you or the file tools changed meanwhile is read again before the next
   call.
@@ -888,6 +901,7 @@ a history with undo. Paths in the API are inside your own home folder, which is
 `/`. You cannot name another user's files, and a path with `..` is refused.
 
 ```bash
+curl -X POST ".../api/chats/files/folders" -d '{"path": "/Reports"}'  # make a folder
 curl -X PUT  ".../api/chats/files/content?path=/Reports/q1.txt" --data-binary @q1.txt
 curl         ".../api/chats/files?path=/Reports"                    # list a folder
 curl         ".../api/chats/files/content?path=/Reports/q1.txt"     # download
@@ -895,6 +909,7 @@ curl -X POST ".../api/chats/files/move" -d '{"from": "/Reports/q1.txt", "to": "/
 curl -X DELETE ".../api/chats/files?path=/Archive"                  # to the Trash
 curl         ".../api/chats/files/trash"                            # what can be restored
 curl -X POST ".../api/chats/files/undo" -d '{"rev": 12}'            # restore it
+curl         ".../api/chats/files/history?path=/Reports&limit=50"   # the changes, newest first (at most 200)
 curl -X DELETE ".../api/chats/files/trash/12"                       # delete that one for good
 curl -X DELETE ".../api/chats/files/trash"                          # empty the Trash for good
 curl         ".../api/chats/files/preview?path=/Reports/budget.xlsx" # what a workbook holds
@@ -909,7 +924,7 @@ curl         ".../api/chats/files/preview?path=/Reports/budget.xlsx" # what a wo
 - **Previews of documents.** `GET /api/chats/files/preview?path=` reads what a `.xlsx`, `.xlsm`, `.csv`, `.tsv`, `.docx` or `.pptx` file holds, for the preview pane of a chat and the **Files** page. A spreadsheet gives `{"kind": "table", "sheets": [{"name", "rows", "total_rows", "total_cols"}]}`: every sheet, the first 200 rows and 30 columns of each as text, with dates, booleans and the stored result of formulas. A Word document gives `{"kind": "document", "blocks": [{"type": "heading" | "item" | "paragraph", "level", "text"}]}` and a presentation `{"kind": "slides", "slides": [{"n", "title", "lines", "notes"}]}`; both keep at most 200 000 characters and set `truncated` when they cut. The formatting is not kept. The path rules are those of the download. A file over 20 MiB answers `413`, another type `415`, and a file that is not what its name says `422`. Each frontend keeps the recent answers in memory, by the content of the file: a new version is a new entry, so frontends of a cluster never disagree, and nothing is shared between them.
 - **Search.** `GET /api/chats/files/search?q=budget` finds files by name and lines inside text files, ignoring case. There is no index: large files (over 1 MiB) and binary files are found by name only, and a very large workspace is scanned up to a limit.
 - **The model can use your files.** A chat with files on gives the model one set of file tools: `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file` and `search_files`. They are the same with or without the Sandbox. What they change is listed in the history as an agent change of that chat, and you can undo it from the note under the call; a delete goes to the Trash. A sub-agent gets the file tools of its parent chat (or the ones its parent names).
-  - **Paths.** `/workspace/home/<path>`, `home/<path>` and `/<path>` all name `<path>` in your home folder. `/workspace/shared-<name>/...` is a shared folder, read-only when it is shared with you for reading, and `/workspace/shared-skills/...` and `/workspace/shared-builtin-skills/...` are the shared and built-in skills, read-only. Any other path under `/workspace` is refused with the right spelling, and nothing is written: an app the model builds goes to a Page, `/workspace/home/pages/<name>/index.html`.
+  - **Paths.** `/workspace/home/<path>`, `home/<path>` and `/<path>` all name `<path>` in your home folder. `/workspace/shared-<name>/...` is a shared folder, read-only when it is shared with you for reading, and `/workspace/shared-skills/...`, `/workspace/shared-builtin-skills/...` and `/workspace/shared-addon-skills/...` are the shared, built-in and add-on skills, read-only. Any other path under `/workspace` is refused with the right spelling, and nothing is written: an app the model builds goes to a Page, `/workspace/home/pages/<name>/index.html`.
   - **`read_file`** reads lines `offset` to `offset+limit-1` (at most 2000 lines, text files up to 4 MiB).
   - **`edit_file`** replaces `old_string` with `new_string`. `old_string` must match exactly once, unless `replace_all` is true; no match and several matches are errors that say what to do. Text files up to 8 MiB. When the file changed while it was edited, the edit is saved as a copy next to it.
   - **`list_files`** lists one folder, or with `pattern` every path below the folder that matches it: `*` matches any characters including `/`, `?` one character, `[...]` a class. At most 500 paths.
@@ -1049,7 +1064,9 @@ authentication on, and the other way round. Copy them with the files API.
 
 When files are off, every files route and every attachment answers `409` with
 the reason, the list endpoint returns `"files": false` and `files_reason`, and
-everything else in the chats works.
+everything else in the chats works. A chat then has no skills either, not even
+the built-in ones: the model reads a skill with the file tools, and every
+built-in skill works on files or runs commands.
 
 In a cluster the bytes go to the object store, so a file written through one
 frontend is read through another. That needs S3 (the storage URL setting); `docker-compose.distributed.yaml` sets it up with Garage.

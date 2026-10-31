@@ -455,6 +455,47 @@ changed. To start without it, set `--addons-official-library=false` before the f
 start. To get it back, add a source with the URL above, or enable it again (see
 [Library sources](#library-sources)).
 
+### Upgrading: Studio and Talk are add-ons now
+
+Studio (image, video, 3D, speech, sound and audio) and Talk (realtime voice) used
+to be pages of LocalAI. They are add-ons now, and two things change at the upgrade:
+
+- **Nothing is installed for you.** No add-on is preinstalled. Studio and Talk
+  appear only after an administrator installs them from the library (see
+  [Add-ons that are not built in](#add-ons-that-are-not-built-in)). Until then the
+  old links open a page that says the add-on is not available.
+- **Users need the `addons` feature.** With authentication on, every add-on page is
+  behind the `addons` feature, which is off by default for a user. A user who had
+  the image, speech or realtime features but not `addons` loses Studio and Talk at
+  the upgrade. The upgrade does not grant `addons` to anyone. An administrator
+  always has it.
+
+To restore access:
+
+1. Install Studio and Talk: **Add-ons**, **Find add-ons**, then **Install and turn
+   on** for each. A machine with no access to the network installs them from a
+   private library that mirrors the packages (see
+   [Private catalog service](#private-catalog-service) and
+   [Library sources](#library-sources)).
+2. Grant the `addons` feature to each user who should keep them, in
+   **Settings → Users and keys** (see [Chats permissions](/features/chats/#permissions)
+   for the same screen). The calls the pages make still need the user's own
+   features: `images` for an image, `audio_speech` for speech, and so on.
+
+With authentication off there are no user features: the one person is an
+administrator and sees every installed add-on.
+
+**Release notes.** The paragraph below is ready to copy into the release notes:
+
+> **Studio and Talk are add-ons.** Studio (image, video, 3D, speech, sound and
+> audio) and Talk (realtime voice) moved out of LocalAI into add-ons. Nothing is
+> preinstalled: after the upgrade an administrator installs them from **Add-ons →
+> Find add-ons** (an air-gapped host uses a private library that mirrors the
+> packages). With authentication on, the add-on pages need the `addons` feature,
+> which is off by default and is not granted at the upgrade, so users who used
+> Studio or Talk lose access until an administrator grants `addons` to them in
+> **Settings → Users and keys**.
+
 ## Library sources
 
 A library source is a place LocalAI reads entries from. There are three kinds:
@@ -887,7 +928,9 @@ tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
   names never overlap). With no choice, the add-on installed first serves, by
   the same rule as for the tools (see [Install
   time](#tools-that-replace-a-built-in-tool)). A choice
-  of an add-on that is not running leaves the name to the built-in skill.
+  of an add-on that is not running leaves the name to the built-in skill. The
+  Skills page marks the skill of an add-on that is not chosen "Not active:
+  <add-on> provides it", and the built-in skill "Replaced by <add-on>".
   `GET /api/chats/admin/tools` lists the replaced skills in `skills`, with who
   serves each one, the candidates oldest install first, `default` (the one that
   serves with no choice) and `installed_at` (the install time of each).
@@ -1760,15 +1803,29 @@ definition replaces one with `"shadows": "<name>"`:
 ```
 
 - **Checked at install.** The name must be on the list, a page-only tool
-  cannot shadow, and one manifest shadows a name once. The tool adapter checks
-  it again when it lists the tools.
+  cannot shadow, and one manifest shadows a name once. The tool must also look
+  like the built-in it replaces, so the model calls it the same way and the
+  user keeps the consent split of the built-in name:
+
+  | Name | Kind | Must declare (and may require only) |
+  |------|------|-------------------------------------|
+  | `bash` | `action` | `command` (string) |
+  | `web_search` | `read` | `query` (string) |
+  | `web_fetch` | `read` | `url` (string) |
+
+  Extra optional properties are allowed, and a shadowing tool names no
+  `resourceId`. The tool adapter checks all of this again when it lists the
+  tools: a tool that fails keeps its add-on name and replaces nothing.
 - **In a chat.** When the add-on is installed, running and on for the chat, the
   model sees one tool under the built-in's name, served by the add-on, and the
   built-in one is hidden. The call still goes to the add-on under its own name
   (`addon__<id>__<tool>`), with the same checks and audit. An add-on that is
-  off for the chat, stopped or unavailable offers nothing, so the built-in tool
-  serves again and the **Tools** menu says so. A tool without `shadows` keeps
-  its add-on name.
+  off for the chat, stopped, not granted by the chat's agent or unavailable
+  offers nothing, so the built-in tool serves again. The chat's **Tools** menu
+  says so in one line ("Sandbox replaces bash but cannot serve this chat now
+  ...: the built-in bash serves", or that the chat has no such tool when the
+  built-in is off too), from `fallbacks` of `GET /api/chats/{id}/tools`. A
+  tool without `shadows` keeps its add-on name.
 - **Who served it.** A call the add-on served carries the card `tool_provider`
   with the add-on's ID, so the chat shows the provider on the tool line.
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it
@@ -1776,9 +1833,16 @@ definition replaces one with `"shadows": "<name>"`:
   tool to the add-on ID; the same map holds the choices for the built-in skills
   an add-on replaces, see [Skills](#skills)); with no choice, the add-on
   installed first serves (ties go by add-on ID, and an add-on installed before
-  the host kept the time sorts last). Settings > Tools lists the add-ons that
-  replace a name oldest install first, with the install time of each, and marks
-  the default as **Default: installed first**. The
+  the host kept the time sorts last). A chosen add-on that is installed but
+  cannot serve the chat (stopped, off for the chat, not granted by its agent)
+  gives the built-in tool, not another add-on; a choice of an add-on that is
+  not installed is ignored. With no choice, the oldest add-on that is running
+  serves. Settings > Tools lists every installed add-on that replaces a name,
+  running or not, oldest install first, with the install time of each, marks
+  a stopped one **(stopped)** and the default as **Default: installed first**,
+  and says "The add-on that replaces this tool is not running: the built-in
+  tool serves" when none serves (`stopped` and `note` in
+  `GET /api/chats/admin/tools`). The
   library entry and the installed view list the names an add-on replaces in
   `shadows`, and the install dialog warns when an installed add-on already
   replaces one: "This add-on replaces the built-in bash. Another add-on
@@ -2770,9 +2834,11 @@ the caller and is sent with `Cache-Control: private, no-store`.
   never expire. A sweep that cannot read the add-on owner changes nothing.
 - **Upgrade seed.** A read or a save never pins anything. Once, at the upgrade that adds
   this feature, the accounts that exist then get Studio and Talk pinned. Both are
-  add-ons, so a pin is drawn once the add-on is installed, and an add-on that is not
-  installed within the retention window loses its seeded pin. An account created
-  later starts with no pins. An unpin stays after a restart.
+  add-ons, so a pin is drawn once the add-on is installed. A seeded pin does not
+  expire while its add-on was never installed, however long that takes; once the
+  add-on was installed, its pin follows the retention rule like any other (the sweep
+  records the first install in the table of seed runs, `addon_pin_seed_runs`, or in
+  the pins file). An account created later starts with no pins. An unpin stays after a restart.
 - **Startup.** If the pins file cannot be read (it is corrupt), the server does not start
   and logs the error. It does not fall back to memory, because that would lose every unpin
   at the next restart.
@@ -3996,7 +4062,7 @@ cluster.
 
 ## Sandbox
 
-The Sandbox add-on lets a chat run commands and code in isolation. It has one tool for the model, the action tool `bash`, which replaces the chat's built-in `bash` (`"shadows": "bash"`), so a chat with the Sandbox sees one `bash` and it runs isolated. The model reads and changes files with the chat's own file tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files` and the others; see [Chats]({{%relref "features/chats#running-commands" %}})): they work on the same files, so a script written with `write_file` runs with `bash` at once, and what `bash` writes is in the user's files after the call. `bash` runs inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`. The status tool keeps its add-on name (`addon__sandbox__status`). Without the Sandbox, or with it off or unable to run, a chat may still run commands on the server itself, without isolation, when an administrator allows it; see [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
+The Sandbox add-on lets a chat run commands and code in isolation. It has one tool for the model, the action tool `bash`, which replaces the chat's built-in `bash` (`"shadows": "bash"`), so a chat with the Sandbox sees one `bash` and it runs isolated. The model reads and changes files with the chat's own file tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files` and the others; see [Chats]({{%relref "features/chats#running-commands" %}})): they work on the same files, so a script written with `write_file` runs with `bash` at once, and what `bash` writes is in the user's files after the call. `bash` runs inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`. The skill folders are not mounted in the sandbox: to run a skill's script there, the model copies it into the home with the file tools first. The status tool keeps its add-on name (`addon__sandbox__status`). Without the Sandbox, or with it off or unable to run, a chat may still run commands on the server itself, without isolation, when an administrator allows it; see [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
 
 An older package of the add-on also served `read`, `write`, `edit`, `glob` and `grep`. They are gone: reinstall the package to drop them. A chat's switch for the add-on is kept by add-on ID, so nothing a chat stored changes.
 
@@ -4063,11 +4129,9 @@ The preset of a chat is the lower of its own choice and the ceiling (`chats_egre
 
 **What the proxy checks.** The host of a request goes through the same guard as `web_fetch` ([Addresses inside your network]({{%relref "features/web#addresses-inside-your-network" %}})): a canonical name or literal, no address zone, no numeric tricks, no `localhost`. A host the guard refuses is never resolved, so it does not leak through DNS. A name is resolved once; when any answer is not allowed the connection is refused, and the proxy dials the address it checked. The addresses of the node's own interfaces and the whole loopback range are refused even when public. Only ports 80 and 443 by default (`chats_egress_ports`; 22 and 25 are always refused). HTTPS goes as `CONNECT host:443`: after the tunnel opens, the first TLS record must be a ClientHello whose server name is the CONNECT host, or the tunnel is closed (this stops a tunnel to one tenant of a CDN that talks to another). Plain HTTP goes as an absolute `http://` URL: each request of a kept-alive connection is decided on its own, the `Proxy-*` and hop-by-hop headers are dropped, a `Host` header that names another host is refused, and every request gets a new upstream connection. `CONNECT` to port 80, the origin form, `https://` in absolute form and `Upgrade` are refused with 400. The proxy follows no redirect: the guest's client follows it with a new request, which is checked again.
 
-**Cards.** When a command asks for a host that the chat's preset does not admit but the ceiling would, and a person watches the chat, LocalAI stores a card in the chat and the person sees it in the chat: *A command in this chat wants to reach* `host:port`, with **Allow once** (the rest of that command), **Allow for this chat** (a rule) and **Deny** (a deny rule, so the host does not ask again; it can be removed in the network panel). The connection waits for the answer for up to 60 seconds, and never past the call's own timeout, so `pip` goes on by itself after the click; without an answer it gets the 403 line with *the user did not answer*. A late answer still counts: *Allow for this chat* stores the rule, and *Allow once* lets the next call of the chat reach the host within ten minutes. A card nobody answered expires when the chat's turn ends; it stays visible and can still be answered. Ceiling `off` never shows a card; ceiling `registries` shows one only for a registry host (so a chat on Off can approve `pypi.org`); ceiling `all` for any public host. A host inside your network shows a card only with `chats_egress_allow_private` on, and only an administrator can allow it. A chat shows at most three cards at a time and one per host and port; a second connection to the same host waits on the same card. Unattended runs (triggers, connectors) and sub-agents get no card: the block is in their output. The card is written to the chat record before the answer is sent on the chat bus, and the waiting check reads it again every two seconds, so an answer given through any frontend reaches it within two seconds even when the bus message is lost. When the ceiling goes down while a card waits, the card is refused, and every answer to it gets `400 egress_above_ceiling` (the same answer twice to an answered card is `204`; another answer is `409 already_answered`). A card the ceiling cannot admit shows no buttons: it says that network access is off (or limited) on this server, names who can change it, and gives an administrator a link to **Settings > Tools > Sandbox network**. The Network row of the chat's Tools menu says the same (*Off: the administrator has not allowed network access.*) when the ceiling is `off` or below `all`.
+**Cards.** When a command asks for a host that the chat's preset does not admit but the ceiling would, and a person watches the chat, LocalAI stores a card in the chat and the person sees it in the chat: *A command in this chat wants to reach* `host:port` (an international host name is checked and shown in its ASCII form, so a look-alike name such as `pаypal.com` with a Cyrillic `а` reads `xn--pypal-4ve.com`; a name with no valid ASCII form is refused), with **Allow once** (the rest of that command), **Allow for this chat** (a rule) and **Deny** (a deny rule, so the host does not ask again; it can be removed in the network panel). The connection waits for the answer for up to 60 seconds, and never past the call's own timeout, so `pip` goes on by itself after the click; without an answer it gets the 403 line with *the user did not answer*. A late answer still counts: *Allow for this chat* stores the rule, and *Allow once* lets the next call of the chat reach the host within ten minutes. A card nobody answered expires when the chat's turn ends; it stays visible as *Not answered* and can still be answered, with the same buttons, under the call that asked and in the network panel of the **Tools** menu. Ceiling `off` never shows a card; ceiling `registries` shows one only for a registry host (so a chat on Off can approve `pypi.org`); ceiling `all` for any public host. A host inside your network shows a card only with `chats_egress_allow_private` on, and only an administrator can allow it. A chat shows at most three cards at a time and one per host and port; a second connection to the same host waits on the same card. Unattended runs (triggers, connectors) and sub-agents get no card: the block is in their output. The card is written to the chat record before the answer is sent on the chat bus, and the waiting check reads it again every two seconds, so an answer given through any frontend reaches it within two seconds even when the bus message is lost. When the ceiling goes down while a card waits, the card is refused, and every answer to it gets `400 egress_above_ceiling` (the same answer twice to an answered card is `204`; another answer is `409 already_answered`). A card the ceiling cannot admit shows no buttons: it says that network access is off (or limited) on this server, names who can change it, and gives an administrator a link to **Settings > Tools > Sandbox network**. The Network row of the chat's Tools menu says the same (*Off: the administrator has not allowed network access.*) when the ceiling is `off` or below `all`.
 
-**What the model reads.** With ceiling `off`, or a chat preset above the ceiling, the note of the turn says that the server's setting keeps the network narrower, that no approval changes it, and that the model should tell the user instead of waiting or retrying. A request blocked for that reason gets the line *blocked by the server's setting for the Sandbox network, not by a missing approval*; a block that waits on a person keeps the *the user did not answer* line.
-
-**What the model reads.** The Sandbox `bash` says that the network is HTTP and HTTPS through the proxy only. When the Sandbox serves `bash`, each turn tells the model the preset in one line, such as *Network for commands: package registries only (Python (PyPI), ...). A blocked host asks the user; do not try to get around the proxy.* A blocked request gets `403` with one line of text in the tool output, for example *Blocked by LocalAI: example.com:443 is not allowed for this chat (off). Ask the user to allow it.*
+**What the model reads.** The Sandbox `bash` says that the network is HTTP and HTTPS through the proxy only. When the Sandbox serves `bash`, each turn tells the model the preset in one line, such as *Network for commands: package registries only (Python (PyPI), ...). A blocked host asks the user; do not try to get around the proxy.* When no card can appear (a ceiling no wider than the preset, an unattended run, a sub-agent), the line says instead that a blocked host is refused and nothing asks the user, so the model names the host it needs in its answer. A blocked request gets `403` with one line of text in the tool output, for example *Blocked by LocalAI: example.com:443 is not allowed for this chat (off). Ask the user to allow it.* With ceiling `off`, or a chat preset above the ceiling, the note of the turn says that the server's setting keeps the network narrower, that no approval changes it, and that the model should tell the user instead of waiting or retrying. A request blocked for that reason gets the line *blocked by the server's setting for the Sandbox network, not by a missing approval*; a block that waits on a person keeps the *the user did not answer* line.
 
 **Only while a command runs.** The proxy knows the call in progress of each sandbox. A connection while no call runs (a background process left by an earlier command) is blocked with the reason `idle`, nothing is asked, and it is audited at the next call. When a call ends, every tunnel it opened is closed. An allow verdict is cached for the call in progress for at most 30 seconds; a block is never cached.
 

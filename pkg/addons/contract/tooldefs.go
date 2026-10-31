@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 )
 
@@ -76,16 +75,79 @@ type ToolDefinition struct {
 	Shadows string `json:"shadows,omitempty"`
 }
 
+// ReplaceableTool says what a tool that shadows a built-in chat tool must look
+// like, so that the model calls the replacement the way it calls the built-in
+// and the user keeps the consent split of the built-in name.
+type ReplaceableTool struct {
+	// Kind is the kind the shadowing tool must have: an action tool for bash
+	// (chats only, capabilities.actions), a read tool for the web tools.
+	Kind string
+	// Required are the properties the built-in requires, with their JSON
+	// type. The shadowing tool declares each of them with that type and
+	// requires no other property; extra optional properties are allowed.
+	Required map[string]string
+}
+
 // ReplaceableTools are the built-in chat tools an add-on tool may shadow.
 // The file tools are not on the list: they are the one file toolset of a
 // chat, with Undo cards and the shared-folder rules, and an add-on must not
 // take them over.
-var ReplaceableTools = []string{"bash", "web_search", "web_fetch"}
+var ReplaceableTools = map[string]ReplaceableTool{
+	"bash":       {Kind: ToolKindAction, Required: map[string]string{"command": "string"}},
+	"web_search": {Kind: ToolKindRead, Required: map[string]string{"query": "string"}},
+	"web_fetch":  {Kind: ToolKindRead, Required: map[string]string{"url": "string"}},
+}
 
 // Replaceable reports whether an add-on tool may shadow the built-in tool
 // name.
 func Replaceable(name string) bool {
-	return slices.Contains(ReplaceableTools, name)
+	_, ok := ReplaceableTools[name]
+	return ok
+}
+
+// ValidateShadow checks a tool that shadows a built-in chat tool against
+// ReplaceableTools: the name is replaceable, the kind is the built-in's, the
+// schema declares every property the built-in requires with its type, it
+// requires no other property, and it names no resource. It is nil for a tool
+// that shadows nothing.
+func ValidateShadow(d ToolDefinition) error {
+	if d.Shadows == "" {
+		return nil
+	}
+	r, ok := ReplaceableTools[d.Shadows]
+	if !ok {
+		return fmt.Errorf("tool %s: %q is not a built-in tool an add-on may shadow", d.Name, d.Shadows)
+	}
+	if d.UIOnly {
+		return fmt.Errorf("tool %s: a page-only tool cannot shadow a chat tool", d.Name)
+	}
+	if d.Kind != r.Kind {
+		return fmt.Errorf("tool %s: a tool that shadows %s must be a %s tool", d.Name, d.Shadows, r.Kind)
+	}
+	var root struct {
+		Properties map[string]struct {
+			Type string `json:"type"`
+		} `json:"properties"`
+		Required []string `json:"required"`
+	}
+	if err := json.Unmarshal(d.InputSchema, &root); err != nil {
+		return fmt.Errorf("tool %s: invalid arguments schema", d.Name)
+	}
+	if _, has := root.Properties[ResourceArgument]; has {
+		return fmt.Errorf("tool %s: a tool that shadows %s names no %s", d.Name, d.Shadows, ResourceArgument)
+	}
+	for name, typ := range r.Required {
+		p, ok := root.Properties[name]
+		if !ok || p.Type != typ {
+			return fmt.Errorf("tool %s: a tool that shadows %s declares %s as a %s", d.Name, d.Shadows, name, typ)
+		}
+	}
+	for _, name := range root.Required {
+		if _, ok := r.Required[name]; !ok {
+			return fmt.Errorf("tool %s: a tool that shadows %s requires %s, which the built-in does not", d.Name, d.Shadows, name)
+		}
+	}
+	return nil
 }
 
 var toolPropertyName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{0,63}$`)
@@ -161,12 +223,10 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
 		}
 		if d.Shadows != "" {
-			switch {
-			case !Replaceable(d.Shadows):
-				return fmt.Errorf("tool %s: %q is not a built-in tool an add-on may shadow", d.Name, d.Shadows)
-			case d.UIOnly:
-				return fmt.Errorf("tool %s: a page-only tool cannot shadow a chat tool", d.Name)
-			case shadowed[d.Shadows]:
+			if err := ValidateShadow(d); err != nil {
+				return err
+			}
+			if shadowed[d.Shadows] {
 				return fmt.Errorf("tool %s: two tools shadow %s", d.Name, d.Shadows)
 			}
 			shadowed[d.Shadows] = true
@@ -323,7 +383,7 @@ func IsResourceless(d ToolDefinition) bool {
 func ShadowedTools(defs []ToolDefinition) []string {
 	var out []string
 	for _, d := range defs {
-		if d.Shadows != "" && Replaceable(d.Shadows) && !d.UIOnly {
+		if d.Shadows != "" && ValidateShadow(d) == nil {
 			out = append(out, d.Shadows)
 		}
 	}

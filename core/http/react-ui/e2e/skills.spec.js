@@ -22,6 +22,19 @@ test.describe('Skills', () => {
     await expect(page.getByTestId('skill-content')).toContainText('List them at the end.')
   })
 
+  test('an add-on skill that another, chosen add-on serves says which one provides it', async ({ page }) => {
+    await installAgents(page, {
+      skills: [
+        { name: 'xlsx', description: 'Office sheets.', layer: 'addon', addon: 'office', addon_title: 'Office', path: '/addon-skills/office/xlsx/SKILL.md', enabled: true, editable: false },
+        { name: 'xlsx', description: 'Sheets sheets.', layer: 'addon', addon: 'sheets', addon_title: 'Sheets', path: '/addon-skills/sheets/xlsx/SKILL.md', enabled: true, editable: false, shadowed: 'addon', shadowed_by: 'office' },
+        { name: 'xlsx', description: 'Built-in sheets.', layer: 'builtin', path: '/builtin-skills/xlsx/SKILL.md', enabled: true, editable: false, shadowed: 'addon', shadowed_by: 'office' },
+      ],
+    })
+    await page.goto('/app/skills')
+    await expect(page.getByTestId('skills-page')).toContainText('Not active: Office provides it')
+    await expect(page.getByTestId('skills-page')).toContainText('Replaced by Office')
+  })
+
   test('only your own skills can be edited or deleted', async ({ page }) => {
     await installAgents(page)
     await page.goto('/app/skills')

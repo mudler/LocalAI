@@ -55,6 +55,7 @@ and you can open it in LocalAI.
 curl -X POST .../api/chats/connectors -d '{"kind": "telegram", "name": "Support bot", "token": "123:abc", "agent_id": "<id>", "enabled": true, "allow": ["12345678"], "reply_mode": "progress", "conversation": "sender", "send_files": true}'
 curl -X POST .../api/chats/connectors/<id>/test
 curl .../api/chats/connectors/<id>/senders
+curl -X POST .../api/chats/connectors/<id>/senders/<sender>/allow   # add a sender of the log to the allowlist
 ```
 
 ### What a person can send

@@ -135,6 +135,9 @@ var _ = Describe("A tool that shadows a built-in chat tool", func() {
 		}
 		return ToolDefinition{Name: name, Description: "Run a script.", Kind: kind, InputSchema: json.RawMessage(schema), UIOnly: uiOnly, Shadows: shadows}
 	}
+	read := func(name, shadows, schema string) ToolDefinition {
+		return ToolDefinition{Name: name, Description: "Read the web.", Kind: ToolKindRead, InputSchema: json.RawMessage(schema), Shadows: shadows}
+	}
 	DescribeTable("is verified at install",
 		func(defs []ToolDefinition, ok bool) {
 			names := []string{}
@@ -149,12 +152,39 @@ var _ = Describe("A tool that shadows a built-in chat tool", func() {
 			}
 		},
 		Entry("bash is replaceable", []ToolDefinition{def("bash", "bash", false)}, true),
-		Entry("web_search and web_fetch are replaceable", []ToolDefinition{def("search", "web_search", false), def("fetch", "web_fetch", false)}, true),
+		Entry("web_search and web_fetch are replaceable", []ToolDefinition{
+			read("search", "web_search", `{"type":"object","properties":{"query":{"type":"string"},"maxResults":{"type":"integer"}},"required":["query"],"additionalProperties":false}`),
+			read("fetch", "web_fetch", `{"type":"object","properties":{"url":{"type":"string"}},"required":["url"],"additionalProperties":false}`),
+		}, true),
 		Entry("a file tool is not", []ToolDefinition{def("write", "write_file", false)}, false),
 		Entry("an unknown name is not", []ToolDefinition{def("x", "spawn_agent", false)}, false),
 		Entry("a page-only tool cannot shadow", []ToolDefinition{def("bash", "bash", true)}, false),
 		Entry("two tools cannot shadow one name", []ToolDefinition{def("a", "bash", false), def("b", "bash", false)}, false),
+		Entry("a shadow of bash must be an action tool", []ToolDefinition{read("bash", "bash", schema)}, false),
+		Entry("a shadow of web_fetch must be a read tool", []ToolDefinition{
+			{Name: "fetch", Description: "Fetch.", Kind: ToolKindAction, Shadows: "web_fetch", InputSchema: json.RawMessage(`{"type":"object","properties":{"url":{"type":"string"}},"required":["url"],"additionalProperties":false}`)},
+		}, false),
+		Entry("a shadow of bash must declare command", []ToolDefinition{
+			{Name: "bash", Description: "Run.", Kind: ToolKindAction, Shadows: "bash", InputSchema: json.RawMessage(`{"type":"object","properties":{"script":{"type":"string"}},"required":["script"],"additionalProperties":false}`)},
+		}, false),
+		Entry("a shadow keeps the type of a required property", []ToolDefinition{
+			read("search", "web_search", `{"type":"object","properties":{"query":{"type":"integer"}},"required":["query"],"additionalProperties":false}`),
+		}, false),
+		Entry("a shadow requires no property the built-in does not", []ToolDefinition{
+			read("fetch", "web_fetch", `{"type":"object","properties":{"url":{"type":"string"},"format":{"type":"string"}},"required":["url","format"],"additionalProperties":false}`),
+		}, false),
+		Entry("a shadow names no resource", []ToolDefinition{
+			read("fetch", "web_fetch", `{"type":"object","properties":{"url":{"type":"string"},"resourceId":{"type":"string"}},"required":["url","resourceId"],"additionalProperties":false}`),
+		}, false),
+		Entry("extra optional properties are allowed", []ToolDefinition{
+			{Name: "bash", Description: "Run.", Kind: ToolKindAction, Shadows: "bash", InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"},"timeoutSeconds":{"type":"integer"}},"required":["command"],"additionalProperties":false}`)},
+		}, true),
 	)
+	It("lists only the shadows that pass the check", func() {
+		bad := ToolDefinition{Name: "bash", Description: "Run.", Kind: ToolKindRead, Shadows: "bash", InputSchema: json.RawMessage(schema)}
+		Expect(ShadowedTools([]ToolDefinition{bad})).To(BeEmpty())
+		Expect(ShadowedTools([]ToolDefinition{def("bash", "bash", false)})).To(Equal([]string{"bash"}))
+	})
 	It("keeps the file tools off the replaceable list", func() {
 		for _, n := range []string{"read_file", "write_file", "edit_file", "list_files", "search_files", "move_file", "delete_file"} {
 			Expect(Replaceable(n)).To(BeFalse(), n)

@@ -388,6 +388,8 @@
     "emptyUserBody": "Saat administrator membagikan folder kepada Anda, folder itu muncul di sini dan halamannya di Halaman."
   },
   "preview": {
+    "label": "Pratinjau",
+    "failed": "File ini tidak dapat ditampilkan.",
     "loading": "Memuat pratinjau {{name}}",
     "failedTitle": "Tidak dapat menampilkan {{name}}.",
     "tooLarge": "File ini terlalu besar untuk dipratinjau. Unduh untuk membukanya.",

@@ -57,4 +57,13 @@ type Store interface {
 	MarkMissing(ctx context.Context, ids []string, now time.Time) error
 	ClearMissing(ctx context.Context, ids []string) error
 	DeleteMissingBefore(ctx context.Context, cutoff time.Time) (int64, error)
+	// MarkInstalled records, once per ID, that a seeded add-on was present.
+	// Installed lists the IDs recorded. A seeded pin does not expire before
+	// its add-on was installed once (see Sweep).
+	MarkInstalled(ctx context.Context, ids []string) error
+	Installed(ctx context.Context) ([]string, error)
 }
+
+// installedPrefix starts the name of the record that a seeded add-on was
+// installed. The records share the table of the seed runs.
+const installedPrefix = "installed:"

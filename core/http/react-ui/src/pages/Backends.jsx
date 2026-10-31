@@ -1273,12 +1273,19 @@ export default function Backends() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setSearchParams(prev => {
-                const next = new URLSearchParams(prev)
-                next.delete('q')
-                next.delete('state')
-                return next
-              }, { replace: true })}
+              onClick={() => {
+                // Every filter goes, the library one too: it is what the
+                // empty state names when it is set.
+                setLibrarySource(null)
+                setPage(1)
+                setSearchParams(prev => {
+                  const next = new URLSearchParams(prev)
+                  next.delete('q')
+                  next.delete('state')
+                  return next
+                }, { replace: true })
+              }}
+              data-testid="backends-clear-filters"
             >
               {t('backends.clearFilters')}
             </Button>

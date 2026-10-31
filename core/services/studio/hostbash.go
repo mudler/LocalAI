@@ -256,7 +256,7 @@ func (s *Service) applyBuiltins(tools []session.Tool, built []builtins.Built) []
 	}
 	out := tools[:0:0]
 	for _, t := range tools {
-		if s.runners.standIn([]session.Tool{t}) != "" {
+		if standInRunner([]session.Tool{t}) != "" {
 			continue
 		}
 		out = append(out, t)
@@ -267,7 +267,7 @@ func (s *Service) applyBuiltins(tools []session.Tool, built []builtins.Built) []
 // runsCommands reports whether a tool list has a tool that runs commands: an
 // add-on's or the built-in bash.
 func (s *Service) runsCommands(tools []session.Tool) bool {
-	if name, _ := s.runners.in(tools); name != "" {
+	if addonRunner(tools) != "" {
 		return true
 	}
 	return providerOf(tools, "bash") == BuiltinProvider

@@ -25,6 +25,7 @@
     "providedBy": "Bereitgestellt von {{name}}",
     "replacedBy": "Ersetzt durch {{name}}",
     "notActive": "Nicht aktiv: der integrierte Skill wird verwendet",
+    "notActiveBy": "Nicht aktiv: {{name}} stellt ihn bereit",
     "fallback": "Aktiv, weil der eigene Skill des Add-ons {{name}} aus ist oder nicht läuft"
   },
   "empty": {

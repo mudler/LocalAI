@@ -388,6 +388,8 @@
     "emptyUserBody": "管理员与你共享文件夹后，它会显示在这里，其页面会显示在“页面”中。"
   },
   "preview": {
+    "label": "预览",
+    "failed": "无法显示此文件。",
     "loading": "正在加载 {{name}} 的预览",
     "failedTitle": "无法显示 {{name}}。",
     "tooLarge": "此文件太大，无法在这里预览。请下载后打开。",

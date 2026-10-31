@@ -375,6 +375,8 @@
     "skillsIntro": "Um complemento pode substituir uma habilidade integrada pela sua, escrita para as suas ferramentas. Se vários substituírem a mesma, escolha qual é usada.",
     "skillLabel": "Habilidade {{skill}}",
     "skillNotRunning": "O complemento escolhido não está em execução: a habilidade integrada é usada.",
+    "toolNotRunning": "O complemento que substitui esta ferramenta não está em execução: a ferramenta integrada é usada.",
+    "stopped": "parado",
     "webTest": {
       "intro": "Executa uma pesquisa com cada provedor das configurações salvas e mostra o que cada um fez. Aplique suas alterações antes.",
       "queryLabel": "Consulta",

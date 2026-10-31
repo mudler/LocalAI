@@ -126,7 +126,9 @@
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
     "servedBy": "Dilayani oleh add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "bawaan"
+    "servedByBuiltin": "bawaan",
+    "fallbackBuiltin": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini (berhenti, dimatikan di sini, atau tidak diizinkan): {{tool}} bawaan yang dipakai.",
+    "fallbackNone": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini, dan {{tool}} bawaan mati: chat ini tidak punya {{tool}}."
   },
   "vision": {
     "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",

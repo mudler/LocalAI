@@ -196,6 +196,8 @@
     "skillsIntro": "Un module peut remplacer une compétence intégrée par la sienne, écrite pour ses outils. Si plusieurs modules remplacent la même, choisissez celui qui est utilisé.",
     "skillLabel": "Compétence {{skill}}",
     "skillNotRunning": "Le module choisi ne tourne pas : la compétence intégrée est utilisée.",
+    "toolNotRunning": "Le module qui remplace cet outil ne tourne pas : l'outil intégré est utilisé.",
+    "stopped": "arrêté",
     "webTest": {
       "intro": "Lance une recherche avec chaque fournisseur des paramètres enregistrés et montre ce que chacun a fait. Appliquez d’abord vos modifications.",
       "queryLabel": "Requête",

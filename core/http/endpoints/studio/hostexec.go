@@ -53,7 +53,7 @@ func (h *Handlers) AdminHostExecEvents(c echo.Context) error {
 
 // AdminBuiltinTools lists the built-in chat tools for Settings > Tools.
 // @Summary List the built-in chat tools (administrators).
-// @Description The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the add-on installed first) and the one pinned with chats_tool_providers, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.
+// @Description The built-in tools of the chats (bash, web_search, web_fetch, as this server registers them): label, the per-chat switch group, the runtime setting that switches each off and the ones that configure it, whether it is on, whether it only reads and whether an add-on may replace it, who serves it now (builtin, an add-on's ID, or empty), the add-ons that replace it (oldest install first, with their install times in installed_at), the default one that serves with no pin (default: the oldest running install) and the one pinned with chats_tool_providers, the titles of the candidates, the candidates that are installed but stopped (stopped), a note "not running" when an installed add-on replaces the tool but none serves, and for bash the mode of chats_host_exec and why this server cannot run it, if so. skills lists the built-in skills (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each now, the add-ons that replace it (the same order, default and installed_at) and the one pinned in the same chats_tool_providers map. Change them with POST /api/settings.
 // @Tags chats
 // @Success 200 {object} schema.ChatsBuiltinToolList "The built-in tools, by ID"
 // @Router /api/chats/admin/tools [get]
@@ -73,7 +73,8 @@ func (h *Handlers) AdminBuiltinTools(c echo.Context) error {
 			opts = []string{}
 		}
 		out.Tools = append(out.Tools, schema.ChatsBuiltinTool{ID: t.ID, Label: t.Label, Description: t.Description, Group: t.Group, Setting: t.Setting,
-			Options: opts, ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Enabled: t.Enabled, Provider: t.Provider, Candidates: cands, Default: t.Default, Pinned: t.Pinned, InstalledAt: t.InstalledAt, Mode: t.Mode, Unavailable: t.Unavailable})
+			Options: opts, ReadOnly: t.ReadOnly, Replaceable: t.Replaceable, Enabled: t.Enabled, Provider: t.Provider, Candidates: cands, Default: t.Default, Pinned: t.Pinned, InstalledAt: t.InstalledAt,
+			Titles: t.Titles, Stopped: t.Stopped, Note: t.Note, Mode: t.Mode, Unavailable: t.Unavailable})
 	}
 	out.Skills = []schema.ChatsBuiltinSkill{}
 	for _, sk := range h.svc.AdminBuiltinSkills(c.Request().Context(), userID(c)) {

@@ -497,28 +497,36 @@ func Admits(s Settings, r Request, reg *Registries) bool {
 }
 
 // Describe is the one line the model reads about the network of its commands.
-func Describe(p Preset, reg *Registries) string {
+// asks says whether a blocked host can raise a card that a person answers:
+// only in a chat a person watches, under a ceiling wider than the chat's
+// preset. Without it the model is told to ask the user in its answer, since
+// no card can appear.
+func Describe(p Preset, reg *Registries, asks bool) string {
+	tail := " A blocked host asks the user; do not try to get around the proxy."
+	if !asks {
+		tail = " A blocked host is refused, and nothing asks the user; say which host you need in your answer, and do not try to get around the proxy."
+	}
 	switch normal(p) {
 	case PresetRegistries:
-		return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") +
-			"). A blocked host asks the user; do not try to get around the proxy."
+		return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") + ")." + tail
 	case PresetAll:
-		return "Network for commands: all public sites, through the proxy the sandbox sets. A blocked host asks the user; do not try to get around the proxy."
+		return "Network for commands: all public sites, through the proxy the sandbox sets." + tail
 	}
-	return "Network for commands: off. A blocked host asks the user; do not try to get around the proxy."
+	return "Network for commands: off." + tail
 }
 
 // DescribeLimit is the line of the turn's note when the server's own setting,
 // not the chat, keeps the network narrower than the chat asked: the
-// administrator's ceiling. Nobody can approve a host then, so the line says
-// not to ask for one and not to retry; only an administrator can change it.
-func DescribeLimit(eff, ceiling Preset, reg *Registries) string {
+// administrator's ceiling. Nobody can approve a host outside the limit, so
+// the line says not to retry one; only an administrator can change it. asks
+// is as for Describe, for the hosts inside the limit.
+func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool) string {
 	const where = "An administrator can change it in Settings > Tools > Sandbox network."
 	if normal(ceiling) == PresetOff {
 		return "Network for commands: off. The server's setting for the Sandbox network does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
 			"Tell the user the network is off by the server's setting. " + where
 	}
-	return Describe(eff, reg) + " The server's setting for the Sandbox network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
+	return Describe(eff, reg, asks) + " The server's setting for the Sandbox network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
 }
 
 // Hint is the sentence after Describe in the turn's note: which tool to use

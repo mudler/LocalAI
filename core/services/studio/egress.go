@@ -76,9 +76,10 @@ func (s *Service) now() time.Time {
 // parent's for a sub-agent, its agent's for an unattended run) under the
 // ceiling.
 func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bool) string {
+	set := s.egressSettings()
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	preset := egress.PresetOff
-	ceiling := egress.Min(s.egressSettings().Ceiling, egress.PresetAll)
+	ceiling := egress.Min(set.Ceiling, egress.PresetAll)
 	capped := false
 	if err == nil {
 		preset = egress.Min(pol.chat.Preset, ceiling)
@@ -86,10 +87,15 @@ func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bo
 	}
 	if ceiling == egress.PresetOff {
 		// Hint would tell the model to ask the user to turn the network on.
-		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries())
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), false)
 	}
+	// A card appears only in a chat a person watches (not an unattended run
+	// or a sub-agent), and only for a host the ceiling admits beyond the
+	// preset: a wider ceiling, or a private host with the private switch on.
+	attended := rec.Origin == "" && rec.Kind != session.KindSubAgent
+	asks := attended && (ceiling.Rank() > preset.Rank() || set.AllowPrivate)
 	if capped {
-		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries()) + " " + egress.Hint(preset, web)
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web)
 	}
-	return egress.Describe(preset, egress.BuiltinRegistries()) + " " + egress.Hint(preset, web)
+	return egress.Describe(preset, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web)
 }

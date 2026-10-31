@@ -126,7 +126,9 @@
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
     "servedBy": "Fourni par l'extension {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
-    "servedByBuiltin": "intégré"
+    "servedByBuiltin": "intégré",
+    "fallbackBuiltin": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant (arrêté, désactivé ici ou non accordé) : {{tool}} intégré est utilisé.",
+    "fallbackNone": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant, et {{tool}} intégré est désactivé : cette discussion n'a pas de {{tool}}."
   },
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",

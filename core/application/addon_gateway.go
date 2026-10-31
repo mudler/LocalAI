@@ -633,9 +633,6 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 // sandboxAddonID is the add-on that runs commands and code.
 const sandboxAddonID = "sandbox"
 
-// sandboxRunTool is the tool of the Sandbox add-on that runs commands.
-var sandboxRunTool = addontools.ToolName(sandboxAddonID, "bash")
-
 // needsWorkspace says whether the add-on works on the files of the user.
 func (s *studioAddons) needsWorkspace(addonID string) bool {
 	for _, p := range s.hostOps[addonID] {
@@ -745,7 +742,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Runs: d.Name == sandboxRunTool, Shadows: d.Shadows, InstalledAt: d.InstalledAt})
+			Shadows: d.Shadows, InstalledAt: d.InstalledAt})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
@@ -773,6 +770,32 @@ func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.A
 		}
 		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: contract.SkillNames(a.Skills),
 			Shadows: contract.ShadowedSkills(a.Skills), Running: a.Running})
+	}
+	return out, nil
+}
+
+// AddonShadowers lists the add-ons that replace a built-in chat tool and that
+// the user can see, in any state, less those whose host operations need a
+// feature the user lacks: the same rule as their tools.
+func (s *studioAddons) AddonShadowers(ctx context.Context, user string) ([]studio.AddonShadower, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Shadowers(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	out := make([]studio.AddonShadower, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonShadower{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Tools: a.Tools, Running: a.Running})
 	}
 	return out, nil
 }

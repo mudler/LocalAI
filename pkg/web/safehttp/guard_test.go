@@ -41,7 +41,21 @@ var _ = Describe("Guard", func() {
 		Entry("empty", "", 443, safehttp.ErrURL),
 		Entry("a path in the host", "example.com/x", 443, safehttp.ErrURL),
 		Entry("userinfo in the host", "user@example.com", 443, safehttp.ErrURL),
+		Entry("an international name with no valid ASCII form", "a\u200d\u200db.com", 443, safehttp.ErrURL),
+		Entry("full-width digits that spell loopback", "\uff11\uff12\uff17.\uff10.\uff10.\uff11", 443, safehttp.ErrBlockedAddress),
 	)
+
+	It("returns an international name in punycode, so a look-alike shows as what it is", func() {
+		h, err := g.CheckHost("p\u0430ypal.com", 443) // a Cyrillic a
+		Expect(err).NotTo(HaveOccurred())
+		Expect(h).To(Equal("xn--pypal-4ve.com"))
+		h, err = g.CheckHost("B\u00fccher.example", 443)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(h).To(Equal("xn--bcher-kva.example"))
+		h, err = g.CheckHost("xn--bcher-kva.example", 443)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(h).To(Equal("xn--bcher-kva.example"))
+	})
 
 	It("returns the canonical form of a name and a literal", func() {
 		h, err := g.CheckHost("PyPI.org.", 443)

@@ -150,6 +150,9 @@ function ProviderChoice({ tool, settings, onChange, titles }) {
           <input type="radio" name={`provider-${tool.id}`} value={id} checked={id === active} onChange={() => set(id)} />
           <span>
             {titles?.[id] || id}
+            {tool.stopped?.includes(id) && (
+              <span className="st-row__desc" data-testid={`settings-tools-${tool.id}-${id}-stopped`}> ({t('settingsTools.stopped')})</span>
+            )}
             {tool.installed_at?.[id] && formatWhen(tool.installed_at[id], i18n.language) && (
               <span className="st-row__desc" data-testid={`settings-tools-${tool.id}-${id}-installed`}> {t('settingsTools.installedOn', { when: formatWhen(tool.installed_at[id], i18n.language) })}</span>
             )}
@@ -187,7 +190,7 @@ export default function BuiltinToolsSection({ settings, onChange }) {
       {state.tools.map(tool => {
         const by = tool.provider === 'builtin'
           ? t('settingsTools.byBuiltin')
-          : tool.provider ? t('settingsTools.byAddon', { name: tool.provider }) : t('settingsTools.byNone')
+          : tool.provider ? t('settingsTools.byAddon', { name: tool.titles?.[tool.provider] || tool.provider }) : t('settingsTools.byNone')
         return (
           <div key={tool.id} className="st-row st-tools__row" data-wide data-tool={tool.id} data-testid={`settings-tools-row-${tool.id}`}>
             <div className="st-row__main">
@@ -201,7 +204,8 @@ export default function BuiltinToolsSection({ settings, onChange }) {
               {tool.id === 'bash'
                 ? <BashControls tool={tool} settings={settings} onChange={onChange} />
                 : <BoolControls tool={tool} settings={settings} onChange={onChange} />}
-              {tool.candidates.length > 1 && <ProviderChoice tool={tool} settings={settings} onChange={onChange} />}
+              {tool.note && <p className="st-row__desc" data-tone="warn" data-testid={`settings-tools-${tool.id}-note`}>{t('settingsTools.toolNotRunning')}</p>}
+              {tool.candidates.length > 1 && <ProviderChoice tool={tool} settings={settings} onChange={onChange} titles={tool.titles} />}
               {tool.id === 'web_search' && <WebSearchTest />}
               {tool.id === 'bash' && tool.candidates.length === 0 && (
                 <p className="st-row__desc"><Link to={SANDBOX_INSTALL_LINK} data-testid="settings-tools-install-sandbox">{t('settingsTools.installSandbox')}</Link></p>

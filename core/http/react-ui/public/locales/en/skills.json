@@ -26,6 +26,7 @@
     "providedBy": "Provided by {{name}}",
     "replacedBy": "Replaced by {{name}}",
     "notActive": "Not active: the built-in skill serves",
+    "notActiveBy": "Not active: {{name}} provides it",
     "fallback": "In use because the {{name}} add-on's own skill is off or not running"
   },
   "empty": {

@@ -78,4 +78,9 @@ type Tool struct {
 	// say): "builtin" or the add-on's ID. It is empty for every other tool.
 	// The harness does not read it.
 	Provider string
+	// StandInFor is set on the stand-in tool of an add-on that cannot work
+	// now: the built-in tools that add-on replaces (bash, say), so the chat
+	// can tell that the built-in serves in its place. The harness does not
+	// read it.
+	StandInFor []string
 }

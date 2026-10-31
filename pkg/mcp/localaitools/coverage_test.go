@@ -85,13 +85,8 @@ var toolToHTTPRoute = map[string]string{
 	ToolDeleteScheduling:         "DELETE /api/nodes/scheduling/:model",
 	ToolPinFailoverTarget:        "POST /api/failover/:chain/pin",
 	ToolUnpinFailoverTarget:      "DELETE /api/failover/:chain/pin",
-	// chats_egress_allow_private is deliberately not a tool (uiOnly): turning
-	// it on needs the typed phrase in chats_egress_private_confirm, a
-	// person's act in Settings > Tools, like confirm-host of the Sandbox.
-	// chats_egress_extra_registries and chats_egress_allowed_hosts are read by
-	// get_chat_egress and deliberately have no write tool: opening a host to
-	// every chat is a decision made on the Settings > Tools list editor, like
-	// the private switch. The admin changes them there (POST /api/settings).
+	// chats_egress_allow_private is deliberately not a tool (uiOnly): see
+	// adminRoutesWithoutTool.
 	ToolSetChatEgressCeiling: "POST /api/settings (chats_egress_ceiling)",
 	// DELETE /api/chats/files/trash and DELETE /api/chats/files/trash/:rev are
 	// deliberately not tools. They delete a user's own files for good and
@@ -99,6 +94,41 @@ var toolToHTTPRoute = map[string]string{
 	// administration, and an assistant must not be able to make a deletion
 	// permanent. The file tools of a chat stop at the Trash for the same
 	// reason.
+}
+
+// adminRoutesWithoutTool lists the administrator routes and settings that
+// deliberately have no MCP tool, each with the reason. A route listed here
+// must not be wrapped by a tool too (the spec below checks it); to add a tool
+// for one, move it to toolToHTTPRoute.
+var adminRoutesWithoutTool = map[string]string{
+	// The administrator's oversight of other users' saved agents, triggers
+	// and connectors. Each acts on another person's private automation
+	// (disable or delete it). It stays a deliberate click on the
+	// administrator's page, where the owner and the item are on screen, and
+	// not something a model proposes from a chat about the instance.
+	"GET /api/chats/admin/agents":                  "oversight of other users' agents: a person's act on the admin page",
+	"DELETE /api/chats/admin/agents/:id":           "deletes another user's agent: a person's act on the admin page",
+	"GET /api/chats/admin/triggers":                "oversight of other users' triggers: a person's act on the admin page",
+	"GET /api/chats/admin/triggers/:id/runs":       "the runs of another user's trigger: read on the admin page only",
+	"POST /api/chats/admin/triggers/:id/disable":   "stops another user's trigger: a person's act on the admin page",
+	"DELETE /api/chats/admin/triggers/:id":         "deletes another user's trigger: a person's act on the admin page",
+	"GET /api/chats/admin/connectors":              "oversight of other users' connectors: a person's act on the admin page",
+	"POST /api/chats/admin/connectors/:id/disable": "stops another user's connector: a person's act on the admin page",
+	"DELETE /api/chats/admin/connectors/:id":       "deletes another user's connector: a person's act on the admin page",
+	// A diagnostic button of Settings > Tools, not a setting to manage.
+	"POST /api/chats/admin/web/test": "a diagnostic button: it runs one search and changes nothing",
+	// Settings of the chats that change what commands may do on this machine
+	// or which add-on serves a tool. They are read with list_chat_tools; the
+	// change is a person's act in Settings > Tools.
+	"POST /api/settings (chats_host_exec)":            "lets chats run commands on the server with no isolation: a person's act in Settings > Tools",
+	"POST /api/settings (chats_tool_providers)":       "chooses which add-on serves a tool or skill: set in Settings > Tools",
+	"POST /api/settings (chats_egress_allow_private)": "needs the typed phrase in chats_egress_private_confirm, a person's act",
+	"POST /api/settings (chats_web_*)":                "the web tools settings: set in Settings > Tools, with Test search",
+	// Read by get_chat_egress. Opening a host or a registry to every chat
+	// is a decision made on the Settings > Tools list editor, like the
+	// private switch.
+	"POST /api/settings (chats_egress_extra_registries)": "opens registries to every chat: set on the Settings > Tools list editor",
+	"POST /api/settings (chats_egress_allowed_hosts)":    "opens hosts to every chat: set on the Settings > Tools list editor",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in
@@ -130,6 +160,17 @@ var _ = Describe("Tool ↔ HTTP route coverage map", func() {
 				"toolToHTTPRoute documents %q but the tool is not registered. "+
 					"Remove the stale entry.",
 				name)
+		}
+	})
+
+	It("gives a reason for every administrator route without a tool, and wraps none of them", func() {
+		wrapped := map[string]bool{}
+		for _, route := range toolToHTTPRoute {
+			wrapped[route] = true
+		}
+		for route, why := range adminRoutesWithoutTool {
+			Expect(why).NotTo(BeEmpty(), route)
+			Expect(wrapped[route]).To(BeFalse(), "%s has a tool and a skip reason; keep one", route)
 		}
 	})
 

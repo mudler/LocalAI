@@ -2,6 +2,7 @@ package studio_test
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/toolargs"
@@ -10,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -140,14 +142,45 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 	})
 
 	It("tells the model that the server's setting, not an approval, keeps the network off", func() {
-		off := egress.DescribeLimit(egress.PresetOff, egress.PresetOff, egress.BuiltinRegistries())
+		off := egress.DescribeLimit(egress.PresetOff, egress.PresetOff, egress.BuiltinRegistries(), false)
 		Expect(off).To(SatisfyAll(ContainSubstring("server's setting"), ContainSubstring("do not wait"), ContainSubstring("Settings > Tools > Sandbox network")))
 		Expect(off).NotTo(ContainSubstring("asks the user"))
-		capped := egress.DescribeLimit(egress.PresetRegistries, egress.PresetRegistries, egress.BuiltinRegistries())
+		capped := egress.DescribeLimit(egress.PresetRegistries, egress.PresetRegistries, egress.BuiltinRegistries(), false)
 		Expect(capped).To(SatisfyAll(ContainSubstring("package registries only"), ContainSubstring("not by a missing approval")))
 	})
 
 	It("tells the model the network of its commands", func() {
-		Expect(egress.Describe(egress.PresetRegistries, egress.BuiltinRegistries())).To(ContainSubstring("package registries only"))
+		Expect(egress.Describe(egress.PresetRegistries, egress.BuiltinRegistries(), true)).To(ContainSubstring("package registries only"))
+	})
+})
+
+var _ = Describe("the network line of a turn", func() {
+	sandboxed := func(settings egress.Settings) (*studio.Service, *studiotest.ToolHarness) {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}
+		f := newFiles()
+		return newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }, func(d *studio.Deps) {
+			d.Files = f
+			d.AddonTools = isolatedAddons{fa, "isolated"}
+			d.EgressSettings = func() egress.Settings { return settings }
+		})
+	}
+	turn := func(svc *studio.Service, h *studiotest.ToolHarness) string {
+		id := create(svc, alice)
+		sent(svc, alice, id, "hello")
+		idle(svc, alice, id)
+		return h.TurnPrompt(id) + "\n" + strings.Join(h.Sent(id), "\n")
+	}
+
+	It("says a blocked host asks the user when a card can appear", func() {
+		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetAll})
+		Expect(turn(svc, h)).To(ContainSubstring("Network for commands: off. A blocked host asks the user"))
+	})
+
+	It("does not promise a card when the ceiling is off", func() {
+		svc, h := sandboxed(egress.Settings{Ceiling: egress.PresetOff})
+		got := turn(svc, h)
+		Expect(got).To(ContainSubstring("Network for commands: off."))
+		Expect(got).To(ContainSubstring("no user approval changes that"))
+		Expect(got).NotTo(ContainSubstring("A blocked host asks the user"))
 	})
 })

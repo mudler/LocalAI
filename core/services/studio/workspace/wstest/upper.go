@@ -124,6 +124,18 @@ func describeUpper(newStore NewStore) {
 			Expect(cs.Rev).To(BeZero(), "cs = %+v", cs)
 			Expect(MustRead(s, AdminActor, "/r/ro.txt")).To(Equal("ro"), "read-only file changed")
 		})
+		It("a folder of a read-only mount that only holds unchanged files is not a change", func() {
+			s := newStore()
+			MustPut(s, AdminActor, "/r/sub/deep.txt", "deep")
+			v, base := upperSetup(s)
+			cs, conflicts, err := s.CommitUpper(Ctx(), v, AliceAdmin(), base, workspace.FixtureSource{
+				D("r"), D("r/sub"), D("w"), F("w/new.txt", "new"),
+			}, workspace.UpperOptions{Title: "x"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(conflicts).To(BeEmpty())
+			Expect(cs.Rev).NotTo(BeZero())
+			Expect(MustRead(s, AdminActor, "/w/new.txt")).To(Equal("new"))
+		})
 		It("symbolic links are reported", func() {
 			s := newStore()
 			v, base := upperSetup(s)

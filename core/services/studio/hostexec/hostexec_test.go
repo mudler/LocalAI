@@ -6,11 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"testing/fstest"
 	"time"
 
 	"gorm.io/gorm"
@@ -144,6 +146,24 @@ var _ = Describe("commands on this machine", func() {
 		// A file written afterwards with the file tools is there at the next call.
 		e.put("/later.txt", "later\n")
 		Expect(e.bash("cat home/later.txt", 0)).To(Equal("later\n"))
+	})
+
+	It("runs a skill's script in place from the read-only skill layers, and never changes them", func() {
+		e := newEnv()
+		Expect(e.f.SyncBuiltin(context.Background(), fstest.MapFS{
+			"pdf/SKILL.md":         {Data: []byte("---\nname: pdf\ndescription: PDFs.\n---\nUse the script.\n")},
+			"pdf/scripts/check.sh": {Data: []byte("echo checked $1\n")},
+		})).To(Succeed())
+		out := e.bash("bash shared-builtin-skills/pdf/scripts/check.sh doc.pdf", 0)
+		Expect(out).To(Equal("checked doc.pdf\n"))
+		// A write into a layer is not saved: the layer is read-only.
+		e.bash("echo changed > shared-builtin-skills/pdf/scripts/check.sh; true", 0)
+		r, _, err := e.f.Store().Open(context.Background(), e.f.Actor("alice"), files.BuiltinSkillsPath+"/pdf/scripts/check.sh")
+		Expect(err).NotTo(HaveOccurred())
+		data, err := io.ReadAll(r)
+		_ = r.Close()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(data)).To(Equal("echo checked $1\n"))
 	})
 
 	It("kills the whole process group at the timeout", func() {

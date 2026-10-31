@@ -131,10 +131,13 @@ func ChooseProvider(ids []string, installed map[string]string, pin string) strin
 }
 
 // resolveShadows keeps one add-on tool per shadowed name: the add-on that pins
-// names, or with no pin (or a pin to an add-on the chat does not have) the
-// default one (ChooseProvider: the oldest install). The add-ons that replace
-// one tool are mutually exclusive.
-func resolveShadows(tools []session.Tool, pins, installed map[string]string) []session.Tool {
+// names, or with no pin (or a pin to an add-on that is not installed) the
+// default one (ChooseProvider: the oldest install). A pin to an installed
+// add-on that cannot serve this chat (stopped, off for the chat, not granted)
+// keeps no add-on tool: the built-in serves, not another add-on, because the
+// administrator chose that one. The add-ons that replace one tool are
+// mutually exclusive.
+func resolveShadows(tools []session.Tool, pins, installed map[string]string, sh shadowers) []session.Tool {
 	byName := map[string][]string{}
 	for _, t := range tools {
 		if t.Provider == "" || t.Provider == BuiltinProvider || slices.Contains(byName[t.Name], t.Provider) {
@@ -147,6 +150,10 @@ func resolveShadows(tools []session.Tool, pins, installed map[string]string) []s
 	}
 	active := make(map[string]string, len(byName))
 	for name, ids := range byName {
+		if sh.pinnedButIdle(name, pins[name], ids) {
+			active[name] = ""
+			continue
+		}
 		active[name] = ChooseProvider(ids, installed, pins[name])
 	}
 	out := tools[:0:0]

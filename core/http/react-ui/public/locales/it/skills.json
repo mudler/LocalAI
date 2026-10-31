@@ -25,6 +25,7 @@
     "providedBy": "Fornita da {{name}}",
     "replacedBy": "Sostituita da {{name}}",
     "notActive": "Non attiva: si usa la skill integrata",
+    "notActiveBy": "Non attiva: la fornisce {{name}}",
     "fallback": "In uso perché la skill del componente {{name}} è disattivata o non in esecuzione"
   },
   "empty": {

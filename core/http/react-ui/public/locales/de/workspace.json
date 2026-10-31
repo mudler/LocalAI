@@ -388,6 +388,8 @@
     "emptyUserBody": "Wenn ein Administrator einen Ordner mit dir teilt, erscheint er hier und seine Seiten unter Seiten."
   },
   "preview": {
+    "label": "Vorschau",
+    "failed": "Diese Datei konnte nicht angezeigt werden.",
     "loading": "Vorschau von {{name}} wird geladen",
     "failedTitle": "{{name}} konnte nicht angezeigt werden.",
     "tooLarge": "Diese Datei ist zu groß für die Vorschau. Lade sie herunter, um sie zu öffnen.",

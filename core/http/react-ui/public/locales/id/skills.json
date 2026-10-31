@@ -25,6 +25,7 @@
     "providedBy": "Disediakan oleh {{name}}",
     "replacedBy": "Digantikan oleh {{name}}",
     "notActive": "Tidak aktif: skill bawaan yang dipakai",
+    "notActiveBy": "Tidak aktif: disediakan oleh {{name}}",
     "fallback": "Dipakai karena skill add-on {{name}} mati atau tidak berjalan"
   },
   "empty": {

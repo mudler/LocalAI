@@ -98,7 +98,7 @@ var _ = Describe("the studio add-ons", func() {
 		Expect(action["addon__tables__rows-get"]).To(BeFalse(), "Action flags = %v, want the read tool not marked", action)
 	})
 
-	It("marks the Sandbox's bash tool, and only it, as the tool that runs commands, and carries what it shadows", func() {
+	It("carries what the Sandbox's bash shadows: the tool that runs commands is the one that shadows bash", func() {
 		obj := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
 		none := json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)
 		app := apps.App{ID: "sandbox", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash", "status"},
@@ -109,13 +109,10 @@ var _ = Describe("the studio add-ons", func() {
 		s := &studioAddons{adapter: addontools.NewChatToolAdapter(changeOwner{app}), mode: auth.AddonModeNamedUser}
 		got, err := s.Tools(context.Background(), "alice")
 		Expect(err).ToNot(HaveOccurred())
-		runs := map[string]bool{}
 		shadows := map[string]string{}
 		for _, d := range got {
-			runs[d.Name] = d.Runs
 			shadows[d.Name] = d.Shadows
 		}
-		Expect(runs).To(Equal(map[string]bool{"addon__sandbox__bash": true, "addon__sandbox__status": false}))
 		Expect(shadows).To(Equal(map[string]string{"addon__sandbox__bash": "bash", "addon__sandbox__status": ""}))
 	})
 

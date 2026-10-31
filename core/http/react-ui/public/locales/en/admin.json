@@ -202,6 +202,8 @@
     "skillsIntro": "An add-on can replace a built-in skill with its own, written for its tools. When several add-ons replace one, choose the one that serves.",
     "skillLabel": "Skill {{skill}}",
     "skillNotRunning": "The chosen add-on is not running: the built-in skill serves.",
+    "toolNotRunning": "The add-on that replaces this tool is not running: the built-in tool serves.",
+    "stopped": "stopped",
     "webTest": {
       "intro": "Runs a query with each search provider of the saved settings and shows what each one did. Apply your changes first.",
       "queryLabel": "Query",

@@ -24,6 +24,8 @@ export function useChatSwitches(chatId, filesOn) {
   const [commands, setCommands] = useState({ state: '', reason: '' })
   const [mcp, setMcp] = useState(noMCP)
   const [builtins, setBuiltins] = useState([])
+  // The built-in tools an installed add-on replaces but cannot serve here now.
+  const [fallbacks, setFallbacks] = useState([])
   const [skills, setSkills] = useState([])
   // The built-in skills an add-on replaces now: shown dimmed, with no switch.
   const [replaced, setReplaced] = useState([])
@@ -40,14 +42,14 @@ export function useChatSwitches(chatId, filesOn) {
   useEffect(() => {
     setError('')
     setSkillsError('')
-    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setSkills([]); setReplaced([]); return undefined }
+    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setSkills([]); setReplaced([]); return undefined }
     let live = true
     chatAddonsApi.list(chatId)
       .then((res) => { if (live) { setAddons(res.addons || []); setCommands(commandsOf(res)) } })
       .catch(() => { if (live) { setAddons([]); setCommands(noCommands) } })
     chatToolsApi.list(chatId)
-      .then((res) => { if (live) { setMcp(mcpOf(res)); setBuiltins(res.builtins || []) } })
-      .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]) } })
+      .then((res) => { if (live) { setMcp(mcpOf(res)); setBuiltins(res.builtins || []); setFallbacks(res.fallbacks || []) } })
+      .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]) } })
     return () => { live = false }
   }, [chatId, filesOn])
 
@@ -93,6 +95,11 @@ export function useChatSwitches(chatId, filesOn) {
         setCommands(commandsOf(res))
       }
       setSkillsRev((n) => n + 1)
+      // An add-on switched off or on changes who serves the tools it
+      // replaces, and the notes about them.
+      chatToolsApi.list(chatId)
+        .then((r) => { putBuiltins(r.builtins || []); setFallbacks(r.fallbacks || []) })
+        .catch(() => {})
     } catch (e) {
       putAddons(before)
       setError(e.message || 'error')
@@ -114,6 +121,7 @@ export function useChatSwitches(chatId, filesOn) {
       const res = await chatToolsApi.setMcpOff(chatId, off)
       putMcp(mcpOf(res))
       putBuiltins(res.builtins || [])
+      setFallbacks(res.fallbacks || [])
     } catch (e) {
       putMcp(before)
       setError(e.message || 'error')
@@ -136,6 +144,7 @@ export function useChatSwitches(chatId, filesOn) {
       const res = await chatToolsApi.setBuiltinsOff(chatId, off, onList)
       putBuiltins(res.builtins || [])
       putMcp(mcpOf(res))
+      setFallbacks(res.fallbacks || [])
     } catch (e) {
       putBuiltins(before)
       setError(e.message || 'error')
@@ -178,7 +187,7 @@ export function useChatSwitches(chatId, filesOn) {
   const toggleSkill = useCallback((id, on) => setSkillsOn(new Set([id]), on), [setSkillsOn])
 
   return {
-    addons, builtins, commands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
+    addons, builtins, fallbacks, commands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn,
   }

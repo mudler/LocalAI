@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/egress"
@@ -194,10 +195,7 @@ func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, er
 			out.AuditDays = d
 		}
 	}
-	s.runners.addons.Range(func(k, _ any) bool {
-		out.Sandbox = k.(string)
-		return false
-	})
+	out.Sandbox = s.servingRunner(ctx, principal(user))
 	if out.Sandbox != "" {
 		if iso, ok := s.d.AddonTools.(CommandIsolation); ok {
 			out.Isolation = iso.Isolation(ctx, principal(user), out.Sandbox)
@@ -214,4 +212,38 @@ func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, er
 // EgressEvents reads the network audit, newest first.
 func (s *Service) EgressEvents(ctx context.Context, q audit.Query) ([]audit.Event, error) {
 	return s.egressAudit().Events(ctx, q)
+}
+
+// servingRunner is the add-on that runs the commands of the user's chats now:
+// of the running add-ons that replace bash, the pinned one or the oldest
+// install, or "" when none runs or the pinned one is stopped (the built-in
+// serves). It asks the broker, so every frontend of a cluster answers the
+// same, also right after a restart, and an add-on that was removed is gone.
+func (s *Service) servingRunner(ctx context.Context, user string) string {
+	if s.d.AddonTools == nil {
+		return ""
+	}
+	defs, err := s.d.AddonTools.Tools(ctx, user)
+	if err != nil {
+		return ""
+	}
+	var running []string
+	installed := map[string]string{}
+	for _, d := range defs {
+		if d.Shadows == commandTool && !slices.Contains(running, d.AddonID) {
+			running = append(running, d.AddonID)
+			installed[d.AddonID] = d.InstalledAt
+		}
+	}
+	if len(running) == 0 {
+		return ""
+	}
+	var pin string
+	if s.d.ToolPins != nil {
+		pin = s.d.ToolPins()[commandTool]
+	}
+	if s.shadowersFor(ctx, user).pinnedButIdle(commandTool, pin, running) {
+		return ""
+	}
+	return ChooseProvider(running, installed, pin)
 }

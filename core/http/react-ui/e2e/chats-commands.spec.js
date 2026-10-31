@@ -154,3 +154,28 @@ test.describe('Chat that cannot run commands', () => {
     await shot(page, 'phone-popover')
   })
 })
+
+test.describe('A tool whose add-on cannot serve the chat', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  test('the Tools menu says which add-on replaces it and whether the built-in serves', async ({ page }) => {
+    await stubChat(page, () => ({ addons: [{ id: 'web', tools: 2, off: true }], commands: 'isolated' }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({
+      json: {
+        builtins: [{ group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' } }],
+        addons: [], servers: [], connectors: [], off: [],
+        fallbacks: [
+          { tool: 'web_search', addon: 'web', addon_title: 'Web search', builtin: true },
+          { tool: 'bash', addon: 'sandbox', addon_title: 'Sandbox', builtin: false },
+        ],
+      },
+    }))
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-tool-fallback-web_search')).toHaveText(
+      'Web search replaces web_search but cannot serve this chat now (stopped, switched off here or not granted): the built-in web_search serves.')
+    await expect(page.getByTestId('chat-tool-fallback-bash')).toHaveText(
+      'Sandbox replaces bash but cannot serve this chat now, and the built-in bash is off: this chat has no bash.')
+    await shot(page, 'tools-menu-fallbacks')
+  })
+})

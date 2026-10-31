@@ -55,6 +55,7 @@ import ChatFoot from '../components/chat/ChatFoot'
 import SwitchMenu from '../components/chat/SwitchMenu'
 import Button from '../components/ui/Button'
 import { CommandsChip, CommandsNotice } from '../components/chat/CommandsNotice'
+import { ToolFallbacks } from '../components/chat/ToolFallbacks'
 import { useCommandsNotice } from '../hooks/useCommandsNotice'
 // eslint-disable-next-line no-unused-vars
 import AgentPicker from '../components/chat/AgentPicker'
@@ -911,8 +912,8 @@ function ChatPage() {
       <SwitchMenu
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')} note={t('tools.note')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={commands.info || networkMode(egress) !== 'hidden'
-          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<NetworkRow egress={egress} /></>
+        notice={commands.info || networkMode(egress) !== 'hidden' || switches.fallbacks.length > 0
+          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} /><NetworkRow egress={egress} /></>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>

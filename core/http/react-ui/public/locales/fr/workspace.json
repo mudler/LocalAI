@@ -388,6 +388,8 @@
     "emptyUserBody": "Quand un administrateur partage un dossier avec vous, il apparaît ici et ses pages dans Pages."
   },
   "preview": {
+    "label": "Aperçu",
+    "failed": "Ce fichier n'a pas pu être affiché.",
     "loading": "Chargement de l’aperçu de {{name}}",
     "failedTitle": "Impossible d’afficher {{name}}.",
     "tooLarge": "Ce fichier est trop volumineux pour l’aperçu. Téléchargez-le pour l’ouvrir.",

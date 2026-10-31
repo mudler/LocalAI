@@ -3072,6 +3072,11 @@ definitions:
         description: 'Mode is chats_host_exec as it applies (bash only): off, ask
           or on.'
         type: string
+      note:
+        description: |-
+          Note is "not running" when an installed add-on replaces the tool but
+          none serves now, so the built-in serves (or nothing, when it is off).
+        type: string
       options:
         items:
           type: string
@@ -3094,6 +3099,18 @@ definitions:
           Setting is the runtime setting that switches it off; Options are the
           other runtime settings that configure it.
         type: string
+      stopped:
+        items:
+          type: string
+        type: array
+      titles:
+        additionalProperties:
+          type: string
+        description: |-
+          Titles maps a candidate to its title. Stopped lists the candidates that
+          are installed but stopped or disabled: they can be chosen, and serve
+          once they run.
+        type: object
       unavailable:
         description: Unavailable says why this server cannot run the built-in, or
           is empty.
@@ -4652,6 +4669,27 @@ definitions:
       summary:
         type: string
     type: object
+  schema.ChatsToolFallback:
+    properties:
+      addon:
+        description: |-
+          Addon and AddonTitle name the add-on that would serve it: the one an
+          administrator chose, or the one installed first.
+        example: sandbox
+        type: string
+      addon_title:
+        example: Sandbox
+        type: string
+      builtin:
+        description: |-
+          Builtin says that the built-in tool serves instead; false when the
+          built-in is off too, so the chat has no such tool.
+        type: boolean
+      tool:
+        description: Tool is the built-in tool, such as bash.
+        example: bash
+        type: string
+    type: object
   schema.ChatsToolsPanel:
     properties:
       addons:
@@ -4665,6 +4703,14 @@ definitions:
       connectors:
         items:
           $ref: '#/definitions/schema.ChatsMCPConnectorSwitch'
+        type: array
+      fallbacks:
+        description: |-
+          Fallbacks are the built-in tools that an installed add-on replaces but
+          that no add-on serves in this chat now: the add-on is stopped, off for
+          the chat, not granted by its agent, or cannot run.
+        items:
+          $ref: '#/definitions/schema.ChatsToolFallback'
         type: array
       "off":
         description: Off is the list of MCP switches in force.
@@ -12525,7 +12571,10 @@ paths:
       description: The groups of built-in tools (such as web), add-ons, the MCP servers
         of the chat's model and your MCP connectors, each with the chat's switch and
         whether it can be used now (with the reason when not). A chat with a saved
-        agent lists only what the agent grants.
+        agent lists only what the agent grants. fallbacks lists the built-in tools
+        (bash, web_search, web_fetch) that an installed add-on replaces but that no
+        add-on serves in this chat now, with the add-on and whether the built-in serves
+        instead.
       parameters:
       - description: conversation id
         in: path
@@ -12937,8 +12986,10 @@ paths:
         is on, whether it only reads and whether an add-on may replace it, who serves
         it now (builtin, an add-on''s ID, or empty), the add-ons that replace it (oldest
         install first, with their install times in installed_at), the default one
-        that serves with no pin (default: the add-on installed first) and the one
-        pinned with chats_tool_providers, and for bash the mode of chats_host_exec
+        that serves with no pin (default: the oldest running install) and the one
+        pinned with chats_tool_providers, the titles of the candidates, the candidates
+        that are installed but stopped (stopped), a note "not running" when an installed
+        add-on replaces the tool but none serves, and for bash the mode of chats_host_exec
         and why this server cannot run it, if so. skills lists the built-in skills
         (xlsx, docx, pptx, pdf) that an installed add-on replaces: who serves each
         now, the add-ons that replace it (the same order, default and installed_at)

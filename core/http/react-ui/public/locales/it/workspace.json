@@ -388,6 +388,8 @@
     "emptyUserBody": "Quando un amministratore condivide una cartella con te, compare qui e le sue pagine in Pagine."
   },
   "preview": {
+    "label": "Anteprima",
+    "failed": "Non è stato possibile mostrare questo file.",
     "loading": "Caricamento dell’anteprima di {{name}}",
     "failedTitle": "Impossibile mostrare {{name}}.",
     "tooLarge": "Questo file è troppo grande per l’anteprima. Scaricalo per aprirlo.",

@@ -184,14 +184,14 @@ Turn `chats_web_allow_private` on only if you trust every user of chats: a user
 can then read any internal web service the server can reach, through a model.
 
 To check the search providers, an administrator presses **Test search** on the
-`web_search` row of **Settings > Tools**, or calls the endpoint. It runs the
-query with each provider of the saved order, also the ones after the first
-answer and the ones in their cool-down, and says what each did: `ok` (with the
-number of results), `no_results`, `challenged`, `blocked`, `timeout` or
-`error`, with the reason. `provider`, `host` and `results` are the first
-answer, which a chat would get. A provider that answers leaves its cool-down;
-one that is challenged or blocked enters it. The test counts as one search
-against the limits.
+`web_search` row of **Settings > Tools** (apply a change first), or calls the
+endpoint. It runs the query with each provider of the saved order, also the
+ones after the first answer and the ones in their cool-down, and says what each
+did: `ok` (with the number of results), `no_results`, `challenged`, `blocked`,
+`timeout` or `error`, with the reason. `provider`, `host` and `results` are the
+first answer, which a chat would get. A provider that answers leaves its
+cool-down; one that is challenged or blocked enters it. The test counts as one
+search against the limits.
 
 ```bash
 curl -X POST .../api/chats/admin/web/test -d '{"query": "LocalAI"}'

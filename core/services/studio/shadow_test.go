@@ -15,7 +15,7 @@ import (
 // bash, which shadows the built-in bash, and status under its add-on name.
 func shadowingSandbox() []studio.AddonTool {
 	bash := addonTool("sandbox", "bash")
-	bash.Action, bash.Runs, bash.Shadows = true, true, "bash"
+	bash.Action, bash.Shadows = true, "bash"
 	return []studio.AddonTool{bash, addonTool("sandbox", "status")}
 }
 

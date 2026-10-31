@@ -61,9 +61,11 @@ export function cardStateKey(card) {
 }
 
 // The answers a person may give a card: a private target needs an
-// administrator to allow it; anyone who owns the chat may deny.
+// administrator to allow it; anyone who owns the chat may deny. A card that
+// expired with its turn may still be answered: the answer is kept for the
+// next command (Allow once for ten minutes, the others as a rule).
 export function cardAnswers(card, isAdmin) {
-  if (!card || card.state !== 'pending') return []
+  if (!card || (card.state !== 'pending' && card.state !== 'expired')) return []
   // The limit does not admit the host: no answer can make it work.
   if (card.above_ceiling) return []
   if (card.private && !isAdmin) return ['deny']

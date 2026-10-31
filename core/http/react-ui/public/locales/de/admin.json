@@ -352,6 +352,8 @@
     "skillsIntro": "Ein Add-on kann einen integrierten Skill durch einen eigenen ersetzen, der zu seinen Werkzeugen passt. Ersetzen mehrere Add-ons denselben, wählen Sie, welches verwendet wird.",
     "skillLabel": "Skill {{skill}}",
     "skillNotRunning": "Das gewählte Add-on läuft nicht: der integrierte Skill wird verwendet.",
+    "toolNotRunning": "Das Add-on, das dieses Werkzeug ersetzt, läuft nicht: das eingebaute Werkzeug wird verwendet.",
+    "stopped": "gestoppt",
     "webTest": {
       "intro": "Führt eine Suche mit jedem Suchanbieter der gespeicherten Einstellungen aus und zeigt, was jeder getan hat. Übernehmen Sie zuerst Ihre Änderungen.",
       "queryLabel": "Suchbegriff",

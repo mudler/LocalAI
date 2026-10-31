@@ -210,6 +210,9 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 	for _, a := range p.Addons {
 		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})
 	}
+	for _, f := range p.Fallbacks {
+		out.Fallbacks = append(out.Fallbacks, schema.ChatsToolFallback{Tool: f.Tool, Addon: f.AddonID, AddonTitle: f.Title, Builtin: f.Builtin})
+	}
 	for _, s := range p.Servers {
 		out.Servers = append(out.Servers, schema.ChatsMCPServerSwitch{Name: s.Name, Off: s.Off, Usable: s.Usable, Reason: s.Reason})
 	}
@@ -221,7 +224,7 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 
 // ListChatTools lists what a chat can use besides its built-in tools.
 // @Summary List the tools a chat can switch on and off.
-// @Description The groups of built-in tools (such as web), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants.
+// @Description The groups of built-in tools (such as web), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsToolsPanel "The tools and their switches"
