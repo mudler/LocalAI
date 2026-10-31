@@ -97,8 +97,10 @@ if [ -z "$executable" ]; then
     fi
     executable="$scratch/$exe_name"
 elif [ -n "$ldflags" ] && [ -z "$local_check" ]; then
-    # A binary built elsewhere must carry the guest image too.
-    go version -m "$executable" 2>/dev/null | grep -F -- '-X main.guestImage=' >/dev/null || {
+    # A binary built elsewhere must carry the guest image too. Its build info
+    # cannot show it (with -trimpath, Go leaves -ldflags out), so look for
+    # the reference in the executable.
+    grep -aqF -- "$guest" "$executable" || {
         echo "package.sh: $executable was not built with -X main.guestImage" >&2
         exit 2
     }
