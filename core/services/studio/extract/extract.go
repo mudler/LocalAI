@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/mudler/nib/extraction"
 
@@ -44,10 +45,12 @@ type Limits struct {
 	Text int
 	// MaxBytes is the largest input.
 	MaxBytes int
+	// Pages is the most pages of a PDF or an EPUB that are read.
+	Pages int
 }
 
 // DefaultLimits are the limits of Extract.
-var DefaultLimits = Limits{Rows: 2000, Cols: 50, Text: 400_000, MaxBytes: 50 << 20}
+var DefaultLimits = Limits{Rows: 2000, Cols: 50, Text: 400_000, MaxBytes: 50 << 20, Pages: 200}
 
 // Kinds of Structure.
 const (
@@ -65,9 +68,44 @@ type Structure struct {
 	// Pages is the number of pages of a PDF or an EPUB with text.
 	Pages int
 	// Truncated says that the text leaves part of the file out (rows,
-	// columns or characters past Limits). The text ends with a note that says
-	// what was left out.
+	// columns, pages or characters past Limits). The text ends with a note
+	// that says what was left out.
 	Truncated bool
+	// Sections says where each page, sheet or slide starts in the text, in
+	// order, so a line of the text can be told apart by its page or sheet.
+	// A Word document has none.
+	Sections []Section
+}
+
+// Kinds of Section.
+const (
+	SectionPage    = "page"
+	SectionChapter = "chapter"
+	SectionSheet   = "sheet"
+	SectionSlide   = "slide"
+)
+
+// Section is a page, a chapter, a sheet or a slide of the text.
+type Section struct {
+	Kind string `json:"kind"`
+	// Name is the sheet name, or the number of a page, chapter or slide.
+	Name string `json:"name"`
+	// Line is the 1-based line of the text where the section starts.
+	Line int `json:"line"`
+}
+
+// SectionAt returns the section that holds a 1-based line of the text, and
+// false before the first section.
+func SectionAt(sections []Section, line int) (Section, bool) {
+	var at Section
+	found := false
+	for _, s := range sections {
+		if s.Line > line {
+			break
+		}
+		at, found = s, true
+	}
+	return at, found
 }
 
 var kinds = map[string]string{
@@ -101,7 +139,7 @@ func ExtractWith(ctx context.Context, name string, data []byte, l Limits) (strin
 		return "", Structure{}, fmt.Errorf("extract: %s is %d bytes, more than %d", path.Base(name), len(data), l.MaxBytes)
 	}
 	if kind == KindPages {
-		return pages(ctx, name, data)
+		return pages(ctx, name, data, l)
 	}
 	pl := preview.Limits{Rows: l.Rows, Cols: l.Cols, PartBytes: 64 << 20, Text: l.Text}
 	p, err := preview.BuildWith(ctx, name, bytes.NewReader(data), int64(len(data)), pl)
@@ -116,15 +154,45 @@ func ExtractWith(ctx context.Context, name string, data []byte, l Limits) (strin
 	switch kind {
 	case KindTable:
 		text, st.Truncated = sheetsText(p.Sheets, l.Cols)
+		st.Sections = headingSections(text, "## Sheet ", SectionSheet, sheetNames(p.Sheets))
 	case KindDocument:
 		text = blocksText(p.Blocks)
 	default:
 		text = slidesText(p.Slides)
+		st.Sections = headingSections(text, "## Slide ", SectionSlide, slideNumbers(p.Slides))
 	}
 	if p.Truncated {
 		text += fmt.Sprintf("\n[The text stops here: the file has more than %d characters.]", l.Text)
 	}
 	return text, st, nil
+}
+
+// headingSections finds the lines of text that start with prefix, the
+// headings of the sheets or slides, and names them in order.
+func headingSections(text, prefix, kind string, names []string) []Section {
+	var out []Section
+	for i, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, prefix) && len(out) < len(names) {
+			out = append(out, Section{Kind: kind, Name: names[len(out)], Line: i + 1})
+		}
+	}
+	return out
+}
+
+func sheetNames(sheets []schema.ChatsFilePreviewSheet) []string {
+	out := make([]string, len(sheets))
+	for i, s := range sheets {
+		out[i] = s.Name
+	}
+	return out
+}
+
+func slideNumbers(slides []schema.ChatsFilePreviewSlide) []string {
+	out := make([]string, len(slides))
+	for i, s := range slides {
+		out[i] = strconv.Itoa(s.N)
+	}
+	return out
 }
 
 // sheetsText writes each sheet as a heading and its rows as tab-separated
@@ -209,57 +277,114 @@ func slidesText(slides []schema.ChatsFilePreviewSlide) string {
 }
 
 // pages reads a PDF or an EPUB with the harness's extractor, which reads a
-// file, not a stream.
-func pages(ctx context.Context, name string, data []byte) (string, Structure, error) {
+// file, not a stream. Each page with text starts with a "## Page N" line (an
+// EPUB: "## Chapter N"), and the reading stops at l.Pages pages or l.Text
+// characters.
+func pages(ctx context.Context, name string, data []byte, l Limits) (string, Structure, error) {
 	dir, err := os.MkdirTemp("", "studio-extract-")
 	if err != nil {
 		return "", Structure{}, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	file := filepath.Join(dir, "document"+strings.ToLower(path.Ext(name)))
+	ext := strings.ToLower(path.Ext(name))
+	file := filepath.Join(dir, "document"+ext)
 	if err := os.WriteFile(file, data, 0o600); err != nil {
 		return "", Structure{}, err
 	}
+	kind, label := SectionPage, "Page"
+	if ext == ".epub" {
+		kind, label = SectionChapter, "Chapter"
+	}
 	type result struct {
-		text  string
-		pages int
-		err   error
+		text     string
+		sections []Section
+		pages    int
+		cut      string
+		err      error
 	}
 	done := make(chan result, 1)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- result{err: fmt.Errorf("the reader failed: %v", r)}
+			}
+		}()
 		doc, err := extraction.Open(file)
 		if err != nil {
 			done <- result{err: err}
 			return
 		}
 		defer func() { _ = doc.Close() }()
+		var r result
 		var b strings.Builder
-		n := 0
-		for i := range doc.NumPage() {
+		lines, chars := 0, 0
+		total := doc.NumPage()
+		for i := range total {
+			if ctx.Err() != nil {
+				break
+			}
+			if l.Pages > 0 && i >= l.Pages {
+				r.cut = fmt.Sprintf("[The text stops here: only the first %d of %d pages were read.]", l.Pages, total)
+				break
+			}
 			t, err := doc.Text(i)
 			if err != nil {
 				continue
 			}
-			if strings.TrimSpace(t) != "" {
-				n++
+			t = strings.TrimSpace(strings.ToValidUTF8(t, " "))
+			if t == "" {
+				continue
 			}
+			if l.Text > 0 && chars+len(t) > l.Text {
+				t = cutRunes(t, max(l.Text-chars, 0))
+				r.cut = fmt.Sprintf("[The text stops here, on page %d: the document has more than %d characters.]", i+1, l.Text)
+			}
+			if b.Len() > 0 {
+				b.WriteString("\n\n")
+				lines++
+			}
+			r.sections = append(r.sections, Section{Kind: kind, Name: strconv.Itoa(i + 1), Line: lines + 1})
+			heading := fmt.Sprintf("## %s %d\n", label, i+1)
+			b.WriteString(heading)
 			b.WriteString(t)
+			lines += 1 + strings.Count(t, "\n") + 1
+			chars += len(t)
+			r.pages++
+			if r.cut != "" {
+				break
+			}
 		}
-		done <- result{text: strings.ToValidUTF8(b.String(), " "), pages: n}
+		r.text = b.String()
+		done <- r
 	}()
 	select {
 	case r := <-done:
 		if r.err != nil {
 			return "", Structure{}, fmt.Errorf("%w: %v", ErrInvalid, r.err)
 		}
-		text := strings.TrimSpace(r.text)
-		if text == "" && strings.EqualFold(path.Ext(name), ".pdf") {
+		if r.text == "" && ext == ".pdf" {
 			return "", Structure{Kind: KindPages}, ErrNoText
 		}
-		return text, Structure{Kind: KindPages, Pages: r.pages}, nil
+		st := Structure{Kind: KindPages, Pages: r.pages, Sections: r.sections, Truncated: r.cut != ""}
+		text := r.text
+		if r.cut != "" {
+			text += "\n" + r.cut
+		}
+		return text, st, nil
 	case <-ctx.Done():
 		return "", Structure{}, ctx.Err()
 	case <-time.After(extractTimeout):
 		return "", Structure{}, fmt.Errorf("extract: reading %s took too long", path.Base(name))
 	}
+}
+
+// cutRunes keeps at most n bytes of s without cutting a character.
+func cutRunes(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }

@@ -3,12 +3,15 @@ package extract_test
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/extract"
+	"github.com/mudler/LocalAI/core/services/studio/extract/extracttest"
 )
 
 func TestExtract(t *testing.T) {
@@ -76,6 +79,55 @@ var _ = Describe("Extract", func() {
 		_, st, err := extract.Extract(ctx, "scan.pdf", blankPDF())
 		Expect(err).To(MatchError(extract.ErrNoText))
 		Expect(st.Kind).To(Equal(extract.KindPages))
+	})
+
+	It("reads a PDF page by page and says where each page starts", func() {
+		text, st, err := extract.Extract(ctx, "report.pdf", extracttest.TextPDF("Quarterly summary", "Budget overview\nTravel costs rose"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.Kind).To(Equal(extract.KindPages))
+		Expect(st.Pages).To(Equal(2))
+		Expect(text).To(HavePrefix("## Page 1\nQuarterly summary"))
+		Expect(text).To(ContainSubstring("## Page 2\nBudget overview"))
+		Expect(st.Sections).To(HaveLen(2))
+		lines := strings.Split(text, "\n")
+		for _, sec := range st.Sections {
+			Expect(sec.Kind).To(Equal(extract.SectionPage))
+			Expect(lines[sec.Line-1]).To(Equal("## Page " + sec.Name))
+		}
+		travel := slices.IndexFunc(lines, func(l string) bool { return strings.Contains(l, "Travel") }) + 1
+		at, ok := extract.SectionAt(st.Sections, travel)
+		Expect(ok).To(BeTrue())
+		Expect(at.Name).To(Equal("2"))
+	})
+
+	It("stops a PDF at the page and text limits", func() {
+		data := extracttest.TextPDF("one", "two", "three")
+		text, st, err := extract.ExtractWith(ctx, "long.pdf", data, extract.Limits{Pages: 2, MaxBytes: 1 << 20})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.Truncated).To(BeTrue())
+		Expect(st.Pages).To(Equal(2))
+		Expect(text).NotTo(ContainSubstring("three"))
+		Expect(text).To(HaveSuffix("[The text stops here: only the first 2 of 3 pages were read.]"))
+
+		text, st, err = extract.ExtractWith(ctx, "long.pdf", extracttest.TextPDF("alpha beta gamma delta", "never read"), extract.Limits{Text: 10, MaxBytes: 1 << 20})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.Truncated).To(BeTrue())
+		Expect(text).NotTo(ContainSubstring("never"))
+		Expect(text).To(ContainSubstring("the document has more than 10 characters"))
+	})
+
+	It("names the sheets and slides where they start", func() {
+		data := extracttest.SharedWorkbook(map[string][][]string{
+			"Budget": {{"item", "cost"}, {"rent", "900"}},
+			"Notes":  {{"call the bank"}},
+		}, "Budget", "Notes")
+		text, st, err := extract.Extract(ctx, "book.xlsx", data)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(text).To(ContainSubstring("call the bank"))
+		Expect(st.Sections).To(Equal([]extract.Section{{Kind: extract.SectionSheet, Name: "Budget", Line: 1}, {Kind: extract.SectionSheet, Name: "Notes", Line: 5}}))
+		_, st, err = extract.Extract(ctx, "deck.pptx", pptx([2]string{"A", "x"}, [2]string{"B", "y"}))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(st.Sections).To(Equal([]extract.Section{{Kind: extract.SectionSlide, Name: "1", Line: 1}, {Kind: extract.SectionSlide, Name: "2", Line: 4}}))
 	})
 
 	It("refuses what it cannot read", func() {
