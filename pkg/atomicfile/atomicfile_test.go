@@ -59,3 +59,22 @@ var _ = Describe("Write", func() {
 		Expect(string(got)).To(Equal("new"))
 	})
 })
+
+var _ = Describe("WriteJSON", func() {
+	It("writes the value as JSON", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "state.json")
+		Expect(atomicfile.WriteJSON(path, map[string]int{"rev": 3}, 0o600)).To(Succeed())
+		got, err := os.ReadFile(path)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(got)).To(Equal(`{"rev":3}`))
+	})
+
+	It("leaves the old file when the value cannot be encoded", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "state.json")
+		Expect(atomicfile.Write(path, []byte("old"), 0o600)).To(Succeed())
+		Expect(atomicfile.WriteJSON(path, make(chan int), 0o600)).ToNot(Succeed())
+		got, err := os.ReadFile(path)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(got)).To(Equal("old"))
+	})
+})

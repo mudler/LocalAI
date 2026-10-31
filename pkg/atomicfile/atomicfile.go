@@ -4,6 +4,7 @@
 package atomicfile
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,6 +23,15 @@ type Options struct {
 func Write(path string, data []byte, perm os.FileMode) error {
 	_, err := WriteWith(path, data, perm, Options{})
 	return err
+}
+
+// WriteJSON replaces the file at path with v encoded as JSON, as Write does.
+func WriteJSON(path string, v any, perm os.FileMode) error {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	return Write(path, raw, perm)
 }
 
 // WriteWith is Write with options. renamed tells whether the new content is

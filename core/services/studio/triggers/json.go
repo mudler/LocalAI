@@ -65,11 +65,7 @@ func (s *jsonStore) save() error {
 	if s.path == "" {
 		return nil
 	}
-	raw, err := json.Marshal(s.d)
-	if err != nil {
-		return err
-	}
-	return atomicfile.Write(s.path, raw, 0o600)
+	return atomicfile.WriteJSON(s.path, s.d, 0o600)
 }
 
 func utc(t time.Time) time.Time {

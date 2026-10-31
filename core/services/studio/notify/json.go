@@ -66,11 +66,7 @@ func (s *jsonStore) save() error {
 	if s.path == "" {
 		return nil
 	}
-	raw, err := json.Marshal(s.st)
-	if err != nil {
-		return err
-	}
-	return atomicfile.Write(s.path, raw, 0o600)
+	return atomicfile.WriteJSON(s.path, s.st, 0o600)
 }
 
 // change runs f on a copy of the state and keeps the copy only when it saved.

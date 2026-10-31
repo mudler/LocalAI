@@ -73,11 +73,7 @@ func (s *jsonStore) save() error {
 	}
 	sort.Slice(d.Tasks, func(i, k int) bool { return d.Tasks[i].ID < d.Tasks[k].ID })
 	sort.Slice(d.Jobs, func(i, k int) bool { return d.Jobs[i].ID < d.Jobs[k].ID })
-	raw, err := json.Marshal(d)
-	if err != nil {
-		return err
-	}
-	return atomicfile.Write(s.path, raw, 0o600)
+	return atomicfile.WriteJSON(s.path, d, 0o600)
 }
 
 func (s *jsonStore) PutTask(_ context.Context, t Task) error {

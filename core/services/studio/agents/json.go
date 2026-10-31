@@ -58,11 +58,7 @@ func (s *jsonStore) save() error {
 		all = append(all, a)
 	}
 	sort.Slice(all, func(i, j int) bool { return all[i].ID < all[j].ID })
-	raw, err := json.Marshal(all)
-	if err != nil {
-		return err
-	}
-	return atomicfile.Write(s.path, raw, 0o600)
+	return atomicfile.WriteJSON(s.path, all, 0o600)
 }
 
 func (s *jsonStore) Put(_ context.Context, a Agent) error {
