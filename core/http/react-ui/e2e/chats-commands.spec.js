@@ -155,6 +155,25 @@ test.describe('Chat that cannot run commands', () => {
   })
 })
 
+test.describe('A chat that switched commands off', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+
+  test('shows no notice and no chip: the switch in the Tools menu says it', async ({ page }) => {
+    await stubChat(page, () => ({ addons: [], commands: 'switched_off' }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({
+      json: {
+        builtins: [{ group: 'shell', tools: ['bash'], off: true, usable: true, provider: 'sandbox', providers: { bash: 'sandbox' } }],
+        addons: [], servers: [], connectors: [], off: [],
+      },
+    }))
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByRole('switch', { name: 'Run commands' })).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+    await expect(page.getByTestId('chat-commands-chip')).toHaveCount(0)
+  })
+})
+
 test.describe('A tool whose add-on cannot serve the chat', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 

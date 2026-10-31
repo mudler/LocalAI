@@ -29,6 +29,17 @@ import { SLASH_ACTIONS } from '../home/homeActions'
 
 // The opt-in group of built-in tools that lets a chat call the saved agents.
 const SAVED_AGENTS = 'saved_agents'
+// The group of bash, whoever serves it, and the group of spawn_agent.
+const SHELL = 'shell'
+const SUBAGENTS = 'subagents'
+// The order of the built-in groups in the Tools menu: what a chat does with
+// the person's machine and files first. A group the server adds later goes
+// last, in the server's order.
+const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', 'collections', SUBAGENTS, SAVED_AGENTS, 'triggers']
+const builtinRank = (g) => {
+  const i = BUILTIN_ORDER.indexOf(g)
+  return i < 0 ? BUILTIN_ORDER.length : i
+}
 
 // /model and /models take a model name: the menu suggests the installed chat
 // models as the person types.
@@ -108,6 +119,21 @@ export default function ChatComposer({
     return { [mixed ? 'note' : 'chip']: note, title: tc('tools.builtinByAddon', { tools: (b.tools || []).join(', '), provider: mixed ? note : b.provider }) }
   }
 
+  // Who runs the commands of the shell group, as a short chip, and on the
+  // line under it whether they are isolated (a warning when they are not). When nothing can run
+  // them, the row says why in the notice's words.
+  const shellNote = (b) => {
+    if (b.usable === false) return commands.info ? { reason: tc(`tools.commands.${commands.info.textKey}`, { reason: commands.info.reason }) } : {}
+    const by = (b.providers || {}).bash || b.provider
+    if (by === 'builtin') return { chip: tc('tools.shell.machine'), note: tc('tools.sandbox.host'), warn: true }
+    if (by === SANDBOX_ADDON) {
+      return sandbox?.state === 'host'
+        ? { chip: tc('tools.provider.sandbox'), note: tc('tools.sandbox.host'), warn: true }
+        : { chip: tc('tools.provider.sandbox'), note: tc('tools.shell.isolated') }
+    }
+    return by ? { chip: tc('tools.servedBy', { provider: by }) } : {}
+  }
+
   // What a row of the model list says: whether it is loaded, what it can do
   // and, where the server can estimate it, how it fits this machine.
   const describeModel = (name, warm) => {
@@ -159,11 +185,11 @@ export default function ChatComposer({
     {
       // The tools LocalAI serves itself, such as web search: one switch per group.
       key: 'builtins', title: tc('tools.builtins'), icon: 'globe', onSet: switches.setBuiltinsOn,
-      rows: switches.builtins.map((b) => ({
+      rows: [...switches.builtins].sort((a, b) => builtinRank(a.group) - builtinRank(b.group)).map((b) => ({
         key: `b-${b.group}`, id: b.group, optIn: !!b.opt_in, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
         title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
         on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
-        ...builtinNote(b),
+        ...(b.group === SHELL ? shellNote(b) : builtinNote(b)),
       })),
     },
     {
@@ -203,7 +229,8 @@ export default function ChatComposer({
   // composer knows added to the page's context.
   const { t: th } = useTranslation('home')
   const savedGroup = switches.builtins.find((b) => b.group === SAVED_AGENTS)
-  const savedAgentsOn = !!savedGroup && !savedGroup.off && savedGroup.usable !== false
+  const subGroup = switches.builtins.find((b) => b.group === SUBAGENTS)
+  const savedAgentsOn = !!savedGroup && !savedGroup.off && savedGroup.usable !== false && !subGroup?.off
   const slashCtx = useMemo(() => ({
     ...(slashContext || {}),
     skills: switches.skills, agents, canAgents: agents.length > 0 && !!savedGroup, savedAgentsOn,

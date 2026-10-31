@@ -310,7 +310,12 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Agentes guardados",
-      "triggers": "Disparadores"
+      "triggers": "Disparadores",
+      "shell": "Ejecutar comandos",
+      "files": "Tus archivos",
+      "media": "Imágenes y audio",
+      "collections": "Colecciones",
+      "subagents": "Subagentes"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -321,7 +326,11 @@
       "starting": "El Sandbox se está iniciando. LocalAI vuelve a comprobarlo en {{seconds}} s."
     },
     "fallbackBuiltin": "{{addon}} reemplaza {{tool}} pero ahora no puede atender este chat (detenido, desactivado aquí o no concedido): se usa {{tool}} integrada.",
-    "fallbackNone": "{{addon}} reemplaza {{tool}} pero ahora no puede atender este chat, y {{tool}} integrada está desactivada: este chat no tiene {{tool}}."
+    "fallbackNone": "{{addon}} reemplaza {{tool}} pero ahora no puede atender este chat, y {{tool}} integrada está desactivada: este chat no tiene {{tool}}.",
+    "shell": {
+      "machine": "Esta máquina",
+      "isolated": "Los comandos se ejecutan aislados"
+    }
   },
   "vision": {
     "describedBy": "Este modelo no puede ver imágenes. Elige otro modelo o la imagen la describirá {{model}}.",

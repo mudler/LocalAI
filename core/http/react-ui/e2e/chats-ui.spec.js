@@ -715,6 +715,116 @@ test.describe('Chat tools menu: built-in groups', () => {
   })
 })
 
+// The groups a chat can switch off besides the web: the shell, the files, the
+// image and audio helpers, the collections and the sub-agents.
+test.describe('Chat tools menu: every group of built-in tools', () => {
+  // Screenshots for review: TOOL_GROUPS_SHOT_DIR, with TOOL_GROUPS_THEME
+  // (light or dark) and TOOL_GROUPS_PHONE=1 for the size of a phone.
+  const SHOTS = process.env.TOOL_GROUPS_SHOT_DIR
+  const THEME = process.env.TOOL_GROUPS_THEME
+  const PHONE = !!process.env.TOOL_GROUPS_PHONE
+  const shot = async (page, name) => {
+    if (!SHOTS) return
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: `${SHOTS}/${name}-${THEME || 'default'}-${PHONE ? 'phone' : 'desktop'}.png` })
+  }
+  test.beforeEach(async ({ page }) => {
+    await mockChat(page)
+    if (THEME) await page.addInitScript((t) => localStorage.setItem('localai-theme', t), THEME)
+    if (PHONE) await page.setViewportSize({ width: 390, height: 844 })
+  })
+
+  async function stubGroups(page, { shell = 'sandbox', commands = { commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' } } = {}) {
+    const state = {
+      builtins: [
+        { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' } },
+        { group: 'triggers', tools: ['propose_trigger'], off: false, usable: true, provider: 'builtin', providers: {} },
+        { group: 'files', tools: ['list_files', 'read_file', 'write_file'], off: false, usable: true, provider: 'builtin', providers: {} },
+        { group: 'media', tools: ['describe_image', 'transcribe_audio'], off: false, usable: true, provider: 'builtin', providers: {} },
+        { group: 'collections', tools: ['list_collections', 'search_collection'], off: false, usable: false, reason: 'collections are not enabled for this account', provider: 'builtin', providers: {} },
+        { group: 'subagents', tools: ['spawn_agent'], off: false, usable: true, provider: 'builtin', providers: {} },
+        { group: 'shell', tools: ['bash'], off: false, usable: shell !== null, reason: shell === null ? 'nothing here runs commands' : undefined, provider: shell || 'builtin', providers: { bash: shell || 'builtin' } },
+      ],
+      puts: [],
+    }
+    const tools = () => ({ addons: [], servers: [], connectors: [], off: [], builtins: state.builtins })
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [], ...commands } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: tools() }))
+    await page.route('**/api/chats/c1/builtins', route => {
+      const body = route.request().postDataJSON()
+      state.puts.push(body)
+      state.builtins = state.builtins.map(b => ({ ...b, off: b.opt_in ? !(body.on || []).includes(b.group) : body.off.includes(b.group) }))
+      return route.fulfill({ json: tools() })
+    })
+    return state
+  }
+  const open = async (page) => {
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-tools-menu')).toBeVisible()
+  }
+  const sw = (page, name) => page.getByTestId('chat-tools-menu').getByRole('switch', { name, exact: true })
+  const row = (page, name) => page.getByTestId('chat-tools-item').filter({ has: page.getByRole('switch', { name, exact: true }) })
+
+  test('lists one switch per group, the shell first with who runs the commands', async ({ page }) => {
+    await stubGroups(page)
+    await open(page)
+    const names = await page.getByTestId('chat-tools-group-builtins').locator('.swl-row__name').allTextContents()
+    expect(names).toEqual(['Run commands', 'Your files', 'Web', 'Images and audio', 'Collections', 'Sub-agents', 'Triggers'])
+    await expect(row(page, 'Run commands').getByTestId('chat-tools-note')).toHaveText(['Sandbox', 'Commands run isolated'])
+    await expect(row(page, 'Your files')).toHaveAttribute('title', 'list_files, read_file, write_file · built-in')
+    await expect(sw(page, 'Collections')).toBeDisabled()
+    await expect(sw(page, 'Collections')).toHaveAccessibleDescription('collections are not enabled for this account')
+    await shot(page, 'groups-all')
+  })
+
+  test('switching a group off and on sends the list of groups that are off', async ({ page }) => {
+    const state = await stubGroups(page)
+    await open(page)
+    await sw(page, 'Your files').click()
+    await expect.poll(() => state.puts.at(-1)).toEqual({ off: ['files'] })
+    await expect(sw(page, 'Your files')).toHaveAttribute('aria-checked', 'false')
+    await shot(page, 'groups-files-off')
+    await sw(page, 'Run commands').click()
+    await expect.poll(() => state.puts.at(-1)).toEqual({ off: ['files', 'shell'] })
+    await expect(sw(page, 'Run commands')).toHaveAttribute('aria-checked', 'false')
+    await expect(row(page, 'Run commands').getByTestId('chat-tools-note').first()).toHaveText('Sandbox')
+    await shot(page, 'groups-shell-off')
+    await sw(page, 'Your files').click()
+    await expect.poll(() => state.puts.at(-1)).toEqual({ off: ['shell'] })
+  })
+
+  test('Disable all switches every group off and Select all back on, but the one that cannot be used', async ({ page }) => {
+    const state = await stubGroups(page)
+    await open(page)
+    await page.getByTestId('chat-tools-none').click()
+    await expect.poll(() => state.puts.at(-1)?.off?.slice().sort()).toEqual(['files', 'media', 'shell', 'subagents', 'triggers', 'web'])
+    await expect(sw(page, 'Sub-agents')).toHaveAttribute('aria-checked', 'false')
+    await page.getByTestId('chat-tools-all').click()
+    await expect.poll(() => state.puts.at(-1)).toEqual({ off: [] })
+    await expect(sw(page, 'Run commands')).toHaveAttribute('aria-checked', 'true')
+    await expect(sw(page, 'Collections')).toHaveAttribute('aria-checked', 'false')
+  })
+
+  test('the shell row says commands run on this machine, with the warning', async ({ page }) => {
+    await stubGroups(page, { shell: 'builtin', commands: { commands: 'available', commands_provider: 'builtin', commands_isolation: 'host' } })
+    await open(page)
+    const shell = row(page, 'Run commands')
+    await expect(shell.getByTestId('chat-tools-note').first()).toHaveText('This machine')
+    await expect(shell).toContainText('Commands run directly on this machine, with no isolation')
+    await expect(shell.locator('.swl-row__desc--warn')).toBeVisible()
+  })
+
+  test('the shell row is disabled with the reason when nothing can run commands', async ({ page }) => {
+    await stubGroups(page, { shell: null, commands: { commands: 'none' } })
+    await open(page)
+    await expect(sw(page, 'Run commands')).toBeDisabled()
+    await expect(sw(page, 'Run commands')).toHaveAccessibleDescription('No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.')
+  })
+})
+
 // The whole menu at once: one header with the count and Select all / Disable
 // all, a heading per group with its own pair, and rows the bulk actions leave
 // alone (one that cannot be used, the opt-in saved agents on Select all).
