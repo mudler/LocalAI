@@ -25,12 +25,14 @@ import (
 // set in the handler, before the global middleware runs its "set if empty"
 // check, so the global policy stays unchanged for the rest of the app.
 //
-// The UI embeds the route in an iframe with sandbox="allow-scripts" and
-// without allow-same-origin. The frame gets an opaque origin: the page cannot
-// read cookies, storage or tokens of the app, and cannot call the API with
-// the user's session. Only script hosts are widened. Everything else stays
-// restricted; frame-ancestors keeps other sites from embedding the route.
+// The sandbox directive also applies when someone opens a capability URL as
+// a top-level page. It gives model-written HTML an opaque origin, so it cannot
+// read the app's cookies or storage or call the API with the user's session.
+// The UI's iframe carries the same restriction. Scripts remain available for
+// interactive previews; frame-ancestors keeps other sites from embedding the
+// route.
 const canvasPreviewCSP = "default-src 'none'; " +
+	"sandbox allow-scripts; " +
 	"script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: " +
 	"https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com " +
 	"https://cdn.tailwindcss.com https://code.jquery.com; " +

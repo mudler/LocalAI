@@ -48,6 +48,7 @@ var _ = Describe("Canvas preview", func() {
 			Expect(csp).To(ContainSubstring(host))
 		}
 		Expect(csp).To(ContainSubstring("default-src 'none'"))
+		Expect(csp).To(ContainSubstring("sandbox allow-scripts"))
 		Expect(csp).To(ContainSubstring("frame-ancestors 'self'"))
 		Expect(out.Header().Values("Content-Security-Policy")).To(HaveLen(1))
 	})
