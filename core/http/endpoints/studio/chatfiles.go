@@ -12,7 +12,7 @@ import (
 
 // ChatFiles lists the files of a chat.
 // @Summary List the files of a chat.
-// @Description The files that belong to one conversation: the files in its folder under Chats (attached by the user, or written there), and the files its turns created or changed elsewhere in the user's home folder. Paths are the current ones, so they follow a rename of the chat. The model gets the same list in its prompt at every turn. A files event on the chat's event stream says that the list may have changed.
+// @Description The files that belong to one conversation: the files in its folder under Chats (attached by the user, or written there), and the files its turns created or changed elsewhere in the user's home folder. Paths are the current ones, so they follow a rename of the chat. Each file has a kind: deliverable, or working for a script, a log or a draft the chat made on the way (in its work folder Chats/<chat>/work, or a helper file elsewhere). The model gets the same list in its prompt at every turn. A files event on the chat's event stream says that the list may have changed.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsChatFileList "The files of the chat"
@@ -29,7 +29,7 @@ func (h *Handlers) ChatFiles(c echo.Context) error {
 	for _, f := range cf.Files {
 		item := schema.ChatsChatFile{
 			Name: f.Name, Path: homePath(f.GuestPath), GuestPath: f.GuestPath, Size: f.Size, Mime: f.Mime,
-			Origin: string(f.Origin), Changed: f.Changed, Turn: f.Turn, Media: f.Media,
+			Origin: string(f.Origin), Changed: f.Changed, Turn: f.Turn, Media: f.Media, Kind: f.Kind,
 		}
 		if !f.At.IsZero() {
 			at := f.At.UTC()

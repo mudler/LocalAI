@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // maxNameBytes is the workspace limit for one name.
@@ -22,10 +23,10 @@ const (
 	// UsersRoot holds one home folder per principal: /users/<principal>.
 	UsersRoot = "/users"
 	// ChatsDir is the folder of a home folder that holds chat uploads.
-	ChatsDir = "Chats"
+	ChatsDir = workfiles.ChatsDir
 	// SettingsDir is the folder of a home folder that holds the settings
 	// files LocalAI reads (persona, profile, shortcuts, Home, look).
-	SettingsDir = "LocalAI"
+	SettingsDir = workfiles.SettingsDir
 	// GuestRoot is the working directory of every tool in the guest.
 	GuestRoot = "/workspace"
 	// GuestHome is the mount name of the home folder: /workspace/home.

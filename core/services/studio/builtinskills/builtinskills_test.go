@@ -46,6 +46,14 @@ var _ = Describe("the built-in skills", func() {
 		Expect(len(data)).To(BeNumerically("<", 16*1024), "the skill grew past its size budget")
 	})
 
+	It("sends the helper scripts of the skills that make files to the chat's work folder", func() {
+		for _, n := range []string{"docx", "xlsx", "pptx", "pdf", "localai-apps", "localai-workspace"} {
+			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")
+			Expect(err).NotTo(HaveOccurred(), n)
+			Expect(string(data)).To(ContainSubstring("the chat's work folder that the prompt names (`/workspace/home/Chats/<chat>/work/`)"), n)
+		}
+	})
+
 	It("marks the office skills as needing command execution, and only them", func() {
 		for _, n := range names {
 			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")

@@ -410,6 +410,13 @@ type ApplicationConfig struct {
 	// each chat still has to switch it on. Read at each turn.
 	DisableChatsSavedAgents bool
 
+	// DisableChatsWorkFolder stops the steering of the chats' working files:
+	// the prompt no longer names the chat's work folder (Chats/<chat>/work)
+	// for scripts, logs and drafts, and a helper file saved elsewhere gets no
+	// nudge. Stored as the negation (chats_work_folder), so it is on by
+	// default. Read at each turn.
+	DisableChatsWorkFolder bool
+
 	// DisableChatsIndexFiles stops the reading of the text of PDF, Word,
 	// Excel and PowerPoint files in the chats' files, which search_files and
 	// the Files page search. Stored as the negation (chats_index_files), so

@@ -173,6 +173,10 @@ type Deps struct {
 	// switched it on may call the user's saved agents as sub-agents. Read at
 	// each turn. Nil: on.
 	SavedAgentsOn func() bool
+	// WorkFolderOn is the setting chats_work_folder: whether the prompt of a
+	// chat names its work folder for scripts and other working files, and a
+	// helper file saved elsewhere gets a nudge. Read at each turn. Nil: on.
+	WorkFolderOn func() bool
 	// IsAdmin says whether a user is an administrator. Nil: everyone is (a
 	// server without accounts).
 	IsAdmin func(ctx context.Context, user string) bool
@@ -311,6 +315,8 @@ type Service struct {
 	closed   chan struct{}
 
 	feed *wsfeed.Feed // changes of the home folders; nil without files
+
+	nudged nudges // the turns whose results said where helper files go
 
 	shared *sharedfolders.Service // the folders an administrator shares
 

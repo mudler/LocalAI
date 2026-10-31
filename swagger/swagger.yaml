@@ -3136,6 +3136,14 @@ definitions:
         type: boolean
       guest_path:
         type: string
+      kind:
+        description: |-
+          Kind is "deliverable" or "working". A working file is one the chat
+          made on the way: anything in a chat's work folder (Chats/<chat>/work),
+          or a script, a log or a temporary file elsewhere (by extension, or in
+          a folder named scripts, tmp or scratch). Pages, the LocalAI folder,
+          the shared folders and the files you attached are deliverables.
+        type: string
       media:
         description: |-
           Media is true for an attachment that the model received as an image
@@ -4707,6 +4715,11 @@ definitions:
     type: object
   schema.ChatsToolCard:
     properties:
+      file_kind:
+        description: |-
+          FileKind is the kind, "deliverable" or "working", of the file that a
+          files_change card names in its id (see ChatsChatFile.Kind).
+        type: string
       files:
         description: |-
           Files are the files in your home that a command (bash) created,
@@ -4772,6 +4785,9 @@ definitions:
     type: object
   schema.ChatsToolFile:
     properties:
+      kind:
+        description: Kind is "deliverable" or "working" (see ChatsChatFile.Kind).
+        type: string
       op:
         description: Op is created, changed or deleted.
         type: string
@@ -12136,9 +12152,11 @@ paths:
       description: 'The files that belong to one conversation: the files in its folder
         under Chats (attached by the user, or written there), and the files its turns
         created or changed elsewhere in the user''s home folder. Paths are the current
-        ones, so they follow a rename of the chat. The model gets the same list in
-        its prompt at every turn. A files event on the chat''s event stream says that
-        the list may have changed.'
+        ones, so they follow a rename of the chat. Each file has a kind: deliverable,
+        or working for a script, a log or a draft the chat made on the way (in its
+        work folder Chats/<chat>/work, or a helper file elsewhere). The model gets
+        the same list in its prompt at every turn. A files event on the chat''s event
+        stream says that the list may have changed.'
       parameters:
       - description: conversation id
         in: path

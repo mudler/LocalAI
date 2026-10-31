@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // Limits of a call.
@@ -53,7 +54,7 @@ const Description = "Run a shell script with bash directly on this machine, with
 	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use relative paths. " +
 	"What it changes in the home and the writable shared folders is saved to the user's files; anything else is lost. " +
 	"It can read what the server can read and reach the internet and the local network. " +
-	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800)."
+	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800). " + workfiles.ToolHint
 
 // Options configures a Runner.
 type Options struct {

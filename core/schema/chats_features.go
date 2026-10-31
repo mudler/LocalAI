@@ -253,6 +253,12 @@ type ChatsChatFile struct {
 	// Media is true for an attachment that the model received as an image
 	// or a video inside its message.
 	Media bool `json:"media,omitempty"`
+	// Kind is "deliverable" or "working". A working file is one the chat
+	// made on the way: anything in a chat's work folder (Chats/<chat>/work),
+	// or a script, a log or a temporary file elsewhere (by extension, or in
+	// a folder named scripts, tmp or scratch). Pages, the LocalAI folder,
+	// the shared folders and the files you attached are deliverables.
+	Kind string `json:"kind"`
 }
 
 // ChatsChatFileList is the file index of a chat.

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
 // FileOrigin says how a file came into a chat.
@@ -56,6 +57,10 @@ type ChatFile struct {
 	// the time of that change.
 	Turn int
 	At   time.Time
+	// Kind is workfiles.Deliverable or workfiles.Working: a working file is
+	// a script, a log or a draft the chat made on the way, which the
+	// interface shows apart. A file the user attached is a deliverable.
+	Kind string
 }
 
 // ChatFiles is the file index of a chat.
@@ -176,6 +181,9 @@ type fileIndex struct {
 	entries []Entry
 	byID    map[int64]*ChatFile
 	stale   []string
+	// noFolder is set when the chat has a folder name but no folder yet: the
+	// name is kept for the work folder, which is made on first use.
+	noFolder bool
 }
 
 // agentNode is what the chat's own change sets did to one node.
@@ -315,6 +323,7 @@ func (ix *fileIndex) walkFolder(ctx context.Context, folder string, agent map[in
 		kids, err := ix.ws.List(ctx, ix.user, dir)
 		if err != nil {
 			if errors.Is(err, workspace.ErrNotFound) {
+				ix.noFolder = ix.noFolder || dir == folder
 				continue
 			}
 			return fmt.Errorf("session: list the chat folder: %w", err)
@@ -407,6 +416,10 @@ func (ix *fileIndex) findStale(ctx context.Context, rec ChatRecord) error {
 func (ix *fileIndex) result(rec ChatRecord) ChatFiles {
 	out := ChatFiles{Files: make([]ChatFile, 0, len(ix.byID)), Stale: ix.stale}
 	for _, f := range ix.byID {
+		f.Kind = workfiles.Deliverable
+		if f.Origin != FileFromUser {
+			f.Kind = workfiles.Kind(f.GuestPath)
+		}
 		out.Files = append(out.Files, *f)
 	}
 	sort.Slice(out.Files, func(i, j int) bool {
@@ -416,7 +429,7 @@ func (ix *fileIndex) result(rec ChatRecord) ChatFiles {
 		}
 		return a.Path < b.Path
 	})
-	if rec.Folder != "" {
+	if rec.Folder != "" && !ix.noFolder {
 		out.Folder = GuestRoot + "/" + GuestHome + "/" + ChatsDir + "/" + rec.Folder + "/"
 	}
 	return out

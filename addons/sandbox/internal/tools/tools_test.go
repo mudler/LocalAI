@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/tools"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -184,6 +185,18 @@ var _ = Describe("Sandbox tools", func() {
 		for _, want := range []string{"curl", "pip", "npm", "git", "proxy", "web_fetch", "web_search", "do not get around it"} {
 			Expect(d).To(ContainSubstring(want))
 		}
+	})
+
+	It("tells the model where helper files go in a bash description that fits the manifest", func() {
+		var bash *contract.ToolDefinition
+		for _, d := range tools.Definitions() {
+			if d.Name == "bash" {
+				bash = &d
+			}
+		}
+		Expect(bash).NotTo(BeNil())
+		Expect(bash.Description).To(ContainSubstring(workfiles.ToolHint))
+		Expect(len(bash.Description)).To(BeNumerically("<=", contract.MaxToolDescriptionLen))
 	})
 
 	It("declares the tools of the runtime in the manifest", func() {
