@@ -52,9 +52,14 @@ type HostExecDecision struct {
 	Decision string `json:"decision"`
 }
 
-// ErrHostExecDecision means the answer is not one the card offers, or the
-// person who sent it may not allow commands on this machine.
+// ErrHostExecDecision means the person who sent the answer may not allow
+// commands on this machine.
 var ErrHostExecDecision = errors.New("studio: only an administrator can allow commands on this machine")
+
+// ErrHostExecBadDecision means the answer names no card or is not one the card
+// offers. It is a bad request, not a refusal: an administrator who sends it
+// is not denied anything.
+var ErrHostExecBadDecision = errors.New("studio: the answer must name the card and be once or deny")
 
 // ErrHostExecExpired means the card has nobody waiting on it: the turn that
 // asked ended (or its frontend died), or a newer card replaced it. The
@@ -287,7 +292,7 @@ func (s *Service) HostExecDecide(ctx context.Context, user, conv, id, decision s
 		return err
 	}
 	if id == "" || len(id) > 64 {
-		return ErrHostExecDecision
+		return ErrHostExecBadDecision
 	}
 	switch decision {
 	case HostExecDeny:
@@ -296,7 +301,7 @@ func (s *Service) HostExecDecide(ctx context.Context, user, conv, id, decision s
 			return ErrHostExecDecision
 		}
 	default:
-		return ErrHostExecDecision
+		return ErrHostExecBadDecision
 	}
 	// An answer to a card nobody waits on reaches no one: say so, rather
 	// than a success the command never follows.

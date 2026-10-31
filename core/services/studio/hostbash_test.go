@@ -248,6 +248,14 @@ var _ = Describe("the built-in bash on this machine", func() {
 			Expect(c.svc.HostExecDecide(context.Background(), alice, id, "x", studio.HostExecOnce)).NotTo(Succeed(), "another user's chat")
 		})
 
+		It("calls an answer with no card id or an unknown decision a bad request, not a refusal", func() {
+			c := newHostChat("ask", nil)
+			id := create(c.svc, alice)
+			Expect(c.svc.HostExecDecide(context.Background(), alice, id, "", studio.HostExecOnce)).To(MatchError(studio.ErrHostExecBadDecision))
+			Expect(c.svc.HostExecDecide(context.Background(), alice, id, "x", "always")).To(MatchError(studio.ErrHostExecBadDecision))
+			Expect(c.svc.HostExecDecide(context.Background(), bob, id, "", "")).NotTo(Succeed(), "another user's chat")
+		})
+
 		It("is not given to a sub-agent, which nobody watches; with the setting on it is", func() {
 			c := newHostChat("ask", nil)
 			id := create(c.svc, alice)
