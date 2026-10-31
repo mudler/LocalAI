@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
 )
 
 var (
@@ -271,5 +272,30 @@ var _ = Describe("The indexer", func() {
 		Expect(second.Pass(ctx)).To(Succeed())
 		Expect(r.reads.Load()).To(Equal(int64(1)))
 		Expect(r.find("/", "cluster")).To(ConsistOf(n.Path))
+	})
+})
+
+var _ = Describe("The indexer on the JSON stores of a server without a database", func() {
+	It("follows uploads, folder moves and deletes in the JSON workspace journal", func() {
+		blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
+		Expect(err).NotTo(HaveOccurred())
+		ws, err := jsonstore.New(filepath.Join(GinkgoT().TempDir(), "ws"), blobs, jsonstore.Options{Admin: admin.Principal})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = ws.Close() })
+		st, err := textindex.NewJSON(filepath.Join(GinkgoT().TempDir(), "textindex"))
+		Expect(err).NotTo(HaveOccurred())
+		r := &rig{ws: ws, store: st}
+		ix := r.indexer(textindex.Options{}, nil)
+		a := r.put("/home/alice/in/a.pdf", extracttest.TextPDF("json words"))
+		b := r.put("/home/alice/in/b.xlsx", extracttest.InlineWorkbook(map[string][][]string{"S": {{"sheet words"}}}, "S"))
+		Expect(ix.Pass(ctx)).To(Succeed())
+		Expect(r.find("/home/alice", "words")).To(ConsistOf(a.Path, b.Path))
+
+		_, err = ws.Move(ctx, admin, "/home/alice/in", "/home/alice/out")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ws.Delete(ctx, admin, "/home/alice/out/b.xlsx")).To(Succeed())
+		Expect(ix.Pass(ctx)).To(Succeed())
+		Expect(r.find("/home/alice", "words")).To(ConsistOf("/home/alice/out/a.pdf"))
+		r.gone(b.ID)
 	})
 })
