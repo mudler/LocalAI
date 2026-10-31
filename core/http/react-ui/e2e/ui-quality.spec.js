@@ -136,6 +136,31 @@ test.describe('Keyboard', () => {
     await expect(page.getByRole('listbox', { name: 'Actions' })).toBeHidden()
   })
 
+  test('Home stays on screen and keeps the typing while its widgets load their strings', async ({ page }) => {
+    // A widget reads the pages strings, which load only when one first shows.
+    // Their load is held until the menu is open, so the composer is in use
+    // while it ends.
+    await mockHome(page)
+    const doc = (name, data) => ({ name, path: `/${name}.json`, exists: true, version: 1, data, valid: true, errors: [] })
+    await page.route('**/api/chats/wellknown/home', route => route.fulfill({ json: doc('home', { widgets: [{ id: 'notes', type: 'list', title: 'Notes', source: 'data/w-notes.json' }] }) }))
+    await page.route('**/api/chats/wellknown/widget-data*', route => route.fulfill({ json: doc('widget-data', { items: [{ label: 'Buy stamps' }] }) }))
+    let release
+    const held = new Promise(resolve => { release = resolve })
+    let asked = false
+    await page.route('**/locales/en/pages.json', async route => { asked = true; await held; await route.continue() })
+
+    await page.goto('/app')
+    await expect.poll(() => asked).toBe(true)
+    const box = page.getByRole('combobox', { name: 'Message' })
+    await box.focus()
+    await page.keyboard.type('/')
+    await expect(page.getByRole('listbox', { name: 'Actions' })).toBeVisible()
+    release()
+    await expect(page.getByText('Buy stamps')).toBeVisible()
+    await expect(box).toBeFocused()
+    await expect(box).toHaveValue('/')
+  })
+
   test('the delete dialog holds the focus and Escape cancels it', async ({ page }) => {
     await page.goto('/app/skills')
     const r = await page.request.post('/api/chats/skills', { data: { layer: 'personal', name: `kb-${Date.now().toString(36)}`, description: 'x', body: 'y' } })
