@@ -8497,7 +8497,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "The answer was sent to the running turn"
+                        "description": "The answer was stored with the card and sent to the running turn"
                     },
                     "400": {
                         "description": "The request is not valid",
@@ -8513,6 +8513,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The card was answered already with the other answer (already_answered); the same answer again is 204",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }

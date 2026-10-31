@@ -10,7 +10,8 @@ import (
 
 // The two consent cards of a chat, the network card of the Sandbox and the
 // card of the built-in bash, share one rule for when a card still has
-// someone waiting on it. Both are stored in the chat record, which every
+// someone waiting on it, and one way to wait for the answer (listenConsent
+// and waitConsent). Both are stored in the chat record, which every
 // frontend reads, and both name the turn that asked. A card is live only
 // while that turn holds the chat and its wait has not run out: a frontend
 // that died mid-turn leaves its cards behind, and the next turn, the reaper
@@ -110,5 +111,50 @@ func (s *Service) expireConsents(ctx context.Context, p, conv, run string) {
 	})
 	if changed {
 		s.publishEgress(p, conv, "")
+	}
+}
+
+// consentReread is how often a waiting card is read again from the chat
+// record, so an answer whose bus message was lost costs at most this long.
+const consentReread = 2 * time.Second
+
+// listenConsent subscribes to the control messages of a chat that answer a
+// card. It is called before the card is stored, so no answer is missed; the
+// returned channel wakes the waiter, and cancel ends the subscription.
+func (s *Service) listenConsent(k string, match func(ControlMsg) bool) (wake <-chan struct{}, cancel func()) {
+	ch := make(chan struct{}, 1)
+	cancel = s.bus.OnControl(k, func(m ControlMsg) {
+		if match(m) {
+			select {
+			case ch <- struct{}{}:
+			default:
+			}
+		}
+	})
+	return ch, cancel
+}
+
+// waitConsent waits for the answer of a stored card. The answer is written to
+// the chat record before it is sent on the bus, so the record is the truth:
+// settled reads it, on a bus message (wake) and every consentReread, and says
+// whether the card is settled. It returns false when wait runs out or ctx
+// ends first; ctx.Err() tells the two apart.
+func (s *Service) waitConsent(ctx context.Context, wake <-chan struct{}, wait time.Duration, settled func() bool) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	tick := time.NewTicker(consentReread)
+	defer tick.Stop()
+	for {
+		select {
+		case <-wake:
+		case <-tick.C:
+		case <-timer.C:
+			return false
+		case <-ctx.Done():
+			return false
+		}
+		if settled() {
+			return true
+		}
 	}
 }

@@ -32,9 +32,6 @@ const (
 // DefaultEgressCardWait is how long a connection waits for a card's answer.
 const DefaultEgressCardWait = 60 * time.Second
 
-// egressReread is how often a waiting check reads the card again.
-const egressReread = 2 * time.Second
-
 var (
 	// ErrEgressDecision means the person may not give the answer: a private
 	// target needs an administrator to allow it.
@@ -75,14 +72,8 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 	k := key(owner.Principal, owner.ID)
 	var want atomic.Value
 	want.Store(newID())
-	answer := make(chan string, 1)
-	cancel := s.bus.OnControl(k, func(m ControlMsg) {
-		if m.Egress != nil && m.Egress.ID == want.Load().(string) {
-			select {
-			case answer <- m.Egress.Decision:
-			default:
-			}
-		}
+	wake, cancel := s.listenConsent(k, func(m ControlMsg) bool {
+		return m.Egress != nil && m.Egress.ID == want.Load().(string)
 	})
 	defer cancel()
 
@@ -137,23 +128,15 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 			wait = max(left, 0)
 		}
 	}
-	timer := time.NewTimer(wait)
-	defer timer.Stop()
-	tick := time.NewTicker(egressReread)
-	defer tick.Stop()
-	for {
-		select {
-		case <-answer:
-		case <-tick.C:
-		case <-timer.C:
-			return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
-		case <-ctx.Done():
-			return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
-		}
-		if v, done := s.cardVerdict(ctx, owner, id, op, r); done {
-			return v
-		}
+	var v egress.Verdict
+	if !s.waitConsent(ctx, wake, wait, func() bool {
+		var done bool
+		v, done = s.cardVerdict(ctx, owner, id, op, r)
+		return done
+	}) {
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
 	}
+	return v
 }
 
 var errEgressCardsFull = errors.New("studio: the chat has as many network cards waiting as it may")

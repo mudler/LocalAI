@@ -778,7 +778,8 @@ curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_
 ```
 
 Only an administrator may send `once`; anyone who owns the chat may send
-`deny`. The call's line in the chat then says what happened: run on this
+`deny`. The first answer counts: the same answer again is `204`, the other one
+`409 already_answered`. The call's line in the chat then says what happened: run on this
 machine, allowed once, refused or not answered (card `host_exec`). A call that
 the Sandbox served carries the card `tool_provider` with the add-on's ID.
 
@@ -786,7 +787,10 @@ the Sandbox served carries the card `tool_provider` with the add-on's ID.
 turn, like the Sandbox's sandboxes: your files are the record, and a chat whose
 next turn runs on another frontend gets a new folder there. The waiting card is
 stored in the chat record (state mode: shared), so any frontend can show it;
-its answer travels on the chat bus to the frontend that runs the turn. A card
+its answer is written to the card in the record first and then sent on the
+chat bus to the frontend that runs the turn, which also reads the card again
+every two seconds, so an answer given through any frontend reaches it within
+two seconds even when the bus message is lost, as for the network cards. A card
 left by a frontend that died is not shown and cannot be answered: its turn no
 longer holds the chat, and the reaper, or the next turn, clears it. The
 network cards of the Sandbox follow the same rule. The setting is a runtime

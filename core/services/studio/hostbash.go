@@ -61,6 +61,10 @@ var ErrHostExecDecision = errors.New("studio: only an administrator can allow co
 // command did not run, and no answer can run it now.
 var ErrHostExecExpired = errors.New("studio: the card expired; the command did not run")
 
+// ErrHostExecAnswered means the card was answered already with the other
+// answer. The same answer again is not an error.
+var ErrHostExecAnswered = errors.New("studio: the card was answered already")
+
 // hostExecWait is how long a command waits for the card. The card is kept with
 // the chat, so a reload shows it again; the call ends with "no answer" when
 // nobody answers in time.
@@ -170,19 +174,14 @@ func (s *Service) runHostBash(ctx context.Context, a workspace.Actor, run func(c
 }
 
 // askHostExec shows the card and waits for its answer: once, deny, timeout,
-// or stopped when the turn ends first.
+// or stopped when the turn ends first. The answer is stored with the card
+// before it goes on the chat bus; the call wakes on the message, or finds the
+// answer when it reads the card again every two seconds, as the network card
+// does, so a lost message does not cost the person's click.
 func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command string) string {
 	id := newID()
 	k := key(a.Principal, a.ChatID)
-	answer := make(chan string, 1)
-	cancel := s.bus.OnControl(k, func(m ControlMsg) {
-		if m.HostExec != nil && m.HostExec.ID == id {
-			select {
-			case answer <- m.HostExec.Decision:
-			default:
-			}
-		}
-	})
+	wake, cancel := s.listenConsent(k, func(m ControlMsg) bool { return m.HostExec != nil && m.HostExec.ID == id })
 	defer cancel()
 	if len(command) > 2000 {
 		command = strings.ToValidUTF8(command[:2000], "") + "..."
@@ -195,16 +194,30 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command, Turn: turn, AskedAt: s.now().UTC()})
 	defer s.clearHostConsent(context.WithoutCancel(ctx), a.Principal, a.ChatID, id)
 	s.bus.Publish(k, session.Event{Kind: session.KindHostExecConsent, IDs: []string{id}, Text: command})
-	t := time.NewTimer(hostExecWait)
-	defer t.Stop()
-	select {
-	case d := <-answer:
-		return d
-	case <-t.C:
-		return "timeout"
-	case <-ctx.Done():
+	decision := ""
+	if s.waitConsent(ctx, wake, hostExecWait, func() bool {
+		rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+		if err != nil {
+			return false
+		}
+		c := rec.HostConsent
+		switch {
+		case c == nil || c.ID != id:
+			// Cleared by the next turn or the reaper: this turn is over.
+			decision = "timeout"
+		case c.Decision != "":
+			decision = c.Decision
+		default:
+			return false
+		}
+		return true
+	}) {
+		return decision
+	}
+	if ctx.Err() != nil {
 		return "stopped"
 	}
+	return "timeout"
 }
 
 // clearHostConsent clears the card id, and leaves a newer card alone.
@@ -248,7 +261,12 @@ func (s *Service) HostConsent(ctx context.Context, user string, rec session.Chat
 	if rec.Principal != principal(user) {
 		return nil
 	}
-	return s.liveHostConsent(rec, info)
+	c := s.liveHostConsent(rec, info)
+	if c == nil || c.Decision != "" {
+		// An answered card is about to go: the call has its answer.
+		return nil
+	}
+	return c
 }
 
 // setHostConsent stores or clears the card that waits. A failure only costs
@@ -284,6 +302,25 @@ func (s *Service) HostExecDecide(ctx context.Context, user, conv, id, decision s
 	// than a success the command never follows.
 	if c := s.liveHostConsent(rec, s.chatTurn(ctx, p, conv)); c == nil || c.ID != id {
 		return ErrHostExecExpired
+	}
+	// The answer goes to the record first, then on the bus: the waiting call
+	// finds it on its next read even when the message is lost.
+	again := false
+	err = s.d.Store.UpdateHostConsent(ctx, p, conv, func(cur *session.HostConsent) (*session.HostConsent, error) {
+		switch {
+		case cur == nil || cur.ID != id:
+			return cur, ErrHostExecExpired
+		case cur.Decision == decision:
+			again = true // a double click: it is applied, say so again
+			return cur, nil
+		case cur.Decision != "":
+			return cur, ErrHostExecAnswered
+		}
+		cur.Decision, cur.AnsweredAt = decision, s.now().UTC()
+		return cur, nil
+	})
+	if err != nil || again {
+		return err
 	}
 	s.bus.Control(key(p, conv), ControlMsg{HostExec: &HostExecDecision{ID: id, Decision: decision}})
 	return nil

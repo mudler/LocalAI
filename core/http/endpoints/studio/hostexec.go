@@ -14,10 +14,11 @@ import (
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsHostExecConsent true "the id of the event and the answer"
-// @Success 204 "The answer was sent to the running turn"
+// @Success 204 "The answer was stored with the card and sent to the running turn"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 403 {object} schema.ErrorResponse "Only an administrator can allow a command"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
+// @Failure 409 {object} schema.ErrorResponse "The card was answered already with the other answer (already_answered); the same answer again is 204"
 // @Failure 410 {object} schema.ErrorResponse "The card expired (consent_expired): the turn that asked has ended, its frontend stopped, or a newer card replaced it; the command did not run"
 // @Router /api/chats/{id}/host-exec/consent [post]
 func (h *Handlers) HostExecConsent(c echo.Context) error {
