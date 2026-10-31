@@ -366,6 +366,8 @@
     "emptyUserBody": "Cuando un administrador comparta una carpeta contigo, aparecerá aquí y sus páginas en Páginas."
   },
   "preview": {
+    "label": "Vista previa",
+    "failed": "No se pudo mostrar este archivo.",
     "loading": "Cargando la vista previa de {{name}}",
     "failedTitle": "No se pudo mostrar {{name}}.",
     "tooLarge": "Este archivo es demasiado grande para la vista previa. Descárgalo para abrirlo.",

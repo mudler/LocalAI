@@ -1,5 +1,9 @@
 {
   "backends": {
+    "filterLabel": "Filtrar backends",
+    "check": "Verificar atualizações",
+    "reinstallBackend": "Reinstalar backend",
+    "deleteBackend": "Excluir backend",
     "updateAllTitle": "Atualizar todos os backends",
     "updateAllIntro": "Escolha quais backends atualizar. Cada um é atualizado separadamente, um após o outro. Uma falha não interrompe os demais.",
     "updateSelected": "Atualizar selecionados",

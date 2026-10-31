@@ -1,5 +1,9 @@
 {
   "backends": {
+    "filterLabel": "筛选后端",
+    "check": "检查更新",
+    "reinstallBackend": "重新安装后端",
+    "deleteBackend": "删除后端",
     "updateAllTitle": "更新所有后端",
     "updateAllIntro": "选择要更新的后端。每个后端会单独、依次更新。某一项失败不会中断其他项。",
     "updateSelected": "更新所选",

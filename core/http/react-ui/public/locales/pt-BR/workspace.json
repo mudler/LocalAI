@@ -366,6 +366,8 @@
     "emptyUserBody": "Quando um administrador compartilhar uma pasta com você, ela aparece aqui e as páginas dela em Páginas."
   },
   "preview": {
+    "label": "Pré-visualização",
+    "failed": "Não foi possível mostrar este arquivo.",
     "loading": "Carregando a prévia de {{name}}",
     "failedTitle": "Não foi possível mostrar {{name}}.",
     "tooLarge": "Este arquivo é grande demais para a prévia. Baixe-o para abrir.",

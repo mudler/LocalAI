@@ -1,5 +1,9 @@
 {
   "backends": {
+    "filterLabel": "Saring backend",
+    "check": "Periksa pembaruan",
+    "reinstallBackend": "Pasang ulang backend",
+    "deleteBackend": "Hapus backend",
     "updateAllTitle": "Perbarui semua backend",
     "updateAllIntro": "Pilih backend yang akan diperbarui. Masing-masing diperbarui sendiri, satu per satu. Kegagalan tidak menghentikan yang lain.",
     "updateSelected": "Perbarui yang dipilih",

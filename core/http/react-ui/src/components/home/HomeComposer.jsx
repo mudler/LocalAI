@@ -34,7 +34,7 @@ function Marked({ text, upto }) {
 //
 // Home uses it as is. Chat uses the same bar and adds what a conversation
 // needs, all optional:
-//   chips        more chips after the MCP chip (the Canvas chip)
+//   chips        more chips after the MCP chip (the agent picker and the files chip)
 //   slash        { actions, groups, label, desc, groupLabel } for its own menu
 //   streaming    swaps Send for a Stop button that calls onStop; with
 //                queueWhileStreaming, Send stays once there is text to queue
