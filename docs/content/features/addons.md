@@ -3911,7 +3911,7 @@ The add-on repository is `quay.io/go-skynet/local-ai-addons`; every other
 backend image repository is refused.
 
 Every platform matrix lists four platforms: `linux/amd64` on `ubuntu-24.04`, `linux/arm64`
-on `ubuntu-24.04-arm`, `darwin/arm64` on `macos-14` and `darwin/amd64` on `macos-15-intel`.
+on `ubuntu-24.04-arm`, `darwin/arm64` on `macos-15` and `darwin/amd64` on `macos-15-intel`.
 Voice, Face, fine-tuning, quantization, Studio and Talk enable all four. A test fails when a
 platform is enabled without a recorded check.
 
