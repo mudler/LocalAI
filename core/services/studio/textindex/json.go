@@ -332,7 +332,7 @@ func (s *jsonStore) Document(_ context.Context, hash string, extractor int) (str
 	if err != nil {
 		return "", false, err
 	}
-	raw, err := os.ReadFile(p)
+	raw, err := os.ReadFile(p) // #nosec G304 -- documentPath joins the host-configured index directory with a hash it rejects when it holds a separator or a dot
 	if os.IsNotExist(err) {
 		return "", false, nil
 	}
