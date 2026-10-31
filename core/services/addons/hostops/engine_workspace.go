@@ -265,13 +265,30 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 	type conflict struct {
 		Path   string `json:"path"`
 		Reason string `json:"reason"`
+		Kept   string `json:"kept,omitempty"`
 	}
 	out := struct {
 		Revision  int64      `json:"revision"`
 		Conflicts []conflict `json:"conflicts"`
 	}{Revision: cs.Rev, Conflicts: []conflict{}}
+	// The paths go back in the add-on's terms, relative to the user's files
+	// as its mounts are, so it can name them to the model. A path outside
+	// every mount is already a path of the view.
+	rel := func(p string) string {
+		if r := h.Files.Rel(actor.Principal, p); r != "" {
+			return r
+		}
+		return p
+	}
 	for _, k := range conflicts {
-		out.Conflicts = append(out.Conflicts, conflict{Path: k.Path, Reason: k.Reason})
+		x := conflict{Path: k.Path, Reason: k.Reason}
+		if k.Reason != workspace.ReasonOutsideView {
+			x.Path = rel(k.Path)
+		}
+		if k.Kept != "" {
+			x.Kept = rel(k.Kept)
+		}
+		out.Conflicts = append(out.Conflicts, x)
 	}
 	return json.Marshal(out)
 }

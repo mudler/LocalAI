@@ -111,6 +111,10 @@ type entry struct {
 	trk      *tracker
 	gone     bool
 	hasBuilt bool
+	// mounts are the folders of the sandbox's view, to name a path of a
+	// commit as the guest sees it. A resumed sandbox has the view it was
+	// made with.
+	mounts []workspace.Mount
 }
 
 // New returns a manager. It removes what an earlier run left in StateDir.
@@ -371,7 +375,7 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 	if err != nil {
 		return err
 	}
-	e.sb, e.hasBuilt = sb, true
+	e.sb, e.hasBuilt, e.mounts = sb, true, v.Mounts
 	return nil
 }
 
@@ -434,13 +438,12 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	out, runErr := tool.Run(ctx, r.Args)
 	// The call's changes become one change set, whether or not the command
 	// succeeded: a failing script may still have written files.
-	cs, conflicts, cerr := e.sb.Checkpoint(ctx, m.o.Title+r.Tool)
-	_ = cs
+	_, conflicts, cerr := e.sb.Checkpoint(ctx, m.o.Title+r.Tool)
 	switch {
 	case cerr != nil && !errors.Is(cerr, workspace.ErrCommitted):
-		out += "\n[the changes could not be saved to your files: " + cerr.Error() + "]"
+		out += "\n[the changes could not be saved to the user's files: " + cerr.Error() + "]"
 	case len(conflicts) > 0:
-		out += fmt.Sprintf("\n[%d file(s) changed in your files meanwhile; the sandbox's version was kept as a copy]", len(conflicts))
+		out += ConflictNote(conflicts, e.mounts)
 	}
 	end()
 	m.mu.Lock()

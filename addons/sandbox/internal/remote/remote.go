@@ -172,6 +172,7 @@ func (s *Store) CommitUpper(ctx context.Context, v workspace.View, _ workspace.A
 		Conflicts []struct {
 			Path   string `json:"path"`
 			Reason string `json:"reason"`
+			Kept   string `json:"kept"`
 		} `json:"conflicts"`
 	}
 	if err := s.eng.Do(ctx, op, "workspace.commit", args, &got); err != nil {
@@ -179,7 +180,7 @@ func (s *Store) CommitUpper(ctx context.Context, v workspace.View, _ workspace.A
 	}
 	var conflicts []workspace.Conflict
 	for _, c := range got.Conflicts {
-		conflicts = append(conflicts, workspace.Conflict{Path: c.Path, Reason: c.Reason})
+		conflicts = append(conflicts, workspace.Conflict{Path: c.Path, Reason: c.Reason, Kept: c.Kept})
 	}
 	return workspace.ChangeSet{Rev: got.Revision, Title: o.Title}, conflicts, nil
 }
