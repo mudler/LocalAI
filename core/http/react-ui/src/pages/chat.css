@@ -394,6 +394,20 @@ button.cx-step__head:hover,
   text-overflow: ellipsis;
 }
 .cx-step__file .lai-icon { width: 13px; height: 13px; flex: none; }
+/* The files a command saved, under its step line: chips like the file of a
+   write_file step, which open the preview pane. */
+.cx-step__files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2) var(--sp-1) 36px;
+  font-size: var(--fs-meta);
+}
+.cx-step__files-label { color: var(--dk-muted); }
+.cx-step__files .cx-step__file { max-width: 100%; }
+.cx-step__op { color: var(--dk-muted); }
+.cx-step__gone { color: var(--dk-muted); }
 .cx-step__file:hover { background: color-mix(in srgb, var(--dk-accent) 22%, transparent); text-decoration: underline; }
 .cx-step__dur {
   color: var(--dk-muted);

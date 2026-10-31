@@ -247,7 +247,13 @@
     "showAll_one": "{{count}}줄 모두 보기",
     "showAll_other": "{{count}}줄 모두 보기",
     "details": "세부 정보 보기",
-    "openFile": "파일에서 {{path}} 열기"
+    "openFile": "파일에서 {{path}} 열기",
+    "savedFiles": "내 파일에 저장됨:",
+    "fileOp": {
+      "changed": "변경됨",
+      "deleted": "삭제됨"
+    },
+    "moreFiles": "외 {{count}}개"
   },
   "error": {
     "title": "답변에 실패했습니다",

@@ -427,6 +427,41 @@ with the files API above. `stale` lists old folder paths that earlier
 messages name. A `files` event on the chat's event stream says that the list
 may have changed; read it again.
 
+### Files that a command saved
+
+A command of `bash` (the Sandbox's, or the built-in one on this machine) saves
+what it writes in your home folder as one change of the chat, the same way
+`write_file` does. The chat then shows those files where it shows a file
+tool's:
+
+- **Under the step.** The `bash` step lists the files the command created or
+  changed ("Saved to your files"), one chip each; a chip opens the file in
+  the preview pane. A file the command deleted is listed by name, struck out.
+- **In the pane and under the answer.** The files are in the chat's file list
+  above, with the turn that made them, so they get a chip under the answer
+  and the preview pane opens by itself on the newest one (a Word, Excel,
+  PowerPoint or PDF file, an image or a text file), as it does for a file of
+  `write_file`.
+- **In the transcript.** The tool line of the call has a `card` with `files`:
+  `[{"path":"/report.docx","rev":42,"op":"created"}]`, where `path` is inside
+  your home, `rev` is the change set (undo it with `POST
+  /api/chats/files/undo`) and `op` is `created`, `changed` or `deleted`. At
+  most 50 are listed; `files_more` counts the rest. The card keeps its own
+  `kind` and `id` (who served the call: `tool_provider` for the Sandbox,
+  `host_exec` for this machine).
+
+Only what the command saves under `/workspace/home` (or a writable shared
+folder) is kept. `bash` starts in `/workspace/home`, so a relative path such as
+`report.docx` is in your home. A file written anywhere else, such as
+`/workspace/report.docx` or `/tmp`, is not saved, and the result of the call
+says so by name. When you or a file tool changed a file while the command ran,
+your version stays and the command's version is saved as a copy; the result
+names the copy's path.
+
+The list of files comes from the change sets of the chat in the shared store,
+read after each call, so every frontend of a cluster shows the same files.
+Nothing about it is kept in memory.
+
 The list that the model gets has the newest 50 files, one line each with the
 path, size, type, origin and turn, and a count of the rest. A chat with no
 files gets no list. The list is built from the stored history when a turn

@@ -173,6 +173,44 @@ var _ = Describe("Workspace host operations", func() {
 		Expect(buf.String()).To(Equal("made by the sandbox"))
 	})
 
+	It("commits for the chat of the request and names the paths it did not save in the add-on's terms", func() {
+		f := newWSFixture()
+		f.host.Chat = func(_ context.Context, principal, rid string) string {
+			if principal == "alice" && rid == "c-chat1" {
+				return "chat1"
+			}
+			return ""
+		}
+		f.put("alice", "/proj/a.txt", "hello")
+		e := env("sandbox", "op1", "act", time.Now().Add(time.Minute))
+		e.Authority.Actor.UserID = "alice"
+		e.Request.ResourceID = "c-chat1"
+		DeferCleanup(f.inflight.Begin(e))
+		code, _ := f.call("secret", "op1", "workspace.materialize", `{`+mounts+`,"dir":"run1"}`)
+		Expect(code).To(Equal(http.StatusOK))
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for name, body := range map[string]string{"proj/new.txt": "made by the sandbox", "outside.docx": "lost"} {
+			Expect(tw.WriteHeader(&tar.Header{Name: name, Typeflag: tar.TypeReg, Mode: 0o644, Size: int64(len(body))})).To(Succeed())
+			_, _ = tw.Write([]byte(body))
+		}
+		Expect(tw.Close()).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(f.data, "sandbox", "run1", "upper.tar"), buf.Bytes(), 0o600)).To(Succeed())
+		code, out := f.call("secret", "op1", "workspace.commit", `{`+mounts+`,"dir":"run1","base":0,"title":"Sandbox: bash"}`)
+		Expect(code).To(Equal(http.StatusOK), "%+v", out.Error)
+		var got struct {
+			Revision  int64 `json:"revision"`
+			Conflicts []struct{ Path, Reason, Kept string }
+		}
+		Expect(json.Unmarshal(out.Result, &got)).To(Succeed())
+		Expect(got.Conflicts).To(ConsistOf(HaveField("Path", "/outside.docx")))
+		home, _ := f.files.Abs("alice", "/")
+		sets, err := f.files.Store().History(context.Background(), f.files.Actor("alice"), workspace.HistoryQuery{Path: home, ChatID: "chat1", Limit: 5})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(sets).To(HaveLen(1), "the change set belongs to the chat")
+		Expect(sets[0].Rev).To(Equal(got.Revision))
+	})
+
 	It("does not commit an upper layer that is a link or not a regular file", func() {
 		f := newWSFixture()
 		f.put("alice", "/proj/a.txt", "hello")

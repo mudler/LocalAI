@@ -11,8 +11,10 @@ import (
 	"regexp"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -266,16 +268,43 @@ type cardSlotKey struct{}
 
 // cardSlot holds the card that one host tool call set.
 type cardSlot struct {
-	mu   sync.Mutex
-	card *ToolCard
+	mu    sync.Mutex
+	card  *ToolCard
+	files []ToolFile
+	more  int
 }
 
 func (s *cardSlot) set(c ToolCard) { s.mu.Lock(); s.card = &c; s.mu.Unlock() }
 
+func (s *cardSlot) setFiles(f []ToolFile) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.files, s.more = append([]ToolFile(nil), f...), 0
+	if len(s.files) > MaxToolFiles {
+		s.files, s.more = s.files[:MaxToolFiles], len(s.files)-MaxToolFiles
+	}
+}
+
+// get returns the card of the call: the one the tool set, with the files on
+// it. Files and no card make a FilesCardKind card.
 func (s *cardSlot) get() *ToolCard {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.card
+	if len(s.files) == 0 {
+		return s.card
+	}
+	var c ToolCard
+	if s.card != nil {
+		c = *s.card
+	} else {
+		var newest int64
+		for _, f := range s.files {
+			newest = max(newest, f.Rev)
+		}
+		c = ToolCard{Kind: FilesCardKind, ID: strconv.FormatInt(newest, 10)}
+	}
+	c.Files, c.FilesMore = s.files, s.more
+	return &c
 }
 
 // SetToolCard is called by a host tool inside Run. It records the card for the
@@ -288,6 +317,18 @@ func (s *cardSlot) get() *ToolCard {
 func SetToolCard(ctx context.Context, c ToolCard) {
 	if s, ok := ctx.Value(cardSlotKey{}).(*cardSlot); ok {
 		s.set(c)
+	}
+}
+
+// SetToolFiles is called by a host tool inside Run, like SetToolCard, to put
+// the user's files that the call changed on its card. It keeps the card the
+// tool sets with SetToolCard (before or after), so a call can say both who
+// served it and what it changed. A later call replaces the files; the first
+// MaxToolFiles are kept and the rest counted. Files with a bad path or op are
+// dropped when the card is checked.
+func SetToolFiles(ctx context.Context, files []ToolFile) {
+	if s, ok := ctx.Value(cardSlotKey{}).(*cardSlot); ok {
+		s.setFiles(files)
 	}
 }
 
@@ -339,6 +380,7 @@ func cleanCard(c ToolCard) (ToolCard, bool) {
 	if !validCard(c) {
 		return ToolCard{}, false
 	}
+	c.Files, c.FilesMore = cleanFiles(c.Files, c.FilesMore)
 	if c.App == nil {
 		return c, true
 	}
@@ -361,6 +403,36 @@ func cleanCard(c ToolCard) (ToolCard, bool) {
 	}
 	c.App = &a
 	return c, true
+}
+
+// cleanFiles keeps the files of a card that have a usable path and op, at most
+// MaxToolFiles. A dropped file is counted in more: the card still says that
+// the call changed it.
+func cleanFiles(in []ToolFile, more int) ([]ToolFile, int) {
+	if len(in) == 0 {
+		return nil, max(more, 0)
+	}
+	out := make([]ToolFile, 0, min(len(in), MaxToolFiles))
+	for _, f := range in {
+		ok := len(out) < MaxToolFiles && f.Path != "" && f.Path[0] == '/' && len(f.Path) <= maxToolFilePath &&
+			utf8.ValidString(f.Path) && f.Rev > 0 &&
+			(f.Op == ToolFileCreated || f.Op == ToolFileChanged || f.Op == ToolFileDeleted)
+		for _, r := range f.Path {
+			if r < 0x20 || r == 0x7f {
+				ok = false
+				break
+			}
+		}
+		if !ok {
+			more++
+			continue
+		}
+		out = append(out, f)
+	}
+	if len(out) == 0 {
+		out = nil
+	}
+	return out, max(more, 0)
 }
 
 // bounded returns raw when it is valid JSON of at most max bytes, else nil.

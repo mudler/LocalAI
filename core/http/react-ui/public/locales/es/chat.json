@@ -247,7 +247,13 @@
     "showAll_one": "Mostrar las {{count}} líneas",
     "showAll_other": "Mostrar las {{count}} líneas",
     "details": "Mostrar detalles",
-    "openFile": "Abrir {{path}} en Archivos"
+    "openFile": "Abrir {{path}} en Archivos",
+    "savedFiles": "Guardado en tus archivos:",
+    "fileOp": {
+      "changed": "cambiado",
+      "deleted": "eliminado"
+    },
+    "moreFiles": "y {{count}} más"
   },
   "error": {
     "title": "La respuesta falló",

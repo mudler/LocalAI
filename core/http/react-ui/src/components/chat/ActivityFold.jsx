@@ -145,7 +145,7 @@ function ToolDetail({ name, summary, output }) {
 // split) is not a button: a click on it still toggles, and the chevron is
 // the button for the keyboard.
 // eslint-disable-next-line no-unused-vars
-function Step({ state, duration, children, detail, defaultOpen = false, testId, split = false }) {
+function Step({ state, duration, children, detail, defaultOpen = false, testId, split = false, after = null }) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(defaultOpen)
   const icon = { running: 'spinner', done: 'check', failed: 'alert-circle', thought: 'lightbulb' }[state]
@@ -175,6 +175,7 @@ function Step({ state, duration, children, detail, defaultOpen = false, testId, 
       ) : (
         <div className="cx-step__head">{head}</div>
       )}
+      {after}
       {detail && open && <div className="cx-step__detail">{detail}</div>}
     </li>
   )
@@ -223,6 +224,37 @@ function ThoughtStep({ text, duration, live, thinking }) {
   )
 }
 
+const baseName = (p) => String(p || '').split('/').pop()
+
+// The files a command saved in the user's files (card.files of its step): one
+// chip a file, which opens it in the preview pane like the file of a
+// write_file step. A deleted file has no chip, only its name.
+// eslint-disable-next-line no-unused-vars
+function StepFiles({ files, more }) {
+  const { t } = useTranslation('chat')
+  if (!files?.length) return null
+  return (
+    <div className="cx-step__files" data-testid="chat-step-files">
+      <span className="cx-step__files-label">{t('steps.savedFiles')}</span>
+      {files.map((f) => (f.op === 'deleted' ? (
+        <span key={f.path} className="cx-step__gone" title={f.path} data-op="deleted">
+          <del>{baseName(f.path)}</del> <span className="cx-step__meta">{t('steps.fileOp.deleted')}</span>
+        </span>
+      ) : (
+        <button
+          key={f.path} type="button" className="cx-step__file" title={t('steps.openFile', { path: f.path })}
+          data-testid="chat-step-saved-file" data-op={f.op}
+          onClick={(e) => { e.stopPropagation(); openChatFile(f.path) }}
+        >
+          <Icon name="file-text" />{baseName(f.path)}
+          {f.op === 'changed' && <span className="cx-step__op">{t('steps.fileOp.changed')}</span>}
+        </button>
+      )))}
+      {more > 0 && <span className="cx-step__meta">{t('steps.moreFiles', { count: more })}</span>}
+    </div>
+  )
+}
+
 // One stored tool line as a step. The note of an add-on change (with Undo) is
 // not in the fold: it shows under it, see ActivityGroup.
 // eslint-disable-next-line no-unused-vars
@@ -242,6 +274,7 @@ function ToolStep({ text, duration, card }) {
       split={label.file && Boolean(label.arg)}
       testId="chat-step"
       detail={<ToolDetail name={name} summary={summary} output={shownOut} />}
+      after={<StepFiles files={card?.files} more={card?.files_more || 0} />}
     >
       <ToolText label={label} />
       {tag && <span className="cx-step__provider" data-testid="chat-step-provider" data-provider={card.kind}>{tc(`tools.provider.${tag.key}`, tag.values)}</span>}

@@ -247,7 +247,13 @@
     "showAll_one": "显示全部 {{count}} 行",
     "showAll_other": "显示全部 {{count}} 行",
     "details": "显示详情",
-    "openFile": "在文件中打开 {{path}}"
+    "openFile": "在文件中打开 {{path}}",
+    "savedFiles": "已保存到你的文件：",
+    "fileOp": {
+      "changed": "已更改",
+      "deleted": "已删除"
+    },
+    "moreFiles": "还有 {{count}} 个"
   },
   "error": {
     "title": "回复失败",

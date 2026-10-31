@@ -365,7 +365,7 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		}
 		if e.Card != nil {
 			m.App = appJSON(e.Card.App, true)
-			m.Card = &schema.ChatsToolCard{Kind: e.Card.Kind, ID: e.Card.ID}
+			m.Card = toolCardJSON(e.Card)
 		}
 		if e.Role == session.RoleCheckpoint {
 			m.Rev, m.Text = e.Rev, homePaths(principal, e.Text)
@@ -536,7 +536,7 @@ func eventJSON(ev session.Event) schema.ChatsEvent {
 		out.Tool = &schema.ChatsToolEvent{Name: ev.Tool.Name, Summary: ev.Tool.Summary, OK: ev.Tool.OK, Output: ev.Tool.Output, Seq: ev.Tool.Seq}
 		if ev.Tool.Card != nil {
 			out.Tool.App = appJSON(ev.Tool.Card.App, false)
-			out.Tool.Card = &schema.ChatsToolCard{Kind: ev.Tool.Card.Kind, ID: ev.Tool.Card.ID}
+			out.Tool.Card = toolCardJSON(ev.Tool.Card)
 		}
 	}
 	return out
@@ -551,4 +551,13 @@ func intParam(c echo.Context, name string, def, max int) int {
 		return max
 	}
 	return n
+}
+
+// toolCardJSON is the card of a tool line as the API gives it.
+func toolCardJSON(c *session.ToolCard) *schema.ChatsToolCard {
+	out := &schema.ChatsToolCard{Kind: c.Kind, ID: c.ID, FilesMore: c.FilesMore}
+	for _, f := range c.Files {
+		out.Files = append(out.Files, schema.ChatsToolFile{Path: f.Path, Rev: f.Rev, Op: f.Op})
+	}
+	return out
 }

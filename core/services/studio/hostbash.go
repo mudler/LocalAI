@@ -118,8 +118,8 @@ func (s *Service) buildHostBash(_ context.Context, c builtins.Chat) (session.Too
 		}
 	}
 	t := s.d.HostExec.Tool(c.Actor)
-	run := t.Run
 	a := c.Actor
+	run := s.withCommandFiles(a, t.Run)
 	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
 		return s.runHostBash(ctx, a, run, args)
 	}

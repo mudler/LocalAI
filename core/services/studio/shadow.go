@@ -45,16 +45,18 @@ func (s *Service) shadowTool(a workspace.Actor, d AddonTool, schema json.RawMess
 	}
 	route := d.Name
 	addon := d.AddonID
-	return session.Tool{
-		Name: d.Shadows, Description: d.Description, Schema: schema, Provider: addon,
-		Run: func(ctx context.Context, args json.RawMessage) (string, error) {
-			out, err := s.d.AddonTools.Call(ctx, a.Principal, a.ChatID, route, args)
-			if err == nil {
-				session.SetToolCard(ctx, session.ToolCard{Kind: ProviderCardKind, ID: addon})
-			}
-			return out, err
-		},
-	}, true
+	run := func(ctx context.Context, args json.RawMessage) (string, error) {
+		out, err := s.d.AddonTools.Call(ctx, a.Principal, a.ChatID, route, args)
+		if err == nil {
+			session.SetToolCard(ctx, session.ToolCard{Kind: ProviderCardKind, ID: addon})
+		}
+		return out, err
+	}
+	if d.Shadows == commandTool {
+		// What the command saved in the user's files goes on its card.
+		run = s.withCommandFiles(a, run)
+	}
+	return session.Tool{Name: d.Shadows, Description: d.Description, Schema: schema, Provider: addon, Run: run}, true
 }
 
 // withBuiltins adds the built-in tools that no add-on shadows. A built-in whose

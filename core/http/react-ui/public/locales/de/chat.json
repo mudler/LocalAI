@@ -247,7 +247,13 @@
     "showAll_one": "Alle {{count}} Zeilen zeigen",
     "showAll_other": "Alle {{count}} Zeilen zeigen",
     "details": "Details anzeigen",
-    "openFile": "{{path}} in Dateien öffnen"
+    "openFile": "{{path}} in Dateien öffnen",
+    "savedFiles": "In deinen Dateien gespeichert:",
+    "fileOp": {
+      "changed": "geändert",
+      "deleted": "gelöscht"
+    },
+    "moreFiles": "und {{count}} weitere"
   },
   "error": {
     "title": "Die Antwort ist fehlgeschlagen",

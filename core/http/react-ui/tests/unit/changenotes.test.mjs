@@ -26,6 +26,19 @@ test('change notes: a turn collects the file changes of its tool calls and its c
   assert.equal(byTurn.has(3), false, 'a change outside the well-known files and pages has no note')
 })
 
+test('change notes: the files a command saved count like a file tool\'s change', () => {
+  const messages = [
+    { seq: 1, turn: 1, role: 'user', text: 'build a page' },
+    { seq: 2, turn: 1, role: 'tool', text: 'bash: python3 build.py', card: { kind: 'tool_provider', id: 'sandbox', files: [
+      { path: '/pages/tasks/index.html', rev: 20, op: 'created' },
+      { path: '/pages/tasks/tasks.json', rev: 20, op: 'created' },
+      { path: '/report.docx', rev: 20, op: 'created' },
+    ] } },
+    { seq: 3, turn: 1, role: 'tool', text: 'bash: ls', card: { kind: 'tool_provider', id: 'sandbox' } },
+  ]
+  assert.deepEqual(turnChanges(messages).get(1), [{ rev: 20, paths: ['/pages/tasks/index.html', '/pages/tasks/tasks.json'] }])
+})
+
 test('change notes: what a turn says, by file', () => {
   const both = describeChanges([{ rev: 1, paths: ['/LocalAI/persona.json'] }, { rev: 2, paths: ['/LocalAI/user.json'] }])
   assert.equal(both.notes[0].key, 'profilePersona')

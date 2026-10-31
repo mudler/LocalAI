@@ -204,6 +204,20 @@ type ChatsMessage struct {
 type ChatsToolCard struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
+	// Files are the files in your home that a command (bash) created,
+	// changed or deleted, on the card of that call. Paths are inside your
+	// home, which is "/". FilesMore counts the files the card does not list.
+	Files     []ChatsToolFile `json:"files,omitempty"`
+	FilesMore int             `json:"files_more,omitempty"`
+}
+
+// ChatsToolFile is one file that a tool call changed.
+type ChatsToolFile struct {
+	Path string `json:"path"`
+	// Rev is the change set that last touched the file in this call.
+	Rev int64 `json:"rev"`
+	// Op is created, changed or deleted.
+	Op string `json:"op"`
 }
 
 // ChatsToolApp tells the interface which MCP App belongs to a tool result. The

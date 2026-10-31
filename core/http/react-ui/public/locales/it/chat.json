@@ -247,7 +247,13 @@
     "showAll_one": "Mostra tutte le {{count}} righe",
     "showAll_other": "Mostra tutte le {{count}} righe",
     "details": "Mostra dettagli",
-    "openFile": "Apri {{path}} in File"
+    "openFile": "Apri {{path}} in File",
+    "savedFiles": "Salvati nei tuoi file:",
+    "fileOp": {
+      "changed": "modificato",
+      "deleted": "eliminato"
+    },
+    "moreFiles": "e altri {{count}}"
   },
   "error": {
     "title": "La risposta non è riuscita",

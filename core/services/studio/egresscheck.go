@@ -235,3 +235,14 @@ func canonicalHost(h string) string {
 	}
 	return out
 }
+
+// ChatOfAction returns the ID of the chat of user whose action resource is
+// rid, or "" when there is none. The Sandbox's commits use it, so what a
+// command saved belongs to the chat that ran it.
+func (s *Service) ChatOfAction(ctx context.Context, user, rid string) string {
+	rec, err := s.chatForResource(ctx, principal(user), rid)
+	if err != nil {
+		return ""
+	}
+	return rec.ID
+}

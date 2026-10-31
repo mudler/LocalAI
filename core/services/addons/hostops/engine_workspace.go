@@ -47,6 +47,11 @@ type WorkspaceHost struct {
 	Files     WorkspaceFiles
 	Principal func(contract.Actor) string
 	DataDir   func(addonID string) string
+	// Chat maps the resource of the live request (for an action tool, the
+	// key of the chat) to the chat of the user, so the change set of a
+	// commit belongs to that chat as a file tool's would: the chat lists the
+	// files the command saved. "" (or a nil Chat) commits for no chat.
+	Chat func(ctx context.Context, principal, resourceID string) string
 }
 
 // principal maps the actor to the owner of the files. An empty answer from
@@ -257,6 +262,9 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 	v, actor, err := h.view(ctx, c, a.Mounts)
 	if err != nil {
 		return nil, err
+	}
+	if h.Chat != nil && c.ResourceID != "" {
+		actor.ChatID = h.Chat(ctx, actor.Principal, c.ResourceID)
 	}
 	cs, conflicts, err := h.Store.CommitUpper(ctx, v, actor, a.Base, workspace.ArchiveSource(f), workspace.UpperOptions{Title: a.Title, Own: a.Own})
 	if err != nil {

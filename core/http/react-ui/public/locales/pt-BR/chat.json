@@ -250,7 +250,13 @@
     "showAll_one": "Mostrar todas as {{count}} linhas",
     "showAll_other": "Mostrar todas as {{count}} linhas",
     "details": "Mostrar detalhes",
-    "openFile": "Abrir {{path}} em Arquivos"
+    "openFile": "Abrir {{path}} em Arquivos",
+    "savedFiles": "Salvo nos seus arquivos:",
+    "fileOp": {
+      "changed": "alterado",
+      "deleted": "excluído"
+    },
+    "moreFiles": "e mais {{count}}"
   },
   "error": {
     "title": "A resposta falhou",

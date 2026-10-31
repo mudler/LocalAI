@@ -20126,6 +20126,16 @@ const docTemplate = `{
         "schema.ChatsToolCard": {
             "type": "object",
             "properties": {
+                "files": {
+                    "description": "Files are the files in your home that a command (bash) created,\nchanged or deleted, on the card of that call. Paths are inside your\nhome, which is \"/\". FilesMore counts the files the card does not list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsToolFile"
+                    }
+                },
+                "files_more": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -20191,6 +20201,22 @@ const docTemplate = `{
                     "description": "Tool is the built-in tool, such as bash.",
                     "type": "string",
                     "example": "bash"
+                }
+            }
+        },
+        "schema.ChatsToolFile": {
+            "type": "object",
+            "properties": {
+                "op": {
+                    "description": "Op is created, changed or deleted.",
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "rev": {
+                    "description": "Rev is the change set that last touched the file in this call.",
+                    "type": "integer"
                 }
             }
         },

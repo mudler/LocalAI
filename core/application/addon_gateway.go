@@ -139,6 +139,14 @@ func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
 		Files:     f,
 		Principal: func(actor contract.Actor) string { return addonWorkspacePrincipal(a.authDB != nil)(actor) },
 		DataDir:   func(id string) string { return filepath.Join(root, id) },
+		// The chats service is built after the broker: it is looked up at
+		// each commit.
+		Chat: func(ctx context.Context, principal, rid string) string {
+			if svc := a.StudioService(); svc != nil {
+				return svc.ChatOfAction(ctx, principal, rid)
+			}
+			return ""
+		},
 	})
 }
 

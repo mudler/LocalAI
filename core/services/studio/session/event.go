@@ -141,7 +141,43 @@ type ToolCard struct {
 	// App is set when the result belongs to an MCP App: an interactive view
 	// that the interface frames next to the result.
 	App *ToolApp `json:",omitempty"`
+	// Files are the user's files that the call created, changed or deleted,
+	// when the tool is not a file tool: a command saves what it wrote, and
+	// the interface lists those files under the call the way it lists the
+	// file of a write_file. A host tool sets them with SetToolFiles, next to
+	// its own card. At most MaxToolFiles; FilesMore counts the rest.
+	Files     []ToolFile `json:",omitempty"`
+	FilesMore int        `json:",omitempty"`
 }
+
+// ToolFile is one file of a tool call's card.
+type ToolFile struct {
+	// Path is the path in the user's home ("/report.docx"), or for a shared
+	// folder the path the model uses (/workspace/shared-<name>/...), as in
+	// the ID of a files_change card.
+	Path string
+	// Rev is the change set of the call that last touched the file.
+	Rev int64
+	// Op is ToolFileCreated, ToolFileChanged or ToolFileDeleted.
+	Op string
+}
+
+// The operations of a ToolFile.
+const (
+	ToolFileCreated = "created"
+	ToolFileChanged = "changed"
+	ToolFileDeleted = "deleted"
+)
+
+// FilesCardKind is the card of a call that set files and no card of its own.
+// Its ID is the newest revision of the files.
+const FilesCardKind = "files"
+
+// Limits of the files of a card.
+const (
+	MaxToolFiles    = 50
+	maxToolFilePath = 1024
+)
 
 // ToolApp says which view belongs to a tool result and gives the view what
 // the tool call was and returned. The interface reads the page from the

@@ -245,7 +245,13 @@
     "showAll_one": "Afficher les {{count}} lignes",
     "showAll_other": "Afficher les {{count}} lignes",
     "details": "Afficher les détails",
-    "openFile": "Ouvrir {{path}} dans Fichiers"
+    "openFile": "Ouvrir {{path}} dans Fichiers",
+    "savedFiles": "Enregistré dans vos fichiers :",
+    "fileOp": {
+      "changed": "modifié",
+      "deleted": "supprimé"
+    },
+    "moreFiles": "et {{count}} de plus"
   },
   "error": {
     "title": "La réponse a échoué",

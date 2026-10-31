@@ -4707,6 +4707,16 @@ definitions:
     type: object
   schema.ChatsToolCard:
     properties:
+      files:
+        description: |-
+          Files are the files in your home that a command (bash) created,
+          changed or deleted, on the card of that call. Paths are inside your
+          home, which is "/". FilesMore counts the files the card does not list.
+        items:
+          $ref: '#/definitions/schema.ChatsToolFile'
+        type: array
+      files_more:
+        type: integer
       id:
         type: string
       kind:
@@ -4759,6 +4769,17 @@ definitions:
         description: Tool is the built-in tool, such as bash.
         example: bash
         type: string
+    type: object
+  schema.ChatsToolFile:
+    properties:
+      op:
+        description: Op is created, changed or deleted.
+        type: string
+      path:
+        type: string
+      rev:
+        description: Rev is the change set that last touched the file in this call.
+        type: integer
     type: object
   schema.ChatsToolsPanel:
     properties:

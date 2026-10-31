@@ -1,6 +1,7 @@
 // The change notes of a chat: what a turn changed in the well-known files and
 // the pages of the user's home, read from the transcript the server keeps. A
-// file tool call carries a card {kind files_change, id "<rev>:<path>"}; the
+// file tool call carries a card {kind files_change, id "<rev>:<path>"}, a
+// command's card lists the files it saved (files: [{path, rev, op}]); the
 // checkpoint line of a turn carries the change set of the sandbox (rev) and
 // its paths. Pure helpers, so the node unit tests load them.
 
@@ -43,6 +44,17 @@ export function turnChanges(messages) {
     out.get(turn).push({ rev, paths: kept })
   }
   for (const m of messages || []) {
+    // A command (bash) lists the files it saved on its card, with the change
+    // set of each: the same notes as a file tool's change.
+    if (m.role === 'tool' && Array.isArray(m.card?.files)) {
+      const byRev = new Map()
+      for (const f of m.card.files) {
+        if (!f?.rev || !f.path) continue
+        if (!byRev.has(f.rev)) byRev.set(f.rev, [])
+        byRev.get(f.rev).push(f.path)
+      }
+      for (const [rev, paths] of byRev) add(m.turn, Number(rev), paths)
+    }
     if (m.role === 'tool' && m.card?.kind === CHANGE_CARD) {
       const at = String(m.card.id || '').indexOf(':')
       if (at > 0) add(m.turn, Number(m.card.id.slice(0, at)), [m.card.id.slice(at + 1)])

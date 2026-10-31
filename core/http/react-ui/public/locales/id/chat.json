@@ -247,7 +247,13 @@
     "showAll_one": "Tampilkan semua {{count}} baris",
     "showAll_other": "Tampilkan semua {{count}} baris",
     "details": "Tampilkan detail",
-    "openFile": "Buka {{path}} di File"
+    "openFile": "Buka {{path}} di File",
+    "savedFiles": "Disimpan di file Anda:",
+    "fileOp": {
+      "changed": "diubah",
+      "deleted": "dihapus"
+    },
+    "moreFiles": "dan {{count}} lainnya"
   },
   "error": {
     "title": "Balasan gagal",
