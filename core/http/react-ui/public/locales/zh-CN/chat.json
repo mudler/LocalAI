@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "循环第 {{run}} 次"
   },
   "tools": {
     "label": "工具",

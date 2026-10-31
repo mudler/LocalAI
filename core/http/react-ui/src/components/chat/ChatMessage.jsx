@@ -153,6 +153,11 @@ function ChatMessage({
         </div>
       ) : isUser ? (
         <>
+          {msg.loop && (
+            <span className="cx-msg__loop" data-testid="message-loop-label">
+              <Icon name="repeat" /> {t('message.loopRun', { run: msg.loop.run })}
+            </span>
+          )}
           <MessageAttachments attachments={attachments} />
           {(text || attachments.length === 0) && (
             <div className="cx-bubble" data-testid="message-content">

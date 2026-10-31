@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "Schleife, Lauf {{run}}"
   },
   "tools": {
     "label": "Werkzeuge",

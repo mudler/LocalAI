@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "Ciclo, esecuzione {{run}}"
   },
   "tools": {
     "label": "Strumenti",

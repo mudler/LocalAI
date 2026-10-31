@@ -181,7 +181,8 @@
   },
   "message": {
     "you": "You",
-    "assistant": "Assistant"
+    "assistant": "Assistant",
+    "loopRun": "Loop run {{run}}"
   },
   "error": {
     "title": "The reply failed",

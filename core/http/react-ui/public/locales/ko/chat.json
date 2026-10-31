@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "반복 {{run}}번째 실행"
   },
   "tools": {
     "label": "도구",

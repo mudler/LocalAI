@@ -475,5 +475,66 @@
       "undone": "Modifica a {{name}} annullata.",
       "restored": "{{name}} ripristinato."
     }
+  },
+  "loops": {
+    "region": "Cicli di questa chat",
+    "unit": {
+      "seconds_one": "{{count}} secondo",
+      "seconds_other": "{{count}} secondi",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minuti",
+      "hours_one": "{{count}} ora",
+      "hours_other": "{{count}} ore"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "confirm": {
+      "every": "Eseguire questo ogni {{every}} finché non lo fermi?",
+      "selfPaced": "Eseguire questo di nuovo ogni volta che il modello lo chiede, finché non lo fermi?",
+      "start": "Avvia",
+      "cancel": "Annulla"
+    },
+    "chip": {
+      "name": "Ciclo",
+      "every": "ogni {{every}}",
+      "selfPaced": "a ritmo del modello",
+      "run_one": "esecuzione {{count}}",
+      "run_other": "esecuzione {{count}}",
+      "paused": "in pausa",
+      "running": "in corso",
+      "next": "prossima alle {{time}}",
+      "ended": "terminato",
+      "wait": "In attesa di: {{wait}}"
+    },
+    "actions": {
+      "pause": "Pausa",
+      "resume": "Riprendi",
+      "stop": "Ferma",
+      "dismiss": "Chiudi"
+    },
+    "state": {
+      "pending": "attende il tuo sì",
+      "active": "attivo",
+      "paused": "in pausa",
+      "ended": "terminato"
+    },
+    "list": {
+      "title": "Cicli di questa chat",
+      "close": "Chiudi",
+      "empty": "Questa chat non ha cicli.",
+      "hint": "Per fermarne uno, scrivi /loop stop e il codice all'inizio della sua riga."
+    },
+    "errors": {
+      "usage": "Scrivi /loop, un intervallo se lo vuoi e cosa ripetere. Per esempio: /loop 5m controlla la build.",
+      "notFound": "Nessun ciclo di questa chat corrisponde a {{id}}.",
+      "stopped_one": "Fermato {{count}} ciclo.",
+      "stopped_other": "Fermati {{count}} cicli."
+    }
   }
 }

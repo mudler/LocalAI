@@ -49,6 +49,7 @@ import { isStaleFailure } from '../utils/chatFailure'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
 import NetworkConsentCard from '../components/chat/NetworkConsentCard'
+import LoopBar, { LoopList } from '../components/chat/LoopBar'
 import { EgressCardsContext } from '../components/chat/egressCardsContext'
 import MessageAttachments from '../components/chat/Attachments'
 import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
@@ -146,6 +147,8 @@ function ChatPage() {
   const [renaming, setRenaming] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [editingPending, setEditingPending] = useState(null) // { id, text }
+  // The chat whose answer to /loop list is open over the message box.
+  const [loopListFor, setLoopListFor] = useState('')
   // An error of this page (a send or a delete that failed); the hook has its own.
   const [localError, setLocalError] = useState('')
   // The chats the old chat page left in this browser, offered for import once.
@@ -991,6 +994,8 @@ function ChatPage() {
                 t={tc}
               />
             )}
+            {activeId && loopListFor === activeId && <LoopList loops={chat.loops} onClose={() => setLoopListFor('')} />}
+            <LoopBar loops={chat.loops} chatId={activeId} chat={chat} />
             {!noModel && (
               <ShortcutsRow
                 starters={manage ? t('empty.suggestionsManage', { returnObjects: true }) : undefined}

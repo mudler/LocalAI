@@ -106,7 +106,8 @@
     }
   },
   "message": {
-    "you": "You"
+    "you": "You",
+    "loopRun": "Perulangan, jalan ke-{{run}}"
   },
   "tools": {
     "label": "Alat",

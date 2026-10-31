@@ -104,7 +104,8 @@
     }
   },
   "message": {
-    "you": "Vous"
+    "you": "Vous",
+    "loopRun": "Boucle, exécution {{run}}"
   },
   "tools": {
     "label": "Outils",

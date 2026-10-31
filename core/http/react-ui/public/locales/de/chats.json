@@ -475,5 +475,66 @@
       "undone": "Änderung an {{name}} rückgängig gemacht.",
       "restored": "{{name}} wiederhergestellt."
     }
+  },
+  "loops": {
+    "region": "Schleifen dieses Chats",
+    "unit": {
+      "seconds_one": "{{count}} Sekunde",
+      "seconds_other": "{{count}} Sekunden",
+      "minutes_one": "{{count}} Minute",
+      "minutes_other": "{{count}} Minuten",
+      "hours_one": "{{count}} Stunde",
+      "hours_other": "{{count}} Stunden"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} Min.",
+      "minutes_other": "{{count}} Min.",
+      "hours_one": "{{count}} Std.",
+      "hours_other": "{{count}} Std."
+    },
+    "confirm": {
+      "every": "Dies alle {{every}} ausführen, bis du es stoppst?",
+      "selfPaced": "Dies jedes Mal erneut ausführen, wenn das Modell darum bittet, bis du es stoppst?",
+      "start": "Starten",
+      "cancel": "Abbrechen"
+    },
+    "chip": {
+      "name": "Schleife",
+      "every": "alle {{every}}",
+      "selfPaced": "vom Modell getaktet",
+      "run_one": "Lauf {{count}}",
+      "run_other": "Lauf {{count}}",
+      "paused": "pausiert",
+      "running": "läuft gerade",
+      "next": "nächster um {{time}}",
+      "ended": "beendet",
+      "wait": "Wartet auf: {{wait}}"
+    },
+    "actions": {
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "stop": "Stoppen",
+      "dismiss": "Ausblenden"
+    },
+    "state": {
+      "pending": "wartet auf deine Zustimmung",
+      "active": "aktiv",
+      "paused": "pausiert",
+      "ended": "beendet"
+    },
+    "list": {
+      "title": "Schleifen dieses Chats",
+      "close": "Schließen",
+      "empty": "Dieser Chat hat keine Schleifen.",
+      "hint": "Zum Stoppen gib /loop stop und den Code am Anfang ihrer Zeile ein."
+    },
+    "errors": {
+      "usage": "Gib /loop ein, bei Bedarf ein Intervall, und was wiederholt werden soll. Zum Beispiel: /loop 5m prüfe den Build.",
+      "notFound": "Keine Schleife dieses Chats passt zu {{id}}.",
+      "stopped_one": "{{count}} Schleife gestoppt.",
+      "stopped_other": "{{count}} Schleifen gestoppt."
+    }
   }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { chatsApi } from '../utils/api'
+import { chatsApi, chatLoopsApi } from '../utils/api'
 import { eventPayload, retryDelay } from '../utils/streamRetry'
 import { emptyLive, toolStart, toolEnd, cardResult, cardFromMessages, liveCardWanted, consentAsk } from '../utils/chatLive'
 import { notifyTurnEnd } from './useWorkspaceFeed'
@@ -10,7 +10,7 @@ const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused',
+  'paused', 'loops',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -197,6 +197,8 @@ export function useServerChat({ seed = null } = {}) {
       pending_delivered: () => refreshChat(id),
       compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
       paused: (e) => setPausedSteps(e.steps || 0),
+      // The loops of the chat changed (in this tab, another one, or a run).
+      loops: () => refreshDetail(id),
       sub_agent_started: () => setTicks(t => ({ ...t, subAgents: t.subAgents + 1 })),
       sub_agent_done: (e) => {
         setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }])
@@ -260,7 +262,7 @@ export function useServerChat({ seed = null } = {}) {
         connect(id)
       }, retryDelay(attemptRef.current++, RECONNECT_MS))
     }
-  }, [closeStream, refreshChat, refreshList, setError, piece])
+  }, [closeStream, refreshChat, refreshDetail, refreshList, setError, piece])
 
   const readPace = useCallback(() => ({ ...paceRef.current }), [])
 
@@ -343,6 +345,17 @@ export function useServerChat({ seed = null } = {}) {
   const stop = useCallback((id) => act(id, () => chatsApi.stop(id)), [act])
   const sendNow = useCallback((id) => act(id, () => chatsApi.sendNow(id)), [act])
 
+  // Loops: start answers the new loop (or throws, for the caller to show);
+  // the others show their error like any action of the chat.
+  const startLoop = useCallback(async (id, interval, prompt) => {
+    const loop = await chatLoopsApi.start(id, interval, prompt)
+    await refreshDetail(id)
+    return loop
+  }, [refreshDetail])
+  const setLoopState = useCallback((id, loopId, state) => act(id, () => chatLoopsApi.setState(id, loopId, state)), [act])
+  const stopLoop = useCallback((id, loopId) => act(id, () => chatLoopsApi.stop(id, loopId)), [act])
+  const stopLoops = useCallback((id) => act(id, () => chatLoopsApi.stopAll(id)), [act])
+
   // A title or a model answers 409 while a turn runs; settings apply from the
   // next turn. The caller gets the error to show where the change was made.
   const update = useCallback(async (id, fields) => {
@@ -388,10 +401,12 @@ export function useServerChat({ seed = null } = {}) {
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],
+    // The loops of the chat, oldest first (pending, active, paused or ended).
+    loops: detail?.loops || [],
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
     hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
-    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, update, regenerate, editMessage, refreshList,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, startLoop, setLoopState, stopLoop, stopLoops, remove, rename, update, regenerate, editMessage, refreshList,
     clearError: () => setError(''),
   }
 }

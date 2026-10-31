@@ -109,7 +109,8 @@
     }
   },
   "message": {
-    "you": "Você"
+    "you": "Você",
+    "loopRun": "Loop, execução {{run}}"
   },
   "tools": {
     "label": "Ferramentas",

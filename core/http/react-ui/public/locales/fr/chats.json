@@ -475,5 +475,66 @@
       "undone": "Modification de {{name}} annulée.",
       "restored": "{{name}} restauré."
     }
+  },
+  "loops": {
+    "region": "Boucles de ce chat",
+    "unit": {
+      "seconds_one": "{{count}} seconde",
+      "seconds_other": "{{count}} secondes",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "confirm": {
+      "every": "Exécuter ceci toutes les {{every}} jusqu'à ce que vous l'arrêtiez ?",
+      "selfPaced": "Exécuter ceci à nouveau chaque fois que le modèle le demande, jusqu'à ce que vous l'arrêtiez ?",
+      "start": "Démarrer",
+      "cancel": "Annuler"
+    },
+    "chip": {
+      "name": "Boucle",
+      "every": "toutes les {{every}}",
+      "selfPaced": "au rythme du modèle",
+      "run_one": "exécution {{count}}",
+      "run_other": "exécution {{count}}",
+      "paused": "en pause",
+      "running": "en cours",
+      "next": "prochaine à {{time}}",
+      "ended": "terminée",
+      "wait": "En attente de : {{wait}}"
+    },
+    "actions": {
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "stop": "Arrêter",
+      "dismiss": "Masquer"
+    },
+    "state": {
+      "pending": "attend votre accord",
+      "active": "active",
+      "paused": "en pause",
+      "ended": "terminée"
+    },
+    "list": {
+      "title": "Boucles de ce chat",
+      "close": "Fermer",
+      "empty": "Ce chat n'a aucune boucle.",
+      "hint": "Pour en arrêter une, tapez /loop stop et le code au début de sa ligne."
+    },
+    "errors": {
+      "usage": "Tapez /loop, un intervalle si vous en voulez un, et ce qu'il faut répéter. Par exemple : /loop 5m vérifie le build.",
+      "notFound": "Aucune boucle de ce chat ne correspond à {{id}}.",
+      "stopped_one": "{{count}} boucle arrêtée.",
+      "stopped_other": "{{count}} boucles arrêtées."
+    }
   }
 }

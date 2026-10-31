@@ -798,5 +798,66 @@
       "undone": "Undid the change to {{name}}.",
       "restored": "Restored {{name}}."
     }
+  },
+  "loops": {
+    "region": "Loops of this chat",
+    "unit": {
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "confirm": {
+      "every": "Run this every {{every}} until you stop it?",
+      "selfPaced": "Run this again each time the model asks for it, until you stop it?",
+      "start": "Start",
+      "cancel": "Cancel"
+    },
+    "chip": {
+      "name": "Loop",
+      "every": "every {{every}}",
+      "selfPaced": "self-paced",
+      "run_one": "run {{count}}",
+      "run_other": "run {{count}}",
+      "paused": "paused",
+      "running": "running now",
+      "next": "next at {{time}}",
+      "ended": "ended",
+      "wait": "Waiting for: {{wait}}"
+    },
+    "actions": {
+      "pause": "Pause",
+      "resume": "Resume",
+      "stop": "Stop",
+      "dismiss": "Dismiss"
+    },
+    "state": {
+      "pending": "waits for your yes",
+      "active": "active",
+      "paused": "paused",
+      "ended": "ended"
+    },
+    "list": {
+      "title": "Loops of this chat",
+      "close": "Close",
+      "empty": "This chat has no loops.",
+      "hint": "To stop one, type /loop stop and the code at the start of its line."
+    },
+    "errors": {
+      "usage": "Type /loop, an interval if you want one, and what to repeat. For example: /loop 5m check the build.",
+      "notFound": "No loop of this chat matches {{id}}.",
+      "stopped_one": "Stopped {{count}} loop.",
+      "stopped_other": "Stopped {{count}} loops."
+    }
   }
 }

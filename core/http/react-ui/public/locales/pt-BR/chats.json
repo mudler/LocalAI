@@ -475,5 +475,66 @@
       "undone": "Alteração de {{name}} desfeita.",
       "restored": "{{name}} restaurado."
     }
+  },
+  "loops": {
+    "region": "Loops deste chat",
+    "unit": {
+      "seconds_one": "{{count}} segundo",
+      "seconds_other": "{{count}} segundos",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas"
+    },
+    "unitShort": {
+      "seconds_one": "{{count}} s",
+      "seconds_other": "{{count}} s",
+      "minutes_one": "{{count}} min",
+      "minutes_other": "{{count}} min",
+      "hours_one": "{{count}} h",
+      "hours_other": "{{count}} h"
+    },
+    "confirm": {
+      "every": "Executar isto a cada {{every}} até você parar?",
+      "selfPaced": "Executar isto de novo sempre que o modelo pedir, até você parar?",
+      "start": "Iniciar",
+      "cancel": "Cancelar"
+    },
+    "chip": {
+      "name": "Loop",
+      "every": "a cada {{every}}",
+      "selfPaced": "no ritmo do modelo",
+      "run_one": "execução {{count}}",
+      "run_other": "execução {{count}}",
+      "paused": "pausado",
+      "running": "em andamento",
+      "next": "próxima às {{time}}",
+      "ended": "encerrado",
+      "wait": "Aguardando: {{wait}}"
+    },
+    "actions": {
+      "pause": "Pausar",
+      "resume": "Retomar",
+      "stop": "Parar",
+      "dismiss": "Dispensar"
+    },
+    "state": {
+      "pending": "aguarda sua confirmação",
+      "active": "ativo",
+      "paused": "pausado",
+      "ended": "encerrado"
+    },
+    "list": {
+      "title": "Loops deste chat",
+      "close": "Fechar",
+      "empty": "Este chat não tem loops.",
+      "hint": "Para parar um, digite /loop stop e o código do início da linha dele."
+    },
+    "errors": {
+      "usage": "Digite /loop, um intervalo se quiser e o que repetir. Por exemplo: /loop 5m verifique o build.",
+      "notFound": "Nenhum loop deste chat corresponde a {{id}}.",
+      "stopped_one": "{{count}} loop parado.",
+      "stopped_other": "{{count}} loops parados."
+    }
   }
 }
