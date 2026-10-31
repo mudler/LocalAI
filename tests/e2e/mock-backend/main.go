@@ -83,13 +83,18 @@ func checkModelIdentity(in interface{ GetModelIdentity() string }) error {
 // the tool would. The arguments are exactly what the spec encoded, so a spec
 // can send valid, forged or malformed ones. The second turn, after the host
 // put the tool result into the prompt, is plain text.
+//
+// The last marker of the prompt is the one of the user message: the system
+// prompt comes first and can hold a cut copy of it, for example in the name of
+// the chat's work folder, which is made from the chat title.
 var addonToolMarker = regexp.MustCompile(`ADDON_TOOL_CALL:([A-Za-z0-9_-]+):([A-Za-z0-9_=-]+)`)
 
 func addonToolCall(prompt string) (name, arguments string, ok bool) {
-	m := addonToolMarker.FindStringSubmatch(prompt)
-	if m == nil {
+	all := addonToolMarker.FindAllStringSubmatch(prompt, -1)
+	if len(all) == 0 {
 		return "", "", false
 	}
+	m := all[len(all)-1]
 	raw, err := base64.URLEncoding.DecodeString(m[2])
 	if err != nil {
 		raw, err = base64.RawURLEncoding.DecodeString(m[2])

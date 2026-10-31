@@ -255,7 +255,8 @@
   .nx-item__main { grid-template-columns: 32px minmax(0, 1fr); padding-right: 104px; }
   .nx-item__dot { position: absolute; top: var(--sp-3); left: var(--sp-2); width: 6px; height: 6px; margin: 0; }
   .nx-item__acts { top: 50%; box-shadow: none; background: none; opacity: 1; transform: translateY(-50%); }
-  .nx-act { min-width: 44px; min-height: 44px; }
+  /* Two classes: the kit's .dk-btn sets min-width too and may come later. */
+  .nx-item__acts .nx-act { min-width: 44px; min-height: 44px; }
 }
 
 /* ---- phone: a sheet over the bottom of the screen ------------------------ */
@@ -283,7 +284,7 @@
   }
   .nx-head { padding: var(--sp-3) var(--sp-2) var(--sp-2) var(--sp-4); }
   .nx-head__close { display: inline-flex; }
-  .nx-head__close, .nx-head__acts .action-menu__trigger { min-width: 44px; min-height: 44px; }
+  .nx-head .nx-head__close, .nx-head__acts .action-menu__trigger { min-width: 44px; min-height: 44px; }
   .nx-filter .ui-seg__item { min-height: 40px; }
   .nx-mark-all { min-height: 44px; }
   .nx-item__main { min-height: 64px; }

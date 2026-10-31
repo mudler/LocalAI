@@ -108,7 +108,7 @@ func (h *Handlers) PreviewFile(c echo.Context) error {
 	if err != nil {
 		return failFile(c, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if n.Kind != workspace.KindFile {
 		return failFile(c, workspace.ErrInvalid)
 	}

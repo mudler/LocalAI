@@ -16,7 +16,7 @@ import (
 var releasePlatforms = map[string]string{
 	"linux/amd64":  "ubuntu-24.04",
 	"linux/arm64":  "ubuntu-24.04-arm",
-	"darwin/arm64": "macos-14",
+	"darwin/arm64": "macos-15",
 	"darwin/amd64": "macos-15-intel",
 }
 

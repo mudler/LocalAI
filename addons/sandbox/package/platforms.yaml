@@ -56,7 +56,7 @@ platforms:
       - gvisor-bin/runsc-metric-server
   - platform: darwin/arm64
     enabled: false
-    runner: macos-14
+    runner: macos-15
     native_check: executable-start
   - platform: darwin/amd64
     enabled: false
