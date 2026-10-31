@@ -38,6 +38,17 @@ func (w routeWeb) TestSearch(_ context.Context, _, query string) (string, string
 	}, nil
 }
 
+// groupOf returns the entry of a built-in tool group in a tools panel body.
+func groupOf(body map[string]any, group string) map[string]any {
+	for _, g := range body["builtins"].([]any) {
+		if m := g.(map[string]any); m["group"] == group {
+			return m
+		}
+	}
+	Fail("no " + group + " group in the panel")
+	return nil
+}
+
 var _ = Describe("Chats built-in web tools endpoints", func() {
 	var (
 		s   *studioServer
@@ -52,15 +63,16 @@ var _ = Describe("Chats built-in web tools endpoints", func() {
 		chat := s.create("alice")
 		panel := s.do("alice", http.MethodGet, "/api/chats/"+chat+"/tools", nil)
 		Expect(panel.Code).To(Equal(http.StatusOK), panel.Body.String())
-		// The saved agents group comes after web: the route specs keep agents.
-		Expect(decodeJSON(panel)["builtins"].([]any)[0]).To(Equal(map[string]any{
+		// The panel lists more groups (shell, saved agents): the order is the
+		// registry's, so the spec finds the web group by name.
+		Expect(groupOf(decodeJSON(panel), "web")).To(Equal(map[string]any{
 			"group": "web", "tools": []any{"web_search", "web_fetch"}, "off": false, "usable": true, "provider": "builtin",
 			"providers": map[string]any{"web_search": "builtin", "web_fetch": "builtin"},
 		}))
 
 		put := s.do("alice", http.MethodPut, "/api/chats/"+chat+"/builtins", map[string]any{"off": []string{"web"}})
 		Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
-		Expect(decodeJSON(put)["builtins"].([]any)[0].(map[string]any)["off"]).To(BeTrue())
+		Expect(groupOf(decodeJSON(put), "web")).To(HaveKeyWithValue("off", true))
 
 		bad := s.do("alice", http.MethodPut, "/api/chats/"+chat+"/builtins", map[string]any{"off": []string{"bash"}})
 		Expect(bad.Code).To(Equal(http.StatusBadRequest), bad.Body.String())
