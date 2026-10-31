@@ -747,6 +747,30 @@ type ChatsTriggerProposal struct {
 	UndoBlocked string       `json:"undo_blocked,omitempty"`
 }
 
+// ChatsTriggerChange is a change of a trigger that a model asked for in a
+// chat, and what became of it. Op is update, delete, pause or resume. State is
+// pending (an update or a delete waits for Apply), applied, dismissed or
+// undone; a pause or a resume is applied when it is asked for. Before and
+// After are the trigger before and after the change (After is absent for a
+// delete), and Fields the fields that differ. Stale is set on a pending change
+// whose trigger was changed or removed since, so it can no longer apply.
+// CanUndo is set on an applied change that can still be undone (for a day);
+// UndoBlocked says why not: expired, edited, removed or full.
+type ChatsTriggerChange struct {
+	ID          string           `json:"id"`
+	Op          string           `json:"op"`
+	State       string           `json:"state"`
+	TriggerID   string           `json:"trigger_id"`
+	Before      ChatsTrigger     `json:"before"`
+	After       *ChatsTrigger    `json:"after,omitempty"`
+	Fields      []string         `json:"fields"`
+	AnsweredAt  *time.Time       `json:"answered_at,omitempty"`
+	Stale       bool             `json:"stale"`
+	CanUndo     bool             `json:"can_undo"`
+	UndoBlocked string           `json:"undo_blocked,omitempty"`
+	LastRun     *ChatsTriggerRun `json:"last_run,omitempty"`
+}
+
 // ChatsTriggerPlan is what a run of a trigger does, as the model that proposed
 // it described it. Every field is optional.
 type ChatsTriggerPlan struct {

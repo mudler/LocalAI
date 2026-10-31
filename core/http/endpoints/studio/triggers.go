@@ -85,6 +85,7 @@ var triggerRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "trigger not found", triggers.ErrNotFound),
 	verbatim(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadTrigger.Error()+": ", studiosvc.ErrBadTrigger),
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrTooManyTriggers, studiosvc.ErrTooManyProposals),
+	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrTooManyChanges, studiosvc.ErrChangeStale),
 	sentinelText(http.StatusConflict, typeConflict, studiosvc.ErrCannotUndo),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrProposalAnswered),
 	verbatim(http.StatusConflict, typeTriggersOff, "", studiosvc.ErrTriggersOff),
@@ -445,4 +446,97 @@ func (h *Handlers) ReopenTriggerProposal(c echo.Context) error {
 		return failTrigger(c, err)
 	}
 	return h.GetTriggerProposal(c)
+}
+
+func changeOut(ctx context.Context, host *studiosvc.Triggers, v studiosvc.ChangeView) schema.ChatsTriggerChange {
+	out := schema.ChatsTriggerChange{ID: v.ID, Op: v.Op, State: string(v.State), TriggerID: v.Target,
+		Before: triggerOut(ctx, host, v.Before, false), Fields: v.Fields, AnsweredAt: utcPtr(v.At),
+		Stale: v.Stale, CanUndo: v.CanUndo, UndoBlocked: v.UndoBlocked}
+	if out.Fields == nil {
+		out.Fields = []string{}
+	}
+	if v.HasAfter {
+		a := triggerOut(ctx, host, v.After, false)
+		out.After = &a
+	}
+	if v.LastRun != nil {
+		r := runOut(host, v.Before.Owner, *v.LastRun)
+		out.LastRun = &r
+	}
+	return out
+}
+
+// GetTriggerChange reads a change of a trigger and what became of it.
+// @Summary Read a trigger change and its answer.
+// @Description A model in a chat can ask to edit, pause, resume or delete one of your triggers (update_trigger, delete_trigger). An edit or a delete waits for you; a pause or a resume applies at once. The chat carries the change as a tool card of kind trigger_change whose id is the change's id. The answer is kept on the server, so the card says the same after a reload and on every frontend. 404 once the change is no longer kept (a week after its answer).
+// @Tags chats
+// @Param id path string true "the change's id"
+// @Success 200 {object} schema.ChatsTriggerChange "The change"
+// @Router /api/chats/triggers/changes/{id} [get]
+func (h *Handlers) GetTriggerChange(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	v, err := host.ChangeStatus(c.Request().Context(), userID(c), c.Param("id"))
+	if err != nil {
+		return failTrigger(c, err)
+	}
+	return c.JSON(http.StatusOK, changeOut(c.Request().Context(), host, v))
+}
+
+// ApplyTriggerChange applies a pending change.
+// @Summary Apply a trigger change.
+// @Description Makes the edit or deletes the trigger. 409 when the trigger was changed or removed since the change was asked for, or when the change was answered already.
+// @Tags chats
+// @Param id path string true "the change's id"
+// @Success 200 {object} schema.ChatsTriggerChange "The change, now applied"
+// @Failure 409 {object} schema.ErrorResponse "The trigger changed since, or the change was answered"
+// @Router /api/chats/triggers/changes/{id}/apply [post]
+func (h *Handlers) ApplyTriggerChange(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	if _, err := host.ApplyChange(c.Request().Context(), userID(c), c.Param("id")); err != nil {
+		return failTrigger(c, err)
+	}
+	return h.GetTriggerChange(c)
+}
+
+// DismissTriggerChange declines a pending change.
+// @Summary Dismiss a trigger change.
+// @Description The trigger stays as it is. The answer is kept, so the card shows it.
+// @Tags chats
+// @Param id path string true "the change's id"
+// @Success 204 "Dismissed"
+// @Router /api/chats/triggers/changes/{id} [delete]
+func (h *Handlers) DismissTriggerChange(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	if err := host.DismissChange(c.Request().Context(), userID(c), c.Param("id")); err != nil {
+		return failTrigger(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// UndoTriggerChange takes back an applied change.
+// @Summary Undo a trigger change.
+// @Description Puts the trigger back as it was before the change, for a day after it applied: an edit, a pause or a resume is reverted, and a deleted trigger is restored with its id (its run history is not). 409 when the time is over, the trigger was changed since (the message says so), or you have as many triggers as you may.
+// @Tags chats
+// @Param id path string true "the change's id"
+// @Success 200 {object} schema.ChatsTriggerChange "The change, now undone"
+// @Failure 409 {object} schema.ErrorResponse "The change cannot be undone"
+// @Router /api/chats/triggers/changes/{id}/undo [post]
+func (h *Handlers) UndoTriggerChange(c echo.Context) error {
+	host, ok := h.triggerHost(c)
+	if !ok {
+		return nil
+	}
+	if _, err := host.UndoChange(c.Request().Context(), userID(c), c.Param("id")); err != nil {
+		return failTrigger(c, err)
+	}
+	return h.GetTriggerChange(c)
 }

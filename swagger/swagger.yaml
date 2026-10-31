@@ -4725,6 +4725,35 @@ definitions:
       time_zone:
         type: string
     type: object
+  schema.ChatsTriggerChange:
+    properties:
+      after:
+        $ref: '#/definitions/schema.ChatsTrigger'
+      answered_at:
+        type: string
+      before:
+        $ref: '#/definitions/schema.ChatsTrigger'
+      can_undo:
+        type: boolean
+      fields:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      last_run:
+        $ref: '#/definitions/schema.ChatsTriggerRun'
+      op:
+        type: string
+      stale:
+        type: boolean
+      state:
+        type: string
+      trigger_id:
+        type: string
+      undo_blocked:
+        type: string
+    type: object
   schema.ChatsTriggerConfirm:
     properties:
       time_zone:
@@ -14817,6 +14846,91 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsTriggerRunList'
       summary: List the runs of a trigger.
+      tags:
+      - chats
+  /api/chats/triggers/changes/{id}:
+    delete:
+      description: The trigger stays as it is. The answer is kept, so the card shows
+        it.
+      parameters:
+      - description: the change's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Dismissed
+      summary: Dismiss a trigger change.
+      tags:
+      - chats
+    get:
+      description: A model in a chat can ask to edit, pause, resume or delete one
+        of your triggers (update_trigger, delete_trigger). An edit or a delete waits
+        for you; a pause or a resume applies at once. The chat carries the change
+        as a tool card of kind trigger_change whose id is the change's id. The answer
+        is kept on the server, so the card says the same after a reload and on every
+        frontend. 404 once the change is no longer kept (a week after its answer).
+      parameters:
+      - description: the change's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The change
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerChange'
+      summary: Read a trigger change and its answer.
+      tags:
+      - chats
+  /api/chats/triggers/changes/{id}/apply:
+    post:
+      description: Makes the edit or deletes the trigger. 409 when the trigger was
+        changed or removed since the change was asked for, or when the change was
+        answered already.
+      parameters:
+      - description: the change's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The change, now applied
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerChange'
+        "409":
+          description: The trigger changed since, or the change was answered
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Apply a trigger change.
+      tags:
+      - chats
+  /api/chats/triggers/changes/{id}/undo:
+    post:
+      description: 'Puts the trigger back as it was before the change, for a day after
+        it applied: an edit, a pause or a resume is reverted, and a deleted trigger
+        is restored with its id (its run history is not). 409 when the time is over,
+        the trigger was changed since (the message says so), or you have as many triggers
+        as you may.'
+      parameters:
+      - description: the change's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The change, now undone
+          schema:
+            $ref: '#/definitions/schema.ChatsTriggerChange'
+        "409":
+          description: The change cannot be undone
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Undo a trigger change.
       tags:
       - chats
   /api/chats/triggers/preview:

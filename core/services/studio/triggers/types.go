@@ -131,7 +131,44 @@ type Trigger struct {
 	Writes    string
 	Widget    string
 	EstTokens int
+	// Change is set on a record that is not a trigger but a change of one
+	// that a model asked for in a chat (see Change). Such a record is also
+	// Proposed and never enabled, so it never runs. The package only stores it.
+	Change Change
 }
+
+// Change says what a change record does to the trigger it names. While it
+// waits, the record holds the definition the change would give the trigger;
+// once applied, it holds the definition the trigger had before, so the change
+// can be undone. The package only stores it.
+type Change struct {
+	// Op is ChangeUpdate, ChangeDelete, ChangePause or ChangeResume; empty on
+	// a record that is not a change.
+	Op string `json:",omitempty"`
+	// Target is the ID of the trigger the change is for.
+	Target string `json:",omitempty"`
+	// Stamp is a fingerprint of the target's definition: as it was when the
+	// change was asked for while the change waits, and as the change left it
+	// once applied. A different fingerprint means someone changed the trigger
+	// in between.
+	Stamp string `json:",omitempty"`
+	// On is whether the trigger is on: after the change while it waits, and
+	// before the change once applied. The record itself is never enabled.
+	On bool `json:",omitempty"`
+	// Chat is the chat that asked for the change.
+	Chat string `json:",omitempty"`
+}
+
+// The kinds of change.
+const (
+	ChangeUpdate = "update"
+	ChangeDelete = "delete"
+	ChangePause  = "pause"
+	ChangeResume = "resume"
+)
+
+// IsChange says whether t is a change record, not a trigger or a proposal.
+func (t Trigger) IsChange() bool { return t.Change.Op != "" }
 
 // The answers a proposal can have.
 const (
@@ -141,11 +178,13 @@ const (
 )
 
 // Pending says whether t is a proposal that waits for an answer.
-func (t Trigger) Pending() bool { return t.Proposed && t.Outcome == "" }
+// A change record is never a proposal.
+func (t Trigger) Pending() bool { return t.Proposed && t.Outcome == "" && !t.IsChange() }
 
 // Answered says whether t is a proposal that was declined or undone: a record
-// of the answer, not a trigger and not a waiting proposal.
-func (t Trigger) Answered() bool { return t.Proposed && t.Outcome != "" }
+// of the answer, not a trigger and not a waiting proposal. A change record is
+// neither.
+func (t Trigger) Answered() bool { return t.Proposed && t.Outcome != "" && !t.IsChange() }
 
 // GapOrDefault gives MinGap, or DefaultFileGap when it is zero.
 func (t Trigger) GapOrDefault() time.Duration {

@@ -251,6 +251,59 @@ When you create a trigger whose plan names a widget, LocalAI writes the
 trigger's id into that widget as `trigger`, so the widget can show when it runs.
 A form that edits a trigger and does not send the plan keeps it.
 
+### Changes from a chat
+
+The model can also change the triggers you already have. `list_triggers` gives
+each trigger a short `ref` (for example `t1a2b3c4d`): it stays the same for the
+trigger and it is not the trigger's id. The list shows no prompts. To read the
+prompt and the other settings of one trigger, the model passes its `ref` with
+`include_prompt: true`. A `ref` of another user's trigger, or one that does not
+exist, is an error for the model. The model can also name a trigger by its
+exact name when only one trigger has that name.
+
+- `update_trigger {ref, name, prompt, when, time_zone, daily_cap, enabled, reads, writes, widget, estimated_tokens}`
+  changes the fields it names and keeps the others. The same rules as for a
+  proposal apply: a schedule that changes runs at most once an hour, the
+  folder and the `writes` file must be in your files. A change of anything
+  other than `enabled` does nothing by itself: a card shows each changed field
+  before and after, with **Apply** and **Dismiss**. A change that only pauses
+  (`enabled: false`) or resumes (`enabled: true`) the trigger applies at once,
+  because you can take it back, and its card is a receipt with **Undo**.
+- `delete_trigger {ref}` deletes nothing by itself: a card shows the trigger's
+  name, when it runs, whether it is on and its last run, with **Delete** and
+  **Keep**.
+
+The tool descriptions tell the model which change waits and which applies at
+once, so it does not say a change is made before you apply it. At the start of
+its next turn the model is told what you did with the changes it asked for in
+the chat.
+
+After you apply a change the card is a receipt with **Undo** for one day.
+**Undo** puts the trigger back as it was before the change. For a delete it
+restores the trigger with the same id and settings; its run history is not
+restored, and the chats of its runs were never removed. **Undo** is refused
+(`409`, with the reason) after the day, when the trigger was changed on the
+Triggers page since, or, for a delete, when you already have 50 triggers. A
+change that waits cannot apply once the trigger was changed or removed after
+the model asked for it: the card says so and keeps only **Dismiss**.
+
+The card's change is kept on the server, so the card shows the same state
+after a reload, in another browser and on every frontend of a cluster. The
+tool line has a `card` of kind `trigger_change` whose `id` is the change's id,
+and a `trigger_proposed` event announces it to a client that is watching.
+
+| Route | What it does |
+|---|---|
+| `GET /api/chats/triggers/changes/{id}` | The change: `op` (`update`, `delete`, `pause` or `resume`), `state` (`pending`, `applied`, `dismissed` or `undone`), `trigger_id`, `before`, `after` (absent for a delete), `fields`, `stale`, `can_undo`, `undo_blocked` (`expired`, `edited`, `removed` or `full`) and `last_run`. `404` a week after it was answered, when it is no longer kept. |
+| `POST .../changes/{id}/apply` | Makes the edit or deletes the trigger. `409` when the trigger changed since or the change was answered. |
+| `DELETE .../changes/{id}` | Dismisses the change (**Keep** for a delete). The trigger stays as it is. |
+| `POST .../changes/{id}/undo` | Takes an applied change back, for one day. |
+
+A change does not count towards the 50 triggers or the 10 waiting proposals. At
+most 10 changes wait at a time. Like the other trigger tools, these tools are
+offered only in a chat a person started: a trigger run, a connector run and a
+sub-agent never get them.
+
 ### Clusters
 
 In a cluster, one frontend runs the triggers at a time: the one that holds an
@@ -350,6 +403,7 @@ behaves with several frontends:
 | Agents, triggers, runs, notifications, push subscriptions | Shared | Rows in the database. Any frontend reads and writes them. |
 | Which frontend runs the triggers | Single runner | The frontend that holds the advisory lock (`KeyChatsTriggers`) runs the Runner. When it stops, another takes the lock. |
 | A due time or a file version | Shared | One unique row for each trigger and due key. Two frontends cannot start the same run. |
+| Trigger proposals and changes asked for in a chat | Stateless | Rows in the trigger table. Each request reads and writes them in the database, so any frontend can show, apply or undo them. |
 | Quiet periods of waiting files, the memory of a run's own writes | Per leader | Kept by the Runner of the current leader. A new leader reads the change feed again from its saved position, which stays below the oldest waiting file, so a file that was waiting is found again. |
 | Live notifications | Shared, live only | Sent over the message bus to every frontend. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |

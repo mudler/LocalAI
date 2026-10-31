@@ -1188,6 +1188,11 @@ The chat page (`/app/chats/<id>`) shows one chat.
   that is a result has **Open preview**.
 - **A trigger the model proposes** shows as a card under its tool line with
   **Create trigger**, **Edit** (name and schedule or folder) and **Dismiss**.
+- **A change of a trigger the model asks for** shows as a card under its tool
+  line: an edit lists each field before and after with **Apply** and
+  **Dismiss**, a delete shows the trigger with **Delete** and **Keep**, and a
+  pause or a resume, which applies at once, is a receipt with **Undo**. See
+  [Changes from a chat](/features/chats-agents/#changes-from-a-chat).
 - **Shortcuts** over the message box are the prompts of your
   `LocalAI/shortcuts.json`, or the default starters without it. A click puts one in the
   box; **Edit shortcuts** changes the list. See [Make LocalAI

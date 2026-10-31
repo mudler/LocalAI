@@ -103,7 +103,7 @@ func (h *Triggers) owned(ctx context.Context, user, id string) (triggers.Trigger
 
 func (h *Triggers) ownedProposal(ctx context.Context, user, id string) (triggers.Trigger, error) {
 	t, err := h.o.Store.GetTrigger(ctx, id)
-	if err != nil || t.Owner != principal(user) || !t.Proposed {
+	if err != nil || t.Owner != principal(user) || !t.Proposed || t.IsChange() {
 		return triggers.Trigger{}, triggers.ErrNotFound
 	}
 	return t, nil
@@ -123,11 +123,11 @@ func (h *Triggers) pendingProposal(ctx context.Context, user, id string) (trigge
 }
 
 // countLive is how many of ts are triggers or waiting proposals: the records
-// of a declined or undone proposal take no place.
+// of a declined or undone proposal, and change records, take no place.
 func countLive(ts []triggers.Trigger) int {
 	n := 0
 	for _, t := range ts {
-		if !t.Answered() {
+		if !t.Answered() && !t.IsChange() {
 			n++
 		}
 	}
@@ -276,14 +276,17 @@ func (h *Triggers) ListTriggers(ctx context.Context, user string) ([]triggers.Tr
 	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.Proposed }), nil
 }
 
-// HasProposal says whether a trigger the chat proposed waits for an answer.
-// An error counts as yes: the caller holds back what it would add.
+// HasProposal says whether a trigger the chat proposed, or a change of one it
+// asked for, waits for an answer. An error counts as yes: the caller holds
+// back what it would add.
 func (h *Triggers) HasProposal(ctx context.Context, user, chatID string) bool {
 	all, err := h.o.Store.ListTriggers(ctx, principal(user))
 	if err != nil {
 		return true
 	}
-	return slices.ContainsFunc(all, func(t triggers.Trigger) bool { return t.Pending() && t.SourceChatID == chatID })
+	return slices.ContainsFunc(all, func(t triggers.Trigger) bool {
+		return (t.Pending() && t.SourceChatID == chatID) || (t.IsChange() && t.Outcome == "" && t.Change.Chat == chatID)
+	})
 }
 
 // maxProposals is how many proposals of a user may wait for an answer.
