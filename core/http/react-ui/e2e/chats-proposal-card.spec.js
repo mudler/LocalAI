@@ -76,10 +76,25 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
     test('the card sits below the text of its message and above its actions', async ({ page }) => {
       await open(page)
       await expect(card(page)).toHaveAttribute('data-state', 'proposed')
-      const text = await page.locator('[data-testid="chat-message"][data-role="assistant"] .cx-prose, [data-testid="chat-message"][data-role="assistant"] .prose').first().boundingBox()
-      const box = await card(page).boundingBox()
-      const acts = await page.locator('[data-testid="chat-message"][data-role="assistant"] [data-testid="message-actions"]').boundingBox()
+      // One read of the three boxes in the same frame. Three boundingBox calls
+      // are three frames, and the transcript scrolls to its end while the
+      // card fills in, so on a phone the later boxes moved up by the scroll.
+      const { text, box, acts } = await page.evaluate(() => {
+        const rect = (el) => {
+          if (!el) return null
+          const r = el.getBoundingClientRect()
+          return { y: r.y, height: r.height }
+        }
+        const msg = '[data-testid="chat-message"][data-role="assistant"]'
+        return {
+          text: rect(document.querySelector(`${msg} .cx-prose, ${msg} .prose`)),
+          box: rect(document.querySelector('[data-testid="trigger-proposal"]')),
+          acts: rect(document.querySelector(`${msg} [data-testid="message-actions"]`)),
+        }
+      })
       expect(text, 'the message text was not found').not.toBeNull()
+      expect(box, 'the card was not found').not.toBeNull()
+      expect(acts, 'the message actions were not found').not.toBeNull()
       expect(box.y).toBeGreaterThanOrEqual(text.y + text.height - 1)
       expect(acts.y).toBeGreaterThanOrEqual(box.y + box.height - 1)
       await page.screenshot({ path: `test-results/proposal-${name}-pending.png` })
