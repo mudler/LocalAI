@@ -1,6 +1,6 @@
 {
   "title": "Competenze",
-  "subtitle": "Istruzioni che una chat può leggere quando un compito corrisponde. Aggiungine una a un agente per usarla lì.",
+  "subtitle": "Istruzioni che tutte le tue chat possono usare quando un compito corrisponde. Gli agenti usano quelle che aggiungi loro.",
   "unavailable": {
     "subtitle": "Le competenze richiedono File, e File è disattivato su questo server."
   },

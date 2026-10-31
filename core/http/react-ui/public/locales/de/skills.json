@@ -1,6 +1,6 @@
 {
   "title": "Fähigkeiten",
-  "subtitle": "Anweisungen, die ein Chat liest, wenn eine Aufgabe passt. Füge eine einem Agenten hinzu, um sie dort zu nutzen.",
+  "subtitle": "Anweisungen, die alle deine Chats nutzen können, wenn eine Aufgabe passt. Agenten nutzen die, die du ihnen hinzufügst.",
   "unavailable": {
     "subtitle": "Fähigkeiten brauchen Dateien, und Dateien sind auf diesem Server ausgeschaltet."
   },

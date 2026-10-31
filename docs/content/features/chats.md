@@ -1071,6 +1071,7 @@ and `/model ` the chat models, `/loop stop ` the loops of the chat.
 | `/new`, `/chats` | Start a new chat, or open the list of your chats. |
 | `/find`, `/settings`, `/export`, `/delete` | Search this chat, open its settings, download it as Markdown, delete it. |
 | `/<skill>`, `/skill <name>` | Run the message with one of the skills of this chat (see below). |
+| `/skills` | Open the Skills page, where you write and manage skills (see [Skills](#skills)). |
 | `/agent <name> <task>` | Hand the task to one of your saved agents (see below). |
 | `/compact` | Compact the context now (see above). |
 | `/clear` | Clear the context: a fresh start in the same chat (see above). |
@@ -1318,6 +1319,8 @@ A link from `ui/open-link` must be `http` or `https` and opens only when you cli
 it. When the page cannot be loaded, the chat shows the result as text.
 
 ## Skills
+
+In the web UI, the **Skills** item in the sidebar, right after Memory, opens the page where you write, change and delete skills. Every chat can use them, and agents use the ones you add to them. You can also open the page from the **Manage skills** link at the bottom of the Skills menu in the composer, or by typing `/skills` in the message box.
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, by name and description only, and tells the model to call the `load_skill` tool with a skill's name before a task that matches it. `load_skill` returns the instructions of the skill, the text after its frontmatter. It offers exactly the skills of that list: for each name the nearest skill, not switched off, and the skills of the add-ons the chat can use now. Any other name is refused with the names of the chat's skills and the near ones first (for example `Did you mean pdf?` for `PDF`).
 

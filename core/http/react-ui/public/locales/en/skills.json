@@ -1,6 +1,6 @@
 {
   "title": "Skills",
-  "subtitle": "Instructions a chat can read when a task matches. Add one to an agent to use it there.",
+  "subtitle": "Instructions all your chats can use when a task matches. Agents use the ones you add to them.",
   "unavailable": {
     "subtitle": "Skills need Files, and Files are off on this server."
   },

@@ -1,6 +1,6 @@
 {
   "title": "Compétences",
-  "subtitle": "Des instructions qu’un chat peut lire quand une tâche correspond. Ajoutez-en une à un agent pour l’utiliser là.",
+  "subtitle": "Des instructions que tous vos chats peuvent utiliser quand une tâche correspond. Les agents utilisent celles que vous leur ajoutez.",
   "unavailable": {
     "subtitle": "Les compétences ont besoin de Fichiers, et Fichiers est désactivé sur ce serveur."
   },

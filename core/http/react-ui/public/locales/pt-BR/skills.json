@@ -1,6 +1,6 @@
 {
   "title": "Habilidades",
-  "subtitle": "Instruções que um chat pode ler quando uma tarefa corresponde. Adicione uma a um agente para usá-la lá.",
+  "subtitle": "Instruções que todos os seus chats podem usar quando uma tarefa corresponde. Os agentes usam as que você adiciona a eles.",
   "unavailable": {
     "subtitle": "As habilidades precisam de Arquivos, e Arquivos está desativado neste servidor."
   },

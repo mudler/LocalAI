@@ -1,6 +1,6 @@
 {
   "title": "Skill",
-  "subtitle": "Instruksi yang dapat dibaca chat saat sebuah tugas cocok. Tambahkan ke agen untuk memakainya di sana.",
+  "subtitle": "Instruksi yang dapat dipakai semua obrolan Anda saat sebuah tugas cocok. Agen memakai yang Anda tambahkan ke mereka.",
   "unavailable": {
     "subtitle": "Skill memerlukan Berkas, dan Berkas dinonaktifkan di server ini."
   },
