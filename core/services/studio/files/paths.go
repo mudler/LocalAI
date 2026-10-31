@@ -2,6 +2,8 @@ package files
 
 import (
 	"context"
+	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -81,6 +83,12 @@ type TrashEntry struct {
 	// Paths are what the change set deleted, inside the home. A folder is one
 	// path; its files are not listed.
 	Paths []string
+	// Files, Dirs and Bytes say what deleting the entry for good would remove:
+	// the files and the folders (a folder with its content counts once for
+	// itself and once for each item in it) and the size of the files.
+	Files int
+	Dirs  int
+	Bytes int64
 }
 
 // Trash lists the deletions in the user's home that nobody has undone, newest
@@ -122,7 +130,76 @@ func (s *Service) Trash(ctx context.Context, principal string, limit int) ([]Tra
 			break
 		}
 	}
+	s.sizeTrash(ctx, principal, out)
 	return out, nil
+}
+
+// sizeTrash fills in what each entry would remove. A store that cannot count
+// leaves the sizes at zero.
+func (s *Service) sizeTrash(ctx context.Context, principal string, entries []TrashEntry) {
+	pg, ok := s.ws.(workspace.Purger)
+	if !ok || len(entries) == 0 {
+		return
+	}
+	revs := make([]int64, len(entries))
+	for i, e := range entries {
+		revs[i] = e.Rev
+	}
+	res, err := pg.Purge(ctx, s.Actor(principal), session.HomePath(principal), revs, true)
+	if err != nil {
+		return
+	}
+	for i := range entries {
+		c := res.ByRev[entries[i].Rev]
+		entries[i].Files, entries[i].Dirs, entries[i].Bytes = c.Files, c.Dirs, c.Bytes
+	}
+}
+
+// ErrNoPurge means the workspace store cannot delete for good.
+var ErrNoPurge = errors.New("the workspace cannot empty the Trash")
+
+// purger returns the store as a Purger.
+func (s *Service) purger() (workspace.Purger, error) {
+	if !s.Available() {
+		return nil, ErrUnavailable
+	}
+	pg, ok := s.ws.(workspace.Purger)
+	if !ok {
+		return nil, ErrNoPurge
+	}
+	return pg, nil
+}
+
+// EmptyTrash removes everything in the user's Trash for good. With dryRun it
+// only counts. It is every deleted item in the home, including
+// the ones that the list leaves out because it is limited. It is a user's
+// action: the agent tools do not reach it.
+func (s *Service) EmptyTrash(ctx context.Context, principal string, dryRun bool) (workspace.PurgeCount, error) {
+	pg, err := s.purger()
+	if err != nil {
+		return workspace.PurgeCount{}, err
+	}
+	res, err := pg.PurgeAll(ctx, s.Actor(principal), session.HomePath(principal), dryRun)
+	return res.PurgeCount, err
+}
+
+// PurgeTrashEntry deletes one entry of the user's Trash for good. A revision
+// that is not in the user's Trash is workspace.ErrNotFound. It is a user's
+// action: the agent tools do not reach it.
+func (s *Service) PurgeTrashEntry(ctx context.Context, principal string, rev int64) (workspace.PurgeCount, error) {
+	pg, err := s.purger()
+	if err != nil {
+		return workspace.PurgeCount{}, err
+	}
+	entries, err := s.Trash(ctx, principal, 0)
+	if err != nil {
+		return workspace.PurgeCount{}, err
+	}
+	if !slices.ContainsFunc(entries, func(e TrashEntry) bool { return e.Rev == rev }) {
+		return workspace.PurgeCount{}, workspace.ErrNotFound
+	}
+	res, err := pg.Purge(ctx, s.Actor(principal), session.HomePath(principal), []int64{rev}, false)
+	return res.PurgeCount, err
 }
 
 // topLevel drops every path that lies under another path of the list.

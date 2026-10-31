@@ -14,6 +14,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"time"
+
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -141,4 +144,48 @@ func linkOrCopy(src string, dir *os.Root, name string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// Remover is a Store that can delete a blob. The workspace calls it after a
+// purge for blobs that no node or journal row refers to. A missing blob is not
+// an error.
+type Remover interface {
+	Remove(ctx context.Context, sha string) error
+}
+
+// RemoveLater removes the blobs in shas from st after grace, but only those
+// that inUse still reports as free at that moment. The wait covers a Put that
+// found the blob already stored and has not yet written the row that refers to
+// it. A grace of zero or less removes at once. A store without Remove keeps
+// its blobs.
+func RemoveLater(st Store, shas []string, grace time.Duration, inUse func(ctx context.Context, shas []string) (map[string]bool, error)) int {
+	rm, ok := st.(Remover)
+	if !ok || len(shas) == 0 {
+		return 0
+	}
+	run := func() int {
+		ctx := context.Background()
+		used, err := inUse(ctx, shas)
+		if err != nil {
+			xlog.Warn("workspace: could not check the blobs of a purge", "error", err)
+			return 0
+		}
+		n := 0
+		for _, sha := range shas {
+			if used[sha] {
+				continue
+			}
+			if err := rm.Remove(ctx, sha); err != nil {
+				xlog.Warn("workspace: could not remove a blob", "sha", sha, "error", err)
+				continue
+			}
+			n++
+		}
+		return n
+	}
+	if grace <= 0 {
+		return run()
+	}
+	time.AfterFunc(grace, func() { run() })
+	return len(shas)
 }

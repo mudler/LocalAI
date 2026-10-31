@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "공유"
   },
+  "trash": {
+    "empty": "휴지통이 비어 있습니다.",
+    "restore": "복원",
+    "emptyAll": "휴지통 비우기",
+    "purge": "영구 삭제",
+    "purgeNamed": "{{name}} 영구 삭제",
+    "files_one": "파일 {{count}}개",
+    "files_other": "파일 {{count}}개",
+    "folders_one": "폴더 {{count}}개",
+    "folders_other": "폴더 {{count}}개",
+    "listJoin": ", ",
+    "summary": "휴지통: {{what}}.",
+    "removed": "영구 삭제됨: {{what}}.",
+    "confirmAll": {
+      "title": "휴지통을 비우시겠습니까?",
+      "message": "{{what}}이(가) 이전 버전과 함께 영구 삭제됩니다. 되돌릴 수 없습니다."
+    },
+    "confirmOne": {
+      "title": "영구 삭제하시겠습니까?",
+      "message": "{{path}}: {{what}}이(가) 이전 버전과 함께 영구 삭제됩니다. 되돌릴 수 없습니다."
+    }
+  },
   "shared": {
     "adminTitle": "공유 폴더",
     "adminLede": "여러 사람이 함께 쓰는 폴더입니다. 멤버는 페이지를 열 수 있고, 멤버의 채팅은 파일을 읽거나 편집할 수 있습니다.",

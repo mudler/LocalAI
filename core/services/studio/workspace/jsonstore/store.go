@@ -56,6 +56,10 @@ type Options struct {
 	// Admin is the principal that manages grants. It has write access to
 	// every node. Empty means no admin: Grant and Revoke always fail.
 	Admin string
+	// BlobGrace is how long a purge waits before it removes a blob that
+	// nothing refers to, so that an upload of the same bytes in flight keeps
+	// them. Zero means two minutes; a negative value removes at once.
+	BlobGrace time.Duration
 	// MaxFileSize limits each file in bytes. Zero means no limit.
 	MaxFileSize int64
 	// Now returns the time recorded in change sets. Nil means time.Now.
@@ -77,11 +81,13 @@ type Store struct {
 	maxSize   int64
 	now       func() time.Time
 	compactAt int64
+	blobGrace time.Duration
 }
 
 var (
 	_ workspace.Store       = (*Store)(nil)
 	_ workspace.GrantLister = (*Store)(nil)
+	_ workspace.Purger      = (*Store)(nil)
 )
 
 var (
@@ -95,7 +101,7 @@ func New(dir string, blobs blob.Store, o Options) (*Store, error) {
 	if blobs == nil {
 		return nil, errors.New("workspace: a blob store is required")
 	}
-	s := &Store{d: newData(), blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: o.Now, compactAt: o.CompactAt}
+	s := &Store{d: newData(), blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: o.Now, compactAt: o.CompactAt, blobGrace: o.BlobGrace}
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -405,7 +411,11 @@ func (s *Store) maybeCompact() {
 // a rename and empties the log. A crash between the two steps leaves records
 // that the snapshot has; replay skips them by their sequence number.
 func (s *Store) compact() error {
-	snap := s.d.snapshot()
+	return s.writeSnapshot(s.d.snapshot())
+}
+
+// writeSnapshot replaces the snapshot on disk with snap and empties the log.
+func (s *Store) writeSnapshot(snap snapshot) error {
 	raw, err := json.Marshal(snap)
 	if err != nil {
 		return err

@@ -237,6 +237,10 @@ export const filesApi = {
   move: (from, to) => postJSON(API_CONFIG.endpoints.filesMove, { from, to }),
   remove: (path) => fetchJSON(API_CONFIG.endpoints.files + q({ path }), { method: 'DELETE' }),
   trash: () => fetchJSON(API_CONFIG.endpoints.filesTrash),
+  // Deletes for good: everything in the Trash, or the one entry of a revision.
+  // Neither can be undone. Both answer { files, folders, bytes }.
+  emptyTrash: () => fetchJSON(API_CONFIG.endpoints.filesTrash, { method: 'DELETE' }),
+  purgeTrash: (rev) => fetchJSON(`${API_CONFIG.endpoints.filesTrash}/${enc(rev)}`, { method: 'DELETE' }),
   undo: (rev, skipConflicts = false) => postJSON(API_CONFIG.endpoints.filesUndo, { rev, skip_conflicts: skipConflicts }),
   history: (path = '/') => fetchJSON(API_CONFIG.endpoints.filesHistory + q({ path })),
   search: (query, path = '/') => fetchJSON(API_CONFIG.endpoints.filesSearch + q({ q: query, path })),

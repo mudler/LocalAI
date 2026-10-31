@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "Geteilt"
   },
+  "trash": {
+    "empty": "Der Papierkorb ist leer.",
+    "restore": "Wiederherstellen",
+    "emptyAll": "Papierkorb leeren",
+    "purge": "Endgültig löschen",
+    "purgeNamed": "{{name}} endgültig löschen",
+    "files_one": "{{count}} Datei",
+    "files_other": "{{count}} Dateien",
+    "folders_one": "{{count}} Ordner",
+    "folders_other": "{{count}} Ordner",
+    "listJoin": ", ",
+    "summary": "Im Papierkorb: {{what}}.",
+    "removed": "Endgültig gelöscht: {{what}}.",
+    "confirmAll": {
+      "title": "Papierkorb leeren?",
+      "message": "Dadurch werden {{what}} samt früherer Versionen endgültig gelöscht. Das lässt sich nicht rückgängig machen."
+    },
+    "confirmOne": {
+      "title": "Endgültig löschen?",
+      "message": "{{path}}: Dadurch werden {{what}} samt früherer Versionen endgültig gelöscht. Das lässt sich nicht rückgängig machen."
+    }
+  },
   "shared": {
     "adminTitle": "Geteilte Ordner",
     "adminLede": "Ordner, die mehrere Personen nutzen. Mitglieder öffnen ihre Seiten, und ihre Chats können die Dateien lesen oder bearbeiten.",

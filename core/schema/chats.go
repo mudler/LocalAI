@@ -429,11 +429,25 @@ type ChatsTrashEntry struct {
 	Title string    `json:"title"`
 	At    time.Time `json:"at"`
 	Paths []string  `json:"paths"`
+	// Files, Folders and Bytes say what deleting the entry for good removes.
+	Files   int   `json:"files"`
+	Folders int   `json:"folders"`
+	Bytes   int64 `json:"bytes"`
+}
+
+// ChatsTrashTotals counts what is in the Trash, or what a purge removed.
+type ChatsTrashTotals struct {
+	Files   int   `json:"files"`
+	Folders int   `json:"folders"`
+	Bytes   int64 `json:"bytes"`
 }
 
 // ChatsTrash lists the deletions that can be undone, newest first.
 type ChatsTrash struct {
 	Entries []ChatsTrashEntry `json:"entries"`
+	// Totals counts everything in the Trash, also what a long list leaves out.
+	// It is what "empty the Trash" removes.
+	Totals ChatsTrashTotals `json:"totals"`
 }
 
 // ChatsFileOp is one change of a change set.

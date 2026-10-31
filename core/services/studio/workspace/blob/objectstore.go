@@ -2,6 +2,7 @@ package blob
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -114,4 +115,18 @@ func (s *objectStore) LinkTo(ctx context.Context, sha string, dir *os.Root, name
 	}
 	_ = r.Close()
 	return linkOrCopy(shaPath(s.cache, sha), dir, name)
+}
+
+// Remove deletes the blob from the object store and from this frontend's cache.
+func (s *objectStore) Remove(ctx context.Context, sha string) error {
+	if !validSHA(sha) {
+		return nil
+	}
+	if err := s.os.Delete(ctx, key(sha)); err != nil {
+		return err
+	}
+	if err := os.Remove(shaPath(s.cache, sha)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }

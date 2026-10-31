@@ -57,6 +57,7 @@ var fileRules = []errRule{
 	fixed(http.StatusBadRequest, typeInvalid, "that cannot be done to this path", workspace.ErrInvalid),
 	fixed(http.StatusConflict, typeConflict, "later changes conflict with this undo", workspace.ErrConflict),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
+	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrNoPurge),
 }
 
 // failFile maps a workspace error to a response.
@@ -336,9 +337,60 @@ func (h *Handlers) Trash(c echo.Context) error {
 	}
 	out := schema.ChatsTrash{Entries: make([]schema.ChatsTrashEntry, 0, len(entries))}
 	for _, e := range entries {
-		out.Entries = append(out.Entries, schema.ChatsTrashEntry{Rev: e.Rev, Title: e.Title, At: e.At, Paths: e.Paths})
+		out.Entries = append(out.Entries, schema.ChatsTrashEntry{Rev: e.Rev, Title: e.Title, At: e.At, Paths: e.Paths, Files: e.Files, Folders: e.Dirs, Bytes: e.Bytes})
+	}
+	// A store that cannot count leaves the totals at zero; the list stays.
+	if t, err := fc.f.EmptyTrash(c.Request().Context(), fc.p, true); err == nil {
+		out.Totals = trashTotals(t)
 	}
 	return c.JSON(http.StatusOK, out)
+}
+
+func trashTotals(t workspace.PurgeCount) schema.ChatsTrashTotals {
+	return schema.ChatsTrashTotals{Files: t.Files, Folders: t.Dirs, Bytes: t.Bytes}
+}
+
+// EmptyTrash deletes everything in the Trash for good.
+// @Summary Empty the Trash.
+// @Description Permanently deletes every file and folder in your Trash, with their older versions, and frees the space. It cannot be undone. It touches only your own Trash. The agent tools cannot do this; it is an action of the person.
+// @Tags chats
+// @Success 200 {object} schema.ChatsTrashTotals "What was removed"
+// @Router /api/chats/files/trash [delete]
+func (h *Handlers) EmptyTrash(c echo.Context) error {
+	fc, ok := h.files(c)
+	if !ok {
+		return nil
+	}
+	t, err := fc.f.EmptyTrash(c.Request().Context(), fc.p, false)
+	if err != nil {
+		return failFile(c, err)
+	}
+	return c.JSON(http.StatusOK, trashTotals(t))
+}
+
+// PurgeTrashEntry deletes one item of the Trash for good.
+// @Summary Delete one item of the Trash permanently.
+// @Description Permanently deletes the files and folders that one change set deleted, by the revision that the Trash lists. It cannot be undone. A revision that is not in your Trash is 404.
+// @Tags chats
+// @Param rev path int true "revision of the Trash entry"
+// @Success 200 {object} schema.ChatsTrashTotals "What was removed"
+// @Failure 400 {object} schema.ErrorResponse "The revision is not a number"
+// @Failure 404 {object} schema.ErrorResponse "Not in your Trash"
+// @Router /api/chats/files/trash/{rev} [delete]
+func (h *Handlers) PurgeTrashEntry(c echo.Context) error {
+	fc, ok := h.files(c)
+	if !ok {
+		return nil
+	}
+	rev, err := strconv.ParseInt(c.Param("rev"), 10, 64)
+	if err != nil || rev <= 0 {
+		return fail(c, http.StatusBadRequest, typeInvalid, "rev must be a positive number")
+	}
+	t, err := fc.f.PurgeTrashEntry(c.Request().Context(), fc.p, rev)
+	if err != nil {
+		return failFile(c, err)
+	}
+	return c.JSON(http.StatusOK, trashTotals(t))
 }
 
 // UndoFiles undoes a change set.

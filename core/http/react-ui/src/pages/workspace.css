@@ -176,6 +176,11 @@
 .ws-snippet { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-row__actions { display: flex; gap: var(--dk-space-1); flex: none; }
 
+.ws-trash { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.ws-trash__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); flex-wrap: wrap; }
+.ws-trash__summary { margin: 0; color: var(--color-text-secondary); }
+.ws-trash__done { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
+
 .ws-icon-btn {
   display: inline-flex;
   align-items: center;

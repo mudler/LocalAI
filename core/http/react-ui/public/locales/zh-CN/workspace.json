@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "共享"
   },
+  "trash": {
+    "empty": "回收站是空的。",
+    "restore": "恢复",
+    "emptyAll": "清空回收站",
+    "purge": "永久删除",
+    "purgeNamed": "永久删除 {{name}}",
+    "files_one": "{{count}} 个文件",
+    "files_other": "{{count}} 个文件",
+    "folders_one": "{{count}} 个文件夹",
+    "folders_other": "{{count}} 个文件夹",
+    "listJoin": "，",
+    "summary": "回收站中有：{{what}}。",
+    "removed": "已永久删除：{{what}}。",
+    "confirmAll": {
+      "title": "清空回收站？",
+      "message": "这将永久删除 {{what}}及其历史版本，且无法撤销。"
+    },
+    "confirmOne": {
+      "title": "永久删除？",
+      "message": "{{path}}：这将永久删除 {{what}}及其历史版本，且无法撤销。"
+    }
+  },
   "shared": {
     "adminTitle": "共享文件夹",
     "adminLede": "多人共用的文件夹。成员可以打开其中的页面，他们的聊天可以读取或编辑这些文件。",

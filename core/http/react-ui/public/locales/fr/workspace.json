@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "Partagé"
   },
+  "trash": {
+    "empty": "La corbeille est vide.",
+    "restore": "Restaurer",
+    "emptyAll": "Vider la corbeille",
+    "purge": "Supprimer définitivement",
+    "purgeNamed": "Supprimer {{name}} définitivement",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers",
+    "folders_one": "{{count}} dossier",
+    "folders_other": "{{count}} dossiers",
+    "listJoin": ", ",
+    "summary": "Dans la corbeille : {{what}}.",
+    "removed": "Supprimé définitivement : {{what}}.",
+    "confirmAll": {
+      "title": "Vider la corbeille ?",
+      "message": "Cela supprime définitivement {{what}}, avec leurs versions précédentes. Cette action est irréversible."
+    },
+    "confirmOne": {
+      "title": "Supprimer définitivement ?",
+      "message": "{{path}} : cela supprime définitivement {{what}}, avec leurs versions précédentes. Cette action est irréversible."
+    }
+  },
   "shared": {
     "adminTitle": "Dossiers partagés",
     "adminLede": "Des dossiers que plusieurs personnes utilisent. Les membres ouvrent leurs pages, et leurs discussions peuvent lire ou modifier les fichiers.",

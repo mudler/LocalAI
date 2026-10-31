@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "Compartilhado"
   },
+  "trash": {
+    "empty": "A lixeira está vazia.",
+    "restore": "Restaurar",
+    "emptyAll": "Esvaziar a lixeira",
+    "purge": "Excluir permanentemente",
+    "purgeNamed": "Excluir {{name}} permanentemente",
+    "files_one": "{{count}} arquivo",
+    "files_other": "{{count}} arquivos",
+    "folders_one": "{{count}} pasta",
+    "folders_other": "{{count}} pastas",
+    "listJoin": ", ",
+    "summary": "Na lixeira: {{what}}.",
+    "removed": "Excluído permanentemente: {{what}}.",
+    "confirmAll": {
+      "title": "Esvaziar a lixeira?",
+      "message": "Isto exclui permanentemente {{what}}, com as versões anteriores. Não é possível desfazer."
+    },
+    "confirmOne": {
+      "title": "Excluir permanentemente?",
+      "message": "{{path}}: isto exclui permanentemente {{what}}, com as versões anteriores. Não é possível desfazer."
+    }
+  },
   "shared": {
     "adminTitle": "Pastas compartilhadas",
     "adminLede": "Pastas que várias pessoas usam. Os membros abrem as páginas delas, e os chats deles podem ler ou editar os arquivos.",

@@ -85,23 +85,65 @@ function EntryRow({ entry, selected, onSelect, onOpen, onRename, onRemove, t }) 
   )
 }
 
-function TrashList({ ws, t }) {
-  if (ws.trash.length === 0) return <p className="ws-empty">{t('trash.empty')}</p>
+// "2 files, 1 folder" from a count of each; a zero part is left out.
+function countsText(c, t) {
+  const parts = []
+  if (c.files > 0) parts.push(t('trash.files', { count: c.files }))
+  if (c.folders > 0) parts.push(t('trash.folders', { count: c.folders }))
+  return parts.join(t('trash.listJoin'))
+}
+
+// What a permanent delete of c removes, as one phrase: "2 files, 1 folder, 4.0 KB".
+const whatText = (c, t) => {
+  const counts = countsText(c, t)
+  return counts ? `${counts}${t('trash.listJoin')}${size(c.bytes)}` : size(c.bytes)
+}
+
+function TrashList({ ws, t, onPurge }) {
+  const empty = ws.trash.length === 0 && ws.trashTotals.files + ws.trashTotals.folders === 0
   return (
-    <ul className="ws-list" aria-label={t('tabs.trash')}>
-      {ws.trash.map((e) => (
-        <li key={e.rev} className="ws-row" data-testid="ws-trash-row">
-          <Icon name="trash" className="ws-row__icon" />
-          <span className="ws-row__name ws-row__name--static">{e.paths.join(', ')}</span>
-          <span className="ws-row__size">{new Date(e.at).toLocaleString()}</span>
-          <span className="ws-row__actions">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => ws.restore(e.rev)}>
-              <Icon name="undo" /> {t('trash.restore')}
-            </button>
-          </span>
-        </li>
-      ))}
-    </ul>
+    <section className="ws-trash" aria-labelledby="ws-tab-trash">
+      <div className="ws-trash__bar">
+        <p className="ws-trash__summary" data-testid="ws-trash-summary">
+          {empty ? t('trash.empty') : t('trash.summary', { what: whatText(ws.trashTotals, t) })}
+        </p>
+        <button
+          type="button" className="btn btn-danger btn-sm" data-testid="ws-empty-trash"
+          disabled={empty || ws.busy} onClick={() => onPurge({ all: true })}
+        >
+          <Icon name="trash" /> {t('trash.emptyAll')}
+        </button>
+      </div>
+      {ws.purged && (
+        <div className="ws-notice ws-trash__done" role="status" data-testid="ws-trash-done">
+          <span>{t('trash.removed', { what: whatText(ws.purged, t) })}</span>
+          <button type="button" className="ws-link" onClick={ws.clearPurged}>{t('dismiss')}</button>
+        </div>
+      )}
+      {ws.trash.length > 0 && (
+        <ul className="ws-list" aria-label={t('tabs.trash')}>
+          {ws.trash.map((e) => (
+            <li key={e.rev} className="ws-row" data-testid="ws-trash-row">
+              <Icon name="trash" className="ws-row__icon" />
+              <span className="ws-row__name ws-row__name--static">{e.paths.join(', ')}</span>
+              <span className="ws-row__size" data-testid="ws-trash-size">{whatText(e, t)}</span>
+              <span className="ws-row__size">{new Date(e.at).toLocaleString()}</span>
+              <span className="ws-row__actions">
+                <button type="button" className="btn btn-secondary btn-sm" disabled={ws.busy} onClick={() => ws.restore(e.rev)}>
+                  <Icon name="undo" /> {t('trash.restore')}
+                </button>
+                <button
+                  type="button" className="btn btn-danger-ghost btn-sm" data-testid="ws-purge" disabled={ws.busy}
+                  aria-label={t('trash.purgeNamed', { name: e.paths.join(', ') })} onClick={() => onPurge({ entry: e })}
+                >
+                  <Icon name="trash" /> {t('trash.purge')}
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -144,6 +186,9 @@ export default function Workspace() {
   // A delete or a rename of a managed path that waits for the confirmation:
   // { entry, action: 'delete' | 'rename', name, guard }.
   const [guarded, setGuarded] = useState(null)
+  // A permanent delete that waits for the confirmation: { all: true } for the
+  // whole Trash, { entry } for one item.
+  const [purging, setPurging] = useState(null)
   const fileInput = useRef(null)
 
   const remove = (entry) => {
@@ -162,6 +207,13 @@ export default function Workspace() {
     if (!g) return
     if (g.action === 'delete') await ws.remove(g.entry)
     else await ws.rename(g.entry, g.name)
+  }
+  const confirmPurge = async () => {
+    const p = purging
+    setPurging(null)
+    if (!p) return
+    if (p.all) await ws.emptyTrash()
+    else await ws.purge(p.entry.rev)
   }
   const { own, managed } = splitEntries(ws.entries, ws.path)
   const row = (e) => (
@@ -304,13 +356,22 @@ export default function Workspace() {
                 <p className="ws-hint">{t('dropHint')}</p>
               </section>
             )}
-            {tab === 'trash' && <TrashList ws={ws} t={t} />}
+            {tab === 'trash' && <TrashList ws={ws} t={t} onPurge={(p) => { ws.clearPurged(); setPurging(p) }} />}
             {tab === 'history' && <HistoryList ws={ws} t={t} />}
             {tab === 'shared' && <SharedFolders />}
           </>
         )}
       </div>
       {selected && tab === 'files' && ws.hits === null && <FilePreview entry={selected} t={t} />}
+      <ConfirmDialog
+        open={!!purging} danger
+        title={purging?.all ? t('trash.confirmAll.title') : t('trash.confirmOne.title')}
+        message={!purging ? '' : purging.all
+          ? t('trash.confirmAll.message', { what: whatText(ws.trashTotals, t) })
+          : t('trash.confirmOne.message', { path: purging.entry.paths.join(', '), what: whatText(purging.entry, t) })}
+        confirmLabel={purging?.all ? t('trash.emptyAll') : t('trash.purge')}
+        onConfirm={confirmPurge} onCancel={() => setPurging(null)}
+      />
       <ConfirmDialog
         open={!!guarded} danger
         title={guarded ? t(guarded.action === 'delete' ? 'managed.confirm.deleteTitle' : 'managed.confirm.renameTitle', { name: guarded.guard.name }) : ''}
