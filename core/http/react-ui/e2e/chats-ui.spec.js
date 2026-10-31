@@ -257,6 +257,26 @@ test.describe('Chats page with a stubbed API', () => {
       await expect.poll(() => api.state.calls.filter(c => c.body?.multipart).length).toBe(1)
     })
 
+    // A chat takes files of any type, so it has one attach button and its
+    // dialog has no type filter: a filter of */* greys out archives in some
+    // file dialogs.
+    test('one attach button takes any file, a zip archive too', async ({ page }) => {
+      const api = newChatsApi(page, { running: false, pending: [] })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await expect(page.getByRole('button', { name: 'Attach file' })).toHaveCount(1)
+      await expect(page.getByRole('button', { name: 'Attach image' })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Attach audio' })).toHaveCount(0)
+      const input = page.getByTestId('chat-file-input')
+      expect(await input.getAttribute('accept')).toBeNull()
+      const chooser = page.waitForEvent('filechooser')
+      await page.getByRole('button', { name: 'Attach file' }).click()
+      await (await chooser).setFiles({ name: 'site.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') })
+      await expect(page.getByTestId('attachment')).toContainText('site.zip')
+      await page.getByTestId('chat-send').click()
+      await expect.poll(() => api.state.calls.filter(c => c.body?.multipart).length).toBe(1)
+    })
+
     // The server takes files during a turn: the message and its files wait.
     test('a file can be attached while a turn runs', async ({ page }) => {
       const api = newChatsApi(page, { running: true })

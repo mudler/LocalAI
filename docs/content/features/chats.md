@@ -315,7 +315,10 @@ curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
 ## Images, video and documents
 
 Attach files with `multipart/form-data` on `POST /api/chats/{id}/messages`
-(see above). What the model gets depends on the file and the model:
+(see above). In the chat page, one **Attach file** button takes files of any
+type (images, audio, documents, archives such as `.zip`); you can also paste an
+image or drop files on the chat. What the model gets depends on the file and
+the model:
 
 - **Images.** When the chat's model can look at images (a multimodal
   projector, `vision` in `known_usecases`, or `image` in

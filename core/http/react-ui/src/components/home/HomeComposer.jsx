@@ -39,6 +39,10 @@ function Marked({ text, upto }) {
 //   streaming    swaps Send for a Stop button that calls onStop; with
 //                queueWhileStreaming, Send stays once there is text to queue
 //   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
+//   anyFile      one attach button for files of any type, in place of the
+//                image, audio and file buttons; its dialog has no type
+//                filter, because some file dialogs read accept="*/*" as a
+//                filter and grey out archives such as .zip
 //   onDictateError (message for a failed dictation, e.g. a toast),
 //   onDictate (takes the dictated text instead of the box; the callback of
 //                the render where the recording started gets it),
@@ -51,7 +55,7 @@ export default function HomeComposer({
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
   textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras,
-  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate,
+  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate, anyFile = false,
 }) {
   const { t } = useTranslation('home')
   const imageRef = useRef(null)
@@ -208,7 +212,10 @@ export default function HomeComposer({
 
       <div className="home-cmd__foot">
         <div className="home-attach-buttons">
-          {onAttach && (
+          {onAttach && anyFile && (
+            <Button variant="ghost" size="sm" icon="file" className="home-attach-btn" disabled={attachDisabled} onClick={() => fileRef.current?.click()} title={attachTitle || t('input.attachFile')} aria-label={t('input.attachFile')} />
+          )}
+          {onAttach && !anyFile && (
             <>
               <Button variant="ghost" size="sm" icon="image" className="home-attach-btn" disabled={attachDisabled} onClick={() => imageRef.current?.click()} title={attachTitle || t('input.attachImage')} aria-label={t('input.attachImage')} />
               <Button variant="ghost" size="sm" icon="music" className="home-attach-btn" disabled={attachDisabled} onClick={() => audioRef.current?.click()} title={attachTitle || t('input.attachAudio')} aria-label={t('input.attachAudio')} />
@@ -254,9 +261,9 @@ export default function HomeComposer({
           </button>
         )}
       </div>
-      <input ref={imageRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => { attach('image', e.target) }} />
-      <input ref={audioRef} type="file" multiple accept="audio/*" className="hidden" onChange={(e) => { attach('audio', e.target) }} />
-      <input ref={fileRef} type="file" multiple accept={fileAccept} className="hidden" data-testid={fileTestId} onChange={(e) => { attach('file', e.target) }} />
+      {!anyFile && <input ref={imageRef} type="file" multiple accept="image/*" className="hidden" onChange={(e) => { attach('image', e.target) }} />}
+      {!anyFile && <input ref={audioRef} type="file" multiple accept="audio/*" className="hidden" onChange={(e) => { attach('audio', e.target) }} />}
+      <input ref={fileRef} type="file" multiple accept={anyFile ? undefined : fileAccept} className="hidden" data-testid={fileTestId} onChange={(e) => { attach('file', e.target) }} />
     </form>
   )
 }

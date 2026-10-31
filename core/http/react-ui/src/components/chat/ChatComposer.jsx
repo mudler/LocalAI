@@ -205,7 +205,7 @@ export default function ChatComposer({
         fileTestId="chat-file-input"
         placeholder={effectivePlaceholder}
         onPaste={paste}
-        fileAccept="*/*"
+        anyFile
         {...rest}
       />
     </>
