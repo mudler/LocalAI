@@ -54,7 +54,7 @@ func NewJSON(dir string) (Store, error) {
 		if !strings.HasSuffix(f.Name(), ".json") {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, "meta", f.Name()))
+		raw, err := os.ReadFile(filepath.Join(dir, "meta", f.Name())) // #nosec G304 -- dir is the index directory the host configured; the name comes from listing it
 		if err != nil {
 			return nil, err
 		}
@@ -64,7 +64,7 @@ func NewJSON(dir string) (Store, error) {
 		}
 		s.meta[e.NodeID] = e
 	}
-	raw, err := os.ReadFile(filepath.Join(dir, "cursor.json"))
+	raw, err := os.ReadFile(filepath.Join(dir, "cursor.json")) // #nosec G304 -- a fixed name in the index directory the host configured
 	switch {
 	case err == nil:
 		var c jsonCursor
