@@ -7,7 +7,7 @@ import {
 } from './settingsSchema.js'
 import {
   pendingChanges, visibleChanges, runChecks, hasBlockingCheck, payloadFor, displayValue,
-  historyEntries, linesOf,
+  historyEntries, linesOf, searchProvidersError,
 } from './settingsPending.js'
 
 const base = () => ({
@@ -154,4 +154,11 @@ test('linesOf splits on newlines and commas', () => {
 
 test('valuesEqual treats an empty number like zero', () => {
   assert.equal(valuesEqual(FIELD_BY_KEY.threads, '', 0), true)
+})
+
+test('searchProvidersError mirrors the server parser of chats_web_search_providers', () => {
+  for (const ok of ['', ' ', 'duckduckgo', 'Bing_HTML, searxng,', 'searxng,duckduckgo,brave_html,bing_html']) assert.equal(searchProvidersError(ok), '', ok)
+  for (const bad of ['google', 'duckduckgo,duckduckgo', ',', 'brave']) assert.notEqual(searchProvidersError(bad), '', bad)
+  const checks = runChecks(pendingChanges({}, { chats_web_search_providers: 'altavista' }), {}, { chats_web_search_providers: 'altavista' })
+  assert.ok(hasBlockingCheck(checks))
 })

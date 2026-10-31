@@ -38,6 +38,37 @@ test.describe('Settings > Tools', () => {
     await expect.poll(() => state.posts).toEqual([{ chats_host_exec: 'on' }])
   })
 
+  test('the web_search row tests each search provider and says what each did', async ({ page }) => {
+    const webSearch = {
+      id: 'web_search', label: 'Web search', description: 'x', setting: 'chats_web_search', enabled: true,
+      provider: 'builtin', candidates: [], options: ['chats_web_searxng_url', 'chats_web_search_providers'],
+    }
+    await openTools(page, [webSearch])
+    const queries = []
+    let answer = {
+      ok: true, provider: 'brave_html', host: 'search.brave.com', results: [{ title: 'LocalAI', url: 'https://localai.io/', snippet: '' }],
+      providers: [
+        { name: 'duckduckgo', host: 'duckduckgo.com', outcome: 'challenged', results: 0, reason: 'challenged by a bot check' },
+        { name: 'brave_html', host: 'search.brave.com', outcome: 'ok', results: 20 },
+        { name: 'bing_html', host: 'www.bing.com', outcome: 'blocked', results: 0, reason: 'blocked this server (429 Too Many Requests)' },
+      ],
+    }
+    await page.route('**/api/chats/admin/web/test', route => { queries.push(route.request().postDataJSON()); return route.fulfill({ json: answer }) })
+    await page.getByTestId('settings-tools-web-test-query').fill('ultime news oggi')
+    await page.getByTestId('settings-tools-web-test-run').click()
+    await expect(page.getByTestId('settings-tools-web-test-summary')).toHaveText('Chats get the results of search.brave.com.')
+    await expect(page.getByTestId('settings-tools-web-test-duckduckgo')).toContainText('Bot check')
+    await expect(page.getByTestId('settings-tools-web-test-duckduckgo')).toContainText('challenged by a bot check')
+    await expect(page.getByTestId('settings-tools-web-test-brave_html')).toContainText('20 results')
+    await expect(page.getByTestId('settings-tools-web-test-bing_html')).toHaveAttribute('data-outcome', 'blocked')
+    expect(queries).toEqual([{ query: 'ultime news oggi' }])
+    await shot(page, 'settings-tools-web-test')
+
+    answer = { ok: false, provider: '', host: '', results: [], error: 'no search provider works. Tried duckduckgo: challenged by a bot check.', providers: [answer.providers[0]] }
+    await page.getByTestId('settings-tools-web-test-run').click()
+    await expect(page.getByTestId('settings-tools-web-test-summary')).toContainText('No provider answered. no search provider works. Tried duckduckgo')
+  })
+
   test('switching bash off saves off', async ({ page }) => {
     const state = await openTools(page, [bash()])
     await page.getByTestId('settings-tools-bash-switch').click()

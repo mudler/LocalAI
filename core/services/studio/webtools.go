@@ -35,7 +35,9 @@ type WebTools interface {
 // WebTester is implemented by a WebTools that can run a test search for the
 // settings page.
 type WebTester interface {
-	TestSearch(ctx context.Context, user, query string) (provider, host string, results []search.Result, err error)
+	// TestSearch asks each provider of the saved order and returns the
+	// first answer (provider, host, results) and what each provider did.
+	TestSearch(ctx context.Context, user, query string) (provider, host string, results []search.Result, attempts []search.Attempt, err error)
 }
 
 // ErrWebOff means this instance serves no built-in web tools.
@@ -43,10 +45,10 @@ var ErrWebOff = errors.New("studio: the built-in web tools are not available on 
 
 // TestWebSearch runs one search with the saved settings, as an administrator
 // asks from the settings page. The error is the one a user would read.
-func (s *Service) TestWebSearch(ctx context.Context, user, query string) (provider, host string, results []search.Result, err error) {
+func (s *Service) TestWebSearch(ctx context.Context, user, query string) (provider, host string, results []search.Result, attempts []search.Attempt, err error) {
 	t, ok := s.d.Web.(WebTester)
 	if !ok {
-		return "", "", nil, ErrWebOff
+		return "", "", nil, nil, ErrWebOff
 	}
 	return t.TestSearch(ctx, principal(user), query)
 }
@@ -64,8 +66,8 @@ func (s *Service) registerWebTools() error {
 	search := webtools.SearchDefinition()
 	if err := s.builtins.Register(builtins.Tool{
 		ID: webSearchName, Group: builtins.GroupWeb, Label: "Web search",
-		Description: "Search the web with DuckDuckGo, or with your SearXNG instance when one is set.",
-		Setting:     builtins.SettingWebSearch, Options: []string{builtins.SettingWebSearXNGURL},
+		Description: "Search the web without a key (DuckDuckGo, then Brave Search, then Bing), or with your SearXNG instance when one is set.",
+		Setting:     builtins.SettingWebSearch, Options: []string{builtins.SettingWebSearXNGURL, builtins.SettingWebSearchProviders},
 		ReadOnly: true, Replaceable: true,
 		// Read at each turn, so a change of the setting applies at the next
 		// turn of every chat.

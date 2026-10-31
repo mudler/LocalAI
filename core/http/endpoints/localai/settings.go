@@ -76,6 +76,15 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			}
 		}
 
+		if settings.ChatsWebSearchProviders != nil {
+			if _, err := config.ParseSearchProviders(*settings.ChatsWebSearchProviders, true); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_search_providers: " + err.Error(),
+				})
+			}
+		}
+
 		// The network of the Sandbox commands.
 		if msg := validateEgressSettings(settings, body, appConfig.ChatsEgressAllowPrivate); msg != "" {
 			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})

@@ -155,7 +155,7 @@
     },
     "descriptions": {
       "bash": "Exécute des commandes et du code pour les chats directement sur cette machine quand aucun Sandbox ne fournit bash. Le module Sandbox le remplace par des commandes isolées.",
-      "web_search": "Cherche sur le web pour les chats avec DuckDuckGo, ou avec votre instance SearXNG si elle est définie.",
+      "web_search": "Recherche sur le web pour les chats sans clé (DuckDuckGo, puis Brave Search, puis Bing), ou avec votre instance SearXNG si elle est définie.",
       "web_fetch": "Lit pour les chats une page ou un fichier web public par son adresse. Les adresses de votre réseau sont refusées sauf si vous les autorisez.",
       "list_agents": "Permet à un chat de lister les agents enregistrés de l'utilisateur et d'en lancer un comme sous-agent. Chaque chat l'active dans son menu Outils."
     },
@@ -177,6 +177,26 @@
     "skillsTitle": "Compétences remplacées par des modules",
     "skillsIntro": "Un module peut remplacer une compétence intégrée par la sienne, écrite pour ses outils. Si plusieurs modules remplacent la même, choisissez celui qui est utilisé.",
     "skillLabel": "Compétence {{skill}}",
-    "skillNotRunning": "Le module choisi ne tourne pas : la compétence intégrée est utilisée."
+    "skillNotRunning": "Le module choisi ne tourne pas : la compétence intégrée est utilisée.",
+    "webTest": {
+      "intro": "Lance une recherche avec chaque fournisseur des paramètres enregistrés et montre ce que chacun a fait. Appliquez d’abord vos modifications.",
+      "queryLabel": "Requête",
+      "run": "Tester la recherche",
+      "running": "Test en cours…",
+      "answered": "Les chats reçoivent les résultats de {{host}}.",
+      "noneAnswered": "Aucun fournisseur n’a répondu.",
+      "failed": "Le test n’a pas pu s’exécuter : {{error}}",
+      "results_one": "{{count}} résultat",
+      "results_other": "{{count}} résultats",
+      "outcomes": {
+        "ok": "Fonctionne",
+        "no_results": "Aucun résultat",
+        "challenged": "Contrôle anti-robot",
+        "blocked": "Bloqué",
+        "timeout": "Trop lent",
+        "error": "Erreur",
+        "skipped": "Ignoré"
+      }
+    }
   }
 }

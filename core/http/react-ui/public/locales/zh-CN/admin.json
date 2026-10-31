@@ -311,7 +311,7 @@
     },
     "descriptions": {
       "bash": "当没有 Sandbox 提供 bash 时，直接在这台机器上为聊天运行命令和代码。Sandbox 插件会将其替换为隔离运行的命令。",
-      "web_search": "使用 DuckDuckGo 或已设置的 SearXNG 实例为聊天搜索网页。",
+      "web_search": "无需密钥为聊天搜索网页（依次使用 DuckDuckGo、Brave Search、Bing），设置了 SearXNG 实例时则使用该实例。",
       "web_fetch": "按地址为聊天读取公开的网页或文件。除非您允许，否则内部网络地址会被拒绝。",
       "list_agents": "允许聊天列出用户已保存的智能体，并将其中一个作为子智能体启动。每个聊天需在其工具菜单中开启。"
     },
@@ -333,6 +333,26 @@
     "skillsTitle": "被插件替换的技能",
     "skillsIntro": "插件可以用为其工具编写的技能替换内置技能。如果多个插件替换同一个技能，请选择使用哪一个。",
     "skillLabel": "技能 {{skill}}",
-    "skillNotRunning": "所选插件未运行：使用内置技能。"
+    "skillNotRunning": "所选插件未运行：使用内置技能。",
+    "webTest": {
+      "intro": "用已保存设置中的每个搜索提供方运行一次搜索，并显示每个提供方的结果。请先应用你的更改。",
+      "queryLabel": "查询",
+      "run": "测试搜索",
+      "running": "正在测试…",
+      "answered": "聊天将获得 {{host}} 的结果。",
+      "noneAnswered": "没有提供方作出回应。",
+      "failed": "无法运行测试：{{error}}",
+      "results_one": "{{count}} 条结果",
+      "results_other": "{{count}} 条结果",
+      "outcomes": {
+        "ok": "正常",
+        "no_results": "无结果",
+        "challenged": "机器人验证",
+        "blocked": "已拦截",
+        "timeout": "太慢",
+        "error": "错误",
+        "skipped": "已跳过"
+      }
+    }
   }
 }

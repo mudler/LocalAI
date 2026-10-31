@@ -311,7 +311,7 @@
     },
     "descriptions": {
       "bash": "Esegue comandi e codice per le chat direttamente su questa macchina quando nessun Sandbox fornisce bash. Il componente Sandbox lo sostituisce con comandi isolati.",
-      "web_search": "Cerca sul web per le chat con DuckDuckGo, o con la tua istanza SearXNG se è impostata.",
+      "web_search": "Cerca sul web per le chat senza chiave (DuckDuckGo, poi Brave Search, poi Bing), oppure con la tua istanza SearXNG se è impostata.",
       "web_fetch": "Legge per le chat una pagina o un file web pubblico dal suo indirizzo. Gli indirizzi della tua rete sono rifiutati se non li consenti.",
       "list_agents": "Permette a una chat di elencare gli agenti salvati dell'utente e di avviarne uno come sotto-agente. Ogni chat lo attiva dal suo menu Strumenti."
     },
@@ -333,6 +333,26 @@
     "skillsTitle": "Skill sostituite dai componenti",
     "skillsIntro": "Un componente può sostituire una skill integrata con la propria, scritta per i suoi strumenti. Se più componenti sostituiscono la stessa, scegli quale usare.",
     "skillLabel": "Skill {{skill}}",
-    "skillNotRunning": "Il componente scelto non è in esecuzione: si usa la skill integrata."
+    "skillNotRunning": "Il componente scelto non è in esecuzione: si usa la skill integrata.",
+    "webTest": {
+      "intro": "Esegue una ricerca con ogni provider delle impostazioni salvate e mostra cosa ha fatto ciascuno. Applica prima le modifiche.",
+      "queryLabel": "Ricerca",
+      "run": "Prova la ricerca",
+      "running": "Prova in corso…",
+      "answered": "Le chat ricevono i risultati di {{host}}.",
+      "noneAnswered": "Nessun provider ha risposto.",
+      "failed": "Impossibile eseguire la prova: {{error}}",
+      "results_one": "{{count}} risultato",
+      "results_other": "{{count}} risultati",
+      "outcomes": {
+        "ok": "Funziona",
+        "no_results": "Nessun risultato",
+        "challenged": "Controllo anti-bot",
+        "blocked": "Bloccato",
+        "timeout": "Troppo lento",
+        "error": "Errore",
+        "skipped": "Saltato"
+      }
+    }
   }
 }

@@ -311,7 +311,7 @@
     },
     "descriptions": {
       "bash": "Führt Befehle und Code für die Chats direkt auf diesem Rechner aus, wenn keine Sandbox bash bereitstellt. Das Sandbox-Add-on ersetzt es durch isolierte Befehle.",
-      "web_search": "Durchsucht das Web für die Chats mit DuckDuckGo oder mit Ihrer SearXNG-Instanz, wenn eine eingestellt ist.",
+      "web_search": "Durchsucht das Web für die Chats ohne Schlüssel (DuckDuckGo, dann Brave Search, dann Bing) oder mit Ihrer SearXNG-Instanz, wenn eine eingerichtet ist.",
       "web_fetch": "Liest für die Chats eine öffentliche Webseite oder Datei über ihre Adresse. Adressen in Ihrem Netzwerk werden abgelehnt, außer Sie erlauben sie.",
       "list_agents": "Erlaubt einem Chat, die gespeicherten Agenten des Benutzers aufzulisten und einen als Sub-Agenten zu starten. Jeder Chat schaltet es in seinem Werkzeugmenü ein."
     },
@@ -333,6 +333,26 @@
     "skillsTitle": "Skills, die Add-ons ersetzen",
     "skillsIntro": "Ein Add-on kann einen integrierten Skill durch einen eigenen ersetzen, der zu seinen Werkzeugen passt. Ersetzen mehrere Add-ons denselben, wählen Sie, welches verwendet wird.",
     "skillLabel": "Skill {{skill}}",
-    "skillNotRunning": "Das gewählte Add-on läuft nicht: der integrierte Skill wird verwendet."
+    "skillNotRunning": "Das gewählte Add-on läuft nicht: der integrierte Skill wird verwendet.",
+    "webTest": {
+      "intro": "Führt eine Suche mit jedem Suchanbieter der gespeicherten Einstellungen aus und zeigt, was jeder getan hat. Übernehmen Sie zuerst Ihre Änderungen.",
+      "queryLabel": "Suchbegriff",
+      "run": "Suche testen",
+      "running": "Test läuft…",
+      "answered": "Die Chats erhalten die Ergebnisse von {{host}}.",
+      "noneAnswered": "Kein Anbieter hat geantwortet.",
+      "failed": "Der Test konnte nicht laufen: {{error}}",
+      "results_one": "{{count}} Ergebnis",
+      "results_other": "{{count}} Ergebnisse",
+      "outcomes": {
+        "ok": "Funktioniert",
+        "no_results": "Keine Ergebnisse",
+        "challenged": "Bot-Prüfung",
+        "blocked": "Gesperrt",
+        "timeout": "Zu langsam",
+        "error": "Fehler",
+        "skipped": "Übersprungen"
+      }
+    }
   }
 }

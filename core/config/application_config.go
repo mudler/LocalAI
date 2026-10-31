@@ -362,15 +362,20 @@ type ApplicationConfig struct {
 	// /api/settings and read at each turn. DisableChatsWebSearch and
 	// DisableChatsWebFetch are stored as the negation (chats_web_search,
 	// chats_web_fetch), so both tools are on by default. ChatsWebSearXNGURL
-	// sends the searches to that SearXNG instance instead of DuckDuckGo.
+	// is the address of a SearXNG instance, used alone unless
+	// ChatsWebSearchProviders lists other providers.
 	// ChatsWebAllowPrivate lets web_fetch reach addresses on private networks
 	// (never the cloud metadata addresses). ChatsWebPorts is a comma list of
 	// the ports web_fetch may use; empty means 80 and 443.
 	DisableChatsWebSearch bool
 	DisableChatsWebFetch  bool
 	ChatsWebSearXNGURL    string
-	ChatsWebAllowPrivate  bool
-	ChatsWebPorts         string
+	// ChatsWebSearchProviders is the order of the search providers of
+	// web_search, comma separated (see ParseSearchProviders). Empty means
+	// the default order.
+	ChatsWebSearchProviders string
+	ChatsWebAllowPrivate    bool
+	ChatsWebPorts           string
 
 	// The network of the commands that chats run in the Sandbox, through the
 	// host proxy. Each is runtime-toggleable via /api/settings and read at

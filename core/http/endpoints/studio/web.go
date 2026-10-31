@@ -13,7 +13,7 @@ import (
 
 // AdminTestWebSearch runs one web search with the saved settings.
 // @Summary Run a test web search with the saved settings (administrators).
-// @Description Runs the query with the search provider of the built-in web_search tool (DuckDuckGo, or the SearXNG instance of chats_web_searxng_url) and returns the first three results, or the error a user would read. Save the settings first. The search counts against the rate limits like any other.
+// @Description Runs the query with each search provider of the built-in web_search tool, in the order of chats_web_search_providers (by default DuckDuckGo, Brave Search and Bing without a key, or the SearXNG instance of chats_web_searxng_url), and returns what each did (ok, no_results, challenged, blocked, timeout or error), the first three results of the first answer, or the error a user would read. Save the settings first. The test counts as one search against the rate limits.
 // @Tags chats
 // @Param request body schema.ChatsWebTestRequest true "the query (default LocalAI)"
 // @Success 200 {object} schema.ChatsWebTestResponse "The provider and its results, or the error"
@@ -30,11 +30,14 @@ func (h *Handlers) AdminTestWebSearch(c echo.Context) error {
 	if q == "" {
 		q = "LocalAI"
 	}
-	provider, host, results, err := h.svc.TestWebSearch(c.Request().Context(), userID(c), q)
+	provider, host, results, attempts, err := h.svc.TestWebSearch(c.Request().Context(), userID(c), q)
 	if errors.Is(err, studiosvc.ErrWebOff) {
 		return fail(c, http.StatusServiceUnavailable, "unavailable", "the built-in web tools are not available on this instance")
 	}
-	out := schema.ChatsWebTestResponse{OK: err == nil, Provider: provider, Host: host, Results: make([]schema.ChatsWebResult, 0, len(results))}
+	out := schema.ChatsWebTestResponse{OK: err == nil, Provider: provider, Host: host, Results: make([]schema.ChatsWebResult, 0, len(results)), Providers: make([]schema.ChatsWebProviderTest, 0, len(attempts))}
+	for _, a := range attempts {
+		out.Providers = append(out.Providers, schema.ChatsWebProviderTest{Name: a.Provider, Host: a.Host, Outcome: string(a.Outcome), Results: a.Results, Reason: a.Reason})
+	}
 	if err != nil {
 		out.Error = err.Error()
 	}

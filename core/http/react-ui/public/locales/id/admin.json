@@ -334,7 +334,7 @@
     },
     "descriptions": {
       "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada Sandbox yang melayani bash. Add-on Sandbox menggantinya dengan perintah terisolasi.",
-      "web_search": "Mencari di web untuk chat dengan DuckDuckGo, atau dengan instans SearXNG Anda jika sudah diatur.",
+      "web_search": "Mencari di web untuk chat tanpa kunci (DuckDuckGo, lalu Brave Search, lalu Bing), atau dengan instans SearXNG Anda jika sudah diatur.",
       "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya.",
       "list_agents": "Memungkinkan chat menampilkan agen tersimpan milik pengguna dan memulai salah satunya sebagai sub-agen. Setiap chat mengaktifkannya di menu Alat."
     },
@@ -356,6 +356,26 @@
     "skillsTitle": "Skill yang digantikan add-on",
     "skillsIntro": "Add-on dapat menggantikan skill bawaan dengan miliknya sendiri, yang ditulis untuk alatnya. Jika beberapa add-on menggantikan skill yang sama, pilih yang dipakai.",
     "skillLabel": "Skill {{skill}}",
-    "skillNotRunning": "Add-on yang dipilih tidak berjalan: skill bawaan yang dipakai."
+    "skillNotRunning": "Add-on yang dipilih tidak berjalan: skill bawaan yang dipakai.",
+    "webTest": {
+      "intro": "Menjalankan pencarian dengan setiap penyedia dari pengaturan yang tersimpan dan menampilkan hasil masing-masing. Terapkan perubahan Anda terlebih dahulu.",
+      "queryLabel": "Kueri",
+      "run": "Uji pencarian",
+      "running": "Menguji…",
+      "answered": "Chat mendapat hasil dari {{host}}.",
+      "noneAnswered": "Tidak ada penyedia yang menjawab.",
+      "failed": "Uji tidak dapat dijalankan: {{error}}",
+      "results_one": "{{count}} hasil",
+      "results_other": "{{count}} hasil",
+      "outcomes": {
+        "ok": "Berfungsi",
+        "no_results": "Tidak ada hasil",
+        "challenged": "Pemeriksaan bot",
+        "blocked": "Diblokir",
+        "timeout": "Terlalu lambat",
+        "error": "Galat",
+        "skipped": "Dilewati"
+      }
+    }
   }
 }

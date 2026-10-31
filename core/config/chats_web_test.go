@@ -25,6 +25,23 @@ var _ = Describe("the chats' web tool settings", func() {
 		}
 	})
 
+	It("reads the order of the search providers, with a default that keeps SearXNG alone", func() {
+		Expect(config.ParseSearchProviders("", false)).To(Equal([]string{"duckduckgo", "brave_html", "bing_html"}))
+		Expect(config.ParseSearchProviders(" ", true)).To(Equal([]string{"searxng"}))
+		Expect(config.ParseSearchProviders("Bing_HTML, searxng,", false)).To(Equal([]string{"bing_html", "searxng"}))
+		for _, bad := range []string{"google", "duckduckgo,duckduckgo", ",", "brave"} {
+			_, err := config.ParseSearchProviders(bad, false)
+			Expect(err).To(HaveOccurred(), bad)
+		}
+		o := &config.ApplicationConfig{ChatsWebSearchProviders: "duckduckgo"}
+		bad, good := "nope", " brave_html,duckduckgo "
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsWebSearchProviders: &bad})
+		Expect(o.ChatsWebSearchProviders).To(Equal("duckduckgo"), "a bad list in the file is not taken")
+		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsWebSearchProviders: &good})
+		Expect(o.ChatsWebSearchProviders).To(Equal("brave_html,duckduckgo"))
+		Expect(o.ToRuntimeSettings().ChatsWebSearchProviders).To(HaveValue(Equal("brave_html,duckduckgo")))
+	})
+
 	It("keeps both tools on until an administrator switches one off", func() {
 		o := &config.ApplicationConfig{}
 		Expect(o.ToRuntimeSettings().ChatsWebSearch).To(HaveValue(BeTrue()))

@@ -18,9 +18,9 @@ import (
 	"github.com/mudler/xlog"
 )
 
-// webSettingsHint is where an administrator chooses the search provider. It
-// is part of the error a user reads when no provider works.
-const webSettingsHint = "an administrator can set a SearXNG instance in Settings > Tools, or switch web search off there"
+// webSettingsHint is where an administrator fixes the search. It is part of
+// the error a user reads when no provider works, after what each provider did.
+const webSettingsHint = "an administrator can set a SearXNG instance in Settings > Tools, or install the Web add-on for search providers with a key from Add-ons"
 
 // studioWeb serves the built-in web tools of the chats. It reads the runtime
 // settings at each call and builds the fetch client and the searcher again
@@ -31,13 +31,19 @@ type studioWeb struct {
 	// self lists the addresses of this server, which web_fetch never reaches.
 	self func() []netip.Prefix
 
+	// endpoints are the pages of the keyless providers; tests replace them.
+	endpoints search.KeylessEndpoints
+
 	mu    sync.Mutex
 	key   string
 	tools webtools.Tools
+	chain *search.Fallback
+	// skipped says why a provider of the order is not in the chain.
+	skipped []search.Attempt
 }
 
 func newStudioWeb(cfg *config.ApplicationConfig) *studioWeb {
-	return &studioWeb{cfg: cfg, self: selfAddrs(cfg)}
+	return &studioWeb{cfg: cfg, self: selfAddrs(cfg), endpoints: search.DefaultKeylessEndpoints()}
 }
 
 // selfAddrs lists the addresses of this server: its interfaces, loopback and
@@ -73,7 +79,13 @@ func (w *studioWeb) current() webtools.Tools {
 		// logged at load. Keep the safe default.
 		ports = []int{80, 443}
 	}
-	key := fmt.Sprint(searx, "\x00", w.cfg.ChatsWebAllowPrivate, "\x00", ports)
+	order, oerr := config.ParseSearchProviders(w.cfg.ChatsWebSearchProviders, searx != "")
+	if oerr != nil {
+		// The settings endpoint refuses a bad list; one in the file is
+		// logged at load. Keep the default order.
+		order, _ = config.ParseSearchProviders("", searx != "")
+	}
+	key := fmt.Sprint(searx, "\x00", order, "\x00", w.cfg.ChatsWebAllowPrivate, "\x00", ports)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if key == w.key && w.tools.Fetch != nil {
@@ -85,24 +97,40 @@ func (w *studioWeb) current() webtools.Tools {
 		DenyAddrs:    w.self,
 		UserAgent:    "LocalAI/" + internal.PrintableVersion() + " (web_fetch; +https://localai.io)",
 	}, nil)
-	var provider search.Provider
-	if searx != "" {
+	var chain []search.Provider
+	var skipped []search.Attempt
+	for _, n := range order {
+		if n != config.SearchProviderSearXNG {
+			// The keyless pages are reached through the guarded client: their
+			// addresses are fixed here, the redirects they answer with are not.
+			p, err := search.NewKeyless(n, client, w.endpoints)
+			if err == nil {
+				chain = append(chain, p)
+			}
+			continue
+		}
+		if searx == "" {
+			skipped = append(skipped, search.Attempt{Provider: n, Outcome: search.OutcomeError, Reason: "no SearXNG address is set"})
+			continue
+		}
 		p, err := search.NewSearXNG(searx)
 		if err != nil {
-			xlog.Warn("chats: the SearXNG URL is not valid; web search is unavailable", "error", err)
-		} else {
-			provider = p
+			xlog.Warn("chats: the SearXNG URL is not valid; it is left out of web search", "error", err)
+			skipped = append(skipped, search.Attempt{Provider: n, Outcome: search.OutcomeError, Reason: "the SearXNG address is not valid"})
+			continue
 		}
-	} else {
-		// DuckDuckGo is reached through the guarded client: its address is
-		// fixed here, but the redirects it answers with are not.
-		provider = search.NewDuckDuckGo(client, search.DuckDuckGoEndpoint)
+		chain = append(chain, p)
 	}
 	t := webtools.Tools{Fetch: client, SettingsHint: webSettingsHint}
-	if provider != nil {
-		t.Search = search.NewSearcher(provider, search.Limits{})
+	w.chain = nil
+	if len(chain) > 0 {
+		// A provider that answers with a bot check or refuses this server is
+		// skipped for a few minutes. The cool-down is in the memory of this
+		// process, like the cache: in a cluster each frontend keeps its own.
+		w.chain = search.NewFallback(0, chain...).WithCooldown(search.DefaultCooldown)
+		t.Search = search.NewSearcher(w.chain, search.Limits{})
 	}
-	w.key, w.tools = key, t
+	w.key, w.tools, w.skipped = key, t, skipped
 	return t
 }
 
@@ -122,15 +150,44 @@ func (w *studioWeb) Fetch(ctx context.Context, args json.RawMessage) (string, er
 	return w.current().WebFetch(ctx, args)
 }
 
-// TestSearch runs one search with the saved settings, for the Test search
-// button of the settings. It returns the provider's name and host, the
-// results, or the error a user would read.
-func (w *studioWeb) TestSearch(ctx context.Context, user, query string) (provider, host string, results []search.Result, err error) {
+// TestSearch runs the query with each provider of the saved order, for the
+// Test search button of the settings, and returns what each did. The first
+// answer in order is what a user would get, with the provider and host that
+// gave it; when none answers, err is the error a user would read. The test
+// counts as one search against the limits, outside the cache.
+func (w *studioWeb) TestSearch(ctx context.Context, user, query string) (provider, host string, results []search.Result, attempts []search.Attempt, err error) {
 	t := w.current()
-	if t.Search == nil {
-		return "", "", nil, errors.New("no search provider works: the SearXNG URL is not valid")
+	w.mu.Lock()
+	chain, skipped := w.chain, append([]search.Attempt(nil), w.skipped...)
+	w.mu.Unlock()
+	if t.Search == nil || chain == nil {
+		return "", "", nil, skipped, t.SearchError(fmt.Errorf("%w: %s", search.ErrProvider, joinReasons(skipped)))
 	}
-	p := t.Search.Provider()
-	res, err := t.Search.Search(ctx, user, search.Query{Text: query, MaxResults: 3})
-	return p.Name(), p.Host(), res, err
+	q, err := search.Normalize(search.Query{Text: query, MaxResults: 3})
+	if err != nil {
+		return "", "", nil, skipped, t.SearchError(err)
+	}
+	if !t.Search.Allow(user) {
+		return "", "", nil, skipped, t.SearchError(search.ErrRateLimited)
+	}
+	res, from, attempts, err := chain.TestEach(ctx, q)
+	attempts = append(attempts, skipped...)
+	if err != nil {
+		return "", "", nil, attempts, t.SearchError(err)
+	}
+	if len(res) > q.MaxResults {
+		res = res[:q.MaxResults]
+	}
+	return from.Name(), from.Host(), res, attempts, nil
+}
+
+func joinReasons(as []search.Attempt) string {
+	var out []string
+	for _, a := range as {
+		out = append(out, a.Provider+": "+a.Reason)
+	}
+	if len(out) == 0 {
+		return "no provider is set"
+	}
+	return strings.Join(out, "; ")
 }

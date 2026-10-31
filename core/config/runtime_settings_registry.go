@@ -488,6 +488,19 @@ var runtimeSettingsFields = []fieldSpec{
 		func(s *RuntimeSettings) **string { return &s.ChatsWebSearXNGURL },
 		func(o *ApplicationConfig) string { return o.ChatsWebSearXNGURL },
 		func(o *ApplicationConfig, v string) { o.ChatsWebSearXNGURL = strings.TrimSpace(v) }),
+	withApply(field("chats_web_search_providers",
+		func(s *RuntimeSettings) **string { return &s.ChatsWebSearchProviders },
+		func(o *ApplicationConfig) string { return o.ChatsWebSearchProviders },
+		func(o *ApplicationConfig, v string) { o.ChatsWebSearchProviders = strings.TrimSpace(v) }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsWebSearchProviders)
+			if _, err := ParseSearchProviders(v, true); err != nil {
+				xlog.Warn("invalid chats_web_search_providers in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsWebSearchProviders = v
+			return true
+		}),
 	field("chats_web_allow_private",
 		func(s *RuntimeSettings) **bool { return &s.ChatsWebAllowPrivate },
 		func(o *ApplicationConfig) bool { return o.ChatsWebAllowPrivate },

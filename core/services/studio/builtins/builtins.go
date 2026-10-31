@@ -29,13 +29,14 @@ const (
 
 // The runtime settings of the built-in tools.
 const (
-	SettingHostExec        = "chats_host_exec"
-	SettingWebSearch       = "chats_web_search"
-	SettingWebFetch        = "chats_web_fetch"
-	SettingWebSearXNGURL   = "chats_web_searxng_url"
-	SettingWebAllowPrivate = "chats_web_allow_private"
-	SettingWebPorts        = "chats_web_ports"
-	SettingSavedAgents     = "chats_saved_agents"
+	SettingHostExec           = "chats_host_exec"
+	SettingWebSearch          = "chats_web_search"
+	SettingWebFetch           = "chats_web_fetch"
+	SettingWebSearXNGURL      = "chats_web_searxng_url"
+	SettingWebSearchProviders = "chats_web_search_providers"
+	SettingWebAllowPrivate    = "chats_web_allow_private"
+	SettingWebPorts           = "chats_web_ports"
+	SettingSavedAgents        = "chats_saved_agents"
 )
 
 // Chat is what a built-in tool knows of the chat it is built for.

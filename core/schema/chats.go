@@ -1115,6 +1115,20 @@ type ChatsWebTestResponse struct {
 	Host     string           `json:"host" example:"duckduckgo.com"`
 	Results  []ChatsWebResult `json:"results"`
 	Error    string           `json:"error,omitempty"`
+	// Providers says what each provider of the order did with the query, in
+	// order: every provider is asked, so the administrator sees which work.
+	Providers []ChatsWebProviderTest `json:"providers"`
+}
+
+// ChatsWebProviderTest is what one search provider did with the test query.
+type ChatsWebProviderTest struct {
+	Name string `json:"name" example:"duckduckgo"`
+	Host string `json:"host,omitempty" example:"duckduckgo.com"`
+	// Outcome is ok, no_results, challenged (a bot check), blocked (403 or
+	// 429), timeout or error.
+	Outcome string `json:"outcome" example:"challenged"`
+	Results int    `json:"results"`
+	Reason  string `json:"reason,omitempty" example:"challenged by a bot check"`
 }
 
 // ChatsBuiltinSwitches is the body that sets the groups of built-in tools a
