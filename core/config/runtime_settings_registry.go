@@ -618,9 +618,11 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsEgressAllowedHosts = v
 			return true
 		}),
+	// The snapshot is the retention that applies, so a page that saves every
+	// setting back sends 30 while the setting is unset, not an invalid 0.
 	withApply(field("chats_egress_audit_days",
 		func(s *RuntimeSettings) **int { return &s.ChatsEgressAuditDays },
-		func(o *ApplicationConfig) int { return o.ChatsEgressAuditDays },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsEgressAuditDays() },
 		func(o *ApplicationConfig, v int) { o.ChatsEgressAuditDays = v }),
 		func(o *ApplicationConfig, s *RuntimeSettings) bool {
 			if v := *s.ChatsEgressAuditDays; v < 1 || v > 365 {
