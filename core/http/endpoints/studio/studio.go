@@ -126,6 +126,7 @@ var chatRules = []errRule{
 	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
 	verbatim(http.StatusConflict, typeAgentsOff, "", studiosvc.ErrAgentsOff),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow commands on this machine; anyone can refuse them", studiosvc.ErrHostExecDecision),
+	fixed(http.StatusGone, "consent_expired", "the card expired: the turn that asked has ended, so the command did not run", studiosvc.ErrHostExecExpired),
 	fixed(http.StatusBadRequest, "egress_above_ceiling", "the preset is above the limit an administrator set", studiosvc.ErrEgressAboveCeiling),
 	fixed(http.StatusBadRequest, typeInvalid, "the preset must be off, registries or all", studiosvc.ErrEgressPreset),
 	fixed(http.StatusNotFound, typeNotFound, "no such network rule", studiosvc.ErrEgressNoRule),
@@ -266,10 +267,11 @@ func (h *Handlers) Get(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	conv, err := h.describe(c, user, rec)
+	info, err := h.svc.Turn(c.Request().Context(), user, rec.ID)
 	if err != nil {
 		return failFor(c, err)
 	}
+	conv := conversation(rec, info)
 	pend, err := h.svc.Pending(c.Request().Context(), user, id)
 	if err != nil {
 		return failFor(c, err)
@@ -280,10 +282,10 @@ func (h *Handlers) Get(c echo.Context) error {
 	for _, p := range pend {
 		out.Pending = append(out.Pending, pendingOf(p))
 	}
-	// The card waits only while its turn runs; a record left by a dead frontend
-	// is not shown.
-	if rec.HostConsent != nil && conv.Running {
-		out.HostConsent = &schema.ChatsHostConsent{ID: rec.HostConsent.ID, Command: rec.HostConsent.Command}
+	// The card waits only while the turn that asked holds the chat; a card a
+	// dead frontend left, also under a later turn, is not shown.
+	if hc := h.svc.HostConsent(c.Request().Context(), user, rec, info); hc != nil {
+		out.HostConsent = &schema.ChatsHostConsent{ID: hc.ID, Command: hc.Command}
 	}
 	return c.JSON(http.StatusOK, out)
 }

@@ -50,7 +50,7 @@ type chatRow struct {
 	Settings     string `gorm:"type:text"` // JSON of session.ChatSettings
 	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
 	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
-	EgressRev    int64  // bumped by UpdateEgress; its row lock
+	EgressRev    int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
 }
 
 func (chatRow) TableName() string { return "studio_chats" }
@@ -401,6 +401,41 @@ func (s *gormStore) SetChatMeta(ctx context.Context, principal, id string, m ses
 		return session.ErrNotFound
 	}
 	return nil
+}
+
+func (s *gormStore) UpdateHostConsent(ctx context.Context, principal, id string, change func(*session.HostConsent) (*session.HostConsent, error)) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// The same row lock as the network state: the two cards of a chat
+		// are rare and short, so they may wait on each other.
+		if _, err := lock(tx, principal, id, "egress_rev"); err != nil {
+			return err
+		}
+		var raw string
+		if err := tx.Model(&chatRow{}).Where("id = ?", id).Select("host_consent").Row().Scan(&raw); err != nil {
+			return err
+		}
+		var cur *session.HostConsent
+		if raw != "" {
+			var c session.HostConsent
+			if err := json.Unmarshal([]byte(raw), &c); err != nil {
+				return err
+			}
+			cur = &c
+		}
+		out, err := change(cur)
+		if err != nil {
+			return err
+		}
+		val := ""
+		if out != nil {
+			b, err := json.Marshal(out)
+			if err != nil {
+				return err
+			}
+			val = string(b)
+		}
+		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("host_consent", val).Error
+	})
 }
 
 func (s *gormStore) UpdateEgress(ctx context.Context, principal, id string, change func(*egress.ChatState) error) error {

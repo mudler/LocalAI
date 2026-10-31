@@ -214,7 +214,9 @@ var _ = Describe("the built-in bash on this machine", func() {
 			// A reader that did not see the event (a reload, another frontend) finds the card in the record.
 			rec, err := c.svc.Get(context.Background(), alice, id)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(rec.HostConsent).To(Equal(&session.HostConsent{ID: cardID, Command: "ls"}))
+			Expect(rec.HostConsent).NotTo(BeNil())
+			Expect(*rec.HostConsent).To(SatisfyAll(HaveField("ID", cardID), HaveField("Command", "ls"), HaveField("Turn", turn(c.svc, alice, id).RunID),
+				HaveField("AskedAt", Not(BeZero()))), "the card names the turn that asked")
 			Expect(c.svc.HostExecDecide(context.Background(), alice, id, cardID, studio.HostExecOnce)).To(Succeed())
 			idle(c.svc, alice, id)
 			rec, err = c.svc.Get(context.Background(), alice, id)
@@ -240,7 +242,7 @@ var _ = Describe("the built-in bash on this machine", func() {
 			idle(c.svc, bob, id)
 			Expect(c.h.ToolNames(id)).NotTo(ContainElement("bash"))
 			Expect(c.svc.HostExecDecide(context.Background(), bob, id, "x", studio.HostExecOnce)).To(MatchError(studio.ErrHostExecDecision))
-			Expect(c.svc.HostExecDecide(context.Background(), bob, id, "x", studio.HostExecDeny)).To(Succeed())
+			Expect(c.svc.HostExecDecide(context.Background(), bob, id, "x", studio.HostExecDeny)).To(MatchError(studio.ErrHostExecExpired), "no card waits")
 			Expect(c.svc.HostExecDecide(context.Background(), alice, id, "x", studio.HostExecOnce)).NotTo(Succeed(), "another user's chat")
 		})
 

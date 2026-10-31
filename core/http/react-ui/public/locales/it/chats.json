@@ -294,7 +294,8 @@
       "always": "Sempre su questa istanza",
       "deny": "Non eseguire",
       "alwaysHint": "«Sempre su questa istanza» permette alle chat di tutti gli utenti di eseguire comandi qui senza chiedere (Impostazioni > Strumenti).",
-      "askAdmin": "Solo un amministratore può consentire comandi su questa macchina. Chiedi a un amministratore, oppure esegui tu il comando."
+      "askAdmin": "Solo un amministratore può consentire comandi su questa macchina. Chiedi a un amministratore, oppure esegui tu il comando.",
+      "expired": "Nessuna risposta: il turno che l'ha chiesto è terminato, quindi il comando non è stato eseguito."
     },
     "provider": {
       "sandbox": "Sandbox",

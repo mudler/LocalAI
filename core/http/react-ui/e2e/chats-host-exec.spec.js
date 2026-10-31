@@ -87,6 +87,25 @@ test.describe('Commands on this machine', () => {
     await expect(card).toHaveCount(0)
   })
 
+  test('an answer to a card whose turn has ended shows the card as not answered, with no buttons', async ({ page }) => {
+    await stubChat(page, {
+      addons: { ...host, commands_consent: 'ask' }, running: true,
+      hostConsent: { id: 'k9', command: 'make deck' },
+    })
+    await page.route('**/api/chats/c1/host-exec/consent', route => route.fulfill({
+      status: 410, json: { error: { code: 410, type: 'consent_expired', message: 'the card expired: the turn that asked has ended, so the command did not run' } },
+    }))
+    await page.goto('/app/chats/c1')
+    const card = page.getByTestId('chat-host-consent')
+    await expect(card.getByTestId('chat-host-consent-command')).toHaveText('make deck', { timeout: 15_000 })
+    await card.getByTestId('chat-host-consent-once').click()
+    const expired = page.getByTestId('chat-host-consent-expired')
+    await expect(expired).toContainText('Not answered: the turn that asked has ended, so the command did not run.')
+    await expect(expired).toContainText('make deck')
+    await expect(page.getByTestId('chat-host-consent-once')).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+  })
+
   test('an administrator answers the card of a waiting command: Run once', async ({ page }) => {
     const push = await stubChat(page, { addons: { ...host, commands_consent: 'ask' }, running: true })
     const answers = []

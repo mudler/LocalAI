@@ -294,7 +294,8 @@
       "always": "Toujours sur cette instance",
       "deny": "Ne pas exécuter",
       "alwaysHint": "« Toujours sur cette instance » laisse les chats de tous les utilisateurs exécuter des commandes ici sans demander (Paramètres > Outils).",
-      "askAdmin": "Seul un administrateur peut autoriser des commandes sur cette machine. Demandez à l'un d'eux, ou exécutez la commande vous-même."
+      "askAdmin": "Seul un administrateur peut autoriser des commandes sur cette machine. Demandez à l'un d'eux, ou exécutez la commande vous-même.",
+      "expired": "Sans réponse : le tour qui l'a demandé est terminé, la commande n'a donc pas été exécutée."
     },
     "provider": {
       "sandbox": "Sandbox",

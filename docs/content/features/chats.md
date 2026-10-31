@@ -766,7 +766,12 @@ minutes. The server keeps it with the chat, so a reload, or another browser
 or frontend, shows it again and it can still be answered; once the call ends
 the card is gone and the call's line says how it ended. `GET /api/chats/{id}`
 carries the waiting card as `host_consent` (`id` and `command`) while the turn
-runs. The answer is sent with:
+that asked runs. The card names that turn: a card of an earlier turn is not
+shown, also while a later turn runs, and is cleared when the next turn starts.
+An answer to a card with nobody waiting on it (its turn has ended, its
+frontend stopped, or a newer card replaced it) is `410 consent_expired`, and
+the chat shows the card as not answered: the command did not run. The answer
+is sent with:
 
 ```bash
 curl -X POST .../api/chats/3f1c.../host-exec/consent -d '{"id":"<id of the host_exec_consent event>","decision":"once"}'
@@ -782,8 +787,10 @@ turn, like the Sandbox's sandboxes: your files are the record, and a chat whose
 next turn runs on another frontend gets a new folder there. The waiting card is
 stored in the chat record (state mode: shared), so any frontend can show it;
 its answer travels on the chat bus to the frontend that runs the turn. A card
-left by a frontend that died is not shown, because no turn runs. The setting
-is a runtime setting like the others.
+left by a frontend that died is not shown and cannot be answered: its turn no
+longer holds the chat, and the reaper, or the next turn, clears it. The
+network cards of the Sandbox follow the same rule. The setting is a runtime
+setting like the others.
 
 ### What the web interface is told
 

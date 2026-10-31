@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -54,6 +55,11 @@ type HostExecDecision struct {
 // ErrHostExecDecision means the answer is not one the card offers, or the
 // person who sent it may not allow commands on this machine.
 var ErrHostExecDecision = errors.New("studio: only an administrator can allow commands on this machine")
+
+// ErrHostExecExpired means the card has nobody waiting on it: the turn that
+// asked ended (or its frontend died), or a newer card replaced it. The
+// command did not run, and no answer can run it now.
+var ErrHostExecExpired = errors.New("studio: the card expired; the command did not run")
 
 // hostExecWait is how long a command waits for the card. The card is kept with
 // the chat, so a reload shows it again; the call ends with "no answer" when
@@ -182,9 +188,12 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 		command = strings.ToValidUTF8(command[:2000], "") + "..."
 	}
 	// The card is kept with the chat while it waits, so a reload, or another
-	// frontend, shows it again and can answer it.
-	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command})
-	defer s.setHostConsent(context.WithoutCancel(ctx), a, nil)
+	// frontend, shows it again and can answer it. It names the turn that
+	// asked, so a card that a dead frontend leaves behind is not taken for a
+	// waiting one.
+	turn := consentTurn(s.chatTurn(ctx, a.Principal, a.ChatID))
+	s.setHostConsent(ctx, a, &session.HostConsent{ID: id, Command: command, Turn: turn, AskedAt: s.now().UTC()})
+	defer s.clearHostConsent(context.WithoutCancel(ctx), a.Principal, a.ChatID, id)
 	s.bus.Publish(k, session.Event{Kind: session.KindHostExecConsent, IDs: []string{id}, Text: command})
 	t := time.NewTimer(hostExecWait)
 	defer t.Stop()
@@ -196,6 +205,50 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 	case <-ctx.Done():
 		return "stopped"
 	}
+}
+
+// clearHostConsent clears the card id, and leaves a newer card alone.
+func (s *Service) clearHostConsent(ctx context.Context, p, conv, id string) {
+	err := s.d.Store.UpdateHostConsent(ctx, p, conv, func(cur *session.HostConsent) (*session.HostConsent, error) {
+		if cur == nil || cur.ID != id {
+			return cur, nil
+		}
+		return nil, nil
+	})
+	if err != nil {
+		slog.Warn("Chats: could not clear the consent card of the chat", "chat", conv, "error", err)
+	}
+}
+
+// liveHostConsent returns the card of rec when it still has a waiter, by the
+// rule the network cards follow; nil otherwise.
+func (s *Service) liveHostConsent(rec session.ChatRecord, info store.TurnInfo) *session.HostConsent {
+	c := rec.HostConsent
+	if c == nil {
+		return nil
+	}
+	asked := c.AskedAt
+	if asked.IsZero() {
+		// A card stored before cards named their turn: trust the turn alone.
+		asked = s.now()
+		if !info.Running {
+			return nil
+		}
+	}
+	if !consentLive(c.Turn, asked, hostExecWait, info, s.now()) {
+		return nil
+	}
+	return c
+}
+
+// HostConsent returns the consent card of the chat that waits for an answer,
+// or nil: a card whose turn is over, or that a frontend that died left, is
+// not shown. The chat of another user is session.ErrNotFound.
+func (s *Service) HostConsent(ctx context.Context, user string, rec session.ChatRecord, info store.TurnInfo) *session.HostConsent {
+	if rec.Principal != principal(user) {
+		return nil
+	}
+	return s.liveHostConsent(rec, info)
 }
 
 // setHostConsent stores or clears the card that waits. A failure only costs
@@ -211,7 +264,8 @@ func (s *Service) setHostConsent(ctx context.Context, a workspace.Actor, c *sess
 // another user is session.ErrNotFound.
 func (s *Service) HostExecDecide(ctx context.Context, user, conv, id, decision string) error {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
 		return err
 	}
 	if id == "" || len(id) > 64 {
@@ -225,6 +279,11 @@ func (s *Service) HostExecDecide(ctx context.Context, user, conv, id, decision s
 		}
 	default:
 		return ErrHostExecDecision
+	}
+	// An answer to a card nobody waits on reaches no one: say so, rather
+	// than a success the command never follows.
+	if c := s.liveHostConsent(rec, s.chatTurn(ctx, p, conv)); c == nil || c.ID != id {
+		return ErrHostExecExpired
 	}
 	s.bus.Control(key(p, conv), ControlMsg{HostExec: &HostExecDecision{ID: id, Decision: decision}})
 	return nil

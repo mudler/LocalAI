@@ -8472,7 +8472,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/host-exec/consent": {
             "post": {
-                "description": "When chats_host_exec is ask, each command of the chat's built-in bash waits for an answer: a host_exec_consent event carries the id and the command. once runs it (administrators only); deny refuses it (anyone who owns the chat). The command runs with no isolation, as the user LocalAI runs as, with the network of the server. Without an answer the call ends after 5 minutes.",
+                "description": "When chats_host_exec is ask, each command of the chat's built-in bash waits for an answer: a host_exec_consent event carries the id and the command. once runs it (administrators only); deny refuses it (anyone who owns the chat). The command runs with no isolation, as the user LocalAI runs as, with the network of the server. Without an answer the call ends after 5 minutes. A card waits only while the turn that asked runs; an answer to one whose turn has ended is 410 consent_expired.",
                 "tags": [
                     "chats"
                 ],
@@ -8513,6 +8513,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "410": {
+                        "description": "The card expired (consent_expired): the turn that asked has ended, its frontend stopped, or a newer card replaced it; the command did not run",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }

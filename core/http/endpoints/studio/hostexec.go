@@ -10,7 +10,7 @@ import (
 // HostExecConsent answers the card that asks to run one command on this
 // machine.
 // @Summary Allow or refuse one command of the built-in bash on this machine.
-// @Description When chats_host_exec is ask, each command of the chat's built-in bash waits for an answer: a host_exec_consent event carries the id and the command. once runs it (administrators only); deny refuses it (anyone who owns the chat). The command runs with no isolation, as the user LocalAI runs as, with the network of the server. Without an answer the call ends after 5 minutes.
+// @Description When chats_host_exec is ask, each command of the chat's built-in bash waits for an answer: a host_exec_consent event carries the id and the command. once runs it (administrators only); deny refuses it (anyone who owns the chat). The command runs with no isolation, as the user LocalAI runs as, with the network of the server. Without an answer the call ends after 5 minutes. A card waits only while the turn that asked runs; an answer to one whose turn has ended is 410 consent_expired.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsHostExecConsent true "the id of the event and the answer"
@@ -18,6 +18,7 @@ import (
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 403 {object} schema.ErrorResponse "Only an administrator can allow a command"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
+// @Failure 410 {object} schema.ErrorResponse "The card expired (consent_expired): the turn that asked has ended, its frontend stopped, or a newer card replaced it; the command did not run"
 // @Router /api/chats/{id}/host-exec/consent [post]
 func (h *Handlers) HostExecConsent(c echo.Context) error {
 	var in schema.ChatsHostExecConsent

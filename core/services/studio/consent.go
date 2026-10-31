@@ -75,7 +75,8 @@ func (s *Service) liveEgress(st egress.ChatState, info store.TurnInfo) (view egr
 }
 
 // expireConsents ends the cards of a turn that is over: the pending network
-// cards expire (they stay visible and can be answered late). run names the turn; empty ends the cards of
+// cards expire (they stay visible and can be answered late) and the card of
+// the built-in bash is cleared (an answer to it gets ErrHostExecExpired). run names the turn; empty ends the cards of
 // any turn, as at the start of a new turn, when none of them has a waiter.
 func (s *Service) expireConsents(ctx context.Context, p, conv, run string) {
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
@@ -83,6 +84,9 @@ func (s *Service) expireConsents(ctx context.Context, p, conv, run string) {
 		return
 	}
 	mine := func(turn string) bool { return run == "" || turn == "" || turn == run }
+	if hc := rec.HostConsent; hc != nil && mine(hc.Turn) {
+		s.clearHostConsent(ctx, p, conv, hc.ID)
+	}
 	pending := false
 	for _, c := range rec.Egress.Pending() {
 		if mine(c.Turn) {

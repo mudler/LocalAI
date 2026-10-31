@@ -294,7 +294,8 @@
       "always": "Immer auf dieser Instanz",
       "deny": "Nicht ausführen",
       "alwaysHint": "„Immer auf dieser Instanz“ lässt die Chats aller Benutzer hier ohne Nachfrage Befehle ausführen (Einstellungen > Werkzeuge).",
-      "askAdmin": "Nur ein Administrator kann Befehle auf diesem Rechner erlauben. Fragen Sie einen, oder führen Sie den Befehl selbst aus."
+      "askAdmin": "Nur ein Administrator kann Befehle auf diesem Rechner erlauben. Fragen Sie einen, oder führen Sie den Befehl selbst aus.",
+      "expired": "Nicht beantwortet: Die Runde, die gefragt hat, ist beendet, daher wurde der Befehl nicht ausgeführt."
     },
     "provider": {
       "sandbox": "Sandbox",

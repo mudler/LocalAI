@@ -294,7 +294,8 @@
       "always": "Selalu di instans ini",
       "deny": "Jangan jalankan",
       "alwaysHint": "\"Selalu di instans ini\" membuat chat semua pengguna menjalankan perintah di sini tanpa bertanya (Pengaturan > Alat).",
-      "askAdmin": "Hanya administrator yang dapat mengizinkan perintah di mesin ini. Minta kepada administrator, atau jalankan perintahnya sendiri."
+      "askAdmin": "Hanya administrator yang dapat mengizinkan perintah di mesin ini. Minta kepada administrator, atau jalankan perintahnya sendiri.",
+      "expired": "Tidak dijawab: giliran yang meminta sudah selesai, jadi perintah tidak dijalankan."
     },
     "provider": {
       "sandbox": "Sandbox",
