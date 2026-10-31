@@ -951,6 +951,13 @@ func DefaultRegistry() map[string]FieldMetaOverride {
 			Advanced:    true,
 			Order:       72,
 		},
+		"function.disable_tool_call_validation": {
+			Section:     "functions",
+			Label:       "Disable Tool Call Validation",
+			Description: "Allow tool calls that do not match the tools declared in the request",
+			Advanced:    true,
+			Order:       73,
+		},
 
 		// --- MCP ---
 		"agent.max_generation_tokens": {
