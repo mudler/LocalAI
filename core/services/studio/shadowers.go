@@ -117,7 +117,8 @@ func (s *Service) toolFallbacks(ctx context.Context, rec session.ChatRecord, too
 	if s.d.ToolPins != nil {
 		pins = s.d.ToolPins()
 	}
-	off, on := set(rec.BuiltinsOff), set(rec.BuiltinsOn)
+	offList, onList := s.switchesOf(ctx, rec)
+	off, on := set(offList), set(onList)
 	c := builtins.Chat{Actor: chatActor(rec.Principal, rec.ID), Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: rec.Kind == session.KindSubAgent,
 		Admin: s.isAdmin(ctx, rec.Principal)}
 	byID := map[string]builtins.Tool{}
@@ -134,8 +135,13 @@ func (s *Service) toolFallbacks(ctx context.Context, rec session.ChatRecord, too
 		if id == "" {
 			continue
 		}
+		t, known := byID[name]
+		groupOff := known && t.Group != "" && (off[t.Group] || (t.OptIn && !on[t.Group]))
+		if groupOff && t.Covers {
+			continue // the chat switched the tool off, whoever serves it
+		}
 		f := ToolFallback{Tool: name, AddonID: id, Title: sh.titleOf(id)}
-		if t, ok := byID[name]; ok && t.On() && !(t.Group != "" && (off[t.Group] || (t.OptIn && !on[t.Group]))) {
+		if known && t.On() && !groupOff {
 			_, f.Builtin, _ = t.Build(ctx, c)
 		}
 		out = append(out, f)

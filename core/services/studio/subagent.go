@@ -48,11 +48,15 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		s.mu.Lock()
 		tools := s.allowed[key(a.Principal, a.ChatID)]
 		s.mu.Unlock()
-		var prompt string
-		if s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools).State != CommandsAvailable {
+		var prompt, work string
+		cmds := s.withHostBash(s.commandsOf(ctx, a.Principal, tools, nil, nil), tools)
+		if cmds.State != CommandsAvailable {
 			prompt = subAgentCommandsBlock
 		}
-		prompt = joinBlocks(prompt, webBlock(tools), s.subWorkBlock(ctx, rec))
+		if canWriteFiles(tools, cmds) {
+			work = s.subWorkBlock(ctx, rec)
+		}
+		prompt = joinBlocks(prompt, webBlock(tools), work)
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
@@ -60,11 +64,14 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
 	sc := s.scopeOf(ctx, rec)
+	// The tools the chat's switches take away (a sub-agent follows its
+	// parent's): scopedHostTools dropped the add-on ones already.
+	hidden := s.hiddenFor(ctx, rec)
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
 	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, sub))
-	cmds = s.withHostBash(cmds, tools)
+	cmds = shellSwitched(s.withHostBash(cmds, tools), hidden)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
 	// them from subset, built for the parent chat; one from a saved agent gets
 	// them here, built for the parent chat too, so the parent's Files pane
@@ -74,12 +81,18 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		fa.ChatID = rec.ParentID
 	}
 	nudge := s.newRulesNudge(ctx, a, rec)
-	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.skillHintTools(fa, s.d.Files.Tools(fa)))))...)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(fa), hidden)))))...)
 	if s.d.Media != nil {
-		tools = append(tools, s.skillHintTools(fa, s.d.Media.Tools(s.d.Files, a, rec.Model))...)
+		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, a, rec.Model), hidden))...)
 	}
+	// What the prompt may tell the model to do with the files follows the
+	// tools it has now: a chat with the file tools switched off hears of none.
+	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
 	prompt, note, key, fallback := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
+	if !canWrite {
+		prompt = withoutWriteHint(prompt)
+	}
 	// The persona and the facts about the user come after the chat's prompt
 	// and the agent's instructions, which take precedence, and before the
 	// index of skills. A change to either file restarts the harness at the
@@ -107,7 +120,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if fallback != "" {
 		note = strings.TrimSpace(note + " " + fallback)
 	}
-	if !sub {
+	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
 		tools = append(tools, s.spawnTool(a, hasTool(tools, listAgentsName)))
@@ -142,18 +155,21 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		note = strings.TrimSpace(s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName)) + " " + note)
 	}
 	// The AGENTS.md files of the chat's folder and the home: a pointer, first,
-	// so the cut of a long note keeps it.
-	if line := nudge.turnLine(ctx, rec); line != "" {
-		note = strings.TrimSpace(line + " " + note)
+	// so the cut of a long note keeps it. A chat that cannot read them is
+	// not told to.
+	if canRead {
+		if line := nudge.turnLine(ctx, rec); line != "" {
+			note = strings.TrimSpace(line + " " + note)
+		}
 	}
 	// What the chat can run comes before the other blocks: the prompt is cut at
 	// its end, and this block must reach the model.
 	// What the chat can see follows it, for the same reason. Images reach a
 	// chat only as files, so a chat without files has no such block.
-	head := commandsBlock(cmds, hasTool(tools, "write_file"), skillsOff > 0)
+	head := commandsBlock(cmds, hasTool(tools, "write_file"), hasTool(tools, "read_file"), skillsOff > 0)
 	if s.d.Files.Available() {
 		sees := s.d.Modalities != nil && s.d.Modalities(rec.Model).Vision
-		head += "\n\n" + imagesBlock(sees, s.d.Media.VisionModel(rec.Model))
+		head += "\n\n" + imagesBlock(sees, s.d.Media.VisionModel(rec.Model), hasTool(tools, "describe_image"))
 	}
 	var goal string
 	if !sub && goalActive(rec) {
@@ -169,12 +185,16 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// The files go last: the prompt is cut at its end, and a block that
 	// changes between turns leaves the start of the prompt as it was.
 	if fp := s.filesPrompt(ctx, a); fp != "" {
+		if !canRead {
+			fp += "\n" + filesNote
+		}
 		prompt = strings.TrimSpace(prompt + "\n\n" + fp)
 	}
 	// A conversation names its own work folder (the session takes the folder
 	// name); a sub-agent saves in its parent's files, so it names the parent's.
-	work := !sub && s.workFolderOn() && s.d.Files.Available()
-	if sub {
+	// A chat that cannot save a file has no use for one.
+	work := !sub && s.workFolderOn() && s.d.Files.Available() && canWrite
+	if sub && canWrite {
 		prompt = joinBlocks(prompt, s.subWorkBlock(ctx, rec))
 	}
 	// load_skill learns from the final list whether the chat can read a
@@ -225,6 +245,9 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	}
 	if parent.Kind == session.KindSubAgent {
 		return "", ErrSubAgentDepth
+	}
+	if s.hiddenFor(ctx, parent)[spawnAgentName] {
+		return "", ErrSubAgentsOff
 	}
 
 	var (
@@ -325,8 +348,14 @@ func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string
 	}
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
-	have = append(have, s.fileNudgeTools(a, s.announceFileChanges(a, s.skillHintTools(a, s.d.Files.Tools(a))))...)
-	if parent, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID); err == nil {
+	parent, perr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	fileTools := s.d.Files.Tools(a)
+	if perr == nil {
+		// A sub-agent never gets a tool its parent switched off.
+		fileTools = dropHidden(fileTools, s.hiddenFor(ctx, parent))
+	}
+	have = append(have, s.fileNudgeTools(a, s.announceFileChanges(a, s.skillHintTools(a, fileTools)))...)
+	if perr == nil {
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.
 		have = s.applyBuiltins(have, s.builtinsFor(ctx, a, parent, true))

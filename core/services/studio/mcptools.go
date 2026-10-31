@@ -41,11 +41,16 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]ses
 	if sc != nil && sc.deleted {
 		return tools, []string{"the agent of this chat was deleted"}, nil
 	}
+	// The chat's switches of the built-in groups also take away the add-on
+	// tool that replaces bash, and the collection tools.
+	hidden := s.hiddenFor(ctx, rec)
 	var missing []string
 	t, m := s.addonTools(ctx, a, rec, sc)
-	tools, missing = append(tools, t...), append(missing, m...)
-	t, m = s.collectionTools(ctx, a, sc)
-	tools, missing = append(tools, t...), append(missing, m...)
+	tools, missing = append(tools, dropHidden(t, hidden)...), append(missing, m...)
+	if !hidden[collectionToolNames[0]] {
+		t, m = s.collectionTools(ctx, a, sc)
+		tools, missing = append(tools, t...), append(missing, m...)
+	}
 	t, m = s.mcpTools(ctx, a, rec, sc, tools)
 	return append(tools, t...), append(missing, m...), nil
 }

@@ -412,6 +412,10 @@ func New(d Deps) (*Service, error) {
 		d.Files = files.Disabled("")
 		s.d.Files = d.Files
 	}
+	// After the files: whether the file and media groups exist follows them.
+	if err := s.registerToolGroups(); err != nil {
+		return nil, err
+	}
 	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
 	// The file tools reach the shared folders at the paths the chat's view
 	// gives them, /workspace/shared-<name>.

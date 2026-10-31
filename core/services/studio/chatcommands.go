@@ -152,6 +152,8 @@ func (s *Service) agentDirective(ctx context.Context, p string, rec session.Chat
 		switch {
 		case errors.Is(err, ErrSavedAgentsNotAllowed):
 			return "", nil, fmt.Errorf("%w: saved agents are off for this chat; switch them on in the Tools menu", ErrBadCommand)
+		case errors.Is(err, ErrSubAgentsOff):
+			return "", nil, fmt.Errorf("%w: sub-agents are off for this chat; switch them on in the Tools menu", ErrBadCommand)
 		case errors.Is(err, ErrSavedAgentsOff), errors.Is(err, ErrSavedAgentsForbidden):
 			return "", nil, fmt.Errorf("%w: %s", ErrBadCommand, err.Error())
 		}

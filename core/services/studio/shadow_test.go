@@ -52,22 +52,21 @@ var _ = Describe("an add-on tool that shadows a built-in", func() {
 		id := create(svc, alice)
 		panel, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(panel.Builtins).To(HaveLen(1))
-		Expect(panel.Builtins[0].Provider).To(Equal(studio.MixedProvider))
-		Expect(panel.Builtins[0].Providers).To(Equal(map[string]string{"web_search": "searx", "web_fetch": "builtin"}))
+		Expect(builtinGroup(panel.Builtins, "web").Provider).To(Equal(studio.MixedProvider))
+		Expect(builtinGroup(panel.Builtins, "web").Providers).To(Equal(map[string]string{"web_search": "searx", "web_fetch": "builtin"}))
 
 		fetch := addonTool("searx", "fetch")
 		fetch.Shadows = "web_fetch"
 		fa.tools[alice] = []studio.AddonTool{search, fetch}
 		panel, err = svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(panel.Builtins[0].Provider).To(Equal("searx"))
+		Expect(builtinGroup(panel.Builtins, "web").Provider).To(Equal("searx"))
 
 		// An add-on the chat switched off no longer serves.
 		Expect(svc.SetAddonsOff(context.Background(), alice, id, []string{"searx"})).To(Succeed())
 		panel, err = svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(panel.Builtins[0].Provider).To(Equal(studio.BuiltinProvider))
+		Expect(builtinGroup(panel.Builtins, "web").Provider).To(Equal(studio.BuiltinProvider))
 	})
 
 	It("keeps its add-on name when the name it shadows is not replaceable", func() {

@@ -20,8 +20,11 @@ const LoadTool = "load_skill"
 
 // indexHeader is the first line of the index. It names the tool that loads a
 // skill, so the model never needs the path of a SKILL.md.
-const indexHeader = "Skills: before a task that matches one, call the " + LoadTool + " tool with its name to read its full instructions, then follow them. " +
-	"Skills you write yourself go in /workspace/home/.skills/<name>/SKILL.md; read the writing-skills skill first (" + LoadTool + " writing-skills)."
+const indexHeader = "Skills: before a task that matches one, call the " + LoadTool + " tool with its name to read its full instructions, then follow them. " + WriteHint
+
+// WriteHint is the sentence of the index about the skills the model writes.
+// A chat that cannot save a file leaves it out.
+const WriteHint = "Skills you write yourself go in /workspace/home/.skills/<name>/SKILL.md; read the writing-skills skill first (" + LoadTool + " writing-skills)."
 
 // moreReserve is the room kept for the last line, "N more skills not listed".
 const moreReserve = 64
