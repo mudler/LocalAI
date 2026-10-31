@@ -31977,7 +31977,7 @@
       sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -32030,7 +32030,7 @@
       sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -32085,7 +32085,7 @@
       sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -32141,7 +32141,7 @@
       sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -32196,7 +32196,7 @@
       sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -32251,7 +32251,7 @@
       sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -32307,7 +32307,7 @@
       sha256: 9a773289bd321ed879cd3a76545f6aca506e403851a45fb315420aee45625be2
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q4_K_M.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
@@ -32364,7 +32364,7 @@
       sha256: d4e36902ba8f0ee7b333596030a59d650f88ac76660b4d9ba5ff77c3c2258fc0
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/LFM3-Audio-2B-Q8_0.gguf
     - filename: mmproj-LFM3-Audio-2B-Q8_0.gguf
-      sha256: 2b6648b1fd48af16aa0877b0592b144d15070783673e038a379fdbc51d40e365
+      sha256: 26601e904245a85bd8f3cf320a629e897cfc01c1d09369e8b4fd951f13024d3e
       uri: https://huggingface.co/LiquidAI/LFM3-Audio-2B-GGUF/resolve/fcfae9027c00a6f3f872c48a841cfeb77e2b5a1c/mmproj-LFM3-Audio-2B-Q8_0.gguf
   overrides:
     backend: llama-cpp
