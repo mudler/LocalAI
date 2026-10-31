@@ -168,9 +168,10 @@ Before switching an existing instance:
 8. Open the conversion report and check each item, and verify credentials and required data, before resuming triggers and bots.
 
 The first registered user becomes admin and bypasses approval or invite requirements.
-Setting `LOCALAI_ADMIN_EMAIL` promotes that email address, but does **not** reserve
-the first-admin role for it. Keep registration inaccessible to other users until
-bootstrap is complete.
+Setting `LOCALAI_ADMIN_EMAIL` promotes a matching verified OAuth/OIDC identity, but
+does **not** reserve the first-admin role for it. Local password registration cannot
+prove ownership of an email address and therefore never receives this automatic
+promotion. Keep registration inaccessible to other users until bootstrap is complete.
 
 An export holds the transcript and the settings of a chat, and the definition of an
 agent. It does not hold files, trigger state, bot tokens or the long-term state of
@@ -196,7 +197,7 @@ trigger and the binding stay, and work again when the feature is given back.
 | `LOCALAI_OIDC_CLIENT_ID` | | OIDC Client ID (auto-enables auth when set) |
 | `LOCALAI_OIDC_CLIENT_SECRET` | | OIDC Client Secret |
 | `LOCALAI_BASE_URL` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) |
-| `LOCALAI_ADMIN_EMAIL` | | Email address to auto-promote to admin role on login |
+| `LOCALAI_ADMIN_EMAIL` | | Verified OAuth/OIDC email address to auto-promote; does not reserve bootstrap admin (the first account is admin) |
 | `LOCALAI_REGISTRATION_MODE` | `approval` | Registration mode: `open`, `approval`, or `invite` |
 | `LOCALAI_DISABLE_LOCAL_AUTH` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only deployments) |
 
@@ -249,7 +250,7 @@ There are two roles:
 - **Admin**: Full access to all endpoints, including model management, backend configuration, system settings, traces, the saved agents, triggers and connectors of every user (read-only, with switch-off and delete), and user management.
 - **User**: Access to inference endpoints only - chat completions, embeddings, image/video/audio generation, TTS, MCP chat, and their own usage statistics.
 
-The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted to admin via the admin user management API or by setting `LOCALAI_ADMIN_EMAIL` to their email address.
+The **first user** to sign in is automatically assigned the admin role. Additional users can be promoted through the admin user management API. A verified OAuth/OIDC identity can also be promoted by setting `LOCALAI_ADMIN_EMAIL` to its email address; local password accounts are not eligible because their email ownership is not verified.
 
 ### Registration Modes
 
