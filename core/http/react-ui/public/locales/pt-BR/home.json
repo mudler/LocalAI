@@ -84,7 +84,7 @@
       "step3Title": "Comece a Conversar",
       "step3Body": "Converse com seu modelo direto do navegador ou use a API.",
       "sandboxTitle": "Execute código com segurança (opcional)",
-      "sandboxBody": "Instale o complemento Sandbox para que o modelo execute código e comandos isolados. Sem ele, o modelo só pode usar o bash integrado do host, que tem acesso total à rede e nenhum isolamento."
+      "sandboxBody": "Instale o complemento Sandbox para que o modelo execute código e comandos isolados. Sem ele, os comandos rodam direto nesta máquina, com acesso total à rede e nenhum isolamento."
     },
     "browseGallery": "Explorar Galeria de Modelos",
     "importModel": "Importar Modelo",

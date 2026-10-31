@@ -32,7 +32,8 @@ test('about you: the assistant and the user cards save their files, fill in from
   await page.goto('/app/account?tab=about')
   const persona = page.getByTestId('wk-card-persona')
   await expect(persona.getByTestId('wk-field-persona-name')).toHaveValue('Ada')
-  await expect(persona.getByText('LocalAI/persona.json', { exact: true })).toBeVisible()
+  // The card speaks of the setting, not of the file behind it.
+  await expect(persona).not.toContainText('LocalAI/persona.json')
 
   await persona.getByTestId('wk-field-persona-system_prompt').fill('Keep answers short.')
   await persona.getByTestId('wk-save-persona').click()
@@ -69,7 +70,12 @@ test('about you: the source view is validated, a broken file shows its last good
   await persona.getByTestId('wk-source-persona').click()
   await persona.getByTestId('wk-source-text-persona').fill('{"name": 42}')
   await persona.getByTestId('wk-save-persona').click()
-  await expect(persona.getByTestId('wk-problem-persona')).toContainText('name')
+  const problem = persona.getByTestId('wk-problem-persona')
+  await expect(problem).toContainText('Some values are not valid.')
+  // The server's words stay folded under Details until asked for.
+  await expect(problem.locator('details')).not.toHaveAttribute('open', '')
+  await problem.getByText('Details').click()
+  await expect(problem.locator('details li')).toContainText('name')
   expect((await read(request, 'persona')).data.name).toBe('Bea')
 
   // The assistant writes a file that breaks the schema.
@@ -157,7 +163,9 @@ test('shortcuts: the starters are the default shortcuts, a click fills the compo
 
   const saved = (await read(request, 'shortcuts')).data.shortcuts
   expect(saved.map(s => s.label)).toEqual(['Explain how this works', 'Help me write code', 'Plan my day', 'Summarize a document'])
-  await expect(row).toContainText('LocalAI/shortcuts.json')
+  // Own shortcuts carry no note; only the defaults are labelled as such.
+  await expect(row).not.toContainText('Default shortcuts')
+  await expect(row).not.toContainText('.json')
   await expect(row.getByTestId('chat-shortcut').nth(2)).toHaveText('Plan my day')
 
   // A file the assistant writes shows at the next read.
@@ -166,7 +174,7 @@ test('shortcuts: the starters are the default shortcuts, a click fills the compo
   await expect(row.getByTestId('chat-shortcut')).toHaveText(['Summarise my inbox'])
 
   await row.getByTestId('chat-shortcuts-assistant').click()
-  await expect(composer(page)).toHaveValue(/shortcuts\.json/)
+  await expect(composer(page)).toHaveValue('Change my shortcuts: ')
 })
 
 test('home widgets: list, metric and chats widgets read their data, a broken file is marked stale, and the layout editor writes home.json', async ({ page, request }) => {
@@ -208,7 +216,7 @@ test('home widgets: list, metric and chats widgets read their data, a broken fil
 
   await page.getByTestId('home-ask-layout').click()
   await page.waitForURL(/\/app\/chats/)
-  await expect(composer(page)).toHaveValue(/home\.json/)
+  await expect(composer(page)).toHaveValue('Change my Home page: ')
 })
 
 test('the editors fit a phone screen without a sideways scroll', async ({ page, request }) => {

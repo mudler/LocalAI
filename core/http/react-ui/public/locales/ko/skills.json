@@ -1,8 +1,8 @@
 {
   "title": "스킬",
-  "subtitle": "에이전트 스킬(재사용 가능한 지침 및 리소스)을 관리합니다",
+  "subtitle": "작업에 맞을 때 채팅이 읽는 지침입니다. 에이전트에 추가하면 그 에이전트에서 사용합니다.",
   "unavailable": {
-    "subtitle": "스킬 서비스를 사용할 수 없거나 인덱스를 다시 빌드하는 중입니다. 잠시 후 다시 시도하세요."
+    "subtitle": "스킬에는 파일 기능이 필요한데, 이 서버에서는 파일 기능이 꺼져 있습니다."
   },
   "actions": {
     "newSkill": "새 스킬",
@@ -19,7 +19,7 @@
     "editTitle": "스킬 편집",
     "deleteTitle": "스킬 삭제",
     "invalid": "Skipped: not a valid skill",
-    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "invalidWhy": "이 스킬은 건너뛰었습니다: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "{{name}} 제공",
@@ -75,7 +75,7 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+    "readOnly": "이 스킬은 여기서 읽기 전용입니다. 기본 제공 스킬은 서버에 포함되어 있고, 내 파일의 스킬은 파일에서 바꿉니다."
   },
   "load": {
     "title": "스킬을 불러올 수 없습니다."

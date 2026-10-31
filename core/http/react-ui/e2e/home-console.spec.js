@@ -441,7 +441,7 @@ test.describe('Home first run', () => {
     await ready(page)
     const step = page.getByTestId('home-first-run-sandbox')
     await expect(step).toContainText('Run code safely')
-    await expect(step).toContainText('built-in host bash fallback')
+    await expect(step).toContainText('commands run directly on this machine')
     await expect(step).toContainText('full network access and no isolation')
     await step.getByRole('button', { name: 'Skip' }).click()
     await expect(step).toHaveCount(0)

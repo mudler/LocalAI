@@ -1,8 +1,8 @@
 {
   "title": "Skill",
-  "subtitle": "Kelola skill agen (instruksi dan sumber daya yang dapat digunakan kembali)",
+  "subtitle": "Instruksi yang dapat dibaca chat saat sebuah tugas cocok. Tambahkan ke agen untuk memakainya di sana.",
   "unavailable": {
-    "subtitle": "Layanan Skill tidak tersedia atau indeks sedang dibangun ulang. Coba beberapa saat lagi."
+    "subtitle": "Skill memerlukan Berkas, dan Berkas dinonaktifkan di server ini."
   },
   "actions": {
     "newSkill": "Skill baru",
@@ -19,7 +19,7 @@
     "editTitle": "Edit skill",
     "deleteTitle": "Hapus skill",
     "invalid": "Skipped: not a valid skill",
-    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "invalidWhy": "Skill ini dilewati: {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "Disediakan oleh {{name}}",
@@ -75,7 +75,7 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+    "readOnly": "Skill ini hanya-baca di sini. Skill bawaan disertakan dengan server, dan skill dari berkas Anda diubah di Berkas."
   },
   "load": {
     "title": "Keterampilan Anda tidak dapat dimuat."

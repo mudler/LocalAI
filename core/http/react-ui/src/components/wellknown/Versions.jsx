@@ -68,7 +68,6 @@ export default function Versions({ name, onReverted, disabled }) {
     if (v.kind === 'upload') return t('discovery.versions.upload')
     return t('discovery.versions.byYou')
   }
-  const file = `${name}.json`
 
   return (
     <>
@@ -78,13 +77,13 @@ export default function Versions({ name, onReverted, disabled }) {
       >
         <Icon name="history" /> {t('discovery.versions.label')}
       </button>
-      <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} ariaLabel={t('discovery.versions.title', { file })}>
+      <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} ariaLabel={t('discovery.versions.title')}>
         <div className="wk-versions" data-testid={`wk-versions-list-${name}`}>
-          <p className="wk-versions__title">{t('discovery.versions.titleBefore')} <code>{file}</code></p>
+          <p className="wk-versions__title">{t('discovery.versions.title')}</p>
           {list === null && <p className="wk-versions__empty" role="status">{t('discovery.versions.loading')}</p>}
           {list && list.length === 0 && !error && <p className="wk-versions__empty">{t('discovery.versions.none')}</p>}
           {list && list.length > 0 && (
-            <ul className="wk-versions__list" role="radiogroup" aria-label={t('discovery.versions.title', { file })}>
+            <ul className="wk-versions__list" role="radiogroup" aria-label={t('discovery.versions.title')}>
               {list.map((v, i) => {
                 const current = i === 0
                 const can = !current && v.valid

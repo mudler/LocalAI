@@ -5,7 +5,7 @@ import Icon from '../Icon'
 import Popover from '../Popover'
 import ShortcutsEditor, { defaultStarters } from './ShortcutsEditor'
 import { useWellKnown } from '../../hooks/useWellKnown'
-import { shortcutList, WELL_KNOWN_FILES } from '../../utils/wellKnown'
+import { shortcutList } from '../../utils/wellKnown'
 import { SHORTCUT_ADDED_EVENT } from './changeNote'
 import './wellKnown.css'
 
@@ -53,9 +53,7 @@ export default function ShortcutsRow({ onPick, onEditWithAssistant, starters, fi
       )}
       {filesOn && (
         <div className="wk-shortcuts__note">
-          {fromFile
-            ? <span className="wk-src"><Icon name="file" /> {t('wellKnown.definedIn')} <code>{WELL_KNOWN_FILES.shortcuts}</code></span>
-            : <span className="wk-src">{t('wellKnown.shortcuts.defaults')}</span>}
+          {!fromFile && <span className="wk-src">{t('wellKnown.shortcuts.defaults')}</span>}
           {wk.doc && !wk.doc.valid && <span className="wk-src" role="status"><Icon name="warning" /> {t('wellKnown.shortcuts.invalid')}</span>}
           <button ref={anchor} type="button" className="wk-linkbtn" aria-expanded={open} onClick={() => setOpen(o => !o)} data-testid="chat-shortcuts-edit">
             <Icon name="sliders" /> {t('wellKnown.shortcuts.edit')}

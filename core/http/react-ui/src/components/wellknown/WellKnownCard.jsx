@@ -6,20 +6,36 @@ import LoadingSpinner from '../LoadingSpinner'
 import SchemaFields from './SchemaFields'
 import Versions from './Versions'
 import { useWellKnown, loadSchema } from '../../hooks/useWellKnown'
-import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText, WELL_KNOWN_FILES } from '../../utils/wellKnown'
+import { fieldsFromSchema, changedValues, editMeetsChange, parseSource, sourceText, wellKnownProblem, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import './wellKnown.css'
 
 function timeLabel(d, locale) {
   try { return d.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' }) } catch { return '' }
 }
 
-// StoredIn is the line that names the file behind a setting, with its
-// Versions (versionsOf names the file) or a plain revert to the previous one.
+// ProblemDetails holds what the server said about a failed save or a broken
+// file (field paths, raw messages) under a collapsed Details, so the note
+// itself says what happened in plain words.
+export function ProblemDetails({ errors }) {
+  const { t } = useTranslation('workspace')
+  if (!errors || errors.length === 0) return null
+  return (
+    <details className="wk-details">
+      <summary>{t('wellKnown.details')}</summary>
+      <ul>{errors.map(e => <li key={e}><code>{e}</code></li>)}</ul>
+    </details>
+  )
+}
+
+// StoredIn is the line of a setting's history: its Versions (versionsOf names
+// the setting) or a plain revert to the previous one. It does not name the
+// file behind the setting: a person changes settings here, not files; the
+// Files page shows the file to whoever looks for it. file only keys the test id.
 export function StoredIn({ file, onRevert, canRevert, busy, versionsOf, onReverted, badge }) {
   const { t } = useTranslation('workspace')
+  if (!badge && !versionsOf && !onRevert) return null
   return (
     <div className="wk-meta">
-      <span className="wk-src"><Icon name="file" /> {t('wellKnown.storedIn')} <code>{file}</code></span>
       {badge}
       {versionsOf && <Versions name={versionsOf} onReverted={onReverted} disabled={busy} />}
       {!versionsOf && onRevert && (
@@ -128,7 +144,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
       done(d)
     } catch (e) {
       if (e.conflict) setConflict(e.current)
-      else setProblem({ message: e.message, errors: e.errors || [] })
+      else setProblem(wellKnownProblem(e, t))
     } finally {
       setBusy(false)
     }
@@ -164,14 +180,14 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
       done(d)
     } catch (e) {
       if (e.conflict) setConflict(e.current)
-      else setProblem({ message: e.message, errors: e.errors || [] })
+      else setProblem(wellKnownProblem(e, t))
     } finally { setBusy(false) }
   }
   const useTheirs = async () => { setConflict(null); setDirty(false); await wk.reload() }
 
   const revert = async () => {
     setBusy(true)
-    try { done(await wk.revert()) } catch (e) { setProblem({ message: e.message, errors: [] }) } finally { setBusy(false) }
+    try { done(await wk.revert()) } catch (e) { setProblem(wellKnownProblem(e, t)) } finally { setBusy(false) }
   }
 
   const file = WELL_KNOWN_FILES[name] || `${name}.json`
@@ -205,15 +221,15 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
       />
 
       {wk.error && !doc && (
-        <p className="wk-note wk-note--error" role="alert"><Icon name="alert-circle" /> {t('wellKnown.loadFailed', { message: wk.error.message })}</p>
+        <div className="wk-note wk-note--error" role="alert"><Icon name="alert-circle" /><div><p>{t('wellKnown.loadFailed')}</p><ProblemDetails errors={[wk.error.message]} /></div></div>
       )}
-      {schemaError && <p className="wk-note wk-note--error" role="alert"><Icon name="alert-circle" /> {t('wellKnown.loadFailed', { message: schemaError.message })}</p>}
+      {schemaError && <div className="wk-note wk-note--error" role="alert"><Icon name="alert-circle" /><div><p>{t('wellKnown.loadFailed')}</p><ProblemDetails errors={[schemaError.message]} /></div></div>}
       {doc && !doc.valid && (
         <div className="wk-note wk-note--warn" role="status" data-testid={`wk-invalid-${name}`}>
           <Icon name="warning" />
           <div>
-            <p>{doc.fallback ? t('wellKnown.invalidFallback', { file }) : t('wellKnown.invalid', { file })}</p>
-            <ul>{(doc.errors || []).map(e => <li key={e}><code>{e}</code></li>)}</ul>
+            <p>{doc.fallback ? t('wellKnown.invalidFallback') : t('wellKnown.invalid')}</p>
+            <ProblemDetails errors={doc.errors} />
             {doc.fallback && (
               <div className="wk-actions">
                 <button type="button" className="wk-linkbtn" onClick={revert} disabled={busy} data-testid={`wk-revert-${file.split('/').pop()}`}>
@@ -228,7 +244,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
         <div className="wk-note wk-note--warn" role="alert" data-testid={`wk-conflict-${name}`}>
           <Icon name="swap" />
           <div>
-            <p>{t('wellKnown.conflict', { file })}</p>
+            <p>{t('wellKnown.conflict')}</p>
             <dl className="wk-diff">
               {fields.filter(f => (conflict.data || {})[f.key] !== values[f.key]).map(f => (
                 <div key={f.key}><dt>{t(`wellKnown.fields.${name}.${f.key}.label`, { defaultValue: f.label })}</dt><dd>{String((conflict.data || {})[f.key] ?? '')}</dd></div>
@@ -253,7 +269,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
             </div>
           ) : (
             <div className="dk-field">
-              <label className="dk-label" htmlFor={`wk-${name}-source`}>{file}</label>
+              <label className="dk-label" htmlFor={`wk-${name}-source`}>{t('wellKnown.source.label')}</label>
               <textarea
                 id={`wk-${name}-source`} className="dk-input dk-textarea dk-mono wk-source" spellCheck={false} value={source}
                 data-testid={`wk-source-text-${name}`}
@@ -267,7 +283,7 @@ export default function WellKnownCard({ name, title, lede, prefill, options, onS
               <Icon name="alert-circle" />
               <div>
                 <p>{problem.message}</p>
-                {problem.errors.length > 0 && <ul>{problem.errors.map(e => <li key={e}><code>{e}</code></li>)}</ul>}
+                <ProblemDetails errors={problem.errors} />
               </div>
             </div>
           )}

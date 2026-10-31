@@ -3,9 +3,9 @@
     "blocked": "Aksi sebelumnya pada add-on ini belum dikonfirmasi. Periksa statusnya atau abaikan terlebih dahulu.",
     "checkStatus": "Periksa status",
     "dismiss": "Abaikan",
-    "failed": "Pemilik tidak menyelesaikan tindakan. Tidak ada yang diubah. Coba lagi untuk memulai percobaan baru.",
-    "notApplied": "Pemilik melaporkan aksi selesai, tetapi add-on tidak berubah. Coba lagi.",
-    "unknown": "Pemilik belum mengonfirmasi aksi ini. Aksi mungkin masih diterapkan. Periksa statusnya atau abaikan sebelum memulai aksi lain."
+    "failed": "Tindakan tidak selesai. Tidak ada yang diubah. Coba lagi untuk memulai percobaan baru.",
+    "notApplied": "Tindakan dilaporkan selesai, tetapi add-on tidak berubah. Coba lagi untuk memulai percobaan baru.",
+    "unknown": "Tindakan belum dikonfirmasi. Tindakan mungkin masih diterapkan. Periksa statusnya atau abaikan sebelum memulai tindakan lain."
   },
   "approval": {
     "title": "Perlu persetujuan",
@@ -58,7 +58,7 @@
     "tools_one": "{{count}} alat",
     "tools_other": "{{count}} alat",
     "version": "Versi {{version}}",
-    "working": "Menunggu konfirmasi pemilik.",
+    "working": "Menunggu konfirmasi.",
     "noMatchTitle": "No add-on matches",
     "noMatchBody": "Tidak ada yang terpasang cocok dengan \"{{query}}\". Coba kata lain.",
     "clearSearch": "Clear search",
@@ -136,7 +136,7 @@
     "denied": "Server menolak ini. Anda mungkin tidak punya izin, atau add-on berubah. Daftar telah diperbarui.",
     "invalid": "Server tidak dapat menerima permintaan ini.",
     "network": "Server tidak dapat dijangkau. Periksa koneksi Anda.",
-    "unavailable": "Pemilik add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
+    "unavailable": "Add-on tidak tersedia saat ini. Coba lagi sebentar lagi.",
     "unknownOutcome": "Hasil tidak dapat dikonfirmasi. Periksa statusnya sebelum mencoba lagi."
   },
   "installed": {
@@ -181,14 +181,14 @@
     },
     "hints": {
       "id": "Huruf kecil, angka, dan tanda hubung. Tidak dapat diubah nanti.",
-      "reference": "Nama kredensial yang dikonfigurasi pemilik. Jangan pernah menempelkan token atau kata sandi di sini.",
+      "reference": "Nama kredensial yang dikonfigurasi administrator di server ini. Jangan pernah menempelkan token atau kata sandi di sini.",
       "url": "Alamat https tanpa kredensial dan tanpa query string.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Disegarkan {{when}}, {{count}} entri",
-    "lead": "Pustaka adalah dokumen katalog yang mendaftar add-on. Kredensial tidak pernah diketik di sini: pustaka privat menyebut kredensial yang dikonfigurasi pemilik.",
+    "lead": "Pustaka adalah indeks yang mendaftar add-on, backend, atau model. Kredensial tidak pernah diketik di sini: pustaka add-on privat menyebut kredensial yang dikonfigurasi administrator di server ini.",
     "listLabel": "Pustaka",
     "loading": "Memuat pustaka",
     "notRefreshed": "Belum disegarkan",
@@ -262,7 +262,7 @@
     "host": "API host",
     "interface": "Antarmuka",
     "logs": "Log",
-    "logsNone": "Keluaran proses add-on tidak dikumpulkan di rilis ini. Kesehatan dan percobaan mulai ulang di atas adalah yang dapat dilaporkan pemilik.",
+    "logsNone": "Keluaran proses add-on tidak dikumpulkan di rilis ini. Kesehatan dan percobaan mulai ulang di atas adalah semua yang dapat dilaporkan LocalAI.",
     "observed": "Status teramati",
     "protocol": "Protokol",
     "restarts": "Percobaan mulai ulang",
@@ -525,8 +525,8 @@
       "unknownOutcome": "Hasilnya tidak diketahui. Baca status lagi: tindakan yang sama tidak dikirim dua kali.",
       "auth": "Masuk lagi.",
       "denied": "Hanya administrator yang bisa melakukannya, dari sesi peramban mereka sendiri.",
-      "network": "Pemilik tidak dapat dijangkau.",
-      "unavailable": "Pemilik tidak tersedia."
+      "network": "Layanan add-on tidak dapat dijangkau.",
+      "unavailable": "Layanan add-on tidak tersedia."
     }
   },
   "updates": {
@@ -600,7 +600,7 @@
       "auth": "Masuk lagi untuk melanjutkan.",
       "denied": "Hanya administrator yang dapat melakukannya dari sesi browser sendiri.",
       "network": "Jaringan tidak dapat dijangkau.",
-      "unavailable": "Pemilik add-on tidak tersedia. Coba lagi."
+      "unavailable": "Layanan add-on tidak tersedia. Coba lagi."
     },
     "upgradeNamed": "Perbarui {{name}}",
     "why": {

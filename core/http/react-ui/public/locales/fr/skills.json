@@ -1,8 +1,8 @@
 {
   "title": "Compétences",
-  "subtitle": "Gérez les compétences des agents (instructions et ressources réutilisables)",
+  "subtitle": "Des instructions qu’un chat peut lire quand une tâche correspond. Ajoutez-en une à un agent pour l’utiliser là.",
   "unavailable": {
-    "subtitle": "Le service de compétences est indisponible ou l'index est en cours de reconstruction. Réessayez dans un instant."
+    "subtitle": "Les compétences ont besoin de Fichiers, et Fichiers est désactivé sur ce serveur."
   },
   "actions": {
     "newSkill": "Nouvelle compétence",
@@ -19,7 +19,7 @@
     "editTitle": "Modifier la compétence",
     "deleteTitle": "Supprimer la compétence",
     "invalid": "Skipped: not a valid skill",
-    "invalidWhy": "This SKILL.md was skipped: {{reason}}",
+    "invalidWhy": "Cette compétence a été ignorée : {{reason}}",
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "Fournie par {{name}}",
@@ -75,7 +75,7 @@
     "required": "A name and a description are required",
     "saveFailed": "Save failed",
     "loadFailed": "Failed to load the skill",
-    "readOnly": "This skill is read-only here. A built-in skill comes with the server, and a workspace skill is a file of your workspace."
+    "readOnly": "Cette compétence est en lecture seule ici. Une compétence intégrée est fournie avec le serveur, et une compétence de vos fichiers se modifie dans Fichiers."
   },
   "load": {
     "title": "Impossible de charger vos compétences."

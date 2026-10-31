@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
-import { StoredIn } from './WellKnownCard'
+import { StoredIn, ProblemDetails } from './WellKnownCard'
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { useSwapMotion } from '../../hooks/useSwapMotion'
-import { shortcutList, cleanShortcuts, move, WELL_KNOWN_FILES } from '../../utils/wellKnown'
+import { shortcutList, cleanShortcuts, move, wellKnownProblem, WELL_KNOWN_FILES } from '../../utils/wellKnown'
 import './wellKnown.css'
 
 export function defaultStarters(t) {
@@ -47,7 +47,7 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
       setDirty(false)
       onDone?.()
     } catch (e) {
-      if (e.conflict) { setProblem({ message: t('wellKnown.conflict', { file: WELL_KNOWN_FILES.shortcuts }), errors: [], conflict: true }) } else setProblem({ message: e.message, errors: e.errors || [] })
+      if (e.conflict) { setProblem({ message: t('wellKnown.conflict'), errors: [], conflict: true }) } else setProblem(wellKnownProblem(e, t))
     } finally { setBusy(false) }
   }
   const reload = async () => { setDirty(false); setProblem(null); await wk.reload() }
@@ -58,7 +58,6 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
     <div className={inline ? 'wk-form' : 'wk-pop'} data-testid="wk-shortcuts-editor">
       {!inline && <h3>{t('wellKnown.shortcuts.edit')}</h3>}
       {inline && <StoredIn file={WELL_KNOWN_FILES.shortcuts} onRevert={async () => { await wk.revert(); setDirty(false) }} canRevert={!!wk.doc?.exists} busy={busy} />}
-      {!inline && <StoredIn file={WELL_KNOWN_FILES.shortcuts} />}
       <ol className="wk-rows" ref={listRef}>
         {rows.length === 0 && <li className="wk-row--empty">{t('wellKnown.shortcuts.none')}</li>}
         {rows.map((r, i) => (
@@ -84,7 +83,7 @@ export default function ShortcutsEditor({ inline = false, onDone }) {
           <Icon name="alert-circle" />
           <div>
             <p>{problem.message}</p>
-            {problem.errors.length > 0 && <ul>{problem.errors.map(e => <li key={e}><code>{e}</code></li>)}</ul>}
+            <ProblemDetails errors={problem.errors} />
             {problem.conflict && <div className="wk-actions"><button type="button" className="dk-btn dk-btn--sm dk-btn--secondary" onClick={reload}>{t('wellKnown.useTheirs')}</button></div>}
           </div>
         </div>

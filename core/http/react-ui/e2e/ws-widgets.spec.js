@@ -98,7 +98,7 @@ test('every footer state says what happens and offers the action that fits', asy
   await expect(foot('empty')).toHaveAttribute('data-state', 'failedEmpty')
   await expect(foot('empty')).toContainText('The update failed and there is no data yet.')
   await expect(foot('broken')).toHaveAttribute('data-state', 'invalid')
-  await expect(foot('broken')).toContainText('data/w-broken.json has an error. Showing the last good version.')
+  await expect(foot('broken')).toContainText('The data has an error. Showing the last good version.')
   await expect(foot('later')).toHaveAttribute('data-state', 'waiting')
   await expect(foot('later').getByTestId('widget-open-chat')).toHaveAttribute('href', '/app/chats/c-prop')
   await expect(page.getByTestId('home-schedule-note')).toContainText('5 widgets update on a schedule.')

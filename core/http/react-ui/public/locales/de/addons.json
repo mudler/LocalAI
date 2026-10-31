@@ -3,9 +3,9 @@
     "blocked": "Eine frühere Aktion für dieses Add-on ist noch nicht bestätigt. Prüfe zuerst ihren Status oder verwirf sie.",
     "checkStatus": "Status prüfen",
     "dismiss": "Verwerfen",
-    "failed": "Der Betreiber hat die Aktion nicht abgeschlossen. Es wurde nichts geändert. Versuche es erneut, um einen neuen Versuch zu starten.",
-    "notApplied": "Der Betreiber meldete die Aktion als erledigt, aber das Add-on hat sich nicht geändert. Versuche es erneut.",
-    "unknown": "Der Betreiber hat die Aktion noch nicht bestätigt. Sie kann noch angewendet werden. Prüfe den Status oder verwirf sie, bevor du eine weitere Aktion startest."
+    "failed": "Die Aktion wurde nicht abgeschlossen. Es wurde nichts geändert. Versuche es erneut, um einen neuen Versuch zu starten.",
+    "notApplied": "Die Aktion wurde als erledigt gemeldet, aber das Add-on hat sich nicht geändert. Versuche es erneut, um einen neuen Versuch zu starten.",
+    "unknown": "Die Aktion ist noch nicht bestätigt. Sie kann noch angewendet werden. Prüfe den Status oder verwirf sie, bevor du eine weitere Aktion startest."
   },
   "approval": {
     "title": "Freigabe erforderlich",
@@ -58,7 +58,7 @@
     "tools_one": "{{count}} Werkzeug",
     "tools_other": "{{count}} Werkzeuge",
     "version": "Version {{version}}",
-    "working": "Warte auf die Bestätigung des Betreibers.",
+    "working": "Warte auf die Bestätigung.",
     "noMatchTitle": "No add-on matches",
     "noMatchBody": "Nichts Installiertes passt zu „{{query}}“. Versuche andere Wörter.",
     "clearSearch": "Clear search",
@@ -136,7 +136,7 @@
     "denied": "Der Server hat dies abgelehnt. Möglicherweise fehlt dir die Berechtigung oder das Add-on hat sich geändert. Die Liste wurde aktualisiert.",
     "invalid": "Der Server konnte diese Anfrage nicht annehmen.",
     "network": "Der Server ist nicht erreichbar. Prüfe deine Verbindung.",
-    "unavailable": "Der Betreiber des Add-ons ist gerade nicht verfügbar. Versuche es gleich noch einmal.",
+    "unavailable": "Add-ons sind gerade nicht verfügbar. Versuche es gleich noch einmal.",
     "unknownOutcome": "Das Ergebnis konnte nicht bestätigt werden. Prüfe den Status, bevor du es erneut versuchst."
   },
   "installed": {
@@ -181,14 +181,14 @@
     },
     "hints": {
       "id": "Kleinbuchstaben, Ziffern und Bindestriche. Kann später nicht geändert werden.",
-      "reference": "Der Name einer Zugangsdaten-Konfiguration des Betreibers. Füge hier nie ein Token oder Passwort ein.",
+      "reference": "Der Name von Zugangsdaten, die ein Administrator auf diesem Server eingerichtet hat. Füge hier nie ein Token oder Passwort ein.",
       "url": "Eine https-Adresse ohne Zugangsdaten und ohne Query-String.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Aktualisiert {{when}}, {{count}} Einträge",
-    "lead": "Eine Bibliothek ist ein Katalogdokument, das Add-ons auflistet. Zugangsdaten werden hier nie eingetippt: Eine private Bibliothek nennt eine Zugangsdaten-Referenz, die der Betreiber eingerichtet hat.",
+    "lead": "Eine Bibliothek ist ein Verzeichnis, das Add-ons, Backends oder Modelle auflistet. Zugangsdaten werden hier nie eingetippt: Eine private Add-on-Bibliothek nennt Zugangsdaten, die ein Administrator auf diesem Server eingerichtet hat.",
     "listLabel": "Bibliotheken",
     "loading": "Bibliotheken werden geladen",
     "notRefreshed": "Noch nicht aktualisiert",
@@ -262,7 +262,7 @@
     "host": "Host-API",
     "interface": "Oberfläche",
     "logs": "Protokolle",
-    "logsNone": "Die Ausgabe von Add-on-Prozessen wird in dieser Version nicht erfasst. Zustand und Neustartversuche oben sind das, was der Betreiber melden kann.",
+    "logsNone": "Die Ausgabe von Add-on-Prozessen wird in dieser Version nicht erfasst. Zustand und Neustartversuche oben sind alles, was LocalAI melden kann.",
     "observed": "Beobachteter Zustand",
     "protocol": "Protokoll",
     "restarts": "Neustartversuche",
@@ -525,8 +525,8 @@
       "unknownOutcome": "Das Ergebnis ist nicht bekannt. Lesen Sie den Status erneut: Dieselbe Aktion wird nicht zweimal gesendet.",
       "auth": "Melden Sie sich erneut an.",
       "denied": "Nur Administratoren können dies, aus ihrer eigenen Browsersitzung.",
-      "network": "Der Eigentümer war nicht erreichbar.",
-      "unavailable": "Der Eigentümer ist nicht verfügbar."
+      "network": "Der Add-on-Dienst war nicht erreichbar.",
+      "unavailable": "Der Add-on-Dienst ist nicht verfügbar."
     }
   },
   "updates": {
@@ -600,7 +600,7 @@
       "auth": "Bitte erneut anmelden.",
       "denied": "Das kann nur ein Administrator in der eigenen Browsersitzung tun.",
       "network": "Das Netzwerk ist nicht erreichbar.",
-      "unavailable": "Der Add-on-Eigentümer ist nicht verfügbar. Bitte erneut versuchen."
+      "unavailable": "Der Add-on-Dienst ist nicht verfügbar. Versuche es erneut."
     },
     "upgradeNamed": "{{name}} aktualisieren",
     "why": {

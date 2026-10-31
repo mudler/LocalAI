@@ -84,7 +84,7 @@
       "step3Title": "Chat starten",
       "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API.",
       "sandboxTitle": "Code sicher ausführen (optional)",
-      "sandboxBody": "Installieren Sie das Sandbox-Add-on, damit das Modell Code und Befehle isoliert ausführt. Ohne es kann das Modell nur den eingebauten Host-bash-Fallback nutzen, der vollen Netzwerkzugriff und keine Isolation hat."
+      "sandboxBody": "Installieren Sie das Sandbox-Add-on, damit das Modell Code und Befehle isoliert ausführt. Ohne es laufen Befehle direkt auf diesem Rechner, mit vollem Netzwerkzugriff und ohne Isolation."
     },
     "browseGallery": "Modellgalerie durchsuchen",
     "importModel": "Modell importieren",

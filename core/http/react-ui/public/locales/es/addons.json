@@ -3,9 +3,9 @@
     "blocked": "Una acción anterior sobre este complemento aún no está confirmada. Comprueba su estado o descártala primero.",
     "checkStatus": "Comprobar estado",
     "dismiss": "Descartar",
-    "failed": "El propietario no completó la acción. No se cambió nada. Vuelve a intentarlo para iniciar un intento nuevo.",
-    "notApplied": "El propietario informó de la acción como completada, pero el complemento no cambió. Vuelve a intentarlo.",
-    "unknown": "El propietario aún no confirmó la acción. Aún puede aplicarse. Comprueba su estado o descártala antes de iniciar otra acción."
+    "failed": "La acción no terminó. No se cambió nada. Vuelve a intentarlo para iniciar un intento nuevo.",
+    "notApplied": "La acción se informó como hecha, pero el complemento no cambió. Vuelve a intentarlo para iniciar un intento nuevo.",
+    "unknown": "La acción aún no está confirmada. Aún puede aplicarse. Comprueba su estado o descártala antes de iniciar otra acción."
   },
   "approval": {
     "title": "Se necesita aprobación",
@@ -58,7 +58,7 @@
     "tools_one": "{{count}} herramienta",
     "tools_other": "{{count}} herramientas",
     "version": "Versión {{version}}",
-    "working": "Esperando la confirmación del propietario.",
+    "working": "Esperando la confirmación.",
     "noMatchTitle": "No add-on matches",
     "noMatchBody": "Nada instalado coincide con «{{query}}». Prueba con otras palabras.",
     "clearSearch": "Clear search",
@@ -136,7 +136,7 @@
     "denied": "El servidor rechazó la solicitud. Puede que no tengas permiso o que el complemento haya cambiado. Se actualizó la lista.",
     "invalid": "El servidor no pudo aceptar la solicitud.",
     "network": "No se pudo contactar con el servidor. Revisa tu conexión.",
-    "unavailable": "El propietario del complemento no está disponible ahora. Inténtalo de nuevo en un momento.",
+    "unavailable": "Los complementos no están disponibles ahora. Inténtalo de nuevo en un momento.",
     "unknownOutcome": "No se pudo confirmar el resultado. Comprueba el estado antes de volver a intentarlo."
   },
   "installed": {
@@ -181,14 +181,14 @@
     },
     "hints": {
       "id": "Letras minúsculas, dígitos y guiones. No se puede cambiar después.",
-      "reference": "El nombre de una credencial que configuró el propietario. Nunca pegues aquí un token ni una contraseña.",
+      "reference": "El nombre de una credencial que un administrador configuró en este servidor. Nunca pegues aquí un token ni una contraseña.",
       "url": "Una dirección https sin credenciales ni cadena de consulta.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Actualizada {{when}}, {{count}} entradas",
-    "lead": "Una biblioteca es un documento de catálogo que enumera complementos. Las credenciales nunca se escriben aquí: una biblioteca privada nombra una credencial que configuró el propietario.",
+    "lead": "Una biblioteca es un índice que enumera complementos, backends o modelos. Las credenciales nunca se escriben aquí: una biblioteca privada de complementos nombra una credencial que un administrador configuró en este servidor.",
     "listLabel": "Bibliotecas",
     "loading": "Cargando bibliotecas",
     "notRefreshed": "Aún sin actualizar",
@@ -262,7 +262,7 @@
     "host": "API del host",
     "interface": "Interfaz",
     "logs": "Registros",
-    "logsNone": "La salida de los procesos de los complementos no se recopila en esta versión. La salud y los intentos de reinicio de arriba es lo que el propietario puede informar.",
+    "logsNone": "La salida de los procesos de los complementos no se recopila en esta versión. La salud y los intentos de reinicio de arriba es todo lo que LocalAI puede informar.",
     "observed": "Estado observado",
     "protocol": "Protocolo",
     "restarts": "Intentos de reinicio",
@@ -525,8 +525,8 @@
       "unknownOutcome": "Se desconoce el resultado. Vuelve a leer el estado: la misma acción no se envía dos veces.",
       "auth": "Inicia sesión de nuevo.",
       "denied": "Solo los administradores pueden hacerlo, desde su propia sesión del navegador.",
-      "network": "No se pudo contactar con el propietario.",
-      "unavailable": "El propietario no está disponible."
+      "network": "No se pudo contactar con el servicio de complementos.",
+      "unavailable": "El servicio de complementos no está disponible."
     }
   },
   "updates": {
@@ -600,7 +600,7 @@
       "auth": "Inicia sesión de nuevo para continuar.",
       "denied": "Solo un administrador puede hacerlo desde su propia sesión del navegador.",
       "network": "No se puede acceder a la red.",
-      "unavailable": "El propietario del complemento no está disponible. Inténtalo de nuevo."
+      "unavailable": "El servicio de complementos no está disponible. Inténtalo de nuevo."
     },
     "upgradeNamed": "Actualizar {{name}}",
     "why": {

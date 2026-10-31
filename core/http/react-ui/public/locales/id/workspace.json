@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "Disimpan di",
-    "definedIn": "Didefinisikan di",
     "revert": "Kembali ke versi sebelumnya",
     "view": "Lihat",
     "form": "Formulir",
@@ -14,10 +12,10 @@
     "savedAt": "Disimpan pada {{time}}",
     "notSaved": "Belum disimpan.",
     "notSavedPrefilled": "Belum disimpan. Sebagian nilai sudah diisi untuk Anda; Simpan akan mempertahankannya.",
-    "loadFailed": "Tidak dapat memuat file: {{message}}",
-    "invalid": "{{file}} tidak sesuai dengan formatnya, dan tidak ada versi valid sebelumnya.",
-    "invalidFallback": "{{file}} tidak sesuai dengan formatnya. Ini menampilkan versi valid terakhirnya.",
-    "conflict": "{{file}} berubah saat Anda mengeditnya, kemungkinan oleh asisten atau tab lain. Nilai yang lebih baru adalah:",
+    "loadFailed": "Pengaturan ini tidak dapat dimuat. Muat ulang halaman untuk mencoba lagi.",
+    "invalid": "Pengaturan ini memiliki kesalahan, dan tidak ada versi valid sebelumnya.",
+    "invalidFallback": "Pengaturan ini memiliki kesalahan. Yang ditampilkan adalah versi valid terakhirnya.",
+    "conflict": "Pengaturan ini berubah saat Anda mengeditnya, kemungkinan oleh asisten atau di tab lain. Nilai yang lebih baru adalah:",
     "useTheirs": "Gunakan nilai yang lebih baru",
     "keepMine": "Simpan perubahan saya",
     "editWithAssistant": "Edit dengan asisten",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "Sumber",
-      "hint": "File mentah. Saat disimpan, file diperiksa dengan skema yang sama.",
-      "notJson": "Ini bukan JSON yang valid.",
-      "notObject": "File harus berupa objek JSON dalam kurung kurawal."
+      "hint": "Pengaturan dalam bentuk teks. Saat disimpan, pengaturan diperiksa dengan cara yang sama.",
+      "notJson": "Teks memiliki kesalahan sintaksis. Periksa tanda kutip, koma, dan kurung kurawal.",
+      "notObject": "Teks harus diawali dengan { dan diakhiri dengan }."
     },
     "persona": {
       "title": "Asisten",
@@ -58,14 +56,13 @@
       "prompt": "Prompt",
       "send": "Kirim langsung",
       "add": "Tambah pintasan",
-      "invalid": "LocalAI/shortcuts.json memiliki kesalahan",
-      "assistantPrompt": "Ubah pintasan kolom tulis saya di LocalAI/shortcuts.json: "
+      "invalid": "Beberapa pintasan memiliki kesalahan.",
+      "assistantPrompt": "Ubah pintasan saya: "
     },
     "home": {
       "editLayout": "Edit tata letak",
       "ask": "Tanya asisten",
-      "layoutIn": "Tata letak ada di",
-      "askPrompt": "Ubah halaman Beranda saya (LocalAI/home.json): ",
+      "askPrompt": "Ubah halaman Home saya: ",
       "add": "Tambah widget",
       "newTitle": "Widget baru",
       "noWidgets": "Belum ada widget.",
@@ -85,14 +82,14 @@
       "noData": "Belum ada data. Asisten dapat menulis",
       "nothing": "Tidak ada apa-apa di sini.",
       "noSource": "Widget ini tidak memiliki file data. Pilih satu di Edit tata letak.",
-      "broken": "{{file}} memiliki kesalahan dan tidak ada versi valid sebelumnya.",
-      "stale": "Menampilkan data valid terakhir: {{file}} memiliki kesalahan.",
+      "broken": "Data widget ini memiliki kesalahan, dan tidak ada versi valid sebelumnya.",
+      "stale": "Menampilkan data valid terakhir. Data terbaru memiliki kesalahan.",
       "updated": "Diperbarui {{when}}",
       "footer": {
         "noData": "Belum ada data.",
-        "invalid": "{{file}} berisi kesalahan. Menampilkan versi valid terakhir.",
+        "invalid": "Data memiliki kesalahan. Menampilkan versi baik terakhir.",
         "revert": "Kembalikan",
-        "missing": "File {{file}} tidak ada.",
+        "missing": "Data widget ini tidak ada.",
         "fix": "Minta asisten memperbaikinya",
         "fixPrompt": "Widget Beranda membaca {{file}}, yang hilang atau rusak. Perbaiki: ",
         "waiting": "Menunggu Anda membuat pemicunya di obrolan.",
@@ -113,7 +110,7 @@
         "fresh": "{{schedule}} · diperbarui {{time}}",
         "pause": "Jeda",
         "fromPage": "Dari halaman {{title}}",
-        "fromFile": "Dari {{file}}",
+        "fromFile": "Dari berkas Anda",
         "next": "Jalan berikutnya {{when}}",
         "cost": "sekitar {{tokens}} token per jalan",
         "costRemote": "sekitar {{tokens}} token per jalan pada model jarak jauh",
@@ -130,11 +127,13 @@
         "scheduleNote_other": "{{count}} widget diperbarui sesuai jadwal. Jalannya memakai model Anda dan dihitung dalam penggunaan Anda."
       },
       "opensSite": "{{host}}: terbuka di tab baru",
+      "invalid": "Tata letak Home Anda memiliki kesalahan, dan tidak ada versi valid sebelumnya.",
+      "invalidFallback": "Tata letak Home Anda memiliki kesalahan. Home menampilkan versi valid terakhirnya.",
       "page": {
         "gone": "Halaman ini tidak tersedia lagi",
         "goneHint": "Halaman \"{{name}}\" dipindahkan atau dihapus, atau Anda tidak dapat membukanya lagi.",
         "noWidget": "Halaman ini tidak punya tampilan widget",
-        "noWidgetHint": "Tambahkan blok \"widget\" ke pages/{{name}}/page.json, atau minta asisten membuat tampilan ringkas.",
+        "noWidgetHint": "Minta asisten memberi halaman \"{{name}}\" tampilan ringkas untuk Beranda.",
         "off": "Halaman bersama dimatikan",
         "offHint": "Administrator mematikan halaman bersama di server ini.",
         "fix": "Sesuaikan Beranda",
@@ -149,7 +148,7 @@
         "open": "Buka halaman",
         "add": "Tambah halaman",
         "limit": "Beranda menampilkan paling banyak {{max}} halaman; hapus satu untuk menambah yang lain.",
-        "noneEligible": "Untuk menampilkan halaman di sini, beri page.json-nya blok \"widget\".",
+        "noneEligible": "Belum ada halaman dengan tampilan ringkas untuk Beranda. Minta asisten menambahkannya ke sebuah halaman.",
         "pick": "Halaman",
         "unavailable": "{{name}} (tidak tersedia)",
         "sharedLabel": "bersama",
@@ -216,12 +215,16 @@
           "help": "Model yang digunakan saat chat baru dimulai."
         }
       }
-    }
+    },
+    "saveInvalid": "Beberapa nilai tidak valid. Periksa lalu simpan lagi.",
+    "saveTooLarge": "Pengaturan ini terlalu besar untuk disimpan. Hapus beberapa entri lalu coba lagi.",
+    "saveFailed": "Tidak dapat menyimpan. Coba lagi.",
+    "details": "Detail"
   },
   "discovery": {
     "ex": {
       "title": "Buat LocalAI jadi milikmu",
-      "lede": "Katakan di chat. Asisten menyimpannya sebagai file yang bisa kamu ubah atau batalkan.",
+      "lede": "Katakan di chat. Asisten menyimpannya, dan Anda bisa mengubah atau membatalkannya.",
       "hide": "Sembunyikan",
       "hiddenToast": "Contoh disembunyikan.",
       "saveFailed": "Tidak tersimpan: {{message}}",
@@ -229,7 +232,7 @@
         "kicker": "Kamu dan asisten",
         "prompt": "Panggil aku {{firstName}} dan jawab singkat saja",
         "promptNoName": "Ingat namaku dan jawab singkat saja",
-        "what": "Menyimpan LocalAI/user.json dan LocalAI/persona.json"
+        "what": "Menyimpan nama Anda dan cara asisten menjawab"
       },
       "card2": {
         "kicker": "Sebuah halaman",
@@ -264,14 +267,14 @@
       "turnBackOn": "Aktifkan lagi di Account"
     },
     "change": {
-      "profilePersona": "Namamu disimpan di <code>LocalAI/user.json</code> dan instruksimu di <code>LocalAI/persona.json</code>. Setiap chat memakainya mulai pesan berikutnya.",
-      "profile": "Disimpan ke profilmu di <code>LocalAI/user.json</code>.",
-      "persona": "<code>LocalAI/persona.json</code> disimpan. Setiap chat memakainya mulai pesan berikutnya.",
-      "shortcuts": "<code>LocalAI/shortcuts.json</code> disimpan.",
-      "home": "<code>LocalAI/home.json</code> disimpan. Home menampilkan perubahannya.",
-      "ui": "<code>LocalAI/ui.json</code> disimpan.",
-      "pageCreated": "Halaman {{title}} dibuat di <code>{{folder}}</code>.",
-      "pageChanged": "<code>{{file}}</code> diubah.",
+      "profilePersona": "Nama Anda dan instruksi Anda untuk asisten disimpan. Setiap chat memakainya mulai pesan berikutnya.",
+      "profile": "Disimpan ke profil Anda.",
+      "persona": "Instruksi asisten disimpan. Setiap chat memakainya mulai pesan berikutnya.",
+      "shortcuts": "Pintasan Anda disimpan.",
+      "home": "Halaman Home Anda disimpan. Home menampilkan perubahannya.",
+      "ui": "Pengaturan tampilan Anda disimpan.",
+      "pageCreated": "Halaman {{title}} dibuat.",
+      "pageChanged": "Halaman {{title}} diubah.",
       "offersOff": "Saran dari asisten dimatikan.",
       "undoing": "Mengurungkan…",
       "undone": "Diurungkan.",
@@ -298,8 +301,7 @@
     "privacy": "Asisten menerima namamu, teks ini, bahasa dan zona waktumu di awal setiap chat. Kosongkan kolom agar tidak dikirim.",
     "versions": {
       "label": "Versi",
-      "title": "Versi {{file}}",
-      "titleBefore": "Versi",
+      "title": "Versi sebelumnya",
       "loading": "Membaca riwayat…",
       "none": "Belum ada versi sebelumnya.",
       "current": "saat ini",

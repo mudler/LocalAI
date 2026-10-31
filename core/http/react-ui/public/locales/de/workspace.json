@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "Gespeichert in",
-    "definedIn": "Definiert in",
     "revert": "Zur vorherigen Version zurückkehren",
     "view": "Ansicht",
     "form": "Formular",
@@ -14,10 +12,10 @@
     "savedAt": "Gespeichert um {{time}}",
     "notSaved": "Noch nicht gespeichert.",
     "notSavedPrefilled": "Noch nicht gespeichert. Einige Werte sind schon ausgefüllt; Speichern behält sie.",
-    "loadFailed": "Die Datei konnte nicht geladen werden: {{message}}",
-    "invalid": "{{file}} entspricht nicht seinem Format, und es gibt keine frühere gültige Version.",
-    "invalidFallback": "{{file}} entspricht nicht seinem Format. Angezeigt wird die letzte gültige Version.",
-    "conflict": "{{file}} wurde geändert, während du es bearbeitet hast, wahrscheinlich vom Assistenten oder aus einem anderen Tab. Die neueren Werte sind:",
+    "loadFailed": "Diese Einstellungen konnten nicht geladen werden. Lade die Seite neu, um es noch einmal zu versuchen.",
+    "invalid": "Diese Einstellungen enthalten Fehler, und es gibt keine frühere gültige Version.",
+    "invalidFallback": "Diese Einstellungen enthalten Fehler. Hier siehst du ihre letzte gültige Version.",
+    "conflict": "Diese Einstellungen wurden geändert, während du sie bearbeitet hast, wahrscheinlich vom Assistenten oder in einem anderen Tab. Die neueren Werte sind:",
     "useTheirs": "Neuere Werte verwenden",
     "keepMine": "Meine Änderungen behalten",
     "editWithAssistant": "Mit dem Assistenten bearbeiten",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "Quelle",
-      "hint": "Die Rohdatei. Beim Speichern wird sie mit demselben Schema geprüft.",
-      "notJson": "Das ist kein gültiges JSON.",
-      "notObject": "Die Datei muss ein JSON-Objekt in geschweiften Klammern sein."
+      "hint": "Die Einstellungen als Text. Beim Speichern werden sie genauso geprüft.",
+      "notJson": "Der Text hat einen Syntaxfehler. Prüfe Anführungszeichen, Kommas und Klammern.",
+      "notObject": "Der Text muss mit { beginnen und mit } enden."
     },
     "persona": {
       "title": "Assistent",
@@ -58,14 +56,13 @@
       "prompt": "Prompt",
       "send": "Sofort senden",
       "add": "Kurzbefehl hinzufügen",
-      "invalid": "LocalAI/shortcuts.json enthält Fehler",
-      "assistantPrompt": "Ändere meine Kurzbefehle im Eingabefeld in LocalAI/shortcuts.json: "
+      "invalid": "Einige Kurzbefehle enthalten Fehler.",
+      "assistantPrompt": "Ändere meine Kurzbefehle: "
     },
     "home": {
       "editLayout": "Layout bearbeiten",
       "ask": "Den Assistenten fragen",
-      "layoutIn": "Das Layout steht in",
-      "askPrompt": "Ändere meine Startseite (LocalAI/home.json): ",
+      "askPrompt": "Ändere meine Home-Seite: ",
       "add": "Widget hinzufügen",
       "newTitle": "Neues Widget",
       "noWidgets": "Noch keine Widgets.",
@@ -85,14 +82,14 @@
       "noData": "Noch keine Daten. Der Assistent kann schreiben",
       "nothing": "Hier ist nichts.",
       "noSource": "Dieses Widget hat keine Datendatei. Wähle eine unter Layout bearbeiten.",
-      "broken": "{{file}} enthält Fehler und hat keine frühere gültige Version.",
-      "stale": "Die letzten gültigen Daten werden angezeigt: {{file}} enthält Fehler.",
+      "broken": "Die Daten dieses Widgets enthalten Fehler, und es gibt keine frühere gültige Version.",
+      "stale": "Die letzten gültigen Daten werden angezeigt. Die neuesten Daten enthalten Fehler.",
       "updated": "Aktualisiert {{when}}",
       "footer": {
         "noData": "Noch keine Daten.",
-        "invalid": "{{file}} hat einen Fehler. Die letzte gültige Version wird angezeigt.",
+        "invalid": "Die Daten enthalten einen Fehler. Die letzte gute Version wird angezeigt.",
         "revert": "Zurücksetzen",
-        "missing": "Die Datei {{file}} fehlt.",
+        "missing": "Die Daten dieses Widgets fehlen.",
         "fix": "Den Assistenten um eine Korrektur bitten",
         "fixPrompt": "Das Widget der Startseite liest {{file}}, die fehlt oder fehlerhaft ist. Korrigiere sie: ",
         "waiting": "Wartet darauf, dass du seinen Trigger im Chat erstellst.",
@@ -113,7 +110,7 @@
         "fresh": "{{schedule}} · aktualisiert {{time}}",
         "pause": "Pausieren",
         "fromPage": "Von der Seite {{title}}",
-        "fromFile": "Aus {{file}}",
+        "fromFile": "Aus deinen Dateien",
         "next": "Nächster Lauf {{when}}",
         "cost": "etwa {{tokens}} Tokens pro Lauf",
         "costRemote": "etwa {{tokens}} Tokens pro Lauf auf einem entfernten Modell",
@@ -130,11 +127,13 @@
         "scheduleNote_other": "{{count}} Widgets werden nach Zeitplan aktualisiert. Ihre Läufe nutzen deine Modelle und zählen zu deiner Nutzung."
       },
       "opensSite": "{{host}}: öffnet in einem neuen Tab",
+      "invalid": "Dein Home-Layout enthält Fehler, und es gibt keine frühere gültige Version.",
+      "invalidFallback": "Dein Home-Layout enthält Fehler. Home zeigt seine letzte gültige Version.",
       "page": {
         "gone": "Diese Seite ist nicht mehr verfügbar",
         "goneHint": "Die Seite \"{{name}}\" wurde verschoben oder gelöscht, oder du kannst sie nicht mehr öffnen.",
         "noWidget": "Diese Seite hat keine Widget-Ansicht",
-        "noWidgetHint": "Füge pages/{{name}}/page.json einen \"widget\"-Block hinzu oder bitte den Assistenten um eine kompakte Ansicht.",
+        "noWidgetHint": "Bitte den Assistenten, der Seite „{{name}}“ eine kompakte Ansicht für die Startseite zu geben.",
         "off": "Geteilte Seiten sind ausgeschaltet",
         "offHint": "Ein Administrator hat geteilte Seiten auf diesem Server ausgeschaltet.",
         "fix": "Startseite anpassen",
@@ -149,7 +148,7 @@
         "open": "Seite öffnen",
         "add": "Seite hinzufügen",
         "limit": "Die Startseite zeigt höchstens {{max}} Seiten; entferne eine, um eine weitere hinzuzufügen.",
-        "noneEligible": "Damit eine Seite hier erscheint, gib ihrer page.json einen \"widget\"-Block.",
+        "noneEligible": "Noch keine Seite hat eine kompakte Ansicht für die Startseite. Bitte den Assistenten, einer Seite eine hinzuzufügen.",
         "pick": "Seite",
         "unavailable": "{{name}} (nicht verfügbar)",
         "sharedLabel": "geteilt",
@@ -216,12 +215,16 @@
           "help": "Das Modell, mit dem ein neuer Chat startet."
         }
       }
-    }
+    },
+    "saveInvalid": "Einige Werte sind ungültig. Prüfe sie und speichere erneut.",
+    "saveTooLarge": "Diese Einstellungen sind zu groß zum Speichern. Entferne einige Einträge und versuche es erneut.",
+    "saveFailed": "Speichern fehlgeschlagen. Versuche es erneut.",
+    "details": "Details"
   },
   "discovery": {
     "ex": {
       "title": "Mach LocalAI zu deinem",
-      "lede": "Sag es im Chat. Der Assistent speichert es als Datei, die du ändern oder rückgängig machen kannst.",
+      "lede": "Sag es im Chat. Der Assistent speichert es, und du kannst es ändern oder rückgängig machen.",
       "hide": "Ausblenden",
       "hiddenToast": "Beispiele ausgeblendet.",
       "saveFailed": "Nicht gespeichert: {{message}}",
@@ -229,7 +232,7 @@
         "kicker": "Du und der Assistent",
         "prompt": "Nenn mich {{firstName}} und antworte kurz",
         "promptNoName": "Merk dir meinen Namen und antworte kurz",
-        "what": "Speichert LocalAI/user.json und LocalAI/persona.json"
+        "what": "Speichert deinen Namen und wie der Assistent antwortet"
       },
       "card2": {
         "kicker": "Eine Seite",
@@ -264,14 +267,14 @@
       "turnBackOn": "In Account wieder einschalten"
     },
     "change": {
-      "profilePersona": "Name in <code>LocalAI/user.json</code> und Anweisungen in <code>LocalAI/persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
-      "profile": "In deinem Profil in <code>LocalAI/user.json</code> gespeichert.",
-      "persona": "<code>LocalAI/persona.json</code> gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
-      "shortcuts": "<code>LocalAI/shortcuts.json</code> gespeichert.",
-      "home": "<code>LocalAI/home.json</code> gespeichert. Home zeigt die Änderung.",
-      "ui": "<code>LocalAI/ui.json</code> gespeichert.",
-      "pageCreated": "Seite {{title}} in <code>{{folder}}</code> erstellt.",
-      "pageChanged": "<code>{{file}}</code> geändert.",
+      "profilePersona": "Dein Name und deine Anweisungen für den Assistenten sind gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
+      "profile": "In deinem Profil gespeichert.",
+      "persona": "Die Anweisungen des Assistenten sind gespeichert. Jeder Chat nutzt sie ab deiner nächsten Nachricht.",
+      "shortcuts": "Deine Kurzbefehle sind gespeichert.",
+      "home": "Deine Home-Seite ist gespeichert. Home zeigt die Änderung.",
+      "ui": "Deine Darstellungseinstellungen sind gespeichert.",
+      "pageCreated": "Die Seite {{title}} wurde erstellt.",
+      "pageChanged": "Die Seite {{title}} wurde geändert.",
       "offersOff": "Vorschläge des Assistenten sind aus.",
       "undoing": "Wird rückgängig gemacht…",
       "undone": "Rückgängig gemacht.",
@@ -298,8 +301,7 @@
     "privacy": "Der Assistent erhält zu Beginn jedes Chats deinen Namen, diesen Text, deine Sprache und Zeitzone. Lass ein Feld leer, um es draußen zu lassen.",
     "versions": {
       "label": "Versionen",
-      "title": "Versionen von {{file}}",
-      "titleBefore": "Versionen von",
+      "title": "Frühere Versionen",
       "loading": "Verlauf wird gelesen…",
       "none": "Noch keine frühere Version.",
       "current": "aktuell",

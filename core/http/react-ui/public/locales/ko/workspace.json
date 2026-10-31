@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "저장 위치",
-    "definedIn": "정의 위치",
     "revert": "이전 버전으로 되돌리기",
     "view": "보기",
     "form": "양식",
@@ -14,10 +12,10 @@
     "savedAt": "{{time}}에 저장됨",
     "notSaved": "아직 저장되지 않았습니다.",
     "notSavedPrefilled": "아직 저장되지 않았습니다. 일부 값은 자동으로 채워졌으며, 저장하면 유지됩니다.",
-    "loadFailed": "파일을 불러올 수 없습니다: {{message}}",
-    "invalid": "{{file}}의 형식이 올바르지 않으며, 이전의 유효한 버전이 없습니다.",
-    "invalidFallback": "{{file}}의 형식이 올바르지 않습니다. 마지막 유효 버전을 표시합니다.",
-    "conflict": "편집하는 동안 {{file}}이(가) 변경되었습니다. 어시스턴트나 다른 탭에서 바뀌었을 가능성이 높습니다. 최신 값은 다음과 같습니다:",
+    "loadFailed": "이 설정을 불러오지 못했습니다. 페이지를 새로 고쳐 다시 시도하세요.",
+    "invalid": "이 설정에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
+    "invalidFallback": "이 설정에 오류가 있습니다. 마지막으로 유효했던 버전을 보여 줍니다.",
+    "conflict": "편집하는 동안 이 설정이 바뀌었습니다. 어시스턴트나 다른 탭에서 바꾸었을 가능성이 높습니다. 최신 값은 다음과 같습니다:",
     "useTheirs": "최신 값 사용",
     "keepMine": "내 변경 사항 유지",
     "editWithAssistant": "어시스턴트로 편집",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "원본",
-      "hint": "원시 파일입니다. 저장할 때 같은 스키마로 검사됩니다.",
-      "notJson": "올바른 JSON이 아닙니다.",
-      "notObject": "파일은 중괄호로 감싼 JSON 객체여야 합니다."
+      "hint": "설정을 텍스트로 보여 줍니다. 저장할 때 같은 방식으로 검사합니다.",
+      "notJson": "텍스트에 구문 오류가 있습니다. 따옴표, 쉼표, 중괄호를 확인하세요.",
+      "notObject": "텍스트는 {로 시작하고 }로 끝나야 합니다."
     },
     "persona": {
       "title": "어시스턴트",
@@ -58,14 +56,13 @@
       "prompt": "프롬프트",
       "send": "바로 보내기",
       "add": "단축 프롬프트 추가",
-      "invalid": "LocalAI/shortcuts.json에 오류가 있습니다",
-      "assistantPrompt": "LocalAI/shortcuts.json에서 내 입력창 단축 프롬프트를 변경해 줘: "
+      "invalid": "일부 단축 프롬프트에 오류가 있습니다.",
+      "assistantPrompt": "내 단축 프롬프트를 바꿔 줘: "
     },
     "home": {
       "editLayout": "레이아웃 편집",
       "ask": "어시스턴트에게 묻기",
-      "layoutIn": "레이아웃 위치:",
-      "askPrompt": "내 홈 페이지(LocalAI/home.json)를 변경해 줘: ",
+      "askPrompt": "내 홈 페이지를 바꿔 줘: ",
       "add": "위젯 추가",
       "newTitle": "새 위젯",
       "noWidgets": "아직 위젯이 없습니다.",
@@ -85,14 +82,14 @@
       "noData": "아직 데이터가 없습니다. 어시스턴트가 작성할 수 있습니다",
       "nothing": "표시할 내용이 없습니다.",
       "noSource": "이 위젯에는 데이터 파일이 없습니다. 레이아웃 편집에서 선택하세요.",
-      "broken": "{{file}}에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
-      "stale": "마지막 유효 데이터를 표시합니다: {{file}}에 오류가 있습니다.",
+      "broken": "이 위젯의 데이터에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
+      "stale": "마지막으로 유효했던 데이터를 보여 줍니다. 최신 데이터에 오류가 있습니다.",
       "updated": "{{when}}에 업데이트됨",
       "footer": {
         "noData": "아직 데이터가 없습니다.",
-        "invalid": "{{file}}에 오류가 있습니다. 마지막으로 유효한 버전을 표시합니다.",
+        "invalid": "데이터에 오류가 있습니다. 마지막 정상 버전을 보여 줍니다.",
         "revert": "되돌리기",
-        "missing": "{{file}} 파일이 없습니다.",
+        "missing": "이 위젯의 데이터가 없습니다.",
         "fix": "어시스턴트에게 고쳐 달라고 하기",
         "fixPrompt": "홈 위젯이 읽는 {{file}} 파일이 없거나 손상되었습니다. 고쳐 주세요: ",
         "waiting": "채팅에서 트리거를 만들기를 기다리는 중입니다.",
@@ -113,7 +110,7 @@
         "fresh": "{{schedule}} · {{time}} 업데이트",
         "pause": "일시 중지",
         "fromPage": "{{title}} 페이지에서",
-        "fromFile": "{{file}}에서",
+        "fromFile": "내 파일에서",
         "next": "다음 실행 {{when}}",
         "cost": "실행당 약 {{tokens}} 토큰",
         "costRemote": "원격 모델에서 실행당 약 {{tokens}} 토큰",
@@ -130,11 +127,13 @@
         "scheduleNote_other": "위젯 {{count}}개가 일정에 따라 업데이트됩니다. 실행에는 내 모델이 쓰이고 사용량에 포함됩니다."
       },
       "opensSite": "{{host}}: 새 탭에서 열립니다",
+      "invalid": "홈 레이아웃에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
+      "invalidFallback": "홈 레이아웃에 오류가 있습니다. 홈은 마지막으로 유효했던 버전을 보여 줍니다.",
       "page": {
         "gone": "이 페이지를 더 이상 사용할 수 없습니다",
         "goneHint": "\"{{name}}\" 페이지가 이동되었거나 삭제되었거나 더 이상 열 수 없습니다.",
         "noWidget": "이 페이지에는 위젯 보기가 없습니다",
-        "noWidgetHint": "pages/{{name}}/page.json에 \"widget\" 블록을 추가하거나 어시스턴트에게 간단한 보기를 요청하세요.",
+        "noWidgetHint": "어시스턴트에게 \"{{name}}\" 페이지에 홈용 간단한 보기를 만들어 달라고 요청하세요.",
         "off": "공유 페이지가 꺼져 있습니다",
         "offHint": "관리자가 이 서버의 공유 페이지를 껐습니다.",
         "fix": "홈 사용자 지정",
@@ -149,7 +148,7 @@
         "open": "페이지 열기",
         "add": "페이지 추가",
         "limit": "홈에는 페이지를 최대 {{max}}개까지 표시합니다. 다른 페이지를 추가하려면 하나를 제거하세요.",
-        "noneEligible": "여기에 페이지를 표시하려면 해당 page.json에 \"widget\" 블록을 추가하세요.",
+        "noneEligible": "아직 홈용 간단한 보기가 있는 페이지가 없습니다. 어시스턴트에게 페이지에 추가해 달라고 요청하세요.",
         "pick": "페이지",
         "unavailable": "{{name}} (사용할 수 없음)",
         "sharedLabel": "공유",
@@ -216,12 +215,16 @@
           "help": "새 채팅이 시작될 때 사용하는 모델입니다."
         }
       }
-    }
+    },
+    "saveInvalid": "일부 값이 올바르지 않습니다. 확인한 뒤 다시 저장하세요.",
+    "saveTooLarge": "설정이 너무 커서 저장할 수 없습니다. 항목 몇 개를 지우고 다시 시도하세요.",
+    "saveFailed": "저장하지 못했습니다. 다시 시도하세요.",
+    "details": "세부 정보"
   },
   "discovery": {
     "ex": {
       "title": "LocalAI를 나에게 맞게 만들기",
-      "lede": "채팅에서 말해 보세요. 어시스턴트가 바꾸거나 되돌릴 수 있는 파일로 저장해요.",
+      "lede": "채팅에서 말해 보세요. 어시스턴트가 저장하고, 나중에 바꾸거나 되돌릴 수 있어요.",
       "hide": "숨기기",
       "hiddenToast": "예시를 숨겼어요.",
       "saveFailed": "저장되지 않음: {{message}}",
@@ -229,7 +232,7 @@
         "kicker": "나와 어시스턴트",
         "prompt": "저를 {{firstName}}(이)라고 부르고 답변은 짧게 해 주세요",
         "promptNoName": "제 이름을 기억하고 답변은 짧게 해 주세요",
-        "what": "LocalAI/user.json과 LocalAI/persona.json을 저장해요"
+        "what": "내 이름과 어시스턴트의 답변 방식을 저장해요"
       },
       "card2": {
         "kicker": "페이지",
@@ -264,14 +267,14 @@
       "turnBackOn": "계정에서 다시 켜기"
     },
     "change": {
-      "profilePersona": "이름은 <code>LocalAI/user.json</code>에, 지침은 <code>LocalAI/persona.json</code>에 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
-      "profile": "프로필을 <code>LocalAI/user.json</code>에 저장했어요.",
-      "persona": "<code>LocalAI/persona.json</code>을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
-      "shortcuts": "<code>LocalAI/shortcuts.json</code>을 저장했어요.",
-      "home": "<code>LocalAI/home.json</code>을 저장했어요. 홈에 변경 사항이 보여요.",
-      "ui": "<code>LocalAI/ui.json</code>을 저장했어요.",
-      "pageCreated": "<code>{{folder}}</code>에 {{title}} 페이지를 만들었어요.",
-      "pageChanged": "<code>{{file}}</code>을(를) 변경했어요.",
+      "profilePersona": "내 이름과 어시스턴트에게 주는 지침을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "profile": "프로필에 저장했어요.",
+      "persona": "어시스턴트 지침을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "shortcuts": "단축 프롬프트를 저장했어요.",
+      "home": "홈 페이지를 저장했어요. 홈에 변경 사항이 보여요.",
+      "ui": "화면 설정을 저장했어요.",
+      "pageCreated": "{{title}} 페이지를 만들었어요.",
+      "pageChanged": "{{title}} 페이지를 바꿨어요.",
       "offersOff": "어시스턴트의 제안이 꺼져 있어요.",
       "undoing": "되돌리는 중…",
       "undone": "되돌렸어요.",
@@ -298,8 +301,7 @@
     "privacy": "어시스턴트는 모든 채팅을 시작할 때 이름, 이 텍스트, 언어, 시간대를 받아요. 보내고 싶지 않은 항목은 비워 두세요.",
     "versions": {
       "label": "버전",
-      "title": "{{file}}의 버전",
-      "titleBefore": "다음 파일의 버전",
+      "title": "이전 버전",
       "loading": "기록을 읽는 중…",
       "none": "이전 버전이 아직 없어요.",
       "current": "현재",

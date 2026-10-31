@@ -3,9 +3,9 @@
     "blocked": "Une action précédente sur ce module n'est pas encore confirmée. Vérifiez son état ou ignorez-la d'abord.",
     "checkStatus": "Vérifier l'état",
     "dismiss": "Ignorer",
-    "failed": "Le propriétaire n'a pas terminé l'action. Rien n'a été modifié. Réessayez pour lancer une nouvelle tentative.",
-    "notApplied": "Le propriétaire a signalé l'action comme terminée, mais le module n'a pas changé. Réessayez pour lancer une nouvelle tentative.",
-    "unknown": "Le propriétaire n'a pas encore confirmé l'action. Elle est peut-être déjà appliquée. Vérifiez son état, ou ignorez-la avant de lancer une autre action."
+    "failed": "L’action ne s’est pas terminée. Rien n’a été modifié. Réessayez pour lancer une nouvelle tentative.",
+    "notApplied": "L’action a été signalée comme terminée, mais le module n’a pas changé. Réessayez pour lancer une nouvelle tentative.",
+    "unknown": "L’action n’est pas encore confirmée. Elle est peut-être déjà appliquée. Vérifiez son état, ou ignorez-la avant de lancer une autre action."
   },
   "approval": {
     "title": "Approbation requise",
@@ -60,7 +60,7 @@
     "tools_many": "{{count}} d'outils",
     "tools_other": "{{count}} outils",
     "version": "Version {{version}}",
-    "working": "En attente de la confirmation du propriétaire.",
+    "working": "En attente de confirmation.",
     "noMatchTitle": "No add-on matches",
     "noMatchBody": "Aucun add-on installé ne correspond à « {{query}} ». Essayez d’autres mots.",
     "clearSearch": "Clear search",
@@ -139,7 +139,7 @@
     "denied": "Le serveur a refusé cette demande. Vous n'avez peut-être pas la permission, ou le module a changé. La liste a été actualisée.",
     "invalid": "Le serveur n'a pas pu accepter cette demande.",
     "network": "Le serveur est injoignable. Vérifiez votre connexion.",
-    "unavailable": "Le propriétaire du module n'est pas disponible pour le moment. Réessayez dans un instant.",
+    "unavailable": "Les modules ne sont pas disponibles pour le moment. Réessayez dans un instant.",
     "unknownOutcome": "Le résultat n'a pas pu être confirmé. Vérifiez l'état avant de réessayer."
   },
   "installed": {
@@ -184,14 +184,14 @@
     },
     "hints": {
       "id": "Minuscules, chiffres et traits d'union. Il ne peut plus changer ensuite.",
-      "reference": "Le nom d'un identifiant configuré par le propriétaire. Ne collez jamais un jeton ou un mot de passe ici.",
+      "reference": "Le nom d’un identifiant qu’un administrateur a configuré sur ce serveur. Ne collez jamais de jeton ni de mot de passe ici.",
       "url": "Une adresse https sans identifiants ni chaîne de requête.",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "Actualisée {{when}}, {{count}} entrées",
-    "lead": "Une bibliothèque est un document de catalogue qui liste des modules. Les identifiants ne se saisissent jamais ici : une bibliothèque privée nomme un identifiant configuré par le propriétaire.",
+    "lead": "Une bibliothèque est un index qui liste des modules, des backends ou des modèles. Les identifiants ne se saisissent jamais ici : une bibliothèque privée de modules nomme un identifiant qu’un administrateur a configuré sur ce serveur.",
     "listLabel": "Bibliothèques",
     "loading": "Chargement des bibliothèques",
     "notRefreshed": "Pas encore actualisée",
@@ -266,7 +266,7 @@
     "host": "API de l'hôte",
     "interface": "Interface",
     "logs": "Journaux",
-    "logsNone": "La sortie des processus des modules n'est pas collectée dans cette version. La santé et les tentatives de redémarrage ci-dessus sont ce que le propriétaire peut signaler.",
+    "logsNone": "La sortie des processus des modules n’est pas collectée dans cette version. La santé et les tentatives de redémarrage ci-dessus sont tout ce que LocalAI peut signaler.",
     "observed": "État observé",
     "protocol": "Protocole",
     "restarts": "Tentatives de redémarrage",
@@ -529,8 +529,8 @@
       "unknownOutcome": "Le résultat n'est pas connu. Relisez l'état : la même action n'est pas envoyée deux fois.",
       "auth": "Reconnectez-vous.",
       "denied": "Seuls les administrateurs peuvent le faire, depuis leur propre session de navigateur.",
-      "network": "Le propriétaire est injoignable.",
-      "unavailable": "Le propriétaire n'est pas disponible."
+      "network": "Le service des modules est injoignable.",
+      "unavailable": "Le service des modules n’est pas disponible."
     }
   },
   "updates": {
@@ -604,7 +604,7 @@
       "auth": "Reconnectez-vous pour continuer.",
       "denied": "Seul un administrateur peut le faire depuis sa propre session de navigateur.",
       "network": "Le réseau est injoignable.",
-      "unavailable": "Le propriétaire du module n'est pas disponible. Réessayez."
+      "unavailable": "Le service des modules n’est pas disponible. Réessayez."
     },
     "upgradeNamed": "Mettre à jour {{name}}",
     "why": {

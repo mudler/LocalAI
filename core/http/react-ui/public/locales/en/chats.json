@@ -106,7 +106,7 @@
     "chat": "The chat and its messages are deleted for good.",
     "agent": "Chats that use this agent are kept. Triggers that use it stop working.",
     "trigger": "The trigger stops and its history of runs is deleted.",
-    "skill": "The skill file is deleted for good.",
+    "skill": "The skill is deleted for good.",
     "confirm": "Delete",
     "pending": "Deleting",
     "mcp": "The connector is deleted with its saved token, headers and environment. A saved agent that names it can no longer use it.",
@@ -134,7 +134,7 @@
   },
   "skillsPage": {
     "title": "Skills",
-    "intro": "A skill is a folder with a SKILL.md that tells the model how to do one kind of task. Chats list the skills they can use and the model reads one when a task matches. The nearest skill wins when two have the same name.",
+    "intro": "A skill tells the model how to do one kind of task. Chats list the skills they can use, and the model reads one when a task matches. When two skills have the same name, the nearest one wins.",
     "new": "New skill",
     "edit": "Edit skill",
     "editButton": "Edit",

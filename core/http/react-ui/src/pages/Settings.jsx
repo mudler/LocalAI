@@ -89,7 +89,7 @@ function MemoryNow({ resources, settings, onRefresh }) {
           <p><strong>{label} now: {formatBytes(used)} of {formatBytes(total)}.</strong>{' '}
             {enabled ? `Eviction starts at ${threshold}%.` : 'Free memory automatically is off.'}</p>
         ) : (
-          <p><strong>Memory use is not available.</strong> The resources endpoint returned no reading.</p>
+          <p><strong>Memory use is not available.</strong> The server did not report how much memory is in use.</p>
         )}
         {total > 0 && (
           <div className="dk-progress" role="progressbar" aria-label={`${label} in use`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct} style={{ '--dk-value': `${pct}%` }}>

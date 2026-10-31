@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "Salvato in",
-    "definedIn": "Definito in",
     "revert": "Ripristina la versione precedente",
     "view": "Vista",
     "form": "Modulo",
@@ -14,10 +12,10 @@
     "savedAt": "Salvato alle {{time}}",
     "notSaved": "Non ancora salvato.",
     "notSavedPrefilled": "Non ancora salvato. Alcuni valori sono già compilati per te; Salva li mantiene.",
-    "loadFailed": "Impossibile caricare il file: {{message}}",
-    "invalid": "{{file}} non rispetta il suo formato e non esiste una versione valida precedente.",
-    "invalidFallback": "{{file}} non rispetta il suo formato. Viene mostrata l'ultima versione valida.",
-    "conflict": "{{file}} è cambiato mentre lo modificavi, probabilmente dall'assistente o da un'altra scheda. I valori più recenti sono:",
+    "loadFailed": "Impossibile caricare queste impostazioni. Ricarica la pagina per riprovare.",
+    "invalid": "Queste impostazioni contengono errori e non esiste una versione valida precedente.",
+    "invalidFallback": "Queste impostazioni contengono errori. Qui vedi la loro ultima versione valida.",
+    "conflict": "Queste impostazioni sono cambiate mentre le modificavi, probabilmente dall’assistente o in un’altra scheda. I valori più recenti sono:",
     "useTheirs": "Usa i valori più recenti",
     "keepMine": "Mantieni le mie modifiche",
     "editWithAssistant": "Modifica con l'assistente",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "Sorgente",
-      "hint": "Il file grezzo. Al salvataggio viene controllato con lo stesso schema.",
-      "notJson": "Non è un JSON valido.",
-      "notObject": "Il file deve essere un oggetto JSON tra parentesi graffe."
+      "hint": "Le impostazioni come testo. Al salvataggio vengono controllate allo stesso modo.",
+      "notJson": "Il testo ha un errore di sintassi. Controlla virgolette, virgole e parentesi graffe.",
+      "notObject": "Il testo deve iniziare con { e finire con }."
     },
     "persona": {
       "title": "Assistente",
@@ -58,14 +56,13 @@
       "prompt": "Prompt",
       "send": "Invia subito",
       "add": "Aggiungi scorciatoia",
-      "invalid": "LocalAI/shortcuts.json contiene errori",
-      "assistantPrompt": "Modifica le mie scorciatoie del campo di scrittura in LocalAI/shortcuts.json: "
+      "invalid": "Alcune scorciatoie contengono errori.",
+      "assistantPrompt": "Modifica le mie scorciatoie: "
     },
     "home": {
       "editLayout": "Modifica layout",
       "ask": "Chiedi all'assistente",
-      "layoutIn": "Il layout si trova in",
-      "askPrompt": "Modifica la mia pagina Home (LocalAI/home.json): ",
+      "askPrompt": "Modifica la mia pagina Home: ",
       "add": "Aggiungi widget",
       "newTitle": "Nuovo widget",
       "noWidgets": "Nessun widget ancora.",
@@ -85,14 +82,14 @@
       "noData": "Nessun dato ancora. L'assistente può scrivere",
       "nothing": "Niente qui.",
       "noSource": "Questo widget non ha un file dati. Sceglierne uno in Modifica layout.",
-      "broken": "{{file}} contiene errori e non esiste una versione valida precedente.",
-      "stale": "Vengono mostrati gli ultimi dati validi: {{file}} contiene errori.",
+      "broken": "I dati di questo widget contengono errori e non esiste una versione valida precedente.",
+      "stale": "Sono mostrati gli ultimi dati validi. I dati più recenti contengono errori.",
       "updated": "Aggiornato {{when}}",
       "footer": {
         "noData": "Ancora nessun dato.",
-        "invalid": "{{file}} contiene un errore. Viene mostrata l'ultima versione valida.",
+        "invalid": "I dati contengono un errore. È mostrata l’ultima versione corretta.",
         "revert": "Ripristina",
-        "missing": "Il file {{file}} manca.",
+        "missing": "Mancano i dati di questo widget.",
         "fix": "Chiedi all'assistente di correggerlo",
         "fixPrompt": "Il widget della Home legge {{file}}, che manca o è rotto. Correggilo: ",
         "waiting": "In attesa che tu crei il suo trigger nella chat.",
@@ -113,7 +110,7 @@
         "fresh": "{{schedule}} · aggiornato {{time}}",
         "pause": "Pausa",
         "fromPage": "Dalla pagina {{title}}",
-        "fromFile": "Da {{file}}",
+        "fromFile": "Dai tuoi file",
         "next": "Prossima esecuzione {{when}}",
         "cost": "circa {{tokens}} token per esecuzione",
         "costRemote": "circa {{tokens}} token per esecuzione su un modello remoto",
@@ -130,11 +127,13 @@
         "scheduleNote_other": "{{count}} widget si aggiornano secondo un orario. Le loro esecuzioni usano i tuoi modelli e contano nel tuo utilizzo."
       },
       "opensSite": "{{host}}: si apre in una nuova scheda",
+      "invalid": "Il layout della tua Home contiene errori e non esiste una versione valida precedente.",
+      "invalidFallback": "Il layout della tua Home contiene errori. Home mostra la sua ultima versione valida.",
       "page": {
         "gone": "Questa pagina non è più disponibile",
         "goneHint": "La pagina \"{{name}}\" è stata spostata o eliminata, oppure non puoi più aprirla.",
         "noWidget": "Questa pagina non ha una vista widget",
-        "noWidgetHint": "Aggiungi un blocco \"widget\" a pages/{{name}}/page.json, oppure chiedi all'assistente una vista compatta.",
+        "noWidgetHint": "Chiedi all’assistente di dare alla pagina \"{{name}}\" una vista compatta per la Home.",
         "off": "Le pagine condivise sono disattivate",
         "offHint": "Un amministratore ha disattivato le pagine condivise su questo server.",
         "fix": "Personalizza la Home",
@@ -149,7 +148,7 @@
         "open": "Apri la pagina",
         "add": "Aggiungi una pagina",
         "limit": "La Home mostra al massimo {{max}} pagine; rimuovine una per aggiungerne un'altra.",
-        "noneEligible": "Per mostrare qui una pagina, aggiungi un blocco \"widget\" al suo page.json.",
+        "noneEligible": "Nessuna pagina ha ancora una vista compatta per la Home. Chiedi all’assistente di aggiungerne una a una pagina.",
         "pick": "Pagina",
         "unavailable": "{{name}} (non disponibile)",
         "sharedLabel": "condivisa",
@@ -216,12 +215,16 @@
           "help": "Il modello con cui inizia una nuova chat."
         }
       }
-    }
+    },
+    "saveInvalid": "Alcuni valori non sono validi. Controllali e salva di nuovo.",
+    "saveTooLarge": "Queste impostazioni sono troppo grandi per essere salvate. Rimuovi alcune voci e riprova.",
+    "saveFailed": "Impossibile salvare. Riprova.",
+    "details": "Dettagli"
   },
   "discovery": {
     "ex": {
       "title": "Rendi LocalAI tuo",
-      "lede": "Dillo in una chat. L'assistente lo salva come file che puoi modificare o annullare.",
+      "lede": "Dillo in una chat. L’assistente lo salva, e puoi modificarlo o annullarlo.",
       "hide": "Nascondi",
       "hiddenToast": "Esempi nascosti.",
       "saveFailed": "Non salvato: {{message}}",
@@ -229,7 +232,7 @@
         "kicker": "Tu e l'assistente",
         "prompt": "Chiamami {{firstName}} e dammi risposte brevi",
         "promptNoName": "Ricorda il mio nome e dammi risposte brevi",
-        "what": "Salva LocalAI/user.json e LocalAI/persona.json"
+        "what": "Salva il tuo nome e come risponde l’assistente"
       },
       "card2": {
         "kicker": "Una pagina",
@@ -264,14 +267,14 @@
       "turnBackOn": "Riattivali in Account"
     },
     "change": {
-      "profilePersona": "Nome salvato in <code>LocalAI/user.json</code> e istruzioni salvate in <code>LocalAI/persona.json</code>. Ogni chat li usa dal tuo prossimo messaggio.",
-      "profile": "Salvato nel tuo profilo in <code>LocalAI/user.json</code>.",
-      "persona": "<code>LocalAI/persona.json</code> salvato. Ogni chat lo usa dal tuo prossimo messaggio.",
-      "shortcuts": "<code>LocalAI/shortcuts.json</code> salvato.",
-      "home": "<code>LocalAI/home.json</code> salvato. Home mostra la modifica.",
-      "ui": "<code>LocalAI/ui.json</code> salvato.",
-      "pageCreated": "Pagina {{title}} creata in <code>{{folder}}</code>.",
-      "pageChanged": "<code>{{file}}</code> modificato.",
+      "profilePersona": "Il tuo nome e le tue istruzioni per l’assistente sono salvati. Ogni chat li usa dal tuo prossimo messaggio.",
+      "profile": "Salvato nel tuo profilo.",
+      "persona": "Le istruzioni dell’assistente sono salvate. Ogni chat le usa dal tuo prossimo messaggio.",
+      "shortcuts": "Le tue scorciatoie sono salvate.",
+      "home": "La tua pagina Home è salvata. Home mostra la modifica.",
+      "ui": "Le tue impostazioni di aspetto sono salvate.",
+      "pageCreated": "Creata la pagina {{title}}.",
+      "pageChanged": "Modificata la pagina {{title}}.",
       "offersOff": "I suggerimenti dell'assistente sono disattivati.",
       "undoing": "Annullamento…",
       "undone": "Annullato.",
@@ -298,8 +301,7 @@
     "privacy": "L'assistente riceve il tuo nome, questo testo, la tua lingua e il tuo fuso orario all'inizio di ogni chat. Lascia un campo vuoto per tenerlo fuori.",
     "versions": {
       "label": "Versioni",
-      "title": "Versioni di {{file}}",
-      "titleBefore": "Versioni di",
+      "title": "Versioni precedenti",
       "loading": "Lettura della cronologia…",
       "none": "Nessuna versione precedente.",
       "current": "attuale",

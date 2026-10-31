@@ -1,7 +1,5 @@
 {
   "wellKnown": {
-    "storedIn": "保存位置",
-    "definedIn": "定义位置",
     "revert": "恢复到上一个版本",
     "view": "查看",
     "form": "表单",
@@ -14,10 +12,10 @@
     "savedAt": "保存于 {{time}}",
     "notSaved": "尚未保存。",
     "notSavedPrefilled": "尚未保存。部分值已为您填好；点击保存即可保留。",
-    "loadFailed": "无法加载文件：{{message}}",
-    "invalid": "{{file}} 不符合其格式，且没有更早的有效版本。",
-    "invalidFallback": "{{file}} 不符合其格式。此处显示其最后一个有效版本。",
-    "conflict": "{{file}} 在您编辑时发生了变化，可能是助手或其他标签页所改。较新的值如下：",
+    "loadFailed": "无法加载这些设置。请刷新页面后重试。",
+    "invalid": "这些设置有错误，且没有更早的有效版本。",
+    "invalidFallback": "这些设置有错误。此处显示的是它们最后一个有效版本。",
+    "conflict": "这些设置在你编辑时发生了变化，可能是助手或其他标签页所改。较新的值如下：",
     "useTheirs": "使用较新的值",
     "keepMine": "保留我的更改",
     "editWithAssistant": "通过助手编辑",
@@ -32,9 +30,9 @@
     },
     "source": {
       "label": "源文件",
-      "hint": "原始文件。保存时会按相同的架构进行检查。",
-      "notJson": "这不是有效的 JSON。",
-      "notObject": "文件必须是用大括号括起来的 JSON 对象。"
+      "hint": "以文本形式显示的设置。保存时会以同样的方式检查。",
+      "notJson": "文本有语法错误。请检查引号、逗号和花括号。",
+      "notObject": "文本必须以 { 开头、以 } 结尾。"
     },
     "persona": {
       "title": "助手",
@@ -58,14 +56,13 @@
       "prompt": "提示词",
       "send": "立即发送",
       "add": "添加快捷指令",
-      "invalid": "LocalAI/shortcuts.json 有错误",
-      "assistantPrompt": "请在 LocalAI/shortcuts.json 中修改我的输入框快捷指令："
+      "invalid": "部分快捷指令有错误。",
+      "assistantPrompt": "修改我的快捷指令："
     },
     "home": {
       "editLayout": "编辑布局",
       "ask": "询问助手",
-      "layoutIn": "布局位于",
-      "askPrompt": "请修改我的首页 (LocalAI/home.json)：",
+      "askPrompt": "修改我的主页：",
       "add": "添加小组件",
       "newTitle": "新小组件",
       "noWidgets": "还没有小组件。",
@@ -85,14 +82,14 @@
       "noData": "还没有数据。助手可以写入",
       "nothing": "这里没有内容。",
       "noSource": "此小组件没有数据文件。请在“编辑布局”中选择一个。",
-      "broken": "{{file}} 有错误，且没有更早的有效版本。",
-      "stale": "正在显示最后一个有效数据：{{file}} 有错误。",
+      "broken": "此小组件的数据有错误，且没有更早的有效版本。",
+      "stale": "正在显示最后一份有效数据。最新数据有错误。",
       "updated": "更新于 {{when}}",
       "footer": {
         "noData": "暂无数据。",
-        "invalid": "{{file}} 有错误。正在显示最后一个有效版本。",
+        "invalid": "数据有错误。正在显示最后一个正常版本。",
         "revert": "还原",
-        "missing": "文件 {{file}} 不存在。",
+        "missing": "此小组件的数据缺失。",
         "fix": "请助手修复",
         "fixPrompt": "主页小组件读取的 {{file}} 缺失或已损坏。请修复：",
         "waiting": "等待你在聊天中创建它的触发器。",
@@ -113,7 +110,7 @@
         "fresh": "{{schedule}} · 更新于 {{time}}",
         "pause": "暂停",
         "fromPage": "来自页面 {{title}}",
-        "fromFile": "来自 {{file}}",
+        "fromFile": "来自你的文件",
         "next": "下次运行 {{when}}",
         "cost": "每次运行约 {{tokens}} 个 token",
         "costRemote": "在远程模型上每次运行约 {{tokens}} 个 token",
@@ -130,11 +127,13 @@
         "scheduleNote_other": "{{count}} 个小组件按计划更新。运行会使用你的模型并计入你的用量。"
       },
       "opensSite": "{{host}}：在新标签页中打开",
+      "invalid": "你的主页布局有错误，且没有更早的有效版本。",
+      "invalidFallback": "你的主页布局有错误。主页显示的是它最后一个有效版本。",
       "page": {
         "gone": "此页面已不可用",
         "goneHint": "页面“{{name}}”已被移动或删除，或者你已无法打开它。",
         "noWidget": "此页面没有小组件视图",
-        "noWidgetHint": "在 pages/{{name}}/page.json 中添加 \"widget\" 块，或让助手制作一个紧凑视图。",
+        "noWidgetHint": "请让助手为页面“{{name}}”制作一个用于主页的紧凑视图。",
         "off": "共享页面已关闭",
         "offHint": "管理员已在此服务器上关闭共享页面。",
         "fix": "自定义主页",
@@ -149,7 +148,7 @@
         "open": "打开页面",
         "add": "添加页面",
         "limit": "主页最多显示 {{max}} 个页面；请先移除一个再添加。",
-        "noneEligible": "要在此显示页面，请在其 page.json 中添加 \"widget\" 块。",
+        "noneEligible": "还没有页面具有用于主页的紧凑视图。请让助手为某个页面添加一个。",
         "pick": "页面",
         "unavailable": "{{name}}（不可用）",
         "sharedLabel": "共享",
@@ -216,12 +215,16 @@
           "help": "新聊天开始时使用的模型。"
         }
       }
-    }
+    },
+    "saveInvalid": "部分值无效。请检查后再次保存。",
+    "saveTooLarge": "这些设置太大，无法保存。请删除一些条目后重试。",
+    "saveFailed": "无法保存。请重试。",
+    "details": "详细信息"
   },
   "discovery": {
     "ex": {
       "title": "打造你的 LocalAI",
-      "lede": "在聊天中说出来。助手会把它保存为文件，你可以修改或撤销。",
+      "lede": "在聊天中说出来。助手会保存下来，你可以修改或撤销。",
       "hide": "隐藏这些",
       "hiddenToast": "示例已隐藏。",
       "saveFailed": "未保存：{{message}}",
@@ -229,7 +232,7 @@
         "kicker": "你和助手",
         "prompt": "叫我{{firstName}}，回答简短一些",
         "promptNoName": "记住我的名字，回答简短一些",
-        "what": "保存 LocalAI/user.json 和 LocalAI/persona.json"
+        "what": "保存你的名字和助手的回答方式"
       },
       "card2": {
         "kicker": "一个页面",
@@ -264,14 +267,14 @@
       "turnBackOn": "在账户中重新开启"
     },
     "change": {
-      "profilePersona": "已将你的名字保存到 <code>LocalAI/user.json</code>，将你的指令保存到 <code>LocalAI/persona.json</code>。从你的下一条消息起，每个聊天都会使用它们。",
-      "profile": "已保存到你的资料 <code>LocalAI/user.json</code>。",
-      "persona": "已保存 <code>LocalAI/persona.json</code>。从你的下一条消息起，每个聊天都会使用它。",
-      "shortcuts": "已保存 <code>LocalAI/shortcuts.json</code>。",
-      "home": "已保存 <code>LocalAI/home.json</code>。主页会显示这项更改。",
-      "ui": "已保存 <code>LocalAI/ui.json</code>。",
-      "pageCreated": "已在 <code>{{folder}}</code> 中创建页面 {{title}}。",
-      "pageChanged": "已修改 <code>{{file}}</code>。",
+      "profilePersona": "已保存你的名字和给助手的指示。从你的下一条消息起，每个聊天都会使用它们。",
+      "profile": "已保存到你的个人资料。",
+      "persona": "已保存助手的指示。从你的下一条消息起，每个聊天都会使用它们。",
+      "shortcuts": "已保存你的快捷指令。",
+      "home": "已保存你的主页。主页会显示这项更改。",
+      "ui": "已保存你的外观设置。",
+      "pageCreated": "已创建页面 {{title}}。",
+      "pageChanged": "已修改页面 {{title}}。",
       "offersOff": "助手的建议已关闭。",
       "undoing": "正在撤销…",
       "undone": "已撤销。",
@@ -298,8 +301,7 @@
     "privacy": "每次聊天开始时，助手会收到你的名字、这段文字、你的语言和时区。把某个字段留空，就不会发送它。",
     "versions": {
       "label": "版本",
-      "title": "{{file}} 的版本",
-      "titleBefore": "以下文件的版本",
+      "title": "较早的版本",
       "loading": "正在读取历史记录…",
       "none": "还没有更早的版本。",
       "current": "当前",

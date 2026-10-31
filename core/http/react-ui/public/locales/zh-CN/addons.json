@@ -3,9 +3,9 @@
     "blocked": "此附加组件上先前的操作尚未确认。请先检查其状态或忽略它。",
     "checkStatus": "检查状态",
     "dismiss": "忽略",
-    "failed": "所有者未完成该操作,未做任何更改。再次尝试将开始新的尝试。",
-    "notApplied": "所有者报告操作已完成，但附加组件没有变化。请重试。",
-    "unknown": "所有者尚未确认该操作。它可能仍会被应用。请先检查状态，或忽略它，再开始其他操作。"
+    "failed": "该操作未完成，未做任何更改。再次尝试将开始新的尝试。",
+    "notApplied": "该操作已报告完成，但附加组件没有变化。再次尝试将开始新的尝试。",
+    "unknown": "该操作尚未确认，它可能仍会被应用。请先检查状态，或忽略它，再开始其他操作。"
   },
   "approval": {
     "title": "需要审批",
@@ -58,7 +58,7 @@
     "tools_one": "{{count}} tool",
     "tools_other": "{{count}} 个工具",
     "version": "版本 {{version}}",
-    "working": "正在等待所有者确认。",
+    "working": "正在等待确认。",
     "noMatchTitle": "No add-on matches",
     "noMatchBody": "没有已安装的项目匹配“{{query}}”。请换个词试试。",
     "clearSearch": "Clear search",
@@ -136,7 +136,7 @@
     "denied": "服务器拒绝了此请求。你可能没有权限,或附加组件已变更。列表已刷新。",
     "invalid": "服务器无法接受此请求。",
     "network": "无法连接服务器,请检查网络。",
-    "unavailable": "附加组件所有者暂时不可用,请稍后重试。",
+    "unavailable": "附加组件暂时不可用，请稍后重试。",
     "unknownOutcome": "无法确认结果。请先检查状态,再重试。"
   },
   "installed": {
@@ -181,14 +181,14 @@
     },
     "hints": {
       "id": "小写字母、数字和连字符,之后不能更改。",
-      "reference": "所有者已配置的凭据名称。切勿在此粘贴令牌或密码。",
+      "reference": "管理员在此服务器上配置的凭据名称。切勿在此粘贴令牌或密码。",
       "url": "不含凭据和查询字符串的 https 地址。",
       "identityRegex": "An anchored pattern, from ^ to $, used instead of the exact identity. Backend libraries use it so builds from master and from tags both verify.",
       "format": "A library index uses the shared library entry shape. A gallery index is a model or backend gallery, as the gallery flags name it.",
       "mirrors": "Fallback addresses, one per line, tried in order when the main address cannot be fetched."
     },
     "lastRefresh": "{{when}} 已刷新,{{count}} 个条目",
-    "lead": "库是列出附加组件的目录文档。凭据绝不在此输入:私有库只引用所有者配置的凭据。",
+    "lead": "库是列出附加组件、后端或模型的索引。凭据绝不在此输入：私有附加组件库只引用管理员在此服务器上配置的凭据。",
     "listLabel": "库",
     "loading": "正在加载库",
     "notRefreshed": "尚未刷新",
@@ -262,7 +262,7 @@
     "host": "主机 API",
     "interface": "界面",
     "logs": "日志",
-    "logsNone": "此版本不收集附加组件进程的输出。上面的健康状况和重启尝试是所有者能报告的内容。",
+    "logsNone": "此版本不收集附加组件进程的输出。上面的健康状况和重启尝试是 LocalAI 能报告的全部内容。",
     "observed": "观测状态",
     "protocol": "协议",
     "restarts": "重启尝试次数",
@@ -525,8 +525,8 @@
       "unknownOutcome": "结果未知。请重新读取状态：相同的操作不会发送两次。",
       "auth": "请重新登录。",
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
-      "network": "无法连接到所有者。",
-      "unavailable": "所有者不可用。"
+      "network": "无法连接到附加组件服务。",
+      "unavailable": "附加组件服务不可用。"
     }
   },
   "updates": {
@@ -600,7 +600,7 @@
       "auth": "请重新登录以继续。",
       "denied": "只有管理员才能在自己的浏览器会话中执行此操作。",
       "network": "无法连接到网络。",
-      "unavailable": "附加组件所有者不可用。请重试。"
+      "unavailable": "附加组件服务不可用，请重试。"
     },
     "upgradeNamed": "升级 {{name}}",
     "why": {

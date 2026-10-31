@@ -58,7 +58,7 @@ test('a turn that saved the persona and the profile shows one note with Undo and
   await mockDiscovery(page, state)
   await stubChat(page, state)
   await page.goto('/app/chats/c1')
-  await expect(note(page)).toContainText('Saved your name in LocalAI/user.json and your instructions in LocalAI/persona.json', { timeout: 15_000 })
+  await expect(note(page)).toContainText('Saved your name and your instructions for the assistant.', { timeout: 15_000 })
   await expect(note(page).getByRole('button', { name: 'Open in Account' })).toBeVisible()
   // A reload is not a change made now: nothing pops up.
   await expect(page.locator('[data-testid^="change-toast"]')).toHaveCount(0)
@@ -79,7 +79,8 @@ test('a shortcut added in this turn: the note in the transcript and a toast abov
 
   state.messages = [...state.messages, user(3, 2, 'Make that a shortcut'), write(4, 2, '20:/LocalAI/shortcuts.json'), answer(5, 2, 'Added a shortcut called Plan my day.')]
   endTurn(2)
-  await expect(note(page)).toContainText('Saved LocalAI/shortcuts.json.')
+  await expect(note(page)).toContainText('Saved your shortcuts.')
+  await expect(note(page)).not.toContainText('.json')
   const toast = page.getByTestId('change-toast-shortcut')
   await expect(toast).toContainText('Added to your composer: Plan my day')
   const composer = await page.locator('.cx-dock__in').boundingBox()
@@ -92,7 +93,7 @@ test('a shortcut added in this turn: the note in the transcript and a toast abov
   expect(state.undos).toEqual([20])
 })
 
-test('the first page: the note says where it is, and a toast opens it', async ({ page }) => {
+test('the first page: the note names it, and a toast opens it', async ({ page }) => {
   const state = newState({ messages: [user(1, 1, 'hello'), answer(2, 1, 'Hi.')] })
   await mockDiscovery(page, state)
   const endTurn = await stubChat(page, state)
@@ -103,7 +104,8 @@ test('the first page: the note says where it is, and a toast opens it', async ({
   state.messages = [...state.messages, user(3, 2, 'Make me a task board'), answer(4, 2, 'I made a task board.'),
     { seq: 5, turn: 2, role: 'checkpoint', rev: 30, text: '/pages/tasks/index.html\n/pages/tasks/tasks.json', at: AT }]
   endTurn(2)
-  await expect(note(page)).toContainText('Created the page Task board in pages/tasks/.')
+  await expect(note(page)).toContainText('Created the page Task board.')
+  await expect(note(page)).not.toContainText('pages/tasks/')
   const toast = page.getByTestId('change-toast-page')
   await expect(toast).toContainText('Task board is in Pages, in the sidebar')
   await note(page).scrollIntoViewIfNeeded()
