@@ -2,8 +2,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import Icon from '../Icon'
-import { Button, Callout, EmptyState, LoadError, SkeletonRows } from '../ui'
+import { Button, Callout, EmptyState, LoadError, SearchField, Segmented, SkeletonRows } from '../ui'
 import { newOperationId, pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
@@ -352,23 +351,13 @@ export default function AppsView({ api, adapter, onSummary }) {
           )}
           {!firstRun && (
             <div className="ad-toolbar">
-              <span className="ad-search">
-                <Icon name="search" aria-hidden="true" />
-                <input
-                  type="search"
-                  className="dk-input ad-search__input"
-                  data-testid="addon-search"
-                  aria-label={t('drawer.search')}
-                  placeholder={t('drawer.search')}
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                />
-              </span>
-              <div className="ad-seg" role="group" aria-label={t('filter.label')}>
-                {STATE_FILTERS.map(id => (
-                  <button key={id} type="button" className="ad-seg__item" aria-pressed={stateFilter === id} onClick={() => setStateFilter(id)}>{t(`filter.${id}`)}</button>
-                ))}
-              </div>
+              <SearchField value={query} onChange={setQuery} label={t('drawer.search')} testId="addon-search" />
+              <Segmented
+                options={STATE_FILTERS.map(id => ({ id, label: t(`filter.${id}`) }))}
+                value={stateFilter}
+                onChange={setStateFilter}
+                label={t('filter.label')}
+              />
               {isAdmin && installedList.length > 0 && (
                 <Button size="sm" variant="ghost" icon="refresh" busy={checkingAll} disabled={checkingAll} onClick={checkAll} data-testid="addons-check-all">
                   {checkingAll ? t('updates.checkingAll') : t('updates.checkAll')}
