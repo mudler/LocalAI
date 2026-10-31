@@ -112,7 +112,6 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 		// switched the saved agents on and its user may use them.
 		tools = append(tools, s.spawnTool(a, hasTool(tools, listAgentsName)))
 	}
-	tools = append(tools, s.triggerTools(a, rec)...)
 	// The assistant tools are not part of hostTools, so a sub-agent never gets
 	// them, whatever its parent names.
 	aTools, aPrompt, aNote := s.assistantTurn(ctx, rec)

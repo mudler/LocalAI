@@ -26,6 +26,10 @@ const (
 	// GroupSavedAgents lets a chat call the user's saved agents as
 	// sub-agents. It is opt-in: off until the chat switches it on.
 	GroupSavedAgents = "saved_agents"
+	// GroupTriggers holds propose_trigger, list_triggers, update_trigger and
+	// delete_trigger: a person's chat can set up tasks that run by itself. It
+	// is on until the chat switches it off.
+	GroupTriggers = "triggers"
 )
 
 // The runtime settings of the built-in tools.
@@ -49,6 +53,9 @@ type Chat struct {
 	// Agent is true when the chat runs a saved agent, whose grants the owner
 	// chose: an unattended run without one gets no tool that acts at once.
 	Agent bool
+	// AgentID and Model are the saved agent and the model of the chat, for a
+	// tool that records them.
+	AgentID, Model string
 	// SubAgent is true for a sub-agent's conversation.
 	SubAgent bool
 	// Admin is true when the user is an administrator (always without
@@ -75,6 +82,10 @@ type Tool struct {
 	OptIn bool
 	// Setting is the runtime setting that switches the tool off.
 	Setting string
+	// Unlisted says that the tool has no runtime setting: the operator's
+	// start-up switch governs it, and Settings > Tools does not list it. It
+	// needs no Setting.
+	Unlisted bool
 	// Options are the other runtime settings that configure the tool.
 	Options []string
 	// ReadOnly says that the tool only reads: it needs no confirmation.
@@ -102,7 +113,7 @@ type Registry struct {
 // NewRegistry returns an empty registry.
 func NewRegistry() *Registry { return &Registry{} }
 
-// Register adds a tool. It refuses a tool without an ID, a Setting or a
+// Register adds a tool. It refuses a tool without an ID, a Setting (unless it is Unlisted) or a
 // Build, a Replaceable tool whose name an add-on may not replace, and an ID
 // that is registered already.
 func (r *Registry) Register(t Tool) error {
@@ -113,7 +124,7 @@ func (r *Registry) Register(t Tool) error {
 		return fmt.Errorf("builtins: %q is not a replaceable tool", t.ID)
 	case t.Build == nil:
 		return fmt.Errorf("builtins: %s has no Build", t.ID)
-	case t.Setting == "":
+	case t.Setting == "" && !t.Unlisted:
 		return fmt.Errorf("builtins: %s has no Setting", t.ID)
 	case t.OptIn && t.Group == "":
 		return fmt.Errorf("builtins: %s is opt-in but has no Group", t.ID)

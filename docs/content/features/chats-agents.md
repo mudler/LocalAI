@@ -203,6 +203,13 @@ downtime, a missed schedule runs once, not once for each missed time.
 
 ### Proposals
 
+The four trigger tools (`propose_trigger`, `list_triggers`, `update_trigger`
+and `delete_trigger`) form the **Triggers** group in the chat's Tools menu. They
+are on in a chat you start, and one switch turns all four off for that chat
+(`PUT /api/chats/{id}/builtins {"off": ["triggers"]}`; see
+[the Tools menu](/features/chats/#switch-tools-off-for-one-chat)). Switch it off in the Home
+composer before you start the chat to have none from the first message.
+
 In a chat, the model can propose a trigger with `propose_trigger` and list yours
 with `list_triggers`. A proposal is not active and runs nothing. It waits for you
 in the chat and on the Triggers page (`/app/triggers`, `GET /api/chats/triggers/proposals`, with

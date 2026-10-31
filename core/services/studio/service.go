@@ -383,6 +383,9 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerSavedAgents(); err != nil {
 		return nil, err
 	}
+	if err := s.registerTriggerTools(); err != nil {
+		return nil, err
+	}
 	h := d.Harness
 	if h == nil {
 		if d.Provider == nil {

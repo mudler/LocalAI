@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
@@ -13,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 )
 
 func proposeScript(args string) func(workspace.Actor, string) []studiotest.ToolStep {
@@ -282,5 +284,119 @@ var _ = Describe("triggertools: the Home widget of a trigger", func() {
 		Expect(doc.Widgets[0]["trigger"]).To(Equal(on.ID))
 		Expect(doc.Widgets[0]["note"]).To(Equal("mine"), "a key of the widget was lost")
 		Expect(doc.Widgets[1]).NotTo(HaveKey("trigger"))
+	})
+})
+
+var _ = Describe("triggertools: the Triggers switch group", func() {
+	four := []string{"propose_trigger", "list_triggers", "update_trigger", "delete_trigger"}
+	say := func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }
+
+	triggersGroup := func(p studio.ToolsPanel) (studio.BuiltinGroup, bool) {
+		for _, g := range p.Builtins {
+			if g.Group == "triggers" {
+				return g, true
+			}
+		}
+		return studio.BuiltinGroup{}, false
+	}
+
+	It("switching the group off removes the four tools from the turn and from the usable set", func() {
+		r := newTrigRig(say)
+		ctx := context.Background()
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "one")
+		idle(r.svc, alice, id)
+		Expect(r.h.ToolNames(id)).To(ContainElements(four))
+
+		Expect(r.svc.SetBuiltinsOff(ctx, alice, id, []string{"triggers"})).To(Succeed())
+		sent(r.svc, alice, id, "two")
+		idle(r.svc, alice, id)
+		for _, n := range four {
+			Expect(r.h.ToolNames(id)).NotTo(ContainElement(n))
+		}
+		p, err := r.svc.Tools(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		g, ok := triggersGroup(p)
+		Expect(ok).To(BeTrue(), "panel = %+v", p.Builtins)
+		Expect(g.Off).To(BeTrue())
+		Expect(g.OptIn).To(BeFalse())
+		Expect(g.Tools).To(Equal(four))
+
+		Expect(r.svc.SetBuiltinsOff(ctx, alice, id, nil)).To(Succeed())
+		sent(r.svc, alice, id, "three")
+		idle(r.svc, alice, id)
+		Expect(r.h.ToolNames(id)).To(ContainElements(four))
+	})
+
+	It("lists the group as usable on by default, in the panel of a chat and in the draft list", func() {
+		r := newTrigRig(say)
+		ctx := context.Background()
+		id := create(r.svc, alice)
+		p, err := r.svc.Tools(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		g, ok := triggersGroup(p)
+		Expect(ok).To(BeTrue(), "panel = %+v", p.Builtins)
+		Expect(g).To(MatchFields(IgnoreExtras, Fields{"Off": BeFalse(), "Usable": BeTrue(), "Reason": BeEmpty(), "Provider": Equal("builtin")}))
+		Expect(g.Tools).To(Equal(four))
+
+		d, err := r.svc.DraftTools(ctx, alice, "m", "")
+		Expect(err).NotTo(HaveOccurred())
+		g, ok = triggersGroup(d)
+		Expect(ok).To(BeTrue(), "draft = %+v", d.Builtins)
+		Expect(g.Usable).To(BeTrue())
+		Expect(g.Off).To(BeFalse())
+	})
+
+	It("is not listed when the server runs no triggers", func() {
+		svc, _ := newToolService(say)
+		id := create(svc, alice)
+		p, err := svc.Tools(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		_, ok := triggersGroup(p)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("is unusable with a reason for a user without the triggers feature, and the tools are left out", func() {
+		sh := newShared()
+		sh.users = func(string) error { return nil }
+		sh.allowed = func(_ *auth.User, f string) bool { return f != auth.FeatureTriggers }
+		r := sh.rig(say, studio.TriggerOptions{})
+		id := create(r.svc, alice)
+		sent(r.svc, alice, id, "hi")
+		idle(r.svc, alice, id)
+		for _, n := range four {
+			Expect(r.h.ToolNames(id)).NotTo(ContainElement(n))
+		}
+		p, err := r.svc.Tools(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		g, ok := triggersGroup(p)
+		Expect(ok).To(BeTrue())
+		Expect(g.Usable).To(BeFalse())
+		Expect(g.Reason).To(Equal(studio.ErrTriggersForbidden.Error()))
+	})
+
+	It("never gives the tools to a run a trigger started, whatever its switches say, and the panel says why", func() {
+		r := newTrigRig(say)
+		tr := r.schedule(studio.TriggerInput{})
+		r.due()
+		run := r.waitEnded(tr.ID)
+		for _, n := range four {
+			Expect(r.h.ToolNames(run.ChatID)).NotTo(ContainElement(n))
+		}
+		p, err := r.svc.Tools(context.Background(), alice, run.ChatID)
+		Expect(err).NotTo(HaveOccurred())
+		g, ok := triggersGroup(p)
+		Expect(ok).To(BeTrue())
+		Expect(g.Usable).To(BeFalse())
+		Expect(g.Reason).NotTo(BeEmpty())
+	})
+
+	It("is not an administrator tool: Settings > Tools does not list it", func() {
+		r := newTrigRig(say)
+		list, err := r.svc.AdminBuiltinTools(context.Background(), alice)
+		Expect(err).NotTo(HaveOccurred())
+		for _, t := range list {
+			Expect(four).NotTo(ContainElement(t.ID))
+		}
 	})
 })

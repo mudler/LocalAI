@@ -86,6 +86,9 @@ func (s *Service) AdminBuiltinTools(ctx context.Context, user string) ([]Builtin
 	}
 	var out []BuiltinToolInfo
 	for _, t := range s.builtins.Tools() {
+		if t.Unlisted {
+			continue
+		}
 		running := candidates[t.ID]
 		all := slices.Clone(running)
 		for _, id := range sh.byName[t.ID] {
