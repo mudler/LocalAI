@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
 import { useLocation, useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
@@ -523,13 +523,19 @@ export default function Home() {
           <span className="sr-only" aria-live="polite">{liveNote}</span>
         </div>
 
+        {/* The examples and the widgets read the pages strings, which load
+            when they first show. Their own boundary keeps that wait to them:
+            without it the route's boundary hides all of Home, and the
+            composer loses the focus and what was typed meanwhile. */}
         {examplesOn && (
-          <HomeExamples
-            enabled={examplesOn}
-            name={userFile.doc?.data?.name || user?.name || ''}
-            onPick={pickExample}
-            addToast={addToast}
-          />
+          <Suspense fallback={null}>
+            <HomeExamples
+              enabled={examplesOn}
+              name={userFile.doc?.data?.name || user?.name || ''}
+              onPick={pickExample}
+              addToast={addToast}
+            />
+          </Suspense>
         )}
 
         <div className="home-below">
@@ -599,7 +605,9 @@ export default function Home() {
 
         {chatsOn && !firstRun && (
           <div>
-            <HomeWidgets wk={homeFile} conversations={conversations} onResume={resumeConversation} onAsk={askLayout} editRequest={editLayout} />
+            <Suspense fallback={null}>
+              <HomeWidgets wk={homeFile} conversations={conversations} onResume={resumeConversation} onAsk={askLayout} editRequest={editLayout} />
+            </Suspense>
           </div>
         )}
 

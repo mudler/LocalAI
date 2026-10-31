@@ -4,10 +4,12 @@ import { test, expect } from './coverage-fixtures.js'
 // pins in ui.json, the empty state, the viewer strip, chat.send and the reload
 // rules. pages-real.spec.js runs the sandbox and the bridge against the server.
 
-const NOW = new Date().toISOString()
+// The time is read when the page is served, so it stays "just now" however
+// long the worker ran before this spec.
 const TASKS = {
   name: 'tasks', path: '/pages/tasks', title: 'Tasks board', icon: 'checklist', description: 'What I do this week',
-  source: 'own', author: 'assistant', updated_at: NOW, updated_by: 'assistant', rev: 7, size: 100,
+  source: 'own', author: 'assistant', updated_by: 'assistant', rev: 7, size: 100,
+  get updated_at() { return new Date().toISOString() },
 }
 
 const PAGE_HTML = (label) => `<!doctype html><body><p id="v">${label}</p><p id="ev"></p><p id="sent"></p><button id="s">s</button>

@@ -8,11 +8,13 @@
 
 const json = (body, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) })
 
-export const NOW = new Date().toISOString()
-
+// The assistant changed the page just now: the time is read when the page is
+// served, not when this file loads. A worker loads it once and runs specs for
+// minutes, and a fixed time then read as "2 minutes ago".
 export const TASK_PAGE = {
   name: 'tasks', path: '/pages/tasks', title: 'Task board', icon: 'checklist', description: 'Three columns of tasks',
-  source: 'own', author: 'assistant', updated_at: NOW, updated_by: 'assistant', rev: 7, size: 100,
+  source: 'own', author: 'assistant', updated_by: 'assistant', rev: 7, size: 100,
+  get updated_at() { return new Date().toISOString() },
 }
 
 // Enough of the shipped schemas for the forms of the Account tabs.

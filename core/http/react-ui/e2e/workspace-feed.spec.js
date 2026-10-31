@@ -11,15 +11,25 @@ test.describe('Files page and the change feed', () => {
     await mockChat(page)
     let lists = 0
     const feedUrls = []
+    // The app shell (the appearance sync) opens the shared stream at start,
+    // before the Files page has loaded. A change sent at once would reach a tab
+    // with nobody watching the folder, and the page's own first read would
+    // already show it on a real server. So the change happens once the page
+    // has read the folder: by then its subscription exists, since the read and
+    // the subscription start in the same commit.
+    let listed
+    const firstList = new Promise(resolve => { listed = resolve })
     await page.route(/\/api\/chats\/files\/trash(\?.*)?$/, route => route.fulfill({ json: { entries: [] } }))
     await page.route(/\/api\/chats\/files(\?.*)?$/, route => {
       lists++
+      listed()
       const entries = [{ path: '/plan.txt', name: 'plan.txt', kind: 'file', size: 4, version: 1, rev: 3 }]
       if (lists > 1) entries.push({ path: '/from-chat.txt', name: 'from-chat.txt', kind: 'file', size: 9, version: 1, rev: 5 })
       return route.fulfill({ json: { path: '/', entries } })
     })
-    await page.route('**/api/workspace/events*', route => {
+    await page.route('**/api/workspace/events*', async route => {
       feedUrls.push(new URL(route.request().url()).search)
+      if (feedUrls.length === 1) await firstList
       // The first stream carries one change and ends, as a dropped connection
       // does; the client reconnects with the revision it saw.
       const body = feedUrls.length === 1
