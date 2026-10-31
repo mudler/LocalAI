@@ -24,8 +24,17 @@ const (
 	DefaultTimeout = 2 * time.Minute
 )
 
-// GuestRoot is the working directory of the guest: the mounts are below it.
+// GuestRoot is the folder of the guest that holds the mounts.
 const GuestRoot = sandbox.DefaultDir
+
+// GuestHome is where bash starts: the mount of the user's home (HomeMounts),
+// so a relative path is a path of the user's files, as the file tools see
+// them.
+const GuestHome = GuestRoot + "/home"
+
+// WhereNote tells the model where a call starts and what is kept.
+const WhereNote = "It starts in " + GuestHome + ", the user's home: the same files as the file tools, so a relative path such as report.docx is " + GuestHome + "/report.docx. " +
+	"What a command writes under " + GuestHome + " (or a writable " + GuestRoot + "/shared-<name>) is saved to the user's files; anything else, such as /tmp or " + GuestRoot + " itself, is lost."
 
 // ErrInvalid marks an argument the tool refuses.
 var ErrInvalid = errors.New("invalid argument")
@@ -59,6 +68,8 @@ type BashOptions struct {
 	// Done, when set, is told about every call that ran a command, for an
 	// audit. The request of the call is in ctx (RequestFrom).
 	Done func(ctx context.Context, r BashResult)
+	// Dir is the folder a call starts in. Empty: GuestHome.
+	Dir string
 }
 
 // BashResult is what one bash call did.
@@ -76,8 +87,11 @@ func Bash(acquire Acquire, o BashOptions) Tool {
 		o.MaxTimeout = DefaultTimeout
 	}
 	maxSec := int(o.MaxTimeout / time.Second)
+	if o.Dir == "" {
+		o.Dir = GuestHome
+	}
 	if o.Description == "" {
-		o.Description = fmt.Sprintf("Run a shell script with bash in %s. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most %d).", GuestRoot, maxSec)
+		o.Description = fmt.Sprintf("Run a shell script with bash. %s Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most %d).", WhereNote, maxSec)
 	}
 	schema := fmt.Sprintf(`{"type":"object","properties":{"command":{"type":"string","description":"The script to run."},"timeoutSeconds":{"type":"integer","minimum":1,"maximum":%d}},"required":["command"]}`, maxSec)
 	return Tool{
@@ -127,7 +141,7 @@ func bash(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessage, o BashOp
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	start := time.Now()
-	out, code, err := sandbox.RunCapped(tctx, sb, []string{"bash", "-lc", a.Command}, nil, MaxOutput)
+	out, code, err := sandbox.RunCappedIn(tctx, sb, []string{"bash", "-lc", a.Command}, o.Dir, nil, MaxOutput)
 	if o.Done != nil {
 		res := BashResult{Command: a.Command, Exit: code, Duration: time.Since(start), TimedOut: errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil}
 		if err != nil {

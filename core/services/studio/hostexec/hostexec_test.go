@@ -136,7 +136,7 @@ var _ = Describe("commands on this machine", func() {
 	It("sees the user's files and saves what a command writes as a change of the chat", func() {
 		e := newEnv()
 		e.put("/script.sh", "echo from-the-script > made.txt\n")
-		out := e.bash("cd home && bash script.sh && cat made.txt", 0)
+		out := e.bash("bash script.sh && cat made.txt", 0) // it starts in the home
 		Expect(out).To(Equal("from-the-script\n"))
 		Expect(e.read("/made.txt")).To(Equal("from-the-script\n"))
 		hist, err := e.f.Store().History(context.Background(), e.f.Actor("alice"), workspace.HistoryQuery{Path: session.HomePath("alice"), Limit: 10})
@@ -145,7 +145,7 @@ var _ = Describe("commands on this machine", func() {
 		Expect(hist[0].Title).To(ContainSubstring("Command on this machine"))
 		// A file written afterwards with the file tools is there at the next call.
 		e.put("/later.txt", "later\n")
-		Expect(e.bash("cat home/later.txt", 0)).To(Equal("later\n"))
+		Expect(e.bash("cat later.txt", 0)).To(Equal("later\n"))
 	})
 
 	It("runs a skill's script in place from the read-only skill layers, and never changes them", func() {
@@ -154,10 +154,10 @@ var _ = Describe("commands on this machine", func() {
 			"pdf/SKILL.md":         {Data: []byte("---\nname: pdf\ndescription: PDFs.\n---\nUse the script.\n")},
 			"pdf/scripts/check.sh": {Data: []byte("echo checked $1\n")},
 		})).To(Succeed())
-		out := e.bash("bash shared-builtin-skills/pdf/scripts/check.sh doc.pdf", 0)
+		out := e.bash("bash ../shared-builtin-skills/pdf/scripts/check.sh doc.pdf", 0)
 		Expect(out).To(Equal("checked doc.pdf\n"))
 		// A write into a layer is not saved: the layer is read-only.
-		e.bash("echo changed > shared-builtin-skills/pdf/scripts/check.sh; true", 0)
+		e.bash("echo changed > ../shared-builtin-skills/pdf/scripts/check.sh; true", 0)
 		r, _, err := e.f.Store().Open(context.Background(), e.f.Actor("alice"), files.BuiltinSkillsPath+"/pdf/scripts/check.sh")
 		Expect(err).NotTo(HaveOccurred())
 		data, err := io.ReadAll(r)
@@ -169,7 +169,7 @@ var _ = Describe("commands on this machine", func() {
 	It("kills the whole process group at the timeout", func() {
 		e := newEnv()
 		start := time.Now()
-		out := e.bash("sleep 60 & echo $! > home/child.pid; wait", 1)
+		out := e.bash("sleep 60 & echo $! > child.pid; wait", 1)
 		Expect(out).To(ContainSubstring("[stopped after 1 seconds]"))
 		Expect(time.Since(start)).To(BeNumerically("<", 20*time.Second))
 		pid, err := strconv.Atoi(strings.TrimSpace(e.read("/child.pid")))
@@ -200,7 +200,7 @@ var _ = Describe("commands on this machine", func() {
 		_, err := e.f.Store().Put(context.Background(), admin, "/shared/team/plan.md", strings.NewReader("plan\n"), workspace.PutOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(e.f.Store().Grant(context.Background(), admin, "alice", "/shared/team", workspace.ModeRead)).To(Succeed())
-		Expect(e.bash("cat shared-team/plan.md", 0)).To(Equal("plan\n"))
+		Expect(e.bash("cat ../shared-team/plan.md", 0)).To(Equal("plan\n"))
 	})
 
 	It("refuses to run as root", func() {
@@ -219,6 +219,7 @@ var _ = Describe("commands on this machine", func() {
 		t := e.r.Tool(e.a)
 		Expect(t.Name).To(Equal("bash"))
 		Expect(t.Description).To(And(ContainSubstring("no isolation"), ContainSubstring("internet")))
+		Expect(t.Description).To(And(ContainSubstring("It starts in the user's home"), ContainSubstring("use relative paths")))
 		Expect(string(t.Schema)).To(ContainSubstring(fmt.Sprintf(`"maximum":%d`, int(hostexec.MaxTimeout.Seconds()))))
 	})
 })

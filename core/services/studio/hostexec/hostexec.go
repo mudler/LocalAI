@@ -49,8 +49,9 @@ func ValidMode(m string) bool { return m == "" || m == ModeOff || m == ModeAsk |
 
 // Description is what the model is told about the built-in bash.
 const Description = "Run a shell script with bash directly on this machine, with no isolation. " +
-	"It starts in a scratch folder that holds the user's files: home/ is their home and shared-<name>/ a shared folder " +
-	"(the same files as /workspace/home and /workspace/shared-<name> of the file tools); what it changes there is saved to their files. " +
+	"It starts in the user's home, inside a scratch folder: the same files as /workspace/home of the file tools, so a relative path such as report.docx is /workspace/home/report.docx for them; " +
+	"a shared folder is ../shared-<name> (/workspace/shared-<name> of the file tools). The /workspace paths do not exist here: use relative paths. " +
+	"What it changes in the home and the writable shared folders is saved to the user's files; anything else is lost. " +
 	"It can read what the server can read and reach the internet and the local network. " +
 	"Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most 1800)."
 

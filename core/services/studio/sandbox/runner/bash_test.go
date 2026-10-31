@@ -95,12 +95,13 @@ var _ = Describe("bash", func() {
 		}
 	})
 
-	It("runs bash in the workspace and reports the exit code", func() {
+	It("runs bash in the user's home and reports the exit code", func() {
 		e := newToolEnv()
-		Expect(e.must("bash", m("command", "ls home && echo hello"))).To(Equal("notes.txt\nhello\n"))
+		Expect(e.must("bash", m("command", "ls && echo hello"))).To(Equal("notes.txt\nhello\n"))
+		Expect(e.must("bash", m("command", "ls ../home"))).To(Equal("notes.txt\n"), "the home is a folder of the workspace")
 		Expect(e.must("bash", m("command", "echo oops >&2; exit 3"))).To(Equal("oops\n\n[exit code 3]"))
 		Expect(e.gets).To(Equal(e.done))
-		Expect(e.gets).To(Equal(2))
+		Expect(e.gets).To(Equal(3))
 	})
 
 	It("caps the output of bash", func() {
@@ -128,6 +129,14 @@ var _ = Describe("bash", func() {
 		_, err := e.tools["bash"].Run(ctx, raw)
 		Expect(err).To(MatchError(context.Canceled))
 		Expect(time.Since(start)).To(BeNumerically("<=", 10*time.Second))
+	})
+
+	It("tells the model where it starts and what is kept", func() {
+		e := newToolEnv()
+		d := e.tools["bash"].Description
+		Expect(d).To(ContainSubstring("It starts in " + runner.GuestHome))
+		Expect(runner.GuestHome).To(Equal("/workspace/home"))
+		Expect(d).To(ContainSubstring("is lost"))
 	})
 
 	It("gives a fixed result when there is no sandbox", func() {

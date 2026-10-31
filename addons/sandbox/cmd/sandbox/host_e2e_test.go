@@ -109,7 +109,9 @@ var _ = Describe("Host backend end to end", func() {
 		Expect(err).NotTo(HaveOccurred())
 		eng := &engine{data: data, committed: map[string]string{}}
 		m, err := runner.New(runner.Options{Backend: sel.Backend, Store: remote.New(eng, data), Tools: tools.Runs,
-			Prepare: func(ctx context.Context, r runner.Request) context.Context { return remote.WithOperation(ctx, r.Operation) }})
+			Prepare: func(ctx context.Context, r runner.Request) context.Context {
+				return remote.WithOperation(ctx, r.Operation)
+			}})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
 		rt := tools.New(m, settingsAdapter{Selector: sel, m: m}, admin(true))
@@ -126,7 +128,7 @@ var _ = Describe("Host backend end to end", func() {
 		st := call(rt, "status", "alice", "", map[string]any{})
 		Expect(st["canRun"]).To(Equal(true), "status = %v", st)
 		Expect(st["hostNotice"]).To(Equal(true), "status = %v", st)
-		got = call(rt, "bash", "alice", "conv1", map[string]any{"command": "echo from the host > home/made.txt && echo done"})
+		got = call(rt, "bash", "alice", "conv1", map[string]any{"command": "echo from the host > made.txt && echo done"})
 		Expect(got["ok"]).To(Equal(true), "bash = %v", got)
 		Expect(got["output"]).To(ContainSubstring("done"))
 		Expect(eng.committed).To(HaveKeyWithValue("home/made.txt", "from the host\n"))

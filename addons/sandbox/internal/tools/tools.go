@@ -41,8 +41,8 @@ const NetworkNote = " Network: curl, pip, npm and git use the proxy, within the 
 
 // Runs returns the tools a sandbox runs.
 func Runs(acquire runner.Acquire) []runner.Tool {
-	desc := fmt.Sprintf("Run a shell script with bash in %s. Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most %d).",
-		runner.GuestRoot, int(MaxTimeout/time.Second)) + NetworkNote
+	desc := fmt.Sprintf("Run a shell script with bash in %s, the user's files (only what is saved there stays). Output is cut at 64 KiB. A call stops after timeoutSeconds (default 120, at most %d).",
+		runner.GuestHome, int(MaxTimeout/time.Second)) + NetworkNote
 	return []runner.Tool{runner.Bash(acquire, runner.BashOptions{MaxTimeout: MaxTimeout, Description: desc})}
 }
 

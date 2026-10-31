@@ -619,11 +619,13 @@ shown when the Sandbox is already installed, or when add-ons are off.
   offered.
 - **Your files.** Each chat gets a scratch folder with your files: `home/`
   there is `/workspace/home` of the file tools, and `shared-<name>/` is a
-  shared folder. The skills are there too, read-only, at the names the file
-  tools use: `shared-skills/` (shared by an administrator),
-  `shared-builtin-skills/` (built in) and `shared-addon-skills/` (from
-  add-ons), so a skill's scripts run in place, for example
-  `python3 shared-builtin-skills/pdf/scripts/verify_pdf.py home/report.pdf`. A
+  shared folder. A command starts in `home/`, so a relative path is a path in
+  your home and a shared folder is `../shared-<name>`. The skills are there
+  too, read-only, at the names the file tools use: `shared-skills/` (shared by
+  an administrator), `shared-builtin-skills/` (built in) and
+  `shared-addon-skills/` (from add-ons), so a skill's scripts run in place, for
+  example
+  `python3 ../shared-builtin-skills/pdf/scripts/verify_pdf.py report.pdf`. A
   shared folder named `skills` is at `shared-skills 2/`. After each call, what the command changed is saved to your
   files as one change of the chat, which you can undo in Files, History; a
   file you or the file tools changed meanwhile is read again before the next

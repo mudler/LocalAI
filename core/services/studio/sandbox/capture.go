@@ -58,10 +58,16 @@ func (w *CapWriter) String() string {
 // string, and the exit code. When the output reaches limit, it stops the
 // process at once and returns the output with its cut marker, and no error.
 func RunCapped(ctx context.Context, sb Sandbox, args []string, stdin io.Reader, limit int) (string, int, error) {
+	return RunCappedIn(ctx, sb, args, "", stdin, limit)
+}
+
+// RunCappedIn is RunCapped in the folder dir of the guest (empty:
+// DefaultDir).
+func RunCappedIn(ctx context.Context, sb Sandbox, args []string, dir string, stdin io.Reader, limit int) (string, int, error) {
 	rctx, stop := context.WithCancel(ctx)
 	defer stop()
 	out := &CapWriter{Max: limit, Full: stop}
-	p, err := sb.Exec(rctx, Cmd{Args: args, Stdin: stdin, Stdout: out, Stderr: out})
+	p, err := sb.Exec(rctx, Cmd{Args: args, Dir: dir, Stdin: stdin, Stdout: out, Stderr: out})
 	if err != nil {
 		return "", 0, err
 	}

@@ -246,7 +246,7 @@ func TestManager(t *testing.T) {
 var _ = Describe("Sandbox manager", func() {
 	It("commits a file the code writes after the call", func() {
 		f := setup(nil)
-		out, op, err := f.run("alice", "c1", "bash", `{"command":"echo hello > home/made.txt; cat home/seed.txt"}`)
+		out, op, err := f.run("alice", "c1", "bash", `{"command":"echo hello > made.txt; cat seed.txt"}`)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).To(ContainSubstring("seed"))
 		Expect(f.h.commits[op]).To(HaveKeyWithValue("home/made.txt", "hello\n"))
@@ -254,8 +254,8 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("keeps the sandbox for the same conversation", func() {
 		f := setup(nil)
-		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo one > home/keep.txt"}`)
-		out, _, err := f.run("alice", "c1", "bash", `{"command":"cat home/keep.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo one > keep.txt"}`)
+		out, _, err := f.run("alice", "c1", "bash", `{"command":"cat keep.txt"}`)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).To(ContainSubstring("one"))
 		Expect(f.b.created).To(Equal(1), "sandboxes created")
@@ -263,8 +263,8 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("never lets another user reach the sandbox of a conversation", func() {
 		f := setup(nil)
-		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo secret > home/alice.txt"}`)
-		out, _, err := f.run("bob", "c1", "bash", `{"command":"ls home"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo secret > alice.txt"}`)
+		out, _, err := f.run("bob", "c1", "bash", `{"command":"ls"}`)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).NotTo(ContainSubstring("alice.txt"), "bob saw alice's file")
 		Expect(f.b.created).To(Equal(2), "want one sandbox for each user")
@@ -322,11 +322,11 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("puts an idle sandbox to sleep, wakes it, and removes it after a day", func() {
 		f := setup(nil)
-		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo kept > home/note.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo kept > note.txt"}`)
 		*f.now = f.now.Add(11 * time.Minute)
 		f.m.Sweep(context.Background())
 		Expect(f.m.Running()).To(BeZero(), "running after the idle time")
-		out, _, err := f.run("alice", "c1", "bash", `{"command":"cat home/note.txt"}`)
+		out, _, err := f.run("alice", "c1", "bash", `{"command":"cat note.txt"}`)
 		Expect(err).NotTo(HaveOccurred(), "after waking")
 		Expect(out).To(ContainSubstring("kept"))
 		Expect(f.b.resumed).To(Equal(1))
@@ -338,7 +338,7 @@ var _ = Describe("Sandbox manager", func() {
 
 	It("refreshes the sandbox before the next call after an outside change", func() {
 		f := setup(nil)
-		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo mine > home/a.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo mine > a.txt"}`)
 		f.h.mu.Lock()
 		f.h.rev = 99
 		f.h.changes = append(f.h.changes, map[string]any{"revision": 99, "title": "someone"})
@@ -348,7 +348,7 @@ var _ = Describe("Sandbox manager", func() {
 		Expect(f.h.count("workspace.materialize")).To(Equal(mat+1), "the sandbox was not rebuilt from the current files")
 		// The user's own commits do not count as outside changes.
 		mat = f.h.count("workspace.materialize")
-		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo more > home/b.txt"}`)
+		_, _, _ = f.run("alice", "c1", "bash", `{"command":"echo more > b.txt"}`)
 		_, _, _ = f.run("alice", "c1", "bash", `{"command":"true"}`)
 		Expect(f.h.count("workspace.materialize")).To(Equal(mat), "an own commit made the sandbox refresh")
 	})
@@ -357,7 +357,7 @@ var _ = Describe("Sandbox manager", func() {
 		f := setup(func(o *runner.Options) {
 			o.Backend = func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }
 		})
-		out, _, err := f.run("alice", "c1", "bash", `{"command":"touch home/x"}`)
+		out, _, err := f.run("alice", "c1", "bash", `{"command":"touch x"}`)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).To(Equal(runner.NoSandboxText), "want the fixed text")
 		Expect(f.m.Count("")).To(BeZero(), "a sandbox exists although there is no backend")

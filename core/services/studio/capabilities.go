@@ -221,6 +221,9 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 	return s.withHostBash(c, tools)
 }
 
+// sandboxWhere is where a command of the Sandbox starts and what it keeps.
+const sandboxWhere = "It starts in /workspace/home, the user's home, the same files as the file tools; only what it saves under /workspace/home or a writable shared folder is kept."
+
 // commandsBlock is the block of the system prompt that states whether the chat
 // can run commands. writeFile says whether the chat has write_file, and
 // skillsOff whether the skill index lists a skill as unavailable for want of a
@@ -229,7 +232,7 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 	if c.State == CommandsAvailable {
 		switch {
 		case c.Provider == BuiltinProvider:
-			b := "Commands: " + c.Tool + " runs commands directly on this machine, with no isolation, in a scratch folder that holds the user's files: home/ there is /workspace/home of the file tools, shared-<name>/ is /workspace/shared-<name>. " +
+			b := "Commands: " + c.Tool + " runs commands directly on this machine, with no isolation. It starts in the user's home inside a scratch folder (the files of /workspace/home of the file tools; a shared folder is ../shared-<name>), so use relative paths there. " +
 				"It can read what the server can read and reach the internet, the local network and the LocalAI API. " +
 				"Be careful: never delete or change anything outside the task, and never send the user's data anywhere, unless they asked."
 			if c.Consent == "ask" {
@@ -237,11 +240,11 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 			}
 			return b
 		case c.Isolation == "isolated":
-			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox."
+			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere
 		case c.Isolation == "host":
-			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task."
+			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere
 		}
-		return "Commands: " + c.Tool + " runs commands and code."
+		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere
 	}
 	var b strings.Builder
 	b.WriteString("Commands: nothing in this chat runs code or commands. Never claim or imply that you ran anything, and do not ask a sub-agent to run it: it has the same tools. Instead ")
