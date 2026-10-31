@@ -530,9 +530,10 @@
       "empty": "此聊天没有循环。",
       "hint": "要停止一个循环，输入 /loop stop 加上该行开头的代码。"
     },
-    "errors": {
+    "slash": {
       "usage": "输入 /loop、可选的间隔和要重复的内容。例如：/loop 5m 检查构建。",
       "notFound": "此聊天中没有与 {{id}} 匹配的循环。",
+      "noChat": "先发送第一条消息，然后在此聊天中启动循环。",
       "stopped_one": "已停止 {{count}} 个循环。",
       "stopped_other": "已停止 {{count}} 个循环。"
     }

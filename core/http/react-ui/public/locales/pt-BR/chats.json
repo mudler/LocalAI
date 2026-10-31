@@ -530,9 +530,10 @@
       "empty": "Este chat não tem loops.",
       "hint": "Para parar um, digite /loop stop e o código do início da linha dele."
     },
-    "errors": {
+    "slash": {
       "usage": "Digite /loop, um intervalo se quiser e o que repetir. Por exemplo: /loop 5m verifique o build.",
       "notFound": "Nenhum loop deste chat corresponde a {{id}}.",
+      "noChat": "Envie uma primeira mensagem e depois inicie um loop neste chat.",
       "stopped_one": "{{count}} loop parado.",
       "stopped_other": "{{count}} loops parados."
     }

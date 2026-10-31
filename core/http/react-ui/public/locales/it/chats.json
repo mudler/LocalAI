@@ -530,9 +530,10 @@
       "empty": "Questa chat non ha cicli.",
       "hint": "Per fermarne uno, scrivi /loop stop e il codice all'inizio della sua riga."
     },
-    "errors": {
+    "slash": {
       "usage": "Scrivi /loop, un intervallo se lo vuoi e cosa ripetere. Per esempio: /loop 5m controlla la build.",
       "notFound": "Nessun ciclo di questa chat corrisponde a {{id}}.",
+      "noChat": "Invia un primo messaggio, poi avvia un ciclo in questa chat.",
       "stopped_one": "Fermato {{count}} ciclo.",
       "stopped_other": "Fermati {{count}} cicli."
     }

@@ -530,9 +530,10 @@
       "empty": "Obrolan ini tidak punya perulangan.",
       "hint": "Untuk menghentikan satu, ketik /loop stop dan kode di awal barisnya."
     },
-    "errors": {
+    "slash": {
       "usage": "Ketik /loop, interval jika Anda mau, dan apa yang diulang. Contoh: /loop 5m periksa build.",
       "notFound": "Tidak ada perulangan di obrolan ini yang cocok dengan {{id}}.",
+      "noChat": "Kirim pesan pertama, lalu mulai perulangan di obrolan ini.",
       "stopped_one": "{{count}} perulangan dihentikan.",
       "stopped_other": "{{count}} perulangan dihentikan."
     }

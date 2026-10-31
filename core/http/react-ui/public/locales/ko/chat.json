@@ -220,7 +220,8 @@
       "skill": "스킬",
       "agent": "저장된 에이전트",
       "model": "모델",
-      "attach": "파일"
+      "attach": "파일",
+      "loop": "반복"
     },
     "badge": {
       "builtin": "기본 제공",
@@ -234,6 +235,14 @@
       "agent": "\"{{name}}\"(이)라는 저장된 에이전트가 없습니다.",
       "agentTask": "{{name}} 이름 뒤에 작업을 적어 주세요.",
       "agentsOff": "이 채팅에서는 저장된 에이전트가 꺼져 있습니다. 도구 메뉴에서 켜세요."
+    },
+    "loop": {
+      "label": "프롬프트 반복",
+      "desc": "이 채팅에서 프롬프트를 반복 실행: /loop 5m 빌드 확인",
+      "listDesc": "이 채팅의 반복 보기",
+      "stopDesc": "반복 하나 또는 모두 중지",
+      "stopAll": "모든 반복",
+      "stopAllDesc": "이 채팅의 모든 반복 중지"
     }
   },
   "shortcuts": {

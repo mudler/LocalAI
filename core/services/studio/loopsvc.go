@@ -257,7 +257,7 @@ func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loo
 	lim := h.Limits()
 	prompt := strings.TrimSpace(in.Prompt)
 	if strings.HasPrefix(prompt, "/") {
-		if err := h.checkSkill(ctx, user, conv, prompt); err != nil {
+		if _, err := h.message(ctx, rec, loops.Loop{Prompt: prompt}); err != nil {
 			return loops.Loop{}, err
 		}
 	}
@@ -285,19 +285,36 @@ func (h *Loops) Start(ctx context.Context, user, conv string, in LoopInput) (loo
 	return l, nil
 }
 
-// checkSkill refuses a slash command that is not a skill the chat can use.
-func (h *Loops) checkSkill(ctx context.Context, user, conv, prompt string) error {
-	name := strings.TrimPrefix(strings.Fields(prompt)[0], "/")
-	list, _, err := h.svc.Skills(ctx, user, conv)
+// loopSkill splits a loop prompt that invokes a skill ("/name words") into
+// the name and the words. ok is false for plain text.
+func loopSkill(prompt string) (name, words string, ok bool) {
+	if !strings.HasPrefix(prompt, "/") {
+		return "", "", false
+	}
+	head, rest, _ := strings.Cut(strings.TrimPrefix(prompt, "/"), " ")
+	return head, strings.TrimSpace(rest), true
+}
+
+// message is the message a run of l sends to the chat rec. A prompt that
+// invokes a skill is sent as the person's skill command would be: the words,
+// with the skill's text for the model and the skill named in the transcript.
+// Any other slash command is refused.
+func (h *Loops) message(ctx context.Context, rec session.ChatRecord, l loops.Loop) (session.Message, error) {
+	msg := session.Message{Text: l.Prompt}
+	if l.ID != "" {
+		msg.Loop = &session.LoopMark{ID: l.ID, Run: l.Runs, SelfPaced: l.SelfPaced()}
+	}
+	name, words, ok := loopSkill(l.Prompt)
+	if !ok {
+		return msg, nil
+	}
+	directive, inv, err := h.svc.commandMessage(ctx, rec.Principal, rec, words, Command{Skill: name})
 	if err != nil {
-		return fmt.Errorf("%w: skills are not available here", ErrLoopCommand)
+		why := strings.TrimPrefix(strings.TrimPrefix(err.Error(), ErrBadCommand.Error()), ": ")
+		return msg, fmt.Errorf("%w: %s", ErrLoopCommand, why)
 	}
-	for _, sk := range list {
-		if sk.Name == name && !sk.Off && sk.Invalid == "" && sk.Shadowed == "" && sk.Unavailable == "" {
-			return nil
-		}
-	}
-	return fmt.Errorf("%w: /%s is not a skill of this chat", ErrLoopCommand, name)
+	msg.Text, msg.Directive, msg.Invoked = words, directive, inv
+	return msg, nil
 }
 
 // owned returns the loop id of the user's chat conv, or loops.ErrNotFound.
@@ -479,6 +496,17 @@ func (h *Loops) fire(ctx context.Context, l loops.Loop, now time.Time, lim LoopL
 
 // start sends the prompt of a claimed run to the chat and watches the turn.
 func (h *Loops) start(ctx context.Context, l loops.Loop, now time.Time) {
+	rec, err := h.svc.d.Store.GetChat(ctx, l.Owner, l.ChatID)
+	if err != nil {
+		h.unclaim(ctx, l, func(c *loops.Loop) { c.Next = now.Add(h.o.Tick) })
+		return
+	}
+	msg, err := h.message(ctx, rec, l)
+	if err != nil {
+		// The skill of the prompt is gone or switched off: a failed run.
+		h.finish(l.ID, true, err.Error())
+		return
+	}
 	events, cancel, err := h.svc.Events(ctx, l.Owner, l.ChatID) // before the send: the end must not be missed
 	if err != nil {
 		h.unclaim(ctx, l, func(c *loops.Loop) { c.Next = now.Add(h.o.Tick) })
@@ -494,7 +522,6 @@ func (h *Loops) start(ctx context.Context, l loops.Loop, now time.Time) {
 	h.sup[l.ID] = struct{}{}
 	h.wg.Add(1)
 	h.mu.Unlock()
-	msg := session.Message{Text: l.Prompt, Loop: &session.LoopMark{ID: l.ID, Run: l.Runs, SelfPaced: l.SelfPaced()}}
 	started, err := h.svc.startIdle(ctx, l.Owner, l.ChatID, msg)
 	if err != nil || !started {
 		cancel()

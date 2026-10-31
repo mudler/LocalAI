@@ -221,8 +221,11 @@ export default function ChatComposer({
       desc: (a) => words(a)(`slash.${a.id}.desc`),
       groupLabel: (g) => (COMMAND_GROUPS.includes(g) ? t(`slash.group.${g}`) : own(`slash.group.${g}`)),
       argsLabel: (c) => t(`slash.args.${c.id === 'models' ? 'model' : c.id}`, { defaultValue: c.cmd }),
-      argLabel: (c, it) => (it.action === 'enableAgents' ? t('slash.agent.enable') : ''),
-      argDesc: (c, it) => (it.action === 'clearFiles' ? t('slash.attach.clearDesc') : it.action === 'enableAgents' ? t('slash.agent.enableDesc') : ''),
+      argLabel: (c, it) => (it.action === 'enableAgents' ? t('slash.agent.enable') : it.action === 'loopStopAll' ? t('slash.loop.stopAll') : ''),
+      argDesc: (c, it) => ({
+        clearFiles: t('slash.attach.clearDesc'), enableAgents: t('slash.agent.enableDesc'),
+        loopList: t('slash.loop.listDesc'), loopStopAll: t('slash.loop.stopAllDesc'),
+      })[it.action] || (it.key === 'loop-stop' ? t('slash.loop.stopDesc') : ''),
       badgeLabel: (b) => t(`slash.badge.${b}`),
       noteLabel: (n) => (n === 'collides' ? t('slash.collides') : n),
     }

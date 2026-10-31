@@ -530,9 +530,10 @@
       "empty": "Ce chat n'a aucune boucle.",
       "hint": "Pour en arrêter une, tapez /loop stop et le code au début de sa ligne."
     },
-    "errors": {
+    "slash": {
       "usage": "Tapez /loop, un intervalle si vous en voulez un, et ce qu'il faut répéter. Par exemple : /loop 5m vérifie le build.",
       "notFound": "Aucune boucle de ce chat ne correspond à {{id}}.",
+      "noChat": "Envoyez un premier message, puis démarrez une boucle dans ce chat.",
       "stopped_one": "{{count}} boucle arrêtée.",
       "stopped_other": "{{count}} boucles arrêtées."
     }

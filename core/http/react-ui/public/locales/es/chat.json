@@ -220,7 +220,8 @@
       "skill": "Skills",
       "agent": "Agentes guardados",
       "model": "Modelos",
-      "attach": "Archivos"
+      "attach": "Archivos",
+      "loop": "Bucles"
     },
     "badge": {
       "builtin": "integrada",
@@ -234,6 +235,14 @@
       "agent": "No tienes ningún agente guardado llamado \"{{name}}\".",
       "agentTask": "Escribe la tarea para {{name}} después del nombre.",
       "agentsOff": "Los agentes guardados están desactivados en este chat. Actívalos en el menú Herramientas."
+    },
+    "loop": {
+      "label": "Repetir un prompt",
+      "desc": "Ejecuta un prompt una y otra vez en este chat: /loop 5m revisa la compilación",
+      "listDesc": "Muestra los bucles de este chat",
+      "stopDesc": "Detén un bucle, o todos",
+      "stopAll": "Todos los bucles",
+      "stopAllDesc": "Detén todos los bucles de este chat"
     }
   },
   "shortcuts": {

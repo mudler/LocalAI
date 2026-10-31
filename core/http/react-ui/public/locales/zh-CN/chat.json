@@ -220,7 +220,8 @@
       "skill": "技能",
       "agent": "已保存的智能体",
       "model": "模型",
-      "attach": "文件"
+      "attach": "文件",
+      "loop": "循环"
     },
     "badge": {
       "builtin": "内置",
@@ -234,6 +235,14 @@
       "agent": "你没有名为“{{name}}”的已保存智能体。",
       "agentTask": "请在 {{name}} 名称后写下任务。",
       "agentsOff": "此对话已关闭已保存的智能体。请在“工具”菜单中开启。"
+    },
+    "loop": {
+      "label": "重复提示词",
+      "desc": "在此聊天中反复运行一个提示词：/loop 5m 检查构建",
+      "listDesc": "显示此聊天的循环",
+      "stopDesc": "停止一个循环或全部循环",
+      "stopAll": "所有循环",
+      "stopAllDesc": "停止此聊天的所有循环"
     }
   },
   "shortcuts": {

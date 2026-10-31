@@ -218,7 +218,8 @@
       "skill": "Skills",
       "agent": "Agents enregistrés",
       "model": "Modèles",
-      "attach": "Fichiers"
+      "attach": "Fichiers",
+      "loop": "Boucles"
     },
     "badge": {
       "builtin": "intégrée",
@@ -232,6 +233,14 @@
       "agent": "Vous n'avez pas d'agent enregistré nommé « {{name}} ».",
       "agentTask": "Écrivez la tâche pour {{name}} après son nom.",
       "agentsOff": "Les agents enregistrés sont désactivés pour cette conversation. Activez-les dans le menu Outils."
+    },
+    "loop": {
+      "label": "Répéter un prompt",
+      "desc": "Exécuter un prompt encore et encore dans ce chat : /loop 5m vérifie le build",
+      "listDesc": "Afficher les boucles de ce chat",
+      "stopDesc": "Arrêter une boucle, ou toutes",
+      "stopAll": "Toutes les boucles",
+      "stopAllDesc": "Arrêter toutes les boucles de ce chat"
     }
   },
   "shortcuts": {

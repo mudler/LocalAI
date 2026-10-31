@@ -271,6 +271,25 @@ var _ = Describe("Loops of a chat", func() {
 		})
 	})
 
+	It("repeats a skill as the person's skill command would send it", func() {
+		r := newLoopRig(say, studio.LoopOptions{})
+		writeSkill(r.svc.Files(), alice, "/.skills/review/SKILL.md", "review", "check a change before it ships")
+		chat := create(r.svc, alice)
+		_, err := r.host.Start(ctx, alice, chat, studio.LoopInput{Interval: "5m", Prompt: "/nope the diff"})
+		Expect(err).To(MatchError(studio.ErrLoopCommand))
+		l := r.start(chat, "5m", "/review the diff")
+		r.pass()
+		Expect(r.settled(l.ID).Failures).To(Equal(0))
+		sent := r.h.Sent(chat)
+		Expect(sent).To(HaveLen(1))
+		Expect(sent[0]).To(ContainSubstring(`<skill name="review">`))
+		Expect(sent[0]).To(HaveSuffix("the diff"))
+		u := lastUser(transcript(r.svc, alice, chat))
+		Expect(u.Text).To(Equal("the diff"))
+		Expect(u.Invoked).To(Equal(&session.Invocation{Kind: session.InvokeSkill, Name: "review"}))
+		Expect(u.Loop).To(Equal(&session.LoopMark{ID: l.ID, Run: 1}))
+	})
+
 	It("gives a chat without a self-paced loop no loop tools", func() {
 		r := newLoopRig(say, studio.LoopOptions{})
 		chat := create(r.svc, alice)
@@ -470,6 +489,6 @@ var _ = Describe("Loops of a chat", func() {
 		until("the second run to end", func() bool { return !a.get(l.ID).Running })
 		Expect(a.get(l.ID).Runs).To(Equal(2), "the due time was claimed more or less than once")
 		until("the second message to reach a model", func() bool { return a.runs(chat)+b.runs(chat) >= 2 })
-		Expect(a.runs(chat) + b.runs(chat)).To(Equal(2), "a run started twice")
+		Expect(a.runs(chat)+b.runs(chat)).To(Equal(2), "a run started twice")
 	})
 })

@@ -24,7 +24,7 @@ const loop = (extra = {}) => ({
 
 // The server, in memory: the loops of chat c1 and the calls the page made.
 async function serve(page, { loops = [loop()] } = {}) {
-  const s = { loops: loops.map(l => ({ ...l })), calls: [] }
+  const s = { loops: loops.map(l => ({ ...l })), calls: [], started: [] }
   await mockChat(page)
   const detail = () => ({
     id: 'c1', title: 'Build watch', model: 'qwen3-8b', kind: 'chat', created: AT, updated: AT, running: false, last_turn: 'done',
@@ -34,6 +34,9 @@ async function serve(page, { loops = [loop()] } = {}) {
   await page.route('**/api/chats/c1', route => route.fulfill({ json: detail() }))
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: [{ ...detail(), pending: undefined, loops: undefined }], persistent: true, files: true } }))
   await page.route('**/api/chats/agents*', route => route.fulfill({ json: { agents: [] } }))
+  await page.route(/\/api\/chats\/skills(\?.*)?$/, route => route.fulfill({ json: { skills: [
+    { id: 'personal:review', name: 'review', description: 'Check a change before it ships', layer: 'personal', path: '/s/review', enabled: true },
+  ] } }))
   await page.route(/\/api\/chats\/c1\/loops(\/[a-z0-9]+)?$/, (route) => {
     const req = route.request()
     const id = new URL(req.url()).pathname.split('/').pop()
@@ -51,7 +54,11 @@ async function serve(page, { loops = [loop()] } = {}) {
     }
     if (req.method() === 'POST') {
       const body = req.postDataJSON()
-      const created = loop({ id: `n${s.loops.length + 1}`, prompt: body.prompt, interval: body.interval || '', interval_seconds: body.interval ? 300 : 0, state: 'active', runs: 0 })
+      s.started.push(body)
+      if (body.prompt.startsWith('/goal')) {
+        return route.fulfill({ status: 400, json: { error: { message: 'a loop repeats plain text or a skill (/skill-name and its words); other commands cannot repeat: /goal is not a skill of this chat' } } })
+      }
+      const created = loop({ id: `n${s.loops.length + 1}abcdef`, prompt: body.prompt, interval: body.interval || '', interval_seconds: body.interval ? 300 : 0, state: s.loops.length ? 'active' : 'pending', runs: 0, next: undefined })
       s.loops = [...s.loops, created]
       return route.fulfill({ status: 201, json: created })
     }
@@ -164,3 +171,69 @@ for (const theme of ['light', 'dark']) {
     })
   })
 }
+
+test.describe('the /loop command', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+  const box = (page) => page.getByTestId('chat-input')
+
+  test('starts a loop with an interval; the first asks for a yes', async ({ page }) => {
+    const s = await open(page, { loops: [] })
+    await box(page).fill('/lo')
+    await expect(page.getByTestId('home-slash-loop')).toBeVisible()
+    await box(page).press('Tab')
+    await expect(box(page)).toHaveValue('/loop ')
+    await expect(page.getByTestId('home-slash-arg-loop-list')).toBeVisible()
+    await expect(page.getByTestId('home-slash-arg-loop-stop')).toHaveCount(0)
+    await box(page).pressSequentially('5m Check the build.')
+    await box(page).press('Enter')
+    await expect.poll(() => s.started).toEqual([{ interval: '5m', prompt: 'Check the build.' }])
+    await expect(box(page)).toHaveValue('')
+    await expect(page.getByTestId('loop-confirm')).toContainText('Run this every 5 minutes until you stop it?')
+    await shot(page, 'slash-started')
+  })
+
+  test('a self-paced loop and a skill prompt', async ({ page }) => {
+    const s = await open(page)
+    await box(page).fill('/loop /skill review the diff')
+    await box(page).press('Enter')
+    await expect.poll(() => s.started).toEqual([{ prompt: '/review the diff' }])
+    await expect(page.getByTestId('loop-chip')).toHaveCount(2)
+  })
+
+  test('a command that is not a skill is refused with the reason', async ({ page }) => {
+    await open(page)
+    await box(page).fill('/loop 5m /goal finish it')
+    await box(page).press('Enter')
+    await expect(page.getByRole('alert')).toContainText('other commands cannot repeat')
+    await expect(box(page)).toHaveValue('/loop 5m /goal finish it')
+  })
+
+  test('/loop list shows the loops; /loop stop completes from them', async ({ page }) => {
+    const s = await open(page, { loops: [loop(), loop({ id: 'aa0000bb', prompt: 'Watch the queue.', interval: '', interval_seconds: 0, runs: 2 })] })
+    await box(page).fill('/loop list')
+    await box(page).press('Enter')
+    const list = page.getByTestId('loop-list')
+    await expect(list.getByTestId('loop-list-row')).toHaveCount(2)
+    await expect(list.getByTestId('loop-list-row').nth(0)).toContainText('l1')
+    await expect(list.getByTestId('loop-list-row').nth(1)).toContainText('self-paced · active · run 2')
+    await shot(page, 'slash-list')
+    await list.getByTestId('loop-list-close').click()
+    await expect(list).toHaveCount(0)
+
+    await box(page).fill('/loop stop ')
+    await expect(page.getByTestId('home-slash-arg-loop-stop-all')).toBeVisible()
+    await expect(page.getByTestId('home-slash-arg-loop-stop-aa0000bb')).toContainText('Watch the queue.')
+    await shot(page, 'slash-stop-menu')
+    await page.getByTestId('home-slash-arg-loop-stop-aa0000bb').click()
+    await expect(page.getByTestId('loop-chip')).toHaveCount(1)
+    expect(s.calls).toContain('DELETE aa0000bb')
+
+    await box(page).fill('/loop stop zz')
+    await box(page).press('Enter')
+    await expect(page.getByRole('alert')).toContainText('No loop of this chat matches zz')
+    await box(page).fill('/loop stop ')
+    await box(page).press('Enter')
+    await expect(page.getByTestId('loop-bar')).toHaveCount(0)
+    expect(s.calls).toContain('DELETE l1')
+  })
+})

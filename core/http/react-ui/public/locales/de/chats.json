@@ -530,9 +530,10 @@
       "empty": "Dieser Chat hat keine Schleifen.",
       "hint": "Zum Stoppen gib /loop stop und den Code am Anfang ihrer Zeile ein."
     },
-    "errors": {
+    "slash": {
       "usage": "Gib /loop ein, bei Bedarf ein Intervall, und was wiederholt werden soll. Zum Beispiel: /loop 5m prüfe den Build.",
       "notFound": "Keine Schleife dieses Chats passt zu {{id}}.",
+      "noChat": "Sende zuerst eine Nachricht und starte dann eine Schleife in diesem Chat.",
       "stopped_one": "{{count}} Schleife gestoppt.",
       "stopped_other": "{{count}} Schleifen gestoppt."
     }

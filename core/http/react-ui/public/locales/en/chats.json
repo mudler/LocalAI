@@ -853,9 +853,10 @@
       "empty": "This chat has no loops.",
       "hint": "To stop one, type /loop stop and the code at the start of its line."
     },
-    "errors": {
+    "slash": {
       "usage": "Type /loop, an interval if you want one, and what to repeat. For example: /loop 5m check the build.",
       "notFound": "No loop of this chat matches {{id}}.",
+      "noChat": "Send a first message, then start a loop in this chat.",
       "stopped_one": "Stopped {{count}} loop.",
       "stopped_other": "Stopped {{count}} loops."
     }

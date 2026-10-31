@@ -213,7 +213,7 @@ stop it. Type `/loop` in the message box, or use the API.
 /loop Watch the deploy and tell me when it is done.      self-paced
 /loop list                                               the loops of this chat
 /loop stop                                               stop every loop of this chat
-/loop stop 3f9a                                          stop one loop
+/loop stop 3f9a01                                        stop one loop (the code that /loop list shows)
 ```
 
 - **With an interval** (`30s`, `5m`, `2h`, `1h30m`) the prompt is sent at each
@@ -226,8 +226,11 @@ stop it. Type `/loop` in the message box, or use the API.
   run in which the model calls neither ends the loop with a note, so a loop
   never goes on silently. The chat has these two tools only while it has a
   self-paced loop.
-- **The prompt** is plain text, or a skill: `/<skill-name>` and its words.
-  Other slash commands cannot repeat.
+- **The prompt** is plain text, or a skill: `/<skill-name>` (or
+  `/skill <name>`) and its words. Each run sends it as that skill command
+  would: the transcript shows the words and the skill's chip. Other slash
+  commands cannot repeat. A skill that is gone or switched off at a run makes
+  that run fail.
 - **The first time in a chat** a card asks *Run this every 5 minutes until you
   stop it?* with **Start** and **Cancel**, because every run costs tokens.
   The card stays with the chat, so it is still there after a reload. Once you
@@ -960,7 +963,7 @@ Type `/` in the message box of a chat, or on Home, for the list of commands.
 Typing filters it; arrows move, Enter runs the command, Tab completes it, and
 Esc closes the list. A command that takes an argument lists the choices as you
 type it: `/agent ` lists your saved agents, `/skill ` the skills of the chat
-and `/model ` the chat models.
+and `/model ` the chat models, `/loop stop ` the loops of the chat.
 
 | Command | What it does |
 |---------|--------------|
@@ -971,11 +974,12 @@ and `/model ` the chat models.
 | `/agent <name> <task>` | Hand the task to one of your saved agents (see below). |
 | `/compact` | Compact the context now (see above). |
 | `/clear` | Clear the context: a fresh start in the same chat (see above). |
+| `/loop [interval] <prompt>`, `/loop list`, `/loop stop [id]` | Repeat a prompt in this chat, list its loops, stop one or all (see [Loops](#loops-repeat-a-prompt-in-a-chat)). |
 | `/attach`, `/attach clear` | Choose files to send, or remove the files waiting to be sent. |
 | `/help` | List every command with what it does. |
 | `/about` | Show the model, whether it is loaded, how many tools and skills the chat has, where its commands run and the size of its context. |
 
-Home offers the same commands, less `/compact`, `/clear` and `/about`: a chat
+Home offers the same commands, less `/compact`, `/clear`, `/loop` and `/about`: a chat
 that does not exist yet has no context. `/<skill>` and `/agent` work there
 because the chat is created with the switches you chose first.
 

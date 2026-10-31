@@ -530,9 +530,10 @@
       "empty": "Este chat no tiene bucles.",
       "hint": "Para detener uno, escribe /loop stop y el código del inicio de su línea."
     },
-    "errors": {
+    "slash": {
       "usage": "Escribe /loop, un intervalo si quieres uno y lo que se debe repetir. Por ejemplo: /loop 5m revisa la compilación.",
       "notFound": "Ningún bucle de este chat coincide con {{id}}.",
+      "noChat": "Envía un primer mensaje y luego inicia un bucle en este chat.",
       "stopped_one": "Se detuvo {{count}} bucle.",
       "stopped_other": "Se detuvieron {{count}} bucles."
     }

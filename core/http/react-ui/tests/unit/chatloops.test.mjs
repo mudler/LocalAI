@@ -54,3 +54,22 @@ test('the chips show running loops first, a pending loop is a card', () => {
   assert.deepEqual(pendingLoops(loops).map(l => l.id), ['p'])
   assert.deepEqual(chipLoops(undefined), [])
 })
+
+test('/loop offers list and stop, and after stop the loops of the chat', async () => {
+  const { loopArgs, availableCommands, slashQuery } = await import('../../src/utils/slashCommands.js')
+  const loops = [{ id: '9b2e01aa', prompt: 'Check the build.' }, { id: 'aa0000bb', prompt: 'Watch the queue.' }]
+  assert.deepEqual(loopArgs('', { loops }).map(i => i.name), ['list', 'stop'])
+  assert.deepEqual(loopArgs('', { loops: [] }).map(i => i.name), ['list'], 'nothing to stop')
+  assert.deepEqual(loopArgs('5m check the build', { loops }), [], 'a new loop gets no menu')
+  const stop = loopArgs('stop ', { loops })
+  assert.deepEqual(stop.map(i => i.action), ['loopStopAll', 'loopStop', 'loopStop'])
+  assert.equal(stop[1].name, '9b2e01')
+  assert.deepEqual(loopArgs('stop aa', { loops }).map(i => i.loopId), ['aa0000bb'], 'all of them only before an ID')
+  assert.deepEqual(loopArgs('stop zz', { loops }), [], 'an unknown ID closes the menu, so Enter says so')
+  // The command is offered in a chat only, and its arguments follow "/loop ".
+  const cmds = availableCommands('chat', { hasChat: true, loops })
+  assert.ok(cmds.some(c => c.id === 'loop'))
+  assert.ok(!availableCommands('chat', { hasChat: false }).some(c => c.id === 'loop'))
+  assert.ok(!availableCommands('home', {}).some(c => c.id === 'loop'))
+  assert.equal(slashQuery('/loop st', cmds).mode, 'args')
+})
