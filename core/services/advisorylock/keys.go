@@ -36,4 +36,7 @@ const (
 	// KeyChatsEgressPrune elects the one frontend that removes the lines of
 	// the Sandbox network audit older than chats_egress_audit_days.
 	KeyChatsEgressPrune int64 = 114
+	// KeyChatsFileIndex elects the one frontend that reads the text of new
+	// and changed documents in the chats' files. It is held for one pass.
+	KeyChatsFileIndex int64 = 115
 )
