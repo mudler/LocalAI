@@ -3981,6 +3981,7 @@
       "go: does not run an action tool for any other adapter, and says the tool is unknown",
       "go: is unavailable when the owner cannot act, and never falls back to a read or a proposal",
       "go: keeps the argument rules: an identity argument is refused before anything runs",
+      "go: are listed in any state, with the names they replace and whether they run",
       "go: keeps its namespaced name and carries the built-in it shadows, only for a replaceable name"
     ]
   },
