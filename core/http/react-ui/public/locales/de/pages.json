@@ -122,5 +122,10 @@
     "sourceLines_one": "{{count}} Zeile",
     "sourceLines_other": "{{count}} Zeilen",
     "sourceNote": "Der Quelltext wird als Text gezeigt. Nichts davon läuft hier."
+  },
+  "frame": {
+    "filesFailed": "Dateien neben dieser Seite wurden nicht geladen: {{files}}. Die Browserkonsole nennt den Grund.",
+    "tooLarge": "Diese Seite bindet mehr als {{limit}} an Dateien aus ihrem Ordner ein, daher fehlen einige. Laden Sie Daten stattdessen mit fetch().",
+    "dismiss": "Schließen"
   }
 }

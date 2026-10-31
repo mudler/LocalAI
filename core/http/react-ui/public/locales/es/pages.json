@@ -122,5 +122,10 @@
     "sourceLines_one": "{{count}} línea",
     "sourceLines_other": "{{count}} líneas",
     "sourceNote": "El código se muestra como texto. Nada de él se ejecuta aquí."
+  },
+  "frame": {
+    "filesFailed": "No se cargaron archivos junto a esta página: {{files}}. La consola del navegador indica el motivo.",
+    "tooLarge": "Esta página incluye más de {{limit}} de archivos de su carpeta, así que algunos se omitieron. Cargue los datos con fetch().",
+    "dismiss": "Cerrar"
   }
 }

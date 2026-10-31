@@ -3,7 +3,7 @@ import { test, expect } from './coverage-fixtures.js'
 // The Shared tab of Files against the real test server started with
 // --shared-pages-fixture. Auth is off, so the person in the browser is the
 // administrator and also the viewer of the fixture's folders: /shared/team
-// (read, pages standup and releases) and /shared/board (write, page board).
+// (read, pages standup and releases) and /shared/board (write, pages board and digest).
 // The spec takes the viewer's grant on team away and gives it back through the
 // UI, and checks that the pages follow: gone, then back with the trust sheet.
 // A new folder is created, shared with everyone, renamed, removed and brought
@@ -41,7 +41,7 @@ test('the admin sees every shared folder with its pages and members', async ({ p
   await expect(row(page, 'team')).toContainText('shared/team')
   await expect(row(page, 'team').getByTestId('sf-pages')).toHaveText('2 pages')
   await expect(row(page, 'team').getByTestId('sf-summary')).toHaveText('2 people')
-  await expect(row(page, 'board').getByTestId('sf-pages')).toHaveText('1 page')
+  await expect(row(page, 'board').getByTestId('sf-pages')).toHaveText('2 pages')
   await expect(page.getByRole('tab', { name: 'Shared' })).toHaveAttribute('aria-selected', 'true')
 })
 

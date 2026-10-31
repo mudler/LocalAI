@@ -22,6 +22,15 @@ import (
 //	releases  a page the user allowed in an earlier version (a consent to an
 //	          older hash), so it opens with the "has changed" sheet
 //	board     a page in the writable folder, so its writes go through
+//	digest    a page split into files (style sheet, script, image, data) that
+//	          the viewer puts into the frame with its consent
+const sharedDigest = `<!doctype html><link rel="stylesheet" href="style.css"><h1 id="h">Digest</h1>
+<img id="dot" src="dot.svg" width="8" height="8"><p id="data"></p><p id="out"></p><script src="app.js"></script>`
+
+const sharedDigestScript = `fetch('data.json').then((r) => r.json()).then((d) => { document.getElementById('data').textContent = d.n })
+fetch('../board/data.json').then(() => { document.getElementById('out').textContent = 'LEAK' }, (e) => { document.getElementById('out').textContent = 'refused: ' + e.message })
+`
+
 const (
 	sharedAuthor = "luca"
 	sharedTeam   = "/shared/team"
@@ -78,6 +87,12 @@ func seedSharedPages(ctx context.Context, app *application.Application) error {
 		sharedBoard + "/pages/board/index.html":   sharedProbe,
 		sharedBoard + "/pages/board/page.json":    `{"title":"Team board"}`,
 		sharedBoard + "/pages/board/data.json":    `{"n":1}`,
+		sharedBoard + "/pages/digest/index.html":  sharedDigest,
+		sharedBoard + "/pages/digest/page.json":   `{"title":"Team digest"}`,
+		sharedBoard + "/pages/digest/style.css":   "h1 { color: rgb(1, 2, 3); }",
+		sharedBoard + "/pages/digest/dot.svg":     `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><circle cx="4" cy="4" r="4"/></svg>`,
+		sharedBoard + "/pages/digest/app.js":      sharedDigestScript,
+		sharedBoard + "/pages/digest/data.json":   `{"n":7}`,
 	} {
 		if err := put(p, body); err != nil {
 			return err

@@ -122,5 +122,10 @@
     "sourceLines_one": "{{count}} riga",
     "sourceLines_other": "{{count}} righe",
     "sourceNote": "Il codice è mostrato come testo. Qui non viene eseguito nulla."
+  },
+  "frame": {
+    "filesFailed": "Alcuni file accanto a questa pagina non sono stati caricati: {{files}}. La console del browser spiega il motivo.",
+    "tooLarge": "Questa pagina include più di {{limit}} di file dalla sua cartella, quindi alcuni sono stati esclusi. Carica i dati con fetch().",
+    "dismiss": "Chiudi"
   }
 }

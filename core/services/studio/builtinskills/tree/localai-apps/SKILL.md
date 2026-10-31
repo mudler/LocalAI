@@ -15,14 +15,14 @@ LocalAI has its own app format: a Page. It is one HTML file in the user's home t
 | The same, refreshed on a schedule or when a file arrives | A Page plus a trigger: read the `localai-workspace` skill, section "Updates on a schedule" |
 | A Home widget (a list or a number) | The `localai-workspace` skill, not a Page |
 | A real program: a script, a service, a CLI, something to install or deploy | Write that program as asked. First check the `Commands:` line of this chat: if nothing here runs commands, say so and give the files to run elsewhere |
-| Data from the web | A Page cannot fetch. Get the data with your web tools and write it to a file next to the page |
+| Data from the web | A Page cannot reach the network. Get the data with your web tools and write it to a file next to the page; the page reads it with `fetch('data.json')` |
 
 If the user asked explicitly for Python, Node or another language, do that and skip this skill.
 
 ## What a Page is
 
 - Folder `/workspace/home/pages/<name>/`. The name is lowercase letters, digits and dashes, starting with a letter or digit, at most 64 characters (`reading-tracker`).
-- `index.html` is required, at most 1 MiB. Put the markup, style and script in this one file. Split into more files only when it grows past what you can keep right.
+- `index.html` is required, at most 1 MiB. One file with the markup, style and script is simplest. Split into `app.js`, `style.css` or ES modules next to it only when it grows past what you can keep right; LocalAI puts those files into the page before it runs.
 - `page.json` is optional: `{"title": "Reading tracker", "icon": "book", "description": "Books to read, with a rating"}`. The icon is one plain lowercase word. Always write it: the title is what the user sees in the list.
 - Data files sit next to `index.html`, any name, any subfolder (`books.json`). Text only, at most 1 MiB each. Keep data in JSON, so you can read and change it in a chat later.
 
@@ -30,7 +30,9 @@ If the user asked explicitly for Python, Node or another language, do that and s
 
 The page runs in a frame with no network and no access to LocalAI or other files.
 
-- No `fetch`, no `XMLHttpRequest`, no WebSocket, no CDN, no external script, style, font or image. Images only as `data:` URLs. Write plain JavaScript with no build step and no packages.
+- Files next to the page work with relative URLs: `fetch('data.json')` and `XMLHttpRequest` (GET only, text and JSON; a missing file is a 404 response), `<script src="app.js">`, `<link rel="stylesheet" href="style.css">`, `<script type="module">` with `import './x.js'`, and small images (`<img src="logo.png">`, CSS `url()`; png, jpg, gif, webp, svg; 2 MiB of images in all).
+- Nothing else is reachable: no `https://` URL, no CDN, no packages (`import 'react'`), no WebSocket, no file outside the page's folder (`../`), no fonts from files. A remote `fetch` fails with "network is off in pages". Write plain JavaScript with no build step.
+- To save, use `localai.files.write`; `fetch` only reads.
 - No `<form>` submit (it does nothing). Handle the button click and the Enter key.
 - No `localStorage` as the only copy of the data. Save to a file with `localai.files.write`; that is the copy the user and you can see.
 - A page cannot write its own `index.html` or `page.json`.
@@ -39,7 +41,7 @@ The page runs in a frame with no network and no access to LocalAI or other files
 
 `window.localai` is already there. Every call returns a promise. Paths are relative to the page's own folder.
 
-- `localai.files.read(path)` gives `{path, content, version, size}`.
+- `localai.files.read(path)` gives `{path, content, version, size}`. A failed call rejects with an error that has `status` (404 for a missing file).
 - `localai.files.write(path, content)` gives `{path, version, size}`. It creates folders. Writes are limited (a burst of 20, then one every 2 seconds), so save after a short pause, not on each key.
 - `localai.files.list(dir)` gives `[{path, kind, size, version}]`.
 - `localai.on('files.changed', fn)` calls `fn({paths})` when a file of the folder changes, and `fn({paths: [], resync: true})` when it cannot tell what: read again. It returns a function that removes the listener. Your own writes come back too.

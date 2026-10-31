@@ -161,6 +161,7 @@ export default function SharedPageView() {
   const frame = run ? { hash: run.hash, token: run.token } : null
   const files = useMemo(() => (frame ? {
     read: (path) => sharedPagesApi.read(folder, name, frame, path),
+    readImage: (path) => sharedPagesApi.readImage(folder, name, frame, path),
     write: (path, content, base) => sharedPagesApi.write(folder, name, frame, path, content, base),
     list: async (dir) => (await sharedPagesApi.files(folder, name, frame, dir)).entries || [],
   } : null), [folder, name, frame?.hash, frame?.token]) // eslint-disable-line react-hooks/exhaustive-deps

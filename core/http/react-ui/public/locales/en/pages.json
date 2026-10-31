@@ -169,5 +169,10 @@
     "sourceLines_one": "{{count}} line",
     "sourceLines_other": "{{count}} lines",
     "sourceNote": "The source is shown as text. Nothing in it runs here."
+  },
+  "frame": {
+    "filesFailed": "Files next to this page did not load: {{files}}. The browser console says why.",
+    "tooLarge": "This page puts more than {{limit}} of files from its folder into itself, so some were left out. Load data with fetch() instead.",
+    "dismiss": "Dismiss"
   }
 }

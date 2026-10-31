@@ -3,9 +3,10 @@ import { test, expect } from './coverage-fixtures.js'
 // Pages of shared folders against the real test server started with
 // --shared-pages-fixture: /shared/team (read-only for the viewer, written by
 // "luca") has the pages standup and releases (allowed in an earlier version),
-// /shared/board (writable) has the page board. Nothing of a shared page runs
-// before the trust sheet; the bridge works only with the consent, with the
-// viewer's own grant; a revoke and the administrator's switch stop it.
+// /shared/board (writable) has the pages board and digest (split into
+// files). Nothing of a shared page runs before the trust sheet; the bridge
+// works only with the consent, with the viewer's own grant; a revoke and the
+// administrator's switch stop it.
 
 test.describe.configure({ mode: 'serial', timeout: 90_000 })
 
@@ -22,7 +23,7 @@ const pathOf = (name) => {
 
 test.beforeAll(async ({ request }) => {
   pages = (await api(request, '/api/chats/shared-pages')).pages
-  expect(pages.map(p => p.name).sort()).toEqual(['board', 'releases', 'standup'])
+  expect(pages.map(p => p.name).sort()).toEqual(['board', 'digest', 'releases', 'standup'])
   // A run before this one may have allowed them; releases keeps the consent
   // the fixture gave it.
   for (const p of pages.filter(x => x.name !== 'releases')) await request.delete(`/api/chats/shared-pages/${p.folder_id}/${p.name}/consent`)
@@ -171,4 +172,23 @@ test('an administrator switches shared pages off: the list says so and a page do
   } finally {
     await page.request.post('/api/settings', { data: { shared_pages_enabled: true } })
   }
+})
+
+test('a shared page split into files runs with the consent and rights of the viewer, inside its folder only', async ({ page }) => {
+  const digest = pages.find((p) => p.name === 'digest')
+  const reads = []
+  page.on('request', (r) => { if (r.url().includes('/digest/file?')) reads.push({ url: decodeURIComponent(r.url()), hash: r.headers()['x-localai-page-hash'] || '' }) })
+  await page.goto(pathOf('digest'))
+  await expect(page.getByTestId('trust-sheet')).toBeVisible()
+  expect(reads, 'nothing of the page is read before the consent').toEqual([])
+  await page.getByTestId('trust-allow').click()
+  const f = frame(page)
+  await expect(f.locator('#data')).toHaveText('7', { timeout: 15_000 })
+  await expect(f.locator('#out')).toHaveText(/^refused: .*outside the page's folder/)
+  expect(await f.locator('#h').evaluate((el) => getComputedStyle(el).color)).toBe('rgb(1, 2, 3)')
+  expect(await f.locator('#dot').evaluate((img) => img.naturalWidth)).toBe(8)
+  expect(reads.length).toBeGreaterThan(0)
+  expect(reads.every((r) => r.hash === digest.hash), JSON.stringify(reads)).toBeTruthy()
+  expect(reads.some((r) => r.url.includes('path=dot.svg') && r.url.includes('encoding=base64'))).toBeTruthy()
+  expect(reads.some((r) => r.url.includes('board'))).toBeFalsy()
 })

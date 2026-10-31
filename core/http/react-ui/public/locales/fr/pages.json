@@ -122,5 +122,10 @@
     "sourceLines_one": "{{count}} ligne",
     "sourceLines_other": "{{count}} lignes",
     "sourceNote": "La source est affichée comme du texte. Rien ne s’y exécute ici."
+  },
+  "frame": {
+    "filesFailed": "Des fichiers à côté de cette page ne se sont pas chargés : {{files}}. La console du navigateur indique pourquoi.",
+    "tooLarge": "Cette page intègre plus de {{limit}} de fichiers de son dossier, certains ont donc été omis. Chargez plutôt les données avec fetch().",
+    "dismiss": "Fermer"
   }
 }
