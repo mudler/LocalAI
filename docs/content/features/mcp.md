@@ -204,6 +204,8 @@ Agent-scoped MCP servers are configured per agent, not in a model YAML:
 - **In the web UI:** open the **Agents** page, edit an agent, and fill in its **MCP Servers** (remote HTTP servers) and **MCP STDIO Servers** (local command servers) fields. The JSON shape is the same `mcpServers` map used above.
 - **In an agent config (JSON):** the agent stores remote servers under `mcp_servers` and local command servers under `mcp_stdio_servers`, so an exported/imported agent carries its MCP servers with it.
 
+For remote agent-scoped servers, LocalAI tries Streamable HTTP first. It retries with legacy SSE only if the initial POST returns HTTP 400, 404, or 405. Both attempts share a 60-second discovery timeout per server. An earlier cancellation of the agent stops discovery. The discovery timeout does not limit the lifetime of an established session.
+
 An agent-scoped MCP server that is unreachable is a common reason an imported agent's tool "times out or is unavailable"; see the checklist in {{% relref "getting-started/first-agent" %}}.
 
 ## Usage
