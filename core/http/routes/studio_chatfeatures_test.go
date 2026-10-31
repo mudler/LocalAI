@@ -288,7 +288,7 @@ var _ = Describe("Chats context meter", func() {
 		llm := &fakeLLM{}
 		s := newLLMStudioServer(llm)
 		id := s.create("alice")
-		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"settings": map[string]any{"context_size": 4096}}).Code).To(Equal(http.StatusOK))
+		Expect(s.do("alice", http.MethodPatch, "/api/chats/"+id, map[string]any{"settings": map[string]any{"context_size": 16384}}).Code).To(Equal(http.StatusOK))
 		events := s.readEvents("alice", id, func() {
 			defer GinkgoRecover()
 			s.do("alice", http.MethodPost, "/api/chats/"+id+"/messages", map[string]any{"text": "count me"})
@@ -302,7 +302,7 @@ var _ = Describe("Chats context meter", func() {
 		}
 		Expect(usage).NotTo(BeNil(), "no usage event in %v", events)
 		Expect(usage).To(HaveKeyWithValue("used", BeNumerically("==", 100)))
-		Expect(usage).To(HaveKeyWithValue("limit", BeNumerically("==", 4096)))
+		Expect(usage).To(HaveKeyWithValue("limit", BeNumerically("==", 16384)))
 		Expect(usage).To(HaveKeyWithValue("completion", BeNumerically("==", 10)))
 		Expect(usage).To(HaveKeyWithValue("tokens_per_second", BeNumerically("==", 20)))
 	})
