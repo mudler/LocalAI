@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -86,22 +87,37 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 	defer cancel()
 
 	now := s.now().UTC()
-	created := false
+	info := s.chatTurn(ctx, owner.Principal, owner.ID)
+	created, stale := false, false
 	err := s.d.Store.UpdateEgress(ctx, owner.Principal, owner.ID, func(st *egress.ChatState) error {
+		// A pending card nobody waits on (its turn is over, or a frontend
+		// that died left it) expires here: it neither takes a place of the
+		// cap nor gets a second connection to wait on it.
+		_, live := s.liveEgress(*st, info)
 		for _, c := range st.Pending() {
+			if !slices.ContainsFunc(live, func(l egress.Card) bool { return l.ID == c.ID }) {
+				c.State, c.AnsweredAt = egress.CardExpired, now
+				st.PutCard(c)
+				stale = true
+			}
+		}
+		for _, c := range live {
 			if c.Host == r.Host && c.Port == r.Port {
 				want.Store(c.ID)
 				return nil
 			}
 		}
-		if len(st.Pending()) >= egress.MaxPendingCards {
+		if len(live) >= egress.MaxPendingCards {
 			return errEgressCardsFull
 		}
 		st.PutCard(egress.Card{ID: want.Load().(string), Host: r.Host, Port: r.Port, Kind: r.Kind, State: egress.CardPending,
-			Private: r.Private || isPrivateLiteral(r.Host), Op: op, AskedAt: now})
+			Private: r.Private || isPrivateLiteral(r.Host), Op: op, Turn: consentTurn(info), AskedAt: now})
 		created = true
 		return nil
 	})
+	if stale {
+		s.publishEgress(owner.Principal, owner.ID, "")
+	}
 	switch {
 	case errors.Is(err, errEgressCardsFull):
 		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCardsFull}

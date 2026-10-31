@@ -992,6 +992,9 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 		}
 	})
 	end := func() { stopBeat(); stopListening() }
+	// The cards still pending in the record belong to an earlier turn, whose
+	// frontend may have died: nobody waits on them any more.
+	s.expireConsents(ctx, p, conv, "")
 	s.mu.Lock()
 	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
 	s.mu.Unlock()
@@ -1051,6 +1054,9 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 	reaped, err := s.d.Store.ReapTurns(ctx, time.Now().Add(-olderThan))
 	for _, r := range reaped {
 		k := key(r.Principal, r.ChatID)
+		// The frontend that ran the turn is gone; so are the waiters of its
+		// cards.
+		s.expireConsents(ctx, r.Principal, r.ChatID, r.RunID)
 		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
 		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
 	}

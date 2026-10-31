@@ -193,6 +193,65 @@ var _ = Describe("the network cards of a chat", func() {
 		Expect(v.Action).NotTo(Equal(egress.Allow), "and keeps it for itself")
 	})
 
+	Describe("cards left by a frontend that died mid-turn", func() {
+		// leave stores three pending cards of the turn "dead", as a frontend
+		// that crashed while its connections waited leaves them.
+		leave := func() {
+			Expect(st.ClaimTurn(ctx, alice, id, "dead")).To(Succeed())
+			Expect(st.UpdateEgress(ctx, alice, id, func(s *egress.ChatState) error {
+				for _, h := range []string{"a.example", "b.example", "c.example"} {
+					s.PutCard(egress.Card{ID: "dead-" + h, Host: h, Port: 443, Kind: egress.KindConnect, State: egress.CardPending, Op: "old", Turn: "dead", AskedAt: time.Now()})
+				}
+				return nil
+			})).To(Succeed())
+		}
+
+		It("do not count toward the cap of the next turn, read as expired, and expire for good when the next card is asked", func() {
+			leave()
+			// The claim of the dead turn ended without the turn-end path (an
+			// older reaper, a store restored by hand); another turn holds the
+			// chat now.
+			Expect(st.ReleaseTurn(ctx, alice, id, "dead", store.TurnInterrupted)).To(Succeed())
+			Expect(st.ClaimTurn(ctx, alice, id, "next")).To(Succeed())
+
+			v, err := svc.Egress(ctx, alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(v.Cards).To(HaveEach(HaveField("State", egress.CardExpired)), "the view shows them as not answered")
+
+			got := checkAsync(svc, alice, rid, "op1", tlsTo("d.example"))
+			var rec session.ChatRecord
+			Eventually(func() []egress.Card {
+				rec, _ = st.GetChat(ctx, alice, id)
+				return rec.Egress.Pending()
+			}, 5*time.Second, 10*time.Millisecond).Should(ConsistOf(SatisfyAll(HaveField("Host", "d.example"), HaveField("Turn", "next"))),
+				"a new card, not cards-full, and the dead cards expired in the record")
+			card := rec.Egress.Pending()[0]
+			Expect(svc.EgressDecide(ctx, alice, id, card.ID, studio.EgressChat)).To(Succeed())
+			Expect((<-got).v.Action).To(Equal(egress.Allow))
+			Expect(svc.EgressDecide(ctx, alice, id, "dead-a.example", studio.EgressOnce)).To(Succeed(), "a dead card can still be answered late")
+		})
+
+		It("expire when the reaper ends the dead turn", func() {
+			leave()
+			n, err := svc.ReapStale(ctx, 0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(1))
+			rec, _ := st.GetChat(ctx, alice, id)
+			Expect(rec.Egress.Cards).To(HaveLen(3))
+			Expect(rec.Egress.Pending()).To(BeEmpty())
+		})
+
+		It("expire when the next turn starts", func() {
+			leave()
+			Expect(st.ReleaseTurn(ctx, alice, id, "dead", store.TurnInterrupted)).To(Succeed())
+			sent(svc, alice, id, "hi")
+			Eventually(func() int {
+				rec, _ := st.GetChat(ctx, alice, id)
+				return len(rec.Egress.Pending())
+			}, 5*time.Second).Should(BeZero())
+		})
+	})
+
 	It("refuses a waiting card when the ceiling goes down", func() {
 		got := checkAsync(svc, alice, rid, "op1", tlsTo("example.com"))
 		card := waitCard(st, alice, id)

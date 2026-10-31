@@ -111,13 +111,16 @@ const (
 
 // Card asks the person whether a command of the chat may reach one host.
 type Card struct {
-	ID         string    `json:"id"`
-	Host       string    `json:"host"`
-	Port       int       `json:"port"`
-	Kind       string    `json:"kind"`
-	State      string    `json:"state"`
-	Private    bool      `json:"private,omitempty"` // only an administrator may allow it
-	Op         string    `json:"op,omitempty"`      // the call that asked
+	ID      string `json:"id"`
+	Host    string `json:"host"`
+	Port    int    `json:"port"`
+	Kind    string `json:"kind"`
+	State   string `json:"state"`
+	Private bool   `json:"private,omitempty"` // only an administrator may allow it
+	Op      string `json:"op,omitempty"`      // the call that asked
+	// Turn is the turn that asked. A card waits only while that turn holds
+	// the chat; one left by a frontend that died is not pending any more.
+	Turn       string    `json:"turn,omitempty"`
 	ToolSeq    int64     `json:"tool_seq,omitempty"`
 	AskedAt    time.Time `json:"asked_at"`
 	AnsweredAt time.Time `json:"answered_at,omitempty"`
