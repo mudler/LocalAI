@@ -181,7 +181,7 @@ settings bypasses this automatic default.
 | `--oidc-client-id` | | OIDC Client ID (auto-enables auth when set) | `$LOCALAI_OIDC_CLIENT_ID` |
 | `--oidc-client-secret` | | OIDC Client Secret | `$LOCALAI_OIDC_CLIENT_SECRET` |
 | `--auth-base-url` | | Base URL for OAuth callbacks (e.g. `http://localhost:8080`) | `$LOCALAI_BASE_URL` |
-| `--auth-admin-email` | | Email address to auto-promote to admin role on login | `$LOCALAI_ADMIN_EMAIL` |
+| `--auth-admin-email` | | Verified OAuth/OIDC email address to auto-promote; does not reserve bootstrap admin (the first account is admin) | `$LOCALAI_ADMIN_EMAIL` |
 | `--auth-registration-mode` | `open` | Registration mode: `open`, `approval`, or `invite` | `$LOCALAI_REGISTRATION_MODE` |
 | `--disable-local-auth` | `false` | Disable local email/password registration and login (for OAuth/OIDC-only setups) | `$LOCALAI_DISABLE_LOCAL_AUTH` |
 

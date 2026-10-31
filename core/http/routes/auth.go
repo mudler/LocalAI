@@ -349,12 +349,16 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 				return nil
 			}
 
-			role := auth.AssignRole(tx, body.Email, appConfig.Auth.AdminEmail)
+			// Local registration proves control of a password, not of the email
+			// address. Only verified OAuth/OIDC claims may use AdminEmail for role
+			// assignment; otherwise anyone could register the configured address
+			// and become an administrator.
+			role := auth.AssignRole(tx, body.Email, "")
 
 			// Determine status based on registration mode and invite code
 			status = auth.StatusActive
 
-			if auth.NeedsInviteOrApproval(tx, body.Email, appConfig.Auth.AdminEmail, appConfig.Auth.RegistrationMode) {
+			if auth.NeedsInviteOrApproval(tx, body.Email, "", appConfig.Auth.RegistrationMode) {
 				if appConfig.Auth.RegistrationMode == "invite" && body.InviteCode == "" {
 					return fmt.Errorf("invite_required")
 				}
@@ -465,9 +469,6 @@ func RegisterAuthRoutes(e *echo.Echo, app *application.Application) {
 		if user.Status == auth.StatusPending {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "account pending admin approval"})
 		}
-
-		// Maybe promote on login
-		auth.MaybePromote(db, &user, appConfig.Auth.AdminEmail)
 
 		sessionID, err := auth.CreateSession(db, user.ID, appConfig.Auth.APIKeyHMACSecret)
 		if err != nil {

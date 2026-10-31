@@ -183,7 +183,7 @@ type RunCMD struct {
 	OIDCClientID         string `env:"LOCALAI_OIDC_CLIENT_ID" help:"OIDC Client ID (auto-enables auth)" group:"auth"`
 	OIDCClientSecret     string `env:"LOCALAI_OIDC_CLIENT_SECRET" help:"OIDC Client Secret" group:"auth"`
 	ExternalBaseURL      string `env:"LOCALAI_BASE_URL" help:"External base URL of this instance (e.g. https://localhost:8080). Used for OAuth callbacks and self-referential links (generated images/videos, job status). When unset, derived from X-Forwarded-Proto/Host or Forwarded headers." group:"api"`
-	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Email address to auto-promote to admin role" group:"auth"`
+	AuthAdminEmail       string `env:"LOCALAI_ADMIN_EMAIL" help:"Verified OAuth/OIDC email address to auto-promote; does not reserve bootstrap admin (the first account is admin)" group:"auth"`
 	AuthRegistrationMode string `env:"LOCALAI_REGISTRATION_MODE" default:"open" help:"Registration mode: 'open' (default), 'approval', or 'invite' (invite code required)" group:"auth"`
 	DisableLocalAuth     bool   `env:"LOCALAI_DISABLE_LOCAL_AUTH" default:"false" help:"Disable local email/password registration and login (use with OAuth/OIDC-only setups)" group:"auth"`
 	AuthAPIKeyHMACSecret string `env:"LOCALAI_AUTH_HMAC_SECRET" help:"HMAC secret for API key hashing (auto-generated if empty)" group:"auth"`

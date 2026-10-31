@@ -343,7 +343,7 @@ type AuthConfig struct {
 	OIDCIssuer          string // OIDC issuer URL for auto-discovery (e.g. https://accounts.google.com)
 	OIDCClientID        string
 	OIDCClientSecret    string
-	AdminEmail          string // auto-promote to admin on login
+	AdminEmail          string // auto-promote a verified OAuth/OIDC email on login
 	RegistrationMode    string // "open", "approval" (default when empty), "invite"
 	DisableLocalAuth    bool   // disable local email/password registration and login
 	APIKeyHMACSecret    string // HMAC secret for API key hashing; auto-generated if empty
