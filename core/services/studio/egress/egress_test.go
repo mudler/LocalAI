@@ -185,7 +185,10 @@ var _ = Describe("the registries list", func() {
 	})
 
 	It("describes the presets to the model", func() {
-		Expect(egress.Describe(egress.PresetRegistries, reg)).To(ContainSubstring("Python (PyPI)"))
-		Expect(egress.Describe(egress.PresetOff, reg)).To(HavePrefix("Network for commands: off."))
+		Expect(egress.Describe(egress.PresetRegistries, reg, true)).To(ContainSubstring("Python (PyPI)"))
+		Expect(egress.Describe(egress.PresetOff, reg, true)).To(HavePrefix("Network for commands: off."))
+		Expect(egress.Describe(egress.PresetOff, reg, true)).To(ContainSubstring("A blocked host asks the user"))
+		Expect(egress.Describe(egress.PresetOff, reg, false)).NotTo(ContainSubstring("asks the user"))
+		Expect(egress.Describe(egress.PresetOff, reg, false)).To(ContainSubstring("nothing asks the user"))
 	})
 })

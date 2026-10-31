@@ -76,10 +76,17 @@ func (s *Service) now() time.Time {
 // parent's for a sub-agent, its agent's for an unattended run) under the
 // ceiling.
 func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord) string {
+	set := s.egressSettings()
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	preset := egress.PresetOff
 	if err == nil {
-		preset = egress.Min(pol.chat.Preset, s.egressSettings().Ceiling)
+		preset = egress.Min(pol.chat.Preset, set.Ceiling)
 	}
-	return egress.Describe(preset, egress.BuiltinRegistries())
+	// A card appears only in a chat a person watches (not an unattended run
+	// or a sub-agent), and only for a host the ceiling admits beyond the
+	// preset: a wider ceiling, or a private host with the private switch on.
+	attended := rec.Origin == "" && rec.Kind != session.KindSubAgent
+	ceiling := egress.Min(set.Ceiling, egress.PresetAll)
+	asks := attended && ceiling != egress.PresetOff && (ceiling.Rank() > preset.Rank() || set.AllowPrivate)
+	return egress.Describe(preset, egress.BuiltinRegistries(), asks)
 }

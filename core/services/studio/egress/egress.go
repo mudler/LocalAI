@@ -448,13 +448,20 @@ func Admits(s Settings, r Request, reg *Registries) bool {
 }
 
 // Describe is the one line the model reads about the network of its commands.
-func Describe(p Preset, reg *Registries) string {
+// asks says whether a blocked host can raise a card that a person answers:
+// only in a chat a person watches, under a ceiling wider than the chat's
+// preset. Without it the model is told to ask the user in its answer, since
+// no card can appear.
+func Describe(p Preset, reg *Registries, asks bool) string {
+	tail := " A blocked host asks the user; do not try to get around the proxy."
+	if !asks {
+		tail = " A blocked host is refused, and nothing asks the user; say which host you need in your answer, and do not try to get around the proxy."
+	}
 	switch normal(p) {
 	case PresetRegistries:
-		return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") +
-			"). A blocked host asks the user; do not try to get around the proxy."
+		return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") + ")." + tail
 	case PresetAll:
-		return "Network for commands: all public sites, through the proxy the sandbox sets. A blocked host asks the user; do not try to get around the proxy."
+		return "Network for commands: all public sites, through the proxy the sandbox sets." + tail
 	}
-	return "Network for commands: off. A blocked host asks the user; do not try to get around the proxy."
+	return "Network for commands: off." + tail
 }
