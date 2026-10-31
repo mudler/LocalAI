@@ -103,7 +103,7 @@ var _ = Describe("triggersrestart", func() {
 		leader.waitEnded(tr.ID)
 		select {
 		case n := <-ch:
-			if n.Kind != notify.KindRunEnded || n.Principal != "" && n.Principal != alice {
+			if n.Kind != notify.KindRunEnded || n.Source != notify.SourceTrigger || n.Principal != "" && n.Principal != alice {
 				Fail(fmt.Sprintf("notification = %+v", n))
 			}
 		case <-time.After(10 * time.Second):

@@ -4378,6 +4378,8 @@ definitions:
         type: string
       read:
         type: boolean
+      source:
+        type: string
       status:
         type: string
       title:

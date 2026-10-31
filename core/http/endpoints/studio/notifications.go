@@ -16,7 +16,7 @@ const (
 )
 
 func notificationOut(n notify.Notification) schema.ChatsNotification {
-	return schema.ChatsNotification{ID: n.ID, Kind: n.Kind, Status: n.Status, Title: n.Title, Body: n.Body, Link: n.Link, Read: n.Read, Created: n.Created}
+	return schema.ChatsNotification{ID: n.ID, Kind: n.Kind, Status: n.Status, Source: n.Source, Title: n.Title, Body: n.Body, Link: n.Link, Read: n.Read, Created: n.Created}
 }
 
 // ListNotifications lists the inbox.

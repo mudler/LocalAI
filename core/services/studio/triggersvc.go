@@ -656,7 +656,7 @@ func (h *Triggers) tell(ctx context.Context, t triggers.Trigger, chatID, kind, s
 	if chatID != "" {
 		link = notify.ChatLink(chatID)
 	}
-	if _, err := h.svc.d.Notify.Add(ctx, notify.Notification{Principal: t.Owner, Kind: kind, Status: status, Title: title, Body: body, Link: link}); err != nil {
+	if _, err := h.svc.d.Notify.Add(ctx, notify.Notification{Principal: t.Owner, Kind: kind, Status: status, Source: notify.SourceTrigger, Title: title, Body: body, Link: link}); err != nil {
 		h.log.Warn("studio: could not add a notification", "error", err)
 	}
 }

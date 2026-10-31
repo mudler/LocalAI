@@ -14,6 +14,7 @@ type notificationRow struct {
 	Principal string `gorm:"index:idx_studio_notifications_user,priority:1;size:255;not null"`
 	Kind      string `gorm:"size:32"`
 	Status    string `gorm:"size:16"`
+	Source    string `gorm:"size:16"`
 	Title     string
 	Body      string
 	Link      string `gorm:"size:512;index:idx_studio_notifications_link,priority:2"`
@@ -37,7 +38,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 }
 
 func (s *gormStore) Add(ctx context.Context, n Notification) (int64, error) {
-	row := notificationRow{Principal: n.Principal, Kind: n.Kind, Status: n.Status, Title: n.Title, Body: n.Body, Link: n.Link, Created: n.Created}
+	row := notificationRow{Principal: n.Principal, Kind: n.Kind, Status: n.Status, Source: n.Source, Title: n.Title, Body: n.Body, Link: n.Link, Created: n.Created}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
 			return err
@@ -73,7 +74,7 @@ func (s *gormStore) List(ctx context.Context, principal string, unreadOnly bool,
 	}
 	out := make([]Notification, len(rows))
 	for i, r := range rows {
-		out[i] = Notification{ID: r.ID, Principal: r.Principal, Kind: r.Kind, Status: r.Status, Title: r.Title,
+		out[i] = Notification{ID: r.ID, Principal: r.Principal, Kind: r.Kind, Status: r.Status, Source: r.Source, Title: r.Title,
 			Body: r.Body, Link: r.Link, Read: r.IsRead, Created: r.Created}
 	}
 	return out, nil
