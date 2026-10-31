@@ -89,7 +89,7 @@ func (e *env) read(rel string) string {
 	abs, _ := e.f.Abs("alice", rel)
 	r, _, err := e.f.Store().Open(context.Background(), e.f.Actor("alice"), abs)
 	Expect(err).NotTo(HaveOccurred(), rel)
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	b := new(strings.Builder)
 	buf := make([]byte, 4096)
 	for {

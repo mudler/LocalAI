@@ -502,7 +502,7 @@ func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs strin
 	if err != nil {
 		return "", err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if ix := s.textIndex(); ix != nil {
 		if e, err := ix.Store().Get(ctx, n.ID); err == nil && e.Hash == n.Blob {
 			switch e.Status {
@@ -559,7 +559,7 @@ func (s *Service) readText(ctx context.Context, a workspace.Actor, abs string, m
 	if err != nil {
 		return "", workspace.Node{}, err
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 	if n.Size > max {
 		return "", n, fmt.Errorf("the file is %d bytes, which is too large to read as text", n.Size)
 	}

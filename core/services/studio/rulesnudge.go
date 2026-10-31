@@ -165,12 +165,12 @@ func (n *rulesNudge) wrap(tools []session.Tool) []session.Tool {
 	if n == nil {
 		return tools
 	}
-	for i, t := range tools {
-		dirs := rulesTools[t.Name]
+	for i, tool := range tools {
+		dirs := rulesTools[tool.Name]
 		if dirs == nil {
 			continue
 		}
-		run, name := t.Run, t.Name
+		run, name := tool.Run, tool.Name
 		tools[i].Run = func(ctx context.Context, raw json.RawMessage) (string, error) {
 			out, err := run(ctx, raw)
 			if err != nil {

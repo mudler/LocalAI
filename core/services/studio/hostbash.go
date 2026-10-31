@@ -117,13 +117,13 @@ func (s *Service) buildHostBash(_ context.Context, c builtins.Chat) (session.Too
 			return session.Tool{}, false, "only an administrator can allow commands on this machine"
 		}
 	}
-	t := s.d.HostExec.Tool(c.Actor)
+	tool := s.d.HostExec.Tool(c.Actor)
 	a := c.Actor
-	run := s.withCommandFiles(a, t.Run)
-	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+	run := s.withCommandFiles(a, tool.Run)
+	tool.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
 		return s.runHostBash(ctx, a, run, args)
 	}
-	return t, true, ""
+	return tool, true, ""
 }
 
 // runHostBash runs one call, after the card when the mode asks for one.

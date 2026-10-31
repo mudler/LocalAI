@@ -139,7 +139,7 @@ func (h *Triggers) ResolveTrigger(ctx context.Context, user, ref string) (trigge
 // it is on, not when it was armed or how a proposal of it was answered.
 func stamp(t triggers.Trigger) string {
 	h := sha256.New()
-	fmt.Fprintf(h, "%q|%q|%t|%s|%q|%q|%q|%d|%d|%q|%q|%d|%q|%q|%q|%d", t.Name, t.Prompt, t.Enabled, t.Kind, t.Schedule, t.TZ,
+	_, _ = fmt.Fprintf(h, "%q|%q|%t|%s|%q|%q|%q|%d|%d|%q|%q|%d|%q|%q|%q|%d", t.Name, t.Prompt, t.Enabled, t.Kind, t.Schedule, t.TZ,
 		t.Folder, t.Quiet, t.DailyCap, t.AgentID, t.Model, t.MinGap, t.Reads, t.Writes, t.Widget, t.EstTokens)
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }
