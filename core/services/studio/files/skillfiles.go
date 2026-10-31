@@ -101,6 +101,25 @@ func (s *Service) ReadAddonSkill(ctx context.Context, principal, addonID, name s
 	return s.readSkillAt(ctx, s.Actor(principal), AddonSkillsPath+"/"+addonID+"/"+name)
 }
 
+// ReadSkillFile returns the SKILL.md of the skill folder dir (a workspace path,
+// skills.Skill.Path) as principal reads it: the same bytes the file tools give
+// the model, at most skills.MaxFileSize of them.
+func (s *Service) ReadSkillFile(ctx context.Context, principal, dir string) (string, error) {
+	if !s.Available() {
+		return "", ErrUnavailable
+	}
+	r, _, err := s.ws.Open(ctx, s.Actor(principal), dir+"/"+skills.SkillFile)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = r.Close() }()
+	data, err := io.ReadAll(io.LimitReader(r, skills.MaxFileSize))
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 // readSkillAt reads the SKILL.md of the skill folder dir as actor.
 func (s *Service) readSkillAt(ctx context.Context, actor workspace.Actor, dir string) (description, body string, err error) {
 	r, _, err := s.ws.Open(ctx, actor, dir+"/"+skills.SkillFile)

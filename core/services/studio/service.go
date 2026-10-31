@@ -720,6 +720,12 @@ func (s *Service) Send(ctx context.Context, user, conv, text string) (SendResult
 // running they are saved at once and the message waits like any other, with
 // the paths in its text. With files off it is files.ErrUnavailable.
 func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
+	return s.sendWithFiles(ctx, user, conv, text, up, "", nil)
+}
+
+// sendWithFiles is SendWithFiles with the directive and the invocation of a
+// slash command (see SendCommand).
+func (s *Service) sendWithFiles(ctx context.Context, user, conv, text string, up []session.Upload, directive string, inv *session.Invocation) (SendResult, error) {
 	rec, err := s.d.Store.GetChat(ctx, principal(user), conv)
 	if err != nil {
 		return SendResult{}, err
@@ -748,7 +754,7 @@ func (s *Service) SendWithFiles(ctx context.Context, user, conv, text string, up
 	if err != nil {
 		return SendResult{}, err
 	}
-	return s.send(ctx, user, conv, session.Message{Text: text, Note: note, Files: up, Media: parts})
+	return s.send(ctx, user, conv, session.Message{Text: text, Note: note, Files: up, Media: parts, Directive: directive, Invoked: inv})
 }
 
 // joinPending puts waiting messages and msg, in that order, into one message:
@@ -812,6 +818,11 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 		}
 		return SendResult{Started: true}, nil
 	case errors.Is(err, store.ErrTurnRunning):
+		if msg.Directive != "" {
+			// A waiting message is plain text: the directive would reach the
+			// transcript as words the person did not write.
+			return SendResult{}, ErrCommandBusy
+		}
 		atts := msg.Attachments
 		if len(msg.Files) > 0 {
 			// The files are saved now, so the waiting message can carry their paths.

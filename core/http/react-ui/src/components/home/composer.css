@@ -142,6 +142,12 @@
 .home-slash__scroll { display: flex; flex-direction: column; gap: 2px; max-height: 300px; overflow: auto; overscroll-behavior: contain; }
 .home-slash .dk-cmd[aria-selected="true"] { background: var(--dk-hover); }
 .home-slash .dk-cmd-foot { margin-top: 2px; padding-bottom: var(--sp-2); }
+/* A row of the menu that comes from data (a skill) says where it comes from,
+   and a skill named like a command says how to reach it. */
+.home-slash .dk-cmd:has(> .home-slash__tags) { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.home-slash__tags { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.home-slash__badge { white-space: nowrap; }
+.home-slash__note { font-size: var(--fs-meta); color: var(--dk-muted); white-space: nowrap; }
 
 /* The message box sits on the card itself: no fill and no edge of its own.
    The card's focus edge says where typing goes. */
@@ -246,6 +252,9 @@
   .home-cmd__top > .home-pick { flex: 0 1 auto; }
   .home-cmd__top > :not(.home-pick) { flex: none; }
   .home-slash-hint { display: none; }
+  /* A phone row keeps the source badge and drops the Enter key and the note. */
+  .home-slash .dk-cmd-keys, .home-slash__note { display: none; }
+  .home-slash .dk-cmd:has(> .home-slash__tags) { grid-template-columns: auto minmax(0, 1fr) auto; }
   /* 16 px keeps a phone from zooming into the field. */
   .home-textarea { font-size: 16px; }
 }

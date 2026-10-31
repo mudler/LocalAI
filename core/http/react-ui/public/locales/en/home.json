@@ -241,7 +241,8 @@
     "studioInstall": {
       "label": "Install Studio",
       "desc": "Studio makes images, audio and video. It is an add-on"
-    }
+    },
+    "complete": "complete"
   },
   "strip": {
     "label": "Memory",

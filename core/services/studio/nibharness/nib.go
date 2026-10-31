@@ -357,6 +357,17 @@ func (h *hsession) Inject(text string) error {
 
 func (h *hsession) Interrupt() error { h.sess.Interrupt(); return nil }
 
+// Compact implements session.Compactor with the summary the loop makes when
+// the context fills up: the older part of the conversation becomes one summary
+// message and the last messages stay as they are. The sizes are the loop's own
+// estimates, the ones its automatic compaction reports.
+func (h *hsession) Compact(ctx context.Context) (before, after int, err error) {
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
+	}
+	return h.sess.CompactHistory()
+}
+
 func (h *hsession) Export() ([]byte, error) {
 	return json.Marshal(state{
 		History:   h.sess.ExportHistory(),
@@ -394,9 +405,10 @@ const noBuiltinTools = "studio-no-builtin-tools"
 // and the images are not rebuilt. It is what a chat gets after its transcript
 // was cut for a regenerate, an edit or a fork, so the model sees the part that
 // stays and nothing of the part that went.
+// The part before the last "context cleared" entry is left out.
 func TranscriptState(entries []session.Entry) ([]byte, error) {
 	var msgs []openai.ChatCompletionMessage
-	for _, e := range entries {
+	for _, e := range session.SinceCleared(entries) {
 		switch e.Role {
 		case session.RoleUser:
 			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: session.ModelText(e)})

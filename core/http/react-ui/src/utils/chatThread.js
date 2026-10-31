@@ -5,6 +5,8 @@
 //             the reasoning and tool lines that came just before it
 //   activity  reasoning and tool lines that no model message follows yet
 //   app       a tool call that has an MCP App, on a row of its own
+//   marker    where the person compacted (marker 'compacted', with before
+//             and after) or cleared (marker 'cleared') the model's context
 //
 // A tool call with an app keeps the key chatLive gives it (tool-<seq>) in the
 // transcript and in the live turn, so its frame is not reloaded when the turn
@@ -46,6 +48,11 @@ export function threadRows(messages, live) {
     if (m.role === 'assistant') {
       rows.push({ kind: 'msg', key: `m-${m.seq}`, msg: m, activity: buf.length > 0 ? buf : null })
       buf = []
+      continue
+    }
+    if (m.role === 'compacted' || m.role === 'cleared') {
+      flush(m.seq)
+      rows.push({ kind: 'marker', key: `k-${m.seq}`, marker: m.role, before: m.before || 0, after: m.after || 0 })
       continue
     }
     if (m.role === 'user') {
@@ -112,6 +119,12 @@ function userMarkdown(m) {
   return parts.join('\n\n')
 }
 
+// The command a message was sent with, as one line.
+function invokedMarkdown(m) {
+  if (!m.invoked?.name) return ''
+  return `_${m.invoked.kind === 'agent' ? 'Agent' : 'Skill'}: ${m.invoked.name}_\n\n`
+}
+
 // The chat as Markdown: its title, model and date, then every message. Tool
 // lines show their first line only.
 export function chatMarkdown(chat, messages) {
@@ -121,7 +134,9 @@ export function chatMarkdown(chat, messages) {
   if (created && !Number.isNaN(created.getTime())) md += `Date: ${created.toLocaleString()}\n`
   md += '\n---\n\n'
   for (const m of messages || []) {
-    if (m.role === 'user') md += `## User\n\n${userMarkdown(m)}\n\n`
+    if (m.role === 'user') md += `## User\n\n${invokedMarkdown(m)}${userMarkdown(m)}\n\n`
+    else if (m.role === 'cleared') md += '---\n\n_Context cleared._\n\n'
+    else if (m.role === 'compacted') md += `_Context compacted: ${m.before || 0} to ${m.after || 0} tokens._\n\n`
     else if (m.role === 'assistant') md += `## Assistant\n\n${m.text || ''}\n\n`
     else if (m.role === 'reasoning') md += `<details><summary>Thinking</summary>\n\n${m.text || ''}\n\n</details>\n\n`
     else if (m.role === 'tool') md += `> Tool: ${String(m.text || '').split('\n')[0]}\n\n`

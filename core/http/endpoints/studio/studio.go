@@ -120,6 +120,9 @@ var chatRules = []errRule{
 	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "an attachment is too large", workspace.ErrTooLarge),
 	fixed(http.StatusConflict, typeConflict, "a sub-agent conversation takes no messages from you", studiosvc.ErrSubAgentReadOnly),
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrNoModel),
+	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrBadCommand),
+	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrCommandBusy),
+	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToCompact, studiosvc.ErrNothingToClear, studiosvc.ErrCannotCompact),
 	fixed(http.StatusNotFound, typeNotFound, "agent not found", agents.ErrNotFound),
 	fixed(http.StatusConflict, typeConflict, "you already have an agent with this name", agents.ErrNameTaken),
 	verbatim(http.StatusBadRequest, typeInvalid, agents.ErrInvalid.Error()+": ", agents.ErrInvalid),
@@ -376,6 +379,12 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 		if e.Role == session.RoleCheckpoint {
 			m.Rev, m.Text = e.Rev, homePaths(principal, e.Text)
 		}
+		if e.Invoked != nil {
+			m.Invoked = &schema.ChatsInvocation{Kind: e.Invoked.Kind, Name: e.Invoked.Name, ID: e.Invoked.ID}
+		}
+		if e.Role == session.RoleCompacted {
+			m.Before, m.After, _ = session.ParseCompacted(e.Text)
+		}
 		out.Messages = append(out.Messages, m)
 	}
 	return out
@@ -386,7 +395,7 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 // @Description With no turn running the message starts one. With a turn running it waits and reaches the model, with any others, at its next request.
 // @Tags chats
 // @Param id path string true "conversation id"
-// @Description Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace. With a turn running the files are saved at once and the message waits like any other, with their paths in its text.
+// @Description Send JSON {"text"}, or multipart/form-data with a text field and files to attach. Files are saved in the chat's folder of your workspace. With a turn running the files are saved at once and the message waits like any other, with their paths in its text. With skill (a skill of the chat) or agent (a saved agent, when the chat has saved agents on) the message runs with that command; such a message does not wait for a running turn (409). An unknown skill or agent is a 400 that lists what the chat has.
 // @Accept json,mpfd
 // @Param request body schema.ChatsSendRequest true "the message"
 // @Param files formData file false "files to attach (multipart)"
@@ -399,6 +408,7 @@ func (h *Handlers) Send(c echo.Context) error {
 		text string
 		up   []session.Upload
 		refs []schema.ChatsMCPRef
+		cmd  studiosvc.Command
 	)
 	if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "multipart/form-data") {
 		c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxAttachBytes)
@@ -412,6 +422,12 @@ func (h *Handlers) Send(c echo.Context) error {
 		defer func() { _ = form.RemoveAll() }()
 		if v := form.Value["text"]; len(v) > 0 {
 			text = v[0]
+		}
+		if v := form.Value["skill"]; len(v) > 0 {
+			cmd.Skill = v[0]
+		}
+		if v := form.Value["agent"]; len(v) > 0 {
+			cmd.Agent = v[0]
 		}
 		if v := form.Value["context"]; len(v) > 0 {
 			var err error
@@ -433,15 +449,17 @@ func (h *Handlers) Send(c echo.Context) error {
 			return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
 		}
 		text, refs = req.Text, req.Context
+		cmd = studiosvc.Command{Skill: req.Skill, Agent: req.Agent}
 	}
-	if text == "" && len(up) == 0 && len(refs) == 0 {
+	cmd.Skill, cmd.Agent = strings.TrimSpace(cmd.Skill), strings.TrimSpace(cmd.Agent)
+	if text == "" && len(up) == 0 && len(refs) == 0 && cmd.Skill == "" {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "text is required")
 	}
 	var err error
 	if text, err = h.svc.WithMCPContext(c.Request().Context(), userID(c), c.Param("id"), text, mcpRefs(refs)); err != nil {
 		return failMCPContent(c, err)
 	}
-	res, err := h.svc.SendWithFiles(c.Request().Context(), userID(c), c.Param("id"), text, up)
+	res, err := h.svc.SendCommand(c.Request().Context(), userID(c), c.Param("id"), text, up, cmd)
 	if err != nil {
 		return failFor(c, err)
 	}
@@ -515,7 +533,7 @@ func (h *Handlers) Stop(c echo.Context) error {
 
 // Events streams the conversation's live events.
 // @Summary Stream a chat's events.
-// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit) and files. Events are live only; read the transcript for what came before.
+// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted (the context was compacted, by the chat or by POST compact; before and after are token counts), cleared (the context was cleared; read the transcript again), paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit) and files. Events are live only; read the transcript for what came before.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Produce text/event-stream

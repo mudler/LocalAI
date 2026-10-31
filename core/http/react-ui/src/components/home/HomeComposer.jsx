@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { useTranslation, Trans } from 'react-i18next'
-import { availableActions, filterActions, SLASH_GROUPS } from './homeActions'
+import { availableActions, SLASH_GROUPS } from './homeActions'
+import { filterCommands, slashQuery } from '../../utils/slashCommands'
 import Icon from '../Icon'
 // eslint-disable-next-line no-unused-vars
 import Button from '../ui/Button'
@@ -35,7 +36,11 @@ function Marked({ text, upto }) {
 // Home uses it as is. Chat uses the same bar and adds what a conversation
 // needs, all optional:
 //   chips        more chips after the MCP chip (the agent picker and the files chip)
-//   slash        { actions, groups, label, desc, groupLabel } for its own menu
+//   slash        { actions, groups, label, desc, groupLabel, ctx, argsLabel,
+//                argLabel, badgeLabel, noteLabel } for a menu of registry
+//                commands (utils/slashCommands.js); ctx goes to the argument
+//                providers
+//   onClearFiles empties the staged files ("/attach clear")
 //   streaming    swaps Send for a Stop button that calls onStop; with
 //                queueWhileStreaming, Send stays once there is text to queue
 //   onPaste, onKeyDownExtra (return true to take the key), fileAccept, rows,
@@ -55,34 +60,51 @@ export default function HomeComposer({
   streaming = false, onStop, stopTitle, onPaste, onKeyDownExtra,
   fileAccept = '.txt,.md,.pdf', rows = 3, strictEnter = false, testId = 'home-composer',
   textareaTestId, textareaClass = '', sendId, sendTestId, hint, onDictateError, extras,
-  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate, anyFile = false,
+  attachDisabled = false, attachTitle, fileTestId, queueWhileStreaming = false, onDictate, anyFile = false, onClearFiles,
 }) {
   const { t } = useTranslation('home')
   const imageRef = useRef(null)
   const audioRef = useRef(null)
   const fileRef = useRef(null)
-  const [active, setActive] = useState(0)
+  const [active, setActive] = useState(null)
   const [dismissed, setDismissed] = useState(false)
 
+  // The menu: the commands of the registry (utils/slashCommands.js) that the
+  // page passes in slash, or Home's own list when it passes none. "/cmd " of
+  // a command with an argument provider lists its arguments instead.
   const groupList = slash?.groups || SLASH_GROUPS
-  const labelOf = useCallback((a) => (slash ? slash.label(a) : t(`slash.${a.id}.label`)), [t, slash])
-  const descOf = (a) => (slash ? slash.desc(a) : t(`slash.${a.id}.desc`))
+  const labelOf = useCallback((a) => (a.label || (slash ? slash.label(a) : t(`slash.${a.id}.label`))), [t, slash])
+  const descOf = (a) => (a.label ? a.desc : (slash ? slash.desc(a) : t(`slash.${a.id}.desc`)))
   const groupLabel = (g) => (slash ? slash.groupLabel(g) : t(`slash.group.${g}`))
   const actions = useMemo(
     () => (slash ? slash.actions : availableActions(slashContext)),
     [slash, slashContext],
   )
-  // The menu belongs to a message that is only a command: it starts with a
-  // slash and holds no space. "/etc/hosts how do I..." is just a message.
-  const query = message.startsWith('/') && !/\s/.test(message) ? message.slice(1).toLowerCase() : null
-  const items = useMemo(
-    () => (query === null ? [] : filterActions(actions, query, labelOf, groupList)),
-    [query, actions, labelOf, groupList],
-  )
-  const open = query !== null && items.length > 0 && !dismissed
-  const safeActive = Math.min(active, Math.max(0, items.length - 1))
+  const sq = useMemo(() => slashQuery(message, actions), [message, actions])
+  const argCmd = sq?.mode === 'args' ? sq.command : null
+  const argQuery = sq?.mode === 'args' ? sq.query : ''
+  const [args, setArgs] = useState({ id: '', query: '', items: [] })
+  useEffect(() => {
+    if (!argCmd) return undefined
+    let live = true
+    Promise.resolve(argCmd.args(argQuery, slash?.ctx || {}))
+      .then((items) => { if (live) setArgs({ id: argCmd.id, query: argQuery, items: items || [] }) })
+      .catch(() => { if (live) setArgs({ id: argCmd.id, query: argQuery, items: [] }) })
+    return () => { live = false }
+  }, [argCmd, argQuery, slash?.ctx])
+  const items = useMemo(() => {
+    if (!sq) return []
+    if (sq.mode === 'commands') return filterCommands(actions, sq.query, labelOf, groupList)
+    return args.id === argCmd.id && args.query === argQuery ? args.items : []
+  }, [sq, actions, labelOf, groupList, args, argCmd, argQuery])
+  const query = sq?.mode === 'commands' ? sq.query : null
+  const open = sq !== null && items.length > 0 && !dismissed
+  // The row that starts selected: the first command whose name starts with
+  // what was typed, before those that only match by their label.
+  const preferred = query ? Math.max(0, items.findIndex((a) => a.cmd?.slice(1).toLowerCase().startsWith(query))) : 0
+  const safeActive = Math.min(active === null ? preferred : active, Math.max(0, items.length - 1))
 
-  useEffect(() => { setActive(0); setDismissed(false) }, [message])
+  useEffect(() => { setActive(null); setDismissed(false) }, [message])
 
   useEffect(() => {
     if (!open) return
@@ -96,9 +118,27 @@ export default function HomeComposer({
     if (list.length) onAttach(kind, list)
   }
 
-  const run = (action) => {
+  // A command the composer runs itself: the attach dialog and its "clear".
+  const openFiles = () => (anyFile ? fileRef : imageRef).current?.click()
+  const runLocal = (id, item) => {
+    if (id === 'attach' && !item) { openFiles(); return true }
+    if (item?.action === 'clearFiles') { onClearFiles?.(); return true }
+    return false
+  }
+
+  // Enter runs a command (or puts its text in the box); Tab completes it:
+  // the text of an insert command, "/cmd " for one that takes arguments.
+  const run = (entry, complete = false) => {
+    if (argCmd) {
+      if (entry.insert) { onMessage(entry.insert); return }
+      onMessage('')
+      if (!runLocal(argCmd.id, entry)) onRunAction(argCmd.id, entry)
+      return
+    }
+    if (entry.insert) { onMessage(entry.insert); return }
+    if (complete) { onMessage(entry.args ? `${entry.cmd} ` : entry.cmd); return }
     onMessage('')
-    onRunAction(action.id)
+    if (!runLocal(entry.id)) onRunAction(entry.id)
   }
 
   const onKeyDown = (e) => {
@@ -108,7 +148,8 @@ export default function HomeComposer({
       const n = items.length
       if (e.key === 'ArrowDown') { e.preventDefault(); setActive((safeActive + 1) % n); return }
       if (e.key === 'ArrowUp') { e.preventDefault(); setActive((safeActive + n - 1) % n); return }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); run(items[safeActive]); return }
+      if (e.key === 'Enter') { e.preventDefault(); run(items[safeActive]); return }
+      if (e.key === 'Tab') { e.preventDefault(); run(items[safeActive], true); return }
       if (e.key === 'Escape') { e.preventDefault(); setDismissed(true); return }
     }
     // With strictEnter only a bare Enter sends: Ctrl, Cmd and Alt Enter add a
@@ -122,9 +163,16 @@ export default function HomeComposer({
 
   const activeId = open ? `home-slash-opt-${safeActive}` : undefined
 
-  // Group labels appear once, above the first item of each group.
-  const groupStart = {}
-  items.forEach((a, i) => { if (!(a.group in groupStart)) groupStart[a.group] = i })
+  // The rows of the menu: commands under their group labels, or the arguments
+  // of one command under its name.
+  const rowsOf = argCmd
+    ? [{ group: 'args', label: slash?.argsLabel?.(argCmd) || argCmd.cmd, rows: items.map((it, i) => ({ it, i })) }]
+    : groupList.map((g) => ({ group: g, label: groupLabel(g), rows: items.map((it, i) => ({ it, i })).filter(({ it }) => it.group === g) }))
+        .filter((grp) => grp.rows.length > 0)
+  const rowView = (it) => (argCmd
+    ? { testId: `home-slash-arg-${it.key}`, icon: it.icon || argCmd.icon, name: it.name || slash?.argLabel?.(argCmd, it) || '', desc: it.desc || slash?.argDesc?.(argCmd, it) || '', mono: !!it.name, badge: it.badge, note: it.note, upto: 0 }
+    : { testId: `home-slash-${it.id}`, icon: it.icon, name: it.cmd, desc: descOf(it), mono: true, badge: it.badge, note: it.note,
+      upto: query && it.cmd.slice(1).toLowerCase().startsWith(query) ? 1 + query.length : 0 })
 
   return (
     <form
@@ -175,35 +223,45 @@ export default function HomeComposer({
         {open && (
           <div className="dk-cmdlist home-slash" id="home-slash" role="listbox" aria-label={t('slash.label')}>
             <div className="home-slash__scroll">
-            {groupList.filter(g => g in groupStart).map(g => (
-              <div className="dk-cmd-group" role="group" aria-labelledby={`home-slash-group-${g}`} key={g}>
-                <div className="dk-cmd-label" id={`home-slash-group-${g}`}>{groupLabel(g)}</div>
-                {items.map((a, i) => a.group !== g ? null : (
-                  <div
-                    key={a.id}
-                    id={`home-slash-opt-${i}`}
-                    className="dk-cmd"
-                    role="option"
-                    aria-selected={i === safeActive}
-                    data-testid={`home-slash-${a.id}`}
-                    // mousedown keeps focus in the textarea, so the click lands.
-                    onMouseDown={(e) => e.preventDefault()}
-                    onMouseMove={() => setActive(i)}
-                    onClick={() => run(a)}
-                  >
-                    <Icon name={a.icon} className="dk-icon" />
-                    <span className="dk-cmd-main">
-                      <span className="dk-cmd-name dk-mono"><Marked text={a.cmd} upto={query && a.cmd.slice(1).startsWith(query) ? 1 + query.length : 0} /></span>
-                      <span className="dk-cmd-desc">{descOf(a)}</span>
-                    </span>
-                    <span className="dk-cmd-keys"><kbd className="dk-kbd">↵</kbd></span>
-                  </div>
-                ))}
+            {rowsOf.map((grp) => (
+              <div className="dk-cmd-group" role="group" aria-labelledby={`home-slash-group-${grp.group}`} key={grp.group}>
+                <div className="dk-cmd-label" id={`home-slash-group-${grp.group}`}>{grp.label}</div>
+                {grp.rows.map(({ it, i }) => {
+                  const v = rowView(it)
+                  return (
+                    <div
+                      key={v.testId}
+                      id={`home-slash-opt-${i}`}
+                      className="dk-cmd"
+                      role="option"
+                      aria-selected={i === safeActive}
+                      data-testid={v.testId}
+                      // mousedown keeps focus in the textarea, so the click lands.
+                      onMouseDown={(e) => e.preventDefault()}
+                      onMouseMove={() => setActive(i)}
+                      onClick={() => run(it)}
+                    >
+                      <Icon name={v.icon} className="dk-icon" />
+                      <span className="dk-cmd-main">
+                        <span className={`dk-cmd-name${v.mono ? ' dk-mono' : ''}`}><Marked text={v.name} upto={v.upto} /></span>
+                        {v.desc && <span className="dk-cmd-desc">{v.desc}</span>}
+                      </span>
+                      {(v.badge || v.note) && (
+                        <span className="home-slash__tags">
+                          {v.note && <span className="home-slash__note">{slash?.noteLabel?.(v.note) || v.note}</span>}
+                          {v.badge && <span className="dk-badge home-slash__badge">{slash?.badgeLabel?.(v.badge) || v.badge}</span>}
+                        </span>
+                      )}
+                      <span className="dk-cmd-keys"><kbd className="dk-kbd">↵</kbd></span>
+                    </div>
+                  )
+                })}
               </div>
             ))}
             </div>
             <div className="dk-cmd-foot">
               <span><kbd className="dk-kbd">↑</kbd><kbd className="dk-kbd">↓</kbd> {t('slash.move')}</span>
+              <span><kbd className="dk-kbd">tab</kbd> {t('slash.complete')}</span>
               <span><kbd className="dk-kbd">esc</kbd> {t('slash.close')}</span>
             </div>
           </div>

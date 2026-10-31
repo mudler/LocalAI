@@ -177,6 +177,65 @@
     },
     "settings": {
       "desc": "Modo foco, agente e informações do modelo"
+    },
+    "group": {
+      "context": "Contexto",
+      "skills": "Skills e agentes",
+      "help": "Ajuda"
+    },
+    "models": {
+      "label": "Modelos",
+      "desc": "Abrir a lista de modelos"
+    },
+    "skill": {
+      "label": "Usar uma skill",
+      "desc": "Escolher uma das skills deste chat"
+    },
+    "agent": {
+      "label": "Pedir a um agente salvo",
+      "desc": "Passar uma tarefa para um dos seus agentes",
+      "enable": "Ativar os agentes salvos neste chat",
+      "enableDesc": "Depois escolha o agente"
+    },
+    "compact": {
+      "label": "Compactar o contexto",
+      "desc": "Resumir as mensagens antigas para abrir espaço para o modelo"
+    },
+    "clear": {
+      "label": "Limpar o contexto",
+      "desc": "Recomeçar neste chat; as mensagens ficam"
+    },
+    "attach": {
+      "label": "Anexar arquivos",
+      "desc": "Escolher arquivos para enviar",
+      "clearDesc": "Remover os arquivos que aguardam o envio"
+    },
+    "help": {
+      "label": "Todos os comandos",
+      "desc": "Listar cada comando e o que ele faz"
+    },
+    "about": {
+      "label": "Sobre este chat",
+      "desc": "Modelo, ferramentas, skills e tamanho do contexto"
+    },
+    "args": {
+      "skill": "Skills",
+      "agent": "Agentes salvos",
+      "model": "Modelos",
+      "attach": "Arquivos"
+    },
+    "badge": {
+      "builtin": "embutida",
+      "addon": "complemento",
+      "shared": "compartilhada",
+      "yours": "sua"
+    },
+    "collides": "só com /skill",
+    "errors": {
+      "skill": "Este chat não tem uma skill chamada \"{{name}}\".",
+      "agent": "Você não tem um agente salvo chamado \"{{name}}\".",
+      "agentTask": "Escreva a tarefa para {{name}} depois do nome.",
+      "agentsOff": "Os agentes salvos estão desativados neste chat. Ative-os no menu Ferramentas."
     }
   },
   "shortcuts": {
@@ -323,7 +382,9 @@
       "stopped": "Parado",
       "failed": "Falhou",
       "interrupted": "Interrompido",
-      "paused": "Pausado"
+      "paused": "Pausado",
+      "compacting": "Compactando o contexto",
+      "clearing": "Limpando o contexto"
     },
     "tool": {
       "search": "Pesquisando",
@@ -406,5 +467,41 @@
     "title": "Contexto usado pela última solicitação ao modelo",
     "ofLimit": "{{used}} / {{limit}} tokens",
     "left": "restam {{left}}"
+  },
+  "invoked": {
+    "skill": "Skill: {{name}}",
+    "agent": "Agente: {{name}}"
+  },
+  "marker": {
+    "compacted": "Contexto compactado: de {{before}} para {{after}} tokens",
+    "cleared": "Contexto limpo",
+    "clearedHint": "O modelo não vê as mensagens acima desta linha."
+  },
+  "cmdcard": {
+    "close": "Fechar",
+    "helpTitle": "Comandos",
+    "helpSkills_one": "Skill: {{names}}. Digite / e o nome dela.",
+    "helpSkills_other": "{{count}} skills: {{names}}. Digite / e o nome.",
+    "helpKeys": "Digite / na caixa para abrir a lista. Tab completa, Enter executa, Esc fecha.",
+    "aboutTitle": "Este chat",
+    "model": "Modelo",
+    "state": "Estado",
+    "loaded": "Carregado",
+    "notLoaded": "Não carregado",
+    "backend": "Backend",
+    "tools": "Ferramentas",
+    "toolsOn_one": "{{count}} ativa",
+    "toolsOn_other": "{{count}} ativas",
+    "skills": "Skills",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skills",
+    "commands": "Comandos",
+    "isolated": "Rodam em uma sandbox isolada",
+    "host": "Rodam nesta máquina",
+    "noCommands": "Não podem rodar",
+    "context": "Contexto",
+    "contextOf": "{{used}} de {{limit}} tokens",
+    "contextUsed": "{{used}} tokens",
+    "unknown": "Ainda não se sabe"
   }
 }

@@ -68,7 +68,9 @@ type entryRow struct {
 	// text read from them; both empty for other lines.
 	Attachments string `gorm:"type:text"`
 	Note        string `gorm:"type:text"`
-	At          time.Time
+	// Invoked is the JSON of the command of a user message; empty otherwise.
+	Invoked string `gorm:"type:text"`
+	At      time.Time
 }
 
 func (entryRow) TableName() string { return "studio_entries" }
@@ -90,6 +92,13 @@ func toEntryRow(id string, seq int64, e session.Entry) (entryRow, error) {
 			return entryRow{}, err
 		}
 		r.Attachments = string(raw)
+	}
+	if e.Invoked != nil {
+		raw, err := json.Marshal(e.Invoked)
+		if err != nil {
+			return entryRow{}, err
+		}
+		r.Invoked = string(raw)
 	}
 	return r, nil
 }
@@ -610,6 +619,13 @@ func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit i
 				return nil, err
 			}
 			e.Card = &c
+		}
+		if r.Invoked != "" {
+			var inv session.Invocation
+			if err := json.Unmarshal([]byte(r.Invoked), &inv); err != nil {
+				return nil, err
+			}
+			e.Invoked = &inv
 		}
 		out = append(out, e)
 	}

@@ -143,6 +143,7 @@
     "memory": {
       "label": "Memória",
       "desc": "Coleções em que seus chats podem pesquisar"
-    }
+    },
+    "complete": "completar"
   }
 }

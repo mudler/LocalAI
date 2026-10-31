@@ -1,0 +1,75 @@
+/* What the slash commands draw in the thread (CommandCards.jsx). */
+
+/* The marker of a context command: a hairline across the thread, the label
+   on the canvas in the middle. Calm: muted text, no fill. */
+.cx-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  margin: var(--sp-2) 0;
+}
+.cx-marker__label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  color: var(--dk-muted);
+  font-size: var(--fs-meta);
+  letter-spacing: .02em;
+}
+.cx-marker__label::before,
+.cx-marker__label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border-divider);
+}
+.cx-marker__label > span { white-space: nowrap; }
+.cx-marker--cleared .cx-marker__label { color: var(--dk-text); }
+.cx-marker__hint { color: var(--dk-muted); font-size: var(--fs-meta); text-align: center; }
+
+/* The chip of a message sent with a skill or a saved agent, above its bubble. */
+.cx-invoked {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--dk-accent-wash);
+  color: var(--dk-accent-text);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+}
+
+/* The help and about cards: a bordered block of the thread's width. */
+.cx-cmdcard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px var(--color-border-divider);
+  background: var(--dk-card);
+}
+.cx-cmdcard__head { display: flex; align-items: center; gap: var(--sp-2); color: var(--dk-muted); }
+.cx-cmdcard__title { flex: 1; margin: 0; color: var(--dk-text); font-size: var(--fs-small); font-weight: 600; }
+.cx-cmdcard__list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-4); margin: 0; padding: 0; list-style: none; }
+.cx-cmdcard__row { display: contents; }
+.cx-cmdcard__cmd { font-family: var(--font-mono); font-size: var(--fs-small); color: var(--dk-text); background: none; padding: 0; }
+.cx-cmdcard__desc { color: var(--dk-muted); font-size: var(--fs-small); }
+.cx-cmdcard__foot { margin: 0; color: var(--dk-muted); font-size: var(--fs-meta); }
+.cx-cmdcard__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-4); margin: 0; }
+.cx-cmdcard__fact { display: contents; }
+.cx-cmdcard__fact dt { color: var(--dk-muted); font-size: var(--fs-small); }
+.cx-cmdcard__fact dd { margin: 0; color: var(--dk-text); font-size: var(--fs-small); overflow-wrap: anywhere; }
+
+@media (max-width: 640px) {
+  .cx-cmdcard { padding: var(--sp-3); }
+  .cx-cmdcard__list { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .cx-cmdcard__row { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-1) 0; }
+}
