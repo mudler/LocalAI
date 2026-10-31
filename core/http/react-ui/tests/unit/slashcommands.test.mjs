@@ -24,7 +24,7 @@ const label = (c) => c.label || c.id
 test('slash commands: the chat keeps every command it had and adds the shared ones', () => {
   const got = ids(availableCommands('chat', { ...chatCtx, assistant: true }))
   for (const a of CHAT_SLASH_ACTIONS) assert.ok(got.includes(a.id), `${a.id} is kept`)
-  for (const id of ['models', 'skill', 'agent', 'compact', 'clear', 'attach', 'help', 'about']) assert.ok(got.includes(id), `${id} is offered`)
+  for (const id of ['models', 'skill', 'skills', 'agent', 'compact', 'clear', 'attach', 'help', 'about']) assert.ok(got.includes(id), `${id} is offered`)
   assert.equal(new Set(got).size, got.length, 'ids are unique')
 })
 
@@ -33,6 +33,7 @@ test('slash commands: Home keeps its commands and has no context commands', () =
   for (const id of ['model', 'new', 'chat', 'gallery', 'docs']) assert.ok(got.includes(id))
   for (const id of ['compact', 'clear', 'about']) assert.ok(!got.includes(id), `${id} needs a thread`)
   assert.ok(got.includes('skill') && got.includes('agent') && got.includes('help'))
+  assert.ok(got.includes('skills'), '/skills opens the Skills page')
 })
 
 test('slash commands: compact and clear need a thread and an idle chat', () => {
@@ -45,6 +46,8 @@ test('slash commands: compact and clear need a thread and an idle chat', () => {
 test('slash commands: skill and agent are offered only when there is something to pick', () => {
   const none = ids(availableCommands('chat', { ...chatCtx, skills: [], agents: [] }))
   assert.ok(!none.includes('skill') && !none.includes('agent'))
+  assert.ok(none.includes('skills'), 'the page to write the first skill stays reachable')
+  assert.ok(!ids(availableCommands('chat', { ...chatCtx, hasChats: false })).includes('skills'))
   const noFeature = ids(availableCommands('chat', { ...chatCtx, canAgents: false }))
   assert.ok(!noFeature.includes('agent'))
 })

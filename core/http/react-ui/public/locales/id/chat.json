@@ -132,6 +132,7 @@
   },
   "skills": {
     "label": "Keahlian",
+    "manage": "Kelola keahlian",
     "title": "Keahlian yang bisa dipakai obrolan ini",
     "heading": "Keahlian untuk obrolan ini",
     "count": "{{on}} dari {{total}} aktif",
@@ -188,6 +189,10 @@
     "skill": {
       "label": "Jalankan skill",
       "desc": "Pilih salah satu skill di chat ini"
+    },
+    "skills": {
+      "label": "Kelola keahlian",
+      "desc": "Buka halaman keahlian untuk menulis dan mengubahnya"
     },
     "agent": {
       "label": "Tanya agen tersimpan",

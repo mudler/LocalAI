@@ -7,7 +7,7 @@ import { allChatsDestination, primaryDestinations, visiblePrimary } from './navi
 // Studio and Talk are add-ons: they are listed in the Add-ons drawer when they
 // are installed, not here.
 // The legacy layout has no Build hub any more, so its list carries the pages
-// that hub used to hold: agents, MCP connectors and memory. The add-ons drawer
+// that hub used to hold: agents, MCP connectors, memory and skills. The add-ons drawer
 // is the legacy Add-ons hub (hubConfig.js).
 export const topDestinations = [
   { path: '/app', icon: 'home', labelKey: 'items.home' },
@@ -16,6 +16,7 @@ export const topDestinations = [
   { path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents' },
   { path: '/app/mcp-connectors', icon: 'plug', labelKey: 'items.mcpConnectors', feature: 'chats' },
   { path: '/app/collections', icon: 'database', labelKey: 'items.memory', feature: 'collections' },
+  { path: '/app/skills', icon: 'sparkles', labelKey: 'items.skills', feature: 'chats' },
 ]
 
 function visible(item, { isAdmin, authEnabled, hasFeature, features }) {

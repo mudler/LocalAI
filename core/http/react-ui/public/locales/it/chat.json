@@ -132,6 +132,7 @@
   },
   "skills": {
     "label": "Skill",
+    "manage": "Gestisci le skill",
     "title": "Skill che questa chat può usare",
     "heading": "Skill di questa chat",
     "count": "{{on}} di {{total}} attive",
@@ -188,6 +189,10 @@
     "skill": {
       "label": "Usa una skill",
       "desc": "Scegli una delle skill di questa chat"
+    },
+    "skills": {
+      "label": "Gestisci le skill",
+      "desc": "Apri la pagina delle skill per scriverle e modificarle"
     },
     "agent": {
       "label": "Chiedi a un agente salvato",

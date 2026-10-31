@@ -66,6 +66,17 @@ test.describe('Chat skills picker', () => {
     await expect(page.getByText('Skills you add later start on.')).toBeVisible()
   })
 
+  test('the Manage skills link opens the Skills page', async ({ page }) => {
+    await stub(page)
+    await open(page)
+    const link = page.getByTestId('chat-skills-manage')
+    await expect(link).toHaveText('Manage skills')
+    await expect(link).toHaveAttribute('href', /\/app\/skills$/)
+    await link.click()
+    await expect(page).toHaveURL(/\/app\/skills$/)
+    await expect(page.getByTestId('skills-page')).toBeVisible()
+  })
+
   test('Disable all and Select all send one request each', async ({ page }) => {
     const api = await stub(page)
     await open(page)

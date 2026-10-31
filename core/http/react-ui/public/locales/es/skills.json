@@ -1,6 +1,6 @@
 {
   "title": "Habilidades",
-  "subtitle": "Instrucciones que un chat puede leer cuando una tarea coincide. Añade una a un agente para usarla allí.",
+  "subtitle": "Instrucciones que todos tus chats pueden usar cuando una tarea coincide. Los agentes usan las que les añades.",
   "unavailable": {
     "subtitle": "Las habilidades necesitan Archivos, y Archivos está desactivado en este servidor."
   },

@@ -2,6 +2,7 @@
 import { useState, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import Button from '../ui/Button'
 import { BulkActions, SwitchHead, SwitchPopover, SwitchRow, SwitchRowStatic, SwitchStatus } from './SwitchList'
 import { SEARCH_MIN, fallbackNotice, filterSkills, skillCounts, skillKey, skillSource } from '../../utils/chatSkills'
 
@@ -10,6 +11,7 @@ import { SEARCH_MIN, fallbackNotice, filterSkills, skillCounts, skillKey, skillS
 // count, "Select all" and "Disable all", and a search field from nine skills
 // on. While a search is on, the two actions work on the skills shown only.
 // The server stores the skills that are off, so a skill added later is on.
+// A link at the bottom opens the Skills page, where skills are written.
 // Nothing shows when there is no skill.
 //
 // Each row says where the skill comes from: Built-in, the add-on's title, or
@@ -95,7 +97,9 @@ export default function SkillsMenu({ skills, replaced = [], onSet, error, testId
         ))}
         {shown.length === 0 && <p className="swl-empty">{t('skills.noMatch', { query: query.trim() })}</p>}
       </div>
-      <SwitchStatus error={error} failed={t('skills.failed')} testId={`${testId}-error`} />
+      <SwitchStatus error={error} failed={t('skills.failed')} testId={`${testId}-error`} reserve>
+        <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/skills" data-testid={`${testId}-manage`}>{t('skills.manage')}</Button>
+      </SwitchStatus>
     </SwitchPopover>
   )
 }

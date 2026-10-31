@@ -31,6 +31,14 @@ test.describe('Chat slash commands', () => {
     await expect(page.getByRole('option', { selected: true })).toHaveCount(1)
   })
 
+  test('/skills opens the Skills page', async ({ page }) => {
+    await open(page)
+    await box(page).fill('/skills')
+    await expect(page.getByTestId('home-slash-skills')).toContainText('Open the Skills page')
+    await page.getByTestId('home-slash-skills').click()
+    await expect(page).toHaveURL(/\/app\/skills$/)
+  })
+
   test('choosing a skill and sending carries the marker and shows the chip', async ({ page }) => {
     const api = await open(page)
     await box(page).fill('/rev')

@@ -1,7 +1,7 @@
 // Pure rules of the primary sidebar items. No React, no imports, so a node
 // test drives it directly.
 
-// Files, Pages (once there is one), Agents, MCP connectors, Memory, Models and Add-ons. Home and the
+// Files, Pages (once there is one), Agents, MCP connectors, Memory, Skills, Models and Add-ons. Home and the
 // Operate hub keep the place they have today (see hubConfig.js and
 // destinations.js). Settings is a tab of the Operate hub, not a primary item.
 // Chats is not an item: Home is where a chat starts, and the sidebar lists the
@@ -14,15 +14,18 @@ export const primaryDestinations = Object.freeze([
   // the user has a page; pinned pages are listed under it.
   { path: '/app/pages', icon: 'file-code', labelKey: 'items.pages', feature: 'pages', pagesEntry: true },
   // Saved agents, with what runs them by itself: triggers and messaging
-  // connectors, and the skills they use.
+  // connectors.
   {
     path: '/app/agents', icon: 'robot', labelKey: 'items.agents', feature: 'agents',
-    match: ['/app/triggers', '/app/skills', '/app/chats/connectors', '/app/agent-tasks'],
+    match: ['/app/triggers', '/app/chats/connectors', '/app/agent-tasks'],
   },
   // The user's own MCP servers, which chats and agents can use.
   { path: '/app/mcp-connectors', icon: 'plug', labelKey: 'items.mcpConnectors', feature: 'chats' },
   // Collections the chats search. Off when the server answers collections false.
   { path: '/app/collections', icon: 'database', labelKey: 'items.memory', feature: 'collections', requiresCollections: true },
+  // Skills: instructions every chat can use, and agents too. Not a part of
+  // Agents, so Agents does not light up on the skills pages.
+  { path: '/app/skills', icon: 'sparkles', labelKey: 'items.skills', feature: 'chats' },
   { path: '/app/models', icon: 'boxes', labelKey: 'items.models', adminOnly: true },
   // Shown to a viewer who holds the addons feature or sees a built-in tile.
   { path: '/app/addons', icon: 'puzzle', labelKey: 'items.addons', addonsEntry: true },

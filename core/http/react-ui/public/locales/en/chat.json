@@ -269,6 +269,10 @@
       "label": "Run a skill",
       "desc": "Pick one of the skills of this chat"
     },
+    "skills": {
+      "label": "Manage skills",
+      "desc": "Open the Skills page to write and change skills"
+    },
     "agent": {
       "label": "Ask a saved agent",
       "desc": "Hand a task to one of your agents",
@@ -399,6 +403,7 @@
   },
   "skills": {
     "label": "Skills",
+    "manage": "Manage skills",
     "title": "Skills this chat can use",
     "heading": "Skills for this chat",
     "count": "{{on}} of {{total}} on",
