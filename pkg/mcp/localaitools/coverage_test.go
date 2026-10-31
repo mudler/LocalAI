@@ -129,6 +129,17 @@ var adminRoutesWithoutTool = map[string]string{
 	// private switch.
 	"POST /api/settings (chats_egress_extra_registries)": "opens registries to every chat: set on the Settings > Tools list editor",
 	"POST /api/settings (chats_egress_allowed_hosts)":    "opens hosts to every chat: set on the Settings > Tools list editor",
+	// Settings of every user's chats. A chat about the instance has no need
+	// to change them, and the first one is a limit a model must not raise
+	// for itself. A person sets them in Settings.
+	"POST /api/settings (chats_max_iterations)":       "the step limit of every chat turn: a model must not raise its own limit; set in Settings > Tools",
+	"POST /api/settings (chats_work_folder)":          "where every chat keeps its helper files: set in Settings > Tools",
+	"POST /api/settings (chats_index_files)":          "reads the text of every user's documents into the server's store: a person's choice in Settings > Tools",
+	"POST /api/settings (chats_index_max_text_bytes)": "how much text the index keeps per document, which sizes the database: set in Settings > Tools",
+	"POST /api/settings (chats_saved_agents)":         "lets every chat start the user's saved agents: set in Settings > Tools",
+	"POST /api/settings (chats_suggestions)":          "the default of each user's own choice of assistant offers: set in Settings > Agents",
+	"POST /api/settings (chats_vision_model)":         "the helper model of describe_image: set in Settings > Agents, with the model picker",
+	"POST /api/settings (chats_transcription_model)":  "the helper model of transcribe_audio: set in Settings > Agents, with the model picker",
 }
 
 // allKnownTools is the union of expectedFullCatalog (defined in
