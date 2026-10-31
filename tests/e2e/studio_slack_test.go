@@ -179,9 +179,19 @@ var _ = Describe("Chats Slack connector", Label("Chats", "Slack"), func() {
 		Eventually(answers(bot), 90*time.Second, 200*time.Millisecond).Should(HaveLen(1))
 		chats := chatsOf(id)
 		Expect(chats).To(HaveLen(1))
-		Eventually(func() string {
-			return strings.Join(userTexts(fullTranscript(chats[0]["id"].(string))), "\n")
-		}, 30*time.Second, 200*time.Millisecond).Should(ContainSubstring("brief.txt"))
+		// The file is an attachment of the user line, apart from its words.
+		Eventually(func() []string {
+			var names []string
+			for _, m := range fullTranscript(chats[0]["id"].(string)) {
+				if m.Role == "user" {
+					for _, a := range m.Attachments {
+						names = append(names, a.Name)
+					}
+				}
+			}
+			return names
+		}, 30*time.Second, 200*time.Millisecond).Should(ContainElement("brief.txt"))
+		Expect(userTexts(fullTranscript(chats[0]["id"].(string)))).To(Equal([]string{"read the brief"}))
 	})
 
 	It("switches a binding off, with a notification, when Slack refuses its token", func() {
