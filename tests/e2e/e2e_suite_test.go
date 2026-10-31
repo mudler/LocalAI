@@ -787,6 +787,12 @@ var _ = BeforeSuite(func() {
 		// Without it, remote failover targets configured with api_key_env
 		// (e.g. the cloud-proxy chain-remote spec) never pass liveness.
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
+		// Without accounts the chats offer the built-in bash, which asks the
+		// administrator before each command. The mock model calls the first
+		// tool it is offered, and bash sorts first, so every chat turn would
+		// wait for an answer that no spec gives. The bash specs run on their
+		// own server (core/http/routes).
+		config.WithChatsHostExec("off"),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
