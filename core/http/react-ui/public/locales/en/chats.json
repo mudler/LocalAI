@@ -365,7 +365,12 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Saved agents",
-      "triggers": "Triggers"
+      "triggers": "Triggers",
+      "shell": "Run commands",
+      "files": "Your files",
+      "media": "Images and audio",
+      "collections": "Collections",
+      "subagents": "Sub-agents"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
@@ -424,6 +429,10 @@
       "hostDenied": "Not run: refused",
       "hostTimeout": "Not run: no answer",
       "hostAdmin": "Not run: needs an administrator"
+    },
+    "shell": {
+      "machine": "This machine",
+      "isolated": "Commands run isolated"
     }
   },
   "mcpPage": {

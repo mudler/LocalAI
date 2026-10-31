@@ -112,6 +112,32 @@ test.describe('Home composer', () => {
     expect(seen.created[0].switches).toEqual({ addons_off: ['office'], skills_off: ['builtin:pdf'] })
   })
 
+  test('the draft lists the groups of built-in tools, and one switched off goes with the new chat', async ({ page }) => {
+    const seen = await server(page)
+    await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {
+      builtins: [
+        { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin', providers: {} },
+        { group: 'files', tools: ['list_files', 'read_file'], off: false, usable: true, provider: 'builtin', providers: {} },
+        { group: 'media', tools: ['describe_image', 'transcribe_audio'], off: false, usable: true, provider: 'builtin', providers: {} },
+        { group: 'subagents', tools: ['spawn_agent'], off: false, usable: true, provider: 'builtin', providers: {} },
+      ],
+      addons: [], servers: [], connectors: [], off: [],
+    } }))
+    await ready(page)
+    await page.getByTestId('chat-tools-button').click()
+    const tools = page.getByTestId('chat-tools-menu')
+    for (const name of ['Your files', 'Web', 'Images and audio', 'Sub-agents']) {
+      await expect(tools.getByRole('switch', { name, exact: true })).toHaveAttribute('aria-checked', 'true')
+    }
+    await tools.getByRole('switch', { name: 'Your files', exact: true }).click()
+    await expect(tools.getByRole('switch', { name: 'Your files', exact: true })).toHaveAttribute('aria-checked', 'false')
+    await page.keyboard.press('Escape')
+    await page.getByTestId('home-input').fill('Plan my week')
+    await page.getByTestId('home-input').press('Enter')
+    await expect(page).toHaveURL(/\/app\/chats\/n1$/)
+    expect(seen.created[0].switches).toEqual({ builtins_off: ['files'] })
+  })
+
   test('a chat with nothing switched sends no switches', async ({ page }) => {
     const seen = await server(page)
     await ready(page)

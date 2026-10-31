@@ -310,7 +310,12 @@
     "builtin": {
       "web": "웹",
       "saved_agents": "저장된 에이전트",
-      "triggers": "트리거"
+      "triggers": "트리거",
+      "shell": "명령 실행",
+      "files": "내 파일",
+      "media": "이미지와 오디오",
+      "collections": "컬렉션",
+      "subagents": "하위 에이전트"
     },
     "builtinBy": "{{tools}} · 기본 제공",
     "builtinByAddon": "{{tools}} · {{provider}}이(가) 제공",
@@ -321,7 +326,11 @@
       "starting": "Sandbox가 시작되는 중입니다. LocalAI가 {{seconds}}초 후 다시 확인합니다."
     },
     "fallbackBuiltin": "{{addon}}이(가) {{tool}}을(를) 대체하지만 지금은 이 채팅에서 사용할 수 없습니다(중지됨, 여기서 꺼짐 또는 허용되지 않음). 기본 제공 {{tool}}이(가) 사용됩니다.",
-    "fallbackNone": "{{addon}}이(가) {{tool}}을(를) 대체하지만 지금은 이 채팅에서 사용할 수 없고, 기본 제공 {{tool}}도 꺼져 있습니다. 이 채팅에는 {{tool}}이(가) 없습니다."
+    "fallbackNone": "{{addon}}이(가) {{tool}}을(를) 대체하지만 지금은 이 채팅에서 사용할 수 없고, 기본 제공 {{tool}}도 꺼져 있습니다. 이 채팅에는 {{tool}}이(가) 없습니다.",
+    "shell": {
+      "machine": "이 컴퓨터",
+      "isolated": "명령이 격리되어 실행됩니다"
+    }
   },
   "vision": {
     "describedBy": "이 모델은 이미지를 볼 수 없습니다. 다른 모델을 선택하지 않으면 {{model}}이(가) 이미지를 설명합니다.",

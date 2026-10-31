@@ -766,8 +766,9 @@ type ChatsAddonList struct {
 	// Commands says whether the chat can run commands and code at its next
 	// turn: available, off (the add-on that runs them is switched off for this
 	// chat or not named by its agent), unavailable (installed, but it cannot run
-	// them on this server) or none (no add-on that runs them is installed for
-	// the user).
+	// them on this server), none (no add-on that runs them is installed for
+	// the user) or switched_off (the chat switched the shell group off, so
+	// nothing runs them whoever would serve them).
 	Commands string `json:"commands"`
 	// CommandsReason is why commands cannot run, when Commands is unavailable.
 	CommandsReason string `json:"commands_reason,omitempty"`

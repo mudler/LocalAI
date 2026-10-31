@@ -56,6 +56,26 @@ test.describe('Commands on this machine', () => {
     await shot(page, 'host-notice')
   })
 
+  test('the Run commands row names this machine next to the notice, and switches commands off', async ({ page }) => {
+    await stubChat(page, { addons: host })
+    let shell = { group: 'shell', tools: ['bash'], off: false, usable: true, provider: 'builtin', providers: { bash: 'builtin' } }
+    const puts = []
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: [shell] } }))
+    await page.route('**/api/chats/c1/builtins', route => {
+      puts.push(route.request().postDataJSON())
+      shell = { ...shell, off: true }
+      return route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: [shell] } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    const row = page.getByTestId('chat-tools-item').filter({ has: page.getByRole('switch', { name: 'Run commands' }) })
+    await expect(row.getByTestId('chat-tools-note').first()).toHaveText('This machine')
+    await expect(page.getByTestId('chat-commands-notice')).toBeVisible()
+    await shot(page, 'host-shell-row')
+    await page.getByRole('switch', { name: 'Run commands' }).click()
+    await expect.poll(() => puts.at(-1)).toEqual({ off: ['shell'] })
+  })
+
   test('with the Sandbox off for the chat, the notice says why commands run here', async ({ page }) => {
     await stubChat(page, { addons: { ...host, addons: [{ id: 'sandbox', tools: 2, off: true }], commands_fallback: 'sandbox', commands_fallback_reason: 'off' } })
     await page.goto('/app/chats/c1')

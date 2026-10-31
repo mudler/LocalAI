@@ -93,25 +93,33 @@ func (s *Service) isAdmin(ctx context.Context, user string) bool {
 	return s.d.IsAdmin(ctx, user)
 }
 
-// registerHostBash adds the built-in bash to the registry of built-in tools.
+// registerHostBash adds bash to the registry of built-in tools, in the
+// switch group GroupShell. The group's switch hides bash whoever serves it, so
+// the tool is registered also on a server that cannot run commands itself:
+// the Sandbox add-on may serve it. Settings > Tools lists it only where the
+// built-in can run.
 func (s *Service) registerHostBash() error {
-	if s.d.HostExec == nil {
-		return nil
-	}
+	host := s.d.HostExec != nil
 	return s.builtins.Register(builtins.Tool{
-		ID:    "bash",
+		ID:    commandTool,
+		Group: builtins.GroupShell,
 		Label: "Commands (bash)",
 		Description: "Runs commands and code for the chats directly on this machine, with no isolation: commands can read what LocalAI can read " +
 			"and reach the internet and your network. The Sandbox add-on replaces it with isolated commands.",
 		Setting:     builtins.SettingHostExec,
+		Unlisted:    !host,
 		Replaceable: true,
-		Enabled:     func() bool { return s.hostExecMode() != hostexec.ModeOff },
+		Covers:      true,
+		Enabled:     func() bool { return host && s.hostExecMode() != hostexec.ModeOff },
 		Build:       s.buildHostBash,
 	})
 }
 
 // buildHostBash gives a chat the built-in bash when the setting allows it.
 func (s *Service) buildHostBash(_ context.Context, c builtins.Chat) (session.Tool, bool, string) {
+	if s.d.HostExec == nil {
+		return session.Tool{}, false, "this server cannot run commands by itself"
+	}
 	if r := s.d.HostExec.Unavailable(); r != "" {
 		return session.Tool{}, false, r
 	}
@@ -337,8 +345,9 @@ func (s *Service) Builtins() *builtins.Registry { return s.builtins }
 
 // builtinsFor builds the built-in tools of a chat.
 func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, subAgent bool) []builtins.Built {
+	off, on := s.switchesOf(ctx, rec)
 	return s.builtins.Build(ctx, builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
-		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: rec.BuiltinsOff, GroupsOn: rec.BuiltinsOn, GoalActive: goalActive(rec) && !subAgent})
+		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, GoalActive: goalActive(rec) && !subAgent})
 }
 
 // applyBuiltins adds the built-in tools that no add-on serves. When the

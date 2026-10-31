@@ -41,6 +41,27 @@ test('switching a skill off in a chat sends its id, and the chat lists it off', 
   await expect(one).toHaveAttribute('aria-checked', 'true')
 })
 
+test('switching the files group off in a chat stores it, and Select all puts it back', async ({ page }) => {
+  const id = await startChat(page, 'files please')
+  const group = async (name) => (await api(page.request, `/api/chats/${id}/tools`)).builtins.find(b => b.group === name)
+  expect((await group('files')).off).toBe(false)
+  expect((await group('subagents')).off).toBe(false)
+  await page.getByTestId('chat-tools-button').click()
+  const menu = page.getByTestId('chat-tools-menu')
+  const files = menu.getByRole('switch', { name: 'Your files', exact: true })
+  await expect(files).toHaveAttribute('aria-checked', 'true')
+  const putBuiltins = () => page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith(`/api/chats/${id}/builtins`))
+  let put = putBuiltins()
+  await files.click()
+  expect(JSON.parse((await put).postData()).off).toEqual(['files'])
+  await expect(files).toHaveAttribute('aria-checked', 'false')
+  await expect.poll(async () => (await group('files')).off).toBe(true)
+  put = putBuiltins()
+  await menu.getByRole('button', { name: 'Select all' }).first().click()
+  expect(JSON.parse((await put).postData()).off).toEqual([])
+  await expect.poll(async () => (await group('files')).off).toBe(false)
+})
+
 test('an add-on address with add-ons off lands on Home with a notice, and /studio offers Install Studio', async ({ page, request }) => {
   const features = await (await request.get('/api/features')).json()
   test.skip(features.addons !== false, 'needs a server with add-ons off')

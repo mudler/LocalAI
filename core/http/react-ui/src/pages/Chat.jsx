@@ -485,8 +485,9 @@ function ChatPage() {
     // A message typed as a command (/review fix this, /agent Name task) goes
     // with its skill or agent; the transcript shows the words and a chip.
     const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
+    const subOff = !!switches.builtins.find(b => b.group === 'subagents')?.off
     const inv = typeof override === 'string' ? null : parseInvocation(text, {
-      skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off,
+      skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off && !subOff,
     })
     if (inv?.error) {
       setLocalError(t(`slash.errors.${inv.error}`, { name: inv.name }))

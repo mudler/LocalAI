@@ -1,11 +1,13 @@
-// Package builtins is the one registry of the built-in chat tools that an
-// administrator can switch off: bash (commands on this machine), web_search,
-// web_fetch and list_agents (the user's saved agents as sub-agents). A tool registers its runtime settings, the per-chat switch
+// Package builtins is the one registry of the built-in chat tools: the ones
+// an administrator can switch off (bash on this machine, web_search,
+// web_fetch, list_agents) and the ones a chat can switch off with a group
+// (the file tools, the image and audio helpers, the collection tools,
+// spawn_agent). A tool registers its runtime settings, the per-chat switch
 // group it belongs to, whether an add-on may replace it, and how it is built
 // for one chat. The chats add the built-in tools no add-on serves (see
 // shadowing in core/services/studio), the chat's Tools menu lists the groups,
-// and Settings > Tools lists every tool for administrators, so a new built-in
-// tool appears in all of them by registering one entry.
+// and Settings > Tools lists every listed tool for administrators, so a new
+// built-in tool appears in all of them by registering one entry.
 package builtins
 
 import (
@@ -30,6 +32,19 @@ const (
 	// delete_trigger: a person's chat can set up tasks that run by itself. It
 	// is on until the chat switches it off.
 	GroupTriggers = "triggers"
+	// GroupShell holds bash, whoever serves it: the Sandbox add-on or the
+	// built-in bash on this machine.
+	GroupShell = "shell"
+	// GroupFiles holds the file tools: list_files, read_file, write_file,
+	// edit_file, move_file, delete_file, search_files and read_document.
+	GroupFiles = "files"
+	// GroupMedia holds the helper-model tools describe_image and
+	// transcribe_audio.
+	GroupMedia = "media"
+	// GroupCollections holds list_collections and search_collection.
+	GroupCollections = "collections"
+	// GroupSubAgents holds spawn_agent.
+	GroupSubAgents = "subagents"
 )
 
 // The runtime settings of the built-in tools.
@@ -95,6 +110,18 @@ type Tool struct {
 	// Replaceable says that an add-on tool may shadow this one by name. It
 	// must be one of contract.ReplaceableTools.
 	Replaceable bool
+	// Covers says that the chat's switch of the group also hides an add-on
+	// tool that replaces this one, so a chat with the group off has no tool
+	// of this name at all (bash in GroupShell). Without it the switch only
+	// governs the tool LocalAI serves itself. It needs a Group and
+	// Replaceable.
+	Covers bool
+	// External says that another part of the chats builds the tool for a
+	// turn, together with tools of its own kind (the file tools, the media
+	// helpers, the collection tools, spawn_agent). Build only says whether
+	// the chat can have it, Registry.Build leaves it out, and the builder
+	// asks Hidden whether the chat switched it off. It needs a Group.
+	External bool
 	// Enabled reports whether administrators left the tool on. Nil: on.
 	Enabled func() bool
 	// Build returns the tool for one chat, or ok false and a short reason when
@@ -130,6 +157,10 @@ func (r *Registry) Register(t Tool) error {
 		return fmt.Errorf("builtins: %s has no Setting", t.ID)
 	case t.OptIn && t.Group == "":
 		return fmt.Errorf("builtins: %s is opt-in but has no Group", t.ID)
+	case t.External && t.Group == "":
+		return fmt.Errorf("builtins: %s is external but has no Group", t.ID)
+	case t.Covers && (t.Group == "" || !t.Replaceable):
+		return fmt.Errorf("builtins: %s covers its replacement but has no Group or is not replaceable", t.ID)
 	}
 	t.Options = append([]string(nil), t.Options...)
 	r.mu.Lock()
@@ -198,6 +229,33 @@ func (r *Registry) IsGroup(g string) bool {
 	return slices.Contains(r.Groups(), g)
 }
 
+// GroupOf returns the switch group of the tool of that name, or "".
+func (r *Registry) GroupOf(id string) string {
+	t, _ := r.Lookup(id)
+	return t.Group
+}
+
+// Hidden returns the names of the tools that the chat's switches take away
+// from it although the registry does not build them: the External tools and
+// the Covers tools of every group the chat switched off, or did not switch
+// on when the group is opt-in. Whoever builds those tools drops these names.
+func (r *Registry) Hidden(c Chat) map[string]bool {
+	off, on := map[string]bool{}, map[string]bool{}
+	for _, g := range c.GroupsOff {
+		off[g] = true
+	}
+	for _, g := range c.GroupsOn {
+		on[g] = true
+	}
+	out := map[string]bool{}
+	for _, t := range r.Tools() {
+		if (t.External || t.Covers) && (off[t.Group] || (t.OptIn && !on[t.Group])) {
+			out[t.ID] = true
+		}
+	}
+	return out
+}
+
 // BuiltinProvider is the Provider of a built-in tool in a chat.
 const BuiltinProvider = "builtin"
 
@@ -220,7 +278,7 @@ type Built struct {
 	Reason string // why not, when OK is false: ReasonOff, ReasonChatOff or the tool's own
 }
 
-// Build builds every registered tool for one chat.
+// Build builds every registered tool for one chat, but the External ones.
 func (r *Registry) Build(ctx context.Context, c Chat) []Built {
 	off, on := map[string]bool{}, map[string]bool{}
 	for _, g := range c.GroupsOff {
@@ -231,6 +289,9 @@ func (r *Registry) Build(ctx context.Context, c Chat) []Built {
 	}
 	var out []Built
 	for _, t := range r.Tools() {
+		if t.External {
+			continue
+		}
 		if !t.On() {
 			out = append(out, Built{ID: t.ID, Reason: ReasonOff})
 			continue

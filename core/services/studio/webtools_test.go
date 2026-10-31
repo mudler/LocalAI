@@ -115,8 +115,8 @@ var _ = Describe("built-in web tools", func() {
 
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(p.Builtins).To(Equal([]studio.BuiltinGroup{{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Usable: true, Provider: "builtin",
-			Providers: map[string]string{"web_search": "builtin", "web_fetch": "builtin"}}}))
+		Expect(builtinGroup(p.Builtins, "web")).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Usable: true, Provider: "builtin",
+			Providers: map[string]string{"web_search": "builtin", "web_fetch": "builtin"}}))
 	})
 
 	It("refuses a switch that is not a group, and another user's chat", func() {
@@ -131,13 +131,13 @@ var _ = Describe("built-in web tools", func() {
 		id := create(svc, alice)
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(p.Builtins).To(Equal([]studio.BuiltinGroup{{Group: "web", Tools: []string{"web_search"}, Usable: true, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}}))
+		Expect(builtinGroup(p.Builtins, "web")).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search"}, Usable: true, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}))
 
 		svc2, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, withWeb(&fakeWeb{}))
 		id2 := create(svc2, alice)
 		p, err = svc2.Tools(context.Background(), alice, id2)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(p.Builtins).To(BeEmpty())
+		Expect(builtinGroupNames(p.Builtins)).NotTo(ContainElement("web"))
 	})
 
 	It("keeps the names: an MCP tool called web_search never answers to that name", func() {
@@ -196,6 +196,25 @@ var _ = Describe("built-in web tools", func() {
 })
 
 // runtimeSettingNames are the JSON names of the runtime settings.
+// builtinGroup returns the group of that name of a panel, or a zero one.
+func builtinGroup(gs []studio.BuiltinGroup, name string) studio.BuiltinGroup {
+	for _, g := range gs {
+		if g.Group == name {
+			return g
+		}
+	}
+	return studio.BuiltinGroup{}
+}
+
+// builtinGroupNames returns the names of the groups of a panel, in order.
+func builtinGroupNames(gs []studio.BuiltinGroup) []string {
+	var out []string
+	for _, g := range gs {
+		out = append(out, g.Group)
+	}
+	return out
+}
+
 func runtimeSettingNames() map[string]bool {
 	out := map[string]bool{}
 	t := reflect.TypeFor[config.RuntimeSettings]()
@@ -215,9 +234,11 @@ var _ = Describe("the one registry of built-in tools", func() {
 		names := runtimeSettingNames()
 		for _, t := range tools {
 			ids = append(ids, t.ID)
-			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch; load_skill: every chat with skills gets it; the goal tools: by the goal
+			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch; load_skill: every chat with skills gets it; the goal tools: by the goal; the tool groups: by the chat's switch
 				if t.ID == "load_skill" || t.ID == "goal_done" || t.ID == "goal_blocked" {
 					Expect(t.Group).To(BeEmpty(), t.ID)
+				} else if t.External {
+					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents), t.ID)
 				} else {
 					Expect(t.Group).To(Equal(builtins.GroupTriggers), t.ID)
 				}
@@ -230,14 +251,15 @@ var _ = Describe("the one registry of built-in tools", func() {
 			}
 			Expect(t.Replaceable).To(BeTrue(), t.ID)
 		}
-		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "load_skill", "goal_done", "goal_blocked"}))
+		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "load_skill", "goal_done", "goal_blocked", "spawn_agent"}),
+			"a service without files has no file or media group")
 		for _, id := range []string{"web_search", "web_fetch"} {
 			t, ok := svc.Builtins().Lookup(id)
 			Expect(ok).To(BeTrue(), id)
 			Expect(t.Group).To(Equal(builtins.GroupWeb))
 			Expect(t.ReadOnly).To(BeTrue())
 		}
-		Expect(svc.Builtins().Groups()).To(Equal([]string{"web", "triggers"}))
+		Expect(svc.Builtins().Groups()).To(Equal([]string{"shell", "web", "triggers", "subagents"}))
 	})
 
 	It("lists the web tools in Settings > Tools with their settings", func() {

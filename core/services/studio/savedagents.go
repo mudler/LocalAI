@@ -64,6 +64,9 @@ func (s *Service) registerSavedAgents() error {
 			if c.SubAgent {
 				return session.Tool{}, false, "a sub-agent cannot start sub-agents"
 			}
+			if slices.Contains(c.GroupsOff, builtins.GroupSubAgents) {
+				return session.Tool{}, false, "sub-agents are off for this chat"
+			}
 			p := c.Actor.Principal
 			if err := s.mayUseAgents(ctx, p); err != nil {
 				return session.Tool{}, false, err.Error()
@@ -114,6 +117,9 @@ func (s *Service) savedAgentsAllowed(ctx context.Context, rec session.ChatRecord
 	}
 	if !slices.Contains(rec.BuiltinsOn, builtins.GroupSavedAgents) || slices.Contains(rec.BuiltinsOff, builtins.GroupSavedAgents) {
 		return ErrSavedAgentsNotAllowed
+	}
+	if slices.Contains(rec.BuiltinsOff, builtins.GroupSubAgents) {
+		return ErrSubAgentsOff
 	}
 	return s.mayUseAgents(ctx, rec.Principal)
 }

@@ -45,6 +45,9 @@ const (
 	CommandsUnavailable CommandState = "unavailable"
 	// CommandsNone: no add-on that runs commands is installed for the user.
 	CommandsNone CommandState = "none"
+	// CommandsSwitchedOff: the chat switched the shell group off, so no tool
+	// runs commands, whoever would serve them.
+	CommandsSwitchedOff CommandState = "switched_off"
 )
 
 // Commands is what a chat knows about running commands at a turn.
@@ -219,11 +222,19 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
 	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
-	return s.withHostBash(c, tools)
+	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec))
 }
 
 // sandboxWhere is where a command of the Sandbox starts and what it keeps.
-const sandboxWhere = "It starts in /workspace/home, the user's home, the same files as the file tools; only what it saves under /workspace/home or a writable shared folder is kept."
+// fileTools says whether the chat has the file tools, which see the same
+// files: a chat without them must not hear of them.
+func sandboxWhere(fileTools bool) string {
+	same := ""
+	if fileTools {
+		same = ", the same files as the file tools"
+	}
+	return "It starts in /workspace/home, the user's home" + same + "; only what it saves under /workspace/home or a writable shared folder is kept."
+}
 
 // skillsNotInSandbox is the sentence that keeps a model from looking for a
 // skill folder in the Sandbox, which sees the user's home only, and points it
@@ -231,14 +242,19 @@ const sandboxWhere = "It starts in /workspace/home, the user's home, the same fi
 const skillsNotInSandbox = "Skill folders are not visible in the Sandbox: load skills with load_skill."
 
 // commandsBlock is the block of the system prompt that states whether the chat
-// can run commands. writeFile says whether the chat has write_file, and
-// skillsOff whether the skill index lists a skill as unavailable for want of a
-// way to run commands. It is short on purpose: it goes into every turn.
-func commandsBlock(c Commands, writeFile, skillsOff bool) string {
+// can run commands. writeFile says whether the chat has write_file,
+// fileTools whether it has the file tools to read them, and skillsOff
+// whether the skill index lists a skill as unavailable for want of a way to
+// run commands. It is short on purpose: it goes into every turn.
+func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool) string {
 	if c.State == CommandsAvailable {
+		home := "the user's home files"
+		if fileTools {
+			home = "the files of /workspace/home of the file tools"
+		}
 		switch {
 		case c.Provider == BuiltinProvider:
-			b := "Commands: " + c.Tool + " runs commands directly on this machine, with no isolation. It starts in the user's home inside a scratch folder (the files of /workspace/home of the file tools; a shared folder is ../shared-<name>), so use relative paths there. " +
+			b := "Commands: " + c.Tool + " runs commands directly on this machine, with no isolation. It starts in the user's home inside a scratch folder (" + home + "; a shared folder is ../shared-<name>), so use relative paths there. " +
 				"It can read what the server can read and reach the internet, the local network and the LocalAI API. " +
 				"Be careful: never delete or change anything outside the task, and never send the user's data anywhere, unless they asked."
 			if c.Consent == "ask" {
@@ -248,11 +264,11 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 		case c.Isolation == "isolated":
 			// The turn's note is cut at 400 characters and the tool description
 			// is capped, so the list of programs goes here, in the prompt.
-			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
+			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere(fileTools) + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
 		case c.Isolation == "host":
-			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere
+			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere(fileTools)
 		}
-		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere
+		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere(fileTools)
 	}
 	var b strings.Builder
 	b.WriteString("Commands: nothing in this chat runs code or commands. Never claim or imply that you ran anything, and do not ask a sub-agent to run it: it has the same tools. Instead ")
@@ -261,6 +277,8 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 	}
 	b.WriteString("give the user the script to run, and tell them ")
 	switch c.State {
+	case CommandsSwitchedOff:
+		b.WriteString("they switched running commands off for this chat and can switch Run commands on in its Tools menu.")
 	case CommandsOff:
 		b.WriteString("they can switch the Sandbox add-on on in the Tools menu of this chat.")
 	case CommandsUnavailable:
@@ -278,15 +296,21 @@ func commandsBlock(c Commands, writeFile, skillsOff bool) string {
 // A model that sees them must not send them to describe_image, which costs a
 // second model call; a model that cannot must say so instead of guessing what
 // a picture shows. describer is the model that describe_image would use, ""
-// when there is none.
-func imagesBlock(sees bool, describer string) string {
+// when there is none, and describe says whether the chat has describe_image:
+// a chat that switched the image helpers off must not hear of the tool.
+func imagesBlock(sees bool, describer string, describe bool) string {
 	switch {
-	case sees:
+	case sees && describe:
 		return "Images: you see the images attached to the user's message, with the message. " +
 			"Answer about them directly. Use describe_image only for an image in the user's files that is not in the message."
-	case describer != "":
+	case sees:
+		return "Images: you see the images attached to the user's message, with the message. Answer about them directly."
+	case describer != "" && describe:
 		return "Images: you cannot see images. " +
 			"To look at an image the user attached or has in their files, call describe_image with its path."
+	case describer != "":
+		return "Images: you cannot see images, and the image helper is switched off for this chat. " +
+			"When the user shares an image, tell them plainly; they can switch Images and audio on in the Tools menu of this chat."
 	}
 	return "Images: you cannot see images, and no model here can describe them. " +
 		"When the user shares an image, tell them plainly and suggest that they choose a model that can look at images for this chat."

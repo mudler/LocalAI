@@ -224,7 +224,8 @@ export default function Home() {
     // A message typed as a command goes with its skill or saved agent (the
     // drafted switches of the new chat decide which it has).
     const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
-    const inv = own ? parseInvocation(text, { skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off }) : null
+    const subOff = !!switches.builtins.find(b => b.group === 'subagents')?.off
+    const inv = own ? parseInvocation(text, { skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off && !subOff }) : null
     if (inv?.error) {
       addToast(tch(`slash.errors.${inv.error}`, { name: inv.name }), 'warning')
       return

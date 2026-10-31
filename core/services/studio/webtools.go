@@ -158,19 +158,22 @@ type BuiltinGroup struct {
 const MixedProvider = "mixed"
 
 // builtinGroups lists the groups of built-in tools a chat can switch. A
-// group whose tools are all off on this instance is not listed. An opt-in
-// group is off unless the chat switched it on. tools are the add-on tools of
-// the chat after shadows are resolved: a tool of the group with an add-on in
-// it is served by that add-on.
+// group whose tools are all off on this instance is not listed, but for the
+// shell group: its switch also governs the Sandbox add-on's bash, so it is
+// listed while an add-on serves bash, and otherwise disabled with the reason
+// nothing runs commands. An opt-in group is off unless the chat switched it
+// on. tools are the add-on tools of the chat after shadows are resolved: a
+// tool of the group with an add-on in it is served by that add-on.
 func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, tools []session.Tool) []BuiltinGroup {
-	off, on := set(rec.BuiltinsOff), set(rec.BuiltinsOn)
+	offList, onList := s.switchesOf(ctx, rec)
+	off, on := set(offList), set(onList)
 	a := chatActor(rec.Principal, rec.ID)
 	c := builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: rec.Kind == session.KindSubAgent,
-		Admin: s.isAdmin(ctx, rec.Principal), GoalActive: goalActive(rec)}
+		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, GoalActive: goalActive(rec)}
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
 	for _, t := range s.builtins.Tools() {
-		if t.Group == "" || !t.On() {
+		if t.Group == "" || (!t.On() && !t.Covers) {
 			continue
 		}
 		i, ok := byGroup[t.Group]
@@ -195,12 +198,27 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 		}
 		// The tool is built to learn whether it can serve this chat: it may
 		// depend on the user (saved agents and triggers need their feature)
-		// or on how the chat started.
-		_, usable, reason := t.Build(ctx, c)
+		// or on how the chat started. A Covers tool that an add-on serves
+		// can: the add-on serves it.
+		var usable bool
+		var reason string
+		switch {
+		case t.Covers && provider != BuiltinProvider:
+			usable = true
+		case !t.On():
+			reason = builtins.ReasonOff
+		default:
+			_, usable, reason = t.Build(ctx, c)
+		}
 		if usable {
 			out[i].Usable, out[i].Reason = true, ""
 		} else if !out[i].Usable && out[i].Reason == "" {
 			out[i].Reason = reason
+		}
+	}
+	for i := range out {
+		if out[i].Group == builtins.GroupShell && !out[i].Usable {
+			out[i].Reason = shellReason(s.commandsOf(ctx, rec.Principal, tools, rec.AddonsOff, s.scopeOf(ctx, rec)), out[i].Reason)
 		}
 	}
 	return out

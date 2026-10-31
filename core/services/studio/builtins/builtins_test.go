@@ -90,6 +90,28 @@ var _ = Describe("the registry of built-in tools", func() {
 		Expect(got[0].Reason).To(Equal(builtins.ReasonChatOff), "off wins over on")
 	})
 
+	It("leaves an External tool to its builder and names it hidden when its group is off", func() {
+		r := builtins.NewRegistry()
+		Expect(r.Register(builtins.Tool{ID: "read_file", External: true, Unlisted: true, Build: build})).NotTo(Succeed(), "an external tool needs a group")
+		Expect(r.Register(builtins.Tool{ID: "read_file", Group: builtins.GroupFiles, External: true, Unlisted: true, Build: build})).To(Succeed())
+		Expect(r.Register(builtins.Tool{ID: "web_fetch", Group: builtins.GroupWeb, Setting: "s", Replaceable: true, Build: build})).To(Succeed())
+		Expect(r.Build(context.Background(), builtins.Chat{})).To(HaveLen(1), "the external tool is not built")
+		Expect(r.GroupOf("read_file")).To(Equal(builtins.GroupFiles))
+		Expect(r.Hidden(builtins.Chat{})).To(BeEmpty())
+		Expect(r.Hidden(builtins.Chat{GroupsOff: []string{builtins.GroupFiles, builtins.GroupWeb}})).To(Equal(map[string]bool{"read_file": true}),
+			"web_fetch is built by the registry, and an add-on's web_fetch keeps its own switch")
+	})
+
+	It("hides the replacement of a Covers tool with its group", func() {
+		r := builtins.NewRegistry()
+		Expect(r.Register(builtins.Tool{ID: "bash", Setting: "s", Covers: true, Replaceable: true, Build: build})).NotTo(Succeed(), "covers needs a group")
+		Expect(r.Register(builtins.Tool{ID: "bash", Group: builtins.GroupShell, Setting: "s", Covers: true, Build: build})).NotTo(Succeed(), "covers needs a replaceable tool")
+		Expect(r.Register(builtins.Tool{ID: "bash", Group: builtins.GroupShell, Setting: "s", Covers: true, Replaceable: true, Build: build})).To(Succeed())
+		Expect(r.Hidden(builtins.Chat{GroupsOff: []string{builtins.GroupShell}})).To(Equal(map[string]bool{"bash": true}))
+		got := r.Build(context.Background(), builtins.Chat{GroupsOff: []string{builtins.GroupShell}})
+		Expect(got[0].Reason).To(Equal(builtins.ReasonChatOff))
+	})
+
 	It("hands out copies", func() {
 		r := builtins.NewRegistry()
 		opts := []string{"o"}

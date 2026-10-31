@@ -1148,7 +1148,7 @@ message in the transcript.
 
 ### Switch tools off for one chat
 
-The **Tools** menu over the message box lists the built-in web tools, the add-ons you may use, the MCP servers of the
+The **Tools** menu over the message box lists the groups of built-in tools, the add-ons you may use, the MCP servers of the
 chat's model and your connectors, with a switch each. What cannot be used now is
 shown off, with the reason (a connector that is switched off, a model server
 that the model does not use by itself). A switch takes effect at the next turn.
@@ -1180,11 +1180,55 @@ curl -s -X PUT localhost:8080/api/chats/$ID/mcp -d '{"off":["crm","connector:c1"
 
 `off` holds the name of a server of the model, or `connector:<id>`. At most 200 switches.
 
-The built-in web tools have their own switch, by group:
+The built-in tools switch by group. Every group is on until the chat switches
+it off, so a chat that never touches the menu works as before:
+
+| Row | Group | Tools |
+|-----|-------|-------|
+| **Run commands** | `shell` | `bash`, whoever serves it: the Sandbox add-on (isolated) or the built-in bash on this machine |
+| **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
+| **Web** | `web` | `web_search` and `web_fetch` |
+| **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
+| **Collections** | `collections` | `list_collections` and `search_collection` |
+| **Sub-agents** | `subagents` | `spawn_agent` |
+| **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
+| **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
 
 ```bash
-curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web"]}'
+curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
 ```
+
+`off` replaces the earlier list, and a name that is not a group is refused
+(400). A group the server does not offer is not listed: **Your files** and
+**Images and audio** need the files, **Images and audio** the helper models,
+**Collections** the collections. A group that this chat cannot use now is
+listed as not usable with the reason, for example **Collections** for a user
+without the `collections` feature.
+
+**Run commands** governs `bash` from both providers: switched off, the chat
+has no `bash`, and the add-on list says `"commands":"switched_off"`. The row
+names who runs the commands (**Sandbox** with "Commands run isolated", or
+**This machine** with a warning), and the notice about commands on this
+machine stays at the top of the menu. When nothing can run commands, the row
+is not usable and gives the reason of that notice. The **Sandbox** row under
+**Add-ons** stays for the add-on's other tools.
+
+What the model is told follows the tools it has. With **Your files** off it
+hears nothing about the file tools: no hint to save files with `write_file`,
+no work folder, no pointer to `AGENTS.md`, and no line about writing skills
+when nothing can save a file. The list of the chat's files stays, with a line
+that the model cannot open them. The files pane, uploads and previews work as
+before, and `load_skill` stays: it follows the Skills menu. With **Images and
+audio** off the model is not told to call `describe_image`. With **Run
+commands** off the model is told that you switched commands off and where to
+switch them back on.
+
+A sub-agent follows the switches of its parent chat: it never gets a tool of a
+group the parent switched off. A trigger run with no agent copies these
+switches from the chat that proposed it, as it copies the others. Each group
+keeps its own rules for the runs that start by themselves (for example a
+trigger or connector run never gets the trigger tools). `load_skill` and the
+goal and loop tools have no switch.
 
 The trigger tools have a group too, `triggers`: `propose_trigger`,
 `list_triggers`, `update_trigger` and `delete_trigger` switch together, and the
