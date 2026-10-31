@@ -50,7 +50,7 @@ top of the target's config for requests to the alias:
 
 | Field | Effect |
 |-------|--------|
-| `profile.system_prompt` | Replaces the target's system prompt. A system message sent by the client still takes precedence, as for any model. |
+| `profile.system_prompt` | Replaces the target's system prompt. A system message sent by the client still takes precedence, as for any model. Date placeholders such as `{{CURRENT_DATE}}` are expanded per request (see [model configuration](/advanced/model-configuration/#system-prompt)). |
 | `profile.mcp` (`remote`, `stdio`) | Replaces the target's MCP servers. |
 | `profile.mcp.auto` | Enables the MCP servers on `/v1/chat/completions` without `metadata.mcp_servers`, when MCP is enabled and the caller has the `mcp` permission. See [MCP]({{%relref "features/mcp" %}}). |
 | `profile.client_tools: drop` | Discards tools and `tool_choice` sent by the client. |

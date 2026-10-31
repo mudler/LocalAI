@@ -53,6 +53,17 @@ func hasSystemMessage(messages []schema.Message) bool {
 	return false
 }
 
+// withConfiguredSystemPrompt prepends the model's system_prompt (date and time
+// placeholders expanded for now) when the model uses the tokenizer template and
+// the request brought no system turn of its own.
+func withConfiguredSystemPrompt(messages []schema.Message, config *config.ModelConfig, now time.Time) []schema.Message {
+	if !config.TemplateConfig.UseTokenizerTemplate || config.SystemPrompt == "" || hasSystemMessage(messages) {
+		return messages
+	}
+	prompt := config.RenderedSystemPrompt(now)
+	return append([]schema.Message{{Role: "system", Content: prompt, StringContent: prompt}}, messages...)
+}
+
 // stripEmptySystemMessages drops system-role messages whose content is empty
 // or whitespace-only. An explicit blank system turn would otherwise satisfy
 // tokenizer chat templates' `messages[0].role == "system"` check and suppress
@@ -291,10 +302,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// Tokenizer-template models pass messages through to the backend as-is,
 		// so apply the configured system_prompt when the request did not supply
 		// one. Go-template models already receive SystemPrompt via PromptTemplateData.
-		if config.TemplateConfig.UseTokenizerTemplate && config.SystemPrompt != "" && !hasSystemMessage(input.Messages) {
-			prompt := config.SystemPrompt
-			input.Messages = append([]schema.Message{{Role: "system", Content: prompt, StringContent: prompt}}, input.Messages...)
-		}
+		input.Messages = withConfiguredSystemPrompt(input.Messages, config, time.Now())
 
 		// Cloud-proxy bail. Bypasses the local pipeline (templating,
 		// MCP injection, gRPC backend) and forwards via the cloud-
