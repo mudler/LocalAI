@@ -37,7 +37,7 @@ func IsDocumentName(name string) bool { return extract.Supported(name) }
 // file with no text gives an empty string.
 func DocumentText(ctx context.Context, name string, data []byte) (string, error) {
 	if !IsDocumentName(name) {
-		return "", fmt.Errorf("%s is not a document I can read", name)
+		return "", fmt.Errorf("%s is not a PDF, Word, Excel, PowerPoint or EPUB file; read text files (.md, .txt, code) with read_file", name)
 	}
 	if len(data) > maxDocumentBytes {
 		return "", fmt.Errorf("%s is %d bytes, which is too large", name, len(data))

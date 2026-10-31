@@ -41,6 +41,15 @@ var _ = Describe("read_document", func() {
 		Expect(out).To(Equal("## Sheet \"Index\" (2 rows, 2 columns)\nfile\tfolder\nq1.pdf\tquotes"))
 	})
 
+	It("sends a text file to read_file instead of failing with a bare error", func() {
+		fx := newFixture("", "")
+		fx.put("/notes/SKILL.md", "---\nname: notes\n---\nBody.\n")
+		_, err := run(fx.tool("read_document"), map[string]any{"path": "/notes/SKILL.md"})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("SKILL.md"))
+		Expect(err.Error()).To(ContainSubstring("read text files (.md, .txt, code) with read_file"))
+	})
+
 	It("says that an empty workbook has no text, not that it is a scan", func() {
 		fx := newFixture("", "")
 		fx.put("/empty.xlsx", zipBytes("word/document.xml", "<x/>"))
