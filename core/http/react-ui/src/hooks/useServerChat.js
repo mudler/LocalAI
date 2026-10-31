@@ -29,14 +29,18 @@ const SETTLE_MS = 250
 // nothing flickers, shows twice or remounts at the end of a turn. An MCP App is
 // shown as soon as its tool call ends: the event names the transcript line of
 // the call and the hook reads that one line for the input and the result.
-export function useServerChat() {
+//
+// seed ({ id, detail }) opens a chat the page already knows, such as the one
+// Home just created (composerHandoff): the first render has it open, and the
+// stream and the transcript are read after, with nothing cleared in between.
+export function useServerChat({ seed = null } = {}) {
   const [chats, setChats] = useState([])
   // Unknown until the list answers; only an explicit false shows the notice.
   const [persistent, setPersistent] = useState(true)
   const [imageModel, setImageModel] = useState('')
   const [files, setFiles] = useState({ on: true, reason: '' })
-  const [activeId, setActiveId] = useState(null)
-  const [detail, setDetail] = useState(null)
+  const [activeId, setActiveId] = useState(() => seed?.id ?? null)
+  const [detail, setDetail] = useState(() => seed?.detail ?? null)
   const [messages, setMessages] = useState([])
   const [live, setLive] = useState(emptyLive)
   const [notes, setNotes] = useState([])
@@ -71,7 +75,8 @@ export function useServerChat() {
 
   const sourceRef = useRef(null)
   const reconnectRef = useRef(null)
-  const activeRef = useRef(null)
+  const activeRef = useRef(seed?.id ?? null)
+  const seedRef = useRef(seed)
   // Whether the last read of the open chat said a turn runs.
   const runningRef = useRef(false)
   const attemptRef = useRef(0)
@@ -286,11 +291,17 @@ export function useServerChat() {
 
   useEffect(() => {
     refreshList()
+    const seeded = seedRef.current?.id
+    if (seeded) {
+      activeRef.current = seeded
+      connect(seeded)
+      refreshChat(seeded)
+    }
     return () => {
       activeRef.current = null
       closeStream()
     }
-  }, [refreshList, closeStream])
+  }, [refreshList, closeStream, connect, refreshChat])
 
   // switches are the drafted switches of the new chat (useChatSwitches).
   const createChat = useCallback(async (model, agentId, switches) => {

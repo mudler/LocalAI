@@ -80,9 +80,11 @@ function ImageTile({ a, t }) {
   return (
     <button
       type="button" className="cx-atts__tile" data-testid="attachment-image"
-      onClick={() => openChatFile(a.path)} aria-label={t('attachments.open', { name: a.name })} title={a.name}
+      onClick={() => { if (a.path) openChatFile(a.path) }} aria-label={t('attachments.open', { name: a.name })} title={a.name}
     >
-      <img src={filesApi.contentUrl(a.path, true)} alt={a.name} loading="lazy" onError={() => setBroken(true)} />
+      {/* A message just sent from Home shows the image the browser holds
+          (a.url) until it is closed: the server's copy is not loaded again. */}
+      <img src={a.url || filesApi.contentUrl(a.path, true)} alt={a.name} loading="lazy" onError={() => setBroken(true)} />
     </button>
   )
 }
@@ -101,7 +103,7 @@ export default function MessageAttachments({ attachments }) {
     <div className="cx-atts" data-testid="message-attachments" aria-label={t('attachments.label')} role="group">
       {shown.length > 0 && (
         <div className={`cx-atts__grid${shown.length === 1 ? ' cx-atts__grid--one' : ''}`}>
-          {shown.map((a) => <ImageTile key={a.path} a={a} t={t} />)}
+          {shown.map((a) => <ImageTile key={a.path || a.name} a={a} t={t} />)}
           {!all && more.length > 0 && (
             <button
               type="button" className="cx-atts__tile cx-atts__more" data-testid="attachment-more"
@@ -115,8 +117,10 @@ export default function MessageAttachments({ attachments }) {
       {files.map((a) => (
         <AttachmentChip
           key={a.path || a.name} name={a.name} size={a.size} mime={a.mime} missing={a.missing}
-          href={a.missing ? undefined : filesApi.contentUrl(a.path)}
-          onOpen={() => openChatFile(a.path)}
+          // A file of a message the server has not stored yet has no path:
+          // nothing to open or download until it has.
+          href={a.missing || !a.path ? undefined : filesApi.contentUrl(a.path)}
+          onOpen={a.path ? () => openChatFile(a.path) : undefined}
           openLabel={t('attachments.open', { name: a.name })}
           downloadLabel={t('files.download', { name: a.name })}
           missingLabel={t('attachments.missing')}

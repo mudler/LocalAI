@@ -118,6 +118,7 @@ function ChatMessage({
       data-role={msg.role}
       data-index={index}
       data-last={isLast || undefined}
+      data-handoff={msg.handoff || undefined}
       tabIndex={0}
       onKeyDown={onKeyDown}
       aria-label={isUser ? t('message.you') : (model || t('message.assistant'))}

@@ -1576,3 +1576,108 @@ button.cx-step__head:hover,
   /* No movement, but the wash still says which file is new for 3 s. */
   .cx-files__row[data-fresh]::after { opacity: 1; }
 }
+
+/* Hand-off from Home (hooks/useComposerTransition.js). While <html> has
+   data-handoff, the layout must not move on its own: the sidebar folding for
+   focus mode and the route's rise are switched off, so what the transition
+   captures is where everything ends. The rises end at once (duration 0)
+   rather than being removed, so they do not start again when the attribute
+   goes. The handed-off message never rises: it arrives from the composer. */
+html[data-handoff] .sidebar,
+html[data-handoff] .main-content { transition: none; }
+html[data-handoff] .page-transition,
+.cx-msg[data-handoff] { animation-duration: 0s; }
+
+/* glide: the parts that travel. The composer goes from Home to the dock, the
+   text from the box to the message, the files from the box to the message,
+   and the sidebar changes width in place; the rest cross-fades. */
+html[data-handoff='glide'] .home-page .home-cmd,
+html[data-handoff='glide'] .cx-dock .home-cmd { view-transition-name: handoff-composer; }
+html[data-handoff='glide'] .home-page .home-textarea,
+html[data-handoff='glide'] .cx-msg[data-handoff] .cx-bubble { view-transition-name: handoff-text; }
+html[data-handoff='glide'] .home-page .home-file-tags,
+html[data-handoff='glide'] .cx-msg[data-handoff] .cx-atts { view-transition-name: handoff-files; }
+html[data-handoff='glide'] .sidebar { view-transition-name: handoff-rail; }
+
+html[data-handoff='glide']::view-transition-group(handoff-composer),
+html[data-handoff='glide']::view-transition-group(handoff-text),
+html[data-handoff='glide']::view-transition-group(handoff-files),
+html[data-handoff='glide']::view-transition-group(handoff-rail) {
+  animation-duration: var(--dur-glide);
+  animation-timing-function: var(--ease-out-strong);
+}
+/* Home leaves quickly, the chat settles in behind the composer. */
+html[data-handoff='glide']::view-transition-old(root) {
+  animation: cxFade var(--dur-fast) var(--ease-in) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(root) {
+  animation: cxFade var(--dur-slow) var(--ease-out) both;
+}
+/* The composer and the sidebar change from Home's to the chat's in the
+   first moment of the move, so the card that travels is the one that lands
+   and two cards are never seen at once. */
+html[data-handoff='glide']::view-transition-old(handoff-composer) {
+  animation: cxFade var(--dur-instant) var(--ease-out-strong) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(handoff-composer) {
+  animation: cxFade var(--dur-instant) var(--ease-out-strong) both;
+}
+html[data-handoff='glide']::view-transition-old(handoff-rail) {
+  animation: cxFade var(--dur-fast) var(--ease-out) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(handoff-rail) {
+  animation: cxFade var(--dur-fast) var(--ease-out) both;
+}
+/* Home's card is taller than the dock (more lines, the files): its picture
+   is cut to the moving card instead of hanging below it, and it is gone in
+   the first frames of the move. */
+html[data-handoff='glide']::view-transition-old(handoff-composer) {
+  block-size: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+/* Text and files keep their size while they travel: the box is not scaled to
+   the message, it is cut to it, so no letter is stretched. The words in the
+   box fade as the message forms around them. */
+html[data-handoff='glide']::view-transition-old(handoff-text),
+html[data-handoff='glide']::view-transition-new(handoff-text),
+html[data-handoff='glide']::view-transition-old(handoff-files),
+html[data-handoff='glide']::view-transition-new(handoff-files),
+html[data-handoff='glide']::view-transition-old(handoff-rail),
+html[data-handoff='glide']::view-transition-new(handoff-rail) {
+  block-size: 100%;
+  object-fit: none;
+  object-position: left top;
+}
+html[data-handoff='glide']::view-transition-old(handoff-text),
+html[data-handoff='glide']::view-transition-old(handoff-files) {
+  animation: cxFade var(--dur-base) var(--ease-in) both reverse;
+}
+html[data-handoff='glide']::view-transition-new(handoff-text),
+html[data-handoff='glide']::view-transition-new(handoff-files) {
+  animation: cxFade var(--dur-glide) var(--ease-out) both;
+}
+/* The dock's empty box says nothing while the words leave it, so the two
+   never cross; its hint comes back once the message has landed. */
+html[data-handoff='glide'] .cx-dock .home-textarea::placeholder { color: transparent; }
+.cx-dock .home-textarea::placeholder { transition: color var(--dur-base) var(--ease-out); }
+/* What the model does next (the dots, a load card) comes in after the
+   message has landed. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-handoff='glide'] .cx-msg:not([data-handoff]) { animation-delay: var(--dur-fast); }
+}
+
+/* fade: less motion. Only a short cross-fade of the whole page. */
+html[data-handoff='fade']::view-transition-old(root),
+html[data-handoff='fade']::view-transition-new(root) {
+  animation-duration: var(--dur-fast);
+}
+
+/* flip (no View Transitions API): the composer and the message slide in from
+   Home (Web Animations); the chrome around them fades in. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-handoff='flip'] .cx-conv > :not(.cx-stage):not(.cx-dock),
+  html[data-handoff='flip'] .cx-dock__in > :not(.home-cmd) {
+    animation: cxFade var(--dur-slow) var(--ease-out) both;
+  }
+}
