@@ -8,14 +8,9 @@ import (
 	"errors"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
-
-// defaultBlobGrace is how long a purge waits before it removes a blob that no
-// row refers to.
-const defaultBlobGrace = 2 * time.Minute
 
 // purgeChunk is how many ids go into one IN list.
 const purgeChunk = 200
@@ -178,17 +173,7 @@ func (s *Workspace) purge(ctx context.Context, a Actor, dryRun bool, pick func(q
 		}
 	}
 	for _, n := range order {
-		c := res.ByRev[n.rev]
-		if n.kind == KindDir {
-			c.Dirs++
-			res.Dirs++
-		} else {
-			c.Files++
-			c.Bytes += n.size
-			res.Files++
-			res.Bytes += n.size
-		}
-		res.ByRev[n.rev] = c
+		res.Add(n.rev, n.kind == KindDir, n.size)
 	}
 	if dryRun || len(order) == 0 {
 		return res, nil
@@ -260,18 +245,11 @@ func (s *Workspace) purge(ctx context.Context, a Actor, dryRun bool, pick func(q
 		return res, err
 	}
 
-	grace := s.grace
-	switch {
-	case grace == 0:
-		grace = defaultBlobGrace
-	case grace < 0:
-		grace = 0
-	}
 	shas := make([]string, 0, len(freed))
 	for sha := range freed {
 		shas = append(shas, sha)
 	}
-	blob.RemoveLater(s.blobs, shas, grace, s.blobsInUse)
+	blob.RemoveLater(s.blobs, shas, blob.Grace(s.grace), s.blobsInUse)
 	return res, nil
 }
 

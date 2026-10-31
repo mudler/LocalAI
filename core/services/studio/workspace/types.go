@@ -313,6 +313,22 @@ type PurgeResult struct {
 	ByRev map[int64]PurgeCount
 }
 
+// Add counts one removed node: a folder, or a file of size bytes, deleted by
+// the change set rev. ByRev must not be nil.
+func (r *PurgeResult) Add(rev int64, dir bool, size int64) {
+	c := r.ByRev[rev]
+	if dir {
+		c.Dirs++
+		r.Dirs++
+	} else {
+		c.Files++
+		c.Bytes += size
+		r.Files++
+		r.Bytes += size
+	}
+	r.ByRev[rev] = c
+}
+
 // Purger is a Store that can erase deleted nodes for good. A delete only sets
 // a tombstone, so the Trash can restore it; a purge removes the tombstoned
 // nodes, their journal rows and the change sets that no operation is left in,

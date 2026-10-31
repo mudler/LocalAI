@@ -4,15 +4,10 @@ import (
 	"context"
 	"maps"
 	"slices"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
-
-// defaultBlobGrace is how long a purge waits before it removes a blob that no
-// row refers to.
-const defaultBlobGrace = 2 * time.Minute
 
 // Purge erases the nodes that the change sets revs deleted. See workspace.Purger.
 func (s *Store) Purge(ctx context.Context, a workspace.Actor, p string, revs []int64, dryRun bool) (workspace.PurgeResult, error) {
@@ -71,15 +66,8 @@ func (s *Store) purge(ctx context.Context, a workspace.Actor, dryRun bool, pick 
 	if err != nil || len(freed) == 0 {
 		return res, err
 	}
-	grace := s.blobGrace
-	switch {
-	case grace == 0:
-		grace = defaultBlobGrace
-	case grace < 0:
-		grace = 0
-	}
 	// Outside the lock: the check of the blobs takes the read lock.
-	blob.RemoveLater(s.blobs, freed, grace, s.blobsInUse)
+	blob.RemoveLater(s.blobs, freed, blob.Grace(s.blobGrace), s.blobsInUse)
 	return res, nil
 }
 
@@ -110,17 +98,7 @@ func (s *Store) purgeLocked(ctx context.Context, a workspace.Actor, dryRun bool,
 	}
 	for id := range gone {
 		n := d.nodes[id]
-		c := res.ByRev[n.Rev]
-		if n.Kind == workspace.KindDir {
-			c.Dirs++
-			res.Dirs++
-		} else {
-			c.Files++
-			c.Bytes += n.Size
-			res.Files++
-			res.Bytes += n.Size
-		}
-		res.ByRev[n.Rev] = c
+		res.Add(n.Rev, n.Kind == workspace.KindDir, n.Size)
 	}
 	if dryRun || len(gone) == 0 {
 		return res, nil, nil
