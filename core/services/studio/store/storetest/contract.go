@@ -274,6 +274,21 @@ func Run(newStore New) {
 		Expect(rec.AddonsOff).To(BeEmpty(), "after clearing")
 	})
 
+	It("a chat created with its switches keeps them", func() {
+		s := newStore()
+		rec := session.ChatRecord{ID: "c1", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",
+			AddonsOff: []string{"office"}, McpOff: []string{"connector:k1"}, BuiltinsOff: []string{"web"},
+			BuiltinsOn: []string{"saved_agents"}, SkillsOff: []string{"builtin:pdf"}}
+		Expect(s.CreateChat(ctx(), rec)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.AddonsOff).To(Equal([]string{"office"}))
+		Expect(got.McpOff).To(Equal([]string{"connector:k1"}))
+		Expect(got.BuiltinsOff).To(Equal([]string{"web"}))
+		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
+		Expect(got.SkillsOff).To(Equal([]string{"builtin:pdf"}))
+	})
+
 	It("kind, parent, model, status and summary round-trip", func() {
 		s := newStore()
 		chat(s, "parent", "alice")

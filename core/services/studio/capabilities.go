@@ -198,12 +198,18 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 	if err != nil {
 		return Commands{}, err
 	}
+	return s.commandsFor(ctx, p, rec), nil
+}
+
+// commandsFor says whether the chat of rec can run commands at its next turn.
+func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) Commands {
+	conv := rec.ID
 	a := chatActor(p, conv)
 	if rec.Kind == session.KindSubAgent {
 		s.mu.Lock()
 		tools := s.allowed[key(p, conv)]
 		s.mu.Unlock()
-		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil), nil
+		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil)
 	}
 	sc := s.scopeOf(ctx, rec)
 	var tools []session.Tool
@@ -212,7 +218,7 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
 	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
-	return s.withHostBash(c, tools), nil
+	return s.withHostBash(c, tools)
 }
 
 // commandsBlock is the block of the system prompt that states whether the chat

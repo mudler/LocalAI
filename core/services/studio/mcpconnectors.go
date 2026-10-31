@@ -52,8 +52,17 @@ var (
 // with an agent it only narrows what the agent grants. The chat of another user
 // is session.ErrNotFound.
 func (s *Service) SetMcpOff(ctx context.Context, user, conv string, off []string) error {
+	clean, err := cleanMcpSwitches(off)
+	if err != nil {
+		return err
+	}
+	return s.d.Store.SetMcpOff(ctx, principal(user), conv, clean)
+}
+
+// cleanMcpSwitches checks and dedups a list of MCP switches.
+func cleanMcpSwitches(off []string) ([]string, error) {
 	if len(off) > maxMCPSwitches {
-		return fmt.Errorf("%w: at most %d switches", ErrBadMCPSwitch, maxMCPSwitches)
+		return nil, fmt.Errorf("%w: at most %d switches", ErrBadMCPSwitch, maxMCPSwitches)
 	}
 	seen := make(map[string]bool, len(off))
 	clean := make([]string, 0, len(off))
@@ -63,14 +72,14 @@ func (s *Service) SetMcpOff(ctx context.Context, user, conv string, off []string
 			ok = connectorSwitchShape.MatchString(n)
 		}
 		if !ok {
-			return fmt.Errorf("%w: %q", ErrBadMCPSwitch, n)
+			return nil, fmt.Errorf("%w: %q", ErrBadMCPSwitch, n)
 		}
 		if !seen[n] {
 			seen[n] = true
 			clean = append(clean, n)
 		}
 	}
-	return s.d.Store.SetMcpOff(ctx, principal(user), conv, clean)
+	return clean, nil
 }
 
 // ModelMCPServerSwitch is a server of the model with the chat's switch.
@@ -109,6 +118,12 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 	if err != nil {
 		return ToolsPanel{}, err
 	}
+	return s.toolsFor(ctx, user, rec)
+}
+
+// toolsFor lists what the chat of rec can use, with its switches.
+func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRecord) (ToolsPanel, error) {
+	conv := rec.ID
 	sc := s.scopeOf(ctx, rec)
 	var shadowing []session.Tool
 	if sc == nil || !sc.deleted {
@@ -118,7 +133,8 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 	if s.d.AddonTools != nil && (sc == nil || !sc.deleted) {
 		p.Fallbacks = s.toolFallbacks(ctx, rec, shadowing, s.shadowersFor(ctx, principal(user)))
 	}
-	if p.Addons, err = s.Addons(ctx, user, conv); err != nil {
+	var err error
+	if p.Addons, err = s.addonsFor(ctx, user, rec); err != nil {
 		return p, err
 	}
 	off := set(rec.McpOff)

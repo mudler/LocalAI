@@ -57,6 +57,8 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"PUT", "/api/chats/skills/:layer/:name", FeatureChats},
 	{"DELETE", "/api/chats/skills/:layer/:name", FeatureChats},
 	{"PUT", "/api/chats/:id/skills", FeatureChats},
+	{"GET", "/api/chats/draft/tools", FeatureChats},
+	{"GET", "/api/chats/draft/addons", FeatureChats},
 	{"GET", "/api/chats/:id/addons", FeatureChats},
 	{"PUT", "/api/chats/:id/addons", FeatureChats},
 	{"PUT", "/api/chats/:id/builtins", FeatureChats},

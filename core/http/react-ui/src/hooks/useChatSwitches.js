@@ -4,6 +4,7 @@ import { connectorRef, toolsCounts } from '../utils/chatMCP'
 import { offWith, withOn } from '../utils/chatSwitchRows'
 import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 import { commandsState } from '../utils/chatCommands'
+import { applyChoices, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
@@ -18,7 +19,17 @@ export { skillKey }
 // connectors and the skills. A
 // chat with an agent lists only what the agent grants. A switch changes the
 // list at once and goes back when the server refuses.
-export function useChatSwitches(chatId, filesOn) {
+//
+// Before the chat exists (no chatId) draft names the model and the agent of
+// the new chat: the lists come from the draft endpoints, a switch changes only
+// the screen, and draftSwitches() gives the choices for the create request
+// (utils/chatDraftSwitches.js). Choices outlive a change of model or agent.
+export function useChatSwitches(chatId, filesOn, draft = null) {
+  const draftOn = !chatId && !!draft
+  const draftModel = draft?.model || ''
+  const draftAgent = draft?.agentId || ''
+  const choicesRef = useRef(emptyChoices())
+  const choose = useCallback((kind, key, value) => { choicesRef.current = withChoice(choicesRef.current, kind, key, value) }, [])
   const [addons, setAddons] = useState([])
   // Whether the chat can run commands, from the same list (see utils/chatCommands.js).
   const [commands, setCommands] = useState({ state: '', reason: '' })
@@ -42,32 +53,42 @@ export function useChatSwitches(chatId, filesOn) {
   useEffect(() => {
     setError('')
     setSkillsError('')
-    if (!chatId) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setSkills([]); setReplaced([]); return undefined }
+    if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setSkills([]); setReplaced([]); return undefined }
     let live = true
-    chatAddonsApi.list(chatId)
-      .then((res) => { if (live) { setAddons(res.addons || []); setCommands(commandsOf(res)) } })
+    // A draft list keeps the choices made so far for the rows it still has.
+    const chosen = (lists) => (draftOn ? applyChoices(lists, choicesRef.current, connectorRef) : lists)
+    ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent) : chatAddonsApi.list(chatId))
+      .then((res) => { if (live) { setAddons(chosen({ addons: res.addons || [] }).addons); setCommands(commandsOf(res)) } })
       .catch(() => { if (live) { setAddons([]); setCommands(noCommands) } })
-    chatToolsApi.list(chatId)
-      .then((res) => { if (live) { setMcp(mcpOf(res)); setBuiltins(res.builtins || []); setFallbacks(res.fallbacks || []) } })
+    ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
+      .then((res) => {
+        if (!live) return
+        const m = mcpOf(res)
+        const got = chosen({ servers: m.servers, connectors: m.connectors, mcpOff: m.off, builtins: res.builtins || [] })
+        setMcp(draftOn ? { servers: got.servers, connectors: got.connectors, off: got.mcpOff } : m)
+        setBuiltins(got.builtins)
+        setFallbacks(res.fallbacks || [])
+      })
       .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]) } })
     return () => { live = false }
-  }, [chatId, filesOn])
+  }, [chatId, filesOn, draftOn, draftModel, draftAgent])
 
   useEffect(() => {
-    if (!chatId || !filesOn) { setSkills([]); setReplaced([]); return undefined }
+    if ((!chatId && !draftOn) || !filesOn) { setSkills([]); setReplaced([]); return undefined }
     let live = true
     // Only the skill that wins has a switch: one that another overrides cannot
-    // be used anyway. A built-in skill an add-on replaces is shown apart.
-    chatSkillsApi.list(chatId)
+    // be used anyway. A built-in skill an add-on replaces is shown apart. The
+    // list without a chat is the skills with their default switches.
+    chatSkillsApi.list(chatId || undefined)
       .then((res) => {
         if (!live) return
         const picked = pickerSkills(res.skills)
-        setSkills(picked.skills)
+        setSkills(draftOn ? applyChoices({ skills: picked.skills }, choicesRef.current).skills : picked.skills)
         setReplaced(picked.replaced)
       })
       .catch(() => { if (live) { setSkills([]); setReplaced([]) } })
     return () => { live = false }
-  }, [chatId, filesOn, skillsRev])
+  }, [chatId, filesOn, skillsRev, draftOn])
 
   // The lists as the screen shows them now, for a change that starts before a
   // render: "Select all" in the Tools menu sends one request per kind in a row.
@@ -88,6 +109,7 @@ export function useChatSwitches(chatId, filesOn) {
     if (ids.length === 0) return
     putAddons(next)
     setError('')
+    if (draftOn) { ids.forEach((id) => choose('addons', id, !on)); return }
     try {
       const res = await chatAddonsApi.setOff(chatId, next.filter((a) => a.off).map((a) => a.id).sort())
       if (res?.addons) {
@@ -104,7 +126,7 @@ export function useChatSwitches(chatId, filesOn) {
       putAddons(before)
       setError(e.message || 'error')
     }
-  }, [chatId])
+  }, [chatId, draftOn, choose])
 
   // keys: server names of the model or connector:<id>, switched with one request.
   const setMCPOn = useCallback(async (keys, on) => {
@@ -117,6 +139,7 @@ export function useChatSwitches(chatId, filesOn) {
       off,
     })
     setError('')
+    if (draftOn) { keys.forEach((key) => choose('mcp', key, !on)); return }
     try {
       const res = await chatToolsApi.setMcpOff(chatId, off)
       putMcp(mcpOf(res))
@@ -126,7 +149,7 @@ export function useChatSwitches(chatId, filesOn) {
       putMcp(before)
       setError(e.message || 'error')
     }
-  }, [chatId])
+  }, [chatId, draftOn, choose])
 
   // groups of built-in tools, such as web. An opt-in group (saved_agents) is
   // off until the chat switches it on, so it goes in the list of groups that
@@ -137,6 +160,7 @@ export function useChatSwitches(chatId, filesOn) {
     const next = withOn(before, (b) => b.group, new Set(groups), on)
     putBuiltins(next)
     setError('')
+    if (draftOn) { groups.forEach((group) => choose('builtins', group, !on)); return }
     try {
       const off = next.filter((b) => b.off && !b.opt_in).map((b) => b.group).sort()
       const optIn = next.filter((b) => b.opt_in)
@@ -149,7 +173,7 @@ export function useChatSwitches(chatId, filesOn) {
       putBuiltins(before)
       setError(e.message || 'error')
     }
-  }, [chatId])
+  }, [chatId, draftOn, choose])
 
   const toggleAddon = useCallback((id, on) => setAddonsOn([id], on), [setAddonsOn])
   const toggleMCP = useCallback((key, on) => setMCPOn([key], on), [setMCPOn])
@@ -166,6 +190,10 @@ export function useChatSwitches(chatId, filesOn) {
     skillsRef.current = next
     setSkills(next)
     setSkillsError('')
+    if (draftOn) {
+      for (const id of changedIds(before, ids, on)) choose('skills', id, on)
+      return
+    }
     setSkillsBusy((n) => n + 1)
     try {
       await chatSkillsApi.setOff(chatId, offList(next))
@@ -180,13 +208,22 @@ export function useChatSwitches(chatId, filesOn) {
     } finally {
       setSkillsBusy((n) => n - 1)
     }
-  }, [chatId])
+  }, [chatId, draftOn, choose])
 
   // A switch names the skill by its id ("layer:name"): a plain name would
   // turn off whichever skill of that name wins, not this one.
   const toggleSkill = useCallback((id, on) => setSkillsOn(new Set([id]), on), [setSkillsOn])
 
+  // The choices of a draft, for the create request; null when there is none.
+  const draftSwitches = useCallback(
+    () => (draftOn ? switchesOf({ addons, mcpOff: mcp.off, builtins, skills: skillsRef.current }) : null),
+    [draftOn, addons, mcp.off, builtins],
+  )
+  // A chat was created with the draft: the next draft starts from the defaults.
+  const resetDraft = useCallback(() => { choicesRef.current = emptyChoices() }, [])
+
   return {
+    draftSwitches, resetDraft, draft: draftOn,
     addons, builtins, fallbacks, commands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn,

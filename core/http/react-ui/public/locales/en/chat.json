@@ -306,6 +306,7 @@
     "label": "Tools",
     "title": "Tools this chat can use",
     "heading": "Tools for this chat",
+    "draftNote": "A new chat starts with these switches. A tool that is off is not offered to the model.",
     "note": "A tool that is off here is not offered to the model in this chat.",
     "count": "{{on}} of {{total}} on",
     "selectAll": "Select all",

@@ -61,4 +61,7 @@
   .home-page { padding: var(--sp-2) var(--sp-4) 64px; }
   .home-header { padding-bottom: var(--sp-4); }
   .home-cmd { padding: 10px; }
+  /* Home's bar has the chat chips (model, Tools, Skills, agent): on a phone
+     they wrap to a second row instead of squeezing the model chip away. */
+  .home-col .home-cmd__top { flex-wrap: wrap; }
 }

@@ -18,6 +18,22 @@ type ChatsCreateRequest struct {
 	// models and backends, change settings). It needs an administrator and the
 	// assistant setting on, and it cannot be combined with AgentID.
 	Assistant bool `json:"assistant,omitempty"`
+	// Switches are the tools, add-ons and skills the chat starts with
+	// switched off (and the opt-in tools switched on), as the composer of a
+	// new chat drafts them. They are stored with the chat: the chat never
+	// exists without them. A bad entry refuses the whole request.
+	Switches *ChatsSwitches `json:"switches,omitempty"`
+}
+
+// ChatsSwitches are the switches of a chat, each list in the form its own
+// PUT endpoint takes: add-on IDs, MCP server names and connector:<id>,
+// groups of built-in tools, opt-in groups that are on, and skill ids.
+type ChatsSwitches struct {
+	AddonsOff   []string `json:"addons_off,omitempty"`
+	McpOff      []string `json:"mcp_off,omitempty"`
+	BuiltinsOff []string `json:"builtins_off,omitempty"`
+	BuiltinsOn  []string `json:"builtins_on,omitempty"`
+	SkillsOff   []string `json:"skills_off,omitempty"`
 }
 
 // ChatsAgent is a saved agent. The four lists are exact grants: an empty list

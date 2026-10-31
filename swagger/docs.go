@@ -3672,13 +3672,14 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "description": "With switches, the chat starts with those tools, add-ons and skills switched off (and those opt-in tools on), as GET /api/chats/draft/tools and GET /api/chats/skills list them for a chat that does not exist yet. A bad switch refuses the request and no chat is created.",
                 "tags": [
                     "chats"
                 ],
                 "summary": "Start a chat.",
                 "parameters": [
                     {
-                        "description": "model and optional title",
+                        "description": "model and optional title, agent and switches",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -5025,6 +5026,104 @@ const docTemplate = `{
                         "description": "The report",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConversion"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/draft/addons": {
+            "get": {
+                "description": "What GET /api/chats/{id}/addons lists, for a chat that does not exist yet, as GET /api/chats/draft/tools takes it: the add-ons with their default switch and whether the chat could run commands at its first turn.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the add-ons a new chat could use.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the model of the new chat",
+                        "name": "model",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "a saved agent of yours",
+                        "name": "agent_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The add-ons and their default switches",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAddonList"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Refused",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/draft/tools": {
+            "get": {
+                "description": "What GET /api/chats/{id}/tools lists, for a chat that does not exist yet: a chat on model, with the saved agent agent_id when it is set (the agent's model, when it has one, replaces model). Every switch is in its default state. The composer of a new chat shows it and sends the person's choices in the switches of POST /api/chats.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the tools a new chat could switch on and off.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the model of the new chat",
+                        "name": "model",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "a saved agent of yours",
+                        "name": "agent_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The tools and their default switches",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsToolsPanel"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Refused",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such agent",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -18394,6 +18493,14 @@ const docTemplate = `{
                     "description": "Model is the model the conversation talks to. It cannot change later.",
                     "type": "string"
                 },
+                "switches": {
+                    "description": "Switches are the tools, add-ons and skills the chat starts with\nswitched off (and the opt-in tools switched on), as the composer of a\nnew chat drafts them. They are stored with the chat: the chat never\nexists without them. A bad entry refuses the whole request.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsSwitches"
+                        }
+                    ]
+                },
                 "title": {
                     "description": "Title is optional; the conversation is named after its first message otherwise.",
                     "type": "string"
@@ -19902,6 +20009,41 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.ChatsSubAgent"
+                    }
+                }
+            }
+        },
+        "schema.ChatsSwitches": {
+            "type": "object",
+            "properties": {
+                "addons_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mcp_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "skills_off": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }

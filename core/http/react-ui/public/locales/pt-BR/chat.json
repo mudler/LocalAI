@@ -115,6 +115,7 @@
     "label": "Ferramentas",
     "title": "Ferramentas que este chat pode usar",
     "heading": "Ferramentas deste chat",
+    "draftNote": "Um novo chat começa com estas opções. Uma ferramenta desligada não é oferecida ao modelo.",
     "note": "Uma ferramenta desligada aqui não é oferecida ao modelo neste chat.",
     "count": "{{on}} de {{total}} ligadas",
     "selectAll": "Ligar todas",

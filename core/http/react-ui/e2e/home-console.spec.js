@@ -36,7 +36,8 @@ test.describe('Home slash menu', () => {
     expect(names).toEqual([
       '/model', '/new', '/chat', '/assistant',
       '/gallery', '/installed', '/import', '/stop',
-      '/agents', '/mcp', '/memory', '/settings', '/docs',
+      // An admin without Studio is offered /studio to install it.
+      '/agents', '/mcp', '/memory', '/studio', '/settings', '/docs',
     ])
   })
 
@@ -512,8 +513,8 @@ test.describe('Home send hand-off', () => {
     await mockHome(page)
   })
 
-  // The chats page starts the chat on its own: it creates it with the model and
-  // sends the typed text as the first message. The stubs answer in the shapes of
+  // Home starts the chat: it creates it with the model and sends the typed
+  // text as the first message, then opens it. The stubs answer in the shapes of
   // the server: the list and the messages are objects, and a chat is the flat
   // conversation with its waiting messages (core/schema/chats.go).
   async function serverChats(page) {
@@ -577,9 +578,10 @@ test.describe('Home send hand-off', () => {
     await expect(page).toHaveURL(/\/app\/chats\/n1$/)
     await expect.poll(() => seen.sent.length).toBe(1)
 
+    // Back is Home again, with the draft gone: nothing is sent twice.
     await page.goBack()
-    await expect(page).toHaveURL(/\/app\/chats(\?model=[^/]*)?$/)
-    await expect(page.getByTestId('chat-input')).toHaveValue('')
+    await expect(page).toHaveURL(/\/app$/)
+    await expect(page.locator('.home-textarea')).toHaveValue('')
     await page.waitForTimeout(1500)
     expect(seen.created).toHaveLength(1)
     expect(seen.sent).toHaveLength(1)

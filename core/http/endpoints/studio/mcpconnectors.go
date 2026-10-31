@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/schema"
+	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
 )
 
@@ -201,6 +202,10 @@ func toolsPanel(c echo.Context, h *Handlers) error {
 	if err != nil {
 		return failFor(c, err)
 	}
+	return writeToolsPanel(c, p)
+}
+
+func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 	out := schema.ChatsToolsPanel{Builtins: make([]schema.ChatsBuiltinGroup, 0, len(p.Builtins)), Addons: make([]schema.ChatsAddon, 0, len(p.Addons)), Servers: make([]schema.ChatsMCPServerSwitch, 0, len(p.Servers)),
 		Connectors: make([]schema.ChatsMCPConnectorSwitch, 0, len(p.Connectors)), Off: p.Off}
 	for _, g := range p.Builtins {

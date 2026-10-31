@@ -78,21 +78,30 @@ type AddonInfo struct {
 // SetAddonsOff sets the add-ons a chat has switched off, replacing the earlier
 // list. An ID appears once. The chat of another user is session.ErrNotFound.
 func (s *Service) SetAddonsOff(ctx context.Context, user, conv string, off []string) error {
+	clean, err := cleanAddonSwitches(off)
+	if err != nil {
+		return err
+	}
+	return s.d.Store.SetAddonsOff(ctx, principal(user), conv, clean)
+}
+
+// cleanAddonSwitches checks and dedups a list of add-on IDs.
+func cleanAddonSwitches(off []string) ([]string, error) {
 	if len(off) > maxAddonSwitches {
-		return fmt.Errorf("%w: at most %d switches", ErrBadAddonID, maxAddonSwitches)
+		return nil, fmt.Errorf("%w: at most %d switches", ErrBadAddonID, maxAddonSwitches)
 	}
 	seen := make(map[string]bool, len(off))
 	clean := make([]string, 0, len(off))
 	for _, id := range off {
 		if !addonIDShape.MatchString(id) {
-			return fmt.Errorf("%w: %q", ErrBadAddonID, id)
+			return nil, fmt.Errorf("%w: %q", ErrBadAddonID, id)
 		}
 		if !seen[id] {
 			seen[id] = true
 			clean = append(clean, id)
 		}
 	}
-	return s.d.Store.SetAddonsOff(ctx, principal(user), conv, clean)
+	return clean, nil
 }
 
 // Addons lists the add-ons whose tools the user may use, with the chat's
@@ -102,6 +111,11 @@ func (s *Service) Addons(ctx context.Context, user, conv string) ([]AddonInfo, e
 	if err != nil {
 		return nil, err
 	}
+	return s.addonsFor(ctx, user, rec)
+}
+
+// addonsFor lists the add-ons of Addons with the switches of rec.
+func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRecord) ([]AddonInfo, error) {
 	if s.d.AddonTools == nil {
 		return nil, nil
 	}

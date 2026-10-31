@@ -4,15 +4,17 @@ import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../utils/basePath'
 import { useAuth } from '../context/AuthContext'
 import { useBranding } from '../contexts/BrandingContext'
-import { CAP_CHAT } from '../utils/capabilities'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
 // eslint-disable-next-line no-unused-vars
 import HomeConnect from '../components/HomeConnect'
 // eslint-disable-next-line no-unused-vars
-import HomeComposer from '../components/home/HomeComposer'
+import ChatComposer from '../components/chat/ChatComposer'
 // eslint-disable-next-line no-unused-vars
-import HomeModelPicker from '../components/home/HomeModelPicker'
+import { ReadyLine } from '../components/chat/EmptyChat'
+// eslint-disable-next-line no-unused-vars
+import ShortcutsRow from '../components/wellknown/ShortcutsRow'
+import { useChatComposer } from '../hooks/useChatComposer'
 // eslint-disable-next-line no-unused-vars
 import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
 // eslint-disable-next-line no-unused-vars
@@ -48,6 +50,10 @@ function isTyping(el) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
 }
 
+// The key the draft of Home is kept under (useChatDrafts): its text survives
+// a reload. Chat ids are hex, so it is never one.
+const HOME_DRAFT = 'home'
+
 function reducedMotion() {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false }
 }
@@ -57,6 +63,7 @@ export default function Home() {
   const { addToast } = useOutletContext()
   const { t, i18n } = useTranslation('home')
   const { t: tw } = useTranslation('workspace')
+  const { t: tc } = useTranslation('chats')
   const { isAdmin, hasFeature, user } = useAuth()
   const branding = useBranding()
   const { resources } = useResources()
@@ -69,8 +76,17 @@ export default function Home() {
   // An old chat address names a model (/app/chats?model=…, /app/chat/<model>)
   // and lands here: the picker starts on it.
   const [searchParams] = useSearchParams()
-  const [selectedModel, setSelectedModel] = useState(() => searchParams.get('model') || '')
-  const [message, setMessage] = useState('')
+  // What the chat server says about chats here: whether files (attachments,
+  // skills) work, whether chats are kept, the model that reads images.
+  const [chatServer, setChatServer] = useState({ files: true, filesReason: '', persistent: true, imageModel: '' })
+  // The composer is the chat page's (useChatComposer): the draft is Home's,
+  // the switches are a draft that goes with the new chat.
+  const composer = useChatComposer({
+    draftKey: HOME_DRAFT, userId: user?.id, filesOn: chatServer.files, canAgents: hasFeature('agents'),
+    initialModel: searchParams.get('model') || '',
+  })
+  const { drafts, effectiveModel: selectedModel, draftModel, agentId, switches } = composer
+  const { text: message, setText: setMessage, files } = drafts
   const [sending, setSending] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [distributedMode, setDistributedMode] = useState(false)
@@ -171,17 +187,33 @@ export default function Home() {
 
   usePolling(fetchSystemInfo, 5000)
 
-  // A message typed here starts a chat on the chats page with the chosen model.
-  const doSubmit = useCallback(() => {
-    const text = message.trim()
-    if (!text) return
+  // A message sent here creates the chat with the chosen model, agent and
+  // switches, sends the message with its files and opens the chat. When the
+  // message cannot go, the new chat is removed and the draft stays here.
+  // A shortcut that sends passes its prompt and leaves the draft as it is.
+  const doSubmit = useCallback(async (override) => {
+    const own = typeof override !== 'string'
+    const text = (own ? message : override).trim()
+    const attached = own ? files : []
+    if ((!text && attached.length === 0) || sending) return
     if (!selectedModel) {
       addToast(t('input.selectModelToast'), 'warning')
       return
     }
     setSending(true)
-    navigate(`/app/chats?model=${encodeURIComponent(selectedModel)}`, { state: { start: text } })
-  }, [message, selectedModel, addToast, navigate, t])
+    let id = ''
+    try {
+      id = (await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)).id
+      await chatsApi.send(id, text, attached)
+      if (own) drafts.clear(HOME_DRAFT)
+      switches.resetDraft()
+      navigate(`/app/chats/${encodeURIComponent(id)}`)
+    } catch (err) {
+      if (id) chatsApi.delete(id).catch(() => {})
+      addToast(err.message || tc('errors.send'), 'error')
+      setSending(false)
+    }
+  }, [message, files, sending, selectedModel, draftModel, agentId, switches, drafts, addToast, navigate, t, tc])
 
   // An empty new chat on the chosen model. The state marks it as a hand-off:
   // /app/chats opened as a bare address comes back here.
@@ -248,7 +280,11 @@ export default function Home() {
   // chats leaves the strip empty.
   useEffect(() => {
     let live = true
-    chatsApi.list(1, 'chat').then(r => { if (live) setConversations(resumeItems(r.conversations)) }).catch(() => { if (live) setConversations([]) })
+    chatsApi.list(1, 'chat').then(r => {
+      if (!live) return
+      setConversations(resumeItems(r.conversations))
+      setChatServer({ files: r.files !== false, filesReason: r.files_reason || '', persistent: r.persistent !== false, imageModel: r.image_model || '' })
+    }).catch(() => { if (live) setConversations([]) })
     return () => { live = false }
   }, [])
 
@@ -274,8 +310,15 @@ export default function Home() {
       el.focus()
       el.setSelectionRange?.(prompt.length, prompt.length)
     })
-  }, [tw])
+  }, [tw, setMessage])
   useEffect(() => { if (!message.trim()) setExamplePicked(false) }, [message])
+  // A shortcut fills the composer, as on the chat page; one marked send goes
+  // at once when a model is chosen.
+  const pickShortcut = useCallback((sc) => {
+    if (sc.send && selectedModel) { doSubmit(sc.prompt); return }
+    setMessage(sc.prompt)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }, [setMessage, selectedModel, doSubmit])
   const askLayout = useCallback(() => {
     const q = selectedModel ? `?model=${encodeURIComponent(selectedModel)}` : ''
     navigate(`/app/chats${q}`, { state: { draft: tw('wellKnown.home.askPrompt') } })
@@ -348,7 +391,7 @@ export default function Home() {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [])
+  }, [setMessage])
 
   const dateLabel = useMemo(
     () => new Intl.DateTimeFormat(i18n.language, { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date()),
@@ -356,7 +399,7 @@ export default function Home() {
   )
 
   const cluster = distributedMode && clusterData ? clusterData : null
-  const hasInput = message.trim().length > 0
+  const hasInput = message.trim().length > 0 || files.length > 0
   const canSend = !!selectedModel && hasInput && !sending
   const sendTitle = !selectedModel ? t('input.selectModelFirst') : t('input.sendMessage')
 
@@ -382,17 +425,6 @@ export default function Home() {
     )
   }
 
-  const picker = (
-    <HomeModelPicker
-      ref={pickerRef}
-      value={selectedModel}
-      onChange={setSelectedModel}
-      capability={CAP_CHAT}
-      loadedIds={loadedIds}
-      disabled={firstRun}
-      placeholder={firstRun ? t('picker.noneSelected') : undefined}
-    />
-  )
   return (
     <div className="home-page">
       <div className="home-col">
@@ -402,20 +434,37 @@ export default function Home() {
         </header>
 
         <div>
-          <HomeComposer
+          {chatsOn && !firstRun && (
+            <ShortcutsRow
+              filesOn={chatServer.files}
+              onPick={pickShortcut}
+              onEditWithAssistant={() => { setMessage(tw('wellKnown.shortcuts.assistantPrompt')); textareaRef.current?.focus() }}
+            />
+          )}
+          {!chatServer.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
+          {!chatServer.files && <p className="cx-notice" role="note">{chatServer.filesReason || tc('attach.off')}</p>}
+          <ChatComposer
+            composer={composer}
+            filesOn={chatServer.files}
+            loadedIds={loadedIds}
+            imageModel={chatServer.imageModel}
+            pickerRef={pickerRef}
+            pickerDisabled={firstRun}
+            pickerPlaceholder={firstRun ? t('picker.noneSelected') : undefined}
             onDictateError={(m) => addToast(m, 'error')}
-            message={message}
-            onMessage={setMessage}
             onSubmit={doSubmit}
             canSend={canSend}
             sending={sending}
             sendTitle={sendTitle}
             textareaRef={textareaRef}
-            picker={picker}
             placeholder={firstRun ? t('input.placeholderFirstRun') : undefined}
             slashContext={slashContext}
             onRunAction={runAction}
+            strictEnter
+            textareaTestId="home-input"
+            sendTestId="home-send"
           />
+          {!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />}
           {examplePicked && (
             <p className="wk-ex__hint" data-testid="home-example-hint">
               <Icon name="info" /> {tw('discovery.ex.inComposer')}

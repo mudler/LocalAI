@@ -112,6 +112,7 @@
     "label": "Werkzeuge",
     "title": "Werkzeuge, die dieser Chat nutzen kann",
     "heading": "Werkzeuge für diesen Chat",
+    "draftNote": "Ein neuer Chat startet mit diesen Schaltern. Ein ausgeschaltetes Werkzeug wird dem Modell nicht angeboten.",
     "note": "Ein hier ausgeschaltetes Werkzeug wird dem Modell in diesem Chat nicht angeboten.",
     "count": "{{on}} von {{total}} an",
     "selectAll": "Alle einschalten",

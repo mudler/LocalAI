@@ -226,6 +226,47 @@ type CreateInput struct {
 	// administrator may, and only while the assistant is on. It cannot be
 	// combined with AgentID.
 	Assistant bool
+	// Switches are the switches the chat starts with. They are checked as
+	// the Set*Off calls check them and stored with the new record, so the
+	// chat never exists without them.
+	Switches Switches
+}
+
+// Switches are the lists of a chat's switches: the add-ons, MCP servers and
+// connectors, groups of built-in tools and skills that are off, and the
+// opt-in groups of built-in tools that are on.
+type Switches struct {
+	AddonsOff, McpOff, BuiltinsOff, BuiltinsOn, SkillsOff []string
+}
+
+// cleanSwitches checks every list of sw and returns them cleaned.
+func (s *Service) cleanSwitches(sw Switches) (Switches, error) {
+	var out Switches
+	var err error
+	if out.AddonsOff, err = cleanAddonSwitches(sw.AddonsOff); err != nil {
+		return out, err
+	}
+	if out.McpOff, err = cleanMcpSwitches(sw.McpOff); err != nil {
+		return out, err
+	}
+	if out.BuiltinsOff, err = s.cleanGroups(sw.BuiltinsOff, false); err != nil {
+		return out, err
+	}
+	if out.BuiltinsOn, err = s.cleanGroups(sw.BuiltinsOn, true); err != nil {
+		return out, err
+	}
+	if out.SkillsOff, err = cleanSkillSwitches(sw.SkillsOff); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+// orNil keeps an empty list nil, as a chat that never switched anything has it.
+func orNil(l []string) []string {
+	if len(l) == 0 {
+		return nil
+	}
+	return l
 }
 
 // Origin says what started a conversation when a person did not.
@@ -529,13 +570,19 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	if strings.TrimSpace(model) == "" {
 		return session.ChatRecord{}, ErrNoModel
 	}
+	sw, err := s.cleanSwitches(in.Switches)
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
 	title := in.Title
 	if title == "" {
 		title = session.DefaultTitle
 	}
 	now := time.Now().UTC()
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
-		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant}
+		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
+		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
+		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff)}
 	if origin.Kind == "" {
 		// A chat a person starts gets the instance default, or the network
 		// of its saved agent when the agent sets one, under the ceiling. An
