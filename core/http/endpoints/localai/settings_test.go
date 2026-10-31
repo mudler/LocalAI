@@ -182,6 +182,22 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 	})
 
+	It("checks and saves the step limit of a chat turn", func() {
+		Expect(app.ApplicationConfig().EffectiveChatsMaxIterations()).To(Equal(config.DefaultChatsMaxIterations), "unset: the default")
+		for _, body := range []string{`{"chats_max_iterations":0}`, `{"chats_max_iterations":501}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_max_iterations"), body)
+		}
+		rec := post(`{"chats_max_iterations":80}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(app.ApplicationConfig().ChatsMaxIterations).To(Equal(80))
+		Expect(app.ApplicationConfig().EffectiveChatsMaxIterations()).To(Equal(80))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_max_iterations": 80`))
+	})
+
 	It("errors when DynamicConfigsDir is unset", func() {
 		app.ApplicationConfig().DynamicConfigsDir = ""
 		rec := post(`{}`)

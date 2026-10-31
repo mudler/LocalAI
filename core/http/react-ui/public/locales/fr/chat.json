@@ -289,7 +289,8 @@
       "waiting": "En attente de vous",
       "stopped": "Arrêté",
       "failed": "Échec",
-      "interrupted": "Interrompu"
+      "interrupted": "Interrompu",
+      "paused": "En pause"
     },
     "tool": {
       "search": "Recherche",
@@ -330,6 +331,13 @@
       "speedLive": "Vitesse estimée pendant le flux",
       "average": "Moyenne des {{count}} dernières requêtes",
       "note": "Ces chiffres viennent des requêtes vues par cette page. Le serveur ne les garde pas : un rechargement les efface."
+    },
+    "paused": {
+      "after": "après {{count}} étapes",
+      "atLimit": "à la limite d'étapes",
+      "continue": "Continuer",
+      "continueTitle": "Le modèle a utilisé toutes les étapes d'un tour. Laissez-le reprendre là où il s'est arrêté.",
+      "message": "Reprends là où tu t'es arrêté."
     }
   },
   "attachments": {

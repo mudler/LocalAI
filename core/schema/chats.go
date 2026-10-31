@@ -76,7 +76,8 @@ type ChatsConversation struct {
 	Created   time.Time `json:"created"`
 	Updated   time.Time `json:"updated"`
 	// Running is true while a turn runs. LastTurn is how the last finished turn
-	// ended: done, stopped, failed or interrupted.
+	// ended: done, stopped, failed, interrupted, or paused (the tool loop
+	// reached its step limit; send a message to go on).
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
 	// Settings are the chat's own model settings, when it has any.
@@ -261,6 +262,8 @@ type ChatsEvent struct {
 	// Before and After are context sizes in tokens, for compacted.
 	Before int `json:"before,omitempty"`
 	After  int `json:"after,omitempty"`
+	// Steps is the step limit that a paused turn reached (paused only).
+	Steps int `json:"steps,omitempty"`
 	// Usage is set on usage events: what one model request used.
 	Usage *ChatsUsage `json:"usage,omitempty"`
 	// Code, Model, Retry and Detail say why a turn failed (error only). Code

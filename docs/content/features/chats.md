@@ -203,9 +203,21 @@ served it, only when the server runs with `--expose-node-header`).
 The line under the composer shows what the chat is doing now, as one word:
 **Ready**, **Loading model**, **Thinking**, a tool step (for example
 **Reading** `q2.pdf`), **Answering**, **Waiting for you** (messages wait for
-**Send now**), **Stopped**, **Failed** or **Interrupted**. A spinner marks a
-running turn, and an icon marks a state that needs your attention. While the
-composer has focus and is empty, the line also shows the keyboard hint.
+**Send now**), **Paused**, **Stopped**, **Failed** or **Interrupted**. A spinner
+marks a running turn, and an icon marks a state that needs your attention.
+While the composer has focus and is empty, the line also shows the keyboard
+hint.
+
+**Paused** means that the turn used all its steps: the model made as many
+rounds of tool calls as one turn allows (`chats_max_iterations`, 40 by
+default) and then wrote an answer from what it had, so the work may not be
+finished. The line says how many steps the turn used (for example
+`Paused · after 40 steps`) and shows a **Continue** button. Continue sends a
+message that asks the model to go on from where it stopped; you can also type
+your own. A turn that pauses is otherwise like one that ended by itself:
+messages that wait start the next turn, and a sub-agent that pauses reports
+back. The API reports it as `last_turn: "paused"` and sends a `paused` event
+with `steps` before `turn_end`.
 
 On the right, the context meter shows how full the model's context was at the
 last request: a bar, the tokens used and the limit (for example

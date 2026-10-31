@@ -110,6 +110,9 @@ type RuntimeSettings struct {
 	ChatsEgressPorts           *string `json:"chats_egress_ports,omitempty"`            // ports a command may reach, comma separated (default: 80,443)
 	ChatsEgressExtraRegistries *string `json:"chats_egress_extra_registries,omitempty"` // host names added to the package registries, comma separated
 	ChatsEgressAuditDays       *int    `json:"chats_egress_audit_days,omitempty"`       // days the audit keeps a line, 1 to 365 (default: 30)
+	// The step limit of the tool loop of one chat turn, 1 to 500 (default:
+	// 40). Read at each turn.
+	ChatsMaxIterations *int `json:"chats_max_iterations,omitempty"`
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`

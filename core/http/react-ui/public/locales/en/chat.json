@@ -448,7 +448,8 @@
       "waiting": "Waiting for you",
       "stopped": "Stopped",
       "failed": "Failed",
-      "interrupted": "Interrupted"
+      "interrupted": "Interrupted",
+      "paused": "Paused"
     },
     "tool": {
       "search": "Searching",
@@ -489,6 +490,13 @@
       "speedLive": "Speed, estimated while streaming",
       "average": "Average of the last {{count}} requests",
       "note": "These figures come from the requests this page saw. The server does not keep them, so a reload clears them."
+    },
+    "paused": {
+      "after": "after {{count}} steps",
+      "atLimit": "at the step limit",
+      "continue": "Continue",
+      "continueTitle": "The model used all the steps of one turn. Let it go on from where it stopped.",
+      "message": "Continue from where you stopped."
     }
   },
   "attachments": {

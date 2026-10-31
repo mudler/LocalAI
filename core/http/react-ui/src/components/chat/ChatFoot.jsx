@@ -36,7 +36,9 @@ const barOf = (pct) => ({
 //   showMeter  the chat exists, so a meter can show
 //   quiet      a new, empty chat: the empty state under the composer already
 //              says whether the model is ready, so only a busy state shows
-export default function ChatFoot({ state, status, model, backend, hint, chat, showMeter, quiet = false }) {
+//   onContinue set when the last turn paused at the step limit: the line
+//              shows a Continue button that sends a message to go on
+export default function ChatFoot({ state, status, model, backend, hint, chat, showMeter, quiet = false, onContinue }) {
   const { t, i18n } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
   const phone = usePhone(SHEET_QUERY)
@@ -69,7 +71,7 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
   const detail = state.key === 'tool' ? state.arg
     : state.key === 'loading' ? model
       : state.key === 'waiting' ? tc('pending.header', { count: state.count })
-        : (state.key === 'failed' || state.key === 'interrupted') ? status : ''
+        : (state.key === 'failed' || state.key === 'interrupted' || state.key === 'paused') ? status : ''
 
   const n = (v) => new Intl.NumberFormat(i18n.language || undefined).format(v)
   // The line: used / limit, or the percentage where the line is narrow, and
@@ -118,6 +120,12 @@ export default function ChatFoot({ state, status, model, backend, hint, chat, sh
           <span key={state.key} className="cx-foot__word">{word}</span>
           {detail && <span className="cx-foot__detail" title={detail}>{detail}</span>}
         </span>
+        {onContinue && (
+          <button type="button" className="cx-foot__continue" data-testid="chat-continue" title={t('foot.paused.continueTitle')} onClick={onContinue}>
+            <Icon name="play" />
+            <span>{t('foot.paused.continue')}</span>
+          </button>
+        )}
         {hint && <span className="cx-foot__hint" data-testid="chat-foot-hint">{t('foot.hint')}</span>}
       </span>
       {showMeter && meter && (

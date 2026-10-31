@@ -578,6 +578,22 @@ var runtimeSettingsFields = []fieldSpec{
 			return true
 		}),
 
+	// The step limit of a chat turn: read when a turn starts, so no restart.
+	// The snapshot is the limit that applies, so the page shows 40 while the
+	// setting is unset.
+	withApply(field("chats_max_iterations",
+		func(s *RuntimeSettings) **int { return &s.ChatsMaxIterations },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsMaxIterations() },
+		func(o *ApplicationConfig, v int) { o.ChatsMaxIterations = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsMaxIterations; v < 1 || v > MaxChatsMaxIterations {
+				xlog.Warn("invalid chats_max_iterations in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsMaxIterations = *s.ChatsMaxIterations
+			return true
+		}),
+
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.
 	field("chats_suggestions",

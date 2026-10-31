@@ -49,7 +49,16 @@ const (
 	TurnStopped     TurnStatus = "stopped"
 	TurnFailed      TurnStatus = "failed"
 	TurnInterrupted TurnStatus = "interrupted"
+	// TurnPaused is a turn that reached the step limit of the tool loop
+	// (chats_max_iterations): the model wrote an answer from what it had, and
+	// the work may go on with another message.
+	TurnPaused TurnStatus = "paused"
 )
+
+// Finished reports whether the turn ended by itself: done, or paused at the
+// step limit. What follows a finished turn (the waiting messages, a parent
+// that waits for a sub-agent) goes on as after a done one.
+func (t TurnStatus) Finished() bool { return t == TurnDone || t == TurnPaused }
 
 // ReapedTurn is a turn that ReapTurns ended.
 type ReapedTurn struct {

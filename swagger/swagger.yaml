@@ -2844,8 +2844,8 @@ definitions:
       created:
         type: string
       last_turn:
-        description: 'LastTurn is how its last turn ended: done, stopped, failed or
-          interrupted.'
+        description: 'LastTurn is how its last turn ended: done, stopped, failed,
+          interrupted or paused.'
         type: string
       model:
         type: string
@@ -3382,7 +3382,8 @@ definitions:
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
-          ended: done, stopped, failed or interrupted.
+          ended: done, stopped, failed, interrupted, or paused (the tool loop
+          reached its step limit; send a message to go on).
         type: boolean
       settings:
         allOf:
@@ -3435,7 +3436,8 @@ definitions:
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
-          ended: done, stopped, failed or interrupted.
+          ended: done, stopped, failed, interrupted, or paused (the tool loop
+          reached its step limit; send a message to go on).
         type: boolean
       settings:
         allOf:
@@ -3738,6 +3740,9 @@ definitions:
       model:
         type: string
       retry:
+        type: integer
+      steps:
+        description: Steps is the step limit that a paused turn reached (paused only).
         type: integer
       text:
         type: string
@@ -4541,7 +4546,7 @@ definitions:
       running:
         description: |-
           Running is true while the run's turn is going. LastTurn is how its last
-          turn ended: done, stopped, failed or interrupted.
+          turn ended: done, stopped, failed, interrupted or paused.
         type: boolean
       title:
         type: string
@@ -11825,8 +11830,10 @@ paths:
   /api/chats/{id}/events:
     get:
       description: 'Server-sent events: text, reasoning, tool_start, tool_end, checkpoint,
-        turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted
-        and files. Events are live only; read the transcript for what came before.'
+        turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted,
+        paused (the tool loop reached its step limit, chats_max_iterations; steps
+        is the limit) and files. Events are live only; read the transcript for what
+        came before.'
       parameters:
       - description: conversation id
         in: path

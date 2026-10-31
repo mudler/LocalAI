@@ -291,7 +291,8 @@
       "waiting": "等待你操作",
       "stopped": "已停止",
       "failed": "失败",
-      "interrupted": "已中断"
+      "interrupted": "已中断",
+      "paused": "已暂停"
     },
     "tool": {
       "search": "正在搜索",
@@ -332,6 +333,13 @@
       "speedLive": "速度（流式输出时估算）",
       "average": "最近 {{count}} 次请求的平均值",
       "note": "这些数字来自本页面看到的请求。服务器不保存它们，刷新页面后会清空。"
+    },
+    "paused": {
+      "after": "已执行 {{count}} 步",
+      "atLimit": "已达步数上限",
+      "continue": "继续",
+      "continueTitle": "模型已用完一轮的全部步数。让它从停下的地方继续。",
+      "message": "请从你停下的地方继续。"
     }
   },
   "attachments": {

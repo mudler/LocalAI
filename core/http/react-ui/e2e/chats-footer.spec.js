@@ -102,6 +102,37 @@ test.describe('Chat status line', () => {
     await expect(state(page).locator('svg[data-icon="warning"]')).toBeVisible()
   })
 
+  test('a turn that reached the step limit is paused, and Continue sends a message that goes on', async ({ page }) => {
+    await open(page, { lastTurn: 'paused' })
+    await expect(state(page)).toHaveAttribute('data-state', 'paused')
+    await expect(state(page)).toHaveAttribute('data-tone', 'warn')
+    // After a reload the page has not seen the event: no number, still clear.
+    await expect(live(page)).toContainText('Paused')
+    await expect(live(page)).toContainText('at the step limit')
+    await expect(state(page).locator('svg[data-icon="pause"]')).toBeVisible()
+    // The paused event names the limit.
+    await emit(page, 'paused', { kind: 'paused', steps: 40 })
+    await expect(live(page)).toContainText('after 40 steps')
+
+    const posted = []
+    await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, (route) => {
+      if (route.request().method() !== 'POST') return route.fallback()
+      posted.push(route.request().postDataJSON())
+      return route.fulfill({ json: { started: true } })
+    })
+    const button = page.getByTestId('chat-continue')
+    await expect(button).toHaveText('Continue')
+    await button.click()
+    await expect.poll(() => posted.length).toBe(1)
+    expect(posted[0].text).toBe('Continue from where you stopped.')
+  })
+
+  test('a done turn has no Continue button', async ({ page }) => {
+    await open(page)
+    await expect(state(page)).toHaveAttribute('data-state', 'ready')
+    await expect(page.getByTestId('chat-continue')).toHaveCount(0)
+  })
+
   test('messages left after a stop make the chat wait for you', async ({ page }) => {
     await open(page, { lastTurn: 'stopped', pending: [{ id: 'p1', text: 'use euros', seq: 3 }] })
     await expect(state(page)).toHaveAttribute('data-state', 'waiting')

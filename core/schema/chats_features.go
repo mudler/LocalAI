@@ -93,7 +93,7 @@ type ChatsSubAgent struct {
 	Created time.Time `json:"created"`
 	Updated time.Time `json:"updated"`
 	// Running is true while the run's turn is going. LastTurn is how its last
-	// turn ended: done, stopped, failed or interrupted.
+	// turn ended: done, stopped, failed, interrupted or paused.
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
 }
@@ -218,7 +218,7 @@ type ChatsAgentRun struct {
 	Created  time.Time `json:"created"`
 	Updated  time.Time `json:"updated"`
 	Running  bool      `json:"running"`
-	// LastTurn is how its last turn ended: done, stopped, failed or interrupted.
+	// LastTurn is how its last turn ended: done, stopped, failed, interrupted or paused.
 	LastTurn string `json:"last_turn,omitempty"`
 }
 

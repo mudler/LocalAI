@@ -1010,7 +1010,7 @@ Options of the tool loop. They apply to the [chats](/features/chats/) (including
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `agent.max_iterations` | int | Maximum number of tool rounds in one turn |
+| `agent.max_iterations` | int | Maximum number of tool rounds in one turn. In the chats it replaces the runtime setting `chats_max_iterations` (default 40) for this model |
 | `agent.max_attempts` | int | How often a failed tool call is retried |
 | `agent.force_reasoning_tool` | bool | Make the model reason before it picks a tool |
 | `agent.max_generation_tokens` | int | Accepted and ignored. It capped the completions of the agent jobs, which were removed |

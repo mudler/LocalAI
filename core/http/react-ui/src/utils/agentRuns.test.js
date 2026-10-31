@@ -16,6 +16,7 @@ test('a chat of the agent reads as a run: the title is the task, last_turn is th
   assert.equal(run.turns[0].endedAt - run.turns[0].startedAt, 30_000)
   assert.equal(recordStatus(runOfChat(chat({ last_turn: 'failed' }))), 'failed')
   assert.equal(recordStatus(runOfChat(chat({ last_turn: 'interrupted' }))), 'failed')
+  assert.equal(recordStatus(runOfChat(chat({ last_turn: 'paused' }))), 'done')
   assert.equal(recordStatus(runOfChat(chat({ last_turn: 'stopped' }))), 'stopped')
   assert.equal(recordStatus(runOfChat(chat({ last_turn: '' }))), 'stopped')
 })

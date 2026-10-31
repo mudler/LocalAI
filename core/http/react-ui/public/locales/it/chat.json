@@ -291,7 +291,8 @@
       "waiting": "In attesa di te",
       "stopped": "Fermato",
       "failed": "Non riuscito",
-      "interrupted": "Interrotto"
+      "interrupted": "Interrotto",
+      "paused": "In pausa"
     },
     "tool": {
       "search": "Cerca",
@@ -332,6 +333,13 @@
       "speedLive": "Velocità stimata durante lo streaming",
       "average": "Media delle ultime {{count}} richieste",
       "note": "Questi valori vengono dalle richieste viste da questa pagina. Il server non li conserva, quindi un ricaricamento li cancella."
+    },
+    "paused": {
+      "after": "dopo {{count}} passaggi",
+      "atLimit": "al limite di passaggi",
+      "continue": "Continua",
+      "continueTitle": "Il modello ha usato tutti i passaggi di un turno. Fallo continuare da dove si è fermato.",
+      "message": "Continua da dove ti sei fermato."
     }
   },
   "attachments": {

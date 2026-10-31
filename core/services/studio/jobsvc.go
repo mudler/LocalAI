@@ -550,7 +550,7 @@ func (j *Jobs) info(ctx context.Context, rec jobs.Job, taskName string) JobInfo 
 		out.Status = JobRunning
 	case turn.Last == "":
 		out.Status = JobPending
-	case turn.Last == store.TurnDone:
+	case turn.Last.Finished():
 		out.Status = JobCompleted
 	case turn.Last == store.TurnStopped:
 		out.Status = JobCancelled

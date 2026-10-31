@@ -242,6 +242,11 @@ export const FIELDS = [
   { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
     desc: 'Exact host names added to the package registries, comma separated, for example an internal mirror. No patterns.',
     placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
+  // The step limit of a chat turn (core/config/runtime_settings_registry.go;
+  // read when a turn starts, so live). A model's agent.max_iterations wins.
+  { key: 'chats_max_iterations', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per chat turn',
+    desc: 'How many rounds of tool calls the model may make in one turn before it must answer (1 to 500). A turn that reaches the limit shows as paused, with a Continue button. A model whose configuration sets agent.max_iterations uses its own limit.',
+    placeholder: '40', default: 40, min: 1, max: 500, apply: 'live' },
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Sandbox network audit retention',
     desc: 'How many days the audit of the Sandbox network requests keeps a line (1 to 365).',
     default: 30, apply: 'live' },

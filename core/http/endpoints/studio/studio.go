@@ -500,7 +500,7 @@ func (h *Handlers) Stop(c echo.Context) error {
 
 // Events streams the conversation's live events.
 // @Summary Stream a chat's events.
-// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted and files. Events are live only; read the transcript for what came before.
+// @Description Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit) and files. Events are live only; read the transcript for what came before.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Produce text/event-stream
@@ -518,7 +518,7 @@ func (h *Handlers) Events(c echo.Context) error {
 }
 
 func eventJSON(ev session.Event) schema.ChatsEvent {
-	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After,
+	out := schema.ChatsEvent{Kind: string(ev.Kind), Turn: ev.Turn, Text: ev.Text, IDs: ev.IDs, Before: ev.Before, After: ev.After, Steps: ev.Steps,
 		Code: ev.Code, Model: ev.Model, Retry: ev.Retry, Detail: ev.Detail}
 	if u := ev.Usage; u != nil {
 		out.Usage = &schema.ChatsUsage{
