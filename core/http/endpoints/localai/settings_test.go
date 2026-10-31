@@ -209,6 +209,30 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(string(raw)).To(ContainSubstring(`"chats_max_iterations": 80`))
 	})
 
+	It("checks and saves the limits of a chat's goal", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsGoalMaxTurns()).To(Equal(config.DefaultChatsGoalMaxTurns), "unset: the default")
+		Expect(cfg.EffectiveChatsGoalMaxSteps()).To(Equal(config.DefaultChatsGoalMaxSteps), "unset: the default")
+		for body, msg := range map[string]string{
+			`{"chats_goal_max_turns":0}`:     "Invalid chats_goal_max_turns",
+			`{"chats_goal_max_turns":201}`:   "Invalid chats_goal_max_turns",
+			`{"chats_goal_max_steps":0}`:     "Invalid chats_goal_max_steps",
+			`{"chats_goal_max_steps":10001}`: "Invalid chats_goal_max_steps",
+		} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring(msg), body)
+		}
+		rec := post(`{"chats_goal_max_turns":5,"chats_goal_max_steps":90}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsGoalMaxTurns()).To(Equal(5))
+		Expect(cfg.EffectiveChatsGoalMaxSteps()).To(Equal(90))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_goal_max_turns": 5`))
+		Expect(string(raw)).To(ContainSubstring(`"chats_goal_max_steps": 90`))
+	})
+
 	It("errors when DynamicConfigsDir is unset", func() {
 		app.ApplicationConfig().DynamicConfigsDir = ""
 		rec := post(`{}`)

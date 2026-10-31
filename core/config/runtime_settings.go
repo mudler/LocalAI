@@ -118,6 +118,11 @@ type RuntimeSettings struct {
 	// The step limit of the tool loop of one chat turn, 1 to 500 (default:
 	// 40). Read at each turn.
 	ChatsMaxIterations *int `json:"chats_max_iterations,omitempty"`
+	// The most turns the server starts by itself for one goal of a chat, 1 to
+	// 200 (default: 20), and the most model requests of one goal's turns, 1 to
+	// 10000 (default: 400). Read when a turn ends.
+	ChatsGoalMaxTurns *int `json:"chats_goal_max_turns,omitempty"`
+	ChatsGoalMaxSteps *int `json:"chats_goal_max_steps,omitempty"`
 	// Let a chat that switches it on call the user's saved agents as
 	// sub-agents (default: true). Read at each turn.
 	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`
