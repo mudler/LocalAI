@@ -116,8 +116,27 @@ var _ = Describe("Chats Sandbox network routes", func() {
 		Expect(s.do("alice", http.MethodPost, path, map[string]any{"id": "k2", "decision": "once"}).Code).To(Equal(http.StatusForbidden), "a private host needs an administrator")
 		rec := s.do("alice", http.MethodPost, path, map[string]any{"id": "k1", "decision": "chat"})
 		Expect(rec.Code).To(Equal(http.StatusNoContent), rec.Body.String())
-		Expect(s.do("alice", http.MethodPost, path, map[string]any{"id": "k1", "decision": "deny"}).Code).To(Equal(http.StatusConflict))
+		Expect(s.do("alice", http.MethodPost, path, map[string]any{"id": "k1", "decision": "chat"}).Code).To(Equal(http.StatusNoContent), "the same answer twice is one answer")
+		rec = s.do("alice", http.MethodPost, path, map[string]any{"id": "k1", "decision": "deny"})
+		Expect(rec.Code).To(Equal(http.StatusConflict))
+		Expect(decodeJSON(rec)["error"]).To(HaveKeyWithValue("type", "already_answered"))
 		rules := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/egress", nil))["rules"].([]any)
 		Expect(rules).To(ConsistOf(SatisfyAll(HaveKeyWithValue("host", "pypi.org"), HaveKeyWithValue("allow", true))))
+	})
+
+	It("names the limit when a card asks for a host it does not admit, on every answer", func() {
+		id := s.create("alice")
+		Expect(chats.UpdateEgress(context.Background(), "alice", id, func(st *egress.ChatState) error {
+			st.PutCard(egress.Card{ID: "k3", Host: "evil.example", Port: 443, Kind: "connect", State: egress.CardPending, AskedAt: time.Now()})
+			return nil
+		})).To(Succeed())
+		cards := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/"+id+"/egress", nil))["cards"].([]any)
+		Expect(cards).To(ConsistOf(HaveKeyWithValue("above_ceiling", true)))
+		path := "/api/chats/" + id + "/egress/consent"
+		for range 2 {
+			rec := s.do("alice", http.MethodPost, path, map[string]any{"id": "k3", "decision": "once"})
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+			Expect(decodeJSON(rec)["error"]).To(HaveKeyWithValue("type", "egress_above_ceiling"))
+		}
 	})
 })

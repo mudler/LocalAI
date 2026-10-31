@@ -116,10 +116,10 @@ func (h *Handlers) AdminEgressEvents(c echo.Context) error {
 // @Param id path string true "conversation id"
 // @Param request body schema.ChatsEgressConsent true "the card id and the answer"
 // @Success 204 "The answer was stored and sent to the waiting command"
-// @Failure 400 {object} schema.ErrorResponse "Not an answer, or the ceiling no longer admits the host (the card is refused)"
+// @Failure 400 {object} schema.ErrorResponse "Not an answer, or the ceiling does not admit the host (egress_above_ceiling; the card is refused, and every later answer gets the same reason)"
 // @Failure 403 {object} schema.ErrorResponse "Only an administrator can allow a host inside your network"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation or card"
-// @Failure 409 {object} schema.ErrorResponse "The card was answered already"
+// @Failure 409 {object} schema.ErrorResponse "The card was answered already with another answer (already_answered); the same answer again is 204"
 // @Router /api/chats/{id}/egress/consent [post]
 func (h *Handlers) EgressConsent(c echo.Context) error {
 	var in schema.ChatsEgressConsent

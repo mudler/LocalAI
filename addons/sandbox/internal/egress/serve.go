@@ -70,6 +70,8 @@ func blockText(host string, port int, v Verdict) string {
 	switch v.Reason {
 	case "no-answer":
 		return "Blocked by LocalAI: " + target + " is not allowed for this chat (the user did not answer). Ask the user to allow it."
+	case "ceiling":
+		return "Blocked by LocalAI: " + target + " is blocked by the server's setting for the Sandbox network, not by a missing approval. Asking the user to approve it will not help and retrying will fail the same way. Tell the user an administrator can change it in Settings > Tools > Sandbox network."
 	case "idle":
 		return "Blocked by LocalAI: no command of this chat is running, so the network is closed."
 	case "card", "asked":

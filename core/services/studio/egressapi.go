@@ -39,6 +39,9 @@ type EgressView struct {
 	Registries    []egress.Registry
 	Rules         []EgressRuleView
 	Cards         []egress.Card
+	// CardAbove holds the IDs of the pending cards whose host the ceiling does
+	// not admit: no answer can make them work.
+	CardAbove map[string]bool
 }
 
 // EgressRuleView is a rule with whether the ceiling still admits it.
@@ -76,6 +79,15 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 		Registries: registriesView(set),
 		Rules:      []EgressRuleView{},
 		Cards:      append([]egress.Card{}, pol.rec.Egress.Cards...),
+	}
+	v.CardAbove = map[string]bool{}
+	for _, c := range v.Cards {
+		if c.State == egress.CardPending || c.State == egress.CardRefused {
+			req := egress.Request{Host: c.Host, Port: c.Port, Kind: c.Kind, TLS: c.Port == 443 && c.Kind == egress.KindConnect, Private: c.Private}
+			if !egress.Admits(set, req, egress.BuiltinRegistries()) {
+				v.CardAbove[c.ID] = true
+			}
+		}
 	}
 	for _, r := range pol.rec.Egress.Rules {
 		above := r.Allow && !egress.Admits(set, egress.Request{Host: r.Host, Port: r.Port, TLS: r.Port == 443}, egress.BuiltinRegistries())

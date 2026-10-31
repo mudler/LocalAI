@@ -7986,7 +7986,7 @@ const docTemplate = `{
                         "description": "The answer was stored and sent to the waiting command"
                     },
                     "400": {
-                        "description": "Not an answer, or the ceiling no longer admits the host (the card is refused)",
+                        "description": "Not an answer, or the ceiling does not admit the host (egress_above_ceiling; the card is refused, and every later answer gets the same reason)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -8004,7 +8004,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "The card was answered already",
+                        "description": "The card was answered already with another answer (already_answered); the same answer again is 204",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -18319,6 +18319,10 @@ const docTemplate = `{
         "schema.ChatsEgressCard": {
             "type": "object",
             "properties": {
+                "above_ceiling": {
+                    "description": "AboveCeiling says the administrator's limit does not admit this host,\nso no answer can make it work; only a higher limit does.",
+                    "type": "boolean"
+                },
                 "answered_at": {
                     "type": "string"
                 },

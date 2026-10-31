@@ -42,8 +42,13 @@ var (
 	ErrEgressBadDecision = errors.New("studio: the answer must be once, chat or deny")
 	// ErrEgressNoCard means the chat has no such card.
 	ErrEgressNoCard = errors.New("studio: the chat has no such network card")
-	// ErrEgressAnswered means the card was answered already.
+	// ErrEgressAnswered means the card was answered already with another
+	// answer. The same answer again is not an error: it changes nothing.
 	ErrEgressAnswered = errors.New("studio: the network card was answered already")
+	// ErrEgressHostAboveCeiling means the administrator's limit does not admit
+	// the host of the card, so only an administrator can make it work, by
+	// raising the limit. The card is refused and stays so.
+	ErrEgressHostAboveCeiling = errors.New("studio: the limit an administrator set for the Sandbox network does not admit this host")
 )
 
 // EgressDecision is the answer of a card, sent on the chat bus to the check
@@ -206,13 +211,23 @@ func (s *Service) EgressDecide(ctx context.Context, user, conv, id, decision str
 	admin := s.isAdmin(ctx, p)
 	set := s.egressSettings()
 	now := s.now().UTC()
-	refused := false
+	refused, again := false, false
 	err := s.d.Store.UpdateEgress(ctx, p, conv, func(st *egress.ChatState) error {
 		c, ok := st.Card(id)
 		if !ok {
 			return ErrEgressNoCard
 		}
-		if c.State != egress.CardPending && c.State != egress.CardExpired {
+		switch c.State {
+		case egress.CardPending, egress.CardExpired:
+		case egress.CardRefused:
+			// The same reason on every click, not a silent conflict.
+			again = true
+			return nil
+		default:
+			if answerState(decision) == c.State {
+				again = true // a double click: it is applied, say so again
+				return nil
+			}
 			return ErrEgressAnswered
 		}
 		if c.Private && decision != EgressDeny && !admin {
@@ -245,12 +260,39 @@ func (s *Service) EgressDecide(ctx context.Context, user, conv, id, decision str
 	if err != nil {
 		return err
 	}
+	if again {
+		if card, ok := s.egressCard(ctx, p, conv, id); ok && card.State == egress.CardRefused {
+			return ErrEgressHostAboveCeiling
+		}
+		return nil
+	}
 	s.bus.Control(key(p, conv), ControlMsg{Egress: &EgressDecision{ID: id, Decision: decision}})
 	s.publishEgress(p, conv, id)
 	if refused {
-		return ErrEgressAboveCeiling
+		return ErrEgressHostAboveCeiling
 	}
 	return nil
+}
+
+// answerState is the state a card takes when it gets the answer.
+func answerState(decision string) string {
+	switch decision {
+	case EgressOnce:
+		return egress.CardOnce
+	case EgressChat:
+		return egress.CardChat
+	case EgressDeny:
+		return egress.CardDenied
+	}
+	return ""
+}
+
+func (s *Service) egressCard(ctx context.Context, p, conv, id string) (egress.Card, bool) {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return egress.Card{}, false
+	}
+	return rec.Egress.Card(id)
 }
 
 // settleEgressCards runs when a turn of the chat ends: a card nobody answered

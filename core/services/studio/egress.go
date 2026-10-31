@@ -78,8 +78,18 @@ func (s *Service) now() time.Time {
 func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bool) string {
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	preset := egress.PresetOff
+	ceiling := egress.Min(s.egressSettings().Ceiling, egress.PresetAll)
+	capped := false
 	if err == nil {
-		preset = egress.Min(pol.chat.Preset, s.egressSettings().Ceiling)
+		preset = egress.Min(pol.chat.Preset, ceiling)
+		capped = pol.chat.Preset.Rank() > ceiling.Rank()
+	}
+	if ceiling == egress.PresetOff {
+		// Hint would tell the model to ask the user to turn the network on.
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries())
+	}
+	if capped {
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries()) + " " + egress.Hint(preset, web)
 	}
 	return egress.Describe(preset, egress.BuiltinRegistries()) + " " + egress.Hint(preset, web)
 }
