@@ -244,6 +244,24 @@ reversible. Don't: report a page load failure in a toast.
   if the person left it so), the phone header and the content placeholder. A
   cold start never shows a blank window with a centred spinner.
 
+## SearchField and Segmented
+
+The list toolbar: a search box that fills the row, and one choice of a few.
+
+```jsx
+<div className="my-toolbar">
+  <SearchField value={q} onChange={setQ} label="Search tasks" />
+  <Segmented label="Show tasks" value={filter} onChange={setFilter}
+    options={[{ id: 'all', label: 'All', count: 4 }, { id: 'off', label: 'Off', count: 1 }]} />
+</div>
+```
+
+- `SearchField` needs a `label`; it is the accessible name and the placeholder.
+- `Segmented` is a filter, not navigation: pressed buttons in a tray, with an
+  optional count after each label. Each button has `data-filter={id}`. Use tabs
+  to change views.
+- On a phone the page can let the tray fill the row and scroll sideways.
+
 ## SidePane
 
 ```jsx
