@@ -91,7 +91,7 @@ func (k keyed) Host() string { return k.endpoint.Hostname() }
 // do sends req and returns the body of a 2xx answer. Every error is a
 // sentence of this package: it never holds the URL, a header or the body.
 func (k keyed) do(req *http.Request) ([]byte, error) {
-	resp, err := k.hc.Do(req)
+	resp, err := k.hc.Do(req) // #nosec G704 -- req goes to the fixed provider endpoint given at construction, never to a URL from a tool call
 	if err != nil {
 		var ne net.Error
 		if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &ne) && ne.Timeout()) {

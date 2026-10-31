@@ -45,7 +45,7 @@ var _ = Describe("Chats images and a cloud model", Ordered, func() {
 		Expect(mw.Close()).To(Succeed())
 		resp, err := http.DefaultClient.Do(c.req(http.MethodPost, "/api/chats/"+id+"/messages", &buf, mw.FormDataContentType()))
 		Expect(err).ToNot(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		raw, _ := io.ReadAll(resp.Body)
 		Expect(resp.StatusCode).To(Equal(http.StatusOK), string(raw))
 	}

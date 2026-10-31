@@ -61,17 +61,44 @@ func checkAsync(svc *studio.Service, user, rid, op string, r egress.Request) <-c
 	return out
 }
 
+// egressSettings holds the settings of one spec. A check a spec started may
+// still wait on its card when the next spec begins, so each service reads the
+// holder it was built with, under a lock, and never a variable that the next
+// BeforeEach replaces.
+type egressSettings struct {
+	mu sync.Mutex
+	s  egress.Settings
+}
+
+func (e *egressSettings) get() egress.Settings {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.s
+}
+
+func (e *egressSettings) setCeiling(p egress.Preset) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.s.Ceiling = p
+}
+
+func (e *egressSettings) allowPrivate() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.s.AllowPrivate = true
+}
+
 var _ = Describe("the network cards of a chat", func() {
 	ctx := context.Background()
 	var (
 		svc      *studio.Service
 		st       store.Store
-		settings egress.Settings
+		settings *egressSettings
 		id, rid  string
 	)
 	newSvc := func(bus studio.Bus) *studio.Service {
 		return newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = settings.get
 			d.IsAdmin = func(_ context.Context, user string) bool { return user == alice }
 			d.EgressCardWait = 3 * time.Second
 			if bus != nil {
@@ -81,7 +108,7 @@ var _ = Describe("the network cards of a chat", func() {
 	}
 	BeforeEach(func() {
 		st, _ = store.NewJSON("")
-		settings = egress.Settings{Ceiling: egress.PresetAll}
+		settings = &egressSettings{s: egress.Settings{Ceiling: egress.PresetAll}}
 		svc = newSvc(nil)
 		id = create(svc, alice)
 		rid = toolargs.ActionResourceID(id)
@@ -141,10 +168,10 @@ var _ = Describe("the network cards of a chat", func() {
 	})
 
 	It("offers no card when the ceiling is off, nor to an unattended run or a sub-agent", func() {
-		settings.Ceiling = egress.PresetOff
+		settings.setCeiling(egress.PresetOff)
 		v, _ := svc.EgressCheck(ctx, alice, rid, "op1", tlsTo("example.com"))
 		Expect(v.Reason).To(Equal(egress.ReasonCeiling))
-		settings.Ceiling = egress.PresetAll
+		settings.setCeiling(egress.PresetAll)
 
 		now := time.Now().UTC()
 		Expect(st.CreateChat(ctx, session.ChatRecord{ID: "run1", Principal: alice, Title: "Run", Created: now, Updated: now, Origin: session.OriginTrigger, AgentID: "ag"})).To(Succeed())
@@ -161,7 +188,7 @@ var _ = Describe("the network cards of a chat", func() {
 	})
 
 	It("lets only an administrator allow a private target; anyone may deny it", func() {
-		settings.AllowPrivate = true
+		settings.allowPrivate()
 		bobChat := create(svc, bob)
 		got := checkAsync(svc, bob, toolargs.ActionResourceID(bobChat), "op1", tlsTo("10.0.0.5"))
 		card := waitCard(st, bob, bobChat)
@@ -178,7 +205,7 @@ var _ = Describe("the network cards of a chat", func() {
 
 	It("blocks with no answer after the wait, takes a late 'once' for the next call, and expires cards at the end of the turn", func() {
 		svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = settings.get
 			d.EgressCardWait = 200 * time.Millisecond
 		})
 		v, _ := svc.EgressCheck(ctx, alice, rid, "op1", tlsTo("late.example"))
@@ -255,7 +282,7 @@ var _ = Describe("the network cards of a chat", func() {
 	It("refuses a waiting card when the ceiling goes down", func() {
 		got := checkAsync(svc, alice, rid, "op1", tlsTo("example.com"))
 		card := waitCard(st, alice, id)
-		settings.Ceiling = egress.PresetRegistries
+		settings.setCeiling(egress.PresetRegistries)
 		var r checkResult
 		Eventually(got, 4*time.Second).Should(Receive(&r))
 		Expect(r.v.Reason).To(Equal(egress.ReasonCeiling))
@@ -270,7 +297,7 @@ var _ = Describe("the network cards of a chat", func() {
 		// bare conflict. Now each answer gets the same precise reason.
 		It("gives egress_above_ceiling on every answer, not a conflict, and the view says no answer can work", func() {
 			card := waitCardAfter(svc, st, alice, rid, id)
-			settings.Ceiling = egress.PresetOff
+			settings.setCeiling(egress.PresetOff)
 			v, err := svc.Egress(ctx, alice, id)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(v.CardAbove).To(HaveKeyWithValue(card.ID, true))
@@ -340,7 +367,7 @@ var _ = Describe("the network cards of a chat", func() {
 		It("a trigger run follows its agent's network field, capped by the ceiling, and never asks; a run without an agent is off", func() {
 			ags, _ := agents.NewJSON("")
 			svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-				d.EgressSettings = func() egress.Settings { return settings }
+				d.EgressSettings = settings.get
 				d.Agents = ags
 			})
 			now := time.Now().UTC()
@@ -360,16 +387,16 @@ var _ = Describe("the network cards of a chat", func() {
 			Expect(v.Action).NotTo(Equal(egress.Allow), "an agent with no network field is off")
 			v, _ = svc.EgressCheck(ctx, alice, toolargs.ActionResourceID("run3"), "op1", tlsTo("pypi.org"))
 			Expect(v.Action).NotTo(Equal(egress.Allow), "a run with no agent is off")
-			settings.Ceiling = egress.PresetOff
+			settings.setCeiling(egress.PresetOff)
 			v, _ = svc.EgressCheck(ctx, alice, toolargs.ActionResourceID("run1"), "op1", tlsTo("pypi.org"))
 			Expect(v.Reason).To(Equal(egress.ReasonCeiling), "capped by the ceiling")
 		})
 
 		It("a chat a person starts with an agent takes the agent's network, under the ceiling", func() {
 			ags, _ := agents.NewJSON("")
-			settings.Ceiling = egress.PresetRegistries
+			settings.setCeiling(egress.PresetRegistries)
 			svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-				d.EgressSettings = func() egress.Settings { return settings }
+				d.EgressSettings = settings.get
 				d.Agents = ags
 			})
 			now := time.Now().UTC()

@@ -146,6 +146,10 @@ jobs:
       - name: Release smoke test
         env:
           SANDBOX_GUEST_IMAGE: ${{ steps.image.outputs.ref }}
+          # The backends keep unix sockets under the test's data folder, and
+          # a socket path has at most 107 bytes: the default scratch folder in
+          # the checkout leaves too little room for it.
+          SANDBOX_SMOKE_WORK: /tmp/sandbox-smoke
         run: |
           set -eu
           # The add-on copies runsc to its data folder, whose path changes with

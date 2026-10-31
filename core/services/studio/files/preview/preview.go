@@ -174,7 +174,7 @@ func (p *pkg) decode(name string, fn func(d *xml.Decoder, se xml.StartElement) e
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	d := xml.NewDecoder(rc)
 	d.Strict = false
 	for {

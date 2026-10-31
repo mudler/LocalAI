@@ -210,7 +210,7 @@ var _ = Describe("Add-on actions end to end", func() {
 		w.put("bob", "/notes.txt", "bob's notes\n")
 
 		// Nothing isolated works here and the host backend is not chosen: no code runs.
-		got := w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo no > home/never.txt"})
+		got := w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo no > never.txt"})
 		Expect(got["output"]).To(Equal("This host cannot run commands."), "before the host is chosen: %v", got)
 		_, ok := w.text("alice", "/never.txt")
 		Expect(ok).To(BeFalse(), "a command ran with no backend")
@@ -230,7 +230,7 @@ var _ = Describe("Add-on actions end to end", func() {
 		Expect(st).NotTo(HaveKey("backends"), "a user sees the details of the host")
 
 		// A chat runs bash: it sees the user's files and writes one.
-		got = w.act("bash", "alice", "convaaaa", map[string]any{"command": "cat home/notes.txt; echo made by bash > home/made.txt"})
+		got = w.act("bash", "alice", "convaaaa", map[string]any{"command": "cat notes.txt; echo made by bash > made.txt"})
 		Expect(got["ok"]).To(Equal(true), "bash = %v", got)
 		Expect(got["output"]).To(ContainSubstring("alice's notes"))
 		text, ok := w.text("alice", "/made.txt")
@@ -250,7 +250,7 @@ var _ = Describe("Add-on actions end to end", func() {
 
 		// Another user in a chat with the same ID has a sandbox of their own and
 		// sees only their own files.
-		other := w.act("bash", "bob", "convaaaa", map[string]any{"command": "ls home; cat home/notes.txt"})
+		other := w.act("bash", "bob", "convaaaa", map[string]any{"command": "ls; cat notes.txt"})
 		text = other["output"].(string)
 		Expect(text).NotTo(ContainSubstring("alice"), "bob's sandbox")
 		Expect(text).To(ContainSubstring("bob's notes"), "bob's sandbox")
@@ -260,7 +260,7 @@ var _ = Describe("Add-on actions end to end", func() {
 		// With the backend off, the tool says so and nothing runs.
 		got = w.read("set-backend", "root", map[string]any{"backend": "off"})
 		Expect(got["ok"]).To(Equal(true), "set-backend off: %v", got)
-		got = w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo late > home/late.txt"})
+		got = w.act("bash", "alice", "convaaaa", map[string]any{"command": "echo late > late.txt"})
 		Expect(got["output"]).To(Equal("This host cannot run commands."), "with the backend off: %v", got)
 		_, ok = w.text("alice", "/late.txt")
 		Expect(ok).To(BeFalse(), "a command ran with the backend off")
@@ -275,7 +275,7 @@ var _ = Describe("Add-on actions end to end", func() {
 		w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase})
 		w.read("set-backend", "root", map[string]any{"backend": "host"})
 		// The Sandbox serves bash only; reading is the chat's own file tools.
-		got := w.act("bash", "bob", "convbbbb", map[string]any{"command": "cat home/a.txt"})
+		got := w.act("bash", "bob", "convbbbb", map[string]any{"command": "cat a.txt"})
 		if got["ok"] == true {
 			Expect(got["output"]).NotTo(ContainSubstring("alice-secret"), "bob read alice's file: %v", got)
 		}

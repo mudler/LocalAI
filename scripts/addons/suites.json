@@ -2991,6 +2991,8 @@
       "go: keeps the closed slot list and the icon allowlist equal to the host",
       "go: lists actions, slots and renderers for an enabled addon and keeps the identifiers",
       "go: lists no contribution for a disabled addon, whoever asks",
+      "go: accepts a file preview slot that names the extensions it handles",
+      "go: rejects a file preview slot or extension list that is not safe",
       "slots: an add-on's settings sections are drawn on the Settings tab of its own details and nowhere else",
       "slots: the Settings page lists the add-ons that have settings, each a link to its Settings tab",
       "slots: the old anchor of a section on the Settings page opens the add-on's Settings tab",
@@ -3981,6 +3983,7 @@
       "go: does not run an action tool for any other adapter, and says the tool is unknown",
       "go: is unavailable when the owner cannot act, and never falls back to a read or a proposal",
       "go: keeps the argument rules: an identity argument is refused before anything runs",
+      "go: are listed in any state, with the names they replace and whether they run",
       "go: keeps its namespaced name and carries the built-in it shadows, only for a replaceable name"
     ]
   },
@@ -4492,7 +4495,9 @@
       "updates: a candidate this host cannot run shows its reason and has no upgrade",
       "updates: an unreachable library is a failed check, never up to date, and says when it was last read",
       "updates: on a narrow screen the check is reachable and runs from the keyboard",
-      "go: ends the checks in flight when it is closed and refuses new ones"
+      "go: ends the checks in flight when it is closed and refuses new ones",
+      "go: always names the candidate digest of an update, so the upgrade has something to pin",
+      "go: keeps a stale cached notice readable while a plain check says the update is gone"
     ]
   },
   "tables-acceptance": {
@@ -4509,6 +4514,7 @@
       "go: replays an operation ID as one receipt from every node, conflicts on a different request and never applies twice or under a new ID",
       "go: settles a revocation that races a confirmation: one outcome, applied at most once, and no work after the revocation",
       "go: separates owner, editor, viewer, administrator and stranger across the browser routes, the REST routes and the chat tool consumer",
+      "go: derives the action of a proposal from the tool kind, so an editor cannot confirm a schema change as a write",
       "go: serves the browser module to every account with the feature and to nobody else, from the owner and each frontend",
       "go: fails every blocked consumer explicitly and never serves add-on tools to it",
       "go: is the administrator's own action on every node and never a key's, a member's or a tool's",
