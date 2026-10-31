@@ -50,7 +50,9 @@ export function threadRows(messages, live) {
     }
     if (m.role === 'user') {
       flush(m.seq)
-      rows.push({ kind: 'msg', key: `m-${m.seq}`, msg: m, activity: null })
+      // A message handed over from Home keeps its row when the server's copy
+      // replaces it (composerHandoff.withHandoff).
+      rows.push({ kind: 'msg', key: m.rowKey || `m-${m.seq}`, msg: m, activity: null })
     }
     // checkpoints are for the sandbox's undo, not for reading
   }

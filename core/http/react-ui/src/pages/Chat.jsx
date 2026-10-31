@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
 import { useChatComposer } from '../hooks/useChatComposer'
+import { useComposerArrival } from '../hooks/useComposerTransition'
 import { useChatEgress } from '../hooks/useChatEgress'
 import { cardsByTool } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
@@ -112,7 +113,12 @@ function ChatPage() {
   const { user, isAdmin, hasFeature } = useAuth()
   const canAgents = hasFeature('agents')
   const { operations } = useOperations()
-  const chat = useServerChat()
+  const textareaRef = useRef(null)
+  const pageRef = useRef(null)
+  // A chat Home just started opens with its first message already drawn
+  // (useComposerTransition): no empty page while the transcript is read.
+  const arrival = useComposerArrival(routeId, { textareaRef, pageRef })
+  const chat = useServerChat({ seed: arrival.seed })
   const inbox = useInbox()
   const { select, activeId } = chat
 
@@ -152,7 +158,6 @@ function ChatPage() {
   const { ids: loadedIds, loaded: loadedModels } = useLoadedModels()
   const messagesEndRef = useRef(null)
   const messagesRef = useRef(null)
-  const textareaRef = useRef(null)
   const stickToBottomRef = useRef(true)
   const [scrolledUp, setScrolledUp] = useState(false)
   const chatsMenuRef = useRef(null)
@@ -192,7 +197,8 @@ function ChatPage() {
     chatId: activeId, userId: user?.id, files: chatFiles.files, loaded: chat.files.on ? chatFiles.loaded : true,
     messages: chat.messages, ready: !!activeId && !chat.loading && chat.detail?.id === activeId, running: chat.running,
   })
-  const messages = chat.messages
+  const withArrival = arrival.messages
+  const messages = useMemo(() => withArrival(chat.messages, activeId), [withArrival, chat.messages, activeId])
   const hasThread = messages.some(m => m.role === 'user' || m.role === 'assistant')
   const modelWarm = !!model && loadedIds.has(model)
   const title = activeChat?.title || tc('list.untitled')
@@ -286,7 +292,9 @@ function ChatPage() {
 
   // Collapse the global app rail when a conversation begins, and restore it
   // when the user goes back to an empty chat or overrides focus with Esc.
-  useEffect(() => {
+  // A layout effect: the rail folds in the frame the conversation appears,
+  // not one frame later under it (a chat opened from Home starts with one).
+  useLayoutEffect(() => {
     if (focusActive) {
       if (prevAppCollapseRef.current === null) {
         try {
@@ -828,7 +836,7 @@ function ChatPage() {
     : (noModel ? t('input.placeholderNoModel') : t('input.placeholderPick'))
 
   return (
-    <div className="cx-page" data-testid="chats-page">
+    <div className="cx-page" data-testid="chats-page" ref={pageRef}>
       <div className="cx-conv" data-empty={isEmpty || undefined}>
         <ChatHeader
           historyMenu={(

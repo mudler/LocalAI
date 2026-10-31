@@ -52,11 +52,19 @@ function claimReload() {
 }
 
 function page(key, loader) {
-  if (key !== null) preloaders[key] = loader
+  // The module once a load has finished. A page that was preloaded then
+  // renders at once: React.lazy takes a thenable that answers synchronously
+  // as resolved, so the route does not suspend and flash its fallback (React
+  // shows a fallback for at least 300 ms once it has shown one).
+  let loaded = null
+  const load = () => loader().then((mod) => { loaded = mod; return mod })
+  // Several pages can share a segment (the chat page, connectors and conversion
+  // under /app/chats/): a preload warms each of them, the chat page included.
+  if (key !== null) (preloaders[key] ||= []).push(load)
   // preloadRoute keeps the raw loader: a hover that fails must stay silent
   // rather than reload the page out from under the pointer. The click that
   // follows goes through this wrapper and recovers there.
-  return lazy(() => loader().catch(err => {
+  return lazy(() => (loaded ? { then: (resolve) => resolve(loaded) } : load().catch(err => {
     // A reload is already committing: a second chunk failing in the same
     // document must wait for it, not throw and flash the error boundary.
     if (reloading) return new Promise(() => {})
@@ -66,14 +74,14 @@ function page(key, loader) {
     // Stay pending. Resolving or rejecting here would flash the error boundary
     // in the frames before the reload commits.
     return new Promise(() => {})
-  }))
+  })))
 }
 
 export function preloadRoute(path) {
   if (!path) return
   const m = path.match(/^\/app(?:\/([^/?#]*))?/)
   if (!m) return
-  preloaders[m[1] ?? '']?.().catch(() => { /* network blip — real click will retry */ })
+  for (const load of preloaders[m[1] ?? ''] || []) load().catch(() => { /* network blip — real click will retry */ })
 }
 
 const Home = page('', () => import('./pages/Home'))

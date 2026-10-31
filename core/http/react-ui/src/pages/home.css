@@ -65,3 +65,20 @@
      they wrap to a second row instead of squeezing the model chip away. */
   .home-col .home-cmd__top { flex-wrap: wrap; }
 }
+
+/* Send: everything but the composer fades and drifts up while the message
+   goes (useComposerTransition), so the composer is what the eye follows into
+   the chat. After a failure it all comes back the same way. Less motion:
+   nothing fades, the page stays as it is until the chat opens. */
+@media (prefers-reduced-motion: no-preference) {
+  .home-page[data-depart] .home-col > :not(.home-compose),
+  .home-page[data-depart] .home-compose > :not(.home-cmd) {
+    transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  }
+  .home-page[data-depart='out'] .home-col > :not(.home-compose),
+  .home-page[data-depart='out'] .home-compose > :not(.home-cmd) {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--sp-2)));
+    pointer-events: none;
+  }
+}

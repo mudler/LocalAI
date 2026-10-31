@@ -15,6 +15,7 @@ import { ReadyLine } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { useChatComposer } from '../hooks/useChatComposer'
+import { useComposerDeparture } from '../hooks/useComposerTransition'
 // eslint-disable-next-line no-unused-vars
 import HomeMemoryStrip from '../components/home/HomeMemoryStrip'
 // eslint-disable-next-line no-unused-vars
@@ -96,6 +97,9 @@ export default function Home() {
   const [stripOpen, setStripOpen] = useState(false)
   const [conversations, setConversations] = useState([])
   const textareaRef = useRef(null)
+  const composeRef = useRef(null)
+  // Send moves the composer into the new chat (useComposerTransition).
+  const { depart, begin: beginSend, fail: failSend, handOff } = useComposerDeparture(composeRef)
   const pickerRef = useRef(null)
   const stripRef = useRef(null)
   const location = useLocation()
@@ -191,6 +195,12 @@ export default function Home() {
   // switches, sends the message with its files and opens the chat. When the
   // message cannot go, the new chat is removed and the draft stays here.
   // A shortcut that sends passes its prompt and leaves the draft as it is.
+  // What a message that left for its chat clears on Home, run as Home closes.
+  const sentRef = useRef(null)
+  useEffect(() => () => {
+    sentRef.current?.()
+    sentRef.current = null
+  }, [])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
     const text = (own ? message : override).trim()
@@ -200,20 +210,29 @@ export default function Home() {
       addToast(t('input.selectModelToast'), 'warning')
       return
     }
+    // One send at a time, even for two Enters in the same frame.
+    if (!beginSend()) return
     setSending(true)
     let id = ''
     try {
-      id = (await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)).id
-      await chatsApi.send(id, text, attached)
-      if (own) drafts.clear(HOME_DRAFT)
-      switches.resetDraft()
-      navigate(`/app/chats/${encodeURIComponent(id)}`)
+      const chat = await chatsApi.create(draftModel, undefined, agentId, false, switches.draftSwitches() || undefined)
+      id = chat.id
+      const res = await chatsApi.send(id, text, attached)
+      // The chat page draws the message from what is known here, so it opens
+      // with the message in it. The draft goes when Home closes: emptied
+      // earlier, the box would show its placeholder for a frame on the way.
+      sentRef.current = () => {
+        if (own) drafts.clear(HOME_DRAFT)
+        switches.resetDraft()
+      }
+      handOff({ chat, text, files: attached, started: Boolean(res?.started) }, () => navigate(`/app/chats/${encodeURIComponent(id)}`))
     } catch (err) {
       if (id) chatsApi.delete(id).catch(() => {})
+      failSend()
       addToast(err.message || tc('errors.send'), 'error')
       setSending(false)
     }
-  }, [message, files, sending, selectedModel, draftModel, agentId, switches, drafts, addToast, navigate, t, tc])
+  }, [message, files, sending, selectedModel, draftModel, agentId, switches, drafts, addToast, navigate, t, tc, beginSend, failSend, handOff])
 
   // An empty new chat on the chosen model. The state marks it as a hand-off:
   // /app/chats opened as a bare address comes back here.
@@ -426,14 +445,14 @@ export default function Home() {
   }
 
   return (
-    <div className="home-page">
+    <div className="home-page" data-depart={depart || undefined}>
       <div className="home-col">
         <header className="home-header">
           <h1 className="home-greeting">{t(`greeting.${greetingKey()}`)}</h1>
           <span className="home-date">{dateLabel}</span>
         </header>
 
-        <div>
+        <div className="home-compose" ref={composeRef}>
           {chatsOn && !firstRun && (
             <ShortcutsRow
               filesOn={chatServer.files}

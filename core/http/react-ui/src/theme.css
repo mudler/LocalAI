@@ -120,6 +120,7 @@
   --dur-base: 200ms;     /* menus, popovers, list item enter, toast */
   --dur-slow: 280ms;     /* side panes, sheets, sidebar collapse */
   --dur-page: 180ms;     /* route cross-fade */
+  --dur-glide: 360ms;    /* a part that travels to its place on the next page */
   --ease-out: cubic-bezier(0.25, 1, 0.5, 1);         /* default enter */
   --ease-out-strong: cubic-bezier(0.16, 1, 0.3, 1);  /* panes, sheets */
   --ease-in: cubic-bezier(0.5, 0, 0.75, 0);          /* exits */
