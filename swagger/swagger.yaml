@@ -5143,6 +5143,14 @@ definitions:
         type: array
       count:
         type: integer
+      embedding_model:
+        description: |-
+          EmbeddingModel is the model that indexes and searches the collections.
+          EmbeddingModelInstalled is false when this server does not have it:
+          adding files and searching then fail until it is installed.
+        type: string
+      embedding_model_installed:
+        type: boolean
       user_groups:
         additionalProperties:
           $ref: '#/definitions/schema.CollectionGroup'
@@ -15167,9 +15175,12 @@ paths:
       - chats
   /api/collections:
     get:
-      description: The knowledge-base collections of the caller. An administrator
-        can add all_users=true to also get the other users' collections in user_groups.
-        Needs the collections feature.
+      description: 'The knowledge-base collections of the caller. An administrator
+        can add all_users=true to also get the other users'' collections in user_groups.
+        embedding_model names the model that indexes and searches the collections
+        (collections_embedding_model), and embedding_model_installed says whether
+        this server has it: without it, adding files and searching fail. Needs the
+        collections feature.'
       responses:
         "200":
           description: The collections

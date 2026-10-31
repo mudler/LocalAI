@@ -8913,7 +8913,7 @@ const docTemplate = `{
         },
         "/api/collections": {
             "get": {
-                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. Needs the collections feature.",
+                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. Needs the collections feature.",
                 "tags": [
                     "collections"
                 ],
@@ -20508,6 +20508,13 @@ const docTemplate = `{
                 },
                 "count": {
                     "type": "integer"
+                },
+                "embedding_model": {
+                    "description": "EmbeddingModel is the model that indexes and searches the collections.\nEmbeddingModelInstalled is false when this server does not have it:\nadding files and searching then fail until it is installed.",
+                    "type": "string"
+                },
+                "embedding_model_installed": {
+                    "type": "boolean"
                 },
                 "user_groups": {
                     "description": "UserGroups holds the collections of the other users. Only an administrator\nwho asks for all users gets it.",

@@ -139,5 +139,12 @@
   "starting": {
     "title": "Memory is starting.",
     "text": "The server is still getting the memory service ready. This page asks again by itself."
+  },
+  "embedding": {
+    "missingTitle": "No embedding model installed.",
+    "missingText": "Collections use {{model}} to index files and to search them. Until it is installed, adding files and searching fail.",
+    "noneSet": "No embedding model is set for collections (collections_embedding_model), so adding files and searching fail.",
+    "install": "Find it in Models",
+    "askAdmin": "Ask an administrator to install it."
   }
 }

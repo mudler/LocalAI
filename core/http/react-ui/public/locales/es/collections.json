@@ -50,5 +50,12 @@
   "starting": {
     "title": "La memoria se está iniciando.",
     "text": "El servidor aún está preparando el servicio de memoria. Esta página vuelve a preguntar sola."
+  },
+  "embedding": {
+    "missingTitle": "No hay ningún modelo de embeddings instalado.",
+    "missingText": "Las colecciones usan {{model}} para indexar los archivos y buscar en ellos. Hasta que se instale, añadir archivos y buscar fallan.",
+    "noneSet": "No hay ningún modelo de embeddings configurado para las colecciones (collections_embedding_model), así que añadir archivos y buscar fallan.",
+    "install": "Buscarlo en Modelos",
+    "askAdmin": "Pide a un administrador que lo instale."
   }
 }

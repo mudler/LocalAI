@@ -24,6 +24,11 @@ The name of this variable is old: it now turns off the collections only.
 The embedding calls go to the LocalAI API of the same server, inside the
 process, so they need no API key and work with user accounts. The embedding
 model must be installed. The default is `granite-embedding-107m-multilingual`.
+When it is not, the embeddings endpoint answers 404 and every upload and
+search fails. The Collections page then says *No embedding model installed*
+and names the model; an administrator gets a button that opens the Models
+page with a search for it. `GET /api/collections` reports the same in
+`embedding_model` and `embedding_model_installed`.
 
 ## Who sees a collection
 
