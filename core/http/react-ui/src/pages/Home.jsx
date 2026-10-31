@@ -202,10 +202,19 @@ export default function Home() {
   // message cannot go, the new chat is removed and the draft stays here.
   // A shortcut that sends passes its prompt and leaves the draft as it is.
   // What a message that left for its chat clears on Home, run as Home closes.
+  // A reload or a closed tab can come first while the chat page still loads,
+  // so leaving the page runs it too: the sent text must not come back.
   const sentRef = useRef(null)
-  useEffect(() => () => {
-    sentRef.current?.()
-    sentRef.current = null
+  useEffect(() => {
+    const run = () => {
+      sentRef.current?.()
+      sentRef.current = null
+    }
+    window.addEventListener('pagehide', run)
+    return () => {
+      window.removeEventListener('pagehide', run)
+      run()
+    }
   }, [])
   const doSubmit = useCallback(async (override) => {
     const own = typeof override !== 'string'
