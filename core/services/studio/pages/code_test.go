@@ -123,6 +123,12 @@ var _ = Describe("the code of a shared page", func() {
 		Expect(r.trust.CheckRead(ctx, "marta", r.team, "board", p.Hash, visit.Token, "data.json")).To(Succeed())
 		Expect(r.trust.CheckRead(ctx, "marta", r.team, "board", p.Hash, visit.Token, "lib/util.js")).To(MatchError(pages.ErrCodeChanged))
 		Expect(r.trust.CheckRead(ctx, "marta", r.team, "board", p.Hash, visit.Token, "index.html")).To(MatchError(pages.ErrCodeChanged))
+		// The store finds a file whatever the case of its name, so the check
+		// does too.
+		for _, rel := range []string{"Index.html", "INDEX.HTML", "Page.json", "LIB/Util.js", "lib/UTIL.JS"} {
+			Expect(r.trust.CheckRead(ctx, "marta", r.team, "board", p.Hash, visit.Token, rel)).To(MatchError(pages.ErrCodeChanged), rel)
+		}
+		Expect(r.trust.CheckRead(ctx, "marta", r.team, "board", p.Hash, visit.Token, "Data.json")).To(Succeed())
 	})
 
 	It("ignores references in comments, in other tags and outside the folder", func() {

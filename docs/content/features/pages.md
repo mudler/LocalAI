@@ -399,7 +399,9 @@ what changed: the size of each file and the lines of `index.html`, or which
 files of code there are when only one of them changed. A page that is open when its
 author changes it keeps running the version you allowed, and its strip says
 that it changed, with **Review**; a file of code it then asks for is refused
-(`409`), so new code never runs under the old consent. The UI puts no text file
+(`409`), so new code never runs under the old consent. The check ignores the
+case of the name, as the files do: `Index.html` or `JS/App.js` is the same file
+of code as `index.html` or `js/app.js`. The UI puts no text file
 into a shared page that is not in its `code_files`.
 
 The data files of a page are not in the hash: a page saves them all the time,

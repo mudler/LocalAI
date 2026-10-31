@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // Consent states of a shared page for its viewer.
@@ -131,9 +133,16 @@ func (t *Trust) CheckRead(ctx context.Context, principal string, folderID int64,
 	return nil
 }
 
-// isCode says whether rel is a file of the page's code.
+// isCode says whether rel is a file of the page's code. The workspace finds a
+// file whatever the case of its name (and in NFC), so the names are compared
+// in the store's own form: Index.html or JS/App.js reads the same file as
+// index.html or js/app.js.
 func isCode(p Page, rel string) bool {
-	return rel == IndexFile || rel == MetaFile || slices.Contains(p.CodeFiles, rel)
+	f := workspace.FoldName(rel)
+	if f == workspace.FoldName(IndexFile) || f == workspace.FoldName(MetaFile) {
+		return true
+	}
+	return slices.ContainsFunc(p.CodeFiles, func(c string) bool { return workspace.FoldName(c) == f })
 }
 
 func (t *Trust) check(ctx context.Context, principal string, folderID int64, name, hash, token string) (Page, error) {
