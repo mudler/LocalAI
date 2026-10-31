@@ -501,7 +501,10 @@ func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs strin
 		if e, err := ix.Store().Get(ctx, n.ID); err == nil && e.Hash == n.Blob {
 			switch e.Status {
 			case textindex.StatusReady:
-				return e.Text, nil
+				if !e.Truncated {
+					return e.Text, nil
+				}
+				// The index keeps part of a long document: read it all.
 			case textindex.StatusSkipped:
 				if e.Reason == textindex.ReasonNoText {
 					return "", fmt.Errorf("%s is a PDF with no text layer: it is probably a scan, so its words are pictures and there is no text to read", n.Name)
@@ -519,7 +522,7 @@ func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs strin
 	ctx, cancel := context.WithTimeout(ctx, documentTimeout)
 	defer cancel()
 	l := extract.DefaultLimits
-	l.Text = textindex.DefaultMaxTextBytes
+	l.Text = documentMaxText
 	text, _, err := extract.ExtractWith(ctx, n.Name, data, l)
 	switch {
 	case errors.Is(err, extract.ErrNoText):
@@ -537,8 +540,12 @@ func (s *Service) documentText(ctx context.Context, a workspace.Actor, abs strin
 	return text, nil
 }
 
-// documentTimeout bounds reading one document for read_file.
-const documentTimeout = 60 * time.Second
+// documentTimeout bounds reading one document for read_file, and
+// documentMaxText the characters of text it reads.
+const (
+	documentTimeout = 60 * time.Second
+	documentMaxText = 16 << 20
+)
 
 // readText reads a text file of at most max bytes.
 func (s *Service) readText(ctx context.Context, a workspace.Actor, abs string, max int64) (string, workspace.Node, error) {

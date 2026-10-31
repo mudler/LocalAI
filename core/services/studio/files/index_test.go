@@ -22,6 +22,11 @@ import (
 // newIndexedFiles is a files service with a text index on one SQLite
 // database, as a server with a database has it.
 func newIndexedFiles() (*files.Service, *textindex.Indexer) {
+	return newIndexedFilesWith(textindex.Options{})
+}
+
+// newIndexedFilesWith is newIndexedFiles with indexer options.
+func newIndexedFilesWith(o textindex.Options) (*files.Service, *textindex.Indexer) {
 	dsn := "file:" + filepath.Join(GinkgoT().TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
 	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	Expect(err).NotTo(HaveOccurred())
@@ -37,7 +42,8 @@ func newIndexedFiles() (*files.Service, *textindex.Indexer) {
 	st, err := textindex.NewGORM(db)
 	Expect(err).NotTo(HaveOccurred())
 	f := files.New(ws)
-	ix := textindex.New(textindex.Options{Store: st, Workspace: ws, Admin: workspace.Actor{Principal: files.AdminPrincipal}})
+	o.Store, o.Workspace, o.Admin = st, ws, workspace.Actor{Principal: files.AdminPrincipal}
+	ix := textindex.New(o)
 	f.SetTextIndex(ix)
 	return f, ix
 }
@@ -166,6 +172,19 @@ var _ = Describe("the file tools on indexed documents", func() {
 		Expect(ix.Pass(ctx)).To(Succeed())
 		_, err = b.run("read_file", map[string]any{"path": "/scan.pdf"})
 		Expect(err).To(MatchError(ContainSubstring("no text layer")))
+	})
+
+	It("reads all of a long document with read_file although the index keeps only its start", func() {
+		f, ix = newIndexedFilesWith(textindex.Options{MaxTextBytes: func() int { return 64 }})
+		b = newToolBox(f, "alice", "c1")
+		upload(f, "alice", "/long.pdf", extracttest.TextPDF("the opening page of the report", "the closing words are here"))
+		Expect(ix.Pass(ctx)).To(Succeed())
+		got, err := b.run("search_files", map[string]any{"query": "closing words"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal("Nothing found."), "the index stops at its cap")
+		got, err = b.run("read_file", map[string]any{"path": "/long.pdf"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(ContainSubstring("the closing words are here"))
 	})
 
 	It("shows a shared document to the users of the folder only, and drops purged files", func() {
