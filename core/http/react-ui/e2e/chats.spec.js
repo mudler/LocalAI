@@ -43,6 +43,9 @@ test.describe('Chats against the real server', () => {
   })
 
   test('a message typed while the model works is not lost', async ({ page }) => {
+    // Two turns of the mock model with its tool steps take about 28 seconds
+    // alone, near the default limit; each wait below allows 30 seconds.
+    test.setTimeout(90_000)
     await startChat(page, 'MOCK_SLOW_STREAM first')
     await expect(working(page)).toBeVisible()
 
