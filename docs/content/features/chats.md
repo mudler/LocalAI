@@ -861,6 +861,56 @@ curl -X POST .../api/chats/3f1c.../messages -d '{"text":"check the draft","agent
 Such a message starts a turn. While a turn runs it does not wait like other
 messages: it answers 409, and you send it again when the model has answered.
 
+## Slash commands
+
+Type `/` in the message box of a chat, or on Home, for the list of commands.
+Typing filters it; arrows move, Enter runs the command, Tab completes it, and
+Esc closes the list. A command that takes an argument lists the choices as you
+type it: `/agent ` lists your saved agents, `/skill ` the skills of the chat
+and `/model ` the chat models.
+
+| Command | What it does |
+|---------|--------------|
+| `/model`, `/models` | Open the model list; with a name, switch to that model. |
+| `/new`, `/chats` | Start a new chat, or open the list of your chats. |
+| `/find`, `/settings`, `/export`, `/delete` | Search this chat, open its settings, download it as Markdown, delete it. |
+| `/<skill>`, `/skill <name>` | Run the message with one of the skills of this chat (see below). |
+| `/agent <name> <task>` | Hand the task to one of your saved agents (see below). |
+| `/compact` | Compact the context now (see above). |
+| `/clear` | Clear the context: a fresh start in the same chat (see above). |
+| `/attach`, `/attach clear` | Choose files to send, or remove the files waiting to be sent. |
+| `/help` | List every command with what it does. |
+| `/about` | Show the model, whether it is loaded, how many tools and skills the chat has, where its commands run and the size of its context. |
+
+Home offers the same commands, less `/compact`, `/clear` and `/about`: a chat
+that does not exist yet has no context. `/<skill>` and `/agent` work there
+because the chat is created with the switches you chose first.
+
+### Run a skill
+
+Every skill the chat can use is a command of its own: `/review check the
+diff` sends "check the diff" with the `review` skill. The list marks where each
+skill comes from (built-in, add-on, shared or yours). A skill whose name is a
+command, such as a skill named `new`, is reached with `/skill new`. A skill
+that is switched off, replaced or for another user is not offered.
+
+The message goes with the name of the skill. The model gets the text of the
+skill's `SKILL.md` before your message, for this turn only; the transcript
+keeps your words and shows the skill as a chip. A regenerate runs the skill
+again.
+
+### Hand a task to a saved agent
+
+`/agent Reviewer check the draft` asks the model to start the saved agent
+`Reviewer` as a sub-agent with the task (see
+[Saved agents as sub-agents](#saved-agents-as-sub-agents)). The chat must have
+**Saved agents** switched on in its Tools menu; while it is off, the list offers
+to switch it on.
+
+A command message starts a turn: while a turn runs, send it again when the
+model has answered. The API of these messages is in
+[Messages sent with a skill or a saved agent](#messages-sent-with-a-skill-or-a-saved-agent).
+
 ## MCP tools
 
 A model that has MCP servers and sets `mcp.auto: true` offers all of them to its

@@ -185,10 +185,15 @@ export const chatsApi = {
   card: async (id, seq) => (await fetchJSON(`${API_CONFIG.endpoints.chatMessages(id)}?after=${Number(seq) - 1}&limit=1`)).messages || [],
   // With files the message goes as a form: the server saves the files in the
   // chat's folder of the user's workspace and the model gets their paths.
-  send: async (id, text, files = []) => {
-    if (!files.length) return postJSON(API_CONFIG.endpoints.chatMessages(id), { text })
+  // command: { skill } or { agent } of a message typed as a slash command.
+  send: async (id, text, files = [], command) => {
+    const cmd = {}
+    if (command?.skill) cmd.skill = command.skill
+    if (command?.agent) cmd.agent = command.agent.id || command.agent
+    if (!files.length) return postJSON(API_CONFIG.endpoints.chatMessages(id), { text, ...cmd })
     const form = new FormData()
     form.append('text', text)
+    Object.entries(cmd).forEach(([k, v]) => form.append(k, v))
     files.forEach(f => form.append('files', f, f.name))
     const res = await fetch(apiUrl(API_CONFIG.endpoints.chatMessages(id)), { method: 'POST', body: form })
     return handleResponse(res)
@@ -197,6 +202,9 @@ export const chatsApi = {
   cancelPending: (id, pid) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'DELETE' }),
   sendNow: (id) => postJSON(API_CONFIG.endpoints.chatSendNow(id), {}),
   stop: (id) => postJSON(API_CONFIG.endpoints.chatStop(id), {}),
+  // The context commands: compact answers the sizes { before, after } in tokens.
+  compact: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/compact`, {}),
+  clear: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/clear`, {}),
   eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 
