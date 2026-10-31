@@ -156,3 +156,48 @@ test('upgrade store: retry of a refused upgrade starts a new operation from the 
   assert.equal(s2.getSnapshot().live.length, 0)
   assert.equal(s2.getSnapshot().records[0].outcome, 'failed')
 })
+
+test('upgrade store: while the add-on service does not answer, the reads back off and the entry says it waits', async () => {
+  let reads = 0
+  const slept = []
+  const owner = fakeOwner({
+    fate: { notes: async () => 'prepared' },
+    status: async () => {
+      reads += 1
+      if (reads <= 3) throw new AddonsError({ kind: 'unavailable', status: 503 })
+      return { phase: 'completed' }
+    },
+  })
+  owner.gens.notes = 2 // the upgrade applied while the service restarted
+  let seen = null
+  const s = createUpgradeStore({
+    waits: [2000, 2000, 2000, 2000, 2000],
+    sleep: async (ms) => { slept.push(ms); seen = s.getSnapshot().live[0]?.waiting || null },
+  })
+  const out = await s.start(owner.api, pendingAddon('notes'))
+  assert.equal(out.ok, true)
+  // 2 s, then 4 s, then 8 s while it is down; the fourth read answers.
+  assert.deepEqual(slept, [2000, 4000, 8000])
+  assert.deepEqual(seen && seen.nextMs, 8000, 'the entry said it waited for the service')
+  assert.equal(s.getSnapshot().live.length, 0)
+})
+
+test('upgrade store: check now ends the wait of a followed upgrade', async () => {
+  let reads = 0
+  const owner = fakeOwner({
+    fate: { notes: async () => 'prepared' },
+    status: async () => { reads += 1; if (reads === 1) throw new AddonsError({ kind: 'unavailable', status: 503 }); return { phase: 'completed' } },
+  })
+  owner.gens.notes = 2
+  const s = createUpgradeStore({ waits: [60000] })
+  const done = s.start(owner.api, pendingAddon('notes'))
+  // Wait until the store sleeps, then wake it.
+  for (let i = 0; i < 50 && !s.getSnapshot().live[0]?.waiting; i++) await new Promise(r => setTimeout(r, 5))
+  const op = s.getSnapshot().live[0]
+  assert.ok(op.waiting, 'the entry says it waits for the service')
+  assert.equal(op.waiting.nextMs, 60000)
+  assert.equal(s.checkNow(op.jobID), true)
+  const out = await done
+  assert.equal(out.ok, true)
+  assert.equal(s.checkNow(op.jobID), false)
+})

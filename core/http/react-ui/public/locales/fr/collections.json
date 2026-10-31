@@ -50,5 +50,12 @@
   "starting": {
     "title": "La mémoire démarre.",
     "text": "Le serveur prépare encore le service de mémoire. Cette page réessaie toute seule."
+  },
+  "embedding": {
+    "missingTitle": "Aucun modèle d'embedding installé.",
+    "missingText": "Les collections utilisent {{model}} pour indexer les fichiers et y chercher. Tant qu'il n'est pas installé, l'ajout de fichiers et la recherche échouent.",
+    "noneSet": "Aucun modèle d'embedding n'est défini pour les collections (collections_embedding_model) : l'ajout de fichiers et la recherche échouent.",
+    "install": "Le trouver dans Modèles",
+    "askAdmin": "Demandez à un administrateur de l'installer."
   }
 }

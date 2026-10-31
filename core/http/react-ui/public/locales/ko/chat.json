@@ -306,7 +306,8 @@
       "waiting": "입력을 기다리는 중",
       "stopped": "중지됨",
       "failed": "실패",
-      "interrupted": "중단됨"
+      "interrupted": "중단됨",
+      "paused": "일시 중지됨"
     },
     "tool": {
       "search": "검색 중",
@@ -347,6 +348,13 @@
       "speedLive": "스트리밍 중 추정 속도",
       "average": "최근 {{count}}개 요청의 평균",
       "note": "이 수치는 이 페이지가 본 요청에서 나옵니다. 서버는 이를 보관하지 않으므로 새로고침하면 사라집니다."
+    },
+    "paused": {
+      "after": "{{count}}단계 후",
+      "atLimit": "단계 한도에 도달",
+      "continue": "계속",
+      "continueTitle": "모델이 한 턴의 단계를 모두 사용했습니다. 멈춘 곳부터 계속하게 하세요.",
+      "message": "멈춘 곳부터 계속해 주세요."
     }
   },
   "attachments": {

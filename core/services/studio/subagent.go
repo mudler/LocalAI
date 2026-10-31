@@ -450,7 +450,7 @@ func (s *Service) notifyWaiters(k string, status store.TurnStatus) {
 // childResult is what the parent's tool call returns for a finished sub-agent.
 func (s *Service) childResult(ctx context.Context, a workspace.Actor, childID string, st store.TurnStatus) (string, error) {
 	switch st {
-	case store.TurnDone:
+	case store.TurnDone, store.TurnPaused:
 		return s.finalText(ctx, childID), nil
 	case store.TurnStopped:
 		return "", errors.New("the sub-agent was stopped")
@@ -496,7 +496,7 @@ func (s *Service) reportBack(a workspace.Actor, childID, title string, done <-ch
 	parentKey := key(a.Principal, a.ChatID)
 	s.forgetChild(parentKey, childID)
 	s.bus.Publish(parentKey, session.Event{Kind: session.KindSubAgentDone, IDs: []string{childID}, Text: title})
-	if st != store.TurnDone {
+	if !st.Finished() {
 		return
 	}
 	msg := fmt.Sprintf("[Sub-agent finished: %s]\n%s", title, s.finalText(ctx, childID))

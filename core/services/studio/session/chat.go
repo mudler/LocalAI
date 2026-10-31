@@ -433,6 +433,10 @@ func (c *Chat) onHarnessEvent(e Event) {
 	case KindCompacted:
 		// Only the token counts travel; the transcript keeps every message.
 		e.Text, e.Tool = "", nil
+	case KindPaused:
+		// Only the step limit travels.
+		e.Text, e.Tool, e.Before, e.After = "", nil, 0, 0
+		c.flushReasoning(ctx, turn)
 	default:
 		return // turn_start, checkpoint and turn_end belong to the chat
 	}

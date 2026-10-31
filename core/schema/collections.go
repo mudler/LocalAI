@@ -4,6 +4,11 @@ package schema
 type CollectionList struct {
 	Collections []string `json:"collections"`
 	Count       int      `json:"count"`
+	// EmbeddingModel is the model that indexes and searches the collections.
+	// EmbeddingModelInstalled is false when this server does not have it:
+	// adding files and searching then fail until it is installed.
+	EmbeddingModel          string `json:"embedding_model"`
+	EmbeddingModelInstalled bool   `json:"embedding_model_installed"`
 	// UserGroups holds the collections of the other users. Only an administrator
 	// who asks for all users gets it.
 	UserGroups map[string]CollectionGroup `json:"user_groups,omitempty"`

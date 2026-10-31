@@ -397,6 +397,13 @@ type ApplicationConfig struct {
 	ChatsEgressAllowedHosts    string
 	ChatsEgressAuditDays       int
 
+	// ChatsMaxIterations is the step limit of the tool loop of one chat turn:
+	// how many rounds of tool calls the model may make before it must answer.
+	// A turn that reaches it ends as paused, and the person can let it go on.
+	// 0: DefaultChatsMaxIterations. A model's agent.max_iterations wins.
+	// Runtime-settable via /api/settings (chats_max_iterations).
+	ChatsMaxIterations int
+
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents
 	// as sub-agents (list_agents and the agent argument of spawn_agent).
 	// Stored as the negation (chats_saved_agents), so it is on by default;
@@ -1473,4 +1480,20 @@ func WithRouterDecisionLog(enabled bool) AppOption {
 // WithDiagnosticsRecorder installs the optional startup-only timing recorder.
 func WithDiagnosticsRecorder(r *diagnostics.Recorder) AppOption {
 	return func(o *ApplicationConfig) { o.DiagnosticsRecorder = r }
+}
+
+// DefaultChatsMaxIterations is the step limit of a chat turn when
+// chats_max_iterations is not set. Multi-step work (read files, run commands,
+// write a result) often needs a few dozen rounds of tool calls.
+const DefaultChatsMaxIterations = 40
+
+// MaxChatsMaxIterations is the highest step limit chats_max_iterations takes.
+const MaxChatsMaxIterations = 500
+
+// EffectiveChatsMaxIterations is chats_max_iterations as it applies now.
+func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
+	if o.ChatsMaxIterations < 1 || o.ChatsMaxIterations > MaxChatsMaxIterations {
+		return DefaultChatsMaxIterations
+	}
+	return o.ChatsMaxIterations
 }

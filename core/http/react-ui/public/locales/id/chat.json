@@ -306,7 +306,8 @@
       "waiting": "Menunggu Anda",
       "stopped": "Dihentikan",
       "failed": "Gagal",
-      "interrupted": "Terputus"
+      "interrupted": "Terputus",
+      "paused": "Dijeda"
     },
     "tool": {
       "search": "Mencari",
@@ -347,6 +348,13 @@
       "speedLive": "Kecepatan, perkiraan saat streaming",
       "average": "Rata-rata {{count}} permintaan terakhir",
       "note": "Angka ini berasal dari permintaan yang dilihat halaman ini. Server tidak menyimpannya, jadi memuat ulang akan menghapusnya."
+    },
+    "paused": {
+      "after": "setelah {{count}} langkah",
+      "atLimit": "di batas langkah",
+      "continue": "Lanjutkan",
+      "continueTitle": "Model telah memakai semua langkah dalam satu giliran. Biarkan ia melanjutkan dari tempat ia berhenti.",
+      "message": "Lanjutkan dari tempat kamu berhenti."
     }
   },
   "attachments": {

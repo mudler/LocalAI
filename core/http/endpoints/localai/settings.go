@@ -2,6 +2,7 @@ package localai
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -440,6 +441,9 @@ func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn boo
 	}
 	if s.ChatsEgressAuditDays != nil && (*s.ChatsEgressAuditDays < 1 || *s.ChatsEgressAuditDays > 365) {
 		return "Invalid chats_egress_audit_days: use 1 to 365"
+	}
+	if s.ChatsMaxIterations != nil && (*s.ChatsMaxIterations < 1 || *s.ChatsMaxIterations > config.MaxChatsMaxIterations) {
+		return fmt.Sprintf("Invalid chats_max_iterations: use 1 to %d", config.MaxChatsMaxIterations)
 	}
 	if s.ChatsEgressAllowPrivate != nil && *s.ChatsEgressAllowPrivate && !privateOn {
 		var confirm struct {

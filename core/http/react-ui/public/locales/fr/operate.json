@@ -51,6 +51,7 @@
     "upgradeVersions": "{{from}} vers {{to}}",
     "rowUpgraded": "Mis à niveau en {{duration}}",
     "rowUpgradedPlain": "Mis à niveau",
-    "viewInAddons": "Voir dans Modules"
+    "viewInAddons": "Voir dans Modules",
+    "upgradeWaiting": "En attente du démarrage du service des modules. Prochaine vérification dans {{seconds}} s."
   }
 }

@@ -3,6 +3,8 @@ package localai
 import (
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -11,7 +13,7 @@ import (
 
 // ListCollectionsEndpoint handles /api/collections (GET).
 // @Summary List your collections.
-// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. Needs the collections feature.
+// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. Needs the collections feature.
 // @Tags collections
 // @Success 200 {object} schema.CollectionList "The collections"
 // @Router /api/collections [get]
@@ -24,9 +26,12 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
+		model := app.ApplicationConfig().Collections.EmbeddingModel
 		resp := map[string]any{
-			"collections": cols,
-			"count":       len(cols),
+			"collections":               cols,
+			"count":                     len(cols),
+			"embedding_model":           model,
+			"embedding_model_installed": embeddingModelInstalled(app, model),
 		}
 
 		// Admin cross-user aggregation
@@ -388,4 +393,23 @@ func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFun
 			"count":   len(sources),
 		})
 	}
+}
+
+// embeddingModelInstalled reports whether the model that the collections embed
+// with is installed: it has a configuration, or a file of that name is in the
+// models folder. The collections call this server's embeddings endpoint, which
+// answers 404 for a model it does not have.
+func embeddingModelInstalled(app *application.Application, name string) bool {
+	if name == "" {
+		return false
+	}
+	if _, ok := app.ModelConfigLoader().GetModelConfig(name); ok {
+		return true
+	}
+	st := app.ApplicationConfig().SystemState
+	if st == nil || st.Model.ModelsPath == "" || strings.ContainsAny(name, "/\\") {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(st.Model.ModelsPath, name))
+	return err == nil && !info.IsDir()
 }

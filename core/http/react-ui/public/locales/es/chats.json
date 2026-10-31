@@ -127,6 +127,9 @@
     "servedBy": "Servido por el complemento {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "integrada",
+    "sandbox": {
+      "starting": "El Sandbox se está iniciando. LocalAI vuelve a comprobarlo en {{seconds}} s."
+    },
     "fallbackBuiltin": "{{addon}} reemplaza {{tool}} pero ahora no puede atender este chat (detenido, desactivado aquí o no concedido): se usa {{tool}} integrada.",
     "fallbackNone": "{{addon}} reemplaza {{tool}} pero ahora no puede atender este chat, y {{tool}} integrada está desactivada: este chat no tiene {{tool}}."
   },

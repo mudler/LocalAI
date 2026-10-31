@@ -306,7 +306,8 @@
       "waiting": "Esperándote",
       "stopped": "Detenido",
       "failed": "Falló",
-      "interrupted": "Interrumpido"
+      "interrupted": "Interrumpido",
+      "paused": "En pausa"
     },
     "tool": {
       "search": "Buscando",
@@ -347,6 +348,13 @@
       "speedLive": "Velocidad estimada durante la transmisión",
       "average": "Media de las últimas {{count}} solicitudes",
       "note": "Estas cifras vienen de las solicitudes que vio esta página. El servidor no las guarda, así que al recargar se borran."
+    },
+    "paused": {
+      "after": "tras {{count}} pasos",
+      "atLimit": "en el límite de pasos",
+      "continue": "Continuar",
+      "continueTitle": "El modelo usó todos los pasos de un turno. Deja que siga desde donde se detuvo.",
+      "message": "Continúa desde donde te detuviste."
     }
   },
   "attachments": {

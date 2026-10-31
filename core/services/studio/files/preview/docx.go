@@ -21,7 +21,7 @@ var (
 
 // document reads the paragraphs of a .docx in order: headings (from the
 // paragraph style, whatever the language of its id), list items with their
-// level, and plain paragraphs. Tables give the paragraphs of their cells.
+// level, and plain paragraphs. A table is one block with its rows of cells.
 func (p *pkg) document() (schema.ChatsFilePreview, error) {
 	main := p.mainPart("word/document.xml")
 	if !p.has(main) {
@@ -34,10 +34,16 @@ func (p *pkg) document() (schema.ChatsFilePreview, error) {
 	out := schema.ChatsFilePreview{Kind: kindDocument, Blocks: []schema.ChatsFilePreviewBlock{}}
 	budget := textBudget{left: p.limits.Text}
 	err = p.decode(main, func(d *xml.Decoder, se xml.StartElement) error {
-		if se.Name.Local != "p" {
+		var b schema.ChatsFilePreviewBlock
+		var err error
+		switch se.Name.Local {
+		case "p":
+			b, err = paragraph(d, levels, lists)
+		case "tbl":
+			b, err = table(d, levels, lists)
+		default:
 			return nil
 		}
-		b, err := paragraph(d, levels, lists)
 		if err != nil || b.Text == "" {
 			return err
 		}
@@ -161,4 +167,65 @@ func paragraph(d *xml.Decoder, levels map[string]int, lists map[string]bool) (sc
 		b.Type, b.Level = "item", ilvl
 	}
 	return b, nil
+}
+
+// table reads a <w:tbl> to its end: one row per <w:tr>, one cell per <w:tc>
+// with the text of its paragraphs. A table inside a cell adds its text to that
+// cell. Text is the rows as tab-separated lines.
+func table(d *xml.Decoder, levels map[string]int, lists map[string]bool) (schema.ChatsFilePreviewBlock, error) {
+	var rows [][]string
+	var row, cell []string
+	for depth := 1; depth > 0; {
+		tok, err := d.Token()
+		if err != nil {
+			return schema.ChatsFilePreviewBlock{}, err
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			switch t.Name.Local {
+			case "p": // paragraph and table read to their end
+				b, err := paragraph(d, levels, lists)
+				if err != nil {
+					return schema.ChatsFilePreviewBlock{}, err
+				}
+				if b.Text != "" {
+					cell = append(cell, b.Text)
+				}
+			case "tbl":
+				inner, err := table(d, levels, lists)
+				if err != nil {
+					return schema.ChatsFilePreviewBlock{}, err
+				}
+				if inner.Text != "" {
+					cell = append(cell, strings.ReplaceAll(inner.Text, "\n", " "))
+				}
+			case "tr":
+				row = []string{}
+				depth++
+			case "tc":
+				cell = nil
+				depth++
+			default:
+				depth++
+			}
+		case xml.EndElement:
+			depth--
+			switch t.Name.Local {
+			case "tc":
+				row = append(row, strings.Join(cell, " "))
+			case "tr":
+				rows = append(rows, row)
+			}
+		}
+	}
+	lines := make([]string, 0, len(rows))
+	for _, r := range rows {
+		cells := make([]string, len(r))
+		for i, c := range r {
+			cells[i] = strings.NewReplacer("\t", " ", "\n", " ").Replace(c)
+		}
+		lines = append(lines, strings.Join(cells, "\t"))
+	}
+	text := strings.TrimSpace(strings.Join(lines, "\n"))
+	return schema.ChatsFilePreviewBlock{Type: "table", Text: text, Rows: rows}, nil
 }

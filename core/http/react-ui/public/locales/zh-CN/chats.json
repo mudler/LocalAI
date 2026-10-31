@@ -127,6 +127,9 @@
     "servedBy": "由附加组件 {{provider}} 提供",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "内置",
+    "sandbox": {
+      "starting": "Sandbox 正在启动。LocalAI 将在 {{seconds}} 秒后再次检查。"
+    },
     "fallbackBuiltin": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务（已停止、在此关闭或未授权）：使用内置 {{tool}}。",
     "fallbackNone": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务，且内置 {{tool}} 已关闭：此聊天没有 {{tool}}。"
   },

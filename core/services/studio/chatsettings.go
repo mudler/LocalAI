@@ -160,7 +160,7 @@ func (s *Service) withClaim(ctx context.Context, p, conv string, f func(session.
 	if rerr := s.releaseTurn(ctx, p, conv, runID, prev.Last); rerr != nil {
 		s.log.Warn("studio: could not release the claim after a change", "chat", conv, "error", rerr)
 	}
-	if prev.Last == store.TurnDone || prev.Last == "" {
+	if prev.Last.Finished() || prev.Last == "" {
 		if _, serr := s.startFromPending(ctx, p, conv); serr != nil {
 			s.log.Warn("studio: could not start the messages that waited during a change", "chat", conv, "error", serr)
 		}

@@ -95,7 +95,8 @@ export function stripOf(runs) {
 
 // ---- Server rows as runs -----------------------------------------------------
 
-const TURN_STATUS = { done: 'done', failed: 'failed', interrupted: 'failed', stopped: 'stopped' }
+// A paused turn reached the step limit and wrote an answer: it counts as done.
+const TURN_STATUS = { done: 'done', paused: 'done', failed: 'failed', interrupted: 'failed', stopped: 'stopped' }
 
 function stamp(v) {
   const t = v ? Date.parse(v) : NaN

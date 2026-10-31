@@ -806,7 +806,9 @@ function ChatPage() {
 
   const status = chat.running ? tc('status.working')
     : activeId && chat.lastTurn === 'interrupted' ? tc('status.interrupted')
-      : activeId && chat.lastTurn === 'stopped' ? tc('status.stopped') : ''
+      : activeId && chat.lastTurn === 'paused'
+        ? (chat.pausedSteps > 0 ? t('foot.paused.after', { count: chat.pausedSteps }) : t('foot.paused.atLimit'))
+        : activeId && chat.lastTurn === 'stopped' ? tc('status.stopped') : ''
   // The failed turn shows as the one banner in the thread, and the footer says
   // only the state word. A failure the server reports without a reason (the
   // page was reloaded) fades after a day, so an old failure does not look new.
@@ -1033,6 +1035,7 @@ function ChatPage() {
               chat={chat}
               showMeter={!!activeId}
               quiet={!activeId}
+              onContinue={footState.key === 'paused' ? () => handleSend(t('foot.paused.message')) : undefined}
             />
           </div>
         </div>

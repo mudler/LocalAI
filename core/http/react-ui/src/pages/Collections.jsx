@@ -57,6 +57,9 @@ export default function Collections() {
   const [sim, setSim] = useState(null)
   const [skills, setSkills] = useState([])
   const [busy, setBusy] = useState(false)
+  // The model that indexes and searches the collections, and whether this
+  // server has it. Without it every upload and search fails.
+  const [embedding, setEmbedding] = useState({ model: '', installed: true })
 
   const selectedUser = params.get('user_id') || undefined
 
@@ -70,6 +73,7 @@ export default function Collections() {
       const data = await agentCollectionsApi.list(isAdmin && authEnabled)
       setCollections((Array.isArray(data.collections) ? data.collections : []).map(nameOf).filter(Boolean))
       setUserGroups(data.user_groups || null)
+      setEmbedding({ model: data.embedding_model || '', installed: data.embedding_model_installed !== false })
       setLoadError(null)
     } catch (err) {
       // A failed read shows an error in place of the list, never the empty
@@ -251,6 +255,22 @@ export default function Collections() {
           </Button>
           <Button variant="ghost" onClick={() => { setShowCreate(false); setNewName('') }}>{t('collections:actions.cancel')}</Button>
         </form>
+      )}
+
+      {!loading && !loadError && !embedding.installed && (
+        <Callout
+          tone="warn"
+          title={t('collections:embedding.missingTitle')}
+          testId="memory-no-embedding"
+          actions={isAdmin && embedding.model ? (
+            <Button size="sm" variant="primary" icon="download" onClick={() => navigate(`/app/models?q=${encodeURIComponent(embedding.model)}`)} data-testid="install-embedding">
+              {t('collections:embedding.install')}
+            </Button>
+          ) : null}
+        >
+          {embedding.model ? t('collections:embedding.missingText', { model: embedding.model }) : t('collections:embedding.noneSet')}
+          {!isAdmin && ` ${t('collections:embedding.askAdmin')}`}
+        </Callout>
       )}
 
       {loading ? (

@@ -22,6 +22,9 @@ type GateHarness struct {
 	// FailRequest makes that (1-based) request of a turn fail after the input
 	// was taken: settle gets an error and the turn returns it. 0: none.
 	FailRequest int
+	// PauseSteps, when set, makes every turn end as one that reached a step
+	// limit of that many steps (a paused event before it returns).
+	PauseSteps int
 
 	mu        sync.Mutex
 	sent      []string
@@ -135,6 +138,9 @@ func (s *gateSession) Send(ctx context.Context, text string) error {
 		}
 	}
 	s.env.Emit(session.Event{Kind: session.KindText, Text: "done"})
+	if g.PauseSteps > 0 {
+		s.env.Emit(session.Event{Kind: session.KindPaused, Steps: g.PauseSteps})
+	}
 	return nil
 }
 

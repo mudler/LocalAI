@@ -2844,8 +2844,8 @@ definitions:
       created:
         type: string
       last_turn:
-        description: 'LastTurn is how its last turn ended: done, stopped, failed or
-          interrupted.'
+        description: 'LastTurn is how its last turn ended: done, stopped, failed,
+          interrupted or paused.'
         type: string
       model:
         type: string
@@ -3399,7 +3399,8 @@ definitions:
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
-          ended: done, stopped, failed or interrupted.
+          ended: done, stopped, failed, interrupted, or paused (the tool loop
+          reached its step limit; send a message to go on).
         type: boolean
       settings:
         allOf:
@@ -3452,7 +3453,8 @@ definitions:
       running:
         description: |-
           Running is true while a turn runs. LastTurn is how the last finished turn
-          ended: done, stopped, failed or interrupted.
+          ended: done, stopped, failed, interrupted, or paused (the tool loop
+          reached its step limit; send a message to go on).
         type: boolean
       settings:
         allOf:
@@ -3781,6 +3783,9 @@ definitions:
         type: string
       retry:
         type: integer
+      steps:
+        description: Steps is the step limit that a paused turn reached (paused only).
+        type: integer
       text:
         type: string
       tool:
@@ -3902,6 +3907,12 @@ definitions:
     properties:
       level:
         type: integer
+      rows:
+        items:
+          items:
+            type: string
+          type: array
+        type: array
       text:
         type: string
       type:
@@ -4593,7 +4604,7 @@ definitions:
       running:
         description: |-
           Running is true while the run's turn is going. LastTurn is how its last
-          turn ended: done, stopped, failed or interrupted.
+          turn ended: done, stopped, failed, interrupted or paused.
         type: boolean
       title:
         type: string
@@ -5315,6 +5326,14 @@ definitions:
         type: array
       count:
         type: integer
+      embedding_model:
+        description: |-
+          EmbeddingModel is the model that indexes and searches the collections.
+          EmbeddingModelInstalled is false when this server does not have it:
+          adding files and searching then fail until it is installed.
+        type: string
+      embedding_model_installed:
+        type: boolean
       user_groups:
         additionalProperties:
           $ref: '#/definitions/schema.CollectionGroup'
@@ -12013,8 +12032,10 @@ paths:
   /api/chats/{id}/events:
     get:
       description: 'Server-sent events: text, reasoning, tool_start, tool_end, checkpoint,
-        turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted
-        and files. Events are live only; read the transcript for what came before.'
+        turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted,
+        paused (the tool loop reached its step limit, chats_max_iterations; steps
+        is the limit) and files. Events are live only; read the transcript for what
+        came before.'
       parameters:
       - description: conversation id
         in: path
@@ -15548,9 +15569,12 @@ paths:
       - chats
   /api/collections:
     get:
-      description: The knowledge-base collections of the caller. An administrator
-        can add all_users=true to also get the other users' collections in user_groups.
-        Needs the collections feature.
+      description: 'The knowledge-base collections of the caller. An administrator
+        can add all_users=true to also get the other users'' collections in user_groups.
+        embedding_model names the model that indexes and searches the collections
+        (collections_embedding_model), and embedding_model_installed says whether
+        this server has it: without it, adding files and searching fail. Needs the
+        collections feature.'
       responses:
         "200":
           description: The collections

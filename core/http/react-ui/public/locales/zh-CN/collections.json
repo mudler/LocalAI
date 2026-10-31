@@ -50,5 +50,12 @@
   "starting": {
     "title": "记忆服务正在启动。",
     "text": "服务器仍在准备记忆服务。此页面会自动重试。"
+  },
+  "embedding": {
+    "missingTitle": "未安装嵌入模型。",
+    "missingText": "集合使用 {{model}} 为文件建立索引并进行搜索。安装之前，添加文件和搜索都会失败。",
+    "noneSet": "未为集合设置嵌入模型（collections_embedding_model），因此添加文件和搜索都会失败。",
+    "install": "在模型中查找",
+    "askAdmin": "请让管理员安装它。"
   }
 }

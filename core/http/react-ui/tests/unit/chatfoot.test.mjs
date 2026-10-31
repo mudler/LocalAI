@@ -43,6 +43,12 @@ test('chat foot: with no turn running, a failure comes first, then an interrupti
   assert.equal(key({ lastTurn: 'stopped', pending: [{ id: 'p' }] }), 'waiting')
   assert.equal(chatFootState({ ...base, lastTurn: 'stopped', pending: [{ id: 'p' }, { id: 'q' }] }).count, 2)
   assert.equal(key({ lastTurn: 'stopped' }), 'stopped')
+  // A pause at the step limit stays on the line until the next turn; messages
+  // that wait come first, as they start the next turn by themselves.
+  assert.equal(key({ lastTurn: 'paused' }), 'paused')
+  assert.equal(key({ lastTurn: 'paused', pending: [{ id: 'p' }] }), 'waiting')
+  assert.equal(chatFootState({ ...base, lastTurn: 'paused' }).tone, 'warn')
+  assert.equal(chatFootState({ ...base, lastTurn: 'paused' }).busy, false)
   assert.equal(key({ lastTurn: 'done' }), 'ready')
   assert.equal(key({ lastTurn: '' }), 'ready')
   // A running turn wins over how the last one ended.
@@ -57,7 +63,7 @@ test('chat foot: a new chat is ready, sending or has no model', () => {
 })
 
 test('chat foot: every state has a tone, and the ones that need attention have an icon', () => {
-  for (const k of ['failed', 'interrupted', 'waiting', 'stopped']) {
+  for (const k of ['failed', 'interrupted', 'paused', 'waiting', 'stopped']) {
     const s = chatFootState({ ...base, lastTurn: k === 'waiting' ? 'stopped' : k, pending: k === 'waiting' ? [{ id: 'p' }] : [] })
     assert.equal(s.key, k)
     assert.ok(s.icon, `${k} has an icon`)

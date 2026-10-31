@@ -16,6 +16,26 @@ test.describe('Memory library', () => {
     }
   })
 
+  test('says when the embedding model is not installed and leads to the models page', async ({ page }) => {
+    await mockLibrary(page)
+    await page.route(/\/api\/collections(\?.*)?$/, route => route.request().method() === 'GET'
+      ? route.fulfill({ json: { collections: ['handbook'], count: 1, embedding_model: 'granite-embedding-107m-multilingual', embedding_model_installed: false } })
+      : route.fallback())
+    await page.goto('/app/collections')
+    const note = page.getByTestId('memory-no-embedding')
+    await expect(note).toContainText('No embedding model installed.')
+    await expect(note).toContainText('Collections use granite-embedding-107m-multilingual to index files')
+    await page.getByTestId('install-embedding').click()
+    await expect(page).toHaveURL(/\/app\/models\?q=granite-embedding-107m-multilingual$/)
+  })
+
+  test('says nothing about the embedding model when it is installed', async ({ page }) => {
+    await mockLibrary(page)
+    await page.goto('/app/collections')
+    await expect(page.getByTestId('collection-used-handbook')).toBeVisible()
+    await expect(page.getByTestId('memory-no-embedding')).toHaveCount(0)
+  })
+
   test('an agent that does not list a collection does not use it', async ({ page }) => {
     await mockLibrary(page, { collections: ['idle-agent'] })
     await page.goto('/app/collections')

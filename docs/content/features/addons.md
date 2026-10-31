@@ -3513,6 +3513,13 @@ filter, with progress, **Cancel** and **Retry**. Cancel stops the request, and t
 reads the operation to report what the owner did. The list of upgrades is kept by the
 browser that started them, so it is lost on a page reload.
 
+While the add-on service restarts (an upgrade restarts it), the page cannot read the
+operation and the server answers 503. The page then waits longer before each new read, 2,
+4, 8 and up to 30 seconds, and the upgrade says *Waiting for the add-on service to start*
+with the time of the next check; **Check now** in the details reads it at once. The Tools
+menu of a chat does the same for the state of the Sandbox: it says that the Sandbox is
+starting and reads its state again by itself, with the same back-off.
+
 ## Add-on pages
 
 An add-on with a `ui` object contributes pages to the web UI. The code of those pages is

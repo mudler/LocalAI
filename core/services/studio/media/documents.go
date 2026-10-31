@@ -3,17 +3,15 @@ package media
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 	"unicode/utf8"
 
-	"github.com/mudler/nib/extraction"
-
+	"github.com/mudler/LocalAI/core/services/studio/extract"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -28,14 +26,15 @@ const (
 	extractTimeout    = 60 * time.Second
 )
 
-var documentExts = map[string]bool{".pdf": true, ".docx": true, ".xlsx": true, ".pptx": true, ".epub": true}
-
 // IsDocumentName reports whether the file is a document whose text can be read:
 // PDF, Word, Excel, PowerPoint or EPUB.
-func IsDocumentName(name string) bool { return documentExts[strings.ToLower(path.Ext(name))] }
+func IsDocumentName(name string) bool { return extract.Supported(name) }
 
-// DocumentText returns the text of a document, page by page in order. It needs
-// no helper model. A scanned document with no text layer gives an empty string.
+// DocumentText returns the text of a document: the sheets of a workbook as
+// tab-separated rows, the headings, paragraphs and tables of a Word document,
+// the slides of a presentation, the pages of a PDF or an EPUB. It needs no
+// helper model. A PDF with no text layer gives extract.ErrNoText; an Office
+// file with no text gives an empty string.
 func DocumentText(ctx context.Context, name string, data []byte) (string, error) {
 	if !IsDocumentName(name) {
 		return "", fmt.Errorf("%s is not a document I can read", name)
@@ -43,36 +42,29 @@ func DocumentText(ctx context.Context, name string, data []byte) (string, error)
 	if len(data) > maxDocumentBytes {
 		return "", fmt.Errorf("%s is %d bytes, which is too large", name, len(data))
 	}
-	// The extractor reads a file, not a stream.
-	dir, err := os.MkdirTemp("", "studio-doc-")
-	if err != nil {
+	ctx, cancel := context.WithTimeout(ctx, extractTimeout)
+	defer cancel()
+	text, _, err := extract.Extract(ctx, name, data)
+	switch {
+	case errors.Is(err, extract.ErrNoText):
 		return "", err
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
-	file := filepath.Join(dir, "document"+strings.ToLower(path.Ext(name)))
-	if err := os.WriteFile(file, data, 0o600); err != nil {
-		return "", err
-	}
-	type result struct {
-		text string
-		err  error
-	}
-	done := make(chan result, 1)
-	go func() {
-		text, err := extraction.ExtractText(file)
-		done <- result{text, err}
-	}()
-	select {
-	case r := <-done:
-		if r.err != nil {
-			return "", fmt.Errorf("could not read %s: %w", name, r.err)
-		}
-		return strings.TrimSpace(r.text), nil
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case <-time.After(extractTimeout):
+	case errors.Is(err, extract.ErrInvalid):
+		return "", fmt.Errorf("%s is not a valid %s file", name, strings.TrimPrefix(strings.ToLower(path.Ext(name)), "."))
+	case errors.Is(err, context.DeadlineExceeded):
 		return "", fmt.Errorf("reading %s took too long", name)
+	case err != nil:
+		return "", fmt.Errorf("could not read %s: %w", name, err)
 	}
+	return strings.TrimSpace(text), nil
+}
+
+// documentProblem is what the model is told about a document with no text: a
+// PDF with no text layer is a scan, an Office file is empty.
+func documentProblem(name string, err error) string {
+	if errors.Is(err, extract.ErrNoText) {
+		return fmt.Sprintf("%s is a PDF with no text layer: it is probably a scan, so its words are pictures. describe_image reads an image of a page", name)
+	}
+	return fmt.Sprintf("%s contains no text (its sheets, pages or slides are empty)", name)
 }
 
 // ExtractDocuments adds the text of the documents among the attached files to
@@ -99,10 +91,12 @@ func (s *Service) ExtractDocuments(ctx context.Context, text string, up []sessio
 		out[i].Body = bytes.NewReader(data)
 		doc, err := DocumentText(ctx, u.Name, data)
 		switch {
+		case errors.Is(err, extract.ErrNoText):
+			fmt.Fprintf(&notes, "\n\n[Document %s has no text layer. It may be a scan.]", u.Name)
 		case err != nil:
 			continue
 		case doc == "":
-			fmt.Fprintf(&notes, "\n\n[Document %s has no text layer. It may be a scan.]", u.Name)
+			fmt.Fprintf(&notes, "\n\n[Document %s contains no text.]", u.Name)
 		default:
 			shown, more := cutChars(doc, 0, inlineDocumentChars)
 			fmt.Fprintf(&notes, "\n\n[Text of %s:\n%s", u.Name, shown)

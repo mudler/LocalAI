@@ -242,6 +242,19 @@ function DocumentView({ data, t }) {
           return <H key={i} className={`pv-doc__h pv-doc__h${Math.min(b.level || 1, 3)}`}>{b.text}</H>
         }
         if (b.type === 'item') return <p key={i} className="pv-doc__item" data-level={Math.min(b.level || 0, 4)}>{b.text}</p>
+        if (b.type === 'table') {
+          return (
+            <div key={i} className="pv-table__scroll pv-doc__table" data-testid="preview-doc-table">
+              <table className="pv-grid">
+                <tbody>
+                  {(b.rows || []).map((r, ri) => (
+                    <tr key={ri}>{r.map((c, ci) => <td key={ci}>{c}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
         return <p key={i} className="pv-doc__p">{b.text}</p>
       })}
     </div>

@@ -113,6 +113,30 @@ func (c *callingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCo
 		cogito.LLMUsage{PromptTokens: 10, TotalTokens: 11}, nil
 }
 
+// loopingLLM asks for a call of a named tool on every request that offers
+// tools, so only the step limit ends the tool loop; a request with no tools
+// (the final answer the loop asks for) gets text.
+type loopingLLM struct {
+	recordingLLM
+	call string
+	n    int
+}
+
+func (l *loopingLLM) CreateChatCompletion(ctx context.Context, req openai.ChatCompletionRequest) (cogito.LLMReply, cogito.LLMUsage, error) {
+	l.record("CreateChatCompletion", req.Messages, req.Tools)
+	l.mu.Lock()
+	l.n++
+	id := l.n
+	l.mu.Unlock()
+	msg := openai.ChatCompletionMessage{Role: "assistant", Content: "here is what I have so far"}
+	if len(req.Tools) > 0 {
+		msg = openai.ChatCompletionMessage{Role: "assistant", ToolCalls: []openai.ToolCall{{ID: "call-" + strings.Repeat("x", id), Type: "function",
+			Function: openai.FunctionCall{Name: l.call, Arguments: `{"step":` + strings.Repeat("1", id) + `}`}}}}
+	}
+	return cogito.LLMReply{ChatCompletionResponse: openai.ChatCompletionResponse{Choices: []openai.ChatCompletionChoice{{Message: msg}}}},
+		cogito.LLMUsage{PromptTokens: 10, TotalTokens: 11}, nil
+}
+
 // hangingLLM blocks every request until its context ends, and tells when it did.
 type hangingLLM struct {
 	recordingLLM
@@ -368,5 +392,55 @@ var _ = Describe("the nib harness", func() {
 		Expect(hs.Interrupt()).To(Succeed())
 		Eventually(llm.cancelled, 5*time.Second).Should(Receive(), "Interrupt left the model request open")
 		Eventually(sent, 10*time.Second).Should(Receive(), "Send did not return after Interrupt")
+	})
+
+	It("reports a turn that reaches the step limit as paused", func() {
+		llm := &loopingLLM{call: "step"}
+		var mu sync.Mutex
+		var events []session.Event
+		tool := session.Tool{Name: "step", Description: "one step", Schema: json.RawMessage(`{"type":"object","properties":{"step":{"type":"integer"}}}`),
+			Run: func(context.Context, json.RawMessage) (string, error) { return "step done", nil }}
+		hs := start(&llm.recordingLLM, session.HarnessEnv{
+			Tools: []session.Tool{tool},
+			Emit: func(e session.Event) {
+				mu.Lock()
+				defer mu.Unlock()
+				events = append(events, e)
+			},
+		}, func(m *nibharness.Model) { m.LLM = llm; m.Agent.Iterations = 2 })
+		send(hs, "do a long task")
+
+		mu.Lock()
+		defer mu.Unlock()
+		var paused []session.Event
+		for _, e := range events {
+			if e.Kind == session.KindPaused {
+				paused = append(paused, e)
+			}
+		}
+		Expect(paused).To(HaveLen(1), "events: %+v", events)
+		Expect(paused[0].Steps).To(Equal(2))
+	})
+
+	It("does not report a turn that ends by itself as paused", func() {
+		llm := &callingLLM{call: "host_tool"}
+		var mu sync.Mutex
+		var events []session.Event
+		tool := session.Tool{Name: "host_tool", Description: "a tool", Schema: json.RawMessage(`{"type":"object"}`),
+			Run: func(context.Context, json.RawMessage) (string, error) { return "ok", nil }}
+		hs := start(&llm.recordingLLM, session.HarnessEnv{
+			Tools: []session.Tool{tool},
+			Emit: func(e session.Event) {
+				mu.Lock()
+				defer mu.Unlock()
+				events = append(events, e)
+			},
+		}, func(m *nibharness.Model) { m.LLM = llm; m.Agent.Iterations = 5 })
+		send(hs, "hello")
+		mu.Lock()
+		defer mu.Unlock()
+		for _, e := range events {
+			Expect(e.Kind).ToNot(Equal(session.KindPaused))
+		}
 	})
 })

@@ -323,6 +323,9 @@ type run struct {
 	started time.Time
 	stopped bool
 	failed  bool
+	// paused is set when the tool loop reached its step limit: the turn ends
+	// as paused, so the person sees that the work is not finished.
+	paused bool
 	// chat is the chat the turn runs on. Stop goes through it and never opens
 	// the chat again: a turn that ended has closed it, and a chat left open by
 	// a late Stop would hold stale state while another frontend runs the next turn.
@@ -815,7 +818,7 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 		// The turn may have ended on another frontend between the claim and the
 		// queue. Nothing would start for this message then, so look again; the
 		// claim decides who starts it.
-		if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && !info.Running && info.Last == store.TurnDone {
+		if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && !info.Running && info.Last.Finished() {
 			if _, err := s.startFromPending(ctx, p, conv); err != nil {
 				s.log.Warn("studio: could not start a turn for a message that arrived late", "chat", conv, "error", err)
 			}
@@ -922,6 +925,12 @@ func (s *Service) stopLocal(ctx context.Context, p, conv string) error {
 // in order. It reports whether it started one. The caller holds the lock.
 func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, error) {
 	runID := newID()
+	// A claim that finds nothing to run gives the chat back as it was: a
+	// paused turn must still read as paused.
+	last := store.TurnDone
+	if info, terr := s.d.Store.Turn(ctx, p, conv); terr == nil && info.Last != "" {
+		last = info.Last
+	}
 	if err := s.d.Store.ClaimTurn(ctx, p, conv, runID); err != nil {
 		if errors.Is(err, store.ErrTurnRunning) {
 			return false, nil // a turn is running; it takes them at its next request
@@ -930,7 +939,7 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 	}
 	taken, err := s.d.Store.TakePending(ctx, p, conv)
 	if err != nil || len(taken) == 0 {
-		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnDone)
+		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, last)
 		if err == nil {
 			// A message may have been queued on another frontend while this claim
 			// was held: it saw a running turn and did not start one. Look again
@@ -1099,6 +1108,12 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 				r.failed = true
 			}
 			s.mu.Unlock()
+		case session.KindPaused:
+			s.mu.Lock()
+			if r := s.runs[k]; r != nil {
+				r.paused = true
+			}
+			s.mu.Unlock()
 		}
 	}
 }
@@ -1140,6 +1155,8 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 		// The server is going down: the turn was cut short, its text is partial,
 		// and nothing starts after it. The owner of a run is told.
 		status = store.TurnInterrupted
+	case r.paused:
+		status = store.TurnPaused
 	}
 	if err := s.releaseTurn(ctx, p, conv, r.id, status); err != nil {
 		s.log.Warn("studio: could not release the turn", "chat", conv, "error", err)
@@ -1151,7 +1168,7 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 	}
 	s.observeTurn(ctx, p, conv, r.started, outcomeOf(r.stopped, r.failed || status == store.TurnInterrupted))
 	s.notifyWaiters(k, status)
-	if status != store.TurnDone {
+	if !status.Finished() {
 		// A stopped or failed turn takes its running sub-agents with it, and the
 		// waiting messages stay for the user to decide.
 		s.stopChildren(p, conv)

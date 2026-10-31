@@ -26,6 +26,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio/extract"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -417,11 +418,14 @@ func (s *Service) Tools(f *files.Service, a workspace.Actor, chatModel string) [
 					return "", err
 				}
 				doc, err := DocumentText(ctx, name, data)
+				if errors.Is(err, extract.ErrNoText) {
+					return "", errors.New(documentProblem(name, err))
+				}
 				if err != nil {
 					return "", err
 				}
 				if doc == "" {
-					return "", fmt.Errorf("%s has no text layer; it may be a scan", name)
+					return "", errors.New(documentProblem(name, nil))
 				}
 				limit := in.Limit
 				if limit <= 0 || limit > 4*readDocumentChars {

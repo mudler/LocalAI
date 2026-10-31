@@ -8321,7 +8321,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/events": {
             "get": {
-                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted and files. Events are live only; read the transcript for what came before.",
+                "description": "Server-sent events: text, reasoning, tool_start, tool_end, checkpoint, turn_start, turn_end, error, pending_delivered, sub_agent_done, compacted, paused (the tool loop reached its step limit, chats_max_iterations; steps is the limit) and files. Events are live only; read the transcript for what came before.",
                 "produces": [
                     "text/event-stream"
                 ],
@@ -9177,7 +9177,7 @@ const docTemplate = `{
         },
         "/api/collections": {
             "get": {
-                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. Needs the collections feature.",
+                "description": "The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. Needs the collections feature.",
                 "tags": [
                     "collections"
                 ],
@@ -17599,7 +17599,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "last_turn": {
-                    "description": "LastTurn is how its last turn ended: done, stopped, failed or interrupted.",
+                    "description": "LastTurn is how its last turn ended: done, stopped, failed, interrupted or paused.",
                     "type": "string"
                 },
                 "model": {
@@ -18297,7 +18297,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "running": {
-                    "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
+                    "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
                 },
                 "settings": {
@@ -18367,7 +18367,7 @@ const docTemplate = `{
                     }
                 },
                 "running": {
-                    "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed or interrupted.",
+                    "description": "Running is true while a turn runs. LastTurn is how the last finished turn\nended: done, stopped, failed, interrupted, or paused (the tool loop\nreached its step limit; send a message to go on).",
                     "type": "boolean"
                 },
                 "settings": {
@@ -18810,6 +18810,10 @@ const docTemplate = `{
                 "retry": {
                     "type": "integer"
                 },
+                "steps": {
+                    "description": "Steps is the step limit that a paused turn reached (paused only).",
+                    "type": "integer"
+                },
                 "text": {
                     "type": "string"
                 },
@@ -18987,6 +18991,15 @@ const docTemplate = `{
             "properties": {
                 "level": {
                     "type": "integer"
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
                 },
                 "text": {
                     "type": "string"
@@ -19983,7 +19996,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "running": {
-                    "description": "Running is true while the run's turn is going. LastTurn is how its last\nturn ended: done, stopped, failed or interrupted.",
+                    "description": "Running is true while the run's turn is going. LastTurn is how its last\nturn ended: done, stopped, failed, interrupted or paused.",
                     "type": "boolean"
                 },
                 "title": {
@@ -20987,6 +21000,13 @@ const docTemplate = `{
                 },
                 "count": {
                     "type": "integer"
+                },
+                "embedding_model": {
+                    "description": "EmbeddingModel is the model that indexes and searches the collections.\nEmbeddingModelInstalled is false when this server does not have it:\nadding files and searching then fail until it is installed.",
+                    "type": "string"
+                },
+                "embedding_model_installed": {
+                    "type": "boolean"
                 },
                 "user_groups": {
                     "description": "UserGroups holds the collections of the other users. Only an administrator\nwho asks for all users gets it.",

@@ -511,6 +511,30 @@ test.describe('Chat tools menu: add-ons', () => {
     await expect.poll(() => calls.at(-1)).toEqual(['office', 'sandbox'])
   })
 
+  test('says the Sandbox is starting while its service does not answer, and asks again later, not at once', async ({ page }) => {
+    const api = newChatsApi(page, { running: false, pending: [] })
+    await api.install()
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [{ id: 'sandbox', tools: 2, off: false }] } }))
+    await page.route('**/api/addons/apps', route => route.fulfill({ json: { apps: [{ id: 'sandbox', generation: 4 }] } }))
+    const reads = []
+    await page.route('**/api/addons/dispatch', route => {
+      reads.push(Date.now())
+      if (reads.length === 1) return route.fulfill({ status: 503, json: { error: { message: 'the add-on owner is unavailable' } } })
+      return route.fulfill({ json: { payload: { ok: true, canRun: true, active: 'gvisor' } } })
+    })
+    const errors = []
+    page.on('pageerror', e => errors.push(e.message))
+    await page.goto('/app/chats/c1')
+    await expect.poll(() => reads.length).toBe(1)
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-tools-note')).toHaveText('The Sandbox is starting. LocalAI checks again in 2 s.')
+    // The next read waits for the backoff, then the note says what the Sandbox does.
+    await expect(page.getByTestId('chat-tools-note')).toHaveText('Runs commands isolated (gvisor)', { timeout: 10_000 })
+    expect(reads.length).toBe(2)
+    expect(reads[1] - reads[0]).toBeGreaterThanOrEqual(1800)
+    expect(errors).toEqual([])
+  })
+
   test('shows no menu when the user has no add-on tools', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()

@@ -231,7 +231,9 @@ var _ = Describe("Word documents", func() {
 			p("ListBullet", r("Styled item")) +
 			p("berschrift2", r("Details")) +
 			p("", `<w:r><w:t>a</w:t><w:tab/><w:t>b</w:t><w:br/><w:t>c</w:t></w:r>`) +
-			`<w:tbl><w:tr><w:tc>` + p("", r("cell one")) + `</w:tc><w:tc>` + p("", r("cell two")) + `</w:tc></w:tr></w:tbl>`
+			`<w:tbl><w:tblPr/><w:tr><w:tc>` + p("", r("cell one")) + `</w:tc><w:tc>` + p("", r("cell two")) + p("", r("more")) + `</w:tc></w:tr>` +
+			`<w:tr><w:tc>` + p("", r("a2")) + `</w:tc><w:tc><w:tbl><w:tr><w:tc>` + p("", r("inner")) + `</w:tc></w:tr></w:tbl></w:tc></w:tr></w:tbl>` +
+			p("", r("After the table"))
 		out := mustBuild("report.docx", docx(body, styles))
 		Expect(out.Kind).To(Equal("document"))
 		Expect(out.Truncated).To(BeFalse())
@@ -243,8 +245,8 @@ var _ = Describe("Word documents", func() {
 			{Type: "item", Text: "Styled item"},
 			{Type: "heading", Level: 2, Text: "Details"},
 			{Type: "paragraph", Text: "a\tb\nc"},
-			{Type: "paragraph", Text: "cell one"},
-			{Type: "paragraph", Text: "cell two"},
+			{Type: "table", Text: "cell one\tcell two more\na2\tinner", Rows: [][]string{{"cell one", "cell two more"}, {"a2", "inner"}}},
+			{Type: "paragraph", Text: "After the table"},
 		}))
 	})
 

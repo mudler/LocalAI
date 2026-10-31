@@ -50,5 +50,12 @@
   "starting": {
     "title": "Der Speicher startet.",
     "text": "Der Server bereitet den Speicherdienst noch vor. Diese Seite fragt von selbst erneut."
+  },
+  "embedding": {
+    "missingTitle": "Kein Embedding-Modell installiert.",
+    "missingText": "Sammlungen nutzen {{model}}, um Dateien zu indexieren und zu durchsuchen. Bis es installiert ist, schlagen das Hinzufügen von Dateien und die Suche fehl.",
+    "noneSet": "Für Sammlungen ist kein Embedding-Modell festgelegt (collections_embedding_model), daher schlagen das Hinzufügen von Dateien und die Suche fehl.",
+    "install": "In Modelle suchen",
+    "askAdmin": "Bitte eine Administratorin oder einen Administrator, es zu installieren."
   }
 }

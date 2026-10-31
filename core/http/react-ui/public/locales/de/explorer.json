@@ -1,0 +1,57 @@
+{
+  "brand": "{{name}} Explorer",
+  "openApp": "LocalAI öffnen",
+  "close": "Schließen",
+  "copy": "Kopieren",
+  "copied": "Kopiert",
+  "loading": "Swarms werden geladen",
+  "title": "Öffentliche Swarms",
+  "lede": "Ein Swarm ist eine Gruppe von Rechnern, die Modellinferenz über ein Peer-to-Peer-Netzwerk teilen. Diese Liste zeigt die Swarms, deren Besitzer sie öffentlich gemacht haben. Wer das Token eines Swarms hat, kann ihm beitreten.",
+  "count_one": "{{count}} Swarm online",
+  "count_other": "{{count}} Swarms online",
+  "sorted": "Zuerst die mit den meisten Workern",
+  "workers_one": "Worker",
+  "workers_other": "Worker",
+  "tokenTitle": "Anfang und Ende des Tokens. Kopieren Sie es unter So treten Sie bei.",
+  "warning": "Der Explorer ist eine Community-Liste von Swarm-Tokens. Jeder kann ein Token verwenden, um Arbeit an einen Swarm zu senden oder Ressourcen mit ihm zu teilen. Nutzung auf eigene Gefahr.",
+  "listed": "Der Swarm ist gelistet.",
+  "empty": {
+    "title": "Kein Swarm hat Worker online",
+    "text": "Nur Swarms mit mindestens einem Worker online werden aufgelistet. Listen Sie Ihren Swarm, um ihn öffentlich zu machen."
+  },
+  "off": {
+    "title": "Dieser Server ist kein Explorer",
+    "text": "Die Explorer-Seite braucht einen LocalAI-Server im Explorer-Modus. Dieser Server hat keine Swarm-Liste zum Anzeigen."
+  },
+  "error": {
+    "title": "Die Swarms konnten nicht geladen werden",
+    "text": "Der Explorer-Server hat nicht geantwortet. Prüfen Sie, ob er läuft, und versuchen Sie es dann erneut.",
+    "retry": "Erneut versuchen"
+  },
+  "join": {
+    "open": "So treten Sie bei",
+    "title": "{{name}} beitreten",
+    "text": "Starten Sie einen LocalAI-Worker mit dem Token dieses Swarms.",
+    "token": "Token",
+    "federated": "Föderierter Cluster {{id}}. Starten Sie mit einem der beiden Befehle einen Knoten darin.",
+    "docker": "Mit Docker",
+    "cli": "Mit der Kommandozeile",
+    "noCommands": "Die Worker dieses Swarms teilen ihre Rechenleistung über sein Token. Das Token oben braucht ein Knoten, um beizutreten.",
+    "docs": "Lesen Sie, wie Swarms funktionieren"
+  },
+  "list": {
+    "open": "Swarm listen",
+    "title": "Swarm listen",
+    "text": "Fügen Sie einen Swarm der öffentlichen Liste hinzu. Er erscheint, sobald er einen Worker online hat.",
+    "name": "Name",
+    "description": "Beschreibung",
+    "token": "Token",
+    "tokenHint": "Das Netzwerk-Token des Swarms, so wie der Server es ausgegeben hat.",
+    "public": "Das Listen veröffentlicht das Token. Jeder, der die Liste sieht, kann die Worker Ihres Swarms nutzen.",
+    "understood": "Mir ist klar, dass das Token öffentlich wird.",
+    "cancel": "Abbrechen",
+    "add": "Diesen Swarm listen",
+    "adding": "Wird gelistet...",
+    "failed": "Der Swarm konnte nicht gelistet werden."
+  }
+}

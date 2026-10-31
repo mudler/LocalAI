@@ -127,6 +127,9 @@
     "servedBy": "Fourni par l'extension {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "intégré",
+    "sandbox": {
+      "starting": "Le Sandbox démarre. LocalAI vérifie à nouveau dans {{seconds}} s."
+    },
     "fallbackBuiltin": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant (arrêté, désactivé ici ou non accordé) : {{tool}} intégré est utilisé.",
     "fallbackNone": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant, et {{tool}} intégré est désactivé : cette discussion n'a pas de {{tool}}."
   },

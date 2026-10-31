@@ -61,6 +61,10 @@ const (
 	// answered or expired (IDs holds its ID), or the preset or a rule changed
 	// (no ID). Read GET /api/chats/{id}/egress again.
 	KindEgressCard EventKind = "egress_card"
+	// KindPaused says that the tool loop of the turn reached its step limit.
+	// The model was asked for an answer from what it had, and the turn ends
+	// as paused; another message lets the work go on. Event.Steps is the limit.
+	KindPaused EventKind = "paused"
 )
 
 // Event is one thing that happened in a chat.
@@ -85,6 +89,8 @@ type Event struct {
 	// Before and After are the size of the model's context in tokens, before
 	// and after a compaction (compacted only).
 	Before, After int
+	// Steps is the step limit that the turn reached (paused only).
+	Steps int `json:",omitempty"`
 	// Usage is set on KindUsage.
 	Usage *UsageEvent `json:",omitempty"`
 }

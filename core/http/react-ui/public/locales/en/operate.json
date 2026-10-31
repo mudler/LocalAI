@@ -279,7 +279,8 @@
     "upgradeVersions": "{{from}} to {{to}}",
     "rowUpgraded": "Upgraded in {{duration}}",
     "rowUpgradedPlain": "Upgraded",
-    "viewInAddons": "View in Add-ons"
+    "viewInAddons": "View in Add-ons",
+    "upgradeWaiting": "Waiting for the add-on service to start. Next check in {{seconds}} s."
   },
   "backends": {
     "title": "Backend Management",

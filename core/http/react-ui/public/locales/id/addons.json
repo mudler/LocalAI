@@ -621,7 +621,9 @@
       "done": "Sudah diperiksa.",
       "failed": "Pemeriksaan tidak selesai.",
       "justNow": "Baru saja diperiksa."
-    }
+    },
+    "waitingService": "Layanan add-on sedang dimulai. LocalAI menanyakan peningkatan lagi dalam {{seconds}} dtk.",
+    "checkAgain": "Periksa sekarang"
   },
   "install": {
     "stepsLabel": "Install steps",

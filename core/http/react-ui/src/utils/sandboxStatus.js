@@ -5,7 +5,7 @@
 
 export const SANDBOX_ADDON = 'sandbox'
 
-// { state: 'isolated' | 'host' | 'cannot' | 'unknown', backend, reason } from
+// { state: 'isolated' | 'host' | 'cannot' | 'starting' | 'unknown', backend, reason } from
 // the payload of the status read; anything unreadable is 'unknown'.
 export function sandboxState(status) {
   if (!status || typeof status !== 'object' || status.ok !== true) return { state: 'unknown', backend: '', reason: '' }
@@ -17,4 +17,10 @@ export function sandboxState(status) {
   }
   if (status.hostNotice === true || backend === 'host') return { state: 'host', backend, reason: '' }
   return { state: 'isolated', backend, reason: '' }
+}
+
+// startingState is the state while the add-on service does not answer yet:
+// the page reads again by itself in retryMs.
+export function startingState(retryMs) {
+  return { state: 'starting', backend: '', reason: '', retryMs: Math.max(0, Math.round(retryMs || 0)) }
 }

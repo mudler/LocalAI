@@ -92,7 +92,8 @@ type ChatsConversation struct {
 	Created   time.Time `json:"created"`
 	Updated   time.Time `json:"updated"`
 	// Running is true while a turn runs. LastTurn is how the last finished turn
-	// ended: done, stopped, failed or interrupted.
+	// ended: done, stopped, failed, interrupted, or paused (the tool loop
+	// reached its step limit; send a message to go on).
 	Running  bool   `json:"running"`
 	LastTurn string `json:"last_turn,omitempty"`
 	// Settings are the chat's own model settings, when it has any.
@@ -277,6 +278,8 @@ type ChatsEvent struct {
 	// Before and After are context sizes in tokens, for compacted.
 	Before int `json:"before,omitempty"`
 	After  int `json:"after,omitempty"`
+	// Steps is the step limit that a paused turn reached (paused only).
+	Steps int `json:"steps,omitempty"`
 	// Usage is set on usage events: what one model request used.
 	Usage *ChatsUsage `json:"usage,omitempty"`
 	// Code, Model, Retry and Detail say why a turn failed (error only). Code
@@ -368,12 +371,14 @@ type ChatsFilePreviewSheet struct {
 	TotalCols int        `json:"total_cols"`
 }
 
-// ChatsFilePreviewBlock is one paragraph of a document. Type is "heading"
-// (Level 1 to 9), "item" (a list item, Level 0 and up) or "paragraph".
+// ChatsFilePreviewBlock is one paragraph or table of a document. Type is
+// "heading" (Level 1 to 9), "item" (a list item, Level 0 and up), "paragraph"
+// or "table" (Rows holds the cells; Text is the rows as tab-separated lines).
 type ChatsFilePreviewBlock struct {
-	Type  string `json:"type"`
-	Level int    `json:"level,omitempty"`
-	Text  string `json:"text"`
+	Type  string     `json:"type"`
+	Level int        `json:"level,omitempty"`
+	Text  string     `json:"text"`
+	Rows  [][]string `json:"rows,omitempty"`
 }
 
 // ChatsFilePreviewSlide is one slide: its title, its other text one line per

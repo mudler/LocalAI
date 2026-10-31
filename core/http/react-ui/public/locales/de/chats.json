@@ -127,6 +127,9 @@
     "servedBy": "Bedient vom Add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "eingebaut",
+    "sandbox": {
+      "starting": "Die Sandbox startet. LocalAI prüft in {{seconds}} s erneut."
+    },
     "fallbackBuiltin": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen (gestoppt, hier ausgeschaltet oder nicht freigegeben): das eingebaute {{tool}} wird verwendet.",
     "fallbackNone": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen, und das eingebaute {{tool}} ist aus: dieser Chat hat kein {{tool}}."
   },

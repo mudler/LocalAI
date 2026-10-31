@@ -291,13 +291,19 @@ func (a *Application) studioModalities(model string) studio.Modalities {
 
 // studioAgentOptions is the agent: block of a model's config: the options of the
 // tool loop that nib supports. The planning, loop detection and reasoning
-// switches of the old loop have no counterpart and are ignored.
+// switches of the old loop have no counterpart and are ignored. The step
+// limit is the model's agent.max_iterations, else chats_max_iterations.
 func (a *Application) studioAgentOptions(model string) nibharness.AgentOptions {
+	opts := nibharness.AgentOptions{Iterations: a.applicationConfig.EffectiveChatsMaxIterations()}
 	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
 	if !ok {
-		return nibharness.AgentOptions{}
+		return opts
 	}
-	return nibharness.AgentOptions{Iterations: cfg.Agent.MaxIterations, MaxAttempts: cfg.Agent.MaxAttempts, ForceReasoning: cfg.Agent.ForceReasoningTool}
+	if cfg.Agent.MaxIterations > 0 {
+		opts.Iterations = cfg.Agent.MaxIterations
+	}
+	opts.MaxAttempts, opts.ForceReasoning = cfg.Agent.MaxAttempts, cfg.Agent.ForceReasoningTool
+	return opts
 }
 
 // studioMCPServers picks the MCP servers a chat uses, by the chat route's

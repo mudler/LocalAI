@@ -17,6 +17,9 @@ export const FOOT_STATES = {
   stopped: { tone: 'idle', busy: false, icon: 'stop' },
   failed: { tone: 'error', busy: false, icon: 'alert-circle' },
   interrupted: { tone: 'warn', busy: false, icon: 'warning' },
+  // The tool loop reached its step limit: the work may not be finished, and
+  // Continue lets it go on.
+  paused: { tone: 'warn', busy: false, icon: 'pause' },
 }
 
 import { toolLabel } from './toolLabels.js'
@@ -34,14 +37,16 @@ export function toolShortName(name) {
 //   noModel   no chat model is installed
 //   running   the server says a turn runs
 //   sending   the page is sending a message and no turn runs yet
-//   lastTurn  how the last turn ended: '', done, stopped, failed, interrupted
+//   lastTurn  how the last turn ended: '', done, stopped, failed, interrupted,
+//             paused (the step limit)
 //   pending   the messages that wait for the model
 //   live      the live turn: { text, reasoning, tools, phase }; phase is the
 //             kind of the last streamed event (text, reasoning, tool, after-tool)
 //   warm      the chat's model is loaded
 //
 // A running turn always wins. With no turn running a failure comes first, then
-// an interruption, then messages waiting for Send now, then a stop.
+// an interruption, then messages waiting for Send now, then a pause at the step
+// limit, then a stop.
 export function chatFootState({ activeId, noModel, running, sending, lastTurn, pending, live, warm } = {}) {
   const make = (key, extra = {}) => ({ key, ...FOOT_STATES[key], ...extra })
   if (running) {
@@ -64,6 +69,7 @@ export function chatFootState({ activeId, noModel, running, sending, lastTurn, p
   if (lastTurn === 'failed') return make('failed')
   if (lastTurn === 'interrupted') return make('interrupted')
   if ((pending?.length || 0) > 0) return make('waiting', { count: pending.length })
+  if (lastTurn === 'paused') return make('paused')
   if (lastTurn === 'stopped') return make('stopped')
   return make('ready')
 }

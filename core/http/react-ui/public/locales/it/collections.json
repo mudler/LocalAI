@@ -50,5 +50,12 @@
   "starting": {
     "title": "La memoria si sta avviando.",
     "text": "Il server sta ancora preparando il servizio di memoria. Questa pagina riprova da sola."
+  },
+  "embedding": {
+    "missingTitle": "Nessun modello di embedding installato.",
+    "missingText": "Le raccolte usano {{model}} per indicizzare i file e per cercarli. Finché non è installato, l'aggiunta di file e la ricerca non funzionano.",
+    "noneSet": "Nessun modello di embedding è impostato per le raccolte (collections_embedding_model), quindi l'aggiunta di file e la ricerca non funzionano.",
+    "install": "Trovalo in Modelli",
+    "askAdmin": "Chiedi a un amministratore di installarlo."
   }
 }

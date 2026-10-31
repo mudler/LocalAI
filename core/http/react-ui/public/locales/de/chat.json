@@ -306,7 +306,8 @@
       "waiting": "Wartet auf dich",
       "stopped": "Gestoppt",
       "failed": "Fehlgeschlagen",
-      "interrupted": "Unterbrochen"
+      "interrupted": "Unterbrochen",
+      "paused": "Pausiert"
     },
     "tool": {
       "search": "Sucht",
@@ -347,6 +348,13 @@
       "speedLive": "Tempo, geschätzt während des Streamens",
       "average": "Durchschnitt der letzten {{count}} Anfragen",
       "note": "Diese Werte stammen aus den Anfragen, die diese Seite gesehen hat. Der Server speichert sie nicht, ein Neuladen löscht sie."
+    },
+    "paused": {
+      "after": "nach {{count}} Schritten",
+      "atLimit": "am Schrittlimit",
+      "continue": "Fortsetzen",
+      "continueTitle": "Das Modell hat alle Schritte eines Durchgangs verbraucht. Lass es dort weitermachen, wo es aufgehört hat.",
+      "message": "Mach dort weiter, wo du aufgehört hast."
     }
   },
   "attachments": {

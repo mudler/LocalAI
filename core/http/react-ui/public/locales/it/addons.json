@@ -621,7 +621,9 @@
       "done": "Controllato.",
       "failed": "Il controllo non è stato completato.",
       "justNow": "Controllato adesso."
-    }
+    },
+    "waitingService": "Il servizio dei componenti aggiuntivi si sta avviando. LocalAI chiede di nuovo dell'aggiornamento tra {{seconds}} s.",
+    "checkAgain": "Controlla ora"
   },
   "install": {
     "stepsLabel": "Install steps",

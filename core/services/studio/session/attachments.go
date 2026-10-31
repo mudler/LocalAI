@@ -134,6 +134,7 @@ func readMarkers(name string) []string {
 		"[Voice note " + name + ", transcribed: ",
 		"[Text of " + name + ":\n",
 		"[Document " + name + " has no text layer.",
+		"[Document " + name + " contains no text.",
 	}
 }
 

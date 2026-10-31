@@ -643,6 +643,27 @@ button.cx-step__head:hover,
 .cx-foot__state[data-tone="error"] .cx-foot__mark,
 .cx-foot__state[data-tone="error"] .cx-foot__word { color: var(--dk-error-text); }
 .cx-foot__state[data-state="ready"] .cx-foot__dot { background: var(--dk-ok); opacity: 1; }
+/* Continue after a pause at the step limit: a small text button that stays
+   on the line, so the person sees at once that the work can go on. */
+.cx-foot__continue {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--ctl-h-sm);
+  margin-left: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-sm);
+  background: var(--dk-card);
+  color: var(--dk-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cx-foot__continue:hover { border-color: var(--dk-accent-text); color: var(--dk-accent-text); }
+.cx-foot__continue:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 1px; }
+.cx-foot__continue .lai-icon { width: 12px; height: 12px; }
 
 /* The meter: a quiet button. */
 .cx-meter {

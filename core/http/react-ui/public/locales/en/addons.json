@@ -621,7 +621,9 @@
       "done": "Checked.",
       "failed": "The check did not complete.",
       "justNow": "Checked just now."
-    }
+    },
+    "waitingService": "The add-on service is starting. LocalAI asks about the upgrade again in {{seconds}} s.",
+    "checkAgain": "Check now"
   },
   "install": {
     "stepsLabel": "Install steps",

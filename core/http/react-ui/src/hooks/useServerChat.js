@@ -10,6 +10,7 @@ const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
+  'paused',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -63,6 +64,10 @@ export function useServerChat() {
     if (!message) setFailure(null)
   }, [])
   const [loading, setLoading] = useState(false)
+  // The step limit the last turn of the open chat reached, from its paused
+  // event. Zero when the page did not see the event (a reload): the footer
+  // then says "at the step limit" without the number.
+  const [pausedSteps, setPausedSteps] = useState(0)
 
   const sourceRef = useRef(null)
   const reconnectRef = useRef(null)
@@ -164,6 +169,7 @@ export function useServerChat() {
         setError('')
         paceRef.current = { turnAt: Date.now(), firstAt: 0, reqAt: 0, lastAt: 0, reqChunks: 0 }
         setFirstTokenMs(null)
+        setPausedSteps(0)
         setLive(emptyLive())
         setDetail(d => (d ? { ...d, running: true } : d))
         refreshChat(id)
@@ -185,6 +191,7 @@ export function useServerChat() {
       },
       pending_delivered: () => refreshChat(id),
       compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
+      paused: (e) => setPausedSteps(e.steps || 0),
       sub_agent_started: () => setTicks(t => ({ ...t, subAgents: t.subAgents + 1 })),
       sub_agent_done: (e) => {
         setNotes(n => [...n, { kind: 'subAgentDone', title: e.text || '' }])
@@ -259,6 +266,7 @@ export function useServerChat() {
     setLive(emptyLive())
     setNotes([])
     setUsage(null)
+    setPausedSteps(0)
     setUsageHistory([])
     setFirstTokenMs(null)
     paceRef.current = { turnAt: 0, firstAt: 0, reqAt: 0, lastAt: 0, reqChunks: 0 }
@@ -365,7 +373,7 @@ export function useServerChat() {
   }, [refreshList, select])
 
   return {
-    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, loading, usage, usageHistory, firstTokenMs, readPace, ticks,
+    chats, persistent, imageModel, files, activeId, detail, messages, live, notes, error, failure, loading, usage, usageHistory, firstTokenMs, readPace, ticks, pausedSteps,
     running: Boolean(detail?.running),
     lastTurn: detail?.last_turn || '',
     pending: detail?.pending || [],

@@ -625,7 +625,9 @@
       "done": "Vérifié.",
       "failed": "La vérification n'a pas abouti.",
       "justNow": "Vérifié à l'instant."
-    }
+    },
+    "waitingService": "Le service des modules démarre. LocalAI redemande l'état de la mise à niveau dans {{seconds}} s.",
+    "checkAgain": "Vérifier maintenant"
   },
   "install": {
     "stepsLabel": "Install steps",

@@ -149,6 +149,8 @@ test('sandbox state: the Tools picker reads isolated, host, cannot-run or unknow
   assert.deepEqual(sandboxState({ ok: true, canRun: false, backends: [{ name: 'kvm', usable: false, reason: 'no /dev/kvm' }] }), { state: 'cannot', backend: '', reason: 'no /dev/kvm' })
   assert.equal(sandboxState(null).state, 'unknown')
   assert.equal(sandboxState({ ok: false }).state, 'unknown')
+  const { startingState } = await import('../../src/utils/sandboxStatus.js')
+  assert.deepEqual(startingState(4000.4), { state: 'starting', backend: '', reason: '', retryMs: 4000 })
 })
 
 test('home actions: an administrator without Studio gets Install Studio under the same command', async () => {

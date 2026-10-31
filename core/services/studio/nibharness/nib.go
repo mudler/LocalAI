@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mudler/cogito"
@@ -175,7 +177,7 @@ func (h *harness) Start(ctx context.Context, env session.HarnessEnv) (session.Ha
 		cfg.InitialHistory, cfg.InitialContext = st.History, st.Context
 		cfg.InitialArtifacts, cfg.InitialPruning = st.Artifacts, st.Pruning
 	}
-	hs := &hsession{emit: env.Emit, stop: func() {}}
+	hs := &hsession{emit: env.Emit, stop: func() {}, steps: cfg.AgentOptions.Iterations}
 	if srv != nil {
 		hs.stop = srv.stop
 	}
@@ -216,7 +218,17 @@ type hsession struct {
 
 	thinkMu sync.Mutex
 	think   thinkSplitter
+
+	// steps is the step limit of the tool loop; capped is set when a turn
+	// reached it.
+	steps  int
+	capped atomic.Bool
 }
+
+// capStatus is the start of the status the tool loop reports when it reaches
+// its step limit. The loop then asks the model for a final answer and the turn
+// ends normally, so the status is the only sign of it.
+const capStatus = "Max total iterations reached"
 
 // emitAnswer sends a chunk of the answer, with inline <think> blocks told
 // apart as reasoning. Chunks arrive in order from one stream.
@@ -247,6 +259,11 @@ func (h *hsession) emitPieces(pieces []piece) {
 
 func (h *hsession) callbacks() chat.Callbacks {
 	return chat.Callbacks{
+		OnStatus: func(status string) {
+			if strings.HasPrefix(status, capStatus) {
+				h.capped.Store(true)
+			}
+		},
 		OnStream: func(ev chat.StreamEvent) {
 			if ev.AgentID != "" || ev.Content == "" {
 				return
@@ -319,10 +336,14 @@ func (h *hsession) send(ctx context.Context, text string, parts []chat.ContentPa
 		close(done)
 		<-watcher
 	}()
+	h.capped.Store(false)
 	_, err := h.sess.SendMessage(text, parts...)
 	h.flushAnswer()
 	if ctx.Err() != nil {
 		return ctx.Err()
+	}
+	if err == nil && h.capped.Load() {
+		h.emit(session.Event{Kind: session.KindPaused, Steps: h.steps})
 	}
 	return err
 }

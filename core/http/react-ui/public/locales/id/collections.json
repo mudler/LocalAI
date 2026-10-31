@@ -50,5 +50,12 @@
   "starting": {
     "title": "Memori sedang dimulai.",
     "text": "Server masih menyiapkan layanan memori. Halaman ini akan mencoba lagi dengan sendirinya."
+  },
+  "embedding": {
+    "missingTitle": "Tidak ada model embedding yang terpasang.",
+    "missingText": "Koleksi memakai {{model}} untuk mengindeks file dan mencarinya. Sampai model itu terpasang, menambah file dan pencarian gagal.",
+    "noneSet": "Tidak ada model embedding yang diatur untuk koleksi (collections_embedding_model), jadi menambah file dan pencarian gagal.",
+    "install": "Cari di Model",
+    "askAdmin": "Minta administrator untuk memasangnya."
   }
 }

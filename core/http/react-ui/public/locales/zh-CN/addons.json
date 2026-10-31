@@ -621,7 +621,9 @@
       "done": "已检查。",
       "failed": "检查未完成。",
       "justNow": "刚刚检查过。"
-    }
+    },
+    "waitingService": "插件服务正在启动。LocalAI 将在 {{seconds}} 秒后再次查询升级状态。",
+    "checkAgain": "立即检查"
   },
   "install": {
     "stepsLabel": "Install steps",

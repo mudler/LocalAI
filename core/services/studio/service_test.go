@@ -78,6 +78,46 @@ var _ = Describe("service", func() {
 		Expect(h.Sent()).To(Equal([]string{"hi"}), "harness got %v", h.Sent())
 	})
 
+	It("a turn that reaches the step limit ends paused and a message goes on", func() {
+		h := studiotest.NewGateHarness()
+		h.PauseSteps = 40
+		svc := newService(h)
+		id := create(svc, alice)
+		events, cancel, err := svc.Events(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		defer cancel()
+		sent(svc, alice, id, "build the index")
+		until("the harness to get the message", func() bool { return len(h.Sent()) >= 1 })
+		h.Gate <- struct{}{}
+		var paused *session.Event
+		Eventually(func() bool {
+			for {
+				select {
+				case e := <-events:
+					if e.Kind == session.KindPaused {
+						paused = &e
+					}
+					if e.Kind == session.KindTurnEnd {
+						return true
+					}
+				default:
+					return false
+				}
+			}
+		}, 20*time.Second).Should(BeTrue(), "no turn_end")
+		Expect(paused).NotTo(BeNil(), "no paused event before turn_end")
+		Expect(paused.Steps).To(Equal(40))
+		until("the turn to end", func() bool { return !turn(svc, alice, id).Running })
+		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnPaused))
+
+		// Continue is a plain message: it starts the next turn.
+		r := sent(svc, alice, id, "Continue")
+		Expect(r.Started).To(BeTrue(), "Send after a pause = %+v, want a started turn", r)
+		until("the second turn", func() bool { return len(h.Sent()) == 2 })
+		h.Gate <- struct{}{}
+		until("the second turn to end", func() bool { return !turn(svc, alice, id).Running })
+	})
+
 	It("messages sent during a turn arrive as one ordered batch", func() {
 		h := studiotest.NewGateHarness()
 		svc := newService(h)
