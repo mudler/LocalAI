@@ -964,11 +964,12 @@ and `/model ` the chat models.
 | `/agent <name> <task>` | Hand the task to one of your saved agents (see below). |
 | `/compact` | Compact the context now (see above). |
 | `/clear` | Clear the context: a fresh start in the same chat (see above). |
+| `/goal`, `/goal <text>`, `/goal clear`, `/goal resume` | Show, set, remove or resume the goal of the chat (see [Goals](#goals)). `/goal ` lists `resume` and `clear` for the goal the chat has. |
 | `/attach`, `/attach clear` | Choose files to send, or remove the files waiting to be sent. |
 | `/help` | List every command with what it does. |
 | `/about` | Show the model, whether it is loaded, how many tools and skills the chat has, where its commands run and the size of its context. |
 
-Home offers the same commands, less `/compact`, `/clear` and `/about`: a chat
+Home offers the same commands, less `/compact`, `/clear`, `/goal` and `/about`: a chat
 that does not exist yet has no context. `/<skill>` and `/agent` work there
 because the chat is created with the switches you chose first.
 

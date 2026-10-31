@@ -217,7 +217,8 @@
       "skill": "Skills",
       "agent": "Agents enregistrés",
       "model": "Modèles",
-      "attach": "Fichiers"
+      "attach": "Fichiers",
+      "goal": "Objectif"
     },
     "badge": {
       "builtin": "intégrée",
@@ -231,6 +232,12 @@
       "agent": "Vous n'avez pas d'agent enregistré nommé « {{name}} ».",
       "agentTask": "Écrivez la tâche pour {{name}} après son nom.",
       "agentsOff": "Les agents enregistrés sont désactivés pour cette conversation. Activez-les dans le menu Outils."
+    },
+    "goal": {
+      "label": "Objectif",
+      "desc": "Fixer un objectif sur lequel le chat continue de travailler tout seul",
+      "clearDesc": "Retirer l'objectif",
+      "resumeDesc": "Continuer vers l'objectif"
     }
   },
   "shortcuts": {
@@ -513,9 +520,13 @@
       "none": "Ce chat n'a pas d'objectif. Tapez /goal suivi de ce que vous voulez obtenir, et le chat continue d'y travailler tout seul.",
       "turns": "Tour {{turn}} sur {{max}}",
       "steps": "{{steps}} étapes sur {{max}}",
-      "set": "Fixé {{when}}",
       "clear": "/goal clear le retire.",
-      "resume": "/goal resume le reprend."
+      "resume": "/goal resume le reprend.",
+      "turnsLabel": "Tours automatiques",
+      "stepsLabel": "Étapes",
+      "setLabel": "Fixé",
+      "stateLabel": "État",
+      "noteLabel": "Note"
     },
     "errors": {
       "empty": "Écrivez l'objectif après /goal.",

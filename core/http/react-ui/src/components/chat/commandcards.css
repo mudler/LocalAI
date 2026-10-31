@@ -66,6 +66,7 @@
 .cx-cmdcard__facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-4); margin: 0; }
 .cx-cmdcard__fact { display: contents; }
 .cx-cmdcard__fact dt { color: var(--dk-muted); font-size: var(--fs-small); }
+.cx-cmdcard__goal { margin: 0; color: var(--dk-text); font-size: var(--fs-small); overflow-wrap: anywhere; }
 .cx-cmdcard__fact dd { margin: 0; color: var(--dk-text); font-size: var(--fs-small); overflow-wrap: anywhere; }
 
 @media (max-width: 640px) {

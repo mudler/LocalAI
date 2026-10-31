@@ -219,7 +219,8 @@
       "skill": "Skill",
       "agent": "Agen tersimpan",
       "model": "Model",
-      "attach": "File"
+      "attach": "File",
+      "goal": "Tujuan"
     },
     "badge": {
       "builtin": "bawaan",
@@ -233,6 +234,12 @@
       "agent": "Anda tidak punya agen tersimpan bernama \"{{name}}\".",
       "agentTask": "Tulis tugas untuk {{name}} setelah namanya.",
       "agentsOff": "Agen tersimpan nonaktif untuk chat ini. Aktifkan di menu Alat."
+    },
+    "goal": {
+      "label": "Tujuan",
+      "desc": "Tetapkan tujuan yang terus dikerjakan chat sendiri",
+      "clearDesc": "Hapus tujuan",
+      "resumeDesc": "Teruskan tujuan"
     }
   },
   "shortcuts": {
@@ -515,9 +522,13 @@
       "none": "Chat ini belum punya tujuan. Ketik /goal lalu apa yang ingin diselesaikan, dan chat akan terus mengerjakannya sendiri.",
       "turns": "Giliran {{turn}} dari {{max}}",
       "steps": "{{steps}} dari {{max}} langkah",
-      "set": "Ditetapkan {{when}}",
       "clear": "/goal clear menghapusnya.",
-      "resume": "/goal resume melanjutkannya."
+      "resume": "/goal resume melanjutkannya.",
+      "turnsLabel": "Giliran otomatis",
+      "stepsLabel": "Langkah",
+      "setLabel": "Ditetapkan",
+      "stateLabel": "Status",
+      "noteLabel": "Catatan"
     },
     "errors": {
       "empty": "Tulis tujuannya setelah /goal.",

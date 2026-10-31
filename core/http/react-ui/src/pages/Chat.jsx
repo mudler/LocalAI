@@ -26,9 +26,9 @@ import { apiUrl } from '../utils/basePath'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
 import { OPEN_CHAT_FILE_EVENT } from '../components/chat/chatActions'
-import { contextSinceClear, parseInvocation } from '../utils/slashCommands'
+import { contextSinceClear, parseGoalCommand, parseInvocation } from '../utils/slashCommands'
 // eslint-disable-next-line no-unused-vars
-import { ChatAboutCard, ContextMarker, SlashHelpCard } from '../components/chat/CommandCards'
+import { ChatAboutCard, ContextMarker, GoalCard, SlashHelpCard } from '../components/chat/CommandCards'
 import { isTyping } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
 import ChatHeader from '../components/chat/ChatHeader'
@@ -154,6 +154,8 @@ function ChatPage() {
   // The goal that the last /goal of this chat replaced ({ id, text }): the goal
   // bar says it once, until the goal changes again.
   const [goalReplaced, setGoalReplaced] = useState(null)
+  // What /goal does, for the send path, which is set up before it.
+  const runGoalRef = useRef(null)
   // An error of this page (a send or a delete that failed); the hook has its own.
   const [localError, setLocalError] = useState('')
   // The chats the old chat page left in this browser, offered for import once.
@@ -216,7 +218,10 @@ function ChatPage() {
   const slashCtx = useMemo(() => ({
     assistant: isAdmin && assistantOn, hasModels: chatModels.length > 0, hasThread, hasChat: !!activeId, running: chat.running,
     hasContext: contextSinceClear(messages),
-  }), [isAdmin, assistantOn, chatModels.length, hasThread, activeId, chat.running, messages])
+    // A goal belongs to a chat a person started; /goal lists clear and resume
+    // for the goal the chat has.
+    canGoal: !chat.detail?.origin && chat.detail?.kind !== 'subagent', goalState: chat.goal?.state || '',
+  }), [isAdmin, assistantOn, chatModels.length, hasThread, activeId, chat.running, messages, chat.detail, chat.goal])
   // The card a command drew under the thread (/help, /about): never stored.
   const [cmdCard, setCmdCard] = useState(null)
   // The context command on its way to the server: 'compacting' or 'clearing'.
@@ -462,6 +467,13 @@ function ChatPage() {
     let text = (typeof override === 'string' ? override : input).trim()
     const sending = typeof override === 'string' ? [] : files
     if ((!text && sending.length === 0) || (!activeId && busy)) return
+    // /goal is not a message: it shows, sets, clears or resumes the goal.
+    const goalCmd = typeof override === 'string' ? null : parseGoalCommand(text)
+    if (goalCmd) {
+      drafts.clear(activeId)
+      runGoalRef.current(goalCmd)
+      return
+    }
     // A message typed as a command (/review fix this, /agent Name task) goes
     // with its skill or agent; the transcript shows the words and a chip.
     const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
@@ -840,8 +852,50 @@ function ChatPage() {
     }
   }
 
+  // /goal: the card shows the goal; a new goal replaces the one the chat had,
+  // with no question, and the bar says what it replaced. In a new chat the
+  // chat is created first.
+  const runGoal = async (cmd) => {
+    setCmdCard(null)
+    setLocalError('')
+    if (cmd.action === 'show' || (!activeId && cmd.action !== 'set')) {
+      setCmdCard({ kind: 'goal' })
+      stickToBottomRef.current = true
+      return
+    }
+    let target = activeId
+    try {
+      if (!target) {
+        if (!effectiveModel) { addToast(t('toasts.selectModel'), 'warning'); return }
+        setBusy(true)
+        target = await chat.createChat(draftModel, agentId, switches.draftSwitches())
+        switches.resetDraft()
+        await select(target)
+        navigate(`/app/chats/${target}`)
+      }
+      stickToBottomRef.current = true
+      if (cmd.action === 'set') {
+        const res = await chat.setGoal(target, cmd.text)
+        setGoalReplaced(res?.replaced?.text ? { id: target, text: res.replaced.text } : null)
+      } else if (cmd.action === 'clear') {
+        setGoalReplaced(null)
+        await chat.clearGoal(target)
+      } else if (cmd.action === 'resume') {
+        await chat.resumeGoal(target)
+      }
+    } catch (e) {
+      setLocalError(e.message || tc('errors.send'))
+    } finally {
+      setBusy(false)
+    }
+  }
+  runGoalRef.current = runGoal
+
   const runSlash = (id, item) => {
     switch (id) {
+      case 'goal':
+        runGoal({ action: item?.action === 'goalClear' ? 'clear' : item?.action === 'goalResume' ? 'resume' : 'show' })
+        break
       case 'compact': runContext('compact'); break
       case 'clear': runContext('clear'); break
       case 'help': setCmdCard({ kind: 'help', ...item }); stickToBottomRef.current = true; break
@@ -993,6 +1047,7 @@ function ChatPage() {
 
               {cmdCard?.kind === 'help' && <SlashHelpCard entries={cmdCard.entries} skills={cmdCard.skills} onClose={() => setCmdCard(null)} />}
               {cmdCard?.kind === 'about' && <ChatAboutCard about={cmdCard.about} onClose={() => setCmdCard(null)} />}
+              {cmdCard?.kind === 'goal' && <GoalCard goal={chat.goal} onClose={() => setCmdCard(null)} />}
               {chat.notes.map((n, i) => (
                 <p key={i} className="cx-note" data-testid="chat-note">
                   {n.kind === 'compacted' ? tc('notes.compacted', { before: n.before, after: n.after }) : tc('notes.subAgentDone', { title: n.title })}

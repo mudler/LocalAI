@@ -51,6 +51,12 @@ export const SHARED_COMMANDS = [
       ? filterArgs(agentItems(ctx), query)
       : [{ key: 'enable-agents', name: '', icon: 'toggle-on', action: 'enableAgents' }]),
   },
+  // /goal shows the goal, /goal <text> sets it, /goal clear and /goal resume
+  // act on it. The page reads what was typed with parseGoalCommand.
+  {
+    id: 'goal', cmd: '/goal', icon: 'target', group: 'context', kind: 'navigate', where: ['chat'], needs: (c) => c.canGoal !== false,
+    args: (query, ctx) => filterArgs(goalItems(ctx), query),
+  },
   { id: 'compact', cmd: '/compact', icon: 'minimize', group: 'context', kind: 'server', where: ['chat'], needs: (c) => !!(c.hasContext ?? c.hasThread) && !c.running },
   { id: 'clear', cmd: '/clear', icon: 'eraser', group: 'context', kind: 'server', where: ['chat'], needs: (c) => !!(c.hasContext ?? c.hasThread) && !c.running },
   {
@@ -60,6 +66,30 @@ export const SHARED_COMMANDS = [
   { id: 'help', cmd: '/help', icon: 'help-circle', group: 'help', kind: 'navigate' },
   { id: 'about', cmd: '/about', icon: 'info', group: 'help', kind: 'navigate', where: ['chat'], needs: (c) => !!c.hasChat },
 ]
+
+// The arguments of /goal that act on the goal the chat has: resume a goal
+// that waits, clear any goal. Anything else typed after /goal is a new goal.
+function goalItems(ctx) {
+  const state = ctx.goalState || ''
+  const items = []
+  if (state === 'paused' || state === 'blocked') items.push({ key: 'goal-resume', name: 'resume', icon: 'play', action: 'goalResume' })
+  if (state) items.push({ key: 'goal-clear', name: 'clear', icon: 'close', action: 'goalClear' })
+  return items
+}
+
+// What a message typed as /goal asks, or null when it is not one:
+//   { action: 'show' }               /goal
+//   { action: 'clear' | 'resume' }   /goal clear, /goal resume
+//   { action: 'set', text }          /goal <anything else>
+export function parseGoalCommand(text) {
+  const m = /^\/goal(?:\s+([\s\S]*))?$/i.exec(String(text || '').trim())
+  if (!m) return null
+  const rest = (m[1] || '').trim()
+  if (!rest) return { action: 'show' }
+  const word = rest.toLowerCase()
+  if (word === 'clear' || word === 'resume') return { action: word }
+  return { action: 'set', text: rest }
+}
 
 // The source of a skill, for its badge: built-in, add-on, shared or yours.
 export function skillBadge(s) {

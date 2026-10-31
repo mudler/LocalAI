@@ -39,7 +39,10 @@ function goalApi(page, initial = {}) {
       await page.route('**/api/chats/c1/events', route => (state.events
         ? route.fulfill({ status: 200, contentType: 'text/event-stream', body: state.events })
         : route.abort()))
-      await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: state.messages } }))
+      await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => {
+        if (route.request().method() === 'POST') state.calls.push('send')
+        return route.fulfill({ json: { messages: state.messages } })
+      })
       await page.route('**/api/chats/c1/stop', route => {
         state.calls.push('stop')
         state.running = false
@@ -59,6 +62,13 @@ function goalApi(page, initial = {}) {
       await page.route('**/api/chats/c1/goal', route => {
         const method = route.request().method()
         state.calls.push(`goal ${method}`)
+        if (method === 'PUT') {
+          const was = state.goal
+          state.puts = [...(state.puts || []), route.request().postDataJSON()]
+          state.goal = goal({ text: route.request().postDataJSON().text, turns: 0 })
+          line(was ? 'replaced' : 'set', state.goal.text)
+          return route.fulfill({ json: { goal: state.goal, ...(was ? { replaced: was } : {}) } })
+        }
         if (method === 'DELETE') {
           const was = state.goal
           state.goal = null
@@ -181,5 +191,77 @@ test.describe('Chat goal', () => {
     api.state.events = `event: goal\ndata: ${JSON.stringify({ kind: 'goal', text: 'active' })}\n\n`
     await expect(page.getByTestId('goal-bar')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('chat-goal-progress')).toHaveText('Goal · starting')
+  })
+
+  test.describe('the /goal command', () => {
+    const box = (page) => page.getByTestId('chat-input')
+    const menu = (page) => page.locator('#home-slash')
+
+    test('/goal shows the card with the goal, its state and its counts', async ({ page }) => {
+      const api = goalApi(page)
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await box(page).fill('/goal')
+      await expect(menu(page)).toContainText('/goal')
+      await box(page).press('Enter')
+      const card = page.getByTestId('chat-goal-card')
+      await expect(card).toBeVisible()
+      await expect(page.getByTestId('chat-goal-card-text')).toHaveText('Turn the notes in Research into a two-page summary')
+      await expect(page.getByTestId('chat-goal-card-state')).toHaveText('Working on it')
+      await expect(card).toContainText('Turn 3 of 20')
+      await expect(card).toContainText('41 of 400 steps')
+      await expect(card).toContainText('/goal clear removes it.')
+      expect(api.state.calls).not.toContain('send')
+      await card.scrollIntoViewIfNeeded()
+      await shot(page, 'goal-card')
+      await page.getByTestId('chat-cmdcard-close').click()
+      await expect(card).toHaveCount(0)
+    })
+
+    test('/goal with no goal says how to set one', async ({ page }) => {
+      const api = goalApi(page, { goal: null })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await box(page).fill('/goal')
+      await box(page).press('Enter')
+      await expect(page.getByTestId('chat-goal-card')).toContainText('This chat has no goal.')
+    })
+
+    test('/goal <text> sets a new goal at once and shows the one it replaced', async ({ page }) => {
+      const api = goalApi(page)
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await box(page).fill('/goal Write the release notes for 4.2')
+      await box(page).press('Enter')
+      await expect(page.getByTestId('goal-text')).toHaveText('Write the release notes for 4.2')
+      await expect(page.getByTestId('goal-detail')).toHaveText('Replaced: Turn the notes in Research into a two-page summary')
+      await expect(page.getByTestId('chat-goal-progress')).toHaveText('Goal · starting')
+      await expect(page.getByTestId('goal-marker').last()).toContainText('Goal replaced')
+      await expect(box(page)).toHaveValue('')
+      expect(api.state.puts).toEqual([{ text: 'Write the release notes for 4.2' }])
+      expect(api.state.calls).not.toContain('send')
+    })
+
+    test('/goal clear and /goal resume act on the goal from the menu', async ({ page }) => {
+      const api = goalApi(page, { goal: goal({ state: 'paused', paused_by: 'turn_limit' }) })
+      await api.install()
+      await page.goto('/app/chats/c1')
+      await box(page).fill('/goal ')
+      await expect(menu(page)).toContainText('resume')
+      await expect(menu(page)).toContainText('clear')
+      if (SHOTS) await page.waitForTimeout(400) // the menu fades in
+      await shot(page, 'goal-menu')
+      await box(page).fill('/goal resume')
+      await box(page).press('Enter')
+      await expect(page.getByTestId('goal-bar')).toHaveAttribute('data-state', 'active')
+      expect(api.state.calls).toContain('resume')
+
+      await box(page).fill('/goal cl')
+      await expect(menu(page)).toContainText('clear')
+      await box(page).press('Enter')
+      await expect(page.getByTestId('goal-bar')).toHaveCount(0)
+      expect(api.state.calls).toContain('goal DELETE')
+      expect(api.state.calls).not.toContain('send')
+    })
   })
 })

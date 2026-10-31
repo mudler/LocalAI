@@ -219,7 +219,8 @@
       "skill": "Skills",
       "agent": "Agentes guardados",
       "model": "Modelos",
-      "attach": "Archivos"
+      "attach": "Archivos",
+      "goal": "Objetivo"
     },
     "badge": {
       "builtin": "integrada",
@@ -233,6 +234,12 @@
       "agent": "No tienes ningún agente guardado llamado \"{{name}}\".",
       "agentTask": "Escribe la tarea para {{name}} después del nombre.",
       "agentsOff": "Los agentes guardados están desactivados en este chat. Actívalos en el menú Herramientas."
+    },
+    "goal": {
+      "label": "Objetivo",
+      "desc": "Fija un objetivo en el que el chat sigue trabajando por su cuenta",
+      "clearDesc": "Quitar el objetivo",
+      "resumeDesc": "Continuar con el objetivo"
     }
   },
   "shortcuts": {
@@ -515,9 +522,13 @@
       "none": "Este chat no tiene objetivo. Escribe /goal y lo que quieres conseguir, y el chat seguirá trabajando en ello por su cuenta.",
       "turns": "Turno {{turn}} de {{max}}",
       "steps": "{{steps}} de {{max}} pasos",
-      "set": "Fijado {{when}}",
       "clear": "/goal clear lo quita.",
-      "resume": "/goal resume continúa con él."
+      "resume": "/goal resume continúa con él.",
+      "turnsLabel": "Turnos automáticos",
+      "stepsLabel": "Pasos",
+      "setLabel": "Fijado",
+      "stateLabel": "Estado",
+      "noteLabel": "Nota"
     },
     "errors": {
       "empty": "Escribe cuál es el objetivo después de /goal.",

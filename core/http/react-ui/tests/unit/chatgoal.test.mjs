@@ -79,3 +79,34 @@ test('chat goal: goal lines are rows of their own between the messages', () => {
   assert.equal(rows[2].activity.length, 1, 'the tool line still belongs to the answer')
   assert.equal(rows[3].key, 'g-5')
 })
+
+test('chat goal: /goal reads as show, clear, resume or a new goal', async () => {
+  const { parseGoalCommand } = await import('../../src/utils/slashCommands.js')
+  assert.deepEqual(parseGoalCommand('/goal'), { action: 'show' })
+  assert.deepEqual(parseGoalCommand('  /goal  '), { action: 'show' })
+  assert.deepEqual(parseGoalCommand('/goal clear'), { action: 'clear' })
+  assert.deepEqual(parseGoalCommand('/goal Resume'), { action: 'resume' })
+  assert.deepEqual(parseGoalCommand('/goal clear the old drafts'), { action: 'set', text: 'clear the old drafts' })
+  assert.deepEqual(parseGoalCommand('/goal write the\nreport'), { action: 'set', text: 'write the\nreport' })
+  assert.equal(parseGoalCommand('/goals are fun'), null)
+  assert.equal(parseGoalCommand('set a /goal'), null)
+})
+
+test('chat goal: the /goal menu offers resume and clear only for the goal the chat has', async () => {
+  const { availableCommands, slashQuery, parseInvocation } = await import('../../src/utils/slashCommands.js')
+  const argsOf = async (ctx, text) => {
+    const cmds = availableCommands('chat', { hasChat: true, ...ctx })
+    const q = slashQuery(text, cmds)
+    return q?.mode === 'args' ? (await q.command.args(q.query, ctx)).map(i => i.name) : null
+  }
+  assert.ok(availableCommands('chat', { hasChat: true }).some(c => c.id === 'goal'))
+  assert.ok(!availableCommands('chat', { hasChat: true, canGoal: false }).some(c => c.id === 'goal'), 'a chat that started by itself has no /goal')
+  assert.ok(!availableCommands('home', {}).some(c => c.id === 'goal'), 'Home has no chat to give a goal')
+  assert.deepEqual(await argsOf({}, '/goal '), [])
+  assert.deepEqual(await argsOf({ goalState: 'active' }, '/goal '), ['clear'])
+  assert.deepEqual(await argsOf({ goalState: 'paused' }, '/goal '), ['resume', 'clear'])
+  assert.deepEqual(await argsOf({ goalState: 'blocked' }, '/goal re'), ['resume'])
+  assert.deepEqual(await argsOf({ goalState: 'paused' }, '/goal write the report'), [], 'a new goal closes the menu')
+  // A skill named goal does not take the command.
+  assert.equal(parseInvocation('/goal ship it', { skills: [{ name: 'goal' }] }), null)
+})

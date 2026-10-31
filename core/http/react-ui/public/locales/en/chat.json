@@ -299,7 +299,8 @@
       "skill": "Skills",
       "agent": "Saved agents",
       "model": "Models",
-      "attach": "Files"
+      "attach": "Files",
+      "goal": "Goal"
     },
     "badge": {
       "builtin": "built-in",
@@ -313,6 +314,12 @@
       "agent": "You have no saved agent named \"{{name}}\".",
       "agentTask": "Write the task for {{name}} after the name.",
       "agentsOff": "Saved agents are off for this chat. Turn them on in the Tools menu."
+    },
+    "goal": {
+      "label": "Goal",
+      "desc": "Set a goal the chat keeps working on by itself",
+      "clearDesc": "Remove the goal",
+      "resumeDesc": "Go on with the goal"
     }
   },
   "shortcuts": {
@@ -662,9 +669,13 @@
       "none": "This chat has no goal. Type /goal and what you want done, and the chat keeps working on it by itself.",
       "turns": "Turn {{turn}} of {{max}}",
       "steps": "{{steps}} of {{max}} steps",
-      "set": "Set {{when}}",
       "clear": "/goal clear removes it.",
-      "resume": "/goal resume goes on with it."
+      "resume": "/goal resume goes on with it.",
+      "turnsLabel": "Automatic turns",
+      "stepsLabel": "Steps",
+      "setLabel": "Set",
+      "stateLabel": "State",
+      "noteLabel": "Note"
     },
     "errors": {
       "empty": "Write what the goal is after /goal.",

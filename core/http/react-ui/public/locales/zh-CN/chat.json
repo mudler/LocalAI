@@ -219,7 +219,8 @@
       "skill": "技能",
       "agent": "已保存的智能体",
       "model": "模型",
-      "attach": "文件"
+      "attach": "文件",
+      "goal": "目标"
     },
     "badge": {
       "builtin": "内置",
@@ -233,6 +234,12 @@
       "agent": "你没有名为“{{name}}”的已保存智能体。",
       "agentTask": "请在 {{name}} 名称后写下任务。",
       "agentsOff": "此对话已关闭已保存的智能体。请在“工具”菜单中开启。"
+    },
+    "goal": {
+      "label": "目标",
+      "desc": "设定一个聊天会自己持续推进的目标",
+      "clearDesc": "清除目标",
+      "resumeDesc": "继续推进目标"
     }
   },
   "shortcuts": {
@@ -515,9 +522,13 @@
       "none": "这个聊天还没有目标。输入 /goal 和你想完成的事，聊天会自己持续推进。",
       "turns": "第 {{turn}} 轮，共 {{max}} 轮",
       "steps": "{{steps}} / {{max}} 步",
-      "set": "设定于 {{when}}",
       "clear": "/goal clear 可清除它。",
-      "resume": "/goal resume 可继续它。"
+      "resume": "/goal resume 可继续它。",
+      "turnsLabel": "自动轮次",
+      "stepsLabel": "步骤",
+      "setLabel": "设定时间",
+      "stateLabel": "状态",
+      "noteLabel": "说明"
     },
     "errors": {
       "empty": "请在 /goal 后写下目标。",

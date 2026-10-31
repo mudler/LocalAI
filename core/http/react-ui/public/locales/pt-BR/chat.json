@@ -222,7 +222,8 @@
       "skill": "Skills",
       "agent": "Agentes salvos",
       "model": "Modelos",
-      "attach": "Arquivos"
+      "attach": "Arquivos",
+      "goal": "Objetivo"
     },
     "badge": {
       "builtin": "embutida",
@@ -236,6 +237,12 @@
       "agent": "Você não tem um agente salvo chamado \"{{name}}\".",
       "agentTask": "Escreva a tarefa para {{name}} depois do nome.",
       "agentsOff": "Os agentes salvos estão desativados neste chat. Ative-os no menu Ferramentas."
+    },
+    "goal": {
+      "label": "Objetivo",
+      "desc": "Defina um objetivo em que o chat continua trabalhando sozinho",
+      "clearDesc": "Remover o objetivo",
+      "resumeDesc": "Continuar com o objetivo"
     }
   },
   "shortcuts": {
@@ -518,9 +525,13 @@
       "none": "Este chat não tem objetivo. Digite /goal e o que você quer que seja feito, e o chat continua trabalhando nisso sozinho.",
       "turns": "Turno {{turn}} de {{max}}",
       "steps": "{{steps}} de {{max}} passos",
-      "set": "Definido {{when}}",
       "clear": "/goal clear remove.",
-      "resume": "/goal resume continua."
+      "resume": "/goal resume continua.",
+      "turnsLabel": "Turnos automáticos",
+      "stepsLabel": "Passos",
+      "setLabel": "Definido",
+      "stateLabel": "Estado",
+      "noteLabel": "Nota"
     },
     "errors": {
       "empty": "Escreva o objetivo depois de /goal.",

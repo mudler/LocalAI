@@ -2,6 +2,7 @@
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { tokenCount } from '../../utils/chatSettings'
+import { goalBar } from '../../utils/chatGoal'
 import './commandcards.css'
 
 // What the slash commands draw in the thread: the markers of the context
@@ -100,6 +101,39 @@ export function ChatAboutCard({ about, onClose }) {
           </div>
         ))}
       </dl>
+    </section>
+  )
+}
+
+// /goal: the chat's goal with its state, the turns and steps it used out of
+// the limits and when it was set, and what to type next. Without a goal it
+// says how to set one.
+//   goal  the chat's goal from the server, or null
+export function GoalCard({ goal, onClose }) {
+  const { t, i18n } = useTranslation('chat')
+  const view = goalBar(goal)
+  const when = goal?.set && !Number.isNaN(Date.parse(goal.set))
+    ? new Intl.DateTimeFormat(i18n.language || undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(goal.set))
+    : ''
+  return (
+    <section className="cx-cmdcard" data-testid="chat-goal-card" data-state={view?.state || 'none'} aria-label={t('goal.card.title')}>
+      <CardHead icon="target" title={t('goal.card.title')} onClose={onClose} />
+      {!view && <p className="cx-cmdcard__foot">{t('goal.card.none')}</p>}
+      {view && (
+        <>
+          <p className="cx-cmdcard__goal" data-testid="chat-goal-card-text">{view.text}</p>
+          <dl className="cx-cmdcard__facts">
+            <div className="cx-cmdcard__fact"><dt>{t('goal.card.stateLabel')}</dt><dd data-testid="chat-goal-card-state">{t(`goal.states.${view.state}`)}</dd></div>
+            {view.detailKey && <div className="cx-cmdcard__fact"><dt>{t('goal.card.noteLabel')}</dt><dd>{t(view.detailKey, view.detail)}</dd></div>}
+            <div className="cx-cmdcard__fact"><dt>{t('goal.card.turnsLabel')}</dt><dd>{t('goal.card.turns', { turn: goal.turns || 0, max: goal.max_turns || 0 })}</dd></div>
+            <div className="cx-cmdcard__fact"><dt>{t('goal.card.stepsLabel')}</dt><dd>{t('goal.card.steps', { steps: goal.steps || 0, max: goal.max_steps || 0 })}</dd></div>
+            {when && <div className="cx-cmdcard__fact"><dt>{t('goal.card.setLabel')}</dt><dd>{when}</dd></div>}
+          </dl>
+          <p className="cx-cmdcard__foot">
+            {view.action === 'resume' ? `${t('goal.card.resume')} ` : ''}{t('goal.card.clear')}
+          </p>
+        </>
+      )}
     </section>
   )
 }

@@ -219,7 +219,8 @@
       "skill": "Skills",
       "agent": "Gespeicherte Agenten",
       "model": "Modelle",
-      "attach": "Dateien"
+      "attach": "Dateien",
+      "goal": "Ziel"
     },
     "badge": {
       "builtin": "eingebaut",
@@ -233,6 +234,12 @@
       "agent": "Du hast keinen gespeicherten Agenten namens „{{name}}“.",
       "agentTask": "Schreib die Aufgabe für {{name}} hinter den Namen.",
       "agentsOff": "Gespeicherte Agenten sind für diesen Chat aus. Schalte sie im Menü Werkzeuge ein."
+    },
+    "goal": {
+      "label": "Ziel",
+      "desc": "Ein Ziel setzen, an dem der Chat selbstständig weiterarbeitet",
+      "clearDesc": "Das Ziel entfernen",
+      "resumeDesc": "Mit dem Ziel weitermachen"
     }
   },
   "shortcuts": {
@@ -515,9 +522,13 @@
       "none": "Dieser Chat hat kein Ziel. Gib /goal und das ein, was erledigt werden soll, und der Chat arbeitet selbstständig daran weiter.",
       "turns": "Runde {{turn}} von {{max}}",
       "steps": "{{steps}} von {{max}} Schritten",
-      "set": "Gesetzt {{when}}",
       "clear": "/goal clear entfernt es.",
-      "resume": "/goal resume macht damit weiter."
+      "resume": "/goal resume macht damit weiter.",
+      "turnsLabel": "Automatische Runden",
+      "stepsLabel": "Schritte",
+      "setLabel": "Gesetzt",
+      "stateLabel": "Stand",
+      "noteLabel": "Hinweis"
     },
     "errors": {
       "empty": "Schreibe nach /goal, was das Ziel ist.",

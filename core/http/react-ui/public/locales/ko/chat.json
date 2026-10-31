@@ -219,7 +219,8 @@
       "skill": "스킬",
       "agent": "저장된 에이전트",
       "model": "모델",
-      "attach": "파일"
+      "attach": "파일",
+      "goal": "목표"
     },
     "badge": {
       "builtin": "기본 제공",
@@ -233,6 +234,12 @@
       "agent": "\"{{name}}\"(이)라는 저장된 에이전트가 없습니다.",
       "agentTask": "{{name}} 이름 뒤에 작업을 적어 주세요.",
       "agentsOff": "이 채팅에서는 저장된 에이전트가 꺼져 있습니다. 도구 메뉴에서 켜세요."
+    },
+    "goal": {
+      "label": "목표",
+      "desc": "채팅이 알아서 계속 작업할 목표 설정",
+      "clearDesc": "목표 지우기",
+      "resumeDesc": "목표를 계속 진행"
     }
   },
   "shortcuts": {
@@ -515,9 +522,13 @@
       "none": "이 채팅에는 목표가 없습니다. /goal 뒤에 원하는 일을 입력하면 채팅이 알아서 계속 작업합니다.",
       "turns": "{{max}}턴 중 {{turn}}턴",
       "steps": "{{max}}단계 중 {{steps}}단계",
-      "set": "{{when}} 설정",
       "clear": "/goal clear로 지웁니다.",
-      "resume": "/goal resume으로 계속합니다."
+      "resume": "/goal resume으로 계속합니다.",
+      "turnsLabel": "자동 턴",
+      "stepsLabel": "단계",
+      "setLabel": "설정 시각",
+      "stateLabel": "상태",
+      "noteLabel": "메모"
     },
     "errors": {
       "empty": "/goal 뒤에 목표를 적어 주세요.",
