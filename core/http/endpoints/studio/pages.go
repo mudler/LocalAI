@@ -37,7 +37,7 @@ var pageRules = []errRule{
 	sentinelText(http.StatusRequestEntityTooLarge, typeInvalid, pages.ErrTooLarge),
 	sentinelText(http.StatusUnsupportedMediaType, typeInvalid, pages.ErrNotText),
 	sentinelText(http.StatusUnsupportedMediaType, typeInvalid, pages.ErrNotImage),
-	sentinelText(http.StatusForbidden, typeAuthz, pages.ErrReadOnly),
+	verbatim(http.StatusForbidden, typeAuthz, "pages: ", pages.ErrReadOnly),
 	sentinelText(http.StatusTooManyRequests, "rate_limit_error", pages.ErrRateLimited),
 	verbatim(http.StatusForbidden, typeAuthz, "pages: ", pages.ErrFolderReadOnly),
 	verbatim(http.StatusForbidden, typePageNotAllowed, "pages: ", pages.ErrNoConsent),
@@ -198,7 +198,7 @@ func sendPageImage(c echo.Context, img pages.Image, err error) error {
 
 // WritePageFile writes a text file of a page.
 // @Summary Write a text file of a page (bridge files.write).
-// @Description Missing folders are created. A page cannot write its own index.html or page.json. With base, a file that changed since is kept and the content goes to a conflict copy (conflict_of). Writes are rate limited per page.
+// @Description Missing folders are created. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json) are refused with 403; the Files page and file tools are not affected. With base, a file that changed since is kept and the content goes to a conflict copy (conflict_of). Writes are rate limited per page.
 // @Tags pages
 // @Param name path string true "page name"
 // @Param request body schema.PagesWriteRequest true "the file"

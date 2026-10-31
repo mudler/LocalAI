@@ -67,7 +67,7 @@ var (
 	ErrTooLarge    = errors.New("pages: the file is larger than 1 MiB")
 	ErrNotText     = errors.New("pages: the file is not UTF-8 text")
 	ErrNotImage    = errors.New("pages: only a png, jpg, gif, webp, avif, bmp, ico or svg file can be read as an image")
-	ErrReadOnly    = errors.New("pages: a page cannot change its own index.html or page.json")
+	ErrReadOnly    = errors.New("pages: a page can write data files only (such as .json or .txt); ask the assistant to change the code of the page")
 	ErrRateLimited = errors.New("pages: too many changes; wait a moment")
 	// ErrFolderReadOnly means the viewer may only read the shared folder of the
 	// page, so the page cannot write there either.
@@ -513,7 +513,7 @@ func (s *Service) readImageAt(ctx context.Context, l loc, rel string) (Image, er
 // Write stores a file in the page's folder and creates missing folders. With
 // base, the version the page read, a file that changed since is kept and the
 // new content goes to a conflict copy; without, the file is replaced. A page
-// cannot write its own index.html or page.json, so it cannot rewrite itself.
+// writes data files only (see IsCodeFile), so it cannot rewrite its own code.
 func (s *Service) Write(ctx context.Context, principal, name, rel string, body []byte, base int64) (File, error) {
 	if !ValidName(name) {
 		return File{}, ErrBadName
@@ -533,7 +533,7 @@ func (s *Service) writeAt(ctx context.Context, l loc, rel string, body []byte, b
 	if err != nil {
 		return File{}, err
 	}
-	if first := workspace.FoldName(strings.SplitN(rel, "/", 2)[0]); first == workspace.FoldName(IndexFile) || first == workspace.FoldName(MetaFile) {
+	if first := workspace.FoldName(strings.SplitN(rel, "/", 2)[0]); first == workspace.FoldName(IndexFile) || first == workspace.FoldName(MetaFile) || IsCodeFile(rel) {
 		return File{}, ErrReadOnly
 	}
 	if len(body) > MaxFileSize {

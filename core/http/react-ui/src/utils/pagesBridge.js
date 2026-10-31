@@ -347,6 +347,32 @@ export function buildPageSrcdoc(html, { name, title, theme, head = '', modules =
   return withHead(html, pre)
 }
 
+// The files a page cannot write: code and documents, which the host would run
+// or render on the next load. The same judgement as IsCodeFile in
+// core/services/studio/pages/codefile.go; both run the table
+// core/services/studio/pages/testdata/code-files.json. The server decides; this
+// only refuses early.
+const CODE_EXT = new Set(['js', 'mjs', 'cjs', 'css', 'html', 'htm', 'svg', 'xml', 'xhtml', 'wasm'])
+export const CODE_WRITE_MESSAGE = 'a page can write data files only (such as .json or .txt); ask the assistant to change the code of the page'
+
+export function isCodeFile(path) {
+  let s = String(path)
+  for (let i = 0; i < 3; i++) {
+    let d
+    try { d = decodeURIComponent(s) } catch { break }
+    if (d === s) break
+    s = d
+  }
+  s = s.normalize('NFKC').toLowerCase().replace(/[\\\u3002\uff61]/g, (c) => (c === '\\' ? '/' : '.'))
+  s = s.slice(s.lastIndexOf('/') + 1)
+  const colon = s.indexOf(':')
+  if (colon >= 0) s = s.slice(0, colon)
+  s = s.replace(/[ .\t\r\n\0]+$/, '')
+  if (s === 'index' || s === 'page.json') return true
+  const dot = s.lastIndexOf('.')
+  return dot >= 0 && CODE_EXT.has(s.slice(dot + 1))
+}
+
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const bad = (what) => ({ code: 'invalid', message: `invalid params: ${what}` })
 const okPath = (p, optional) => (optional && (p === undefined || p === '')) || (typeof p === 'string' && p !== '' && p.length <= MAX_PATH)
@@ -377,10 +403,17 @@ export function createPageHost({ post, files, chat, links, now = Date.now }) {
         return files.read(p.path)
       case 'files.write':
         if (!okPath(p.path)) throw bad('path')
+        if (isCodeFile(p.path)) throw { code: 'forbidden', message: CODE_WRITE_MESSAGE }
         if (typeof p.content !== 'string') throw bad('content must be a string')
         if (p.content.length > MAX_CONTENT) throw { code: 'too_large', message: 'the file is larger than 1 MiB' }
         if (p.base !== undefined && p.base !== null && !(Number.isInteger(p.base) && p.base >= 0)) throw bad('base')
-        return files.write(p.path, p.content, p.base || 0)
+        try {
+          return await files.write(p.path, p.content, p.base || 0)
+        } catch (e) {
+          // The server refused the file with 403: answer as the early check does.
+          if (e?.status === 403 && e?.body?.error?.type === 'authorization_error') throw { code: 'forbidden', message: String(e?.message || CODE_WRITE_MESSAGE) }
+          throw e
+        }
       case 'files.list':
         if (!okPath(p.dir, true)) throw bad('dir')
         return files.list(p.dir || '')
