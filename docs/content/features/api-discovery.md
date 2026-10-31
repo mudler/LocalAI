@@ -121,6 +121,7 @@ Returns a compact list of instruction areas:
 | `agents` | Agent task and job management |
 | `video` | Video generation from text prompts |
 | `chat-history` | Server-side persistence of web UI chat conversations, with tombstones for deletions (auth only) |
+| `studio-history` | Server-side persistence of the Studio's generation history, with tombstones for deletions (auth only) |
 
 ### Get an instruction guide
 

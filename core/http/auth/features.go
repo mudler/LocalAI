@@ -211,6 +211,14 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"PUT", "/api/conversations/:id", FeatureChatHistory},
 	{"DELETE", "/api/conversations/:id", FeatureChatHistory},
 
+	// Studio History (server-side persistence of the Studio's generations)
+	{"GET", "/api/studio/history", FeatureStudioHistory},
+	{"DELETE", "/api/studio/history", FeatureStudioHistory},
+	{"POST", "/api/studio/history/import", FeatureStudioHistory},
+	{"GET", "/api/studio/history/:id", FeatureStudioHistory},
+	{"PUT", "/api/studio/history/:id", FeatureStudioHistory},
+	{"DELETE", "/api/studio/history/:id", FeatureStudioHistory},
+
 	// Quantization
 	{"GET", "/api/quantization/status", FeatureQuantization},
 	{"POST", "/api/quantization/jobs", FeatureQuantization},
@@ -279,5 +287,6 @@ func APIFeatureMetas() []FeatureMeta {
 		{FeatureDecisions, "Decisions", true},
 		{FeatureForecast, "Forecast", true},
 		{FeatureChatHistory, "Chat History", true},
+		{FeatureStudioHistory, "Studio History", true},
 	}
 }

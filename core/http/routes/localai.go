@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/nodes"
 	"github.com/mudler/LocalAI/core/services/routing/pii"
 	"github.com/mudler/LocalAI/core/services/routing/piiadapter"
+	"github.com/mudler/LocalAI/core/services/studiohistory"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -642,4 +643,21 @@ func RegisterChatHistoryRoutes(router *echo.Echo, store *chathistory.Store, chat
 	router.GET("/api/conversations/:id", localai.GetConversationEndpoint(store), chatHistoryMw)
 	router.PUT("/api/conversations/:id", localai.SaveConversationByIDEndpoint(store), chatHistoryMw)
 	router.DELETE("/api/conversations/:id", localai.DeleteConversationEndpoint(store), chatHistoryMw)
+}
+
+// RegisterStudioHistoryRoutes wires the per-user Studio history endpoints. A
+// nil store registers nothing, so the Studio sees 404 and stays on
+// localStorage.
+func RegisterStudioHistoryRoutes(router *echo.Echo, store *studiohistory.Store, studioHistoryMw echo.MiddlewareFunc) {
+	if store == nil {
+		// Only the list, saying there is no server-side history.
+		router.GET("/api/studio/history", localai.StudioHistoryDisabledEndpoint())
+		return
+	}
+	router.GET("/api/studio/history", localai.ListStudioHistoryEndpoint(store), studioHistoryMw)
+	router.DELETE("/api/studio/history", localai.DeleteAllStudioHistoryEndpoint(store), studioHistoryMw)
+	router.POST("/api/studio/history/import", localai.ImportStudioHistoryEndpoint(store), studioHistoryMw)
+	router.GET("/api/studio/history/:id", localai.GetStudioHistoryEntryEndpoint(store), studioHistoryMw)
+	router.PUT("/api/studio/history/:id", localai.SaveStudioHistoryEntryEndpoint(store), studioHistoryMw)
+	router.DELETE("/api/studio/history/:id", localai.DeleteStudioHistoryEntryEndpoint(store), studioHistoryMw)
 }
