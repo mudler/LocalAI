@@ -13,7 +13,7 @@ import { firstLine, formatDuration } from '../../utils/agentRuns'
 // what came out of it in one line, how it started, when and for how long.
 // Open, it shows the values it ran with, the answer or the error with Copy,
 // its steps, the webhook outcome and the chat that holds it.
-export function JobRow({ job, taskName, owner, open, onToggle, onCancel, onRerun, onDelete, showTask = true }) {
+export function JobRow({ job, taskName, owner, scope = '', open, onToggle, onCancel, onRerun, onDelete, showTask = true }) {
   const { t } = useTranslation('agents')
   const navigate = useNavigate()
   const active = jobActive(job)
@@ -30,6 +30,7 @@ export function JobRow({ job, taskName, owner, open, onToggle, onCancel, onRerun
     <RunItem
       open={open}
       onToggle={onToggle}
+      idScope={scope}
       toggleLabel={t('tasks.detailsFor', { name: taskName })}
       error={job.status === 'failed'}
       data={{ 'data-job': job.id, 'data-status': job.status, 'data-testid': 'agent-job-row' }}

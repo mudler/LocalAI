@@ -40,8 +40,9 @@ export function ClockTime({ iso, className = '' }) {
 //   onToggle    flips `open`
 //   toggleLabel the accessible name of the toggle
 //   data        data-* attributes for the row (data-job, data-status)
-export function RunItem({ status, title, line, when, took, actions, open, onToggle, toggleLabel, data = {}, error = false, detailTestId, children }) {
-  const bodyId = `run-${data['data-job'] || ''}`
+//   idScope     a prefix for the id of the details, when one run shows twice
+export function RunItem({ status, title, line, when, took, actions, open, onToggle, toggleLabel, data = {}, error = false, detailTestId, idScope = '', children }) {
+  const bodyId = `run-${idScope.replace(/[^a-z0-9-]/gi, '')}${data['data-job'] || ''}`
   return (
     <li className="aj-run" data-open={open || undefined} data-error={error || undefined} data-row {...data}>
       <div className="aj-run__head">

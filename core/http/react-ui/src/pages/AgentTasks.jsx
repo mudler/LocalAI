@@ -44,7 +44,7 @@ export default function AgentTasks() {
   const { models } = useModels(CAP_CHAT)
   const [tasks, setTasks] = useState([])
   const [jobs, setJobs] = useState([])
-  const [agents, setAgents] = useState([])
+  const [agents, setAgents] = useState(null) // null until the list is read
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [allUsers, setAllUsers] = useState(false)
@@ -91,7 +91,12 @@ export default function AgentTasks() {
     const m = new Map(tasks.map(({ item }) => [item.id, item.name]))
     return (id) => m.get(id) || id
   }, [tasks])
-  const runnerName = useCallback((task) => (task.agent_id ? agents.find(a => a.id === task.agent_id)?.name || task.agent_id : task.model), [agents])
+  // Before the agents are read, an agent task says "Agent" rather than flash its id.
+  const runnerName = useCallback((task) => {
+    if (!task.agent_id) return task.model
+    if (agents === null) return t('tasks.agent')
+    return agents.find(a => a.id === task.agent_id)?.name || task.agent_id
+  }, [agents, t])
 
   const act = async (fn, done) => {
     try {
@@ -157,9 +162,12 @@ export default function AgentTasks() {
   const newTask = () => setEditing({ task: null, form: taskForm(null) })
   const open1 = (row, tab = 'overview') => { setSelected({ id: row.item.id, owner: row.owner }); setPaneTab(tab) }
 
-  const jobProps = (job) => ({
-    open: open.has(job.id),
-    onToggle: () => toggle(job.id),
+  // The pane keeps its own open runs, so a run opened there stays closed in
+  // the history below and the other way round.
+  const jobProps = (job, scope = '') => ({
+    scope,
+    open: open.has(scope + job.id),
+    onToggle: () => toggle(scope + job.id),
     onCancel: () => act(() => agentJobsApi.cancel(job.id), t('tasks.cancelled')),
     onRerun: () => act(() => agentJobsApi.rerun(job.id), t('tasks.rerunStarted')),
     onDelete: () => setJobToDelete(job),
@@ -305,7 +313,7 @@ export default function AgentTasks() {
       )}
 
       {editing && (
-        <TaskSheet editing={editing} setForm={setForm} agents={agents} models={models} saving={saving} onSave={save} onClose={() => setEditing(null)} />
+        <TaskSheet editing={editing} setForm={setForm} agents={agents || []} models={models} saving={saving} onSave={save} onClose={() => setEditing(null)} />
       )}
       {running && (
         <RunSheet running={running} setParams={(p) => setRunning(r => ({ ...r, params: { ...r.params, ...p } }))} onRun={run} onClose={() => setRunning(null)} />

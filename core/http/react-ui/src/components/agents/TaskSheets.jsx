@@ -62,7 +62,7 @@ export function TaskSheet({ editing, setForm, agents, models, onSave, onClose, s
         <fieldset className="aj-group">
           <legend className="aj-group__title">{t('tasks.sheet.about')}</legend>
           <Field id="at-name" label={t('tasks.name')} help={t('tasks.sheet.nameHelp')} error={err('name')}>
-            <input id="at-name" className="dk-input" value={form.name} autoComplete="off" placeholder={t('tasks.sheet.namePlaceholder')} onChange={(e) => setForm({ name: e.target.value })} {...inv('name')} />
+            <input id="at-name" className="dk-input" value={form.name} autoComplete="off" onChange={(e) => setForm({ name: e.target.value })} {...inv('name')} />
           </Field>
           <Field id="at-desc" label={t('tasks.description')} help={t('tasks.sheet.descHelp')} optional>
             <input id="at-desc" className="dk-input" value={form.description} onChange={(e) => setForm({ description: e.target.value })} aria-describedby="at-desc-msg" />

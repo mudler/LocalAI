@@ -96,7 +96,7 @@ export function TaskPane({ task, owner, runner, jobs, tab, onTab, onClose, onRun
             {tab === 'runs' && (
               jobs.length === 0
                 ? <p className="ag-note">{t('tasks.pane.noRuns')}</p>
-                : <ul className="aj-runs aj-runs--pane">{jobs.slice(0, 30).map(job => <JobRow key={job.id} job={job} taskName={task.name} owner={owner} showTask={false} {...jobProps(job)} />)}</ul>
+                : <ul className="aj-runs aj-runs--pane">{jobs.slice(0, 30).map(job => <JobRow key={job.id} job={job} taskName={task.name} owner={owner} showTask={false} {...jobProps(job, 'pane:')} />)}</ul>
             )}
             {tab === 'settings' && (
               <div className="aj-settings">
