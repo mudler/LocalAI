@@ -366,6 +366,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		mcpPromptName, mcpPromptArgs := mcpTools.MCPPromptFromMetadata(input.Metadata)
 		mcpResourceURIs := mcpTools.MCPResourcesFromMetadata(input.Metadata)
 
+		serverTools := false
 		if (len(mcpServers) > 0 || mcpPromptName != "" || len(mcpResourceURIs) > 0) && (config.MCP.Servers != "" || config.MCP.Stdio != "") {
 			remote, stdio, mcpErr := config.MCP.MCPConfigFromYAML()
 			if mcpErr == nil {
@@ -390,6 +391,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							input.Tools = append(input.Tools, functions.Tool{Type: "function", Function: fn})
 						}
 						shouldUseFn = len(funcs) > 0 && config.ShouldUseFunctions()
+						serverTools = len(mcpFuncs) > 0
 						xlog.Debug("MCP tools injected", "count", len(mcpFuncs), "total_funcs", len(funcs))
 					} else {
 						xlog.Error("Failed to discover MCP tools", "error", discErr)
@@ -426,6 +428,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 		// Before compression, which may summarise away numbers the client sent.
 		evidence := newEvidenceGate(config, input.Messages)
+		require := newToolRequirement(config, input, serverTools && !assistantMode, shouldUseFn)
 		if err := middleware.CompressChatRequest(c, compressor); err != nil {
 			return err
 		}
@@ -518,6 +521,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// Append the no action function
 			if !config.FunctionsConfig.DisableNoAction && !strictMode {
+				if require != nil {
+					g, err := config.FunctionsConfig.ToJSONStructure(funcs).Grammar(config.FunctionsConfig.GrammarOptions()...)
+					if err == nil {
+						require.grammar = g
+					} else {
+						xlog.Error("Failed generating grammar", "error", err)
+					}
+				}
 				funcs = append(funcs, noActionGrammar)
 			}
 
@@ -533,6 +544,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				config.Grammar = g
 			} else {
 				xlog.Error("Failed generating grammar", "error", err)
+			}
+			if require != nil {
+				require.clientGrammar = config.Grammar
 			}
 		case input.JSONFunctionGrammarObject != nil:
 			g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
@@ -598,6 +612,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						xlog.Debug("MCP stream re-templating", "iteration", mcpStreamIter)
 					}
 				}
+				require.apply(input, config, mcpStreamIter)
 
 				responses := make(chan schema.OpenAIResponse)
 				ended := make(chan streamWorkerResult, 1)
@@ -761,7 +776,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 								toolResult = fmt.Sprintf("Error: %v", toolErr)
 							} else {
 								// A failed call delivers no evidence for the answer.
-								evidence.markToolExecuted()
+								evidence.markToolExecuted(toolResult)
 							}
 							input.Messages = append(input.Messages, schema.Message{
 								Role:          "tool",
@@ -923,6 +938,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						xlog.Debug("MCP re-templating", "iteration", mcpIteration, "prompt_len", len(predInput))
 					}
 				}
+				require.apply(input, config, mcpIteration)
 
 				// Detect if thinking token is already in prompt or template
 				var template string
@@ -1211,7 +1227,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 								toolResult = fmt.Sprintf("Error: %v", toolErr)
 							} else {
 								// A failed call delivers no evidence for the answer.
-								evidence.markToolExecuted()
+								evidence.markToolExecuted(toolResult)
 							}
 							input.Messages = append(input.Messages, schema.Message{
 								Role:          "tool",
