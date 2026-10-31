@@ -13,9 +13,10 @@ import (
 
 // skillHintTools wraps the tools that read a path (read_file, read_document
 // and list_files): when one answers "not found" for a path that names a skill
-// of the chat, the error says where the skill is and which tool reads it. A
-// model that guesses the folder of a skill (the folder for the user's own
-// skills, or a path of the Sandbox) then finds it without help. The skills are
+// of the chat, the error says where the skill is and that load_skill loads it
+// by its name. The index names no path, but a model that guesses the folder of
+// a skill (the folder for the user's own skills, or a path of the Sandbox)
+// still finds it without help. The skills are
 // resolved for the chat only when a read fails, so a good read costs nothing.
 func (s *Service) skillHintTools(a workspace.Actor, tools []session.Tool) []session.Tool {
 	for i, tool := range tools {
@@ -42,7 +43,7 @@ func (s *Service) skillHintTools(a workspace.Actor, tools []session.Tool) []sess
 			if !ok {
 				return out, err
 			}
-			return out, fmt.Errorf("not found. The skill %s is at %s; read it with read_file.", sk.Name, sk.GuestPath)
+			return out, fmt.Errorf("not found. The skill %s is at %s; load it with load_skill.", sk.Name, sk.GuestPath)
 		}
 	}
 	return tools

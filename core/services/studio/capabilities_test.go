@@ -105,9 +105,10 @@ var _ = Describe("capabilities", func() {
 
 		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated sandbox."))
 		Expect(prompt).To(ContainSubstring(sandbox.GuestToolsNote), "the isolated sandbox lists its programs")
-		Expect(prompt).To(ContainSubstring("Skill folders are not visible in the Sandbox: read skills with read_file."))
+		Expect(prompt).To(ContainSubstring("Skill folders are not visible in the Sandbox: load skills with load_skill."))
 		Expect(prompt).NotTo(ContainSubstring("nothing in this chat runs code"))
-		Expect(prompt).To(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"))
+		Expect(prompt).To(ContainSubstring("\n- xlsx: "))
+		Expect(prompt).NotTo(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"), "the index names no path")
 		Expect(prompt).NotTo(ContainSubstring("unavailable here"))
 		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox"}))
 	})

@@ -99,23 +99,24 @@ var _ = Describe("add-on skills in a chat", func() {
 		b.set(AddonSkillSet{AddonID: "notes", Title: "Notes", Skills: []string{"notes", "notes-quick"}, Running: true})
 	})
 
-	It("offers the skills of a usable add-on, with their guest path", func() {
+	It("offers the skills of a usable add-on, by name", func() {
 		prompt, _, key, _ := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
-		Expect(prompt).To(ContainSubstring("- notes: Use for notes. (read /workspace/shared-addon-skills/notes/notes/SKILL.md)"))
+		Expect(prompt).To(ContainSubstring("\n- notes: Use for notes."))
+		Expect(prompt).NotTo(ContainSubstring("shared-addon-skills"), "the index names no path")
 		Expect(prompt).To(ContainSubstring("notes-quick"))
 		Expect(key).NotTo(BeEmpty())
 	})
 
 	It("offers nothing for an add-on the chat switched off, that stopped or that cannot work", func() {
 		prompt, _, _, _ := svc.skillTurn(ctx, "alice", nil, []string{"notes"}, nil, nil)
-		Expect(prompt).NotTo(ContainSubstring("shared-addon-skills"), "addons_off removes the add-on's root")
+		Expect(prompt).NotTo(ContainSubstring("- notes:"), "addons_off removes the add-on's root")
 		b.reasons = map[string]string{"notes": "the Files workspace is off"}
 		prompt, _, _, _ = svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
-		Expect(prompt).NotTo(ContainSubstring("shared-addon-skills"), "an unavailable add-on gives no skills")
+		Expect(prompt).NotTo(ContainSubstring("- notes:"), "an unavailable add-on gives no skills")
 		b.reasons = nil
 		b.set(AddonSkillSet{AddonID: "notes", Title: "Notes", Skills: []string{"notes", "notes-quick"}}) // stopped
 		prompt, _, _, _ = svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
-		Expect(prompt).NotTo(ContainSubstring("shared-addon-skills"), "a stopped add-on gives no skills; the files stay")
+		Expect(prompt).NotTo(ContainSubstring("- notes:"), "a stopped add-on gives no skills; the files stay")
 	})
 
 	It("moves the refresh key when the add-on starts or stops, not on a switch", func() {
@@ -130,7 +131,7 @@ var _ = Describe("add-on skills in a chat", func() {
 	It("keeps an agent's grant: an add-on the agent does not grant gives no skills", func() {
 		sc := &scope{addons: map[string]bool{}, skills: map[string]bool{"notes": true}}
 		prompt, _, _, _ := svc.skillTurn(ctx, "alice", nil, nil, sc, nil)
-		Expect(prompt).NotTo(ContainSubstring("shared-addon-skills"))
+		Expect(prompt).NotTo(ContainSubstring("- notes:"))
 		sc.addons["notes"] = true
 		prompt, _, _, _ = svc.skillTurn(ctx, "alice", nil, nil, sc, nil)
 		Expect(prompt).To(ContainSubstring("- notes: Use for notes."))
@@ -208,7 +209,7 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 	It("lets a running add-on replace the built-in skill, and gives it back when the add-on stops", func() {
 		b.set(office(true))
 		prompt, _, fallback := turn(nil, nil)
-		Expect(prompt).To(ContainSubstring("- xlsx: Office sheets. (read /workspace/shared-addon-skills/office/xlsx/SKILL.md)"))
+		Expect(prompt).To(ContainSubstring("- xlsx: Office sheets."))
 		Expect(prompt).NotTo(ContainSubstring("Built-in sheets."))
 		Expect(fallback).To(BeEmpty())
 		b.set(office(false))

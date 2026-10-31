@@ -77,9 +77,11 @@ var _ = Describe("skillsvc", func() {
 		idle(svc, alice, id)
 
 		prompt := h.TurnPrompt(id)
-		for _, want := range []string{"review", "check a change before it ships", "house-style", "how we write", "/workspace/home/.skills/review"} {
+		for _, want := range []string{"- review: check a change before it ships", "- house-style: how we write", "call the load_skill tool with its name"} {
 			Expect(prompt).To(ContainSubstring(want), "the skill index lacks %q:\n%s", want, prompt)
 		}
+		Expect(prompt).NotTo(ContainSubstring("/workspace/home/.skills/review"), "the index names no path:\n%s", prompt)
+		Expect(h.ToolNames(id)).To(ContainElement("load_skill"))
 		Expect(prompt).NotTo(ContainSubstring("the shared review skill"), "the shared review skill shows although the personal one is nearer:\n%s", prompt)
 	})
 
@@ -175,13 +177,13 @@ var _ = Describe("skill path hints", func() {
 			{Tool: "read_file", Args: `{"path":"/workspace/home/.skills/docx/SKILL.md"}`},
 			{Tool: "list_files", Args: `{"path":"/workspace/home/skills/docx"}`},
 		})
-		want := "not found. The skill docx is at /workspace/shared-builtin-skills/docx/SKILL.md; read it with read_file."
+		want := "not found. The skill docx is at /workspace/shared-builtin-skills/docx/SKILL.md; load it with load_skill."
 		Expect(got).To(Equal([]string{"read_file: " + want, "list_files: " + want}))
 	})
 
 	It("points to a user skill that was asked for in the wrong place", func() {
 		got := readAll([]studiotest.ToolStep{{Tool: "read_file", Args: `{"path":"review/SKILL.md"}`}})
-		Expect(got).To(Equal([]string{"read_file: not found. The skill review is at /workspace/home/.skills/review/SKILL.md; read it with read_file."}))
+		Expect(got).To(Equal([]string{"read_file: not found. The skill review is at /workspace/home/.skills/review/SKILL.md; load it with load_skill."}))
 	})
 
 	It("gives no suggestion for a name that is not a listed skill", func() {
@@ -190,5 +192,51 @@ var _ = Describe("skill path hints", func() {
 			{Tool: "read_file", Args: `{"path":"/workspace/home/missing.txt"}`},
 		})
 		Expect(got).To(Equal([]string{"read_file: not found", "read_file: not found"}))
+	})
+})
+
+var _ = Describe("load_skill in a chat", func() {
+	It("is in the tool list only when the chat has skills", func() {
+		svc, h, f := newSkillChat()
+		id := create(svc, alice)
+		sent(svc, alice, id, "hello")
+		idle(svc, alice, id)
+		Expect(h.ToolNames(id)).NotTo(ContainElement("load_skill"))
+		Expect(h.TurnPrompt(id)).NotTo(ContainSubstring("Skills:"))
+
+		writeSkill(f, alice, "/.skills/review/SKILL.md", "review", "check a change")
+		sent(svc, alice, id, "again")
+		idle(svc, alice, id)
+		Expect(h.ToolNames(id)).To(ContainElement("load_skill"))
+	})
+
+	It("loads a skill by its name for the chat and for a sub-agent", func() {
+		f := newFiles()
+		svc, h := newToolService(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			switch text {
+			case "go":
+				return []studiotest.ToolStep{
+					{Tool: "load_skill", Args: `{"name":"review"}`},
+					{Tool: "load_skill", Args: `{"name":"Review"}`},
+					{Tool: "spawn_agent", Args: `{"task":"child job","wait":true}`},
+					{Say: "done"},
+				}
+			case "child job":
+				return []studiotest.ToolStep{{Tool: "load_skill", Args: `{"name":"review"}`}, {Say: "child done"}}
+			}
+			return []studiotest.ToolStep{{Say: "ok"}}
+		}, func(d *studio.Deps) { d.Files = f })
+		writeSkill(f, alice, "/.skills/review/SKILL.md", "review", "check a change")
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		got := h.ResultsFor("load_skill")
+		Expect(got).To(HaveLen(3))
+		Expect(got[0].Err).NotTo(HaveOccurred())
+		Expect(got[0].Out).To(Equal("Body."))
+		Expect(got[1].Err).To(MatchError(`unknown skill "Review". Did you mean review? The skills of this chat are: review.`))
+		Expect(got[2].Chat).NotTo(Equal(id), "the sub-agent called it")
+		Expect(got[2].Err).NotTo(HaveOccurred())
+		Expect(got[2].Out).To(Equal("Body."))
 	})
 })

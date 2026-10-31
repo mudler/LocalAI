@@ -226,8 +226,9 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 const sandboxWhere = "It starts in /workspace/home, the user's home, the same files as the file tools; only what it saves under /workspace/home or a writable shared folder is kept."
 
 // skillsNotInSandbox is the sentence that keeps a model from looking for a
-// skill folder in the Sandbox, which sees the user's home only.
-const skillsNotInSandbox = "Skill folders are not visible in the Sandbox: read skills with read_file."
+// skill folder in the Sandbox, which sees the user's home only, and points it
+// at the tool that loads a skill by its name.
+const skillsNotInSandbox = "Skill folders are not visible in the Sandbox: load skills with load_skill."
 
 // commandsBlock is the block of the system prompt that states whether the chat
 // can run commands. writeFile says whether the chat has write_file, and

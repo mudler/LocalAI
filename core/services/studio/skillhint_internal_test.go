@@ -40,7 +40,7 @@ var _ = Describe("skill hints on failed reads", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(HavePrefix("not found. The skill "), "%s %s", tool.Name, p)
 				Expect(err.Error()).To(ContainSubstring(want), "%s %s", tool.Name, p)
-				Expect(err.Error()).To(HaveSuffix("read it with read_file."))
+				Expect(err.Error()).To(HaveSuffix("load it with load_skill."))
 			}
 		}
 		for _, tool := range tools {

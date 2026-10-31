@@ -169,6 +169,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if sub {
 		prompt = joinBlocks(prompt, s.subWorkBlock(ctx, rec))
 	}
+	// load_skill learns from the final list whether the chat can read a
+	// skill's files and run what a skill needs.
+	tools = s.fitLoadSkill(a, tools)
 	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
 }
 
@@ -274,7 +277,7 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	childKey := key(a.Principal, childID)
 	if agent.ID == "" {
 		s.mu.Lock()
-		s.allowed[childKey] = subset
+		s.allowed[childKey] = s.fitLoadSkill(a, subset)
 		s.mu.Unlock()
 	}
 	done := s.waitFor(childKey)
