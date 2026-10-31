@@ -187,3 +187,14 @@
 .st-tools__radio input { margin-top: 3px; }
 .st-tools .st-row__desc[data-tone="warn"] { color: var(--dk-warn-text); }
 .st-tools__skills { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-top: var(--dk-space-4); }
+
+/* The list editor of a host list (Always allowed hosts): the entries as tags
+   with a remove button, the input and Add, the count. Tokens only. */
+.st-hosts { display: flex; flex-direction: column; gap: var(--dk-space-2); width: 100%; max-width: 72ch; }
+.st-hosts__add { display: flex; align-items: center; gap: var(--dk-space-2); }
+.st-hosts__add .dk-input { flex: 1 1 auto; min-width: 0; }
+.st-hosts__list { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin: 0; padding: 0; list-style: none; }
+.st-hosts__item { display: inline-flex; align-items: center; gap: var(--dk-space-1); padding: 0 var(--dk-space-1) 0 var(--dk-space-3); border-radius: var(--dk-radius-1); background: var(--dk-inset); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.st-hosts__name { font: var(--dk-text-13) / 28px var(--dk-font-mono); color: var(--dk-text); overflow-wrap: anywhere; }
+.st-hosts__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--dk-space-1) var(--dk-space-3); font-size: var(--dk-text-12); color: var(--dk-muted); }
+.st-hosts__error { margin: 0; font-size: var(--dk-text-13); color: var(--dk-error-text); }

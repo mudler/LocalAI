@@ -91,6 +91,24 @@
           "done": "Terminée"
         }
       }
+    },
+    "hosts": {
+      "add": "Ajouter",
+      "listLabel": "Hôtes toujours autorisés",
+      "remove": "Retirer {{host}}",
+      "empty": "Aucun hôte pour l'instant. Saisissez un nom d'hôte, ou hôte:port pour fixer le port.",
+      "hint": "Noms exacts uniquement. Ajoutez :port pour n'autoriser qu'un port ; sinon, les ports réseau du Sandbox s'appliquent.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Saisissez un nom d'hôte.",
+        "wildcard": "« {{value}} » : saisissez un nom d'hôte exact, pas un motif.",
+        "shape": "« {{value}} » n'est pas un nom d'hôte. Saisissez seulement l'hôte, sans schéma ni chemin.",
+        "port": "« {{value}} » : le port doit être compris entre 1 et 65535, et 22 et 25 sont toujours refusés.",
+        "private": "« {{value}} » est une adresse privée ou locale. Activez d'abord l'interrupteur du réseau privé.",
+        "numeric": "« {{value}} » : écrivez une adresse IP sous la forme de quatre nombres décimaux.",
+        "duplicate": "« {{value}} » est déjà dans la liste.",
+        "full": "La liste contient au plus {{max}} hôtes."
+      }
     }
   },
   "traces": {

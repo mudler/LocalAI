@@ -208,6 +208,9 @@
     "confirmRead_other": "{{count}} gelesene Benachrichtigungen entfernen? Ungelesene bleiben erhalten.",
     "onlyRead": "Nur die {{count}} gelesenen",
     "showing": "{{shown}} von {{total}} angezeigt",
-    "showMore": "Mehr anzeigen"
+    "showMore": "Mehr anzeigen",
+    "allowedHosts": "Von Ihrem Administrator immer erlaubt:",
+    "allowedHostsOff": "Sie gelten, sobald das Netzwerk eingeschaltet ist.",
+    "allowedHostsNote": "{{count}} Hosts sind von Ihrem Administrator immer erlaubt."
   }
 }

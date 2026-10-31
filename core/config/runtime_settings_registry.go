@@ -578,6 +578,21 @@ var runtimeSettingsFields = []fieldSpec{
 			o.ChatsEgressExtraRegistries = v
 			return true
 		}),
+	withApply(field("chats_egress_allowed_hosts",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressAllowedHosts },
+		func(o *ApplicationConfig) string { return o.ChatsEgressAllowedHosts },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressAllowedHosts = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressAllowedHosts)
+			// The shape is checked here; the settings endpoint also checks
+			// IP literals against the private switch of the same request.
+			if _, err := ParseEgressAllowedHosts(v, true); err != nil {
+				xlog.Warn("invalid chats_egress_allowed_hosts in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsEgressAllowedHosts = v
+			return true
+		}),
 	withApply(field("chats_egress_audit_days",
 		func(s *RuntimeSettings) **int { return &s.ChatsEgressAuditDays },
 		func(o *ApplicationConfig) int { return o.ChatsEgressAuditDays },

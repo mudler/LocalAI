@@ -92,6 +92,24 @@
           "done": "Finished"
         }
       }
+    },
+    "hosts": {
+      "add": "Add",
+      "listLabel": "Always allowed hosts",
+      "remove": "Remove {{host}}",
+      "empty": "No host yet. Write a host name, or host:port to pin the port.",
+      "hint": "Exact names only. Add :port to allow one port; otherwise the Sandbox network ports apply.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Write a host name.",
+        "wildcard": "\"{{value}}\": write an exact host name, not a pattern.",
+        "shape": "\"{{value}}\" is not a host name. Write the host only, with no scheme or path.",
+        "port": "\"{{value}}\": the port must be 1 to 65535, and 22 and 25 are always refused.",
+        "private": "\"{{value}}\" is a private or local address. Turn on the private network switch first.",
+        "numeric": "\"{{value}}\": write an IP address as four decimal numbers.",
+        "duplicate": "\"{{value}}\" is already on the list.",
+        "full": "The list holds at most {{max}} hosts."
+      }
     }
   },
   "traces": {

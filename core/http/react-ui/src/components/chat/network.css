@@ -36,3 +36,4 @@
   font-size: var(--fs-meta);
   color: var(--color-text-secondary);
 }
+.chat-network__allowed { display: flex; flex-direction: column; gap: var(--sp-1); }

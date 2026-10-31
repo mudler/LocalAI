@@ -22,7 +22,8 @@ export default function NetworkRow({ egress }) {
   if (mode === 'host') return <p className="cmd-notice__line" data-testid="chat-network-host">{t('egress.hostNetwork')}</p>
   const choices = presetChoices(egress)
   const kind = ceilingKind(egress)
-  const items = egress.rules.length + egress.cards.length
+  const hosts = egress.allowed_hosts || []
+  const items = egress.rules.length + egress.cards.length + hosts.length
   return (
     <div className="chat-network" data-testid="chat-network">
       <div className="chat-network__head">
@@ -48,6 +49,9 @@ export default function NetworkRow({ egress }) {
           </>}
       </p>
       {kind && <AdminHint isAdmin={isAdmin} egress={egress} testId="chat-network-limit-admin" />}
+      {hosts.length > 0 && egress.effective && egress.effective !== 'off' && (
+        <p className="chat-network__note" data-testid="chat-network-allowed-note">{t('egress.allowedHostsNote', { count: hosts.length })}</p>
+      )}
       {items > 0 && (
         <button type="button" className="chat-network__toggle" aria-expanded={open} onClick={() => setOpen(v => !v)} data-testid="chat-network-panel-toggle">
           {t('egress.panel', { count: items })}
@@ -62,8 +66,24 @@ export default function NetworkRow({ egress }) {
 // The rules of the chat with a remove button each, and its cards.
 function NetworkPanel({ egress }) {
   const { t } = useTranslation('chats')
+  const hosts = egress.allowed_hosts || []
   return (
     <div className="chat-network__panel" data-testid="chat-network-panel">
+      {hosts.length > 0 && (
+        <div className="chat-network__allowed" data-testid="chat-network-allowed">
+          <p className="chat-network__note">
+            {t('egress.allowedHosts')}
+            {(!egress.effective || egress.effective === 'off') && <> {t('egress.allowedHostsOff')}</>}
+          </p>
+          <ul className="chat-network__list" aria-label={t('egress.allowedHosts')}>
+            {hosts.map(h => (
+              <li key={h} className="chat-network__item" data-testid="chat-network-allowed-host">
+                <code className="chat-network__host">{h}</code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {egress.rules.length > 0 && (
         <ul className="chat-network__list" aria-label={t('egress.rules')}>
           {egress.rules.map(r => (

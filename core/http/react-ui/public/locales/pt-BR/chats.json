@@ -208,6 +208,9 @@
     "confirmRead_other": "Remover {{count}} notificações lidas? As não lidas continuam.",
     "onlyRead": "Só as {{count}} lidas",
     "showing": "Mostrando {{shown}} de {{total}}",
-    "showMore": "Mostrar mais"
+    "showMore": "Mostrar mais",
+    "allowedHosts": "Sempre permitidos pelo seu administrador:",
+    "allowedHostsOff": "Valem quando a rede está ativada.",
+    "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador."
   }
 }

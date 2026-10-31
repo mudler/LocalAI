@@ -424,12 +424,19 @@ func (a *Application) studioEgressSettings() egress.Settings {
 		ports = []int{80, 443}
 	}
 	extra, _ := config.ParseEgressHosts(cfg.ChatsEgressExtraRegistries)
+	var allowed []egress.AllowedHost
+	if hosts, err := config.ParseEgressAllowedHosts(cfg.ChatsEgressAllowedHosts, true); err == nil {
+		for _, h := range hosts {
+			allowed = append(allowed, egress.AllowedHost{Host: h.Host, Port: h.Port})
+		}
+	}
 	return egress.Settings{
 		Ceiling:         egress.Preset(strings.TrimSpace(cfg.ChatsEgressCeiling)),
 		Default:         egress.Preset(strings.TrimSpace(cfg.ChatsEgressDefault)),
 		AllowPrivate:    cfg.ChatsEgressAllowPrivate,
 		Ports:           ports,
 		ExtraRegistries: extra,
+		AllowedHosts:    allowed,
 	}
 }
 

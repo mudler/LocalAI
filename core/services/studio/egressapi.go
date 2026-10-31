@@ -37,8 +37,10 @@ type EgressView struct {
 	Applies       bool
 	AppliesReason string
 	Registries    []egress.Registry
-	Rules         []EgressRuleView
-	Cards         []egress.Card
+	// AllowedHosts is the administrator's always-allowed list, canonical.
+	AllowedHosts []string
+	Rules        []EgressRuleView
+	Cards        []egress.Card
 	// CardAbove holds the IDs of the pending cards whose host the ceiling does
 	// not admit: no answer can make them work.
 	CardAbove map[string]bool
@@ -75,10 +77,11 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	}
 	v := EgressView{
 		Preset: pol.chat.Preset, Ceiling: egress.Min(set.Ceiling, egress.PresetAll),
-		Effective:  egress.Min(pol.chat.Preset, set.Ceiling),
-		Registries: registriesView(set),
-		Rules:      []EgressRuleView{},
-		Cards:      append([]egress.Card{}, pol.rec.Egress.Cards...),
+		Effective:    egress.Min(pol.chat.Preset, set.Ceiling),
+		Registries:   registriesView(set),
+		AllowedHosts: set.AllowedHostList(),
+		Rules:        []EgressRuleView{},
+		Cards:        append([]egress.Card{}, pol.rec.Egress.Cards...),
 	}
 	v.CardAbove = map[string]bool{}
 	for _, c := range v.Cards {

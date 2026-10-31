@@ -495,7 +495,12 @@ administrator's default. A fork keeps the choice and the allow rules of the
 chat it copies. The choice and the rules live with the chat on the server,
 never in your files, so the code that runs in the Sandbox cannot change them.
 **Rules and requests** under the row lists the hosts this chat allowed or
-denied, with a button to remove each, and the requests that asked.
+denied, with a button to remove each, and the requests that asked. When an
+administrator keeps a list of always-allowed hosts (`chats_egress_allowed_hosts`),
+the row says how many there are and the panel lists them, read only, under
+*Always allowed by your administrator*. They are reachable whenever the network
+of the chat is on (Package registries or All public sites), without a card; with
+the network off they wait until you turn it on.
 
 The model knows that `curl`, `pip`, `npm` and `git` work in the Sandbox within this setting. It prefers `web_fetch` and `web_search` to read or search web pages when the chat has them, and uses `curl` for APIs, downloads and installs.
 
@@ -519,7 +524,7 @@ The routes, for the chat's owner (another user's chat is 404):
 
 | Route | What it does |
 |---|---|
-| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, registries, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). A rule the ceiling no longer admits has `above_limit`. |
+| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, registries, allowed_hosts, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
 | `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). The same answer sent twice is one answer (204, nothing changes). Another answer to a card already answered is 409 `already_answered`. A host the ceiling does not admit refuses the card and gives 400 `egress_above_ceiling` on this answer and on every later one, so a stale card never ends in a conflict loop. In `GET /api/chats/{id}/egress` such a card has `above_ceiling`: no answer can make it work. |

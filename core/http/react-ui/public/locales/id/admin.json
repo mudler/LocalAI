@@ -141,6 +141,24 @@
           "done": "Selesai"
         }
       }
+    },
+    "hosts": {
+      "add": "Tambah",
+      "listLabel": "Host yang selalu diizinkan",
+      "remove": "Hapus {{host}}",
+      "empty": "Belum ada host. Tulis nama host, atau host:port untuk mengunci port.",
+      "hint": "Hanya nama yang tepat. Tambahkan :port untuk mengizinkan satu port; jika tidak, port jaringan Sandbox yang berlaku.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Tulis nama host.",
+        "wildcard": "\"{{value}}\": tulis nama host yang tepat, bukan pola.",
+        "shape": "\"{{value}}\" bukan nama host. Tulis hanya hostnya, tanpa skema dan path.",
+        "port": "\"{{value}}\": port harus 1 sampai 65535, dan 22 serta 25 selalu ditolak.",
+        "private": "\"{{value}}\" adalah alamat privat atau lokal. Aktifkan dulu sakelar jaringan privat.",
+        "numeric": "\"{{value}}\": tulis alamat IP sebagai empat angka desimal.",
+        "duplicate": "\"{{value}}\" sudah ada di daftar.",
+        "full": "Daftar memuat paling banyak {{max}} host."
+      }
     }
   },
   "backends": {

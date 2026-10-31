@@ -330,7 +330,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.4
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/image v0.44.0
-	golang.org/x/net v0.56.0 // indirect (for websocket)
+	golang.org/x/net v0.56.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/telemetry v0.0.0-20260625142307-59b4966ccb57 // indirect
 	golang.org/x/time v0.14.0 // indirect

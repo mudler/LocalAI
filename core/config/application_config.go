@@ -386,12 +386,15 @@ type ApplicationConfig struct {
 	// metadata addresses). ChatsEgressPorts is a comma list of the ports a
 	// command may reach (empty: 80 and 443), ChatsEgressExtraRegistries a
 	// comma list of host names added to the package registries, and
+	// ChatsEgressAllowedHosts exact hosts (host or host:port, comma separated)
+	// that any chat with the network on may always reach;
 	// ChatsEgressAuditDays how long the audit keeps a line (0: 30 days).
 	ChatsEgressCeiling         string
 	ChatsEgressDefault         string
 	ChatsEgressAllowPrivate    bool
 	ChatsEgressPorts           string
 	ChatsEgressExtraRegistries string
+	ChatsEgressAllowedHosts    string
 	ChatsEgressAuditDays       int
 
 	// DisableChatsSavedAgents switches off, for every chat, the saved agents

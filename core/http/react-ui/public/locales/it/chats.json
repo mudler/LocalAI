@@ -208,6 +208,9 @@
     "confirmRead_other": "Eliminare {{count}} notifiche lette? Quelle non lette restano.",
     "onlyRead": "Solo le {{count}} lette",
     "showing": "{{shown}} di {{total}} mostrate",
-    "showMore": "Mostra altre"
+    "showMore": "Mostra altre",
+    "allowedHosts": "Sempre consentiti dal tuo amministratore:",
+    "allowedHostsOff": "Valgono quando la rete è attiva.",
+    "allowedHostsNote": "{{count}} host sono sempre consentiti dal tuo amministratore."
   }
 }

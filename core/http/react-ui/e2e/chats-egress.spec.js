@@ -7,7 +7,14 @@ import { mockSettings } from './settings-fixtures.js'
 // The API is stubbed.
 
 const SHOTS = process.env.EGRESS_SHOT_DIR
-const shot = async (page, name) => { if (SHOTS) { await page.waitForTimeout(400); await page.screenshot({ path: `${SHOTS}/${name}.png` }) } }
+const shot = async (page, name) => {
+  if (!SHOTS) return
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(t => document.documentElement.setAttribute('data-theme', t), theme)
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: `${SHOTS}/${name}-${theme}.png` })
+  }
+}
 
 const DETAIL = {
   id: 'c1', title: 'Packages', model: 'qwen3-8b', kind: 'chat', created: '2026-10-30T10:00:00Z', updated: '2026-10-30T10:00:00Z',
@@ -16,7 +23,7 @@ const DETAIL = {
 const sandbox = { addons: [{ id: 'sandbox', tools: 2, off: false }], commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' }
 const view = (over = {}) => ({
   preset: 'off', ceiling: 'registries', effective: 'off', applies: true, applies_reason: '',
-  registries: [{ id: 'pypi', title: 'Python (PyPI)', hosts: ['pypi.org', 'files.pythonhosted.org'] }], rules: [], cards: [], ...over,
+  registries: [{ id: 'pypi', title: 'Python (PyPI)', hosts: ['pypi.org', 'files.pythonhosted.org'] }], allowed_hosts: [], rules: [], cards: [], ...over,
 })
 
 async function stubChat(page, { egress, running = false, messages = [] }) {
@@ -83,6 +90,28 @@ test.describe('Network of the Sandbox commands', () => {
     await rule.getByRole('button', { name: 'Remove the rule of example.com:443' }).click()
     await expect.poll(() => state.deletes).toEqual(['example.com/443'])
     await expect(rule).toHaveCount(0)
+  })
+
+  test('the panel lists the hosts the administrator always allows, read only', async ({ page }) => {
+    await stubChat(page, { egress: view({ preset: 'registries', effective: 'registries', allowed_hosts: ['api.example.org', 'git.example.org:8443'] }) })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network-allowed-note')).toHaveText('2 hosts are always allowed by your administrator.')
+    await page.getByTestId('chat-network-panel-toggle').click()
+    const list = page.getByTestId('chat-network-allowed')
+    await expect(list).toContainText('Always allowed by your administrator:')
+    await expect(list.getByTestId('chat-network-allowed-host')).toHaveText(['api.example.org', 'git.example.org:8443'])
+    await expect(list.getByRole('button')).toHaveCount(0)
+    await shot(page, 'network-allowed-hosts')
+  })
+
+  test('with the network off the panel says the hosts apply once it is on', async ({ page }) => {
+    await stubChat(page, { egress: view({ allowed_hosts: ['api.example.org'] }) })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network-allowed-note')).toHaveCount(0)
+    await page.getByTestId('chat-network-panel-toggle').click()
+    await expect(page.getByTestId('chat-network-allowed')).toContainText('They apply when the network is on.')
   })
 
   test('where commands run on this machine, the row says they use its network', async ({ page }) => {
@@ -216,5 +245,47 @@ test.describe('Settings > Tools > Sandbox network', () => {
     await page.getByTestId('settings-egress-private-phrase').fill('I understand that commands can reach my private network')
     await page.getByRole('button', { name: 'Apply' }).click()
     await expect.poll(() => settings.posts).toEqual([{ chats_egress_allow_private: true, chats_egress_private_confirm: 'I understand that commands can reach my private network' }])
+  })
+
+  test('the Always allowed hosts list adds, refuses and removes hosts and saves them with Apply', async ({ page }) => {
+    const settings = await mockSettings(page, { chats_egress_allow_private: false, chats_egress_ceiling: 'registries', chats_egress_allowed_hosts: 'api.example.org' })
+    await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [] } }))
+    await page.route('**/api/chats/admin/egress', route => route.fulfill({
+      json: { ceiling: 'registries', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], allowed_hosts: ['api.example.org'], audit_days: 30, registries: [], sandbox: 'sandbox', isolation: 'isolated', allowed_24h: 0, blocked_24h: 0 },
+    }))
+    await page.goto('/app/settings')
+    await page.getByRole('button', { name: /^Tools/ }).click()
+    const editor = page.getByTestId('settings-hosts')
+    await expect(editor.getByTestId('settings-hosts-item')).toHaveText(['api.example.org'])
+    await expect(editor.getByTestId('settings-hosts-count')).toHaveText('1/64')
+    const input = editor.getByTestId('settings-hosts-input')
+
+    await input.fill('*.example.com')
+    await input.press('Enter')
+    await expect(editor.getByTestId('settings-hosts-error')).toContainText('not a pattern')
+    await input.fill('https://example.com')
+    await input.press('Enter')
+    await expect(editor.getByTestId('settings-hosts-error')).toContainText('not a host name')
+    await input.fill('10.0.0.5')
+    await input.press('Enter')
+    await expect(editor.getByTestId('settings-hosts-error')).toContainText('private network switch')
+    await input.fill('API.example.org')
+    await input.press('Enter')
+    await expect(editor.getByTestId('settings-hosts-error')).toContainText('already on the list')
+    await expect(editor.getByTestId('settings-hosts-item')).toHaveCount(1)
+
+    await input.fill('Git.Example.org:8443')
+    await input.press('Enter')
+    await input.fill('cdn.example.org, bücher.example')
+    await editor.getByTestId('settings-hosts-add').click()
+    await expect(editor.getByTestId('settings-hosts-item')).toHaveText(['api.example.org', 'git.example.org:8443', 'cdn.example.org', 'xn--bcher-kva.example'])
+    await expect(editor.getByTestId('settings-hosts-count')).toHaveText('4/64')
+    await page.locator('[data-field="chats_egress_allowed_hosts"]').evaluate(el => el.scrollIntoView({ block: 'center' }))
+    await shot(page, 'settings-allowed-hosts')
+
+    await editor.getByRole('button', { name: 'Remove cdn.example.org' }).click()
+    await expect(editor.getByTestId('settings-hosts-item')).toHaveCount(3)
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect.poll(() => settings.posts).toEqual([{ chats_egress_allowed_hosts: 'api.example.org, git.example.org:8443, xn--bcher-kva.example' }])
   })
 })
