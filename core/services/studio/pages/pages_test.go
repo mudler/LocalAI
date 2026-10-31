@@ -2,6 +2,8 @@ package pages_test
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -75,6 +77,23 @@ var _ = Describe("page names and paths", func() {
 		} {
 			_, err := pages.CleanPath(bad)
 			Expect(err).To(MatchError(pages.ErrBadPath), "%q", bad)
+		}
+	})
+})
+
+// The same table runs in the web host (tests/unit/pagescodefile.test.mjs).
+var _ = Describe("the files a page may not write", func() {
+	It("judges every path of the shared table the same way as the web host", func() {
+		raw, err := os.ReadFile(filepath.Join("testdata", "code-files.json"))
+		Expect(err).NotTo(HaveOccurred())
+		var cases []struct {
+			Path string `json:"path"`
+			Code bool   `json:"code"`
+		}
+		Expect(json.Unmarshal(raw, &cases)).To(Succeed())
+		Expect(len(cases)).To(BeNumerically(">", 30))
+		for _, c := range cases {
+			Expect(pages.IsCodeFile(c.Path)).To(Equal(c.Code), "path %q", c.Path)
 		}
 	})
 })
@@ -217,7 +236,7 @@ var _ = Describe("the pages service", func() {
 		})
 
 		It("does not let a page change its own code or metadata", func() {
-			for _, p := range []string{"index.html", "page.json", "INDEX.HTML"} {
+			for _, p := range []string{"index.html", "page.json", "INDEX.HTML", "app.js", "sub/Style.CSS", "icon.svg", "app.js."} {
 				_, err := s.Write(ctx, "alice", "tasks", p, []byte("<p>pwned</p>"), 0)
 				Expect(err).To(MatchError(pages.ErrReadOnly), p)
 			}

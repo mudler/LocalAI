@@ -6226,7 +6226,7 @@
                 }
             },
             "put": {
-                "description": "Missing folders are created. A page cannot write its own index.html or page.json. With base, a file that changed since is kept and the content goes to a conflict copy (conflict_of). Writes are rate limited per page.",
+                "description": "Missing folders are created. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json) are refused with 403; the Files page and file tools are not affected. With base, a file that changed since is kept and the content goes to a conflict copy (conflict_of). Writes are rate limited per page.",
                 "tags": [
                     "pages"
                 ],
@@ -6738,7 +6738,7 @@
                 }
             },
             "put": {
-                "description": "With your own grant on the folder: a read grant is refused with 403. A page cannot write its own index.html or page.json.",
+                "description": "With your own grant on the folder: a read grant is refused with 403. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json) are refused with 403.",
                 "tags": [
                     "pages"
                 ],

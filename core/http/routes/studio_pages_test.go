@@ -120,6 +120,24 @@ var _ = Describe("Chats pages endpoints", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/pages/nope", nil).Code).To(Equal(http.StatusNotFound))
 	})
 
+	It("refuses a write of code or a document from a page, while the Files route and data files work", func() {
+		for _, path := range []string{"app.js", "x.MJS", "sub/style.css", "sub/index.htm", "icon.svg", "app.js.", "app%2ejs", "page.json"} {
+			rec := s.do("alice", http.MethodPut, "/api/chats/pages/tasks/file", map[string]any{"path": path, "content": "alert(1)"})
+			Expect(rec.Code).To(Equal(http.StatusForbidden), path+" "+rec.Body.String())
+			Expect(rec.Body.String()).To(ContainSubstring("a page can write data files only"), path)
+		}
+		for _, path := range []string{"data.json", "notes/a.txt", "app.js.bak"} {
+			rec := s.do("alice", http.MethodPut, "/api/chats/pages/tasks/file", map[string]any{"path": path, "content": "{}"})
+			Expect(rec.Code).To(Equal(http.StatusOK), path+" "+rec.Body.String())
+		}
+		// The person, the Files page and the assistant's file tools write the same names.
+		Expect(s.putFile("alice", "/pages/tasks/app.js", "console.log(1)").Code).To(Equal(http.StatusOK))
+		Expect(s.putFile("alice", "/pages/tasks/style.css", "p{}").Code).To(Equal(http.StatusOK))
+		rec := s.do("alice", http.MethodGet, "/api/chats/pages/tasks/file?path=app.js", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["content"]).To(Equal("console.log(1)"))
+	})
+
 	It("sends a page's message into the page's own chat, where it shows as a user message", func() {
 		chat := s.create("alice")
 		Expect(chat).NotTo(BeEmpty())

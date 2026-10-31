@@ -39,7 +39,7 @@ The page runs in a frame with no network and no access to LocalAI or other files
 - No `<form>` submit (it does nothing). Handle the button click and the Enter key.
 - A link to an `https://` address works: LocalAI asks the user, then opens it in a new tab. Use plain `<a href="https://...">`; `window.open` returns `null`. A link to another file of the page opens nothing.
 - No `localStorage` as the only copy of the data. Save to a file with `localai.files.write`; that is the copy the user and you can see.
-- A page cannot write its own `index.html` or `page.json`.
+- A page writes data files only (such as `.json` or `.txt`). `localai.files.write` refuses `.js`, `.mjs`, `.cjs`, `.css`, `.html`, `.htm`, `.svg`, `.xml`, `.xhtml`, `.wasm`, a file named `index` and `page.json` with the error code `forbidden`. You change the code of the page with the file tools, never the page itself.
 
 ## The bridge
 

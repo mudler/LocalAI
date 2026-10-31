@@ -306,8 +306,17 @@ cannot be read, or has no `widget` block, the tile says so with a link to
 | `chat.send` | 3 at once, then one every 20 seconds, per page; 4000 characters |
 | Pages in a listing | 200 |
 
-A page cannot write its own `index.html` or `page.json`: only you and the
-assistant change a page's code. Debounce writes in a page that saves while the
+A page writes data files only. A write of a code or document file is refused
+with the error code `forbidden` and the message "a page can write data files
+only (such as .json or .txt); ask the assistant to change the code of the
+page". That covers the extensions `.js`, `.mjs`, `.cjs`, `.css`, `.html`,
+`.htm`, `.svg`, `.xml`, `.xhtml` and `.wasm` (in any case, in the page's folder
+and its subfolders), a file named `index` and `page.json`. Because a page loads
+its own scripts and styles, a page that could rewrite them would run new code on
+the next load. The server enforces this on the page's bridge; you and the
+assistant write the same files through the Files page and the file tools. A
+shared page follows the same rule, and a consent is kept against the code you
+allowed, which a page cannot change. Debounce writes in a page that saves while the
 user types.
 
 The rate limits are kept by each frontend. With several frontends, a page gets
@@ -466,7 +475,7 @@ curl -s -X PUT http://localhost:8080/api/chats/pages/tasks/file \
 ```
 
 The answers use the error types of the chats API: `400` for a bad name or path,
-`403` when the feature is off or a page tries to change its own code, `404` for
+`403` when the feature is off or a page tries to write code (anything but a data file), `404` for
 a page or file that does not exist (also another user's), `413` for a file over
 1 MiB, `415` for a file that is not text and `429` for too many writes or
 messages.

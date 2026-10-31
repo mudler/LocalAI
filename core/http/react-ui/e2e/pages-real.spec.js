@@ -84,6 +84,32 @@ test('the bridge reads, lists and writes the own folder and tells the page what 
   expect(own.status()).toBe(403)
 })
 
+// A page may save data files; the code of a page is changed by the person or
+// the assistant, so a page cannot make its next load run new code.
+const WRITER = `<!doctype html><html><body><p id="code"></p><p id="data"></p><p id="late"></p>
+<script>
+const out = (id, v) => { document.getElementById(id).textContent = v }
+localai.files.write('app.js', 'alert(1)').then((f) => out('code', 'WROTE ' + f.path), (e) => out('code', e.code + ': ' + e.message))
+localai.files.write('data.json', '{"ok":true}').then((f) => out('data', 'v' + f.version), (e) => out('data', 'ERR ' + e.message))
+</script></body></html>`
+
+test('a page cannot write its own code, only data files', async ({ page, request }) => {
+  const writer = `writer-${stamp}`
+  expect((await put(request, `/pages/${writer}/index.html`, WRITER)).ok()).toBeTruthy()
+  await page.goto(`/app/pages/${writer}`)
+  const f = frame(page)
+  await expect(f.locator('#code')).toHaveText(/^forbidden: a page can write data files only/, { timeout: 15_000 })
+  await expect(f.locator('#data')).toHaveText(/^v\d+$/)
+  expect((await request.get(`/api/chats/pages/${writer}/file?path=app.js`)).status()).toBe(404)
+  const res = await request.get(`/api/chats/pages/${writer}/file?path=data.json`)
+  expect((await res.json()).content).toBe('{"ok":true}')
+  // The server refuses it too, for a caller that skips the host's check.
+  const direct = await request.put(`/api/chats/pages/${writer}/file`, { data: { path: 'style.css', content: 'p{}' } })
+  expect(direct.status()).toBe(403)
+  // The person's own Files route still writes code in the page folder.
+  expect((await put(request, `/pages/${writer}/app.js`, 'console.log(1)')).ok()).toBeTruthy()
+})
+
 test('chat.send asks first, then puts the message in the page chat', async ({ page, request }) => {
   await page.addInitScript(() => { try { localStorage.setItem('localai_last_model:FLAG_CHAT', 'mock-model') } catch { /* private mode */ } })
   await page.goto(`/app/pages/${NAME}`)

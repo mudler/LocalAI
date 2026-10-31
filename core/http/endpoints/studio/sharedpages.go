@@ -272,7 +272,7 @@ func (h *Handlers) ReadSharedPageFile(c echo.Context) error {
 
 // WriteSharedPageFile writes a text file of a shared page.
 // @Summary Write a text file of a shared page (bridge files.write).
-// @Description With your own grant on the folder: a read grant is refused with 403. A page cannot write its own index.html or page.json.
+// @Description With your own grant on the folder: a read grant is refused with 403. A page writes data files only: code and document files (.js .mjs .cjs .css .html .htm .svg .xml .xhtml .wasm, index, page.json) are refused with 403.
 // @Tags pages
 // @Param folder path integer true "shared folder id"
 // @Param name path string true "page name"
