@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { chatEgressApi } from '../utils/api'
 
-const empty = { preset: 'off', ceiling: 'off', effective: 'off', applies: false, applies_reason: '', registries: [], rules: [], cards: [] }
+const empty = { preset: 'off', ceiling: 'off', effective: 'off', applies: false, applies_reason: '', registries: [], allowed_hosts: [], rules: [], cards: [] }
 
 // The network of a chat's Sandbox commands (GET /api/chats/{id}/egress), read
 // again when tick changes (an egress_consent or egress_card event). setPreset

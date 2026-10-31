@@ -569,6 +569,9 @@
       "answered": "{{state}} by {{who}}, {{time}}",
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "you"
-    }
+    },
+    "allowedHosts": "Always allowed by your administrator:",
+    "allowedHostsOff": "They apply when the network is on.",
+    "allowedHostsNote": "{{count}} hosts are always allowed by your administrator."
   }
 }

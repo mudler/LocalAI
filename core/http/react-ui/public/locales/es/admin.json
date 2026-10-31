@@ -141,6 +141,24 @@
           "done": "Terminada"
         }
       }
+    },
+    "hosts": {
+      "add": "Añadir",
+      "listLabel": "Hosts siempre permitidos",
+      "remove": "Quitar {{host}}",
+      "empty": "Aún no hay hosts. Escribe un nombre de host, o host:puerto para fijar el puerto.",
+      "hint": "Solo nombres exactos. Añade :puerto para permitir un único puerto; si no, se aplican los puertos de red del Sandbox.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Escribe un nombre de host.",
+        "wildcard": "\"{{value}}\": escribe un nombre de host exacto, no un patrón.",
+        "shape": "\"{{value}}\" no es un nombre de host. Escribe solo el host, sin esquema ni ruta.",
+        "port": "\"{{value}}\": el puerto debe estar entre 1 y 65535, y el 22 y el 25 se rechazan siempre.",
+        "private": "\"{{value}}\" es una dirección privada o local. Activa antes el interruptor de red privada.",
+        "numeric": "\"{{value}}\": escribe una dirección IP como cuatro números decimales.",
+        "duplicate": "\"{{value}}\" ya está en la lista.",
+        "full": "La lista admite como máximo {{max}} hosts."
+      }
     }
   },
   "backends": {

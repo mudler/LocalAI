@@ -7,6 +7,7 @@ import {
 } from '../../utils/settingsSchema'
 import { displayValue } from '../../utils/settingsPending'
 import LibrarySourcesField from './LibrarySourcesField'
+import HostListField from './HostListField'
 
 // What applying the field does, in words. Only a field the code speaks about
 // has a hint (see settingsSchema.js); the others say nothing.
@@ -86,6 +87,13 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
             capability={MODEL_CAPABILITY[field.key]}
           />
         </div>
+      )
+    case 'hosts':
+      return (
+        <HostListField
+          id={id} value={value} onChange={set} disabled={disabled} placeholder={field.placeholder}
+          allowPrivate={!!getValue(FIELD_BY_KEY.chats_egress_allow_private, settings)}
+        />
       )
     case 'json':
     case 'lines':
@@ -169,7 +177,7 @@ export default function SettingField({ field, settings, onChange, assets, showWh
   const needsValue = !field.needsValue || getValue(FIELD_BY_KEY[field.needsValue[0]], settings) === field.needsValue[1]
   const disabled = !needsOn || !needsValue
   const changed = isChanged(field, settings)
-  const wide = field.kind === 'json' || field.kind === 'lines'
+  const wide = field.kind === 'json' || field.kind === 'lines' || field.kind === 'hosts'
   const where = groupOf(field.group)?.label
   const was = OLD_SECTIONS[field.was]
 

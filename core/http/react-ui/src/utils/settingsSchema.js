@@ -59,7 +59,7 @@ const AGENT_RESTART = { apply: 'restart' }
 const WATCHDOG_LIVE = { apply: 'live', note: 'The watchdog restarts with the new values.' }
 
 // One row per real setting. `kind` picks the control:
-//   bool, text, int, duration, percent, select, model, json, lines, token,
+//   bool, text, int, duration, percent, select, model, json, lines, hosts, token,
 //   asset (the three branding images, saved at once by their own endpoint).
 export const FIELDS = [
   // ---- Memory and models ---------------------------------------------------
@@ -240,8 +240,11 @@ export const FIELDS = [
     desc: 'The ports Sandbox commands may reach, comma separated. 22 and 25 are always refused.',
     placeholder: '80,443', default: '80,443', apply: 'live' },
   { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
-    desc: 'Exact host names added to the package registries, comma separated, for example an internal mirror. No patterns.',
+    desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Package registries choice (HTTPS only). To allow a host for any request, use Always allowed hosts. No patterns.',
     placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
+  { key: 'chats_egress_allowed_hosts', group: 'tools', was: 'chats', kind: 'hosts', max: 64, label: 'Always allowed hosts',
+    desc: 'Exact hosts (or host:port) that every chat with the network on may reach without asking, over any protocol. Unlike extra package registries, they are not tied to the Package registries list. They do nothing with the network off or above the limit, and private addresses stay refused unless the private switch below allows them.',
+    placeholder: 'api.example.org', default: '', apply: 'live' },
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Sandbox network audit retention',
     desc: 'How many days the audit of the Sandbox network requests keeps a line (1 to 365).',
     default: 30, apply: 'live' },

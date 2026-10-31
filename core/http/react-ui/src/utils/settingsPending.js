@@ -10,6 +10,7 @@
 import {
   FIELDS, FIELD_BY_KEY, getValue, valuesEqual, parseGoDuration, vramBudgetError, compactDuration,
 } from './settingsSchema.js'
+import { checkHost, hostEntries, MAX_ALLOWED_HOSTS } from './egressHosts.js'
 
 // Fields in the order of the page that differ from `initial`. A field the
 // page saves at once (the logos) never appears.
@@ -72,6 +73,10 @@ export function displayValue(field, v) {
       const n = linesOf(v).length
       return `${n} ${n === 1 ? 'key' : 'keys'}`
     }
+    case 'hosts': {
+      const n = hostEntries(v).length
+      return n ? `${n} ${n === 1 ? 'host' : 'hosts'}` : 'empty'
+    }
     default: {
       const t = String(v ?? '').trim()
       return t ? clip(t) : 'empty'
@@ -98,6 +103,14 @@ export function runChecks(changes, initial, draft) {
     if (field.key === 'vram_budget') {
       const err = vramBudgetError(to)
       checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${String(to).trim() || 'No cap'} is a valid GPU memory budget.` })
+    }
+    if (field.kind === 'hosts') {
+      const entries = hostEntries(to)
+      const allowPrivate = !!draft?.chats_egress_allow_private
+      const bad = entries.find(e => { const r = checkHost(e, { allowPrivate }); return r.error && r.error !== 'duplicate' && r.error !== 'full' })
+      if (bad) checks.push({ level: 'error', text: `${field.label}: "${bad}" is not an exact host name. Write host or host:port, with no pattern, scheme or path.` })
+      else if (entries.length > MAX_ALLOWED_HOSTS) checks.push({ level: 'error', text: `${field.label}: at most ${MAX_ALLOWED_HOSTS} hosts.` })
+      else checks.push({ level: 'ok', text: `${field.label}: ${entries.length} ${entries.length === 1 ? 'host' : 'hosts'}.` })
     }
     if (field.key === 'chats_egress_allow_private' && to && !getValue(field, initial)) {
       checks.push(String(draft?.[EGRESS_CONFIRM_KEY] || '').trim() === EGRESS_PRIVATE_PHRASE

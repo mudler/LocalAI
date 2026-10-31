@@ -141,6 +141,24 @@
           "done": "Conclusa"
         }
       }
+    },
+    "hosts": {
+      "add": "Aggiungi",
+      "listLabel": "Host sempre consentiti",
+      "remove": "Rimuovi {{host}}",
+      "empty": "Nessun host. Scrivi un nome host, oppure host:porta per fissare la porta.",
+      "hint": "Solo nomi esatti. Aggiungi :porta per consentire una sola porta; altrimenti valgono le porte di rete della Sandbox.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Scrivi un nome host.",
+        "wildcard": "\"{{value}}\": scrivi un nome host esatto, non un pattern.",
+        "shape": "\"{{value}}\" non è un nome host. Scrivi solo l'host, senza schema né percorso.",
+        "port": "\"{{value}}\": la porta deve essere da 1 a 65535, e 22 e 25 sono sempre rifiutate.",
+        "private": "\"{{value}}\" è un indirizzo privato o locale. Attiva prima l'interruttore della rete privata.",
+        "numeric": "\"{{value}}\": scrivi un indirizzo IP come quattro numeri decimali.",
+        "duplicate": "\"{{value}}\" è già nell'elenco.",
+        "full": "L'elenco contiene al massimo {{max}} host."
+      }
     }
   },
   "backends": {

@@ -141,6 +141,24 @@
           "done": "Beendet"
         }
       }
+    },
+    "hosts": {
+      "add": "Hinzufügen",
+      "listLabel": "Immer erlaubte Hosts",
+      "remove": "{{host}} entfernen",
+      "empty": "Noch kein Host. Geben Sie einen Hostnamen ein, oder Host:Port, um den Port festzulegen.",
+      "hint": "Nur genaue Namen. Mit :Port erlauben Sie nur einen Port; sonst gelten die Netzwerk-Ports der Sandbox.",
+      "count": "{{n}}/{{max}}",
+      "errors": {
+        "empty": "Geben Sie einen Hostnamen ein.",
+        "wildcard": "\"{{value}}\": Geben Sie einen genauen Hostnamen ein, kein Muster.",
+        "shape": "\"{{value}}\" ist kein Hostname. Geben Sie nur den Host ein, ohne Schema und Pfad.",
+        "port": "\"{{value}}\": Der Port muss zwischen 1 und 65535 liegen; 22 und 25 werden immer abgelehnt.",
+        "private": "\"{{value}}\" ist eine private oder lokale Adresse. Schalten Sie zuerst den Schalter für das private Netzwerk ein.",
+        "numeric": "\"{{value}}\": Schreiben Sie eine IP-Adresse als vier Dezimalzahlen.",
+        "duplicate": "\"{{value}}\" steht schon in der Liste.",
+        "full": "Die Liste enthält höchstens {{max}} Hosts."
+      }
     }
   },
   "backends": {
