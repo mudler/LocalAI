@@ -52,5 +52,9 @@ func (s *Store) find(d *data, a workspace.Actor, p string, need workspace.Mode) 
 }
 
 func (d *data) toNode(n nodeRow) workspace.Node {
-	return workspace.Node{ID: n.ID, Path: d.pathOf(n.ID), Name: n.Name, Kind: n.Kind, Blob: n.Blob, Size: n.Size, Version: n.Version, Rev: n.Rev}
+	node := workspace.Node{ID: n.ID, Path: d.pathOf(n.ID), Name: n.Name, Kind: n.Kind, Blob: n.Blob, Size: n.Size, Version: n.Version, Rev: n.Rev}
+	if cs := d.sets[n.Rev]; cs != nil {
+		node.Modified = msTime(cs.CreatedAt)
+	}
+	return node
 }

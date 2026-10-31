@@ -326,6 +326,8 @@ type ChatsFile struct {
 	// Managed is set on a path LocalAI manages: "localai" for the LocalAI
 	// folder and the settings files in it, "chats" for the Chats folder.
 	Managed string `json:"managed,omitempty"`
+	// Modified is when the entry last changed. A folder listing sets it.
+	Modified *time.Time `json:"modified,omitempty"`
 }
 
 // ChatsFilePreview is what the server reads out of a file that a browser
@@ -392,6 +394,9 @@ type WorkspaceChange struct {
 type ChatsFileList struct {
 	Path    string      `json:"path"`
 	Entries []ChatsFile `json:"entries"`
+	// MaxFileSize is the largest file an upload may send, in bytes. Zero or
+	// absent: the server reports no limit.
+	MaxFileSize int64 `json:"max_file_size,omitempty"`
 }
 
 // ChatsFolderRequest creates a folder.

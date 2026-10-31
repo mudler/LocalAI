@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -23,7 +24,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func newTestFiles() *files.Service {
+func newTestFiles(opts ...files.Option) *files.Service {
 	dsn := "file:" + filepath.Join(GinkgoT().TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	Expect(err).NotTo(HaveOccurred())
@@ -36,7 +37,7 @@ func newTestFiles() *files.Service {
 			_ = raw.Close()
 		}
 	})
-	return files.New(ws, files.WithBlobs(blobs))
+	return files.New(ws, append([]files.Option{files.WithBlobs(blobs)}, opts...)...)
 }
 
 // raw sends a request with a body of any type.
@@ -99,6 +100,25 @@ var _ = Describe("Chats files endpoints", func() {
 		got := s.do("alice", http.MethodGet, "/api/chats/files/content?path="+q("/Notes/a.txt"), nil)
 		Expect(got.Code).To(Equal(http.StatusOK))
 		Expect(got.Body.String()).To(Equal("hello"))
+	})
+
+	It("says when each entry last changed, and no upload limit when the server has none", func() {
+		Expect(s.putFile("alice", "/Notes/a.txt", "hello").Code).To(Equal(http.StatusOK))
+		rec := s.do("alice", http.MethodGet, "/api/chats/files?path="+q("/Notes"), nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		body := decodeJSON(rec)
+		Expect(body).ToNot(HaveKey("max_file_size"))
+		entry := body["entries"].([]any)[0].(map[string]any)
+		modified, err := time.Parse(time.RFC3339Nano, entry["modified"].(string))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(modified).To(BeTemporally("~", time.Now(), time.Minute))
+	})
+
+	It("reports the largest upload the server takes, so the page can refuse a larger file before sending it", func() {
+		limited := newStudioServerFiles(newTestFiles(files.WithMaxFileSize(15 << 20)))
+		rec := limited.do("alice", http.MethodGet, "/api/chats/files?path=/", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("max_file_size", BeNumerically("==", 15<<20)))
 	})
 
 	It("marks the folders LocalAI manages, and moves old settings files into LocalAI/ before listing the home", func() {
