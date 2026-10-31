@@ -2922,7 +2922,7 @@
       "unit: registry: a poll never replaces a withdrawn instance; only reload does",
       "unit: registry: a hold ends with its last holder and a load that was withdrawn leaves no instance behind",
       "unit: registry: navigation and chat actions come only from usable add-ons of the current generation",
-      "unit: registry: the Add-ons tab lists page links only when the registry has usable add-ons",
+      "unit: registry: the legacy Add-ons tab lists page links only when the registry has usable add-ons",
       "unit: registry: the list is read off the Add-ons page only for a viewer with the feature and a UI contribution",
       "go: describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
       "go: resolves a package for the current enabled generation and digest only",
