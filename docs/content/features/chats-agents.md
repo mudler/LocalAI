@@ -431,7 +431,7 @@ behaves with several frontends:
 | Agents, triggers, runs, notifications, push subscriptions | Shared | Rows in the database. Any frontend reads and writes them. |
 | Which frontend runs the triggers | Single runner | The frontend that holds the advisory lock (`KeyChatsTriggers`) runs the Runner. When it stops, another takes the lock. |
 | A due time or a file version | Shared | One unique row for each trigger and due key. Two frontends cannot start the same run. |
-| Trigger proposals and changes asked for in a chat | Stateless | Rows in the trigger table. Each request reads and writes them in the database, so any frontend can show, apply or undo them. |
+| Trigger proposals and changes asked for in a chat | Stateless | Rows in the trigger table. Each request reads and writes them in the database, so any frontend can show, apply or undo them. The answer to a change (apply, dismiss, undo) is a conditional update of its row: when two frontends answer the same change at once, one wins and the other answers `409`, so a change is applied or undone once. |
 | Quiet periods of waiting files, the memory of a run's own writes | Per leader | Kept by the Runner of the current leader. A new leader reads the change feed again from its saved position, which stays below the oldest waiting file, so a file that was waiting is found again. |
 | Live notifications | Shared, live only | Sent over the message bus to every frontend, with the "read or deleted" signal. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |

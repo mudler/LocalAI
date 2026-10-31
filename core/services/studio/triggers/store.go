@@ -39,6 +39,11 @@ func (p Retention) expires(due time.Time) bool {
 type Store interface {
 	// PutTrigger creates the trigger or replaces the one with the same ID.
 	PutTrigger(ctx context.Context, t Trigger) error
+	// SetOutcome sets Outcome and OutcomeAt of the trigger id to to and at,
+	// only while its Outcome is from, and reports whether it did. It is the
+	// one write that decides an answer to a change record: two frontends that
+	// answer the same record at once get true once.
+	SetOutcome(ctx context.Context, id, from, to string, at time.Time) (bool, error)
 	// DeleteTrigger removes the trigger with its runs and its last due time.
 	// It is not an error when the trigger does not exist.
 	DeleteTrigger(ctx context.Context, id string) error

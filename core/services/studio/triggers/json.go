@@ -102,6 +102,23 @@ func (s *jsonStore) PutTrigger(_ context.Context, t Trigger) error {
 	return nil
 }
 
+func (s *jsonStore) SetOutcome(_ context.Context, id, from, to string, at time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old, ok := s.d.Triggers[id]
+	if !ok || old.Outcome != from {
+		return false, nil
+	}
+	t := old
+	t.Outcome, t.OutcomeAt = to, utc(at)
+	s.d.Triggers[id] = t
+	if err := s.save(); err != nil {
+		s.d.Triggers[id] = old
+		return false, err
+	}
+	return true, nil
+}
+
 func (s *jsonStore) DeleteTrigger(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

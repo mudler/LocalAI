@@ -351,6 +351,84 @@ var _ = Describe("trigger changes on two frontends", func() {
 	})
 })
 
+// hookStore runs before once, at the first SetOutcome: the moment a frontend
+// has read the change record and is about to answer it. Another frontend that
+// answers in that moment is the race the store's conditional write settles.
+type hookStore struct {
+	triggers.Store
+	before func()
+}
+
+func (s *hookStore) SetOutcome(ctx context.Context, id, from, to string, at time.Time) (bool, error) {
+	if f := s.before; f != nil {
+		s.before = nil
+		f()
+	}
+	return s.Store.SetOutcome(ctx, id, from, to, at)
+}
+
+var _ = Describe("trigger changes answered on two frontends at once", func() {
+	It("applies a change once and undoes it once", func() {
+		sh := newShared()
+		c := &callScript{}
+		a := sh.rig(c.script, studio.TriggerOptions{})
+		hook := &hookStore{Store: sh.trg}
+		sh.trg = hook
+		b := sh.rig(saySummary, studio.TriggerOptions{})
+		ctx := context.Background()
+		tr := a.schedule(studio.TriggerInput{Name: "Nightly"})
+		chat := create(a.svc, alice)
+		c.call(a, chat, "update_trigger", fmt.Sprintf(`{"ref":%q,"name":"Renamed"}`, studio.TriggerRef(tr.ID)))
+		card := lastCard(a, chat)
+
+		// b has read the pending change and the trigger; a applies it now.
+		var aErr error
+		hook.before = func() { _, aErr = a.host.ApplyChange(ctx, alice, card.ID) }
+		_, err := b.host.ApplyChange(ctx, alice, card.ID)
+		Expect(aErr).NotTo(HaveOccurred())
+		Expect(err).To(MatchError(studio.ErrProposalAnswered))
+		v, err := b.host.ChangeStatus(ctx, alice, card.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.State).To(Equal(studio.ChangeApplied))
+		Expect(v.CanUndo).To(BeTrue(), "the losing apply left the record as the winner wrote it")
+
+		hook.before = func() { _, aErr = a.host.UndoChange(ctx, alice, card.ID) }
+		_, err = b.host.UndoChange(ctx, alice, card.ID)
+		Expect(aErr).NotTo(HaveOccurred())
+		Expect(err).To(MatchError(studio.ErrProposalAnswered))
+		got, err := b.host.GetTrigger(ctx, alice, tr.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Name).To(Equal("Nightly"))
+		v, _ = a.host.ChangeStatus(ctx, alice, card.ID)
+		Expect(v.State).To(Equal(studio.ChangeUndone))
+	})
+
+	It("deletes a trigger once when both frontends apply the delete", func() {
+		sh := newShared()
+		c := &callScript{}
+		a := sh.rig(c.script, studio.TriggerOptions{})
+		hook := &hookStore{Store: sh.trg}
+		sh.trg = hook
+		b := sh.rig(saySummary, studio.TriggerOptions{})
+		ctx := context.Background()
+		tr := a.schedule(studio.TriggerInput{Name: "Nightly"})
+		chat := create(a.svc, alice)
+		c.call(a, chat, "delete_trigger", fmt.Sprintf(`{"ref":%q}`, studio.TriggerRef(tr.ID)))
+		card := lastCard(a, chat)
+
+		var aErr error
+		hook.before = func() { _, aErr = a.host.ApplyChange(ctx, alice, card.ID) }
+		_, err := b.host.ApplyChange(ctx, alice, card.ID)
+		Expect(aErr).NotTo(HaveOccurred())
+		Expect(err).To(MatchError(studio.ErrProposalAnswered))
+		_, err = a.host.UndoChange(ctx, alice, card.ID)
+		Expect(err).NotTo(HaveOccurred(), "the copy that undoes the delete is the one the winner kept")
+		got, err := a.host.GetTrigger(ctx, alice, tr.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Name).To(Equal("Nightly"))
+	})
+})
+
 var _ = Describe("trigger changes of a file trigger", func() {
 	It("keeps the folder when only the name changes", func() {
 		c := &callScript{}
