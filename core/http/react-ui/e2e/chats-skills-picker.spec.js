@@ -110,7 +110,7 @@ test.describe('Chat skills picker', () => {
   test('a click on the name toggles the switch too', async ({ page }) => {
     await stub(page)
     await open(page)
-    await page.getByTestId('chat-skills-item').nth(2).locator('.sk-row__name').click()
+    await page.getByTestId('chat-skills-item').nth(2).locator('.swl-row__name').click()
     await expect(sw(page, 'skill-03')).not.toBeChecked()
   })
 
