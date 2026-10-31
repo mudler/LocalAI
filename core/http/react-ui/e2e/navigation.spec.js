@@ -21,7 +21,7 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('the sidebar has Files, Agents, MCP connectors, Memory, Models and Add-ons, then the recent chats; no Chats entry, no Settings and no Create tier', async ({ page }) => {
+  test('the sidebar has Files, Agents, MCP connectors, Memory, Skills, Models and Add-ons, then the recent chats; no Chats entry, no Settings and no Create tier', async ({ page }) => {
     await stubAddonRoutes(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
@@ -29,7 +29,7 @@ test.describe('Navigation', () => {
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chats"]')).toHaveCount(0)
     await expect(page.getByTestId('sidebar-chats')).toBeVisible()
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/chats/all"]')).toBeVisible()
-    for (const href of ['/app/files', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/models', '/app/addons']) {
+    for (const href of ['/app/files', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`).first()).toBeVisible()
     }
     // Settings lives under the Operate hub, not in the sidebar.
@@ -79,8 +79,8 @@ test.describe('Navigation', () => {
     await item('/app/agents').click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     await expect(item('/app/agents')).toHaveClass(/active/)
-    // Triggers, skills and the messaging connectors belong to the agents.
-    for (const path of ['/app/triggers', '/app/skills', '/app/chats/connectors']) {
+    // Triggers and the messaging connectors belong to the agents.
+    for (const path of ['/app/triggers', '/app/chats/connectors']) {
       await page.goto(path)
       await expect(item('/app/agents')).toHaveClass(/active/)
       await expect(item('/app/chats/all')).not.toHaveClass(/active/)
