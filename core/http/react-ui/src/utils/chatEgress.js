@@ -64,6 +64,21 @@ export function cardStateKey(card) {
 // administrator to allow it; anyone who owns the chat may deny.
 export function cardAnswers(card, isAdmin) {
   if (!card || card.state !== 'pending') return []
+  // The limit does not admit the host: no answer can make it work.
+  if (card.above_ceiling) return []
   if (card.private && !isAdmin) return ['deny']
   return ['once', 'chat', 'deny']
 }
+
+// What the limit set by the administrator means for the chat: 'off' when it
+// allows no network at all, 'capped' when it allows less than all public
+// sites, '' when it does not limit anything.
+export function ceilingKind(egress) {
+  const c = egress?.ceiling || 'off'
+  if (c === 'off') return 'off'
+  return c === 'all' ? '' : 'capped'
+}
+
+// Where an administrator changes the limit: Settings > Tools, the Sandbox
+// network section.
+export const SANDBOX_NETWORK_SETTINGS = '/app/settings?group=tools'

@@ -2,7 +2,9 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
-import { cardStateKey, hostPort, networkMode, presetChoices, sortedCards } from '../../utils/chatEgress'
+import { useAuth } from '../../context/AuthContext'
+import { AdminHint } from './NetworkConsentCard'
+import { ceilingKind, cardStateKey, hostPort, networkMode, presetChoices, sortedCards } from '../../utils/chatEgress'
 import './network.css'
 
 // The Network row of the chat's Tools menu: how much of the network the
@@ -13,11 +15,13 @@ import './network.css'
 export default function NetworkRow({ egress }) {
   const { t } = useTranslation('chats')
   const labelId = useId()
+  const { isAdmin } = useAuth()
   const [open, setOpen] = useState(false)
   const mode = networkMode(egress)
   if (mode === 'hidden') return null
   if (mode === 'host') return <p className="cmd-notice__line" data-testid="chat-network-host">{t('egress.hostNetwork')}</p>
   const choices = presetChoices(egress)
+  const kind = ceilingKind(egress)
   const items = egress.rules.length + egress.cards.length
   return (
     <div className="chat-network" data-testid="chat-network">
@@ -36,9 +40,14 @@ export default function NetworkRow({ egress }) {
         </div>
       </div>
       <p className="chat-network__note">
-        {t(`egress.presetHint.${egress.effective || 'off'}`)}
-        {egress.ceiling !== 'all' && <> {t('egress.limitedBy', { limit: t(`egress.preset.${egress.ceiling || 'off'}`) })}</>}
+        {kind === 'off'
+          ? t('egress.blocked.rowOff')
+          : <>
+            {t(`egress.presetHint.${egress.effective || 'off'}`)}
+            {kind === 'capped' && <> {t('egress.limitedBy', { limit: t(`egress.preset.${egress.ceiling}`) })}</>}
+          </>}
       </p>
+      {kind && <AdminHint isAdmin={isAdmin} egress={egress} testId="chat-network-limit-admin" />}
       {items > 0 && (
         <button type="button" className="chat-network__toggle" aria-expanded={open} onClick={() => setOpen(v => !v)} data-testid="chat-network-panel-toggle">
           {t('egress.panel', { count: items })}

@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { settingsApi, resourcesApi, brandingApi } from '../utils/api'
 import { useBranding } from '../contexts/BrandingContext'
@@ -78,7 +78,9 @@ export default function Settings() {
   const [loadError, setLoadError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [resources, setResources] = useState(null)
-  const [group, setGroup] = useState(GROUPS[0].id)
+  // ?group=tools opens that group, so a link can point at one section.
+  const [params] = useSearchParams()
+  const [group, setGroup] = useState(() => GROUPS.find(g => g.id === params.get('group'))?.id || GROUPS[0].id)
   const [query, setQuery] = useState('')
   const [showDiff, setShowDiff] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
