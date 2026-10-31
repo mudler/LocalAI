@@ -590,6 +590,9 @@ test.describe('Home send hand-off', () => {
     await page.locator('.home-send-btn').click()
     await expect(page).toHaveURL(/\/app\/chats\/n1$/)
     await expect.poll(() => seen.sent.length).toBe(1)
+    // The address changes first and the chat page draws a frame later; Back
+    // is from the new chat only once it is there.
+    await expect(page.getByTestId('chats-page')).toBeVisible()
 
     // Back is Home again, with the draft gone: nothing is sent twice.
     await page.goBack()

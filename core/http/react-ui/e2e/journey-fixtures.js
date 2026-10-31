@@ -63,6 +63,9 @@ export async function startChat(page, text) {
   await offerMockModel(page)
   await sendFromHome(page, text)
   await page.waitForURL(/\/app\/chats\/[0-9a-f]+$/)
+  // The address changes as the hand-off starts; the chat page draws a frame
+  // later, and until then a key or a reload reaches Home, not the chat.
+  await expect(page.getByTestId('chats-page')).toBeVisible()
   return page.url().split('/').pop()
 }
 

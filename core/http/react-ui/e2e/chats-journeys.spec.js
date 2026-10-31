@@ -127,6 +127,11 @@ test.describe('Chat journeys', () => {
   test('a chat gets a title from its first message', async ({ page }) => {
     const id = await startChat(page, 'plan my trip to Lisbon')
     await expect.poll(async () => (await (await page.request.get(`/api/chats/${id}`)).json()).title, { timeout: 20_000 }).toContain('Lisbon')
+    // The server names the chat as the message arrives, so the poll can end
+    // while the address is the chat's but Home has not yet given way to the
+    // chat page, whose Ctrl+K would then not be listening. The page shows the
+    // title once it has read the chat.
+    await expect(page.getByTestId('chat-title')).toContainText('Lisbon')
     await page.keyboard.press('Control+k')
     await expect(page.getByTestId('chats-row').filter({ hasText: 'Lisbon' }).first()).toBeVisible()
   })
