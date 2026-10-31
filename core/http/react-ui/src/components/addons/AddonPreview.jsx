@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { Button, Callout } from '../ui'
 import { apiUrl } from '../../utils/basePath'
+import { pushLayer } from '../../utils/modalLayers'
 import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
 import AddonSkills from './AddonSkills'
@@ -23,8 +24,19 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
   const ref = useRef(null)
   const app = tile.app
   useEffect(() => { ref.current?.focus({ preventScroll: true }) }, [tile.id])
+  // The pane is a layer, so an Escape meant for a dialog opened from it (a
+  // restore, a removal) closes only that dialog. The dialog listens on the
+  // document, after this handler, so defaultPrevented is not set yet here.
+  const layerRef = useRef(null)
+  useEffect(() => {
+    const layer = pushLayer()
+    layerRef.current = layer
+    return () => { layer.pop(); layerRef.current = null }
+  }, [])
   const onKeyDown = (e) => {
-    if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); onClose() }
+    if (e.key !== 'Escape' || e.defaultPrevented || (layerRef.current && !layerRef.current.isTop())) return
+    e.preventDefault()
+    onClose()
   }
   const update = isAdmin && source ? updateView(source.update) : null
   return (
