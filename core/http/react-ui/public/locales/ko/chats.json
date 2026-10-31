@@ -175,5 +175,28 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "나"
     }
+  },
+  "inbox": {
+    "empty": "아직 아무것도 없습니다.",
+    "unread": "읽지 않음 {{count}}개",
+    "markAll": "모두 읽음으로 표시",
+    "delete": "삭제",
+    "pushOn": "브라우저 알림 켜기",
+    "pushOff": "브라우저 알림 끄기",
+    "pushDenied": "이 사이트의 브라우저 알림이 차단되어 있습니다.",
+    "pushUnavailable": "이 서버는 푸시 구독을 저장할 수 없습니다.",
+    "clearAll": "모두 지우기",
+    "clearRead": "읽은 항목 지우기",
+    "cancel": "취소",
+    "markRead": "읽음으로 표시",
+    "cleared_other": "알림 {{count}}개를 삭제했습니다.",
+    "confirmAll_other": "알림 {{count}}개를 모두 삭제할까요? 되돌릴 수 없습니다.",
+    "confirmRead_other": "읽은 알림 {{count}}개를 삭제할까요? 읽지 않은 알림은 유지됩니다.",
+    "onlyRead": "읽은 {{count}}개만",
+    "showing": "{{total}}개 중 {{shown}}개 표시",
+    "showMore": "더 보기",
+    "cleared_one": "알림 {{count}}개를 삭제했습니다.",
+    "confirmAll_one": "알림 {{count}}개를 모두 삭제할까요? 되돌릴 수 없습니다.",
+    "confirmRead_one": "읽은 알림 {{count}}개를 삭제할까요? 읽지 않은 알림은 유지됩니다."
   }
 }

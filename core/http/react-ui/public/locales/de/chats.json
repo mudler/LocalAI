@@ -175,5 +175,28 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "Ihnen"
     }
+  },
+  "inbox": {
+    "empty": "Noch nichts hier.",
+    "unread": "{{count}} ungelesen",
+    "markAll": "Alle als gelesen markieren",
+    "delete": "Löschen",
+    "pushOn": "Browser-Benachrichtigungen aktivieren",
+    "pushOff": "Browser-Benachrichtigungen deaktivieren",
+    "pushDenied": "Browser-Benachrichtigungen sind für diese Website blockiert.",
+    "pushUnavailable": "Dieser Server kann keine Push-Abonnements speichern.",
+    "clearAll": "Alle löschen",
+    "clearRead": "Gelesene löschen",
+    "cancel": "Abbrechen",
+    "markRead": "Als gelesen markieren",
+    "cleared_one": "{{count}} Benachrichtigung entfernt.",
+    "cleared_other": "{{count}} Benachrichtigungen entfernt.",
+    "confirmAll_one": "{{count}} Benachrichtigung entfernen? Das lässt sich nicht rückgängig machen.",
+    "confirmAll_other": "Alle {{count}} Benachrichtigungen entfernen? Das lässt sich nicht rückgängig machen.",
+    "confirmRead_one": "{{count}} gelesene Benachrichtigung entfernen? Ungelesene bleiben erhalten.",
+    "confirmRead_other": "{{count}} gelesene Benachrichtigungen entfernen? Ungelesene bleiben erhalten.",
+    "onlyRead": "Nur die {{count}} gelesenen",
+    "showing": "{{shown}} von {{total}} angezeigt",
+    "showMore": "Mehr anzeigen"
   }
 }

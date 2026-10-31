@@ -175,5 +175,28 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "Anda"
     }
+  },
+  "inbox": {
+    "empty": "Belum ada apa pun.",
+    "unread": "{{count}} belum dibaca",
+    "markAll": "Tandai semua dibaca",
+    "delete": "Hapus",
+    "pushOn": "Aktifkan notifikasi browser",
+    "pushOff": "Matikan notifikasi browser",
+    "pushDenied": "Notifikasi browser diblokir untuk situs ini.",
+    "pushUnavailable": "Server ini tidak dapat menyimpan langganan push.",
+    "clearAll": "Hapus semua",
+    "clearRead": "Hapus yang dibaca",
+    "cancel": "Batal",
+    "markRead": "Tandai dibaca",
+    "cleared_other": "{{count}} notifikasi dihapus.",
+    "confirmAll_other": "Hapus semua {{count}} notifikasi? Tindakan ini tidak dapat dibatalkan.",
+    "confirmRead_other": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada.",
+    "onlyRead": "Hanya {{count}} yang dibaca",
+    "showing": "Menampilkan {{shown}} dari {{total}}",
+    "showMore": "Tampilkan lebih banyak",
+    "cleared_one": "{{count}} notifikasi dihapus.",
+    "confirmAll_one": "Hapus semua {{count}} notifikasi? Tindakan ini tidak dapat dibatalkan.",
+    "confirmRead_one": "Hapus {{count}} notifikasi yang sudah dibaca? Yang belum dibaca tetap ada."
   }
 }

@@ -452,9 +452,11 @@ export const chatTriggersApi = {
 
 // The inbox: what ended while the user was elsewhere.
 export const chatNotificationsApi = {
-  list: (unread) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit: 50 })}`),
+  list: (unread, limit = 50) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit })}`),
   read: (body) => postJSON('/api/chats/notifications/read', body),
   remove: (ids) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+  // Every notification of the user, or with readOnly only the read ones.
+  clear: (readOnly) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ all: true, read_only: readOnly || undefined }) }),
   eventsUrl: () => apiUrl('/api/chats/notifications/events'),
 }
 

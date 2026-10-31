@@ -175,5 +175,28 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "vous"
     }
+  },
+  "inbox": {
+    "empty": "Rien ici pour l'instant.",
+    "unread": "{{count}} non lues",
+    "markAll": "Tout marquer comme lu",
+    "delete": "Supprimer",
+    "pushOn": "Activer les notifications du navigateur",
+    "pushOff": "Désactiver les notifications du navigateur",
+    "pushDenied": "Les notifications du navigateur sont bloquées pour ce site.",
+    "pushUnavailable": "Ce serveur ne peut pas conserver d'abonnements push.",
+    "clearAll": "Tout effacer",
+    "clearRead": "Effacer les lues",
+    "cancel": "Annuler",
+    "markRead": "Marquer comme lue",
+    "cleared_one": "{{count}} notification supprimée.",
+    "cleared_other": "{{count}} notifications supprimées.",
+    "confirmAll_one": "Supprimer {{count}} notification ? Cette action est irréversible.",
+    "confirmAll_other": "Supprimer les {{count}} notifications ? Cette action est irréversible.",
+    "confirmRead_one": "Supprimer {{count}} notification lue ? Les non lues restent.",
+    "confirmRead_other": "Supprimer {{count}} notifications lues ? Les non lues restent.",
+    "onlyRead": "Seulement les {{count}} lues",
+    "showing": "{{shown}} sur {{total}} affichées",
+    "showMore": "Afficher plus"
   }
 }

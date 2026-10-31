@@ -262,7 +262,20 @@
     "pushOn": "Turn on browser notifications",
     "pushOff": "Turn off browser notifications",
     "pushDenied": "Browser notifications are blocked for this site.",
-    "pushUnavailable": "This server cannot keep push subscriptions."
+    "pushUnavailable": "This server cannot keep push subscriptions.",
+    "clearAll": "Clear all",
+    "clearRead": "Clear read",
+    "cancel": "Cancel",
+    "markRead": "Mark read",
+    "cleared_one": "Removed {{count}} notification.",
+    "cleared_other": "Removed {{count}} notifications.",
+    "confirmAll_one": "Remove {{count}} notification? This cannot be undone.",
+    "confirmAll_other": "Remove all {{count}} notifications? This cannot be undone.",
+    "confirmRead_one": "Remove {{count}} read notification? Unread ones stay.",
+    "confirmRead_other": "Remove {{count}} read notifications? Unread ones stay.",
+    "onlyRead": "Only the {{count}} read",
+    "showing": "Showing {{shown}} of {{total}}",
+    "showMore": "Show more"
   },
   "connectorsPage": {
     "title": "Connectors",

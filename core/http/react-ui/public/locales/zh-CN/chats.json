@@ -175,5 +175,28 @@
       "answeredNoWho": "{{state}}，{{time}}",
       "you": "你"
     }
+  },
+  "inbox": {
+    "empty": "这里还没有内容。",
+    "unread": "{{count}} 条未读",
+    "markAll": "全部标为已读",
+    "delete": "删除",
+    "pushOn": "开启浏览器通知",
+    "pushOff": "关闭浏览器通知",
+    "pushDenied": "此网站的浏览器通知已被阻止。",
+    "pushUnavailable": "此服务器无法保存推送订阅。",
+    "clearAll": "全部清除",
+    "clearRead": "清除已读",
+    "cancel": "取消",
+    "markRead": "标为已读",
+    "cleared_other": "已删除 {{count}} 条通知。",
+    "confirmAll_other": "删除全部 {{count}} 条通知？此操作无法撤销。",
+    "confirmRead_other": "删除 {{count}} 条已读通知？未读通知会保留。",
+    "onlyRead": "仅 {{count}} 条已读",
+    "showing": "显示 {{shown}} / {{total}}",
+    "showMore": "显示更多",
+    "cleared_one": "已删除 {{count}} 条通知。",
+    "confirmAll_one": "删除全部 {{count}} 条通知？此操作无法撤销。",
+    "confirmRead_one": "删除 {{count}} 条已读通知？未读通知会保留。"
   }
 }

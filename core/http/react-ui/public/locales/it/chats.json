@@ -175,5 +175,28 @@
       "answeredNoWho": "{{state}}, {{time}}",
       "you": "te"
     }
+  },
+  "inbox": {
+    "empty": "Ancora niente qui.",
+    "unread": "{{count}} non lette",
+    "markAll": "Segna tutto come letto",
+    "delete": "Elimina",
+    "pushOn": "Attiva le notifiche del browser",
+    "pushOff": "Disattiva le notifiche del browser",
+    "pushDenied": "Le notifiche del browser sono bloccate per questo sito.",
+    "pushUnavailable": "Questo server non può conservare le sottoscrizioni push.",
+    "clearAll": "Elimina tutte",
+    "clearRead": "Elimina le lette",
+    "cancel": "Annulla",
+    "markRead": "Segna come letta",
+    "cleared_one": "{{count}} notifica eliminata.",
+    "cleared_other": "{{count}} notifiche eliminate.",
+    "confirmAll_one": "Eliminare {{count}} notifica? Non si può annullare.",
+    "confirmAll_other": "Eliminare tutte le {{count}} notifiche? Non si può annullare.",
+    "confirmRead_one": "Eliminare {{count}} notifica letta? Quelle non lette restano.",
+    "confirmRead_other": "Eliminare {{count}} notifiche lette? Quelle non lette restano.",
+    "onlyRead": "Solo le {{count}} lette",
+    "showing": "{{shown}} di {{total}} mostrate",
+    "showMore": "Mostra altre"
   }
 }

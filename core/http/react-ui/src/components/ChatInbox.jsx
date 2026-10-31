@@ -43,24 +43,36 @@ export default function ChatInbox({ inbox }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
+  // confirm: '' (none), 'all' or 'read': which clear the person is asked to confirm.
+  const [confirm, setConfirm] = useState('')
+  const [done, setDone] = useState('')
   const ref = useRef(null)
   // The panel floats over the page: a click outside or Esc closes it.
   useEffect(() => {
     if (!open) return undefined
     const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false) } }
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      // Esc first backs out of a question, then closes the panel.
+      if (confirm) setConfirm('')
+      else setOpen(false)
+    }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open])
+  }, [open, confirm])
+  // A question or a result belongs to one opening of the panel.
+  useEffect(() => { if (!open) { setConfirm(''); setDone('') } }, [open])
   if (inbox.off) return null
 
   // A failed mark or delete shows under the inbox; the list is as the server has it.
   const attempt = async (call) => {
     setError('')
+    setDone('')
     try { await call() } catch (e) { setError(e?.message || t('errors.send')) }
   }
 
@@ -68,6 +80,13 @@ export default function ChatInbox({ inbox }) {
     if (!n.read) await inbox.markRead([n.id]).catch(() => {})
     if (n.link) navigate(n.link)
   }
+
+  const readCount = Math.max(0, inbox.total - inbox.unread)
+  const clear = (readOnly) => attempt(async () => {
+    const n = await inbox.clear(readOnly)
+    setConfirm('')
+    setDone(t('inbox.cleared', { count: n }))
+  })
 
   return (
     <div className="ca-inbox" data-testid="chat-inbox" ref={ref}>
@@ -86,9 +105,25 @@ export default function ChatInbox({ inbox }) {
       </div>
       {open && (
         <div className="ca-inbox__panel" role="dialog" aria-label={t('list.inbox')}>
-          {inbox.unread > 0 && (
-            <button type="button" className="ch-link" onClick={() => attempt(() => inbox.markAllRead())}>{t('inbox.markAll')}</button>
+          <div className="ca-inbox__bar">
+            <button type="button" className="ch-link" disabled={inbox.unread === 0} onClick={() => attempt(() => inbox.markAllRead())}>{t('inbox.markAll')}</button>
+            <button type="button" className="ch-link ch-link--danger" data-testid="inbox-clear" disabled={inbox.total === 0} onClick={() => { setDone(''); setConfirm('all') }}>{t('inbox.clearAll')}</button>
+          </div>
+          {confirm && inbox.total > 0 && (
+            <div className="ca-inbox__confirm" role="alertdialog" aria-labelledby="inbox-confirm-text" data-testid="inbox-confirm">
+              <p id="inbox-confirm-text">{confirm === 'read' ? t('inbox.confirmRead', { count: readCount }) : t('inbox.confirmAll', { count: inbox.total })}</p>
+              <div className="ca-inbox__confirm-acts">
+                <button type="button" className="btn btn-danger btn-sm" data-testid="inbox-confirm-yes" autoFocus onClick={() => clear(confirm === 'read')}>
+                  {confirm === 'read' ? t('inbox.clearRead') : t('inbox.clearAll')}
+                </button>
+                {confirm === 'all' && readCount > 0 && readCount < inbox.total && (
+                  <button type="button" className="btn btn-secondary btn-sm" data-testid="inbox-confirm-read" onClick={() => setConfirm('read')}>{t('inbox.onlyRead', { count: readCount })}</button>
+                )}
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirm('')}>{t('inbox.cancel')}</button>
+              </div>
+            </div>
           )}
+          {done && <p className="cs-muted" role="status" data-testid="inbox-done">{done}</p>}
           {error && <p className="ch-error" role="alert">{error}</p>}
           {inbox.items.length === 0 && <p className="cs-muted">{t('inbox.empty')}</p>}
           <ul className="cs-list">
@@ -98,11 +133,18 @@ export default function ChatInbox({ inbox }) {
                 {n.body && <span className="cs-muted">{n.body}</span>}
                 <span className="ca-inbox__meta">
                   <span>{formatNext(n.created, '')}</span>
+                  {!n.read && <button type="button" className="ch-link" data-testid="inbox-mark-read" onClick={() => attempt(() => inbox.markRead([n.id]))}>{t('inbox.markRead')}</button>}
                   <button type="button" className="ch-link ch-link--danger" onClick={() => attempt(() => inbox.remove([n.id]))}>{t('inbox.delete')}</button>
                 </span>
               </li>
             ))}
           </ul>
+          {inbox.items.length < inbox.total && (
+            <div className="ca-inbox__more">
+              <span className="cs-muted">{t('inbox.showing', { shown: inbox.items.length, total: inbox.total })}</span>
+              <button type="button" className="ch-link" data-testid="inbox-more" onClick={() => attempt(() => inbox.showMore())}>{t('inbox.showMore')}</button>
+            </div>
+          )}
           <PushSwitch t={t} />
         </div>
       )}
