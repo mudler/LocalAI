@@ -276,8 +276,11 @@ func cmdCatalog(args []string) error {
 		}
 		item := "- " + strings.ReplaceAll(strings.TrimRight(text, "\n"), "\n", "\n  ") + "\n"
 		parsed, err := readCatalogIndex([]byte(item))
-		if err != nil || len(parsed) != 1 {
+		if err != nil {
 			return fmt.Errorf("rendered entry: %v", err)
+		}
+		if len(parsed) != 1 {
+			return fmt.Errorf("rendered entry: %d entries, want 1", len(parsed))
 		}
 		r := parsed[0]
 		regTag, err := addonTag(manifest.ID, entryTag)
