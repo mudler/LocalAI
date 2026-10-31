@@ -233,6 +233,37 @@ export const filesApi = {
     })
     return handleResponse(res)
   },
+  // The same upload with progress: fetch cannot report how much of a request
+  // body went out, an XMLHttpRequest can. replace overwrites a file that
+  // exists; without it the server keeps both. Rejects like handleResponse
+  // (an Error with status, body and the error type), or with status 0 when
+  // the network failed or signal aborted it.
+  uploadWithProgress: (path, file, { replace = false, onProgress, signal } = {}) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', apiUrl(API_CONFIG.endpoints.filesContent) + q({ path, overwrite: replace ? 1 : undefined }))
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(e.loaded) }
+    const fail = (status, body, message) => {
+      const err = new Error(message || `HTTP ${status}`)
+      err.status = status
+      err.body = body
+      err.type = body?.error?.type
+      reject(err)
+    }
+    xhr.onload = () => {
+      let body = null
+      try { body = JSON.parse(xhr.responseText) } catch { body = null }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body)
+      else fail(xhr.status, body, body?.error?.message || (typeof body?.error === 'string' ? body.error : ''))
+    }
+    xhr.onerror = () => fail(0, null, 'network')
+    xhr.onabort = () => fail(0, null, 'aborted')
+    if (signal) {
+      if (signal.aborted) { xhr.abort(); return }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true })
+    }
+    xhr.send(file)
+  }),
   mkdir: (path) => postJSON(API_CONFIG.endpoints.filesFolders, { path }),
   move: (from, to) => postJSON(API_CONFIG.endpoints.filesMove, { from, to }),
   remove: (path) => fetchJSON(API_CONFIG.endpoints.files + q({ path }), { method: 'DELETE' }),
