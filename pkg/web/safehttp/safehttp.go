@@ -147,6 +147,9 @@ func (c *Client) Policy() Policy { return c.p }
 // Response is a fetched body.
 type Response struct {
 	FinalURL *url.URL
+	// StatusCode is the 2xx status of the answer. A search page that answers
+	// 202 instead of 200 is often a bot check, not results.
+	StatusCode int
 	// ContentType is the media type only, in lower case.
 	ContentType string
 	// Charset is the charset parameter of the Content-Type header, if any.
@@ -179,7 +182,7 @@ func (c *Client) Get(ctx context.Context, raw string, accept []string) (*Respons
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("%w: %s", ErrStatus, resp.Status)
+		return nil, &StatusError{Code: resp.StatusCode, Status: resp.Status}
 	}
 	ct := resp.Header.Get("Content-Type")
 	media, charset := "application/octet-stream", ""
@@ -195,12 +198,24 @@ func (c *Client) Get(ctx context.Context, raw string, accept []string) (*Respons
 	if err != nil {
 		return nil, classify(ctx, err)
 	}
-	out := &Response{FinalURL: resp.Request.URL, ContentType: media, Charset: charset, Body: body}
+	out := &Response{FinalURL: resp.Request.URL, StatusCode: resp.StatusCode, ContentType: media, Charset: charset, Body: body}
 	if int64(len(body)) > c.p.MaxBodyBytes {
 		out.Body, out.Truncated = body[:c.p.MaxBodyBytes], true
 	}
 	return out, nil
 }
+
+// StatusError is an answer outside 2xx. It is ErrStatus for errors.Is, and
+// keeps the code so a caller can tell a refusal (403, 429) from a failure.
+type StatusError struct {
+	Code   int
+	Status string
+}
+
+func (e *StatusError) Error() string { return ErrStatus.Error() + ": " + e.Status }
+
+// Unwrap makes errors.Is(err, ErrStatus) hold.
+func (e *StatusError) Unwrap() error { return ErrStatus }
 
 // Accepts says whether media matches one entry of accept.
 func Accepts(accept []string, media string) bool {

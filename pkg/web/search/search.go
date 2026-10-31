@@ -56,7 +56,48 @@ var (
 	ErrProvider    = errors.New("the search provider did not answer with results")
 	ErrRateLimited = errors.New("too many web searches")
 	ErrTimeout     = errors.New("the search provider did not answer in time")
+	// ErrChallenged means a keyless provider answered with a bot check (a
+	// captcha or an "anomaly" page) instead of results. It is always wrapped
+	// with ErrProvider, so errors.Is holds for both.
+	ErrChallenged = errors.New("challenged by a bot check")
+	// ErrBlocked means a keyless provider refused this server (403 or 429).
+	// It is always wrapped with ErrProvider.
+	ErrBlocked = errors.New("blocked this server")
 )
+
+// Outcome is what one provider did with one search, for the attempts a
+// Fallback reports and the test of the settings page.
+type Outcome string
+
+// The outcomes of an attempt.
+const (
+	OutcomeOK         Outcome = "ok"
+	OutcomeNoResults  Outcome = "no_results"
+	OutcomeChallenged Outcome = "challenged"
+	OutcomeBlocked    Outcome = "blocked"
+	OutcomeTimeout    Outcome = "timeout"
+	OutcomeError      Outcome = "error"
+	// OutcomeSkipped is a provider in its cool-down after a challenge or a
+	// block: it was not asked.
+	OutcomeSkipped Outcome = "skipped"
+)
+
+// OutcomeOf classifies the answer of one provider.
+func OutcomeOf(results []Result, err error) Outcome {
+	switch {
+	case err == nil && len(results) == 0:
+		return OutcomeNoResults
+	case err == nil:
+		return OutcomeOK
+	case errors.Is(err, ErrChallenged):
+		return OutcomeChallenged
+	case errors.Is(err, ErrBlocked):
+		return OutcomeBlocked
+	case errors.Is(err, ErrTimeout), errors.Is(err, context.DeadlineExceeded):
+		return OutcomeTimeout
+	}
+	return OutcomeError
+}
 
 var siteShape = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,62}\.)*[a-z0-9-]{1,63}$`)
 
@@ -219,6 +260,10 @@ func (s *Searcher) SearchHost(ctx context.Context, user string, q Query) ([]Resu
 	s.store(key, results, host)
 	return results, host, nil
 }
+
+// Allow counts one search for user against the limits, outside the cache,
+// and says whether it is under them. The test of the settings page uses it.
+func (s *Searcher) Allow(user string) bool { return s.admit(user) }
 
 func (s *Searcher) cached(key string) ([]Result, string, bool) {
 	s.mu.Lock()

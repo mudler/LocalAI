@@ -3,8 +3,8 @@ package search
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -43,21 +43,23 @@ func (d *duckDuckGo) Search(ctx context.Context, q Query) ([]Result, error) {
 	if f := ddgFreshness[q.Freshness]; f != "" {
 		v.Set("df", f)
 	}
-	resp, err := d.get.Get(ctx, d.endpoint+"?"+v.Encode(), []string{"text/html"})
+	resp, err := fetchPage(ctx, d.get, d.endpoint+"?"+v.Encode())
 	if err != nil {
-		if errors.Is(err, safehttp.ErrTimeout) {
-			return nil, ErrTimeout
-		}
-		return nil, fmt.Errorf("%w: %v", ErrProvider, err)
+		return nil, err
 	}
-	return ParseDuckDuckGo(resp.Body)
+	res, err := ParseDuckDuckGo(resp.Body)
+	if err != nil && resp.StatusCode == http.StatusAccepted {
+		// DuckDuckGo answers its bot check with 202 instead of 200.
+		return nil, challenged()
+	}
+	return res, err
 }
 
 // ParseDuckDuckGo reads the results of a DuckDuckGo HTML page. Ads are
 // dropped and redirect links are unwrapped. A page with neither results nor
-// the "no results" marker (a challenge page, a new layout) is ErrProvider,
-// so a change on their side reads as "the provider does not work" and never
-// as "nothing found".
+// the "no results" marker is ErrProvider, so a change on their side reads as
+// "the provider does not work" and never as "nothing found"; when it is the
+// bot check (the "anomaly" page) the error is also ErrChallenged.
 func ParseDuckDuckGo(page []byte) ([]Result, error) {
 	doc, err := html.Parse(bytes.NewReader(page))
 	if err != nil {
@@ -89,7 +91,10 @@ func ParseDuckDuckGo(page []byte) ([]Result, error) {
 	}
 	walk(doc)
 	if len(out) == 0 && !noResults {
-		return nil, fmt.Errorf("%w: the answer had no results it could read", ErrProvider)
+		if hasChallenge(doc) {
+			return nil, challenged()
+		}
+		return nil, unreadable()
 	}
 	return out, nil
 }
