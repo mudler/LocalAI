@@ -108,17 +108,21 @@ var _ = Describe("Settings endpoints", func() {
 		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_web_searxng_url"))
 		rec = post(`{"chats_web_searxng_url":"https://u:p@searx.example.org"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		rec = post(`{"chats_web_search_providers":"duckduckgo,altavista"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_web_search_providers"))
 	})
 
 	It("switches the chats' web tools and keeps them on by default", func() {
 		cfg := app.ApplicationConfig()
 		Expect(cfg.DisableChatsWebSearch || cfg.DisableChatsWebFetch).To(BeFalse())
-		rec := post(`{"chats_web_search":false,"chats_web_ports":"80, 443, 8080","chats_web_searxng_url":"https://searx.example.org"}`)
+		rec := post(`{"chats_web_search":false,"chats_web_ports":"80, 443, 8080","chats_web_searxng_url":"https://searx.example.org","chats_web_search_providers":"searxng,brave_html"}`)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(cfg.DisableChatsWebSearch).To(BeTrue())
 		Expect(cfg.DisableChatsWebFetch).To(BeFalse())
 		Expect(cfg.ChatsWebPorts).To(Equal("80, 443, 8080"))
 		Expect(cfg.ChatsWebSearXNGURL).To(Equal("https://searx.example.org"))
+		Expect(cfg.ChatsWebSearchProviders).To(Equal("searxng,brave_html"))
 	})
 
 	It("rejects a host-commands mode and pins the chats do not understand", func() {

@@ -161,7 +161,7 @@
     },
     "descriptions": {
       "bash": "Runs commands and code for the chats directly on this machine when no Sandbox serves bash. The Sandbox add-on replaces it with isolated commands.",
-      "web_search": "Searches the web for the chats with DuckDuckGo, or with your SearXNG instance when one is set.",
+      "web_search": "Searches the web for the chats without a key (DuckDuckGo, then Brave Search, then Bing), or with your SearXNG instance when one is set.",
       "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them.",
       "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu."
     },
@@ -183,6 +183,26 @@
     "skillsTitle": "Skills that add-ons replace",
     "skillsIntro": "An add-on can replace a built-in skill with its own, written for its tools. When several add-ons replace one, choose the one that serves.",
     "skillLabel": "Skill {{skill}}",
-    "skillNotRunning": "The chosen add-on is not running: the built-in skill serves."
+    "skillNotRunning": "The chosen add-on is not running: the built-in skill serves.",
+    "webTest": {
+      "intro": "Runs a query with each search provider of the saved settings and shows what each one did. Apply your changes first.",
+      "queryLabel": "Query",
+      "run": "Test search",
+      "running": "Testing…",
+      "answered": "Chats get the results of {{host}}.",
+      "noneAnswered": "No provider answered.",
+      "failed": "The test could not run: {{error}}",
+      "results_one": "{{count}} result",
+      "results_other": "{{count}} results",
+      "outcomes": {
+        "ok": "Works",
+        "no_results": "No results",
+        "challenged": "Bot check",
+        "blocked": "Blocked",
+        "timeout": "Too slow",
+        "error": "Error",
+        "skipped": "Skipped"
+      }
+    }
   }
 }

@@ -334,7 +334,7 @@
     },
     "descriptions": {
       "bash": "Roda comandos e código para os chats diretamente nesta máquina quando nenhum Sandbox fornece o bash. O complemento Sandbox o substitui por comandos isolados.",
-      "web_search": "Pesquisa na web para os chats com o DuckDuckGo, ou com sua instância do SearXNG quando houver uma definida.",
+      "web_search": "Pesquisa na web para os chats sem chave (DuckDuckGo, depois Brave Search, depois Bing), ou com sua instância SearXNG quando houver uma definida.",
       "web_fetch": "Lê para os chats uma página ou arquivo público da web pelo endereço. Endereços dentro da sua rede são recusados, a menos que você os permita.",
       "list_agents": "Permite que um chat liste os agentes salvos do usuário e inicie um como subagente. Cada chat o ativa no menu Ferramentas."
     },
@@ -356,6 +356,26 @@
     "skillsTitle": "Habilidades que complementos substituem",
     "skillsIntro": "Um complemento pode substituir uma habilidade integrada pela sua, escrita para as suas ferramentas. Se vários substituírem a mesma, escolha qual é usada.",
     "skillLabel": "Habilidade {{skill}}",
-    "skillNotRunning": "O complemento escolhido não está em execução: a habilidade integrada é usada."
+    "skillNotRunning": "O complemento escolhido não está em execução: a habilidade integrada é usada.",
+    "webTest": {
+      "intro": "Executa uma pesquisa com cada provedor das configurações salvas e mostra o que cada um fez. Aplique suas alterações antes.",
+      "queryLabel": "Consulta",
+      "run": "Testar pesquisa",
+      "running": "Testando…",
+      "answered": "Os chats recebem os resultados de {{host}}.",
+      "noneAnswered": "Nenhum provedor respondeu.",
+      "failed": "Não foi possível executar o teste: {{error}}",
+      "results_one": "{{count}} resultado",
+      "results_other": "{{count}} resultados",
+      "outcomes": {
+        "ok": "Funciona",
+        "no_results": "Sem resultados",
+        "challenged": "Verificação antirrobô",
+        "blocked": "Bloqueado",
+        "timeout": "Lento demais",
+        "error": "Erro",
+        "skipped": "Ignorado"
+      }
+    }
   }
 }

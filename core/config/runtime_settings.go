@@ -96,11 +96,15 @@ type RuntimeSettings struct {
 
 	// The built-in web tools of the chats. Read at each turn, so a change
 	// applies at the next turn.
-	ChatsWebSearch       *bool   `json:"chats_web_search,omitempty"`        // offer web_search (default: true)
-	ChatsWebFetch        *bool   `json:"chats_web_fetch,omitempty"`         // offer web_fetch (default: true)
-	ChatsWebSearXNGURL   *string `json:"chats_web_searxng_url,omitempty"`   // search with this SearXNG instance; empty: DuckDuckGo
-	ChatsWebAllowPrivate *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
-	ChatsWebPorts        *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
+	ChatsWebSearch     *bool   `json:"chats_web_search,omitempty"`      // offer web_search (default: true)
+	ChatsWebFetch      *bool   `json:"chats_web_fetch,omitempty"`       // offer web_fetch (default: true)
+	ChatsWebSearXNGURL *string `json:"chats_web_searxng_url,omitempty"` // the address of a SearXNG instance; see ChatsWebSearchProviders
+	// ChatsWebSearchProviders is the order of the search providers, comma
+	// separated: searxng, duckduckgo, brave_html, bing_html. Empty: searxng
+	// alone when an instance is set, else duckduckgo,brave_html,bing_html.
+	ChatsWebSearchProviders *string `json:"chats_web_search_providers,omitempty"`
+	ChatsWebAllowPrivate    *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
+	ChatsWebPorts           *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
 	// The network of the commands the chats run in the Sandbox. Read at each
 	// check of the host proxy, so a change applies at once (a cached allow
 	// lives at most 30 seconds).

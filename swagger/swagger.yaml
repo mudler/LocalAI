@@ -4962,6 +4962,26 @@ definitions:
         description: Used is the number of tokens in the context the request sent.
         type: integer
     type: object
+  schema.ChatsWebProviderTest:
+    properties:
+      host:
+        example: duckduckgo.com
+        type: string
+      name:
+        example: duckduckgo
+        type: string
+      outcome:
+        description: |-
+          Outcome is ok, no_results, challenged (a bot check), blocked (403 or
+          429), timeout or error.
+        example: challenged
+        type: string
+      reason:
+        example: challenged by a bot check
+        type: string
+      results:
+        type: integer
+    type: object
   schema.ChatsWebResult:
     properties:
       snippet:
@@ -4989,6 +5009,13 @@ definitions:
       provider:
         example: duckduckgo
         type: string
+      providers:
+        description: |-
+          Providers says what each provider of the order did with the query, in
+          order: every provider is asked, so the administrator sees which work.
+        items:
+          $ref: '#/definitions/schema.ChatsWebProviderTest'
+        type: array
       results:
         items:
           $ref: '#/definitions/schema.ChatsWebResult'
@@ -12963,10 +12990,13 @@ paths:
       - chats
   /api/chats/admin/web/test:
     post:
-      description: Runs the query with the search provider of the built-in web_search
-        tool (DuckDuckGo, or the SearXNG instance of chats_web_searxng_url) and returns
-        the first three results, or the error a user would read. Save the settings
-        first. The search counts against the rate limits like any other.
+      description: Runs the query with each search provider of the built-in web_search
+        tool, in the order of chats_web_search_providers (by default DuckDuckGo, Brave
+        Search and Bing without a key, or the SearXNG instance of chats_web_searxng_url),
+        and returns what each did (ok, no_results, challenged, blocked, timeout or
+        error), the first three results of the first answer, or the error a user would
+        read. Save the settings first. The test counts as one search against the rate
+        limits.
       parameters:
       - description: the query (default LocalAI)
         in: body

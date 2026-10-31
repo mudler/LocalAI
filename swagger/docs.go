@@ -4398,7 +4398,7 @@ const docTemplate = `{
         },
         "/api/chats/admin/web/test": {
             "post": {
-                "description": "Runs the query with the search provider of the built-in web_search tool (DuckDuckGo, or the SearXNG instance of chats_web_searxng_url) and returns the first three results, or the error a user would read. Save the settings first. The search counts against the rate limits like any other.",
+                "description": "Runs the query with each search provider of the built-in web_search tool, in the order of chats_web_search_providers (by default DuckDuckGo, Brave Search and Bing without a key, or the SearXNG instance of chats_web_searxng_url), and returns what each did (ok, no_results, challenged, blocked, timeout or error), the first three results of the first answer, or the error a user would read. Save the settings first. The test counts as one search against the rate limits.",
                 "tags": [
                     "chats"
                 ],
@@ -20298,6 +20298,31 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsWebProviderTest": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string",
+                    "example": "duckduckgo.com"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "duckduckgo"
+                },
+                "outcome": {
+                    "description": "Outcome is ok, no_results, challenged (a bot check), blocked (403 or\n429), timeout or error.",
+                    "type": "string",
+                    "example": "challenged"
+                },
+                "reason": {
+                    "type": "string",
+                    "example": "challenged by a bot check"
+                },
+                "results": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.ChatsWebResult": {
             "type": "object",
             "properties": {
@@ -20337,6 +20362,13 @@ const docTemplate = `{
                 "provider": {
                     "type": "string",
                     "example": "duckduckgo"
+                },
+                "providers": {
+                    "description": "Providers says what each provider of the order did with the query, in\norder: every provider is asked, so the administrator sees which work.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsWebProviderTest"
+                    }
                 },
                 "results": {
                     "type": "array",

@@ -79,6 +79,54 @@ function BoolControls({ tool, settings, onChange }) {
   )
 }
 
+// The Test search of the web_search row: runs the query with each provider of
+// the saved settings (POST /api/chats/admin/web/test) and shows what each did,
+// so an administrator sees which engine challenges this server and why.
+function WebSearchTest() {
+  const { t } = useTranslation('admin')
+  const inputId = useId()
+  const [query, setQuery] = useState('LocalAI')
+  const [state, setState] = useState({ busy: false, result: null, error: '' })
+  const run = () => {
+    setState({ busy: true, result: null, error: '' })
+    chatBuiltinToolsApi.testWebSearch(query.trim() || 'LocalAI')
+      .then(result => setState({ busy: false, result, error: '' }))
+      .catch(e => setState({ busy: false, result: null, error: e.message || 'error' }))
+  }
+  const r = state.result
+  return (
+    <div className="st-tools__choice" data-testid="settings-tools-web-test">
+      <p className="st-row__desc">{t('settingsTools.webTest.intro')}</p>
+      <div className="st-tools__switch">
+        <label htmlFor={inputId} className="dk-sr-only">{t('settingsTools.webTest.queryLabel')}</label>
+        <input id={inputId} className="dk-input" type="search" value={query} disabled={state.busy} onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') run() }} data-testid="settings-tools-web-test-query" />
+        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={run} disabled={state.busy} aria-busy={state.busy || undefined} data-testid="settings-tools-web-test-run">
+          {state.busy ? t('settingsTools.webTest.running') : t('settingsTools.webTest.run')}
+        </button>
+      </div>
+      {state.error && <p className="st-row__desc" data-tone="warn" role="alert" data-testid="settings-tools-web-test-failed">{t('settingsTools.webTest.failed', { error: state.error })}</p>}
+      {r && (
+        <div aria-live="polite" data-testid="settings-tools-web-test-result">
+          <p className="st-row__desc" data-tone={r.ok ? undefined : 'warn'} data-testid="settings-tools-web-test-summary">
+            {r.ok ? t('settingsTools.webTest.answered', { host: r.host }) : `${t('settingsTools.webTest.noneAnswered')} ${r.error || ''}`}
+          </p>
+          <ul className="st-row__desc">
+            {(r.providers || []).map(p => (
+              <li key={p.name} data-testid={`settings-tools-web-test-${p.name}`} data-outcome={p.outcome}>
+                <code className="st-key">{p.name}</code>{' '}
+                <span className="st-tag" data-tone={p.outcome === 'ok' ? undefined : 'warn'}>{t(`settingsTools.webTest.outcomes.${p.outcome}`, { defaultValue: p.outcome })}</span>
+                {p.outcome === 'ok' && <> {t('settingsTools.webTest.results', { count: p.results })}</>}
+                {p.reason && <> {p.reason}</>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // The add-ons that replace one tool or skill: mutually exclusive, the pinned
 // one serves. titles, when given, maps an add-on ID to its title. With no pin
 // the server's default serves: the add-on installed first, which is marked.
@@ -154,6 +202,7 @@ export default function BuiltinToolsSection({ settings, onChange }) {
                 ? <BashControls tool={tool} settings={settings} onChange={onChange} />
                 : <BoolControls tool={tool} settings={settings} onChange={onChange} />}
               {tool.candidates.length > 1 && <ProviderChoice tool={tool} settings={settings} onChange={onChange} />}
+              {tool.id === 'web_search' && <WebSearchTest />}
               {tool.id === 'bash' && tool.candidates.length === 0 && (
                 <p className="st-row__desc"><Link to={SANDBOX_INSTALL_LINK} data-testid="settings-tools-install-sandbox">{t('settingsTools.installSandbox')}</Link></p>
               )}

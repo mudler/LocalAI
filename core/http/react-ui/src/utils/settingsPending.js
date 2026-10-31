@@ -104,6 +104,10 @@ export function runChecks(changes, initial, draft) {
         ? { level: 'ok', text: `${field.label}: the phrase is typed.` }
         : { level: 'error', text: `${field.label}: type the phrase "${EGRESS_PRIVATE_PHRASE}" in Settings > Tools to turn it on.` })
     }
+    if (field.key === 'chats_web_search_providers') {
+      const err = searchProvidersError(to)
+      checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${field.label}: ${String(to || '').trim() || 'the default order'}.` })
+    }
     if (field.key === 'chats_tool_providers') {
       const text = String(to || '').trim()
       let parsed = null
@@ -237,4 +241,22 @@ export function appendHistory(entries) {
 export function clearHistory() {
   try { localStorage.removeItem(HISTORY_KEY) } catch { /* storage may be blocked */ }
   return []
+}
+
+// The names chats_web_search_providers accepts, as ParseSearchProviders in
+// core/config/chats_web.go reads them.
+export const SEARCH_PROVIDERS = ['searxng', 'duckduckgo', 'brave_html', 'bing_html']
+
+// searchProvidersError says what is wrong with a provider list, or '' when
+// the server takes it.
+export function searchProvidersError(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const names = text.split(',').map(n => n.trim().toLowerCase()).filter(Boolean)
+  if (names.length === 0) return 'list at least one provider, or switch web search off.'
+  const unknown = names.find(n => !SEARCH_PROVIDERS.includes(n))
+  if (unknown) return `"${unknown}" is not a search provider. Use ${SEARCH_PROVIDERS.join(', ')}.`
+  const twice = names.find((n, i) => names.indexOf(n) !== i)
+  if (twice) return `"${twice}" is listed twice.`
+  return ''
 }

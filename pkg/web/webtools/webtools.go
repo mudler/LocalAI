@@ -113,17 +113,8 @@ func (t Tools) WebSearch(ctx context.Context, user string, raw json.RawMessage) 
 		return "", t.noProvider()
 	}
 	res, host, err := t.Search.SearchHost(ctx, user, search.Query{Text: a.Query, MaxResults: a.MaxResults, Freshness: a.Freshness, Site: a.Site})
-	switch {
-	case errors.Is(err, search.ErrBadQuery):
-		return "", fmt.Errorf("%w: %s", ErrArguments, strings.TrimPrefix(err.Error(), search.ErrBadQuery.Error()+": "))
-	case errors.Is(err, search.ErrRateLimited):
-		return "", ErrRateLimited
-	case errors.Is(err, search.ErrTimeout):
-		return "", errors.New("the search provider did not answer in time; try again")
-	case errors.Is(err, search.ErrProvider):
-		return "", fmt.Errorf("%w (%s)", t.noProvider(), Sanitize(err.Error()))
-	case err != nil:
-		return "", err
+	if err != nil {
+		return "", t.SearchError(err)
 	}
 	var b strings.Builder
 	if len(res) == 0 {
@@ -141,12 +132,54 @@ func (t Tools) WebSearch(ctx context.Context, user string, raw json.RawMessage) 
 	return Wrap("Search results from "+host, host, b.String()), nil
 }
 
-func (t Tools) noProvider() error {
-	hint := t.SettingsHint
-	if hint == "" {
-		hint = "an administrator can choose one in Settings"
+// SearchError is the error a user reads for the error of a search: a bad
+// argument, the limits, a timeout, or no provider that works with what each
+// provider did and where an administrator fixes it.
+func (t Tools) SearchError(err error) error {
+	switch {
+	case errors.Is(err, search.ErrBadQuery):
+		return fmt.Errorf("%w: %s", ErrArguments, strings.TrimPrefix(err.Error(), search.ErrBadQuery.Error()+": "))
+	case errors.Is(err, search.ErrRateLimited):
+		return ErrRateLimited
+	case errors.Is(err, search.ErrTimeout):
+		return errors.New("the search provider did not answer in time; try again")
+	case errors.Is(err, search.ErrProvider):
+		// Say what was tried and what each provider did (challenged, blocked,
+		// empty), then where the administrator fixes it.
+		tried := strings.TrimPrefix(err.Error(), search.ErrProvider.Error())
+		tried = strings.TrimPrefix(tried, ": ")
+		if tried == "" {
+			return fmt.Errorf("%w. %s", ErrNoProvider, sentence(t.hint()))
+		}
+		return fmt.Errorf("%w. Tried %s. %s", ErrNoProvider, Sanitize(tried), sentence(t.hint()))
 	}
-	return fmt.Errorf("%w: %s", ErrNoProvider, hint)
+	return err
+}
+
+func (t Tools) noProvider() error {
+	return fmt.Errorf("%w: %s", ErrNoProvider, t.hint())
+}
+
+func (t Tools) hint() string {
+	if t.SettingsHint == "" {
+		return "an administrator can choose one in Settings"
+	}
+	return t.SettingsHint
+}
+
+// sentence starts s with a capital letter and ends it with a full stop.
+func sentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	s = string(r)
+	if !strings.HasSuffix(s, ".") {
+		s += "."
+	}
+	return s
 }
 
 // WebFetch runs web_fetch.

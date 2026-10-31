@@ -25,11 +25,17 @@ func (routeWeb) Search(context.Context, string, json.RawMessage) (string, error)
 	return "", nil
 }
 func (routeWeb) Fetch(context.Context, json.RawMessage) (string, error) { return "", nil }
-func (w routeWeb) TestSearch(_ context.Context, _, query string) (string, string, []search.Result, error) {
+func (w routeWeb) TestSearch(_ context.Context, _, query string) (string, string, []search.Result, []search.Attempt, error) {
 	if w.fail != nil {
-		return "duckduckgo", "duckduckgo.com", nil, w.fail
+		return "", "", nil, []search.Attempt{
+			{Provider: "duckduckgo", Host: "duckduckgo.com", Outcome: search.OutcomeChallenged, Reason: "challenged by a bot check"},
+			{Provider: "brave_html", Host: "search.brave.com", Outcome: search.OutcomeBlocked, Reason: "blocked this server (429 Too Many Requests)"},
+		}, w.fail
 	}
-	return "duckduckgo", "duckduckgo.com", []search.Result{{Title: query, URL: "https://localai.io/"}}, nil
+	return "brave_html", "search.brave.com", []search.Result{{Title: query, URL: "https://localai.io/"}}, []search.Attempt{
+		{Provider: "duckduckgo", Host: "duckduckgo.com", Outcome: search.OutcomeChallenged, Reason: "challenged by a bot check"},
+		{Provider: "brave_html", Host: "search.brave.com", Outcome: search.OutcomeOK, Results: 1},
+	}, nil
 }
 
 var _ = Describe("Chats built-in web tools endpoints", func() {
@@ -68,8 +74,12 @@ var _ = Describe("Chats built-in web tools endpoints", func() {
 		Expect(res.Code).To(Equal(http.StatusOK), res.Body.String())
 		body := decodeJSON(res)
 		Expect(body["ok"]).To(BeTrue())
-		Expect(body["provider"]).To(Equal("duckduckgo"))
+		Expect(body["provider"]).To(Equal("brave_html"))
 		Expect(body["results"]).To(Equal([]any{map[string]any{"title": "LocalAI", "url": "https://localai.io/", "snippet": ""}}))
+		Expect(body["providers"]).To(Equal([]any{
+			map[string]any{"name": "duckduckgo", "host": "duckduckgo.com", "outcome": "challenged", "results": float64(0), "reason": "challenged by a bot check"},
+			map[string]any{"name": "brave_html", "host": "search.brave.com", "outcome": "ok", "results": float64(1)},
+		}))
 	})
 
 	Context("when the provider does not work", func() {
@@ -81,6 +91,8 @@ var _ = Describe("Chats built-in web tools endpoints", func() {
 			body := decodeJSON(res)
 			Expect(body["ok"]).To(BeFalse())
 			Expect(body["error"]).To(Equal("no search provider works: blocked"))
+			Expect(body["providers"]).To(HaveLen(2))
+			Expect(body["providers"].([]any)[1].(map[string]any)["outcome"]).To(Equal("blocked"))
 		})
 	})
 })

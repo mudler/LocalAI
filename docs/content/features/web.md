@@ -41,15 +41,61 @@ Arguments: `query` (required, at most 400 characters), `max_results` (1 to
 host name such as `docs.python.org`). The search provider is a setting of the
 server, never an argument of the model.
 
-The search goes to DuckDuckGo, which needs no key, or to your own
-[SearXNG](https://docs.searxng.org/) instance when an administrator sets one.
-SearXNG keeps the searches on a server you control, so it is the better
-choice when you can run one. The instance must allow the JSON format: add
-`json` to `search.formats` in its `settings.yml`.
+### Search providers
 
-DuckDuckGo can refuse a server that sends many searches. When it does, or when
-the SearXNG instance does not answer, the chat says "no search provider works"
-and what an administrator can set.
+With no setting, the search uses three public engines that need no key, in
+this order. Each one reads the result page of the engine, as a browser would:
+
+| Name | Engine | Page |
+|---|---|---|
+| `duckduckgo` | DuckDuckGo | `html.duckduckgo.com/html/` |
+| `brave_html` | Brave Search | `search.brave.com/search` |
+| `bing_html` | Bing | `www.bing.com/search` |
+
+The first engine that answers gives the results, and the results say which
+host answered ("Search results from search.brave.com"). An engine that
+answers with no results stops the chain: "No results." is an answer. An
+engine that fails is skipped and the next one is tried:
+
+- **challenged**: the engine answered with a bot check (a captcha, or the
+  "anomaly" page with which DuckDuckGo answers HTTP 202) instead of results.
+  Engines do this to addresses they do not trust, often to the addresses of
+  data centers, and it can change from one hour to the next.
+- **blocked**: the engine refused this server (HTTP 403 or 429).
+- **error**: the engine is down, did not answer in 8 seconds, or its page has
+  no results that LocalAI can read (the engine changed its page).
+
+A challenged or blocked engine is not asked again for 5 minutes, so each
+search does not wait for it first. When every engine is in this cool-down, all
+are asked again. The cool-down is kept in the memory of each frontend, see
+[Several frontends](#several-frontends).
+
+An administrator can change the order, or leave an engine out, with
+`chats_web_search_providers` (see [Settings](#settings)).
+
+Your own [SearXNG](https://docs.searxng.org/) instance is the better choice
+when you can run one: it keeps the searches on a server you control and does
+not depend on the bot checks of the engines. When an administrator sets
+`chats_web_searxng_url`, the search uses SearXNG alone; list it with the
+keyless engines (`searxng,duckduckgo,brave_html`) to fall back to them when
+SearXNG does not answer. The instance must allow the JSON format: add `json`
+to `search.formats` in its `settings.yml`. The [Web add-on](#the-web-add-on)
+adds providers with a key (Brave Search API, Tavily, Google).
+
+**Privacy.** The query of each search goes to the engine that answers it, and
+to each engine before it that failed. The engines see the address of the
+server, not the address of the user. With SearXNG alone, the queries go only
+to your instance (and to the engines that it asks).
+
+When no engine answers, the chat says what was tried and what each engine
+did, and where to fix it:
+
+```text
+no search provider works. Tried duckduckgo: challenged by a bot check; brave_html:
+blocked this server (429 Too Many Requests); bing_html: the page had no results it
+could read. An administrator can set a SearXNG instance in Settings > Tools, or
+install the Web add-on for search providers with a key from Add-ons.
+```
 
 ### `web_fetch`
 
@@ -129,21 +175,36 @@ They apply at the next turn of every chat.
 |---|---|---|
 | `chats_web_search` | on | Offer `web_search`. |
 | `chats_web_fetch` | on | Offer `web_fetch`. |
-| `chats_web_searxng_url` | empty | Search with this SearXNG instance, for example `https://searx.example.org`. Empty: DuckDuckGo. |
+| `chats_web_searxng_url` | empty | The address of your SearXNG instance, for example `https://searx.example.org`. When it is set and `chats_web_search_providers` is empty, the search uses SearXNG alone. |
+| `chats_web_search_providers` | empty | The search providers in the order they are tried, comma separated: `searxng`, `duckduckgo`, `brave_html`, `bing_html`. Leave a name out to never use it. Empty: `searxng` when an instance is set, else `duckduckgo,brave_html,bing_html`. `searxng` without an address is skipped. An unknown name or a name listed twice is refused. |
 | `chats_web_allow_private` | off | Let `web_fetch` reach addresses inside your network. The cloud metadata addresses and the addresses of the server itself stay refused. |
 | `chats_web_ports` | `80,443` | The ports `web_fetch` may use, comma separated. |
 
 Turn `chats_web_allow_private` on only if you trust every user of chats: a user
 can then read any internal web service the server can reach, through a model.
 
-To check the search provider, an administrator runs a test search with the
-saved settings:
+To check the search providers, an administrator presses **Test search** on the
+`web_search` row of **Settings > Tools**, or calls the endpoint. It runs the
+query with each provider of the saved order, also the ones after the first
+answer and the ones in their cool-down, and says what each did: `ok` (with the
+number of results), `no_results`, `challenged`, `blocked`, `timeout` or
+`error`, with the reason. `provider`, `host` and `results` are the first
+answer, which a chat would get. A provider that answers leaves its cool-down;
+one that is challenged or blocked enters it. The test counts as one search
+against the limits.
 
 ```bash
 curl -X POST .../api/chats/admin/web/test -d '{"query": "LocalAI"}'
-# {"ok":true,"provider":"duckduckgo","host":"duckduckgo.com","results":[{"title":"...","url":"...","snippet":"..."}]}
-# {"ok":false,"provider":"searxng","host":"searx.example.org","results":[],"error":"no search provider works: ..."}
+# {"ok":true,"provider":"brave_html","host":"search.brave.com","results":[{"title":"...","url":"...","snippet":"..."}],
+#  "providers":[{"name":"duckduckgo","host":"duckduckgo.com","outcome":"challenged","results":0,"reason":"challenged by a bot check"},
+#               {"name":"brave_html","host":"search.brave.com","outcome":"ok","results":20},
+#               {"name":"bing_html","host":"www.bing.com","outcome":"ok","results":10}]}
 ```
+
+When DuckDuckGo is challenged and the others answer, the search works and
+nothing needs to change. When all are challenged or blocked, the address of
+the server is likely flagged by the engines: set a SearXNG instance, or
+install the Web add-on and give it a key.
 
 ## Replace a web tool with an add-on
 
@@ -194,8 +255,8 @@ skipped.
 | DuckDuckGo | nothing | no key |
 
 The default order is Brave Search, Tavily, Google, SearXNG, DuckDuckGo, so with no key set
-the add-on searches with DuckDuckGo, as the built-in tool does. Take DuckDuckGo out of the
-order to never use it.
+the add-on searches with DuckDuckGo only. Take DuckDuckGo out of the order to never use it.
+The add-on does not use the Brave Search and Bing pages of the built-in tool.
 
 A key is a secret of the add-on. It is saved in the add-on's data folder (`settings.json`,
 mode 0600) and sent only to its provider, in a header, never in a URL. The add-on's clients
@@ -247,14 +308,21 @@ of that process, so every frontend sees the same. Saving the settings starts the
 | Cache of identical searches | 5 minutes, 512 searches |
 | Download | 2 MiB |
 | Text returned | 20000 characters by default, 100000 at most |
-| Time | 15 seconds for `web_fetch`, 10 seconds for a SearXNG search |
+| Time | 15 seconds for `web_fetch`, 10 seconds for a SearXNG search, 8 seconds for each provider of the chain |
+| Cool-down of a challenged or blocked provider | 5 minutes |
 | Redirects | 5 |
 
 A search answered from the cache does not count against the limits.
 
 ### Several frontends
 
-The cache and the rate limits are kept in the memory of each frontend. With
-several frontends, each has its own cache, and the limit for everyone applies
-to each frontend, so N frontends allow N times 60 searches a minute. The
-settings are runtime settings like the others.
+The cache, the rate limits and the cool-down of the search providers are kept
+in the memory of each frontend (per-instance state). With several frontends,
+each has its own cache, and the limit for everyone applies to each frontend,
+so N frontends allow N times 60 searches a minute. Each frontend finds out on
+its own that an engine challenges it: the engines judge each address, and
+frontends on different addresses can get different answers, so a shared
+cool-down could skip an engine that works for this frontend. The cost is at
+most one wasted request per engine every 5 minutes on each frontend. A change
+of the settings starts the cache and the cool-down again. The settings are
+runtime settings like the others.
