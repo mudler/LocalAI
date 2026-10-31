@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "Compartido"
   },
+  "trash": {
+    "empty": "La papelera está vacía.",
+    "restore": "Restaurar",
+    "emptyAll": "Vaciar la papelera",
+    "purge": "Eliminar definitivamente",
+    "purgeNamed": "Eliminar {{name}} definitivamente",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "folders_one": "{{count}} carpeta",
+    "folders_other": "{{count}} carpetas",
+    "listJoin": ", ",
+    "summary": "En la papelera: {{what}}.",
+    "removed": "Eliminado definitivamente: {{what}}.",
+    "confirmAll": {
+      "title": "¿Vaciar la papelera?",
+      "message": "Se eliminarán definitivamente {{what}}, con sus versiones anteriores. No se puede deshacer."
+    },
+    "confirmOne": {
+      "title": "¿Eliminar definitivamente?",
+      "message": "{{path}}: se eliminarán definitivamente {{what}}, con sus versiones anteriores. No se puede deshacer."
+    }
+  },
   "shared": {
     "adminTitle": "Carpetas compartidas",
     "adminLede": "Carpetas que usan varias personas. Los miembros abren sus páginas y sus chats pueden leer o editar los archivos.",

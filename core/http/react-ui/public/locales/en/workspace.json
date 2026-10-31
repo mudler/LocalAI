@@ -22,7 +22,25 @@
   },
   "trash": {
     "empty": "The Trash is empty.",
-    "restore": "Restore"
+    "restore": "Restore",
+    "emptyAll": "Empty Trash",
+    "purge": "Delete permanently",
+    "purgeNamed": "Delete {{name}} permanently",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "folders_one": "{{count}} folder",
+    "folders_other": "{{count}} folders",
+    "listJoin": ", ",
+    "summary": "In the Trash: {{what}}.",
+    "removed": "Deleted permanently: {{what}}.",
+    "confirmAll": {
+      "title": "Empty the Trash?",
+      "message": "This permanently deletes {{what}}, with their earlier versions. It cannot be undone."
+    },
+    "confirmOne": {
+      "title": "Delete permanently?",
+      "message": "{{path}}: this permanently deletes {{what}}, with earlier versions. It cannot be undone."
+    }
   },
   "history": {
     "empty": "No changes yet.",

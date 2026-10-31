@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "Dibagikan"
   },
+  "trash": {
+    "empty": "Tempat sampah kosong.",
+    "restore": "Pulihkan",
+    "emptyAll": "Kosongkan tempat sampah",
+    "purge": "Hapus permanen",
+    "purgeNamed": "Hapus {{name}} secara permanen",
+    "files_one": "{{count}} berkas",
+    "files_other": "{{count}} berkas",
+    "folders_one": "{{count}} folder",
+    "folders_other": "{{count}} folder",
+    "listJoin": ", ",
+    "summary": "Di tempat sampah: {{what}}.",
+    "removed": "Dihapus permanen: {{what}}.",
+    "confirmAll": {
+      "title": "Kosongkan tempat sampah?",
+      "message": "Ini menghapus permanen {{what}} beserta versi sebelumnya. Tindakan ini tidak dapat dibatalkan."
+    },
+    "confirmOne": {
+      "title": "Hapus permanen?",
+      "message": "{{path}}: ini menghapus permanen {{what}} beserta versi sebelumnya. Tindakan ini tidak dapat dibatalkan."
+    }
+  },
   "shared": {
     "adminTitle": "Folder bersama",
     "adminLede": "Folder yang dipakai beberapa orang. Anggota membuka halamannya, dan chat mereka bisa membaca atau mengubah filenya.",

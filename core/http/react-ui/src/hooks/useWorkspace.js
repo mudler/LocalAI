@@ -21,6 +21,9 @@ export function useWorkspace(initialPath = '/') {
   const [error, setError] = useState('')
   const [off, setOff] = useState('')
   const [trash, setTrash] = useState([])
+  const [trashTotals, setTrashTotals] = useState({ files: 0, folders: 0, bytes: 0 })
+  // What the last permanent delete removed: { files, folders, bytes } or null.
+  const [purged, setPurged] = useState(null)
   const [history, setHistory] = useState([])
   const [hits, setHits] = useState(null) // null: no search; an array: its results
   const [busy, setBusy] = useState(false)
@@ -45,6 +48,7 @@ export function useWorkspace(initialPath = '/') {
       if (pathRef.current !== at) return
       setEntries(list.entries || [])
       setTrash(tr.entries || [])
+      setTrashTotals(tr.totals || { files: 0, folders: 0, bytes: 0 })
       setOff('')
       setError('')
     } catch (e) {
@@ -112,6 +116,18 @@ export function useWorkspace(initialPath = '/') {
     return res
   }), [act])
 
+  // Permanent deletes. The server counts what it removed; the page says so.
+  const purge = useCallback((rev) => act(async () => {
+    const res = await filesApi.purgeTrash(rev)
+    setPurged(res)
+    return res
+  }), [act])
+  const emptyTrash = useCallback(() => act(async () => {
+    const res = await filesApi.emptyTrash()
+    setPurged(res)
+    return res
+  }), [act])
+
   const search = useCallback(async (text) => {
     if (!text.trim()) { setHits(null); return }
     try {
@@ -123,8 +139,9 @@ export function useWorkspace(initialPath = '/') {
   }, [fail])
 
   return {
-    path, entries, loading, error, off, trash, history, hits, busy,
-    open, refresh, loadHistory, upload, mkdir, rename, remove, restore, search,
+    path, entries, loading, error, off, trash, trashTotals, purged, history, hits, busy,
+    open, refresh, loadHistory, upload, mkdir, rename, remove, restore, purge, emptyTrash, search,
+    clearPurged: () => setPurged(null),
     clearError: () => setError(''), clearSearch: () => setHits(null),
   }
 }

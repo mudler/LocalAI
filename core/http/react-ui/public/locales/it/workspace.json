@@ -307,6 +307,28 @@
   "tabs": {
     "shared": "Condivisi"
   },
+  "trash": {
+    "empty": "Il cestino è vuoto.",
+    "restore": "Ripristina",
+    "emptyAll": "Svuota il cestino",
+    "purge": "Elimina definitivamente",
+    "purgeNamed": "Elimina {{name}} definitivamente",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} file",
+    "folders_one": "{{count}} cartella",
+    "folders_other": "{{count}} cartelle",
+    "listJoin": ", ",
+    "summary": "Nel cestino: {{what}}.",
+    "removed": "Eliminato definitivamente: {{what}}.",
+    "confirmAll": {
+      "title": "Svuotare il cestino?",
+      "message": "Verranno eliminati definitivamente {{what}}, con le versioni precedenti. L'operazione non può essere annullata."
+    },
+    "confirmOne": {
+      "title": "Eliminare definitivamente?",
+      "message": "{{path}}: verranno eliminati definitivamente {{what}}, con le versioni precedenti. L'operazione non può essere annullata."
+    }
+  },
   "shared": {
     "adminTitle": "Cartelle condivise",
     "adminLede": "Cartelle usate da più persone. I membri aprono le loro pagine e le loro chat possono leggere o modificare i file.",
