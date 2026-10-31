@@ -376,17 +376,60 @@ when you save it.
 
 ### Add one
 
-On the **MCP connectors** page (`/app/mcp-connectors`) choose **New MCP server**. Give it a
-name (unique among your connectors) and an address, and optionally a bearer
-token or other headers. Use **Test connection** to connect and list the tool
-names before you switch it on.
+On the **MCP connectors** page (`/app/mcp-connectors`) choose **Add connector**.
+A side sheet opens:
+
+1. Administrators choose the kind first: **Remote server** (an address over
+   http or https) or **Local command** (see the table below). Other users add
+   remote servers only.
+2. Give it a name (unique among your connectors) and an address. The sheet
+   checks the address as you type: it must start with `http://` or `https://`
+   and must not hold a user name or password.
+3. Under **Sign-in**, add a bearer token or other headers if the server asks for
+   a key. Secret fields are masked; the eye button shows what you typed. They
+   are stored encrypted on the server and never shown again.
+4. **Save and test** saves the connector switched off, then connects with what
+   was saved and lists the tools, each with the description its server gives.
+   If the test works, **Turn on** switches it on; **Keep it off** closes the
+   sheet. If it fails, the sheet gives the reason (a refused sign-in says to
+   check the token or the headers) and offers **Test again**.
+
+Escape, Cancel and the close button ask before they drop typed changes.
 
 ```
 curl -X POST .../api/chats/mcp-connectors -d '{"name": "Docs", "transport": "http", "url": "https://mcp.example/mcp", "token": "...", "headers": {"X-Team": "blue"}, "enabled": false}'
 curl -X POST .../api/chats/mcp-connectors/<id>/test
-# {"ok": true, "tools": ["search", "fetch"]}
+# {"ok": true, "tools": ["search", "fetch"], "tool_details": [{"name": "search", "description": "Search the docs."}, {"name": "fetch"}]}
 curl -X POST .../api/chats/mcp-connectors/<id>/enable
 ```
+
+### The list and the details
+
+Each connector is a row with its state, where it points (the host only, never
+the path or the query of the address), its tools, what is saved for it and when
+it was last tested. The state is one of:
+
+| State | Meaning |
+|---|---|
+| **Connected** | The last test connected. |
+| **Needs sign-in** | The last test was refused for its credential (for example a `401`). **Replace token** opens the sheet on the token field. |
+| **Can't connect** | The last test failed; the row gives the reason. |
+| **Not tested** | It is on, but it was not tested in this browser since it last changed. |
+| **Off** | It is switched off. Chats and agents do not use it. |
+
+The last test of each connector is kept in this browser only (in
+`localStorage`, without the address or any secret), so the page shows the last
+known state with its time after a reload. A change of the address or of what is
+saved makes it stale. **Test all** in the toolbar tests every connector that is
+on.
+
+The switch on a row applies at once. With four or more connectors, a search
+(by name or address) and a filter (**All**, **On**, **Needs attention**,
+**Off**) appear above the list. A click on a row opens its details beside the
+list (over the page on a narrow screen): the switch, the last test with the
+reason when it failed, the tools with their descriptions (with a search when
+there are many), how it connects, and what is saved. **Remove** asks first; it
+deletes the connector with its saved secrets.
 
 `GET`, `PUT` and `DELETE /api/chats/mcp-connectors/{id}` read, replace and
 delete one, and `POST .../enable` and `.../disable` switch it. You can have 20.
@@ -480,7 +523,7 @@ the sandbox.
 ### Import from this browser
 
 If the old chat page kept MCP servers in this browser (`localStorage`), the
-MCP page offers **Import N servers from this browser**. It shows each name and
+MCP connectors page offers **Import N servers from this browser**. It shows each name and
 address, never a header value, and makes a switched-off connector for each one.
 A token or header leaves the browser only for a server the API accepted; the
 ones that failed stay in the browser with the reason.
