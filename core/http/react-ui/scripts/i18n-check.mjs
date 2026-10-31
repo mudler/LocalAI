@@ -13,7 +13,10 @@
  *
  *   - a locale and namespace with more missing keys than the baseline fails;
  *   - one with fewer fails too, until you lower the baseline, so a fixed gap
- *     cannot come back unnoticed.
+ *     cannot come back unnoticed;
+ *   - a namespace file that a locale lacks fails whatever the baseline says:
+ *     the browser asks the server for every namespace of the language it
+ *     shows, and a missing file answers 404 on every page load.
  *
  *   node scripts/i18n-check.mjs            # check against the baseline
  *   node scripts/i18n-check.mjs --write    # save the current gaps as baseline
@@ -46,6 +49,17 @@ function readKeys(file) {
 const dirs = (path) => readdirSync(path, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort()
 const namespaces = (locale) => readdirSync(join(LOCALES, locale)).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort()
 
+/** Returns the 'locale/namespace' names of the files a locale lacks. */
+export function missingFiles() {
+  const out = []
+  for (const locale of dirs(LOCALES).filter((l) => l !== SOURCE)) {
+    for (const ns of namespaces(SOURCE)) {
+      if (!existsSync(join(LOCALES, locale, `${ns}.json`))) out.push(`${locale}/${ns}`)
+    }
+  }
+  return out
+}
+
 /** Returns { 'locale/namespace': [missing keys] } for every gap. */
 export function gaps() {
   const found = {}
@@ -74,7 +88,7 @@ function main(argv) {
     return 0
   }
   const baseline = existsSync(BASELINE) ? JSON.parse(readFileSync(BASELINE, 'utf8')) : {}
-  const problems = []
+  const problems = missingFiles().map((name) => `${name}.json is missing. Add the file with the keys of English, translated.`)
   for (const name of new Set([...Object.keys(counts), ...Object.keys(baseline)])) {
     const now = counts[name] || 0
     const was = baseline[name] || 0

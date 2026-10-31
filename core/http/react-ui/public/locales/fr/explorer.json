@@ -1,0 +1,57 @@
+{
+  "brand": "{{name}} Explorer",
+  "openApp": "Ouvrir LocalAI",
+  "close": "Fermer",
+  "copy": "Copier",
+  "copied": "Copié",
+  "loading": "Chargement des essaims",
+  "title": "Essaims publics",
+  "lede": "Un essaim est un groupe de machines qui partagent l'inférence de modèles sur un réseau pair à pair. Cette liste affiche les essaims dont les propriétaires ont choisi de les rendre publics. Toute personne possédant le jeton d'un essaim peut le rejoindre.",
+  "count_one": "{{count}} essaim en ligne",
+  "count_other": "{{count}} essaims en ligne",
+  "sorted": "Les plus fournis en workers d'abord",
+  "workers_one": "worker",
+  "workers_other": "workers",
+  "tokenTitle": "Le début et la fin du jeton. Copiez-le depuis Comment rejoindre.",
+  "warning": "L'Explorer est une liste communautaire de jetons d'essaims. N'importe qui peut utiliser un jeton pour envoyer du travail à un essaim ou partager des ressources avec lui. À utiliser à vos risques et périls.",
+  "listed": "L'essaim est répertorié.",
+  "empty": {
+    "title": "Aucun essaim n'a de workers en ligne",
+    "text": "Seuls les essaims avec au moins un worker en ligne sont répertoriés. Répertoriez le vôtre pour le rendre public."
+  },
+  "off": {
+    "title": "Ce serveur n'est pas un explorer",
+    "text": "La page Explorer nécessite un serveur LocalAI démarré en mode explorer. Celui-ci n'a pas de liste d'essaims à afficher."
+  },
+  "error": {
+    "title": "Impossible de charger les essaims",
+    "text": "Le serveur explorer n'a pas répondu. Vérifiez qu'il est en marche, puis réessayez.",
+    "retry": "Réessayer"
+  },
+  "join": {
+    "open": "Comment rejoindre",
+    "title": "Rejoindre {{name}}",
+    "text": "Démarrez un worker LocalAI avec le jeton de cet essaim.",
+    "token": "Jeton",
+    "federated": "Cluster fédéré {{id}}. Démarrez un nœud dessus avec l'une des deux commandes.",
+    "docker": "Avec Docker",
+    "cli": "Avec la ligne de commande",
+    "noCommands": "Les workers de cet essaim partagent leur puissance de calcul via son jeton. Le jeton ci-dessus est ce dont un nœud a besoin pour rejoindre l'essaim.",
+    "docs": "Découvrir le fonctionnement des essaims"
+  },
+  "list": {
+    "open": "Répertorier un essaim",
+    "title": "Répertorier un essaim",
+    "text": "Ajoutez un essaim à la liste publique. Il apparaît dès qu'il a un worker en ligne.",
+    "name": "Nom",
+    "description": "Description",
+    "token": "Jeton",
+    "tokenHint": "Le jeton réseau de l'essaim, tel que le serveur l'a affiché.",
+    "public": "La mise en liste rend le jeton public. Toute personne qui voit la liste peut utiliser les workers de votre essaim.",
+    "understood": "Je comprends que le jeton devient public.",
+    "cancel": "Annuler",
+    "add": "Répertorier cet essaim",
+    "adding": "Ajout en cours...",
+    "failed": "Impossible de répertorier l'essaim."
+  }
+}
