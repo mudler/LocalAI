@@ -77,6 +77,9 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 			}
 			msg.Note += d.Note
 			msg.Attachments = append(msg.Attachments, d.Attachments...)
+			if msg.Invoked == nil {
+				msg.Invoked = d.Invoked
+			}
 		}
 		msg.Text = strings.Join(texts, "\n\n")
 		return entries[first].Seq - 1, msg, nil
@@ -99,7 +102,7 @@ func (s *Service) EditAndRerun(ctx context.Context, user, conv string, seq int64
 			}
 			// The edit replaces the words; the files of the message stay.
 			d := session.DisplayEntry(e)
-			return seq - 1, session.Message{Text: text, Note: d.Note, Attachments: d.Attachments}, nil
+			return seq - 1, session.Message{Text: text, Note: d.Note, Attachments: d.Attachments, Invoked: d.Invoked}, nil
 		}
 		return 0, session.Message{}, session.ErrNotFound
 	})
@@ -136,10 +139,30 @@ func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session
 		}
 		return SendResult{}, err
 	}
+	s.recommand(ctx, p, rec, &msg)
 	if err := s.startTurn(ctx, p, conv, runID, msg); err != nil {
 		return SendResult{}, err
 	}
 	return SendResult{Started: true}, nil
+}
+
+// recommand gives a message that runs again the instructions of the command it
+// was sent with. A skill or an agent that is gone leaves the message plain; the
+// chip stays, as it was what the person sent.
+func (s *Service) recommand(ctx context.Context, p string, rec session.ChatRecord, msg *session.Message) {
+	if msg.Invoked == nil {
+		return
+	}
+	cmd := Command{Skill: msg.Invoked.Name}
+	if msg.Invoked.Kind == session.InvokeAgent {
+		cmd = Command{Agent: msg.Invoked.ID}
+	}
+	directive, _, err := s.commandMessage(ctx, p, rec, msg.Text, cmd)
+	if err != nil {
+		s.log.Info("studio: the command of a message that runs again is gone", "chat", rec.ID, "error", err)
+		return
+	}
+	msg.Directive = directive
 }
 
 // cut removes the entries pick names and rebuilds the model state from those

@@ -23,6 +23,20 @@ import NetworkRow from './NetworkRow'
 import { CommandsChip, CommandsNotice } from './CommandsNotice'
 import { ToolFallbacks } from './ToolFallbacks'
 import Button from '../ui/Button'
+import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills } from '../../utils/slashCommands'
+import { CHAT_SLASH_ACTIONS } from './chatActions'
+import { SLASH_ACTIONS } from '../home/homeActions'
+
+// The opt-in group of built-in tools that lets a chat call the saved agents.
+const SAVED_AGENTS = 'saved_agents'
+
+// /model and /models take a model name: the menu suggests the installed chat
+// models as the person types.
+function withModelArgs(commands) {
+  return commands.map((c) => ((c.id === 'model' || c.id === 'models')
+    ? { ...c, args: (query, ctx) => filterArgs((ctx.models || []).map((name) => ({ key: `model-${name}`, name, icon: 'cube' })), query) }
+    : c))
+}
 // The model list, the switch menus and the notices are styled with the chat
 // page; Home draws the same composer.
 import '../../pages/chat.css'
@@ -45,11 +59,18 @@ import '../../pages/chat.css'
 //   toolsExtra     more chips after Skills (the sub-agents of a chat)
 //   chips          more chips after the agent (the Files chip)
 //   imageModel     the model that describes images to a model that cannot see
+//   slashSurface   'chat' or 'home': which commands of the registry
+//                  (utils/slashCommands.js) the slash menu offers
+//   slashContext   what the page knows for them (see availableCommands); the
+//                  composer adds the skills, the saved agents, the models
+//                  and the staged files
+//   onRunAction    (id, item) for the commands the page runs; the composer
+//                  runs /model with a name, /models, and "turn on saved agents"
 // The other props go to HomeComposer as they are.
 export default function ChatComposer({
   composer, chatId = null, activeChat = null, filesOn = true, loadedIds, imageModel = '',
   onPickModel, pickerRef, pickerDisabled = false, pickerPlaceholder, egress = null, toolsExtra, chips,
-  slotContext, placeholder, onDictateError, ...rest
+  slotContext, placeholder, onDictateError, slashSurface = 'chat', slashContext, onRunAction, ...rest
 }) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
@@ -178,6 +199,60 @@ export default function ChatComposer({
     </>
   )
 
+  // The slash menu: the registry's commands for this surface, with what this
+  // composer knows added to the page's context.
+  const { t: th } = useTranslation('home')
+  const savedGroup = switches.builtins.find((b) => b.group === SAVED_AGENTS)
+  const savedAgentsOn = !!savedGroup && !savedGroup.off && savedGroup.usable !== false
+  const slashCtx = useMemo(() => ({
+    ...(slashContext || {}),
+    skills: switches.skills, agents, canAgents: agents.length > 0 && !!savedGroup, savedAgentsOn,
+    models: modelNames, canAttach: filesOn, staged: files.length,
+  }), [slashContext, switches.skills, agents, savedGroup, savedAgentsOn, modelNames, filesOn, files.length])
+  const slash = useMemo(() => {
+    const own = slashSurface === 'home' ? th : t
+    const ownIds = new Set((slashSurface === 'home' ? SLASH_ACTIONS : CHAT_SLASH_ACTIONS).map((a) => a.id))
+    const words = (a) => (ownIds.has(a.id) ? own : t)
+    return {
+      actions: withModelArgs(availableCommands(slashSurface, slashCtx)),
+      groups: commandGroups(slashSurface),
+      ctx: slashCtx,
+      label: (a) => words(a)(`slash.${a.id}.label`),
+      desc: (a) => words(a)(`slash.${a.id}.desc`),
+      groupLabel: (g) => (COMMAND_GROUPS.includes(g) ? t(`slash.group.${g}`) : own(`slash.group.${g}`)),
+      argsLabel: (c) => t(`slash.args.${c.id === 'models' ? 'model' : c.id}`, { defaultValue: c.cmd }),
+      argLabel: (c, it) => (it.action === 'enableAgents' ? t('slash.agent.enable') : ''),
+      argDesc: (c, it) => (it.action === 'clearFiles' ? t('slash.attach.clearDesc') : it.action === 'enableAgents' ? t('slash.agent.enableDesc') : ''),
+      badgeLabel: (b) => t(`slash.badge.${b}`),
+      noteLabel: (n) => (n === 'collides' ? t('slash.collides') : n),
+    }
+  }, [slashSurface, slashCtx, t, th])
+  const runSlash = useCallback((id, item) => {
+    if ((id === 'model' || id === 'models') && item?.name) {
+      if (chatId && onPickModel) onPickModel(item.name)
+      else setDraftModel(item.name)
+      return
+    }
+    if (id === 'models') { pickerRef?.current?.open(); return }
+    if (id === 'agent' && item?.action === 'enableAgents') { switches.toggleBuiltin(SAVED_AGENTS, true); setText('/agent '); return }
+    if (id === 'help') {
+      // The commands of the menu, and the skills apart: they are many.
+      const entries = slash.actions.filter((a) => !a.label).map((a) => ({ cmd: a.cmd, desc: slash.desc(a), icon: a.icon }))
+      const skills = slash.actions.filter((a) => a.label).map((a) => a.cmd)
+      onRunAction?.(id, { entries, skills })
+      return
+    }
+    if (id === 'about') {
+      const on = (rows) => rows.filter((r) => !r.off && r.usable !== false).length
+      const tools = on(switches.builtins) + switches.addons.filter((a) => !a.off).reduce((n, a) => n + (a.tools || 0), 0)
+        + on(switches.servers) + on(switches.connectors)
+      const runs = switches.commands.state === 'available' ? (sandbox?.state === 'host' ? 'host' : 'isolated') : 'none'
+      onRunAction?.(id, { about: { tools, skills: usableSkills(switches.skills).length, commands: runs } })
+      return
+    }
+    onRunAction?.(id, item)
+  }, [chatId, onPickModel, setDraftModel, pickerRef, switches, setText, onRunAction, slash, sandbox])
+
   const effectivePlaceholder = placeholder || (effectiveModel
     ? t('input.placeholderModel', { model: effectiveModel })
     : (!modelsLoading && models.length === 0 ? t('input.placeholderNoModel') : t('input.placeholderPick')))
@@ -206,6 +281,9 @@ export default function ChatComposer({
         placeholder={effectivePlaceholder}
         onPaste={paste}
         anyFile
+        slash={slash}
+        onRunAction={runSlash}
+        onClearFiles={() => setFiles([])}
         {...rest}
       />
     </>

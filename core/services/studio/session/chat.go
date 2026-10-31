@@ -35,12 +35,30 @@ type Message struct {
 	// Media goes to the model as parts of this message when the harness can
 	// take them. It is not stored: the files in Files are.
 	Media []Media
+	// Directive is an instruction for the model that comes with this message
+	// only, such as the text of a skill the person invoked. The model gets it
+	// before the message; the transcript does not keep it.
+	Directive string
+	// Invoked is the command the person used, kept with the message in the
+	// transcript (Entry.Invoked).
+	Invoked *Invocation
 	// Goal marks a message the server sends by itself to go on with the
 	// chat's goal. The transcript keeps it as a RoleGoal line of kind
 	// GoalLineContinue whose Rev is GoalTurn, so it never reads as typed by
 	// the person; the model gets Text as a user message.
 	Goal     bool
 	GoalTurn int
+}
+
+// withDirective puts the directive of a message before the text the model gets.
+func withDirective(directive, text string) string {
+	if directive == "" {
+		return text
+	}
+	if text == "" {
+		return directive
+	}
+	return directive + "\n\n" + text
 }
 
 // Upload is one file that came with a message.
@@ -338,16 +356,18 @@ func (c *Chat) startHarness(ctx context.Context) error {
 }
 
 // summary renders the end of the transcript as plain text, at most 8 KiB.
-// Checkpoints and reasoning are left out: the model never sees reasoning.
+// Checkpoints and reasoning are left out: the model never sees reasoning. The
+// part before the last "context cleared" entry is left out too.
 func (c *Chat) summary(ctx context.Context) string {
 	es, err := c.History(ctx)
 	if err != nil || len(es) == 0 {
 		return ""
 	}
+	es = SinceCleared(es)
 	var lines []string
 	size := 0
 	for _, e := range slices.Backward(es) {
-		if e.Role == RoleCheckpoint || e.Role == RoleReasoning || (e.Role == RoleGoal && e.Note != GoalLineContinue) {
+		if !ModelRole(e.Role) && (e.Role != RoleGoal || e.Note != GoalLineContinue) {
 			continue
 		}
 		l := e.Role + ": " + CapText(ModelText(e), 1000)
@@ -625,10 +645,10 @@ func (c *Chat) Send(ctx context.Context, msg Message) error { return c.send(ctx,
 // send is Send. logged is true when the message is in the transcript already.
 func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	text := strings.TrimSpace(msg.Text)
-	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 {
+	if text == "" && msg.Note == "" && len(msg.Files) == 0 && len(msg.Attachments) == 0 && msg.Directive == "" {
 		return fmt.Errorf("%w: empty message", ErrInvalid)
 	}
-	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments}
+	entry := Entry{Role: RoleUser, Text: text, Note: msg.Note, Attachments: msg.Attachments, Invoked: msg.Invoked}
 	if msg.Goal {
 		entry = Entry{Role: RoleGoal, Text: text, Note: GoalLineContinue, Rev: int64(msg.GoalTurn)}
 	}
@@ -668,7 +688,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				entry.Turn = turn
 				c.appendEntry(ctx, entry)
 			}
-			return c.queuePending(ctx, msg, ModelText(entry))
+			return c.queuePending(ctx, msg, withDirective(msg.Directive, ModelText(entry)))
 		}
 		// Taken under mu, so a swap that starts later waits for this inject.
 		c.injectMu.RLock()
@@ -681,7 +701,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 			entry.Turn = turn
 			c.appendEntry(ctx, entry)
 		}
-		err := hs.Inject(ModelText(entry))
+		err := hs.Inject(withDirective(msg.Directive, ModelText(entry)))
 		c.injectMu.RUnlock()
 		if !errors.Is(err, ErrNoTurn) {
 			return err
@@ -694,7 +714,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				c.mu.Unlock()
 				return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
 			}
-			c.pending = append(c.pending, ModelText(entry))
+			c.pending = append(c.pending, withDirective(msg.Directive, ModelText(entry)))
 			c.mu.Unlock()
 			return nil
 		}
@@ -720,7 +740,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
-	full := ModelText(entry)
+	full := withDirective(msg.Directive, ModelText(entry))
 	if !logged {
 		entry.Turn = c.turnNow() + 1
 		c.appendEntry(ctx, entry)

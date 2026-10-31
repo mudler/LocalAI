@@ -25,7 +25,10 @@ import { chatsApi, modelsApi } from '../utils/api'
 import { apiUrl } from '../utils/basePath'
 // eslint-disable-next-line no-unused-vars
 import ChatComposer from '../components/chat/ChatComposer'
-import { CHAT_SLASH_GROUPS, OPEN_CHAT_FILE_EVENT, availableChatActions } from '../components/chat/chatActions'
+import { OPEN_CHAT_FILE_EVENT } from '../components/chat/chatActions'
+import { contextSinceClear, parseInvocation } from '../utils/slashCommands'
+// eslint-disable-next-line no-unused-vars
+import { ChatAboutCard, ContextMarker, SlashHelpCard } from '../components/chat/CommandCards'
 import { isTyping } from '../components/chat/chatText'
 // eslint-disable-next-line no-unused-vars
 import ChatHeader from '../components/chat/ChatHeader'
@@ -208,13 +211,17 @@ function ChatPage() {
   const modelWarm = !!model && loadedIds.has(model)
   const title = activeChat?.title || tc('list.untitled')
 
-  const slashConfig = useMemo(() => ({
-    actions: availableChatActions({ assistant: isAdmin && assistantOn, hasModels: chatModels.length > 0, hasThread, hasChat: !!activeId }),
-    groups: CHAT_SLASH_GROUPS,
-    label: (a) => t(`slash.${a.id}.label`),
-    desc: (a) => t(`slash.${a.id}.desc`),
-    groupLabel: (g) => t(`slash.group.${g}`),
-  }), [isAdmin, assistantOn, chatModels.length, hasThread, activeId, t])
+  // What the slash menu needs from this page (see utils/slashCommands.js); the
+  // composer adds the skills, the agents, the models and the staged files.
+  const slashCtx = useMemo(() => ({
+    assistant: isAdmin && assistantOn, hasModels: chatModels.length > 0, hasThread, hasChat: !!activeId, running: chat.running,
+    hasContext: contextSinceClear(messages),
+  }), [isAdmin, assistantOn, chatModels.length, hasThread, activeId, chat.running, messages])
+  // The card a command drew under the thread (/help, /about): never stored.
+  const [cmdCard, setCmdCard] = useState(null)
+  // The context command on its way to the server: 'compacting' or 'clearing'.
+  const [contextBusy, setContextBusy] = useState('')
+  useEffect(() => { setCmdCard(null); setContextBusy('') }, [activeId])
 
   // What the model is waiting for while it comes up: a byte transfer this
   // frontend is doing for it. A model that is simply not loaded yet has no
@@ -452,9 +459,21 @@ function ChatPage() {
   // chat that exists a message always goes: while a turn runs it waits and
   // reaches the model at its next step.
   const handleSend = useCallback(async (override) => {
-    const text = (typeof override === 'string' ? override : input).trim()
+    let text = (typeof override === 'string' ? override : input).trim()
     const sending = typeof override === 'string' ? [] : files
     if ((!text && sending.length === 0) || (!activeId && busy)) return
+    // A message typed as a command (/review fix this, /agent Name task) goes
+    // with its skill or agent; the transcript shows the words and a chip.
+    const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
+    const inv = typeof override === 'string' ? null : parseInvocation(text, {
+      skills: switches.skills, agents: composer.agents, savedAgentsOn: !!savedGroup && !savedGroup.off,
+    })
+    if (inv?.error) {
+      setLocalError(t(`slash.errors.${inv.error}`, { name: inv.name }))
+      return
+    }
+    const command = inv ? { skill: inv.skill, agent: inv.agent } : undefined
+    if (inv) text = inv.text
     if (!activeId && !effectiveModel) {
       addToast(t('toasts.selectModel'), 'warning')
       return
@@ -472,17 +491,17 @@ function ChatPage() {
         navigate(`/app/chats/${target}`)
       }
       stickToBottomRef.current = true
-      await chat.send(target, text, sending)
+      await chat.send(target, text, sending, command)
     } catch (e) {
       // Give the text and files back to the chat they were written in, unless
       // the user typed something else there. Another chat may be open by now.
-      if (typeof override !== 'string') drafts.restore(target, text, sending)
+      if (typeof override !== 'string') drafts.restore(target, input.trim(), sending)
       if (drafts.isOpen(target)) setLocalError(e.message || tc('errors.send'))
       else addToast(e.message || tc('errors.send'), 'error')
     } finally {
       setBusy(false)
     }
-  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, chat, select, navigate, addToast, t, tc, drafts])
+  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, composer.agents, chat, select, navigate, addToast, t, tc, drafts])
 
   // The Home page hands over the first message in the location state. It goes
   // once, when a model is known; without one the text waits in the box. A
@@ -803,8 +822,36 @@ function ChatPage() {
     { key: 'delete', icon: 'trash', label: t('menu.deleteChat'), danger: true, hidden: !activeId, onClick: promptDelete },
   ]
 
-  const runSlash = (id) => {
+  // The context commands: the status line says what runs, the marker lands in
+  // the thread, and an error shows like a failed send.
+  const runContext = async (kind) => {
+    if (!activeId || contextBusy) return
+    setCmdCard(null)
+    setLocalError('')
+    setContextBusy(kind === 'compact' ? 'compacting' : 'clearing')
+    try {
+      if (kind === 'compact') await chat.compact(activeId)
+      else await chat.clear(activeId)
+      stickToBottomRef.current = true
+    } catch (e) {
+      setLocalError(e.message || tc('errors.send'))
+    } finally {
+      setContextBusy('')
+    }
+  }
+
+  const runSlash = (id, item) => {
     switch (id) {
+      case 'compact': runContext('compact'); break
+      case 'clear': runContext('clear'); break
+      case 'help': setCmdCard({ kind: 'help', ...item }); stickToBottomRef.current = true; break
+      case 'about':
+        setCmdCard({
+          kind: 'about',
+          about: { ...item?.about, model: footModel, warm: modelWarm, backend: footBackend, used: chat.usage?.used || 0, limit: chat.usage?.limit || activeChat?.settings?.context_size || 0 },
+        })
+        stickToBottomRef.current = true
+        break
       case 'model': pickerRef.current?.open(); break
       case 'new': navigate('/app'); break
       case 'chats': chatsMenuRef.current?.open(); break
@@ -831,7 +878,7 @@ function ChatPage() {
   // only while the composer has focus, is empty and the chat is idle.
   const footState = chatFootState({
     activeId, noModel, running: chat.running, sending: busy, lastTurn: chat.lastTurn,
-    pending: chat.pending, live: chat.live, warm: modelWarm,
+    pending: chat.pending, live: chat.live, warm: modelWarm, command: contextBusy,
   })
   const footHint = showHint({ focused: composerFocused, empty: !input.trim() && files.length === 0, state: footState })
   const footModel = chat.usage?.model || model
@@ -893,6 +940,7 @@ function ChatPage() {
               {rows.map((row, i) => {
                 if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
+                if (row.kind === 'marker') return <ContextMarker key={row.key} marker={row.marker} before={row.before} after={row.after} />
                 if (row.kind === 'goal') return <GoalMarker key={row.key} msg={row.msg} />
                 return [
                   <ChatMessage
@@ -943,6 +991,8 @@ function ChatPage() {
                 />
               )}
 
+              {cmdCard?.kind === 'help' && <SlashHelpCard entries={cmdCard.entries} skills={cmdCard.skills} onClose={() => setCmdCard(null)} />}
+              {cmdCard?.kind === 'about' && <ChatAboutCard about={cmdCard.about} onClose={() => setCmdCard(null)} />}
               {chat.notes.map((n, i) => (
                 <p key={i} className="cx-note" data-testid="chat-note">
                   {n.kind === 'compacted' ? tc('notes.compacted', { before: n.before, after: n.after }) : tc('notes.subAgentDone', { title: n.title })}
@@ -1035,7 +1085,8 @@ function ChatPage() {
               textareaRef={textareaRef}
               attachTitle={chat.running ? tc('attach.queued') : undefined}
               placeholder={placeholder}
-              slash={slashConfig}
+              slashSurface="chat"
+              slashContext={slashCtx}
               onRunAction={runSlash}
               streaming={chat.running}
               queueWhileStreaming

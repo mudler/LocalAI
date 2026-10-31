@@ -38,7 +38,8 @@ type ChatExport struct {
 }
 
 // ChatExportMessage is one line of an exported transcript. Role is user,
-// assistant, tool or reasoning. A user message carries the files it attached
+// assistant, tool, reasoning, or one of the markers of the context commands:
+// compacted (Text says the sizes) and cleared (the model saw nothing before it). A user message carries the files it attached
 // (their paths inside the user's home, not the files themselves) and the text
 // the model read from them, apart from the words.
 type ChatExportMessage struct {
@@ -46,7 +47,9 @@ type ChatExportMessage struct {
 	Text        string               `json:"text"`
 	Attachments []session.Attachment `json:"attachments,omitempty"`
 	Note        string               `json:"note,omitempty"`
-	At          time.Time            `json:"at"`
+	// Invoked is the skill or saved agent a user message was sent with.
+	Invoked *session.Invocation `json:"invoked,omitempty"`
+	At      time.Time           `json:"at"`
 }
 
 // Export returns the chat as a ChatExport. Checkpoints are left out.
@@ -67,7 +70,7 @@ func (s *Service) Export(ctx context.Context, user, conv string) (ChatExport, er
 			continue
 		}
 		d := session.DisplayEntry(e)
-		out.Messages = append(out.Messages, ChatExportMessage{Role: d.Role, Text: d.Text, Attachments: d.Attachments, Note: d.Note, At: d.At})
+		out.Messages = append(out.Messages, ChatExportMessage{Role: d.Role, Text: d.Text, Attachments: d.Attachments, Note: d.Note, Invoked: d.Invoked, At: d.At})
 	}
 	return out, nil
 }
@@ -82,6 +85,13 @@ func (e ChatExport) Markdown() string {
 		switch m.Role {
 		case session.RoleUser:
 			b.WriteString("\n## You\n")
+			if m.Invoked != nil {
+				label := "Skill"
+				if m.Invoked.Kind == session.InvokeAgent {
+					label = "Agent"
+				}
+				fmt.Fprintf(&b, "\n_%s: %s_\n", label, m.Invoked.Name)
+			}
 			if m.Text != "" {
 				fmt.Fprintf(&b, "\n%s\n", m.Text)
 			}
@@ -99,6 +109,10 @@ func (e ChatExport) Markdown() string {
 			fmt.Fprintf(&b, "\n## Assistant\n\n%s\n", m.Text)
 		case session.RoleTool:
 			fmt.Fprintf(&b, "\n> Tool: %s\n", strings.ReplaceAll(strings.TrimSpace(m.Text), "\n", "\n> "))
+		case session.RoleCompacted:
+			fmt.Fprintf(&b, "\n_%s tokens._\n", m.Text)
+		case session.RoleCleared:
+			b.WriteString("\n---\n\n_Context cleared. The model saw nothing above this line from here on._\n")
 		}
 	}
 	return b.String()
@@ -132,10 +146,10 @@ func (s *Service) ImportExport(ctx context.Context, user string, in ChatExport, 
 			return session.ChatRecord{}, err
 		}
 		switch m.Role {
-		case session.RoleUser, session.RoleAssistant, session.RoleTool, session.RoleReasoning:
+		case session.RoleUser, session.RoleAssistant, session.RoleTool, session.RoleReasoning, session.RoleCompacted, session.RoleCleared:
 			e := ImportedEntry{Role: m.Role, Text: m.Text, At: m.At}
 			if m.Role == session.RoleUser {
-				e.Note, e.Attachments = m.Note, m.Attachments
+				e.Note, e.Attachments, e.Invoked = m.Note, m.Attachments, cleanInvocation(m.Invoked)
 			}
 			entries = append(entries, e)
 		default:
@@ -270,4 +284,14 @@ func snippet(text string, at, n int) string {
 		out += "…"
 	}
 	return out
+}
+
+// cleanInvocation keeps the invocation of an imported message only when it is
+// one this server writes: a known kind and a short name.
+func cleanInvocation(inv *session.Invocation) *session.Invocation {
+	if inv == nil || (inv.Kind != session.InvokeSkill && inv.Kind != session.InvokeAgent) ||
+		!utf8.ValidString(inv.Name) || !utf8.ValidString(inv.ID) || len(inv.Name) > 256 || len(inv.ID) > 256 {
+		return nil
+	}
+	return &session.Invocation{Kind: inv.Kind, Name: inv.Name, ID: inv.ID}
 }

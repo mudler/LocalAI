@@ -20,6 +20,9 @@ export const FOOT_STATES = {
   // The tool loop reached its step limit: the work may not be finished, and
   // Continue lets it go on.
   paused: { tone: 'warn', busy: false, icon: 'pause' },
+  // A context command the person ran (/compact, /clear) is on its way.
+  compacting: { tone: 'accent', busy: true, icon: 'spinner' },
+  clearing: { tone: 'accent', busy: true, icon: 'spinner' },
 }
 
 import { toolLabel } from './toolLabels.js'
@@ -43,12 +46,14 @@ export function toolShortName(name) {
 //   live      the live turn: { text, reasoning, tools, phase }; phase is the
 //             kind of the last streamed event (text, reasoning, tool, after-tool)
 //   warm      the chat's model is loaded
+//   command   a context command on its way: 'compacting' or 'clearing'
 //
 // A running turn always wins. With no turn running a failure comes first, then
 // an interruption, then messages waiting for Send now, then a pause at the step
 // limit, then a stop.
-export function chatFootState({ activeId, noModel, running, sending, lastTurn, pending, live, warm } = {}) {
+export function chatFootState({ activeId, noModel, running, sending, lastTurn, pending, live, warm, command } = {}) {
   const make = (key, extra = {}) => ({ key, ...FOOT_STATES[key], ...extra })
+  if (!running && (command === 'compacting' || command === 'clearing')) return make(command)
   if (running) {
     const tools = live?.tools || []
     const open = [...tools].reverse().find((tl) => tl.state === 'running')

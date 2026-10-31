@@ -223,7 +223,10 @@
   "slash": {
     "group": {
       "chat": "Chat",
-      "view": "View"
+      "view": "View",
+      "context": "Context",
+      "skills": "Skills and agents",
+      "help": "Help"
     },
     "model": {
       "label": "Switch model",
@@ -256,6 +259,60 @@
     "delete": {
       "label": "Delete chat",
       "desc": "Delete this conversation"
+    },
+    "models": {
+      "label": "Models",
+      "desc": "Open the model list"
+    },
+    "skill": {
+      "label": "Run a skill",
+      "desc": "Pick one of the skills of this chat"
+    },
+    "agent": {
+      "label": "Ask a saved agent",
+      "desc": "Hand a task to one of your agents",
+      "enable": "Turn on saved agents for this chat",
+      "enableDesc": "Then pick the agent"
+    },
+    "compact": {
+      "label": "Compact the context",
+      "desc": "Summarize older messages to free room for the model"
+    },
+    "clear": {
+      "label": "Clear the context",
+      "desc": "Start fresh in this chat; the messages stay"
+    },
+    "attach": {
+      "label": "Attach files",
+      "desc": "Choose files to send",
+      "clearDesc": "Remove the files waiting to be sent"
+    },
+    "help": {
+      "label": "All commands",
+      "desc": "List every command with what it does"
+    },
+    "about": {
+      "label": "About this chat",
+      "desc": "Model, tools, skills and context size"
+    },
+    "args": {
+      "skill": "Skills",
+      "agent": "Saved agents",
+      "model": "Models",
+      "attach": "Files"
+    },
+    "badge": {
+      "builtin": "built-in",
+      "addon": "add-on",
+      "shared": "shared",
+      "yours": "yours"
+    },
+    "collides": "only with /skill",
+    "errors": {
+      "skill": "This chat has no skill named \"{{name}}\".",
+      "agent": "You have no saved agent named \"{{name}}\".",
+      "agentTask": "Write the task for {{name}} after the name.",
+      "agentsOff": "Saved agents are off for this chat. Turn them on in the Tools menu."
     }
   },
   "shortcuts": {
@@ -477,7 +534,9 @@
       "stopped": "Stopped",
       "failed": "Failed",
       "interrupted": "Interrupted",
-      "paused": "Paused"
+      "paused": "Paused",
+      "compacting": "Compacting the context",
+      "clearing": "Clearing the context"
     },
     "tool": {
       "search": "Searching",
@@ -611,5 +670,41 @@
       "empty": "Write what the goal is after /goal.",
       "notAllowed": "Only a chat that you started can have a goal."
     }
+  },
+  "invoked": {
+    "skill": "Skill: {{name}}",
+    "agent": "Agent: {{name}}"
+  },
+  "marker": {
+    "compacted": "Context compacted: {{before}} to {{after}} tokens",
+    "cleared": "Context cleared",
+    "clearedHint": "The model does not see the messages above this line."
+  },
+  "cmdcard": {
+    "close": "Close",
+    "helpTitle": "Commands",
+    "helpSkills_one": "Skill: {{names}}. Type / and its name.",
+    "helpSkills_other": "{{count}} skills: {{names}}. Type / and the name.",
+    "helpKeys": "Type / in the box to open the list. Tab completes, Enter runs, Esc closes.",
+    "aboutTitle": "This chat",
+    "model": "Model",
+    "state": "State",
+    "loaded": "Loaded",
+    "notLoaded": "Not loaded",
+    "backend": "Backend",
+    "tools": "Tools",
+    "toolsOn_one": "{{count}} on",
+    "toolsOn_other": "{{count}} on",
+    "skills": "Skills",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skills",
+    "commands": "Commands",
+    "isolated": "Run in an isolated sandbox",
+    "host": "Run on this machine",
+    "noCommands": "Cannot run",
+    "context": "Context",
+    "contextOf": "{{used}} of {{limit}} tokens",
+    "contextUsed": "{{used}} tokens",
+    "unknown": "Not known yet"
   }
 }

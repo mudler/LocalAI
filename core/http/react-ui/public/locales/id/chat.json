@@ -174,6 +174,65 @@
     },
     "settings": {
       "desc": "Mode fokus, agen, dan info model"
+    },
+    "group": {
+      "context": "Konteks",
+      "skills": "Skill dan agen",
+      "help": "Bantuan"
+    },
+    "models": {
+      "label": "Model",
+      "desc": "Buka daftar model"
+    },
+    "skill": {
+      "label": "Jalankan skill",
+      "desc": "Pilih salah satu skill di chat ini"
+    },
+    "agent": {
+      "label": "Tanya agen tersimpan",
+      "desc": "Serahkan tugas ke salah satu agen Anda",
+      "enable": "Aktifkan agen tersimpan untuk chat ini",
+      "enableDesc": "Lalu pilih agennya"
+    },
+    "compact": {
+      "label": "Padatkan konteks",
+      "desc": "Ringkas pesan lama agar model punya ruang"
+    },
+    "clear": {
+      "label": "Kosongkan konteks",
+      "desc": "Mulai dari awal di chat ini; pesan tetap ada"
+    },
+    "attach": {
+      "label": "Lampirkan file",
+      "desc": "Pilih file untuk dikirim",
+      "clearDesc": "Hapus file yang menunggu dikirim"
+    },
+    "help": {
+      "label": "Semua perintah",
+      "desc": "Tampilkan setiap perintah dan fungsinya"
+    },
+    "about": {
+      "label": "Tentang chat ini",
+      "desc": "Model, alat, skill, dan ukuran konteks"
+    },
+    "args": {
+      "skill": "Skill",
+      "agent": "Agen tersimpan",
+      "model": "Model",
+      "attach": "File"
+    },
+    "badge": {
+      "builtin": "bawaan",
+      "addon": "add-on",
+      "shared": "bersama",
+      "yours": "milik Anda"
+    },
+    "collides": "hanya dengan /skill",
+    "errors": {
+      "skill": "Chat ini tidak punya skill bernama \"{{name}}\".",
+      "agent": "Anda tidak punya agen tersimpan bernama \"{{name}}\".",
+      "agentTask": "Tulis tugas untuk {{name}} setelah namanya.",
+      "agentsOff": "Agen tersimpan nonaktif untuk chat ini. Aktifkan di menu Alat."
     }
   },
   "shortcuts": {
@@ -320,7 +379,9 @@
       "stopped": "Dihentikan",
       "failed": "Gagal",
       "interrupted": "Terputus",
-      "paused": "Dijeda"
+      "paused": "Dijeda",
+      "compacting": "Memadatkan konteks",
+      "clearing": "Mengosongkan konteks"
     },
     "tool": {
       "search": "Mencari",
@@ -462,5 +523,41 @@
       "empty": "Tulis tujuannya setelah /goal.",
       "notAllowed": "Hanya chat yang Anda mulai sendiri yang bisa punya tujuan."
     }
+  },
+  "invoked": {
+    "skill": "Skill: {{name}}",
+    "agent": "Agen: {{name}}"
+  },
+  "marker": {
+    "compacted": "Konteks dipadatkan: {{before}} menjadi {{after}} token",
+    "cleared": "Konteks dikosongkan",
+    "clearedHint": "Model tidak melihat pesan di atas garis ini."
+  },
+  "cmdcard": {
+    "close": "Tutup",
+    "helpTitle": "Perintah",
+    "helpSkills_one": "Skill: {{names}}. Ketik / lalu namanya.",
+    "helpSkills_other": "{{count}} skill: {{names}}. Ketik / lalu namanya.",
+    "helpKeys": "Ketik / di kotak untuk membuka daftar. Tab melengkapi, Enter menjalankan, Esc menutup.",
+    "aboutTitle": "Chat ini",
+    "model": "Model",
+    "state": "Status",
+    "loaded": "Dimuat",
+    "notLoaded": "Belum dimuat",
+    "backend": "Backend",
+    "tools": "Alat",
+    "toolsOn_one": "{{count}} aktif",
+    "toolsOn_other": "{{count}} aktif",
+    "skills": "Skill",
+    "skillsOn_one": "{{count}} skill",
+    "skillsOn_other": "{{count}} skill",
+    "commands": "Perintah",
+    "isolated": "Berjalan di sandbox terisolasi",
+    "host": "Berjalan di mesin ini",
+    "noCommands": "Tidak bisa dijalankan",
+    "context": "Konteks",
+    "contextOf": "{{used}} dari {{limit}} token",
+    "contextUsed": "{{used}} token",
+    "unknown": "Belum diketahui"
   }
 }

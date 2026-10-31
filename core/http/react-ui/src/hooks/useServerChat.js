@@ -10,7 +10,7 @@ const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused', 'goal',
+  'paused', 'cleared', 'goal',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -195,7 +195,20 @@ export function useServerChat({ seed = null } = {}) {
           .then((card) => { if (activeRef.current === id) setLive(l => cardResult(l, seq, card)) })
       },
       pending_delivered: () => refreshChat(id),
-      compacted: (e) => setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }]),
+      // A compaction during a turn is the chat's own and shows as a note; one
+      // the person asked for (/compact) runs with no turn and is a line of the
+      // transcript. Either way the meter shows the smaller context.
+      compacted: (e) => {
+        setUsage(u => (u ? { ...u, used: e.after } : u))
+        if (runningRef.current) setNotes(n => [...n, { kind: 'compacted', before: e.before, after: e.after }])
+        else refreshChat(id)
+      },
+      // The context was cleared (here or in another tab): the transcript has
+      // the divider and the model starts fresh.
+      cleared: () => {
+        setUsage(u => (u ? { ...u, used: 0 } : u))
+        refreshChat(id)
+      },
       paused: (e) => setPausedSteps(e.steps || 0),
       // The goal changed, here or in another tab: the chat carries it and the
       // transcript its line.
@@ -317,10 +330,11 @@ export function useServerChat({ seed = null } = {}) {
   // Sends go out one after another, so two messages typed quickly reach the
   // server in the order they were typed and cannot swap on the wire.
   const sendChain = useRef(Promise.resolve())
-  const send = useCallback((id, text, attached = []) => {
+  // command: { skill } or { agent } of a message typed as a slash command.
+  const send = useCallback((id, text, attached = [], command) => {
     setError('')
     const run = async () => {
-      const res = await chatsApi.send(id, text, attached)
+      const res = await chatsApi.send(id, text, attached, command)
       // Another chat may be open by now: its state is not this chat's.
       if (res.started && activeRef.current === id) setDetail(d => (d ? { ...d, running: true } : d))
       await refreshChat(id)
@@ -399,6 +413,20 @@ export function useServerChat({ seed = null } = {}) {
   const regenerate = useCallback((id) => restart(id, () => chatsApi.regenerate(id)), [restart])
   const editMessage = useCallback((id, seq, text) => restart(id, () => chatsApi.editMessage(id, seq, text)), [restart])
 
+  // The context commands. They answer 409 while a turn runs; the caller
+  // shows the error. The transcript is read again for the marker.
+  const compact = useCallback(async (id) => {
+    const out = await chatsApi.compact(id)
+    if (activeRef.current === id) setUsage(u => (u ? { ...u, used: out.after } : u))
+    await refreshChat(id)
+    return out
+  }, [refreshChat])
+  const clear = useCallback(async (id) => {
+    await chatsApi.clear(id)
+    if (activeRef.current === id) setUsage(u => (u ? { ...u, used: 0 } : u))
+    await refreshChat(id)
+  }, [refreshChat])
+
   const remove = useCallback(async (id) => {
     await chatsApi.delete(id)
     if (activeRef.current === id) await select(null)
@@ -414,7 +442,7 @@ export function useServerChat({ seed = null } = {}) {
     // The command that waits for a yes, as the server keeps it with the chat: a
     // reload shows the card again. Null when none waits.
     hostConsent: detail?.host_consent ? { chatId: detail.id, id: detail.host_consent.id, command: detail.host_consent.command || '' } : null,
-    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, update, regenerate, editMessage, refreshList,
+    select, createChat, send, editPending, cancelPending, stop, sendNow, remove, rename, update, regenerate, editMessage, refreshList, compact, clear,
     setGoal, clearGoal, resumeGoal, pauseGoal,
     clearError: () => setError(''),
   }
