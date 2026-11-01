@@ -214,7 +214,13 @@
       "keeps the replaceable skills and tools apart, so one pin map holds both",
       "accepts a read tool without a resource",
       "refuses one that works on a resource or is not a read: the page has no resource to name",
-      "is resourceless like any read without a resource"
+      "is resourceless like any read without a resource",
+      "has the same IDs as the registry of the React UI",
+      "accepts known controls and refuses an unknown or repeated one",
+      "reads ui.controls from a manifest and refuses an unknown field in it",
+      "draws the network policy only for an add-on granted egress that runs bash",
+      "serves a second add-on with the same controls, by its grant and not by its name",
+      "draws the tool providers for an add-on that replaces any built-in tool"
     ],
     "report": ".cache/addons/logs/contracts.json"
   },
