@@ -1799,6 +1799,9 @@ The rules:
   add-ons that get the channel and the operation prefixes each may call, as a
   comma list of `addon-id=op-prefix`. The default is
   `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.`. An empty value names nobody.
+  An administrator can instead select a file with `--addon-host-policy`; see
+  [Administrator host operation policy](#administrator-host-operation-policy)
+  for precedence and explicit-empty behavior.
   This is a host setting, not a manifest field and not a model argument.
 - An add-on that the setting names finds two optional fields in its startup
   object: `hostEndpoint`, a loopback address of the form
@@ -4604,3 +4607,65 @@ Logout clears the current user's observer records. Storage restrictions may prev
 observer recovery, but never cancel the owner operation. An unreadable owner or
 exhausted polling window is an unknown outcome: keep the ID and read it again,
 rather than starting a replacement operation.
+
+## Administrator host operation policy
+
+`--addon-host-policy` (environment: `LOCALAI_ADDON_HOST_POLICY`) selects an
+administrator-controlled JSON file. Use an absolute path to a readable regular
+file, at most 64 KiB. LocalAI reads it once at startup; changes require a restart.
+There is no implicit search, remote download, or manifest-selected policy path.
+Keep the file outside addon-writable directories. The deployment administrator
+must protect its ownership and mount permissions. A symlink to a regular file is
+accepted; path validation does not prove that the file is administrator-owned.
+
+```json
+{
+  "schemaVersion": 1,
+  "grants": {
+    "sandbox": ["workspace.", "egress."],
+    "office": ["workspace."]
+  }
+}
+```
+
+```sh
+local-ai run --addon-host-policy=/etc/localai/addon-host-policy.json
+# Equivalent selection:
+LOCALAI_ADDON_HOST_POLICY=/etc/localai/addon-host-policy.json local-ai run
+# Explicitly grant nothing, without opening any selected policy:
+local-ai run --addon-host-ops=
+# Disable policy selection inherited from the environment:
+local-ai run --addon-host-policy=
+```
+
+The file requires exactly `schemaVersion` (integer `1`) and `grants` (an object).
+Keys are case-sensitive. Unknown fields, duplicate keys, duplicate prefixes,
+malformed JSON and trailing data are errors. An empty `grants` object is valid.
+The limits are 128 addon IDs and 32 prefixes per addon. IDs use lowercase ASCII
+letters, digits and hyphens and start with a letter or digit. Prefixes use the
+same grammar as `--addon-host-ops`: lowercase ASCII letter segments, each ending
+in a dot, such as `workspace.` or `workspace.files.`. They are not regular
+expressions or exact operation names. The broker must still register an
+operation before any prefix can authorize it.
+
+Selection uses presence, not string length:
+
+1. An explicit `--addon-host-ops` wins, including an empty value.
+2. Otherwise, an explicitly set `LOCALAI_ADDON_HOST_OPS` wins, including empty.
+3. Otherwise, the selected policy supplies the complete grant map.
+4. The generic configuration resolver grants nothing when unconfigured.
+
+Overrides replace grants; they never merge with the file. LocalAI does not open
+an ignored policy and logs that it was ignored. An invalid selected policy stops
+startup. An explicitly empty `--addon-host-policy` disables an environment policy
+and supplies no grants. Startup logs report the source and counts, not file
+contents. Manifests, addon requests and libraries cannot grant host operations.
+In split deployments, the owner enforces authority; frontend settings cannot add
+grants. Programmatic `WithAddonHostOps`, including an empty map, is an exact
+startup decision and takes a copy of the supplied map and prefix slices.
+
+**Transition note:** this implementation still retains the previous CLI grants
+when all host-operation and policy selectors are absent. Removing that legacy
+CLI fallback is coordinated with shipping and selecting the official deployment
+policy. Selecting a policy or explicitly supplying either empty flag never
+restores the legacy grants.

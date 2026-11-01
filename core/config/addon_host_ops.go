@@ -40,5 +40,6 @@ func ParseAddonHostOps(s string) (map[string][]string, error) {
 // Without this option no add-on gets a host operation endpoint; the run
 // command passes the default setting.
 func WithAddonHostOps(ops map[string][]string) AppOption {
-	return func(o *ApplicationConfig) { o.AddonHostOps = ops }
+	snapshot := CloneAddonHostOps(ops)
+	return func(o *ApplicationConfig) { o.AddonHostOps = CloneAddonHostOps(snapshot) }
 }

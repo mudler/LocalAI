@@ -164,7 +164,10 @@ type Manager struct {
 func (m *Manager) SetHostOps(ops map[string][]string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.hostOps = ops
+	m.hostOps = make(map[string][]string, len(ops))
+	for id, prefixes := range ops {
+		m.hostOps[id] = slices.Clone(prefixes)
+	}
 }
 
 // SkillSync copies the skills of an add-on package into the chats' skill layer
