@@ -52,7 +52,7 @@ index d701218..843f9a4 100644
      const TensorShape & output_shape,
      const TensorStrideBytes & input_strides,
 diff --git a/src/framework/audio/detail/speech_fft_internal.h b/src/framework/audio/detail/speech_fft_internal.h
-index 961267c..a596575 100644
+index 961267c..95af844 100644
 --- a/src/framework/audio/detail/speech_fft_internal.h
 +++ b/src/framework/audio/detail/speech_fft_internal.h
 @@ -61,6 +61,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -63,7 +63,7 @@ index 961267c..a596575 100644
  #include <cmath>
  #include <cstdlib>
  #include <cstddef>
-@@ -104,6 +105,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+@@ -104,6 +105,16 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  namespace ENGINE_SPEECHFFT_NAMESPACE {
  
@@ -73,13 +73,14 @@ index 961267c..a596575 100644
 +void stored(bool vector, size_t units, size_t worker, size_t workers) noexcept;
 +void worker();
 +void submitting(size_t index);
++void plan_miss(size_t length, bool published) noexcept;
 +}
 +#endif
 +
  namespace detail {
  using std::size_t;
  using std::ptrdiff_t;
-@@ -761,8 +771,8 @@ template <typename T> class concurrent_queue
+@@ -761,8 +772,8 @@ template <typename T> class concurrent_queue
      void push(T val)
        {
        lock_t lock(mut_);
@@ -89,7 +90,7 @@ index 961267c..a596575 100644
        }
  
      bool try_pop(T &val)
-@@ -931,7 +941,8 @@ class thread_pool
+@@ -931,7 +942,8 @@ class thread_pool
            }
  
        // If no workers were idle, push onto the overflow queue for later
@@ -99,7 +100,7 @@ index 961267c..a596575 100644
        }
  
      void shutdown()
-@@ -979,8 +990,14 @@ void thread_map(size_t nthreads, Func f)
+@@ -979,8 +991,14 @@ void thread_map(size_t nthreads, Func f)
    latch counter(nthreads);
    std::exception_ptr ex;
    std::mutex ex_mut;
@@ -115,7 +116,7 @@ index 961267c..a596575 100644
      pool.submit(
        [&f, &counter, &ex, &ex_mut, i, nthreads] {
        thread_id() = i;
-@@ -994,6 +1011,14 @@ void thread_map(size_t nthreads, Func f)
+@@ -994,6 +1012,14 @@ void thread_map(size_t nthreads, Func f)
        counter.count_down();
        });
      }
@@ -130,7 +131,27 @@ index 961267c..a596575 100644
    counter.wait();
    if (ex)
      std::rethrow_exception(ex);
-@@ -3519,6 +3544,86 @@ template<typename T> ENGINE_SPEECHFFT_NOINLINE void general_r2c(
+@@ -2987,6 +3013,9 @@ template<typename T> std::shared_ptr<T> get_plan(size_t length)
+   auto p = find_in_cache();
+   if (p) return p;
+   }
++#ifdef ENGINE_FFT_TESTING
++  testing::plan_miss(length, false);
++#endif
+   auto plan = std::make_shared<T>(length);
+   {
+   std::lock_guard<std::mutex> lock(mut);
+@@ -3001,6 +3030,9 @@ template<typename T> std::shared_ptr<T> get_plan(size_t length)
+   cache[lru] = plan;
+   last_access[lru] = ++access_counter;
+   }
++#ifdef ENGINE_FFT_TESTING
++  testing::plan_miss(length, true);
++#endif
+   return plan;
+ #endif
+   }
+@@ -3519,6 +3551,86 @@ template<typename T> ENGINE_SPEECHFFT_NOINLINE void general_r2c(
        }
      });  // end of parallel region
    }
@@ -217,7 +238,7 @@ index 961267c..a596575 100644
  template<typename T> ENGINE_SPEECHFFT_NOINLINE void general_c2r(
    const cndarr<cmplx<T>> &in, ndarr<T> &out, size_t axis, bool forward, T fct,
    size_t nthreads)
-@@ -3673,6 +3778,21 @@ template<typename T> void r2c(const FftShape &shape_in,
+@@ -3673,6 +3785,21 @@ template<typename T> void r2c(const FftShape &shape_in,
    general_r2c(ain, aout, axis, forward, fct, nthreads);
    }
  
@@ -239,7 +260,7 @@ index 961267c..a596575 100644
  template<typename T> void r2c(const FftShape &shape_in,
    const FftStride &stride_in, const FftStride &stride_out, const FftShape &axes,
    bool forward, const T *data_in, std::complex<T> *data_out, T fct,
-@@ -3837,6 +3957,7 @@ using detail::FftStride;
+@@ -3837,6 +3964,7 @@ using detail::FftStride;
  using detail::c2c;
  using detail::c2r;
  using detail::r2c;

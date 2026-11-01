@@ -59,7 +59,7 @@
     },
     "src/framework/audio/detail/speech_fft_internal.h": {
       "base_sha256": "f5a2d777125fbb0ebd3f407de8e516a092c065fdd61c3f6c7a5aeedb69ca271f",
-      "final_sha256": "bbc0fcc6311dab902840bd93825c8a6da12731f5aa9e8fff66b37bbc4707105d"
+      "final_sha256": "6f47dd8d23af30dd7a8926f1339dfcde905f101c831acd4424210549d1f0ea6c"
     }
   },
   "omitted_tracked_paths": {
@@ -185,7 +185,7 @@
     },
     {
       "patch": "0004-shared-forward-fft-cancellation.patch",
-      "patch_sha256": "c7677ffd703f5a2d19b70f543b94651ea17361eec20a1d901f4ead5f6734cbed",
+      "patch_sha256": "d3e7caa070de3f36aa1bcbbe890a59f9db350d818623a19383716dc30f8902b8",
       "files": {
         "include/engine/framework/audio/fft.h": {
           "base_sha256": "5a63de2ab9d7361f186b9c9b7b6ba390526b4cb5122fa1174921295c2f2b7f55",
@@ -197,7 +197,7 @@
         },
         "src/framework/audio/detail/speech_fft_internal.h": {
           "base_sha256": "f5a2d777125fbb0ebd3f407de8e516a092c065fdd61c3f6c7a5aeedb69ca271f",
-          "final_sha256": "bbc0fcc6311dab902840bd93825c8a6da12731f5aa9e8fff66b37bbc4707105d"
+          "final_sha256": "6f47dd8d23af30dd7a8926f1339dfcde905f101c831acd4424210549d1f0ea6c"
         }
       }
     }
