@@ -27,8 +27,9 @@ import (
 )
 
 type ownerConnectorSource struct {
-	calls       []contract.ConnectorRequest
-	unavailable bool
+	calls           []contract.ConnectorRequest
+	unavailable     bool
+	callUnavailable bool
 }
 
 func (s *ownerConnectorSource) ConnectorKinds(context.Context) ([]addons.ConnectorKind, error) {
@@ -40,6 +41,9 @@ func (s *ownerConnectorSource) ConnectorKinds(context.Context) ([]addons.Connect
 func (s *ownerConnectorSource) Connector(_ context.Context, addon string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
 	Expect(addon).To(Equal("slack"))
 	s.calls = append(s.calls, req)
+	if s.callUnavailable {
+		return contract.ConnectorResponse{}, gateway.ErrUnavailable
+	}
 	if req.Token == "refused" {
 		return contract.ConnectorResponse{Error: &contract.ConnectorError{Code: contract.ConnectorUnauthorized}}, nil
 	}
@@ -88,7 +92,11 @@ var _ = Describe("connector owner routing", func() {
 		Expect(err).NotTo(HaveOccurred())
 		agentStore, err := agents.NewJSON("")
 		Expect(err).NotTo(HaveOccurred())
+		denyNamed := false
 		svc, err := studio.New(studio.Deps{Store: chatStore, Agents: agentStore, Provider: provider.New(), Harness: studiotest.NewGateHarness(), StateDir: GinkgoT().TempDir(), Users: func(_ context.Context, id string) (*auth.User, error) {
+			if id == "named" && denyNamed {
+				return nil, studio.ErrNoUser
+			}
 			if id == "named" || id == legacyAPIKeyUserID {
 				return &auth.User{ID: id}, nil
 			}
@@ -138,17 +146,17 @@ var _ = Describe("connector owner routing", func() {
 				}
 				before := len(source.calls)
 				_, e = tr.Call(ctx, bad, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: bad.Kind})
-				Expect(e).To(MatchError(gateway.ErrForbidden))
+				Expect(e).To(MatchError(connectors.ErrForbidden))
 				Expect(source.calls).To(HaveLen(before))
 			}
 			verify := scope
 			verify.Purpose = studio.ConnectorPurposeVerifyToken
 			for _, op := range []string{contract.ConnectorOpSend, contract.ConnectorOpPoll, contract.ConnectorOpMedia} {
 				_, e = tr.Call(ctx, verify, contract.ConnectorRequest{Op: op, Kind: "slack", Token: "prospective"})
-				Expect(e).To(MatchError(gateway.ErrForbidden))
+				Expect(e).To(MatchError(connectors.ErrForbidden))
 			}
 			_, e = tr.Call(ctx, verify, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: "slack", Token: "prospective", Chat: "mixed"})
-			Expect(e).To(MatchError(gateway.ErrForbidden))
+			Expect(e).To(MatchError(connectors.ErrForbidden))
 			_, e = tr.Call(ctx, verify, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: "slack", Token: "replacement"})
 			Expect(e).NotTo(HaveOccurred())
 			Expect(source.calls[len(source.calls)-1].Token).To(Equal("replacement"))
@@ -164,13 +172,61 @@ var _ = Describe("connector owner routing", func() {
 		all, e := reloaded.ListBindings(ctx, "named")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(all).To(HaveLen(1))
+		// Exercise service writes through the carrier, not just raw transport calls.
+		agentID := all[0].AgentID
+		input := studio.ConnectorInput{Kind: "slack", Name: "Changed", AgentID: agentID, Token: "replacement", AcceptAny: true, Enabled: true}
+		before := len(source.calls)
+		original := all[0]
+		denyNamed = true
+		_, createErr := client.CreateConnector(ctx, "named", input)
+		_, updateErr := client.UpdateConnector(ctx, "named", original.ID, input)
+		deniedStore, e := connectors.NewJSON(dir)
+		Expect(e).NotTo(HaveOccurred())
+		deniedBindings, e := deniedStore.ListBindings(ctx, "named")
+		Expect(e).NotTo(HaveOccurred())
+		unchanged, e := deniedStore.GetBinding(ctx, original.ID)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(createErr).To(MatchError(connectors.ErrForbidden), "owner denial must stop create before persistence")
+		Expect(updateErr).To(MatchError(connectors.ErrForbidden), "owner denial must stop token replacement")
+		Expect(deniedBindings).To(HaveLen(1))
+		Expect(unchanged).To(Equal(original))
+		Expect(source.calls).To(HaveLen(before))
+		denyNamed = false
+
+		// Discovery succeeds, but the runtime becomes unavailable during me.
+		// This is not an authority denial: complete saves and replacements remain permissive.
+		source.callUnavailable = true
+		created, e := client.CreateConnector(ctx, "named", input)
+		Expect(e).NotTo(HaveOccurred())
+		input.Token = "outage-replacement"
+		_, e = client.UpdateConnector(ctx, "named", original.ID, input)
+		Expect(e).NotTo(HaveOccurred())
+		outageStore, e := connectors.NewJSON(dir)
+		Expect(e).NotTo(HaveOccurred())
+		outageBindings, e := outageStore.ListBindings(ctx, "named")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(outageBindings).To(HaveLen(2))
+		for _, id := range []string{created.ID, original.ID} {
+			b, e := outageStore.GetBinding(ctx, id)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(b.Token).NotTo(BeEmpty())
+			Expect(b.AgentID).To(Equal(agentID))
+			source.callUnavailable = false
+			_, e = tr.Call(ctx, studio.BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: "slack"})
+			Expect(e).NotTo(HaveOccurred())
+			expected := "replacement"
+			if id == original.ID {
+				expected = "outage-replacement"
+			}
+			Expect(source.calls[len(source.calls)-1].Token).To(Equal(expected))
+		}
 		// Unknown named users are refused during both prospective and replacement
 		// validation, even when an agent or stored binding exists for that identity.
 		ag, e := svc.SaveAgent(ctx, "missing-user", agents.Agent{Name: "Orphan", Model: "fake"})
 		Expect(e).NotTo(HaveOccurred())
 		s := studio.ConnectorCallScope{Purpose: studio.ConnectorPurposeVerifyToken, Principal: "missing-user", AgentID: ag.ID, AddonID: "slack", Kind: "slack"}
 		_, e = tr.Call(ctx, s, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: "slack", Token: "new"})
-		Expect(e).To(MatchError(gateway.ErrForbidden))
+		Expect(e).To(MatchError(connectors.ErrForbidden))
 		source.unavailable = true
 		_, e = tr.Kinds(ctx)
 		Expect(e).To(MatchError(gateway.ErrUnavailable))
@@ -184,7 +240,7 @@ var _ = Describe("connector owner routing", func() {
 		alienCfg.Pins = fc.Pins
 		alien, e := gateway.NewCarrier(*alienCfg)
 		Expect(e).NotTo(HaveOccurred())
-		before := len(source.calls)
+		before = len(source.calls)
 		_, e = (&gateway.Gateway{Forward: alien}).ConnectorCall(ctx, s, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: "slack", Token: "new"})
 		Expect(e).To(HaveOccurred())
 		Expect(source.calls).To(HaveLen(before))

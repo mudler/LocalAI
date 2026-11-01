@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 
 	"github.com/mudler/xlog"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -44,7 +46,11 @@ func (t connectorTransport) Call(ctx context.Context, scope studio.ConnectorCall
 	if g == nil {
 		return contract.ConnectorResponse{}, gateway.ErrUnavailable
 	}
-	return g.ConnectorCall(ctx, scope, req)
+	resp, err := g.ConnectorCall(ctx, scope, req)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return resp, connectors.ErrForbidden
+	}
+	return resp, err
 }
 
 // RegisterAddonConnector registers the host operation with which a connector
