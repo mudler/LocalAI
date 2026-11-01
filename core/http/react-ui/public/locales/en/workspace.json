@@ -1,0 +1,692 @@
+{
+  "title": "Files",
+  "home": "Home",
+  "breadcrumb": "Folder path",
+  "upload": "Upload",
+  "newFolder": "New folder",
+  "folderName": "Folder name",
+  "download": "Download",
+  "rename": "Rename",
+  "delete": "Move to Trash",
+  "dismiss": "Dismiss",
+  "tabs": {
+    "label": "Views",
+    "files": "Files",
+    "trash": "Trash",
+    "history": "History",
+    "shared": "Shared",
+    "trashCount_one": "{{count}} item in the Trash",
+    "trashCount_other": "{{count}} items in the Trash"
+  },
+  "trash": {
+    "empty": "The Trash is empty.",
+    "restore": "Restore",
+    "emptyAll": "Empty Trash",
+    "purge": "Delete permanently",
+    "purgeNamed": "Delete {{name}} permanently",
+    "files_one": "{{count}} file",
+    "files_other": "{{count}} files",
+    "folders_one": "{{count}} folder",
+    "folders_other": "{{count}} folders",
+    "listJoin": ", ",
+    "summary": "In the Trash: {{what}}.",
+    "removed": "Deleted permanently: {{what}}.",
+    "confirmAll": {
+      "title": "Empty the Trash?",
+      "message": "This permanently deletes {{what}}, with their earlier versions. It cannot be undone."
+    },
+    "confirmOne": {
+      "title": "Delete permanently?",
+      "message": "{{path}}: this permanently deletes {{what}}, with earlier versions. It cannot be undone."
+    }
+  },
+  "history": {
+    "empty": "No changes yet.",
+    "undo": "Undo",
+    "agent": "chat"
+  },
+  "search": {
+    "label": "Search your files",
+    "placeholder": "Filter this folder",
+    "none": "Nothing found.",
+    "resultsFor": "Files that contain “{{query}}”",
+    "back": "Back to the folder",
+    "noneBody": "No name or text in your files matches. Try other words.",
+    "page": "page {{n}}",
+    "sheet": "sheet “{{name}}”",
+    "slide": "slide {{n}}",
+    "indexing_one": "{{count}} document is still being indexed: search again in a moment to include it.",
+    "indexing_other": "{{count}} documents are still being indexed: search again in a moment to include them.",
+    "limited": "Results limited: the search stopped at its limits before it looked at every file. Search in a folder or use other words to see the rest.",
+    "filtering_one": "{{count}} item in this folder matches “{{query}}”.",
+    "filtering_other": "{{count}} items in this folder match “{{query}}”.",
+    "everywhere": "Search all files for “{{query}}”",
+    "everywhereShort": "Search all files",
+    "noMatch": "Nothing in this folder matches “{{query}}”.",
+    "clear": "Clear the filter"
+  },
+  "preview": {
+    "label": "Preview",
+    "failed": "This file could not be shown.",
+    "loading": "Loading the preview of {{name}}",
+    "failedTitle": "Could not show {{name}}.",
+    "tooLarge": "This file is too large to preview here. Download it to open it.",
+    "none": "There is no preview for this type of file.",
+    "typeFile": "{{ext}} file",
+    "typeUnknown": "File",
+    "sheets": "Sheets",
+    "sheetLabel": "Sheet {{name}}",
+    "sheetEmpty": "This sheet is empty.",
+    "row": "Row",
+    "showingRows": "Showing {{rows}} of {{total}} rows",
+    "showingCols": "and {{cols}} of {{total}} columns.",
+    "downloadRest": "Download the file for the rest.",
+    "textOnly": "Text preview, formatting not shown.",
+    "truncated": "The text is cut short.",
+    "noText": "This file has no text to show.",
+    "slide": "Slide {{n}}",
+    "notes": "Speaker notes",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "If the PDF does not show here, download it.",
+    "htmlTitle": "Preview of {{name}}",
+    "imageFailed": "The image could not be shown.",
+    "zoomIn": "Show at full size",
+    "zoomOut": "Fit to the pane",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "textCut": "Showing the first {{size}}.",
+    "actions": "File actions"
+  },
+  "wellKnown": {
+    "revert": "Revert to previous version",
+    "view": "View",
+    "form": "Form",
+    "save": "Save",
+    "cancel": "Cancel",
+    "notSet": "Not set",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "remove": "Remove",
+    "savedAt": "Saved at {{time}}",
+    "notSaved": "Not saved yet.",
+    "notSavedPrefilled": "Not saved yet. Some values are filled in for you; Save keeps them.",
+    "loadFailed": "Could not load these settings. Reload the page to try again.",
+    "invalid": "These settings have errors, and there is no earlier valid version.",
+    "invalidFallback": "These settings have errors. This shows their last valid version.",
+    "conflict": "These settings changed while you were editing them, probably by the assistant or in another tab. The newer values are:",
+    "useTheirs": "Use the newer values",
+    "keepMine": "Keep my changes",
+    "editWithAssistant": "Edit with the assistant",
+    "from": {
+      "account": "From your account",
+      "browser": "From your browser"
+    },
+    "check": {
+      "required": "Required.",
+      "tooLong": "At most {{max}} characters.",
+      "format": "This value has the wrong format."
+    },
+    "source": {
+      "label": "Source",
+      "hint": "The settings as text. They are checked in the same way when you save.",
+      "notJson": "The text has a syntax error. Check the quotes, commas and braces.",
+      "notObject": "The text must start with { and end with }."
+    },
+    "persona": {
+      "title": "Assistant",
+      "lede": "Name and instructions the assistant uses in every chat."
+    },
+    "user": {
+      "title": "You",
+      "lede": "The assistant reads this to know who it talks to. It reaches the model in every chat."
+    },
+    "ui": {
+      "title": "Appearance",
+      "lede": "How LocalAI looks for you. Changes show at once; Save keeps them."
+    },
+    "shortcuts": {
+      "title": "Shortcuts",
+      "lede": "The prompts above the composer of every chat.",
+      "edit": "Edit shortcuts",
+      "defaults": "Default shortcuts",
+      "none": "No shortcuts. Add one, or save an empty list to hide them.",
+      "label": "Label",
+      "prompt": "Prompt",
+      "send": "Send at once",
+      "add": "Add shortcut",
+      "invalid": "Some shortcuts have errors.",
+      "assistantPrompt": "Change my shortcuts: "
+    },
+    "home": {
+      "editLayout": "Edit layout",
+      "ask": "Ask the assistant",
+      "askPrompt": "Change my Home page: ",
+      "add": "Add widget",
+      "newTitle": "New widget",
+      "noWidgets": "No widgets yet.",
+      "type": "Type",
+      "title": "Title",
+      "source": "Data file",
+      "noSourceNeeded": "No data file needed",
+      "types": {
+        "list": "List",
+        "metric": "Metric",
+        "chats": "Last chats",
+        "page": "Page"
+      },
+      "left": "{{count}} left",
+      "fromChats": "from chats",
+      "noChats": "No chats yet.",
+      "noData": "No data yet. The assistant can write",
+      "nothing": "Nothing here.",
+      "noSource": "This widget has no data file. Pick one in Edit layout.",
+      "broken": "The data of this widget has errors, and there is no earlier valid version.",
+      "stale": "Showing the last valid data. The newest data has errors.",
+      "updated": "Updated {{when}}",
+      "footer": {
+        "noData": "No data yet.",
+        "invalid": "The data has an error. Showing the last good version.",
+        "revert": "Revert",
+        "missing": "The data of this widget is missing.",
+        "fix": "Ask the assistant to fix it",
+        "fixPrompt": "The Home widget reads {{file}}, which is missing or broken. Fix it: ",
+        "waiting": "Waiting for you to create its trigger in the chat.",
+        "openChat": "Open the chat",
+        "running": "Updating now…",
+        "openRun": "Open the run",
+        "paused": "Paused · was {{schedule}}",
+        "resume": "Resume",
+        "failedEmpty": "The update failed and there is no data yet.",
+        "details": "Details",
+        "retry": "Retry",
+        "stale": "Last update failed. Showing {{when}}'s data.",
+        "staleToday": "Last update failed. Showing earlier data from today.",
+        "earlier": "earlier",
+        "firstRun": "First run {{when}}",
+        "firstRunFile": "Runs when a file arrives",
+        "runNow": "Run now",
+        "fresh": "{{schedule}} · updated {{time}}",
+        "pause": "Pause",
+        "fromPage": "From the page {{title}}",
+        "fromFile": "From your files",
+        "next": "Next run {{when}}",
+        "cost": "about {{tokens}} tokens a run",
+        "costRemote": "about {{tokens}} tokens a run on a remote model",
+        "cadence": {
+          "paused": "Paused",
+          "hourly": "Hourly",
+          "daily": "Daily",
+          "weekdays": "Weekdays",
+          "weekly": "Weekly",
+          "monthly": "Monthly",
+          "file": "On new files"
+        },
+        "scheduleNote_one": "{{count}} widget updates on a schedule. Its runs use your models and count toward your usage.",
+        "scheduleNote_other": "{{count}} widgets update on a schedule. Their runs use your models and count toward your usage."
+      },
+      "opensSite": "{{host}}: opens in a new tab",
+      "linkAsk": "This widget wants to open a link",
+      "invalid": "Your Home layout has errors, and there is no earlier valid version.",
+      "invalidFallback": "Your Home layout has errors. Home shows its last valid version.",
+      "page": {
+        "gone": "This page is no longer available",
+        "goneHint": "The page \"{{name}}\" was moved or deleted, or you can no longer open it.",
+        "noWidget": "This page has no widget view",
+        "noWidgetHint": "Ask the assistant to give the page \"{{name}}\" a compact view for Home.",
+        "off": "Shared pages are off",
+        "offHint": "An administrator turned shared pages off on this server.",
+        "fix": "Customise Home",
+        "failed": "The page did not load",
+        "retry": "Retry",
+        "changed": "This page changed since you allowed it",
+        "notAllowed": "You have not allowed this page yet",
+        "allowHint": "It comes from a shared folder. Review it before it runs as you.",
+        "allow": "Allow this page",
+        "frameTitle": "{{title}} (page on Home)",
+        "refresh": "Refresh",
+        "open": "Open page",
+        "add": "Add a page",
+        "limit": "Home shows at most {{max}} pages; remove one to add another.",
+        "noneEligible": "No page has a compact view for Home yet. Ask the assistant to add one to a page.",
+        "pick": "Page",
+        "unavailable": "{{name}} (not available)",
+        "sharedLabel": "shared",
+        "sizes": {
+          "small": "Small",
+          "medium": "Medium",
+          "large": "Large"
+        }
+      }
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Name",
+          "help": "What the assistant calls itself."
+        },
+        "system_prompt": {
+          "label": "System prompt",
+          "help": "Added to every chat, after the chat's own prompt and the agent's instructions."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Name",
+          "help": "How the assistant addresses you."
+        },
+        "language": {
+          "label": "Language",
+          "help": "The language the assistant answers in."
+        },
+        "bio": {
+          "label": "About you",
+          "help": "A few lines the assistant reads in every chat."
+        },
+        "timezone": {
+          "label": "Time zone",
+          "help": "For dates and times in answers."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Theme",
+          "help": "System follows the setting of your device.",
+          "options": {
+            "dark": "Dark",
+            "light": "Light",
+            "system": "System"
+          }
+        },
+        "accent": {
+          "label": "Accent colour",
+          "help": "For buttons and links. Empty keeps the default."
+        },
+        "density": {
+          "label": "Density",
+          "help": "Compact shows more on one screen.",
+          "options": {
+            "comfortable": "Comfortable",
+            "compact": "Compact"
+          }
+        },
+        "defaultModel": {
+          "label": "Default model",
+          "help": "The model a new chat starts with."
+        }
+      }
+    },
+    "saveInvalid": "Some values are not valid. Check them and save again.",
+    "saveTooLarge": "These settings are too large to save. Remove some entries and try again.",
+    "saveFailed": "Could not save. Try again.",
+    "details": "Details"
+  },
+  "discovery": {
+    "ex": {
+      "title": "Make LocalAI yours",
+      "lede": "Say it in a chat. The assistant saves it, and you can change or undo it.",
+      "hide": "Hide these",
+      "hiddenToast": "Examples hidden.",
+      "saveFailed": "Not saved: {{message}}",
+      "card1": {
+        "kicker": "You and the assistant",
+        "prompt": "Call me {{firstName}} and keep answers short",
+        "promptNoName": "Remember my name and keep answers short",
+        "what": "Saves your name and how the assistant answers"
+      },
+      "card2": {
+        "kicker": "A page",
+        "prompt": "Make me a task board",
+        "what": "Adds a page you open from the sidebar"
+      },
+      "card3": {
+        "kicker": "Every morning",
+        "prompt": "Every morning, summarise my inbox here",
+        "promptNoMail": "Every morning, list yesterday's chats here",
+        "what": "Adds a Home widget and a trigger you confirm"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "Done.",
+      "doneLink": "Change it in Account",
+      "ready": "Or start from a ready page:",
+      "readyTasks": "Task board",
+      "readyReading": "Reading list",
+      "readyFailed": "The page was not copied: {{message}}",
+      "learn": "How this works",
+      "inComposer": "Edit it if you like, then press Enter. Nothing is saved until you send it.",
+      "live": "Prompt added to the message box."
+    },
+    "home": {
+      "customise": "Customise Home"
+    },
+    "action": {
+      "undo": "Undo",
+      "openAccount": "Open in Account",
+      "openPage": "Open page",
+      "openHome": "Open Home",
+      "turnBackOn": "Turn them back on in Account"
+    },
+    "change": {
+      "profilePersona": "Saved your name and your instructions for the assistant. Every chat uses them from your next message.",
+      "profile": "Saved to your profile.",
+      "persona": "Saved the assistant’s instructions. Every chat uses them from your next message.",
+      "shortcuts": "Saved your shortcuts.",
+      "home": "Saved your Home page. Home shows the change.",
+      "ui": "Saved your appearance settings.",
+      "pageCreated": "Created the page {{title}}.",
+      "pageChanged": "Changed the page {{title}}.",
+      "offersOff": "Suggestions from the assistant are off.",
+      "undoing": "Undoing…",
+      "undone": "Undone.",
+      "undoFailed": "Not undone: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Added to your composer: {{label}}",
+      "pageCreated": "{{title}} is in Pages, in the sidebar",
+      "open": "Open",
+      "homeChanged": "Home updated.",
+      "themeChanged": "Theme changed."
+    },
+    "files": {
+      "learn": "These files change how LocalAI works for you.",
+      "tag": {
+        "profile": "Your profile",
+        "persona": "Assistant",
+        "shortcuts": "Shortcuts",
+        "home": "Home layout",
+        "ui": "Look",
+        "page": "Page"
+      }
+    },
+    "privacy": "The assistant receives your name, this text, your language and time zone at the start of every chat. Leave a field empty to keep it out.",
+    "versions": {
+      "label": "Versions",
+      "title": "Earlier versions",
+      "loading": "Reading the history…",
+      "none": "No earlier version yet.",
+      "current": "current",
+      "invalid": "has an error",
+      "byAssistant": "By the assistant",
+      "byAssistantIn": "By the assistant in \"{{chat}}\"",
+      "byYou": "By you",
+      "undo": "An undo",
+      "upload": "Uploaded",
+      "revert": "Revert",
+      "note": "Revert keeps the newer version in this list.",
+      "invalidBadge": "Invalid",
+      "revertGood": "Revert to the last good version"
+    },
+    "help": {
+      "title": "Help and suggestions",
+      "sub": "Ways LocalAI shows you what it can do. Turn off what you do not need.",
+      "offers": "Offers from the assistant",
+      "offersHint": "At most one a day, never during a task: for example, to remember something you told it.",
+      "new": "Notes about new things",
+      "newHint": "A short \"New\" label in the sidebar the first time something appears.",
+      "examples": "Examples on Home",
+      "examplesShown": "The \"Make LocalAI yours\" cards show on Home while you have something left to try.",
+      "examplesHidden": "You hid the \"Make LocalAI yours\" cards.",
+      "showExamples": "Show the examples again",
+      "examplesBack": "The examples are back on Home.",
+      "dismissed": "What the assistant learned",
+      "dismissedHint_one": "You turned down {{count}} offer. It stays hidden until you reset it.",
+      "dismissedHint_other": "You turned down {{count}} offers. They stay hidden until you reset them.",
+      "forget": "Forget what the assistant learned about my hints",
+      "forgotten": "Done. The assistant may offer again.",
+      "learn": "Learn what you can change:",
+      "dismissedNone": "Nothing yet. When you answer an offer, the assistant remembers it here."
+    }
+  },
+  "shared": {
+    "adminTitle": "Shared folders",
+    "adminLede": "Folders that several people use. Members open their pages, and their chats can read or edit the files.",
+    "userTitle": "Shared with you",
+    "userLede": "Folders an administrator shared with you. Their pages are in Pages, and your chats can use the files.",
+    "new": "New shared folder",
+    "nameLabel": "Folder name",
+    "nameHint": "Up to 64 letters, digits, spaces, dots, dashes or underscores. Start with a letter or a digit.",
+    "create": "Create",
+    "cancel": "Cancel",
+    "rename": "Rename",
+    "renameSave": "Save",
+    "remove": "Remove",
+    "manage": "Members",
+    "menu": "More actions for {{name}}",
+    "pages_one": "{{count}} page",
+    "pages_other": "{{count}} pages",
+    "pagesNone": "No pages",
+    "people_one": "{{count}} person",
+    "people_other": "{{count}} people",
+    "membersNone": "No members",
+    "everyone": "Everyone",
+    "everyoneOption": "Everyone (all users)",
+    "everyoneHint": "All users, also the ones who join later",
+    "everyoneCan": {
+      "read": "Everyone can read",
+      "write": "Everyone can edit"
+    },
+    "mode": {
+      "read": "Can read",
+      "write": "Can edit"
+    },
+    "addTitle": "Add a member",
+    "person": "Person",
+    "access": "Access",
+    "accessFor": "Access for {{name}}",
+    "add": "Add",
+    "allAdded": "Everyone is already a member.",
+    "usersUnavailable": "The user list could not be loaded. You can still add Everyone.",
+    "membersTitle": "Members",
+    "noMembers": "Nobody can use this folder yet. Add a person or Everyone.",
+    "removeMember": "Remove {{name}}",
+    "paneNote": "A change applies at once. A chat that is open sees it the next time it opens.",
+    "created": "Created “{{name}}”. Add the people who can use it.",
+    "removed": "Removed “{{name}}”. Its pages ask again before they run.",
+    "restored": "“{{name}}” is back, with its members.",
+    "memberAdded": "Added {{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} can no longer use “{{folder}}”.",
+    "failed": "Not done: {{message}}",
+    "loadFailed": "Could not load the shared folders.",
+    "emptyAdminTitle": "No shared folders yet",
+    "emptyAdminBody": "A shared folder holds files and pages that other people can read or edit. Create one, then add members.",
+    "factMembers": "Give a person or everyone read or edit access",
+    "factChats": "Members' chats see the folder's files",
+    "factUndo": "Removing a folder can be undone",
+    "emptyUserTitle": "Nothing is shared with you yet",
+    "emptyUserBody": "When an administrator shares a folder with you, it shows here and its pages show in Pages."
+  },
+  "managed": {
+    "group": "Managed by LocalAI",
+    "marker": "managed by LocalAI",
+    "about": {
+      "localai": "Settings LocalAI reads: persona, profile, shortcuts, Home, theme.",
+      "chats": "One folder per chat, with the files of the chat."
+    },
+    "confirm": {
+      "deleteTitle": "Move {{name}} to the Trash?",
+      "renameTitle": "Rename {{name}}?",
+      "delete": "Move to Trash",
+      "rename": "Rename",
+      "restore": "You can restore it from the Trash.",
+      "renameNote": "LocalAI reads it only under this name, so after a rename it is as if it were gone."
+    },
+    "loses": {
+      "settings": "LocalAI forgets your persona, your profile, your shortcuts, your Home layout and your theme.",
+      "chats": "Every chat loses its files: what you attached and what the assistant wrote there.",
+      "persona": "The assistant loses its name and its instructions.",
+      "user": "The assistant forgets what you told it about you, and your answers to its offers.",
+      "shortcuts": "The message box shows the default shortcuts again.",
+      "home": "Home loses its widgets.",
+      "ui": "Your theme, accent, density, default model and pinned pages go back to the defaults."
+    }
+  },
+  "newFile": "New file",
+  "newFolderName": "New folder",
+  "newFileName": "Untitled.md",
+  "fileName": "File name",
+  "downloadOne": "Download {{name}}",
+  "moveTo": "Move to…",
+  "uploadMenu": "More upload options",
+  "uploadFiles": "Upload files",
+  "uploadFolder": "Upload a folder",
+  "loading": "Loading the folder",
+  "loadFailed": "Could not open {{folder}}.",
+  "types": {
+    "folder": "Folder",
+    "image": "Image",
+    "pdf": "PDF",
+    "sheet": "Spreadsheet",
+    "doc": "Document",
+    "slides": "Presentation",
+    "archive": "Archive",
+    "audio": "Audio",
+    "video": "Video",
+    "code": "Code",
+    "text": "Text",
+    "file": "File"
+  },
+  "columns": {
+    "name": "Name",
+    "modified": "Modified",
+    "type": "Type",
+    "size": "Size",
+    "actions": "Actions"
+  },
+  "view": {
+    "label": "View",
+    "list": "List",
+    "grid": "Thumbnails"
+  },
+  "select": {
+    "one": "Select {{name}}",
+    "all": "Select all",
+    "bar": "Selected items",
+    "clear": "Clear the selection",
+    "count_one": "{{count}} selected",
+    "count_other": "{{count}} selected",
+    "start": "Select"
+  },
+  "menu": {
+    "label": "Actions for {{name}}",
+    "more": "More actions for {{name}}",
+    "openFolder": "Open",
+    "preview": "Preview",
+    "downloadMany_one": "Download {{count}} file",
+    "downloadMany_other": "Download {{count}} files",
+    "moveMany_one": "Move {{count}} item to…",
+    "moveMany_other": "Move {{count}} items to…",
+    "deleteMany_one": "Move {{count}} item to Trash",
+    "deleteMany_other": "Move {{count}} items to Trash"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "Show the folders above"
+  },
+  "naming": {
+    "empty": "Type a name.",
+    "slash": "A name cannot contain / or \\.",
+    "taken": "Something in this folder already has that name."
+  },
+  "toast": {
+    "undo": "Undo",
+    "deletedOne": "{{name}} moved to the Trash.",
+    "deleted_one": "{{count}} item moved to the Trash.",
+    "deleted_other": "{{count}} items moved to the Trash.",
+    "restored": "Restored.",
+    "renamed": "Renamed to {{name}}.",
+    "renameUndone": "Name changed back.",
+    "movedOne": "{{name}} moved to {{folder}}.",
+    "moved_one": "{{count}} item moved to {{folder}}.",
+    "moved_other": "{{count}} items moved to {{folder}}.",
+    "moveUndone": "Moved back."
+  },
+  "emptyHome": {
+    "title": "Your files live here"
+  },
+  "emptyFolder": {
+    "title": "This folder is empty",
+    "body": "Drop files or folders anywhere on this page, paste them with Ctrl+V, or upload them from your computer. The assistant can also save files here from a chat.",
+    "bodyTouch": "Upload files from your device. The assistant can also save files here from a chat.",
+    "ask": "Ask the assistant"
+  },
+  "drop": {
+    "title": "Drop to upload to {{folder}}",
+    "body": "Files and whole folders are welcome.",
+    "limit": "Files and whole folders, up to {{size}} each."
+  },
+  "conflict": {
+    "title_one": "A file with this name already exists",
+    "title_other": "{{count}} files with these names already exist",
+    "body_one": "{{folder}} already has a file with this name.",
+    "body_other": "{{folder}} already has files with these names.",
+    "skip_one": "Skip it",
+    "skip_other": "Skip them",
+    "keep": "Keep both",
+    "replace_one": "Replace",
+    "replace_other": "Replace all",
+    "more_one": "and {{count}} more",
+    "more_other": "and {{count}} more",
+    "note": "Keep both gives the new file a new name. A replaced file can be brought back from History.",
+    "cancel": "Cancel the upload"
+  },
+  "move": {
+    "title_one": "Move {{count}} item",
+    "title_other": "Move {{count}} items",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "cancel": "Cancel",
+    "here": "Move to {{folder}}",
+    "failed": "Could not read this folder.",
+    "noFolders": "No folders here. Move here, or go back up."
+  },
+  "uploads": {
+    "waiting": "Waiting",
+    "progress": "{{loaded}} of {{total}}",
+    "rate": "{{rate}}/s",
+    "left": "{{time}} left",
+    "renamed": "Saved as {{name}}",
+    "done": "Uploaded",
+    "canceled": "Canceled",
+    "cancel": "Cancel",
+    "cancelOne": "Cancel the upload of {{name}}",
+    "retry": "Try again",
+    "retryOne": "Try {{name}} again",
+    "dismiss": "Dismiss",
+    "dismissOne": "Dismiss {{name}}",
+    "show": "Show",
+    "showOne": "Show {{name}}",
+    "meterOne": "{{name}}: {{percent}}%",
+    "meterAll": "All uploads: {{percent}}%",
+    "cancelAll": "Cancel all",
+    "retryAll": "Try all again",
+    "fold": "Hide the list",
+    "unfold": "Show the list",
+    "close": "Close",
+    "head": {
+      "sending_one": "Uploading {{count}} file",
+      "sending_other": "Uploading {{count}} files",
+      "failed_one": "{{count}} upload failed",
+      "failed_other": "{{count}} uploads failed",
+      "done_one": "{{count}} file uploaded",
+      "done_other": "{{count}} files uploaded"
+    },
+    "say": {
+      "start_one": "Uploading {{count}} file.",
+      "start_other": "Uploading {{count}} files.",
+      "done_one": "Upload done: {{count}} file.",
+      "done_other": "Uploads done: {{count}} files.",
+      "doneFailed": "Uploads done: {{count}} uploaded, {{failed}} failed.",
+      "failed": "Could not upload {{name}}."
+    },
+    "errors": {
+      "tooBig": "Larger than the {{limit}} limit of this server.",
+      "tooLarge": "The server refused it as too large.",
+      "off": "Files are off on this server.",
+      "invalid": "The server refused this file.",
+      "network": "The connection dropped.",
+      "server": "The server could not save it."
+    },
+    "said": "The server said: {{reason}}."
+  }
+}

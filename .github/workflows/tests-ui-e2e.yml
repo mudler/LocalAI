@@ -3,10 +3,22 @@ name: 'UI E2E Tests'
 
 on:
   pull_request:
+    # The suite builds the add-on UI bundles from addons/<id>/ui (global-setup)
+    # and drives the real chats service, the add-on host and the studio
+    # services through the test server, so a change to any of them can break a
+    # spec without touching core/http.
     paths:
       - 'core/http/**'
+      - 'core/application/**'
+      - 'core/services/studio/**'
+      - 'core/services/addons/**'
+      - 'pkg/addons/**'
+      - 'addons/**'
       - 'tests/e2e-ui/**'
       - 'tests/e2e/mock-backend/**'
+      - 'tests/addons/fixture/**'
+      - 'scripts/ensure-playwright-browser.sh'
+      - '.github/workflows/tests-ui-e2e.yml'
   push:
     branches:
       - master
@@ -52,7 +64,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libopus-dev
-      - name: Run stale chunk recovery tests
+      # Runs the specs tagged @production-chunks on the production bundle the
+      # binary embeds (code-split, CSS per chunk): the stale chunk recovery
+      # specs and the production bundle walk of the main pages. The coverage
+      # run below uses a different bundle and skips them.
+      - name: Run production bundle tests
         run: PATH="$PATH:$HOME/go/bin" make test-ui-stale-chunk
       # Builds an instrumented UI bundle, runs the Playwright specs, and fails
       # if line coverage regressed beyond the jitter tolerance (the gate is

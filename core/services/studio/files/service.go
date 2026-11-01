@@ -1,0 +1,212 @@
+// Package files is the workspace of the chats: each user's personal folder, the
+// rules that keep users apart, and the file features built on it. A service can
+// be disabled with a reason, and then every file feature says why it is off.
+package files
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/mudler/xlog"
+
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/textindex"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
+)
+
+// AdminPrincipal is the principal the service uses to create homes and grant
+// access. It cannot be a user: EnsureHome refuses it.
+const AdminPrincipal = workspace.StudioAdmin
+
+// EveryoneGroup is the group of every user. A grant to it gives a folder to all
+// users, the ones that sign up later too. It cannot be a user: EnsureHome
+// refuses it.
+const EveryoneGroup = "@everyone"
+
+// ErrUnavailable means the workspace is off. Its text is the reason.
+var ErrUnavailable = errors.New("files are off")
+
+// Service gives each user a personal folder in a workspace store.
+type Service struct {
+	ws     workspace.Store
+	reason string
+
+	mu    sync.Mutex
+	homes map[string]bool // principals whose home is known to exist
+	admin workspace.Actor
+
+	sharedReady bool // the folders of shared and built-in skills exist
+
+	blobs BlobOpener // nil: earlier versions cannot be read
+
+	// sharedRoots lists the shared folders of a user, for the file tools'
+	// /workspace/shared-<name> paths. Nil: the tools see no shared folder.
+	sharedRoots SharedRootsFunc
+
+	maxFileSize int64 // the largest upload the server takes, in bytes; 0: no limit known
+
+	// index holds the text of the documents, for search and read_file. Nil:
+	// documents are found by name only.
+	index *textindex.Indexer
+}
+
+// SetTextIndex gives the service the text index of the documents. Call it
+// once at start; nil removes it.
+func (s *Service) SetTextIndex(ix *textindex.Indexer) {
+	s.mu.Lock()
+	s.index = ix
+	s.mu.Unlock()
+}
+
+func (s *Service) textIndex() *textindex.Indexer {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.index
+}
+
+// Written tells the text index that a user wrote a file, so that it is
+// indexed at once rather than at the next read of the journal. Callers that
+// write through the store directly (an upload) call it; the file tools do
+// it themselves.
+func (s *Service) Written(ctx context.Context, n workspace.Node, principal string) {
+	if ix := s.textIndex(); ix != nil {
+		ix.Enqueue(ctx, n, principal)
+	}
+}
+
+// purged drops the index entries of what a purge below prefix erased. The
+// purge has already happened, so this runs on after the request ends. It is
+// the quick path: when it fails or the process stops first, the sweep of the
+// indexer's passes finds the entries whose node is gone and drops them.
+func (s *Service) purged(ctx context.Context, prefix string) {
+	ix := s.textIndex()
+	if ix == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+		defer cancel()
+		if err := ix.Forget(ctx, prefix); err != nil {
+			xlog.Warn("File text index: could not drop the entries of purged files; the next sweep drops them", "error", err)
+		}
+	}()
+}
+
+// WithMaxFileSize records the largest file an upload may send, so a client
+// can refuse a larger file before it sends any byte.
+func WithMaxFileSize(n int64) Option { return func(s *Service) { s.maxFileSize = n } }
+
+// MaxFileSize is the largest file an upload may send, in bytes, or 0 when the
+// server sets no limit.
+func (s *Service) MaxFileSize() int64 {
+	if s == nil {
+		return 0
+	}
+	return s.maxFileSize
+}
+
+// SharedRootsFunc lists the shared folders a user may use, with the mode of
+// each.
+type SharedRootsFunc func(ctx context.Context, a workspace.Actor) ([]session.SharedRoot, error)
+
+// SetSharedRoots tells the file tools where the user's shared folders are. The
+// shared folders are built on this service, so they are set after it. Call it
+// once at start; nil removes them.
+func (s *Service) SetSharedRoots(fn SharedRootsFunc) {
+	s.mu.Lock()
+	s.sharedRoots = fn
+	s.mu.Unlock()
+}
+
+// quietLog drops what session.BuildView logs about a shared folder that is
+// gone: the file tools answer "not found" for it.
+var quietLog = slog.New(slog.DiscardHandler)
+
+// New returns a Service on ws. The store must have been opened with
+// AdminPrincipal as its admin.
+func New(ws workspace.Store, opts ...Option) *Service {
+	s := &Service{ws: ws, homes: map[string]bool{}, admin: workspace.Actor{Principal: AdminPrincipal}}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
+}
+
+// Disabled returns a Service with no workspace. reason says why, in words for
+// the user.
+func Disabled(reason string) *Service {
+	return &Service{reason: reason, homes: map[string]bool{}}
+}
+
+// Available reports whether the workspace works.
+func (s *Service) Available() bool { return s != nil && s.ws != nil }
+
+// Unavailable returns why the workspace is off, or "" when it works.
+func (s *Service) Unavailable() string {
+	if s.Available() {
+		return ""
+	}
+	if s == nil || s.reason == "" {
+		return "Files are not set up on this server."
+	}
+	return s.reason
+}
+
+// Store returns the workspace store, or nil when it is off.
+func (s *Service) Store() workspace.Store {
+	if !s.Available() {
+		return nil
+	}
+	return s.ws
+}
+
+func validPrincipal(p string) bool {
+	return p != "" && p != AdminPrincipal && p != EveryoneGroup && p != "." && p != ".." && len(p) <= 200 &&
+		!strings.ContainsAny(p, "/\\\x00")
+}
+
+// EnsureHome creates the user's home folder and its Chats folder, and gives
+// the user write access to the home and to nothing else. It is safe to call
+// again and from several frontends at once.
+func (s *Service) EnsureHome(ctx context.Context, principal string) error {
+	if !s.Available() {
+		return fmt.Errorf("%w: %s", ErrUnavailable, s.Unavailable())
+	}
+	if !validPrincipal(principal) {
+		return fmt.Errorf("%w: the user name cannot name a folder", workspace.ErrBadName)
+	}
+	s.mu.Lock()
+	known := s.homes[principal]
+	s.mu.Unlock()
+	if known {
+		return nil
+	}
+	if err := s.ensureShared(ctx); err != nil {
+		return err
+	}
+	if _, err := s.ws.Mkdir(ctx, s.admin, session.ChatsPath(principal)); err != nil && !errors.Is(err, workspace.ErrExists) {
+		return fmt.Errorf("files: create the home of a user: %w", err)
+	}
+	if err := s.ws.Grant(ctx, s.admin, principal, session.HomePath(principal), workspace.ModeWrite); err != nil {
+		return fmt.Errorf("files: give a user their home: %w", err)
+	}
+	// Everyone reads the shared, add-on and built-in skills; nobody but the
+	// server and an administrator writes them.
+	for _, l := range readOnlyLayers {
+		if err := s.ws.Grant(ctx, s.admin, principal, l.real, workspace.ModeRead); err != nil {
+			return fmt.Errorf("files: let a user read %s: %w", l.real, err)
+		}
+	}
+	s.mu.Lock()
+	s.homes[principal] = true
+	s.mu.Unlock()
+	return nil
+}

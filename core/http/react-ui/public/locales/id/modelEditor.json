@@ -34,5 +34,9 @@
             "title": "Tidak ada field yang dikonfigurasi",
             "text": "Gunakan kolom pencarian di atas untuk menemukan dan menambahkan field konfigurasi."
         }
+    },
+    "proxyVision": {
+        "label": "Model ini dapat melihat gambar",
+        "hint": "Aktifkan jika model upstream menerima gambar. LocalAI tidak dapat memeriksanya. Gambar terlampir lalu dikirim ke model bersama pesan."
     }
 }

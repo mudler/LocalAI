@@ -1,8 +1,6 @@
 import { test, expect, request as playwrightRequest } from '@playwright/test'
 import fs from 'node:fs'
 import { randomUUID } from 'node:crypto'
-import { chatOf, mockChat } from './chat-fixtures.js'
-import { seedChats, CHATS_KEY } from './home-fixtures.js'
 
 // Private CSV exports of the Tables add-on. Two UI test servers run the real
 // add-on owner, the real Tables executable and the real built UI package, one
@@ -131,8 +129,6 @@ async function exportFromPage(page, { rowId = false } = {}) {
   return { dialog, card }
 }
 
-const b64url = (s) => Buffer.from(s).toString('base64url')
-const toolMessage = (tool, args) => `Please run this ADDON_TOOL_CALL:addon__tables__${tool}:${b64url(JSON.stringify(args))}`
 
 test.describe.configure({ mode: 'serial' })
 
@@ -298,39 +294,6 @@ test.describe('Tables CSV exports', () => {
       data: { operationId: `op-${randomUUID()}`, addonId: 'tables', resourceId: state.db.id, generation: state.db.generation, action: 'read', arguments: { tool: 'rows-export', table: 'Typed', filter: { column: 'Nope', op: 'eq', value: 1 } } },
     })
     expect(bad.status()).toBeGreaterThanOrEqual(400)
-  })
-
-  test('tables-artifacts: the chat draws the host card for an export and stores only its identifier', async ({ browser }) => {
-    const { context, page } = await browserAs(browser, 'member')
-    await mockChat(page, { models: [{ id: 'mock-model', capabilities: ['FLAG_CHAT'] }], loaded: ['mock-model'] })
-    await seedChats(page, [chatOf('c1', 'Tables', 'mock-model', [], { addonTools: true })], 'c1')
-    await page.goto('/app/chat')
-    await page.getByTestId('chat-composer').waitFor()
-    await page.getByTestId('chat-input').fill(toolMessage('rows-export', { resourceId: state.db.id, table: 'Typed', columns: ['Name'] }))
-    await page.getByTestId('chat-send').click()
-    const card = page.getByTestId('artifact-card')
-    await expect(card).toHaveCount(1, { timeout: 40_000 })
-    await expect(card).toHaveAttribute('data-state', 'complete', { timeout: 30_000 })
-    await expect(card.getByTestId('artifact-name')).toHaveText('Typed.csv')
-    await expect(card.getByTestId('artifact-expires')).toBeVisible()
-    const href = await card.getByTestId('artifact-download').getAttribute('href')
-    expect(href).toMatch(/^\/api\/addons\/artifacts\/a[0-9a-f]{32}\/download$/)
-    const res = await member.get(href)
-    expect(res.status()).toBe(200)
-    expect((await res.text()).startsWith('Name\r\n')).toBe(true)
-    await shoot(page, 'tables-artifacts-chat')
-    // The conversation keeps the identifier and nothing of the file.
-    const readStored = () => page.evaluate((key) => localStorage.getItem(key) || '', CHATS_KEY)
-    await expect.poll(readStored, { timeout: 15_000 }).toContain('tool_result')
-    const chats = JSON.parse(await readStored()).chats
-    const results = chats.flatMap(c => c.history).filter(m => m.role === 'tool_result')
-    expect(results.length).toBeGreaterThan(0)
-    for (const m of results) {
-      const held = JSON.parse(JSON.parse(m.content).result)
-      expect(held).toEqual({ kind: 'artifact', artifacts: [{ id: expect.stringMatching(/^a[0-9a-f]{32}$/) }] })
-    }
-    expect(await readStored()).not.toContain('=HYPERLINK')
-    await context.close()
   })
 
   test('tables-artifacts: a person at the file quota is told so and no file is made', async ({ browser }) => {

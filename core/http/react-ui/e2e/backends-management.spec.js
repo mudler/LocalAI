@@ -10,12 +10,17 @@ test.describe('Backends management page', () => {
     await page.goto('/app/backends')
   })
 
-  test('renders the management header and gallery tabs', async ({ page }) => {
+  test('renders the management header, the More menu and the type filters', async ({ page }) => {
     await expect(page).toHaveURL(/\/app\/backends$/)
     await expect(page.getByRole('heading', { name: 'Backend Management' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'From URL' })).toBeVisible()
-    await expect(page.getByRole('button').filter({ hasText: /^All$/ })).toBeVisible()
-    await expect(page.getByRole('button').filter({ hasText: /^Image$/ })).toBeVisible()
+    // Install from a URL is a rare action: it sits in the More menu.
+    await page.getByRole('button', { name: 'More backend actions' }).click()
+    await expect(page.getByRole('menuitem', { name: 'Install from URL…' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    // The type filters are in the Filters menu.
+    await page.getByTestId('backends-filters').click()
+    await expect(page.getByRole('radio', { name: 'All', exact: true })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Image', exact: true })).toBeVisible()
   })
 
   test('search field accepts input', async ({ page }) => {
@@ -25,8 +30,9 @@ test.describe('Backends management page', () => {
     await expect(search).toHaveValue('whisper')
   })
 
-  test('From URL reveals the OCI install form', async ({ page }) => {
-    await page.getByRole('button', { name: 'From URL' }).click()
+  test('Install from URL opens the OCI install form', async ({ page }) => {
+    await page.getByRole('button', { name: 'More backend actions' }).click()
+    await page.getByRole('menuitem', { name: 'Install from URL…' }).click()
     await expect(page.getByPlaceholder('oci://quay.io/example/backend:latest')).toBeVisible()
   })
 })
@@ -138,9 +144,11 @@ test.describe('Backends gallery - list', () => {
     await expect(page.getByTestId('backend-detail')).toContainText('transcript')
   })
 
-  test('a filter chip narrows the list', async ({ page }) => {
-    await page.getByRole('button', { name: 'Image', exact: true }).click()
+  test('a type filter narrows the list and shows as a removable chip', async ({ page }) => {
+    await page.getByTestId('backends-filters').click()
+    await page.getByRole('radio', { name: 'Image', exact: true }).check()
     await expect(page).toHaveURL(/[?&]state=image/)
+    await expect(page.getByRole('button', { name: 'Remove filter: Image' })).toBeVisible()
     await expect(row(page, 'diffusers')).toBeVisible()
     await expect(row(page, 'llama-cpp')).toHaveCount(0)
   })
@@ -149,5 +157,53 @@ test.describe('Backends gallery - list', () => {
     await expect(row(page, 'llama-cpp')).toContainText('v1.52.0')
     await expect(row(page, 'llama-cpp')).toContainText('Current')
     await expect(row(page, 'diffusers')).toContainText('Not installed')
+  })
+})
+
+// A filtered list that shows nothing offers Clear filters in both views, and
+// the button brings the full list back.
+test.describe('Backends - Clear filters', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/backends*', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          backends: [
+            { name: 'llama-cpp', description: 'GGUF inference', installed: true, version: '1.52.0', tags: ['chat'] },
+            { name: 'whisper', description: 'Speech to text', installed: true, version: '1.8.2', tags: ['transcript'] },
+          ],
+        }),
+      })
+    })
+    // The installed list is GET /backends; the page itself is /app/backends.
+    await page.route((url) => url.pathname === '/backends', (route) => {
+      route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify([
+          { Name: 'llama-cpp', Metadata: { version: '1.52.0' } },
+          { Name: 'whisper', Metadata: { version: '1.8.2' } },
+        ]),
+      })
+    })
+  })
+
+  test('the Catalog with a filter that matches nothing clears it', async ({ page }) => {
+    await page.goto('/app/backends?state=video')
+    const clear = page.getByTestId('backends-clear-filters')
+    await expect(clear).toBeVisible({ timeout: 10_000 })
+    await expect(row(page, 'llama-cpp')).toHaveCount(0)
+    await clear.click()
+    await expect(row(page, 'llama-cpp')).toBeVisible()
+    await expect(row(page, 'whisper')).toBeVisible()
+    await expect(page).not.toHaveURL(/state=/)
+  })
+
+  test('the Installed view with a search that matches nothing clears it', async ({ page }) => {
+    await page.goto('/app/backends?view=installed&q=no-such-backend')
+    const clear = page.getByTestId('backends-clear-filters')
+    await expect(clear).toBeVisible({ timeout: 10_000 })
+    await clear.click()
+    await expect(row(page, 'llama-cpp')).toBeVisible()
+    await expect(page).not.toHaveURL(/q=/)
   })
 })

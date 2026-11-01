@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
@@ -129,6 +131,20 @@ func CleanMirrors(kind string, in []string) ([]string, error) {
 	return out, nil
 }
 
+// plainLoopbackHTTP reports an http address of this machine.
+func plainLoopbackHTTP(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "http" {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
 // LocalAdmin is the Admin of the process that holds the store.
 type LocalAdmin struct {
 	// Store returns the one store of the running server.
@@ -203,6 +219,12 @@ func (a LocalAdmin) Add(_ context.Context, req AddRequest) (Info, error) {
 	}
 	if req.URL == "" {
 		return Info{}, badRequest("url is required")
+	}
+	if req.Kind == string(catalog.KindAddon) && format == "" && plainLoopbackHTTP(req.URL) {
+		// The owner drops every package that does not come over https, and a
+		// browser session cannot turn that off, so such a library would be
+		// stored and then never list anything.
+		return Info{}, badRequest("an add-on library on this machine over plain http cannot be used: its packages are refused unless they come over https. Serve it over https")
 	}
 	mirrors, err := CleanMirrors(req.Kind, req.Mirrors)
 	if err != nil {

@@ -1,0 +1,671 @@
+{
+  "wellKnown": {
+    "revert": "이전 버전으로 되돌리기",
+    "view": "보기",
+    "form": "양식",
+    "save": "저장",
+    "cancel": "취소",
+    "notSet": "설정되지 않음",
+    "moveUp": "위로 이동",
+    "moveDown": "아래로 이동",
+    "remove": "삭제",
+    "savedAt": "{{time}}에 저장됨",
+    "notSaved": "아직 저장되지 않았습니다.",
+    "notSavedPrefilled": "아직 저장되지 않았습니다. 일부 값은 자동으로 채워졌으며, 저장하면 유지됩니다.",
+    "loadFailed": "이 설정을 불러오지 못했습니다. 페이지를 새로 고쳐 다시 시도하세요.",
+    "invalid": "이 설정에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
+    "invalidFallback": "이 설정에 오류가 있습니다. 마지막으로 유효했던 버전을 보여 줍니다.",
+    "conflict": "편집하는 동안 이 설정이 바뀌었습니다. 어시스턴트나 다른 탭에서 바꾸었을 가능성이 높습니다. 최신 값은 다음과 같습니다:",
+    "useTheirs": "최신 값 사용",
+    "keepMine": "내 변경 사항 유지",
+    "editWithAssistant": "어시스턴트로 편집",
+    "from": {
+      "account": "계정에서",
+      "browser": "브라우저에서"
+    },
+    "check": {
+      "required": "필수 항목입니다.",
+      "tooLong": "최대 {{max}}자까지 입력할 수 있습니다.",
+      "format": "값의 형식이 올바르지 않습니다."
+    },
+    "source": {
+      "label": "원본",
+      "hint": "설정을 텍스트로 보여 줍니다. 저장할 때 같은 방식으로 검사합니다.",
+      "notJson": "텍스트에 구문 오류가 있습니다. 따옴표, 쉼표, 중괄호를 확인하세요.",
+      "notObject": "텍스트는 {로 시작하고 }로 끝나야 합니다."
+    },
+    "persona": {
+      "title": "어시스턴트",
+      "lede": "모든 채팅에서 어시스턴트가 사용하는 이름과 지침입니다."
+    },
+    "user": {
+      "title": "나",
+      "lede": "어시스턴트가 대화 상대를 알기 위해 읽습니다. 모든 채팅에서 모델에 전달됩니다."
+    },
+    "ui": {
+      "title": "모양",
+      "lede": "LocalAI가 표시되는 방식입니다. 변경 사항은 바로 반영되며, 저장하면 유지됩니다."
+    },
+    "shortcuts": {
+      "title": "단축 프롬프트",
+      "lede": "모든 채팅의 입력창 위에 표시되는 프롬프트입니다.",
+      "edit": "단축 프롬프트 편집",
+      "defaults": "기본 단축 프롬프트",
+      "none": "단축 프롬프트가 없습니다. 추가하거나, 빈 목록을 저장해 숨기세요.",
+      "label": "라벨",
+      "prompt": "프롬프트",
+      "send": "바로 보내기",
+      "add": "단축 프롬프트 추가",
+      "invalid": "일부 단축 프롬프트에 오류가 있습니다.",
+      "assistantPrompt": "내 단축 프롬프트를 바꿔 줘: "
+    },
+    "home": {
+      "editLayout": "레이아웃 편집",
+      "ask": "어시스턴트에게 묻기",
+      "askPrompt": "내 홈 페이지를 바꿔 줘: ",
+      "add": "위젯 추가",
+      "newTitle": "새 위젯",
+      "noWidgets": "아직 위젯이 없습니다.",
+      "type": "유형",
+      "title": "제목",
+      "source": "데이터 파일",
+      "noSourceNeeded": "데이터 파일이 필요하지 않음",
+      "types": {
+        "list": "목록",
+        "metric": "지표",
+        "chats": "최근 채팅",
+        "page": "페이지"
+      },
+      "left": "{{count}} 남음",
+      "fromChats": "채팅에서",
+      "noChats": "아직 채팅이 없습니다.",
+      "noData": "아직 데이터가 없습니다. 어시스턴트가 작성할 수 있습니다",
+      "nothing": "표시할 내용이 없습니다.",
+      "noSource": "이 위젯에는 데이터 파일이 없습니다. 레이아웃 편집에서 선택하세요.",
+      "broken": "이 위젯의 데이터에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
+      "stale": "마지막으로 유효했던 데이터를 보여 줍니다. 최신 데이터에 오류가 있습니다.",
+      "updated": "{{when}}에 업데이트됨",
+      "footer": {
+        "noData": "아직 데이터가 없습니다.",
+        "invalid": "데이터에 오류가 있습니다. 마지막 정상 버전을 보여 줍니다.",
+        "revert": "되돌리기",
+        "missing": "이 위젯의 데이터가 없습니다.",
+        "fix": "어시스턴트에게 고쳐 달라고 하기",
+        "fixPrompt": "홈 위젯이 읽는 {{file}} 파일이 없거나 손상되었습니다. 고쳐 주세요: ",
+        "waiting": "채팅에서 트리거를 만들기를 기다리는 중입니다.",
+        "openChat": "채팅 열기",
+        "running": "지금 업데이트 중…",
+        "openRun": "실행 열기",
+        "paused": "일시 중지됨 · 이전 일정 {{schedule}}",
+        "resume": "다시 시작",
+        "failedEmpty": "업데이트에 실패했고 아직 데이터가 없습니다.",
+        "details": "자세히",
+        "retry": "다시 시도",
+        "stale": "마지막 업데이트에 실패했습니다. {{when}}의 데이터를 표시합니다.",
+        "staleToday": "마지막 업데이트에 실패했습니다. 오늘 이전의 데이터를 표시합니다.",
+        "earlier": "이전",
+        "firstRun": "첫 실행 {{when}}",
+        "firstRunFile": "파일이 도착하면 실행",
+        "runNow": "지금 실행",
+        "fresh": "{{schedule}} · {{time}} 업데이트",
+        "pause": "일시 중지",
+        "fromPage": "{{title}} 페이지에서",
+        "fromFile": "내 파일에서",
+        "next": "다음 실행 {{when}}",
+        "cost": "실행당 약 {{tokens}} 토큰",
+        "costRemote": "원격 모델에서 실행당 약 {{tokens}} 토큰",
+        "cadence": {
+          "paused": "일시 중지됨",
+          "hourly": "매시간",
+          "daily": "매일",
+          "weekdays": "평일",
+          "weekly": "매주",
+          "monthly": "매월",
+          "file": "새 파일마다"
+        },
+        "scheduleNote_one": "위젯 {{count}}개가 일정에 따라 업데이트됩니다. 실행에는 내 모델이 쓰이고 사용량에 포함됩니다.",
+        "scheduleNote_other": "위젯 {{count}}개가 일정에 따라 업데이트됩니다. 실행에는 내 모델이 쓰이고 사용량에 포함됩니다."
+      },
+      "opensSite": "{{host}}: 새 탭에서 열립니다",
+      "linkAsk": "이 위젯이 링크를 열려고 합니다",
+      "invalid": "홈 레이아웃에 오류가 있으며, 이전의 유효한 버전이 없습니다.",
+      "invalidFallback": "홈 레이아웃에 오류가 있습니다. 홈은 마지막으로 유효했던 버전을 보여 줍니다.",
+      "page": {
+        "gone": "이 페이지를 더 이상 사용할 수 없습니다",
+        "goneHint": "\"{{name}}\" 페이지가 이동되었거나 삭제되었거나 더 이상 열 수 없습니다.",
+        "noWidget": "이 페이지에는 위젯 보기가 없습니다",
+        "noWidgetHint": "어시스턴트에게 \"{{name}}\" 페이지에 홈용 간단한 보기를 만들어 달라고 요청하세요.",
+        "off": "공유 페이지가 꺼져 있습니다",
+        "offHint": "관리자가 이 서버의 공유 페이지를 껐습니다.",
+        "fix": "홈 사용자 지정",
+        "failed": "페이지를 불러오지 못했습니다",
+        "retry": "다시 시도",
+        "changed": "허용한 뒤 이 페이지가 바뀌었습니다",
+        "notAllowed": "아직 이 페이지를 허용하지 않았습니다",
+        "allowHint": "공유 폴더의 페이지입니다. 내 권한으로 실행되기 전에 검토하세요.",
+        "allow": "이 페이지 허용",
+        "frameTitle": "{{title}} (홈의 페이지)",
+        "refresh": "새로 고침",
+        "open": "페이지 열기",
+        "add": "페이지 추가",
+        "limit": "홈에는 페이지를 최대 {{max}}개까지 표시합니다. 다른 페이지를 추가하려면 하나를 제거하세요.",
+        "noneEligible": "아직 홈용 간단한 보기가 있는 페이지가 없습니다. 어시스턴트에게 페이지에 추가해 달라고 요청하세요.",
+        "pick": "페이지",
+        "unavailable": "{{name}} (사용할 수 없음)",
+        "sharedLabel": "공유",
+        "sizes": {
+          "small": "작게",
+          "medium": "보통",
+          "large": "크게"
+        }
+      }
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "이름",
+          "help": "어시스턴트가 자신을 부르는 이름입니다."
+        },
+        "system_prompt": {
+          "label": "시스템 프롬프트",
+          "help": "모든 채팅에 추가됩니다. 채팅의 프롬프트와 에이전트 지침 뒤에 붙습니다."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "이름",
+          "help": "어시스턴트가 나를 부르는 이름입니다."
+        },
+        "language": {
+          "label": "언어",
+          "help": "어시스턴트가 답변할 때 사용하는 언어입니다."
+        },
+        "bio": {
+          "label": "나에 대해",
+          "help": "어시스턴트가 모든 채팅에서 읽는 몇 줄입니다."
+        },
+        "timezone": {
+          "label": "시간대",
+          "help": "답변의 날짜와 시간에 사용됩니다."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "테마",
+          "help": "시스템은 기기 설정을 따릅니다.",
+          "options": {
+            "dark": "다크",
+            "light": "라이트",
+            "system": "시스템"
+          }
+        },
+        "accent": {
+          "label": "강조 색상",
+          "help": "버튼과 링크에 사용합니다. 비워 두면 기본값을 사용합니다."
+        },
+        "density": {
+          "label": "밀도",
+          "help": "조밀하게 설정하면 한 화면에 더 많이 표시됩니다.",
+          "options": {
+            "comfortable": "여유 있게",
+            "compact": "조밀하게"
+          }
+        },
+        "defaultModel": {
+          "label": "기본 모델",
+          "help": "새 채팅이 시작될 때 사용하는 모델입니다."
+        }
+      }
+    },
+    "saveInvalid": "일부 값이 올바르지 않습니다. 확인한 뒤 다시 저장하세요.",
+    "saveTooLarge": "설정이 너무 커서 저장할 수 없습니다. 항목 몇 개를 지우고 다시 시도하세요.",
+    "saveFailed": "저장하지 못했습니다. 다시 시도하세요.",
+    "details": "세부 정보"
+  },
+  "discovery": {
+    "ex": {
+      "title": "LocalAI를 나에게 맞게 만들기",
+      "lede": "채팅에서 말해 보세요. 어시스턴트가 저장하고, 나중에 바꾸거나 되돌릴 수 있어요.",
+      "hide": "숨기기",
+      "hiddenToast": "예시를 숨겼어요.",
+      "saveFailed": "저장되지 않음: {{message}}",
+      "card1": {
+        "kicker": "나와 어시스턴트",
+        "prompt": "저를 {{firstName}}(이)라고 부르고 답변은 짧게 해 주세요",
+        "promptNoName": "제 이름을 기억하고 답변은 짧게 해 주세요",
+        "what": "내 이름과 어시스턴트의 답변 방식을 저장해요"
+      },
+      "card2": {
+        "kicker": "페이지",
+        "prompt": "작업 보드를 만들어 주세요",
+        "what": "사이드바에서 여는 페이지를 추가해요"
+      },
+      "card3": {
+        "kicker": "매일 아침",
+        "prompt": "매일 아침 받은 편지함을 여기에 요약해 주세요",
+        "promptNoMail": "매일 아침 어제의 채팅 목록을 여기에 보여 주세요",
+        "what": "홈 위젯과 직접 확인하는 트리거를 추가해요"
+      },
+      "quote": "“{{text}}”",
+      "donePrefix": "완료했어요.",
+      "doneLink": "계정에서 변경",
+      "ready": "또는 준비된 페이지로 시작하세요:",
+      "readyTasks": "작업 보드",
+      "readyReading": "읽기 목록",
+      "readyFailed": "페이지를 복사하지 못했어요: {{message}}",
+      "learn": "사용 방법",
+      "inComposer": "원하면 수정한 뒤 Enter를 누르세요. 보내기 전에는 아무것도 저장되지 않아요.",
+      "live": "프롬프트를 메시지 입력창에 추가했어요."
+    },
+    "home": {
+      "customise": "홈 꾸미기"
+    },
+    "action": {
+      "undo": "실행 취소",
+      "openAccount": "계정에서 열기",
+      "openPage": "페이지 열기",
+      "openHome": "홈 열기",
+      "turnBackOn": "계정에서 다시 켜기"
+    },
+    "change": {
+      "profilePersona": "내 이름과 어시스턴트에게 주는 지침을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "profile": "프로필에 저장했어요.",
+      "persona": "어시스턴트 지침을 저장했어요. 모든 채팅이 다음 메시지부터 사용해요.",
+      "shortcuts": "단축 프롬프트를 저장했어요.",
+      "home": "홈 페이지를 저장했어요. 홈에 변경 사항이 보여요.",
+      "ui": "화면 설정을 저장했어요.",
+      "pageCreated": "{{title}} 페이지를 만들었어요.",
+      "pageChanged": "{{title}} 페이지를 바꿨어요.",
+      "offersOff": "어시스턴트의 제안이 꺼져 있어요.",
+      "undoing": "되돌리는 중…",
+      "undone": "되돌렸어요.",
+      "undoFailed": "되돌리지 못했어요: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "입력창에 추가했어요: {{label}}",
+      "pageCreated": "{{title}}이(가) 사이드바의 페이지에 있어요",
+      "open": "열기",
+      "homeChanged": "홈을 업데이트했어요.",
+      "themeChanged": "테마를 변경했어요."
+    },
+    "files": {
+      "learn": "이 파일들이 LocalAI가 나에게 동작하는 방식을 바꿔요.",
+      "tag": {
+        "profile": "내 프로필",
+        "persona": "어시스턴트",
+        "shortcuts": "바로 가기",
+        "home": "홈 레이아웃",
+        "ui": "모양",
+        "page": "페이지"
+      }
+    },
+    "privacy": "어시스턴트는 모든 채팅을 시작할 때 이름, 이 텍스트, 언어, 시간대를 받아요. 보내고 싶지 않은 항목은 비워 두세요.",
+    "versions": {
+      "label": "버전",
+      "title": "이전 버전",
+      "loading": "기록을 읽는 중…",
+      "none": "이전 버전이 아직 없어요.",
+      "current": "현재",
+      "invalid": "오류가 있음",
+      "byAssistant": "어시스턴트가 변경",
+      "byAssistantIn": "“{{chat}}” 채팅에서 어시스턴트가 변경",
+      "byYou": "내가 변경",
+      "undo": "되돌리기",
+      "upload": "업로드함",
+      "revert": "복원",
+      "note": "복원해도 더 새로운 버전은 이 목록에 남아요.",
+      "invalidBadge": "잘못됨",
+      "revertGood": "마지막 정상 버전으로 복원"
+    },
+    "help": {
+      "title": "도움말과 제안",
+      "sub": "LocalAI가 할 수 있는 일을 보여 주는 방법들이에요. 필요 없는 것은 끄세요.",
+      "offers": "어시스턴트의 제안",
+      "offersHint": "하루에 최대 한 번, 작업 중에는 절대 하지 않아요. 예를 들어 말씀하신 내용을 기억해 둘지 물어볼 때예요.",
+      "new": "새 기능 알림",
+      "newHint": "무언가 처음 나타나면 사이드바에 짧은 “새 기능” 라벨이 표시돼요.",
+      "examples": "홈의 예시",
+      "examplesShown": "시도해 볼 것이 남아 있는 동안 홈에 “LocalAI를 나에게 맞게 만들기” 카드가 표시돼요.",
+      "examplesHidden": "“LocalAI를 나에게 맞게 만들기” 카드를 숨겼어요.",
+      "showExamples": "예시 다시 표시",
+      "examplesBack": "예시가 홈에 다시 표시돼요.",
+      "dismissed": "어시스턴트가 배운 내용",
+      "dismissedHint_one": "제안 {{count}}개를 거절했어요. 초기화할 때까지 숨겨져 있어요.",
+      "dismissedHint_other": "제안 {{count}}개를 거절했어요. 초기화할 때까지 숨겨져 있어요.",
+      "forget": "제안에 대해 어시스턴트가 배운 내용 지우기",
+      "forgotten": "완료했어요. 어시스턴트가 다시 제안할 수 있어요.",
+      "learn": "바꿀 수 있는 것 알아보기:",
+      "dismissedNone": "아직 없어요. 제안에 답하면 어시스턴트가 여기에 기억해 둬요."
+    }
+  },
+  "tabs": {
+    "shared": "공유",
+    "trashCount_one": "휴지통에 항목 {{count}}개",
+    "trashCount_other": "휴지통에 항목 {{count}}개"
+  },
+  "trash": {
+    "empty": "휴지통이 비어 있습니다.",
+    "restore": "복원",
+    "emptyAll": "휴지통 비우기",
+    "purge": "영구 삭제",
+    "purgeNamed": "{{name}} 영구 삭제",
+    "files_one": "파일 {{count}}개",
+    "files_other": "파일 {{count}}개",
+    "folders_one": "폴더 {{count}}개",
+    "folders_other": "폴더 {{count}}개",
+    "listJoin": ", ",
+    "summary": "휴지통: {{what}}.",
+    "removed": "영구 삭제됨: {{what}}.",
+    "confirmAll": {
+      "title": "휴지통을 비우시겠습니까?",
+      "message": "{{what}}이(가) 이전 버전과 함께 영구 삭제됩니다. 되돌릴 수 없습니다."
+    },
+    "confirmOne": {
+      "title": "영구 삭제하시겠습니까?",
+      "message": "{{path}}: {{what}}이(가) 이전 버전과 함께 영구 삭제됩니다. 되돌릴 수 없습니다."
+    }
+  },
+  "shared": {
+    "adminTitle": "공유 폴더",
+    "adminLede": "여러 사람이 함께 쓰는 폴더입니다. 멤버는 페이지를 열 수 있고, 멤버의 채팅은 파일을 읽거나 편집할 수 있습니다.",
+    "userTitle": "나와 공유됨",
+    "userLede": "관리자가 나와 공유한 폴더입니다. 페이지는 페이지 메뉴에 있고, 내 채팅에서 파일을 쓸 수 있습니다.",
+    "new": "새 공유 폴더",
+    "nameLabel": "폴더 이름",
+    "nameHint": "글자, 숫자, 공백, 마침표, 하이픈, 밑줄로 최대 64자. 글자나 숫자로 시작하세요.",
+    "create": "만들기",
+    "cancel": "취소",
+    "rename": "이름 바꾸기",
+    "renameSave": "저장",
+    "remove": "제거",
+    "manage": "멤버",
+    "menu": "{{name}}의 다른 작업",
+    "pages_one": "페이지 {{count}}개",
+    "pages_other": "페이지 {{count}}개",
+    "pagesNone": "페이지 없음",
+    "people_one": "{{count}}명",
+    "people_other": "{{count}}명",
+    "membersNone": "멤버 없음",
+    "everyone": "모든 사용자",
+    "everyoneOption": "모든 사용자 (전체)",
+    "everyoneHint": "나중에 가입하는 사용자를 포함한 모든 사용자",
+    "everyoneCan": {
+      "read": "모두 읽기 가능",
+      "write": "모두 편집 가능"
+    },
+    "mode": {
+      "read": "읽기 가능",
+      "write": "편집 가능"
+    },
+    "addTitle": "멤버 추가",
+    "person": "사용자",
+    "access": "권한",
+    "accessFor": "{{name}}의 권한",
+    "add": "추가",
+    "allAdded": "모두 이미 멤버입니다.",
+    "usersUnavailable": "사용자 목록을 불러오지 못했습니다. 모든 사용자는 추가할 수 있습니다.",
+    "membersTitle": "멤버",
+    "noMembers": "아직 이 폴더를 쓸 수 있는 사람이 없습니다. 사용자나 모든 사용자를 추가하세요.",
+    "removeMember": "{{name}} 제거",
+    "paneNote": "변경은 바로 적용됩니다. 열려 있는 채팅은 다음에 열 때 반영됩니다.",
+    "created": "“{{name}}”을(를) 만들었습니다. 사용할 사람을 추가하세요.",
+    "removed": "“{{name}}”을(를) 제거했습니다. 페이지는 실행 전에 다시 허락을 묻습니다.",
+    "restored": "“{{name}}”이(가) 멤버와 함께 돌아왔습니다.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}}은(는) 이제 “{{folder}}”을(를) 쓸 수 없습니다.",
+    "failed": "실패: {{message}}",
+    "loadFailed": "공유 폴더를 불러오지 못했습니다.",
+    "emptyAdminTitle": "아직 공유 폴더가 없습니다",
+    "emptyAdminBody": "공유 폴더에는 다른 사람이 읽거나 편집할 수 있는 파일과 페이지가 있습니다. 폴더를 만들고 멤버를 추가하세요.",
+    "factMembers": "사용자 또는 모두에게 읽기나 편집 권한 부여",
+    "factChats": "멤버의 채팅이 폴더의 파일을 봅니다",
+    "factUndo": "폴더 제거는 되돌릴 수 있습니다",
+    "emptyUserTitle": "아직 나와 공유된 것이 없습니다",
+    "emptyUserBody": "관리자가 폴더를 공유하면 여기에 표시되고, 페이지는 페이지 메뉴에 나타납니다."
+  },
+  "preview": {
+    "label": "미리보기",
+    "failed": "이 파일을 표시할 수 없습니다.",
+    "loading": "{{name}} 미리보기를 불러오는 중",
+    "failedTitle": "{{name}}을(를) 표시할 수 없습니다.",
+    "tooLarge": "이 파일은 너무 커서 여기서 미리 볼 수 없습니다. 다운로드해서 여세요.",
+    "none": "이 파일 형식은 미리보기가 없습니다.",
+    "typeFile": "{{ext}} 파일",
+    "typeUnknown": "파일",
+    "sheets": "시트",
+    "sheetLabel": "시트 {{name}}",
+    "sheetEmpty": "이 시트는 비어 있습니다.",
+    "row": "행",
+    "showingRows": "{{total}}행 중 {{rows}}행 표시",
+    "showingCols": "{{total}}열 중 {{cols}}열 표시.",
+    "downloadRest": "나머지는 파일을 다운로드해서 보세요.",
+    "textOnly": "텍스트 미리보기이며 서식은 표시되지 않습니다.",
+    "truncated": "텍스트가 잘렸습니다.",
+    "noText": "이 파일에는 표시할 텍스트가 없습니다.",
+    "slide": "슬라이드 {{n}}",
+    "notes": "발표자 노트",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "PDF가 여기 표시되지 않으면 다운로드하세요.",
+    "htmlTitle": "{{name}} 미리보기",
+    "imageFailed": "이미지를 표시할 수 없습니다.",
+    "zoomIn": "원래 크기로 보기",
+    "zoomOut": "창에 맞추기",
+    "items_one": "{{count}}개 항목",
+    "items_other": "{{count}}개 항목",
+    "textCut": "처음 {{size}}만 표시합니다.",
+    "actions": "파일 작업"
+  },
+  "managed": {
+    "group": "LocalAI가 관리",
+    "marker": "LocalAI가 관리",
+    "about": {
+      "localai": "LocalAI가 읽는 설정: 페르소나, 프로필, 바로가기, 홈, 테마.",
+      "chats": "채팅마다 하나의 폴더와 그 채팅의 파일."
+    },
+    "confirm": {
+      "deleteTitle": "{{name}}을(를) 휴지통으로 옮길까요?",
+      "renameTitle": "{{name}}의 이름을 바꿀까요?",
+      "delete": "휴지통으로 이동",
+      "rename": "이름 바꾸기",
+      "restore": "휴지통에서 복원할 수 있습니다.",
+      "renameNote": "LocalAI는 이 이름으로만 읽으므로, 이름을 바꾸면 없어진 것과 같습니다."
+    },
+    "loses": {
+      "settings": "LocalAI가 페르소나, 프로필, 바로가기, 홈 레이아웃, 테마를 잊습니다.",
+      "chats": "모든 채팅이 파일을 잃습니다: 첨부한 파일과 어시스턴트가 그곳에 쓴 파일.",
+      "persona": "어시스턴트가 이름과 지침을 잃습니다.",
+      "user": "어시스턴트가 당신에 대해 들은 내용과 제안에 대한 당신의 답을 잊습니다.",
+      "shortcuts": "메시지 입력란에 기본 바로가기가 다시 표시됩니다.",
+      "home": "홈의 위젯이 사라집니다.",
+      "ui": "테마, 강조 색상, 밀도, 기본 모델, 고정한 페이지가 기본값으로 돌아갑니다."
+    }
+  },
+  "newFile": "새 파일",
+  "newFolderName": "새 폴더",
+  "newFileName": "제목 없음.md",
+  "fileName": "파일 이름",
+  "downloadOne": "{{name}} 다운로드",
+  "moveTo": "이동…",
+  "uploadMenu": "업로드 옵션 더보기",
+  "uploadFiles": "파일 업로드",
+  "uploadFolder": "폴더 업로드",
+  "loading": "폴더를 불러오는 중",
+  "loadFailed": "{{folder}}을(를) 열 수 없습니다.",
+  "types": {
+    "folder": "폴더",
+    "image": "이미지",
+    "pdf": "PDF",
+    "sheet": "스프레드시트",
+    "doc": "문서",
+    "slides": "프레젠테이션",
+    "archive": "압축 파일",
+    "audio": "오디오",
+    "video": "동영상",
+    "code": "코드",
+    "text": "텍스트",
+    "file": "파일"
+  },
+  "columns": {
+    "name": "이름",
+    "modified": "수정한 날짜",
+    "type": "유형",
+    "size": "크기",
+    "actions": "작업"
+  },
+  "view": {
+    "label": "보기",
+    "list": "목록",
+    "grid": "미리보기"
+  },
+  "select": {
+    "one": "{{name}} 선택",
+    "all": "모두 선택",
+    "bar": "선택한 항목",
+    "clear": "선택 해제",
+    "count_one": "{{count}}개 선택됨",
+    "count_other": "{{count}}개 선택됨",
+    "start": "선택"
+  },
+  "menu": {
+    "label": "{{name}} 작업",
+    "more": "{{name}} 추가 작업",
+    "openFolder": "열기",
+    "preview": "미리보기",
+    "downloadMany_one": "파일 {{count}}개 다운로드",
+    "downloadMany_other": "파일 {{count}}개 다운로드",
+    "moveMany_one": "항목 {{count}}개 이동…",
+    "moveMany_other": "항목 {{count}}개 이동…",
+    "deleteMany_one": "항목 {{count}}개를 휴지통으로 이동",
+    "deleteMany_other": "항목 {{count}}개를 휴지통으로 이동"
+  },
+  "keys": {
+    "delete": "Del"
+  },
+  "crumbs": {
+    "hidden": "상위 폴더 보기"
+  },
+  "naming": {
+    "empty": "이름을 입력하세요.",
+    "slash": "이름에는 / 또는 \\를 사용할 수 없습니다.",
+    "taken": "이 폴더에 같은 이름이 이미 있습니다."
+  },
+  "toast": {
+    "undo": "실행 취소",
+    "deletedOne": "{{name}}을(를) 휴지통으로 이동했습니다.",
+    "deleted_one": "항목 {{count}}개를 휴지통으로 이동했습니다.",
+    "deleted_other": "항목 {{count}}개를 휴지통으로 이동했습니다.",
+    "restored": "복원했습니다.",
+    "renamed": "이름을 {{name}}(으)로 변경했습니다.",
+    "renameUndone": "이름을 되돌렸습니다.",
+    "movedOne": "{{name}}을(를) {{folder}}(으)로 이동했습니다.",
+    "moved_one": "항목 {{count}}개를 {{folder}}(으)로 이동했습니다.",
+    "moved_other": "항목 {{count}}개를 {{folder}}(으)로 이동했습니다.",
+    "moveUndone": "원래 위치로 되돌렸습니다."
+  },
+  "search": {
+    "placeholder": "이 폴더에서 필터링",
+    "resultsFor": "“{{query}}”이(가) 포함된 파일",
+    "back": "폴더로 돌아가기",
+    "noneBody": "파일의 이름이나 내용에 일치하는 항목이 없습니다. 다른 단어로 검색해 보세요.",
+    "page": "{{n}}페이지",
+    "sheet": "시트 “{{name}}”",
+    "slide": "슬라이드 {{n}}",
+    "indexing_one": "문서 {{count}}개를 아직 색인하는 중입니다. 잠시 후 다시 검색하면 포함됩니다.",
+    "indexing_other": "문서 {{count}}개를 아직 색인하는 중입니다. 잠시 후 다시 검색하면 포함됩니다.",
+    "limited": "결과 제한됨: 검색이 모든 파일을 살펴보기 전에 한도에서 멈췄습니다. 나머지를 보려면 폴더 안에서 검색하거나 다른 단어를 사용하세요.",
+    "filtering_one": "이 폴더에서 “{{query}}”와(과) 일치하는 항목 {{count}}개",
+    "filtering_other": "이 폴더에서 “{{query}}”와(과) 일치하는 항목 {{count}}개",
+    "everywhere": "모든 파일에서 “{{query}}” 검색",
+    "everywhereShort": "모든 파일에서 검색",
+    "noMatch": "이 폴더에는 “{{query}}”와(과) 일치하는 항목이 없습니다.",
+    "clear": "필터 지우기"
+  },
+  "emptyHome": {
+    "title": "내 파일이 여기에 있습니다"
+  },
+  "emptyFolder": {
+    "title": "이 폴더는 비어 있습니다",
+    "body": "이 페이지 아무 곳에나 파일이나 폴더를 끌어다 놓거나, Ctrl+V로 붙여넣거나, 컴퓨터에서 업로드하세요. 어시스턴트도 채팅에서 이곳에 파일을 저장할 수 있습니다.",
+    "bodyTouch": "기기에서 파일을 업로드하세요. 어시스턴트도 채팅에서 이곳에 파일을 저장할 수 있습니다.",
+    "ask": "어시스턴트에게 요청"
+  },
+  "drop": {
+    "title": "놓으면 {{folder}}에 업로드됩니다",
+    "body": "파일과 폴더 전체를 올릴 수 있습니다.",
+    "limit": "파일과 폴더 전체, 각각 최대 {{size}}."
+  },
+  "conflict": {
+    "title_one": "같은 이름의 파일이 이미 있습니다",
+    "title_other": "같은 이름의 파일 {{count}}개가 이미 있습니다",
+    "body_one": "{{folder}}에 같은 이름의 파일이 이미 있습니다.",
+    "body_other": "{{folder}}에 같은 이름의 파일이 이미 있습니다.",
+    "skip_one": "건너뛰기",
+    "skip_other": "모두 건너뛰기",
+    "keep": "둘 다 유지",
+    "replace_one": "바꾸기",
+    "replace_other": "모두 바꾸기",
+    "more_one": "외 {{count}}개",
+    "more_other": "외 {{count}}개",
+    "note": "둘 다 유지하면 새 파일에 다른 이름이 붙습니다. 바꾼 파일은 기록에서 되돌릴 수 있습니다.",
+    "cancel": "업로드 취소"
+  },
+  "move": {
+    "title_one": "항목 {{count}}개 이동",
+    "title_other": "항목 {{count}}개 이동",
+    "items_one": "항목 {{count}}개",
+    "items_other": "항목 {{count}}개",
+    "cancel": "취소",
+    "here": "{{folder}}(으)로 이동",
+    "failed": "이 폴더를 읽을 수 없습니다.",
+    "noFolders": "여기에는 폴더가 없습니다. 여기로 이동하거나 위로 올라가세요."
+  },
+  "uploads": {
+    "waiting": "대기 중",
+    "progress": "{{loaded}} / {{total}}",
+    "rate": "{{rate}}/초",
+    "left": "{{time}} 남음",
+    "renamed": "{{name}}(으)로 저장됨",
+    "done": "업로드 완료",
+    "canceled": "취소됨",
+    "cancel": "취소",
+    "cancelOne": "{{name}} 업로드 취소",
+    "retry": "다시 시도",
+    "retryOne": "{{name}} 다시 시도",
+    "dismiss": "닫기",
+    "dismissOne": "{{name}} 닫기",
+    "show": "보기",
+    "showOne": "{{name}} 보기",
+    "meterOne": "{{name}}: {{percent}}%",
+    "meterAll": "전체 업로드: {{percent}}%",
+    "cancelAll": "모두 취소",
+    "retryAll": "모두 다시 시도",
+    "fold": "목록 숨기기",
+    "unfold": "목록 보기",
+    "close": "닫기",
+    "head": {
+      "sending_one": "파일 {{count}}개 업로드 중",
+      "sending_other": "파일 {{count}}개 업로드 중",
+      "failed_one": "업로드 {{count}}개 실패",
+      "failed_other": "업로드 {{count}}개 실패",
+      "done_one": "파일 {{count}}개 업로드 완료",
+      "done_other": "파일 {{count}}개 업로드 완료"
+    },
+    "say": {
+      "start_one": "파일 {{count}}개를 업로드하는 중입니다.",
+      "start_other": "파일 {{count}}개를 업로드하는 중입니다.",
+      "done_one": "업로드 완료: 파일 {{count}}개.",
+      "done_other": "업로드 완료: 파일 {{count}}개.",
+      "doneFailed": "업로드 완료: {{count}}개 성공, {{failed}}개 실패.",
+      "failed": "{{name}}을(를) 업로드할 수 없습니다."
+    },
+    "errors": {
+      "tooBig": "이 서버의 제한({{limit}})보다 큽니다.",
+      "tooLarge": "파일이 너무 커서 서버가 거부했습니다.",
+      "off": "이 서버에서는 파일 기능이 꺼져 있습니다.",
+      "invalid": "서버가 이 파일을 거부했습니다.",
+      "network": "연결이 끊어졌습니다.",
+      "server": "서버가 저장할 수 없었습니다."
+    },
+    "said": "서버 응답: {{reason}}."
+  }
+}

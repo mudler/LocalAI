@@ -1,0 +1,6 @@
+{
+    "proxyVision": {
+        "label": "Ce modèle peut regarder les images",
+        "hint": "Activez-le si le modèle en amont accepte les images. LocalAI ne peut pas le vérifier. Les images jointes sont alors envoyées au modèle avec le message."
+    }
+}

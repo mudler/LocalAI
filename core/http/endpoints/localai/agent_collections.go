@@ -3,37 +3,47 @@ package localai
 import (
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 )
 
+// ListCollectionsEndpoint handles /api/collections (GET).
+// @Summary List your collections.
+// @Description The knowledge-base collections of the caller. An administrator can add all_users=true to also get the other users' collections in user_groups. embedding_model names the model that indexes and searches the collections (collections_embedding_model), and embedding_model_installed says whether this server has it: without it, adding files and searching fail. Needs the collections feature.
+// @Tags collections
+// @Success 200 {object} schema.CollectionList "The collections"
+// @Router /api/collections [get]
 func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := getUserID(c)
-		cols, err := svc.ListCollectionsForUser(userID)
+		cols, err := svc.ListForUser(userID)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
+		model := app.ApplicationConfig().Collections.EmbeddingModel
 		resp := map[string]any{
-			"collections": cols,
-			"count":       len(cols),
+			"collections":               cols,
+			"count":                     len(cols),
+			"embedding_model":           model,
+			"embedding_model_installed": embeddingModelInstalled(app, model),
 		}
 
 		// Admin cross-user aggregation
 		if wantsAllUsers(c) {
-			usm := svc.UserServicesManager()
-			if usm != nil {
-				userIDs, _ := usm.ListAllUserIDs()
+			{
+				userIDs, _ := svc.UserIDs()
 				userGroups := map[string]any{}
 				for _, uid := range userIDs {
 					if uid == userID {
 						continue
 					}
-					userCols, err := svc.ListCollectionsForUser(uid)
+					userCols, err := svc.ListForUser(uid)
 					if err != nil || len(userCols) == 0 {
 						continue
 					}
@@ -49,9 +59,16 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// CreateCollectionEndpoint handles /api/collections (POST).
+// @Summary Create a collection.
+// @Description Makes an empty collection under the name in the body.
+// @Tags collections
+// @Param request body schema.CollectionCreateRequest true "The name of the collection"
+// @Success 201 {object} schema.CollectionStatus "Created"
+// @Router /api/collections [post]
 func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := getUserID(c)
 		var payload struct {
 			Name string `json:"name"`
@@ -59,16 +76,26 @@ func CreateCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		if err := svc.CreateCollectionForUser(userID, payload.Name); err != nil {
+		if err := svc.CreateForUser(userID, payload.Name); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusCreated, map[string]string{"status": "ok", "name": payload.Name})
 	}
 }
 
+// UploadToCollectionEndpoint handles /api/collections/{name}/upload (POST).
+// @Summary Add a file to a collection.
+// @Description Uploads a file as multipart form field `file`. The server cuts it into passages and embeds them with the collections embedding model. 409 when the embedding model changed and the vectors have another size.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param file formData file true "The file to add"
+// @Success 200 {object} schema.CollectionStatus "The entry key"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Failure 409 {object} map[string]string "The embedding model changed"
+// @Router /api/collections/{name}/upload [post]
 func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		name := decodedParam(c, "name")
 		file, err := c.FormFile("file")
@@ -80,7 +107,7 @@ func UploadToCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
 		defer src.Close()
-		key, err := svc.UploadToCollectionForUser(userID, name, file.Filename, src)
+		key, err := svc.UploadForUser(c.Request().Context(), userID, name, file.Filename, src)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -112,11 +139,18 @@ func isEmbeddingDimensionMismatch(err error) bool {
 		strings.Contains(msg, " dimensions, not ")
 }
 
+// ListCollectionEntriesEndpoint handles /api/collections/{name}/entries (GET).
+// @Summary List the entries of a collection.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Success 200 {object} schema.CollectionEntries "The entries"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entries [get]
 func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		entries, err := svc.ListCollectionEntriesForUser(userID, decodedParam(c, "name"))
+		entries, err := svc.ListEntriesForUser(userID, decodedParam(c, "name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -130,16 +164,24 @@ func ListCollectionEntriesEndpoint(app *application.Application) echo.HandlerFun
 	}
 }
 
+// GetCollectionEntryContentEndpoint handles /api/collections/{name}/entries/{entry} (GET).
+// @Summary Read the text of an entry.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param entry path string true "Entry key"
+// @Success 200 {object} schema.CollectionEntryContent "The text and its number of passages"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entries/{entry} [get]
 func GetCollectionEntryContentEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		entryParam := c.Param("*")
 		entry, err := url.PathUnescape(entryParam)
 		if err != nil {
 			entry = entryParam
 		}
-		content, chunkCount, err := svc.GetCollectionEntryContentForUser(userID, decodedParam(c, "name"), entry)
+		content, chunkCount, err := svc.EntryContentForUser(userID, decodedParam(c, "name"), entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -153,9 +195,18 @@ func GetCollectionEntryContentEndpoint(app *application.Application) echo.Handle
 	}
 }
 
+// SearchCollectionEndpoint handles /api/collections/{name}/search (POST).
+// @Summary Search a collection.
+// @Description Returns the passages that match the query best. Asking for more passages than the collection holds returns all of them; an empty collection returns none.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionSearchRequest true "The query"
+// @Success 200 {object} schema.CollectionSearchResponse "The passages"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/search [post]
 func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			Query      string `json:"query"`
@@ -164,7 +215,7 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		results, err := svc.SearchCollectionForUser(userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
+		results, err := svc.SearchForUser(c.Request().Context(), userID, decodedParam(c, "name"), payload.Query, payload.MaxResults)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -178,11 +229,19 @@ func SearchCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// ResetCollectionEndpoint handles /api/collections/{name}/reset (POST).
+// @Summary Empty a collection.
+// @Description Deletes every entry and keeps the collection and the sources it follows.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Success 200 {object} schema.CollectionStatus "Done"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/reset [post]
 func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		if err := svc.ResetCollectionForUser(userID, decodedParam(c, "name")); err != nil {
+		if err := svc.ResetForUser(userID, decodedParam(c, "name")); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
@@ -192,9 +251,17 @@ func ResetCollectionEndpoint(app *application.Application) echo.HandlerFunc {
 	}
 }
 
+// DeleteCollectionEntryEndpoint handles /api/collections/{name}/entry/delete (DELETE).
+// @Summary Delete one entry of a collection.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionEntryDeleteRequest true "The entry"
+// @Success 200 {object} schema.CollectionEntryDeleteResponse "The entries left"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entry/delete [delete]
 func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			Entry string `json:"entry"`
@@ -202,7 +269,7 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		remaining, err := svc.DeleteCollectionEntryForUser(userID, decodedParam(c, "name"), payload.Entry)
+		remaining, err := svc.DeleteEntryForUser(userID, decodedParam(c, "name"), payload.Entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -216,9 +283,18 @@ func DeleteCollectionEntryEndpoint(app *application.Application) echo.HandlerFun
 	}
 }
 
+// AddCollectionSourceEndpoint handles /api/collections/{name}/sources (POST).
+// @Summary Make a collection follow a URL.
+// @Description The server fetches the URL again at the given interval, in minutes; a value below 1 means 60.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionSourceRequest true "The URL and the interval in minutes"
+// @Success 200 {object} schema.CollectionStatus "Done"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/sources [post]
 func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			URL            string `json:"url"`
@@ -230,7 +306,7 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 		if payload.UpdateInterval < 1 {
 			payload.UpdateInterval = 60
 		}
-		if err := svc.AddCollectionSourceForUser(userID, decodedParam(c, "name"), payload.URL, payload.UpdateInterval); err != nil {
+		if err := svc.AddSourceForUser(userID, decodedParam(c, "name"), payload.URL, payload.UpdateInterval); err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 			}
@@ -240,9 +316,17 @@ func AddCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc 
 	}
 }
 
+// RemoveCollectionSourceEndpoint handles /api/collections/{name}/sources (DELETE).
+// @Summary Stop a collection following a URL.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param request body schema.CollectionSourceRequest true "The URL"
+// @Success 200 {object} schema.CollectionStatus "Done"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/sources [delete]
 func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		var payload struct {
 			URL string `json:"url"`
@@ -250,7 +334,7 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 		if err := c.Bind(&payload); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
-		if err := svc.RemoveCollectionSourceForUser(userID, decodedParam(c, "name"), payload.URL); err != nil {
+		if err := svc.RemoveSourceForUser(userID, decodedParam(c, "name"), payload.URL); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
@@ -258,16 +342,24 @@ func RemoveCollectionSourceEndpoint(app *application.Application) echo.HandlerFu
 }
 
 // GetCollectionEntryRawFileEndpoint serves the original uploaded binary file.
+// @Summary Download the file of an entry.
+// @Description Serves the file as it was uploaded.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Param entry path string true "Entry key"
+// @Success 200 {file} binary "The original file"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/entries-raw/{entry} [get]
 func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
 		entryParam := c.Param("*")
 		entry, err := url.PathUnescape(entryParam)
 		if err != nil {
 			entry = entryParam
 		}
-		fpath, err := svc.GetCollectionEntryFilePathForUser(userID, decodedParam(c, "name"), entry)
+		fpath, err := svc.EntryFilePathForUser(userID, decodedParam(c, "name"), entry)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -278,11 +370,18 @@ func GetCollectionEntryRawFileEndpoint(app *application.Application) echo.Handle
 	}
 }
 
+// ListCollectionSourcesEndpoint handles /api/collections/{name}/sources (GET).
+// @Summary List the URLs a collection follows.
+// @Tags collections
+// @Param name path string true "Collection name"
+// @Success 200 {object} schema.CollectionSources "The sources"
+// @Failure 404 {object} map[string]string "Collection not found"
+// @Router /api/collections/{name}/sources [get]
 func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		svc := app.AgentPoolService()
+		svc := app.CollectionsService()
 		userID := effectiveUserID(c)
-		sources, err := svc.ListCollectionSourcesForUser(userID, decodedParam(c, "name"))
+		sources, err := svc.ListSourcesForUser(userID, decodedParam(c, "name"))
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
@@ -294,4 +393,23 @@ func ListCollectionSourcesEndpoint(app *application.Application) echo.HandlerFun
 			"count":   len(sources),
 		})
 	}
+}
+
+// embeddingModelInstalled reports whether the model that the collections embed
+// with is installed: it has a configuration, or a file of that name is in the
+// models folder. The collections call this server's embeddings endpoint, which
+// answers 404 for a model it does not have.
+func embeddingModelInstalled(app *application.Application, name string) bool {
+	if name == "" {
+		return false
+	}
+	if _, ok := app.ModelConfigLoader().GetModelConfig(name); ok {
+		return true
+	}
+	st := app.ApplicationConfig().SystemState
+	if st == nil || st.Model.ModelsPath == "" || strings.ContainsAny(name, "/\\") {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(st.Model.ModelsPath, name))
+	return err == nil && !info.IsDir()
 }

@@ -216,9 +216,10 @@ var _ = Describe("Library source routes", func() {
 			return srv.URL
 		}
 		for _, id := range []string{"first", "second"} {
-			rec := call(auth.RoleAdmin, http.MethodPost, "/api/library/sources", `{"kind":"addon","id":"`+id+`","url":"`+serve("tables")+`"}`)
-			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
-			_, err := store.Refresh(GinkgoT().Context(), id)
+			// The route refuses an add-on library over plain http on this machine, so add it to the store.
+			_, err := library.AddWithMirrors(store, catalog.KindAddon, serve("tables"), id, "", "", nil)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = store.Refresh(GinkgoT().Context(), id)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		for _, id := range []string{"first", "second"} {

@@ -32,6 +32,11 @@ const (
 	// is reserved: named-user mode never accepts it, so it cannot collide with
 	// a real user ID.
 	AddonLocalOwnerID = "local-owner"
+	// AddonChatsCredential is the credential of an add-on call made from a chat
+	// turn. A turn can outlive the request that started it, and in a cluster it
+	// can run on another frontend, so it holds no session or key. The host
+	// builds it; the account and the add-ons feature are checked on every call.
+	AddonChatsCredential = "chats"
 )
 
 // AddonActorForMode builds the actor of a request that already passed the route
@@ -131,7 +136,7 @@ func ValidateAddonActor(ctx context.Context, db *gorm.DB, a contract.Actor, admi
 		if err := db.Where("id = ? AND user_id = ? AND expires_at > ?", id, u.ID, now).First(&s).Error; err != nil {
 			return storeError(err)
 		}
-	} else {
+	} else if a.CredentialID != AddonChatsCredential {
 		return errAddonIdentity
 	}
 	if admin && role != RoleAdmin {

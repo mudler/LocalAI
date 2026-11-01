@@ -887,8 +887,36 @@ var _ = Describe("catalog template", func() {
 			Expect(e.Policy.RequireSignature).To(BeTrue())
 		}
 	})
+	It("renders the development entries of every enabled platform from the manifest, without a package", func() {
+		p := newProject(both)
+		out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
+		_, err := run("catalog", "--config", p.config, "--root", p.root, "--template", "../../../gallery/addons/tables.yaml.tmpl", "--from-manifest", "--repository", newRegistry().repo("addons"), "--channel", "development", "--owner-repo", "example/localai", "--signer-ref", "refs/heads/master", "--out", out)
+		Expect(err).NotTo(HaveOccurred())
+		b, err := os.ReadFile(out)
+		Expect(err).NotTo(HaveOccurred())
+		entries, err := readCatalogIndex(b)
+		Expect(err).NotTo(HaveOccurred())
+		var platforms []string
+		for _, e := range entries {
+			Expect(e.Mutable).To(BeTrue())
+			Expect(e.Digest).To(BeEmpty())
+			Expect(e.Artifact).To(HaveSuffix(":tables-development"))
+			Expect(e.Policy.Identity).To(HaveSuffix("/addons-package.yml@refs/heads/master"))
+			platforms = append(platforms, e.OS+"/"+e.Arch)
+		}
+		Expect(platforms).To(ConsistOf("linux/amd64", "linux/arm64"))
+	})
+	It("refuses --from-manifest for a pinned channel or together with a merged layout", func() {
+		p := newProject(both)
+		out := filepath.Join(GinkgoT().TempDir(), "catalog.yaml")
+		args := []string{"catalog", "--config", p.config, "--root", p.root, "--template", "../../../gallery/addons/tables.yaml.tmpl", "--from-manifest", "--repository", newRegistry().repo("addons"), "--owner-repo", "example/localai", "--signer-ref", "refs/tags/v1.2.3", "--tag", "1.2.3", "--out", out}
+		_, err := run(append(args, "--channel", "latest")...)
+		Expect(err).To(MatchError(ContainSubstring("development channel only")))
+		_, err = run(append(args, "--channel", "development", "--merged", p.root)...)
+		Expect(err).To(MatchError(ContainSubstring("development channel only")))
+	})
 	It("renders an entry for every first-party add-on from its own template", func() {
-		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk"} {
+		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "office", "sandbox", "web"} {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
 			repoName := newRegistry().repo("addons")
@@ -908,7 +936,7 @@ var _ = Describe("catalog template", func() {
 		}
 	})
 	It("reports the chat tools of the manifest on each entry and not the admin tools", func() {
-		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0}
+		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 4, "web": 5}
 		for id, want := range counts {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
@@ -927,6 +955,15 @@ var _ = Describe("catalog template", func() {
 			if want == 0 {
 				Expect(string(b)).NotTo(ContainSubstring("toolCount"))
 			}
+			if id == "sandbox" {
+				Expect(entries[0].Shadows).To(Equal([]string{"bash"}), "the Sandbox's bash replaces the built-in bash")
+			}
+			if id == "web" {
+				Expect(entries[0].Shadows).To(Equal([]string{"web_search", "web_fetch"}), "the Web add-on replaces the built-in web tools")
+			}
+			if id == "office" {
+				Expect(entries[0].SkillShadows).To(Equal([]string{"xlsx", "docx", "pptx", "pdf"}), "the Office skills replace the built-in office skills")
+			}
 			if id == "tables" {
 				// The admin tool is declared next to the chat tools and is not one of them.
 				Expect(entries[0].Tools).NotTo(ContainElement("databases-delete"))
@@ -943,6 +980,13 @@ var _ = Describe("catalog template", func() {
 		Expect(text).To(HavePrefix(fmt.Sprintf("toolCount: %d\n", MaxEntryTools+8)))
 		Expect(strings.Count(text, "\n  - ")).To(Equal(MaxEntryTools))
 		Expect(toolFieldsYAML(nil, "")).To(BeEmpty())
+	})
+	It("lists the built-in skills an add-on replaces", func() {
+		Expect(skillFieldsYAML([]string{"xlsx", "pdf"}, "  ")).To(Equal("  skillShadows:\n    - \"xlsx\"\n    - \"pdf\"\n"))
+		Expect(skillFieldsYAML(nil, "")).To(BeEmpty())
+	})
+	It("lists the built-in tools an add-on replaces after its tools", func() {
+		Expect(toolFieldsYAML([]string{"bash", "status"}, "  ", "bash")).To(Equal("  toolCount: 2\n  tools:\n    - \"bash\"\n    - \"status\"\n  shadows:\n    - \"bash\"\n"))
 	})
 	It("adds the tool fields to an existing index from the repository manifests, and changes nothing else", func() {
 		raw, err := os.ReadFile("../../../gallery/addons/index.yaml")
@@ -966,7 +1010,7 @@ var _ = Describe("catalog template", func() {
 		for _, e := range entries {
 			got[e.ID] = e.ToolCount
 		}
-		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0}))
+		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "office": 11, "sandbox": 4, "web": 5}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()
@@ -1043,6 +1087,16 @@ var _ = Describe("workflow policy", func() {
 	It("rejects id-token write outside the publishing job", func() {
 		expect(mutate("    permissions:\n      contents: read\n    strategy:", "    permissions:\n      contents: read\n      id-token: write\n    strategy:"), "P_UNTRUSTED_SECRETS")
 	})
+	It("lets only the release-index job write the contents of the repository", func() {
+		anchor := "    permissions:\n      contents: write\n      actions: read\n"
+		expect(mutate(anchor, "    permissions:\n      contents: write\n      actions: read\n      id-token: write\n"), "P_UNTRUSTED_SECRETS")
+		expect(mutate(anchor, "    permissions:\n      contents: write\n      actions: write\n"), "P_UNTRUSTED_SECRETS")
+		expect(mutate("    permissions:\n      contents: read\n    env:\n      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          persist-credentials: false\n      - uses: actions/setup-go@v6\n        with:\n          go-version-file: go.mod\n      - uses: actions/download-artifact@v8\n        with:\n          pattern: merged-*", "    permissions:\n      contents: write\n    env:\n      ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          persist-credentials: false\n      - uses: actions/setup-go@v6\n        with:\n          go-version-file: go.mod\n      - uses: actions/download-artifact@v8\n        with:\n          pattern: merged-*"), "P_UNTRUSTED_SECRETS")
+	})
+	It("hands the guest image digest of the sandbox-image job to the package leg", func() {
+		Expect(base).To(ContainSubstring("needs: [plan, validate, sandbox-image]"))
+		Expect(base).To(ContainSubstring("SANDBOX_GUEST_IMAGE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.image || '' }}"))
+	})
 	It("rejects a registry login or publish in an untrusted job", func() {
 		expect(mutate("      - name: Run the packaging checks\n        if: matrix.addon == 'tables'\n        run: sh scripts/addons/package_test.sh", "      - name: Run the packaging checks\n        run: go run ./scripts/addons/cmd/addonpkg publish --layout x"), "P_UNTRUSTED_SECRETS")
 	})
@@ -1056,7 +1110,7 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate("    needs: [plan, validate, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan, package]\n    if: needs.plan.outputs.publish == 'true'"), "P_NEEDS")
 	})
 	It("rejects a package leg that does not need validate", func() {
-		expect(mutate("    needs: [plan, validate]\n    if: needs.plan.outputs.has_platforms == 'true'", "    needs: [plan]\n    if: needs.plan.outputs.has_platforms == 'true'"), "P_NEEDS")
+		expect(mutate("    needs: [plan, validate, sandbox-image]\n    if: needs.plan.outputs.has_platforms == 'true'", "    needs: [plan, sandbox-image]\n    if: needs.plan.outputs.has_platforms == 'true'"), "P_NEEDS")
 	})
 	It("rejects a validate job that cannot stop the release", func() {
 		anchor := "    name: validate package rules\n"
@@ -1118,7 +1172,7 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("rejects a workflow that names one add-on by path or skips an add-on in the matrix", func() {
 		expect(mutate("node \"addons/$ADDON/ui/build.mjs\"\n      - name: Fill", "node addons/tables/ui/build.mjs\n      - name: Fill"), "P_ADDON_PATH")
-		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk]\n", "        platform: [x]\n"), "P_MATRIX")
+		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, office, sandbox, web]\n", "        platform: [x]\n"), "P_MATRIX")
 	})
 	It("rejects a plan that does not refuse an add-on without an enabled platform", func() {
 		expect(mutate("has no enabled platform; refusing to publish", "has no platform"), "P_FAIL_CLOSED")
@@ -1168,7 +1222,7 @@ var _ = Describe("workflow policy", func() {
 
 // firstPartyAddons are the add-ons the release workflow packages. The list is
 // written out so a new add-on is a deliberate change here and in the workflow.
-var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk"}
+var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "office", "sandbox", "web"}
 
 func readWorkflow() string {
 	GinkgoHelper()
@@ -1392,3 +1446,38 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+var _ = Describe("package skills", func() {
+	It("lays the skills of the add-on in their own layer and verifies them with the install rules", func() {
+		p := newProjectFor("office", map[string][]string{"linux/amd64": nil})
+		dir := p.mustBuild("linux/amd64", "1.2.3", "office binary")
+		Expect(p.verify(dir, "linux/amd64", "1.2.3")).To(Succeed())
+		l, _, err := loadLeg(dir)
+		Expect(err).NotTo(HaveOccurred())
+		var roles []string
+		for _, d := range l.manifest.Layers {
+			roles = append(roles, d.Annotations[AnnotationLayer])
+		}
+		Expect(roles).To(Equal([]string{roleExecutable, roleUI, roleSkills, roleManifest}))
+		files, err := l.openLayers()
+		Expect(err).NotTo(HaveOccurred())
+		var names []string
+		for _, f := range files {
+			if f.role == roleSkills {
+				names = append(names, f.name)
+			}
+		}
+		Expect(names).To(ConsistOf("skills/xlsx/SKILL.md", "skills/docx/SKILL.md", "skills/pptx/SKILL.md", "skills/pdf/SKILL.md"))
+	})
+
+	It("refuses to build when the skills folder and the manifest disagree, or a skill breaks a rule", func() {
+		p := newProjectFor("office", map[string][]string{"linux/amd64": nil})
+		Expect(os.WriteFile(filepath.Join(p.root, "addons/office/skills/xlsx/run.py"), []byte("print(1)\n"), 0o644)).To(Succeed())
+		_, err := p.build("linux/amd64", "1.2.3", exe("office binary"))
+		Expect(err).To(MatchError(ContainSubstring("no scripts")))
+		Expect(os.Remove(filepath.Join(p.root, "addons/office/skills/xlsx/run.py"))).To(Succeed())
+		Expect(os.RemoveAll(filepath.Join(p.root, "addons/office/skills/pdf"))).To(Succeed())
+		_, err = p.build("linux/amd64", "1.2.3", exe("office binary"))
+		Expect(err).To(MatchError(ContainSubstring("no skills/pdf folder")))
+	})
+})

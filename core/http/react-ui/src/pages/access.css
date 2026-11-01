@@ -10,13 +10,16 @@
    ========================================================================== */
 
 .us-page, .ac-page { --dk-font-display: var(--font-sans); --dk-font-body: var(--font-sans); display: flex; flex-direction: column; gap: var(--dk-space-4); min-width: 0; }
+/* Account: the page frame (PageHeader) gives the 24 px under the header. */
+.ac-page { gap: 0; }
+.ac-page > .dk-tabs { margin-bottom: var(--sp-5); }
 
 /* ---- Heads ---------------------------------------------------------------- */
 .us-head, .ac-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--dk-space-3); padding-top: var(--dk-space-3); }
 .us-head { flex-direction: column; align-items: flex-start; gap: var(--dk-space-1); }
 .us-title, .ac-title { margin: 0; font: var(--dk-weight-bold) 24px / 1.2 var(--dk-font-display); letter-spacing: -.02em; color: var(--dk-text); }
 .us-lede, .ac-lede { margin: 0; max-width: 64ch; font-size: var(--dk-text-15); line-height: 1.5; color: var(--dk-muted); }
-.ac-me { font-size: var(--dk-text-13); color: var(--dk-muted); }
+.ac-me { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
 .us-page .dk-tabs, .ac-page .dk-tabs { align-self: stretch; overflow-x: auto; scrollbar-width: none; }
 .us-page .dk-tabs::-webkit-scrollbar, .ac-page .dk-tabs::-webkit-scrollbar { display: none; }
 .us-page .dk-tab, .ac-page .dk-tab { flex: none; }
@@ -139,22 +142,20 @@
 .ac-who__text { display: flex; flex-direction: column; font-size: var(--dk-text-13); color: var(--dk-muted); min-width: 0; overflow-wrap: anywhere; }
 .ac-who__text strong { color: var(--dk-text); font-size: var(--dk-text-15); }
 .ac-actions { display: flex; gap: var(--dk-space-2); }
-.ac-note { display: flex; align-items: flex-start; gap: var(--dk-space-3); max-width: 560px; padding: var(--dk-space-4); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-2); color: var(--dk-muted); }
-.ac-note p { margin: 0; font-size: var(--dk-text-15); line-height: 1.5; }
-.ac-note .lai-icon { flex: none; font-size: 20px; margin-top: 2px; }
+.ac-callout { max-width: 560px; }
 .ac-usage { display: flex; flex-direction: column; gap: var(--dk-space-5); }
 .ac-usage__lede { margin: 0; font-size: var(--dk-text-15); color: var(--dk-muted); }
 .ac-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--dk-space-4); margin: 0; }
 .ac-figure { display: flex; flex-direction: column; gap: 2px; padding-bottom: var(--dk-space-3); border-bottom: 1px solid var(--dk-edge); }
 .ac-figure dt { font-size: var(--dk-text-13); color: var(--dk-muted); }
-.ac-figure dd { margin: 0; font: var(--dk-weight-bold) var(--dk-text-32) / 1.1 var(--dk-font-display); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.ac-h2 { margin: 0; font: var(--dk-weight-bold) var(--dk-text-17) / 1.3 var(--dk-font-display); }
+.ac-figure dd { margin: 0; font: 600 var(--fs-title) / var(--lh-title) var(--font-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ac-h2 { margin: 0; font: 600 var(--fs-section) / var(--lh-section) var(--font-sans); }
 .ac-sub { font: var(--dk-weight-regular) var(--dk-text-13) / 1.3 var(--dk-font-body); color: var(--dk-muted); margin-left: var(--dk-space-2); }
 .ac-hint { margin: 0; font-size: var(--dk-text-13); color: var(--dk-muted); }
 .ac-limits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-3); }
 .ac-limit { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(80px, 1fr) auto; align-items: center; gap: var(--dk-space-1) var(--dk-space-3); font-size: var(--dk-text-13); }
 .ac-limit__text { overflow-wrap: anywhere; }
-.ac-limit__value { color: var(--dk-muted); text-align: right; }
+.ac-limit__value { color: var(--dk-muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ac-limit__reset { grid-column: 1 / -1; font-size: var(--dk-text-12); color: var(--dk-muted); }
 
 /* ---- Phone ---------------------------------------------------------------------------------- */
@@ -175,7 +176,7 @@
   .ak-create .dk-field:first-child, .ak-create .dk-field:nth-child(2) { flex-basis: 100%; max-width: none; }
   .iv-link__text { max-width: 180px; }
   .ac-figures { gap: var(--dk-space-3); }
-  .ac-figure dd { font-size: var(--dk-text-21); }
+  .ac-figure dd { font-size: var(--fs-lead); line-height: var(--lh-lead); }
   .ac-limit { grid-template-columns: minmax(0, 1fr) auto; }
   .ac-limit .dk-progress { grid-column: 1 / -1; order: 3; }
 }

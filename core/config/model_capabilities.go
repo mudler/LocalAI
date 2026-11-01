@@ -1,6 +1,10 @@
 package config
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/mudler/LocalAI/pkg/model"
+)
 
 // This file is the single source of truth for deriving a model's user-facing
 // capabilities and input/output modalities from its ModelConfig. Both the
@@ -48,6 +52,11 @@ func orderedModalities(modalities map[string]bool) []string {
 // declared input modality or KnownUsecases bit, a multimodal projector, or a
 // template/backend multimodal marker.
 func (c *ModelConfig) VisionSupported() bool {
+	// Translate mode sends the upstream the text of the messages only, so no
+	// declaration makes an image reach a cloud model through it.
+	if c.Backend == model.CloudProxyBackend && c.Proxy.Mode == ProxyModeTranslate {
+		return false
+	}
 	if slices.Contains(c.KnownInputModalities, ModalityImage) {
 		return true
 	}

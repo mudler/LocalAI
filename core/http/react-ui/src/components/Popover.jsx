@@ -18,7 +18,9 @@ import { createPortal } from 'react-dom'
 //   onClose:   () => void
 //   children:  popover body
 //   ariaLabel: accessible label for the dialog
-export default function Popover({ anchor, open, onClose, children, ariaLabel }) {
+//   className: extra class, so a page can restyle the surface (for example as
+//              a bottom sheet on a phone)
+export default function Popover({ anchor, open, onClose, children, ariaLabel, className = '' }) {
   const popoverRef = useRef(null)
   const wasOpenRef = useRef(open)
   const [pos, setPos] = useState({ top: 0, left: 0, flipped: false })
@@ -93,7 +95,7 @@ export default function Popover({ anchor, open, onClose, children, ariaLabel }) 
       ref={popoverRef}
       role="dialog"
       aria-label={ariaLabel}
-      className={`popover card${pos.flipped ? ' popover--up' : ''}`}
+      className={`popover card${pos.flipped ? ' popover--up' : ''}${className ? ` ${className}` : ''}`}
       style={{ top: pos.top, left: pos.left }}
     >
       {children}

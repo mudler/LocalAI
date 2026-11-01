@@ -41,13 +41,14 @@ const instance = (over = {}) => ({
 })
 
 test('slots: the registry is closed and each slot has a frozen minimal props contract', () => {
-  assert.deepEqual([...SLOT_IDS], ['chat.composer.actions', 'chat.message.actions', 'app.nav', 'settings.sections'])
+  assert.deepEqual([...SLOT_IDS], ['chat.composer.actions', 'chat.message.actions', 'app.nav', 'settings.sections', 'files.preview'])
   assert.equal(Object.isFrozen(SLOT_IDS), true)
   assert.equal(Object.isFrozen(SLOTS), true)
   assert.deepEqual([...SLOTS['chat.composer.actions'].props], ['conversationId', 'disabled'])
   assert.deepEqual([...SLOTS['chat.message.actions'].props], ['conversationId', 'messageId', 'role'])
   assert.deepEqual([...SLOTS['app.nav'].props], [])
   assert.deepEqual([...SLOTS['settings.sections'].props], [])
+  assert.deepEqual([...SLOTS['files.preview'].props], ['path', 'name', 'extension'])
   assert.throws(() => { SLOTS['chat.footer'] = {} }, TypeError)
   assert.equal(slotProps('chat.footer', {}), null, 'an unknown slot has no props')
 })
@@ -293,4 +294,25 @@ test('slots: a page that only needs the list reads it once and never retries a f
   assert.equal(shouldPoll({ ...base, status: 'ready' }), false)
   assert.equal(shouldPoll({ ...base, status: 'error' }), false, 'no loop of failing reads for a page that only draws slots')
   assert.equal(shouldPoll({ ...base, status: 'idle', allowed: false }), false)
+})
+
+test('slots: a file preview is offered for the extensions it declared and gets only the file facts', () => {
+  const previewApp = app({
+    ui: ui({ slots: [{ id: 'prev', slot: 'files.preview', component: 'PreviewBit', extensions: ['docx', 'xlsx'] }] }),
+  })
+  const inst = instance({ components: { PreviewBit: C } })
+  const draw = (extension) => slotContributions('files.preview', { apps: [previewApp], instances: [inst], allowed: true, extension })
+  assert.equal(draw('docx').length, 1)
+  assert.equal(draw('xlsx')[0].addonId, 'notes')
+  assert.deepEqual(draw('pdf'), [], 'an extension nobody declared has no preview')
+  assert.deepEqual(draw(''), [], 'a file without an extension has no preview')
+  assert.deepEqual(draw(undefined), [], 'no extension is no preview')
+  assert.deepEqual(slotContributions('files.preview', { apps: [previewApp], instances: [inst], allowed: false, extension: 'docx' }), [])
+  // Other slots never filter on an extension.
+  assert.equal(slotContributions('settings.sections', { apps: [app()], instances: [instance()], allowed: true }).length, 1)
+  const p = slotProps('files.preview', { path: '/a/b.docx', name: 'b.docx', extension: 'docx', content: 'secret', owner: 'bob' })
+  assert.deepEqual(p, { path: '/a/b.docx', name: 'b.docx', extension: 'docx' })
+  for (const bad of [{ path: '', name: 'a', extension: 'docx' }, { path: '/a', name: 'a', extension: 'DOCX' }, { path: '/a', name: 'a', extension: '../x' }, { path: '/a', name: 'a' }]) {
+    assert.equal(slotProps('files.preview', bad), null, JSON.stringify(bad))
+  }
 })

@@ -7,7 +7,7 @@ import {
 } from './settingsSchema.js'
 import {
   pendingChanges, visibleChanges, runChecks, hasBlockingCheck, payloadFor, displayValue,
-  historyEntries, linesOf,
+  historyEntries, linesOf, searchProvidersError,
 } from './settingsPending.js'
 
 const base = () => ({
@@ -113,12 +113,12 @@ test('checks: durations, budgets and JSON can block; restart and cautions warn',
   let draft = setValue(FIELD_BY_KEY.watchdog_idle_timeout, initial, 'soon')
   draft = setValue(FIELD_BY_KEY.vram_budget, draft, '150%')
   draft = setValue(FIELD_BY_KEY.galleries, draft, '{not json')
-  draft = setValue(FIELD_BY_KEY.agent_pool_enable_logs, draft, true)
+  draft = setValue(FIELD_BY_KEY.collections_chunk_overlap, draft, 10)
   draft = setValue(FIELD_BY_KEY.force_eviction_when_busy, draft, true)
   const checks = runChecks(pendingChanges(initial, draft), initial, draft)
   assert.ok(hasBlockingCheck(checks))
   assert.equal(checks.filter(c => c.level === 'error').length, 3)
-  assert.ok(checks.some(c => c.level === 'warn' && /Restart LocalAI for Agent logs/.test(c.text)))
+  assert.ok(checks.some(c => c.level === 'warn' && /Restart LocalAI for Chunk Overlap/.test(c.text)))
   assert.ok(checks.some(c => c.level === 'warn' && /interrupt requests/.test(c.text)))
 
   const good = setValue(FIELD_BY_KEY.watchdog_idle_timeout, initial, '30m')
@@ -154,4 +154,11 @@ test('linesOf splits on newlines and commas', () => {
 
 test('valuesEqual treats an empty number like zero', () => {
   assert.equal(valuesEqual(FIELD_BY_KEY.threads, '', 0), true)
+})
+
+test('searchProvidersError mirrors the server parser of chats_web_search_providers', () => {
+  for (const ok of ['', ' ', 'duckduckgo', 'Bing_HTML, searxng,', 'searxng,duckduckgo,brave_html,bing_html']) assert.equal(searchProvidersError(ok), '', ok)
+  for (const bad of ['google', 'duckduckgo,duckduckgo', ',', 'brave']) assert.notEqual(searchProvidersError(bad), '', bad)
+  const checks = runChecks(pendingChanges({}, { chats_web_search_providers: 'altavista' }), {}, { chats_web_search_providers: 'altavista' })
+  assert.ok(hasBlockingCheck(checks))
 })

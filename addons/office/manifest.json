@@ -1,0 +1,617 @@
+{
+  "api": {
+    "max": 1,
+    "min": 1
+  },
+  "arch": "amd64",
+  "capabilities": {
+    "actions": true,
+    "skillDefinitions": [
+      {
+        "name": "xlsx",
+        "shadows": "xlsx"
+      },
+      {
+        "name": "docx",
+        "shadows": "docx"
+      },
+      {
+        "name": "pptx",
+        "shadows": "pptx"
+      },
+      {
+        "name": "pdf",
+        "shadows": "pdf"
+      }
+    ],
+    "toolDefinitions": [
+      {
+        "name": "read-docx",
+        "description": "Read a Word file (.docx): its paragraphs with their index, and its tables. Use the index with edit-docx.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.docx.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "read-xlsx",
+        "description": "Read an Excel file (.xlsx): the sheet names and the cell values of each sheet, row by row. Give sheet to read one sheet.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.xlsx.",
+              "type": "string"
+            },
+            "sheet": {
+              "description": "The name of one sheet. Default: all sheets.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "read-pptx",
+        "description": "Read a PowerPoint file (.pptx): each slide with its title and its text shapes (id, kind, paragraphs). Use the shape id with edit-pptx.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.pptx.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "read-pdf",
+        "description": "Read the text of a PDF file (.pdf), page by page. A scanned page without text gives no text.",
+        "kind": "read",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "firstPage": {
+              "description": "First page, from 1. Default 1.",
+              "type": "integer"
+            },
+            "lastPage": {
+              "description": "Last page. Default: the end, up to 50 pages.",
+              "type": "integer"
+            },
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.pdf.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "edit-docx",
+        "description": "Change a Word file in place. Edits run in order and all or none are saved. Read the file first to get paragraph indexes. If someone changed the file meanwhile, your version is saved as a second file.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "edits": {
+              "description": "The changes, at most 200.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "after": {
+                    "description": "insert: insert after this paragraph index; -1 for the start.",
+                    "type": "integer"
+                  },
+                  "find": {
+                    "description": "replace: the text to look for, everywhere.",
+                    "type": "string"
+                  },
+                  "index": {
+                    "description": "set and delete: the paragraph index.",
+                    "type": "integer"
+                  },
+                  "op": {
+                    "description": "What to do.",
+                    "enum": [
+                      "set",
+                      "insert",
+                      "delete",
+                      "replace"
+                    ],
+                    "type": "string"
+                  },
+                  "style": {
+                    "description": "insert: a paragraph style the document defines. Optional.",
+                    "type": "string"
+                  },
+                  "text": {
+                    "description": "set and insert: the new text. replace: the text to put in.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "type": "object"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.docx.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "edits"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "edit-xlsx",
+        "description": "Change an Excel file in place. Give sheet and cells; each cell has a ref such as B3 and exactly one of text, number, formula (such as =SUM(B2:B9)) or clear. addSheet adds an empty sheet first.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "addSheet": {
+              "description": "The name of a sheet to add before the cells are set. Optional.",
+              "type": "string"
+            },
+            "cells": {
+              "description": "The cells to change, at most 200.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "clear": {
+                    "description": "Empty the cell.",
+                    "type": "boolean"
+                  },
+                  "formula": {
+                    "description": "Set the cell to this formula.",
+                    "type": "string"
+                  },
+                  "number": {
+                    "description": "Set the cell to this number.",
+                    "type": "number"
+                  },
+                  "ref": {
+                    "description": "The cell, such as B3.",
+                    "type": "string"
+                  },
+                  "text": {
+                    "description": "Set the cell to this text.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ref"
+                ],
+                "type": "object"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.xlsx.",
+              "type": "string"
+            },
+            "sheet": {
+              "description": "The sheet the cells belong to.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "edit-pptx",
+        "description": "Change a PowerPoint file in place. Ops: title (slide, text), text (slide, shape id, paragraph, text), add (text is the title, bullets, optional layout), delete (slide). Read the file first for ids.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "edits": {
+              "description": "The changes, at most 200.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "bullets": {
+                    "description": "add: the bullet lines.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 30,
+                    "type": "array"
+                  },
+                  "layout": {
+                    "description": "add: the layout name. Default Title and Content.",
+                    "type": "string"
+                  },
+                  "op": {
+                    "description": "What to do.",
+                    "enum": [
+                      "title",
+                      "text",
+                      "add",
+                      "delete"
+                    ],
+                    "type": "string"
+                  },
+                  "paragraph": {
+                    "description": "text: the paragraph number in the shape, from 0.",
+                    "type": "integer"
+                  },
+                  "shape": {
+                    "description": "text: the shape id from read-pptx.",
+                    "type": "integer"
+                  },
+                  "slide": {
+                    "description": "The slide, from 1.",
+                    "type": "integer"
+                  },
+                  "text": {
+                    "description": "The new text, or for add the new slide's title.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "type": "object"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.pptx.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "edits"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "create-docx",
+        "description": "Create a Word file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text) or bullets (items). If the path is taken, the old file stays and the new one is saved next to it.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "blocks": {
+              "description": "The blocks, in order.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "items": {
+                    "description": "bullets: the lines.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "kind": {
+                    "description": "The kind of block.",
+                    "enum": [
+                      "heading",
+                      "paragraph",
+                      "bullets"
+                    ],
+                    "type": "string"
+                  },
+                  "level": {
+                    "description": "heading: 1 to 3.",
+                    "type": "integer"
+                  },
+                  "text": {
+                    "description": "heading and paragraph: the text.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "maxItems": 2000,
+              "type": "array"
+            },
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.docx.",
+              "type": "string"
+            },
+            "title": {
+              "description": "The document title. Optional.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "blocks"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "create-xlsx",
+        "description": "Create an Excel file. Each sheet has a name and rows of text values. A value starting with = is a formula, a number is stored as a number. The first row is the header. If the path is taken, the old file stays.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.xlsx.",
+              "type": "string"
+            },
+            "sheets": {
+              "description": "The sheets.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "description": "The sheet name, at most 31 characters.",
+                    "type": "string"
+                  },
+                  "rows": {
+                    "description": "The rows, top to bottom.",
+                    "items": {
+                      "description": "One row.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "maxItems": 200,
+                      "type": "array"
+                    },
+                    "maxItems": 5000,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "name",
+                  "rows"
+                ],
+                "type": "object"
+              },
+              "maxItems": 32,
+              "type": "array"
+            },
+            "title": {
+              "description": "The workbook title. Optional.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "sheets"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "create-pptx",
+        "description": "Create a PowerPoint file from slides, each with a title and bullet lines. A slide without bullets is a title slide. If the path is taken, the old file stays and the new one is saved next to it.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.pptx.",
+              "type": "string"
+            },
+            "slides": {
+              "description": "The slides, in order.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "bullets": {
+                    "description": "The bullet lines.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 30,
+                    "type": "array"
+                  },
+                  "title": {
+                    "description": "The slide title.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "title"
+                ],
+                "type": "object"
+              },
+              "maxItems": 200,
+              "type": "array"
+            },
+            "title": {
+              "description": "The deck title. Optional.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "slides"
+          ],
+          "type": "object"
+        }
+      },
+      {
+        "name": "create-pdf",
+        "description": "Create a PDF file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text), bullets (items) or table (header and rows). The text must use Latin-1 characters only. If the path is taken, the old file stays and the new one is saved next to it.",
+        "kind": "action",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "blocks": {
+              "description": "The blocks, in order.",
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "header": {
+                    "description": "table: the column titles.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 20,
+                    "type": "array"
+                  },
+                  "items": {
+                    "description": "bullets: the lines.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 100,
+                    "type": "array"
+                  },
+                  "kind": {
+                    "description": "The kind of block.",
+                    "enum": [
+                      "heading",
+                      "paragraph",
+                      "bullets",
+                      "table"
+                    ],
+                    "type": "string"
+                  },
+                  "level": {
+                    "description": "heading: 1 to 3.",
+                    "type": "integer"
+                  },
+                  "rows": {
+                    "description": "table: the rows, top to bottom.",
+                    "items": {
+                      "description": "One row.",
+                      "items": {
+                        "type": "string"
+                      },
+                      "maxItems": 20,
+                      "type": "array"
+                    },
+                    "maxItems": 500,
+                    "type": "array"
+                  },
+                  "text": {
+                    "description": "heading and paragraph: the text.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              "maxItems": 2000,
+              "type": "array"
+            },
+            "path": {
+              "description": "The file, as a path inside the user's files, such as /reports/plan.pdf.",
+              "type": "string"
+            },
+            "title": {
+              "description": "The document title. Optional.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "blocks"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "tools": [
+      "read-docx",
+      "read-xlsx",
+      "read-pptx",
+      "read-pdf",
+      "edit-docx",
+      "edit-xlsx",
+      "edit-pptx",
+      "create-docx",
+      "create-xlsx",
+      "create-pptx",
+      "create-pdf"
+    ],
+    "ui": {
+      "css": [
+        "ui/office.css"
+      ],
+      "description": "Read and edit Word, Excel, PowerPoint and PDF files from your chats.",
+      "entry": "ui/office.js",
+      "icon": "ui/icon.png",
+      "mainPage": "office",
+      "pages": [
+        "office"
+      ],
+      "sdk": {
+        "max": 2,
+        "min": 2
+      },
+      "slots": [
+        {
+          "component": "OfficePreview",
+          "extensions": [
+            "docx",
+            "xlsx",
+            "pptx"
+          ],
+          "id": "preview",
+          "slot": "files.preview"
+        }
+      ],
+      "title": "Office"
+    }
+  },
+  "dataFormat": {
+    "max": 1,
+    "min": 1
+  },
+  "executable": "office",
+  "host": {
+    "max": 1,
+    "min": 1
+  },
+  "id": "office",
+  "os": "linux",
+  "protocol": {
+    "max": 1,
+    "min": 1
+  },
+  "schemaVersion": 1,
+  "version": "0.1.0"
+}
