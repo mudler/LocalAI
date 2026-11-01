@@ -330,6 +330,106 @@ func describeFence(newStore NewStore) {
 			Expect(sets).To(HaveLen(3), "the owner sees all")
 		})
 
+		for _, surface := range []string{"History", "ChangesSince"} {
+			It("hides historical outside paths after a folder moves into the fence in "+surface, func() {
+				w := newFenceWorld(newStore)
+				base := latestRev(w.s)
+				MustPut(w.s, Alice, "/users/alice/secret-origin/nested/stable.txt", "v1")
+				MustPut(w.s, Alice, "/users/alice/secret-origin/nested/secret-old.txt", "old")
+				tx, err := w.s.Begin(Ctx(), Alice, "secret-origin and secret-old.txt")
+				Expect(err).ToNot(HaveOccurred())
+				historicalWrite := func(tx workspace.Tx) error {
+					if err := putIn(tx, "/users/alice/secret-origin/nested/stable.txt", "v2"); err != nil {
+						return err
+					}
+					if _, err := tx.Move(Ctx(), "/users/alice/secret-origin/nested/secret-old.txt", "/users/alice/secret-origin/nested/public.txt"); err != nil {
+						return err
+					}
+					// Keep this revision in the folder's History query too.
+					return putIn(tx, "/users/alice/proj/in.txt", "inside")
+				}
+				Expect(historicalWrite(tx)).To(Succeed())
+				historical, err := tx.Commit()
+				Expect(err).ToNot(HaveOccurred())
+				before, err := w.s.ChangesSince(Ctx(), Alice, base, 100)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = w.s.Move(Ctx(), Alice, "/users/alice/secret-origin", "/users/alice/proj/imported")
+				Expect(err).ToNot(HaveOccurred())
+				imported := latestRev(w.s)
+				a := w.fenced(workspace.ModeWrite)
+				var sets []workspace.ChangeSet
+				if surface == "History" {
+					sets, err = w.s.History(Ctx(), a, workspace.HistoryQuery{Path: "/users/alice/proj"})
+				} else {
+					sets, err = w.s.ChangesSince(Ctx(), a, base, 100)
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(sets).ToNot(BeEmpty())
+				for _, cs := range sets {
+					Expect(cs.Title).ToNot(ContainSubstring("secret-"))
+					for _, op := range cs.Ops {
+						for _, p := range []string{op.OldPath, op.NewPath} {
+							Expect(p).ToNot(ContainSubstring("secret-"))
+							if p != "" {
+								Expect(workspace.Within(p, "/users/alice/proj")).To(BeTrue(), "revision %d: %s", cs.Rev, p)
+							}
+						}
+						if cs.Rev == imported {
+							Expect(op.Kind).To(Equal(workspace.OpCreate))
+							Expect(op.OldPath).To(BeEmpty())
+						}
+					}
+				}
+				// Filtering must not rewrite the journal or alter owner history.
+				after, err := w.s.ChangesSince(Ctx(), Alice, base, len(before))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(after).To(Equal(before))
+				// Undo still uses identities, including the historical descendant move.
+				_, conflicts, err := w.s.Undo(Ctx(), a, historical.Rev, workspace.UndoOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(conflicts).To(BeEmpty())
+				Expect(MustRead(w.s, a, "/users/alice/proj/imported/nested/stable.txt")).To(Equal("v1"))
+				Expect(MustRead(w.s, a, "/users/alice/proj/imported/nested/secret-old.txt")).To(Equal("old"))
+				_, _, err = w.s.Undo(Ctx(), a, imported, workspace.UndoOptions{})
+				Expect(err).To(MatchError(workspace.ErrNotFound), "undo cannot move the folder outside the fence")
+			})
+		}
+
+		for _, destination := range []string{"/users/alice/proj/renamed", "/users/alice/other/removed"} {
+			It("hides stale descendant paths and titles after an ancestor moves to "+destination, func() {
+				w := newFenceWorld(newStore)
+				MustPut(w.s, Alice, "/users/alice/proj/old-ancestor/nested/a.txt", "v1")
+				base := latestRev(w.s)
+				tx, err := w.s.Begin(Ctx(), Alice, "old-ancestor private title")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(putIn(tx, "/users/alice/proj/old-ancestor/nested/a.txt", "v2")).To(Succeed())
+				Expect(putIn(tx, "/users/alice/proj/keep.txt", "keep")).To(Succeed())
+				_, err = tx.Commit()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = w.s.Move(Ctx(), Alice, "/users/alice/proj/old-ancestor", destination)
+				Expect(err).ToNot(HaveOccurred())
+				a := w.fenced(workspace.ModeWrite)
+				feed, err := w.s.ChangesSince(Ctx(), a, base, 100)
+				Expect(err).ToNot(HaveOccurred())
+				history, err := w.s.History(Ctx(), a, workspace.HistoryQuery{Path: "/users/alice/proj"})
+				Expect(err).ToNot(HaveOccurred())
+				for _, sets := range [][]workspace.ChangeSet{feed, history} {
+					Expect(sets).ToNot(BeEmpty())
+					for _, cs := range sets {
+						Expect(cs.Title).ToNot(ContainSubstring("private title"))
+						for _, op := range cs.Ops {
+							for _, p := range []string{op.OldPath, op.NewPath} {
+								Expect(p).ToNot(ContainSubstring("old-ancestor/nested"))
+								if p != "" {
+									Expect(workspace.Within(p, "/users/alice/proj")).To(BeTrue())
+								}
+							}
+						}
+					}
+				}
+			})
+		}
+
 		It("refuses a view mount outside the fence and caps a mount inside", func() {
 			w := newFenceWorld(newStore)
 			a := w.fenced(workspace.ModeRead)
