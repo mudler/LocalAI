@@ -2473,6 +2473,7 @@
       "installs an add-on whose SDK range contains the host SDK",
       "returns the same text through a forwarding frontend",
       "carries the install time to the list and the management view, and none for an old record",
+      "lists the host controls an add-on is entitled to, whatever its ID",
       "copies them at install, upgrade and owner start, and removes them at uninstall",
       "never fails the operation when the copy fails",
       "fails the install and says the package could not be verified, without installing anything",
@@ -2564,7 +2565,8 @@
           "bounds the tool summary and coerces unknown process states to failed",
           "shows controls and the management link only to administrators and never leaks owner details",
           "describes the immutable UI assets of an enabled addon by the package digest and never otherwise",
-          "carries the install time to the list and the management view, and none for an old record"
+          "carries the install time to the list and the management view, and none for an old record",
+          "lists the host controls an add-on is entitled to, whatever its ID"
         ]
       },
       {
