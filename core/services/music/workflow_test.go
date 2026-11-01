@@ -4,17 +4,12 @@ package music
 import (
 	"encoding/json"
 	"fmt"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"os"
 	"reflect"
-	"testing"
-)
 
-func TestMusicWorkflowTraces(t *testing.T)      { RegisterFailHandler(Fail); RunSpecs(t, "Music workflow") }
-func TestMusicWorkflowInvariants(t *testing.T)  { checkInvariants(NewWithT(t)) }
-func TestMusicWorkflowCoverage(t *testing.T)    { checkCoverage(NewWithT(t)) }
-func TestMusicWorkflowDeterminism(t *testing.T) { checkDeterminism(NewWithT(t)) }
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
 type step struct {
 	Event       Event
@@ -102,7 +97,7 @@ func runSteps(g Gomega, op operation, steps []step) State {
 }
 
 var _ = Describe("pure workflow", func() {
-	It("traces all operations, edited score, shared and separate lanes", func() {
+	It("traces all operations, edited score, shared and separate lanes", Label("traces"), func() {
 		for _, op := range []operation{transcription, generation, cover} {
 			s := runSteps(Default, op, successSteps(op))
 			Expect(s).To(BeAssignableToTypeOf(Succeeded{}))
@@ -117,10 +112,10 @@ var _ = Describe("pure workflow", func() {
 			Expect(x.ABC).To(Equal(r.ABC))
 		}
 	})
-	It("checks safety and fair-ack liveness over a bounded nonvacuous graph", func() { checkInvariants(Default) })
-	It("covers the sealed vocabulary and pairs", func() { checkCoverage(Default) })
-	It("replays deterministically without aliased mutable values", func() { checkDeterminism(Default) })
-	It("keeps captured ABC for every subsequent failure and cancellation", func() {
+	It("checks safety and fair-ack liveness over a bounded nonvacuous graph", Label("invariants"), func() { checkInvariants(Default) })
+	It("covers the sealed vocabulary and pairs", Label("coverage"), func() { checkCoverage(Default) })
+	It("replays deterministically without aliased mutable values", Label("determinism"), func() { checkDeterminism(Default) })
+	It("keeps captured ABC for every subsequent failure and cancellation", Label("traces"), func() {
 		steps := successSteps(cover)
 		s, _ := Preflight(fixture(cover))
 		for _, w := range steps {
@@ -135,7 +130,7 @@ var _ = Describe("pure workflow", func() {
 			s = Reduce(s, w.Event).State
 		}
 	})
-	It("rejects revocation and drift before second admission", func() {
+	It("rejects revocation and drift before second admission", Label("traces"), func() {
 		s, _ := Preflight(fixture(cover))
 		for _, w := range successSteps(cover)[:5] {
 			s = Reduce(s, w.Event).State
@@ -148,7 +143,7 @@ var _ = Describe("pure workflow", func() {
 			}
 		}
 	})
-	It("serializes both publication race orders", func() {
+	It("serializes both publication race orders", Label("traces"), func() {
 		ws := successSteps(generation)
 		s, _ := Preflight(fixture(generation))
 		for _, w := range ws[:len(ws)-1] {
@@ -426,61 +421,68 @@ func checkDeterminism(g Gomega) {
 	}
 }
 
-func TestMusicWorkflowOwnershipRegression(t *testing.T) {
-	g := NewWithT(t)
-	s, _ := Preflight(fixture(generation))
-	s = Reduce(s, Start{}).State
-	s = Reduce(s, Admitted{identified(corr(generate), "admit")}).State
-	s = Reduce(s, Cancel{}).State
-	tr := Reduce(s, AdmissionDenied{identified(corr(generate), "admit")})
-	x, _ := stateSession(tr.State)
-	g.Expect(x.Ownership).To(Equal(stopPending), "an admission denial cannot acknowledge native quiescence after acquisition")
-}
+var _ = Describe("workflow regressions", Label("traces"), func() {
+	It("OwnershipRegression", func() {
+		g := Default
+		s, _ := Preflight(fixture(generation))
+		s = Reduce(s, Start{}).State
+		s = Reduce(s, Admitted{identified(corr(generate), "admit")}).State
+		s = Reduce(s, Cancel{}).State
+		tr := Reduce(s, AdmissionDenied{identified(corr(generate), "admit")})
+		x, _ := stateSession(tr.State)
+		g.Expect(x.Ownership).To(Equal(stopPending), "an admission denial cannot acknowledge native quiescence after acquisition")
+	})
+})
 
-func TestMusicWorkflowCorrelation(t *testing.T) {
-	g := NewWithT(t)
-	s, _ := Preflight(fixture(generation))
-	s = Reduce(s, Start{}).State
-	c := corr(generate)
-	c.ID = "run"
-	tr := Reduce(s, Admitted{c})
-	g.Expect(tr.State).To(Equal(s))
-	g.Expect(tr.Effects).To(BeEmpty())
-}
+var _ = Describe("workflow regressions", Label("traces"), func() {
+	It("Correlation", func() {
+		g := Default
+		s, _ := Preflight(fixture(generation))
+		s = Reduce(s, Start{}).State
+		c := corr(generate)
+		c.ID = "run"
+		tr := Reduce(s, Admitted{c})
+		g.Expect(tr.State).To(Equal(s))
+		g.Expect(tr.Effects).To(BeEmpty())
+	})
+})
 
 func identified(c correlation, id string) correlation { c.ID = id; return c }
 
 // Adversarial vocabulary is deliberately distinct from the successful shell's
 // acknowledgements: foreign IDs, stale stages and missing IDs never own work.
-func TestMusicWorkflowAdversarial(t *testing.T) {
-	g := NewWithT(t)
-	for _, op := range []operation{transcription, generation, cover} {
-		s, _ := Preflight(fixture(op))
-		for _, w := range successSteps(op) {
-			for _, e := range events(s) {
-				if c, ok := correlationOf(e); ok {
-					for _, bad := range []correlation{{"foreign", c.Stage, c.ID}, {c.Request, 9, c.ID}, {c.Request, c.Stage, "stale"}, {c.Request, c.Stage, ""}} {
-						tr := Reduce(s, replaceCorrelation(e, bad))
-						g.Expect(tr.State).To(Equal(s))
-						g.Expect(tr.Effects).To(BeEmpty())
-						g.Expect(tr.Rule).To(Equal("R9"))
-						want := "stale or mismatched effect ID"
-						x, _ := stateSession(s)
-						if bad.Request != x.Request.ID || bad.Stage != x.Stage {
-							want = "foreign request or stage ownership"
+var _ = Describe("workflow regressions", Label("traces"), func() {
+	It("Adversarial", func() {
+		g := Default
+		for _, op := range []operation{transcription, generation, cover} {
+			s, _ := Preflight(fixture(op))
+			for _, w := range successSteps(op) {
+				for _, e := range events(s) {
+					if c, ok := correlationOf(e); ok {
+						for _, bad := range []correlation{{"foreign", c.Stage, c.ID}, {c.Request, 9, c.ID}, {c.Request, c.Stage, "stale"}, {c.Request, c.Stage, ""}} {
+							tr := Reduce(s, replaceCorrelation(e, bad))
+							g.Expect(tr.State).To(Equal(s))
+							g.Expect(tr.Effects).To(BeEmpty())
+							g.Expect(tr.Rule).To(Equal("R9"))
+							want := "stale or mismatched effect ID"
+							x, _ := stateSession(s)
+							if bad.Request != x.Request.ID || bad.Stage != x.Stage {
+								want = "foreign request or stage ownership"
+							}
+							g.Expect(tr.Guard).To(Equal(want))
 						}
-						g.Expect(tr.Guard).To(Equal(want))
 					}
 				}
+				tr := Reduce(s, w.Event)
+				again := Reduce(tr.State, w.Event)
+				g.Expect(again.State).To(Equal(tr.State))
+				g.Expect(again.Effects).To(BeEmpty())
+				s = tr.State
 			}
-			tr := Reduce(s, w.Event)
-			again := Reduce(tr.State, w.Event)
-			g.Expect(again.State).To(Equal(tr.State))
-			g.Expect(again.Effects).To(BeEmpty())
-			s = tr.State
 		}
-	}
-}
+	})
+})
+
 func replaceCorrelation(e Event, c correlation) Event {
 	switch v := e.(type) {
 	case Admitted:
@@ -515,63 +517,68 @@ func replaceCorrelation(e Event, c correlation) Event {
 	}
 	panic("non-correlated event")
 }
-func TestMusicWorkflowBoundaries(t *testing.T) {
-	g := NewWithT(t)
-	for _, op := range []operation{transcription, generation, cover} {
-		s, _ := Preflight(fixture(op))
-		for _, w := range successSteps(op) {
-			x, terminal := stateSession(s)
-			if !terminal {
-				for _, e := range []Event{Cancel{}, DeadlineExpired{100}} {
-					tr := Reduce(s, e)
-					g.Expect(tr.Rule).To(Equal("R8"))
-					g.Expect(tr.State).To(BeAssignableToTypeOf(Cancelled{}))
-					y, _ := stateSession(tr.State)
-					g.Expect(y.ABC).To(Equal(x.ABC))
-					if x.Ownership == admissionPending || x.Ownership == laneOwned {
-						g.Expect(tr.Effects[0]).To(BeAssignableToTypeOf(Stop{}))
-						g.Expect(y.Ownership).NotTo(Equal(unowned))
-					}
-					for _, later := range successSteps(op) {
-						next := Reduce(tr.State, later.Event)
-						g.Expect(next.State).To(BeAssignableToTypeOf(Cancelled{}))
-						for _, eff := range next.Effects {
-							g.Expect(eff).To(BeAssignableToTypeOf(CleanArtifact{}))
-						}
-						tr = next
-					}
-				}
-				early := Reduce(s, DeadlineExpired{2})
-				g.Expect(early.State).To(Equal(s))
-				g.Expect(early.Effects).To(BeEmpty())
-				if x.Phase != nil {
-					failure := Reduce(s, EffectFailed{identified(corr(x.Stage), phaseID(x.Phase))})
-					if _, settlingNow := x.Phase.(settling); !settlingNow {
-						g.Expect(failure.State).To(BeAssignableToTypeOf(Failed{}))
-						y, _ := stateSession(failure.State)
+
+var _ = Describe("workflow regressions", Label("traces"), func() {
+	It("Boundaries", func() {
+		g := Default
+		for _, op := range []operation{transcription, generation, cover} {
+			s, _ := Preflight(fixture(op))
+			for _, w := range successSteps(op) {
+				x, terminal := stateSession(s)
+				if !terminal {
+					for _, e := range []Event{Cancel{}, DeadlineExpired{100}} {
+						tr := Reduce(s, e)
+						g.Expect(tr.Rule).To(Equal("R8"))
+						g.Expect(tr.State).To(BeAssignableToTypeOf(Cancelled{}))
+						y, _ := stateSession(tr.State)
 						g.Expect(y.ABC).To(Equal(x.ABC))
+						if x.Ownership == admissionPending || x.Ownership == laneOwned {
+							g.Expect(tr.Effects[0]).To(BeAssignableToTypeOf(Stop{}))
+							g.Expect(y.Ownership).NotTo(Equal(unowned))
+						}
+						for _, later := range successSteps(op) {
+							next := Reduce(tr.State, later.Event)
+							g.Expect(next.State).To(BeAssignableToTypeOf(Cancelled{}))
+							for _, eff := range next.Effects {
+								g.Expect(eff).To(BeAssignableToTypeOf(CleanArtifact{}))
+							}
+							tr = next
+						}
+					}
+					early := Reduce(s, DeadlineExpired{2})
+					g.Expect(early.State).To(Equal(s))
+					g.Expect(early.Effects).To(BeEmpty())
+					if x.Phase != nil {
+						failure := Reduce(s, EffectFailed{identified(corr(x.Stage), phaseID(x.Phase))})
+						if _, settlingNow := x.Phase.(settling); !settlingNow {
+							g.Expect(failure.State).To(BeAssignableToTypeOf(Failed{}))
+							y, _ := stateSession(failure.State)
+							g.Expect(y.ABC).To(Equal(x.ABC))
+						}
 					}
 				}
+				s = Reduce(s, w.Event).State
 			}
+		}
+	})
+})
+
+var _ = Describe("workflow regressions", Label("traces"), func() {
+	It("StopOnce", func() {
+		g := Default
+		s, _ := Preflight(fixture(generation))
+		for _, w := range successSteps(generation)[:3] {
 			s = Reduce(s, w.Event).State
 		}
-	}
-}
-
-func TestMusicWorkflowStopOnce(t *testing.T) {
-	g := NewWithT(t)
-	s, _ := Preflight(fixture(generation))
-	for _, w := range successSteps(generation)[:3] {
-		s = Reduce(s, w.Event).State
-	}
-	tr := Reduce(s, Cancel{})
-	for _, eff := range tr.Effects {
-		g.Expect(eff).NotTo(BeAssignableToTypeOf(Stop{}), "settling already requested this stage's stop")
-	}
-}
+		tr := Reduce(s, Cancel{})
+		for _, eff := range tr.Effects {
+			g.Expect(eff).NotTo(BeAssignableToTypeOf(Stop{}), "settling already requested this stage's stop")
+		}
+	})
+})
 
 var _ = Describe("bounded branch traces", func() {
-	It("traces every cancellation boundary, deadline and publication ordering", func() {
+	It("traces every cancellation boundary, deadline and publication ordering", Label("traces"), func() {
 		for _, op := range []operation{transcription, generation, cover} {
 			ws := successSteps(op)
 			for cut := 0; cut < len(ws); cut++ {
@@ -600,7 +607,7 @@ var _ = Describe("bounded branch traces", func() {
 			Expect(runSteps(Default, op, committed)).To(BeAssignableToTypeOf(Succeeded{}))
 		}
 	})
-	It("traces capacity denial, pre-ABC failure, revocation and fetch/publication failures", func() {
+	It("traces capacity denial, pre-ABC failure, revocation and fetch/publication failures", Label("traces"), func() {
 		for _, op := range []operation{transcription, generation, cover} {
 			ws := successSteps(op)
 			s := runSteps(Default, op, []step{ws[0], {AdmissionDenied{identified(corr(func() stage {
@@ -643,7 +650,7 @@ var _ = Describe("bounded branch traces", func() {
 // A shell can route the same canonical lane to both stages or separate workers;
 // neither topology changes the release-before-admit protocol.
 var _ = Describe("conditioning and lane topology", func() {
-	It("retains edited bytes and permits genuinely absent generated notation", func() {
+	It("retains edited bytes and permits genuinely absent generated notation", Label("traces"), func() {
 		r := fixture(generation)
 		r.ABC = "X:2\r\nT:édit\r\nK:D\n D2 |\n"
 		for _, abc := range []string{r.ABC, ""} {
@@ -667,7 +674,7 @@ var _ = Describe("conditioning and lane topology", func() {
 			Expect(s).To(BeAssignableToTypeOf(Succeeded{}))
 		}
 	})
-	It("never holds or requests both lanes for shared or distinct model pools", func() {
+	It("never holds or requests both lanes for shared or distinct model pools", Label("traces"), func() {
 		for _, same := range []bool{false, true} {
 			r := fixture(cover)
 			if same {
@@ -700,17 +707,20 @@ var _ = Describe("conditioning and lane topology", func() {
 type unknownEvent struct{}
 
 func (unknownEvent) isEvent() {}
-func TestMusicWorkflowInvalidEvent(t *testing.T) {
-	g := NewWithT(t)
-	s, _ := Preflight(fixture(cover))
-	for _, e := range []Event{nil, unknownEvent{}} {
-		tr := Reduce(s, e)
-		g.Expect(tr.State).To(Equal(s))
-		g.Expect(tr.Effects).To(BeEmpty())
-		g.Expect(tr.Rule).To(Equal("R9"))
-		g.Expect(tr.Guard).NotTo(BeEmpty())
-	}
-}
+
+var _ = Describe("workflow regressions", Label("traces"), func() {
+	It("InvalidEvent", func() {
+		g := Default
+		s, _ := Preflight(fixture(cover))
+		for _, e := range []Event{nil, unknownEvent{}} {
+			tr := Reduce(s, e)
+			g.Expect(tr.State).To(Equal(s))
+			g.Expect(tr.Effects).To(BeEmpty())
+			g.Expect(tr.Rule).To(Equal("R9"))
+			g.Expect(tr.Guard).NotTo(BeEmpty())
+		}
+	})
+})
 
 // Expected explanations are test-owned, not copied from transition output.
 func expectedTraceGuard(w step) string {
@@ -758,7 +768,7 @@ func expectedTraceGuard(w step) string {
 }
 
 var _ = Describe("issued-stage history traces", func() {
-	It("cleans distinct prior-stage artifacts and ignores duplicate handles", func() {
+	It("cleans distinct prior-stage artifacts and ignores duplicate handles", Label("traces"), func() {
 		ws := successSteps(cover)
 		prefix := append([]step{}, ws[:6]...)
 		e := TaskCompleted{identified(corr(transcribe), "run"), "not accepted", true, 2}
@@ -766,7 +776,7 @@ var _ = Describe("issued-stage history traces", func() {
 		prefix = append(prefix, ws[6:]...)
 		Expect(runSteps(Default, cover, prefix)).To(BeAssignableToTypeOf(Succeeded{}))
 	})
-	It("cleans distinct duplicate artifacts while generation settles", func() {
+	It("cleans distinct duplicate artifacts while generation settles", Label("traces"), func() {
 		ws := successSteps(generation)
 		prefix := append([]step{}, ws[:3]...)
 		e := TaskCompleted{identified(corr(generate), "run"), "not accepted", true, 2}

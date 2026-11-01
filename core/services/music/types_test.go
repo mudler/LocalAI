@@ -4,12 +4,9 @@ package music
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"testing"
 )
 
-func TestMusicWorkflowTypes(t *testing.T) { checkCoverage(NewWithT(t)) }
-
-var _ = Describe("value contract", func() {
+var _ = Describe("value contract", Label("coverage"), func() {
 	It("rejects either forbidden cover model before a state exists", func() {
 		r := fixture(cover)
 		r.Generation.Authorized = false
@@ -28,7 +25,7 @@ func fixture(op operation) request {
 	return request{ID: "request-a", Principal: "owner-a", Operation: op, Transcription: facts{true, true, true, true, "score-model"}, Generation: facts{true, true, true, true, "audio-model"}, Feature: true, Quota: true, InputsValid: true, StorageReady: true, Deadline: 100, Now: 1}
 }
 
-var _ = Describe("preflight guards", func() {
+var _ = Describe("preflight guards", Label("coverage"), func() {
 	It("fails closed for every untrusted prerequisite before effects exist", func() {
 		mutations := []func(*request){
 			func(r *request) { r.ID = "" }, func(r *request) { r.Principal = "" }, func(r *request) { r.Feature = false }, func(r *request) { r.Quota = false }, func(r *request) { r.InputsValid = false }, func(r *request) { r.StorageReady = false }, func(r *request) { r.Now = r.Deadline }, func(r *request) { r.Deadline = r.Now + 901 },
