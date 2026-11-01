@@ -553,7 +553,9 @@
       "is not sent to an add-on that declared no connector",
       "gives it time to release what it owns before it kills the process",
       "kills an add-on that ignores the closing of its startup channel, within the grace period",
-      "goes to the log line by line with the add-on ID and a cap per line"
+      "goes to the log line by line with the add-on ID and a cap per line",
+      "records the chat with the envelope of a read and of an action while it runs",
+      "sends the add-on an envelope without a new field"
     ],
     "report": ".cache/addons/logs/runtime.json"
   },
@@ -2553,7 +2555,9 @@
       "returns the SDK refusal text, the unverified-package text and the missing-release text to the administrator",
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
-      "names every typed cause of a failed install in the 403 of the dispatch route"
+      "names every typed cause of a failed install in the 403 of the dispatch route",
+      "records the chat with the envelope of a read and of an action while it runs",
+      "sends the add-on an envelope without a new field"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
