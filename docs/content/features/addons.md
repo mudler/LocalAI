@@ -1797,8 +1797,8 @@ The rules:
   default is refuse.
 - The host setting `--addon-host-ops` (`LOCALAI_ADDON_HOST_OPS`) names the
   add-ons that get the channel and the operation prefixes each may call, as a
-  comma list of `addon-id=op-prefix`. The default is
-  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.`. An empty value names nobody.
+  comma list of `addon-id=op-prefix`. The generic binary grants nothing when
+  unconfigured. An explicitly empty value names nobody, including in Docker.
   An administrator can instead select a file with `--addon-host-policy`; see
   [Administrator host operation policy](#administrator-host-operation-policy)
   for precedence and explicit-empty behavior.
@@ -1854,7 +1854,7 @@ scope (today `connector.inbound`):
   owner is refused with `bad_request` before the operation runs.
 - The add-on ID is the one the host built the listener for, never a value of the
   call. The host setting must still name the operation prefix for the add-on
-  (`telegram=connector.` by default).
+  (`telegram=connector.` in the stock Docker policy).
 
 Every other operation keeps all its checks. An operation cannot become inbound by
 a field of the request: the scope is part of its registration.
@@ -4664,8 +4664,74 @@ In split deployments, the owner enforces authority; frontend settings cannot add
 grants. Programmatic `WithAddonHostOps`, including an empty map, is an exact
 startup decision and takes a copy of the supplied map and prefix slices.
 
-**Transition note:** this implementation still retains the previous CLI grants
-when all host-operation and policy selectors are absent. Removing that legacy
-CLI fallback is coordinated with shipping and selecting the official deployment
-policy. Selecting a policy or explicitly supplying either empty flag never
-restores the legacy grants.
+### Breaking upgrade change: standalone and custom deployments
+
+**The generic binary no longer grants host operations by default.** Upgrading
+an unconfigured standalone or custom deployment removes the former implicit
+grants, even when official addons are already installed. Those addons can lose
+host-backed functionality. Startup warns about unconfigured grants even before
+any addon is installed. LocalAI does not infer consent from installed addons,
+write migration grants into addon storage, or automatically restore old grants.
+
+Existing explicit flag or environment settings keep their effective grants,
+including explicitly empty settings. An override replaces the complete policy;
+it never unions with it. A missing or invalid selected file fails startup.
+
+To retain the former grants, review `deploy/addons/host-policy.json` from your
+trusted LocalAI release, then install and explicitly select it:
+
+```sh
+sudo install -d -m 0755 /etc/localai/addons
+sudo install -o root -g root -m 0644 deploy/addons/host-policy.json /etc/localai/addons/host-policy.json
+local-ai run --addon-host-policy=/etc/localai/addons/host-policy.json
+# Or configure this environment variable in your service, then restart:
+# LOCALAI_ADDON_HOST_POLICY=/etc/localai/addons/host-policy.json
+```
+
+The exact former explicit setting remains valid:
+
+```sh
+local-ai run --addon-host-ops='fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.'
+```
+
+The reviewed deployment file contains exactly:
+
+| Addon ID | Prefix grants |
+| --- | --- |
+| `fine-tuning` | `finetune.` |
+| `quantization` | `quantize.` |
+| `sandbox` | `workspace.`, `egress.` |
+| `office` | `workspace.` |
+| `web` | `workspace.` |
+| `telegram` | `connector.` |
+
+This file is host-owned deployment policy, not authority supplied by a manifest
+or catalog. Grants trust addon identity, not a verified signature or provenance.
+Installing different code under a granted ID gives that code the selected grants.
+Protect the file against writes by addons and untrusted users. Review and reduce
+the grants if you do not intend to trust every listed ID.
+
+### Maintained launcher selection
+
+The stock Docker runtime copies the reviewed file to
+`/etc/localai/addons/host-policy.json` and explicitly selects that path through
+`LOCALAI_ADDON_HOST_POLICY`. No executable-relative or working-directory search
+is involved. `--addon-host-ops=` overrides this selection with zero grants.
+`--addon-host-policy=` disables the image's policy selection and gives zero
+grants unless an explicit host-operations override is present.
+
+| Launcher or deployment | Host policy decision |
+| --- | --- |
+| Stock runtime `Dockerfile` | Ships and explicitly selects the reviewed file. |
+| `docker-compose.yaml`, `docker-compose.distributed.yaml` | Inherit the stock runtime image selection; custom images must select their own policy. Only the addon owner enforces grants in split mode. |
+| `website/static/install/kubernetes.yaml` | Inherits the stock image selection. A custom image must ship/select policy or mount an administrator file and select its absolute path. |
+| External Helm chart referenced by the Kubernetes guide | Not shipped here. Check the selected image and chart environment; custom images are unconfigured unless the operator selects policy. |
+| `.devcontainer/docker-compose-devcontainer.yml` | Uses the development target, not the stock runtime stage. A manually launched binary is unconfigured. |
+| Release binaries, `website/static/install.sh`, AppImage/desktop launchers (`contrib/appimage`), macOS launcher packaging | Unconfigured standalone behavior. Operators must explicitly select policy or host operations; packaging does not migrate consent. |
+| Custom systemd services | No maintained unit ships in this tree. Set `LOCALAI_ADDON_HOST_POLICY` or explicit host operations in the unit, protect the file, and restart. |
+| `docs/docker-compose.yaml` | Documentation-site server only; it does not launch LocalAI. |
+
+These non-stock launchers do not promise the former implicit grants. Automatic
+policy installation or selection for them is deferred; use the explicit upgrade
+procedure above. Merely copying a file without selecting it does not grant
+anything. Do not fetch host policy from an addon library.

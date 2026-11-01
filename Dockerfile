@@ -416,6 +416,9 @@ ENV NVIDIA_VISIBLE_DEVICES=all
 
 WORKDIR /
 
+COPY deploy/addons/host-policy.json /etc/localai/addons/host-policy.json
+ENV LOCALAI_ADDON_HOST_POLICY=/etc/localai/addons/host-policy.json
+
 COPY ./entrypoint.sh .
 COPY ./scripts/build/healthcheck.sh .
 

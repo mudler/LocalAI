@@ -41,17 +41,17 @@ func (r *RunCMD) resolveAddonHostOps() (config.AddonHostOpsResolution, error) {
 	} else if value, present := os.LookupEnv("LOCALAI_ADDON_HOST_POLICY"); present {
 		policy = &value
 	}
-	// T5 sequencing bridge: keep the old CLI default until T6 ships and selects
-	// the official deployment policy. The generic resolver itself grants nothing
-	// when unconfigured. Explicit selectors (even empty) never use this bridge.
-	if flag == nil && environment == nil && policy == nil {
-		grants, err := config.ParseAddonHostOps(r.AddonHostOps)
-		return config.AddonHostOpsResolution{Grants: grants, Source: "legacy-default"}, err
+	resolved, err := config.ResolveAddonHostOps(flag, environment, policy)
+	if err == nil && resolved.Source == "policy" {
+		resolved.Source = "policy:" + *policy
 	}
-	return config.ResolveAddonHostOps(flag, environment, policy)
+	return resolved, err
 }
 
 func logAddonHostOpsResolution(resolved config.AddonHostOpsResolution) {
+	if resolved.Source == "empty" {
+		xlog.Warn("Addons receive no host operations: select --addon-host-policy or explicitly configure --addon-host-ops")
+	}
 	prefixes := 0
 	for _, grants := range resolved.Grants {
 		prefixes += len(grants)

@@ -13,10 +13,10 @@ import (
 )
 
 var _ = Describe("the add-on host operations flag", func() {
-	It("defaults to the documented setting", func() {
+	It("has no compiled grant default", func() {
 		f, ok := reflect.TypeOf(RunCMD{}).FieldByName("AddonHostOps")
 		Expect(ok).To(BeTrue(), "the flag is missing")
-		Expect(f.Tag.Get("default")).To(Equal(config.DefaultAddonHostOps))
+		Expect(f.Tag.Get("default")).To(BeEmpty())
 		Expect(f.Tag.Get("env")).To(Equal("LOCALAI_ADDON_HOST_OPS"))
 	})
 })
@@ -48,13 +48,13 @@ var _ = Describe("addon host policy CLI precedence", Serial, func() {
 			Expect(os.Unsetenv(key)).To(Succeed())
 		}
 	})
-	It("selects policy over the temporary legacy default", func() {
+	It("selects an explicitly configured policy", func() {
 		p := filepath.Join(GinkgoT().TempDir(), "policy.json")
 		Expect(os.WriteFile(p, []byte(`{"schemaVersion":1,"grants":{"custom":["workspace."]}}`), 0600)).To(Succeed())
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", p)
 		got, err := parse().resolveAddonHostOps()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(got.Source).To(Equal("policy"))
+		Expect(got.Source).To(Equal("policy:" + p))
 		Expect(got.Grants).To(Equal(map[string][]string{"custom": {"workspace."}}))
 	})
 	It("uses flag presence even when empty and ignores an invalid policy", func() {
@@ -66,7 +66,7 @@ var _ = Describe("addon host policy CLI precedence", Serial, func() {
 		Expect(got.Source).To(Equal("flag"))
 		Expect(got.PolicyIgnored).To(BeTrue())
 	})
-	It("uses explicit empty environment instead of the default or policy", func() {
+	It("uses explicit empty environment instead of policy", func() {
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_OPS", "")
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", "/missing/policy")
 		got, err := parse().resolveAddonHostOps()
@@ -95,7 +95,7 @@ var _ = Describe("addon host policy CLI precedence", Serial, func() {
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", "/missing/policy")
 		got, err := parse("--addon-host-policy", p).resolveAddonHostOps()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(got.Source).To(Equal("policy"))
+		Expect(got.Source).To(Equal("policy:" + p))
 		Expect(got.Grants).To(BeEmpty())
 	})
 	It("fails selected invalid policy rather than falling back", func() {
@@ -119,12 +119,10 @@ var _ = Describe("addon host policy CLI precedence", Serial, func() {
 		Expect(os.WriteFile(p, []byte(`{"schemaVersion":1,"grants":{}}`), 0600)).To(Succeed())
 		Expect(got.Grants).To(Equal(map[string][]string{"a": {"workspace."}}))
 	})
-	It("temporarily preserves legacy CLI defaults only when all selectors are absent", func() {
+	It("grants nothing when all selectors are absent", func() {
 		got, err := parse().resolveAddonHostOps()
 		Expect(err).NotTo(HaveOccurred())
-		legacy, err := config.ParseAddonHostOps(config.DefaultAddonHostOps)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(got.Grants).To(Equal(legacy))
-		Expect(got.Source).To(Equal("legacy-default"))
+		Expect(got.Grants).To(BeEmpty())
+		Expect(got.Source).To(Equal("empty"))
 	})
 })
