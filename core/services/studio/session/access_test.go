@@ -104,4 +104,53 @@ var _ = Describe("session access", func() {
 		_, err = m.EnsureChatFolder(ctx, workspace.Actor{Principal: "alice", ChatID: "c2"}, "c2")
 		Expect(err).To(MatchError(session.ErrInvalid), "an actor of a chat")
 	})
+
+	It("builds a scoped access with the view builder of every chat", func() {
+		notes, err := ws.Stat(ctx, alice, session.HomePath("alice")+"/Notes")
+		Expect(err).NotTo(HaveOccurred())
+		chat, err := ws.Mkdir(ctx, alice, session.ChatsPath("alice")+"/2026-11-01 Plan")
+		Expect(err).NotTo(HaveOccurred())
+		base := workspace.Actor{Principal: "alice", ChatID: "c1"}
+		a := base.Fenced(workspace.FenceRoot{Node: notes.ID, Mode: workspace.ModeRead}, workspace.FenceRoot{Node: chat.ID, Mode: workspace.ModeWrite})
+
+		x, err := m.ScopedAccess(ctx, a, notes.Path, chat.Path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(x.Scoped()).To(BeTrue())
+		Expect(x.View().Mounts).To(Equal([]workspace.Mount{
+			{Path: notes.Path, At: session.GuestHome, Mode: workspace.ModeRead, NodeID: notes.ID},
+			{Path: chat.Path, At: session.GuestChat, Mode: workspace.ModeWrite, NodeID: chat.ID},
+		}), "the folder at the fence's mode, the chat folder read and write")
+		Expect(x.Place().Primary()).To(Equal(notes.Path))
+		Expect(x.Place().Chat()).To(Equal(chat.Path))
+
+		_, err = m.ScopedAccess(ctx, base, session.HomePath("alice"), chat.Path)
+		Expect(err).To(MatchError(session.ErrInvalid), "an actor without a fence has no scoped access")
+		_, err = m.ScopedAccess(ctx, a, notes.Path, "")
+		Expect(err).To(MatchError(session.ErrInvalid), "a scoped access needs its chat folder")
+		_, err = m.ScopedAccess(ctx, a, session.HomePath("alice"), chat.Path)
+		Expect(err).To(MatchError(session.ErrNoHome), "the home is outside the fence: never mounted")
+		other, err := ws.Mkdir(ctx, alice, session.ChatsPath("alice")+"/other")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = m.ScopedAccess(ctx, a, notes.Path, other.Path)
+		Expect(err).To(MatchError(workspace.ErrNotFound), "another chat's folder is outside the fence")
+	})
+
+	It("gives the same access to another chat of the user", func() {
+		notes, err := ws.Stat(ctx, alice, session.HomePath("alice")+"/Notes")
+		Expect(err).NotTo(HaveOccurred())
+		a := workspace.Actor{Principal: "alice", ChatID: "child"}.Fenced(workspace.FenceRoot{Node: notes.ID, Mode: workspace.ModeRead})
+		v, err := ws.View(ctx, a, []workspace.MountRequest{{Path: notes.Path, At: session.GuestHome, Mode: workspace.ModeRead}})
+		Expect(err).NotTo(HaveOccurred())
+		x, err := session.NewAccess(a, v)
+		Expect(err).NotTo(HaveOccurred())
+		p, err := x.ForChat("parent")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(p.Actor().ChatID).To(Equal("parent"))
+		Expect(p.Actor().SameFence(a)).To(BeTrue(), "the fence stays")
+		Expect(p.View().Mounts).To(Equal(x.View().Mounts))
+		Expect(p.Place().Primary()).To(Equal(notes.Path))
+		Expect(x.Actor().ChatID).To(Equal("child"), "the access it came from is unchanged")
+		_, err = x.ForChat("")
+		Expect(err).To(MatchError(session.ErrInvalid))
+	})
 })

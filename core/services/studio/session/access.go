@@ -52,8 +52,12 @@ func sameView(a, b workspace.View) bool {
 	return true
 }
 
-// buildView lists the shared folders of the actor and builds its view.
-func (m *Manager) buildView(ctx context.Context, a workspace.Actor) (workspace.View, error) {
+// buildView lists the shared folders of the actor and builds its view with
+// primary at "home" and, when chat is not "", the chat folder at "chat". It
+// is the one place a chat's view is built: UserAccess (the home) and
+// ScopedAccess (the agent's folder and the chat folder) both call it, so an
+// unscoped and a scoped chat get the same layout rules.
+func (m *Manager) buildView(ctx context.Context, a workspace.Actor, primary, chat string) (workspace.View, error) {
 	if m.o.Workspace == nil {
 		return workspace.View{Actor: a}, nil
 	}
@@ -64,7 +68,7 @@ func (m *Manager) buildView(ctx context.Context, a workspace.Actor) (workspace.V
 			return workspace.View{}, fmt.Errorf("session: list shared folders: %w", err)
 		}
 	}
-	return BuildView(ctx, m.o.Workspace, a, HomePath(a.Principal), "", shared, m.log)
+	return BuildView(ctx, m.o.Workspace, a, primary, chat, shared, m.log)
 }
 
 // UserAccess is the access of a chat that works on the whole home: the
@@ -74,7 +78,31 @@ func (m *Manager) UserAccess(ctx context.Context, a workspace.Actor) (Access, er
 	if _, fenced := a.Fence(); fenced {
 		return Access{}, fmt.Errorf("%w: a fenced actor has no view of the home", ErrInvalid)
 	}
-	v, err := m.buildView(ctx, a)
+	v, err := m.buildView(ctx, a, HomePath(a.Principal), "")
+	if err != nil {
+		return Access{}, err
+	}
+	return NewAccess(a, v)
+}
+
+// ScopedAccess is the access of a chat whose agent has a folder: the fenced
+// actor, primary (the agent's folder, or a sub-agent's folder inside it) at
+// "home" capped at the fence's mode, the chat folder at "chat" and the
+// shared folders read only. The actor must be fenced, and both folders must
+// be inside its fence: a folder the store cannot mount is ErrNoHome (the
+// primary) or an error that wraps workspace.ErrNotFound (the chat folder),
+// never a view of the home.
+func (m *Manager) ScopedAccess(ctx context.Context, a workspace.Actor, primary, chat string) (Access, error) {
+	if !workspace.HasFence(a) {
+		return Access{}, fmt.Errorf("%w: a scoped access needs a fenced actor", ErrInvalid)
+	}
+	if primary == "" || chat == "" {
+		return Access{}, fmt.Errorf("%w: a scoped access needs its folder and its chat folder", ErrInvalid)
+	}
+	if m.o.Workspace == nil {
+		return Access{}, ErrNoWorkspace
+	}
+	v, err := m.buildView(ctx, a, primary, chat)
 	if err != nil {
 		return Access{}, err
 	}

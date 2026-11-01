@@ -65,30 +65,6 @@ func writable(place session.Place, p string) (session.Target, error) {
 	return t, nil
 }
 
-// UnscopedAccess is the access of a chat whose agent has no folder: the
-// actor as it is, the home at "home" and the user's shared folders. It is
-// today's view of a chat, for callers that do not resolve a chat's access.
-func (s *Service) UnscopedAccess(ctx context.Context, a workspace.Actor) (session.Access, error) {
-	if !s.Available() {
-		return session.Access{}, ErrUnavailable
-	}
-	s.mu.Lock()
-	roots := s.sharedRoots
-	s.mu.Unlock()
-	var shared []session.SharedRoot
-	if roots != nil {
-		var err error
-		if shared, err = roots(ctx, a); err != nil {
-			return session.Access{}, err
-		}
-	}
-	v, err := session.BuildView(ctx, s.ws, a, session.HomePath(a.Principal), "", shared, quietLog)
-	if err != nil {
-		return session.Access{}, err
-	}
-	return session.NewAccess(a, v)
-}
-
 // Tools returns the file tools of one chat: list, read, write, edit, move and
 // delete files, and search them, in the user's home and shared folders. They
 // act as the user in that chat, so what they change is an agent change in the

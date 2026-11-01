@@ -30,6 +30,16 @@ func NewAccess(a workspace.Actor, v workspace.View) (Access, error) {
 	return Access{actor: copyActor(a), view: v, place: NewPlace(v)}, nil
 }
 
+// ForChat is the same access for another chat of the same user: the same
+// fence, view and place, with chatID on the actor. A sub-agent's file tools
+// act for its parent chat with it, so what they change is a change of the
+// parent, while they reach only what the sub-agent's access reaches.
+func (x Access) ForChat(chatID string) (Access, error) {
+	a := copyActor(x.actor)
+	a.ChatID = chatID
+	return NewAccess(a, x.view)
+}
+
 // Actor is the actor of the turn.
 func (x Access) Actor() workspace.Actor { return copyActor(x.actor) }
 

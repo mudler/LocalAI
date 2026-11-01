@@ -152,7 +152,9 @@ func (s *Service) withCommandFiles(a workspace.Actor, run func(context.Context, 
 					created = append(created, f.Path)
 				}
 			}
-			out = withNudge(out, s.nudgeLine(ctx, a, created))
+			// a is the actor of the chat's access: it is fenced exactly
+			// when the access is scoped.
+			out = withNudge(out, s.nudgeLine(ctx, a, workspace.HasFence(a), created))
 		}
 		return out, nil
 	}

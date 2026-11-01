@@ -55,7 +55,7 @@ var _ = Describe("the rules nudge of a chat whose agent has a folder", func() {
 			userPut(f, "alice", rel+"/"+triggers.RulesFile, "rules")
 		}
 		x := scopedTurnAccess(f, workspace.ModeRead, "2026-11-01 Plan")
-		n := svc.newRulesNudgeAt(ctx, x, session.ChatRecord{Folder: "2026-11-01 Plan"})
+		n := svc.newRulesNudge(ctx, x, session.ChatRecord{Folder: "2026-11-01 Plan"})
 		Expect(n).NotTo(BeNil())
 		line := n.turnLine(ctx, session.ChatRecord{Folder: "2026-11-01 Plan"})
 		Expect(line).To(Equal("Rules for this folder are in /workspace/home/AGENTS.md. Read that file before you start."))
@@ -79,9 +79,32 @@ var _ = Describe("the rules nudge of a chat whose agent has a folder", func() {
 		userPut(f, "alice", "/"+triggers.RulesFile, "rules")
 		a := f.Actor("alice")
 		a.ChatID = "c1"
-		x, err := f.UnscopedAccess(ctx, a)
+		x, err := svc.mgr.UserAccess(ctx, a)
 		Expect(err).NotTo(HaveOccurred())
-		n := svc.newRulesNudgeAt(ctx, x, session.ChatRecord{Folder: "2026-11-01 Plan"})
+		n := svc.newRulesNudge(ctx, x, session.ChatRecord{Folder: "2026-11-01 Plan"})
 		Expect(n.turnLine(ctx, session.ChatRecord{Folder: "2026-11-01 Plan"})).To(Equal("Rules for this folder are in /workspace/home/AGENTS.md. Read that file before you start."))
+	})
+})
+
+var _ = Describe("the tools of a turn without a resolved access", func() {
+	It("gives no tools rather than tools on a guessed view", func() {
+		ctx := context.Background()
+		svc, f := newSkillService(&skillBroker{})
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		a := f.Actor("alice")
+		a.ChatID = rec.ID
+		empty, err := session.NewAccess(a, workspace.View{})
+		Expect(err).NotTo(HaveOccurred())
+		tt, err := svc.chatTools(ctx, empty)
+		Expect(err).To(MatchError(errNoTurnAccess))
+		Expect(tt.Tools).To(BeEmpty())
+
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		tt, err = svc.chatTools(ctx, x)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(tt.Tools).NotTo(BeEmpty(), "the resolved access gets its tools")
 	})
 })

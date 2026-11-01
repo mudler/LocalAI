@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -124,7 +125,10 @@ func (fx *fixture) tool(name string) session.Tool {
 
 // toolIn is a tool of a chat whose own model is chatModel.
 func (fx *fixture) toolIn(name, chatModel string) session.Tool {
-	x, err := fx.f.UnscopedAccess(context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"})
+	a := workspace.Actor{Principal: "alice", ChatID: "c1"}
+	v, err := session.BuildView(context.Background(), fx.f.Store(), a, session.HomePath("alice"), "", nil, slog.New(slog.DiscardHandler))
+	Expect(err).NotTo(HaveOccurred())
+	x, err := session.NewAccess(a, v)
 	Expect(err).NotTo(HaveOccurred())
 	return fx.toolOf(name, x, chatModel)
 }

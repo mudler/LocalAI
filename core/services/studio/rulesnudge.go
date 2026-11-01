@@ -34,20 +34,15 @@ type rulesNudge struct {
 	named map[string]bool // folders the model was pointed at, or got the rules of
 }
 
-// newRulesNudge returns the nudge of one turn, or nil without files. A
-// trigger run got the rules of its folder and the folders above it in its
-// first message: those count as named.
-func (s *Service) newRulesNudge(ctx context.Context, a workspace.Actor, rec session.ChatRecord) *rulesNudge {
+// newRulesNudge returns the nudge of one turn for the access of the turn,
+// or nil without files. The walk starts in the access's primary folder and
+// stops there, so a scoped chat is pointed only at rules inside its agent's
+// folder. A trigger run got the rules of its folder and the folders above it
+// in its first message: those count as named.
+func (s *Service) newRulesNudge(ctx context.Context, x session.Access, rec session.ChatRecord) *rulesNudge {
 	if s.d.Files == nil || !s.d.Files.Available() {
 		return nil
 	}
-	return s.newRulesNudgeAt(ctx, s.turnAccess(ctx, a), rec)
-}
-
-// newRulesNudgeAt is newRulesNudge for the access of the turn: the walk
-// starts in the access's primary folder and stops there, so a scoped chat
-// is pointed only at rules inside its agent's folder.
-func (s *Service) newRulesNudgeAt(ctx context.Context, x session.Access, rec session.ChatRecord) *rulesNudge {
 	a := x.Actor()
 	place := x.Place()
 	home := place.Primary()

@@ -64,8 +64,10 @@ func (s *Service) workFolderOf(ctx context.Context, a workspace.Actor) (folder s
 }
 
 // subWorkBlock names the parent's work folder for a sub-agent, which saves in
-// the parent's files. It is "" when the parent has no folder name yet.
-func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord) string {
+// the parent's files. It is "" when the parent has no folder name yet. x is
+// the sub-agent's access: a scoped one names /workspace/chat/work, the
+// parent's chat folder, and says whether its folder may be written.
+func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord, x session.Access) string {
 	if !s.workFolderOn() || !s.d.Files.Available() || rec.ParentID == "" {
 		return ""
 	}
@@ -73,11 +75,8 @@ func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord) stri
 	if err != nil || parent.Folder == "" {
 		return ""
 	}
-	if parent.ScopedAgent {
-		// The parent's chat folder is a mount of its own. Whether the
-		// agent's folder may be written is not known here, so the
-		// deliverables go to the chat folder, which always may be.
-		return workfiles.ScopedPrompt(false)
+	if p := x.Place(); p.Scoped() {
+		return workfiles.ScopedPrompt(p.PrimaryWritable())
 	}
 	return workfiles.Prompt(workfiles.GuestFolder(parent.Folder))
 }
@@ -100,8 +99,9 @@ func (s *Service) ensureWorkFolder(ctx context.Context, a workspace.Actor) {
 
 // nudgeLine is the line for the first helper file among paths (paths of the
 // home, or guest paths) that a call created outside the work folder, or ""
-// when there is none or the turn had its line already.
-func (s *Service) nudgeLine(ctx context.Context, a workspace.Actor, paths []string) string {
+// when there is none or the turn had its line already. scoped comes from the
+// turn's access: a scoped chat's work folder is /workspace/chat/work.
+func (s *Service) nudgeLine(ctx context.Context, a workspace.Actor, scoped bool, paths []string) string {
 	stray := ""
 	for _, p := range paths {
 		if workfiles.Stray(p) {
@@ -119,7 +119,7 @@ func (s *Service) nudgeLine(ctx context.Context, a workspace.Actor, paths []stri
 	if !strings.HasPrefix(stray, session.GuestRoot+"/") {
 		stray = session.GuestRoot + "/" + session.GuestHome + stray
 	}
-	if s.turnAccess(ctx, a).Place().Scoped() {
+	if scoped {
 		return workfiles.Nudge(workfiles.ChatGuestFolder, stray)
 	}
 	return workfiles.Nudge(workfiles.GuestFolder(folder), stray)
@@ -134,8 +134,10 @@ func withNudge(out, line string) string {
 }
 
 // fileNudgeTools wraps write_file and move_file: a call that saved a helper
-// file outside the work folder gets the nudge.
-func (s *Service) fileNudgeTools(a workspace.Actor, tools []session.Tool) []session.Tool {
+// file outside the work folder gets the nudge. x is the access the tools
+// were built from.
+func (s *Service) fileNudgeTools(x session.Access, tools []session.Tool) []session.Tool {
+	a, scoped := x.Actor(), x.Place().Scoped()
 	for i, tool := range tools {
 		field := map[string]string{"write_file": "path", "move_file": "to"}[tool.Name]
 		if field == "" {
@@ -156,7 +158,7 @@ func (s *Service) fileNudgeTools(a workspace.Actor, tools []session.Tool) []sess
 			if !strings.HasPrefix(p, "/") {
 				p = "/" + p
 			}
-			return withNudge(out, s.nudgeLine(ctx, a, []string{p})), nil
+			return withNudge(out, s.nudgeLine(ctx, a, scoped, []string{p})), nil
 		}
 	}
 	return tools

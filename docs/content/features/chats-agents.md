@@ -126,6 +126,12 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   chat folder under `Chats` (attachments and the work folder, read and write),
   the shared folders and the skills (read only), and nothing else. A change of
   the folder or the mode applies from the next message of a chat that is open.
+- The model sees the agent's folder at `/workspace/home`, so `/a.txt` and
+  `/workspace/home/a.txt` are `a.txt` in that folder. The chat folder is at
+  `/workspace/chat`, with the work folder at `/workspace/chat/work/`. The
+  shared folders are at `/workspace/shared-<name>`. The file tools, the image
+  and document tools, the file search and the system prompt use this layout,
+  and a sub-agent of the chat gets the same folders.
 - A `PUT` without `folder` keeps the folder the agent has, so a client that
   does not know the field cannot give the agent more files by editing it.
   `"folder": {"path": ""}` clears the folder.

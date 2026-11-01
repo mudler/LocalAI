@@ -202,9 +202,11 @@ var _ = Describe("chat access", func() {
 		}, r.readOnlyRoots("/shared/Team")...)
 		Expect(fenceOf(x.Actor())).To(Equal(want))
 		Expect(len(want)).To(BeNumerically(">=", 4), "a skill layer and the shared folder are in the fence")
-		Expect(x.View().Mounts).To(HaveLen(2))
+		teamNode := r.stat(team.Path)
+		Expect(x.View().Mounts).To(HaveLen(3), "the folder, the chat folder and the shared folder")
 		Expect(x.View().Mounts[0]).To(mountOf(acme.ID, r.home+"/Projects/Acme", session.GuestHome, workspace.ModeRead))
-		Expect(x.View().Mounts[1]).To(mountOf(dir.ID, dir.Path, "chat", workspace.ModeWrite))
+		Expect(x.View().Mounts[1]).To(mountOf(dir.ID, dir.Path, session.GuestChat, workspace.ModeWrite))
+		Expect(x.View().Mounts[2]).To(mountOf(teamNode.ID, team.Path, session.GuestSharedPrefix+"Team", workspace.ModeRead), "read only, although the grant allows writes")
 
 		// The store holds the fence: the shared folder is read only although
 		// its grant allows writes, the home and the rest of it are hidden.
@@ -382,9 +384,9 @@ var _ = Describe("chat access in a turn", func() {
 				return []studiotest.ToolStep{{Say: "ok"}}
 			}
 			return []studiotest.ToolStep{
-				{Tool: "read_file", Args: `{"path":"/Projects/Acme/a.txt"}`},
-				{Tool: "read_file", Args: `{"path":"/Other/o.txt"}`},
-				{Tool: "write_file", Args: `{"path":"/Projects/Acme/new.txt","content":"x"}`},
+				{Tool: "read_file", Args: `{"path":"/a.txt"}`},
+				{Tool: "read_file", Args: `{"path":"/workspace/home/../../Other/o.txt"}`},
+				{Tool: "write_file", Args: `{"path":"/new.txt","content":"x"}`},
 				{Say: "done"},
 			}
 		}, func(d *studio.Deps) { d.Files = f; d.Agents = ag })

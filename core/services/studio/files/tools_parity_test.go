@@ -177,9 +177,7 @@ var _ = Describe("the file tools that replace the Sandbox's", func() {
 			admin := workspace.Actor{Principal: files.AdminPrincipal}
 			Expect(f.Store().Grant(context.Background(), admin, "alice", "/shared/team", workspace.ModeWrite)).To(Succeed())
 			Expect(f.Store().Grant(context.Background(), admin, "alice", "/shared/docs", workspace.ModeRead)).To(Succeed())
-			f.SetSharedRoots(func(context.Context, workspace.Actor) ([]session.SharedRoot, error) {
-				return []session.SharedRoot{{Path: "/shared/team", Mode: workspace.ModeWrite}, {Path: "/shared/docs", Mode: workspace.ModeRead}}, nil
-			})
+			setShared(f, session.SharedRoot{Path: "/shared/team", Mode: workspace.ModeWrite}, session.SharedRoot{Path: "/shared/docs", Mode: workspace.ModeRead})
 			b = newToolBox(f, "alice", "c1")
 		})
 

@@ -28,10 +28,6 @@ import (
 // chat's agent had a folder and is gone. The chat does not start.
 var ErrAgentFolderMissing = errors.New("studio: the folder of this agent is missing")
 
-// scopedChatMount is where the view of a scoped chat mounts the chat's own
-// folder, next to the agent's folder at session.GuestHome.
-const scopedChatMount = "chat"
-
 // folderScope is the folder of a saved agent as it is now.
 type folderScope struct {
 	node int64
@@ -88,12 +84,11 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 	actor := fenceScopes(base, scopes, chatDir.ID, s.readOnlyRoots(ctx, base))
 	// The innermost folder is the one the chat works in: a sub-agent's own
 	// folder inside its parent's. The store caps the mode by every layer.
+	// The view is the session's one view builder: the folder at home, the
+	// chat folder at chat, the shared folders read only.
 	work := scopes[len(scopes)-1]
-	v, err := s.d.Files.Store().View(ctx, actor, []workspace.MountRequest{
-		{Path: work.path, At: session.GuestHome, Mode: work.mode},
-		{Path: chatDir.Path, At: scopedChatMount, Mode: workspace.ModeWrite},
-	})
-	if errors.Is(err, workspace.ErrNotFound) {
+	x, err := s.mgr.ScopedAccess(ctx, actor, work.path, chatDir.Path)
+	if errors.Is(err, session.ErrNoHome) || errors.Is(err, workspace.ErrNotFound) {
 		// The folder went away since it was checked, or a sub-agent's folder
 		// is outside its parent's.
 		return session.Access{}, ErrAgentFolderMissing
@@ -101,7 +96,7 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 	if err != nil {
 		return session.Access{}, err
 	}
-	return session.NewAccess(actor, v)
+	return x, nil
 }
 
 // chatActorFor is the actor of a chat for the code that only lists what a
