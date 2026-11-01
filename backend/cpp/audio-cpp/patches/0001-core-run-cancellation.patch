@@ -132,19 +132,35 @@ index 7b86e8d..df02cdf 100644
  
  class GraphExecutor {
 diff --git a/src/framework/core/backend.cpp b/src/framework/core/backend.cpp
-index 6b8bc67..3f6f89e 100644
+index 6b8bc67..f332531 100644
 --- a/src/framework/core/backend.cpp
 +++ b/src/framework/core/backend.cpp
-@@ -395,6 +395,17 @@ ggml_backend_t init_backend(const BackendConfig & config) {
+@@ -395,6 +395,33 @@ ggml_backend_t init_backend(const BackendConfig & config) {
      }
  }
  
++#ifdef ENGINE_CORE_CANCELLATION_TESTING
++// Scoped owner-thread lookup override. Never changes the registry or other
++// threads; nullptr restores the actual production lookup.
++using AbortLookupForTest = void * (*)(ggml_backend_reg_t, const char *);
++static thread_local AbortLookupForTest abort_lookup_for_test = nullptr;
++AbortLookupForTest exchange_abort_lookup_for_test(AbortLookupForTest lookup) {
++    auto previous = abort_lookup_for_test;
++    abort_lookup_for_test = lookup;
++    return previous;
++}
++#endif
++
 +bool set_backend_abort_callback(ggml_backend_t backend, ggml_abort_callback callback, void * data) {
 +    if (!is_host_backend(backend)) { return false; }
 +    auto reg = ggml_backend_dev_backend_reg(ggml_backend_get_device(backend));
 +    if (reg == nullptr) { return false; }
 +    using Setter = void (*)(ggml_backend_t, ggml_abort_callback, void *);
-+    auto setter = reinterpret_cast<Setter>(ggml_backend_reg_get_proc_address(reg, "ggml_backend_set_abort_callback"));
++    auto lookup = ggml_backend_reg_get_proc_address;
++#ifdef ENGINE_CORE_CANCELLATION_TESTING
++    if (abort_lookup_for_test) { lookup = abort_lookup_for_test; }
++#endif
++    auto setter = reinterpret_cast<Setter>(lookup(reg, "ggml_backend_set_abort_callback"));
 +    if (setter == nullptr) { return false; }
 +    setter(backend, callback, data);
 +    return true;
@@ -153,7 +169,7 @@ index 6b8bc67..3f6f89e 100644
  void set_backend_threads(ggml_backend_t backend, int threads) {
      if (backend == nullptr) {
          return;
-@@ -695,6 +706,13 @@ void free_backend_graph_plan(ggml_backend_t backend, ggml_backend_graph_plan_t &
+@@ -695,6 +722,13 @@ void free_backend_graph_plan(ggml_backend_t backend, ggml_backend_graph_plan_t &
      }
  }
  
@@ -167,7 +183,7 @@ index 6b8bc67..3f6f89e 100644
  ggml_status compute_backend_graph(
      ggml_backend_t backend,
      ggml_cgraph * graph,
-@@ -711,15 +729,30 @@ ggml_status compute_backend_graph(
+@@ -711,15 +745,30 @@ ggml_status compute_backend_graph(
      }
  #else
      (void)label;
@@ -199,7 +215,7 @@ index 6b8bc67..3f6f89e 100644
          return;
      }
      ggml_backend_t backend = execution_context.backend();
-@@ -730,6 +763,8 @@ void prepare_host_graph_plan(const ExecutionContext & execution_context, ggml_cg
+@@ -730,6 +779,8 @@ void prepare_host_graph_plan(const ExecutionContext & execution_context, ggml_cg
      if (new_plan != nullptr) {
          plan.plan = new_plan;
          plan.backend = backend;
@@ -208,7 +224,7 @@ index 6b8bc67..3f6f89e 100644
      }
  }
  
-@@ -739,9 +774,11 @@ ggml_status compute_graph(
+@@ -739,9 +790,11 @@ ggml_status compute_graph(
      HostGraphPlan & plan,
      const char * label) {
      if (plan.active()) {

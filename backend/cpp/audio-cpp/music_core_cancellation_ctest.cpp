@@ -129,8 +129,50 @@ static void exercise(int mode, bool during_binding) {
     if (mode) require(compute_graph(context, wrong, plan) == GGML_STATUS_FAILED, "graph association");
     ExecutionContext moved(std::move(context));
     if (mode) require(compute_graph(moved, graph.graph, plan) == GGML_STATUS_SUCCESS, "inactive move retains bridge");
+    ExecutionContext assigned(BackendConfig{});
+    assigned = std::move(moved);
+    require(compute_backend_graph(assigned, graph.graph, plan.plan) == GGML_STATUS_SUCCESS,
+            "inactive move assignment preserves backend and callback");
+    if (mode) require(compute_graph(assigned, graph.graph, plan) == GGML_STATUS_SUCCESS,
+                      "inactive move assignment preserves plan bridge");
+    auto stopped = std::make_shared<RunStopState>(); stopped->cancel();
+    { auto binding = assigned.begin_cancellable_run(stopped);
+      require(compute_backend_graph(assigned, graph.graph, plan.plan) == GGML_STATUS_ABORTED,
+              "move-assigned callback sees bound stop"); }
     plan.reset();
     a->cancel();
+}
+namespace engine::core {
+// Deliberately not in a production header: compiled only by the test target.
+using AbortLookupForTest = void * (*)(ggml_backend_reg_t, const char *);
+AbortLookupForTest exchange_abort_lookup_for_test(AbortLookupForTest);
+}
+struct ScopedMissingAbortHook {
+    AbortLookupForTest previous;
+    ScopedMissingAbortHook() : previous(exchange_abort_lookup_for_test(
+        +[](ggml_backend_reg_t, const char *) -> void * { return nullptr; })) {}
+    ~ScopedMissingAbortHook() { exchange_abort_lookup_for_test(previous); }
+};
+static void missing_hook_tests() {
+    ExecutionContext separate(BackendConfig{});
+    Graph graph;
+    {
+        ScopedMissingAbortHook missing;
+        ExecutionContext unsupported(BackendConfig{});
+        require(unsupported.backend() != nullptr, "real CPU backend acquired without hook");
+        require(!unsupported.supports_cancellation(), "missing registry hook unsupported");
+        bool refused = false;
+        try { auto binding = unsupported.begin_cancellable_run(std::make_shared<RunStopState>()); }
+        catch (const std::logic_error &) { refused = true; }
+        require(refused && graph.progress.nodes == 0, "missing hook refuses admission before compute");
+        require(separate.supports_cancellation(), "separate existing context unaffected");
+        auto binding = separate.begin_cancellable_run(std::make_shared<RunStopState>());
+        require(compute_backend_graph(separate, graph.graph) == GGML_STATUS_SUCCESS,
+                "separate real backend still computes");
+    }
+    ExecutionContext restored(BackendConfig{});
+    require(restored.supports_cancellation(), "registry lookup restored");
+    std::puts("PASS: actual CPU missing-hook admission refusal and scoped restoration");
 }
 static void injected_status_tests() {
     ExecutionContext context(BackendConfig{});
@@ -194,11 +236,15 @@ static void executor_tests() {
     bool rejected = false;
     try { executor.run(nullptr, graph.output, 0, 1); } catch (const std::runtime_error &) { rejected = true; }
     require(rejected, "null executor input");
+    rejected = false;
+    try { executor.run(graph.ctx, nullptr, 0, 1); } catch (const std::runtime_error &) { rejected = true; }
+    require(rejected, "null executor output");
 }
 int main() {
     static_assert(!std::is_copy_constructible<HostGraphPlan>::value, "owning plans cannot copy");
     require(!set_backend_abort_callback(nullptr, nullptr, nullptr), "missing backend unsupported");
     for (int mode = 0; mode < 3; ++mode) for (bool during : {false, true}) exercise(mode, during);
+    missing_hook_tests();
     executor_tests();
     injected_status_tests();
     std::puts("PASS: actual CPU ordinary/captured/host plans, run ownership, isolation, executor abort/reuse");
