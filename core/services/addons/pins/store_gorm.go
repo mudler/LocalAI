@@ -4,6 +4,8 @@ package pins
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
@@ -110,4 +112,27 @@ func (s *GormStore) ClearMissing(ctx context.Context, ids []string) error {
 func (s *GormStore) DeleteMissingBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	res := s.db.WithContext(ctx).Where("missing_since IS NOT NULL AND missing_since < ?", cutoff).Delete(&Pin{})
 	return res.RowsAffected, res.Error
+}
+
+func (s *GormStore) MarkInstalled(ctx context.Context, ids []string) error {
+	for _, id := range ids {
+		err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&SeedRun{Name: installedPrefix + id, At: time.Now().UTC()}).Error
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *GormStore) Installed(ctx context.Context) ([]string, error) {
+	var names []string
+	if err := s.db.WithContext(ctx).Model(&SeedRun{}).Where("name LIKE ?", installedPrefix+"%").Pluck("name", &names).Error; err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		out = append(out, strings.TrimPrefix(n, installedPrefix))
+	}
+	slices.Sort(out)
+	return out, nil
 }

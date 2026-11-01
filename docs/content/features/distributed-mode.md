@@ -52,6 +52,8 @@ docker compose -f docker-compose.distributed.yaml up
 This starts PostgreSQL, NATS, a LocalAI frontend, and one worker node. When you send an inference request, the SmartRouter automatically installs the needed backend on the worker and loads the model. See the file for details on adding GPU support, shared volumes, and additional workers.
 
 {{% notice tip %}}
+The compose file starts PostgreSQL, NATS, [Garage](https://garagehq.deuxfleurs.fr/) as S3-compatible object storage (with a one-shot step that creates its bucket and access key), a frontend, a model worker, an agent worker and a [chat worker](#chat-workers). The frontend and the chat worker store the chat files in Garage, and the frontend sends unattended chat turns to the chat worker. Its credentials are examples: change them, and the `rpc_secret` in `examples/distributed/garage.toml`, for anything beyond a local test.
+
 Use `docker-compose.distributed.yaml` for quick local testing. For production, deploy PostgreSQL and NATS as managed services and run frontends/workers on separate hosts.
 {{% /notice %}}
 
@@ -70,6 +72,10 @@ The frontend is a standard LocalAI instance with distributed mode enabled. These
 | `--auto-approve-nodes` | `LOCALAI_AUTO_APPROVE_NODES` | `false` | Auto-approve new worker nodes (skip admin approval) |
 | `--distributed-shared-models` | `LOCALAI_DISTRIBUTED_SHARED_MODELS` | `false` | Assert that every node mounts the **same** models directory at the **same** path (a shared volume). When `true`, the router skips file staging entirely and workers load models directly from the shared path instead of re-downloading them. See [Shared models directory](#shared-models-directory). |
 | `--distributed-disk-headroom-check` | `LOCALAI_DISTRIBUTED_DISK_HEADROOM_CHECK` | `true` | Reject worker nodes that lack free space to store the model, at scheduling time rather than partway through staging. When `false`, node selection ignores free disk; the check still runs and warns when it would have rejected every node. Also toggleable at runtime via the `distributed_disk_headroom_check` setting. See [Disk headroom](#disk-headroom). |
+| `--distributed-chat-workers` | `LOCALAI_DISTRIBUTED_CHAT_WORKERS` | `false` | Send the turns of triggers, agent jobs and connector messages to [chat workers](#chat-workers). When no chat worker listens, the turn runs on this frontend. |
+| `--chat-worker` | `LOCALAI_CHAT_WORKER` | `false` | Run this instance as a [chat worker](#chat-workers) instead of a frontend for the unattended chat runs. |
+| `--chat-worker-max-turns` | `LOCALAI_CHAT_WORKER_MAX_TURNS` | `32` | On a [chat worker](#chat-workers), the most turns it runs at once. `0` means no limit. |
+| `--chat-start-timeout` | `LOCALAI_CHAT_START_TIMEOUT` | `30s` | How long a frontend waits for a [chat worker](#chat-workers) to start a turn, and how long the worker gives the start. |
 | `--auth` | `LOCALAI_AUTH` | `false` | **Must be `true`** for distributed mode |
 | `--auth-database-url` | `LOCALAI_AUTH_DATABASE_URL` | *(required)* | PostgreSQL connection URL |
 | `--backend-install-timeout` | `LOCALAI_NATS_BACKEND_INSTALL_TIMEOUT` | `15m` | How long the frontend waits for a worker to acknowledge a backend install before considering the request stalled. Raise it when workers pull large backend images over slow links. If a worker takes longer than this, the operation shows as "still installing in background" in the admin UI and clears once the worker finishes. |
@@ -255,7 +261,7 @@ Workers connect with that JWT and seed automatically (shown once; store securely
 
 When `LOCALAI_NATS_REQUIRE_AUTH=true` and no static credentials are provided, a worker that registers while still **pending admin approval** keeps re-registering (with backoff) until an admin approves it and the frontend mints its JWT - it does not start unauthenticated. This retry is **bounded**: if the node is never approved (or no credentials are minted) after a large number of attempts, the worker exits non-zero so the failure is visible (a crash-looping or failed worker) rather than hanging silently. Minted worker JWTs are also **refreshed automatically** before they expire (the worker re-registers at ~75% of the JWT lifetime), so long-running workers survive past `LOCALAI_NATS_WORKER_JWT_TTL`; the NATS connection picks up the new JWT on its next reconnect. If refresh fails persistently, the worker exits (to restart and re-acquire) rather than drifting toward an expired, unrenewable JWT. Statically configured (`LOCALAI_NATS_JWT`) and service (`LOCALAI_NATS_SERVICE_JWT`) credentials are used as-is and not refreshed.
 
-Generate operator/account material with [`scripts/nats-auth-setup.sh`](https://github.com/mudler/LocalAI/blob/master/scripts/nats-auth-setup.sh) (requires [nsc](https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/nsc)). Configure the NATS server with account resolver JWTs before enabling `LOCALAI_NATS_REQUIRE_AUTH`.
+Generate operator/account material with [`scripts/nats-auth-setup.sh`](https://github.com/mudler/LocalAI/blob/master/scripts/nats-auth-setup.sh) (requires [nsc](https://docs.nats.io/running-a-nats-service/configuration/securing_nats/auth_intro/nsc)). The frontend user it creates may publish and subscribe on the subjects the frontends use for the gallery, caches, state, chats and the Open Responses cancel (`responses.>`). Configure the NATS server with account resolver JWTs before enabling `LOCALAI_NATS_REQUIRE_AUTH`.
 
 {{% notice note %}}
 `LOCALAI_AUTH` (HTTP users/sessions) and NATS JWTs are separate: end-user API keys do not connect to NATS. HTTP registration still uses `LOCALAI_REGISTRATION_TOKEN`.
@@ -267,7 +273,7 @@ For multi-host deployments where workers don't share a filesystem, S3-compatible
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--storage-url` | `LOCALAI_STORAGE_URL` | *(empty)* | S3 endpoint URL (e.g., `http://minio:9000`) |
+| `--storage-url` | `LOCALAI_STORAGE_URL` | *(empty)* | S3 endpoint URL (e.g., `http://garage:3900`) |
 | `--storage-bucket` | `LOCALAI_STORAGE_BUCKET` | `localai` | S3 bucket name |
 | `--storage-region` | `LOCALAI_STORAGE_REGION` | `us-east-1` | S3 region |
 | `--storage-access-key` | `LOCALAI_STORAGE_ACCESS_KEY` | *(empty)* | S3 access key |
@@ -914,7 +920,7 @@ Concretely, these two must point at different databases:
 | Variable | What it holds |
 |----------|---------------|
 | `LOCALAI_AUTH_DATABASE_URL` | Auth **and the distributed control plane** - nodes, replicas, load jobs |
-| `LOCALAI_AGENT_POOL_DATABASE_URL` | Agent collections and their embeddings |
+| `LOCALAI_COLLECTIONS_DATABASE_URL` | Collections and their embeddings |
 
 Different databases on the same PostgreSQL server is enough; they do not need separate
 servers. Different *schemas* in one database is **not** enough, because the cutoff is
@@ -945,18 +951,18 @@ role, which is exactly the case they exist to catch.
 
 ## Agent collections across frontends
 
-Collections (the `/api/agents/collections` routes) are **shared state**: every frontend shows the same list. With the `postgres` vector engine, the database is the source of truth for which collections exist. Each frontend keeps the collections it has opened in memory, but only as a cache:
+Collections (the `/api/collections` routes) are **shared state**: every frontend shows the same list. With the `postgres` vector engine, the database is the source of truth for which collections exist. Each frontend keeps the collections it has opened in memory, but only as a cache:
 
 - Listing a collection set reads it from the database.
 - A request for a collection that this frontend has not opened yet checks the database before it answers `404`, and opens the collection if it exists. A collection created through one frontend is therefore usable through any other one at once.
 - A frontend re-checks a cached collection at most every 5 seconds, so a collection removed through another frontend stops being served within that time.
 - Creating or resetting a collection publishes an event on the message bus, so the other frontends re-check immediately.
 
-This needs `LOCALAI_AGENT_POOL_VECTOR_ENGINE=postgres` and `LOCALAI_AGENT_POOL_DATABASE_URL`. With another vector engine there is no shared registry, and each frontend keeps its own list. Per-user collections (authentication enabled) are not yet coordinated this way.
+This needs `LOCALAI_COLLECTIONS_VECTOR_ENGINE=postgres` and `LOCALAI_COLLECTIONS_DATABASE_URL`. With another vector engine there is no shared registry, and each frontend keeps its own list. Per-user collections (authentication enabled) are not yet coordinated this way.
 
 ## Agent Workers
 
-Agent workers are dedicated processes for executing agent chats and MCP CI jobs. Unlike backend workers (which run gRPC model inference), agent workers use cogito to orchestrate multi-step conversations with tool calls.
+An agent worker is a dedicated process that runs the MCP servers of your models, for example stdio servers that need docker. The frontend sends it MCP tool calls and discovery requests over NATS. It needs no database and runs no model.
 
 ```bash
 local-ai agent-worker \
@@ -966,12 +972,10 @@ local-ai agent-worker \
 ```
 
 Agent workers:
-- Execute agent chat messages dispatched via NATS
-- Run MCP CI jobs (with access to MCP servers via docker)
 - Handle MCP tool discovery and execution requests from the frontend
-- Get auto-provisioned API keys during registration for calling the inference API
+- Close their MCP sessions when a backend stops
 
-`LOCALAI_AGENT_SUBJECT` (default `agent.execute`) must be a subject that LocalAI serves. Use the `agent` root, for example `agent.execute`. The worker refuses to start with a subject whose root LocalAI does not serve (for example `tenant-a.agent.execute`) or with a `>` wildcard, because no message is carried on those subjects.
+The agent worker does not run chat turns. To run the turns of triggers, connectors and [agent jobs](/features/agent-jobs/) away from the frontends, use [chat workers](#chat-workers). The options `LOCALAI_AGENT_SUBJECT`, `LOCALAI_AGENT_QUEUE`, `LOCALAI_MCP_CI_JOB_TIMEOUT`, `LOCALAI_API_URL` and `LOCALAI_API_TOKEN` are still accepted by `local-ai agent-worker` and ignored. The frontends and the chat workers read `LOCALAI_MCP_CI_JOB_TIMEOUT` and `LOCALAI_AGENT_JOB_RETENTION_DAYS`.
 
 In the docker-compose setup, the agent worker mounts the Docker socket so it can run MCP stdio servers (e.g., `docker run` commands):
 
@@ -982,13 +986,44 @@ agent-worker-1:
     - /var/run/docker.sock:/var/run/docker.sock
 ```
 
+## Chat Workers
+
+A chat worker runs the turns of the chats that no person starts at the keyboard: [trigger](/features/chats-agents/#triggers) runs, [agent jobs](/features/agent-jobs/) and connector messages. Use one to keep this work off the frontends that serve your users.
+
+A chat worker is a `local-ai run` instance with the same configuration as a frontend (database, NATS, models, storage and data path), plus `--chat-worker`. The `chat-worker-1` service in `docker-compose.distributed.yaml` is an example. It needs the same NATS credentials as a frontend. Turn on the routing on the frontends with `--distributed-chat-workers`:
+
+```bash
+# frontends
+LOCALAI_DISTRIBUTED=true LOCALAI_DISTRIBUTED_CHAT_WORKERS=true local-ai run ...
+
+# chat workers: the frontend configuration, plus
+LOCALAI_DISTRIBUTED=true LOCALAI_CHAT_WORKER=true local-ai run ...
+```
+
+How it works:
+
+- The frontends keep the trigger runner, the connectors and the job host, each on the frontend that holds its leader lock. When one of them starts a turn, the frontend sends the start over NATS (`chats.start`, queue group `chat-workers`). One chat worker takes it, claims the turn in the database and runs it. It replies whether the turn started or whether the message waits behind a running turn.
+- The turn's live events and a stop travel on the same subjects as between two frontends, so a user who watches the chat sees it through any frontend, and a stop or a run limit reaches the worker.
+- A message that a person sends to the chat while the worker runs it waits in the database, and the worker gives it to the model at its next request.
+- When no chat worker listens, the frontend runs the turn itself. When a chat worker does not answer in time, or refuses the start, the run fails: the worker may have started the turn, and running it again could send the message twice. The time a start may take is `LOCALAI_CHAT_START_TIMEOUT` (default `30s`). Raise it when a slow database makes starts time out, and set the same value on the frontends and the chat workers.
+- The frontend that watches a job or a trigger run stops it at its limit (`LOCALAI_MCP_CI_JOB_TIMEOUT` for a job). If that frontend is gone, the chat worker stops the turn one minute after the same limit, so it cannot run on without a bound. The same bound applies to the next turn that the worker starts from messages that arrived after the last model request. Set `LOCALAI_MCP_CI_JOB_TIMEOUT` to the same value on the frontends and the chat workers.
+- A chat worker runs at most `LOCALAI_CHAT_WORKER_MAX_TURNS` turns at once (default `32`). Every turn on it counts, also the sub-agents of its turns. When it is full it refuses a start that would begin a turn, and that trigger run, job or connector message fails with an error that says the worker is full; nothing runs on the frontend. A message for a chat whose turn already runs is still taken, because it only waits. NATS gives each start to one worker of the queue group, so a full worker does not pass the start on to a free one: give the workers enough room for the runs you expect, or add workers.
+- A chat worker that dies leaves its turn claimed. The frontends' reaper ends it as interrupted, as for a frontend that dies, and nothing retries it.
+- A chat worker shows in the node list as an `agent` node with the label `node.role=chat-worker`, named `chat-` and its instance ID (`LOCALAI_INSTANCE_ID`), or its host name when the ID is generated. It registers itself through the database, is approved at once, sends a heartbeat every 10 seconds and goes offline when it stops. Models are never scheduled on it. Draining it from the node list does not stop it from taking starts: stop the process instead.
+- A chat worker starts no triggers, connectors or jobs and runs no conversion of old data. It still serves the HTTP API: its turns reach the models through it, and the health probes use it. Do not put it behind the load balancer of your users.
+
+What stays on the frontends:
+
+- The chats that a person starts, and their sub-agents.
+- A start that carries files, such as a connector message with a photo or a job with attachments. The files are saved before the turn starts.
+- Sub-agents follow their parent: the sub-agents of a turn that runs on a chat worker run on that worker.
+
 ## MCP in Distributed Mode
 
 MCP servers configured in model configs work in distributed mode. The frontend routes MCP operations through NATS to agent workers:
 
 - **MCP discovery** (`GET /v1/mcp/servers/:model`): routed to agent workers which create sessions and return server info
 - **MCP tool execution** (during `/v1/chat/completions`): tool calls are routed to agent workers via NATS request-reply
-- **MCP CI jobs**: executed entirely on agent workers with access to docker for stdio-based MCP servers
 
 ## vLLM Multi-Node (Data-Parallel)
 

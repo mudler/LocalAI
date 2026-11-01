@@ -34,18 +34,42 @@ var (
 	// owner can act on: a missing confirmation, an unsupported operation, a
 	// bad name or role.
 	ErrInvalidRequest = fmt.Errorf("addon resource request is invalid: %w", ErrForbidden)
+	// ErrNotPermitted means the add-on checked a permission of the person and
+	// denied it: a host feature such as fine-tuning is not granted to them.
+	// Nothing was changed and a repeat is denied again.
+	ErrNotPermitted = fmt.Errorf("you do not have permission to do this: %w", ErrForbidden)
+	// ErrResourceUnreachable means the resource does not exist or the person
+	// has no access to it. The two are one answer on purpose.
+	ErrResourceUnreachable = fmt.Errorf("that resource does not exist or you have no access to it: %w", ErrForbidden)
 	// ErrNotSelected means no resource is selected for the conversation.
 	ErrNotSelected = fmt.Errorf("no resource is selected for the conversation: %w", ErrForbidden)
 	// ErrQuotaReached means the person reached the resource limits.
 	ErrQuotaReached = fmt.Errorf("addon resource quota reached: %w", ErrForbidden)
 )
 
-// Refused types the add-on's own invalid-request refusal as ErrInvalidRequest,
+// unreachableOrDenied keeps the one typed answer a failure to resolve a
+// resource can give: the policy's "no such resource or no access", the same
+// error a write is denied with. Any other cause, whatever it says, is the plain
+// ErrForbidden, so the caller learns nothing more than a write learns.
+func unreachableOrDenied(err error) error {
+	if errors.Is(err, ErrResourceUnreachable) {
+		return err
+	}
+	return ErrForbidden
+}
+
+// Refused types the add-on's own denial of the person as ErrNotPermitted and its
+// invalid-request refusal as ErrInvalidRequest,
 // so every path that reaches the runtime answers it the same way: a
 // deterministic 400 with nothing applied, never an outage and never an
 // unknown outcome. The runtime's cause stays in the chain. Every other error
 // passes through unchanged.
 func Refused(err error) error {
+	if err != nil && errors.Is(err, contract.ErrDenied) && !errors.Is(err, ErrNotPermitted) && !errors.Is(err, ErrUnavailable) {
+		// The add-on's own denial of the person: typed apart from a refusal of
+		// the arguments, so a caller can say "no permission" and not "invalid".
+		return fmt.Errorf("%w: %w", ErrNotPermitted, err)
+	}
 	if err == nil || errors.Is(err, ErrInvalidRequest) || !errors.Is(err, contract.ErrRefused) || errors.Is(err, ErrUnavailable) {
 		return err
 	}
@@ -248,6 +272,9 @@ type ResourceManager interface {
 	Rename(ctx context.Context, actor contract.Actor, resourceID string, r RenameResourceRequest) (ResourceInfo, error)
 	Delete(ctx context.Context, actor contract.Actor, resourceID string, r DeleteResourceRequest) (DeleteResult, error)
 	Apply(ctx context.Context, actor contract.Actor, resourceID string, r ApplyResourceRequest) (ApplyResult, error)
+	// Undo rolls back one change a chat made at once, by the change set the
+	// add-on kept for it.
+	Undo(ctx context.Context, actor contract.Actor, resourceID, changeID string, r UndoRequest) (UndoResult, error)
 	Operation(ctx context.Context, actor contract.Actor, resourceID, kind, operationID, requestHash string) (OperationStatus, error)
 	Selection(ctx context.Context, actor contract.Actor, conversationID, addonID string) (Selection, error)
 	Select(ctx context.Context, actor contract.Actor, conversationID, addonID, resourceID string) (Selection, error)
@@ -269,6 +296,7 @@ const (
 	resourceRename     = "rename"
 	resourceDelete     = "delete"
 	resourceApply      = "apply"
+	resourceUndo       = "undo"
 	resourceStatus     = "status"
 	resourceSelGet     = "selection-get"
 	resourceSelPut     = "selection-put"
@@ -294,6 +322,7 @@ type ResourceCall struct {
 	Arguments      json.RawMessage   `json:"arguments,omitempty"`
 	Tool           string            `json:"tool,omitempty"`
 	RequestHash    string            `json:"requestHash,omitempty"`
+	ChangeID       string            `json:"changeId,omitempty"`
 }
 
 // mutating says whether the call can change state that has an operation
@@ -381,6 +410,8 @@ func (g *Gateway) resourceLocal(ctx context.Context, a contract.Actor, request c
 		out, err = g.Resources.Delete(ctx, a, call.ResourceID, DeleteResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Confirm: call.Confirm})
 	case resourceApply:
 		out, err = g.Resources.Apply(ctx, a, call.ResourceID, ApplyResourceRequest{OperationID: request.OperationID, Generation: call.Generation, Revision: call.Revision, Tool: call.Tool, Arguments: call.Arguments})
+	case resourceUndo:
+		out, err = g.Resources.Undo(ctx, a, call.ResourceID, call.ChangeID, UndoRequest{OperationID: request.OperationID, Generation: call.Generation})
 	case resourceStatus:
 		out, err = g.Resources.Operation(ctx, a, call.ResourceID, call.Kind, call.UserID, call.RequestHash)
 	case resourceSelGet:
@@ -507,6 +538,9 @@ type resourceWire struct {
 	Type        string `json:"type"`
 	OperationID string `json:"operationId,omitempty"`
 	BlockedBy   string `json:"blockedBy,omitempty"`
+	// Code and Detail type a refused undo.
+	Code   string `json:"code,omitempty"`
+	Detail string `json:"detail,omitempty"`
 }
 
 const (
@@ -516,6 +550,7 @@ const (
 	wireQuota           = "quota_reached"
 	wireNotSelected     = "not_selected"
 	wireOpConflict      = "operation_conflict"
+	wireUndoRefused     = "undo_refused"
 )
 
 // resourceFailure writes the owner's typed failure of a resource call, so a
@@ -531,6 +566,9 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 		body.Type, body.OperationID = wireOutcomeUnknown, unknown.OperationID
 	case errors.As(e, &blocked) && blocked.BlockedBy != "" && StatusFor(e) == http.StatusForbidden:
 		status, body.Type, body.BlockedBy = http.StatusForbidden, wireOutcomeBlocked, blocked.BlockedBy
+	case isUndoRefused(e):
+		u, _ := asUndoRefused(e)
+		status, body.Type, body.Code, body.Detail = http.StatusConflict, wireUndoRefused, u.Code, u.Detail
 	case errors.Is(e, ErrSharingDisabled):
 		status, body.Type = http.StatusConflict, wireSharingDisabled
 	case errors.Is(e, ErrStale):
@@ -543,6 +581,10 @@ func resourceFailure(w http.ResponseWriter, call ResourceCall, id string, e erro
 		status, body.Type = http.StatusForbidden, wireQuota
 	case errors.Is(e, ErrNotSelected):
 		status, body.Type = http.StatusNotFound, wireNotSelected
+	case errors.Is(e, ErrNotPermitted) && !errors.Is(e, ErrUnavailable):
+		status, body.Type = http.StatusForbidden, wireNotPermitted
+	case errors.Is(e, ErrResourceUnreachable) && !errors.Is(e, ErrUnavailable):
+		status, body.Type = http.StatusForbidden, wireUnreachable
 	default:
 		typedError(w, e)
 		return
@@ -579,6 +621,10 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 			if b.BlockedBy != "" && len(b.BlockedBy) <= 256 && status == http.StatusForbidden {
 				return &OutcomeBlocked{BlockedBy: b.BlockedBy, Cause: ErrForbidden}
 			}
+		case wireUndoRefused:
+			if ValidUndoCode(b.Code) {
+				return &UndoRefused{Code: b.Code, Detail: contract.CleanUndoText(b.Detail)}
+			}
 		case wireSharingDisabled:
 			return ErrSharingDisabled
 		case wireStale:
@@ -591,6 +637,16 @@ func resourceReplyError(r io.Reader, status int, id string) error {
 			return ErrQuotaReached
 		case wireNotSelected:
 			return ErrNotSelected
+		}
+		if status == http.StatusForbidden {
+			// The owner names these denials, so a forwarding frontend tells
+			// the model what the owner decided.
+			switch b.Type {
+			case wireNotPermitted:
+				return ErrNotPermitted
+			case wireUnreachable:
+				return ErrResourceUnreachable
+			}
 		}
 	}
 	if status == http.StatusForbidden {

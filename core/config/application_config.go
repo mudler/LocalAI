@@ -279,14 +279,18 @@ type ApplicationConfig struct {
 
 	DisableRuntimeSettings bool
 
-	AgentJobRetentionDays int // Default: 30 days
-
 	OpenResponsesStoreTTL time.Duration // TTL for Open Responses store (0 = no expiration)
 
 	PathWithoutAuth []string
 
-	// Agent Pool (LocalAGI integration)
-	AgentPool AgentPoolConfig
+	// Collections (the knowledge base)
+	Collections CollectionsConfig
+
+	// ChatsVisionModel and ChatsTranscriptionModel are the models the chats'
+	// media tools use to describe images and transcribe audio. Empty: the first
+	// installed model with that capability.
+	ChatsVisionModel        string
+	ChatsTranscriptionModel string
 
 	// Authentication & Authorization
 	Auth AuthConfig
@@ -309,6 +313,140 @@ type ApplicationConfig struct {
 	// LocalAI Assistant chat modality. Hard-disable the in-process admin MCP
 	// server with this flag; runtime-toggleable via /api/settings.
 	DisableLocalAIAssistant bool
+
+	// DisableSharedPages turns off the pages of shared folders: they are not
+	// listed as runnable, do not open and their bridge refuses every call.
+	// Runtime-toggleable via /api/settings (shared_pages_enabled).
+	DisableSharedPages bool
+
+	// ChatsHostExec is who gets the chats' built-in bash, which runs commands
+	// on this machine with no isolation: off, ask (administrators, with a card
+	// for each command) or on. Empty: off with accounts, ask without.
+	// Runtime-toggleable via /api/settings (chats_host_exec).
+	ChatsHostExec string
+	// ChatsToolProviders pins, for a built-in chat tool or skill that several
+	// add-ons replace, the add-on that serves it (tool or skill name -> add-on
+	// ID). Tool and skill names never overlap.
+	ChatsToolProviders map[string]string
+
+	// DisableChats turns off the whole chats surface: the /api/chats API, saved
+	// agents, triggers, connectors and the agent tasks and jobs. Nothing starts
+	// (no loop, bot or trigger runner).
+	DisableChats bool
+	// DisableTriggers and DisableConnectors turn off one part of the chats:
+	// the trigger runner, or the connector bots. The API for the part answers
+	// 404.
+	DisableTriggers   bool
+	DisableConnectors bool
+	// AgentJobRetentionDays is how long finished agent jobs are kept. Zero
+	// means DefaultAgentJobRetentionDays.
+	AgentJobRetentionDays int
+	// MCPCIJobTimeout is the longest an agent job may run. Zero means
+	// DefaultMCPCIJobTimeout.
+	MCPCIJobTimeout time.Duration
+	// TriggerRunKeep is the number of finished runs kept for each trigger
+	// (beyond the last two days). Zero means triggers.DefaultKeepRuns, a negative
+	// value keeps every run.
+	TriggerRunKeep int
+	// TriggerRunRetentionDays is how long finished trigger runs are kept. Zero
+	// means 30 days (triggers.DefaultRunMaxAge), a negative value keeps them forever.
+	TriggerRunRetentionDays int
+
+	// MCPConnectorsAllowPrivate lets the MCP connectors that users define reach
+	// addresses on private networks (loopback, link-local, RFC 1918, metadata).
+	// Off by default: such an address lets a user probe the internal network
+	// through the server. Runtime-toggleable via /api/settings.
+	MCPConnectorsAllowPrivate bool
+
+	// The built-in web tools of the chats. Each is runtime-toggleable via
+	// /api/settings and read at each turn. DisableChatsWebSearch and
+	// DisableChatsWebFetch are stored as the negation (chats_web_search,
+	// chats_web_fetch), so both tools are on by default. ChatsWebSearXNGURL
+	// is the address of a SearXNG instance, used alone unless
+	// ChatsWebSearchProviders lists other providers.
+	// ChatsWebAllowPrivate lets web_fetch reach addresses on private networks
+	// (never the cloud metadata addresses). ChatsWebPorts is a comma list of
+	// the ports web_fetch may use; empty means 80 and 443.
+	DisableChatsWebSearch bool
+	DisableChatsWebFetch  bool
+	ChatsWebSearXNGURL    string
+	// ChatsWebSearchProviders is the order of the search providers of
+	// web_search, comma separated (see ParseSearchProviders). Empty means
+	// the default order.
+	ChatsWebSearchProviders string
+	ChatsWebAllowPrivate    bool
+	ChatsWebPorts           string
+
+	// The network of the commands that chats run in the Sandbox, through the
+	// host proxy. Each is runtime-toggleable via /api/settings and read at
+	// each check, so no restart. ChatsEgressCeiling is the widest preset
+	// (off, registries, all) any chat may use; ChatsEgressDefault the preset
+	// of a new chat, capped by the ceiling. ChatsEgressAllowPrivate lets an
+	// administrator's rule or card answer reach private addresses (never the
+	// metadata addresses). ChatsEgressPorts is a comma list of the ports a
+	// command may reach (empty: 80 and 443), ChatsEgressExtraRegistries a
+	// comma list of host names added to the package registries, and
+	// ChatsEgressAllowedHosts exact hosts (host or host:port, comma separated)
+	// that any chat with the network on may always reach;
+	// ChatsEgressAuditDays how long the audit keeps a line (0: 30 days).
+	ChatsEgressCeiling         string
+	ChatsEgressDefault         string
+	ChatsEgressAllowPrivate    bool
+	ChatsEgressPorts           string
+	ChatsEgressExtraRegistries string
+	ChatsEgressAllowedHosts    string
+	ChatsEgressAuditDays       int
+
+	// ChatsMaxIterations is the step limit of the tool loop of one chat turn:
+	// how many rounds of tool calls the model may make before it must answer.
+	// A turn that reaches it ends as paused, and the person can let it go on.
+	// 0: DefaultChatsMaxIterations. A model's agent.max_iterations wins.
+	// Runtime-settable via /api/settings (chats_max_iterations).
+	ChatsMaxIterations int
+
+	// ChatsGoalMaxTurns is the most turns the server starts by itself for one
+	// goal of a chat, and ChatsGoalMaxSteps the most model requests the turns
+	// of one goal make, before the goal pauses. 0: the defaults. Runtime-settable
+	// via /api/settings (chats_goal_max_turns, chats_goal_max_steps).
+	ChatsGoalMaxTurns int
+	ChatsGoalMaxSteps int
+	// The limits of the loops of the chats (a prompt a chat repeats by
+	// itself). Zero means the default. Runtime-settable via /api/settings
+	// (chats_loop_min_interval, chats_loop_max_runs, chats_loop_max_per_chat,
+	// chats_loop_max_per_user, chats_loop_daily_runs); read at each use.
+	ChatsLoopMinInterval time.Duration
+	ChatsLoopMaxRuns     int
+	ChatsLoopMaxPerChat  int
+	ChatsLoopMaxPerUser  int
+	ChatsLoopDailyRuns   int
+
+	// DisableChatsSavedAgents switches off, for every chat, the saved agents
+	// as sub-agents (list_agents and the agent argument of spawn_agent).
+	// Stored as the negation (chats_saved_agents), so it is on by default;
+	// each chat still has to switch it on. Read at each turn.
+	DisableChatsSavedAgents bool
+
+	// DisableChatsWorkFolder stops the steering of the chats' working files:
+	// the prompt no longer names the chat's work folder (Chats/<chat>/work)
+	// for scripts, logs and drafts, and a helper file saved elsewhere gets no
+	// nudge. Stored as the negation (chats_work_folder), so it is on by
+	// default. Read at each turn.
+	DisableChatsWorkFolder bool
+
+	// DisableChatsIndexFiles stops the reading of the text of PDF, Word,
+	// Excel and PowerPoint files in the chats' files, which search_files and
+	// the Files page search. Stored as the negation (chats_index_files), so
+	// it is on by default. ChatsIndexMaxTextBytes is the most text kept for
+	// one file (chats_index_max_text_bytes; 0: 2 MiB). Both are read at each
+	// pass of the indexer, so no restart.
+	DisableChatsIndexFiles bool
+	ChatsIndexMaxTextBytes int
+
+	// DisableChatSuggestions stops the assistant from offering things (to
+	// remember a name, to make a shortcut, to update a widget on a schedule)
+	// to users who did not choose for themselves. Runtime-toggleable via
+	// /api/settings as chats_suggestions (stored as the negation).
+	DisableChatSuggestions bool
 
 	// LegacyNavigation shows the previous sidebar. See WithLegacyNavigation.
 	LegacyNavigation bool
@@ -350,28 +488,19 @@ type AuthConfig struct {
 	DefaultAPIKeyExpiry string // default expiry duration for API keys (e.g. "90d"); empty = no expiry
 }
 
-// AgentPoolConfig holds configuration for the LocalAGI agent pool integration.
-type AgentPoolConfig struct {
-	Enabled               bool   // default: true (disabled by LOCALAI_DISABLE_AGENTS=true)
-	StateDir              string // default: DynamicConfigsDir (LocalAI configuration folder)
-	APIURL                string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
-	APIKey                string // default: first API key from LocalAI config
-	DefaultModel          string
-	MultimodalModel       string
-	TranscriptionModel    string
-	TranscriptionLanguage string
-	TTSModel              string
-	Timeout               string // default: "5m"
-	EnableSkills          bool
-	EnableLogs            bool
-	CustomActionsDir      string
-	CollectionDBPath      string
-	VectorEngine          string // default: "chromem"
-	EmbeddingModel        string // default: "granite-embedding-107m-multilingual"
-	MaxChunkingSize       int    // default: 400
-	ChunkOverlap          int    // default: 0
-	DatabaseURL           string
-	AgentHubURL           string // default: "https://agenthub.localai.io"
+// CollectionsConfig holds the configuration of the collections service.
+type CollectionsConfig struct {
+	Enabled          bool   // default: true (disabled by LOCALAI_DISABLE_COLLECTIONS=true)
+	StateDir         string // default: DynamicConfigsDir (LocalAI configuration folder)
+	APIURL           string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
+	APIKey           string // default: first API key from LocalAI config
+	DefaultModel     string
+	CollectionDBPath string
+	VectorEngine     string // default: "chromem"
+	EmbeddingModel   string // default: "granite-embedding-107m-multilingual"
+	MaxChunkingSize  int    // default: 400
+	ChunkOverlap     int    // default: 0
+	DatabaseURL      string
 }
 
 type AppOption func(*ApplicationConfig)
@@ -383,7 +512,6 @@ func WithProxyAPIKeyEnvLookup(lookup func(string) string) AppOption {
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
 		Context:                   context.Background(),
-		UploadLimitMB:             15,
 		Debug:                     true,
 		ModelArtifactMaterializer: modelartifacts.NewDefaultManager(),
 		OfficialLibraries:         true,
@@ -400,7 +528,6 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 
 		MaxConcurrentBackendOperations: 1,
 
-		AgentJobRetentionDays:    30,               // Default: 30 days
 		LRUEvictionMaxRetries:    30,               // Default: 30 retries
 		LRUEvictionRetryInterval: 1 * time.Second,  // Default: 1 second
 		ModelLoadFailureCooldown: 10 * time.Second, // Default: 10s base cooldown after a failed load
@@ -415,13 +542,11 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		MaxConcurrentBackendRequests: DefaultMaxConcurrentBackendRequests,
 		TracingMaxItems:              1024,
 		TracingMaxBodyBytes:          64 * 1024, // 64 KiB - caps each request/response body in the trace buffer
-		AgentPool: AgentPoolConfig{
+		Collections: CollectionsConfig{
 			Enabled:         true,
-			Timeout:         "5m",
 			VectorEngine:    "chromem",
 			EmbeddingModel:  "granite-embedding-107m-multilingual",
 			MaxChunkingSize: 400,
-			AgentHubURL:     "https://agenthub.localai.io",
 		},
 		PathWithoutAuth: []string{},
 	}
@@ -873,6 +998,23 @@ func WithConfigFile(configFile string) AppOption {
 	}
 }
 
+// DefaultUploadLimitMB is the body limit, in MB, of every route that has no
+// limit of its own, when the operator sets none.
+const DefaultUploadLimitMB = 15
+
+// UploadLimitSet reports whether the operator chose an upload limit. Zero
+// means "not set", so a route with a larger limit of its own can keep it.
+func (o *ApplicationConfig) UploadLimitSet() bool { return o.UploadLimitMB > 0 }
+
+// GeneralUploadLimitMB is the body limit, in MB, of the routes that have no
+// limit of their own: the operator's value, or the default.
+func (o *ApplicationConfig) GeneralUploadLimitMB() int {
+	if o.UploadLimitSet() {
+		return o.UploadLimitMB
+	}
+	return DefaultUploadLimitMB
+}
+
 func WithUploadLimitMB(limit int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.UploadLimitMB = limit
@@ -1011,12 +1153,6 @@ func WithApiKeys(apiKeys []string) AppOption {
 	}
 }
 
-func WithAgentJobRetentionDays(days int) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentJobRetentionDays = days
-	}
-}
-
 func WithOpenResponsesStoreTTL(ttl time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.OpenResponsesStoreTTL = ttl
@@ -1079,117 +1215,67 @@ func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
 
 // Agent Pool options
 
-var DisableAgentPool = func(o *ApplicationConfig) {
-	o.AgentPool.Enabled = false
+var DisableCollections = func(o *ApplicationConfig) {
+	o.Collections.Enabled = false
 }
 
-func WithAgentPoolAPIURL(url string) AppOption {
+func WithCollectionsAPIURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.APIURL = url
+		o.Collections.APIURL = url
 	}
 }
 
-func WithAgentPoolAPIKey(key string) AppOption {
+func WithCollectionsAPIKey(key string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.APIKey = key
+		o.Collections.APIKey = key
 	}
 }
 
-func WithAgentPoolDefaultModel(model string) AppOption {
+func WithCollectionsDefaultModel(model string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.DefaultModel = model
+		o.Collections.DefaultModel = model
 	}
 }
 
-func WithAgentPoolMultimodalModel(model string) AppOption {
+func WithCollectionsStateDir(dir string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.MultimodalModel = model
+		o.Collections.StateDir = dir
 	}
 }
 
-func WithAgentPoolTranscriptionModel(model string) AppOption {
+func WithCollectionsVectorEngine(engine string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.TranscriptionModel = model
+		o.Collections.VectorEngine = engine
 	}
 }
 
-func WithAgentPoolTranscriptionLanguage(lang string) AppOption {
+func WithCollectionsEmbeddingModel(model string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.TranscriptionLanguage = lang
+		o.Collections.EmbeddingModel = model
 	}
 }
 
-func WithAgentPoolTTSModel(model string) AppOption {
+func WithCollectionsDatabaseURL(url string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.TTSModel = model
+		o.Collections.DatabaseURL = url
 	}
 }
 
-func WithAgentPoolStateDir(dir string) AppOption {
+func WithCollectionsMaxChunkingSize(size int) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.StateDir = dir
+		o.Collections.MaxChunkingSize = size
 	}
 }
 
-func WithAgentPoolTimeout(timeout string) AppOption {
+func WithCollectionsChunkOverlap(overlap int) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.Timeout = timeout
+		o.Collections.ChunkOverlap = overlap
 	}
 }
 
-var EnableAgentPoolSkills = func(o *ApplicationConfig) {
-	o.AgentPool.EnableSkills = true
-}
-
-func WithAgentPoolVectorEngine(engine string) AppOption {
+func WithCollectionsCollectionDBPath(path string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.AgentPool.VectorEngine = engine
-	}
-}
-
-func WithAgentPoolEmbeddingModel(model string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.EmbeddingModel = model
-	}
-}
-
-func WithAgentPoolCustomActionsDir(dir string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.CustomActionsDir = dir
-	}
-}
-
-func WithAgentPoolDatabaseURL(url string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.DatabaseURL = url
-	}
-}
-
-func WithAgentPoolMaxChunkingSize(size int) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.MaxChunkingSize = size
-	}
-}
-
-func WithAgentPoolChunkOverlap(overlap int) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.ChunkOverlap = overlap
-	}
-}
-
-var EnableAgentPoolLogs = func(o *ApplicationConfig) {
-	o.AgentPool.EnableLogs = true
-}
-
-func WithAgentPoolCollectionDBPath(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.CollectionDBPath = path
-	}
-}
-
-func WithAgentHubURL(url string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AgentPool.AgentHubURL = url
+		o.Collections.CollectionDBPath = path
 	}
 }
 
@@ -1279,6 +1365,51 @@ func WithAuthDefaultAPIKeyExpiry(expiry string) AppOption {
 func WithLegacyNavigation(on bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.LegacyNavigation = on
+	}
+}
+
+// DisableChats, DisableTriggers and DisableConnectors are the options of the
+// operator switches LOCALAI_DISABLE_CHATS, LOCALAI_DISABLE_TRIGGERS and
+// LOCALAI_DISABLE_CONNECTORS.
+var (
+	DisableChats      = func(o *ApplicationConfig) { o.DisableChats = true }
+	DisableTriggers   = func(o *ApplicationConfig) { o.DisableTriggers = true }
+	DisableConnectors = func(o *ApplicationConfig) { o.DisableConnectors = true }
+)
+
+// WithAgentJobRetentionDays sets how long finished agent jobs are kept.
+func WithAgentJobRetentionDays(days int) AppOption {
+	return func(o *ApplicationConfig) { o.AgentJobRetentionDays = days }
+}
+
+// WithMCPCIJobTimeout sets the longest an agent job may run.
+func WithMCPCIJobTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) { o.MCPCIJobTimeout = d }
+}
+
+// WithTriggerRunRetention sets how many finished runs are kept for each
+// trigger, and for how many days.
+func WithTriggerRunRetention(keep, days int) AppOption {
+	return func(o *ApplicationConfig) { o.TriggerRunKeep, o.TriggerRunRetentionDays = keep, days }
+}
+
+// Defaults of the agent jobs.
+const (
+	DefaultAgentJobRetentionDays = 30
+	DefaultMCPCIJobTimeout       = 10 * time.Minute
+)
+
+// WithChatsHostExec sets who gets the chats' built-in bash: off, ask or on.
+func WithChatsHostExec(mode string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ChatsHostExec = mode
+	}
+}
+
+// WithDisableSharedPages turns off the pages of shared folders.
+func WithDisableSharedPages(disabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.DisableSharedPages = disabled
 	}
 }
 
@@ -1397,4 +1528,123 @@ func WithRouterDecisionLog(enabled bool) AppOption {
 // WithDiagnosticsRecorder installs the optional startup-only timing recorder.
 func WithDiagnosticsRecorder(r *diagnostics.Recorder) AppOption {
 	return func(o *ApplicationConfig) { o.DiagnosticsRecorder = r }
+}
+
+// DefaultChatsMaxIterations is the step limit of a chat turn when
+// chats_max_iterations is not set. Multi-step work (read files, run commands,
+// write a result) often needs a few dozen rounds of tool calls.
+const DefaultChatsMaxIterations = 40
+
+// MaxChatsMaxIterations is the highest step limit chats_max_iterations takes.
+const MaxChatsMaxIterations = 500
+
+// Bounds and defaults of the loop settings of the chats.
+const (
+	MinChatsLoopInterval        = 30 * time.Second
+	MaxChatsLoopInterval        = 24 * time.Hour
+	DefaultChatsLoopMinInterval = time.Minute
+	DefaultChatsLoopMaxRuns     = 100
+	MaxChatsLoopMaxRuns         = 10000
+	DefaultChatsLoopMaxPerChat  = 3
+	MaxChatsLoopMaxPerChat      = 20
+	DefaultChatsLoopMaxPerUser  = 10
+	MaxChatsLoopMaxPerUser      = 200
+	DefaultChatsLoopDailyRuns   = 200
+	MaxChatsLoopDailyRuns       = 100000
+)
+
+// EffectiveChatsLoopMinInterval is chats_loop_min_interval as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMinInterval() time.Duration {
+	if d := o.ChatsLoopMinInterval; d >= MinChatsLoopInterval && d <= MaxChatsLoopInterval {
+		return d
+	}
+	return DefaultChatsLoopMinInterval
+}
+
+// inRange is n when it is from 1 to hi, else def.
+func inRange(n, hi, def int) int {
+	if n >= 1 && n <= hi {
+		return n
+	}
+	return def
+}
+
+// EffectiveChatsLoopMaxRuns is chats_loop_max_runs as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMaxRuns() int {
+	return inRange(o.ChatsLoopMaxRuns, MaxChatsLoopMaxRuns, DefaultChatsLoopMaxRuns)
+}
+
+// EffectiveChatsLoopMaxPerChat is chats_loop_max_per_chat as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMaxPerChat() int {
+	return inRange(o.ChatsLoopMaxPerChat, MaxChatsLoopMaxPerChat, DefaultChatsLoopMaxPerChat)
+}
+
+// EffectiveChatsLoopMaxPerUser is chats_loop_max_per_user as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopMaxPerUser() int {
+	return inRange(o.ChatsLoopMaxPerUser, MaxChatsLoopMaxPerUser, DefaultChatsLoopMaxPerUser)
+}
+
+// EffectiveChatsLoopDailyRuns is chats_loop_daily_runs as it applies now.
+func (o *ApplicationConfig) EffectiveChatsLoopDailyRuns() int {
+	return inRange(o.ChatsLoopDailyRuns, MaxChatsLoopDailyRuns, DefaultChatsLoopDailyRuns)
+}
+
+// Bounds of chats_index_max_text_bytes.
+const (
+	MinChatsIndexMaxTextBytes     = 64 << 10
+	MaxChatsIndexMaxTextBytes     = 16 << 20
+	DefaultChatsIndexMaxTextBytes = 2 << 20
+)
+
+// EffectiveChatsIndexMaxTextBytes is the text cap of one indexed file that
+// applies: the setting, or the default when it is unset or out of range.
+func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
+	if n := o.ChatsIndexMaxTextBytes; n >= MinChatsIndexMaxTextBytes && n <= MaxChatsIndexMaxTextBytes {
+		return n
+	}
+	return DefaultChatsIndexMaxTextBytes
+}
+
+// DefaultChatsEgressAuditDays is how long the Sandbox network audit keeps a
+// line while chats_egress_audit_days is unset.
+const DefaultChatsEgressAuditDays = 30
+
+// EffectiveChatsEgressAuditDays is chats_egress_audit_days as it applies now.
+func (o *ApplicationConfig) EffectiveChatsEgressAuditDays() int {
+	if o.ChatsEgressAuditDays < 1 || o.ChatsEgressAuditDays > 365 {
+		return DefaultChatsEgressAuditDays
+	}
+	return o.ChatsEgressAuditDays
+}
+
+// Defaults and bounds of chats_goal_max_turns and chats_goal_max_steps.
+const (
+	DefaultChatsGoalMaxTurns = 20
+	MaxChatsGoalMaxTurns     = 200
+	DefaultChatsGoalMaxSteps = 400
+	MaxChatsGoalMaxSteps     = 10000
+)
+
+// EffectiveChatsGoalMaxTurns is chats_goal_max_turns as it applies now.
+func (o *ApplicationConfig) EffectiveChatsGoalMaxTurns() int {
+	if o.ChatsGoalMaxTurns < 1 || o.ChatsGoalMaxTurns > MaxChatsGoalMaxTurns {
+		return DefaultChatsGoalMaxTurns
+	}
+	return o.ChatsGoalMaxTurns
+}
+
+// EffectiveChatsGoalMaxSteps is chats_goal_max_steps as it applies now.
+func (o *ApplicationConfig) EffectiveChatsGoalMaxSteps() int {
+	if o.ChatsGoalMaxSteps < 1 || o.ChatsGoalMaxSteps > MaxChatsGoalMaxSteps {
+		return DefaultChatsGoalMaxSteps
+	}
+	return o.ChatsGoalMaxSteps
+}
+
+// EffectiveChatsMaxIterations is chats_max_iterations as it applies now.
+func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
+	if o.ChatsMaxIterations < 1 || o.ChatsMaxIterations > MaxChatsMaxIterations {
+		return DefaultChatsMaxIterations
+	}
+	return o.ChatsMaxIterations
 }

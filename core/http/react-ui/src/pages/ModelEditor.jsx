@@ -10,6 +10,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import CodeEditor from '../components/CodeEditor'
 import FieldBrowser from '../components/FieldBrowser'
 import ConfigFieldRenderer from '../components/ConfigFieldRenderer'
+import ProxyVisionSwitch from '../components/ProxyVisionSwitch'
 import { FormContextProvider } from '../contexts/FormContext'
 import TemplateSelector from '../components/TemplateSelector'
 import { ModelFailoverStatus } from '../components/FailoverChainStatus'
@@ -442,6 +443,13 @@ export default function ModelEditor() {
     }, 50)
   }
 
+  // A change to a field that may not be in the form yet, like known_usecases
+  // from the cloud-proxy vision switch.
+  const handleAddedFieldChange = (path, val) => {
+    setActiveFieldPaths(prev => (prev.has(path) ? prev : new Set(prev).add(path)))
+    handleFieldChange(path, val)
+  }
+
   const handleRemoveField = (path) => {
     setActiveFieldPaths(prev => {
       const next = new Set(prev)
@@ -516,6 +524,13 @@ export default function ModelEditor() {
           }}>
             <Icon name="arrow-left" /> {t('actions.backTo', {page: backPage})}
           </button>
+          {/* Adding a model from a file or a Hugging Face repository is the
+              import flow; it starts here as well as from the models list. */}
+          {showTemplateSelector && (
+            <button className="btn btn-secondary" data-testid="add-model-import" onClick={() => navigate('/app/import-model')}>
+              <Icon name="upload" /> {tModels('actions.importModel')}
+            </button>
+          )}
           {!showTemplateSelector && tab === 'interactive' && (
             <button className={`btn ${isDirty ? 'btn-primary' : 'btn-secondary'}`} onClick={handleInteractiveSave} disabled={saving || !isDirty}>
               {saving ? <><LoadingSpinner size="sm" /> {t('actions.saving')}</> : <><Icon name="save" /> {isCreateMode ? t('actions.createModel') : (isDirty ? t('actions.saveChanges') : t('actions.saved'))}</>}
@@ -731,6 +746,9 @@ export default function ModelEditor() {
                             annotation={field.path === 'context_size' ? vramAnnotation : undefined}
                           />
                         ))}
+                        {s.id === 'proxy' && values.backend === 'cloud-proxy' && values['proxy.mode'] !== 'translate' && (
+                          <ProxyVisionSwitch usecases={values.known_usecases} onChange={v => handleAddedFieldChange('known_usecases', v)} />
+                        )}
                       </div>
                     )}
                   </div>

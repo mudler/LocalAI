@@ -5,7 +5,7 @@ import Icon from './Icon'
 export default function SearchableSelect({
   value, onChange, options, placeholder = 'Select...',
   allOption, searchPlaceholder = 'Search...',
-  disabled = false, style, className = '', triggerClassName = '',
+  disabled = false, style, className = '', triggerClassName = '', id,
 }) {
   const { t } = useTranslation('common')
   const [open, setOpen] = useState(false)
@@ -113,6 +113,7 @@ export default function SearchableSelect({
     <div ref={ref} className={className} style={{ position: 'relative', minWidth: 160, ...style }}>
       <button
         ref={buttonRef}
+        id={id}
         type="button"
         className={triggerClassName || 'input'}
         disabled={disabled}

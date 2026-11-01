@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/xlog"
 )
 
@@ -45,6 +47,9 @@ func passthroughError(c echo.Context, statusCode int, contentType string, body i
 	if contentType != "" {
 		c.Response().Header().Set("Content-Type", contentType)
 	}
+	// The status is the upstream's: say so, so that a chat can tell a refused
+	// upstream key from a refused user.
+	c.Response().Header().Set(model.UpstreamStatusHeader, strconv.Itoa(statusCode))
 	c.Response().WriteHeader(statusCode)
 	_, _ = c.Response().Writer.Write(buf)
 	return nil

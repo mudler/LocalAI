@@ -10,12 +10,13 @@
   "changeLanguage": "更改语言",
   "logout": "退出登录",
   "accountSettings": "账户设置",
+  "yourSettings": "你的设置",
   "account": "账户",
   "accountFor": "账户：{{name}}",
   "sections": {
     "recognition": "识别",
     "build": "构建",
-    "operate": "运维",
+    "operate": "管理",
     "workspace": "工作区"
   },
   "operate": {
@@ -66,7 +67,14 @@
     "logs": "Logs",
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
-    "prometheus": "Prometheus"
+    "prometheus": "Prometheus",
+    "chats": "聊天会话",
+    "files": "文件",
+    "triggers": "触发器",
+    "mcpConnectors": "MCP 连接器",
+    "chatsAdmin": "所有用户的聊天",
+    "pages": "页面",
+    "allChats": "全部对话"
   },
   "footer": {
     "github": "GitHub",
@@ -99,7 +107,15 @@
       "import": "从文件、URL 或 Hugging Face 仓库添加模型。",
       "voices": "识别说话人，并维护声音档案库。",
       "faces": "检测、比较和匹配人脸。",
-      "addons": "安装附加组件并打开它们提供的应用。"
-    }
-  }
+      "addons": "安装附加组件并打开它们提供的应用。",
+      "triggers": "按计划或在文件到达时自动开始对话。"
+    },
+    "operateSupporting": "此服务器上运行的内容、使用情况和配置。"
+  },
+  "pinnedPages": "已固定的页面",
+  "new": "新",
+  "recentChats": "最近对话",
+  "newChat": "新对话",
+  "untitledChat": "未命名对话",
+  "chatRunning": "进行中"
 }

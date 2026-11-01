@@ -56,6 +56,14 @@ var _ = Describe("apps list", func() {
 		Expect(Build(nil, true)).To(BeEmpty())
 		Expect(Build(nil, true)).NotTo(BeNil())
 	})
+	It("carries the install time to the list and the management view, and none for an old record", func() {
+		s := snapshot("notes", true, "running", nil, "add")
+		Expect(Build([]Snapshot{s}, false)[0].InstalledAt).To(BeEmpty())
+		Expect(BuildInstalled([]Snapshot{s})[0].InstalledAt).To(BeEmpty())
+		s.InstalledAt = "2026-10-01T10:00:00Z"
+		Expect(Build([]Snapshot{s}, false)[0].InstalledAt).To(Equal("2026-10-01T10:00:00Z"))
+		Expect(BuildInstalled([]Snapshot{s})[0].InstalledAt).To(Equal("2026-10-01T10:00:00Z"))
+	})
 	It("derives display fields, the main page and the icon URL from the verified manifest only", func() {
 		got := Build([]Snapshot{snapshot("notes", true, "running", page("home"), "add", "list")}, false)
 		Expect(got).To(HaveLen(1))
@@ -171,5 +179,34 @@ var _ = Describe("apps list", func() {
 		for _, secret := range []string{secretDir, "catalog.example", "registry.example", "sha256:aaaa", "127.0.0.1", "endpoint"} {
 			Expect(strings.Contains(string(b), secret)).To(BeFalse(), secret)
 		}
+	})
+	It("lists the host controls an add-on is entitled to, whatever its ID", func() {
+		bash := contract.ToolDefinition{Name: "bash", Description: "Run.", Kind: contract.ToolKindAction, Shadows: "bash",
+			InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)}
+		runner := func(id string, grants ...string) Snapshot {
+			ui := page("home")
+			ui.Controls = []string{contract.ControlNetworkPolicy, contract.ControlToolProviders}
+			s := snapshot(id, true, "running", ui, "bash")
+			s.Receipt.Manifest.Capabilities.ToolDefinitions = []contract.ToolDefinition{bash}
+			s.HostOps = grants
+			s.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
+			return s
+		}
+		list := Build([]Snapshot{runner("sandbox", "workspace.", "egress."), runner("devbox", "egress."), runner("plain")}, false)
+		Expect(list).To(HaveLen(3))
+		byID := map[string]App{}
+		for _, a := range list {
+			byID[a.ID] = a
+		}
+		Expect(byID["sandbox"].UI.Controls).To(Equal([]string{"network-policy", "tool-providers"}))
+		Expect(byID["devbox"].UI.Controls).To(Equal([]string{"network-policy", "tool-providers"}), "a second add-on reuses the control with its grant")
+		Expect(byID["plain"].UI.Controls).To(Equal([]string{"tool-providers"}), "no grant, no network policy")
+		b, err := json.Marshal(byID["devbox"])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).To(ContainSubstring(`"controls":["network-policy","tool-providers"]`))
+		// A manifest without controls lists none.
+		notes := snapshot("notes", true, "running", page("home"))
+		notes.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
+		Expect(Build([]Snapshot{notes}, false)[0].UI.Controls).To(BeNil())
 	})
 })

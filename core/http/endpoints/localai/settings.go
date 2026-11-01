@@ -2,9 +2,12 @@ package localai
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -14,6 +17,8 @@ import (
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/studio/hostexec"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/vram"
 	"github.com/mudler/LocalAI/pkg/vrambudget"
 	"github.com/mudler/xlog"
@@ -52,6 +57,38 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				Success: false,
 				Error:   "Failed to parse JSON: " + err.Error(),
 			})
+		}
+
+		// The ports and the SearXNG address of the chats' web tools.
+		if settings.ChatsWebPorts != nil {
+			if _, err := config.ParsePorts(*settings.ChatsWebPorts); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_ports: " + err.Error(),
+				})
+			}
+		}
+		if settings.ChatsWebSearXNGURL != nil {
+			if err := config.ValidateSearXNGURL(*settings.ChatsWebSearXNGURL); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_searxng_url: " + err.Error(),
+				})
+			}
+		}
+
+		if settings.ChatsWebSearchProviders != nil {
+			if _, err := config.ParseSearchProviders(*settings.ChatsWebSearchProviders, true); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid chats_web_search_providers: " + err.Error(),
+				})
+			}
+		}
+
+		// The network of the Sandbox commands.
+		if msg := validateEgressSettings(settings, body, appConfig.ChatsEgressAllowPrivate); msg != "" {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{Success: false, Error: msg})
 		}
 
 		// Validate timeouts if provided
@@ -107,6 +144,25 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 					Success: false,
 					Error:   "Invalid vram_budget format: " + err.Error(),
 				})
+			}
+		}
+
+		// The built-in chat tools: a mode the chats understand, and pins only for
+		// tools and skills an add-on may replace.
+		if settings.ChatsHostExec != nil && !hostexec.ValidMode(*settings.ChatsHostExec) {
+			return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+				Success: false,
+				Error:   "Invalid chats_host_exec: use off, ask or on",
+			})
+		}
+		if settings.ChatsToolProviders != nil {
+			for tool, addon := range *settings.ChatsToolProviders {
+				if !(contract.Replaceable(tool) || contract.ReplaceableSkill(tool)) || !validAddonID(addon) {
+					return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+						Success: false,
+						Error:   "Invalid chats_tool_providers: map a replaceable tool (bash, web_search, web_fetch) or skill (xlsx, docx, pptx, pdf) to an add-on ID",
+					})
+				}
 			}
 		}
 
@@ -271,9 +327,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			xlog.Info("Updated Open Responses store TTL", "ttl", ttl)
 		}
 
-		// Check if agent job retention changed
-		agentJobChanged := settings.AgentJobRetentionDays != nil
-
 		// Restart watchdog if settings changed.
 		//
 		// The live start/stop decision derives from the post-apply config
@@ -301,17 +354,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 						Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
 					})
 				}
-			}
-		}
-
-		// Restart agent job service if retention days changed
-		if agentJobChanged {
-			if err := app.RestartAgentJobService(); err != nil {
-				xlog.Error("Failed to restart agent job service", "error", err)
-				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
-					Success: false,
-					Error:   "Settings saved but failed to restart agent job service: " + err.Error(),
-				})
 			}
 		}
 
@@ -360,4 +402,86 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			RestartRequired: restartRequired,
 		})
 	}
+}
+
+var addonIDShape = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
+
+func validAddonID(id string) bool { return addonIDShape.MatchString(id) }
+
+// validateEgressSettings checks the chats_egress_* settings of a request and
+// returns the error to show, or "". Turning chats_egress_allow_private on
+// needs chats_egress_private_confirm with the typed phrase in the same body;
+// the phrase is a person's act, it is not stored.
+func validateEgressSettings(s config.RuntimeSettings, body []byte, privateOn bool) string {
+	for name, v := range map[string]*string{"chats_egress_ceiling": s.ChatsEgressCeiling, "chats_egress_default": s.ChatsEgressDefault} {
+		if v != nil && !config.ValidEgressPreset(*v) {
+			return "Invalid " + name + ": use off, registries or all"
+		}
+	}
+	if s.ChatsEgressPorts != nil {
+		if _, err := config.ParseEgressPorts(*s.ChatsEgressPorts); err != nil {
+			return "Invalid chats_egress_ports: " + err.Error()
+		}
+	}
+	if s.ChatsEgressExtraRegistries != nil {
+		if _, err := config.ParseEgressHosts(*s.ChatsEgressExtraRegistries); err != nil {
+			return "Invalid chats_egress_extra_registries: " + err.Error()
+		}
+	}
+	if s.ChatsEgressAllowedHosts != nil {
+		// An IP literal is judged with the private switch as this request
+		// leaves it.
+		priv := privateOn
+		if s.ChatsEgressAllowPrivate != nil {
+			priv = *s.ChatsEgressAllowPrivate
+		}
+		if _, err := config.ParseEgressAllowedHosts(*s.ChatsEgressAllowedHosts, priv); err != nil {
+			return "Invalid chats_egress_allowed_hosts: " + err.Error()
+		}
+	}
+	if s.ChatsEgressAuditDays != nil && (*s.ChatsEgressAuditDays < 1 || *s.ChatsEgressAuditDays > 365) {
+		return "Invalid chats_egress_audit_days: use 1 to 365"
+	}
+	if s.ChatsIndexMaxTextBytes != nil && (*s.ChatsIndexMaxTextBytes < config.MinChatsIndexMaxTextBytes || *s.ChatsIndexMaxTextBytes > config.MaxChatsIndexMaxTextBytes) {
+		return fmt.Sprintf("Invalid chats_index_max_text_bytes: use %d to %d", config.MinChatsIndexMaxTextBytes, config.MaxChatsIndexMaxTextBytes)
+	}
+	if s.ChatsMaxIterations != nil && (*s.ChatsMaxIterations < 1 || *s.ChatsMaxIterations > config.MaxChatsMaxIterations) {
+		return fmt.Sprintf("Invalid chats_max_iterations: use 1 to %d", config.MaxChatsMaxIterations)
+	}
+	if s.ChatsGoalMaxTurns != nil && (*s.ChatsGoalMaxTurns < 1 || *s.ChatsGoalMaxTurns > config.MaxChatsGoalMaxTurns) {
+		return fmt.Sprintf("Invalid chats_goal_max_turns: use 1 to %d", config.MaxChatsGoalMaxTurns)
+	}
+	if s.ChatsGoalMaxSteps != nil && (*s.ChatsGoalMaxSteps < 1 || *s.ChatsGoalMaxSteps > config.MaxChatsGoalMaxSteps) {
+		return fmt.Sprintf("Invalid chats_goal_max_steps: use 1 to %d", config.MaxChatsGoalMaxSteps)
+	}
+	if s.ChatsLoopMinInterval != nil {
+		d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsLoopMinInterval))
+		if err != nil || d < config.MinChatsLoopInterval || d > config.MaxChatsLoopInterval {
+			return "Invalid chats_loop_min_interval: use a duration from 30s to 24h, such as 1m"
+		}
+	}
+	for _, c := range []struct {
+		name string
+		v    *int
+		hi   int
+	}{
+		{"chats_loop_max_runs", s.ChatsLoopMaxRuns, config.MaxChatsLoopMaxRuns},
+		{"chats_loop_max_per_chat", s.ChatsLoopMaxPerChat, config.MaxChatsLoopMaxPerChat},
+		{"chats_loop_max_per_user", s.ChatsLoopMaxPerUser, config.MaxChatsLoopMaxPerUser},
+		{"chats_loop_daily_runs", s.ChatsLoopDailyRuns, config.MaxChatsLoopDailyRuns},
+	} {
+		if c.v != nil && (*c.v < 1 || *c.v > c.hi) {
+			return fmt.Sprintf("Invalid %s: use 1 to %d", c.name, c.hi)
+		}
+	}
+	if s.ChatsEgressAllowPrivate != nil && *s.ChatsEgressAllowPrivate && !privateOn {
+		var confirm struct {
+			Phrase string `json:"chats_egress_private_confirm"`
+		}
+		_ = json.Unmarshal(body, &confirm)
+		if strings.TrimSpace(confirm.Phrase) != config.EgressPrivatePhrase {
+			return "Turning chats_egress_allow_private on needs chats_egress_private_confirm: \"" + config.EgressPrivatePhrase + "\""
+		}
+	}
+	return ""
 }

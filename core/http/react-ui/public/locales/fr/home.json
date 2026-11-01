@@ -25,7 +25,10 @@
     "title": "Gérez LocalAI par la conversation",
     "description": "Installez des modèles, changez de backend, modifiez la configuration et vérifiez l'état en discutant avec LocalAI.",
     "open": "Ouvrir l'assistant",
-    "tooltip": "Gérer LocalAI par la conversation"
+    "tooltip": "Gérer LocalAI par la conversation",
+    "noModel": "Choisissez d'abord un modèle de chat.",
+    "startFailed": "Impossible de démarrer la conversation de l'assistant : {{message}}",
+    "chatTitle": "Assistant LocalAI"
   },
   "input": {
     "placeholder": "Message...",
@@ -73,13 +76,17 @@
       "step2Title": "Installer un modèle",
       "step2Body": "Cliquez sur installer pour le télécharger et le configurer automatiquement.",
       "step3Title": "Commencer à discuter",
-      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API."
+      "step3Body": "Discutez avec votre modèle depuis le navigateur ou via l'API.",
+      "sandboxTitle": "Exécuter du code en sécurité (facultatif)",
+      "sandboxBody": "Installez le module Sandbox pour que le modèle exécute code et commandes en isolation. Sans lui, les commandes s’exécutent directement sur cette machine, avec un accès réseau complet et aucune isolation."
     },
     "browseGallery": "Parcourir la galerie",
     "importModel": "Importer un modèle",
     "docs": "Docs",
     "noModelsTitle": "Aucun modèle disponible",
-    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter."
+    "noModelsBody": "Aucun modèle n'est installé pour l'instant. Demandez à votre administrateur de configurer des modèles pour pouvoir discuter.",
+    "sandboxInstall": "Installer Sandbox",
+    "sandboxSkip": "Ignorer"
   },
   "starters": {
     "title": "Recommandé pour votre matériel",
@@ -109,6 +116,22 @@
     "dismiss": "Ignorer"
   },
   "jump": {
-    "heading": "Reprendre où vous en étiez"
+    "heading": "Reprendre où vous en étiez",
+    "allChats": "Toutes les conversations"
+  },
+  "slash": {
+    "agents": {
+      "label": "Agents",
+      "desc": "Vos agents enregistrés, déclencheurs et compétences"
+    },
+    "mcp": {
+      "label": "Connecteurs MCP",
+      "desc": "Serveurs MCP que vos chats peuvent utiliser"
+    },
+    "memory": {
+      "label": "Mémoire",
+      "desc": "Collections que vos chats peuvent consulter"
+    },
+    "complete": "compléter"
   }
 }

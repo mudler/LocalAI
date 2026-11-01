@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "slack",
+  "version": "0.1.0",
+  "executable": "slack",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": { "min": 1, "max": 1 },
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "connector": {
+      "kinds": [
+        {
+          "id": "slack",
+          "title": "Slack",
+          "description": "Talk to one of your saved agents from Slack, in direct messages and in channel threads.",
+          "senderHint": "A user ID (U...), a channel ID (C...) or an @name",
+          "delivery": "pull",
+          "page": "apps"
+        }
+      ]
+    },
+    "ui": {
+      "entry": "ui/slack.js",
+      "css": ["ui/slack.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["apps"],
+      "mainPage": "apps",
+      "icon": "ui/icon.png",
+      "title": "Slack",
+      "description": "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    }
+  }
+}

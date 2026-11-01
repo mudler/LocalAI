@@ -2,6 +2,7 @@ package localai
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services/quantization"
+	"github.com/mudler/LocalAI/pkg/model"
 )
 
 // StartQuantizationJobEndpoint starts a new quantization job.
@@ -32,9 +34,7 @@ func StartQuantizationJobEndpoint(qService *quantization.QuantizationService) ec
 
 		resp, err := qService.StartJob(c.Request().Context(), userID, req)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": err.Error(),
-			})
+			return jobStartFailure(c, "quantization", err)
 		}
 
 		return c.JSON(http.StatusCreated, resp)
@@ -202,4 +202,18 @@ func ListQuantizationBackendsEndpoint(appConfig *config.ApplicationConfig, clust
 		}
 		return c.JSON(http.StatusOK, result)
 	}
+}
+
+// jobStartFailure answers a failed job start. A missing engine is a conflict
+// with the state of this instance, not a server fault, and the answer names
+// the engine so the person knows what to install.
+func jobStartFailure(c echo.Context, kind string, err error) error {
+	if errors.Is(err, model.ErrBackendNotFound) {
+		// The loader names the backend after its sentinel.
+		_, name, _ := strings.Cut(err.Error(), model.ErrBackendNotFound.Error()+": ")
+		return c.JSON(http.StatusConflict, map[string]string{
+			"error": fmt.Sprintf("%s engine %s is not installed; install it from the backends page", kind, name),
+		})
+	}
+	return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 }

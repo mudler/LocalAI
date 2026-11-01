@@ -1,0 +1,57 @@
+{
+  "backends": {
+    "filterLabel": "Backends filtern",
+    "check": "Nach Updates suchen",
+    "reinstallBackend": "Backend neu installieren",
+    "deleteBackend": "Backend löschen",
+    "updateAllTitle": "Alle Backends aktualisieren",
+    "updateAllIntro": "Wählen Sie, welche Backends aktualisiert werden. Jedes wird einzeln nacheinander aktualisiert. Ein Fehler stoppt die anderen nicht.",
+    "updateSelected": "Auswahl aktualisieren",
+    "loadFailedTitle": "Der Backend-Katalog konnte nicht geladen werden.",
+    "filtersButton": "Filter",
+    "filtersDone": "Fertig",
+    "filterGroups": {
+      "state": "Status",
+      "type": "Typ",
+      "show": "Anzeigen",
+      "library": "Bibliothek"
+    },
+    "showVariants": "Varianten",
+    "showDevelopment": "Entwicklungs-Builds",
+    "allLibraries": "Alle Bibliotheken",
+    "moreActions": "Weitere Backend-Aktionen",
+    "installFromUrl": "Von URL installieren…",
+    "manageLibraries": "Bibliotheken verwalten…",
+    "count_one": "{{count}} Backend",
+    "count_other": "{{count}} Backends",
+    "countOf": "{{shown}} von {{total}} Backends",
+    "activeFilters": "Aktive Filter",
+    "removeFilter": "Filter entfernen: {{name}}",
+    "checking": "Suche nach Updates…",
+    "updatesAvailable_one": "{{count}} Update verfügbar",
+    "updatesAvailable_other": "{{count}} Updates verfügbar",
+    "reviewUpdates": "Prüfen",
+    "close": "Schließen",
+    "installedLoadFailedTitle": "Die installierten Backends konnten nicht geladen werden."
+  },
+  "capacity": {
+    "diskChip": "Datenträger fast voll"
+  },
+  "activity": {
+    "kind": {
+      "addon": "Add-on"
+    },
+    "verb": {
+      "upgrading": "{{kind}} wird aktualisiert",
+      "failedUpgrade": "{{kind}} konnte nicht aktualisiert werden"
+    },
+    "filter": {
+      "addons": "Add-ons"
+    },
+    "upgradeVersions": "{{from}} auf {{to}}",
+    "rowUpgraded": "Aktualisiert in {{duration}}",
+    "rowUpgradedPlain": "Aktualisiert",
+    "viewInAddons": "In Add-ons anzeigen",
+    "upgradeWaiting": "Wartet auf den Start des Add-on-Dienstes. Nächste Prüfung in {{seconds}} s."
+  }
+}

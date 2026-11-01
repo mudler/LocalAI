@@ -5,7 +5,7 @@ weight = 49
 url = "/features/studio-history/"
 +++
 
-Studio history keeps the record of every [Studio]({{%relref "features/studio" %}}) generation (prompt, model, settings, the result's URL and the lineage between results) on the server, per user, so it survives a browser reset and follows you to another device. It is built the same way as [Chat History]({{%relref "features/chat-history" %}}): entries live in the same database as users, sessions and API keys (SQLite by default, PostgreSQL when `LOCALAI_AUTH_DATABASE_URL` points at one).
+Studio history keeps the record of every [Studio]({{%relref "features/studio" %}}) generation (prompt, model, settings, the result's URL and the lineage between results) on the server, per user, so it survives a browser reset and follows you to another device. Entries live in the same database as users, sessions and API keys (SQLite by default, PostgreSQL when `LOCALAI_AUTH_DATABASE_URL` points at one).
 
 Only the records move. The generated files stay where the generation endpoints write them (`/generated-images`, `/generated-videos`, `/generated-audio`, `/generated-3d` under the generated content directory), as before.
 

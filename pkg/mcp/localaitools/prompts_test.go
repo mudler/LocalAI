@@ -50,6 +50,7 @@ var _ = Describe("SystemPrompt assembler", func() {
 			"Skill: System status",
 			"Skill: Safely edit a model config",
 			"Skill: Manage a router corpus",
+			"Skill: Manage shared folders",
 			"get_router_corpus_stats",
 		}
 		for _, s := range mustContain {

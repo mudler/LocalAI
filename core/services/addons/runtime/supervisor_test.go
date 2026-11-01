@@ -104,6 +104,50 @@ func supervisor() *Supervisor {
 }
 
 var service = contract.Capabilities{Service: true}
+
+var _ = Describe("Stopping an add-on", func() {
+	It("gives it time to release what it owns before it kills the process", func() {
+		s := supervisor()
+		p := fixture("graceful", service)
+		i, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(filepath.Join(p.Directory, "fixture.closed")).To(BeARegularFile(), "the process was killed while it was closing")
+	})
+	It("kills an add-on that ignores the closing of its startup channel, within the grace period", func() {
+		s := supervisor()
+		i, e := s.Start(context.Background(), fixture("orphan", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		start := time.Now()
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		Expect(time.Since(start)).To(BeNumerically("<", 3*s.config.Limits.ShutdownTimeout))
+	})
+})
+
+var _ = Describe("Add-on output", func() {
+	It("goes to the log line by line with the add-on ID and a cap per line", func() {
+		var mu sync.Mutex
+		var got []string
+		s := supervisor()
+		s.config.Output = func(id, stream, line string) {
+			mu.Lock()
+			got = append(got, id+"|"+stream+"|"+line)
+			mu.Unlock()
+		}
+		i, e := s.Start(context.Background(), fixture("log", service), 1)
+		Expect(e).NotTo(HaveOccurred())
+		Eventually(func() []string { mu.Lock(); defer mu.Unlock(); return append([]string(nil), got...) }, 3*time.Second).Should(ContainElements(
+			"sample|stdout|hello from stdout", "sample|stderr|hello from stderr", "sample|stdout|"+strings.Repeat("x", maxOutputLine)+outputCut))
+		mu.Lock()
+		for _, l := range got {
+			Expect(len(l)).To(BeNumerically("<=", len("sample|stdout|")+maxOutputLine+len(outputCut)), "a line was not capped")
+		}
+		mu.Unlock()
+		Expect(s.Stop(context.Background(), i)).To(Succeed())
+		// The partial last line is not lost when the add-on ends.
+		Eventually(func() []string { mu.Lock(); defer mu.Unlock(); return append([]string(nil), got...) }, 3*time.Second).Should(ContainElement("sample|stdout|no newline at the end"))
+	})
+})
 var _ = Describe("Managed subprocess", func() {
 	It("registers only ready generation bound service headless and UI capabilities", func() {
 		for _, c := range []contract.Capabilities{service, {Tools: []string{"read"}}, {Tools: []string{"read"}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 1, Max: 2}}}} {

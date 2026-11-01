@@ -5,7 +5,10 @@
    existing rule picks up the palette without being edited. The roles
    switch with [data-theme] on <html>, so nothing here depends on the mode
    except the few data-visualisation hues that have no role.
-   Non-colour tokens (spacing, type, motion, layout) are unchanged. */
+   The non-colour tokens (type, space, radius, control height, motion and
+   focus) are defined here too, and the kit's own roles are pointed at them
+   at the end of this file. The vendored kit files are generated: override
+   their tokens here, never edit them. */
 :root {
   /* Surfaces */
   --color-bg-primary: var(--dk-canvas);
@@ -108,51 +111,113 @@
   --color-toggle-off: var(--dk-control-edge);
   --color-toggle-on: var(--dk-accent);
 
-  /* Motion */
-  --duration-fast: 120ms;
-  --duration-normal: 180ms;
-  --duration-slow: 260ms;
-  --ease-default: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-spring:  cubic-bezier(0.22, 1, 0.36, 1);
-  --duration-reveal: 420ms;
-  --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);  /* ease-out-expo-ish */
+  /* Motion. One set of durations and easings: motion explains a change of
+     state or place, never decorates. No easing overshoots, so nothing
+     bounces. Exits use --ease-in and run about a quarter faster than enters.
+     The old names below are aliases, kept until every rule uses the new ones. */
+  --dur-instant: 90ms;   /* press, toggle thumb, colour on hover */
+  --dur-fast: 140ms;     /* hover reveal, tooltip, chip state, small exits */
+  --dur-base: 200ms;     /* menus, popovers, list item enter, toast */
+  --dur-slow: 280ms;     /* side panes, sheets, sidebar collapse */
+  --dur-page: 180ms;     /* route cross-fade */
+  --dur-glide: 360ms;    /* a part that travels to its place on the next page */
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);         /* default enter */
+  --ease-out-strong: cubic-bezier(0.16, 1, 0.3, 1);  /* panes, sheets */
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);          /* exits */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);     /* progress, reorder */
 
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
+  --duration-fast: var(--dur-fast);
+  --duration-normal: var(--dur-base);
+  --duration-slow: var(--dur-slow);
+  --ease-default: var(--ease-out);
+  --ease-spring: var(--ease-out);
+  --duration-reveal: 420ms;
+  --ease-reveal: var(--ease-out-strong);
+
+  /* Spacing: 4-point steps. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-14: 56px;
+  --page-gutter: var(--sp-8);
+  --page-max-content: 1120px;
+
+  --spacing-xs: var(--sp-1);
+  --spacing-sm: var(--sp-2);
+  --spacing-md: var(--sp-4);
+  --spacing-lg: var(--sp-6);
+  --spacing-xl: var(--sp-8);
   --spacing-2xl: 3rem;
   --spacing-3xl: 4rem;
   --space-section: clamp(2rem, 1.2rem + 3vw, 3.5rem);
 
-  /* Radii — the shared kit scale: small parts 8, controls 12, panels 16,
-     cards 20. Dialogs use --dk-radius-4 (28) directly. */
-  --radius-sm: var(--dk-radius-1);
-  --radius-md: var(--dk-radius-2);
-  --radius-lg: 16px;
-  --radius-xl: var(--dk-radius-3);
+  /* Radii: sharp geometry. 4 for kbd and inline tags, 6 for chips and
+     badges, 8 for controls, 12 for cards, lists, panes and popovers, 16 for
+     dialogs and sheets. 50% only for avatars and dots. */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-lg);
   --radius-full: 9999px;
 
-  /* Typography — Geist Variable + Geist Mono Variable */
-  --font-sans: "Geist", "Geist Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", "Geist Mono Variable", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* Typography: Geist for every role, Geist Mono only for code. The
+     packages register the faces as "Geist Variable" and "Geist Mono
+     Variable", so those names come first. */
+  --font-sans: "Geist Variable", "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  /* The kit's type scale: 12 / 13 / 15 / 17 / 21 / 32 / 44. Body and list
-     text is 15; 13 is for secondary lines and button labels. */
-  --text-xs: var(--dk-text-12);
-  --text-sm: var(--dk-text-13);
-  --text-base: var(--dk-text-15);
-  --text-lg: var(--dk-text-17);
+  /* Type scale: size / line height. Body and list text is 15; 13 is for
+     secondary lines, buttons and tabs; 12 for meta rows and hints. */
+  --fs-meta: 12px;
+  --lh-meta: 16px;
+  --fs-small: 13px;
+  --lh-small: 18px;
+  --fs-body: 15px;
+  --lh-body: 22px;
+  --leading-body: 1.467; /* 22 / 15, for inherited line heights */
+  --fs-lead: 17px;
+  --lh-lead: 24px;
+  --fs-section: var(--fs-lead);
+  --lh-section: var(--lh-lead);
+  --fs-title: 28px;
+  --lh-title: 34px;
+  --fs-display: 40px;
+  --lh-display: 44px;
+
+  --text-xs: var(--fs-meta);
+  --text-sm: var(--fs-small);
+  --text-base: var(--fs-body);
+  --text-lg: var(--fs-section);
+  /* 21 is retired: use --fs-section or --fs-title in new rules. */
   --text-xl: var(--dk-text-21);
-  --text-2xl: 1.625rem;
-  --text-3xl: var(--dk-text-32);
-  --text-4xl: var(--dk-text-44);
+  --text-2xl: var(--fs-title);
+  --text-3xl: var(--fs-title);
+  --text-4xl: var(--fs-display);
 
-  /* Control heights: 40 for buttons, inputs, selects and tabs; 32 compact. */
-  --control-h: 40px;
-  --control-h-sm: 32px;
+  /* Control heights: 36 on a desktop, 28 compact (rows, toolbars, panes),
+     40 for the composer and mobile primary actions. A coarse pointer gets
+     40 everywhere (see the media block below). */
+  --ctl-h: 36px;
+  --ctl-h-sm: 28px;
+  --ctl-h-lg: 40px;
+  --control-h: var(--ctl-h);
+  --control-h-sm: var(--ctl-h-sm);
+
+  /* Focus: a 2px canvas gap and a 2px accent ring at 70%. As a shadow for
+     controls that draw their own ring, as an outline everywhere else. */
+  --focus-ring-color: color-mix(in srgb, var(--dk-accent) 70%, transparent);
+  --focus-ring: 0 0 0 2px var(--dk-canvas), 0 0 0 4px var(--focus-ring-color);
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -204,4 +269,76 @@
   --color-data-3: var(--dk-series-3);
   --color-data-6: var(--dk-series-2);
   --color-data-7: var(--dk-series-1);
+}
+
+/* The kit's roles, pointed at the product tokens. The kit ships OS font
+   stacks, a softer radius scale and a spring easing that overshoots; the
+   product uses Geist, sharper radii and no overshoot. */
+:root {
+  --dk-font-body: var(--font-sans);
+  --dk-font-display: var(--font-sans);
+  --dk-font-mono: var(--font-mono);
+
+  --dk-text-12: var(--fs-meta);
+  --dk-text-13: var(--fs-small);
+  --dk-text-15: var(--fs-body);
+  --dk-text-17: var(--fs-lead);
+  --dk-text-32: var(--fs-title);
+  --dk-text-44: var(--fs-display);
+
+  --dk-space-1: var(--sp-1);
+  --dk-space-2: var(--sp-2);
+  --dk-space-3: var(--sp-3);
+  --dk-space-4: var(--sp-4);
+  --dk-space-5: var(--sp-6);
+  --dk-space-6: var(--sp-8);
+
+  --dk-radius-1: var(--r-sm);
+  --dk-radius-2: var(--r-md);
+  --dk-radius-3: var(--r-lg);
+  --dk-radius-4: var(--r-xl);
+
+  --dk-dur-1: var(--dur-fast);
+  --dk-dur-2: var(--dur-base);
+  --dk-dur-3: var(--dur-slow);
+  --dk-ease-out: var(--ease-out-strong);
+  --dk-ease-spring: var(--ease-out);
+  --dk-press-scale: .98;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dk-press-scale: 1; }
+}
+
+/* Kit control heights follow --ctl-h. The kit sets the button height on
+   the element, so each size is restated here in the kit's order. */
+.dk-btn { --dk-btn-h: var(--ctl-h); }
+.dk-btn--sm { --dk-btn-h: var(--ctl-h-sm); }
+.dk-btn--lg { --dk-btn-h: 48px; }
+.dk-input, .dk-select { height: var(--ctl-h); }
+
+/* A finger needs a bigger target than a mouse: on a coarse pointer the
+   default control is 40 and the compact one 32, as before the desktop
+   scale became denser. */
+@media (pointer: coarse) {
+  :root {
+    --ctl-h: var(--ctl-h-lg);
+    --ctl-h-sm: 32px;
+  }
+}
+
+/* A phone: a narrower gutter and a smaller page title. */
+@media (max-width: 640px) {
+  :root {
+    --page-gutter: var(--sp-4);
+    --fs-title: 24px;
+    --lh-title: 30px;
+  }
+}
+
+/* Dark: the kit's secondary button is an inset fill, darker than the canvas,
+   with at most a hairline edge, so it almost disappears. Buttons use the card
+   fill and this edge, at least 3:1 against the canvas and a card. The button
+   rules that read it are in components/ui/ui.css. */
+[data-theme="dark"] {
+  --ctl-edge-dark: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-edge));
 }

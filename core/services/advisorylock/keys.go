@@ -4,9 +4,12 @@ package advisorylock
 // These keys are global across the database — avoid collisions with
 // other applications sharing the same PostgreSQL instance.
 const (
-	KeyCronScheduler       int64 = 100
-	KeyStaleNodeCleanup    int64 = 101
-	KeyGalleryDedup        int64 = 102
+	// 100, 101 and 102 were the cron scheduler, the stale node cleanup and the
+	// gallery dedup of earlier releases. Nothing takes them now; do not reuse
+	// them while an older frontend can still run in the same database.
+
+	// KeyAgentScheduler elects the one frontend that removes the agent jobs
+	// whose retention has passed.
 	KeyAgentScheduler      int64 = 103
 	KeyHealthCheck         int64 = 104
 	KeySchemaMigrate       int64 = 105
@@ -18,4 +21,25 @@ const (
 	// KeyAddonPinSweep elects the one frontend that expires the pins of
 	// removed add-ons.
 	KeyAddonPinSweep int64 = 109
+	// KeyChatsReaper elects the one frontend that ends the chat turns whose
+	// frontend stopped beating.
+	KeyChatsReaper int64 = 110
+	// KeyChatsTriggers elects the one frontend that runs the triggers of the
+	// chats. It is held for as long as the frontend lives.
+	KeyChatsTriggers int64 = 111
+	// KeyChatsConnectors elects the one frontend that polls the bots of the chat
+	// connectors. It is held for as long as the frontend lives.
+	KeyChatsConnectors int64 = 112
+	// KeyChatsConvert makes one frontend at a time convert the data of the old
+	// chat, agents and skills. It is held for the length of one conversion.
+	KeyChatsConvert int64 = 113
+	// KeyChatsEgressPrune elects the one frontend that removes the lines of
+	// the Sandbox network audit older than chats_egress_audit_days.
+	KeyChatsEgressPrune int64 = 114
+	// KeyChatsFileIndex elects the one frontend that reads the text of new
+	// and changed documents in the chats' files. It is held for one pass.
+	KeyChatsFileIndex int64 = 115
+	// KeyChatsLoops elects the one frontend that fires the loops of the
+	// chats. It is held for as long as the frontend lives.
+	KeyChatsLoops int64 = 116
 )

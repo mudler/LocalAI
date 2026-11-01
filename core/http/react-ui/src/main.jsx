@@ -15,15 +15,16 @@ import './vendor/ui-kit/motion.css'
 import './vendor/ui-kit/components.css'
 import './index.css'
 import './theme.css'
+// The UI primitives' rules sit between the tokens and the app's own rules:
+// a page's class on the same element still wins over a primitive's base.
+import './components/ui/ui.css'
 import './App.css'
-import LoadingSpinner from './components/LoadingSpinner'
+import { ShellFallback } from './components/RouteFallback'
 
+// The first paint is the app shell with placeholders, not a blank window
+// with a spinner, while the translations and the session load.
 function BootFallback() {
-  return (
-    <div className="app-boot-spinner">
-      <LoadingSpinner size="boot" />
-    </div>
-  )
+  return <ShellFallback />
 }
 
 // BrandingProvider sits outside AuthProvider so the login screen — which

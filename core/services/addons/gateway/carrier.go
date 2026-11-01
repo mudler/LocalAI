@@ -42,6 +42,7 @@ type CarrierConfig struct {
 type Carrier struct {
 	config CarrierConfig
 	client *http.Client
+	long   *http.Client // for action calls, which have no overall timeout
 	caps   capsCache
 }
 type OutcomeUnknown struct {
@@ -96,7 +97,11 @@ func NewCarrier(c CarrierConfig) (*Carrier, error) {
 	h := httpclient.New(httpclient.WithTransport(t))
 	h.Timeout = 65 * time.Second
 	h.CheckRedirect = func(*http.Request, []*http.Request) error { return ErrForbidden }
-	return &Carrier{config: c, client: h}, nil
+	// An action call can run for minutes: its client has no overall timeout and
+	// its context carries the bound.
+	long := httpclient.New(httpclient.WithTransport(t))
+	long.CheckRedirect = h.CheckRedirect
+	return &Carrier{config: c, client: h, long: long}, nil
 }
 func (c *Carrier) ServerTLS() *tls.Config {
 	return &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAndVerifyClientCert, ClientCAs: c.config.Roots, Certificates: []tls.Certificate{c.config.Certificate}}
@@ -350,7 +355,18 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			}
 			return
 		}
-		result, e := g.Dispatch(r.Context(), actor, wire.Request)
+		call := g.Dispatch
+		if wire.Request.Action == "act" {
+			// The owner runs an action call it was forwarded, for the actor
+			// the signature binds; Dispatch refuses the action.
+			call = g.Act
+			// The server's write timeout is sized for short calls. An action
+			// may run up to ActTimeout, and its answer would be cut off on a
+			// connection that already expired, which the frontend would then
+			// report as an unknown outcome.
+			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(contract.ActTimeout + time.Minute))
+		}
+		result, e := call(r.Context(), actor, wire.Request)
 		if e != nil {
 			typedError(w, e)
 			return
@@ -444,7 +460,60 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireSDK, Min: refusal.Min, Max: refusal.Max, Host: refusal.Host})
 		return
 	}
+	if t := denialType(e); t != "" {
+		// Typed apart from a plain denial, so a forwarding frontend tells the
+		// model "no permission" or "no such resource" like the owner does.
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: t})
+		return
+	}
 	http.Error(w, "addon request failed", StatusFor(e))
+}
+
+// Wire types of a 403 that says which denial it is.
+const (
+	wirePackage      = "package_unverified"
+	wireNotPermitted = "not_permitted"
+	wireUnreachable  = "resource_unreachable"
+)
+
+// denialType is the wire type of a denial that callers tell apart, or "".
+func denialType(e error) string {
+	switch {
+	case errors.Is(e, ErrUnavailable):
+		return ""
+	case errors.Is(e, packages.ErrPackage) && errors.Is(e, addons.ErrOperationFailed):
+		return wirePackage
+	case operationCause(e) != "":
+		return operationCause(e)
+	case errors.Is(e, ErrNotPermitted):
+		return wireNotPermitted
+	case errors.Is(e, ErrResourceUnreachable):
+		return wireUnreachable
+	}
+	return ""
+}
+
+// operationCause is the code of the typed cause of a failed operation, or "".
+// The codes are the wire types, so a forwarding frontend gives the same
+// answer as the owner.
+func operationCause(e error) string {
+	var c *addons.FailureCause
+	if errors.As(e, &c) && IsOperationCause(c.Code) {
+		return c.Code
+	}
+	return ""
+}
+
+// IsOperationCause reports whether code is one of the causes of a failed
+// operation that cross the wire.
+func IsOperationCause(code string) bool {
+	switch code {
+	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+		return true
+	}
+	return false
 }
 
 // wireSDK types the owner's refusal of an add-on built for another SDK range.
@@ -575,7 +644,11 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, e
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, e := c.client.Do(req)
+	client := c.client
+	if wire.Request.Action == "act" {
+		client = c.long
+	}
+	resp, e := client.Do(req)
 	if e != nil {
 		if wire.Proposal != nil {
 			return nil, uncertainProposal(*wire.Proposal, wire.Request.OperationID)
@@ -598,8 +671,19 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				return nil, resourceReplyError(resp.Body, resp.StatusCode, wire.Request.OperationID)
 			}
 			var b sdkWire
-			if decode(io.LimitReader(resp.Body, 4096), &b) == nil && b.Type == wireSDK {
-				return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
+			if decode(io.LimitReader(resp.Body, 4096), &b) == nil {
+				switch b.Type {
+				case wireSDK:
+					return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
+				case wirePackage:
+					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
+				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
+				case wireNotPermitted:
+					return nil, ErrNotPermitted
+				case wireUnreachable:
+					return nil, ErrResourceUnreachable
+				}
 			}
 			return nil, ErrForbidden
 		}
@@ -635,7 +719,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 // Reads, denials and errors that are already unknown pass through unchanged.
 func mutationOutcome(r contract.Request, e error) error {
 	var unknown *OutcomeUnknown
-	if e == nil || errors.As(e, &unknown) || !mutation(r.Action) || StatusFor(e) != http.StatusServiceUnavailable {
+	if e == nil || errors.As(e, &unknown) || errors.Is(e, ErrNotSent) || !mutation(r.Action) || StatusFor(e) != http.StatusServiceUnavailable {
 		return e
 	}
 	return &OutcomeUnknown{OperationID: r.OperationID}
@@ -655,6 +739,14 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
 	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+}
+
+// Act forwards an action call to the owner and waits for its answer, up to the
+// act timeout. A lost answer is an unknown outcome: the tool may have run.
+func (c *Carrier) Act(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
+	ctx, cancel := context.WithTimeout(ctx, contract.ActTimeout+time.Minute)
+	defer cancel()
+	return c.Dispatch(ctx, a, r)
 }
 func (c *Carrier) Dispatch(ctx context.Context, a contract.Actor, r contract.Request) (contract.Result, error) {
 	resp, e := c.send(ctx, a, wireRequest{Request: r})

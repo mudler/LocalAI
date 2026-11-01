@@ -243,6 +243,7 @@ func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand,
 		}
 		return result, applyErr
 	case applied:
+		m.syncSkills(ctx, cmd.AddonID)
 		return result, m.syncFor(ctx, cmd.AddonID)
 	case e != nil:
 		return fail()

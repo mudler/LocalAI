@@ -9,22 +9,23 @@ import { useWideLayout } from '../hooks/useWideLayout'
 // eslint-disable-next-line no-unused-vars
 import UserGroupSection from '../components/UserGroupSection'
 // eslint-disable-next-line no-unused-vars
-import PageHeader from '../components/PageHeader'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows, StatusChip } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import ConfirmDialog from '../components/ConfirmDialog'
-// eslint-disable-next-line no-unused-vars
-import HomeUndoToast from '../components/home/HomeUndoToast'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { AddToMenu, PassageList, UsedByStrip } from '../components/library/LibraryBits'
 // eslint-disable-next-line no-unused-vars
 import SimulateSheet from '../components/library/SimulateSheet'
 import { usedByLine } from '../utils/libraryText'
-import { collectionUsers, entryName, normaliseSource, withKb, withoutKb } from '../utils/library'
-import { skillsApi } from '../utils/api'
+import { collectionUsers, entryName, normaliseSource, withCollection, withoutCollection } from '../utils/library'
+import { chatSkillsApi } from '../utils/api'
 import './library.css'
 
 const DEFAULT_PASSAGES = 10
+const DOCS = 'https://localai.io/features/collections/'
+const STARTING_EVERY = 5000
+const STARTING_TRIES = 12
 
 const nameOf = c => (typeof c === 'string' ? c : c?.name)
 
@@ -45,6 +46,7 @@ export default function Collections() {
 
   const [collections, setCollections] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
   const [filter, setFilter] = useState('')
   const [usage, setUsage] = useState('all')
   const [showCreate, setShowCreate] = useState(false)
@@ -54,8 +56,10 @@ export default function Collections() {
   const [confirmDialog, setConfirmDialog] = useState(null)
   const [sim, setSim] = useState(null)
   const [skills, setSkills] = useState([])
-  const [undo, setUndo] = useState(null)
   const [busy, setBusy] = useState(false)
+  // The model that indexes and searches the collections, and whether this
+  // server has it. Without it every upload and search fails.
+  const [embedding, setEmbedding] = useState({ model: '', installed: true })
 
   const selectedUser = params.get('user_id') || undefined
 
@@ -69,19 +73,34 @@ export default function Collections() {
       const data = await agentCollectionsApi.list(isAdmin && authEnabled)
       setCollections((Array.isArray(data.collections) ? data.collections : []).map(nameOf).filter(Boolean))
       setUserGroups(data.user_groups || null)
+      setEmbedding({ model: data.embedding_model || '', installed: data.embedding_model_installed !== false })
+      setLoadError(null)
     } catch (err) {
-      addToast(t('collections:toasts.loadFailed', { message: err.message }), 'error')
+      // A failed read shows an error in place of the list, never the empty
+      // library, and never only a toast.
+      setLoadError(err)
     } finally {
       setLoading(false)
     }
-  }, [addToast, isAdmin, authEnabled, t])
+  }, [isAdmin, authEnabled])
 
   useEffect(() => { fetchCollections() }, [fetchCollections])
 
+  // While the memory service starts the server answers 503. That is not a
+  // failure: the page says so and asks again by itself, for about a minute.
+  const startTries = useRef(0)
+  const starting = loadError?.status === 503
+  useEffect(() => {
+    if (!starting) { startTries.current = 0; return undefined }
+    if (startTries.current >= STARTING_TRIES) return undefined
+    const id = setTimeout(() => { startTries.current += 1; fetchCollections() }, STARTING_EVERY)
+    return () => clearTimeout(id)
+  }, [starting, loadError, fetchCollections])
+
   // Skills only feed the Simulate sheet.
   useEffect(() => {
-    skillsApi.list(false)
-      .then(data => setSkills(Array.isArray(data) ? data : (Array.isArray(data?.skills) ? data.skills : [])))
+    chatSkillsApi.list()
+      .then(data => setSkills(Array.isArray(data?.skills) ? data.skills.filter(sk => !sk.shadowed && !sk.invalid) : []))
       .catch(() => setSkills([]))
   }, [])
 
@@ -158,21 +177,21 @@ export default function Collections() {
   const addToAgent = async (collection, agent) => {
     const config = facts.agents.find(a => a.name === agent)?.config
     if (!config) { addToast(t('library:toasts.updateFailed', { agent, message: t('library:usedBy.unread') }), 'error'); return }
-    const next = withKb(config)
+    const next = withCollection(config, collection)
     if (!next) return
     if (await saveFor(agent, next)) addToast(t('library:toasts.collectionAdded', { name: collection, agent }), 'success')
   }
 
   const removeFromAgent = async (collection, agent) => {
     const config = facts.agents.find(a => a.name === agent)?.config
-    const next = config && withoutKb(config)
+    const next = config && withoutCollection(config, collection)
     if (!next) return
     if (!(await saveFor(agent, next))) return
-    setUndo({
-      id: Date.now(),
-      message: t('library:toasts.collectionRemoved', { name: collection, agent }),
-      restore: async () => {
-        if (await saveFor(agent, config)) addToast(t('library:toasts.undone'), 'success')
+    addToast(t('library:toasts.collectionRemoved', { name: collection, agent }), 'success', undefined, {
+      testId: 'library-undo-toast',
+      action: {
+        label: t('library:toasts.undo'),
+        onClick: async () => { if (await saveFor(agent, config)) addToast(t('library:toasts.undone'), 'success') },
       },
     })
   }
@@ -185,22 +204,38 @@ export default function Collections() {
   const selected = !selectedUser && selectedName ? selectedName : ''
   const selectedOther = selectedUser && (userGroups?.[selectedUser]?.collections || []).map(nameOf).includes(selectedName) ? selectedName : ''
   const open = !!(selected || selectedOther)
-  const empty = !loading && collections.length === 0 && !userGroups && !open
+  const empty = !loading && !loadError && collections.length === 0 && !userGroups && !open
+  // A list that could not be read replaces the list only; a collection named
+  // in the address still opens in its pane.
+  const listError = !loadError ? null : starting ? (
+    <Callout
+      title={t('collections:starting.title')}
+      role="status"
+      testId="memory-starting"
+      actions={<Button size="sm" icon="refresh" onClick={fetchCollections}>{t('common:ui.tryAgain')}</Button>}
+    >
+      {t('collections:starting.text')}
+    </Callout>
+  ) : (
+    <LoadError title={t('collections:loadFailed')} error={loadError} onRetry={fetchCollections} />
+  )
 
   return (
-    <div className="page page--wide lib-page" data-testid="memory-page">
+    <Page width="full" className="lib-page" data-testid="memory-page">
       <PageHeader
         title={t('collections:title')}
         supporting={t('collections:subtitle')}
-        actions={(
-          <div className="lib-head-actions">
-            <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setSim({ seed: null })} data-testid="open-simulate">
-              <Icon name="flask" /> {t('library:simulate.button')}
-            </button>
-            <button type="button" className="dk-btn dk-btn--primary" aria-expanded={showCreate} onClick={() => setShowCreate(v => !v)} data-testid="new-collection">
-              <Icon name="plus" /> {t('collections:actions.newCollection')}
-            </button>
-          </div>
+        actions={!loadError && (
+          <>
+            <Button icon="flask" onClick={() => setSim({ seed: null })} data-testid="open-simulate">
+              {t('library:simulate.button')}
+            </Button>
+            {!empty && (
+              <Button variant="primary" icon="plus" aria-expanded={showCreate} onClick={() => setShowCreate(v => !v)} data-testid="new-collection">
+                {t('collections:actions.newCollection')}
+              </Button>
+            )}
+          </>
         )}
       />
 
@@ -215,111 +250,134 @@ export default function Collections() {
             onChange={(e) => setNewName(e.target.value)}
             autoFocus
           />
-          <button type="submit" className="dk-btn dk-btn--primary" disabled={creating || !newName.trim()}>
-            {creating ? <><Icon name="spinner" spin /> {t('collections:actions.creating')}</> : <><Icon name="plus" /> {t('collections:actions.create')}</>}
-          </button>
+          <Button type="submit" variant="primary" icon="plus" busy={creating} disabled={!newName.trim()}>
+            {t('collections:actions.create')}
+          </Button>
+          <Button variant="ghost" onClick={() => { setShowCreate(false); setNewName('') }}>{t('collections:actions.cancel')}</Button>
         </form>
       )}
 
+      {!loading && !loadError && !embedding.installed && (
+        <Callout
+          tone="warn"
+          title={t('collections:embedding.missingTitle')}
+          testId="memory-no-embedding"
+          actions={isAdmin && embedding.model ? (
+            <Button size="sm" variant="primary" icon="download" onClick={() => navigate(`/app/models?q=${encodeURIComponent(embedding.model)}`)} data-testid="install-embedding">
+              {t('collections:embedding.install')}
+            </Button>
+          ) : null}
+        >
+          {embedding.model ? t('collections:embedding.missingText', { model: embedding.model }) : t('collections:embedding.noneSet')}
+          {!isAdmin && ` ${t('collections:embedding.askAdmin')}`}
+        </Callout>
+      )}
+
       {loading ? (
-        <div className="dk-empty" aria-busy="true"><Icon name="spinner" spin /></div>
+        <SkeletonRows count={3} />
+      ) : listError && !open ? (
+        listError
       ) : empty ? (
-        <div className="lib-empty" data-testid="memory-empty">
-          <div className="dk-empty-icon"><Icon name="database" /></div>
-          <h2>{t('collections:empty.title')}</h2>
-          <p>{t('collections:empty.text')}</p>
-          <ol className="lib-empty__steps">
-            <li><span className="lib-step-n">1</span><span>{t('collections:empty.stepCreate')}</span></li>
-            <li><span className="lib-step-n">2</span><span>{t('collections:empty.stepFill')}</span></li>
-            <li><span className="lib-step-n">3</span><span>{t('collections:empty.stepAsk')}</span></li>
-          </ol>
-          <div className="lib-empty__acts">
-            <button className="dk-btn dk-btn--primary" onClick={() => setShowCreate(true)}>
-              <Icon name="plus" /> {t('collections:actions.newCollection')}
-            </button>
-          </div>
-        </div>
+        <EmptyState
+          icon="database"
+          title={t('collections:empty.title')}
+          body={t('collections:empty.text')}
+          steps={[t('collections:empty.stepCreate'), t('collections:empty.stepFill'), t('collections:empty.stepAsk')]}
+          actions={(
+            <>
+              <Button variant="primary" icon="plus" aria-expanded={showCreate} onClick={() => setShowCreate(true)} data-testid="new-collection">
+                {t('collections:actions.newCollection')}
+              </Button>
+              <Button variant="ghost" icon="book" href={DOCS} target="_blank" rel="noopener noreferrer">{t('collections:empty.learn')}</Button>
+            </>
+          )}
+          testId="memory-empty"
+        />
       ) : (
         <div className="dk-split lib-split" data-view={open ? 'pane' : 'list'}>
           <div className="dk-split-rail lib-rail">
-            <span className="dk-input-icon lib-find">
-              <Icon name="search" className="dk-icon" />
-              <input
-                type="search"
-                className="dk-input"
-                placeholder={t('collections:filter.placeholder')}
-                aria-label={t('collections:filter.label')}
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                data-testid="collections-filter"
-              />
-            </span>
-            <div className="lib-filters" role="group" aria-label={t('collections:filter.show')}>
-              {['all', 'used', 'unused'].map(f => (
-                <button
-                  key={f}
-                  type="button"
-                  className="dk-chip dk-chip--sm"
-                  aria-pressed={usage === f}
-                  disabled={f !== 'all' && !known}
-                  onClick={() => setUsage(f)}
-                  data-testid={`collections-filter-${f}`}
-                >
-                  {t(`collections:filter.${f}`)}
-                </button>
-              ))}
-            </div>
+            {listError || (
+              <>
+                <span className="dk-input-icon lib-find">
+                  <Icon name="search" className="dk-icon" />
+                  <input
+                    type="search"
+                    className="dk-input"
+                    placeholder={t('collections:filter.placeholder')}
+                    aria-label={t('collections:filter.label')}
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    data-testid="collections-filter"
+                  />
+                </span>
+                <div className="lib-filters" role="group" aria-label={t('collections:filter.show')}>
+                  {['all', 'used', 'unused'].map(f => (
+                    <button
+                      key={f}
+                      type="button"
+                      className="dk-chip dk-chip--sm"
+                      aria-pressed={usage === f}
+                      disabled={f !== 'all' && !known}
+                      onClick={() => setUsage(f)}
+                      data-testid={`collections-filter-${f}`}
+                    >
+                      {t(`collections:filter.${f}`)}
+                    </button>
+                  ))}
+                </div>
 
-            {collections.length === 0 ? (
-              <p className="lib-rail__none">{t('collections:empty.noPersonal')}</p>
-            ) : visible.length === 0 ? (
-              <p className="lib-rail__none" data-testid="collections-none">{t('collections:filter.none')}</p>
-            ) : (
-              <div className="dk-list lib-rows" role="list" aria-label={t('collections:list.label')}>
-                {visible.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    role="listitem"
-                    className="dk-row"
-                    aria-selected={!selectedUser && selectedName === c}
-                    onClick={() => go(c)}
-                    data-testid={`collection-row-${c}`}
-                  >
-                    <span className="dk-row-lead"><Icon name="database" /></span>
-                    <span className="dk-row-main">
-                      <span className="dk-row-title dk-mono">{c}</span>
-                      <span className="dk-row-meta" data-testid={`collection-used-${c}`}>{usedByLine(t, usersOf.get(c), facts.status)}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {userGroups && (
-              <UserGroupSection
-                title={t('collections:sections.otherUsersCollections')}
-                userGroups={userGroups}
-                userMap={userMap}
-                currentUserId={user?.id}
-                itemKey="collections"
-                renderGroup={(items, userId) => (
-                  <div className="dk-list lib-others">
-                    {(items || []).map(nameOf).map(c => (
+                {collections.length === 0 ? (
+                  <p className="lib-rail__none">{t('collections:empty.noPersonal')}</p>
+                ) : visible.length === 0 ? (
+                  <p className="lib-rail__none" data-testid="collections-none">{t('collections:filter.none')}</p>
+                ) : (
+                  <div className="dk-list lib-rows" role="list" aria-label={t('collections:list.label')}>
+                    {visible.map(c => (
                       <button
                         key={c}
                         type="button"
+                        role="listitem"
                         className="dk-row"
-                        aria-selected={selectedUser === userId && selectedName === c}
-                        onClick={() => go(c, userId)}
+                        aria-selected={!selectedUser && selectedName === c}
+                        onClick={() => go(c)}
+                        data-testid={`collection-row-${c}`}
                       >
                         <span className="dk-row-lead"><Icon name="database" /></span>
-                        <span className="dk-row-main"><span className="dk-row-title dk-mono">{c}</span></span>
+                        <span className="dk-row-main">
+                          <span className="dk-row-title">{c}</span>
+                          <span className="dk-row-meta" data-testid={`collection-used-${c}`}>{usedByLine(t, usersOf.get(c), facts.status)}</span>
+                        </span>
                       </button>
                     ))}
                   </div>
                 )}
-              />
+
+                {userGroups && (
+                  <UserGroupSection
+                    title={t('collections:sections.otherUsersCollections')}
+                    userGroups={userGroups}
+                    userMap={userMap}
+                    currentUserId={user?.id}
+                    itemKey="collections"
+                    renderGroup={(items, userId) => (
+                      <div className="dk-list lib-others">
+                        {(items || []).map(nameOf).map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            className="dk-row"
+                            aria-selected={selectedUser === userId && selectedName === c}
+                            onClick={() => go(c, userId)}
+                          >
+                            <span className="dk-row-lead"><Icon name="database" /></span>
+                            <span className="dk-row-main"><span className="dk-row-title">{c}</span></span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  />
+                )}
+              </>
             )}
           </div>
 
@@ -361,18 +419,6 @@ export default function Collections() {
         seed={sim?.seed || null}
       />
 
-      {undo && (
-        <HomeUndoToast
-          key={undo.id}
-          message={undo.message}
-          testId="library-undo-toast"
-          undoLabel={t('library:toasts.undo')}
-          dismissLabel={t('library:toasts.dismiss')}
-          onUndo={() => { const { restore } = undo; setUndo(null); restore() }}
-          onExpire={() => setUndo(null)}
-        />
-      )}
-
       <ConfirmDialog
         open={!!confirmDialog}
         title={confirmDialog?.title}
@@ -382,16 +428,16 @@ export default function Collections() {
         onConfirm={confirmDialog?.onConfirm}
         onCancel={() => setConfirmDialog(null)}
       />
-    </div>
+    </Page>
   )
 }
 
 const PATHS = [
-  ['POST', '/api/agents/collections/{name}/upload', 'upload'],
-  ['GET', '/api/agents/collections/{name}/entries', 'entries'],
-  ['POST', '/api/agents/collections/{name}/search', 'search'],
-  ['GET', '/api/agents/collections/{name}/sources', 'sources'],
-  ['POST', '/api/agents/collections/{name}/reset', 'reset'],
+  ['POST', '/api/collections/{name}/upload', 'upload'],
+  ['GET', '/api/collections/{name}/entries', 'entries'],
+  ['POST', '/api/collections/{name}/search', 'search'],
+  ['GET', '/api/collections/{name}/sources', 'sources'],
+  ['POST', '/api/collections/{name}/reset', 'reset'],
 ]
 
 // eslint-disable-next-line no-unused-vars
@@ -400,7 +446,8 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
   const [entries, setEntries] = useState([])
   const [sources, setSources] = useState([])
   const [loaded, setLoaded] = useState(false)
-  const [loadFailed, setLoadFailed] = useState(false)
+  const [entriesError, setEntriesError] = useState(null)
+  const [sourcesError, setSourcesError] = useState(null)
   const [addOpen, setAddOpen] = useState(false)
   const [uploadFile, setUploadFile] = useState(null)
   const [attempts, setAttempts] = useState([])
@@ -420,30 +467,30 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
     try {
       const data = await agentCollectionsApi.entries(name, userId)
       setEntries(Array.isArray(data.entries) ? data.entries : [])
+      setEntriesError(null)
       return true
     } catch (err) {
-      addToast(t('collections:toasts.entriesFailed', { message: err.message }), 'error')
+      setEntriesError(err)
       return false
     }
-  }, [name, userId, addToast, t])
+  }, [name, userId])
 
   const fetchSources = useCallback(async () => {
     try {
       const data = await agentCollectionsApi.sources(name, userId)
       setSources((Array.isArray(data.sources) ? data.sources : []).map(normaliseSource))
+      setSourcesError(null)
       return true
     } catch (err) {
-      addToast(t('collections:toasts.sourcesFailed', { message: err.message }), 'error')
+      setSourcesError(err)
       return false
     }
-  }, [name, userId, addToast, t])
+  }, [name, userId])
 
   useEffect(() => {
     let live = true
-    Promise.all([fetchEntries(), fetchSources()]).then(results => {
-      if (!live) return
-      setLoadFailed(results.some(ok => !ok))
-      setLoaded(true)
+    Promise.all([fetchEntries(), fetchSources()]).then(() => {
+      if (live) setLoaded(true)
     })
     return () => { live = false }
   }, [fetchEntries, fetchSources])
@@ -482,7 +529,6 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
       setAnswer({ query: q, results: Array.isArray(data.results) ? data.results : [], error: null })
     } catch (err) {
       setAnswer({ query: q, results: [], error: err.message })
-      addToast(t('library:search.failed', { message: err.message }), 'error')
     } finally {
       setSearching(false)
     }
@@ -562,46 +608,49 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
   }, [view])
 
   const failed = attempts.filter(a => a.phase === 'failed').length
-  const sub = loaded
+  const sub = loaded && !entriesError && !sourcesError
     ? t('collections:pane.counts', { files: entries.length, sources: sources.length })
     : ''
 
   return (
     <>
-      <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm lib-back" onClick={onBack}>
-        <Icon name="arrow-left" /> {t('collections:pane.back')}
-      </button>
+      <Button variant="ghost" size="sm" icon="arrow-left" className="lib-back" onClick={onBack}>
+        {t('collections:pane.back')}
+      </Button>
 
       <div className="lib-pane__head">
         <div className="lib-pane__title">
-          <h2 className="lib-mono" data-testid="collection-title">{name}</h2>
+          <h2 data-testid="collection-title">{name}</h2>
           <p className="lib-pane__sub" data-testid="collection-counts">{sub}</p>
         </div>
         <div className="lib-pane__acts">
-          {failed > 0 && <span className="dk-badge dk-badge--error" data-testid="collection-failed-badge">{t('collections:pane.failed', { count: failed })}</span>}
-          <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" aria-expanded={addOpen} onClick={() => setAddOpen(v => !v)} data-testid="add-source-toggle">
-            <Icon name="plus" /> {t('collections:pane.addSource')}
-          </button>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={onReset} title={t('collections:actions.resetCollection')}>
-            <Icon name="refresh" /> {t('collections:actions.reset')}
-          </button>
+          {failed > 0 && <StatusChip tone="error" testId="collection-failed-badge">{t('collections:pane.failed', { count: failed })}</StatusChip>}
+          <Button variant="primary" size="sm" icon="plus" aria-expanded={addOpen} onClick={() => setAddOpen(v => !v)} data-testid="add-source-toggle">
+            {t('collections:pane.addSource')}
+          </Button>
+          <Button variant="danger-ghost" size="sm" icon="eraser" onClick={onReset} title={t('collections:actions.resetCollection')}>
+            {t('collections:actions.reset')}
+          </Button>
         </div>
       </div>
 
       {own && (
         <>
           <UsedByStrip users={users} status={status} onRemove={onRemove} busy={busy}>
-            <AddToMenu kind="collection" name={name} agents={agents} allSkillNames={[]} status={status} onAdd={onAdd} busy={busy} />
+            <AddToMenu name={name} agents={agents} status={status} onAdd={onAdd} busy={busy} />
           </UsedByStrip>
           {unused && (
-            <div className="lib-notused" data-testid="collection-not-used">
-              <p>{t('library:notUsed.collection')}</p>
-              <span className="lib-notused__acts">
-                <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={onTry} data-testid="collection-try">
-                  <Icon name="flask" /> {t('library:tryInContext')}
-                </button>
-              </span>
-            </div>
+            <Callout
+              icon="info"
+              testId="collection-not-used"
+              actions={(
+                <Button size="sm" icon="flask" onClick={onTry} data-testid="collection-try">
+                  {t('library:tryInContext')}
+                </Button>
+              )}
+            >
+              {t('library:notUsed.collection')}
+            </Callout>
           )}
         </>
       )}
@@ -613,9 +662,9 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
               <label className="dk-label" htmlFor="upload-file">{t('collections:add.file')}</label>
               <input id="upload-file" ref={fileInput} className="dk-input" type="file" onChange={(e) => setUploadFile(e.target.files[0] || null)} />
             </div>
-            <button className="dk-btn dk-btn--secondary" type="submit" disabled={!uploadFile}>
-              <Icon name="upload" /> {t('collections:add.upload')}
-            </button>
+            <Button type="submit" icon="upload" disabled={!uploadFile}>
+              {t('collections:add.upload')}
+            </Button>
           </form>
           <form className="lib-adding__row" onSubmit={handleAddSource}>
             <div className="dk-field">
@@ -626,16 +675,16 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
               <label className="dk-label" htmlFor="source-interval">{t('collections:add.interval')}</label>
               <input id="source-interval" className="dk-input" type="number" min="1" step="1" value={newSourceInterval} onChange={(e) => setNewSourceInterval(e.target.value)} placeholder={t('collections:add.intervalPlaceholder')} />
             </div>
-            <button className="dk-btn dk-btn--secondary" type="submit" disabled={!newSourceUrl.trim() || addingSource}>
-              {addingSource ? <><Icon name="spinner" spin /> {t('collections:add.adding')}</> : <><Icon name="plus" /> {t('collections:add.addUrl')}</>}
-            </button>
+            <Button type="submit" icon="plus" busy={addingSource} disabled={!newSourceUrl.trim()}>
+              {t('collections:add.addUrl')}
+            </Button>
           </form>
         </div>
       )}
 
       {attempts.length > 0 && (
         <section className="lib-section" aria-labelledby="adding-h">
-          <h3 className="lib-eyebrow" id="adding-h">{t('collections:entries.adding')}</h3>
+          <h3 className="lib-section__title" id="adding-h">{t('collections:entries.adding')}</h3>
           <ul className="lib-ledger" data-testid="uploads-list">
               {attempts.map(a => (
                 <li key={a.id} className="lib-line" data-state={a.phase}>
@@ -647,12 +696,12 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
                   <span className="lib-line__acts">
                     {a.phase === 'failed' && (
                       <>
-                        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => upload(a.file, a.id)}>
-                          <Icon name="refresh" /> {t('collections:entries.retry')}
-                        </button>
-                        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => setAttempts(prev => prev.filter(x => x.id !== a.id))}>
+                        <Button size="sm" icon="refresh" onClick={() => upload(a.file, a.id)}>
+                          {t('collections:entries.retry')}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setAttempts(prev => prev.filter(x => x.id !== a.id))}>
                           {t('collections:entries.dismiss')}
-                        </button>
+                        </Button>
                       </>
                     )}
                   </span>
@@ -667,7 +716,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
       )}
 
       <section className="lib-section" aria-labelledby="ask-h">
-        <h3 className="lib-eyebrow" id="ask-h">{t('collections:ask.title')}</h3>
+        <h3 className="lib-section__title" id="ask-h">{t('collections:ask.title')}</h3>
         <form className="lib-ask" onSubmit={handleSearch}>
           <span className="dk-input-icon">
             <Icon name="search" className="dk-icon" />
@@ -681,9 +730,9 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
               aria-label={t('collections:ask.label')}
             />
           </span>
-          <button className="dk-btn dk-btn--primary" type="submit" disabled={!query.trim() || searching} aria-busy={searching || undefined}>
-            {searching ? <><Icon name="spinner" spin /> {t('collections:ask.searching')}</> : t('collections:ask.search')}
-          </button>
+          <Button type="submit" variant="primary" busy={searching} disabled={!query.trim()}>
+            {t('collections:ask.search')}
+          </Button>
         </form>
         <p className="lib-muted lib-fine">{t('collections:ask.alone')}</p>
         <details className="lib-disc">
@@ -696,7 +745,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
         <div aria-live="polite">
           {answer && (
             answer.error ? (
-              <p className="lib-note lib-note--error" role="alert">{t('library:search.failed', { message: answer.error })}</p>
+              <Callout tone="error" role="alert">{t('library:search.failed', { message: answer.error })}</Callout>
             ) : answer.results.length === 0 ? (
               <p className="lib-note" data-testid="ask-none">{t('collections:ask.none')}</p>
             ) : (
@@ -710,9 +759,11 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
       </section>
 
       <section className="lib-section" aria-labelledby="sources-h">
-        <h3 className="lib-eyebrow" id="sources-h">{t('collections:sources.title')} <span className="lib-count">{sources.length}</span></h3>
+        <h3 className="lib-section__title" id="sources-h">{t('collections:sources.title')} {loaded && !sourcesError && <span className="lib-count">{sources.length}</span>}</h3>
         {!loaded ? (
-          <p className="lib-muted" aria-busy="true">{t('collections:loading')}</p>
+          <SkeletonRows count={1} />
+        ) : sourcesError ? (
+          <LoadError title={t('collections:sources.loadFailed')} error={sourcesError} onRetry={fetchSources} />
         ) : sources.length === 0 ? (
           <p className="lib-muted" data-testid="sources-none">{t('collections:sources.none')}</p>
         ) : (
@@ -729,9 +780,7 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
                   </span>
                 </span>
                 <span className="lib-line__acts">
-                  <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => removeSource(s.url)} aria-label={t('collections:sources.remove', { url: s.url })} title={t('collections:sources.removeTitle')}>
-                    <Icon name="trash" />
-                  </button>
+                  <Button variant="ghost" size="sm" icon="trash" onClick={() => removeSource(s.url)} aria-label={t('collections:sources.remove', { url: s.url })} title={t('collections:sources.removeTitle')} />
                 </span>
               </li>
             ))}
@@ -740,9 +789,12 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
       </section>
 
       <section className="lib-section" aria-labelledby="entries-h">
-        <h3 className="lib-eyebrow" id="entries-h">{t('collections:entries.title')} <span className="lib-count">{entries.length}</span></h3>
-        {loadFailed && <p className="lib-note lib-note--error" role="alert">{t('collections:entries.failed')}</p>}
-        {loaded && entries.length === 0 && attempts.length === 0 ? (
+        <h3 className="lib-section__title" id="entries-h">{t('collections:entries.title')} {loaded && !entriesError && <span className="lib-count">{entries.length}</span>}</h3>
+        {!loaded ? (
+          <SkeletonRows count={2} />
+        ) : entriesError ? (
+          <LoadError title={t('collections:entries.loadFailed')} error={entriesError} onRetry={fetchEntries} />
+        ) : entries.length === 0 && attempts.length === 0 ? (
           <p className="lib-muted" data-testid="entries-none">{t('collections:entries.none')}</p>
         ) : entries.length > 0 && (
           <ul className="lib-ledger" data-testid="entries-list">
@@ -753,12 +805,8 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
                   <span className="lib-line__lead"><Icon name="file-text" /></span>
                   <span className="lib-line__main"><span className="lib-line__name" title={label}>{label}</span></span>
                   <span className="lib-line__acts">
-                    <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => openEntry(entry)} aria-label={t('collections:entries.view', { name: label })} title={t('collections:entries.viewTitle')}>
-                      <Icon name="eye" />
-                    </button>
-                    <button type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" onClick={() => deleteEntry(entry)} aria-label={t('collections:entries.delete', { name: label })} title={t('collections:entries.deleteTitle')}>
-                      <Icon name="trash" />
-                    </button>
+                    <Button variant="ghost" size="sm" icon="eye" onClick={() => openEntry(entry)} aria-label={t('collections:entries.view', { name: label })} title={t('collections:entries.viewTitle')} />
+                    <Button variant="ghost" size="sm" icon="trash" onClick={() => deleteEntry(entry)} aria-label={t('collections:entries.delete', { name: label })} title={t('collections:entries.deleteTitle')} />
                   </span>
                 </li>
               )
@@ -788,10 +836,10 @@ function CollectionPane({ t, name, userId, users, status, agents, busy, addToast
                 <h3 className="dk-dialog-title lib-mono" id="entry-title">{entryName(view.entry)}</h3>
                 {view.data && <p className="dk-dialog-desc">{t('collections:entries.chunks', { count: view.data.chunk_count ?? 0 })}</p>}
               </div>
-              <button className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('collections:entries.close')} onClick={() => setView(null)}><Icon name="close" /></button>
+              <Button variant="ghost" size="sm" icon="close" aria-label={t('collections:entries.close')} onClick={() => setView(null)} />
             </div>
             <div className="dk-dialog-body">
-              {view.loading ? <p className="lib-muted" aria-busy="true"><Icon name="spinner" spin /></p>
+              {view.loading ? <SkeletonRows count={3} />
                 : view.data ? <pre className="lib-pre">{view.data.content || t('collections:entries.empty')}</pre>
                   : <p className="lib-muted">{t('collections:entries.noContent')}</p>}
             </div>

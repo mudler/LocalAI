@@ -1,0 +1,78 @@
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant","content":null}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"T"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"h"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"i"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"s"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"i"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"s"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"a"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"m"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"o"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"c"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"k"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"e"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"d"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"s"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"t"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"r"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"e"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"a"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"m"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"i"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"n"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"g"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":" "}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"r"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"e"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"s"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"p"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"o"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"n"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"s"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"e"}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":null,"delta":{"content":"."}}]}
+
+data: {"created":0,"object":"chat.completion.chunk","id":"X","model":"mock-model","choices":[{"index":0,"finish_reason":"stop","delta":{"content":null}}]}
+
+data: [DONE]
+

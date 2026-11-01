@@ -1,0 +1,6 @@
+{
+  "items": [
+    { "id": "r1", "title": "Ask the assistant to add what you want to read", "note": "It writes reading.json; this page shows it.", "read": false },
+    { "id": "r2", "title": "Mark an item as read with its check box", "note": "", "read": true }
+  ]
+}

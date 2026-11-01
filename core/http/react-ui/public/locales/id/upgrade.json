@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "Pembaruan tersedia",
+    "availableVersion": "Pembaruan tersedia: {{version}}"
+  },
+  "trigger": {
+    "all": "Perbarui semua ({{count}})",
+    "running": "Memperbarui {{current}} dari {{total}}",
+    "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
+    "summaryOk": "{{done}} diperbarui",
+    "review": "Tinjau"
+  },
+  "dialog": {
+    "title": "Perbarui semua",
+    "intro": "Pilih apa yang akan diperbarui. Setiap item diperbarui sendiri-sendiri, satu per satu. Kegagalan tidak menghentikan yang lain.",
+    "selection": "Pilihan",
+    "selectAll": "Pilih semua",
+    "selectNone": "Hapus pilihan",
+    "selectedCount_one": "{{count}} dipilih",
+    "selectedCount_other": "{{count}} dipilih",
+    "item": "Perbarui {{name}}",
+    "versions": "{{from}} ke {{to}}",
+    "blocked": "Tidak dapat dimulai",
+    "start": "Perbarui yang dipilih",
+    "starting": "Memperbarui...",
+    "retry": "Ulangi yang gagal ({{count}})",
+    "again": "Pilihan baru",
+    "close": "Tutup",
+    "closeRunning": "Tutup (tetap berjalan)",
+    "runningNote": "Menutup jendela ini tidak menghentikan pembaruan.",
+    "progress": "Memperbarui {{current}} dari {{total}}",
+    "summary": "{{done}} diperbarui, {{failed}} gagal, {{skipped}} dilewati",
+    "empty": "Tidak ada yang perlu diperbarui."
+  },
+  "item": {
+    "queued": "Antre",
+    "upgrading": "Memperbarui",
+    "done": "Selesai",
+    "failed": "Gagal",
+    "skipped": "Dilewati"
+  },
+  "reason": {
+    "checkAgain": "Periksa lagi",
+    "checking": "Memeriksa..."
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "Update available",
+    "availableVersion": "Update available: {{version}}"
+  },
+  "trigger": {
+    "all": "Upgrade all ({{count}})",
+    "running": "Upgrading {{current}} of {{total}}",
+    "summary": "{{done}} upgraded, {{failed}} failed, {{skipped}} skipped",
+    "summaryOk": "{{done}} upgraded",
+    "review": "Review"
+  },
+  "dialog": {
+    "title": "Upgrade all",
+    "intro": "Choose what to upgrade. Each one is upgraded on its own, one after another. A failure does not stop the others.",
+    "selection": "Select what to upgrade",
+    "selectAll": "Select all",
+    "selectNone": "Select none",
+    "item": "Upgrade {{name}}",
+    "versions": "{{from}} to {{to}}",
+    "blocked": "Cannot start",
+    "start": "Upgrade selected",
+    "starting": "Upgrading...",
+    "retry": "Retry failed ({{count}})",
+    "again": "New selection",
+    "close": "Close",
+    "closeRunning": "Close (keeps running)",
+    "runningNote": "Closing this window does not stop the upgrades.",
+    "progress": "Upgrading {{current}} of {{total}}",
+    "summary": "{{done}} upgraded, {{failed}} failed, {{skipped}} skipped",
+    "empty": "Nothing to upgrade.",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected"
+  },
+  "item": {
+    "queued": "Queued",
+    "upgrading": "Upgrading",
+    "done": "Done",
+    "failed": "Failed",
+    "skipped": "Skipped"
+  },
+  "reason": {
+    "checkAgain": "Check again",
+    "checking": "Checking..."
+  }
+}

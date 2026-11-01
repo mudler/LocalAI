@@ -7,7 +7,7 @@ import { filterNodes, paginateNodes, runBounded, sortNodes } from '../utils/node
 import { DISTRIBUTED_COMMAND, attentionOf, memoryOf, updateTargets } from '../utils/swarm'
 import { useNodeList, usePhone, useReplicas } from '../hooks/useSwarm'
 import { useOperateSummary } from '../contexts/OperateSummaryContext'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { Button, Callout, SkeletonRows } from '../components/ui'
 import ConfirmDialog from '../components/ConfirmDialog'
 import LocalMachineView from '../components/nodes/LocalMachineView'
 import AddNodeFlow from '../components/swarm/AddNodeFlow'
@@ -158,7 +158,7 @@ export default function Nodes() {
     }
   }
 
-  if (loadStatus === 'loading') return <div className="page page--wide loading-center"><LoadingSpinner size="lg" /></div>
+  if (loadStatus === 'loading') return <div className="page page--wide sw-page"><SkeletonRows /></div>
   if (loadStatus === 'single') {
     return <LocalMachineView addToast={addToast} scaleOut={<ScaleOut addToast={addToast} />} />
   }
@@ -184,7 +184,7 @@ export default function Nodes() {
       <h1 className="dk-sr-only">{t('nodes.title')}</h1>
 
       {loadStatus === 'error' && (
-        <div className="sw-error" role="alert"><Icon name="alert-circle" /><span>{t('nodes.stale')}</span></div>
+        <Callout tone="error" role="alert" title={t('nodes.stale')} actions={<Button size="sm" icon="refresh" onClick={refetch}>{t('nodes.retry')}</Button>} />
       )}
 
       <div className="sw-bar">
@@ -198,16 +198,14 @@ export default function Nodes() {
         </div>
         <div className="sw-bar__acts">
           {targets.pairs.length > 0 && (
-            <button type="button" className="dk-btn dk-btn--secondary" disabled={updating} onClick={updateBackends} data-testid="bulk-update">
-              <Icon name={updating ? 'spinner' : 'arrow-up'} spin={updating} /> {updateLabel}
-            </button>
+            <Button icon="arrow-up" busy={updating} onClick={updateBackends} data-testid="bulk-update">{updateLabel}</Button>
           )}
           <div className="dk-segmented" role="radiogroup" aria-label={t('nodes.view')}>
             <button type="button" role="radio" aria-checked={shownView === 'list'} className="dk-seg" onClick={() => setView('list')}><Icon name="list" /> {t('nodes.list')}</button>
             {!phone && <button type="button" role="radio" aria-checked={shownView === 'map'} className="dk-seg" onClick={() => setView('map')}><Icon name="nodes" /> {t('nodes.map')}</button>}
             <button type="button" role="radio" aria-checked={shownView === 'models'} className="dk-seg" onClick={() => setView('models')}><Icon name="layers" /> {t('nodes.running')}</button>
           </div>
-          <Link className="dk-btn dk-btn--primary" to="/app/nodes/add"><Icon name="plus" /> {t('nodes.add')}</Link>
+          <Button variant="primary" icon="plus" to="/app/nodes/add">{t('nodes.add')}</Button>
         </div>
       </div>
 
@@ -317,7 +315,7 @@ function ScaleOut({ addToast }) {
         <a className="dk-link" href="https://localai.io/features/distributed-mode/" target="_blank" rel="noopener noreferrer">{t('add.distributed.docsLink')}</a>
       </p>
       <div>
-        <Link className="dk-btn dk-btn--secondary" to="/app/nodes/add">{t('scale.next')}</Link>
+        <Button to="/app/nodes/add">{t('scale.next')}</Button>
       </div>
     </div>
   )

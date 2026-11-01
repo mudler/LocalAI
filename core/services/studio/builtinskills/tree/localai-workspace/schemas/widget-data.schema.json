@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/widget-data.json",
+  "title": "Widget data",
+  "description": "The data file that a Home widget reads (its source in LocalAI/home.json).",
+  "type": "object",
+  "properties": {
+    "title": { "type": "string", "maxLength": 60 },
+    "updatedAt": {
+      "type": "string",
+      "description": "When the data was written, as an RFC 3339 time such as 2026-10-29T08:00:00Z.",
+      "maxLength": 40,
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}(:[0-9]{2}(\\.[0-9]+)?)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "source": {
+      "type": "object",
+      "description": "Who wrote the data: a trigger run, a page, the assistant in a chat, or the person.",
+      "properties": {
+        "kind": { "enum": ["trigger", "page", "assistant", "you"] },
+        "trigger": { "type": "string", "description": "The id of the trigger whose run wrote it.", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+        "page": { "type": "string", "description": "The name of the page that wrote it (pages/<name>/).", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$" },
+        "note": { "type": "string", "description": "One line on where the data comes from, such as Mail from the last 24 hours.", "maxLength": 120 }
+      },
+      "required": ["kind"],
+      "additionalProperties": false
+    },
+    "items": {
+      "type": "array",
+      "description": "Rows of a list widget.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "meta": { "type": "string", "description": "A short note on the right, such as a day.", "maxLength": 40 },
+          "done": { "type": "boolean" },
+          "url": {
+            "type": "string",
+            "description": "Where the label links to: an http or https address without a user name (opens in a new tab), or a path of the app such as /app/pages/news or /app/chats (opens in LocalAI).",
+            "maxLength": 2048,
+            "pattern": "^(https?://[^\\s/?#@\\\\]+([/?#]\\S*)?|/app/(chat|chats|files|pages|agents|skills|triggers|collections|models|account|addons)([/?#]\\S*)?)$",
+            "not": { "pattern": "^/app/.*(\\.\\.|//|\\\\)" }
+          }
+        },
+        "required": ["label"]
+      }
+    },
+    "value": {
+      "type": ["number", "string"],
+      "description": "The number of a metric widget.",
+      "maxLength": 20
+    },
+    "note": { "type": "string", "description": "One line under the value of a metric widget.", "maxLength": 120 },
+    "series": {
+      "type": "array",
+      "description": "Points of the small line under a metric.",
+      "maxItems": 60,
+      "items": { "type": "number" }
+    }
+  }
+}

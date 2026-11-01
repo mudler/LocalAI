@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { FEATURE_ADDONS } from '../utils/capabilities'
-import { basePath } from '../utils/basePath'
+import { apiUrl, basePath } from '../utils/basePath'
 import { addonsApi } from '../utils/addonsClient'
 import { pollDelay } from '../components/catalog/catalogState'
 import { resolveManage, resolveTab } from '../components/addons/addonState'
@@ -42,7 +42,19 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation('addons')
-  const allowed = hasFeature(FEATURE_ADDONS)
+  // With add-ons off the server answers 503 on every add-on route, so the
+  // registry waits for /api/features and calls none of them then. An unreadable
+  // answer counts as on.
+  const [serverOn, setServerOn] = useState(null)
+  useEffect(() => {
+    const ctl = new AbortController()
+    fetch(apiUrl('/api/features'), { signal: ctl.signal })
+      .then(r => r.json())
+      .then(f => setServerOn(f?.addons !== false))
+      .catch(() => { if (!ctl.signal.aborted) setServerOn(true) })
+    return () => ctl.abort()
+  }, [])
+  const allowed = hasFeature(FEATURE_ADDONS) && serverOn === true
   const [list, setList] = useState(EMPTY)
   const [consumers, setConsumers] = useState(0)
   const [layers, setLayers] = useState([])
@@ -236,6 +248,9 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   }, [])
 
   const value = useMemo(() => ({
+    // Whether the server said if add-ons are on: until then `allowed` is false
+    // only because the answer is not in yet.
+    known: serverOn !== null,
     status: list.status,
     apps: list.apps,
     error: list.error,
@@ -256,7 +271,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     // them leaves the host with no entries, never with a broken render.
     navigationItems: guarded(() => buildNavigation(list.apps, { language: i18n.language })),
     chatActions: guarded(() => availableChatActions(instances, list.apps, { hasFeature: () => allowed })),
-  }), [list, instances, allowed, refresh, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
+  }), [serverOn, list, instances, allowed, refresh, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
 
   const boundaryLabels = { title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }
   return (

@@ -9,12 +9,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -56,6 +61,18 @@ func uiFixture(min, max uint64) (OwnerConfig, catalog.Catalog, *packages.Install
 }
 
 func fixtureFor(manifest []byte) (OwnerConfig, catalog.Catalog, *packages.Installer) {
+	return fixtureWithDigest(manifest, "")
+}
+
+// fixtureWithDigest is fixtureFor with a library that lists the given digest
+// for the package, so the package it serves does not match its entry.
+func fixtureWithDigest(manifest []byte, digest string) (OwnerConfig, catalog.Catalog, *packages.Installer) {
+	return fixtureWithFiles(manifest, digest, nil)
+}
+
+// fixtureWithFiles is fixtureWithDigest with more package files, which are
+// not executable.
+func fixtureWithFiles(manifest []byte, digest string, files map[string][]byte) (OwnerConfig, catalog.Catalog, *packages.Installer) {
 	root := GinkgoT().TempDir()
 	var e error
 	var b bytes.Buffer
@@ -65,10 +82,18 @@ func fixtureFor(manifest []byte) (OwnerConfig, catalog.Catalog, *packages.Instal
 		_, e = tw.Write(data)
 		Expect(e).NotTo(HaveOccurred())
 	}
+	for name, data := range files {
+		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0644, Size: int64(len(data))})).To(Succeed())
+		_, e = tw.Write(data)
+		Expect(e).NotTo(HaveOccurred())
+	}
 	Expect(tw.Close()).To(Succeed())
 	artifact := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(b.Bytes()) }))
 	DeferCleanup(artifact.Close)
-	release := catalog.Release{ID: "sample", Name: "Sample", Version: "1.2.3", Artifact: artifact.URL + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes())), OS: "linux", Arch: "amd64"}
+	if digest == "" {
+		digest = fmt.Sprintf("sha256:%x", sha256.Sum256(b.Bytes()))
+	}
+	release := catalog.Release{ID: "sample", Name: "Sample", Version: "1.2.3", Artifact: artifact.URL + "/package.tar", Digest: digest, OS: "linux", Arch: "amd64"}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = catalog.WriteIndex(w, []catalog.Release{release})
 	}))
@@ -106,6 +131,19 @@ func open(cfg OwnerConfig, c catalog.Catalog, i *packages.Installer) *Manager {
 func command(id, action string) LifecycleCommand {
 	return LifecycleCommand{OperationID: id, AddonID: "sample", Action: action, SourceID: "test", Version: "1.2.3"}
 }
+
+var _ = Describe("a package that does not match its library entry", func() {
+	It("fails the install and says the package could not be verified, without installing anything", func() {
+		manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		cfg, c, i := fixtureWithDigest(manifest, "sha256:"+strings.Repeat("0", 64))
+		m := open(cfg, c, i)
+		_, e = m.Submit(ctx, actor, command("op-digest", "install"))
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(e).To(MatchError(packages.ErrPackage))
+		Expect(m.journal.Addons["sample"].Installed).To(BeFalse())
+	})
+})
 
 var _ = Describe("designated owner lifecycle", func() {
 	It("carries the SDK refusal text to the caller of a failed install and keeps the generic error", func() {
@@ -209,6 +247,35 @@ var _ = Describe("designated owner lifecycle", func() {
 			Expect(g.Number).To(Equal(uint64(n + 1)))
 			Expect(filepath.Join(g.Receipt.Directory, "receipt.json")).To(BeAnExistingFile())
 		}
+	})
+
+	It("stamps the first install, keeps the time over an upgrade and stamps it again after an uninstall", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		_, e := m.Submit(ctx, actor, command("0", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		s, e := m.Status(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		first, perr := time.Parse(time.RFC3339, s.InstalledAt)
+		Expect(perr).NotTo(HaveOccurred())
+		Expect(s.InstalledAt).To(HaveSuffix("Z"), "UTC")
+		Expect(first).To(BeTemporally("~", time.Now(), time.Minute))
+		_, e = m.Submit(ctx, actor, command("1", "upgrade"))
+		Expect(e).NotTo(HaveOccurred())
+		s, _ = m.Status(ctx, "sample")
+		Expect(s.Generation).To(Equal(uint64(2)))
+		Expect(s.InstalledAt).To(Equal(first.UTC().Format(time.RFC3339)))
+		list, e := m.Installed(ctx, actor)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(list[0].InstalledAt).To(Equal(s.InstalledAt))
+		_, e = m.Submit(ctx, actor, command("2", "uninstall"))
+		Expect(e).NotTo(HaveOccurred())
+		_, e = m.Submit(ctx, actor, command("3", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		s, _ = m.Status(ctx, "sample")
+		again, perr := time.Parse(time.RFC3339, s.InstalledAt)
+		Expect(perr).NotTo(HaveOccurred())
+		Expect(again).To(BeTemporally(">=", first))
 	})
 
 	It("excludes competing owners and rejects conflicting durable identities", func() {
@@ -456,5 +523,181 @@ var _ = Describe("owner identity file", func() {
 		Expect(acquire(cfg)).To(Succeed())
 		cfg.StorageID = "disk-two"
 		Expect(acquire(cfg)).To(MatchError(ErrConfiguration))
+	})
+})
+
+// failureCode is the code of the typed cause of a failed operation, or "".
+func failureCode(e error) string {
+	var c *FailureCause
+	if errors.As(e, &c) {
+		return c.Code
+	}
+	return ""
+}
+
+var _ = Describe("the cause of a failed install", func() {
+	// withSource adds a library with the given ID and URL to the fixture.
+	withSource := func(c catalog.Catalog, id, url string) {
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: id, Name: id, URL: url, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
+	}
+	// only makes the fixture's own library stop listing the add-on, so that a
+	// second library with the same index does not conflict with it.
+	only := func(c catalog.Catalog, url string) {
+		Expect(c.Sources.Save(ctx, actor, catalog.Source{ID: "test", Name: "test", URL: url, Enabled: false, AllowLoopbackHTTP: true})).To(Succeed())
+	}
+	libraryURL := func(c catalog.Catalog) string {
+		s, e := c.Sources.Get(ctx, actor, "test")
+		Expect(e).NotTo(HaveOccurred())
+		return s.URL
+	}
+
+	It("names a release that the library does not list", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		cmd := command("op-missing", "install")
+		cmd.Version = "9.9.9"
+		_, e := m.Submit(ctx, actor, cmd)
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(failureCode(e)).To(Equal(CauseReleaseNotFound))
+	})
+
+	It("names two libraries that list the same add-on", func() {
+		cfg, c, i := fixture()
+		withSource(c, "twin", libraryURL(c))
+		_, e := c.Sources.Refresh(ctx, "twin")
+		Expect(e).NotTo(HaveOccurred())
+		m := open(cfg, c, i)
+		_, e = m.Submit(ctx, actor, command("op-twin", "install"))
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(failureCode(e)).To(Equal(CauseLibraryConflict))
+	})
+
+	It("names a library that cannot be read", func() {
+		cfg, c, i := fixture()
+		dead := httptest.NewServer(http.NotFoundHandler())
+		url := dead.URL
+		dead.Close()
+		withSource(c, "dead", url)
+		m := open(cfg, c, i)
+		cmd := command("op-dead", "install")
+		cmd.SourceID = "dead"
+		_, e := m.Submit(ctx, actor, cmd)
+		Expect(e).To(MatchError(ErrOperationFailed))
+		Expect(failureCode(e)).To(Equal(CauseLibraryUnavailable))
+	})
+
+	It("reads the library on demand when the startup refresh has not filled the cache", func() {
+		cfg, c, i := fixture()
+		url := libraryURL(c)
+		only(c, url)
+		withSource(c, "cold", url) // never refreshed
+		m := open(cfg, c, i)
+		cmd := command("op-cold", "install")
+		cmd.SourceID = "cold"
+		_, e := m.Submit(ctx, actor, cmd)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(m.journal.Addons["sample"].Installed).To(BeTrue())
+	})
+
+	It("reads the library again when the startup refresh failed", func() {
+		cfg, c, i := fixture()
+		upstream := libraryURL(c)
+		only(c, upstream)
+		var calls atomic.Int32
+		flaky := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if calls.Add(1) == 1 {
+				http.Error(w, "starting", http.StatusServiceUnavailable)
+				return
+			}
+			resp, err := http.Get(upstream)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadGateway)
+				return
+			}
+			defer func() { _ = resp.Body.Close() }()
+			_, _ = io.Copy(w, resp.Body)
+		}))
+		DeferCleanup(flaky.Close)
+		withSource(c, "flaky", flaky.URL)
+		_, e := c.Sources.Refresh(ctx, "flaky") // the startup refresh: it fails
+		Expect(e).To(HaveOccurred())
+		m := open(cfg, c, i)
+		cmd := command("op-flaky", "install")
+		cmd.SourceID = "flaky"
+		_, e = m.Submit(ctx, actor, cmd)
+		Expect(e).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("the skills of a package", func() {
+	type call struct {
+		id    string
+		files int
+	}
+	It("copies them at install, upgrade and owner start, and removes them at uninstall", func() {
+		manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		var mf contract.Manifest
+		Expect(json.Unmarshal(manifest, &mf)).To(Succeed())
+		mf.Capabilities.SkillDefinitions = []contract.SkillDefinition{{Name: "sample"}}
+		manifest, e = json.Marshal(mf)
+		Expect(e).NotTo(HaveOccurred())
+		cfg, c, i := fixtureWithFiles(manifest, "", map[string][]byte{
+			"skills/sample/SKILL.md": []byte("---\nname: sample\ndescription: Use for samples.\n---\nBody.\n"),
+		})
+		m := open(cfg, c, i)
+		var mu sync.Mutex
+		var calls []call
+		record := func(_ context.Context, id string, r *packages.PackageReceipt) error {
+			mu.Lock()
+			defer mu.Unlock()
+			n := -1
+			if r != nil {
+				fsys, err := packages.SkillFS(*r)
+				Expect(err).NotTo(HaveOccurred())
+				data, err := fs.ReadFile(fsys, "sample/SKILL.md")
+				Expect(err).NotTo(HaveOccurred())
+				n = len(data)
+			}
+			calls = append(calls, call{id, n})
+			return nil
+		}
+		m.SetSkillSync(ctx, record)
+		Expect(calls).To(BeEmpty(), "nothing is installed yet")
+		_, e = m.Submit(ctx, actor, command("one", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].id).To(Equal("sample"))
+		Expect(calls[0].files).To(BeNumerically(">", 0))
+		ids, e := m.InstalledSkillIDs(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(ids).To(Equal([]string{"sample"}))
+
+		_, e = m.Submit(ctx, actor, command("two", "disable"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls).To(HaveLen(1), "a stop leaves the files: the turn decides what is offered")
+		_, e = m.Submit(ctx, actor, command("three", "upgrade"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls).To(HaveLen(2))
+
+		// Owner start: the hook runs for every add-on the journal knows.
+		calls = nil
+		m.SetSkillSync(ctx, record)
+		Expect(calls).To(HaveLen(1))
+
+		_, e = m.Submit(ctx, actor, command("four", "uninstall"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(calls[len(calls)-1]).To(Equal(call{"sample", -1}), "uninstall removes the skills")
+		ids, e = m.InstalledSkillIDs(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(ids).To(BeEmpty())
+	})
+
+	It("never fails the operation when the copy fails", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		m.SetSkillSync(ctx, func(context.Context, string, *packages.PackageReceipt) error { return errors.New("store down") })
+		_, e := m.Submit(ctx, actor, command("one", "install"))
+		Expect(e).NotTo(HaveOccurred())
 	})
 })
