@@ -41,19 +41,29 @@ func (s *Workspace) Put(ctx context.Context, a Actor, p string, r io.Reader, o P
 	if err := s.precheckPut(ctx, s.db, a, segs); err != nil {
 		return Node{}, err
 	}
-	sum, size, err := s.blobs.Put(ctx, r, s.limit(o.MaxSize))
-	if err != nil {
-		return Node{}, err
-	}
 	title := "Upload " + segs[len(segs)-1]
 	if o.Title != "" {
 		title = o.Title
 	}
-	w, err := s.beginWrite(ctx, a, title, ChangeUpload)
+	var w *writer
+	if s.sharedFilesystem {
+		w, err = s.beginWrite(ctx, a, title, ChangeUpload)
+		if err != nil {
+			return Node{}, err
+		}
+		defer w.rollback()
+	}
+	sum, size, err := s.blobs.Put(ctx, r, s.limit(o.MaxSize))
 	if err != nil {
 		return Node{}, err
 	}
-	defer w.rollback()
+	if w == nil {
+		w, err = s.beginWrite(ctx, a, title, ChangeUpload)
+		if err != nil {
+			return Node{}, err
+		}
+		defer w.rollback()
+	}
 	n, asked, err := w.put(segs, sum, size, o)
 	if err != nil {
 		return Node{}, err
