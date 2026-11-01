@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -68,10 +69,23 @@ func suspendedWithABackgroundProcess() (*host.Backend, sandbox.SnapshotRef, stri
 	return b, ref, root, pid
 }
 
+// alive tells whether the process runs. It does not use /proc, which macOS has
+// not: signal 0 finds out whether the pid exists, and the state from ps (or
+// /proc where it exists) tells a zombie, which a killed child of init may stay
+// for a moment, from a live process.
 func alive(pid int) bool {
-	// A killed child of init may stay a zombie for a moment.
-	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
-	return err == nil && !strings.Contains(string(b), ") Z ")
+	if err := syscall.Kill(pid, 0); err != nil && !errors.Is(err, syscall.EPERM) {
+		return false
+	}
+	if b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat"); err == nil {
+		return !strings.Contains(string(b), ") Z ")
+	}
+	out, err := exec.Command("ps", "-o", "stat=", "-p", strconv.Itoa(pid)).Output() // #nosec G204 -- pid is an int
+	if err != nil {
+		// ps exits 1 when the pid is gone.
+		return false
+	}
+	return !strings.HasPrefix(strings.TrimSpace(string(out)), "Z")
 }
 
 // failingMaterialize is a store whose Materialize fails, as a full disk would.
