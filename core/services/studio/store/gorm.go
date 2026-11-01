@@ -47,10 +47,13 @@ type chatRow struct {
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
 	Assistant    bool
-	Settings     string `gorm:"type:text"` // JSON of session.ChatSettings
-	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
-	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
-	EgressRev    int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
+	// ScopedAgent came after the table existed: the default reads the rows of
+	// chats made before as not scoped, so AutoMigrate is its migration.
+	ScopedAgent bool   `gorm:"not null;default:false"`
+	Settings    string `gorm:"type:text"` // JSON of session.ChatSettings
+	HostConsent string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
+	Egress      string `gorm:"type:text"` // JSON of egress.ChatState
+	EgressRev   int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
 	// Goal and GoalRev came after the table existed: the defaults fill the
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
@@ -149,6 +152,7 @@ func (r chatRow) record() (session.ChatRecord, error) {
 		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
 		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status,
 		AgentID: r.AgentID, Origin: r.Origin, OriginID: r.OriginID, Assistant: r.Assistant,
+		ScopedAgent: r.ScopedAgent,
 	}
 	if r.SkillsOff != "" {
 		if err := json.Unmarshal([]byte(r.SkillsOff), &rec.SkillsOff); err != nil {
@@ -227,6 +231,7 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
 		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
+		ScopedAgent: rec.ScopedAgent,
 	}
 	// A chat can start with its switches (the composer of a new chat drafts
 	// them), so they are written with the row.
@@ -364,6 +369,25 @@ func (s *gormStore) SetBuiltinsOff(ctx context.Context, principal, id string, of
 
 func (s *gormStore) SetBuiltinsOn(ctx context.Context, principal, id string, on []string) error {
 	return s.setList(ctx, "builtins_on", principal, id, on)
+}
+
+func (s *gormStore) SetScopedAgent(ctx context.Context, principal, id string, scoped bool) error {
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("scoped_agent", scoped)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		// An update to the value the row already has counts no row on some
+		// drivers; tell that apart from a missing chat.
+		var n int64
+		if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return session.ErrNotFound
+		}
+	}
+	return nil
 }
 
 func (s *gormStore) SetHostConsent(ctx context.Context, principal, id string, c *session.HostConsent) error {

@@ -33,6 +33,21 @@ var _ = Describe("the GORM store on SQLite", func() {
 		return s
 	})
 
+	It("reads a chat stored before the ScopedAgent column as not scoped", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
+		db := openSQLite(path)
+		first, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(first.CreateChat(context.Background(), session.ChatRecord{ID: "old", Principal: "alice", Title: "Old", Created: time.Now(), Updated: time.Now()})).To(Succeed())
+		// The table as it was before the column.
+		Expect(db.Exec("ALTER TABLE studio_chats DROP COLUMN scoped_agent").Error).To(Succeed())
+		second, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		got, err := second.GetChat(context.Background(), "alice", "old")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ScopedAgent).To(BeFalse())
+	})
+
 	// A second handle on the same database sees what the first wrote.
 	It("survives a reopen", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
