@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Carpeta"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "Cancelar",
     "managedHint": "LocalAI gestiona esta carpeta",
     "sharedHint": "Las carpetas compartidas no se pueden elegir",
-    "exportNote": "El archivo indica la carpeta {{path}}. Donde lo importes, el agente recibe la carpeta con esa ruta, si existe, o te pide que elijas una."
+    "exportNote": "El archivo indica la carpeta {{path}}. Donde lo importes, el agente recibe la carpeta con esa ruta, si existe, o te pide que elijas una.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Falta la carpeta",
+    "chipUnset": "Ninguna carpeta elegida"
   }
 }

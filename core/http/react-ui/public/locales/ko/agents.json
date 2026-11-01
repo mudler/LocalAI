@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "폴더"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "취소",
     "managedHint": "LocalAI가 관리하는 폴더",
     "sharedHint": "공유 폴더는 선택할 수 없습니다",
-    "exportNote": "파일에 폴더 {{path}}이(가) 적혀 있습니다. 가져오는 곳에 같은 경로의 폴더가 있으면 에이전트가 그 폴더를 사용하고, 없으면 폴더를 선택하라고 요청합니다."
+    "exportNote": "파일에 폴더 {{path}}이(가) 적혀 있습니다. 가져오는 곳에 같은 경로의 폴더가 있으면 에이전트가 그 폴더를 사용하고, 없으면 폴더를 선택하라고 요청합니다.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "폴더 없음",
+    "chipUnset": "선택한 폴더 없음"
   }
 }

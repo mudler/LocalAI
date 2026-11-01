@@ -168,6 +168,7 @@ a.ag-row__name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .ag-meta > * { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .ag-meta .lai-icon { width: 13px; height: 13px; flex: none; }
 .ag-meta a { color: inherit; text-decoration: none; }
+.ag-meta a.ag-meta__warn { color: var(--dk-warn-text); }
 .ag-meta a:hover { color: var(--dk-text); text-decoration: underline; text-underline-offset: 3px; }
 .ag-row__record { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: var(--fs-meta); line-height: var(--lh-meta); font-variant-numeric: tabular-nums; }
 .ag-row__end { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
@@ -313,6 +314,8 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 }
 .ag-folder__path .lai-icon { width: 14px; height: 14px; flex: none; color: var(--dk-accent-text); }
 .ag-folder .form-group { margin: 0; }
+.ag-chip--warn { box-shadow: inset 0 0 0 1px var(--dk-warn); color: var(--dk-text); }
+.ag-chip--warn .lai-icon { color: var(--dk-warn); }
 .agent-subsection-title { margin: 18px 0 var(--sp-2); font-size: var(--fs-body); font-weight: 600; }
 
 /* ---- Phone ----------------------------------------------------------------- */

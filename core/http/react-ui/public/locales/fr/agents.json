@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Dossier"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "Annuler",
     "managedHint": "LocalAI gère ce dossier",
     "sharedHint": "Les dossiers partagés ne peuvent pas être choisis",
-    "exportNote": "Le fichier nomme le dossier {{path}}. Là où vous l'importez, l'agent reçoit le dossier de ce chemin, s'il existe, ou vous demande d'en choisir un."
+    "exportNote": "Le fichier nomme le dossier {{path}}. Là où vous l'importez, l'agent reçoit le dossier de ce chemin, s'il existe, ou vous demande d'en choisir un.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Dossier manquant",
+    "chipUnset": "Aucun dossier choisi"
   }
 }

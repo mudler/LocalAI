@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "文件夹"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "取消",
     "managedHint": "此文件夹由 LocalAI 管理",
     "sharedHint": "不能选择共享文件夹",
-    "exportNote": "文件中记录了文件夹 {{path}}。在导入的地方，如果存在相同路径的文件夹，智能体就会使用它，否则会请你选择一个。"
+    "exportNote": "文件中记录了文件夹 {{path}}。在导入的地方，如果存在相同路径的文件夹，智能体就会使用它，否则会请你选择一个。",
+    "chip": "{{name}}，{{mode}}",
+    "chipMissing": "文件夹缺失",
+    "chipUnset": "未选择文件夹"
   }
 }

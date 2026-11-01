@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Cartella"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "Annulla",
     "managedHint": "Cartella gestita da LocalAI",
     "sharedHint": "Le cartelle condivise non si possono scegliere",
-    "exportNote": "Il file indica la cartella {{path}}. Dove lo importi, l'agente riceve la cartella con quel percorso, se esiste, oppure ti chiede di sceglierne una."
+    "exportNote": "Il file indica la cartella {{path}}. Dove lo importi, l'agente riceve la cartella con quel percorso, se esiste, oppure ti chiede di sceglierne una.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Cartella mancante",
+    "chipUnset": "Nessuna cartella scelta"
   }
 }

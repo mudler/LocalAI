@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Ordner"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "Abbrechen",
     "managedHint": "LocalAI verwaltet diesen Ordner",
     "sharedHint": "Geteilte Ordner sind nicht wählbar",
-    "exportNote": "Die Datei nennt den Ordner {{path}}. Wo du sie importierst, erhält der Agent den Ordner mit diesem Pfad, falls es ihn gibt, oder fragt dich nach einem."
+    "exportNote": "Die Datei nennt den Ordner {{path}}. Wo du sie importierst, erhält der Agent den Ordner mit diesem Pfad, falls es ihn gibt, oder fragt dich nach einem.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Ordner fehlt",
+    "chipUnset": "Kein Ordner gewählt"
   }
 }

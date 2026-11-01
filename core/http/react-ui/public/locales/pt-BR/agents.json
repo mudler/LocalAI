@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Pasta"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "Cancelar",
     "managedHint": "O LocalAI gerencia esta pasta",
     "sharedHint": "Pastas compartilhadas não podem ser escolhidas",
-    "exportNote": "O arquivo indica a pasta {{path}}. Onde você importar, o agente recebe a pasta com esse caminho, se existir, ou pede que você escolha uma."
+    "exportNote": "O arquivo indica a pasta {{path}}. Onde você importar, o agente recebe a pasta com esse caminho, se existir, ou pede que você escolha uma.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Pasta ausente",
+    "chipUnset": "Nenhuma pasta escolhida"
   }
 }

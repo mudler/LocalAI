@@ -98,7 +98,8 @@
     "instructions": "Instructions",
     "record": "Record",
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Folder"
   },
   "chips": {
     "none": "None",
@@ -717,6 +718,9 @@
     "cancel": "Cancel",
     "managedHint": "LocalAI manages this folder",
     "sharedHint": "Shared folders cannot be chosen",
-    "exportNote": "The file names the folder {{path}}. Where you import it, the agent gets the folder with that path, if there is one, or asks you to choose one."
+    "exportNote": "The file names the folder {{path}}. Where you import it, the agent gets the folder with that path, if there is one, or asks you to choose one.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Folder missing",
+    "chipUnset": "No folder chosen"
   }
 }

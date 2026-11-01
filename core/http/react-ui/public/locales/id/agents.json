@@ -48,7 +48,8 @@
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Folder"
   },
   "agent": {
     "triggers": "Triggers",
@@ -478,6 +479,9 @@
     "cancel": "Batal",
     "managedHint": "LocalAI mengelola folder ini",
     "sharedHint": "Folder bersama tidak bisa dipilih",
-    "exportNote": "File ini menyebut folder {{path}}. Di tempat Anda mengimpornya, agen mendapat folder dengan jalur itu, jika ada, atau meminta Anda memilih satu."
+    "exportNote": "File ini menyebut folder {{path}}. Di tempat Anda mengimpornya, agen mendapat folder dengan jalur itu, jika ada, atau meminta Anda memilih satu.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Folder hilang",
+    "chipUnset": "Belum ada folder"
   }
 }
