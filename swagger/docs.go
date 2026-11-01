@@ -3706,6 +3706,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
+                    },
+                    "409": {
+                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -9345,6 +9351,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }

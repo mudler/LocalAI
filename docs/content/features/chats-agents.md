@@ -117,12 +117,22 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   folder was not found here). An agent whose folder is `missing` or `unset`
   does not start: it never falls back to all your files. Restoring a deleted
   folder from the Trash makes the agent work again.
+- A chat with an agent whose folder is `missing` or `unset` does not start:
+  `POST /api/chats` answers `409` with the type `agent_folder_missing`, and so
+  does a message to a chat that is open already. A chat whose agent had a
+  folder and was then deleted is refused the same way. Choose a folder in the
+  agent's settings, or restore it, and send the message again.
+- A chat with the agent reaches its folder (read only for `read`), its own
+  chat folder under `Chats` (attachments and the work folder, read and write),
+  the shared folders and the skills (read only), and nothing else. A change of
+  the folder or the mode applies from the next message of a chat that is open.
 - A `PUT` without `folder` keeps the folder the agent has, so a client that
   does not know the field cannot give the agent more files by editing it.
   `"folder": {"path": ""}` clears the folder.
 
-The folder is read from the stores at every request, so every frontend of a
-cluster answers the same.
+The folder is read from the stores at every request and at the start of every
+turn, and nothing is kept in memory between turns, so every frontend and chat
+worker of a cluster answers the same.
 
 ### Starter agents
 

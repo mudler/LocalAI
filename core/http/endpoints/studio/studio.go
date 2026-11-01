@@ -113,6 +113,7 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, typeConflict, "the message was already delivered to the model", store.ErrDelivered),
 	fixed(http.StatusNotFound, typeNotFound, "agent template not found", studiosvc.ErrNoTemplate),
 	fixed(http.StatusConflict, typeConflict, "a turn is running; stop it first", studiosvc.ErrChatBusy),
+	fixed(http.StatusConflict, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings.", studiosvc.ErrAgentFolderMissing),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
 		studiosvc.ErrInvalidSettings, studiosvc.ErrBadImport, session.ErrInvalid),
 	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadMCPSwitch, studiosvc.ErrBadBuiltinGroup),
@@ -184,6 +185,7 @@ func (h *Handlers) describe(c echo.Context, user string, rec session.ChatRecord)
 // @Success 201 {object} schema.ChatsConversation "The new conversation"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 403 {object} schema.ErrorResponse "Refused"
+// @Failure 409 {object} schema.ErrorResponse "The saved agent's folder is missing or not chosen (agent_folder_missing)"
 // @Router /api/chats [post]
 func (h *Handlers) Create(c echo.Context) error {
 	var req schema.ChatsCreateRequest
@@ -424,6 +426,7 @@ func messageList(principal string, entries []session.Entry) schema.ChatsMessageL
 // @Success 200 {object} schema.ChatsSendResponse "Whether a turn started, or the id of the waiting message"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 404 {object} schema.ErrorResponse "No such conversation, or it is another user's"
+// @Failure 409 {object} schema.ErrorResponse "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing)"
 // @Router /api/chats/{id}/messages [post]
 func (h *Handlers) Send(c echo.Context) error {
 	var (
