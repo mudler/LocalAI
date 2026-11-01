@@ -1,6 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockSettings } from './settings-fixtures.js'
 import { FIELDS } from '../src/utils/settingsSchema.js'
+import { ownedByControl } from '../src/addons/hostControls.js'
 
 const row = (page, key) => page.locator(`[data-field="${key}"]`)
 const group = (page, name) => page.getByRole('button', { name: new RegExp(`^${name}`) })
@@ -39,12 +40,14 @@ test.describe('Settings: groups and search', () => {
     // images included). Compare by name so a failure says which one is
     // missing from every group or shown twice, not just a count.
     // A field a tab draws with its own controls (Settings > Tools) is found by
-    // search, not as a row of its group.
-    const expected = FIELDS.filter(f => !f.custom).map(f => f.key)
+    // search, not as a row of its group. A field a host control draws is on
+    // the page of the add-on that has it, not here.
+    const page_ = FIELDS.filter(f => !ownedByControl(f.key))
+    const expected = page_.filter(f => !f.custom).map(f => f.key)
     expect([...seen].filter(k => !expected.includes(k)), 'shown but not in the schema').toEqual([])
     expect(expected.filter(k => !seen.has(k)), 'in the schema but in no group').toEqual([])
     expect(seen.size).toBe(expected.length)
-    await expect(page.getByLabel(new RegExp(`Search all ${FIELDS.length} settings`))).toBeVisible()
+    await expect(page.getByLabel(new RegExp(`Search all ${page_.length} settings`))).toBeVisible()
   })
 
   test('a group lists its settings, and the memory group shows memory use now', async ({ page }) => {

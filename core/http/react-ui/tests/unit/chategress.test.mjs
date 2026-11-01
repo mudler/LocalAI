@@ -18,7 +18,9 @@ test('chat egress: the presets above the limit are not offered', () => {
 
 test('chat egress: the Tools menu shows the row only where the Sandbox serves, and says so on this machine', () => {
   assert.equal(networkMode({ loaded: false, applies: true }), 'hidden')
-  assert.equal(networkMode({ loaded: true, applies: true }), 'row')
+  assert.equal(networkMode({ loaded: true, applies: true, addon: 'devbox' }), 'row')
+  // The policy applies, but no add-on draws the network row for it.
+  assert.equal(networkMode({ loaded: true, applies: true }), 'hidden')
   assert.equal(networkMode({ loaded: true, applies: false, applies_reason: 'host' }), 'host')
   assert.equal(networkMode({ loaded: true, applies: false, applies_reason: 'none' }), 'hidden')
 })

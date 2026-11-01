@@ -58,7 +58,7 @@ an administrator can remove a grant at any time.
 The IDs name entries of one registry of host-provided components. Each entry has
 the same three parts on both sides of the wire:
 
-| Part | Go (`pkg/addons/contract/hostcontrols.go`) | UI (`src/addons/hostControls.jsx`) |
+| Part | Go (`pkg/addons/contract/hostcontrols.go`) | UI (`src/addons/hostControls.js`, components in `hostControlComponents.jsx`) |
 |---|---|---|
 | ID | `HostControl.ID` | registry key |
 | Entitlement | `HostControl.Grant` (a host operation the add-on must be granted) and `HostControl.Shadows` (a built-in tool it must replace; `*` means any) | none: the UI trusts the apps list |

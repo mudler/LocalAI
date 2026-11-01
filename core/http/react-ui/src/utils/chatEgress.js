@@ -17,10 +17,11 @@ export function presetChoices(egress) {
 }
 
 // What the Tools menu shows: the row, a line saying the settings do not
-// apply to commands on this machine, or nothing.
+// apply to commands on this machine, or nothing. The row needs the add-on
+// that runs the commands to draw the network-policy host control (addon).
 export function networkMode(egress) {
   if (!egress || !egress.loaded) return 'hidden'
-  if (egress.applies) return 'row'
+  if (egress.applies) return egress.addon ? 'row' : 'hidden'
   return egress.applies_reason === 'host' ? 'host' : 'hidden'
 }
 
@@ -80,7 +81,3 @@ export function ceilingKind(egress) {
   if (c === 'off') return 'off'
   return c === 'all' ? '' : 'capped'
 }
-
-// Where an administrator changes the limit: Settings > Tools, the Sandbox
-// network section.
-export const SANDBOX_NETWORK_SETTINGS = '/app/settings?group=tools'

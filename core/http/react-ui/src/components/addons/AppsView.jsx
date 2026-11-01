@@ -6,7 +6,7 @@ import { Button, Callout, EmptyState, LoadError, SearchField, Segmented, Skeleto
 import { newOperationId, pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
-import { declaresSlot } from '../../addons/slots'
+import { hasAddonSettings } from '../../addons/hostControls'
 import { SETTINGS_VIEW, paneView } from '../../utils/addonSettings'
 import { useAuth } from '../../context/AuthContext'
 import { FEATURE_ADDONS } from '../../utils/capabilities'
@@ -261,7 +261,7 @@ export default function AppsView({ api, adapter, onSummary }) {
   const closeDetail = () => setParams(prev => { const out = new URLSearchParams(prev); out.delete('detail'); out.delete('manage'); out.delete('view'); return out }, { replace: true })
   // The Settings tab of the details, for an administrator, when the add-on
   // declares a settings section (or has server settings of its own feature).
-  const detailHasSettings = Boolean(isAdmin && detail && detail.app && declaresSlot(detail.app, 'settings.sections'))
+  const detailHasSettings = Boolean(isAdmin && detail && detail.app && hasAddonSettings(detail.app))
   const paneTab = paneView(params, detailHasSettings)
   const setView = (next) => setParams(prev => {
     const out = new URLSearchParams(prev)

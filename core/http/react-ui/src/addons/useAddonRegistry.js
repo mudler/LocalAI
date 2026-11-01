@@ -1,8 +1,10 @@
 import { useContext, useEffect, useMemo } from 'react'
 import { RegistryContext, EMPTY_LIST } from './registryContext'
 import { usable } from './registryState'
+import { localizedText } from '../components/addons/addonState'
 import { toolAddons } from '../utils/chatAddons'
 import { declaresSlot, slotContributions } from './slots'
+import { hasAddonSettings } from './hostControls'
 
 export function useAddonRegistry() {
   const value = useContext(RegistryContext)
@@ -99,7 +101,7 @@ export function useAddonsWithSettings(enabled = true) {
   const known = registry ? registry.known !== false : true
   const settled = known && (!allowed || (registry ? registry.status !== 'idle' : true))
   const items = useMemo(
-    () => (allowed ? apps.filter(a => declaresSlot(a, 'settings.sections')).map(a => ({ app: a, usable: usable(a) })) : EMPTY_LIST),
+    () => (allowed ? apps.filter(a => hasAddonSettings(a)).map(a => ({ app: a, usable: usable(a) })) : EMPTY_LIST),
     [allowed, apps],
   )
   return useMemo(() => ({ items, settled }), [items, settled])
@@ -120,4 +122,19 @@ export function useAddonToolAddons() {
 // Whether the signed-in person has any add-on that offers tools to a model.
 export function useAddonToolsAvailable() {
   return useAddonToolAddons().length > 0
+}
+
+// The title of a listed add-on in the page language, or '' while the list is
+// not read or the add-on is not in it. A page that names an add-on the server
+// gave it by ID (the one that runs a chat's commands) uses it.
+export function useAddonTitle(addonId) {
+  const registry = useContext(RegistryContext)
+  const acquire = registry ? registry.acquire : null
+  const allowed = registry ? registry.allowed && Boolean(addonId) : false
+  useEffect(() => (acquire && allowed ? acquire() : undefined), [acquire, allowed])
+  const apps = registry ? registry.apps : EMPTY_LIST
+  const language = registry ? registry.language : 'en'
+  if (!addonId) return ''
+  const app = apps.find(a => a.id === addonId)
+  return app ? (localizedText(app, 'title', language) || app.id) : ''
 }

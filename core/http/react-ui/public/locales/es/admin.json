@@ -110,7 +110,7 @@
     },
     "loadFailedTitle": "No se pudieron cargar los ajustes.",
     "egress": {
-      "title": "Red del Sandbox",
+      "title": "Red de los comandos",
       "intro": "Los comandos del Sandbox llegan a la red solo a través de un proxy que consulta a LocalAI cada conexión. Abajo se fijan el límite, el valor de un chat nuevo, los puertos, los registros adicionales y la retención del registro; cada persona elige el valor de cada chat en su menú Herramientas, hasta el límite, y permite un host bloqueado en una tarjeta.",
       "serves": "Los comandos se ejecutan aislados en el complemento {{name}}",
       "servesHost": "Los comandos se ejecutan en esta máquina con {{name}}",
@@ -169,6 +169,10 @@
         "duplicate": "\"{{value}}\" ya está en la lista.",
         "full": "La lista admite como máximo {{max}} hosts."
       }
+    },
+    "network": {
+      "title": "Red de los comandos",
+      "where": "{{name}} guarda en su propia página los ajustes de red de los comandos que ejecuta."
     }
   },
   "backends": {
@@ -383,6 +387,7 @@
         "error": "Error",
         "skipped": "Omitido"
       }
-    }
+    },
+    "addonSettings": "Ajustes de {{name}}"
   }
 }

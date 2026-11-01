@@ -186,8 +186,10 @@ test.describe('Add-on navigation', () => {
   // live on the Settings tab of its details, and the Settings page links there.
   const withSettings = (over = {}) => app({ id: 'sandbox', name: 'sandbox', title: 'Sandbox', description: 'Run commands.', mainPage: '/app/addons/sandbox/sandbox', ui: { slots: [{ id: 'settings', slot: 'settings.sections', component: 'SandboxSettings' }] }, ...over })
 
-  test('an administrator gets a Settings tab in the details of an add-on with settings, with its server settings linked', async ({ page }) => {
-    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [withSettings(), app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()] })
+  test('an administrator gets a Settings tab in the details of an add-on with settings, with the host controls it has', async ({ page }) => {
+    const controlled = withSettings({ shadows: ['bash'], ui: { entry: `/api/addons/sandbox/assets/${'a'.repeat(64)}/ui.js`, sdk: { min: 2, max: 2 }, controls: ['network-policy'] } })
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [controlled, app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()] })
+    await page.route('**/api/settings', route => route.fulfill({ json: { chats_egress_ceiling: 'registries', chats_egress_audit_days: 14 } }))
     await page.route('**/api/chats/admin/egress', route => route.fulfill({ json: { ceiling: 'registries', default: 'off', ports: [80, 443], audit_days: 14, registries: [], allowed_24h: 0, blocked_24h: 0 } }))
     await page.goto('/app/addons?detail=sandbox')
     const pane = page.getByTestId('addon-detail')
@@ -195,12 +197,11 @@ test.describe('Add-on navigation', () => {
     await pane.getByTestId('addon-detail-tab-settings').click()
     await expect(page).toHaveURL(/detail=sandbox&view=settings$/)
     await expect(pane.getByTestId('addon-detail-tab-settings')).toHaveAttribute('aria-selected', 'true')
-    const server = pane.getByTestId('addon-server-settings')
-    await expect(server).toContainText('Server settings for this add-on')
-    await expect(pane.getByTestId('addon-egress-summary')).toContainText('Package registries only')
-    await expect(pane.getByTestId('addon-egress-summary')).toContainText('14 days')
-    await expect(server.locator('[data-setting="network"] a')).toHaveAttribute('href', /\/app\/settings\?group=tools#settings-egress$/)
-    await expect(server.locator('[data-setting="bash"] a')).toHaveAttribute('href', /\/app\/settings\?group=tools#settings-builtin-tools$/)
+    const block = pane.getByTestId('host-control-network-policy')
+    await expect(block).toBeVisible()
+    await expect(block.locator('[data-field="chats_egress_ceiling"] select')).toHaveValue('registries')
+    await expect(block.locator('[data-field="chats_egress_audit_days"] input')).toHaveValue('14')
+    await expect(pane.getByTestId('addon-server-settings')).toHaveCount(0)
     // Arrow keys move between the two tabs.
     await pane.getByTestId('addon-detail-tab-settings').press('ArrowLeft')
     await expect(pane.getByTestId('addon-detail-tab-overview')).toHaveAttribute('aria-selected', 'true')

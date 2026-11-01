@@ -10,7 +10,6 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import SettingField from '../components/settings/SettingField'
 import BuiltinToolsSection from '../components/settings/BuiltinToolsSection'
-import EgressSection from '../components/settings/EgressSection'
 import PendingBar from '../components/settings/PendingBar'
 import HistorySheet from '../components/settings/HistorySheet'
 import Icon from '../components/Icon'
@@ -18,7 +17,8 @@ import { useAddonsWithSettings } from '../addons/useAddonRegistry'
 import { AppIcon } from '../components/addons/AddonBits'
 import { localizedText } from '../components/addons/addonState'
 import { apiUrl } from '../utils/basePath'
-import { addonSettingsAddress, legacySectionTarget } from '../utils/addonSettings'
+import { LEGACY_NETWORK_HASH, addonSettingsAddress, legacySectionTarget } from '../utils/addonSettings'
+import { NETWORK_POLICY, TOOL_PROVIDERS, hasControl, ownedByControl } from '../addons/hostControls'
 import { formatBytes } from '../utils/format'
 import {
   FIELDS, GROUPS, OLD_SECTIONS, FIELD_BY_KEY, getValue, setValue, isChanged, hasDefault, searchFields, normalizeLoaded,
@@ -60,6 +60,30 @@ function AddonsGroup({ items }) {
         })}
       </ul>
     </section>
+  )
+}
+
+// Where the network of the commands lives: on the page of each add-on that
+// draws the network-policy control. The Settings page keeps only a pointer.
+function ControlledElsewhere({ apps }) {
+  const { t, i18n } = useTranslation('admin')
+  return (
+    <div className="st-list st-tools" id="settings-egress" data-testid="settings-network-elsewhere">
+      {apps.map(app => {
+        const name = localizedText(app, 'title', i18n.language) || app.id
+        return (
+          <div key={app.id} className="st-row st-tools__row" data-wide data-app={app.id} data-testid="settings-network-addon">
+            <div className="st-row__main">
+              <div className="st-row__title"><span className="st-row__label">{t('settings.network.title')}</span></div>
+              <p className="st-row__desc">{t('settings.network.where', { name })}</p>
+            </div>
+            <Link className="dk-btn dk-btn--secondary dk-btn--sm" to={addonSettingsAddress(app.id)} data-testid="settings-network-addon-link" aria-label={t('settings.addons.openNamed', { name })}>
+              {t('settings.addons.open')} <Icon name="arrow-right" />
+            </Link>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -273,6 +297,13 @@ export default function Settings() {
   // #ad-section-<addon>-<contribution>. That address opens the add-on's
   // Settings tab now.
   const legacy = legacySectionTarget(location.hash, addonSettings.map(x => x.app.id))
+  const networkApps = addonSettings.filter(x => x.usable && hasControl(x.app, NETWORK_POLICY)).map(x => x.app)
+  const toolLinks = new Set(addonSettings.filter(x => x.usable && hasControl(x.app, TOOL_PROVIDERS)).map(x => x.app.id))
+  if (location.hash === LEGACY_NETWORK_HASH) {
+    // The network block moved to the page of the add-on that runs commands.
+    if (!addonsSettled) return <div className="page page--wide st-page"><SkeletonRows /></div>
+    if (networkApps.length > 0) return <Navigate to={addonSettingsAddress(networkApps[0].id)} replace />
+  }
   if (legacy) {
     // Wait for the list, so an add-on id with a dash is found whole.
     if (!addonsSettled) return <div className="page page--wide st-page"><SkeletonRows /></div>
@@ -290,15 +321,17 @@ export default function Settings() {
   }
 
   const searching = query.trim().length > 0
-  const results = searching ? searchFields(query, settings) : []
-  const withDefaults = FIELDS.filter(hasDefault)
+  // A setting that a host control draws is on the add-on's page, not here.
+  const results = searching ? searchFields(query, settings).filter(f => !ownedByControl(f.key)) : []
+  const withDefaults = FIELDS.filter(f => hasDefault(f) && !ownedByControl(f.key))
   const changedFromDefault = withDefaults.filter(f => isChanged(f, settings)).length
   const showAddons = addonSettings.length > 0
   const onAddons = group === ADDONS_GROUP && showAddons
-  const groupFields = onAddons ? [] : FIELDS.filter(f => f.group === group)
+  const pageFields = FIELDS.filter(f => !ownedByControl(f.key)).length
+  const groupFields = onAddons ? [] : FIELDS.filter(f => f.group === group && !ownedByControl(f.key))
   const active = GROUPS.find(g => g.id === group) || GROUPS[0]
 
-  const countFor = (g) => FIELDS.filter(f => f.group === g.id && isChanged(f, settings)).length
+  const countFor = (g) => FIELDS.filter(f => f.group === g.id && !ownedByControl(f.key) && isChanged(f, settings)).length
   const draftIn = (g) => FIELDS.some(f => f.group === g.id && pendingKeys.has(f.key))
 
   const renderField = (field, showWhere) => (
@@ -323,7 +356,7 @@ export default function Settings() {
           <Icon name="search" className="dk-icon" />
           <input
             ref={searchRef} className="dk-input" type="search" value={query}
-            aria-label={`Search all ${FIELDS.length} settings`} placeholder={`Search all ${FIELDS.length} settings`}
+            aria-label={`Search all ${pageFields} settings`} placeholder={`Search all ${pageFields} settings`}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Escape' && query) { e.preventDefault(); setQuery('') } }}
           />
@@ -390,8 +423,8 @@ export default function Settings() {
               {group === 'access' && (
                 <p className="st-note">Sign-in, users, invites and per-user API keys are under Users and keys when authentication is on.</p>
               )}
-              {group === 'tools' && <BuiltinToolsSection settings={settings} onChange={onChange} />}
-              {group === 'tools' && <EgressSection settings={settings} initial={initial} onChange={onChange} />}
+              {group === 'tools' && <BuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />}
+              {group === 'tools' && networkApps.length > 0 && <ControlledElsewhere apps={networkApps} />}
               <div className="st-list">
                 {groupFields.filter(f => f.custom !== group).map(f => {
                   const head = group === 'agents' && f.was !== lastWas ? OLD_SECTIONS[f.was] : null

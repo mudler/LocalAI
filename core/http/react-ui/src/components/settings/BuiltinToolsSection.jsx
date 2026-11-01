@@ -7,6 +7,7 @@ import { Callout, LoadError, SkeletonRows, Switch } from '../ui'
 import { chatBuiltinToolsApi } from '../../utils/api'
 import { FIELD_BY_KEY, getValue, setValue } from '../../utils/settingsSchema'
 import { SANDBOX_INSTALL_LINK } from '../../utils/chatCommands'
+import { addonSettingsAddress } from '../../utils/addonSettings'
 
 // Settings > Tools: the built-in chat tools (bash, web_search, web_fetch), each
 // of which an add-on may replace, from GET /api/chats/admin/tools. Each row has its switch, says who serves the tool
@@ -14,6 +15,11 @@ import { SANDBOX_INSTALL_LINK } from '../../utils/chatCommands'
 // Below them, the built-in skills that installed add-ons replace (xlsx, say),
 // chosen the same way and in the same chats_tool_providers map.
 // The changes are drafts of the page, applied with the other settings.
+//
+// The tool-providers host control draws the same rows on an add-on's Settings
+// tab: `only` names the tools it replaces, and the skills are left out. On
+// the Settings page, `addonLinks` holds the add-ons that draw the control: a
+// tool one of them serves links to its Settings tab.
 
 const MODE = FIELD_BY_KEY.chats_host_exec
 const PINS = FIELD_BY_KEY.chats_tool_providers
@@ -166,7 +172,7 @@ function ProviderChoice({ tool, settings, onChange, titles }) {
   )
 }
 
-export default function BuiltinToolsSection({ settings, onChange }) {
+export default function BuiltinToolsSection({ settings, onChange, only, addonLinks }) {
   const { t } = useTranslation('admin')
   const [state, setState] = useState({ loading: true, tools: [], skills: [], error: '' })
   const [reload, setReload] = useState(0)
@@ -182,12 +188,13 @@ export default function BuiltinToolsSection({ settings, onChange }) {
 
   if (state.loading) return <SkeletonRows rows={2} />
   if (state.error) return <LoadError title={t('settingsTools.loadFailed')} error={state.error} onRetry={() => setReload(n => n + 1)} />
-  if (state.tools.length === 0) return <p className="st-note" data-testid="settings-tools-empty">{t('settingsTools.empty')}</p>
+  const tools = only ? state.tools.filter(tool => only.includes(tool.id)) : state.tools
+  if (tools.length === 0) return <p className="st-note" data-testid="settings-tools-empty">{t('settingsTools.empty')}</p>
 
   return (
     <div className="st-list st-tools" id="settings-builtin-tools" data-testid="settings-tools">
       <p className="st-note">{t('settingsTools.intro')}</p>
-      {state.tools.map(tool => {
+      {tools.map(tool => {
         const by = tool.provider === 'builtin'
           ? t('settingsTools.byBuiltin')
           : tool.provider ? t('settingsTools.byAddon', { name: tool.titles?.[tool.provider] || tool.provider }) : t('settingsTools.byNone')
@@ -207,6 +214,13 @@ export default function BuiltinToolsSection({ settings, onChange }) {
               {tool.note && <p className="st-row__desc" data-tone="warn" data-testid={`settings-tools-${tool.id}-note`}>{t('settingsTools.toolNotRunning')}</p>}
               {tool.candidates.length > 1 && <ProviderChoice tool={tool} settings={settings} onChange={onChange} titles={tool.titles} />}
               {tool.id === 'web_search' && <WebSearchTest />}
+              {!only && tool.provider && addonLinks?.has(tool.provider) && (
+                <p className="st-row__desc">
+                  <Link to={addonSettingsAddress(tool.provider)} data-testid={`settings-tools-${tool.id}-addon-link`}>
+                    {t('settingsTools.addonSettings', { name: tool.titles?.[tool.provider] || tool.provider })}
+                  </Link>
+                </p>
+              )}
               {tool.id === 'bash' && tool.candidates.length === 0 && (
                 <p className="st-row__desc"><Link to={SANDBOX_INSTALL_LINK} data-testid="settings-tools-install-sandbox">{t('settingsTools.installSandbox')}</Link></p>
               )}
@@ -214,7 +228,7 @@ export default function BuiltinToolsSection({ settings, onChange }) {
           </div>
         )
       })}
-      {state.skills.length > 0 && <SkillRows skills={state.skills} settings={settings} onChange={onChange} />}
+      {!only && state.skills.length > 0 && <SkillRows skills={state.skills} settings={settings} onChange={onChange} />}
     </div>
   )
 }

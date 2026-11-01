@@ -61,7 +61,7 @@
     },
     "loadFailedTitle": "Could not load the settings.",
     "egress": {
-      "title": "Sandbox network",
+      "title": "Network of commands",
       "intro": "Commands in the Sandbox reach the network only through a proxy that asks LocalAI about each connection. Set the limit, the preset of a new chat, the ports, the extra registries and the audit retention below; a person chooses the preset of each chat in its Tools menu, up to the limit, and allows a blocked host on a card.",
       "serves": "Commands run isolated in the {{name}} add-on",
       "servesHost": "Commands run on this machine through {{name}}",
@@ -120,6 +120,10 @@
         "duplicate": "\"{{value}}\" is already on the list.",
         "full": "The list holds at most {{max}} hosts."
       }
+    },
+    "network": {
+      "title": "Network of commands",
+      "where": "{{name}} keeps the network settings of the commands it runs on its own page."
     }
   },
   "traces": {
@@ -233,6 +237,7 @@
         "error": "Error",
         "skipped": "Skipped"
       }
-    }
+    },
+    "addonSettings": "Settings of {{name}}"
   }
 }

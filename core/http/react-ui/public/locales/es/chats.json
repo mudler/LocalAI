@@ -384,11 +384,12 @@
       "titleCapped": "El acceso a la red está limitado",
       "bodyOff": "El acceso a la red del Sandbox está desactivado en este servidor. Un comando pidió llegar a",
       "bodyCapped": "Este servidor solo permite {{limit}} para la red del Sandbox. Un comando pidió llegar a",
-      "adminOff": "Un administrador puede activarlo en Ajustes > Tools > Red del Sandbox.",
-      "adminCapped": "Un administrador puede subir el límite en Ajustes > Tools > Red del Sandbox.",
-      "adminLink": "Abrir los ajustes de la red del Sandbox",
-      "askAdmin": "Pide a un administrador de este servidor que lo cambie (Ajustes > Tools > Red del Sandbox).",
-      "rowOff": "Desactivada: el administrador no ha permitido el acceso a la red."
+      "adminOff": "Un administrador puede activarlo en los ajustes de {{name}}.",
+      "adminCapped": "Un administrador puede subir el límite en los ajustes de {{name}}.",
+      "adminLink": "Abrir los ajustes de {{name}}",
+      "askAdmin": "Pide a un administrador de este servidor que lo cambie.",
+      "rowOff": "Desactivada: el administrador no ha permitido el acceso a la red.",
+      "runner": "el complemento que ejecuta los comandos"
     },
     "allowedHosts": "Siempre permitidos por tu administrador:",
     "allowedHostsOff": "Se aplican cuando la red está activada.",

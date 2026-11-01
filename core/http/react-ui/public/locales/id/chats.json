@@ -384,11 +384,12 @@
       "titleCapped": "Akses jaringan dibatasi",
       "bodyOff": "Akses jaringan Sandbox dimatikan di server ini. Sebuah perintah meminta menjangkau",
       "bodyCapped": "Server ini hanya mengizinkan {{limit}} untuk jaringan Sandbox. Sebuah perintah meminta menjangkau",
-      "adminOff": "Administrator dapat menyalakannya di Pengaturan > Tools > Jaringan Sandbox.",
-      "adminCapped": "Administrator dapat menaikkan batasnya di Pengaturan > Tools > Jaringan Sandbox.",
-      "adminLink": "Buka pengaturan jaringan Sandbox",
-      "askAdmin": "Minta administrator server ini untuk mengubahnya (Pengaturan > Tools > Jaringan Sandbox).",
-      "rowOff": "Mati: administrator belum mengizinkan akses jaringan."
+      "adminOff": "Administrator dapat menyalakannya di pengaturan {{name}}.",
+      "adminCapped": "Administrator dapat menaikkan batasnya di pengaturan {{name}}.",
+      "adminLink": "Buka pengaturan {{name}}",
+      "askAdmin": "Minta administrator server ini untuk mengubahnya.",
+      "rowOff": "Mati: administrator belum mengizinkan akses jaringan.",
+      "runner": "add-on yang menjalankan perintah"
     },
     "allowedHosts": "Selalu diizinkan oleh administrator Anda:",
     "allowedHostsOff": "Berlaku saat jaringan aktif.",

@@ -384,11 +384,12 @@
       "titleCapped": "Netzwerkzugriff ist begrenzt",
       "bodyOff": "Der Netzwerkzugriff der Sandbox ist auf diesem Server ausgeschaltet. Ein Befehl wollte erreichen:",
       "bodyCapped": "Dieser Server erlaubt für das Sandbox-Netzwerk nur: {{limit}}. Ein Befehl wollte erreichen:",
-      "adminOff": "Ein Administrator kann ihn unter Einstellungen > Tools > Sandbox-Netzwerk einschalten.",
-      "adminCapped": "Ein Administrator kann das Limit unter Einstellungen > Tools > Sandbox-Netzwerk anheben.",
-      "adminLink": "Sandbox-Netzwerk-Einstellungen öffnen",
-      "askAdmin": "Bitten Sie einen Administrator dieses Servers, das zu ändern (Einstellungen > Tools > Sandbox-Netzwerk).",
-      "rowOff": "Aus: Der Administrator hat keinen Netzwerkzugriff erlaubt."
+      "adminOff": "Ein Administrator kann ihn in den Einstellungen von {{name}} einschalten.",
+      "adminCapped": "Ein Administrator kann das Limit in den Einstellungen von {{name}} anheben.",
+      "adminLink": "Einstellungen von {{name}} öffnen",
+      "askAdmin": "Bitten Sie einen Administrator dieses Servers, das zu ändern.",
+      "rowOff": "Aus: Der Administrator hat keinen Netzwerkzugriff erlaubt.",
+      "runner": "dem Add-on, das die Befehle ausführt"
     },
     "allowedHosts": "Von Ihrem Administrator immer erlaubt:",
     "allowedHostsOff": "Sie gelten, wenn das Netzwerk eingeschaltet ist.",

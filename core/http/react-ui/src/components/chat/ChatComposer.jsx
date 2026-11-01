@@ -19,7 +19,7 @@ import AgentPicker from './AgentPicker'
 import SkillsMenu from './SkillsMenu'
 import SwitchMenu from './SwitchMenu'
 import VisionNotice from './VisionNotice'
-import NetworkRow from './NetworkRow'
+import { ChatToolsControls } from '../../addons/hostControlComponents'
 import { CommandsChip, CommandsNotice } from './CommandsNotice'
 import { ToolFallbacks } from './ToolFallbacks'
 import Button from '../ui/Button'
@@ -213,7 +213,7 @@ export default function ChatComposer({
         note={chatId ? t('tools.note') : t('tools.draftNote')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
         notice={commands.info || network || switches.fallbacks.length > 0
-          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <NetworkRow egress={egress} /> : null}</>
+          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>

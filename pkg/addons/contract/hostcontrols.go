@@ -11,7 +11,7 @@ import (
 // host settings, that an add-on asks for by ID in ui.controls. The add-on
 // supplies no code, value or label for it. The registry is closed: a new
 // control is a host change with its own review, like a new slot. The React UI
-// keeps the same IDs in src/addons/hostControls.jsx, and a test keeps both
+// keeps the same IDs in src/addons/hostControls.js, and a test keeps both
 // lists equal.
 const (
 	// ControlNetworkPolicy is the network of the commands an add-on runs: the

@@ -110,7 +110,7 @@
     },
     "loadFailedTitle": "Pengaturan tidak dapat dimuat.",
     "egress": {
-      "title": "Jaringan Sandbox",
+      "title": "Jaringan perintah",
       "intro": "Perintah di Sandbox menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di bawah; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
       "serves": "Perintah berjalan terisolasi di add-on {{name}}",
       "servesHost": "Perintah berjalan di mesin ini melalui {{name}}",
@@ -169,6 +169,10 @@
         "duplicate": "\"{{value}}\" sudah ada di daftar.",
         "full": "Daftar memuat paling banyak {{max}} host."
       }
+    },
+    "network": {
+      "title": "Jaringan perintah",
+      "where": "{{name}} menyimpan pengaturan jaringan untuk perintah yang dijalankannya di halamannya sendiri."
     }
   },
   "backends": {
@@ -406,6 +410,7 @@
         "error": "Galat",
         "skipped": "Dilewati"
       }
-    }
+    },
+    "addonSettings": "Pengaturan {{name}}"
   }
 }
