@@ -32,6 +32,7 @@ const (
 	sentStopped      = "The turn was stopped."
 	sentInterrupted  = "The agent was interrupted. Please send your message again."
 	sentFailed       = "The agent stopped because of an error."
+	sentFolderLimit  = "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."
 	sentNoFolder     = "This agent cannot work right now: its folder is missing."
 	sentNoFile       = "I could not read the file you sent."
 	sentNoFiles      = "I can only read the text of your message here: files are turned off."
@@ -703,6 +704,10 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			c.disable(b, "its agent was deleted")
 		case errors.Is(err, ErrNoModel):
 			c.disable(b, "its agent has no model")
+		case errors.Is(err, ErrAgentFolderLimit):
+			c.log.Warn("studio: a connector message exceeds the folder limit", "binding", b.ID)
+			say(sentFolderLimit)
+			return
 		case errors.Is(err, ErrAgentFolderMissing):
 			c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)
 			say(sentNoFolder)
@@ -875,6 +880,10 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			c.smu.Unlock()
 		}
 		text := sentFailed
+		if errors.Is(err, ErrAgentFolderLimit) {
+			c.log.Warn("studio: a connector message exceeds the folder limit", "binding", b.ID)
+			text = sentFolderLimit
+		}
 		if errors.Is(err, ErrAgentFolderMissing) {
 			// The folder went away between the check and the turn.
 			c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)

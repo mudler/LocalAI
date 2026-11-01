@@ -28,6 +28,10 @@ import (
 // chat's agent had a folder and is gone. The chat does not start.
 var ErrAgentFolderMissing = errors.New("studio: the folder of this agent is missing")
 
+// ErrAgentFolderLimit means the complete scoped access exceeds the fence budget.
+// The caller may retry after the available shared folders change.
+var ErrAgentFolderLimit = errors.New("studio: the file access of this agent exceeds the folder limit")
+
 // folderScope is the folder of a saved agent as it is now.
 type folderScope struct {
 	node int64
@@ -75,13 +79,20 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 	if len(scopes) == 0 {
 		return s.mgr.UserAccess(ctx, base)
 	}
+	readOnly, err := s.scopedRoots(ctx, base, scopes)
+	if err != nil {
+		return session.Access{}, err
+	}
 	owner := base
 	owner.ChatID = ""
 	chatDir, err := s.mgr.EnsureChatFolder(ctx, owner, holder)
 	if err != nil {
 		return session.Access{}, fmt.Errorf("studio: make the chat's folder: %w", err)
 	}
-	actor := fenceScopes(base, scopes, chatDir.ID, s.readOnlyRoots(ctx, base))
+	actor, err := fenceScopes(base, scopes, chatDir.ID, readOnly)
+	if err != nil {
+		return session.Access{}, err
+	}
 	// The innermost folder is the one the chat works in: a sub-agent's own
 	// folder inside its parent's. The store caps the mode by every layer.
 	// The view is the session's one view builder: the folder at home, the
@@ -112,6 +123,10 @@ func (s *Service) chatActorFor(ctx context.Context, rec session.ChatRecord) work
 	if len(scopes) == 0 {
 		return base
 	}
+	readOnly, err := s.scopedRoots(ctx, base, scopes)
+	if err != nil {
+		return base.Fenced()
+	}
 	var chatNode int64
 	if hrec, herr := s.d.Store.GetChat(ctx, rec.Principal, holder); herr == nil && hrec.Folder != "" {
 		owner := base
@@ -120,33 +135,54 @@ func (s *Service) chatActorFor(ctx context.Context, rec session.ChatRecord) work
 			chatNode = n.ID
 		}
 	}
-	return fenceScopes(base, scopes, chatNode, s.readOnlyRoots(ctx, base))
+	actor, err := fenceScopes(base, scopes, chatNode, readOnly)
+	if err != nil {
+		return base.Fenced()
+	}
+	return actor
 }
 
 // fenceScopes fences base with one layer per scope. Each layer holds the
 // scope's folder at its mode, the chat's folder (when chatNode is not 0) read
 // and write, and the read-only roots; the layers intersect, so a sub-agent
 // whose own agent has a folder reaches only what both folders allow.
-func fenceScopes(base workspace.Actor, scopes []folderScope, chatNode int64, readOnly []workspace.FenceRoot) workspace.Actor {
+func fenceScopes(base workspace.Actor, scopes []folderScope, chatNode int64, readOnly []workspace.FenceRoot) (workspace.Actor, error) {
+	// Reserve the chat root even before its folder exists. Check every
+	// layer before building any actor; roots must never be truncated.
+	if len(scopes) > 0 && 2+len(readOnly) > workspace.MaxFenceRoots {
+		return workspace.Actor{}, ErrAgentFolderLimit
+	}
 	a := base
 	for _, sc := range scopes {
 		roots := []workspace.FenceRoot{{Node: sc.node, Mode: sc.mode}}
 		if chatNode > 0 {
 			roots = append(roots, workspace.FenceRoot{Node: chatNode, Mode: workspace.ModeWrite})
 		}
-		room := workspace.MaxFenceRoots - len(roots)
-		roots = append(roots, readOnly[:min(room, len(readOnly))]...)
+		roots = append(roots, readOnly...)
 		a = a.Fenced(roots...)
 	}
-	return a
+	return a, nil
+}
+
+// scopedRoots resolves the complete optional read set and validates the budget
+// without making a chat folder. Creation and every turn use the same check.
+func (s *Service) scopedRoots(ctx context.Context, base workspace.Actor, scopes []folderScope) ([]workspace.FenceRoot, error) {
+	roots, err := s.readOnlyRoots(ctx, base)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := fenceScopes(base, scopes, 0, roots); err != nil {
+		return nil, err
+	}
+	return roots, nil
 }
 
 // readOnlyRoots lists the folders a scoped chat may read besides its own: the
 // skill layers and the folders shared with the user, all read only (the
 // shared folders' grants may allow more; a scoped chat never writes there).
-// A folder that is missing or unreadable is left out. The skill layers come
-// first, so a user with more shared folders than a fence holds keeps them.
-func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor) []workspace.FenceRoot {
+// A folder that is missing or unreadable is left out. Enumeration failures
+// refuse access rather than silently omitting shared folders.
+func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor) ([]workspace.FenceRoot, error) {
 	owner := base
 	owner.ChatID = ""
 	ws := s.d.Files.Store()
@@ -162,13 +198,13 @@ func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor) []wor
 	if s.shared != nil {
 		shared, err := s.shared.Roots(ctx, owner)
 		if err != nil {
-			s.log.Warn("studio: a scoped chat sees no shared folder this turn", "chat", base.ChatID, "error", err)
+			return nil, fmt.Errorf("studio: list shared folders for scoped access: %w", err)
 		}
 		for _, r := range shared {
 			add(r.Path)
 		}
 	}
-	return out
+	return out, nil
 }
 
 // chatScopes returns the agent folders that apply to a chat, outermost first,

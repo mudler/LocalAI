@@ -596,7 +596,11 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		if ag.HasFolder() {
 			// A chat never starts on the whole home in place of a folder
 			// that is missing or not chosen.
-			if _, err := s.liveFolder(ctx, principal(user), ag); err != nil {
+			sc, err := s.liveFolder(ctx, principal(user), ag)
+			if err != nil {
+				return session.ChatRecord{}, err
+			}
+			if _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []folderScope{*sc}); err != nil {
 				return session.ChatRecord{}, err
 			}
 			scoped = true
