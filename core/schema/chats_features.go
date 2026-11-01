@@ -170,8 +170,11 @@ type ChatsMCPRef struct {
 	URI       string            `json:"uri,omitempty"`
 }
 
-// ChatsAgentExport is a saved agent as a file. Version is 1 and Kind is
-// localai-agent. The file holds the definition only: no ID, owner or time.
+// ChatsAgentExport is a saved agent as a file. Kind is localai-agent. Version
+// is 1, or 2 for an agent with a folder: a server that knows only version 1
+// refuses that file instead of importing the agent without its folder. The
+// file holds the definition only: no ID, owner or time, and the folder as a
+// path, never as the server's own reference to it.
 type ChatsAgentExport struct {
 	Version    int             `json:"version"`
 	Kind       string          `json:"kind"`
@@ -183,7 +186,9 @@ type ChatsAgentExport struct {
 type ChatsAgentImportResult struct {
 	Agent ChatsAgent `json:"agent"`
 	// Warnings say what the import changed: a model this server does not have
-	// or you may not use is dropped, and a name you already use gets a number.
+	// or you may not use is dropped, a name you already use gets a number, and
+	// a folder that is not in your files leaves the agent without a folder
+	// chosen (state unset) until you choose one.
 	Warnings []string `json:"warnings,omitempty"`
 }
 

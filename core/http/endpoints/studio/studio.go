@@ -126,6 +126,7 @@ var chatRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "agent not found", agents.ErrNotFound),
 	fixed(http.StatusConflict, typeConflict, "you already have an agent with this name", agents.ErrNameTaken),
 	verbatim(http.StatusBadRequest, typeInvalid, agents.ErrInvalid.Error()+": ", agents.ErrInvalid),
+	sentinelText(http.StatusBadRequest, typeInvalid, studiosvc.ErrAgentFolder),
 	verbatim(http.StatusConflict, typeNotifyOff, "", studiosvc.ErrNotificationsOff),
 	fixed(http.StatusForbidden, typeAuthz, "the LocalAI assistant needs an administrator", studiosvc.ErrAssistantForbidden),
 	fixed(http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server", studiosvc.ErrAssistantOff),

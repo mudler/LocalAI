@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -114,5 +115,85 @@ var _ = Describe("Chats agents endpoints", func() {
 		chat := s.do("alice", http.MethodPost, "/api/chats", map[string]any{"agent_id": id})
 		Expect(chat.Code).To(Equal(http.StatusCreated), chat.Body.String())
 		Expect(decodeJSON(chat)).To(HaveKeyWithValue("model", "test-model"))
+	})
+
+	Describe("the folder of an agent", func() {
+		mkdir := func(user, path string) {
+			Expect(s.do(user, http.MethodPost, "/api/chats/files/folders", map[string]string{"path": path}).Code).To(Equal(http.StatusOK), path)
+		}
+		saveIn := func(user, name string, folder any) *httptest.ResponseRecorder {
+			return s.do(user, http.MethodPost, "/api/chats/agents", map[string]any{"name": name, "folder": folder})
+		}
+
+		It("stores the folder by node and answers its current path after a rename", func() {
+			mkdir("alice", "/Projects/Acme")
+			rec := saveIn("alice", "Scoped", map[string]string{"path": "/Projects/Acme", "mode": "read"})
+			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+			a := decodeJSON(rec)
+			Expect(a["folder"]).To(Equal(map[string]any{"path": "/Projects/Acme", "name": "Acme", "mode": "read", "state": "ok"}))
+			Expect(rec.Body.String()).NotTo(ContainSubstring("folder_id"), "the node never leaves the server")
+
+			Expect(s.do("alice", http.MethodPost, "/api/chats/files/move", map[string]string{"from": "/Projects/Acme", "to": "/Projects/Acme Corp"}).Code).To(Equal(http.StatusOK))
+			got := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+a["id"].(string), nil))
+			Expect(got["folder"]).To(HaveKeyWithValue("path", "/Projects/Acme Corp"))
+			list := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents", nil))["agents"].([]any)
+			Expect(list[0]).To(HaveKeyWithValue("folder", HaveKeyWithValue("name", "Acme Corp")))
+		})
+
+		It("has no folder field for an agent without a folder", func() {
+			a := save("alice", "Plain")
+			Expect(a).NotTo(HaveKey("folder"))
+		})
+
+		It("keeps the folder when a write has no folder field", func() {
+			mkdir("alice", "/Notes")
+			id := decodeJSON(saveIn("alice", "Scoped", map[string]string{"path": "/Notes", "mode": "write"}))["id"].(string)
+			put := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Scoped 2"})
+			Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
+			Expect(decodeJSON(put)["folder"]).To(Equal(map[string]any{"path": "/Notes", "name": "Notes", "mode": "write", "state": "ok"}))
+		})
+
+		It("clears the folder with an empty path", func() {
+			mkdir("alice", "/Notes")
+			id := decodeJSON(saveIn("alice", "Scoped", map[string]string{"path": "/Notes", "mode": "write"}))["id"].(string)
+			put := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Scoped", "folder": map[string]string{"path": ""}})
+			Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
+			Expect(decodeJSON(put)).NotTo(HaveKey("folder"))
+		})
+
+		It("takes the whole home as the folder", func() {
+			rec := saveIn("alice", "Reader", map[string]string{"path": "/", "mode": "read"})
+			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+			Expect(decodeJSON(rec)["folder"]).To(Equal(map[string]any{"path": "/", "mode": "read", "state": "ok"}))
+		})
+
+		It("refuses a file, a missing path, Chats, LocalAI, another home and a bad mode as the folder", func() {
+			mkdir("alice", "/Docs")
+			Expect(s.putFile("alice", "/Docs/a.txt", "x").Code).To(BeNumerically("<", 300))
+			mkdir("bob", "/Secret")
+			for _, folder := range []map[string]string{
+				{"path": "/Docs/a.txt", "mode": "read"},
+				{"path": "/Nope", "mode": "read"},
+				{"path": "/Chats", "mode": "read"},
+				{"path": "/LocalAI", "mode": "read"},
+				{"path": "/users/bob/Secret", "mode": "read"},
+				{"path": "/../bob/Secret", "mode": "read"},
+				{"path": "/Docs"},
+				{"path": "/Docs", "mode": "everything"},
+			} {
+				rec := saveIn("alice", "x", folder)
+				Expect(rec.Code).To(Equal(http.StatusBadRequest), "%v: %s", folder, rec.Body.String())
+				Expect(rec.Body.String()).NotTo(ContainSubstring("/users/alice"), "an answer names a workspace path")
+			}
+			Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents", nil))["agents"]).To(BeEmpty())
+		})
+
+		It("answers state missing for a deleted folder", func() {
+			mkdir("alice", "/Gone")
+			id := decodeJSON(saveIn("alice", "Scoped", map[string]string{"path": "/Gone", "mode": "read"}))["id"].(string)
+			Expect(s.do("alice", http.MethodDelete, "/api/chats/files?path=%2FGone", nil).Code).To(BeNumerically("<", 300))
+			got := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+id, nil))
+			Expect(got["folder"]).To(Equal(map[string]any{"mode": "read", "state": "missing"}))
+		})
 	})
 })

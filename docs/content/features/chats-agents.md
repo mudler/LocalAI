@@ -25,6 +25,7 @@ An agent has:
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
 | `network` | The network of the [Sandbox]({{%relref "features/addons#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
+| `folder` | Optional. One folder of your files that chats with the agent work in, and the mode: `read` or `write`. Without it the agent works on all your files. See [One folder for an agent](#one-folder-for-an-agent). |
 
 Each list is an exact grant. An empty list grants nothing: a chat with an agent
 that names no add-ons has no add-on tools, even when you could use some. A
@@ -86,12 +87,42 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 ```
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
-A `PUT` replaces every field. Chats that already run with the agent use the new
+A `PUT` replaces every field except `folder` (see below). Chats that already run with the agent use the new
 definition from their next turn. Another user's agent is always `404`.
 
 Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
 tools, as they are your own settings.
+
+### One folder for an agent
+
+`folder` gives the agent one folder of your files and a mode, `read` (the
+agent's chats can read it) or `write` (they can read and change it):
+
+```
+curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Projects/Acme", "mode": "read"}}'
+# {"id":"...","name":"Acme",...,
+#  "folder":{"path":"/Projects/Acme","name":"Acme","mode":"read","state":"ok"}}
+```
+
+- `path` is a folder of your files, as the Files page shows it. `/` is all of
+  your files, which with `read` makes an agent that can read everything and
+  change nothing. The folder cannot be `LocalAI`, `Chats` or a folder inside
+  them, and it cannot be a shared folder. A path that is not a folder of yours
+  is `400`.
+- The server keeps the folder itself, not its path. When you rename or move
+  the folder, the agent follows it, and `path` shows where it is now.
+- `state` is `ok`, `missing` when the folder was deleted or you can no longer
+  read it, or `unset` when no folder is chosen yet (an imported agent whose
+  folder was not found here). An agent whose folder is `missing` or `unset`
+  does not start: it never falls back to all your files. Restoring a deleted
+  folder from the Trash makes the agent work again.
+- A `PUT` without `folder` keeps the folder the agent has, so a client that
+  does not know the field cannot give the agent more files by editing it.
+  `"folder": {"path": ""}` clears the folder.
+
+The folder is read from the stores at every request, so every frontend of a
+cluster answers the same.
 
 ### Starter agents
 
@@ -108,8 +139,16 @@ curl -X POST .../api/chats/agents/import -d @reviewer.json
 curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
-The file holds the definition only (version 1, kind `localai-agent`): no ID,
-owner or time. An import always makes a new agent. A name you already use gets
+The file holds the definition only (kind `localai-agent`): no ID, owner or
+time. An agent without a folder is version 1. An agent with a folder is
+version 2 and carries `folder` with the folder's path at export time and the
+mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
+empty when the folder is missing or not chosen). A server that reads only
+version 1 refuses a version 2 file, so an agent limited to one folder is never
+imported somewhere as an agent with all the files. An import always makes a
+new agent. The folder is looked up by its path in your files; when you have
+no such folder, the agent is saved with the mode and no folder (`state:
+unset`), it does not start until you choose one, and a warning says so. A name you already use gets
 " (2)", " (3)" and so on, and a model that this server does not have, or that you
 may not use, is dropped. The response lists such changes under `warnings`. The
 grants (MCP servers, add-ons, collections, skills) are kept as names; a grant
