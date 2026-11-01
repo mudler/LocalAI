@@ -1,5 +1,5 @@
 import { test, expect } from './coverage-fixtures.js'
-import { installAgents } from './agents-fixtures.js'
+import { installAgents, AGENTS, HOME_FOLDERS } from './agents-fixtures.js'
 import { writeFile, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -175,5 +175,173 @@ test.describe('Agent form', () => {
     const download = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Export agent' }).click()
     expect((await download).suggestedFilename()).toBe('research-assistant.json')
+  })
+})
+
+// The folder of an agent: the Files fold, the picker, the mode and the
+// missing state. The listing follows the folder asked for (HOME_FOLDERS).
+const ACME_READ = { path: '/Projects/Acme', name: 'Acme', mode: 'read', state: 'ok' }
+const withFolder = (folder) => AGENTS.map(a => (a.id === 'a2' ? { ...a, folder } : a))
+
+test.describe('Agent folder', () => {
+  test('choose a folder and save shows it on the card', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS })
+    await page.goto('/app/agents/a2/edit')
+    await expect(fold(page, 'Files')).toContainText('All my files')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-folder-scope-one').click()
+    // Nothing chosen yet: the fold needs the person, and Save says so.
+    await expect(fold(page, 'Files')).toContainText('Choose a folder, or pick All my files.')
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    expect(s.calls.some(c => c.method === 'PUT')).toBe(false)
+
+    await page.getByTestId('agent-folder-choose').click()
+    const dialog = page.getByTestId('agent-folder-dialog')
+    await expect(dialog.getByTestId('folder-picker')).toBeVisible()
+    await dialog.getByRole('button', { name: 'Projects' }).click()
+    await dialog.getByRole('button', { name: 'Acme' }).click()
+    // An empty folder says so, and is still the one chosen.
+    await expect(dialog).toContainText('No folders here')
+    await dialog.getByTestId('agent-folder-use').click()
+    await expect(page.getByTestId('agent-folder-path')).toHaveText('/Projects/Acme')
+    await expect(fold(page, 'Files')).toContainText('/Projects/Acme, can read')
+
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.find(c => c.method === 'PUT').body.folder).toEqual({ path: '/Projects/Acme', mode: 'read' })
+    await expect(page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')).toContainText('Acme, read only')
+  })
+
+  test('read only shows the lock chip, and the mode switch sends write', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
+    await page.goto('/app/agents/a2')
+    const chip = page.getByTestId('agent-facts').getByTestId('agent-folder-chip')
+    await expect(chip).toContainText('Acme, read only')
+    await expect(chip.locator('[data-icon="lock"]')).toHaveCount(1)
+
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await expect(page.getByTestId('agent-folder-mode-read')).toHaveAttribute('aria-pressed', 'true')
+    await page.getByTestId('agent-folder-mode-write').click()
+    await expect(fold(page, 'Files')).toContainText('1 changed')
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.find(c => c.method === 'PUT').body.folder).toEqual({ path: '/Projects/Acme', mode: 'write' })
+    const row = page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')
+    await expect(row).toContainText('Acme, read and change')
+    await expect(row.locator('[data-icon="folder"]')).toHaveCount(1)
+  })
+
+  test('an unchanged folder is not sent, and All my files clears it', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
+    await page.goto('/app/agents/a2/edit')
+    await page.getByLabel('Description').fill('Reviews and lists.')
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.find(c => c.method === 'PUT').body).not.toHaveProperty('folder')
+
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-folder-scope-all').click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.filter(c => c.method === 'PUT')[1].body.folder).toEqual({ path: '' })
+    await expect(page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')).toHaveCount(0)
+  })
+
+  test('a missing folder shows the inline error and the warning chip', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder({ mode: 'write', state: 'missing' }) })
+    await page.goto('/app/agents')
+    const chip = page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')
+    await expect(chip).toHaveText('Folder missing')
+
+    await page.goto('/app/agents/a2')
+    await expect(page.getByTestId('agent-folder-warning')).toContainText('This folder is gone. Choose another folder to use this agent.')
+    await page.getByTestId('agent-facts').getByTestId('agent-folder-chip').click()
+    await expect(page).toHaveURL(/\/app\/agents\/a2\/edit$/)
+
+    // The fold says so; the save of another field keeps working and keeps it.
+    await expect(fold(page, 'Files')).toContainText('Folder missing')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await expect(page.getByTestId('agent-folder-missing')).toContainText('This folder is gone. Choose another folder to use this agent.')
+    await page.getByLabel('Description').fill('Still saves.')
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.find(c => c.method === 'PUT').body).not.toHaveProperty('folder')
+
+    // Choosing another folder sends it with the mode the agent had.
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-folder-missing').getByRole('button', { name: 'Choose another folder' }).click()
+    await page.getByTestId('agent-folder-dialog').getByRole('button', { name: 'Projects' }).click()
+    await page.getByTestId('agent-folder-use').click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.filter(c => c.method === 'PUT')[1].body.folder).toEqual({ path: '/Projects', mode: 'write' })
+  })
+
+  test('the picker cannot choose Chats or LocalAI, and all the files can be chosen', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS })
+    await page.goto('/app/agents/new')
+    await page.getByLabel('Name', { exact: false }).first().fill('Reader')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-folder-scope-one').click()
+    await page.getByTestId('agent-folder-choose').click()
+    const dialog = page.getByTestId('agent-folder-dialog')
+    for (const name of ['Chats', 'LocalAI']) {
+      const row = dialog.getByRole('button', { name: new RegExp(`^${name}`) })
+      await expect(row).toBeDisabled()
+      await expect(row).toContainText('LocalAI manages this folder')
+    }
+    await expect(dialog.getByRole('button', { name: /^Projects/ })).toBeEnabled()
+    // A file is no folder: the picker lists folders only.
+    await expect(dialog).not.toContainText('notes.txt')
+    await dialog.getByTestId('agent-folder-use').click()
+    await expect(page.getByTestId('agent-folder-path')).toHaveText('Home')
+    await page.getByRole('button', { name: 'Create Agent' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.find(c => c.method === 'POST').body.folder).toEqual({ path: '/', mode: 'read' })
+  })
+
+  test('a folder that cannot be read says so and tries again', async ({ page }) => {
+    let fail = true
+    await installAgents(page, { files: HOME_FOLDERS })
+    await page.route('**/api/chats/files*', route => {
+      if (fail) { fail = false; return route.fulfill({ status: 500, json: { error: { message: 'boom' } } }) }
+      return route.fallback()
+    })
+    await page.goto('/app/agents/new')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-folder-scope-one').click()
+    await page.getByTestId('agent-folder-choose').click()
+    const dialog = page.getByTestId('agent-folder-dialog')
+    await expect(dialog.getByRole('alert')).toContainText('Could not read this folder.')
+    await dialog.getByRole('button', { name: 'Try again' }).click()
+    await expect(dialog.getByRole('button', { name: /^Projects/ })).toBeVisible()
+    await dialog.getByRole('button', { name: 'Cancel' }).first().click()
+    await expect(dialog).toHaveCount(0)
+  })
+
+  test('the Export fold says that the file names the folder', async ({ page }) => {
+    const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'export').locator('.ag-fold__button').click()
+    await expect(page.getByTestId('agent-export-folder')).toContainText('The file names the folder /Projects/Acme.')
+    const download = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Export agent' }).click()
+    expect((await download).suggestedFilename()).toBe('code-reviewer.json')
+    expect(s.calls.some(c => c.url === '/api/chats/agents/a2/export')).toBe(true)
+    await expect(page.getByText(/The file names its folder, \/Projects\/Acme/)).toBeVisible()
+  })
+
+  test('no copy of the folder fold names an internal path', async ({ page }) => {
+    await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Files').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-folder').getByRole('button', { name: 'Change', exact: true }).click()
+    await expect(page.getByTestId('folder-picker')).toBeVisible()
+    const text = await page.locator('body').innerText()
+    expect(text).not.toContain('/workspace/')
+    expect(text).not.toMatch(/\bnode\b/i)
   })
 })

@@ -53,10 +53,32 @@ export const SKILLS = [
   { name: 'broken', description: '', layer: 'folder', path: '/Notes/.skills/broken/SKILL.md', enabled: true, editable: false, invalid: 'the description is empty' },
 ]
 
+// The home of the folder picker specs: the person's own folders, and the
+// two that LocalAI manages, which cannot be an agent's folder.
+export const HOME_FOLDERS = {
+  '/': [
+    { path: '/Chats', name: 'Chats', kind: 'dir', managed: 'chats' },
+    { path: '/LocalAI', name: 'LocalAI', kind: 'dir', managed: 'localai' },
+    { path: '/Projects', name: 'Projects', kind: 'dir' },
+    { path: '/notes.txt', name: 'notes.txt', kind: 'file', size: 10 },
+  ],
+  '/Projects': [{ path: '/Projects/Acme', name: 'Acme', kind: 'dir' }, { path: '/Projects/Beta', name: 'Beta', kind: 'dir' }],
+  '/Projects/Acme': [],
+  '/Projects/Beta': [],
+}
+
+// The folder of an agent as the server reads it back after a write.
+function folderOf(write, before) {
+  if (!write) return before
+  if (!write.path) return undefined
+  const name = write.path === '/' ? undefined : write.path.split('/').pop()
+  return { path: write.path, ...(name ? { name } : {}), mode: write.mode || 'read', state: 'ok' }
+}
+
 const BODIES = { citations: 'Cite every claim.\n\n1. Number the sources.\n2. List them at the end.\n' }
 
 export async function installAgents(page, {
-  agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [],
+  agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [], files = null,
   collections = ['handbook', 'notes'], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
 } = {}) {
   await mockChat(page)
@@ -70,7 +92,14 @@ export async function installAgents(page, {
   await page.route('**/api/collections*', route => route.fulfill({ json: { collections } }))
   await page.route('**/v1/mcp/servers/*', route => route.fulfill({ json: { model: 'qwen3-8b', servers: [{ name: 'crm' }, { name: 'mail' }] } }))
   await page.route('**/api/chats/mcp-connectors*', route => route.fulfill({ json: { connectors } }))
-  await page.route('**/api/chats/files*', route => route.fulfill({ json: { path: '/', entries: [{ path: '/Contracts', name: 'Contracts', kind: 'dir' }] } }))
+  // With `files` (a map of folder to entries) the listing follows the path
+  // asked for; without, every folder lists one folder.
+  await page.route('**/api/chats/files*', route => {
+    const path = new URL(route.request().url()).searchParams.get('path') || '/'
+    if (!files) return route.fulfill({ json: { path: '/', entries: [{ path: '/Contracts', name: 'Contracts', kind: 'dir' }] } })
+    if (!files[path]) return err(route, 404, 'not found')
+    return route.fulfill({ json: { path, entries: files[path] } })
+  })
   await page.route('**/api/chats/notifications/events', route => route.abort())
   await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0 } }))
   await page.route('**/api/chats/push/**', route => err(route, 409, 'push off'))
@@ -83,15 +112,23 @@ export async function installAgents(page, {
     const found = s.agents.find(a => a.id === id)
     if (!found) return err(route, 404, 'no such agent')
     if (req.method() === 'DELETE') { s.agents = s.agents.filter(a => a.id !== id); return route.fulfill({ status: 204, body: '' }) }
-    if (req.method() === 'PUT') { Object.assign(found, req.postDataJSON()); return route.fulfill({ json: found }) }
+    if (req.method() === 'PUT') {
+      const { folder, ...rest } = req.postDataJSON()
+      Object.assign(found, rest)
+      const next = folderOf(folder, found.folder)
+      if (next) found.folder = next
+      else delete found.folder
+      return route.fulfill({ json: found })
+    }
     return route.fulfill({ json: found })
   })
   await page.route(/\/api\/chats\/agents(\?.*)?$/, route => {
     const req = route.request()
     if (req.method() === 'POST') {
       rec(req)
-      const b = req.postDataJSON()
+      const { folder, ...b } = req.postDataJSON()
       const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', ...b }
+      if (folder?.path) a.folder = folderOf(folder)
       s.agents.push(a)
       return route.fulfill({ status: 201, json: a })
     }
@@ -107,7 +144,11 @@ export async function installAgents(page, {
     const b = req.postDataJSON()
     const def = b && b.kind === 'localai-agent' ? b.agent : b
     if (!def || typeof def !== 'object' || !def.name) return err(route, 400, 'the body is not a valid agent file')
-    const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], ...def }
+    const { folder, ...rest } = def
+    const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], ...rest }
+    // A version 2 file names a folder by its path; one that is not found here
+    // leaves the agent with the mode and no folder, as the server does.
+    if (folder) a.folder = files?.[folder.path] ? folderOf(folder) : { mode: folder.mode, state: 'unset' }
     s.agents.push(a)
     return route.fulfill({ status: 201, json: { agent: a, ...(importWarnings.length ? { warnings: importWarnings } : {}) } })
   })
@@ -116,8 +157,10 @@ export async function installAgents(page, {
     const id = new URL(route.request().url()).pathname.split('/')[4]
     const found = s.agents.find(a => a.id === id)
     if (!found) return err(route, 404, 'no such agent')
-    const { name, description, instructions, model, mcp_servers, addons, collections, skills } = found
-    return route.fulfill({ json: { version: 1, kind: 'localai-agent', agent: { name, description, instructions, model, mcp_servers, addons, collections, skills } } })
+    const { name, description, instructions, model, mcp_servers, addons, collections, skills, folder } = found
+    const agent = { name, description, instructions, model, mcp_servers, addons, collections, skills }
+    if (folder) return route.fulfill({ json: { version: 2, kind: 'localai-agent', agent: { ...agent, folder: { path: folder.path || '', mode: folder.mode } } } })
+    return route.fulfill({ json: { version: 1, kind: 'localai-agent', agent } })
   })
   await page.route(/\/api\/chats\/agents\/[^/?]+\/runs(\?.*)?$/, route => {
     const id = new URL(route.request().url()).pathname.split('/')[4]
@@ -136,6 +179,11 @@ export async function installAgents(page, {
     if (req.method() === 'POST') {
       const b = req.postDataJSON()
       rec(req)
+      // A chat with an agent whose folder is missing or not chosen does not start.
+      const agent = s.agents.find(a => a.id === b.agent_id)
+      if (agent?.folder && agent.folder.state !== 'ok') {
+        return route.fulfill({ status: 409, json: { error: { message: 'The folder of this agent is missing. Choose a folder in the agent\'s settings.', type: 'agent_folder_missing', code: 409 } } })
+      }
       s.createdChats.push(b)
       return route.fulfill({ status: 201, json: { id: 'cnew', title: 'New chat', model: b.model || 'qwen3-8b', kind: 'chat', agent_id: b.agent_id, running: false, created: iso(0), updated: iso(0) } })
     }
