@@ -46,12 +46,13 @@ type Options struct {
 
 // Workspace is a workspace.Store.
 type Workspace struct {
-	db      *conn
-	blobs   blob.Store
-	admin   string
-	maxSize int64
-	now     func() time.Time
-	grace   time.Duration
+	db               *conn
+	blobs            blob.Store
+	admin            string
+	maxSize          int64
+	now              func() time.Time
+	grace            time.Duration
+	sharedFilesystem bool
 }
 
 var (
@@ -87,7 +88,8 @@ func New(db *gorm.DB, blobs blob.Store, o Options) (*Workspace, error) {
 	if now == nil {
 		now = time.Now
 	}
-	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace}, nil
+	fs, direct := blobs.(blob.Filesystem)
+	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace, sharedFilesystem: direct && fs.IsFilesystem() && d.name == "postgres"}, nil
 }
 
 // limit returns the smaller non-zero of the store limit and a per-call limit.

@@ -25,7 +25,8 @@ import (
 type Store interface {
 	// Put reads r to its end and stores the bytes. A blob that exists is not
 	// written again. Over max bytes (when max is above zero) it stops and
-	// returns workspace.ErrTooLarge; an error leaves no blob.
+	// returns workspace.ErrTooLarge. A durability error after publication may
+	// leave a complete blob; callers must not publish metadata after any error.
 	Put(ctx context.Context, r io.Reader, max int64) (sha string, size int64, err error)
 	// Open returns a blob for reading and seeking. An unknown or malformed hash
 	// is workspace.ErrNotFound.
@@ -33,11 +34,19 @@ type Store interface {
 	// Exists reports whether the blob is stored.
 	Exists(ctx context.Context, sha string) (bool, error)
 	// LinkTo makes name, a relative path in dir, a read-only file with the
-	// blob's bytes: a hard link when the blob is on the same file system (on
-	// Linux), a copy otherwise. name must not exist; its folder must. Every
+	// blob's bytes. Direct filesystem stores copy to isolate tool writes;
+	// other adapters may link protected cache files. name must not exist; its folder must. Every
 	// step below dir goes through the root, so a link planted inside dir
 	// cannot send the file elsewhere. An unknown hash is workspace.ErrNotFound.
 	LinkTo(ctx context.Context, sha string, dir *os.Root, name string) error
+}
+
+// Filesystem is an optional capability for authoritative direct filesystem blobs.
+// Object-store caches do not implement it. PostgreSQL uses it to coordinate
+// ingest/publication with purge automatically, including non-distributed owners.
+type Filesystem interface {
+	Store
+	IsFilesystem() bool
 }
 
 var shaRe = regexp.MustCompile(`^[0-9a-f]{64}$`)

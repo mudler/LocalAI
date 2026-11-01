@@ -6,8 +6,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/mudler/xlog"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
@@ -249,18 +251,25 @@ func (s *Workspace) purge(ctx context.Context, a Actor, dryRun bool, pick func(q
 	for sha := range freed {
 		shas = append(shas, sha)
 	}
-	blob.RemoveLater(s.blobs, shas, blob.Grace(s.grace), s.blobsInUse)
+	if s.sharedFilesystem {
+		s.removePGBlobs(ctx, shas)
+	} else {
+		blob.RemoveLater(s.blobs, shas, blob.Grace(s.grace), s.blobsInUse)
+	}
 	return res, nil
 }
 
 // blobsInUse tells which of shas a node or a journal row refers to.
 func (s *Workspace) blobsInUse(ctx context.Context, shas []string) (map[string]bool, error) {
+	return blobsInUse(ctx, s.db, shas)
+}
+func blobsInUse(ctx context.Context, q querier, shas []string) (map[string]bool, error) {
 	used := make(map[string]bool, len(shas))
 	err := chunks(shas, func(part []string) error {
 		list := inList(len(part))
 		args := idArgs(part)
 		all := append(append(append([]any{}, args...), args...), args...)
-		rows, err := s.db.QueryContext(ctx, `SELECT blob FROM studio_ws_nodes WHERE blob IN (`+list+`)
+		rows, err := q.QueryContext(ctx, `SELECT blob FROM studio_ws_nodes WHERE blob IN (`+list+`)
 			UNION SELECT old_blob FROM studio_ws_journal WHERE old_blob IN (`+list+`)
 			UNION SELECT new_blob FROM studio_ws_journal WHERE new_blob IN (`+list+`)`, all...)
 		if err != nil {
@@ -281,4 +290,54 @@ func scanStrings(rows *sql.Rows, into map[string]bool) error {
 		into[sha] = true
 	}
 	return rows.Err()
+}
+
+// The revision row covers ingest through reference publication and this entire
+// check/delete interval across PostgreSQL connections. Grace alone cannot do so.
+func (s *Workspace) removePGBlobs(ctx context.Context, shas []string) {
+	rm, ok := s.blobs.(blob.Remover)
+	if !ok || len(shas) == 0 {
+		return
+	}
+	if grace := blob.Grace(s.grace); grace > 0 {
+		// Delayed work outlives the request; its timeout starts after grace.
+		time.AfterFunc(grace, func() { s.removePGBlobsNow(context.Background(), shas, rm) })
+	} else {
+		s.removePGBlobsNow(ctx, shas, rm)
+	}
+}
+
+// removePGBlobsNow keeps the check/delete transaction in one cancellation scope.
+func (s *Workspace) removePGBlobsNow(caller context.Context, shas []string, rm blob.Remover) {
+	// Bound pool acquisition, revision-lock waiting and reference checks together.
+	ctx, cancel := context.WithTimeout(caller, 30*time.Second)
+	defer cancel()
+	t, err := s.db.BeginTx(ctx)
+	if err != nil {
+		xlog.Warn("workspace: could not begin blob purge", "error", err)
+		return
+	}
+	defer func() { _ = t.Rollback() }()
+	if _, err = t.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`); err != nil {
+		xlog.Warn("workspace: could not lock blob purge", "error", err)
+		return
+	}
+	used, err := blobsInUse(ctx, t, shas)
+	if err != nil {
+		xlog.Warn("workspace: could not check the blobs of a purge", "error", err)
+		return
+	}
+	for _, sha := range shas {
+		if ctx.Err() != nil {
+			return
+		}
+		if !used[sha] {
+			if err := rm.Remove(ctx, sha); err != nil {
+				xlog.Warn("workspace: could not remove a purged blob", "error", err)
+			}
+		}
+	}
+	if err := t.Commit(); err != nil {
+		xlog.Warn("workspace: could not finish blob purge", "error", err)
+	}
 }
