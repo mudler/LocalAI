@@ -32,6 +32,9 @@ type Snapshot struct {
 	// UpdatePending is true when the owner's cached update check says an
 	// update is available for exactly this installed package.
 	UpdatePending bool
+	// HostOps are the host operation prefixes the host setting grants this
+	// add-on. They decide which declared host controls are drawn.
+	HostOps []string
 }
 
 // List is the response of the apps list.
@@ -148,6 +151,10 @@ type UIView struct {
 	Actions   []ChatActionView    `json:"actions,omitempty"`
 	Slots     []SlotView          `json:"slots,omitempty"`
 	Renderers []contract.Renderer `json:"renderers,omitempty"`
+	// Controls are the host controls the host draws for the addon: the ones
+	// its manifest declares that its grants and tools entitle it to now. The
+	// host draws them with its own components; the addon supplies nothing.
+	Controls []string `json:"controls,omitempty" enums:"network-policy,tool-providers" example:"network-policy"`
 }
 
 // ChatActionView is a declared chat action as the host draws it.
@@ -240,6 +247,9 @@ func build(s Snapshot, admin bool) App {
 		}
 		if s.Enabled {
 			a.UI = uiView(id, s.Receipt.Digest, u)
+			if a.UI != nil {
+				a.UI.Controls = contract.EntitledControls(m, s.HostOps)
+			}
 		}
 	}
 	if s.UpdatePending {

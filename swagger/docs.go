@@ -8256,7 +8256,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/egress": {
             "get": {
-                "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
+                "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
                 "tags": [
                     "chats"
                 ],
@@ -14845,6 +14845,20 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "controls": {
+                    "description": "Controls are the host controls the host draws for the addon: the ones\nits manifest declares that its grants and tools entitle it to now. The\nhost draws them with its own components; the addon supplies nothing.",
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "network-policy",
+                            "tool-providers"
+                        ]
+                    },
+                    "example": [
+                        "network-policy"
+                    ]
+                },
                 "css": {
                     "description": "CSS are the URLs of the declared style sheets.",
                     "type": "array",
@@ -19038,6 +19052,11 @@ const docTemplate = `{
         "schema.ChatsEgress": {
             "type": "object",
             "properties": {
+                "addon": {
+                    "description": "Addon is the add-on that runs the chat's commands and carries the\nnetwork-policy host control: the chat draws its Network row and links\nan administrator to that add-on's settings. Absent when applies is\nfalse or no such add-on runs the commands.",
+                    "type": "string",
+                    "example": "sandbox"
+                },
                 "allowed_hosts": {
                     "description": "AllowedHosts is the administrator's always-allowed list (host or\nhost:port), read only here: it applies when the effective preset is\nregistries or all.",
                     "type": "array",

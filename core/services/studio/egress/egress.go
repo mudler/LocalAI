@@ -524,7 +524,7 @@ func Describe(p Preset, reg *Registries, asks bool) string {
 // the line says not to retry one; only an administrator can change it. asks
 // is as for Describe, for the hosts inside the limit.
 func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool) string {
-	const where = "An administrator can change it in Settings > Tools > Sandbox network."
+	const where = "An administrator can change it on the Settings tab of the add-on that runs the commands, on the Add-ons page."
 	if normal(ceiling) == PresetOff {
 		return "Network for commands: off. The server's setting for the Sandbox network does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
 			"Tell the user the network is off by the server's setting. " + where

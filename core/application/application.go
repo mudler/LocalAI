@@ -977,6 +977,7 @@ func (a *Application) startAddons() error {
 	if err != nil {
 		return err
 	}
+	m.SetHostOps(a.applicationConfig.AddonHostOps)
 	if c.InstanceID == c.OwnerID {
 		// Data recovery sits beside the manager: an upgrade of an add-on that
 		// has data goes through it, and its journals are settled before any

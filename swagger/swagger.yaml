@@ -417,6 +417,19 @@ definitions:
         items:
           type: string
         type: array
+      controls:
+        description: |-
+          Controls are the host controls the host draws for the addon: the ones
+          its manifest declares that its grants and tools entitle it to now. The
+          host draws them with its own components; the addon supplies nothing.
+        example:
+        - network-policy
+        items:
+          enum:
+          - network-policy
+          - tool-providers
+          type: string
+        type: array
       css:
         description: CSS are the URLs of the declared style sheets.
         items:
@@ -3599,6 +3612,14 @@ definitions:
     type: object
   schema.ChatsEgress:
     properties:
+      addon:
+        description: |-
+          Addon is the add-on that runs the chat's commands and carries the
+          network-policy host control: the chat draws its Network row and links
+          an administrator to that add-on's settings. Absent when applies is
+          false or no such add-on runs the commands.
+        example: sandbox
+        type: string
       allowed_hosts:
         description: |-
           AllowedHosts is the administrator's always-allowed list (host or
@@ -12277,10 +12298,12 @@ paths:
       description: The preset of the chat (off, registries, all), the administrator's
         ceiling, the preset in force (the lower of the two), whether it applies (false
         when commands run on this machine, applies_reason host, or no Sandbox serves
-        bash, none), the package registries the preset registries admits, the chat's
-        allow and deny rules (above_limit when the ceiling no longer admits one) and
-        the cards that asked. A sub-agent chat shows its parent's. Another user's
-        chat is 404.
+        bash, none), addon (the add-on that runs the commands and draws the network
+        controls of the chat, from its network-policy host control; absent when none
+        does), the package registries the preset registries admits, the chat's allow
+        and deny rules (above_limit when the ceiling no longer admits one) and the
+        cards that asked. A sub-agent chat shows its parent's. Another user's chat
+        is 404.
       parameters:
       - description: conversation id
         in: path

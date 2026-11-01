@@ -359,6 +359,25 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 	return out, nil
 }
 
+// Controls returns the host controls the apps list draws for one add-on the
+// actor can see (see contract.EntitledControls), or nil when it is not
+// listed, has no UI or is not entitled to any.
+func (t *ToolAdapter) Controls(ctx context.Context, actor contract.Actor, addonID string) ([]string, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	for _, a := range list.Apps {
+		if a.ID == addonID && a.UI != nil {
+			return slices.Clone(a.UI.Controls), nil
+		}
+	}
+	return nil, nil
+}
+
 // AddonSkills is the skills of one add-on the actor can see.
 type AddonSkills struct {
 	AddonID, Title string
