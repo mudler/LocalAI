@@ -32,6 +32,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -512,11 +513,46 @@ func (t *ToolAdapter) Execute(ctx context.Context, actor contract.Actor, name st
 	return t.ExecuteIn(ctx, actor, "", name, arguments)
 }
 
+// ChatCall is the chat a tool call comes from: the user whose files the chat
+// uses, as the chats service names them, and the chat's ID. The chat turn
+// builds it from its own record of the chat, never from the model's arguments.
+type ChatCall struct {
+	principal, conversation string
+}
+
+// NewChatCall returns the chat of a tool call.
+func NewChatCall(principal, conversation string) ChatCall {
+	return ChatCall{principal: principal, conversation: conversation}
+}
+
+// ExecuteChat runs one tool call of a chat, of any kind. The call is bound to
+// the chat on the host side (hostops.WithBinding): the owner records the chat
+// next to the envelope, so the add-on's workspace operations act with the
+// chat's access, also for a read tool that names no resource. The envelope the
+// add-on receives does not change. The conversation is the chat's ID, used as
+// ExecuteIn uses it.
+func (t *ToolAdapter) ExecuteChat(ctx context.Context, actor contract.Actor, call ChatCall, name string, arguments json.RawMessage) (ToolResult, error) {
+	b := hostops.Binding{Principal: call.principal, ChatID: call.conversation}
+	if !b.Valid() || !ValidConversationID(call.conversation) {
+		return ToolResult{}, ErrInvalidArguments
+	}
+	return t.execute(hostops.WithBinding(ctx, b), actor, call.conversation, name, arguments)
+}
+
 // ExecuteIn runs one tool call of a conversation. The conversation ID comes
 // from the consumer's authenticated request, never from the arguments: it is
 // used only when the call names no resource, to resolve the conversation's
 // selection at the owner. An empty ID means the consumer has no conversation.
+// The chats adapter refuses a conversation here: a chat's call goes through
+// ExecuteChat, so it is never made without its binding.
 func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
+	if t.actions && conversationID != "" {
+		return ToolResult{}, ErrInvalidArguments
+	}
+	return t.execute(ctx, actor, conversationID, name, arguments)
+}
+
+func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
 	if conversationID != "" && !ValidConversationID(conversationID) {
 		return ToolResult{}, ErrInvalidArguments
 	}

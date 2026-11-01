@@ -836,7 +836,10 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	if err != nil {
 		return "", err
 	}
-	res, err := s.adapter.ExecuteIn(ctx, actor, conv, name, args)
+	// The call is bound to the chat on the host side, so the add-on's
+	// workspace operations act with the chat's access (a chat whose agent has
+	// a folder reaches only that folder), for every tool kind.
+	res, err := s.adapter.ExecuteChat(ctx, actor, addontools.NewChatCall(user, conv), name, args)
 	if err != nil {
 		return "", err
 	}
