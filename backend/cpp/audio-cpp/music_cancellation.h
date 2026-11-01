@@ -20,13 +20,19 @@ using MusicStopHandle = std::shared_ptr<MusicStopState>;
 // CPU primitive only: no model/session, host-loop, DSP or GPU propagation.
 // Owner-thread API except stop_handle()->cancel(), which is thread safe.
 // Graph, tensor storage and custom-op data must outlive this object. Cached
-// plans shallow-copy graph metadata at this pin; never mutate it while cached.
-// Plan/backend cannot escape this owner. Their captured callback points to the
+// plans retain graph metadata; never mutate it while cached.
+// Plans cannot escape this owner. Their captured callback points to the
 // same heap stop state for their entire lifetime, including between executions.
 class MusicCpuExecution final {
   public:
+#ifdef MUSIC_CPU_TEST_FAULTS
+    // Test-only, per-owner injection; absent from production builds.
+    enum class Fault { None, Allocation, Generic };
+    explicit MusicCpuExecution(InferenceLane &lane, Fault fault = Fault::None);
+#else
     explicit MusicCpuExecution(InferenceLane &lane);
-    ~MusicCpuExecution(); // cancel, join, free plans/backend, then release lane
+#endif
+    ~MusicCpuExecution() noexcept; // cancel, join, free plans, then release lane
     MusicCpuExecution(const MusicCpuExecution &) = delete;
     MusicCpuExecution &operator=(const MusicCpuExecution &) = delete;
     MusicStopHandle stop_handle() const noexcept { return stop_; }
@@ -37,9 +43,12 @@ class MusicCpuExecution final {
     static bool abort_requested(void *data) noexcept;
     LaneEntry lane_; // destroyed last, even when construction throws
     MusicStopHandle stop_;
-    ggml_backend_t backend_ = nullptr;
-    ggml_backend_graph_plan_t plan_ = nullptr;
+    struct CpuPlan;
+    std::unique_ptr<CpuPlan> plan_;
     ggml_cgraph *cached_graph_ = nullptr;
+#ifdef MUSIC_CPU_TEST_FAULTS
+    Fault fault_ = Fault::None;
+#endif
     std::thread worker_;
     ggml_status status_ = GGML_STATUS_FAILED;
 };

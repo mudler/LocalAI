@@ -4,32 +4,46 @@
 #include <stdexcept>
 
 namespace audiocpp_backend {
+struct MusicCpuExecution::CpuPlan {
+    ggml_cplan value;
+    std::unique_ptr<uint8_t[]> workspace;
+    CpuPlan(ggml_cgraph *graph, MusicStopState *stop)
+        : value(ggml_graph_plan(graph, 2, nullptr)),
+          workspace(value.work_size ? new uint8_t[value.work_size] : nullptr) {
+        value.work_data = workspace.get();
+        // Install before any execution; cached plans keep the stable stop state.
+        value.abort_callback = abort_requested;
+        value.abort_callback_data = stop;
+    }
+};
 bool MusicCpuExecution::abort_requested(void *data) noexcept {
     return static_cast<MusicStopState *>(data)->cancelled();
 }
-MusicCpuExecution::MusicCpuExecution(InferenceLane &lane)
+MusicCpuExecution::MusicCpuExecution(InferenceLane &lane
+#ifdef MUSIC_CPU_TEST_FAULTS
+    , Fault fault
+#endif
+)
     : lane_(lane, LaneEntry::TryNow{}), stop_(std::make_shared<MusicStopState>()) {
-    backend_ = ggml_backend_cpu_init();
-    if (!backend_) throw std::runtime_error("CPU backend allocation failed");
-    ggml_backend_cpu_set_n_threads(backend_, 2);
-    // Must be installed BEFORE plan creation: cached CPU plans copy these
-    // pointers, and changing the backend callback does not update those plans.
-    ggml_backend_cpu_set_abort_callback(backend_, abort_requested, stop_.get());
+#ifdef MUSIC_CPU_TEST_FAULTS
+    fault_ = fault;
+#endif
+    // The pinned backend factories use raw new before another throwing new:
+    // init can leak its context, plan creation can leak its plan, and workspace
+    // growth deletes the old buffer before throwing (leaving a dangling pointer).
+    // Own the public CPU cplan and workspace instead; same real CPU planner,
+    // compute and abort polling, with no unsafe backend factory to unwind.
+    ggml_cpu_init();
 }
-MusicCpuExecution::~MusicCpuExecution() {
+MusicCpuExecution::~MusicCpuExecution() noexcept {
     stop_->cancel();
     if (worker_.joinable()) worker_.join();
-    if (plan_) ggml_backend_graph_plan_free(backend_, plan_);
-    ggml_backend_cpu_set_abort_callback(backend_, nullptr, nullptr);
-    ggml_backend_free(backend_);
 }
 void MusicCpuExecution::cache(ggml_cgraph *graph) {
     if (worker_.joinable()) throw std::logic_error("join before caching a graph");
     if (!graph) throw std::invalid_argument("missing CPU graph");
-    auto replacement = ggml_backend_graph_plan_create(backend_, graph);
-    if (!replacement) throw std::runtime_error("CPU graph plan allocation failed");
-    if (plan_) ggml_backend_graph_plan_free(backend_, plan_);
-    plan_ = replacement;
+    auto replacement = std::make_unique<CpuPlan>(graph, stop_.get());
+    plan_ = std::move(replacement); // strong guarantee if planning/allocation fails
     cached_graph_ = graph;
 }
 void MusicCpuExecution::start(ggml_cgraph *graph, bool cached) {
@@ -37,12 +51,28 @@ void MusicCpuExecution::start(ggml_cgraph *graph, bool cached) {
     if (!graph || (cached && (!plan_ || cached_graph_ != graph)))
         throw std::invalid_argument("missing or mismatched cached CPU graph");
     status_ = GGML_STATUS_FAILED;
-    worker_ = std::thread([this, graph, cached] {
-        // ggml CPU polls after an operation/group, not before the first one or
-        // inside a kernel. Avoid any work for already-cancelled requests here.
-        status_ = stop_->cancelled() ? GGML_STATUS_ABORTED :
-            (cached ? ggml_backend_graph_plan_compute(backend_, plan_) :
-                      ggml_backend_graph_compute(backend_, graph));
+    worker_ = std::thread([this, graph, cached]() noexcept {
+        try {
+#ifdef MUSIC_CPU_TEST_FAULTS
+            // Only this actual std::thread can inject, before entering GGML/C
+            // or OpenMP. Never a replacement compute function or global OOM.
+            if (fault_ == Fault::Allocation) throw std::bad_alloc();
+            if (fault_ == Fault::Generic) throw 17;
+#endif
+            // ggml CPU polls after an operation/group, not within a kernel.
+            if (stop_->cancelled()) {
+                status_ = GGML_STATUS_ABORTED;
+            } else if (cached) {
+                status_ = ggml_graph_compute(graph, &plan_->value);
+            } else {
+                CpuPlan transient(graph, stop_.get());
+                status_ = ggml_graph_compute(graph, &transient.value);
+            }
+        } catch (const std::bad_alloc &) {
+            status_ = GGML_STATUS_ALLOC_FAILED;
+        } catch (...) {
+            status_ = GGML_STATUS_FAILED;
+        }
     });
 }
 ggml_status MusicCpuExecution::join() {

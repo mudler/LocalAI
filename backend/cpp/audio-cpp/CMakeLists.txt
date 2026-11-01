@@ -217,13 +217,30 @@ set_target_properties(${TARGET} PROPERTIES
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
     enable_testing()
 
+    # This bounded CPU test calls the linked CPU API, not dynamically loaded
+    # all-variant modules. Shipping builds (tests OFF) are unaffected.
+    option(AUDIO_CPP_GRPC_BUILD_MUSIC_CANCELLATION_TEST
+        "Build the single-CPU music cancellation test" ON)
+    if(AUDIO_CPP_GRPC_BUILD_MUSIC_CANCELLATION_TEST)
+    if(ENGINE_ENABLE_CPU_ALL_VARIANTS OR GGML_CPU_ALL_VARIANTS)
+        message(FATAL_ERROR
+            "music_cancellation requires a single linked CPU backend; "
+            "ENGINE_ENABLE_CPU_ALL_VARIANTS=ON is unsupported for this test. "
+            "Set AUDIO_CPP_GRPC_BUILD_MUSIC_CANCELLATION_TEST=OFF to build other CTests, "
+            "or AUDIO_CPP_GRPC_BUILD_TESTS=OFF for shipping builds.")
+    endif()
+    if(NOT TARGET ggml-cpu)
+        message(FATAL_ERROR "music_cancellation requires the linked ggml-cpu target")
+    endif()
     add_executable(music_cancellation_ctest
         music_cancellation_ctest.cpp music_cancellation.cpp inference_lane.cpp)
     target_link_libraries(music_cancellation_ctest PRIVATE
         engine_runtime ggml ggml-cpu Threads::Threads)
+    target_compile_definitions(music_cancellation_ctest PRIVATE MUSIC_CPU_TEST_FAULTS)
     target_compile_options(music_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME music_cancellation COMMAND music_cancellation_ctest)
     set_tests_properties(music_cancellation PROPERTIES TIMEOUT 30)
+    endif()
 
     add_executable(music_result_mapping_ctest
         music_result_mapping_ctest.cpp music_result_mapping.cpp)

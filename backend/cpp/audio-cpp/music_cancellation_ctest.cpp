@@ -150,7 +150,44 @@ static void destructor_joins() {
     ggml_free(ctx);
 }
 
+#ifdef MUSIC_CPU_TEST_FAULTS
+static void worker_faults() {
+    InferenceLane lane("worker-fault");
+    auto *ctx = ggml_init({1024 * 1024, nullptr, false});
+    require(ctx != nullptr, "fault graph context");
+    auto *input = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, 32);
+    ggml_set_f32(input, 2.0f);
+    auto *node = ggml_sqr(ctx, input);
+    auto *graph = ggml_new_graph(ctx);
+    ggml_build_forward_expand(graph, node);
+    for (bool cached : {false, true}) {
+        for (auto fault : {MusicCpuExecution::Fault::Allocation, MusicCpuExecution::Fault::Generic}) {
+            {
+                MusicCpuExecution run(lane, fault);
+                if (cached) run.cache(graph);
+                run.start(graph, cached);
+                require(busy(lane), "faulting worker retains lane before join");
+                require(run.join() == (fault == MusicCpuExecution::Fault::Allocation ?
+                        GGML_STATUS_ALLOC_FAILED : GGML_STATUS_FAILED), "worker exception becomes joined status");
+                require(busy(lane), "fault status does not release owner lane");
+                // Also exercise destruction of an unjoined, faulting worker.
+                run.start(graph, cached);
+            }
+            require(!busy(lane), "faulting worker destroyed before lane release");
+            MusicCpuExecution next(lane);
+            if (cached) next.cache(graph);
+            next.start(graph, cached);
+            require(next.join() == GGML_STATUS_SUCCESS, "fresh owner computes after worker fault");
+            require(ggml_get_f32_1d(node, 0) == 4.0f, "fresh owner uses real CPU");
+        }
+    }
+    ggml_free(ctx);
+}
+#endif
 int main() {
+#ifdef MUSIC_CPU_TEST_FAULTS
+    worker_faults();
+#endif
     destructor_joins();
     for (bool cached : {false, true})
         for (bool pre : {false, true}) exercise(cached, pre);
