@@ -28,6 +28,23 @@ import (
 )
 
 var _ = Describe("Runtime lifecycle", func() {
+	It("distinguishes healthy empty connector discovery from loss of runtime ownership", func() {
+		cfg, c, installer := fixture()
+		m := open(cfg, c, installer)
+		s, e := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(cfg.Root, "runtime"), Limits: contract.DefaultLimits(), ReadyTimeout: time.Second, StableHealth: time.Second})
+		Expect(e).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.Close(ctx)).To(Succeed()) })
+		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		kinds, e := m.ConnectorKinds(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kinds).To(BeEmpty())
+		Expect(m.Close()).To(Succeed())
+		// Close releases the real owner guard. The empty registry must not
+		// turn loss of ownership into successful empty discovery.
+		_, e = m.ConnectorKinds(ctx)
+		Expect(e).To(MatchError(ErrNotOwner))
+	})
+
 	It("executes enabled owner intent on startup and stops on disable and close without forwarder execution", func() {
 		cfg, c, installer := fixture()
 		dir := GinkgoT().TempDir()
@@ -59,6 +76,9 @@ var _ = Describe("Runtime lifecycle", func() {
 		r, e := s.Registry.Snapshot(ctx)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(r).To(HaveLen(1))
+		kinds, e := m.ConnectorKinds(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kinds).To(BeEmpty())
 		// A real rename failure during applied persistence closes the runtime.
 		journalPath := filepath.Join(cfg.Root, "journal.json")
 		m.boundary = func(phase string) error {
@@ -70,6 +90,11 @@ var _ = Describe("Runtime lifecycle", func() {
 		}
 		_, fault := m.Submit(ctx, actor, LifecycleCommand{OperationID: "persistence-fault", AddonID: "sample", Action: "enable"})
 		Expect(fault).To(HaveOccurred())
+		// The owner guard remains held, but the persistence failure fences
+		// its runtime. Discovery must not report an empty healthy registry.
+		Expect(m.check(ctx)).To(Succeed())
+		_, fault = m.ConnectorKinds(ctx)
+		Expect(fault).To(MatchError(addonruntime.ErrRuntime))
 		m.boundary = nil
 		Expect(os.Remove(journalPath)).To(Succeed())
 		Expect(os.Rename(journalPath+".saved", journalPath)).To(Succeed())
@@ -83,6 +108,9 @@ var _ = Describe("Runtime lifecycle", func() {
 		Expect(m.Reconcile(ctx)).To(Succeed())
 		s = makeRuntime()
 		Expect(m.AttachRuntime(ctx, s)).To(Succeed())
+		kinds, e = m.ConnectorKinds(ctx)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(kinds).To(BeEmpty())
 		old, e := m.Runtime(ctx, "sample")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(syscall.Kill(old.PID, syscall.SIGKILL)).To(Succeed())
