@@ -205,3 +205,48 @@ var _ = Describe("PostgreSQL shared filesystem application selection", func() {
 		Expect(bad.initStudioFiles()).To(MatchError(ContainSubstring("absolute")))
 	})
 })
+
+var _ = Describe("PostgreSQL shared filesystem startup cleanup", func() {
+	DescribeTable("cancels only the owned context and closes the pool on Files failure", func(early bool) {
+		raw := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
+		if raw == "" {
+			Skip("LOCALAI_TEST_POSTGRES_URL is not set")
+		}
+		db, err := gorm.Open(postgres.Open(raw), &gorm.Config{})
+		Expect(err).NotTo(HaveOccurred())
+		pool, err := db.DB()
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = pool.Close() })
+		caller, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		cfg := config.NewApplicationConfig(config.WithContext(caller), config.WithDataPath(""), config.WithChatsSharedFilesDir(filepath.Join(GinkgoT().TempDir(), "shared")))
+		cleanup := sharedFilesStartupCleanup(cfg)
+		app := &Application{applicationConfig: cfg, authDB: db}
+		// The early validation succeeds; a later change makes Files init fail.
+		Expect(app.validateSharedFiles()).To(Succeed())
+		if early {
+			cfg.ChatsSharedFilesDir = "relative"
+		} else {
+			Expect(os.Remove(cfg.ChatsSharedFilesDir)).To(Succeed())
+			Expect(os.WriteFile(cfg.ChatsSharedFilesDir, []byte("blocked"), 0o600)).To(Succeed())
+		}
+		DeferCleanup(func() {
+			if app.studioFilesTemp != "" {
+				_ = os.RemoveAll(app.studioFilesTemp)
+			}
+		})
+		stopped := make(chan struct{})
+		go func() { <-cfg.Context.Done(); close(stopped) }()
+		if early {
+			err = app.validateSharedFiles()
+		} else {
+			err = app.initStudioFiles()
+			Expect(app.studioFilesTemp).To(BeEmpty(), "failed Files init must remove its temporary scratch")
+		}
+		Expect(err).To(HaveOccurred())
+		cleanup(app)
+		Expect(pool.Ping()).To(MatchError(ContainSubstring("database is closed")))
+		Eventually(stopped).Should(BeClosed())
+		Expect(caller.Err()).NotTo(HaveOccurred())
+	}, Entry("early validation", true), Entry("late Files init", false))
+})
