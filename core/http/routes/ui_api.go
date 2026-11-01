@@ -882,9 +882,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		seen := make(map[string]bool, len(modelConfigs)+len(modelsWithoutConfig))
 		for _, cfg := range modelConfigs {
 			seen[cfg.Name] = true
+			// Resolve only capability flags: the alias keeps its own ID and
+			// management metadata, including disabled state and access filtering.
+			capabilities := []string{}
+			if effective, _, err := cl.ResolveAlias(&cfg); err == nil {
+				capabilities = effective.KnownUsecaseStrings
+			}
 			result = append(result, modelCapability{
 				ID:               cfg.Name,
-				Capabilities:     cfg.KnownUsecaseStrings,
+				Capabilities:     capabilities,
 				UpscaleScale:     config.UpscaleScaleFromOptions(cfg),
 				ThreeDOperations: cfg.ThreeDOperations(),
 				Backend:          cfg.Backend,
