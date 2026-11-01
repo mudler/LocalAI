@@ -91,59 +91,155 @@ func actorBuilds(fset *token.FileSet, f *ast.File) map[string][]string {
 		return true
 	}
 	for _, d := range f.Decls {
-		cur = "<package>"
-		if fd, ok := d.(*ast.FuncDecl); ok {
-			cur = fd.Name.Name
-			if fd.Recv != nil && len(fd.Recv.List) == 1 {
-				t := fd.Recv.List[0].Type
-				if st, ok := t.(*ast.StarExpr); ok {
-					t = st.X
-				}
-				if id, ok := t.(*ast.Ident); ok {
-					cur = id.Name + "." + cur
-				}
-			}
-		}
+		cur = funcName(d)
 		ast.Inspect(d, visit)
 	}
 	return out
 }
 
+// The view of a chat is built once per turn, by chatAccess through the
+// session manager (UserAccess for the home, ScopedAccess for an agent's
+// folder), and handed down as a session.Access. A consumer that builds a view
+// of its own would see more than the turn's access: the home of a scoped
+// chat. viewBuilds finds, in the same folders:
+//   - a call of BuildView or SkillLayerMounts;
+//   - a call of NewAccess, UserAccess or ScopedAccess;
+//   - a call X.View(ctx, actor, mounts) with three arguments: a store's View.
+//     (session.Access.View takes none.)
+var viewAllowlist = map[string]string{
+	"agentaccess.go:Service.chatAccess": "the resolver: the one place a chat's access is built",
+	// Not converted yet: each is the work of a later lane of the agent folder
+	// plan, and must take the chat's access there.
+	"hostexec/hostexec.go:Runner.mounts":                       "lane 5: the host bash builds the home view of its actor",
+	"sandbox/runner/runner.go:Manager.ready":                   "lane 5: the sandbox runner mounts the view of its actor",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.view": "lane 6: add-on workspace operations",
+}
+
+func viewBuilds(fset *token.FileSet, f *ast.File) map[string][]string {
+	return scanCalls(fset, f, func(x *ast.CallExpr) string {
+		name := ""
+		switch fn := x.Fun.(type) {
+		case *ast.Ident:
+			name = fn.Name
+		case *ast.SelectorExpr:
+			name = fn.Sel.Name
+		}
+		switch {
+		case name == "BuildView" || name == "SkillLayerMounts":
+			return name
+		case name == "NewAccess" || name == "UserAccess" || name == "ScopedAccess":
+			return name
+		case name == "View" && len(x.Args) == 3:
+			return "a store's View"
+		}
+		return ""
+	})
+}
+
+// scanCalls returns, by function, the calls that what names.
+func scanCalls(fset *token.FileSet, f *ast.File, what func(*ast.CallExpr) string) map[string][]string {
+	out := map[string][]string{}
+	for _, d := range f.Decls {
+		cur := funcName(d)
+		ast.Inspect(d, func(n ast.Node) bool {
+			if x, ok := n.(*ast.CallExpr); ok {
+				if w := what(x); w != "" {
+					out[cur] = append(out[cur], fmt.Sprintf("line %d: %s", fset.Position(x.Pos()).Line, w))
+				}
+			}
+			return true
+		})
+	}
+	return out
+}
+
+// funcName names a declaration as the allowlists do.
+func funcName(d ast.Decl) string {
+	fd, ok := d.(*ast.FuncDecl)
+	if !ok {
+		return "<package>"
+	}
+	name := fd.Name.Name
+	if fd.Recv != nil && len(fd.Recv.List) == 1 {
+		t := fd.Recv.List[0].Type
+		if st, ok := t.(*ast.StarExpr); ok {
+			t = st.X
+		}
+		if id, ok := t.(*ast.Ident); ok {
+			name = id.Name + "." + name
+		}
+	}
+	return name
+}
+
+// scanSources runs scan on the non-test sources of actorScanDirs and checks
+// the result against allow: a finding not on it is stray, an entry with no
+// finding is stale.
+func scanSources(scan func(*token.FileSet, *ast.File) map[string][]string, allow map[string]string) (stray, stale []string) {
+	GinkgoHelper()
+	fset := token.NewFileSet()
+	found := map[string][]string{}
+	for _, dir := range actorScanDirs {
+		entries, err := os.ReadDir(dir)
+		Expect(err).NotTo(HaveOccurred(), "read %s", dir)
+		for _, e := range entries {
+			name := e.Name()
+			if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			p := filepath.ToSlash(filepath.Join(dir, name))
+			f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+			Expect(err).NotTo(HaveOccurred(), "parse %s", p)
+			for fn, lines := range scan(fset, f) {
+				found[p+":"+fn] = lines
+			}
+		}
+	}
+	for k, lines := range found {
+		if _, ok := allow[k]; !ok {
+			stray = append(stray, k+" ("+strings.Join(lines, "; ")+")")
+		}
+	}
+	for k := range allow {
+		if _, ok := found[k]; !ok {
+			stale = append(stale, k)
+		}
+	}
+	sort.Strings(stray)
+	sort.Strings(stale)
+	return stray, stale
+}
+
 var _ = Describe("actor scan", func() {
 	It("builds no workspace actor outside the allowlist", func() {
-		fset := token.NewFileSet()
-		found := map[string][]string{}
-		for _, dir := range actorScanDirs {
-			entries, err := os.ReadDir(dir)
-			Expect(err).NotTo(HaveOccurred(), "read %s", dir)
-			for _, e := range entries {
-				name := e.Name()
-				if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-					continue
-				}
-				p := filepath.ToSlash(filepath.Join(dir, name))
-				f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
-				Expect(err).NotTo(HaveOccurred(), "parse %s", p)
-				for fn, lines := range actorBuilds(fset, f) {
-					found[p+":"+fn] = lines
-				}
-			}
-		}
-		var stray, stale []string
-		for k, lines := range found {
-			if _, ok := actorAllowlist[k]; !ok {
-				stray = append(stray, k+" ("+strings.Join(lines, "; ")+")")
-			}
-		}
-		for k := range actorAllowlist {
-			if _, ok := found[k]; !ok {
-				stale = append(stale, k)
-			}
-		}
-		sort.Strings(stray)
-		sort.Strings(stale)
+		stray, stale := scanSources(actorBuilds, actorAllowlist)
 		Expect(stray).To(BeEmpty(), "these build a workspace actor without the chat's access: use chatAccess (or ChatAccess), or add them to actorAllowlist with the reason")
 		Expect(stale).To(BeEmpty(), "these allowlist entries build no actor any more: remove them")
+	})
+
+	It("builds no view or access outside the resolver", func() {
+		stray, stale := scanSources(viewBuilds, viewAllowlist)
+		Expect(stray).To(BeEmpty(), "these build a view of their own instead of taking the turn's session.Access: pass the access down, or add them to viewAllowlist with the reason")
+		Expect(stale).To(BeEmpty(), "these allowlist entries build no view any more: remove them")
+	})
+
+	It("catches a view builder, an access constructor and a store's View", func() {
+		src := `package x
+func a() { _, _ = session.BuildView(ctx, st, ac, p, "", nil, l) }
+func b() { _, _ = st.View(ctx, ac, reqs) }
+func (s *S) c() { _, _ = s.mgr.UserAccess(ctx, ac) }
+func d() { _, _ = session.NewAccess(ac, v) }
+func e() { _ = x.View(); _ = x.Place() }
+`
+		fset := token.NewFileSet()
+		f, err := parser.ParseFile(fset, "x.go", src, parser.SkipObjectResolution)
+		Expect(err).NotTo(HaveOccurred())
+		got := viewBuilds(fset, f)
+		Expect(got).To(HaveKey("a"))
+		Expect(got).To(HaveKey("b"))
+		Expect(got).To(HaveKey("S.c"))
+		Expect(got).To(HaveKey("d"))
+		Expect(got).NotTo(HaveKey("e"), "Access.View() builds nothing")
 	})
 
 	It("catches a literal, a UserActor call and a Files.Actor call", func() {
